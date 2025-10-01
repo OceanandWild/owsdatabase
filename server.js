@@ -1,14 +1,15 @@
-require("./instrument.js");
+// 0️⃣ SIEMPRE PRIMERO
+import "./instrument.js";
 
+// 1️⃣ Después el resto
 import express from "express";
 import cors from "cors";
 import pg from "pg";
 import dotenv from "dotenv";
-/* ===== NAT-MARKET IMPORTS ===== */
-import multer from 'multer';
-import bcrypt from 'bcrypt';
-import path from 'path';
-import fs from 'fs';
+import multer from "multer";
+import bcrypt from "bcrypt";
+import path from "path";
+import fs from "fs";
 
 dotenv.config();
 
@@ -856,18 +857,16 @@ function handleNatError(res, err, place = '') {
 await ensureDatabase(); 
 await ensureTables();
 
-// 5️⃣ Captura de errores de Sentry (después de rutas)
-const Sentry = require("@sentry/node");
+// 2️⃣ Error handler de Sentry (después de rutas)
+import * as Sentry from "@sentry/node";
 Sentry.setupExpressErrorHandler(app);
 
-// 6️⃣ Fallback genérico
+// 3️⃣ Fallback
 app.use((err, req, res, _next) => {
   console.error(err);
-  res.status(500).json({
-    error: "Algo salió mal",
-    sentry: res.sentry || "sin-id", // útil para soporte
-  });
+  res.status(500).json({ error: "Algo salió mal", sentry: res.sentry });
 });
+
 
 
 const PORT = process.env.PORT || 3000;

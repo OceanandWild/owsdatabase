@@ -761,6 +761,9 @@ app.get('/natmarket/ratings/seller/:seller_id', async (req, res) => {
   }
 });
 
+// routes/subscriptions.js
+const router = require('express').Router();
+
 /* planes hardcodeados (podes moverlos a DB) */
 const PLANS = [
   { id: 'eco-premium',  name: 'Eco Premium',  price: 500,  perks: ['Extensiones exclusivas', 'Pack mensual sorpresa', 'Sin publicidad'], highlight: true },
@@ -834,6 +837,8 @@ app.get("/api/subscriptions/has-access/:userId/:feature", async (req, res) => {
   const hasAccess = perks.includes(feature);
   res.json({ hasAccess, plan: plan.planName });
 });
+
+module.exports = router;
 
 // === FUNCIONES DE REVISIÓN ===
 async function ensureDatabase() {

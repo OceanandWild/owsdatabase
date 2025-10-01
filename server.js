@@ -761,6 +761,79 @@ app.get('/natmarket/ratings/seller/:seller_id', async (req, res) => {
   }
 });
 
+/* planes hardcodeados (podes moverlos a DB) */
+const PLANS = [
+  { id: 'eco-premium',  name: 'Eco Premium',  price: 500,  perks: ['Extensiones exclusivas', 'Pack mensual sorpresa', 'Sin publicidad'], highlight: true },
+  { id: 'eco-basic',    name: 'Eco Basic',    price: 200,  perks: ['1 extensión premium/mes', 'Soporte prioritario'] }
+];
+
+/* -----  planes disponibles  ----- */
+router.get('/plans', (_, res) => res.json(PLANS));
+
+/* -----  suscripción activa de un usuario  ----- */
+router.get('/active/:userId', async (req, res) => {
+  const { userId } = req.params;
+  const row = await db.collection('subs').findOne({ userId, active: true });
+  res.json(row || null);
+});
+
+/* -----  historial  ----- */
+router.get('/history/:userId', async (req, res) => {
+  const { userId } = req.params;
+  const rows = await db.collection('subs')
+    .find({ userId })
+    .sort({ start: -1 })
+    .limit(50)
+    .toArray();
+  res.json(rows);
+});
+
+/* -----  suscribir / renovar  ----- */
+router.post('/subscribe', async (req, res) => {
+  const { userId, planId } = req.body;
+  const plan = PLANS.find(p => p.id === planId);
+  if (!plan) return res.status(400).json({ error: 'Plan inválido' });
+
+  /* tu lógica de cobro / descontar Ecoxionums aquí */
+  const now = new Date();
+  const end = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 días
+
+  /* cancelamos cualquier activa anterior */
+  await db.collection('subs').updateMany({ userId, active: true }, { $set: { active: false, end: now } });
+
+  /* insertamos la nueva */
+  const newSub = {
+    userId,
+    planId: plan.id,
+    planName: plan.name,
+    start: now,
+    end,
+    active: true
+  };
+  await db.collection('subs').insertOne(newSub);
+  res.json({ success: true, sub: newSub });
+});
+
+// GET /api/subscriptions/has-access/:userId/:feature
+app.get("/api/subscriptions/has-access/:userId/:feature", async (req, res) => {
+  const { userId, feature } = req.params;
+
+  const { rows } = await pool.query(
+    `SELECT * FROM subs WHERE user_id = $1 AND active = true AND end > NOW()`,
+    [userId]
+  );
+
+  if (rows.length === 0) {
+    return res.json({ hasAccess: false, message: "Sin suscripción activa" });
+  }
+
+  const plan = rows[0];
+  const plans = await pool.query(`SELECT perks FROM plans WHERE id = $1`, [plan.planId]);
+  const perks = plans.rows[0]?.perks || [];
+
+  const hasAccess = perks.includes(feature);
+  res.json({ hasAccess, plan: plan.planName });
+});
 
 // === FUNCIONES DE REVISIÓN ===
 async function ensureDatabase() {

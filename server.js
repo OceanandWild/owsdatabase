@@ -771,14 +771,14 @@ const PLANS = [
 
 
 /* -----  suscripción activa de un usuario  ----- */
-router.get('/active/:userId', async (req, res) => {
+app.get('/active/:userId', async (req, res) => {
   const { userId } = req.params;
   const row = await db.collection('subs').findOne({ userId, active: true });
   res.json(row || null);
 });
 
 /* -----  historial  ----- */
-router.get('/history/:userId', async (req, res) => {
+app.get('/history/:userId', async (req, res) => {
   const { userId } = req.params;
   const rows = await db.collection('subs')
     .find({ userId })
@@ -789,7 +789,7 @@ router.get('/history/:userId', async (req, res) => {
 });
 
 /* -----  suscribir / renovar  ----- */
-router.post('/subscribe', async (req, res) => {
+app.post('/subscribe', async (req, res) => {
   const { userId, planId } = req.body;
   const plan = PLANS.find(p => p.id === planId);
   if (!plan) return res.status(400).json({ error: 'Plan inválido' });

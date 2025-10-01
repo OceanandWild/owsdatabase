@@ -762,7 +762,7 @@ app.get('/natmarket/ratings/seller/:seller_id', async (req, res) => {
 });
 
 // routes/subscriptions.js
-const router = require('express').Router();
+const router = import('express').Router();
 
 /* planes hardcodeados (podes moverlos a DB) */
 const PLANS = [

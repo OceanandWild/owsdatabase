@@ -788,53 +788,80 @@ app.get('/history/:userId', async (req, res) => {
   res.json(rows);
 });
 
-/* -----  suscribir / renovar  ----- */
-app.post('/subscribe', async (req, res) => {
+
+app.get("/api/subscriptions/plans", (_req, res) => res.json(PLANS));
+
+app.get("/api/subscriptions/active/:userId", async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const { rows } = await pool.query(
+      `SELECT * FROM subs WHERE user_id = $1 AND active = true AND end > NOW()`,
+      [userId]
+    );
+    res.json(rows[0] || null);
+  } catch (err) {
+    console.error("❌ /active:", err);
+    res.status(500).json({ error: "Error interno" });
+  }
+});
+
+app.get("/api/subscriptions/history/:userId", async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const { rows } = await pool.query(
+      `SELECT * FROM subs WHERE user_id = $1 ORDER BY start DESC LIMIT 50`,
+      [userId]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error("❌ /history:", err);
+    res.status(500).json({ error: "Error interno" });
+  }
+});
+
+app.post("/api/subscriptions/subscribe", async (req, res) => {
   const { userId, planId } = req.body;
   const plan = PLANS.find(p => p.id === planId);
-  if (!plan) return res.status(400).json({ error: 'Plan inválido' });
+  if (!plan) return res.status(400).json({ error: "Plan inválido" });
 
-  /* tu lógica de cobro / descontar Ecoxionums aquí */
   const now = new Date();
-  const end = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 días
+  const end = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
-  /* cancelamos cualquier activa anterior */
-  await db.collection('subs').updateMany({ userId, active: true }, { $set: { active: false, end: now } });
-
-  /* insertamos la nueva */
-  const newSub = {
-    userId,
-    planId: plan.id,
-    planName: plan.name,
-    start: now,
-    end,
-    active: true
-  };
-  await db.collection('subs').insertOne(newSub);
-  res.json({ success: true, sub: newSub });
+  try {
+    await pool.query(
+      `UPDATE subs SET active = false, end = $1 WHERE user_id = $2 AND active = true`,
+      [now, userId]
+    );
+    const { rows } = await pool.query(
+      `INSERT INTO subs (user_id, plan_id, plan_name, start, end, active)
+       VALUES ($1,$2,$3,$4,$5,true) RETURNING *`,
+      [userId, plan.id, plan.name, now, end]
+    );
+    res.json({ success: true, sub: rows[0] });
+  } catch (err) {
+    console.error("❌ /subscribe:", err);
+    res.status(500).json({ error: "Error interno" });
+  }
 });
 
-// GET /api/subscriptions/has-access/:userId/:feature
 app.get("/api/subscriptions/has-access/:userId/:feature", async (req, res) => {
   const { userId, feature } = req.params;
+  try {
+    const { rows } = await pool.query(
+      `SELECT * FROM subs WHERE user_id = $1 AND active = true AND end > NOW()`,
+      [userId]
+    );
+    if (rows.length === 0) return res.json({ hasAccess: false, message: "Sin suscripción activa" });
 
-  const { rows } = await pool.query(
-    `SELECT * FROM subs WHERE user_id = $1 AND active = true AND end > NOW()`,
-    [userId]
-  );
-
-  if (rows.length === 0) {
-    return res.json({ hasAccess: false, message: "Sin suscripción activa" });
+    const plan = rows[0];
+    const perks = PLANS.find(p => p.id === plan.plan_id)?.perks || [];
+    const hasAccess = perks.includes(feature);
+    res.json({ hasAccess, plan: plan.plan_name });
+  } catch (err) {
+    console.error("❌ /has-access:", err);
+    res.status(500).json({ error: "Error interno" });
   }
-
-  const plan = rows[0];
-  const plans = await pool.query(`SELECT perks FROM plans WHERE id = $1`, [plan.planId]);
-  const perks = plans.rows[0]?.perks || [];
-
-  const hasAccess = perks.includes(feature);
-  res.json({ hasAccess, plan: plan.planName });
 });
-
 
 
 // === FUNCIONES DE REVISIÓN ===

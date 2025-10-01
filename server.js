@@ -795,12 +795,12 @@ app.get("/api/subscriptions/active/:userId", async (req, res) => {
   const { userId } = req.params;
   try {
     const { rows } = await pool.query(
-      `SELECT * FROM subs WHERE user_id = $1 AND active = true AND end > NOW()`,
+      `SELECT * FROM subs WHERE user_id = $1 AND active = true AND ends_at > NOW()`, // ✅ ends_at
       [userId]
     );
     res.json(rows[0] || null);
   } catch (err) {
-    console.error("❌ /active:", err);
+    console.error("❌ /active ERROR:", err.message);
     res.status(500).json({ error: "Error interno" });
   }
 });

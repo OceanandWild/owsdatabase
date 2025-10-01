@@ -1,3 +1,5 @@
+require("./instrument.js");
+
 import express from "express";
 import cors from "cors";
 import pg from "pg";
@@ -43,6 +45,11 @@ const pool = new Pool(
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// 3️⃣ Ruta de salud (para Sentry + cualquier otro monitor)
+app.get("/", (req, res) => {
+  res.json({ status: "ok", service: "ecoxion-api", uptime: process.uptime() });
+});
 
 // === Estadísticas de usuarios ===
 app.post("/api/save-country", async (req, res) => {
@@ -848,6 +855,20 @@ function handleNatError(res, err, place = '') {
 
 await ensureDatabase(); 
 await ensureTables();
+
+// 5️⃣ Captura de errores de Sentry (después de rutas)
+const Sentry = require("@sentry/node");
+Sentry.setupExpressErrorHandler(app);
+
+// 6️⃣ Fallback genérico
+app.use((err, req, res, _next) => {
+  console.error(err);
+  res.status(500).json({
+    error: "Algo salió mal",
+    sentry: res.sentry || "sin-id", // útil para soporte
+  });
+});
+
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🚀 API corriendo en http://localhost:${PORT}`));

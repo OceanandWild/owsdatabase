@@ -1006,6 +1006,22 @@ app.get("/api/subscriptions/has-access/:userId/:feature", async (req, res) => {
 
 
 
+
+// GET /api/users/:id/balance
+app.get('/api/users/:id/balance', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const { rows } = await pool.query(
+      'SELECT balance FROM users WHERE id = $1',
+      [id]
+    );
+    res.json({ balance: rows[0]?.balance ?? 0 });
+  } catch (err) {
+    console.error('❌ /users/:id/balance', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 // === FUNCIONES DE REVISIÓN ===
 async function ensureDatabase() {
   try {

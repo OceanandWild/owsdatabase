@@ -833,7 +833,7 @@ app.post("/api/subscriptions/subscribe", async (req, res) => {
       [now, userId]
     );
     const { rows } = await pool.query(
-      `INSERT INTO subs (user_id, plan_id, plan_name, start, end, active)
+      `INSERT INTO subs (user_id, plan_id, plan_name, start, ends_at, active)
        VALUES ($1,$2,$3,$4,$5,true) RETURNING *`,
       [userId, plan.id, plan.name, now, end]
     );
@@ -848,7 +848,7 @@ app.get("/api/subscriptions/has-access/:userId/:feature", async (req, res) => {
   const { userId, feature } = req.params;
   try {
     const { rows } = await pool.query(
-      `SELECT * FROM subs WHERE user_id = $1 AND active = true AND end > NOW()`,
+      `SELECT * FROM subs WHERE user_id = $1 AND active = true AND ends_at > NOW()`,
       [userId]
     );
     if (rows.length === 0) return res.json({ hasAccess: false, message: "Sin suscripción activa" });

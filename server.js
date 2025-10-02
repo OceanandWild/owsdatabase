@@ -829,7 +829,7 @@ app.post("/api/subscriptions/subscribe", async (req, res) => {
 
   try {
     await pool.query(
-      `UPDATE subs SET active = false, end = $1 WHERE user_id = $2 AND active = true`,
+      `UPDATE subs SET active = false, ends_at = $1 WHERE user_id = $2 AND active = true`,
       [now, userId]
     );
     const { rows } = await pool.query(

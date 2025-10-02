@@ -762,12 +762,11 @@ app.get('/natmarket/ratings/seller/:seller_id', async (req, res) => {
 });
 
 
-/* planes hardcodeados (podes moverlos a DB) */
 const PLANS = [
-  { id: 'eco-premium',  name: 'Eco Premium',  price: 500,  perks: ['Extensiones exclusivas', 'Pack mensual sorpresa', 'Sin publicidad'], highlight: true },
-  { id: 'eco-basic',    name: 'Eco Basic',    price: 200,  perks: ['1 extensión premium/mes', 'Soporte prioritario'] }
+  { id: 'free', name: 'Plan Free', price: 0, perks: ['Acceso básico', 'Sin publicidad'], highlight: false },
+  { id: 'eco-basic', name: 'Eco Basic', price: 200, perks: ['1 extensión premium/mes', 'Soporte prioritario'] },
+  { id: 'eco-premium', name: 'Eco Premium', price: 500, perks: ['Extensiones exclusivas', 'Pack mensual sorpresa', 'Sin publicidad'], highlight: true },
 ];
-
 
 
 /* -----  suscripción activa de un usuario  ----- */
@@ -819,6 +818,7 @@ app.get("/api/subscriptions/history/:userId", async (req, res) => {
   }
 });
 
+// 🔥 DESCUENTO + COBRO MENSUAL REAL
 app.post("/api/subscriptions/subscribe", async (req, res) => {
   const { userId, planId } = req.body;
   const plan = PLANS.find(p => p.id === planId);
@@ -828,21 +828,162 @@ app.post("/api/subscriptions/subscribe", async (req, res) => {
   const end = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
   try {
-    await pool.query(
-      `UPDATE subs SET active = false, ends_at = $1 WHERE user_id = $2 AND active = true`,
-      [now, userId]
+    // 1️⃣ Verifica si ya tiene una activa
+    const { rows: activeSub } = await pool.query(
+      `SELECT * FROM subs WHERE user_id = $1 AND active = true AND ends_at > NOW()`,
+      [userId]
     );
+
+    if (activeSub.length > 0) {
+      const currentPlan = PLANS.find(p => p.id === activeSub[0].plan_id);
+      // 🔒 Solo permite mejorar (precio mayor)
+      if (currentPlan && currentPlan.price >= plan.price) {
+        return res.status(400).json({ error: "Solo puedes suscribirte a un plan superior." });
+      }
+    }
+
+    // 2️⃣ Descuento de Ecoxionums (obtenemos saldo actual)
+    const { rows: userRows } = await pool.query(
+      `SELECT balance FROM users WHERE id = $1`,
+      [userId]
+    );
+    const currentBalance = userRows[0]?.balance ?? 0;
+
+    if (currentBalance < plan.price) {
+      return res.status(400).json({ error: `Te faltan ${plan.price - currentBalance} Ecoxionums.` });
+    }
+
+    // 3️⃣ Descuenta el dinero
+    await pool.query(
+      `UPDATE users SET balance = balance - $1 WHERE id = $2`,
+      [plan.price, userId]
+    );
+
+    // 4️⃣ Cancela suscripción anterior (si existe)
+    await pool.query(
+      `UPDATE subs SET active = false, ends_at = NOW() WHERE user_id = $1 AND active = true`,
+      [userId]
+    );
+
+    // 5️⃣ Crea la nueva suscripción
     const { rows } = await pool.query(
       `INSERT INTO subs (user_id, plan_id, plan_name, start, ends_at, active)
-       VALUES ($1,$2,$3,$4,$5,true) RETURNING *`,
+       VALUES ($1, $2, $3, $4, $5, true) RETURNING *`,
       [userId, plan.id, plan.name, now, end]
     );
+
     res.json({ success: true, sub: rows[0] });
+
   } catch (err) {
-    console.error("❌ /subscribe:", err);
+    console.error("❌ /subscribe ERROR:", err.message);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+});
+
+app.post("/api/subscriptions/cancel", async (req, res) => {
+  const { userId } = req.body;
+
+  try {
+    const { rows } = await pool.query(
+      `UPDATE subs SET active = false, ends_at = NOW() WHERE user_id = $1 AND active = true RETURNING *`,
+      [userId]
+    );
+
+    if (rows.length === 0) {
+      return res.status(400).json({ error: "No tienes una suscripción activa." });
+    }
+
+    res.json({ success: true, message: "Suscripción cancelada. Podrás seguir usando los beneficios hasta la fecha de vencimiento." });
+
+  } catch (err) {
+    console.error("❌ /cancel ERROR:", err.message);
     res.status(500).json({ error: "Error interno" });
   }
 });
+
+// 📅 ESTO SE EJECUTA CADA DÍA A LAS 00:00 UTC
+import cron from "node-cron";
+
+cron.schedule("0 0 * * *", async () => {
+  console.log("🔄 Ejecutando cobro mensual...");
+
+  try {
+    // 1️⃣ Obtener suscripciones que vencen HOY y con auto_pay = true
+    const { rows: dueSubs } = await pool.query(`
+      SELECT s.*, p.price
+      FROM subs s
+      JOIN plans p ON p.id = s.plan_id
+      WHERE s.active = true
+        AND s.auto_pay = true
+        AND DATE(s.ends_at) = CURRENT_DATE
+    `);
+
+    for (const sub of dueSubs) {
+      const { user_id: userId, price, plan_id: planId } = sub;
+
+      // 2️⃣ Verifica saldo
+      const { rows: userRows } = await pool.query(
+        `SELECT balance FROM users WHERE id = $1`,
+        [userId]
+      );
+      const balance = userRows[0]?.balance ?? 0;
+
+      if (balance >= price) {
+        // ✅ Tiene plata → renueva
+        const newEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+        await pool.query(
+          `UPDATE users SET balance = balance - $1 WHERE id = $2`,
+          [price, userId]
+        );
+        await pool.query(
+          `UPDATE subs SET ends_at = $1 WHERE id = $2`,
+          [newEnd, sub.id]
+        );
+        console.log(`✅ Renovado ${planId} para ${userId}`);
+
+      } else {
+        // ❌ Sin plata → baja a Free + notifica
+        await pool.query(
+          `UPDATE subs SET active = false WHERE id = $1`,
+          [sub.id]
+        );
+        await pool.query(
+          `INSERT INTO subs (user_id, plan_id, plan_name, start, ends_at, active, auto_pay)
+           VALUES ($1, 'free', 'Plan Free', NOW(), NOW() + INTERVAL '30 days', true, false)`,
+          [userId]
+        );
+        console.log(`❌ Downgrade a Free por falta de fondos: ${userId}`);
+
+        // 📬 Notificación al usuario (puedes usar tu sistema de alerts)
+        await pool.query(
+          `INSERT INTO alerts (user_id, type, message) VALUES ($1, 'warning', $2)`,
+          [userId, `💰 Saldo insuficiente para renovar tu plan. Se te ha asignado Plan Free temporalmente.`]
+        );
+      }
+    }
+  } catch (err) {
+    console.error("❌ Error en cobro automático:", err.message);
+  }
+});
+
+app.patch("/api/subscriptions/auto-pay", async (req, res) => {
+  const { userId, enabled } = req.body; // enabled: boolean
+
+  try {
+    const { rows } = await pool.query(
+      `UPDATE subs SET auto_pay = $1 WHERE user_id = $2 AND active = true RETURNING auto_pay`,
+      [enabled, userId]
+    );
+    if (rows.length === 0) return res.status(400).json({ error: "No tienes suscripción activa." });
+
+    res.json({ success: true, autoPay: rows[0].auto_pay });
+
+  } catch (err) {
+    console.error("❌ /auto-pay ERROR:", err.message);
+    res.status(500).json({ error: "Error interno" });
+  }
+});
+ 
 
 app.get("/api/subscriptions/has-access/:userId/:feature", async (req, res) => {
   const { userId, feature } = req.params;
@@ -862,6 +1003,7 @@ app.get("/api/subscriptions/has-access/:userId/:feature", async (req, res) => {
     res.status(500).json({ error: "Error interno" });
   }
 });
+
 
 
 // === FUNCIONES DE REVISIÓN ===

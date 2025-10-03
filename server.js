@@ -1004,7 +1004,38 @@ app.get("/api/subscriptions/has-access/:userId/:feature", async (req, res) => {
   }
 });
 
+app.get('/api/users/me', async (req, res) => {
+  const userId = req.headers['x-user-id'] || req.query.userId; // o como lo envíes
+  if (!userId) return res.status(401).json({ error: 'Falta userId' });
 
+  const { rows } = await pool.query(
+    'SELECT id, username, balance FROM users WHERE id = $1',
+    [userId]
+  );
+  if (!rows.length) return res.status(404).json({ error: 'Usuario no encontrado' });
+  res.json(rows[0]);
+});
+
+app.post('/api/users/create', async (req, res) => {
+  const { userId, username } = req.body;
+  if (!userId || !username) return res.status(400).json({ error: 'Faltan datos' });
+
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO users (id, username, password, balance)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (id) DO UPDATE
+         SET username = EXCLUDED.username
+       RETURNING id, username, balance`,
+      [userId, username, 'nopass', 50000]
+    );
+    res.json({ success: true, user: rows[0] });
+  } catch (err) {
+    if (err.code === '23505') return res.status(409).json({ error: 'Username ya existe' });
+    console.error('❌ /users/create', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
 
 
 // GET /api/users/:id/balance
@@ -1021,6 +1052,8 @@ app.get('/api/users/:id/balance', async (req, res) => {
     res.status(500).json({ error: 'Error interno' });
   }
 });
+
+
 
 // === FUNCIONES DE REVISIÓN ===
 async function ensureDatabase() {

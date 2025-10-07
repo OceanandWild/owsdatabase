@@ -1055,6 +1055,97 @@ app.get('/api/users/:id/balance', async (req, res) => {
   }
 });
 
+/* ===== LUGARES RECURRENTES ===== */
+app.get('/natmarket/places/:userId', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'SELECT * FROM user_places WHERE user_id=$1 ORDER BY created_at DESC',
+      [req.params.userId]
+    );
+    res.json(rows);
+  } catch (err) { handleNatError(res, err, 'GET /places'); }
+});
+
+app.post('/natmarket/places', async (req, res) => {
+  try {
+    const { user_id, dept, street } = req.body;
+    if (!user_id || !dept || !street) return res.status(400).json({ error: 'Faltan datos' });
+    const { rows } = await pool.query(
+      'INSERT INTO user_places (user_id, dept, street) VALUES ($1,$2,$3) RETURNING *',
+      [user_id, dept, street]
+    );
+    res.json(rows[0]);
+  } catch (err) { handleNatError(res, err, 'POST /places'); }
+});
+
+/* ===== MÉTODOS DE ENVÍO RECURRENTES ===== */
+app.get('/natmarket/shipping-methods/:userId', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'SELECT * FROM user_shipping_methods WHERE user_id=$1 ORDER BY created_at DESC',
+      [req.params.userId]
+    );
+    res.json(rows);
+  } catch (err) { handleNatError(res, err, 'GET /shipping-methods'); }
+});
+
+app.post('/natmarket/shipping-methods', async (req, res) => {
+  try {
+    const { user_id, name } = req.body;
+    if (!user_id || !name) return res.status(400).json({ error: 'Faltan datos' });
+    const { rows } = await pool.query(
+      'INSERT INTO user_shipping_methods (user_id, name) VALUES ($1,$2) RETURNING *',
+      [user_id, name]
+    );
+    res.json(rows[0]);
+  } catch (err) { handleNatError(res, err, 'POST /shipping-methods'); }
+});
+
+/* ===== CREAR PRODUCTO (nueva versión con lugares y métodos) ===== */
+app.post('/natmarket/products/v2', upload.array('images', 10), async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { user_id, name, description, price, contact_number, places, methods } = req.body;
+    if (!user_id || !name) return res.status(400).json({ error: 'Faltan datos' });
+
+    // 1. insertar producto
+    const { rows: [product] } = await client.query(
+      `INSERT INTO products_nat (user_id, name, description, price, contact_number)
+       VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+      [user_id, name, description, price ? parseFloat(price) : null, contact_number || null]
+    );
+
+    // 2. imágenes
+    const host = process.env.BACKEND_URL || `https://${req.get('host')}`;
+    const urls = (req.files || []).map(f => `${host}/uploads/nat/${f.filename}`);
+    for (const url of urls) {
+      await client.query('INSERT INTO product_images_nat (product_id, url) VALUES ($1,$2)', [product.id, url]);
+    }
+
+    // 3. lugares
+    if (places && places.length) {
+      for (const pId of places) {
+        await client.query('INSERT INTO product_places (product_id, place_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [product.id, pId]);
+      }
+    }
+    // 4. métodos
+    if (methods && methods.length) {
+      for (const mId of methods) {
+        await client.query('INSERT INTO product_shipping_methods (product_id, shipping_method_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [product.id, mId]);
+      }
+    }
+
+    await client.query('COMMIT');
+    res.json({ success: true, product });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    handleNatError(res, err, 'POST /products/v2');
+  } finally {
+    client.release();
+  }
+});
+
 
 
 // === FUNCIONES DE REVISIÓN ===

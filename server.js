@@ -785,6 +785,83 @@ app.post('/mod/decide-product', async (req, res) => {
   }
 });
 
+/* ---------- MOD: mensajes pendientes ---------- */
+app.get('/mod/pending-messages', async (req, res) => {
+  const userHeader = (req.headers['x-user-username'] || '').trim().toLowerCase();
+  if (userHeader !== 'oceanandwild') return res.status(401).json({ error: 'No autorizado' });
+
+  try {
+    const { rows } = await pool.query(`
+      SELECT m.id,
+             m.message,
+             m.created_at,
+             u.username  AS sender_name,
+             pr.name     AS product_name,
+             pr.id       AS product_id
+      FROM messages_pending m
+      JOIN users_nat u ON u.id = m.sender_id
+      JOIN products_nat pr ON pr.id = m.product_id
+      ORDER BY m.created_at DESC
+    `);
+    res.json(rows);
+  } catch (err) {
+    console.error('[MOD] Error listando mensajes:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+app.post('/mod/decide-message', async (req, res) => {
+  const userHeader = (req.headers['x-user-username'] || '').trim().toLowerCase();
+  if (userHeader !== 'oceanandwild') return res.status(401).json({ error: 'No autorizado' });
+
+  const { pending_id, approve } = req.body;
+  if (!pending_id) return res.status(400).json({ error: 'Falta pending_id' });
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // 1. Traer el mensaje
+    const { rows: [m] } = await client.query(
+      `SELECT m.*, u.username AS sender_name, pr.name AS product_name
+       FROM messages_pending m
+       JOIN users_nat u ON u.id = m.sender_id
+       JOIN products_nat pr ON pr.id = m.product_id
+       WHERE m.id = $1`,
+      [pending_id]
+    );
+    if (!m) return res.status(404).json({ error: 'Mensaje no encontrado' });
+
+    if (approve) {
+      // 2.A. Mover a tabla oficial
+      await client.query(
+        `INSERT INTO messages_nat (sender_id, product_id, message, created_at)
+         VALUES ($1, $2, $3, $4)`,
+        [m.sender_id, m.product_id, m.message, m.created_at]
+      );
+    } else {
+      // 2.B. Opcional: guardar rechazado (o solo ignorar)
+      await client.query(
+        `INSERT INTO messages_rejected (sender_id, product_id, message, reason, created_at)
+         VALUES ($1, $2, $3, $4, NOW())`,
+        [m.sender_id, m.product_id, m.message, 'Contenido inapropiado']
+      );
+    }
+
+    // 3. Borrar de pendientes
+    await client.query('DELETE FROM messages_pending WHERE id = $1', [pending_id]);
+    await client.query('COMMIT');
+
+    res.json({ ok: true });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('[MOD] Error decidiendo mensaje:', err);
+    res.status(500).json({ error: 'Error interno' });
+  } finally {
+    client.release();
+  }
+});
+
 app.get('/natmarket/users/:id/rejected', async (req, res) => {
   const { rows } = await pool.query(
     'SELECT name, reason, created_at FROM products_rejected WHERE user_id = $1 ORDER BY created_at DESC',

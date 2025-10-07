@@ -63,6 +63,25 @@ function containsInappropriate(text = '') {
   return FORBIDDEN.some(rx => rx.test(t));
 }
 
+async function notifyModerator(type, targetId, content, senderId) {
+  // Obtener id de OceanandWild
+  const { rows } = await pool.query(
+    "SELECT id FROM users_nat WHERE username = 'OceanandWild'"
+  );
+  if (!rows.length) return; // no existe aún
+  const modId = rows[0].id;
+
+  const msg = type === 'product'
+    ? `Producto id:${targetId} pendiente de revisión (contenido: ${content})`
+    : `Mensaje id:${targetId} pendiente de revisión (contenido: ${content})`;
+
+  await pool.query(
+    `INSERT INTO messages_nat (sender_id, product_id, message, created_at)
+     VALUES ($1, 0, $2, NOW())`,
+    [senderId, msg] // product_id 0 = chat del moderador
+  );
+}
+
 // === Estadísticas de usuarios ===
 app.post("/api/save-country", async (req, res) => {
   const { userId, country, coreInitDate } = req.body;

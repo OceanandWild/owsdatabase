@@ -1221,6 +1221,24 @@ app.post('/natmarket/reset-password', async (req, res) => {
   }
 });
 
+
+/* ---------- NOVEDAD DESTACADA ---------- */
+app.get('/api/featured-update', async (_req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT version, news, date
+       FROM updates
+       ORDER BY date DESC
+       LIMIT 1`
+    );
+    if (!rows.length) return res.json(null);
+    res.json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json(null);
+  }
+});
+
 /* ---------- ADMIN: listar usuarios ---------- */
 app.get('/admin/users', async (req, res) => {
   const secret = req.headers['x-admin-secret'];

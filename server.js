@@ -52,6 +52,17 @@ app.get("/", (req, res) => {
   res.json({ status: "ok", service: "ecoxion-api", uptime: process.uptime() });
 });
 
+const FORBIDDEN = [
+  /\bcoca[ií]na\b/i, /\bporro\b/i, /\bmari[h]uana\b/i,
+  /\bextasi[s]?\b/i, /\blsd\b/i, /\bmdma\b/i,
+  /\bput[ao]s?\b/i, /\bpendej[ao]s?\b/i
+];
+
+function containsInappropriate(text = '') {
+  const t = text.toLowerCase();
+  return FORBIDDEN.some(rx => rx.test(t));
+}
+
 // === Estadísticas de usuarios ===
 app.post("/api/save-country", async (req, res) => {
   const { userId, country, coreInitDate } = req.body;

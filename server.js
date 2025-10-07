@@ -714,23 +714,32 @@ app.post('/natmarket/messages/v2', async (req, res) => {
   res.json(msg);
 });
 
-/* ---------- PANEL MODERADOR ---------- */
 app.get('/mod/pending', async (req, res) => {
-  if (req.headers['x-user-username'] !== 'OceanandWild') {
-    return res.status(401).json({ error: 'No autorizado' });
+  console.log('[DIAG] Headers:', req.headers);
+  const userHeader = (req.headers['x-user-username'] || '').trim();
+
+  if (userHeader.toLowerCase() !== 'oceanandwild') {
+    console.log('[DIAG] 401 – No autorizado');
+    return res.status(401).json({ error: 'No autorizado' }); // ← importante el return
   }
-  const [prods, msgs] = await Promise.all([
-    pool.query(`SELECT p.*, u.username AS owner
-                FROM products_pending p
-                JOIN users_nat u ON u.id = p.user_id
-                ORDER BY p.created_at DESC`),
-    pool.query(`SELECT m.*, u.username AS sender_name, pr.name AS product_name
-                FROM messages_pending m
-                JOIN users_nat u ON u.id = m.sender_id
-                JOIN products_nat pr ON pr.id = m.product_id
-                ORDER BY m.created_at DESC`)
-  ]);
-  res.json({ products: prods.rows, messages: msgs.rows });
+
+  try {
+    const [prods, msgs] = await Promise.all([
+      pool.query(`SELECT p.*, u.username AS owner
+                  FROM products_pending p
+                  JOIN users_nat u ON u.id = p.user_id
+                  ORDER BY p.created_at DESC`),
+      pool.query(`SELECT m.*, u.username AS sender_name, pr.name AS product_name
+                  FROM messages_pending m
+                  JOIN users_nat u ON u.id = m.sender_id
+                  JOIN products_nat pr ON pr.id = m.product_id
+                  ORDER BY m.created_at DESC`)
+    ]);
+    res.json({ products: prods.rows, messages: msgs.rows });
+  } catch (err) {
+    console.error('[DIAG] Error interno:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
 });
 
 app.post('/mod/decide-product', async (req, res) => {

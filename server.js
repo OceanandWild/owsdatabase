@@ -1273,6 +1273,24 @@ app.post('/natmarket/products/v2', upload.array('images', 10), async (req, res) 
     const places  = JSON.parse(req.body.places || '[]');
     const methods = JSON.parse(req.body.methods || '[]');
 
+    // --- moderación ---
+const bad = containsInappropriate(name + ' ' + description);
+if (bad) {
+  // Guardar en pendientes
+  const { rows: [pend] } = await client.query(
+    `INSERT INTO products_pending (user_id, name, description, price, contact_number, places, methods)
+     VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,
+    [user_id, name, description, price ? parseFloat(price) : null, contact_number || null, JSON.stringify(places), JSON.stringify(methods)]
+  );
+  // Notificar al moderador
+  await notifyModerator('product', pend.id, name, user_id);
+  await client.query('COMMIT');
+  return res.status(202).json({
+    warning: 'Tu producto está en revisión por contenido potencialmente inapropiado.'
+  });
+}
+// si está limpio, continúa con el flujo normal (tu INSERT original)
+
     if (!user_id || !name) return res.status(400).json({ error: 'Faltan datos' });
 
     const { rows: [product] } = await client.query(

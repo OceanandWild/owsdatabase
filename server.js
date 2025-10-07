@@ -659,6 +659,100 @@ app.post('/natmarket/messages', async (req, res) => {
   }
 });
 
+app.post('/natmarket/messages/v2', async (req, res) => {
+  const { sender_id, product_id, message } = req.body;
+  if (!sender_id || !product_id || !message) return res.status(400).json({ error: 'Faltan datos' });
+
+  const bad = containsInappropriate(message);
+  if (bad) {
+    await pool.query(
+      `INSERT INTO messages_pending (product_id, sender_id, message)
+       VALUES ($1,$2,$3)`,
+      [product_id, sender_id, message]
+    );
+    await notifyModerator('message', product_id, message, sender_id);
+    return res.status(202).json({
+      warning: 'Tu mensaje está en revisión por contenido potencialmente inapropiado.'
+    });
+  }
+  // si está OK, guardar directamente
+  const { rows: [msg] } = await pool.query(
+    `INSERT INTO messages_nat (sender_id, product_id, message) VALUES ($1,$2,$3) RETURNING *`,
+    [sender_id, product_id, message]
+  );
+  res.json(msg);
+});
+
+/* ---------- PANEL MODERADOR ---------- */
+app.get('/mod/pending', async (req, res) => {
+  if (req.headers['x-user-username'] !== 'OceanandWild') {
+    return res.status(401).json({ error: 'No autorizado' });
+  }
+  const [prods, msgs] = await Promise.all([
+    pool.query(`SELECT p.*, u.username AS owner
+                FROM products_pending p
+                JOIN users_nat u ON u.id = p.user_id
+                ORDER BY p.created_at DESC`),
+    pool.query(`SELECT m.*, u.username AS sender_name, pr.name AS product_name
+                FROM messages_pending m
+                JOIN users_nat u ON u.id = m.sender_id
+                JOIN products_nat pr ON pr.id = m.product_id
+                ORDER BY m.created_at DESC`)
+  ]);
+  res.json({ products: prods.rows, messages: msgs.rows });
+});
+
+app.post('/mod/decide-product', async (req, res) => {
+  if (req.headers['x-user-username'] !== 'OceanandWild') return res.status(401).json({ error: 'No autorizado' });
+
+  const { pending_id, approve } = req.body;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows: [p] } = await client.query(
+      'SELECT * FROM products_pending WHERE id = $1',
+      [pending_id]
+    );
+    if (!p) return res.status(404).json({ error: 'No encontrado' });
+
+    if (approve) {
+      // 1. crear producto oficial
+      const { rows: [prod] } = await client.query(
+        `INSERT INTO products_nat (user_id, name, description, price, contact_number)
+         VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+        [p.user_id, p.name, p.description, p.price, p.contact_number]
+      );
+      // 2. imágenes (no hay en pendientes, se avisará al usuario)
+      // 3. lugares/métodos
+      for (const pid of p.places)  await client.query('INSERT INTO product_places (product_id, place_id) VALUES ($1,$2)', [prod.id, pid]);
+      for (const mid of p.methods) await client.query('INSERT INTO product_shipping_methods (product_id, shipping_method_id) VALUES ($1,$2)', [prod.id, mid]);
+    } else {
+      // rechazar → historial en perfil
+      await client.query(
+        'INSERT INTO products_rejected (user_id, name, reason) VALUES ($1,$2,$3)',
+        [p.user_id, p.name, 'Contenido inapropiado']
+      );
+    }
+    await client.query('DELETE FROM products_pending WHERE id = $1', [pending_id]);
+    await client.query('COMMIT');
+    res.json({ ok: true });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error(err);
+    res.status(500).json({ error: 'Error interno' });
+  } finally {
+    client.release();
+  }
+});
+
+app.get('/natmarket/users/:id/rejected', async (req, res) => {
+  const { rows } = await pool.query(
+    'SELECT name, reason, created_at FROM products_rejected WHERE user_id = $1 ORDER BY created_at DESC',
+    [req.params.id]
+  );
+  res.json(rows);
+});
+
 app.get('/natmarket/messages/:product_id', async (req, res) => {
   try {
     const { product_id } = req.params;

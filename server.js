@@ -75,11 +75,12 @@ async function notifyModerator(type, targetId, content, senderId) {
     ? `Producto id:${targetId} pendiente de revisión (contenido: ${content})`
     : `Mensaje id:${targetId} pendiente de revisión (contenido: ${content})`;
 
-  await pool.query(
-    `INSERT INTO messages_nat (sender_id, product_id, message, created_at)
-     VALUES ($1, 0, $2, NOW())`,
-    [senderId, msg] // product_id 0 = chat del moderador
-  );
+const validDummyProductId = 1; // ← uno que exista
+await pool.query(
+  `INSERT INTO messages_nat (sender_id, product_id, message, created_at)
+   VALUES ($1, $2, $3, NOW())`,
+  [senderId, validDummyProductId, msg]
+);
 }
 
 // === Estadísticas de usuarios ===

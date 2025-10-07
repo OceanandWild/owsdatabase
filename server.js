@@ -1179,7 +1179,25 @@ app.post('/natmarket/products/v2', upload.array('images', 10), async (req, res) 
   }
 });
 
+/* ---------- ADMIN: listar usuarios ---------- */
+app.get('/admin/users', async (req, res) => {
+  const secret = req.headers['x-admin-secret'];
+  if (secret !== process.env.STUDIO_SECRET) {
+    return res.status(401).json({ error: 'No autorizado' });
+  }
 
+  try {
+    const { rows } = await pool.query(`
+      SELECT id, username, created_at
+      FROM users_nat
+      ORDER BY created_at DESC
+    `);
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
 
 // === FUNCIONES DE REVISIÓN ===
 async function ensureDatabase() {

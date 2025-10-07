@@ -1101,6 +1101,31 @@ app.post('/natmarket/shipping-methods', async (req, res) => {
   } catch (err) { handleNatError(res, err, 'POST /shipping-methods'); }
 });
 
+/* ===== LUGARES / MÉTODOS DE UN PRODUCTO ===== */
+app.get('/natmarket/products/:id/places', async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT pl.id, pl.dept, pl.street
+      FROM product_places pp
+      JOIN user_places pl ON pl.id = pp.place_id
+      WHERE pp.product_id = $1
+    `, [req.params.id]);
+    res.json(rows);
+  } catch (err) { handleNatError(res, err, 'GET /products/:id/places'); }
+});
+
+app.get('/natmarket/products/:id/shipping-methods', async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT sm.id, sm.name
+      FROM product_shipping_methods ps
+      JOIN user_shipping_methods sm ON sm.id = ps.shipping_method_id
+      WHERE ps.product_id = $1
+    `, [req.params.id]);
+    res.json(rows);
+  } catch (err) { handleNatError(res, err, 'GET /products/:id/shipping-methods'); }
+});
+
 /* ===== CREAR PRODUCTO (nueva versión con lugares y métodos) ===== */
 app.post('/natmarket/products/v2', upload.array('images', 10), async (req, res) => {
   const client = await pool.connect();

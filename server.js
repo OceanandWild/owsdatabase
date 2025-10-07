@@ -1055,6 +1055,8 @@ app.get('/api/users/:id/balance', async (req, res) => {
   }
 });
 
+
+
 /* ===== LUGARES RECURRENTES ===== */
 app.get('/natmarket/places/:userId', async (req, res) => {
   try {
@@ -1126,39 +1128,45 @@ app.get('/natmarket/products/:id/shipping-methods', async (req, res) => {
   } catch (err) { handleNatError(res, err, 'GET /products/:id/shipping-methods'); }
 });
 
-/* ===== CREAR PRODUCTO (nueva versión con lugares y métodos) ===== */
+/* ===== CREAR PRODUCTO (v2) ===== */
 app.post('/natmarket/products/v2', upload.array('images', 10), async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const { user_id, name, description, price, contact_number, places, methods } = req.body;
+    const { user_id, name, description, price, contact_number } = req.body;
+
+    // ➜ parsear arrays
+    const places  = JSON.parse(req.body.places || '[]');
+    const methods = JSON.parse(req.body.methods || '[]');
+
     if (!user_id || !name) return res.status(400).json({ error: 'Faltan datos' });
 
-    // 1. insertar producto
     const { rows: [product] } = await client.query(
       `INSERT INTO products_nat (user_id, name, description, price, contact_number)
        VALUES ($1,$2,$3,$4,$5) RETURNING *`,
       [user_id, name, description, price ? parseFloat(price) : null, contact_number || null]
     );
 
-    // 2. imágenes
+    // imágenes
     const host = process.env.BACKEND_URL || `https://${req.get('host')}`;
     const urls = (req.files || []).map(f => `${host}/uploads/nat/${f.filename}`);
     for (const url of urls) {
       await client.query('INSERT INTO product_images_nat (product_id, url) VALUES ($1,$2)', [product.id, url]);
     }
 
-    // 3. lugares
-    if (places && places.length) {
-      for (const pId of places) {
-        await client.query('INSERT INTO product_places (product_id, place_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [product.id, pId]);
-      }
+    // lugares
+    for (const pId of places) {
+      await client.query(
+        'INSERT INTO product_places (product_id, place_id) VALUES ($1,$2) ON CONFLICT DO NOTHING',
+        [product.id, pId]
+      );
     }
-    // 4. métodos
-    if (methods && methods.length) {
-      for (const mId of methods) {
-        await client.query('INSERT INTO product_shipping_methods (product_id, shipping_method_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [product.id, mId]);
-      }
+    // métodos
+    for (const mId of methods) {
+      await client.query(
+        'INSERT INTO product_shipping_methods (product_id, shipping_method_id) VALUES ($1,$2) ON CONFLICT DO NOTHING',
+        [product.id, mId]
+      );
     }
 
     await client.query('COMMIT');

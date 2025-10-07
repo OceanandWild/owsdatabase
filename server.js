@@ -1179,6 +1179,48 @@ app.post('/natmarket/products/v2', upload.array('images', 10), async (req, res) 
   }
 });
 
+/* ---------- RESTAURAR CONTRASEÑA ---------- */
+app.post('/natmarket/reset-password', async (req, res) => {
+  const { username } = req.body;
+  if (!username) return res.status(400).json({ error: 'Usuario requerido' });
+
+  try {
+    // 1. Buscar usuario
+    const { rows } = await pool.query(
+      'SELECT id FROM users_nat WHERE username = $1',
+      [username]
+    );
+
+    if (rows.length === 0) {
+      // No revelamos si existe o no
+      return res.json({
+        message: 'Si el usuario existe, la nueva contraseña se mostrará abajo.'
+      });
+    }
+
+    const userId = rows[0].id;
+
+    // 2. Generar contraseña aleatoria
+    const newPass = Math.random().toString(36).slice(-8); // 8 caracteres
+    const hashed  = await bcrypt.hash(newPass, 10);
+
+    // 3. Actualizar
+    await pool.query(
+      'UPDATE users_nat SET password = $1 WHERE id = $2',
+      [hashed, userId]
+    );
+
+    // 4. Mostramos la nueva clave al cliente
+    res.json({
+      success: true,
+      message: 'Contraseña restablecida. Guárdala bien.',
+      newPassword: newPass   // <-- se muestra solo una vez
+    });
+  } catch (err) {
+    handleNatError(res, err, 'POST /reset-password');
+  }
+});
+
 /* ---------- ADMIN: listar usuarios ---------- */
 app.get('/admin/users', async (req, res) => {
   const secret = req.headers['x-admin-secret'];

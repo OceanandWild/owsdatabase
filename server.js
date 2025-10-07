@@ -1468,6 +1468,35 @@ app.get('/api/featured-update', async (_req, res) => {
   }
 });
 
+/* ---------- TOP LECTORES ---------- */
+
+// Incrementar libros leídos (llama al abrir última página)
+app.post("/api/leaderboard/incr", async (req, res) => {
+  const { userId, username } = req.body;
+  if (!userId || !username) return res.status(400).json({ error: "Faltan datos" });
+
+  await pool.query(
+    `INSERT INTO reader_leaderboard (user_id, username, books_read, updated_at)
+     VALUES ($1, $2, 1, NOW())
+     ON CONFLICT (user_id)
+     DO UPDATE SET books_read = reader_leaderboard.books_read + 1,
+                   updated_at = NOW()`,
+    [userId, username]
+  );
+  res.json({ success: true });
+});
+
+// Obtener TOP 20
+app.get("/api/leaderboard", async (_req, res) => {
+  const { rows } = await pool.query(
+    `SELECT username, books_read, updated_at
+     FROM reader_leaderboard
+     ORDER BY books_read DESC, updated_at ASC
+     LIMIT 20`
+  );
+  res.json(rows);
+});
+
 /* ---------- ADMIN: listar usuarios ---------- */
 app.get('/admin/users', async (req, res) => {
   const secret = req.headers['x-admin-secret'];

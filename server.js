@@ -1497,6 +1497,52 @@ app.get("/api/leaderboard", async (_req, res) => {
   res.json(rows);
 });
 
+/* ----------  REGISTER  ---------- */
+app.post('/np/auth/register', async (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) return res.status(400).json({ error: 'Faltan datos' });
+  const hash = await bcrypt.hash(password, 10);
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO np_users (username, pwd_hash)
+       VALUES ($1, $2) RETURNING id, username`,
+      [username, hash]
+    );
+    res.status(201).json({ id: rows[0].id, username: rows[0].username });
+  } catch (e) {
+    if (e.code === '23505') return res.status(409).json({ error: 'Usuario ya existe' });
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+/* ----------  LOGIN  ---------- */
+app.post('/np/auth/login', async (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) return res.status(400).json({ error: 'Faltan datos' });
+  const { rows } = await pool.query('SELECT id, pwd_hash FROM np_users WHERE username=$1', [username]);
+  if (!rows.length) return res.status(401).json({ error: 'Credenciales incorrectas' });
+  const ok = await bcrypt.compare(password, rows[0].pwd_hash);
+  if (!ok) return res.status(401).json({ error: 'Credenciales incorrectas' });
+
+  /* JWT simple (sin refresh) */
+  const token = jwt.sign({ uid: rows[0].id, un: username }, process.env.STUDIO_SECRET, { expiresIn: '7d' });
+  res.json({ token, id: rows[0].id, username });
+});
+
+/* ----------  DATOS DEL TOKEN  ---------- */
+app.get('/np/auth/me', async (req, res) => {
+  const hdr = req.headers.authorization;
+  if (!hdr) return res.status(401).json({ error: 'Sin token' });
+  try {
+    const payload = jwt.verify(hdr.split(' ')[1], process.env.STUDIO_SECRET);
+    const { rows } = await pool.query('SELECT id, username FROM np_users WHERE id=$1', [payload.uid]);
+    if (!rows.length) return res.status(404).json({ error: 'Usuario no existe' });
+    res.json(rows[0]);
+  } catch {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+});
+
 /* ---------- ADMIN: listar usuarios ---------- */
 app.get('/admin/users', async (req, res) => {
   const secret = req.headers['x-admin-secret'];

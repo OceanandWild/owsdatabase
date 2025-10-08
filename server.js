@@ -1471,30 +1471,36 @@ app.get('/api/featured-update', async (_req, res) => {
 
 /* ---------- TOP LECTORES ---------- */
 
-// Incrementar libros leídos (llama al abrir última página)
+
+/* ----------  SUBIR TIEMPO + LIBRO  ---------- */
 app.post("/api/leaderboard/incr", async (req, res) => {
-  const { userId, username } = req.body;
+  const { userId, username, seconds = 0 } = req.body;
   if (!userId || !username) return res.status(400).json({ error: "Faltan datos" });
 
   await pool.query(
-    `INSERT INTO reader_leaderboard (user_id, username, books_read, updated_at)
-     VALUES ($1, $2, 1, NOW())
+    `INSERT INTO reader_leaderboard (user_id, username, books_read, total_time, updated_at)
+     VALUES ($1, $2, 1, $3, NOW())
      ON CONFLICT (user_id)
-     DO UPDATE SET books_read = reader_leaderboard.books_read + 1,
-                   updated_at = NOW()`,
-    [userId, username]
+     DO UPDATE SET
+       books_read = reader_leaderboard.books_read + 1,
+       total_time = reader_leaderboard.total_time + EXCLUDED.total_time,
+       updated_at = NOW()`,
+    [userId, username, seconds]
   );
   res.json({ success: true });
 });
 
-// Obtener TOP 20
+/* ----------  TOP LECTORES (por tiempo + libros)  ---------- */
 app.get("/api/leaderboard", async (_req, res) => {
-  const { rows } = await pool.query(
-    `SELECT username, books_read, updated_at
-     FROM reader_leaderboard
-     ORDER BY books_read DESC, updated_at ASC
-     LIMIT 20`
-  );
+  const { rows } = await pool.query(`
+    SELECT username,
+           books_read,
+           total_time,
+           TO_CHAR(updated_at, 'DD/MM/YY') AS last_read
+    FROM reader_leaderboard
+    ORDER BY total_time DESC, books_read DESC, updated_at ASC
+    LIMIT 20
+  `);
   res.json(rows);
 });
 

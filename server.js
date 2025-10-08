@@ -10,6 +10,7 @@ import multer from "multer";
 import bcrypt from "bcrypt";
 import path from "path";
 import fs from "fs";
+import jwt from 'jsonwebtoken';
 
 dotenv.config();
 

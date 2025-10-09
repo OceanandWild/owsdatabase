@@ -436,7 +436,7 @@ function expForLevel(lvl){
 app.get("/version", async (_req, res) => {
   try {
     const { rows } = await pool.query(
-      "SELECT version, news, date FROM updates ORDER BY date DESC LIMIT 1"
+        "SELECT version, news, date FROM updates_ecoconsole ORDER BY date DESC LIMIT 1"
     );
 
     if (rows.length === 0) {
@@ -459,7 +459,7 @@ app.post("/publish-version", async (req, res) => {
     return res.status(401).json({ error: "No autorizado" });
 
   await pool.query(
-    "INSERT INTO updates (version, news, date) VALUES ($1, $2, NOW())",
+    "INSERT INTO updates_ecoconsole (version, news, date) VALUES ($1, $2, NOW())",
     [version, news || ""]
   );
 
@@ -1457,7 +1457,7 @@ app.get('/api/featured-update', async (_req, res) => {
   try {
     const { rows } = await pool.query(
       `SELECT version, news, date
-       FROM updates
+       FROM updates_natmarket
        ORDER BY date DESC
        LIMIT 1`
     );
@@ -1668,6 +1668,8 @@ await ensureTables();
 // 2️⃣ Error handler de Sentry (después de rutas)
 import * as Sentry from "@sentry/node";
 Sentry.setupExpressErrorHandler(app);
+
+
 
 // 3️⃣ Fallback
 app.use((err, req, res, _next) => {

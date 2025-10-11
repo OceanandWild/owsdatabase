@@ -1550,6 +1550,51 @@ app.get('/np/auth/me', async (req, res) => {
   }
 });
 
+/* ---------- ENDPOINTS de demo: Registrar Empresa ---------- */
+app.get('/enterprise', (_req, res) => {
+  // sirve el index.html de la carpeta "Enterprise Registration"
+  res.sendFile(path.join(process.cwd(), 'Enterprise Registration', 'index.html'));
+});
+
+app.post('/api/companies/register', upload.single('logo'), async (req, res) => {
+  try {
+    const {
+      name, industry = null, type = null, email = null,
+      phone = null, address = null, description = null, source = null
+    } = req.body;
+
+    if (!name || !email) return res.status(400).json({ error: 'Faltan name o email' });
+
+    // Moderación ligera (usa containsInappropriate del archivo)
+    if (containsInappropriate(name + ' ' + description)) {
+      // guardamos pero sin publicar (para demo solo devolvemos 202)
+      await pool.query(
+        `INSERT INTO companies_nat (name, industry, type, email, phone, address, description, source)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [name, industry, type, email, phone, address, description, source]
+      );
+      // notificar moderador (función existente)
+      await notifyModerator('product', null, name, null);
+      return res.status(202).json({ warning: 'Nombre o descripción pendiente de revisión' });
+    }
+
+    // url del logo si hubo archivo
+    const host = process.env.BACKEND_URL || `http://${process.env.HOST || 'localhost'}:${process.env.PORT || 3000}`;
+    const logo_url = req.file ? `${host}/uploads/nat/${req.file.filename}` : null;
+
+    const { rows } = await pool.query(
+      `INSERT INTO companies_nat (name, industry, type, email, phone, address, description, logo_url, source)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id, name, logo_url, created_at`,
+      [name, industry, type, email, phone, address, description, logo_url, source]
+    );
+
+    res.json(rows[0]);
+  } catch (err) {
+    console.error('Error /api/companies/register', err.message);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 /* ---------- ADMIN: listar usuarios ---------- */
 app.get('/admin/users', async (req, res) => {
   const secret = req.headers['x-admin-secret'];
@@ -1646,6 +1691,20 @@ CREATE TABLE IF NOT EXISTS product_images (
     url TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT NOW()
 );
+
+    CREATE TABLE IF NOT EXISTS companies_nat (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      industry TEXT,
+      type TEXT,
+      email TEXT,
+      phone TEXT,
+      address TEXT,
+      description TEXT,
+      logo_url TEXT,
+      source TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
 `,
   ];
 

@@ -1550,6 +1550,32 @@ app.get('/np/auth/me', async (req, res) => {
   }
 });
 
+/* ----------  CONTAR VISTA  ---------- */
+app.patch('/natmarket/products/:id/view', async (req, res) => {
+  const { id } = req.params;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows } = await client.query(
+      `UPDATE products_nat
+         SET views = views + 1
+       WHERE id = $1
+       RETURNING views`,
+      [id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Producto no encontrado' });
+    await client.query('COMMIT');
+    res.json({ views: rows[0].views });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('[VIEW]', err);
+    res.status(500).json({ error: 'Error interno' });
+  } finally {
+    client.release();
+  }
+});
+
+
 /* ---------- ENDPOINTS de demo: Registrar Empresa ---------- */
 app.get('/enterprise', (_req, res) => {
   // sirve el index.html de la carpeta "Enterprise Registration"

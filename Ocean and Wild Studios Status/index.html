@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Ocean and Wild – Estado de Servicios</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    /* Atlassian-like tokens (Ocean & Wild palette) */
+    :root {
+      --ow-blue: #0052CC;
+      --ow-green: #36B37E;
+      --ow-yellow: #FFC400;
+      --ow-red: #FF5630;
+      --ow-dark: #172B4D;
+      --ow-gray: #F4F5F7;
+      --ow-white: #FFFFFF;
+      --radius: 6px;
+      --font: "Segoe UI", Roboto, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: var(--font);
+      background: var(--ow-gray);
+      color: var(--ow-dark);
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+    header {
+      background: var(--ow-blue);
+      color: var(--ow-white);
+      padding: 1.2rem 1rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,.1);
+    }
+    header h1 { margin: 0; font-size: 1.4rem; font-weight: 600; }
+    main {
+      flex: 1;
+      max-width: 960px;
+      width: 100%;
+      margin: 2rem auto;
+      padding: 0 1rem;
+    }
+    .card {
+      background: var(--ow-white);
+      border-radius: var(--radius);
+      padding: 1.2rem 1.5rem;
+      margin-bottom: 1rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,.08);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      transition: transform .15s;
+    }
+    .card:hover { transform: translateY(-2px); }
+    .name { font-weight: 600; font-size: 1.05rem; }
+    .badge {
+      padding: .25rem .6rem;
+      border-radius: var(--radius);
+      font-size: .75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .up { background: var(--ow-green); color: var(--ow-white); }
+    .down { background: var(--ow-red); color: var(--ow-white); }
+    .soon { background: var(--ow-yellow); color: var(--ow-dark); }
+    .time {
+      font-size: .75rem;
+      color: #6B778C;
+      margin-left: auto;
+      margin-right: .8rem;
+    }
+    footer {
+      text-align: center;
+      padding: 1rem;
+      font-size: .75rem;
+      color: #6B778C;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🌊 Ocean and Wild Studios – Estado de Servicios</h1>
+  </header>
+
+  <main id="services"></main>
+
+  <footer>
+    Refresco automático cada 30 s · Última comprobación: <span id="last"></span>
+  </footer>
+
+  <script>
+    /* Mapeo nombre → ruta simbólica (solo GET) */
+    const SERVICES = [
+      { name: 'EcoConsole', route: 'https://owsdatabase.onrender.com/version' },
+      { name: 'Ecoxion', route: 'https://owsdatabase.onrender.com/api/subscriptions/plans' },
+      { name: 'NatMarket', route: 'https://owsdatabase.onrender.com/natmarket/products' },
+      { name: 'Naturepedia', route: 'https://owsdatabase.onrender.com/np/auth/me' },
+      // Próximamente
+      { name: 'AllApp', route: null },
+      { name: 'Ocean and Wild Nexus', route: null },
+      { name: 'Incremental Cosmic Odyssey', route: null },
+      { name: 'Spedia', route: null }
+    ];
+
+    const container = document.getElementById('services');
+    const lastSpan = document.getElementById('last');
+
+    function fmt(date) {
+      return date.toLocaleTimeString('es-ES');
+    }
+
+    async function ping({ name, route }) {
+      if (!route) return { name, status: 'soon', ms: null };
+      const start = performance.now();
+      try {
+        const res = await fetch(route, { method: 'GET', cache: 'no-store' });
+        const ok = res.status < 500;
+        return {
+          name,
+          status: ok ? 'up' : 'down',
+          ms: Math.round(performance.now() - start)
+        };
+      } catch {
+        return { name, status: 'down', ms: null };
+      }
+    }
+
+    async function refresh() {
+      const checks = await Promise.all(SERVICES.map(ping));
+      container.innerHTML = '';
+      checks.forEach(({ name, status, ms }) => {
+        const card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `
+          <span class="name">${name}</span>
+          <span class="time">${ms !== null ? ms + ' ms' : '—'}</span>
+          <span class="badge ${status}">${
+            status === 'up' ? 'Operativo' : status === 'down' ? 'Caído' : 'Próximamente'
+          }</span>
+        `;
+        container.appendChild(card);
+      });
+      lastSpan.textContent = fmt(new Date());
+    }
+
+    refresh();
+    setInterval(refresh, 30000);
+  </script>
+</body>
+</html>

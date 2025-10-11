@@ -48,6 +48,11 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Status page Ocean & Wild Studios – ruta fija
+app.get('/status', (_req, res) =>
+  res.sendFile(path.join(__dirname, 'Ocean and Wild Studios Status', 'index.html'))
+);
+
 // 3️⃣ Ruta de salud (para Sentry + cualquier otro monitor)
 app.get("/", (req, res) => {
   res.json({ status: "ok", service: "ecoxion-api", uptime: process.uptime() });

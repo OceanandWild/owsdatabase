@@ -5,7 +5,6 @@
   <title>Ocean and Wild – Estado de Servicios</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    /* Atlassian-like tokens (Ocean & Wild palette) */
     :root {
       --ow-blue: #0052CC;
       --ow-green: #36B37E;
@@ -32,6 +31,9 @@
       color: var(--ow-white);
       padding: 1.2rem 1rem;
       box-shadow: 0 2px 4px rgba(0,0,0,.1);
+      display: flex;
+      align-items: center;
+      gap: .5rem;
     }
     header h1 { margin: 0; font-size: 1.4rem; font-weight: 600; }
     main {
@@ -64,6 +66,7 @@
     .up { background: var(--ow-green); color: var(--ow-white); }
     .down { background: var(--ow-red); color: var(--ow-white); }
     .soon { background: var(--ow-yellow); color: var(--ow-dark); }
+    .pending { background: #6B778C; color: var(--ow-white); }
     .time {
       font-size: .75rem;
       color: #6B778C;
@@ -76,11 +79,19 @@
       font-size: .75rem;
       color: #6B778C;
     }
+    .loading-row {
+      display: flex;
+      align-items: center;
+      gap: .5rem;
+      color: #6B778C;
+      font-size: .9rem;
+    }
   </style>
 </head>
 <body>
   <header>
-    <h1>🌊 Ocean and Wild Studios – Estado de Servicios</h1>
+    <span>🌊</span>
+    <h1>Ocean and Wild Studios – Estado de Servicios</h1>
   </header>
 
   <main id="services"></main>
@@ -90,13 +101,12 @@
   </footer>
 
   <script>
-    /* Mapeo nombre → ruta simbólica (solo GET) */
     const SERVICES = [
-      { name: 'EcoConsole', route: 'https://owsdatabase.onrender.com/version' },
-      { name: 'Ecoxion', route: 'https://owsdatabase.onrender.com/api/subscriptions/plans' },
-      { name: 'NatMarket', route: 'https://owsdatabase.onrender.com/natmarket/products' },
-      { name: 'Naturepedia', route: 'https://owsdatabase.onrender.com/np/auth/me' },
-      // Próximamente
+      { name: 'EcoConsole', route: '/version' },
+      { name: 'Ecoxion', route: '/api/subscriptions/plans' },
+      { name: 'NatMarket', route: '/natmarket/products' },
+      { name: 'Naturepedia', route: '/np/auth/me' },
+      // Próximamente (sin ruta)
       { name: 'AllApp', route: null },
       { name: 'Ocean and Wild Nexus', route: null },
       { name: 'Incremental Cosmic Odyssey', route: null },
@@ -110,46 +120,69 @@
       return date.toLocaleTimeString('es-ES');
     }
 
-async function ping({ name, route }) {
-  const test = async () => {
-    const start = performance.now();
-    try {
-      const res = await fetch(route, { method: 'GET', cache: 'no-store' });
-      return { name, status: 'up', ms: Math.round(performance.now() - start) };
-    } catch {
-      return null;               // falló
+    /* ---------- tarjeta inicial ---------- */
+    function createCard(svc) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.id = `card-${svc.name.replace(/\s+/g, '-')}`;
+      card.innerHTML = `
+        <span class="name">${svc.name}</span>
+        <span class="time">—</span>
+        <span class="badge pending">Esperando respuesta…</span>
+      `;
+      container.appendChild(card);
+      return card;
     }
-  };
 
-  // 1er intento
-  let r = await test();
-  if (r) return r;
+    /* ---------- actualizar tarjeta ---------- */
+    function updateCard(card, { status, ms }) {
+      const badge = card.querySelector('.badge');
+      const time = card.querySelector('.time');
+      badge.className = `badge ${status}`;
+      badge.textContent =
+        status === 'up' ? 'Operativo' :
+        status === 'down' ? 'Caído' :
+        status === 'soon' ? 'Próximamente' :
+        'Pendiente…';
+      time.textContent = ms !== null ? ms + ' ms' : '—';
+    }
 
-  // 2º intento (espera 1 s)
-  await new Promise(res => setTimeout(res, 1000));
-  r = await test();
-  if (r) return r;
+    /* ---------- ping con reintento ---------- */
+    async function ping(route) {
+      const test = async () => {
+        const start = performance.now();
+        try {
+          const res = await fetch(route, { method: 'GET', cache: 'no-store' });
+          if (res.ok) return { status: 'up', ms: Math.round(performance.now() - start) };
+        } catch {}
+        return null;
+      };
+      let r = await test();
+      if (r) return r;
+      await new Promise(res => setTimeout(res, 1000));
+      r = await test();
+      return r || { status: 'down', ms: null };
+    }
 
-  // definitivamente caído
-  return { name, status: 'down', ms: null };
-}
-
+    /* ---------- proceso progresivo ---------- */
     async function refresh() {
-      const checks = await Promise.all(SERVICES.map(ping));
-      container.innerHTML = '';
-      checks.forEach(({ name, status, ms }) => {
-        const card = document.createElement('div');
-        card.className = 'card';
-        card.innerHTML = `
-          <span class="name">${name}</span>
-          <span class="time">${ms !== null ? ms + ' ms' : '—'}</span>
-          <span class="badge ${status}">${
-            status === 'up' ? 'Operativo' : status === 'down' ? 'Caído' : 'Próximamente'
-          }</span>
-        `;
-        container.appendChild(card);
-      });
       lastSpan.textContent = fmt(new Date());
+
+      // 1. Crear todas las tarjetas (estado inicial)
+      container.innerHTML = '';
+      const cards = {};
+      SERVICES.forEach(s => cards[s.name] = createCard(s));
+
+      // 2. Resolver "Próximamente" sin fetch
+      SERVICES.filter(s => s.route === null).forEach(s => {
+        updateCard(cards[s.name], { status: 'soon', ms: null });
+      });
+
+      // 3. Resolver servicios reales uno a uno
+      for (const s of SERVICES.filter(s => s.route !== null)) {
+        const result = await ping(s.route);
+        updateCard(cards[s.name], result);
+      }
     }
 
     refresh();

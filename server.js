@@ -1550,25 +1550,49 @@ app.get('/np/auth/me', async (req, res) => {
   }
 });
 
-/* ----------  CONTAR VISTA  ---------- */
+/* ----------  CONTAR VISTA (1 por usuario)  ---------- */
 app.patch('/natmarket/products/:id/view', async (req, res) => {
-  const { id } = req.params;
+  const { id } = req.params;               // productId
+  const userId = req.headers['x-user-id']; // viene del front (session)
+  if (!userId) return res.status(400).json({ error: 'Falta x-user-id' });
+
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+
+    // 1. ¿ya vio?
     const { rows } = await client.query(
+      `SELECT 1 FROM product_views_unique
+       WHERE user_id = $1 AND product_id = $2`,
+      [userId, id]
+    );
+    if (rows.length) {               // ya contó -> solo devolver total
+      const { rows: total } = await client.query(
+        'SELECT views FROM products_nat WHERE id = $1', [id]
+      );
+      await client.query('COMMIT');
+      return res.json({ views: total[0].views, firstTime: false });
+    }
+
+    // 2. insertar par
+    await client.query(
+      `INSERT INTO product_views_unique(user_id, product_id) VALUES ($1,$2)`,
+      [userId, id]
+    );
+
+    // 3. incrementar contador
+    const { rows: total } = await client.query(
       `UPDATE products_nat
          SET views = views + 1
        WHERE id = $1
        RETURNING views`,
       [id]
     );
-    if (!rows.length) return res.status(404).json({ error: 'Producto no encontrado' });
     await client.query('COMMIT');
-    res.json({ views: rows[0].views });
+    res.json({ views: total[0].views, firstTime: true });
   } catch (err) {
     await client.query('ROLLBACK');
-    console.error('[VIEW]', err);
+    console.error('[VIEW-UNIQUE]', err);
     res.status(500).json({ error: 'Error interno' });
   } finally {
     client.release();

@@ -48,9 +48,14 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Status page Ocean & Wild Studios – ruta fija
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
 app.get('/status', (_req, res) =>
-  res.sendFile(path.join(__dirname, 'Ocean and Wild Studios Status', 'index.html'))
+  res.sendFile(join(__dirname, 'Ocean and Wild Studios Status', 'index.html'))
 );
 
 

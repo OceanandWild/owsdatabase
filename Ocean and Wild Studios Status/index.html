@@ -110,21 +110,29 @@
       return date.toLocaleTimeString('es-ES');
     }
 
-    async function ping({ name, route }) {
-      if (!route) return { name, status: 'soon', ms: null };
-      const start = performance.now();
-      try {
-        const res = await fetch(route, { method: 'GET', cache: 'no-store' });
-        const ok = res.status < 500;
-        return {
-          name,
-          status: ok ? 'up' : 'down',
-          ms: Math.round(performance.now() - start)
-        };
-      } catch {
-        return { name, status: 'down', ms: null };
-      }
+async function ping({ name, route }) {
+  const test = async () => {
+    const start = performance.now();
+    try {
+      const res = await fetch(route, { method: 'GET', cache: 'no-store' });
+      return { name, status: 'up', ms: Math.round(performance.now() - start) };
+    } catch {
+      return null;               // falló
     }
+  };
+
+  // 1er intento
+  let r = await test();
+  if (r) return r;
+
+  // 2º intento (espera 1 s)
+  await new Promise(res => setTimeout(res, 1000));
+  r = await test();
+  if (r) return r;
+
+  // definitivamente caído
+  return { name, status: 'down', ms: null };
+}
 
     async function refresh() {
       const checks = await Promise.all(SERVICES.map(ping));

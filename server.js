@@ -1776,19 +1776,6 @@ function handleNatError(res, err, place = '') {
 await ensureDatabase(); 
 await ensureTables();
 
-// 2️⃣ Error handler de Sentry (después de rutas)
-import * as Sentry from "@sentry/node";
-Sentry.setupExpressErrorHandler(app);
-
-
-
-// 3️⃣ Fallback
-app.use((err, req, res, _next) => {
-  console.error(err);
-  res.status(500).json({ error: "Algo salió mal", sentry: res.sentry });
-});
-
-
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🚀 API corriendo en http://localhost:${PORT}`));

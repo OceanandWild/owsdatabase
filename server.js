@@ -53,10 +53,7 @@ app.get('/status', (_req, res) =>
   res.sendFile(path.join(__dirname, 'Ocean and Wild Studios Status', 'index.html'))
 );
 
-// 3️⃣ Ruta de salud (para Sentry + cualquier otro monitor)
-app.get("/", (req, res) => {
-  res.json({ status: "ok", service: "ecoxion-api", uptime: process.uptime() });
-});
+
 
 const FORBIDDEN = [
   /\bcoca[ií]na\b/i, /\bporro\b/i, /\bmari[h]uana\b/i,

@@ -1652,6 +1652,85 @@ app.post('/api/companies/register', upload.single('logo'), async (req, res) => {
   }
 });
 
+/* ----------  REGISTER  ---------- */
+app.post('/ocean-pay/register', async (req,res)=>{
+  const {username, password} = req.body;
+  if(!username||!password) return res.status(400).json({error:'Faltan datos'});
+  const hash = await bcrypt.hash(password,10);
+  try{
+    const {rows:[u]}=await pool.query(
+      `INSERT INTO ocean_pay_users (username,pwd_hash,aquabux)
+       VALUES ($1,$2,10000) RETURNING id,username,aquabux`,
+      [username,hash]
+    );
+    res.json({success:true,user:{id:u.id,username:u.username,aquabux:u.aquabux}});
+  }catch(e){
+    if(e.code==='23505') return res.status(409).json({error:'Usuario ya existe'});
+    res.status(500).json({error:'Error interno'});
+  }
+});
+
+/* ----------  LOGIN  ---------- */
+app.post('/ocean-pay/login', async (req,res)=>{
+  const {username,password}=req.body;
+  if(!username||!password) return res.status(400).json({error:'Faltan datos'});
+  const {rows}=await pool.query('SELECT id,pwd_hash,aquabux FROM ocean_pay_users WHERE username=$1',[username]);
+  if(rows.length===0) return res.status(401).json({error:'Credenciales incorrectas'});
+  const ok=await bcrypt.compare(password,rows[0].pwd_hash);
+  if(!ok) return res.status(401).json({error:'Credenciales incorrectas'});
+  const token=jwt.sign({uid:rows[0].id,un:username},process.env.STUDIO_SECRET,{expiresIn:'7d'});
+  res.json({token,user:{id:rows[0].id,username,aquabux:rows[0].aquabux}});
+});
+
+/* ----------  CURRENT BALANCE  ---------- */
+app.get('/ocean-pay/balance/:userId', async (req,res)=>{
+  const {userId}=req.params;
+  const {rows}=await pool.query('SELECT aquabux FROM ocean_pay_users WHERE id=$1',[userId]);
+  if(rows.length===0) return res.status(404).json({error:'Usuario no encontrado'});
+  res.json({balance:rows[0].aquabux});
+});
+
+/* ----------  ADD / SUBTRACT  AQUABUX  (atomic)  ---------- */
+app.post('/ocean-pay/change', async (req,res)=>{
+  const {userId,amount}=req.body;          // + increment / – decrement
+  if(!userId||amount===undefined) return res.status(400).json({error:'Faltan datos'});
+  const client=await pool.connect();
+  try{
+    await client.query('BEGIN');
+    const {rows}=await client.query(
+      'SELECT aquabux FROM ocean_pay_users WHERE id=$1 FOR UPDATE',
+      [userId]
+    );
+    if(rows.length===0){await client.query('ROLLBACK'); return res.status(404).json({error:'Usuario no encontrado'});}
+    const newBux=rows[0].aquabux+amount;
+    if(newBux<0){await client.query('ROLLBACK'); return res.status(400).json({error:'Saldo insuficiente'});}
+    await client.query(
+      'UPDATE ocean_pay_users SET aquabux=$1 WHERE id=$2 RETURNING aquabux',
+      [newBux,userId]
+    );
+    await client.query('COMMIT');
+    res.json({success:true,newBalance:newBux});
+  }catch(e){
+    await client.query('ROLLBACK');
+    console.error(e); res.status(500).json({error:'Error interno'});
+  }finally{client.release();}
+});
+
+/* ----------  WHO AM I ?  (validates JWT)  ---------- */
+app.get('/ocean-pay/me', async (req,res)=>{
+  const auth=req.headers.authorization;            // Bearer <token>
+  if(!auth) return res.status(401).json({error:'Sin token'});
+  try{
+    const payload=jwt.verify(auth.split(' ')[1], process.env.STUDIO_SECRET);
+    const {rows}=await pool.query(
+      'SELECT id,username,aquabux FROM ocean_pay_users WHERE id=$1',
+      [payload.uid]
+    );
+    if(rows.length===0) return res.status(404).json({error:'Usuario no encontrado'});
+    res.json(rows[0]);
+  }catch(e){res.status(401).json({error:'Token inválido'});}
+});
+
 /* ---------- ADMIN: listar usuarios ---------- */
 app.get('/admin/users', async (req, res) => {
   const secret = req.headers['x-admin-secret'];
@@ -1762,6 +1841,15 @@ CREATE TABLE IF NOT EXISTS product_images (
       source TEXT,
       created_at TIMESTAMP DEFAULT NOW()
     );
+
+      CREATE TABLE IF NOT EXISTS ocean_pay_users (
+    id          SERIAL PRIMARY KEY,
+    username    VARCHAR(60) UNIQUE NOT NULL,
+    pwd_hash    TEXT NOT NULL,
+    aquabux     INTEGER DEFAULT 0,
+    created_at  TIMESTAMP DEFAULT NOW()
+  );
+
 `,
   ];
 

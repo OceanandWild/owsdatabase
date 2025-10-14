@@ -1690,11 +1690,9 @@ app.get('/ocean-pay/balance/:userId', async (req,res)=>{
   res.json({balance:rows[0].aquabux});
 });
 
-/* ----------  ADD / SUBTRACT  AQUABUX  (with concept)  ---------- */
 app.post('/ocean-pay/change', async (req, res) => {
   const { userId, amount, concepto = 'Operación', origen = 'Ocean Pay' } = req.body;
-  if (!userId || amount === undefined)
-    return res.status(400).json({ error: 'Faltan datos' });
+  console.log('📥 origen recibido:', origen); // ← depuración
 
   const client = await pool.connect();
   try {
@@ -1722,22 +1720,20 @@ app.post('/ocean-pay/change', async (req, res) => {
     );
 
     // 3. save transaction
-  await client.query(
-    'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen) VALUES ($1,$2,$3,$4)',
-    [userId, concepto, amount, origen]
-  );
+    await client.query(
+      'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen) VALUES ($1,$2,$3,$4)',
+      [userId, concepto, amount, origen]
+    );
 
     await client.query('COMMIT');
     res.json({ success: true, newBalance: newBux });
   } catch (e) {
     await client.query('ROLLBACK');
-    console.error(e);
-    res.status(500).json({ error: 'Error interno' });
+    console.error(e); res.status(500).json({ error: 'Error interno' });
   } finally {
     client.release();
   }
 });
-
 /* ----------  WHO AM I ?  (validates JWT)  ---------- */
 app.get('/ocean-pay/me', async (req,res)=>{
   const auth=req.headers.authorization;            // Bearer <token>

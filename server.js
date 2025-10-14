@@ -1690,30 +1690,52 @@ app.get('/ocean-pay/balance/:userId', async (req,res)=>{
   res.json({balance:rows[0].aquabux});
 });
 
-/* ----------  ADD / SUBTRACT  AQUABUX  (atomic)  ---------- */
-app.post('/ocean-pay/change', async (req,res)=>{
-  const {userId,amount}=req.body;          // + increment / – decrement
-  if(!userId||amount===undefined) return res.status(400).json({error:'Faltan datos'});
-  const client=await pool.connect();
-  try{
+/* ----------  ADD / SUBTRACT  AQUABUX  (with concept)  ---------- */
+app.post('/ocean-pay/change', async (req, res) => {
+  const { userId, amount, concepto = 'Operación' } = req.body;
+  if (!userId || amount === undefined)
+    return res.status(400).json({ error: 'Faltan datos' });
+
+  const client = await pool.connect();
+  try {
     await client.query('BEGIN');
-    const {rows}=await client.query(
-      'SELECT aquabux FROM ocean_pay_users WHERE id=$1 FOR UPDATE',
+
+    // 1. lock & read
+    const { rows } = await client.query(
+      'SELECT aquabux FROM ocean_pay_users WHERE id = $1 FOR UPDATE',
       [userId]
     );
-    if(rows.length===0){await client.query('ROLLBACK'); return res.status(404).json({error:'Usuario no encontrado'});}
-    const newBux=rows[0].aquabux+amount;
-    if(newBux<0){await client.query('ROLLBACK'); return res.status(400).json({error:'Saldo insuficiente'});}
+    if (rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+    const newBux = rows[0].aquabux + amount;
+    if (newBux < 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Saldo insuficiente' });
+    }
+
+    // 2. update balance
     await client.query(
-      'UPDATE ocean_pay_users SET aquabux=$1 WHERE id=$2 RETURNING aquabux',
-      [newBux,userId]
+      'UPDATE ocean_pay_users SET aquabux = $1 WHERE id = $2',
+      [newBux, userId]
     );
+
+    // 3. save transaction
+    await client.query(
+      'INSERT INTO ocean_pay_txs (user_id, concepto, monto) VALUES ($1,$2,$3)',
+      [userId, concepto, amount]
+    );
+
     await client.query('COMMIT');
-    res.json({success:true,newBalance:newBux});
-  }catch(e){
+    res.json({ success: true, newBalance: newBux });
+  } catch (e) {
     await client.query('ROLLBACK');
-    console.error(e); res.status(500).json({error:'Error interno'});
-  }finally{client.release();}
+    console.error(e);
+    res.status(500).json({ error: 'Error interno' });
+  } finally {
+    client.release();
+  }
 });
 
 /* ----------  WHO AM I ?  (validates JWT)  ---------- */
@@ -1729,6 +1751,25 @@ app.get('/ocean-pay/me', async (req,res)=>{
     if(rows.length===0) return res.status(404).json({error:'Usuario no encontrado'});
     res.json(rows[0]);
   }catch(e){res.status(401).json({error:'Token inválido'});}
+});
+
+/* ----------  TRANSACTIONS HISTORY  ---------- */
+app.get('/ocean-pay/txs/:userId', async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const { rows } = await pool.query(
+      `SELECT concepto, monto, created_at
+       FROM ocean_pay_txs
+       WHERE user_id = $1
+       ORDER BY created_at DESC
+       LIMIT 50`,
+      [userId]
+    );
+    res.json(rows);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Error interno' });
+  }
 });
 
 /* ---------- ADMIN: listar usuarios ---------- */

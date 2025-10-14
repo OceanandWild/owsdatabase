@@ -1692,7 +1692,7 @@ app.get('/ocean-pay/balance/:userId', async (req,res)=>{
 
 /* ----------  ADD / SUBTRACT  AQUABUX  (with concept)  ---------- */
 app.post('/ocean-pay/change', async (req, res) => {
-  const { userId, amount, concepto = 'Operación' } = req.body;
+  const { userId, amount, concepto = 'Operación', origen = 'Ocean Pay' } = req.body;
   if (!userId || amount === undefined)
     return res.status(400).json({ error: 'Faltan datos' });
 
@@ -1722,10 +1722,10 @@ app.post('/ocean-pay/change', async (req, res) => {
     );
 
     // 3. save transaction
-    await client.query(
-      'INSERT INTO ocean_pay_txs (user_id, concepto, monto) VALUES ($1,$2,$3)',
-      [userId, concepto, amount]
-    );
+  await client.query(
+    'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen) VALUES ($1,$2,$3,$4)',
+    [userId, concepto, amount, origen]
+  );
 
     await client.query('COMMIT');
     res.json({ success: true, newBalance: newBux });

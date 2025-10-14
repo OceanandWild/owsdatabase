@@ -1757,14 +1757,14 @@ app.get('/ocean-pay/me', async (req,res)=>{
 app.get('/ocean-pay/txs/:userId', async (req, res) => {
   const { userId } = req.params;
   try {
-    const { rows } = await pool.query(
-      `SELECT concepto, monto, created_at
-       FROM ocean_pay_txs
-       WHERE user_id = $1
-       ORDER BY created_at DESC
-       LIMIT 50`,
-      [userId]
-    );
+const { rows } = await pool.query(
+  `SELECT concepto, monto, created_at, origen
+   FROM ocean_pay_txs
+   WHERE user_id = $1
+   ORDER BY created_at DESC
+   LIMIT 50`,
+  [userId]
+);
     res.json(rows);
   } catch (e) {
     console.error(e);

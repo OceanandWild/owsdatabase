@@ -357,14 +357,14 @@ async function renderTransacciones() {
       headers: { Authorization: 'Bearer ' + token }
     })).json();
 
-    ul.innerHTML = txs.length
-      ? txs.map(tx => `
-          <li>
-            <span>${tx.concepto} · ${new Date(tx.created_at).toLocaleString()}</span>
-            <span>${tx.monto > 0 ? '+' : ''}${tx.monto} AB</span>
-            <small style="color:#9bb0c2;">${tx.origen}</small>
-          </li>`).join('')
-      : '<li style="opacity:.6">No hay movimientos</li>';
+ul.innerHTML = txs.length
+  ? txs.map(tx => `
+      <li>
+        <span>${tx.concepto} · ${new Date(tx.created_at).toLocaleString()}</span>
+        <span>${tx.monto > 0 ? '+' : ''}${tx.monto} ${tx.moneda}</span>
+        <small style="color:#9bb0c2;">${tx.origen}</small>
+      </li>`).join('')
+  : '<li style="opacity:.6">No hay movimientos</li>';
 
   } catch (err) {
     console.warn('[Ocean-Pay] renderTransacciones:', err);

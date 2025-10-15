@@ -54,6 +54,8 @@ import { dirname, join } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+app.use('/ocean-pay', express.static(join(__dirname, 'Ocean Pay')));
+
 app.get('/status', (_req, res) =>
   res.sendFile(join(__dirname, 'Ocean and Wild Studios Status', 'index.html'))
 );
@@ -1734,6 +1736,8 @@ app.post('/ocean-pay/change', async (req, res) => {
     client.release();
   }
 });
+
+
 /* ----------  WHO AM I ?  (validates JWT)  ---------- */
 app.get('/ocean-pay/me', async (req,res)=>{
   const auth=req.headers.authorization;            // Bearer <token>

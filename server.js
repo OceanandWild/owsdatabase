@@ -1662,21 +1662,41 @@ app.post('/api/companies/register', upload.single('logo'), async (req, res) => {
   }
 });
 
-/* ----------  REGISTER  ---------- */
-app.post('/ocean-pay/register', async (req,res)=>{
-  const {username, password} = req.body;
-  if(!username||!password) return res.status(400).json({error:'Faltan datos'});
-  const hash = await bcrypt.hash(password,10);
-  try{
-    const {rows:[u]}=await pool.query(
-      `INSERT INTO ocean_pay_users (username,pwd_hash,aquabux)
-       VALUES ($1,$2,10000) RETURNING id,username,aquabux`,
-      [username,hash]
+app.post('/ocean-pay/register', async (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) return res.status(400).json({ error: 'Faltan datos' });
+
+  const hash = await bcrypt.hash(password, 10);
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // 1. Crear en ocean_pay_users
+    const { rows: [u] } = await client.query(
+      `INSERT INTO ocean_pay_users (username, pwd_hash, aquabux)
+       VALUES ($1, $2, 10000)
+       RETURNING id, username, aquabux`,
+      [username, hash]
     );
-    res.json({success:true,user:{id:u.id,username:u.username,aquabux:u.aquabux}});
-  }catch(e){
-    if(e.code==='23505') return res.status(409).json({error:'Usuario ya existe'});
-    res.status(500).json({error:'Error interno'});
+
+    // 2. Crear en users (para EcoCoreBits)
+    await client.query(
+      `INSERT INTO users (id, username, password, balance)
+       VALUES ($1, $2, $3, 0)
+       ON CONFLICT (id) DO NOTHING`,
+      [u.id, username, 'nopass']
+    );
+
+    await client.query('COMMIT');
+    res.json({ success: true, user: { id: u.id, username: u.username, aquabux: u.aquabux } });
+
+  } catch (e) {
+    await client.query('ROLLBACK');
+    if (e.code === '23505') return res.status(409).json({ error: 'Usuario ya existe' });
+    res.status(500).json({ error: 'Error interno' });
+  } finally {
+    client.release();
   }
 });
 

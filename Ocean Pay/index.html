@@ -199,9 +199,12 @@ const show = (sel, on = true) => {
     await autoLogin(qs('#logUser').value,qs('#logPass').value);
   };
 
-  async function loadEcoCoreBalance() {
+async function loadEcoCoreBalance() {
   const user = JSON.parse(localStorage.getItem('opUser') || '{}');
-  if (!user.id) return; // No vinculado aún
+  if (!user.id) {
+    qs('#ecobits').textContent = '0';
+    return;
+  }
 
   try {
     const res = await fetch(`${API}/ecocore/bits/${user.id}`);

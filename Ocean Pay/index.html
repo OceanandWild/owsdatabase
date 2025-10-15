@@ -344,7 +344,7 @@ async function renderTransacciones() {
   if (token && window.opener) {
     window.opener.postMessage(
       { type: 'ocean-pay-token', token, user },
-      'https://tu-app.onrender.com'   // ← mismo origen que abrió el pop-up
+      'https://owsdatabase.onrender.com'   // ← mismo origen que abrió el pop-up
     );
     setTimeout(() => window.close(), 600);
     return;
@@ -360,7 +360,7 @@ async function renderTransacciones() {
       if (tk && window.opener) {
         window.opener.postMessage(
           { type: 'ocean-pay-token', token: tk, user: us },
-          'https://tu-app.onrender.com'
+          'https://owsdatabase.onrender.com'
         );
         setTimeout(() => window.close(), 800);
       }
@@ -381,5 +381,6 @@ notifyParent();
 </body>
 
 </html>
+
 
 

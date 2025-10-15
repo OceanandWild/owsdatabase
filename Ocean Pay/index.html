@@ -127,11 +127,10 @@ button:active{transform:scale(.98);}
           <span class="amount">—</span>
           <span class="badge">Próximamente</span>
         </div>
-        <div class="currency-card soon">
-          <span class="label">EcoCoreBits</span>
-          <span class="amount">—</span>
-          <span class="badge">Próximamente</span>
-        </div>
+        <div class="currency-card">
+  <span class="label">EcoCoreBits</span>
+  <span class="amount" id="ecobits">0</span>
+</div>
         <div class="currency-card soon">
           <span class="label">AppBux</span>
           <span class="amount">—</span>
@@ -199,6 +198,19 @@ const show = (sel, on = true) => {
     e.preventDefault();
     await autoLogin(qs('#logUser').value,qs('#logPass').value);
   };
+
+  async function loadEcoCoreBalance() {
+  const user = JSON.parse(localStorage.getItem('opUser') || '{}');
+  if (!user.id) return; // No vinculado aún
+
+  try {
+    const res = await fetch(`${API}/ecocore/bits/${user.id}`);
+    const { bits } = await res.json();
+    qs('#ecobits').textContent = bits.toLocaleString();
+  } catch {
+    qs('#ecobits').textContent = '0';
+  }
+}
 /* ----------  LOGIN (único fetch) ---------- */
 async function autoLogin(username, password) {
   console.log('[LOGIN] Enviando:', { username, password });
@@ -243,6 +255,9 @@ if (window.opener) {
   /* 🔓 Modo standalone: quedarse en la wallet */
   console.log('[Ocean-Pay] Sin ventana padre → modo independiente');
 }
+
+// Dentro de autoLogin()
+await loadEcoCoreBalance();
 
   // ✅ Cerramos la ventana después de 6 s
   setTimeout(() => window.close(), 6000);
@@ -380,10 +395,3 @@ notifyParent();
 </script>
 </body>
 </html>
-
-
-
-
-
-
-

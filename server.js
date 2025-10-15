@@ -54,8 +54,16 @@ import { dirname, join } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = dirname(__filename);
 
-/* ---- SERVIR "Ocean Pay" (con espacio) ---- */
-app.use('/ocean-pay', express.static(join(__dirname, 'Ocean Pay')));
+
+
+app.get('/ocean-pay/index.html', (_req, res) => {
+  try {
+    const html = fs.readFileSync(join(__dirname, 'Ocean Pay', 'index.html'), 'utf-8');
+    res.type('html').send(html);
+  } catch (e) {
+    res.status(404).send('Archivo no encontrado');
+  }
+});
 app.get('/status', (_req, res) =>
   res.sendFile(join(__dirname, 'Ocean and Wild Studios Status', 'index.html'))
 );

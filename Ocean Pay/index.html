@@ -335,6 +335,18 @@ async function renderTransacciones() {
   }
 }
 
+    /* ----------  POST TOKEN BACK TO PARENT  ---------- */
+  (() => {
+    const token = localStorage.getItem('opToken');
+    const user  = JSON.parse(localStorage.getItem('opUser') || '{}');
+    if (token && window.opener) {
+      window.opener.postMessage(
+        { type: 'ocean-pay-token', token, user },
+        'https://tu-app.onrender.com'   // ← tu dominio real
+      );
+      setTimeout(() => window.close(), 800);
+    }
+  })();
 
   /* cuando el login / registro termine OK */
 function notifyParent(){
@@ -347,4 +359,5 @@ notifyParent();
 
 </script>
 </body>
+
 </html>

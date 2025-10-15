@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<title>Ocean Pay – Tu billetera de AquaBux</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<style>
+:root{
+  --bg:#0b1020;
+  --card:#0b1930;
+  --accent:#22d3ee;
+  --text:#cbe8ff;
+  --ok:#10b981;
+  --err:#ef4444;
+  --glass:rgba(255,255,255,.05);
+}
+*{box-sizing:border-box;margin:0;font-family:system-ui,Arial,Helvetica,sans-serif;}
+body{
+  background:radial-gradient(circle at 50% 50%,#0b1f3a 0%,#030b18 100%);
+  color:var(--text);
+  display:flex;align-items:center;justify-content:center;min-height:100vh;padding:1rem;
+}
+.ocean-card{
+  width:100%;max-width:420px;background:var(--glass);
+  backdrop-filter:blur(12px);border:1px solid var(--accent);
+  border-radius:1.25rem;padding:2rem;
+  box-shadow:0 0 30px rgba(34,211,238,.35);
+}
+h1{
+  text-align:center;margin-bottom:1.5rem;font-size:1.9rem;
+  background:linear-gradient(90deg,var(--accent),#a6e1ff);
+  -webkit-background-clip:text;background-clip:text;color:transparent;
+}
+label{font-size:.9rem;margin-bottom:.25rem;display:block;}
+input{
+  width:100%;padding:.75rem;border-radius:.5rem;
+  border:1px solid var(--accent);background:#061124;color:var(--text);
+  margin-bottom:1rem;
+}
+button{
+  cursor:pointer;width:100%;padding:.75rem;border:none;
+  border-radius:.5rem;font-weight:700;background:var(--accent);
+  color:#0b1020;transition:background .2s,transform .1s;
+}
+button:hover{background:#67e8f9;}
+button:active{transform:scale(.98);}
+.msg{font-size:.85rem;margin-top:.25rem;}
+.error{color:var(--err);}
+.success{color:var(--ok);}
+.hidden{display:none !important;}
+
+/* Formularios con fade */
+.form-box{
+  display:flex;flex-direction:column;
+  animation:fadeIn .4s ease;
+}
+@keyframes fadeIn{
+  from{opacity:0;transform:translateY(-10px);}
+  to{opacity:1;transform:translateY(0);}
+}
+
+/* Wallet */
+.balance-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:1rem;
+}
+.currency-card{
+  background:var(--glass);border:1px solid var(--accent);
+  border-radius:.75rem;padding:.75rem;
+  display:flex;flex-direction:column;gap:.25rem;position:relative;
+  transition:transform .2s;
+}
+.currency-card:hover{transform:translateY(-2px);}
+.currency-card.active{border-color:var(--ok);}
+.currency-card.soon{opacity:.6;}
+.currency-card .label{font-size:.8rem;color:#9bb0c2;}
+.currency-card .amount{font-size:1.4rem;font-weight:700;}
+.currency-card .badge{
+  position:absolute;top:.25rem;right:.5rem;font-size:.65rem;
+  background:var(--accent);color:#0b1020;padding:.15rem .35rem;border-radius:.25rem;
+}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:1rem;}
+.tx-details{margin-top:1rem;}
+.tx-details summary{cursor:pointer;list-style:none;color:var(--accent);}
+.tx-list{max-height:180px;overflow-y:auto;margin-top:.5rem;padding-left:1rem;}
+.tx-list li{display:flex;justify-content:space-between;font-size:.8rem;padding:.25rem 0;border-bottom:1px solid rgba(255,255,255,.05);}
+.tx-list li span:first-child{color:#9bb0c2;}
+.tx-list li span:last-child{font-weight:600;}
+.divider{margin:1.5rem 0;border-color:rgba(34,211,238,.2);}
+.toggle-p{text-align:center;margin-top:1rem;font-size:.8rem;color:#9bb0c2;}
+.toggle-p a{color:var(--accent);}
+</style>
+</head>
+<body>
+  <div class="ocean-card">
+    <h1>🌊 Ocean Pay</h1>
+
+    <!-- LOGIN -->
+    <form id="loginForm" class="form-box">
+      <label>Usuario</label>
+      <input type="text" id="logUser" required placeholder="Tu usuario" />
+      <label>Contraseña</label>
+      <input type="password" id="logPass" required placeholder="••••••••" />
+      <button type="submit">Ingresar</button>
+      <p id="logMsg" class="msg hidden"></p>
+    </form>
+
+    <!-- REGISTER -->
+    <form id="regForm" class="form-box hidden">
+      <label>Usuario</label>
+      <input type="text" id="regUser" required placeholder="Nuevo usuario" />
+      <label>Contraseña</label>
+      <input type="password" id="regPass" required placeholder="••••••••" />
+      <button type="submit">Crear cuenta</button>
+      <p id="regMsg" class="msg hidden"></p>
+    </form>
+
+    <!-- WALLET -->
+    <div id="wallet" class="hidden">
+      <!-- Multi-divisa -->
+      <div class="balance-grid">
+        <div class="currency-card active">
+          <span class="label">AquaBux</span>
+          <span class="amount" id="bux">0</span>
+        </div>
+        <div class="currency-card soon">
+          <span class="label">Ecoxionums</span>
+          <span class="amount">—</span>
+          <span class="badge">Próximamente</span>
+        </div>
+        <div class="currency-card soon">
+          <span class="label">EcoCoreBits</span>
+          <span class="amount">—</span>
+          <span class="badge">Próximamente</span>
+        </div>
+        <div class="currency-card soon">
+          <span class="label">AppBux</span>
+          <span class="amount">—</span>
+          <span class="badge">Próximamente</span>
+        </div>
+      </div>
+
+      <!-- Acciones rápidas -->
+      <div class="actions">
+        <button id="addBtn">+ 1 000 AB (demo)</button>
+        <button id="subBtn">− 500 AB (demo)</button>
+        <p id="walletMsg" class="msg hidden"></p>
+      </div>
+
+      <!-- Transacciones -->
+      <details class="tx-details">
+        <summary>Historial de transacciones</summary>
+        <ul id="txList" class="tx-list"></ul>
+      </details>
+
+      <hr class="divider" />
+      <button id="logoutBtn">Cerrar sesión</button>
+    </div>
+
+    <!-- Toggle link -->
+    <p class="toggle-p">
+      ¿Ya tienes cuenta? <a href="#" id="toggleLink">Inicia sesión</a>
+    </p>
+  </div>
+
+
+<script>
+  const API='https://owsdatabase.onrender.com'; // same origin
+  let token='', userId=0;
+
+  /* ----------  HELPERS  ---------- */
+  const qs=x=>document.querySelector(x);
+const show = (sel, on = true) => {
+  const el = typeof sel === 'string' ? qs(sel) : sel;
+  if (el) el.classList.toggle('hidden', !on);
+};
+
+  /* ----------  UI TOGGLE  ---------- */
+  qs('#toggleLink').onclick=e=>{
+    e.preventDefault();
+    const login=qs('#loginForm').classList.contains('hidden');
+    show('#regForm',!login);
+    show('#loginForm',login);
+    qs('#toggleLink').textContent=login?'Crear cuenta':'Iniciar sesión';
+  };
+
+  /* ----------  REGISTER  ---------- */
+  qs('#regForm').onsubmit=async e=>{
+    e.preventDefault();
+    const body={username:qs('#regUser').value, password:qs('#regPass').value};
+    const res=await fetch(API+'/ocean-pay/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const data=await res.json();
+    if(!res.ok) return qs('#regMsg').textContent=data.error;
+    qs('#regMsg').className='success'; qs('#regMsg').textContent='¡Cuenta creada! Bienvenido.';
+    setTimeout(()=>autoLogin(body.username,body.password),1000);
+  };
+
+  /* ----------  LOGIN  ---------- */
+  qs('#loginForm').onsubmit=async e=>{
+    e.preventDefault();
+    await autoLogin(qs('#logUser').value,qs('#logPass').value);
+  };
+/* ----------  LOGIN  ---------- */
+async function autoLogin(username, password) {
+  const res = await fetch(API + '/ocean-pay/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password })
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    qs('#logMsg').textContent = data.error;
+    return;
+  }
+  token = data.token;
+  userId = data.user.id;
+  localStorage.setItem('opToken', token);
+  localStorage.setItem('opUser', JSON.stringify(data.user));
+
+  show('#loginForm', false);
+  show('#regForm', false);
+  show('#wallet', true);
+  qs('#bux').textContent = data.user.aquabux;
+
+  /* ⬅️  CARGA EL HISTORIAL  */
+  await renderTransacciones();
+}
+
+  /* ----------  WALLET ACTIONS  ---------- */
+  qs('#addBtn').onclick=()=>changeBux(1000);
+  qs('#subBtn').onclick=()=>changeBux(-500);
+async function changeBux(amount) {
+  const res = await fetch(API + '/ocean-pay/change', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+    body: JSON.stringify({ userId, amount })
+  });
+  const data = await res.json();
+
+  const msgEl = qs('#walletMsg');
+  if (!res.ok) {
+    if (msgEl) {
+      msgEl.className = 'msg error';
+      msgEl.textContent = data.error || 'Error al cambiar saldo';
+      show(msgEl, true);
+    }
+    return;
+  }
+
+  if (msgEl) {
+    msgEl.className = 'msg success';
+    msgEl.textContent = amount > 0 ? `+${amount} AquaBux` : `${amount} AquaBux`;
+    show(msgEl, true);
+  }
+
+  const buxEl = qs('#bux');
+  if (buxEl) buxEl.textContent = data.newBalance;
+}
+
+  /* ----------  LOGOUT  ---------- */
+  qs('#logoutBtn').onclick=()=>{
+    localStorage.removeItem('opToken'); localStorage.removeItem('opUser');
+    token=''; userId=0;
+    show('#wallet',false); show('#regForm',true); show('#loginForm',false);
+    qs('#toggleLink').textContent='Iniciar sesión';
+  };
+
+  /* ----------  INIT SEGURO  ---------- */
+window.addEventListener('DOMContentLoaded', async () => {
+  const t = localStorage.getItem('opToken');
+  if (!t) return; // sin token → mostrar login
+
+  token = t;
+  userId = JSON.parse(localStorage.getItem('opUser') || '{}').id;
+
+  // pinta wallet y saldo
+  show('#wallet', true);
+  show('#regForm', false);
+  show('#loginForm', false);
+  qs('#toggleLink').textContent = 'Crear cuenta';
+
+  const buxEl = qs('#bux');
+  if (buxEl) buxEl.textContent = JSON.parse(localStorage.getItem('opUser') || '{}').aquabux || 0;
+
+  // ⬅️  carga historial
+  await renderTransacciones();
+});
+
+async function renderTransacciones() {
+  const ul = qs('#txList');
+  if (!ul) return;
+
+  const token = localStorage.getItem('opToken');
+  if (!token) {
+    ul.innerHTML = '<li style="opacity:.6">Sin cuenta vinculada</li>';
+    return;                 // ← no llamamos al servidor
+  }
+
+  try {
+    // 1. Ping suave para despertar el dyno
+    const wake = await fetch(API + '/status', { method: 'HEAD' });
+    if (!wake.ok) throw new Error('Servidor durmiendo');
+
+    // 2. Datos del usuario
+    const me = await (await fetch(API + '/ocean-pay/me', {
+      headers: { Authorization: 'Bearer ' + token }
+    })).json();
+
+    // 3. Transacciones
+    const txs = await (await fetch(`${API}/ocean-pay/txs/${me.id}`, {
+      headers: { Authorization: 'Bearer ' + token }
+    })).json();
+
+    ul.innerHTML = txs.length
+      ? txs.map(tx => `
+          <li>
+            <span>${tx.concepto} · ${new Date(tx.created_at).toLocaleString()}</span>
+            <span>${tx.monto > 0 ? '+' : ''}${tx.monto} AB</span>
+            <small style="color:#9bb0c2;">${tx.origen}</small>
+          </li>`).join('')
+      : '<li style="opacity:.6">No hay movimientos</li>';
+
+  } catch (err) {
+    console.warn('[Ocean-Pay] renderTransacciones:', err);
+
+    // Token inválido / expirado → limpiamos
+    if (err.message.includes('401') || err.message.includes('Token')) {
+      localStorage.removeItem('opToken');
+      localStorage.removeItem('opUser');
+      ul.innerHTML = '<li style="color:#f43f5e">Sesión cerrada. Usa <strong>login</strong></li>';
+      return;
+    }
+
+    // Cualquier otro error (500, network, etc.)
+    ul.innerHTML = '<li style="color:#f43f5e">Servidor no disponible. Re-intenta en 30 s</li>';
+  }
+}
+
+
+  /* cuando el login / registro termine OK */
+function notifyParent(){
+  if(window.opener){
+    window.opener.postMessage({type:'ocean-pay-token',token:localStorage.getItem('opToken')},'*');
+  }
+}
+/* después de guardar token en localStorage → */
+notifyParent();
+
+</script>
+</body>
+</html>

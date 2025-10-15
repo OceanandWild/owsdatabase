@@ -237,7 +237,7 @@ window.opener.postMessage(
     user:  loginData.user        // ← siempre existe
   },
   'https://owsdatabase.onrender.com',
-  setTimeout(() => window.close(), 600)  // ← cerramos ventana en 6s
+  setTimeout(() => window.close(), 60000)  // ← cerramos ventana en 6s
 );
 
 
@@ -373,6 +373,7 @@ notifyParent();
 </script>
 </body>
 </html>
+
 
 
 

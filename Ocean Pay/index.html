@@ -336,18 +336,37 @@ async function renderTransacciones() {
   }
 }
 
-    /* ----------  POST TOKEN BACK TO PARENT  ---------- */
-  (() => {
-    const token = localStorage.getItem('opToken');
-    const user  = JSON.parse(localStorage.getItem('opUser') || '{}');
-    if (token && window.opener) {
-      window.opener.postMessage(
-        { type: 'ocean-pay-token', token, user },
-        'https://tu-app.onrender.com'   // ← tu dominio real
-      );
-      setTimeout(() => window.close(), 800);
+/* ----------  AUTO-CLOSE AFTER SUCCESS  ---------- */
+(() => {
+  /* si ya hay token, intentamos cerrar inmediatamente */
+  const token = localStorage.getItem('opToken');
+  const user  = JSON.parse(localStorage.getItem('opUser') || '{}');
+  if (token && window.opener) {
+    window.opener.postMessage(
+      { type: 'ocean-pay-token', token, user },
+      'https://tu-app.onrender.com'   // ← mismo origen que abrió el pop-up
+    );
+    setTimeout(() => window.close(), 600);
+    return;
+  }
+
+  /* sino, esperamos el login vía el botón que ya tienes */
+  const originalLogin = window.autoLogin;   // tu función actual
+  window.autoLogin = async function (...args) {
+    const ok = await originalLogin.apply(this, args); // ejecuta tu lógica
+    if (ok !== false) {                  // si el login fue OK
+      const tk = localStorage.getItem('opToken');
+      const us = JSON.parse(localStorage.getItem('opUser') || '{}');
+      if (tk && window.opener) {
+        window.opener.postMessage(
+          { type: 'ocean-pay-token', token: tk, user: us },
+          'https://tu-app.onrender.com'
+        );
+        setTimeout(() => window.close(), 800);
+      }
     }
-  })();
+  };
+})();
 
   /* cuando el login / registro termine OK */
 function notifyParent(){
@@ -362,4 +381,5 @@ notifyParent();
 </body>
 
 </html>
+
 

@@ -1820,10 +1820,12 @@ app.get('/ocean-pay/txs/:userId', async (req, res) => {
 // 🔍 Obtener bits del usuario (protegido)
 app.get('/ecocore/bits/:userId', async (req, res) => {
   const { userId } = req.params;
+    console.log('[DEBUG] Buscando balance para userId:', userId);
   const { rows } = await pool.query(
     'SELECT balance FROM users WHERE id = $1',
     [userId]
   );
+  console.log('[DEBUG] Resultado:', rows);
   res.json({ bits: rows[0]?.balance ?? 0 });
 });
 

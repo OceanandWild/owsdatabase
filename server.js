@@ -52,10 +52,10 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const __dirname  = dirname(__filename);
 
+/* ---- SERVIR "Ocean Pay" (con espacio) ---- */
 app.use('/ocean-pay', express.static(join(__dirname, 'Ocean Pay')));
-
 app.get('/status', (_req, res) =>
   res.sendFile(join(__dirname, 'Ocean and Wild Studios Status', 'index.html'))
 );

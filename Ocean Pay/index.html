@@ -225,8 +225,11 @@ if (window.opener) {
     { type: 'ocean-pay-token', token: data.token, user: data.user },
     'https://owsdatabase.onrender.com'
   );
-  setTimeout(() => window.close(), 600);
+  setTimeout(() => {
+  window.close();
+}, 10000);
 }
+
 
   show('#loginForm', false);
   show('#regForm', false);
@@ -360,3 +363,4 @@ notifyParent();
 </script>
 </body>
 </html>
+

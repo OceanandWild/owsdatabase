@@ -1780,6 +1780,57 @@ const { rows } = await pool.query(
   }
 });
 
+// ----------  ECOCOREBITS  ----------
+
+// 🔍 Obtener bits del usuario (protegido)
+app.get('/ecocore/bits/:userId', async (req, res) => {
+  const { userId } = req.params;
+  const { rows } = await pool.query(
+    'SELECT balance FROM users WHERE id = $1',
+    [userId]
+  );
+  res.json({ bits: rows[0]?.balance ?? 0 });
+});
+
+// 💰 Modificar bits (protegido)
+app.post('/ecocore/change', async (req, res) => {
+  const { userId, amount, concepto = 'Operación', origen = 'Ocean Pay' } = req.body;
+  if (!userId || amount === undefined) return res.status(400).json({ error: 'Faltan datos' });
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Lock & read
+    const { rows } = await client.query(
+      'SELECT balance FROM users WHERE id = $1 FOR UPDATE',
+      [userId]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
+
+    const newBalance = rows[0].balance + amount;
+    if (newBalance < 0) return res.status(400).json({ error: 'Saldo insuficiente' });
+
+    // Update
+    await client.query('UPDATE users SET balance = $1 WHERE id = $2', [newBalance, userId]);
+
+    // Log
+    await client.query(
+      'INSERT INTO ecocore_txs (user_id, concepto, monto, origen) VALUES ($1,$2,$3,$4)',
+      [userId, concepto, amount, origen]
+    );
+
+    await client.query('COMMIT');
+    res.json({ success: true, newBalance });
+  } catch (e) {
+    await client.query('ROLLBACK');
+    console.error(e);
+    res.status(500).json({ error: 'Error interno' });
+  } finally {
+    client.release();
+  }
+});
+
 /* ---------- ADMIN: listar usuarios ---------- */
 app.get('/admin/users', async (req, res) => {
   const secret = req.headers['x-admin-secret'];

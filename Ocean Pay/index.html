@@ -201,6 +201,7 @@ const show = (sel, on = true) => {
   };
 /* ----------  LOGIN  ---------- */
 async function autoLogin(username, password) {
+  console.log('[LOGIN] Enviando:', { username, password });
   const res = await fetch(API + '/ocean-pay/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -361,3 +362,4 @@ notifyParent();
 </body>
 
 </html>
+

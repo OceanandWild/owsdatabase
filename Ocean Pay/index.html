@@ -231,15 +231,14 @@ if (!loginRes.ok) { /* ...error */ return; }
 
 /* ✅ 2. Ahora sí tenemos el usuario */
 window.opener.postMessage(
-  {
+  JSON.parse(JSON.stringify({        // <- clona limpio
     type: 'ocean-pay-token',
     token: loginData.token,
-    user:  loginData.user        // ← siempre existe
-  },
-  'https://owsdatabase.onrender.com',
+    user: loginData.user
+  })),
+  '*',                                 // <- permite cualquier origen (o usa el tuyo)
   setTimeout(() => window.close(), 60000)  // ← cerramos ventana en 6s
 );
-
 
   show('#loginForm', false);
   show('#regForm', false);
@@ -373,6 +372,7 @@ notifyParent();
 </script>
 </body>
 </html>
+
 
 
 

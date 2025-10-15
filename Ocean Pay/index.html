@@ -216,6 +216,14 @@ async function autoLogin(username, password) {
   userId = data.user.id;
   localStorage.setItem('opToken', token);
   localStorage.setItem('opUser', JSON.stringify(data.user));
+  /* ⬅️  ENVÍA USUARIO AL POP-UP PADRE (EcoConsole) */
+if (window.opener) {
+  window.opener.postMessage(
+    { type: 'ocean-pay-token', token: data.token, user: data.user },
+    'https://owsdatabase.onrender.com'
+  );
+  setTimeout(() => window.close(), 600);
+}
 
   show('#loginForm', false);
   show('#regForm', false);
@@ -383,6 +391,7 @@ notifyParent();
 </body>
 
 </html>
+
 
 
 

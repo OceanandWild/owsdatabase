@@ -228,7 +228,8 @@ async function autoLogin(username, password) {
     user: data.user
   });
 
-  /* ✅ Enviamos al padre */
+/* ✅ Solo si fue abierta desde otra ventana */
+if (window.opener) {
   window.opener.postMessage(
     JSON.parse(JSON.stringify({
       type: 'ocean-pay-token',
@@ -237,6 +238,11 @@ async function autoLogin(username, password) {
     })),
     '*'
   );
+  setTimeout(() => window.close(), 6000);
+} else {
+  /* 🔓 Modo standalone: quedarse en la wallet */
+  console.log('[Ocean-Pay] Sin ventana padre → modo independiente');
+}
 
   // ✅ Cerramos la ventana después de 6 s
   setTimeout(() => window.close(), 6000);
@@ -374,6 +380,7 @@ notifyParent();
 </script>
 </body>
 </html>
+
 
 
 

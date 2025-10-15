@@ -338,18 +338,20 @@ async function renderTransacciones() {
 
 /* ----------  AUTO-CLOSE AFTER SUCCESS  ---------- */
 (() => {
-  /* si ya hay token, intentamos cerrar inmediatamente */
-  const token = localStorage.getItem('opToken');
-  const user  = JSON.parse(localStorage.getItem('opUser') || '{}');
-  if (token && window.opener) {
-    window.opener.postMessage(
-      { type: 'ocean-pay-token', token, user },
-      'https://owsdatabase.onrender.com'   // ← mismo origen que abrió el pop-up
-    );
-    setTimeout(() => window.close(), 600);
-    return;
-  }
+/* ----------  justo después de guardar el token  ---------- */
+const token = data.token;                         // ya lo tienes
+const user  = data.user;                          // objeto completo del servidor
+localStorage.setItem('opToken', token);
+localStorage.setItem('opUser', JSON.stringify(user));
 
+/* ----------  devolvemos TODO al parent  ---------- */
+if (window.opener) {
+  window.opener.postMessage(
+    { type: 'ocean-pay-token', token, user },
+    'https://owsdatabase.onrender.com'   // ← tu origen real
+  );
+  setTimeout(() => window.close(), 600);
+}
   /* sino, esperamos el login vía el botón que ya tienes */
   const originalLogin = window.autoLogin;   // tu función actual
   window.autoLogin = async function (...args) {
@@ -381,6 +383,7 @@ notifyParent();
 </body>
 
 </html>
+
 
 
 

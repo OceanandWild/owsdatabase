@@ -234,7 +234,10 @@ async function autoLogin(username, password) {
   token = data.token;
   userId = data.user.id;
   localStorage.setItem('opToken', token);
-  localStorage.setItem('opUser', JSON.stringify(data.user));
+localStorage.setItem('opUser', JSON.stringify(data.user));
+
+/* ✅ Cargar EcoCoreBits */
+await loadEcoCoreBalance();
 
   /* ⬅️  DEBUG: imprimimos lo que vamos a enviar */
   console.log('[Ocean-Pay] Enviando al padre:', {
@@ -259,8 +262,7 @@ if (window.opener) {
   console.log('[Ocean-Pay] Sin ventana padre → modo independiente');
 }
 
-// Dentro de autoLogin()
-await loadEcoCoreBalance();
+
 
   // ✅ Cerramos la ventana después de 6 s
   setTimeout(() => window.close(), 6000);
@@ -333,6 +335,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   // ⬅️  carga historial
   await renderTransacciones();
+  await loadEcoCoreBalance(); // ← importante
 });
 
 async function renderTransacciones() {

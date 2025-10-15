@@ -220,15 +220,24 @@ localStorage.setItem('opUser', JSON.stringify(data.user));
 /* ⬅️  DEBUG: imprimimos lo que vamos a enviar */
 console.log('[Ocean-Pay] Enviando al padre:', { token: data.token, user: data.user });
 
-if (window.opener) {
-  window.opener.postMessage(
-    { type: 'ocean-pay-token', token: data.token, user: data.user },
-    'https://owsdatabase.onrender.com'
-  );
-  setTimeout(() => {
-  window.close();
-}, 10000);
-}
+/* ⏳ 1. Esperar a que el servidor responda */
+const loginRes = await fetch(API + '/ocean-pay/login', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ username, password })
+});
+const loginData = await loginRes.json();
+if (!loginRes.ok) { /* ...error */ return; }
+
+/* ✅ 2. Ahora sí tenemos el usuario */
+window.opener.postMessage(
+  {
+    type: 'ocean-pay-token',
+    token: loginData.token,
+    user:  loginData.user        // ← siempre existe
+  },
+  'https://owsdatabase.onrender.com'
+);
 
 
   show('#loginForm', false);
@@ -363,4 +372,5 @@ notifyParent();
 </script>
 </body>
 </html>
+
 

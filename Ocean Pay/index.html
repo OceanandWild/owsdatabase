@@ -272,7 +272,7 @@ localStorage.setItem('opUser', JSON.stringify(data.user));
 
 /* ✅ Cargar EcoCoreBits */
 await loadEcoCoreBalance();
-
+await loadEcoxionumsBalance(); // ← importante
   /* ⬅️  DEBUG: imprimimos lo que vamos a enviar */
   console.log('[Ocean-Pay] Enviando al padre:', {
     type: 'ocean-pay-token',
@@ -286,7 +286,8 @@ if (window.opener) {
     JSON.parse(JSON.stringify({
       type: 'ocean-pay-token',
       token: data.token,
-      user: data.user
+      user: data.user,
+    ecoxionums: data.user.ecoxionums // ✅ ENVÍA Ecoxionums
     })),
     '*'
   );

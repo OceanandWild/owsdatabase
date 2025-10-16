@@ -122,11 +122,11 @@ button:active{transform:scale(.98);}
           <span class="label">AquaBux</span>
           <span class="amount" id="bux">0</span>
         </div>
-        <div class="currency-card soon">
-          <span class="label">Ecoxionums</span>
-          <span class="amount">—</span>
-          <span class="badge">Próximamente</span>
-        </div>
+        <!-- 2.a  Sustituir el card “Próximamente” por el real -->
+<div class="currency-card" id="ecoxionums-card">
+  <span class="label">Ecoxionums</span>
+  <span class="amount" id="ecoxionums">0</span>
+</div>
         <div class="currency-card">
   <span class="label">EcoCoreBits</span>
   <span class="amount" id="ecobits">0</span>
@@ -212,6 +212,41 @@ async function loadEcoCoreBalance() {
     qs('#ecobits').textContent = bits.toLocaleString();
   } catch {
     qs('#ecobits').textContent = '0';
+  }
+}
+
+/* 2.b  Cargar saldo Ecoxionums al iniciar sesión */
+async function loadEcoxionumsBalance() {
+  const user = JSON.parse(localStorage.getItem('opUser') || '{}');
+  if (!user.id) { qs('#ecoxionums').textContent = '0'; return; }
+
+  const res = await fetch(`${API}/ocean-pay/ecoxionums/${user.id}`);
+  const { ecoxionums } = await res.json();
+  qs('#ecoxionums').textContent = ecoxionums.toLocaleString();
+}
+
+/* 2.c  Llamar después de login exitoso */
+await loadEcoxionumsBalance();
+
+async function changeEcoxionums(sign) {
+  const user = JSON.parse(localStorage.getItem('opUser') || '{}');
+  const amt = +qs('#ecoAmount').value * sign;
+  const concept = qs('#ecoConcept').value;
+
+  const res = await fetch(`${API}/ocean-pay/ecoxionums/change`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId: user.id, amount: amt, concept })
+  });
+  const data = await res.json();
+  if (res.ok) {
+    qs('#ecoxionums').textContent = data.newBalance.toLocaleString();
+    showAlert('success', 'Ecoxionums actualizados');
+    closeEcoModal();
+    /* reflejo inmediato en Ecoxion (ver punto 5) */
+    window.parent?.postMessage({ type: 'eco-balance-update', balance: data.newBalance }, '*');
+  } else {
+    showAlert('error', data.error);
   }
 }
 /* ----------  LOGIN (único fetch) ---------- */

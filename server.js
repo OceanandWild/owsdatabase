@@ -1868,6 +1868,66 @@ app.post('/ecocore/change', async (req, res) => {
   }
 });
 
+/* -------  Ecoxionums ⇄ Ocean Pay  ------- */
+
+// 1.a  Saldo Ecoxionums del usuario autenticado
+app.get('/ocean-pay/ecoxionums/:userId', async (req, res) => {
+  const { userId } = req.params;
+  const { rows } = await pool.query(
+    'SELECT balance FROM users WHERE id = $1',
+    [userId]
+  );
+  res.json({ ecoxionums: rows[0]?.balance ?? 0 });
+});
+
+// 1.b  Movimiento Ecoxionums (origen = "Ecoxion")
+app.post('/ocean-pay/ecoxionums/change', async (req, res) => {
+  const { userId, amount, concepto = 'Operación' } = req.body;
+  if (amount === undefined) return res.status(400).json({ error: 'Falta amount' });
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // lock & read
+    const { rows } = await client.query(
+      'SELECT balance FROM users WHERE id = $1 FOR UPDATE',
+      [userId]
+    );
+    if (!rows.length) throw new Error('Usuario no existe');
+    const newBal = rows[0].balance + amount;
+    if (newBal < 0) throw new Error('Saldo insuficiente');
+
+    // update
+    await client.query(
+      'UPDATE users SET balance = balance + $1 WHERE id = $2',
+      [amount, userId]
+    );
+
+    // log en Ecoxion
+    await client.query(
+      `INSERT INTO ecocore_txs (user_id, concepto, monto, origen)
+       VALUES ($1, $2, $3, 'Ecoxion')`,
+      [userId, concepto, amount]
+    );
+
+    // log en Ocean Pay
+    await client.query(
+      `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
+       VALUES ($1, $2, $3, 'Ecoxion')`,
+      [userId, concepto, amount]
+    );
+
+    await client.query('COMMIT');
+    res.json({ success: true, newBalance: newBal });
+  } catch (e) {
+    await client.query('ROLLBACK');
+    res.status(400).json({ error: e.message });
+  } finally {
+    client.release();
+  }
+});
+
 /* ---------- ADMIN: listar usuarios ---------- */
 app.get('/admin/users', async (req, res) => {
   const secret = req.headers['x-admin-secret'];

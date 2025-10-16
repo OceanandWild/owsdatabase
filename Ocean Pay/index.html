@@ -220,11 +220,10 @@ async function loadEcoxionumsBalance() {
   const user = JSON.parse(localStorage.getItem('opUser') || '{}');
   if (!user.id) { qs('#ecoxionums').textContent = '0'; return; }
 
-  const res = await fetch(`${API}/ocean-pay/ecoxionums/${user.id}`);
+  const res = await fetch(`${API}/ocean-pay/ecoxionums/${user.id}`); // ✅ CORRECTO
   const { ecoxionums } = await res.json();
-  qs('#ecoxionums').textContent = ecoxionums.toLocaleString();
+  qs('#ecoxionums').textContent = ecoxionums.toLocaleString(); // ✅ CORRECTO
 }
-
 
 
 async function changeEcoxionums(sign) {
@@ -306,7 +305,9 @@ if (window.opener) {
   show('#loginForm', false);
   show('#regForm', false);
   show('#wallet', true);
-  qs('#bux').textContent = data.user.aquabux;
+// ✅ CORRECTO: usar ecoxionums, NO bits
+qs('#bux').textContent = data.user.aquabux; // AquaBux
+qs('#ecoxionums').textContent = data.user.ecoxionums; // ← Ecoxionums real
 
   /* ⬅️  Cargar historial */
   await renderTransacciones();

@@ -1879,13 +1879,18 @@ app.post('/ecocore/change', async (req, res) => {
 
 app.get('/ocean-pay/ecoxionums/:userId', async (req, res) => {
   const { userId } = req.params;
-  const { rows } = await pool.query(
-    'SELECT ecoxionums FROM ocean_pay_users WHERE id = $1',
-    [userId]
-  );
-  res.json({ ecoxionums: rows[0]?.ecoxionums ?? 0 });
-});
 
+  try {
+    const { rows } = await pool.query(
+      'SELECT ecoxionums FROM ocean_pay_users WHERE id::text = $1', // <-- cast a texto
+      [userId]
+    );
+    res.json({ ecoxionums: rows[0]?.ecoxionums ?? 0 });
+  } catch (err) {
+    console.error('❌ Error en /ocean-pay/ecoxionums/:userId', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
 // 1.b  Movimiento Ecoxionums (origen = "Ecoxion")
 app.post('/ocean-pay/ecoxionums/change', async (req, res) => {
   const { userId, amount, concepto = 'Operación' } = req.body;

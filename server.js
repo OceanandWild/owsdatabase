@@ -1672,13 +1672,12 @@ app.post('/ocean-pay/register', async (req, res) => {
   try {
     await client.query('BEGIN');
 
-    // 1. Crear en ocean_pay_users
-    const { rows: [u] } = await client.query(
-      `INSERT INTO ocean_pay_users (username, pwd_hash, aquabux)
-       VALUES ($1, $2, 10000)
-       RETURNING id, username, aquabux`,
-      [username, hash]
-    );
+const { rows: [u] } = await client.query(
+  `INSERT INTO ocean_pay_users (username, pwd_hash, aquabux, ecoxionums)
+   VALUES ($1, $2, 10000, 50000)
+   RETURNING id, username, aquabux, ecoxionums`,
+  [username, hash]
+);
 
     // 2. Crear en users (para EcoCoreBits)
     await client.query(
@@ -1709,7 +1708,15 @@ app.post('/ocean-pay/login', async (req,res)=>{
   const ok=await bcrypt.compare(password,rows[0].pwd_hash);
   if(!ok) return res.status(401).json({error:'Credenciales incorrectas'});
   const token=jwt.sign({uid:rows[0].id,un:username},process.env.STUDIO_SECRET,{expiresIn:'7d'});
-  res.json({token,user:{id:rows[0].id,username,aquabux:rows[0].aquabux}});
+  res.json({
+  token,
+  user: {
+    id: rows[0].id,
+    username,
+    aquabux: rows[0].aquabux,
+    ecoxionums: rows[0].ecoxionums // ← agregado
+  }
+});
 });
 
 /* ----------  CURRENT BALANCE  ---------- */
@@ -1870,14 +1877,13 @@ app.post('/ecocore/change', async (req, res) => {
 
 /* -------  Ecoxionums ⇄ Ocean Pay  ------- */
 
-// 1.a  Saldo Ecoxionums del usuario autenticado
 app.get('/ocean-pay/ecoxionums/:userId', async (req, res) => {
   const { userId } = req.params;
   const { rows } = await pool.query(
-    'SELECT balance FROM users WHERE id = $1',
+    'SELECT ecoxionums FROM ocean_pay_users WHERE id = $1',
     [userId]
   );
-  res.json({ ecoxionums: rows[0]?.balance ?? 0 });
+  res.json({ ecoxionums: rows[0]?.ecoxionums ?? 0 });
 });
 
 // 1.b  Movimiento Ecoxionums (origen = "Ecoxion")

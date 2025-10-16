@@ -215,14 +215,13 @@ async function loadEcoCoreBalance() {
   }
 }
 
-/* 2.b  Cargar saldo Ecoxionums al iniciar sesión */
 async function loadEcoxionumsBalance() {
   const user = JSON.parse(localStorage.getItem('opUser') || '{}');
   if (!user.id) { qs('#ecoxionums').textContent = '0'; return; }
 
-  const res = await fetch(`${API}/ocean-pay/ecoxionums/${user.id}`); // ✅ CORRECTO
+  const res = await fetch(`${API}/ocean-pay/ecoxionums/${user.id}`);
   const { ecoxionums } = await res.json();
-  qs('#ecoxionums').textContent = ecoxionums.toLocaleString(); // ✅ CORRECTO
+  qs('#ecoxionums').textContent = ecoxionums.toLocaleString();
 }
 
 

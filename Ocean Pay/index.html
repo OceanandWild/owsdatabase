@@ -225,8 +225,7 @@ async function loadEcoxionumsBalance() {
   qs('#ecoxionums').textContent = ecoxionums.toLocaleString();
 }
 
-/* 2.c  Llamar después de login exitoso */
-await loadEcoxionumsBalance();
+
 
 async function changeEcoxionums(sign) {
   const user = JSON.parse(localStorage.getItem('opUser') || '{}');
@@ -371,6 +370,8 @@ window.addEventListener('DOMContentLoaded', async () => {
   // ⬅️  carga historial
   await renderTransacciones();
   await loadEcoCoreBalance(); // ← importante
+  /* 2.c  Llamar después de login exitoso */
+await loadEcoxionumsBalance();
 });
 
 async function renderTransacciones() {

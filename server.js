@@ -1891,6 +1891,8 @@ app.get('/ocean-pay/ecoxionums/:userId', async (req, res) => {
     res.status(500).json({ error: 'Error interno' });
   }
 });
+
+
 // 1.b  Movimiento Ecoxionums (origen = "Ecoxion")
 app.post('/ocean-pay/ecoxionums/change', async (req, res) => {
   const { userId, amount, concepto = 'Operación' } = req.body;
@@ -1937,6 +1939,25 @@ app.post('/ocean-pay/ecoxionums/change', async (req, res) => {
   } finally {
     client.release();
   }
+});
+
+/* endpoints */
+app.get('/api/shop/offer', (_req,res)=> res.json(currentOffer));
+app.post('/api/shop/buy-offer', async (req,res)=>{
+  const {userId} = req.body;
+  if(!currentOffer) return res.status(404).json({error:'Sin oferta activa'});
+  const state = await loadState(userId);
+  const price = Math.floor(currentOffer.basePrice * (1-currentOffer.discount));
+  if((state.ecoxionums||0) < price) return res.status(400).json({error:'Faltan Ecoxionums'});
+
+  state.ecoxionums -= price;
+  await saveState(userId, state);
+
+  /* entregar packs */
+  for(const it of currentOffer.items){
+    await openPacks(it.kind, it.qty, state);        // re-usamos lógica existente
+  }
+  res.json({success:true, offer:currentOffer, paid:price});
 });
 
 /* ---------- ADMIN: listar usuarios ---------- */

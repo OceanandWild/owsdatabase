@@ -1942,7 +1942,69 @@ app.post('/ocean-pay/ecoxionums/change', async (req, res) => {
 });
 
 /* endpoints */
-app.get('/api/shop/offer', (_req,res)=> res.json(currentOffer));
+/* ===== TIENDA GENERAL – OFERTAS DINÁMICAS ===== */
+const OFFER_CYCLE = 5 * 60 * 1000; // 5 min
+let currentOffer = null;
+
+const RARITIES = ["comun","poco_comun","raro","epico","legendario","mitico"];
+const PACK_META = {
+  comun: { price:50, cards:3 },
+  poco_comun: { price:100, cards:3 },
+  raro: { price:200, cards:4 },
+  epico: { price:400, cards:5 },
+  legendario: { price:800, cards:5 },
+  mitico: { price:1600, cards:6 }
+};
+
+function generateOffer(){
+  const rolls = Math.random();
+  if(rolls < 0.45){
+    const kinds = RARITIES.filter(r => PACK_META[r]);
+    const k = kinds[Math.floor(Math.random()*kinds.length)];
+    const qty = [1,3,10][Math.floor(Math.random()*3)];
+    const base = PACK_META[k].price * qty;
+    currentOffer = {
+      id: `offer-pack-${Date.now()}`,
+      type:'pack',
+      name:`Pack ${k} x${qty}`,
+      img:`assets/packs/${k}.png`,
+      items:[{kind:k, qty}],
+      discount: 0.15 + Math.random()*0.25,
+      basePrice: base,
+      endsAt: new Date(Date.now()+OFFER_CYCLE)
+    };
+  }else if(rolls < 0.80){
+    const howMany = 2 + Math.floor(Math.random()*3);
+    const items = []; let base = 0;
+    for(let i=0;i<howMany;i++){
+      const k = RARITIES[Math.floor(Math.random()*RARITIES.length)];
+      if(!PACK_META[k]) continue;
+      const q = [1,3][Math.floor(Math.random()*2)];
+      items.push({kind:k, qty:q});
+      base += PACK_META[k].price * q;
+    }
+    currentOffer = {
+      id: `offer-combo-${Date.now()}`,
+      type:'combo',
+      name:'Combo Especial',
+      img:'assets/packs/combo.png',
+      items,
+      discount: 0.20 + Math.random()*0.30,
+      basePrice: base,
+      endsAt: new Date(Date.now()+OFFER_CYCLE)
+    };
+  }else currentOffer = null;
+}
+
+generateOffer();
+setInterval(generateOffer, OFFER_CYCLE);
+
+app.get('/api/shop/offer', (_req,res)=>{
+  if(!currentOffer) return res.status(204).json(null);
+  res.json(currentOffer);
+});
+
+
 app.post('/api/shop/buy-offer', async (req,res)=>{
   const {userId} = req.body;
   if(!currentOffer) return res.status(404).json({error:'Sin oferta activa'});

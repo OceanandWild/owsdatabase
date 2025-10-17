@@ -1941,10 +1941,7 @@ app.post('/ocean-pay/ecoxionums/change', async (req, res) => {
   }
 });
 
-/* endpoints */
-/* ===== TIENDA GENERAL – OFERTAS DINÁMICAS ===== */
-const OFFER_CYCLE = 5 * 60 * 1000; // 5 min
-let currentOffer = null;
+
 
 const RARITIES = ["comun","poco_comun","raro","epico","legendario","mitico"];
 const PACK_META = {
@@ -1956,83 +1953,83 @@ const PACK_META = {
   mitico: { price:1600, cards:6 }
 };
 
-function generateOffer(){
-  const rolls = Math.random();
-  if(rolls < 0.45){
-    const kinds = RARITIES.filter(r => PACK_META[r]);
-    const k = kinds[Math.floor(Math.random()*kinds.length)];
-    const qty = [1,3,10][Math.floor(Math.random()*3)];
-    const base = PACK_META[k].price * qty;
-    currentOffer = {
-      id: `offer-pack-${Date.now()}`,
-      type:'pack',
-      name:`Pack ${k} x${qty}`,
-      img:`assets/packs/${k}.png`,
-      items:[{kind:k, qty}],
-      discount: 0.15 + Math.random()*0.25,
-      basePrice: base,
-      endsAt: new Date(Date.now()+OFFER_CYCLE)
-    };
-  }else if(rolls < 0.80){
-    const howMany = 2 + Math.floor(Math.random()*3);
-    const items = []; let base = 0;
-    for(let i=0;i<howMany;i++){
-      const k = RARITIES[Math.floor(Math.random()*RARITIES.length)];
-      if(!PACK_META[k]) continue;
-      const q = [1,3][Math.floor(Math.random()*2)];
-      items.push({kind:k, qty:q});
-      base += PACK_META[k].price * q;
-    }
-    currentOffer = {
-      id: `offer-combo-${Date.now()}`,
-      type:'combo',
-      name:'Combo Especial',
-      img:'assets/packs/combo.png',
-      items,
-      discount: 0.20 + Math.random()*0.30,
-      basePrice: base,
-      endsAt: new Date(Date.now()+OFFER_CYCLE)
-    };
-  }else currentOffer = null;
+/* ===== TIENDA GENERAL – OFERTAS DE EXTENSIONES ===== */
+const OFFER_CYCLE = 5 * 60 * 1000; // 5 min
+let currentOffer = null;           // { type:'ext'|'combo', items:[], discount, endsAt }
+
+function pickRandomExtensions(howMany = 1) {
+  const pool = Object.values(defaultExtensions).filter(e => !e.defaultInstall); // no core
+  return pool.sort(() => 0.5 - Math.random()).slice(0, howMany);
 }
 
+function generateOffer() {
+  const roll = Math.random();
+  if (roll < 0.50) {                                    // 50 % → 1 extensión
+    const [ext] = pickRandomExtensions(1);
+    if (!ext) { currentOffer = null; return; }
+    currentOffer = {
+      id: `offer-ext-${Date.now()}`,
+      type: 'ext',
+      name: `${ext.name} – Oferta Flash`,
+      img: `assets/ext/${ext.id}.png`,                  // podés usar tu carpeta
+      items: [{ id: ext.id, qty: 1 }],
+      discount: 0.15 + Math.random() * 0.25,            // 15-40 %
+      basePrice: ext.price || 0,
+      endsAt: new Date(Date.now() + OFFER_CYCLE)
+    };
+  } else if (roll < 0.85) {                             // 35 % → combo 2-3 extensiones
+    const qty = 2 + Math.floor(Math.random() * 2);      // 2 o 3
+    const picked = pickRandomExtensions(qty);
+    if (!picked.length) { currentOffer = null; return; }
+    const base = picked.reduce((sum, e) => sum + (e.price || 0), 0);
+    currentOffer = {
+      id: `offer-combo-${Date.now()}`,
+      type: 'combo',
+      name: 'Pack de Extensiones',
+      img: 'assets/ext/combo.png',
+      items: picked.map(e => ({ id: e.id, qty: 1 })),
+      discount: 0.20 + Math.random() * 0.30,            // 20-50 %
+      basePrice: base,
+      endsAt: new Date(Date.now() + OFFER_CYCLE)
+    };
+  } else {                                              // 15 % → sin oferta
+    currentOffer = null;
+  }
+}
+
+/* inicializar y ciclar */
 generateOffer();
 setInterval(generateOffer, OFFER_CYCLE);
 
-/* ===== TIENDA GENERAL – DEBUG + OFERTA ===== */
-console.log("[SHOP] Registrando ruta /api/shop/offer");
-
-app.get('/api/shop/offer', (req, res) => {
-  console.log("[SHOP] Llegó petición a /api/shop/offer");
-  try {
-    if (!currentOffer) {
-      console.log("[SHOP] No hay oferta -> 204");
-      return res.status(204).send();
-    }
-    console.log("[SHOP] Enviando currentOffer:", currentOffer);
-    res.json(currentOffer);
-  } catch (err) {
-    console.error("[SHOP] Error en /api/shop/offer:", err.message);
-    res.status(500).json({ error: err.message });
-  }
+app.get('/api/shop/offer', (_req, res) => {
+  if (!currentOffer) return res.status(204).send();     // sin oferta
+  res.json(currentOffer);
 });
 
+/* comprar oferta */
+app.post('/api/shop/buy-offer', async (req, res) => {
+  const { userId } = req.body;
+  if (!currentOffer) return res.status(404).json({ error: 'Sin oferta activa' });
 
-app.post('/api/shop/buy-offer', async (req,res)=>{
-  const {userId} = req.body;
-  if(!currentOffer) return res.status(404).json({error:'Sin oferta activa'});
   const state = await loadState(userId);
-  const price = Math.floor(currentOffer.basePrice * (1-currentOffer.discount));
-  if((state.ecoxionums||0) < price) return res.status(400).json({error:'Faltan Ecoxionums'});
+  const price = Math.floor(currentOffer.basePrice * (1 - currentOffer.discount));
+  if ((state.ecoxionums || 0) < price) return res.status(400).json({ error: 'Faltan Ecoxionums' });
 
   state.ecoxionums -= price;
-  await saveState(userId, state);
+  await saveState(state);
 
-  /* entregar packs */
-  for(const it of currentOffer.items){
-    await openPacks(it.kind, it.qty, state);        // re-usamos lógica existente
+  /* entregar extensiones */
+  for (const it of currentOffer.items) {
+    if (!state.installed) state.installed = {};
+    state.installed[it.id] = {
+      id: it.id,
+      enabled: true,
+      version: defaultExtensions[it.id]?.version || '1.0'
+    };
   }
-  res.json({success:true, offer:currentOffer, paid:price});
+  await saveState(state);
+
+  res.json({ success: true, offer: currentOffer, paid: price });
 });
 
 /* ---------- ADMIN: listar usuarios ---------- */

@@ -1999,9 +1999,22 @@ function generateOffer(){
 generateOffer();
 setInterval(generateOffer, OFFER_CYCLE);
 
-app.get('/api/shop/offer', (_req,res)=>{
-  if(!currentOffer) return res.status(204).json(null);
-  res.json(currentOffer);
+/* ===== TIENDA GENERAL – DEBUG + OFERTA ===== */
+console.log("[SHOP] Registrando ruta /api/shop/offer");
+
+app.get('/api/shop/offer', (req, res) => {
+  console.log("[SHOP] Llegó petición a /api/shop/offer");
+  try {
+    if (!currentOffer) {
+      console.log("[SHOP] No hay oferta -> 204");
+      return res.status(204).send();
+    }
+    console.log("[SHOP] Enviando currentOffer:", currentOffer);
+    res.json(currentOffer);
+  } catch (err) {
+    console.error("[SHOP] Error en /api/shop/offer:", err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 

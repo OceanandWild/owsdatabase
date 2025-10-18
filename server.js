@@ -2032,6 +2032,23 @@ app.post('/api/shop/buy-offer', async (req, res) => {
   res.json({ success: true, offer: currentOffer, paid: price });
 });
 
+app.post('/api/report-error', async (req,res)=>{
+  const {userId, type, description, extensions, userAgent, url, timestamp} = req.body;
+  if(!type || !description) return res.status(400).json({error:'Faltan campos'});
+
+  try{
+    await pool.query(
+     `INSERT INTO error_reports (user_id, type, description, extensions, user_agent, url, created_at)
+      VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [userId, type, description, extensions, userAgent, url, timestamp]
+    );
+    res.json({ok:true});
+  }catch(e){
+    console.error('❌ report-error',e);
+    res.status(500).json({error:'No se pudo guardar'});
+  }
+});
+
 /* ---------- ADMIN: listar usuarios ---------- */
 app.get('/admin/users', async (req, res) => {
   const secret = req.headers['x-admin-secret'];

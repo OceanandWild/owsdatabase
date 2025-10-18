@@ -1962,6 +1962,16 @@ app.post('/api/report-error', async (req,res)=>{
   }
 });
 
+app.get('/admin/error-reports', async (req,res)=>{
+  const secret = req.headers['x-admin-secret'];
+  if(secret !== process.env.STUDIO_SECRET) return res.status(401).json({error:'No autorizado'});
+
+  const {rows} = await pool.query(
+    'SELECT id,user_id,type,description,extensions,created_at FROM error_reports ORDER BY created_at DESC LIMIT 200'
+  );
+  res.json(rows);
+});
+
 /* ---------- ADMIN: listar usuarios ---------- */
 app.get('/admin/users', async (req, res) => {
   const secret = req.headers['x-admin-secret'];

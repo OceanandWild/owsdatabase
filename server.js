@@ -2071,6 +2071,41 @@ app.post("/api/events/claim", async (req, res) => {
 
   res.json({ success: true, day, reward, amount });
 });
+
+// GET /api/events/claim-status/:userId
+app.get('/api/events/claim-status/:userId', async (req, res) => {
+  const { userId } = req.params;
+
+  // 1. ¿Hay evento activo?
+  const now = new Date();
+  const { rows } = await pool.query(
+    `SELECT id, keyword, startat, endat
+     FROM events
+     WHERE startat <= $1
+       AND endat   >= $1
+       AND finished = false
+     ORDER BY startat DESC
+     LIMIT 1`,
+    [now]
+  );
+  if (!rows.length) return res.json({ day: 0, completed: true }); // sin evento
+
+  const event = rows[0];
+
+  // 2. ¿Cuántos días ha reclamado este usuario?
+  const { rows: userRows } = await pool.query(
+    `SELECT COUNT(*) AS claimed
+     FROM user_events
+     WHERE user_id = $1
+       AND event_id = $2`,
+    [userId, event.id]
+  );
+  const claimed = parseInt(userRows[0].claimed, 10);
+  const day = claimed + 1; // siguiente día
+  const completed = claimed >= 7; // 7 días = completo
+
+  res.json({ day, completed });
+});
 /* ---------- ADMIN: listar usuarios ---------- */
 app.get('/admin/users', async (req, res) => {
   const secret = req.headers['x-admin-secret'];

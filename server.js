@@ -1998,11 +1998,15 @@ app.post('/api/extensions/categories/:userId', async (req, res) => {
 
 // GET /api/events/active
 app.get("/api/events/active", async (_req, res) => {
-  const now = new Date();
-  const { rows } = await pool.query(
-    `SELECT * FROM events WHERE start_at <= $1 AND end_at >= $1 AND finished = false`,
-    [now]
-  );
+const now = new Date();
+const { rows } = await pool.query(
+  `SELECT * 
+   FROM events 
+   WHERE startat <= $1 
+     AND endat   >= $1 
+     AND finished = false`,
+  [now]
+);
   res.json(rows[0] || null);
 });
 

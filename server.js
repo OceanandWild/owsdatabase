@@ -2115,12 +2115,12 @@ app.get('/api/events/claim-status/:userId', async (req, res) => {
   );
   if (!rows.length) return res.json({ day: 0, completed: true }); // sin evento
 
-  // GET /api/events/claim-status/:userId
-const event = rows[0];
-const resetAt = new Date(event.endat);        // 23:59:59 UTC del día
+  const event = rows[0];
 
-const msLeft = Math.max(0, resetAt - now);
-
+  // 🕓 Próximo reinicio diario (medianoche UTC o local)
+  const nextReset = new Date(now);
+  nextReset.setUTCHours(24, 0, 0, 0); // medianoche UTC siguiente día
+  const msLeft = Math.max(0, nextReset - now);
 
   // 2. ¿Cuántos días ha reclamado este usuario?
   const { rows: userRows } = await pool.query(
@@ -2131,17 +2131,17 @@ const msLeft = Math.max(0, resetAt - now);
     [userId, event.id]
   );
   const claimed = parseInt(userRows[0].claimed, 10);
-  const day = claimed + 1; // siguiente día
-  const completed = claimed >= 7; // 7 días = completo
+  const day = claimed + 1;
+  const completed = claimed >= 7;
 
- res.json({
-  day,
-  completed,
-  nextReset: resetAt.toISOString(),   // ← nuevo
-  msLeft
+  res.json({
+    day,
+    completed,
+    nextReset: nextReset.toISOString(),
+    msLeft
+  });
 });
 
-});
 /* ---------- ADMIN: listar usuarios ---------- */
 app.get('/admin/users', async (req, res) => {
   const secret = req.headers['x-admin-secret'];

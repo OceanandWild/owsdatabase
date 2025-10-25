@@ -1998,15 +1998,40 @@ app.post('/api/extensions/categories/:userId', async (req, res) => {
 
 // GET /api/events/active
 app.get("/api/events/active", async (_req, res) => {
+// GET /api/events/active
 const now = new Date();
 const { rows } = await pool.query(
-  `SELECT * 
-   FROM events 
-   WHERE startat <= $1 
-     AND endat   >= $1 
-     AND finished = false`,
+  `SELECT id,
+          name,
+          keyword,
+          emoji,
+          banner_color,
+          description,
+          startat,
+          endat,
+          rewardbits
+   FROM events
+   WHERE startat <= $1
+     AND endat   >= $1
+     AND finished = false
+   ORDER BY startat DESC
+   LIMIT 1`,
   [now]
 );
+if (!rows.length) return res.json(null);
+
+// Campos opcionales con fallback
+const ev = rows[0];
+res.json({
+  id: ev.id,
+  keyword: ev.keyword,
+  name: ev.name,
+  emoji: ev.emoji || '🎁',
+  bannerColor: ev.banner_color || 'linear-gradient(90deg,#64a7ff,#b388ff)',
+  description: ev.description || 'Reclama tu recompensa diaria.',
+  rewardBits: ev.rewardbits || 100,
+  endAt: ev.endat
+});
   res.json(rows[0] || null);
 });
 
@@ -2090,7 +2115,12 @@ app.get('/api/events/claim-status/:userId', async (req, res) => {
   );
   if (!rows.length) return res.json({ day: 0, completed: true }); // sin evento
 
-  const event = rows[0];
+  // GET /api/events/claim-status/:userId
+const event = rows[0];
+const resetAt = new Date(event.endat);        // 23:59:59 UTC del día
+
+const msLeft = Math.max(0, resetAt - now);
+
 
   // 2. ¿Cuántos días ha reclamado este usuario?
   const { rows: userRows } = await pool.query(
@@ -2104,7 +2134,13 @@ app.get('/api/events/claim-status/:userId', async (req, res) => {
   const day = claimed + 1; // siguiente día
   const completed = claimed >= 7; // 7 días = completo
 
-  res.json({ day, completed });
+ res.json({
+  day,
+  completed,
+  nextReset: resetAt.toISOString(),   // ← nuevo
+  msLeft
+});
+
 });
 /* ---------- ADMIN: listar usuarios ---------- */
 app.get('/admin/users', async (req, res) => {

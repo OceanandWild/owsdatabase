@@ -1972,6 +1972,101 @@ app.get('/admin/error-reports', async (req,res)=>{
   res.json(rows);
 });
 
+// GET /api/extensions/categories/:userId
+app.get('/api/extensions/categories/:userId', async (req, res) => {
+  const { userId } = req.params;
+  const { rows } = await pool.query(
+    'SELECT categories FROM user_categories WHERE user_id = $1',
+    [userId]
+  );
+  res.json(rows[0]?.categories || {});
+});
+
+// POST /api/extensions/categories/:userId
+app.post('/api/extensions/categories/:userId', async (req, res) => {
+  const { userId } = req.params;
+  const { categories } = req.body; // { catId: { name, color, items[] } }
+  await pool.query(
+    `INSERT INTO user_categories (user_id, categories)
+     VALUES ($1, $2)
+     ON CONFLICT (user_id) DO UPDATE SET categories = $2`,
+    [userId, JSON.stringify(categories)]
+  );
+  res.json({ success: true });
+});
+
+
+// GET /api/events/active
+app.get("/api/events/active", async (_req, res) => {
+  const now = new Date();
+  const { rows } = await pool.query(
+    `SELECT * FROM events WHERE start_at <= $1 AND end_at >= $1 AND finished = false`,
+    [now]
+  );
+  res.json(rows[0] || null);
+});
+
+// POST /api/events/claim
+app.post("/api/events/claim", async (req, res) => {
+  const { userId, eventId } = req.body;
+  if (!userId || !eventId) return res.status(400).json({ error: "Faltan datos" });
+
+  const event = await pool.query(
+    `SELECT * FROM events WHERE id = $1 AND finished = false`,
+    [eventId]
+  );
+  if (event.rows.length === 0) return res.status(404).json({ error: "Evento no encontrado" });
+
+  const ev = event.rows[0];
+  const { rows } = await pool.query(
+    `SELECT * FROM user_events WHERE user_id = $1 AND event_id = $2`,
+    [userId, eventId]
+  );
+
+  let day = 1;
+  let lastClaim = null;
+  if (rows.length > 0) {
+    day = rows[0].day + 1;
+    lastClaim = new Date(rows[0].last_claim);
+    const now = new Date();
+    const diffDays = Math.floor((now - lastClaim) / (1000 * 60 * 60 * 24));
+    if (diffDays < 1) return res.status(429).json({ error: "Ya reclamaste hoy" });
+    if (day > 7) return res.json({ error: "Evento completado", completed: true });
+  }
+
+  // Recompensa diaria
+  const reward = day === 7 ? "extension" : "ecoxionums";
+  const amount = day === 7 ? 0 : 500 + (day * 50); // 550, 600, 650...
+
+  if (reward === "ecoxionums") {
+    await pool.query(
+      `UPDATE users SET balance = balance + $1 WHERE id = $2`,
+      [amount, userId]
+    );
+  }
+
+  // Guardar progreso
+  await pool.query(
+    `INSERT INTO user_events (user_id, event_id, day, last_claim, completed)
+     VALUES ($1, $2, $3, NOW(), $4)
+     ON CONFLICT (user_id, event_id)
+     DO UPDATE SET day = $3, last_claim = NOW(), completed = $4`,
+    [userId, eventId, day, day === 7]
+  );
+
+  // Entregar extensión día 7
+  if (day === 7) {
+    const state = await loadState(userId);
+    state.installed["halloween-2025"] = {
+      id: "halloween-2025",
+      enabled: true,
+      version: "1.0.0"
+    };
+    await saveState(state);
+  }
+
+  res.json({ success: true, day, reward, amount });
+});
 /* ---------- ADMIN: listar usuarios ---------- */
 app.get('/admin/users', async (req, res) => {
   const secret = req.headers['x-admin-secret'];

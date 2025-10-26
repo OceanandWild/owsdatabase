@@ -535,35 +535,35 @@ app.get("/sugerencias", async (req, res) => {
   res.json({ total, page: Number(page), perPage: Number(perPage), list: rows });
 });
 
-// 📌 EVENTOS
-app.post("/publish-event", async (req, res) => {
+// EcoConsole Events Endpoints
+app.post("/ecoconsole/publish-event", async (req, res) => {
   const { secret, name, keyword, musicURL, startAt, rewardBits = 100 } = req.body;
   if (secret !== process.env.STUDIO_SECRET)
     return res.status(401).json({ error: "No autorizado" });
 
   await pool.query(
-    "INSERT INTO events (name, keyword, musicURL, startAt, rewardBits, created) VALUES ($1,$2,$3,$4,$5,NOW())",
+    "INSERT INTO ecoconsole_events (name, keyword, musicURL, startAt, rewardBits, created) VALUES ($1,$2,$3,$4,$5,NOW())",
     [name, keyword.toLowerCase(), musicURL, startAt, rewardBits]
   );
 
-  res.json({ ok: true, msg: "Evento programado" });
+  res.json({ ok: true, msg: "Evento EcoConsole programado" });
 });
 
-app.get("/active-event", async (_req, res) => {
+app.get("/ecoconsole/active-event", async (_req, res) => {
   const { rows } = await pool.query(
-    "SELECT * FROM events WHERE startAt <= NOW() AND finished IS NOT TRUE ORDER BY startAt DESC LIMIT 1"
+    "SELECT * FROM ecoconsole_events WHERE startAt <= NOW() AND finished IS NOT TRUE ORDER BY startAt DESC LIMIT 1"
   );
 
-  if (rows.length === 0) return res.json({ error: "Sin evento activo" });
+  if (rows.length === 0) return res.json({ error: "Sin evento activo en EcoConsole" });
   res.json(rows[0]);
 });
 
-app.patch("/finish-event", async (req, res) => {
+app.patch("/ecoconsole/finish-event", async (req, res) => {
   const { secret, eventId } = req.body;
   if (secret !== process.env.STUDIO_SECRET)
     return res.status(401).json({ error: "No autorizado" });
 
-  await pool.query("UPDATE events SET finished=true WHERE id=$1", [eventId]);
+  await pool.query("UPDATE ecoconsole_events SET finished=true WHERE id=$1", [eventId]);
   res.json({ ok: true });
 });
 

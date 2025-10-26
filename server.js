@@ -567,6 +567,22 @@ app.patch("/ecoconsole/finish-event", async (req, res) => {
   res.json({ ok: true });
 });
 
+app.get("/ecoconsole/upcoming-events", async (req, res) => {
+    try {
+        const { rows } = await pool.query(`
+            SELECT * 
+            FROM ecoconsole_events 
+            WHERE startAt > NOW() 
+            ORDER BY startAt ASC
+            LIMIT 5
+        `);
+        res.json(rows);
+    } catch (error) {
+        console.error('Error al obtener próximos eventos:', error);
+        res.status(500).json({ error: 'Error al obtener eventos' });
+    }
+});
+
 /* ===== NAT-MARKET ENDPOINTS ===== */
 app.use('/uploads/nat', express.static(uploadDir)); // archivos estáticos
 

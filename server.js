@@ -535,6 +535,7 @@ app.get("/sugerencias", async (req, res) => {
   res.json({ total, page: Number(page), perPage: Number(perPage), list: rows });
 });
 
+// In your server.js, update the publish-event endpoint
 app.post("/ecoconsole/publish-event", async (req, res) => {
     const { secret, name, keyword, musicURL, startAt, rewardBits = 100 } = req.body;
     
@@ -543,13 +544,30 @@ app.post("/ecoconsole/publish-event", async (req, res) => {
     }
 
     try {
-        // Asegurarse de que la fecha esté en el formato correcto
-        const startDate = new Date(startAt);
-        if (isNaN(startDate.getTime())) {
-            return res.status(400).json({ error: "Formato de fecha inválido" });
+        // Validate and parse the date
+        let startDate;
+        try {
+            // Try parsing the date string directly
+            startDate = new Date(startAt);
+            
+            // If the date is invalid, try fixing common issues
+            if (isNaN(startDate.getTime())) {
+                // Try removing any timezone offset and assume UTC
+                const dateString = startAt.split(/[+-]\d{2}:\d{2}$/)[0];
+                startDate = new Date(dateString + 'Z');
+                
+                if (isNaN(startDate.getTime())) {
+                    throw new Error("Formato de fecha inválido");
+                }
+            }
+        } catch (e) {
+            return res.status(400).json({ 
+                error: "Formato de fecha inválido",
+                details: "Use el formato: YYYY-MM-DDTHH:mm:ss±HH:mm"
+            });
         }
 
-        // Convertir a UTC para almacenamiento consistente
+        // Convert to ISO string for consistent storage
         const utcDate = startDate.toISOString();
         
         const result = await pool.query(
@@ -560,11 +578,24 @@ app.post("/ecoconsole/publish-event", async (req, res) => {
             [name, keyword.toLowerCase(), musicURL, utcDate, rewardBits]
         );
 
-        console.log('Evento creado:', result.rows[0]); // Log para depuración
+        console.log('Evento creado:', {
+            id: result.rows[0].id,
+            name: result.rows[0].name,
+            startAt: result.rows[0].startat
+        });
+        
         res.json({ 
             ok: true, 
             msg: "Evento EcoConsole programado",
-            event: result.rows[0]
+            event: {
+                ...result.rows[0],
+                // Return the date in a more readable format
+                formattedDate: new Date(result.rows[0].startat).toLocaleString('es-AR', {
+                    timeZone: 'America/Argentina/Buenos_Aires',
+                    dateStyle: 'medium',
+                    timeStyle: 'short'
+                })
+            }
         });
 
     } catch (error) {
@@ -629,15 +660,6 @@ app.patch("/ecoconsole/finish-event", async (req, res) => {
 
 app.get("/ecoconsole/upcoming-events", async (req, res) => {
     try {
-        // Primero, asegurémonos de que los eventos antiguos estén marcados como finalizados
-        await pool.query(`
-            UPDATE ecoconsole_events 
-            SET finished = true 
-            WHERE startAt <= NOW() - INTERVAL '24 hours'
-            AND (finished IS NULL OR finished = false)
-        `);
-
-        // Luego obtener los próximos eventos
         const { rows } = await pool.query(`
             SELECT 
                 id,
@@ -648,21 +670,17 @@ app.get("/ecoconsole/upcoming-events", async (req, res) => {
                 rewardBits,
                 created,
                 finished,
-                EXTRACT(EPOCH FROM (startAt - NOW()))/60 as minutes_until_start
+                TO_CHAR(
+                    startAt AT TIME ZONE 'UTC' AT TIME ZONE 'America/Argentina/Buenos_Aires', 
+                    'DD/MM/YYYY, hh12:mi:ss AM'
+                ) as formatted_date
             FROM ecoconsole_events 
             WHERE startAt > NOW() - INTERVAL '1 hour'
             AND (finished IS NULL OR finished = false)
             ORDER BY startAt ASC
             LIMIT 5
         `);
-
-        console.log('Próximos eventos encontrados:', rows.map(r => ({
-            id: r.id,
-            name: r.name,
-            startAt: r.startat,
-            minutes_until_start: r.minutes_until_start
-        })));
-
+        
         res.json(rows);
     } catch (error) {
         console.error('Error al obtener próximos eventos:', error);
@@ -672,6 +690,25 @@ app.get("/ecoconsole/upcoming-events", async (req, res) => {
         });
     }
 });
+
+// En server.js, agrega esta función
+async function cleanupOldEvents() {
+    try {
+        await pool.query(`
+            DELETE FROM ecoconsole_events 
+            WHERE startAt <= (NOW() - INTERVAL '36 hours')
+        `);
+        console.log('Limpieza de eventos antiguos completada');
+    } catch (error) {
+        console.error('Error al limpiar eventos antiguos:', error);
+    }
+}
+
+// Ejecutar la limpieza cada 6 horas
+setInterval(cleanupOldEvents, 6 * 60 * 60 * 1000);
+
+// Ejecutar al inicio
+cleanupOldEvents();
 
 /* ===== NAT-MARKET ENDPOINTS ===== */
 app.use('/uploads/nat', express.static(uploadDir)); // archivos estáticos

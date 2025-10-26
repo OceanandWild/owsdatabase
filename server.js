@@ -535,21 +535,47 @@ app.get("/sugerencias", async (req, res) => {
   res.json({ total, page: Number(page), perPage: Number(perPage), list: rows });
 });
 
-// EcoConsole Events Endpoints
 app.post("/ecoconsole/publish-event", async (req, res) => {
-  const { secret, name, keyword, musicURL, startAt, rewardBits = 100 } = req.body;
-  if (secret !== process.env.STUDIO_SECRET)
-    return res.status(401).json({ error: "No autorizado" });
+    const { secret, name, keyword, musicURL, startAt, rewardBits = 100 } = req.body;
+    
+    if (secret !== process.env.STUDIO_SECRET) {
+        return res.status(401).json({ error: "No autorizado" });
+    }
 
-  await pool.query(
-    "INSERT INTO ecoconsole_events (name, keyword, musicURL, startAt, rewardBits, created) VALUES ($1,$2,$3,$4,$5,NOW())",
-    [name, keyword.toLowerCase(), musicURL, startAt, rewardBits]
-  );
+    try {
+        // Asegurarse de que la fecha esté en el formato correcto
+        const startDate = new Date(startAt);
+        if (isNaN(startDate.getTime())) {
+            return res.status(400).json({ error: "Formato de fecha inválido" });
+        }
 
-  res.json({ ok: true, msg: "Evento EcoConsole programado" });
+        // Convertir a UTC para almacenamiento consistente
+        const utcDate = startDate.toISOString();
+        
+        const result = await pool.query(
+            `INSERT INTO ecoconsole_events 
+             (name, keyword, musicURL, startAt, rewardBits, created) 
+             VALUES ($1, $2, $3, $4, $5, NOW())
+             RETURNING *`,
+            [name, keyword.toLowerCase(), musicURL, utcDate, rewardBits]
+        );
+
+        console.log('Evento creado:', result.rows[0]); // Log para depuración
+        res.json({ 
+            ok: true, 
+            msg: "Evento EcoConsole programado",
+            event: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error('Error al programar evento:', error);
+        res.status(500).json({ 
+            error: "Error al programar el evento",
+            details: error.message
+        });
+    }
 });
 
-// En server.js, actualiza el endpoint /ecoconsole/active-event
 app.get("/ecoconsole/active-event", async (_req, res) => {
     try {
         // Primero, marcar como terminados los eventos con más de 24 horas
@@ -557,26 +583,38 @@ app.get("/ecoconsole/active-event", async (_req, res) => {
             UPDATE ecoconsole_events 
             SET finished = true 
             WHERE startAt <= (NOW() - INTERVAL '24 hours')
-            AND finished IS NOT TRUE
+            AND (finished IS NULL OR finished = false)
         `);
 
-        // Luego obtener el evento activo
+        // Obtener el evento activo (que haya empezado hace menos de 1 hora)
         const { rows } = await pool.query(`
             SELECT * FROM ecoconsole_events 
-            WHERE startAt <= NOW() 
+            WHERE startAt >= (NOW() - INTERVAL '1 hour')
+            AND startAt <= NOW()
             AND (finished IS NULL OR finished = false)
             ORDER BY startAt DESC 
             LIMIT 1
         `);
 
         if (rows.length === 0) {
+            console.log('No hay eventos activos actualmente');
             return res.json({ error: "No hay eventos activos" });
         }
+
+        console.log('Evento activo encontrado:', {
+            id: rows[0].id,
+            name: rows[0].name,
+            startAt: rows[0].startat,
+            minutes_since_start: (new Date() - new Date(rows[0].startat)) / 60000
+        });
 
         res.json(rows[0]);
     } catch (error) {
         console.error('Error en /ecoconsole/active-event:', error);
-        res.status(500).json({ error: "Error al obtener el evento activo" });
+        res.status(500).json({ 
+            error: "Error al obtener el evento activo",
+            details: error.message
+        });
     }
 });
 
@@ -591,14 +629,40 @@ app.patch("/ecoconsole/finish-event", async (req, res) => {
 
 app.get("/ecoconsole/upcoming-events", async (req, res) => {
     try {
+        // Primero, asegurémonos de que los eventos antiguos estén marcados como finalizados
+        await pool.query(`
+            UPDATE ecoconsole_events 
+            SET finished = true 
+            WHERE startAt <= NOW() - INTERVAL '24 hours'
+            AND (finished IS NULL OR finished = false)
+        `);
+
+        // Luego obtener los próximos eventos
         const { rows } = await pool.query(`
-            SELECT *, 
-                   (startAt AT TIME ZONE 'UTC' AT TIME ZONE 'America/Montevideo') as local_start_at
+            SELECT 
+                id,
+                name,
+                keyword,
+                musicURL,
+                startAt,
+                rewardBits,
+                created,
+                finished,
+                EXTRACT(EPOCH FROM (startAt - NOW()))/60 as minutes_until_start
             FROM ecoconsole_events 
-            WHERE startAt > NOW() 
+            WHERE startAt > NOW() - INTERVAL '1 hour'  // Mostrar eventos que empezaron hace menos de 1 hora
+            AND (finished IS NULL OR finished = false)
             ORDER BY startAt ASC
             LIMIT 5
         `);
+
+        console.log('Próximos eventos encontrados:', rows.map(r => ({
+            id: r.id,
+            name: r.name,
+            startAt: r.startat,
+            minutes_until_start: r.minutes_until_start
+        })));
+
         res.json(rows);
     } catch (error) {
         console.error('Error al obtener próximos eventos:', error);

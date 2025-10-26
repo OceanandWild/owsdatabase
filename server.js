@@ -650,7 +650,7 @@ app.get("/ecoconsole/upcoming-events", async (req, res) => {
                 finished,
                 EXTRACT(EPOCH FROM (startAt - NOW()))/60 as minutes_until_start
             FROM ecoconsole_events 
-            WHERE startAt > NOW() - INTERVAL '1 hour'  // Mostrar eventos que empezaron hace menos de 1 hora
+            WHERE startAt > NOW() - INTERVAL '1 hour'
             AND (finished IS NULL OR finished = false)
             ORDER BY startAt ASC
             LIMIT 5
@@ -666,7 +666,10 @@ app.get("/ecoconsole/upcoming-events", async (req, res) => {
         res.json(rows);
     } catch (error) {
         console.error('Error al obtener próximos eventos:', error);
-        res.status(500).json({ error: 'Error al obtener eventos' });
+        res.status(500).json({ 
+            error: 'Error al obtener eventos',
+            details: error.message
+        });
     }
 });
 

@@ -64,6 +64,18 @@ app.get('/ocean-pay/index.html', (_req, res) => {
     res.status(404).send('Archivo no encontrado');
   }
 });
+// Simple status endpoint
+app.get('/api/status', (_req, res) => {
+  res.json({
+    status: 'online',
+    timestamp: new Date().toISOString(),
+    version: '1.0.0',
+    environment: process.env.NODE_ENV || 'development',
+    uptime: process.uptime()
+  });
+});
+
+// Keep the existing status page route
 app.get('/status', (_req, res) =>
   res.sendFile(join(__dirname, 'Ocean and Wild Studios Status', 'index.html'))
 );
@@ -2276,6 +2288,100 @@ function handleNatError(res, err, place = '') {
 }
 
 
+
+// Add credits table to the database
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS ecocore_credits (
+    user_id TEXT PRIMARY KEY,
+    credits INTEGER NOT NULL DEFAULT 0,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  )
+`);
+
+// Get user credits
+app.get('/ecocore/credits/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { rows } = await pool.query(
+      'SELECT credits FROM ecocore_credits WHERE user_id = $1',
+      [userId]
+    );
+    
+    if (rows.length === 0) {
+      // Initialize with 0 credits if user not found
+      await pool.query(
+        'INSERT INTO ecocore_credits (user_id, credits) VALUES ($1, 0) RETURNING credits',
+        [userId]
+      );
+      return res.json({ credits: 0 });
+    }
+    
+    res.json({ credits: rows[0].credits });
+  } catch (error) {
+    console.error('Error fetching credits:', error);
+    res.status(500).json({ error: 'Failed to fetch credits' });
+  }
+});
+
+// Update user credits
+app.post('/ecocore/credits/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { amount, operation = 'set' } = req.body; // operation can be 'set', 'add', or 'subtract'
+    
+    if (typeof amount !== 'number') {
+      return res.status(400).json({ error: 'Invalid amount' });
+    }
+    
+    let query = '';
+    let params = [userId];
+    
+    if (operation === 'add') {
+      query = `
+        INSERT INTO ecocore_credits (user_id, credits)
+        VALUES ($1, $2)
+        ON CONFLICT (user_id)
+        DO UPDATE SET credits = ecocore_credits.credits + EXCLUDED.credits, updated_at = NOW()
+        RETURNING credits
+      `;
+      params.push(amount);
+    } else if (operation === 'subtract') {
+      // First check if user has enough credits
+      const { rows } = await pool.query(
+        'SELECT credits FROM ecocore_credits WHERE user_id = $1',
+        [userId]
+      );
+      
+      if (rows.length === 0 || rows[0].credits < amount) {
+        return res.status(400).json({ error: 'Insufficient credits' });
+      }
+      
+      query = `
+        UPDATE ecocore_credits 
+        SET credits = credits - $2, updated_at = NOW()
+        WHERE user_id = $1
+        RETURNING credits
+      `;
+      params.push(amount);
+    } else {
+      // Default to set operation
+      query = `
+        INSERT INTO ecocore_credits (user_id, credits)
+        VALUES ($1, $2)
+        ON CONFLICT (user_id)
+        DO UPDATE SET credits = EXCLUDED.credits, updated_at = NOW()
+        RETURNING credits
+      `;
+      params.push(amount);
+    }
+    
+    const { rows } = await pool.query(query, params);
+    res.json({ credits: rows[0].credits });
+  } catch (error) {
+    console.error('Error updating credits:', error);
+    res.status(500).json({ error: 'Failed to update credits' });
+  }
+});
 
 await ensureDatabase(); 
 await ensureTables();

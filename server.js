@@ -567,19 +567,34 @@ app.patch("/ecoconsole/finish-event", async (req, res) => {
   res.json({ ok: true });
 });
 
-app.get("/ecoconsole/upcoming-events", async (req, res) => {
+// En server.js, actualiza el endpoint /ecoconsole/active-event
+app.get("/ecoconsole/active-event", async (_req, res) => {
     try {
-        const { rows } = await pool.query(`
-            SELECT * 
-            FROM ecoconsole_events 
-            WHERE startAt > NOW() 
-            ORDER BY startAt ASC
-            LIMIT 5
+        // Primero, marcar como terminados los eventos con más de 24 horas
+        await pool.query(`
+            UPDATE ecoconsole_events 
+            SET finished = true 
+            WHERE startAt <= (NOW() - INTERVAL '24 hours')
+            AND finished IS NOT TRUE
         `);
-        res.json(rows);
+
+        // Luego obtener el evento activo
+        const { rows } = await pool.query(`
+            SELECT * FROM ecoconsole_events 
+            WHERE startAt <= NOW() 
+            AND (finished IS NULL OR finished = false)
+            ORDER BY startAt DESC 
+            LIMIT 1
+        `);
+
+        if (rows.length === 0) {
+            return res.json({ error: "No hay eventos activos" });
+        }
+
+        res.json(rows[0]);
     } catch (error) {
-        console.error('Error al obtener próximos eventos:', error);
-        res.status(500).json({ error: 'Error al obtener eventos' });
+        console.error('Error en /ecoconsole/active-event:', error);
+        res.status(500).json({ error: "Error al obtener el evento activo" });
     }
 });
 

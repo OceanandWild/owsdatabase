@@ -549,24 +549,6 @@ app.post("/ecoconsole/publish-event", async (req, res) => {
   res.json({ ok: true, msg: "Evento EcoConsole programado" });
 });
 
-app.get("/ecoconsole/active-event", async (_req, res) => {
-  const { rows } = await pool.query(
-    "SELECT * FROM ecoconsole_events WHERE startAt <= NOW() AND finished IS NOT TRUE ORDER BY startAt DESC LIMIT 1"
-  );
-
-  if (rows.length === 0) return res.json({ error: "Sin evento activo en EcoConsole" });
-  res.json(rows[0]);
-});
-
-app.patch("/ecoconsole/finish-event", async (req, res) => {
-  const { secret, eventId } = req.body;
-  if (secret !== process.env.STUDIO_SECRET)
-    return res.status(401).json({ error: "No autorizado" });
-
-  await pool.query("UPDATE ecoconsole_events SET finished=true WHERE id=$1", [eventId]);
-  res.json({ ok: true });
-});
-
 // En server.js, actualiza el endpoint /ecoconsole/active-event
 app.get("/ecoconsole/active-event", async (_req, res) => {
     try {
@@ -595,6 +577,32 @@ app.get("/ecoconsole/active-event", async (_req, res) => {
     } catch (error) {
         console.error('Error en /ecoconsole/active-event:', error);
         res.status(500).json({ error: "Error al obtener el evento activo" });
+    }
+});
+
+app.patch("/ecoconsole/finish-event", async (req, res) => {
+  const { secret, eventId } = req.body;
+  if (secret !== process.env.STUDIO_SECRET)
+    return res.status(401).json({ error: "No autorizado" });
+
+  await pool.query("UPDATE ecoconsole_events SET finished=true WHERE id=$1", [eventId]);
+  res.json({ ok: true });
+});
+
+app.get("/ecoconsole/upcoming-events", async (req, res) => {
+    try {
+        const { rows } = await pool.query(`
+            SELECT *, 
+                   (startAt AT TIME ZONE 'UTC' AT TIME ZONE 'America/Montevideo') as local_start_at
+            FROM ecoconsole_events 
+            WHERE startAt > NOW() 
+            ORDER BY startAt ASC
+            LIMIT 5
+        `);
+        res.json(rows);
+    } catch (error) {
+        console.error('Error al obtener próximos eventos:', error);
+        res.status(500).json({ error: 'Error al obtener eventos' });
     }
 });
 

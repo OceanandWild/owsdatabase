@@ -2336,10 +2336,10 @@ app.get('/api/ecorebits/user', async (req, res) => {
         
         try {
             // First, get user info
-            const userQuery = {
-                text: 'SELECT id, username, email FROM users WHERE id = $1',
-                values: [userId]
-            };
+           const userQuery = {
+    text: 'SELECT id, username FROM users WHERE id = $1',
+    values: [userId]
+};
 
             const userResult = await pool.query(userQuery);
             

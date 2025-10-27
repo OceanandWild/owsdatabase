@@ -427,13 +427,13 @@ ul.innerHTML = txs.length
 
 
 
-// In Ocean Pay/index.html, replace the previous code with this:
-
 // Store the original notifyParent function if it exists
 const originalNotifyParent = window.notifyParent || function() {};
 
 // Override the notifyParent function
 window.notifyParent = function() {
+    console.log('notifyParent called');
+    
     // Call the original function first (if it exists)
     originalNotifyParent();
     
@@ -443,27 +443,44 @@ window.notifyParent = function() {
     
     if (source === 'ecoconsole' && window.opener) {
         try {
+            console.log('Notifying parent window...');
+            
             // Get the token and user data from localStorage
-            const token = localStorage.getItem('token'); // Using the standard token key
+            const token = localStorage.getItem('token');
             const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+            
+            console.log('User data from localStorage:', { token, userData });
             
             // If we have the required data, send it back to the parent
             if (token && userData._id) {
-                window.opener.postMessage({
+                const message = {
                     type: 'ocean-pay-auth',
                     user: {
                         id: userData._id,
                         username: userData.username,
                         email: userData.email,
                         token: token
-                        // Add any other user data you need
                     }
-                }, window.location.origin);
+                };
+                
+                console.log('Sending message to parent:', message);
+                
+                // Try to send to the parent window
+                try {
+                    window.opener.postMessage(message, '*'); // Using '*' for now, should be the exact origin in production
+                    console.log('Message sent to parent');
+                } catch (e) {
+                    console.error('Error sending message to parent:', e);
+                }
                 
                 // Close the window after a short delay
                 setTimeout(() => {
-                    window.close();
-                }, 500);
+                    try {
+                        window.close();
+                    } catch (e) {
+                        console.error('Error closing window:', e);
+                    }
+                }, 1000);
             }
         } catch (error) {
             console.error('Error in notifyParent:', error);
@@ -473,35 +490,27 @@ window.notifyParent = function() {
 
 // Add message listener for when the page loads to check if we should close
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('Ocean Pay page loaded');
+    
     const urlParams = new URLSearchParams(window.location.search);
     const source = urlParams.get('source');
     const token = localStorage.getItem('token');
     
+    console.log('Page loaded with params:', { source, hasToken: !!token });
+    
     // If we're opened from EcoConsole and already logged in, notify and close
     if (source === 'ecoconsole' && token && window.opener) {
-        try {
-            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-            if (userData._id) {
-                window.opener.postMessage({
-                    type: 'ocean-pay-auth',
-                    user: {
-                        id: userData._id,
-                        username: userData.username,
-                        email: userData.email,
-                        token: token
-                    }
-                }, window.location.origin);
-                
-                // Close the window after a short delay
-                setTimeout(() => {
-                    window.close();
-                }, 500);
-            }
-        } catch (error) {
-            console.error('Error in auto-close check:', error);
-        }
+        console.log('Already logged in, notifying parent...');
+        setTimeout(() => {
+            window.notifyParent();
+        }, 500); // Small delay to ensure the page is fully loaded
     }
 });
+
+// Make sure notifyParent is called after login/registration
+if (typeof originalNotifyParent === 'function') {
+    console.log('Original notifyParent function preserved');
+}
 /* después de guardar token en localStorage → */
 notifyParent();
 

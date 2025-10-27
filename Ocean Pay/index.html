@@ -430,7 +430,6 @@ ul.innerHTML = txs.length
 // Store the original notifyParent function if it exists
 const originalNotifyParent = window.notifyParent || function() {};
 
-// Override the notifyParent function
 window.notifyParent = function() {
     console.log('notifyParent called');
     
@@ -452,14 +451,17 @@ window.notifyParent = function() {
             console.log('User data from localStorage:', { token, userData });
             
             // If we have the required data, send it back to the parent
-            if (token && userData._id) {
+            if (token && (userData._id || userData.id)) {
                 const message = {
-                    type: 'ocean-pay-auth',
+                    type: 'ocean-pay-auth',  // Changed to match what EcoConsole expects
+                    token: token,  // Include token at root level for backward compatibility
                     user: {
-                        id: userData._id,
-                        username: userData.username,
+                        id: userData._id || userData.id,
+                        username: userData.username || userData.un,
                         email: userData.email,
-                        token: token
+                        token: token,
+                        // Include any other user data you need
+                        ...userData
                     }
                 };
                 
@@ -467,8 +469,17 @@ window.notifyParent = function() {
                 
                 // Try to send to the parent window
                 try {
-                    window.opener.postMessage(message, '*'); // Using '*' for now, should be the exact origin in production
-                    console.log('Message sent to parent');
+                    // Try with target origin first
+                    window.opener.postMessage(message, window.location.origin);
+                    console.log('Message sent to parent with origin:', window.location.origin);
+                    
+                    // Also try with wildcard as fallback
+                    setTimeout(() => {
+                        if (!messageReceived) {
+                            window.opener.postMessage(message, '*');
+                            console.log('Message sent to parent with wildcard origin');
+                        }
+                    }, 100);
                 } catch (e) {
                     console.error('Error sending message to parent:', e);
                 }

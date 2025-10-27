@@ -2299,14 +2299,21 @@ app.get('/api/events/claim-status/:userId', async (req, res) => {
 });
 
 app.get('/api/ecocorebits/user', async (req, res) => {
+    console.log('Received request to /api/ecocorebits/user');
+    console.log('Headers:', req.headers);
+    
     try {
         const authHeader = req.headers.authorization;
         if (!authHeader) {
+            console.log('No authorization header');
             return res.status(401).json({ message: 'No token provided' });
         }
 
         const token = authHeader.split(' ')[1];
+        console.log('Token:', token ? '***' + token.slice(-4) : 'none');
+        
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        console.log('Decoded token:', decoded);
         
         // Get user data from database
         const user = await User.findById(decoded.uid || decoded.id || decoded.userId)
@@ -2314,23 +2321,32 @@ app.get('/api/ecocorebits/user', async (req, res) => {
             .lean();
             
         if (!user) {
+            console.log('User not found');
             return res.status(404).json({ message: 'Usuario no encontrado' });
         }
         
-        // Return both aquabux and ecocorebits for backward compatibility
-        const balance = user.aquabux || 0;
+        console.log('Found user:', {
+            id: user._id,
+            username: user.username,
+            aquabux: user.aquabux
+        });
         
-        res.json({
+        const balance = user.aquabux || 0;
+        const response = {
             id: user._id,
             username: user.username,
             email: user.email,
-            aquabux: balance,  // For backward compatibility
-            ecocorebits: {     // New format
+            aquabux: balance,
+            ecocorebits: {
                 balance: balance
             }
-        });
+        };
+        
+        console.log('Sending response:', response);
+        res.json(response);
+        
     } catch (error) {
-        console.error('Error fetching user data:', error);
+        console.error('Error in /api/ecocorebits/user:', error);
         res.status(500).json({ 
             message: 'Error del servidor',
             error: error.message 

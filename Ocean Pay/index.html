@@ -452,40 +452,39 @@ window.notifyParent = function() {
             
             // If we have the required data, send it back to the parent
             if (token && (userData._id || userData.id)) {
-                // In Ocean Pay's notifyParent function
+// In Ocean Pay's notifyParent function
 const message = {
-    type: 'ocean-pay-auth',
+    type: 'ocean-pay-auth',  // Use the correct type
     token: token,
     user: {
         id: userData._id || userData.id,
         username: userData.username || userData.un,
         email: userData.email,
         token: token,
-        aquabux: userData.aquabux || 0,  // Include aquabux
-        ecocorebits: {                   // Include ecocorebits
+        aquabux: userData.aquabux || 0,
+        ecocorebits: {
             balance: userData.aquabux || 0
         }
     }
 };
-                
-                console.log('Sending message to parent:', message);
-                
-                // Try to send to the parent window
-                try {
-                    // Try with target origin first
-                    window.opener.postMessage(message, window.location.origin);
-                    console.log('Message sent to parent with origin:', window.location.origin);
-                    
-                    // Also try with wildcard as fallback
-                    setTimeout(() => {
-                        if (!messageReceived) {
-                            window.opener.postMessage(message, '*');
-                            console.log('Message sent to parent with wildcard origin');
-                        }
-                    }, 100);
-                } catch (e) {
-                    console.error('Error sending message to parent:', e);
-                }
+
+// Send the message
+try {
+    // Try with target origin first
+    const targetOrigin = window.location.origin;
+    console.log('Sending message to origin:', targetOrigin);
+    window.opener.postMessage(message, targetOrigin);
+    
+    // Also try with wildcard as fallback
+    setTimeout(() => {
+        if (!messageReceived) {
+            console.log('Sending message with wildcard origin');
+            window.opener.postMessage(message, '*');
+        }
+    }, 100);
+} catch (e) {
+    console.error('Error sending message:', e);
+}
                 
                 // Close the window after a short delay
                 setTimeout(() => {

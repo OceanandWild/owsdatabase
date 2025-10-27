@@ -2299,93 +2299,54 @@ app.get('/api/events/claim-status/:userId', async (req, res) => {
 });
 
 app.get('/api/ecorebits/user', async (req, res) => {
-    console.log('Received request to /api/ecorebits/user');
-    
     try {
         const authHeader = req.headers.authorization;
         if (!authHeader) {
-            console.log('No authorization header');
             return res.status(401).json({ message: 'No token provided' });
         }
 
         const token = authHeader.split(' ')[1];
-        console.log('Token received:', token ? '***' + token.slice(-4) : 'none');
-        
-        // Use STUDIO_SECRET for token verification
-        if (!process.env.STUDIO_SECRET) {
-            console.error('ERROR: STUDIO_SECRET is not configured!');
-            return res.status(500).json({ 
-                message: 'Server configuration error',
-                error: 'Missing STUDIO_SECRET' 
-            });
-        }
-
-        let decoded;
-        try {
-            decoded = jwt.verify(token, process.env.STUDIO_SECRET);
-            console.log('Decoded token:', decoded);
-        } catch (jwtError) {
-            console.error('Token verification failed:', jwtError.message);
-            return res.status(401).json({ 
-                message: 'Token inválido o expirado',
-                error: jwtError.message 
-            });
-        }
-
+        const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
         const userId = decoded.uid || decoded.id || decoded.userId;
+
+        // Get user info
+        const userResult = await pool.query(
+            'SELECT id, username FROM users WHERE id = $1',
+            [userId]
+        );
+
+        if (userResult.rows.length === 0) {
+            return res.status(404).json({ message: 'Usuario no encontrado' });
+        }
+
+        const userData = userResult.rows[0];
         
-        try {
-            // First, get user info
-           const userQuery = {
-    text: 'SELECT id, username FROM users WHERE id = $1',
-    values: [userId]
-};
+        // Get the balance
+        const balanceResult = await pool.query(
+            `SELECT amount 
+             FROM user_currency 
+             WHERE user_id = $1 AND currency_type = 'ecocorebits'`,
+            [userId]
+        );
 
-            const userResult = await pool.query(userQuery);
-            
-            if (userResult.rows.length === 0) {
-                console.log('User not found in database');
-                return res.status(404).json({ message: 'Usuario no encontrado' });
-            }
+        const balance = balanceResult.rows[0]?.amount || 0;
 
-            const userData = userResult.rows[0];
-            
-// In the balance query, we don't need to change anything as the parameter will be passed as-is
-const balanceQuery = {
-    text: `
-        SELECT amount 
-        FROM user_currency 
-        WHERE user_id = $1 AND currency_type = 'ecocorebits'
-        ORDER BY updated_at DESC 
-        LIMIT 1
-    `,
-    values: [userId]  // userId will be passed as text
-};
-
-            const balanceResult = await pool.query(balanceQuery);
-            const balance = balanceResult.rows[0]?.amount || 0;
-
-            // Build response
-            const response = {
+        // Return in the same format as Ocean Pay
+        res.json({
+            success: true,
+            user: {
                 id: userData.id,
-                username: userData.username || 'Usuario',
-                email: userData.email,
+                username: userData.username,
                 ecorebits: {
                     balance: Number(balance)
                 }
-            };
+            }
+        });
 
-            console.log('Sending response:', response);
-            res.json(response);
-
-        } catch (dbError) {
-            console.error('Database error:', dbError);
-            throw new Error('Error al obtener los datos del usuario');
-        }
-        
     } catch (error) {
         console.error('Error in /api/ecorebits/user:', error);
         res.status(500).json({ 
+            success: false,
             message: 'Error del servidor',
             error: error.message 
         });

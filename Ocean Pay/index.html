@@ -452,14 +452,13 @@ window.notifyParent = function() {
             
             // If we have the required data, send it back to the parent
             if (token && (userData._id || userData.id)) {
-// In Ocean Pay's notifyParent function
+// In the message object that gets sent to the parent window:
 const message = {
     type: 'ocean-pay-auth',
     token: token,
     user: {
         id: userData._id || userData.id,
         username: userData.username || userData.un,
-        email: userData.email,
         token: token,
         ecorebits: {
             balance: userData.ecorebits?.balance || 0

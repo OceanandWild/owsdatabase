@@ -2351,8 +2351,24 @@ app.get('/api/ecorebits/user', async (req, res) => {
 
         // Build the query dynamically based on available columns
         const selectFields = availableColumns.join(', ');
+
+
+
+        
+        // Query to get user's EcoCoreBits balance
         const query = {
-            text: `SELECT ${selectFields} FROM users WHERE id = $1`,
+            text: `
+                SELECT 
+                    u.id,
+                    u.username,
+                    COALESCE((
+                        SELECT SUM(amount) 
+                        FROM user_currencies 
+                        WHERE user_id = $1 AND currency_type = 'ecocorebits'
+                    ), 0) as ecocorebits_balance
+                FROM users u
+                WHERE u.id = $1
+            `,
             values: [userId]
         };
 
@@ -2364,18 +2380,15 @@ app.get('/api/ecorebits/user', async (req, res) => {
             return res.status(404).json({ message: 'Usuario no encontrado' });
         }
 
-        const user = result.rows[0];
-        console.log('Found user data:', user);
+        const userData = result.rows[0];
+        console.log('Found user data:', userData);
 
-        // Build response with available data
+        // Build response with EcoCoreBits
         const response = {
-            id: user.id || user.user_id,
-            username: user.username || user.un || 'Usuario',
-            // Only include email if it exists
-            ...(user.email && { email: user.email }),
-            aquabux: user.aquabux || 0,
+            id: userData.id,
+            username: userData.username || 'Usuario',
             ecorebits: {
-                balance: user.aquabux || 0
+                balance: Number(userData.ecocorebits_balance) || 0
             }
         };
 
@@ -2389,6 +2402,7 @@ app.get('/api/ecorebits/user', async (req, res) => {
             error: error.message 
         });
     }
+
 });
 
 

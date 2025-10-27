@@ -2332,68 +2332,56 @@ app.get('/api/ecorebits/user', async (req, res) => {
             });
         }
 
-        // Get user from PostgreSQL - using a safer approach
         const userId = decoded.uid || decoded.id || decoded.userId;
         
-        // First, get the actual column names from the database
-        const columnsQuery = {
-            text: `
-                SELECT column_name 
-                FROM information_schema.columns 
-                WHERE table_name = 'users' 
-                AND column_name IN ('id', 'username', 'email', 'aquabux', 'un', 'user_id')
-            `
-        };
+        try {
+            // First, get user info
+            const userQuery = {
+                text: 'SELECT id, username, email FROM users WHERE id = $1',
+                values: [userId]
+            };
 
-        const columnsResult = await pool.query(columnsQuery);
-        const availableColumns = columnsResult.rows.map(row => row.column_name);
-        console.log('Available columns in users table:', availableColumns);
-
-        // Build the query dynamically based on available columns
-        const selectFields = availableColumns.join(', ');
-
-
-
-        
-        // Query to get user's EcoCoreBits balance
-        const query = {
-            text: `
-                SELECT 
-                    u.id,
-                    u.username,
-                    COALESCE((
-                        SELECT SUM(amount) 
-                        FROM user_currencies 
-                        WHERE user_id = $1 AND currency_type = 'ecocorebits'
-                    ), 0) as ecocorebits_balance
-                FROM users u
-                WHERE u.id = $1
-            `,
-            values: [userId]
-        };
-
-        console.log('Executing query:', query.text, 'with values:', query.values);
-        const result = await pool.query(query);
-        
-        if (result.rows.length === 0) {
-            console.log('User not found in database');
-            return res.status(404).json({ message: 'Usuario no encontrado' });
-        }
-
-        const userData = result.rows[0];
-        console.log('Found user data:', userData);
-
-        // Build response with EcoCoreBits
-        const response = {
-            id: userData.id,
-            username: userData.username || 'Usuario',
-            ecorebits: {
-                balance: Number(userData.ecocorebits_balance) || 0
+            const userResult = await pool.query(userQuery);
+            
+            if (userResult.rows.length === 0) {
+                console.log('User not found in database');
+                return res.status(404).json({ message: 'Usuario no encontrado' });
             }
-        };
 
-        console.log('Sending response:', response);
-        res.json(response);
+            const userData = userResult.rows[0];
+            
+// In the balance query, we don't need to change anything as the parameter will be passed as-is
+const balanceQuery = {
+    text: `
+        SELECT amount 
+        FROM user_currency 
+        WHERE user_id = $1 AND currency_type = 'ecocorebits'
+        ORDER BY updated_at DESC 
+        LIMIT 1
+    `,
+    values: [userId]  // userId will be passed as text
+};
+
+            const balanceResult = await pool.query(balanceQuery);
+            const balance = balanceResult.rows[0]?.amount || 0;
+
+            // Build response
+            const response = {
+                id: userData.id,
+                username: userData.username || 'Usuario',
+                email: userData.email,
+                ecorebits: {
+                    balance: Number(balance)
+                }
+            };
+
+            console.log('Sending response:', response);
+            res.json(response);
+
+        } catch (dbError) {
+            console.error('Database error:', dbError);
+            throw new Error('Error al obtener los datos del usuario');
+        }
         
     } catch (error) {
         console.error('Error in /api/ecorebits/user:', error);
@@ -2402,7 +2390,6 @@ app.get('/api/ecorebits/user', async (req, res) => {
             error: error.message 
         });
     }
-
 });
 
 

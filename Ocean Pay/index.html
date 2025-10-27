@@ -454,16 +454,15 @@ window.notifyParent = function() {
             if (token && (userData._id || userData.id)) {
 // In Ocean Pay's notifyParent function
 const message = {
-    type: 'ocean-pay-auth',  // Use the correct type
+    type: 'ocean-pay-auth',
     token: token,
     user: {
         id: userData._id || userData.id,
         username: userData.username || userData.un,
         email: userData.email,
         token: token,
-        aquabux: userData.aquabux || 0,
-        ecocorebits: {
-            balance: userData.aquabux || 0
+        ecorebits: {
+            balance: userData.ecorebits?.balance || 0
         }
     }
 };

@@ -2298,8 +2298,8 @@ app.get('/api/events/claim-status/:userId', async (req, res) => {
   });
 });
 
-app.get('/api/ecocorebits/user', async (req, res) => {
-    console.log('Received request to /api/ecocorebits/user');
+app.get('/api/ecorebits/user', async (req, res) => {
+    console.log('Received request to /api/ecorebits/user');
     
     try {
         const authHeader = req.headers.authorization;
@@ -2311,7 +2311,7 @@ app.get('/api/ecocorebits/user', async (req, res) => {
         const token = authHeader.split(' ')[1];
         console.log('Token received:', token ? '***' + token.slice(-4) : 'none');
         
-        // Use STUDIO_SECRET instead of JWT_SECRET
+        // Use STUDIO_SECRET for token verification
         if (!process.env.STUDIO_SECRET) {
             console.error('ERROR: STUDIO_SECRET is not configured!');
             return res.status(500).json({ 
@@ -2322,7 +2322,7 @@ app.get('/api/ecocorebits/user', async (req, res) => {
 
         let decoded;
         try {
-            // Verify using STUDIO_SECRET
+            // Verify the token
             decoded = jwt.verify(token, process.env.STUDIO_SECRET);
             console.log('Decoded token:', decoded);
         } catch (jwtError) {
@@ -2333,29 +2333,34 @@ app.get('/api/ecocorebits/user', async (req, res) => {
             });
         }
 
-        // Rest of your code remains the same...
-        const user = await User.findById(decoded.uid || decoded.id || decoded.userId)
-            .select('-password')
-            .lean();
-            
-        if (!user) {
+        // Get user from PostgreSQL
+        const userId = decoded.uid || decoded.id || decoded.userId;
+        const query = {
+            text: 'SELECT id, username, email, aquabux FROM users WHERE id = $1',
+            values: [userId]
+        };
+
+        const result = await pool.query(query);
+        
+        if (result.rows.length === 0) {
             console.log('User not found in database');
             return res.status(404).json({ message: 'Usuario no encontrado' });
         }
-        
+
+        const user = result.rows[0];
         console.log('Found user:', {
-            id: user._id,
+            id: user.id,
             username: user.username,
             email: user.email,
             aquabux: user.aquabux || 0
         });
 
         const response = {
-            id: user._id,
+            id: user.id,
             username: user.username,
             email: user.email,
             aquabux: user.aquabux || 0,
-            ecocorebits: {
+            ecorebits: {
                 balance: user.aquabux || 0
             }
         };
@@ -2364,7 +2369,7 @@ app.get('/api/ecocorebits/user', async (req, res) => {
         res.json(response);
         
     } catch (error) {
-        console.error('Error in /api/ecocorebits/user:', error);
+        console.error('Error in /api/ecorebits/user:', error);
         res.status(500).json({ 
             message: 'Error del servidor',
             error: error.message 

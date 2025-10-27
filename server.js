@@ -2322,7 +2322,6 @@ app.get('/api/ecorebits/user', async (req, res) => {
 
         let decoded;
         try {
-            // Verify the token
             decoded = jwt.verify(token, process.env.STUDIO_SECRET);
             console.log('Decoded token:', decoded);
         } catch (jwtError) {
@@ -2333,13 +2332,31 @@ app.get('/api/ecorebits/user', async (req, res) => {
             });
         }
 
-        // Get user from PostgreSQL
+        // Get user from PostgreSQL - using a safer approach
         const userId = decoded.uid || decoded.id || decoded.userId;
+        
+        // First, get the actual column names from the database
+        const columnsQuery = {
+            text: `
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name = 'users' 
+                AND column_name IN ('id', 'username', 'email', 'aquabux', 'un', 'user_id')
+            `
+        };
+
+        const columnsResult = await pool.query(columnsQuery);
+        const availableColumns = columnsResult.rows.map(row => row.column_name);
+        console.log('Available columns in users table:', availableColumns);
+
+        // Build the query dynamically based on available columns
+        const selectFields = availableColumns.join(', ');
         const query = {
-            text: 'SELECT id, username, email, aquabux FROM users WHERE id = $1',
+            text: `SELECT ${selectFields} FROM users WHERE id = $1`,
             values: [userId]
         };
 
+        console.log('Executing query:', query.text, 'with values:', query.values);
         const result = await pool.query(query);
         
         if (result.rows.length === 0) {
@@ -2348,17 +2365,14 @@ app.get('/api/ecorebits/user', async (req, res) => {
         }
 
         const user = result.rows[0];
-        console.log('Found user:', {
-            id: user.id,
-            username: user.username,
-            email: user.email,
-            aquabux: user.aquabux || 0
-        });
+        console.log('Found user data:', user);
 
+        // Build response with available data
         const response = {
-            id: user.id,
-            username: user.username,
-            email: user.email,
+            id: user.id || user.user_id,
+            username: user.username || user.un || 'Usuario',
+            // Only include email if it exists
+            ...(user.email && { email: user.email }),
             aquabux: user.aquabux || 0,
             ecorebits: {
                 balance: user.aquabux || 0

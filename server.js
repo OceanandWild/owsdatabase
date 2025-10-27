@@ -12,6 +12,7 @@ import path from "path";
 import fs from "fs";
 import jwt from 'jsonwebtoken';
 
+// URL FOR THIS DATABASE: https://owsdatabase.onrender.com
 dotenv.config();
 
 /* ===== NAT-MARKET VARS ===== */
@@ -2296,6 +2297,44 @@ app.get('/api/events/claim-status/:userId', async (req, res) => {
     msLeft
   });
 });
+
+// In your server.js
+app.get('/api/ecocorebits/user', authenticateToken, async (req, res) => {
+    try {
+        // Get user data from database
+        const user = await User.findById(req.user.id)
+            .select('-password')
+            .populate('ecocorebits', 'balance');
+            
+        if (!user) {
+            return res.status(404).json({ message: 'Usuario no encontrado' });
+        }
+        
+        res.json({
+            id: user._id,
+            username: user.username,
+            email: user.email,
+            ecocorebits: user.ecocorebits || { balance: 0 }
+        });
+    } catch (error) {
+        console.error('Error fetching user data:', error);
+        res.status(500).json({ message: 'Error del servidor' });
+    }
+});
+
+// Add this middleware for token authentication
+function authenticateToken(req, res, next) {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+    
+    if (!token) return res.sendStatus(401);
+    
+    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+        if (err) return res.sendStatus(403);
+        req.user = user;
+        next();
+    });
+}
 
 /* ---------- ADMIN: listar usuarios ---------- */
 app.get('/admin/users', async (req, res) => {

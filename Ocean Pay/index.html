@@ -426,12 +426,82 @@ ul.innerHTML = txs.length
 }
 
 
-  /* cuando el login / registro termine OK */
-function notifyParent(){
-  if(window.opener){
-    window.opener.postMessage({type:'ocean-pay-token',token:localStorage.getItem('opToken')},'*');
-  }
-}
+
+// In Ocean Pay/index.html, replace the previous code with this:
+
+// Store the original notifyParent function if it exists
+const originalNotifyParent = window.notifyParent || function() {};
+
+// Override the notifyParent function
+window.notifyParent = function() {
+    // Call the original function first (if it exists)
+    originalNotifyParent();
+    
+    // Check if we were opened from EcoConsole
+    const urlParams = new URLSearchParams(window.location.search);
+    const source = urlParams.get('source');
+    
+    if (source === 'ecoconsole' && window.opener) {
+        try {
+            // Get the token and user data from localStorage
+            const token = localStorage.getItem('token'); // Using the standard token key
+            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+            
+            // If we have the required data, send it back to the parent
+            if (token && userData._id) {
+                window.opener.postMessage({
+                    type: 'ocean-pay-auth',
+                    user: {
+                        id: userData._id,
+                        username: userData.username,
+                        email: userData.email,
+                        token: token
+                        // Add any other user data you need
+                    }
+                }, window.location.origin);
+                
+                // Close the window after a short delay
+                setTimeout(() => {
+                    window.close();
+                }, 500);
+            }
+        } catch (error) {
+            console.error('Error in notifyParent:', error);
+        }
+    }
+};
+
+// Add message listener for when the page loads to check if we should close
+document.addEventListener('DOMContentLoaded', () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const source = urlParams.get('source');
+    const token = localStorage.getItem('token');
+    
+    // If we're opened from EcoConsole and already logged in, notify and close
+    if (source === 'ecoconsole' && token && window.opener) {
+        try {
+            const userData = JSON.parse(localStorage.getItem('userData') || '{}');
+            if (userData._id) {
+                window.opener.postMessage({
+                    type: 'ocean-pay-auth',
+                    user: {
+                        id: userData._id,
+                        username: userData.username,
+                        email: userData.email,
+                        token: token
+                    }
+                }, window.location.origin);
+                
+                // Close the window after a short delay
+                setTimeout(() => {
+                    window.close();
+                }, 500);
+            }
+        } catch (error) {
+            console.error('Error in auto-close check:', error);
+        }
+    }
+});
 /* después de guardar token en localStorage → */
 notifyParent();
 

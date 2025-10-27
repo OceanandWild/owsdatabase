@@ -2300,7 +2300,6 @@ app.get('/api/events/claim-status/:userId', async (req, res) => {
 
 app.get('/api/ecocorebits/user', async (req, res) => {
     console.log('Received request to /api/ecocorebits/user');
-    console.log('Headers:', req.headers);
     
     try {
         const authHeader = req.headers.authorization;
@@ -2310,38 +2309,57 @@ app.get('/api/ecocorebits/user', async (req, res) => {
         }
 
         const token = authHeader.split(' ')[1];
-        console.log('Token:', token ? '***' + token.slice(-4) : 'none');
+        console.log('Token received:', token ? '***' + token.slice(-4) : 'none');
         
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        console.log('Decoded token:', decoded);
-        
-        // Get user data from database
+        // Use STUDIO_SECRET instead of JWT_SECRET
+        if (!process.env.STUDIO_SECRET) {
+            console.error('ERROR: STUDIO_SECRET is not configured!');
+            return res.status(500).json({ 
+                message: 'Server configuration error',
+                error: 'Missing STUDIO_SECRET' 
+            });
+        }
+
+        let decoded;
+        try {
+            // Verify using STUDIO_SECRET
+            decoded = jwt.verify(token, process.env.STUDIO_SECRET);
+            console.log('Decoded token:', decoded);
+        } catch (jwtError) {
+            console.error('Token verification failed:', jwtError.message);
+            return res.status(401).json({ 
+                message: 'Token inválido o expirado',
+                error: jwtError.message 
+            });
+        }
+
+        // Rest of your code remains the same...
         const user = await User.findById(decoded.uid || decoded.id || decoded.userId)
             .select('-password')
             .lean();
             
         if (!user) {
-            console.log('User not found');
+            console.log('User not found in database');
             return res.status(404).json({ message: 'Usuario no encontrado' });
         }
         
         console.log('Found user:', {
             id: user._id,
             username: user.username,
-            aquabux: user.aquabux
+            email: user.email,
+            aquabux: user.aquabux || 0
         });
-        
-        const balance = user.aquabux || 0;
+
         const response = {
             id: user._id,
             username: user.username,
             email: user.email,
-            aquabux: balance,
+            aquabux: user.aquabux || 0,
             ecocorebits: {
-                balance: balance
+                balance: user.aquabux || 0
             }
         };
-        
+
         console.log('Sending response:', response);
         res.json(response);
         

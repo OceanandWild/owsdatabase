@@ -452,18 +452,21 @@ window.notifyParent = function() {
             
             // If we have the required data, send it back to the parent
             if (token && (userData._id || userData.id)) {
-                const message = {
-                    type: 'ocean-pay-auth',  // Changed to match what EcoConsole expects
-                    token: token,  // Include token at root level for backward compatibility
-                    user: {
-                        id: userData._id || userData.id,
-                        username: userData.username || userData.un,
-                        email: userData.email,
-                        token: token,
-                        // Include any other user data you need
-                        ...userData
-                    }
-                };
+                // In Ocean Pay's notifyParent function
+const message = {
+    type: 'ocean-pay-auth',
+    token: token,
+    user: {
+        id: userData._id || userData.id,
+        username: userData.username || userData.un,
+        email: userData.email,
+        token: token,
+        aquabux: userData.aquabux || 0,  // Include aquabux
+        ecocorebits: {                   // Include ecocorebits
+            balance: userData.aquabux || 0
+        }
+    }
+};
                 
                 console.log('Sending message to parent:', message);
                 

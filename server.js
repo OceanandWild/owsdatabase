@@ -2298,7 +2298,6 @@ app.get('/api/events/claim-status/:userId', async (req, res) => {
   });
 });
 
-// Add this to your server.js
 app.get('/api/ecocorebits/user', async (req, res) => {
     try {
         const authHeader = req.headers.authorization;
@@ -2318,23 +2317,27 @@ app.get('/api/ecocorebits/user', async (req, res) => {
             return res.status(404).json({ message: 'Usuario no encontrado' });
         }
         
-        // Include ecocorebits data
-        const ecocorebits = {
-            balance: user.aquabux || 0
-            // Add any other ecocorebits data
-        };
+        // Return both aquabux and ecocorebits for backward compatibility
+        const balance = user.aquabux || 0;
         
         res.json({
             id: user._id,
             username: user.username,
             email: user.email,
-            ecocorebits
+            aquabux: balance,  // For backward compatibility
+            ecocorebits: {     // New format
+                balance: balance
+            }
         });
     } catch (error) {
         console.error('Error fetching user data:', error);
-        res.status(500).json({ message: 'Error del servidor' });
+        res.status(500).json({ 
+            message: 'Error del servidor',
+            error: error.message 
+        });
     }
 });
+
 
 // Add this middleware for token authentication
 function authenticateToken(req, res, next) {

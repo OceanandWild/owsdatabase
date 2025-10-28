@@ -1984,12 +1984,14 @@ app.get('/ocean-pay/txs/:userId', async (req, res) => {
 app.get('/ecocore/bits/:userId', async (req, res) => {
   const { userId } = req.params;
     console.log('[DEBUG] Buscando balance para userId:', userId);
+  // CORRECCIÓN: Consultar la tabla 'user_currency' en lugar de 'users'
   const { rows } = await pool.query(
-    'SELECT balance FROM users WHERE id = $1',
+    `SELECT amount FROM user_currency WHERE user_id = $1 AND currency_type = 'ecocorebits'`,
     [userId]
   );
   console.log('[DEBUG] Resultado:', rows);
-  res.json({ bits: rows[0]?.balance ?? 0 });
+  // Devolver el campo 'amount' como 'bits'
+  res.json({ bits: rows[0]?.amount ?? 0 });
 });
 
 // 💰 Modificar bits (protegido)

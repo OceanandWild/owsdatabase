@@ -2598,7 +2598,7 @@ app.post('/ecocore/credits/:userId', async (req, res) => {
 });
 
 app.post('/api/ecocore/bypass-key-system', authenticateToken, async (req, res) => {
-    const userId = req.user.id;
+    const userId = req.user.uid; // CORRECCIÓN: El token guarda el ID como 'uid'
     const BYPASS_COST = 5000; // Costo para el bypass
 
     const client = await pool.connect();

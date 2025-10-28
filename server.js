@@ -2607,14 +2607,9 @@ app.post('/api/ecocore/bypass-key-system', authenticateToken, async (req, res) =
     try {
         await client.query('BEGIN');
 
-        // 1. Obtener estado del bypass y saldo de EcoCoreBits en una sola consulta
+        // 1. Bloquear la fila del usuario y verificar si ya tiene el bypass
         const { rows: userRows } = await client.query(
-            `SELECT
-                u.key_system_bypassed,
-                COALESCE(uc.amount, 0) as balance
-             FROM users u
-             LEFT JOIN user_currency uc ON u.id = uc.user_id AND uc.currency_type = 'ecocorebits'
-             WHERE u.id = $1 FOR UPDATE`,
+            'SELECT key_system_bypassed FROM users WHERE id = $1 FOR UPDATE', 
             [userId]
         );
 
@@ -2622,18 +2617,23 @@ app.post('/api/ecocore/bypass-key-system', authenticateToken, async (req, res) =
             return res.status(404).json({ error: 'Usuario no encontrado en el sistema.' });
         }
 
-        const { key_system_bypassed, balance } = userRows[0];
+        // 2. Obtener y bloquear el saldo de EcoCoreBits del usuario
+        const { rows: currencyRows } = await client.query(
+            `SELECT amount FROM user_currency WHERE user_id = $1 AND currency_type = 'ecocorebits' FOR UPDATE`,
+            [userId]
+        );
+        const balance = currencyRows[0]?.amount || 0;
 
-        if (key_system_bypassed) {
+        if (userRows[0].key_system_bypassed) {
             return res.status(400).json({ error: 'Ya tienes el bypass activo.' });
         }
 
-        // 2. Verificar saldo
+        // 3. Verificar saldo
         if (balance < BYPASS_COST) {
             return res.status(400).json({ error: `Saldo insuficiente. Necesitas ${BYPASS_COST} EcoCoreBits.` });
         }
 
-        // 3. Deducir costo y registrar transacción
+        // 4. Deducir costo y registrar transacción
         const newBalance = balance - BYPASS_COST;
         await client.query(
             `INSERT INTO user_currency (user_id, currency_type, amount) VALUES ($1, 'ecocorebits', $2)
@@ -2645,7 +2645,7 @@ app.post('/api/ecocore/bypass-key-system', authenticateToken, async (req, res) =
             [userId, 'Bypass del Key System', -BYPASS_COST, 'EcoConsole']
         );
 
-        // 4. Marcar el bypass como activo para el usuario
+        // 5. Marcar el bypass como activo para el usuario
         await client.query('UPDATE users SET key_system_bypassed = TRUE WHERE id = $1', [userId]);
 
         await client.query('COMMIT');

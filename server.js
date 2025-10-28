@@ -2605,14 +2605,17 @@ app.post('/api/ecocore/bypass-key-system', authenticateToken, async (req, res) =
     try {
         await client.query('BEGIN');
 
-        // 1. Verificar si el usuario ya tiene el bypass
+        // 1. Verificar estado del usuario y su saldo de EcoCoreBits
         const { rows: userRows } = await client.query(
-            'SELECT balance, key_system_bypassed FROM users WHERE id = $1 FOR UPDATE', 
+            `SELECT u.key_system_bypassed, COALESCE(uc.amount, 0) as balance
+             FROM users u
+             LEFT JOIN user_currency uc ON u.id = uc.user_id AND uc.currency_type = 'ecocorebits'
+             WHERE u.id = $1 FOR UPDATE`, 
             [userId]
         );
 
         if (userRows.length === 0) {
-            return res.status(404).json({ error: 'Usuario no encontrado.' });
+            return res.status(404).json({ error: 'Usuario no encontrado en el sistema.' });
         }
 
         if (userRows[0].key_system_bypassed) {
@@ -2626,7 +2629,11 @@ app.post('/api/ecocore/bypass-key-system', authenticateToken, async (req, res) =
 
         // 3. Deducir costo y registrar transacción
         const newBalance = userRows[0].balance - BYPASS_COST;
-        await client.query('UPDATE users SET balance = $1 WHERE id = $2', [newBalance, userId]);
+        await client.query(
+            `INSERT INTO user_currency (user_id, currency_type, amount) VALUES ($1, 'ecocorebits', $2)
+             ON CONFLICT (user_id, currency_type) DO UPDATE SET amount = $2`,
+            [userId, newBalance]
+        );
         await client.query(
             'INSERT INTO ecocore_txs (user_id, concepto, monto, origen) VALUES ($1, $2, $3, $4)',
             [userId, 'Bypass del Key System', -BYPASS_COST, 'EcoConsole']

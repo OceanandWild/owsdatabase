@@ -2597,12 +2597,59 @@ app.post('/ecocore/credits/:userId', async (req, res) => {
   }
 });
 
+app.post('/api/ecocore/bypass-key-system', authenticateToken, async (req, res) => {
+    const userId = req.user.id;
+    const BYPASS_COST = 5000; // Costo para el bypass
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        // 1. Verificar si el usuario ya tiene el bypass
+        const { rows: userRows } = await client.query(
+            'SELECT balance, key_system_bypassed FROM users WHERE id = $1 FOR UPDATE', 
+            [userId]
+        );
+
+        if (userRows.length === 0) {
+            return res.status(404).json({ error: 'Usuario no encontrado.' });
+        }
+
+        if (userRows[0].key_system_bypassed) {
+            return res.status(400).json({ error: 'Ya tienes el bypass activo.' });
+        }
+
+        // 2. Verificar saldo
+        if (userRows[0].balance < BYPASS_COST) {
+            return res.status(400).json({ error: `Saldo insuficiente. Necesitas ${BYPASS_COST} EcoCoreBits.` });
+        }
+
+        // 3. Deducir costo y registrar transacción
+        const newBalance = userRows[0].balance - BYPASS_COST;
+        await client.query('UPDATE users SET balance = $1 WHERE id = $2', [newBalance, userId]);
+        await client.query(
+            'INSERT INTO ecocore_txs (user_id, concepto, monto, origen) VALUES ($1, $2, $3, $4)',
+            [userId, 'Bypass del Key System', -BYPASS_COST, 'EcoConsole']
+        );
+
+        // 4. Marcar el bypass como activo para el usuario
+        await client.query('UPDATE users SET key_system_bypassed = TRUE WHERE id = $1', [userId]);
+
+        await client.query('COMMIT');
+        res.json({ success: true, message: '¡Trato aceptado! El Key System ha sido desactivado permanentemente.', newBalance });
+
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Error en /api/ecocore/bypass-key-system:', error);
+        res.status(500).json({ error: 'Error interno del servidor al procesar el trato.' });
+    } finally {
+        client.release();
+    }
+});
+
 await ensureDatabase(); 
 await ensureTables();
 
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🚀 API corriendo en http://localhost:${PORT}`));
-
-
-

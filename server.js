@@ -1212,56 +1212,79 @@ app.post("/api/subscriptions/subscribe", async (req, res) => {
   const now = new Date();
   const end = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
+  const client = await pool.connect();
   try {
-    // 1️⃣ Verifica si ya tiene una activa
-    const { rows: activeSub } = await pool.query(
+    await client.query('BEGIN');
+
+    // 1) Verificar si tiene suscripción activa y si es upgrade
+    const { rows: activeSub } = await client.query(
       `SELECT * FROM subs WHERE user_id = $1 AND active = true AND ends_at > NOW()`,
       [userId]
     );
-
     if (activeSub.length > 0) {
       const currentPlan = PLANS.find(p => p.id === activeSub[0].plan_id);
-      // 🔒 Solo permite mejorar (precio mayor)
       if (currentPlan && currentPlan.price >= plan.price) {
+        await client.query('ROLLBACK');
         return res.status(400).json({ error: "Solo puedes suscribirte a un plan superior." });
       }
     }
 
-    // 2️⃣ Descuento de Ecoxionums (obtenemos saldo actual)
-    const { rows: userRows } = await pool.query(
-      `SELECT balance FROM users WHERE id = $1`,
+    // 2) Leer saldo EcoCoreBits desde user_currency
+    const { rows: curRows } = await client.query(
+      `SELECT amount FROM user_currency WHERE user_id = $1 AND currency_type = 'ecocorebits' FOR UPDATE`,
       [userId]
     );
-    const currentBalance = userRows[0]?.balance ?? 0;
-
-    if (currentBalance < plan.price) {
-      return res.status(400).json({ error: `Te faltan ${plan.price - currentBalance} Ecoxionums.` });
+    const current = curRows[0]?.amount || 0;
+    if (current < plan.price) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: `Te faltan ${plan.price - current} EcoCoreBits.` });
     }
 
-    // 3️⃣ Descuenta el dinero
-    await pool.query(
-      `UPDATE users SET balance = balance - $1 WHERE id = $2`,
-      [plan.price, userId]
+    const next = current - plan.price;
+    await client.query(
+      `INSERT INTO user_currency (user_id, currency_type, amount)
+       VALUES ($1,'ecocorebits',$2)
+       ON CONFLICT (user_id, currency_type)
+       DO UPDATE SET amount = EXCLUDED.amount`,
+      [userId, next]
     );
 
-    // 4️⃣ Cancela suscripción anterior (si existe)
-    await pool.query(
+    // 3) Registrar transacción en EcoCoreBits
+    await client.query(
+      `INSERT INTO ecocore_txs (user_id, concepto, monto, origen)
+       VALUES ($1, $2, $3, $4)`,
+      [userId, 'Suscripción Plan Pro (EcoConsole)', -plan.price, 'EcoConsole']
+    );
+
+    // 4) Cerrar suscripción anterior (si existe)
+    await client.query(
       `UPDATE subs SET active = false, ends_at = NOW() WHERE user_id = $1 AND active = true`,
       [userId]
     );
 
-    // 5️⃣ Crea la nueva suscripción
-    const { rows } = await pool.query(
+    // 5) Crear nueva suscripción
+    const { rows } = await client.query(
       `INSERT INTO subs (user_id, plan_id, plan_name, start, ends_at, active)
        VALUES ($1, $2, $3, $4, $5, true) RETURNING *`,
       [userId, plan.id, plan.name, now, end]
     );
 
+    // 6) Ticket/recibo en Ocean Pay (historial)
+    await client.query(
+      `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
+       VALUES ($1, $2, $3, $4)`,
+      [userId, 'Suscripción Plan Pro (EcoConsole)', 0, 'EcoConsole']
+    );
+
+    await client.query('COMMIT');
     res.json({ success: true, sub: rows[0] });
 
   } catch (err) {
+    await client.query('ROLLBACK');
     console.error("❌ /subscribe ERROR:", err.message);
     res.status(500).json({ error: "Error interno del servidor" });
+  } finally {
+    client.release();
   }
 });
 
@@ -1293,57 +1316,82 @@ cron.schedule("0 0 * * *", async () => {
   console.log("🔄 Ejecutando cobro mensual...");
 
   try {
-    // 1️⃣ Obtener suscripciones que vencen HOY y con auto_pay = true
+    // 1) Suscripciones que vencen HOY con auto_pay
     const { rows: dueSubs } = await pool.query(`
-      SELECT s.*, p.price
+      SELECT s.*
       FROM subs s
-      JOIN plans p ON p.id = s.plan_id
       WHERE s.active = true
         AND s.auto_pay = true
         AND DATE(s.ends_at) = CURRENT_DATE
     `);
 
     for (const sub of dueSubs) {
-      const { user_id: userId, price, plan_id: planId } = sub;
+      const userId = sub.user_id;
+      const planId = sub.plan_id;
+      const plan = PLANS.find(p => p.id === planId);
+      const price = plan?.price || 0;
 
-      // 2️⃣ Verifica saldo
-      const { rows: userRows } = await pool.query(
-        `SELECT balance FROM users WHERE id = $1`,
-        [userId]
-      );
-      const balance = userRows[0]?.balance ?? 0;
-
-      if (balance >= price) {
-        // ✅ Tiene plata → renueva
-        const newEnd = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-        await pool.query(
-          `UPDATE users SET balance = balance - $1 WHERE id = $2`,
-          [price, userId]
-        );
-        await pool.query(
-          `UPDATE subs SET ends_at = $1 WHERE id = $2`,
-          [newEnd, sub.id]
-        );
-        console.log(`✅ Renovado ${planId} para ${userId}`);
-
-      } else {
-        // ❌ Sin plata → baja a Free + notifica
-        await pool.query(
-          `UPDATE subs SET active = false WHERE id = $1`,
-          [sub.id]
-        );
-        await pool.query(
-          `INSERT INTO subs (user_id, plan_id, plan_name, start, ends_at, active, auto_pay)
-           VALUES ($1, 'free', 'Plan Free', NOW(), NOW() + INTERVAL '30 days', true, false)`,
+      // 2) Leer saldo EcoCoreBits
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const { rows: cur } = await client.query(
+          `SELECT amount FROM user_currency WHERE user_id = $1 AND currency_type = 'ecocorebits' FOR UPDATE`,
           [userId]
         );
-        console.log(`❌ Downgrade a Free por falta de fondos: ${userId}`);
+        const balance = cur[0]?.amount || 0;
 
-        // 📬 Notificación al usuario (puedes usar tu sistema de alerts)
-        await pool.query(
-          `INSERT INTO alerts (user_id, type, message) VALUES ($1, 'warning', $2)`,
-          [userId, `💰 Saldo insuficiente para renovar tu plan. Se te ha asignado Plan Free temporalmente.`]
-        );
+        if (balance >= price && price > 0) {
+          const next = balance - price;
+          await client.query(
+            `INSERT INTO user_currency (user_id, currency_type, amount)
+             VALUES ($1,'ecocorebits',$2)
+             ON CONFLICT (user_id, currency_type)
+             DO UPDATE SET amount = EXCLUDED.amount`,
+            [userId, next]
+          );
+
+          await client.query(
+            `INSERT INTO ecocore_txs (user_id, concepto, monto, origen)
+             VALUES ($1, $2, $3, $4)`,
+            [userId, 'Renovación Suscripción Plan Pro (EcoConsole)', -price, 'EcoConsole']
+          );
+
+          // Extender 30 días
+          await client.query(
+            `UPDATE subs SET ends_at = NOW() + INTERVAL '30 days' WHERE id = $1`,
+            [sub.id]
+          );
+
+          // Ticket en Ocean Pay (monto 0)
+          await client.query(
+            `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
+             VALUES ($1, $2, $3, $4)`,
+            [userId, 'Renovación Suscripción Plan Pro (EcoConsole)', 0, 'EcoConsole']
+          );
+
+          await client.query('COMMIT');
+          console.log(`✅ Renovado ${planId} para ${userId}`);
+        } else {
+          // Sin saldo suficiente → downgrade
+          await client.query(`UPDATE subs SET active = false WHERE id = $1`, [sub.id]);
+          await client.query(
+            `INSERT INTO subs (user_id, plan_id, plan_name, start, ends_at, active, auto_pay)
+             VALUES ($1, 'free', 'Plan Free', NOW(), NOW() + INTERVAL '30 days', true, false)`,
+            [userId]
+          );
+          await client.query(
+            `INSERT INTO alerts (user_id, type, message) VALUES ($1, 'warning', $2)`,
+            [userId, '💰 Saldo insuficiente para renovar tu plan. Se te ha asignado Plan Free temporalmente.']
+          );
+          await client.query('COMMIT');
+          console.log(`❌ Downgrade a Free por falta de fondos: ${userId}`);
+        }
+      } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('❌ Error en renovación:', err.message);
+      } finally {
+        client.release();
       }
     }
   } catch (err) {
@@ -2003,27 +2051,35 @@ app.post('/ecocore/change', async (req, res) => {
   try {
     await client.query('BEGIN');
 
-    // Lock & read
+    // Leer saldo de user_currency (ecocorebits)
     const { rows } = await client.query(
-      'SELECT balance FROM users WHERE id = $1 FOR UPDATE',
+      `SELECT amount FROM user_currency WHERE user_id = $1 AND currency_type = 'ecocorebits' FOR UPDATE`,
       [userId]
     );
-    if (rows.length === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
+    const current = rows[0]?.amount || 0;
+    const next = current + amount;
+    if (next < 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Saldo insuficiente' });
+    }
 
-    const newBalance = rows[0].balance + amount;
-    if (newBalance < 0) return res.status(400).json({ error: 'Saldo insuficiente' });
+    // Upsert nuevo saldo
+    await client.query(
+      `INSERT INTO user_currency (user_id, currency_type, amount)
+       VALUES ($1,'ecocorebits',$2)
+       ON CONFLICT (user_id, currency_type)
+       DO UPDATE SET amount = EXCLUDED.amount`,
+      [userId, next]
+    );
 
-    // Update
-    await client.query('UPDATE users SET balance = $1 WHERE id = $2', [newBalance, userId]);
-
-    // Log
+    // Log en EcoCore
     await client.query(
       'INSERT INTO ecocore_txs (user_id, concepto, monto, origen) VALUES ($1,$2,$3,$4)',
       [userId, concepto, amount, origen]
     );
 
     await client.query('COMMIT');
-    res.json({ success: true, newBalance });
+    res.json({ success: true, newBalance: next });
   } catch (e) {
     await client.query('ROLLBACK');
     console.error(e);
@@ -2502,6 +2558,120 @@ function handleNatError(res, err, place = '') {
   console.error(`[NAT-MARKET ${place}]`, err?.message || err);
   res.status(500).json({ error: err?.message || String(err) });
 }
+
+
+
+// Add credits table to the database
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS ecocore_credits (
+    user_id TEXT PRIMARY KEY,
+    credits INTEGER NOT NULL DEFAULT 0,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  )
+`);
+
+// Get user credits
+app.get('/ecocore/credits/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { rows } = await pool.query(
+      'SELECT credits FROM ecocore_credits WHERE user_id = $1',
+      [userId]
+    );
+    
+    if (rows.length === 0) {
+      // Initialize with 0 credits if user not found
+      await pool.query(
+        'INSERT INTO ecocore_credits (user_id, credits) VALUES ($1, 0) RETURNING credits',
+        [userId]
+      );
+      return res.json({ credits: 0 });
+    }
+    
+    res.json({ credits: rows[0].credits });
+  } catch (error) {
+    console.error('Error fetching credits:', error);
+    res.status(500).json({ error: 'Failed to fetch credits' });
+  }
+});
+
+// Update user credits
+app.post('/ecocore/credits/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { amount, operation = 'set' } = req.body; // operation can be 'set', 'add', or 'subtract'
+    
+    if (typeof amount !== 'number') {
+      return res.status(400).json({ error: 'Invalid amount' });
+    }
+    
+    let query = '';
+    let params = [userId];
+    
+    if (operation === 'add') {
+      query = `
+        INSERT INTO ecocore_credits (user_id, credits)
+        VALUES ($1, $2)
+        ON CONFLICT (user_id)
+        DO UPDATE SET credits = ecocore_credits.credits + EXCLUDED.credits, updated_at = NOW()
+        RETURNING credits
+      `;
+      params.push(amount);
+    } else if (operation === 'subtract') {
+      // First check if user has enough credits
+      const { rows } = await pool.query(
+        'SELECT credits FROM ecocore_credits WHERE user_id = $1',
+        [userId]
+      );
+      
+      if (rows.length === 0 || rows[0].credits < amount) {
+        return res.status(400).json({ error: 'Insufficient credits' });
+      }
+      
+      query = `
+        UPDATE ecocore_credits 
+        SET credits = credits - $2, updated_at = NOW()
+        WHERE user_id = $1
+        RETURNING credits
+      `;
+      params.push(amount);
+    } else {
+      // Default to set operation
+      query = `
+        INSERT INTO ecocore_credits (user_id, credits)
+        VALUES ($1, $2)
+        ON CONFLICT (user_id)
+        DO UPDATE SET credits = EXCLUDED.credits, updated_at = NOW()
+        RETURNING credits
+      `;
+      params.push(amount);
+    }
+    
+    const { rows } = await pool.query(query, params);
+    res.json({ credits: rows[0].credits });
+  } catch (error) {
+    console.error('Error updating credits:', error);
+    res.status(500).json({ error: 'Failed to update credits' });
+  }
+});
+
+// Get user credits by user ID
+app.get('/api/credits/:userId', async (req, res) => {
+    const { userId } = req.params;
+    try {
+        const { rows } = await pool.query(
+            'SELECT credits FROM ecocore_credits WHERE user_id = $1',
+            [userId]
+        );
+        if (rows.length === 0) {
+            return res.status(404).json({ error: 'Usuario no encontrado o sin créditos.' });
+        }
+        res.json({ credits: rows[0].credits });
+    } catch (error) {
+        console.error('Error fetching credits:', error);
+        res.status(500).json({ error: 'Error interno del servidor' });
+    }
+});
 
 
 

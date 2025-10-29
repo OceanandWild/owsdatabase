@@ -199,6 +199,13 @@ const show = (sel, on = true) => {
     await autoLogin(qs('#logUser').value,qs('#logPass').value);
   };
 
+async function loadEcoCoreBalance() {
+  const user = JSON.parse(localStorage.getItem('opUser') || '{}');
+  if (!user.id) {
+    qs('#ecobits').textContent = '0';
+    return;
+  }
+
   try {
     const res = await fetch(`${API}/ecocore/bits/${user.id}`);
     const { bits } = await res.json();
@@ -206,6 +213,7 @@ const show = (sel, on = true) => {
   } catch {
     qs('#ecobits').textContent = '0';
   }
+}
 
 async function loadEcoxionumsBalance() {
   const user = JSON.parse(localStorage.getItem('opUser') || '{}');
@@ -362,6 +370,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   // ⬅️  carga historial
   await renderTransacciones();
+  await loadEcoCoreBalance(); // ← importante
   /* 2.c  Llamar después de login exitoso */
 await loadEcoxionumsBalance();
 });

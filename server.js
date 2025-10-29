@@ -2553,6 +2553,12 @@ CREATE TABLE IF NOT EXISTS product_images (
     created_at  TIMESTAMP DEFAULT NOW()
   );
 
+  CREATE TABLE IF NOT EXISTS tigertasks_backups (
+    user_id TEXT PRIMARY KEY,
+    backup_data JSONB NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  );
+
 `,
   ];
 
@@ -2836,6 +2842,38 @@ app.post('/api/ecocore/bypass-key-system', authenticateToken, async (req, res) =
     } finally {
         client.release();
     }
+});
+
+/* ===== TIGER TASKS BACKUP ===== */
+
+// Guardar/Actualizar backup de un usuario
+app.post('/api/tigertasks/backup', async (req, res) => {
+  const { userId, listsData } = req.body;
+  if (!userId || !listsData) {
+    return res.status(400).json({ error: 'Faltan userId o listsData' });
+  }
+
+  try {
+    await pool.query(
+      `INSERT INTO tigertasks_backups (user_id, backup_data, updated_at)
+       VALUES ($1, $2, NOW())
+       ON CONFLICT (user_id) DO UPDATE SET
+         backup_data = EXCLUDED.backup_data,
+         updated_at = NOW()`,
+      [userId, JSON.stringify(listsData)]
+    );
+    res.json({ success: true, message: 'Copia de seguridad guardada.' });
+  } catch (err) {
+    console.error('Error en /api/tigertasks/backup:', err);
+    res.status(500).json({ error: 'Error al guardar la copia de seguridad.' });
+  }
+});
+
+// Restaurar backup de un usuario
+app.get('/api/tigertasks/backup/:userId', async (req, res) => {
+  const { userId } = req.params;
+  const { rows } = await pool.query('SELECT backup_data FROM tigertasks_backups WHERE user_id = $1', [userId]);
+  res.json(rows[0]?.backup_data || null);
 });
 
 await ensureDatabase(); 

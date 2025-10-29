@@ -199,22 +199,6 @@ const show = (sel, on = true) => {
     await autoLogin(qs('#logUser').value,qs('#logPass').value);
   };
 
-async function loadEcoCoreBalance() {
-  const user = JSON.parse(localStorage.getItem('opUser') || '{}');
-  if (!user.id) {
-    qs('#ecobits').textContent = '0';
-    return;
-  }
-
-  try {
-    const res = await fetch(`${API}/ecocore/bits/${user.id}`);
-    const { bits } = await res.json();
-    qs('#ecobits').textContent = bits.toLocaleString();
-  } catch {
-    qs('#ecobits').textContent = '0';
-  }
-}
-
 async function loadEcoxionumsBalance() {
   const user = JSON.parse(localStorage.getItem('opUser') || '{}');
   if (!user.id) { qs('#ecoxionums').textContent = '0'; return; }
@@ -306,7 +290,7 @@ if (window.opener) {
   show('#wallet', true);
   qs('#bux').textContent = data.user.aquabux.toLocaleString();
   qs('#ecoxionums').textContent = (data.user.ecoxionums || 0).toLocaleString();
-  qs('#ecobits').textContent = (data.user.ecorebits || 0).toLocaleString();
+  qs('#ecobits').textContent = (data.user.ecorebits || 0).toLocaleString(); // ✨ Usamos el dato que ya vino en el login
 
   /* ⬅️  Cargar historial */
   await renderTransacciones();
@@ -370,7 +354,6 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   // ⬅️  carga historial
   await renderTransacciones();
-  await loadEcoCoreBalance(); // ← importante
   /* 2.c  Llamar después de login exitoso */
 await loadEcoxionumsBalance();
 });

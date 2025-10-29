@@ -1907,10 +1907,20 @@ const { rows: [u] } = await client.query(
 app.post('/ocean-pay/login', async (req,res)=>{
   const {username,password}=req.body;
   if(!username||!password) return res.status(400).json({error:'Faltan datos'});
-  const {rows}=await pool.query('SELECT id,pwd_hash,aquabux FROM ocean_pay_users WHERE username=$1',[username]);
+  
+  // Unimos ocean_pay_users con user_currency para obtener todo en una sola consulta
+  const {rows}=await pool.query(`
+    SELECT opu.id, opu.pwd_hash, opu.aquabux, opu.ecoxionums, COALESCE(uc.amount, 0) as ecorebits
+    FROM ocean_pay_users opu
+    LEFT JOIN user_currency uc ON opu.id::text = uc.user_id AND uc.currency_type = 'ecocorebits'
+    WHERE opu.username = $1
+  `,[username]);
+
   if(rows.length===0) return res.status(401).json({error:'Credenciales incorrectas'});
+  
   const ok=await bcrypt.compare(password,rows[0].pwd_hash);
   if(!ok) return res.status(401).json({error:'Credenciales incorrectas'});
+  
   const token=jwt.sign({uid:rows[0].id,un:username},process.env.STUDIO_SECRET,{expiresIn:'7d'});
   res.json({
   token,
@@ -1918,7 +1928,8 @@ app.post('/ocean-pay/login', async (req,res)=>{
     id: rows[0].id,
     username,
     aquabux: rows[0].aquabux,
-    ecoxionums: rows[0].ecoxionums // ← agregado
+    ecoxionums: rows[0].ecoxionums,
+    ecorebits: Number(rows[0].ecorebits) // ✨ Devolvemos el saldo de EcoCoreBits directamente
   }
 });
 });

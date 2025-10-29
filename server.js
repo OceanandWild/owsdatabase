@@ -2031,15 +2031,29 @@ app.get('/ocean-pay/txs/:userId', async (req, res) => {
 // 🔍 Obtener bits del usuario (protegido)
 app.get('/ecocore/bits/:userId', async (req, res) => {
   const { userId } = req.params;
-    console.log('[DEBUG] Buscando balance para userId:', userId);
-  // CORRECCIÓN: Consultar la tabla 'user_currency' en lugar de 'users'
-  const { rows } = await pool.query(
-    `SELECT amount FROM user_currency WHERE user_id = $1 AND currency_type = 'ecocorebits'`,
-    [userId]
-  );
-  console.log('[DEBUG] Resultado:', rows);
-  // Devolver el campo 'amount' como 'bits'
-  res.json({ bits: rows[0]?.amount ?? 0 });
+  console.log('[DEBUG] Buscando balance para Ocean Pay userId:', userId);
+
+  try {
+    // 1. Obtener el UUID del usuario desde la tabla 'users' usando el ID de Ocean Pay.
+    // La tabla 'users' tiene el id de ocean_pay_users como 'id'.
+    const { rows: userRows } = await pool.query(
+      `SELECT id FROM users WHERE id = $1`,
+      [userId]
+    );
+
+    if (userRows.length === 0) return res.json({ bits: 0 });
+    const correctUserId = userRows[0].id;
+
+    // 2. Usar el UUID correcto para obtener el saldo de la tabla 'user_currency'.
+    const { rows } = await pool.query(
+      `SELECT amount FROM user_currency WHERE user_id = $1 AND currency_type = 'ecocorebits'`,
+      [correctUserId]
+    );
+    res.json({ bits: rows[0]?.amount ?? 0 });
+  } catch (err) {
+    console.error('Error en /ecocore/bits/:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
 });
 
 // 💰 Modificar bits (protegido)

@@ -199,13 +199,6 @@ const show = (sel, on = true) => {
     await autoLogin(qs('#logUser').value,qs('#logPass').value);
   };
 
-async function loadEcoCoreBalance() {
-  const user = JSON.parse(localStorage.getItem('opUser') || '{}');
-  if (!user.id) {
-    qs('#ecobits').textContent = '0';
-    return;
-  }
-
   try {
     const res = await fetch(`${API}/ecocore/bits/${user.id}`);
     const { bits } = await res.json();
@@ -213,7 +206,6 @@ async function loadEcoCoreBalance() {
   } catch {
     qs('#ecobits').textContent = '0';
   }
-}
 
 async function loadEcoxionumsBalance() {
   const user = JSON.parse(localStorage.getItem('opUser') || '{}');
@@ -268,11 +260,6 @@ async function autoLogin(username, password) {
   localStorage.setItem('opToken', token);
 localStorage.setItem('opUser', JSON.stringify(data.user));
 
-  // ✅ Cargar saldos reales
-  const [ecoCoreBalance, ecoxionumsBalance] = await Promise.all([
-    fetch(`${API}/ecocore/bits/${userId}`).then(r => r.json()),
-    fetch(`${API}/ocean-pay/ecoxionums/${userId}`).then(r => r.json())
-  ]);
 
 await loadEcoxionumsBalance(); // ← importante
   /* ⬅️  DEBUG: imprimimos lo que vamos a enviar */
@@ -289,8 +276,8 @@ if (window.opener) {
       type: 'ocean-pay-token',
       token: data.token,
       user: data.user,
-      ecoxionums: ecoxionumsBalance.ecoxionums,
-      ecorebits: { balance: ecoCoreBalance.bits }
+      ecoxionums: data.user.ecoxionums,
+      ecorebits: { balance: data.user.ecorebits }
     })),
     '*'
   );
@@ -310,8 +297,8 @@ if (window.opener) {
   show('#regForm', false);
   show('#wallet', true);
   qs('#bux').textContent = data.user.aquabux.toLocaleString();
-  qs('#ecoxionums').textContent = ecoxionumsBalance.ecoxionums.toLocaleString();
-  qs('#ecobits').textContent = ecoCoreBalance.bits.toLocaleString();
+  qs('#ecoxionums').textContent = (data.user.ecoxionums || 0).toLocaleString();
+  qs('#ecobits').textContent = (data.user.ecorebits || 0).toLocaleString();
 
   /* ⬅️  Cargar historial */
   await renderTransacciones();
@@ -375,7 +362,6 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   // ⬅️  carga historial
   await renderTransacciones();
-  await loadEcoCoreBalance(); // ← importante
   /* 2.c  Llamar después de login exitoso */
 await loadEcoxionumsBalance();
 });

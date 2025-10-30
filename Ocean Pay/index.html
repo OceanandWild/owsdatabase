@@ -208,6 +208,20 @@ async function loadEcoxionumsBalance() {
   qs('#ecoxionums').textContent = ecoxionums.toLocaleString();
 }
 
+async function loadEcoCoreBitsBalance() {
+    const user = JSON.parse(localStorage.getItem('opUser') || '{}');
+    if (!user.id || !user.token) { qs('#ecobits').textContent = '0'; return; }
+
+    try {
+        const res = await fetch(`${API}/api/ecorebits/user`, {
+            headers: { 'Authorization': `Bearer ${user.token}` }
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            qs('#ecobits').textContent = (data.user.ecorebits?.balance || 0).toLocaleString();
+        }
+    } catch (e) { console.error("Error fetching ecocorebits", e); }
+}
 
 async function changeEcoxionums(sign) {
   const user = JSON.parse(localStorage.getItem('opUser') || '{}');
@@ -296,6 +310,7 @@ if (window.opener) {
   await renderTransacciones();
 }
 
+
   /* ----------  WALLET ACTIONS  ---------- */
   qs('#addBtn').onclick=()=>changeBux(1000);
   qs('#subBtn').onclick=()=>changeBux(-500);
@@ -355,6 +370,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   // ⬅️  carga historial
   await renderTransacciones();
   /* 2.c  Llamar después de login exitoso */
+  await loadEcoCoreBitsBalance();
 await loadEcoxionumsBalance();
 });
 

@@ -205,7 +205,7 @@ async function loadEcoxionumsBalance() {
 
   const res = await fetch(`${API}/ocean-pay/ecoxionums/${user.id}`);
   const { ecoxionums } = await res.json();
-  qs('#ecoxionums').textContent = ecoxionums.toLocaleString();
+  qs('#ecoxionums').textContent = Math.round(ecoxionums).toLocaleString();
 }
 
 async function loadEcoCoreBitsBalance() {
@@ -218,7 +218,7 @@ async function loadEcoCoreBitsBalance() {
         });
         const data = await res.json();
         if (res.ok && data.success) {
-            qs('#ecobits').textContent = (data.user.ecorebits?.balance || 0).toLocaleString();
+            qs('#ecobits').textContent = Math.round(data.user.ecorebits?.balance || 0).toLocaleString();
         }
     } catch (e) { console.error("Error fetching ecocorebits", e); }
 }

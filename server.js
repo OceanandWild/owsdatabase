@@ -2436,6 +2436,122 @@ function authenticateToken(req, res, next) {
     });
 }
 
+// Add this endpoint to handle limit extensions
+app.post('/api/extend-limit', async (req, res) => {
+    try {
+        const { option } = req.body;
+        const token = req.headers.authorization?.split(' ')[1];
+        
+        if (!token) {
+            return res.status(401).json({ error: 'No autorizado' });
+        }
+
+        // Verify token and get user
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const userId = decoded.userId;
+
+        // Get user data
+        const { rows: [user] } = await pool.query(
+            'SELECT id, credits, ecocorebits FROM users WHERE id = $1',
+            [userId]
+        );
+
+        if (!user) {
+            return res.status(404).json({ error: 'Usuario no encontrado' });
+        }
+
+        let result = {};
+        const now = new Date();
+
+        if (option === 'ecocorebits') {
+            // Check if user has enough EcoCoreBits
+            if (user.ecocorebits < 100) {
+                return res.status(400).json({ 
+                    error: 'No tienes suficientes EcoCoreBits' 
+                });
+            }
+
+            // Deduct EcoCoreBits and update limit
+            await pool.query(
+                `UPDATE users 
+                 SET ecocorebits = ecocorebits - 100,
+                     command_limit = command_limit + 10,
+                     command_reset_at = $1
+                 WHERE id = $2
+                 RETURNING command_limit, ecocorebits`,
+                [new Date(now.getTime() + 24 * 60 * 60 * 1000), userId]
+            );
+
+            result = {
+                success: true,
+                newLimit: user.command_limit + 10,
+                ecocorebits: user.ecocorebits - 100
+            };
+
+        } else if (option === 'credits') {
+            // Check if user has enough credits
+            if (user.credits < 1) {
+                return res.status(400).json({ 
+                    error: 'No tienes suficientes créditos' 
+                });
+            }
+
+            // Deduct credits and update limit
+            await pool.query(
+                `UPDATE users 
+                 SET credits = credits - 1,
+                     command_limit = command_limit + 5,
+                     command_reset_at = $1
+                 WHERE id = $2
+                 RETURNING command_limit, credits`,
+                [new Date(now.getTime() + 24 * 60 * 60 * 1000), userId]
+            );
+
+            result = {
+                success: true,
+                newLimit: user.command_limit + 5,
+                credits: user.credits - 1
+            };
+
+        } else {
+            return res.status(400).json({ error: 'Opción no válida' });
+        }
+
+        // Log the transaction
+        await pool.query(
+            `INSERT INTO command_limit_extensions 
+             (user_id, extension_type, commands_added, cost, extended_at)
+             VALUES ($1, $2, $3, $4, $5)`,
+            [
+                userId,
+                option,
+                option === 'ecocorebits' ? 10 : 5,
+                option === 'ecocorebits' ? 100 : 1,
+                now
+            ]
+        );
+
+        res.json(result);
+
+    } catch (error) {
+        console.error('Error extending command limit:', error);
+        
+        if (error.name === 'JsonWebTokenError') {
+            return res.status(401).json({ error: 'Token inválido' });
+        }
+        
+        if (error.name === 'TokenExpiredError') {
+            return res.status(401).json({ error: 'Sesión expirada' });
+        }
+
+        res.status(500).json({ 
+            error: 'Error al procesar la solicitud',
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+    }
+});
+
+
 /* ---------- ADMIN: listar usuarios ---------- */
 app.get('/admin/users', async (req, res) => {
   const secret = req.headers['x-admin-secret'];
@@ -2561,6 +2677,15 @@ CREATE TABLE IF NOT EXISTS product_images (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
   );
 
+  CREATE TABLE IF NOT EXISTS command_limit_extensions (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            extension_type VARCHAR(20) NOT NULL,
+            commands_added INTEGER NOT NULL,
+            cost INTEGER NOT NULL,
+            extended_at TIMESTAMP WITH TIME ZONE NOT NULL,
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+        );
 `,
   ];
 

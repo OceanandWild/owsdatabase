@@ -2064,8 +2064,10 @@ app.post('/ecocore/change', async (req, res) => {
       `SELECT amount FROM user_currency WHERE user_id = $1 AND currency_type = 'ecocorebits' FOR UPDATE`,
       [userId]
     );
-    const current = rows[0]?.amount || 0;
-    const next = current + amount;
+    // CORRECCIÓN: Asegurar que ambos valores sean números antes de sumar
+    const current = parseFloat(rows[0]?.amount || 0);
+    const next = current + parseFloat(amount);
+
     if (next < 0) {
       await client.query('ROLLBACK');
       return res.status(400).json({ error: 'Saldo insuficiente' });

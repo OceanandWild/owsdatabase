@@ -205,7 +205,7 @@ async function loadEcoxionumsBalance() {
 
   const res = await fetch(`${API}/ocean-pay/ecoxionums/${user.id}`);
   const { ecoxionums } = await res.json();
-  qs('#ecoxionums').textContent = Math.round(ecoxionums).toLocaleString();
+  qs('#ecoxionums').textContent = Math.round(ecoxionums || 0).toLocaleString();
 }
 
 async function loadEcoCoreBitsBalance() {

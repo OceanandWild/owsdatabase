@@ -2406,7 +2406,7 @@ app.get('/api/ecorebits/user', async (req, res) => {
                 id: userData.id,
                 username: userData.username,
                 ecorebits: {
-                    balance: Number(balance)
+                    balance: parseInt(balance, 10)
                 }
             }
         });

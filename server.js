@@ -2448,19 +2448,21 @@ app.post('/api/extend-limit', async (req, res) => {
 
         // Verify token and get user
         const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
-        const userId = String(decoded.userId || decoded.id || decoded.user?.id || '');
+        // El token de Ocean Pay usa 'uid', no 'userId'
+        const userId = String(decoded.uid || decoded.userId || decoded.id || decoded.user?.id || '');
 
-        if (!userId) {
-            return res.status(401).json({ error: 'Token inválido: falta userId' });
+        if (!userId || userId === 'undefined' || userId === 'null') {
+            console.error('Token decodificado:', decoded);
+            return res.status(401).json({ error: 'Token inválido: falta userId. Campos disponibles: ' + Object.keys(decoded).join(', ') });
         }
 
-        // Get user data
-        const { rows: [user] } = await pool.query(
-            'SELECT id, credits, ecocorebits FROM users WHERE id = $1',
+        // Verificar que el usuario existe
+        const { rows: userCheck } = await pool.query(
+            'SELECT id FROM users WHERE id = $1',
             [userId]
         );
 
-        if (!user) {
+        if (!userCheck || userCheck.length === 0) {
             return res.status(404).json({ error: 'Usuario no encontrado' });
         }
 
@@ -2468,53 +2470,76 @@ app.post('/api/extend-limit', async (req, res) => {
         const now = new Date();
 
         if (option === 'ecocorebits') {
+            // Obtener saldo de EcoCoreBits desde user_currency
+            const { rows: ecorebitsRows } = await pool.query(
+                `SELECT amount FROM user_currency 
+                 WHERE user_id = $1 AND currency_type = 'ecocorebits' FOR UPDATE`,
+                [userId]
+            );
+            
+            const currentBalance = ecorebitsRows[0]?.amount || 0;
+            
             // Check if user has enough EcoCoreBits
-            if (user.ecocorebits < 100) {
+            if (currentBalance < 100) {
                 return res.status(400).json({ 
                     error: 'No tienes suficientes EcoCoreBits' 
                 });
             }
 
-            // Deduct EcoCoreBits and update limit
+            // Deduct EcoCoreBits (actualizar o crear en user_currency)
+            const newBalance = currentBalance - 100;
             await pool.query(
-                `UPDATE users 
-                 SET ecocorebits = ecocorebits - 100,
-                     command_limit = command_limit + 10,
-                     command_reset_at = $1
-                 WHERE id = $2
-                 RETURNING command_limit, ecocorebits`,
-                [new Date(now.getTime() + 24 * 60 * 60 * 1000), userId]
+                `INSERT INTO user_currency (user_id, currency_type, amount)
+                 VALUES ($1, 'ecocorebits', $2)
+                 ON CONFLICT (user_id, currency_type)
+                 DO UPDATE SET amount = EXCLUDED.amount`,
+                [userId, newBalance]
             );
 
+            // Incrementar command limit en el estado local (se guarda en localStorage)
+            // El límite se maneja en el frontend, no en la BD
             result = {
                 success: true,
-                newLimit: user.command_limit + 10,
-                ecocorebits: user.ecocorebits - 100
+                newLimit: null, // Se calculará en el frontend
+                ecocorebits: newBalance
             };
 
         } else if (option === 'credits') {
+            // Obtener créditos desde ecocore_credits
+            const { rows: creditsRows } = await pool.query(
+                'SELECT credits FROM ecocore_credits WHERE user_id = $1 FOR UPDATE',
+                [userId]
+            );
+            
+            let currentCredits = 0;
+            if (creditsRows.length === 0) {
+                // Crear registro si no existe
+                await pool.query(
+                    'INSERT INTO ecocore_credits (user_id, credits) VALUES ($1, 0)',
+                    [userId]
+                );
+            } else {
+                currentCredits = creditsRows[0].credits || 0;
+            }
+            
             // Check if user has enough credits
-            if (user.credits < 1) {
+            if (currentCredits < 1) {
                 return res.status(400).json({ 
                     error: 'No tienes suficientes créditos' 
                 });
             }
 
-            // Deduct credits and update limit
+            // Deduct credits
+            const newCredits = currentCredits - 1;
             await pool.query(
-                `UPDATE users 
-                 SET credits = credits - 1,
-                     command_limit = command_limit + 5,
-                     command_reset_at = $1
-                 WHERE id = $2
-                 RETURNING command_limit, credits`,
-                [new Date(now.getTime() + 24 * 60 * 60 * 1000), userId]
+                'UPDATE ecocore_credits SET credits = $1, updated_at = NOW() WHERE user_id = $2',
+                [newCredits, userId]
             );
 
             result = {
                 success: true,
-                newLimit: user.command_limit + 5,
-                credits: user.credits - 1
+                newLimit: null, // Se calculará en el frontend
+                credits: newCredits
             };
 
         } else {

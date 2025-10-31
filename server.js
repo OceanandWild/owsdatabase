@@ -2447,7 +2447,7 @@ app.post('/api/extend-limit', async (req, res) => {
         }
 
         // Verify token and get user
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
         const userId = decoded.userId;
 
         // Get user data

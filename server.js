@@ -2448,7 +2448,11 @@ app.post('/api/extend-limit', async (req, res) => {
 
         // Verify token and get user
         const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
-        const userId = decoded.userId;
+        const userId = String(decoded.userId || decoded.id || decoded.user?.id || '');
+
+        if (!userId) {
+            return res.status(401).json({ error: 'Token inválido: falta userId' });
+        }
 
         // Get user data
         const { rows: [user] } = await pool.query(
@@ -2517,13 +2521,13 @@ app.post('/api/extend-limit', async (req, res) => {
             return res.status(400).json({ error: 'Opción no válida' });
         }
 
-        // Log the transaction
+            // Log the transaction (asegurar que userId es string)
         await pool.query(
             `INSERT INTO command_limit_extensions 
              (user_id, extension_type, commands_added, cost, extended_at)
              VALUES ($1, $2, $3, $4, $5)`,
             [
-                userId,
+                String(userId),
                 option,
                 option === 'ecocorebits' ? 10 : 5,
                 option === 'ecocorebits' ? 100 : 1,
@@ -2679,7 +2683,7 @@ CREATE TABLE IF NOT EXISTS product_images (
 
   CREATE TABLE IF NOT EXISTS command_limit_extensions (
             id SERIAL PRIMARY KEY,
-            user_id INTEGER NOT NULL REFERENCES users(id),
+            user_id TEXT NOT NULL REFERENCES users(id),
             extension_type VARCHAR(20) NOT NULL,
             commands_added INTEGER NOT NULL,
             cost INTEGER NOT NULL,
@@ -2692,6 +2696,44 @@ CREATE TABLE IF NOT EXISTS product_images (
   for (const q of tableQueries) {
     await pool.query(q);
   }
+  
+  // Migración: Si la tabla command_limit_extensions existe con user_id INTEGER, cambiarla a TEXT
+  try {
+    const checkColumn = await pool.query(`
+      SELECT data_type 
+      FROM information_schema.columns 
+      WHERE table_name = 'command_limit_extensions' 
+      AND column_name = 'user_id'
+    `);
+    
+    if (checkColumn.rows.length > 0 && checkColumn.rows[0].data_type === 'integer') {
+      console.log('🔄 Migrando command_limit_extensions: cambiando user_id de INTEGER a TEXT...');
+      
+      // Eliminar foreign key constraint si existe
+      await pool.query(`
+        ALTER TABLE command_limit_extensions 
+        DROP CONSTRAINT IF EXISTS command_limit_extensions_user_id_fkey
+      `).catch(() => {}); // Ignorar si no existe
+      
+      // Cambiar el tipo de columna
+      await pool.query(`
+        ALTER TABLE command_limit_extensions 
+        ALTER COLUMN user_id TYPE TEXT USING user_id::TEXT
+      `);
+      
+      // Recrear la foreign key constraint
+      await pool.query(`
+        ALTER TABLE command_limit_extensions 
+        ADD CONSTRAINT command_limit_extensions_user_id_fkey 
+        FOREIGN KEY (user_id) REFERENCES users(id)
+      `);
+      
+      console.log('✅ Migración completada: user_id ahora es TEXT');
+    }
+  } catch (err) {
+    console.warn('⚠️ Error en migración de command_limit_extensions (puede ignorarse si la tabla no existe):', err.message);
+  }
+  
   console.log("✅ Todas las tablas existen o fueron creadas");
 }
 

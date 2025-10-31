@@ -1206,8 +1206,26 @@ app.get("/api/subscriptions/history/:userId", async (req, res) => {
 // 🔥 DESCUENTO + COBRO MENSUAL REAL
 app.post("/api/subscriptions/subscribe", async (req, res) => {
   const { userId, planId } = req.body;
+  
+  // Validar que userId y planId estén presentes
+  if (!userId) {
+    console.error("❌ /subscribe ERROR: userId faltante. Body recibido:", req.body);
+    return res.status(400).json({ error: "userId es requerido" });
+  }
+  
+  if (!planId) {
+    console.error("❌ /subscribe ERROR: planId faltante. Body recibido:", req.body);
+    return res.status(400).json({ error: "planId es requerido" });
+  }
+  
   const plan = PLANS.find(p => p.id === planId);
-  if (!plan) return res.status(400).json({ error: "Plan inválido" });
+  if (!plan) {
+    console.error("❌ /subscribe ERROR: Plan inválido. planId recibido:", planId, "Planes disponibles:", PLANS.map(p => p.id));
+    return res.status(400).json({ error: `Plan inválido: ${planId}. Planes disponibles: ${PLANS.map(p => p.id).join(', ')}` });
+  }
+  
+  // Asegurar que userId sea string
+  const userIdStr = String(userId);
 
   const now = new Date();
   const end = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
@@ -1219,20 +1237,49 @@ app.post("/api/subscriptions/subscribe", async (req, res) => {
     // 1) Verificar si tiene suscripción activa y si es upgrade
     const { rows: activeSub } = await client.query(
       `SELECT * FROM subs WHERE user_id = $1 AND active = true AND ends_at > NOW()`,
-      [userId]
+      [userIdStr]
     );
-    if (activeSub.length > 0) {
-      const currentPlan = PLANS.find(p => p.id === activeSub[0].plan_id);
-      if (currentPlan && currentPlan.price >= plan.price) {
+    
+    // Guardar estado para usar después
+    const hasActiveSub = activeSub.length > 0;
+    const currentPlanId = hasActiveSub ? activeSub[0].plan_id : null;
+    
+    console.log(`📋 Verificando suscripciones activas para userId: ${userIdStr}`, {
+      activeSubs: activeSub.length,
+      activeSubData: activeSub
+    });
+    
+    if (hasActiveSub) {
+      const currentPlan = PLANS.find(p => p.id === currentPlanId);
+      
+      console.log(`📊 Comparando planes:`, {
+        currentPlanId: currentPlanId,
+        currentPlanFound: !!currentPlan,
+        currentPlanPrice: currentPlan?.price,
+        targetPlanId: plan.id,
+        targetPlanPrice: plan.price,
+        canUpgrade: currentPlan ? currentPlan.price < plan.price : true
+      });
+      
+      // Si el plan actual no está en PLANS, permitimos la suscripción (plan inválido o desactualizado)
+      if (!currentPlan) {
+        console.log(`⚠️ Plan actual (${currentPlanId}) no encontrado en PLANS, permitiendo suscripción`);
+        // Cancelaremos la suscripción anterior después de validar el saldo
+      } else if (currentPlan.price >= plan.price) {
         await client.query('ROLLBACK');
-        return res.status(400).json({ error: "Solo puedes suscribirte a un plan superior." });
+        return res.status(400).json({ 
+          error: `Ya tienes una suscripción activa al plan "${currentPlan.name}" (${currentPlan.price} Bits). Solo puedes suscribirte a un plan superior (${plan.name} cuesta ${plan.price} Bits).` 
+        });
+      } else {
+        // Es un upgrade válido, cerraremos la suscripción anterior después
+        console.log(`✅ Upgrade válido: ${currentPlan.name} (${currentPlan.price}) → ${plan.name} (${plan.price})`);
       }
     }
 
     // 2) Leer saldo EcoCoreBits desde user_currency
     const { rows: curRows } = await client.query(
       `SELECT amount FROM user_currency WHERE user_id = $1 AND currency_type = 'ecocorebits' FOR UPDATE`,
-      [userId]
+      [userIdStr]
     );
     const current = curRows[0]?.amount || 0;
     if (current < plan.price) {
@@ -1246,34 +1293,37 @@ app.post("/api/subscriptions/subscribe", async (req, res) => {
        VALUES ($1,'ecocorebits',$2)
        ON CONFLICT (user_id, currency_type)
        DO UPDATE SET amount = EXCLUDED.amount`,
-      [userId, next]
+      [userIdStr, next]
     );
 
     // 3) Registrar transacción en EcoCoreBits
     await client.query(
       `INSERT INTO ecocore_txs (user_id, concepto, monto, origen)
        VALUES ($1, $2, $3, $4)`,
-      [userId, 'Suscripción Plan Pro (EcoConsole)', -plan.price, 'EcoConsole']
+      [userIdStr, 'Suscripción Plan Pro (EcoConsole)', -plan.price, 'EcoConsole']
     );
 
     // 4) Cerrar suscripción anterior (si existe)
-    await client.query(
-      `UPDATE subs SET active = false, ends_at = NOW() WHERE user_id = $1 AND active = true`,
-      [userId]
-    );
+    if (hasActiveSub) {
+      await client.query(
+        `UPDATE subs SET active = false, ends_at = NOW() WHERE user_id = $1 AND active = true`,
+        [userIdStr]
+      );
+      console.log(`✅ Suscripción anterior cerrada para permitir nueva suscripción`);
+    }
 
     // 5) Crear nueva suscripción
     const { rows } = await client.query(
       `INSERT INTO subs (user_id, plan_id, plan_name, start, ends_at, active)
        VALUES ($1, $2, $3, $4, $5, true) RETURNING *`,
-      [userId, plan.id, plan.name, now, end]
+      [userIdStr, plan.id, plan.name, now, end]
     );
 
     // 6) Ticket/recibo en Ocean Pay (historial)
     await client.query(
       `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
        VALUES ($1, $2, $3, $4)`,
-      [userId, 'Suscripción Plan Pro (EcoConsole)', 0, 'EcoConsole']
+      [userIdStr, 'Suscripción Plan Pro (EcoConsole)', 0, 'EcoConsole']
     );
 
     await client.query('COMMIT');

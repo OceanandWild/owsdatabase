@@ -2066,7 +2066,7 @@ app.post('/ecocore/change', async (req, res) => {
     );
     // CORRECCIÓN: Asegurar que ambos valores sean números antes de sumar
     const current = parseFloat(rows[0]?.amount || 0);
-    const next = current + parseFloat(amount);
+    const next = Math.round(current + parseFloat(amount));
 
     if (next < 0) {
       await client.query('ROLLBACK');

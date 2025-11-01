@@ -884,19 +884,26 @@ app.post('/natmarket/messages/v2', async (req, res) => {
 
   console.log(`[MESSAGES] Nuevo mensaje - sender_id: ${senderIdNum}, product_id: ${productIdNum}, mensaje: "${message.substring(0, 50)}..."`);
 
-  // Verificar que el producto existe
-  const { rows: productRows } = await pool.query(
-    'SELECT id, user_id, name FROM products_nat WHERE id = $1',
-    [productIdNum]
-  );
+  let product = null;
   
-  if (productRows.length === 0) {
-    console.error(`[MESSAGES] Producto no encontrado: ${productIdNum}`);
-    return res.status(404).json({ error: 'Producto no encontrado' });
-  }
+  // Si product_id es 0, es chat global (no necesita verificar producto)
+  if (productIdNum === 0) {
+    console.log(`[MESSAGES] Mensaje para chat global`);
+  } else {
+    // Si product_id > 0, es chat privado - verificar que el producto existe
+    const { rows: productRows } = await pool.query(
+      'SELECT id, user_id, name FROM products_nat WHERE id = $1',
+      [productIdNum]
+    );
+    
+    if (productRows.length === 0) {
+      console.error(`[MESSAGES] Producto no encontrado: ${productIdNum}`);
+      return res.status(404).json({ error: 'Producto no encontrado' });
+    }
 
-  const product = productRows[0];
-  console.log(`[MESSAGES] Producto encontrado: "${product.name}" (id: ${product.id}), vendedor: ${product.user_id}`);
+    product = productRows[0];
+    console.log(`[MESSAGES] Producto encontrado: "${product.name}" (id: ${product.id}), vendedor: ${product.user_id}`);
+  }
 
   const bad = containsInappropriate(message);
   if (bad) {
@@ -924,9 +931,11 @@ app.post('/natmarket/messages/v2', async (req, res) => {
   
   console.log(`[MESSAGES] Mensaje guardado - ID: ${msg.id}, sender_id: ${msg.sender_id}, product_id: ${msg.product_id}, verificado: ${Number(msg.product_id) === productIdNum ? 'OK' : 'ERROR'}`);
     
-    // Crear notificación para el destinatario
-    const sellerId = product.user_id;
-    const isSellerMessage = senderIdNum === Number(sellerId);
+    // Crear notificaciones solo para chats privados (product_id > 0)
+    // El chat global (product_id = 0) no genera notificaciones
+    if (productIdNum > 0 && product) {
+      const sellerId = product.user_id;
+      const isSellerMessage = senderIdNum === Number(sellerId);
     
     // Lista de usuarios a notificar
     const usersToNotify = new Set();
@@ -979,6 +988,7 @@ app.post('/natmarket/messages/v2', async (req, res) => {
           console.error(`[NOTIFICATIONS] Error creando notificación para ${userId}:`, notifErr);
         }
       }
+    }
     }
     
     res.json(msg);
@@ -1143,13 +1153,39 @@ app.get('/natmarket/users/:id/rejected', async (req, res) => {
 app.get('/natmarket/messages/:product_id', async (req, res) => {
   try {
     const { product_id } = req.params;
-    const { rows } = await pool.query(`
-      SELECT m.*, u.username AS sender_username
-      FROM messages_nat m
-      JOIN users_nat u ON m.sender_id = u.id
-      WHERE m.product_id = $1
-      ORDER BY m.created_at ASC
-    `, [product_id]);
+    const productIdNum = parseInt(product_id);
+    
+    // Si product_id es 0, es el chat global (todos ven todos los mensajes globales)
+    // Si product_id > 0, es un chat privado (solo ese producto)
+    if (isNaN(productIdNum)) {
+      return res.status(400).json({ error: 'product_id inválido' });
+    }
+    
+    let query, params;
+    
+    if (productIdNum === 0) {
+      // Chat global: solo mensajes con product_id = 0
+      query = `
+        SELECT m.*, u.username AS sender_username
+        FROM messages_nat m
+        JOIN users_nat u ON m.sender_id = u.id
+        WHERE m.product_id = 0
+        ORDER BY m.created_at ASC
+      `;
+      params = [];
+    } else {
+      // Chat privado: solo mensajes de ese producto específico
+      query = `
+        SELECT m.*, u.username AS sender_username
+        FROM messages_nat m
+        JOIN users_nat u ON m.sender_id = u.id
+        WHERE m.product_id = $1
+        ORDER BY m.created_at ASC
+      `;
+      params = [productIdNum];
+    }
+    
+    const { rows } = await pool.query(query, params);
     res.json(rows);
   } catch (err) {
     handleNatError(res, err, 'GET /natmarket/messages/:product_id');

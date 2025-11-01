@@ -866,47 +866,67 @@ app.post('/natmarket/messages', async (req, res) => {
 
 app.post('/natmarket/messages/v2', async (req, res) => {
   const { sender_id, product_id, message } = req.body;
-  if (!sender_id || !product_id || !message) return res.status(400).json({ error: 'Faltan datos' });
+  
+  // Validación estricta de parámetros
+  if (!sender_id || !product_id || !message) {
+    console.error('[MESSAGES] Faltan parámetros:', { sender_id, product_id, message: message ? 'presente' : 'faltante' });
+    return res.status(400).json({ error: 'Faltan datos' });
+  }
 
-  console.log(`[MESSAGES] Nuevo mensaje - sender_id: ${sender_id}, product_id: ${product_id}`);
+  // Asegurar que product_id sea un número
+  const productIdNum = parseInt(product_id);
+  const senderIdNum = parseInt(sender_id);
+  
+  if (isNaN(productIdNum) || isNaN(senderIdNum)) {
+    console.error('[MESSAGES] IDs inválidos:', { product_id, sender_id });
+    return res.status(400).json({ error: 'IDs inválidos' });
+  }
+
+  console.log(`[MESSAGES] Nuevo mensaje - sender_id: ${senderIdNum}, product_id: ${productIdNum}, mensaje: "${message.substring(0, 50)}..."`);
 
   // Verificar que el producto existe
   const { rows: productRows } = await pool.query(
     'SELECT id, user_id, name FROM products_nat WHERE id = $1',
-    [product_id]
+    [productIdNum]
   );
   
   if (productRows.length === 0) {
+    console.error(`[MESSAGES] Producto no encontrado: ${productIdNum}`);
     return res.status(404).json({ error: 'Producto no encontrado' });
   }
 
   const product = productRows[0];
-  console.log(`[MESSAGES] Producto encontrado: ${product.name}, vendedor: ${product.user_id}`);
+  console.log(`[MESSAGES] Producto encontrado: "${product.name}" (id: ${product.id}), vendedor: ${product.user_id}`);
 
   const bad = containsInappropriate(message);
   if (bad) {
     await pool.query(
       `INSERT INTO messages_pending (product_id, sender_id, message)
        VALUES ($1,$2,$3)`,
-      [product_id, sender_id, message]
+      [productIdNum, senderIdNum, message]
     );
-    await notifyModerator('message', product_id, message, sender_id);
+    await notifyModerator('message', productIdNum, message, senderIdNum);
     return res.status(202).json({
       warning: 'Tu mensaje está en revisión por contenido potencialmente inapropiado.'
     });
   }
   
-    // si está OK, guardar directamente
-    const { rows: [msg] } = await pool.query(
-      `INSERT INTO messages_nat (sender_id, product_id, message) VALUES ($1,$2,$3) RETURNING *`,
-      [sender_id, product_id, message]
-    );
-    
-    console.log(`[MESSAGES] Mensaje guardado con ID: ${msg.id}`);
+  // si está OK, guardar directamente con validación explícita
+  const { rows: [msg] } = await pool.query(
+    `INSERT INTO messages_nat (sender_id, product_id, message) VALUES ($1,$2,$3) RETURNING id, sender_id, product_id, message, created_at`,
+    [senderIdNum, productIdNum, message]
+  );
+  
+  // Verificación adicional
+  if (Number(msg.product_id) !== productIdNum) {
+    console.error(`[MESSAGES] ERROR: Mensaje guardado con product_id incorrecto. Esperado: ${productIdNum}, Obtenido: ${msg.product_id}`);
+  }
+  
+  console.log(`[MESSAGES] Mensaje guardado - ID: ${msg.id}, sender_id: ${msg.sender_id}, product_id: ${msg.product_id}, verificado: ${Number(msg.product_id) === productIdNum ? 'OK' : 'ERROR'}`);
     
     // Crear notificación para el destinatario
     const sellerId = product.user_id;
-    const isSellerMessage = Number(sender_id) === Number(sellerId);
+    const isSellerMessage = senderIdNum === Number(sellerId);
     
     // Lista de usuarios a notificar
     const usersToNotify = new Set();
@@ -917,7 +937,7 @@ app.post('/natmarket/messages/v2', async (req, res) => {
         SELECT DISTINCT sender_id 
         FROM messages_nat 
         WHERE product_id = $1 AND sender_id != $2
-      `, [product_id, sender_id]);
+      `, [productIdNum, senderIdNum]);
       
       participants.forEach(p => usersToNotify.add(String(p.sender_id)));
     } else {
@@ -928,7 +948,7 @@ app.post('/natmarket/messages/v2', async (req, res) => {
         SELECT DISTINCT sender_id 
         FROM messages_nat 
         WHERE product_id = $1 AND sender_id != $2 AND sender_id != $3
-      `, [product_id, sender_id, sellerId]);
+      `, [productIdNum, senderIdNum, sellerId]);
       
       participants.forEach(p => usersToNotify.add(String(p.sender_id)));
     }
@@ -936,14 +956,14 @@ app.post('/natmarket/messages/v2', async (req, res) => {
     // Obtener nombre del remitente
     const { rows: senderRow } = await pool.query(
       'SELECT username FROM users_nat WHERE id = $1',
-      [sender_id]
+      [senderIdNum]
     );
     const senderName = senderRow[0]?.username || 'Alguien';
     
     // Crear notificaciones
     for (const userIdStr of usersToNotify) {
       const userId = parseInt(userIdStr);
-      if (userId && Number(userId) !== Number(sender_id)) {
+      if (userId && Number(userId) !== senderIdNum) {
         try {
           await pool.query(`
             INSERT INTO notifications_nat (user_id, type, message, product_id, sender_id, created_at)
@@ -951,10 +971,10 @@ app.post('/natmarket/messages/v2', async (req, res) => {
           `, [
             userId,
             `${senderName} envió un mensaje sobre "${product.name}"`,
-            product_id,
-            sender_id
+            productIdNum,
+            senderIdNum
           ]);
-          console.log(`[NOTIFICATIONS] Notificación creada para usuario ${userId} sobre producto ${product_id}`);
+          console.log(`[NOTIFICATIONS] Notificación creada para usuario ${userId} sobre producto ${productIdNum}`);
         } catch (notifErr) {
           console.error(`[NOTIFICATIONS] Error creando notificación para ${userId}:`, notifErr);
         }

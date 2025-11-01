@@ -836,9 +836,16 @@ app.patch('/natmarket/products/:id', async (req, res) => {
     if (!user_id) return res.status(400).json({ error: 'user_id requerido' });
     
     // Verificar que el producto existe y pertenece al usuario
-    const { rows: productRows } = await pool.query('SELECT user_id FROM products_nat WHERE id=$1', [id]);
+    const { rows: productRows } = await pool.query('SELECT user_id, sold FROM products_nat WHERE id=$1', [id]);
     if (productRows.length === 0) return res.status(404).json({ error: 'Producto no encontrado' });
     if (Number(productRows[0].user_id) !== Number(user_id)) return res.status(403).json({ error: 'No autorizado' });
+    
+    const currentProduct = productRows[0];
+    
+    // Si el producto está vendido, NO permitir modificar el stock
+    if (currentProduct.sold && stock !== undefined) {
+      return res.status(400).json({ error: 'No se puede modificar el stock de un producto vendido' });
+    }
     
     const updates = [];
     const values = [];

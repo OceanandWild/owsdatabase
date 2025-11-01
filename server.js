@@ -868,6 +868,21 @@ app.post('/natmarket/messages/v2', async (req, res) => {
   const { sender_id, product_id, message } = req.body;
   if (!sender_id || !product_id || !message) return res.status(400).json({ error: 'Faltan datos' });
 
+  console.log(`[MESSAGES] Nuevo mensaje - sender_id: ${sender_id}, product_id: ${product_id}`);
+
+  // Verificar que el producto existe
+  const { rows: productRows } = await pool.query(
+    'SELECT id, user_id, name FROM products_nat WHERE id = $1',
+    [product_id]
+  );
+  
+  if (productRows.length === 0) {
+    return res.status(404).json({ error: 'Producto no encontrado' });
+  }
+
+  const product = productRows[0];
+  console.log(`[MESSAGES] Producto encontrado: ${product.name}, vendedor: ${product.user_id}`);
+
   const bad = containsInappropriate(message);
   if (bad) {
     await pool.query(
@@ -880,11 +895,14 @@ app.post('/natmarket/messages/v2', async (req, res) => {
       warning: 'Tu mensaje está en revisión por contenido potencialmente inapropiado.'
     });
   }
+  
   // si está OK, guardar directamente
   const { rows: [msg] } = await pool.query(
     `INSERT INTO messages_nat (sender_id, product_id, message) VALUES ($1,$2,$3) RETURNING *`,
     [sender_id, product_id, message]
   );
+  
+  console.log(`[MESSAGES] Mensaje guardado con ID: ${msg.id}`);
   res.json(msg);
 });
 
@@ -1064,11 +1082,12 @@ app.get('/natmarket/messages/:product_id', async (req, res) => {
 app.get('/natmarket/chats/:seller_id', async (req, res) => {
   try {
     const { seller_id } = req.params;
+    console.log(`[CHATS] Obteniendo chats para vendedor: ${seller_id}`);
+    
     const { rows } = await pool.query(`
       SELECT DISTINCT
         p.id AS product_id,
         p.name AS product_name,
-        p.image_urls,
         (
           SELECT json_agg(
             json_build_object(
@@ -1098,8 +1117,10 @@ app.get('/natmarket/chats/:seller_id', async (req, res) => {
         AND EXISTS (
           SELECT 1 FROM messages_nat m WHERE m.product_id = p.id
         )
-      ORDER BY last_activity DESC
+      ORDER BY last_activity DESC NULLS LAST
     `, [seller_id]);
+    
+    console.log(`[CHATS] Encontrados ${rows.length} productos con mensajes para vendedor ${seller_id}`);
     
     // Si no hay filas, devolver array vacío
     if (!rows || rows.length === 0) {

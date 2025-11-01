@@ -1121,35 +1121,48 @@ app.get('/natmarket/chats/:seller_id', async (req, res) => {
     `, [seller_id]);
     
     console.log(`[CHATS] Encontrados ${rows.length} productos con mensajes para vendedor ${seller_id}`);
+    console.log(`[CHATS] Primera fila de ejemplo:`, rows[0]);
     
     // Si no hay filas, devolver array vacío
     if (!rows || rows.length === 0) {
+      console.log(`[CHATS] No hay productos, devolviendo array vacío`);
       return res.json([]);
     }
     
     // Obtener imágenes de cada producto
-    const chatsWithImages = await Promise.all(rows.map(async (chat) => {
+    console.log(`[CHATS] Procesando ${rows.length} productos para obtener imágenes...`);
+    const chatsWithImages = await Promise.all(rows.map(async (chat, index) => {
       try {
         const { rows: imgRows } = await pool.query(
           'SELECT url FROM product_images_nat WHERE product_id = $1 ORDER BY created_at ASC LIMIT 1',
           [chat.product_id]
         );
-        return {
-          ...chat,
+        const result = {
+          product_id: chat.product_id,
+          product_name: chat.product_name,
           product_image: imgRows[0]?.url || null,
           last_message: chat.last_message || null,
-          participants_count: chat.participants_count || 0
+          participants_count: chat.participants_count || 0,
+          last_activity: chat.last_activity
         };
+        console.log(`[CHATS] Producto ${index + 1}/${rows.length} procesado:`, result.product_id, result.product_name);
+        return result;
       } catch (imgErr) {
-        console.error(`Error obteniendo imagen para producto ${chat.product_id}:`, imgErr);
+        console.error(`[CHATS] Error obteniendo imagen para producto ${chat.product_id}:`, imgErr);
         return {
-          ...chat,
+          product_id: chat.product_id,
+          product_name: chat.product_name,
           product_image: null,
           last_message: chat.last_message || null,
-          participants_count: chat.participants_count || 0
+          participants_count: chat.participants_count || 0,
+          last_activity: chat.last_activity
         };
       }
     }));
+    
+    console.log(`[CHATS] Resultado final antes de enviar:`, chatsWithImages);
+    console.log(`[CHATS] Es array?:`, Array.isArray(chatsWithImages));
+    console.log(`[CHATS] Longitud:`, chatsWithImages.length);
     
     res.json(chatsWithImages);
   } catch (err) {

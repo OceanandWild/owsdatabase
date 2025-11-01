@@ -5,86 +5,391 @@
   <title>Ocean and Wild – Estado de Servicios</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    
     :root {
       --ow-blue: #0052CC;
+      --ow-blue-light: #0065FF;
       --ow-green: #36B37E;
+      --ow-green-bright: #57D9A3;
       --ow-yellow: #FFC400;
+      --ow-yellow-bright: #FFE380;
       --ow-red: #FF5630;
+      --ow-red-bright: #FF7452;
       --ow-dark: #172B4D;
       --ow-gray: #F4F5F7;
       --ow-white: #FFFFFF;
-      --radius: 6px;
-      --font: "Segoe UI", Roboto, sans-serif;
+      --radius: 16px;
+      --radius-sm: 10px;
+      --font: "Inter", "Segoe UI", Roboto, sans-serif;
+      --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+      --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.12);
+      --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.16);
+      --shadow-xl: 0 16px 64px rgba(0, 82, 204, 0.25);
     }
-    * { box-sizing: border-box; }
+    
+    * { 
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
     body {
       margin: 0;
       font-family: var(--font);
-      background: var(--ow-gray);
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%);
+      background-size: 400% 400%;
+      animation: gradientShift 15s ease infinite;
       color: var(--ow-dark);
       display: flex;
       flex-direction: column;
       min-height: 100vh;
+      position: relative;
+      overflow-x: hidden;
     }
+    
+    @keyframes gradientShift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+    
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: 
+        radial-gradient(circle at 20% 50%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+        radial-gradient(circle at 40% 20%, rgba(255, 255, 255, 0.05) 0%, transparent 50%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    
     header {
-      background: var(--ow-blue);
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
       color: var(--ow-white);
-      padding: 1.2rem 1rem;
-      box-shadow: 0 2px 4px rgba(0,0,0,.1);
+      padding: 2rem 2rem;
+      box-shadow: var(--shadow-lg);
       display: flex;
       align-items: center;
-      gap: .5rem;
+      gap: 1rem;
+      position: relative;
+      z-index: 10;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
     }
-    header h1 { margin: 0; font-size: 1.4rem; font-weight: 600; }
+    
+    header::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(135deg, rgba(0, 82, 204, 0.8) 0%, rgba(102, 126, 234, 0.6) 100%);
+      z-index: -1;
+    }
+    
+    header span {
+      font-size: 2.5rem;
+      filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+      animation: float 3s ease-in-out infinite;
+    }
+    
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-10px); }
+    }
+    
+    header h1 { 
+      margin: 0; 
+      font-size: 1.8rem; 
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      text-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+    }
+    
     main {
       flex: 1;
-      max-width: 960px;
+      max-width: 1200px;
       width: 100%;
-      margin: 2rem auto;
-      padding: 0 1rem;
+      margin: 3rem auto;
+      padding: 0 2rem;
+      position: relative;
+      z-index: 1;
     }
+    
     .card {
-      background: var(--ow-white);
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(20px) saturate(180%);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
       border-radius: var(--radius);
-      padding: 1.2rem 1.5rem;
-      margin-bottom: 1rem;
-      box-shadow: 0 1px 3px rgba(0,0,0,.08);
+      padding: 1.8rem 2rem;
+      margin-bottom: 1.5rem;
+      box-shadow: var(--shadow-md);
       display: flex;
       align-items: center;
       justify-content: space-between;
-      transition: transform .15s;
+      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      animation: slideIn 0.6s ease-out backwards;
+      opacity: 0;
     }
-    .card:hover { transform: translateY(-2px); }
-    .name { font-weight: 600; font-size: 1.05rem; }
+    
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+      transition: left 0.5s;
+    }
+    
+    .card:hover::before {
+      left: 100%;
+    }
+    
+    .card:hover { 
+      transform: translateY(-8px) scale(1.02);
+      box-shadow: var(--shadow-xl);
+      border-color: rgba(255, 255, 255, 0.8);
+    }
+    
+    .card-content {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+      flex: 1;
+    }
+    
+    .service-icon {
+      width: 56px;
+      height: 56px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.8rem;
+      background: linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.15) 100%);
+      box-shadow: var(--shadow-sm);
+      flex-shrink: 0;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+      z-index: 1;
+    }
+    
+    .service-icon::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.3);
+      transform: translate(-50%, -50%);
+      transition: width 0.4s, height 0.4s;
+      z-index: -1;
+    }
+    
+    .service-icon > * {
+      position: relative;
+      z-index: 2;
+    }
+    
+    .card:hover .service-icon {
+      transform: rotate(5deg) scale(1.1);
+      background: linear-gradient(135deg, rgba(102, 126, 234, 0.25) 0%, rgba(118, 75, 162, 0.25) 100%);
+      box-shadow: 0 4px 16px rgba(102, 126, 234, 0.3);
+    }
+    
+    .card:hover .service-icon::before {
+      width: 100px;
+      height: 100px;
+    }
+    
+    .name { 
+      font-weight: 700; 
+      font-size: 1.25rem;
+      color: var(--ow-dark);
+      letter-spacing: -0.3px;
+    }
+    
+    .status-group {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+    }
+    
     .badge {
-      padding: .25rem .6rem;
-      border-radius: var(--radius);
-      font-size: .75rem;
-      font-weight: 600;
+      padding: 0.5rem 1rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.75rem;
+      font-weight: 700;
       text-transform: uppercase;
+      letter-spacing: 1px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: var(--shadow-sm);
+      transition: all 0.3s ease;
     }
-    .up { background: var(--ow-green); color: var(--ow-white); }
-    .down { background: var(--ow-red); color: var(--ow-white); }
-    .soon { background: var(--ow-yellow); color: var(--ow-dark); }
-    .pending { background: #6B778C; color: var(--ow-white); }
+    
+    .badge::after {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+      transform: rotate(45deg);
+      transition: all 0.5s;
+    }
+    
+    .badge:hover::after {
+      left: 100%;
+    }
+    
+    .badge.up { 
+      background: linear-gradient(135deg, var(--ow-green) 0%, var(--ow-green-bright) 100%);
+      color: var(--ow-white);
+      box-shadow: 0 4px 16px rgba(54, 179, 126, 0.4);
+      animation: pulse 2s ease-in-out infinite;
+    }
+    
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 4px 16px rgba(54, 179, 126, 0.4); }
+      50% { box-shadow: 0 4px 24px rgba(54, 179, 126, 0.6); }
+    }
+    
+    .badge.down { 
+      background: linear-gradient(135deg, var(--ow-red) 0%, var(--ow-red-bright) 100%);
+      color: var(--ow-white);
+      box-shadow: 0 4px 16px rgba(255, 86, 48, 0.4);
+      animation: shake 0.5s ease-in-out infinite;
+    }
+    
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-3px); }
+      75% { transform: translateX(3px); }
+    }
+    
+    .badge.soon { 
+      background: linear-gradient(135deg, var(--ow-yellow) 0%, var(--ow-yellow-bright) 100%);
+      color: var(--ow-dark);
+      box-shadow: 0 4px 16px rgba(255, 196, 0, 0.4);
+    }
+    
+    .badge.pending { 
+      background: linear-gradient(135deg, #6B778C 0%, #8993A4 100%);
+      color: var(--ow-white);
+      box-shadow: 0 4px 16px rgba(107, 119, 140, 0.4);
+      animation: pulse-slow 2.5s ease-in-out infinite;
+    }
+    
+    @keyframes pulse-slow {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+    
     .time {
-      font-size: .75rem;
+      font-size: 0.875rem;
       color: #6B778C;
-      margin-left: auto;
-      margin-right: .8rem;
+      font-weight: 600;
+      background: rgba(107, 119, 140, 0.1);
+      padding: 0.4rem 0.8rem;
+      border-radius: var(--radius-sm);
+      min-width: 80px;
+      text-align: center;
     }
+    
+    .time::before {
+      content: '⏱ ';
+      margin-right: 0.25rem;
+    }
+    
     footer {
       text-align: center;
-      padding: 1rem;
-      font-size: .75rem;
-      color: #6B778C;
+      padding: 2rem;
+      font-size: 0.875rem;
+      color: rgba(255, 255, 255, 0.9);
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      position: relative;
+      z-index: 10;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     }
+    
+    #last {
+      font-weight: 700;
+      color: var(--ow-white);
+      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+    
     .loading-row {
       display: flex;
       align-items: center;
       gap: .5rem;
       color: #6B778C;
       font-size: .9rem;
+    }
+    
+    @media (max-width: 768px) {
+      header {
+        padding: 1.5rem 1.5rem;
+      }
+      
+      header h1 {
+        font-size: 1.4rem;
+      }
+      
+      main {
+        margin: 2rem auto;
+        padding: 0 1rem;
+      }
+      
+      .card {
+        padding: 1.5rem 1.5rem;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+      }
+      
+      .card-content {
+        width: 100%;
+      }
+      
+      .status-group {
+        width: 100%;
+        justify-content: space-between;
+      }
+      
+      .name {
+        font-size: 1.1rem;
+      }
     }
   </style>
 </head>
@@ -102,17 +407,17 @@
 
   <script>
     const SERVICES = [
-      { name: 'EcoConsole', route: '/version' },
-      { name: 'Ecoxion', route: '/api/subscriptions/plans' },
-      { name: 'NatMarket', route: '/natmarket/products' },
-      { name: 'Naturepedia', route: '/api/leaderboard' },
+      { name: 'EcoConsole', route: '/version', icon: '🖥️' },
+      { name: 'Ecoxion', route: '/api/subscriptions/plans', icon: '💳' },
+      { name: 'NatMarket', route: '/natmarket/products', icon: '🛒' },
+      { name: 'Naturepedia', route: '/api/leaderboard', icon: '📚' },
       // Próximamente (sin ruta)
-      { name: 'AllApp', route: null },
-      { name: 'Ocean and Wild Nexus', route: null },
-      { name: 'Incremental Cosmic Odyssey', route: null },
-      { name: 'Spedia', route: null },
-      { name: 'WildDraw', route: null },
-      { name: 'Ocean Cinemas', route: null },
+      { name: 'AllApp', route: null, icon: '📱' },
+      { name: 'Ocean and Wild Nexus', route: null, icon: '🌐' },
+      { name: 'Incremental Cosmic Odyssey', route: null, icon: '🚀' },
+      { name: 'Spedia', route: null, icon: '🔬' },
+      { name: 'WildDraw', route: null, icon: '🎨' },
+      { name: 'Ocean Cinemas', route: null, icon: '🎬' },
     ];
 
     const container = document.getElementById('services');
@@ -123,16 +428,26 @@
     }
 
     /* ---------- tarjeta inicial ---------- */
-    function createCard(svc) {
+    function createCard(svc, index) {
       const card = document.createElement('div');
       card.className = 'card';
       card.id = `card-${svc.name.replace(/\s+/g, '-')}`;
+      card.style.animationDelay = `${index * 0.1}s`;
       card.innerHTML = `
-        <span class="name">${svc.name}</span>
-        <span class="time">—</span>
-        <span class="badge pending">Esperando respuesta…</span>
+        <div class="card-content">
+          <div class="service-icon">${svc.icon || '🌊'}</div>
+          <span class="name">${svc.name}</span>
+        </div>
+        <div class="status-group">
+          <span class="time">—</span>
+          <span class="badge pending">Esperando respuesta…</span>
+        </div>
       `;
       container.appendChild(card);
+      // Activar animación después de añadir al DOM
+      requestAnimationFrame(() => {
+        card.style.opacity = '1';
+      });
       return card;
     }
 
@@ -147,6 +462,12 @@
         status === 'soon' ? 'Próximamente' :
         'Pendiente…';
       time.textContent = ms !== null ? ms + ' ms' : '—';
+      
+      // Añadir efecto de actualización
+      card.style.transform = 'scale(1.05)';
+      setTimeout(() => {
+        card.style.transform = '';
+      }, 200);
     }
 
     /* ---------- ping con reintento ---------- */
@@ -173,7 +494,10 @@
       // 1. Crear todas las tarjetas (estado inicial)
       container.innerHTML = '';
       const cards = {};
-      SERVICES.forEach(s => cards[s.name] = createCard(s));
+      SERVICES.forEach((s, index) => cards[s.name] = createCard(s, index));
+
+      // Pequeño delay para permitir que las animaciones se muestren
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       // 2. Resolver "Próximamente" sin fetch
       SERVICES.filter(s => s.route === null).forEach(s => {

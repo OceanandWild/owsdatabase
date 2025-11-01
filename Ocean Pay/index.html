@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8"/>
-<title>Ocean Pay – Tu billetera de AquaBux</title>
+<title>Ocean Pay – Tu billetera universal</title>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <style>
 :root{
@@ -13,6 +13,8 @@
   --ok:#10b981;
   --err:#ef4444;
   --glass:rgba(255,255,255,.05);
+  --purple:#a855f7;
+  --orange:#f97316;
 }
 *{box-sizing:border-box;margin:0;font-family:system-ui,Arial,Helvetica,sans-serif;}
 body{
@@ -21,30 +23,35 @@ body{
   display:flex;align-items:center;justify-content:center;min-height:100vh;padding:1rem;
 }
 .ocean-card{
-  width:100%;max-width:420px;background:var(--glass);
+  width:100%;max-width:520px;background:var(--glass);
   backdrop-filter:blur(12px);border:1px solid var(--accent);
-  border-radius:1.25rem;padding:2rem;
+  border-radius:1.5rem;padding:2.5rem;
   box-shadow:0 0 30px rgba(34,211,238,.35);
 }
 h1{
-  text-align:center;margin-bottom:1.5rem;font-size:1.9rem;
+  text-align:center;margin-bottom:2rem;font-size:2rem;
   background:linear-gradient(90deg,var(--accent),#a6e1ff);
   -webkit-background-clip:text;background-clip:text;color:transparent;
 }
-label{font-size:.9rem;margin-bottom:.25rem;display:block;}
+label{font-size:.9rem;margin-bottom:.5rem;display:block;font-weight:500;}
 input{
-  width:100%;padding:.75rem;border-radius:.5rem;
+  width:100%;padding:.875rem;border-radius:.5rem;
   border:1px solid var(--accent);background:#061124;color:var(--text);
-  margin-bottom:1rem;
+  margin-bottom:1rem;font-size:.95rem;transition:border-color .2s;
 }
+input:focus{outline:none;border-color:#67e8f9;}
 button{
-  cursor:pointer;width:100%;padding:.75rem;border:none;
+  cursor:pointer;width:100%;padding:.875rem;border:none;
   border-radius:.5rem;font-weight:700;background:var(--accent);
-  color:#0b1020;transition:background .2s,transform .1s;
+  color:#0b1020;transition:background .2s,transform .1s;font-size:1rem;
 }
 button:hover{background:#67e8f9;}
 button:active{transform:scale(.98);}
-.msg{font-size:.85rem;margin-top:.25rem;}
+button.secondary{
+  background:transparent;border:1px solid var(--accent);color:var(--accent);
+}
+button.secondary:hover{background:rgba(34,211,238,.1);}
+.msg{font-size:.85rem;margin-top:.5rem;}
 .error{color:var(--err);}
 .success{color:var(--ok);}
 .hidden{display:none !important;}
@@ -59,35 +66,119 @@ button:active{transform:scale(.98);}
   to{opacity:1;transform:translateY(0);}
 }
 
-/* Wallet */
+/* Wallet - Mejoras */
+.section-title{
+  font-size:.9rem;color:#9bb0c2;text-transform:uppercase;letter-spacing:.05em;
+  margin:1.5rem 0 .75rem 0;font-weight:600;
+}
 .balance-grid{
-  display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:1rem;
+  display:grid;grid-template-columns:1fr;gap:1rem;margin-bottom:1.5rem;
 }
 .currency-card{
   background:var(--glass);border:1px solid var(--accent);
-  border-radius:.75rem;padding:.75rem;
-  display:flex;flex-direction:column;gap:.25rem;position:relative;
-  transition:transform .2s;
+  border-radius:1rem;padding:1.25rem;
+  display:flex;flex-direction:column;gap:.5rem;position:relative;
+  transition:all .3s;cursor:pointer;
 }
-.currency-card:hover{transform:translateY(-2px);}
-.currency-card.active{border-color:var(--ok);}
-.currency-card.soon{opacity:.6;}
-.currency-card .label{font-size:.8rem;color:#9bb0c2;}
-.currency-card .amount{font-size:1.4rem;font-weight:700;}
+.currency-card:hover{transform:translateY(-3px);box-shadow:0 4px 20px rgba(34,211,238,.25);}
+.currency-card.active{border-color:var(--ok);border-width:2px;}
+.currency-card.soon{opacity:.6;cursor:not-allowed;}
+.currency-card-header{display:flex;justify-content:space-between;align-items:flex-start;}
+.currency-card .label{font-size:.85rem;color:#9bb0c2;text-transform:uppercase;letter-spacing:.05em;font-weight:600;}
+.currency-card .amount{font-size:1.75rem;font-weight:700;color:var(--accent);margin:.25rem 0;}
 .currency-card .badge{
-  position:absolute;top:.25rem;right:.5rem;font-size:.65rem;
-  background:var(--accent);color:#0b1020;padding:.15rem .35rem;border-radius:.25rem;
+  position:absolute;top:1rem;right:1rem;font-size:.7rem;
+  background:var(--accent);color:#0b1020;padding:.25rem .5rem;border-radius:.4rem;
+  font-weight:600;
 }
-.actions{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:1rem;}
-.tx-details{margin-top:1rem;}
-.tx-details summary{cursor:pointer;list-style:none;color:var(--accent);}
-.tx-list{max-height:180px;overflow-y:auto;margin-top:.5rem;padding-left:1rem;}
-.tx-list li{display:flex;justify-content:space-between;font-size:.8rem;padding:.25rem 0;border-bottom:1px solid rgba(255,255,255,.05);}
-.tx-list li span:first-child{color:#9bb0c2;}
-.tx-list li span:last-child{font-weight:600;}
-.divider{margin:1.5rem 0;border-color:rgba(34,211,238,.2);}
-.toggle-p{text-align:center;margin-top:1rem;font-size:.8rem;color:#9bb0c2;}
-.toggle-p a{color:var(--accent);}
+.currency-card .app-info{
+  margin-top:.75rem;padding-top:.75rem;border-top:1px solid rgba(255,255,255,.1);
+  font-size:.8rem;color:#9bb0c2;
+}
+.currency-card .app-info strong{color:var(--text);font-weight:600;}
+.currency-card .app-info .sub-divisa{
+  margin-top:.5rem;padding:.5rem;background:rgba(255,255,255,.03);
+  border-radius:.5rem;font-size:.75rem;
+}
+.sub-divisas-section{
+  margin-top:1.5rem;padding:1rem;background:rgba(255,255,255,.02);
+  border-radius:.75rem;border:1px solid rgba(255,255,255,.05);
+}
+.sub-divisas-title{
+  font-size:.85rem;color:var(--accent);font-weight:600;margin-bottom:.75rem;
+  display:flex;align-items:center;gap:.5rem;
+}
+.sub-divisa-item{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:.75rem;background:rgba(255,255,255,.03);border-radius:.5rem;
+  margin-bottom:.5rem;
+}
+.sub-divisa-item:last-child{margin-bottom:0;}
+.sub-divisa-label{font-size:.85rem;color:#9bb0c2;}
+.sub-divisa-amount{font-size:1.1rem;font-weight:700;color:var(--purple);}
+
+.tx-details{margin-top:1.5rem;}
+.tx-details summary{
+  cursor:pointer;list-style:none;color:var(--accent);font-weight:600;
+  padding:.75rem;background:rgba(255,255,255,.03);border-radius:.5rem;
+  transition:background .2s;
+}
+.tx-details summary:hover{background:rgba(255,255,255,.06);}
+.tx-details[open] summary{margin-bottom:.75rem;}
+.tx-list{
+  max-height:300px;overflow-y:auto;margin-top:.5rem;
+  display:flex;flex-direction:column;gap:.5rem;
+}
+.tx-list::-webkit-scrollbar{width:6px;}
+.tx-list::-webkit-scrollbar-track{background:rgba(255,255,255,.05);border-radius:3px;}
+.tx-list::-webkit-scrollbar-thumb{background:var(--accent);border-radius:3px;}
+.tx-item{
+  padding:.875rem;background:rgba(255,255,255,.03);
+  border-radius:.6rem;border:1px solid rgba(255,255,255,.05);
+  display:flex;justify-content:space-between;align-items:center;
+  transition:all .2s;
+}
+.tx-item:hover{
+  background:rgba(255,255,255,.06);
+  border-color:var(--accent);
+  transform:translateX(4px);
+}
+.tx-item-content{flex:1;display:flex;flex-direction:column;gap:.25rem;}
+.tx-item-concept{font-size:.9rem;color:var(--text);font-weight:500;}
+.tx-item-meta{
+  font-size:.75rem;color:#9bb0c2;
+  display:flex;align-items:center;gap:.5rem;
+}
+.tx-item-origin{
+  padding:.15rem .4rem;background:rgba(34,211,238,.15);
+  border-radius:.25rem;font-size:.7rem;
+}
+.tx-item-amount{
+  font-size:1.1rem;font-weight:700;text-align:right;
+  min-width:80px;
+}
+.tx-item-amount.positive{color:var(--ok);}
+.tx-item-amount.negative{color:var(--err);}
+.tx-empty{
+  text-align:center;padding:2rem;color:#9bb0c2;font-style:italic;
+}
+.divider{margin:2rem 0;border:none;border-top:1px solid rgba(34,211,238,.2);}
+.toggle-p{text-align:center;margin-top:1.5rem;font-size:.85rem;color:#9bb0c2;}
+.toggle-p a{color:var(--accent);text-decoration:none;font-weight:600;}
+.toggle-p a:hover{text-decoration:underline;}
+
+.loading{
+  opacity:.6;pointer-events:none;position:relative;
+}
+.loading::after{
+  content:'';position:absolute;top:50%;left:50%;
+  width:20px;height:20px;margin:-10px 0 0 -10px;
+  border:2px solid var(--accent);border-top-color:transparent;
+  border-radius:50%;animation:spin .6s linear infinite;
+}
+@keyframes spin{
+  to{transform:rotate(360deg);}
+}
 </style>
 </head>
 <body>
@@ -116,43 +207,80 @@ button:active{transform:scale(.98);}
 
     <!-- WALLET -->
     <div id="wallet" class="hidden">
-      <!-- Multi-divisa -->
+      <div class="section-title">Divisas Principales</div>
       <div class="balance-grid">
         <div class="currency-card active">
-          <span class="label">AquaBux</span>
-          <span class="amount" id="bux">0</span>
+          <div class="currency-card-header">
+            <div>
+              <span class="label">AquaBux</span>
+              <span class="amount" id="bux">0</span>
+            </div>
+          </div>
+          <div class="app-info">
+            <strong>App Perteneciente:</strong> Ocean Cinemas 🎬
+          </div>
         </div>
-        <!-- 2.a  Sustituir el card “Próximamente” por el real -->
-<div class="currency-card" id="ecoxionums-card">
-  <span class="label">Ecoxionums</span>
-  <span class="amount" id="ecoxionums">0</span>
-</div>
+
+        <div class="currency-card" id="ecoxionums-card">
+          <div class="currency-card-header">
+            <div>
+              <span class="label">Ecoxionums</span>
+              <span class="amount" id="ecoxionums">0</span>
+            </div>
+          </div>
+          <div class="app-info">
+            <strong>App Perteneciente:</strong> Ecoxion 🌍
+          </div>
+        </div>
+
         <div class="currency-card">
-  <span class="label">EcoCoreBits</span>
-  <span class="amount" id="ecobits">0</span>
-</div>
+          <div class="currency-card-header">
+            <div>
+              <span class="label">EcoCoreBits</span>
+              <span class="amount" id="ecobits">0</span>
+            </div>
+          </div>
+          <div class="app-info">
+            <strong>App Perteneciente:</strong> EcoConsole 💻
+          </div>
+        </div>
+
         <div class="currency-card soon">
-          <span class="label">AppBux</span>
-          <span class="amount">—</span>
-          <span class="badge">Próximamente</span>
+          <div class="currency-card-header">
+            <div>
+              <span class="label">AppBux</span>
+              <span class="amount">—</span>
+            </div>
+            <span class="badge">Próximamente</span>
+          </div>
+          <div class="app-info">
+            <strong>App Perteneciente:</strong> AllApp (Próximamente) 📱
+          </div>
         </div>
       </div>
 
-      <!-- Acciones rápidas -->
-      <div class="actions">
-        <button id="addBtn">+ 1 000 AB (demo)</button>
-        <button id="subBtn">− 500 AB (demo)</button>
-        <p id="walletMsg" class="msg hidden"></p>
+      <!-- Sub-Divisas -->
+      <div class="sub-divisas-section">
+        <div class="sub-divisas-title">
+          <span>💎</span>
+          <span>Sub-Divisas</span>
+        </div>
+        <div class="sub-divisa-item">
+          <span class="sub-divisa-label">Créditos (EcoConsole)</span>
+          <span class="sub-divisa-amount" id="credits">0</span>
+        </div>
       </div>
+
+      <p id="walletMsg" class="msg hidden"></p>
 
       <!-- Transacciones -->
       <details class="tx-details">
-        <summary>Historial de transacciones</summary>
-        <ul id="txList" class="tx-list"></ul>
+        <summary>📋 Historial de Transacciones</summary>
+        <div id="txList" class="tx-list"></div>
       </details>
 
       <hr class="divider" />
-      <button id="logoutBtn">Cerrar sesión</button>
+      <button id="logoutBtn" class="secondary">Cerrar sesión</button>
     </div>
 
     <!-- Toggle link -->
@@ -210,17 +338,85 @@ async function loadEcoxionumsBalance() {
 
 async function loadEcoCoreBitsBalance() {
     const user = JSON.parse(localStorage.getItem('opUser') || '{}');
-    if (!user.id || !user.token) { qs('#ecobits').textContent = '0'; return; }
+    if (!user.id) { qs('#ecobits').textContent = '0'; return; }
 
     try {
-        const res = await fetch(`${API}/api/ecorebits/user`, {
-            headers: { 'Authorization': `Bearer ${user.token}` }
-        });
-        const data = await res.json();
-        if (res.ok && data.success) {
-            qs('#ecobits').textContent = Math.round(data.user.ecorebits?.balance || 0).toLocaleString();
+        // Intentar primero con el token de opUser
+        let token = user.token;
+        
+        // Si no hay token, intentar obtenerlo del localStorage de EcoConsole
+        if (!token) {
+            const ecToken = localStorage.getItem('token');
+            if (ecToken) token = ecToken;
         }
-    } catch (e) { console.error("Error fetching ecocorebits", e); }
+        
+        if (!token) {
+            console.warn('No token available for EcoCoreBits');
+            qs('#ecobits').textContent = '0';
+            return;
+        }
+
+        const res = await fetch(`${API}/api/ecorebits/user`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!res.ok) {
+            console.warn('Failed to load EcoCoreBits:', res.status);
+            qs('#ecobits').textContent = '0';
+            return;
+        }
+        
+        const data = await res.json();
+        if (data.success) {
+            const balance = Math.round(data.user?.ecorebits?.balance || 0);
+            qs('#ecobits').textContent = balance.toLocaleString();
+            
+            // Actualizar también el token en opUser si lo tenemos
+            if (token && !user.token) {
+                user.token = token;
+                localStorage.setItem('opUser', JSON.stringify(user));
+            }
+        }
+    } catch (e) { 
+        console.error("Error fetching ecocorebits", e);
+        qs('#ecobits').textContent = '0';
+    }
+}
+
+async function loadCreditsBalance() {
+    const user = JSON.parse(localStorage.getItem('opUser') || '{}');
+    if (!user.id) { qs('#credits').textContent = '0'; return; }
+
+    try {
+        let token = user.token;
+        if (!token) {
+            const ecToken = localStorage.getItem('token');
+            if (ecToken) token = ecToken;
+        }
+        
+        if (!token) {
+            qs('#credits').textContent = '0';
+            return;
+        }
+
+        const res = await fetch(`${API}/ecocore/credits/${user.id}`, {
+            headers: { 
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (res.ok) {
+            const data = await res.json();
+            const credits = Math.round(data.credits || 0);
+            qs('#credits').textContent = credits.toLocaleString();
+        } else {
+            qs('#credits').textContent = '0';
+        }
+    } catch (e) {
+        console.error("Error fetching credits", e);
+        qs('#credits').textContent = '0';
+    }
 }
 
 async function changeEcoxionums(sign) {
@@ -267,7 +463,33 @@ async function autoLogin(username, password) {
 localStorage.setItem('opUser', JSON.stringify(data.user));
 
 
-await loadEcoxionumsBalance(); // ← importante
+  // ✅ Guardamos el token también en el user object para EcoCoreBits
+  if (data.user && !data.user.token) {
+    data.user.token = data.token;
+  }
+  localStorage.setItem('opUser', JSON.stringify(data.user));
+
+  // ✅ Mostramos wallet
+  show('#loginForm', false);
+  show('#regForm', false);
+  show('#wallet', true);
+  
+  // ✅ Cargar todos los balances
+  qs('#bux').textContent = (data.user.aquabux || 0).toLocaleString();
+  
+  // Cargar balances en paralelo
+  await Promise.all([
+    loadEcoxionumsBalance(),
+    loadEcoCoreBitsBalance(),
+    loadCreditsBalance()
+  ]);
+
+  // Iniciar refresh automático de balances
+  startBalanceRefresh();
+
+  /* ⬅️  Cargar historial */
+  await renderTransacciones();
+
   /* ⬅️  DEBUG: imprimimos lo que vamos a enviar */
   console.log('[Ocean-Pay] Enviando al padre:', {
     type: 'ocean-pay-token',
@@ -292,58 +514,34 @@ if (window.opener) {
   /* 🔓 Modo standalone: quedarse en la wallet */
   console.log('[Ocean-Pay] Sin ventana padre → modo independiente');
 }
-
-
-
-  // ✅ Cerramos la ventana después de 6 s
-  setTimeout(() => window.close(), 6000);
-
-  // ✅ Mostramos wallet
-  show('#loginForm', false);
-  show('#regForm', false);
-  show('#wallet', true);
-  qs('#bux').textContent = data.user.aquabux.toLocaleString();
-  qs('#ecoxionums').textContent = (data.user.ecoxionums || 0).toLocaleString();
-  qs('#ecobits').textContent = (data.user.ecorebits || 0).toLocaleString(); // ✨ Usamos el dato que ya vino en el login
-
-  /* ⬅️  Cargar historial */
-  await renderTransacciones();
 }
 
 
-  /* ----------  WALLET ACTIONS  ---------- */
-  qs('#addBtn').onclick=()=>changeBux(1000);
-  qs('#subBtn').onclick=()=>changeBux(-500);
-async function changeBux(amount) {
-  const res = await fetch(API + '/ocean-pay/change', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-    body: JSON.stringify({ userId, amount })
-  });
-  const data = await res.json();
+  /* ----------  REFRESH BALANCES  ---------- */
+  async function refreshAllBalances() {
+    await Promise.all([
+      loadEcoxionumsBalance(),
+      loadEcoCoreBitsBalance(),
+      loadCreditsBalance()
+    ]);
+  }
 
-  const msgEl = qs('#walletMsg');
-  if (!res.ok) {
-    if (msgEl) {
-      msgEl.className = 'msg error';
-      msgEl.textContent = data.error || 'Error al cambiar saldo';
-      show(msgEl, true);
+  // Refrescar balances cada 30 segundos
+  let balanceRefreshInterval = null;
+  function startBalanceRefresh() {
+    if (balanceRefreshInterval) clearInterval(balanceRefreshInterval);
+    balanceRefreshInterval = setInterval(refreshAllBalances, 30000);
+  }
+  function stopBalanceRefresh() {
+    if (balanceRefreshInterval) {
+      clearInterval(balanceRefreshInterval);
+      balanceRefreshInterval = null;
     }
-    return;
   }
-
-  if (msgEl) {
-    msgEl.className = 'msg success';
-    msgEl.textContent = amount > 0 ? `+${amount} AquaBux` : `${amount} AquaBux`;
-    show(msgEl, true);
-  }
-
-  const buxEl = qs('#bux');
-  if (buxEl) buxEl.textContent = data.newBalance;
-}
 
   /* ----------  LOGOUT  ---------- */
   qs('#logoutBtn').onclick=()=>{
+    stopBalanceRefresh();
     localStorage.removeItem('opToken'); localStorage.removeItem('opUser');
     token=''; userId=0;
     show('#wallet',false); show('#regForm',true); show('#loginForm',false);
@@ -356,7 +554,17 @@ window.addEventListener('DOMContentLoaded', async () => {
   if (!t) return; // sin token → mostrar login
 
   token = t;
-  userId = JSON.parse(localStorage.getItem('opUser') || '{}').id;
+  const user = JSON.parse(localStorage.getItem('opUser') || '{}');
+  userId = user.id;
+
+  // Si el usuario tiene token de EcoConsole, guardarlo en opUser
+  if (!user.token) {
+    const ecToken = localStorage.getItem('token');
+    if (ecToken) {
+      user.token = ecToken;
+      localStorage.setItem('opUser', JSON.stringify(user));
+    }
+  }
 
   // pinta wallet y saldo
   show('#wallet', true);
@@ -365,24 +573,34 @@ window.addEventListener('DOMContentLoaded', async () => {
   qs('#toggleLink').textContent = 'Crear cuenta';
 
   const buxEl = qs('#bux');
-  if (buxEl) buxEl.textContent = JSON.parse(localStorage.getItem('opUser') || '{}').aquabux || 0;
+  if (buxEl) buxEl.textContent = (user.aquabux || 0).toLocaleString();
+
+  // Cargar todos los balances en paralelo
+  await Promise.all([
+    loadEcoxionumsBalance(),
+    loadEcoCoreBitsBalance(),
+    loadCreditsBalance()
+  ]);
+
+  // Iniciar refresh automático de balances
+  startBalanceRefresh();
 
   // ⬅️  carga historial
   await renderTransacciones();
-  /* 2.c  Llamar después de login exitoso */
-  await loadEcoCoreBitsBalance();
-await loadEcoxionumsBalance();
 });
 
 async function renderTransacciones() {
-  const ul = qs('#txList');
-  if (!ul) return;
+  const container = qs('#txList');
+  if (!container) return;
 
   const token = localStorage.getItem('opToken');
   if (!token) {
-    ul.innerHTML = '<li style="opacity:.6">Sin cuenta vinculada</li>';
-    return;                 // ← no llamamos al servidor
+    container.innerHTML = '<div class="tx-empty">Sin cuenta vinculada</div>';
+    return;
   }
+
+  // Mostrar estado de carga
+  container.innerHTML = '<div class="tx-empty">Cargando transacciones...</div>';
 
   try {
     // 1. Ping suave para despertar el dyno
@@ -399,28 +617,55 @@ async function renderTransacciones() {
       headers: { Authorization: 'Bearer ' + token }
     })).json();
 
-ul.innerHTML = txs.length
-  ? txs.map(tx => `
-      <li>
-        <span>${tx.concepto} · ${new Date(tx.created_at).toLocaleString()}</span>
-        <span>${tx.monto > 0 ? '+' : ''}${tx.monto} ${tx.moneda}</span>
-        <small style="color:#9bb0c2;">${tx.origen}</small>
-      </li>`).join('')
-  : '<li style="opacity:.6">No hay movimientos</li>';
+    if (txs.length === 0) {
+      container.innerHTML = '<div class="tx-empty">No hay movimientos registrados</div>';
+      return;
+    }
+
+    // Renderizar transacciones con nuevo diseño
+    container.innerHTML = txs.map(tx => {
+      const fecha = new Date(tx.created_at);
+      const fechaFormateada = fecha.toLocaleDateString('es-ES', { 
+        day: '2-digit', 
+        month: 'short', 
+        year: 'numeric' 
+      });
+      const horaFormateada = fecha.toLocaleTimeString('es-ES', { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      });
+      const esPositivo = tx.monto > 0;
+      const simboloMoneda = tx.moneda === 'AB' ? 'AquaBux' : tx.moneda === 'ECB' ? 'EcoCoreBits' : tx.moneda === 'EX' ? 'Ecoxionums' : tx.moneda;
+      
+      return `
+        <div class="tx-item">
+          <div class="tx-item-content">
+            <div class="tx-item-concept">${tx.concepto || 'Transacción'}</div>
+            <div class="tx-item-meta">
+              <span>${fechaFormateada} ${horaFormateada}</span>
+              ${tx.origen ? `<span class="tx-item-origin">${tx.origen}</span>` : ''}
+            </div>
+          </div>
+          <div class="tx-item-amount ${esPositivo ? 'positive' : 'negative'}">
+            ${esPositivo ? '+' : ''}${tx.monto.toLocaleString()} ${simboloMoneda}
+          </div>
+        </div>
+      `;
+    }).join('');
 
   } catch (err) {
     console.warn('[Ocean-Pay] renderTransacciones:', err);
 
     // Token inválido / expirado → limpiamos
-    if (err.message.includes('401') || err.message.includes('Token')) {
+    if (err.message.includes('401') || err.message.includes('Token') || err.message.includes('403')) {
       localStorage.removeItem('opToken');
       localStorage.removeItem('opUser');
-      ul.innerHTML = '<li style="color:#f43f5e">Sesión cerrada. Usa <strong>login</strong></li>';
+      container.innerHTML = '<div class="tx-empty" style="color:var(--err)">Sesión cerrada. Por favor, inicia sesión nuevamente.</div>';
       return;
     }
 
     // Cualquier otro error (500, network, etc.)
-    ul.innerHTML = '<li style="color:#f43f5e">Servidor no disponible. Re-intenta en 30 s</li>';
+    container.innerHTML = '<div class="tx-empty" style="color:var(--err)">Servidor no disponible. Re-intenta en 30 segundos.</div>';
   }
 }
 

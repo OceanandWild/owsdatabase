@@ -252,8 +252,31 @@ app.post("/api/extensions/save", async (req, res) => {
 
 app.get("/api/extensions/:userId", async (req, res) => {
   const { userId } = req.params;
-  const { rows } = await pool.query(`SELECT installed FROM installed_extensions WHERE user_id=$1`, [userId]);
-  res.json(rows[0]?.installed || {});
+  try {
+    const { rows } = await pool.query(`SELECT installed FROM installed_extensions WHERE user_id=$1`, [userId]);
+    res.json(rows[0]?.installed || {});
+  } catch (err) {
+    console.error('❌ Error en GET /api/extensions/:userId:', err);
+    res.json({});
+  }
+});
+
+app.put("/api/extensions/:userId", async (req, res) => {
+  const { userId } = req.params;
+  const state = req.body;
+  
+  try {
+    await pool.query(
+      `INSERT INTO installed_extensions (user_id, installed, updated_at)
+       VALUES ($1, $2, NOW())
+       ON CONFLICT (user_id) DO UPDATE SET installed = EXCLUDED.installed, updated_at = NOW()`,
+      [userId, JSON.stringify(state)]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error('❌ Error en PUT /api/extensions/:userId:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
 });
 
 
@@ -780,7 +803,7 @@ app.post('/natmarket/products', upload.array('images', 10), async (req, res) => 
     if (!user_id || !name) return res.status(400).json({ error: 'user_id y name son requeridos' });
     const stockNum = parseInt(stock) || 1;
     const { rows: [product] } = await pool.query(
-      'INSERT INTO products_nat (user_id, name, description, price, contact_number, stock) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
+      'INSERT INTO products_nat (user_id, name, description, price, contact_number, stock, published_at) VALUES ($1,$2,$3,$4,$5,$6,NOW()) RETURNING *',
       [user_id, name, description, price, contact_number, stockNum]
     );
     const host = process.env.BACKEND_URL || `https://${req.get('host')}`;
@@ -816,7 +839,7 @@ app.get('/natmarket/products', async (_req, res) => {
         COALESCE((SELECT ROUND(AVG(rating)::numeric,1) FROM user_ratings_nat WHERE rated_user_id=u.id),0) AS avg_rating
       FROM products_nat p
       JOIN users_nat u ON p.user_id = u.id
-      ORDER BY p.created_at DESC
+      ORDER BY COALESCE(p.published_at, p.created_at) DESC
     `);
     const products = await Promise.all(rows.map(async p => {
       const { rows: imgs } = await pool.query('SELECT url FROM product_images_nat WHERE product_id=$1 ORDER BY created_at ASC', [p.id]);
@@ -931,6 +954,186 @@ app.delete('/natmarket/products/:id', async (req, res) => {
     res.json({ success: true, deleted });
   } catch (err) {
     handleNatError(res, err, 'DELETE /natmarket/products/:id');
+  }
+});
+
+/* ---------- REPUBLICAR PRODUCTO ---------- */
+app.post('/natmarket/products/:id/repost', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { user_id, name, description, price, contact_number, stock, places, methods } = req.body;
+    
+    if (!user_id) return res.status(400).json({ error: 'user_id requerido' });
+    
+    // Verificar que el producto existe y pertenece al usuario
+    const { rows: productRows } = await pool.query('SELECT * FROM products_nat WHERE id=$1', [id]);
+    if (productRows.length === 0) return res.status(404).json({ error: 'Producto no encontrado' });
+    if (Number(productRows[0].user_id) !== Number(user_id)) return res.status(403).json({ error: 'No autorizado' });
+    
+    const currentProduct = productRows[0];
+    
+    // Validar datos si se proporcionan para edición
+    const newName = name || currentProduct.name;
+    const newDescription = description !== undefined ? description : currentProduct.description;
+    const newPrice = price !== undefined ? (price ? parseFloat(price) : null) : currentProduct.price;
+    const newContact = contact_number !== undefined ? contact_number : currentProduct.contact_number;
+    const newStock = stock !== undefined ? parseInt(stock) || 1 : currentProduct.stock;
+    
+    // Moderación si hay cambios en nombre/descripción
+    const bad = containsInappropriate(newName + ' ' + (newDescription || ''));
+    if (bad) {
+      return res.status(400).json({ error: 'El contenido contiene palabras inapropiadas' });
+    }
+    
+    // Actualizar producto con nueva fecha de publicación
+    const { rows: [updated] } = await pool.query(
+      `UPDATE products_nat 
+       SET name=$1, description=$2, price=$3, contact_number=$4, stock=$5, published_at=NOW(), sold=false, buyer_id=NULL
+       WHERE id=$6 RETURNING *`,
+      [newName, newDescription, newPrice, newContact, newStock, id]
+    );
+    
+    // Parsear lugares y métodos si vienen como string JSON
+    let placesArray = places;
+    let methodsArray = methods;
+    if (typeof places === 'string') {
+      try { placesArray = JSON.parse(places); } catch { placesArray = []; }
+    }
+    if (typeof methods === 'string') {
+      try { methodsArray = JSON.parse(methods); } catch { methodsArray = []; }
+    }
+    
+    // Obtener lugares y métodos actuales si no se proporcionan
+    if (!placesArray || placesArray.length === 0) {
+      const { rows: currentPlaces } = await pool.query('SELECT place_id FROM product_places WHERE product_id=$1', [id]);
+      placesArray = currentPlaces.map(p => p.place_id.toString());
+    }
+    
+    if (!methodsArray || methodsArray.length === 0) {
+      const { rows: currentMethods } = await pool.query('SELECT shipping_method_id FROM product_shipping_methods WHERE product_id=$1', [id]);
+      methodsArray = currentMethods.map(m => m.shipping_method_id.toString());
+    }
+    
+    // Actualizar lugares y métodos
+    await pool.query('DELETE FROM product_places WHERE product_id=$1', [id]);
+    for (const pId of placesArray) {
+      await pool.query('INSERT INTO product_places (product_id, place_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [id, pId]);
+    }
+    
+    await pool.query('DELETE FROM product_shipping_methods WHERE product_id=$1', [id]);
+    for (const mId of methodsArray) {
+      await pool.query('INSERT INTO product_shipping_methods (product_id, shipping_method_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [id, mId]);
+    }
+    
+    // Resetear vistas para que aparezca como nuevo
+    await pool.query('DELETE FROM product_views_unique WHERE product_id=$1', [id]);
+    await pool.query('UPDATE products_nat SET views=0 WHERE id=$1', [id]);
+    
+    res.json({ success: true, product: updated });
+  } catch (err) {
+    handleNatError(res, err, 'POST /natmarket/products/:id/repost');
+  }
+});
+
+/* ---------- BORRAR Y REPUBLICAR PRODUCTO ---------- */
+app.post('/natmarket/products/:id/repost-delete', upload.array('images', 10), async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    
+    const { id } = req.params;
+    const { user_id, name, description, price, contact_number, stock, places, methods } = req.body;
+    
+    if (!user_id) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'user_id requerido' });
+    }
+    
+    // Verificar que el producto existe y pertenece al usuario
+    const { rows: productRows } = await client.query('SELECT * FROM products_nat WHERE id=$1', [id]);
+    if (productRows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Producto no encontrado' });
+    }
+    if (Number(productRows[0].user_id) !== Number(user_id)) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+    
+    const currentProduct = productRows[0];
+    
+    // Usar datos editados o los actuales
+    const newName = name || currentProduct.name;
+    const newDescription = description !== undefined ? description : currentProduct.description;
+    const newPrice = price !== undefined ? (price ? parseFloat(price) : null) : currentProduct.price;
+    const newContact = contact_number !== undefined ? contact_number : currentProduct.contact_number;
+    const newStock = stock !== undefined ? parseInt(stock) || 1 : currentProduct.stock;
+    const placesArray = places ? JSON.parse(places) : [];
+    const methodsArray = methods ? JSON.parse(methods) : [];
+    
+    // Validaciones
+    if (!newName) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Nombre es obligatorio' });
+    }
+    
+    // Moderación
+    const bad = containsInappropriate(newName + ' ' + (newDescription || ''));
+    if (bad) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'El contenido contiene palabras inapropiadas' });
+    }
+    
+    // Obtener imágenes, lugares y métodos actuales antes de borrar
+    const { rows: currentImgs } = await client.query('SELECT url FROM product_images_nat WHERE product_id=$1', [id]);
+    const { rows: currentPlaces } = await client.query('SELECT place_id FROM product_places WHERE product_id=$1', [id]);
+    const { rows: currentMethods } = await client.query('SELECT shipping_method_id FROM product_shipping_methods WHERE product_id=$1', [id]);
+    
+    // Borrar producto (CASCADE borrará imágenes y relaciones)
+    await client.query('DELETE FROM product_images_nat WHERE product_id=$1', [id]);
+    await client.query('DELETE FROM product_views_unique WHERE product_id=$1', [id]);
+    await client.query('DELETE FROM products_nat WHERE id=$1', [id]);
+    
+    // Crear nuevo producto
+    const { rows: [newProduct] } = await client.query(
+      `INSERT INTO products_nat (user_id, name, description, price, contact_number, stock, published_at)
+       VALUES ($1,$2,$3,$4,$5,$6,NOW()) RETURNING *`,
+      [user_id, newName, newDescription, newPrice, newContact, newStock]
+    );
+    
+    // Subir nuevas imágenes si hay
+    const host = process.env.BACKEND_URL || `https://${req.get('host')}`;
+    const newUrls = (req.files || []).map(f => `${host}/uploads/nat/${f.filename}`);
+    for (const url of newUrls) {
+      await client.query('INSERT INTO product_images_nat (product_id, url) VALUES ($1,$2)', [newProduct.id, url]);
+    }
+    
+    // Si no hay nuevas imágenes pero había imágenes anteriores, copiarlas
+    if (newUrls.length === 0 && currentImgs.length > 0) {
+      for (const img of currentImgs) {
+        await client.query('INSERT INTO product_images_nat (product_id, url) VALUES ($1,$2)', [newProduct.id, img.url]);
+      }
+    }
+    
+    // Lugares: usar los proporcionados o los actuales
+    const placesIds = placesArray.length > 0 ? placesArray : currentPlaces.map(p => p.place_id);
+    for (const pId of placesIds) {
+      await client.query('INSERT INTO product_places (product_id, place_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [newProduct.id, pId]);
+    }
+    
+    // Métodos: usar los proporcionados o los actuales
+    const methodsIds = methodsArray.length > 0 ? methodsArray : currentMethods.map(m => m.shipping_method_id);
+    for (const mId of methodsIds) {
+      await client.query('INSERT INTO product_shipping_methods (product_id, shipping_method_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [newProduct.id, mId]);
+    }
+    
+    await client.query('COMMIT');
+    res.json({ success: true, product: newProduct });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    handleNatError(res, err, 'POST /natmarket/products/:id/repost-delete');
+  } finally {
+    client.release();
   }
 });
 
@@ -2061,8 +2264,8 @@ if (bad) {
     if (!user_id || !name) return res.status(400).json({ error: 'Faltan datos' });
 
     const { rows: [product] } = await client.query(
-      `INSERT INTO products_nat (user_id, name, description, price, contact_number, stock)
-       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+      `INSERT INTO products_nat (user_id, name, description, price, contact_number, stock, published_at)
+       VALUES ($1,$2,$3,$4,$5,$6,NOW()) RETURNING *`,
       [user_id, name, description, price ? parseFloat(price) : null, contact_number || null, stockNum]
     );
 
@@ -2627,47 +2830,59 @@ app.get('/ocean-pay/ecoxionums/:userId', async (req, res) => {
 
 // 1.b  Movimiento Ecoxionums (origen = "Ecoxion")
 app.post('/ocean-pay/ecoxionums/change', async (req, res) => {
-  const { userId, amount, concepto = 'Operación' } = req.body;
+  const { userId, amount, concepto = 'Operación', origen = 'Ecoxion' } = req.body;
   if (amount === undefined) return res.status(400).json({ error: 'Falta amount' });
 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
 
-    // lock & read
+    // lock & read desde ocean_pay_users (donde se guardan los ecoxionums)
     const { rows } = await client.query(
-      'SELECT balance FROM users WHERE id = $1 FOR UPDATE',
+      'SELECT ecoxionums FROM ocean_pay_users WHERE id::text = $1 FOR UPDATE',
       [userId]
     );
-    if (!rows.length) throw new Error('Usuario no existe');
-    const newBal = rows[0].balance + amount;
-    if (newBal < 0) throw new Error('Saldo insuficiente');
+    if (!rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+    
+    const currentEcoxionums = rows[0].ecoxionums || 0;
+    const newBal = currentEcoxionums + amount;
+    if (newBal < 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Saldo insuficiente' });
+    }
 
-    // update
+    // update ecoxionums en ocean_pay_users
     await client.query(
-      'UPDATE users SET balance = balance + $1 WHERE id = $2',
-      [amount, userId]
-    );
-
-    // log en Ecoxion
-    await client.query(
-      `INSERT INTO ecocore_txs (user_id, concepto, monto, origen)
-       VALUES ($1, $2, $3, 'Ecoxion')`,
-      [userId, concepto, amount]
+      'UPDATE ocean_pay_users SET ecoxionums = $1 WHERE id::text = $2',
+      [newBal, userId]
     );
 
     // log en Ocean Pay
-    await client.query(
-      `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
-       VALUES ($1, $2, $3, 'Ecoxion')`,
-      [userId, concepto, amount]
-    );
+    // Intentar con moneda si existe la columna
+    try {
+      await client.query(
+        `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+         VALUES ($1, $2, $3, $4, 'EX')`,
+        [userId, concepto, amount, origen]
+      );
+    } catch (e) {
+      // Si falla por falta de columna moneda, insertar sin ella
+      await client.query(
+        `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
+         VALUES ($1, $2, $3, $4)`,
+        [userId, concepto, amount, origen]
+      );
+    }
 
     await client.query('COMMIT');
     res.json({ success: true, newBalance: newBal });
   } catch (e) {
     await client.query('ROLLBACK');
-    res.status(400).json({ error: e.message });
+    console.error('❌ Error en /ocean-pay/ecoxionums/change:', e);
+    res.status(500).json({ error: e.message || 'Error interno' });
   } finally {
     client.release();
   }
@@ -3246,6 +3461,11 @@ CREATE TABLE IF NOT EXISTS product_images (
     END IF;
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products_nat' AND column_name = 'buyer_id') THEN
       ALTER TABLE products_nat ADD COLUMN buyer_id INTEGER REFERENCES users_nat(id) ON DELETE SET NULL;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products_nat' AND column_name = 'published_at') THEN
+      ALTER TABLE products_nat ADD COLUMN published_at TIMESTAMP DEFAULT now();
+      -- Inicializar published_at con created_at para productos existentes
+      UPDATE products_nat SET published_at = created_at WHERE published_at IS NULL;
     END IF;
   END $$;
   

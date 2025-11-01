@@ -896,14 +896,72 @@ app.post('/natmarket/messages/v2', async (req, res) => {
     });
   }
   
-  // si está OK, guardar directamente
-  const { rows: [msg] } = await pool.query(
-    `INSERT INTO messages_nat (sender_id, product_id, message) VALUES ($1,$2,$3) RETURNING *`,
-    [sender_id, product_id, message]
-  );
-  
-  console.log(`[MESSAGES] Mensaje guardado con ID: ${msg.id}`);
-  res.json(msg);
+    // si está OK, guardar directamente
+    const { rows: [msg] } = await pool.query(
+      `INSERT INTO messages_nat (sender_id, product_id, message) VALUES ($1,$2,$3) RETURNING *`,
+      [sender_id, product_id, message]
+    );
+    
+    console.log(`[MESSAGES] Mensaje guardado con ID: ${msg.id}`);
+    
+    // Crear notificación para el destinatario
+    const sellerId = product.user_id;
+    const isSellerMessage = Number(sender_id) === Number(sellerId);
+    
+    // Lista de usuarios a notificar
+    const usersToNotify = new Set();
+    
+    if (isSellerMessage) {
+      // Si el vendedor envía un mensaje, notificar a todos los que han participado (excepto el vendedor)
+      const { rows: participants } = await pool.query(`
+        SELECT DISTINCT sender_id 
+        FROM messages_nat 
+        WHERE product_id = $1 AND sender_id != $2
+      `, [product_id, sender_id]);
+      
+      participants.forEach(p => usersToNotify.add(String(p.sender_id)));
+    } else {
+      // Si un usuario envía un mensaje, notificar al vendedor y a otros participantes
+      usersToNotify.add(String(sellerId));
+      
+      const { rows: participants } = await pool.query(`
+        SELECT DISTINCT sender_id 
+        FROM messages_nat 
+        WHERE product_id = $1 AND sender_id != $2 AND sender_id != $3
+      `, [product_id, sender_id, sellerId]);
+      
+      participants.forEach(p => usersToNotify.add(String(p.sender_id)));
+    }
+    
+    // Obtener nombre del remitente
+    const { rows: senderRow } = await pool.query(
+      'SELECT username FROM users_nat WHERE id = $1',
+      [sender_id]
+    );
+    const senderName = senderRow[0]?.username || 'Alguien';
+    
+    // Crear notificaciones
+    for (const userIdStr of usersToNotify) {
+      const userId = parseInt(userIdStr);
+      if (userId && Number(userId) !== Number(sender_id)) {
+        try {
+          await pool.query(`
+            INSERT INTO notifications_nat (user_id, type, message, product_id, sender_id, created_at)
+            VALUES ($1, 'message', $2, $3, $4, NOW())
+          `, [
+            userId,
+            `${senderName} envió un mensaje sobre "${product.name}"`,
+            product_id,
+            sender_id
+          ]);
+          console.log(`[NOTIFICATIONS] Notificación creada para usuario ${userId} sobre producto ${product_id}`);
+        } catch (notifErr) {
+          console.error(`[NOTIFICATIONS] Error creando notificación para ${userId}:`, notifErr);
+        }
+      }
+    }
+    
+    res.json(msg);
 });
 
 app.get('/mod/pending', async (req, res) => {
@@ -1075,6 +1133,68 @@ app.get('/natmarket/messages/:product_id', async (req, res) => {
     res.json(rows);
   } catch (err) {
     handleNatError(res, err, 'GET /natmarket/messages/:product_id');
+  }
+});
+
+// NOTIFICACIONES
+app.get('/natmarket/notifications/:user_id', async (req, res) => {
+  try {
+    const { user_id } = req.params;
+    const { unread_only } = req.query; // opcional: ?unread_only=true
+    const whereClause = unread_only === 'true' ? 'AND n.read = false' : '';
+    
+    const { rows } = await pool.query(`
+      SELECT n.*, 
+             u.username AS sender_username,
+             p.name AS product_name
+      FROM notifications_nat n
+      LEFT JOIN users_nat u ON n.sender_id = u.id
+      LEFT JOIN products_nat p ON n.product_id = p.id
+      WHERE n.user_id = $1 ${whereClause}
+      ORDER BY n.created_at DESC
+      LIMIT 50
+    `, [user_id]);
+    res.json(rows);
+  } catch (err) {
+    handleNatError(res, err, 'GET /natmarket/notifications/:user_id');
+  }
+});
+
+app.get('/natmarket/notifications/:user_id/count', async (req, res) => {
+  try {
+    const { user_id } = req.params;
+    const { rows } = await pool.query(`
+      SELECT COUNT(*) AS count
+      FROM notifications_nat
+      WHERE user_id = $1 AND read = false
+    `, [user_id]);
+    res.json({ count: parseInt(rows[0]?.count || 0) });
+  } catch (err) {
+    handleNatError(res, err, 'GET /natmarket/notifications/:user_id/count');
+  }
+});
+
+app.patch('/natmarket/notifications/:id/read', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query(`
+      UPDATE notifications_nat SET read = true WHERE id = $1
+    `, [id]);
+    res.json({ success: true });
+  } catch (err) {
+    handleNatError(res, err, 'PATCH /natmarket/notifications/:id/read');
+  }
+});
+
+app.patch('/natmarket/notifications/user/:user_id/read-all', async (req, res) => {
+  try {
+    const { user_id } = req.params;
+    await pool.query(`
+      UPDATE notifications_nat SET read = true WHERE user_id = $1 AND read = false
+    `, [user_id]);
+    res.json({ success: true });
+  } catch (err) {
+    handleNatError(res, err, 'PATCH /natmarket/notifications/user/:user_id/read-all');
   }
 });
 
@@ -2909,6 +3029,17 @@ CREATE TABLE IF NOT EXISTS product_images (
             extended_at TIMESTAMP WITH TIME ZONE NOT NULL,
             created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );
+  
+  CREATE TABLE IF NOT EXISTS notifications_nat (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users_nat(id) ON DELETE CASCADE,
+      type VARCHAR(50) NOT NULL DEFAULT 'message',
+      message TEXT NOT NULL,
+      product_id INTEGER REFERENCES products_nat(id) ON DELETE CASCADE,
+      sender_id INTEGER REFERENCES users_nat(id) ON DELETE CASCADE,
+      read BOOLEAN DEFAULT false,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
 `,
   ];
 

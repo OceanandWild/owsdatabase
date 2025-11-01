@@ -1060,6 +1060,65 @@ app.get('/natmarket/messages/:product_id', async (req, res) => {
   }
 });
 
+// Obtener todos los chats de un vendedor (productos con mensajes)
+app.get('/natmarket/chats/:seller_id', async (req, res) => {
+  try {
+    const { seller_id } = req.params;
+    const { rows } = await pool.query(`
+      SELECT DISTINCT
+        p.id AS product_id,
+        p.name AS product_name,
+        p.image_urls,
+        (
+          SELECT json_agg(
+            json_build_object(
+              'sender_id', u2.id,
+              'sender_username', u2.username,
+              'message', m.message,
+              'created_at', m.created_at
+            ) ORDER BY m.created_at DESC
+          )
+          FROM messages_nat m
+          JOIN users_nat u2 ON m.sender_id = u2.id
+          WHERE m.product_id = p.id
+          LIMIT 1
+        ) AS last_message,
+        (
+          SELECT COUNT(DISTINCT sender_id)
+          FROM messages_nat
+          WHERE product_id = p.id
+        ) AS participants_count,
+        (
+          SELECT MAX(created_at)
+          FROM messages_nat
+          WHERE product_id = p.id
+        ) AS last_activity
+      FROM products_nat p
+      WHERE p.user_id = $1
+        AND EXISTS (
+          SELECT 1 FROM messages_nat m WHERE m.product_id = p.id
+        )
+      ORDER BY last_activity DESC
+    `, [seller_id]);
+    
+    // Obtener imágenes de cada producto
+    const chatsWithImages = await Promise.all(rows.map(async (chat) => {
+      const { rows: imgRows } = await pool.query(
+        'SELECT url FROM product_images_nat WHERE product_id = $1 ORDER BY created_at ASC LIMIT 1',
+        [chat.product_id]
+      );
+      return {
+        ...chat,
+        product_image: imgRows[0]?.url || null
+      };
+    }));
+    
+    res.json(chatsWithImages);
+  } catch (err) {
+    handleNatError(res, err, 'GET /natmarket/chats/:seller_id');
+  }
+});
+
 // RATINGS
 app.post('/natmarket/rate-product', async (req, res) => {
   try {
@@ -1265,10 +1324,14 @@ app.post("/api/subscriptions/subscribe", async (req, res) => {
       if (!currentPlan) {
         console.log(`⚠️ Plan actual (${currentPlanId}) no encontrado en PLANS, permitiendo suscripción`);
         // Cancelaremos la suscripción anterior después de validar el saldo
+      } else if (currentPlan.id === plan.id) {
+        // El usuario ya tiene el mismo plan: permitimos renovar/extender la suscripción
+        console.log(`🔄 Renovando suscripción al mismo plan: ${currentPlan.name}`);
+        // Continuamos con el proceso para extender la fecha de vencimiento
       } else if (currentPlan.price >= plan.price) {
         await client.query('ROLLBACK');
         return res.status(400).json({ 
-          error: `Ya tienes una suscripción activa al plan "${currentPlan.name}" (${currentPlan.price} Bits). Solo puedes suscribirte a un plan superior (${plan.name} cuesta ${plan.price} Bits).` 
+          error: `Ya tienes una suscripción activa al plan "${currentPlan.name}" (${currentPlan.price} Bits). Solo puedes suscribirte a un plan superior (${plan.name} cuesta ${plan.price} Bits) o renovar tu plan actual.` 
         });
       } else {
         // Es un upgrade válido, cerraremos la suscripción anterior después

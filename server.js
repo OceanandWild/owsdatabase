@@ -1101,21 +1101,40 @@ app.get('/natmarket/chats/:seller_id', async (req, res) => {
       ORDER BY last_activity DESC
     `, [seller_id]);
     
+    // Si no hay filas, devolver array vacío
+    if (!rows || rows.length === 0) {
+      return res.json([]);
+    }
+    
     // Obtener imágenes de cada producto
     const chatsWithImages = await Promise.all(rows.map(async (chat) => {
-      const { rows: imgRows } = await pool.query(
-        'SELECT url FROM product_images_nat WHERE product_id = $1 ORDER BY created_at ASC LIMIT 1',
-        [chat.product_id]
-      );
-      return {
-        ...chat,
-        product_image: imgRows[0]?.url || null
-      };
+      try {
+        const { rows: imgRows } = await pool.query(
+          'SELECT url FROM product_images_nat WHERE product_id = $1 ORDER BY created_at ASC LIMIT 1',
+          [chat.product_id]
+        );
+        return {
+          ...chat,
+          product_image: imgRows[0]?.url || null,
+          last_message: chat.last_message || null,
+          participants_count: chat.participants_count || 0
+        };
+      } catch (imgErr) {
+        console.error(`Error obteniendo imagen para producto ${chat.product_id}:`, imgErr);
+        return {
+          ...chat,
+          product_image: null,
+          last_message: chat.last_message || null,
+          participants_count: chat.participants_count || 0
+        };
+      }
     }));
     
     res.json(chatsWithImages);
   } catch (err) {
-    handleNatError(res, err, 'GET /natmarket/chats/:seller_id');
+    console.error('[GET /natmarket/chats/:seller_id] Error:', err);
+    // En caso de error, devolver array vacío en lugar de error
+    res.json([]);
   }
 });
 

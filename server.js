@@ -776,11 +776,12 @@ app.put('/natmarket/users/:id/password', async (req, res) => {
 // PRODUCTS
 app.post('/natmarket/products', upload.array('images', 10), async (req, res) => {
   try {
-    const { user_id, name, description = null, price = null, contact_number = null } = req.body;
+    const { user_id, name, description = null, price = null, contact_number = null, stock = 1 } = req.body;
     if (!user_id || !name) return res.status(400).json({ error: 'user_id y name son requeridos' });
+    const stockNum = parseInt(stock) || 1;
     const { rows: [product] } = await pool.query(
-      'INSERT INTO products_nat (user_id, name, description, price, contact_number) VALUES ($1,$2,$3,$4,$5) RETURNING *',
-      [user_id, name, description, price, contact_number]
+      'INSERT INTO products_nat (user_id, name, description, price, contact_number, stock) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
+      [user_id, name, description, price, contact_number, stockNum]
     );
     const host = process.env.BACKEND_URL || `https://${req.get('host')}`;
     const urls = (req.files || []).map(f => `${host}/uploads/nat/${f.filename}`);
@@ -824,6 +825,80 @@ app.get('/natmarket/products', async (_req, res) => {
     res.json(products);
   } catch (err) {
     handleNatError(res, err, 'GET /natmarket/products');
+  }
+});
+
+app.patch('/natmarket/products/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { user_id, stock, sold, buyer_id } = req.body;
+    
+    if (!user_id) return res.status(400).json({ error: 'user_id requerido' });
+    
+    // Verificar que el producto existe y pertenece al usuario
+    const { rows: productRows } = await pool.query('SELECT user_id FROM products_nat WHERE id=$1', [id]);
+    if (productRows.length === 0) return res.status(404).json({ error: 'Producto no encontrado' });
+    if (Number(productRows[0].user_id) !== Number(user_id)) return res.status(403).json({ error: 'No autorizado' });
+    
+    const updates = [];
+    const values = [];
+    let paramIndex = 1;
+    
+    if (stock !== undefined) {
+      updates.push(`stock = $${paramIndex}`);
+      values.push(parseInt(stock) || 0);
+      paramIndex++;
+    }
+    
+    if (sold !== undefined) {
+      updates.push(`sold = $${paramIndex}`);
+      values.push(sold === true || sold === 'true');
+      paramIndex++;
+    }
+    
+    if (buyer_id !== undefined) {
+      updates.push(`buyer_id = $${paramIndex}`);
+      values.push(buyer_id ? parseInt(buyer_id) : null);
+      paramIndex++;
+    }
+    
+    if (updates.length === 0) return res.status(400).json({ error: 'No hay campos para actualizar' });
+    
+    values.push(id);
+    const query = `UPDATE products_nat SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING *`;
+    
+    const { rows: [updated] } = await pool.query(query, values);
+    res.json(updated);
+  } catch (err) {
+    handleNatError(res, err, 'PATCH /natmarket/products/:id');
+  }
+});
+
+// Obtener participantes del chat de un producto (para seleccionar comprador)
+app.get('/natmarket/products/:id/chat-participants', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { user_id } = req.query;
+    
+    if (!user_id) return res.status(400).json({ error: 'user_id requerido' });
+    
+    // Verificar que el producto existe y pertenece al usuario
+    const { rows: productRows } = await pool.query('SELECT user_id FROM products_nat WHERE id=$1', [id]);
+    if (productRows.length === 0) return res.status(404).json({ error: 'Producto no encontrado' });
+    if (Number(productRows[0].user_id) !== Number(user_id)) return res.status(403).json({ error: 'No autorizado' });
+    
+    // Obtener todos los usuarios que han participado en el chat de este producto (excluyendo al vendedor)
+    const { rows } = await pool.query(`
+      SELECT DISTINCT u.id, u.username
+      FROM messages_nat m
+      JOIN users_nat u ON m.sender_id = u.id
+      WHERE m.product_id = $1 AND m.sender_id != $2
+      ORDER BY u.username
+    `, [id, user_id]);
+    
+    res.json(rows);
+  } catch (err) {
+    handleNatError(res, err, 'GET /natmarket/products/:id/chat-participants');
   }
 });
 
@@ -1381,12 +1456,24 @@ app.post('/natmarket/rate-product', async (req, res) => {
   try {
     const { product_id, rater_user_id, rating, comment } = req.body;
     if (!product_id || !rater_user_id || !rating) return res.status(400).json({ error: 'Faltan parámetros' });
-    const { rows } = await pool.query('SELECT user_id FROM products_nat WHERE id=$1', [product_id]);
+    
+    // Verificar que el producto existe
+    const { rows } = await pool.query('SELECT user_id, sold, buyer_id FROM products_nat WHERE id=$1', [product_id]);
     if (rows.length === 0) return res.status(404).json({ error: 'Producto no encontrado' });
+    
+    const product = rows[0];
+    
+    // Si el producto está vendido, solo el comprador puede calificarlo
+    if (product.sold && product.buyer_id) {
+      if (Number(product.buyer_id) !== Number(rater_user_id)) {
+        return res.status(403).json({ error: 'Solo el comprador puede calificar este producto vendido' });
+      }
+    }
+    
     await pool.query(
       `INSERT INTO user_ratings_nat (rated_user_id, rater_user_id, rating, comment, product_id, type)
        VALUES ($1,$2,$3,$4,$5,'product')`,
-      [rows[0].user_id, rater_user_id, rating, comment, product_id]
+      [product.user_id, rater_user_id, rating, comment, product_id]
     );
     res.json({ success: true });
   } catch (err) {
@@ -1936,11 +2023,12 @@ app.post('/natmarket/products/v2', upload.array('images', 10), async (req, res) 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const { user_id, name, description, price, contact_number } = req.body;
+    const { user_id, name, description, price, contact_number, stock } = req.body;
 
     // ➜ parsear arrays
     const places  = JSON.parse(req.body.places || '[]');
     const methods = JSON.parse(req.body.methods || '[]');
+    const stockNum = parseInt(stock) || 1;
 
     // --- moderación ---
 const bad = containsInappropriate(name + ' ' + description);
@@ -1963,9 +2051,9 @@ if (bad) {
     if (!user_id || !name) return res.status(400).json({ error: 'Faltan datos' });
 
     const { rows: [product] } = await client.query(
-      `INSERT INTO products_nat (user_id, name, description, price, contact_number)
-       VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-      [user_id, name, description, price ? parseFloat(price) : null, contact_number || null]
+      `INSERT INTO products_nat (user_id, name, description, price, contact_number, stock)
+       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+      [user_id, name, description, price ? parseFloat(price) : null, contact_number || null, stockNum]
     );
 
     // imágenes
@@ -3096,6 +3184,20 @@ CREATE TABLE IF NOT EXISTS product_images (
       read BOOLEAN DEFAULT false,
       created_at TIMESTAMP DEFAULT NOW()
     );
+  
+  -- Agregar columnas de stock y vendido a products_nat si no existen
+  DO $$ 
+  BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products_nat' AND column_name = 'stock') THEN
+      ALTER TABLE products_nat ADD COLUMN stock INTEGER DEFAULT 1;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products_nat' AND column_name = 'sold') THEN
+      ALTER TABLE products_nat ADD COLUMN sold BOOLEAN DEFAULT false;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products_nat' AND column_name = 'buyer_id') THEN
+      ALTER TABLE products_nat ADD COLUMN buyer_id INTEGER REFERENCES users_nat(id) ON DELETE SET NULL;
+    END IF;
+  END $$;
 `,
   ];
 

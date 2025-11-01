@@ -1084,41 +1084,69 @@ app.get('/natmarket/chats/:seller_id', async (req, res) => {
     const { seller_id } = req.params;
     console.log(`[CHATS] Obteniendo chats para vendedor: ${seller_id}`);
     
-    const { rows } = await pool.query(`
-      SELECT DISTINCT
-        p.id AS product_id,
-        p.name AS product_name,
-        (
-          SELECT json_agg(
-            json_build_object(
-              'sender_id', u2.id,
-              'sender_username', u2.username,
-              'message', m.message,
-              'created_at', m.created_at
-            ) ORDER BY m.created_at DESC
-          )
-          FROM messages_nat m
-          JOIN users_nat u2 ON m.sender_id = u2.id
-          WHERE m.product_id = p.id
-          LIMIT 1
-        ) AS last_message,
-        (
-          SELECT COUNT(DISTINCT sender_id)
-          FROM messages_nat
-          WHERE product_id = p.id
-        ) AS participants_count,
-        (
-          SELECT MAX(created_at)
-          FROM messages_nat
-          WHERE product_id = p.id
-        ) AS last_activity
+    // Primero obtener los productos con mensajes
+    const { rows: productRows } = await pool.query(`
+      SELECT DISTINCT p.id AS product_id, p.name AS product_name
       FROM products_nat p
       WHERE p.user_id = $1
         AND EXISTS (
           SELECT 1 FROM messages_nat m WHERE m.product_id = p.id
         )
-      ORDER BY last_activity DESC NULLS LAST
     `, [seller_id]);
+    
+    console.log(`[CHATS] Productos base encontrados: ${productRows.length}`);
+    
+    // Luego obtener los detalles de cada producto
+    const rows = await Promise.all(productRows.map(async (p) => {
+      // Último mensaje
+      const { rows: lastMsgRows } = await pool.query(`
+        SELECT 
+          u2.id AS sender_id,
+          u2.username AS sender_username,
+          m.message,
+          m.created_at
+        FROM messages_nat m
+        JOIN users_nat u2 ON m.sender_id = u2.id
+        WHERE m.product_id = $1
+        ORDER BY m.created_at DESC
+        LIMIT 1
+      `, [p.product_id]);
+      
+      // Contador de participantes
+      const { rows: participantsRows } = await pool.query(`
+        SELECT COUNT(DISTINCT sender_id) AS count
+        FROM messages_nat
+        WHERE product_id = $1
+      `, [p.product_id]);
+      
+      // Última actividad
+      const { rows: activityRows } = await pool.query(`
+        SELECT MAX(created_at) AS last_activity
+        FROM messages_nat
+        WHERE product_id = $1
+      `, [p.product_id]);
+      
+      return {
+        product_id: p.product_id,
+        product_name: p.product_name,
+        last_message: lastMsgRows.length > 0 ? [{
+          sender_id: lastMsgRows[0].sender_id,
+          sender_username: lastMsgRows[0].sender_username,
+          message: lastMsgRows[0].message,
+          created_at: lastMsgRows[0].created_at
+        }] : null,
+        participants_count: parseInt(participantsRows[0]?.count || 0),
+        last_activity: activityRows[0]?.last_activity || null
+      };
+    }));
+    
+    // Ordenar por última actividad
+    rows.sort((a, b) => {
+      if (!a.last_activity && !b.last_activity) return 0;
+      if (!a.last_activity) return 1;
+      if (!b.last_activity) return -1;
+      return new Date(b.last_activity) - new Date(a.last_activity);
+    });
     
     console.log(`[CHATS] Encontrados ${rows.length} productos con mensajes para vendedor ${seller_id}`);
     console.log(`[CHATS] Primera fila de ejemplo:`, rows[0]);

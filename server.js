@@ -917,6 +917,9 @@ app.delete('/natmarket/products/:id', async (req, res) => {
       if (fs.existsSync(file)) fs.unlinkSync(file);
     }
     await pool.query('DELETE FROM product_images_nat WHERE product_id=$1', [id]);
+    // Al borrar un producto, las vistas también se borran automáticamente por CASCADE
+    // pero asegurémonos de limpiar manualmente también
+    await pool.query('DELETE FROM product_views_unique WHERE product_id=$1', [id]);
     const { rows: [deleted] } = await pool.query('DELETE FROM products_nat WHERE id=$1 RETURNING *', [id]);
     res.json({ success: true, deleted });
   } catch (err) {
@@ -2232,47 +2235,87 @@ app.get('/np/auth/me', async (req, res) => {
 /* ----------  CONTAR VISTA (1 por usuario)  ---------- */
 app.patch('/natmarket/products/:id/view', async (req, res) => {
   const { id } = req.params;               // productId
-  const userId = req.headers['x-user-id']; // viene del front (session)
-  if (!userId) return res.status(400).json({ error: 'Falta x-user-id' });
+  let userId = req.headers['x-user-id'];   // puede venir del header (para usuarios no autenticados)
+  
+  // Si hay un usuario autenticado, usar su ID en lugar del header
+  // Esto asegura que las vistas se cuenten correctamente por usuario
+  const authUserId = req.headers['x-auth-user-id'];
+  if (authUserId && authUserId !== 'undefined' && authUserId !== 'null') {
+    userId = authUserId;
+  }
+  
+  // Si no hay userId, usar 'anon-' + IP o un identificador único
+  if (!userId || userId === 'anon' || userId === 'undefined' || userId === 'null') {
+    // Para usuarios no autenticados, usar una combinación de IP y user-agent
+    const ip = req.ip || req.connection.remoteAddress || 'unknown';
+    const userAgent = req.headers['user-agent'] || 'unknown';
+    userId = `anon-${Buffer.from(ip + userAgent).toString('base64').substring(0, 20)}`;
+  }
 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
 
-    // 1. ¿ya vio?
-    const { rows } = await client.query(
+    // 1. Verificar si el producto existe
+    const { rows: productCheck } = await client.query(
+      'SELECT id FROM products_nat WHERE id = $1',
+      [id]
+    );
+    if (productCheck.length === 0) {
+      await client.query('COMMIT');
+      return res.status(404).json({ error: 'Producto no encontrado' });
+    }
+
+    // 2. ¿ya vio este usuario este producto?
+    const { rows: existingView } = await client.query(
       `SELECT 1 FROM product_views_unique
        WHERE user_id = $1 AND product_id = $2`,
       [userId, id]
     );
-    if (rows.length) {               // ya contó -> solo devolver total
+    
+    if (existingView.length > 0) {
+      // Ya contó -> solo devolver total actual
       const { rows: total } = await client.query(
         'SELECT views FROM products_nat WHERE id = $1', [id]
       );
       await client.query('COMMIT');
-      return res.json({ views: total[0].views, firstTime: false });
+      return res.json({ views: total[0].views || 0, firstTime: false });
     }
 
-    // 2. insertar par
-    await client.query(
-      `INSERT INTO product_views_unique(user_id, product_id) VALUES ($1,$2)`,
-      [userId, id]
+    // 3. Es la primera vez - insertar registro usando INSERT ... ON CONFLICT
+    // Usamos RETURNING para saber si realmente se insertó
+    const { rows: insertedRow } = await client.query(
+      `INSERT INTO product_views_unique(user_id, product_id) 
+       VALUES ($1,$2)
+       ON CONFLICT (user_id, product_id) DO NOTHING
+       RETURNING id`,
+      [String(userId), parseInt(id)]
     );
+    
+    // Si no se insertó nada (ya existía), no incrementar contador
+    if (!insertedRow || insertedRow.length === 0) {
+      await client.query('COMMIT');
+      const { rows: total } = await client.query(
+        'SELECT views FROM products_nat WHERE id = $1', [id]
+      );
+      return res.json({ views: total[0].views || 0, firstTime: false });
+    }
 
-    // 3. incrementar contador
+    // 4. Incrementar contador de vistas del producto
     const { rows: total } = await client.query(
       `UPDATE products_nat
-         SET views = views + 1
+         SET views = COALESCE(views, 0) + 1
        WHERE id = $1
        RETURNING views`,
       [id]
     );
+    
     await client.query('COMMIT');
-    res.json({ views: total[0].views, firstTime: true });
+    res.json({ views: total[0].views || 1, firstTime: true });
   } catch (err) {
     await client.query('ROLLBACK');
-    console.error('[VIEW-UNIQUE]', err);
-    res.status(500).json({ error: 'Error interno' });
+    console.error('[VIEW-UNIQUE] Error:', err);
+    res.status(500).json({ error: 'Error interno', details: err.message });
   } finally {
     client.release();
   }
@@ -3198,6 +3241,15 @@ CREATE TABLE IF NOT EXISTS product_images (
       ALTER TABLE products_nat ADD COLUMN buyer_id INTEGER REFERENCES users_nat(id) ON DELETE SET NULL;
     END IF;
   END $$;
+  
+  -- Crear tabla de vistas únicas por usuario y producto
+  CREATE TABLE IF NOT EXISTS product_views_unique (
+    id SERIAL PRIMARY KEY,
+    user_id VARCHAR(255) NOT NULL,
+    product_id INTEGER NOT NULL REFERENCES products_nat(id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT NOW(),
+    CONSTRAINT unique_user_product_view UNIQUE(user_id, product_id)
+  );
 `,
   ];
 

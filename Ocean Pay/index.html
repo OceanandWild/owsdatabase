@@ -448,6 +448,39 @@ async function loadWildCreditsBalance() {
             return;
         }
         
+        // Intentar usar BroadcastChannel para comunicación entre diferentes orígenes
+        if (!window.wildCreditsBroadcastChannel) {
+            try {
+                window.wildCreditsBroadcastChannel = new BroadcastChannel('wildcredits-sync');
+                
+                // Escuchar mensajes de Wild Explorer
+                window.wildCreditsBroadcastChannel.onmessage = (event) => {
+                    if (event.data && event.data.type === 'wildcredits-balance') {
+                        const balance = Math.round(event.data.balance || 0);
+                        console.log('[WildCredits] Recibido desde BroadcastChannel:', balance);
+                        if (wildCreditsEl) {
+                            wildCreditsEl.textContent = balance.toLocaleString();
+                        }
+                        localStorage.setItem('wildCredits', balance.toString());
+                        const opToken = localStorage.getItem('opToken');
+                        const opUser = JSON.parse(localStorage.getItem('opUser') || 'null');
+                        if (opToken && opUser && opUser.id) {
+                            opUser.wildcredits = balance;
+                            localStorage.setItem('opUser', JSON.stringify(opUser));
+                            console.log('[WildCredits] Actualizado opUser desde BroadcastChannel:', balance);
+                        }
+                    }
+                };
+                
+                // Solicitar el balance actual a Wild Explorer
+                window.wildCreditsBroadcastChannel.postMessage({ type: 'request-wildcredits-balance' });
+                console.log('[WildCredits] Solicitado balance mediante BroadcastChannel');
+            } catch (e) {
+                console.warn('[WildCredits] BroadcastChannel no disponible:', e);
+                window.wildCreditsBroadcastChannel = null;
+            }
+        }
+        
         // Intentar cargar desde múltiples fuentes (por si están en diferentes orígenes)
         let wildCredits = 0;
         
@@ -455,35 +488,53 @@ async function loadWildCreditsBalance() {
         const opToken = localStorage.getItem('opToken');
         const opUser = JSON.parse(localStorage.getItem('opUser') || 'null');
         
-        // Prioridad 1: Si hay opUser con wildcredits, usarlo primero (más confiable cuando están en diferentes orígenes)
-        if (opUser && opUser.wildcredits !== undefined && opUser.wildcredits !== null) {
+        // Prioridad 1: Intentar desde localStorage directo primero (más actualizado si están en el mismo origen)
+        let wildCreditsStr = localStorage.getItem('wildCredits');
+        if (wildCreditsStr !== null && wildCreditsStr !== undefined && wildCreditsStr !== '0') {
+            wildCredits = parseInt(wildCreditsStr) || 0;
+            console.log('[WildCredits] Cargado desde localStorage:', wildCredits);
+        }
+        // Prioridad 2: Si no está en localStorage o es 0, intentar desde opUser.wildcredits
+        else if (opUser && opUser.wildcredits !== undefined && opUser.wildcredits !== null && opUser.wildcredits > 0) {
             wildCredits = Math.round(opUser.wildcredits || 0);
             // Guardar en localStorage para futuras cargas
             localStorage.setItem('wildCredits', wildCredits.toString());
             console.log('[WildCredits] Cargado desde opUser.wildcredits:', wildCredits);
         }
-        // Prioridad 2: Intentar desde localStorage directo
+        // Prioridad 3: Si hay cuenta vinculada, esperar respuesta de BroadcastChannel (no inicializar con 0 todavía)
+        else if (opToken && opUser && opUser.id) {
+            console.log('[WildCredits] Esperando respuesta de BroadcastChannel o sincronización...');
+            wildCredits = parseInt(wildCreditsStr || '0') || 0;
+            // No inicializar opUser con 0 todavía, esperar a que llegue el valor real
+        }
+        // Prioridad 4: Si no hay cuenta vinculada, inicializar con 0
         else {
-            let wildCreditsStr = localStorage.getItem('wildCredits');
-            if (wildCreditsStr !== null && wildCreditsStr !== undefined) {
-                wildCredits = parseInt(wildCreditsStr) || 0;
-                console.log('[WildCredits] Cargado desde localStorage:', wildCredits);
-            }
-            // Prioridad 3: Si no existe, inicializar con 0
-            else {
-                console.log('[WildCredits] No encontrado, inicializando con 0');
-                wildCredits = 0;
-                localStorage.setItem('wildCredits', '0');
-            }
+            console.log('[WildCredits] No encontrado y sin cuenta vinculada, inicializando con 0');
+            wildCredits = 0;
+            localStorage.setItem('wildCredits', '0');
         }
         
-        // Si hay cuenta vinculada, siempre sincronizar el saldo en opUser
+        // Si hay cuenta vinculada, SIEMPRE sincronizar el saldo en opUser con el valor más actualizado
         if (opToken && opUser && opUser.id) {
-            // Solo actualizar opUser si el valor en localStorage es diferente
-            if (opUser.wildcredits !== wildCredits) {
+            // CRÍTICO: Si opUser.wildcredits es 0 pero tenemos un valor en localStorage, 
+            // significa que el usuario ganó WildCredits después de vincular la cuenta
+            // Usar el valor de localStorage (más actualizado)
+            if (wildCredits > 0 && (opUser.wildcredits === 0 || opUser.wildcredits === null || opUser.wildcredits === undefined)) {
+                console.log('[WildCredits] opUser tiene 0 pero localStorage tiene', wildCredits, '- actualizando opUser con valor más reciente');
                 opUser.wildcredits = wildCredits;
                 localStorage.setItem('opUser', JSON.stringify(opUser));
-                console.log('[WildCredits] Sincronizado con opUser:', wildCredits);
+            }
+            // Si opUser tiene un valor pero localStorage tiene uno mayor, usar localStorage
+            else if (wildCredits > opUser.wildcredits) {
+                console.log('[WildCredits] localStorage tiene valor mayor (', wildCredits, '>', opUser.wildcredits, ') - actualizando opUser');
+                opUser.wildcredits = wildCredits;
+                localStorage.setItem('opUser', JSON.stringify(opUser));
+            }
+            // Si opUser tiene un valor mayor que localStorage, usar opUser
+            else if (opUser.wildcredits > wildCredits) {
+                wildCredits = Math.round(opUser.wildcredits || 0);
+                localStorage.setItem('wildCredits', wildCredits.toString());
+                console.log('[WildCredits] Actualizado desde opUser (valor mayor):', wildCredits);
             }
         }
         
@@ -565,7 +616,19 @@ async function loadWildCreditsBalance() {
         
         // También escuchar cambios en el mismo dominio (polling suave)
         if (!window.wildCreditsPollInterval) {
+            let pollCounter = 0;
             window.wildCreditsPollInterval = setInterval(() => {
+                pollCounter++;
+                
+                // Cada 5 segundos, solicitar balance mediante BroadcastChannel
+                if (window.wildCreditsBroadcastChannel && pollCounter % 5 === 0) {
+                    try {
+                        window.wildCreditsBroadcastChannel.postMessage({ type: 'request-wildcredits-balance' });
+                    } catch (e) {
+                        // Ignorar si no está disponible
+                    }
+                }
+                
                 const currentToken = localStorage.getItem('opToken');
                 const currentUser = JSON.parse(localStorage.getItem('opUser') || 'null');
                 const currentFromStorage = parseInt(localStorage.getItem('wildCredits') || '0');
@@ -574,16 +637,22 @@ async function loadWildCreditsBalance() {
                     : null;
                 const currentDisplayed = parseInt(wildCreditsEl.textContent.replace(/,/g, '') || '0');
                 
-                // Usar opUser.wildcredits si está disponible (es la fuente más confiable cuando están en diferentes orígenes)
+                // Usar el valor mayor entre localStorage y opUser (más actualizado)
                 let newBalance = currentFromStorage;
-                if (currentFromOpUser !== null) {
-                    // Si opUser tiene un valor y es diferente, usarlo (puede ser más actualizado)
-                    if (currentFromOpUser !== currentFromStorage) {
-                        newBalance = currentFromOpUser;
-                        // Sincronizar con localStorage
-                        localStorage.setItem('wildCredits', newBalance.toString());
-                        console.log('[WildCredits] Actualizado desde opUser en polling:', newBalance, '(era:', currentFromStorage, ')');
+                if (currentFromOpUser !== null && currentFromOpUser > currentFromStorage) {
+                    newBalance = currentFromOpUser;
+                    // Sincronizar con localStorage
+                    localStorage.setItem('wildCredits', newBalance.toString());
+                    console.log('[WildCredits] Actualizado desde opUser en polling:', newBalance, '(era:', currentFromStorage, ')');
+                }
+                // Si localStorage tiene un valor mayor que opUser, actualizar opUser
+                else if (currentFromOpUser !== null && currentFromStorage > currentFromOpUser) {
+                    if (currentToken && currentUser && currentUser.id) {
+                        currentUser.wildcredits = currentFromStorage;
+                        localStorage.setItem('opUser', JSON.stringify(currentUser));
+                        console.log('[WildCredits] Actualizado opUser desde localStorage en polling:', currentFromStorage);
                     }
+                    newBalance = currentFromStorage;
                 }
                 
                 if (newBalance !== currentDisplayed) {

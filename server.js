@@ -1015,6 +1015,42 @@ app.post('/natmarket/products', upload.array('images', 10), async (req, res) => 
     const urls = (req.files || []).map(f => `${host}/uploads/nat/${f.filename}`);
     for (const url of urls) await pool.query('INSERT INTO product_images_nat (product_id, url) VALUES ($1,$2)', [product.id, url]);
     const { rows: imgs } = await pool.query('SELECT url FROM product_images_nat WHERE product_id=$1 ORDER BY created_at ASC', [product.id]);
+    
+    // Notificar a los seguidores del usuario
+    try {
+      const { rows: followers } = await pool.query(
+        'SELECT follower_id FROM user_follows WHERE following_id = $1',
+        [user_id]
+      );
+      
+      if (followers.length > 0) {
+        // Obtener el username del vendedor
+        const { rows: [seller] } = await pool.query(
+          'SELECT username FROM users_nat WHERE id = $1',
+          [user_id]
+        );
+        const sellerName = seller?.username || 'Un usuario';
+        
+        // Crear notificaciones para cada seguidor
+        for (const follower of followers) {
+          await pool.query(
+            `INSERT INTO notifications_nat (user_id, type, message, product_id, sender_id, created_at)
+             VALUES ($1, 'new_product', $2, $3, $4, NOW())`,
+            [
+              follower.follower_id,
+              `${sellerName} publicó un nuevo producto: "${name}"`,
+              product.id,
+              user_id
+            ]
+          );
+        }
+        console.log(`[NOTIFICATIONS] ${followers.length} notificaciones de nuevo producto creadas`);
+      }
+    } catch (notifErr) {
+      console.error('[NOTIFICATIONS] Error notificando a seguidores:', notifErr);
+      // No fallar la creación del producto si falla la notificación
+    }
+    
     res.json({ ...product, image_urls: imgs.map(i => i.url) });
   } catch (err) {
     handleNatError(res, err, 'POST /natmarket/products');
@@ -1234,6 +1270,41 @@ app.post('/natmarket/products/:id/repost', async (req, res) => {
     await pool.query('DELETE FROM product_views_unique WHERE product_id=$1', [id]);
     await pool.query('UPDATE products_nat SET views=0 WHERE id=$1', [id]);
     
+    // Notificar a los seguidores del usuario (producto republicado)
+    try {
+      const { rows: followers } = await pool.query(
+        'SELECT follower_id FROM user_follows WHERE following_id = $1',
+        [user_id]
+      );
+      
+      if (followers.length > 0) {
+        // Obtener el username del vendedor
+        const { rows: [seller] } = await pool.query(
+          'SELECT username FROM users_nat WHERE id = $1',
+          [user_id]
+        );
+        const sellerName = seller?.username || 'Un usuario';
+        
+        // Crear notificaciones para cada seguidor
+        for (const follower of followers) {
+          await pool.query(
+            `INSERT INTO notifications_nat (user_id, type, message, product_id, sender_id, created_at)
+             VALUES ($1, 'new_product', $2, $3, $4, NOW())`,
+            [
+              follower.follower_id,
+              `${sellerName} republicó un producto: "${newName}"`,
+              id,
+              user_id
+            ]
+          );
+        }
+        console.log(`[NOTIFICATIONS] ${followers.length} notificaciones de producto republicado creadas`);
+      }
+    } catch (notifErr) {
+      console.error('[NOTIFICATIONS] Error notificando a seguidores:', notifErr);
+      // No fallar el repost si falla la notificación
+    }
+    
     res.json({ success: true, product: updated });
   } catch (err) {
     handleNatError(res, err, 'POST /natmarket/products/:id/repost');
@@ -1330,6 +1401,41 @@ app.post('/natmarket/products/:id/repost-delete', upload.array('images', 10), as
     const methodsIds = methodsArray.length > 0 ? methodsArray : currentMethods.map(m => m.shipping_method_id);
     for (const mId of methodsIds) {
       await client.query('INSERT INTO product_shipping_methods (product_id, shipping_method_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [newProduct.id, mId]);
+    }
+
+    // Notificar a los seguidores del usuario (producto borrado y republicado)
+    try {
+      const { rows: followers } = await client.query(
+        'SELECT follower_id FROM user_follows WHERE following_id = $1',
+        [user_id]
+      );
+      
+      if (followers.length > 0) {
+        // Obtener el username del vendedor
+        const { rows: [seller] } = await client.query(
+          'SELECT username FROM users_nat WHERE id = $1',
+          [user_id]
+        );
+        const sellerName = seller?.username || 'Un usuario';
+        
+        // Crear notificaciones para cada seguidor
+        for (const follower of followers) {
+          await client.query(
+            `INSERT INTO notifications_nat (user_id, type, message, product_id, sender_id, created_at)
+             VALUES ($1, 'new_product', $2, $3, $4, NOW())`,
+            [
+              follower.follower_id,
+              `${sellerName} publicó un nuevo producto: "${newName}"`,
+              newProduct.id,
+              user_id
+            ]
+          );
+        }
+        console.log(`[NOTIFICATIONS] ${followers.length} notificaciones de producto nuevo creadas (repost-delete)`);
+      }
+    } catch (notifErr) {
+      console.error('[NOTIFICATIONS] Error notificando a seguidores:', notifErr);
+      // No fallar la creación si falla la notificación
     }
     
     await client.query('COMMIT');
@@ -2644,6 +2750,41 @@ if (bad) {
         'INSERT INTO product_shipping_methods (product_id, shipping_method_id) VALUES ($1,$2) ON CONFLICT DO NOTHING',
         [product.id, mId]
       );
+    }
+
+    // Notificar a los seguidores del usuario
+    try {
+      const { rows: followers } = await client.query(
+        'SELECT follower_id FROM user_follows WHERE following_id = $1',
+        [user_id]
+      );
+      
+      if (followers.length > 0) {
+        // Obtener el username del vendedor
+        const { rows: [seller] } = await client.query(
+          'SELECT username FROM users_nat WHERE id = $1',
+          [user_id]
+        );
+        const sellerName = seller?.username || 'Un usuario';
+        
+        // Crear notificaciones para cada seguidor
+        for (const follower of followers) {
+          await client.query(
+            `INSERT INTO notifications_nat (user_id, type, message, product_id, sender_id, created_at)
+             VALUES ($1, 'new_product', $2, $3, $4, NOW())`,
+            [
+              follower.follower_id,
+              `${sellerName} publicó un nuevo producto: "${name}"`,
+              product.id,
+              user_id
+            ]
+          );
+        }
+        console.log(`[NOTIFICATIONS] ${followers.length} notificaciones de nuevo producto creadas`);
+      }
+    } catch (notifErr) {
+      console.error('[NOTIFICATIONS] Error notificando a seguidores:', notifErr);
+      // No fallar la creación del producto si falla la notificación
     }
 
     await client.query('COMMIT');

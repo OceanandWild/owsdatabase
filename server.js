@@ -2497,18 +2497,90 @@ app.post('/natmarket/reset-password', async (req, res) => {
 /* ---------- NOVEDAD DESTACADA ---------- */
 app.get('/api/featured-update', async (_req, res) => {
   try {
+    // Primero intentar obtener de la base de datos
     const { rows } = await pool.query(
-      `SELECT version, news, date
+      `SELECT version, news, date, sections
        FROM updates_natmarket
        ORDER BY date DESC
        LIMIT 1`
     );
-    if (!rows.length) return res.json(null);
-    res.json(rows[0]);
+    
+    if (rows.length && rows[0]) {
+      // Si hay actualización en BD, devolverla
+      const dbUpdate = rows[0];
+      // Si tiene sections como JSON, parsearlo
+      if (dbUpdate.sections && typeof dbUpdate.sections === 'string') {
+        try {
+          dbUpdate.sections = JSON.parse(dbUpdate.sections);
+        } catch (e) {
+          // Si falla, dejarlo como está
+        }
+      }
+      return res.json(dbUpdate);
+    }
   } catch (err) {
-    console.error(err);
-    res.status(500).json(null);
+    console.error('Error obteniendo update de BD:', err);
   }
+  
+  // Si no hay en BD, enviar actualización actual con todas las mejoras
+  const update = {
+    version: 'v2.0.0 - Gran Actualización',
+    date: new Date().toISOString().split('T')[0],
+    sections: [
+      {
+        title: '🔍 Búsqueda Inteligente',
+        icon: '🔍',
+        items: [
+          'Nueva búsqueda en tiempo real con sugerencias automáticas',
+          'Filtros avanzados: Precio, Rating, Vistos, Nuevos',
+          'Búsqueda por nombre, descripción, vendedor y precio',
+          'Contador de resultados con animaciones'
+        ]
+      },
+      {
+        title: '🎨 Header Rediseñado',
+        icon: '✨',
+        items: [
+          'Nuevo diseño premium con mejor organización',
+          'Botones de usuario mejorados con layout vertical',
+          'Separación clara entre acciones y búsqueda',
+          'Diseño completamente responsive para móvil y PC'
+        ]
+      },
+      {
+        title: '📱 Layout Mejorado',
+        icon: '🎨',
+        items: [
+          'Sistema de diseño responsive mejorado en todo NatMarket',
+          'Nuevas animaciones y transiciones fluidas',
+          'Mejor jerarquía visual y espaciado',
+          'Colores y sombras premium actualizados',
+          'Optimización para todos los dispositivos'
+        ]
+      },
+      {
+        title: '👥 Sistema de Seguidores',
+        icon: '❤️',
+        items: [
+          'Seguir y dejar de seguir usuarios',
+          'Ver seguidores y usuarios que sigues',
+          'Notificaciones de nuevos seguidores',
+          'Perfil público mejorado'
+        ]
+      },
+      {
+        title: '🔄 Funciones de Republicar',
+        icon: '🔄',
+        items: [
+          'Republicar productos manteniendo el original',
+          'Borrar y republicar con opción de editar',
+          'Badge "NUEVO" basado en fecha de publicación',
+          'Modales mejorados con mejor organización'
+        ]
+      }
+    ]
+  };
+  res.json(update);
 });
 
 /* ---------- TOP LECTORES ---------- */

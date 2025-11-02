@@ -3975,6 +3975,20 @@ CREATE TABLE IF NOT EXISTS product_images (
     CONSTRAINT unique_follow UNIQUE(follower_id, following_id),
     CONSTRAINT no_self_follow CHECK (follower_id != following_id)
   );
+  
+  -- Crear tabla de suscripciones de Ecoxion
+  CREATE TABLE IF NOT EXISTS ecoxion_subscriptions (
+    id SERIAL PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    plan TEXT NOT NULL DEFAULT 'free',
+    starts_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    ends_at TIMESTAMP NOT NULL,
+    active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT NOW()
+  );
+  
+  -- Crear índice para búsquedas rápidas
+  CREATE INDEX IF NOT EXISTS idx_ecoxion_subs_user_active ON ecoxion_subscriptions(user_id, active, ends_at);
 `,
   ];
 
@@ -4328,6 +4342,164 @@ app.get('/api/tigertasks/backup/:userId', async (req, res) => {
   const { userId } = req.params;
   const { rows } = await pool.query('SELECT backup_data FROM tigertasks_backups WHERE user_id = $1', [userId]);
   res.json(rows[0]?.backup_data || null);
+});
+
+/* ===== SUSCRIPCIONES ECOXION ===== */
+
+// GET - Obtener suscripción actual del usuario
+app.get('/api/ecoxion/subscription/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    const { rows } = await pool.query(
+      `SELECT * FROM ecoxion_subscriptions 
+       WHERE user_id = $1 AND active = true AND ends_at > NOW()
+       ORDER BY created_at DESC 
+       LIMIT 1`,
+      [userId]
+    );
+    
+    if (rows.length === 0) {
+      return res.json(null);
+    }
+    
+    res.json({
+      plan: rows[0].plan,
+      startsAt: rows[0].starts_at,
+      endsAt: rows[0].ends_at,
+      createdAt: rows[0].created_at
+    });
+  } catch (err) {
+    console.error('Error obteniendo suscripción:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// POST - Suscribirse a un plan
+app.post('/api/ecoxion/subscribe', async (req, res) => {
+  const { userId, plan } = req.body;
+  
+  if (!userId || !plan) {
+    return res.status(400).json({ error: 'Faltan datos' });
+  }
+  
+  if (plan !== 'pro') {
+    return res.status(400).json({ error: 'Plan no válido' });
+  }
+  
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    
+    // Verificar que el usuario existe en Ocean Pay
+    const { rows: userRows } = await client.query(
+      'SELECT id, ecoxionums FROM ocean_pay_users WHERE id::text = $1',
+      [userId]
+    );
+    
+    if (userRows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+    
+    // Verificar saldo (750 Ecoxionums)
+    const currentBalance = userRows[0].ecoxionums || 0;
+    if (currentBalance < 750) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Saldo insuficiente. Necesitas 750 Ecoxionums.' });
+    }
+    
+    // Descontar Ecoxionums
+    const newBalance = currentBalance - 750;
+    await client.query(
+      'UPDATE ocean_pay_users SET ecoxionums = $1 WHERE id::text = $2',
+      [newBalance, userId]
+    );
+    
+    // Cerrar suscripciones anteriores activas
+    await client.query(
+      `UPDATE ecoxion_subscriptions 
+       SET active = false 
+       WHERE user_id = $1 AND active = true`,
+      [userId]
+    );
+    
+    // Crear nueva suscripción (30 días)
+    const now = new Date();
+    const endsAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    
+    const { rows: subRows } = await client.query(
+      `INSERT INTO ecoxion_subscriptions (user_id, plan, starts_at, ends_at, active)
+       VALUES ($1, $2, $3, $4, true)
+       RETURNING *`,
+      [userId, plan, now, endsAt]
+    );
+    
+    // Registrar transacción en Ocean Pay
+    try {
+      await client.query(
+        `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+         VALUES ($1, $2, $3, $4, 'EX')`,
+        [userId, 'Suscripción Plan Pro (Ecoxion)', -750, 'Ecoxion']
+      );
+    } catch (e) {
+      // Si falla por falta de columna moneda, insertar sin ella
+      await client.query(
+        `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
+         VALUES ($1, $2, $3, $4)`,
+        [userId, 'Suscripción Plan Pro (Ecoxion)', -750, 'Ecoxion']
+      );
+    }
+    
+    await client.query('COMMIT');
+    
+    res.json({
+      success: true,
+      subscription: {
+        plan: subRows[0].plan,
+        startsAt: subRows[0].starts_at,
+        endsAt: subRows[0].ends_at
+      },
+      newBalance
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error al suscribirse:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  } finally {
+    client.release();
+  }
+});
+
+// POST - Cancelar suscripción
+app.post('/api/ecoxion/subscription/cancel', async (req, res) => {
+  const { userId } = req.body;
+  
+  if (!userId) {
+    return res.status(400).json({ error: 'Falta userId' });
+  }
+  
+  try {
+    const { rows } = await pool.query(
+      `UPDATE ecoxion_subscriptions 
+       SET active = false 
+       WHERE user_id = $1 AND active = true 
+       RETURNING *`,
+      [userId]
+    );
+    
+    if (rows.length === 0) {
+      return res.status(400).json({ error: 'No tienes una suscripción activa' });
+    }
+    
+    res.json({
+      success: true,
+      message: 'Suscripción cancelada. Seguirás teniendo acceso hasta la fecha de vencimiento.'
+    });
+  } catch (err) {
+    console.error('Error al cancelar suscripción:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
 });
 
 await ensureDatabase(); 

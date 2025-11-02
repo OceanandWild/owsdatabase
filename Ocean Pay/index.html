@@ -445,32 +445,92 @@ async function loadWildCreditsBalance() {
         const wildCreditsEl = qs('#wildcredits');
         if (!wildCreditsEl) return;
         
-        // WildCredits se guarda en localStorage de Wild Explorer con la clave 'wildCredits'
-        let wildCredits = parseInt(localStorage.getItem('wildCredits') || '0');
+        // Verificar si hay una cuenta de Ocean Pay vinculada
+        const opToken = localStorage.getItem('opToken');
+        const opUser = JSON.parse(localStorage.getItem('opUser') || 'null');
         
-        // También intentar obtenerlo desde opUser si está disponible
-        const user = JSON.parse(localStorage.getItem('opUser') || '{}');
-        if (user.wildcredits !== undefined && user.wildcredits !== null) {
-            wildCredits = Math.round(user.wildcredits || 0);
+        if (!opToken || !opUser || !opUser.id) {
+            // No hay cuenta vinculada, mostrar 0
+            wildCreditsEl.textContent = '0';
+            return;
+        }
+        
+        // Hay cuenta vinculada, intentar obtener WildCredits
+        let wildCredits = 0;
+        
+        // Primero intentar desde opUser (si se guardó ahí desde Wild Explorer)
+        if (opUser.wildcredits !== undefined && opUser.wildcredits !== null) {
+            wildCredits = Math.round(opUser.wildcredits || 0);
+        } else {
+            // Si no está en opUser, intentar desde localStorage de WildCredits directamente
+            wildCredits = parseInt(localStorage.getItem('wildCredits') || '0');
+            
+            // Si encontramos un saldo, guardarlo en opUser para futuras cargas
+            if (wildCredits > 0 && opUser) {
+                opUser.wildcredits = wildCredits;
+                localStorage.setItem('opUser', JSON.stringify(opUser));
+            }
         }
         
         wildCreditsEl.textContent = wildCredits.toLocaleString();
         
-        // También escuchar mensajes desde Wild Explorer si está en un iframe o ventana padre
+        // Escuchar cambios en localStorage (desde Wild Explorer en otra pestaña/ventana)
+        if (!window.wildCreditsStorageListener) {
+            window.wildCreditsStorageListener = (e) => {
+                if (e.key === 'wildCredits' && opToken && opUser) {
+                    const newBalance = parseInt(e.newValue || '0');
+                    if (wildCreditsEl) {
+                        wildCreditsEl.textContent = newBalance.toLocaleString();
+                    }
+                    // Actualizar en opUser
+                    if (opUser) {
+                        opUser.wildcredits = newBalance;
+                        localStorage.setItem('opUser', JSON.stringify(opUser));
+                    }
+                }
+            };
+            window.addEventListener('storage', window.wildCreditsStorageListener);
+        }
+        
+        // Escuchar mensajes desde Wild Explorer (si está en un iframe o ventana padre)
         if (!window.wildCreditsMessageListener) {
             window.wildCreditsMessageListener = (event) => {
                 if (event.data && event.data.type === 'wildcredits-update') {
                     const balance = Math.round(event.data.balance || 0);
-                    if (wildCreditsEl) {
+                    if (wildCreditsEl && opToken && opUser) {
                         wildCreditsEl.textContent = balance.toLocaleString();
                     }
-                    // Actualizar también en opUser
-                    const user = JSON.parse(localStorage.getItem('opUser') || '{}');
-                    user.wildcredits = balance;
-                    localStorage.setItem('opUser', JSON.stringify(user));
+                    // Actualizar en opUser y localStorage
+                    if (opUser && opToken) {
+                        opUser.wildcredits = balance;
+                        localStorage.setItem('opUser', JSON.stringify(opUser));
+                        localStorage.setItem('wildCredits', balance.toString());
+                    }
                 }
             };
             window.addEventListener('message', window.wildCreditsMessageListener);
+        }
+        
+        // También escuchar cambios en el mismo dominio (polling suave)
+        if (!window.wildCreditsPollInterval) {
+            window.wildCreditsPollInterval = setInterval(() => {
+                const currentToken = localStorage.getItem('opToken');
+                const currentUser = JSON.parse(localStorage.getItem('opUser') || 'null');
+                
+                if (currentToken && currentUser && currentUser.id) {
+                    const currentFromStorage = parseInt(localStorage.getItem('wildCredits') || '0');
+                    const currentDisplayed = parseInt(wildCreditsEl.textContent.replace(/,/g, '') || '0');
+                    
+                    if (currentFromStorage !== currentDisplayed) {
+                        wildCreditsEl.textContent = currentFromStorage.toLocaleString();
+                        currentUser.wildcredits = currentFromStorage;
+                        localStorage.setItem('opUser', JSON.stringify(currentUser));
+                    }
+                } else {
+                    // No hay cuenta vinculada, asegurarse de mostrar 0
+                    wildCreditsEl.textContent = '0';
+                }
+            }, 2000); // Verificar cada 2 segundos
         }
         
     } catch (e) {
@@ -609,6 +669,11 @@ if (window.opener) {
   /* ----------  LOGOUT  ---------- */
   qs('#logoutBtn').onclick=()=>{
     stopBalanceRefresh();
+    // Limpiar intervalo de polling de WildCredits
+    if (window.wildCreditsPollInterval) {
+      clearInterval(window.wildCreditsPollInterval);
+      window.wildCreditsPollInterval = null;
+    }
     localStorage.removeItem('opToken'); localStorage.removeItem('opUser');
     token=''; userId=0;
     show('#wallet',false); show('#regForm',true); show('#loginForm',false);

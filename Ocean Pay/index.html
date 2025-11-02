@@ -458,10 +458,16 @@ async function loadWildCreditsBalance() {
                     if (event.data && event.data.type === 'wildcredits-balance') {
                         const balance = Math.round(event.data.balance || 0);
                         console.log('[WildCredits] Recibido desde BroadcastChannel:', balance);
+                        
+                        // Actualizar UI inmediatamente
                         if (wildCreditsEl) {
                             wildCreditsEl.textContent = balance.toLocaleString();
                         }
+                        
+                        // Actualizar localStorage
                         localStorage.setItem('wildCredits', balance.toString());
+                        
+                        // Actualizar opUser
                         const opToken = localStorage.getItem('opToken');
                         const opUser = JSON.parse(localStorage.getItem('opUser') || 'null');
                         if (opToken && opUser && opUser.id) {
@@ -490,51 +496,51 @@ async function loadWildCreditsBalance() {
         
         // Prioridad 1: Intentar desde localStorage directo primero (más actualizado si están en el mismo origen)
         let wildCreditsStr = localStorage.getItem('wildCredits');
-        if (wildCreditsStr !== null && wildCreditsStr !== undefined && wildCreditsStr !== '0') {
-            wildCredits = parseInt(wildCreditsStr) || 0;
+        let wildCreditsFromStorage = (wildCreditsStr !== null && wildCreditsStr !== undefined) 
+            ? parseInt(wildCreditsStr) || 0 
+            : null;
+        
+        // Prioridad 2: Obtener valor de opUser.wildcredits
+        let wildCreditsFromOpUser = (opUser && opUser.wildcredits !== undefined && opUser.wildcredits !== null) 
+            ? Math.round(opUser.wildcredits || 0) 
+            : null;
+        
+        // Decidir qué valor usar:
+        // - Si localStorage tiene un valor mayor que 0, usarlo
+        // - Si opUser tiene un valor mayor que 0, usarlo
+        // - Si ambos están disponibles, usar el mayor
+        // - Si ninguno tiene valor, usar 0
+        
+        if (wildCreditsFromStorage !== null && wildCreditsFromStorage > 0) {
+            wildCredits = wildCreditsFromStorage;
             console.log('[WildCredits] Cargado desde localStorage:', wildCredits);
-        }
-        // Prioridad 2: Si no está en localStorage o es 0, intentar desde opUser.wildcredits
-        else if (opUser && opUser.wildcredits !== undefined && opUser.wildcredits !== null && opUser.wildcredits > 0) {
-            wildCredits = Math.round(opUser.wildcredits || 0);
+            
+            // Si opUser tiene 0 o un valor menor, actualizarlo
+            if (opToken && opUser && opUser.id && 
+                (wildCreditsFromOpUser === null || wildCreditsFromOpUser < wildCredits || wildCreditsFromOpUser === 0)) {
+                opUser.wildcredits = wildCredits;
+                localStorage.setItem('opUser', JSON.stringify(opUser));
+                console.log('[WildCredits] Actualizado opUser.wildcredits con valor de localStorage:', wildCredits);
+            }
+        } else if (wildCreditsFromOpUser !== null && wildCreditsFromOpUser > 0) {
+            wildCredits = wildCreditsFromOpUser;
             // Guardar en localStorage para futuras cargas
             localStorage.setItem('wildCredits', wildCredits.toString());
             console.log('[WildCredits] Cargado desde opUser.wildcredits:', wildCredits);
-        }
-        // Prioridad 3: Si hay cuenta vinculada, esperar respuesta de BroadcastChannel (no inicializar con 0 todavía)
-        else if (opToken && opUser && opUser.id) {
-            console.log('[WildCredits] Esperando respuesta de BroadcastChannel o sincronización...');
-            wildCredits = parseInt(wildCreditsStr || '0') || 0;
-            // No inicializar opUser con 0 todavía, esperar a que llegue el valor real
-        }
-        // Prioridad 4: Si no hay cuenta vinculada, inicializar con 0
-        else {
-            console.log('[WildCredits] No encontrado y sin cuenta vinculada, inicializando con 0');
+        } else {
+            // Ambos son 0 o null
             wildCredits = 0;
-            localStorage.setItem('wildCredits', '0');
-        }
-        
-        // Si hay cuenta vinculada, SIEMPRE sincronizar el saldo en opUser con el valor más actualizado
-        if (opToken && opUser && opUser.id) {
-            // CRÍTICO: Si opUser.wildcredits es 0 pero tenemos un valor en localStorage, 
-            // significa que el usuario ganó WildCredits después de vincular la cuenta
-            // Usar el valor de localStorage (más actualizado)
-            if (wildCredits > 0 && (opUser.wildcredits === 0 || opUser.wildcredits === null || opUser.wildcredits === undefined)) {
-                console.log('[WildCredits] opUser tiene 0 pero localStorage tiene', wildCredits, '- actualizando opUser con valor más reciente');
-                opUser.wildcredits = wildCredits;
-                localStorage.setItem('opUser', JSON.stringify(opUser));
+            if (wildCreditsStr === null || wildCreditsStr === undefined) {
+                localStorage.setItem('wildCredits', '0');
             }
-            // Si opUser tiene un valor pero localStorage tiene uno mayor, usar localStorage
-            else if (wildCredits > opUser.wildcredits) {
-                console.log('[WildCredits] localStorage tiene valor mayor (', wildCredits, '>', opUser.wildcredits, ') - actualizando opUser');
-                opUser.wildcredits = wildCredits;
-                localStorage.setItem('opUser', JSON.stringify(opUser));
-            }
-            // Si opUser tiene un valor mayor que localStorage, usar opUser
-            else if (opUser.wildcredits > wildCredits) {
-                wildCredits = Math.round(opUser.wildcredits || 0);
-                localStorage.setItem('wildCredits', wildCredits.toString());
-                console.log('[WildCredits] Actualizado desde opUser (valor mayor):', wildCredits);
+            if (opToken && opUser && opUser.id) {
+                console.warn('[WildCredits] Balance es 0 pero hay cuenta vinculada. Esto puede ocurrir si:');
+                console.warn('  1. Aún no has ganado WildCredits en Wild Explorer');
+                console.warn('  2. La cuenta se vinculó antes de ganar WildCredits');
+                console.warn('  3. Estás en diferentes orígenes y no se puede sincronizar automáticamente');
+                console.warn('  SOLUCIÓN: Vuelve a vincular tu cuenta desde Wild Explorer para sincronizar tu balance actual.');
+            } else {
+                console.log('[WildCredits] Sin balance y sin cuenta vinculada, inicializando con 0');
             }
         }
         
@@ -746,15 +752,24 @@ async function autoLogin(username, password) {
   // ✅ Guardamos todo
   token = data.token;
   userId = data.user.id;
+  
+  // Preservar wildcredits si existe en opUser anterior o en localStorage
+  const previousOpUser = JSON.parse(localStorage.getItem('opUser') || 'null');
+  const wildCreditsFromStorage = parseInt(localStorage.getItem('wildCredits') || '0');
+  const preservedWildCredits = (previousOpUser && previousOpUser.wildcredits !== undefined && previousOpUser.wildcredits !== null && previousOpUser.wildcredits > 0)
+    ? Math.round(previousOpUser.wildcredits || 0)
+    : (wildCreditsFromStorage > 0 ? wildCreditsFromStorage : (data.user.wildcredits || 0));
+  
+  // Crear objeto user con wildcredits preservado
+  const userData = {
+    ...data.user,
+    wildcredits: preservedWildCredits,
+    token: data.token
+  };
+  
   localStorage.setItem('opToken', token);
-localStorage.setItem('opUser', JSON.stringify(data.user));
-
-
-  // ✅ Guardamos el token también en el user object para EcoCoreBits
-  if (data.user && !data.user.token) {
-    data.user.token = data.token;
-  }
-  localStorage.setItem('opUser', JSON.stringify(data.user));
+  localStorage.setItem('opUser', JSON.stringify(userData));
+  console.log('[WildCredits] Preservado wildcredits en login:', preservedWildCredits);
 
   // ✅ Mostramos wallet
   show('#loginForm', false);

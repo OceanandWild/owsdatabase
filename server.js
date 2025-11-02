@@ -68,7 +68,7 @@ app.get('/ocean-pay/index.html', (_req, res) => {
 
 // Endpoint para vincular Ocean Pay desde Wild Explorer
 app.post('/ocean-pay/link-account', async (req, res) => {
-  const { username, password } = req.body;
+  const { username, password, wildCredits } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Faltan datos' });
   
   try {
@@ -88,8 +88,8 @@ app.post('/ocean-pay/link-account', async (req, res) => {
     
     const token = jwt.sign({ uid: rows[0].id, un: username }, process.env.STUDIO_SECRET, { expiresIn: '7d' });
     
-    // Obtener WildCredits desde localStorage (esto debería manejarse en el frontend)
-    // Por ahora devolvemos los datos del usuario y el frontend los combinará
+    // WildCredits se envía desde el cliente (desde localStorage de Wild Explorer)
+    const wildCreditsValue = parseInt(wildCredits || '0');
     
     res.json({
       success: true,
@@ -99,12 +99,14 @@ app.post('/ocean-pay/link-account', async (req, res) => {
         username,
         aquabux: rows[0].aquabux || 0,
         ecoxionums: rows[0].ecoxionums || 0,
-        ecorebits: Number(rows[0].ecorebits) || 0
+        ecorebits: Number(rows[0].ecorebits) || 0,
+        wildcredits: wildCreditsValue  // Incluir wildCredits en la respuesta
       },
       balances: {
         aquabux: rows[0].aquabux || 0,
         ecoxionums: rows[0].ecoxionums || 0,
-        ecorebits: Number(rows[0].ecorebits) || 0
+        ecorebits: Number(rows[0].ecorebits) || 0,
+        wildcredits: wildCreditsValue  // Incluir en balances también
       }
     });
   } catch (err) {

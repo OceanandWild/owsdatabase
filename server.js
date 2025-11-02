@@ -65,6 +65,53 @@ app.get('/ocean-pay/index.html', (_req, res) => {
     res.status(404).send('Archivo no encontrado');
   }
 });
+
+// Endpoint para vincular Ocean Pay desde Wild Explorer
+app.post('/ocean-pay/link-account', async (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) return res.status(400).json({ error: 'Faltan datos' });
+  
+  try {
+    // Verificar credenciales
+    const { rows } = await pool.query(`
+      SELECT opu.id, opu.pwd_hash, opu.aquabux, opu.ecoxionums, 
+             COALESCE(uc.amount, 0) as ecorebits
+      FROM ocean_pay_users opu
+      LEFT JOIN user_currency uc ON opu.id::text = uc.user_id AND uc.currency_type = 'ecocorebits'
+      WHERE opu.username = $1
+    `, [username]);
+
+    if (rows.length === 0) return res.status(401).json({ error: 'Credenciales incorrectas' });
+    
+    const ok = await bcrypt.compare(password, rows[0].pwd_hash);
+    if (!ok) return res.status(401).json({ error: 'Credenciales incorrectas' });
+    
+    const token = jwt.sign({ uid: rows[0].id, un: username }, process.env.STUDIO_SECRET, { expiresIn: '7d' });
+    
+    // Obtener WildCredits desde localStorage (esto debería manejarse en el frontend)
+    // Por ahora devolvemos los datos del usuario y el frontend los combinará
+    
+    res.json({
+      success: true,
+      token,
+      user: {
+        id: rows[0].id,
+        username,
+        aquabux: rows[0].aquabux || 0,
+        ecoxionums: rows[0].ecoxionums || 0,
+        ecorebits: Number(rows[0].ecorebits) || 0
+      },
+      balances: {
+        aquabux: rows[0].aquabux || 0,
+        ecoxionums: rows[0].ecoxionums || 0,
+        ecorebits: Number(rows[0].ecorebits) || 0
+      }
+    });
+  } catch (err) {
+    console.error('Error en /ocean-pay/link-account:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
 // Simple status endpoint
 app.get('/api/status', (_req, res) => {
   res.json({

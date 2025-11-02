@@ -443,10 +443,15 @@ async function loadCreditsBalance() {
 async function loadWildCreditsBalance() {
     try {
         const wildCreditsEl = qs('#wildcredits');
-        if (!wildCreditsEl) return;
+        if (!wildCreditsEl) {
+            console.warn('[WildCredits] Elemento #wildcredits no encontrado');
+            return;
+        }
         
         // SIEMPRE intentar cargar desde localStorage directamente (es la fuente de verdad)
         let wildCredits = parseInt(localStorage.getItem('wildCredits') || '0');
+        
+        console.log('[WildCredits] Cargando balance:', wildCredits, 'desde localStorage');
         
         // Verificar si hay una cuenta de Ocean Pay vinculada para sincronizar
         const opToken = localStorage.getItem('opToken');
@@ -456,9 +461,12 @@ async function loadWildCreditsBalance() {
         if (opToken && opUser && opUser.id) {
             opUser.wildcredits = wildCredits;
             localStorage.setItem('opUser', JSON.stringify(opUser));
+            console.log('[WildCredits] Sincronizado con opUser:', wildCredits);
         }
         
+        // Actualizar el elemento SIEMPRE, incluso si es 0
         wildCreditsEl.textContent = wildCredits.toLocaleString();
+        console.log('[WildCredits] Balance actualizado en UI:', wildCredits);
         
         // Escuchar cambios en localStorage (desde Wild Explorer en otra pestaña/ventana)
         if (!window.wildCreditsStorageListener) {
@@ -742,6 +750,16 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   // ⬅️  carga historial
   await renderTransacciones();
+  
+  // Verificar que WildCredits se haya cargado correctamente
+  setTimeout(() => {
+    const wildCreditsEl = qs('#wildcredits');
+    const wildCreditsValue = parseInt(localStorage.getItem('wildCredits') || '0');
+    if (wildCreditsEl && wildCreditsEl.textContent === '0' && wildCreditsValue > 0) {
+      console.log('[WildCredits] Reintentando carga después de delay...', wildCreditsValue);
+      wildCreditsEl.textContent = wildCreditsValue.toLocaleString();
+    }
+  }, 500);
 });
 
 async function renderTransacciones() {

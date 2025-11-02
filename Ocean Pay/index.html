@@ -15,6 +15,7 @@
   --glass:rgba(255,255,255,.05);
   --purple:#a855f7;
   --orange:#f97316;
+  --wild:#667eea;
 }
 *{box-sizing:border-box;margin:0;font-family:system-ui,Arial,Helvetica,sans-serif;}
 body{
@@ -23,7 +24,7 @@ body{
   display:flex;align-items:center;justify-content:center;min-height:100vh;padding:1rem;
 }
 .ocean-card{
-  width:100%;max-width:520px;background:var(--glass);
+  width:100%;max-width:900px;background:var(--glass);
   backdrop-filter:blur(12px);border:1px solid var(--accent);
   border-radius:1.5rem;padding:2.5rem;
   box-shadow:0 0 30px rgba(34,211,238,.35);
@@ -72,7 +73,13 @@ button.secondary:hover{background:rgba(34,211,238,.1);}
   margin:1.5rem 0 .75rem 0;font-weight:600;
 }
 .balance-grid{
-  display:grid;grid-template-columns:1fr;gap:1rem;margin-bottom:1.5rem;
+  display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:1rem;margin-bottom:1.5rem;
+}
+@media (min-width: 1200px) {
+  .balance-grid{grid-template-columns:repeat(5, 1fr);}
+}
+@media (max-width: 768px) {
+  .balance-grid{grid-template-columns:1fr;}
 }
 .currency-card{
   background:var(--glass);border:1px solid var(--accent);
@@ -86,6 +93,8 @@ button.secondary:hover{background:rgba(34,211,238,.1);}
 .currency-card-header{display:flex;justify-content:space-between;align-items:flex-start;}
 .currency-card .label{font-size:.85rem;color:#9bb0c2;text-transform:uppercase;letter-spacing:.05em;font-weight:600;}
 .currency-card .amount{font-size:1.75rem;font-weight:700;color:var(--accent);margin:.25rem 0;}
+#wildcredits-card .amount{color:var(--wild);}
+#wildcredits-card{border-color:var(--wild);}
 .currency-card .badge{
   position:absolute;top:1rem;right:1rem;font-size:.7rem;
   background:var(--accent);color:#0b1020;padding:.25rem .5rem;border-radius:.4rem;
@@ -242,6 +251,18 @@ button.secondary:hover{background:rgba(34,211,238,.1);}
           </div>
           <div class="app-info">
             <strong>App Perteneciente:</strong> EcoConsole 💻
+          </div>
+        </div>
+
+        <div class="currency-card" id="wildcredits-card">
+          <div class="currency-card-header">
+            <div>
+              <span class="label">WildCredits</span>
+              <span class="amount" id="wildcredits">0</span>
+            </div>
+          </div>
+          <div class="app-info">
+            <strong>App Perteneciente:</strong> Wild Explorer 🌿
           </div>
         </div>
 
@@ -419,6 +440,46 @@ async function loadCreditsBalance() {
     }
 }
 
+async function loadWildCreditsBalance() {
+    try {
+        const wildCreditsEl = qs('#wildcredits');
+        if (!wildCreditsEl) return;
+        
+        // WildCredits se guarda en localStorage de Wild Explorer con la clave 'wildCredits'
+        let wildCredits = parseInt(localStorage.getItem('wildCredits') || '0');
+        
+        // También intentar obtenerlo desde opUser si está disponible
+        const user = JSON.parse(localStorage.getItem('opUser') || '{}');
+        if (user.wildcredits !== undefined && user.wildcredits !== null) {
+            wildCredits = Math.round(user.wildcredits || 0);
+        }
+        
+        wildCreditsEl.textContent = wildCredits.toLocaleString();
+        
+        // También escuchar mensajes desde Wild Explorer si está en un iframe o ventana padre
+        if (!window.wildCreditsMessageListener) {
+            window.wildCreditsMessageListener = (event) => {
+                if (event.data && event.data.type === 'wildcredits-update') {
+                    const balance = Math.round(event.data.balance || 0);
+                    if (wildCreditsEl) {
+                        wildCreditsEl.textContent = balance.toLocaleString();
+                    }
+                    // Actualizar también en opUser
+                    const user = JSON.parse(localStorage.getItem('opUser') || '{}');
+                    user.wildcredits = balance;
+                    localStorage.setItem('opUser', JSON.stringify(user));
+                }
+            };
+            window.addEventListener('message', window.wildCreditsMessageListener);
+        }
+        
+    } catch (e) {
+        console.error("Error loading WildCredits", e);
+        const wildCreditsEl = qs('#wildcredits');
+        if (wildCreditsEl) wildCreditsEl.textContent = '0';
+    }
+}
+
 async function changeEcoxionums(sign) {
   const user = JSON.parse(localStorage.getItem('opUser') || '{}');
   const amt = +qs('#ecoAmount').value * sign;
@@ -481,7 +542,8 @@ localStorage.setItem('opUser', JSON.stringify(data.user));
   await Promise.all([
     loadEcoxionumsBalance(),
     loadEcoCoreBitsBalance(),
-    loadCreditsBalance()
+    loadCreditsBalance(),
+    loadWildCreditsBalance()
   ]);
 
   // Iniciar refresh automático de balances
@@ -499,13 +561,17 @@ localStorage.setItem('opUser', JSON.stringify(data.user));
 
 /* ✅ Solo si fue abierta desde otra ventana */
 if (window.opener) {
+  // Obtener WildCredits desde localStorage
+  const wildCredits = parseInt(localStorage.getItem('wildCredits') || '0');
+  
   window.opener.postMessage(
     JSON.parse(JSON.stringify({
       type: 'ocean-pay-token',
       token: data.token,
       user: data.user,
       ecoxionums: data.user.ecoxionums,
-      ecorebits: { balance: data.user.ecorebits }
+      ecorebits: { balance: data.user.ecorebits },
+      wildcredits: wildCredits
     })),
     '*'
   );
@@ -522,7 +588,8 @@ if (window.opener) {
     await Promise.all([
       loadEcoxionumsBalance(),
       loadEcoCoreBitsBalance(),
-      loadCreditsBalance()
+      loadCreditsBalance(),
+      loadWildCreditsBalance()
     ]);
   }
 
@@ -579,7 +646,8 @@ window.addEventListener('DOMContentLoaded', async () => {
   await Promise.all([
     loadEcoxionumsBalance(),
     loadEcoCoreBitsBalance(),
-    loadCreditsBalance()
+    loadCreditsBalance(),
+    loadWildCreditsBalance()
   ]);
 
   // Iniciar refresh automático de balances
@@ -635,7 +703,11 @@ async function renderTransacciones() {
         minute: '2-digit' 
       });
       const esPositivo = tx.monto > 0;
-      const simboloMoneda = tx.moneda === 'AB' ? 'AquaBux' : tx.moneda === 'ECB' ? 'EcoCoreBits' : tx.moneda === 'EX' ? 'Ecoxionums' : tx.moneda;
+      const simboloMoneda = tx.moneda === 'AB' ? 'AquaBux' : 
+                            tx.moneda === 'ECB' ? 'EcoCoreBits' : 
+                            tx.moneda === 'EX' ? 'Ecoxionums' : 
+                            tx.moneda === 'WC' ? 'WildCredits' : 
+                            tx.moneda;
       
       return `
         <div class="tx-item">

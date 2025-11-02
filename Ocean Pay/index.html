@@ -494,22 +494,9 @@ async function loadWildCreditsBalance() {
         const opToken = localStorage.getItem('opToken');
         const opUser = JSON.parse(localStorage.getItem('opUser') || 'null');
         
-        // Prioridad 1: Intentar desde localStorage directo primero (más actualizado si están en el mismo origen)
-        let wildCreditsStr = localStorage.getItem('wildCredits');
-        let wildCreditsFromStorage = (wildCreditsStr !== null && wildCreditsStr !== undefined) 
-            ? parseInt(wildCreditsStr) || 0 
-            : null;
-        
-        // Prioridad 2: Obtener valor de opUser.wildcredits
-        let wildCreditsFromOpUser = (opUser && opUser.wildcredits !== undefined && opUser.wildcredits !== null) 
-            ? Math.round(opUser.wildcredits || 0) 
-            : null;
-        
-        // Prioridad 3: Si hay cuenta vinculada y no tenemos valor válido, obtener desde el servidor
-        if (opToken && opUser && opUser.id && 
-            (wildCreditsFromStorage === null || wildCreditsFromStorage === 0) &&
-            (wildCreditsFromOpUser === null || wildCreditsFromOpUser === 0)) {
-            
+        // Si hay cuenta vinculada, SIEMPRE consultar el servidor primero (fuente de verdad)
+        let wildCreditsFromServer = null;
+        if (opToken && opUser && opUser.id) {
             try {
                 const serverRes = await fetch(`${API}/ocean-pay/wildcredits/balance`, {
                     headers: {
@@ -519,51 +506,53 @@ async function loadWildCreditsBalance() {
                 
                 if (serverRes.ok) {
                     const serverData = await serverRes.json();
-                    const serverWildCredits = parseInt(serverData.wildcredits || '0');
-                    
-                    if (serverWildCredits > 0) {
-                        wildCredits = serverWildCredits;
-                        localStorage.setItem('wildCredits', wildCredits.toString());
-                        opUser.wildcredits = wildCredits;
-                        localStorage.setItem('opUser', JSON.stringify(opUser));
-                        console.log('[WildCredits] Cargado desde servidor:', wildCredits);
-                        
-                        // Actualizar UI inmediatamente
-                        if (wildCreditsEl) {
-                            wildCreditsEl.textContent = wildCredits.toLocaleString();
-                        }
-                        return; // Salir temprano si obtuvimos el valor del servidor
-                    }
+                    wildCreditsFromServer = parseInt(serverData.wildcredits || '0');
+                    console.log('[WildCredits] Obtenido del servidor:', wildCreditsFromServer);
                 }
             } catch (e) {
                 console.warn('[WildCredits] Error obteniendo balance del servidor:', e);
             }
         }
         
-        // Decidir qué valor usar:
-        // - Si localStorage tiene un valor mayor que 0, usarlo
-        // - Si opUser tiene un valor mayor que 0, usarlo
-        // - Si ambos están disponibles, usar el mayor
-        // - Si ninguno tiene valor, usar 0
+        // Obtener valores locales como respaldo
+        let wildCreditsStr = localStorage.getItem('wildCredits');
+        let wildCreditsFromStorage = (wildCreditsStr !== null && wildCreditsStr !== undefined) 
+            ? parseInt(wildCreditsStr) || 0 
+            : null;
         
-        if (wildCreditsFromStorage !== null && wildCreditsFromStorage > 0) {
+        let wildCreditsFromOpUser = (opUser && opUser.wildcredits !== undefined && opUser.wildcredits !== null) 
+            ? Math.round(opUser.wildcredits || 0) 
+            : null;
+        
+        // Decidir qué valor usar (prioridad: servidor > localStorage > opUser > 0)
+        if (wildCreditsFromServer !== null) {
+            // Usar el valor del servidor como fuente de verdad
+            wildCredits = wildCreditsFromServer;
+            console.log('[WildCredits] Usando valor del servidor:', wildCredits);
+            
+            // Actualizar localStorage y opUser con el valor del servidor
+            localStorage.setItem('wildCredits', wildCredits.toString());
+            if (opUser && opUser.id) {
+                opUser.wildcredits = wildCredits;
+                localStorage.setItem('opUser', JSON.stringify(opUser));
+            }
+        } else if (wildCreditsFromStorage !== null && wildCreditsFromStorage > 0) {
             wildCredits = wildCreditsFromStorage;
-            console.log('[WildCredits] Cargado desde localStorage:', wildCredits);
+            console.log('[WildCredits] Usando valor de localStorage (servidor no disponible):', wildCredits);
             
             // Si opUser tiene 0 o un valor menor, actualizarlo
             if (opToken && opUser && opUser.id && 
                 (wildCreditsFromOpUser === null || wildCreditsFromOpUser < wildCredits || wildCreditsFromOpUser === 0)) {
                 opUser.wildcredits = wildCredits;
                 localStorage.setItem('opUser', JSON.stringify(opUser));
-                console.log('[WildCredits] Actualizado opUser.wildcredits con valor de localStorage:', wildCredits);
             }
         } else if (wildCreditsFromOpUser !== null && wildCreditsFromOpUser > 0) {
             wildCredits = wildCreditsFromOpUser;
+            console.log('[WildCredits] Usando valor de opUser:', wildCredits);
             // Guardar en localStorage para futuras cargas
             localStorage.setItem('wildCredits', wildCredits.toString());
-            console.log('[WildCredits] Cargado desde opUser.wildcredits:', wildCredits);
         } else {
-            // Ambos son 0 o null
+            // Ninguna fuente tiene valor
             wildCredits = 0;
             if (wildCreditsStr === null || wildCreditsStr === undefined) {
                 localStorage.setItem('wildCredits', '0');
@@ -674,9 +663,8 @@ async function loadWildCreditsBalance() {
                     : null;
                 const currentDisplayed = parseInt(wildCreditsEl.textContent.replace(/,/g, '') || '0');
                 
-                // Cada 10 segundos, intentar obtener desde el servidor si no tenemos un valor válido
-                if (currentToken && currentUser && currentUser.id && pollCounter % 10 === 0 && 
-                    (currentFromStorage === 0 || currentFromOpUser === 0 || currentFromOpUser === null)) {
+                // Cada 10 segundos, SIEMPRE verificar el servidor para obtener el valor más actualizado
+                if (currentToken && currentUser && currentUser.id && pollCounter % 10 === 0) {
                     try {
                         const serverRes = await fetch(`${API}/ocean-pay/wildcredits/balance`, {
                             headers: {
@@ -688,14 +676,15 @@ async function loadWildCreditsBalance() {
                             const serverData = await serverRes.json();
                             const serverWildCredits = parseInt(serverData.wildcredits || '0');
                             
-                            if (serverWildCredits > 0 && serverWildCredits !== currentDisplayed) {
+                            // Si el servidor tiene un valor diferente al mostrado, actualizar
+                            if (serverWildCredits !== currentDisplayed) {
                                 if (wildCreditsEl) {
                                     wildCreditsEl.textContent = serverWildCredits.toLocaleString();
                                 }
                                 localStorage.setItem('wildCredits', serverWildCredits.toString());
                                 currentUser.wildcredits = serverWildCredits;
                                 localStorage.setItem('opUser', JSON.stringify(currentUser));
-                                console.log('[WildCredits] Actualizado desde servidor en polling:', serverWildCredits);
+                                console.log('[WildCredits] Actualizado desde servidor en polling:', serverWildCredits, '(era:', currentDisplayed, ')');
                                 return; // Salir temprano si actualizamos desde servidor
                             }
                         }
@@ -814,14 +803,22 @@ async function autoLogin(username, password) {
   token = data.token;
   userId = data.user.id;
   
-  // Preservar wildcredits si existe en opUser anterior o en localStorage
-  const previousOpUser = JSON.parse(localStorage.getItem('opUser') || 'null');
-  const wildCreditsFromStorage = parseInt(localStorage.getItem('wildCredits') || '0');
-  const preservedWildCredits = (previousOpUser && previousOpUser.wildcredits !== undefined && previousOpUser.wildcredits !== null && previousOpUser.wildcredits > 0)
-    ? Math.round(previousOpUser.wildcredits || 0)
-    : (wildCreditsFromStorage > 0 ? wildCreditsFromStorage : (data.user.wildcredits || 0));
+  // Usar wildcredits del servidor (si viene en data.user) como prioridad
+  let preservedWildCredits = data.user.wildcredits || 0;
   
-  // Crear objeto user con wildcredits preservado
+  // Si no viene del servidor o es 0, preservar el anterior como respaldo temporal
+  if (!preservedWildCredits || preservedWildCredits === 0) {
+    const previousOpUser = JSON.parse(localStorage.getItem('opUser') || 'null');
+    const wildCreditsFromStorage = parseInt(localStorage.getItem('wildCredits') || '0');
+    
+    if (previousOpUser && previousOpUser.wildcredits !== undefined && previousOpUser.wildcredits !== null && previousOpUser.wildcredits > 0) {
+      preservedWildCredits = Math.round(previousOpUser.wildcredits || 0);
+    } else if (wildCreditsFromStorage > 0) {
+      preservedWildCredits = wildCreditsFromStorage;
+    }
+  }
+  
+  // Crear objeto user con wildcredits
   const userData = {
     ...data.user,
     wildcredits: preservedWildCredits,
@@ -830,7 +827,8 @@ async function autoLogin(username, password) {
   
   localStorage.setItem('opToken', token);
   localStorage.setItem('opUser', JSON.stringify(userData));
-  console.log('[WildCredits] Preservado wildcredits en login:', preservedWildCredits);
+  localStorage.setItem('wildCredits', preservedWildCredits.toString());
+  console.log('[WildCredits] Configurado wildcredits en login:', preservedWildCredits, '(del servidor:', data.user.wildcredits || 0, ')');
 
   // ✅ Mostramos wallet
   show('#loginForm', false);

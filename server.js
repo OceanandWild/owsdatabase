@@ -1542,6 +1542,156 @@ app.patch('/natmarket/notifications/user/:user_id/read-all', async (req, res) =>
   }
 });
 
+/* ===== SISTEMA DE SEGUIDORES ===== */
+// Seguir a un usuario
+app.post('/natmarket/users/:following_id/follow', async (req, res) => {
+  try {
+    const { following_id } = req.params;
+    const { follower_id } = req.body;
+    
+    if (!follower_id) return res.status(400).json({ error: 'follower_id requerido' });
+    if (Number(follower_id) === Number(following_id)) {
+      return res.status(400).json({ error: 'No puedes seguirte a ti mismo' });
+    }
+    
+    // Verificar que ambos usuarios existen
+    const { rows: users } = await pool.query(
+      'SELECT id, username FROM users_nat WHERE id IN ($1, $2)',
+      [follower_id, following_id]
+    );
+    if (users.length !== 2) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+    
+    const follower = users.find(u => Number(u.id) === Number(follower_id));
+    const following = users.find(u => Number(u.id) === Number(following_id));
+    
+    // Verificar si ya lo sigue
+    const { rows: existing } = await pool.query(
+      'SELECT id FROM user_follows WHERE follower_id = $1 AND following_id = $2',
+      [follower_id, following_id]
+    );
+    
+    if (existing.length > 0) {
+      return res.status(400).json({ error: 'Ya sigues a este usuario' });
+    }
+    
+    // Crear el seguimiento
+    await pool.query(
+      'INSERT INTO user_follows (follower_id, following_id) VALUES ($1, $2)',
+      [follower_id, following_id]
+    );
+    
+    // Crear notificación para el usuario seguido
+    await pool.query(
+      `INSERT INTO notifications_nat (user_id, type, message, sender_id, created_at)
+       VALUES ($1, 'follower', $2, $3, NOW())`,
+      [
+        following_id,
+        `Nuevo seguidor: ${follower.username}`,
+        follower_id
+      ]
+    );
+    
+    res.json({ success: true, message: 'Usuario seguido exitosamente' });
+  } catch (err) {
+    if (err.code === '23505') { // Unique violation
+      return res.status(400).json({ error: 'Ya sigues a este usuario' });
+    }
+    handleNatError(res, err, 'POST /natmarket/users/:following_id/follow');
+  }
+});
+
+// Dejar de seguir a un usuario
+app.post('/natmarket/users/:following_id/unfollow', async (req, res) => {
+  try {
+    const { following_id } = req.params;
+    const { follower_id } = req.body;
+    
+    if (!follower_id) return res.status(400).json({ error: 'follower_id requerido' });
+    
+    // Verificar que existe el seguimiento
+    const { rows } = await pool.query(
+      'DELETE FROM user_follows WHERE follower_id = $1 AND following_id = $2 RETURNING id',
+      [follower_id, following_id]
+    );
+    
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'No sigues a este usuario' });
+    }
+    
+    // Obtener nombre del que deja de seguir
+    const { rows: userRow } = await pool.query(
+      'SELECT username FROM users_nat WHERE id = $1',
+      [follower_id]
+    );
+    const username = userRow[0]?.username || 'Alguien';
+    
+    // Crear notificación para el usuario que fue dejado de seguir
+    await pool.query(
+      `INSERT INTO notifications_nat (user_id, type, message, sender_id, created_at)
+       VALUES ($1, 'unfollow', $2, $3, NOW())`,
+      [
+        following_id,
+        `${username} te ha dejado de seguir`,
+        follower_id
+      ]
+    );
+    
+    res.json({ success: true, message: 'Dejaste de seguir al usuario' });
+  } catch (err) {
+    handleNatError(res, err, 'POST /natmarket/users/:following_id/unfollow');
+  }
+});
+
+// Obtener seguidores de un usuario
+app.get('/natmarket/users/:user_id/followers', async (req, res) => {
+  try {
+    const { user_id } = req.params;
+    const { rows } = await pool.query(`
+      SELECT u.id, u.username, u.created_at, uf.created_at AS followed_at
+      FROM user_follows uf
+      JOIN users_nat u ON uf.follower_id = u.id
+      WHERE uf.following_id = $1
+      ORDER BY uf.created_at DESC
+    `, [user_id]);
+    res.json(rows);
+  } catch (err) {
+    handleNatError(res, err, 'GET /natmarket/users/:user_id/followers');
+  }
+});
+
+// Obtener usuarios que sigue un usuario
+app.get('/natmarket/users/:user_id/following', async (req, res) => {
+  try {
+    const { user_id } = req.params;
+    const { rows } = await pool.query(`
+      SELECT u.id, u.username, u.created_at, uf.created_at AS followed_at
+      FROM user_follows uf
+      JOIN users_nat u ON uf.following_id = u.id
+      WHERE uf.follower_id = $1
+      ORDER BY uf.created_at DESC
+    `, [user_id]);
+    res.json(rows);
+  } catch (err) {
+    handleNatError(res, err, 'GET /natmarket/users/:user_id/following');
+  }
+});
+
+// Verificar si un usuario sigue a otro
+app.get('/natmarket/users/:user_id/is-following/:target_id', async (req, res) => {
+  try {
+    const { user_id, target_id } = req.params;
+    const { rows } = await pool.query(
+      'SELECT id FROM user_follows WHERE follower_id = $1 AND following_id = $2',
+      [user_id, target_id]
+    );
+    res.json({ is_following: rows.length > 0 });
+  } catch (err) {
+    handleNatError(res, err, 'GET /natmarket/users/:user_id/is-following/:target_id');
+  }
+});
+
 // Obtener todos los chats de un vendedor (productos con mensajes)
 app.get('/natmarket/chats/:seller_id', async (req, res) => {
   try {
@@ -3476,6 +3626,16 @@ CREATE TABLE IF NOT EXISTS product_images (
     product_id INTEGER NOT NULL REFERENCES products_nat(id) ON DELETE CASCADE,
     created_at TIMESTAMP DEFAULT NOW(),
     CONSTRAINT unique_user_product_view UNIQUE(user_id, product_id)
+  );
+  
+  -- Crear tabla de seguidores
+  CREATE TABLE IF NOT EXISTS user_follows (
+    id SERIAL PRIMARY KEY,
+    follower_id INTEGER NOT NULL REFERENCES users_nat(id) ON DELETE CASCADE,
+    following_id INTEGER NOT NULL REFERENCES users_nat(id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT NOW(),
+    CONSTRAINT unique_follow UNIQUE(follower_id, following_id),
+    CONSTRAINT no_self_follow CHECK (follower_id != following_id)
   );
 `,
   ];

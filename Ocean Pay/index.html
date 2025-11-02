@@ -505,6 +505,41 @@ async function loadWildCreditsBalance() {
             ? Math.round(opUser.wildcredits || 0) 
             : null;
         
+        // Prioridad 3: Si hay cuenta vinculada y no tenemos valor válido, obtener desde el servidor
+        if (opToken && opUser && opUser.id && 
+            (wildCreditsFromStorage === null || wildCreditsFromStorage === 0) &&
+            (wildCreditsFromOpUser === null || wildCreditsFromOpUser === 0)) {
+            
+            try {
+                const serverRes = await fetch(`${API}/ocean-pay/wildcredits/balance`, {
+                    headers: {
+                        'Authorization': `Bearer ${opToken}`
+                    }
+                });
+                
+                if (serverRes.ok) {
+                    const serverData = await serverRes.json();
+                    const serverWildCredits = parseInt(serverData.wildcredits || '0');
+                    
+                    if (serverWildCredits > 0) {
+                        wildCredits = serverWildCredits;
+                        localStorage.setItem('wildCredits', wildCredits.toString());
+                        opUser.wildcredits = wildCredits;
+                        localStorage.setItem('opUser', JSON.stringify(opUser));
+                        console.log('[WildCredits] Cargado desde servidor:', wildCredits);
+                        
+                        // Actualizar UI inmediatamente
+                        if (wildCreditsEl) {
+                            wildCreditsEl.textContent = wildCredits.toLocaleString();
+                        }
+                        return; // Salir temprano si obtuvimos el valor del servidor
+                    }
+                }
+            } catch (e) {
+                console.warn('[WildCredits] Error obteniendo balance del servidor:', e);
+            }
+        }
+        
         // Decidir qué valor usar:
         // - Si localStorage tiene un valor mayor que 0, usarlo
         // - Si opUser tiene un valor mayor que 0, usarlo
@@ -534,11 +569,7 @@ async function loadWildCreditsBalance() {
                 localStorage.setItem('wildCredits', '0');
             }
             if (opToken && opUser && opUser.id) {
-                console.warn('[WildCredits] Balance es 0 pero hay cuenta vinculada. Esto puede ocurrir si:');
-                console.warn('  1. Aún no has ganado WildCredits en Wild Explorer');
-                console.warn('  2. La cuenta se vinculó antes de ganar WildCredits');
-                console.warn('  3. Estás en diferentes orígenes y no se puede sincronizar automáticamente');
-                console.warn('  SOLUCIÓN: Vuelve a vincular tu cuenta desde Wild Explorer para sincronizar tu balance actual.');
+                console.log('[WildCredits] Balance es 0. Si ganas WildCredits en Wild Explorer, se sincronizará automáticamente con el servidor.');
             } else {
                 console.log('[WildCredits] Sin balance y sin cuenta vinculada, inicializando con 0');
             }
@@ -623,7 +654,7 @@ async function loadWildCreditsBalance() {
         // También escuchar cambios en el mismo dominio (polling suave)
         if (!window.wildCreditsPollInterval) {
             let pollCounter = 0;
-            window.wildCreditsPollInterval = setInterval(() => {
+            window.wildCreditsPollInterval = setInterval(async () => {
                 pollCounter++;
                 
                 // Cada 5 segundos, solicitar balance mediante BroadcastChannel
@@ -642,6 +673,36 @@ async function loadWildCreditsBalance() {
                     ? Math.round(currentUser.wildcredits || 0) 
                     : null;
                 const currentDisplayed = parseInt(wildCreditsEl.textContent.replace(/,/g, '') || '0');
+                
+                // Cada 10 segundos, intentar obtener desde el servidor si no tenemos un valor válido
+                if (currentToken && currentUser && currentUser.id && pollCounter % 10 === 0 && 
+                    (currentFromStorage === 0 || currentFromOpUser === 0 || currentFromOpUser === null)) {
+                    try {
+                        const serverRes = await fetch(`${API}/ocean-pay/wildcredits/balance`, {
+                            headers: {
+                                'Authorization': `Bearer ${currentToken}`
+                            }
+                        });
+                        
+                        if (serverRes.ok) {
+                            const serverData = await serverRes.json();
+                            const serverWildCredits = parseInt(serverData.wildcredits || '0');
+                            
+                            if (serverWildCredits > 0 && serverWildCredits !== currentDisplayed) {
+                                if (wildCreditsEl) {
+                                    wildCreditsEl.textContent = serverWildCredits.toLocaleString();
+                                }
+                                localStorage.setItem('wildCredits', serverWildCredits.toString());
+                                currentUser.wildcredits = serverWildCredits;
+                                localStorage.setItem('opUser', JSON.stringify(currentUser));
+                                console.log('[WildCredits] Actualizado desde servidor en polling:', serverWildCredits);
+                                return; // Salir temprano si actualizamos desde servidor
+                            }
+                        }
+                    } catch (e) {
+                        // Ignorar errores silenciosamente en polling
+                    }
+                }
                 
                 // Usar el valor mayor entre localStorage y opUser (más actualizado)
                 let newBalance = currentFromStorage;

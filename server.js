@@ -66,6 +66,103 @@ app.get('/ocean-pay/index.html', (_req, res) => {
   }
 });
 
+// Endpoint para sincronizar WildCredits desde Wild Explorer
+app.post('/ocean-pay/wildcredits/sync', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+  
+  const token = authHeader.substring(7);
+  let userId;
+  try {
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
+    userId = decoded.uid;
+  } catch (e) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+  
+  const { wildCredits } = req.body;
+  if (wildCredits === undefined || wildCredits === null) {
+    return res.status(400).json({ error: 'wildCredits requerido' });
+  }
+  
+  const wildCreditsValue = parseInt(wildCredits || '0');
+  
+  try {
+    // Intentar actualizar en una columna wildcredits si existe, sino usar una tabla de metadatos
+    await pool.query(`
+      INSERT INTO ocean_pay_metadata (user_id, key, value)
+      VALUES ($1, 'wildcredits', $2)
+      ON CONFLICT (user_id, key) 
+      DO UPDATE SET value = $2, updated_at = CURRENT_TIMESTAMP
+    `, [userId, wildCreditsValue.toString()]);
+    
+    res.json({ success: true, wildcredits: wildCreditsValue });
+  } catch (e) {
+    // Si la tabla no existe, crearla y volver a intentar
+    if (e.code === '42P01') {
+      try {
+        await pool.query(`
+          CREATE TABLE IF NOT EXISTS ocean_pay_metadata (
+            user_id UUID NOT NULL,
+            key TEXT NOT NULL,
+            value TEXT NOT NULL,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (user_id, key)
+          )
+        `);
+        await pool.query(`
+          INSERT INTO ocean_pay_metadata (user_id, key, value)
+          VALUES ($1, 'wildcredits', $2)
+        `, [userId, wildCreditsValue.toString()]);
+        res.json({ success: true, wildcredits: wildCreditsValue });
+      } catch (e2) {
+        console.error('Error creando tabla ocean_pay_metadata:', e2);
+        res.status(500).json({ error: 'Error interno' });
+      }
+    } else {
+      console.error('Error sincronizando wildCredits:', e);
+      res.status(500).json({ error: 'Error interno' });
+    }
+  }
+});
+
+// Endpoint para obtener WildCredits desde el servidor
+app.get('/ocean-pay/wildcredits/balance', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+  
+  const token = authHeader.substring(7);
+  let userId;
+  try {
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
+    userId = decoded.uid;
+  } catch (e) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+  
+  try {
+    const { rows } = await pool.query(`
+      SELECT value FROM ocean_pay_metadata
+      WHERE user_id = $1 AND key = 'wildcredits'
+    `, [userId]);
+    
+    const wildCredits = rows.length > 0 ? parseInt(rows[0].value || '0') : 0;
+    res.json({ wildcredits: wildCredits });
+  } catch (e) {
+    // Si la tabla no existe, devolver 0
+    if (e.code === '42P01') {
+      res.json({ wildcredits: 0 });
+    } else {
+      console.error('Error obteniendo wildCredits:', e);
+      res.status(500).json({ error: 'Error interno' });
+    }
+  }
+});
+
 // Endpoint para vincular Ocean Pay desde Wild Explorer
 app.post('/ocean-pay/link-account', async (req, res) => {
   const { username, password, wildCredits } = req.body;
@@ -90,6 +187,27 @@ app.post('/ocean-pay/link-account', async (req, res) => {
     
     // WildCredits se envía desde el cliente (desde localStorage de Wild Explorer)
     const wildCreditsValue = parseInt(wildCredits || '0');
+    
+    // Guardar wildCredits en el servidor también
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS ocean_pay_metadata (
+          user_id UUID NOT NULL,
+          key TEXT NOT NULL,
+          value TEXT NOT NULL,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (user_id, key)
+        )
+      `);
+      await pool.query(`
+        INSERT INTO ocean_pay_metadata (user_id, key, value)
+        VALUES ($1, 'wildcredits', $2)
+        ON CONFLICT (user_id, key) 
+        DO UPDATE SET value = $2, updated_at = CURRENT_TIMESTAMP
+      `, [rows[0].id, wildCreditsValue.toString()]);
+    } catch (e) {
+      console.warn('No se pudo guardar wildCredits en servidor (continuando):', e.message);
+    }
     
     res.json({
       success: true,
@@ -2904,6 +3022,22 @@ app.post('/ocean-pay/login', async (req,res)=>{
   if(!ok) return res.status(401).json({error:'Credenciales incorrectas'});
   
   const token=jwt.sign({uid:rows[0].id,un:username},process.env.STUDIO_SECRET,{expiresIn:'7d'});
+  
+  // Intentar obtener wildCredits desde la tabla de metadatos
+  let wildCredits = 0;
+  try {
+    const { rows: metaRows } = await pool.query(`
+      SELECT value FROM ocean_pay_metadata
+      WHERE user_id = $1 AND key = 'wildcredits'
+    `, [rows[0].id]);
+    
+    if (metaRows.length > 0) {
+      wildCredits = parseInt(metaRows[0].value || '0');
+    }
+  } catch (e) {
+    // Si la tabla no existe, wildCredits queda en 0
+  }
+  
   res.json({
   token,
   user: {
@@ -2911,7 +3045,8 @@ app.post('/ocean-pay/login', async (req,res)=>{
     username,
     aquabux: rows[0].aquabux,
     ecoxionums: rows[0].ecoxionums,
-    ecorebits: Number(rows[0].ecorebits) // ✨ Devolvemos el saldo de EcoCoreBits directamente
+    ecorebits: Number(rows[0].ecorebits), // ✨ Devolvemos el saldo de EcoCoreBits directamente
+    wildcredits: wildCredits
   }
 });
 });

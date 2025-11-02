@@ -449,7 +449,17 @@ async function loadWildCreditsBalance() {
         }
         
         // SIEMPRE intentar cargar desde localStorage directamente (es la fuente de verdad)
-        let wildCredits = parseInt(localStorage.getItem('wildCredits') || '0');
+        let wildCreditsStr = localStorage.getItem('wildCredits');
+        let wildCredits = 0;
+        
+        if (wildCreditsStr === null || wildCreditsStr === undefined) {
+            // Si no existe en localStorage, inicializar con 0 y guardarlo
+            console.log('[WildCredits] No encontrado en localStorage, inicializando con 0');
+            localStorage.setItem('wildCredits', '0');
+            wildCredits = 0;
+        } else {
+            wildCredits = parseInt(wildCreditsStr) || 0;
+        }
         
         console.log('[WildCredits] Cargando balance:', wildCredits, 'desde localStorage');
         
@@ -486,6 +496,27 @@ async function loadWildCreditsBalance() {
                 }
             };
             window.addEventListener('storage', window.wildCreditsStorageListener);
+        }
+        
+        // Escuchar CustomEvents también (por si StorageEvent no funciona)
+        if (!window.wildCreditsCustomListener) {
+            window.wildCreditsCustomListener = (e) => {
+                if (e.detail && e.detail.balance !== undefined) {
+                    const newBalance = parseInt(e.detail.balance || '0');
+                    if (wildCreditsEl) {
+                        wildCreditsEl.textContent = newBalance.toLocaleString();
+                    }
+                    // Actualizar en localStorage y opUser
+                    localStorage.setItem('wildCredits', newBalance.toString());
+                    const currentToken = localStorage.getItem('opToken');
+                    const currentUser = JSON.parse(localStorage.getItem('opUser') || 'null');
+                    if (currentToken && currentUser && currentUser.id) {
+                        currentUser.wildcredits = newBalance;
+                        localStorage.setItem('opUser', JSON.stringify(currentUser));
+                    }
+                }
+            };
+            window.addEventListener('wildcredits-updated', window.wildCreditsCustomListener);
         }
         
         // Escuchar mensajes desde Wild Explorer (si está en un iframe o ventana padre)

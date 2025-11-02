@@ -78,6 +78,8 @@ app.post('/ocean-pay/wildcredits/sync', async (req, res) => {
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
     userId = decoded.uid;
+    // Asegurar que userId sea un entero (el id de ocean_pay_users es INTEGER)
+    userId = parseInt(userId) || userId;
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
   }
@@ -90,7 +92,18 @@ app.post('/ocean-pay/wildcredits/sync', async (req, res) => {
   const wildCreditsValue = parseInt(wildCredits || '0');
   
   try {
-    // Intentar actualizar en una columna wildcredits si existe, sino usar una tabla de metadatos
+    // Asegurar que la tabla existe con el esquema correcto (INTEGER)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ocean_pay_metadata (
+        user_id INTEGER NOT NULL,
+        key TEXT NOT NULL,
+        value TEXT NOT NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, key)
+      )
+    `);
+    
+    // Intentar actualizar o insertar
     await pool.query(`
       INSERT INTO ocean_pay_metadata (user_id, key, value)
       VALUES ($1, 'wildcredits', $2)
@@ -100,12 +113,35 @@ app.post('/ocean-pay/wildcredits/sync', async (req, res) => {
     
     res.json({ success: true, wildcredits: wildCreditsValue });
   } catch (e) {
-    // Si la tabla no existe, crearla y volver a intentar
-    if (e.code === '42P01') {
+    // Si hay un error de tipo de dato (tabla existe con UUID), intentar recrearla
+    if (e.code === '22P02' || e.message.includes('uuid')) {
+      try {
+        console.log('Recreando tabla ocean_pay_metadata con INTEGER...');
+        await pool.query('DROP TABLE IF EXISTS ocean_pay_metadata CASCADE');
+        await pool.query(`
+          CREATE TABLE ocean_pay_metadata (
+            user_id INTEGER NOT NULL,
+            key TEXT NOT NULL,
+            value TEXT NOT NULL,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (user_id, key)
+          )
+        `);
+        await pool.query(`
+          INSERT INTO ocean_pay_metadata (user_id, key, value)
+          VALUES ($1, 'wildcredits', $2)
+        `, [userId, wildCreditsValue.toString()]);
+        res.json({ success: true, wildcredits: wildCreditsValue });
+      } catch (e2) {
+        console.error('Error recreando tabla ocean_pay_metadata:', e2);
+        res.status(500).json({ error: 'Error interno' });
+      }
+    } else if (e.code === '42P01') {
+      // Si la tabla no existe, crearla
       try {
         await pool.query(`
-          CREATE TABLE IF NOT EXISTS ocean_pay_metadata (
-            user_id UUID NOT NULL,
+          CREATE TABLE ocean_pay_metadata (
+            user_id INTEGER NOT NULL,
             key TEXT NOT NULL,
             value TEXT NOT NULL,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -140,6 +176,8 @@ app.get('/ocean-pay/wildcredits/balance', async (req, res) => {
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
     userId = decoded.uid;
+    // Asegurar que userId sea un entero (el id de ocean_pay_users es INTEGER)
+    userId = parseInt(userId) || userId;
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
   }
@@ -192,7 +230,7 @@ app.post('/ocean-pay/link-account', async (req, res) => {
     try {
       await pool.query(`
         CREATE TABLE IF NOT EXISTS ocean_pay_metadata (
-          user_id UUID NOT NULL,
+          user_id INTEGER NOT NULL,
           key TEXT NOT NULL,
           value TEXT NOT NULL,
           updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

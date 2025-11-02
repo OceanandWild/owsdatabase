@@ -2986,15 +2986,31 @@ app.get('/ocean-pay/me', async (req,res)=>{
 app.get('/ocean-pay/txs/:userId', async (req, res) => {
   const { userId } = req.params;
 
-  // 1. AquaBux
-  const { rows: abRows } = await pool.query(
-    `SELECT concepto, monto, origen, created_at
-     FROM ocean_pay_txs
-     WHERE user_id = $1
-     ORDER BY created_at DESC
-     LIMIT 50`,
-    [userId]
-  );
+  // 1. Transacciones de Ocean Pay (AquaBux, Ecoxionums, WildCredits)
+  let oceanRows;
+  try {
+    // Intentar obtener con columna moneda
+    const result = await pool.query(
+      `SELECT concepto, monto, origen, created_at, COALESCE(moneda, 'AB') as moneda
+       FROM ocean_pay_txs
+       WHERE user_id = $1
+       ORDER BY created_at DESC
+       LIMIT 50`,
+      [userId]
+    );
+    oceanRows = result.rows;
+  } catch (e) {
+    // Si falla por falta de columna moneda, obtener sin ella y asumir AB
+    const result = await pool.query(
+      `SELECT concepto, monto, origen, created_at
+       FROM ocean_pay_txs
+       WHERE user_id = $1
+       ORDER BY created_at DESC
+       LIMIT 50`,
+      [userId]
+    );
+    oceanRows = result.rows.map(r => ({ ...r, moneda: 'AB' }));
+  }
 
   // 2. EcoCoreBits
   const { rows: ecbRows } = await pool.query(
@@ -3008,7 +3024,7 @@ app.get('/ocean-pay/txs/:userId', async (req, res) => {
 
   // 3. Unificar y etiquetar
   const all = [
-    ...abRows.map(r => ({ ...r, moneda: 'AB' })),
+    ...oceanRows.map(r => ({ ...r, moneda: r.moneda || 'AB' })),
     ...ecbRows.map(r => ({ ...r, moneda: 'ECB' }))
   ]
     .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
@@ -3157,9 +3173,37 @@ app.post('/ocean-pay/ecoxionums/change', async (req, res) => {
   }
 });
 
+/* ----------  WILDCREDITS TRANSACTIONS  ---------- */
+app.post('/ocean-pay/wildcredits/transaction', async (req, res) => {
+  const { userId, amount, concepto = 'Operación', origen = 'Wild Explorer' } = req.body;
+  if (!userId || amount === undefined) {
+    return res.status(400).json({ error: 'Faltan datos' });
+  }
 
-
-
+  try {
+    // Insertar transacción en ocean_pay_txs con moneda 'WC'
+    await pool.query(
+      `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+       VALUES ($1, $2, $3, $4, 'WC')`,
+      [userId, concepto, amount, origen]
+    );
+    
+    res.json({ success: true });
+  } catch (e) {
+    console.error('❌ Error en /ocean-pay/wildcredits/transaction:', e);
+    // Si falla por falta de columna moneda, intentar sin ella
+    try {
+      await pool.query(
+        `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
+         VALUES ($1, $2, $3, $4)`,
+        [userId, concepto, amount, origen]
+      );
+      res.json({ success: true });
+    } catch (e2) {
+      res.status(500).json({ error: 'Error interno' });
+    }
+  }
+});
 
 app.post('/api/report-error', async (req,res)=>{
   const {userId, type, description, extensions, userAgent, url, timestamp} = req.body;

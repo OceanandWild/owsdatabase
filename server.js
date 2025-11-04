@@ -1464,21 +1464,85 @@ app.post('/natmarket/messages', async (req, res) => {
 });
 
 app.post('/natmarket/messages/v2', async (req, res) => {
-  const { sender_id, product_id, message } = req.body;
+  const { sender_id, product_id, message, username } = req.body;
   
   // Validación estricta de parámetros
-  if (!sender_id || !product_id || !message) {
+  if (!product_id || !message) {
     console.error('[MESSAGES] Faltan parámetros:', { sender_id, product_id, message: message ? 'presente' : 'faltante' });
     return res.status(400).json({ error: 'Faltan datos' });
   }
 
   // Asegurar que product_id sea un número
   const productIdNum = parseInt(product_id);
-  const senderIdNum = parseInt(sender_id);
   
-  if (isNaN(productIdNum) || isNaN(senderIdNum)) {
-    console.error('[MESSAGES] IDs inválidos:', { product_id, sender_id });
-    return res.status(400).json({ error: 'IDs inválidos' });
+  if (isNaN(productIdNum)) {
+    console.error('[MESSAGES] product_id inválido:', { product_id });
+    return res.status(400).json({ error: 'product_id inválido' });
+  }
+
+  let senderIdNum;
+  
+  // Si product_id es 0, es chat global - manejar usuario automáticamente
+  if (productIdNum === 0) {
+    console.log(`[MESSAGES] Mensaje para chat global`);
+    
+    // Si se proporciona username, buscar o crear usuario automáticamente
+    if (username) {
+      const cleanUsername = username.trim().substring(0, 50); // Limitar longitud
+      if (!cleanUsername) {
+        return res.status(400).json({ error: 'Username inválido' });
+      }
+      
+      try {
+        // Buscar usuario existente por username
+        let { rows: userRows } = await pool.query(
+          'SELECT id FROM users_nat WHERE username = $1 LIMIT 1',
+          [cleanUsername]
+        );
+        
+        if (userRows.length > 0) {
+          senderIdNum = userRows[0].id;
+          console.log(`[MESSAGES] Usuario encontrado: ${cleanUsername} (id: ${senderIdNum})`);
+        } else {
+          // Crear nuevo usuario para chat global
+          const { rows: newUserRows } = await pool.query(
+            'INSERT INTO users_nat (username, created_at) VALUES ($1, NOW()) RETURNING id',
+            [cleanUsername]
+          );
+          senderIdNum = newUserRows[0].id;
+          console.log(`[MESSAGES] Nuevo usuario creado: ${cleanUsername} (id: ${senderIdNum})`);
+        }
+      } catch (userErr) {
+        console.error('[MESSAGES] Error manejando usuario:', userErr);
+        return res.status(500).json({ error: 'Error al procesar usuario' });
+      }
+    } else if (sender_id) {
+      // Si se proporciona sender_id directamente, usarlo
+      senderIdNum = parseInt(sender_id);
+      if (isNaN(senderIdNum)) {
+        return res.status(400).json({ error: 'sender_id inválido' });
+      }
+      
+      // Verificar que el usuario existe
+      const { rows: userCheck } = await pool.query(
+        'SELECT id FROM users_nat WHERE id = $1',
+        [senderIdNum]
+      );
+      if (userCheck.length === 0) {
+        return res.status(404).json({ error: 'Usuario no encontrado' });
+      }
+    } else {
+      return res.status(400).json({ error: 'Se requiere username o sender_id para chat global' });
+    }
+  } else {
+    // Chat privado - requiere sender_id válido
+    if (!sender_id) {
+      return res.status(400).json({ error: 'Se requiere sender_id para chat privado' });
+    }
+    senderIdNum = parseInt(sender_id);
+    if (isNaN(senderIdNum)) {
+      return res.status(400).json({ error: 'sender_id inválido' });
+    }
   }
 
   console.log(`[MESSAGES] Nuevo mensaje - sender_id: ${senderIdNum}, product_id: ${productIdNum}, mensaje: "${message.substring(0, 50)}..."`);
@@ -1487,7 +1551,7 @@ app.post('/natmarket/messages/v2', async (req, res) => {
   
   // Si product_id es 0, es chat global (no necesita verificar producto)
   if (productIdNum === 0) {
-    console.log(`[MESSAGES] Mensaje para chat global`);
+    // Ya manejado arriba
   } else {
     // Si product_id > 0, es chat privado - verificar que el producto existe
     const { rows: productRows } = await pool.query(

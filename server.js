@@ -1855,6 +1855,99 @@ app.get('/natmarket/messages/:product_id', async (req, res) => {
   }
 });
 
+/* ========== ALLAPP – MENSAJES GLOBALES ========== */
+// Endpoint específico para AllApp LionChat - Enviar mensajes
+app.post('/allapp/messages', async (req, res) => {
+  try {
+    const { username, message } = req.body;
+    
+    // Validación de parámetros
+    if (!username || !message) {
+      console.error('[ALLAPP] Faltan parámetros:', { username, message: message ? 'presente' : 'faltante' });
+      return res.status(400).json({ error: 'Se requiere username y message' });
+    }
+    
+    const cleanUsername = username.trim().substring(0, 50);
+    if (!cleanUsername) {
+      return res.status(400).json({ error: 'Username inválido' });
+    }
+    
+    console.log(`[ALLAPP] Nuevo mensaje - username: ${cleanUsername}, mensaje: "${message.substring(0, 50)}..."`);
+    
+    // Buscar o crear usuario
+    let senderIdNum;
+    try {
+      let { rows: userRows } = await pool.query(
+        'SELECT id FROM users_nat WHERE username = $1 LIMIT 1',
+        [cleanUsername]
+      );
+      
+      if (userRows.length > 0) {
+        senderIdNum = userRows[0].id;
+        console.log(`[ALLAPP] Usuario encontrado: ${cleanUsername} (id: ${senderIdNum})`);
+      } else {
+        // Crear nuevo usuario para chat global
+        const { rows: newUserRows } = await pool.query(
+          'INSERT INTO users_nat (username, created_at) VALUES ($1, NOW()) RETURNING id',
+          [cleanUsername]
+        );
+        senderIdNum = newUserRows[0].id;
+        console.log(`[ALLAPP] Nuevo usuario creado: ${cleanUsername} (id: ${senderIdNum})`);
+      }
+    } catch (userErr) {
+      console.error('[ALLAPP] Error manejando usuario:', userErr);
+      return res.status(500).json({ error: 'Error al procesar usuario' });
+    }
+    
+    // Verificar contenido inapropiado
+    const bad = containsInappropriate(message);
+    if (bad) {
+      await pool.query(
+        `INSERT INTO messages_pending (product_id, sender_id, message)
+         VALUES ($1,$2,$3)`,
+        [0, senderIdNum, message]
+      );
+      await notifyModerator('message', 0, message, senderIdNum);
+      return res.status(202).json({
+        warning: 'Tu mensaje está en revisión por contenido potencialmente inapropiado.'
+      });
+    }
+    
+    // Guardar mensaje (product_id = 0 para chat global de AllApp)
+    const { rows: [msg] } = await pool.query(
+      `INSERT INTO messages_nat (sender_id, product_id, message) VALUES ($1, 0, $2) RETURNING id, sender_id, product_id, message, created_at`,
+      [senderIdNum, message]
+    );
+    
+    console.log(`[ALLAPP] Mensaje guardado - ID: ${msg.id}, sender_id: ${msg.sender_id}, product_id: ${msg.product_id}`);
+    
+    res.json(msg);
+  } catch (err) {
+    console.error('[ALLAPP] Error en POST /allapp/messages:', err);
+    handleNatError(res, err, 'POST /allapp/messages');
+  }
+});
+
+// Endpoint específico para AllApp LionChat - Obtener mensajes
+app.get('/allapp/messages', async (req, res) => {
+  try {
+    // Obtener mensajes del chat global (product_id = 0)
+    const { rows } = await pool.query(`
+      SELECT m.*, u.username AS sender_username
+      FROM messages_nat m
+      JOIN users_nat u ON m.sender_id = u.id
+      WHERE m.product_id = 0
+      ORDER BY m.created_at ASC
+    `);
+    
+    console.log(`[ALLAPP] Obtenidos ${rows.length} mensajes del chat global`);
+    res.json(rows);
+  } catch (err) {
+    console.error('[ALLAPP] Error en GET /allapp/messages:', err);
+    handleNatError(res, err, 'GET /allapp/messages');
+  }
+});
+
 // NOTIFICACIONES
 app.get('/natmarket/notifications/:user_id', async (req, res) => {
   try {

@@ -1004,12 +1004,12 @@ app.put('/natmarket/users/:id/password', async (req, res) => {
 // PRODUCTS
 app.post('/natmarket/products', upload.array('images', 10), async (req, res) => {
   try {
-    const { user_id, name, description = null, price = null, contact_number = null, stock = 1 } = req.body;
+    const { user_id, name, description = null, price = null, contact_number = null, stock = 1, category = null, status = 'disponible' } = req.body;
     if (!user_id || !name) return res.status(400).json({ error: 'user_id y name son requeridos' });
     const stockNum = parseInt(stock) || 1;
     const { rows: [product] } = await pool.query(
-      'INSERT INTO products_nat (user_id, name, description, price, contact_number, stock, published_at) VALUES ($1,$2,$3,$4,$5,$6,NOW()) RETURNING *',
-      [user_id, name, description, price, contact_number, stockNum]
+      'INSERT INTO products_nat (user_id, name, description, price, contact_number, stock, category, status, published_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW()) RETURNING *',
+      [user_id, name, description, price, contact_number, stockNum, category, status]
     );
     const host = process.env.BACKEND_URL || `https://${req.get('host')}`;
     const urls = (req.files || []).map(f => `${host}/uploads/nat/${f.filename}`);
@@ -2725,9 +2725,9 @@ if (bad) {
     if (!user_id || !name) return res.status(400).json({ error: 'Faltan datos' });
 
     const { rows: [product] } = await client.query(
-      `INSERT INTO products_nat (user_id, name, description, price, contact_number, stock, published_at)
-       VALUES ($1,$2,$3,$4,$5,$6,NOW()) RETURNING *`,
-      [user_id, name, description, price ? parseFloat(price) : null, contact_number || null, stockNum]
+      `INSERT INTO products_nat (user_id, name, description, price, contact_number, stock, category, status, published_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW()) RETURNING *`,
+      [user_id, name, description, price ? parseFloat(price) : null, contact_number || null, stockNum, category || null, productStatus]
     );
 
     // imágenes
@@ -3318,13 +3318,13 @@ app.get('/ocean-pay/txs/:userId', async (req, res) => {
   } catch (e) {
     // Si falla por falta de columna moneda, obtener sin ella y asumir AB
     const result = await pool.query(
-      `SELECT concepto, monto, origen, created_at
-       FROM ocean_pay_txs
-       WHERE user_id = $1
-       ORDER BY created_at DESC
-       LIMIT 50`,
-      [userId]
-    );
+    `SELECT concepto, monto, origen, created_at
+     FROM ocean_pay_txs
+     WHERE user_id = $1
+     ORDER BY created_at DESC
+     LIMIT 50`,
+    [userId]
+  );
     oceanRows = result.rows.map(r => ({ ...r, moneda: 'AB' }));
   }
 
@@ -4095,6 +4095,12 @@ CREATE TABLE IF NOT EXISTS product_images (
       ALTER TABLE products_nat ADD COLUMN published_at TIMESTAMP DEFAULT now();
       -- Inicializar published_at con created_at para productos existentes
       UPDATE products_nat SET published_at = created_at WHERE published_at IS NULL;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products_nat' AND column_name = 'category') THEN
+      ALTER TABLE products_nat ADD COLUMN category VARCHAR(100);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products_nat' AND column_name = 'status') THEN
+      ALTER TABLE products_nat ADD COLUMN status VARCHAR(50) DEFAULT 'disponible';
     END IF;
   END $$;
   

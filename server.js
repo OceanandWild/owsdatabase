@@ -3741,12 +3741,49 @@ app.post('/ocean-pay/appbux/change', async (req, res) => {
         [userId, concepto, amount, origen]
       );
     } catch (e) {
-      // Si falla por falta de columna moneda, insertar sin ella
-      await client.query(
-        `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
-         VALUES ($1, $2, $3, $4)`,
-        [userId, concepto, amount, origen]
+      // Si falla por falta de columna moneda, hacer rollback y reintentar todo sin ella
+      await client.query('ROLLBACK');
+      await client.query('BEGIN');
+      
+      // Volver a leer el balance (porque hicimos rollback)
+      const { rows: balanceRows } = await client.query(
+        'SELECT appbux FROM ocean_pay_users WHERE id = $1 FOR UPDATE',
+        [userId]
       );
+      
+      if (balanceRows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Usuario no encontrado' });
+      }
+      
+      const currentAppBuxRetry = balanceRows[0].appbux || 0;
+      const newBalanceRetry = currentAppBuxRetry + amount;
+      
+      if (newBalanceRetry < 0) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Saldo insuficiente' });
+      }
+      
+      // Volver a hacer el UPDATE
+      await client.query(
+        'UPDATE ocean_pay_users SET appbux = $1 WHERE id = $2',
+        [newBalanceRetry, userId]
+      );
+      
+      try {
+        // Intentar INSERT sin la columna moneda
+        await client.query(
+          `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
+           VALUES ($1, $2, $3, $4)`,
+          [userId, concepto, amount, origen]
+        );
+        await client.query('COMMIT');
+        return res.json({ success: true, newBalance: newBalanceRetry });
+      } catch (e2) {
+        // Si también falla el segundo INSERT, hacer rollback y lanzar error
+        await client.query('ROLLBACK');
+        throw e2;
+      }
     }
     
     await client.query('COMMIT');

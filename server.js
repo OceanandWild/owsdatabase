@@ -209,7 +209,7 @@ app.post('/ocean-pay/link-account', async (req, res) => {
   try {
     // Verificar credenciales
     const { rows } = await pool.query(`
-      SELECT opu.id, opu.pwd_hash, opu.aquabux, opu.ecoxionums, 
+      SELECT opu.id, opu.pwd_hash, opu.aquabux, opu.ecoxionums, opu.appbux,
              COALESCE(uc.amount, 0) as ecorebits
       FROM ocean_pay_users opu
       LEFT JOIN user_currency uc ON opu.id::text = uc.user_id AND uc.currency_type = 'ecocorebits'
@@ -256,13 +256,15 @@ app.post('/ocean-pay/link-account', async (req, res) => {
         aquabux: rows[0].aquabux || 0,
         ecoxionums: rows[0].ecoxionums || 0,
         ecorebits: Number(rows[0].ecorebits) || 0,
-        wildcredits: wildCreditsValue  // Incluir wildCredits en la respuesta
+        wildcredits: wildCreditsValue,  // Incluir wildCredits en la respuesta
+        appbux: rows[0].appbux || 0
       },
       balances: {
         aquabux: rows[0].aquabux || 0,
         ecoxionums: rows[0].ecoxionums || 0,
         ecorebits: Number(rows[0].ecorebits) || 0,
-        wildcredits: wildCreditsValue  // Incluir en balances también
+        wildcredits: wildCreditsValue,  // Incluir en balances también
+        appbux: rows[0].appbux || 0
       }
     });
   } catch (err) {
@@ -3336,9 +3338,9 @@ app.post('/ocean-pay/register', async (req, res) => {
     await client.query('BEGIN');
 
 const { rows: [u] } = await client.query(
-  `INSERT INTO ocean_pay_users (username, pwd_hash, aquabux, ecoxionums)
-   VALUES ($1, $2, 10000, 50000)
-   RETURNING id, username, aquabux, ecoxionums`,
+    `INSERT INTO ocean_pay_users (username, pwd_hash, aquabux, ecoxionums, appbux)
+   VALUES ($1, $2, 10000, 50000, 0)
+   RETURNING id, username, aquabux, ecoxionums, appbux`,
   [username, hash]
 );
 
@@ -3369,7 +3371,7 @@ app.post('/ocean-pay/login', async (req,res)=>{
   
   // Unimos ocean_pay_users con user_currency para obtener todo en una sola consulta
   const {rows}=await pool.query(`
-    SELECT opu.id, opu.pwd_hash, opu.aquabux, opu.ecoxionums, COALESCE(uc.amount, 0) as ecorebits
+    SELECT opu.id, opu.pwd_hash, opu.aquabux, opu.ecoxionums, opu.appbux, COALESCE(uc.amount, 0) as ecorebits
     FROM ocean_pay_users opu
     LEFT JOIN user_currency uc ON opu.id::text = uc.user_id AND uc.currency_type = 'ecocorebits'
     WHERE opu.username = $1
@@ -3397,6 +3399,9 @@ app.post('/ocean-pay/login', async (req,res)=>{
     // Si la tabla no existe, wildCredits queda en 0
   }
   
+  // Obtener AppBux de la columna appbux
+  const appbux = rows[0].appbux || 0;
+  
   res.json({
   token,
   user: {
@@ -3405,7 +3410,8 @@ app.post('/ocean-pay/login', async (req,res)=>{
     aquabux: rows[0].aquabux,
     ecoxionums: rows[0].ecoxionums,
     ecorebits: Number(rows[0].ecorebits), // ✨ Devolvemos el saldo de EcoCoreBits directamente
-    wildcredits: wildCredits
+    wildcredits: wildCredits,
+    appbux: appbux
   }
 });
 });
@@ -3664,6 +3670,91 @@ app.post('/ocean-pay/ecoxionums/change', async (req, res) => {
     await client.query('ROLLBACK');
     console.error('❌ Error en /ocean-pay/ecoxionums/change:', e);
     res.status(500).json({ error: e.message || 'Error interno' });
+  } finally {
+    client.release();
+  }
+});
+
+/* ----------  APPBUX ENDPOINTS  ---------- */
+// Obtener balance de AppBux
+app.get('/ocean-pay/appbux/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { rows } = await pool.query(
+      'SELECT appbux FROM ocean_pay_users WHERE id = $1',
+      [userId]
+    );
+    
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+    
+    res.json({ appbux: rows[0].appbux || 0 });
+  } catch (err) {
+    console.error('❌ Error en /ocean-pay/appbux/:userId', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Cambiar balance de AppBux
+app.post('/ocean-pay/appbux/change', async (req, res) => {
+  const { userId, amount, concepto = 'Operación', origen = 'AllApp' } = req.body;
+  
+  if (!userId || amount === undefined) {
+    return res.status(400).json({ error: 'Faltan datos' });
+  }
+  
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    
+    // Lock & read
+    const { rows } = await client.query(
+      'SELECT appbux FROM ocean_pay_users WHERE id = $1 FOR UPDATE',
+      [userId]
+    );
+    
+    if (rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+    
+    const currentAppBux = rows[0].appbux || 0;
+    const newBalance = currentAppBux + amount;
+    
+    if (newBalance < 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Saldo insuficiente' });
+    }
+    
+    // Update balance
+    await client.query(
+      'UPDATE ocean_pay_users SET appbux = $1 WHERE id = $2',
+      [newBalance, userId]
+    );
+    
+    // Registrar transacción
+    try {
+      await client.query(
+        `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+         VALUES ($1, $2, $3, $4, 'ABX')`,
+        [userId, concepto, amount, origen]
+      );
+    } catch (e) {
+      // Si falla por falta de columna moneda, insertar sin ella
+      await client.query(
+        `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
+         VALUES ($1, $2, $3, $4)`,
+        [userId, concepto, amount, origen]
+      );
+    }
+    
+    await client.query('COMMIT');
+    res.json({ success: true, newBalance });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('❌ Error en /ocean-pay/appbux/change:', err);
+    res.status(500).json({ error: 'Error interno' });
   } finally {
     client.release();
   }
@@ -4229,6 +4320,7 @@ CREATE TABLE IF NOT EXISTS product_images (
     username    VARCHAR(60) UNIQUE NOT NULL,
     pwd_hash    TEXT NOT NULL,
     aquabux     INTEGER DEFAULT 0,
+    appbux      INTEGER DEFAULT 0,
     created_at  TIMESTAMP DEFAULT NOW()
   );
 
@@ -4258,6 +4350,14 @@ CREATE TABLE IF NOT EXISTS product_images (
       read BOOLEAN DEFAULT false,
       created_at TIMESTAMP DEFAULT NOW()
     );
+  
+  -- Agregar columna appbux a ocean_pay_users si no existe
+  DO $$ 
+  BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'ocean_pay_users' AND column_name = 'appbux') THEN
+      ALTER TABLE ocean_pay_users ADD COLUMN appbux INTEGER DEFAULT 0;
+    END IF;
+  END $$;
   
   -- Agregar columnas de stock y vendido a products_nat si no existen
   DO $$ 

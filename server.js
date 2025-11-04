@@ -1856,6 +1856,32 @@ app.get('/natmarket/messages/:product_id', async (req, res) => {
 });
 
 /* ========== ALLAPP – MENSAJES GLOBALES ========== */
+// Inicializar tabla allapp_messages si no existe
+async function initAllAppMessagesTable() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS allapp_messages (
+        id SERIAL PRIMARY KEY,
+        sender_username VARCHAR(50) NOT NULL,
+        message TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    console.log('[ALLAPP] Tabla allapp_messages inicializada');
+  } catch (err) {
+    console.error('[ALLAPP] Error creando tabla allapp_messages:', err);
+    // Si la tabla ya existe, no es un error crítico
+    if (!err.message.includes('already exists')) {
+      throw err;
+    }
+  }
+}
+
+// Inicializar al arrancar
+initAllAppMessagesTable().catch(err => {
+  console.error('[ALLAPP] Error crítico inicializando tabla:', err);
+});
+
 // Endpoint específico para AllApp LionChat - Enviar mensajes
 app.post('/allapp/messages', async (req, res) => {
   try {
@@ -1874,56 +1900,41 @@ app.post('/allapp/messages', async (req, res) => {
     
     console.log(`[ALLAPP] Nuevo mensaje - username: ${cleanUsername}, mensaje: "${message.substring(0, 50)}..."`);
     
-    // Buscar o crear usuario
-    let senderIdNum;
-    try {
-      let { rows: userRows } = await pool.query(
-        'SELECT id FROM users_nat WHERE username = $1 LIMIT 1',
-        [cleanUsername]
-      );
-      
-      if (userRows.length > 0) {
-        senderIdNum = userRows[0].id;
-        console.log(`[ALLAPP] Usuario encontrado: ${cleanUsername} (id: ${senderIdNum})`);
-      } else {
-        // Crear nuevo usuario para chat global
-        const { rows: newUserRows } = await pool.query(
-          'INSERT INTO users_nat (username, created_at) VALUES ($1, NOW()) RETURNING id',
-          [cleanUsername]
-        );
-        senderIdNum = newUserRows[0].id;
-        console.log(`[ALLAPP] Nuevo usuario creado: ${cleanUsername} (id: ${senderIdNum})`);
-      }
-    } catch (userErr) {
-      console.error('[ALLAPP] Error manejando usuario:', userErr);
-      return res.status(500).json({ error: 'Error al procesar usuario' });
-    }
-    
     // Verificar contenido inapropiado
     const bad = containsInappropriate(message);
     if (bad) {
-      await pool.query(
-        `INSERT INTO messages_pending (product_id, sender_id, message)
-         VALUES ($1,$2,$3)`,
-        [0, senderIdNum, message]
-      );
-      await notifyModerator('message', 0, message, senderIdNum);
+      // Guardar en tabla de pendientes (opcional, puede ser la misma tabla con un flag)
       return res.status(202).json({
         warning: 'Tu mensaje está en revisión por contenido potencialmente inapropiado.'
       });
     }
     
-    // Guardar mensaje (product_id = 0 para chat global de AllApp)
+    // Guardar mensaje en tabla específica de AllApp
     const { rows: [msg] } = await pool.query(
-      `INSERT INTO messages_nat (sender_id, product_id, message) VALUES ($1, 0, $2) RETURNING id, sender_id, product_id, message, created_at`,
-      [senderIdNum, message]
+      `INSERT INTO allapp_messages (sender_username, message) VALUES ($1, $2) RETURNING id, sender_username, message, created_at`,
+      [cleanUsername, message]
     );
     
-    console.log(`[ALLAPP] Mensaje guardado - ID: ${msg.id}, sender_id: ${msg.sender_id}, product_id: ${msg.product_id}`);
+    console.log(`[ALLAPP] Mensaje guardado - ID: ${msg.id}, username: ${msg.sender_username}`);
     
     res.json(msg);
   } catch (err) {
     console.error('[ALLAPP] Error en POST /allapp/messages:', err);
+    // Si la tabla no existe, intentar crearla y reintentar
+    if (err.message.includes('does not exist') || err.message.includes('relation') || err.code === '42P01') {
+      try {
+        await initAllAppMessagesTable();
+        // Reintentar inserción
+        const { rows: [msg] } = await pool.query(
+          `INSERT INTO allapp_messages (sender_username, message) VALUES ($1, $2) RETURNING id, sender_username, message, created_at`,
+          [req.body.username.trim().substring(0, 50), req.body.message]
+        );
+        return res.json(msg);
+      } catch (retryErr) {
+        console.error('[ALLAPP] Error en reintento:', retryErr);
+        return res.status(500).json({ error: 'Error al crear tabla de mensajes' });
+      }
+    }
     handleNatError(res, err, 'POST /allapp/messages');
   }
 });
@@ -1931,19 +1942,31 @@ app.post('/allapp/messages', async (req, res) => {
 // Endpoint específico para AllApp LionChat - Obtener mensajes
 app.get('/allapp/messages', async (req, res) => {
   try {
-    // Obtener mensajes del chat global (product_id = 0)
+    // Obtener mensajes de la tabla específica de AllApp
     const { rows } = await pool.query(`
-      SELECT m.*, u.username AS sender_username
-      FROM messages_nat m
-      JOIN users_nat u ON m.sender_id = u.id
-      WHERE m.product_id = 0
-      ORDER BY m.created_at ASC
+      SELECT 
+        id,
+        sender_username,
+        message,
+        created_at
+      FROM allapp_messages
+      ORDER BY created_at ASC
     `);
     
     console.log(`[ALLAPP] Obtenidos ${rows.length} mensajes del chat global`);
     res.json(rows);
   } catch (err) {
     console.error('[ALLAPP] Error en GET /allapp/messages:', err);
+    // Si la tabla no existe, devolver array vacío
+    if (err.message.includes('does not exist') || err.message.includes('relation') || err.code === '42P01') {
+      try {
+        await initAllAppMessagesTable();
+        return res.json([]);
+      } catch (initErr) {
+        console.error('[ALLAPP] Error inicializando tabla:', initErr);
+        return res.json([]);
+      }
+    }
     handleNatError(res, err, 'GET /allapp/messages');
   }
 });

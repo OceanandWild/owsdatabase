@@ -536,6 +536,225 @@ app.get('/wildshorts/subscription/:userId', async (req, res) => {
   }
 });
 
+// Endpoint para obtener WildGems (recompensas, bonos, etc.)
+app.post('/wildshorts/wildgems/claim', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+  
+  const token = authHeader.substring(7);
+  let userId;
+  try {
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
+    userId = decoded.uid;
+    userId = parseInt(userId) || userId;
+  } catch (e) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+  
+  const { type, amount } = req.body; // type: 'daily', 'welcome', 'bonus', etc.
+  if (!type) {
+    return res.status(400).json({ error: 'Tipo de recompensa requerido' });
+  }
+  
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    
+    // Verificar límites según el tipo
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    // Crear tabla de reclamaciones de WildGems si no existe
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS wildgems_claims (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        claim_type TEXT NOT NULL,
+        amount INTEGER NOT NULL,
+        claimed_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(user_id, claim_type, DATE(claimed_at))
+      )
+    `);
+    
+    // Verificar si ya reclamó hoy (para recompensas diarias)
+    if (type === 'daily') {
+      const { rows: dailyRows } = await client.query(`
+        SELECT * FROM wildgems_claims
+        WHERE user_id = $1 AND claim_type = 'daily' 
+        AND DATE(claimed_at) = DATE(NOW())
+      `, [userId]);
+      
+      if (dailyRows.length > 0) {
+        await client.query('ROLLBACK');
+        const nextClaim = new Date(dailyRows[0].claimed_at);
+        nextClaim.setDate(nextClaim.getDate() + 1);
+        nextClaim.setHours(0, 0, 0, 0);
+        const hoursUntil = Math.ceil((nextClaim - now) / (1000 * 60 * 60));
+        return res.status(400).json({ 
+          error: `Ya reclamaste tu recompensa diaria hoy. Próxima recompensa en ${hoursUntil} horas.`,
+          nextClaim: nextClaim.toISOString()
+        });
+      }
+    }
+    
+    // Verificar si ya reclamó (para recompensas únicas)
+    if (type === 'welcome') {
+      const { rows: welcomeRows } = await client.query(`
+        SELECT * FROM wildgems_claims
+        WHERE user_id = $1 AND claim_type = 'welcome'
+      `, [userId]);
+      
+      if (welcomeRows.length > 0) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Ya reclamaste tu recompensa de bienvenida.' });
+      }
+    }
+    
+    // Calcular cantidad si no se proporciona
+    let gemsAmount = amount || 0;
+    if (!gemsAmount) {
+      const rewards = {
+        daily: 50,      // 50 WildGems diarios
+        welcome: 200,   // 200 WildGems de bienvenida
+        bonus: 100,     // 100 WildGems de bono
+        referral: 150,  // 150 WildGems por referido
+        achievement: 75 // 75 WildGems por logro
+      };
+      gemsAmount = rewards[type] || 0;
+    }
+    
+    if (gemsAmount <= 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Cantidad inválida' });
+    }
+    
+    // Obtener saldo actual
+    const { rows: gemsRows } = await client.query(`
+      SELECT value FROM ocean_pay_metadata
+      WHERE user_id = $1 AND key = 'wildgems'
+      FOR UPDATE
+    `, [userId]);
+    
+    const current = parseInt(gemsRows[0]?.value || '0');
+    const newBalance = current + gemsAmount;
+    
+    // Actualizar saldo
+    await client.query(`
+      INSERT INTO ocean_pay_metadata (user_id, key, value)
+      VALUES ($1, 'wildgems', $2)
+      ON CONFLICT (user_id, key) 
+      DO UPDATE SET value = $2, updated_at = CURRENT_TIMESTAMP
+    `, [userId, newBalance.toString()]);
+    
+    // Registrar reclamación
+    await client.query(`
+      INSERT INTO wildgems_claims (user_id, claim_type, amount)
+      VALUES ($1, $2, $3)
+    `, [userId, type, gemsAmount]);
+    
+    // Registrar transacción en ocean_pay_txs
+    const conceptos = {
+      daily: 'Recompensa Diaria (WildShorts)',
+      welcome: 'Recompensa de Bienvenida (WildShorts)',
+      bonus: 'Bono Especial (WildShorts)',
+      referral: 'Recompensa por Referido (WildShorts)',
+      achievement: 'Logro Desbloqueado (WildShorts)'
+    };
+    
+    // Intentar insertar con moneda WG, si falla, insertar sin moneda
+    try {
+      await client.query(`
+        INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+        VALUES ($1, $2, $3, $4, 'WG')
+      `, [userId, conceptos[type] || `Recompensa ${type} (WildShorts)`, gemsAmount, 'WildShorts']);
+    } catch (txError) {
+      // Si la columna moneda no existe, insertar sin ella
+      await client.query(`
+        INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
+        VALUES ($1, $2, $3, $4)
+      `, [userId, conceptos[type] || `Recompensa ${type} (WildShorts)`, gemsAmount, 'WildShorts']);
+    }
+    
+    await client.query('COMMIT');
+    res.json({ 
+      success: true, 
+      newBalance,
+      amount: gemsAmount,
+      type: type
+    });
+  } catch (e) {
+    await client.query('ROLLBACK');
+    console.error('Error reclamando WildGems:', e);
+    res.status(500).json({ error: 'Error interno' });
+  } finally {
+    client.release();
+  }
+});
+
+// Endpoint para verificar estado de recompensas
+app.get('/wildshorts/wildgems/claims-status', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+  
+  const token = authHeader.substring(7);
+  let userId;
+  try {
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
+    userId = decoded.uid;
+    userId = parseInt(userId) || userId;
+  } catch (e) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+  
+  try {
+    // Verificar recompensa diaria
+    const { rows: dailyRows } = await pool.query(`
+      SELECT * FROM wildgems_claims
+      WHERE user_id = $1 AND claim_type = 'daily' 
+      AND DATE(claimed_at) = DATE(NOW())
+    `, [userId]);
+    
+    // Verificar recompensa de bienvenida
+    const { rows: welcomeRows } = await pool.query(`
+      SELECT * FROM wildgems_claims
+      WHERE user_id = $1 AND claim_type = 'welcome'
+    `, [userId]);
+    
+    // Calcular próxima recompensa diaria
+    let nextDaily = null;
+    if (dailyRows.length > 0) {
+      const lastClaim = new Date(dailyRows[0].claimed_at);
+      nextDaily = new Date(lastClaim);
+      nextDaily.setDate(nextDaily.getDate() + 1);
+      nextDaily.setHours(0, 0, 0, 0);
+    }
+    
+    res.json({
+      daily: {
+        claimed: dailyRows.length > 0,
+        nextClaim: nextDaily?.toISOString() || null
+      },
+      welcome: {
+        claimed: welcomeRows.length > 0
+      }
+    });
+  } catch (e) {
+    if (e.code === '42P01') {
+      res.json({
+        daily: { claimed: false, nextClaim: null },
+        welcome: { claimed: false }
+      });
+    } else {
+      console.error('Error verificando estado de recompensas:', e);
+      res.status(500).json({ error: 'Error interno' });
+    }
+  }
+});
+
 // Endpoint para pagar por episodio (pay-as-you-go)
 app.post('/wildshorts/episode/pay', async (req, res) => {
   const authHeader = req.headers.authorization;

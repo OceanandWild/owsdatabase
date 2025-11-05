@@ -573,10 +573,20 @@ app.post('/wildshorts/wildgems/claim', async (req, res) => {
         user_id INTEGER NOT NULL,
         claim_type TEXT NOT NULL,
         amount INTEGER NOT NULL,
-        claimed_at TIMESTAMP DEFAULT NOW(),
-        UNIQUE(user_id, claim_type, DATE(claimed_at))
+        claimed_at TIMESTAMP DEFAULT NOW()
       )
     `);
+    
+    // Crear índice simple para mejorar el rendimiento de las consultas
+    try {
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_wildgems_claims_user_type 
+        ON wildgems_claims (user_id, claim_type)
+      `);
+    } catch (idxError) {
+      // Si el índice ya existe, continuar
+      console.log('[WildGems] Índice ya existe:', idxError.message);
+    }
     
     // Verificar si ya reclamó hoy (para recompensas diarias)
     if (type === 'daily') {

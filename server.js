@@ -301,14 +301,170 @@ app.get('/status', (_req, res) =>
 
 
 const FORBIDDEN = [
+  // Drogas
   /\bcoca[ií]na\b/i, /\bporro\b/i, /\bmari[h]uana\b/i,
   /\bextasi[s]?\b/i, /\blsd\b/i, /\bmdma\b/i,
-  /\bput[ao]s?\b/i, /\bpendej[ao]s?\b/i
+  /\banfetamina[s]?\b/i, /\bhero[íi]na\b/i, /\bmetanfetamina\b/i,
+  /\bcrack\b/i, /\bcristal\b/i, /\bpeyote\b/i,
+  /\bhongos?\b.*m[aá]gico[s]?\b/i, /\bmescalina\b/i, /\bketamina\b/i,
+  /\bfentanilo\b/i, /\bopi[áa]ceo[s]?\b/i, /\bcode[ií]na\b/i,
+  /\bmorfin[ao]\b/i, /\bopio\b/i, /\bhash[ií]sh\b/i,
+  /\bpasta\s*b[áa]sica\b/i, /\bchiva\b/i, /\bchocolate\b/i,
+  /\bcoca\b/i, /\bmar[ií]a\b/i, /\bmar[ií]huana\b/i,
+  /\bganja\b/i, /\bweed\b/i, /\bgrifa\b/i,
+  /\bmota\b/i, /\bhach[ií]s\b/i,
+  
+  // Lenguaje ofensivo/sexual
+  /\bput[ao]s?\b/i, /\bpendej[ao]s?\b/i, /\bcabr[oó]n\b/i,
+  /\bco[ñn]o\b/i, /\bcoj[oó]n\b/i, /\bverga\b/i,
+  /\bpich[ao]\b/i, /\bchup[ao]\b/i, /\bmam[ao]\b/i,
+  /\bcojer\b/i, /\bcoger\b/i, /\bviolar\b/i,
+  /\bestupr[ao]\b/i, /\babus[ao]\b/i, /\bsexo\s*expl[ií]cito\b/i,
+  /\bporn[oó]grafi[ao]\b/i, /\bxxx\b/i, /\bonlyfans\b/i,
+  /\bdesnud[ao]s?\b/i, /\bnud[ao]s?\b/i, /\bdesnudo\b/i,
+  /\bpel[íi]cula\s*porno\b/i, /\bvideo\s*porno\b/i,
+  /\bwebcam\s*sex\b/i, /\bescort\b/i, /\bprostitut[ao]\b/i,
+  /\bputer[ií]a\b/i, /\bwhore\b/i, /\bslut\b/i,
+  /\bfuck\b/i, /\bfucking\b/i, /\bfucker\b/i,
+  /\bshit\b/i, /\bbitch\b/i, /\basshole\b/i,
+  
+  // Contenido violento/peligroso
+  /\bmatar\b/i, /\basesinar\b/i, /\basesino\b/i,
+  /\bhomici[di]o\b/i, /\bsuicid[ao]\b/i, /\bmatarte\b/i,
+  /\barma[s]?\b/i, /\brevolver\b/i, /\bpistola\b/i,
+  /\bfusil\b/i, /\bmetralleta\b/i, /\bexplosivo\b/i,
+  /\bbomba\b/i, /\bgranada\b/i, /\bdinamita\b/i,
+  /\bterrorismo\b/i, /\bterrorista\b/i,
+  
+  // Estafas y fraudes
+  /\bestafa\b/i, /\bfraude\b/i, /\bphishing\b/i,
+  /\bclonar\s*tarjeta\b/i, /\bcuenta\s*bancaria\b/i,
+  /\btransferencia\s*falsa\b/i, /\benga[ñn]o\b/i,
+  /\bpyramid\s*scheme\b/i, /\bpiramidal\b/i,
+  
+  // Otros inapropiados
+  /\bracismo\b/i, /\bracista\b/i, /\bhomof[oó]bico\b/i,
+  /\bdiscriminaci[oó]n\b/i, /\bamenaza\b/i, /\bamenazar\b/i,
+  /\bespam\b/i, /\bspam\b/i, /\bphishing\b/i,
+  /\bmaldito\b/i, /\bmalparido\b/i, /\bhijo\s*de\s*puta\b/i,
+  /\bchingar\b/i, /\bch[íi]ngame\b/i, /\bcarajo\b/i,
+  /\bchingado\b/i, /\bverga\b/i, /\bpinche\b/i,
+  /\bjod[ae]r\b/i, /\bjodido\b/i, /\bjoder\b/i,
+  
+  // Variaciones comunes
+  /\bput[ao]s?\b/i, /\bpendej[ao]s?\b/i,
+  /\bmierda\b/i, /\bcagada\b/i, /\bcagar\b/i,
 ];
 
 function containsInappropriate(text = '') {
   const t = text.toLowerCase();
   return FORBIDDEN.some(rx => rx.test(t));
+}
+
+// Función para agregar un strike a un usuario
+async function addStrike(userId, reason, productId = null) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    
+    // Obtener strikes actuales
+    const { rows } = await client.query(
+      'SELECT strikes FROM users_nat WHERE id = $1',
+      [userId]
+    );
+    
+    if (rows.length === 0) {
+      await client.query('ROLLBACK');
+      return { error: 'Usuario no encontrado' };
+    }
+    
+    const currentStrikes = rows[0].strikes || 0;
+    const newStrikes = currentStrikes + 1;
+    
+    // Actualizar strikes
+    await client.query(
+      'UPDATE users_nat SET strikes = $1 WHERE id = $2',
+      [newStrikes, userId]
+    );
+    
+    // Si llega a 3 strikes, banear por 3 días
+    if (newStrikes >= 3) {
+      const banUntil = new Date();
+      banUntil.setDate(banUntil.getDate() + 3); // 3 días desde ahora
+      
+      await client.query(
+        'UPDATE users_nat SET banned_until = $1, ban_reason = $2 WHERE id = $3',
+        [banUntil, reason, userId]
+      );
+      
+      // Crear notificación de baneo
+      await client.query(
+        `INSERT INTO notifications_nat (user_id, type, message, created_at)
+         VALUES ($1, 'ban', $2, NOW())`,
+        [userId, `🚫 Has sido baneado por 3 días. Razón: ${reason}. Tu cuenta se recuperará el ${banUntil.toLocaleDateString('es-AR')}.`]
+      );
+      
+      await client.query('COMMIT');
+      return { 
+        strikes: newStrikes, 
+        banned: true, 
+        banUntil: banUntil.toISOString(),
+        reason 
+      };
+    }
+    
+    // Crear notificación de strike
+    let strikeMessage = `⚠️ Has recibido un strike. Razón: ${reason}.`;
+    if (productId) {
+      strikeMessage += ` Este strike es por el producto ID: ${productId}.`;
+    }
+    strikeMessage += ` Tienes ${newStrikes}/3 strikes. Con 3 strikes serás baneado por 3 días.`;
+    
+    await client.query(
+      `INSERT INTO notifications_nat (user_id, type, message, product_id, created_at)
+       VALUES ($1, 'strike', $2, $3, NOW())`,
+      [userId, strikeMessage, productId]
+    );
+    
+    await client.query('COMMIT');
+    return { strikes: newStrikes, banned: false };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('[STRIKES] Error:', err);
+    return { error: err.message };
+  } finally {
+    client.release();
+  }
+}
+
+// Verificar si un usuario está baneado
+async function isUserBanned(userId) {
+  const { rows } = await pool.query(
+    'SELECT banned_until, ban_reason FROM users_nat WHERE id = $1',
+    [userId]
+  );
+  
+  if (rows.length === 0 || !rows[0].banned_until) {
+    return { banned: false };
+  }
+  
+  const banUntil = new Date(rows[0].banned_until);
+  const now = new Date();
+  
+  if (banUntil > now) {
+    return { 
+      banned: true, 
+      banUntil: banUntil.toISOString(),
+      reason: rows[0].ban_reason || 'Violación de términos'
+    };
+  } else {
+    // El baneo expiró, limpiarlo
+    await pool.query(
+      'UPDATE users_nat SET banned_until = NULL, ban_reason = NULL WHERE id = $1',
+      [userId]
+    );
+    return { banned: false };
+  }
 }
 
 async function notifyModerator(type, targetId, content, senderId) {
@@ -1511,6 +1667,15 @@ app.post('/natmarket/messages', async (req, res) => {
 app.post('/natmarket/messages/v2', async (req, res) => {
   const { sender_id, product_id, message, username } = req.body;
   
+  // Verificar si el usuario está baneado
+  const banCheck = await isUserBanned(sender_id);
+  if (banCheck.banned) {
+    const banUntil = new Date(banCheck.banUntil);
+    return res.status(403).json({ 
+      error: `Tu cuenta está baneada hasta el ${banUntil.toLocaleDateString('es-AR')}. Razón: ${banCheck.reason}` 
+    });
+  }
+  
   // Validación estricta de parámetros
   if (!product_id || !message) {
     console.error('[MESSAGES] Faltan parámetros:', { sender_id, product_id, message: message ? 'presente' : 'faltante' });
@@ -1611,6 +1776,15 @@ app.post('/natmarket/messages/v2', async (req, res) => {
 
     product = productRows[0];
     console.log(`[MESSAGES] Producto encontrado: "${product.name}" (id: ${product.id}), vendedor: ${product.user_id}`);
+  }
+
+  // Verificar si el usuario está baneado (después de obtener senderIdNum)
+  const banCheck = await isUserBanned(senderIdNum);
+  if (banCheck.banned) {
+    const banUntil = new Date(banCheck.banUntil);
+    return res.status(403).json({ 
+      error: `Tu cuenta está baneada hasta el ${banUntil.toLocaleDateString('es-AR')}. Razón: ${banCheck.reason}` 
+    });
   }
 
   const bad = containsInappropriate(message);
@@ -1733,7 +1907,7 @@ app.get('/mod/pending', async (req, res) => {
 app.post('/mod/decide-product', async (req, res) => {
   if (req.headers['x-user-username'] !== 'OceanandWild') return res.status(401).json({ error: 'No autorizado' });
 
-  const { pending_id, approve } = req.body;
+  const { pending_id, approve, reason } = req.body;
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -1752,18 +1926,40 @@ app.post('/mod/decide-product', async (req, res) => {
       );
       // 2. imágenes (no hay en pendientes, se avisará al usuario)
       // 3. lugares/métodos
-      for (const pid of p.places)  await client.query('INSERT INTO product_places (product_id, place_id) VALUES ($1,$2)', [prod.id, pid]);
-      for (const mid of p.methods) await client.query('INSERT INTO product_shipping_methods (product_id, shipping_method_id) VALUES ($1,$2)', [prod.id, mid]);
+      const places = typeof p.places === 'string' ? JSON.parse(p.places) : p.places;
+      const methods = typeof p.methods === 'string' ? JSON.parse(p.methods) : p.methods;
+      for (const pid of places)  await client.query('INSERT INTO product_places (product_id, place_id) VALUES ($1,$2)', [prod.id, pid]);
+      for (const mid of methods) await client.query('INSERT INTO product_shipping_methods (product_id, shipping_method_id) VALUES ($1,$2)', [prod.id, mid]);
+      
+      await client.query('COMMIT');
+      res.json({ ok: true });
     } else {
-      // rechazar → historial en perfil
+      // rechazar → dar strike al usuario
+      const rejectReason = reason || 'Contenido inapropiado detectado en revisión';
+      
+      // Agregar strike
+      const strikeResult = await addStrike(p.user_id, rejectReason, null);
+      
+      if (strikeResult.error) {
+        await client.query('ROLLBACK');
+        return res.status(500).json({ error: 'Error agregando strike: ' + strikeResult.error });
+      }
+      
+      // Guardar en historial de rechazados
       await client.query(
         'INSERT INTO products_rejected (user_id, name, reason) VALUES ($1,$2,$3)',
-        [p.user_id, p.name, 'Contenido inapropiado']
+        [p.user_id, p.name, rejectReason]
       );
+      
+      await client.query('DELETE FROM products_pending WHERE id = $1', [pending_id]);
+      await client.query('COMMIT');
+      res.json({ 
+        ok: true, 
+        strikes: strikeResult.strikes,
+        banned: strikeResult.banned || false,
+        banUntil: strikeResult.banUntil || null
+      });
     }
-    await client.query('DELETE FROM products_pending WHERE id = $1', [pending_id]);
-    await client.query('COMMIT');
-    res.json({ ok: true });
   } catch (err) {
     await client.query('ROLLBACK');
     console.error(err);
@@ -1795,6 +1991,208 @@ app.get('/mod/pending-messages', async (req, res) => {
   } catch (err) {
     console.error('[MOD] Error listando mensajes:', err);
     res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+/* ---------- REPORTES DE PRODUCTOS ---------- */
+// Reportar un producto
+app.post('/natmarket/products/:id/report', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reporter_id, reason } = req.body;
+    
+    if (!reporter_id || !reason) {
+      return res.status(400).json({ error: 'Faltan datos (reporter_id y reason requeridos)' });
+    }
+    
+    // Verificar que el producto existe
+    const { rows: productRows } = await pool.query(
+      'SELECT id, user_id FROM products_nat WHERE id = $1',
+      [id]
+    );
+    
+    if (productRows.length === 0) {
+      return res.status(404).json({ error: 'Producto no encontrado' });
+    }
+    
+    // Verificar que no se reporte a sí mismo
+    if (productRows[0].user_id === reporter_id) {
+      return res.status(400).json({ error: 'No puedes reportar tu propio producto' });
+    }
+    
+    // Verificar si ya existe un reporte pendiente de este usuario para este producto
+    const { rows: existingReport } = await pool.query(
+      'SELECT id FROM product_reports WHERE product_id = $1 AND reporter_id = $2 AND status = $3',
+      [id, reporter_id, 'pending']
+    );
+    
+    if (existingReport.length > 0) {
+      return res.status(400).json({ error: 'Ya tienes un reporte pendiente para este producto' });
+    }
+    
+    // Crear reporte
+    const { rows: [report] } = await pool.query(
+      `INSERT INTO product_reports (product_id, reporter_id, reason, status, created_at)
+       VALUES ($1, $2, $3, 'pending', NOW()) RETURNING *`,
+      [id, reporter_id, reason]
+    );
+    
+    // Notificar a OceanandWild
+    const { rows: adminRows } = await pool.query(
+      "SELECT id FROM users_nat WHERE username = 'OceanandWild'"
+    );
+    
+    if (adminRows.length > 0) {
+      const adminId = adminRows[0].id;
+      const { rows: reporterRows } = await pool.query(
+        'SELECT username FROM users_nat WHERE id = $1',
+        [reporter_id]
+      );
+      const reporterName = reporterRows[0]?.username || 'Un usuario';
+      
+      await pool.query(
+        `INSERT INTO notifications_nat (user_id, type, message, product_id, created_at)
+         VALUES ($1, 'report', $2, $3, NOW())`,
+        [adminId, `📢 Nuevo reporte: ${reporterName} reportó un producto. Razón: ${reason}`, id]
+      );
+    }
+    
+    res.json({ success: true, report });
+  } catch (err) {
+    console.error('[REPORTS] Error:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Obtener todos los reportes (solo admin)
+app.get('/natmarket/admin/reports', async (req, res) => {
+  const userHeader = (req.headers['x-user-username'] || '').trim();
+  if (userHeader !== 'OceanandWild') {
+    return res.status(401).json({ error: 'No autorizado' });
+  }
+  
+  try {
+    const { rows } = await pool.query(`
+      SELECT 
+        r.id,
+        r.product_id,
+        r.reporter_id,
+        r.reason,
+        r.status,
+        r.created_at,
+        r.reviewed_at,
+        r.admin_response,
+        p.name AS product_name,
+        p.user_id AS product_owner_id,
+        reporter.username AS reporter_username,
+        owner.username AS owner_username
+      FROM product_reports r
+      JOIN products_nat p ON p.id = r.product_id
+      JOIN users_nat reporter ON reporter.id = r.reporter_id
+      JOIN users_nat owner ON owner.id = p.user_id
+      ORDER BY r.created_at DESC
+    `);
+    res.json(rows);
+  } catch (err) {
+    console.error('[REPORTS] Error:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Aprobar o rechazar un reporte (solo admin)
+app.post('/natmarket/admin/reports/:id/decide', async (req, res) => {
+  const userHeader = (req.headers['x-user-username'] || '').trim();
+  if (userHeader !== 'OceanandWild') {
+    return res.status(401).json({ error: 'No autorizado' });
+  }
+  
+  const { id } = req.params;
+  const { approve, admin_response } = req.body;
+  const client = await pool.connect();
+  
+  try {
+    await client.query('BEGIN');
+    
+    // Obtener el reporte
+    const { rows: reportRows } = await client.query(
+      `SELECT r.*, p.user_id AS product_owner_id
+       FROM product_reports r
+       JOIN products_nat p ON p.id = r.product_id
+       WHERE r.id = $1`,
+      [id]
+    );
+    
+    if (reportRows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Reporte no encontrado' });
+    }
+    
+    const report = reportRows[0];
+    
+    if (report.status !== 'pending') {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Este reporte ya fue revisado' });
+    }
+    
+    // Obtener ID de admin
+    const { rows: adminRows } = await client.query(
+      "SELECT id FROM users_nat WHERE username = 'OceanandWild'"
+    );
+    const adminId = adminRows[0]?.id;
+    
+    if (approve) {
+      // Aprobar: eliminar producto y dar strike al dueño
+      const reason = admin_response || 'Producto reportado y eliminado por violación de términos';
+      
+      // Eliminar producto
+      await client.query('DELETE FROM products_nat WHERE id = $1', [report.product_id]);
+      
+      // Dar strike al dueño del producto
+      const strikeResult = await addStrike(report.product_owner_id, reason, report.product_id);
+      
+      // Actualizar reporte
+      await client.query(
+        `UPDATE product_reports 
+         SET status = 'approved', admin_id = $1, admin_response = $2, reviewed_at = NOW()
+         WHERE id = $3`,
+        [adminId, admin_response || 'Reporte aprobado. Producto eliminado.', id]
+      );
+      
+      await client.query('COMMIT');
+      res.json({ 
+        success: true, 
+        message: 'Reporte aprobado. Producto eliminado.',
+        strikes: strikeResult.strikes,
+        banned: strikeResult.banned || false
+      });
+    } else {
+      // Rechazar: dar strike al reporter
+      const reason = admin_response || 'Reporte infundado. El producto no viola los términos.';
+      
+      const strikeResult = await addStrike(report.reporter_id, reason, null);
+      
+      // Actualizar reporte
+      await client.query(
+        `UPDATE product_reports 
+         SET status = 'rejected', admin_id = $1, admin_response = $2, reviewed_at = NOW()
+         WHERE id = $3`,
+        [adminId, admin_response || 'Reporte rechazado. El producto no viola los términos.', id]
+      );
+      
+      await client.query('COMMIT');
+      res.json({ 
+        success: true, 
+        message: 'Reporte rechazado. Strike aplicado al reporter.',
+        strikes: strikeResult.strikes,
+        banned: strikeResult.banned || false
+      });
+    }
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('[REPORTS] Error:', err);
+    res.status(500).json({ error: 'Error interno' });
+  } finally {
+    client.release();
   }
 });
 
@@ -2924,10 +3322,22 @@ app.post('/natmarket/products/v2', upload.array('images', 10), async (req, res) 
     await client.query('BEGIN');
     const { user_id, name, description, price, contact_number, stock } = req.body;
 
+    // Verificar si el usuario está baneado
+    const banCheck = await isUserBanned(user_id);
+    if (banCheck.banned) {
+      await client.query('ROLLBACK');
+      const banUntil = new Date(banCheck.banUntil);
+      return res.status(403).json({ 
+        error: `Tu cuenta está baneada hasta el ${banUntil.toLocaleDateString('es-AR')}. Razón: ${banCheck.reason}` 
+      });
+    }
+
     // ➜ parsear arrays
     const places  = JSON.parse(req.body.places || '[]');
     const methods = JSON.parse(req.body.methods || '[]');
     const stockNum = parseInt(stock) || 1;
+    const category = req.body.category || null;
+    const productStatus = req.body.status || 'disponible';
 
     // --- moderación ---
 const bad = containsInappropriate(name + ' ' + description);
@@ -4481,7 +4891,32 @@ CREATE TABLE IF NOT EXISTS product_images (
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users_nat' AND column_name = 'unique_id_shown') THEN
       ALTER TABLE users_nat ADD COLUMN unique_id_shown BOOLEAN DEFAULT false;
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users_nat' AND column_name = 'strikes') THEN
+      ALTER TABLE users_nat ADD COLUMN strikes INTEGER DEFAULT 0;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users_nat' AND column_name = 'banned_until') THEN
+      ALTER TABLE users_nat ADD COLUMN banned_until TIMESTAMP;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users_nat' AND column_name = 'ban_reason') THEN
+      ALTER TABLE users_nat ADD COLUMN ban_reason TEXT;
+    END IF;
   END $$;
+  
+  -- Crear tabla de reportes
+  CREATE TABLE IF NOT EXISTS product_reports (
+    id SERIAL PRIMARY KEY,
+    product_id INTEGER NOT NULL REFERENCES products_nat(id) ON DELETE CASCADE,
+    reporter_id INTEGER NOT NULL REFERENCES users_nat(id) ON DELETE CASCADE,
+    reason TEXT NOT NULL,
+    status VARCHAR(20) DEFAULT 'pending', -- pending, approved, rejected
+    admin_id INTEGER REFERENCES users_nat(id) ON DELETE SET NULL,
+    admin_response TEXT,
+    created_at TIMESTAMP DEFAULT NOW(),
+    reviewed_at TIMESTAMP
+  );
+  
+  CREATE INDEX IF NOT EXISTS idx_product_reports_status ON product_reports(status);
+  CREATE INDEX IF NOT EXISTS idx_product_reports_product ON product_reports(product_id);
   
   -- Agregar columnas de stock y vendido a products_nat si no existen
   DO $$ 

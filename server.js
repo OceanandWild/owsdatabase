@@ -3332,7 +3332,7 @@ app.post('/natmarket/products/v2', upload.array('images', 10), async (req, res) 
       });
     }
 
-    // ➜ parsear arrays
+    // ➜ parsear arrays y definir variables
     const places  = JSON.parse(req.body.places || '[]');
     const methods = JSON.parse(req.body.methods || '[]');
     const stockNum = parseInt(stock) || 1;

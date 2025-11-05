@@ -1706,6 +1706,22 @@ async function renderTransacciones() {
       });
       const esPositivo = tx.monto > 0;
       
+      // Determinar moneda: si no tiene moneda, inferirla del origen
+      let monedaCodigo = tx.moneda;
+      if (!monedaCodigo && tx.origen) {
+        // Mapeo de origen a moneda por defecto
+        const origenMonedaMap = {
+          'WildShorts': 'WG',
+          'Wild Explorer': 'WC',
+          'EcoConsole': 'ECB',
+          'Ecoxion': 'EX',
+          'AllApp': 'ABX',
+          'Ocean Cinemas': 'AB',
+          'Ocean Pay': 'AB'
+        };
+        monedaCodigo = origenMonedaMap[tx.origen] || 'AB';
+      }
+      
       // Mapeo de monedas con iconos
       const monedasInfo = {
         'AB': { nombre: 'AquaBux', icono: '💧', color: '#06b6d4' },
@@ -1716,7 +1732,7 @@ async function renderTransacciones() {
         'WG': { nombre: 'WildGems', icono: '💎', color: '#fbbf24' }
       };
       
-      const monedaInfo = monedasInfo[tx.moneda] || { nombre: tx.moneda || 'Moneda', icono: '💰', color: '#94a3b8' };
+      const monedaInfo = monedasInfo[monedaCodigo] || { nombre: monedaCodigo || 'Moneda', icono: '💰', color: '#94a3b8' };
       
       // Iconos según el origen
       const origenesIconos = {
@@ -1742,19 +1758,25 @@ async function renderTransacciones() {
         iconoTx = '👑';
       }
       
+      // Crear elementos HTML para evitar problemas de renderizado de emojis
+      const iconoTxHtml = iconoTx;
+      const iconoOrigenHtml = iconoOrigen;
+      const iconoMonedaHtml = monedaInfo.icono;
+      const iconoFechaHtml = '📅';
+      
       return `
         <div class="tx-item" style="animation-delay: ${index * 0.05}s">
           <div class="tx-item-icon" style="background: linear-gradient(135deg, ${esPositivo ? 'rgba(16,185,129,.2)' : 'rgba(239,68,68,.2)'}, ${esPositivo ? 'rgba(34,197,94,.2)' : 'rgba(220,38,38,.2)'});">
-            ${iconoTx}
+            <span style="font-size: 1.5rem; display: block; line-height: 1;">${iconoTxHtml}</span>
           </div>
           <div class="tx-item-content">
             <div class="tx-item-concept">${tx.concepto || 'Transacción'}</div>
             <div class="tx-item-meta">
               <span class="tx-item-date">
-                <span>📅</span>
+                <span style="font-size: 0.85rem;">${iconoFechaHtml}</span>
                 <span>${fechaFormateada} ${horaFormateada}</span>
               </span>
-              ${tx.origen ? `<span class="tx-item-origin">${iconoOrigen} ${tx.origen}</span>` : ''}
+              ${tx.origen ? `<span class="tx-item-origin"><span style="font-size: 0.7rem; margin-right: 0.2rem;">${iconoOrigenHtml}</span>${tx.origen}</span>` : ''}
             </div>
           </div>
           <div class="tx-item-amount ${esPositivo ? 'positive' : 'negative'}">
@@ -1763,7 +1785,7 @@ async function renderTransacciones() {
               <span>${Math.abs(tx.monto).toLocaleString()}</span>
             </div>
             <div class="tx-item-currency" style="color: ${monedaInfo.color}">
-              ${monedaInfo.icono} ${monedaInfo.nombre}
+              <span style="font-size: 0.75rem;">${iconoMonedaHtml}</span> ${monedaInfo.nombre}
             </div>
           </div>
         </div>

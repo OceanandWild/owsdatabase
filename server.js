@@ -362,10 +362,13 @@ function containsInappropriate(text = '') {
 }
 
 // Función para agregar un strike a un usuario
-async function addStrike(userId, reason, productId = null) {
-  const client = await pool.connect();
+async function addStrike(userId, reason, productId = null, transactionClient = null) {
+  const shouldRelease = !transactionClient;
+  const client = transactionClient || await pool.connect();
   try {
-    await client.query('BEGIN');
+    if (!transactionClient) {
+      await client.query('BEGIN');
+    }
     
     // Obtener strikes actuales
     const { rows } = await client.query(
@@ -374,7 +377,9 @@ async function addStrike(userId, reason, productId = null) {
     );
     
     if (rows.length === 0) {
-      await client.query('ROLLBACK');
+      if (!transactionClient) {
+        await client.query('ROLLBACK');
+      }
       return { error: 'Usuario no encontrado' };
     }
     
@@ -404,7 +409,9 @@ async function addStrike(userId, reason, productId = null) {
         [userId, `🚫 Has sido baneado por 3 días. Razón: ${reason}. Tu cuenta se recuperará el ${banUntil.toLocaleDateString('es-AR')}.`]
       );
       
-      await client.query('COMMIT');
+      if (!transactionClient) {
+        await client.query('COMMIT');
+      }
       return { 
         strikes: newStrikes, 
         banned: true, 
@@ -426,14 +433,20 @@ async function addStrike(userId, reason, productId = null) {
       [userId, strikeMessage, productId]
     );
     
-    await client.query('COMMIT');
+    if (!transactionClient) {
+      await client.query('COMMIT');
+    }
     return { strikes: newStrikes, banned: false };
   } catch (err) {
-    await client.query('ROLLBACK');
+    if (!transactionClient) {
+      await client.query('ROLLBACK');
+    }
     console.error('[STRIKES] Error:', err);
     return { error: err.message };
   } finally {
-    client.release();
+    if (shouldRelease) {
+      client.release();
+    }
   }
 }
 
@@ -1929,7 +1942,7 @@ app.post('/mod/decide-product', async (req, res) => {
       const rejectReason = reason || 'Contenido inapropiado detectado en revisión';
       
       // Agregar strike
-      const strikeResult = await addStrike(p.user_id, rejectReason, null);
+      const strikeResult = await addStrike(p.user_id, rejectReason, null, client);
       
       if (strikeResult.error) {
         await client.query('ROLLBACK');
@@ -2139,7 +2152,13 @@ app.post('/natmarket/admin/reports/:id/decide', async (req, res) => {
       await client.query('DELETE FROM products_nat WHERE id = $1', [report.product_id]);
       
       // Dar strike al dueño del producto
-      const strikeResult = await addStrike(report.product_owner_id, reason, report.product_id);
+      const strikeResult = await addStrike(report.product_owner_id, reason, report.product_id, client);
+      
+      if (strikeResult.error) {
+        await client.query('ROLLBACK');
+        console.error('[REPORTS] Error agregando strike:', strikeResult.error);
+        return res.status(500).json({ error: 'Error agregando strike: ' + strikeResult.error });
+      }
       
       // Actualizar reporte
       await client.query(
@@ -2160,7 +2179,13 @@ app.post('/natmarket/admin/reports/:id/decide', async (req, res) => {
       // Rechazar: dar strike al reporter
       const reason = admin_response || 'Reporte infundado. El producto no viola los términos.';
       
-      const strikeResult = await addStrike(report.reporter_id, reason, null);
+      const strikeResult = await addStrike(report.reporter_id, reason, null, client);
+      
+      if (strikeResult.error) {
+        await client.query('ROLLBACK');
+        console.error('[REPORTS] Error agregando strike:', strikeResult.error);
+        return res.status(500).json({ error: 'Error agregando strike: ' + strikeResult.error });
+      }
       
       // Actualizar reporte
       await client.query(

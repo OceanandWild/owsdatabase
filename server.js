@@ -558,16 +558,9 @@ app.post('/wildshorts/wildgems/claim', async (req, res) => {
     return res.status(400).json({ error: 'Tipo de recompensa requerido' });
   }
   
-  const client = await pool.connect();
+  // Crear tabla e índices FUERA de la transacción (operaciones DDL)
   try {
-    await client.query('BEGIN');
-    
-    // Verificar límites según el tipo
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    
-    // Crear tabla de reclamaciones de WildGems si no existe
-    await client.query(`
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS wildgems_claims (
         id SERIAL PRIMARY KEY,
         user_id INTEGER NOT NULL,
@@ -578,49 +571,56 @@ app.post('/wildshorts/wildgems/claim', async (req, res) => {
     `);
     
     // Crear índice simple para mejorar el rendimiento de las consultas
-    try {
-      await client.query(`
-        CREATE INDEX IF NOT EXISTS idx_wildgems_claims_user_type 
-        ON wildgems_claims (user_id, claim_type)
-      `);
-    } catch (idxError) {
-      // Si el índice ya existe, continuar
-      console.log('[WildGems] Índice ya existe:', idxError.message);
-    }
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_wildgems_claims_user_type 
+      ON wildgems_claims (user_id, claim_type)
+    `).catch(() => {
+      // Ignorar errores si el índice ya existe
+    });
+  } catch (ddlError) {
+    // Ignorar errores de DDL si la tabla/índice ya existe
+    console.log('[WildGems] Tabla/índice ya existe o error al crear:', ddlError.message);
+  }
+  
+  // Verificar límites FUERA de la transacción
+  const now = new Date();
+  
+  // Verificar si ya reclamó hoy (para recompensas diarias)
+  if (type === 'daily') {
+    const { rows: dailyRows } = await pool.query(`
+      SELECT * FROM wildgems_claims
+      WHERE user_id = $1 AND claim_type = 'daily' 
+      AND DATE(claimed_at) = DATE(NOW())
+    `, [userId]);
     
-    // Verificar si ya reclamó hoy (para recompensas diarias)
-    if (type === 'daily') {
-      const { rows: dailyRows } = await client.query(`
-        SELECT * FROM wildgems_claims
-        WHERE user_id = $1 AND claim_type = 'daily' 
-        AND DATE(claimed_at) = DATE(NOW())
-      `, [userId]);
-      
-      if (dailyRows.length > 0) {
-        await client.query('ROLLBACK');
-        const nextClaim = new Date(dailyRows[0].claimed_at);
-        nextClaim.setDate(nextClaim.getDate() + 1);
-        nextClaim.setHours(0, 0, 0, 0);
-        const hoursUntil = Math.ceil((nextClaim - now) / (1000 * 60 * 60));
-        return res.status(400).json({ 
-          error: `Ya reclamaste tu recompensa diaria hoy. Próxima recompensa en ${hoursUntil} horas.`,
-          nextClaim: nextClaim.toISOString()
-        });
-      }
+    if (dailyRows.length > 0) {
+      const nextClaim = new Date(dailyRows[0].claimed_at);
+      nextClaim.setDate(nextClaim.getDate() + 1);
+      nextClaim.setHours(0, 0, 0, 0);
+      const hoursUntil = Math.ceil((nextClaim - now) / (1000 * 60 * 60));
+      return res.status(400).json({ 
+        error: `Ya reclamaste tu recompensa diaria hoy. Próxima recompensa en ${hoursUntil} horas.`,
+        nextClaim: nextClaim.toISOString()
+      });
     }
+  }
+  
+  // Verificar si ya reclamó (para recompensas únicas)
+  if (type === 'welcome') {
+    const { rows: welcomeRows } = await pool.query(`
+      SELECT * FROM wildgems_claims
+      WHERE user_id = $1 AND claim_type = 'welcome'
+    `, [userId]);
     
-    // Verificar si ya reclamó (para recompensas únicas)
-    if (type === 'welcome') {
-      const { rows: welcomeRows } = await client.query(`
-        SELECT * FROM wildgems_claims
-        WHERE user_id = $1 AND claim_type = 'welcome'
-      `, [userId]);
-      
-      if (welcomeRows.length > 0) {
-        await client.query('ROLLBACK');
-        return res.status(400).json({ error: 'Ya reclamaste tu recompensa de bienvenida.' });
-      }
+    if (welcomeRows.length > 0) {
+      return res.status(400).json({ error: 'Ya reclamaste tu recompensa de bienvenida.' });
     }
+  }
+  
+  // Ahora sí, comenzar la transacción para las operaciones DML
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
     
     // Calcular cantidad si no se proporciona
     let gemsAmount = amount || 0;
@@ -688,6 +688,8 @@ app.post('/wildshorts/wildgems/claim', async (req, res) => {
     }
     
     await client.query('COMMIT');
+    client.release();
+    
     res.json({ 
       success: true, 
       newBalance,
@@ -695,11 +697,17 @@ app.post('/wildshorts/wildgems/claim', async (req, res) => {
       type: type
     });
   } catch (e) {
-    await client.query('ROLLBACK');
+    // Intentar hacer rollback si la transacción está activa
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackError) {
+      // Ignorar errores de rollback si la transacción ya fue abortada
+      console.log('[WildGems] Error en rollback (posiblemente ya abortado):', rollbackError.message);
+    }
+    client.release();
+    
     console.error('Error reclamando WildGems:', e);
     res.status(500).json({ error: 'Error interno' });
-  } finally {
-    client.release();
   }
 });
 

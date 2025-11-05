@@ -2148,17 +2148,21 @@ app.post('/natmarket/admin/reports/:id/decide', async (req, res) => {
       // Aprobar: eliminar producto y dar strike al dueño
       const reason = admin_response || 'Producto reportado y eliminado por violación de términos';
       
-      // Eliminar producto
-      await client.query('DELETE FROM products_nat WHERE id = $1', [report.product_id]);
+      // Guardar el product_id antes de eliminarlo
+      const deletedProductId = report.product_id;
       
-      // Dar strike al dueño del producto
-      const strikeResult = await addStrike(report.product_owner_id, reason, report.product_id, client);
+      // Dar strike al dueño del producto ANTES de eliminar el producto
+      // (para que la notificación pueda referenciar el producto)
+      const strikeResult = await addStrike(report.product_owner_id, reason, deletedProductId, client);
       
       if (strikeResult.error) {
         await client.query('ROLLBACK');
         console.error('[REPORTS] Error agregando strike:', strikeResult.error);
         return res.status(500).json({ error: 'Error agregando strike: ' + strikeResult.error });
       }
+      
+      // Ahora eliminar el producto (después de crear la notificación)
+      await client.query('DELETE FROM products_nat WHERE id = $1', [deletedProductId]);
       
       // Actualizar reporte
       await client.query(

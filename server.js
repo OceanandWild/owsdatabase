@@ -4774,30 +4774,59 @@ app.get('/ocean-pay/me', async (req,res)=>{
 app.get('/ocean-pay/txs/:userId', async (req, res) => {
   const { userId } = req.params;
 
-  // 1. Transacciones de Ocean Pay (AquaBux, Ecoxionums, WildCredits)
+  // 1. Transacciones de Ocean Pay (AquaBux, Ecoxionums, WildCredits, WildGems, etc.)
   let oceanRows;
   try {
-    // Intentar obtener con columna moneda
-    const result = await pool.query(
-      `SELECT concepto, monto, origen, created_at, COALESCE(moneda, 'AB') as moneda
-       FROM ocean_pay_txs
-       WHERE user_id = $1
-       ORDER BY created_at DESC
-       LIMIT 50`,
-      [userId]
-    );
-    oceanRows = result.rows;
+    // Verificar si la columna moneda existe
+    const { rows: columnCheck } = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'ocean_pay_txs' AND column_name = 'moneda'
+    `);
+    const hasMonedaColumn = columnCheck.length > 0;
+    
+    // Obtener transacciones con o sin columna moneda
+    let result;
+    if (hasMonedaColumn) {
+      result = await pool.query(
+        `SELECT concepto, monto, origen, created_at, moneda
+         FROM ocean_pay_txs
+         WHERE user_id = $1
+         ORDER BY created_at DESC
+         LIMIT 50`,
+        [userId]
+      );
+      // No asignar 'AB' por defecto si es NULL, dejar que el frontend lo infiera del origen
+      oceanRows = result.rows;
+    } else {
+      result = await pool.query(
+        `SELECT concepto, monto, origen, created_at
+         FROM ocean_pay_txs
+         WHERE user_id = $1
+         ORDER BY created_at DESC
+         LIMIT 50`,
+        [userId]
+      );
+      // No asignar moneda por defecto, dejar que el frontend lo infiera del origen
+      oceanRows = result.rows;
+    }
   } catch (e) {
-    // Si falla por falta de columna moneda, obtener sin ella y asumir AB
-    const result = await pool.query(
-    `SELECT concepto, monto, origen, created_at
-     FROM ocean_pay_txs
-     WHERE user_id = $1
-     ORDER BY created_at DESC
-     LIMIT 50`,
-    [userId]
-  );
-    oceanRows = result.rows.map(r => ({ ...r, moneda: 'AB' }));
+    // Si falla, intentar obtener sin la columna moneda
+    try {
+      const result = await pool.query(
+        `SELECT concepto, monto, origen, created_at
+         FROM ocean_pay_txs
+         WHERE user_id = $1
+         ORDER BY created_at DESC
+         LIMIT 50`,
+        [userId]
+      );
+      // No asignar moneda por defecto, dejar que el frontend lo infiera del origen
+      oceanRows = result.rows;
+    } catch (innerError) {
+      console.error('Error obteniendo transacciones:', innerError);
+      oceanRows = [];
+    }
   }
 
   // 2. EcoCoreBits

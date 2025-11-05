@@ -1706,9 +1706,11 @@ async function renderTransacciones() {
       });
       const esPositivo = tx.monto > 0;
       
-      // Determinar moneda: si no tiene moneda, inferirla del origen
+      // Determinar moneda: si no tiene moneda o es 'AB' pero el origen es WildShorts, inferirla del origen
       let monedaCodigo = tx.moneda;
-      if (!monedaCodigo && tx.origen) {
+      
+      // Si no tiene moneda o es 'AB' pero el origen indica otra moneda, inferirla del origen
+      if ((!monedaCodigo || monedaCodigo === 'AB') && tx.origen) {
         // Mapeo de origen a moneda por defecto
         const origenMonedaMap = {
           'WildShorts': 'WG',
@@ -1719,7 +1721,18 @@ async function renderTransacciones() {
           'Ocean Cinemas': 'AB',
           'Ocean Pay': 'AB'
         };
-        monedaCodigo = origenMonedaMap[tx.origen] || 'AB';
+        
+        // Si el origen tiene una moneda específica y la moneda actual es 'AB' o NULL, usar la del origen
+        if (origenMonedaMap[tx.origen] && (monedaCodigo === 'AB' || !monedaCodigo)) {
+          monedaCodigo = origenMonedaMap[tx.origen];
+        } else if (!monedaCodigo) {
+          monedaCodigo = origenMonedaMap[tx.origen] || 'AB';
+        }
+      }
+      
+      // Corrección especial: si el concepto incluye "WildShorts" o "Episodio" y la moneda es AB, cambiar a WG
+      if (tx.concepto && (tx.concepto.includes('WildShorts') || tx.concepto.includes('Episodio')) && monedaCodigo === 'AB') {
+        monedaCodigo = 'WG';
       }
       
       // Mapeo de monedas con iconos

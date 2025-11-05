@@ -617,28 +617,50 @@ app.post('/wildshorts/wildgems/claim', async (req, res) => {
     }
   }
   
+  // Verificar si la columna moneda existe FUERA de la transacción
+  let hasMonedaColumn = false;
+  try {
+    const { rows: columnCheck } = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'ocean_pay_txs' AND column_name = 'moneda'
+    `);
+    hasMonedaColumn = columnCheck.length > 0;
+  } catch (checkError) {
+    // Si falla la verificación, asumir que no existe la columna (por defecto)
+    hasMonedaColumn = false;
+  }
+  
+  // Calcular cantidad si no se proporciona
+  let gemsAmount = amount || 0;
+  if (!gemsAmount) {
+    const rewards = {
+      daily: 50,      // 50 WildGems diarios
+      welcome: 200,   // 200 WildGems de bienvenida
+      bonus: 100,     // 100 WildGems de bono
+      referral: 150,  // 150 WildGems por referido
+      achievement: 75 // 75 WildGems por logro
+    };
+    gemsAmount = rewards[type] || 0;
+  }
+  
+  if (gemsAmount <= 0) {
+    return res.status(400).json({ error: 'Cantidad inválida' });
+  }
+  
+  // Conceptos para las transacciones
+  const conceptos = {
+    daily: 'Recompensa Diaria (WildShorts)',
+    welcome: 'Recompensa de Bienvenida (WildShorts)',
+    bonus: 'Bono Especial (WildShorts)',
+    referral: 'Recompensa por Referido (WildShorts)',
+    achievement: 'Logro Desbloqueado (WildShorts)'
+  };
+  
   // Ahora sí, comenzar la transacción para las operaciones DML
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    
-    // Calcular cantidad si no se proporciona
-    let gemsAmount = amount || 0;
-    if (!gemsAmount) {
-      const rewards = {
-        daily: 50,      // 50 WildGems diarios
-        welcome: 200,   // 200 WildGems de bienvenida
-        bonus: 100,     // 100 WildGems de bono
-        referral: 150,  // 150 WildGems por referido
-        achievement: 75 // 75 WildGems por logro
-      };
-      gemsAmount = rewards[type] || 0;
-    }
-    
-    if (gemsAmount <= 0) {
-      await client.query('ROLLBACK');
-      return res.status(400).json({ error: 'Cantidad inválida' });
-    }
     
     // Obtener saldo actual
     const { rows: gemsRows } = await client.query(`
@@ -664,23 +686,13 @@ app.post('/wildshorts/wildgems/claim', async (req, res) => {
       VALUES ($1, $2, $3)
     `, [userId, type, gemsAmount]);
     
-    // Registrar transacción en ocean_pay_txs
-    const conceptos = {
-      daily: 'Recompensa Diaria (WildShorts)',
-      welcome: 'Recompensa de Bienvenida (WildShorts)',
-      bonus: 'Bono Especial (WildShorts)',
-      referral: 'Recompensa por Referido (WildShorts)',
-      achievement: 'Logro Desbloqueado (WildShorts)'
-    };
-    
-    // Intentar insertar con moneda WG, si falla, insertar sin moneda
-    try {
+    // Insertar transacción según la estructura de la tabla (ya sabemos si tiene moneda)
+    if (hasMonedaColumn) {
       await client.query(`
         INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
         VALUES ($1, $2, $3, $4, 'WG')
       `, [userId, conceptos[type] || `Recompensa ${type} (WildShorts)`, gemsAmount, 'WildShorts']);
-    } catch (txError) {
-      // Si la columna moneda no existe, insertar sin ella
+    } else {
       await client.query(`
         INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
         VALUES ($1, $2, $3, $4)

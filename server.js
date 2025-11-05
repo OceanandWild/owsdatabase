@@ -5507,6 +5507,8 @@ app.post('/api/ecoxion/subscription/cancel', async (req, res) => {
 await ensureDatabase(); 
 await ensureTables();
 
-
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 API corriendo en http://localhost:${PORT}`));
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 API corriendo en http://0.0.0.0:${PORT}`);
+  console.log(`🌐 Puerto: ${PORT}`);
+});

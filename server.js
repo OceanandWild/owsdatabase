@@ -807,46 +807,74 @@ app.post('/wildshorts/episode/pay', async (req, res) => {
     return res.status(400).json({ error: 'episodeId y episodePrice requeridos' });
   }
   
+  // Verificar si la columna moneda existe FUERA de la transacción
+  let hasMonedaColumn = false;
+  try {
+    const { rows: columnCheck } = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'ocean_pay_txs' AND column_name = 'moneda'
+    `);
+    hasMonedaColumn = columnCheck.length > 0;
+  } catch (checkError) {
+    // Si falla la verificación, asumir que no existe la columna
+    hasMonedaColumn = false;
+  }
+  
+  // Verificar suscripción FUERA de la transacción
+  if (requiredPlan) {
+    const { rows: subRows } = await pool.query(`
+      SELECT plan_id FROM wildshorts_subs
+      WHERE user_id = $1 AND active = true
+      AND (ends_at IS NULL OR ends_at > NOW())
+    `, [userId]);
+    
+    const planHierarchy = ['free', 'starter', 'explorer', 'adventurer', 'legend', 'ultra', 'founder'];
+    const userPlan = subRows[0]?.plan_id || 'free';
+    const requiredPlanIndex = planHierarchy.indexOf(requiredPlan);
+    const userPlanIndex = planHierarchy.indexOf(userPlan);
+    
+    if (userPlanIndex < requiredPlanIndex) {
+      return res.status(403).json({ error: 'Plan insuficiente para este episodio' });
+    }
+  }
+  
+  // Verificar saldo FUERA de la transacción
+  const { rows: gemsRows } = await pool.query(`
+    SELECT value FROM ocean_pay_metadata
+    WHERE user_id = $1 AND key = 'wildgems'
+  `, [userId]);
+  
+  const currentGems = parseInt(gemsRows[0]?.value || '0');
+  const price = parseInt(episodePrice);
+  
+  if (currentGems < price) {
+    return res.status(400).json({ error: `Saldo insuficiente. Necesitas ${price} WildGems.` });
+  }
+  
+  // Ahora sí, comenzar la transacción para las operaciones DML
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     
-    // Verificar si tiene suscripción activa que cubra este plan
-    if (requiredPlan) {
-      const { rows: subRows } = await client.query(`
-        SELECT plan_id FROM wildshorts_subs
-        WHERE user_id = $1 AND active = true
-        AND (ends_at IS NULL OR ends_at > NOW())
-      `, [userId]);
-      
-      const planHierarchy = ['free', 'starter', 'explorer', 'adventurer', 'legend', 'ultra', 'founder'];
-      const userPlan = subRows[0]?.plan_id || 'free';
-      const requiredPlanIndex = planHierarchy.indexOf(requiredPlan);
-      const userPlanIndex = planHierarchy.indexOf(userPlan);
-      
-      if (userPlanIndex < requiredPlanIndex) {
-        await client.query('ROLLBACK');
-        return res.status(403).json({ error: 'Plan insuficiente para este episodio' });
-      }
-    }
-    
-    // Obtener saldo de WildGems
-    const { rows: gemsRows } = await client.query(`
+    // Obtener saldo con FOR UPDATE dentro de la transacción
+    const { rows: gemsRowsLocked } = await client.query(`
       SELECT value FROM ocean_pay_metadata
       WHERE user_id = $1 AND key = 'wildgems'
       FOR UPDATE
     `, [userId]);
     
-    const currentGems = parseInt(gemsRows[0]?.value || '0');
-    const price = parseInt(episodePrice);
+    const currentGemsLocked = parseInt(gemsRowsLocked[0]?.value || '0');
     
-    if (currentGems < price) {
+    // Verificar saldo nuevamente (podría haber cambiado)
+    if (currentGemsLocked < price) {
       await client.query('ROLLBACK');
+      client.release();
       return res.status(400).json({ error: `Saldo insuficiente. Necesitas ${price} WildGems.` });
     }
     
     // Descontar WildGems
-    const newBalance = currentGems - price;
+    const newBalance = currentGemsLocked - price;
     await client.query(`
       INSERT INTO ocean_pay_metadata (user_id, key, value)
       VALUES ($1, 'wildgems', $2)
@@ -854,25 +882,35 @@ app.post('/wildshorts/episode/pay', async (req, res) => {
       DO UPDATE SET value = $2, updated_at = CURRENT_TIMESTAMP
     `, [userId, newBalance.toString()]);
     
-    // Registrar transacción
-    await client.query(`
-      INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
-      VALUES ($1, $2, $3, $4, 'WG')
-    `, [userId, `Episodio ${episodeId} (WildShorts)`, -price, 'WildShorts']).catch(async () => {
+    // Registrar transacción según la estructura de la tabla (ya sabemos si tiene moneda)
+    if (hasMonedaColumn) {
+      await client.query(`
+        INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+        VALUES ($1, $2, $3, $4, 'WG')
+      `, [userId, `Episodio ${episodeId} (WildShorts)`, -price, 'WildShorts']);
+    } else {
       await client.query(`
         INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
         VALUES ($1, $2, $3, $4)
       `, [userId, `Episodio ${episodeId} (WildShorts)`, -price, 'WildShorts']);
-    });
+    }
     
     await client.query('COMMIT');
+    client.release();
+    
     res.json({ success: true, newBalance });
   } catch (e) {
-    await client.query('ROLLBACK');
+    // Intentar hacer rollback si la transacción está activa
+    try {
+      await client.query('ROLLBACK');
+    } catch (rollbackError) {
+      // Ignorar errores de rollback si la transacción ya fue abortada
+      console.log('[WildShorts] Error en rollback (posiblemente ya abortado):', rollbackError.message);
+    }
+    client.release();
+    
     console.error('Error pagando episodio:', e);
     res.status(500).json({ error: 'Error interno' });
-  } finally {
-    client.release();
   }
 });
 

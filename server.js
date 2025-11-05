@@ -211,9 +211,425 @@ app.get('/ocean-pay/wildcredits/balance', async (req, res) => {
   }
 });
 
-// Endpoint para vincular Ocean Pay desde Wild Explorer
+/* ===== WILDSHORTS - WILDGEMS ===== */
+// Endpoint para obtener WildGems desde Ocean Pay
+app.get('/wildshorts/wildgems/balance', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+  
+  const token = authHeader.substring(7);
+  let userId;
+  try {
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
+    userId = decoded.uid;
+    userId = parseInt(userId) || userId;
+  } catch (e) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+  
+  try {
+    const { rows } = await pool.query(`
+      SELECT value FROM ocean_pay_metadata
+      WHERE user_id = $1 AND key = 'wildgems'
+    `, [userId]);
+    
+    const wildGems = rows.length > 0 ? parseInt(rows[0].value || '0') : 0;
+    res.json({ wildgems: wildGems });
+  } catch (e) {
+    if (e.code === '42P01') {
+      res.json({ wildgems: 0 });
+    } else {
+      console.error('Error obteniendo wildGems:', e);
+      res.status(500).json({ error: 'Error interno' });
+    }
+  }
+});
+
+// Endpoint para sincronizar WildGems desde WildShorts
+app.post('/wildshorts/wildgems/sync', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+  
+  const token = authHeader.substring(7);
+  let userId;
+  try {
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
+    userId = decoded.uid;
+    userId = parseInt(userId) || userId;
+  } catch (e) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+  
+  const { wildGems } = req.body;
+  if (wildGems === undefined || wildGems === null) {
+    return res.status(400).json({ error: 'wildGems requerido' });
+  }
+  
+  const wildGemsValue = parseInt(wildGems || '0');
+  
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ocean_pay_metadata (
+        user_id INTEGER NOT NULL,
+        key TEXT NOT NULL,
+        value TEXT NOT NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, key)
+      )
+    `);
+    
+    await pool.query(`
+      INSERT INTO ocean_pay_metadata (user_id, key, value)
+      VALUES ($1, 'wildgems', $2)
+      ON CONFLICT (user_id, key) 
+      DO UPDATE SET value = $2, updated_at = CURRENT_TIMESTAMP
+    `, [userId, wildGemsValue.toString()]);
+    
+    res.json({ success: true, wildgems: wildGemsValue });
+  } catch (e) {
+    console.error('Error sincronizando wildGems:', e);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Endpoint para cambiar WildGems (compras, gastos, etc.)
+app.post('/wildshorts/wildgems/change', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+  
+  const token = authHeader.substring(7);
+  let userId;
+  try {
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
+    userId = decoded.uid;
+    userId = parseInt(userId) || userId;
+  } catch (e) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+  
+  const { amount, concepto = 'Operación', origen = 'WildShorts' } = req.body;
+  if (amount === undefined) {
+    return res.status(400).json({ error: 'amount requerido' });
+  }
+  
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    
+    // Obtener saldo actual
+    const { rows } = await client.query(`
+      SELECT value FROM ocean_pay_metadata
+      WHERE user_id = $1 AND key = 'wildgems'
+      FOR UPDATE
+    `, [userId]);
+    
+    const current = parseInt(rows[0]?.value || '0');
+    const newBalance = current + parseInt(amount);
+    
+    if (newBalance < 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Saldo insuficiente' });
+    }
+    
+    // Actualizar saldo
+    await client.query(`
+      INSERT INTO ocean_pay_metadata (user_id, key, value)
+      VALUES ($1, 'wildgems', $2)
+      ON CONFLICT (user_id, key) 
+      DO UPDATE SET value = $2, updated_at = CURRENT_TIMESTAMP
+    `, [userId, newBalance.toString()]);
+    
+    // Registrar transacción
+    await client.query(`
+      INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+      VALUES ($1, $2, $3, $4, 'WG')
+      ON CONFLICT DO NOTHING
+    `, [userId, concepto, amount, origen]).catch(async () => {
+      // Si falla por falta de columna moneda, intentar sin ella
+      await client.query(`
+        INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
+        VALUES ($1, $2, $3, $4)
+      `, [userId, concepto, amount, origen]);
+    });
+    
+    await client.query('COMMIT');
+    res.json({ success: true, newBalance });
+  } catch (e) {
+    await client.query('ROLLBACK');
+    console.error('Error cambiando wildGems:', e);
+    res.status(500).json({ error: 'Error interno' });
+  } finally {
+    client.release();
+  }
+});
+
+/* ===== WILDSHORTS - SUSCRIPCIONES ===== */
+// Endpoint para suscribirse a un plan de WildShorts
+app.post('/wildshorts/subscribe', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+  
+  const token = authHeader.substring(7);
+  let userId;
+  try {
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
+    userId = decoded.uid;
+    userId = parseInt(userId) || userId;
+  } catch (e) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+  
+  const { planId, paymentMethod } = req.body; // paymentMethod: 'weekly' o 'pay-as-you-go'
+  if (!planId || !paymentMethod) {
+    return res.status(400).json({ error: 'planId y paymentMethod requeridos' });
+  }
+  
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    
+    // Obtener saldo de WildGems
+    const { rows: gemsRows } = await client.query(`
+      SELECT value FROM ocean_pay_metadata
+      WHERE user_id = $1 AND key = 'wildgems'
+      FOR UPDATE
+    `, [userId]);
+    
+    const currentGems = parseInt(gemsRows[0]?.value || '0');
+    
+    // Calcular precio según método de pago
+    // Para weekly: precio reducido (ej: 70% del precio mensual)
+    // Para pay-as-you-go: no se cobra aquí, se cobra por episodio
+    const planPrices = {
+      starter: { weekly: 350, payAsYouGo: 0 },
+      explorer: { weekly: 840, payAsYouGo: 0 },
+      adventurer: { weekly: 1750, payAsYouGo: 0 },
+      legend: { weekly: 3500, payAsYouGo: 0 },
+      ultra: { weekly: 6300, payAsYouGo: 0 },
+      founder: { weekly: 14000, payAsYouGo: 0 }
+    };
+    
+    const planPrice = planPrices[planId]?.[paymentMethod === 'weekly' ? 'weekly' : 'payAsYouGo'] || 0;
+    
+    if (paymentMethod === 'weekly' && currentGems < planPrice) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: `Saldo insuficiente. Necesitas ${planPrice} WildGems.` });
+    }
+    
+    // Si es weekly, descontar inmediatamente
+    if (paymentMethod === 'weekly') {
+      const newBalance = currentGems - planPrice;
+      await client.query(`
+        INSERT INTO ocean_pay_metadata (user_id, key, value)
+        VALUES ($1, 'wildgems', $2)
+        ON CONFLICT (user_id, key) 
+        DO UPDATE SET value = $2, updated_at = CURRENT_TIMESTAMP
+      `, [userId, newBalance.toString()]);
+      
+      // Registrar transacción
+      await client.query(`
+        INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+        VALUES ($1, $2, $3, $4, 'WG')
+      `, [userId, `Suscripción ${planId} (WildShorts) - Semanal`, -planPrice, 'WildShorts']).catch(async () => {
+        await client.query(`
+          INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
+          VALUES ($1, $2, $3, $4)
+        `, [userId, `Suscripción ${planId} (WildShorts) - Semanal`, -planPrice, 'WildShorts']);
+      });
+    }
+    
+    // Crear/actualizar suscripción
+    const now = new Date();
+    const endsAt = paymentMethod === 'weekly' 
+      ? new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000) // 7 días
+      : null; // pay-as-you-go no tiene fecha de expiración
+    
+    // Crear tabla de suscripciones de WildShorts si no existe
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS wildshorts_subs (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        plan_id TEXT NOT NULL,
+        payment_method TEXT NOT NULL,
+        starts_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        ends_at TIMESTAMP,
+        active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(user_id, plan_id, payment_method)
+      )
+    `);
+    
+    // Cerrar suscripciones anteriores del mismo plan
+    await client.query(`
+      UPDATE wildshorts_subs 
+      SET active = false 
+      WHERE user_id = $1 AND plan_id = $2 AND active = true
+    `, [userId, planId]);
+    
+    // Crear nueva suscripción
+    const { rows: subRows } = await client.query(`
+      INSERT INTO wildshorts_subs (user_id, plan_id, payment_method, starts_at, ends_at, active)
+      VALUES ($1, $2, $3, $4, $5, true)
+      ON CONFLICT (user_id, plan_id, payment_method)
+      DO UPDATE SET starts_at = $4, ends_at = $5, active = true
+      RETURNING *
+    `, [userId, planId, paymentMethod, now, endsAt]);
+    
+    await client.query('COMMIT');
+    
+    res.json({
+      success: true,
+      subscription: subRows[0],
+      newBalance: paymentMethod === 'weekly' ? currentGems - planPrice : currentGems
+    });
+  } catch (e) {
+    await client.query('ROLLBACK');
+    console.error('Error suscribiendo a WildShorts:', e);
+    res.status(500).json({ error: 'Error interno' });
+  } finally {
+    client.release();
+  }
+});
+
+// Endpoint para obtener suscripción activa de WildShorts
+app.get('/wildshorts/subscription/:userId', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+  
+  const token = authHeader.substring(7);
+  let userId;
+  try {
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
+    userId = decoded.uid;
+    userId = parseInt(userId) || userId;
+  } catch (e) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+  
+  try {
+    const { rows } = await pool.query(`
+      SELECT * FROM wildshorts_subs
+      WHERE user_id = $1 AND active = true
+      AND (ends_at IS NULL OR ends_at > NOW())
+      ORDER BY created_at DESC
+      LIMIT 1
+    `, [userId]);
+    
+    res.json(rows[0] || null);
+  } catch (e) {
+    if (e.code === '42P01') {
+      res.json(null);
+    } else {
+      console.error('Error obteniendo suscripción:', e);
+      res.status(500).json({ error: 'Error interno' });
+    }
+  }
+});
+
+// Endpoint para pagar por episodio (pay-as-you-go)
+app.post('/wildshorts/episode/pay', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+  
+  const token = authHeader.substring(7);
+  let userId;
+  try {
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
+    userId = decoded.uid;
+    userId = parseInt(userId) || userId;
+  } catch (e) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+  
+  const { episodeId, episodePrice, requiredPlan } = req.body;
+  if (!episodeId || episodePrice === undefined) {
+    return res.status(400).json({ error: 'episodeId y episodePrice requeridos' });
+  }
+  
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    
+    // Verificar si tiene suscripción activa que cubra este plan
+    if (requiredPlan) {
+      const { rows: subRows } = await client.query(`
+        SELECT plan_id FROM wildshorts_subs
+        WHERE user_id = $1 AND active = true
+        AND (ends_at IS NULL OR ends_at > NOW())
+      `, [userId]);
+      
+      const planHierarchy = ['free', 'starter', 'explorer', 'adventurer', 'legend', 'ultra', 'founder'];
+      const userPlan = subRows[0]?.plan_id || 'free';
+      const requiredPlanIndex = planHierarchy.indexOf(requiredPlan);
+      const userPlanIndex = planHierarchy.indexOf(userPlan);
+      
+      if (userPlanIndex < requiredPlanIndex) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({ error: 'Plan insuficiente para este episodio' });
+      }
+    }
+    
+    // Obtener saldo de WildGems
+    const { rows: gemsRows } = await client.query(`
+      SELECT value FROM ocean_pay_metadata
+      WHERE user_id = $1 AND key = 'wildgems'
+      FOR UPDATE
+    `, [userId]);
+    
+    const currentGems = parseInt(gemsRows[0]?.value || '0');
+    const price = parseInt(episodePrice);
+    
+    if (currentGems < price) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: `Saldo insuficiente. Necesitas ${price} WildGems.` });
+    }
+    
+    // Descontar WildGems
+    const newBalance = currentGems - price;
+    await client.query(`
+      INSERT INTO ocean_pay_metadata (user_id, key, value)
+      VALUES ($1, 'wildgems', $2)
+      ON CONFLICT (user_id, key) 
+      DO UPDATE SET value = $2, updated_at = CURRENT_TIMESTAMP
+    `, [userId, newBalance.toString()]);
+    
+    // Registrar transacción
+    await client.query(`
+      INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+      VALUES ($1, $2, $3, $4, 'WG')
+    `, [userId, `Episodio ${episodeId} (WildShorts)`, -price, 'WildShorts']).catch(async () => {
+      await client.query(`
+        INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
+        VALUES ($1, $2, $3, $4)
+      `, [userId, `Episodio ${episodeId} (WildShorts)`, -price, 'WildShorts']);
+    });
+    
+    await client.query('COMMIT');
+    res.json({ success: true, newBalance });
+  } catch (e) {
+    await client.query('ROLLBACK');
+    console.error('Error pagando episodio:', e);
+    res.status(500).json({ error: 'Error interno' });
+  } finally {
+    client.release();
+  }
+});
+
+// Endpoint para vincular Ocean Pay desde Wild Explorer o WildShorts
 app.post('/ocean-pay/link-account', async (req, res) => {
-  const { username, password, wildCredits } = req.body;
+  const { username, password, wildCredits, wildGems } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Faltan datos' });
   
   try {
@@ -233,10 +649,11 @@ app.post('/ocean-pay/link-account', async (req, res) => {
     
     const token = jwt.sign({ uid: rows[0].id, un: username }, process.env.STUDIO_SECRET, { expiresIn: '7d' });
     
-    // WildCredits se envía desde el cliente (desde localStorage de Wild Explorer)
+    // WildCredits y WildGems se envían desde el cliente
     const wildCreditsValue = parseInt(wildCredits || '0');
+    const wildGemsValue = parseInt(wildGems || '0');
     
-    // Guardar wildCredits en el servidor también
+    // Guardar wildCredits y wildGems en el servidor
     try {
       await pool.query(`
         CREATE TABLE IF NOT EXISTS ocean_pay_metadata (
@@ -247,14 +664,36 @@ app.post('/ocean-pay/link-account', async (req, res) => {
           PRIMARY KEY (user_id, key)
         )
       `);
-      await pool.query(`
-        INSERT INTO ocean_pay_metadata (user_id, key, value)
-        VALUES ($1, 'wildcredits', $2)
-        ON CONFLICT (user_id, key) 
-        DO UPDATE SET value = $2, updated_at = CURRENT_TIMESTAMP
-      `, [rows[0].id, wildCreditsValue.toString()]);
+      if (wildCreditsValue > 0) {
+        await pool.query(`
+          INSERT INTO ocean_pay_metadata (user_id, key, value)
+          VALUES ($1, 'wildcredits', $2)
+          ON CONFLICT (user_id, key) 
+          DO UPDATE SET value = $2, updated_at = CURRENT_TIMESTAMP
+        `, [rows[0].id, wildCreditsValue.toString()]);
+      }
+      if (wildGemsValue > 0) {
+        await pool.query(`
+          INSERT INTO ocean_pay_metadata (user_id, key, value)
+          VALUES ($1, 'wildgems', $2)
+          ON CONFLICT (user_id, key) 
+          DO UPDATE SET value = $2, updated_at = CURRENT_TIMESTAMP
+        `, [rows[0].id, wildGemsValue.toString()]);
+      }
     } catch (e) {
-      console.warn('No se pudo guardar wildCredits en servidor (continuando):', e.message);
+      console.warn('No se pudo guardar wildCredits/wildGems en servidor (continuando):', e.message);
+    }
+    
+    // Obtener wildGems actualizado del servidor
+    let serverWildGems = 0;
+    try {
+      const { rows: gemsRows } = await pool.query(`
+        SELECT value FROM ocean_pay_metadata
+        WHERE user_id = $1 AND key = 'wildgems'
+      `, [rows[0].id]);
+      serverWildGems = gemsRows.length > 0 ? parseInt(gemsRows[0].value || '0') : wildGemsValue;
+    } catch (e) {
+      serverWildGems = wildGemsValue;
     }
     
     res.json({
@@ -266,14 +705,16 @@ app.post('/ocean-pay/link-account', async (req, res) => {
         aquabux: rows[0].aquabux || 0,
         ecoxionums: rows[0].ecoxionums || 0,
         ecorebits: Number(rows[0].ecorebits) || 0,
-        wildcredits: wildCreditsValue,  // Incluir wildCredits en la respuesta
+        wildcredits: wildCreditsValue,
+        wildgems: serverWildGems,
         appbux: rows[0].appbux || 0
       },
       balances: {
         aquabux: rows[0].aquabux || 0,
         ecoxionums: rows[0].ecoxionums || 0,
         ecorebits: Number(rows[0].ecorebits) || 0,
-        wildcredits: wildCreditsValue,  // Incluir en balances también
+        wildcredits: wildCreditsValue,
+        wildgems: serverWildGems,
         appbux: rows[0].appbux || 0
       }
     });
@@ -423,14 +864,56 @@ async function addStrike(userId, reason, productId = null, transactionClient = n
     // Crear notificación de strike
     let strikeMessage = `⚠️ Has recibido un strike. Razón: ${reason}.`;
     if (productId) {
-      strikeMessage += ` Este strike es por el producto ID: ${productId}.`;
+      // Intentar obtener el nombre del producto si existe
+      let productName = null;
+      if (transactionClient) {
+        try {
+          const { rows: productInfo } = await client.query(
+            'SELECT name FROM products_nat WHERE id = $1',
+            [productId]
+          );
+          if (productInfo.length > 0) {
+            productName = productInfo[0].name;
+          }
+        } catch (err) {
+          // Ignorar error, usar solo el ID
+        }
+      }
+      
+      if (productName) {
+        strikeMessage += ` Este strike es por el producto: "${productName}" (ID: ${productId}).`;
+      } else {
+        strikeMessage += ` Este strike es por el producto ID: ${productId}.`;
+      }
     }
     strikeMessage += ` Tienes ${newStrikes}/3 strikes. Con 3 strikes serás baneado por 3 días.`;
+    
+    // Si el producto ya fue eliminado, usar NULL para product_id para evitar problemas de foreign key
+    // Pero primero intentamos con el product_id si existe
+    let finalProductId = productId;
+    
+    // Verificar si el producto existe (solo si estamos en una transacción y productId no es null)
+    if (productId && transactionClient) {
+      try {
+        const { rows: productCheck } = await client.query(
+          'SELECT id FROM products_nat WHERE id = $1',
+          [productId]
+        );
+        // Si el producto no existe, usar NULL
+        if (productCheck.length === 0) {
+          finalProductId = null;
+          strikeMessage += ` (Nota: El producto ya fue eliminado)`;
+        }
+      } catch (checkErr) {
+        // Si hay error al verificar, usar NULL para ser seguro
+        finalProductId = null;
+      }
+    }
     
     await client.query(
       `INSERT INTO notifications_nat (user_id, type, message, product_id, created_at)
        VALUES ($1, 'strike', $2, $3, NOW())`,
-      [userId, strikeMessage, productId]
+      [userId, strikeMessage, finalProductId]
     );
     
     if (!transactionClient) {
@@ -2148,12 +2631,22 @@ app.post('/natmarket/admin/reports/:id/decide', async (req, res) => {
       // Aprobar: eliminar producto y dar strike al dueño
       const reason = admin_response || 'Producto reportado y eliminado por violación de términos';
       
-      // Guardar el product_id antes de eliminarlo
+      // Guardar el product_id y nombre del producto antes de eliminarlo
       const deletedProductId = report.product_id;
+      
+      // Obtener nombre del producto para la notificación
+      const { rows: productRows } = await client.query(
+        'SELECT name FROM products_nat WHERE id = $1',
+        [deletedProductId]
+      );
+      const productName = productRows[0]?.name || `Producto ID: ${deletedProductId}`;
+      
+      // Crear razón completa con información del producto
+      const fullReason = `${reason} Producto eliminado: "${productName}"`;
       
       // Dar strike al dueño del producto ANTES de eliminar el producto
       // (para que la notificación pueda referenciar el producto)
-      const strikeResult = await addStrike(report.product_owner_id, reason, deletedProductId, client);
+      const strikeResult = await addStrike(report.product_owner_id, fullReason, deletedProductId, client);
       
       if (strikeResult.error) {
         await client.query('ROLLBACK');

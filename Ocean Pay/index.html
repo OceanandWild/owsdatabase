@@ -5,53 +5,135 @@
 <title>Ocean Pay – Tu billetera universal</title>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 :root{
-  --bg:#0b1020;
-  --card:#0b1930;
+  --bg:#0a0e1a;
+  --card:#0f1624;
   --accent:#22d3ee;
-  --text:#cbe8ff;
+  --text:#e0f2fe;
   --ok:#10b981;
   --err:#ef4444;
-  --glass:rgba(255,255,255,.05);
+  --glass:rgba(255,255,255,.08);
+  --glass-strong:rgba(255,255,255,.12);
   --purple:#a855f7;
   --orange:#f97316;
   --wild:#667eea;
+  --gold:#ffd700;
+  --shadow-accent:0 0 40px rgba(34,211,238,.3);
+  --shadow-card:0 8px 32px rgba(0,0,0,.4);
 }
-*{box-sizing:border-box;margin:0;font-family:system-ui,Arial,Helvetica,sans-serif;}
+*{box-sizing:border-box;margin:0;font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;}
 body{
-  background:radial-gradient(circle at 50% 50%,#0b1f3a 0%,#030b18 100%);
+  background:linear-gradient(135deg, #0a0e1a 0%, #1a1f3a 50%, #0f1624 100%);
+  background-attachment:fixed;
+  position:relative;
   color:var(--text);
-  display:flex;align-items:center;justify-content:center;min-height:100vh;padding:1rem;
+  display:flex;align-items:center;justify-content:center;min-height:100vh;padding:1.5rem;
+  overflow-x:hidden;
+}
+body::before{
+  content:'';position:fixed;top:0;left:0;right:0;bottom:0;
+  background:radial-gradient(circle at 20% 50%, rgba(34,211,238,.1) 0%, transparent 50%),
+              radial-gradient(circle at 80% 80%, rgba(167,85,247,.1) 0%, transparent 50%);
+  pointer-events:none;z-index:0;
+}
+body::after{
+  content:'';position:fixed;top:0;left:0;right:0;bottom:0;
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(255,255,255,.05) 1px, transparent 0);
+  background-size:50px 50px;
+  pointer-events:none;z-index:0;
+  opacity:.3;
 }
 .ocean-card{
-  width:100%;max-width:900px;background:var(--glass);
-  backdrop-filter:blur(12px);border:1px solid var(--accent);
-  border-radius:1.5rem;padding:2.5rem;
-  box-shadow:0 0 30px rgba(34,211,238,.35);
+  width:100%;max-width:1200px;background:linear-gradient(135deg, rgba(15,22,36,.95) 0%, rgba(10,14,26,.98) 100%);
+  backdrop-filter:blur(20px) saturate(180%);
+  border:1px solid rgba(34,211,238,.2);
+  border-radius:2rem;padding:3rem;
+  box-shadow:var(--shadow-card), var(--shadow-accent), inset 0 1px 0 rgba(255,255,255,.1);
+  position:relative;z-index:1;
+  animation:slideUp .6s ease-out;
 }
-h1{
-  text-align:center;margin-bottom:2rem;font-size:2rem;
-  background:linear-gradient(90deg,var(--accent),#a6e1ff);
+@keyframes slideUp{
+  from{opacity:0;transform:translateY(30px);}
+  to{opacity:1;transform:translateY(0);}
+}
+.ocean-header{
+  text-align:center;margin-bottom:3rem;position:relative;
+}
+.ocean-header h1{
+  font-size:3rem;font-weight:900;margin-bottom:.5rem;
+  background:linear-gradient(135deg, #22d3ee 0%, #67e8f9 50%, #a6e1ff 100%);
   -webkit-background-clip:text;background-clip:text;color:transparent;
+  text-shadow:0 0 40px rgba(34,211,238,.5);
+  letter-spacing:-.02em;
+  position:relative;
+  display:inline-block;
 }
-label{font-size:.9rem;margin-bottom:.5rem;display:block;font-weight:500;}
+.ocean-header h1::after{
+  content:'';position:absolute;bottom:-10px;left:50%;transform:translateX(-50%);
+  width:100px;height:4px;background:linear-gradient(90deg, transparent, var(--accent), transparent);
+  border-radius:2px;
+}
+.ocean-header .subtitle{
+  font-size:1rem;color:#9bb0c2;font-weight:400;margin-top:1rem;
+  letter-spacing:.05em;
+}
+label{
+  font-size:.875rem;margin-bottom:.75rem;display:block;
+  font-weight:600;color:#b8d4e8;text-transform:uppercase;
+  letter-spacing:.05em;
+}
 input{
-  width:100%;padding:.875rem;border-radius:.5rem;
-  border:1px solid var(--accent);background:#061124;color:var(--text);
-  margin-bottom:1rem;font-size:.95rem;transition:border-color .2s;
+  width:100%;padding:1rem 1.25rem;border-radius:.75rem;
+  border:2px solid rgba(34,211,238,.2);
+  background:rgba(10,14,26,.6);
+  backdrop-filter:blur(10px);
+  color:var(--text);
+  margin-bottom:1.25rem;font-size:1rem;
+  transition:all .3s ease;
+  font-weight:500;
 }
-input:focus{outline:none;border-color:#67e8f9;}
+input:focus{
+  outline:none;border-color:var(--accent);
+  box-shadow:0 0 0 4px rgba(34,211,238,.1), 0 0 20px rgba(34,211,238,.2);
+  background:rgba(10,14,26,.8);
+  transform:translateY(-2px);
+}
+input::placeholder{color:#6b7a8f;opacity:.7;}
 button{
-  cursor:pointer;width:100%;padding:.875rem;border:none;
-  border-radius:.5rem;font-weight:700;background:var(--accent);
-  color:#0b1020;transition:background .2s,transform .1s;font-size:1rem;
+  cursor:pointer;width:100%;padding:1rem 1.5rem;border:none;
+  border-radius:.75rem;font-weight:700;
+  background:linear-gradient(135deg, var(--accent) 0%, #06b6d4 100%);
+  color:#0a0e1a;transition:all .3s cubic-bezier(0.4, 0, 0.2, 1);
+  font-size:1rem;position:relative;overflow:hidden;
+  box-shadow:0 4px 15px rgba(34,211,238,.3);
+  text-transform:uppercase;letter-spacing:.05em;
 }
-button:hover{background:#67e8f9;}
-button:active{transform:scale(.98);}
+button::before{
+  content:'';position:absolute;top:50%;left:50%;
+  width:0;height:0;border-radius:50%;
+  background:rgba(255,255,255,.3);
+  transform:translate(-50%, -50%);
+  transition:width .6s, height .6s;
+}
+button:hover::before{width:300px;height:300px;}
+button:hover{
+  background:linear-gradient(135deg, #67e8f9 0%, var(--accent) 100%);
+  transform:translateY(-2px);
+  box-shadow:0 6px 25px rgba(34,211,238,.4);
+}
+button:active{transform:translateY(0) scale(.98);}
 button.secondary{
-  background:transparent;border:1px solid var(--accent);color:var(--accent);
+  background:transparent;border:2px solid var(--accent);
+  color:var(--accent);box-shadow:none;
 }
-button.secondary:hover{background:rgba(34,211,238,.1);}
+button.secondary::before{display:none;}
+button.secondary:hover{
+  background:rgba(34,211,238,.1);
+  border-color:#67e8f9;
+  color:#67e8f9;
+}
 .msg{font-size:.85rem;margin-top:.5rem;}
 .error{color:var(--err);}
 .success{color:var(--ok);}
@@ -67,134 +149,358 @@ button.secondary:hover{background:rgba(34,211,238,.1);}
   to{opacity:1;transform:translateY(0);}
 }
 
-/* Wallet - Mejoras */
+/* Wallet - Mejoras Profesionales */
 .section-title{
-  font-size:.9rem;color:#9bb0c2;text-transform:uppercase;letter-spacing:.05em;
-  margin:1.5rem 0 .75rem 0;font-weight:600;
+  font-size:.875rem;color:#9bb0c2;text-transform:uppercase;
+  letter-spacing:.1em;margin:2rem 0 1.5rem 0;font-weight:700;
+  display:flex;align-items:center;gap:.75rem;
+}
+.section-title::before{
+  content:'';flex:1;height:1px;
+  background:linear-gradient(90deg, transparent, rgba(34,211,238,.3), transparent);
+}
+.section-title::after{
+  content:'';flex:1;height:1px;
+  background:linear-gradient(90deg, transparent, rgba(34,211,238,.3), transparent);
 }
 .balance-grid{
-  display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:1rem;margin-bottom:1.5rem;
+  display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));
+  gap:1.5rem;margin-bottom:2.5rem;
 }
-@media (min-width: 1200px) {
-  .balance-grid{grid-template-columns:repeat(6, 1fr);}
+@media (min-width: 1400px) {
+  .balance-grid{grid-template-columns:repeat(3, 1fr);}
 }
-@media (max-width: 768px) {
+@media (min-width: 768px) and (max-width: 1399px) {
+  .balance-grid{grid-template-columns:repeat(2, 1fr);}
+}
+@media (max-width: 767px) {
   .balance-grid{grid-template-columns:1fr;}
+  .ocean-card{padding:2rem 1.5rem;}
+  .ocean-header h1{font-size:2.25rem;}
+  .currency-card{padding:1.5rem;}
+  .currency-card .amount{font-size:1.75rem;}
 }
 .currency-card{
-  background:var(--glass);border:1px solid var(--accent);
-  border-radius:1rem;padding:1.25rem;
-  display:flex;flex-direction:column;gap:.5rem;position:relative;
-  transition:all .3s;cursor:pointer;
+  background:linear-gradient(135deg, rgba(255,255,255,.08) 0%, rgba(255,255,255,.04) 100%);
+  backdrop-filter:blur(15px);
+  border:1px solid rgba(34,211,238,.2);
+  border-radius:1.25rem;padding:1.75rem;
+  display:flex;flex-direction:column;gap:.75rem;
+  position:relative;cursor:pointer;
+  transition:all .4s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow:hidden;
+  box-shadow:0 4px 20px rgba(0,0,0,.2);
 }
-.currency-card:hover{transform:translateY(-3px);box-shadow:0 4px 20px rgba(34,211,238,.25);}
-.currency-card.active{border-color:var(--ok);border-width:2px;}
-.currency-card.soon{opacity:.6;cursor:not-allowed;}
-.currency-card-header{display:flex;justify-content:space-between;align-items:flex-start;}
-.currency-card .label{font-size:.85rem;color:#9bb0c2;text-transform:uppercase;letter-spacing:.05em;font-weight:600;}
-.currency-card .amount{font-size:1.75rem;font-weight:700;color:var(--accent);margin:.25rem 0;}
+.currency-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;
+  height:3px;background:linear-gradient(90deg, var(--accent), transparent);
+  opacity:0;transition:opacity .4s;
+}
+.currency-card:hover::before{opacity:1;}
+.currency-card:hover{
+  transform:translateY(-8px) scale(1.02);
+  box-shadow:0 12px 40px rgba(34,211,238,.25), 0 0 0 1px rgba(34,211,238,.3);
+  border-color:rgba(34,211,238,.4);
+  background:linear-gradient(135deg, rgba(255,255,255,.12) 0%, rgba(255,255,255,.06) 100%);
+}
+.currency-card.active{
+  border-color:var(--ok);border-width:2px;
+  box-shadow:0 0 0 3px rgba(16,185,129,.2), 0 8px 30px rgba(16,185,129,.3);
+}
+.currency-card.soon{opacity:.5;cursor:not-allowed;}
+.currency-card-header{
+  display:flex;justify-content:space-between;
+  align-items:flex-start;margin-bottom:.5rem;
+}
+.currency-icon{
+  width:48px;height:48px;border-radius:12px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.5rem;margin-bottom:1rem;
+  background:rgba(255,255,255,.1);
+  box-shadow:0 4px 15px rgba(0,0,0,.2);
+}
+.currency-card .label{
+  font-size:.75rem;color:#9bb0c2;
+  text-transform:uppercase;letter-spacing:.1em;
+  font-weight:700;margin-bottom:.5rem;
+  display:block;
+}
+.currency-card .amount{
+  font-size:2rem;font-weight:800;
+  color:var(--accent);margin:.25rem 0;
+  line-height:1.2;
+  text-shadow:0 0 20px rgba(34,211,238,.3);
+  font-variant-numeric:tabular-nums;
+}
 #wildcredits-card .amount{color:var(--wild);}
-#wildcredits-card{border-color:var(--wild);}
-#wildgems-card .amount{color:#ffd700;}
-#wildgems-card{border-color:#ffd700;}
+#wildcredits-card{border-color:rgba(102,126,234,.3);}
+#wildcredits-card:hover{border-color:rgba(102,126,234,.5);}
+#wildcredits-card .currency-icon{background:linear-gradient(135deg, rgba(102,126,234,.3), rgba(102,126,234,.1));}
+#wildgems-card .amount{color:var(--gold);}
+#wildgems-card{border-color:rgba(255,215,0,.3);}
+#wildgems-card:hover{border-color:rgba(255,215,0,.5);}
+#wildgems-card .currency-icon{background:linear-gradient(135deg, rgba(255,215,0,.3), rgba(255,215,0,.1));}
+#ecoxionums-card .amount{color:#10b981;}
+#ecoxionums-card{border-color:rgba(16,185,129,.3);}
+#appbux-card .amount{color:var(--orange);}
+#appbux-card{border-color:rgba(249,115,22,.3);}
 .currency-card .badge{
-  position:absolute;top:1rem;right:1rem;font-size:.7rem;
-  background:var(--accent);color:#0b1020;padding:.25rem .5rem;border-radius:.4rem;
-  font-weight:600;
+  position:absolute;top:1rem;right:1rem;
+  font-size:.7rem;background:var(--accent);
+  color:#0a0e1a;padding:.35rem .65rem;
+  border-radius:.5rem;font-weight:700;
+  box-shadow:0 2px 10px rgba(34,211,238,.3);
+  text-transform:uppercase;letter-spacing:.05em;
 }
 .currency-card .app-info{
-  margin-top:.75rem;padding-top:.75rem;border-top:1px solid rgba(255,255,255,.1);
+  margin-top:1rem;padding-top:1rem;
+  border-top:1px solid rgba(255,255,255,.1);
   font-size:.8rem;color:#9bb0c2;
+  display:flex;align-items:center;gap:.5rem;
 }
-.currency-card .app-info strong{color:var(--text);font-weight:600;}
+.currency-card .app-info strong{
+  color:var(--text);font-weight:600;
+}
 .currency-card .app-info .sub-divisa{
   margin-top:.5rem;padding:.5rem;background:rgba(255,255,255,.03);
   border-radius:.5rem;font-size:.75rem;
 }
 .sub-divisas-section{
-  margin-top:1.5rem;padding:1rem;background:rgba(255,255,255,.02);
-  border-radius:.75rem;border:1px solid rgba(255,255,255,.05);
+  margin-top:2rem;padding:1.5rem;
+  background:linear-gradient(135deg, rgba(167,85,247,.1) 0%, rgba(167,85,247,.05) 100%);
+  backdrop-filter:blur(10px);
+  border-radius:1rem;
+  border:1px solid rgba(167,85,247,.2);
+  box-shadow:0 4px 20px rgba(167,85,247,.1);
 }
 .sub-divisas-title{
-  font-size:.85rem;color:var(--accent);font-weight:600;margin-bottom:.75rem;
-  display:flex;align-items:center;gap:.5rem;
+  font-size:.875rem;color:var(--purple);
+  font-weight:700;margin-bottom:1rem;
+  display:flex;align-items:center;gap:.75rem;
+  text-transform:uppercase;letter-spacing:.1em;
 }
 .sub-divisa-item{
-  display:flex;justify-content:space-between;align-items:center;
-  padding:.75rem;background:rgba(255,255,255,.03);border-radius:.5rem;
-  margin-bottom:.5rem;
+  display:flex;justify-content:space-between;
+  align-items:center;padding:1rem 1.25rem;
+  background:rgba(255,255,255,.05);
+  backdrop-filter:blur(5px);
+  border-radius:.75rem;
+  margin-bottom:.75rem;
+  border:1px solid rgba(255,255,255,.05);
+  transition:all .3s ease;
+}
+.sub-divisa-item:hover{
+  background:rgba(255,255,255,.08);
+  border-color:rgba(167,85,247,.3);
+  transform:translateX(5px);
 }
 .sub-divisa-item:last-child{margin-bottom:0;}
-.sub-divisa-label{font-size:.85rem;color:#9bb0c2;}
-.sub-divisa-amount{font-size:1.1rem;font-weight:700;color:var(--purple);}
+.sub-divisa-label{
+  font-size:.9rem;color:#b8d4e8;
+  font-weight:600;
+}
+.sub-divisa-amount{
+  font-size:1.25rem;font-weight:800;
+  color:var(--purple);
+  text-shadow:0 0 15px rgba(167,85,247,.4);
+  font-variant-numeric:tabular-nums;
+}
 
-.tx-details{margin-top:1.5rem;}
+.tx-details{margin-top:2rem;}
 .tx-details summary{
-  cursor:pointer;list-style:none;color:var(--accent);font-weight:600;
-  padding:.75rem;background:rgba(255,255,255,.03);border-radius:.5rem;
-  transition:background .2s;
+  cursor:pointer;list-style:none;
+  color:var(--text);font-weight:700;
+  padding:1rem 1.25rem;
+  background:linear-gradient(135deg, rgba(255,255,255,.08) 0%, rgba(255,255,255,.04) 100%);
+  backdrop-filter:blur(10px);
+  border-radius:.75rem;
+  border:1px solid rgba(34,211,238,.2);
+  transition:all .3s ease;
+  display:flex;align-items:center;gap:.75rem;
+  font-size:1rem;text-transform:uppercase;
+  letter-spacing:.05em;
 }
-.tx-details summary:hover{background:rgba(255,255,255,.06);}
-.tx-details[open] summary{margin-bottom:.75rem;}
+.tx-details summary:hover{
+  background:linear-gradient(135deg, rgba(255,255,255,.12) 0%, rgba(255,255,255,.06) 100%);
+  border-color:rgba(34,211,238,.4);
+  transform:translateY(-2px);
+  box-shadow:0 4px 15px rgba(34,211,238,.2);
+}
+.tx-details[open] summary{
+  margin-bottom:1rem;
+  border-bottom-left-radius:0;
+  border-bottom-right-radius:0;
+}
 .tx-list{
-  max-height:300px;overflow-y:auto;margin-top:.5rem;
-  display:flex;flex-direction:column;gap:.5rem;
+  max-height:400px;overflow-y:auto;margin-top:0;
+  display:flex;flex-direction:column;gap:.75rem;
+  padding:1rem;
+  background:rgba(10,14,26,.4);
+  border-radius:0 0 .75rem .75rem;
+  border:1px solid rgba(34,211,238,.2);
+  border-top:none;
 }
-.tx-list::-webkit-scrollbar{width:6px;}
-.tx-list::-webkit-scrollbar-track{background:rgba(255,255,255,.05);border-radius:3px;}
-.tx-list::-webkit-scrollbar-thumb{background:var(--accent);border-radius:3px;}
+.tx-list::-webkit-scrollbar{width:8px;}
+.tx-list::-webkit-scrollbar-track{
+  background:rgba(255,255,255,.05);
+  border-radius:4px;
+}
+.tx-list::-webkit-scrollbar-thumb{
+  background:linear-gradient(180deg, var(--accent), #06b6d4);
+  border-radius:4px;
+}
+.tx-list::-webkit-scrollbar-thumb:hover{
+  background:linear-gradient(180deg, #67e8f9, var(--accent));
+}
 .tx-item{
-  padding:.875rem;background:rgba(255,255,255,.03);
-  border-radius:.6rem;border:1px solid rgba(255,255,255,.05);
-  display:flex;justify-content:space-between;align-items:center;
-  transition:all .2s;
+  padding:1rem 1.25rem;
+  background:linear-gradient(135deg, rgba(255,255,255,.06) 0%, rgba(255,255,255,.03) 100%);
+  backdrop-filter:blur(5px);
+  border-radius:.75rem;
+  border:1px solid rgba(255,255,255,.08);
+  display:flex;justify-content:space-between;
+  align-items:center;
+  transition:all .3s cubic-bezier(0.4, 0, 0.2, 1);
+  position:relative;
+  overflow:hidden;
 }
+.tx-item::before{
+  content:'';position:absolute;left:0;top:0;bottom:0;
+  width:3px;background:var(--accent);
+  transform:scaleY(0);transition:transform .3s;
+}
+.tx-item:hover::before{transform:scaleY(1);}
 .tx-item:hover{
-  background:rgba(255,255,255,.06);
-  border-color:var(--accent);
-  transform:translateX(4px);
+  background:linear-gradient(135deg, rgba(255,255,255,.1) 0%, rgba(255,255,255,.05) 100%);
+  border-color:rgba(34,211,238,.3);
+  transform:translateX(8px);
+  box-shadow:0 4px 15px rgba(0,0,0,.2);
 }
-.tx-item-content{flex:1;display:flex;flex-direction:column;gap:.25rem;}
-.tx-item-concept{font-size:.9rem;color:var(--text);font-weight:500;}
+.tx-item-content{
+  flex:1;display:flex;flex-direction:column;
+  gap:.4rem;
+}
+.tx-item-concept{
+  font-size:.95rem;color:var(--text);
+  font-weight:600;
+}
 .tx-item-meta{
-  font-size:.75rem;color:#9bb0c2;
-  display:flex;align-items:center;gap:.5rem;
+  font-size:.8rem;color:#9bb0c2;
+  display:flex;align-items:center;gap:.75rem;
+  font-weight:500;
 }
 .tx-item-origin{
-  padding:.15rem .4rem;background:rgba(34,211,238,.15);
-  border-radius:.25rem;font-size:.7rem;
+  padding:.25rem .6rem;
+  background:rgba(34,211,238,.2);
+  border-radius:.4rem;font-size:.7rem;
+  font-weight:700;text-transform:uppercase;
+  letter-spacing:.05em;
+  border:1px solid rgba(34,211,238,.3);
 }
 .tx-item-amount{
-  font-size:1.1rem;font-weight:700;text-align:right;
-  min-width:80px;
+  font-size:1.25rem;font-weight:800;
+  text-align:right;min-width:100px;
+  font-variant-numeric:tabular-nums;
 }
-.tx-item-amount.positive{color:var(--ok);}
-.tx-item-amount.negative{color:var(--err);}
+.tx-item-amount.positive{
+  color:var(--ok);
+  text-shadow:0 0 15px rgba(16,185,129,.4);
+}
+.tx-item-amount.negative{
+  color:var(--err);
+  text-shadow:0 0 15px rgba(239,68,68,.4);
+}
 .tx-empty{
-  text-align:center;padding:2rem;color:#9bb0c2;font-style:italic;
+  text-align:center;padding:3rem 2rem;
+  color:#9bb0c2;font-style:italic;
+  font-size:1rem;
 }
-.divider{margin:2rem 0;border:none;border-top:1px solid rgba(34,211,238,.2);}
-.toggle-p{text-align:center;margin-top:1.5rem;font-size:.85rem;color:#9bb0c2;}
-.toggle-p a{color:var(--accent);text-decoration:none;font-weight:600;}
-.toggle-p a:hover{text-decoration:underline;}
+.divider{
+  margin:2.5rem 0;border:none;
+  height:1px;background:linear-gradient(90deg, transparent, rgba(34,211,238,.3), transparent);
+}
+.toggle-p{
+  text-align:center;margin-top:2rem;
+  font-size:.9rem;color:#9bb0c2;
+  font-weight:500;
+}
+.toggle-p a{
+  color:var(--accent);text-decoration:none;
+  font-weight:700;margin-left:.5rem;
+  transition:all .3s ease;
+  position:relative;
+}
+.toggle-p a::after{
+  content:'';position:absolute;bottom:-2px;left:0;
+  width:0;height:2px;
+  background:var(--accent);
+  transition:width .3s ease;
+}
+.toggle-p a:hover::after{width:100%;}
+.toggle-p a:hover{
+  color:#67e8f9;
+  text-shadow:0 0 10px rgba(34,211,238,.5);
+}
 
 .loading{
   opacity:.6;pointer-events:none;position:relative;
 }
 .loading::after{
   content:'';position:absolute;top:50%;left:50%;
-  width:20px;height:20px;margin:-10px 0 0 -10px;
-  border:2px solid var(--accent);border-top-color:transparent;
-  border-radius:50%;animation:spin .6s linear infinite;
+  width:24px;height:24px;margin:-12px 0 0 -12px;
+  border:3px solid var(--accent);border-top-color:transparent;
+  border-radius:50%;animation:spin .8s linear infinite;
+  box-shadow:0 0 15px rgba(34,211,238,.4);
 }
 @keyframes spin{
   to{transform:rotate(360deg);}
+}
+
+/* Animaciones adicionales */
+@keyframes pulse{
+  0%, 100%{opacity:1;}
+  50%{opacity:.7;}
+}
+.currency-card .amount{
+  animation:none;
+}
+.currency-card:hover .amount{
+  animation:pulse 2s ease-in-out infinite;
+}
+
+/* Mejoras de accesibilidad */
+button:focus-visible,
+input:focus-visible{
+  outline:2px solid var(--accent);
+  outline-offset:2px;
+}
+
+/* Efecto de brillo en hover para tarjetas */
+.currency-card .shine-effect{
+  position:absolute;top:-50%;left:-50%;
+  width:200%;height:200%;
+  background:linear-gradient(45deg, transparent, rgba(255,255,255,.1), transparent);
+  transform:rotate(45deg);
+  opacity:0;
+  pointer-events:none;
+  transition:opacity .6s;
+}
+.currency-card:hover .shine-effect{
+  opacity:1;
+  animation:shine .6s ease-out;
+}
+@keyframes shine{
+  from{transform:translateX(-100%) translateY(-100%) rotate(45deg);}
+  to{transform:translateX(100%) translateY(100%) rotate(45deg);}
 }
 </style>
 </head>
 <body>
   <div class="ocean-card">
-    <h1>🌊 Ocean Pay</h1>
+    <div class="ocean-header">
+      <h1>🌊 Ocean Pay</h1>
+      <p class="subtitle">Tu Billetera Universal</p>
+    </div>
 
     <!-- LOGIN -->
     <form id="loginForm" class="form-box">
@@ -221,6 +527,8 @@ button.secondary:hover{background:rgba(34,211,238,.1);}
       <div class="section-title">Divisas Principales</div>
       <div class="balance-grid">
         <div class="currency-card active">
+          <div class="shine-effect"></div>
+          <div class="currency-icon">💧</div>
           <div class="currency-card-header">
             <div>
               <span class="label">AquaBux</span>
@@ -228,11 +536,13 @@ button.secondary:hover{background:rgba(34,211,238,.1);}
             </div>
           </div>
           <div class="app-info">
-            <strong>App Perteneciente:</strong> Ocean Cinemas 🎬
+            <strong>Ocean Cinemas</strong> 🎬
           </div>
         </div>
 
         <div class="currency-card" id="ecoxionums-card">
+          <div class="shine-effect"></div>
+          <div class="currency-icon">🌍</div>
           <div class="currency-card-header">
             <div>
               <span class="label">Ecoxionums</span>
@@ -240,11 +550,13 @@ button.secondary:hover{background:rgba(34,211,238,.1);}
             </div>
           </div>
           <div class="app-info">
-            <strong>App Perteneciente:</strong> Ecoxion 🌍
+            <strong>Ecoxion</strong> 🌍
           </div>
         </div>
 
         <div class="currency-card">
+          <div class="shine-effect"></div>
+          <div class="currency-icon">💻</div>
           <div class="currency-card-header">
             <div>
               <span class="label">EcoCoreBits</span>
@@ -252,11 +564,13 @@ button.secondary:hover{background:rgba(34,211,238,.1);}
             </div>
           </div>
           <div class="app-info">
-            <strong>App Perteneciente:</strong> EcoConsole 💻
+            <strong>EcoConsole</strong> 💻
           </div>
         </div>
 
         <div class="currency-card" id="wildcredits-card">
+          <div class="shine-effect"></div>
+          <div class="currency-icon">🌿</div>
           <div class="currency-card-header">
             <div>
               <span class="label">WildCredits</span>
@@ -264,11 +578,13 @@ button.secondary:hover{background:rgba(34,211,238,.1);}
             </div>
           </div>
           <div class="app-info">
-            <strong>App Perteneciente:</strong> Wild Explorer 🌿
+            <strong>Wild Explorer</strong> 🌿
           </div>
         </div>
 
         <div class="currency-card" id="appbux-card">
+          <div class="shine-effect"></div>
+          <div class="currency-icon">📱</div>
           <div class="currency-card-header">
             <div>
               <span class="label">AppBux</span>
@@ -276,11 +592,13 @@ button.secondary:hover{background:rgba(34,211,238,.1);}
             </div>
           </div>
           <div class="app-info">
-            <strong>App Perteneciente:</strong> AllApp 📱
+            <strong>AllApp</strong> 📱
           </div>
         </div>
 
         <div class="currency-card" id="wildgems-card">
+          <div class="shine-effect"></div>
+          <div class="currency-icon">💎</div>
           <div class="currency-card-header">
             <div>
               <span class="label">WildGems</span>
@@ -288,7 +606,7 @@ button.secondary:hover{background:rgba(34,211,238,.1);}
             </div>
           </div>
           <div class="app-info">
-            <strong>App Perteneciente:</strong> WildShorts ⚡
+            <strong>WildShorts</strong> ⚡
           </div>
         </div>
       </div>
@@ -1120,19 +1438,32 @@ if (window.opener) {
   const wildCredits = parseInt(localStorage.getItem('wildCredits') || '0');
   const wildGems = parseInt(localStorage.getItem('ws_wildgems') || '0');
   
-  window.opener.postMessage(
-    JSON.parse(JSON.stringify({
-      type: 'ocean-pay-token',
-      token: data.token,
-      user: data.user,
-      ecoxionums: data.user.ecoxionums,
-      ecorebits: { balance: data.user.ecorebits },
+  const urlParams = new URLSearchParams(window.location.search);
+  const source = urlParams.get('source');
+  
+  const message = JSON.parse(JSON.stringify({
+    type: 'ocean-pay-token',
+    token: data.token,
+    user: {
+      ...data.user,
       wildcredits: wildCredits,
       wildgems: wildGems
-    })),
-    '*'
-  );
-  setTimeout(() => window.close(), 6000);
+    },
+    ecoxionums: data.user.ecoxionums,
+    ecorebits: { balance: data.user.ecorebits },
+    wildcredits: wildCredits,
+    wildgems: wildGems
+  }));
+  
+  console.log('[Ocean-Pay] Enviando mensaje al padre:', message);
+  window.opener.postMessage(message, '*');
+  
+  // Cerrar después de un delay (más corto para mejor UX)
+  setTimeout(() => {
+    if (window.opener && !window.closed) {
+      window.close();
+    }
+  }, source === 'wildshorts' ? 2000 : 3000);
 } else {
   /* 🔓 Modo standalone: quedarse en la wallet */
   console.log('[Ocean-Pay] Sin ventana padre → modo independiente');
@@ -1224,30 +1555,46 @@ window.addEventListener('DOMContentLoaded', async () => {
   const buxEl = qs('#bux');
   if (buxEl) buxEl.textContent = (user.aquabux || 0).toLocaleString();
 
-  // Cargar todos los balances en paralelo
-  await Promise.all([
-    loadEcoxionumsBalance(),
-    loadEcoCoreBitsBalance(),
-    loadCreditsBalance(),
-    loadWildCreditsBalance(),
-    loadAppBuxBalance()
-  ]);
-
-  // Iniciar refresh automático de balances
-  startBalanceRefresh();
-
   // ⬅️  carga historial
   await renderTransacciones();
   
-  // Verificar que WildCredits se haya cargado correctamente
-  setTimeout(() => {
-    const wildCreditsEl = qs('#wildcredits');
-    const wildCreditsValue = parseInt(localStorage.getItem('wildCredits') || '0');
-    if (wildCreditsEl && wildCreditsEl.textContent === '0' && wildCreditsValue > 0) {
-      console.log('[WildCredits] Reintentando carga después de delay...', wildCreditsValue);
-      wildCreditsEl.textContent = wildCreditsValue.toLocaleString();
-    }
-  }, 500);
+  // Si fue abierta desde otra ventana y ya hay sesión, notificar al padre
+  if (window.opener) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const source = urlParams.get('source');
+    
+    // Esperar un poco para que los balances se carguen
+    setTimeout(() => {
+      const wildCredits = parseInt(localStorage.getItem('wildCredits') || '0');
+      const wildGems = parseInt(localStorage.getItem('ws_wildgems') || '0');
+      
+      const message = {
+        type: 'ocean-pay-token',
+        token: token,
+        user: {
+          ...user,
+          wildcredits: wildCredits,
+          wildgems: wildGems
+        },
+        ecoxionums: user.ecoxionums,
+        ecorebits: { balance: user.ecorebits },
+        wildcredits: wildCredits,
+        wildgems: wildGems
+      };
+      
+      console.log('[Ocean-Pay] Enviando sesión existente al padre:', message);
+      window.opener.postMessage(JSON.parse(JSON.stringify(message)), '*');
+      
+      // Si fue abierto desde WildShorts, cerrar después de enviar
+      if (source === 'wildshorts') {
+        setTimeout(() => {
+          if (window.opener && !window.closed) {
+            window.close();
+          }
+        }, 1500);
+      }
+    }, 1000);
+  }
 });
 
 async function renderTransacciones() {

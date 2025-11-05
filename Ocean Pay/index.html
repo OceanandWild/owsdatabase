@@ -332,83 +332,145 @@ button.secondary:hover{
   border-bottom-right-radius:0;
 }
 .tx-list{
-  max-height:400px;overflow-y:auto;margin-top:0;
-  display:flex;flex-direction:column;gap:.75rem;
-  padding:1rem;
-  background:rgba(10,14,26,.4);
-  border-radius:0 0 .75rem .75rem;
-  border:1px solid rgba(34,211,238,.2);
-  border-top:none;
+  max-height:500px;overflow-y:auto;margin-top:0;
+  display:flex;flex-direction:column;gap:1rem;
+  padding:1.25rem;
+  background:linear-gradient(135deg, rgba(10,14,26,.6) 0%, rgba(15,23,42,.8) 100%);
+  border-radius:0 0 1rem 1rem;
+  border-top:2px solid rgba(34,211,238,.1);
 }
-.tx-list::-webkit-scrollbar{width:8px;}
+.tx-list::-webkit-scrollbar{width:10px;}
 .tx-list::-webkit-scrollbar-track{
-  background:rgba(255,255,255,.05);
-  border-radius:4px;
+  background:rgba(255,255,255,.03);
+  border-radius:5px;
 }
 .tx-list::-webkit-scrollbar-thumb{
   background:linear-gradient(180deg, var(--accent), #06b6d4);
-  border-radius:4px;
+  border-radius:5px;
+  box-shadow:0 0 10px rgba(34,211,238,.3);
 }
 .tx-list::-webkit-scrollbar-thumb:hover{
   background:linear-gradient(180deg, #67e8f9, var(--accent));
+  box-shadow:0 0 15px rgba(34,211,238,.5);
 }
 .tx-item{
-  padding:1rem 1.25rem;
-  background:linear-gradient(135deg, rgba(255,255,255,.06) 0%, rgba(255,255,255,.03) 100%);
-  backdrop-filter:blur(5px);
-  border-radius:.75rem;
-  border:1px solid rgba(255,255,255,.08);
-  display:flex;justify-content:space-between;
-  align-items:center;
-  transition:all .3s cubic-bezier(0.4, 0, 0.2, 1);
-  position:relative;
-  overflow:hidden;
+  padding:1.25rem 1.5rem;
+  background:linear-gradient(135deg, rgba(255,255,255,.08) 0%, rgba(255,255,255,.04) 100%);
+  backdrop-filter:blur(10px);
+  border-radius:1rem;
+  border:1px solid rgba(255,255,255,.1);
+  display:flex;align-items:center;justify-content:space-between;
+  gap:1.5rem;position:relative;
+  transition:all .4s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor:pointer;
+  box-shadow:0 2px 8px rgba(0,0,0,.1);
+  animation:txSlideIn .5s ease-out;
+  animation-fill-mode:both;
 }
+@keyframes txSlideIn{
+  from{
+    opacity:0;
+    transform:translateY(10px);
+  }
+  to{
+    opacity:1;
+    transform:translateY(0);
+  }
+}
+.tx-item:nth-child(1){animation-delay:.05s;}
+.tx-item:nth-child(2){animation-delay:.1s;}
+.tx-item:nth-child(3){animation-delay:.15s;}
+.tx-item:nth-child(4){animation-delay:.2s;}
+.tx-item:nth-child(5){animation-delay:.25s;}
+.tx-item:nth-child(n+6){animation-delay:.3s;}
 .tx-item::before{
   content:'';position:absolute;left:0;top:0;bottom:0;
-  width:3px;background:var(--accent);
-  transform:scaleY(0);transition:transform .3s;
+  width:4px;background:linear-gradient(180deg, var(--accent), #06b6d4);
+  border-radius:1rem 0 0 1rem;
+  transform:scaleY(0);transition:transform .4s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow:0 0 10px rgba(34,211,238,.5);
 }
 .tx-item:hover::before{transform:scaleY(1);}
 .tx-item:hover{
-  background:linear-gradient(135deg, rgba(255,255,255,.1) 0%, rgba(255,255,255,.05) 100%);
-  border-color:rgba(34,211,238,.3);
-  transform:translateX(8px);
-  box-shadow:0 4px 15px rgba(0,0,0,.2);
+  background:linear-gradient(135deg, rgba(255,255,255,.12) 0%, rgba(255,255,255,.06) 100%);
+  border-color:rgba(34,211,238,.4);
+  transform:translateX(12px) translateY(-2px);
+  box-shadow:0 8px 25px rgba(0,0,0,.3), 0 0 20px rgba(34,211,238,.2);
+}
+.tx-item-icon{
+  width:48px;height:48px;
+  border-radius:.75rem;
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.5rem;
+  flex-shrink:0;
+  background:linear-gradient(135deg, rgba(34,211,238,.2), rgba(6,182,212,.2));
+  box-shadow:0 4px 15px rgba(34,211,238,.2);
+  transition:all .3s ease;
+}
+.tx-item:hover .tx-item-icon{
+  transform:scale(1.1) rotate(5deg);
+  box-shadow:0 6px 20px rgba(34,211,238,.4);
 }
 .tx-item-content{
   flex:1;display:flex;flex-direction:column;
-  gap:.4rem;
+  gap:.5rem;min-width:0;
 }
 .tx-item-concept{
-  font-size:.95rem;color:var(--text);
-  font-weight:600;
+  font-size:1rem;color:var(--text);
+  font-weight:700;
+  line-height:1.3;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
 .tx-item-meta{
-  font-size:.8rem;color:#9bb0c2;
-  display:flex;align-items:center;gap:.75rem;
-  font-weight:500;
+  font-size:.85rem;color:#94a3b8;
+  display:flex;align-items:center;gap:1rem;
+  font-weight:500;flex-wrap:wrap;
+}
+.tx-item-date{
+  display:flex;align-items:center;gap:.4rem;
+  color:#64748b;
 }
 .tx-item-origin{
-  padding:.25rem .6rem;
-  background:rgba(34,211,238,.2);
-  border-radius:.4rem;font-size:.7rem;
+  padding:.35rem .75rem;
+  background:linear-gradient(135deg, rgba(34,211,238,.25), rgba(6,182,212,.25));
+  border-radius:.5rem;font-size:.7rem;
   font-weight:700;text-transform:uppercase;
-  letter-spacing:.05em;
+  letter-spacing:.08em;
+  color:#67e8f9;
   border:1px solid rgba(34,211,238,.3);
+  box-shadow:0 2px 8px rgba(34,211,238,.2);
+  transition:all .3s ease;
+}
+.tx-item:hover .tx-item-origin{
+  background:linear-gradient(135deg, rgba(34,211,238,.35), rgba(6,182,212,.35));
+  border-color:rgba(34,211,238,.5);
+  transform:scale(1.05);
+  box-shadow:0 4px 12px rgba(34,211,238,.3);
 }
 .tx-item-amount{
-  font-size:1.25rem;font-weight:800;
-  text-align:right;min-width:100px;
+  font-size:1.35rem;font-weight:900;
+  text-align:right;min-width:120px;
   font-variant-numeric:tabular-nums;
+  display:flex;flex-direction:column;align-items:flex-end;gap:.2rem;
+  transition:all .3s ease;
+}
+.tx-item:hover .tx-item-amount{
+  transform:scale(1.05);
 }
 .tx-item-amount.positive{
-  color:var(--ok);
-  text-shadow:0 0 15px rgba(16,185,129,.4);
+  color:#10b981;
+  text-shadow:0 0 20px rgba(16,185,129,.5), 0 2px 10px rgba(16,185,129,.3);
 }
 .tx-item-amount.negative{
-  color:var(--err);
-  text-shadow:0 0 15px rgba(239,68,68,.4);
+  color:#ef4444;
+  text-shadow:0 0 20px rgba(239,68,68,.5), 0 2px 10px rgba(239,68,68,.3);
+}
+.tx-item-amount-sign{
+  font-size:.8rem;opacity:.7;font-weight:600;
+}
+.tx-item-currency{
+  font-size:.75rem;opacity:.8;font-weight:600;
+  margin-top:.1rem;
 }
 .tx-empty{
   text-align:center;padding:3rem 2rem;
@@ -1630,8 +1692,8 @@ async function renderTransacciones() {
       return;
     }
 
-    // Renderizar transacciones con nuevo diseño
-    container.innerHTML = txs.map(tx => {
+    // Renderizar transacciones con nuevo diseño mejorado
+    container.innerHTML = txs.map((tx, index) => {
       const fecha = new Date(tx.created_at);
       const fechaFormateada = fecha.toLocaleDateString('es-ES', { 
         day: '2-digit', 
@@ -1643,24 +1705,66 @@ async function renderTransacciones() {
         minute: '2-digit' 
       });
       const esPositivo = tx.monto > 0;
-      const simboloMoneda = tx.moneda === 'AB' ? 'AquaBux' : 
-                            tx.moneda === 'ECB' ? 'EcoCoreBits' : 
-                            tx.moneda === 'EX' ? 'Ecoxionums' : 
-                            tx.moneda === 'WC' ? 'WildCredits' : 
-                            tx.moneda === 'ABX' ? 'AppBux' : 
-                            tx.moneda;
+      
+      // Mapeo de monedas con iconos
+      const monedasInfo = {
+        'AB': { nombre: 'AquaBux', icono: '💧', color: '#06b6d4' },
+        'ECB': { nombre: 'EcoCoreBits', icono: '💻', color: '#8b5cf6' },
+        'EX': { nombre: 'Ecoxionums', icono: '🌍', color: '#10b981' },
+        'WC': { nombre: 'WildCredits', icono: '🌿', color: '#22c55e' },
+        'ABX': { nombre: 'AppBux', icono: '📱', color: '#f59e0b' },
+        'WG': { nombre: 'WildGems', icono: '💎', color: '#fbbf24' }
+      };
+      
+      const monedaInfo = monedasInfo[tx.moneda] || { nombre: tx.moneda || 'Moneda', icono: '💰', color: '#94a3b8' };
+      
+      // Iconos según el origen
+      const origenesIconos = {
+        'Ocean Pay': '💳',
+        'Ocean Cinemas': '🎬',
+        'EcoConsole': '🎮',
+        'WildShorts': '📚',
+        'Wild Explorer': '🌿',
+        'Ecoxion': '🌍',
+        'AllApp': '📱',
+        'NatMarket': '🛒'
+      };
+      
+      const iconoOrigen = origenesIconos[tx.origen] || '💼';
+      
+      // Icono según tipo de transacción
+      let iconoTx = esPositivo ? '⬆️' : '⬇️';
+      if (tx.concepto?.toLowerCase().includes('recompensa') || tx.concepto?.toLowerCase().includes('bono')) {
+        iconoTx = '🎁';
+      } else if (tx.concepto?.toLowerCase().includes('compra') || tx.concepto?.toLowerCase().includes('pago')) {
+        iconoTx = '🛒';
+      } else if (tx.concepto?.toLowerCase().includes('suscripción') || tx.concepto?.toLowerCase().includes('subscription')) {
+        iconoTx = '👑';
+      }
       
       return `
-        <div class="tx-item">
+        <div class="tx-item" style="animation-delay: ${index * 0.05}s">
+          <div class="tx-item-icon" style="background: linear-gradient(135deg, ${esPositivo ? 'rgba(16,185,129,.2)' : 'rgba(239,68,68,.2)'}, ${esPositivo ? 'rgba(34,197,94,.2)' : 'rgba(220,38,38,.2)'});">
+            ${iconoTx}
+          </div>
           <div class="tx-item-content">
             <div class="tx-item-concept">${tx.concepto || 'Transacción'}</div>
             <div class="tx-item-meta">
-              <span>${fechaFormateada} ${horaFormateada}</span>
-              ${tx.origen ? `<span class="tx-item-origin">${tx.origen}</span>` : ''}
+              <span class="tx-item-date">
+                <span>📅</span>
+                <span>${fechaFormateada} ${horaFormateada}</span>
+              </span>
+              ${tx.origen ? `<span class="tx-item-origin">${iconoOrigen} ${tx.origen}</span>` : ''}
             </div>
           </div>
           <div class="tx-item-amount ${esPositivo ? 'positive' : 'negative'}">
-            ${esPositivo ? '+' : ''}${tx.monto.toLocaleString()} ${simboloMoneda}
+            <div style="display: flex; align-items: baseline; gap: .3rem;">
+              <span class="tx-item-amount-sign">${esPositivo ? '+' : '−'}</span>
+              <span>${Math.abs(tx.monto).toLocaleString()}</span>
+            </div>
+            <div class="tx-item-currency" style="color: ${monedaInfo.color}">
+              ${monedaInfo.icono} ${monedaInfo.nombre}
+            </div>
           </div>
         </div>
       `;

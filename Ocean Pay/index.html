@@ -76,7 +76,7 @@ button.secondary:hover{background:rgba(34,211,238,.1);}
   display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:1rem;margin-bottom:1.5rem;
 }
 @media (min-width: 1200px) {
-  .balance-grid{grid-template-columns:repeat(5, 1fr);}
+  .balance-grid{grid-template-columns:repeat(6, 1fr);}
 }
 @media (max-width: 768px) {
   .balance-grid{grid-template-columns:1fr;}
@@ -95,6 +95,8 @@ button.secondary:hover{background:rgba(34,211,238,.1);}
 .currency-card .amount{font-size:1.75rem;font-weight:700;color:var(--accent);margin:.25rem 0;}
 #wildcredits-card .amount{color:var(--wild);}
 #wildcredits-card{border-color:var(--wild);}
+#wildgems-card .amount{color:#ffd700;}
+#wildgems-card{border-color:#ffd700;}
 .currency-card .badge{
   position:absolute;top:1rem;right:1rem;font-size:.7rem;
   background:var(--accent);color:#0b1020;padding:.25rem .5rem;border-radius:.4rem;
@@ -275,6 +277,18 @@ button.secondary:hover{background:rgba(34,211,238,.1);}
           </div>
           <div class="app-info">
             <strong>App Perteneciente:</strong> AllApp 📱
+          </div>
+        </div>
+
+        <div class="currency-card" id="wildgems-card">
+          <div class="currency-card-header">
+            <div>
+              <span class="label">WildGems</span>
+              <span class="amount" id="wildgems">0</span>
+            </div>
+          </div>
+          <div class="app-info">
+            <strong>App Perteneciente:</strong> WildShorts ⚡
           </div>
         </div>
       </div>
@@ -779,6 +793,212 @@ async function addWildCreditsTransaction(transactionInfo) {
     }
 }
 
+/* ----------  WILDGEMS BALANCE  ---------- */
+async function loadWildGemsBalance() {
+    const user = JSON.parse(localStorage.getItem('opUser') || '{}');
+    if (!user.id) {
+        const wildGemsEl = qs('#wildgems');
+        if (wildGemsEl) wildGemsEl.textContent = '0';
+        return;
+    }
+
+    try {
+        const wildGemsEl = qs('#wildgems');
+        if (!wildGemsEl) {
+            console.warn('[WildGems] Elemento #wildgems no encontrado');
+            return;
+        }
+
+        let wildGems = 0;
+        let wildGemsFromServer = null;
+        const token = localStorage.getItem('opToken') || user.token;
+
+        // Intentar obtener del servidor
+        if (token) {
+            try {
+                const serverRes = await fetch(`${API}/wildshorts/wildgems/balance`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (serverRes.ok) {
+                    const serverData = await serverRes.json();
+                    wildGemsFromServer = parseInt(serverData.wildgems || '0');
+                    console.log('[WildGems] Obtenido del servidor:', wildGemsFromServer);
+                }
+            } catch (e) {
+                console.warn('[WildGems] Error obteniendo balance del servidor:', e);
+            }
+        }
+
+        // Obtener de localStorage
+        let wildGemsStr = localStorage.getItem('ws_wildgems');
+        let wildGemsFromStorage = (wildGemsStr !== null && wildGemsStr !== undefined) 
+            ? parseInt(wildGemsStr) || 0 
+            : null;
+
+        // Obtener de opUser
+        let wildGemsFromOpUser = (user && user.wildgems !== undefined && user.wildgems !== null) 
+            ? Math.round(user.wildgems || 0) 
+            : null;
+
+        // Prioridad: servidor > localStorage > opUser > 0
+        if (wildGemsFromServer !== null) {
+            wildGems = wildGemsFromServer;
+            console.log('[WildGems] Usando valor del servidor:', wildGems);
+            
+            // Actualizar localStorage y opUser
+            localStorage.setItem('ws_wildgems', wildGems.toString());
+            if (user) {
+                user.wildgems = wildGems;
+                localStorage.setItem('opUser', JSON.stringify(user));
+            }
+        } else if (wildGemsFromStorage !== null && wildGemsFromStorage > 0) {
+            wildGems = wildGemsFromStorage;
+            console.log('[WildGems] Usando valor de localStorage (servidor no disponible):', wildGems);
+            
+            if (user && (wildGemsFromOpUser === null || wildGemsFromOpUser < wildGems || wildGemsFromOpUser === 0)) {
+                user.wildgems = wildGems;
+                localStorage.setItem('opUser', JSON.stringify(user));
+            }
+        } else if (wildGemsFromOpUser !== null && wildGemsFromOpUser > 0) {
+            wildGems = wildGemsFromOpUser;
+            console.log('[WildGems] Usando valor de opUser:', wildGems);
+            localStorage.setItem('ws_wildgems', wildGems.toString());
+        } else {
+            wildGems = 0;
+            if (wildGemsStr === null || wildGemsStr === undefined) {
+                localStorage.setItem('ws_wildgems', '0');
+            }
+            console.log('[WildGems] Sin balance y sin cuenta vinculada, inicializando con 0');
+        }
+
+        console.log('[WildGems] Balance final:', wildGems);
+        wildGemsEl.textContent = wildGems.toLocaleString();
+        console.log('[WildGems] Balance actualizado en UI:', wildGems);
+
+        // Escuchar cambios en localStorage
+        if (!window.wildGemsStorageListener) {
+            window.wildGemsStorageListener = (e) => {
+                if (e.key === 'ws_wildgems') {
+                    const newBalance = parseInt(e.newValue || '0');
+                    if (wildGemsEl) {
+                        wildGemsEl.textContent = newBalance.toLocaleString();
+                    }
+                    const currentUser = JSON.parse(localStorage.getItem('opUser') || '{}');
+                    if (currentUser && currentUser.id) {
+                        currentUser.wildgems = newBalance;
+                        localStorage.setItem('opUser', JSON.stringify(currentUser));
+                    }
+                }
+            };
+            window.addEventListener('storage', window.wildGemsStorageListener);
+        }
+
+        // Escuchar eventos personalizados
+        if (!window.wildGemsCustomListener) {
+            window.wildGemsCustomListener = (e) => {
+                if (e.detail && e.detail.balance !== undefined) {
+                    const newBalance = parseInt(e.detail.balance || '0');
+                    if (wildGemsEl) {
+                        wildGemsEl.textContent = newBalance.toLocaleString();
+                    }
+                    localStorage.setItem('ws_wildgems', newBalance.toString());
+                    const currentUser = JSON.parse(localStorage.getItem('opUser') || '{}');
+                    if (currentUser && currentUser.id) {
+                        currentUser.wildgems = newBalance;
+                        localStorage.setItem('opUser', JSON.stringify(currentUser));
+                    }
+                }
+            };
+            window.addEventListener('wildgems-updated', window.wildGemsCustomListener);
+        }
+
+        // Escuchar mensajes de WildShorts
+        if (!window.wildGemsMessageListener) {
+            window.wildGemsMessageListener = (event) => {
+                if (event.data && event.data.type === 'wildgems-update') {
+                    const balance = parseInt(event.data.balance || '0');
+                    console.log('[WildGems] Mensaje recibido desde WildShorts:', balance);
+                    if (wildGemsEl) {
+                        wildGemsEl.textContent = balance.toLocaleString();
+                    }
+                    localStorage.setItem('ws_wildgems', balance.toString());
+                    const currentUser = JSON.parse(localStorage.getItem('opUser') || '{}');
+                    if (currentUser && currentUser.id) {
+                        currentUser.wildgems = balance;
+                        localStorage.setItem('opUser', JSON.stringify(currentUser));
+                        console.log('[WildGems] Actualizado en opUser desde mensaje:', balance);
+                    }
+                }
+            };
+            window.addEventListener('message', window.wildGemsMessageListener);
+        }
+
+        // Polling periódico para actualizar balance
+        if (!window.wildGemsPollInterval) {
+            let pollCounter = 0;
+            window.wildGemsPollInterval = setInterval(async () => {
+                pollCounter++;
+                const currentUser = JSON.parse(localStorage.getItem('opUser') || '{}');
+                const currentToken = localStorage.getItem('opToken') || currentUser.token;
+
+                if (currentToken && currentUser && currentUser.id) {
+                    try {
+                        const serverRes = await fetch(`${API}/wildshorts/wildgems/balance`, {
+                            headers: {
+                                'Authorization': `Bearer ${currentToken}`
+                            }
+                        });
+
+                        if (serverRes.ok) {
+                            const serverData = await serverRes.json();
+                            const serverWildGems = parseInt(serverData.wildgems || '0');
+                            const currentDisplayed = parseInt(wildGemsEl.textContent.replace(/,/g, '') || '0');
+
+                            if (serverWildGems !== currentDisplayed) {
+                                if (wildGemsEl) {
+                                    wildGemsEl.textContent = serverWildGems.toLocaleString();
+                                }
+                                localStorage.setItem('ws_wildgems', serverWildGems.toString());
+                                currentUser.wildgems = serverWildGems;
+                                localStorage.setItem('opUser', JSON.stringify(currentUser));
+                                console.log('[WildGems] Actualizado desde servidor en polling:', serverWildGems, '(era:', currentDisplayed, ')');
+                            }
+                        }
+                    } catch (e) {
+                        // Si falla el servidor, usar localStorage
+                        const currentFromStorage = parseInt(localStorage.getItem('ws_wildgems') || '0');
+                        const currentFromOpUser = (currentUser && currentUser.wildgems !== undefined) 
+                            ? Math.round(currentUser.wildgems || 0) 
+                            : 0;
+                        const currentDisplayed = parseInt(wildGemsEl.textContent.replace(/,/g, '') || '0');
+
+                        let newBalance = currentFromStorage || currentFromOpUser || 0;
+                        if (newBalance !== currentDisplayed) {
+                            if (wildGemsEl) {
+                                wildGemsEl.textContent = newBalance.toLocaleString();
+                            }
+                            localStorage.setItem('ws_wildgems', newBalance.toString());
+                            if (currentUser && currentUser.wildgems !== newBalance) {
+                                currentUser.wildgems = newBalance;
+                                localStorage.setItem('opUser', JSON.stringify(currentUser));
+                                console.log('[WildGems] Actualizado opUser desde localStorage en polling:', newBalance);
+                            }
+                        }
+                    }
+                }
+            }, 30000); // Verificar cada 30 segundos
+        }
+        
+    } catch (e) {
+        console.error("Error loading WildGems", e);
+        const wildGemsEl = qs('#wildgems');
+        if (wildGemsEl) wildGemsEl.textContent = '0';
+    }
+}
+
 async function changeEcoxionums(sign) {
   const user = JSON.parse(localStorage.getItem('opUser') || '{}');
   const amt = +qs('#ecoAmount').value * sign;
@@ -835,10 +1055,24 @@ async function autoLogin(username, password) {
     }
   }
   
-  // Crear objeto user con wildcredits y appbux
+  // Preservar WildGems
+  let preservedWildGems = data.user.wildgems || 0;
+  if (!preservedWildGems || preservedWildGems === 0) {
+    const previousOpUser = JSON.parse(localStorage.getItem('opUser') || 'null');
+    const wildGemsFromStorage = parseInt(localStorage.getItem('ws_wildgems') || '0');
+    
+    if (previousOpUser && previousOpUser.wildgems !== undefined && previousOpUser.wildgems !== null && previousOpUser.wildgems > 0) {
+      preservedWildGems = Math.round(previousOpUser.wildgems || 0);
+    } else if (wildGemsFromStorage > 0) {
+      preservedWildGems = wildGemsFromStorage;
+    }
+  }
+  
+  // Crear objeto user con wildcredits, wildgems y appbux
   const userData = {
     ...data.user,
     wildcredits: preservedWildCredits,
+    wildgems: preservedWildGems,
     appbux: data.user.appbux || 0,
     token: data.token
   };
@@ -846,7 +1080,9 @@ async function autoLogin(username, password) {
   localStorage.setItem('opToken', token);
   localStorage.setItem('opUser', JSON.stringify(userData));
   localStorage.setItem('wildCredits', preservedWildCredits.toString());
+  localStorage.setItem('ws_wildgems', preservedWildGems.toString());
   console.log('[WildCredits] Configurado wildcredits en login:', preservedWildCredits, '(del servidor:', data.user.wildcredits || 0, ')');
+  console.log('[WildGems] Configurado wildgems en login:', preservedWildGems, '(del servidor:', data.user.wildgems || 0, ')');
 
   // ✅ Mostramos wallet
   show('#loginForm', false);
@@ -861,7 +1097,8 @@ async function autoLogin(username, password) {
     loadEcoxionumsBalance(),
     loadEcoCoreBitsBalance(),
     loadCreditsBalance(),
-    loadWildCreditsBalance()
+    loadWildCreditsBalance(),
+    loadWildGemsBalance()
   ]);
 
   // Iniciar refresh automático de balances
@@ -879,8 +1116,9 @@ async function autoLogin(username, password) {
 
 /* ✅ Solo si fue abierta desde otra ventana */
 if (window.opener) {
-  // Obtener WildCredits desde localStorage
+  // Obtener WildCredits y WildGems desde localStorage
   const wildCredits = parseInt(localStorage.getItem('wildCredits') || '0');
+  const wildGems = parseInt(localStorage.getItem('ws_wildgems') || '0');
   
   window.opener.postMessage(
     JSON.parse(JSON.stringify({
@@ -889,7 +1127,8 @@ if (window.opener) {
       user: data.user,
       ecoxionums: data.user.ecoxionums,
       ecorebits: { balance: data.user.ecorebits },
-      wildcredits: wildCredits
+      wildcredits: wildCredits,
+      wildgems: wildGems
     })),
     '*'
   );
@@ -903,11 +1142,12 @@ if (window.opener) {
 
   /* ----------  REFRESH BALANCES  ---------- */
   async function refreshAllBalances() {
-    await Promise.all([
+await Promise.all([
       loadEcoxionumsBalance(),
       loadEcoCoreBitsBalance(),
       loadCreditsBalance(),
       loadWildCreditsBalance(),
+      loadWildGemsBalance(),
       loadAppBuxBalance()
     ]);
   }
@@ -932,6 +1172,11 @@ if (window.opener) {
     if (window.wildCreditsPollInterval) {
       clearInterval(window.wildCreditsPollInterval);
       window.wildCreditsPollInterval = null;
+    }
+    // Limpiar intervalo de polling de WildGems
+    if (window.wildGemsPollInterval) {
+      clearInterval(window.wildGemsPollInterval);
+      window.wildGemsPollInterval = null;
     }
     localStorage.removeItem('opToken'); localStorage.removeItem('opUser');
     token=''; userId=0;
@@ -959,6 +1204,19 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   // pinta wallet y saldo
   show('#wallet', true);
+  
+  // Cargar todos los balances
+  await Promise.all([
+    loadEcoxionumsBalance(),
+    loadEcoCoreBitsBalance(),
+    loadCreditsBalance(),
+    loadWildCreditsBalance(),
+    loadWildGemsBalance(),
+    loadAppBuxBalance()
+  ]);
+  
+  // Iniciar refresh automático
+  startBalanceRefresh();
   show('#regForm', false);
   show('#loginForm', false);
   qs('#toggleLink').textContent = 'Crear cuenta';

@@ -19,6 +19,16 @@ dotenv.config();
 const uploadDir = path.join(process.cwd(), 'uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
+// Función para generar ID único de usuario (100 caracteres)
+function generateUserUniqueId() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let result = '';
+  for (let i = 0; i < 100; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return result;
+}
+
 const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, uploadDir),
   filename: (_file, _file2, cb) => {
@@ -950,11 +960,20 @@ app.post('/natmarket/register', async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ error: 'username y password requeridos' });
     const hashed = await bcrypt.hash(password, 10);
+    const userUniqueId = generateUserUniqueId(); // Generar ID único
+    
     const { rows } = await pool.query(
-      'INSERT INTO users_nat (username, password) VALUES ($1,$2) RETURNING id, username',
-      [username, hashed]
+      'INSERT INTO users_nat (username, password, user_unique_id) VALUES ($1,$2,$3) RETURNING id, username, user_unique_id',
+      [username, hashed, userUniqueId]
     );
-    res.json(rows[0]);
+    
+    // Devolver el ID único solo en el registro (se muestra una vez)
+    res.json({ 
+      id: rows[0].id, 
+      username: rows[0].username,
+      user_unique_id: rows[0].user_unique_id, // Solo se muestra en registro
+      message: 'IMPORTANTE: Guarda este ID de Usuario Único. Será necesario para recuperar tu contraseña.'
+    });
   } catch (err) {
     if (err.code === '23505') return res.status(400).json({ error: 'Usuario ya existe' });
     handleNatError(res, err, '/natmarket/register');
@@ -965,11 +984,24 @@ app.post('/natmarket/login', async (req, res) => {
   try {
     const { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ error: 'username y password requeridos' });
-    const { rows } = await pool.query('SELECT id, username, password FROM users_nat WHERE username=$1', [username]);
+    const { rows } = await pool.query('SELECT id, username, password, user_unique_id FROM users_nat WHERE username=$1', [username]);
     if (rows.length === 0) return res.status(401).json({ error: 'Usuario no encontrado' });
     const ok = await bcrypt.compare(password, rows[0].password);
     if (!ok) return res.status(401).json({ error: 'Contraseña incorrecta' });
-    res.json({ id: rows[0].id, username: rows[0].username });
+    
+    // Si el usuario no tiene user_unique_id (usuario existente), generarlo automáticamente
+    let userUniqueId = rows[0].user_unique_id;
+    if (!userUniqueId) {
+      userUniqueId = generateUserUniqueId();
+      await pool.query('UPDATE users_nat SET user_unique_id = $1 WHERE id = $2', [userUniqueId, rows[0].id]);
+    }
+    
+    res.json({ 
+      id: rows[0].id, 
+      username: rows[0].username,
+      needs_unique_id: !rows[0].user_unique_id, // Indica si necesita ver el ID por primera vez
+      user_unique_id: !rows[0].user_unique_id ? userUniqueId : undefined // Solo mostrar si no lo tenía
+    });
   } catch (err) {
     handleNatError(res, err, '/natmarket/login');
   }
@@ -989,15 +1021,26 @@ app.get('/natmarket/users/:id', async (req, res) => {
 app.put('/natmarket/users/:id/password', async (req, res) => {
   try {
     const { id } = req.params;
-    const { oldPassword, newPassword } = req.body;
+    const { oldPassword, newPassword, user_unique_id } = req.body;
+    
     if (!oldPassword || !newPassword) return res.status(400).json({ error: 'Faltan contraseñas' });
-    const { rows } = await pool.query('SELECT password FROM users_nat WHERE id=$1', [id]);
+    if (!user_unique_id) return res.status(400).json({ error: 'Se requiere el ID de Usuario Único para cambiar la contraseña' });
+    
+    const { rows } = await pool.query('SELECT password, user_unique_id FROM users_nat WHERE id=$1', [id]);
     if (rows.length === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
+    
+    // Verificar contraseña actual
     const ok = await bcrypt.compare(oldPassword, rows[0].password);
     if (!ok) return res.status(401).json({ error: 'Contraseña actual incorrecta' });
+    
+    // Verificar ID único de usuario
+    if (rows[0].user_unique_id !== user_unique_id) {
+      return res.status(403).json({ error: 'ID de Usuario Único incorrecto' });
+    }
+    
     const hashed = await bcrypt.hash(newPassword, 10);
     await pool.query('UPDATE users_nat SET password=$1 WHERE id=$2', [hashed, id]);
-    res.json({ success: true, message: 'Contraseña actualizada' });
+    res.json({ success: true, message: 'Contraseña actualizada exitosamente' });
   } catch (err) {
     handleNatError(res, err, 'PUT /natmarket/users/:id/password');
   }
@@ -2981,43 +3024,76 @@ if (bad) {
 
 /* ---------- RESTAURAR CONTRASEÑA ---------- */
 app.post('/natmarket/reset-password', async (req, res) => {
-  const { username } = req.body;
-  if (!username) return res.status(400).json({ error: 'Usuario requerido' });
+  const { user_unique_id } = req.body;
+  if (!user_unique_id) return res.status(400).json({ error: 'Se requiere el ID de Usuario Único para recuperar la contraseña' });
 
   try {
-    // 1. Buscar usuario
+    // Buscar usuario por user_unique_id
     const { rows } = await pool.query(
-      'SELECT id FROM users_nat WHERE username = $1',
-      [username]
+      'SELECT id, password FROM users_nat WHERE user_unique_id = $1',
+      [user_unique_id]
     );
 
     if (rows.length === 0) {
-      // No revelamos si existe o no
-      return res.json({
-        message: 'Si el usuario existe, la nueva contraseña se mostrará abajo.'
+      // No revelamos si existe o no por seguridad
+      return res.status(404).json({ 
+        error: 'ID de Usuario Único no encontrado. Verifica que lo hayas escrito correctamente.' 
       });
     }
 
     const userId = rows[0].id;
-
-    // 2. Generar contraseña aleatoria
-    const newPass = Math.random().toString(36).slice(-8); // 8 caracteres
-    const hashed  = await bcrypt.hash(newPass, 10);
-
-    // 3. Actualizar
-    await pool.query(
-      'UPDATE users_nat SET password = $1 WHERE id = $2',
-      [hashed, userId]
-    );
-
-    // 4. Mostramos la nueva clave al cliente
+    
+    // Generar nueva contraseña aleatoria
+    const newPass = Math.random().toString(36).slice(-10) + Math.random().toString(36).slice(-6); // 16 caracteres
+    const hashed = await bcrypt.hash(newPass, 10);
+    
+    // Actualizar contraseña
+    await pool.query('UPDATE users_nat SET password = $1 WHERE id = $2', [hashed, userId]);
+    
     res.json({
       success: true,
-      message: 'Contraseña restablecida. Guárdala bien.',
-      newPassword: newPass   // <-- se muestra solo una vez
+      message: 'Contraseña restablecida exitosamente. Guarda esta nueva contraseña.',
+      newPassword: newPass, // Se muestra solo una vez
+      userId: userId
     });
   } catch (err) {
     handleNatError(res, err, 'POST /reset-password');
+  }
+});
+
+/* ---------- OBTENER ID ÚNICO DE USUARIO (solo una vez con confirmación de contraseña) ---------- */
+app.post('/natmarket/users/:id/get-unique-id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { password } = req.body;
+    
+    if (!password) return res.status(400).json({ error: 'Se requiere confirmar la contraseña' });
+    
+    const { rows } = await pool.query('SELECT password, user_unique_id, unique_id_shown FROM users_nat WHERE id=$1', [id]);
+    if (rows.length === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
+    
+    // Verificar contraseña
+    const ok = await bcrypt.compare(password, rows[0].password);
+    if (!ok) return res.status(401).json({ error: 'Contraseña incorrecta' });
+    
+    // Si ya se mostró el ID, no permitir verlo de nuevo por seguridad
+    if (rows[0].unique_id_shown) {
+      return res.status(403).json({ 
+        error: 'El ID de Usuario Único ya fue mostrado anteriormente. Si lo perdiste, no podrás recuperarlo.',
+        already_shown: true
+      });
+    }
+    
+    // Marcar como mostrado y devolver el ID
+    await pool.query('UPDATE users_nat SET unique_id_shown = true WHERE id = $1', [id]);
+    
+    res.json({
+      success: true,
+      user_unique_id: rows[0].user_unique_id,
+      message: '⚠️ IMPORTANTE: Guarda este ID de Usuario Único en un lugar seguro. Solo se mostrará esta vez. Será necesario para recuperar tu contraseña.'
+    });
+  } catch (err) {
+    handleNatError(res, err, 'POST /natmarket/users/:id/get-unique-id');
   }
 });
 
@@ -4393,6 +4469,17 @@ CREATE TABLE IF NOT EXISTS product_images (
   BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'ocean_pay_users' AND column_name = 'appbux') THEN
       ALTER TABLE ocean_pay_users ADD COLUMN appbux INTEGER DEFAULT 0;
+    END IF;
+  END $$;
+  
+  -- Agregar user_unique_id y unique_id_shown a users_nat si no existen
+  DO $$ 
+  BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users_nat' AND column_name = 'user_unique_id') THEN
+      ALTER TABLE users_nat ADD COLUMN user_unique_id VARCHAR(100) UNIQUE;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users_nat' AND column_name = 'unique_id_shown') THEN
+      ALTER TABLE users_nat ADD COLUMN unique_id_shown BOOLEAN DEFAULT false;
     END IF;
   END $$;
   

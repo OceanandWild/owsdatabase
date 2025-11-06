@@ -5781,48 +5781,39 @@ app.post('/oceanic-ethernet/recharge', async (req, res) => {
   }
   
   // Validar autorización:
-  // 1. Si el userId del token coincide con bodyUserId → OK (usuario de OceanicEthernet recargando su propia cuenta)
-  // 2. Si hay opToken vinculado y opUserId coincide con bodyUserId → OK (usuario de OceanicEthernet recargando usando Ocean Pay vinculado)
-  // 3. Si hay opToken pero opUserId no coincide con bodyUserId → ERROR (intentando usar cuenta de Ocean Pay diferente)
-  // 4. Si no hay opToken pero bodyUserId es diferente → ERROR (intentando recargar cuenta de otro)
+  // IMPORTANTE: El saldo de internet es específico de cada cuenta de OceanicEthernet
+  // Siempre validamos que el bodyUserId coincida con el userId del token de OceanicEthernet
+  // El token de Ocean Pay solo se usa para procesar el pago, no para determinar a qué cuenta se aplica el saldo
   const bodyUserIdInt = parseInt(bodyUserId);
-  const isValidOwnAccount = userId === bodyUserIdInt;
   
-  // Si hay opToken, verificar que el opUserId coincida con bodyUserId
-  let isValidLinkedAccount = false;
-  if (opToken && opToken.trim() !== '') {
-    if (!opUserId) {
-      // Token de Ocean Pay inválido o no se pudo decodificar
-      console.error('❌ Token de Ocean Pay inválido o no decodificable');
-      return res.status(401).json({ error: 'Token de Ocean Pay inválido. Por favor, vuelve a vincular tu cuenta de Ocean Pay.' });
-    }
-    isValidLinkedAccount = opUserId === bodyUserIdInt;
-    console.log('🔍 Validación de cuenta vinculada:', {
-      opUserId,
-      bodyUserIdInt,
-      isValidLinkedAccount
-    });
-  }
-  
-  if (!isValidOwnAccount && !isValidLinkedAccount) {
+  // Validar que el usuario está recargando su propia cuenta de OceanicEthernet
+  if (userId !== bodyUserIdInt) {
     console.error('❌ Error de autorización en recarga:', {
       tokenUserId: userId,
       bodyUserId: bodyUserIdInt,
       opUserId: opUserId,
       hasOpToken: !!opToken && opToken.trim() !== '',
-      isValidOwnAccount,
-      isValidLinkedAccount
+      message: 'El userId del token de OceanicEthernet no coincide con el bodyUserId'
     });
     return res.status(403).json({ 
-      error: 'No autorizado: el userId no coincide con tu cuenta. Verifica que estés usando la cuenta correcta de Ocean Pay vinculada.' 
+      error: 'No autorizado: solo puedes recargar tu propia cuenta de OceanicEthernet.' 
     });
+  }
+  
+  // Si hay opToken, validar que sea válido (para procesar el pago)
+  if (opToken && opToken.trim() !== '' && currency && cost) {
+    if (!opUserId) {
+      console.error('❌ Token de Ocean Pay inválido o no decodificable');
+      return res.status(401).json({ error: 'Token de Ocean Pay inválido. Por favor, vuelve a vincular tu cuenta de Ocean Pay.' });
+    }
   }
   
   console.log('✅ Autorización exitosa para recarga:', {
     tokenUserId: userId,
     bodyUserId: bodyUserIdInt,
+    username: 'OceanicEthernet',
     opUserId: opUserId,
-    usandoCuentaVinculada: isValidLinkedAccount
+    usandoOceanPay: !!(opToken && opToken.trim() !== '')
   });
   
   const client = await pool.connect();
@@ -6062,9 +6053,10 @@ app.post('/oceanic-ethernet/recharge', async (req, res) => {
     }
     
     // Obtener balance actual de internet
-    // Si hay opToken vinculado, usar opUserId para el saldo de internet (compartido con Ocean Pay)
-    // Si no hay opToken, usar userId de OceanicEthernet
-    const internetUserId = opToken && opUserId ? opUserId : userId;
+    // IMPORTANTE: Siempre usar el userId de OceanicEthernet para el saldo de internet
+    // El saldo de internet es específico de cada cuenta de OceanicEthernet
+    // Solo usamos opUserId para procesar el pago desde Ocean Pay, pero el saldo se aplica a la cuenta de OceanicEthernet
+    const internetUserId = userId; // Siempre usar el ID de OceanicEthernet para el saldo de internet
     
     const { rows: metaRows } = await client.query(`
       SELECT value FROM ocean_pay_metadata

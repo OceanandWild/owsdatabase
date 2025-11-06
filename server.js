@@ -5417,6 +5417,91 @@ app.get('/oceanic-ethernet/balance/:userId', async (req, res) => {
   }
 });
 
+// Obtener balances de Ocean Pay para recarga
+app.get('/oceanic-ethernet/ocean-pay-balances', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+  
+  const token = authHeader.substring(7);
+  let opUserId;
+  try {
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
+    opUserId = decoded.uid;
+    opUserId = parseInt(opUserId) || opUserId;
+  } catch (e) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+  
+  try {
+    // Obtener balances de todas las divisas
+    const { rows: userRows } = await pool.query(
+      'SELECT aquabux, appbux FROM ocean_pay_users WHERE id = $1',
+      [opUserId]
+    );
+    
+    if (userRows.length === 0) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+    
+    const user = userRows[0];
+    const balances = {
+      'AB': user.aquabux || 0,
+      'ABX': user.appbux || 0
+    };
+    
+    // Obtener Ecoxionums
+    try {
+      const { rows: ecoxRows } = await pool.query(
+        'SELECT value FROM ocean_pay_metadata WHERE user_id = $1 AND key = $2',
+        [opUserId, 'ecoxionums']
+      );
+      balances['EX'] = ecoxRows.length > 0 ? parseFloat(ecoxRows[0].value || '0') : 0;
+    } catch (e) {
+      balances['EX'] = 0;
+    }
+    
+    // Obtener EcoCoreBits (desde tabla ecorebits_users)
+    try {
+      const { rows: ecbRows } = await pool.query(
+        'SELECT balance FROM ecorebits_users WHERE user_id = $1',
+        [opUserId]
+      );
+      balances['ECB'] = ecbRows.length > 0 ? (ecbRows[0].balance || 0) : 0;
+    } catch (e) {
+      balances['ECB'] = 0;
+    }
+    
+    // Obtener WildCredits
+    try {
+      const { rows: wcRows } = await pool.query(
+        'SELECT value FROM ocean_pay_metadata WHERE user_id = $1 AND key = $2',
+        [opUserId, 'wildcredits']
+      );
+      balances['WC'] = wcRows.length > 0 ? parseInt(wcRows[0].value || '0') : 0;
+    } catch (e) {
+      balances['WC'] = 0;
+    }
+    
+    // Obtener WildGems (desde tabla wildshorts_users)
+    try {
+      const { rows: wgRows } = await pool.query(
+        'SELECT wildgems FROM wildshorts_users WHERE user_id = $1',
+        [opUserId]
+      );
+      balances['WG'] = wgRows.length > 0 ? (wgRows[0].wildgems || 0) : 0;
+    } catch (e) {
+      balances['WG'] = 0;
+    }
+    
+    res.json(balances);
+  } catch (err) {
+    console.error('❌ Error en /oceanic-ethernet/ocean-pay-balances:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 // Solicitar recarga de internet
 app.post('/oceanic-ethernet/recharge', async (req, res) => {
   const authHeader = req.headers.authorization;
@@ -5434,7 +5519,8 @@ app.post('/oceanic-ethernet/recharge', async (req, res) => {
     return res.status(401).json({ error: 'Token inválido' });
   }
   
-  const { userId: bodyUserId, amount } = req.body;
+  const { userId: bodyUserId, amount, currency, cost } = req.body;
+  const opToken = req.headers['x-ocean-pay-token'];
   
   if (!bodyUserId || amount === undefined || amount <= 0) {
     return res.status(400).json({ error: 'Datos inválidos' });
@@ -5448,7 +5534,187 @@ app.post('/oceanic-ethernet/recharge', async (req, res) => {
   try {
     await client.query('BEGIN');
     
-    // Obtener balance actual
+    // Mapeo de nombres de divisas
+    const currencyNames = {
+      'AB': 'AquaBux',
+      'EX': 'Ecoxionums',
+      'ECB': 'EcoCoreBits',
+      'WC': 'WildCredits',
+      'ABX': 'AppBux',
+      'WG': 'WildGems'
+    };
+    
+    // Si hay divisa y costo, procesar pago desde Ocean Pay
+    if (currency && cost && opToken) {
+      let opUserId;
+      try {
+        const decoded = jwt.verify(opToken, process.env.STUDIO_SECRET);
+        opUserId = decoded.uid;
+        opUserId = parseInt(opUserId) || opUserId;
+      } catch (e) {
+        await client.query('ROLLBACK');
+        return res.status(401).json({ error: 'Token de Ocean Pay inválido' });
+      }
+      
+      // Procesar pago según la divisa
+      let paymentSuccess = false;
+      
+      if (currency === 'AB') {
+        // AquaBux
+        const { rows } = await client.query(
+          'SELECT aquabux FROM ocean_pay_users WHERE id = $1 FOR UPDATE',
+          [opUserId]
+        );
+        if (rows.length === 0) {
+          await client.query('ROLLBACK');
+          return res.status(404).json({ error: 'Usuario de Ocean Pay no encontrado' });
+        }
+        const currentBalance = rows[0].aquabux || 0;
+        if (currentBalance < cost) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: 'Saldo insuficiente' });
+        }
+        await client.query(
+          'UPDATE ocean_pay_users SET aquabux = aquabux - $1 WHERE id = $2',
+          [cost, opUserId]
+        );
+        await client.query(
+          'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)',
+          [opUserId, `Recarga OceanicEthernet: ${amount} GB`, -cost, 'OceanicEthernet', 'AB']
+        );
+        paymentSuccess = true;
+      } else if (currency === 'ABX') {
+        // AppBux
+        const { rows } = await client.query(
+          'SELECT appbux FROM ocean_pay_users WHERE id = $1 FOR UPDATE',
+          [opUserId]
+        );
+        if (rows.length === 0) {
+          await client.query('ROLLBACK');
+          return res.status(404).json({ error: 'Usuario de Ocean Pay no encontrado' });
+        }
+        const currentBalance = rows[0].appbux || 0;
+        if (currentBalance < cost) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: 'Saldo insuficiente' });
+        }
+        await client.query(
+          'UPDATE ocean_pay_users SET appbux = appbux - $1 WHERE id = $2',
+          [cost, opUserId]
+        );
+        await client.query(
+          'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)',
+          [opUserId, `Recarga OceanicEthernet: ${amount} GB`, -cost, 'OceanicEthernet', 'ABX']
+        );
+        paymentSuccess = true;
+      } else if (currency === 'EX') {
+        // Ecoxionums
+        const { rows } = await client.query(
+          'SELECT value FROM ocean_pay_metadata WHERE user_id = $1 AND key = $2 FOR UPDATE',
+          [opUserId, 'ecoxionums']
+        );
+        const currentBalance = rows.length > 0 ? parseFloat(rows[0].value || '0') : 0;
+        if (currentBalance < cost) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: 'Saldo insuficiente' });
+        }
+        const newBalance = currentBalance - cost;
+        if (rows.length > 0) {
+          await client.query(
+            'UPDATE ocean_pay_metadata SET value = $1 WHERE user_id = $2 AND key = $3',
+            [newBalance.toString(), opUserId, 'ecoxionums']
+          );
+        }
+        await client.query(
+          'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)',
+          [opUserId, `Recarga OceanicEthernet: ${amount} GB`, -cost, 'OceanicEthernet', 'EX']
+        );
+        paymentSuccess = true;
+      } else if (currency === 'ECB') {
+        // EcoCoreBits
+        const { rows } = await client.query(
+          'SELECT balance FROM ecorebits_users WHERE user_id = $1 FOR UPDATE',
+          [opUserId]
+        );
+        if (rows.length === 0) {
+          await client.query('ROLLBACK');
+          return res.status(404).json({ error: 'Usuario de EcoConsole no encontrado' });
+        }
+        const currentBalance = rows[0].balance || 0;
+        if (currentBalance < cost) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: 'Saldo insuficiente' });
+        }
+        await client.query(
+          'UPDATE ecorebits_users SET balance = balance - $1 WHERE user_id = $2',
+          [cost, opUserId]
+        );
+        await client.query(
+          'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)',
+          [opUserId, `Recarga OceanicEthernet: ${amount} GB`, -cost, 'OceanicEthernet', 'ECB']
+        );
+        paymentSuccess = true;
+      } else if (currency === 'WC') {
+        // WildCredits
+        const { rows } = await client.query(
+          'SELECT value FROM ocean_pay_metadata WHERE user_id = $1 AND key = $2 FOR UPDATE',
+          [opUserId, 'wildcredits']
+        );
+        const currentBalance = rows.length > 0 ? parseInt(rows[0].value || '0') : 0;
+        if (currentBalance < cost) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: 'Saldo insuficiente' });
+        }
+        const newBalance = currentBalance - cost;
+        if (rows.length > 0) {
+          await client.query(
+            'UPDATE ocean_pay_metadata SET value = $1 WHERE user_id = $2 AND key = $3',
+            [newBalance.toString(), opUserId, 'wildcredits']
+          );
+        } else {
+          await client.query(
+            'INSERT INTO ocean_pay_metadata (user_id, key, value) VALUES ($1, $2, $3)',
+            [opUserId, 'wildcredits', newBalance.toString()]
+          );
+        }
+        await client.query(
+          'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)',
+          [opUserId, `Recarga OceanicEthernet: ${amount} GB`, -cost, 'OceanicEthernet', 'WC']
+        );
+        paymentSuccess = true;
+      } else if (currency === 'WG') {
+        // WildGems
+        const { rows } = await client.query(
+          'SELECT wildgems FROM wildshorts_users WHERE user_id = $1 FOR UPDATE',
+          [opUserId]
+        );
+        if (rows.length === 0) {
+          await client.query('ROLLBACK');
+          return res.status(404).json({ error: 'Usuario de WildShorts no encontrado' });
+        }
+        const currentBalance = rows[0].wildgems || 0;
+        if (currentBalance < cost) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: 'Saldo insuficiente' });
+        }
+        await client.query(
+          'UPDATE wildshorts_users SET wildgems = wildgems - $1 WHERE user_id = $2',
+          [cost, opUserId]
+        );
+        await client.query(
+          'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)',
+          [opUserId, `Recarga OceanicEthernet: ${amount} GB`, -cost, 'OceanicEthernet', 'WG']
+        );
+        paymentSuccess = true;
+      }
+      
+      if (!paymentSuccess) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Divisa no válida' });
+      }
+    }
+    
+    // Obtener balance actual de internet
     const { rows: metaRows } = await client.query(`
       SELECT value FROM ocean_pay_metadata
       WHERE user_id = $1 AND key = 'internet_gb'
@@ -5473,10 +5739,13 @@ app.post('/oceanic-ethernet/recharge', async (req, res) => {
     }
     
     // Registrar transacción en tabla propia de OceanicEthernet
+    const concepto = currency 
+      ? `Recarga de ${amount} GB (Pagado con ${currencyNames[currency] || currency})`
+      : `Recarga de ${amount} GB`;
     await client.query(
       `INSERT INTO oceanic_ethernet_txs (user_id, concepto, monto, origen)
        VALUES ($1, $2, $3, $4)`,
-      [userId, `Recarga de ${amount} GB`, amount, 'OceanicEthernet']
+      [userId, concepto, amount, 'OceanicEthernet']
     );
     
     await client.query('COMMIT');

@@ -6670,11 +6670,34 @@ io.on('connection', (socket) => {
 
   // Jugador envía respuesta
   socket.on('submit-answer', ({ roomPin, playerId, answer, timeTaken }) => {
+    console.log('submit-answer recibido:', { roomPin, playerId, answer, socketId: socket.id });
     const room = activeRooms.get(roomPin);
-    if (!room || room.state !== 'playing') return;
+    if (!room) {
+      console.log('Sala no encontrada:', roomPin);
+      socket.emit('error', { message: 'Sala no encontrada' });
+      return;
+    }
+    
+    if (room.state !== 'playing') {
+      console.log('Sala no está en estado playing:', room.state);
+      socket.emit('error', { message: 'El juego no está en curso' });
+      return;
+    }
 
-    const player = room.players.find(p => p.id === playerId);
-    if (!player) return;
+    // Buscar jugador por playerId o socketId
+    const player = room.players.find(p => p.id === playerId || p.socketId === socket.id);
+    if (!player) {
+      console.log('Jugador no encontrado:', { playerId, socketId: socket.id, players: room.players.map(p => ({ id: p.id, socketId: p.socketId })) });
+      socket.emit('error', { message: 'Jugador no encontrado en la sala' });
+      return;
+    }
+    
+    // Verificar si el jugador ya respondió esta pregunta
+    const alreadyAnswered = player.answers.some(a => a.questionIndex === room.currentQuestion);
+    if (alreadyAnswered) {
+      console.log('Jugador ya respondió esta pregunta');
+      return;
+    }
 
     const questions = typeof room.quiz.questions === 'string' 
       ? JSON.parse(room.quiz.questions) 
@@ -6700,7 +6723,7 @@ io.on('connection', (socket) => {
       points = 1000 + timeBonus;
       
       player.score += points;
-      room.scores[playerId] = player.score;
+      room.scores[player.id] = player.score;
     }
 
     player.answers.push({
@@ -6717,22 +6740,24 @@ io.on('connection', (socket) => {
        VALUES ($1, $2, $3, $4, $5::jsonb)
        ON CONFLICT (session_id, player_id) 
        DO UPDATE SET answers = EXCLUDED.answers, score = EXCLUDED.score`,
-      [room.sessionId, playerId, player.name, player.score, JSON.stringify(player.answers)]
+      [room.sessionId, player.id, player.name, player.score, JSON.stringify(player.answers)]
     ).catch(err => {
       console.error('Error guardando respuesta:', err);
     });
     
     // Notificar al host sobre respuesta recibida
+    console.log('Enviando player-answer al host:', { playerId: player.id, playerName: player.name });
     io.to(`host-${roomPin}`).emit('player-answer', {
-      playerId: playerId,
+      playerId: player.id,
       playerName: player.name,
       answered: true
     });
 
     socket.emit('answer-received', { correct, points, totalScore: player.score });
+    console.log('Respuesta procesada:', { playerName: player.name, correct, points, totalScore: player.score });
   });
 
-  // Host avanza a siguiente pregunta o muestra resultados
+  // Host avanza a siguiente pregunta o muestra resultados finales
   socket.on('next-question', ({ roomPin }) => {
     const room = activeRooms.get(roomPin);
     if (!room) return;
@@ -6743,13 +6768,19 @@ io.on('connection', (socket) => {
     
     room.currentQuestion++;
 
+    // Actualizar en BD
+    pool.query(
+      'UPDATE quiz_sessions SET current_question = $1 WHERE room_pin = $2',
+      [room.currentQuestion, roomPin]
+    ).catch(err => console.error('Error actualizando pregunta actual:', err));
+
     if (room.currentQuestion >= questions.length) {
-      // Fin del juego
+      // Fin del juego - mostrar resultados finales
       room.state = 'results';
       pool.query(
         'UPDATE quiz_sessions SET state = $1, ended_at = NOW() WHERE room_pin = $2',
         ['finished', roomPin]
-      );
+      ).catch(err => console.error('Error actualizando estado final:', err));
 
       const leaderboard = room.players
         .map(p => ({ id: p.id, name: p.name, score: p.score }))
@@ -6757,6 +6788,7 @@ io.on('connection', (socket) => {
 
       io.to(`room-${roomPin}`).emit('game-end', { leaderboard });
     } else {
+      // Siguiente pregunta
       const question = questions[room.currentQuestion];
       io.to(`room-${roomPin}`).emit('question-start', {
         questionIndex: room.currentQuestion,
@@ -6777,19 +6809,21 @@ io.on('connection', (socket) => {
     const currentQ = questions[room.currentQuestion];
     
     // Calcular estadísticas de respuestas
+    const answeredPlayers = room.players.filter(p => p.answers.length > room.currentQuestion);
     const stats = {
       total: room.players.length,
-      answered: room.players.filter(p => p.answers.length > room.currentQuestion).length,
+      answered: answeredPlayers.length,
       correct: 0
     };
 
-    room.players.forEach(player => {
+    answeredPlayers.forEach(player => {
       const answer = player.answers[room.currentQuestion];
       if (answer && answer.correct) {
         stats.correct++;
       }
     });
 
+    // Enviar resultados intermedios al host
     io.to(`host-${roomPin}`).emit('question-results', {
       question: currentQ,
       stats: stats,

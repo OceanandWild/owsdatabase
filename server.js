@@ -6497,10 +6497,56 @@ app.post('/api/quiz/start-session', async (req, res) => {
 app.get('/api/quiz/session/:pin', async (req, res) => {
   try {
     const { pin } = req.params;
-    const room = activeRooms.get(pin);
     
+    // Primero buscar en memoria
+    let room = activeRooms.get(pin);
+    
+    // Si no está en memoria, buscar en BD y recrear en memoria si está activa
     if (!room) {
-      return res.status(404).json({ error: 'Sala no encontrada' });
+      const { rows } = await pool.query(
+        `SELECT qs.*, q.title, q.questions 
+         FROM quiz_sessions qs 
+         JOIN quizzes q ON qs.quiz_id = q.id 
+         WHERE qs.room_pin = $1 AND qs.state IN ('waiting', 'playing')`,
+        [pin]
+      );
+      
+      if (rows.length === 0) {
+        return res.status(404).json({ error: 'Sala no encontrada' });
+      }
+      
+      const session = rows[0];
+      // Recrear sala en memoria
+      room = {
+        sessionId: session.id,
+        quizId: session.quiz_id,
+        quiz: {
+          id: session.quiz_id,
+          title: session.title,
+          questions: session.questions
+        },
+        hostId: session.host_id,
+        players: [],
+        currentQuestion: session.current_question || 0,
+        scores: {},
+        state: session.state,
+        startTime: session.started_at ? new Date(session.started_at).getTime() : null
+      };
+      
+      // Cargar jugadores desde BD
+      const { rows: playerRows } = await pool.query(
+        'SELECT player_id, player_name, score FROM quiz_players WHERE session_id = $1',
+        [session.id]
+      );
+      
+      room.players = playerRows.map(p => ({
+        id: p.player_id,
+        name: p.player_name,
+        score: p.score || 0,
+        answers: []
+      }));
+      
+      activeRooms.set(pin, room);
     }
 
     res.json({
@@ -6529,7 +6575,13 @@ io.on('connection', (socket) => {
 
     socket.join(`room-${roomPin}`);
     socket.join(`host-${roomPin}`);
-    socket.emit('host-joined', { roomPin, quiz: room.quiz });
+    
+    // Enviar información del quiz y jugadores actuales
+    socket.emit('host-joined', { 
+      roomPin, 
+      quiz: room.quiz,
+      players: room.players.map(p => ({ id: p.id, name: p.name, score: p.score }))
+    });
   });
 
   // Jugador se une a una sala
@@ -6582,7 +6634,10 @@ io.on('connection', (socket) => {
   // Host inicia el juego
   socket.on('start-game', ({ roomPin }) => {
     const room = activeRooms.get(roomPin);
-    if (!room) return;
+    if (!room) {
+      socket.emit('error', { message: 'Sala no encontrada' });
+      return;
+    }
 
     room.state = 'playing';
     room.currentQuestion = 0;
@@ -6590,16 +6645,26 @@ io.on('connection', (socket) => {
 
     // Guardar en BD
     pool.query(
-      'UPDATE quiz_sessions SET state = $1, started_at = NOW() WHERE room_pin = $2',
+      'UPDATE quiz_sessions SET state = $1, started_at = NOW(), current_question = 0 WHERE room_pin = $2',
       ['playing', roomPin]
-    );
+    ).catch(err => console.error('Error actualizando sesión:', err));
+
+    // Obtener preguntas
+    const questions = typeof room.quiz.questions === 'string' 
+      ? JSON.parse(room.quiz.questions) 
+      : room.quiz.questions;
+    
+    if (!questions || questions.length === 0) {
+      socket.emit('error', { message: 'El quiz no tiene preguntas' });
+      return;
+    }
 
     // Enviar primera pregunta
-    const question = JSON.parse(room.quiz.questions)[0];
+    const firstQuestion = questions[0];
     io.to(`room-${roomPin}`).emit('question-start', {
       questionIndex: 0,
-      question: question,
-      totalQuestions: JSON.parse(room.quiz.questions).length
+      question: firstQuestion,
+      totalQuestions: questions.length
     });
   });
 
@@ -6611,7 +6676,9 @@ io.on('connection', (socket) => {
     const player = room.players.find(p => p.id === playerId);
     if (!player) return;
 
-    const questions = JSON.parse(room.quiz.questions);
+    const questions = typeof room.quiz.questions === 'string' 
+      ? JSON.parse(room.quiz.questions) 
+      : room.quiz.questions;
     const currentQ = questions[room.currentQuestion];
     
     let correct = false;
@@ -6670,7 +6737,10 @@ io.on('connection', (socket) => {
     const room = activeRooms.get(roomPin);
     if (!room) return;
 
-    const questions = JSON.parse(room.quiz.questions);
+    const questions = typeof room.quiz.questions === 'string' 
+      ? JSON.parse(room.quiz.questions) 
+      : room.quiz.questions;
+    
     room.currentQuestion++;
 
     if (room.currentQuestion >= questions.length) {
@@ -6701,7 +6771,9 @@ io.on('connection', (socket) => {
     const room = activeRooms.get(roomPin);
     if (!room) return;
 
-    const questions = JSON.parse(room.quiz.questions);
+    const questions = typeof room.quiz.questions === 'string' 
+      ? JSON.parse(room.quiz.questions) 
+      : room.quiz.questions;
     const currentQ = questions[room.currentQuestion];
     
     // Calcular estadísticas de respuestas
@@ -6751,6 +6823,11 @@ app.get('/quiz', (_req, res) => {
   } catch (e) {
     res.status(404).send('Archivo no encontrado');
   }
+});
+
+// Servir favicon (evitar error 404)
+app.get('/favicon.ico', (_req, res) => {
+  res.status(204).end();
 });
 
 await ensureDatabase(); 

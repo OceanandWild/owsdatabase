@@ -6715,6 +6715,9 @@ io.on('connection', (socket) => {
       } else {
         correct = parseInt(answer) === currentQ.correctIndex;
       }
+    } else if (currentQ.type === 'single-choice') {
+      // Opción única: un solo índice correcto
+      correct = parseInt(answer) === currentQ.correctIndex;
     } else if (currentQ.type === 'true-false') {
       correct = answer === currentQ.correctAnswer.toString();
     } else if (currentQ.type === 'short-answer') {

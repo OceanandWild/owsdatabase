@@ -6709,7 +6709,12 @@ io.on('connection', (socket) => {
 
     // Calcular puntos según el tipo de pregunta
     if (currentQ.type === 'multiple-choice') {
-      correct = parseInt(answer) === currentQ.correctIndex;
+      // correctIndex puede ser un número o un array
+      if (Array.isArray(currentQ.correctIndex)) {
+        correct = currentQ.correctIndex.includes(parseInt(answer));
+      } else {
+        correct = parseInt(answer) === currentQ.correctIndex;
+      }
     } else if (currentQ.type === 'true-false') {
       correct = answer === currentQ.correctAnswer.toString();
     } else if (currentQ.type === 'short-answer') {

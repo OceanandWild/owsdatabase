@@ -4206,19 +4206,26 @@ app.post('/natmarket/products/v2', upload.array('images', 10), async (req, res) 
             WHERE user_id = $2 AND key = 'internet_gb'
           `, [newBalance.toString(), user_id]);
           
-          // Registrar transacción de consumo
+          // Registrar transacción de consumo en tabla de OceanicEthernet
+          // Buscar si el usuario de NatMarket está vinculado con OceanicEthernet
           try {
-            await client.query(
-              `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
-               VALUES ($1, $2, $3, $4, 'GB')`,
-              [user_id, `Crear producto en NatMarket: ${name}`, -internetCost, 'NatMarket']
+            const { rows: linkRows } = await client.query(
+              `SELECT oe_user_id FROM oceanic_ethernet_user_links 
+               WHERE external_user_id = $1 AND external_system = 'NatMarket'`,
+              [user_id]
             );
+            
+            if (linkRows.length > 0) {
+              const oeUserId = linkRows[0].oe_user_id;
+              await client.query(
+                `INSERT INTO oceanic_ethernet_txs (user_id, concepto, monto, origen)
+                 VALUES ($1, $2, $3, $4)`,
+                [oeUserId, `Crear producto en NatMarket: ${name}`, -internetCost, 'NatMarket']
+              );
+            }
           } catch (e) {
-            await client.query(
-              `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
-               VALUES ($1, $2, $3, $4)`,
-              [user_id, `Crear producto en NatMarket: ${name}`, -internetCost, 'NatMarket']
-            );
+            // Si falla, no es crítico - el consumo ya se registró en metadata
+            console.error('Error registrando transacción en oceanic_ethernet_txs:', e);
           }
         }
         // Si no hay saldo suficiente, simplemente no consumir pero permitir crear el producto
@@ -5219,54 +5226,15 @@ app.post('/oceanic-ethernet/register', async (req, res) => {
   try {
     await client.query('BEGIN');
 
-    // Intentar crear usuario nuevo
-    let u;
-    try {
-      const { rows } = await client.query(
-        `INSERT INTO ocean_pay_users (username, pwd_hash, aquabux, ecoxionums, appbux)
-         VALUES ($1, $2, 10000, 50000, 0)
-         RETURNING id, username, aquabux, ecoxionums, appbux`,
-        [username, hash]
-      );
-      u = rows[0];
-    } catch (e) {
-      // Si el usuario ya existe (código 23505 = unique violation)
-      if (e.code === '23505') {
-        await client.query('ROLLBACK');
-        // Verificar si las credenciales son correctas
-        const { rows: existingUser } = await pool.query(`
-          SELECT id, pwd_hash FROM ocean_pay_users WHERE username = $1
-        `, [username]);
-        
-        if (existingUser.length > 0) {
-          const passwordMatch = await bcrypt.compare(password, existingUser[0].pwd_hash);
-          if (passwordMatch) {
-            // El usuario existe y la contraseña es correcta, inicializar internet_gb si no existe
-            await pool.query(`
-              INSERT INTO ocean_pay_metadata (user_id, key, value)
-              VALUES ($1, 'internet_gb', '0')
-              ON CONFLICT (user_id, key) DO NOTHING
-            `, [existingUser[0].id]);
-            
-            return res.status(200).json({ 
-              success: true, 
-              user: { id: existingUser[0].id, username },
-              message: 'Tu cuenta ya existe. Puedes iniciar sesión con estas credenciales.'
-            });
-          } else {
-            return res.status(409).json({ 
-              error: 'Este usuario ya existe. Si es tu cuenta, usa la opción "Iniciar sesión" con tu contraseña correcta.' 
-            });
-          }
-        }
-        return res.status(409).json({ 
-          error: 'Este usuario ya existe. Si es tu cuenta, usa la opción "Iniciar sesión".' 
-        });
-      }
-      throw e;
-    }
+    // Crear usuario en tabla propia de OceanicEthernet
+    const { rows: [u] } = await client.query(
+      `INSERT INTO oceanic_ethernet_users (username, pwd_hash)
+       VALUES ($1, $2)
+       RETURNING id, username, created_at`,
+      [username, hash]
+    );
 
-    // Inicializar saldo de internet en 0 para usuario nuevo
+    // Inicializar saldo de internet en 0 usando ocean_pay_metadata (compartida)
     await client.query(`
       INSERT INTO ocean_pay_metadata (user_id, key, value)
       VALUES ($1, 'internet_gb', '0')
@@ -5278,6 +5246,11 @@ app.post('/oceanic-ethernet/register', async (req, res) => {
 
   } catch (e) {
     await client.query('ROLLBACK');
+    if (e.code === '23505') {
+      return res.status(409).json({ 
+        error: 'Este usuario ya existe. Si es tu cuenta, usa la opción "Iniciar sesión".' 
+      });
+    }
     console.error('Error en oceanic-ethernet/register:', e);
     res.status(500).json({ error: 'Error interno del servidor' });
   } finally {
@@ -5293,7 +5266,7 @@ app.post('/oceanic-ethernet/login', async (req, res) => {
   try {
     const { rows } = await pool.query(`
       SELECT id, pwd_hash
-      FROM ocean_pay_users
+      FROM oceanic_ethernet_users
       WHERE username = $1
     `, [username]);
 
@@ -5347,6 +5320,44 @@ app.post('/oceanic-ethernet/login', async (req, res) => {
   } catch (err) {
     console.error('Error en oceanic-ethernet/login:', err);
     res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// Vincular usuario de OceanicEthernet con usuario externo (NatMarket, AllApp, etc.)
+app.post('/oceanic-ethernet/link-user', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+  
+  const token = authHeader.substring(7);
+  let userId;
+  try {
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
+    userId = decoded.uid;
+    userId = parseInt(userId) || userId;
+  } catch (e) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+  
+  const { externalUserId, externalSystem } = req.body;
+  
+  if (!externalUserId || !externalSystem) {
+    return res.status(400).json({ error: 'Faltan datos' });
+  }
+  
+  try {
+    await pool.query(`
+      INSERT INTO oceanic_ethernet_user_links (oe_user_id, external_user_id, external_system)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (external_user_id, external_system) 
+      DO UPDATE SET oe_user_id = EXCLUDED.oe_user_id
+    `, [userId, externalUserId, externalSystem]);
+    
+    res.json({ success: true, message: 'Usuario vinculado correctamente' });
+  } catch (err) {
+    console.error('Error vinculando usuario:', err);
+    res.status(500).json({ error: 'Error interno' });
   }
 });
 
@@ -5461,21 +5472,12 @@ app.post('/oceanic-ethernet/recharge', async (req, res) => {
       `, [userId, newBalance.toString()]);
     }
     
-    // Registrar transacción
-    try {
-      await client.query(
-        `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
-         VALUES ($1, $2, $3, $4, 'GB')`,
-        [userId, `Recarga de ${amount} GB`, amount, 'OceanicEthernet']
-      );
-    } catch (e) {
-      // Si falla por falta de columna moneda, intentar sin ella
-      await client.query(
-        `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
-         VALUES ($1, $2, $3, $4)`,
-        [userId, `Recarga de ${amount} GB`, amount, 'OceanicEthernet']
-      );
-    }
+    // Registrar transacción en tabla propia de OceanicEthernet
+    await client.query(
+      `INSERT INTO oceanic_ethernet_txs (user_id, concepto, monto, origen)
+       VALUES ($1, $2, $3, $4)`,
+      [userId, `Recarga de ${amount} GB`, amount, 'OceanicEthernet']
+    );
     
     await client.query('COMMIT');
     res.json({ success: true, newBalance });
@@ -5547,21 +5549,12 @@ app.post('/oceanic-ethernet/consume', async (req, res) => {
       return res.status(400).json({ error: 'No hay saldo disponible' });
     }
     
-    // Registrar transacción
-    try {
-      await client.query(
-        `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
-         VALUES ($1, $2, $3, $4, 'GB')`,
-        [userId, concepto, -amount, origen]
-      );
-    } catch (e) {
-      // Si falla por falta de columna moneda, intentar sin ella
-      await client.query(
-        `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
-         VALUES ($1, $2, $3, $4)`,
-        [userId, concepto, -amount, origen]
-      );
-    }
+    // Registrar transacción en tabla propia de OceanicEthernet
+    await client.query(
+      `INSERT INTO oceanic_ethernet_txs (user_id, concepto, monto, origen)
+       VALUES ($1, $2, $3, $4)`,
+      [userId, concepto, -amount, origen]
+    );
     
     await client.query('COMMIT');
     res.json({ success: true, newBalance });
@@ -5599,11 +5592,11 @@ app.get('/oceanic-ethernet/transactions/:userId', async (req, res) => {
   }
   
   try {
-    // Obtener transacciones relacionadas con internet (moneda GB o origen OceanicEthernet/NatMarket)
+    // Obtener transacciones de la tabla propia de OceanicEthernet
     const { rows } = await pool.query(`
       SELECT concepto, monto as amount, origen, created_at
-      FROM ocean_pay_txs
-      WHERE user_id = $1 AND (moneda = 'GB' OR origen = 'OceanicEthernet' OR origen = 'NatMarket')
+      FROM oceanic_ethernet_txs
+      WHERE user_id = $1
       ORDER BY created_at DESC
       LIMIT 50
     `, [userId]);
@@ -5611,19 +5604,7 @@ app.get('/oceanic-ethernet/transactions/:userId', async (req, res) => {
     res.json(rows);
   } catch (err) {
     console.error('❌ Error en /oceanic-ethernet/transactions/:userId', err);
-    // Si falla por falta de columna moneda, obtener todas las transacciones del usuario
-    try {
-      const { rows } = await pool.query(`
-        SELECT concepto, monto as amount, origen, created_at
-        FROM ocean_pay_txs
-        WHERE user_id = $1 AND (origen = 'OceanicEthernet' OR origen = 'NatMarket')
-        ORDER BY created_at DESC
-        LIMIT 50
-      `, [userId]);
-      res.json(rows);
-    } catch (e2) {
-      res.status(500).json({ error: 'Error interno' });
-    }
+    res.status(500).json({ error: 'Error interno' });
   }
 });
 
@@ -5652,12 +5633,11 @@ app.get('/oceanic-ethernet/recent/:userId', async (req, res) => {
   }
   
   try {
-    // Obtener transacciones de los últimos 60 segundos
+    // Obtener transacciones de los últimos 60 segundos de la tabla propia
     const { rows } = await pool.query(`
       SELECT concepto, monto as amount, origen, created_at
-      FROM ocean_pay_txs
+      FROM oceanic_ethernet_txs
       WHERE user_id = $1 
-        AND (moneda = 'GB' OR origen = 'OceanicEthernet' OR origen = 'NatMarket')
         AND created_at > NOW() - INTERVAL '1 minute'
       ORDER BY created_at DESC
     `, [userId]);
@@ -5665,19 +5645,7 @@ app.get('/oceanic-ethernet/recent/:userId', async (req, res) => {
     res.json(rows);
   } catch (err) {
     console.error('❌ Error en /oceanic-ethernet/recent/:userId', err);
-    try {
-      const { rows } = await pool.query(`
-        SELECT concepto, monto as amount, origen, created_at
-        FROM ocean_pay_txs
-        WHERE user_id = $1 
-          AND (origen = 'OceanicEthernet' OR origen = 'NatMarket')
-          AND created_at > NOW() - INTERVAL '1 minute'
-        ORDER BY created_at DESC
-      `, [userId]);
-      res.json(rows);
-    } catch (e2) {
-      res.status(500).json({ error: 'Error interno' });
-    }
+    res.status(500).json({ error: 'Error interno' });
   }
 });
 
@@ -6211,6 +6179,31 @@ CREATE TABLE IF NOT EXISTS product_images (
     aquabux     INTEGER DEFAULT 0,
     appbux      INTEGER DEFAULT 0,
     created_at  TIMESTAMP DEFAULT NOW()
+  );
+
+  CREATE TABLE IF NOT EXISTS oceanic_ethernet_users (
+    id          SERIAL PRIMARY KEY,
+    username    VARCHAR(60) UNIQUE NOT NULL,
+    pwd_hash    TEXT NOT NULL,
+    created_at  TIMESTAMP DEFAULT NOW()
+  );
+
+  CREATE TABLE IF NOT EXISTS oceanic_ethernet_txs (
+    id          SERIAL PRIMARY KEY,
+    user_id     INTEGER NOT NULL REFERENCES oceanic_ethernet_users(id) ON DELETE CASCADE,
+    concepto    TEXT NOT NULL,
+    monto       DECIMAL(10, 2) NOT NULL,
+    origen      VARCHAR(50) DEFAULT 'OceanicEthernet',
+    created_at  TIMESTAMP DEFAULT NOW()
+  );
+
+  CREATE TABLE IF NOT EXISTS oceanic_ethernet_user_links (
+    id          SERIAL PRIMARY KEY,
+    oe_user_id  INTEGER NOT NULL REFERENCES oceanic_ethernet_users(id) ON DELETE CASCADE,
+    external_user_id INTEGER NOT NULL,
+    external_system VARCHAR(50) NOT NULL, -- 'NatMarket', 'AllApp', etc.
+    created_at  TIMESTAMP DEFAULT NOW(),
+    UNIQUE(external_user_id, external_system)
   );
 
   CREATE TABLE IF NOT EXISTS tigertasks_backups (

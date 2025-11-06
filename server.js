@@ -5556,6 +5556,20 @@ app.post('/oceanic-ethernet/recharge', async (req, res) => {
         return res.status(401).json({ error: 'Token de Ocean Pay inválido' });
       }
       
+      // Verificar si la columna moneda existe
+      let hasMonedaColumn = false;
+      try {
+        const { rows: columnCheck } = await client.query(`
+          SELECT column_name 
+          FROM information_schema.columns 
+          WHERE table_name = 'ocean_pay_txs' AND column_name = 'moneda'
+        `);
+        hasMonedaColumn = columnCheck.length > 0;
+      } catch (e) {
+        // Si falla la verificación, asumir que no existe
+        hasMonedaColumn = false;
+      }
+      
       // Procesar pago según la divisa
       let paymentSuccess = false;
       
@@ -5578,13 +5592,12 @@ app.post('/oceanic-ethernet/recharge', async (req, res) => {
           'UPDATE ocean_pay_users SET aquabux = aquabux - $1 WHERE id = $2',
           [cost, opUserId]
         );
-        try {
+        if (hasMonedaColumn) {
           await client.query(
             'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)',
             [opUserId, `Recarga OceanicEthernet: ${amount} GB`, -cost, 'OceanicEthernet', 'AB']
           );
-        } catch (e) {
-          // Si falla por falta de columna moneda, insertar sin ella
+        } else {
           await client.query(
             'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen) VALUES ($1, $2, $3, $4)',
             [opUserId, `Recarga OceanicEthernet: ${amount} GB`, -cost, 'OceanicEthernet']
@@ -5610,13 +5623,12 @@ app.post('/oceanic-ethernet/recharge', async (req, res) => {
           'UPDATE ocean_pay_users SET appbux = appbux - $1 WHERE id = $2',
           [cost, opUserId]
         );
-        try {
+        if (hasMonedaColumn) {
           await client.query(
             'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)',
             [opUserId, `Recarga OceanicEthernet: ${amount} GB`, -cost, 'OceanicEthernet', 'ABX']
           );
-        } catch (e) {
-          // Si falla por falta de columna moneda, insertar sin ella
+        } else {
           await client.query(
             'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen) VALUES ($1, $2, $3, $4)',
             [opUserId, `Recarga OceanicEthernet: ${amount} GB`, -cost, 'OceanicEthernet']
@@ -5641,13 +5653,12 @@ app.post('/oceanic-ethernet/recharge', async (req, res) => {
             [newBalance.toString(), opUserId, 'ecoxionums']
           );
         }
-        try {
+        if (hasMonedaColumn) {
           await client.query(
             'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)',
             [opUserId, `Recarga OceanicEthernet: ${amount} GB`, -cost, 'OceanicEthernet', 'EX']
           );
-        } catch (e) {
-          // Si falla por falta de columna moneda, insertar sin ella
+        } else {
           await client.query(
             'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen) VALUES ($1, $2, $3, $4)',
             [opUserId, `Recarga OceanicEthernet: ${amount} GB`, -cost, 'OceanicEthernet']
@@ -5673,13 +5684,12 @@ app.post('/oceanic-ethernet/recharge', async (req, res) => {
           'UPDATE ecorebits_users SET balance = balance - $1 WHERE user_id = $2',
           [cost, opUserId]
         );
-        try {
+        if (hasMonedaColumn) {
           await client.query(
             'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)',
             [opUserId, `Recarga OceanicEthernet: ${amount} GB`, -cost, 'OceanicEthernet', 'ECB']
           );
-        } catch (e) {
-          // Si falla por falta de columna moneda, insertar sin ella
+        } else {
           await client.query(
             'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen) VALUES ($1, $2, $3, $4)',
             [opUserId, `Recarga OceanicEthernet: ${amount} GB`, -cost, 'OceanicEthernet']
@@ -5709,13 +5719,12 @@ app.post('/oceanic-ethernet/recharge', async (req, res) => {
             [opUserId, 'wildcredits', newBalance.toString()]
           );
         }
-        try {
+        if (hasMonedaColumn) {
           await client.query(
             'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)',
             [opUserId, `Recarga OceanicEthernet: ${amount} GB`, -cost, 'OceanicEthernet', 'WC']
           );
-        } catch (e) {
-          // Si falla por falta de columna moneda, insertar sin ella
+        } else {
           await client.query(
             'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen) VALUES ($1, $2, $3, $4)',
             [opUserId, `Recarga OceanicEthernet: ${amount} GB`, -cost, 'OceanicEthernet']
@@ -5741,13 +5750,12 @@ app.post('/oceanic-ethernet/recharge', async (req, res) => {
           'UPDATE wildshorts_users SET wildgems = wildgems - $1 WHERE user_id = $2',
           [cost, opUserId]
         );
-        try {
+        if (hasMonedaColumn) {
           await client.query(
             'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)',
             [opUserId, `Recarga OceanicEthernet: ${amount} GB`, -cost, 'OceanicEthernet', 'WG']
           );
-        } catch (e) {
-          // Si falla por falta de columna moneda, insertar sin ella
+        } else {
           await client.query(
             'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen) VALUES ($1, $2, $3, $4)',
             [opUserId, `Recarga OceanicEthernet: ${amount} GB`, -cost, 'OceanicEthernet']

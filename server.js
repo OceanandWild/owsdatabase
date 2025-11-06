@@ -5219,15 +5219,54 @@ app.post('/oceanic-ethernet/register', async (req, res) => {
   try {
     await client.query('BEGIN');
 
-    // Crear usuario en ocean_pay_users (comparte la misma tabla pero con contexto diferente)
-    const { rows: [u] } = await client.query(
-      `INSERT INTO ocean_pay_users (username, pwd_hash, aquabux, ecoxionums, appbux)
-       VALUES ($1, $2, 10000, 50000, 0)
-       RETURNING id, username, aquabux, ecoxionums, appbux`,
-      [username, hash]
-    );
+    // Intentar crear usuario nuevo
+    let u;
+    try {
+      const { rows } = await client.query(
+        `INSERT INTO ocean_pay_users (username, pwd_hash, aquabux, ecoxionums, appbux)
+         VALUES ($1, $2, 10000, 50000, 0)
+         RETURNING id, username, aquabux, ecoxionums, appbux`,
+        [username, hash]
+      );
+      u = rows[0];
+    } catch (e) {
+      // Si el usuario ya existe (código 23505 = unique violation)
+      if (e.code === '23505') {
+        await client.query('ROLLBACK');
+        // Verificar si las credenciales son correctas
+        const { rows: existingUser } = await pool.query(`
+          SELECT id, pwd_hash FROM ocean_pay_users WHERE username = $1
+        `, [username]);
+        
+        if (existingUser.length > 0) {
+          const passwordMatch = await bcrypt.compare(password, existingUser[0].pwd_hash);
+          if (passwordMatch) {
+            // El usuario existe y la contraseña es correcta, inicializar internet_gb si no existe
+            await pool.query(`
+              INSERT INTO ocean_pay_metadata (user_id, key, value)
+              VALUES ($1, 'internet_gb', '0')
+              ON CONFLICT (user_id, key) DO NOTHING
+            `, [existingUser[0].id]);
+            
+            return res.status(200).json({ 
+              success: true, 
+              user: { id: existingUser[0].id, username },
+              message: 'Tu cuenta ya existe. Puedes iniciar sesión con estas credenciales.'
+            });
+          } else {
+            return res.status(409).json({ 
+              error: 'Este usuario ya existe. Si es tu cuenta, usa la opción "Iniciar sesión" con tu contraseña correcta.' 
+            });
+          }
+        }
+        return res.status(409).json({ 
+          error: 'Este usuario ya existe. Si es tu cuenta, usa la opción "Iniciar sesión".' 
+        });
+      }
+      throw e;
+    }
 
-    // Inicializar saldo de internet en 0
+    // Inicializar saldo de internet en 0 para usuario nuevo
     await client.query(`
       INSERT INTO ocean_pay_metadata (user_id, key, value)
       VALUES ($1, 'internet_gb', '0')
@@ -5239,9 +5278,8 @@ app.post('/oceanic-ethernet/register', async (req, res) => {
 
   } catch (e) {
     await client.query('ROLLBACK');
-    if (e.code === '23505') return res.status(409).json({ error: 'Usuario ya existe' });
     console.error('Error en oceanic-ethernet/register:', e);
-    res.status(500).json({ error: 'Error interno' });
+    res.status(500).json({ error: 'Error interno del servidor' });
   } finally {
     client.release();
   }
@@ -5252,51 +5290,64 @@ app.post('/oceanic-ethernet/login', async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Faltan datos' });
   
-  const { rows } = await pool.query(`
-    SELECT id, pwd_hash
-    FROM ocean_pay_users
-    WHERE username = $1
-  `, [username]);
-
-  if (rows.length === 0) return res.status(401).json({ error: 'Credenciales incorrectas' });
-  
-  const ok = await bcrypt.compare(password, rows[0].pwd_hash);
-  if (!ok) return res.status(401).json({ error: 'Credenciales incorrectas' });
-  
-  const token = jwt.sign({ uid: rows[0].id, un: username, source: 'oceanic-ethernet' }, process.env.STUDIO_SECRET, { expiresIn: '7d' });
-  
-  // Obtener saldo de internet
-  let internetBalance = 0;
   try {
-    const { rows: metaRows } = await pool.query(`
-      SELECT value FROM ocean_pay_metadata
-      WHERE user_id = $1 AND key = 'internet_gb'
-    `, [rows[0].id]);
-    
-    if (metaRows.length > 0) {
-      internetBalance = parseFloat(metaRows[0].value || '0');
+    const { rows } = await pool.query(`
+      SELECT id, pwd_hash
+      FROM ocean_pay_users
+      WHERE username = $1
+    `, [username]);
+
+    if (rows.length === 0) {
+      return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
     }
-  } catch (e) {
-    // Si no existe, crear registro con 0
+    
+    const ok = await bcrypt.compare(password, rows[0].pwd_hash);
+    if (!ok) {
+      return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
+    }
+    
+    const token = jwt.sign({ uid: rows[0].id, un: username, source: 'oceanic-ethernet' }, process.env.STUDIO_SECRET, { expiresIn: '7d' });
+    
+    // Asegurar que existe el registro de internet_gb (inicializar si no existe)
     try {
       await pool.query(`
         INSERT INTO ocean_pay_metadata (user_id, key, value)
         VALUES ($1, 'internet_gb', '0')
         ON CONFLICT (user_id, key) DO NOTHING
       `, [rows[0].id]);
-    } catch (e2) {
-      // Ignorar errores
+    } catch (e) {
+      // Ignorar errores de inicialización
+      console.error('Error inicializando internet_gb:', e);
     }
+    
+    // Obtener saldo de internet
+    let internetBalance = 0;
+    try {
+      const { rows: metaRows } = await pool.query(`
+        SELECT value FROM ocean_pay_metadata
+        WHERE user_id = $1 AND key = 'internet_gb'
+      `, [rows[0].id]);
+      
+      if (metaRows.length > 0) {
+        internetBalance = parseFloat(metaRows[0].value || '0');
+      }
+    } catch (e) {
+      // Si falla, usar 0 como valor por defecto
+      internetBalance = 0;
+    }
+    
+    res.json({
+      token,
+      user: {
+        id: rows[0].id,
+        username,
+        internetBalance
+      }
+    });
+  } catch (err) {
+    console.error('Error en oceanic-ethernet/login:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
   }
-  
-  res.json({
-    token,
-    user: {
-      id: rows[0].id,
-      username,
-      internetBalance
-    }
-  });
 });
 
 // Obtener saldo de internet

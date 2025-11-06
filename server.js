@@ -6628,7 +6628,7 @@ io.on('connection', (socket) => {
       players: room.players.map(p => ({ id: p.id, name: p.name, score: p.score }))
     });
 
-    socket.emit('player-joined-success', { playerId: player.id, roomPin });
+    socket.emit('player-joined-success', { playerId: player.id, roomPin: roomPin });
   });
 
   // Host inicia el juego

@@ -86,6 +86,15 @@ app.get('/ocean-pay/index.html', (_req, res) => {
   }
 });
 
+app.get('/oceanic-ethernet/index.html', (_req, res) => {
+  try {
+    const html = fs.readFileSync(join(__dirname, 'OceanicEthernet', 'index.html'), 'utf-8');
+    res.type('html').send(html);
+  } catch (e) {
+    res.status(404).send('Archivo no encontrado');
+  }
+});
+
 // Endpoint para sincronizar WildCredits desde Wild Explorer
 app.post('/ocean-pay/wildcredits/sync', async (req, res) => {
   const authHeader = req.headers.authorization;
@@ -4175,6 +4184,50 @@ app.post('/natmarket/products/v2', upload.array('images', 10), async (req, res) 
       [user_id, name, description, price ? parseFloat(price) : null, contact_number || null, stockNum, category || null, productStatus]
     );
 
+    // Consumir internet al crear producto (0.1 GB por producto)
+    try {
+      const { rows: metaRows } = await client.query(`
+        SELECT value FROM ocean_pay_metadata
+        WHERE user_id = $1 AND key = 'internet_gb'
+        FOR UPDATE
+      `, [user_id]);
+      
+      if (metaRows.length > 0) {
+        const currentBalance = parseFloat(metaRows[0].value || '0');
+        const internetCost = 0.1; // 0.1 GB por producto
+        
+        // Solo consumir si hay saldo suficiente
+        if (currentBalance >= internetCost) {
+          const newBalance = currentBalance - internetCost;
+          
+          await client.query(`
+            UPDATE ocean_pay_metadata
+            SET value = $1
+            WHERE user_id = $2 AND key = 'internet_gb'
+          `, [newBalance.toString(), user_id]);
+          
+          // Registrar transacción de consumo
+          try {
+            await client.query(
+              `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+               VALUES ($1, $2, $3, $4, 'GB')`,
+              [user_id, `Crear producto en NatMarket: ${name}`, -internetCost, 'NatMarket']
+            );
+          } catch (e) {
+            await client.query(
+              `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
+               VALUES ($1, $2, $3, $4)`,
+              [user_id, `Crear producto en NatMarket: ${name}`, -internetCost, 'NatMarket']
+            );
+          }
+        }
+        // Si no hay saldo suficiente, simplemente no consumir pero permitir crear el producto
+      }
+    } catch (e) {
+      // Si falla el consumo de internet, no bloquear la creación del producto
+      console.error('Error consumiendo internet en NatMarket:', e);
+    }
+
     // imágenes
     const host = process.env.BACKEND_URL || `https://${req.get('host')}`;
     const urls = (req.files || []).map(f => `${host}/uploads/nat/${f.filename}`);
@@ -5148,6 +5201,429 @@ app.post('/ocean-pay/wildcredits/transaction', async (req, res) => {
         [userId, concepto, amount, origen]
       );
       res.json({ success: true });
+    } catch (e2) {
+      res.status(500).json({ error: 'Error interno' });
+    }
+  }
+});
+
+/* ========== OCEANIC ETHERNET ========== */
+// Registro separado para OceanicEthernet
+app.post('/oceanic-ethernet/register', async (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) return res.status(400).json({ error: 'Faltan datos' });
+
+  const hash = await bcrypt.hash(password, 10);
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Crear usuario en ocean_pay_users (comparte la misma tabla pero con contexto diferente)
+    const { rows: [u] } = await client.query(
+      `INSERT INTO ocean_pay_users (username, pwd_hash, aquabux, ecoxionums, appbux)
+       VALUES ($1, $2, 10000, 50000, 0)
+       RETURNING id, username, aquabux, ecoxionums, appbux`,
+      [username, hash]
+    );
+
+    // Inicializar saldo de internet en 0
+    await client.query(`
+      INSERT INTO ocean_pay_metadata (user_id, key, value)
+      VALUES ($1, 'internet_gb', '0')
+      ON CONFLICT (user_id, key) DO NOTHING
+    `, [u.id]);
+
+    await client.query('COMMIT');
+    res.json({ success: true, user: { id: u.id, username: u.username } });
+
+  } catch (e) {
+    await client.query('ROLLBACK');
+    if (e.code === '23505') return res.status(409).json({ error: 'Usuario ya existe' });
+    console.error('Error en oceanic-ethernet/register:', e);
+    res.status(500).json({ error: 'Error interno' });
+  } finally {
+    client.release();
+  }
+});
+
+// Login separado para OceanicEthernet
+app.post('/oceanic-ethernet/login', async (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) return res.status(400).json({ error: 'Faltan datos' });
+  
+  const { rows } = await pool.query(`
+    SELECT id, pwd_hash
+    FROM ocean_pay_users
+    WHERE username = $1
+  `, [username]);
+
+  if (rows.length === 0) return res.status(401).json({ error: 'Credenciales incorrectas' });
+  
+  const ok = await bcrypt.compare(password, rows[0].pwd_hash);
+  if (!ok) return res.status(401).json({ error: 'Credenciales incorrectas' });
+  
+  const token = jwt.sign({ uid: rows[0].id, un: username, source: 'oceanic-ethernet' }, process.env.STUDIO_SECRET, { expiresIn: '7d' });
+  
+  // Obtener saldo de internet
+  let internetBalance = 0;
+  try {
+    const { rows: metaRows } = await pool.query(`
+      SELECT value FROM ocean_pay_metadata
+      WHERE user_id = $1 AND key = 'internet_gb'
+    `, [rows[0].id]);
+    
+    if (metaRows.length > 0) {
+      internetBalance = parseFloat(metaRows[0].value || '0');
+    }
+  } catch (e) {
+    // Si no existe, crear registro con 0
+    try {
+      await pool.query(`
+        INSERT INTO ocean_pay_metadata (user_id, key, value)
+        VALUES ($1, 'internet_gb', '0')
+        ON CONFLICT (user_id, key) DO NOTHING
+      `, [rows[0].id]);
+    } catch (e2) {
+      // Ignorar errores
+    }
+  }
+  
+  res.json({
+    token,
+    user: {
+      id: rows[0].id,
+      username,
+      internetBalance
+    }
+  });
+});
+
+// Obtener saldo de internet
+app.get('/oceanic-ethernet/balance/:userId', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+  
+  const token = authHeader.substring(7);
+  let userId;
+  try {
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
+    userId = decoded.uid;
+    userId = parseInt(userId) || userId;
+  } catch (e) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+  
+  const { userId: paramUserId } = req.params;
+  const paramUserIdNum = parseInt(paramUserId);
+  
+  // Verificar que el usuario del token coincida con el parámetro
+  if (userId !== paramUserIdNum) {
+    return res.status(403).json({ error: 'No autorizado' });
+  }
+  
+  try {
+    // Intentar obtener desde metadata primero (como wildcredits)
+    const { rows: metaRows } = await pool.query(`
+      SELECT value FROM ocean_pay_metadata
+      WHERE user_id = $1 AND key = 'internet_gb'
+    `, [userId]);
+    
+    if (metaRows.length > 0) {
+      const balance = parseFloat(metaRows[0].value || '0');
+      return res.json({ balance });
+    }
+    
+    // Si no existe en metadata, crear registro con 0
+    await pool.query(`
+      INSERT INTO ocean_pay_metadata (user_id, key, value)
+      VALUES ($1, 'internet_gb', '0')
+      ON CONFLICT (user_id, key) DO NOTHING
+    `, [userId]);
+    
+    res.json({ balance: 0 });
+  } catch (err) {
+    console.error('❌ Error en /oceanic-ethernet/balance/:userId', err);
+    // Si la tabla no existe, devolver 0
+    if (err.code === '42P01') {
+      res.json({ balance: 0 });
+    } else {
+      res.status(500).json({ error: 'Error interno' });
+    }
+  }
+});
+
+// Solicitar recarga de internet
+app.post('/oceanic-ethernet/recharge', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+  
+  const token = authHeader.substring(7);
+  let userId;
+  try {
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
+    userId = decoded.uid;
+    userId = parseInt(userId) || userId;
+  } catch (e) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+  
+  const { userId: bodyUserId, amount } = req.body;
+  
+  if (!bodyUserId || amount === undefined || amount <= 0) {
+    return res.status(400).json({ error: 'Datos inválidos' });
+  }
+  
+  if (userId !== parseInt(bodyUserId)) {
+    return res.status(403).json({ error: 'No autorizado' });
+  }
+  
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    
+    // Obtener balance actual
+    const { rows: metaRows } = await client.query(`
+      SELECT value FROM ocean_pay_metadata
+      WHERE user_id = $1 AND key = 'internet_gb'
+      FOR UPDATE
+    `, [userId]);
+    
+    const currentBalance = metaRows.length > 0 ? parseFloat(metaRows[0].value || '0') : 0;
+    const newBalance = currentBalance + amount;
+    
+    // Actualizar o insertar balance
+    if (metaRows.length > 0) {
+      await client.query(`
+        UPDATE ocean_pay_metadata
+        SET value = $1
+        WHERE user_id = $2 AND key = 'internet_gb'
+      `, [newBalance.toString(), userId]);
+    } else {
+      await client.query(`
+        INSERT INTO ocean_pay_metadata (user_id, key, value)
+        VALUES ($1, 'internet_gb', $2)
+      `, [userId, newBalance.toString()]);
+    }
+    
+    // Registrar transacción
+    try {
+      await client.query(
+        `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+         VALUES ($1, $2, $3, $4, 'GB')`,
+        [userId, `Recarga de ${amount} GB`, amount, 'OceanicEthernet']
+      );
+    } catch (e) {
+      // Si falla por falta de columna moneda, intentar sin ella
+      await client.query(
+        `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
+         VALUES ($1, $2, $3, $4)`,
+        [userId, `Recarga de ${amount} GB`, amount, 'OceanicEthernet']
+      );
+    }
+    
+    await client.query('COMMIT');
+    res.json({ success: true, newBalance });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('❌ Error en /oceanic-ethernet/recharge:', err);
+    res.status(500).json({ error: 'Error interno' });
+  } finally {
+    client.release();
+  }
+});
+
+// Consumir internet (para usar desde otros proyectos)
+app.post('/oceanic-ethernet/consume', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+  
+  const token = authHeader.substring(7);
+  let userId;
+  try {
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
+    userId = decoded.uid;
+    userId = parseInt(userId) || userId;
+  } catch (e) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+  
+  const { userId: bodyUserId, amount, concepto = 'Uso de internet', origen = 'AllApp' } = req.body;
+  
+  if (!bodyUserId || amount === undefined || amount <= 0) {
+    return res.status(400).json({ error: 'Datos inválidos' });
+  }
+  
+  if (userId !== parseInt(bodyUserId)) {
+    return res.status(403).json({ error: 'No autorizado' });
+  }
+  
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    
+    // Obtener balance actual
+    const { rows: metaRows } = await client.query(`
+      SELECT value FROM ocean_pay_metadata
+      WHERE user_id = $1 AND key = 'internet_gb'
+      FOR UPDATE
+    `, [userId]);
+    
+    const currentBalance = metaRows.length > 0 ? parseFloat(metaRows[0].value || '0') : 0;
+    const newBalance = currentBalance - amount;
+    
+    if (newBalance < 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Saldo insuficiente' });
+    }
+    
+    // Actualizar balance
+    if (metaRows.length > 0) {
+      await client.query(`
+        UPDATE ocean_pay_metadata
+        SET value = $1
+        WHERE user_id = $2 AND key = 'internet_gb'
+      `, [newBalance.toString(), userId]);
+    } else {
+      // Si no existe, no debería consumir
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'No hay saldo disponible' });
+    }
+    
+    // Registrar transacción
+    try {
+      await client.query(
+        `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+         VALUES ($1, $2, $3, $4, 'GB')`,
+        [userId, concepto, -amount, origen]
+      );
+    } catch (e) {
+      // Si falla por falta de columna moneda, intentar sin ella
+      await client.query(
+        `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
+         VALUES ($1, $2, $3, $4)`,
+        [userId, concepto, -amount, origen]
+      );
+    }
+    
+    await client.query('COMMIT');
+    res.json({ success: true, newBalance });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('❌ Error en /oceanic-ethernet/consume:', err);
+    res.status(500).json({ error: 'Error interno' });
+  } finally {
+    client.release();
+  }
+});
+
+// Obtener transacciones de internet
+app.get('/oceanic-ethernet/transactions/:userId', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+  
+  const token = authHeader.substring(7);
+  let userId;
+  try {
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
+    userId = decoded.uid;
+    userId = parseInt(userId) || userId;
+  } catch (e) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+  
+  const { userId: paramUserId } = req.params;
+  const paramUserIdNum = parseInt(paramUserId);
+  
+  if (userId !== paramUserIdNum) {
+    return res.status(403).json({ error: 'No autorizado' });
+  }
+  
+  try {
+    // Obtener transacciones relacionadas con internet (moneda GB o origen OceanicEthernet/NatMarket)
+    const { rows } = await pool.query(`
+      SELECT concepto, monto as amount, origen, created_at
+      FROM ocean_pay_txs
+      WHERE user_id = $1 AND (moneda = 'GB' OR origen = 'OceanicEthernet' OR origen = 'NatMarket')
+      ORDER BY created_at DESC
+      LIMIT 50
+    `, [userId]);
+    
+    res.json(rows);
+  } catch (err) {
+    console.error('❌ Error en /oceanic-ethernet/transactions/:userId', err);
+    // Si falla por falta de columna moneda, obtener todas las transacciones del usuario
+    try {
+      const { rows } = await pool.query(`
+        SELECT concepto, monto as amount, origen, created_at
+        FROM ocean_pay_txs
+        WHERE user_id = $1 AND (origen = 'OceanicEthernet' OR origen = 'NatMarket')
+        ORDER BY created_at DESC
+        LIMIT 50
+      `, [userId]);
+      res.json(rows);
+    } catch (e2) {
+      res.status(500).json({ error: 'Error interno' });
+    }
+  }
+});
+
+// Obtener historial reciente (último minuto) para tiempo real
+app.get('/oceanic-ethernet/recent/:userId', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+  
+  const token = authHeader.substring(7);
+  let userId;
+  try {
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
+    userId = decoded.uid;
+    userId = parseInt(userId) || userId;
+  } catch (e) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+  
+  const { userId: paramUserId } = req.params;
+  const paramUserIdNum = parseInt(paramUserId);
+  
+  if (userId !== paramUserIdNum) {
+    return res.status(403).json({ error: 'No autorizado' });
+  }
+  
+  try {
+    // Obtener transacciones de los últimos 60 segundos
+    const { rows } = await pool.query(`
+      SELECT concepto, monto as amount, origen, created_at
+      FROM ocean_pay_txs
+      WHERE user_id = $1 
+        AND (moneda = 'GB' OR origen = 'OceanicEthernet' OR origen = 'NatMarket')
+        AND created_at > NOW() - INTERVAL '1 minute'
+      ORDER BY created_at DESC
+    `, [userId]);
+    
+    res.json(rows);
+  } catch (err) {
+    console.error('❌ Error en /oceanic-ethernet/recent/:userId', err);
+    try {
+      const { rows } = await pool.query(`
+        SELECT concepto, monto as amount, origen, created_at
+        FROM ocean_pay_txs
+        WHERE user_id = $1 
+          AND (origen = 'OceanicEthernet' OR origen = 'NatMarket')
+          AND created_at > NOW() - INTERVAL '1 minute'
+        ORDER BY created_at DESC
+      `, [userId]);
+      res.json(rows);
     } catch (e2) {
       res.status(500).json({ error: 'Error interno' });
     }

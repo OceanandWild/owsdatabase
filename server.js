@@ -1954,11 +1954,21 @@ app.post('/natmarket/login', async (req, res) => {
       await pool.query('UPDATE users_nat SET user_unique_id = $1 WHERE id = $2', [userUniqueId, rows[0].id]);
     }
     
+    // Verificar si está vinculado con OceanicEthernet
+    const { rows: linkRows } = await pool.query(
+      `SELECT oe_user_id FROM oceanic_ethernet_user_links 
+       WHERE external_user_id = $1 AND external_system = 'NatMarket'`,
+      [rows[0].id]
+    );
+    
+    const isLinked = linkRows.length > 0;
+    
     res.json({ 
       id: rows[0].id, 
       username: rows[0].username,
-      needs_unique_id: !rows[0].user_unique_id, // Indica si necesita ver el ID por primera vez
-      user_unique_id: !rows[0].user_unique_id ? userUniqueId : undefined // Solo mostrar si no lo tenía
+      needs_unique_id: !rows[0].user_unique_id,
+      user_unique_id: !rows[0].user_unique_id ? userUniqueId : undefined,
+      needs_oceanic_ethernet_link: !isLinked // Indica si necesita vincular OceanicEthernet
     });
   } catch (err) {
     handleNatError(res, err, '/natmarket/login');
@@ -2001,6 +2011,72 @@ app.put('/natmarket/users/:id/password', async (req, res) => {
     res.json({ success: true, message: 'Contraseña actualizada exitosamente' });
   } catch (err) {
     handleNatError(res, err, 'PUT /natmarket/users/:id/password');
+  }
+});
+
+// Verificar vinculación con OceanicEthernet
+app.get('/natmarket/users/:id/oceanic-ethernet-link', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { rows } = await pool.query(
+      `SELECT oe_user_id FROM oceanic_ethernet_user_links 
+       WHERE external_user_id = $1 AND external_system = 'NatMarket'`,
+      [id]
+    );
+    res.json({ linked: rows.length > 0, oe_user_id: rows.length > 0 ? rows[0].oe_user_id : null });
+  } catch (err) {
+    handleNatError(res, err, 'GET /natmarket/users/:id/oceanic-ethernet-link');
+  }
+});
+
+// Vincular cuenta de NatMarket con OceanicEthernet usando credenciales
+app.post('/natmarket/users/:id/link-oceanic-ethernet', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { oe_username, oe_password } = req.body;
+    
+    if (!oe_username || !oe_password) {
+      return res.status(400).json({ error: 'Usuario y contraseña de OceanicEthernet requeridos' });
+    }
+    
+    // Verificar credenciales de OceanicEthernet
+    const { rows: oeRows } = await pool.query(
+      'SELECT id FROM oceanic_ethernet_users WHERE username = $1',
+      [oe_username]
+    );
+    
+    if (oeRows.length === 0) {
+      return res.status(401).json({ error: 'Usuario de OceanicEthernet no encontrado' });
+    }
+    
+    const { rows: pwdRows } = await pool.query(
+      'SELECT id, pwd_hash FROM oceanic_ethernet_users WHERE username = $1',
+      [oe_username]
+    );
+    
+    if (pwdRows.length === 0) {
+      return res.status(401).json({ error: 'Error al verificar credenciales' });
+    }
+    
+    const ok = await bcrypt.compare(oe_password, pwdRows[0].pwd_hash);
+    if (!ok) {
+      return res.status(401).json({ error: 'Contraseña de OceanicEthernet incorrecta' });
+    }
+    
+    const oeUserId = pwdRows[0].id;
+    
+    // Crear o actualizar vinculación
+    await pool.query(
+      `INSERT INTO oceanic_ethernet_user_links (oe_user_id, external_user_id, external_system)
+       VALUES ($1, $2, 'NatMarket')
+       ON CONFLICT (external_user_id, external_system) 
+       DO UPDATE SET oe_user_id = $1`,
+      [oeUserId, id]
+    );
+    
+    res.json({ success: true, message: 'Cuenta vinculada correctamente' });
+  } catch (err) {
+    handleNatError(res, err, 'POST /natmarket/users/:id/link-oceanic-ethernet');
   }
 });
 
@@ -2203,16 +2279,44 @@ app.delete('/natmarket/products/:id', async (req, res) => {
 
 /* ---------- REPUBLICAR PRODUCTO ---------- */
 app.post('/natmarket/products/:id/repost', async (req, res) => {
+  const client = await pool.connect();
   try {
+    await client.query('BEGIN');
     const { id } = req.params;
     const { user_id, name, description, price, contact_number, stock, places, methods } = req.body;
     
-    if (!user_id) return res.status(400).json({ error: 'user_id requerido' });
+    if (!user_id) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'user_id requerido' });
+    }
+    
+    // Verificar si el usuario está vinculado con OceanicEthernet (OBLIGATORIO)
+    const { rows: linkRows } = await client.query(
+      `SELECT oe_user_id FROM oceanic_ethernet_user_links 
+       WHERE external_user_id = $1 AND external_system = 'NatMarket'`,
+      [user_id]
+    );
+    
+    if (linkRows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ 
+        error: 'Debes vincular tu cuenta con OceanicEthernet para republicar productos. Ve a tu perfil para vincular.',
+        needs_link: true
+      });
+    }
+    
+    const oeUserId = linkRows[0].oe_user_id;
     
     // Verificar que el producto existe y pertenece al usuario
-    const { rows: productRows } = await pool.query('SELECT * FROM products_nat WHERE id=$1', [id]);
-    if (productRows.length === 0) return res.status(404).json({ error: 'Producto no encontrado' });
-    if (Number(productRows[0].user_id) !== Number(user_id)) return res.status(403).json({ error: 'No autorizado' });
+    const { rows: productRows } = await client.query('SELECT * FROM products_nat WHERE id=$1', [id]);
+    if (productRows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Producto no encontrado' });
+    }
+    if (Number(productRows[0].user_id) !== Number(user_id)) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'No autorizado' });
+    }
     
     const currentProduct = productRows[0];
     
@@ -2226,11 +2330,61 @@ app.post('/natmarket/products/:id/repost', async (req, res) => {
     // Moderación si hay cambios en nombre/descripción
     const bad = containsInappropriate(newName + ' ' + (newDescription || ''));
     if (bad) {
+      await client.query('ROLLBACK');
       return res.status(400).json({ error: 'El contenido contiene palabras inapropiadas' });
     }
     
+    // Consumir internet al republicar producto (0.1 GB por producto)
+    try {
+      const { rows: metaRows } = await client.query(`
+        SELECT value FROM ocean_pay_metadata
+        WHERE user_id = $1 AND key = 'internet_gb'
+        FOR UPDATE
+      `, [oeUserId]);
+      
+      if (metaRows.length > 0) {
+        const currentBalance = parseFloat(metaRows[0].value || '0');
+        const internetCost = 0.1; // 0.1 GB por producto
+        
+        // Verificar saldo suficiente
+        if (currentBalance < internetCost) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ 
+            error: `Saldo insuficiente. Necesitas ${internetCost} GB de internet para republicar un producto. Tu saldo actual: ${currentBalance.toFixed(1)} GB`,
+            insufficient_balance: true
+          });
+        }
+        
+        const newBalance = currentBalance - internetCost;
+        
+        await client.query(`
+          UPDATE ocean_pay_metadata
+          SET value = $1
+          WHERE user_id = $2 AND key = 'internet_gb'
+        `, [newBalance.toString(), oeUserId]);
+        
+        // Registrar transacción de consumo en tabla de OceanicEthernet
+        await client.query(
+          `INSERT INTO oceanic_ethernet_txs (user_id, concepto, monto, origen)
+           VALUES ($1, $2, $3, $4)`,
+          [oeUserId, `Republicar producto en NatMarket: ${newName}`, -internetCost, 'NatMarket']
+        );
+      } else {
+        // No tiene saldo inicializado, requerir recarga
+        await client.query('ROLLBACK');
+        return res.status(400).json({ 
+          error: 'No tienes saldo de internet. Recarga tu cuenta en OceanicEthernet para republicar productos.',
+          insufficient_balance: true
+        });
+      }
+    } catch (e) {
+      await client.query('ROLLBACK');
+      console.error('Error consumiendo internet en NatMarket:', e);
+      return res.status(500).json({ error: 'Error al procesar el consumo de internet' });
+    }
+    
     // Actualizar producto con nueva fecha de publicación
-    const { rows: [updated] } = await pool.query(
+    const { rows: [updated] } = await client.query(
       `UPDATE products_nat 
        SET name=$1, description=$2, price=$3, contact_number=$4, stock=$5, published_at=NOW(), sold=false, buyer_id=NULL
        WHERE id=$6 RETURNING *`,
@@ -2249,40 +2403,40 @@ app.post('/natmarket/products/:id/repost', async (req, res) => {
     
     // Obtener lugares y métodos actuales si no se proporcionan
     if (!placesArray || placesArray.length === 0) {
-      const { rows: currentPlaces } = await pool.query('SELECT place_id FROM product_places WHERE product_id=$1', [id]);
+      const { rows: currentPlaces } = await client.query('SELECT place_id FROM product_places WHERE product_id=$1', [id]);
       placesArray = currentPlaces.map(p => p.place_id.toString());
     }
     
     if (!methodsArray || methodsArray.length === 0) {
-      const { rows: currentMethods } = await pool.query('SELECT shipping_method_id FROM product_shipping_methods WHERE product_id=$1', [id]);
+      const { rows: currentMethods } = await client.query('SELECT shipping_method_id FROM product_shipping_methods WHERE product_id=$1', [id]);
       methodsArray = currentMethods.map(m => m.shipping_method_id.toString());
     }
     
     // Actualizar lugares y métodos
-    await pool.query('DELETE FROM product_places WHERE product_id=$1', [id]);
+    await client.query('DELETE FROM product_places WHERE product_id=$1', [id]);
     for (const pId of placesArray) {
-      await pool.query('INSERT INTO product_places (product_id, place_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [id, pId]);
+      await client.query('INSERT INTO product_places (product_id, place_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [id, pId]);
     }
     
-    await pool.query('DELETE FROM product_shipping_methods WHERE product_id=$1', [id]);
+    await client.query('DELETE FROM product_shipping_methods WHERE product_id=$1', [id]);
     for (const mId of methodsArray) {
-      await pool.query('INSERT INTO product_shipping_methods (product_id, shipping_method_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [id, mId]);
+      await client.query('INSERT INTO product_shipping_methods (product_id, shipping_method_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [id, mId]);
     }
     
     // Resetear vistas para que aparezca como nuevo
-    await pool.query('DELETE FROM product_views_unique WHERE product_id=$1', [id]);
-    await pool.query('UPDATE products_nat SET views=0 WHERE id=$1', [id]);
+    await client.query('DELETE FROM product_views_unique WHERE product_id=$1', [id]);
+    await client.query('UPDATE products_nat SET views=0 WHERE id=$1', [id]);
     
     // Notificar a los seguidores del usuario (producto republicado)
     try {
-      const { rows: followers } = await pool.query(
+      const { rows: followers } = await client.query(
         'SELECT follower_id FROM user_follows WHERE following_id = $1',
         [user_id]
       );
       
       if (followers.length > 0) {
         // Obtener el username del vendedor
-        const { rows: [seller] } = await pool.query(
+        const { rows: [seller] } = await client.query(
           'SELECT username FROM users_nat WHERE id = $1',
           [user_id]
         );
@@ -2290,7 +2444,7 @@ app.post('/natmarket/products/:id/repost', async (req, res) => {
         
         // Crear notificaciones para cada seguidor
         for (const follower of followers) {
-          await pool.query(
+          await client.query(
             `INSERT INTO notifications_nat (user_id, type, message, product_id, sender_id, created_at)
              VALUES ($1, 'new_product', $2, $3, $4, NOW())`,
             [
@@ -2308,9 +2462,13 @@ app.post('/natmarket/products/:id/repost', async (req, res) => {
       // No fallar el repost si falla la notificación
     }
     
+    await client.query('COMMIT');
     res.json({ success: true, product: updated });
   } catch (err) {
+    await client.query('ROLLBACK');
     handleNatError(res, err, 'POST /natmarket/products/:id/repost');
+  } finally {
+    client.release();
   }
 });
 
@@ -2327,6 +2485,23 @@ app.post('/natmarket/products/:id/repost-delete', upload.array('images', 10), as
       await client.query('ROLLBACK');
       return res.status(400).json({ error: 'user_id requerido' });
     }
+    
+    // Verificar si el usuario está vinculado con OceanicEthernet (OBLIGATORIO)
+    const { rows: linkRows } = await client.query(
+      `SELECT oe_user_id FROM oceanic_ethernet_user_links 
+       WHERE external_user_id = $1 AND external_system = 'NatMarket'`,
+      [user_id]
+    );
+    
+    if (linkRows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ 
+        error: 'Debes vincular tu cuenta con OceanicEthernet para republicar productos. Ve a tu perfil para vincular.',
+        needs_link: true
+      });
+    }
+    
+    const oeUserId = linkRows[0].oe_user_id;
     
     // Verificar que el producto existe y pertenece al usuario
     const { rows: productRows } = await client.query('SELECT * FROM products_nat WHERE id=$1', [id]);
@@ -2361,6 +2536,55 @@ app.post('/natmarket/products/:id/repost-delete', upload.array('images', 10), as
     if (bad) {
       await client.query('ROLLBACK');
       return res.status(400).json({ error: 'El contenido contiene palabras inapropiadas' });
+    }
+    
+    // Consumir internet al borrar y republicar producto (0.1 GB por producto)
+    try {
+      const { rows: metaRows } = await client.query(`
+        SELECT value FROM ocean_pay_metadata
+        WHERE user_id = $1 AND key = 'internet_gb'
+        FOR UPDATE
+      `, [oeUserId]);
+      
+      if (metaRows.length > 0) {
+        const currentBalance = parseFloat(metaRows[0].value || '0');
+        const internetCost = 0.1; // 0.1 GB por producto
+        
+        // Verificar saldo suficiente
+        if (currentBalance < internetCost) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ 
+            error: `Saldo insuficiente. Necesitas ${internetCost} GB de internet para republicar un producto. Tu saldo actual: ${currentBalance.toFixed(1)} GB`,
+            insufficient_balance: true
+          });
+        }
+        
+        const newBalance = currentBalance - internetCost;
+        
+        await client.query(`
+          UPDATE ocean_pay_metadata
+          SET value = $1
+          WHERE user_id = $2 AND key = 'internet_gb'
+        `, [newBalance.toString(), oeUserId]);
+        
+        // Registrar transacción de consumo en tabla de OceanicEthernet
+        await client.query(
+          `INSERT INTO oceanic_ethernet_txs (user_id, concepto, monto, origen)
+           VALUES ($1, $2, $3, $4)`,
+          [oeUserId, `Borrar y republicar producto en NatMarket: ${newName}`, -internetCost, 'NatMarket']
+        );
+      } else {
+        // No tiene saldo inicializado, requerir recarga
+        await client.query('ROLLBACK');
+        return res.status(400).json({ 
+          error: 'No tienes saldo de internet. Recarga tu cuenta en OceanicEthernet para republicar productos.',
+          insufficient_balance: true
+        });
+      }
+    } catch (e) {
+      await client.query('ROLLBACK');
+      console.error('Error consumiendo internet en NatMarket:', e);
+      return res.status(500).json({ error: 'Error al procesar el consumo de internet' });
     }
     
     // Obtener imágenes, lugares y métodos actuales antes de borrar
@@ -4141,6 +4365,23 @@ app.post('/natmarket/products/v2', upload.array('images', 10), async (req, res) 
     await client.query('BEGIN');
     const { user_id, name, description, price, contact_number, stock } = req.body;
 
+    // Verificar si el usuario está vinculado con OceanicEthernet (OBLIGATORIO)
+    const { rows: linkRows } = await client.query(
+      `SELECT oe_user_id FROM oceanic_ethernet_user_links 
+       WHERE external_user_id = $1 AND external_system = 'NatMarket'`,
+      [user_id]
+    );
+    
+    if (linkRows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ 
+        error: 'Debes vincular tu cuenta con OceanicEthernet para publicar productos. Ve a tu perfil para vincular.',
+        needs_link: true
+      });
+    }
+    
+    const oeUserId = linkRows[0].oe_user_id;
+
     // Verificar si el usuario está baneado
     const banCheck = await isUserBanned(user_id);
     if (banCheck.banned) {
@@ -4190,49 +4431,47 @@ app.post('/natmarket/products/v2', upload.array('images', 10), async (req, res) 
         SELECT value FROM ocean_pay_metadata
         WHERE user_id = $1 AND key = 'internet_gb'
         FOR UPDATE
-      `, [user_id]);
+      `, [oeUserId]);
       
       if (metaRows.length > 0) {
         const currentBalance = parseFloat(metaRows[0].value || '0');
         const internetCost = 0.1; // 0.1 GB por producto
         
-        // Solo consumir si hay saldo suficiente
-        if (currentBalance >= internetCost) {
-          const newBalance = currentBalance - internetCost;
-          
-          await client.query(`
-            UPDATE ocean_pay_metadata
-            SET value = $1
-            WHERE user_id = $2 AND key = 'internet_gb'
-          `, [newBalance.toString(), user_id]);
-          
-          // Registrar transacción de consumo en tabla de OceanicEthernet
-          // Buscar si el usuario de NatMarket está vinculado con OceanicEthernet
-          try {
-            const { rows: linkRows } = await client.query(
-              `SELECT oe_user_id FROM oceanic_ethernet_user_links 
-               WHERE external_user_id = $1 AND external_system = 'NatMarket'`,
-              [user_id]
-            );
-            
-            if (linkRows.length > 0) {
-              const oeUserId = linkRows[0].oe_user_id;
-              await client.query(
-                `INSERT INTO oceanic_ethernet_txs (user_id, concepto, monto, origen)
-                 VALUES ($1, $2, $3, $4)`,
-                [oeUserId, `Crear producto en NatMarket: ${name}`, -internetCost, 'NatMarket']
-              );
-            }
-          } catch (e) {
-            // Si falla, no es crítico - el consumo ya se registró en metadata
-            console.error('Error registrando transacción en oceanic_ethernet_txs:', e);
-          }
+        // Verificar saldo suficiente
+        if (currentBalance < internetCost) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ 
+            error: `Saldo insuficiente. Necesitas ${internetCost} GB de internet para publicar un producto. Tu saldo actual: ${currentBalance.toFixed(1)} GB`,
+            insufficient_balance: true
+          });
         }
-        // Si no hay saldo suficiente, simplemente no consumir pero permitir crear el producto
+        
+        const newBalance = currentBalance - internetCost;
+        
+        await client.query(`
+          UPDATE ocean_pay_metadata
+          SET value = $1
+          WHERE user_id = $2 AND key = 'internet_gb'
+        `, [newBalance.toString(), oeUserId]);
+        
+        // Registrar transacción de consumo en tabla de OceanicEthernet
+        await client.query(
+          `INSERT INTO oceanic_ethernet_txs (user_id, concepto, monto, origen)
+           VALUES ($1, $2, $3, $4)`,
+          [oeUserId, `Crear producto en NatMarket: ${name}`, -internetCost, 'NatMarket']
+        );
+      } else {
+        // No tiene saldo inicializado, requerir recarga
+        await client.query('ROLLBACK');
+        return res.status(400).json({ 
+          error: 'No tienes saldo de internet. Recarga tu cuenta en OceanicEthernet para publicar productos.',
+          insufficient_balance: true
+        });
       }
     } catch (e) {
-      // Si falla el consumo de internet, no bloquear la creación del producto
+      await client.query('ROLLBACK');
       console.error('Error consumiendo internet en NatMarket:', e);
+      return res.status(500).json({ error: 'Error al procesar el consumo de internet' });
     }
 
     // imágenes

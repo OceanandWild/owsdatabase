@@ -1029,6 +1029,47 @@ app.post('/ocean-pay/link-account', async (req, res) => {
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
+
+// Endpoint temporal para restablecer contraseña de OceanandWild
+app.post('/ocean-pay/reset-oceanandwild', async (req, res) => {
+  const { newPassword } = req.body;
+  
+  if (!newPassword) {
+    return res.status(400).json({ error: 'Nueva contraseña requerida' });
+  }
+  
+  try {
+    // Buscar usuario OceanandWild
+    const { rows } = await pool.query(
+      'SELECT id FROM ocean_pay_users WHERE username = $1',
+      ['OceanandWild']
+    );
+    
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Usuario OceanandWild no encontrado' });
+    }
+    
+    // Hashear nueva contraseña
+    const hash = await bcrypt.hash(newPassword, 10);
+    
+    // Actualizar contraseña
+    await pool.query(
+      'UPDATE ocean_pay_users SET pwd_hash = $1 WHERE username = $2',
+      [hash, 'OceanandWild']
+    );
+    
+    res.json({ 
+      success: true, 
+      message: 'Contraseña de OceanandWild restablecida correctamente',
+      username: 'OceanandWild',
+      newPassword: newPassword // Solo para desarrollo, eliminar en producción
+    });
+  } catch (err) {
+    console.error('Error restableciendo contraseña de OceanandWild:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 // Simple status endpoint
 app.get('/api/status', (_req, res) => {
   res.json({

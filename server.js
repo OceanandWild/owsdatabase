@@ -6720,8 +6720,24 @@ io.on('connection', (socket) => {
       // Puntos base: 1000, con bonus por velocidad (máximo 30 segundos)
       const maxTime = currentQ.timeLimit || 30;
       const timeBonus = Math.max(0, Math.floor((maxTime - timeTaken) / maxTime * 500));
-      points = 1000 + timeBonus;
+      let basePoints = 1000 + timeBonus;
       
+      // Aplicar modificadores
+      if (currentQ.modifier === 'x2') {
+        basePoints *= 2;
+      } else if (currentQ.modifier === 'x3') {
+        basePoints *= 3;
+      } else if (currentQ.modifier === 'no-points') {
+        basePoints = 0;
+      } else if (currentQ.modifier === 'time-bonus') {
+        basePoints += Math.floor((maxTime - timeTaken) / maxTime * 1000);
+      } else if (currentQ.modifier === 'streak') {
+        // Bonus por racha de respuestas correctas
+        const streak = player.answers.filter(a => a.correct).length;
+        basePoints += streak * 100;
+      }
+      
+      points = basePoints;
       player.score += points;
       room.scores[player.id] = player.score;
     }
@@ -6755,6 +6771,23 @@ io.on('connection', (socket) => {
 
     socket.emit('answer-received', { correct, points, totalScore: player.score });
     console.log('Respuesta procesada:', { playerName: player.name, correct, points, totalScore: player.score });
+    
+    // Enviar leaderboard actualizado a todos los jugadores
+    const leaderboard = room.players
+      .map(p => ({ id: p.id, name: p.name, score: p.score }))
+      .sort((a, b) => b.score - a.score);
+    io.to(`room-${roomPin}`).emit('current-leaderboard', { leaderboard });
+  });
+
+  // Jugador solicita leaderboard actual
+  socket.on('get-current-leaderboard', ({ roomPin }) => {
+    const room = activeRooms.get(roomPin);
+    if (!room) return;
+    
+    const leaderboard = room.players
+      .map(p => ({ id: p.id, name: p.name, score: p.score }))
+      .sort((a, b) => b.score - a.score);
+    socket.emit('current-leaderboard', { leaderboard });
   });
 
   // Host avanza a siguiente pregunta o muestra resultados finales

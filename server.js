@@ -11,6 +11,8 @@ import bcrypt from "bcrypt";
 import path from "path";
 import fs from "fs";
 import jwt from 'jsonwebtoken';
+import { Server } from 'socket.io';
+import { createServer } from 'http';
 
 // URL FOR THIS DATABASE: https://owsdatabase.onrender.com
 dotenv.config();
@@ -56,6 +58,14 @@ const pool = new Pool(
 );
 
 const app = express();
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
+
 app.use(cors());
 app.use(express.json());
 
@@ -6317,11 +6327,439 @@ app.post('/api/ecoxion/subscription/cancel', async (req, res) => {
   }
 });
 
+/* ===== QUIZ KAHOOT SYSTEM ===== */
+
+// Almacenamiento en memoria para salas activas (se puede migrar a Redis en producción)
+const activeRooms = new Map(); // roomPin -> { hostId, quizId, players: [], currentQuestion: 0, scores: {}, state: 'waiting'|'playing'|'results' }
+const playerSockets = new Map(); // socketId -> { playerId, roomPin, playerName }
+
+// Inicializar tablas de quizzes
+async function ensureQuizTables() {
+  const quizQueries = [
+    `CREATE TABLE IF NOT EXISTS quizzes (
+      id SERIAL PRIMARY KEY,
+      user_id TEXT,
+      title TEXT NOT NULL,
+      description TEXT,
+      questions JSONB NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW(),
+      updated_at TIMESTAMP DEFAULT NOW()
+    );`,
+    `CREATE TABLE IF NOT EXISTS quiz_sessions (
+      id SERIAL PRIMARY KEY,
+      quiz_id INTEGER REFERENCES quizzes(id) ON DELETE CASCADE,
+      room_pin VARCHAR(6) UNIQUE NOT NULL,
+      host_id TEXT,
+      state VARCHAR(20) DEFAULT 'waiting',
+      current_question INTEGER DEFAULT 0,
+      started_at TIMESTAMP,
+      ended_at TIMESTAMP,
+      created_at TIMESTAMP DEFAULT NOW()
+    );`,
+    `CREATE TABLE IF NOT EXISTS quiz_players (
+      id SERIAL PRIMARY KEY,
+      session_id INTEGER REFERENCES quiz_sessions(id) ON DELETE CASCADE,
+      player_id TEXT NOT NULL,
+      player_name VARCHAR(100) NOT NULL,
+      score INTEGER DEFAULT 0,
+      answers JSONB DEFAULT '[]',
+      joined_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(session_id, player_id)
+    );`
+  ];
+
+  for (const q of quizQueries) {
+    try {
+      await pool.query(q);
+    } catch (err) {
+      console.error('Error creando tabla de quiz:', err.message);
+    }
+  }
+  console.log("✅ Tablas de quiz inicializadas");
+}
+
+// Endpoints de API para quizzes
+app.post('/api/quiz/create', async (req, res) => {
+  try {
+    const { userId, title, description, questions } = req.body;
+    
+    if (!title || !questions || !Array.isArray(questions) || questions.length === 0) {
+      return res.status(400).json({ error: 'Título y preguntas son requeridos' });
+    }
+
+    const { rows } = await pool.query(
+      `INSERT INTO quizzes (user_id, title, description, questions, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, NOW(), NOW())
+       RETURNING *`,
+      [userId || null, title, description || '', JSON.stringify(questions)]
+    );
+
+    res.json({ success: true, quiz: rows[0] });
+  } catch (err) {
+    console.error('Error creando quiz:', err);
+    res.status(500).json({ error: 'Error al crear el quiz' });
+  }
+});
+
+app.get('/api/quiz/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { rows } = await pool.query('SELECT * FROM quizzes WHERE id = $1', [id]);
+    
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Quiz no encontrado' });
+    }
+
+    res.json(rows[0]);
+  } catch (err) {
+    console.error('Error obteniendo quiz:', err);
+    res.status(500).json({ error: 'Error al obtener el quiz' });
+  }
+});
+
+app.get('/api/quiz/user/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { rows } = await pool.query(
+      'SELECT * FROM quizzes WHERE user_id = $1 ORDER BY created_at DESC',
+      [userId]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('Error obteniendo quizzes:', err);
+    res.status(500).json({ error: 'Error al obtener los quizzes' });
+  }
+});
+
+app.delete('/api/quiz/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query('DELETE FROM quizzes WHERE id = $1', [id]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error eliminando quiz:', err);
+    res.status(500).json({ error: 'Error al eliminar el quiz' });
+  }
+});
+
+// Crear sala de juego
+app.post('/api/quiz/start-session', async (req, res) => {
+  try {
+    const { quizId, hostId } = req.body;
+    
+    if (!quizId) {
+      return res.status(400).json({ error: 'Quiz ID es requerido' });
+    }
+
+    // Generar PIN único de 6 dígitos
+    let roomPin;
+    let exists = true;
+    while (exists) {
+      roomPin = Math.floor(100000 + Math.random() * 900000).toString();
+      const { rows } = await pool.query('SELECT 1 FROM quiz_sessions WHERE room_pin = $1', [roomPin]);
+      exists = rows.length > 0;
+    }
+
+    const { rows } = await pool.query(
+      `INSERT INTO quiz_sessions (quiz_id, room_pin, host_id, state, created_at)
+       VALUES ($1, $2, $3, 'waiting', NOW())
+       RETURNING *`,
+      [quizId, roomPin, hostId || null]
+    );
+
+    // Obtener el quiz
+    const { rows: quizRows } = await pool.query('SELECT * FROM quizzes WHERE id = $1', [quizId]);
+    
+    if (quizRows.length === 0) {
+      return res.status(404).json({ error: 'Quiz no encontrado' });
+    }
+
+    // Almacenar en memoria
+    activeRooms.set(roomPin, {
+      sessionId: rows[0].id,
+      quizId: quizId,
+      quiz: quizRows[0],
+      hostId: hostId || null,
+      players: [],
+      currentQuestion: 0,
+      scores: {},
+      state: 'waiting',
+      startTime: null
+    });
+
+    res.json({ success: true, roomPin, sessionId: rows[0].id });
+  } catch (err) {
+    console.error('Error creando sesión:', err);
+    res.status(500).json({ error: 'Error al crear la sesión' });
+  }
+});
+
+app.get('/api/quiz/session/:pin', async (req, res) => {
+  try {
+    const { pin } = req.params;
+    const room = activeRooms.get(pin);
+    
+    if (!room) {
+      return res.status(404).json({ error: 'Sala no encontrada' });
+    }
+
+    res.json({
+      roomPin: pin,
+      quizTitle: room.quiz.title,
+      playerCount: room.players.length,
+      state: room.state
+    });
+  } catch (err) {
+    console.error('Error obteniendo sesión:', err);
+    res.status(500).json({ error: 'Error al obtener la sesión' });
+  }
+});
+
+// WebSocket para tiempo real
+io.on('connection', (socket) => {
+  console.log('Usuario conectado:', socket.id);
+
+  // Host se une a una sala
+  socket.on('host-join', ({ roomPin, hostId }) => {
+    const room = activeRooms.get(roomPin);
+    if (!room) {
+      socket.emit('error', { message: 'Sala no encontrada' });
+      return;
+    }
+
+    socket.join(`room-${roomPin}`);
+    socket.join(`host-${roomPin}`);
+    socket.emit('host-joined', { roomPin, quiz: room.quiz });
+  });
+
+  // Jugador se une a una sala
+  socket.on('player-join', async ({ roomPin, playerName, playerId }) => {
+    const room = activeRooms.get(roomPin);
+    if (!room) {
+      socket.emit('error', { message: 'Sala no encontrada' });
+      return;
+    }
+
+    if (room.state !== 'waiting') {
+      socket.emit('error', { message: 'La partida ya comenzó' });
+      return;
+    }
+
+    const player = {
+      id: playerId || socket.id,
+      name: playerName,
+      socketId: socket.id,
+      score: 0,
+      answers: []
+    };
+
+    room.players.push(player);
+    room.scores[player.id] = 0;
+    playerSockets.set(socket.id, { playerId: player.id, roomPin, playerName });
+
+    // Guardar jugador en BD
+    try {
+      await pool.query(
+        `INSERT INTO quiz_players (session_id, player_id, player_name, score, answers)
+         VALUES ($1, $2, $3, 0, '[]')`,
+        [room.sessionId, player.id, playerName]
+      );
+    } catch (err) {
+      console.error('Error guardando jugador:', err);
+    }
+
+    socket.join(`room-${roomPin}`);
+    socket.join(`players-${roomPin}`);
+
+    // Notificar a todos
+    io.to(`room-${roomPin}`).emit('player-joined', {
+      players: room.players.map(p => ({ id: p.id, name: p.name, score: p.score }))
+    });
+
+    socket.emit('player-joined-success', { playerId: player.id, roomPin });
+  });
+
+  // Host inicia el juego
+  socket.on('start-game', ({ roomPin }) => {
+    const room = activeRooms.get(roomPin);
+    if (!room) return;
+
+    room.state = 'playing';
+    room.currentQuestion = 0;
+    room.startTime = Date.now();
+
+    // Guardar en BD
+    pool.query(
+      'UPDATE quiz_sessions SET state = $1, started_at = NOW() WHERE room_pin = $2',
+      ['playing', roomPin]
+    );
+
+    // Enviar primera pregunta
+    const question = JSON.parse(room.quiz.questions)[0];
+    io.to(`room-${roomPin}`).emit('question-start', {
+      questionIndex: 0,
+      question: question,
+      totalQuestions: JSON.parse(room.quiz.questions).length
+    });
+  });
+
+  // Jugador envía respuesta
+  socket.on('submit-answer', ({ roomPin, playerId, answer, timeTaken }) => {
+    const room = activeRooms.get(roomPin);
+    if (!room || room.state !== 'playing') return;
+
+    const player = room.players.find(p => p.id === playerId);
+    if (!player) return;
+
+    const questions = JSON.parse(room.quiz.questions);
+    const currentQ = questions[room.currentQuestion];
+    
+    let correct = false;
+    let points = 0;
+
+    // Calcular puntos según el tipo de pregunta
+    if (currentQ.type === 'multiple-choice') {
+      correct = parseInt(answer) === currentQ.correctIndex;
+    } else if (currentQ.type === 'true-false') {
+      correct = answer === currentQ.correctAnswer.toString();
+    } else if (currentQ.type === 'short-answer') {
+      correct = answer.toLowerCase().trim() === currentQ.correctAnswer.toLowerCase().trim();
+    }
+
+    if (correct) {
+      // Puntos base: 1000, con bonus por velocidad (máximo 30 segundos)
+      const maxTime = currentQ.timeLimit || 30;
+      const timeBonus = Math.max(0, Math.floor((maxTime - timeTaken) / maxTime * 500));
+      points = 1000 + timeBonus;
+      
+      player.score += points;
+      room.scores[playerId] = player.score;
+    }
+
+    player.answers.push({
+      questionIndex: room.currentQuestion,
+      answer,
+      correct,
+      points,
+      timeTaken
+    });
+
+    // Guardar respuesta en BD (actualizar o insertar si no existe)
+    pool.query(
+      `INSERT INTO quiz_players (session_id, player_id, player_name, score, answers)
+       VALUES ($1, $2, $3, $4, $5::jsonb)
+       ON CONFLICT (session_id, player_id) 
+       DO UPDATE SET answers = EXCLUDED.answers, score = EXCLUDED.score`,
+      [room.sessionId, playerId, player.name, player.score, JSON.stringify(player.answers)]
+    ).catch(err => {
+      console.error('Error guardando respuesta:', err);
+    });
+    
+    // Notificar al host sobre respuesta recibida
+    io.to(`host-${roomPin}`).emit('player-answer', {
+      playerId: playerId,
+      playerName: player.name,
+      answered: true
+    });
+
+    socket.emit('answer-received', { correct, points, totalScore: player.score });
+  });
+
+  // Host avanza a siguiente pregunta o muestra resultados
+  socket.on('next-question', ({ roomPin }) => {
+    const room = activeRooms.get(roomPin);
+    if (!room) return;
+
+    const questions = JSON.parse(room.quiz.questions);
+    room.currentQuestion++;
+
+    if (room.currentQuestion >= questions.length) {
+      // Fin del juego
+      room.state = 'results';
+      pool.query(
+        'UPDATE quiz_sessions SET state = $1, ended_at = NOW() WHERE room_pin = $2',
+        ['finished', roomPin]
+      );
+
+      const leaderboard = room.players
+        .map(p => ({ id: p.id, name: p.name, score: p.score }))
+        .sort((a, b) => b.score - a.score);
+
+      io.to(`room-${roomPin}`).emit('game-end', { leaderboard });
+    } else {
+      const question = questions[room.currentQuestion];
+      io.to(`room-${roomPin}`).emit('question-start', {
+        questionIndex: room.currentQuestion,
+        question: question,
+        totalQuestions: questions.length
+      });
+    }
+  });
+
+  // Host muestra resultados después de cada pregunta
+  socket.on('show-results', ({ roomPin }) => {
+    const room = activeRooms.get(roomPin);
+    if (!room) return;
+
+    const questions = JSON.parse(room.quiz.questions);
+    const currentQ = questions[room.currentQuestion];
+    
+    // Calcular estadísticas de respuestas
+    const stats = {
+      total: room.players.length,
+      answered: room.players.filter(p => p.answers.length > room.currentQuestion).length,
+      correct: 0
+    };
+
+    room.players.forEach(player => {
+      const answer = player.answers[room.currentQuestion];
+      if (answer && answer.correct) {
+        stats.correct++;
+      }
+    });
+
+    io.to(`host-${roomPin}`).emit('question-results', {
+      question: currentQ,
+      stats: stats,
+      leaderboard: room.players
+        .map(p => ({ id: p.id, name: p.name, score: p.score }))
+        .sort((a, b) => b.score - a.score)
+    });
+  });
+
+  // Desconexión
+  socket.on('disconnect', () => {
+    const playerData = playerSockets.get(socket.id);
+    if (playerData) {
+      const room = activeRooms.get(playerData.roomPin);
+      if (room) {
+        room.players = room.players.filter(p => p.socketId !== socket.id);
+        io.to(`room-${playerData.roomPin}`).emit('player-left', {
+          players: room.players.map(p => ({ id: p.id, name: p.name, score: p.score }))
+        });
+      }
+      playerSockets.delete(socket.id);
+    }
+  });
+});
+
+// Servir archivo HTML del quiz
+app.get('/quiz', (_req, res) => {
+  try {
+    const html = fs.readFileSync(join(__dirname, 'Quiz NatCreator', 'index.html'), 'utf-8');
+    res.type('html').send(html);
+  } catch (e) {
+    res.status(404).send('Archivo no encontrado');
+  }
+});
+
 await ensureDatabase(); 
 await ensureTables();
+await ensureQuizTables();
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, '0.0.0.0', () => {
+httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 API corriendo en http://0.0.0.0:${PORT}`);
   console.log(`🌐 Puerto: ${PORT}`);
+  console.log(`🎮 Sistema de Quiz Kahoot activo`);
 });

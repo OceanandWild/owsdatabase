@@ -5578,10 +5578,18 @@ app.post('/oceanic-ethernet/recharge', async (req, res) => {
           'UPDATE ocean_pay_users SET aquabux = aquabux - $1 WHERE id = $2',
           [cost, opUserId]
         );
-        await client.query(
-          'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)',
-          [opUserId, `Recarga OceanicEthernet: ${amount} GB`, -cost, 'OceanicEthernet', 'AB']
-        );
+        try {
+          await client.query(
+            'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)',
+            [opUserId, `Recarga OceanicEthernet: ${amount} GB`, -cost, 'OceanicEthernet', 'AB']
+          );
+        } catch (e) {
+          // Si falla por falta de columna moneda, insertar sin ella
+          await client.query(
+            'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen) VALUES ($1, $2, $3, $4)',
+            [opUserId, `Recarga OceanicEthernet: ${amount} GB`, -cost, 'OceanicEthernet']
+          );
+        }
         paymentSuccess = true;
       } else if (currency === 'ABX') {
         // AppBux
@@ -5602,10 +5610,18 @@ app.post('/oceanic-ethernet/recharge', async (req, res) => {
           'UPDATE ocean_pay_users SET appbux = appbux - $1 WHERE id = $2',
           [cost, opUserId]
         );
-        await client.query(
-          'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)',
-          [opUserId, `Recarga OceanicEthernet: ${amount} GB`, -cost, 'OceanicEthernet', 'ABX']
-        );
+        try {
+          await client.query(
+            'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)',
+            [opUserId, `Recarga OceanicEthernet: ${amount} GB`, -cost, 'OceanicEthernet', 'ABX']
+          );
+        } catch (e) {
+          // Si falla por falta de columna moneda, insertar sin ella
+          await client.query(
+            'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen) VALUES ($1, $2, $3, $4)',
+            [opUserId, `Recarga OceanicEthernet: ${amount} GB`, -cost, 'OceanicEthernet']
+          );
+        }
         paymentSuccess = true;
       } else if (currency === 'EX') {
         // Ecoxionums
@@ -5625,10 +5641,18 @@ app.post('/oceanic-ethernet/recharge', async (req, res) => {
             [newBalance.toString(), opUserId, 'ecoxionums']
           );
         }
-        await client.query(
-          'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)',
-          [opUserId, `Recarga OceanicEthernet: ${amount} GB`, -cost, 'OceanicEthernet', 'EX']
-        );
+        try {
+          await client.query(
+            'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)',
+            [opUserId, `Recarga OceanicEthernet: ${amount} GB`, -cost, 'OceanicEthernet', 'EX']
+          );
+        } catch (e) {
+          // Si falla por falta de columna moneda, insertar sin ella
+          await client.query(
+            'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen) VALUES ($1, $2, $3, $4)',
+            [opUserId, `Recarga OceanicEthernet: ${amount} GB`, -cost, 'OceanicEthernet']
+          );
+        }
         paymentSuccess = true;
       } else if (currency === 'ECB') {
         // EcoCoreBits
@@ -5649,10 +5673,18 @@ app.post('/oceanic-ethernet/recharge', async (req, res) => {
           'UPDATE ecorebits_users SET balance = balance - $1 WHERE user_id = $2',
           [cost, opUserId]
         );
-        await client.query(
-          'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)',
-          [opUserId, `Recarga OceanicEthernet: ${amount} GB`, -cost, 'OceanicEthernet', 'ECB']
-        );
+        try {
+          await client.query(
+            'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)',
+            [opUserId, `Recarga OceanicEthernet: ${amount} GB`, -cost, 'OceanicEthernet', 'ECB']
+          );
+        } catch (e) {
+          // Si falla por falta de columna moneda, insertar sin ella
+          await client.query(
+            'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen) VALUES ($1, $2, $3, $4)',
+            [opUserId, `Recarga OceanicEthernet: ${amount} GB`, -cost, 'OceanicEthernet']
+          );
+        }
         paymentSuccess = true;
       } else if (currency === 'WC') {
         // WildCredits
@@ -5677,10 +5709,18 @@ app.post('/oceanic-ethernet/recharge', async (req, res) => {
             [opUserId, 'wildcredits', newBalance.toString()]
           );
         }
-        await client.query(
-          'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)',
-          [opUserId, `Recarga OceanicEthernet: ${amount} GB`, -cost, 'OceanicEthernet', 'WC']
-        );
+        try {
+          await client.query(
+            'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)',
+            [opUserId, `Recarga OceanicEthernet: ${amount} GB`, -cost, 'OceanicEthernet', 'WC']
+          );
+        } catch (e) {
+          // Si falla por falta de columna moneda, insertar sin ella
+          await client.query(
+            'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen) VALUES ($1, $2, $3, $4)',
+            [opUserId, `Recarga OceanicEthernet: ${amount} GB`, -cost, 'OceanicEthernet']
+          );
+        }
         paymentSuccess = true;
       } else if (currency === 'WG') {
         // WildGems
@@ -5701,10 +5741,18 @@ app.post('/oceanic-ethernet/recharge', async (req, res) => {
           'UPDATE wildshorts_users SET wildgems = wildgems - $1 WHERE user_id = $2',
           [cost, opUserId]
         );
-        await client.query(
-          'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)',
-          [opUserId, `Recarga OceanicEthernet: ${amount} GB`, -cost, 'OceanicEthernet', 'WG']
-        );
+        try {
+          await client.query(
+            'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)',
+            [opUserId, `Recarga OceanicEthernet: ${amount} GB`, -cost, 'OceanicEthernet', 'WG']
+          );
+        } catch (e) {
+          // Si falla por falta de columna moneda, insertar sin ella
+          await client.query(
+            'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen) VALUES ($1, $2, $3, $4)',
+            [opUserId, `Recarga OceanicEthernet: ${amount} GB`, -cost, 'OceanicEthernet']
+          );
+        }
         paymentSuccess = true;
       }
       

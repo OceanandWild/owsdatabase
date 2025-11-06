@@ -6475,10 +6475,28 @@ app.post('/api/quiz/start-session', async (req, res) => {
     }
 
     // Almacenar en memoria
+    const quiz = quizRows[0];
+    // Asegurar que las preguntas estén parseadas y normalizadas
+    let questions = typeof quiz.questions === 'string' 
+      ? JSON.parse(quiz.questions) 
+      : quiz.questions;
+    
+    // Normalizar correctIndex a números para todas las preguntas
+    questions = questions.map(q => {
+      if (q.correctIndex !== undefined && q.correctIndex !== null) {
+        if (Array.isArray(q.correctIndex)) {
+          q.correctIndex = q.correctIndex.map(idx => typeof idx === 'string' ? parseInt(idx) : idx);
+        } else {
+          q.correctIndex = typeof q.correctIndex === 'string' ? parseInt(q.correctIndex) : q.correctIndex;
+        }
+      }
+      return q;
+    });
+    
     activeRooms.set(roomPin, {
       sessionId: rows[0].id,
       quizId: quizId,
-      quiz: quizRows[0],
+      quiz: { ...quiz, questions },
       hostId: hostId || null,
       players: [],
       currentQuestion: 0,
@@ -6516,6 +6534,23 @@ app.get('/api/quiz/session/:pin', async (req, res) => {
       }
       
       const session = rows[0];
+      // Parsear y normalizar preguntas
+      let questions = typeof session.questions === 'string' 
+        ? JSON.parse(session.questions) 
+        : session.questions;
+      
+      // Normalizar correctIndex a números
+      questions = questions.map(q => {
+        if (q.correctIndex !== undefined && q.correctIndex !== null) {
+          if (Array.isArray(q.correctIndex)) {
+            q.correctIndex = q.correctIndex.map(idx => typeof idx === 'string' ? parseInt(idx) : idx);
+          } else {
+            q.correctIndex = typeof q.correctIndex === 'string' ? parseInt(q.correctIndex) : q.correctIndex;
+          }
+        }
+        return q;
+      });
+      
       // Recrear sala en memoria
       room = {
         sessionId: session.id,
@@ -6523,7 +6558,7 @@ app.get('/api/quiz/session/:pin', async (req, res) => {
         quiz: {
           id: session.quiz_id,
           title: session.title,
-          questions: session.questions
+          questions: questions
         },
         hostId: session.host_id,
         players: [],
@@ -6650,21 +6685,36 @@ io.on('connection', (socket) => {
     ).catch(err => console.error('Error actualizando sesión:', err));
 
     // Obtener preguntas
-    const questions = typeof room.quiz.questions === 'string' 
+    let questions = typeof room.quiz.questions === 'string' 
       ? JSON.parse(room.quiz.questions) 
       : room.quiz.questions;
     
-    if (!questions || questions.length === 0) {
+    // Normalizar correctIndex a números si es necesario
+    const normalizedQuestions = questions.map(q => {
+      if (q.correctIndex !== undefined && q.correctIndex !== null) {
+        if (Array.isArray(q.correctIndex)) {
+          q.correctIndex = q.correctIndex.map(idx => typeof idx === 'string' ? parseInt(idx) : idx);
+        } else {
+          q.correctIndex = typeof q.correctIndex === 'string' ? parseInt(q.correctIndex) : q.correctIndex;
+        }
+      }
+      return q;
+    });
+    
+    // Actualizar el room con las preguntas normalizadas
+    room.quiz.questions = normalizedQuestions;
+    
+    if (!normalizedQuestions || normalizedQuestions.length === 0) {
       socket.emit('error', { message: 'El quiz no tiene preguntas' });
       return;
     }
 
     // Enviar primera pregunta
-    const firstQuestion = questions[0];
+    const firstQuestion = normalizedQuestions[0];
     io.to(`room-${roomPin}`).emit('question-start', {
       questionIndex: 0,
       question: firstQuestion,
-      totalQuestions: questions.length
+      totalQuestions: normalizedQuestions.length
     });
   });
 
@@ -6699,10 +6749,27 @@ io.on('connection', (socket) => {
       return;
     }
 
-    const questions = typeof room.quiz.questions === 'string' 
+    // Obtener y normalizar preguntas
+    let questions = typeof room.quiz.questions === 'string' 
       ? JSON.parse(room.quiz.questions) 
       : room.quiz.questions;
-    const currentQ = questions[room.currentQuestion];
+    
+    // Normalizar correctIndex a números si es necesario
+    const normalizedQuestions = questions.map(q => {
+      if (q.correctIndex !== undefined && q.correctIndex !== null) {
+        if (Array.isArray(q.correctIndex)) {
+          q.correctIndex = q.correctIndex.map(idx => typeof idx === 'string' ? parseInt(idx) : idx);
+        } else {
+          q.correctIndex = typeof q.correctIndex === 'string' ? parseInt(q.correctIndex) : q.correctIndex;
+        }
+      }
+      return q;
+    });
+    
+    // Actualizar el room con las preguntas normalizadas
+    room.quiz.questions = normalizedQuestions;
+    
+    const currentQ = normalizedQuestions[room.currentQuestion];
     
     let correct = false;
     let points = 0;
@@ -6720,7 +6787,15 @@ io.on('connection', (socket) => {
       correct = parseInt(answer) === currentQ.correctIndex;
     } else if (currentQ.type === 'true-false') {
       // Verdadero/Falso: se compara con correctIndex (0 = Verdadero, 1 = Falso)
+      console.log('Validando true-false:', { 
+        answer, 
+        answerParsed: parseInt(answer), 
+        correctIndex: currentQ.correctIndex, 
+        correctIndexType: typeof currentQ.correctIndex,
+        question: currentQ 
+      });
       correct = parseInt(answer) === currentQ.correctIndex;
+      console.log('Resultado validación true-false:', correct);
     } else if (currentQ.type === 'short-answer') {
       correct = answer.toLowerCase().trim() === currentQ.correctAnswer.toLowerCase().trim();
     } else if (currentQ.type === 'number') {

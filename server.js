@@ -1030,46 +1030,6 @@ app.post('/ocean-pay/link-account', async (req, res) => {
   }
 });
 
-// Endpoint temporal para restablecer contraseña de OceanandWild
-app.post('/ocean-pay/reset-oceanandwild', async (req, res) => {
-  const { newPassword } = req.body;
-  
-  if (!newPassword) {
-    return res.status(400).json({ error: 'Nueva contraseña requerida' });
-  }
-  
-  try {
-    // Buscar usuario OceanandWild
-    const { rows } = await pool.query(
-      'SELECT id FROM ocean_pay_users WHERE username = $1',
-      ['OceanandWild']
-    );
-    
-    if (rows.length === 0) {
-      return res.status(404).json({ error: 'Usuario OceanandWild no encontrado' });
-    }
-    
-    // Hashear nueva contraseña
-    const hash = await bcrypt.hash(newPassword, 10);
-    
-    // Actualizar contraseña
-    await pool.query(
-      'UPDATE ocean_pay_users SET pwd_hash = $1 WHERE username = $2',
-      [hash, 'OceanandWild']
-    );
-    
-    res.json({ 
-      success: true, 
-      message: 'Contraseña de OceanandWild restablecida correctamente',
-      username: 'OceanandWild',
-      newPassword: newPassword // Solo para desarrollo, eliminar en producción
-    });
-  } catch (err) {
-    console.error('Error restableciendo contraseña de OceanandWild:', err);
-    res.status(500).json({ error: 'Error interno' });
-  }
-});
-
 // Simple status endpoint
 app.get('/api/status', (_req, res) => {
   res.json({
@@ -5806,9 +5766,64 @@ app.post('/oceanic-ethernet/recharge', async (req, res) => {
     return res.status(400).json({ error: 'Datos inválidos' });
   }
   
-  if (userId !== parseInt(bodyUserId)) {
-    return res.status(403).json({ error: 'No autorizado' });
+  // Si hay opToken vinculado, obtener su userId para validación
+  let opUserId = null;
+  if (opToken && opToken.trim() !== '') {
+    try {
+      const decoded = jwt.verify(opToken, process.env.STUDIO_SECRET);
+      opUserId = decoded.uid;
+      opUserId = parseInt(opUserId) || opUserId;
+      console.log('✅ Token de Ocean Pay válido, opUserId:', opUserId);
+    } catch (e) {
+      console.error('❌ Error verificando token de Ocean Pay:', e.message);
+      // Si el token es inválido, continuar sin opUserId
+    }
   }
+  
+  // Validar autorización:
+  // 1. Si el userId del token coincide con bodyUserId → OK (usuario de OceanicEthernet recargando su propia cuenta)
+  // 2. Si hay opToken vinculado y opUserId coincide con bodyUserId → OK (usuario de OceanicEthernet recargando usando Ocean Pay vinculado)
+  // 3. Si hay opToken pero opUserId no coincide con bodyUserId → ERROR (intentando usar cuenta de Ocean Pay diferente)
+  // 4. Si no hay opToken pero bodyUserId es diferente → ERROR (intentando recargar cuenta de otro)
+  const bodyUserIdInt = parseInt(bodyUserId);
+  const isValidOwnAccount = userId === bodyUserIdInt;
+  
+  // Si hay opToken, verificar que el opUserId coincida con bodyUserId
+  let isValidLinkedAccount = false;
+  if (opToken && opToken.trim() !== '') {
+    if (!opUserId) {
+      // Token de Ocean Pay inválido o no se pudo decodificar
+      console.error('❌ Token de Ocean Pay inválido o no decodificable');
+      return res.status(401).json({ error: 'Token de Ocean Pay inválido. Por favor, vuelve a vincular tu cuenta de Ocean Pay.' });
+    }
+    isValidLinkedAccount = opUserId === bodyUserIdInt;
+    console.log('🔍 Validación de cuenta vinculada:', {
+      opUserId,
+      bodyUserIdInt,
+      isValidLinkedAccount
+    });
+  }
+  
+  if (!isValidOwnAccount && !isValidLinkedAccount) {
+    console.error('❌ Error de autorización en recarga:', {
+      tokenUserId: userId,
+      bodyUserId: bodyUserIdInt,
+      opUserId: opUserId,
+      hasOpToken: !!opToken && opToken.trim() !== '',
+      isValidOwnAccount,
+      isValidLinkedAccount
+    });
+    return res.status(403).json({ 
+      error: 'No autorizado: el userId no coincide con tu cuenta. Verifica que estés usando la cuenta correcta de Ocean Pay vinculada.' 
+    });
+  }
+  
+  console.log('✅ Autorización exitosa para recarga:', {
+    tokenUserId: userId,
+    bodyUserId: bodyUserIdInt,
+    opUserId: opUserId,
+    usandoCuentaVinculada: isValidLinkedAccount
+  });
   
   const client = await pool.connect();
   try {
@@ -5826,12 +5841,8 @@ app.post('/oceanic-ethernet/recharge', async (req, res) => {
     
     // Si hay divisa y costo, procesar pago desde Ocean Pay
     if (currency && cost && opToken) {
-      let opUserId;
-      try {
-        const decoded = jwt.verify(opToken, process.env.STUDIO_SECRET);
-        opUserId = decoded.uid;
-        opUserId = parseInt(opUserId) || opUserId;
-      } catch (e) {
+      // opUserId ya fue obtenido arriba en la validación
+      if (!opUserId) {
         await client.query('ROLLBACK');
         return res.status(401).json({ error: 'Token de Ocean Pay inválido' });
       }
@@ -6051,11 +6062,15 @@ app.post('/oceanic-ethernet/recharge', async (req, res) => {
     }
     
     // Obtener balance actual de internet
+    // Si hay opToken vinculado, usar opUserId para el saldo de internet (compartido con Ocean Pay)
+    // Si no hay opToken, usar userId de OceanicEthernet
+    const internetUserId = opToken && opUserId ? opUserId : userId;
+    
     const { rows: metaRows } = await client.query(`
       SELECT value FROM ocean_pay_metadata
       WHERE user_id = $1 AND key = 'internet_gb'
       FOR UPDATE
-    `, [userId]);
+    `, [internetUserId]);
     
     const currentBalance = metaRows.length > 0 ? parseFloat(metaRows[0].value || '0') : 0;
     const newBalance = currentBalance + amount;
@@ -6066,15 +6081,15 @@ app.post('/oceanic-ethernet/recharge', async (req, res) => {
         UPDATE ocean_pay_metadata
         SET value = $1
         WHERE user_id = $2 AND key = 'internet_gb'
-      `, [newBalance.toString(), userId]);
+      `, [newBalance.toString(), internetUserId]);
     } else {
       await client.query(`
         INSERT INTO ocean_pay_metadata (user_id, key, value)
         VALUES ($1, 'internet_gb', $2)
-      `, [userId, newBalance.toString()]);
+      `, [internetUserId, newBalance.toString()]);
     }
     
-    // Registrar transacción en tabla propia de OceanicEthernet
+    // Registrar transacción en tabla propia de OceanicEthernet (usar userId de OceanicEthernet para el historial)
     const concepto = currency 
       ? `Recarga de ${amount} GB (Pagado con ${currencyNames[currency] || currency})`
       : `Recarga de ${amount} GB`;
@@ -6126,14 +6141,26 @@ app.post('/oceanic-ethernet/consume', async (req, res) => {
   try {
     await client.query('BEGIN');
     
-    // Obtener balance actual
+    // Obtener balance actual (inicializar si no existe para usuarios de Ocean Pay)
     const { rows: metaRows } = await client.query(`
       SELECT value FROM ocean_pay_metadata
       WHERE user_id = $1 AND key = 'internet_gb'
       FOR UPDATE
     `, [userId]);
     
-    const currentBalance = metaRows.length > 0 ? parseFloat(metaRows[0].value || '0') : 0;
+    let currentBalance;
+    if (metaRows.length > 0) {
+      currentBalance = parseFloat(metaRows[0].value || '0');
+    } else {
+      // Si no existe, inicializar en 0 para usuarios de Ocean Pay
+      await client.query(`
+        INSERT INTO ocean_pay_metadata (user_id, key, value)
+        VALUES ($1, 'internet_gb', '0')
+        ON CONFLICT (user_id, key) DO NOTHING
+      `, [userId]);
+      currentBalance = 0;
+    }
+    
     const newBalance = currentBalance - amount;
     
     if (newBalance < 0) {
@@ -6142,17 +6169,11 @@ app.post('/oceanic-ethernet/consume', async (req, res) => {
     }
     
     // Actualizar balance
-    if (metaRows.length > 0) {
-      await client.query(`
-        UPDATE ocean_pay_metadata
-        SET value = $1
-        WHERE user_id = $2 AND key = 'internet_gb'
-      `, [newBalance.toString(), userId]);
-    } else {
-      // Si no existe, no debería consumir
-      await client.query('ROLLBACK');
-      return res.status(400).json({ error: 'No hay saldo disponible' });
-    }
+    await client.query(`
+      UPDATE ocean_pay_metadata
+      SET value = $1
+      WHERE user_id = $2 AND key = 'internet_gb'
+    `, [newBalance.toString(), userId]);
     
     // Registrar transacción en tabla propia de OceanicEthernet
     await client.query(

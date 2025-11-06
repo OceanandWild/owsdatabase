@@ -6719,8 +6719,24 @@ io.on('connection', (socket) => {
       // Opción única: un solo índice correcto
       correct = parseInt(answer) === currentQ.correctIndex;
     } else if (currentQ.type === 'true-false') {
-      correct = answer === currentQ.correctAnswer.toString();
+      // Verdadero/Falso: se compara con correctIndex (0 = Verdadero, 1 = Falso)
+      correct = parseInt(answer) === currentQ.correctIndex;
     } else if (currentQ.type === 'short-answer') {
+      correct = answer.toLowerCase().trim() === currentQ.correctAnswer.toLowerCase().trim();
+    } else if (currentQ.type === 'number') {
+      const numAnswer = parseFloat(answer);
+      const correctNum = typeof currentQ.correctAnswer === 'number' ? currentQ.correctAnswer : parseFloat(currentQ.correctAnswer);
+      correct = Math.abs(numAnswer - correctNum) < 0.01; // Permitir pequeñas diferencias por redondeo
+    } else if (currentQ.type === 'date') {
+      correct = answer.trim() === currentQ.correctAnswer.trim();
+    } else if (currentQ.type === 'fill-blank') {
+      correct = answer.toLowerCase().trim() === currentQ.correctAnswer.toLowerCase().trim();
+    } else if (currentQ.type === 'slider') {
+      const sliderAnswer = parseFloat(answer);
+      const correctValue = typeof currentQ.correctAnswer === 'number' ? currentQ.correctAnswer : parseFloat(currentQ.correctAnswer);
+      // Permitir pequeña tolerancia para valores numéricos
+      correct = Math.abs(sliderAnswer - correctValue) < 0.01;
+    } else if (currentQ.type === 'code') {
       correct = answer.toLowerCase().trim() === currentQ.correctAnswer.toLowerCase().trim();
     }
 

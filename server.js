@@ -411,6 +411,20 @@ app.post('/wildshorts/subscribe', async (req, res) => {
     return res.status(400).json({ error: 'planId y paymentMethod requeridos' });
   }
   
+  // Verificar si la columna moneda existe ANTES de comenzar la transacción
+  let hasMonedaColumn = false;
+  try {
+    const { rows: columnCheck } = await pool.query(`
+      SELECT column_name 
+      FROM information_schema.columns 
+      WHERE table_name = 'ocean_pay_txs' AND column_name = 'moneda'
+    `);
+    hasMonedaColumn = columnCheck.length > 0;
+  } catch (e) {
+    // Si falla la verificación, asumir que no existe
+    hasMonedaColumn = false;
+  }
+  
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -453,16 +467,18 @@ app.post('/wildshorts/subscribe', async (req, res) => {
         DO UPDATE SET value = $2, updated_at = CURRENT_TIMESTAMP
       `, [userId, newBalance.toString()]);
       
-      // Registrar transacción
-      await client.query(`
-        INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
-        VALUES ($1, $2, $3, $4, 'WG')
-      `, [userId, `Suscripción ${planId} (WildShorts) - Semanal`, -planPrice, 'WildShorts']).catch(async () => {
+      // Registrar transacción - usar la consulta apropiada según si existe la columna moneda
+      if (hasMonedaColumn) {
+        await client.query(`
+          INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+          VALUES ($1, $2, $3, $4, 'WG')
+        `, [userId, `Suscripción ${planId} (WildShorts) - Semanal`, -planPrice, 'WildShorts']);
+      } else {
         await client.query(`
           INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
           VALUES ($1, $2, $3, $4)
         `, [userId, `Suscripción ${planId} (WildShorts) - Semanal`, -planPrice, 'WildShorts']);
-      });
+      }
     }
     
     // Crear/actualizar suscripción

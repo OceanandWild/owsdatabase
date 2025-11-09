@@ -976,6 +976,7 @@ async function createSubscriptionTables() {
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
         cancelled_at TIMESTAMP WITH TIME ZONE
       )
+    `);
     
     // Create payments table
     await pool.query(`

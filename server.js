@@ -1201,7 +1201,7 @@ app.patch('/natmarket/support/chats/:chatId/close', async (req, res) => {
     const { rows: chatRows } = await pool.query('SELECT * FROM support_chats WHERE id=$1', [chatId]);
     if (!chatRows.length) return res.status(404).json({ error: 'Chat no encontrado' });
     await pool.query(
-      'UPDATE support_chats SET status = \"closed\", closed_at = NOW() WHERE id = $1',
+      "UPDATE support_chats SET status = 'closed', closed_at = NOW() WHERE id = $1",
       [chatId]
     );
     res.json({ success: true });

@@ -8230,16 +8230,24 @@ app.get('/deepdive/subscription/status', async (req, res) => {
     const { rows } = await pool.query(
       `SELECT plan, starts_at, ends_at, status, created_at
          FROM subscriptions
-        WHERE user_id = $1 AND status = 'active' AND ends_at > NOW()
+        WHERE user_id = $1 AND status = 'active'
         ORDER BY ends_at DESC LIMIT 1`,
       [String(appUid)]
     );
     if (rows.length) {
+      const nowTs = new Date();
+      const ends = new Date(rows[0].ends_at);
+      const msRemain = ends.getTime() - nowTs.getTime();
+      const daysRemaining = Math.ceil(msRemain / (1000*60*60*24));
+      const overdue = msRemain <= 0;
       return res.json({
-        isActive: true,
+        isActive: !overdue,
         plan: rows[0].plan,
         startsAt: rows[0].starts_at,
         endsAt: rows[0].ends_at,
+        nextChargeAt: rows[0].ends_at,
+        daysRemaining: overdue ? 0 : daysRemaining,
+        overdue,
         createdAt: rows[0].created_at
       });
     }
@@ -8261,11 +8269,12 @@ app.post('/deepdive/subscription/subscribe', async (req, res) => {
   const appUid = getAppUserId(req) || opUid;
 
   const { plan } = req.body || {};
-  if (!plan || (plan !== 'monthly' && plan !== 'yearly')) {
-    return res.status(400).json({ error: 'Invalid plan (must be monthly or yearly)' });
+  if (!plan || (plan !== 'monthly' && plan !== 'weekly')) {
+    return res.status(400).json({ error: 'Invalid plan (must be weekly or monthly)' });
   }
 
-  const normalizedAmount = plan === 'yearly' ? 500 : 50;
+  // Pricing: Weekly 15 WC, Monthly 50 WC
+  const normalizedAmount = plan === 'weekly' ? 15 : 50;
 
   const client = await pool.connect();
   try {
@@ -8324,7 +8333,7 @@ app.post('/deepdive/subscription/subscribe', async (req, res) => {
 
     // Log OP tx (moneda='WC' if column exists)
     const hasMoneda = await oceanPayHasMonedaColumn();
-    const concept = `Suscripción Pro (DeepDive) - ${plan === 'yearly' ? 'Anual' : 'Mensual'}`;
+    const concept = `Suscripción Pro (DeepDive) - ${plan === 'weekly' ? 'Semanal' : 'Mensual'}`;
     if (hasMoneda) {
       await client.query(
         `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
@@ -8339,17 +8348,30 @@ app.post('/deepdive/subscription/subscribe', async (req, res) => {
       );
     }
 
-    // Upsert DeepDive subscription for appUid (string)
+    // Upsert/extend DeepDive subscription for appUid (string)
     const now = new Date();
-    const endsAt = new Date(now);
-    endsAt.setMonth(endsAt.getMonth() + (plan === 'yearly' ? 12 : 1));
 
     const { rows: active } = await client.query(
-      `SELECT id FROM subscriptions
-        WHERE user_id = $1 AND status = 'active' AND ends_at > NOW()
+      `SELECT id, ends_at FROM subscriptions
+        WHERE user_id = $1 AND status = 'active'
+        ORDER BY ends_at DESC
         LIMIT 1`,
       [String(appUid)]
     );
+
+    let baseDate = now;
+    if (active.length) {
+      const currentEnd = new Date(active[0].ends_at);
+      // extend from current end if still in future, else from now
+      if (currentEnd > now) baseDate = currentEnd;
+    }
+
+    const endsAt = new Date(baseDate);
+    if (plan === 'weekly') {
+      endsAt.setDate(endsAt.getDate() + 7);
+    } else {
+      endsAt.setDate(endsAt.getDate() + 30);
+    }
 
     if (active.length) {
       await client.query(
@@ -8412,6 +8434,120 @@ app.post('/deepdive/subscription/cancel', async (req, res) => {
   } catch (err) {
     console.error('[DeepDive] cancel error:', err);
     res.status(500).json({ error: 'Failed to cancel subscription' });
+  }
+});
+
+// POST renew: charge according to current plan and extend due date
+app.post('/deepdive/subscription/renew', async (req, res) => {
+  const opUid = getOPUserId(req);
+  if (!opUid) return res.status(401).json({ error: 'Please connect your Ocean Pay account (OP token required)' });
+  const appUid = getAppUserId(req) || opUid;
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // get active subscription (or most recent)
+    const { rows: subs } = await client.query(
+      `SELECT id, plan, ends_at FROM subscriptions
+       WHERE user_id = $1 AND status='active'
+       ORDER BY ends_at DESC LIMIT 1`,
+      [String(appUid)]
+    );
+    if (!subs.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'No subscription found to renew' });
+    }
+
+    const plan = subs[0].plan;
+    const amount = plan === 'weekly' ? 15 : 50;
+
+    // Ensure metadata table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ocean_pay_metadata (
+        user_id INTEGER NOT NULL,
+        key TEXT NOT NULL,
+        value TEXT NOT NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, key)
+      )
+    `);
+
+    const opUserIdInt = parseInt(opUid);
+    const { rows: wcRows } = await client.query(
+      `SELECT value FROM ocean_pay_metadata WHERE user_id = $1 AND key = 'wildcredits' FOR UPDATE`,
+      [opUserIdInt]
+    );
+    const currentWC = parseInt(wcRows[0]?.value || '0');
+    if (currentWC < amount) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: `Insufficient WildCredits. Need ${amount}.` });
+    }
+
+    const newWC = currentWC - amount;
+    await client.query(
+      `INSERT INTO ocean_pay_metadata (user_id, key, value)
+         VALUES ($1, 'wildcredits', $2)
+       ON CONFLICT (user_id, key)
+       DO UPDATE SET value = $2, updated_at = CURRENT_TIMESTAMP`,
+      [opUserIdInt, String(newWC)]
+    );
+
+    // Ensure tx table and moneda column
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ocean_pay_txs (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        concepto TEXT NOT NULL,
+        monto NUMERIC(20,2) NOT NULL,
+        origen TEXT,
+        created_at TIMESTAMP DEFAULT NOW(),
+        moneda TEXT
+      )`);
+    await client.query(`ALTER TABLE ocean_pay_txs ADD COLUMN IF NOT EXISTS moneda TEXT`);
+
+    const hasMoneda = await oceanPayHasMonedaColumn();
+    const concept = `Renovación Pro (DeepDive) - ${plan === 'weekly' ? 'Semanal' : 'Mensual'}`;
+    if (hasMoneda) {
+      await client.query(
+        `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+         VALUES ($1, $2, $3, $4, 'WC')`,
+        [opUserIdInt, concept, -amount, 'DeepDive']
+      );
+    } else {
+      await client.query(
+        `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
+         VALUES ($1, $2, $3, $4)`,
+        [opUserIdInt, concept, -amount, 'DeepDive']
+      );
+    }
+
+    // Extend subscription ends_at
+    const now = new Date();
+    const currentEnd = new Date(subs[0].ends_at);
+    const baseDate = currentEnd > now ? currentEnd : now;
+    const newEnd = new Date(baseDate);
+    if (plan === 'weekly') newEnd.setDate(newEnd.getDate() + 7); else newEnd.setDate(newEnd.getDate() + 30);
+
+    await client.query(
+      `UPDATE subscriptions SET ends_at=$1, updated_at=NOW(), payment_method=$2, payment_amount=$3 WHERE id=$4`,
+      [newEnd, 'Ocean Pay (WildCredits)', amount, subs[0].id]
+    );
+
+    await client.query(
+      `INSERT INTO payments (user_id, amount, currency, status, payment_method, subscription_plan, description)
+       VALUES ($1, $2, 'WC', 'completed', $3, $4, 'DeepDive Pro Renewal')`,
+      [String(appUid), amount, 'Ocean Pay (WildCredits)', plan]
+    );
+
+    await client.query('COMMIT');
+    res.json({ success: true, plan, newEndsAt: newEnd, newWC });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('[DeepDive] renew error:', err);
+    res.status(500).json({ error: 'Failed to renew subscription' });
+  } finally {
+    client.release();
   }
 });
 

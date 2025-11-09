@@ -570,9 +570,19 @@ app.get('/deepdive/subscription/status', async (req, res) => {
   const token = authHeader.substring(7);
   
   try {
-    // Verify JWT token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
-    const userId = decoded.userId || decoded.uid;
+    // Verify token (accept app token or Ocean Pay token)
+    let userId;
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+      userId = decoded.userId || decoded.uid;
+    } catch (e) {
+      try {
+        const decoded2 = jwt.verify(token, process.env.STUDIO_SECRET);
+        userId = decoded2.uid || decoded2.userId;
+      } catch (_e2) {
+        return res.status(401).json({ error: 'Invalid token' });
+      }
+    }
     
     if (!userId) {
       return res.status(400).json({ error: 'Invalid user ID in token' });
@@ -764,10 +774,20 @@ app.post('/deepdive/subscription/cancel', async (req, res) => {
   const token = authHeader.substring(7);
   
   try {
-    // Verify JWT token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
-    const userId = decoded.userId || decoded.uid;
-    
+    // Verify token (accept app token or Ocean Pay token)
+    let userId;
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+      userId = decoded.userId || decoded.uid;
+    } catch (e) {
+      try {
+        const decoded2 = jwt.verify(token, process.env.STUDIO_SECRET);
+        userId = decoded2.uid || decoded2.userId;
+      } catch (_e2) {
+        return res.status(401).json({ error: 'Invalid token' });
+      }
+    }
+
     if (!userId) {
       return res.status(400).json({ error: 'Invalid user ID in token' });
     }
@@ -809,9 +829,19 @@ app.get('/deepdive/subscription/history', async (req, res) => {
   const token = authHeader.substring(7);
   
   try {
-    // Verify JWT token
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
-    const userId = decoded.userId || decoded.uid;
+    // Verify token (accept app token or Ocean Pay token)
+    let userId;
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+      userId = decoded.userId || decoded.uid;
+    } catch (e) {
+      try {
+        const decoded2 = jwt.verify(token, process.env.STUDIO_SECRET);
+        userId = decoded2.uid || decoded2.userId;
+      } catch (_e2) {
+        return res.status(401).json({ error: 'Invalid token' });
+      }
+    }
     
     if (!userId) {
       return res.status(400).json({ error: 'Invalid user ID in token' });

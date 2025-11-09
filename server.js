@@ -75,7 +75,29 @@ import { dirname, join } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = dirname(__filename);
 
-
+// Generic auth middleware used by some routes
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+  const token = authHeader.substring(7);
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    req.userId = decoded.userId || decoded.uid;
+    if (!req.userId) throw new Error('Invalid user');
+    return next();
+  } catch (_e) {
+    try {
+      const decodedStudio = jwt.verify(token, process.env.STUDIO_SECRET);
+      req.userId = decodedStudio.uid || decodedStudio.userId;
+      if (!req.userId) throw new Error('Invalid user');
+      return next();
+    } catch (_e2) {
+      return res.status(401).json({ error: 'Token inválido' });
+    }
+  }
+}
 
 app.get('/ocean-pay/index.html', (_req, res) => {
   try {
@@ -922,9 +944,8 @@ async function createSubscriptionTables() {
         payment_amount DECIMAL(10, 2),
         created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-        cancelled_at TIMESTAMP WITH TIME ZONE,
-        UNIQUE(user_id, status) WHERE status = 'active'
-      )`);
+        cancelled_at TIMESTAMP WITH TIME ZONE
+      )
     
     // Create payments table
     await pool.query(`
@@ -944,6 +965,7 @@ async function createSubscriptionTables() {
     // Create indexes for better performance
     await pool.query('CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id ON subscriptions(user_id)');
     await pool.query('CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON subscriptions(status)');
+    await pool.query("CREATE UNIQUE INDEX IF NOT EXISTS ux_subscriptions_active_user ON subscriptions(user_id) WHERE status = 'active'");
     await pool.query('CREATE INDEX IF NOT EXISTS idx_payments_user_id ON payments(user_id)');
     await pool.query('CREATE INDEX IF NOT EXISTS idx_payments_created_at ON payments(created_at)');
     

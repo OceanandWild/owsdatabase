@@ -3286,7 +3286,8 @@ app.post('/natmarket/products/:id/report', async (req, res) => {
 // Obtener todos los reportes (solo admin)
 app.get('/natmarket/admin/reports', async (req, res) => {
   const userHeader = (req.headers['x-user-username'] || '').trim();
-  if (userHeader !== 'OceanandWild') {
+  const allowed = await isAdminUsername(userHeader);
+  if (!allowed) {
     return res.status(401).json({ error: 'No autorizado' });
   }
   
@@ -3321,7 +3322,8 @@ app.get('/natmarket/admin/reports', async (req, res) => {
 // Aprobar o rechazar un reporte (solo admin)
 app.post('/natmarket/admin/reports/:id/decide', async (req, res) => {
   const userHeader = (req.headers['x-user-username'] || '').trim();
-  if (userHeader !== 'OceanandWild') {
+  const allowed = await isAdminUsername(userHeader);
+  if (!allowed) {
     return res.status(401).json({ error: 'No autorizado' });
   }
   

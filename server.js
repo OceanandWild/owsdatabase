@@ -2164,7 +2164,39 @@ app.get('/natmarket/products', async (_req, res) => {
     `);
     const products = await Promise.all(rows.map(async p => {
       const { rows: imgs } = await pool.query('SELECT url FROM product_images_nat WHERE product_id=$1 ORDER BY created_at ASC', [p.id]);
-      return { ...p, image_urls: imgs.map(i => i.url) };
+      // videos (tabla puede no existir aún)
+      let vids = [];
+      try {
+        const { rows: v } = await pool.query('SELECT url FROM product_videos_nat WHERE product_id=$1 ORDER BY created_at ASC', [p.id]);
+        vids = v;
+      } catch (_) { vids = []; }
+
+      // descuento activo (tabla puede no existir)
+      let discount = null;
+      let final_price = p.price;
+      try {
+        const { rows: d } = await pool.query(`
+          SELECT percent, amount, starts_at, ends_at
+          FROM product_discounts
+          WHERE product_id = $1
+            AND active = TRUE
+            AND (starts_at IS NULL OR starts_at <= NOW())
+            AND (ends_at IS NULL OR ends_at >= NOW())
+          ORDER BY created_at DESC
+          LIMIT 1
+        `, [p.id]);
+        if (d.length) {
+          const row = d[0];
+          if (row.amount != null) {
+            final_price = Number(row.amount);
+          } else if (row.percent != null && p.price != null) {
+            final_price = Math.max(0, Number(p.price) * (1 - Number(row.percent) / 100));
+          }
+          discount = { percent: row.percent, amount: row.amount, final_price };
+        }
+      } catch (_) {}
+
+      return { ...p, image_urls: imgs.map(i => i.url), video_urls: vids.map(v => v.url), final_price, discount };
     }));
     res.json(products);
   } catch (err) {
@@ -4360,7 +4392,10 @@ app.get('/natmarket/products/:id/shipping-methods', async (req, res) => {
 });
 
 /* ===== CREAR PRODUCTO (v2) ===== */
-app.post('/natmarket/products/v2', upload.array('images', 10), async (req, res) => {
+app.post('/natmarket/products/v2', upload.fields([
+  { name: 'images', maxCount: 10 },
+  { name: 'videos', maxCount: 4 }
+]), async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -4475,11 +4510,31 @@ app.post('/natmarket/products/v2', upload.array('images', 10), async (req, res) 
       return res.status(500).json({ error: 'Error al procesar el consumo de internet' });
     }
 
-    // imágenes
+    // archivos subidos (imágenes y videos)
     const host = process.env.BACKEND_URL || `https://${req.get('host')}`;
-    const urls = (req.files || []).map(f => `${host}/uploads/nat/${f.filename}`);
-    for (const url of urls) {
+    const imageFiles = (req.files && req.files.images) ? req.files.images : [];
+    const videoFiles = (req.files && req.files.videos) ? req.files.videos : [];
+
+    // imágenes
+    const imageUrls = imageFiles.map(f => `${host}/uploads/nat/${f.filename}`);
+    for (const url of imageUrls) {
       await client.query('INSERT INTO product_images_nat (product_id, url) VALUES ($1,$2)', [product.id, url]);
+    }
+
+    // videos
+    if (videoFiles.length) {
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS product_videos_nat (
+          id SERIAL PRIMARY KEY,
+          product_id INTEGER NOT NULL REFERENCES products_nat(id) ON DELETE CASCADE,
+          url TEXT NOT NULL,
+          created_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      const videoUrls = videoFiles.map(f => `${host}/uploads/nat/${f.filename}`);
+      for (const url of videoUrls) {
+        await client.query('INSERT INTO product_videos_nat (product_id, url) VALUES ($1,$2)', [product.id, url]);
+      }
     }
 
     // lugares
@@ -4540,6 +4595,234 @@ app.post('/natmarket/products/v2', upload.array('images', 10), async (req, res) 
   } finally {
     client.release();
   }
+});
+
+/* ===== PRODUCT VIDEOS ===== */
+app.post('/natmarket/products/:id/videos', upload.array('videos', 4), async (req, res) => {
+  try {
+    const productId = req.params.id;
+    const { rows: exists } = await pool.query('SELECT id FROM products_nat WHERE id=$1', [productId]);
+    if (!exists.length) return res.status(404).json({ error: 'Producto no encontrado' });
+    if (!req.files || req.files.length === 0) return res.status(400).json({ error: 'No se subieron videos' });
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS product_videos_nat (
+        id SERIAL PRIMARY KEY,
+        product_id INTEGER NOT NULL REFERENCES products_nat(id) ON DELETE CASCADE,
+        url TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    const host = process.env.BACKEND_URL || `https://${req.get('host')}`;
+    const urls = req.files.map(f => `${host}/uploads/nat/${f.filename}`);
+    for (const url of urls) {
+      await pool.query('INSERT INTO product_videos_nat (product_id, url) VALUES ($1,$2)', [productId, url]);
+    }
+    const { rows: vids } = await pool.query('SELECT url FROM product_videos_nat WHERE product_id=$1 ORDER BY created_at ASC', [productId]);
+    res.json({ success: true, video_urls: vids.map(v => v.url) });
+  } catch (err) {
+    handleNatError(res, err, 'POST /natmarket/products/:id/videos');
+  }
+});
+
+/* ===== PRODUCT DISCOUNTS ===== */
+app.post('/natmarket/products/:id/discount', async (req, res) => {
+  const { id } = req.params;
+  const { user_id, percent = null, amount = null, starts_at = null, ends_at = null } = req.body;
+  if (!user_id) return res.status(400).json({ error: 'user_id requerido' });
+  try {
+    // verificar dueño
+    const { rows: prod } = await pool.query('SELECT user_id, price FROM products_nat WHERE id=$1', [id]);
+    if (!prod.length) return res.status(404).json({ error: 'Producto no encontrado' });
+    if (Number(prod[0].user_id) !== Number(user_id)) return res.status(403).json({ error: 'No autorizado' });
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS product_discounts (
+        id SERIAL PRIMARY KEY,
+        product_id INTEGER NOT NULL REFERENCES products_nat(id) ON DELETE CASCADE,
+        percent NUMERIC,
+        amount NUMERIC,
+        starts_at TIMESTAMP NULL,
+        ends_at TIMESTAMP NULL,
+        active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    // desactivar descuentos activos previos
+    await pool.query('UPDATE product_discounts SET active=false WHERE product_id=$1 AND active=true', [id]);
+
+    const { rows } = await pool.query(
+      `INSERT INTO product_discounts (product_id, percent, amount, starts_at, ends_at, active)
+       VALUES ($1,$2,$3,$4,$5,true)
+       RETURNING *`,
+      [id, percent, amount, starts_at, ends_at]
+    );
+
+    res.json({ success: true, discount: rows[0] });
+  } catch (err) {
+    handleNatError(res, err, 'POST /natmarket/products/:id/discount');
+  }
+});
+
+app.delete('/natmarket/products/:id/discount', async (req, res) => {
+  const { id } = req.params;
+  const { user_id } = req.body;
+  if (!user_id) return res.status(400).json({ error: 'user_id requerido' });
+  try {
+    const { rows: prod } = await pool.query('SELECT user_id FROM products_nat WHERE id=$1', [id]);
+    if (!prod.length) return res.status(404).json({ error: 'Producto no encontrado' });
+    if (Number(prod[0].user_id) !== Number(user_id)) return res.status(403).json({ error: 'No autorizado' });
+    await pool.query('UPDATE product_discounts SET active=false WHERE product_id=$1 AND active=true', [id]);
+    res.json({ success: true });
+  } catch (err) {
+    handleNatError(res, err, 'DELETE /natmarket/products/:id/discount');
+  }
+});
+
+app.get('/natmarket/products/:id/discount', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const { rows } = await pool.query(`
+      SELECT percent, amount, starts_at, ends_at
+      FROM product_discounts
+      WHERE product_id=$1 AND active=true
+        AND (starts_at IS NULL OR starts_at <= NOW())
+        AND (ends_at IS NULL OR ends_at >= NOW())
+      ORDER BY created_at DESC
+      LIMIT 1
+    `, [id]);
+    res.json(rows[0] || null);
+  } catch (err) {
+    if (err.code === '42P01') return res.json(null); // tabla no existe aún
+    handleNatError(res, err, 'GET /natmarket/products/:id/discount');
+  }
+});
+
+/* ===== FAVORITES & WISHLIST ===== */
+app.post('/natmarket/products/:id/favorite', async (req, res) => {
+  const { id } = req.params;
+  const { user_id } = req.body;
+  if (!user_id) return res.status(400).json({ error: 'user_id requerido' });
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS user_favorites_nat (
+        user_id INTEGER NOT NULL,
+        product_id INTEGER NOT NULL REFERENCES products_nat(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT NOW(),
+        PRIMARY KEY (user_id, product_id)
+      )
+    `);
+    await pool.query('INSERT INTO user_favorites_nat (user_id, product_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [user_id, id]);
+    res.json({ success: true });
+  } catch (err) { handleNatError(res, err, 'POST /natmarket/products/:id/favorite'); }
+});
+
+app.delete('/natmarket/products/:id/favorite', async (req, res) => {
+  const { id } = req.params;
+  const { user_id } = req.body;
+  if (!user_id) return res.status(400).json({ error: 'user_id requerido' });
+  try {
+    await pool.query('DELETE FROM user_favorites_nat WHERE user_id=$1 AND product_id=$2', [user_id, id]);
+    res.json({ success: true });
+  } catch (err) { handleNatError(res, err, 'DELETE /natmarket/products/:id/favorite'); }
+});
+
+app.get('/natmarket/users/:userId/favorites', async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const { rows } = await pool.query(`
+      SELECT p.*, u.username
+      FROM user_favorites_nat f
+      JOIN products_nat p ON p.id = f.product_id
+      JOIN users_nat u ON u.id = p.user_id
+      WHERE f.user_id = $1
+      ORDER BY COALESCE(p.published_at, p.created_at) DESC
+    `, [userId]);
+
+    const products = await Promise.all(rows.map(async p => {
+      const { rows: imgs } = await pool.query('SELECT url FROM product_images_nat WHERE product_id=$1 ORDER BY created_at ASC', [p.id]);
+      let vids = [];
+      try {
+        const { rows: v } = await pool.query('SELECT url FROM product_videos_nat WHERE product_id=$1 ORDER BY created_at ASC', [p.id]);
+        vids = v;
+      } catch (_) {}
+      return { ...p, image_urls: imgs.map(i => i.url), video_urls: vids.map(v => v.url) };
+    }));
+
+    res.json(products);
+  } catch (err) { handleNatError(res, err, 'GET /natmarket/users/:userId/favorites'); }
+});
+
+app.get('/natmarket/users/:userId/favorites/count', async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const { rows } = await pool.query('SELECT COUNT(*)::int AS count FROM user_favorites_nat WHERE user_id=$1', [userId]);
+    res.json({ count: rows[0]?.count || 0 });
+  } catch (err) { handleNatError(res, err, 'GET /natmarket/users/:userId/favorites/count'); }
+});
+
+app.post('/natmarket/products/:id/wish', async (req, res) => {
+  const { id } = req.params;
+  const { user_id } = req.body;
+  if (!user_id) return res.status(400).json({ error: 'user_id requerido' });
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS user_wishlist_nat (
+        user_id INTEGER NOT NULL,
+        product_id INTEGER NOT NULL REFERENCES products_nat(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT NOW(),
+        PRIMARY KEY (user_id, product_id)
+      )
+    `);
+    await pool.query('INSERT INTO user_wishlist_nat (user_id, product_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [user_id, id]);
+    res.json({ success: true });
+  } catch (err) { handleNatError(res, err, 'POST /natmarket/products/:id/wish'); }
+});
+
+app.delete('/natmarket/products/:id/wish', async (req, res) => {
+  const { id } = req.params;
+  const { user_id } = req.body;
+  if (!user_id) return res.status(400).json({ error: 'user_id requerido' });
+  try {
+    await pool.query('DELETE FROM user_wishlist_nat WHERE user_id=$1 AND product_id=$2', [user_id, id]);
+    res.json({ success: true });
+  } catch (err) { handleNatError(res, err, 'DELETE /natmarket/products/:id/wish'); }
+});
+
+app.get('/natmarket/users/:userId/wishlist', async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const { rows } = await pool.query(`
+      SELECT p.*, u.username
+      FROM user_wishlist_nat w
+      JOIN products_nat p ON p.id = w.product_id
+      JOIN users_nat u ON u.id = p.user_id
+      WHERE w.user_id = $1
+      ORDER BY COALESCE(p.published_at, p.created_at) DESC
+    `, [userId]);
+
+    const products = await Promise.all(rows.map(async p => {
+      const { rows: imgs } = await pool.query('SELECT url FROM product_images_nat WHERE product_id=$1 ORDER BY created_at ASC', [p.id]);
+      let vids = [];
+      try {
+        const { rows: v } = await pool.query('SELECT url FROM product_videos_nat WHERE product_id=$1 ORDER BY created_at ASC', [p.id]);
+        vids = v;
+      } catch (_) {}
+      return { ...p, image_urls: imgs.map(i => i.url), video_urls: vids.map(v => v.url) };
+    }));
+
+    res.json(products);
+  } catch (err) { handleNatError(res, err, 'GET /natmarket/users/:userId/wishlist'); }
+});
+
+app.get('/natmarket/users/:userId/wishlist/count', async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const { rows } = await pool.query('SELECT COUNT(*)::int AS count FROM user_wishlist_nat WHERE user_id=$1', [userId]);
+    res.json({ count: rows[0]?.count || 0 });
+  } catch (err) { handleNatError(res, err, 'GET /natmarket/users/:userId/wishlist/count'); }
 });
 
 /* ---------- RESTAURAR CONTRASEÑA ---------- */

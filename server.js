@@ -1869,6 +1869,21 @@ app.get("/version", async (_req, res) => {
   }
 });
 
+// Frontend expects this endpoint to fetch featured update notes for the modal
+app.get("/api/featured-update", async (_req, res) => {
+  try {
+    const { rows } = await pool.query(
+      "SELECT version, news, date FROM updates_ecoconsole ORDER BY date DESC LIMIT 1"
+    );
+    if (rows.length === 0) return res.json(null);
+    // The client can render either sections or raw news; we return news here
+    res.json({ version: rows[0].version, date: rows[0].date, news: rows[0].news });
+  } catch (err) {
+    console.error("❌ Error en /api/featured-update:", err.message);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+});
+
 app.post("/publish-version", async (req, res) => {
   const { secret, version, news } = req.body;
   if (secret !== process.env.STUDIO_SECRET)

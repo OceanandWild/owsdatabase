@@ -1041,6 +1041,175 @@ app.get('/api/status', (_req, res) => {
   });
 });
 
+/* ===== HELPERS: Admin ===== */
+async function isAdminUserById(userId) {
+  const { rows } = await pool.query('SELECT username FROM users_nat WHERE id = $1', [userId]);
+  if (!rows.length) return false;
+  const un = rows[0].username || '';
+  return un === 'OceanandWild' || un === 'Jorge Barboza';
+}
+async function isAdminUsername(username) {
+  return username === 'OceanandWild' || username === 'Jorge Barboza';
+}
+
+/* ===== SUPPORT CHATS ===== */
+// request support chat (user)
+app.post('/natmarket/support/request', async (req, res) => {
+  const { user_id } = req.body;
+  if (!user_id) return res.status(400).json({ error: 'user_id requerido' });
+  try {
+    // tables
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS support_chats (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users_nat(id) ON DELETE CASCADE,
+        admin_id INTEGER REFERENCES users_nat(id),
+        status TEXT NOT NULL DEFAULT 'open',
+        created_at TIMESTAMP DEFAULT NOW(),
+        closed_at TIMESTAMP,
+        last_message_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS support_messages (
+        id SERIAL PRIMARY KEY,
+        chat_id INTEGER NOT NULL REFERENCES support_chats(id) ON DELETE CASCADE,
+        sender_id INTEGER NOT NULL,
+        sender_type TEXT NOT NULL, -- 'user' | 'admin'
+        message TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    // if existing open chat, return
+    const { rows: existing } = await pool.query(
+      `SELECT sc.*, u.username as admin_username
+       FROM support_chats sc LEFT JOIN users_nat u ON u.id = sc.admin_id
+       WHERE sc.user_id = $1 AND sc.status = 'open' ORDER BY sc.created_at DESC LIMIT 1`,
+      [user_id]
+    );
+    if (existing.length) return res.json({ chat: existing[0] });
+
+    // pick admin randomly between OceanandWild and Jorge Barboza that exists
+    const { rows: admins } = await pool.query(
+      `SELECT id, username FROM users_nat WHERE username IN ('OceanandWild','Jorge Barboza')`
+    );
+    let adminId = null, adminUsername = null;
+    if (admins.length) {
+      const idx = Math.floor(Math.random() * admins.length);
+      adminId = admins[idx].id; adminUsername = admins[idx].username;
+    }
+
+    const { rows: created } = await pool.query(
+      `INSERT INTO support_chats (user_id, admin_id, status) VALUES ($1,$2,'open') RETURNING *`,
+      [user_id, adminId]
+    );
+    created[0].admin_username = adminUsername;
+    res.json({ chat: created[0] });
+  } catch (err) {
+    handleNatError(res, err, 'POST /natmarket/support/request');
+  }
+});
+
+// list support chats (admin overview)
+app.get('/natmarket/support/chats', async (req, res) => {
+  try {
+    const adminUsername = req.headers['x-user-username'] || '';
+    if (!(await isAdminUsername(adminUsername))) return res.status(403).json({ error: 'No autorizado' });
+    const status = (req.query.status || 'open').toString();
+    const { rows } = await pool.query(
+      `SELECT sc.*, u1.username AS user_username, u2.username AS admin_username
+       FROM support_chats sc
+       JOIN users_nat u1 ON u1.id = sc.user_id
+       LEFT JOIN users_nat u2 ON u2.id = sc.admin_id
+       WHERE sc.status = $1
+       ORDER BY sc.last_message_at DESC NULLS LAST, sc.created_at DESC`,
+      [status]
+    );
+    res.json(rows);
+  } catch (err) {
+    handleNatError(res, err, 'GET /natmarket/support/chats');
+  }
+});
+
+// user's own support chats
+app.get('/natmarket/support/my-chats/:userId', async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const status = (req.query.status || '').toString();
+    const where = status ? 'AND sc.status = $2' : '';
+    const params = status ? [userId, status] : [userId];
+    const { rows } = await pool.query(
+      `SELECT sc.*, u.username as admin_username
+       FROM support_chats sc
+       LEFT JOIN users_nat u ON u.id = sc.admin_id
+       WHERE sc.user_id = $1 ${where}
+       ORDER BY sc.created_at DESC`,
+      params
+    );
+    res.json(rows);
+  } catch (err) {
+    handleNatError(res, err, 'GET /natmarket/support/my-chats/:userId');
+  }
+});
+
+// messages for a chat
+app.get('/natmarket/support/chats/:chatId/messages', async (req, res) => {
+  const { chatId } = req.params;
+  try {
+    const { rows } = await pool.query(
+      `SELECT sm.*, u.username as sender_username
+       FROM support_messages sm
+       LEFT JOIN users_nat u ON u.id = sm.sender_id
+       WHERE sm.chat_id = $1 ORDER BY sm.created_at ASC`,
+      [chatId]
+    );
+    res.json(rows);
+  } catch (err) {
+    handleNatError(res, err, 'GET /natmarket/support/chats/:chatId/messages');
+  }
+});
+
+// send a message in support chat
+app.post('/natmarket/support/chats/:chatId/message', async (req, res) => {
+  const { chatId } = req.params;
+  const { sender_id, sender_type, message } = req.body;
+  if (!sender_id || !sender_type || !message) return res.status(400).json({ error: 'Faltan datos' });
+  try {
+    const { rows: chatRows } = await pool.query('SELECT * FROM support_chats WHERE id=$1', [chatId]);
+    if (!chatRows.length) return res.status(404).json({ error: 'Chat no encontrado' });
+    if (chatRows[0].status === 'closed') return res.status(400).json({ error: 'Chat cerrado' });
+
+    await pool.query(
+      `INSERT INTO support_messages (chat_id, sender_id, sender_type, message) VALUES ($1,$2,$3,$4)`,
+      [chatId, sender_id, sender_type, message]
+    );
+    await pool.query('UPDATE support_chats SET last_message_at = NOW() WHERE id=$1', [chatId]);
+    res.json({ success: true });
+  } catch (err) {
+    handleNatError(res, err, 'POST /natmarket/support/chats/:chatId/message');
+  }
+});
+
+// close a support chat (admin)
+app.patch('/natmarket/support/chats/:chatId/close', async (req, res) => {
+  const { chatId } = req.params;
+  const { admin_id } = req.body;
+  if (!admin_id) return res.status(400).json({ error: 'admin_id requerido' });
+  try {
+    if (!(await isAdminUserById(admin_id))) return res.status(403).json({ error: 'No autorizado' });
+    const { rows: chatRows } = await pool.query('SELECT * FROM support_chats WHERE id=$1', [chatId]);
+    if (!chatRows.length) return res.status(404).json({ error: 'Chat no encontrado' });
+    await pool.query(
+      'UPDATE support_chats SET status = \"closed\", closed_at = NOW() WHERE id = $1',
+      [chatId]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    handleNatError(res, err, 'PATCH /natmarket/support/chats/:chatId/close');
+  }
+});
+
 // Keep the existing status page route
 app.get('/status', (_req, res) =>
   res.sendFile(join(__dirname, 'Ocean and Wild Studios Status', 'index.html'))

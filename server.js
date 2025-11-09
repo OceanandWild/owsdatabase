@@ -8307,6 +8307,19 @@ app.post('/deepdive/subscription/subscribe', async (req, res) => {
       [opUserIdInt, String(newWC)]
     );
 
+    // Ensure OP tx table exists (idempotent)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ocean_pay_txs (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        concepto TEXT NOT NULL,
+        monto NUMERIC(20,2) NOT NULL,
+        origen TEXT,
+        created_at TIMESTAMP DEFAULT NOW(),
+        moneda TEXT
+      )
+    `);
+
     // Log OP tx (moneda='WC' if column exists)
     const hasMoneda = await oceanPayHasMonedaColumn();
     const concept = `Suscripción Pro (DeepDive) - ${plan === 'yearly' ? 'Anual' : 'Mensual'}`;
@@ -8355,7 +8368,7 @@ app.post('/deepdive/subscription/subscribe', async (req, res) => {
     // Payment log
     await client.query(
       `INSERT INTO payments (user_id, amount, currency, status, payment_method, subscription_plan, description)
-       VALUES ($1, $2, 'WildCredits', 'completed', $3, $4, 'DeepDive Pro Subscription')`,
+       VALUES ($1, $2, 'WC', 'completed', $3, $4, 'DeepDive Pro Subscription')`,
       [String(appUid), normalizedAmount, 'Ocean Pay (WildCredits)', plan]
     );
 
@@ -8369,7 +8382,7 @@ app.post('/deepdive/subscription/subscribe', async (req, res) => {
     try {
       await pool.query(
         `INSERT INTO payments (user_id, amount, currency, status, payment_method, subscription_plan, description, error)
-         VALUES ($1, $2, 'WildCredits', 'failed', $3, $4, 'DeepDive Pro Subscription', $5)`,
+         VALUES ($1, $2, 'WC', 'failed', $3, $4, 'DeepDive Pro Subscription', $5)`,
         [String(getAppUserId(req) || opUid), normalizedAmount, 'Ocean Pay (WildCredits)', plan || 'unknown', err.message]
       );
     } catch {}

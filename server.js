@@ -1153,6 +1153,24 @@ app.get('/natmarket/support/my-chats/:userId', async (req, res) => {
   }
 });
 
+// get chat info (status, participants)
+app.get('/natmarket/support/chats/:chatId', async (req, res) => {
+  const { chatId } = req.params;
+  try {
+    const { rows } = await pool.query(`
+      SELECT sc.*, u1.username AS user_username, u2.username AS admin_username
+      FROM support_chats sc
+      JOIN users_nat u1 ON u1.id = sc.user_id
+      LEFT JOIN users_nat u2 ON u2.id = sc.admin_id
+      WHERE sc.id = $1
+    `, [chatId]);
+    if (!rows.length) return res.status(404).json({ error: 'Chat no encontrado' });
+    res.json(rows[0]);
+  } catch (err) {
+    handleNatError(res, err, 'GET /natmarket/support/chats/:chatId');
+  }
+});
+
 // messages for a chat
 app.get('/natmarket/support/chats/:chatId/messages', async (req, res) => {
   const { chatId } = req.params;

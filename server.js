@@ -8319,6 +8319,8 @@ app.post('/deepdive/subscription/subscribe', async (req, res) => {
         moneda TEXT
       )
     `);
+    // If table already existed without currency column, add it
+    await client.query(`ALTER TABLE ocean_pay_txs ADD COLUMN IF NOT EXISTS moneda TEXT`);
 
     // Log OP tx (moneda='WC' if column exists)
     const hasMoneda = await oceanPayHasMonedaColumn();

@@ -252,6 +252,148 @@ app.get('/ocean-pay/wildcredits/balance', async (req, res) => {
   }
 });
 
+// ====== OCEAN PAY AUTH (REGISTER / LOGIN / ME) ======
+// Register a new Ocean Pay account
+app.post('/ocean-pay/register', async (req, res) => {
+  const { username, password } = req.body || {};
+  if (!username || !password) return res.status(400).json({ error: 'Faltan datos' });
+  try {
+    const { rows: exist } = await pool.query('SELECT id FROM ocean_pay_users WHERE username = $1', [username]);
+    if (exist.length > 0) return res.status(400).json({ error: 'Usuario ya existe' });
+    const hash = await bcrypt.hash(password, 10);
+    await pool.query('INSERT INTO ocean_pay_users (username, pwd_hash) VALUES ($1, $2)', [username, hash]);
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('OP register error:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Login and return token + user skeleton
+app.post('/ocean-pay/login', async (req, res) => {
+  const { username, password } = req.body || {};
+  if (!username || !password) return res.status(400).json({ error: 'Faltan datos' });
+  try {
+    const { rows } = await pool.query(
+      'SELECT id, pwd_hash, aquabux, appbux FROM ocean_pay_users WHERE username = $1',
+      [username]
+    );
+    if (rows.length === 0) return res.status(401).json({ error: 'Credenciales incorrectas' });
+    const ok = await bcrypt.compare(password, rows[0].pwd_hash);
+    if (!ok) return res.status(401).json({ error: 'Credenciales incorrectas' });
+    const token = jwt.sign({ uid: rows[0].id, un: username }, process.env.STUDIO_SECRET, { expiresIn: '7d' });
+    // Try to fetch optional balances, default to 0
+    const user = {
+      id: rows[0].id,
+      username,
+      aquabux: rows[0].aquabux || 0,
+      ecoxionums: 0,
+      ecorebits: 0,
+      appbux: rows[0].appbux || 0,
+    };
+    return res.json({ token, user });
+  } catch (err) {
+    console.error('OP login error:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Return current OP user from token
+app.get('/ocean-pay/me', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+  const token = authHeader.substring(7);
+  try {
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
+    const uid = decoded.uid || decoded.userId;
+    const { rows } = await pool.query('SELECT id, username, aquabux, appbux FROM ocean_pay_users WHERE id = $1', [uid]);
+    if (rows.length === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
+    return res.json({ id: rows[0].id, username: rows[0].username, aquabux: rows[0].aquabux || 0, appbux: rows[0].appbux || 0 });
+  } catch (err) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+});
+
+// Transactions list for Ocean Pay
+app.get('/ocean-pay/txs/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { rows } = await pool.query(
+      `SELECT concepto, monto, origen, created_at FROM ocean_pay_txs
+       WHERE user_id = $1 ORDER BY created_at DESC LIMIT 100`,
+      [userId]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('OP txs error:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Minimal Ecoxionums/AppBux balance endpoints used by Ocean Pay UI
+app.get('/ocean-pay/ecoxionums/:userId', async (req, res) => {
+  const { userId } = req.params;
+  try {
+    await pool.query('ALTER TABLE ocean_pay_users ADD COLUMN IF NOT EXISTS ecoxionums INTEGER DEFAULT 0');
+  } catch (_) {}
+  try {
+    const { rows } = await pool.query('SELECT ecoxionums FROM ocean_pay_users WHERE id::text = $1', [userId]);
+    const value = rows.length > 0 ? (rows[0].ecoxionums || 0) : 0;
+    res.json({ ecoxionums: value });
+  } catch (err) {
+    console.error('OP ecoxionums error:', err);
+    res.json({ ecoxionums: 0 });
+  }
+});
+
+app.get('/ocean-pay/appbux/:userId', async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const { rows } = await pool.query('SELECT appbux FROM ocean_pay_users WHERE id::text = $1', [userId]);
+    const value = rows.length > 0 ? (rows[0].appbux || 0) : 0;
+    res.json({ appbux: value });
+  } catch (err) {
+    console.error('OP appbux error:', err);
+    res.json({ appbux: 0 });
+  }
+});
+
+app.post('/ocean-pay/ecoxionums/change', async (req, res) => {
+  const { userId, amount, concept } = req.body || {};
+  if (!userId || typeof amount !== 'number') return res.status(400).json({ error: 'Faltan datos' });
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('ALTER TABLE ocean_pay_users ADD COLUMN IF NOT EXISTS ecoxionums INTEGER DEFAULT 0');
+    const { rows } = await client.query('SELECT ecoxionums FROM ocean_pay_users WHERE id::text = $1 FOR UPDATE', [userId]);
+    const current = rows.length > 0 ? (rows[0].ecoxionums || 0) : 0;
+    const next = current + amount;
+    if (next < 0) { await client.query('ROLLBACK'); return res.status(400).json({ error: 'Saldo insuficiente' }); }
+    await client.query('UPDATE ocean_pay_users SET ecoxionums = $1 WHERE id::text = $2', [next, userId]);
+    // log transaction
+    let hasMoneda = false;
+    try {
+      const { rows: check } = await client.query(`SELECT column_name FROM information_schema.columns WHERE table_name = 'ocean_pay_txs' AND column_name = 'moneda'`);
+      hasMoneda = check.length > 0;
+    } catch (_) {}
+    if (hasMoneda) {
+      await client.query(`INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, 'EX')`, [userId, concept || 'Ecoxionums change', amount, 'Ecoxion']);
+    } else {
+      await client.query(`INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen) VALUES ($1, $2, $3, $4)`, [userId, concept || 'Ecoxionums change', amount, 'Ecoxion']);
+    }
+    await client.query('COMMIT');
+    res.json({ success: true, newBalance: next });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('OP ecoxionums/change error:', err);
+    res.status(500).json({ error: 'Error interno' });
+  } finally {
+    client.release();
+  }
+});
+
 /* ===== WILDSHORTS - WILDGEMS ===== */
 // Endpoint para obtener WildGems desde Ocean Pay
 app.get('/wildshorts/wildgems/balance', async (req, res) => {

@@ -1329,6 +1329,31 @@ app.get('/deepdive/proxy/media', async (req, res) => {
   }
 });
 
+/* ===== DeepDive Export (SSR stub) ===== */
+app.get('/deepdive/export/capabilities', (_req, res) => {
+  const ssrEnabled = process.env.ENABLE_SSR === '1';
+  res.json({ ssr: ssrEnabled });
+});
+
+app.post('/deepdive/export/video', async (req, res) => {
+  const ssrEnabled = process.env.ENABLE_SSR === '1';
+  if (!ssrEnabled) {
+    return res.status(501).json({ error: 'Server-side render disabled. Set ENABLE_SSR=1 and install puppeteer + ffmpeg.' });
+  }
+  try {
+    // Minimal placeholder: persist payload to tmp and respond (implement renderer later)
+    const outDir = path.join(process.cwd(), 'exports');
+    fs.mkdirSync(outDir, { recursive: true });
+    const fname = `deepdive_${Date.now()}.json`;
+    fs.writeFileSync(path.join(outDir, fname), JSON.stringify(req.body||{}, null, 2));
+    return res.json({ url: `/exports/${fname}`, filename: fname });
+  } catch (e) {
+    console.error('[SSR] export failed', e);
+    return res.status(500).json({ error: 'SSR export failed' });
+  }
+});
+app.use('/exports', express.static(path.join(process.cwd(), 'exports')));
+
 /* ===== HELPERS: Admin ===== */
 async function isAdminUserById(userId) {
   const { rows } = await pool.query('SELECT username FROM users_nat WHERE id = $1', [userId]);
@@ -2158,18 +2183,34 @@ app.get("/version", async (_req, res) => {
 });
 
 // Frontend expects this endpoint to fetch featured update notes for the modal
+// Prefer DeepDive-original table; fallback to legacy EcoConsole if empty
 app.get("/api/featured-update", async (_req, res) => {
   try {
-    const { rows } = await pool.query(
-      "SELECT version, news, date FROM updates_ecoconsole ORDER BY date DESC LIMIT 1"
-    );
-    if (rows.length === 0) return res.json(null);
-    // The client can render either sections or raw news; we return news here
-    res.json({ version: rows[0].version, date: rows[0].date, news: rows[0].news });
+    let row = null;
+    try {
+      const r1 = await pool.query("SELECT version, news, date FROM deepdive_updates ORDER BY date DESC LIMIT 1");
+      row = r1.rows[0] || null;
+    } catch {}
+    if (!row) {
+      try {
+        const r2 = await pool.query("SELECT version, news, date FROM updates_ecoconsole ORDER BY date DESC LIMIT 1");
+        row = r2.rows[0] || null;
+      } catch {}
+    }
+    if (!row) return res.json(null);
+    res.json({ version: row.version, date: row.date, news: row.news });
   } catch (err) {
     console.error("❌ Error en /api/featured-update:", err.message);
     res.status(500).json({ error: "Error interno del servidor" });
   }
+});
+
+// DeepDive-specific latest update endpoint
+app.get('/deepdive/updates/latest', async (_req, res) => {
+  try {
+    const { rows } = await pool.query("SELECT version, news, date FROM deepdive_updates ORDER BY date DESC LIMIT 1");
+    res.json(rows[0] || null);
+  } catch (e) { res.json(null); }
 });
 
 app.post("/publish-version", async (req, res) => {
@@ -2399,6 +2440,63 @@ setInterval(cleanupOldEvents, 6 * 60 * 60 * 1000);
 
 // Ejecutar al inicio
 cleanupOldEvents();
+
+// ===== DeepDive: seed update notes and beta announcement (original tables) =====
+async function seedDeepDiveUpdateAndBeta(){
+  try {
+    // 1) Update notes entry – use deepdive_updates (original table)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS deepdive_updates (
+        id SERIAL PRIMARY KEY,
+        version TEXT,
+        news TEXT,
+        date TIMESTAMP DEFAULT NOW()
+      )`);
+    const version = '0.9.0-beta';
+    const newsFull = [
+      'DeepDive Presentations — 0.9.0-beta',
+      '',
+      '- Added 10+ new intro templates (App/Game/Platform/Vertical/Square/Gradient/Neon)',
+      '- Added 15 new intro text effects (FadeUp, ZoomCenter, BlurIn, SlideBottom, LightSweep, LetterSpaceIn, FlipX, SplitVertical, ZoomCorner, BounceDown, FadeLeftBig, OutlineDraw, NeonPulse, SparkPop, RibbonSlide)',
+      '- Background Manager: color, gradient, image (fit/position/dim), with export parity',
+      '- Audio Tracks: per-slide music/VO timeline with browser export mixing',
+      '- Timeline layers, easing, slide fades; Add panel for Text/Video/Audio',
+      '',
+      'Beta Announcement: Public beta starts on 11/11. Thank you for testing!'
+    ].join('\n');
+    await pool.query(
+      `INSERT INTO deepdive_updates (version, news, date)
+       SELECT $1, $2, NOW()
+       WHERE NOT EXISTS (SELECT 1 FROM deepdive_updates WHERE version=$1)`,
+      [version, newsFull]
+    );
+
+    // 2) Beta event on 11/11 – use deepdive_events (original table)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS deepdive_events (
+        id SERIAL PRIMARY KEY,
+        name TEXT,
+        keyword TEXT UNIQUE,
+        musicURL TEXT,
+        startAt TIMESTAMP,
+        rewardBits INTEGER,
+        created TIMESTAMP DEFAULT NOW(),
+        finished BOOLEAN
+      )`);
+    const evName = 'DeepDive Public Beta';
+    const evKey = 'deepdive_beta_2025_11_11';
+    const startAt = new Date('2025-11-11T09:00:00Z');
+    await pool.query(
+      `INSERT INTO deepdive_events (name, keyword, musicURL, startAt, rewardBits, created)
+       SELECT $1, $2, $3, $4, $5, NOW()
+       WHERE NOT EXISTS (SELECT 1 FROM deepdive_events WHERE keyword=$2)`,
+      [evName, evKey, '', startAt, 100]
+    );
+  } catch (e) {
+    console.warn('[DeepDive seed] skipped:', e.message);
+  }
+}
+seedDeepDiveUpdateAndBeta();
 
 /* ===== NAT-MARKET ENDPOINTS ===== */
 app.use('/uploads/nat', express.static(uploadDir)); // archivos estáticos

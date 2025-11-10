@@ -1077,11 +1077,15 @@ function fallbackSlidesFromScript(script = '', style = {}) {
     .filter(s => s.length >= 20);
 
   // 2) Tokenization & stopwords
-  const STOP = new Set(('a,al,algo,algún,algunas,algunos,ante,antes,como,con,contra,cuando,de,del,desde,donde,du,r,el,ella,ellas,ellos,empleais,emplean,emplear,empleas,entonces,entre,era,eramos,eran,eras,eres,es,esa,esas,ese,eso,esos,esta,estaba,estabais,estaban,estabas,estad,estada,estadas,estado,estados,estais,estamos,estan,estar,estare,estara,estas,este,esto,estos,estoy,fin,fue,fueron,fui,fuimos,ha,habeis,habia,habiais,habian,habias,habe,han,has,hasta,hay,la,las,le,les,lo,los,mas,me,mi,mia,mias,mientras,mio,mios,mis,modo,muchos,muy,nos,nosotras,nosotros,nuestra,nuestras,nuestro,nuestros,nunca,os,otra,otras,otro,otros,para,pero,poca,pocas,poco,pocos,por,porque,primero,puede,pueden,puedo,que,queremos,quien,quienes,quienquiera,quiza,quizas,sea,seamos,sean,seas,ser,sere,sera,si,sido,siempre,siendo,sois,somos,son,soy,su,sus,tal,tambien,tampoco,teneis,tenemos,tener,teniamos,tener,ti,tiempo,tiene,tienen,todo,todos,tras,tu,tus,un,una,uno,unos,usa,usamos,usar,usas,use,usted,ustedes,via,y,ya,el,la,los,las,the,of,and,to,in,for,on,with,as,at,by,from,or,an,is,are,be,this,that,these,those,it,its).split(','));
+  const STOP = new Set([
+    'a','al','algo','algun','algunas','algunos','ante','antes','como','con','contra','cuando','de','del','desde','donde','el','ella','ellas','ellos','en','entonces','entre','era','eramos','eran','eras','eres','es','esa','esas','ese','eso','esos','esta','estaba','estabais','estaban','estabas','estais','estamos','estan','estar','estas','este','esto','estos','estoy','fue','fueron','fui','fuimos','ha','haber','han','has','hasta','hay','la','las','le','les','lo','los','mas','me','mi','mia','mias','mientras','mio','mios','mis','muy','nos','nosotras','nosotros','nuestra','nuestras','nuestro','nuestros','nunca','otra','otras','otro','otros','para','pero','poco','pocos','por','porque','primero','puede','pueden','puedo','que','quien','quienes','quizas','sea','seamos','sean','seas','ser','si','sido','siempre','siendo','sois','somos','son','soy','su','sus','tambien','tampoco','teneis','tenemos','tener','ti','tiempo','tiene','tienen','todo','todos','tras','tu','tus','un','una','uno','unos','usted','ustedes','y','ya',
+    'the','of','and','to','in','for','on','with','as','at','by','from','or','an','is','are','be','this','that','these','those','it','its'
+  ]);
   const WORD_RE = /[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9]{2,}/g;
 
+  function normalizeWord(w) { try { return w.normalize('NFD').replace(/[\u0300-\u036f]/g,''); } catch { return w; } }
   function tokenize(s) {
-    return (s.match(WORD_RE) || []).map(w => w.toLowerCase());
+    return (s.match(WORD_RE) || []).map(w => normalizeWord(w.toLowerCase()));
   }
 
   // 3) Word frequency (TF) with basic dampening

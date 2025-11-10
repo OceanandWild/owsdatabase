@@ -1140,18 +1140,57 @@ function fallbackSlidesFromScript(script = '', style = {}) {
 
   // 7) Clean bullet text: shorten; remove trailing punctuation; sentence-case
   function clip(s, n){ return s.length>n? s.slice(0,n-1).replace(/[,;:.!\s]+$/,'')+'…' : s; }
-  function toSentenceCase(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
+  function toSentenceCase(s){ return s ? s.charAt(0).toUpperCase()+s.slice(1) : s; }
 
+  const GENERIC_PREFIX = [/^\s*(en\s+esta\s+presentaci[oó]n|esta\s+presentaci[oó]n|en\s+este\s+video|este\s+video|vamos\s+a|vamos\b|hoy\b|we\s+will|in\s+this\s+presentation)[:,\s]*/i];
   const bullets = taken.map(t => {
     let out = t.s.replace(/\s+/g,' ').trim();
     out = out.replace(/\([^)]*\)/g,''); // remove parentheticals
+    // remove generic prefaces
+    GENERIC_PREFIX.forEach(rx => { out = out.replace(rx, ''); });
     out = clip(out, 110);
     return toSentenceCase(out);
   });
 
-  // 8) Title: prefer top bigram in a readable form or the best sentence head
-  let title = topBigram ? topBigram.replace(/\b\w/g, m=>m.toUpperCase()) : (scored[0]?.s.split(/[\-:–—]/)[0] || '').trim();
-  title = clip(title || 'Introducing', 60);
+  // 8) Title generation: keyword phrases (RAKE-like) with sanity filters
+  const GENERIC_TITLE_BAD = new Set(['presentation','introducing','introduction','intro','overview','about','topic','themes']);
+  // build phrases by splitting on stopwords
+  const tokensAll = tokenize(raw);
+  const phrases = [];
+  let cur = [];
+  tokensAll.forEach(tok => {
+    if (STOP.has(tok)) {
+      if (cur.length) { phrases.push(cur.slice()); cur = []; }
+    } else {
+      cur.push(tok);
+    }
+  });
+  if (cur.length) phrases.push(cur);
+  // score phrases
+  const phraseScores = phrases
+    .filter(p => p.length>=1 && p.length<=6)
+    .map(p => {
+      const score = p.reduce((a,w)=>a+(tf.get(w)||0),0) * (1 + (p.length-1)*0.15);
+      return { text: p.map(w=>w).join(' '), score };
+    });
+  phraseScores.sort((a,b)=>b.score-a.score);
+  function goodPhrase(s){
+    if (!s || s.length<3) return false;
+    const parts = s.split(/\s+/);
+    if (parts.every(w=>GENERIC_TITLE_BAD.has(w))) return false;
+    return /[a-z]/i.test(s);
+  }
+  let topPhrase = phraseScores.find(p=>goodPhrase(p.text))?.text || '';
+  // fallback to bigram-derived title if needed
+  let title = '';
+  if (topPhrase) {
+    const scriptHasIntro = /\b(introduc|present[a-z]+)/i.test(raw);
+    const nice = topPhrase.replace(/\b\w/g, m=>m.toUpperCase());
+    title = scriptHasIntro ? `Introducing ${nice}` : nice;
+  } else {
+    const head = (scored[0]?.s.split(/[\-:–—]/)[0] || '').trim();
+    title = head ? clip(toSentenceCase(head), 60) : 'Introducing';
+  }
 
   const slides = [];
   // Title slide

@@ -1041,6 +1041,64 @@ app.get('/api/status', (_req, res) => {
   });
 });
 
+/* ===== DeepDive AI Proxy (Python service) ===== */
+const AI_BASE_URL = process.env.AI_BASE_URL || 'http://localhost:5001';
+
+// Script -> Slides
+app.post('/deepdive/ai/script-to-slides', async (req, res) => {
+  try {
+    const f = globalThis.fetch || (await import('node-fetch')).default;
+    const r = await f(`${AI_BASE_URL}/ai/script_to_slides`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body || {})
+    });
+    if (!r.ok) return res.status(r.status).json({ error: `AI error ${r.status}` });
+    const data = await r.json();
+    res.json(data);
+  } catch (e) {
+    console.error('[AI] script-to-slides proxy failed:', e);
+    res.status(500).json({ error: 'AI proxy failed' });
+  }
+});
+
+// Text-to-Speech (streams audio back)
+app.post('/deepdive/ai/tts', async (req, res) => {
+  try {
+    const f = globalThis.fetch || (await import('node-fetch')).default;
+    const r = await f(`${AI_BASE_URL}/ai/tts`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body || {})
+    });
+    if (!r.ok) return res.status(r.status).end();
+    res.set('Content-Type', r.headers.get('content-type') || 'audio/mpeg');
+    res.set('Cache-Control', 'no-store');
+    r.body.pipe(res);
+  } catch (e) {
+    console.error('[AI] TTS proxy failed:', e);
+    res.status(500).json({ error: 'TTS proxy failed' });
+  }
+});
+
+// Speech-to-Text (forwards multipart body as-is)
+app.post('/deepdive/ai/stt', async (req, res) => {
+  try {
+    const f = globalThis.fetch || (await import('node-fetch')).default;
+    const r = await f(`${AI_BASE_URL}/ai/stt`, {
+      method: 'POST',
+      headers: { 'content-type': req.headers['content-type'] || 'multipart/form-data' },
+      body: req
+    });
+    if (!r.ok) return res.status(r.status).end();
+    res.set('Content-Type', r.headers.get('content-type') || 'application/json');
+    r.body.pipe(res);
+  } catch (e) {
+    console.error('[AI] STT proxy failed:', e);
+    res.status(500).json({ error: 'STT proxy failed' });
+  }
+});
+
 /* ===== HELPERS: Admin ===== */
 async function isAdminUserById(userId) {
   const { rows } = await pool.query('SELECT username FROM users_nat WHERE id = $1', [userId]);
@@ -9071,6 +9129,7 @@ app.get('/deepdive/subscription/history', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch subscription history' });
   }
 });
+
 
 // Servir favicon (evitar error 404)
 app.get('/favicon.ico', (_req, res) => {

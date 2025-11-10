@@ -1042,7 +1042,40 @@ app.get('/api/status', (_req, res) => {
 });
 
 /* ===== DeepDive AI Proxy (Python service) ===== */
-const AI_BASE_URL = process.env.AI_BASE_URL || 'http://localhost:5001';
+const AI_BASE_URL = process.env.AI_BASE_URL || 'https://owsdatabase.onrender.com';
+
+function fallbackSlidesFromScript(script = '', style = {}) {
+  const lines = (script || '').split(/\n+/).map(s => s.trim()).filter(Boolean);
+  const theme = style?.theme || 'minimal';
+  const brand = style?.brand || {};
+  const bg = brand.background || '#ffffff';
+  const font = brand.font || 'Inter';
+  const primary = brand.primary || '#0ea5e9';
+  const slides = [];
+  if (lines.length === 0) lines.push('Introducing', 'DeepDive Presentations');
+  lines.forEach((txt, i) => {
+    slides.push({
+      aspectRatio: { width: 16, height: 9 },
+      backgroundColor: bg,
+      durationMs: 3000,
+      texts: [
+        {
+          content: txt,
+          x: 40,
+          y: theme === 'bold' ? 160 : 200,
+          fontSize: theme === 'bold' ? 56 : 36,
+          fontFamily: font,
+          color: i === 0 ? primary : '#1e293b',
+          align: 'center',
+          isCenteredX: true
+        }
+      ],
+      videos: [],
+      audios: []
+    });
+  });
+  return { slides };
+}
 
 // Script -> Slides
 app.post('/deepdive/ai/script-to-slides', async (req, res) => {
@@ -1053,12 +1086,17 @@ app.post('/deepdive/ai/script-to-slides', async (req, res) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(req.body || {})
     });
-    if (!r.ok) return res.status(r.status).json({ error: `AI error ${r.status}` });
+    if (!r.ok) {
+      // Fallback if remote not available
+      const fb = fallbackSlidesFromScript(req.body?.script, req.body?.style);
+      return res.json(fb);
+    }
     const data = await r.json();
     res.json(data);
   } catch (e) {
     console.error('[AI] script-to-slides proxy failed:', e);
-    res.status(500).json({ error: 'AI proxy failed' });
+    const fb = fallbackSlidesFromScript(req.body?.script, req.body?.style);
+    res.json(fb);
   }
 });
 
@@ -1077,7 +1115,7 @@ app.post('/deepdive/ai/tts', async (req, res) => {
     r.body.pipe(res);
   } catch (e) {
     console.error('[AI] TTS proxy failed:', e);
-    res.status(500).json({ error: 'TTS proxy failed' });
+    res.status(501).json({ error: 'TTS not configured. Set AI_BASE_URL to your Python service.' });
   }
 });
 
@@ -1095,7 +1133,7 @@ app.post('/deepdive/ai/stt', async (req, res) => {
     r.body.pipe(res);
   } catch (e) {
     console.error('[AI] STT proxy failed:', e);
-    res.status(500).json({ error: 'STT proxy failed' });
+    res.status(501).json({ error: 'STT not configured. Set AI_BASE_URL to your Python service.' });
   }
 });
 

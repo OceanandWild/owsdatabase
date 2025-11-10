@@ -1125,8 +1125,10 @@ function fallbackSlidesFromScript(script = '', style = {}) {
   });
   scored.sort((a,b)=>b.score-a.score);
 
-  // 6) Pick 4-6 bullets spread across the text
-  const pickCount = Math.min(6, Math.max(4, Math.ceil(sentences.length/4)));
+  // 6) Pick bullets spread across the text (respect requested maxSlides)
+  const requested = Math.max(3, Math.min(10, Number(style?.options?.maxSlides)||6));
+  const bulletTarget = Math.max(2, requested - 2); // 1 title + bullets + 1 CTA
+  const pickCount = Math.min(bulletTarget, Math.max(3, Math.ceil(sentences.length/4)));
   const taken = [];
   const usedIdx = new Set();
   for (const cand of scored) {
@@ -1288,6 +1290,42 @@ app.post('/deepdive/ai/stt', async (req, res) => {
   } catch (e) {
     console.error('[AI] STT proxy failed:', e);
     res.status(501).json({ error: 'STT not configured. Set AI_BASE_URL to your Python service.' });
+  }
+});
+
+/* ===== DeepDive Media Proxy with CORS and Range ===== */
+function isSafeRemote(urlStr){
+  try {
+    const u = new URL(urlStr);
+    if (!(u.protocol === 'http:' || u.protocol === 'https:')) return false;
+    const host = u.hostname.toLowerCase();
+    if (host === 'localhost' || host === '127.0.0.1') return false;
+    if (host.endsWith('.internal') || host.endsWith('.local')) return false;
+    return true;
+  } catch { return false; }
+}
+
+app.get('/deepdive/proxy/media', async (req, res) => {
+  const target = req.query.url;
+  if (!target || !isSafeRemote(target)) return res.status(400).send('Invalid URL');
+  try {
+    const f = globalThis.fetch || (await import('node-fetch')).default;
+    const headers = {};
+    const range = req.headers['range'];
+    if (range) headers['range'] = range;
+    const r = await f(target, { method: 'GET', headers });
+    // Pass-through status and important headers
+    res.status(r.status);
+    const passthrough = ['content-type','content-length','accept-ranges','content-range','last-modified','etag'];
+    passthrough.forEach(h => { const v = r.headers.get(h); if (v) res.set(h, v); });
+    // Always allow cross-origin for canvas usage
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Cache-Control', 'public, max-age=86400');
+    if (!r.body) return res.end();
+    r.body.pipe(res);
+  } catch (e) {
+    console.error('[MediaProxy] error:', e);
+    res.status(502).send('Bad gateway');
   }
 });
 

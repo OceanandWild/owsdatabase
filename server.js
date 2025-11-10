@@ -1045,35 +1045,146 @@ app.get('/api/status', (_req, res) => {
 const AI_BASE_URL = process.env.AI_BASE_URL || 'https://owsdatabase.onrender.com';
 
 function fallbackSlidesFromScript(script = '', style = {}) {
-  const lines = (script || '').split(/\n+/).map(s => s.trim()).filter(Boolean);
-  const theme = style?.theme || 'minimal';
+  // Heuristic summarizer (no external APIs)
   const brand = style?.brand || {};
+  const theme = style?.theme || 'minimal';
   const bg = brand.background || '#ffffff';
   const font = brand.font || 'Inter';
   const primary = brand.primary || '#0ea5e9';
+
+  const raw = String(script || '').replace(/\s+/g, ' ').trim();
+  if (!raw) {
+    return {
+      slides: [
+        {
+          aspectRatio: { width: 16, height: 9 },
+          backgroundColor: bg,
+          durationMs: 3000,
+          texts: [
+            { content: 'Introducing', x: 40, y: 200, fontSize: 42, fontFamily: font, color: primary, align: 'center', isCenteredX: true },
+            { content: 'DeepDive Presentations', x: 40, y: 250, fontSize: 28, fontFamily: font, color: '#1e293b', align: 'center', isCenteredX: true }
+          ],
+          videos: [], audios: []
+        }
+      ]
+    };
+  }
+
+  // 1) Sentence split
+  const sentences = raw
+    .split(/(?<=[.!?])\s+(?=[A-ZÁÉÍÓÚÑ])/)
+    .map(s => s.trim())
+    .filter(s => s.length >= 20);
+
+  // 2) Tokenization & stopwords
+  const STOP = new Set(('a,al,algo,algún,algunas,algunos,ante,antes,como,con,contra,cuando,de,del,desde,donde,du,r,el,ella,ellas,ellos,empleais,emplean,emplear,empleas,entonces,entre,era,eramos,eran,eras,eres,es,esa,esas,ese,eso,esos,esta,estaba,estabais,estaban,estabas,estad,estada,estadas,estado,estados,estais,estamos,estan,estar,estare,estara,estas,este,esto,estos,estoy,fin,fue,fueron,fui,fuimos,ha,habeis,habia,habiais,habian,habias,habe,han,has,hasta,hay,la,las,le,les,lo,los,mas,me,mi,mia,mias,mientras,mio,mios,mis,modo,muchos,muy,nos,nosotras,nosotros,nuestra,nuestras,nuestro,nuestros,nunca,os,otra,otras,otro,otros,para,pero,poca,pocas,poco,pocos,por,porque,primero,puede,pueden,puedo,que,queremos,quien,quienes,quienquiera,quiza,quizas,sea,seamos,sean,seas,ser,sere,sera,si,sido,siempre,siendo,sois,somos,son,soy,su,sus,tal,tambien,tampoco,teneis,tenemos,tener,teniamos,tener,ti,tiempo,tiene,tienen,todo,todos,tras,tu,tus,un,una,uno,unos,usa,usamos,usar,usas,use,usted,ustedes,via,y,ya,el,la,los,las,the,of,and,to,in,for,on,with,as,at,by,from,or,an,is,are,be,this,that,these,those,it,its).split(','));
+  const WORD_RE = /[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9]{2,}/g;
+
+  function tokenize(s) {
+    return (s.match(WORD_RE) || []).map(w => w.toLowerCase());
+  }
+
+  // 3) Word frequency (TF) with basic dampening
+  const tf = new Map();
+  sentences.forEach(s => {
+    const seen = new Set();
+    tokenize(s).forEach(w => {
+      if (STOP.has(w)) return;
+      // damp repeated terms per sentence
+      if (seen.has(w)) return;
+      seen.add(w);
+      tf.set(w, (tf.get(w) || 0) + 1);
+    });
+  });
+
+  // 4) Bigrams to propose a title
+  const bigrams = new Map();
+  sentences.forEach(s => {
+    const toks = tokenize(s).filter(w => !STOP.has(w));
+    for (let i = 0; i < toks.length - 1; i++) {
+      const bg = `${toks[i]} ${toks[i+1]}`;
+      bigrams.set(bg, (bigrams.get(bg) || 0) + 1);
+    }
+  });
+  const topBigram = Array.from(bigrams.entries()).sort((a,b)=>b[1]-a[1])[0]?.[0] || '';
+
+  // 5) Score sentences: sum(tf)/len + positional bonus; bigram bonus
+  const scored = sentences.map((s, idx) => {
+    const toks = tokenize(s).filter(w => !STOP.has(w));
+    const len = Math.max(5, toks.length);
+    let score = toks.reduce((acc,w)=>acc+(tf.get(w)||0), 0) / len;
+    if (topBigram && s.toLowerCase().includes(topBigram)) score *= 1.2;
+    // Positional bonus for first 20% of the document
+    const pos = idx / Math.max(1, sentences.length-1);
+    if (pos < 0.2) score *= 1.1;
+    return { s, idx, score };
+  });
+  scored.sort((a,b)=>b.score-a.score);
+
+  // 6) Pick 4-6 bullets spread across the text
+  const pickCount = Math.min(6, Math.max(4, Math.ceil(sentences.length/4)));
+  const taken = [];
+  const usedIdx = new Set();
+  for (const cand of scored) {
+    // avoid sentences that are too close to already selected ones
+    if (Array.from(usedIdx).some(i => Math.abs(i - cand.idx) <= 1)) continue;
+    taken.push(cand);
+    usedIdx.add(cand.idx);
+    if (taken.length >= pickCount) break;
+  }
+  taken.sort((a,b)=>a.idx-b.idx);
+
+  // 7) Clean bullet text: shorten; remove trailing punctuation; sentence-case
+  function clip(s, n){ return s.length>n? s.slice(0,n-1).replace(/[,;:.!\s]+$/,'')+'…' : s; }
+  function toSentenceCase(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
+
+  const bullets = taken.map(t => {
+    let out = t.s.replace(/\s+/g,' ').trim();
+    out = out.replace(/\([^)]*\)/g,''); // remove parentheticals
+    out = clip(out, 110);
+    return toSentenceCase(out);
+  });
+
+  // 8) Title: prefer top bigram in a readable form or the best sentence head
+  let title = topBigram ? topBigram.replace(/\b\w/g, m=>m.toUpperCase()) : (scored[0]?.s.split(/[\-:–—]/)[0] || '').trim();
+  title = clip(title || 'Introducing', 60);
+
   const slides = [];
-  if (lines.length === 0) lines.push('Introducing', 'DeepDive Presentations');
-  lines.forEach((txt, i) => {
+  // Title slide
+  slides.push({
+    aspectRatio: { width: 16, height: 9 },
+    backgroundColor: bg,
+    durationMs: 3000,
+    texts: [
+      { content: title, x: 40, y: theme==='bold'?160:200, fontSize: theme==='bold'?56:42, fontFamily: font, color: primary, align: 'center', isCenteredX: true }
+    ],
+    videos: [], audios: []
+  });
+
+  // Bullet slides
+  bullets.forEach(b => {
     slides.push({
       aspectRatio: { width: 16, height: 9 },
       backgroundColor: bg,
       durationMs: 3000,
       texts: [
-        {
-          content: txt,
-          x: 40,
-          y: theme === 'bold' ? 160 : 200,
-          fontSize: theme === 'bold' ? 56 : 36,
-          fontFamily: font,
-          color: i === 0 ? primary : '#1e293b',
-          align: 'center',
-          isCenteredX: true
-        }
+        { content: b, x: 40, y: 180, fontSize: 28, fontFamily: font, color: '#1e293b', align: 'center', isCenteredX: true }
       ],
-      videos: [],
-      audios: []
+      videos: [], audios: []
     });
   });
+
+  // CTA slide
+  slides.push({
+    aspectRatio: { width: 16, height: 9 },
+    backgroundColor: bg,
+    durationMs: 3000,
+    texts: [
+      { content: 'Get Started', x: 40, y: 200, fontSize: 36, fontFamily: font, color: primary, align: 'center', isCenteredX: true }
+    ],
+    videos: [], audios: []
+  });
+
   return { slides };
 }
 

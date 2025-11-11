@@ -1396,7 +1396,10 @@ app.post('/deepdive/export/video', async (req, res) => {
     const height = Math.round((BASE_WIDTH * aspect.height) / aspect.width);
     await page.setViewport({ width: BASE_WIDTH, height, deviceScaleFactor: Math.max(1, Math.min(2, scale || 1)) });
 
-    await page.goto(fileUrl, { waitUntil: 'load' });
+    await page.goto(fileUrl, { waitUntil: 'networkidle0' });
+
+    // Ensure webfonts are ready before measuring text/effects
+    try { await page.evaluate(() => (window.document.fonts && window.document.fonts.ready) ? window.document.fonts.ready : Promise.resolve()); } catch {}
 
     // Inject slides and prep render helpers in the page context
     await page.evaluate(({ slides, pro }) => {
@@ -1443,9 +1446,11 @@ app.post('/deepdive/export/video', async (req, res) => {
         } catch (e) { console.error('[EXPORT] step failed', e); }
       }, { curIdx, localMs, forceRender: (curIdx !== lastRenderedSlide) });
 
-      // If slide changed, mark rendered
+      // If slide changed, mark rendered and warm up layout (allow nested RAFs for measurements)
       if (curIdx !== lastRenderedSlide) {
         lastRenderedSlide = curIdx;
+        await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => r()))));
+        await page.waitForTimeout(80);
       }
 
       // Flush a frame so styles apply before capture

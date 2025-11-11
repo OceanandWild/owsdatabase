@@ -1420,7 +1420,7 @@ app.post('/deepdive/export/video', async (req, res) => {
     const dt = Math.max(1, Math.round(1000 / Math.max(1, Math.min(60, fps)))) ;
 
     // Iterate timeline and capture frames
-    let accMs = 0; let slideStartMs = 0; let slideIdx = 0;
+    let slideStartMs = 0; let slideIdx = 0; let lastRenderedSlide = -1;
     for (let t = 0, f = 0; t <= totalMs; t += dt, f++) {
       // Determine current slide and local time
       while (slideIdx < slides.length && t >= slideStartMs + (slides[slideIdx].durationMs || 3000)) {
@@ -1431,22 +1431,31 @@ app.post('/deepdive/export/video', async (req, res) => {
       const curIdx = Math.min(slideIdx, slides.length - 1);
       const localMs = Math.max(0, t - slideStartMs);
 
-      await page.evaluate(({ curIdx, localMs }) => {
+      // Update time and render minimally: full render only on slide change; then per-frame only visuals
+      await page.evaluate(({ curIdx, localMs, forceRender }) => {
         try {
           const s = window.slides[curIdx];
           window.currentSlideIndex = curIdx;
           window.previewTimes = window.previewTimes || {};
           window.previewTimes[s.id] = localMs;
-          if (typeof window.renderSlides === 'function') window.renderSlides();
+          if (forceRender && typeof window.renderSlides === 'function') window.renderSlides();
           if (typeof window.updateTimelineVisuals === 'function') window.updateTimelineVisuals();
         } catch (e) { console.error('[EXPORT] step failed', e); }
-      }, { curIdx, localMs });
+      }, { curIdx, localMs, forceRender: (curIdx !== lastRenderedSlide) });
 
-      // Allow CSS animations to progress in real time between frames
-      await page.waitForTimeout(dt);
+      // If slide changed, mark rendered
+      if (curIdx !== lastRenderedSlide) {
+        lastRenderedSlide = curIdx;
+      }
+
+      // Flush a frame so styles apply before capture
+      await page.evaluate(() => new Promise(r => requestAnimationFrame(() => r())));
 
       const framePath = path.join(framesDir, `frame_${String(f).padStart(6, '0')}.png`);
       await page.screenshot({ path: framePath, omitBackground: false });
+
+      // Allow CSS animations to progress in real time between captures
+      await page.waitForTimeout(dt);
     }
 
     await browser.close();

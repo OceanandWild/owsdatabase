@@ -1,15 +1,19 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 
-# 1) System deps for ffmpeg + headless Chromium
-apt-get update
-apt-get install -y ffmpeg \
-  fonts-liberation libasound2 libatk1.0-0 libatk-bridge2.0-0 \
-  libcups2 libx11-6 libxcomposite1 libxdamage1 libxext6 libxfixes3 \
-  libxrandr2 libgbm1 libgtk-3-0 ca-certificates
+ROOT="$PWD"
 
-# 2) Install Node deps (Puppeteer downloads Chromium here)
+# 1) Download static FFmpeg (amd64) and place it in ./bin
+mkdir -p "$ROOT/bin"
+cd /tmp
+curl -fsSL https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz -o ffmpeg.tar.xz
+tar -xJf ffmpeg.tar.xz
+D=$(find . -maxdepth 1 -type d -name "ffmpeg-*-amd64-static" | head -n1)
+cp "$D/ffmpeg" "$D/ffprobe" "$ROOT/bin/"
+chmod +x "$ROOT/bin/ffmpeg" "$ROOT/bin/ffprobe"
+
+# 2) Install Node deps (Puppeteer must be in dependencies)
+cd "$ROOT"
 npm ci
-
-# 3) Optional: if you have a build step
-#  npm run build
+# If you have a build step, uncomment:
+# npm run build

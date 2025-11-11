@@ -1044,6 +1044,37 @@ app.get('/api/status', (_req, res) => {
 /* ===== DeepDive AI Proxy (Python service) ===== */
 const AI_BASE_URL = process.env.AI_BASE_URL || 'https://owsdatabase.onrender.com';
 
+// Sanitize update notes: remove any lines that disclose internal servers/URLs or infra details
+function sanitizeNews(raw = '') {
+  try {
+    const forbidden = /(https?:\/\/[^\s]+)|(onrender\.|localhost|127\.0\.0\.1|internal|AI_BASE_URL|SERVER_BASE|API_BASE|backend_url)/i;
+    return String(raw)
+      .split(/\r?\n/)
+      .filter(line => !forbidden.test(line))
+      .join('\n')
+      .trim();
+  } catch {
+    return raw;
+  }
+}
+
+// Utilities to detect export capabilities at runtime
+import { spawn } from 'child_process';
+async function hasFfmpeg() {
+  return await new Promise(resolve => {
+    try {
+      const p = spawn(process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg', ['-version']);
+      let resolved = false;
+      p.on('exit', code => { if (!resolved) { resolved = true; resolve(code === 0); } });
+      p.on('error', () => { if (!resolved) { resolved = true; resolve(false); } });
+      setTimeout(() => { if (!resolved) { resolved = true; try { p.kill('SIGKILL'); } catch {} resolve(false); } }, 1500);
+    } catch { resolve(false); }
+  });
+}
+async function hasPuppeteer() {
+  try { await import('puppeteer'); return true; } catch { return false; }
+}
+
 function fallbackSlidesFromScript(script = '', style = {}) {
   // Heuristic summarizer (no external APIs)
   const brand = style?.brand || {};
@@ -1329,24 +1360,122 @@ app.get('/deepdive/proxy/media', async (req, res) => {
   }
 });
 
-/* ===== DeepDive Export (SSR stub) ===== */
-app.get('/deepdive/export/capabilities', (_req, res) => {
-  const ssrEnabled = process.env.ENABLE_SSR === '1';
-  res.json({ ssr: ssrEnabled });
+/* ===== DeepDive Export (SSR) ===== */
+app.get('/deepdive/export/capabilities', async (_req, res) => {
+  const envEnabled = process.env.ENABLE_SSR === '1';
+  const okFfmpeg = await hasFfmpeg();
+  const okPuppeteer = await hasPuppeteer();
+  res.json({ ssr: envEnabled && okFfmpeg && okPuppeteer, ffmpeg: okFfmpeg, puppeteer: okPuppeteer });
 });
 
 app.post('/deepdive/export/video', async (req, res) => {
-  const ssrEnabled = process.env.ENABLE_SSR === '1';
-  if (!ssrEnabled) {
-    return res.status(501).json({ error: 'Server-side render disabled. Set ENABLE_SSR=1 and install puppeteer + ffmpeg.' });
+  const envEnabled = process.env.ENABLE_SSR === '1';
+  if (!envEnabled) {
+    return res.status(501).json({ error: 'Server-side render disabled. Set ENABLE_SSR=1.' });
+  }
+  const okFfmpeg = await hasFfmpeg();
+  const okPuppeteer = await hasPuppeteer();
+  if (!okFfmpeg || !okPuppeteer) {
+    return res.status(501).json({ error: 'Missing ffmpeg and/or puppeteer on server.' });
   }
   try {
-    // Minimal placeholder: persist payload to tmp and respond (implement renderer later)
+    const { slides = [], fps = 30, scale = 1, pro = true } = req.body || {};
+    if (!Array.isArray(slides) || slides.length === 0) {
+      return res.status(400).json({ error: 'slides required' });
+    }
+    const puppeteer = (await import('puppeteer')).default;
+    const browser = await puppeteer.launch({ args: ['--no-sandbox','--disable-setuid-sandbox'] });
+    const page = await browser.newPage();
+
+    // Resolve local file URL for DeepDive editor
+    const ddPath = path.join(process.cwd(), 'DeepDive Presentations', 'index.html');
+    const fileUrl = 'file://' + ddPath.replace(/\\/g, '/');
+
+    const BASE_WIDTH = 800;
+    const aspect = slides[0]?.aspectRatio || { width: 16, height: 9 };
+    const height = Math.round((BASE_WIDTH * aspect.height) / aspect.width);
+    await page.setViewport({ width: BASE_WIDTH, height, deviceScaleFactor: Math.max(1, Math.min(2, scale || 1)) });
+
+    await page.goto(fileUrl, { waitUntil: 'load' });
+
+    // Inject slides and prep render helpers in the page context
+    await page.evaluate(({ slides, pro }) => {
+      try {
+        window.deepdiveIsPro = !!pro;
+        window.previewTimes = {};
+        window.slides = slides;
+        window.currentSlideIndex = 0;
+        if (typeof window.updateTimelineUI === 'function') window.updateTimelineUI();
+        if (typeof window.renderSlides === 'function') window.renderSlides();
+      } catch (e) { console.error('[EXPORT] inject failed', e); }
+    }, { slides, pro });
+
+    // Frame capture directory
     const outDir = path.join(process.cwd(), 'exports');
+    const framesDir = path.join(outDir, `frames_${Date.now()}`);
+    fs.mkdirSync(framesDir, { recursive: true });
+
+    // Compute total ms
+    const totalMs = slides.reduce((acc, s) => acc + (s.durationMs || 3000), 0);
+    const dt = Math.max(1, Math.round(1000 / Math.max(1, Math.min(60, fps)))) ;
+
+    // Iterate timeline and capture frames
+    let accMs = 0; let slideStartMs = 0; let slideIdx = 0;
+    for (let t = 0, f = 0; t <= totalMs; t += dt, f++) {
+      // Determine current slide and local time
+      while (slideIdx < slides.length && t >= slideStartMs + (slides[slideIdx].durationMs || 3000)) {
+        slideStartMs += (slides[slideIdx].durationMs || 3000);
+        slideIdx++;
+        await page.evaluate(() => { try { window.__ddItemPrevVisible = {}; } catch {} });
+      }
+      const curIdx = Math.min(slideIdx, slides.length - 1);
+      const localMs = Math.max(0, t - slideStartMs);
+
+      await page.evaluate(({ curIdx, localMs }) => {
+        try {
+          const s = window.slides[curIdx];
+          window.currentSlideIndex = curIdx;
+          window.previewTimes = window.previewTimes || {};
+          window.previewTimes[s.id] = localMs;
+          if (typeof window.renderSlides === 'function') window.renderSlides();
+          if (typeof window.updateTimelineVisuals === 'function') window.updateTimelineVisuals();
+        } catch (e) { console.error('[EXPORT] step failed', e); }
+      }, { curIdx, localMs });
+
+      // Allow CSS animations to progress in real time between frames
+      await page.waitForTimeout(dt);
+
+      const framePath = path.join(framesDir, `frame_${String(f).padStart(6, '0')}.png`);
+      await page.screenshot({ path: framePath, omitBackground: false });
+    }
+
+    await browser.close();
+
+    // Assemble video with ffmpeg
     fs.mkdirSync(outDir, { recursive: true });
-    const fname = `deepdive_${Date.now()}.json`;
-    fs.writeFileSync(path.join(outDir, fname), JSON.stringify(req.body||{}, null, 2));
-    return res.json({ url: `/exports/${fname}`, filename: fname });
+    const outFile = path.join(outDir, `deepdive_${Date.now()}.mp4`);
+    const ff = spawn(process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg', [
+      '-y',
+      '-framerate', String(fps),
+      '-i', path.join(framesDir, 'frame_%06d.png'),
+      '-c:v', 'libx264',
+      '-pix_fmt', 'yuv420p',
+      '-movflags', '+faststart',
+      outFile
+    ]);
+
+    ff.stderr.on('data', d => { /* optional: log */ });
+    ff.on('exit', code => {
+      try {
+        // cleanup frames
+        fs.rmSync(framesDir, { recursive: true, force: true });
+      } catch {}
+      if (code !== 0) {
+        return res.status(500).json({ error: 'ffmpeg failed' });
+      }
+      const publicUrl = `/exports/${path.basename(outFile)}`;
+      return res.json({ url: publicUrl, filename: path.basename(outFile) });
+    });
   } catch (e) {
     console.error('[SSR] export failed', e);
     return res.status(500).json({ error: 'SSR export failed' });
@@ -2198,7 +2327,7 @@ app.get("/api/featured-update", async (_req, res) => {
       } catch {}
     }
     if (!row) return res.json(null);
-    res.json({ version: row.version, date: row.date, news: row.news });
+    res.json({ version: row.version, date: row.date, news: sanitizeNews(row.news || '') });
   } catch (err) {
     console.error("❌ Error en /api/featured-update:", err.message);
     res.status(500).json({ error: "Error interno del servidor" });
@@ -2209,7 +2338,9 @@ app.get("/api/featured-update", async (_req, res) => {
 app.get('/deepdive/updates/latest', async (_req, res) => {
   try {
     const { rows } = await pool.query("SELECT version, news, date FROM deepdive_updates ORDER BY date DESC LIMIT 1");
-    res.json(rows[0] || null);
+    if (!rows[0]) return res.json(null);
+    const out = { ...rows[0], news: sanitizeNews(rows[0].news || '') };
+    res.json(out);
   } catch (e) { res.json(null); }
 });
 
@@ -2218,9 +2349,10 @@ app.post("/publish-version", async (req, res) => {
   if (secret !== process.env.STUDIO_SECRET)
     return res.status(401).json({ error: "No autorizado" });
 
+  const cleanNews = sanitizeNews(news || "");
   await pool.query(
     "INSERT INTO updates_ecoconsole (version, news, date) VALUES ($1, $2, NOW())",
-    [version, news || ""]
+    [version, cleanNews]
   );
 
   res.json({ ok: true, msg: "Versión publicada" });
@@ -2497,6 +2629,35 @@ async function seedDeepDiveUpdateAndBeta(){
   }
 }
 seedDeepDiveUpdateAndBeta();
+
+// One-time scrub: sanitize latest update note to remove internal URLs if present
+async function scrubLatestUpdateNews(){
+  try {
+    // DeepDive table
+    await pool.query(`CREATE TABLE IF NOT EXISTS deepdive_updates (id SERIAL PRIMARY KEY, version TEXT, news TEXT, date TIMESTAMP DEFAULT NOW())`);
+    const { rows } = await pool.query(`SELECT id, news FROM deepdive_updates ORDER BY date DESC LIMIT 1`);
+    if (rows[0]) {
+      const clean = sanitizeNews(rows[0].news || '');
+      if ((rows[0].news || '') !== clean) {
+        await pool.query(`UPDATE deepdive_updates SET news=$1 WHERE id=$2`, [clean, rows[0].id]);
+      }
+    }
+    // Legacy table
+    try {
+      const r2 = await pool.query(`SELECT id, news FROM updates_ecoconsole ORDER BY date DESC LIMIT 1`);
+      if (r2.rows[0]) {
+        const clean2 = sanitizeNews(r2.rows[0].news || '');
+        if ((r2.rows[0].news || '') !== clean2) {
+          await pool.query(`UPDATE updates_ecoconsole SET news=$1 WHERE id=$2`, [clean2, r2.rows[0].id]);
+        }
+      }
+    } catch {}
+  } catch (e) {
+    console.warn('[DeepDive scrub] skipped:', e.message);
+  }
+}
+
+scrubLatestUpdateNews();
 
 /* ===== NAT-MARKET ENDPOINTS ===== */
 app.use('/uploads/nat', express.static(uploadDir)); // archivos estáticos

@@ -1864,6 +1864,217 @@ app.post('/natmarket/recovery-requests/:id/reject', async (req, res) => {
   }
 });
 
+// ===== NatMarket: Seguimientos de entrega/chat =====
+async function ensureTrackingTables() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS nat_trackings (
+      id BIGSERIAL PRIMARY KEY,
+      product_id INTEGER NOT NULL REFERENCES products_nat(id) ON DELETE CASCADE,
+      seller_id INTEGER NOT NULL REFERENCES users_nat(id) ON DELETE CASCADE,
+      buyer_id INTEGER NOT NULL REFERENCES users_nat(id) ON DELETE CASCADE,
+      title TEXT,
+      status TEXT NOT NULL DEFAULT 'iniciado',
+      events JSONB NOT NULL DEFAULT '[]',
+      active BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_nat_trackings_seller ON nat_trackings(seller_id)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_nat_trackings_buyer ON nat_trackings(buyer_id)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_nat_trackings_product ON nat_trackings(product_id)`);
+}
+
+function appendEventJSON(events, ev) {
+  try {
+    const arr = Array.isArray(events) ? events.slice() : JSON.parse(events || '[]');
+    arr.push({ ...ev, created_at: new Date().toISOString() });
+    return JSON.stringify(arr);
+  } catch {
+    return JSON.stringify([{ ...ev, created_at: new Date().toISOString() }]);
+  }
+}
+
+// Crear seguimiento (vendedor)
+app.post('/natmarket/trackings', async (req, res) => {
+  try {
+    const { seller_id, product_id, buyer_id, title = 'Seguimiento', first_event = {} } = req.body || {};
+    if (!seller_id || !product_id || !buyer_id) return res.status(400).json({ error: 'seller_id, product_id y buyer_id requeridos' });
+    await ensureTrackingTables();
+
+    // Validar que el producto pertenece al vendedor
+    const { rows: prodRows } = await pool.query('SELECT user_id, name FROM products_nat WHERE id=$1', [product_id]);
+    if (!prodRows.length) return res.status(404).json({ error: 'Producto no encontrado' });
+    if (Number(prodRows[0].user_id) !== Number(seller_id)) return res.status(403).json({ error: 'No autorizado para este producto' });
+
+    const ev = {
+      status: first_event.status || 'iniciado',
+      note: first_event.note || 'Seguimiento iniciado',
+      location: first_event.location || null,
+      eta: first_event.eta || null
+    };
+
+    const { rows } = await pool.query(
+      `INSERT INTO nat_trackings (product_id, seller_id, buyer_id, title, status, events)
+       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+      [product_id, seller_id, buyer_id, title, ev.status, JSON.stringify([ { ...ev, created_at: new Date().toISOString() } ])]
+    );
+
+    res.json(rows[0]);
+  } catch (err) {
+    console.error('POST /natmarket/trackings', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Agregar evento (vendedor)
+app.post('/natmarket/trackings/:id/events', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { seller_id, status, note, location, eta } = req.body || {};
+    if (!seller_id) return res.status(400).json({ error: 'seller_id requerido' });
+    await ensureTrackingTables();
+
+    const { rows } = await pool.query('SELECT * FROM nat_trackings WHERE id=$1', [id]);
+    if (!rows.length) return res.status(404).json({ error: 'Seguimiento no encontrado' });
+    const tr = rows[0];
+    if (Number(tr.seller_id) !== Number(seller_id)) return res.status(403).json({ error: 'No autorizado' });
+
+    const ev = { status: status || tr.status, note: note || '', location: location || null, eta: eta || null };
+    const newEvents = appendEventJSON(tr.events, ev);
+    const newStatus = status || tr.status;
+
+    const { rows: upd } = await pool.query(
+      `UPDATE nat_trackings SET events = $1::jsonb, status=$2, updated_at=NOW() WHERE id=$3 RETURNING *`,
+      [newEvents, newStatus, id]
+    );
+    res.json(upd[0]);
+  } catch (err) {
+    console.error('POST /natmarket/trackings/:id/events', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Editar/cerrar seguimiento (vendedor)
+app.patch('/natmarket/trackings/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { seller_id, status, title, active } = req.body || {};
+    if (!seller_id) return res.status(400).json({ error: 'seller_id requerido' });
+    await ensureTrackingTables();
+
+    const { rows } = await pool.query('SELECT * FROM nat_trackings WHERE id=$1', [id]);
+    if (!rows.length) return res.status(404).json({ error: 'Seguimiento no encontrado' });
+    const tr = rows[0];
+    if (Number(tr.seller_id) !== Number(seller_id)) return res.status(403).json({ error: 'No autorizado' });
+
+    const { rows: upd } = await pool.query(
+      `UPDATE nat_trackings SET 
+         status=COALESCE($1,status), 
+         title=COALESCE($2,title), 
+         active=COALESCE($3,active), 
+         updated_at=NOW()
+       WHERE id=$4 RETURNING *`,
+      [status || null, title || null, (active===undefined? null : !!active), id]
+    );
+    res.json(upd[0]);
+  } catch (err) {
+    console.error('PATCH /natmarket/trackings/:id', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Obtener seguimiento por participantes (para chat)
+app.get('/natmarket/trackings/by-participants', async (req, res) => {
+  try {
+    const product_id = Number(req.query.product_id);
+    const seller_id = Number(req.query.seller_id);
+    const buyer_id = Number(req.query.buyer_id);
+    if (!product_id || !seller_id || !buyer_id) return res.status(400).json({ error: 'params requeridos' });
+    await ensureTrackingTables();
+
+    const { rows } = await pool.query(
+      `SELECT t.*, p.name as product_name, u1.username as seller_username, u2.username as buyer_username
+       FROM nat_trackings t
+       JOIN products_nat p ON p.id = t.product_id
+       JOIN users_nat u1 ON u1.id = t.seller_id
+       JOIN users_nat u2 ON u2.id = t.buyer_id
+       WHERE t.product_id=$1 AND t.seller_id=$2 AND t.buyer_id=$3
+       ORDER BY t.created_at DESC LIMIT 1`,
+      [product_id, seller_id, buyer_id]
+    );
+    res.json(rows[0] || null);
+  } catch (err) {
+    console.error('GET /natmarket/trackings/by-participants', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Listado por vendedor
+app.get('/natmarket/trackings/seller/:sellerId', async (req, res) => {
+  try {
+    const { sellerId } = req.params;
+    const all = req.query.all === '1' || req.query.all === 'true';
+    await ensureTrackingTables();
+    const { rows } = await pool.query(
+      `SELECT t.*, p.name as product_name, p.image_urls, u2.username as buyer_username
+       FROM nat_trackings t
+       JOIN products_nat p ON p.id = t.product_id
+       JOIN users_nat u2 ON u2.id = t.buyer_id
+       WHERE t.seller_id=$1 AND ($2::boolean OR t.active=true)
+       ORDER BY t.updated_at DESC`,
+      [sellerId, all]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('GET /natmarket/trackings/seller/:sellerId', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Listado por comprador
+app.get('/natmarket/trackings/buyer/:buyerId', async (req, res) => {
+  try {
+    const { buyerId } = req.params;
+    const all = req.query.all === '1' || req.query.all === 'true';
+    await ensureTrackingTables();
+    const { rows } = await pool.query(
+      `SELECT t.*, p.name as product_name, p.image_urls, u1.username as seller_username
+       FROM nat_trackings t
+       JOIN products_nat p ON p.id = t.product_id
+       JOIN users_nat u1 ON u1.id = t.seller_id
+       WHERE t.buyer_id=$1 AND ($2::boolean OR t.active=true)
+       ORDER BY t.updated_at DESC`,
+      [buyerId, all]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('GET /natmarket/trackings/buyer/:buyerId', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Detalle por id
+app.get('/natmarket/trackings/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await ensureTrackingTables();
+    const { rows } = await pool.query(
+      `SELECT t.*, p.name as product_name, u1.username as seller_username, u2.username as buyer_username
+       FROM nat_trackings t
+       JOIN products_nat p ON p.id = t.product_id
+       JOIN users_nat u1 ON u1.id = t.seller_id
+       JOIN users_nat u2 ON u2.id = t.buyer_id
+       WHERE t.id=$1`,
+      [id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'No encontrado' });
+    res.json(rows[0]);
+  } catch (err) {
+    console.error('GET /natmarket/trackings/:id', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 // Keep the existing status page route
 app.get('/status', (_req, res) =>
   res.sendFile(join(__dirname, 'Ocean and Wild Studios Status', 'index.html'))

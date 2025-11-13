@@ -2326,22 +2326,15 @@ app.get("/version", async (_req, res) => {
 });
 
 // Frontend expects this endpoint to fetch featured update notes for the modal
-// Prefer DeepDive-original table; fallback to legacy EcoConsole if empty
-app.get("/api/featured-update", async (_req, res) => {
+// Product-specific; no cross-product fallback to avoid mixing notes
+const PRODUCT_TABLES = { deepdive: 'deepdive_updates', natmarket: 'natmarket_updates', ecoconsole: 'updates_ecoconsole' };
+app.get("/api/featured-update", async (req, res) => {
   try {
-    let row = null;
-    try {
-      const r1 = await pool.query("SELECT version, news, date FROM deepdive_updates ORDER BY date DESC LIMIT 1");
-      row = r1.rows[0] || null;
-    } catch {}
-    if (!row) {
-      try {
-        const r2 = await pool.query("SELECT version, news, date FROM updates_ecoconsole ORDER BY date DESC LIMIT 1");
-        row = r2.rows[0] || null;
-      } catch {}
-    }
-    if (!row) return res.json(null);
-    res.json({ version: row.version, date: row.date, news: sanitizeNews(row.news || '') });
+    const product = String(req.query.product || 'deepdive').toLowerCase();
+    const table = PRODUCT_TABLES[product] || PRODUCT_TABLES.deepdive;
+    const { rows } = await pool.query(`SELECT version, news, date FROM ${table} ORDER BY date DESC LIMIT 1`);
+    if (!rows[0]) return res.json(null);
+    res.json({ version: rows[0].version, date: rows[0].date, news: sanitizeNews(rows[0].news || '') });
   } catch (err) {
     console.error("❌ Error en /api/featured-update:", err.message);
     res.status(500).json({ error: "Error interno del servidor" });
@@ -2358,18 +2351,40 @@ app.get('/deepdive/updates/latest', async (_req, res) => {
   } catch (e) { res.json(null); }
 });
 
+// NatMarket-specific latest update endpoint
+app.get('/natmarket/updates/latest', async (_req, res) => {
+  try {
+    const { rows } = await pool.query("SELECT version, news, date FROM natmarket_updates ORDER BY date DESC LIMIT 1");
+    if (!rows[0]) return res.json(null);
+    const out = { ...rows[0], news: sanitizeNews(rows[0].news || '') };
+    res.json(out);
+  } catch (e) { res.json(null); }
+});
+
 app.post("/publish-version", async (req, res) => {
-  const { secret, version, news } = req.body;
+  const { secret, version, news, product = 'ecoconsole' } = req.body;
   if (secret !== process.env.STUDIO_SECRET)
     return res.status(401).json({ error: "No autorizado" });
 
   const cleanNews = sanitizeNews(news || "");
+  const prod = String(product || 'ecoconsole').toLowerCase();
+  const table = PRODUCT_TABLES[prod] || PRODUCT_TABLES.ecoconsole;
+  try {
+    // Ensure table exists
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ${table} (
+        version TEXT NOT NULL,
+        news TEXT NOT NULL,
+        date TIMESTAMP DEFAULT NOW()
+      )`);
+  } catch {}
+
   await pool.query(
-    "INSERT INTO updates_ecoconsole (version, news, date) VALUES ($1, $2, NOW())",
+    `INSERT INTO ${table} (version, news, date) VALUES ($1, $2, NOW())`,
     [version, cleanNews]
   );
 
-  res.json({ ok: true, msg: "Versión publicada" });
+  res.json({ ok: true, msg: `Versión publicada en ${table}` });
 });
 
 // 📌 SUGERENCIAS DE COMANDOS

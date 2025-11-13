@@ -1684,6 +1684,186 @@ app.patch('/natmarket/support/chats/:chatId/close', async (req, res) => {
   }
 });
 
+/* ===== NatMarket: Recuperación alternativa de cuenta ===== */
+// Tabla: recovery_requests_nat
+async function ensureRecoveryTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS recovery_requests_nat (
+      id BIGSERIAL PRIMARY KEY,
+      username TEXT NOT NULL,
+      approx_registration_date DATE,
+      evidence JSONB NOT NULL,
+      oe_username TEXT,
+      oe_verified BOOLEAN DEFAULT FALSE,
+      status TEXT NOT NULL DEFAULT 'pending',
+      reviewer TEXT,
+      resolution_note TEXT,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+    )`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_rr_nat_status ON recovery_requests_nat(status)`);
+}
+
+// Verificación opcional contra OceanicEthernet
+async function verifyOE(username, password) {
+  if (!username || !password) return false;
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, pwd_hash FROM ocean_pay_users WHERE username = $1`,
+      [username]
+    );
+    if (!rows.length) return false;
+    const ok = await bcrypt.compare(password, rows[0].pwd_hash);
+    return !!ok;
+  } catch {
+    return false;
+  }
+}
+
+function scoreAltEvidence(e) {
+  let c = 0;
+  if (e?.phone) c++;
+  if (e?.place) c++;
+  if (e?.product1?.name || e?.product1?.price != null) c++;
+  if (e?.product2?.name || e?.product2?.price != null) c++;
+  if (e?.approx_registration_date) c++;
+  return c;
+}
+
+// Crear solicitud
+app.post('/natmarket/recovery-request', async (req, res) => {
+  try {
+    await ensureRecoveryTable();
+    const { username, approx_registration_date, evidence = {}, oceanic_ethernet = {} } = req.body || {};
+    if (!username || typeof username !== 'string') {
+      return res.status(400).json({ error: 'username es obligatorio' });
+    }
+    const evidCount = scoreAltEvidence({
+      phone: evidence.phone,
+      place: evidence.place,
+      product1: evidence.product1,
+      product2: evidence.product2,
+      approx_registration_date,
+    });
+    if (evidCount < 2) {
+      return res.status(400).json({ error: 'Se requieren al menos 2 evidencias' });
+    }
+
+    let oeVerified = false;
+    if (oceanic_ethernet?.username && oceanic_ethernet?.password) {
+      oeVerified = await verifyOE(oceanic_ethernet.username, oceanic_ethernet.password);
+    }
+
+    const { rows } = await pool.query(
+      `INSERT INTO recovery_requests_nat (username, approx_registration_date, evidence, oe_username, oe_verified, status)
+       VALUES ($1,$2,$3,$4,$5,'pending') RETURNING id`,
+      [
+        username.trim(),
+        approx_registration_date || null,
+        JSON.stringify({
+          phone: evidence.phone || null,
+          place: evidence.place || null,
+          product1: evidence.product1 || null,
+          product2: evidence.product2 || null,
+        }),
+        oceanic_ethernet?.username || null,
+        oeVerified,
+      ]
+    );
+    res.json({ success: true, id: rows[0].id, oe_verified: oeVerified });
+  } catch (err) {
+    console.error('POST /natmarket/recovery-request error', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Listar solicitudes (admin, por estado opcional)
+app.get('/natmarket/recovery-requests', async (req, res) => {
+  try {
+    const adminUsername = req.headers['x-user-username'] || '';
+    if (!(await isAdminUsername(adminUsername))) return res.status(403).json({ error: 'No autorizado' });
+    await ensureRecoveryTable();
+    const status = (req.query.status || '').toString();
+    const where = status ? 'WHERE status = $1' : '';
+    const params = status ? [status] : [];
+    const { rows } = await pool.query(
+      `SELECT * FROM recovery_requests_nat ${where} ORDER BY created_at DESC`,
+      params
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('GET /natmarket/recovery-requests error', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Aprobar: genera nuevo user_unique_id para users_nat.username
+app.post('/natmarket/recovery-requests/:id/approve', async (req, res) => {
+  const { id } = req.params;
+  const { reviewer = 'admin', resolution_note = 'aprobado' } = req.body || {};
+  try {
+    const adminUsername = req.headers['x-user-username'] || '';
+    if (!(await isAdminUsername(adminUsername))) return res.status(403).json({ error: 'No autorizado' });
+    await ensureRecoveryTable();
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const { rows: rrRows } = await client.query('SELECT * FROM recovery_requests_nat WHERE id=$1 FOR UPDATE', [id]);
+      if (!rrRows.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Solicitud no encontrada' }); }
+      const rr = rrRows[0];
+
+      const { rows: userRows } = await client.query('SELECT id FROM users_nat WHERE username=$1', [rr.username]);
+      if (!userRows.length) {
+        await client.query(
+          'UPDATE recovery_requests_nat SET status=$1, reviewer=$2, resolution_note=$3, updated_at=NOW() WHERE id=$4',
+          ['rejected', reviewer, 'Usuario no existe', id]
+        );
+        await client.query('COMMIT');
+        return res.status(404).json({ error: 'Usuario no existe' });
+      }
+
+      const userId = userRows[0].id;
+      const newUniqueId = generateUserUniqueId();
+      await client.query('UPDATE users_nat SET user_unique_id=$1 WHERE id=$2', [newUniqueId, userId]);
+      await client.query(
+        'UPDATE recovery_requests_nat SET status=$1, reviewer=$2, resolution_note=$3, updated_at=NOW() WHERE id=$4',
+        ['approved', reviewer, resolution_note, id]
+      );
+      await client.query('COMMIT');
+      res.json({ success: true, user_id: userId, new_user_unique_id: newUniqueId });
+    } catch (e) {
+      try { await client.query('ROLLBACK'); } catch {}
+      console.error('approve recovery error', e);
+      res.status(500).json({ error: 'Error interno' });
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error('POST /natmarket/recovery-requests/:id/approve error', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Rechazar solicitud
+app.post('/natmarket/recovery-requests/:id/reject', async (req, res) => {
+  const { id } = req.params;
+  const { reviewer = 'admin', resolution_note = 'rechazado' } = req.body || {};
+  try {
+    const adminUsername = req.headers['x-user-username'] || '';
+    if (!(await isAdminUsername(adminUsername))) return res.status(403).json({ error: 'No autorizado' });
+    await ensureRecoveryTable();
+    await pool.query(
+      'UPDATE recovery_requests_nat SET status=$1, reviewer=$2, resolution_note=$3, updated_at=NOW() WHERE id=$4',
+      ['rejected', reviewer, resolution_note, id]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error('POST /natmarket/recovery-requests/:id/reject error', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 // Keep the existing status page route
 app.get('/status', (_req, res) =>
   res.sendFile(join(__dirname, 'Ocean and Wild Studios Status', 'index.html'))

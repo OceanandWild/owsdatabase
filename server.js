@@ -10061,13 +10061,31 @@ async function ensureWildXTables() {
       created_at TIMESTAMP DEFAULT NOW()
     )
   `);
+
+  // Tabla principal de posts (con soporte para respuestas y likes)
   await pool.query(`
     CREATE TABLE IF NOT EXISTS wildx_posts (
       id SERIAL PRIMARY KEY,
       user_id INTEGER REFERENCES wildx_users(id) ON DELETE SET NULL,
       username TEXT,
       content TEXT NOT NULL,
-      created_at TIMESTAMP DEFAULT NOW()
+      created_at TIMESTAMP DEFAULT NOW(),
+      parent_id INTEGER REFERENCES wildx_posts(id) ON DELETE CASCADE,
+      likes_count INTEGER NOT NULL DEFAULT 0
+    )
+  `);
+
+  // Asegurar columnas nuevas si la tabla ya existía
+  await pool.query('ALTER TABLE wildx_posts ADD COLUMN IF NOT EXISTS parent_id INTEGER REFERENCES wildx_posts(id) ON DELETE CASCADE');
+  await pool.query("ALTER TABLE wildx_posts ADD COLUMN IF NOT EXISTS likes_count INTEGER NOT NULL DEFAULT 0");
+
+  // Tabla de likes por usuario/post
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS wildx_likes (
+      user_id INTEGER NOT NULL REFERENCES wildx_users(id) ON DELETE CASCADE,
+      post_id INTEGER NOT NULL REFERENCES wildx_posts(id) ON DELETE CASCADE,
+      created_at TIMESTAMP DEFAULT NOW(),
+      PRIMARY KEY (user_id, post_id)
     )
   `);
 }
@@ -10100,8 +10118,10 @@ app.post('/wildx/api/register', async (req, res) => {
       'INSERT INTO wildx_users (username, pwd_hash) VALUES ($1,$2) RETURNING id, username, created_at',
       [uname, hash]
     );
-    const user = rows[0];
-    const token = jwt.sign({ wid: user.id, un: user.username }, process.env.STUDIO_SECRET, { expiresIn: '7d' });
+    const userRow = rows[0];
+
+    const token = jwt.sign({ wid: userRow.id, un: userRow.username }, process.env.STUDIO_SECRET, { expiresIn: '7d' });
+    const user = { id: userRow.id, username: userRow.username, created_at: userRow.created_at, posts_count: 0 };
     res.json({ token, user });
   } catch (err) {
     if (err.code === '23505') {
@@ -10126,21 +10146,44 @@ app.post('/wildx/api/login', async (req, res) => {
     const ok = await bcrypt.compare(pwd, rows[0].pwd_hash);
     if (!ok) return res.status(401).json({ error: 'Credenciales incorrectas' });
 
+    const { rows: countRows } = await pool.query(
+      'SELECT COUNT(*)::int AS posts_count FROM wildx_posts WHERE user_id=$1',
+      [rows[0].id]
+    );
+    const postsCount = countRows[0]?.posts_count || 0;
+
     const token = jwt.sign({ wid: rows[0].id, un: rows[0].username }, process.env.STUDIO_SECRET, { expiresIn: '7d' });
-    res.json({ token, user: { id: rows[0].id, username: rows[0].username, created_at: rows[0].created_at } });
+    const user = {
+      id: rows[0].id,
+      username: rows[0].username,
+      created_at: rows[0].created_at,
+      posts_count: postsCount
+    };
+    res.json({ token, user });
   } catch (err) {
     console.error('Error en POST /wildx/api/login:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
 
-// Datos del usuario actual WildX
+// Datos del usuario actual WildX (incluye stats básicas)
 app.get('/wildx/api/me', async (req, res) => {
   try {
     await ensureWildXTables();
     const wid = getWildXUserId(req);
     if (!wid) return res.status(401).json({ error: 'Token requerido' });
-    const { rows } = await pool.query('SELECT id, username, created_at FROM wildx_users WHERE id=$1', [wid]);
+    const { rows } = await pool.query(
+      `SELECT u.id, u.username, u.created_at,
+              COALESCE(p.posts_count, 0) AS posts_count
+         FROM wildx_users u
+         LEFT JOIN (
+           SELECT user_id, COUNT(*)::int AS posts_count
+             FROM wildx_posts
+            GROUP BY user_id
+         ) p ON p.user_id = u.id
+        WHERE u.id = $1`,
+      [wid]
+    );
     if (!rows.length) return res.status(404).json({ error: 'Usuario no encontrado' });
     res.json(rows[0]);
   } catch (err) {
@@ -10150,11 +10193,20 @@ app.get('/wildx/api/me', async (req, res) => {
 });
 
 // API de posts WildX (Explorar = todos los posts)
-app.get('/wildx/api/posts', async (_req, res) => {
+app.get('/wildx/api/posts', async (req, res) => {
   try {
     await ensureWildXTables();
+    const wid = getWildXUserId(req) || 0;
     const { rows } = await pool.query(
-      'SELECT id, user_id, username, content, created_at FROM wildx_posts ORDER BY created_at DESC LIMIT 100'
+      `SELECT p.id, p.user_id, p.username, p.content, p.created_at, p.parent_id,
+              p.likes_count,
+              (l.user_id IS NOT NULL) AS liked
+         FROM wildx_posts p
+         LEFT JOIN wildx_likes l
+           ON l.post_id = p.id AND l.user_id = $1
+        ORDER BY p.created_at DESC
+        LIMIT 100`,
+      [wid]
     );
     res.json(rows);
   } catch (err) {
@@ -10170,7 +10222,15 @@ app.get('/wildx/api/my-posts', async (req, res) => {
     const wid = getWildXUserId(req);
     if (!wid) return res.status(401).json({ error: 'Token requerido' });
     const { rows } = await pool.query(
-      'SELECT id, user_id, username, content, created_at FROM wildx_posts WHERE user_id=$1 ORDER BY created_at DESC LIMIT 100',
+      `SELECT p.id, p.user_id, p.username, p.content, p.created_at, p.parent_id,
+              p.likes_count,
+              (l.user_id IS NOT NULL) AS liked
+         FROM wildx_posts p
+         LEFT JOIN wildx_likes l
+           ON l.post_id = p.id AND l.user_id = $1
+        WHERE p.user_id = $1
+        ORDER BY p.created_at DESC
+        LIMIT 100`,
       [wid]
     );
     res.json(rows);
@@ -10188,20 +10248,120 @@ app.post('/wildx/api/posts', async (req, res) => {
     if (!wid) return res.status(401).json({ error: 'Inicia sesión para publicar' });
 
     const content = (req.body?.content || '').toString().trim();
+    const parentIdRaw = req.body?.parentId;
+    const parentId = parentIdRaw ? parseInt(parentIdRaw, 10) : null;
+
     if (!content) return res.status(400).json({ error: 'Contenido requerido' });
     if (content.length > 280) return res.status(400).json({ error: 'Máximo 280 caracteres' });
+
+    if (parentId && Number.isNaN(parentId)) {
+      return res.status(400).json({ error: 'parentId inválido' });
+    }
 
     const { rows: users } = await pool.query('SELECT username FROM wildx_users WHERE id=$1', [wid]);
     if (!users.length) return res.status(404).json({ error: 'Usuario no encontrado' });
     const uname = users[0].username;
 
     const { rows } = await pool.query(
-      'INSERT INTO wildx_posts (user_id, username, content) VALUES ($1,$2,$3) RETURNING id, user_id, username, content, created_at',
-      [wid, uname, content]
+      'INSERT INTO wildx_posts (user_id, username, content, parent_id) VALUES ($1,$2,$3,$4) RETURNING id, user_id, username, content, created_at, parent_id, likes_count',
+      [wid, uname, content, parentId]
     );
     res.json(rows[0]);
   } catch (err) {
     console.error('Error en POST /wildx/api/posts:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Toggle like en un post WildX
+app.post('/wildx/api/posts/:id/like', async (req, res) => {
+  try {
+    await ensureWildXTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Inicia sesión para dar like' });
+
+    const postId = parseInt(req.params.id, 10);
+    if (!postId) return res.status(400).json({ error: 'ID de post inválido' });
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const { rows: existing } = await client.query(
+        'SELECT 1 FROM wildx_likes WHERE user_id=$1 AND post_id=$2',
+        [wid, postId]
+      );
+
+      let liked;
+      let likesCount;
+
+      if (existing.length) {
+        await client.query('DELETE FROM wildx_likes WHERE user_id=$1 AND post_id=$2', [wid, postId]);
+        const { rows: upd } = await client.query(
+          'UPDATE wildx_posts SET likes_count = GREATEST(likes_count - 1, 0) WHERE id=$1 RETURNING likes_count',
+          [postId]
+        );
+        likesCount = upd[0]?.likes_count ?? 0;
+        liked = false;
+      } else {
+        await client.query(
+          'INSERT INTO wildx_likes (user_id, post_id) VALUES ($1,$2) ON CONFLICT DO NOTHING',
+          [wid, postId]
+        );
+        const { rows: upd } = await client.query(
+          'UPDATE wildx_posts SET likes_count = likes_count + 1 WHERE id=$1 RETURNING likes_count',
+          [postId]
+        );
+        likesCount = upd[0]?.likes_count ?? 1;
+        liked = true;
+      }
+
+      await client.query('COMMIT');
+      res.json({ liked, likesCount });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      console.error('Error en POST /wildx/api/posts/:id/like:', err);
+      res.status(500).json({ error: 'Error interno' });
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error('Error en POST /wildx/api/posts/:id/like:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Obtener hilo completo (post + respuestas recursivas)
+app.get('/wildx/api/posts/:id/thread', async (req, res) => {
+  try {
+    await ensureWildXTables();
+    const wid = getWildXUserId(req) || 0;
+    const postId = parseInt(req.params.id, 10);
+    if (!postId) return res.status(400).json({ error: 'ID de post inválido' });
+
+    const { rows } = await pool.query(
+      `WITH RECURSIVE thread AS (
+         SELECT *
+           FROM wildx_posts
+          WHERE id = $1
+         UNION ALL
+         SELECT p.*
+           FROM wildx_posts p
+           JOIN thread t ON p.parent_id = t.id
+       )
+       SELECT t.id, t.user_id, t.username, t.content, t.created_at, t.parent_id,
+              t.likes_count,
+              (l.user_id IS NOT NULL) AS liked
+         FROM thread t
+         LEFT JOIN wildx_likes l
+           ON l.post_id = t.id AND l.user_id = $2
+        ORDER BY t.created_at ASC`,
+      [postId, wid]
+    );
+
+    res.json(rows);
+  } catch (err) {
+    console.error('Error en GET /wildx/api/posts/:id/thread:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });

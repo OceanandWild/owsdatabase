@@ -10045,6 +10045,167 @@ app.get('/deepdive/subscription/history', async (req, res) => {
 });
 
 
+// WildX – mini proyecto tipo X/Twitter
+// Sirve la SPA desde carpeta WildX
+app.get('/wildx', (_req, res) => {
+  res.sendFile(join(__dirname, 'WildX', 'index.html'));
+});
+
+// === WildX Auth helpers ===
+async function ensureWildXTables() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS wildx_users (
+      id SERIAL PRIMARY KEY,
+      username TEXT UNIQUE NOT NULL,
+      pwd_hash TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS wildx_posts (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES wildx_users(id) ON DELETE SET NULL,
+      username TEXT,
+      content TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `);
+}
+
+function getWildXUserId(req) {
+  const auth = req.headers.authorization;
+  if (!auth) return null;
+  const [, token] = auth.split(' ');
+  if (!token) return null;
+  try {
+    const payload = jwt.verify(token, process.env.STUDIO_SECRET);
+    return payload?.wid || null;
+  } catch {
+    return null;
+  }
+}
+
+// Registro de usuario WildX
+app.post('/wildx/api/register', async (req, res) => {
+  try {
+    await ensureWildXTables();
+    const { username, password } = req.body || {};
+    const uname = (username || '').toString().trim();
+    const pwd = (password || '').toString();
+    if (!uname || !pwd) return res.status(400).json({ error: 'Usuario y contraseña requeridos' });
+    if (uname.length < 3) return res.status(400).json({ error: 'El usuario debe tener al menos 3 caracteres' });
+
+    const hash = await bcrypt.hash(pwd, 10);
+    const { rows } = await pool.query(
+      'INSERT INTO wildx_users (username, pwd_hash) VALUES ($1,$2) RETURNING id, username, created_at',
+      [uname, hash]
+    );
+    const user = rows[0];
+    const token = jwt.sign({ wid: user.id, un: user.username }, process.env.STUDIO_SECRET, { expiresIn: '7d' });
+    res.json({ token, user });
+  } catch (err) {
+    if (err.code === '23505') {
+      return res.status(409).json({ error: 'Ese usuario ya existe' });
+    }
+    console.error('Error en POST /wildx/api/register:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Login WildX
+app.post('/wildx/api/login', async (req, res) => {
+  try {
+    await ensureWildXTables();
+    const { username, password } = req.body || {};
+    const uname = (username || '').toString().trim();
+    const pwd = (password || '').toString();
+    if (!uname || !pwd) return res.status(400).json({ error: 'Usuario y contraseña requeridos' });
+
+    const { rows } = await pool.query('SELECT id, username, pwd_hash, created_at FROM wildx_users WHERE username=$1', [uname]);
+    if (!rows.length) return res.status(401).json({ error: 'Credenciales incorrectas' });
+    const ok = await bcrypt.compare(pwd, rows[0].pwd_hash);
+    if (!ok) return res.status(401).json({ error: 'Credenciales incorrectas' });
+
+    const token = jwt.sign({ wid: rows[0].id, un: rows[0].username }, process.env.STUDIO_SECRET, { expiresIn: '7d' });
+    res.json({ token, user: { id: rows[0].id, username: rows[0].username, created_at: rows[0].created_at } });
+  } catch (err) {
+    console.error('Error en POST /wildx/api/login:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Datos del usuario actual WildX
+app.get('/wildx/api/me', async (req, res) => {
+  try {
+    await ensureWildXTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Token requerido' });
+    const { rows } = await pool.query('SELECT id, username, created_at FROM wildx_users WHERE id=$1', [wid]);
+    if (!rows.length) return res.status(404).json({ error: 'Usuario no encontrado' });
+    res.json(rows[0]);
+  } catch (err) {
+    console.error('Error en GET /wildx/api/me:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// API de posts WildX (Explorar = todos los posts)
+app.get('/wildx/api/posts', async (_req, res) => {
+  try {
+    await ensureWildXTables();
+    const { rows } = await pool.query(
+      'SELECT id, user_id, username, content, created_at FROM wildx_posts ORDER BY created_at DESC LIMIT 100'
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('Error en GET /wildx/api/posts:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Posts propios (Perfil)
+app.get('/wildx/api/my-posts', async (req, res) => {
+  try {
+    await ensureWildXTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Token requerido' });
+    const { rows } = await pool.query(
+      'SELECT id, user_id, username, content, created_at FROM wildx_posts WHERE user_id=$1 ORDER BY created_at DESC LIMIT 100',
+      [wid]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('Error en GET /wildx/api/my-posts:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Crear post (requiere login)
+app.post('/wildx/api/posts', async (req, res) => {
+  try {
+    await ensureWildXTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Inicia sesión para publicar' });
+
+    const content = (req.body?.content || '').toString().trim();
+    if (!content) return res.status(400).json({ error: 'Contenido requerido' });
+    if (content.length > 280) return res.status(400).json({ error: 'Máximo 280 caracteres' });
+
+    const { rows: users } = await pool.query('SELECT username FROM wildx_users WHERE id=$1', [wid]);
+    if (!users.length) return res.status(404).json({ error: 'Usuario no encontrado' });
+    const uname = users[0].username;
+
+    const { rows } = await pool.query(
+      'INSERT INTO wildx_posts (user_id, username, content) VALUES ($1,$2,$3) RETURNING id, user_id, username, content, created_at',
+      [wid, uname, content]
+    );
+    res.json(rows[0]);
+  } catch (err) {
+    console.error('Error en POST /wildx/api/posts:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 // Servir favicon (evitar error 404)
 app.get('/favicon.ico', (_req, res) => {
   res.status(204).end();

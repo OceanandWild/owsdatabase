@@ -10262,6 +10262,20 @@ app.post('/wildx/api/posts', async (req, res) => {
     if (!users.length) return res.status(404).json({ error: 'Usuario no encontrado' });
     const uname = users[0].username;
 
+    // Si es respuesta, no permitir responderte a ti mismo
+    if (parentId) {
+      const { rows: parentRows } = await pool.query(
+        'SELECT user_id FROM wildx_posts WHERE id=$1',
+        [parentId]
+      );
+      if (!parentRows.length) {
+        return res.status(404).json({ error: 'Post padre no encontrado' });
+      }
+      if (Number(parentRows[0].user_id) === Number(wid)) {
+        return res.status(400).json({ error: 'No puedes responderte a ti mismo' });
+      }
+    }
+
     const { rows } = await pool.query(
       'INSERT INTO wildx_posts (user_id, username, content, parent_id) VALUES ($1,$2,$3,$4) RETURNING id, user_id, username, content, created_at, parent_id, likes_count',
       [wid, uname, content, parentId]
@@ -10282,6 +10296,18 @@ app.post('/wildx/api/posts/:id/like', async (req, res) => {
 
     const postId = parseInt(req.params.id, 10);
     if (!postId) return res.status(400).json({ error: 'ID de post inválido' });
+
+    // No permitir dar like a tus propios posts
+    const { rows: postOwnerRows } = await pool.query(
+      'SELECT user_id FROM wildx_posts WHERE id=$1',
+      [postId]
+    );
+    if (!postOwnerRows.length) {
+      return res.status(404).json({ error: 'Post no encontrado' });
+    }
+    if (Number(postOwnerRows[0].user_id) === Number(wid)) {
+      return res.status(400).json({ error: 'No puedes dar like a tus propios posts' });
+    }
 
     const client = await pool.connect();
     try {

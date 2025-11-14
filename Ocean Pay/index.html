@@ -644,24 +644,6 @@ input:focus-visible{
           </div>
         </div>
 
-        <!-- Suscripción diaria para verificación azul en WildX -->
-        <div class="currency-card" id="wildx-blue-card">
-          <div class="shine-effect"></div>
-          <div class="currency-icon">✅</div>
-          <div class="currency-card-header">
-            <div>
-              <span class="label">WildX Blue</span>
-              <span class="amount" id="wildx-blue-price">25 WC / día</span>
-            </div>
-          </div>
-          <div class="app-info">
-            <strong>Verificación Azul en WildX</strong>
-            <span style="font-size:.8rem;color:#9bb0c2;display:block;margin-top:.25rem;">
-              Usa tus WildCredits desde Ocean Pay para activar la verificación azul diaria en tu perfil de WildX.
-            </span>
-          </div>
-        </div>
-
         <div class="currency-card" id="appbux-card">
           <div class="shine-effect"></div>
           <div class="currency-icon">📱</div>
@@ -1631,16 +1613,6 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   // pinta wallet y saldo
   show('#wallet', true);
-
-  // Click en la tarjeta de WildX Blue abre WildX para gestionar la verificación azul
-  const wildxBlueCard = document.getElementById('wildx-blue-card');
-  if (wildxBlueCard) {
-    wildxBlueCard.addEventListener('click', () => {
-      // Se abre WildX en una nueva pestaña. WildX usará el token de Ocean Pay (opToken)
-      // desde localStorage para cobrar la suscripción diaria con WildCredits.
-      window.open('https://owsdatabase.onrender.com/WildX/index.html', '_blank');
-    });
-  }
   
   // Cargar todos los balances
   await Promise.all([

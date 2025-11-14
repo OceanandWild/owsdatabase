@@ -4874,24 +4874,39 @@ app.get('/natmarket/users/:user_id/is-following/:target_id', async (req, res) =>
 });
 
 // Obtener todos los chats de un vendedor (productos con mensajes)
-app.get('/natmarket/chats/:seller_id', async (req, res) => {
+app.get('/natmarket/chats/:user_id', async (req, res) => {
   try {
-    const { seller_id } = req.params;
-    console.log(`[CHATS] Obteniendo chats para vendedor: ${seller_id}`);
-    
-    // Primero obtener los productos con mensajes
-    const { rows: productRows } = await pool.query(`
+    const { user_id } = req.params;
+    console.log(`[CHATS] Obteniendo chats para usuario: ${user_id} (como vendedor y comprador)`);
+
+    // 1) Productos donde el usuario es vendedor y hay mensajes
+    const { rows: sellerProductRows } = await pool.query(`
       SELECT DISTINCT p.id AS product_id, p.name AS product_name
       FROM products_nat p
       WHERE p.user_id = $1
         AND EXISTS (
           SELECT 1 FROM messages_nat m WHERE m.product_id = p.id
         )
-    `, [seller_id]);
-    
-    console.log(`[CHATS] Productos base encontrados: ${productRows.length}`);
-    
-    // Luego obtener los detalles de cada producto
+    `, [user_id]);
+
+    // 2) Productos donde el usuario participó como comprador (envió al menos un mensaje)
+    const { rows: buyerProductRows } = await pool.query(`
+      SELECT DISTINCT p.id AS product_id, p.name AS product_name
+      FROM messages_nat m
+      JOIN products_nat p ON p.id = m.product_id
+      WHERE m.sender_id = $1
+        AND p.user_id <> $1
+    `, [user_id]);
+
+    // Unificar y deduplicar productos
+    const productMap = new Map();
+    for (const r of sellerProductRows) productMap.set(r.product_id, r);
+    for (const r of buyerProductRows) productMap.set(r.product_id, r);
+    const productRows = Array.from(productMap.values());
+
+    console.log(`[CHATS] Productos base encontrados (unificados): ${productRows.length}`);
+
+    // Obtener detalles por producto
     const rows = await Promise.all(productRows.map(async (p) => {
       // Último mensaje
       const { rows: lastMsgRows } = await pool.query(`
@@ -4906,21 +4921,21 @@ app.get('/natmarket/chats/:seller_id', async (req, res) => {
         ORDER BY m.created_at DESC
         LIMIT 1
       `, [p.product_id]);
-      
+
       // Contador de participantes
       const { rows: participantsRows } = await pool.query(`
         SELECT COUNT(DISTINCT sender_id) AS count
         FROM messages_nat
         WHERE product_id = $1
       `, [p.product_id]);
-      
+
       // Última actividad
       const { rows: activityRows } = await pool.query(`
         SELECT MAX(created_at) AS last_activity
         FROM messages_nat
         WHERE product_id = $1
       `, [p.product_id]);
-      
+
       return {
         product_id: p.product_id,
         product_name: p.product_name,
@@ -4934,7 +4949,7 @@ app.get('/natmarket/chats/:seller_id', async (req, res) => {
         last_activity: activityRows[0]?.last_activity || null
       };
     }));
-    
+
     // Ordenar por última actividad
     rows.sort((a, b) => {
       if (!a.last_activity && !b.last_activity) return 0;
@@ -4942,25 +4957,22 @@ app.get('/natmarket/chats/:seller_id', async (req, res) => {
       if (!b.last_activity) return -1;
       return new Date(b.last_activity) - new Date(a.last_activity);
     });
-    
-    console.log(`[CHATS] Encontrados ${rows.length} productos con mensajes para vendedor ${seller_id}`);
-    console.log(`[CHATS] Primera fila de ejemplo:`, rows[0]);
-    
-    // Si no hay filas, devolver array vacío
+
+    console.log(`[CHATS] Encontrados ${rows.length} chats para usuario ${user_id}`);
+
     if (!rows || rows.length === 0) {
-      console.log(`[CHATS] No hay productos, devolviendo array vacío`);
+      console.log(`[CHATS] No hay chats, devolviendo array vacío`);
       return res.json([]);
     }
-    
-    // Obtener imágenes de cada producto
-    console.log(`[CHATS] Procesando ${rows.length} productos para obtener imágenes...`);
-    const chatsWithImages = await Promise.all(rows.map(async (chat, index) => {
+
+    // Agregar imagen de producto
+    const chatsWithImages = await Promise.all(rows.map(async (chat) => {
       try {
         const { rows: imgRows } = await pool.query(
           'SELECT url FROM product_images_nat WHERE product_id = $1 ORDER BY created_at ASC LIMIT 1',
           [chat.product_id]
         );
-        const result = {
+        return {
           product_id: chat.product_id,
           product_name: chat.product_name,
           product_image: imgRows[0]?.url || null,
@@ -4968,8 +4980,6 @@ app.get('/natmarket/chats/:seller_id', async (req, res) => {
           participants_count: chat.participants_count || 0,
           last_activity: chat.last_activity
         };
-        console.log(`[CHATS] Producto ${index + 1}/${rows.length} procesado:`, result.product_id, result.product_name);
-        return result;
       } catch (imgErr) {
         console.error(`[CHATS] Error obteniendo imagen para producto ${chat.product_id}:`, imgErr);
         return {
@@ -4982,16 +4992,11 @@ app.get('/natmarket/chats/:seller_id', async (req, res) => {
         };
       }
     }));
-    
-    console.log(`[CHATS] Resultado final antes de enviar:`, chatsWithImages);
-    console.log(`[CHATS] Es array?:`, Array.isArray(chatsWithImages));
-    console.log(`[CHATS] Longitud:`, chatsWithImages.length);
-    
-    res.json(chatsWithImages);
+
+    return res.json(chatsWithImages);
   } catch (err) {
-    console.error('[GET /natmarket/chats/:seller_id] Error:', err);
-    // En caso de error, devolver array vacío en lugar de error
-    res.json([]);
+    console.error('[GET /natmarket/chats/:user_id] Error:', err);
+    return res.json([]);
   }
 });
 

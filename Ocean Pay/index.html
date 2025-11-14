@@ -644,6 +644,24 @@ input:focus-visible{
           </div>
         </div>
 
+        <!-- Suscripción diaria para verificación azul en WildX -->
+        <div class="currency-card" id="wildx-blue-card">
+          <div class="shine-effect"></div>
+          <div class="currency-icon">✅</div>
+          <div class="currency-card-header">
+            <div>
+              <span class="label">WildX Blue</span>
+              <span class="amount" id="wildx-blue-price">25 WC / día</span>
+            </div>
+          </div>
+          <div class="app-info">
+            <strong>Verificación Azul en WildX</strong>
+            <span style="font-size:.8rem;color:#9bb0c2;display:block;margin-top:.25rem;">
+              Usa tus WildCredits desde Ocean Pay para activar la verificación azul diaria en tu perfil de WildX.
+            </span>
+          </div>
+        </div>
+
         <div class="currency-card" id="appbux-card">
           <div class="shine-effect"></div>
           <div class="currency-icon">📱</div>
@@ -1404,132 +1422,148 @@ async function changeEcoxionums(sign) {
 async function autoLogin(username, password) {
   console.log('[LOGIN] Enviando:', { username, password });
 
-  const res = await fetch(API + '/ocean-pay/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password })
-  });
+  try {
+    const res = await fetch(API + '/ocean-pay/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
 
-  const data = await res.json();
-  if (!res.ok) {
-    qs('#logMsg').textContent = data.error;
+    const data = await res.json();
+    if (!res.ok) {
+      // Mensaje de error más claro
+      let errorMessage = data.error || 'Error al iniciar sesión';
+      if (res.status === 401) {
+        errorMessage = 'Usuario o contraseña incorrectos. Verifica tus credenciales.';
+      } else if (res.status === 400) {
+        errorMessage = 'Faltan datos. Completa todos los campos.';
+      }
+      qs('#logMsg').textContent = errorMessage;
+      qs('#logMsg').className = 'msg error';
+      console.error('[LOGIN] Error:', res.status, errorMessage);
+      return;
+    }
+
+    // ✅ Guardamos todo
+    token = data.token;
+    userId = data.user.id;
+    
+    // Usar wildcredits del servidor (si viene en data.user) como prioridad
+    let preservedWildCredits = data.user.wildcredits || 0;
+    
+    // Si no viene del servidor o es 0, preservar el anterior como respaldo temporal
+    if (!preservedWildCredits || preservedWildCredits === 0) {
+      const previousOpUser = JSON.parse(localStorage.getItem('opUser') || 'null');
+      const wildCreditsFromStorage = parseInt(localStorage.getItem('wildCredits') || '0');
+      
+      if (previousOpUser && previousOpUser.wildcredits !== undefined && previousOpUser.wildcredits !== null && previousOpUser.wildcredits > 0) {
+        preservedWildCredits = Math.round(previousOpUser.wildcredits || 0);
+      } else if (wildCreditsFromStorage > 0) {
+        preservedWildCredits = wildCreditsFromStorage;
+      }
+    }
+    
+    // Preservar WildGems
+    let preservedWildGems = data.user.wildgems || 0;
+    if (!preservedWildGems || preservedWildGems === 0) {
+      const previousOpUser = JSON.parse(localStorage.getItem('opUser') || 'null');
+      const wildGemsFromStorage = parseInt(localStorage.getItem('ws_wildgems') || '0');
+      
+      if (previousOpUser && previousOpUser.wildgems !== undefined && previousOpUser.wildgems !== null && previousOpUser.wildgems > 0) {
+        preservedWildGems = Math.round(previousOpUser.wildgems || 0);
+      } else if (wildGemsFromStorage > 0) {
+        preservedWildGems = wildGemsFromStorage;
+      }
+    }
+    
+    // Crear objeto user con wildcredits, wildgems y appbux
+    const userData = {
+      ...data.user,
+      wildcredits: preservedWildCredits,
+      wildgems: preservedWildGems,
+      appbux: data.user.appbux || 0,
+      token: data.token
+    };
+    
+    localStorage.setItem('opToken', token);
+    localStorage.setItem('opUser', JSON.stringify(userData));
+    localStorage.setItem('wildCredits', preservedWildCredits.toString());
+    localStorage.setItem('ws_wildgems', preservedWildGems.toString());
+    console.log('[WildCredits] Configurado wildcredits en login:', preservedWildCredits, '(del servidor:', data.user.wildcredits || 0, ')');
+    console.log('[WildGems] Configurado wildgems en login:', preservedWildGems, '(del servidor:', data.user.wildgems || 0, ')');
+
+    // ✅ Mostramos wallet
+    show('#loginForm', false);
+    show('#regForm', false);
+    show('#wallet', true);
+    
+    // ✅ Cargar todos los balances
+    qs('#bux').textContent = (data.user.aquabux || 0).toLocaleString();
+    
+    // Cargar balances en paralelo
+    await Promise.all([
+      loadEcoxionumsBalance(),
+      loadEcoCoreBitsBalance(),
+      loadCreditsBalance(),
+      loadWildCreditsBalance(),
+      loadWildGemsBalance()
+    ]);
+
+    // Iniciar refresh automático de balances
+    startBalanceRefresh();
+
+    /* ⬅️  Cargar historial */
+    await renderTransacciones();
+
+    /* ⬅️  DEBUG: imprimimos lo que vamos a enviar */
+    console.log('[Ocean-Pay] Enviando al padre:', {
+      type: 'ocean-pay-token',
+      token: data.token,
+      user: data.user
+    });
+
+    /* ✅ Solo si fue abierta desde otra ventana */
+    if (window.opener) {
+      // Obtener WildCredits y WildGems desde localStorage
+      const wildCredits = parseInt(localStorage.getItem('wildCredits') || '0');
+      const wildGems = parseInt(localStorage.getItem('ws_wildgems') || '0');
+      
+      const urlParams = new URLSearchParams(window.location.search);
+      const source = urlParams.get('source');
+      
+      const message = JSON.parse(JSON.stringify({
+        type: 'ocean-pay-token',
+        token: data.token,
+        user: {
+          ...data.user,
+          wildcredits: wildCredits,
+          wildgems: wildGems
+        },
+        ecoxionums: data.user.ecoxionums,
+        ecorebits: { balance: data.user.ecorebits },
+        wildcredits: wildCredits,
+        wildgems: wildGems
+      }));
+      
+      console.log('[Ocean-Pay] Enviando mensaje al padre:', message);
+      window.opener.postMessage(message, '*');
+      
+      // Cerrar después de un delay (más corto para mejor UX)
+      setTimeout(() => {
+        if (window.opener && !window.closed) {
+          window.close();
+        }
+      }, source === 'wildshorts' ? 2000 : 3000);
+    } else {
+      /* 🔓 Modo standalone: quedarse en la wallet */
+      console.log('[Ocean-Pay] Sin ventana padre → modo independiente');
+    }
+  } catch (err) {
+    console.error('[LOGIN] Error de red:', err);
+    qs('#logMsg').textContent = 'Error de conexión. Verifica tu internet.';
+    qs('#logMsg').className = 'msg error';
     return;
   }
-
-  // ✅ Guardamos todo
-  token = data.token;
-  userId = data.user.id;
-  
-  // Usar wildcredits del servidor (si viene en data.user) como prioridad
-  let preservedWildCredits = data.user.wildcredits || 0;
-  
-  // Si no viene del servidor o es 0, preservar el anterior como respaldo temporal
-  if (!preservedWildCredits || preservedWildCredits === 0) {
-    const previousOpUser = JSON.parse(localStorage.getItem('opUser') || 'null');
-    const wildCreditsFromStorage = parseInt(localStorage.getItem('wildCredits') || '0');
-    
-    if (previousOpUser && previousOpUser.wildcredits !== undefined && previousOpUser.wildcredits !== null && previousOpUser.wildcredits > 0) {
-      preservedWildCredits = Math.round(previousOpUser.wildcredits || 0);
-    } else if (wildCreditsFromStorage > 0) {
-      preservedWildCredits = wildCreditsFromStorage;
-    }
-  }
-  
-  // Preservar WildGems
-  let preservedWildGems = data.user.wildgems || 0;
-  if (!preservedWildGems || preservedWildGems === 0) {
-    const previousOpUser = JSON.parse(localStorage.getItem('opUser') || 'null');
-    const wildGemsFromStorage = parseInt(localStorage.getItem('ws_wildgems') || '0');
-    
-    if (previousOpUser && previousOpUser.wildgems !== undefined && previousOpUser.wildgems !== null && previousOpUser.wildgems > 0) {
-      preservedWildGems = Math.round(previousOpUser.wildgems || 0);
-    } else if (wildGemsFromStorage > 0) {
-      preservedWildGems = wildGemsFromStorage;
-    }
-  }
-  
-  // Crear objeto user con wildcredits, wildgems y appbux
-  const userData = {
-    ...data.user,
-    wildcredits: preservedWildCredits,
-    wildgems: preservedWildGems,
-    appbux: data.user.appbux || 0,
-    token: data.token
-  };
-  
-  localStorage.setItem('opToken', token);
-  localStorage.setItem('opUser', JSON.stringify(userData));
-  localStorage.setItem('wildCredits', preservedWildCredits.toString());
-  localStorage.setItem('ws_wildgems', preservedWildGems.toString());
-  console.log('[WildCredits] Configurado wildcredits en login:', preservedWildCredits, '(del servidor:', data.user.wildcredits || 0, ')');
-  console.log('[WildGems] Configurado wildgems en login:', preservedWildGems, '(del servidor:', data.user.wildgems || 0, ')');
-
-  // ✅ Mostramos wallet
-  show('#loginForm', false);
-  show('#regForm', false);
-  show('#wallet', true);
-  
-  // ✅ Cargar todos los balances
-  qs('#bux').textContent = (data.user.aquabux || 0).toLocaleString();
-  
-  // Cargar balances en paralelo
-  await Promise.all([
-    loadEcoxionumsBalance(),
-    loadEcoCoreBitsBalance(),
-    loadCreditsBalance(),
-    loadWildCreditsBalance(),
-    loadWildGemsBalance()
-  ]);
-
-  // Iniciar refresh automático de balances
-  startBalanceRefresh();
-
-  /* ⬅️  Cargar historial */
-  await renderTransacciones();
-
-  /* ⬅️  DEBUG: imprimimos lo que vamos a enviar */
-  console.log('[Ocean-Pay] Enviando al padre:', {
-    type: 'ocean-pay-token',
-    token: data.token,
-    user: data.user
-  });
-
-/* ✅ Solo si fue abierta desde otra ventana */
-if (window.opener) {
-  // Obtener WildCredits y WildGems desde localStorage
-  const wildCredits = parseInt(localStorage.getItem('wildCredits') || '0');
-  const wildGems = parseInt(localStorage.getItem('ws_wildgems') || '0');
-  
-  const urlParams = new URLSearchParams(window.location.search);
-  const source = urlParams.get('source');
-  
-  const message = JSON.parse(JSON.stringify({
-    type: 'ocean-pay-token',
-    token: data.token,
-    user: {
-      ...data.user,
-      wildcredits: wildCredits,
-      wildgems: wildGems
-    },
-    ecoxionums: data.user.ecoxionums,
-    ecorebits: { balance: data.user.ecorebits },
-    wildcredits: wildCredits,
-    wildgems: wildGems
-  }));
-  
-  console.log('[Ocean-Pay] Enviando mensaje al padre:', message);
-  window.opener.postMessage(message, '*');
-  
-  // Cerrar después de un delay (más corto para mejor UX)
-  setTimeout(() => {
-    if (window.opener && !window.closed) {
-      window.close();
-    }
-  }, source === 'wildshorts' ? 2000 : 3000);
-} else {
-  /* 🔓 Modo standalone: quedarse en la wallet */
-  console.log('[Ocean-Pay] Sin ventana padre → modo independiente');
-}
 }
 
 
@@ -1597,6 +1631,16 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   // pinta wallet y saldo
   show('#wallet', true);
+
+  // Click en la tarjeta de WildX Blue abre WildX para gestionar la verificación azul
+  const wildxBlueCard = document.getElementById('wildx-blue-card');
+  if (wildxBlueCard) {
+    wildxBlueCard.addEventListener('click', () => {
+      // Se abre WildX en una nueva pestaña. WildX usará el token de Ocean Pay (opToken)
+      // desde localStorage para cobrar la suscripción diaria con WildCredits.
+      window.open('https://owsdatabase.onrender.com/WildX/index.html', '_blank');
+    });
+  }
   
   // Cargar todos los balances
   await Promise.all([

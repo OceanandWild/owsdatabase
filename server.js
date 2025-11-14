@@ -10088,6 +10088,23 @@ async function ensureWildXTables() {
       PRIMARY KEY (user_id, post_id)
     )
   `);
+
+  // Tabla de verificaciones (blue / gold / black, etc.)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS wildx_verifications (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES wildx_users(id) ON DELETE CASCADE,
+      tier TEXT NOT NULL,
+      reason TEXT NOT NULL,
+      started_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      valid_until TIMESTAMP NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_wildx_verifications_user_tier
+      ON wildx_verifications(user_id, tier)
+  `);
 }
 
 function getWildXUserId(req) {
@@ -10166,21 +10183,35 @@ app.post('/wildx/api/login', async (req, res) => {
   }
 });
 
-// Datos del usuario actual WildX (incluye stats básicas)
+// Datos del usuario actual WildX (incluye stats básicas + verificación)
 app.get('/wildx/api/me', async (req, res) => {
   try {
     await ensureWildXTables();
     const wid = getWildXUserId(req);
     if (!wid) return res.status(401).json({ error: 'Token requerido' });
     const { rows } = await pool.query(
-      `SELECT u.id, u.username, u.created_at,
-              COALESCE(p.posts_count, 0) AS posts_count
+      `SELECT u.id,
+              u.username,
+              u.created_at,
+              COALESCE(p.posts_count, 0) AS posts_count,
+              v.tier          AS verify_tier,
+              v.reason        AS verify_reason,
+              v.started_at    AS verify_started_at,
+              v.valid_until   AS verify_valid_until
          FROM wildx_users u
          LEFT JOIN (
            SELECT user_id, COUNT(*)::int AS posts_count
              FROM wildx_posts
             GROUP BY user_id
          ) p ON p.user_id = u.id
+         LEFT JOIN LATERAL (
+           SELECT tier, reason, started_at, valid_until
+             FROM wildx_verifications
+            WHERE user_id = u.id
+              AND valid_until > NOW()
+            ORDER BY started_at ASC
+            LIMIT 1
+         ) v ON TRUE
         WHERE u.id = $1`,
       [wid]
     );
@@ -10240,6 +10271,144 @@ app.get('/wildx/api/my-posts', async (req, res) => {
   }
 });
 
+// Suscripción a verificación azul usando WildCredits via Ocean Pay
+app.post('/wildx/api/verify/blue/subscribe', async (req, res) => {
+  try {
+    await ensureWildXTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Inicia sesión en WildX' });
+
+    const { reason, oceanPayToken } = req.body || {};
+    const r = (reason || '').toString().trim();
+    if (!r || r.length < 5) {
+      return res.status(400).json({ error: 'Explica brevemente el motivo de tu verificación' });
+    }
+    if (!oceanPayToken) {
+      return res.status(400).json({ error: 'Token de Ocean Pay requerido' });
+    }
+
+    // Validar token de Ocean Pay y obtener user_id de ocean_pay_users
+    let opUserId;
+    try {
+      const decoded = jwt.verify(oceanPayToken, process.env.STUDIO_SECRET);
+      opUserId = parseInt(decoded.uid) || decoded.uid;
+    } catch (e) {
+      return res.status(401).json({ error: 'Token de Ocean Pay inválido' });
+    }
+
+    const DAILY_PRICE = 25; // WildCredits por día de verificación azul
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Asegurar tabla de metadata
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS ocean_pay_metadata (
+          user_id INTEGER NOT NULL,
+          key TEXT NOT NULL,
+          value TEXT NOT NULL,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (user_id, key)
+        )
+      `);
+
+      // Leer y bloquear saldo actual de WildCredits
+      const { rows: metaRows } = await client.query(
+        `SELECT value FROM ocean_pay_metadata
+          WHERE user_id = $1 AND key = 'wildcredits'
+          FOR UPDATE`,
+        [opUserId]
+      );
+
+      const currentBalance = metaRows.length > 0 ? parseInt(metaRows[0].value || '0') : 0;
+      if (Number.isNaN(currentBalance) || currentBalance < DAILY_PRICE) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Saldo insuficiente de WildCredits' });
+      }
+      const newBalance = currentBalance - DAILY_PRICE;
+
+      if (metaRows.length) {
+        await client.query(
+          `UPDATE ocean_pay_metadata
+              SET value = $2, updated_at = CURRENT_TIMESTAMP
+            WHERE user_id = $1 AND key = 'wildcredits'`,
+          [opUserId, newBalance.toString()]
+        );
+      } else {
+        await client.query(
+          `INSERT INTO ocean_pay_metadata (user_id, key, value)
+           VALUES ($1, 'wildcredits', $2)`,
+          [opUserId, newBalance.toString()]
+        );
+      }
+
+      // Registrar transacción en Ocean Pay
+      await client.query(
+        `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+         VALUES ($1, $2, $3, $4, 'WC')`,
+        [opUserId, 'Suscripción diaria WildX Blue', -DAILY_PRICE, 'WildX']
+      ).catch(async () => {
+        await client.query(
+          `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
+           VALUES ($1, $2, $3, $4)`,
+          [opUserId, 'Suscripción diaria WildX Blue', -DAILY_PRICE, 'WildX']
+        );
+      });
+
+      // Crear o extender verificación azul del usuario de WildX
+      const { rows: existing } = await client.query(
+        `SELECT id FROM wildx_verifications
+          WHERE user_id = $1 AND tier = 'blue'
+          FOR UPDATE`,
+        [wid]
+      );
+
+      let verificationRow;
+      if (existing.length) {
+        const { rows: upd } = await client.query(
+          `UPDATE wildx_verifications
+              SET reason = $2,
+                  valid_until = (CASE WHEN valid_until > NOW() THEN valid_until ELSE NOW() END) + INTERVAL '1 day'
+            WHERE user_id = $1 AND tier = 'blue'
+            RETURNING id, tier, reason, started_at, valid_until`,
+          [wid, r]
+        );
+        verificationRow = upd[0];
+      } else {
+        const { rows: ins } = await client.query(
+          `INSERT INTO wildx_verifications (user_id, tier, reason, started_at, valid_until)
+           VALUES ($1, 'blue', $2, NOW(), NOW() + INTERVAL '1 day')
+           RETURNING id, tier, reason, started_at, valid_until`,
+          [wid, r]
+        );
+        verificationRow = ins[0];
+      }
+
+      await client.query('COMMIT');
+      res.json({
+        success: true,
+        remainingWildcredits: newBalance,
+        verification: {
+          tier: verificationRow.tier,
+          reason: verificationRow.reason,
+          started_at: verificationRow.started_at,
+          valid_until: verificationRow.valid_until
+        }
+      });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      console.error('Error en POST /wildx/api/verify/blue/subscribe:', err);
+      res.status(500).json({ error: 'Error interno' });
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error('Error en POST /wildx/api/verify/blue/subscribe:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 // Crear post (requiere login)
 app.post('/wildx/api/posts', async (req, res) => {
   try {
@@ -10262,17 +10431,18 @@ app.post('/wildx/api/posts', async (req, res) => {
     if (!users.length) return res.status(404).json({ error: 'Usuario no encontrado' });
     const uname = users[0].username;
 
-    // Si es respuesta, no permitir responderte a ti mismo
+    // Si es respuesta, no permitir responder solo al post inicial propio
     if (parentId) {
       const { rows: parentRows } = await pool.query(
-        'SELECT user_id FROM wildx_posts WHERE id=$1',
+        'SELECT user_id, parent_id FROM wildx_posts WHERE id=$1',
         [parentId]
       );
       if (!parentRows.length) {
         return res.status(404).json({ error: 'Post padre no encontrado' });
       }
-      if (Number(parentRows[0].user_id) === Number(wid)) {
-        return res.status(400).json({ error: 'No puedes responderte a ti mismo' });
+      // Bloquear solo si el padre es un post inicial propio (sin parent_id)
+      if (parentRows[0].parent_id == null && Number(parentRows[0].user_id) === Number(wid)) {
+        return res.status(400).json({ error: 'No puedes responder al post inicial propio' });
       }
     }
 

@@ -10225,14 +10225,12 @@ app.get('/wildx/api/me', async (req, res) => {
     const user = rows[0];
     if (user.username === 'Ocean and Wild Studios') {
       // Cuenta admin con verificación especial dorada+roja
-      user.verify_tier = user.verify_tier || 'admin';
+      user.verify_tier = 'admin';
       user.verify_reason = user.verify_reason || 'Desarrollador de Juegos - +50 Proyectos aumentando en cantidad poco a poco.';
       user.verify_started_at = user.verify_started_at || user.created_at;
-      if (!user.verify_valid_until) {
-        const far = new Date();
-        far.setFullYear(far.getFullYear() + 100);
-        user.verify_valid_until = far;
-      }
+      const far = new Date();
+      far.setFullYear(far.getFullYear() + 100);
+      user.verify_valid_until = far;
     }
 
     res.json(user);

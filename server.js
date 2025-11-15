@@ -3150,7 +3150,12 @@ app.get('/natmarket/users/:id', async (req, res) => {
   try {
     const { rows } = await pool.query('SELECT id, username, created_at FROM users_nat WHERE id=$1', [req.params.id]);
     if (rows.length === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
-    res.json(rows[0]);
+
+    const user = rows[0];
+    // Flag para indicar si es Admin (usado por el cliente para mostrar check rojo en el perfil)
+    user.is_admin = await isAdminUserById(user.id);
+
+    res.json(user);
   } catch (err) {
     handleNatError(res, err, 'GET /natmarket/users/:id');
   }
@@ -10216,7 +10221,21 @@ app.get('/wildx/api/me', async (req, res) => {
       [wid]
     );
     if (!rows.length) return res.status(404).json({ error: 'Usuario no encontrado' });
-    res.json(rows[0]);
+
+    const user = rows[0];
+    if (user.username === 'Ocean and Wild Studios') {
+      // Cuenta admin con verificación especial dorada+roja
+      user.verify_tier = user.verify_tier || 'admin';
+      user.verify_reason = user.verify_reason || 'Desarrollador de Juegos - +50 Proyectos aumentando en cantidad poco a poco.';
+      user.verify_started_at = user.verify_started_at || user.created_at;
+      if (!user.verify_valid_until) {
+        const far = new Date();
+        far.setFullYear(far.getFullYear() + 100);
+        user.verify_valid_until = far;
+      }
+    }
+
+    res.json(user);
   } catch (err) {
     console.error('Error en GET /wildx/api/me:', err);
     res.status(500).json({ error: 'Error interno' });
@@ -10231,10 +10250,19 @@ app.get('/wildx/api/posts', async (req, res) => {
     const { rows } = await pool.query(
       `SELECT p.id, p.user_id, p.username, p.content, p.created_at, p.parent_id,
               p.likes_count,
-              (l.user_id IS NOT NULL) AS liked
+              (l.user_id IS NOT NULL) AS liked,
+              v.tier AS verify_tier
          FROM wildx_posts p
          LEFT JOIN wildx_likes l
            ON l.post_id = p.id AND l.user_id = $1
+         LEFT JOIN LATERAL (
+           SELECT tier
+             FROM wildx_verifications
+            WHERE user_id = p.user_id
+              AND valid_until > NOW()
+            ORDER BY started_at ASC
+            LIMIT 1
+         ) v ON TRUE
         ORDER BY p.created_at DESC
         LIMIT 100`,
       [wid]
@@ -10255,10 +10283,19 @@ app.get('/wildx/api/my-posts', async (req, res) => {
     const { rows } = await pool.query(
       `SELECT p.id, p.user_id, p.username, p.content, p.created_at, p.parent_id,
               p.likes_count,
-              (l.user_id IS NOT NULL) AS liked
+              (l.user_id IS NOT NULL) AS liked,
+              v.tier AS verify_tier
          FROM wildx_posts p
          LEFT JOIN wildx_likes l
            ON l.post_id = p.id AND l.user_id = $1
+         LEFT JOIN LATERAL (
+           SELECT tier
+             FROM wildx_verifications
+            WHERE user_id = p.user_id
+              AND valid_until > NOW()
+            ORDER BY started_at ASC
+            LIMIT 1
+         ) v ON TRUE
         WHERE p.user_id = $1
         ORDER BY p.created_at DESC
         LIMIT 100`,
@@ -10409,6 +10446,14 @@ app.post('/wildx/api/verify/blue/subscribe', async (req, res) => {
   }
 });
 
+// Helper: detectar admin de WildX
+async function isWildXAdmin(userId) {
+  const { rows } = await pool.query('SELECT username FROM wildx_users WHERE id = $1', [userId]);
+  if (!rows.length) return false;
+  const uname = rows[0].username || '';
+  return uname === 'Ocean and Wild Studios';
+}
+
 // Suscripción a verificación azul usando credenciales de Ocean Pay (WildCredits)
 app.post('/wildx/api/verify/blue/subscribe-credentials', async (req, res) => {
   try {
@@ -10555,6 +10600,215 @@ app.post('/wildx/api/verify/blue/subscribe-credentials', async (req, res) => {
   }
 });
 
+// Solicitud de verificación dorada (empresas)
+app.post('/wildx/api/verify/gold/request', async (req, res) => {
+  try {
+    await ensureWildXTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Inicia sesión en WildX' });
+
+    const { companyName, reason } = req.body || {};
+    const r = (reason || '').toString().trim();
+    const company = (companyName || '').toString().trim();
+    if (!r || r.length < 10) {
+      return res.status(400).json({ error: 'Explica mejor por qué tu empresa merece verificación dorada.' });
+    }
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS wildx_gold_requests (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES wildx_users(id) ON DELETE CASCADE,
+        company_name TEXT,
+        reason TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT NOW(),
+        reviewed_at TIMESTAMP,
+        reviewer_id INTEGER REFERENCES wildx_users(id),
+        reviewer_note TEXT
+      )
+    `);
+
+    const { rows: existing } = await pool.query(
+      "SELECT id FROM wildx_gold_requests WHERE user_id=$1 AND status = 'pending' LIMIT 1",
+      [wid]
+    );
+    if (existing.length) {
+      return res.status(400).json({ error: 'Ya tienes una solicitud de verificación dorada pendiente.' });
+    }
+
+    const { rows } = await pool.query(
+      'INSERT INTO wildx_gold_requests (user_id, company_name, reason) VALUES ($1,$2,$3) RETURNING id, status, created_at',
+      [wid, company || null, r]
+    );
+    res.json({ success: true, request: rows[0] });
+  } catch (err) {
+    console.error('Error en POST /wildx/api/verify/gold/request:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Listado de solicitudes de verificación dorada (Admin)
+app.get('/wildx/api/verify/gold/requests', async (req, res) => {
+  try {
+    await ensureWildXTables();
+    const wid = getWildXUserId(req);
+    if (!wid || !(await isWildXAdmin(wid))) {
+      return res.status(403).json({ error: 'Solo el administrador puede ver solicitudes.' });
+    }
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS wildx_gold_requests (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES wildx_users(id) ON DELETE CASCADE,
+        company_name TEXT,
+        reason TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT NOW(),
+        reviewed_at TIMESTAMP,
+        reviewer_id INTEGER REFERENCES wildx_users(id),
+        reviewer_note TEXT
+      )
+    `);
+
+    const { rows } = await pool.query(
+      `SELECT r.id, r.user_id, u.username, r.company_name, r.reason, r.status, r.created_at, r.reviewed_at
+         FROM wildx_gold_requests r
+         JOIN wildx_users u ON u.id = r.user_id
+        ORDER BY r.created_at DESC`
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('Error en GET /wildx/api/verify/gold/requests:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Aprobar verificación dorada (Admin)
+app.post('/wildx/api/verify/gold/requests/:id/approve', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await ensureWildXTables();
+    const wid = getWildXUserId(req);
+    if (!wid || !(await isWildXAdmin(wid))) {
+      client.release();
+      return res.status(403).json({ error: 'Solo el administrador puede aprobar.' });
+    }
+
+    const { id } = req.params;
+    const { note } = req.body || {};
+
+    await client.query('BEGIN');
+
+    const { rows: reqRows } = await client.query(
+      'SELECT * FROM wildx_gold_requests WHERE id=$1 FOR UPDATE',
+      [id]
+    );
+    if (!reqRows.length) {
+      await client.query('ROLLBACK');
+      client.release();
+      return res.status(404).json({ error: 'Solicitud no encontrada' });
+    }
+    const reqRow = reqRows[0];
+    if (reqRow.status !== 'pending') {
+      await client.query('ROLLBACK');
+      client.release();
+      return res.status(400).json({ error: 'La solicitud ya fue revisada.' });
+    }
+
+    await client.query(
+      `UPDATE wildx_gold_requests
+          SET status='approved', reviewed_at=NOW(), reviewer_id=$2, reviewer_note=$3
+        WHERE id=$1`,
+      [id, wid, note || null]
+    );
+
+    // Crear o actualizar verificación dorada (tier = 'gold') sin expiración cercana
+    const reason = reqRow.reason;
+    const userId = reqRow.user_id;
+    const farFuture = new Date();
+    farFuture.setFullYear(farFuture.getFullYear() + 10);
+
+    const { rows: existingVer } = await client.query(
+      `SELECT id FROM wildx_verifications
+        WHERE user_id=$1 AND tier='gold' LIMIT 1`,
+      [userId]
+    );
+    if (existingVer.length) {
+      await client.query(
+        `UPDATE wildx_verifications
+            SET reason=$2, started_at=NOW(), valid_until=$3
+          WHERE id=$1`,
+        [existingVer[0].id, reason, farFuture]
+      );
+    } else {
+      await client.query(
+        `INSERT INTO wildx_verifications (user_id, tier, reason, started_at, valid_until)
+         VALUES ($1,'gold',$2,NOW(),$3)`,
+        [userId, reason, farFuture]
+      );
+    }
+
+    await client.query('COMMIT');
+    client.release();
+    res.json({ success: true });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    client.release();
+    console.error('Error en POST /wildx/api/verify/gold/requests/:id/approve:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Rechazar verificación dorada (Admin)
+app.post('/wildx/api/verify/gold/requests/:id/reject', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await ensureWildXTables();
+    const wid = getWildXUserId(req);
+    if (!wid || !(await isWildXAdmin(wid))) {
+      client.release();
+      return res.status(403).json({ error: 'Solo el administrador puede rechazar.' });
+    }
+
+    const { id } = req.params;
+    const { note } = req.body || {};
+
+    await client.query('BEGIN');
+
+    const { rows: reqRows } = await client.query(
+      'SELECT * FROM wildx_gold_requests WHERE id=$1 FOR UPDATE',
+      [id]
+    );
+    if (!reqRows.length) {
+      await client.query('ROLLBACK');
+      client.release();
+      return res.status(404).json({ error: 'Solicitud no encontrada' });
+    }
+    const reqRow = reqRows[0];
+    if (reqRow.status !== 'pending') {
+      await client.query('ROLLBACK');
+      client.release();
+      return res.status(400).json({ error: 'La solicitud ya fue revisada.' });
+    }
+
+    await client.query(
+      `UPDATE wildx_gold_requests
+          SET status='rejected', reviewed_at=NOW(), reviewer_id=$2, reviewer_note=$3
+        WHERE id=$1`,
+      [id, wid, note || null]
+    );
+
+    await client.query('COMMIT');
+    client.release();
+    res.json({ success: true });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    client.release();
+    console.error('Error en POST /wildx/api/verify/gold/requests/:id/reject:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 // Crear post (requiere login)
 app.post('/wildx/api/posts', async (req, res) => {
   try {
@@ -10567,7 +10821,32 @@ app.post('/wildx/api/posts', async (req, res) => {
     const parentId = parentIdRaw ? parseInt(parentIdRaw, 10) : null;
 
     if (!content) return res.status(400).json({ error: 'Contenido requerido' });
-    if (content.length > 280) return res.status(400).json({ error: 'Máximo 280 caracteres' });
+
+    // Límite de caracteres según verificación: base 280, +150% (700) si tiene verificación azul activa
+    let maxLen = 280;
+    try {
+      const { rows: verRows } = await pool.query(
+        `SELECT tier, valid_until
+           FROM wildx_verifications
+          WHERE user_id = $1
+            AND valid_until > NOW()
+          ORDER BY started_at ASC
+          LIMIT 1`,
+        [wid]
+      );
+      if (verRows[0]?.tier === 'blue') {
+        maxLen = 700; // 280 + 150% = 700
+      }
+    } catch (_) {
+      // si falla la consulta, mantener límite base
+    }
+
+    if (content.length > maxLen) {
+      const msg = maxLen === 280
+        ? 'Máximo 280 caracteres'
+        : 'Máximo 700 caracteres con tu verificación azul';
+      return res.status(400).json({ error: msg });
+    }
 
     if (parentId && Number.isNaN(parentId)) {
       return res.status(400).json({ error: 'parentId inválido' });
@@ -10693,10 +10972,19 @@ app.get('/wildx/api/posts/:id/thread', async (req, res) => {
        )
        SELECT t.id, t.user_id, t.username, t.content, t.created_at, t.parent_id,
               t.likes_count,
-              (l.user_id IS NOT NULL) AS liked
+              (l.user_id IS NOT NULL) AS liked,
+              v.tier AS verify_tier
          FROM thread t
          LEFT JOIN wildx_likes l
            ON l.post_id = t.id AND l.user_id = $2
+         LEFT JOIN LATERAL (
+           SELECT tier
+             FROM wildx_verifications
+            WHERE user_id = t.user_id
+              AND valid_until > NOW()
+            ORDER BY started_at ASC
+            LIMIT 1
+         ) v ON TRUE
         ORDER BY t.created_at ASC`,
       [postId, wid]
     );

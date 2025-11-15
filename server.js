@@ -6081,6 +6081,67 @@ app.post('/natmarket/users/:id/get-unique-id', async (req, res) => {
   }
 });
 
+// Métricas por usuario (actividad básica)
+app.get('/natmarket/users/:id/metrics', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Info de usuario (strikes, bans y fecha de alta)
+    const { rows: userRows } = await pool.query(
+      'SELECT strikes, banned_until, ban_reason, created_at FROM users_nat WHERE id = $1',
+      [id]
+    );
+    if (!userRows.length) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+    const user = userRows[0];
+
+    // Productos publicados, vendidos y vistas totales
+    const { rows: prodRows } = await pool.query(`
+      SELECT 
+        COUNT(*)::int AS products_published,
+        COUNT(*) FILTER (WHERE sold = true)::int AS products_sold,
+        COALESCE(SUM(views), 0)::int AS views_total
+      FROM products_nat
+      WHERE user_id = $1
+    `, [id]);
+    const prod = prodRows[0] || { products_published: 0, products_sold: 0, views_total: 0 };
+
+    // Chats como vendedor
+    const { rows: sellerChatRows } = await pool.query(`
+      SELECT COUNT(DISTINCT p.id)::int AS chats_as_seller
+      FROM products_nat p
+      WHERE p.user_id = $1
+        AND EXISTS (SELECT 1 FROM messages_nat m WHERE m.product_id = p.id)
+    `, [id]);
+    const chatsAsSeller = sellerChatRows[0]?.chats_as_seller || 0;
+
+    // Chats como comprador
+    const { rows: buyerChatRows } = await pool.query(`
+      SELECT COUNT(DISTINCT p.id)::int AS chats_as_buyer
+      FROM messages_nat m
+      JOIN products_nat p ON p.id = m.product_id
+      WHERE m.sender_id = $1
+        AND p.user_id <> $1
+    `, [id]);
+    const chatsAsBuyer = buyerChatRows[0]?.chats_as_buyer || 0;
+
+    res.json({
+      products_published: prod.products_published || 0,
+      products_sold: prod.products_sold || 0,
+      views_total: prod.views_total || 0,
+      chats_as_seller: chatsAsSeller,
+      chats_as_buyer: chatsAsBuyer,
+      strikes: user.strikes || 0,
+      banned_until: user.banned_until || null,
+      ban_reason: user.ban_reason || null,
+      member_since: user.created_at
+    });
+  } catch (err) {
+    handleNatError(res, err, 'GET /natmarket/users/:id/metrics');
+  }
+});
+
 
 /* ---------- NOVEDAD DESTACADA ---------- */
 app.get('/api/featured-update', async (_req, res) => {

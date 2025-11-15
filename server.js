@@ -10171,6 +10171,31 @@ async function ensureWildXTables() {
     CREATE INDEX IF NOT EXISTS idx_wildx_verifications_user_tier
       ON wildx_verifications(user_id, tier)
   `);
+
+  // Saldo de WildX Tokens (WXT) por usuario
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS wildx_balances (
+      user_id INTEGER PRIMARY KEY REFERENCES wildx_users(id) ON DELETE CASCADE,
+      wxt_balance NUMERIC(20,2) NOT NULL DEFAULT 0
+    )
+  `);
+
+  // Promociones de posts usando WXT
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS wildx_promotions (
+      id SERIAL PRIMARY KEY,
+      post_id INTEGER NOT NULL REFERENCES wildx_posts(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES wildx_users(id) ON DELETE CASCADE,
+      amount_wxt NUMERIC(20,2) NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW(),
+      last_shown_at TIMESTAMP,
+      active BOOLEAN NOT NULL DEFAULT TRUE
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_wildx_promotions_active
+      ON wildx_promotions(active, created_at DESC)
+  `);
 }
 
 function getWildXUserId(req) {
@@ -10301,12 +10326,85 @@ app.get('/wildx/api/me', async (req, res) => {
   }
 });
 
+// Selección de post promocionado (uno a la vez)
+async function selectPromotedPost() {
+  await ensureWildXTables();
+  // Buscar promociones activas
+  const { rows: promos } = await pool.query(
+    `SELECT id, post_id, user_id, amount_wxt, created_at, last_shown_at
+       FROM wildx_promotions
+      WHERE active = TRUE`
+  );
+  if (!promos.length) return null;
+
+  const now = new Date();
+  const fourHoursMs = 4 * 60 * 60 * 1000;
+
+  const due = [];
+  const others = [];
+  for (const p of promos) {
+    const last = p.last_shown_at ? new Date(p.last_shown_at) : null;
+    if (!last || now.getTime() - last.getTime() >= fourHoursMs) {
+      due.push(p);
+    } else {
+      others.push(p);
+    }
+  }
+
+  let chosen = null;
+  if (due.length) {
+    // 70% probabilidad tomar de las pendientes, 30% de cualquiera
+    const roll = Math.random();
+    if (roll < 0.7) {
+      chosen = due[Math.floor(Math.random() * due.length)];
+    } else {
+      const poolAll = promos;
+      chosen = poolAll[Math.floor(Math.random() * poolAll.length)];
+    }
+  } else {
+    // Sin nuevas, elegir cualquiera (se mantiene el “mismo” en muchos casos)
+    chosen = promos[Math.floor(Math.random() * promos.length)];
+  }
+
+  if (!chosen) return null;
+
+  await pool.query(
+    'UPDATE wildx_promotions SET last_shown_at = NOW() WHERE id = $1',
+    [chosen.id]
+  );
+
+  const { rows: posts } = await pool.query(
+    `SELECT p.id, p.user_id, p.username, p.content, p.created_at, p.parent_id,
+            p.likes_count,
+            v.tier AS verify_tier
+       FROM wildx_posts p
+       LEFT JOIN LATERAL (
+         SELECT tier
+           FROM wildx_verifications
+          WHERE user_id = p.user_id
+            AND valid_until > NOW()
+          ORDER BY started_at ASC
+          LIMIT 1
+       ) v ON TRUE
+      WHERE p.id = $1`,
+    [chosen.post_id]
+  );
+
+  if (!posts.length) return null;
+
+  return {
+    promotion_id: chosen.id,
+    amount_wxt: Number(chosen.amount_wxt),
+    post: posts[0]
+  };
+}
+
 // API de posts WildX (Explorar = todos los posts)
 app.get('/wildx/api/posts', async (req, res) => {
   try {
     await ensureWildXTables();
     const wid = getWildXUserId(req) || 0;
-    const { rows } = await pool.query(
+    const postsPromise = pool.query(
       `SELECT p.id, p.user_id, p.username, p.content, p.created_at, p.parent_id,
               p.likes_count,
               (l.user_id IS NOT NULL) AS liked,
@@ -10326,7 +10424,16 @@ app.get('/wildx/api/posts', async (req, res) => {
         LIMIT 100`,
       [wid]
     );
-    res.json(rows);
+
+    const [postsResult, promoted] = await Promise.all([
+      postsPromise,
+      selectPromotedPost().catch(() => null)
+    ]);
+
+    res.json({
+      posts: postsResult.rows,
+      promoted
+    });
   } catch (err) {
     console.error('Error en GET /wildx/api/posts:', err);
     res.status(500).json({ error: 'Error interno' });
@@ -10655,6 +10762,140 @@ app.post('/wildx/api/verify/blue/subscribe-credentials', async (req, res) => {
     }
   } catch (err) {
     console.error('Error en POST /wildx/api/verify/blue/subscribe-credentials:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Obtener saldo de WildX Tokens (WXT)
+app.get('/wildx/api/balance', async (req, res) => {
+  try {
+    await ensureWildXTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Inicia sesión en WildX' });
+    const { rows } = await pool.query(
+      'SELECT wxt_balance FROM wildx_balances WHERE user_id = $1',
+      [wid]
+    );
+    const balance = rows.length ? Number(rows[0].wxt_balance) : 0;
+    res.json({ wxt: balance });
+  } catch (err) {
+    console.error('Error en GET /wildx/api/balance:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Endpoint de test para acreditar WXT (solo Admin)
+app.post('/wildx/api/wxt/grant', async (req, res) => {
+  try {
+    await ensureWildXTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Inicia sesión en WildX' });
+    if (!(await isWildXAdmin(wid))) {
+      return res.status(403).json({ error: 'Solo el administrador puede otorgar WXT de prueba.' });
+    }
+    const { userId, amount } = req.body || {};
+    const targetId = userId ? parseInt(userId, 10) : wid;
+    const amt = Number(amount) || 0;
+    if (!targetId || amt <= 0) {
+      return res.status(400).json({ error: 'Parámetros inválidos' });
+    }
+    await pool.query(
+      `INSERT INTO wildx_balances (user_id, wxt_balance)
+         VALUES ($1, $2)
+       ON CONFLICT (user_id)
+       DO UPDATE SET wxt_balance = wildx_balances.wxt_balance + EXCLUDED.wxt_balance`,
+      [targetId, amt]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error en POST /wildx/api/wxt/grant:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Promocionar un post usando WXT
+app.post('/wildx/api/posts/:id/promote', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await ensureWildXTables();
+    const wid = getWildXUserId(req);
+    if (!wid) {
+      client.release();
+      return res.status(401).json({ error: 'Inicia sesión en WildX' });
+    }
+    const postId = parseInt(req.params.id, 10);
+    if (!postId) {
+      client.release();
+      return res.status(400).json({ error: 'Post inválido' });
+    }
+    const cost = Number(req.body?.cost || 10); // costo básico 10 WXT
+    if (cost <= 0) {
+      client.release();
+      return res.status(400).json({ error: 'Costo inválido' });
+    }
+
+    await client.query('BEGIN');
+
+    // Verificar que el post sea del usuario
+    const { rows: posts } = await client.query(
+      'SELECT user_id FROM wildx_posts WHERE id = $1',
+      [postId]
+    );
+    if (!posts.length || Number(posts[0].user_id) !== Number(wid)) {
+      await client.query('ROLLBACK');
+      client.release();
+      return res.status(403).json({ error: 'Solo puedes promocionar tus propios posts.' });
+    }
+
+    // Asegurar saldo
+    const { rows: balRows } = await client.query(
+      `SELECT wxt_balance FROM wildx_balances WHERE user_id = $1 FOR UPDATE`,
+      [wid]
+    );
+    const current = balRows.length ? Number(balRows[0].wxt_balance) : 0;
+    if (current < cost) {
+      await client.query('ROLLBACK');
+      client.release();
+      return res.status(400).json({ error: 'Saldo WXT insuficiente para promocionar.' });
+    }
+
+    const newBal = current - cost;
+    await client.query(
+      `INSERT INTO wildx_balances (user_id, wxt_balance)
+         VALUES ($1, $2)
+       ON CONFLICT (user_id)
+       DO UPDATE SET wxt_balance = EXCLUDED.wxt_balance`,
+      [wid, newBal]
+    );
+
+    // Crear o actualizar promoción
+    const { rows: existing } = await client.query(
+      'SELECT id, amount_wxt FROM wildx_promotions WHERE post_id = $1 AND user_id = $2 AND active = TRUE FOR UPDATE',
+      [postId, wid]
+    );
+    if (existing.length) {
+      await client.query(
+        `UPDATE wildx_promotions
+            SET amount_wxt = amount_wxt + $3,
+                created_at = NOW()
+          WHERE id = $1`,
+        [existing[0].id, wid, cost]
+      );
+    } else {
+      await client.query(
+        `INSERT INTO wildx_promotions (post_id, user_id, amount_wxt)
+         VALUES ($1, $2, $3)`,
+        [postId, wid, cost]
+      );
+    }
+
+    await client.query('COMMIT');
+    client.release();
+    res.json({ success: true, remainingWxt: newBal });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    client.release();
+    console.error('Error en POST /wildx/api/posts/:id/promote:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });

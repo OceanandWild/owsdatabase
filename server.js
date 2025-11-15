@@ -10196,6 +10196,42 @@ async function ensureWildXTables() {
     CREATE INDEX IF NOT EXISTS idx_wildx_promotions_active
       ON wildx_promotions(active, created_at DESC)
   `);
+
+  // Historial de transacciones de WXT (donaciones recibidas)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS wildx_wxt_txs (
+      id SERIAL PRIMARY KEY,
+      from_user_id INTEGER REFERENCES wildx_users(id) ON DELETE SET NULL,
+      to_user_id INTEGER NOT NULL REFERENCES wildx_users(id) ON DELETE CASCADE,
+      post_id INTEGER REFERENCES wildx_posts(id) ON DELETE SET NULL,
+      amount_wxt NUMERIC(20,2) NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_wildx_wxt_txs_to_user
+      ON wildx_wxt_txs(to_user_id, created_at DESC)
+  `);
+
+  // Notificaciones de WildX
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS wildx_notifications (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES wildx_users(id) ON DELETE CASCADE,
+      type TEXT NOT NULL,
+      payload TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW(),
+      read_at TIMESTAMP
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_wildx_notifications_user
+      ON wildx_notifications(user_id, created_at DESC)
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_wildx_notifications_unread
+      ON wildx_notifications(user_id, read_at)
+  `);
 }
 
 function getWildXUserId(req) {
@@ -10208,6 +10244,21 @@ function getWildXUserId(req) {
     return payload?.wid || null;
   } catch {
     return null;
+  }
+}
+
+// Crear una notificación para un usuario de WildX
+async function createWildXNotification(userId, type, payload) {
+  if (!userId || !type) return;
+  try {
+    await ensureWildXTables();
+    await pool.query(
+      `INSERT INTO wildx_notifications (user_id, type, payload)
+       VALUES ($1, $2, $3)`,
+      [userId, type, JSON.stringify(payload || {})]
+    );
+  } catch (err) {
+    console.error('Error creando notificación WildX:', err);
   }
 }
 
@@ -10784,6 +10835,9 @@ app.get('/wildx/api/balance', async (req, res) => {
   }
 });
 
+// Constante de conversión WildCredits → WXT (reducción para que cueste más promocionar)
+const WXT_PER_WC = 0.2; // 1 WXT por cada 5 WildCredits
+
 // Endpoint de test para acreditar WXT (solo Admin)
 app.post('/wildx/api/wxt/grant', async (req, res) => {
   try {
@@ -10809,6 +10863,154 @@ app.post('/wildx/api/wxt/grant', async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error('Error en POST /wildx/api/wxt/grant:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Donar WildCredits a un post (se convierten a WXT para el autor)
+app.post('/wildx/api/posts/:id/donate', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await ensureWildXTables();
+    const wid = getWildXUserId(req);
+    if (!wid) {
+      client.release();
+      return res.status(401).json({ error: 'Inicia sesión en WildX' });
+    }
+
+    const postId = parseInt(req.params.id, 10);
+    if (!postId) {
+      client.release();
+      return res.status(400).json({ error: 'Post inválido' });
+    }
+
+    const { amount, oceanPayToken } = req.body || {};
+    const wcAmount = parseInt(amount, 10);
+    if (!Number.isFinite(wcAmount) || wcAmount <= 0) {
+      client.release();
+      return res.status(400).json({ error: 'Cantidad de WildCredits inválida' });
+    }
+    if (!oceanPayToken) {
+      client.release();
+      return res.status(400).json({ error: 'Token de Ocean Pay requerido' });
+    }
+
+    // Verificar post y autor
+    const { rows: postRows } = await client.query(
+      'SELECT user_id, username FROM wildx_posts WHERE id = $1',
+      [postId]
+    );
+    if (!postRows.length) {
+      client.release();
+      return res.status(404).json({ error: 'Post no encontrado' });
+    }
+    const toUserId = Number(postRows[0].user_id);
+    const toUsername = postRows[0].username || 'usuario';
+    if (!toUserId || toUserId === Number(wid)) {
+      client.release();
+      return res.status(400).json({ error: 'No puedes donarte a ti mismo.' });
+    }
+
+    // Validar token de Ocean Pay
+    let opUserId;
+    try {
+      const decoded = jwt.verify(oceanPayToken, process.env.STUDIO_SECRET);
+      opUserId = parseInt(decoded.uid) || decoded.uid;
+    } catch (e) {
+      client.release();
+      return res.status(401).json({ error: 'Token de Ocean Pay inválido' });
+    }
+
+    await client.query('BEGIN');
+
+    // Asegurar tabla de metadata
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ocean_pay_metadata (
+        user_id INTEGER NOT NULL,
+        key TEXT NOT NULL,
+        value TEXT NOT NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, key)
+      )
+    `);
+
+    // Leer y bloquear saldo actual de WildCredits
+    const { rows: metaRows } = await client.query(
+      `SELECT value FROM ocean_pay_metadata
+        WHERE user_id = $1 AND key = 'wildcredits'
+        FOR UPDATE`,
+      [opUserId]
+    );
+
+    const currentBalance = metaRows.length > 0 ? parseInt(metaRows[0].value || '0') : 0;
+    if (Number.isNaN(currentBalance) || currentBalance < wcAmount) {
+      await client.query('ROLLBACK');
+      client.release();
+      return res.status(400).json({ error: 'Saldo insuficiente de WildCredits' });
+    }
+    const newBalance = currentBalance - wcAmount;
+
+    if (metaRows.length) {
+      await client.query(
+        `UPDATE ocean_pay_metadata
+            SET value = $2, updated_at = CURRENT_TIMESTAMP
+          WHERE user_id = $1 AND key = 'wildcredits'`,
+        [opUserId, newBalance.toString()]
+      );
+    } else {
+      await client.query(
+        `INSERT INTO ocean_pay_metadata (user_id, key, value)
+         VALUES ($1, 'wildcredits', $2)`,
+        [opUserId, newBalance.toString()]
+      );
+    }
+
+    // Registrar transacción en Ocean Pay (historial)
+    await client.query(
+      `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+       VALUES ($1, $2, $3, $4, 'WC')`,
+      [opUserId, `Donación a @${toUsername} en WildX (convertido a WXT)`, -wcAmount, 'WildX']
+    ).catch(async () => {
+      await client.query(
+        `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
+         VALUES ($1, $2, $3, $4)`,
+        [opUserId, `Donación a @${toUsername} en WildX (convertido a WXT)`, -wcAmount, 'WildX']
+      );
+    });
+
+    // Convertir WC a WXT para el autor del post
+    const amountWxt = wcAmount * WXT_PER_WC;
+    await client.query(
+      `INSERT INTO wildx_balances (user_id, wxt_balance)
+         VALUES ($1, $2)
+       ON CONFLICT (user_id)
+       DO UPDATE SET wxt_balance = wildx_balances.wxt_balance + EXCLUDED.wxt_balance`,
+      [toUserId, amountWxt]
+    );
+
+    // Registrar en historial de WXT
+    await client.query(
+      `INSERT INTO wildx_wxt_txs (from_user_id, to_user_id, post_id, amount_wxt)
+       VALUES ($1, $2, $3, $4)`,
+      [wid, toUserId, postId, amountWxt]
+    );
+
+    await client.query('COMMIT');
+    client.release();
+
+    // Notificación para el receptor (fuera de la transacción principal)
+    createWildXNotification(toUserId, 'donation', {
+      fromUserId: wid,
+      postId,
+      amountWxt,
+      amountWC: wcAmount
+    }).catch(() => {});
+
+    res.json({ success: true, donated: wcAmount, amountWxt });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    client.release();
+    console.error('Error en POST /wildx/api/posts/:id/donate:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
@@ -10891,6 +11093,13 @@ app.post('/wildx/api/posts/:id/promote', async (req, res) => {
 
     await client.query('COMMIT');
     client.release();
+
+    // Notificación para el propio usuario indicando que la promoción fue registrada
+    createWildXNotification(wid, 'promotion', {
+      postId,
+      amount: cost
+    }).catch(() => {});
+
     res.json({ success: true, remainingWxt: newBal });
   } catch (err) {
     await client.query('ROLLBACK');
@@ -11248,6 +11457,68 @@ app.post('/wildx/api/posts/:id/like', async (req, res) => {
     }
   } catch (err) {
     console.error('Error en POST /wildx/api/posts/:id/like:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Listar notificaciones del usuario actual
+app.get('/wildx/api/notifications', async (req, res) => {
+  try {
+    await ensureWildXTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Inicia sesión en WildX' });
+
+    const { rows } = await pool.query(
+      `SELECT id, type, payload, created_at, read_at
+         FROM wildx_notifications
+        WHERE user_id = $1
+        ORDER BY created_at DESC
+        LIMIT 50`,
+      [wid]
+    );
+
+    const notifications = rows.map(r => {
+      let payload = {};
+      try {
+        payload = JSON.parse(r.payload || '{}');
+      } catch {
+        payload = {};
+      }
+      return {
+        id: r.id,
+        type: r.type,
+        payload,
+        created_at: r.created_at,
+        read_at: r.read_at
+      };
+    });
+
+    const unreadCount = notifications.filter(n => !n.read_at).length;
+
+    res.json({ notifications, unreadCount });
+  } catch (err) {
+    console.error('Error en GET /wildx/api/notifications:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Marcar notificaciones como leídas
+app.post('/wildx/api/notifications/read', async (req, res) => {
+  try {
+    await ensureWildXTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Inicia sesión en WildX' });
+
+    await pool.query(
+      `UPDATE wildx_notifications
+          SET read_at = NOW()
+        WHERE user_id = $1 AND read_at IS NULL`,
+      [wid]
+    );
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error en POST /wildx/api/notifications/read:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });

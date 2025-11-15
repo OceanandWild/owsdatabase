@@ -11434,36 +11434,42 @@ app.post('/wildx/api/posts', async (req, res) => {
     const wid = getWildXUserId(req);
     if (!wid) return res.status(401).json({ error: 'Inicia sesión para publicar' });
 
-    con    const parentIdRaw = req.body?.parentId;
+    const content = (req.body?.content || '').toString().trim();
+    const parentIdRaw = req.body?.parentId;
     const parentId = parentIdRaw ? parseInt(parentIdRaw, 10) : null;
     const scheduledAtRaw = req.body?.scheduledAt;
 
     if (!content) return res.status(400).json({ error: 'Contenido requerido' });
 
-    // Límite de caracteres según verificación: base 280, +150% (700) si tiene verificación azul activa
+    // Límite de caracteres según verificación: base 280, +150% (700) si tiene verificación azul activa.
+    // Los administradores de WildX no tienen límite de caracteres.
+    const isAdmin = await isWildXAdmin(wid);
     let maxLen = 280;
-    try {
-      const { rows: verRows } = await pool.query(
-        `SELECT tier, valid_until
-           FROM wildx_verifications
-          WHERE user_id = $1
-            AND valid_until > NOW()
-          ORDER BY started_at ASC
-          LIMIT 1`,
-        [wid]
-      );
-      if (verRows[0]?.tier === 'blue') {
-        maxLen = 700; // 280 + 150% = 700
-      }
-    } catch (_) {
-      // si falla la consulta, mantener límite base
-    }
 
-    if (content.length > maxLen) {
-      const msg = maxLen === 280
-        ? 'Máximo 280 caracteres'
-        : 'Máximo 700 caracteres con tu verificación azul';
-      return res.status(400).json({ error: msg });
+    if (!isAdmin) {
+      try {
+        const { rows: verRows } = await pool.query(
+          `SELECT tier, valid_until
+             FROM wildx_verifications
+            WHERE user_id = $1
+              AND valid_until > NOW()
+            ORDER BY started_at ASC
+            LIMIT 1`,
+          [wid]
+        );
+        if (verRows[0]?.tier === 'blue') {
+          maxLen = 700; // 280 + 150% = 700
+        }
+      } catch (_) {
+        // si falla la consulta, mantener límite base
+      }
+
+      if (content.length > maxLen) {
+        const msg = maxLen === 280
+          ? 'Máximo 280 caracteres'
+          : 'Máximo 700 caracteres con tu verificación azul';
+        return res.status(400).json({ error: msg });
+      }
     }
 
     if (parentId && Number.isNaN(parentId)) {

@@ -5410,6 +5410,23 @@ cron.schedule("0 0 * * *", async () => {
   }
 });
 
+// Publicar posts programados de WildX cada minuto
+cron.schedule('*/1 * * * *', async () => {
+  try {
+    await ensureWildXTables();
+    await ensureWildXExtraColumns();
+    await pool.query(
+      `UPDATE wildx_posts
+          SET status = 'published'
+        WHERE status = 'scheduled'
+          AND scheduled_at <= NOW()
+          AND (deleted_at IS NULL)`
+    );
+  } catch (err) {
+    console.error('Error publicando posts programados de WildX:', err);
+  }
+});
+
 app.patch("/api/subscriptions/auto-pay", async (req, res) => {
   const { userId, enabled } = req.body; // enabled: boolean
 
@@ -10262,6 +10279,41 @@ async function createWildXNotification(userId, type, payload) {
   }
 }
 
+// Asegurar columnas extra en wildx_posts (estado, programación, borrado)
+async function ensureWildXExtraColumns() {
+  try {
+    await pool.query(`
+      ALTER TABLE wildx_posts
+      ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'published',
+      ADD COLUMN IF NOT EXISTS scheduled_at TIMESTAMP NULL,
+      ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP NULL
+    `);
+  } catch (err) {
+    // Si la tabla aún no existe, se creará en ensureWildXTables
+    if (err.code !== '42P01') {
+      console.warn('No se pudieron asegurar columnas extra de WildX:', err.message);
+    }
+  }
+}
+
+// Tabla de reportes de posts WildX
+async function ensureWildXReportsTable() {
+  await ensureWildXTables();
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS wildx_post_reports (
+      id SERIAL PRIMARY KEY,
+      post_id INTEGER NOT NULL REFERENCES wildx_posts(id) ON DELETE CASCADE,
+      reporter_id INTEGER NOT NULL REFERENCES wildx_users(id) ON DELETE CASCADE,
+      reason TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at TIMESTAMP DEFAULT NOW(),
+      reviewed_at TIMESTAMP,
+      admin_id INTEGER REFERENCES wildx_users(id),
+      admin_response TEXT
+    )
+  `);
+}
+
 // Registro de usuario WildX
 app.post('/wildx/api/register', async (req, res) => {
   try {
@@ -10450,10 +10502,11 @@ async function selectPromotedPost() {
   };
 }
 
-// API de posts WildX (Explorar = todos los posts)
+// API de posts WildX (Explorar = todos los posts publicados)
 app.get('/wildx/api/posts', async (req, res) => {
   try {
     await ensureWildXTables();
+    await ensureWildXExtraColumns();
     const wid = getWildXUserId(req) || 0;
     const postsPromise = pool.query(
       `SELECT p.id, p.user_id, p.username, p.content, p.created_at, p.parent_id,
@@ -10471,6 +10524,7 @@ app.get('/wildx/api/posts', async (req, res) => {
             ORDER BY started_at ASC
             LIMIT 1
          ) v ON TRUE
+        WHERE p.status = 'published' AND p.deleted_at IS NULL
         ORDER BY p.created_at DESC
         LIMIT 100`,
       [wid]
@@ -10491,10 +10545,11 @@ app.get('/wildx/api/posts', async (req, res) => {
   }
 });
 
-// Posts propios (Perfil)
+// Posts propios (Perfil, solo publicados)
 app.get('/wildx/api/my-posts', async (req, res) => {
   try {
     await ensureWildXTables();
+    await ensureWildXExtraColumns();
     const wid = getWildXUserId(req);
     if (!wid) return res.status(401).json({ error: 'Token requerido' });
     const { rows } = await pool.query(
@@ -10513,7 +10568,7 @@ app.get('/wildx/api/my-posts', async (req, res) => {
             ORDER BY started_at ASC
             LIMIT 1
          ) v ON TRUE
-        WHERE p.user_id = $1
+        WHERE p.user_id = $1 AND p.status = 'published' AND p.deleted_at IS NULL
         ORDER BY p.created_at DESC
         LIMIT 100`,
       [wid]
@@ -10831,6 +10886,59 @@ app.get('/wildx/api/balance', async (req, res) => {
     res.json({ wxt: balance });
   } catch (err) {
     console.error('Error en GET /wildx/api/balance:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Resumen de propinas (WXT y equivalente en WildCredits)
+app.get('/wildx/api/profile/tips-summary', async (req, res) => {
+  try {
+    await ensureWildXTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Inicia sesión en WildX' });
+
+    // Asegurar columna created_at para poder calcular "este mes" (si ya existe, no pasa nada)
+    try {
+      await pool.query(
+        "ALTER TABLE wildx_wxt_txs ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW()"
+      );
+    } catch {
+      // ignorar errores de ALTER TABLE, usamos lo que haya
+    }
+
+    let rows;
+    try {
+      const result = await pool.query(
+        `SELECT
+           COALESCE(SUM(amount_wxt), 0) AS total_wxt,
+           COALESCE(SUM(CASE WHEN created_at >= date_trunc('month', NOW()) THEN amount_wxt ELSE 0 END), 0) AS month_wxt
+         FROM wildx_wxt_txs
+         WHERE to_user_id = $1`,
+        [wid]
+      );
+      rows = result.rows;
+    } catch (e) {
+      if (e.code === '42P01') {
+        // Tabla aún no existe: simplemente devolver ceros
+        rows = [{ total_wxt: 0, month_wxt: 0 }];
+      } else {
+        throw e;
+      }
+    }
+
+    const totalWxt = Number(rows[0]?.total_wxt || 0);
+    const monthWxt = Number(rows[0]?.month_wxt || 0);
+    const totalWc = totalWxt / WXT_PER_WC;
+    const monthWc = monthWxt / WXT_PER_WC;
+
+    res.json({
+      totalWxt,
+      totalWc,
+      monthWxt,
+      monthWc
+    });
+  } catch (err) {
+    console.error('Error en GET /wildx/api/profile/tips-summary:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
@@ -11318,16 +11426,17 @@ app.post('/wildx/api/verify/gold/requests/:id/reject', async (req, res) => {
   }
 });
 
-// Crear post (requiere login)
+// Crear post (requiere login, admite programación)
 app.post('/wildx/api/posts', async (req, res) => {
   try {
     await ensureWildXTables();
+    await ensureWildXExtraColumns();
     const wid = getWildXUserId(req);
     if (!wid) return res.status(401).json({ error: 'Inicia sesión para publicar' });
 
-    const content = (req.body?.content || '').toString().trim();
-    const parentIdRaw = req.body?.parentId;
+    con    const parentIdRaw = req.body?.parentId;
     const parentId = parentIdRaw ? parseInt(parentIdRaw, 10) : null;
+    const scheduledAtRaw = req.body?.scheduledAt;
 
     if (!content) return res.status(400).json({ error: 'Contenido requerido' });
 
@@ -11361,6 +11470,16 @@ app.post('/wildx/api/posts', async (req, res) => {
       return res.status(400).json({ error: 'parentId inválido' });
     }
 
+    let scheduledAt = null;
+    let status = 'published';
+    if (scheduledAtRaw) {
+      const d = new Date(scheduledAtRaw);
+      if (!Number.isNaN(d.getTime()) && d > new Date()) {
+        scheduledAt = d;
+        status = 'scheduled';
+      }
+    }
+
     const { rows: users } = await pool.query('SELECT username FROM wildx_users WHERE id=$1', [wid]);
     if (!users.length) return res.status(404).json({ error: 'Usuario no encontrado' });
     const uname = users[0].username;
@@ -11381,8 +11500,8 @@ app.post('/wildx/api/posts', async (req, res) => {
     }
 
     const { rows } = await pool.query(
-      'INSERT INTO wildx_posts (user_id, username, content, parent_id) VALUES ($1,$2,$3,$4) RETURNING id, user_id, username, content, created_at, parent_id, likes_count',
-      [wid, uname, content, parentId]
+      'INSERT INTO wildx_posts (user_id, username, content, parent_id, scheduled_at, status) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id, user_id, username, content, created_at, parent_id, likes_count, scheduled_at, status',
+      [wid, uname, content, parentId, scheduledAt, status]
     );
     res.json(rows[0]);
   } catch (err) {
@@ -11527,6 +11646,7 @@ app.post('/wildx/api/notifications/read', async (req, res) => {
 app.get('/wildx/api/posts/:id/thread', async (req, res) => {
   try {
     await ensureWildXTables();
+    await ensureWildXExtraColumns();
     const wid = getWildXUserId(req) || 0;
     const postId = parseInt(req.params.id, 10);
     if (!postId) return res.status(400).json({ error: 'ID de post inválido' });
@@ -11555,14 +11675,194 @@ app.get('/wildx/api/posts/:id/thread', async (req, res) => {
               AND valid_until > NOW()
             ORDER BY started_at ASC
             LIMIT 1
-         ) v ON TRUE
+        ) v ON TRUE
         ORDER BY t.created_at ASC`,
       [postId, wid]
     );
 
-    res.json(rows);
+    // No devolver posts eliminados
+    const filtered = rows.filter(r => !r.deleted_at);
+    res.json(filtered);
   } catch (err) {
     console.error('Error en GET /wildx/api/posts/:id/thread:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Listar posts programados del usuario actual
+app.get('/wildx/api/scheduled', async (req, res) => {
+  try {
+    await ensureWildXTables();
+    await ensureWildXExtraColumns();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Inicia sesión en WildX' });
+    const { rows } = await pool.query(
+      `SELECT id, user_id, username, content, created_at, parent_id, likes_count, scheduled_at, status
+         FROM wildx_posts
+        WHERE user_id = $1 AND status = 'scheduled' AND deleted_at IS NULL
+        ORDER BY scheduled_at ASC NULLS LAST, created_at DESC
+        LIMIT 100`,
+      [wid]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('Error en GET /wildx/api/scheduled:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Eliminar post propio (borrado suave)
+app.delete('/wildx/api/posts/:id', async (req, res) => {
+  try {
+    await ensureWildXTables();
+    await ensureWildXExtraColumns();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Inicia sesión en WildX' });
+    const postId = parseInt(req.params.id, 10);
+    if (!postId) return res.status(400).json({ error: 'ID de post inválido' });
+
+    const { rows } = await pool.query('SELECT user_id FROM wildx_posts WHERE id=$1', [postId]);
+    if (!rows.length) return res.status(404).json({ error: 'Post no encontrado' });
+    if (Number(rows[0].user_id) !== Number(wid)) {
+      return res.status(403).json({ error: 'Solo puedes eliminar tus propios posts' });
+    }
+
+    await pool.query(
+      `UPDATE wildx_posts
+          SET deleted_at = NOW(), status = 'deleted'
+        WHERE id = $1`,
+      [postId]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error en DELETE /wildx/api/posts/:id:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Reportar post (visible para admins luego)
+app.post('/wildx/api/posts/:id/report', async (req, res) => {
+  try {
+    await ensureWildXReportsTable();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Inicia sesión en WildX' });
+    const postId = parseInt(req.params.id, 10);
+    if (!postId) return res.status(400).json({ error: 'ID de post inválido' });
+
+    const reasonRaw = (req.body?.reason || '').toString().trim();
+    if (!reasonRaw || reasonRaw.length < 10) {
+      return res.status(400).json({ error: 'Describe mejor el motivo del reporte (mínimo 10 caracteres).' });
+    }
+
+    const { rows: postRows } = await pool.query('SELECT user_id FROM wildx_posts WHERE id=$1', [postId]);
+    if (!postRows.length) return res.status(404).json({ error: 'Post no encontrado' });
+    if (Number(postRows[0].user_id) === Number(wid)) {
+      return res.status(400).json({ error: 'No puedes reportar tu propio post' });
+    }
+
+    const { rows: existing } = await pool.query(
+      "SELECT id FROM wildx_post_reports WHERE post_id = $1 AND reporter_id = $2 AND status = 'pending' LIMIT 1",
+      [postId, wid]
+    );
+    if (existing.length) {
+      return res.status(400).json({ error: 'Ya tienes un reporte pendiente para este post.' });
+    }
+
+    const { rows } = await pool.query(
+      `INSERT INTO wildx_post_reports (post_id, reporter_id, reason)
+       VALUES ($1,$2,$3)
+       RETURNING id, status, created_at`,
+      [postId, wid, reasonRaw]
+    );
+    res.json({ success: true, report: rows[0] });
+  } catch (err) {
+    console.error('Error en POST /wildx/api/posts/:id/report:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Listar reportes (Admin WildX)
+app.get('/wildx/api/admin/post-reports', async (req, res) => {
+  try {
+    await ensureWildXReportsTable();
+    const wid = getWildXUserId(req);
+    if (!wid || !(await isWildXAdmin(wid))) {
+      return res.status(403).json({ error: 'Solo el administrador puede ver reportes.' });
+    }
+    const { rows } = await pool.query(
+      `SELECT r.id, r.post_id, r.reporter_id, r.reason, r.status, r.created_at, r.reviewed_at,
+              r.admin_id, r.admin_response,
+              p.username AS post_username, p.content AS post_content,
+              u.username AS reporter_username
+         FROM wildx_post_reports r
+         JOIN wildx_posts p ON p.id = r.post_id
+         JOIN wildx_users u ON u.id = r.reporter_id
+        ORDER BY r.created_at DESC`
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('Error en GET /wildx/api/admin/post-reports:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Resolver reporte (Admin WildX)
+app.post('/wildx/api/admin/post-reports/:id/decide', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await ensureWildXReportsTable();
+    const wid = getWildXUserId(req);
+    if (!wid || !(await isWildXAdmin(wid))) {
+      client.release();
+      return res.status(403).json({ error: 'Solo el administrador puede resolver reportes.' });
+    }
+
+    const { id } = req.params;
+    const { approve, admin_response } = req.body || {};
+
+    await client.query('BEGIN');
+    const { rows: repRows } = await client.query(
+      'SELECT * FROM wildx_post_reports WHERE id=$1 FOR UPDATE',
+      [id]
+    );
+    if (!repRows.length) {
+      await client.query('ROLLBACK');
+      client.release();
+      return res.status(404).json({ error: 'Reporte no encontrado' });
+    }
+    const r = repRows[0];
+    if (r.status !== 'pending') {
+      await client.query('ROLLBACK');
+      client.release();
+      return res.status(400).json({ error: 'El reporte ya fue revisado.' });
+    }
+
+    const newStatus = approve ? 'approved' : 'rejected';
+    await client.query(
+      `UPDATE wildx_post_reports
+          SET status=$2, reviewed_at=NOW(), admin_id=$3, admin_response=$4
+        WHERE id=$1`,
+      [id, newStatus, wid, admin_response || null]
+    );
+
+    if (approve) {
+      // Ocultar el post reportado
+      await ensureWildXExtraColumns();
+      await client.query(
+        `UPDATE wildx_posts
+            SET deleted_at = COALESCE(deleted_at, NOW()), status = 'deleted'
+          WHERE id = $1`,
+        [r.post_id]
+      );
+    }
+
+    await client.query('COMMIT');
+    client.release();
+    res.json({ success: true, status: newStatus });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    client.release();
+    console.error('Error en POST /wildx/api/admin/post-reports/:id/decide:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });

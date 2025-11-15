@@ -10409,6 +10409,152 @@ app.post('/wildx/api/verify/blue/subscribe', async (req, res) => {
   }
 });
 
+// Suscripción a verificación azul usando credenciales de Ocean Pay (WildCredits)
+app.post('/wildx/api/verify/blue/subscribe-credentials', async (req, res) => {
+  try {
+    await ensureWildXTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Inicia sesión en WildX' });
+
+    const { reason, opUsername, opPassword } = req.body || {};
+    const r = (reason || '').toString().trim();
+    if (!r || r.length < 5) {
+      return res.status(400).json({ error: 'Explica brevemente el motivo de tu verificación' });
+    }
+
+    const uname = (opUsername || '').toString().trim();
+    const pwd = (opPassword || '').toString();
+    if (!uname || !pwd) {
+      return res.status(400).json({ error: 'Usuario y contraseña de Ocean Pay requeridos' });
+    }
+
+    // Validar credenciales de Ocean Pay directamente contra ocean_pay_users
+    const { rows: opRows } = await pool.query(
+      'SELECT id, pwd_hash FROM ocean_pay_users WHERE username = $1',
+      [uname]
+    );
+    if (!opRows.length) {
+      return res.status(401).json({ error: 'Credenciales de Ocean Pay incorrectas' });
+    }
+    const ok = await bcrypt.compare(pwd, opRows[0].pwd_hash);
+    if (!ok) {
+      return res.status(401).json({ error: 'Credenciales de Ocean Pay incorrectas' });
+    }
+    const opUserId = opRows[0].id;
+
+    const DAILY_PRICE = 25; // WildCredits por día de verificación azul
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Asegurar tabla de metadata
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS ocean_pay_metadata (
+          user_id INTEGER NOT NULL,
+          key TEXT NOT NULL,
+          value TEXT NOT NULL,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (user_id, key)
+        )
+      `);
+
+      // Leer y bloquear saldo actual de WildCredits
+      const { rows: metaRows } = await client.query(
+        `SELECT value FROM ocean_pay_metadata
+          WHERE user_id = $1 AND key = 'wildcredits'
+          FOR UPDATE`,
+        [opUserId]
+      );
+
+      const currentBalance = metaRows.length > 0 ? parseInt(metaRows[0].value || '0') : 0;
+      if (Number.isNaN(currentBalance) || currentBalance < DAILY_PRICE) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Saldo insuficiente de WildCredits' });
+      }
+      const newBalance = currentBalance - DAILY_PRICE;
+
+      if (metaRows.length) {
+        await client.query(
+          `UPDATE ocean_pay_metadata
+              SET value = $2, updated_at = CURRENT_TIMESTAMP
+            WHERE user_id = $1 AND key = 'wildcredits'`,
+          [opUserId, newBalance.toString()]
+        );
+      } else {
+        await client.query(
+          `INSERT INTO ocean_pay_metadata (user_id, key, value)
+           VALUES ($1, 'wildcredits', $2)`,
+          [opUserId, newBalance.toString()]
+        );
+      }
+
+      // Registrar transacción en Ocean Pay (aparece en Historial de Transacciones)
+      await client.query(
+        `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+         VALUES ($1, $2, $3, $4, 'WC')`,
+        [opUserId, 'Suscripción diaria WildX Blue', -DAILY_PRICE, 'WildX']
+      ).catch(async () => {
+        await client.query(
+          `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
+           VALUES ($1, $2, $3, $4)`,
+          [opUserId, 'Suscripción diaria WildX Blue', -DAILY_PRICE, 'WildX']
+        );
+      });
+
+      // Crear o extender verificación azul del usuario de WildX
+      const { rows: existing } = await client.query(
+        `SELECT id FROM wildx_verifications
+          WHERE user_id = $1 AND tier = 'blue'
+          FOR UPDATE`,
+        [wid]
+      );
+
+      let verificationRow;
+      if (existing.length) {
+        const { rows: upd } = await client.query(
+          `UPDATE wildx_verifications
+              SET reason = $2,
+                  valid_until = (CASE WHEN valid_until > NOW() THEN valid_until ELSE NOW() END) + INTERVAL '1 day'
+            WHERE user_id = $1 AND tier = 'blue'
+            RETURNING id, tier, reason, started_at, valid_until`,
+          [wid, r]
+        );
+        verificationRow = upd[0];
+      } else {
+        const { rows: ins } = await client.query(
+          `INSERT INTO wildx_verifications (user_id, tier, reason, started_at, valid_until)
+           VALUES ($1, 'blue', $2, NOW(), NOW() + INTERVAL '1 day')
+           RETURNING id, tier, reason, started_at, valid_until`,
+          [wid, r]
+        );
+        verificationRow = ins[0];
+      }
+
+      await client.query('COMMIT');
+      res.json({
+        success: true,
+        remainingWildcredits: newBalance,
+        verification: {
+          tier: verificationRow.tier,
+          reason: verificationRow.reason,
+          started_at: verificationRow.started_at,
+          valid_until: verificationRow.valid_until
+        }
+      });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      console.error('Error en POST /wildx/api/verify/blue/subscribe-credentials:', err);
+      res.status(500).json({ error: 'Error interno' });
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error('Error en POST /wildx/api/verify/blue/subscribe-credentials:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 // Crear post (requiere login)
 app.post('/wildx/api/posts', async (req, res) => {
   try {

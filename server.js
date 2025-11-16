@@ -11987,11 +11987,26 @@ const SPANISH_WORDS = new Set([
   'ENTERO', 'NATURAL', 'RACIONAL', 'IRRACIONAL', 'REAL', 'COMPLEJO', 'IMAGINARIO', 'INFINITO', 'CERO', 'UNIDAD'
 ]);
 
-// Tabla para guardar partidas y recompensas
+// Tabla para guardar partidas, salas y recompensas
 async function ensureWordBattleTables() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS word_battle_rooms (
+      id SERIAL PRIMARY KEY,
+      room_code TEXT UNIQUE NOT NULL,
+      host_id TEXT NOT NULL,
+      players JSONB NOT NULL DEFAULT '[]',
+      game_state JSONB,
+      status TEXT NOT NULL DEFAULT 'waiting',
+      created_at TIMESTAMP DEFAULT NOW(),
+      started_at TIMESTAMP,
+      ended_at TIMESTAMP
+    )
+  `);
+  
   await pool.query(`
     CREATE TABLE IF NOT EXISTS word_battle_games (
       id SERIAL PRIMARY KEY,
+      room_code TEXT NOT NULL,
       user_id TEXT NOT NULL,
       players JSONB NOT NULL,
       winner TEXT,
@@ -12009,7 +12024,245 @@ async function ensureWordBattleTables() {
       created_at TIMESTAMP DEFAULT NOW()
     )
   `);
+  
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_wb_rooms_code ON word_battle_rooms(room_code)`);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_wb_rooms_status ON word_battle_rooms(status)`);
 }
+
+// Generar código de sala único
+function generateRoomCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) {
+    code += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return code;
+}
+
+// Crear sala de juego
+app.post('/api/word-battle/room/create', async (req, res) => {
+  try {
+    await ensureWordBattleTables();
+    
+    const { userId, playerName } = req.body;
+    
+    if (!userId || !playerName) {
+      return res.status(400).json({ error: 'Faltan datos' });
+    }
+    
+    let roomCode;
+    let attempts = 0;
+    
+    // Intentar generar un código único
+    while (attempts < 10) {
+      roomCode = generateRoomCode();
+      const { rows } = await pool.query(
+        'SELECT id FROM word_battle_rooms WHERE room_code = $1',
+        [roomCode]
+      );
+      
+      if (rows.length === 0) break;
+      attempts++;
+    }
+    
+    if (attempts >= 10) {
+      return res.status(500).json({ error: 'No se pudo generar código único' });
+    }
+    
+    const players = [{ userId, name: playerName, lives: 3, attempts: 0, eliminated: false, isHost: true }];
+    
+    const { rows } = await pool.query(
+      `INSERT INTO word_battle_rooms (room_code, host_id, players, status)
+       VALUES ($1, $2, $3, 'waiting')
+       RETURNING *`,
+      [roomCode, userId, JSON.stringify(players)]
+    );
+    
+    res.json({ success: true, room: rows[0] });
+  } catch (err) {
+    console.error('Error en /api/word-battle/room/create:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Unirse a sala
+app.post('/api/word-battle/room/join', async (req, res) => {
+  try {
+    await ensureWordBattleTables();
+    
+    const { roomCode, userId, playerName } = req.body;
+    
+    if (!roomCode || !userId || !playerName) {
+      return res.status(400).json({ error: 'Faltan datos' });
+    }
+    
+    const { rows } = await pool.query(
+      'SELECT * FROM word_battle_rooms WHERE room_code = $1 AND status = $2',
+      [roomCode.toUpperCase(), 'waiting']
+    );
+    
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Sala no encontrada o ya iniciada' });
+    }
+    
+    const room = rows[0];
+    const players = room.players || [];
+    
+    if (players.length >= 6) {
+      return res.status(400).json({ error: 'Sala llena (máximo 6 jugadores)' });
+    }
+    
+    if (players.some(p => p.userId === userId)) {
+      return res.status(400).json({ error: 'Ya estás en esta sala' });
+    }
+    
+    if (players.some(p => p.name === playerName)) {
+      return res.status(400).json({ error: 'Este nombre ya está en uso' });
+    }
+    
+    players.push({ userId, name: playerName, lives: 3, attempts: 0, eliminated: false, isHost: false });
+    
+    await pool.query(
+      'UPDATE word_battle_rooms SET players = $1 WHERE room_code = $2',
+      [JSON.stringify(players), roomCode.toUpperCase()]
+    );
+    
+    res.json({ success: true, room: { ...room, players } });
+  } catch (err) {
+    console.error('Error en /api/word-battle/room/join:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Obtener estado de sala
+app.get('/api/word-battle/room/:roomCode', async (req, res) => {
+  try {
+    await ensureWordBattleTables();
+    
+    const { roomCode } = req.params;
+    
+    const { rows } = await pool.query(
+      'SELECT * FROM word_battle_rooms WHERE room_code = $1',
+      [roomCode.toUpperCase()]
+    );
+    
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Sala no encontrada' });
+    }
+    
+    res.json(rows[0]);
+  } catch (err) {
+    console.error('Error en /api/word-battle/room/:roomCode:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Iniciar juego (solo host)
+app.post('/api/word-battle/room/:roomCode/start', async (req, res) => {
+  try {
+    await ensureWordBattleTables();
+    
+    const { roomCode } = req.params;
+    const { userId } = req.body;
+    
+    const { rows } = await pool.query(
+      'SELECT * FROM word_battle_rooms WHERE room_code = $1',
+      [roomCode.toUpperCase()]
+    );
+    
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Sala no encontrada' });
+    }
+    
+    const room = rows[0];
+    
+    if (room.host_id !== userId) {
+      return res.status(403).json({ error: 'Solo el host puede iniciar el juego' });
+    }
+    
+    if (room.players.length < 2) {
+      return res.status(400).json({ error: 'Se necesitan al menos 2 jugadores' });
+    }
+    
+    await pool.query(
+      'UPDATE word_battle_rooms SET status = $1, started_at = NOW() WHERE room_code = $2',
+      ['playing', roomCode.toUpperCase()]
+    );
+    
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error en /api/word-battle/room/:roomCode/start:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Actualizar estado del juego
+app.post('/api/word-battle/room/:roomCode/update', async (req, res) => {
+  try {
+    await ensureWordBattleTables();
+    
+    const { roomCode } = req.params;
+    const { gameState } = req.body;
+    
+    await pool.query(
+      'UPDATE word_battle_rooms SET game_state = $1 WHERE room_code = $2',
+      [JSON.stringify(gameState), roomCode.toUpperCase()]
+    );
+    
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error en /api/word-battle/room/:roomCode/update:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Salir de sala
+app.post('/api/word-battle/room/:roomCode/leave', async (req, res) => {
+  try {
+    await ensureWordBattleTables();
+    
+    const { roomCode } = req.params;
+    const { userId } = req.body;
+    
+    const { rows } = await pool.query(
+      'SELECT * FROM word_battle_rooms WHERE room_code = $1',
+      [roomCode.toUpperCase()]
+    );
+    
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Sala no encontrada' });
+    }
+    
+    const room = rows[0];
+    let players = room.players || [];
+    
+    players = players.filter(p => p.userId !== userId);
+    
+    if (players.length === 0) {
+      // Si no quedan jugadores, eliminar la sala
+      await pool.query('DELETE FROM word_battle_rooms WHERE room_code = $1', [roomCode.toUpperCase()]);
+    } else {
+      // Si el host se va, asignar nuevo host
+      if (room.host_id === userId && players.length > 0) {
+        players[0].isHost = true;
+        await pool.query(
+          'UPDATE word_battle_rooms SET players = $1, host_id = $2 WHERE room_code = $3',
+          [JSON.stringify(players), players[0].userId, roomCode.toUpperCase()]
+        );
+      } else {
+        await pool.query(
+          'UPDATE word_battle_rooms SET players = $1 WHERE room_code = $2',
+          [JSON.stringify(players), roomCode.toUpperCase()]
+        );
+      }
+    }
+    
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error en /api/word-battle/room/:roomCode/leave:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
 
 // Verificar si una palabra es válida
 app.post('/api/word-battle/verify', async (req, res) => {

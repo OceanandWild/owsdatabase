@@ -11878,9 +11878,224 @@ app.get('/favicon.ico', (_req, res) => {
   res.status(204).end();
 });
 
+/* ===== WORD BATTLE - JUEGO DE PALABRAS ===== */
+
+// Diccionario básico de palabras en español (se puede expandir)
+const SPANISH_WORDS = new Set([
+  'CASA', 'PERRO', 'GATO', 'MESA', 'SILLA', 'LIBRO', 'AGUA', 'FUEGO', 'TIERRA', 'AIRE',
+  'SOL', 'LUNA', 'ESTRELLA', 'MAR', 'RIO', 'MONTE', 'VALLE', 'BOSQUE', 'CAMPO', 'CIUDAD',
+  'AMOR', 'PAZ', 'GUERRA', 'VIDA', 'MUERTE', 'TIEMPO', 'ESPACIO', 'MUNDO', 'CIELO', 'INFIERNO',
+  'HOMBRE', 'MUJER', 'NIÑO', 'NIÑA', 'PADRE', 'MADRE', 'HIJO', 'HIJA', 'HERMANO', 'HERMANA',
+  'AMIGO', 'ENEMIGO', 'REY', 'REINA', 'PRINCIPE', 'PRINCESA', 'CABALLERO', 'DRAGON', 'MAGO', 'BRUJA',
+  'ESPADA', 'ESCUDO', 'ARCO', 'FLECHA', 'LANZA', 'HACHA', 'MARTILLO', 'CUCHILLO', 'DAGA', 'BASTON',
+  'ORO', 'PLATA', 'BRONCE', 'HIERRO', 'ACERO', 'DIAMANTE', 'RUBI', 'ESMERALDA', 'ZAFIRO', 'PERLA',
+  'ROJO', 'AZUL', 'VERDE', 'AMARILLO', 'NEGRO', 'BLANCO', 'GRIS', 'ROSA', 'MORADO', 'NARANJA',
+  'UNO', 'DOS', 'TRES', 'CUATRO', 'CINCO', 'SEIS', 'SIETE', 'OCHO', 'NUEVE', 'DIEZ',
+  'LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES', 'SABADO', 'DOMINGO',
+  'ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE',
+  'PRIMAVERA', 'VERANO', 'OTOÑO', 'INVIERNO',
+  'NORTE', 'SUR', 'ESTE', 'OESTE',
+  'ARRIBA', 'ABAJO', 'IZQUIERDA', 'DERECHA', 'ADELANTE', 'ATRAS', 'DENTRO', 'FUERA',
+  'GRANDE', 'PEQUEÑO', 'ALTO', 'BAJO', 'LARGO', 'CORTO', 'ANCHO', 'ESTRECHO', 'GORDO', 'FLACO',
+  'BUENO', 'MALO', 'BONITO', 'FEO', 'NUEVO', 'VIEJO', 'JOVEN', 'ANCIANO', 'RICO', 'POBRE',
+  'FELIZ', 'TRISTE', 'ALEGRE', 'ENOJADO', 'ASUSTADO', 'SORPRENDIDO', 'CANSADO', 'DESPIERTO',
+  'COMER', 'BEBER', 'DORMIR', 'DESPERTAR', 'CAMINAR', 'CORRER', 'SALTAR', 'VOLAR', 'NADAR', 'BUCEAR',
+  'HABLAR', 'ESCUCHAR', 'VER', 'MIRAR', 'OIR', 'OLER', 'TOCAR', 'SENTIR', 'PENSAR', 'SOÑAR',
+  'LEER', 'ESCRIBIR', 'DIBUJAR', 'PINTAR', 'CANTAR', 'BAILAR', 'JUGAR', 'TRABAJAR', 'ESTUDIAR', 'APRENDER',
+  'AMAR', 'ODIAR', 'QUERER', 'DESEAR', 'NECESITAR', 'PODER', 'DEBER', 'SABER', 'CONOCER', 'ENTENDER',
+  'DAR', 'RECIBIR', 'TOMAR', 'DEJAR', 'PONER', 'QUITAR', 'TRAER', 'LLEVAR', 'BUSCAR', 'ENCONTRAR',
+  'ABRIR', 'CERRAR', 'SUBIR', 'BAJAR', 'ENTRAR', 'SALIR', 'LLEGAR', 'PARTIR', 'VENIR', 'IR',
+  'HACER', 'CREAR', 'DESTRUIR', 'CONSTRUIR', 'ROMPER', 'ARREGLAR', 'LIMPIAR', 'ENSUCIAR', 'ORDENAR', 'DESORDENAR',
+  'COMPRAR', 'VENDER', 'PAGAR', 'COBRAR', 'GANAR', 'PERDER', 'AHORRAR', 'GASTAR', 'PRESTAR', 'DEVOLVER',
+  'AYUDAR', 'PROTEGER', 'DEFENDER', 'ATACAR', 'LUCHAR', 'PELEAR', 'GANAR', 'PERDER', 'EMPATAR', 'RENDIR',
+  'COMENZAR', 'TERMINAR', 'CONTINUAR', 'PARAR', 'SEGUIR', 'ESPERAR', 'LLEGAR', 'PARTIR', 'QUEDAR', 'VOLVER',
+  'DECIR', 'CONTAR', 'PREGUNTAR', 'RESPONDER', 'EXPLICAR', 'ENSEÑAR', 'MOSTRAR', 'DEMOSTRAR', 'PROBAR', 'INTENTAR',
+  'CREER', 'DUDAR', 'CONFIAR', 'DESCONFIAR', 'ESPERAR', 'TEMER', 'DESEAR', 'ANHELAR', 'SOÑAR', 'IMAGINAR',
+  // Palabras comunes adicionales
+  'PALABRA', 'LETRA', 'NUMERO', 'SIGNO', 'SIMBOLO', 'MARCA', 'SEÑAL', 'AVISO', 'MENSAJE', 'NOTA',
+  'PAPEL', 'LAPIZ', 'PLUMA', 'TINTA', 'PINCEL', 'COLOR', 'DIBUJO', 'PINTURA', 'CUADRO', 'FOTO',
+  'MUSICA', 'CANCION', 'MELODIA', 'RITMO', 'SONIDO', 'RUIDO', 'SILENCIO', 'VOZ', 'GRITO', 'SUSURRO',
+  'COMIDA', 'BEBIDA', 'PAN', 'CARNE', 'PESCADO', 'FRUTA', 'VERDURA', 'LECHE', 'QUESO', 'HUEVO',
+  'ARROZ', 'PASTA', 'SOPA', 'ENSALADA', 'POSTRE', 'DULCE', 'SALADO', 'AMARGO', 'ACIDO', 'PICANTE',
+  'CAFE', 'TE', 'JUGO', 'VINO', 'CERVEZA', 'REFRESCO', 'HELADO', 'CHOCOLATE', 'CARAMELO', 'GALLETA',
+  'ROPA', 'CAMISA', 'PANTALON', 'FALDA', 'VESTIDO', 'ZAPATO', 'BOTA', 'SANDALIA', 'SOMBRERO', 'GORRA',
+  'ABRIGO', 'CHAQUETA', 'SUETER', 'BUFANDA', 'GUANTE', 'CALCETÍN', 'MEDIA', 'ROPA INTERIOR', 'PIJAMA', 'TRAJE',
+  'COCHE', 'CARRO', 'AUTO', 'CAMION', 'AUTOBUS', 'TREN', 'AVION', 'BARCO', 'BICICLETA', 'MOTO',
+  'CASA', 'EDIFICIO', 'TORRE', 'PUENTE', 'CALLE', 'AVENIDA', 'PLAZA', 'PARQUE', 'JARDIN', 'PATIO',
+  'PUERTA', 'VENTANA', 'PARED', 'TECHO', 'SUELO', 'ESCALERA', 'ASCENSOR', 'BALCON', 'TERRAZA', 'SOTANO',
+  'COCINA', 'BAÑO', 'SALA', 'COMEDOR', 'DORMITORIO', 'HABITACION', 'CUARTO', 'OFICINA', 'ESTUDIO', 'BIBLIOTECA',
+  'ESCUELA', 'COLEGIO', 'UNIVERSIDAD', 'INSTITUTO', 'ACADEMIA', 'CLASE', 'AULA', 'SALON', 'LABORATORIO', 'GIMNASIO',
+  'HOSPITAL', 'CLINICA', 'FARMACIA', 'DOCTOR', 'MEDICO', 'ENFERMERA', 'PACIENTE', 'MEDICINA', 'PASTILLA', 'INYECCION',
+  'TIENDA', 'MERCADO', 'SUPERMERCADO', 'CENTRO COMERCIAL', 'ALMACEN', 'BODEGA', 'DEPOSITO', 'FABRICA', 'TALLER', 'EMPRESA',
+  'BANCO', 'DINERO', 'MONEDA', 'BILLETE', 'TARJETA', 'CREDITO', 'DEBITO', 'CUENTA', 'AHORRO', 'PRESTAMO',
+  'TRABAJO', 'EMPLEO', 'PROFESION', 'OFICIO', 'CARRERA', 'NEGOCIO', 'EMPRESA', 'COMPAÑIA', 'ORGANIZACION', 'INSTITUCION',
+  'JEFE', 'EMPLEADO', 'TRABAJADOR', 'OBRERO', 'INGENIERO', 'ARQUITECTO', 'ABOGADO', 'CONTADOR', 'SECRETARIA', 'GERENTE',
+  'ARTE', 'ARTISTA', 'PINTOR', 'ESCULTOR', 'MUSICO', 'CANTANTE', 'BAILARIN', 'ACTOR', 'ACTRIZ', 'DIRECTOR',
+  'DEPORTE', 'FUTBOL', 'BALONCESTO', 'TENIS', 'NATACION', 'ATLETISMO', 'GIMNASIA', 'BOXEO', 'LUCHA', 'CICLISMO',
+  'JUGADOR', 'EQUIPO', 'PARTIDO', 'CAMPEONATO', 'TORNEO', 'LIGA', 'COPA', 'MEDALLA', 'TROFEO', 'PREMIO',
+  'PELOTA', 'BALON', 'RAQUETA', 'BATE', 'GUANTE', 'CASCO', 'RED', 'CANCHA', 'CAMPO', 'PISTA',
+  'ANIMAL', 'MAMIFERO', 'AVE', 'PAJARO', 'PEZ', 'REPTIL', 'ANFIBIO', 'INSECTO', 'ARACNIDO', 'MOLUSCO',
+  'LEON', 'TIGRE', 'OSO', 'LOBO', 'ZORRO', 'CONEJO', 'RATON', 'RATA', 'ARDILLA', 'CASTOR',
+  'ELEFANTE', 'JIRAFA', 'CEBRA', 'HIPOPOTAMO', 'RINOCERONTE', 'CAMELLO', 'LLAMA', 'ALPACA', 'CANGURO', 'KOALA',
+  'MONO', 'GORILA', 'CHIMPANCE', 'ORANGUTAN', 'LEMUR', 'PEREZOSO', 'ARMADILLO', 'HORMIGUERO', 'MURCIELAGO', 'TOPO',
+  'CABALLO', 'BURRO', 'MULA', 'VACA', 'TORO', 'BUEY', 'CERDO', 'OVEJA', 'CABRA', 'GALLINA',
+  'PATO', 'GANSO', 'CISNE', 'PALOMA', 'LORO', 'AGUILA', 'HALCON', 'BUHO', 'LECHUZA', 'CUERVO',
+  'TIBURON', 'BALLENA', 'DELFIN', 'FOCA', 'MORSA', 'PULPO', 'CALAMAR', 'MEDUSA', 'ESTRELLA DE MAR', 'CANGREJO',
+  'SERPIENTE', 'LAGARTO', 'COCODRILO', 'CAIMAN', 'TORTUGA', 'IGUANA', 'CAMALEON', 'SALAMANDRA', 'RANA', 'SAPO',
+  'ABEJA', 'AVISPA', 'HORMIGA', 'MOSCA', 'MOSQUITO', 'MARIPOSA', 'POLILLA', 'LIBÉLULA', 'GRILLO', 'SALTAMONTES',
+  'ARAÑA', 'ESCORPION', 'CIEMPIES', 'MILPIES', 'CARACOL', 'BABOSA', 'LOMBRIZ', 'SANGUIJUELA', 'GARRAPATA', 'PULGA',
+  'PLANTA', 'ARBOL', 'FLOR', 'HIERBA', 'PASTO', 'CESPED', 'HOJA', 'RAMA', 'TRONCO', 'RAIZ',
+  'ROSA', 'TULIPAN', 'MARGARITA', 'GIRASOL', 'ORQUIDEA', 'LIRIO', 'CLAVEL', 'JAZMIN', 'VIOLETA', 'AMAPOLA',
+  'PINO', 'ROBLE', 'SAUCE', 'OLMO', 'HAYA', 'ABEDUL', 'CEREZO', 'MANZANO', 'NARANJO', 'LIMONERO',
+  'FRUTA', 'MANZANA', 'PERA', 'NARANJA', 'LIMON', 'PLATANO', 'UVA', 'FRESA', 'CEREZA', 'MELOCOTON',
+  'SANDIA', 'MELON', 'PIÑA', 'MANGO', 'PAPAYA', 'KIWI', 'COCO', 'AGUACATE', 'TOMATE', 'PEPINO',
+  'ZANAHORIA', 'PAPA', 'CEBOLLA', 'AJO', 'LECHUGA', 'REPOLLO', 'BROCOLI', 'COLIFLOR', 'ESPARRAGO', 'APIO',
+  'PIMIENTO', 'CHILE', 'BERENJENA', 'CALABAZA', 'CALABACIN', 'RABANO', 'NABO', 'REMOLACHA', 'ESPINACA', 'ACELGA',
+  // Más palabras comunes
+  'COSA', 'OBJETO', 'ARTICULO', 'ELEMENTO', 'PARTE', 'PIEZA', 'TROZO', 'PEDAZO', 'FRAGMENTO', 'PORCION',
+  'TODO', 'NADA', 'ALGO', 'ALGUIEN', 'NADIE', 'TODOS', 'ALGUNOS', 'VARIOS', 'MUCHOS', 'POCOS',
+  'MAS', 'MENOS', 'MUCHO', 'POCO', 'BASTANTE', 'DEMASIADO', 'SUFICIENTE', 'INSUFICIENTE', 'EXCESO', 'FALTA',
+  'BIEN', 'MAL', 'MEJOR', 'PEOR', 'IGUAL', 'DIFERENTE', 'MISMO', 'OTRO', 'DISTINTO', 'SIMILAR',
+  'AQUI', 'ALLI', 'AHI', 'CERCA', 'LEJOS', 'JUNTO', 'SEPARADO', 'UNIDO', 'DIVIDIDO', 'ROTO',
+  'AHORA', 'ANTES', 'DESPUES', 'LUEGO', 'PRONTO', 'TARDE', 'TEMPRANO', 'SIEMPRE', 'NUNCA', 'JAMAS',
+  'HOY', 'AYER', 'MAÑANA', 'ANTEAYER', 'PASADO MAÑANA', 'SEMANA', 'MES', 'AÑO', 'SIGLO', 'MILENIO',
+  'MOMENTO', 'INSTANTE', 'SEGUNDO', 'MINUTO', 'HORA', 'DIA', 'NOCHE', 'MAÑANA', 'TARDE', 'MEDIODIA',
+  'AMANECER', 'ATARDECER', 'ANOCHECER', 'MEDIANOCHE', 'ALBA', 'OCASO', 'CREPUSCULO', 'AURORA', 'PENUMBRA', 'SOMBRA',
+  'LUZ', 'OSCURIDAD', 'BRILLO', 'RESPLANDOR', 'FULGOR', 'DESTELLO', 'RAYO', 'RELAMPAGO', 'TRUENO', 'TORMENTA',
+  'LLUVIA', 'NIEVE', 'GRANIZO', 'NIEBLA', 'NEBLINA', 'ROCIO', 'ESCARCHA', 'HIELO', 'VAPOR', 'HUMO',
+  'VIENTO', 'BRISA', 'HURACAN', 'TORNADO', 'CICLON', 'TIFON', 'TEMPESTAD', 'VENDAVAL', 'RAFAGA', 'SOPLO',
+  'CALOR', 'FRIO', 'TEMPERATURA', 'CLIMA', 'TIEMPO', 'ESTACION', 'EPOCA', 'ERA', 'PERIODO', 'FASE',
+  'PRINCIPIO', 'FIN', 'INICIO', 'FINAL', 'COMIENZO', 'TERMINO', 'ORIGEN', 'DESTINO', 'CAUSA', 'EFECTO',
+  'RAZON', 'MOTIVO', 'PROPOSITO', 'OBJETIVO', 'META', 'FIN', 'INTENCION', 'DESEO', 'VOLUNTAD', 'DECISION',
+  'IDEA', 'PENSAMIENTO', 'CONCEPTO', 'NOCION', 'OPINION', 'JUICIO', 'CRITERIO', 'PUNTO DE VISTA', 'PERSPECTIVA', 'ENFOQUE',
+  'VERDAD', 'MENTIRA', 'REALIDAD', 'FICCION', 'FANTASIA', 'ILUSION', 'SUEÑO', 'PESADILLA', 'VISION', 'ALUCINACION',
+  'PROBLEMA', 'SOLUCION', 'PREGUNTA', 'RESPUESTA', 'DUDA', 'CERTEZA', 'SEGURIDAD', 'INSEGURIDAD', 'CONFIANZA', 'DESCONFIANZA',
+  'MIEDO', 'VALOR', 'VALENTIA', 'COBARDIA', 'CORAJE', 'AUDACIA', 'TEMERIDAD', 'PRUDENCIA', 'CAUTELA', 'PRECAUCION',
+  'FUERZA', 'DEBILIDAD', 'PODER', 'IMPOTENCIA', 'CAPACIDAD', 'INCAPACIDAD', 'HABILIDAD', 'TORPEZA', 'DESTREZA', 'MAÑA',
+  'INTELIGENCIA', 'ESTUPIDEZ', 'SABIDURIA', 'IGNORANCIA', 'CONOCIMIENTO', 'DESCONOCIMIENTO', 'CIENCIA', 'ARTE', 'TECNICA', 'METODO',
+  'ORDEN', 'DESORDEN', 'ORGANIZACION', 'CAOS', 'ESTRUCTURA', 'SISTEMA', 'ESQUEMA', 'PLAN', 'PROYECTO', 'PROGRAMA',
+  'LEY', 'REGLA', 'NORMA', 'PRINCIPIO', 'VALOR', 'MORAL', 'ETICA', 'JUSTICIA', 'INJUSTICIA', 'DERECHO',
+  'LIBERTAD', 'ESCLAVITUD', 'INDEPENDENCIA', 'DEPENDENCIA', 'AUTONOMIA', 'SOBERANIA', 'AUTORIDAD', 'PODER', 'DOMINIO', 'CONTROL',
+  'GOBIERNO', 'ESTADO', 'NACION', 'PAIS', 'PATRIA', 'TIERRA', 'TERRITORIO', 'REGION', 'PROVINCIA', 'MUNICIPIO',
+  'PUEBLO', 'ALDEA', 'VILLA', 'CIUDAD', 'CAPITAL', 'METROPOLI', 'URBE', 'POBLACION', 'COMUNIDAD', 'SOCIEDAD',
+  'GRUPO', 'CONJUNTO', 'COLECCION', 'SERIE', 'SECUENCIA', 'SUCESION', 'CADENA', 'LINEA', 'FILA', 'COLA',
+  'CIRCULO', 'CUADRADO', 'TRIANGULO', 'RECTANGULO', 'ROMBO', 'TRAPECIO', 'PENTAGONO', 'HEXAGONO', 'OCTAGONO', 'POLIGONO',
+  'ESFERA', 'CUBO', 'CILINDRO', 'CONO', 'PIRAMIDE', 'PRISMA', 'TOROIDE', 'ELIPSOIDE', 'PARABOLOIDE', 'HIPERBOLOIDE',
+  'PUNTO', 'LINEA', 'PLANO', 'VOLUMEN', 'SUPERFICIE', 'AREA', 'PERIMETRO', 'DIAMETRO', 'RADIO', 'CIRCUNFERENCIA',
+  'ANGULO', 'GRADO', 'RADIAN', 'PARALELO', 'PERPENDICULAR', 'HORIZONTAL', 'VERTICAL', 'DIAGONAL', 'TANGENTE', 'SECANTE',
+  'SUMA', 'RESTA', 'MULTIPLICACION', 'DIVISION', 'POTENCIA', 'RAIZ', 'LOGARITMO', 'EXPONENTE', 'FRACCION', 'DECIMAL',
+  'ENTERO', 'NATURAL', 'RACIONAL', 'IRRACIONAL', 'REAL', 'COMPLEJO', 'IMAGINARIO', 'INFINITO', 'CERO', 'UNIDAD'
+]);
+
+// Tabla para guardar partidas y recompensas
+async function ensureWordBattleTables() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS word_battle_games (
+      id SERIAL PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      players JSONB NOT NULL,
+      winner TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `);
+  
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS word_battle_rewards (
+      id SERIAL PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      player_name TEXT NOT NULL,
+      position INTEGER NOT NULL,
+      reward INTEGER NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `);
+}
+
+// Verificar si una palabra es válida
+app.post('/api/word-battle/verify', async (req, res) => {
+  try {
+    const { word } = req.body;
+    
+    if (!word || typeof word !== 'string') {
+      return res.json({ valid: false });
+    }
+    
+    const upperWord = word.toUpperCase().trim();
+    
+    // Verificar si la palabra está en el diccionario
+    const valid = SPANISH_WORDS.has(upperWord);
+    
+    res.json({ valid });
+  } catch (err) {
+    console.error('Error en /api/word-battle/verify:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Guardar recompensa
+app.post('/api/word-battle/reward', async (req, res) => {
+  try {
+    await ensureWordBattleTables();
+    
+    const { userId, playerName, position, reward } = req.body;
+    
+    if (!userId || !playerName || !position || !reward) {
+      return res.status(400).json({ error: 'Faltan datos' });
+    }
+    
+    // Guardar recompensa
+    await pool.query(
+      `INSERT INTO word_battle_rewards (user_id, player_name, position, reward)
+       VALUES ($1, $2, $3, $4)`,
+      [userId, playerName, position, reward]
+    );
+    
+    // Actualizar Ecoxionums del usuario si existe en la base de datos
+    try {
+      await pool.query(
+        `UPDATE ocean_pay_users 
+         SET ecoxionums = COALESCE(ecoxionums, 0) + $1
+         WHERE username = $2`,
+        [reward, userId]
+      );
+    } catch (e) {
+      // Si el usuario no existe en ocean_pay_users, solo guardamos la recompensa
+      console.log('Usuario no encontrado en ocean_pay_users, solo se guarda la recompensa');
+    }
+    
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error en /api/word-battle/reward:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Obtener historial de recompensas
+app.get('/api/word-battle/rewards/:userId', async (req, res) => {
+  try {
+    await ensureWordBattleTables();
+    
+    const { userId } = req.params;
+    
+    const { rows } = await pool.query(
+      `SELECT * FROM word_battle_rewards 
+       WHERE user_id = $1 
+       ORDER BY created_at DESC 
+       LIMIT 50`,
+      [userId]
+    );
+    
+    res.json(rows);
+  } catch (err) {
+    console.error('Error en /api/word-battle/rewards/:userId:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 await ensureDatabase(); 
 await ensureTables();
 await ensureQuizTables();
+await ensureWordBattleTables();
 
 const PORT = process.env.PORT || 3000;
 httpServer.listen(PORT, '0.0.0.0', () => {

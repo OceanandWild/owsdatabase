@@ -636,6 +636,32 @@ app.post('/wildshorts/wildgems/claim', async (req, res) => {
     }
   }
   
+  // Verificar límite de anuncios (máximo 5 por día)
+  if (type === 'ad_watch') {
+    const { rows: adRows } = await pool.query(`
+      SELECT COUNT(*) as count FROM wildgems_claims
+      WHERE user_id = $1 AND claim_type = 'ad_watch' 
+      AND DATE(claimed_at) = DATE(NOW())
+    `, [userId]);
+    
+    if (parseInt(adRows[0].count) >= 5) {
+      return res.status(400).json({ error: 'Has alcanzado el límite de 5 anuncios por día.' });
+    }
+  }
+  
+  // Verificar límite de compartir (máximo 3 por día)
+  if (type === 'social_share') {
+    const { rows: shareRows } = await pool.query(`
+      SELECT COUNT(*) as count FROM wildgems_claims
+      WHERE user_id = $1 AND claim_type = 'social_share' 
+      AND DATE(claimed_at) = DATE(NOW())
+    `, [userId]);
+    
+    if (parseInt(shareRows[0].count) >= 3) {
+      return res.status(400).json({ error: 'Has alcanzado el límite de 3 compartidos por día.' });
+    }
+  }
+  
   // Verificar si la columna moneda existe FUERA de la transacción
   let hasMonedaColumn = false;
   try {
@@ -654,11 +680,13 @@ app.post('/wildshorts/wildgems/claim', async (req, res) => {
   let gemsAmount = amount || 0;
   if (!gemsAmount) {
     const rewards = {
-      daily: 50,      // 50 WildGems diarios
-      welcome: 200,   // 200 WildGems de bienvenida
-      bonus: 100,     // 100 WildGems de bono
-      referral: 150,  // 150 WildGems por referido
-      achievement: 75 // 75 WildGems por logro
+      daily: 50,         // 50 WildGems diarios
+      welcome: 200,      // 200 WildGems de bienvenida
+      bonus: 100,        // 100 WildGems de bono
+      referral: 150,     // 150 WildGems por referido
+      achievement: 75,   // 75 WildGems por logro
+      ad_watch: 25,      // 25 WildGems por ver anuncio
+      social_share: 100  // 100 WildGems por compartir en redes
     };
     gemsAmount = rewards[type] || 0;
   }
@@ -673,7 +701,9 @@ app.post('/wildshorts/wildgems/claim', async (req, res) => {
     welcome: 'Recompensa de Bienvenida (WildShorts)',
     bonus: 'Bono Especial (WildShorts)',
     referral: 'Recompensa por Referido (WildShorts)',
-    achievement: 'Logro Desbloqueado (WildShorts)'
+    achievement: 'Logro Desbloqueado (WildShorts)',
+    ad_watch: 'Recompensa por Ver Anuncio (WildShorts)',
+    social_share: 'Recompensa por Compartir (WildShorts)'
   };
   
   // Ahora sí, comenzar la transacción para las operaciones DML

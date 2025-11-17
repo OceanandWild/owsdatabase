@@ -5490,7 +5490,7 @@ app.post('/api/users/create', async (req, res) => {
        ON CONFLICT (id) DO UPDATE
          SET username = EXCLUDED.username
        RETURNING id, username, balance`,
-      [userId, username, 'nopass', 50000]
+      [userId, username, 'nopass', 0]
     );
     res.json({ success: true, user: rows[0] });
   } catch (err) {
@@ -6477,7 +6477,7 @@ app.post('/ocean-pay/register', async (req, res) => {
 
 const { rows: [u] } = await client.query(
     `INSERT INTO ocean_pay_users (username, pwd_hash, aquabux, ecoxionums, appbux)
-   VALUES ($1, $2, 10000, 50000, 0)
+   VALUES ($1, $2, 0, 0, 0)
    RETURNING id, username, aquabux, ecoxionums, appbux`,
   [username, hash]
 );
@@ -6959,6 +6959,84 @@ app.post('/ocean-pay/appbux/change', async (req, res) => {
     await client.query('ROLLBACK');
     console.error('❌ Error en /ocean-pay/appbux/change:', err);
     res.status(500).json({ error: 'Error interno' });
+  } finally {
+    client.release();
+  }
+});
+
+/* ----------  DELETE ACCOUNT  ---------- */
+app.delete('/ocean-pay/delete-account', async (req, res) => {
+  const auth = req.headers.authorization;
+  const { userId, username } = req.body;
+  
+  if (!userId || !username) {
+    return res.status(400).json({ error: 'Faltan datos' });
+  }
+  
+  // Verificar token si está presente
+  if (auth) {
+    try {
+      const token = auth.split(' ')[1];
+      const payload = jwt.verify(token, process.env.STUDIO_SECRET);
+      
+      // Verificar que el token corresponda al usuario
+      if (payload.uid !== userId) {
+        return res.status(403).json({ error: 'No autorizado' });
+      }
+    } catch (e) {
+      return res.status(401).json({ error: 'Token inválido' });
+    }
+  }
+  
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    
+    // Verificar que el usuario existe y el username coincide
+    const { rows: userRows } = await client.query(
+      'SELECT id, username FROM ocean_pay_users WHERE id = $1',
+      [userId]
+    );
+    
+    if (userRows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+    
+    if (userRows[0].username !== username) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'El nombre de usuario no coincide' });
+    }
+    
+    console.log(`🗑️ Eliminando cuenta de Ocean Pay: ${username} (${userId})`);
+    
+    // Eliminar transacciones
+    await client.query('DELETE FROM ocean_pay_txs WHERE user_id = $1', [userId]);
+    
+    // Eliminar metadata
+    await client.query('DELETE FROM ocean_pay_metadata WHERE user_id = $1', [userId]);
+    
+    // Eliminar de users (EcoCoreBits)
+    await client.query('DELETE FROM users WHERE id = $1', [userId]);
+    
+    // Eliminar transacciones de EcoCoreBits
+    await client.query('DELETE FROM ecocore_txs WHERE user_id = $1', [userId]);
+    
+    // Eliminar suscripciones de Ecoxion
+    await client.query('DELETE FROM ecoxion_subscriptions WHERE user_id = $1', [userId]);
+    
+    // Finalmente, eliminar el usuario de Ocean Pay
+    await client.query('DELETE FROM ocean_pay_users WHERE id = $1', [userId]);
+    
+    await client.query('COMMIT');
+    
+    console.log(`✅ Cuenta eliminada exitosamente: ${username}`);
+    res.json({ success: true, message: 'Cuenta eliminada permanentemente' });
+    
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('❌ Error en /ocean-pay/delete-account:', err);
+    res.status(500).json({ error: 'Error interno al eliminar la cuenta' });
   } finally {
     client.release();
   }

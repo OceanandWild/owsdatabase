@@ -694,6 +694,7 @@ input:focus-visible{
       </details>
 
       <hr class="divider" />
+      <button id="deleteAccountBtn" class="secondary" style="background:var(--err);border-color:var(--err);color:white;margin-bottom:1rem;">🗑️ Eliminar Cuenta Permanentemente</button>
       <button id="logoutBtn" class="secondary">Cerrar sesión</button>
     </div>
 
@@ -1573,6 +1574,82 @@ await Promise.all([
       balanceRefreshInterval = null;
     }
   }
+
+  /* ----------  DELETE ACCOUNT  ---------- */
+  qs('#deleteAccountBtn').onclick=async ()=>{
+    const user = JSON.parse(localStorage.getItem('opUser') || '{}');
+    if (!user.id || !user.username) {
+      alert('No hay una cuenta activa para eliminar.');
+      return;
+    }
+    
+    const username = user.username;
+    
+    // Primera confirmación
+    const confirmed1 = confirm(`⚠️ ADVERTENCIA: ACCIÓN IRREVERSIBLE ⚠️\n\n¿Estás seguro de que deseas ELIMINAR PERMANENTEMENTE tu cuenta de Ocean Pay?\n\nUsuario: ${username}\n\nEsta acción:\n• Eliminará tu cuenta de Ocean Pay\n• Perderás todos tus AquaBux, Ecoxionums, WildCredits, WildGems, AppBux y EcoCoreBits\n• Eliminará todo tu historial de transacciones\n• No se puede deshacer\n\n¿Deseas continuar?`);
+    
+    if (!confirmed1) return;
+    
+    // Segunda confirmación con el nombre de usuario
+    const typedUsername = prompt(`Para confirmar la eliminación permanente, escribe tu nombre de usuario:\n\n"${username}"\n\n(Escribe exactamente como se muestra)`);
+    
+    if (typedUsername !== username) {
+      alert('El nombre de usuario no coincide. Eliminación cancelada.');
+      return;
+    }
+    
+    try {
+      const opToken = localStorage.getItem('opToken');
+      
+      const response = await fetch(`${API}/ocean-pay/delete-account`, {
+        method: 'DELETE',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${opToken}`
+        },
+        body: JSON.stringify({
+          userId: user.id,
+          username: username
+        })
+      });
+      
+      if (response.ok) {
+        alert('Tu cuenta de Ocean Pay ha sido eliminada permanentemente.');
+        
+        // Limpiar todos los datos locales
+        stopBalanceRefresh();
+        if (window.wildCreditsPollInterval) {
+          clearInterval(window.wildCreditsPollInterval);
+          window.wildCreditsPollInterval = null;
+        }
+        if (window.wildGemsPollInterval) {
+          clearInterval(window.wildGemsPollInterval);
+          window.wildGemsPollInterval = null;
+        }
+        
+        localStorage.removeItem('opToken');
+        localStorage.removeItem('opUser');
+        localStorage.removeItem('ecoxionUserId');
+        localStorage.removeItem('ecoxionUsername');
+        localStorage.removeItem('wildCredits');
+        localStorage.removeItem('ws_wildgems');
+        
+        token = '';
+        userId = 0;
+        
+        show('#wallet', false);
+        show('#regForm', true);
+        show('#loginForm', false);
+        qs('#toggleLink').textContent = 'Iniciar sesión';
+      } else {
+        const error = await response.json();
+        alert('Error: ' + (error.error || 'No se pudo eliminar la cuenta. Intenta de nuevo.'));
+      }
+    } catch (error) {
+      console.error('Error al eliminar cuenta:', error);
+      alert('Hubo un problema al eliminar la cuenta. Intenta de nuevo.');
+    }
+  };
 
   /* ----------  LOGOUT  ---------- */
   qs('#logoutBtn').onclick=()=>{

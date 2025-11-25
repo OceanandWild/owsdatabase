@@ -970,7 +970,7 @@ app.post('/ocean-pay/link-account', async (req, res) => {
   try {
     // Verificar credenciales
     const { rows } = await pool.query(`
-      SELECT opu.id, opu.pwd_hash, opu.aquabux, opu.ecoxionums, opu.appbux,
+      SELECT opu.id, opu.pwd_hash, opu.aquabux, opu.appbux,
              COALESCE(uc.amount, 0) as ecorebits
       FROM ocean_pay_users opu
       LEFT JOIN user_currency uc ON opu.id = uc.user_id AND uc.currency_type = 'ecocorebits'
@@ -1019,14 +1019,25 @@ app.post('/ocean-pay/link-account', async (req, res) => {
       console.warn('No se pudo guardar wildCredits/wildGems en servidor (continuando):', e.message);
     }
     
-    // Obtener wildGems actualizado del servidor
+    // Obtener wildGems y ecoxionums actualizados del servidor
     let serverWildGems = 0;
+    let serverEcoxionums = 0;
     try {
-      const { rows: gemsRows } = await pool.query(`
-        SELECT value FROM ocean_pay_metadata
-        WHERE user_id = $1 AND key = 'wildgems'
+      const { rows: metaRows } = await pool.query(`
+        SELECT key, value FROM ocean_pay_metadata
+        WHERE user_id = $1 AND key IN ('wildgems', 'ecoxionums')
       `, [rows[0].id]);
-      serverWildGems = gemsRows.length > 0 ? parseInt(gemsRows[0].value || '0') : wildGemsValue;
+      
+      metaRows.forEach(row => {
+        if (row.key === 'wildgems') {
+          serverWildGems = parseInt(row.value || '0');
+        } else if (row.key === 'ecoxionums') {
+          serverEcoxionums = parseFloat(row.value || '0');
+        }
+      });
+      
+      // Si no hay valores en metadata, usar los valores por defecto
+      if (serverWildGems === 0 && wildGemsValue > 0) serverWildGems = wildGemsValue;
     } catch (e) {
       serverWildGems = wildGemsValue;
     }
@@ -1038,7 +1049,7 @@ app.post('/ocean-pay/link-account', async (req, res) => {
         id: rows[0].id,
         username,
         aquabux: rows[0].aquabux || 0,
-        ecoxionums: rows[0].ecoxionums || 0,
+        ecoxionums: serverEcoxionums,
         ecorebits: Number(rows[0].ecorebits) || 0,
         wildcredits: wildCreditsValue,
         wildgems: serverWildGems,
@@ -1046,7 +1057,7 @@ app.post('/ocean-pay/link-account', async (req, res) => {
       },
       balances: {
         aquabux: rows[0].aquabux || 0,
-        ecoxionums: rows[0].ecoxionums || 0,
+        ecoxionums: serverEcoxionums,
         ecorebits: Number(rows[0].ecorebits) || 0,
         wildcredits: wildCreditsValue,
         wildgems: serverWildGems,
@@ -6563,7 +6574,7 @@ app.post('/ocean-pay/login', async (req,res)=>{
   
   // Unimos ocean_pay_users con user_currency para obtener todo en una sola consulta
   const {rows}=await pool.query(`
-    SELECT opu.id, opu.pwd_hash, opu.aquabux, opu.ecoxionums, opu.appbux, COALESCE(uc.amount, 0) as ecorebits
+    SELECT opu.id, opu.pwd_hash, opu.aquabux, opu.appbux, COALESCE(uc.amount, 0) as ecorebits
     FROM ocean_pay_users opu
     LEFT JOIN user_currency uc ON opu.id = uc.user_id AND uc.currency_type = 'ecocorebits'
     WHERE opu.username = $1
@@ -6576,19 +6587,24 @@ app.post('/ocean-pay/login', async (req,res)=>{
   
   const token=jwt.sign({uid:rows[0].id,un:username},process.env.STUDIO_SECRET,{expiresIn:'7d'});
   
-  // Intentar obtener wildCredits desde la tabla de metadatos
+  // Intentar obtener wildCredits y ecoxionums desde la tabla de metadatos
   let wildCredits = 0;
+  let ecoxionums = 0;
   try {
     const { rows: metaRows } = await pool.query(`
-      SELECT value FROM ocean_pay_metadata
-      WHERE user_id = $1 AND key = 'wildcredits'
+      SELECT key, value FROM ocean_pay_metadata
+      WHERE user_id = $1 AND key IN ('wildcredits', 'ecoxionums')
     `, [rows[0].id]);
     
-    if (metaRows.length > 0) {
-      wildCredits = parseInt(metaRows[0].value || '0');
-    }
+    metaRows.forEach(row => {
+      if (row.key === 'wildcredits') {
+        wildCredits = parseInt(row.value || '0');
+      } else if (row.key === 'ecoxionums') {
+        ecoxionums = parseFloat(row.value || '0');
+      }
+    });
   } catch (e) {
-    // Si la tabla no existe, wildCredits queda en 0
+    // Si la tabla no existe, quedan en 0
   }
   
   // Obtener AppBux de la columna appbux
@@ -6600,7 +6616,7 @@ app.post('/ocean-pay/login', async (req,res)=>{
     id: rows[0].id,
     username,
     aquabux: rows[0].aquabux,
-    ecoxionums: rows[0].ecoxionums,
+    ecoxionums: ecoxionums,
     ecorebits: Number(rows[0].ecorebits), // ✨ Devolvemos el saldo de EcoCoreBits directamente
     wildcredits: wildCredits,
     appbux: appbux

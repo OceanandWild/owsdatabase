@@ -8817,11 +8817,43 @@ async function ensureTables() {
       created_at TIMESTAMP DEFAULT NOW()
     );
     
+    -- Tabla de lugares recurrentes (NatMarket)
+    CREATE TABLE IF NOT EXISTS user_places (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users_nat(id) ON DELETE CASCADE,
+      dept TEXT NOT NULL,
+      street TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+    
+    -- Tabla de métodos de envío recurrentes (NatMarket)
+    CREATE TABLE IF NOT EXISTS user_shipping_methods (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users_nat(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+    
+    -- Tablas de relación producto-lugar y producto-método (NatMarket)
+    CREATE TABLE IF NOT EXISTS product_places (
+      product_id INTEGER NOT NULL REFERENCES products_nat(id) ON DELETE CASCADE,
+      place_id INTEGER NOT NULL REFERENCES user_places(id) ON DELETE CASCADE,
+      PRIMARY KEY (product_id, place_id)
+    );
+    
+    CREATE TABLE IF NOT EXISTS product_shipping_methods (
+      product_id INTEGER NOT NULL REFERENCES products_nat(id) ON DELETE CASCADE,
+      shipping_method_id INTEGER NOT NULL REFERENCES user_shipping_methods(id) ON DELETE CASCADE,
+      PRIMARY KEY (product_id, shipping_method_id)
+    );
+    
     CREATE INDEX IF NOT EXISTS idx_ocean_pay_txs_user ON ocean_pay_txs(user_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_ecocore_txs_user ON ecocore_txs(user_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_products_rejected_user ON products_rejected(user_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_products_pending_user ON products_pending(user_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_messages_pending_product ON messages_pending(product_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_user_places_user ON user_places(user_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_user_shipping_methods_user ON user_shipping_methods(user_id, created_at DESC);
     `,
   ];
 

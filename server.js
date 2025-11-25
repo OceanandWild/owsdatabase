@@ -7283,11 +7283,11 @@ app.get('/oceanic-ethernet/balance/:userId', async (req, res) => {
   }
   
   const token = authHeader.substring(7);
-  let userId;
+  let oeUserId; // Renombramos a oeUserId para mayor claridad
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
-    userId = decoded.uid;
-    userId = parseInt(userId) || userId;
+    oeUserId = decoded.uid;
+    oeUserId = parseInt(oeUserId) || oeUserId;
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
   }
@@ -7296,16 +7296,37 @@ app.get('/oceanic-ethernet/balance/:userId', async (req, res) => {
   const paramUserIdNum = parseInt(paramUserId);
   
   // Verificar que el usuario del token coincida con el parámetro
-  if (userId !== paramUserIdNum) {
+  if (oeUserId !== paramUserIdNum) {
     return res.status(403).json({ error: 'No autorizado' });
   }
-  
+
+  // =========================================================================
+  // 💡 CORRECCIÓN CRÍTICA (Error 23503: Foreign Key Violation)
+  // Traducir el ID de Oceanic Ethernet (oeUserId) al ID de Ocean Pay (opUserId)
+  // =========================================================================
+  let opUserId;
   try {
-    // Intentar obtener desde metadata primero (como wildcredits)
+    const linkResult = await pool.query(
+        `SELECT external_user_id 
+         FROM oceanic_ethernet_user_links 
+         WHERE oe_user_id = $1 AND external_system = 'OceanPay'`,
+        [oeUserId]
+    );
+
+    if (linkResult.rows.length === 0) {
+        console.log(`Usuario OceanicEthernet (ID: ${oeUserId}) no vinculado a Ocean Pay.`);
+        return res.json({ balance: 0 }); // El usuario no está vinculado, el balance es 0
+    }
+
+    opUserId = linkResult.rows[0].external_user_id;
+
+    // A partir de aquí, solo usamos opUserId para las consultas a ocean_pay_metadata
+    
+    // Intentar obtener desde metadata primero
     const { rows: metaRows } = await pool.query(`
       SELECT value FROM ocean_pay_metadata
       WHERE user_id = $1 AND key = 'internet_gb'
-    `, [userId]);
+    `, [opUserId]); // ✅ CORREGIDO: Usando opUserId
     
     if (metaRows.length > 0) {
       const balance = parseFloat(metaRows[0].value || '0');
@@ -7317,7 +7338,7 @@ app.get('/oceanic-ethernet/balance/:userId', async (req, res) => {
       INSERT INTO ocean_pay_metadata (user_id, key, value)
       VALUES ($1, 'internet_gb', '0')
       ON CONFLICT (user_id, key) DO NOTHING
-    `, [userId]);
+    `, [opUserId]); // ✅ CORREGIDO: Usando opUserId
     
     res.json({ balance: 0 });
   } catch (err) {

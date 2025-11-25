@@ -7099,42 +7099,66 @@ app.post('/ocean-pay/wildcredits/transaction', async (req, res) => {
   }
 });
 
-/* ========== OCEANIC ETHERNET ========== */
-// Registro separado para OceanicEthernet
+// RUTA CORREGIDA: /oceanic-ethernet/register
 app.post('/oceanic-ethernet/register', async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Faltan datos' });
-
-  const hash = await bcrypt.hash(password, 10);
 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
 
-    // Crear usuario en tabla propia de OceanicEthernet
-    const { rows: [u] } = await client.query(
-      `INSERT INTO oceanic_ethernet_users (username, pwd_hash)
-       VALUES ($1, $2)
-       RETURNING id, username, created_at`,
-      [username, hash]
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    // 1️⃣. CREAR EL USUARIO EN OCEANIC ETHERNET
+    const { rows: oeUserRows } = await client.query(
+      'INSERT INTO oceanic_ethernet_users (username, pwd_hash) VALUES ($1, $2) RETURNING id, username',
+      [username, hashedPassword]
     );
+    const oeUser = oeUserRows[0]; // ID de OceanicEthernet (u.id o oeUser.id)
 
-    // Inicializar saldo de internet en 0 usando ocean_pay_metadata (compartida)
+    // ⚠️ 2️⃣. [PASO AÑADIDO/CORREGIDO] ASEGURAR Y OBTENER EL ID DEL USUARIO EN OCEAN PAY (TABLA PADRE)
+    let opUserId;
+    try {
+        // Intenta insertar el usuario en ocean_pay_users
+        const opResult = await client.query(
+            'INSERT INTO ocean_pay_users (username, pwd_hash) VALUES ($1, $2) RETURNING id',
+            [username, hashedPassword]
+        );
+        opUserId = opResult.rows[0].id;
+    } catch (e) {
+        if (e.code === '23505') { 
+            // Si el usuario ya existe en ocean_pay_users, recupera su ID
+            const existingOpUser = await client.query('SELECT id FROM ocean_pay_users WHERE username = $1', [username]);
+            opUserId = existingOpUser.rows[0].id;
+        } else {
+            throw e; // Relanza otros errores
+        }
+    }
+    
+    // 3️⃣. INICIALIZAR SALDO DE INTERNET USANDO EL ID CORRECTO (opUserId)
+    // Antes usaba el ID de OceanicEthernet (u.id), ahora usa el de Ocean Pay (opUserId).
     await client.query(`
       INSERT INTO ocean_pay_metadata (user_id, key, value)
       VALUES ($1, 'internet_gb', '0')
-      ON CONFLICT (user_id, key) DO NOTHING
-    `, [u.id]);
+      ON CONFLICT (user_id, key) DO NOTHING 
+    `, [opUserId]); // ✅ CORREGIDO: Usamos opUserId
 
+    // 4️⃣. Vincular usuario de OceanicEthernet con el de Ocean Pay
+    // (Esta tabla `oceanic_ethernet_user_links` sí usa ambos IDs y está bien)
+    await client.query(`
+      INSERT INTO oceanic_ethernet_user_links (oe_user_id, external_user_id, external_system)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (oe_user_id, external_system) DO NOTHING
+    `, [oeUser.id, opUserId, 'OceanPay']); 
+    
     await client.query('COMMIT');
-    res.json({ success: true, user: { id: u.id, username: u.username } });
+    res.json({ success: true, user: { id: oeUser.id, username: oeUser.username, opId: opUserId } });
 
   } catch (e) {
     await client.query('ROLLBACK');
     if (e.code === '23505') {
-      return res.status(409).json({ 
-        error: 'Este usuario ya existe. Si es tu cuenta, usa la opción "Iniciar sesión".' 
-      });
+      return res.status(409).json({ error: 'Este usuario ya existe. Si es tu cuenta, usa la opción "Iniciar sesión".' });
     }
     console.error('Error en oceanic-ethernet/register:', e);
     res.status(500).json({ error: 'Error interno del servidor' });

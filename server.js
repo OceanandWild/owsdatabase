@@ -76,6 +76,8 @@ const __dirname  = dirname(__filename);
 
 
 
+// ===== OCEAN PAY - MODO OFFLINE (SIN INTERNET) =====
+// Ocean Pay funciona completamente sin internet usando localStorage
 app.get('/ocean-pay/index.html', (_req, res) => {
   try {
     const html = fs.readFileSync(join(__dirname, 'Ocean Pay', 'index.html'), 'utf-8');
@@ -84,6 +86,9 @@ app.get('/ocean-pay/index.html', (_req, res) => {
     res.status(404).send('Archivo no encontrado');
   }
 });
+
+// Servir archivos estáticos de Ocean Pay
+app.use('/ocean-pay', express.static(join(__dirname, 'Ocean Pay')));
 
 app.get('/oceanic-ethernet/index.html', (_req, res) => {
   try {
@@ -126,7 +131,6 @@ app.post('/ocean-pay/wildcredits/sync', async (req, res) => {
         user_id INTEGER NOT NULL,
         key TEXT NOT NULL,
         value TEXT NOT NULL,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (user_id, key)
       )
     `);
@@ -136,7 +140,7 @@ app.post('/ocean-pay/wildcredits/sync', async (req, res) => {
       INSERT INTO ocean_pay_metadata (user_id, key, value)
       VALUES ($1, 'wildcredits', $2)
       ON CONFLICT (user_id, key) 
-      DO UPDATE SET value = $2, updated_at = CURRENT_TIMESTAMP
+      DO UPDATE SET value = $2
     `, [userId, wildCreditsValue.toString()]);
     
     res.json({ success: true, wildcredits: wildCreditsValue });
@@ -151,7 +155,6 @@ app.post('/ocean-pay/wildcredits/sync', async (req, res) => {
             user_id INTEGER NOT NULL,
             key TEXT NOT NULL,
             value TEXT NOT NULL,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (user_id, key)
           )
         `);
@@ -172,7 +175,6 @@ app.post('/ocean-pay/wildcredits/sync', async (req, res) => {
             user_id INTEGER NOT NULL,
             key TEXT NOT NULL,
             value TEXT NOT NULL,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (user_id, key)
           )
         `);
@@ -295,7 +297,6 @@ app.post('/wildshorts/wildgems/sync', async (req, res) => {
         user_id INTEGER NOT NULL,
         key TEXT NOT NULL,
         value TEXT NOT NULL,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (user_id, key)
       )
     `);
@@ -304,7 +305,7 @@ app.post('/wildshorts/wildgems/sync', async (req, res) => {
       INSERT INTO ocean_pay_metadata (user_id, key, value)
       VALUES ($1, 'wildgems', $2)
       ON CONFLICT (user_id, key) 
-      DO UPDATE SET value = $2, updated_at = CURRENT_TIMESTAMP
+      DO UPDATE SET value = $2
     `, [userId, wildGemsValue.toString()]);
     
     res.json({ success: true, wildgems: wildGemsValue });
@@ -360,7 +361,7 @@ app.post('/wildshorts/wildgems/change', async (req, res) => {
       INSERT INTO ocean_pay_metadata (user_id, key, value)
       VALUES ($1, 'wildgems', $2)
       ON CONFLICT (user_id, key) 
-      DO UPDATE SET value = $2, updated_at = CURRENT_TIMESTAMP
+      DO UPDATE SET value = $2
     `, [userId, newBalance.toString()]);
     
     // Registrar transacción
@@ -449,7 +450,7 @@ app.post('/wildshorts/subscribe', async (req, res) => {
         INSERT INTO ocean_pay_metadata (user_id, key, value)
         VALUES ($1, 'wildgems', $2)
         ON CONFLICT (user_id, key) 
-        DO UPDATE SET value = $2, updated_at = CURRENT_TIMESTAMP
+        DO UPDATE SET value = $2
       `, [userId, newBalance.toString()]);
       
       // Registrar transacción
@@ -725,7 +726,7 @@ app.post('/wildshorts/wildgems/claim', async (req, res) => {
       INSERT INTO ocean_pay_metadata (user_id, key, value)
       VALUES ($1, 'wildgems', $2)
       ON CONFLICT (user_id, key) 
-      DO UPDATE SET value = $2, updated_at = CURRENT_TIMESTAMP
+      DO UPDATE SET value = $2
     `, [userId, newBalance.toString()]);
     
     // Registrar reclamación
@@ -927,7 +928,7 @@ app.post('/wildshorts/episode/pay', async (req, res) => {
       INSERT INTO ocean_pay_metadata (user_id, key, value)
       VALUES ($1, 'wildgems', $2)
       ON CONFLICT (user_id, key) 
-      DO UPDATE SET value = $2, updated_at = CURRENT_TIMESTAMP
+      DO UPDATE SET value = $2
     `, [userId, newBalance.toString()]);
     
     // Registrar transacción según la estructura de la tabla (ya sabemos si tiene moneda)
@@ -995,50 +996,73 @@ app.post('/ocean-pay/link-account', async (req, res) => {
           user_id INTEGER NOT NULL,
           key TEXT NOT NULL,
           value TEXT NOT NULL,
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           PRIMARY KEY (user_id, key)
         )
       `);
-      if (wildCreditsValue > 0) {
-        await pool.query(`
-          INSERT INTO ocean_pay_metadata (user_id, key, value)
-          VALUES ($1, 'wildcredits', $2)
-          ON CONFLICT (user_id, key) 
-          DO UPDATE SET value = $2, updated_at = CURRENT_TIMESTAMP
-        `, [rows[0].id, wildCreditsValue.toString()]);
-      }
-      if (wildGemsValue > 0) {
-        await pool.query(`
-          INSERT INTO ocean_pay_metadata (user_id, key, value)
-          VALUES ($1, 'wildgems', $2)
-          ON CONFLICT (user_id, key) 
-          DO UPDATE SET value = $2, updated_at = CURRENT_TIMESTAMP
-        `, [rows[0].id, wildGemsValue.toString()]);
-      }
+      
+      // Obtener valores existentes del servidor
+      const { rows: existingRows } = await pool.query(`
+        SELECT key, value FROM ocean_pay_metadata
+        WHERE user_id = $1 AND key IN ('wildcredits', 'wildgems')
+      `, [rows[0].id]);
+      
+      let existingWildCredits = 0;
+      let existingWildGems = 0;
+      existingRows.forEach(row => {
+        if (row.key === 'wildcredits') existingWildCredits = parseInt(row.value || '0');
+        if (row.key === 'wildgems') existingWildGems = parseInt(row.value || '0');
+      });
+      
+      // Usar el valor máximo entre el existente y el nuevo
+      const finalWildCredits = Math.max(existingWildCredits, wildCreditsValue);
+      const finalWildGems = Math.max(existingWildGems, wildGemsValue);
+      
+      console.log(`[Ocean Pay Link] WildCredits: existente=${existingWildCredits}, nuevo=${wildCreditsValue}, final=${finalWildCredits}`);
+      console.log(`[Ocean Pay Link] WildGems: existente=${existingWildGems}, nuevo=${wildGemsValue}, final=${finalWildGems}`);
+      
+      // Guardar siempre (incluso si es 0) para mantener consistencia
+      await pool.query(`
+        INSERT INTO ocean_pay_metadata (user_id, key, value)
+        VALUES ($1, 'wildcredits', $2)
+        ON CONFLICT (user_id, key) 
+        DO UPDATE SET value = GREATEST(CAST(ocean_pay_metadata.value AS INTEGER), CAST($2 AS INTEGER))::TEXT
+      `, [rows[0].id, finalWildCredits.toString()]);
+      
+      await pool.query(`
+        INSERT INTO ocean_pay_metadata (user_id, key, value)
+        VALUES ($1, 'wildgems', $2)
+        ON CONFLICT (user_id, key) 
+        DO UPDATE SET value = GREATEST(CAST(ocean_pay_metadata.value AS INTEGER), CAST($2 AS INTEGER))::TEXT
+      `, [rows[0].id, finalWildGems.toString()]);
+      
     } catch (e) {
       console.warn('No se pudo guardar wildCredits/wildGems en servidor (continuando):', e.message);
     }
     
-    // Obtener wildGems y ecoxionums actualizados del servidor
-    let serverWildGems = 0;
+    // Obtener todos los valores actualizados del servidor (incluyendo wildcredits)
+    let serverWildCredits = wildCreditsValue;
+    let serverWildGems = wildGemsValue;
     let serverEcoxionums = 0;
     try {
       const { rows: metaRows } = await pool.query(`
         SELECT key, value FROM ocean_pay_metadata
-        WHERE user_id = $1 AND key IN ('wildgems', 'ecoxionums')
+        WHERE user_id = $1 AND key IN ('wildcredits', 'wildgems', 'ecoxionums')
       `, [rows[0].id]);
       
       metaRows.forEach(row => {
-        if (row.key === 'wildgems') {
+        if (row.key === 'wildcredits') {
+          serverWildCredits = parseInt(row.value || '0');
+        } else if (row.key === 'wildgems') {
           serverWildGems = parseInt(row.value || '0');
         } else if (row.key === 'ecoxionums') {
           serverEcoxionums = parseFloat(row.value || '0');
         }
       });
       
-      // Si no hay valores en metadata, usar los valores por defecto
-      if (serverWildGems === 0 && wildGemsValue > 0) serverWildGems = wildGemsValue;
+      console.log(`[Ocean Pay Link] Valores finales del servidor: WildCredits=${serverWildCredits}, WildGems=${serverWildGems}`);
     } catch (e) {
+      console.warn('[Ocean Pay Link] Error obteniendo valores del servidor:', e.message);
+      serverWildCredits = wildCreditsValue;
       serverWildGems = wildGemsValue;
     }
     
@@ -1051,7 +1075,7 @@ app.post('/ocean-pay/link-account', async (req, res) => {
         aquabux: rows[0].aquabux || 0,
         ecoxionums: serverEcoxionums,
         ecorebits: Number(rows[0].ecorebits) || 0,
-        wildcredits: wildCreditsValue,
+        wildcredits: serverWildCredits,
         wildgems: serverWildGems,
         appbux: rows[0].appbux || 0
       },
@@ -1059,7 +1083,7 @@ app.post('/ocean-pay/link-account', async (req, res) => {
         aquabux: rows[0].aquabux || 0,
         ecoxionums: serverEcoxionums,
         ecorebits: Number(rows[0].ecorebits) || 0,
-        wildcredits: wildCreditsValue,
+        wildcredits: serverWildCredits,
         wildgems: serverWildGems,
         appbux: rows[0].appbux || 0
       }
@@ -7144,7 +7168,6 @@ app.post('/ocean-pay/ecoxionums/change', async (req, res) => {
         user_id INTEGER NOT NULL,
         key TEXT NOT NULL,
         value TEXT NOT NULL,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (user_id, key)
       )
     `);
@@ -7168,7 +7191,7 @@ app.post('/ocean-pay/ecoxionums/change', async (req, res) => {
       `INSERT INTO ocean_pay_metadata (user_id, key, value)
        VALUES ($1, 'ecoxionums', $2)
        ON CONFLICT (user_id, key)
-       DO UPDATE SET value = $2, updated_at = CURRENT_TIMESTAMP`,
+       DO UPDATE SET value = $2`,
       [userIdInt, newBal.toString()]
     );
 
@@ -10574,7 +10597,6 @@ app.post('/deepdive/subscription/subscribe', async (req, res) => {
         user_id INTEGER NOT NULL,
         key TEXT NOT NULL,
         value TEXT NOT NULL,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (user_id, key)
       )
     `);
@@ -10600,7 +10622,7 @@ app.post('/deepdive/subscription/subscribe', async (req, res) => {
       `INSERT INTO ocean_pay_metadata (user_id, key, value)
          VALUES ($1, 'wildcredits', $2)
        ON CONFLICT (user_id, key)
-       DO UPDATE SET value = $2, updated_at = CURRENT_TIMESTAMP`,
+       DO UPDATE SET value = $2`,
       [opUserIdInt, String(newWC)]
     );
 
@@ -10756,7 +10778,6 @@ app.post('/deepdive/subscription/renew', async (req, res) => {
         user_id INTEGER NOT NULL,
         key TEXT NOT NULL,
         value TEXT NOT NULL,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (user_id, key)
       )
     `);
@@ -10777,7 +10798,7 @@ app.post('/deepdive/subscription/renew', async (req, res) => {
       `INSERT INTO ocean_pay_metadata (user_id, key, value)
          VALUES ($1, 'wildcredits', $2)
        ON CONFLICT (user_id, key)
-       DO UPDATE SET value = $2, updated_at = CURRENT_TIMESTAMP`,
+       DO UPDATE SET value = $2`,
       [opUserIdInt, String(newWC)]
     );
 
@@ -11363,7 +11384,6 @@ app.post('/wildx/api/verify/blue/subscribe', async (req, res) => {
           user_id INTEGER NOT NULL,
           key TEXT NOT NULL,
           value TEXT NOT NULL,
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           PRIMARY KEY (user_id, key)
         )
       `);
@@ -11386,7 +11406,7 @@ app.post('/wildx/api/verify/blue/subscribe', async (req, res) => {
       if (metaRows.length) {
         await client.query(
           `UPDATE ocean_pay_metadata
-              SET value = $2, updated_at = CURRENT_TIMESTAMP
+              SET value = $2
             WHERE user_id = $1 AND key = 'wildcredits'`,
           [opUserId, newBalance.toString()]
         );
@@ -11517,7 +11537,6 @@ app.post('/wildx/api/verify/blue/subscribe-credentials', async (req, res) => {
           user_id INTEGER NOT NULL,
           key TEXT NOT NULL,
           value TEXT NOT NULL,
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           PRIMARY KEY (user_id, key)
         )
       `);
@@ -11540,7 +11559,7 @@ app.post('/wildx/api/verify/blue/subscribe-credentials', async (req, res) => {
       if (metaRows.length) {
         await client.query(
           `UPDATE ocean_pay_metadata
-              SET value = $2, updated_at = CURRENT_TIMESTAMP
+              SET value = $2
             WHERE user_id = $1 AND key = 'wildcredits'`,
           [opUserId, newBalance.toString()]
         );
@@ -11783,7 +11802,6 @@ app.post('/wildx/api/posts/:id/donate', async (req, res) => {
         user_id INTEGER NOT NULL,
         key TEXT NOT NULL,
         value TEXT NOT NULL,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (user_id, key)
       )
     `);
@@ -11807,7 +11825,7 @@ app.post('/wildx/api/posts/:id/donate', async (req, res) => {
     if (metaRows.length) {
       await client.query(
         `UPDATE ocean_pay_metadata
-            SET value = $2, updated_at = CURRENT_TIMESTAMP
+            SET value = $2
           WHERE user_id = $1 AND key = 'wildcredits'`,
         [opUserId, newBalance.toString()]
       );

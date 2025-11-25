@@ -8393,7 +8393,7 @@ async function ensureTables() {
       finished BOOLEAN DEFAULT FALSE
     );
     
-    -- 💡 CORRECCIÓN DE ORDEN 1: Tablas de usuarios deben ir PRIMERO
+    -- 💡 CORRECCIÓN DE ORDEN: Tablas de usuarios/productos nat deben ir PRIMERO
     CREATE TABLE IF NOT EXISTS users_nat ( 
         id SERIAL PRIMARY KEY,
         username VARCHAR(100) UNIQUE NOT NULL,
@@ -8409,7 +8409,6 @@ async function ensureTables() {
       created_at TIMESTAMP DEFAULT now()
     );
 
-    -- 💡 CORRECCIÓN DE ORDEN 2: Definición de products_nat (faltaba y es referenciada por muchas)
     CREATE TABLE IF NOT EXISTS products_nat (
         id SERIAL PRIMARY KEY,
         user_id INTEGER REFERENCES users_nat(id) ON DELETE CASCADE,
@@ -8419,6 +8418,32 @@ async function ensureTables() {
         image_url TEXT,
         contact_number TEXT,
         created_at TIMESTAMP DEFAULT now()
+    );
+
+    -- 🔑 TABLA FALTANTE 1: ocean_pay_metadata (necesaria para el registro de OceanicEthernet)
+    -- Asumo que usa un ID SERIAL y clave/valor.
+    CREATE TABLE IF NOT EXISTS ocean_pay_metadata (
+        id SERIAL PRIMARY KEY,
+        key TEXT UNIQUE NOT NULL,
+        value TEXT NOT NULL
+    );
+
+    -- 🔑 TABLA FALTANTE 2: user_wishlist_nat
+    CREATE TABLE IF NOT EXISTS user_wishlist_nat (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users_nat(id) ON DELETE CASCADE,
+        product_id INTEGER NOT NULL REFERENCES products_nat(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT NOW(),
+        CONSTRAINT unique_wishlist_item UNIQUE (user_id, product_id)
+    );
+
+    -- 🔑 TABLA FALTANTE 3: user_favorites_nat
+    CREATE TABLE IF NOT EXISTS user_favorites_nat (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users_nat(id) ON DELETE CASCADE,
+        product_id INTEGER NOT NULL REFERENCES products_nat(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT NOW(),
+        CONSTRAINT unique_favorite_item UNIQUE (user_id, product_id)
     );
 
     CREATE TABLE IF NOT EXISTS products (
@@ -8559,7 +8584,6 @@ async function ensureTables() {
     END $$;
     
     -- Agregar columnas de stock y vendido a products_nat si no existen
-    -- 💡 IMPORTANTE: Esta alteración debe ir después de la creación de products_nat
     DO $$ 
     BEGIN
       IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products_nat' AND column_name = 'stock') THEN

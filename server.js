@@ -2120,6 +2120,418 @@ app.get('/status', (_req, res) =>
   res.sendFile(join(__dirname, 'Ocean and Wild Studios Status', 'index.html'))
 );
 
+/* ===== AI PRODUCT GENERATION ===== */
+
+// Ensure AI generation tables exist
+async function ensureAIGenerationTables() {
+  try {
+    // Create AI generation logs table
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ai_product_generations (
+        id BIGSERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users_nat(id),
+        model_id TEXT NOT NULL,
+        input_text TEXT NOT NULL,
+        generated_product JSONB NOT NULL,
+        validation_result JSONB,
+        success BOOLEAN NOT NULL,
+        error_message TEXT,
+        generation_time_ms INTEGER,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    
+    // Create indexes for performance
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_ai_gen_user ON ai_product_generations(user_id)
+    `);
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_ai_gen_created ON ai_product_generations(created_at)
+    `);
+    
+    // Add AI-related columns to products_nat table
+    await pool.query(`
+      ALTER TABLE products_nat 
+      ADD COLUMN IF NOT EXISTS ai_generated BOOLEAN DEFAULT FALSE,
+      ADD COLUMN IF NOT EXISTS ai_model TEXT,
+      ADD COLUMN IF NOT EXISTS ai_confidence JSONB
+    `);
+    
+    console.log('✅ AI generation tables initialized');
+  } catch (err) {
+    console.error('❌ Error initializing AI generation tables:', err);
+  }
+}
+
+// Initialize tables on startup
+ensureAIGenerationTables();
+
+// Rate limiting for AI generation (10 per hour per user)
+async function checkAIRateLimit(userId) {
+  try {
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+    const { rows } = await pool.query(
+      `SELECT COUNT(*) as count FROM ai_product_generations 
+       WHERE user_id = $1 AND created_at > $2`,
+      [userId, oneHourAgo]
+    );
+    
+    const count = parseInt(rows[0]?.count || '0');
+    if (count >= 10) {
+      const resetAt = new Date(Date.now() + 60 * 60 * 1000);
+      return { 
+        allowed: false, 
+        remaining: 0, 
+        resetAt: resetAt.toISOString(),
+        message: 'Has alcanzado el límite de 10 generaciones por hora'
+      };
+    }
+    
+    return { allowed: true, remaining: 10 - count };
+  } catch (err) {
+    console.error('Error checking AI rate limit:', err);
+    return { allowed: true, remaining: 10 }; // Fail open
+  }
+}
+
+// NatMarket Sentinel: Genesis - Local AI Model
+const NATMARKET_CATEGORIES = [
+  'Electrónica', 'Ropa y Accesorios', 'Hogar y Jardín', 'Deportes', 
+  'Juguetes y Juegos', 'Libros y Medios', 'Salud y Belleza', 
+  'Automotriz', 'Alimentos y Bebidas', 'Mascotas', 'Otros'
+];
+
+function generateProductWithAI(userInput, hints = {}) {
+  const input = userInput.toLowerCase();
+  const startTime = Date.now();
+  
+  // Detectar categoría
+  let category = hints.categoryHint || detectCategory(input);
+  let condition = hints.conditionHint || detectCondition(input);
+  
+  // Generar nombre del producto
+  const name = generateProductName(input, category);
+  
+  // Generar descripción
+  const description = generateProductDescription(input, name, category, condition);
+  
+  // Estimar precio
+  const price = estimatePrice(input, category, condition, hints.priceHint);
+  
+  // Generar tags
+  const tags = generateTags(input, category);
+  
+  // Calcular confianza
+  const confidence = calculateConfidence(input, category, price);
+  
+  const generationTime = Date.now() - startTime;
+  
+  return {
+    name,
+    description,
+    price,
+    category,
+    condition,
+    tags,
+    aiGenerated: true,
+    aiModel: 'sentinel-genesis-v1',
+    confidence,
+    generationTime
+  };
+}
+
+function detectCategory(input) {
+  const categoryKeywords = {
+    'Electrónica': ['celular', 'teléfono', 'computadora', 'laptop', 'tablet', 'auriculares', 'cargador', 'cable', 'mouse', 'teclado', 'monitor', 'tv', 'televisor', 'consola', 'playstation', 'xbox', 'nintendo', 'iphone', 'samsung', 'xiaomi'],
+    'Ropa y Accesorios': ['remera', 'camisa', 'pantalón', 'jean', 'zapatillas', 'zapatos', 'vestido', 'pollera', 'campera', 'buzo', 'sweater', 'gorra', 'sombrero', 'bufanda', 'guantes', 'medias', 'ropa', 'nike', 'adidas', 'puma'],
+    'Hogar y Jardín': ['mesa', 'silla', 'sillón', 'cama', 'colchón', 'lámpara', 'espejo', 'cortina', 'alfombra', 'maceta', 'planta', 'herramienta', 'taladro', 'martillo', 'mueble', 'estante'],
+    'Deportes': ['pelota', 'bicicleta', 'patineta', 'pesas', 'mancuernas', 'cinta', 'yoga', 'gimnasio', 'deporte', 'fútbol', 'basket', 'tenis', 'natación'],
+    'Juguetes y Juegos': ['juguete', 'muñeca', 'auto', 'lego', 'puzzle', 'rompecabezas', 'peluche', 'juego', 'mesa', 'cartas', 'monopoly'],
+    'Libros y Medios': ['libro', 'revista', 'cómic', 'manga', 'dvd', 'cd', 'vinilo', 'película', 'música'],
+    'Salud y Belleza': ['perfume', 'crema', 'shampoo', 'maquillaje', 'labial', 'base', 'skincare', 'cuidado', 'belleza', 'cosmético'],
+    'Automotriz': ['auto', 'coche', 'moto', 'llanta', 'neumático', 'aceite', 'filtro', 'batería', 'repuesto'],
+    'Alimentos y Bebidas': ['comida', 'bebida', 'café', 'té', 'chocolate', 'dulce', 'snack', 'galleta'],
+    'Mascotas': ['perro', 'gato', 'mascota', 'alimento', 'collar', 'correa', 'juguete', 'cama', 'comedero']
+  };
+  
+  for (const [cat, keywords] of Object.entries(categoryKeywords)) {
+    if (keywords.some(kw => input.includes(kw))) {
+      return cat;
+    }
+  }
+  
+  return 'Otros';
+}
+
+function detectCondition(input) {
+  if (input.includes('nuevo') || input.includes('sin usar') || input.includes('estrenar')) {
+    return 'nuevo';
+  }
+  if (input.includes('usado') || input.includes('segunda mano')) {
+    return 'usado';
+  }
+  if (input.includes('como nuevo') || input.includes('excelente estado')) {
+    return 'como nuevo';
+  }
+  if (input.includes('reacondicionado') || input.includes('refurbished')) {
+    return 'reacondicionado';
+  }
+  return 'usado'; // Default
+}
+
+function generateProductName(input, category) {
+  // Extraer palabras clave importantes
+  const words = input.split(' ').filter(w => w.length > 2);
+  const stopWords = ['el', 'la', 'los', 'las', 'un', 'una', 'de', 'del', 'en', 'con', 'para', 'por', 'muy', 'buen', 'buena'];
+  const keywords = words.filter(w => !stopWords.includes(w));
+  
+  // Capitalizar primera letra de cada palabra importante
+  const capitalized = keywords.slice(0, 5).map(w => 
+    w.charAt(0).toUpperCase() + w.slice(1)
+  ).join(' ');
+  
+  return capitalized || `Producto de ${category}`;
+}
+
+function generateProductDescription(input, name, category, condition) {
+  const templates = {
+    'nuevo': [
+      `${name} completamente nuevo y sin usar. Producto de excelente calidad en su empaque original.`,
+      `Ofrezco ${name} nuevo, sin estrenar. Ideal para quienes buscan calidad garantizada.`,
+      `${name} nuevo en caja. Perfecto estado, listo para usar.`
+    ],
+    'usado': [
+      `${name} en buen estado de uso. Funciona perfectamente y ha sido bien cuidado.`,
+      `Vendo ${name} usado pero en excelentes condiciones. Totalmente funcional.`,
+      `${name} de segunda mano en buen estado. Precio accesible.`
+    ],
+    'como nuevo': [
+      `${name} en estado impecable, prácticamente sin uso. Como recién comprado.`,
+      `${name} usado muy poco, en condiciones casi nuevas. Excelente oportunidad.`
+    ],
+    'reacondicionado': [
+      `${name} reacondicionado profesionalmente. Funciona como nuevo con garantía.`,
+      `${name} restaurado y verificado. Calidad garantizada.`
+    ]
+  };
+  
+  const template = templates[condition] || templates['usado'];
+  const baseDesc = template[Math.floor(Math.random() * template.length)];
+  
+  // Agregar detalles adicionales basados en la categoría
+  const categoryDetails = {
+    'Electrónica': ' Incluye todos los accesorios necesarios.',
+    'Ropa y Accesorios': ' Talle y medidas disponibles en las fotos.',
+    'Hogar y Jardín': ' Entrega a coordinar según zona.',
+    'Deportes': ' Perfecto para entrenar o practicar.',
+    'Libros y Medios': ' En excelente estado de conservación.'
+  };
+  
+  return baseDesc + (categoryDetails[category] || ' Consultar por más detalles.');
+}
+
+function estimatePrice(input, category, condition, priceHint) {
+  if (priceHint && priceHint > 0) {
+    return Math.round(priceHint);
+  }
+  
+  // Precios base por categoría (en ARS)
+  const basePrices = {
+    'Electrónica': 50000,
+    'Ropa y Accesorios': 15000,
+    'Hogar y Jardín': 25000,
+    'Deportes': 20000,
+    'Juguetes y Juegos': 10000,
+    'Libros y Medios': 5000,
+    'Salud y Belleza': 8000,
+    'Automotriz': 100000,
+    'Alimentos y Bebidas': 3000,
+    'Mascotas': 12000,
+    'Otros': 15000
+  };
+  
+  let price = basePrices[category] || 15000;
+  
+  // Ajustar por condición
+  const conditionMultipliers = {
+    'nuevo': 1.0,
+    'como nuevo': 0.85,
+    'reacondicionado': 0.75,
+    'usado': 0.6
+  };
+  
+  price *= (conditionMultipliers[condition] || 0.6);
+  
+  // Agregar variación aleatoria ±20%
+  const variation = 0.8 + (Math.random() * 0.4);
+  price *= variation;
+  
+  // Redondear a múltiplos de 100
+  return Math.round(price / 100) * 100;
+}
+
+function generateTags(input, category) {
+  const words = input.toLowerCase().split(' ').filter(w => w.length > 3);
+  const tags = [...new Set(words.slice(0, 5))];
+  tags.push(category.toLowerCase());
+  return tags.slice(0, 5);
+}
+
+function calculateConfidence(input, category, price) {
+  let nameConf = Math.min(1, input.length / 50); // Más detalle = más confianza
+  let categoryConf = category !== 'Otros' ? 0.9 : 0.5;
+  let priceConf = (price >= 1000 && price <= 1000000) ? 0.85 : 0.6;
+  
+  return {
+    name: Math.round(nameConf * 100) / 100,
+    category: categoryConf,
+    price: priceConf
+  };
+}
+
+// Endpoint principal de generación
+app.post('/natmarket/ai/generate-product', async (req, res) => {
+  const startTime = Date.now();
+  
+  try {
+    const { userId, modelId, productInput } = req.body;
+    
+    // Validar datos requeridos
+    if (!userId || !productInput || !productInput.description) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'userId y productInput.description son requeridos' 
+      });
+    }
+    
+    // Verificar si el usuario está baneado
+    const banStatus = await isUserBanned(userId);
+    if (banStatus.banned) {
+      return res.status(403).json({
+        success: false,
+        error: `Tu cuenta está suspendida hasta ${new Date(banStatus.banUntil).toLocaleDateString('es-AR')}. Razón: ${banStatus.reason}`
+      });
+    }
+    
+    // Verificar rate limit
+    const rateLimit = await checkAIRateLimit(userId);
+    if (!rateLimit.allowed) {
+      return res.status(429).json({
+        success: false,
+        error: rateLimit.message,
+        resetAt: rateLimit.resetAt,
+        remaining: 0
+      });
+    }
+    
+    // Validar longitud del input
+    if (productInput.description.length < 20) {
+      return res.status(400).json({
+        success: false,
+        error: 'La descripción debe tener al menos 20 caracteres'
+      });
+    }
+    
+    if (productInput.description.length > 500) {
+      return res.status(400).json({
+        success: false,
+        error: 'La descripción no puede exceder 500 caracteres'
+      });
+    }
+    
+    // Generar producto con IA
+    const generatedProduct = generateProductWithAI(
+      productInput.description,
+      {
+        priceHint: productInput.priceHint,
+        categoryHint: productInput.categoryHint,
+        conditionHint: productInput.conditionHint
+      }
+    );
+    
+    // Validar contenido generado
+    if (containsInappropriate(generatedProduct.name) || 
+        containsInappropriate(generatedProduct.description)) {
+      
+      // Agregar strike al usuario
+      await addStrike(userId, 'Intento de generar producto inapropiado con IA');
+      
+      // Registrar intento fallido
+      await pool.query(
+        `INSERT INTO ai_product_generations 
+         (user_id, model_id, input_text, generated_product, validation_result, success, error_message, generation_time_ms)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [
+          userId,
+          modelId || 'sentinel-genesis-v1',
+          productInput.description,
+          JSON.stringify(generatedProduct),
+          JSON.stringify({ valid: false, reason: 'Contenido inapropiado' }),
+          false,
+          'Contenido inapropiado detectado',
+          Date.now() - startTime
+        ]
+      );
+      
+      return res.status(400).json({
+        success: false,
+        error: 'El contenido generado no cumple con nuestras políticas. Intenta con una descripción diferente.'
+      });
+    }
+    
+    // Validar precio
+    if (generatedProduct.price < 100 || generatedProduct.price > 10000000) {
+      generatedProduct.price = Math.max(100, Math.min(10000000, generatedProduct.price));
+    }
+    
+    // Validar longitud de descripción
+    if (generatedProduct.description.length < 50) {
+      generatedProduct.description += ' Consultar por más información y detalles del producto.';
+    }
+    
+    // Registrar generación exitosa
+    await pool.query(
+      `INSERT INTO ai_product_generations 
+       (user_id, model_id, input_text, generated_product, validation_result, success, generation_time_ms)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [
+        userId,
+        modelId || 'sentinel-genesis-v1',
+        productInput.description,
+        JSON.stringify(generatedProduct),
+        JSON.stringify({ valid: true }),
+        true,
+        Date.now() - startTime
+      ]
+    );
+    
+    // Responder con el producto generado
+    res.json({
+      success: true,
+      product: {
+        name: generatedProduct.name,
+        description: generatedProduct.description,
+        price: generatedProduct.price,
+        category: generatedProduct.category,
+        condition: generatedProduct.condition,
+        tags: generatedProduct.tags,
+        aiGenerated: true,
+        aiModel: generatedProduct.aiModel,
+        confidence: generatedProduct.confidence
+      },
+      warnings: generatedProduct.confidence.price < 0.7 ? 
+        ['El precio estimado puede no ser preciso. Revísalo antes de publicar.'] : []
+    });
+    
+  } catch (err) {
+    console.error('Error en generación de producto con IA:', err);
+    res.status(500).json({
+      success: false,
+      error: 'Error interno del servidor al generar el producto'
+    });
+  }
+});
+
 
 
 const FORBIDDEN = [

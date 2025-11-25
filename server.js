@@ -3173,10 +3173,24 @@ app.get("/version", async (_req, res) => {
 const PRODUCT_TABLES = { deepdive: 'deepdive_updates', natmarket: 'natmarket_updates', ecoconsole: 'updates_ecoconsole' };
 app.get("/api/featured-update", async (req, res) => {
   try {
-    const product = String(req.query.product || 'deepdive').toLowerCase();
-    const table = PRODUCT_TABLES[product] || PRODUCT_TABLES.deepdive;
+    const product = String(req.query.product || '').toLowerCase();
+    
+    // Si no se especifica producto o no es válido, devolver null (no mezclar productos)
+    if (!product || !PRODUCT_TABLES[product]) {
+      console.log(`⚠️ Producto no especificado o inválido: "${product}"`);
+      return res.json(null);
+    }
+    
+    const table = PRODUCT_TABLES[product];
+    console.log(`📋 Consultando actualizaciones de ${product} desde tabla ${table}`);
+    
     const { rows } = await pool.query(`SELECT version, news, date FROM ${table} ORDER BY date DESC LIMIT 1`);
-    if (!rows[0]) return res.json(null);
+    if (!rows[0]) {
+      console.log(`ℹ️ No hay actualizaciones en ${table}`);
+      return res.json(null);
+    }
+    
+    console.log(`✅ Actualización encontrada para ${product}: ${rows[0].version}`);
     res.json({ version: rows[0].version, date: rows[0].date, news: sanitizeNews(rows[0].news || '') });
   } catch (err) {
     console.error("❌ Error en /api/featured-update:", err.message);

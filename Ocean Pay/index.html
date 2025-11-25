@@ -936,41 +936,51 @@ async function loadWildCreditsBalance() {
             ? Math.round(opUser.wildcredits || 0) 
             : null;
         
-        // Decidir qué valor usar (prioridad: servidor > localStorage > opUser > 0)
-        if (wildCreditsFromServer !== null) {
-            // Usar el valor del servidor como fuente de verdad
-            wildCredits = wildCreditsFromServer;
-            console.log('[WildCredits] Usando valor del servidor:', wildCredits);
+        // Decidir qué valor usar con mejor lógica de prioridad
+        // Prioridad: MAX(servidor, localStorage, opUser) para evitar perder datos
+        const allValues = [
+            wildCreditsFromServer,
+            wildCreditsFromStorage,
+            wildCreditsFromOpUser
+        ].filter(v => v !== null && v !== undefined);
+        
+        if (allValues.length > 0) {
+            // Usar el valor más alto para evitar perder progreso
+            wildCredits = Math.max(...allValues);
+            console.log('[WildCredits] Valores encontrados:', {
+                servidor: wildCreditsFromServer,
+                localStorage: wildCreditsFromStorage,
+                opUser: wildCreditsFromOpUser,
+                seleccionado: wildCredits
+            });
             
-            // Actualizar localStorage y opUser con el valor del servidor
+            // Actualizar todas las fuentes con el valor más alto
             localStorage.setItem('wildCredits', wildCredits.toString());
-            if (opUser && opUser.id) {
+            if (opToken && opUser && opUser.id) {
                 opUser.wildcredits = wildCredits;
                 localStorage.setItem('opUser', JSON.stringify(opUser));
+                
+                // Si el servidor tiene un valor menor, sincronizarlo
+                if (wildCreditsFromServer !== null && wildCreditsFromServer < wildCredits) {
+                    console.log('[WildCredits] Sincronizando valor más alto con el servidor...');
+                    fetch(`${API}/ocean-pay/wildcredits/sync`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${opToken}`
+                        },
+                        body: JSON.stringify({ wildCredits: wildCredits })
+                    }).then(res => res.json())
+                      .then(data => console.log('[WildCredits] Servidor actualizado:', data))
+                      .catch(err => console.warn('[WildCredits] Error actualizando servidor:', err));
+                }
             }
-        } else if (wildCreditsFromStorage !== null && wildCreditsFromStorage > 0) {
-            wildCredits = wildCreditsFromStorage;
-            console.log('[WildCredits] Usando valor de localStorage (servidor no disponible):', wildCredits);
-            
-            // Si opUser tiene 0 o un valor menor, actualizarlo
-            if (opToken && opUser && opUser.id && 
-                (wildCreditsFromOpUser === null || wildCreditsFromOpUser < wildCredits || wildCreditsFromOpUser === 0)) {
-                opUser.wildcredits = wildCredits;
-                localStorage.setItem('opUser', JSON.stringify(opUser));
-            }
-        } else if (wildCreditsFromOpUser !== null && wildCreditsFromOpUser > 0) {
-            wildCredits = wildCreditsFromOpUser;
-            console.log('[WildCredits] Usando valor de opUser:', wildCredits);
-            // Guardar en localStorage para futuras cargas
-            localStorage.setItem('wildCredits', wildCredits.toString());
         } else {
             // Ninguna fuente tiene valor
             wildCredits = 0;
-            if (wildCreditsStr === null || wildCreditsStr === undefined) {
-                localStorage.setItem('wildCredits', '0');
-            }
+            localStorage.setItem('wildCredits', '0');
             if (opToken && opUser && opUser.id) {
-                console.log('[WildCredits] Balance es 0. Si ganas WildCredits en Wild Explorer, se sincronizará automáticamente con el servidor.');
+                console.log('[WildCredits] Balance es 0. Si ganas WildCredits en Wild Explorer, se sincronizará automáticamente.');
             } else {
                 console.log('[WildCredits] Sin balance y sin cuenta vinculada, inicializando con 0');
             }

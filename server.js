@@ -1,5 +1,4 @@
-// 0️⃣ SIEMPRE PRIMERO
-import "./instrument.js";
+
 
 // 1️⃣ Después el resto
 import express from "express";
@@ -8370,6 +8369,14 @@ async function ensureDatabase() {
 
 async function ensureTables() {
   const tableQueries = [
+    // 🔑 TABLA FALTANTE 1: updates_ecoconsole (Ahora debería crearse)
+    `CREATE TABLE IF NOT EXISTS updates_ecoconsole (
+      id SERIAL PRIMARY KEY,
+      version TEXT NOT NULL,
+      news TEXT,
+      date TIMESTAMP NOT NULL DEFAULT NOW()
+    );`,
+    // Otras tablas de actualizaciones/sugerencias
     `CREATE TABLE IF NOT EXISTS updates (
       id SERIAL PRIMARY KEY,
       version TEXT NOT NULL,
@@ -8393,7 +8400,7 @@ async function ensureTables() {
       finished BOOLEAN DEFAULT FALSE
     );
     
-    -- 💡 CORRECCIÓN DE ORDEN: Todas las tablas de usuarios principales van PRIMERO
+    -- BLOQUE DE USUARIOS PRINCIPALES (INTEGER Y TEXT)
     CREATE TABLE IF NOT EXISTS users_nat ( 
         id SERIAL PRIMARY KEY,
         username VARCHAR(100) UNIQUE NOT NULL,
@@ -8423,8 +8430,17 @@ async function ensureTables() {
       pwd_hash      TEXT NOT NULL,
       created_at    TIMESTAMP DEFAULT NOW()
     );
+    
+    -- ocean_pay_metadata: Se define con user_id para instalaciones nuevas
+    CREATE TABLE IF NOT EXISTS ocean_pay_metadata (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES ocean_pay_users(id) ON DELETE CASCADE, 
+        key TEXT NOT NULL, 
+        value TEXT NOT NULL,
+        CONSTRAINT unique_user_key UNIQUE (user_id, key)
+    );
 
-    -- 💡 CORRECCIÓN DE ORDEN: Productos Nat antes de ser referenciados
+    -- BLOQUE DE ENTIDADES NAT-MARKET (Referencian users_nat)
     CREATE TABLE IF NOT EXISTS products_nat (
         id SERIAL PRIMARY KEY,
         user_id INTEGER REFERENCES users_nat(id) ON DELETE CASCADE,
@@ -8435,17 +8451,60 @@ async function ensureTables() {
         contact_number TEXT,
         created_at TIMESTAMP DEFAULT now()
     );
-
-    -- 🔑 CORRECCIÓN: ocean_pay_metadata debe tener user_id y referenciar a ocean_pay_users
-    CREATE TABLE IF NOT EXISTS ocean_pay_metadata (
+    
+    CREATE TABLE IF NOT EXISTS user_ratings_nat (
         id SERIAL PRIMARY KEY,
-        user_id INTEGER REFERENCES ocean_pay_users(id) ON DELETE CASCADE, -- <--- COLUMNA AÑADIDA
-        key TEXT NOT NULL, 
-        value TEXT NOT NULL,
-        CONSTRAINT unique_user_key UNIQUE (user_id, key) -- Asumo esta restricción
+        rated_user_id INTEGER NOT NULL REFERENCES users_nat(id) ON DELETE CASCADE,
+        rater_user_id INTEGER NOT NULL REFERENCES users_nat(id) ON DELETE CASCADE,
+        rating INT CHECK (rating BETWEEN 1 AND 5),
+        product_id INTEGER REFERENCES products_nat(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT now(),
+        CONSTRAINT unique_rating UNIQUE (rated_user_id, rater_user_id, product_id)
     );
 
-    -- Tablas que referencian a users (TEXT ID)
+    CREATE TABLE IF NOT EXISTS messages_nat (
+        id SERIAL PRIMARY KEY,
+        sender_id INTEGER NOT NULL REFERENCES users_nat(id) ON DELETE CASCADE,
+        product_id INTEGER NOT NULL REFERENCES products_nat(id) ON DELETE CASCADE,
+        message TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT now()
+    );
+
+    CREATE TABLE IF NOT EXISTS user_wishlist_nat (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users_nat(id) ON DELETE CASCADE,
+        product_id INTEGER NOT NULL REFERENCES products_nat(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT NOW(),
+        CONSTRAINT unique_wishlist_item UNIQUE (user_id, product_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS user_favorites_nat (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES users_nat(id) ON DELETE CASCADE,
+        product_id INTEGER NOT NULL REFERENCES products_nat(id) ON DELETE CASCADE,
+        created_at TIMESTAMP DEFAULT NOW(),
+        CONSTRAINT unique_favorite_item UNIQUE (user_id, product_id)
+    );
+    
+    -- BLOQUE DE OTRAS ENTIDADES (Referencian users - TEXT ID y oceanic_ethernet_users)
+    CREATE TABLE IF NOT EXISTS oceanic_ethernet_txs (
+      id            SERIAL PRIMARY KEY,
+      user_id       INTEGER NOT NULL REFERENCES oceanic_ethernet_users(id) ON DELETE CASCADE,
+      concepto      TEXT NOT NULL,
+      monto         NUMERIC(20, 15) NOT NULL,
+      origen        VARCHAR(50) DEFAULT 'OceanicEthernet',
+      created_at    TIMESTAMP DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS oceanic_ethernet_user_links (
+      id            SERIAL PRIMARY KEY,
+      oe_user_id    INTEGER NOT NULL REFERENCES oceanic_ethernet_users(id) ON DELETE CASCADE,
+      external_user_id TEXT NOT NULL, 
+      external_system VARCHAR(50) NOT NULL,
+      created_at    TIMESTAMP DEFAULT NOW(),
+      UNIQUE(external_user_id, external_system)
+    );
+
     CREATE TABLE IF NOT EXISTS products (
       id SERIAL PRIMARY KEY,
       user_id TEXT REFERENCES users(id) ON DELETE CASCADE, 
@@ -8494,24 +8553,6 @@ async function ensureTables() {
       created_at TIMESTAMP DEFAULT NOW()
     );
 
-    CREATE TABLE IF NOT EXISTS oceanic_ethernet_txs (
-      id            SERIAL PRIMARY KEY,
-      user_id       INTEGER NOT NULL REFERENCES oceanic_ethernet_users(id) ON DELETE CASCADE,
-      concepto      TEXT NOT NULL,
-      monto         NUMERIC(20, 15) NOT NULL,
-      origen        VARCHAR(50) DEFAULT 'OceanicEthernet',
-      created_at    TIMESTAMP DEFAULT NOW()
-    );
-
-    CREATE TABLE IF NOT EXISTS oceanic_ethernet_user_links (
-      id            SERIAL PRIMARY KEY,
-      oe_user_id    INTEGER NOT NULL REFERENCES oceanic_ethernet_users(id) ON DELETE CASCADE,
-      external_user_id TEXT NOT NULL, 
-      external_system VARCHAR(50) NOT NULL,
-      created_at    TIMESTAMP DEFAULT NOW(),
-      UNIQUE(external_user_id, external_system)
-    );
-
     CREATE TABLE IF NOT EXISTS tigertasks_backups (
       user_id TEXT PRIMARY KEY,
       backup_data JSONB NOT NULL,
@@ -8528,7 +8569,6 @@ async function ensureTables() {
       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
     
-    -- Tablas que referencian a users_nat/products_nat (INTEGER ID)
     CREATE TABLE IF NOT EXISTS notifications_nat (
       id SERIAL PRIMARY KEY,
       user_id INTEGER NOT NULL REFERENCES users_nat(id) ON DELETE CASCADE,
@@ -8540,59 +8580,6 @@ async function ensureTables() {
       created_at TIMESTAMP DEFAULT NOW()
     );
     
-    -- Agregar columna appbux a ocean_pay_users si no existe
-    DO $$ 
-    BEGIN
-      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'ocean_pay_users' AND column_name = 'appbux') THEN
-        ALTER TABLE ocean_pay_users ADD COLUMN appbux INTEGER DEFAULT 0;
-      END IF;
-    END $$;
-    
-    -- Agregar user_unique_id y unique_id_shown a users_nat si no existen
-    DO $$ 
-    BEGIN
-      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users_nat' AND column_name = 'user_unique_id') THEN
-        ALTER TABLE users_nat ADD COLUMN user_unique_id VARCHAR(100) UNIQUE;
-      END IF;
-      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users_nat' AND column_name = 'unique_id_shown') THEN
-        ALTER TABLE users_nat ADD COLUMN unique_id_shown BOOLEAN DEFAULT false;
-      END IF;
-      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users_nat' AND column_name = 'strikes') THEN
-        ALTER TABLE users_nat ADD COLUMN strikes INTEGER DEFAULT 0;
-      END IF;
-      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users_nat' AND column_name = 'banned_until') THEN
-        ALTER TABLE users_nat ADD COLUMN banned_until TIMESTAMP;
-      END IF;
-      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users_nat' AND column_name = 'ban_reason') THEN
-        ALTER TABLE users_nat ADD COLUMN ban_reason TEXT;
-      END IF;
-    END $$;
-    
-    -- Agregar columnas de stock y vendido a products_nat si no existen
-    DO $$ 
-    BEGIN
-      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products_nat' AND column_name = 'stock') THEN
-        ALTER TABLE products_nat ADD COLUMN stock INTEGER DEFAULT 1;
-      END IF;
-      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products_nat' AND column_name = 'sold') THEN
-        ALTER TABLE products_nat ADD COLUMN sold BOOLEAN DEFAULT false;
-      END IF;
-      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products_nat' AND column_name = 'buyer_id') THEN
-        ALTER TABLE products_nat ADD COLUMN buyer_id INTEGER REFERENCES users_nat(id) ON DELETE SET NULL;
-      END IF;
-      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products_nat' AND column_name = 'published_at') THEN
-        ALTER TABLE products_nat ADD COLUMN published_at TIMESTAMP DEFAULT now();
-        -- Inicializar published_at con created_at para productos existentes
-        UPDATE products_nat SET published_at = created_at WHERE published_at IS NULL;
-      END IF;
-      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products_nat' AND column_name = 'category') THEN
-        ALTER TABLE products_nat ADD COLUMN category VARCHAR(100);
-      END IF;
-      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products_nat' AND column_name = 'status') THEN
-        ALTER TABLE products_nat ADD COLUMN status VARCHAR(50) DEFAULT 'disponible';
-      END IF;
-    END $$;
-
     -- Crear tabla de reportes
     CREATE TABLE IF NOT EXISTS product_reports (
       id SERIAL PRIMARY KEY,
@@ -8644,13 +8631,149 @@ async function ensureTables() {
     `,
   ];
 
+  // 1. Ejecutar la creación de todas las tablas
   for (const q of tableQueries) {
     try {
         await pool.query(q);
     } catch (error) {
-        console.error(`❌ Error al ejecutar query: ${q.substring(0, 50)}...`, error);
+        console.error(`❌ Error al ejecutar query de creación de tabla: ${q.substring(0, 50)}...`, error);
+        // Lanzamos el error solo si es crítico para que las tablas no se creen
         throw error;
     }
+  }
+  
+  // =========================================================
+  // 🔑 MIGRACIÓN CRÍTICA ocean_pay_metadata (Paso a paso)
+  // =========================================================
+
+  try {
+    // 1. Verificar y Agregar columna user_id
+    const columnCheck = await pool.query(`
+        SELECT 1 
+        FROM information_schema.columns 
+        WHERE table_name = 'ocean_pay_metadata' AND column_name = 'user_id'
+    `);
+    
+    if (columnCheck.rows.length === 0) {
+        console.log('🔄 Agregando columna user_id a ocean_pay_metadata...');
+        await pool.query(`ALTER TABLE ocean_pay_metadata ADD COLUMN user_id INTEGER`);
+        console.log('✅ Columna user_id agregada.');
+    }
+    
+    // 2. Verificar y Agregar la llave foránea
+    const fkCheck = await pool.query(`
+        SELECT 1 
+        FROM pg_constraint 
+        WHERE conrelid = 'ocean_pay_metadata'::regclass AND conname = 'ocean_pay_metadata_user_id_fkey'
+    `);
+    
+    if (fkCheck.rows.length === 0) {
+        console.log('🔄 Agregando FK a ocean_pay_metadata...');
+        await pool.query(`
+            ALTER TABLE ocean_pay_metadata 
+            ADD CONSTRAINT ocean_pay_metadata_user_id_fkey 
+            FOREIGN KEY (user_id) REFERENCES ocean_pay_users(id) ON DELETE CASCADE
+        `);
+        console.log('✅ FK ocean_pay_metadata_user_id_fkey agregada.');
+    }
+
+    // 3. Verificar y Agregar la restricción UNIQUE
+    const uniqueCheck = await pool.query(`
+        SELECT 1 
+        FROM pg_constraint 
+        WHERE conrelid = 'ocean_pay_metadata'::regclass AND conname = 'unique_user_key'
+    `);
+    
+    if (uniqueCheck.rows.length === 0) {
+        console.log('🔄 Agregando restricción UNIQUE a ocean_pay_metadata...');
+        await pool.query(`
+            ALTER TABLE ocean_pay_metadata 
+            ADD CONSTRAINT unique_user_key UNIQUE (user_id, key)
+        `);
+        console.log('✅ Restricción UNIQUE agregada.');
+    }
+    
+    console.log('✅ Migración de ocean_pay_metadata ejecutada de forma secuencial.');
+  } catch (err) {
+      console.warn('⚠️ Error al ejecutar migración secuencial de ocean_pay_metadata (puede ser un error menor si ya existe):', err.message);
+  }
+  
+  // =========================================================
+  // Bloque de migraciones restantes (Procedural SQL, ahora más aislado)
+  // =========================================================
+
+  // Agregar columna appbux a ocean_pay_users si no existe
+  try {
+    await pool.query(`
+      DO $$ 
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'ocean_pay_users' AND column_name = 'appbux') THEN
+          ALTER TABLE ocean_pay_users ADD COLUMN appbux INTEGER DEFAULT 0;
+        END IF;
+      END $$;
+    `);
+    console.log('✅ Migración de ocean_pay_users appbux ejecutada.');
+  } catch (err) {
+    console.warn('⚠️ Error al ejecutar migración de ocean_pay_users appbux:', err.message);
+  }
+  
+  // Agregar user_unique_id y unique_id_shown a users_nat si no existen
+  try {
+    await pool.query(`
+      DO $$ 
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users_nat' AND column_name = 'user_unique_id') THEN
+          ALTER TABLE users_nat ADD COLUMN user_unique_id VARCHAR(100) UNIQUE;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users_nat' AND column_name = 'unique_id_shown') THEN
+          ALTER TABLE users_nat ADD COLUMN unique_id_shown BOOLEAN DEFAULT false;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users_nat' AND column_name = 'strikes') THEN
+          ALTER TABLE users_nat ADD COLUMN strikes INTEGER DEFAULT 0;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users_nat' AND column_name = 'banned_until') THEN
+          ALTER TABLE users_nat ADD COLUMN banned_until TIMESTAMP;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users_nat' AND column_name = 'ban_reason') THEN
+          ALTER TABLE users_nat ADD COLUMN ban_reason TEXT;
+        END IF;
+      END $$;
+    `);
+    console.log('✅ Migración de users_nat columnas ejecutada.');
+  } catch (err) {
+    console.warn('⚠️ Error al ejecutar migración de users_nat columnas:', err.message);
+  }
+  
+  // Agregar columnas de stock y vendido a products_nat si no existen
+  try {
+    await pool.query(`
+      DO $$ 
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products_nat' AND column_name = 'stock') THEN
+          ALTER TABLE products_nat ADD COLUMN stock INTEGER DEFAULT 1;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products_nat' AND column_name = 'sold') THEN
+          ALTER TABLE products_nat ADD COLUMN sold BOOLEAN DEFAULT false;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products_nat' AND column_name = 'buyer_id') THEN
+          ALTER TABLE products_nat ADD COLUMN buyer_id INTEGER REFERENCES users_nat(id) ON DELETE SET NULL;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products_nat' AND column_name = 'published_at') THEN
+          ALTER TABLE products_nat ADD COLUMN published_at TIMESTAMP DEFAULT now();
+          -- Inicializar published_at con created_at para productos existentes
+          UPDATE products_nat SET published_at = created_at WHERE published_at IS NULL;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products_nat' AND column_name = 'category') THEN
+          ALTER TABLE products_nat ADD COLUMN category VARCHAR(100);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products_nat' AND column_name = 'status') THEN
+          ALTER TABLE products_nat ADD COLUMN status VARCHAR(50) DEFAULT 'disponible';
+        END IF;
+      END $$;
+    `);
+    console.log('✅ Migración de products_nat columnas ejecutada.');
+  } catch (err) {
+    console.warn('⚠️ Error al ejecutar migración de products_nat columnas:', err.message);
   }
   
   // Migración: Si la tabla command_limit_extensions existe con user_id INTEGER, cambiarla a TEXT

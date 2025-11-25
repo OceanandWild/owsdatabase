@@ -8393,8 +8393,7 @@ async function ensureTables() {
       finished BOOLEAN DEFAULT FALSE
     );
     
-    -- 💡 CORRECCIÓN DE ORDEN (Aquí es donde falta users_nat)
-    -- Asumo esta estructura basándome en las referencias posteriores.
+    -- 💡 CORRECCIÓN DE ORDEN 1: Tablas de usuarios deben ir PRIMERO
     CREATE TABLE IF NOT EXISTS users_nat ( 
         id SERIAL PRIMARY KEY,
         username VARCHAR(100) UNIQUE NOT NULL,
@@ -8402,12 +8401,24 @@ async function ensureTables() {
         created_at TIMESTAMP DEFAULT now()
     );
 
-    -- Tienes dos tablas de usuarios. users_nat usa SERIAL (INTEGER), users usa TEXT.
+    -- Tabla users (usa ID de TEXTO)
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY, 
       username VARCHAR(100) UNIQUE NOT NULL,
       password TEXT NOT NULL,
       created_at TIMESTAMP DEFAULT now()
+    );
+
+    -- 💡 CORRECCIÓN DE ORDEN 2: Definición de products_nat (faltaba y es referenciada por muchas)
+    CREATE TABLE IF NOT EXISTS products_nat (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users_nat(id) ON DELETE CASCADE,
+        name TEXT NOT NULL,
+        description TEXT,
+        price DECIMAL,
+        image_url TEXT,
+        contact_number TEXT,
+        created_at TIMESTAMP DEFAULT now()
     );
 
     CREATE TABLE IF NOT EXISTS products (
@@ -8498,7 +8509,6 @@ async function ensureTables() {
       updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
     );
 
-    -- Esta tabla usa users(id) que es TEXT
     CREATE TABLE IF NOT EXISTS command_limit_extensions (
       id SERIAL PRIMARY KEY,
       user_id TEXT NOT NULL REFERENCES users(id), 
@@ -8509,7 +8519,6 @@ async function ensureTables() {
       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
     
-    -- La tabla notifications_nat referencia users_nat(id)
     CREATE TABLE IF NOT EXISTS notifications_nat (
       id SERIAL PRIMARY KEY,
       user_id INTEGER NOT NULL REFERENCES users_nat(id) ON DELETE CASCADE,
@@ -8549,23 +8558,8 @@ async function ensureTables() {
       END IF;
     END $$;
     
-    -- Crear tabla de reportes
-    CREATE TABLE IF NOT EXISTS product_reports (
-      id SERIAL PRIMARY KEY,
-      product_id INTEGER NOT NULL REFERENCES products_nat(id) ON DELETE CASCADE,
-      reporter_id INTEGER NOT NULL REFERENCES users_nat(id) ON DELETE CASCADE,
-      reason TEXT NOT NULL,
-      status VARCHAR(20) DEFAULT 'pending', 
-      admin_id INTEGER REFERENCES users_nat(id) ON DELETE SET NULL,
-      admin_response TEXT,
-      created_at TIMESTAMP DEFAULT NOW(),
-      reviewed_at TIMESTAMP
-    );
-    
-    CREATE INDEX IF NOT EXISTS idx_product_reports_status ON product_reports(status);
-    CREATE INDEX IF NOT EXISTS idx_product_reports_product ON product_reports(product_id);
-    
     -- Agregar columnas de stock y vendido a products_nat si no existen
+    -- 💡 IMPORTANTE: Esta alteración debe ir después de la creación de products_nat
     DO $$ 
     BEGIN
       IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products_nat' AND column_name = 'stock') THEN
@@ -8589,6 +8583,22 @@ async function ensureTables() {
         ALTER TABLE products_nat ADD COLUMN status VARCHAR(50) DEFAULT 'disponible';
       END IF;
     END $$;
+
+    -- Crear tabla de reportes
+    CREATE TABLE IF NOT EXISTS product_reports (
+      id SERIAL PRIMARY KEY,
+      product_id INTEGER NOT NULL REFERENCES products_nat(id) ON DELETE CASCADE,
+      reporter_id INTEGER NOT NULL REFERENCES users_nat(id) ON DELETE CASCADE,
+      reason TEXT NOT NULL,
+      status VARCHAR(20) DEFAULT 'pending', 
+      admin_id INTEGER REFERENCES users_nat(id) ON DELETE SET NULL,
+      admin_response TEXT,
+      created_at TIMESTAMP DEFAULT NOW(),
+      reviewed_at TIMESTAMP
+    );
+    
+    CREATE INDEX IF NOT EXISTS idx_product_reports_status ON product_reports(status);
+    CREATE INDEX IF NOT EXISTS idx_product_reports_product ON product_reports(product_id);
     
     -- Crear tabla de vistas únicas por usuario y producto
     CREATE TABLE IF NOT EXISTS product_views_unique (
@@ -8630,13 +8640,11 @@ async function ensureTables() {
         await pool.query(q);
     } catch (error) {
         console.error(`❌ Error al ejecutar query: ${q.substring(0, 50)}...`, error);
-        // Lanzamos el error para que la app se detenga, ya que el schema es crucial.
         throw error;
     }
   }
   
   // Migración: Si la tabla command_limit_extensions existe con user_id INTEGER, cambiarla a TEXT
-  // Este bloque de migración ahora debería funcionar correctamente porque users(id) es TEXT.
   try {
     const checkColumn = await pool.query(`
       SELECT data_type 
@@ -8668,7 +8676,7 @@ async function ensureTables() {
     }
   } catch (err) {
     if (!err.message.includes('relation "command_limit_extensions" does not exist')) {
-        console.warn('⚠️ Error en migración de command_limit_extensions (puede ignorarse si la tabla no existe):', err.message);
+        console.warn('⚠️ Error en migración de command_limit_extensions:', err.message);
     }
   }
   

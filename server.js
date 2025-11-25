@@ -8776,8 +8776,52 @@ async function ensureTables() {
       created_at TIMESTAMP DEFAULT NOW()
     );
     
+    -- Tabla de productos rechazados (NatMarket)
+    CREATE TABLE IF NOT EXISTS products_rejected (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users_nat(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      reason TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+    
+    -- Tabla de productos pendientes de moderación (NatMarket)
+    CREATE TABLE IF NOT EXISTS products_pending (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users_nat(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      description TEXT,
+      price DECIMAL,
+      contact_number TEXT,
+      places JSONB,
+      methods JSONB,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+    
+    -- Tabla de mensajes pendientes de moderación (NatMarket)
+    CREATE TABLE IF NOT EXISTS messages_pending (
+      id SERIAL PRIMARY KEY,
+      product_id INTEGER NOT NULL REFERENCES products_nat(id) ON DELETE CASCADE,
+      sender_id INTEGER NOT NULL REFERENCES users_nat(id) ON DELETE CASCADE,
+      message TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+    
+    -- Tabla de mensajes rechazados (NatMarket)
+    CREATE TABLE IF NOT EXISTS messages_rejected (
+      id SERIAL PRIMARY KEY,
+      sender_id INTEGER NOT NULL REFERENCES users_nat(id) ON DELETE CASCADE,
+      product_id INTEGER NOT NULL REFERENCES products_nat(id) ON DELETE CASCADE,
+      message TEXT NOT NULL,
+      reason TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+    
     CREATE INDEX IF NOT EXISTS idx_ocean_pay_txs_user ON ocean_pay_txs(user_id, created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_ecocore_txs_user ON ecocore_txs(user_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_products_rejected_user ON products_rejected(user_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_products_pending_user ON products_pending(user_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_messages_pending_product ON messages_pending(product_id, created_at DESC);
     `,
   ];
 

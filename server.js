@@ -3217,6 +3217,38 @@ app.put('/natmarket/users/:id/password', async (req, res) => {
 
 // Endpoints de vinculación con OceanicEthernet eliminados - ya no se requiere vinculación
 
+// Script de migración: Crear tablas necesarias de NatMarket
+async function createNatMarketTables() {
+  try {
+    console.log('🔄 Verificando tablas de NatMarket...');
+    
+    // Crear tabla de imágenes de productos
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS product_images_nat (
+        id SERIAL PRIMARY KEY,
+        product_id INTEGER NOT NULL REFERENCES products_nat(id) ON DELETE CASCADE,
+        url TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    
+    // Crear tabla de videos de productos
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS product_videos_nat (
+        id SERIAL PRIMARY KEY,
+        product_id INTEGER NOT NULL REFERENCES products_nat(id) ON DELETE CASCADE,
+        url TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    
+    console.log('✅ Tablas de NatMarket verificadas/creadas correctamente.');
+    
+  } catch (err) {
+    console.error('❌ Error creando tablas de NatMarket:', err);
+  }
+}
+
 // Script de migración: Notificar a usuarios que estaban vinculados con OceanicEthernet
 async function notifyUnlinkedUsers() {
   try {
@@ -12665,9 +12697,10 @@ await ensureDatabase();
 await ensureTables();
 await ensureQuizTables();
 await ensureWordBattleTables();
-
-// 👇 ¡AÑADE ESTA LÍNEA!
 await ensureUserCurrencyTable();
+
+// Crear tablas de NatMarket
+await createNatMarketTables();
 
 // 💡 CORRECCIÓN 1: Llama a la limpieza DESPUÉS de asegurar que todas las tablas existen.
 console.log("Iniciando limpieza de eventos antiguos...");
@@ -12678,10 +12711,10 @@ console.log("Limpieza de eventos antiguos finalizada.");
 const PORT = process.env.PORT || 3000;
 httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 API corriendo en http://0.0.0.0:${PORT}`);
-  console.log(`🌐 Puerto: ${PORT}`);
+  console.log(`� Puerto:  ${PORT}`);
   console.log(`🎮 Sistema de Quiz Kahoot activo`);
   
-  // Ejecutar migración de desvinculación una sola vez
+  // Ejecutar migraciones una sola vez
   if (!migrationExecuted) {
     migrationExecuted = true;
     setTimeout(() => {

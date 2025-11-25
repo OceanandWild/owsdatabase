@@ -12690,6 +12690,39 @@ app.get('/api/word-battle/rewards/:userId', async (req, res) => {
 // ... (Aquí terminan todas tus rutas de app.get/app.post) ...
 
 // =================================================================
+// FUNCIÓN PARA ASEGURAR TABLA DE MONEDAS DEL USUARIO (user_currency)
+// =================================================================
+async function ensureUserCurrencyTable() {
+  try {
+    console.log("Asegurando que la tabla 'user_currency' exista...");
+    
+    const client = await pool.connect();
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS user_currency (
+        id SERIAL PRIMARY KEY,
+        
+        -- Clave foránea para relacionarla con tu tabla de usuarios (ocean_pay_users)
+        user_id INT NOT NULL REFERENCES ocean_pay_users(id) ON DELETE CASCADE, 
+        
+        currency_type VARCHAR(50) NOT NULL,
+        amount BIGINT NOT NULL DEFAULT 0,
+        
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        
+        -- Clave única: Un usuario solo puede tener un registro por tipo de moneda.
+        UNIQUE(user_id, currency_type) 
+      );
+    `);
+    client.release();
+    console.log("Tabla 'user_currency' asegurada y lista para nadar.");
+    
+  } catch (err) {
+    console.error("❌ ERROR al asegurar la tabla 'user_currency':", err);
+  }
+}
+
+// =================================================================
 // CÓDIGO DE INICIALIZACIÓN (Al final de server.js)
 // =================================================================
 
@@ -12697,6 +12730,9 @@ await ensureDatabase();
 await ensureTables();
 await ensureQuizTables();
 await ensureWordBattleTables();
+
+// 👇 ¡AÑADE ESTA LÍNEA!
+await ensureUserCurrencyTable();
 
 // 💡 CORRECCIÓN 1: Llama a la limpieza DESPUÉS de asegurar que todas las tablas existen.
 console.log("Iniciando limpieza de eventos antiguos...");

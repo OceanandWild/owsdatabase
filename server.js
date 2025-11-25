@@ -3242,6 +3242,17 @@ async function createNatMarketTables() {
       )
     `);
     
+    // Agregar columna views a products_nat si no existe
+    try {
+      await pool.query(`
+        ALTER TABLE products_nat 
+        ADD COLUMN IF NOT EXISTS views INTEGER DEFAULT 0
+      `);
+    } catch (err) {
+      // Ignorar error si la columna ya existe
+      console.log('Columna views ya existe o no se pudo agregar');
+    }
+    
     console.log('✅ Tablas de NatMarket verificadas/creadas correctamente.');
     
   } catch (err) {
@@ -4993,7 +5004,7 @@ app.get('/natmarket/ratings/product/:product_id', async (req, res) => {
       SELECT r.*, u.username AS rater_username
       FROM user_ratings_nat r
       JOIN users_nat u ON r.rater_user_id = u.id
-      WHERE r.product_id = $1 AND r.type='product'
+      WHERE r.product_id = $1
       ORDER BY r.created_at DESC
     `, [product_id]);
     const avg = rows.length ? (rows.reduce((a, b) => a + b.rating, 0) / rows.length).toFixed(1) : 0;

@@ -6840,14 +6840,22 @@ app.get('/ocean-pay/ecoxionums/:userId', async (req, res) => {
   const { userId } = req.params;
 
   try {
+    // Ecoxionums se almacenan en ocean_pay_metadata
     const { rows } = await pool.query(
-      'SELECT ecoxionums FROM ocean_pay_users WHERE id::text = $1', // <-- cast a texto
-      [userId]
+      `SELECT value FROM ocean_pay_metadata 
+       WHERE user_id = $1 AND key = 'ecoxionums'`,
+      [parseInt(userId)]
     );
-    res.json({ ecoxionums: rows[0]?.ecoxionums ?? 0 });
+    const ecoxionums = rows.length > 0 ? parseFloat(rows[0].value || '0') : 0;
+    res.json({ ecoxionums });
   } catch (err) {
     console.error('❌ Error en /ocean-pay/ecoxionums/:userId', err);
-    res.status(500).json({ error: 'Error interno' });
+    // Si la tabla no existe, devolver 0
+    if (err.code === '42P01') {
+      res.json({ ecoxionums: 0 });
+    } else {
+      res.status(500).json({ error: 'Error interno' });
+    }
   }
 });
 
@@ -6860,28 +6868,51 @@ app.post('/ocean-pay/ecoxionums/change', async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    
+    const userIdInt = parseInt(userId);
 
-    // lock & read desde ocean_pay_users (donde se guardan los ecoxionums)
-    const { rows } = await client.query(
-      'SELECT ecoxionums FROM ocean_pay_users WHERE id::text = $1 FOR UPDATE',
-      [userId]
+    // Verificar que el usuario existe
+    const { rows: userRows } = await client.query(
+      'SELECT id FROM ocean_pay_users WHERE id = $1',
+      [userIdInt]
     );
-    if (!rows.length) {
+    if (!userRows.length) {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
+
+    // Asegurar tabla de metadata
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ocean_pay_metadata (
+        user_id INTEGER NOT NULL,
+        key TEXT NOT NULL,
+        value TEXT NOT NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (user_id, key)
+      )
+    `);
+
+    // lock & read desde ocean_pay_metadata
+    const { rows } = await client.query(
+      `SELECT value FROM ocean_pay_metadata 
+       WHERE user_id = $1 AND key = 'ecoxionums' FOR UPDATE`,
+      [userIdInt]
+    );
     
-    const currentEcoxionums = rows[0].ecoxionums || 0;
+    const currentEcoxionums = rows.length > 0 ? parseFloat(rows[0].value || '0') : 0;
     const newBal = currentEcoxionums + amount;
     if (newBal < 0) {
       await client.query('ROLLBACK');
       return res.status(400).json({ error: 'Saldo insuficiente' });
     }
 
-    // update ecoxionums en ocean_pay_users
+    // update ecoxionums en ocean_pay_metadata
     await client.query(
-      'UPDATE ocean_pay_users SET ecoxionums = $1 WHERE id::text = $2',
-      [newBal, userId]
+      `INSERT INTO ocean_pay_metadata (user_id, key, value)
+       VALUES ($1, 'ecoxionums', $2)
+       ON CONFLICT (user_id, key)
+       DO UPDATE SET value = $2, updated_at = CURRENT_TIMESTAMP`,
+      [userIdInt, newBal.toString()]
     );
 
     // log en Ocean Pay
@@ -8723,6 +8754,30 @@ async function ensureTables() {
     
     -- Crear índice para búsquedas rápidas
     CREATE INDEX IF NOT EXISTS idx_ecoxion_subs_user_active ON ecoxion_subscriptions(user_id, active, ends_at);
+    
+    -- Tabla de transacciones de Ocean Pay
+    CREATE TABLE IF NOT EXISTS ocean_pay_txs (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL,
+      concepto TEXT NOT NULL,
+      monto NUMERIC(20,2) NOT NULL,
+      origen TEXT,
+      created_at TIMESTAMP DEFAULT NOW(),
+      moneda TEXT
+    );
+    
+    -- Tabla de transacciones de EcoCoreBits
+    CREATE TABLE IF NOT EXISTS ecocore_txs (
+      id SERIAL PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      concepto TEXT NOT NULL,
+      monto NUMERIC(20,2) NOT NULL,
+      origen TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+    
+    CREATE INDEX IF NOT EXISTS idx_ocean_pay_txs_user ON ocean_pay_txs(user_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_ecocore_txs_user ON ecocore_txs(user_id, created_at DESC);
     `,
   ];
 

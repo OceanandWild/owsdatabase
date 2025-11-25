@@ -973,7 +973,7 @@ app.post('/ocean-pay/link-account', async (req, res) => {
       SELECT opu.id, opu.pwd_hash, opu.aquabux, opu.ecoxionums, opu.appbux,
              COALESCE(uc.amount, 0) as ecorebits
       FROM ocean_pay_users opu
-      LEFT JOIN user_currency uc ON opu.id::text = uc.user_id AND uc.currency_type = 'ecocorebits'
+      LEFT JOIN user_currency uc ON opu.id = uc.user_id AND uc.currency_type = 'ecocorebits'
       WHERE opu.username = $1
     `, [username]);
 
@@ -6565,7 +6565,7 @@ app.post('/ocean-pay/login', async (req,res)=>{
   const {rows}=await pool.query(`
     SELECT opu.id, opu.pwd_hash, opu.aquabux, opu.ecoxionums, opu.appbux, COALESCE(uc.amount, 0) as ecorebits
     FROM ocean_pay_users opu
-    LEFT JOIN user_currency uc ON opu.id::text = uc.user_id AND uc.currency_type = 'ecocorebits'
+    LEFT JOIN user_currency uc ON opu.id = uc.user_id AND uc.currency_type = 'ecocorebits'
     WHERE opu.username = $1
   `,[username]);
 

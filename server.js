@@ -8393,7 +8393,7 @@ async function ensureTables() {
       finished BOOLEAN DEFAULT FALSE
     );
     
-    -- 💡 CORRECCIÓN DE ORDEN: Tablas de usuarios/productos nat deben ir PRIMERO
+    -- 💡 CORRECCIÓN DE ORDEN: Todas las tablas de usuarios principales van PRIMERO
     CREATE TABLE IF NOT EXISTS users_nat ( 
         id SERIAL PRIMARY KEY,
         username VARCHAR(100) UNIQUE NOT NULL,
@@ -8401,7 +8401,6 @@ async function ensureTables() {
         created_at TIMESTAMP DEFAULT now()
     );
 
-    -- Tabla users (usa ID de TEXTO)
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY, 
       username VARCHAR(100) UNIQUE NOT NULL,
@@ -8409,6 +8408,23 @@ async function ensureTables() {
       created_at TIMESTAMP DEFAULT now()
     );
 
+    CREATE TABLE IF NOT EXISTS ocean_pay_users (
+      id            SERIAL PRIMARY KEY,
+      username      VARCHAR(60) UNIQUE NOT NULL,
+      pwd_hash      TEXT NOT NULL,
+      aquabux       INTEGER DEFAULT 0,
+      appbux        INTEGER DEFAULT 0,
+      created_at    TIMESTAMP DEFAULT NOW()
+    );
+
+    CREATE TABLE IF NOT EXISTS oceanic_ethernet_users (
+      id            SERIAL PRIMARY KEY,
+      username      VARCHAR(60) UNIQUE NOT NULL,
+      pwd_hash      TEXT NOT NULL,
+      created_at    TIMESTAMP DEFAULT NOW()
+    );
+
+    -- 💡 CORRECCIÓN DE ORDEN: Productos Nat antes de ser referenciados
     CREATE TABLE IF NOT EXISTS products_nat (
         id SERIAL PRIMARY KEY,
         user_id INTEGER REFERENCES users_nat(id) ON DELETE CASCADE,
@@ -8420,32 +8436,16 @@ async function ensureTables() {
         created_at TIMESTAMP DEFAULT now()
     );
 
-    -- 🔑 TABLA FALTANTE 1: ocean_pay_metadata (necesaria para el registro de OceanicEthernet)
-    -- Asumo que usa un ID SERIAL y clave/valor.
+    -- 🔑 CORRECCIÓN: ocean_pay_metadata debe tener user_id y referenciar a ocean_pay_users
     CREATE TABLE IF NOT EXISTS ocean_pay_metadata (
         id SERIAL PRIMARY KEY,
-        key TEXT UNIQUE NOT NULL,
-        value TEXT NOT NULL
+        user_id INTEGER REFERENCES ocean_pay_users(id) ON DELETE CASCADE, -- <--- COLUMNA AÑADIDA
+        key TEXT NOT NULL, 
+        value TEXT NOT NULL,
+        CONSTRAINT unique_user_key UNIQUE (user_id, key) -- Asumo esta restricción
     );
 
-    -- 🔑 TABLA FALTANTE 2: user_wishlist_nat
-    CREATE TABLE IF NOT EXISTS user_wishlist_nat (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER NOT NULL REFERENCES users_nat(id) ON DELETE CASCADE,
-        product_id INTEGER NOT NULL REFERENCES products_nat(id) ON DELETE CASCADE,
-        created_at TIMESTAMP DEFAULT NOW(),
-        CONSTRAINT unique_wishlist_item UNIQUE (user_id, product_id)
-    );
-
-    -- 🔑 TABLA FALTANTE 3: user_favorites_nat
-    CREATE TABLE IF NOT EXISTS user_favorites_nat (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER NOT NULL REFERENCES users_nat(id) ON DELETE CASCADE,
-        product_id INTEGER NOT NULL REFERENCES products_nat(id) ON DELETE CASCADE,
-        created_at TIMESTAMP DEFAULT NOW(),
-        CONSTRAINT unique_favorite_item UNIQUE (user_id, product_id)
-    );
-
+    -- Tablas que referencian a users (TEXT ID)
     CREATE TABLE IF NOT EXISTS products (
       id SERIAL PRIMARY KEY,
       user_id TEXT REFERENCES users(id) ON DELETE CASCADE, 
@@ -8494,22 +8494,6 @@ async function ensureTables() {
       created_at TIMESTAMP DEFAULT NOW()
     );
 
-    CREATE TABLE IF NOT EXISTS ocean_pay_users (
-      id            SERIAL PRIMARY KEY,
-      username      VARCHAR(60) UNIQUE NOT NULL,
-      pwd_hash      TEXT NOT NULL,
-      aquabux       INTEGER DEFAULT 0,
-      appbux        INTEGER DEFAULT 0,
-      created_at    TIMESTAMP DEFAULT NOW()
-    );
-
-    CREATE TABLE IF NOT EXISTS oceanic_ethernet_users (
-      id            SERIAL PRIMARY KEY,
-      username      VARCHAR(60) UNIQUE NOT NULL,
-      pwd_hash      TEXT NOT NULL,
-      created_at    TIMESTAMP DEFAULT NOW()
-    );
-
     CREATE TABLE IF NOT EXISTS oceanic_ethernet_txs (
       id            SERIAL PRIMARY KEY,
       user_id       INTEGER NOT NULL REFERENCES oceanic_ethernet_users(id) ON DELETE CASCADE,
@@ -8544,6 +8528,7 @@ async function ensureTables() {
       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
     
+    -- Tablas que referencian a users_nat/products_nat (INTEGER ID)
     CREATE TABLE IF NOT EXISTS notifications_nat (
       id SERIAL PRIMARY KEY,
       user_id INTEGER NOT NULL REFERENCES users_nat(id) ON DELETE CASCADE,

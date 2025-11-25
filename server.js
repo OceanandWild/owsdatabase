@@ -7110,17 +7110,16 @@ app.post('/oceanic-ethernet/register', async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
     
-    // 1️⃣. CREAR EL USUARIO EN OCEANIC ETHERNET
+    // 1. CREAR EL USUARIO EN OCEANIC ETHERNET
     const { rows: oeUserRows } = await client.query(
       'INSERT INTO oceanic_ethernet_users (username, pwd_hash) VALUES ($1, $2) RETURNING id, username',
       [username, hashedPassword]
     );
-    const oeUser = oeUserRows[0]; // ID de OceanicEthernet (u.id o oeUser.id)
+    const oeUser = oeUserRows[0]; 
 
-    // ⚠️ 2️⃣. [PASO AÑADIDO/CORREGIDO] ASEGURAR Y OBTENER EL ID DEL USUARIO EN OCEAN PAY (TABLA PADRE)
+    // 2. ASEGURAR Y OBTENER EL ID DEL USUARIO EN OCEAN PAY (TABLA PADRE)
     let opUserId;
     try {
-        // Intenta insertar el usuario en ocean_pay_users
         const opResult = await client.query(
             'INSERT INTO ocean_pay_users (username, pwd_hash) VALUES ($1, $2) RETURNING id',
             [username, hashedPassword]
@@ -7128,28 +7127,34 @@ app.post('/oceanic-ethernet/register', async (req, res) => {
         opUserId = opResult.rows[0].id;
     } catch (e) {
         if (e.code === '23505') { 
-            // Si el usuario ya existe en ocean_pay_users, recupera su ID
             const existingOpUser = await client.query('SELECT id FROM ocean_pay_users WHERE username = $1', [username]);
-            opUserId = existingOpUser.rows[0].id;
+            if (existingOpUser.rows.length === 0) throw new Error("Error crítico: usuario duplicado pero ID no recuperado.");
+            opUserId = existingOpOpUser.rows[0].id;
         } else {
-            throw e; // Relanza otros errores
+            throw e; 
         }
     }
     
-    // 3️⃣. INICIALIZAR SALDO DE INTERNET USANDO EL ID CORRECTO (opUserId)
-    // Antes usaba el ID de OceanicEthernet (u.id), ahora usa el de Ocean Pay (opUserId).
-    await client.query(`
-      INSERT INTO ocean_pay_metadata (user_id, key, value)
-      VALUES ($1, 'internet_gb', '0')
-      ON CONFLICT (user_id, key) DO NOTHING 
-    `, [opUserId]); // ✅ CORREGIDO: Usamos opUserId
+    // 3. [CORRECCIÓN 42P10] SELECT ANTES DE INSERTAR METADATA (EVITA ON CONFLICT)
+    const existingMeta = await client.query(
+        'SELECT 1 FROM ocean_pay_metadata WHERE user_id = $1 AND key = $2', 
+        [opUserId, 'internet_gb']
+    );
 
-    // 4️⃣. Vincular usuario de OceanicEthernet con el de Ocean Pay
-    // (Esta tabla `oceanic_ethernet_user_links` sí usa ambos IDs y está bien)
+    if (existingMeta.rows.length === 0) {
+        await client.query(`
+            INSERT INTO ocean_pay_metadata (user_id, key, value)
+            VALUES ($1, 'internet_gb', '0')
+        `, [opUserId]); // ✅ CORREGIDO: Usamos opUserId
+    }
+
+
+    // 4. Vincular usuario de OceanicEthernet con el de Ocean Pay
+    // Nota: Aquí se mantiene ON CONFLICT porque la tabla oceanic_ethernet_user_links tiene un UNIQUE constraint.
     await client.query(`
       INSERT INTO oceanic_ethernet_user_links (oe_user_id, external_user_id, external_system)
       VALUES ($1, $2, $3)
-      ON CONFLICT (oe_user_id, external_system) DO NOTHING
+      ON CONFLICT (external_user_id, external_system) DO NOTHING
     `, [oeUser.id, opUserId, 'OceanPay']); 
     
     await client.query('COMMIT');

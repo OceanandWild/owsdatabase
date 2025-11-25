@@ -6490,42 +6490,71 @@ app.post('/api/companies/register', upload.single('logo'), async (req, res) => {
   }
 });
 
+// =================================================================
+// NUEVO ENDPOINT DE REGISTRO
+// =================================================================
+
+// Endpoint para registrar un nuevo usuario de Ocean Pay
 app.post('/ocean-pay/register', async (req, res) => {
   const { username, password } = req.body;
-  if (!username || !password) return res.status(400).json({ error: 'Faltan datos' });
 
-  const hash = await bcrypt.hash(password, 10);
+  // 1. Validar datos de entrada
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Faltan nombre de usuario o contraseña' });
+  }
 
   const client = await pool.connect();
   try {
+    // 2. Iniciar transacción
     await client.query('BEGIN');
+    
+    // 3. Generar hash de contraseña y ID único
+    // Usamos el factor de coste 10, estándar en el proyecto
+    const hashedPassword = await bcrypt.hash(password, 10); 
+    const userUniqueId = generateUserUniqueId(); 
 
-const { rows: [u] } = await client.query(
-    `INSERT INTO ocean_pay_users (username, pwd_hash, aquabux, ecoxionums, appbux)
-   VALUES ($1, $2, 0, 0, 0)
-   RETURNING id, username, aquabux, ecoxionums, appbux`,
-  [username, hash]
-);
-
-    // 2. Crear en users (para EcoCoreBits)
-    await client.query(
-      `INSERT INTO users (id, username, password, balance)
-       VALUES ($1, $2, $3, 0)
-       ON CONFLICT (id) DO NOTHING`,
-      [u.id, username, 'nopass']
+    // 4. Insertar el nuevo usuario en la tabla principal
+    // Asumiendo que tu tabla ocean_pay_users tiene columnas: id (SERIAL), username, pwd_hash, unique_id, aquabux, ecoxionums, appbux
+    const opResult = await client.query(
+      `INSERT INTO ocean_pay_users (username, pwd_hash, unique_id, aquabux, ecoxionums, appbux) 
+       VALUES ($1, $2, $3, 0, 0, 0) RETURNING id`,
+      [username, hashedPassword, userUniqueId]
     );
-
+    const opUserId = opResult.rows[0].id;
+    
+    // 5. Confirmar la transacción
     await client.query('COMMIT');
-    res.json({ success: true, user: { id: u.id, username: u.username, aquabux: u.aquabux } });
+    
+    // 6. Respuesta exitosa (201 Created)
+    res.status(201).json({ 
+      success: true, 
+      userId: opUserId, 
+      username: username,
+      message: '¡Registro completado! Bienvenido al océano de pagos.'
+    });
 
   } catch (e) {
+    // 7. Manejo de errores y rollback
     await client.query('ROLLBACK');
-    if (e.code === '23505') return res.status(409).json({ error: 'Usuario ya existe' });
-    res.status(500).json({ error: 'Error interno' });
+    
+    // Error 23505: Violación de restricción única (ej. nombre de usuario duplicado)
+    if (e.code === '23505') {
+      return res.status(409).json({ error: 'Este nombre de usuario ya existe. ¡Qué original eres!' });
+    }
+    
+    // Cualquier otro error se reporta como 500
+    console.error('❌ Error en /ocean-pay/register:', e);
+    res.status(500).json({ error: 'Error interno del servidor al registrar. Pide ayuda a los ingenieros marinos.' });
+    
   } finally {
+    // 8. Liberar el cliente de la pool
     client.release();
   }
 });
+
+// =================================================================
+// EL RESTO DE TUS RUTAS CONTINÚA AQUÍ...
+// =================================================================
 
 /* ----------  LOGIN  ---------- */
 app.post('/ocean-pay/login', async (req,res)=>{

@@ -8367,6 +8367,7 @@ async function ensureDatabase() {
     process.exit(1); // Terminar servidor si falla
   }
 }
+
 async function ensureTables() {
   const tableQueries = [
     `CREATE TABLE IF NOT EXISTS updates (
@@ -8391,8 +8392,17 @@ async function ensureTables() {
       created TIMESTAMP NOT NULL DEFAULT NOW(),
       finished BOOLEAN DEFAULT FALSE
     );
-        
-    -- 🔑 CORRECCIÓN 1: ID PRINCIPAL DE USUARIOS DEBE SER TEXTO (compatible con generateUserUniqueId)
+    
+    -- 💡 CORRECCIÓN DE ORDEN (Aquí es donde falta users_nat)
+    -- Asumo esta estructura basándome en las referencias posteriores.
+    CREATE TABLE IF NOT EXISTS users_nat ( 
+        id SERIAL PRIMARY KEY,
+        username VARCHAR(100) UNIQUE NOT NULL,
+        password TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT now()
+    );
+
+    -- Tienes dos tablas de usuarios. users_nat usa SERIAL (INTEGER), users usa TEXT.
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY, 
       username VARCHAR(100) UNIQUE NOT NULL,
@@ -8402,7 +8412,7 @@ async function ensureTables() {
 
     CREATE TABLE IF NOT EXISTS products (
       id SERIAL PRIMARY KEY,
-      user_id TEXT REFERENCES users(id) ON DELETE CASCADE, -- 🔑 CORRECCIÓN: Cambiado de INT a TEXT
+      user_id TEXT REFERENCES users(id) ON DELETE CASCADE, 
       name TEXT NOT NULL,
       description TEXT,
       price DECIMAL,
@@ -8413,15 +8423,15 @@ async function ensureTables() {
 
     CREATE TABLE IF NOT EXISTS user_ratings (
       id SERIAL PRIMARY KEY,
-      rated_user_id TEXT REFERENCES users(id) ON DELETE CASCADE, -- 🔑 CORRECCIÓN: Cambiado de INT a TEXT
-      rater_user_id TEXT REFERENCES users(id) ON DELETE CASCADE, -- 🔑 CORRECCIÓN: Cambiado de INT a TEXT
+      rated_user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+      rater_user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
       rating INT CHECK (rating BETWEEN 1 AND 5),
       created_at TIMESTAMP DEFAULT now()
     );
 
     CREATE TABLE IF NOT EXISTS messages (
       id SERIAL PRIMARY KEY,
-      sender_id TEXT REFERENCES users(id) ON DELETE CASCADE, -- 🔑 CORRECCIÓN: Cambiado de INT a TEXT
+      sender_id TEXT REFERENCES users(id) ON DELETE CASCADE,
       product_id INT REFERENCES products(id) ON DELETE CASCADE,
       message TEXT NOT NULL,
       created_at TIMESTAMP DEFAULT now()
@@ -8448,8 +8458,6 @@ async function ensureTables() {
       created_at TIMESTAMP DEFAULT NOW()
     );
 
-    -- Nota: ocean_pay_users tiene SERIAL PRIMARY KEY, lo cual significa que NO usa generateUserUniqueId().
-    -- Asumo que es correcto si esos usuarios se manejan por un sistema de IDs de base de datos.
     CREATE TABLE IF NOT EXISTS ocean_pay_users (
       id            SERIAL PRIMARY KEY,
       username      VARCHAR(60) UNIQUE NOT NULL,
@@ -8478,8 +8486,8 @@ async function ensureTables() {
     CREATE TABLE IF NOT EXISTS oceanic_ethernet_user_links (
       id            SERIAL PRIMARY KEY,
       oe_user_id    INTEGER NOT NULL REFERENCES oceanic_ethernet_users(id) ON DELETE CASCADE,
-      external_user_id TEXT NOT NULL, -- Asumo que el ID externo puede ser TEXT (como los IDs de la tabla 'users')
-      external_system VARCHAR(50) NOT NULL, -- 'NatMarket', 'AllApp', etc.
+      external_user_id TEXT NOT NULL, 
+      external_system VARCHAR(50) NOT NULL,
       created_at    TIMESTAMP DEFAULT NOW(),
       UNIQUE(external_user_id, external_system)
     );
@@ -8490,9 +8498,10 @@ async function ensureTables() {
       updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
     );
 
+    -- Esta tabla usa users(id) que es TEXT
     CREATE TABLE IF NOT EXISTS command_limit_extensions (
       id SERIAL PRIMARY KEY,
-      user_id TEXT NOT NULL REFERENCES users(id), -- 🔑 CORRECCIÓN: user_id debe ser TEXT para referenciar users(id)
+      user_id TEXT NOT NULL REFERENCES users(id), 
       extension_type VARCHAR(20) NOT NULL,
       commands_added INTEGER NOT NULL,
       cost INTEGER NOT NULL,
@@ -8500,6 +8509,7 @@ async function ensureTables() {
       created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
     );
     
+    -- La tabla notifications_nat referencia users_nat(id)
     CREATE TABLE IF NOT EXISTS notifications_nat (
       id SERIAL PRIMARY KEY,
       user_id INTEGER NOT NULL REFERENCES users_nat(id) ON DELETE CASCADE,
@@ -8545,7 +8555,7 @@ async function ensureTables() {
       product_id INTEGER NOT NULL REFERENCES products_nat(id) ON DELETE CASCADE,
       reporter_id INTEGER NOT NULL REFERENCES users_nat(id) ON DELETE CASCADE,
       reason TEXT NOT NULL,
-      status VARCHAR(20) DEFAULT 'pending', -- pending, approved, rejected
+      status VARCHAR(20) DEFAULT 'pending', 
       admin_id INTEGER REFERENCES users_nat(id) ON DELETE SET NULL,
       admin_response TEXT,
       created_at TIMESTAMP DEFAULT NOW(),
@@ -8616,7 +8626,13 @@ async function ensureTables() {
   ];
 
   for (const q of tableQueries) {
-    await pool.query(q);
+    try {
+        await pool.query(q);
+    } catch (error) {
+        console.error(`❌ Error al ejecutar query: ${q.substring(0, 50)}...`, error);
+        // Lanzamos el error para que la app se detenga, ya que el schema es crucial.
+        throw error;
+    }
   }
   
   // Migración: Si la tabla command_limit_extensions existe con user_id INTEGER, cambiarla a TEXT
@@ -8632,19 +8648,16 @@ async function ensureTables() {
     if (checkColumn.rows.length > 0 && checkColumn.rows[0].data_type === 'integer') {
       console.log('🔄 Migrando command_limit_extensions: cambiando user_id de INTEGER a TEXT...');
       
-      // Eliminar foreign key constraint si existe
       await pool.query(`
         ALTER TABLE command_limit_extensions 
         DROP CONSTRAINT IF EXISTS command_limit_extensions_user_id_fkey
-      `).catch(() => {}); // Ignorar si no existe
+      `).catch(() => {});
       
-      // Cambiar el tipo de columna
       await pool.query(`
         ALTER TABLE command_limit_extensions 
         ALTER COLUMN user_id TYPE TEXT USING user_id::TEXT
       `);
       
-      // Recrear la foreign key constraint
       await pool.query(`
         ALTER TABLE command_limit_extensions 
         ADD CONSTRAINT command_limit_extensions_user_id_fkey 
@@ -8654,10 +8667,8 @@ async function ensureTables() {
       console.log('✅ Migración completada: user_id ahora es TEXT');
     }
   } catch (err) {
-    // Es normal que esto falle en una base de datos recién creada (Neon) porque la tabla aún no existe.
-    // El catch lo maneja y permite que el servidor siga.
     if (!err.message.includes('relation "command_limit_extensions" does not exist')) {
-        console.warn('⚠️ Error en migración de command_limit_extensions:', err.message);
+        console.warn('⚠️ Error en migración de command_limit_extensions (puede ignorarse si la tabla no existe):', err.message);
     }
   }
   

@@ -3017,11 +3017,7 @@ async function cleanupOldEvents() {
     }
 }
 
-// Ejecutar la limpieza cada 6 horas
-setInterval(cleanupOldEvents, 6 * 60 * 60 * 1000);
 
-// Ejecutar al inicio
-cleanupOldEvents();
 
 // ===== DeepDive: seed update notes and beta announcement (original tables) =====
 async function seedDeepDiveUpdateAndBeta(){
@@ -8371,7 +8367,6 @@ async function ensureDatabase() {
     process.exit(1); // Terminar servidor si falla
   }
 }
-
 async function ensureTables() {
   const tableQueries = [
     `CREATE TABLE IF NOT EXISTS updates (
@@ -8396,46 +8391,48 @@ async function ensureTables() {
       created TIMESTAMP NOT NULL DEFAULT NOW(),
       finished BOOLEAN DEFAULT FALSE
     );
-          CREATE TABLE IF NOT EXISTS users (
-        id SERIAL PRIMARY KEY,
-        username VARCHAR(100) UNIQUE NOT NULL,
-        password TEXT NOT NULL,
-        created_at TIMESTAMP DEFAULT now()
-      );
+        
+    -- 🔑 CORRECCIÓN 1: ID PRINCIPAL DE USUARIOS DEBE SER TEXTO (compatible con generateUserUniqueId)
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY, 
+      username VARCHAR(100) UNIQUE NOT NULL,
+      password TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT now()
+    );
 
-      CREATE TABLE IF NOT EXISTS products (
-        id SERIAL PRIMARY KEY,
-        user_id INT REFERENCES users(id) ON DELETE CASCADE,
-        name TEXT NOT NULL,
-        description TEXT,
-        price DECIMAL,
-        image_url TEXT,
-        contact_number TEXT,
-        created_at TIMESTAMP DEFAULT now()
-      );
+    CREATE TABLE IF NOT EXISTS products (
+      id SERIAL PRIMARY KEY,
+      user_id TEXT REFERENCES users(id) ON DELETE CASCADE, -- 🔑 CORRECCIÓN: Cambiado de INT a TEXT
+      name TEXT NOT NULL,
+      description TEXT,
+      price DECIMAL,
+      image_url TEXT,
+      contact_number TEXT,
+      created_at TIMESTAMP DEFAULT now()
+    );
 
-      CREATE TABLE IF NOT EXISTS user_ratings (
-        id SERIAL PRIMARY KEY,
-        rated_user_id INT REFERENCES users(id) ON DELETE CASCADE,
-        rater_user_id INT REFERENCES users(id) ON DELETE CASCADE,
-        rating INT CHECK (rating BETWEEN 1 AND 5),
-        created_at TIMESTAMP DEFAULT now()
-      );
+    CREATE TABLE IF NOT EXISTS user_ratings (
+      id SERIAL PRIMARY KEY,
+      rated_user_id TEXT REFERENCES users(id) ON DELETE CASCADE, -- 🔑 CORRECCIÓN: Cambiado de INT a TEXT
+      rater_user_id TEXT REFERENCES users(id) ON DELETE CASCADE, -- 🔑 CORRECCIÓN: Cambiado de INT a TEXT
+      rating INT CHECK (rating BETWEEN 1 AND 5),
+      created_at TIMESTAMP DEFAULT now()
+    );
 
-  CREATE TABLE IF NOT EXISTS messages (
-    id SERIAL PRIMARY KEY,
-    sender_id INT REFERENCES users(id) ON DELETE CASCADE,
-    product_id INT REFERENCES products(id) ON DELETE CASCADE,
-    message TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT now()
-  );
+    CREATE TABLE IF NOT EXISTS messages (
+      id SERIAL PRIMARY KEY,
+      sender_id TEXT REFERENCES users(id) ON DELETE CASCADE, -- 🔑 CORRECCIÓN: Cambiado de INT a TEXT
+      product_id INT REFERENCES products(id) ON DELETE CASCADE,
+      message TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT now()
+    );
 
-CREATE TABLE IF NOT EXISTS product_images (
-    id SERIAL PRIMARY KEY,
-    product_id INT REFERENCES products(id) ON DELETE CASCADE,
-    url TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT NOW()
-);
+    CREATE TABLE IF NOT EXISTS product_images (
+      id SERIAL PRIMARY KEY,
+      product_id INT REFERENCES products(id) ON DELETE CASCADE,
+      url TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
 
     CREATE TABLE IF NOT EXISTS companies_nat (
       id SERIAL PRIMARY KEY,
@@ -8451,57 +8448,59 @@ CREATE TABLE IF NOT EXISTS product_images (
       created_at TIMESTAMP DEFAULT NOW()
     );
 
-      CREATE TABLE IF NOT EXISTS ocean_pay_users (
-    id          SERIAL PRIMARY KEY,
-    username    VARCHAR(60) UNIQUE NOT NULL,
-    pwd_hash    TEXT NOT NULL,
-    aquabux     INTEGER DEFAULT 0,
-    appbux      INTEGER DEFAULT 0,
-    created_at  TIMESTAMP DEFAULT NOW()
-  );
+    -- Nota: ocean_pay_users tiene SERIAL PRIMARY KEY, lo cual significa que NO usa generateUserUniqueId().
+    -- Asumo que es correcto si esos usuarios se manejan por un sistema de IDs de base de datos.
+    CREATE TABLE IF NOT EXISTS ocean_pay_users (
+      id            SERIAL PRIMARY KEY,
+      username      VARCHAR(60) UNIQUE NOT NULL,
+      pwd_hash      TEXT NOT NULL,
+      aquabux       INTEGER DEFAULT 0,
+      appbux        INTEGER DEFAULT 0,
+      created_at    TIMESTAMP DEFAULT NOW()
+    );
 
-  CREATE TABLE IF NOT EXISTS oceanic_ethernet_users (
-    id          SERIAL PRIMARY KEY,
-    username    VARCHAR(60) UNIQUE NOT NULL,
-    pwd_hash    TEXT NOT NULL,
-    created_at  TIMESTAMP DEFAULT NOW()
-  );
+    CREATE TABLE IF NOT EXISTS oceanic_ethernet_users (
+      id            SERIAL PRIMARY KEY,
+      username      VARCHAR(60) UNIQUE NOT NULL,
+      pwd_hash      TEXT NOT NULL,
+      created_at    TIMESTAMP DEFAULT NOW()
+    );
 
-  CREATE TABLE IF NOT EXISTS oceanic_ethernet_txs (
-    id          SERIAL PRIMARY KEY,
-    user_id     INTEGER NOT NULL REFERENCES oceanic_ethernet_users(id) ON DELETE CASCADE,
-    concepto    TEXT NOT NULL,
-    monto       NUMERIC(20, 15) NOT NULL,
-    origen      VARCHAR(50) DEFAULT 'OceanicEthernet',
-    created_at  TIMESTAMP DEFAULT NOW()
-  );
+    CREATE TABLE IF NOT EXISTS oceanic_ethernet_txs (
+      id            SERIAL PRIMARY KEY,
+      user_id       INTEGER NOT NULL REFERENCES oceanic_ethernet_users(id) ON DELETE CASCADE,
+      concepto      TEXT NOT NULL,
+      monto         NUMERIC(20, 15) NOT NULL,
+      origen        VARCHAR(50) DEFAULT 'OceanicEthernet',
+      created_at    TIMESTAMP DEFAULT NOW()
+    );
 
-  CREATE TABLE IF NOT EXISTS oceanic_ethernet_user_links (
-    id          SERIAL PRIMARY KEY,
-    oe_user_id  INTEGER NOT NULL REFERENCES oceanic_ethernet_users(id) ON DELETE CASCADE,
-    external_user_id INTEGER NOT NULL,
-    external_system VARCHAR(50) NOT NULL, -- 'NatMarket', 'AllApp', etc.
-    created_at  TIMESTAMP DEFAULT NOW(),
-    UNIQUE(external_user_id, external_system)
-  );
+    CREATE TABLE IF NOT EXISTS oceanic_ethernet_user_links (
+      id            SERIAL PRIMARY KEY,
+      oe_user_id    INTEGER NOT NULL REFERENCES oceanic_ethernet_users(id) ON DELETE CASCADE,
+      external_user_id TEXT NOT NULL, -- Asumo que el ID externo puede ser TEXT (como los IDs de la tabla 'users')
+      external_system VARCHAR(50) NOT NULL, -- 'NatMarket', 'AllApp', etc.
+      created_at    TIMESTAMP DEFAULT NOW(),
+      UNIQUE(external_user_id, external_system)
+    );
 
-  CREATE TABLE IF NOT EXISTS tigertasks_backups (
-    user_id TEXT PRIMARY KEY,
-    backup_data JSONB NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-  );
+    CREATE TABLE IF NOT EXISTS tigertasks_backups (
+      user_id TEXT PRIMARY KEY,
+      backup_data JSONB NOT NULL,
+      updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    );
 
-  CREATE TABLE IF NOT EXISTS command_limit_extensions (
-            id SERIAL PRIMARY KEY,
-            user_id TEXT NOT NULL REFERENCES users(id),
-            extension_type VARCHAR(20) NOT NULL,
-            commands_added INTEGER NOT NULL,
-            cost INTEGER NOT NULL,
-            extended_at TIMESTAMP WITH TIME ZONE NOT NULL,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-        );
-  
-  CREATE TABLE IF NOT EXISTS notifications_nat (
+    CREATE TABLE IF NOT EXISTS command_limit_extensions (
+      id SERIAL PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES users(id), -- 🔑 CORRECCIÓN: user_id debe ser TEXT para referenciar users(id)
+      extension_type VARCHAR(20) NOT NULL,
+      commands_added INTEGER NOT NULL,
+      cost INTEGER NOT NULL,
+      extended_at TIMESTAMP WITH TIME ZONE NOT NULL,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    );
+    
+    CREATE TABLE IF NOT EXISTS notifications_nat (
       id SERIAL PRIMARY KEY,
       user_id INTEGER NOT NULL REFERENCES users_nat(id) ON DELETE CASCADE,
       type VARCHAR(50) NOT NULL DEFAULT 'message',
@@ -8511,109 +8510,109 @@ CREATE TABLE IF NOT EXISTS product_images (
       read BOOLEAN DEFAULT false,
       created_at TIMESTAMP DEFAULT NOW()
     );
-  
-  -- Agregar columna appbux a ocean_pay_users si no existe
-  DO $$ 
-  BEGIN
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'ocean_pay_users' AND column_name = 'appbux') THEN
-      ALTER TABLE ocean_pay_users ADD COLUMN appbux INTEGER DEFAULT 0;
-    END IF;
-  END $$;
-  
-  -- Agregar user_unique_id y unique_id_shown a users_nat si no existen
-  DO $$ 
-  BEGIN
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users_nat' AND column_name = 'user_unique_id') THEN
-      ALTER TABLE users_nat ADD COLUMN user_unique_id VARCHAR(100) UNIQUE;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users_nat' AND column_name = 'unique_id_shown') THEN
-      ALTER TABLE users_nat ADD COLUMN unique_id_shown BOOLEAN DEFAULT false;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users_nat' AND column_name = 'strikes') THEN
-      ALTER TABLE users_nat ADD COLUMN strikes INTEGER DEFAULT 0;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users_nat' AND column_name = 'banned_until') THEN
-      ALTER TABLE users_nat ADD COLUMN banned_until TIMESTAMP;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users_nat' AND column_name = 'ban_reason') THEN
-      ALTER TABLE users_nat ADD COLUMN ban_reason TEXT;
-    END IF;
-  END $$;
-  
-  -- Crear tabla de reportes
-  CREATE TABLE IF NOT EXISTS product_reports (
-    id SERIAL PRIMARY KEY,
-    product_id INTEGER NOT NULL REFERENCES products_nat(id) ON DELETE CASCADE,
-    reporter_id INTEGER NOT NULL REFERENCES users_nat(id) ON DELETE CASCADE,
-    reason TEXT NOT NULL,
-    status VARCHAR(20) DEFAULT 'pending', -- pending, approved, rejected
-    admin_id INTEGER REFERENCES users_nat(id) ON DELETE SET NULL,
-    admin_response TEXT,
-    created_at TIMESTAMP DEFAULT NOW(),
-    reviewed_at TIMESTAMP
-  );
-  
-  CREATE INDEX IF NOT EXISTS idx_product_reports_status ON product_reports(status);
-  CREATE INDEX IF NOT EXISTS idx_product_reports_product ON product_reports(product_id);
-  
-  -- Agregar columnas de stock y vendido a products_nat si no existen
-  DO $$ 
-  BEGIN
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products_nat' AND column_name = 'stock') THEN
-      ALTER TABLE products_nat ADD COLUMN stock INTEGER DEFAULT 1;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products_nat' AND column_name = 'sold') THEN
-      ALTER TABLE products_nat ADD COLUMN sold BOOLEAN DEFAULT false;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products_nat' AND column_name = 'buyer_id') THEN
-      ALTER TABLE products_nat ADD COLUMN buyer_id INTEGER REFERENCES users_nat(id) ON DELETE SET NULL;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products_nat' AND column_name = 'published_at') THEN
-      ALTER TABLE products_nat ADD COLUMN published_at TIMESTAMP DEFAULT now();
-      -- Inicializar published_at con created_at para productos existentes
-      UPDATE products_nat SET published_at = created_at WHERE published_at IS NULL;
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products_nat' AND column_name = 'category') THEN
-      ALTER TABLE products_nat ADD COLUMN category VARCHAR(100);
-    END IF;
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products_nat' AND column_name = 'status') THEN
-      ALTER TABLE products_nat ADD COLUMN status VARCHAR(50) DEFAULT 'disponible';
-    END IF;
-  END $$;
-  
-  -- Crear tabla de vistas únicas por usuario y producto
-  CREATE TABLE IF NOT EXISTS product_views_unique (
-    id SERIAL PRIMARY KEY,
-    user_id VARCHAR(255) NOT NULL,
-    product_id INTEGER NOT NULL REFERENCES products_nat(id) ON DELETE CASCADE,
-    created_at TIMESTAMP DEFAULT NOW(),
-    CONSTRAINT unique_user_product_view UNIQUE(user_id, product_id)
-  );
-  
-  -- Crear tabla de seguidores
-  CREATE TABLE IF NOT EXISTS user_follows (
-    id SERIAL PRIMARY KEY,
-    follower_id INTEGER NOT NULL REFERENCES users_nat(id) ON DELETE CASCADE,
-    following_id INTEGER NOT NULL REFERENCES users_nat(id) ON DELETE CASCADE,
-    created_at TIMESTAMP DEFAULT NOW(),
-    CONSTRAINT unique_follow UNIQUE(follower_id, following_id),
-    CONSTRAINT no_self_follow CHECK (follower_id != following_id)
-  );
-  
-  -- Crear tabla de suscripciones de Ecoxion
-  CREATE TABLE IF NOT EXISTS ecoxion_subscriptions (
-    id SERIAL PRIMARY KEY,
-    user_id TEXT NOT NULL,
-    plan TEXT NOT NULL DEFAULT 'free',
-    starts_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    ends_at TIMESTAMP NOT NULL,
-    active BOOLEAN DEFAULT true,
-    created_at TIMESTAMP DEFAULT NOW()
-  );
-  
-  -- Crear índice para búsquedas rápidas
-  CREATE INDEX IF NOT EXISTS idx_ecoxion_subs_user_active ON ecoxion_subscriptions(user_id, active, ends_at);
-`,
+    
+    -- Agregar columna appbux a ocean_pay_users si no existe
+    DO $$ 
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'ocean_pay_users' AND column_name = 'appbux') THEN
+        ALTER TABLE ocean_pay_users ADD COLUMN appbux INTEGER DEFAULT 0;
+      END IF;
+    END $$;
+    
+    -- Agregar user_unique_id y unique_id_shown a users_nat si no existen
+    DO $$ 
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users_nat' AND column_name = 'user_unique_id') THEN
+        ALTER TABLE users_nat ADD COLUMN user_unique_id VARCHAR(100) UNIQUE;
+      END IF;
+      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users_nat' AND column_name = 'unique_id_shown') THEN
+        ALTER TABLE users_nat ADD COLUMN unique_id_shown BOOLEAN DEFAULT false;
+      END IF;
+      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users_nat' AND column_name = 'strikes') THEN
+        ALTER TABLE users_nat ADD COLUMN strikes INTEGER DEFAULT 0;
+      END IF;
+      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users_nat' AND column_name = 'banned_until') THEN
+        ALTER TABLE users_nat ADD COLUMN banned_until TIMESTAMP;
+      END IF;
+      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users_nat' AND column_name = 'ban_reason') THEN
+        ALTER TABLE users_nat ADD COLUMN ban_reason TEXT;
+      END IF;
+    END $$;
+    
+    -- Crear tabla de reportes
+    CREATE TABLE IF NOT EXISTS product_reports (
+      id SERIAL PRIMARY KEY,
+      product_id INTEGER NOT NULL REFERENCES products_nat(id) ON DELETE CASCADE,
+      reporter_id INTEGER NOT NULL REFERENCES users_nat(id) ON DELETE CASCADE,
+      reason TEXT NOT NULL,
+      status VARCHAR(20) DEFAULT 'pending', -- pending, approved, rejected
+      admin_id INTEGER REFERENCES users_nat(id) ON DELETE SET NULL,
+      admin_response TEXT,
+      created_at TIMESTAMP DEFAULT NOW(),
+      reviewed_at TIMESTAMP
+    );
+    
+    CREATE INDEX IF NOT EXISTS idx_product_reports_status ON product_reports(status);
+    CREATE INDEX IF NOT EXISTS idx_product_reports_product ON product_reports(product_id);
+    
+    -- Agregar columnas de stock y vendido a products_nat si no existen
+    DO $$ 
+    BEGIN
+      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products_nat' AND column_name = 'stock') THEN
+        ALTER TABLE products_nat ADD COLUMN stock INTEGER DEFAULT 1;
+      END IF;
+      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products_nat' AND column_name = 'sold') THEN
+        ALTER TABLE products_nat ADD COLUMN sold BOOLEAN DEFAULT false;
+      END IF;
+      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products_nat' AND column_name = 'buyer_id') THEN
+        ALTER TABLE products_nat ADD COLUMN buyer_id INTEGER REFERENCES users_nat(id) ON DELETE SET NULL;
+      END IF;
+      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products_nat' AND column_name = 'published_at') THEN
+        ALTER TABLE products_nat ADD COLUMN published_at TIMESTAMP DEFAULT now();
+        -- Inicializar published_at con created_at para productos existentes
+        UPDATE products_nat SET published_at = created_at WHERE published_at IS NULL;
+      END IF;
+      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products_nat' AND column_name = 'category') THEN
+        ALTER TABLE products_nat ADD COLUMN category VARCHAR(100);
+      END IF;
+      IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'products_nat' AND column_name = 'status') THEN
+        ALTER TABLE products_nat ADD COLUMN status VARCHAR(50) DEFAULT 'disponible';
+      END IF;
+    END $$;
+    
+    -- Crear tabla de vistas únicas por usuario y producto
+    CREATE TABLE IF NOT EXISTS product_views_unique (
+      id SERIAL PRIMARY KEY,
+      user_id VARCHAR(255) NOT NULL,
+      product_id INTEGER NOT NULL REFERENCES products_nat(id) ON DELETE CASCADE,
+      created_at TIMESTAMP DEFAULT NOW(),
+      CONSTRAINT unique_user_product_view UNIQUE(user_id, product_id)
+    );
+    
+    -- Crear tabla de seguidores
+    CREATE TABLE IF NOT EXISTS user_follows (
+      id SERIAL PRIMARY KEY,
+      follower_id INTEGER NOT NULL REFERENCES users_nat(id) ON DELETE CASCADE,
+      following_id INTEGER NOT NULL REFERENCES users_nat(id) ON DELETE CASCADE,
+      created_at TIMESTAMP DEFAULT NOW(),
+      CONSTRAINT unique_follow UNIQUE(follower_id, following_id),
+      CONSTRAINT no_self_follow CHECK (follower_id != following_id)
+    );
+    
+    -- Crear tabla de suscripciones de Ecoxion
+    CREATE TABLE IF NOT EXISTS ecoxion_subscriptions (
+      id SERIAL PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      plan TEXT NOT NULL DEFAULT 'free',
+      starts_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      ends_at TIMESTAMP NOT NULL,
+      active BOOLEAN DEFAULT true,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+    
+    -- Crear índice para búsquedas rápidas
+    CREATE INDEX IF NOT EXISTS idx_ecoxion_subs_user_active ON ecoxion_subscriptions(user_id, active, ends_at);
+    `,
   ];
 
   for (const q of tableQueries) {
@@ -8621,6 +8620,7 @@ CREATE TABLE IF NOT EXISTS product_images (
   }
   
   // Migración: Si la tabla command_limit_extensions existe con user_id INTEGER, cambiarla a TEXT
+  // Este bloque de migración ahora debería funcionar correctamente porque users(id) es TEXT.
   try {
     const checkColumn = await pool.query(`
       SELECT data_type 
@@ -8654,7 +8654,11 @@ CREATE TABLE IF NOT EXISTS product_images (
       console.log('✅ Migración completada: user_id ahora es TEXT');
     }
   } catch (err) {
-    console.warn('⚠️ Error en migración de command_limit_extensions (puede ignorarse si la tabla no existe):', err.message);
+    // Es normal que esto falle en una base de datos recién creada (Neon) porque la tabla aún no existe.
+    // El catch lo maneja y permite que el servidor siga.
+    if (!err.message.includes('relation "command_limit_extensions" does not exist')) {
+        console.warn('⚠️ Error en migración de command_limit_extensions:', err.message);
+    }
   }
   
   console.log("✅ Todas las tablas existen o fueron creadas");
@@ -12453,10 +12457,22 @@ app.get('/api/word-battle/rewards/:userId', async (req, res) => {
   }
 });
 
+// ... (Aquí terminan todas tus rutas de app.get/app.post) ...
+
+// =================================================================
+// CÓDIGO DE INICIALIZACIÓN (Al final de server.js)
+// =================================================================
+
 await ensureDatabase(); 
 await ensureTables();
 await ensureQuizTables();
 await ensureWordBattleTables();
+
+// 💡 CORRECCIÓN 1: Llama a la limpieza DESPUÉS de asegurar que todas las tablas existen.
+console.log("Iniciando limpieza de eventos antiguos...");
+await cleanupOldEvents(); // <--- ASEGÚRATE DE QUE SE EJECUTA AQUÍ
+console.log("Limpieza de eventos antiguos finalizada.");
+
 
 const PORT = process.env.PORT || 3000;
 httpServer.listen(PORT, '0.0.0.0', () => {

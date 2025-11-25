@@ -7347,7 +7347,7 @@ app.get('/oceanic-ethernet/balance/:userId', async (req, res) => {
         return res.json({ balance: 0 }); // El usuario no está vinculado, el balance es 0
     }
 
-    opUserId = linkResult.rows[0].external_user_id;
+    opUserId = parseInt(linkResult.rows[0].external_user_id); // ✅ PARSE TO INTEGER
 
     // A partir de aquí, solo usamos opUserId para las consultas a ocean_pay_metadata
     
@@ -7355,7 +7355,7 @@ app.get('/oceanic-ethernet/balance/:userId', async (req, res) => {
     const { rows: metaRows } = await pool.query(`
       SELECT value FROM ocean_pay_metadata
       WHERE user_id = $1 AND key = 'internet_gb'
-    `, [opUserId]); // ✅ CORREGIDO: Usando opUserId
+    `, [opUserId]); // ✅ CORREGIDO: Usando opUserId como INTEGER
     
     if (metaRows.length > 0) {
       const balance = parseFloat(metaRows[0].value || '0');

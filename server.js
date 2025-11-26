@@ -2780,6 +2780,291 @@ async function isUserBanned(userId) {
   }
 }
 
+/* ===== OCEAN CINEMAS - PRE-RESERVAS ===== */
+
+// Crear tabla de pre-reservas
+async function ensurePreReservasTables() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ocean_cinemas_prereservas (
+        id BIGSERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        pelicula_id TEXT NOT NULL,
+        pelicula_titulo TEXT NOT NULL,
+        horario_estreno TIMESTAMP NOT NULL,
+        asientos TEXT[] NOT NULL,
+        precio_total INTEGER NOT NULL,
+        estado TEXT NOT NULL DEFAULT 'PRE-RESERVADO',
+        fecha_compra TIMESTAMP DEFAULT NOW(),
+        fecha_activacion TIMESTAMP,
+        ocean_pay_tx_id TEXT,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_prereservas_user ON ocean_cinemas_prereservas(user_id)
+    `);
+    
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_prereservas_pelicula ON ocean_cinemas_prereservas(pelicula_id)
+    `);
+    
+    console.log('✅ Ocean Cinemas pre-reservas tables initialized');
+  } catch (err) {
+    console.error('❌ Error initializing pre-reservas tables:', err);
+  }
+}
+
+// Inicializar tablas al arrancar
+ensurePreReservasTables();
+
+// Endpoint para crear pre-reserva
+app.post('/ocean-cinemas/prereserva', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+  
+  const token = authHeader.substring(7);
+  let userId;
+  try {
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
+    userId = decoded.uid;
+    userId = parseInt(userId) || userId;
+  } catch (e) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+  
+  const { 
+    peliculaId, 
+    peliculaTitulo, 
+    horarioEstreno, 
+    asientos, 
+    precioTotal 
+  } = req.body;
+  
+  if (!peliculaId || !peliculaTitulo || !horarioEstreno || !asientos || !precioTotal) {
+    return res.status(400).json({ error: 'Datos incompletos' });
+  }
+  
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    
+    // Verificar saldo de AquaBux
+    const { rows: userRows } = await client.query(
+      'SELECT aquabux FROM ocean_pay_users WHERE id = $1 FOR UPDATE',
+      [userId]
+    );
+    
+    if (userRows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Usuario no encontrado en Ocean Pay' });
+    }
+    
+    const currentBalance = userRows[0].aquabux || 0;
+    if (currentBalance < precioTotal) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ 
+        error: `Saldo insuficiente. Necesitas ${precioTotal} AquaBux.`,
+        currentBalance 
+      });
+    }
+    
+    // Descontar AquaBux
+    const newBalance = currentBalance - precioTotal;
+    await client.query(
+      'UPDATE ocean_pay_users SET aquabux = $1 WHERE id = $2',
+      [newBalance, userId]
+    );
+    
+    // Crear pre-reserva
+    const fechaActivacion = new Date(horarioEstreno);
+    const { rows: prereservaRows } = await client.query(
+      `INSERT INTO ocean_cinemas_prereservas 
+       (user_id, pelicula_id, pelicula_titulo, horario_estreno, asientos, precio_total, fecha_activacion)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING *`,
+      [userId, peliculaId, peliculaTitulo, horarioEstreno, asientos, precioTotal, fechaActivacion]
+    );
+    
+    // Registrar transacción
+    await client.query(
+      `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
+       VALUES ($1, $2, $3, $4)`,
+      [userId, `Pre-reserva: ${peliculaTitulo}`, -precioTotal, 'Ocean Cinemas']
+    );
+    
+    await client.query('COMMIT');
+    
+    res.json({
+      success: true,
+      prereserva: prereservaRows[0],
+      newBalance
+    });
+    
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error creando pre-reserva:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  } finally {
+    client.release();
+  }
+});
+
+// Endpoint para obtener pre-reservas del usuario
+app.get('/ocean-cinemas/prereservas/:userId', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+  
+  const token = authHeader.substring(7);
+  let tokenUserId;
+  try {
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
+    tokenUserId = decoded.uid;
+    tokenUserId = parseInt(tokenUserId) || tokenUserId;
+  } catch (e) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+  
+  const { userId } = req.params;
+  
+  // Verificar que el usuario solo pueda ver sus propias pre-reservas
+  if (parseInt(userId) !== tokenUserId) {
+    return res.status(403).json({ error: 'No autorizado' });
+  }
+  
+  try {
+    const { rows } = await pool.query(
+      `SELECT * FROM ocean_cinemas_prereservas 
+       WHERE user_id = $1 
+       ORDER BY created_at DESC`,
+      [userId]
+    );
+    
+    res.json(rows);
+  } catch (err) {
+    console.error('Error obteniendo pre-reservas:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// Endpoint para activar pre-reservas (ejecutar periódicamente)
+app.post('/ocean-cinemas/activar-prereservas', async (req, res) => {
+  try {
+    const now = new Date();
+    
+    const { rows } = await pool.query(
+      `UPDATE ocean_cinemas_prereservas 
+       SET estado = 'ACTIVO', updated_at = NOW()
+       WHERE estado = 'PRE-RESERVADO' 
+       AND fecha_activacion <= $1
+       RETURNING *`,
+      [now]
+    );
+    
+    res.json({
+      success: true,
+      activadas: rows.length,
+      prereservas: rows
+    });
+    
+  } catch (err) {
+    console.error('Error activando pre-reservas:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// Endpoint para verificar disponibilidad de asientos
+app.post('/ocean-cinemas/verificar-asientos', async (req, res) => {
+  const { peliculaId, horarioEstreno, asientos } = req.body;
+  
+  if (!peliculaId || !horarioEstreno || !asientos) {
+    return res.status(400).json({ error: 'Datos incompletos' });
+  }
+  
+  try {
+    // Obtener asientos ya reservados para ese horario
+    const { rows } = await pool.query(
+      `SELECT asientos FROM ocean_cinemas_prereservas 
+       WHERE pelicula_id = $1 
+       AND horario_estreno = $2 
+       AND estado IN ('PRE-RESERVADO', 'ACTIVO')`,
+      [peliculaId, horarioEstreno]
+    );
+    
+    // Combinar todos los asientos reservados
+    const asientosReservados = new Set();
+    rows.forEach(row => {
+      if (row.asientos && Array.isArray(row.asientos)) {
+        row.asientos.forEach(asiento => asientosReservados.add(asiento));
+      }
+    });
+    
+    // Verificar si algún asiento solicitado ya está reservado
+    const conflictos = asientos.filter(asiento => asientosReservados.has(asiento));
+    
+    res.json({
+      disponible: conflictos.length === 0,
+      conflictos,
+      asientosReservados: Array.from(asientosReservados)
+    });
+    
+  } catch (err) {
+    console.error('Error verificando asientos:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// Endpoint para obtener estadísticas de pre-reservas
+app.get('/ocean-cinemas/stats-prereservas', async (req, res) => {
+  try {
+    const { rows: totalRows } = await pool.query(
+      'SELECT COUNT(*) as total FROM ocean_cinemas_prereservas'
+    );
+    
+    const { rows: activasRows } = await pool.query(
+      "SELECT COUNT(*) as activas FROM ocean_cinemas_prereservas WHERE estado = 'PRE-RESERVADO'"
+    );
+    
+    const { rows: activadasRows } = await pool.query(
+      "SELECT COUNT(*) as activadas FROM ocean_cinemas_prereservas WHERE estado = 'ACTIVO'"
+    );
+    
+    const { rows: peliculasRows } = await pool.query(
+      'SELECT pelicula_id, pelicula_titulo, COUNT(*) as reservas FROM ocean_cinemas_prereservas GROUP BY pelicula_id, pelicula_titulo ORDER BY reservas DESC'
+    );
+    
+    res.json({
+      total: parseInt(totalRows[0].total),
+      preReservadas: parseInt(activasRows[0].activas),
+      activadas: parseInt(activadasRows[0].activadas),
+      porPelicula: peliculasRows
+    });
+    
+  } catch (err) {
+    console.error('Error obteniendo estadísticas:', err);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
+
+// Servir Ocean Cinemas
+app.get('/ocean-cinemas', (_req, res) => {
+  try {
+    const html = fs.readFileSync(join(__dirname, 'Ocean Cinemas', 'index.html'), 'utf-8');
+    res.type('html').send(html);
+  } catch (e) {
+    res.status(404).send('Ocean Cinemas no encontrado');
+  }
+});
+
+// Servir archivos estáticos de Ocean Cinemas
+app.use('/ocean-cinemas', express.static(join(__dirname, 'Ocean Cinemas')));
+
 async function notifyModerator(type, targetId, content, senderId) {
   // Obtener id de OceanandWild
   const { rows } = await pool.query(

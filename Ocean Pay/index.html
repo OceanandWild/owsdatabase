@@ -1561,8 +1561,30 @@ async function autoLogin(username, password) {
 
 
   /* ----------  REFRESH BALANCES  ---------- */
+  async function loadAquaBuxBalance() {
+    try {
+      const res = await fetch(API + '/ocean-pay/me', {
+        headers: { Authorization: 'Bearer ' + token }
+      });
+      if (res.ok) {
+        const user = await res.json();
+        const buxEl = qs('#bux');
+        if (buxEl) {
+          buxEl.textContent = (user.aquabux || 0).toLocaleString();
+        }
+        // Actualizar en localStorage también
+        const opUser = JSON.parse(localStorage.getItem('opUser') || '{}');
+        opUser.aquabux = user.aquabux || 0;
+        localStorage.setItem('opUser', JSON.stringify(opUser));
+      }
+    } catch (err) {
+      console.error('Error cargando AquaBux:', err);
+    }
+  }
+
   async function refreshAllBalances() {
-await Promise.all([
+    await Promise.all([
+      loadAquaBuxBalance(),
       loadEcoxionumsBalance(),
       loadEcoCoreBitsBalance(),
       loadCreditsBalance(),
@@ -1701,8 +1723,9 @@ window.addEventListener('DOMContentLoaded', async () => {
   // pinta wallet y saldo
   show('#wallet', true);
   
-  // Cargar todos los balances
+  // Cargar todos los balances (incluyendo AquaBux desde el servidor)
   await Promise.all([
+    loadAquaBuxBalance(),
     loadEcoxionumsBalance(),
     loadEcoCoreBitsBalance(),
     loadCreditsBalance(),
@@ -1716,9 +1739,6 @@ window.addEventListener('DOMContentLoaded', async () => {
   show('#regForm', false);
   show('#loginForm', false);
   qs('#toggleLink').textContent = 'Crear cuenta';
-
-  const buxEl = qs('#bux');
-  if (buxEl) buxEl.textContent = (user.aquabux || 0).toLocaleString();
 
   // ⬅️  carga historial
   await renderTransacciones();

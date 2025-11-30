@@ -4355,7 +4355,38 @@ app.patch('/natmarket/products/:id', async (req, res) => {
     const query = `UPDATE products_nat SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING *`;
 
     const { rows: [updated] } = await pool.query(query, values);
+
+    // NOTIFICAR AL COMPRADOR SI SE MARCÓ COMO VENDIDO
+    if (sold === true && buyer_id) {
+      try {
+        // Obtener nombre del vendedor y producto
+        const { rows: details } = await pool.query(`
+          SELECT u.username as seller_name, p.name as product_name 
+          FROM products_nat p
+          JOIN users_nat u ON p.user_id = u.id
+          WHERE p.id = $1
+        `, [id]);
+
+        if (details.length > 0) {
+          const { seller_name, product_name } = details[0];
+
+          await pool.query(`
+            INSERT INTO notifications_nat (user_id, type, message, product_id, sender_id, created_at)
+            VALUES ($1, 'purchase', $2, $3, $4, NOW())
+          `, [
+            buyer_id,
+            `🎉 ¡Compra confirmada! ${seller_name} marcó "${product_name}" como vendido a ti. ¡No olvides calificarlo!`,
+            id,
+            user_id
+          ]);
+        }
+      } catch (notifErr) {
+        console.error('Error enviando notificación de venta:', notifErr);
+      }
+    }
+
     res.json(updated);
+
   } catch (err) {
     handleNatError(res, err, 'PATCH /natmarket/products/:id');
   }

@@ -10051,6 +10051,19 @@ async function ensureTables() {
 
 function handleNatError(res, err, place = '') {
   console.error(`[NAT-MARKET ${place}]`, err?.message || err);
+
+  // Detectar si el error es porque el usuario no existe (Foreign Key Violation)
+  if (err?.code === '23503') {
+    const detail = err.detail || '';
+    // Si el error menciona user_id, sender_id, follower_id, etc. no presente en users_nat
+    if (detail.includes('users_nat') || detail.includes('user_id') || detail.includes('sender_id')) {
+      return res.status(401).json({
+        error: 'Tu sesión ha expirado o el usuario no existe. Por favor inicia sesión nuevamente.',
+        code: 'USER_NOT_FOUND'
+      });
+    }
+  }
+
   res.status(500).json({ error: err?.message || String(err) });
 }
 

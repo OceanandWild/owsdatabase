@@ -74,6 +74,148 @@ import { dirname, join } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+/* ========== MIGRACIÓN AUTOMÁTICA DE BASE DE DATOS ========== */
+async function runDatabaseMigrations() {
+  console.log('🔄 Ejecutando migraciones de base de datos...');
+
+  try {
+    // 1. Agregar columna comment a user_ratings_nat si no existe
+    await pool.query(`
+      ALTER TABLE user_ratings_nat 
+      ADD COLUMN IF NOT EXISTS comment TEXT
+    `).catch(() => console.log('⚠️ Columna comment ya existe en user_ratings_nat'));
+
+    // 2. Eliminar y recrear foreign keys con ON DELETE CASCADE
+    console.log('🔧 Arreglando foreign keys...');
+
+    // ai_product_generations
+    await pool.query(`
+      ALTER TABLE ai_product_generations 
+      DROP CONSTRAINT IF EXISTS ai_product_generations_user_id_fkey
+    `).catch(() => { });
+
+    await pool.query(`
+      ALTER TABLE ai_product_generations 
+      ADD CONSTRAINT ai_product_generations_user_id_fkey 
+      FOREIGN KEY (user_id) REFERENCES users_nat(id) 
+      ON DELETE CASCADE
+    `).catch(() => console.log('⚠️ FK ai_product_generations ya existe'));
+
+    // messages_nat
+    await pool.query(`
+      ALTER TABLE messages_nat 
+      DROP CONSTRAINT IF EXISTS messages_nat_sender_id_fkey
+    `).catch(() => { });
+
+    await pool.query(`
+      ALTER TABLE messages_nat 
+      ADD CONSTRAINT messages_nat_sender_id_fkey 
+      FOREIGN KEY (sender_id) REFERENCES users_nat(id) 
+      ON DELETE CASCADE
+    `).catch(() => console.log('⚠️ FK messages_nat ya existe'));
+
+    // user_favorites_nat
+    await pool.query(`
+      ALTER TABLE user_favorites_nat 
+      DROP CONSTRAINT IF EXISTS user_favorites_nat_user_id_fkey
+    `).catch(() => { });
+
+    await pool.query(`
+      ALTER TABLE user_favorites_nat 
+      ADD CONSTRAINT user_favorites_nat_user_id_fkey 
+      FOREIGN KEY (user_id) REFERENCES users_nat(id) 
+      ON DELETE CASCADE
+    `).catch(() => console.log('⚠️ FK user_favorites_nat ya existe'));
+
+    // user_wishlist_nat
+    await pool.query(`
+      ALTER TABLE user_wishlist_nat 
+      DROP CONSTRAINT IF EXISTS user_wishlist_nat_user_id_fkey
+    `).catch(() => { });
+
+    await pool.query(`
+      ALTER TABLE user_wishlist_nat 
+      ADD CONSTRAINT user_wishlist_nat_user_id_fkey 
+      FOREIGN KEY (user_id) REFERENCES users_nat(id) 
+      ON DELETE CASCADE
+    `).catch(() => console.log('⚠️ FK user_wishlist_nat ya existe'));
+
+    // user_follows (si existe)
+    await pool.query(`
+      ALTER TABLE user_follows 
+      DROP CONSTRAINT IF EXISTS user_follows_follower_id_fkey
+    `).catch(() => { });
+
+    await pool.query(`
+      ALTER TABLE user_follows 
+      ADD CONSTRAINT user_follows_follower_id_fkey 
+      FOREIGN KEY (follower_id) REFERENCES users_nat(id) 
+      ON DELETE CASCADE
+    `).catch(() => { });
+
+    await pool.query(`
+      ALTER TABLE user_follows 
+      DROP CONSTRAINT IF EXISTS user_follows_following_id_fkey
+    `).catch(() => { });
+
+    await pool.query(`
+      ALTER TABLE user_follows 
+      ADD CONSTRAINT user_follows_following_id_fkey 
+      FOREIGN KEY (following_id) REFERENCES users_nat(id) 
+      ON DELETE CASCADE
+    `).catch(() => { });
+
+    // 3. Limpiar registros huérfanos (datos que referencian usuarios inexistentes)
+    console.log('🧹 Limpiando datos huérfanos...');
+
+    // Limpiar ai_product_generations
+    await pool.query(`
+      DELETE FROM ai_product_generations 
+      WHERE user_id NOT IN (SELECT id FROM users_nat)
+    `).catch(() => { });
+
+    // Limpiar messages_nat
+    await pool.query(`
+      DELETE FROM messages_nat 
+      WHERE sender_id NOT IN (SELECT id FROM users_nat)
+    `).catch(() => { });
+
+    // Limpiar user_favorites_nat
+    await pool.query(`
+      DELETE FROM user_favorites_nat 
+      WHERE user_id NOT IN (SELECT id FROM users_nat)
+    `).catch(() => { });
+
+    // Limpiar user_wishlist_nat
+    await pool.query(`
+      DELETE FROM user_wishlist_nat 
+      WHERE user_id NOT IN (SELECT id FROM users_nat)
+    `).catch(() => { });
+
+    // Limpiar user_follows
+    await pool.query(`
+      DELETE FROM user_follows 
+      WHERE follower_id NOT IN (SELECT id FROM users_nat)
+        OR following_id NOT IN (SELECT id FROM users_nat)
+    `).catch(() => { });
+
+    // Limpiar user_reviews_nat (si existe)
+    await pool.query(`
+      DELETE FROM user_reviews_nat 
+      WHERE reviewer_id NOT IN (SELECT id FROM users_nat)
+        OR reviewed_user_id NOT IN (SELECT id FROM users_nat)
+    `).catch(() => { });
+
+    console.log('✅ Migraciones completadas exitosamente!');
+
+  } catch (err) {
+    console.error('❌ Error en migraciones:', err.message);
+  }
+}
+
+// Ejecutar migraciones al iniciar el servidor
+runDatabaseMigrations();
+
 
 
 // ===== OCEAN PAY - MODO OFFLINE (SIN INTERNET) =====

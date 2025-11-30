@@ -43,17 +43,17 @@ const { Pool } = pg;
 const pool = new Pool(
   process.env.DATABASE_URL
     ? {
-        connectionString: process.env.DATABASE_URL,
-        ssl: { rejectUnauthorized: false }
-      }
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false }
+    }
     : {
-        user: process.env.PGUSER,
-        host: process.env.PGHOST,
-        database: process.env.PGDATABASE,
-        password: process.env.PGPASSWORD,
-        port: process.env.PGPORT,
-        ssl: false
-      }
+      user: process.env.PGUSER,
+      host: process.env.PGHOST,
+      database: process.env.PGDATABASE,
+      password: process.env.PGPASSWORD,
+      port: process.env.PGPORT,
+      ssl: false
+    }
 );
 
 const app = express();
@@ -72,7 +72,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname  = dirname(__filename);
+const __dirname = dirname(__filename);
 
 
 
@@ -105,7 +105,7 @@ app.post('/ocean-pay/wildcredits/sync', async (req, res) => {
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Token requerido' });
   }
-  
+
   const token = authHeader.substring(7);
   let userId;
   try {
@@ -116,14 +116,14 @@ app.post('/ocean-pay/wildcredits/sync', async (req, res) => {
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
   }
-  
+
   const { wildCredits } = req.body;
   if (wildCredits === undefined || wildCredits === null) {
     return res.status(400).json({ error: 'wildCredits requerido' });
   }
-  
+
   const wildCreditsValue = parseInt(wildCredits || '0');
-  
+
   try {
     // Asegurar que la tabla existe con el esquema correcto (INTEGER)
     await pool.query(`
@@ -134,7 +134,7 @@ app.post('/ocean-pay/wildcredits/sync', async (req, res) => {
         PRIMARY KEY (user_id, key)
       )
     `);
-    
+
     // Intentar actualizar o insertar
     await pool.query(`
       INSERT INTO ocean_pay_metadata (user_id, key, value)
@@ -142,7 +142,7 @@ app.post('/ocean-pay/wildcredits/sync', async (req, res) => {
       ON CONFLICT (user_id, key) 
       DO UPDATE SET value = $2
     `, [userId, wildCreditsValue.toString()]);
-    
+
     res.json({ success: true, wildcredits: wildCreditsValue });
   } catch (e) {
     // Si hay un error de tipo de dato (tabla existe con UUID), intentar recrearla
@@ -200,7 +200,7 @@ app.get('/ocean-pay/wildcredits/balance', async (req, res) => {
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Token requerido' });
   }
-  
+
   const token = authHeader.substring(7);
   let userId;
   try {
@@ -211,13 +211,13 @@ app.get('/ocean-pay/wildcredits/balance', async (req, res) => {
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
   }
-  
+
   try {
     const { rows } = await pool.query(`
       SELECT value FROM ocean_pay_metadata
       WHERE user_id = $1 AND key = 'wildcredits'
     `, [userId]);
-    
+
     const wildCredits = rows.length > 0 ? parseInt(rows[0].value || '0') : 0;
     res.json({ wildcredits: wildCredits });
   } catch (e) {
@@ -238,7 +238,7 @@ app.get('/wildshorts/wildgems/balance', async (req, res) => {
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Token requerido' });
   }
-  
+
   const token = authHeader.substring(7);
   let userId;
   try {
@@ -248,13 +248,13 @@ app.get('/wildshorts/wildgems/balance', async (req, res) => {
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
   }
-  
+
   try {
     const { rows } = await pool.query(`
       SELECT value FROM ocean_pay_metadata
       WHERE user_id = $1 AND key = 'wildgems'
     `, [userId]);
-    
+
     const wildGems = rows.length > 0 ? parseInt(rows[0].value || '0') : 0;
     res.json({ wildgems: wildGems });
   } catch (e) {
@@ -273,7 +273,7 @@ app.post('/wildshorts/wildgems/sync', async (req, res) => {
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Token requerido' });
   }
-  
+
   const token = authHeader.substring(7);
   let userId;
   try {
@@ -283,14 +283,14 @@ app.post('/wildshorts/wildgems/sync', async (req, res) => {
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
   }
-  
+
   const { wildGems } = req.body;
   if (wildGems === undefined || wildGems === null) {
     return res.status(400).json({ error: 'wildGems requerido' });
   }
-  
+
   const wildGemsValue = parseInt(wildGems || '0');
-  
+
   try {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS ocean_pay_metadata (
@@ -300,14 +300,14 @@ app.post('/wildshorts/wildgems/sync', async (req, res) => {
         PRIMARY KEY (user_id, key)
       )
     `);
-    
+
     await pool.query(`
       INSERT INTO ocean_pay_metadata (user_id, key, value)
       VALUES ($1, 'wildgems', $2)
       ON CONFLICT (user_id, key) 
       DO UPDATE SET value = $2
     `, [userId, wildGemsValue.toString()]);
-    
+
     res.json({ success: true, wildgems: wildGemsValue });
   } catch (e) {
     console.error('Error sincronizando wildGems:', e);
@@ -321,7 +321,7 @@ app.post('/wildshorts/wildgems/change', async (req, res) => {
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Token requerido' });
   }
-  
+
   const token = authHeader.substring(7);
   let userId;
   try {
@@ -331,31 +331,31 @@ app.post('/wildshorts/wildgems/change', async (req, res) => {
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
   }
-  
+
   const { amount, concepto = 'Operación', origen = 'WildShorts' } = req.body;
   if (amount === undefined) {
     return res.status(400).json({ error: 'amount requerido' });
   }
-  
+
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    
+
     // Obtener saldo actual
     const { rows } = await client.query(`
       SELECT value FROM ocean_pay_metadata
       WHERE user_id = $1 AND key = 'wildgems'
       FOR UPDATE
     `, [userId]);
-    
+
     const current = parseInt(rows[0]?.value || '0');
     const newBalance = current + parseInt(amount);
-    
+
     if (newBalance < 0) {
       await client.query('ROLLBACK');
       return res.status(400).json({ error: 'Saldo insuficiente' });
     }
-    
+
     // Actualizar saldo
     await client.query(`
       INSERT INTO ocean_pay_metadata (user_id, key, value)
@@ -363,7 +363,7 @@ app.post('/wildshorts/wildgems/change', async (req, res) => {
       ON CONFLICT (user_id, key) 
       DO UPDATE SET value = $2
     `, [userId, newBalance.toString()]);
-    
+
     // Registrar transacción
     await client.query(`
       INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
@@ -376,7 +376,7 @@ app.post('/wildshorts/wildgems/change', async (req, res) => {
         VALUES ($1, $2, $3, $4)
       `, [userId, concepto, amount, origen]);
     });
-    
+
     await client.query('COMMIT');
     res.json({ success: true, newBalance });
   } catch (e) {
@@ -395,7 +395,7 @@ app.post('/wildshorts/subscribe', async (req, res) => {
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Token requerido' });
   }
-  
+
   const token = authHeader.substring(7);
   let userId;
   try {
@@ -405,25 +405,25 @@ app.post('/wildshorts/subscribe', async (req, res) => {
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
   }
-  
+
   const { planId, paymentMethod } = req.body; // paymentMethod: 'weekly' o 'pay-as-you-go'
   if (!planId || !paymentMethod) {
     return res.status(400).json({ error: 'planId y paymentMethod requeridos' });
   }
-  
+
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    
+
     // Obtener saldo de WildGems
     const { rows: gemsRows } = await client.query(`
       SELECT value FROM ocean_pay_metadata
       WHERE user_id = $1 AND key = 'wildgems'
       FOR UPDATE
     `, [userId]);
-    
+
     const currentGems = parseInt(gemsRows[0]?.value || '0');
-    
+
     // Calcular precio según método de pago
     // Para weekly: precio reducido (ej: 70% del precio mensual)
     // Para pay-as-you-go: no se cobra aquí, se cobra por episodio
@@ -435,14 +435,14 @@ app.post('/wildshorts/subscribe', async (req, res) => {
       ultra: { weekly: 6300, payAsYouGo: 0 },
       founder: { weekly: 14000, payAsYouGo: 0 }
     };
-    
+
     const planPrice = planPrices[planId]?.[paymentMethod === 'weekly' ? 'weekly' : 'payAsYouGo'] || 0;
-    
+
     if (paymentMethod === 'weekly' && currentGems < planPrice) {
       await client.query('ROLLBACK');
       return res.status(400).json({ error: `Saldo insuficiente. Necesitas ${planPrice} WildGems.` });
     }
-    
+
     // Si es weekly, descontar inmediatamente
     if (paymentMethod === 'weekly') {
       const newBalance = currentGems - planPrice;
@@ -452,7 +452,7 @@ app.post('/wildshorts/subscribe', async (req, res) => {
         ON CONFLICT (user_id, key) 
         DO UPDATE SET value = $2
       `, [userId, newBalance.toString()]);
-      
+
       // Registrar transacción
       await client.query(`
         INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
@@ -464,13 +464,13 @@ app.post('/wildshorts/subscribe', async (req, res) => {
         `, [userId, `Suscripción ${planId} (WildShorts) - Semanal`, -planPrice, 'WildShorts']);
       });
     }
-    
+
     // Crear/actualizar suscripción
     const now = new Date();
-    const endsAt = paymentMethod === 'weekly' 
+    const endsAt = paymentMethod === 'weekly'
       ? new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000) // 7 días
       : null; // pay-as-you-go no tiene fecha de expiración
-    
+
     // Crear tabla de suscripciones de WildShorts si no existe
     await client.query(`
       CREATE TABLE IF NOT EXISTS wildshorts_subs (
@@ -485,14 +485,14 @@ app.post('/wildshorts/subscribe', async (req, res) => {
         UNIQUE(user_id, plan_id, payment_method)
       )
     `);
-    
+
     // Cerrar suscripciones anteriores del mismo plan
     await client.query(`
       UPDATE wildshorts_subs 
       SET active = false 
       WHERE user_id = $1 AND plan_id = $2 AND active = true
     `, [userId, planId]);
-    
+
     // Crear nueva suscripción
     const { rows: subRows } = await client.query(`
       INSERT INTO wildshorts_subs (user_id, plan_id, payment_method, starts_at, ends_at, active)
@@ -501,9 +501,9 @@ app.post('/wildshorts/subscribe', async (req, res) => {
       DO UPDATE SET starts_at = $4, ends_at = $5, active = true
       RETURNING *
     `, [userId, planId, paymentMethod, now, endsAt]);
-    
+
     await client.query('COMMIT');
-    
+
     res.json({
       success: true,
       subscription: subRows[0],
@@ -524,7 +524,7 @@ app.get('/wildshorts/subscription/:userId', async (req, res) => {
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Token requerido' });
   }
-  
+
   const token = authHeader.substring(7);
   let userId;
   try {
@@ -534,7 +534,7 @@ app.get('/wildshorts/subscription/:userId', async (req, res) => {
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
   }
-  
+
   try {
     const { rows } = await pool.query(`
       SELECT * FROM wildshorts_subs
@@ -543,7 +543,7 @@ app.get('/wildshorts/subscription/:userId', async (req, res) => {
       ORDER BY created_at DESC
       LIMIT 1
     `, [userId]);
-    
+
     res.json(rows[0] || null);
   } catch (e) {
     if (e.code === '42P01') {
@@ -561,7 +561,7 @@ app.post('/wildshorts/wildgems/claim', async (req, res) => {
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Token requerido' });
   }
-  
+
   const token = authHeader.substring(7);
   let userId;
   try {
@@ -571,12 +571,12 @@ app.post('/wildshorts/wildgems/claim', async (req, res) => {
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
   }
-  
+
   const { type, amount } = req.body; // type: 'daily', 'welcome', 'bonus', etc.
   if (!type) {
     return res.status(400).json({ error: 'Tipo de recompensa requerido' });
   }
-  
+
   // Crear tabla e índices FUERA de la transacción (operaciones DDL)
   try {
     await pool.query(`
@@ -588,7 +588,7 @@ app.post('/wildshorts/wildgems/claim', async (req, res) => {
         claimed_at TIMESTAMP DEFAULT NOW()
       )
     `);
-    
+
     // Crear índice simple para mejorar el rendimiento de las consultas
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_wildgems_claims_user_type 
@@ -600,10 +600,10 @@ app.post('/wildshorts/wildgems/claim', async (req, res) => {
     // Ignorar errores de DDL si la tabla/índice ya existe
     console.log('[WildGems] Tabla/índice ya existe o error al crear:', ddlError.message);
   }
-  
+
   // Verificar límites FUERA de la transacción
   const now = new Date();
-  
+
   // Verificar si ya reclamó hoy (para recompensas diarias)
   if (type === 'daily') {
     const { rows: dailyRows } = await pool.query(`
@@ -611,31 +611,31 @@ app.post('/wildshorts/wildgems/claim', async (req, res) => {
       WHERE user_id = $1 AND claim_type = 'daily' 
       AND DATE(claimed_at) = DATE(NOW())
     `, [userId]);
-    
+
     if (dailyRows.length > 0) {
       const nextClaim = new Date(dailyRows[0].claimed_at);
       nextClaim.setDate(nextClaim.getDate() + 1);
       nextClaim.setHours(0, 0, 0, 0);
       const hoursUntil = Math.ceil((nextClaim - now) / (1000 * 60 * 60));
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: `Ya reclamaste tu recompensa diaria hoy. Próxima recompensa en ${hoursUntil} horas.`,
         nextClaim: nextClaim.toISOString()
       });
     }
   }
-  
+
   // Verificar si ya reclamó (para recompensas únicas)
   if (type === 'welcome') {
     const { rows: welcomeRows } = await pool.query(`
       SELECT * FROM wildgems_claims
       WHERE user_id = $1 AND claim_type = 'welcome'
     `, [userId]);
-    
+
     if (welcomeRows.length > 0) {
       return res.status(400).json({ error: 'Ya reclamaste tu recompensa de bienvenida.' });
     }
   }
-  
+
   // Verificar límite de anuncios (máximo 5 por día)
   if (type === 'ad_watch') {
     const { rows: adRows } = await pool.query(`
@@ -643,12 +643,12 @@ app.post('/wildshorts/wildgems/claim', async (req, res) => {
       WHERE user_id = $1 AND claim_type = 'ad_watch' 
       AND DATE(claimed_at) = DATE(NOW())
     `, [userId]);
-    
+
     if (parseInt(adRows[0].count) >= 5) {
       return res.status(400).json({ error: 'Has alcanzado el límite de 5 anuncios por día.' });
     }
   }
-  
+
   // Verificar límite de compartir (máximo 3 por día)
   if (type === 'social_share') {
     const { rows: shareRows } = await pool.query(`
@@ -656,12 +656,12 @@ app.post('/wildshorts/wildgems/claim', async (req, res) => {
       WHERE user_id = $1 AND claim_type = 'social_share' 
       AND DATE(claimed_at) = DATE(NOW())
     `, [userId]);
-    
+
     if (parseInt(shareRows[0].count) >= 3) {
       return res.status(400).json({ error: 'Has alcanzado el límite de 3 compartidos por día.' });
     }
   }
-  
+
   // Verificar si la columna moneda existe FUERA de la transacción
   let hasMonedaColumn = false;
   try {
@@ -675,7 +675,7 @@ app.post('/wildshorts/wildgems/claim', async (req, res) => {
     // Si falla la verificación, asumir que no existe la columna (por defecto)
     hasMonedaColumn = false;
   }
-  
+
   // Calcular cantidad si no se proporciona
   let gemsAmount = amount || 0;
   if (!gemsAmount) {
@@ -690,11 +690,11 @@ app.post('/wildshorts/wildgems/claim', async (req, res) => {
     };
     gemsAmount = rewards[type] || 0;
   }
-  
+
   if (gemsAmount <= 0) {
     return res.status(400).json({ error: 'Cantidad inválida' });
   }
-  
+
   // Conceptos para las transacciones
   const conceptos = {
     daily: 'Recompensa Diaria (WildShorts)',
@@ -705,22 +705,22 @@ app.post('/wildshorts/wildgems/claim', async (req, res) => {
     ad_watch: 'Recompensa por Ver Anuncio (WildShorts)',
     social_share: 'Recompensa por Compartir (WildShorts)'
   };
-  
+
   // Ahora sí, comenzar la transacción para las operaciones DML
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    
+
     // Obtener saldo actual
     const { rows: gemsRows } = await client.query(`
       SELECT value FROM ocean_pay_metadata
       WHERE user_id = $1 AND key = 'wildgems'
       FOR UPDATE
     `, [userId]);
-    
+
     const current = parseInt(gemsRows[0]?.value || '0');
     const newBalance = current + gemsAmount;
-    
+
     // Actualizar saldo
     await client.query(`
       INSERT INTO ocean_pay_metadata (user_id, key, value)
@@ -728,13 +728,13 @@ app.post('/wildshorts/wildgems/claim', async (req, res) => {
       ON CONFLICT (user_id, key) 
       DO UPDATE SET value = $2
     `, [userId, newBalance.toString()]);
-    
+
     // Registrar reclamación
     await client.query(`
       INSERT INTO wildgems_claims (user_id, claim_type, amount)
       VALUES ($1, $2, $3)
     `, [userId, type, gemsAmount]);
-    
+
     // Insertar transacción según la estructura de la tabla (ya sabemos si tiene moneda)
     if (hasMonedaColumn) {
       await client.query(`
@@ -747,12 +747,12 @@ app.post('/wildshorts/wildgems/claim', async (req, res) => {
         VALUES ($1, $2, $3, $4)
       `, [userId, conceptos[type] || `Recompensa ${type} (WildShorts)`, gemsAmount, 'WildShorts']);
     }
-    
+
     await client.query('COMMIT');
     client.release();
-    
-    res.json({ 
-      success: true, 
+
+    res.json({
+      success: true,
       newBalance,
       amount: gemsAmount,
       type: type
@@ -766,7 +766,7 @@ app.post('/wildshorts/wildgems/claim', async (req, res) => {
       console.log('[WildGems] Error en rollback (posiblemente ya abortado):', rollbackError.message);
     }
     client.release();
-    
+
     console.error('Error reclamando WildGems:', e);
     res.status(500).json({ error: 'Error interno' });
   }
@@ -778,7 +778,7 @@ app.get('/wildshorts/wildgems/claims-status', async (req, res) => {
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Token requerido' });
   }
-  
+
   const token = authHeader.substring(7);
   let userId;
   try {
@@ -788,7 +788,7 @@ app.get('/wildshorts/wildgems/claims-status', async (req, res) => {
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
   }
-  
+
   try {
     // Verificar recompensa diaria
     const { rows: dailyRows } = await pool.query(`
@@ -796,13 +796,13 @@ app.get('/wildshorts/wildgems/claims-status', async (req, res) => {
       WHERE user_id = $1 AND claim_type = 'daily' 
       AND DATE(claimed_at) = DATE(NOW())
     `, [userId]);
-    
+
     // Verificar recompensa de bienvenida
     const { rows: welcomeRows } = await pool.query(`
       SELECT * FROM wildgems_claims
       WHERE user_id = $1 AND claim_type = 'welcome'
     `, [userId]);
-    
+
     // Calcular próxima recompensa diaria
     let nextDaily = null;
     if (dailyRows.length > 0) {
@@ -811,7 +811,7 @@ app.get('/wildshorts/wildgems/claims-status', async (req, res) => {
       nextDaily.setDate(nextDaily.getDate() + 1);
       nextDaily.setHours(0, 0, 0, 0);
     }
-    
+
     res.json({
       daily: {
         claimed: dailyRows.length > 0,
@@ -840,7 +840,7 @@ app.post('/wildshorts/episode/pay', async (req, res) => {
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Token requerido' });
   }
-  
+
   const token = authHeader.substring(7);
   let userId;
   try {
@@ -850,12 +850,12 @@ app.post('/wildshorts/episode/pay', async (req, res) => {
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
   }
-  
+
   const { episodeId, episodePrice, requiredPlan } = req.body;
   if (!episodeId || episodePrice === undefined) {
     return res.status(400).json({ error: 'episodeId y episodePrice requeridos' });
   }
-  
+
   // Verificar si la columna moneda existe FUERA de la transacción
   let hasMonedaColumn = false;
   try {
@@ -869,7 +869,7 @@ app.post('/wildshorts/episode/pay', async (req, res) => {
     // Si falla la verificación, asumir que no existe la columna
     hasMonedaColumn = false;
   }
-  
+
   // Verificar suscripción FUERA de la transacción
   if (requiredPlan) {
     const { rows: subRows } = await pool.query(`
@@ -877,51 +877,51 @@ app.post('/wildshorts/episode/pay', async (req, res) => {
       WHERE user_id = $1 AND active = true
       AND (ends_at IS NULL OR ends_at > NOW())
     `, [userId]);
-    
+
     const planHierarchy = ['free', 'starter', 'explorer', 'adventurer', 'legend', 'ultra', 'founder'];
     const userPlan = subRows[0]?.plan_id || 'free';
     const requiredPlanIndex = planHierarchy.indexOf(requiredPlan);
     const userPlanIndex = planHierarchy.indexOf(userPlan);
-    
+
     if (userPlanIndex < requiredPlanIndex) {
       return res.status(403).json({ error: 'Plan insuficiente para este episodio' });
     }
   }
-  
+
   // Verificar saldo FUERA de la transacción
   const { rows: gemsRows } = await pool.query(`
     SELECT value FROM ocean_pay_metadata
     WHERE user_id = $1 AND key = 'wildgems'
   `, [userId]);
-  
+
   const currentGems = parseInt(gemsRows[0]?.value || '0');
   const price = parseInt(episodePrice);
-  
+
   if (currentGems < price) {
     return res.status(400).json({ error: `Saldo insuficiente. Necesitas ${price} WildGems.` });
   }
-  
+
   // Ahora sí, comenzar la transacción para las operaciones DML
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    
+
     // Obtener saldo con FOR UPDATE dentro de la transacción
     const { rows: gemsRowsLocked } = await client.query(`
       SELECT value FROM ocean_pay_metadata
       WHERE user_id = $1 AND key = 'wildgems'
       FOR UPDATE
     `, [userId]);
-    
+
     const currentGemsLocked = parseInt(gemsRowsLocked[0]?.value || '0');
-    
+
     // Verificar saldo nuevamente (podría haber cambiado)
     if (currentGemsLocked < price) {
       await client.query('ROLLBACK');
       client.release();
       return res.status(400).json({ error: `Saldo insuficiente. Necesitas ${price} WildGems.` });
     }
-    
+
     // Descontar WildGems
     const newBalance = currentGemsLocked - price;
     await client.query(`
@@ -930,7 +930,7 @@ app.post('/wildshorts/episode/pay', async (req, res) => {
       ON CONFLICT (user_id, key) 
       DO UPDATE SET value = $2
     `, [userId, newBalance.toString()]);
-    
+
     // Registrar transacción según la estructura de la tabla (ya sabemos si tiene moneda)
     if (hasMonedaColumn) {
       await client.query(`
@@ -943,10 +943,10 @@ app.post('/wildshorts/episode/pay', async (req, res) => {
         VALUES ($1, $2, $3, $4)
       `, [userId, `Episodio ${episodeId} (WildShorts)`, -price, 'WildShorts']);
     }
-    
+
     await client.query('COMMIT');
     client.release();
-    
+
     res.json({ success: true, newBalance });
   } catch (e) {
     // Intentar hacer rollback si la transacción está activa
@@ -957,7 +957,7 @@ app.post('/wildshorts/episode/pay', async (req, res) => {
       console.log('[WildShorts] Error en rollback (posiblemente ya abortado):', rollbackError.message);
     }
     client.release();
-    
+
     console.error('Error pagando episodio:', e);
     res.status(500).json({ error: 'Error interno' });
   }
@@ -967,7 +967,7 @@ app.post('/wildshorts/episode/pay', async (req, res) => {
 app.post('/ocean-pay/link-account', async (req, res) => {
   const { username, password, wildCredits, wildGems } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Faltan datos' });
-  
+
   try {
     // Verificar credenciales
     const { rows } = await pool.query(`
@@ -979,16 +979,16 @@ app.post('/ocean-pay/link-account', async (req, res) => {
     `, [username]);
 
     if (rows.length === 0) return res.status(401).json({ error: 'Credenciales incorrectas' });
-    
+
     const ok = await bcrypt.compare(password, rows[0].pwd_hash);
     if (!ok) return res.status(401).json({ error: 'Credenciales incorrectas' });
-    
+
     const token = jwt.sign({ uid: rows[0].id, un: username }, process.env.STUDIO_SECRET, { expiresIn: '7d' });
-    
+
     // WildCredits y WildGems se envían desde el cliente
     const wildCreditsValue = parseInt(wildCredits || '0');
     const wildGemsValue = parseInt(wildGems || '0');
-    
+
     // Guardar wildCredits y wildGems en el servidor
     try {
       await pool.query(`
@@ -999,27 +999,27 @@ app.post('/ocean-pay/link-account', async (req, res) => {
           PRIMARY KEY (user_id, key)
         )
       `);
-      
+
       // Obtener valores existentes del servidor
       const { rows: existingRows } = await pool.query(`
         SELECT key, value FROM ocean_pay_metadata
         WHERE user_id = $1 AND key IN ('wildcredits', 'wildgems')
       `, [rows[0].id]);
-      
+
       let existingWildCredits = 0;
       let existingWildGems = 0;
       existingRows.forEach(row => {
         if (row.key === 'wildcredits') existingWildCredits = parseInt(row.value || '0');
         if (row.key === 'wildgems') existingWildGems = parseInt(row.value || '0');
       });
-      
+
       // Usar el valor máximo entre el existente y el nuevo
       const finalWildCredits = Math.max(existingWildCredits, wildCreditsValue);
       const finalWildGems = Math.max(existingWildGems, wildGemsValue);
-      
+
       console.log(`[Ocean Pay Link] WildCredits: existente=${existingWildCredits}, nuevo=${wildCreditsValue}, final=${finalWildCredits}`);
       console.log(`[Ocean Pay Link] WildGems: existente=${existingWildGems}, nuevo=${wildGemsValue}, final=${finalWildGems}`);
-      
+
       // Guardar siempre (incluso si es 0) para mantener consistencia
       await pool.query(`
         INSERT INTO ocean_pay_metadata (user_id, key, value)
@@ -1027,18 +1027,18 @@ app.post('/ocean-pay/link-account', async (req, res) => {
         ON CONFLICT (user_id, key) 
         DO UPDATE SET value = GREATEST(CAST(ocean_pay_metadata.value AS INTEGER), CAST($2 AS INTEGER))::TEXT
       `, [rows[0].id, finalWildCredits.toString()]);
-      
+
       await pool.query(`
         INSERT INTO ocean_pay_metadata (user_id, key, value)
         VALUES ($1, 'wildgems', $2)
         ON CONFLICT (user_id, key) 
         DO UPDATE SET value = GREATEST(CAST(ocean_pay_metadata.value AS INTEGER), CAST($2 AS INTEGER))::TEXT
       `, [rows[0].id, finalWildGems.toString()]);
-      
+
     } catch (e) {
       console.warn('No se pudo guardar wildCredits/wildGems en servidor (continuando):', e.message);
     }
-    
+
     // Obtener todos los valores actualizados del servidor (incluyendo wildcredits)
     let serverWildCredits = wildCreditsValue;
     let serverWildGems = wildGemsValue;
@@ -1048,7 +1048,7 @@ app.post('/ocean-pay/link-account', async (req, res) => {
         SELECT key, value FROM ocean_pay_metadata
         WHERE user_id = $1 AND key IN ('wildcredits', 'wildgems', 'ecoxionums')
       `, [rows[0].id]);
-      
+
       metaRows.forEach(row => {
         if (row.key === 'wildcredits') {
           serverWildCredits = parseInt(row.value || '0');
@@ -1058,14 +1058,14 @@ app.post('/ocean-pay/link-account', async (req, res) => {
           serverEcoxionums = parseFloat(row.value || '0');
         }
       });
-      
+
       console.log(`[Ocean Pay Link] Valores finales del servidor: WildCredits=${serverWildCredits}, WildGems=${serverWildGems}`);
     } catch (e) {
       console.warn('[Ocean Pay Link] Error obteniendo valores del servidor:', e.message);
       serverWildCredits = wildCreditsValue;
       serverWildGems = wildGemsValue;
     }
-    
+
     res.json({
       success: true,
       token,
@@ -1131,7 +1131,7 @@ async function hasFfmpeg() {
       let resolved = false;
       p.on('exit', code => { if (!resolved) { resolved = true; resolve(code === 0); } });
       p.on('error', () => { if (!resolved) { resolved = true; resolve(false); } });
-      setTimeout(() => { if (!resolved) { resolved = true; try { p.kill('SIGKILL'); } catch {} resolve(false); } }, 1500);
+      setTimeout(() => { if (!resolved) { resolved = true; try { p.kill('SIGKILL'); } catch { } resolve(false); } }, 1500);
     } catch { resolve(false); }
   });
 }
@@ -1173,12 +1173,12 @@ function fallbackSlidesFromScript(script = '', style = {}) {
 
   // 2) Tokenization & stopwords
   const STOP = new Set([
-    'a','al','algo','algun','algunas','algunos','ante','antes','como','con','contra','cuando','de','del','desde','donde','el','ella','ellas','ellos','en','entonces','entre','era','eramos','eran','eras','eres','es','esa','esas','ese','eso','esos','esta','estaba','estabais','estaban','estabas','estais','estamos','estan','estar','estas','este','esto','estos','estoy','fue','fueron','fui','fuimos','ha','haber','han','has','hasta','hay','la','las','le','les','lo','los','mas','me','mi','mia','mias','mientras','mio','mios','mis','muy','nos','nosotras','nosotros','nuestra','nuestras','nuestro','nuestros','nunca','otra','otras','otro','otros','para','pero','poco','pocos','por','porque','primero','puede','pueden','puedo','que','quien','quienes','quizas','sea','seamos','sean','seas','ser','si','sido','siempre','siendo','sois','somos','son','soy','su','sus','tambien','tampoco','teneis','tenemos','tener','ti','tiempo','tiene','tienen','todo','todos','tras','tu','tus','un','una','uno','unos','usted','ustedes','y','ya',
-    'the','of','and','to','in','for','on','with','as','at','by','from','or','an','is','are','be','this','that','these','those','it','its'
+    'a', 'al', 'algo', 'algun', 'algunas', 'algunos', 'ante', 'antes', 'como', 'con', 'contra', 'cuando', 'de', 'del', 'desde', 'donde', 'el', 'ella', 'ellas', 'ellos', 'en', 'entonces', 'entre', 'era', 'eramos', 'eran', 'eras', 'eres', 'es', 'esa', 'esas', 'ese', 'eso', 'esos', 'esta', 'estaba', 'estabais', 'estaban', 'estabas', 'estais', 'estamos', 'estan', 'estar', 'estas', 'este', 'esto', 'estos', 'estoy', 'fue', 'fueron', 'fui', 'fuimos', 'ha', 'haber', 'han', 'has', 'hasta', 'hay', 'la', 'las', 'le', 'les', 'lo', 'los', 'mas', 'me', 'mi', 'mia', 'mias', 'mientras', 'mio', 'mios', 'mis', 'muy', 'nos', 'nosotras', 'nosotros', 'nuestra', 'nuestras', 'nuestro', 'nuestros', 'nunca', 'otra', 'otras', 'otro', 'otros', 'para', 'pero', 'poco', 'pocos', 'por', 'porque', 'primero', 'puede', 'pueden', 'puedo', 'que', 'quien', 'quienes', 'quizas', 'sea', 'seamos', 'sean', 'seas', 'ser', 'si', 'sido', 'siempre', 'siendo', 'sois', 'somos', 'son', 'soy', 'su', 'sus', 'tambien', 'tampoco', 'teneis', 'tenemos', 'tener', 'ti', 'tiempo', 'tiene', 'tienen', 'todo', 'todos', 'tras', 'tu', 'tus', 'un', 'una', 'uno', 'unos', 'usted', 'ustedes', 'y', 'ya',
+    'the', 'of', 'and', 'to', 'in', 'for', 'on', 'with', 'as', 'at', 'by', 'from', 'or', 'an', 'is', 'are', 'be', 'this', 'that', 'these', 'those', 'it', 'its'
   ]);
   const WORD_RE = /[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9]{2,}/g;
 
-  function normalizeWord(w) { try { return w.normalize('NFD').replace(/[\u0300-\u036f]/g,''); } catch { return w; } }
+  function normalizeWord(w) { try { return w.normalize('NFD').replace(/[\u0300-\u036f]/g, ''); } catch { return w; } }
   function tokenize(s) {
     return (s.match(WORD_RE) || []).map(w => normalizeWord(w.toLowerCase()));
   }
@@ -1201,29 +1201,29 @@ function fallbackSlidesFromScript(script = '', style = {}) {
   sentences.forEach(s => {
     const toks = tokenize(s).filter(w => !STOP.has(w));
     for (let i = 0; i < toks.length - 1; i++) {
-      const bg = `${toks[i]} ${toks[i+1]}`;
+      const bg = `${toks[i]} ${toks[i + 1]}`;
       bigrams.set(bg, (bigrams.get(bg) || 0) + 1);
     }
   });
-  const topBigram = Array.from(bigrams.entries()).sort((a,b)=>b[1]-a[1])[0]?.[0] || '';
+  const topBigram = Array.from(bigrams.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || '';
 
   // 5) Score sentences: sum(tf)/len + positional bonus; bigram bonus
   const scored = sentences.map((s, idx) => {
     const toks = tokenize(s).filter(w => !STOP.has(w));
     const len = Math.max(5, toks.length);
-    let score = toks.reduce((acc,w)=>acc+(tf.get(w)||0), 0) / len;
+    let score = toks.reduce((acc, w) => acc + (tf.get(w) || 0), 0) / len;
     if (topBigram && s.toLowerCase().includes(topBigram)) score *= 1.2;
     // Positional bonus for first 20% of the document
-    const pos = idx / Math.max(1, sentences.length-1);
+    const pos = idx / Math.max(1, sentences.length - 1);
     if (pos < 0.2) score *= 1.1;
     return { s, idx, score };
   });
-  scored.sort((a,b)=>b.score-a.score);
+  scored.sort((a, b) => b.score - a.score);
 
   // 6) Pick bullets spread across the text (respect requested maxSlides)
-  const requested = Math.max(3, Math.min(10, Number(style?.options?.maxSlides)||6));
+  const requested = Math.max(3, Math.min(10, Number(style?.options?.maxSlides) || 6));
   const bulletTarget = Math.max(2, requested - 2); // 1 title + bullets + 1 CTA
-  const pickCount = Math.min(bulletTarget, Math.max(3, Math.ceil(sentences.length/4)));
+  const pickCount = Math.min(bulletTarget, Math.max(3, Math.ceil(sentences.length / 4)));
   const taken = [];
   const usedIdx = new Set();
   for (const cand of scored) {
@@ -1233,16 +1233,16 @@ function fallbackSlidesFromScript(script = '', style = {}) {
     usedIdx.add(cand.idx);
     if (taken.length >= pickCount) break;
   }
-  taken.sort((a,b)=>a.idx-b.idx);
+  taken.sort((a, b) => a.idx - b.idx);
 
   // 7) Clean bullet text: shorten; remove trailing punctuation; sentence-case
-  function clip(s, n){ return s.length>n? s.slice(0,n-1).replace(/[,;:.!\s]+$/,'')+'…' : s; }
-  function toSentenceCase(s){ return s ? s.charAt(0).toUpperCase()+s.slice(1) : s; }
+  function clip(s, n) { return s.length > n ? s.slice(0, n - 1).replace(/[,;:.!\s]+$/, '') + '…' : s; }
+  function toSentenceCase(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
 
   const GENERIC_PREFIX = [/^\s*(en\s+esta\s+presentaci[oó]n|esta\s+presentaci[oó]n|en\s+este\s+video|este\s+video|vamos\s+a|vamos\b|hoy\b|we\s+will|in\s+this\s+presentation)[:,\s]*/i];
   const bullets = taken.map(t => {
-    let out = t.s.replace(/\s+/g,' ').trim();
-    out = out.replace(/\([^)]*\)/g,''); // remove parentheticals
+    let out = t.s.replace(/\s+/g, ' ').trim();
+    out = out.replace(/\([^)]*\)/g, ''); // remove parentheticals
     // remove generic prefaces
     GENERIC_PREFIX.forEach(rx => { out = out.replace(rx, ''); });
     out = clip(out, 110);
@@ -1250,7 +1250,7 @@ function fallbackSlidesFromScript(script = '', style = {}) {
   });
 
   // 8) Title generation: keyword phrases (RAKE-like) with sanity filters
-  const GENERIC_TITLE_BAD = new Set(['presentation','introducing','introduction','intro','overview','about','topic','themes']);
+  const GENERIC_TITLE_BAD = new Set(['presentation', 'introducing', 'introduction', 'intro', 'overview', 'about', 'topic', 'themes']);
   // build phrases by splitting on stopwords
   const tokensAll = tokenize(raw);
   const phrases = [];
@@ -1265,24 +1265,24 @@ function fallbackSlidesFromScript(script = '', style = {}) {
   if (cur.length) phrases.push(cur);
   // score phrases
   const phraseScores = phrases
-    .filter(p => p.length>=1 && p.length<=6)
+    .filter(p => p.length >= 1 && p.length <= 6)
     .map(p => {
-      const score = p.reduce((a,w)=>a+(tf.get(w)||0),0) * (1 + (p.length-1)*0.15);
-      return { text: p.map(w=>w).join(' '), score };
+      const score = p.reduce((a, w) => a + (tf.get(w) || 0), 0) * (1 + (p.length - 1) * 0.15);
+      return { text: p.map(w => w).join(' '), score };
     });
-  phraseScores.sort((a,b)=>b.score-a.score);
-  function goodPhrase(s){
-    if (!s || s.length<3) return false;
+  phraseScores.sort((a, b) => b.score - a.score);
+  function goodPhrase(s) {
+    if (!s || s.length < 3) return false;
     const parts = s.split(/\s+/);
-    if (parts.every(w=>GENERIC_TITLE_BAD.has(w))) return false;
+    if (parts.every(w => GENERIC_TITLE_BAD.has(w))) return false;
     return /[a-z]/i.test(s);
   }
-  let topPhrase = phraseScores.find(p=>goodPhrase(p.text))?.text || '';
+  let topPhrase = phraseScores.find(p => goodPhrase(p.text))?.text || '';
   // fallback to bigram-derived title if needed
   let title = '';
   if (topPhrase) {
     const scriptHasIntro = /\b(introduc|present[a-z]+)/i.test(raw);
-    const nice = topPhrase.replace(/\b\w/g, m=>m.toUpperCase());
+    const nice = topPhrase.replace(/\b\w/g, m => m.toUpperCase());
     title = scriptHasIntro ? `Introducing ${nice}` : nice;
   } else {
     const head = (scored[0]?.s.split(/[\-:–—]/)[0] || '').trim();
@@ -1296,7 +1296,7 @@ function fallbackSlidesFromScript(script = '', style = {}) {
     backgroundColor: bg,
     durationMs: 3000,
     texts: [
-      { content: title, x: 40, y: theme==='bold'?160:200, fontSize: theme==='bold'?56:42, fontFamily: font, color: primary, align: 'center', isCenteredX: true }
+      { content: title, x: 40, y: theme === 'bold' ? 160 : 200, fontSize: theme === 'bold' ? 56 : 42, fontFamily: font, color: primary, align: 'center', isCenteredX: true }
     ],
     videos: [], audios: []
   });
@@ -1389,7 +1389,7 @@ app.post('/deepdive/ai/stt', async (req, res) => {
 });
 
 /* ===== DeepDive Media Proxy with CORS and Range ===== */
-function isSafeRemote(urlStr){
+function isSafeRemote(urlStr) {
   try {
     const u = new URL(urlStr);
     if (!(u.protocol === 'http:' || u.protocol === 'https:')) return false;
@@ -1411,7 +1411,7 @@ app.get('/deepdive/proxy/media', async (req, res) => {
     const r = await f(target, { method: 'GET', headers });
     // Pass-through status and important headers
     res.status(r.status);
-    const passthrough = ['content-type','content-length','accept-ranges','content-range','last-modified','etag'];
+    const passthrough = ['content-type', 'content-length', 'accept-ranges', 'content-range', 'last-modified', 'etag'];
     passthrough.forEach(h => { const v = r.headers.get(h); if (v) res.set(h, v); });
     // Always allow cross-origin for canvas usage
     res.set('Access-Control-Allow-Origin', '*');
@@ -1448,7 +1448,7 @@ app.post('/deepdive/export/video', async (req, res) => {
       return res.status(400).json({ error: 'slides required' });
     }
     const puppeteer = (await import('puppeteer')).default;
-    const browser = await puppeteer.launch({ args: ['--no-sandbox','--disable-setuid-sandbox'] });
+    const browser = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
     const page = await browser.newPage();
 
     // Resolve local file URL for DeepDive editor
@@ -1463,7 +1463,7 @@ app.post('/deepdive/export/video', async (req, res) => {
     await page.goto(fileUrl, { waitUntil: 'networkidle0' });
 
     // Ensure webfonts are ready before measuring text/effects
-    try { await page.evaluate(() => (window.document.fonts && window.document.fonts.ready) ? window.document.fonts.ready : Promise.resolve()); } catch {}
+    try { await page.evaluate(() => (window.document.fonts && window.document.fonts.ready) ? window.document.fonts.ready : Promise.resolve()); } catch { }
 
     // Inject slides and prep render helpers in the page context
     await page.evaluate(({ slides, pro }) => {
@@ -1484,7 +1484,7 @@ app.post('/deepdive/export/video', async (req, res) => {
 
     // Compute total ms
     const totalMs = slides.reduce((acc, s) => acc + (s.durationMs || 3000), 0);
-    const dt = Math.max(1, Math.round(1000 / Math.max(1, Math.min(60, fps)))) ;
+    const dt = Math.max(1, Math.round(1000 / Math.max(1, Math.min(60, fps))));
 
     // Iterate timeline and capture frames
     let slideStartMs = 0; let slideIdx = 0; let lastRenderedSlide = -1;
@@ -1493,7 +1493,7 @@ app.post('/deepdive/export/video', async (req, res) => {
       while (slideIdx < slides.length && t >= slideStartMs + (slides[slideIdx].durationMs || 3000)) {
         slideStartMs += (slides[slideIdx].durationMs || 3000);
         slideIdx++;
-        await page.evaluate(() => { try { window.__ddItemPrevVisible = {}; } catch {} });
+        await page.evaluate(() => { try { window.__ddItemPrevVisible = {}; } catch { } });
       }
       const curIdx = Math.min(slideIdx, slides.length - 1);
       const localMs = Math.max(0, t - slideStartMs);
@@ -1547,7 +1547,7 @@ app.post('/deepdive/export/video', async (req, res) => {
       try {
         // cleanup frames
         fs.rmSync(framesDir, { recursive: true, force: true });
-      } catch {}
+      } catch { }
       if (code !== 0) {
         return res.status(500).json({ error: 'ffmpeg failed' });
       }
@@ -1897,7 +1897,7 @@ app.post('/natmarket/recovery-requests/:id/approve', async (req, res) => {
       await client.query('COMMIT');
       res.json({ success: true, user_id: userId, new_user_unique_id: newUniqueId });
     } catch (e) {
-      try { await client.query('ROLLBACK'); } catch {}
+      try { await client.query('ROLLBACK'); } catch { }
       console.error('approve recovery error', e);
       res.status(500).json({ error: 'Error interno' });
     } finally {
@@ -1980,7 +1980,7 @@ app.post('/natmarket/trackings', async (req, res) => {
     const { rows } = await pool.query(
       `INSERT INTO nat_trackings (product_id, seller_id, buyer_id, title, status, events)
        VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
-      [product_id, seller_id, buyer_id, title, ev.status, JSON.stringify([ { ...ev, created_at: new Date().toISOString() } ])]
+      [product_id, seller_id, buyer_id, title, ev.status, JSON.stringify([{ ...ev, created_at: new Date().toISOString() }])]
     );
 
     res.json(rows[0]);
@@ -2038,7 +2038,7 @@ app.patch('/natmarket/trackings/:id', async (req, res) => {
          active=COALESCE($3,active), 
          updated_at=NOW()
        WHERE id=$4 RETURNING *`,
-      [status || null, title || null, (active===undefined? null : !!active), id]
+      [status || null, title || null, (active === undefined ? null : !!active), id]
     );
     res.json(upd[0]);
   } catch (err) {
@@ -2164,7 +2164,7 @@ async function ensureAIGenerationTables() {
         created_at TIMESTAMP DEFAULT NOW()
       )
     `);
-    
+
     // Create indexes for performance
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_ai_gen_user ON ai_product_generations(user_id)
@@ -2172,7 +2172,7 @@ async function ensureAIGenerationTables() {
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_ai_gen_created ON ai_product_generations(created_at)
     `);
-    
+
     // Add AI-related columns to products_nat table
     await pool.query(`
       ALTER TABLE products_nat 
@@ -2180,7 +2180,7 @@ async function ensureAIGenerationTables() {
       ADD COLUMN IF NOT EXISTS ai_model TEXT,
       ADD COLUMN IF NOT EXISTS ai_confidence JSONB
     `);
-    
+
     console.log('✅ AI generation tables initialized');
   } catch (err) {
     console.error('❌ Error initializing AI generation tables:', err);
@@ -2199,18 +2199,18 @@ async function checkAIRateLimit(userId) {
        WHERE user_id = $1 AND created_at > $2`,
       [userId, oneHourAgo]
     );
-    
+
     const count = parseInt(rows[0]?.count || '0');
     if (count >= 10) {
       const resetAt = new Date(Date.now() + 60 * 60 * 1000);
-      return { 
-        allowed: false, 
-        remaining: 0, 
+      return {
+        allowed: false,
+        remaining: 0,
         resetAt: resetAt.toISOString(),
         message: 'Has alcanzado el límite de 10 generaciones por hora'
       };
     }
-    
+
     return { allowed: true, remaining: 10 - count };
   } catch (err) {
     console.error('Error checking AI rate limit:', err);
@@ -2220,36 +2220,36 @@ async function checkAIRateLimit(userId) {
 
 // NatMarket Sentinel: Genesis - Local AI Model
 const NATMARKET_CATEGORIES = [
-  'Electrónica', 'Ropa y Accesorios', 'Hogar y Jardín', 'Deportes', 
-  'Juguetes y Juegos', 'Libros y Medios', 'Salud y Belleza', 
+  'Electrónica', 'Ropa y Accesorios', 'Hogar y Jardín', 'Deportes',
+  'Juguetes y Juegos', 'Libros y Medios', 'Salud y Belleza',
   'Automotriz', 'Alimentos y Bebidas', 'Mascotas', 'Otros'
 ];
 
 function generateProductWithAI(userInput, hints = {}) {
   const input = userInput.toLowerCase();
   const startTime = Date.now();
-  
+
   // Detectar categoría
   let category = hints.categoryHint || detectCategory(input);
   let condition = hints.conditionHint || detectCondition(input);
-  
+
   // Generar nombre del producto
   const name = generateProductName(input, category);
-  
+
   // Generar descripción
   const description = generateProductDescription(input, name, category, condition);
-  
+
   // Estimar precio
   const price = estimatePrice(input, category, condition, hints.priceHint);
-  
+
   // Generar tags
   const tags = generateTags(input, category);
-  
+
   // Calcular confianza
   const confidence = calculateConfidence(input, category, price);
-  
+
   const generationTime = Date.now() - startTime;
-  
+
   return {
     name,
     description,
@@ -2277,13 +2277,13 @@ function detectCategory(input) {
     'Alimentos y Bebidas': ['comida', 'bebida', 'café', 'té', 'chocolate', 'dulce', 'snack', 'galleta'],
     'Mascotas': ['perro', 'gato', 'mascota', 'alimento', 'collar', 'correa', 'juguete', 'cama', 'comedero']
   };
-  
+
   for (const [cat, keywords] of Object.entries(categoryKeywords)) {
     if (keywords.some(kw => input.includes(kw))) {
       return cat;
     }
   }
-  
+
   return 'Otros';
 }
 
@@ -2308,12 +2308,12 @@ function generateProductName(input, category) {
   const words = input.split(' ').filter(w => w.length > 2);
   const stopWords = ['el', 'la', 'los', 'las', 'un', 'una', 'de', 'del', 'en', 'con', 'para', 'por', 'muy', 'buen', 'buena'];
   const keywords = words.filter(w => !stopWords.includes(w));
-  
+
   // Capitalizar primera letra de cada palabra importante
-  const capitalized = keywords.slice(0, 5).map(w => 
+  const capitalized = keywords.slice(0, 5).map(w =>
     w.charAt(0).toUpperCase() + w.slice(1)
   ).join(' ');
-  
+
   return capitalized || `Producto de ${category}`;
 }
 
@@ -2338,10 +2338,10 @@ function generateProductDescription(input, name, category, condition) {
       `${name} restaurado y verificado. Calidad garantizada.`
     ]
   };
-  
+
   const template = templates[condition] || templates['usado'];
   const baseDesc = template[Math.floor(Math.random() * template.length)];
-  
+
   // Agregar detalles adicionales basados en la categoría
   const categoryDetails = {
     'Electrónica': ' Incluye todos los accesorios necesarios.',
@@ -2350,7 +2350,7 @@ function generateProductDescription(input, name, category, condition) {
     'Deportes': ' Perfecto para entrenar o practicar.',
     'Libros y Medios': ' En excelente estado de conservación.'
   };
-  
+
   return baseDesc + (categoryDetails[category] || ' Consultar por más detalles.');
 }
 
@@ -2358,7 +2358,7 @@ function estimatePrice(input, category, condition, priceHint) {
   if (priceHint && priceHint > 0) {
     return Math.round(priceHint);
   }
-  
+
   // Precios base por categoría (en ARS)
   const basePrices = {
     'Electrónica': 50000,
@@ -2373,9 +2373,9 @@ function estimatePrice(input, category, condition, priceHint) {
     'Mascotas': 12000,
     'Otros': 15000
   };
-  
+
   let price = basePrices[category] || 15000;
-  
+
   // Ajustar por condición
   const conditionMultipliers = {
     'nuevo': 1.0,
@@ -2383,13 +2383,13 @@ function estimatePrice(input, category, condition, priceHint) {
     'reacondicionado': 0.75,
     'usado': 0.6
   };
-  
+
   price *= (conditionMultipliers[condition] || 0.6);
-  
+
   // Agregar variación aleatoria ±20%
   const variation = 0.8 + (Math.random() * 0.4);
   price *= variation;
-  
+
   // Redondear a múltiplos de 100
   return Math.round(price / 100) * 100;
 }
@@ -2405,7 +2405,7 @@ function calculateConfidence(input, category, price) {
   let nameConf = Math.min(1, input.length / 50); // Más detalle = más confianza
   let categoryConf = category !== 'Otros' ? 0.9 : 0.5;
   let priceConf = (price >= 1000 && price <= 1000000) ? 0.85 : 0.6;
-  
+
   return {
     name: Math.round(nameConf * 100) / 100,
     category: categoryConf,
@@ -2416,18 +2416,18 @@ function calculateConfidence(input, category, price) {
 // Endpoint principal de generación
 app.post('/natmarket/ai/generate-product', async (req, res) => {
   const startTime = Date.now();
-  
+
   try {
     const { userId, modelId, productInput } = req.body;
-    
+
     // Validar datos requeridos
     if (!userId || !productInput || !productInput.description) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'userId y productInput.description son requeridos' 
+      return res.status(400).json({
+        success: false,
+        error: 'userId y productInput.description son requeridos'
       });
     }
-    
+
     // Verificar si el usuario está baneado
     const banStatus = await isUserBanned(userId);
     if (banStatus.banned) {
@@ -2436,7 +2436,7 @@ app.post('/natmarket/ai/generate-product', async (req, res) => {
         error: `Tu cuenta está suspendida hasta ${new Date(banStatus.banUntil).toLocaleDateString('es-AR')}. Razón: ${banStatus.reason}`
       });
     }
-    
+
     // Verificar rate limit
     const rateLimit = await checkAIRateLimit(userId);
     if (!rateLimit.allowed) {
@@ -2447,7 +2447,7 @@ app.post('/natmarket/ai/generate-product', async (req, res) => {
         remaining: 0
       });
     }
-    
+
     // Validar longitud del input
     if (productInput.description.length < 20) {
       return res.status(400).json({
@@ -2455,14 +2455,14 @@ app.post('/natmarket/ai/generate-product', async (req, res) => {
         error: 'La descripción debe tener al menos 20 caracteres'
       });
     }
-    
+
     if (productInput.description.length > 500) {
       return res.status(400).json({
         success: false,
         error: 'La descripción no puede exceder 500 caracteres'
       });
     }
-    
+
     // Generar producto con IA
     const generatedProduct = generateProductWithAI(
       productInput.description,
@@ -2472,14 +2472,14 @@ app.post('/natmarket/ai/generate-product', async (req, res) => {
         conditionHint: productInput.conditionHint
       }
     );
-    
+
     // Validar contenido generado
-    if (containsInappropriate(generatedProduct.name) || 
-        containsInappropriate(generatedProduct.description)) {
-      
+    if (containsInappropriate(generatedProduct.name) ||
+      containsInappropriate(generatedProduct.description)) {
+
       // Agregar strike al usuario
       await addStrike(userId, 'Intento de generar producto inapropiado con IA');
-      
+
       // Registrar intento fallido
       await pool.query(
         `INSERT INTO ai_product_generations 
@@ -2496,23 +2496,23 @@ app.post('/natmarket/ai/generate-product', async (req, res) => {
           Date.now() - startTime
         ]
       );
-      
+
       return res.status(400).json({
         success: false,
         error: 'El contenido generado no cumple con nuestras políticas. Intenta con una descripción diferente.'
       });
     }
-    
+
     // Validar precio
     if (generatedProduct.price < 100 || generatedProduct.price > 10000000) {
       generatedProduct.price = Math.max(100, Math.min(10000000, generatedProduct.price));
     }
-    
+
     // Validar longitud de descripción
     if (generatedProduct.description.length < 50) {
       generatedProduct.description += ' Consultar por más información y detalles del producto.';
     }
-    
+
     // Registrar generación exitosa
     await pool.query(
       `INSERT INTO ai_product_generations 
@@ -2528,7 +2528,7 @@ app.post('/natmarket/ai/generate-product', async (req, res) => {
         Date.now() - startTime
       ]
     );
-    
+
     // Responder con el producto generado
     res.json({
       success: true,
@@ -2543,10 +2543,10 @@ app.post('/natmarket/ai/generate-product', async (req, res) => {
         aiModel: generatedProduct.aiModel,
         confidence: generatedProduct.confidence
       },
-      warnings: generatedProduct.confidence.price < 0.7 ? 
+      warnings: generatedProduct.confidence.price < 0.7 ?
         ['El precio estimado puede no ser preciso. Revísalo antes de publicar.'] : []
     });
-    
+
   } catch (err) {
     console.error('Error en generación de producto con IA:', err);
     res.status(500).json({
@@ -2571,7 +2571,7 @@ const FORBIDDEN = [
   /\bcoca\b/i, /\bmar[ií]a\b/i, /\bmar[ií]huana\b/i,
   /\bganja\b/i, /\bweed\b/i, /\bgrifa\b/i,
   /\bmota\b/i, /\bhach[ií]s\b/i,
-  
+
   // Lenguaje ofensivo/sexual
   /\bput[ao]s?\b/i, /\bpendej[ao]s?\b/i, /\bcabr[oó]n\b/i,
   /\bco[ñn]o\b/i, /\bcoj[oó]n\b/i, /\bverga\b/i,
@@ -2585,7 +2585,7 @@ const FORBIDDEN = [
   /\bputer[ií]a\b/i, /\bwhore\b/i, /\bslut\b/i,
   /\bfuck\b/i, /\bfucking\b/i, /\bfucker\b/i,
   /\bshit\b/i, /\bbitch\b/i, /\basshole\b/i,
-  
+
   // Contenido violento/peligroso
   /\bmatar\b/i, /\basesinar\b/i, /\basesino\b/i,
   /\bhomici[di]o\b/i, /\bsuicid[ao]\b/i, /\bmatarte\b/i,
@@ -2593,13 +2593,13 @@ const FORBIDDEN = [
   /\bfusil\b/i, /\bmetralleta\b/i, /\bexplosivo\b/i,
   /\bbomba\b/i, /\bgranada\b/i, /\bdinamita\b/i,
   /\bterrorismo\b/i, /\bterrorista\b/i,
-  
+
   // Estafas y fraudes
   /\bestafa\b/i, /\bfraude\b/i, /\bphishing\b/i,
   /\bclonar\s*tarjeta\b/i, /\bcuenta\s*bancaria\b/i,
   /\btransferencia\s*falsa\b/i, /\benga[ñn]o\b/i,
   /\bpyramid\s*scheme\b/i, /\bpiramidal\b/i,
-  
+
   // Otros inapropiados
   /\bracismo\b/i, /\bracista\b/i, /\bhomof[oó]bico\b/i,
   /\bdiscriminaci[oó]n\b/i, /\bamenaza\b/i, /\bamenazar\b/i,
@@ -2608,7 +2608,7 @@ const FORBIDDEN = [
   /\bchingar\b/i, /\bch[íi]ngame\b/i, /\bcarajo\b/i,
   /\bchingado\b/i, /\bverga\b/i, /\bpinche\b/i,
   /\bjod[ae]r\b/i, /\bjodido\b/i, /\bjoder\b/i,
-  
+
   // Variaciones comunes
   /\bput[ao]s?\b/i, /\bpendej[ao]s?\b/i,
   /\bmierda\b/i, /\bcagada\b/i, /\bcagar\b/i,
@@ -2627,57 +2627,57 @@ async function addStrike(userId, reason, productId = null, transactionClient = n
     if (!transactionClient) {
       await client.query('BEGIN');
     }
-    
+
     // Obtener strikes actuales
     const { rows } = await client.query(
       'SELECT strikes FROM users_nat WHERE id = $1',
       [userId]
     );
-    
+
     if (rows.length === 0) {
       if (!transactionClient) {
         await client.query('ROLLBACK');
       }
       return { error: 'Usuario no encontrado' };
     }
-    
+
     const currentStrikes = rows[0].strikes || 0;
     const newStrikes = currentStrikes + 1;
-    
+
     // Actualizar strikes
     await client.query(
       'UPDATE users_nat SET strikes = $1 WHERE id = $2',
       [newStrikes, userId]
     );
-    
+
     // Si llega a 3 strikes, banear por 3 días
     if (newStrikes >= 3) {
       const banUntil = new Date();
       banUntil.setDate(banUntil.getDate() + 3); // 3 días desde ahora
-      
+
       await client.query(
         'UPDATE users_nat SET banned_until = $1, ban_reason = $2 WHERE id = $3',
         [banUntil, reason, userId]
       );
-      
+
       // Crear notificación de baneo
       await client.query(
         `INSERT INTO notifications_nat (user_id, type, message, created_at)
          VALUES ($1, 'ban', $2, NOW())`,
         [userId, `🚫 Has sido baneado por 3 días. Razón: ${reason}. Tu cuenta se recuperará el ${banUntil.toLocaleDateString('es-AR')}.`]
       );
-      
+
       if (!transactionClient) {
         await client.query('COMMIT');
       }
-      return { 
-        strikes: newStrikes, 
-        banned: true, 
+      return {
+        strikes: newStrikes,
+        banned: true,
         banUntil: banUntil.toISOString(),
-        reason 
+        reason
       };
     }
-    
+
     // Crear notificación de strike
     let strikeMessage = `⚠️ Has recibido un strike. Razón: ${reason}.`;
     if (productId) {
@@ -2696,7 +2696,7 @@ async function addStrike(userId, reason, productId = null, transactionClient = n
           // Ignorar error, usar solo el ID
         }
       }
-      
+
       if (productName) {
         strikeMessage += ` Este strike es por el producto: "${productName}" (ID: ${productId}).`;
       } else {
@@ -2704,11 +2704,11 @@ async function addStrike(userId, reason, productId = null, transactionClient = n
       }
     }
     strikeMessage += ` Tienes ${newStrikes}/3 strikes. Con 3 strikes serás baneado por 3 días.`;
-    
+
     // Si el producto ya fue eliminado, usar NULL para product_id para evitar problemas de foreign key
     // Pero primero intentamos con el product_id si existe
     let finalProductId = productId;
-    
+
     // Verificar si el producto existe (solo si estamos en una transacción y productId no es null)
     if (productId && transactionClient) {
       try {
@@ -2726,13 +2726,13 @@ async function addStrike(userId, reason, productId = null, transactionClient = n
         finalProductId = null;
       }
     }
-    
+
     await client.query(
       `INSERT INTO notifications_nat (user_id, type, message, product_id, created_at)
        VALUES ($1, 'strike', $2, $3, NOW())`,
       [userId, strikeMessage, finalProductId]
     );
-    
+
     if (!transactionClient) {
       await client.query('COMMIT');
     }
@@ -2756,17 +2756,17 @@ async function isUserBanned(userId) {
     'SELECT banned_until, ban_reason FROM users_nat WHERE id = $1',
     [userId]
   );
-  
+
   if (rows.length === 0 || !rows[0].banned_until) {
     return { banned: false };
   }
-  
+
   const banUntil = new Date(rows[0].banned_until);
   const now = new Date();
-  
+
   if (banUntil > now) {
-    return { 
-      banned: true, 
+    return {
+      banned: true,
       banUntil: banUntil.toISOString(),
       reason: rows[0].ban_reason || 'Violación de términos'
     };
@@ -2802,15 +2802,15 @@ async function ensurePreReservasTables() {
         updated_at TIMESTAMP DEFAULT NOW()
       )
     `);
-    
+
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_prereservas_user ON ocean_cinemas_prereservas(user_id)
     `);
-    
+
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_prereservas_pelicula ON ocean_cinemas_prereservas(pelicula_id)
     `);
-    
+
     console.log('✅ Ocean Cinemas pre-reservas tables initialized');
   } catch (err) {
     console.error('❌ Error initializing pre-reservas tables:', err);
@@ -2826,7 +2826,7 @@ app.post('/ocean-cinemas/prereserva', async (req, res) => {
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Token requerido' });
   }
-  
+
   const token = authHeader.substring(7);
   let userId;
   try {
@@ -2836,50 +2836,50 @@ app.post('/ocean-cinemas/prereserva', async (req, res) => {
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
   }
-  
-  const { 
-    peliculaId, 
-    peliculaTitulo, 
-    horarioEstreno, 
-    asientos, 
-    precioTotal 
+
+  const {
+    peliculaId,
+    peliculaTitulo,
+    horarioEstreno,
+    asientos,
+    precioTotal
   } = req.body;
-  
+
   if (!peliculaId || !peliculaTitulo || !horarioEstreno || !asientos || !precioTotal) {
     return res.status(400).json({ error: 'Datos incompletos' });
   }
-  
+
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    
+
     // Verificar saldo de AquaBux
     const { rows: userRows } = await client.query(
       'SELECT aquabux FROM ocean_pay_users WHERE id = $1 FOR UPDATE',
       [userId]
     );
-    
+
     if (userRows.length === 0) {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Usuario no encontrado en Ocean Pay' });
     }
-    
+
     const currentBalance = userRows[0].aquabux || 0;
     if (currentBalance < precioTotal) {
       await client.query('ROLLBACK');
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: `Saldo insuficiente. Necesitas ${precioTotal} AquaBux.`,
-        currentBalance 
+        currentBalance
       });
     }
-    
+
     // Descontar AquaBux
     const newBalance = currentBalance - precioTotal;
     await client.query(
       'UPDATE ocean_pay_users SET aquabux = $1 WHERE id = $2',
       [newBalance, userId]
     );
-    
+
     // Crear pre-reserva
     const fechaActivacion = new Date(horarioEstreno);
     const { rows: prereservaRows } = await client.query(
@@ -2889,22 +2889,22 @@ app.post('/ocean-cinemas/prereserva', async (req, res) => {
        RETURNING *`,
       [userId, peliculaId, peliculaTitulo, horarioEstreno, asientos, precioTotal, fechaActivacion]
     );
-    
+
     // Registrar transacción
     await client.query(
       `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
        VALUES ($1, $2, $3, $4)`,
       [userId, `Pre-reserva: ${peliculaTitulo}`, -precioTotal, 'Ocean Cinemas']
     );
-    
+
     await client.query('COMMIT');
-    
+
     res.json({
       success: true,
       prereserva: prereservaRows[0],
       newBalance
     });
-    
+
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('Error creando pre-reserva:', err);
@@ -2920,7 +2920,7 @@ app.get('/ocean-cinemas/prereservas/:userId', async (req, res) => {
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Token requerido' });
   }
-  
+
   const token = authHeader.substring(7);
   let tokenUserId;
   try {
@@ -2930,14 +2930,14 @@ app.get('/ocean-cinemas/prereservas/:userId', async (req, res) => {
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
   }
-  
+
   const { userId } = req.params;
-  
+
   // Verificar que el usuario solo pueda ver sus propias pre-reservas
   if (parseInt(userId) !== tokenUserId) {
     return res.status(403).json({ error: 'No autorizado' });
   }
-  
+
   try {
     const { rows } = await pool.query(
       `SELECT * FROM ocean_cinemas_prereservas 
@@ -2945,7 +2945,7 @@ app.get('/ocean-cinemas/prereservas/:userId', async (req, res) => {
        ORDER BY created_at DESC`,
       [userId]
     );
-    
+
     res.json(rows);
   } catch (err) {
     console.error('Error obteniendo pre-reservas:', err);
@@ -2957,7 +2957,7 @@ app.get('/ocean-cinemas/prereservas/:userId', async (req, res) => {
 app.post('/ocean-cinemas/activar-prereservas', async (req, res) => {
   try {
     const now = new Date();
-    
+
     const { rows } = await pool.query(
       `UPDATE ocean_cinemas_prereservas 
        SET estado = 'ACTIVO', updated_at = NOW()
@@ -2966,13 +2966,13 @@ app.post('/ocean-cinemas/activar-prereservas', async (req, res) => {
        RETURNING *`,
       [now]
     );
-    
+
     res.json({
       success: true,
       activadas: rows.length,
       prereservas: rows
     });
-    
+
   } catch (err) {
     console.error('Error activando pre-reservas:', err);
     res.status(500).json({ error: 'Error interno del servidor' });
@@ -2982,11 +2982,11 @@ app.post('/ocean-cinemas/activar-prereservas', async (req, res) => {
 // Endpoint para verificar disponibilidad de asientos
 app.post('/ocean-cinemas/verificar-asientos', async (req, res) => {
   const { peliculaId, horarioEstreno, asientos } = req.body;
-  
+
   if (!peliculaId || !horarioEstreno || !asientos) {
     return res.status(400).json({ error: 'Datos incompletos' });
   }
-  
+
   try {
     // Obtener asientos ya reservados para ese horario
     const { rows } = await pool.query(
@@ -2996,7 +2996,7 @@ app.post('/ocean-cinemas/verificar-asientos', async (req, res) => {
        AND estado IN ('PRE-RESERVADO', 'ACTIVO')`,
       [peliculaId, horarioEstreno]
     );
-    
+
     // Combinar todos los asientos reservados
     const asientosReservados = new Set();
     rows.forEach(row => {
@@ -3004,16 +3004,16 @@ app.post('/ocean-cinemas/verificar-asientos', async (req, res) => {
         row.asientos.forEach(asiento => asientosReservados.add(asiento));
       }
     });
-    
+
     // Verificar si algún asiento solicitado ya está reservado
     const conflictos = asientos.filter(asiento => asientosReservados.has(asiento));
-    
+
     res.json({
       disponible: conflictos.length === 0,
       conflictos,
       asientosReservados: Array.from(asientosReservados)
     });
-    
+
   } catch (err) {
     console.error('Error verificando asientos:', err);
     res.status(500).json({ error: 'Error interno del servidor' });
@@ -3026,26 +3026,26 @@ app.get('/ocean-cinemas/stats-prereservas', async (req, res) => {
     const { rows: totalRows } = await pool.query(
       'SELECT COUNT(*) as total FROM ocean_cinemas_prereservas'
     );
-    
+
     const { rows: activasRows } = await pool.query(
       "SELECT COUNT(*) as activas FROM ocean_cinemas_prereservas WHERE estado = 'PRE-RESERVADO'"
     );
-    
+
     const { rows: activadasRows } = await pool.query(
       "SELECT COUNT(*) as activadas FROM ocean_cinemas_prereservas WHERE estado = 'ACTIVO'"
     );
-    
+
     const { rows: peliculasRows } = await pool.query(
       'SELECT pelicula_id, pelicula_titulo, COUNT(*) as reservas FROM ocean_cinemas_prereservas GROUP BY pelicula_id, pelicula_titulo ORDER BY reservas DESC'
     );
-    
+
     res.json({
       total: parseInt(totalRows[0].total),
       preReservadas: parseInt(activasRows[0].activas),
       activadas: parseInt(activadasRows[0].activadas),
       porPelicula: peliculasRows
     });
-    
+
   } catch (err) {
     console.error('Error obteniendo estadísticas:', err);
     res.status(500).json({ error: 'Error interno del servidor' });
@@ -3077,12 +3077,12 @@ async function notifyModerator(type, targetId, content, senderId) {
     ? `Producto id:${targetId} pendiente de revisión (contenido: ${content})`
     : `Mensaje id:${targetId} pendiente de revisión (contenido: ${content})`;
 
-const validDummyProductId = 1; // ← uno que exista
-await pool.query(
-  `INSERT INTO messages_nat (sender_id, product_id, message, created_at)
+  const validDummyProductId = 1; // ← uno que exista
+  await pool.query(
+    `INSERT INTO messages_nat (sender_id, product_id, message, created_at)
    VALUES ($1, $2, $3, NOW())`,
-  [senderId, validDummyProductId, msg]
-);
+    [senderId, validDummyProductId, msg]
+  );
 }
 
 // === Estadísticas de usuarios ===
@@ -3163,7 +3163,7 @@ app.get("/api/eclipse/next", async (_req, res) => {
     }
 
     res.json(rows[0] || null);
-  } catch(err) {
+  } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
@@ -3176,7 +3176,7 @@ app.get("/api/eclipse/history", async (_req, res) => {
       [new Date()]
     );
     res.json(rows);
-  } catch(err) {
+  } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
@@ -3187,7 +3187,7 @@ app.post("/api/eclipse/:id/announce", async (req, res) => {
     const { id } = req.params;
     await pool.query(`UPDATE eclipses SET announced = TRUE WHERE id = $1`, [id]);
     res.json({ success: true });
-  } catch(err) {
+  } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
@@ -3198,7 +3198,7 @@ app.post("/api/eclipse/:id/reward", async (req, res) => {
     const { id } = req.params;
     await pool.query(`UPDATE eclipses SET rewarded = TRUE WHERE id = $1`, [id]);
     res.json({ success: true });
-  } catch(err) {
+  } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
@@ -3235,7 +3235,7 @@ app.get("/api/extensions/:userId", async (req, res) => {
 app.put("/api/extensions/:userId", async (req, res) => {
   const { userId } = req.params;
   const state = req.body;
-  
+
   try {
     await pool.query(
       `INSERT INTO installed_extensions (user_id, installed, updated_at)
@@ -3357,23 +3357,23 @@ app.get("/api/ecolight/scenes/:userId", async (req, res) => {
 
 /* ----------  PREGUNTAS IA  ---------- */
 const QUESTIONS_POOL = [
-  {id:1, question:"¿Cuál es el planeta más grande del sistema solar?", category:"Ciencia", answer:"Júpiter"},
-  {id:2, question:"¿En qué país nació el tango?", category:"Cultura", answer:"Argentina"},
-  {id:3, question:"¿Qué elemento tiene el símbolo 'Au'?", category:"Química", answer:"Oro"},
-  {id:4, question:"¿Quién pintó 'La noche estrellada'?", category:"Arte", answer:"Van Gogh"},
-  {id:5, question:"¿Cuántos bits hay en un byte?", category:"Tecnología", answer:"8"}
+  { id: 1, question: "¿Cuál es el planeta más grande del sistema solar?", category: "Ciencia", answer: "Júpiter" },
+  { id: 2, question: "¿En qué país nació el tango?", category: "Cultura", answer: "Argentina" },
+  { id: 3, question: "¿Qué elemento tiene el símbolo 'Au'?", category: "Química", answer: "Oro" },
+  { id: 4, question: "¿Quién pintó 'La noche estrellada'?", category: "Arte", answer: "Van Gogh" },
+  { id: 5, question: "¿Cuántos bits hay en un byte?", category: "Tecnología", answer: "8" }
 ];
 
 /* 1) devuelve pregunta y **marca** como usada ya */
-app.get('/api/ia-question/:userId', async (req,res)=>{
-  const {userId} = req.params;
-  const {rows} = await pool.query(
-    `SELECT used_today FROM ia_state WHERE user_id = $1`,[userId]
+app.get('/api/ia-question/:userId', async (req, res) => {
+  const { userId } = req.params;
+  const { rows } = await pool.query(
+    `SELECT used_today FROM ia_state WHERE user_id = $1`, [userId]
   );
   const used = rows[0]?.used_today || [];
-  const avail = QUESTIONS_POOL.filter(q=>!used.includes(q.id));
+  const avail = QUESTIONS_POOL.filter(q => !used.includes(q.id));
   if (!avail.length) return res.status(404).json(null);
-  const q = avail[Math.floor(Math.random()*avail.length)];
+  const q = avail[Math.floor(Math.random() * avail.length)];
 
   /* guardarla AHORA → no se repite */
   await pool.query(
@@ -3384,19 +3384,19 @@ app.get('/api/ia-question/:userId', async (req,res)=>{
 });
 
 /* 2) respuesta SIEMPRE correcta + recompensa + nivel en vivo */
-app.post('/api/ia-answer/:userId', async (req,res)=>{
-  const {userId} = req.params;
-  const {questionId} = req.body;
+app.post('/api/ia-answer/:userId', async (req, res) => {
+  const { userId } = req.params;
+  const { questionId } = req.body;
 
   /* recompensa */
   const roll = Math.random();
-  let reward = {type:'', amount:0};
-  if (roll < 0.65){              // 65 % Ecoxionums
+  let reward = { type: '', amount: 0 };
+  if (roll < 0.65) {              // 65 % Ecoxionums
     reward.type = 'coins';
-    reward.amount = 30 + Math.floor(Math.random()*21);   // 30-50
-  }else{                         // 35 % EXP
+    reward.amount = 30 + Math.floor(Math.random() * 21);   // 30-50
+  } else {                         // 35 % EXP
     reward.type = 'exp';
-    reward.amount = 25 + Math.floor(Math.random()*11);   // 25-35
+    reward.amount = 25 + Math.floor(Math.random() * 11);   // 25-35
   }
 
   /* aplicar recompensa y subir nivel si corresponde */
@@ -3404,54 +3404,54 @@ app.post('/api/ia-answer/:userId', async (req,res)=>{
   let newExp = lvl.exp + reward.amount;
   let newLvl = lvl.level;
   let needed = expForLevel(newLvl);
-  while (newExp >= needed){                       // sube de nivel
+  while (newExp >= needed) {                       // sube de nivel
     newExp -= needed;
     newLvl++;
     needed = expForLevel(newLvl);
   }
   await saveLevelLive(userId, newLvl, newExp);    // persiste
 
-  res.json({success:true, reward, level:{level:newLvl, exp:newExp, nextExp:needed}});
+  res.json({ success: true, reward, level: { level: newLvl, exp: newExp, nextExp: needed } });
 });
 
 /* 3) límite diario */
-app.get('/api/ia-limit/:userId', async (req,res)=>{
-  const {userId} = req.params;
+app.get('/api/ia-limit/:userId', async (req, res) => {
+  const { userId } = req.params;
   const now = new Date();
-  const {rows} = await pool.query(
+  const { rows } = await pool.query(
     `SELECT reset_at, array_length(used_today,1) AS used
-     FROM ia_state WHERE user_id = $1`,[userId]
+     FROM ia_state WHERE user_id = $1`, [userId]
   );
   let reset = rows[0]?.reset_at;
-  if (!reset || new Date(reset) <= now){
-    reset = new Date(Date.now()+5*60*60*1000).toISOString();
+  if (!reset || new Date(reset) <= now) {
+    reset = new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString();
     await pool.query(
       `INSERT INTO ia_state(user_id,used_today,reset_at) VALUES($1,'{}',$2)
        ON CONFLICT(user_id) DO UPDATE SET used_today='{}', reset_at=$2`,
       [userId, reset]
     );
-    return res.json({remaining:3, nextReset:reset});
+    return res.json({ remaining: 3, nextReset: reset });
   }
-  const used = rows[0]?.used||0;
-  res.json({remaining:Math.max(0,3-used), nextReset:reset});
+  const used = rows[0]?.used || 0;
+  res.json({ remaining: Math.max(0, 3 - used), nextReset: reset });
 });
 
 /* ----------  HELPERS LIVE  ---------- */
-async function getLevelLive(userId){
-  const {rows} = await pool.query(
-    `SELECT level, exp FROM user_levels WHERE user_id = $1`,[userId]
+async function getLevelLive(userId) {
+  const { rows } = await pool.query(
+    `SELECT level, exp FROM user_levels WHERE user_id = $1`, [userId]
   );
-  return rows[0] || {level:1, exp:0};
+  return rows[0] || { level: 1, exp: 0 };
 }
-async function saveLevelLive(userId, level, exp){
+async function saveLevelLive(userId, level, exp) {
   await pool.query(
     `INSERT INTO user_levels (user_id, level, exp) VALUES ($1,$2,$3)
      ON CONFLICT (user_id) DO UPDATE SET level=$2, exp=$3`,
     [userId, level, exp]
   );
 }
-function expForLevel(lvl){
-  return 100 * Math.pow(1.05, lvl-1);   // igual que tenías
+function expForLevel(lvl) {
+  return 100 * Math.pow(1.05, lvl - 1);   // igual que tenías
 }
 
 // === RUTAS ===
@@ -3460,7 +3460,7 @@ function expForLevel(lvl){
 app.get("/version", async (_req, res) => {
   try {
     const { rows } = await pool.query(
-        "SELECT version, news, date FROM updates_ecoconsole ORDER BY date DESC LIMIT 1"
+      "SELECT version, news, date FROM updates_ecoconsole ORDER BY date DESC LIMIT 1"
     );
 
     if (rows.length === 0) {
@@ -3483,22 +3483,22 @@ const PRODUCT_TABLES = { deepdive: 'deepdive_updates', natmarket: 'natmarket_upd
 app.get("/api/featured-update", async (req, res) => {
   try {
     const product = String(req.query.product || '').toLowerCase();
-    
+
     // Si no se especifica producto o no es válido, devolver null (no mezclar productos)
     if (!product || !PRODUCT_TABLES[product]) {
       console.log(`⚠️ Producto no especificado o inválido: "${product}"`);
       return res.json(null);
     }
-    
+
     const table = PRODUCT_TABLES[product];
     console.log(`📋 Consultando actualizaciones de ${product} desde tabla ${table}`);
-    
+
     const { rows } = await pool.query(`SELECT version, news, date FROM ${table} ORDER BY date DESC LIMIT 1`);
     if (!rows[0]) {
       console.log(`ℹ️ No hay actualizaciones en ${table}`);
       return res.json(null);
     }
-    
+
     console.log(`✅ Actualización encontrada para ${product}: ${rows[0].version}`);
     res.json({ version: rows[0].version, date: rows[0].date, news: sanitizeNews(rows[0].news || '') });
   } catch (err) {
@@ -3543,7 +3543,7 @@ app.post("/publish-version", async (req, res) => {
         news TEXT NOT NULL,
         date TIMESTAMP DEFAULT NOW()
       )`);
-  } catch {}
+  } catch { }
 
   await pool.query(
     `INSERT INTO ${table} (version, news, date) VALUES ($1, $2, NOW())`,
@@ -3595,88 +3595,88 @@ app.get("/sugerencias", async (req, res) => {
 
 // In your server.js, update the publish-event endpoint
 app.post("/ecoconsole/publish-event", async (req, res) => {
-    const { secret, name, keyword, musicURL, startAt, rewardBits = 100 } = req.body;
-    
-    if (secret !== process.env.STUDIO_SECRET) {
-        return res.status(401).json({ error: "No autorizado" });
+  const { secret, name, keyword, musicURL, startAt, rewardBits = 100 } = req.body;
+
+  if (secret !== process.env.STUDIO_SECRET) {
+    return res.status(401).json({ error: "No autorizado" });
+  }
+
+  try {
+    // Validate and parse the date
+    let startDate;
+    try {
+      // Try parsing the date string directly
+      startDate = new Date(startAt);
+
+      // If the date is invalid, try fixing common issues
+      if (isNaN(startDate.getTime())) {
+        // Try removing any timezone offset and assume UTC
+        const dateString = startAt.split(/[+-]\d{2}:\d{2}$/)[0];
+        startDate = new Date(dateString + 'Z');
+
+        if (isNaN(startDate.getTime())) {
+          throw new Error("Formato de fecha inválido");
+        }
+      }
+    } catch (e) {
+      return res.status(400).json({
+        error: "Formato de fecha inválido",
+        details: "Use el formato: YYYY-MM-DDTHH:mm:ss±HH:mm"
+      });
     }
 
-    try {
-        // Validate and parse the date
-        let startDate;
-        try {
-            // Try parsing the date string directly
-            startDate = new Date(startAt);
-            
-            // If the date is invalid, try fixing common issues
-            if (isNaN(startDate.getTime())) {
-                // Try removing any timezone offset and assume UTC
-                const dateString = startAt.split(/[+-]\d{2}:\d{2}$/)[0];
-                startDate = new Date(dateString + 'Z');
-                
-                if (isNaN(startDate.getTime())) {
-                    throw new Error("Formato de fecha inválido");
-                }
-            }
-        } catch (e) {
-            return res.status(400).json({ 
-                error: "Formato de fecha inválido",
-                details: "Use el formato: YYYY-MM-DDTHH:mm:ss±HH:mm"
-            });
-        }
+    // Convert to ISO string for consistent storage
+    const utcDate = startDate.toISOString();
 
-        // Convert to ISO string for consistent storage
-        const utcDate = startDate.toISOString();
-        
-        const result = await pool.query(
-            `INSERT INTO ecoconsole_events 
+    const result = await pool.query(
+      `INSERT INTO ecoconsole_events 
              (name, keyword, musicURL, startAt, rewardBits, created) 
              VALUES ($1, $2, $3, $4, $5, NOW())
              RETURNING *`,
-            [name, keyword.toLowerCase(), musicURL, utcDate, rewardBits]
-        );
+      [name, keyword.toLowerCase(), musicURL, utcDate, rewardBits]
+    );
 
-        console.log('Evento creado:', {
-            id: result.rows[0].id,
-            name: result.rows[0].name,
-            startAt: result.rows[0].startat
-        });
-        
-        res.json({ 
-            ok: true, 
-            msg: "Evento EcoConsole programado",
-            event: {
-                ...result.rows[0],
-                // Return the date in a more readable format
-                formattedDate: new Date(result.rows[0].startat).toLocaleString('es-AR', {
-                    timeZone: 'America/Argentina/Buenos_Aires',
-                    dateStyle: 'medium',
-                    timeStyle: 'short'
-                })
-            }
-        });
+    console.log('Evento creado:', {
+      id: result.rows[0].id,
+      name: result.rows[0].name,
+      startAt: result.rows[0].startat
+    });
 
-    } catch (error) {
-        console.error('Error al programar evento:', error);
-        res.status(500).json({ 
-            error: "Error al programar el evento",
-            details: error.message
-        });
-    }
+    res.json({
+      ok: true,
+      msg: "Evento EcoConsole programado",
+      event: {
+        ...result.rows[0],
+        // Return the date in a more readable format
+        formattedDate: new Date(result.rows[0].startat).toLocaleString('es-AR', {
+          timeZone: 'America/Argentina/Buenos_Aires',
+          dateStyle: 'medium',
+          timeStyle: 'short'
+        })
+      }
+    });
+
+  } catch (error) {
+    console.error('Error al programar evento:', error);
+    res.status(500).json({
+      error: "Error al programar el evento",
+      details: error.message
+    });
+  }
 });
 
 app.get("/ecoconsole/active-event", async (_req, res) => {
-    try {
-        // Primero, marcar como terminados los eventos con más de 24 horas
-        await pool.query(`
+  try {
+    // Primero, marcar como terminados los eventos con más de 24 horas
+    await pool.query(`
             UPDATE ecoconsole_events 
             SET finished = true 
             WHERE startAt <= (NOW() - INTERVAL '24 hours')
             AND (finished IS NULL OR finished = false)
         `);
 
-        // Obtener el evento activo (que haya empezado hace menos de 1 hora)
-        const { rows } = await pool.query(`
+    // Obtener el evento activo (que haya empezado hace menos de 1 hora)
+    const { rows } = await pool.query(`
             SELECT * FROM ecoconsole_events 
             WHERE startAt >= (NOW() - INTERVAL '1 hour')
             AND startAt <= NOW()
@@ -3685,26 +3685,26 @@ app.get("/ecoconsole/active-event", async (_req, res) => {
             LIMIT 1
         `);
 
-        if (rows.length === 0) {
-            console.log('No hay eventos activos actualmente');
-            return res.json({ error: "No hay eventos activos" });
-        }
-
-        console.log('Evento activo encontrado:', {
-            id: rows[0].id,
-            name: rows[0].name,
-            startAt: rows[0].startat,
-            minutes_since_start: (new Date() - new Date(rows[0].startat)) / 60000
-        });
-
-        res.json(rows[0]);
-    } catch (error) {
-        console.error('Error en /ecoconsole/active-event:', error);
-        res.status(500).json({ 
-            error: "Error al obtener el evento activo",
-            details: error.message
-        });
+    if (rows.length === 0) {
+      console.log('No hay eventos activos actualmente');
+      return res.json({ error: "No hay eventos activos" });
     }
+
+    console.log('Evento activo encontrado:', {
+      id: rows[0].id,
+      name: rows[0].name,
+      startAt: rows[0].startat,
+      minutes_since_start: (new Date() - new Date(rows[0].startat)) / 60000
+    });
+
+    res.json(rows[0]);
+  } catch (error) {
+    console.error('Error en /ecoconsole/active-event:', error);
+    res.status(500).json({
+      error: "Error al obtener el evento activo",
+      details: error.message
+    });
+  }
 });
 
 app.patch("/ecoconsole/finish-event", async (req, res) => {
@@ -3717,8 +3717,8 @@ app.patch("/ecoconsole/finish-event", async (req, res) => {
 });
 
 app.get("/ecoconsole/upcoming-events", async (req, res) => {
-    try {
-        const { rows } = await pool.query(`
+  try {
+    const { rows } = await pool.query(`
             SELECT 
                 id,
                 name,
@@ -3738,34 +3738,34 @@ app.get("/ecoconsole/upcoming-events", async (req, res) => {
             ORDER BY startAt ASC
             LIMIT 5
         `);
-        
-        res.json(rows);
-    } catch (error) {
-        console.error('Error al obtener próximos eventos:', error);
-        res.status(500).json({ 
-            error: 'Error al obtener eventos',
-            details: error.message
-        });
-    }
+
+    res.json(rows);
+  } catch (error) {
+    console.error('Error al obtener próximos eventos:', error);
+    res.status(500).json({
+      error: 'Error al obtener eventos',
+      details: error.message
+    });
+  }
 });
 
 // En server.js, agrega esta función
 async function cleanupOldEvents() {
-    try {
-        await pool.query(`
+  try {
+    await pool.query(`
             DELETE FROM ecoconsole_events 
             WHERE startAt <= (NOW() - INTERVAL '36 hours')
         `);
-        console.log('Limpieza de eventos antiguos completada');
-    } catch (error) {
-        console.error('Error al limpiar eventos antiguos:', error);
-    }
+    console.log('Limpieza de eventos antiguos completada');
+  } catch (error) {
+    console.error('Error al limpiar eventos antiguos:', error);
+  }
 }
 
 
 
 // ===== DeepDive: seed update notes and beta announcement (original tables) =====
-async function seedDeepDiveUpdateAndBeta(){
+async function seedDeepDiveUpdateAndBeta() {
   try {
     // 1) Update notes entry – use deepdive_updates (original table)
     await pool.query(`
@@ -3822,7 +3822,7 @@ async function seedDeepDiveUpdateAndBeta(){
 seedDeepDiveUpdateAndBeta();
 
 // One-time scrub: sanitize latest update note to remove internal URLs if present
-async function scrubLatestUpdateNews(){
+async function scrubLatestUpdateNews() {
   try {
     // DeepDive table
     await pool.query(`CREATE TABLE IF NOT EXISTS deepdive_updates (id SERIAL PRIMARY KEY, version TEXT, news TEXT, date TIMESTAMP DEFAULT NOW())`);
@@ -3842,7 +3842,7 @@ async function scrubLatestUpdateNews(){
           await pool.query(`UPDATE updates_ecoconsole SET news=$1 WHERE id=$2`, [clean2, r2.rows[0].id]);
         }
       }
-    } catch {}
+    } catch { }
   } catch (e) {
     console.warn('[DeepDive scrub] skipped:', e.message);
   }
@@ -3860,15 +3860,15 @@ app.post('/natmarket/register', async (req, res) => {
     if (!username || !password) return res.status(400).json({ error: 'username y password requeridos' });
     const hashed = await bcrypt.hash(password, 10);
     const userUniqueId = generateUserUniqueId(); // Generar ID único
-    
+
     const { rows } = await pool.query(
       'INSERT INTO users_nat (username, password, user_unique_id) VALUES ($1,$2,$3) RETURNING id, username, user_unique_id',
       [username, hashed, userUniqueId]
     );
-    
+
     // Devolver el ID único solo en el registro (se muestra una vez)
-    res.json({ 
-      id: rows[0].id, 
+    res.json({
+      id: rows[0].id,
       username: rows[0].username,
       user_unique_id: rows[0].user_unique_id, // Solo se muestra en registro
       message: 'IMPORTANTE: Guarda este ID de Usuario Único. Será necesario para recuperar tu contraseña.'
@@ -3887,16 +3887,16 @@ app.post('/natmarket/login', async (req, res) => {
     if (rows.length === 0) return res.status(401).json({ error: 'Usuario no encontrado' });
     const ok = await bcrypt.compare(password, rows[0].password);
     if (!ok) return res.status(401).json({ error: 'Contraseña incorrecta' });
-    
+
     // Si el usuario no tiene user_unique_id (usuario existente), generarlo automáticamente
     let userUniqueId = rows[0].user_unique_id;
     if (!userUniqueId) {
       userUniqueId = generateUserUniqueId();
       await pool.query('UPDATE users_nat SET user_unique_id = $1 WHERE id = $2', [userUniqueId, rows[0].id]);
     }
-    
-    res.json({ 
-      id: rows[0].id, 
+
+    res.json({
+      id: rows[0].id,
       username: rows[0].username,
       needs_unique_id: !rows[0].user_unique_id,
       user_unique_id: !rows[0].user_unique_id ? userUniqueId : undefined
@@ -3926,22 +3926,22 @@ app.put('/natmarket/users/:id/password', async (req, res) => {
   try {
     const { id } = req.params;
     const { oldPassword, newPassword, user_unique_id } = req.body;
-    
+
     if (!oldPassword || !newPassword) return res.status(400).json({ error: 'Faltan contraseñas' });
     if (!user_unique_id) return res.status(400).json({ error: 'Se requiere el ID de Usuario Único para cambiar la contraseña' });
-    
+
     const { rows } = await pool.query('SELECT password, user_unique_id FROM users_nat WHERE id=$1', [id]);
     if (rows.length === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
-    
+
     // Verificar contraseña actual
     const ok = await bcrypt.compare(oldPassword, rows[0].password);
     if (!ok) return res.status(401).json({ error: 'Contraseña actual incorrecta' });
-    
+
     // Verificar ID único de usuario
     if (rows[0].user_unique_id !== user_unique_id) {
       return res.status(403).json({ error: 'ID de Usuario Único incorrecto' });
     }
-    
+
     const hashed = await bcrypt.hash(newPassword, 10);
     await pool.query('UPDATE users_nat SET password=$1 WHERE id=$2', [hashed, id]);
     res.json({ success: true, message: 'Contraseña actualizada exitosamente' });
@@ -3956,7 +3956,7 @@ app.put('/natmarket/users/:id/password', async (req, res) => {
 async function createNatMarketTables() {
   try {
     console.log('🔄 Verificando tablas de NatMarket...');
-    
+
     // Crear tabla de imágenes de productos
     await pool.query(`
       CREATE TABLE IF NOT EXISTS product_images_nat (
@@ -3966,7 +3966,7 @@ async function createNatMarketTables() {
         created_at TIMESTAMP DEFAULT NOW()
       )
     `);
-    
+
     // Crear tabla de videos de productos
     await pool.query(`
       CREATE TABLE IF NOT EXISTS product_videos_nat (
@@ -3976,7 +3976,7 @@ async function createNatMarketTables() {
         created_at TIMESTAMP DEFAULT NOW()
       )
     `);
-    
+
     // Agregar columna views a products_nat si no existe
     try {
       await pool.query(`
@@ -3987,9 +3987,9 @@ async function createNatMarketTables() {
       // Ignorar error si la columna ya existe
       console.log('Columna views ya existe o no se pudo agregar');
     }
-    
+
     console.log('✅ Tablas de NatMarket verificadas/creadas correctamente.');
-    
+
   } catch (err) {
     console.error('❌ Error creando tablas de NatMarket:', err);
   }
@@ -3999,19 +3999,19 @@ async function createNatMarketTables() {
 async function notifyUnlinkedUsers() {
   try {
     console.log('🔄 Ejecutando migración: Notificando desvinculación de OceanicEthernet...');
-    
+
     // Obtener todos los usuarios de NatMarket que estaban vinculados
     const { rows: linkedUsers } = await pool.query(`
       SELECT DISTINCT external_user_id as user_id
       FROM oceanic_ethernet_user_links 
       WHERE external_system = 'NatMarket'
     `);
-    
+
     if (linkedUsers.length === 0) {
       console.log('✅ No hay usuarios vinculados para notificar.');
       return;
     }
-    
+
     // Crear notificaciones para cada usuario vinculado
     for (const user of linkedUsers) {
       await pool.query(
@@ -4024,17 +4024,17 @@ async function notifyUnlinkedUsers() {
         ]
       );
     }
-    
+
     console.log(`✅ Notificaciones enviadas a ${linkedUsers.length} usuarios sobre la desvinculación.`);
-    
+
     // Opcional: Eliminar las vinculaciones de la base de datos
     await pool.query(`
       DELETE FROM oceanic_ethernet_user_links 
       WHERE external_system = 'NatMarket'
     `);
-    
+
     console.log('✅ Vinculaciones de NatMarket eliminadas de la base de datos.');
-    
+
   } catch (err) {
     console.error('❌ Error en migración de desvinculación:', err);
   }
@@ -4057,14 +4057,14 @@ app.post('/natmarket/products', upload.array('images', 10), async (req, res) => 
     const urls = (req.files || []).map(f => `${host}/uploads/nat/${f.filename}`);
     for (const url of urls) await pool.query('INSERT INTO product_images_nat (product_id, url) VALUES ($1,$2)', [product.id, url]);
     const { rows: imgs } = await pool.query('SELECT url FROM product_images_nat WHERE product_id=$1 ORDER BY created_at ASC', [product.id]);
-    
+
     // Notificar a los seguidores del usuario
     try {
       const { rows: followers } = await pool.query(
         'SELECT follower_id FROM user_follows WHERE following_id = $1',
         [user_id]
       );
-      
+
       if (followers.length > 0) {
         // Obtener el username del vendedor
         const { rows: [seller] } = await pool.query(
@@ -4072,7 +4072,7 @@ app.post('/natmarket/products', upload.array('images', 10), async (req, res) => 
           [user_id]
         );
         const sellerName = seller?.username || 'Un usuario';
-        
+
         // Crear notificaciones para cada seguidor
         for (const follower of followers) {
           await pool.query(
@@ -4092,7 +4092,7 @@ app.post('/natmarket/products', upload.array('images', 10), async (req, res) => 
       console.error('[NOTIFICATIONS] Error notificando a seguidores:', notifErr);
       // No fallar la creación del producto si falla la notificación
     }
-    
+
     res.json({ ...product, image_urls: imgs.map(i => i.url) });
   } catch (err) {
     handleNatError(res, err, 'POST /natmarket/products');
@@ -4156,7 +4156,7 @@ app.get('/natmarket/products', async (_req, res) => {
           }
           discount = { percent: row.percent, amount: row.amount, final_price };
         }
-      } catch (_) {}
+      } catch (_) { }
 
       return { ...p, image_urls: imgs.map(i => i.url), video_urls: vids.map(v => v.url), final_price, discount };
     }));
@@ -4170,48 +4170,48 @@ app.patch('/natmarket/products/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { user_id, stock, sold, buyer_id } = req.body;
-    
+
     if (!user_id) return res.status(400).json({ error: 'user_id requerido' });
-    
+
     // Verificar que el producto existe y pertenece al usuario
     const { rows: productRows } = await pool.query('SELECT user_id, sold FROM products_nat WHERE id=$1', [id]);
     if (productRows.length === 0) return res.status(404).json({ error: 'Producto no encontrado' });
     if (Number(productRows[0].user_id) !== Number(user_id)) return res.status(403).json({ error: 'No autorizado' });
-    
+
     const currentProduct = productRows[0];
-    
+
     // Si el producto está vendido, NO permitir modificar el stock
     if (currentProduct.sold && stock !== undefined) {
       return res.status(400).json({ error: 'No se puede modificar el stock de un producto vendido' });
     }
-    
+
     const updates = [];
     const values = [];
     let paramIndex = 1;
-    
+
     if (stock !== undefined) {
       updates.push(`stock = $${paramIndex}`);
       values.push(parseInt(stock) || 0);
       paramIndex++;
     }
-    
+
     if (sold !== undefined) {
       updates.push(`sold = $${paramIndex}`);
       values.push(sold === true || sold === 'true');
       paramIndex++;
     }
-    
+
     if (buyer_id !== undefined) {
       updates.push(`buyer_id = $${paramIndex}`);
       values.push(buyer_id ? parseInt(buyer_id) : null);
       paramIndex++;
     }
-    
+
     if (updates.length === 0) return res.status(400).json({ error: 'No hay campos para actualizar' });
-    
+
     values.push(id);
     const query = `UPDATE products_nat SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING *`;
-    
+
     const { rows: [updated] } = await pool.query(query, values);
     res.json(updated);
   } catch (err) {
@@ -4224,14 +4224,14 @@ app.get('/natmarket/products/:id/chat-participants', async (req, res) => {
   try {
     const { id } = req.params;
     const { user_id } = req.query;
-    
+
     if (!user_id) return res.status(400).json({ error: 'user_id requerido' });
-    
+
     // Verificar que el producto existe y pertenece al usuario
     const { rows: productRows } = await pool.query('SELECT user_id FROM products_nat WHERE id=$1', [id]);
     if (productRows.length === 0) return res.status(404).json({ error: 'Producto no encontrado' });
     if (Number(productRows[0].user_id) !== Number(user_id)) return res.status(403).json({ error: 'No autorizado' });
-    
+
     // Obtener todos los usuarios que han participado en el chat de este producto (excluyendo al vendedor)
     const { rows } = await pool.query(`
       SELECT DISTINCT u.id, u.username
@@ -4240,7 +4240,7 @@ app.get('/natmarket/products/:id/chat-participants', async (req, res) => {
       WHERE m.product_id = $1 AND m.sender_id != $2
       ORDER BY u.username
     `, [id, user_id]);
-    
+
     res.json(rows);
   } catch (err) {
     handleNatError(res, err, 'GET /natmarket/products/:id/chat-participants');
@@ -4279,14 +4279,14 @@ app.post('/natmarket/products/:id/repost', async (req, res) => {
     await client.query('BEGIN');
     const { id } = req.params;
     const { user_id, name, description, price, contact_number, stock, places, methods } = req.body;
-    
+
     if (!user_id) {
       await client.query('ROLLBACK');
       return res.status(400).json({ error: 'user_id requerido' });
     }
-    
+
     // Verificación de OceanicEthernet eliminada - ya no se requiere vinculación
-    
+
     // Verificar que el producto existe y pertenece al usuario
     const { rows: productRows } = await client.query('SELECT * FROM products_nat WHERE id=$1', [id]);
     if (productRows.length === 0) {
@@ -4297,25 +4297,25 @@ app.post('/natmarket/products/:id/repost', async (req, res) => {
       await client.query('ROLLBACK');
       return res.status(403).json({ error: 'No autorizado' });
     }
-    
+
     const currentProduct = productRows[0];
-    
+
     // Validar datos si se proporcionan para edición
     const newName = name || currentProduct.name;
     const newDescription = description !== undefined ? description : currentProduct.description;
     const newPrice = price !== undefined ? (price ? parseFloat(price) : null) : currentProduct.price;
     const newContact = contact_number !== undefined ? contact_number : currentProduct.contact_number;
     const newStock = stock !== undefined ? parseInt(stock) || 1 : currentProduct.stock;
-    
+
     // Moderación si hay cambios en nombre/descripción
     const bad = containsInappropriate(newName + ' ' + (newDescription || ''));
     if (bad) {
       await client.query('ROLLBACK');
       return res.status(400).json({ error: 'El contenido contiene palabras inapropiadas' });
     }
-    
+
     // Consumo de internet eliminado - ya no se requiere saldo de internet
-    
+
     // Actualizar producto con nueva fecha de publicación
     const { rows: [updated] } = await client.query(
       `UPDATE products_nat 
@@ -4323,7 +4323,7 @@ app.post('/natmarket/products/:id/repost', async (req, res) => {
        WHERE id=$6 RETURNING *`,
       [newName, newDescription, newPrice, newContact, newStock, id]
     );
-    
+
     // Parsear lugares y métodos si vienen como string JSON
     let placesArray = places;
     let methodsArray = methods;
@@ -4333,40 +4333,40 @@ app.post('/natmarket/products/:id/repost', async (req, res) => {
     if (typeof methods === 'string') {
       try { methodsArray = JSON.parse(methods); } catch { methodsArray = []; }
     }
-    
+
     // Obtener lugares y métodos actuales si no se proporcionan
     if (!placesArray || placesArray.length === 0) {
       const { rows: currentPlaces } = await client.query('SELECT place_id FROM product_places WHERE product_id=$1', [id]);
       placesArray = currentPlaces.map(p => p.place_id.toString());
     }
-    
+
     if (!methodsArray || methodsArray.length === 0) {
       const { rows: currentMethods } = await client.query('SELECT shipping_method_id FROM product_shipping_methods WHERE product_id=$1', [id]);
       methodsArray = currentMethods.map(m => m.shipping_method_id.toString());
     }
-    
+
     // Actualizar lugares y métodos
     await client.query('DELETE FROM product_places WHERE product_id=$1', [id]);
     for (const pId of placesArray) {
       await client.query('INSERT INTO product_places (product_id, place_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [id, pId]);
     }
-    
+
     await client.query('DELETE FROM product_shipping_methods WHERE product_id=$1', [id]);
     for (const mId of methodsArray) {
       await client.query('INSERT INTO product_shipping_methods (product_id, shipping_method_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [id, mId]);
     }
-    
+
     // Resetear vistas para que aparezca como nuevo
     await client.query('DELETE FROM product_views_unique WHERE product_id=$1', [id]);
     await client.query('UPDATE products_nat SET views=0 WHERE id=$1', [id]);
-    
+
     // Notificar a los seguidores del usuario (producto republicado)
     try {
       const { rows: followers } = await client.query(
         'SELECT follower_id FROM user_follows WHERE following_id = $1',
         [user_id]
       );
-      
+
       if (followers.length > 0) {
         // Obtener el username del vendedor
         const { rows: [seller] } = await client.query(
@@ -4374,7 +4374,7 @@ app.post('/natmarket/products/:id/repost', async (req, res) => {
           [user_id]
         );
         const sellerName = seller?.username || 'Un usuario';
-        
+
         // Crear notificaciones para cada seguidor
         for (const follower of followers) {
           await client.query(
@@ -4394,7 +4394,7 @@ app.post('/natmarket/products/:id/repost', async (req, res) => {
       console.error('[NOTIFICATIONS] Error notificando a seguidores:', notifErr);
       // No fallar el repost si falla la notificación
     }
-    
+
     await client.query('COMMIT');
     res.json({ success: true, product: updated });
   } catch (err) {
@@ -4410,17 +4410,17 @@ app.post('/natmarket/products/:id/repost-delete', upload.array('images', 10), as
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    
+
     const { id } = req.params;
     const { user_id, name, description, price, contact_number, stock, places, methods } = req.body;
-    
+
     if (!user_id) {
       await client.query('ROLLBACK');
       return res.status(400).json({ error: 'user_id requerido' });
     }
-    
+
     // Verificación de OceanicEthernet eliminada - ya no se requiere vinculación
-    
+
     // Verificar que el producto existe y pertenece al usuario
     const { rows: productRows } = await client.query('SELECT * FROM products_nat WHERE id=$1', [id]);
     if (productRows.length === 0) {
@@ -4431,9 +4431,9 @@ app.post('/natmarket/products/:id/repost-delete', upload.array('images', 10), as
       await client.query('ROLLBACK');
       return res.status(403).json({ error: 'No autorizado' });
     }
-    
+
     const currentProduct = productRows[0];
-    
+
     // Usar datos editados o los actuales
     const newName = name || currentProduct.name;
     const newDescription = description !== undefined ? description : currentProduct.description;
@@ -4442,59 +4442,59 @@ app.post('/natmarket/products/:id/repost-delete', upload.array('images', 10), as
     const newStock = stock !== undefined ? parseInt(stock) || 1 : currentProduct.stock;
     const placesArray = places ? JSON.parse(places) : [];
     const methodsArray = methods ? JSON.parse(methods) : [];
-    
+
     // Validaciones
     if (!newName) {
       await client.query('ROLLBACK');
       return res.status(400).json({ error: 'Nombre es obligatorio' });
     }
-    
+
     // Moderación
     const bad = containsInappropriate(newName + ' ' + (newDescription || ''));
     if (bad) {
       await client.query('ROLLBACK');
       return res.status(400).json({ error: 'El contenido contiene palabras inapropiadas' });
     }
-    
+
     // Consumo de internet eliminado - ya no se requiere saldo de internet
-    
+
     // Obtener imágenes, lugares y métodos actuales antes de borrar
     const { rows: currentImgs } = await client.query('SELECT url FROM product_images_nat WHERE product_id=$1', [id]);
     const { rows: currentPlaces } = await client.query('SELECT place_id FROM product_places WHERE product_id=$1', [id]);
     const { rows: currentMethods } = await client.query('SELECT shipping_method_id FROM product_shipping_methods WHERE product_id=$1', [id]);
-    
+
     // Borrar producto (CASCADE borrará imágenes y relaciones)
     await client.query('DELETE FROM product_images_nat WHERE product_id=$1', [id]);
     await client.query('DELETE FROM product_views_unique WHERE product_id=$1', [id]);
     await client.query('DELETE FROM products_nat WHERE id=$1', [id]);
-    
+
     // Crear nuevo producto
     const { rows: [newProduct] } = await client.query(
       `INSERT INTO products_nat (user_id, name, description, price, contact_number, stock, published_at)
        VALUES ($1,$2,$3,$4,$5,$6,NOW()) RETURNING *`,
       [user_id, newName, newDescription, newPrice, newContact, newStock]
     );
-    
+
     // Subir nuevas imágenes si hay
     const host = process.env.BACKEND_URL || `https://${req.get('host')}`;
     const newUrls = (req.files || []).map(f => `${host}/uploads/nat/${f.filename}`);
     for (const url of newUrls) {
       await client.query('INSERT INTO product_images_nat (product_id, url) VALUES ($1,$2)', [newProduct.id, url]);
     }
-    
+
     // Si no hay nuevas imágenes pero había imágenes anteriores, copiarlas
     if (newUrls.length === 0 && currentImgs.length > 0) {
       for (const img of currentImgs) {
         await client.query('INSERT INTO product_images_nat (product_id, url) VALUES ($1,$2)', [newProduct.id, img.url]);
       }
     }
-    
+
     // Lugares: usar los proporcionados o los actuales
     const placesIds = placesArray.length > 0 ? placesArray : currentPlaces.map(p => p.place_id);
     for (const pId of placesIds) {
       await client.query('INSERT INTO product_places (product_id, place_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [newProduct.id, pId]);
     }
-    
+
     // Métodos: usar los proporcionados o los actuales
     const methodsIds = methodsArray.length > 0 ? methodsArray : currentMethods.map(m => m.shipping_method_id);
     for (const mId of methodsIds) {
@@ -4507,7 +4507,7 @@ app.post('/natmarket/products/:id/repost-delete', upload.array('images', 10), as
         'SELECT follower_id FROM user_follows WHERE following_id = $1',
         [user_id]
       );
-      
+
       if (followers.length > 0) {
         // Obtener el username del vendedor
         const { rows: [seller] } = await client.query(
@@ -4515,7 +4515,7 @@ app.post('/natmarket/products/:id/repost-delete', upload.array('images', 10), as
           [user_id]
         );
         const sellerName = seller?.username || 'Un usuario';
-        
+
         // Crear notificaciones para cada seguidor
         for (const follower of followers) {
           await client.query(
@@ -4535,7 +4535,7 @@ app.post('/natmarket/products/:id/repost-delete', upload.array('images', 10), as
       console.error('[NOTIFICATIONS] Error notificando a seguidores:', notifErr);
       // No fallar la creación si falla la notificación
     }
-    
+
     await client.query('COMMIT');
     res.json({ success: true, product: newProduct });
   } catch (err) {
@@ -4563,7 +4563,7 @@ app.post('/natmarket/messages', async (req, res) => {
 
 app.post('/natmarket/messages/v2', async (req, res) => {
   const { sender_id, product_id, message, username } = req.body;
-  
+
   // Validación estricta de parámetros
   if (!product_id || !message) {
     console.error('[MESSAGES] Faltan parámetros:', { sender_id, product_id, message: message ? 'presente' : 'faltante' });
@@ -4572,32 +4572,32 @@ app.post('/natmarket/messages/v2', async (req, res) => {
 
   // Asegurar que product_id sea un número
   const productIdNum = parseInt(product_id);
-  
+
   if (isNaN(productIdNum)) {
     console.error('[MESSAGES] product_id inválido:', { product_id });
     return res.status(400).json({ error: 'product_id inválido' });
   }
 
   let senderIdNum;
-  
+
   // Si product_id es 0, es chat global - manejar usuario automáticamente
   if (productIdNum === 0) {
     console.log(`[MESSAGES] Mensaje para chat global`);
-    
+
     // Si se proporciona username, buscar o crear usuario automáticamente
     if (username) {
       const cleanUsername = username.trim().substring(0, 50); // Limitar longitud
       if (!cleanUsername) {
         return res.status(400).json({ error: 'Username inválido' });
       }
-      
+
       try {
         // Buscar usuario existente por username
         let { rows: userRows } = await pool.query(
           'SELECT id FROM users_nat WHERE username = $1 LIMIT 1',
           [cleanUsername]
         );
-        
+
         if (userRows.length > 0) {
           senderIdNum = userRows[0].id;
           console.log(`[MESSAGES] Usuario encontrado: ${cleanUsername} (id: ${senderIdNum})`);
@@ -4620,7 +4620,7 @@ app.post('/natmarket/messages/v2', async (req, res) => {
       if (isNaN(senderIdNum)) {
         return res.status(400).json({ error: 'sender_id inválido' });
       }
-      
+
       // Verificar que el usuario existe
       const { rows: userCheck } = await pool.query(
         'SELECT id FROM users_nat WHERE id = $1',
@@ -4646,7 +4646,7 @@ app.post('/natmarket/messages/v2', async (req, res) => {
   console.log(`[MESSAGES] Nuevo mensaje - sender_id: ${senderIdNum}, product_id: ${productIdNum}, mensaje: "${message.substring(0, 50)}..."`);
 
   let product = null;
-  
+
   // Si product_id es 0, es chat global (no necesita verificar producto)
   if (productIdNum === 0) {
     // Ya manejado arriba
@@ -4656,7 +4656,7 @@ app.post('/natmarket/messages/v2', async (req, res) => {
       'SELECT id, user_id, name FROM products_nat WHERE id = $1',
       [productIdNum]
     );
-    
+
     if (productRows.length === 0) {
       console.error(`[MESSAGES] Producto no encontrado: ${productIdNum}`);
       return res.status(404).json({ error: 'Producto no encontrado' });
@@ -4670,8 +4670,8 @@ app.post('/natmarket/messages/v2', async (req, res) => {
   const banCheck = await isUserBanned(senderIdNum);
   if (banCheck.banned) {
     const banUntil = new Date(banCheck.banUntil);
-    return res.status(403).json({ 
-      error: `Tu cuenta está baneada hasta el ${banUntil.toLocaleDateString('es-AR')}. Razón: ${banCheck.reason}` 
+    return res.status(403).json({
+      error: `Tu cuenta está baneada hasta el ${banUntil.toLocaleDateString('es-AR')}. Razón: ${banCheck.reason}`
     });
   }
 
@@ -4687,29 +4687,29 @@ app.post('/natmarket/messages/v2', async (req, res) => {
       warning: 'Tu mensaje está en revisión por contenido potencialmente inapropiado.'
     });
   }
-  
+
   // si está OK, guardar directamente con validación explícita
   const { rows: [msg] } = await pool.query(
     `INSERT INTO messages_nat (sender_id, product_id, message) VALUES ($1,$2,$3) RETURNING id, sender_id, product_id, message, created_at`,
     [senderIdNum, productIdNum, message]
   );
-  
+
   // Verificación adicional
   if (Number(msg.product_id) !== productIdNum) {
     console.error(`[MESSAGES] ERROR: Mensaje guardado con product_id incorrecto. Esperado: ${productIdNum}, Obtenido: ${msg.product_id}`);
   }
-  
+
   console.log(`[MESSAGES] Mensaje guardado - ID: ${msg.id}, sender_id: ${msg.sender_id}, product_id: ${msg.product_id}, verificado: ${Number(msg.product_id) === productIdNum ? 'OK' : 'ERROR'}`);
-    
-    // Crear notificaciones solo para chats privados (product_id > 0)
-    // El chat global (product_id = 0) no genera notificaciones
-    if (productIdNum > 0 && product) {
-      const sellerId = product.user_id;
-      const isSellerMessage = senderIdNum === Number(sellerId);
-    
+
+  // Crear notificaciones solo para chats privados (product_id > 0)
+  // El chat global (product_id = 0) no genera notificaciones
+  if (productIdNum > 0 && product) {
+    const sellerId = product.user_id;
+    const isSellerMessage = senderIdNum === Number(sellerId);
+
     // Lista de usuarios a notificar
     const usersToNotify = new Set();
-    
+
     if (isSellerMessage) {
       // Si el vendedor envía un mensaje, notificar a todos los que han participado (excepto el vendedor)
       const { rows: participants } = await pool.query(`
@@ -4717,28 +4717,28 @@ app.post('/natmarket/messages/v2', async (req, res) => {
         FROM messages_nat 
         WHERE product_id = $1 AND sender_id != $2
       `, [productIdNum, senderIdNum]);
-      
+
       participants.forEach(p => usersToNotify.add(String(p.sender_id)));
     } else {
       // Si un usuario envía un mensaje, notificar al vendedor y a otros participantes
       usersToNotify.add(String(sellerId));
-      
+
       const { rows: participants } = await pool.query(`
         SELECT DISTINCT sender_id 
         FROM messages_nat 
         WHERE product_id = $1 AND sender_id != $2 AND sender_id != $3
       `, [productIdNum, senderIdNum, sellerId]);
-      
+
       participants.forEach(p => usersToNotify.add(String(p.sender_id)));
     }
-    
+
     // Obtener nombre del remitente
     const { rows: senderRow } = await pool.query(
       'SELECT username FROM users_nat WHERE id = $1',
       [senderIdNum]
     );
     const senderName = senderRow[0]?.username || 'Alguien';
-    
+
     // Crear notificaciones
     for (const userIdStr of usersToNotify) {
       const userId = parseInt(userIdStr);
@@ -4759,9 +4759,9 @@ app.post('/natmarket/messages/v2', async (req, res) => {
         }
       }
     }
-    }
-    
-    res.json(msg);
+  }
+
+  res.json(msg);
 });
 
 app.get('/mod/pending', async (req, res) => {
@@ -4816,33 +4816,33 @@ app.post('/mod/decide-product', async (req, res) => {
       // 3. lugares/métodos
       const places = typeof p.places === 'string' ? JSON.parse(p.places) : p.places;
       const methods = typeof p.methods === 'string' ? JSON.parse(p.methods) : p.methods;
-      for (const pid of places)  await client.query('INSERT INTO product_places (product_id, place_id) VALUES ($1,$2)', [prod.id, pid]);
+      for (const pid of places) await client.query('INSERT INTO product_places (product_id, place_id) VALUES ($1,$2)', [prod.id, pid]);
       for (const mid of methods) await client.query('INSERT INTO product_shipping_methods (product_id, shipping_method_id) VALUES ($1,$2)', [prod.id, mid]);
-      
+
       await client.query('COMMIT');
       res.json({ ok: true });
     } else {
       // rechazar → dar strike al usuario
       const rejectReason = reason || 'Contenido inapropiado detectado en revisión';
-      
+
       // Agregar strike
       const strikeResult = await addStrike(p.user_id, rejectReason, null, client);
-      
+
       if (strikeResult.error) {
         await client.query('ROLLBACK');
         return res.status(500).json({ error: 'Error agregando strike: ' + strikeResult.error });
       }
-      
+
       // Guardar en historial de rechazados
       await client.query(
         'INSERT INTO products_rejected (user_id, name, reason) VALUES ($1,$2,$3)',
         [p.user_id, p.name, rejectReason]
       );
-      
+
       await client.query('DELETE FROM products_pending WHERE id = $1', [pending_id]);
       await client.query('COMMIT');
-      res.json({ 
-        ok: true, 
+      res.json({
+        ok: true,
         strikes: strikeResult.strikes,
         banned: strikeResult.banned || false,
         banUntil: strikeResult.banUntil || null
@@ -4888,48 +4888,48 @@ app.post('/natmarket/products/:id/report', async (req, res) => {
   try {
     const { id } = req.params;
     const { reporter_id, reason } = req.body;
-    
+
     if (!reporter_id || !reason) {
       return res.status(400).json({ error: 'Faltan datos (reporter_id y reason requeridos)' });
     }
-    
+
     // Verificar que el producto existe
     const { rows: productRows } = await pool.query(
       'SELECT id, user_id FROM products_nat WHERE id = $1',
       [id]
     );
-    
+
     if (productRows.length === 0) {
       return res.status(404).json({ error: 'Producto no encontrado' });
     }
-    
+
     // Verificar que no se reporte a sí mismo
     if (productRows[0].user_id === reporter_id) {
       return res.status(400).json({ error: 'No puedes reportar tu propio producto' });
     }
-    
+
     // Verificar si ya existe un reporte pendiente de este usuario para este producto
     const { rows: existingReport } = await pool.query(
       'SELECT id FROM product_reports WHERE product_id = $1 AND reporter_id = $2 AND status = $3',
       [id, reporter_id, 'pending']
     );
-    
+
     if (existingReport.length > 0) {
       return res.status(400).json({ error: 'Ya tienes un reporte pendiente para este producto' });
     }
-    
+
     // Crear reporte
     const { rows: [report] } = await pool.query(
       `INSERT INTO product_reports (product_id, reporter_id, reason, status, created_at)
        VALUES ($1, $2, $3, 'pending', NOW()) RETURNING *`,
       [id, reporter_id, reason]
     );
-    
+
     // Notificar a OceanandWild
     const { rows: adminRows } = await pool.query(
       "SELECT id FROM users_nat WHERE username = 'OceanandWild'"
     );
-    
+
     if (adminRows.length > 0) {
       const adminId = adminRows[0].id;
       const { rows: reporterRows } = await pool.query(
@@ -4937,14 +4937,14 @@ app.post('/natmarket/products/:id/report', async (req, res) => {
         [reporter_id]
       );
       const reporterName = reporterRows[0]?.username || 'Un usuario';
-      
+
       await pool.query(
         `INSERT INTO notifications_nat (user_id, type, message, product_id, created_at)
          VALUES ($1, 'report', $2, $3, NOW())`,
         [adminId, `📢 Nuevo reporte: ${reporterName} reportó un producto. Razón: ${reason}`, id]
       );
     }
-    
+
     res.json({ success: true, report });
   } catch (err) {
     console.error('[REPORTS] Error:', err);
@@ -4959,7 +4959,7 @@ app.get('/natmarket/admin/reports', async (req, res) => {
   if (!allowed) {
     return res.status(401).json({ error: 'No autorizado' });
   }
-  
+
   try {
     const { rows } = await pool.query(`
       SELECT 
@@ -4995,14 +4995,14 @@ app.post('/natmarket/admin/reports/:id/decide', async (req, res) => {
   if (!allowed) {
     return res.status(401).json({ error: 'No autorizado' });
   }
-  
+
   const { id } = req.params;
   const { approve, admin_response } = req.body;
   const client = await pool.connect();
-  
+
   try {
     await client.query('BEGIN');
-    
+
     // Obtener el reporte
     const { rows: reportRows } = await client.query(
       `SELECT r.*, p.user_id AS product_owner_id
@@ -5011,55 +5011,55 @@ app.post('/natmarket/admin/reports/:id/decide', async (req, res) => {
        WHERE r.id = $1`,
       [id]
     );
-    
+
     if (reportRows.length === 0) {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Reporte no encontrado' });
     }
-    
+
     const report = reportRows[0];
-    
+
     if (report.status !== 'pending') {
       await client.query('ROLLBACK');
       return res.status(400).json({ error: 'Este reporte ya fue revisado' });
     }
-    
+
     // Obtener ID de admin
     const { rows: adminRows } = await client.query(
       "SELECT id FROM users_nat WHERE username = 'OceanandWild'"
     );
     const adminId = adminRows[0]?.id;
-    
+
     if (approve) {
       // Aprobar: eliminar producto y dar strike al dueño
       const reason = admin_response || 'Producto reportado y eliminado por violación de términos';
-      
+
       // Guardar el product_id y nombre del producto antes de eliminarlo
       const deletedProductId = report.product_id;
-      
+
       // Obtener nombre del producto para la notificación
       const { rows: productRows } = await client.query(
         'SELECT name FROM products_nat WHERE id = $1',
         [deletedProductId]
       );
       const productName = productRows[0]?.name || `Producto ID: ${deletedProductId}`;
-      
+
       // Crear razón completa con información del producto
       const fullReason = `${reason} Producto eliminado: "${productName}"`;
-      
+
       // Dar strike al dueño del producto ANTES de eliminar el producto
       // (para que la notificación pueda referenciar el producto)
       const strikeResult = await addStrike(report.product_owner_id, fullReason, deletedProductId, client);
-      
+
       if (strikeResult.error) {
         await client.query('ROLLBACK');
         console.error('[REPORTS] Error agregando strike:', strikeResult.error);
         return res.status(500).json({ error: 'Error agregando strike: ' + strikeResult.error });
       }
-      
+
       // Ahora eliminar el producto (después de crear la notificación)
       await client.query('DELETE FROM products_nat WHERE id = $1', [deletedProductId]);
-      
+
       // Actualizar reporte
       await client.query(
         `UPDATE product_reports 
@@ -5067,10 +5067,10 @@ app.post('/natmarket/admin/reports/:id/decide', async (req, res) => {
          WHERE id = $3`,
         [adminId, admin_response || 'Reporte aprobado. Producto eliminado.', id]
       );
-      
+
       await client.query('COMMIT');
-      res.json({ 
-        success: true, 
+      res.json({
+        success: true,
         message: 'Reporte aprobado. Producto eliminado.',
         strikes: strikeResult.strikes,
         banned: strikeResult.banned || false
@@ -5078,15 +5078,15 @@ app.post('/natmarket/admin/reports/:id/decide', async (req, res) => {
     } else {
       // Rechazar: dar strike al reporter
       const reason = admin_response || 'Reporte infundado. El producto no viola los términos.';
-      
+
       const strikeResult = await addStrike(report.reporter_id, reason, null, client);
-      
+
       if (strikeResult.error) {
         await client.query('ROLLBACK');
         console.error('[REPORTS] Error agregando strike:', strikeResult.error);
         return res.status(500).json({ error: 'Error agregando strike: ' + strikeResult.error });
       }
-      
+
       // Actualizar reporte
       await client.query(
         `UPDATE product_reports 
@@ -5094,10 +5094,10 @@ app.post('/natmarket/admin/reports/:id/decide', async (req, res) => {
          WHERE id = $3`,
         [adminId, admin_response || 'Reporte rechazado. El producto no viola los términos.', id]
       );
-      
+
       await client.query('COMMIT');
-      res.json({ 
-        success: true, 
+      res.json({
+        success: true,
         message: 'Reporte rechazado. Strike aplicado al reporter.',
         strikes: strikeResult.strikes,
         banned: strikeResult.banned || false
@@ -5176,15 +5176,15 @@ app.get('/natmarket/messages/:product_id', async (req, res) => {
   try {
     const { product_id } = req.params;
     const productIdNum = parseInt(product_id);
-    
+
     // Si product_id es 0, es el chat global (todos ven todos los mensajes globales)
     // Si product_id > 0, es un chat privado (solo ese producto)
     if (isNaN(productIdNum)) {
       return res.status(400).json({ error: 'product_id inválido' });
     }
-    
+
     let query, params;
-    
+
     if (productIdNum === 0) {
       // Chat global: solo mensajes con product_id = 0
       query = `
@@ -5206,7 +5206,7 @@ app.get('/natmarket/messages/:product_id', async (req, res) => {
       `;
       params = [productIdNum];
     }
-    
+
     const { rows } = await pool.query(query, params);
     res.json(rows);
   } catch (err) {
@@ -5245,20 +5245,20 @@ initAllAppMessagesTable().catch(err => {
 app.post('/allapp/messages', async (req, res) => {
   try {
     const { username, message } = req.body;
-    
+
     // Validación de parámetros
     if (!username || !message) {
       console.error('[ALLAPP] Faltan parámetros:', { username, message: message ? 'presente' : 'faltante' });
       return res.status(400).json({ error: 'Se requiere username y message' });
     }
-    
+
     const cleanUsername = username.trim().substring(0, 50);
     if (!cleanUsername) {
       return res.status(400).json({ error: 'Username inválido' });
     }
-    
+
     console.log(`[ALLAPP] Nuevo mensaje - username: ${cleanUsername}, mensaje: "${message.substring(0, 50)}..."`);
-    
+
     // Verificar contenido inapropiado
     const bad = containsInappropriate(message);
     if (bad) {
@@ -5267,15 +5267,15 @@ app.post('/allapp/messages', async (req, res) => {
         warning: 'Tu mensaje está en revisión por contenido potencialmente inapropiado.'
       });
     }
-    
+
     // Guardar mensaje en tabla específica de AllApp
     const { rows: [msg] } = await pool.query(
       `INSERT INTO allapp_messages (sender_username, message) VALUES ($1, $2) RETURNING id, sender_username, message, created_at`,
       [cleanUsername, message]
     );
-    
+
     console.log(`[ALLAPP] Mensaje guardado - ID: ${msg.id}, username: ${msg.sender_username}`);
-    
+
     res.json(msg);
   } catch (err) {
     console.error('[ALLAPP] Error en POST /allapp/messages:', err);
@@ -5311,7 +5311,7 @@ app.get('/allapp/messages', async (req, res) => {
       FROM allapp_messages
       ORDER BY created_at ASC
     `);
-    
+
     console.log(`[ALLAPP] Obtenidos ${rows.length} mensajes del chat global`);
     res.json(rows);
   } catch (err) {
@@ -5336,7 +5336,7 @@ app.get('/natmarket/notifications/:user_id', async (req, res) => {
     const { user_id } = req.params;
     const { unread_only } = req.query; // opcional: ?unread_only=true
     const whereClause = unread_only === 'true' ? 'AND n.read = false' : '';
-    
+
     const { rows } = await pool.query(`
       SELECT n.*, 
              u.username AS sender_username,
@@ -5398,12 +5398,12 @@ app.post('/natmarket/users/:following_id/follow', async (req, res) => {
   try {
     const { following_id } = req.params;
     const { follower_id } = req.body;
-    
+
     if (!follower_id) return res.status(400).json({ error: 'follower_id requerido' });
     if (Number(follower_id) === Number(following_id)) {
       return res.status(400).json({ error: 'No puedes seguirte a ti mismo' });
     }
-    
+
     // Verificar que ambos usuarios existen
     const { rows: users } = await pool.query(
       'SELECT id, username FROM users_nat WHERE id IN ($1, $2)',
@@ -5412,26 +5412,26 @@ app.post('/natmarket/users/:following_id/follow', async (req, res) => {
     if (users.length !== 2) {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
-    
+
     const follower = users.find(u => Number(u.id) === Number(follower_id));
     const following = users.find(u => Number(u.id) === Number(following_id));
-    
+
     // Verificar si ya lo sigue
     const { rows: existing } = await pool.query(
       'SELECT id FROM user_follows WHERE follower_id = $1 AND following_id = $2',
       [follower_id, following_id]
     );
-    
+
     if (existing.length > 0) {
       return res.status(400).json({ error: 'Ya sigues a este usuario' });
     }
-    
+
     // Crear el seguimiento
     await pool.query(
       'INSERT INTO user_follows (follower_id, following_id) VALUES ($1, $2)',
       [follower_id, following_id]
     );
-    
+
     // Crear notificación para el usuario seguido
     await pool.query(
       `INSERT INTO notifications_nat (user_id, type, message, sender_id, created_at)
@@ -5442,7 +5442,7 @@ app.post('/natmarket/users/:following_id/follow', async (req, res) => {
         follower_id
       ]
     );
-    
+
     res.json({ success: true, message: 'Usuario seguido exitosamente' });
   } catch (err) {
     if (err.code === '23505') { // Unique violation
@@ -5457,26 +5457,26 @@ app.post('/natmarket/users/:following_id/unfollow', async (req, res) => {
   try {
     const { following_id } = req.params;
     const { follower_id } = req.body;
-    
+
     if (!follower_id) return res.status(400).json({ error: 'follower_id requerido' });
-    
+
     // Verificar que existe el seguimiento
     const { rows } = await pool.query(
       'DELETE FROM user_follows WHERE follower_id = $1 AND following_id = $2 RETURNING id',
       [follower_id, following_id]
     );
-    
+
     if (rows.length === 0) {
       return res.status(404).json({ error: 'No sigues a este usuario' });
     }
-    
+
     // Obtener nombre del que deja de seguir
     const { rows: userRow } = await pool.query(
       'SELECT username FROM users_nat WHERE id = $1',
       [follower_id]
     );
     const username = userRow[0]?.username || 'Alguien';
-    
+
     // Crear notificación para el usuario que fue dejado de seguir
     await pool.query(
       `INSERT INTO notifications_nat (user_id, type, message, sender_id, created_at)
@@ -5487,7 +5487,7 @@ app.post('/natmarket/users/:following_id/unfollow', async (req, res) => {
         follower_id
       ]
     );
-    
+
     res.json({ success: true, message: 'Dejaste de seguir al usuario' });
   } catch (err) {
     handleNatError(res, err, 'POST /natmarket/users/:following_id/unfollow');
@@ -5674,20 +5674,20 @@ app.post('/natmarket/rate-product', async (req, res) => {
   try {
     const { product_id, rater_user_id, rating, comment } = req.body;
     if (!product_id || !rater_user_id || !rating) return res.status(400).json({ error: 'Faltan parámetros' });
-    
+
     // Verificar que el producto existe
     const { rows } = await pool.query('SELECT user_id, sold, buyer_id FROM products_nat WHERE id=$1', [product_id]);
     if (rows.length === 0) return res.status(404).json({ error: 'Producto no encontrado' });
-    
+
     const product = rows[0];
-    
+
     // Si el producto está vendido, solo el comprador puede calificarlo
     if (product.sold && product.buyer_id) {
       if (Number(product.buyer_id) !== Number(rater_user_id)) {
         return res.status(403).json({ error: 'Solo el comprador puede calificar este producto vendido' });
       }
     }
-    
+
     await pool.query(
       `INSERT INTO user_ratings_nat (rated_user_id, rater_user_id, rating, comment, product_id, type)
        VALUES ($1,$2,$3,$4,$5,'product')`,
@@ -5827,24 +5827,24 @@ app.get("/api/subscriptions/history/:userId", async (req, res) => {
 // 🔥 DESCUENTO + COBRO MENSUAL REAL
 app.post("/api/subscriptions/subscribe", async (req, res) => {
   const { userId, planId } = req.body;
-  
+
   // Validar que userId y planId estén presentes
   if (!userId) {
     console.error("❌ /subscribe ERROR: userId faltante. Body recibido:", req.body);
     return res.status(400).json({ error: "userId es requerido" });
   }
-  
+
   if (!planId) {
     console.error("❌ /subscribe ERROR: planId faltante. Body recibido:", req.body);
     return res.status(400).json({ error: "planId es requerido" });
   }
-  
+
   const plan = PLANS.find(p => p.id === planId);
   if (!plan) {
     console.error("❌ /subscribe ERROR: Plan inválido. planId recibido:", planId, "Planes disponibles:", PLANS.map(p => p.id));
     return res.status(400).json({ error: `Plan inválido: ${planId}. Planes disponibles: ${PLANS.map(p => p.id).join(', ')}` });
   }
-  
+
   // Asegurar que userId sea string
   const userIdStr = String(userId);
 
@@ -5860,19 +5860,19 @@ app.post("/api/subscriptions/subscribe", async (req, res) => {
       `SELECT * FROM subs WHERE user_id = $1 AND active = true AND ends_at > NOW()`,
       [userIdStr]
     );
-    
+
     // Guardar estado para usar después
     const hasActiveSub = activeSub.length > 0;
     const currentPlanId = hasActiveSub ? activeSub[0].plan_id : null;
-    
+
     console.log(`📋 Verificando suscripciones activas para userId: ${userIdStr}`, {
       activeSubs: activeSub.length,
       activeSubData: activeSub
     });
-    
+
     if (hasActiveSub) {
       const currentPlan = PLANS.find(p => p.id === currentPlanId);
-      
+
       console.log(`📊 Comparando planes:`, {
         currentPlanId: currentPlanId,
         currentPlanFound: !!currentPlan,
@@ -5881,7 +5881,7 @@ app.post("/api/subscriptions/subscribe", async (req, res) => {
         targetPlanPrice: plan.price,
         canUpgrade: currentPlan ? currentPlan.price < plan.price : true
       });
-      
+
       // Si el plan actual no está en PLANS, permitimos la suscripción (plan inválido o desactualizado)
       if (!currentPlan) {
         console.log(`⚠️ Plan actual (${currentPlanId}) no encontrado en PLANS, permitiendo suscripción`);
@@ -5892,8 +5892,8 @@ app.post("/api/subscriptions/subscribe", async (req, res) => {
         // Continuamos con el proceso para extender la fecha de vencimiento
       } else if (currentPlan.price >= plan.price) {
         await client.query('ROLLBACK');
-        return res.status(400).json({ 
-          error: `Ya tienes una suscripción activa al plan "${currentPlan.name}" (${currentPlan.price} Bits). Solo puedes suscribirte a un plan superior (${plan.name} cuesta ${plan.price} Bits) o renovar tu plan actual.` 
+        return res.status(400).json({
+          error: `Ya tienes una suscripción activa al plan "${currentPlan.name}" (${currentPlan.price} Bits). Solo puedes suscribirte a un plan superior (${plan.name} cuesta ${plan.price} Bits) o renovar tu plan actual.`
         });
       } else {
         // Es un upgrade válido, cerraremos la suscripción anterior después
@@ -6108,7 +6108,7 @@ app.patch("/api/subscriptions/auto-pay", async (req, res) => {
     res.status(500).json({ error: "Error interno" });
   }
 });
- 
+
 
 app.get("/api/subscriptions/has-access/:userId/:feature", async (req, res) => {
   const { userId, feature } = req.params;
@@ -6270,13 +6270,13 @@ app.post('/natmarket/products/v2', upload.fields([
     if (banCheck.banned) {
       await client.query('ROLLBACK');
       const banUntil = new Date(banCheck.banUntil);
-      return res.status(403).json({ 
-        error: `Tu cuenta está baneada hasta el ${banUntil.toLocaleDateString('es-AR')}. Razón: ${banCheck.reason}` 
+      return res.status(403).json({
+        error: `Tu cuenta está baneada hasta el ${banUntil.toLocaleDateString('es-AR')}. Razón: ${banCheck.reason}`
       });
     }
 
     // ➜ parsear arrays y definir variables
-    const places  = JSON.parse(req.body.places || '[]');
+    const places = JSON.parse(req.body.places || '[]');
     const methods = JSON.parse(req.body.methods || '[]');
     const stockNum = parseInt(stock) || 1;
     const category = req.body.category || null;
@@ -6358,7 +6358,7 @@ app.post('/natmarket/products/v2', upload.fields([
         'SELECT follower_id FROM user_follows WHERE following_id = $1',
         [user_id]
       );
-      
+
       if (followers.length > 0) {
         // Obtener el username del vendedor
         const { rows: [seller] } = await client.query(
@@ -6366,7 +6366,7 @@ app.post('/natmarket/products/v2', upload.fields([
           [user_id]
         );
         const sellerName = seller?.username || 'Un usuario';
-        
+
         // Crear notificaciones para cada seguidor
         for (const follower of followers) {
           await client.query(
@@ -6547,7 +6547,7 @@ app.get('/natmarket/users/:userId/favorites', async (req, res) => {
       try {
         const { rows: v } = await pool.query('SELECT url FROM product_videos_nat WHERE product_id=$1 ORDER BY created_at ASC', [p.id]);
         vids = v;
-      } catch (_) {}
+      } catch (_) { }
       return { ...p, image_urls: imgs.map(i => i.url), video_urls: vids.map(v => v.url) };
     }));
 
@@ -6609,7 +6609,7 @@ app.get('/natmarket/users/:userId/wishlist', async (req, res) => {
       try {
         const { rows: v } = await pool.query('SELECT url FROM product_videos_nat WHERE product_id=$1 ORDER BY created_at ASC', [p.id]);
         vids = v;
-      } catch (_) {}
+      } catch (_) { }
       return { ...p, image_urls: imgs.map(i => i.url), video_urls: vids.map(v => v.url) };
     }));
 
@@ -6639,20 +6639,20 @@ app.post('/natmarket/reset-password', async (req, res) => {
 
     if (rows.length === 0) {
       // No revelamos si existe o no por seguridad
-      return res.status(404).json({ 
-        error: 'ID de Usuario Único no encontrado. Verifica que lo hayas escrito correctamente.' 
+      return res.status(404).json({
+        error: 'ID de Usuario Único no encontrado. Verifica que lo hayas escrito correctamente.'
       });
     }
 
     const userId = rows[0].id;
-    
+
     // Generar nueva contraseña aleatoria
     const newPass = Math.random().toString(36).slice(-10) + Math.random().toString(36).slice(-6); // 16 caracteres
     const hashed = await bcrypt.hash(newPass, 10);
-    
+
     // Actualizar contraseña
     await pool.query('UPDATE users_nat SET password = $1 WHERE id = $2', [hashed, userId]);
-    
+
     res.json({
       success: true,
       message: 'Contraseña restablecida exitosamente. Guarda esta nueva contraseña.',
@@ -6669,27 +6669,27 @@ app.post('/natmarket/users/:id/get-unique-id', async (req, res) => {
   try {
     const { id } = req.params;
     const { password } = req.body;
-    
+
     if (!password) return res.status(400).json({ error: 'Se requiere confirmar la contraseña' });
-    
+
     const { rows } = await pool.query('SELECT password, user_unique_id, unique_id_shown FROM users_nat WHERE id=$1', [id]);
     if (rows.length === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
-    
+
     // Verificar contraseña
     const ok = await bcrypt.compare(password, rows[0].password);
     if (!ok) return res.status(401).json({ error: 'Contraseña incorrecta' });
-    
+
     // Si ya se mostró el ID, no permitir verlo de nuevo por seguridad
     if (rows[0].unique_id_shown) {
-      return res.status(403).json({ 
+      return res.status(403).json({
         error: 'El ID de Usuario Único ya fue mostrado anteriormente. Si lo perdiste, no podrás recuperarlo.',
         already_shown: true
       });
     }
-    
+
     // Marcar como mostrado y devolver el ID
     await pool.query('UPDATE users_nat SET unique_id_shown = true WHERE id = $1', [id]);
-    
+
     res.json({
       success: true,
       user_unique_id: rows[0].user_unique_id,
@@ -6772,7 +6772,7 @@ app.get('/api/featured-update', async (_req, res) => {
        ORDER BY date DESC
        LIMIT 1`
     );
-    
+
     if (rows.length && rows[0]) {
       // Si hay actualización en BD, devolverla
       const dbUpdate = rows[0];
@@ -6789,7 +6789,7 @@ app.get('/api/featured-update', async (_req, res) => {
   } catch (err) {
     console.error('Error obteniendo update de BD:', err);
   }
-  
+
   // Si no hay en BD, enviar actualización actual con todas las mejoras
   const update = {
     version: 'v2.0.0 - Gran Actualización',
@@ -6932,18 +6932,319 @@ app.get('/np/auth/me', async (req, res) => {
   }
 });
 
+/* ========== SISTEMA DE REPUTACIÓN DUAL (VENDEDOR/COMPRADOR) ========== */
+
+// Crear review para un usuario (como vendedor o comprador)
+app.post('/natmarket/reviews', async (req, res) => {
+  try {
+    const { reviewer_id, reviewed_user_id, product_id, rating, comment, review_type, transaction_id } = req.body;
+
+    // Validaciones
+    if (!reviewer_id || !reviewed_user_id || !rating || !review_type) {
+      return res.status(400).json({ error: 'Faltan datos requeridos' });
+    }
+
+    if (reviewer_id === reviewed_user_id) {
+      return res.status(400).json({ error: 'No puedes dejarte una review a ti mismo' });
+    }
+
+    if (rating < 1 || rating > 5) {
+      return res.status(400).json({ error: 'Rating debe estar entre 1 y 5' });
+    }
+
+    if (!['seller', 'buyer'].includes(review_type)) {
+      return res.status(400).json({ error: 'review_type debe ser seller o buyer' });
+    }
+
+    // Crear tabla si no existe
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS user_reviews_nat (
+        id SERIAL PRIMARY KEY,
+        reviewer_id INTEGER NOT NULL REFERENCES users_nat(id) ON DELETE CASCADE,
+        reviewed_user_id INTEGER NOT NULL REFERENCES users_nat(id) ON DELETE CASCADE,
+        product_id INTEGER REFERENCES products_nat(id) ON DELETE CASCADE,
+        transaction_id INTEGER,
+        rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+        comment TEXT,
+        review_type VARCHAR(10) NOT NULL CHECK (review_type IN ('seller', 'buyer')),
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    // Insertar review
+    const { rows: [review] } = await pool.query(
+      `INSERT INTO user_reviews_nat 
+       (reviewer_id, reviewed_user_id, product_id, transaction_id, rating, comment, review_type)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING *`,
+      [reviewer_id, reviewed_user_id, product_id, transaction_id, rating, comment, review_type]
+    );
+
+    // Actualizar caché de estadísticas
+    await updateUserReputationStats(reviewed_user_id);
+
+    res.json({ success: true, review });
+  } catch (err) {
+    handleNatError(res, err, 'POST /natmarket/reviews');
+  }
+});
+
+// Obtener reviews de un usuario
+app.get('/natmarket/users/:userId/reviews', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { type } = req.query; // 'seller', 'buyer', o ambos si no se especifica
+
+    let whereClause = 'WHERE r.reviewed_user_id = $1';
+    const params = [userId];
+
+    if (type === 'seller' || type === 'buyer') {
+      whereClause += ' AND r.review_type = $2';
+      params.push(type);
+    }
+
+    const { rows } = await pool.query(
+      `SELECT r.*, 
+              reviewer.username as reviewer_username,
+              p.name as product_name
+       FROM user_reviews_nat r
+       JOIN users_nat reviewer ON r.reviewer_id = reviewer.id
+       LEFT JOIN products_nat p ON r.product_id = p.id
+       ${whereClause}
+       ORDER BY r.created_at DESC`,
+      params
+    );
+
+    res.json(rows);
+  } catch (err) {
+    // Si la tabla no existe, devolver array vacío
+    if (err.code === '42P01') {
+      return res.json([]);
+    }
+    handleNatError(res, err, 'GET /natmarket/users/:userId/reviews');
+  }
+});
+
+// Obtener estadísticas de reputación de un usuario
+app.get('/natmarket/users/:userId/reputation', async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Intentar obtener del caché primero
+    const { rows: cachedRows } = await pool.query(
+      `SELECT * FROM user_reputation_stats_nat WHERE user_id = $1`,
+      [userId]
+    ).catch(() => ({ rows: [] }));
+
+    if (cachedRows.length > 0) {
+      const stats = cachedRows[0];
+      const badge = calculateReputationBadge(stats);
+      return res.json({ ...stats, badge });
+    }
+
+    // Si no hay caché, calcular en tiempo real
+    const stats = await calculateUserReputationStats(userId);
+    const badge = calculateReputationBadge(stats);
+
+    res.json({ ...stats, badge });
+  } catch (err) {
+    // Si hay error, devolver stats vacías
+    if (err.code === '42P01') {
+      const emptyStats = {
+        user_id: userId,
+        seller_avg_rating: 0,
+        seller_total_reviews: 0,
+        seller_total_sales: 0,
+        buyer_avg_rating: 0,
+        buyer_total_reviews: 0,
+        buyer_total_purchases: 0,
+        badge: { seller: '🌱 Nuevo', buyer: '🌱 Nuevo' }
+      };
+      return res.json(emptyStats);
+    }
+    handleNatError(res, err, 'GET /natmarket/users/:userId/reputation');
+  }
+});
+
+// Función auxiliar para calcular estadísticas de reputación
+async function calculateUserReputationStats(userId) {
+  try {
+    // Estadísticas como vendedor
+    const { rows: sellerRows } = await pool.query(
+      `SELECT 
+        COUNT(*) as total_reviews,
+        COALESCE(AVG(rating), 0) as avg_rating,
+        COUNT(DISTINCT product_id) as total_sales
+       FROM user_reviews_nat
+       WHERE reviewed_user_id = $1 AND review_type = 'seller'`,
+      [userId]
+    ).catch(() => ({ rows: [{ total_reviews: 0, avg_rating: 0, total_sales: 0 }] }));
+
+    // Estadísticas como comprador
+    const { rows: buyerRows } = await pool.query(
+      `SELECT 
+        COUNT(*) as total_reviews,
+        COALESCE(AVG(rating), 0) as avg_rating
+       FROM user_reviews_nat
+       WHERE reviewed_user_id = $1 AND review_type = 'buyer'`,
+      [userId]
+    ).catch(() => ({ rows: [{ total_reviews: 0, avg_rating: 0 }] }));
+
+    // Contar compras (productos marcados como vendidos con este usuario como comprador)
+    const { rows: purchaseRows } = await pool.query(
+      `SELECT COUNT(*) as total_purchases
+       FROM products_nat
+       WHERE buyer_id = $1 AND sold = true`,
+      [userId]
+    ).catch(() => ({ rows: [{ total_purchases: 0 }] }));
+
+    return {
+      user_id: userId,
+      seller_avg_rating: parseFloat(sellerRows[0].avg_rating || 0).toFixed(1),
+      seller_total_reviews: parseInt(sellerRows[0].total_reviews || 0),
+      seller_total_sales: parseInt(sellerRows[0].total_sales || 0),
+      buyer_avg_rating: parseFloat(buyerRows[0].avg_rating || 0).toFixed(1),
+      buyer_total_reviews: parseInt(buyerRows[0].total_reviews || 0),
+      buyer_total_purchases: parseInt(purchaseRows[0].total_purchases || 0)
+    };
+  } catch (err) {
+    console.error('Error calculando estadísticas de reputación:', err);
+    return {
+      user_id: userId,
+      seller_avg_rating: 0,
+      seller_total_reviews: 0,
+      seller_total_sales: 0,
+      buyer_avg_rating: 0,
+      buyer_total_reviews: 0,
+      buyer_total_purchases: 0
+    };
+  }
+}
+
+// Función auxiliar para actualizar estadísticas en caché
+async function updateUserReputationStats(userId) {
+  try {
+    // Crear tabla de caché si no existe
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS user_reputation_stats_nat (
+        user_id INTEGER PRIMARY KEY REFERENCES users_nat(id) ON DELETE CASCADE,
+        seller_avg_rating DECIMAL(3,1) DEFAULT 0,
+        seller_total_reviews INTEGER DEFAULT 0,
+        seller_total_sales INTEGER DEFAULT 0,
+        buyer_avg_rating DECIMAL(3,1) DEFAULT 0,
+        buyer_total_reviews INTEGER DEFAULT 0,
+        buyer_total_purchases INTEGER DEFAULT 0,
+        updated_at TIMESTAMP DEFAULT NOW()
+      )
+    `).catch(() => { });
+
+    const stats = await calculateUserReputationStats(userId);
+
+    await pool.query(
+      `INSERT INTO user_reputation_stats_nat 
+       (user_id, seller_avg_rating, seller_total_reviews, seller_total_sales, 
+        buyer_avg_rating, buyer_total_reviews, buyer_total_purchases, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+       ON CONFLICT (user_id) 
+       DO UPDATE SET 
+         seller_avg_rating = $2,
+         seller_total_reviews = $3,
+         seller_total_sales = $4,
+         buyer_avg_rating = $5,
+         buyer_total_reviews = $6,
+         buyer_total_purchases = $7,
+         updated_at = NOW()`,
+      [
+        userId,
+        stats.seller_avg_rating,
+        stats.seller_total_reviews,
+        stats.seller_total_sales,
+        stats.buyer_avg_rating,
+        stats.buyer_total_reviews,
+        stats.buyer_total_purchases
+      ]
+    ).catch(() => { });
+  } catch (err) {
+    console.error('Error actualizando stats de reputación:', err);
+  }
+}
+
+// Función para calcular badge según estadísticas
+function calculateReputationBadge(stats) {
+  const sellerBadge = getReputationBadge(
+    stats.seller_total_reviews || 0,
+    stats.seller_avg_rating || 0,
+    'seller'
+  );
+
+  const buyerBadge = getReputationBadge(
+    stats.buyer_total_reviews || 0,
+    stats.buyer_avg_rating || 0,
+    'buyer'
+  );
+
+  return {
+    seller: sellerBadge,
+    buyer: buyerBadge
+  };
+}
+
+// Función para obtener el badge basado en transacciones y rating
+function getReputationBadge(totalReviews, avgRating, type) {
+  const typeLabel = type === 'seller' ? 'Vendedor' : 'Comprador';
+
+  // Nuevo (menos de 5 reviews)
+  if (totalReviews < 5) {
+    return `🌱 ${typeLabel} Nuevo`;
+  }
+
+  // Confiable (5-20 reviews, 4.0+ rating)
+  if (totalReviews >= 5 && totalReviews < 20 && avgRating >= 4.0) {
+    return `🌿 ${typeLabel} Confiable`;
+  }
+
+  // Experimentado (20-50 reviews, 4.3+ rating)
+  if (totalReviews >= 20 && totalReviews < 50 && avgRating >= 4.3) {
+    return `🍀 ${typeLabel} Experimentado`;
+  }
+
+  // Experto (50-100 reviews, 4.5+ rating)
+  if (totalReviews >= 50 && totalReviews < 100 && avgRating >= 4.5) {
+    return `🌳 ${typeLabel} Experto`;
+  }
+
+  // Maestro (100-200 reviews, 4.7+ rating)
+  if (totalReviews >= 100 && totalReviews < 200 && avgRating >= 4.7) {
+    return `⭐ ${typeLabel} Maestro`;
+  }
+
+  // Leyenda (200+ reviews, 4.8+ rating)
+  if (totalReviews >= 200 && avgRating >= 4.8) {
+    return `👑 ${typeLabel} Leyenda`;
+  }
+
+  // Si tiene muchas reviews pero rating bajo
+  if (totalReviews >= 20 && avgRating < 4.0) {
+    return `⚠️ ${typeLabel} Regular`;
+  }
+
+  // Default: Básico
+  return `🌱 ${typeLabel} Básico`;
+}
+
 /* ----------  CONTAR VISTA (1 por usuario)  ---------- */
 app.patch('/natmarket/products/:id/view', async (req, res) => {
   const { id } = req.params;               // productId
   let userId = req.headers['x-user-id'];   // puede venir del header (para usuarios no autenticados)
-  
+
   // Si hay un usuario autenticado, usar su ID en lugar del header
   // Esto asegura que las vistas se cuenten correctamente por usuario
   const authUserId = req.headers['x-auth-user-id'];
   if (authUserId && authUserId !== 'undefined' && authUserId !== 'null') {
     userId = authUserId;
   }
-  
+
   // Si no hay userId, usar 'anon-' + IP o un identificador único
   if (!userId || userId === 'anon' || userId === 'undefined' || userId === 'null') {
     // Para usuarios no autenticados, usar una combinación de IP y user-agent
@@ -6972,7 +7273,7 @@ app.patch('/natmarket/products/:id/view', async (req, res) => {
        WHERE user_id = $1 AND product_id = $2`,
       [userId, id]
     );
-    
+
     if (existingView.length > 0) {
       // Ya contó -> solo devolver total actual
       const { rows: total } = await client.query(
@@ -6991,7 +7292,7 @@ app.patch('/natmarket/products/:id/view', async (req, res) => {
        RETURNING id`,
       [String(userId), parseInt(id)]
     );
-    
+
     // Si no se insertó nada (ya existía), no incrementar contador
     if (!insertedRow || insertedRow.length === 0) {
       await client.query('COMMIT');
@@ -7009,7 +7310,7 @@ app.patch('/natmarket/products/:id/view', async (req, res) => {
        RETURNING views`,
       [id]
     );
-    
+
     await client.query('COMMIT');
     res.json({ views: total[0].views || 1, firstTime: true });
   } catch (err) {
@@ -7084,11 +7385,11 @@ app.post('/ocean-pay/register', async (req, res) => {
   try {
     // 2. Iniciar transacción
     await client.query('BEGIN');
-    
+
     // 3. Generar hash de contraseña y ID único
     // Usamos el factor de coste 10, estándar en el proyecto
-    const hashedPassword = await bcrypt.hash(password, 10); 
-    const userUniqueId = generateUserUniqueId(); 
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const userUniqueId = generateUserUniqueId();
 
     // 4. Insertar el nuevo usuario en la tabla principal
     // Asumiendo que tu tabla ocean_pay_users tiene columnas: id (SERIAL), username, pwd_hash, unique_id, aquabux, ecoxionums, appbux
@@ -7098,14 +7399,14 @@ app.post('/ocean-pay/register', async (req, res) => {
       [username, hashedPassword, userUniqueId]
     );
     const opUserId = opResult.rows[0].id;
-    
+
     // 5. Confirmar la transacción
     await client.query('COMMIT');
-    
+
     // 6. Respuesta exitosa (201 Created)
-    res.status(201).json({ 
-      success: true, 
-      userId: opUserId, 
+    res.status(201).json({
+      success: true,
+      userId: opUserId,
       username: username,
       message: '¡Registro completado! Bienvenido al océano de pagos.'
     });
@@ -7113,16 +7414,16 @@ app.post('/ocean-pay/register', async (req, res) => {
   } catch (e) {
     // 7. Manejo de errores y rollback
     await client.query('ROLLBACK');
-    
+
     // Error 23505: Violación de restricción única (ej. nombre de usuario duplicado)
     if (e.code === '23505') {
       return res.status(409).json({ error: 'Este nombre de usuario ya existe. ¡Qué original eres!' });
     }
-    
+
     // Cualquier otro error se reporta como 500
     console.error('❌ Error en /ocean-pay/register:', e);
     res.status(500).json({ error: 'Error interno del servidor al registrar. Pide ayuda a los ingenieros marinos.' });
-    
+
   } finally {
     // 8. Liberar el cliente de la pool
     client.release();
@@ -7134,25 +7435,25 @@ app.post('/ocean-pay/register', async (req, res) => {
 // =================================================================
 
 /* ----------  LOGIN  ---------- */
-app.post('/ocean-pay/login', async (req,res)=>{
-  const {username,password}=req.body;
-  if(!username||!password) return res.status(400).json({error:'Faltan datos'});
-  
+app.post('/ocean-pay/login', async (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) return res.status(400).json({ error: 'Faltan datos' });
+
   // Unimos ocean_pay_users con user_currency para obtener todo en una sola consulta
-  const {rows}=await pool.query(`
+  const { rows } = await pool.query(`
     SELECT opu.id, opu.pwd_hash, opu.aquabux, opu.appbux, COALESCE(uc.amount, 0) as ecorebits
     FROM ocean_pay_users opu
     LEFT JOIN user_currency uc ON opu.id = uc.user_id AND uc.currency_type = 'ecocorebits'
     WHERE opu.username = $1
-  `,[username]);
+  `, [username]);
 
-  if(rows.length===0) return res.status(401).json({error:'Credenciales incorrectas'});
-  
-  const ok=await bcrypt.compare(password,rows[0].pwd_hash);
-  if(!ok) return res.status(401).json({error:'Credenciales incorrectas'});
-  
-  const token=jwt.sign({uid:rows[0].id,un:username},process.env.STUDIO_SECRET,{expiresIn:'7d'});
-  
+  if (rows.length === 0) return res.status(401).json({ error: 'Credenciales incorrectas' });
+
+  const ok = await bcrypt.compare(password, rows[0].pwd_hash);
+  if (!ok) return res.status(401).json({ error: 'Credenciales incorrectas' });
+
+  const token = jwt.sign({ uid: rows[0].id, un: username }, process.env.STUDIO_SECRET, { expiresIn: '7d' });
+
   // Intentar obtener wildCredits y ecoxionums desde la tabla de metadatos
   let wildCredits = 0;
   let ecoxionums = 0;
@@ -7161,7 +7462,7 @@ app.post('/ocean-pay/login', async (req,res)=>{
       SELECT key, value FROM ocean_pay_metadata
       WHERE user_id = $1 AND key IN ('wildcredits', 'ecoxionums')
     `, [rows[0].id]);
-    
+
     metaRows.forEach(row => {
       if (row.key === 'wildcredits') {
         wildCredits = parseInt(row.value || '0');
@@ -7172,30 +7473,30 @@ app.post('/ocean-pay/login', async (req,res)=>{
   } catch (e) {
     // Si la tabla no existe, quedan en 0
   }
-  
+
   // Obtener AppBux de la columna appbux
   const appbux = rows[0].appbux || 0;
-  
+
   res.json({
-  token,
-  user: {
-    id: rows[0].id,
-    username,
-    aquabux: rows[0].aquabux,
-    ecoxionums: ecoxionums,
-    ecorebits: Number(rows[0].ecorebits), // ✨ Devolvemos el saldo de EcoCoreBits directamente
-    wildcredits: wildCredits,
-    appbux: appbux
-  }
-});
+    token,
+    user: {
+      id: rows[0].id,
+      username,
+      aquabux: rows[0].aquabux,
+      ecoxionums: ecoxionums,
+      ecorebits: Number(rows[0].ecorebits), // ✨ Devolvemos el saldo de EcoCoreBits directamente
+      wildcredits: wildCredits,
+      appbux: appbux
+    }
+  });
 });
 
 /* ----------  CURRENT BALANCE  ---------- */
-app.get('/ocean-pay/balance/:userId', async (req,res)=>{
-  const {userId}=req.params;
-  const {rows}=await pool.query('SELECT aquabux FROM ocean_pay_users WHERE id=$1',[userId]);
-  if(rows.length===0) return res.status(404).json({error:'Usuario no encontrado'});
-  res.json({balance:rows[0].aquabux});
+app.get('/ocean-pay/balance/:userId', async (req, res) => {
+  const { userId } = req.params;
+  const { rows } = await pool.query('SELECT aquabux FROM ocean_pay_users WHERE id=$1', [userId]);
+  if (rows.length === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
+  res.json({ balance: rows[0].aquabux });
 });
 
 app.post('/ocean-pay/change', async (req, res) => {
@@ -7245,18 +7546,18 @@ app.post('/ocean-pay/change', async (req, res) => {
 
 
 /* ----------  WHO AM I ?  (validates JWT)  ---------- */
-app.get('/ocean-pay/me', async (req,res)=>{
-  const auth=req.headers.authorization;            // Bearer <token>
-  if(!auth) return res.status(401).json({error:'Sin token'});
-  try{
-    const payload=jwt.verify(auth.split(' ')[1], process.env.STUDIO_SECRET);
-    const {rows}=await pool.query(
+app.get('/ocean-pay/me', async (req, res) => {
+  const auth = req.headers.authorization;            // Bearer <token>
+  if (!auth) return res.status(401).json({ error: 'Sin token' });
+  try {
+    const payload = jwt.verify(auth.split(' ')[1], process.env.STUDIO_SECRET);
+    const { rows } = await pool.query(
       'SELECT id,username,aquabux FROM ocean_pay_users WHERE id=$1',
       [payload.uid]
     );
-    if(rows.length===0) return res.status(404).json({error:'Usuario no encontrado'});
+    if (rows.length === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
     res.json(rows[0]);
-  }catch(e){res.status(401).json({error:'Token inválido'});}
+  } catch (e) { res.status(401).json({ error: 'Token inválido' }); }
 });
 
 app.get('/ocean-pay/txs/:userId', async (req, res) => {
@@ -7272,7 +7573,7 @@ app.get('/ocean-pay/txs/:userId', async (req, res) => {
       WHERE table_name = 'ocean_pay_txs' AND column_name = 'moneda'
     `);
     const hasMonedaColumn = columnCheck.length > 0;
-    
+
     // Obtener transacciones con o sin columna moneda
     let result;
     if (hasMonedaColumn) {
@@ -7434,7 +7735,7 @@ app.post('/ocean-pay/ecoxionums/change', async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    
+
     const userIdInt = parseInt(userId);
 
     // Verificar que el usuario existe
@@ -7463,7 +7764,7 @@ app.post('/ocean-pay/ecoxionums/change', async (req, res) => {
        WHERE user_id = $1 AND key = 'ecoxionums' FOR UPDATE`,
       [userIdInt]
     );
-    
+
     const currentEcoxionums = rows.length > 0 ? parseFloat(rows[0].value || '0') : 0;
     const newBal = currentEcoxionums + amount;
     if (newBal < 0) {
@@ -7517,11 +7818,11 @@ app.get('/ocean-pay/appbux/:userId', async (req, res) => {
       'SELECT appbux FROM ocean_pay_users WHERE id = $1',
       [userId]
     );
-    
+
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
-    
+
     res.json({ appbux: rows[0].appbux || 0 });
   } catch (err) {
     console.error('❌ Error en /ocean-pay/appbux/:userId', err);
@@ -7532,40 +7833,40 @@ app.get('/ocean-pay/appbux/:userId', async (req, res) => {
 // Cambiar balance de AppBux
 app.post('/ocean-pay/appbux/change', async (req, res) => {
   const { userId, amount, concepto = 'Operación', origen = 'AllApp' } = req.body;
-  
+
   if (!userId || amount === undefined) {
     return res.status(400).json({ error: 'Faltan datos' });
   }
-  
+
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    
+
     // Lock & read
     const { rows } = await client.query(
       'SELECT appbux FROM ocean_pay_users WHERE id = $1 FOR UPDATE',
       [userId]
     );
-    
+
     if (rows.length === 0) {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
-    
+
     const currentAppBux = rows[0].appbux || 0;
     const newBalance = currentAppBux + amount;
-    
+
     if (newBalance < 0) {
       await client.query('ROLLBACK');
       return res.status(400).json({ error: 'Saldo insuficiente' });
     }
-    
+
     // Update balance
     await client.query(
       'UPDATE ocean_pay_users SET appbux = $1 WHERE id = $2',
       [newBalance, userId]
     );
-    
+
     // Registrar transacción
     try {
       await client.query(
@@ -7577,32 +7878,32 @@ app.post('/ocean-pay/appbux/change', async (req, res) => {
       // Si falla por falta de columna moneda, hacer rollback y reintentar todo sin ella
       await client.query('ROLLBACK');
       await client.query('BEGIN');
-      
+
       // Volver a leer el balance (porque hicimos rollback)
       const { rows: balanceRows } = await client.query(
         'SELECT appbux FROM ocean_pay_users WHERE id = $1 FOR UPDATE',
         [userId]
       );
-      
+
       if (balanceRows.length === 0) {
         await client.query('ROLLBACK');
         return res.status(404).json({ error: 'Usuario no encontrado' });
       }
-      
+
       const currentAppBuxRetry = balanceRows[0].appbux || 0;
       const newBalanceRetry = currentAppBuxRetry + amount;
-      
+
       if (newBalanceRetry < 0) {
         await client.query('ROLLBACK');
         return res.status(400).json({ error: 'Saldo insuficiente' });
       }
-      
+
       // Volver a hacer el UPDATE
       await client.query(
         'UPDATE ocean_pay_users SET appbux = $1 WHERE id = $2',
         [newBalanceRetry, userId]
       );
-      
+
       try {
         // Intentar INSERT sin la columna moneda
         await client.query(
@@ -7618,7 +7919,7 @@ app.post('/ocean-pay/appbux/change', async (req, res) => {
         throw e2;
       }
     }
-    
+
     await client.query('COMMIT');
     res.json({ success: true, newBalance });
   } catch (err) {
@@ -7634,17 +7935,17 @@ app.post('/ocean-pay/appbux/change', async (req, res) => {
 app.delete('/ocean-pay/delete-account', async (req, res) => {
   const auth = req.headers.authorization;
   const { userId, username } = req.body;
-  
+
   if (!userId || !username) {
     return res.status(400).json({ error: 'Faltan datos' });
   }
-  
+
   // Verificar token si está presente
   if (auth) {
     try {
       const token = auth.split(' ')[1];
       const payload = jwt.verify(token, process.env.STUDIO_SECRET);
-      
+
       // Verificar que el token corresponda al usuario
       if (payload.uid !== userId) {
         return res.status(403).json({ error: 'No autorizado' });
@@ -7653,52 +7954,52 @@ app.delete('/ocean-pay/delete-account', async (req, res) => {
       return res.status(401).json({ error: 'Token inválido' });
     }
   }
-  
+
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    
+
     // Verificar que el usuario existe y el username coincide
     const { rows: userRows } = await client.query(
       'SELECT id, username FROM ocean_pay_users WHERE id = $1',
       [userId]
     );
-    
+
     if (userRows.length === 0) {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
-    
+
     if (userRows[0].username !== username) {
       await client.query('ROLLBACK');
       return res.status(403).json({ error: 'El nombre de usuario no coincide' });
     }
-    
+
     console.log(`🗑️ Eliminando cuenta de Ocean Pay: ${username} (${userId})`);
-    
+
     // Eliminar transacciones
     await client.query('DELETE FROM ocean_pay_txs WHERE user_id = $1', [userId]);
-    
+
     // Eliminar metadata
     await client.query('DELETE FROM ocean_pay_metadata WHERE user_id = $1', [userId]);
-    
+
     // Eliminar de users (EcoCoreBits)
     await client.query('DELETE FROM users WHERE id = $1', [userId]);
-    
+
     // Eliminar transacciones de EcoCoreBits
     await client.query('DELETE FROM ecocore_txs WHERE user_id = $1', [userId]);
-    
+
     // Eliminar suscripciones de Ecoxion
     await client.query('DELETE FROM ecoxion_subscriptions WHERE user_id = $1', [userId]);
-    
+
     // Finalmente, eliminar el usuario de Ocean Pay
     await client.query('DELETE FROM ocean_pay_users WHERE id = $1', [userId]);
-    
+
     await client.query('COMMIT');
-    
+
     console.log(`✅ Cuenta eliminada exitosamente: ${username}`);
     res.json({ success: true, message: 'Cuenta eliminada permanentemente' });
-    
+
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('❌ Error en /ocean-pay/delete-account:', err);
@@ -7722,7 +8023,7 @@ app.post('/ocean-pay/wildcredits/transaction', async (req, res) => {
        VALUES ($1, $2, $3, $4, 'WC')`,
       [userId, concepto, amount, origen]
     );
-    
+
     res.json({ success: true });
   } catch (e) {
     console.error('❌ Error en /ocean-pay/wildcredits/transaction:', e);
@@ -7750,40 +8051,40 @@ app.post('/oceanic-ethernet/register', async (req, res) => {
     await client.query('BEGIN');
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    
+
     // 1. CREAR EL USUARIO EN OCEANIC ETHERNET
     const { rows: oeUserRows } = await client.query(
       'INSERT INTO oceanic_ethernet_users (username, pwd_hash) VALUES ($1, $2) RETURNING id, username',
       [username, hashedPassword]
     );
-    const oeUser = oeUserRows[0]; 
+    const oeUser = oeUserRows[0];
 
     // 2. ASEGURAR Y OBTENER EL ID DEL USUARIO EN OCEAN PAY (TABLA PADRE)
     let opUserId;
     try {
-        const opResult = await client.query(
-            'INSERT INTO ocean_pay_users (username, pwd_hash) VALUES ($1, $2) RETURNING id',
-            [username, hashedPassword]
-        );
-        opUserId = opResult.rows[0].id;
+      const opResult = await client.query(
+        'INSERT INTO ocean_pay_users (username, pwd_hash) VALUES ($1, $2) RETURNING id',
+        [username, hashedPassword]
+      );
+      opUserId = opResult.rows[0].id;
     } catch (e) {
-        if (e.code === '23505') { 
-            const existingOpUser = await client.query('SELECT id FROM ocean_pay_users WHERE username = $1', [username]);
-            if (existingOpUser.rows.length === 0) throw new Error("Error crítico: usuario duplicado pero ID no recuperado.");
-            opUserId = existingOpOpUser.rows[0].id;
-        } else {
-            throw e; 
-        }
+      if (e.code === '23505') {
+        const existingOpUser = await client.query('SELECT id FROM ocean_pay_users WHERE username = $1', [username]);
+        if (existingOpUser.rows.length === 0) throw new Error("Error crítico: usuario duplicado pero ID no recuperado.");
+        opUserId = existingOpOpUser.rows[0].id;
+      } else {
+        throw e;
+      }
     }
-    
+
     // 3. [CORRECCIÓN 42P10] SELECT ANTES DE INSERTAR METADATA (EVITA ON CONFLICT)
     const existingMeta = await client.query(
-        'SELECT 1 FROM ocean_pay_metadata WHERE user_id = $1 AND key = $2', 
-        [opUserId, 'internet_gb']
+      'SELECT 1 FROM ocean_pay_metadata WHERE user_id = $1 AND key = $2',
+      [opUserId, 'internet_gb']
     );
 
     if (existingMeta.rows.length === 0) {
-        await client.query(`
+      await client.query(`
             INSERT INTO ocean_pay_metadata (user_id, key, value)
             VALUES ($1, 'internet_gb', '0')
         `, [opUserId]); // ✅ CORREGIDO: Usamos opUserId
@@ -7796,8 +8097,8 @@ app.post('/oceanic-ethernet/register', async (req, res) => {
       INSERT INTO oceanic_ethernet_user_links (oe_user_id, external_user_id, external_system)
       VALUES ($1, $2, $3)
       ON CONFLICT (external_user_id, external_system) DO NOTHING
-    `, [oeUser.id, opUserId, 'OceanPay']); 
-    
+    `, [oeUser.id, opUserId, 'OceanPay']);
+
     await client.query('COMMIT');
     res.json({ success: true, user: { id: oeUser.id, username: oeUser.username, opId: opUserId } });
 
@@ -7817,7 +8118,7 @@ app.post('/oceanic-ethernet/register', async (req, res) => {
 app.post('/oceanic-ethernet/login', async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.status(400).json({ error: 'Faltan datos' });
-  
+
   try {
     const { rows } = await pool.query(`
       SELECT id, pwd_hash
@@ -7828,14 +8129,14 @@ app.post('/oceanic-ethernet/login', async (req, res) => {
     if (rows.length === 0) {
       return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
     }
-    
+
     const ok = await bcrypt.compare(password, rows[0].pwd_hash);
     if (!ok) {
       return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
     }
-    
+
     const token = jwt.sign({ uid: rows[0].id, un: username, source: 'oceanic-ethernet' }, process.env.STUDIO_SECRET, { expiresIn: '7d' });
-    
+
     // Asegurar que existe el registro de internet_gb (inicializar si no existe)
     try {
       await pool.query(`
@@ -7847,7 +8148,7 @@ app.post('/oceanic-ethernet/login', async (req, res) => {
       // Ignorar errores de inicialización
       console.error('Error inicializando internet_gb:', e);
     }
-    
+
     // Obtener saldo de internet
     let internetBalance = 0;
     try {
@@ -7855,7 +8156,7 @@ app.post('/oceanic-ethernet/login', async (req, res) => {
         SELECT value FROM ocean_pay_metadata
         WHERE user_id = $1 AND key = 'internet_gb'
       `, [rows[0].id]);
-      
+
       if (metaRows.length > 0) {
         internetBalance = parseFloat(metaRows[0].value || '0');
       }
@@ -7863,7 +8164,7 @@ app.post('/oceanic-ethernet/login', async (req, res) => {
       // Si falla, usar 0 como valor por defecto
       internetBalance = 0;
     }
-    
+
     res.json({
       token,
       user: {
@@ -7884,7 +8185,7 @@ app.post('/oceanic-ethernet/link-user', async (req, res) => {
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Token requerido' });
   }
-  
+
   const token = authHeader.substring(7);
   let userId;
   try {
@@ -7894,13 +8195,13 @@ app.post('/oceanic-ethernet/link-user', async (req, res) => {
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
   }
-  
+
   const { externalUserId, externalSystem } = req.body;
-  
+
   if (!externalUserId || !externalSystem) {
     return res.status(400).json({ error: 'Faltan datos' });
   }
-  
+
   try {
     await pool.query(`
       INSERT INTO oceanic_ethernet_user_links (oe_user_id, external_user_id, external_system)
@@ -7908,7 +8209,7 @@ app.post('/oceanic-ethernet/link-user', async (req, res) => {
       ON CONFLICT (external_user_id, external_system) 
       DO UPDATE SET oe_user_id = EXCLUDED.oe_user_id
     `, [userId, externalUserId, externalSystem]);
-    
+
     res.json({ success: true, message: 'Usuario vinculado correctamente' });
   } catch (err) {
     console.error('Error vinculando usuario:', err);
@@ -7922,7 +8223,7 @@ app.get('/oceanic-ethernet/balance/:userId', async (req, res) => {
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Token requerido' });
   }
-  
+
   const token = authHeader.substring(7);
   let oeUserId; // Renombramos a oeUserId para mayor claridad
   try {
@@ -7932,10 +8233,10 @@ app.get('/oceanic-ethernet/balance/:userId', async (req, res) => {
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
   }
-  
+
   const { userId: paramUserId } = req.params;
   const paramUserIdNum = parseInt(paramUserId);
-  
+
   // Verificar que el usuario del token coincida con el parámetro
   if (oeUserId !== paramUserIdNum) {
     return res.status(403).json({ error: 'No autorizado' });
@@ -7948,39 +8249,39 @@ app.get('/oceanic-ethernet/balance/:userId', async (req, res) => {
   let opUserId;
   try {
     const linkResult = await pool.query(
-        `SELECT external_user_id 
+      `SELECT external_user_id 
          FROM oceanic_ethernet_user_links 
          WHERE oe_user_id = $1 AND external_system = 'OceanPay'`,
-        [oeUserId]
+      [oeUserId]
     );
 
     if (linkResult.rows.length === 0) {
-        console.log(`Usuario OceanicEthernet (ID: ${oeUserId}) no vinculado a Ocean Pay.`);
-        return res.json({ balance: 0 }); // El usuario no está vinculado, el balance es 0
+      console.log(`Usuario OceanicEthernet (ID: ${oeUserId}) no vinculado a Ocean Pay.`);
+      return res.json({ balance: 0 }); // El usuario no está vinculado, el balance es 0
     }
 
     opUserId = parseInt(linkResult.rows[0].external_user_id); // ✅ PARSE TO INTEGER
 
     // A partir de aquí, solo usamos opUserId para las consultas a ocean_pay_metadata
-    
+
     // Intentar obtener desde metadata primero
     const { rows: metaRows } = await pool.query(`
       SELECT value FROM ocean_pay_metadata
       WHERE user_id = $1 AND key = 'internet_gb'
     `, [opUserId]); // ✅ CORREGIDO: Usando opUserId como INTEGER
-    
+
     if (metaRows.length > 0) {
       const balance = parseFloat(metaRows[0].value || '0');
       return res.json({ balance });
     }
-    
+
     // Si no existe en metadata, crear registro con 0
     await pool.query(`
       INSERT INTO ocean_pay_metadata (user_id, key, value)
       VALUES ($1, 'internet_gb', '0')
       ON CONFLICT (user_id, key) DO NOTHING
     `, [opUserId]); // ✅ CORREGIDO: Usando opUserId
-    
+
     res.json({ balance: 0 });
   } catch (err) {
     console.error('❌ Error en /oceanic-ethernet/balance/:userId', err);
@@ -7999,7 +8300,7 @@ app.get('/oceanic-ethernet/ocean-pay-balances', async (req, res) => {
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Token requerido' });
   }
-  
+
   const token = authHeader.substring(7);
   let opUserId;
   try {
@@ -8009,24 +8310,24 @@ app.get('/oceanic-ethernet/ocean-pay-balances', async (req, res) => {
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
   }
-  
+
   try {
     // Obtener balances de todas las divisas
     const { rows: userRows } = await pool.query(
       'SELECT aquabux, appbux FROM ocean_pay_users WHERE id = $1',
       [opUserId]
     );
-    
+
     if (userRows.length === 0) {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
-    
+
     const user = userRows[0];
     const balances = {
       'AB': user.aquabux || 0,
       'ABX': user.appbux || 0
     };
-    
+
     // Obtener Ecoxionums
     try {
       const { rows: ecoxRows } = await pool.query(
@@ -8037,7 +8338,7 @@ app.get('/oceanic-ethernet/ocean-pay-balances', async (req, res) => {
     } catch (e) {
       balances['EX'] = 0;
     }
-    
+
     // Obtener EcoCoreBits (desde tabla ecorebits_users)
     try {
       const { rows: ecbRows } = await pool.query(
@@ -8048,7 +8349,7 @@ app.get('/oceanic-ethernet/ocean-pay-balances', async (req, res) => {
     } catch (e) {
       balances['ECB'] = 0;
     }
-    
+
     // Obtener WildCredits
     try {
       const { rows: wcRows } = await pool.query(
@@ -8059,7 +8360,7 @@ app.get('/oceanic-ethernet/ocean-pay-balances', async (req, res) => {
     } catch (e) {
       balances['WC'] = 0;
     }
-    
+
     // Obtener WildGems (desde tabla wildshorts_users)
     try {
       const { rows: wgRows } = await pool.query(
@@ -8070,7 +8371,7 @@ app.get('/oceanic-ethernet/ocean-pay-balances', async (req, res) => {
     } catch (e) {
       balances['WG'] = 0;
     }
-    
+
     res.json(balances);
   } catch (err) {
     console.error('❌ Error en /oceanic-ethernet/ocean-pay-balances:', err);
@@ -8084,7 +8385,7 @@ app.post('/oceanic-ethernet/recharge', async (req, res) => {
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Token requerido' });
   }
-  
+
   const token = authHeader.substring(7);
   let userId;
   try {
@@ -8094,14 +8395,14 @@ app.post('/oceanic-ethernet/recharge', async (req, res) => {
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
   }
-  
+
   const { userId: bodyUserId, amount, currency, cost } = req.body;
   const opToken = req.headers['x-ocean-pay-token'];
-  
+
   if (!bodyUserId || amount === undefined || amount <= 0) {
     return res.status(400).json({ error: 'Datos inválidos' });
   }
-  
+
   // Si hay opToken vinculado, obtener su userId para validación
   let opUserId = null;
   if (opToken && opToken.trim() !== '') {
@@ -8115,13 +8416,13 @@ app.post('/oceanic-ethernet/recharge', async (req, res) => {
       // Si el token es inválido, continuar sin opUserId
     }
   }
-  
+
   // Validar autorización:
   // IMPORTANTE: El saldo de internet es específico de cada cuenta de OceanicEthernet
   // Siempre validamos que el bodyUserId coincida con el userId del token de OceanicEthernet
   // El token de Ocean Pay solo se usa para procesar el pago, no para determinar a qué cuenta se aplica el saldo
   const bodyUserIdInt = parseInt(bodyUserId);
-  
+
   // Validar que el usuario está recargando su propia cuenta de OceanicEthernet
   if (userId !== bodyUserIdInt) {
     console.error('❌ Error de autorización en recarga:', {
@@ -8131,11 +8432,11 @@ app.post('/oceanic-ethernet/recharge', async (req, res) => {
       hasOpToken: !!opToken && opToken.trim() !== '',
       message: 'El userId del token de OceanicEthernet no coincide con el bodyUserId'
     });
-    return res.status(403).json({ 
-      error: 'No autorizado: solo puedes recargar tu propia cuenta de OceanicEthernet.' 
+    return res.status(403).json({
+      error: 'No autorizado: solo puedes recargar tu propia cuenta de OceanicEthernet.'
     });
   }
-  
+
   // Si hay opToken, validar que sea válido (para procesar el pago)
   if (opToken && opToken.trim() !== '' && currency && cost) {
     if (!opUserId) {
@@ -8143,7 +8444,7 @@ app.post('/oceanic-ethernet/recharge', async (req, res) => {
       return res.status(401).json({ error: 'Token de Ocean Pay inválido. Por favor, vuelve a vincular tu cuenta de Ocean Pay.' });
     }
   }
-  
+
   console.log('✅ Autorización exitosa para recarga:', {
     tokenUserId: userId,
     bodyUserId: bodyUserIdInt,
@@ -8151,11 +8452,11 @@ app.post('/oceanic-ethernet/recharge', async (req, res) => {
     opUserId: opUserId,
     usandoOceanPay: !!(opToken && opToken.trim() !== '')
   });
-  
+
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    
+
     // Mapeo de nombres de divisas
     const currencyNames = {
       'AB': 'AquaBux',
@@ -8165,7 +8466,7 @@ app.post('/oceanic-ethernet/recharge', async (req, res) => {
       'ABX': 'AppBux',
       'WG': 'WildGems'
     };
-    
+
     // Si hay divisa y costo, procesar pago desde Ocean Pay
     if (currency && cost && opToken) {
       // opUserId ya fue obtenido arriba en la validación
@@ -8173,7 +8474,7 @@ app.post('/oceanic-ethernet/recharge', async (req, res) => {
         await client.query('ROLLBACK');
         return res.status(401).json({ error: 'Token de Ocean Pay inválido' });
       }
-      
+
       // Verificar si la columna moneda existe
       let hasMonedaColumn = false;
       try {
@@ -8187,10 +8488,10 @@ app.post('/oceanic-ethernet/recharge', async (req, res) => {
         // Si falla la verificación, asumir que no existe
         hasMonedaColumn = false;
       }
-      
+
       // Procesar pago según la divisa
       let paymentSuccess = false;
-      
+
       // IMPORTANTE: Redondear el costo al entero más cercano para divisas INTEGER
       // Las divisas en ocean_pay_users (aquabux, appbux) son INTEGER, no aceptan decimales
       let roundedCost = Math.round(cost);
@@ -8198,7 +8499,7 @@ app.post('/oceanic-ethernet/recharge', async (req, res) => {
         // Si el costo es mayor que 0 pero se redondea a 0, usar 1 como mínimo
         roundedCost = 1;
       }
-      
+
       if (currency === 'AB') {
         // AquaBux (INTEGER)
         const { rows } = await client.query(
@@ -8392,28 +8693,28 @@ app.post('/oceanic-ethernet/recharge', async (req, res) => {
         }
         paymentSuccess = true;
       }
-      
+
       if (!paymentSuccess) {
         await client.query('ROLLBACK');
         return res.status(400).json({ error: 'Divisa no válida' });
       }
     }
-    
+
     // Obtener balance actual de internet
     // IMPORTANTE: Siempre usar el userId de OceanicEthernet para el saldo de internet
     // El saldo de internet es específico de cada cuenta de OceanicEthernet
     // Solo usamos opUserId para procesar el pago desde Ocean Pay, pero el saldo se aplica a la cuenta de OceanicEthernet
     const internetUserId = userId; // Siempre usar el ID de OceanicEthernet para el saldo de internet
-    
+
     const { rows: metaRows } = await client.query(`
       SELECT value FROM ocean_pay_metadata
       WHERE user_id = $1 AND key = 'internet_gb'
       FOR UPDATE
     `, [internetUserId]);
-    
+
     const currentBalance = metaRows.length > 0 ? parseFloat(metaRows[0].value || '0') : 0;
     const newBalance = currentBalance + amount;
-    
+
     // Actualizar o insertar balance
     if (metaRows.length > 0) {
       await client.query(`
@@ -8427,9 +8728,9 @@ app.post('/oceanic-ethernet/recharge', async (req, res) => {
         VALUES ($1, 'internet_gb', $2)
       `, [internetUserId, newBalance.toString()]);
     }
-    
+
     // Registrar transacción en tabla propia de OceanicEthernet (usar userId de OceanicEthernet para el historial)
-    const concepto = currency 
+    const concepto = currency
       ? `Recarga de ${amount} GB (Pagado con ${currencyNames[currency] || currency})`
       : `Recarga de ${amount} GB`;
     await client.query(
@@ -8437,7 +8738,7 @@ app.post('/oceanic-ethernet/recharge', async (req, res) => {
        VALUES ($1, $2, $3, $4)`,
       [userId, concepto, amount, 'OceanicEthernet']
     );
-    
+
     await client.query('COMMIT');
     res.json({ success: true, newBalance });
   } catch (err) {
@@ -8455,7 +8756,7 @@ app.post('/oceanic-ethernet/consume', async (req, res) => {
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Token requerido' });
   }
-  
+
   const token = authHeader.substring(7);
   let userId;
   try {
@@ -8465,28 +8766,28 @@ app.post('/oceanic-ethernet/consume', async (req, res) => {
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
   }
-  
+
   const { userId: bodyUserId, amount, concepto = 'Uso de internet', origen = 'AllApp' } = req.body;
-  
+
   if (!bodyUserId || amount === undefined || amount <= 0) {
     return res.status(400).json({ error: 'Datos inválidos' });
   }
-  
+
   if (userId !== parseInt(bodyUserId)) {
     return res.status(403).json({ error: 'No autorizado' });
   }
-  
+
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    
+
     // Obtener balance actual (inicializar si no existe para usuarios de Ocean Pay)
     const { rows: metaRows } = await client.query(`
       SELECT value FROM ocean_pay_metadata
       WHERE user_id = $1 AND key = 'internet_gb'
       FOR UPDATE
     `, [userId]);
-    
+
     let currentBalance;
     if (metaRows.length > 0) {
       currentBalance = parseFloat(metaRows[0].value || '0');
@@ -8499,28 +8800,28 @@ app.post('/oceanic-ethernet/consume', async (req, res) => {
       `, [userId]);
       currentBalance = 0;
     }
-    
+
     const newBalance = currentBalance - amount;
-    
+
     if (newBalance < 0) {
       await client.query('ROLLBACK');
       return res.status(400).json({ error: 'Saldo insuficiente' });
     }
-    
+
     // Actualizar balance
     await client.query(`
       UPDATE ocean_pay_metadata
       SET value = $1
       WHERE user_id = $2 AND key = 'internet_gb'
     `, [newBalance.toString(), userId]);
-    
+
     // Registrar transacción en tabla propia de OceanicEthernet
     await client.query(
       `INSERT INTO oceanic_ethernet_txs (user_id, concepto, monto, origen)
        VALUES ($1, $2, $3, $4)`,
       [userId, concepto, -amount, origen]
     );
-    
+
     await client.query('COMMIT');
     res.json({ success: true, newBalance });
   } catch (err) {
@@ -8538,7 +8839,7 @@ app.get('/oceanic-ethernet/transactions/:userId', async (req, res) => {
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Token requerido' });
   }
-  
+
   const token = authHeader.substring(7);
   let userId;
   try {
@@ -8548,14 +8849,14 @@ app.get('/oceanic-ethernet/transactions/:userId', async (req, res) => {
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
   }
-  
+
   const { userId: paramUserId } = req.params;
   const paramUserIdNum = parseInt(paramUserId);
-  
+
   if (userId !== paramUserIdNum) {
     return res.status(403).json({ error: 'No autorizado' });
   }
-  
+
   try {
     // Obtener transacciones de la tabla propia de OceanicEthernet
     const { rows } = await pool.query(`
@@ -8565,7 +8866,7 @@ app.get('/oceanic-ethernet/transactions/:userId', async (req, res) => {
       ORDER BY created_at DESC
       LIMIT 50
     `, [userId]);
-    
+
     res.json(rows);
   } catch (err) {
     console.error('❌ Error en /oceanic-ethernet/transactions/:userId', err);
@@ -8579,7 +8880,7 @@ app.get('/oceanic-ethernet/recent/:userId', async (req, res) => {
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Token requerido' });
   }
-  
+
   const token = authHeader.substring(7);
   let userId;
   try {
@@ -8589,14 +8890,14 @@ app.get('/oceanic-ethernet/recent/:userId', async (req, res) => {
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
   }
-  
+
   const { userId: paramUserId } = req.params;
   const paramUserIdNum = parseInt(paramUserId);
-  
+
   if (userId !== paramUserIdNum) {
     return res.status(403).json({ error: 'No autorizado' });
   }
-  
+
   try {
     // Obtener transacciones de los últimos 60 segundos de la tabla propia
     const { rows } = await pool.query(`
@@ -8606,7 +8907,7 @@ app.get('/oceanic-ethernet/recent/:userId', async (req, res) => {
         AND created_at > NOW() - INTERVAL '1 minute'
       ORDER BY created_at DESC
     `, [userId]);
-    
+
     res.json(rows);
   } catch (err) {
     console.error('❌ Error en /oceanic-ethernet/recent/:userId', err);
@@ -8614,28 +8915,28 @@ app.get('/oceanic-ethernet/recent/:userId', async (req, res) => {
   }
 });
 
-app.post('/api/report-error', async (req,res)=>{
-  const {userId, type, description, extensions, userAgent, url, timestamp} = req.body;
-  if(!type || !description) return res.status(400).json({error:'Faltan campos'});
+app.post('/api/report-error', async (req, res) => {
+  const { userId, type, description, extensions, userAgent, url, timestamp } = req.body;
+  if (!type || !description) return res.status(400).json({ error: 'Faltan campos' });
 
-  try{
+  try {
     await pool.query(
-     `INSERT INTO error_reports (user_id, type, description, extensions, user_agent, url, created_at)
+      `INSERT INTO error_reports (user_id, type, description, extensions, user_agent, url, created_at)
       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
       [userId, type, description, extensions, userAgent, url, timestamp]
     );
-    res.json({ok:true});
-  }catch(e){
-    console.error('❌ report-error',e);
-    res.status(500).json({error:'No se pudo guardar'});
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('❌ report-error', e);
+    res.status(500).json({ error: 'No se pudo guardar' });
   }
 });
 
-app.get('/admin/error-reports', async (req,res)=>{
+app.get('/admin/error-reports', async (req, res) => {
   const secret = req.headers['x-admin-secret'];
-  if(secret !== process.env.STUDIO_SECRET) return res.status(401).json({error:'No autorizado'});
+  if (secret !== process.env.STUDIO_SECRET) return res.status(401).json({ error: 'No autorizado' });
 
-  const {rows} = await pool.query(
+  const { rows } = await pool.query(
     'SELECT id,user_id,type,description,extensions,created_at FROM error_reports ORDER BY created_at DESC LIMIT 200'
   );
   res.json(rows);
@@ -8667,10 +8968,10 @@ app.post('/api/extensions/categories/:userId', async (req, res) => {
 
 // GET /api/events/active
 app.get("/api/events/active", async (_req, res) => {
-// GET /api/events/active
-const now = new Date();
-const { rows } = await pool.query(
-  `SELECT id,
+  // GET /api/events/active
+  const now = new Date();
+  const { rows } = await pool.query(
+    `SELECT id,
           name,
           keyword,
           emoji,
@@ -8685,22 +8986,22 @@ const { rows } = await pool.query(
      AND finished = false
    ORDER BY startat DESC
    LIMIT 1`,
-  [now]
-);
-if (!rows.length) return res.json(null);
+    [now]
+  );
+  if (!rows.length) return res.json(null);
 
-// Campos opcionales con fallback
-const ev = rows[0];
-res.json({
-  id: ev.id,
-  keyword: ev.keyword,
-  name: ev.name,
-  emoji: ev.emoji || '🎁',
-  bannerColor: ev.banner_color || 'linear-gradient(90deg,#64a7ff,#b388ff)',
-  description: ev.description || 'Reclama tu recompensa diaria.',
-  rewardBits: ev.rewardbits || 100,
-  endAt: ev.endat
-});
+  // Campos opcionales con fallback
+  const ev = rows[0];
+  res.json({
+    id: ev.id,
+    keyword: ev.keyword,
+    name: ev.name,
+    emoji: ev.emoji || '🎁',
+    bannerColor: ev.banner_color || 'linear-gradient(90deg,#64a7ff,#b388ff)',
+    description: ev.description || 'Reclama tu recompensa diaria.',
+    rewardBits: ev.rewardbits || 100,
+    endAt: ev.endat
+  });
   res.json(rows[0] || null);
 });
 
@@ -8812,217 +9113,217 @@ app.get('/api/events/claim-status/:userId', async (req, res) => {
 });
 
 app.get('/api/ecorebits/user', async (req, res) => {
-    try {
-        const authHeader = req.headers.authorization;
-        if (!authHeader) {
-            return res.status(401).json({ message: 'No token provided' });
-        }
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
 
-        const token = authHeader.split(' ')[1];
-        const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
-        const userId = decoded.uid || decoded.id || decoded.userId;
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
+    const userId = decoded.uid || decoded.id || decoded.userId;
 
-        // Get user info
-        const userResult = await pool.query(
-            'SELECT id, username FROM users WHERE id = $1',
-            [userId]
-        );
+    // Get user info
+    const userResult = await pool.query(
+      'SELECT id, username FROM users WHERE id = $1',
+      [userId]
+    );
 
-        if (userResult.rows.length === 0) {
-            return res.status(404).json({ message: 'Usuario no encontrado' });
-        }
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ message: 'Usuario no encontrado' });
+    }
 
-        const userData = userResult.rows[0];
-        
-        // Get the balance
-        const balanceResult = await pool.query(
-            `SELECT amount 
+    const userData = userResult.rows[0];
+
+    // Get the balance
+    const balanceResult = await pool.query(
+      `SELECT amount 
              FROM user_currency 
              WHERE user_id = $1 AND currency_type = 'ecocorebits'`,
-            [userId]
-        );
+      [userId]
+    );
 
-        const balance = balanceResult.rows[0]?.amount || 0;
+    const balance = balanceResult.rows[0]?.amount || 0;
 
-        // Return in the same format as Ocean Pay
-        res.json({
-            success: true,
-            user: {
-                id: userData.id,
-                username: userData.username,
-                ecorebits: {
-                    balance: parseInt(balance, 10)
-                }
-            }
-        });
+    // Return in the same format as Ocean Pay
+    res.json({
+      success: true,
+      user: {
+        id: userData.id,
+        username: userData.username,
+        ecorebits: {
+          balance: parseInt(balance, 10)
+        }
+      }
+    });
 
-    } catch (error) {
-        console.error('Error in /api/ecorebits/user:', error);
-        res.status(500).json({ 
-            success: false,
-            message: 'Error del servidor',
-            error: error.message 
-        });
-    }
+  } catch (error) {
+    console.error('Error in /api/ecorebits/user:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error del servidor',
+      error: error.message
+    });
+  }
 });
 
 
 // Add this middleware for token authentication
 function authenticateToken(req, res, next) {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
-    
-    if (!token) return res.sendStatus(401);
-    
-    jwt.verify(token, process.env.STUDIO_SECRET, (err, user) => {
-        if (err) return res.sendStatus(403);
-        req.user = user;
-        next();
-    });
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) return res.sendStatus(401);
+
+  jwt.verify(token, process.env.STUDIO_SECRET, (err, user) => {
+    if (err) return res.sendStatus(403);
+    req.user = user;
+    next();
+  });
 }
 
 // Add this endpoint to handle limit extensions
 app.post('/api/extend-limit', async (req, res) => {
-    try {
-        const { option } = req.body;
-        const token = req.headers.authorization?.split(' ')[1];
-        
-        if (!token) {
-            return res.status(401).json({ error: 'No autorizado' });
-        }
+  try {
+    const { option } = req.body;
+    const token = req.headers.authorization?.split(' ')[1];
 
-        // Verify token and get user
-        const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
-        // El token de Ocean Pay usa 'uid', no 'userId'
-        const userId = String(decoded.uid || decoded.userId || decoded.id || decoded.user?.id || '');
+    if (!token) {
+      return res.status(401).json({ error: 'No autorizado' });
+    }
 
-        if (!userId || userId === 'undefined' || userId === 'null') {
-            console.error('Token decodificado:', decoded);
-            return res.status(401).json({ error: 'Token inválido: falta userId. Campos disponibles: ' + Object.keys(decoded).join(', ') });
-        }
+    // Verify token and get user
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
+    // El token de Ocean Pay usa 'uid', no 'userId'
+    const userId = String(decoded.uid || decoded.userId || decoded.id || decoded.user?.id || '');
 
-        // Verificar que el usuario existe
-        const { rows: userCheck } = await pool.query(
-            'SELECT id FROM users WHERE id = $1',
-            [userId]
-        );
+    if (!userId || userId === 'undefined' || userId === 'null') {
+      console.error('Token decodificado:', decoded);
+      return res.status(401).json({ error: 'Token inválido: falta userId. Campos disponibles: ' + Object.keys(decoded).join(', ') });
+    }
 
-        if (!userCheck || userCheck.length === 0) {
-            return res.status(404).json({ error: 'Usuario no encontrado' });
-        }
+    // Verificar que el usuario existe
+    const { rows: userCheck } = await pool.query(
+      'SELECT id FROM users WHERE id = $1',
+      [userId]
+    );
 
-        let result = {};
-        const now = new Date();
+    if (!userCheck || userCheck.length === 0) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
 
-        if (option === 'ecocorebits') {
-            // Obtener saldo de EcoCoreBits desde user_currency
-            const { rows: ecorebitsRows } = await pool.query(
-                `SELECT amount FROM user_currency 
+    let result = {};
+    const now = new Date();
+
+    if (option === 'ecocorebits') {
+      // Obtener saldo de EcoCoreBits desde user_currency
+      const { rows: ecorebitsRows } = await pool.query(
+        `SELECT amount FROM user_currency 
                  WHERE user_id = $1 AND currency_type = 'ecocorebits' FOR UPDATE`,
-                [userId]
-            );
-            
-            const currentBalance = ecorebitsRows[0]?.amount || 0;
-            
-            // Check if user has enough EcoCoreBits
-            if (currentBalance < 100) {
-                return res.status(400).json({ 
-                    error: 'No tienes suficientes EcoCoreBits' 
-                });
-            }
+        [userId]
+      );
 
-            // Deduct EcoCoreBits (actualizar o crear en user_currency)
-            const newBalance = currentBalance - 100;
-            await pool.query(
-                `INSERT INTO user_currency (user_id, currency_type, amount)
+      const currentBalance = ecorebitsRows[0]?.amount || 0;
+
+      // Check if user has enough EcoCoreBits
+      if (currentBalance < 100) {
+        return res.status(400).json({
+          error: 'No tienes suficientes EcoCoreBits'
+        });
+      }
+
+      // Deduct EcoCoreBits (actualizar o crear en user_currency)
+      const newBalance = currentBalance - 100;
+      await pool.query(
+        `INSERT INTO user_currency (user_id, currency_type, amount)
                  VALUES ($1, 'ecocorebits', $2)
                  ON CONFLICT (user_id, currency_type)
                  DO UPDATE SET amount = EXCLUDED.amount`,
-                [userId, newBalance]
-            );
+        [userId, newBalance]
+      );
 
-            // Incrementar command limit en el estado local (se guarda en localStorage)
-            // El límite se maneja en el frontend, no en la BD
-            result = {
-                success: true,
-                newLimit: null, // Se calculará en el frontend
-                ecocorebits: newBalance
-            };
+      // Incrementar command limit en el estado local (se guarda en localStorage)
+      // El límite se maneja en el frontend, no en la BD
+      result = {
+        success: true,
+        newLimit: null, // Se calculará en el frontend
+        ecocorebits: newBalance
+      };
 
-        } else if (option === 'credits') {
-            // Obtener créditos desde ecocore_credits
-            const { rows: creditsRows } = await pool.query(
-                'SELECT credits FROM ecocore_credits WHERE user_id = $1 FOR UPDATE',
-                [userId]
-            );
-            
-            let currentCredits = 0;
-            if (creditsRows.length === 0) {
-                // Crear registro si no existe
-                await pool.query(
-                    'INSERT INTO ecocore_credits (user_id, credits) VALUES ($1, 0)',
-                    [userId]
-                );
-            } else {
-                currentCredits = creditsRows[0].credits || 0;
-            }
-            
-            // Check if user has enough credits
-            if (currentCredits < 1) {
-                return res.status(400).json({ 
-                    error: 'No tienes suficientes créditos' 
-                });
-            }
+    } else if (option === 'credits') {
+      // Obtener créditos desde ecocore_credits
+      const { rows: creditsRows } = await pool.query(
+        'SELECT credits FROM ecocore_credits WHERE user_id = $1 FOR UPDATE',
+        [userId]
+      );
 
-            // Deduct credits
-            const newCredits = currentCredits - 1;
-            await pool.query(
-                'UPDATE ecocore_credits SET credits = $1, updated_at = NOW() WHERE user_id = $2',
-                [newCredits, userId]
-            );
-
-            result = {
-                success: true,
-                newLimit: null, // Se calculará en el frontend
-                credits: newCredits
-            };
-
-        } else {
-            return res.status(400).json({ error: 'Opción no válida' });
-        }
-
-            // Log the transaction (asegurar que userId es string)
+      let currentCredits = 0;
+      if (creditsRows.length === 0) {
+        // Crear registro si no existe
         await pool.query(
-            `INSERT INTO command_limit_extensions 
+          'INSERT INTO ecocore_credits (user_id, credits) VALUES ($1, 0)',
+          [userId]
+        );
+      } else {
+        currentCredits = creditsRows[0].credits || 0;
+      }
+
+      // Check if user has enough credits
+      if (currentCredits < 1) {
+        return res.status(400).json({
+          error: 'No tienes suficientes créditos'
+        });
+      }
+
+      // Deduct credits
+      const newCredits = currentCredits - 1;
+      await pool.query(
+        'UPDATE ecocore_credits SET credits = $1, updated_at = NOW() WHERE user_id = $2',
+        [newCredits, userId]
+      );
+
+      result = {
+        success: true,
+        newLimit: null, // Se calculará en el frontend
+        credits: newCredits
+      };
+
+    } else {
+      return res.status(400).json({ error: 'Opción no válida' });
+    }
+
+    // Log the transaction (asegurar que userId es string)
+    await pool.query(
+      `INSERT INTO command_limit_extensions 
              (user_id, extension_type, commands_added, cost, extended_at)
              VALUES ($1, $2, $3, $4, $5)`,
-            [
-                String(userId),
-                option,
-                option === 'ecocorebits' ? 10 : 5,
-                option === 'ecocorebits' ? 100 : 1,
-                now
-            ]
-        );
+      [
+        String(userId),
+        option,
+        option === 'ecocorebits' ? 10 : 5,
+        option === 'ecocorebits' ? 100 : 1,
+        now
+      ]
+    );
 
-        res.json(result);
+    res.json(result);
 
-    } catch (error) {
-        console.error('Error extending command limit:', error);
-        
-        if (error.name === 'JsonWebTokenError') {
-            return res.status(401).json({ error: 'Token inválido' });
-        }
-        
-        if (error.name === 'TokenExpiredError') {
-            return res.status(401).json({ error: 'Sesión expirada' });
-        }
+  } catch (error) {
+    console.error('Error extending command limit:', error);
 
-        res.status(500).json({ 
-            error: 'Error al procesar la solicitud',
-            details: process.env.NODE_ENV === 'development' ? error.message : undefined
-        });
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({ error: 'Token inválido' });
     }
+
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: 'Sesión expirada' });
+    }
+
+    res.status(500).json({
+      error: 'Error al procesar la solicitud',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
 });
 
 
@@ -9425,14 +9726,14 @@ async function ensureTables() {
   // 1. Ejecutar la creación de todas las tablas
   for (const q of tableQueries) {
     try {
-        await pool.query(q);
+      await pool.query(q);
     } catch (error) {
-        console.error(`❌ Error al ejecutar query de creación de tabla: ${q.substring(0, 50)}...`, error);
-        // Lanzamos el error solo si es crítico para que las tablas no se creen
-        throw error;
+      console.error(`❌ Error al ejecutar query de creación de tabla: ${q.substring(0, 50)}...`, error);
+      // Lanzamos el error solo si es crítico para que las tablas no se creen
+      throw error;
     }
   }
-  
+
   // =========================================================
   // 🔑 MIGRACIÓN CRÍTICA ocean_pay_metadata (Paso a paso)
   // =========================================================
@@ -9444,28 +9745,28 @@ async function ensureTables() {
         FROM information_schema.columns 
         WHERE table_name = 'ocean_pay_metadata' AND column_name = 'user_id'
     `);
-    
+
     if (columnCheck.rows.length === 0) {
-        console.log('🔄 Agregando columna user_id a ocean_pay_metadata...');
-        await pool.query(`ALTER TABLE ocean_pay_metadata ADD COLUMN user_id INTEGER`);
-        console.log('✅ Columna user_id agregada.');
+      console.log('🔄 Agregando columna user_id a ocean_pay_metadata...');
+      await pool.query(`ALTER TABLE ocean_pay_metadata ADD COLUMN user_id INTEGER`);
+      console.log('✅ Columna user_id agregada.');
     }
-    
+
     // 2. Verificar y Agregar la llave foránea
     const fkCheck = await pool.query(`
         SELECT 1 
         FROM pg_constraint 
         WHERE conrelid = 'ocean_pay_metadata'::regclass AND conname = 'ocean_pay_metadata_user_id_fkey'
     `);
-    
+
     if (fkCheck.rows.length === 0) {
-        console.log('🔄 Agregando FK a ocean_pay_metadata...');
-        await pool.query(`
+      console.log('🔄 Agregando FK a ocean_pay_metadata...');
+      await pool.query(`
             ALTER TABLE ocean_pay_metadata 
             ADD CONSTRAINT ocean_pay_metadata_user_id_fkey 
             FOREIGN KEY (user_id) REFERENCES ocean_pay_users(id) ON DELETE CASCADE
         `);
-        console.log('✅ FK ocean_pay_metadata_user_id_fkey agregada.');
+      console.log('✅ FK ocean_pay_metadata_user_id_fkey agregada.');
     }
 
     // 3. Verificar y Agregar la restricción UNIQUE
@@ -9474,21 +9775,21 @@ async function ensureTables() {
         FROM pg_constraint 
         WHERE conrelid = 'ocean_pay_metadata'::regclass AND conname = 'unique_user_key'
     `);
-    
+
     if (uniqueCheck.rows.length === 0) {
-        console.log('🔄 Agregando restricción UNIQUE a ocean_pay_metadata...');
-        await pool.query(`
+      console.log('🔄 Agregando restricción UNIQUE a ocean_pay_metadata...');
+      await pool.query(`
             ALTER TABLE ocean_pay_metadata 
             ADD CONSTRAINT unique_user_key UNIQUE (user_id, key)
         `);
-        console.log('✅ Restricción UNIQUE agregada.');
+      console.log('✅ Restricción UNIQUE agregada.');
     }
-    
+
     console.log('✅ Migración de ocean_pay_metadata ejecutada de forma secuencial.');
   } catch (err) {
-      console.warn('⚠️ Error al ejecutar migración secuencial de ocean_pay_metadata (puede ser un error menor si ya existe):', err.message);
+    console.warn('⚠️ Error al ejecutar migración secuencial de ocean_pay_metadata (puede ser un error menor si ya existe):', err.message);
   }
-  
+
   // =========================================================
   // Bloque de migraciones restantes (Procedural SQL, ahora más aislado)
   // =========================================================
@@ -9507,7 +9808,7 @@ async function ensureTables() {
   } catch (err) {
     console.warn('⚠️ Error al ejecutar migración de ocean_pay_users appbux:', err.message);
   }
-  
+
   // Agregar user_unique_id y unique_id_shown a users_nat si no existen
   try {
     await pool.query(`
@@ -9534,7 +9835,7 @@ async function ensureTables() {
   } catch (err) {
     console.warn('⚠️ Error al ejecutar migración de users_nat columnas:', err.message);
   }
-  
+
   // Agregar columnas de stock y vendido a products_nat si no existen
   try {
     await pool.query(`
@@ -9566,7 +9867,7 @@ async function ensureTables() {
   } catch (err) {
     console.warn('⚠️ Error al ejecutar migración de products_nat columnas:', err.message);
   }
-  
+
   // Migración: Si la tabla command_limit_extensions existe con user_id INTEGER, cambiarla a TEXT
   try {
     const checkColumn = await pool.query(`
@@ -9575,34 +9876,34 @@ async function ensureTables() {
       WHERE table_name = 'command_limit_extensions' 
       AND column_name = 'user_id'
     `);
-    
+
     if (checkColumn.rows.length > 0 && checkColumn.rows[0].data_type === 'integer') {
       console.log('🔄 Migrando command_limit_extensions: cambiando user_id de INTEGER a TEXT...');
-      
+
       await pool.query(`
         ALTER TABLE command_limit_extensions 
         DROP CONSTRAINT IF EXISTS command_limit_extensions_user_id_fkey
-      `).catch(() => {});
-      
+      `).catch(() => { });
+
       await pool.query(`
         ALTER TABLE command_limit_extensions 
         ALTER COLUMN user_id TYPE TEXT USING user_id::TEXT
       `);
-      
+
       await pool.query(`
         ALTER TABLE command_limit_extensions 
         ADD CONSTRAINT command_limit_extensions_user_id_fkey 
         FOREIGN KEY (user_id) REFERENCES users(id)
       `);
-      
+
       console.log('✅ Migración completada: user_id ahora es TEXT');
     }
   } catch (err) {
     if (!err.message.includes('relation "command_limit_extensions" does not exist')) {
-        console.warn('⚠️ Error en migración de command_limit_extensions:', err.message);
+      console.warn('⚠️ Error en migración de command_limit_extensions:', err.message);
     }
   }
-  
+
   console.log("✅ Todas las tablas existen o fueron creadas");
 }
 
@@ -9630,7 +9931,7 @@ app.get('/ecocore/credits/:userId', async (req, res) => {
       'SELECT credits FROM ecocore_credits WHERE user_id = $1',
       [userId]
     );
-    
+
     if (rows.length === 0) {
       // Initialize with 0 credits if user not found
       await pool.query(
@@ -9639,7 +9940,7 @@ app.get('/ecocore/credits/:userId', async (req, res) => {
       );
       return res.json({ credits: 0 });
     }
-    
+
     res.json({ credits: rows[0].credits });
   } catch (error) {
     console.error('Error fetching credits:', error);
@@ -9652,14 +9953,14 @@ app.post('/ecocore/credits/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
     const { amount, operation = 'set' } = req.body; // operation can be 'set', 'add', or 'subtract'
-    
+
     if (typeof amount !== 'number') {
       return res.status(400).json({ error: 'Invalid amount' });
     }
-    
+
     let query = '';
     let params = [userId];
-    
+
     if (operation === 'add') {
       query = `
         INSERT INTO ecocore_credits (user_id, credits)
@@ -9675,11 +9976,11 @@ app.post('/ecocore/credits/:userId', async (req, res) => {
         'SELECT credits FROM ecocore_credits WHERE user_id = $1',
         [userId]
       );
-      
+
       if (rows.length === 0 || rows[0].credits < amount) {
         return res.status(400).json({ error: 'Insufficient credits' });
       }
-      
+
       query = `
         UPDATE ecocore_credits 
         SET credits = credits - $2, updated_at = NOW()
@@ -9698,7 +9999,7 @@ app.post('/ecocore/credits/:userId', async (req, res) => {
       `;
       params.push(amount);
     }
-    
+
     const { rows } = await pool.query(query, params);
     res.json({ credits: rows[0].credits });
   } catch (error) {
@@ -9709,20 +10010,20 @@ app.post('/ecocore/credits/:userId', async (req, res) => {
 
 // Get user credits by user ID
 app.get('/api/credits/:userId', async (req, res) => {
-    const { userId } = req.params;
-    try {
-        const { rows } = await pool.query(
-            'SELECT credits FROM ecocore_credits WHERE user_id = $1',
-            [userId]
-        );
-        if (rows.length === 0) {
-            return res.status(404).json({ error: 'Usuario no encontrado o sin créditos.' });
-        }
-        res.json({ credits: rows[0].credits });
-    } catch (error) {
-        console.error('Error fetching credits:', error);
-        res.status(500).json({ error: 'Error interno del servidor' });
+  const { userId } = req.params;
+  try {
+    const { rows } = await pool.query(
+      'SELECT credits FROM ecocore_credits WHERE user_id = $1',
+      [userId]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'Usuario no encontrado o sin créditos.' });
     }
+    res.json({ credits: rows[0].credits });
+  } catch (error) {
+    console.error('Error fetching credits:', error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
 });
 
 
@@ -9744,7 +10045,7 @@ app.get('/ecocore/credits/:userId', async (req, res) => {
       'SELECT credits FROM ecocore_credits WHERE user_id = $1',
       [userId]
     );
-    
+
     if (rows.length === 0) {
       // Initialize with 0 credits if user not found
       await pool.query(
@@ -9753,7 +10054,7 @@ app.get('/ecocore/credits/:userId', async (req, res) => {
       );
       return res.json({ credits: 0 });
     }
-    
+
     res.json({ credits: rows[0].credits });
   } catch (error) {
     console.error('Error fetching credits:', error);
@@ -9766,14 +10067,14 @@ app.post('/ecocore/credits/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
     const { amount, operation = 'set' } = req.body; // operation can be 'set', 'add', or 'subtract'
-    
+
     if (typeof amount !== 'number') {
       return res.status(400).json({ error: 'Invalid amount' });
     }
-    
+
     let query = '';
     let params = [userId];
-    
+
     if (operation === 'add') {
       query = `
         INSERT INTO ecocore_credits (user_id, credits)
@@ -9789,11 +10090,11 @@ app.post('/ecocore/credits/:userId', async (req, res) => {
         'SELECT credits FROM ecocore_credits WHERE user_id = $1',
         [userId]
       );
-      
+
       if (rows.length === 0 || rows[0].credits < amount) {
         return res.status(400).json({ error: 'Insufficient credits' });
       }
-      
+
       query = `
         UPDATE ecocore_credits 
         SET credits = credits - $2, updated_at = NOW()
@@ -9812,7 +10113,7 @@ app.post('/ecocore/credits/:userId', async (req, res) => {
       `;
       params.push(amount);
     }
-    
+
     const { rows } = await pool.query(query, params);
     res.json({ credits: rows[0].credits });
   } catch (error) {
@@ -9822,64 +10123,64 @@ app.post('/ecocore/credits/:userId', async (req, res) => {
 });
 
 app.post('/api/ecocore/bypass-key-system', authenticateToken, async (req, res) => {
-    const userId = req.user.uid; // CORRECCIÓN: El token guarda el ID como 'uid'
-    const BYPASS_COST = 5000; // Costo para el bypass
+  const userId = req.user.uid; // CORRECCIÓN: El token guarda el ID como 'uid'
+  const BYPASS_COST = 5000; // Costo para el bypass
 
-    const client = await pool.connect();
-    try {
-        await client.query('BEGIN');
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
 
-        // 1. Bloquear la fila del usuario y verificar si ya tiene el bypass
-        const { rows: userRows } = await client.query(
-            'SELECT key_system_bypassed FROM users WHERE id = $1 FOR UPDATE', 
-            [userId]
-        );
+    // 1. Bloquear la fila del usuario y verificar si ya tiene el bypass
+    const { rows: userRows } = await client.query(
+      'SELECT key_system_bypassed FROM users WHERE id = $1 FOR UPDATE',
+      [userId]
+    );
 
-        if (userRows.length === 0) {
-            return res.status(404).json({ error: 'Usuario no encontrado en el sistema.' });
-        }
-
-        // 2. Obtener y bloquear el saldo de EcoCoreBits del usuario
-        const { rows: currencyRows } = await client.query(
-            `SELECT amount FROM user_currency WHERE user_id = $1 AND currency_type = 'ecocorebits' FOR UPDATE`,
-            [userId]
-        );
-        const balance = currencyRows[0]?.amount || 0;
-
-        if (userRows[0].key_system_bypassed) {
-            return res.status(400).json({ error: 'Ya tienes el bypass activo.' });
-        }
-
-        // 3. Verificar saldo
-        if (balance < BYPASS_COST) {
-            return res.status(400).json({ error: `Saldo insuficiente. Necesitas ${BYPASS_COST} EcoCoreBits.` });
-        }
-
-        // 4. Deducir costo y registrar transacción
-        const newBalance = balance - BYPASS_COST;
-        await client.query(
-            `INSERT INTO user_currency (user_id, currency_type, amount) VALUES ($1, 'ecocorebits', $2)
-             ON CONFLICT (user_id, currency_type) DO UPDATE SET amount = $2`,
-            [userId, newBalance]
-        );
-        await client.query(
-            'INSERT INTO ecocore_txs (user_id, concepto, monto, origen) VALUES ($1, $2, $3, $4)',
-            [userId, 'Bypass del Key System', -BYPASS_COST, 'EcoConsole']
-        );
-
-        // 5. Marcar el bypass como activo para el usuario
-        await client.query('UPDATE users SET key_system_bypassed = TRUE WHERE id = $1', [userId]);
-
-        await client.query('COMMIT');
-        res.json({ success: true, message: '¡Trato aceptado! El Key System ha sido desactivado permanentemente.', newBalance });
-
-    } catch (error) {
-        await client.query('ROLLBACK');
-        console.error('Error en /api/ecocore/bypass-key-system:', error);
-        res.status(500).json({ error: 'Error interno del servidor al procesar el trato.' });
-    } finally {
-        client.release();
+    if (userRows.length === 0) {
+      return res.status(404).json({ error: 'Usuario no encontrado en el sistema.' });
     }
+
+    // 2. Obtener y bloquear el saldo de EcoCoreBits del usuario
+    const { rows: currencyRows } = await client.query(
+      `SELECT amount FROM user_currency WHERE user_id = $1 AND currency_type = 'ecocorebits' FOR UPDATE`,
+      [userId]
+    );
+    const balance = currencyRows[0]?.amount || 0;
+
+    if (userRows[0].key_system_bypassed) {
+      return res.status(400).json({ error: 'Ya tienes el bypass activo.' });
+    }
+
+    // 3. Verificar saldo
+    if (balance < BYPASS_COST) {
+      return res.status(400).json({ error: `Saldo insuficiente. Necesitas ${BYPASS_COST} EcoCoreBits.` });
+    }
+
+    // 4. Deducir costo y registrar transacción
+    const newBalance = balance - BYPASS_COST;
+    await client.query(
+      `INSERT INTO user_currency (user_id, currency_type, amount) VALUES ($1, 'ecocorebits', $2)
+             ON CONFLICT (user_id, currency_type) DO UPDATE SET amount = $2`,
+      [userId, newBalance]
+    );
+    await client.query(
+      'INSERT INTO ecocore_txs (user_id, concepto, monto, origen) VALUES ($1, $2, $3, $4)',
+      [userId, 'Bypass del Key System', -BYPASS_COST, 'EcoConsole']
+    );
+
+    // 5. Marcar el bypass como activo para el usuario
+    await client.query('UPDATE users SET key_system_bypassed = TRUE WHERE id = $1', [userId]);
+
+    await client.query('COMMIT');
+    res.json({ success: true, message: '¡Trato aceptado! El Key System ha sido desactivado permanentemente.', newBalance });
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error en /api/ecocore/bypass-key-system:', error);
+    res.status(500).json({ error: 'Error interno del servidor al procesar el trato.' });
+  } finally {
+    client.release();
+  }
 });
 
 /* ===== TIGER TASKS BACKUP ===== */
@@ -9920,7 +10221,7 @@ app.get('/api/tigertasks/backup/:userId', async (req, res) => {
 app.get('/api/ecoxion/subscription/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
-    
+
     const { rows } = await pool.query(
       `SELECT * FROM ecoxion_subscriptions 
        WHERE user_id = $1 AND active = true AND ends_at > NOW()
@@ -9928,11 +10229,11 @@ app.get('/api/ecoxion/subscription/:userId', async (req, res) => {
        LIMIT 1`,
       [userId]
     );
-    
+
     if (rows.length === 0) {
       return res.json(null);
     }
-    
+
     res.json({
       plan: rows[0].plan,
       startsAt: rows[0].starts_at,
@@ -9948,44 +10249,44 @@ app.get('/api/ecoxion/subscription/:userId', async (req, res) => {
 // POST - Suscribirse a un plan
 app.post('/api/ecoxion/subscribe', async (req, res) => {
   const { userId, plan } = req.body;
-  
+
   if (!userId || !plan) {
     return res.status(400).json({ error: 'Faltan datos' });
   }
-  
+
   if (plan !== 'pro') {
     return res.status(400).json({ error: 'Plan no válido' });
   }
-  
+
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    
+
     // Verificar que el usuario existe en Ocean Pay
     const { rows: userRows } = await client.query(
       'SELECT id, ecoxionums FROM ocean_pay_users WHERE id::text = $1',
       [userId]
     );
-    
+
     if (userRows.length === 0) {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
-    
+
     // Verificar saldo (750 Ecoxionums)
     const currentBalance = userRows[0].ecoxionums || 0;
     if (currentBalance < 750) {
       await client.query('ROLLBACK');
       return res.status(400).json({ error: 'Saldo insuficiente. Necesitas 750 Ecoxionums.' });
     }
-    
+
     // Descontar Ecoxionums
     const newBalance = currentBalance - 750;
     await client.query(
       'UPDATE ocean_pay_users SET ecoxionums = $1 WHERE id::text = $2',
       [newBalance, userId]
     );
-    
+
     // Cerrar suscripciones anteriores activas
     await client.query(
       `UPDATE ecoxion_subscriptions 
@@ -9993,18 +10294,18 @@ app.post('/api/ecoxion/subscribe', async (req, res) => {
        WHERE user_id = $1 AND active = true`,
       [userId]
     );
-    
+
     // Crear nueva suscripción (30 días)
     const now = new Date();
     const endsAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-    
+
     const { rows: subRows } = await client.query(
       `INSERT INTO ecoxion_subscriptions (user_id, plan, starts_at, ends_at, active)
        VALUES ($1, $2, $3, $4, true)
        RETURNING *`,
       [userId, plan, now, endsAt]
     );
-    
+
     // Registrar transacción en Ocean Pay
     try {
       await client.query(
@@ -10020,9 +10321,9 @@ app.post('/api/ecoxion/subscribe', async (req, res) => {
         [userId, 'Suscripción Plan Pro (Ecoxion)', -750, 'Ecoxion']
       );
     }
-    
+
     await client.query('COMMIT');
-    
+
     res.json({
       success: true,
       subscription: {
@@ -10044,11 +10345,11 @@ app.post('/api/ecoxion/subscribe', async (req, res) => {
 // POST - Cancelar suscripción
 app.post('/api/ecoxion/subscription/cancel', async (req, res) => {
   const { userId } = req.body;
-  
+
   if (!userId) {
     return res.status(400).json({ error: 'Falta userId' });
   }
-  
+
   try {
     const { rows } = await pool.query(
       `UPDATE ecoxion_subscriptions 
@@ -10057,11 +10358,11 @@ app.post('/api/ecoxion/subscription/cancel', async (req, res) => {
        RETURNING *`,
       [userId]
     );
-    
+
     if (rows.length === 0) {
       return res.status(400).json({ error: 'No tienes una suscripción activa' });
     }
-    
+
     res.json({
       success: true,
       message: 'Suscripción cancelada. Seguirás teniendo acceso hasta la fecha de vencimiento.'
@@ -10127,7 +10428,7 @@ async function ensureQuizTables() {
 app.post('/api/quiz/create', async (req, res) => {
   try {
     const { userId, title, description, questions } = req.body;
-    
+
     if (!title || !questions || !Array.isArray(questions) || questions.length === 0) {
       return res.status(400).json({ error: 'Título y preguntas son requeridos' });
     }
@@ -10150,7 +10451,7 @@ app.get('/api/quiz/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { rows } = await pool.query('SELECT * FROM quizzes WHERE id = $1', [id]);
-    
+
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Quiz no encontrado' });
     }
@@ -10191,7 +10492,7 @@ app.delete('/api/quiz/:id', async (req, res) => {
 app.post('/api/quiz/start-session', async (req, res) => {
   try {
     const { quizId, hostId } = req.body;
-    
+
     if (!quizId) {
       return res.status(400).json({ error: 'Quiz ID es requerido' });
     }
@@ -10214,7 +10515,7 @@ app.post('/api/quiz/start-session', async (req, res) => {
 
     // Obtener el quiz
     const { rows: quizRows } = await pool.query('SELECT * FROM quizzes WHERE id = $1', [quizId]);
-    
+
     if (quizRows.length === 0) {
       return res.status(404).json({ error: 'Quiz no encontrado' });
     }
@@ -10222,10 +10523,10 @@ app.post('/api/quiz/start-session', async (req, res) => {
     // Almacenar en memoria
     const quiz = quizRows[0];
     // Asegurar que las preguntas estén parseadas y normalizadas
-    let questions = typeof quiz.questions === 'string' 
-      ? JSON.parse(quiz.questions) 
+    let questions = typeof quiz.questions === 'string'
+      ? JSON.parse(quiz.questions)
       : quiz.questions;
-    
+
     // Normalizar correctIndex a números para todas las preguntas
     questions = questions.map(q => {
       if (q.correctIndex !== undefined && q.correctIndex !== null) {
@@ -10237,7 +10538,7 @@ app.post('/api/quiz/start-session', async (req, res) => {
       }
       return q;
     });
-    
+
     activeRooms.set(roomPin, {
       sessionId: rows[0].id,
       quizId: quizId,
@@ -10260,10 +10561,10 @@ app.post('/api/quiz/start-session', async (req, res) => {
 app.get('/api/quiz/session/:pin', async (req, res) => {
   try {
     const { pin } = req.params;
-    
+
     // Primero buscar en memoria
     let room = activeRooms.get(pin);
-    
+
     // Si no está en memoria, buscar en BD y recrear en memoria si está activa
     if (!room) {
       const { rows } = await pool.query(
@@ -10273,17 +10574,17 @@ app.get('/api/quiz/session/:pin', async (req, res) => {
          WHERE qs.room_pin = $1 AND qs.state IN ('waiting', 'playing')`,
         [pin]
       );
-      
+
       if (rows.length === 0) {
         return res.status(404).json({ error: 'Sala no encontrada' });
       }
-      
+
       const session = rows[0];
       // Parsear y normalizar preguntas
-      let questions = typeof session.questions === 'string' 
-        ? JSON.parse(session.questions) 
+      let questions = typeof session.questions === 'string'
+        ? JSON.parse(session.questions)
         : session.questions;
-      
+
       // Normalizar correctIndex a números
       questions = questions.map(q => {
         if (q.correctIndex !== undefined && q.correctIndex !== null) {
@@ -10295,7 +10596,7 @@ app.get('/api/quiz/session/:pin', async (req, res) => {
         }
         return q;
       });
-      
+
       // Recrear sala en memoria
       room = {
         sessionId: session.id,
@@ -10312,20 +10613,20 @@ app.get('/api/quiz/session/:pin', async (req, res) => {
         state: session.state,
         startTime: session.started_at ? new Date(session.started_at).getTime() : null
       };
-      
+
       // Cargar jugadores desde BD
       const { rows: playerRows } = await pool.query(
         'SELECT player_id, player_name, score FROM quiz_players WHERE session_id = $1',
         [session.id]
       );
-      
+
       room.players = playerRows.map(p => ({
         id: p.player_id,
         name: p.player_name,
         score: p.score || 0,
         answers: []
       }));
-      
+
       activeRooms.set(pin, room);
     }
 
@@ -10355,10 +10656,10 @@ io.on('connection', (socket) => {
 
     socket.join(`room-${roomPin}`);
     socket.join(`host-${roomPin}`);
-    
+
     // Enviar información del quiz y jugadores actuales
-    socket.emit('host-joined', { 
-      roomPin, 
+    socket.emit('host-joined', {
+      roomPin,
       quiz: room.quiz,
       players: room.players.map(p => ({ id: p.id, name: p.name, score: p.score }))
     });
@@ -10430,10 +10731,10 @@ io.on('connection', (socket) => {
     ).catch(err => console.error('Error actualizando sesión:', err));
 
     // Obtener preguntas
-    let questions = typeof room.quiz.questions === 'string' 
-      ? JSON.parse(room.quiz.questions) 
+    let questions = typeof room.quiz.questions === 'string'
+      ? JSON.parse(room.quiz.questions)
       : room.quiz.questions;
-    
+
     // Normalizar correctIndex a números si es necesario
     const normalizedQuestions = questions.map(q => {
       if (q.correctIndex !== undefined && q.correctIndex !== null) {
@@ -10445,10 +10746,10 @@ io.on('connection', (socket) => {
       }
       return q;
     });
-    
+
     // Actualizar el room con las preguntas normalizadas
     room.quiz.questions = normalizedQuestions;
-    
+
     if (!normalizedQuestions || normalizedQuestions.length === 0) {
       socket.emit('error', { message: 'El quiz no tiene preguntas' });
       return;
@@ -10472,7 +10773,7 @@ io.on('connection', (socket) => {
       socket.emit('error', { message: 'Sala no encontrada' });
       return;
     }
-    
+
     if (room.state !== 'playing') {
       console.log('Sala no está en estado playing:', room.state);
       socket.emit('error', { message: 'El juego no está en curso' });
@@ -10486,7 +10787,7 @@ io.on('connection', (socket) => {
       socket.emit('error', { message: 'Jugador no encontrado en la sala' });
       return;
     }
-    
+
     // Verificar si el jugador ya respondió esta pregunta
     const alreadyAnswered = player.answers.some(a => a.questionIndex === room.currentQuestion);
     if (alreadyAnswered) {
@@ -10495,10 +10796,10 @@ io.on('connection', (socket) => {
     }
 
     // Obtener y normalizar preguntas
-    let questions = typeof room.quiz.questions === 'string' 
-      ? JSON.parse(room.quiz.questions) 
+    let questions = typeof room.quiz.questions === 'string'
+      ? JSON.parse(room.quiz.questions)
       : room.quiz.questions;
-    
+
     // Normalizar correctIndex a números si es necesario
     const normalizedQuestions = questions.map(q => {
       if (q.correctIndex !== undefined && q.correctIndex !== null) {
@@ -10510,12 +10811,12 @@ io.on('connection', (socket) => {
       }
       return q;
     });
-    
+
     // Actualizar el room con las preguntas normalizadas
     room.quiz.questions = normalizedQuestions;
-    
+
     const currentQ = normalizedQuestions[room.currentQuestion];
-    
+
     let correct = false;
     let points = 0;
 
@@ -10532,12 +10833,12 @@ io.on('connection', (socket) => {
       correct = parseInt(answer) === currentQ.correctIndex;
     } else if (currentQ.type === 'true-false') {
       // Verdadero/Falso: se compara con correctIndex (0 = Verdadero, 1 = Falso)
-      console.log('Validando true-false:', { 
-        answer, 
-        answerParsed: parseInt(answer), 
-        correctIndex: currentQ.correctIndex, 
+      console.log('Validando true-false:', {
+        answer,
+        answerParsed: parseInt(answer),
+        correctIndex: currentQ.correctIndex,
         correctIndexType: typeof currentQ.correctIndex,
-        question: currentQ 
+        question: currentQ
       });
       correct = parseInt(answer) === currentQ.correctIndex;
       console.log('Resultado validación true-false:', correct);
@@ -10565,7 +10866,7 @@ io.on('connection', (socket) => {
       const maxTime = currentQ.timeLimit || 30;
       const timeBonus = Math.max(0, Math.floor((maxTime - timeTaken) / maxTime * 500));
       let basePoints = 1000 + timeBonus;
-      
+
       // Aplicar modificadores
       if (currentQ.modifier === 'x2') {
         basePoints *= 2;
@@ -10580,7 +10881,7 @@ io.on('connection', (socket) => {
         const streak = player.answers.filter(a => a.correct).length;
         basePoints += streak * 100;
       }
-      
+
       points = basePoints;
       player.score += points;
       room.scores[player.id] = player.score;
@@ -10604,7 +10905,7 @@ io.on('connection', (socket) => {
     ).catch(err => {
       console.error('Error guardando respuesta:', err);
     });
-    
+
     // Notificar al host sobre respuesta recibida
     console.log('Enviando player-answer al host:', { playerId: player.id, playerName: player.name });
     io.to(`host-${roomPin}`).emit('player-answer', {
@@ -10615,7 +10916,7 @@ io.on('connection', (socket) => {
 
     socket.emit('answer-received', { correct, points, totalScore: player.score });
     console.log('Respuesta procesada:', { playerName: player.name, correct, points, totalScore: player.score });
-    
+
     // Enviar leaderboard actualizado a todos los jugadores
     const leaderboard = room.players
       .map(p => ({ id: p.id, name: p.name, score: p.score }))
@@ -10627,7 +10928,7 @@ io.on('connection', (socket) => {
   socket.on('get-current-leaderboard', ({ roomPin }) => {
     const room = activeRooms.get(roomPin);
     if (!room) return;
-    
+
     const leaderboard = room.players
       .map(p => ({ id: p.id, name: p.name, score: p.score }))
       .sort((a, b) => b.score - a.score);
@@ -10639,10 +10940,10 @@ io.on('connection', (socket) => {
     const room = activeRooms.get(roomPin);
     if (!room) return;
 
-    const questions = typeof room.quiz.questions === 'string' 
-      ? JSON.parse(room.quiz.questions) 
+    const questions = typeof room.quiz.questions === 'string'
+      ? JSON.parse(room.quiz.questions)
       : room.quiz.questions;
-    
+
     room.currentQuestion++;
 
     // Actualizar en BD
@@ -10680,11 +10981,11 @@ io.on('connection', (socket) => {
     const room = activeRooms.get(roomPin);
     if (!room) return;
 
-    const questions = typeof room.quiz.questions === 'string' 
-      ? JSON.parse(room.quiz.questions) 
+    const questions = typeof room.quiz.questions === 'string'
+      ? JSON.parse(room.quiz.questions)
       : room.quiz.questions;
     const currentQ = questions[room.currentQuestion];
-    
+
     // Calcular estadísticas de respuestas
     const answeredPlayers = room.players.filter(p => p.answers.length > room.currentQuestion);
     const stats = {
@@ -10834,7 +11135,7 @@ app.get('/deepdive/subscription/status', async (req, res) => {
       const nowTs = new Date();
       const ends = new Date(rows[0].ends_at);
       const msRemain = ends.getTime() - nowTs.getTime();
-      const daysRemaining = Math.ceil(msRemain / (1000*60*60*24));
+      const daysRemaining = Math.ceil(msRemain / (1000 * 60 * 60 * 24));
       const overdue = msRemain <= 0;
       return res.json({
         isActive: !overdue,
@@ -11004,7 +11305,7 @@ app.post('/deepdive/subscription/subscribe', async (req, res) => {
          VALUES ($1, $2, 'WC', 'failed', $3, $4, 'DeepDive Pro Subscription', $5)`,
         [String(getAppUserId(req) || opUid), normalizedAmount, 'Ocean Pay (WildCredits)', plan || 'unknown', err.message]
       );
-    } catch {}
+    } catch { }
 
     res.status(500).json({ error: 'Failed to process subscription' });
   } finally {
@@ -12161,7 +12462,7 @@ app.post('/wildx/api/posts/:id/donate', async (req, res) => {
       postId,
       amountWxt,
       amountWC: wcAmount
-    }).catch(() => {});
+    }).catch(() => { });
 
     res.json({ success: true, donated: wcAmount, amountWxt });
   } catch (err) {
@@ -12255,7 +12556,7 @@ app.post('/wildx/api/posts/:id/promote', async (req, res) => {
     createWildXNotification(wid, 'promotion', {
       postId,
       amount: cost
-    }).catch(() => {});
+    }).catch(() => { });
 
     res.json({ success: true, remainingWxt: newBal });
   } catch (err) {
@@ -13051,7 +13352,7 @@ async function ensureWordBattleTables() {
       ended_at TIMESTAMP
     )
   `);
-  
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS word_battle_games (
       id SERIAL PRIMARY KEY,
@@ -13062,7 +13363,7 @@ async function ensureWordBattleTables() {
       created_at TIMESTAMP DEFAULT NOW()
     )
   `);
-  
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS word_battle_rewards (
       id SERIAL PRIMARY KEY,
@@ -13073,7 +13374,7 @@ async function ensureWordBattleTables() {
       created_at TIMESTAMP DEFAULT NOW()
     )
   `);
-  
+
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_wb_rooms_code ON word_battle_rooms(room_code)`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_wb_rooms_status ON word_battle_rooms(status)`);
 }
@@ -13092,16 +13393,16 @@ function generateRoomCode() {
 app.post('/api/word-battle/room/create', async (req, res) => {
   try {
     await ensureWordBattleTables();
-    
+
     const { userId, playerName } = req.body;
-    
+
     if (!userId || !playerName) {
       return res.status(400).json({ error: 'Faltan datos' });
     }
-    
+
     let roomCode;
     let attempts = 0;
-    
+
     // Intentar generar un código único
     while (attempts < 10) {
       roomCode = generateRoomCode();
@@ -13109,24 +13410,24 @@ app.post('/api/word-battle/room/create', async (req, res) => {
         'SELECT id FROM word_battle_rooms WHERE room_code = $1',
         [roomCode]
       );
-      
+
       if (rows.length === 0) break;
       attempts++;
     }
-    
+
     if (attempts >= 10) {
       return res.status(500).json({ error: 'No se pudo generar código único' });
     }
-    
+
     const players = [{ userId, name: playerName, lives: 3, attempts: 0, eliminated: false, isHost: true }];
-    
+
     const { rows } = await pool.query(
       `INSERT INTO word_battle_rooms (room_code, host_id, players, status)
        VALUES ($1, $2, $3, 'waiting')
        RETURNING *`,
       [roomCode, userId, JSON.stringify(players)]
     );
-    
+
     res.json({ success: true, room: rows[0] });
   } catch (err) {
     console.error('Error en /api/word-battle/room/create:', err);
@@ -13138,44 +13439,44 @@ app.post('/api/word-battle/room/create', async (req, res) => {
 app.post('/api/word-battle/room/join', async (req, res) => {
   try {
     await ensureWordBattleTables();
-    
+
     const { roomCode, userId, playerName } = req.body;
-    
+
     if (!roomCode || !userId || !playerName) {
       return res.status(400).json({ error: 'Faltan datos' });
     }
-    
+
     const { rows } = await pool.query(
       'SELECT * FROM word_battle_rooms WHERE room_code = $1 AND status = $2',
       [roomCode.toUpperCase(), 'waiting']
     );
-    
+
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Sala no encontrada o ya iniciada' });
     }
-    
+
     const room = rows[0];
     const players = room.players || [];
-    
+
     if (players.length >= 6) {
       return res.status(400).json({ error: 'Sala llena (máximo 6 jugadores)' });
     }
-    
+
     if (players.some(p => p.userId === userId)) {
       return res.status(400).json({ error: 'Ya estás en esta sala' });
     }
-    
+
     if (players.some(p => p.name === playerName)) {
       return res.status(400).json({ error: 'Este nombre ya está en uso' });
     }
-    
+
     players.push({ userId, name: playerName, lives: 3, attempts: 0, eliminated: false, isHost: false });
-    
+
     await pool.query(
       'UPDATE word_battle_rooms SET players = $1 WHERE room_code = $2',
       [JSON.stringify(players), roomCode.toUpperCase()]
     );
-    
+
     res.json({ success: true, room: { ...room, players } });
   } catch (err) {
     console.error('Error en /api/word-battle/room/join:', err);
@@ -13187,18 +13488,18 @@ app.post('/api/word-battle/room/join', async (req, res) => {
 app.get('/api/word-battle/room/:roomCode', async (req, res) => {
   try {
     await ensureWordBattleTables();
-    
+
     const { roomCode } = req.params;
-    
+
     const { rows } = await pool.query(
       'SELECT * FROM word_battle_rooms WHERE room_code = $1',
       [roomCode.toUpperCase()]
     );
-    
+
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Sala no encontrada' });
     }
-    
+
     res.json(rows[0]);
   } catch (err) {
     console.error('Error en /api/word-battle/room/:roomCode:', err);
@@ -13210,34 +13511,34 @@ app.get('/api/word-battle/room/:roomCode', async (req, res) => {
 app.post('/api/word-battle/room/:roomCode/start', async (req, res) => {
   try {
     await ensureWordBattleTables();
-    
+
     const { roomCode } = req.params;
     const { userId } = req.body;
-    
+
     const { rows } = await pool.query(
       'SELECT * FROM word_battle_rooms WHERE room_code = $1',
       [roomCode.toUpperCase()]
     );
-    
+
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Sala no encontrada' });
     }
-    
+
     const room = rows[0];
-    
+
     if (room.host_id !== userId) {
       return res.status(403).json({ error: 'Solo el host puede iniciar el juego' });
     }
-    
+
     if (room.players.length < 2) {
       return res.status(400).json({ error: 'Se necesitan al menos 2 jugadores' });
     }
-    
+
     await pool.query(
       'UPDATE word_battle_rooms SET status = $1, started_at = NOW() WHERE room_code = $2',
       ['playing', roomCode.toUpperCase()]
     );
-    
+
     res.json({ success: true });
   } catch (err) {
     console.error('Error en /api/word-battle/room/:roomCode/start:', err);
@@ -13249,15 +13550,15 @@ app.post('/api/word-battle/room/:roomCode/start', async (req, res) => {
 app.post('/api/word-battle/room/:roomCode/update', async (req, res) => {
   try {
     await ensureWordBattleTables();
-    
+
     const { roomCode } = req.params;
     const { gameState } = req.body;
-    
+
     await pool.query(
       'UPDATE word_battle_rooms SET game_state = $1 WHERE room_code = $2',
       [JSON.stringify(gameState), roomCode.toUpperCase()]
     );
-    
+
     res.json({ success: true });
   } catch (err) {
     console.error('Error en /api/word-battle/room/:roomCode/update:', err);
@@ -13269,24 +13570,24 @@ app.post('/api/word-battle/room/:roomCode/update', async (req, res) => {
 app.post('/api/word-battle/room/:roomCode/leave', async (req, res) => {
   try {
     await ensureWordBattleTables();
-    
+
     const { roomCode } = req.params;
     const { userId } = req.body;
-    
+
     const { rows } = await pool.query(
       'SELECT * FROM word_battle_rooms WHERE room_code = $1',
       [roomCode.toUpperCase()]
     );
-    
+
     if (rows.length === 0) {
       return res.status(404).json({ error: 'Sala no encontrada' });
     }
-    
+
     const room = rows[0];
     let players = room.players || [];
-    
+
     players = players.filter(p => p.userId !== userId);
-    
+
     if (players.length === 0) {
       // Si no quedan jugadores, eliminar la sala
       await pool.query('DELETE FROM word_battle_rooms WHERE room_code = $1', [roomCode.toUpperCase()]);
@@ -13305,7 +13606,7 @@ app.post('/api/word-battle/room/:roomCode/leave', async (req, res) => {
         );
       }
     }
-    
+
     res.json({ success: true });
   } catch (err) {
     console.error('Error en /api/word-battle/room/:roomCode/leave:', err);
@@ -13317,16 +13618,16 @@ app.post('/api/word-battle/room/:roomCode/leave', async (req, res) => {
 app.post('/api/word-battle/verify', async (req, res) => {
   try {
     const { word } = req.body;
-    
+
     if (!word || typeof word !== 'string') {
       return res.json({ valid: false });
     }
-    
+
     const upperWord = word.toUpperCase().trim();
-    
+
     // Verificar si la palabra está en el diccionario
     const valid = SPANISH_WORDS.has(upperWord);
-    
+
     res.json({ valid });
   } catch (err) {
     console.error('Error en /api/word-battle/verify:', err);
@@ -13338,20 +13639,20 @@ app.post('/api/word-battle/verify', async (req, res) => {
 app.post('/api/word-battle/reward', async (req, res) => {
   try {
     await ensureWordBattleTables();
-    
+
     const { userId, playerName, position, reward } = req.body;
-    
+
     if (!userId || !playerName || !position || !reward) {
       return res.status(400).json({ error: 'Faltan datos' });
     }
-    
+
     // Guardar recompensa
     await pool.query(
       `INSERT INTO word_battle_rewards (user_id, player_name, position, reward)
        VALUES ($1, $2, $3, $4)`,
       [userId, playerName, position, reward]
     );
-    
+
     // Actualizar Ecoxionums del usuario si existe en la base de datos
     try {
       await pool.query(
@@ -13364,7 +13665,7 @@ app.post('/api/word-battle/reward', async (req, res) => {
       // Si el usuario no existe en ocean_pay_users, solo guardamos la recompensa
       console.log('Usuario no encontrado en ocean_pay_users, solo se guarda la recompensa');
     }
-    
+
     res.json({ success: true });
   } catch (err) {
     console.error('Error en /api/word-battle/reward:', err);
@@ -13376,9 +13677,9 @@ app.post('/api/word-battle/reward', async (req, res) => {
 app.get('/api/word-battle/rewards/:userId', async (req, res) => {
   try {
     await ensureWordBattleTables();
-    
+
     const { userId } = req.params;
-    
+
     const { rows } = await pool.query(
       `SELECT * FROM word_battle_rewards 
        WHERE user_id = $1 
@@ -13386,7 +13687,7 @@ app.get('/api/word-battle/rewards/:userId', async (req, res) => {
        LIMIT 50`,
       [userId]
     );
-    
+
     res.json(rows);
   } catch (err) {
     console.error('Error en /api/word-battle/rewards/:userId:', err);
@@ -13402,7 +13703,7 @@ app.get('/api/word-battle/rewards/:userId', async (req, res) => {
 async function ensureUserCurrencyTable() {
   try {
     console.log("Asegurando que la tabla 'user_currency' exista...");
-    
+
     const client = await pool.connect();
     await client.query(`
       CREATE TABLE IF NOT EXISTS user_currency (
@@ -13423,7 +13724,7 @@ async function ensureUserCurrencyTable() {
     `);
     client.release();
     console.log("Tabla 'user_currency' asegurada y lista para nadar.");
-    
+
   } catch (err) {
     console.error("❌ ERROR al asegurar la tabla 'user_currency':", err);
   }
@@ -13433,7 +13734,7 @@ async function ensureUserCurrencyTable() {
 // CÓDIGO DE INICIALIZACIÓN (Al final de server.js)
 // =================================================================
 
-await ensureDatabase(); 
+await ensureDatabase();
 await ensureTables();
 await ensureQuizTables();
 await ensureWordBattleTables();
@@ -13453,7 +13754,7 @@ httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 API corriendo en http://0.0.0.0:${PORT}`);
   console.log(`� Puerto:  ${PORT}`);
   console.log(`🎮 Sistema de Quiz Kahoot activo`);
-  
+
   // Ejecutar migraciones una sola vez
   if (!migrationExecuted) {
     migrationExecuted = true;

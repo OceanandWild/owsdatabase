@@ -1,5 +1,4 @@
 
-
 // 1️⃣ Después el resto
 import express from "express";
 import cors from "cors";
@@ -199,9 +198,30 @@ async function runDatabaseMigrations() {
         OR following_id NOT IN (SELECT id FROM users_nat)
     `).catch(() => { });
 
+    // 4. Crear tabla reviews_nat si no existe
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS reviews_nat (
+        id SERIAL PRIMARY KEY,
+        reviewer_id INTEGER NOT NULL REFERENCES users_nat(id) ON DELETE CASCADE,
+        reviewed_user_id INTEGER NOT NULL REFERENCES users_nat(id) ON DELETE CASCADE,
+        product_id INTEGER REFERENCES products_nat(id) ON DELETE SET NULL,
+        rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+        comment TEXT,
+        review_type VARCHAR(20) NOT NULL CHECK (review_type IN ('seller', 'buyer')),
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `).catch(() => console.log('⚠️ Tabla reviews_nat ya existe'));
+
     // Limpiar user_reviews_nat (si existe)
     await pool.query(`
       DELETE FROM user_reviews_nat 
+      WHERE reviewer_id NOT IN (SELECT id FROM users_nat)
+        OR reviewed_user_id NOT IN (SELECT id FROM users_nat)
+    `).catch(() => { });
+
+    // Limpiar reviews_nat
+    await pool.query(`
+      DELETE FROM reviews_nat 
       WHERE reviewer_id NOT IN (SELECT id FROM users_nat)
         OR reviewed_user_id NOT IN (SELECT id FROM users_nat)
     `).catch(() => { });
@@ -4417,6 +4437,159 @@ app.get('/natmarket/products/:id/chat-participants', async (req, res) => {
     res.json(rows);
   } catch (err) {
     handleNatError(res, err, 'GET /natmarket/products/:id/chat-participants');
+  }
+});
+
+/* ---------- SISTEMA DE REVIEWS/REPUTACIÓN ---------- */
+
+// Crear una review (calificación)
+app.post('/natmarket/reviews', async (req, res) => {
+  try {
+    const { reviewer_id, reviewed_user_id, product_id, rating, comment, review_type } = req.body;
+
+    if (!reviewer_id || !reviewed_user_id || !rating || !review_type) {
+      return res.status(400).json({ error: 'reviewer_id, reviewed_user_id, rating y review_type son requeridos' });
+    }
+
+    if (rating < 1 || rating > 5) {
+      return res.status(400).json({ error: 'rating debe estar entre 1 y 5' });
+    }
+
+    if (!['seller', 'buyer'].includes(review_type)) {
+      return res.status(400).json({ error: 'review_type debe ser "seller" o "buyer"' });
+    }
+
+    // No permitir auto-calificación
+    if (Number(reviewer_id) === Number(reviewed_user_id)) {
+      return res.status(400).json({ error: 'No puedes calificarte a ti mismo' });
+    }
+
+    // Insertar review
+    const { rows } = await pool.query(`
+      INSERT INTO reviews_nat (reviewer_id, reviewed_user_id, product_id, rating, comment, review_type, created_at)
+      VALUES ($1, $2, $3, $4, $5, $6, NOW())
+      RETURNING *
+    `, [reviewer_id, reviewed_user_id, product_id || null, rating, comment || null, review_type]);
+
+    res.json(rows[0]);
+  } catch (err) {
+    handleNatError(res, err, 'POST /natmarket/reviews');
+  }
+});
+
+// Obtener reviews de un usuario
+app.get('/natmarket/users/:userId/reviews', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const { type } = req.query; // 'seller' o 'buyer'
+
+    let query = `
+      SELECT 
+        r.*,
+        reviewer.username as reviewer_username,
+        p.name as product_name
+      FROM reviews_nat r
+      JOIN users_nat reviewer ON r.reviewer_id = reviewer.id
+      LEFT JOIN products_nat p ON r.product_id = p.id
+      WHERE r.reviewed_user_id = $1
+    `;
+
+    const params = [userId];
+
+    if (type === 'seller' || type === 'buyer') {
+      query += ` AND r.review_type = $2`;
+      params.push(type);
+    }
+
+    query += ` ORDER BY r.created_at DESC`;
+
+    const { rows } = await pool.query(query, params);
+
+    res.json(rows);
+  } catch (err) {
+    handleNatError(res, err, 'GET /natmarket/users/:userId/reviews');
+  }
+});
+
+// Obtener reputación agregada de un usuario
+app.get('/natmarket/users/:userId/reputation', async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Calcular stats como vendedor
+    const { rows: sellerStats } = await pool.query(`
+      SELECT 
+        COUNT(*) as seller_total_reviews,
+        AVG(rating) as seller_avg_rating
+      FROM reviews_nat
+      WHERE reviewed_user_id = $1 AND review_type = 'seller'
+    `, [userId]);
+
+    // Calcular stats como comprador
+    const { rows: buyerStats } = await pool.query(`
+      SELECT 
+        COUNT(*) as buyer_total_reviews,
+        AVG(rating) as buyer_avg_rating
+      FROM reviews_nat
+      WHERE reviewed_user_id = $1 AND review_type = 'buyer'
+    `, [userId]);
+
+    // Calcular ventas y compras totales
+    const { rows: salesData } = await pool.query(`
+      SELECT COUNT(*) as seller_total_sales
+      FROM products_nat
+      WHERE user_id = $1 AND sold = true
+    `, [userId]);
+
+    const { rows: purchasesData } = await pool.query(`
+      SELECT COUNT(*) as buyer_total_purchases
+      FROM products_nat
+      WHERE buyer_id = $1 AND sold = true
+    `, [userId]);
+
+    // Determinar badges
+    const sellerRating = parseFloat(sellerStats[0].seller_avg_rating) || 0;
+    const sellerReviews = parseInt(sellerStats[0].seller_total_reviews) || 0;
+    const buyerRating = parseFloat(buyerStats[0].buyer_avg_rating) || 0;
+    const buyerReviews = parseInt(buyerStats[0].buyer_total_reviews) || 0;
+
+    const getSellerBadge = (avg, count) => {
+      if (count === 0) return '🌱 Vendedor Nuevo';
+      if (avg < 3) return '⚠️ Vendedor Regular';
+      if (count < 5) return '🌿 Vendedor Básico';
+      if (avg >= 4.8 && count >= 50) return '👑 Vendedor Leyenda';
+      if (avg >= 4.5 && count >= 20) return '🏆 Vendedor Maestro';
+      if (avg >= 4.3 && count >= 10) return '💎 Vendedor Experto';
+      if (avg >= 4.0) return '⭐ Vendedor Experimentado';
+      return '✅ Vendedor Confiable';
+    };
+
+    const getBuyerBadge = (avg, count) => {
+      if (count === 0) return '🌱 Comprador Nuevo';
+      if (avg < 3) return '⚠️ Comprador Regular';
+      if (count < 5) return '🌿 Comprador Básico';
+      if (avg >= 4.8 && count >= 50) return '👑 Comprador Leyenda';
+      if (avg >= 4.5 && count >= 20) return '🏆 Comprador Maestro';
+      if (avg >= 4.3 && count >= 10) return '💎 Comprador Experto';
+      if (avg >= 4.0) return '⭐ Comprador Experimentado';
+      return '✅ Comprador Confiable';
+    };
+
+    res.json({
+      user_id: parseInt(userId),
+      seller_avg_rating: parseFloat(sellerRating.toFixed(2)),
+      seller_total_reviews: sellerReviews,
+      seller_total_sales: parseInt(salesData[0].seller_total_sales) || 0,
+      buyer_avg_rating: parseFloat(buyerRating.toFixed(2)),
+      buyer_total_reviews: buyerReviews,
+      buyer_total_purchases: parseInt(purchasesData[0].buyer_total_purchases) || 0,
+      badge: {
+        seller: getSellerBadge(sellerRating, sellerReviews),
+        buyer: getBuyerBadge(buyerRating, buyerReviews)
+      }
+    });
+  } catch (err) {
+    handleNatError(res, err, 'GET /natmarket/users/:userId/reputation');
   }
 });
 

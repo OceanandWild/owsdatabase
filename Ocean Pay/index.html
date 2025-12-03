@@ -11,6 +11,7 @@
     :root {
       --bg: #0a0e1a;
       --card: #0f1624;
+      --sidebar: #0b101e;
       --accent: #22d3ee;
       --text: #e0f2fe;
       --ok: #10b981;
@@ -21,6 +22,7 @@
       --orange: #f97316;
       --wild: #667eea;
       --gold: #ffd700;
+      --tides: #06b6d4;
       --shadow-accent: 0 0 40px rgba(34, 211, 238, .3);
       --shadow-card: 0 8px 32px rgba(0, 0, 0, .4);
     }
@@ -28,375 +30,256 @@
     * {
       box-sizing: border-box;
       margin: 0;
+      padding: 0;
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     }
 
     body {
       background: linear-gradient(135deg, #0a0e1a 0%, #1a1f3a 50%, #0f1624 100%);
       background-attachment: fixed;
-      position: relative;
       color: var(--text);
+      height: 100vh;
+      overflow: hidden;
       display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      padding: 1.5rem;
-      overflow-x: hidden;
     }
 
+    /* Background Effects */
     body::before {
       content: '';
       position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
+      inset: 0;
       background: radial-gradient(circle at 20% 50%, rgba(34, 211, 238, .1) 0%, transparent 50%),
         radial-gradient(circle at 80% 80%, rgba(167, 85, 247, .1) 0%, transparent 50%);
       pointer-events: none;
-      z-index: 0;
+      z-index: -1;
     }
 
-    body::after {
-      content: '';
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background-image:
-        radial-gradient(circle at 1px 1px, rgba(255, 255, 255, .05) 1px, transparent 0);
-      background-size: 50px 50px;
-      pointer-events: none;
-      z-index: 0;
-      opacity: .3;
-    }
-
-    .ocean-card {
+    /* App Layout */
+    .app-layout {
+      display: flex;
       width: 100%;
-      max-width: 1200px;
-      background: linear-gradient(135deg, rgba(15, 22, 36, .95) 0%, rgba(10, 14, 26, .98) 100%);
-      backdrop-filter: blur(20px) saturate(180%);
-      border: 1px solid rgba(34, 211, 238, .2);
-      border-radius: 2rem;
-      padding: 3rem;
-      box-shadow: var(--shadow-card), var(--shadow-accent), inset 0 1px 0 rgba(255, 255, 255, .1);
-      position: relative;
-      z-index: 1;
-      animation: slideUp .6s ease-out;
+      height: 100%;
     }
 
-    @keyframes slideUp {
-      from {
-        opacity: 0;
-        transform: translateY(30px);
-      }
-
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
+    /* Sidebar */
+    .sidebar {
+      width: 280px;
+      background: rgba(11, 16, 30, 0.8);
+      backdrop-filter: blur(20px);
+      border-right: 1px solid rgba(255, 255, 255, 0.05);
+      display: flex;
+      flex-direction: column;
+      padding: 2rem;
+      z-index: 10;
+      transition: transform 0.3s ease;
     }
 
-    .ocean-header {
-      text-align: center;
+    .brand {
       margin-bottom: 3rem;
-      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
     }
 
-    .ocean-header h1 {
-      font-size: 3rem;
-      font-weight: 900;
-      margin-bottom: .5rem;
-      background: linear-gradient(135deg, #22d3ee 0%, #67e8f9 50%, #a6e1ff 100%);
+    .brand h1 {
+      font-size: 1.5rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #22d3ee 0%, #67e8f9 100%);
       -webkit-background-clip: text;
       background-clip: text;
       color: transparent;
-      text-shadow: 0 0 40px rgba(34, 211, 238, .5);
-      letter-spacing: -.02em;
-      position: relative;
-      display: inline-block;
+      letter-spacing: -0.02em;
     }
 
-    .ocean-header h1::after {
-      content: '';
-      position: absolute;
-      bottom: -10px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 100px;
-      height: 4px;
-      background: linear-gradient(90deg, transparent, var(--accent), transparent);
-      border-radius: 2px;
+    .nav-menu {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      flex: 1;
     }
 
-    .ocean-header .subtitle {
-      font-size: 1rem;
-      color: #9bb0c2;
-      font-weight: 400;
-      margin-top: 1rem;
-      letter-spacing: .05em;
-    }
-
-    label {
-      font-size: .875rem;
-      margin-bottom: .75rem;
-      display: block;
+    .nav-item {
+      padding: 1rem;
+      border-radius: 12px;
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      text-align: left;
       font-weight: 600;
-      color: #b8d4e8;
-      text-transform: uppercase;
-      letter-spacing: .05em;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      transition: all 0.2s ease;
+      font-size: 1rem;
     }
 
+    .nav-item:hover {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text);
+    }
+
+    .nav-item.active {
+      background: linear-gradient(90deg, rgba(34, 211, 238, 0.1) 0%, transparent 100%);
+      color: var(--accent);
+      border-left: 3px solid var(--accent);
+    }
+
+    .user-profile-mini {
+      margin-top: auto;
+      padding: 1rem;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .user-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), #06b6d4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      color: #0a0e1a;
+    }
+
+    .user-info-text {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .user-name {
+      font-weight: 700;
+      font-size: 0.9rem;
+    }
+
+    .user-id {
+      font-size: 0.75rem;
+      color: #64748b;
+    }
+
+    /* Main Content */
+    .main-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 2rem 3rem;
+      position: relative;
+    }
+
+    .main-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+    }
+
+    .page-title {
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--text);
+    }
+
+    /* Auth Overlay */
+    .auth-overlay {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+    }
+
+    .auth-card {
+      width: 100%;
+      max-width: 450px;
+      background: rgba(15, 22, 36, 0.95);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(34, 211, 238, 0.2);
+      border-radius: 2rem;
+      padding: 3rem;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+      text-align: center;
+    }
+
+    /* Forms */
     input {
       width: 100%;
       padding: 1rem 1.25rem;
       border-radius: .75rem;
       border: 2px solid rgba(34, 211, 238, .2);
       background: rgba(10, 14, 26, .6);
-      backdrop-filter: blur(10px);
       color: var(--text);
       margin-bottom: 1.25rem;
       font-size: 1rem;
       transition: all .3s ease;
-      font-weight: 500;
     }
 
     input:focus {
       outline: none;
       border-color: var(--accent);
-      box-shadow: 0 0 0 4px rgba(34, 211, 238, .1), 0 0 20px rgba(34, 211, 238, .2);
       background: rgba(10, 14, 26, .8);
-      transform: translateY(-2px);
-    }
-
-    input::placeholder {
-      color: #6b7a8f;
-      opacity: .7;
     }
 
     button {
       cursor: pointer;
       width: 100%;
-      padding: 1rem 1.5rem;
+      padding: 1rem;
       border: none;
       border-radius: .75rem;
       font-weight: 700;
       background: linear-gradient(135deg, var(--accent) 0%, #06b6d4 100%);
       color: #0a0e1a;
-      transition: all .3s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: all .3s ease;
       font-size: 1rem;
-      position: relative;
-      overflow: hidden;
-      box-shadow: 0 4px 15px rgba(34, 211, 238, .3);
       text-transform: uppercase;
       letter-spacing: .05em;
     }
 
-    button::before {
-      content: '';
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 0;
-      height: 0;
-      border-radius: 50%;
-      background: rgba(255, 255, 255, .3);
-      transform: translate(-50%, -50%);
-      transition: width .6s, height .6s;
-    }
-
-    button:hover::before {
-      width: 300px;
-      height: 300px;
-    }
-
     button:hover {
-      background: linear-gradient(135deg, #67e8f9 0%, var(--accent) 100%);
       transform: translateY(-2px);
-      box-shadow: 0 6px 25px rgba(34, 211, 238, .4);
-    }
-
-    button:active {
-      transform: translateY(0) scale(.98);
+      box-shadow: 0 4px 15px rgba(34, 211, 238, .3);
     }
 
     button.secondary {
       background: transparent;
       border: 2px solid var(--accent);
       color: var(--accent);
-      box-shadow: none;
-    }
-
-    button.secondary::before {
-      display: none;
     }
 
     button.secondary:hover {
       background: rgba(34, 211, 238, .1);
-      border-color: #67e8f9;
-      color: #67e8f9;
     }
 
-    .msg {
-      font-size: .85rem;
-      margin-top: .5rem;
-    }
-
-    .error {
-      color: var(--err);
-    }
-
-    .success {
-      color: var(--ok);
-    }
-
-    .hidden {
-      display: none !important;
-    }
-
-    /* Formularios con fade */
-    .form-box {
-      display: flex;
-      flex-direction: column;
-      animation: fadeIn .4s ease;
-    }
-
-    @keyframes fadeIn {
-      from {
-        opacity: 0;
-        transform: translateY(-10px);
-      }
-
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    /* Wallet - Mejoras Profesionales */
-    .section-title {
-      font-size: .875rem;
-      color: #9bb0c2;
-      text-transform: uppercase;
-      letter-spacing: .1em;
-      margin: 2rem 0 1.5rem 0;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      gap: .75rem;
-    }
-
-    .section-title::before {
-      content: '';
-      flex: 1;
-      height: 1px;
-      background: linear-gradient(90deg, transparent, rgba(34, 211, 238, .3), transparent);
-    }
-
-    .section-title::after {
-      content: '';
-      flex: 1;
-      height: 1px;
-      background: linear-gradient(90deg, transparent, rgba(34, 211, 238, .3), transparent);
-    }
-
+    /* Balance Grid */
     .balance-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
       gap: 1.5rem;
       margin-bottom: 2.5rem;
     }
 
-    @media (min-width: 1400px) {
-      .balance-grid {
-        grid-template-columns: repeat(3, 1fr);
-      }
-    }
-
-    @media (min-width: 768px) and (max-width: 1399px) {
-      .balance-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
-    }
-
-    @media (max-width: 767px) {
-      .balance-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .ocean-card {
-        padding: 2rem 1.5rem;
-      }
-
-      .ocean-header h1 {
-        font-size: 2.25rem;
-      }
-
-      .currency-card {
-        padding: 1.5rem;
-      }
-
-      .currency-card .amount {
-        font-size: 1.75rem;
-      }
-    }
-
     .currency-card {
-      background: linear-gradient(135deg, rgba(255, 255, 255, .08) 0%, rgba(255, 255, 255, .04) 100%);
-      backdrop-filter: blur(15px);
-      border: 1px solid rgba(34, 211, 238, .2);
-      border-radius: 1.25rem;
-      padding: 1.75rem;
-      display: flex;
-      flex-direction: column;
-      gap: .75rem;
+      background: linear-gradient(135deg, rgba(255, 255, 255, .05) 0%, rgba(255, 255, 255, .02) 100%);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 1.5rem;
+      padding: 1.5rem;
       position: relative;
-      cursor: pointer;
-      transition: all .4s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: all 0.3s ease;
       overflow: hidden;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, .2);
-    }
-
-    .currency-card::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      height: 3px;
-      background: linear-gradient(90deg, var(--accent), transparent);
-      opacity: 0;
-      transition: opacity .4s;
-    }
-
-    .currency-card:hover::before {
-      opacity: 1;
     }
 
     .currency-card:hover {
-      transform: translateY(-8px) scale(1.02);
-      box-shadow: 0 12px 40px rgba(34, 211, 238, .25), 0 0 0 1px rgba(34, 211, 238, .3);
-      border-color: rgba(34, 211, 238, .4);
-      background: linear-gradient(135deg, rgba(255, 255, 255, .12) 0%, rgba(255, 255, 255, .06) 100%);
-    }
-
-    .currency-card.active {
-      border-color: var(--ok);
-      border-width: 2px;
-      box-shadow: 0 0 0 3px rgba(16, 185, 129, .2), 0 8px 30px rgba(16, 185, 129, .3);
-    }
-
-    .currency-card.soon {
-      opacity: .5;
-      cursor: not-allowed;
-    }
-
-    .currency-card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: .5rem;
+      transform: translateY(-5px);
+      border-color: var(--accent);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
     }
 
     .currency-icon {
@@ -409,728 +292,324 @@
       font-size: 1.5rem;
       margin-bottom: 1rem;
       background: rgba(255, 255, 255, .1);
-      box-shadow: 0 4px 15px rgba(0, 0, 0, .2);
     }
 
     .currency-card .label {
-      font-size: .75rem;
-      color: #9bb0c2;
+      font-size: 0.8rem;
+      color: #94a3b8;
       text-transform: uppercase;
-      letter-spacing: .1em;
+      letter-spacing: 0.1em;
       font-weight: 700;
-      margin-bottom: .5rem;
       display: block;
+      margin-bottom: 0.5rem;
     }
 
     .currency-card .amount {
       font-size: 2rem;
       font-weight: 800;
+      color: var(--text);
+      display: block;
+    }
+
+    .currency-card .app-info {
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      font-size: 0.8rem;
+      color: #64748b;
+    }
+
+    /* Specific Card Styles */
+    #aquabux-card .amount {
       color: var(--accent);
-      margin: .25rem 0;
-      line-height: 1.2;
-      text-shadow: 0 0 20px rgba(34, 211, 238, .3);
-      font-variant-numeric: tabular-nums;
+    }
+
+    #aquabux-card:hover {
+      border-color: var(--accent);
+    }
+
+    #ecoxionums-card .amount {
+      color: var(--ok);
+    }
+
+    #ecoxionums-card:hover {
+      border-color: var(--ok);
+    }
+
+    #ecobits-card .amount {
+      color: #8b5cf6;
+    }
+
+    #ecobits-card:hover {
+      border-color: #8b5cf6;
     }
 
     #wildcredits-card .amount {
       color: var(--wild);
     }
 
-    #wildcredits-card {
-      border-color: rgba(102, 126, 234, .3);
-    }
-
     #wildcredits-card:hover {
-      border-color: rgba(102, 126, 234, .5);
-    }
-
-    #wildcredits-card .currency-icon {
-      background: linear-gradient(135deg, rgba(102, 126, 234, .3), rgba(102, 126, 234, .1));
+      border-color: var(--wild);
     }
 
     #wildgems-card .amount {
       color: var(--gold);
     }
 
-    #wildgems-card {
-      border-color: rgba(255, 215, 0, .3);
-    }
-
     #wildgems-card:hover {
-      border-color: rgba(255, 215, 0, .5);
-    }
-
-    #wildgems-card .currency-icon {
-      background: linear-gradient(135deg, rgba(255, 215, 0, .3), rgba(255, 215, 0, .1));
-    }
-
-    #ecoxionums-card .amount {
-      color: #10b981;
-    }
-
-    #ecoxionums-card {
-      border-color: rgba(16, 185, 129, .3);
+      border-color: var(--gold);
     }
 
     #appbux-card .amount {
       color: var(--orange);
     }
 
-    #appbux-card {
-      border-color: rgba(249, 115, 22, .3);
+    #appbux-card:hover {
+      border-color: var(--orange);
     }
 
-    .currency-card .badge {
-      position: absolute;
-      top: 1rem;
-      right: 1rem;
-      font-size: .7rem;
-      background: var(--accent);
-      color: #0a0e1a;
-      padding: .35rem .65rem;
-      border-radius: .5rem;
-      font-weight: 700;
-      box-shadow: 0 2px 10px rgba(34, 211, 238, .3);
-      text-transform: uppercase;
-      letter-spacing: .05em;
+    #tides-card .amount {
+      color: var(--tides);
     }
 
-    .currency-card .app-info {
+    #tides-card:hover {
+      border-color: var(--tides);
+    }
+
+    #tides-card .currency-icon {
+      background: linear-gradient(135deg, rgba(6, 182, 212, 0.2), rgba(59, 130, 246, 0.1));
+    }
+
+    /* Utilities */
+    .hidden {
+      display: none !important;
+    }
+
+    .msg {
+      font-size: 0.9rem;
       margin-top: 1rem;
-      padding-top: 1rem;
-      border-top: 1px solid rgba(255, 255, 255, .1);
-      font-size: .8rem;
-      color: #9bb0c2;
-      display: flex;
-      align-items: center;
-      gap: .5rem;
     }
 
-    .currency-card .app-info strong {
-      color: var(--text);
-      font-weight: 600;
+    .msg.error {
+      color: var(--err);
     }
 
-    .currency-card .app-info .sub-divisa {
-      margin-top: .5rem;
-      padding: .5rem;
-      background: rgba(255, 255, 255, .03);
-      border-radius: .5rem;
-      font-size: .75rem;
+    .msg.success {
+      color: var(--ok);
     }
 
-    .sub-divisas-section {
-      margin-top: 2rem;
-      padding: 1.5rem;
-      background: linear-gradient(135deg, rgba(167, 85, 247, .1) 0%, rgba(167, 85, 247, .05) 100%);
-      backdrop-filter: blur(10px);
-      border-radius: 1rem;
-      border: 1px solid rgba(167, 85, 247, .2);
-      box-shadow: 0 4px 20px rgba(167, 85, 247, .1);
-    }
-
-    .sub-divisas-title {
-      font-size: .875rem;
-      color: var(--purple);
-      font-weight: 700;
-      margin-bottom: 1rem;
-      display: flex;
-      align-items: center;
-      gap: .75rem;
-      text-transform: uppercase;
-      letter-spacing: .1em;
-    }
-
-    .sub-divisa-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 1rem 1.25rem;
-      background: rgba(255, 255, 255, .05);
-      backdrop-filter: blur(5px);
-      border-radius: .75rem;
-      margin-bottom: .75rem;
-      border: 1px solid rgba(255, 255, 255, .05);
-      transition: all .3s ease;
-    }
-
-    .sub-divisa-item:hover {
-      background: rgba(255, 255, 255, .08);
-      border-color: rgba(167, 85, 247, .3);
-      transform: translateX(5px);
-    }
-
-    .sub-divisa-item:last-child {
-      margin-bottom: 0;
-    }
-
-    .sub-divisa-label {
-      font-size: .9rem;
-      color: #b8d4e8;
-      font-weight: 600;
-    }
-
-    .sub-divisa-amount {
-      font-size: 1.25rem;
-      font-weight: 800;
-      color: var(--purple);
-      text-shadow: 0 0 15px rgba(167, 85, 247, .4);
-      font-variant-numeric: tabular-nums;
-    }
-
-    .tx-details {
-      margin-top: 2rem;
-    }
-
-    .tx-details summary {
-      cursor: pointer;
-      list-style: none;
-      color: var(--text);
-      font-weight: 700;
-      padding: 1rem 1.25rem;
-      background: linear-gradient(135deg, rgba(255, 255, 255, .08) 0%, rgba(255, 255, 255, .04) 100%);
-      backdrop-filter: blur(10px);
-      border-radius: .75rem;
-      border: 1px solid rgba(34, 211, 238, .2);
-      transition: all .3s ease;
-      display: flex;
-      align-items: center;
-      gap: .75rem;
-      font-size: 1rem;
-      text-transform: uppercase;
-      letter-spacing: .05em;
-    }
-
-    .tx-details summary:hover {
-      background: linear-gradient(135deg, rgba(255, 255, 255, .12) 0%, rgba(255, 255, 255, .06) 100%);
-      border-color: rgba(34, 211, 238, .4);
-      transform: translateY(-2px);
-      box-shadow: 0 4px 15px rgba(34, 211, 238, .2);
-    }
-
-    .tx-details[open] summary {
-      margin-bottom: 1rem;
-      border-bottom-left-radius: 0;
-      border-bottom-right-radius: 0;
-    }
-
-    .tx-list {
-      max-height: 500px;
-      overflow-y: auto;
-      margin-top: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-      padding: 1.25rem;
-      background: linear-gradient(135deg, rgba(10, 14, 26, .6) 0%, rgba(15, 23, 42, .8) 100%);
-      border-radius: 0 0 1rem 1rem;
-      border-top: 2px solid rgba(34, 211, 238, .1);
-    }
-
-    .tx-list::-webkit-scrollbar {
-      width: 10px;
-    }
-
-    .tx-list::-webkit-scrollbar-track {
-      background: rgba(255, 255, 255, .03);
-      border-radius: 5px;
-    }
-
-    .tx-list::-webkit-scrollbar-thumb {
-      background: linear-gradient(180deg, var(--accent), #06b6d4);
-      border-radius: 5px;
-      box-shadow: 0 0 10px rgba(34, 211, 238, .3);
-    }
-
-    .tx-list::-webkit-scrollbar-thumb:hover {
-      background: linear-gradient(180deg, #67e8f9, var(--accent));
-      box-shadow: 0 0 15px rgba(34, 211, 238, .5);
-    }
-
-    .tx-item {
-      padding: 1.25rem 1.5rem;
-      background: linear-gradient(135deg, rgba(255, 255, 255, .08) 0%, rgba(255, 255, 255, .04) 100%);
-      backdrop-filter: blur(10px);
-      border-radius: 1rem;
-      border: 1px solid rgba(255, 255, 255, .1);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1.5rem;
-      position: relative;
-      transition: all .4s cubic-bezier(0.4, 0, 0.2, 1);
-      cursor: pointer;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, .1);
-      animation: txSlideIn .5s ease-out;
-      animation-fill-mode: both;
-    }
-
-    @keyframes txSlideIn {
-      from {
-        opacity: 0;
-        transform: translateY(10px);
+    /* Mobile */
+    @media (max-width: 768px) {
+      .app-layout {
+        flex-direction: column;
       }
 
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    .tx-item:nth-child(1) {
-      animation-delay: .05s;
-    }
-
-    .tx-item:nth-child(2) {
-      animation-delay: .1s;
-    }
-
-    .tx-item:nth-child(3) {
-      animation-delay: .15s;
-    }
-
-    .tx-item:nth-child(4) {
-      animation-delay: .2s;
-    }
-
-    .tx-item:nth-child(5) {
-      animation-delay: .25s;
-    }
-
-    .tx-item:nth-child(n+6) {
-      animation-delay: .3s;
-    }
-
-    .tx-item::before {
-      content: '';
-      position: absolute;
-      left: 0;
-      top: 0;
-      bottom: 0;
-      width: 4px;
-      background: linear-gradient(180deg, var(--accent), #06b6d4);
-      border-radius: 1rem 0 0 1rem;
-      transform: scaleY(0);
-      transition: transform .4s cubic-bezier(0.4, 0, 0.2, 1);
-      box-shadow: 0 0 10px rgba(34, 211, 238, .5);
-    }
-
-    .tx-item:hover::before {
-      transform: scaleY(1);
-    }
-
-    .tx-item:hover {
-      background: linear-gradient(135deg, rgba(255, 255, 255, .12) 0%, rgba(255, 255, 255, .06) 100%);
-      border-color: rgba(34, 211, 238, .4);
-      transform: translateX(12px) translateY(-2px);
-      box-shadow: 0 8px 25px rgba(0, 0, 0, .3), 0 0 20px rgba(34, 211, 238, .2);
-    }
-
-    .tx-item-icon {
-      width: 48px;
-      height: 48px;
-      border-radius: .75rem;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.5rem;
-      flex-shrink: 0;
-      background: linear-gradient(135deg, rgba(34, 211, 238, .2), rgba(6, 182, 212, .2));
-      box-shadow: 0 4px 15px rgba(34, 211, 238, .2);
-      transition: all .3s ease;
-    }
-
-    .tx-item:hover .tx-item-icon {
-      transform: scale(1.1) rotate(5deg);
-      box-shadow: 0 6px 20px rgba(34, 211, 238, .4);
-    }
-
-    .tx-item-content {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      gap: .5rem;
-      min-width: 0;
-    }
-
-    .tx-item-concept {
-      font-size: 1rem;
-      color: var(--text);
-      font-weight: 700;
-      line-height: 1.3;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .tx-item-meta {
-      font-size: .85rem;
-      color: #94a3b8;
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-      font-weight: 500;
-      flex-wrap: wrap;
-    }
-
-    .tx-item-date {
-      display: flex;
-      align-items: center;
-      gap: .4rem;
-      color: #64748b;
-    }
-
-    .tx-item-origin {
-      padding: .35rem .75rem;
-      background: linear-gradient(135deg, rgba(34, 211, 238, .25), rgba(6, 182, 212, .25));
-      border-radius: .5rem;
-      font-size: .7rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: .08em;
-      color: #67e8f9;
-      border: 1px solid rgba(34, 211, 238, .3);
-      box-shadow: 0 2px 8px rgba(34, 211, 238, .2);
-      transition: all .3s ease;
-    }
-
-    .tx-item:hover .tx-item-origin {
-      background: linear-gradient(135deg, rgba(34, 211, 238, .35), rgba(6, 182, 212, .35));
-      border-color: rgba(34, 211, 238, .5);
-      transform: scale(1.05);
-      box-shadow: 0 4px 12px rgba(34, 211, 238, .3);
-    }
-
-    .tx-item-amount {
-      font-size: 1.35rem;
-      font-weight: 900;
-      text-align: right;
-      min-width: 120px;
-      font-variant-numeric: tabular-nums;
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      gap: .2rem;
-      transition: all .3s ease;
-    }
-
-    .tx-item:hover .tx-item-amount {
-      transform: scale(1.05);
-    }
-
-    .tx-item-amount.positive {
-      color: #10b981;
-      text-shadow: 0 0 20px rgba(16, 185, 129, .5), 0 2px 10px rgba(16, 185, 129, .3);
-    }
-
-    .tx-item-amount.negative {
-      color: #ef4444;
-      text-shadow: 0 0 20px rgba(239, 68, 68, .5), 0 2px 10px rgba(239, 68, 68, .3);
-    }
-
-    .tx-item-amount-sign {
-      font-size: .8rem;
-      opacity: .7;
-      font-weight: 600;
-    }
-
-    .tx-item-currency {
-      font-size: .75rem;
-      opacity: .8;
-      font-weight: 600;
-      margin-top: .1rem;
-    }
-
-    .tx-empty {
-      text-align: center;
-      padding: 3rem 2rem;
-      color: #9bb0c2;
-      font-style: italic;
-      font-size: 1rem;
-    }
-
-    .divider {
-      margin: 2.5rem 0;
-      border: none;
-      height: 1px;
-      background: linear-gradient(90deg, transparent, rgba(34, 211, 238, .3), transparent);
-    }
-
-    .toggle-p {
-      text-align: center;
-      margin-top: 2rem;
-      font-size: .9rem;
-      color: #9bb0c2;
-      font-weight: 500;
-    }
-
-    .toggle-p a {
-      color: var(--accent);
-      text-decoration: none;
-      font-weight: 700;
-      margin-left: .5rem;
-      transition: all .3s ease;
-      position: relative;
-    }
-
-    .toggle-p a::after {
-      content: '';
-      position: absolute;
-      bottom: -2px;
-      left: 0;
-      width: 0;
-      height: 2px;
-      background: var(--accent);
-      transition: width .3s ease;
-    }
-
-    .toggle-p a:hover::after {
-      width: 100%;
-    }
-
-    .toggle-p a:hover {
-      color: #67e8f9;
-      text-shadow: 0 0 10px rgba(34, 211, 238, .5);
-    }
-
-    .loading {
-      opacity: .6;
-      pointer-events: none;
-      position: relative;
-    }
-
-    .loading::after {
-      content: '';
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 24px;
-      height: 24px;
-      margin: -12px 0 0 -12px;
-      border: 3px solid var(--accent);
-      border-top-color: transparent;
-      border-radius: 50%;
-      animation: spin .8s linear infinite;
-      box-shadow: 0 0 15px rgba(34, 211, 238, .4);
-    }
-
-    @keyframes spin {
-      to {
-        transform: rotate(360deg);
-      }
-    }
-
-    /* Animaciones adicionales */
-    @keyframes pulse {
-
-      0%,
-      100% {
-        opacity: 1;
+      .sidebar {
+        width: 100%;
+        height: auto;
+        padding: 1rem;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
       }
 
-      50% {
-        opacity: .7;
-      }
-    }
-
-    .currency-card .amount {
-      animation: none;
-    }
-
-    .currency-card:hover .amount {
-      animation: pulse 2s ease-in-out infinite;
-    }
-
-    /* Mejoras de accesibilidad */
-    button:focus-visible,
-    input:focus-visible {
-      outline: 2px solid var(--accent);
-      outline-offset: 2px;
-    }
-
-    /* Efecto de brillo en hover para tarjetas */
-    .currency-card .shine-effect {
-      position: absolute;
-      top: -50%;
-      left: -50%;
-      width: 200%;
-      height: 200%;
-      background: linear-gradient(45deg, transparent, rgba(255, 255, 255, .1), transparent);
-      transform: rotate(45deg);
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity .6s;
-    }
-
-    .currency-card:hover .shine-effect {
-      opacity: 1;
-      animation: shine .6s ease-out;
-    }
-
-    @keyframes shine {
-      from {
-        transform: translateX(-100%) translateY(-100%) rotate(45deg);
+      .nav-menu {
+        display: none;
       }
 
-      to {
-        transform: translateX(100%) translateY(100%) rotate(45deg);
+      /* Simplified for now */
+      .user-profile-mini {
+        display: none;
+      }
+
+      .main-content {
+        padding: 1.5rem;
+      }
+
+      .page-title {
+        font-size: 1.5rem;
       }
     }
   </style>
 </head>
 
 <body>
-  <div class="ocean-card">
-    <div class="ocean-header">
-      <h1>🌊 Ocean Pay</h1>
-      <p class="subtitle">Tu Billetera Universal</p>
-    </div>
 
-    <!-- LOGIN -->
-    <form id="loginForm" class="form-box">
-      <label>Usuario</label>
-      <input type="text" id="logUser" required placeholder="Tu usuario" />
-      <label>Contraseña</label>
-      <input type="password" id="logPass" required placeholder="••••••••" />
-      <button type="submit">Ingresar</button>
-      <p id="logMsg" class="msg hidden"></p>
-    </form>
-
-    <!-- REGISTER -->
-    <form id="regForm" class="form-box hidden">
-      <label>Usuario</label>
-      <input type="text" id="regUser" required placeholder="Nuevo usuario" />
-      <label>Contraseña</label>
-      <input type="password" id="regPass" required placeholder="••••••••" />
-      <button type="submit">Crear cuenta</button>
-      <p id="regMsg" class="msg hidden"></p>
-    </form>
-
-    <!-- WALLET -->
-    <div id="wallet" class="hidden">
-      <div class="section-title">Divisas Principales</div>
-      <div class="balance-grid">
-        <div class="currency-card active">
-          <div class="shine-effect"></div>
-          <div class="currency-icon">💧</div>
-          <div class="currency-card-header">
-            <div>
-              <span class="label">AquaBux</span>
-              <span class="amount" id="bux">0</span>
-            </div>
-          </div>
-          <div class="app-info">
-            <strong>Ocean Cinemas</strong> 🎬
-          </div>
-        </div>
-
-        <div class="currency-card" id="ecoxionums-card">
-          <div class="shine-effect"></div>
-          <div class="currency-icon">🌍</div>
-          <div class="currency-card-header">
-            <div>
-              <span class="label">Ecoxionums</span>
-              <span class="amount" id="ecoxionums">0</span>
-            </div>
-          </div>
-          <div class="app-info">
-            <strong>Ecoxion</strong> 🌍
-          </div>
-        </div>
-
-        <div class="currency-card">
-          <div class="shine-effect"></div>
-          <div class="currency-icon">💻</div>
-          <div class="currency-card-header">
-            <div>
-              <span class="label">EcoCoreBits</span>
-              <span class="amount" id="ecobits">0</span>
-            </div>
-          </div>
-          <div class="app-info">
-            <strong>EcoConsole</strong> 💻
-          </div>
-        </div>
-
-        <div class="currency-card" id="wildcredits-card">
-          <div class="shine-effect"></div>
-          <div class="currency-icon">🌿</div>
-          <div class="currency-card-header">
-            <div>
-              <span class="label">WildCredits</span>
-              <span class="amount" id="wildcredits">0</span>
-            </div>
-          </div>
-          <div class="app-info">
-            <strong>Wild Explorer</strong> 🌿
-          </div>
-        </div>
-
-        <div class="currency-card" id="appbux-card">
-          <div class="shine-effect"></div>
-          <div class="currency-icon">📱</div>
-          <div class="currency-card-header">
-            <div>
-              <span class="label">AppBux</span>
-              <span class="amount" id="appbux">0</span>
-            </div>
-          </div>
-          <div class="app-info">
-            <strong>AllApp</strong> 📱
-          </div>
-        </div>
-
-        <div class="currency-card" id="wildgems-card">
-          <div class="shine-effect"></div>
-          <div class="currency-icon">💎</div>
-          <div class="currency-card-header">
-            <div>
-              <span class="label">WildGems</span>
-              <span class="amount" id="wildgems">0</span>
-            </div>
-          </div>
-          <div class="app-info">
-            <strong>WildShorts</strong> ⚡
-          </div>
-        </div>
+  <!-- Auth Overlay (Login/Register) -->
+  <div id="auth-section" class="auth-overlay">
+    <div class="auth-card">
+      <div class="brand" style="justify-content: center; margin-bottom: 2rem;">
+        <h1>🌊 Ocean Pay</h1>
       </div>
 
-      <!-- Sub-Divisas -->
-      <div class="sub-divisas-section">
-        <div class="sub-divisas-title">
-          <span>💎</span>
-          <span>Sub-Divisas</span>
-        </div>
-        <div class="sub-divisa-item">
-          <span class="sub-divisa-label">Créditos (EcoConsole)</span>
-          <span class="sub-divisa-amount" id="credits">0</span>
-        </div>
-      </div>
+      <!-- Login Form -->
+      <form id="loginForm" class="form-box">
+        <h2 style="margin-bottom: 1.5rem;">Iniciar Sesión</h2>
+        <input type="text" id="logUser" required placeholder="Usuario" />
+        <input type="password" id="logPass" required placeholder="Contraseña" />
+        <button type="submit">Entrar</button>
+        <p id="logMsg" class="msg"></p>
+        <p style="margin-top: 1.5rem; font-size: 0.9rem; color: #94a3b8;">
+          ¿No tienes cuenta? <a href="#" id="toRegister" style="color: var(--accent);">Regístrate</a>
+        </p>
+      </form>
 
-      <p id="walletMsg" class="msg hidden"></p>
-
-      <!-- Transacciones -->
-      <details class="tx-details">
-        <summary>📋 Historial de Transacciones</summary>
-        <div id="txList" class="tx-list"></div>
-      </details>
-
-      <hr class="divider" />
-      <button id="deleteAccountBtn" class="secondary"
-        style="background:var(--err);border-color:var(--err);color:white;margin-bottom:1rem;">🗑️ Eliminar Cuenta
-        Permanentemente</button>
-      <button id="logoutBtn" class="secondary">Cerrar sesión</button>
+      <!-- Register Form -->
+      <form id="regForm" class="form-box hidden">
+        <h2 style="margin-bottom: 1.5rem;">Crear Cuenta</h2>
+        <input type="text" id="regUser" required placeholder="Nuevo Usuario" />
+        <input type="password" id="regPass" required placeholder="Contraseña" />
+        <button type="submit">Crear Cuenta</button>
+        <p id="regMsg" class="msg"></p>
+        <p style="margin-top: 1.5rem; font-size: 0.9rem; color: #94a3b8;">
+          ¿Ya tienes cuenta? <a href="#" id="toLogin" style="color: var(--accent);">Inicia Sesión</a>
+        </p>
+      </form>
     </div>
-
-    <!-- Toggle link -->
-    <p class="toggle-p">
-      ¿Ya tienes cuenta? <a href="#" id="toggleLink">Inicia sesión</a>
-    </p>
   </div>
 
+  <!-- Main App Layout -->
+  <div id="app-layout" class="app-layout hidden">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="brand">
+        <h1>🌊 Ocean Pay</h1>
+      </div>
+
+      <nav class="nav-menu">
+        <button class="nav-item active" onclick="showSection('wallet')">
+          <span>💳</span> Billetera
+        </button>
+        <button class="nav-item" onclick="showSection('history')">
+          <span>📋</span> Historial
+        </button>
+        <button class="nav-item" onclick="showSection('settings')">
+          <span>⚙️</span> Ajustes
+        </button>
+      </nav>
+
+      <div class="user-profile-mini">
+        <div class="user-avatar" id="userAvatar">U</div>
+        <div class="user-info-text">
+          <span class="user-name" id="userNameDisplay">Usuario</span>
+          <span class="user-id" id="userIdDisplay">ID: 0</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+
+      <!-- Wallet Section -->
+      <section id="wallet-section">
+        <div class="main-header">
+          <h2 class="page-title">Mi Billetera</h2>
+          <button class="secondary" style="width: auto; padding: 0.5rem 1rem;" onclick="refreshAllBalances()">🔄
+            Actualizar</button>
+        </div>
+
+        <div class="balance-grid">
+          <!-- AquaBux -->
+          <div class="currency-card" id="aquabux-card">
+            <div class="currency-icon">💧</div>
+            <span class="label">AquaBux</span>
+            <span class="amount" id="bux">0</span>
+            <div class="app-info">Ocean Cinemas 🎬</div>
+          </div>
+
+          <!-- Tides (NEW) -->
+          <div class="currency-card" id="tides-card">
+            <div class="currency-icon">🌊</div>
+            <span class="label">Tides</span>
+            <span class="amount" id="tides">0</span>
+            <div class="app-info">Ocean and Wild Studios Hub</div>
+          </div>
+
+          <!-- WildCredits -->
+          <div class="currency-card" id="wildcredits-card">
+            <div class="currency-icon">🌿</div>
+            <span class="label">WildCredits</span>
+            <span class="amount" id="wildcredits">0</span>
+            <div class="app-info">Wild Explorer 🌿</div>
+          </div>
+
+          <!-- WildGems -->
+          <div class="currency-card" id="wildgems-card">
+            <div class="currency-icon">💎</div>
+            <span class="label">WildGems</span>
+            <span class="amount" id="wildgems">0</span>
+            <div class="app-info">WildShorts ⚡</div>
+          </div>
+
+          <!-- Ecoxionums -->
+          <div class="currency-card" id="ecoxionums-card">
+            <div class="currency-icon">🌍</div>
+            <span class="label">Ecoxionums</span>
+            <span class="amount" id="ecoxionums">0</span>
+            <div class="app-info">Ecoxion 🌍</div>
+          </div>
+
+          <!-- EcoCoreBits -->
+          <div class="currency-card" id="ecobits-card">
+            <div class="currency-icon">💻</div>
+            <span class="label">EcoCoreBits</span>
+            <span class="amount" id="ecobits">0</span>
+            <div class="app-info">EcoConsole 💻</div>
+          </div>
+
+          <!-- AppBux -->
+          <div class="currency-card" id="appbux-card">
+            <div class="currency-icon">📱</div>
+            <span class="label">AppBux</span>
+            <span class="amount" id="appbux">0</span>
+            <div class="app-info">AllApp 📱</div>
+          </div>
+        </div>
+
+        <!-- Sub-Divisas -->
+        <div style="background: rgba(255,255,255,0.03); padding: 1.5rem; border-radius: 1rem; margin-top: 2rem;">
+          <h3 style="margin-bottom: 1rem; font-size: 1rem; color: var(--purple);">💎 Sub-Divisas</h3>
+          <div
+            style="display: flex; justify-content: space-between; padding: 1rem; background: rgba(0,0,0,0.2); border-radius: 0.5rem;">
+            <span>Créditos (EcoConsole)</span>
+            <span style="font-weight: bold; color: var(--purple);" id="credits">0</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- History Section -->
+      <section id="history-section" class="hidden">
+        <div class="main-header">
+          <h2 class="page-title">Historial de Transacciones</h2>
+        </div>
+        <div id="txList" class="tx-list" style="background: rgba(0,0,0,0.2); border-radius: 1rem; padding: 1rem;">
+          <!-- Transactions will be loaded here -->
+        </div>
+      </section>
+
+      <!-- Settings Section -->
+      <section id="settings-section" class="hidden">
+        <div class="main-header">
+          <h2 class="page-title">Ajustes de Cuenta</h2>
+        </div>
+        <div style="max-width: 600px;">
+          <div
+            style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); padding: 1.5rem; border-radius: 1rem;">
+            <h3 style="color: var(--err); margin-bottom: 1rem;">Zona de Peligro</h3>
+            <p style="margin-bottom: 1rem; font-size: 0.9rem;">Eliminar tu cuenta es irreversible. Perderás todos tus
+              fondos.</p>
+            <button id="deleteAccountBtn" style="background: var(--err); color: white;">🗑️ Eliminar Cuenta
+              Permanentemente</button>
+          </div>
+          <button id="logoutBtn" class="secondary" style="margin-top: 2rem;">Cerrar Sesión</button>
+        </div>
+      </section>
+
+    </main>
+  </div>
 
   <script>
-    const API = 'https://owsdatabase.onrender.com'; // same origin
+    const API = 'https://owsdatabase.onrender.com';
     let token = '', userId = 0;
 
     /* ----------  HELPERS  ---------- */
@@ -1140,13 +619,31 @@
       if (el) el.classList.toggle('hidden', !on);
     };
 
-    /* ----------  UI TOGGLE  ---------- */
-    qs('#toggleLink').onclick = e => {
+    /* ----------  NAVIGATION  ---------- */
+    function showSection(sectionId) {
+      // Hide all sections
+      ['wallet', 'history', 'settings'].forEach(s => show(`#${s}-section`, false));
+      // Show target
+      show(`#${sectionId}-section`, true);
+
+      // Update Nav
+      document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
+      const activeBtn = Array.from(document.querySelectorAll('.nav-item')).find(btn => btn.textContent.toLowerCase().includes(sectionId === 'wallet' ? 'billetera' : sectionId === 'history' ? 'historial' : 'ajustes'));
+      if (activeBtn) activeBtn.classList.add('active');
+
+      if (sectionId === 'history') renderTransacciones();
+    }
+
+    /* ----------  AUTH TOGGLE  ---------- */
+    qs('#toRegister').onclick = e => {
       e.preventDefault();
-      const login = qs('#loginForm').classList.contains('hidden');
-      show('#regForm', !login);
-      show('#loginForm', login);
-      qs('#toggleLink').textContent = login ? 'Crear cuenta' : 'Iniciar sesión';
+      show('#loginForm', false);
+      show('#regForm', true);
+    };
+    qs('#toLogin').onclick = e => {
+      e.preventDefault();
+      show('#regForm', false);
+      show('#loginForm', true);
     };
 
     /* ----------  REGISTER  ---------- */
@@ -1156,7 +653,7 @@
       const res = await fetch(API + '/ocean-pay/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       const data = await res.json();
       if (!res.ok) return qs('#regMsg').textContent = data.error;
-      qs('#regMsg').className = 'success'; qs('#regMsg').textContent = '¡Cuenta creada! Bienvenido.';
+      qs('#regMsg').className = 'msg success'; qs('#regMsg').textContent = '¡Cuenta creada! Bienvenido.';
       setTimeout(() => autoLogin(body.username, body.password), 1000);
     };
 
@@ -1166,679 +663,7 @@
       await autoLogin(qs('#logUser').value, qs('#logPass').value);
     };
 
-    async function loadEcoxionumsBalance() {
-      const user = JSON.parse(localStorage.getItem('opUser') || '{}');
-      if (!user.id) { qs('#ecoxionums').textContent = '0'; return; }
-
-      const res = await fetch(`${API}/ocean-pay/ecoxionums/${user.id}`);
-      const { ecoxionums } = await res.json();
-      qs('#ecoxionums').textContent = Math.round(ecoxionums || 0).toLocaleString();
-    }
-
-    async function loadEcoCoreBitsBalance() {
-      const user = JSON.parse(localStorage.getItem('opUser') || '{}');
-      if (!user.id) { qs('#ecobits').textContent = '0'; return; }
-
-      try {
-        // Intentar primero con el token de opUser
-        let token = user.token;
-
-        // Si no hay token, intentar obtenerlo del localStorage de EcoConsole
-        if (!token) {
-          const ecToken = localStorage.getItem('token');
-          if (ecToken) token = ecToken;
-        }
-
-        if (!token) {
-          console.warn('No token available for EcoCoreBits');
-          qs('#ecobits').textContent = '0';
-          return;
-        }
-
-        const res = await fetch(`${API}/api/ecorebits/user`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-
-        if (!res.ok) {
-          console.warn('Failed to load EcoCoreBits:', res.status);
-          qs('#ecobits').textContent = '0';
-          return;
-        }
-
-        const data = await res.json();
-        if (data.success) {
-          const balance = Math.round(data.user?.ecorebits?.balance || 0);
-          qs('#ecobits').textContent = balance.toLocaleString();
-
-          // Actualizar también el token en opUser si lo tenemos
-          if (token && !user.token) {
-            user.token = token;
-            localStorage.setItem('opUser', JSON.stringify(user));
-          }
-        }
-      } catch (e) {
-        console.error("Error fetching ecocorebits", e);
-        qs('#ecobits').textContent = '0';
-      }
-    }
-
-    async function loadCreditsBalance() {
-      const user = JSON.parse(localStorage.getItem('opUser') || '{}');
-      if (!user.id) { qs('#credits').textContent = '0'; return; }
-
-      try {
-        let token = user.token;
-        if (!token) {
-          const ecToken = localStorage.getItem('token');
-          if (ecToken) token = ecToken;
-        }
-
-        if (!token) {
-          qs('#credits').textContent = '0';
-          return;
-        }
-
-        const res = await fetch(`${API}/ecocore/credits/${user.id}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          const credits = Math.round(data.credits || 0);
-          qs('#credits').textContent = credits.toLocaleString();
-        } else {
-          qs('#credits').textContent = '0';
-        }
-      } catch (e) {
-        console.error("Error fetching credits", e);
-        qs('#credits').textContent = '0';
-      }
-    }
-
-    async function loadAppBuxBalance() {
-      const user = JSON.parse(localStorage.getItem('opUser') || '{}');
-      if (!user.id) { qs('#appbux').textContent = '0'; return; }
-
-      try {
-        const res = await fetch(`${API}/ocean-pay/appbux/${user.id}`);
-        if (!res.ok) {
-          qs('#appbux').textContent = '0';
-          return;
-        }
-        const { appbux } = await res.json();
-        qs('#appbux').textContent = Math.round(appbux || 0).toLocaleString();
-      } catch (e) {
-        console.error("Error fetching AppBux", e);
-        qs('#appbux').textContent = '0';
-      }
-    }
-
-    async function loadWildCreditsBalance() {
-      try {
-        const wildCreditsEl = qs('#wildcredits');
-        if (!wildCreditsEl) {
-          console.warn('[WildCredits] Elemento #wildcredits no encontrado');
-          return;
-        }
-
-        // Intentar usar BroadcastChannel para comunicación entre diferentes orígenes
-        if (!window.wildCreditsBroadcastChannel) {
-          try {
-            window.wildCreditsBroadcastChannel = new BroadcastChannel('wildcredits-sync');
-
-            // Escuchar mensajes de Wild Explorer
-            window.wildCreditsBroadcastChannel.onmessage = (event) => {
-              if (event.data && event.data.type === 'wildcredits-balance') {
-                const balance = Math.round(event.data.balance || 0);
-                console.log('[WildCredits] Recibido desde BroadcastChannel:', balance);
-
-                // Actualizar UI inmediatamente
-                if (wildCreditsEl) {
-                  wildCreditsEl.textContent = balance.toLocaleString();
-                }
-
-                // Actualizar localStorage
-                localStorage.setItem('wildCredits', balance.toString());
-
-                // Actualizar opUser
-                const opToken = localStorage.getItem('opToken');
-                const opUser = JSON.parse(localStorage.getItem('opUser') || 'null');
-                if (opToken && opUser && opUser.id) {
-                  opUser.wildcredits = balance;
-                  localStorage.setItem('opUser', JSON.stringify(opUser));
-                  console.log('[WildCredits] Actualizado opUser desde BroadcastChannel:', balance);
-                }
-              }
-            };
-
-            // Solicitar el balance actual a Wild Explorer
-            window.wildCreditsBroadcastChannel.postMessage({ type: 'request-wildcredits-balance' });
-            console.log('[WildCredits] Solicitado balance mediante BroadcastChannel');
-          } catch (e) {
-            console.warn('[WildCredits] BroadcastChannel no disponible:', e);
-            window.wildCreditsBroadcastChannel = null;
-          }
-        }
-
-        // Intentar cargar desde múltiples fuentes (por si están en diferentes orígenes)
-        let wildCredits = 0;
-
-        // Verificar si hay una cuenta de Ocean Pay vinculada
-        const opToken = localStorage.getItem('opToken');
-        const opUser = JSON.parse(localStorage.getItem('opUser') || 'null');
-
-        // Si hay cuenta vinculada, SIEMPRE consultar el servidor primero (fuente de verdad)
-        let wildCreditsFromServer = null;
-        if (opToken && opUser && opUser.id) {
-          try {
-            const serverRes = await fetch(`${API}/ocean-pay/wildcredits/balance`, {
-              headers: {
-                'Authorization': `Bearer ${opToken}`
-              }
-            });
-
-            if (serverRes.ok) {
-              const serverData = await serverRes.json();
-              wildCreditsFromServer = parseInt(serverData.wildcredits || '0');
-              console.log('[WildCredits] Obtenido del servidor:', wildCreditsFromServer);
-            }
-          } catch (e) {
-            console.warn('[WildCredits] Error obteniendo balance del servidor:', e);
-          }
-        }
-
-        // Obtener valores locales como respaldo
-        let wildCreditsStr = localStorage.getItem('wildCredits');
-        let wildCreditsFromStorage = (wildCreditsStr !== null && wildCreditsStr !== undefined)
-          ? parseInt(wildCreditsStr) || 0
-          : null;
-
-        let wildCreditsFromOpUser = (opUser && opUser.wildcredits !== undefined && opUser.wildcredits !== null)
-          ? Math.round(opUser.wildcredits || 0)
-          : null;
-
-        // Decidir qué valor usar con mejor lógica de prioridad
-        // Prioridad: MAX(servidor, localStorage, opUser) para evitar perder datos
-        const allValues = [
-          wildCreditsFromServer,
-          wildCreditsFromStorage,
-          wildCreditsFromOpUser
-        ].filter(v => v !== null && v !== undefined);
-
-        if (allValues.length > 0) {
-          // Usar el valor más alto para evitar perder progreso
-          wildCredits = Math.max(...allValues);
-          console.log('[WildCredits] Valores encontrados:', {
-            servidor: wildCreditsFromServer,
-            localStorage: wildCreditsFromStorage,
-            opUser: wildCreditsFromOpUser,
-            seleccionado: wildCredits
-          });
-
-          // Actualizar todas las fuentes con el valor más alto
-          localStorage.setItem('wildCredits', wildCredits.toString());
-          if (opToken && opUser && opUser.id) {
-            opUser.wildcredits = wildCredits;
-            localStorage.setItem('opUser', JSON.stringify(opUser));
-
-            // Si el servidor tiene un valor menor, sincronizarlo
-            if (wildCreditsFromServer !== null && wildCreditsFromServer < wildCredits) {
-              console.log('[WildCredits] Sincronizando valor más alto con el servidor...');
-              fetch(`${API}/ocean-pay/wildcredits/sync`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${opToken}`
-                },
-                body: JSON.stringify({ wildCredits: wildCredits })
-              }).then(res => res.json())
-                .then(data => console.log('[WildCredits] Servidor actualizado:', data))
-                .catch(err => console.warn('[WildCredits] Error actualizando servidor:', err));
-            }
-          }
-        } else {
-          // Ninguna fuente tiene valor
-          wildCredits = 0;
-          localStorage.setItem('wildCredits', '0');
-          if (opToken && opUser && opUser.id) {
-            console.log('[WildCredits] Balance es 0. Si ganas WildCredits en Wild Explorer, se sincronizará automáticamente.');
-          } else {
-            console.log('[WildCredits] Sin balance y sin cuenta vinculada, inicializando con 0');
-          }
-        }
-
-        console.log('[WildCredits] Balance final:', wildCredits);
-
-        // Actualizar el elemento SIEMPRE, incluso si es 0
-        wildCreditsEl.textContent = wildCredits.toLocaleString();
-        console.log('[WildCredits] Balance actualizado en UI:', wildCredits);
-
-        // Escuchar cambios en localStorage (desde Wild Explorer en otra pestaña/ventana)
-        if (!window.wildCreditsStorageListener) {
-          window.wildCreditsStorageListener = (e) => {
-            if (e.key === 'wildCredits') {
-              const newBalance = parseInt(e.newValue || '0');
-              if (wildCreditsEl) {
-                wildCreditsEl.textContent = newBalance.toLocaleString();
-              }
-              // Actualizar en opUser si hay cuenta vinculada
-              const currentToken = localStorage.getItem('opToken');
-              const currentUser = JSON.parse(localStorage.getItem('opUser') || 'null');
-              if (currentToken && currentUser && currentUser.id) {
-                currentUser.wildcredits = newBalance;
-                localStorage.setItem('opUser', JSON.stringify(currentUser));
-              }
-            }
-          };
-          window.addEventListener('storage', window.wildCreditsStorageListener);
-        }
-
-        // Escuchar CustomEvents también (por si StorageEvent no funciona)
-        if (!window.wildCreditsCustomListener) {
-          window.wildCreditsCustomListener = (e) => {
-            if (e.detail && e.detail.balance !== undefined) {
-              const newBalance = parseInt(e.detail.balance || '0');
-              if (wildCreditsEl) {
-                wildCreditsEl.textContent = newBalance.toLocaleString();
-              }
-              // Actualizar en localStorage y opUser
-              localStorage.setItem('wildCredits', newBalance.toString());
-              const currentToken = localStorage.getItem('opToken');
-              const currentUser = JSON.parse(localStorage.getItem('opUser') || 'null');
-              if (currentToken && currentUser && currentUser.id) {
-                currentUser.wildcredits = newBalance;
-                localStorage.setItem('opUser', JSON.stringify(currentUser));
-              }
-            }
-          };
-          window.addEventListener('wildcredits-updated', window.wildCreditsCustomListener);
-        }
-
-        // Escuchar mensajes desde Wild Explorer (si está en un iframe o ventana padre)
-        if (!window.wildCreditsMessageListener) {
-          window.wildCreditsMessageListener = (event) => {
-            if (event.data && event.data.type === 'wildcredits-update') {
-              const balance = Math.round(event.data.balance || 0);
-              console.log('[WildCredits] Mensaje recibido desde Wild Explorer:', balance);
-
-              if (wildCreditsEl) {
-                wildCreditsEl.textContent = balance.toLocaleString();
-              }
-              // Actualizar en localStorage y opUser
-              localStorage.setItem('wildCredits', balance.toString());
-              const currentToken = localStorage.getItem('opToken');
-              const currentUser = JSON.parse(localStorage.getItem('opUser') || 'null');
-              if (currentToken && currentUser && currentUser.id) {
-                currentUser.wildcredits = balance;
-                localStorage.setItem('opUser', JSON.stringify(currentUser));
-                console.log('[WildCredits] Actualizado en opUser desde mensaje:', balance);
-              }
-
-              // Si hay información de transacción, registrarla
-              if (event.data.transaction) {
-                addWildCreditsTransaction(event.data.transaction);
-              }
-            }
-          };
-          window.addEventListener('message', window.wildCreditsMessageListener);
-        }
-
-        // También escuchar cambios en el mismo dominio (polling suave)
-        if (!window.wildCreditsPollInterval) {
-          let pollCounter = 0;
-          window.wildCreditsPollInterval = setInterval(async () => {
-            pollCounter++;
-
-            // Cada 5 segundos, solicitar balance mediante BroadcastChannel
-            if (window.wildCreditsBroadcastChannel && pollCounter % 5 === 0) {
-              try {
-                window.wildCreditsBroadcastChannel.postMessage({ type: 'request-wildcredits-balance' });
-              } catch (e) {
-                // Ignorar si no está disponible
-              }
-            }
-
-            const currentToken = localStorage.getItem('opToken');
-            const currentUser = JSON.parse(localStorage.getItem('opUser') || 'null');
-            const currentFromStorage = parseInt(localStorage.getItem('wildCredits') || '0');
-            const currentFromOpUser = (currentUser && currentUser.wildcredits !== undefined)
-              ? Math.round(currentUser.wildcredits || 0)
-              : null;
-            const currentDisplayed = parseInt(wildCreditsEl.textContent.replace(/,/g, '') || '0');
-
-            // Cada 10 segundos, SIEMPRE verificar el servidor para obtener el valor más actualizado
-            if (currentToken && currentUser && currentUser.id && pollCounter % 10 === 0) {
-              try {
-                const serverRes = await fetch(`${API}/ocean-pay/wildcredits/balance`, {
-                  headers: {
-                    'Authorization': `Bearer ${currentToken}`
-                  }
-                });
-
-                if (serverRes.ok) {
-                  const serverData = await serverRes.json();
-                  const serverWildCredits = parseInt(serverData.wildcredits || '0');
-
-                  // Si el servidor tiene un valor diferente al mostrado, actualizar
-                  if (serverWildCredits !== currentDisplayed) {
-                    if (wildCreditsEl) {
-                      wildCreditsEl.textContent = serverWildCredits.toLocaleString();
-                    }
-                    localStorage.setItem('wildCredits', serverWildCredits.toString());
-                    currentUser.wildcredits = serverWildCredits;
-                    localStorage.setItem('opUser', JSON.stringify(currentUser));
-                    console.log('[WildCredits] Actualizado desde servidor en polling:', serverWildCredits, '(era:', currentDisplayed, ')');
-                    return; // Salir temprano si actualizamos desde servidor
-                  }
-                }
-              } catch (e) {
-                // Ignorar errores silenciosamente en polling
-              }
-            }
-
-            // Usar el valor mayor entre localStorage y opUser (más actualizado)
-            let newBalance = currentFromStorage;
-            if (currentFromOpUser !== null && currentFromOpUser > currentFromStorage) {
-              newBalance = currentFromOpUser;
-              // Sincronizar con localStorage
-              localStorage.setItem('wildCredits', newBalance.toString());
-              console.log('[WildCredits] Actualizado desde opUser en polling:', newBalance, '(era:', currentFromStorage, ')');
-            }
-            // Si localStorage tiene un valor mayor que opUser, actualizar opUser
-            else if (currentFromOpUser !== null && currentFromStorage > currentFromOpUser) {
-              if (currentToken && currentUser && currentUser.id) {
-                currentUser.wildcredits = currentFromStorage;
-                localStorage.setItem('opUser', JSON.stringify(currentUser));
-                console.log('[WildCredits] Actualizado opUser desde localStorage en polling:', currentFromStorage);
-              }
-              newBalance = currentFromStorage;
-            }
-
-            if (newBalance !== currentDisplayed) {
-              wildCreditsEl.textContent = newBalance.toLocaleString();
-              console.log('[WildCredits] Balance actualizado por polling:', newBalance);
-
-              // Actualizar en opUser si hay cuenta vinculada
-              if (currentToken && currentUser && currentUser.id) {
-                if (currentUser.wildcredits !== newBalance) {
-                  currentUser.wildcredits = newBalance;
-                  localStorage.setItem('opUser', JSON.stringify(currentUser));
-                }
-              }
-            }
-          }, 1000); // Verificar cada 1 segundo para actualización más rápida
-        }
-
-      } catch (e) {
-        console.error("Error loading WildCredits", e);
-        const wildCreditsEl = qs('#wildcredits');
-        if (wildCreditsEl) wildCreditsEl.textContent = '0';
-      }
-    }
-
-    // Función para agregar transacción de WildCredits al historial
-    async function addWildCreditsTransaction(transactionInfo) {
-      const token = localStorage.getItem('opToken');
-      const opUser = JSON.parse(localStorage.getItem('opUser') || 'null');
-
-      if (!token || !opUser || !opUser.id) return;
-
-      try {
-        await fetch(`${API}/ocean-pay/wildcredits/transaction`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            userId: opUser.id,
-            amount: transactionInfo.amount,
-            concepto: transactionInfo.concepto || 'Operación',
-            origen: transactionInfo.origen || 'Wild Explorer'
-          })
-        });
-
-        // Recargar transacciones para mostrar la nueva
-        setTimeout(() => renderTransacciones(), 500);
-      } catch (e) {
-        console.error('Error agregando transacción de WildCredits:', e);
-      }
-    }
-
-    /* ----------  WILDGEMS BALANCE  ---------- */
-    async function loadWildGemsBalance() {
-      const user = JSON.parse(localStorage.getItem('opUser') || '{}');
-      if (!user.id) {
-        const wildGemsEl = qs('#wildgems');
-        if (wildGemsEl) wildGemsEl.textContent = '0';
-        return;
-      }
-
-      try {
-        const wildGemsEl = qs('#wildgems');
-        if (!wildGemsEl) {
-          console.warn('[WildGems] Elemento #wildgems no encontrado');
-          return;
-        }
-
-        let wildGems = 0;
-        let wildGemsFromServer = null;
-        const token = localStorage.getItem('opToken') || user.token;
-
-        // Intentar obtener del servidor
-        if (token) {
-          try {
-            const serverRes = await fetch(`${API}/wildshorts/wildgems/balance`, {
-              headers: {
-                'Authorization': `Bearer ${token}`
-              }
-            });
-
-            if (serverRes.ok) {
-              const serverData = await serverRes.json();
-              wildGemsFromServer = parseInt(serverData.wildgems || '0');
-              console.log('[WildGems] Obtenido del servidor:', wildGemsFromServer);
-            }
-          } catch (e) {
-            console.warn('[WildGems] Error obteniendo balance del servidor:', e);
-          }
-        }
-
-        // Obtener de localStorage
-        let wildGemsStr = localStorage.getItem('ws_wildgems');
-        let wildGemsFromStorage = (wildGemsStr !== null && wildGemsStr !== undefined)
-          ? parseInt(wildGemsStr) || 0
-          : null;
-
-        // Obtener de opUser
-        let wildGemsFromOpUser = (user && user.wildgems !== undefined && user.wildgems !== null)
-          ? Math.round(user.wildgems || 0)
-          : null;
-
-        // Prioridad: servidor > localStorage > opUser > 0
-        if (wildGemsFromServer !== null) {
-          wildGems = wildGemsFromServer;
-          console.log('[WildGems] Usando valor del servidor:', wildGems);
-
-          // Actualizar localStorage y opUser
-          localStorage.setItem('ws_wildgems', wildGems.toString());
-          if (user) {
-            user.wildgems = wildGems;
-            localStorage.setItem('opUser', JSON.stringify(user));
-          }
-        } else if (wildGemsFromStorage !== null && wildGemsFromStorage > 0) {
-          wildGems = wildGemsFromStorage;
-          console.log('[WildGems] Usando valor de localStorage (servidor no disponible):', wildGems);
-
-          if (user && (wildGemsFromOpUser === null || wildGemsFromOpUser < wildGems || wildGemsFromOpUser === 0)) {
-            user.wildgems = wildGems;
-            localStorage.setItem('opUser', JSON.stringify(user));
-          }
-        } else if (wildGemsFromOpUser !== null && wildGemsFromOpUser > 0) {
-          wildGems = wildGemsFromOpUser;
-          console.log('[WildGems] Usando valor de opUser:', wildGems);
-          localStorage.setItem('ws_wildgems', wildGems.toString());
-        } else {
-          wildGems = 0;
-          if (wildGemsStr === null || wildGemsStr === undefined) {
-            localStorage.setItem('ws_wildgems', '0');
-          }
-          console.log('[WildGems] Sin balance y sin cuenta vinculada, inicializando con 0');
-        }
-
-        console.log('[WildGems] Balance final:', wildGems);
-        wildGemsEl.textContent = wildGems.toLocaleString();
-        console.log('[WildGems] Balance actualizado en UI:', wildGems);
-
-        // Escuchar cambios en localStorage
-        if (!window.wildGemsStorageListener) {
-          window.wildGemsStorageListener = (e) => {
-            if (e.key === 'ws_wildgems') {
-              const newBalance = parseInt(e.newValue || '0');
-              if (wildGemsEl) {
-                wildGemsEl.textContent = newBalance.toLocaleString();
-              }
-              const currentUser = JSON.parse(localStorage.getItem('opUser') || '{}');
-              if (currentUser && currentUser.id) {
-                currentUser.wildgems = newBalance;
-                localStorage.setItem('opUser', JSON.stringify(currentUser));
-              }
-            }
-          };
-          window.addEventListener('storage', window.wildGemsStorageListener);
-        }
-
-        // Escuchar eventos personalizados
-        if (!window.wildGemsCustomListener) {
-          window.wildGemsCustomListener = (e) => {
-            if (e.detail && e.detail.balance !== undefined) {
-              const newBalance = parseInt(e.detail.balance || '0');
-              if (wildGemsEl) {
-                wildGemsEl.textContent = newBalance.toLocaleString();
-              }
-              localStorage.setItem('ws_wildgems', newBalance.toString());
-              const currentUser = JSON.parse(localStorage.getItem('opUser') || '{}');
-              if (currentUser && currentUser.id) {
-                currentUser.wildgems = newBalance;
-                localStorage.setItem('opUser', JSON.stringify(currentUser));
-              }
-            }
-          };
-          window.addEventListener('wildgems-updated', window.wildGemsCustomListener);
-        }
-
-        // Escuchar mensajes de WildShorts
-        if (!window.wildGemsMessageListener) {
-          window.wildGemsMessageListener = (event) => {
-            if (event.data && event.data.type === 'wildgems-update') {
-              const balance = parseInt(event.data.balance || '0');
-              console.log('[WildGems] Mensaje recibido desde WildShorts:', balance);
-              if (wildGemsEl) {
-                wildGemsEl.textContent = balance.toLocaleString();
-              }
-              localStorage.setItem('ws_wildgems', balance.toString());
-              const currentUser = JSON.parse(localStorage.getItem('opUser') || '{}');
-              if (currentUser && currentUser.id) {
-                currentUser.wildgems = balance;
-                localStorage.setItem('opUser', JSON.stringify(currentUser));
-                console.log('[WildGems] Actualizado en opUser desde mensaje:', balance);
-              }
-            }
-          };
-          window.addEventListener('message', window.wildGemsMessageListener);
-        }
-
-        // Polling periódico para actualizar balance
-        if (!window.wildGemsPollInterval) {
-          let pollCounter = 0;
-          window.wildGemsPollInterval = setInterval(async () => {
-            pollCounter++;
-            const currentUser = JSON.parse(localStorage.getItem('opUser') || '{}');
-            const currentToken = localStorage.getItem('opToken') || currentUser.token;
-
-            if (currentToken && currentUser && currentUser.id) {
-              try {
-                const serverRes = await fetch(`${API}/wildshorts/wildgems/balance`, {
-                  headers: {
-                    'Authorization': `Bearer ${currentToken}`
-                  }
-                });
-
-                if (serverRes.ok) {
-                  const serverData = await serverRes.json();
-                  const serverWildGems = parseInt(serverData.wildgems || '0');
-                  const currentDisplayed = parseInt(wildGemsEl.textContent.replace(/,/g, '') || '0');
-
-                  if (serverWildGems !== currentDisplayed) {
-                    if (wildGemsEl) {
-                      wildGemsEl.textContent = serverWildGems.toLocaleString();
-                    }
-                    localStorage.setItem('ws_wildgems', serverWildGems.toString());
-                    currentUser.wildgems = serverWildGems;
-                    localStorage.setItem('opUser', JSON.stringify(currentUser));
-                    console.log('[WildGems] Actualizado desde servidor en polling:', serverWildGems, '(era:', currentDisplayed, ')');
-                  }
-                }
-              } catch (e) {
-                // Si falla el servidor, usar localStorage
-                const currentFromStorage = parseInt(localStorage.getItem('ws_wildgems') || '0');
-                const currentFromOpUser = (currentUser && currentUser.wildgems !== undefined)
-                  ? Math.round(currentUser.wildgems || 0)
-                  : 0;
-                const currentDisplayed = parseInt(wildGemsEl.textContent.replace(/,/g, '') || '0');
-
-                let newBalance = currentFromStorage || currentFromOpUser || 0;
-                if (newBalance !== currentDisplayed) {
-                  if (wildGemsEl) {
-                    wildGemsEl.textContent = newBalance.toLocaleString();
-                  }
-                  localStorage.setItem('ws_wildgems', newBalance.toString());
-                  if (currentUser && currentUser.wildgems !== newBalance) {
-                    currentUser.wildgems = newBalance;
-                    localStorage.setItem('opUser', JSON.stringify(currentUser));
-                    console.log('[WildGems] Actualizado opUser desde localStorage en polling:', newBalance);
-                  }
-                }
-              }
-            }
-          }, 30000); // Verificar cada 30 segundos
-        }
-
-      } catch (e) {
-        console.error("Error loading WildGems", e);
-        const wildGemsEl = qs('#wildgems');
-        if (wildGemsEl) wildGemsEl.textContent = '0';
-      }
-    }
-
-    async function changeEcoxionums(sign) {
-      const user = JSON.parse(localStorage.getItem('opUser') || '{}');
-      const amt = +qs('#ecoAmount').value * sign;
-      const concept = qs('#ecoConcept').value;
-
-      const res = await fetch(`${API}/ocean-pay/ecoxionums/change`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user.id, amount: amt, concept })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        qs('#ecoxionums').textContent = data.newBalance.toLocaleString();
-        showAlert('success', 'Ecoxionums actualizados');
-        closeEcoModal();
-        /* reflejo inmediato en Ecoxion (ver punto 5) */
-        window.parent?.postMessage({ type: 'eco-balance-update', balance: data.newBalance }, '*');
-      } else {
-        showAlert('error', data.error);
-      }
-    }
-    /* ----------  LOGIN (único fetch) ---------- */
     async function autoLogin(username, password) {
-      console.log('[LOGIN] Enviando:', { username, password });
-
       try {
         const res = await fetch(API + '/ocean-pay/login', {
           method: 'POST',
@@ -1848,155 +673,139 @@
 
         const data = await res.json();
         if (!res.ok) {
-          // Mensaje de error más claro
-          let errorMessage = data.error || 'Error al iniciar sesión';
-          if (res.status === 401) {
-            errorMessage = 'Usuario o contraseña incorrectos. Verifica tus credenciales.';
-          } else if (res.status === 400) {
-            errorMessage = 'Faltan datos. Completa todos los campos.';
-          }
-          qs('#logMsg').textContent = errorMessage;
+          qs('#logMsg').textContent = data.error || 'Error al iniciar sesión';
           qs('#logMsg').className = 'msg error';
-          console.error('[LOGIN] Error:', res.status, errorMessage);
           return;
         }
 
-        // ✅ Guardamos todo
         token = data.token;
         userId = data.user.id;
 
-        // Usar wildcredits del servidor (si viene en data.user) como prioridad
-        let preservedWildCredits = data.user.wildcredits || 0;
-
-        // Si no viene del servidor o es 0, preservar el anterior como respaldo temporal
-        if (!preservedWildCredits || preservedWildCredits === 0) {
-          const previousOpUser = JSON.parse(localStorage.getItem('opUser') || 'null');
-          const wildCreditsFromStorage = parseInt(localStorage.getItem('wildCredits') || '0');
-
-          if (previousOpUser && previousOpUser.wildcredits !== undefined && previousOpUser.wildcredits !== null && previousOpUser.wildcredits > 0) {
-            preservedWildCredits = Math.round(previousOpUser.wildcredits || 0);
-          } else if (wildCreditsFromStorage > 0) {
-            preservedWildCredits = wildCreditsFromStorage;
-          }
-        }
-
-        // Preservar WildGems
-        let preservedWildGems = data.user.wildgems || 0;
-        if (!preservedWildGems || preservedWildGems === 0) {
-          const previousOpUser = JSON.parse(localStorage.getItem('opUser') || 'null');
-          const wildGemsFromStorage = parseInt(localStorage.getItem('ws_wildgems') || '0');
-
-          if (previousOpUser && previousOpUser.wildgems !== undefined && previousOpUser.wildgems !== null && previousOpUser.wildgems > 0) {
-            preservedWildGems = Math.round(previousOpUser.wildgems || 0);
-          } else if (wildGemsFromStorage > 0) {
-            preservedWildGems = wildGemsFromStorage;
-          }
-        }
-
-        // Crear objeto user con wildcredits, wildgems y appbux
-        const userData = {
-          ...data.user,
-          wildcredits: preservedWildCredits,
-          wildgems: preservedWildGems,
-          appbux: data.user.appbux || 0,
-          token: data.token
-        };
-
+        // Save User Data
         localStorage.setItem('opToken', token);
-        localStorage.setItem('opUser', JSON.stringify(userData));
-        localStorage.setItem('wildCredits', preservedWildCredits.toString());
-        localStorage.setItem('ws_wildgems', preservedWildGems.toString());
-        console.log('[WildCredits] Configurado wildcredits en login:', preservedWildCredits, '(del servidor:', data.user.wildcredits || 0, ')');
-        console.log('[WildGems] Configurado wildgems en login:', preservedWildGems, '(del servidor:', data.user.wildgems || 0, ')');
+        localStorage.setItem('opUser', JSON.stringify({ ...data.user, token }));
 
-        loadCreditsBalance(),
-          loadWildCreditsBalance(),
-          loadWildGemsBalance()
+        // Update UI
+        qs('#userNameDisplay').textContent = data.user.username;
+        qs('#userIdDisplay').textContent = `ID: ${data.user.id}`;
+        qs('#userAvatar').textContent = data.user.username.charAt(0).toUpperCase();
 
-        // Iniciar refresh automático de balances
+        // Switch to App Layout
+        show('#auth-section', false);
+        show('#app-layout', true);
+
+        // Load Data
+        refreshAllBalances();
         startBalanceRefresh();
 
-        /* ⬅️  Cargar historial */
-        await renderTransacciones();
-
-        /* ⬅️  DEBUG: imprimimos lo que vamos a enviar */
-        console.log('[Ocean-Pay] Enviando al padre:', {
-          type: 'ocean-pay-token',
-          token: data.token,
-          user: data.user
-        });
-
-        /* ✅ Solo si fue abierta desde otra ventana */
-        if (window.opener) {
-          // Obtener WildCredits y WildGems desde localStorage
-          const wildCredits = parseInt(localStorage.getItem('wildCredits') || '0');
-          const wildGems = parseInt(localStorage.getItem('ws_wildgems') || '0');
-
-          const urlParams = new URLSearchParams(window.location.search);
-          const source = urlParams.get('source');
-
-          const message = JSON.parse(JSON.stringify({
-            type: 'ocean-pay-token',
-            token: data.token,
-            user: {
-              ...data.user,
-              wildcredits: wildCredits,
-              wildgems: wildGems
-            },
-            ecoxionums: data.user.ecoxionums,
-            ecorebits: { balance: data.user.ecorebits },
-            wildcredits: wildCredits,
-            wildgems: wildGems
-          }));
-
-          console.log('[Ocean-Pay] Enviando mensaje al padre:', message);
-          window.opener.postMessage(message, '*');
-
-          // Cerrar después de un delay (más corto para mejor UX)
-          setTimeout(() => {
-            if (window.opener && !window.closed) {
-              window.close();
-            }
-          }, source === 'wildshorts' ? 2000 : 3000);
-        } else {
-          /* 🔓 Modo standalone: quedarse en la wallet */
-          console.log('[Ocean-Pay] Sin ventana padre → modo independiente');
-        }
       } catch (err) {
-        console.error('[LOGIN] Error de red:', err);
-        qs('#logMsg').textContent = 'Error de conexión. Verifica tu internet.';
-        qs('#logMsg').className = 'msg error';
-        return;
+        console.error(err);
+        qs('#logMsg').textContent = 'Error de conexión';
       }
     }
 
+    /* ----------  BALANCES  ---------- */
+    async function loadTidesBalance() {
+      const user = JSON.parse(localStorage.getItem('opUser') || '{}');
+      if (!user.id) { qs('#tides').textContent = '0'; return; }
 
-    /* ----------  REFRESH BALANCES  ---------- */
-    async function loadAquaBuxBalance() {
       try {
-        const res = await fetch(API + '/ocean-pay/me', {
-          headers: { Authorization: 'Bearer ' + token }
+        const res = await fetch(`${API}/hub/tides/balance`, {
+          headers: { 'Authorization': `Bearer ${token}` }
         });
         if (res.ok) {
+          const data = await res.json();
+          qs('#tides').textContent = (data.tides || 0).toLocaleString();
+        }
+      } catch (e) {
+        console.error("Error fetching Tides", e);
+        qs('#tides').textContent = '0';
+      }
+    }
+
+    async function loadAquaBuxBalance() {
+      try {
+        const res = await fetch(API + '/ocean-pay/me', { headers: { Authorization: 'Bearer ' + token } });
+        if (res.ok) {
           const user = await res.json();
-          const buxEl = qs('#bux');
-          if (buxEl) {
-            buxEl.textContent = (user.aquabux || 0).toLocaleString();
-          }
-          // Actualizar en localStorage también
+          let balance = user.aquabux || 0;
+
+          // 🔧 DEV MODE: OceanandWild unlimited AquaBux
           const opUser = JSON.parse(localStorage.getItem('opUser') || '{}');
-          opUser.aquabux = user.aquabux || 0;
-          // 🔧 DEV MODE: OceanandWild unlimited AquaBux  
           if (opUser.username && opUser.username.toLowerCase() === 'oceanandwild') {
-            opUser.aquabux = 999999999;
-            if (buxEl) buxEl.textContent = (999999999).toLocaleString();
+            balance = 999999999;
             console.log('🔧 [DEV MODE] OceanandWild - AquaBux: 999999999');
           }
-          localStorage.setItem('opUser', JSON.stringify(opUser));
+
+          qs('#bux').textContent = balance.toLocaleString();
         }
-      } catch (err) {
-        console.error('Error cargando AquaBux:', err);
-      }
+      } catch (err) { console.error(err); }
+    }
+
+    async function loadEcoxionumsBalance() {
+      const user = JSON.parse(localStorage.getItem('opUser') || '{}');
+      if (!user.id) return;
+      const res = await fetch(`${API}/ocean-pay/ecoxionums/${user.id}`);
+      const { ecoxionums } = await res.json();
+      qs('#ecoxionums').textContent = Math.round(ecoxionums || 0).toLocaleString();
+    }
+
+    async function loadEcoCoreBitsBalance() {
+      // Simplified for brevity, assuming token exists
+      const user = JSON.parse(localStorage.getItem('opUser') || '{}');
+      if (!user.token) return;
+      try {
+        const res = await fetch(`${API}/api/ecorebits/user`, { headers: { 'Authorization': `Bearer ${user.token}` } });
+        const data = await res.json();
+        if (data.success) qs('#ecobits').textContent = Math.round(data.user?.ecorebits?.balance || 0).toLocaleString();
+      } catch (e) { }
+    }
+
+    async function loadCreditsBalance() {
+      const user = JSON.parse(localStorage.getItem('opUser') || '{}');
+      if (!user.token) return;
+      try {
+        const res = await fetch(`${API}/ecocore/credits/${user.id}`, { headers: { 'Authorization': `Bearer ${user.token}` } });
+        if (res.ok) {
+          const data = await res.json();
+          qs('#credits').textContent = Math.round(data.credits || 0).toLocaleString();
+        }
+      } catch (e) { }
+    }
+
+    async function loadAppBuxBalance() {
+      const user = JSON.parse(localStorage.getItem('opUser') || '{}');
+      if (!user.id) return;
+      try {
+        const res = await fetch(`${API}/ocean-pay/appbux/${user.id}`);
+        const { appbux } = await res.json();
+        qs('#appbux').textContent = Math.round(appbux || 0).toLocaleString();
+      } catch (e) { }
+    }
+
+    async function loadWildCreditsBalance() {
+      // Simplified fetch
+      const user = JSON.parse(localStorage.getItem('opUser') || '{}');
+      if (!user.id) return;
+      try {
+        const res = await fetch(`${API}/ocean-pay/wildcredits/balance`, { headers: { 'Authorization': `Bearer ${token}` } });
+        if (res.ok) {
+          const data = await res.json();
+          qs('#wildcredits').textContent = parseInt(data.wildcredits || 0).toLocaleString();
+        }
+      } catch (e) { }
+    }
+
+    async function loadWildGemsBalance() {
+      const user = JSON.parse(localStorage.getItem('opUser') || '{}');
+      if (!user.id) return;
+      try {
+        const res = await fetch(`${API}/wildshorts/wildgems/balance`, { headers: { 'Authorization': `Bearer ${token}` } });
+        if (res.ok) {
+          const data = await res.json();
+          qs('#wildgems').textContent = parseInt(data.wildgems || 0).toLocaleString();
+        }
+      } catch (e) { }
     }
 
     async function refreshAllBalances() {
@@ -2007,460 +816,88 @@
         loadCreditsBalance(),
         loadWildCreditsBalance(),
         loadWildGemsBalance(),
-        loadAppBuxBalance()
+        loadAppBuxBalance(),
+        loadTidesBalance()
       ]);
     }
 
-    // Refrescar balances cada 30 segundos
     let balanceRefreshInterval = null;
     function startBalanceRefresh() {
       if (balanceRefreshInterval) clearInterval(balanceRefreshInterval);
       balanceRefreshInterval = setInterval(refreshAllBalances, 30000);
     }
-    function stopBalanceRefresh() {
-      if (balanceRefreshInterval) {
-        clearInterval(balanceRefreshInterval);
-        balanceRefreshInterval = null;
-      }
-    }
 
-    /* ----------  DELETE ACCOUNT  ---------- */
-    qs('#deleteAccountBtn').onclick = async () => {
-      const user = JSON.parse(localStorage.getItem('opUser') || '{}');
-      if (!user.id || !user.username) {
-        alert('No hay una cuenta activa para eliminar.');
-        return;
-      }
-
-      const username = user.username;
-
-      // Primera confirmación
-      const confirmed1 = confirm(`⚠️ ADVERTENCIA: ACCIÓN IRREVERSIBLE ⚠️\n\n¿Estás seguro de que deseas ELIMINAR PERMANENTEMENTE tu cuenta de Ocean Pay?\n\nUsuario: ${username}\n\nEsta acción:\n• Eliminará tu cuenta de Ocean Pay\n• Perderás todos tus AquaBux, Ecoxionums, WildCredits, WildGems, AppBux y EcoCoreBits\n• Eliminará todo tu historial de transacciones\n• No se puede deshacer\n\n¿Deseas continuar?`);
-
-      if (!confirmed1) return;
-
-      // Segunda confirmación con el nombre de usuario
-      const typedUsername = prompt(`Para confirmar la eliminación permanente, escribe tu nombre de usuario:\n\n"${username}"\n\n(Escribe exactamente como se muestra)`);
-
-      if (typedUsername !== username) {
-        alert('El nombre de usuario no coincide. Eliminación cancelada.');
-        return;
-      }
-
-      try {
-        const opToken = localStorage.getItem('opToken');
-
-        const response = await fetch(`${API}/ocean-pay/delete-account`, {
-          method: 'DELETE',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${opToken}`
-          },
-          body: JSON.stringify({
-            userId: user.id,
-            username: username
-          })
-        });
-
-        if (response.ok) {
-          alert('Tu cuenta de Ocean Pay ha sido eliminada permanentemente.');
-
-          // Limpiar todos los datos locales
-          stopBalanceRefresh();
-          if (window.wildCreditsPollInterval) {
-            clearInterval(window.wildCreditsPollInterval);
-            window.wildCreditsPollInterval = null;
-          }
-          if (window.wildGemsPollInterval) {
-            clearInterval(window.wildGemsPollInterval);
-            window.wildGemsPollInterval = null;
-          }
-
-          localStorage.removeItem('opToken');
-          localStorage.removeItem('opUser');
-          localStorage.removeItem('ecoxionUserId');
-          localStorage.removeItem('ecoxionUsername');
-          localStorage.removeItem('wildCredits');
-          localStorage.removeItem('ws_wildgems');
-
-          token = '';
-          userId = 0;
-
-          show('#wallet', false);
-          show('#regForm', true);
-          show('#loginForm', false);
-          qs('#toggleLink').textContent = 'Iniciar sesión';
-        } else {
-          const error = await response.json();
-          alert('Error: ' + (error.error || 'No se pudo eliminar la cuenta. Intenta de nuevo.'));
-        }
-      } catch (error) {
-        console.error('Error al eliminar cuenta:', error);
-        alert('Hubo un problema al eliminar la cuenta. Intenta de nuevo.');
-      }
-    };
-
-    /* ----------  LOGOUT  ---------- */
+    /* ----------  LOGOUT & DELETE  ---------- */
     qs('#logoutBtn').onclick = () => {
-      stopBalanceRefresh();
-      // Limpiar intervalo de polling de WildCredits
-      if (window.wildCreditsPollInterval) {
-        clearInterval(window.wildCreditsPollInterval);
-        window.wildCreditsPollInterval = null;
-      }
-      // Limpiar intervalo de polling de WildGems
-      if (window.wildGemsPollInterval) {
-        clearInterval(window.wildGemsPollInterval);
-        window.wildGemsPollInterval = null;
-      }
       localStorage.removeItem('opToken'); localStorage.removeItem('opUser');
       token = ''; userId = 0;
-      show('#wallet', false); show('#regForm', true); show('#loginForm', false);
-      qs('#toggleLink').textContent = 'Iniciar sesión';
+      show('#app-layout', false); show('#auth-section', true); show('#loginForm', true);
     };
 
-    /* ----------  INIT SEGURO  ---------- */
-    window.addEventListener('DOMContentLoaded', async () => {
-      const t = localStorage.getItem('opToken');
-      if (!t) return; // sin token → mostrar login
-
-      token = t;
+    qs('#deleteAccountBtn').onclick = async () => {
+      if (!confirm('¿Estás seguro de eliminar tu cuenta permanentemente?')) return;
       const user = JSON.parse(localStorage.getItem('opUser') || '{}');
-      userId = user.id;
-
-      // Si el usuario tiene token de EcoConsole, guardarlo en opUser
-      if (!user.token) {
-        const ecToken = localStorage.getItem('token');
-        if (ecToken) {
-          user.token = ecToken;
-          localStorage.setItem('opUser', JSON.stringify(user));
+      try {
+        const res = await fetch(`${API}/ocean-pay/delete-account`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ userId: user.id, username: user.username })
+        });
+        if (res.ok) {
+          alert('Cuenta eliminada');
+          qs('#logoutBtn').click();
         }
-      }
+      } catch (e) { alert('Error al eliminar'); }
+    };
 
-      // pinta wallet y saldo
-      show('#wallet', true);
-
-      // Cargar todos los balances (incluyendo AquaBux desde el servidor)
-      await Promise.all([
-        loadAquaBuxBalance(),
-        loadEcoxionumsBalance(),
-        loadEcoCoreBitsBalance(),
-        loadCreditsBalance(),
-        loadWildCreditsBalance(),
-        loadWildGemsBalance(),
-        loadAppBuxBalance()
-      ]);
-
-      // Iniciar refresh automático
-      startBalanceRefresh();
-      show('#regForm', false);
-      show('#loginForm', false);
-      qs('#toggleLink').textContent = 'Crear cuenta';
-
-      // ⬅️  carga historial
-      await renderTransacciones();
-
-      // Si fue abierta desde otra ventana y ya hay sesión, notificar al padre
-      if (window.opener) {
-        const urlParams = new URLSearchParams(window.location.search);
-        const source = urlParams.get('source');
-
-        // Esperar un poco para que los balances se carguen
-        setTimeout(() => {
-          const wildCredits = parseInt(localStorage.getItem('wildCredits') || '0');
-          const wildGems = parseInt(localStorage.getItem('ws_wildgems') || '0');
-
-          const message = {
-            type: 'ocean-pay-token',
-            token: token,
-            user: {
-              ...user,
-              wildcredits: wildCredits,
-              wildgems: wildGems
-            },
-            ecoxionums: user.ecoxionums,
-            ecorebits: { balance: user.ecorebits },
-            wildcredits: wildCredits,
-            wildgems: wildGems
-          };
-
-          console.log('[Ocean-Pay] Enviando sesión existente al padre:', message);
-          window.opener.postMessage(JSON.parse(JSON.stringify(message)), '*');
-
-          // Si fue abierto desde WildShorts, cerrar después de enviar
-          if (source === 'wildshorts') {
-            setTimeout(() => {
-              if (window.opener && !window.closed) {
-                window.close();
-              }
-            }, 1500);
-          }
-        }, 1000);
-      }
-    });
-
+    /* ----------  TRANSACTIONS  ---------- */
     async function renderTransacciones() {
       const container = qs('#txList');
-      if (!container) return;
-
-      const token = localStorage.getItem('opToken');
-      if (!token) {
-        container.innerHTML = '<div class="tx-empty">Sin cuenta vinculada</div>';
-        return;
-      }
-
-      // Mostrar estado de carga
-      container.innerHTML = '<div class="tx-empty">Cargando transacciones...</div>';
-
+      container.innerHTML = '<div style="color:#94a3b8">Cargando...</div>';
       try {
-        // 1. Ping suave para despertar el dyno
-        const wake = await fetch(API + '/status', { method: 'HEAD' });
-        if (!wake.ok) throw new Error('Servidor durmiendo');
+        const res = await fetch(`${API}/ocean-pay/txs/${userId}`, { headers: { Authorization: 'Bearer ' + token } });
+        const txs = await res.json();
+        if (txs.length === 0) { container.innerHTML = '<div style="color:#94a3b8">No hay transacciones</div>'; return; }
 
-        // 2. Datos del usuario
-        const me = await (await fetch(API + '/ocean-pay/me', {
-          headers: { Authorization: 'Bearer ' + token }
-        })).json();
-
-        // 3. Transacciones
-        const txs = await (await fetch(`${API}/ocean-pay/txs/${me.id}`, {
-          headers: { Authorization: 'Bearer ' + token }
-        })).json();
-
-        if (txs.length === 0) {
-          container.innerHTML = '<div class="tx-empty">No hay movimientos registrados</div>';
-          return;
-        }
-
-        // Renderizar transacciones con nuevo diseño mejorado
-        container.innerHTML = txs.map((tx, index) => {
-          const fecha = new Date(tx.created_at);
-          const fechaFormateada = fecha.toLocaleDateString('es-ES', {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric'
-          });
-          const horaFormateada = fecha.toLocaleTimeString('es-ES', {
-            hour: '2-digit',
-            minute: '2-digit'
-          });
-          const esPositivo = tx.monto > 0;
-
-          // Determinar moneda: si no tiene moneda o es 'AB' pero el origen es WildShorts, inferirla del origen
-          let monedaCodigo = tx.moneda;
-
-          // Si no tiene moneda o es 'AB' pero el origen indica otra moneda, inferirla del origen
-          if ((!monedaCodigo || monedaCodigo === 'AB') && tx.origen) {
-            // Mapeo de origen a moneda por defecto
-            const origenMonedaMap = {
-              'WildShorts': 'WG',
-              'Wild Explorer': 'WC',
-              'EcoConsole': 'ECB',
-              'Ecoxion': 'EX',
-              'AllApp': 'ABX',
-              'Ocean Cinemas': 'AB',
-              'Ocean Pay': 'AB'
-            };
-
-            // Si el origen tiene una moneda específica y la moneda actual es 'AB' o NULL, usar la del origen
-            if (origenMonedaMap[tx.origen] && (monedaCodigo === 'AB' || !monedaCodigo)) {
-              monedaCodigo = origenMonedaMap[tx.origen];
-            } else if (!monedaCodigo) {
-              monedaCodigo = origenMonedaMap[tx.origen] || 'AB';
-            }
-          }
-
-          // Corrección especial: si el concepto incluye "WildShorts" o "Episodio" y la moneda es AB, cambiar a WG
-          if (tx.concepto && (tx.concepto.includes('WildShorts') || tx.concepto.includes('Episodio')) && monedaCodigo === 'AB') {
-            monedaCodigo = 'WG';
-          }
-
-          // Mapeo de monedas con iconos
-          const monedasInfo = {
-            'AB': { nombre: 'AquaBux', icono: '💧', color: '#06b6d4' },
-            'ECB': { nombre: 'EcoCoreBits', icono: '💻', color: '#8b5cf6' },
-            'EX': { nombre: 'Ecoxionums', icono: '🌍', color: '#10b981' },
-            'WC': { nombre: 'WildCredits', icono: '🌿', color: '#22c55e' },
-            'ABX': { nombre: 'AppBux', icono: '📱', color: '#f59e0b' },
-            'WG': { nombre: 'WildGems', icono: '💎', color: '#fbbf24' }
-          };
-
-          const monedaInfo = monedasInfo[monedaCodigo] || { nombre: monedaCodigo || 'Moneda', icono: '💰', color: '#94a3b8' };
-
-          // Iconos según el origen
-          const origenesIconos = {
-            'Ocean Pay': '💳',
-            'Ocean Cinemas': '🎬',
-            'EcoConsole': '🎮',
-            'WildShorts': '📚',
-            'Wild Explorer': '🌿',
-            'Ecoxion': '🌍',
-            'AllApp': '📱',
-            'NatMarket': '🛒'
-          };
-
-          const iconoOrigen = origenesIconos[tx.origen] || '💼';
-
-          // Icono según tipo de transacción
-          let iconoTx = esPositivo ? '⬆️' : '⬇️';
-          if (tx.concepto?.toLowerCase().includes('recompensa') || tx.concepto?.toLowerCase().includes('bono')) {
-            iconoTx = '🎁';
-          } else if (tx.concepto?.toLowerCase().includes('compra') || tx.concepto?.toLowerCase().includes('pago')) {
-            iconoTx = '🛒';
-          } else if (tx.concepto?.toLowerCase().includes('suscripción') || tx.concepto?.toLowerCase().includes('subscription')) {
-            iconoTx = '👑';
-          }
-
-          // Crear elementos HTML para evitar problemas de renderizado de emojis
-          const iconoTxHtml = iconoTx;
-          const iconoOrigenHtml = iconoOrigen;
-          const iconoMonedaHtml = monedaInfo.icono;
-          const iconoFechaHtml = '📅';
-
+        container.innerHTML = txs.map(tx => {
+          const date = new Date(tx.created_at).toLocaleDateString();
+          const isPos = tx.monto > 0;
           return `
-        <div class="tx-item" style="animation-delay: ${index * 0.05}s">
-          <div class="tx-item-icon" style="background: linear-gradient(135deg, ${esPositivo ? 'rgba(16,185,129,.2)' : 'rgba(239,68,68,.2)'}, ${esPositivo ? 'rgba(34,197,94,.2)' : 'rgba(220,38,38,.2)'});">
-            <span style="font-size: 1.5rem; display: block; line-height: 1;">${iconoTxHtml}</span>
-          </div>
-          <div class="tx-item-content">
-            <div class="tx-item-concept">${tx.concepto || 'Transacción'}</div>
-            <div class="tx-item-meta">
-              <span class="tx-item-date">
-                <span style="font-size: 0.85rem;">${iconoFechaHtml}</span>
-                <span>${fechaFormateada} ${horaFormateada}</span>
-              </span>
-              ${tx.origen ? `<span class="tx-item-origin"><span style="font-size: 0.7rem; margin-right: 0.2rem;">${iconoOrigenHtml}</span>${tx.origen}</span>` : ''}
-            </div>
-          </div>
-          <div class="tx-item-amount ${esPositivo ? 'positive' : 'negative'}">
-            <div style="display: flex; align-items: baseline; gap: .3rem;">
-              <span class="tx-item-amount-sign">${esPositivo ? '+' : '−'}</span>
-              <span>${Math.abs(tx.monto).toLocaleString()}</span>
-            </div>
-            <div class="tx-item-currency" style="color: ${monedaInfo.color}">
-              <span style="font-size: 0.75rem;">${iconoMonedaHtml}</span> ${monedaInfo.nombre}
-            </div>
-          </div>
-        </div>
-      `;
+                <div style="display:flex; justify-content:space-between; padding:1rem; border-bottom:1px solid rgba(255,255,255,0.05); align-items:center;">
+                    <div>
+                        <div style="font-weight:bold;">${tx.concepto || 'Transacción'}</div>
+                        <div style="font-size:0.8rem; color:#64748b;">${date} • ${tx.origen || 'Sistema'}</div>
+                    </div>
+                    <div style="font-weight:bold; color:${isPos ? 'var(--ok)' : 'var(--err)'}">
+                        ${isPos ? '+' : ''}${tx.monto} ${tx.moneda || ''}
+                    </div>
+                </div>`;
         }).join('');
-
-      } catch (err) {
-        console.warn('[Ocean-Pay] renderTransacciones:', err);
-
-        // Token inválido / expirado → limpiamos
-        if (err.message.includes('401') || err.message.includes('Token') || err.message.includes('403')) {
-          localStorage.removeItem('opToken');
-          localStorage.removeItem('opUser');
-          container.innerHTML = '<div class="tx-empty" style="color:var(--err)">Sesión cerrada. Por favor, inicia sesión nuevamente.</div>';
-          return;
-        }
-
-        // Cualquier otro error (500, network, etc.)
-        container.innerHTML = '<div class="tx-empty" style="color:var(--err)">Servidor no disponible. Re-intenta en 30 segundos.</div>';
-      }
+      } catch (e) { container.innerHTML = '<div style="color:var(--err)">Error cargando historial</div>'; }
     }
 
+    /* ----------  INIT  ---------- */
+    window.addEventListener('DOMContentLoaded', async () => {
+      const t = localStorage.getItem('opToken');
+      if (t) {
+        token = t;
+        const user = JSON.parse(localStorage.getItem('opUser') || '{}');
+        userId = user.id;
 
+        qs('#userNameDisplay').textContent = user.username || 'Usuario';
+        qs('#userIdDisplay').textContent = `ID: ${user.id}`;
+        qs('#userAvatar').textContent = (user.username || 'U').charAt(0).toUpperCase();
 
-    // Store the original notifyParent function if it exists
-    const originalNotifyParent = window.notifyParent || function () { };
+        show('#auth-section', false);
+        show('#app-layout', true);
 
-    window.notifyParent = function () {
-      console.log('notifyParent called');
-
-      // Call the original function first (if it exists)
-      originalNotifyParent();
-
-      // Check if we were opened from EcoConsole
-      const urlParams = new URLSearchParams(window.location.search);
-      const source = urlParams.get('source');
-
-      if (source === 'ecoconsole' && window.opener) {
-        try {
-          console.log('Notifying parent window...');
-
-          // Get the token and user data from localStorage
-          const token = localStorage.getItem('token');
-          const userData = JSON.parse(localStorage.getItem('userData') || '{}');
-
-          console.log('User data from localStorage:', { token, userData });
-
-          // If we have the required data, send it back to the parent
-          if (token && (userData._id || userData.id)) {
-            // In the message object that gets sent to the parent window:
-            const message = {
-              type: 'ocean-pay-auth',
-              token: token,
-              user: {
-                id: userData._id || userData.id,
-                username: userData.username || userData.un,
-                token: token,
-                ecorebits: {
-                  balance: userData.ecorebits?.balance || 0
-                }
-              }
-            };
-
-            // Send the message
-            try {
-              // Try with target origin first
-              const targetOrigin = window.location.origin;
-              console.log('Sending message to origin:', targetOrigin);
-              window.opener.postMessage(message, targetOrigin);
-
-              // Also try with wildcard as fallback
-              setTimeout(() => {
-                if (!messageReceived) {
-                  console.log('Sending message with wildcard origin');
-                  window.opener.postMessage(message, '*');
-                }
-              }, 100);
-            } catch (e) {
-              console.error('Error sending message:', e);
-            }
-
-            // Close the window after a short delay
-            setTimeout(() => {
-              try {
-                window.close();
-              } catch (e) {
-                console.error('Error closing window:', e);
-              }
-            }, 1000);
-          }
-        } catch (error) {
-          console.error('Error in notifyParent:', error);
-        }
-      }
-    };
-
-    // Add message listener for when the page loads to check if we should close
-    document.addEventListener('DOMContentLoaded', () => {
-      console.log('Ocean Pay page loaded');
-
-      const urlParams = new URLSearchParams(window.location.search);
-      const source = urlParams.get('source');
-      const token = localStorage.getItem('token');
-
-      console.log('Page loaded with params:', { source, hasToken: !!token });
-
-      // If we're opened from EcoConsole and already logged in, notify and close
-      if (source === 'ecoconsole' && token && window.opener) {
-        console.log('Already logged in, notifying parent...');
-        setTimeout(() => {
-          window.notifyParent();
-        }, 500); // Small delay to ensure the page is fully loaded
+        refreshAllBalances();
+        startBalanceRefresh();
+      } else {
+        show('#auth-section', true);
+        show('#loginForm', true);
       }
     });
-
-    // Make sure notifyParent is called after login/registration
-    if (typeof originalNotifyParent === 'function') {
-      console.log('Original notifyParent function preserved');
-    }
-    /* después de guardar token en localStorage → */
-    notifyParent();
-
   </script>
 </body>
 

@@ -232,6 +232,14 @@ async function runDatabaseMigrations() {
       ADD COLUMN IF NOT EXISTS unique_id VARCHAR(100)
     `).catch(() => console.log('⚠️ Columna unique_id ya existe en ocean_pay_users'));
 
+    // 6. Agregar columnas de monedas si no existen
+    await pool.query(`
+      ALTER TABLE ocean_pay_users 
+      ADD COLUMN IF NOT EXISTS ecoxionums INTEGER DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS aquabux INTEGER DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS appbux INTEGER DEFAULT 0
+    `).catch(() => console.log('⚠️ Columnas de monedas ya existen en ocean_pay_users'));
+
     console.log('✅ Migraciones completadas exitosamente!');
 
   } catch (err) {

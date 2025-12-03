@@ -705,6 +705,20 @@
     }
 
     /* ----------  BALANCES  ---------- */
+    function handleExpiredToken() {
+      console.warn('Session expired. Logging out...');
+      localStorage.removeItem('opToken');
+      localStorage.removeItem('opUser');
+      token = '';
+      userId = 0;
+      show('#app-layout', false);
+      show('#auth-section', true);
+      show('#loginForm', true);
+      qs('#logMsg').textContent = 'Tu sesión ha expirado. Por favor, inicia sesión de nuevo.';
+      qs('#logMsg').className = 'msg error';
+      if (balanceRefreshInterval) clearInterval(balanceRefreshInterval);
+    }
+
     async function loadTidesBalance() {
       const user = JSON.parse(localStorage.getItem('opUser') || '{}');
       if (!user.id) { qs('#tides').textContent = '0'; return; }
@@ -756,6 +770,12 @@
       if (!user.token) return;
       try {
         const res = await fetch(`${API}/api/ecorebits/user`, { headers: { 'Authorization': `Bearer ${user.token}` } });
+
+        if (res.status === 401 || res.status === 403) {
+          handleExpiredToken();
+          return;
+        }
+
         const data = await res.json();
         if (data.success) qs('#ecobits').textContent = Math.round(data.user?.ecorebits?.balance || 0).toLocaleString();
       } catch (e) { }

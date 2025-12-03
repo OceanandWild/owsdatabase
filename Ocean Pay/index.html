@@ -649,12 +649,42 @@
     /* ----------  REGISTER  ---------- */
     qs('#regForm').onsubmit = async e => {
       e.preventDefault();
-      const body = { username: qs('#regUser').value, password: qs('#regPass').value };
-      const res = await fetch(API + '/ocean-pay/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      const data = await res.json();
-      if (!res.ok) return qs('#regMsg').textContent = data.error;
-      qs('#regMsg').className = 'msg success'; qs('#regMsg').textContent = '¡Cuenta creada! Bienvenido.';
-      setTimeout(() => autoLogin(body.username, body.password), 1000);
+      const username = qs('#regUser').value;
+      const password = qs('#regPass').value;
+      if (password.length < 4) {
+        qs('#regMsg').textContent = 'La contraseña debe tener al menos 4 caracteres.';
+        qs('#regMsg').className = 'msg error';
+        return;
+      }
+
+      try {
+        const res = await fetch(API + '/ocean-pay/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+
+        let data;
+        try {
+          data = await res.json();
+        } catch (err) {
+          throw new Error('Error del servidor (respuesta no válida)');
+        }
+
+        if (!res.ok) {
+          qs('#regMsg').textContent = data.error || `Error del servidor (${res.status})`;
+          qs('#regMsg').className = 'msg error';
+          return;
+        }
+
+        qs('#regMsg').className = 'msg success';
+        qs('#regMsg').textContent = '¡Cuenta creada! Bienvenido.';
+        setTimeout(() => autoLogin(username, password), 1000);
+      } catch (err) {
+        console.error(err);
+        qs('#regMsg').textContent = 'Error de conexión o del servidor.';
+        qs('#regMsg').className = 'msg error';
+      }
     };
 
     /* ----------  LOGIN  ---------- */
@@ -697,6 +727,11 @@
         // Load Data
         refreshAllBalances();
         startBalanceRefresh();
+
+        // Notify Opener
+        if (window.opener) {
+          window.opener.postMessage({ type: 'ocean_pay_token', token: token, user: data.user }, '*');
+        }
 
       } catch (err) {
         console.error(err);
@@ -913,6 +948,11 @@
 
         refreshAllBalances();
         startBalanceRefresh();
+
+        // Notify Opener
+        if (window.opener) {
+          window.opener.postMessage({ type: 'ocean_pay_token', token: token, user: user }, '*');
+        }
       } else {
         show('#auth-section', true);
         show('#loginForm', true);

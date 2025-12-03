@@ -226,6 +226,12 @@ async function runDatabaseMigrations() {
         OR reviewed_user_id NOT IN (SELECT id FROM users_nat)
     `).catch(() => { });
 
+    // 5. Agregar columna unique_id a ocean_pay_users si no existe
+    await pool.query(`
+      ALTER TABLE ocean_pay_users 
+      ADD COLUMN IF NOT EXISTS unique_id VARCHAR(100)
+    `).catch(() => console.log('⚠️ Columna unique_id ya existe en ocean_pay_users'));
+
     console.log('✅ Migraciones completadas exitosamente!');
 
   } catch (err) {

@@ -1011,6 +1011,223 @@ app.get('/wildshorts/wildgems/claims-status', async (req, res) => {
 });
 
 // Endpoint para pagar por episodio (pay-as-you-go)
+
+/* ===== SAVAGE SPACE ANIMALS - SUBSCRIPTION BENEFITS ===== */
+
+// Endpoint para obtener beneficios de suscripción para Savage Space Animals
+app.get('/savage-space-animals/benefits', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+
+  const token = authHeader.substring(7);
+  let userId;
+  try {
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
+    userId = decoded.uid;
+    userId = parseInt(userId) || userId;
+  } catch (e) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+
+  try {
+    // Verificar suscripción del usuario
+    const { rows: subRows } = await pool.query(`
+      SELECT value FROM ocean_pay_metadata
+      WHERE user_id = $1 AND key = 'studio_plan'
+    `, [userId]);
+
+    const plan = subRows.length > 0 ? subRows[0].value : 'free';
+
+    // Beneficios por plan
+    const benefits = {
+      free: {
+        extraLives: 0,
+        bossCooldownReduction: 0,
+        cosmicDustBonus: 0,
+        extendedInvincibility: false,
+        earlyAnimalUnlock: false
+      },
+      savage: {
+        extraLives: 1,              // +1 vida extra (4 total)
+        bossCooldownReduction: 10,  // -10% cooldown del boss
+        cosmicDustBonus: 5,         // +5% pólvora cósmica
+        extendedInvincibility: false,
+        earlyAnimalUnlock: false
+      },
+      oceanic: {
+        extraLives: 2,              // +2 vidas extra (5 total)
+        bossCooldownReduction: 25,  // -25% cooldown del boss
+        cosmicDustBonus: 15,        // +15% pólvora cósmica
+        extendedInvincibility: true, // Invencibilidad extendida al respawn
+        earlyAnimalUnlock: true      // Desbloqueo anticipado de animales
+      }
+    };
+
+    res.json({
+      plan,
+      benefits: benefits[plan] || benefits.free
+    });
+  } catch (e) {
+    console.error('Error obteniendo beneficios SSA:', e);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Endpoint para sincronizar pólvora cósmica
+app.post('/savage-space-animals/dust/sync', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+
+  const token = authHeader.substring(7);
+  let userId;
+  try {
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
+    userId = decoded.uid;
+    userId = parseInt(userId) || userId;
+  } catch (e) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+
+  const { cosmicDust, highScore, unlockedAnimals } = req.body;
+
+  try {
+    // Guardar pólvora cósmica
+    if (cosmicDust !== undefined) {
+      await pool.query(`
+        INSERT INTO ocean_pay_metadata (user_id, key, value)
+        VALUES ($1, 'ssa_cosmic_dust', $2)
+        ON CONFLICT (user_id, key) 
+        DO UPDATE SET value = $2
+      `, [userId, cosmicDust.toString()]);
+    }
+
+    // Guardar high score
+    if (highScore !== undefined) {
+      await pool.query(`
+        INSERT INTO ocean_pay_metadata (user_id, key, value)
+        VALUES ($1, 'ssa_high_score', $2)
+        ON CONFLICT (user_id, key) 
+        DO UPDATE SET value = $2
+      `, [userId, highScore.toString()]);
+    }
+
+    // Guardar animales desbloqueados
+    if (unlockedAnimals !== undefined) {
+      await pool.query(`
+        INSERT INTO ocean_pay_metadata (user_id, key, value)
+        VALUES ($1, 'ssa_unlocked_animals', $2)
+        ON CONFLICT (user_id, key) 
+        DO UPDATE SET value = $2
+      `, [userId, JSON.stringify(unlockedAnimals)]);
+    }
+
+    res.json({ success: true });
+  } catch (e) {
+    console.error('Error sincronizando datos SSA:', e);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Endpoint para obtener datos del jugador
+app.get('/savage-space-animals/player-data', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+
+  const token = authHeader.substring(7);
+  let userId;
+  try {
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
+    userId = decoded.uid;
+    userId = parseInt(userId) || userId;
+  } catch (e) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+
+  try {
+    const { rows } = await pool.query(`
+      SELECT key, value FROM ocean_pay_metadata
+      WHERE user_id = $1 AND key LIKE 'ssa_%'
+    `, [userId]);
+
+    const data = {};
+    rows.forEach(row => {
+      if (row.key === 'ssa_cosmic_dust') data.cosmicDust = parseInt(row.value) || 0;
+      if (row.key === 'ssa_high_score') data.highScore = parseInt(row.value) || 0;
+      if (row.key === 'ssa_unlocked_animals') {
+        try {
+          data.unlockedAnimals = JSON.parse(row.value);
+        } catch {
+          data.unlockedAnimals = ['betta'];
+        }
+      }
+    });
+
+    // Valores por defecto
+    if (!data.cosmicDust) data.cosmicDust = 0;
+    if (!data.highScore) data.highScore = 0;
+    if (!data.unlockedAnimals) data.unlockedAnimals = ['betta'];
+
+    res.json(data);
+  } catch (e) {
+    console.error('Error obteniendo datos SSA:', e);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Endpoint para verificar suscripción desde Ocean Pay
+app.get('/savage-space-animals/verify-subscription', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+
+  const token = authHeader.substring(7);
+  let userId;
+  try {
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
+    userId = decoded.uid;
+    userId = parseInt(userId) || userId;
+  } catch (e) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+
+  try {
+    // Verificar plan activo
+    const { rows: planRows } = await pool.query(`
+      SELECT value FROM ocean_pay_metadata
+      WHERE user_id = $1 AND key = 'studio_plan'
+    `, [userId]);
+
+    // Verificar fecha de expiración
+    const { rows: expiryRows } = await pool.query(`
+      SELECT value FROM ocean_pay_metadata
+      WHERE user_id = $1 AND key = 'studio_plan_expiry'
+    `, [userId]);
+
+    const plan = planRows.length > 0 ? planRows[0].value : 'free';
+    const expiry = expiryRows.length > 0 ? new Date(expiryRows[0].value) : null;
+    const isActive = plan !== 'free' && (!expiry || expiry > new Date());
+
+    res.json({
+      plan,
+      expiry: expiry?.toISOString() || null,
+      isActive,
+      message: isActive
+        ? `Tu suscripción ${plan.charAt(0).toUpperCase() + plan.slice(1)} está activa`
+        : 'No tienes una suscripción activa'
+    });
+  } catch (e) {
+    console.error('Error verificando suscripción SSA:', e);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 /* ===== OCEAN AND WILD STUDIOS HUB - TIDES & PLANS ===== */
 
 // Endpoint para obtener Tides

@@ -1494,6 +1494,71 @@ app.get('/hub/subscription/:userId', async (req, res) => {
   }
 });
 
+/* ===== SAVAGE SPACE ANIMALS - SUBSCRIPTION BENEFITS ===== */
+
+// Endpoint para obtener beneficios de suscripción en SSA
+app.get('/savage-space-animals/benefits', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.json({ plan: 'free', benefits: null });
+  }
+
+  const token = authHeader.substring(7);
+  let userId;
+  try {
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
+    userId = decoded.uid;
+    userId = parseInt(userId) || userId;
+  } catch (e) {
+    return res.json({ plan: 'free', benefits: null });
+  }
+
+  try {
+    // Buscar suscripción activa del Hub
+    const { rows } = await pool.query(`
+      SELECT plan_id, ends_at FROM hub_subs
+      WHERE user_id = $1 AND active = true
+      AND ends_at > NOW()
+      ORDER BY created_at DESC
+      LIMIT 1
+    `, [userId]);
+
+    if (rows.length === 0) {
+      return res.json({ plan: 'free', benefits: null });
+    }
+
+    const subscription = rows[0];
+    const plan = subscription.plan_id; // 'savage' or 'oceanic'
+
+    // Define benefits based on plan
+    const benefits = {
+      savage: {
+        extraLives: 1,
+        bossCooldownReduction: 10,
+        cosmicDustBonus: 5,
+        extendedInvincibility: false,
+        earlyAnimalUnlock: false
+      },
+      oceanic: {
+        extraLives: 2,
+        bossCooldownReduction: 25,
+        cosmicDustBonus: 15,
+        extendedInvincibility: true,
+        earlyAnimalUnlock: true
+      }
+    };
+
+    res.json({
+      plan: plan,
+      benefits: benefits[plan] || null,
+      expiresAt: subscription.ends_at
+    });
+  } catch (e) {
+    console.error('Error obteniendo beneficios SSA:', e);
+    res.json({ plan: 'free', benefits: null });
+  }
+});
+
 app.post('/wildshorts/episode/pay', async (req, res) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {

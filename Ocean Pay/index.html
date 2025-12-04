@@ -575,6 +575,38 @@
             <span style="font-weight: bold; color: var(--purple);" id="credits">0</span>
           </div>
         </div>
+
+        <!-- Savage Space Animals Subscription -->
+        <div
+          style="background: linear-gradient(145deg, rgba(147, 51, 234, 0.1), rgba(79, 70, 229, 0.05)); padding: 1.5rem; border-radius: 1rem; margin-top: 2rem; border: 1px solid rgba(147, 51, 234, 0.3);">
+          <h3
+            style="margin-bottom: 1rem; font-size: 1rem; color: #a855f7; display: flex; align-items: center; gap: 8px;">
+            🚀 Savage Space Animals
+            <span id="ssa-plan-badge"
+              style="font-size: 0.75rem; background: rgba(147, 51, 234, 0.3); padding: 4px 10px; border-radius: 12px; color: #c4b5fd;">FREE</span>
+          </h3>
+          <div id="ssa-benefits" style="display: grid; gap: 8px;">
+            <div
+              style="display: flex; justify-content: space-between; padding: 0.8rem 1rem; background: rgba(0,0,0,0.2); border-radius: 0.5rem;">
+              <span>❤️ Vidas Extra</span>
+              <span style="font-weight: bold; color: #f97316;" id="ssa-lives">+0</span>
+            </div>
+            <div
+              style="display: flex; justify-content: space-between; padding: 0.8rem 1rem; background: rgba(0,0,0,0.2); border-radius: 0.5rem;">
+              <span>⏱️ Cooldown Boss</span>
+              <span style="font-weight: bold; color: #10b981;" id="ssa-cooldown">-0%</span>
+            </div>
+            <div
+              style="display: flex; justify-content: space-between; padding: 0.8rem 1rem; background: rgba(0,0,0,0.2); border-radius: 0.5rem;">
+              <span>✨ Pólvora Cósmica</span>
+              <span style="font-weight: bold; color: #ffd700;" id="ssa-dust">+0%</span>
+            </div>
+          </div>
+          <a href="../Ocean and Wild Studios Hub/index.html#pricing-section"
+            style="display: block; text-align: center; margin-top: 1rem; color: #a855f7; font-size: 0.85rem; text-decoration: none;">
+            🔗 Gestionar suscripción en el Hub
+          </a>
+        </div>
       </section>
 
       <!-- History Section -->
@@ -863,6 +895,39 @@
       } catch (e) { }
     }
 
+    async function loadSSABenefits() {
+      const user = JSON.parse(localStorage.getItem('opUser') || '{}');
+      if (!user.id) return;
+      try {
+        const res = await fetch(`${API}/savage-space-animals/benefits`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const plan = data.plan || 'free';
+          const benefits = data.benefits;
+
+          // Update badge
+          const badge = qs('#ssa-plan-badge');
+          if (badge) {
+            badge.textContent = plan.toUpperCase();
+            badge.style.background = plan === 'oceanic' ? 'rgba(59, 130, 246, 0.3)' :
+              plan === 'savage' ? 'rgba(239, 68, 68, 0.3)' :
+                'rgba(147, 51, 234, 0.3)';
+            badge.style.color = plan === 'oceanic' ? '#93c5fd' :
+              plan === 'savage' ? '#fca5a5' : '#c4b5fd';
+          }
+
+          // Update benefits display
+          if (benefits) {
+            qs('#ssa-lives').textContent = `+${benefits.extraLives}`;
+            qs('#ssa-cooldown').textContent = `-${benefits.bossCooldownReduction}%`;
+            qs('#ssa-dust').textContent = `+${benefits.cosmicDustBonus}%`;
+          }
+        }
+      } catch (e) { console.error('Error loading SSA benefits:', e); }
+    }
+
     async function refreshAllBalances() {
       await Promise.all([
         loadAquaBuxBalance(),
@@ -872,7 +937,8 @@
         loadWildCreditsBalance(),
         loadWildGemsBalance(),
         loadAppBuxBalance(),
-        loadTidesBalance()
+        loadTidesBalance(),
+        loadSSABenefits()
       ]);
     }
 

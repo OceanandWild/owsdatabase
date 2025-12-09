@@ -380,6 +380,18 @@
       background: linear-gradient(135deg, rgba(6, 182, 212, 0.2), rgba(59, 130, 246, 0.1));
     }
 
+    #ecobooks-card .amount {
+      color: #10b981;
+    }
+
+    #ecobooks-card:hover {
+      border-color: #10b981;
+    }
+
+    #ecobooks-card .currency-icon {
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(34, 197, 94, 0.1));
+    }
+
     /* Utilities */
     .hidden {
       display: none !important;
@@ -563,6 +575,14 @@
             <span class="label">AppBux</span>
             <span class="amount" id="appbux">0</span>
             <div class="app-info">AllApp 📱</div>
+          </div>
+
+          <!-- EcoBooks (NEW) -->
+          <div class="currency-card" id="ecobooks-card">
+            <div class="currency-icon">📚</div>
+            <span class="label">EcoBooks</span>
+            <span class="amount" id="ecobooks">0</span>
+            <div class="app-info">Naturepedia 🌿</div>
           </div>
         </div>
 
@@ -895,6 +915,20 @@
       } catch (e) { }
     }
 
+    async function loadEcoBooksBalance() {
+      const user = JSON.parse(localStorage.getItem('opUser') || '{}');
+      if (!user.id) return;
+      try {
+        const res = await fetch(`${API}/naturepedia/ecobooks/balance`, { headers: { 'Authorization': `Bearer ${token}` } });
+        if (res.ok) {
+          const data = await res.json();
+          qs('#ecobooks').textContent = parseInt(data.ecobooks || 0).toLocaleString();
+        }
+      } catch (e) {
+        qs('#ecobooks').textContent = '20'; // Default para usuarios nuevos
+      }
+    }
+
     async function loadSSABenefits() {
       const user = JSON.parse(localStorage.getItem('opUser') || '{}');
       if (!user.id) return;
@@ -938,7 +972,8 @@
         loadWildGemsBalance(),
         loadAppBuxBalance(),
         loadTidesBalance(),
-        loadSSABenefits()
+        loadSSABenefits(),
+        loadEcoBooksBalance()
       ]);
     }
 

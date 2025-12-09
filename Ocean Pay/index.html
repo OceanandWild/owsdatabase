@@ -578,11 +578,12 @@
           </div>
 
           <!-- EcoBooks (NEW) -->
-          <div class="currency-card" id="ecobooks-card">
+          <div class="currency-card" id="ecobooks-card" onclick="loadEcoBooksBalance()" style="cursor:pointer;"
+            title="Click para actualizar">
             <div class="currency-icon">📚</div>
             <span class="label">EcoBooks</span>
             <span class="amount" id="ecobooks">0</span>
-            <div class="app-info">Naturepedia 🌿</div>
+            <div class="app-info">Naturepedia 🌿 <span style="font-size:10px;opacity:0.7;">🔄</span></div>
           </div>
         </div>
 
@@ -917,15 +918,41 @@
 
     async function loadEcoBooksBalance() {
       const user = JSON.parse(localStorage.getItem('opUser') || '{}');
-      if (!user.id) return;
+      if (!user.id) {
+        console.log('[EcoBooks] No user ID found');
+        return;
+      }
+
+      const ecobooksEl = qs('#ecobooks');
+      const originalText = ecobooksEl.textContent;
+      ecobooksEl.textContent = '...';
+
       try {
-        const res = await fetch(`${API}/naturepedia/ecobooks/balance`, { headers: { 'Authorization': `Bearer ${token}` } });
+        console.log('[EcoBooks] Fetching balance for user:', user.id);
+        const res = await fetch(`${API}/naturepedia/ecobooks/balance`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        console.log('[EcoBooks] Response status:', res.status);
+
         if (res.ok) {
           const data = await res.json();
-          qs('#ecobooks').textContent = parseInt(data.ecobooks || 0).toLocaleString();
+          console.log('[EcoBooks] Data received:', data);
+          const balance = parseInt(data.ecobooks || 0);
+          ecobooksEl.textContent = balance.toLocaleString();
+
+          // Animación de éxito
+          const card = qs('#ecobooks-card');
+          card.style.borderColor = '#10b981';
+          setTimeout(() => { card.style.borderColor = ''; }, 1000);
+        } else {
+          const errorData = await res.json().catch(() => ({}));
+          console.error('[EcoBooks] Error response:', errorData);
+          ecobooksEl.textContent = originalText || '0';
         }
       } catch (e) {
-        qs('#ecobooks').textContent = '20'; // Default para usuarios nuevos
+        console.error('[EcoBooks] Fetch error:', e);
+        ecobooksEl.textContent = originalText || '0';
       }
     }
 

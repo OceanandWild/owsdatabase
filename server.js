@@ -8298,15 +8298,27 @@ app.get('/naturepedia/ecobooks/balance', async (req, res) => {
   }
 
   try {
+    // Intentar obtener el balance existente
     const { rows } = await pool.query(`
       SELECT value FROM ocean_pay_metadata
       WHERE user_id = $1 AND key = 'ecobooks'
     `, [userId]);
 
-    const ecobooks = rows.length > 0 ? parseInt(rows[0].value || '0') : 20; // 20 EB por defecto para nuevos usuarios
-    res.json({ ecobooks });
+    if (rows.length > 0) {
+      // El registro existe, devolver el valor
+      res.json({ ecobooks: parseInt(rows[0].value || '0') });
+    } else {
+      // No existe el registro, crearlo con 20 EB iniciales
+      await pool.query(`
+        INSERT INTO ocean_pay_metadata (user_id, key, value)
+        VALUES ($1, 'ecobooks', '20')
+        ON CONFLICT (user_id, key) DO NOTHING
+      `, [userId]);
+      res.json({ ecobooks: 20 });
+    }
   } catch (e) {
     if (e.code === '42P01') {
+      // Tabla no existe, devolver default
       res.json({ ecobooks: 20 });
     } else {
       console.error('Error obteniendo EcoBooks:', e);

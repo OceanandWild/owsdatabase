@@ -4282,8 +4282,8 @@ app.get("/api/featured-update", async (req, res) => {
     // Esto asegura que el frontend reciba la estructura 'sections' correcta sin depender de la DB de texto plano
     if (product === 'natmarket') {
       return res.json({
-        version: '10.12.2025 - Sentinel: Evolution',
-        date: '10 de diciembre de 2025',
+        version: '14.12.2025 - Sentinel: Evolution',
+        date: '14 de diciembre de 2025',
         sections: [
           {
             title: '🧠 Nuevo Modelo de IA: Sentinel Evolution',

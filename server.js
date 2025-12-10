@@ -16,8 +16,45 @@ import { createServer } from 'http';
 dotenv.config();
 
 /* ===== NAT-MARKET VARS ===== */
+import { v2 as cloudinary } from 'cloudinary';
+import { CloudinaryStorage } from 'multer-storage-cloudinary';
+
+/* ===== NAT-MARKET VARS ===== */
+let storage;
 const uploadDir = path.join(process.cwd(), 'uploads');
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
+// Configuración condicional de almacenamiento
+if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET
+  });
+
+  storage = new CloudinaryStorage({
+    cloudinary: cloudinary,
+    params: {
+      folder: 'natmarket',
+      allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
+      transformation: [{ width: 1000, crop: "limit" }] // Optimización básica
+    },
+  });
+  console.log('☁️ Usando Cloudinary para almacenamiento de imágenes');
+} else {
+  // Fallback a disco local
+  if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
+  storage = multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, uploadDir),
+    filename: (_file, _file2, cb) => {
+      const unique = Date.now() + '-' + Math.round(Math.random() * 1E9);
+      cb(null, unique + path.extname(_file2.originalname));
+    }
+  });
+  console.log('📂 Usando almacenamiento local (disco) para imágenes');
+}
+
+const upload = multer({ storage });
 
 // Función para generar ID único de usuario (100 caracteres)
 function generateUserUniqueId() {
@@ -28,15 +65,6 @@ function generateUserUniqueId() {
   }
   return result;
 }
-
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, uploadDir),
-  filename: (_file, _file2, cb) => {
-    const unique = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, unique + path.extname(_file2.originalname));
-  }
-});
-const upload = multer({ storage });
 
 const { Pool } = pg;
 const pool = new Pool(
@@ -4282,8 +4310,8 @@ app.get("/api/featured-update", async (req, res) => {
     // Esto asegura que el frontend reciba la estructura 'sections' correcta sin depender de la DB de texto plano
     if (product === 'natmarket') {
       return res.json({
-        version: '14.12.2025 - Sentinel: Evolution',
-        date: '14 de diciembre de 2025',
+        version: '10.12.2025 - Sentinel: Evolution',
+        date: '10 de diciembre de 2025',
         sections: [
           {
             title: '🧠 Nuevo Modelo de IA: Sentinel Evolution',
@@ -4870,8 +4898,14 @@ app.post('/natmarket/products', upload.array('images', 10), async (req, res) => 
       'INSERT INTO products_nat (user_id, name, description, price, contact_number, stock, category, status, published_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW()) RETURNING *',
       [user_id, name, description, price, contact_number, stockNum, category, status]
     );
-    const host = process.env.BACKEND_URL || `https://${req.get('host')}`;
-    const urls = (req.files || []).map(f => `${host}/uploads/nat/${f.filename}`);
+    // Guardar rutas relativas para evitar problemas con cambios de host/puerto
+    // El frontend deberá prepender API_BASE si es necesario
+    const urls = (req.files || []).map(f => {
+      // Si es Cloudinary, f.path ya es la URL completa (https://res.cloudinary.com/...)
+      if (f.path && f.path.startsWith('http')) return f.path;
+      // Si es local, construimos la ruta relativa
+      return `/uploads/nat/${f.filename}`;
+    });
     for (const url of urls) await pool.query('INSERT INTO product_images_nat (product_id, url) VALUES ($1,$2)', [product.id, url]);
     const { rows: imgs } = await pool.query('SELECT url FROM product_images_nat WHERE product_id=$1 ORDER BY created_at ASC', [product.id]);
 

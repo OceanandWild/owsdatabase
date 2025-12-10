@@ -2942,51 +2942,7 @@ async function checkAIRateLimit(userId) {
   }
 }
 
-// NatMarket Sentinel: Genesis - Local AI Model
-const NATMARKET_CATEGORIES = [
-  'Electrónica', 'Ropa y Accesorios', 'Hogar y Jardín', 'Deportes',
-  'Juguetes y Juegos', 'Libros y Medios', 'Salud y Belleza',
-  'Automotriz', 'Alimentos y Bebidas', 'Mascotas', 'Otros'
-];
 
-function generateProductWithAI(userInput, hints = {}) {
-  const input = userInput.toLowerCase();
-  const startTime = Date.now();
-
-  // Detectar categoría
-  let category = hints.categoryHint || detectCategory(input);
-  let condition = hints.conditionHint || detectCondition(input);
-
-  // Generar nombre del producto
-  const name = generateProductName(input, category);
-
-  // Generar descripción
-  const description = generateProductDescription(input, name, category, condition);
-
-  // Estimar precio
-  const price = estimatePrice(input, category, condition, hints.priceHint);
-
-  // Generar tags
-  const tags = generateTags(input, category);
-
-  // Calcular confianza
-  const confidence = calculateConfidence(input, category, price);
-
-  const generationTime = Date.now() - startTime;
-
-  return {
-    name,
-    description,
-    price,
-    category,
-    condition,
-    tags,
-    aiGenerated: true,
-    aiModel: 'sentinel-genesis-v1',
-    confidence,
-    generationTime
-  };
-}
 
 /* ===== NATMARKET AI GENERATION V2 (SENTINEL EVOLUTION) ===== */
 

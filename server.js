@@ -4913,18 +4913,19 @@ app.post('/natmarket/products', upload.array('images', 10), async (req, res) => 
     console.log('📦 Archivos recibidos (resumen):', req.files ? req.files.map(f => ({ path: f.path, filename: f.filename })) : 'Ninguno');
 
     const urls = (req.files || []).map(f => {
-      // Si es Cloudinary, f.path ya es la URL completa (https://res.cloudinary.com/...)
-      // A veces viene en secure_url o url
-      if (f.secure_url) return f.secure_url;
-      if (f.url && f.url.startsWith('http')) return f.url;
-      if (f.path && f.path.startsWith('http')) return f.path;
+      // Si hay credenciales de Cloudinary configuradas, SIEMPRE intentar usar URL de nube
+      if (process.env.CLOUDINARY_CLOUD_NAME) {
+        // 1. Intentar obtener URL directa del objeto
+        if (f.secure_url) return f.secure_url;
+        if (f.url && f.url.startsWith('http')) return f.url;
+        if (f.path && f.path.startsWith('http')) return f.path;
 
-      // Fallback: Construir URL manualmente si estamos en modo Cloudinary
-      if (process.env.CLOUDINARY_CLOUD_NAME && f.filename && (!f.path || !f.path.includes('uploads'))) {
-        return `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/${f.filename}`;
+        // 2. Fallback: Construir URL manualmente
+        const publicId = f.filename || f.public_id;
+        return `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/${publicId}`;
       }
 
-      // Si es local, construimos la ruta relativa
+      // Si NO hay credenciales, usar almacenamiento local
       return `/uploads/nat/${f.filename}`;
     });
     console.log('🔗 URLs a guardar en DB:', urls);

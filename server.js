@@ -4912,7 +4912,7 @@ app.post('/natmarket/products', upload.array('images', 10), async (req, res) => 
       }
 
       // Si NO hay credenciales, usar almacenamiento local
-      return `/uploads/nat/${f.filename}`;
+      return `/DEBUG_LOCAL_PATH/uploads/nat/${f.filename}`;
     });
     console.log('🔗 URLs a guardar en DB:', urls);
     for (const url of urls) await pool.query('INSERT INTO product_images_nat (product_id, url) VALUES ($1,$2)', [product.id, url]);

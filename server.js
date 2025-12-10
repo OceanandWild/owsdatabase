@@ -24,41 +24,27 @@ import { CloudinaryStorage } from 'multer-storage-cloudinary';
 let storage;
 const uploadDir = path.join(process.cwd(), 'uploads');
 
-// Configuración condicional de almacenamiento
-console.log('🔍 DEBUG CLOUDINARY:');
-console.log('   - Cloud Name:', process.env.CLOUDINARY_CLOUD_NAME ? '✅ Cargado' : '❌ Faltante');
-console.log('   - API Key:', process.env.CLOUDINARY_API_KEY ? '✅ Cargado' : '❌ Faltante');
-console.log('   - API Secret:', process.env.CLOUDINARY_API_SECRET ? '✅ Cargado' : '❌ Faltante');
+// HARDCODED CREDENTIALS (TEMPORAL - Para asegurar que funcione en Render)
+const CLOUD_NAME = 'dwoxdneqa';
+const API_KEY = '572422228753764';
+const API_SECRET = 'ORuFuHJqy82NxGlHshZo3SBrC8E';
 
-if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
-  cloudinary.config({
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET
-  });
+// Configuración INCONDICIONAL de Cloudinary
+cloudinary.config({
+  cloud_name: CLOUD_NAME,
+  api_key: API_KEY,
+  api_secret: API_SECRET
+});
 
-  storage = new CloudinaryStorage({
-    cloudinary: cloudinary,
-    params: {
-      folder: 'natmarket',
-      allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
-      transformation: [{ width: 1000, crop: "limit" }] // Optimización básica
-    },
-  });
-  console.log('☁️ Usando Cloudinary para almacenamiento de imágenes');
-} else {
-  // Fallback a disco local
-  if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-
-  storage = multer.diskStorage({
-    destination: (_req, _file, cb) => cb(null, uploadDir),
-    filename: (_file, _file2, cb) => {
-      const unique = Date.now() + '-' + Math.round(Math.random() * 1E9);
-      cb(null, unique + path.extname(_file2.originalname));
-    }
-  });
-  console.log('📂 Usando almacenamiento local (disco) para imágenes');
-}
+storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'natmarket',
+    allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
+    transformation: [{ width: 1000, crop: "limit" }]
+  },
+});
+console.log('☁️ Usando Cloudinary (Hardcoded) para almacenamiento de imágenes');
 
 const upload = multer({ storage });
 
@@ -4914,7 +4900,7 @@ app.post('/natmarket/products', upload.array('images', 10), async (req, res) => 
 
     const urls = (req.files || []).map(f => {
       // Si hay credenciales de Cloudinary configuradas, SIEMPRE intentar usar URL de nube
-      if (process.env.CLOUDINARY_CLOUD_NAME) {
+      if (CLOUD_NAME) {
         // 1. Intentar obtener URL directa del objeto
         if (f.secure_url) return f.secure_url;
         if (f.url && f.url.startsWith('http')) return f.url;
@@ -4922,7 +4908,7 @@ app.post('/natmarket/products', upload.array('images', 10), async (req, res) => 
 
         // 2. Fallback: Construir URL manualmente
         const publicId = f.filename || f.public_id;
-        return `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/${publicId}`;
+        return `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/${publicId}`;
       }
 
       // Si NO hay credenciales, usar almacenamiento local

@@ -2988,152 +2988,186 @@ function generateProductWithAI(userInput, hints = {}) {
   };
 }
 
-function detectCategory(input) {
-  const categoryKeywords = {
-    'Electrónica': ['celular', 'teléfono', 'computadora', 'laptop', 'tablet', 'auriculares', 'cargador', 'cable', 'mouse', 'teclado', 'monitor', 'tv', 'televisor', 'consola', 'playstation', 'xbox', 'nintendo', 'iphone', 'samsung', 'xiaomi'],
-    'Ropa y Accesorios': ['remera', 'camisa', 'pantalón', 'jean', 'zapatillas', 'zapatos', 'vestido', 'pollera', 'campera', 'buzo', 'sweater', 'gorra', 'sombrero', 'bufanda', 'guantes', 'medias', 'ropa', 'nike', 'adidas', 'puma'],
-    'Hogar y Jardín': ['mesa', 'silla', 'sillón', 'cama', 'colchón', 'lámpara', 'espejo', 'cortina', 'alfombra', 'maceta', 'planta', 'herramienta', 'taladro', 'martillo', 'mueble', 'estante'],
-    'Deportes': ['pelota', 'bicicleta', 'patineta', 'pesas', 'mancuernas', 'cinta', 'yoga', 'gimnasio', 'deporte', 'fútbol', 'basket', 'tenis', 'natación'],
-    'Juguetes y Juegos': ['juguete', 'muñeca', 'auto', 'lego', 'puzzle', 'rompecabezas', 'peluche', 'juego', 'mesa', 'cartas', 'monopoly'],
-    'Libros y Medios': ['libro', 'revista', 'cómic', 'manga', 'dvd', 'cd', 'vinilo', 'película', 'música'],
-    'Salud y Belleza': ['perfume', 'crema', 'shampoo', 'maquillaje', 'labial', 'base', 'skincare', 'cuidado', 'belleza', 'cosmético'],
-    'Automotriz': ['auto', 'coche', 'moto', 'llanta', 'neumático', 'aceite', 'filtro', 'batería', 'repuesto'],
-    'Alimentos y Bebidas': ['comida', 'bebida', 'café', 'té', 'chocolate', 'dulce', 'snack', 'galleta'],
-    'Mascotas': ['perro', 'gato', 'mascota', 'alimento', 'collar', 'correa', 'juguete', 'cama', 'comedero']
-  };
+/* ===== NATMARKET AI GENERATION V2 (SENTINEL EVOLUTION) ===== */
 
-  for (const [cat, keywords] of Object.entries(categoryKeywords)) {
-    if (keywords.some(kw => input.includes(kw))) {
+const AI_MODELS = {
+  'genesis-v1': { name: 'Genesis (Básico)', cost: 1, multiplier: 1 },
+  'sentinel-evolution': { name: 'Sentinel: Evolution (Premium)', cost: 5, multiplier: 2.0 }
+};
+
+const CATEGORIES_EXTENDED = {
+  'Tecnología': ['iphone', 'samsung', 'xiaomi', 'motorola', 'laptop', 'notebook', 'pc', 'gamer', 'teclado', 'mouse', 'monitor', 'auriculares', 'bluetooth', 'smart', 'watch', 'reloj', 'tablet', 'ipad', 'cargador', 'usb', 'wifi', 'router', 'cámara', 'drone', 'tv', 'televisor', 'audio', 'parlante', 'bocina', 'celular', 'móvil', 'smartphone', 'funda', 'vidrio', 'templado', 'impresora', 'disco', 'ssd', 'ram', 'procesador', 'placa', 'video'],
+  'Moda y Accesorios': ['camisa', 'pantalón', 'jean', 'remera', 'camiseta', 'chomba', 'zapatillas', 'zapatos', 'botas', 'sandalias', 'vestido', 'pollera', 'falda', 'campera', 'buzo', 'hoodie', 'gorra', 'sombrero', 'bolso', 'mochila', 'cartera', 'billetera', 'cinturón', 'accesorio', 'joya', 'anillo', 'collar', 'pulsera', 'aritos', 'lentes', 'gafas', 'reloj', 'ropa', 'interior', 'malla', 'bikini'],
+  'Hogar y Decoración': ['mesa', 'silla', 'sillón', 'sofá', 'cama', 'colchón', 'almohada', 'mueble', 'placard', 'ropero', 'escritorio', 'lámpara', 'luz', 'led', 'decoración', 'cuadro', 'espejo', 'alfombra', 'cortina', 'sábana', 'acolchado', 'toalla', 'cocina', 'olla', 'sartén', 'cubiertos', 'vaso', 'plato', 'taza', 'mate', 'termo', 'jardín', 'planta', 'maceta', 'herramienta', 'taladro', 'martillo', 'destornillador'],
+  'Vehículos y Repuestos': ['auto', 'coche', 'camioneta', 'camión', 'moto', 'motocicleta', 'scooter', 'bicicleta', 'bici', 'rueda', 'neumático', 'cubierta', 'llanta', 'casco', 'repuesto', 'motor', 'aceite', 'filtro', 'batería', 'freno', 'accesorio auto', 'parabrisas', 'espejo retrovisor'],
+  'Deportes y Fitness': ['fútbol', 'pelota', 'balón', 'raqueta', 'paleta', 'gimnasio', 'gym', 'pesa', 'mancuerna', 'barra', 'disco', 'bici fija', 'cinta', 'running', 'camiseta', 'short', 'calza', 'botines', 'zapatillas deportivas', 'entrenamiento', 'yoga', 'mat', 'colchoneta', 'suplemento', 'proteína', 'natación', 'boxeo', 'guantes'],
+  'Juegos y Juguetes': ['juego', 'juguete', 'muñeco', 'figura', 'acción', 'peluche', 'consola', 'playstation', 'ps4', 'ps5', 'xbox', 'nintendo', 'switch', 'joystick', 'gamepad', 'videojuego', 'juego de mesa', 'cartas', 'colección', 'funko', 'lego', 'bloques', 'puzzle', 'rompecabezas', 'infantil', 'bebé'],
+  'Libros y Multimedia': ['libro', 'novela', 'texto', 'manual', 'cómic', 'manga', 'revista', 'enciclopedia', 'diccionario', 'cd', 'dvd', 'vinilo', 'disco', 'película', 'serie', 'instrumento', 'guitarra', 'piano', 'teclado', 'batería', 'bajo', 'micrófono', 'partitura'],
+  'Salud y Belleza': ['perfume', 'fragancia', 'colonia', 'crema', 'loción', 'maquillaje', 'base', 'labial', 'sombras', 'esmalte', 'shampoo', 'acondicionador', 'jabón', 'cuidado', 'piel', 'facial', 'corporal', 'pelo', 'cabello', 'uñas', 'afeitadora', 'depiladora', 'secador', 'planchita', 'masajeador'],
+  'Inmuebles': ['casa', 'departamento', 'depto', 'ph', 'alquiler', 'venta', 'terreno', 'lote', 'local', 'oficina', 'cochera', 'galpón', 'quinta', 'temporada'],
+  'Servicios': ['servicio', 'reparación', 'instalación', 'clases', 'curso', 'flete', 'mudanza', 'limpieza', 'mantenimiento', 'diseño', 'programación', 'fotografía', 'evento'],
+  'Mascotas': ['perro', 'gato', 'alimento', 'balanceado', 'piedras', 'cama', 'correa', 'collar', 'juguete', 'ropa', 'acuario', 'pez', 'jaula'],
+  'Alimentos y Bebidas': ['comida', 'bebida', 'vino', 'cerveza', 'whisky', 'café', 'té', 'yerba', 'azúcar', 'aceite', 'fideos', 'arroz', 'conserva', 'golosina', 'chocolate', 'snack']
+};
+
+function detectCategory(input) {
+  const lowerInput = input.toLowerCase();
+  for (const [cat, keywords] of Object.entries(CATEGORIES_EXTENDED)) {
+    if (keywords.some(kw => lowerInput.includes(kw))) {
       return cat;
     }
   }
-
   return 'Otros';
 }
 
 function detectCondition(input) {
-  if (input.includes('nuevo') || input.includes('sin usar') || input.includes('estrenar')) {
-    return 'nuevo';
-  }
-  if (input.includes('usado') || input.includes('segunda mano')) {
-    return 'usado';
-  }
-  if (input.includes('como nuevo') || input.includes('excelente estado')) {
-    return 'como nuevo';
-  }
-  if (input.includes('reacondicionado') || input.includes('refurbished')) {
-    return 'reacondicionado';
-  }
-  return 'usado'; // Default
+  const lower = input.toLowerCase();
+  if (lower.includes('nuevo') || lower.includes('sellado') || lower.includes('cerrado') || lower.includes('sin uso') || lower.includes('a estrenar') || lower.includes('caja cerrada')) return 'nuevo';
+  if (lower.includes('como nuevo') || lower.includes('impecable') || lower.includes('excelente estado') || lower.includes('igual a nuevo') || lower.includes('sin detalles')) return 'como nuevo';
+  if (lower.includes('reacondicionado') || lower.includes('refurbished') || lower.includes('restaurado')) return 'reacondicionado';
+  if (lower.includes('usado') || lower.includes('segunda mano') || lower.includes('detalle')) return 'usado';
+  return 'usado'; // Default más seguro
 }
 
-function generateProductName(input, category) {
-  // Extraer palabras clave importantes
-  const words = input.split(' ').filter(w => w.length > 2);
-  const stopWords = ['el', 'la', 'los', 'las', 'un', 'una', 'de', 'del', 'en', 'con', 'para', 'por', 'muy', 'buen', 'buena'];
-  const keywords = words.filter(w => !stopWords.includes(w));
+function generateProductName(input, category, modelId) {
+  const words = input.split(/\s+/).filter(w => w.length > 2);
+  const stopWords = ['el', 'la', 'los', 'las', 'un', 'una', 'de', 'del', 'en', 'con', 'para', 'por', 'muy', 'buen', 'buena', 'que', 'y', 'o', 'a', 'al', 'es', 'son', 'se', 'vende', 'vendo'];
+  const keywords = words.filter(w => !stopWords.includes(w.toLowerCase()));
 
-  // Capitalizar primera letra de cada palabra importante
-  const capitalized = keywords.slice(0, 5).map(w =>
-    w.charAt(0).toUpperCase() + w.slice(1)
-  ).join(' ');
+  // Lógica avanzada para Sentinel Evolution
+  if (modelId === 'sentinel-evolution') {
+    const brands = ['Samsung', 'Apple', 'iPhone', 'Xiaomi', 'Motorola', 'Sony', 'LG', 'Nike', 'Adidas', 'Puma', 'Zara', 'H&M', 'Toyota', 'Ford', 'Honda', 'PlayStation', 'Xbox', 'Nintendo', 'Lenovo', 'HP', 'Dell', 'Asus'];
+    const foundBrand = brands.find(b => input.toLowerCase().includes(b.toLowerCase()));
 
+    // Extraer palabras clave principales (sustantivos probables)
+    const mainKeywords = keywords.slice(0, 5).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+
+    if (foundBrand) {
+      // Si hay marca, ponerla primero
+      const titleWithoutBrand = mainKeywords.replace(new RegExp(foundBrand, 'gi'), '').trim();
+      return `${foundBrand} ${titleWithoutBrand} | ${category} | Oportunidad`;
+    }
+    return `${mainKeywords} - ${category} Premium`;
+  }
+
+  // Lógica básica (Genesis)
+  const capitalized = keywords.slice(0, 5).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
   return capitalized || `Producto de ${category}`;
 }
 
-function generateProductDescription(input, name, category, condition) {
-  const templates = {
-    'nuevo': [
-      `${name} completamente nuevo y sin usar. Producto de excelente calidad en su empaque original.`,
-      `Ofrezco ${name} nuevo, sin estrenar. Ideal para quienes buscan calidad garantizada.`,
-      `${name} nuevo en caja. Perfecto estado, listo para usar.`
-    ],
-    'usado': [
-      `${name} en buen estado de uso. Funciona perfectamente y ha sido bien cuidado.`,
-      `Vendo ${name} usado pero en excelentes condiciones. Totalmente funcional.`,
-      `${name} de segunda mano en buen estado. Precio accesible.`
-    ],
-    'como nuevo': [
-      `${name} en estado impecable, prácticamente sin uso. Como recién comprado.`,
-      `${name} usado muy poco, en condiciones casi nuevas. Excelente oportunidad.`
-    ],
-    'reacondicionado': [
-      `${name} reacondicionado profesionalmente. Funciona como nuevo con garantía.`,
-      `${name} restaurado y verificado. Calidad garantizada.`
-    ]
-  };
+function generateProductDescription(input, name, category, condition, modelId) {
+  if (modelId === 'sentinel-evolution') {
+    // Generación avanzada con estructura de ventas persuasiva
+    const intros = [
+      `¡Atención! Te presentamos este increíble ${name}, una verdadera joya en la categoría de ${category}.`,
+      `¿Estás buscando calidad y buen precio? Este ${name} es exactamente lo que necesitás.`,
+      `No dejes pasar esta oportunidad única de adquirir ${name}. Ideal para exigentes.`
+    ];
 
-  const template = templates[condition] || templates['usado'];
-  const baseDesc = template[Math.floor(Math.random() * template.length)];
+    const conditionText = condition === 'nuevo' ? 'totalmente nuevo y en su empaque original' :
+      condition === 'como nuevo' ? 'en estado impecable, prácticamente sin uso' :
+        condition === 'reacondicionado' ? 'reacondicionado a nuevo por expertos' :
+          'usado pero en muy buenas condiciones de funcionamiento';
 
-  // Agregar detalles adicionales basados en la categoría
-  const categoryDetails = {
-    'Electrónica': ' Incluye todos los accesorios necesarios.',
-    'Ropa y Accesorios': ' Talle y medidas disponibles en las fotos.',
-    'Hogar y Jardín': ' Entrega a coordinar según zona.',
-    'Deportes': ' Perfecto para entrenar o practicar.',
-    'Libros y Medios': ' En excelente estado de conservación.'
-  };
+    const features = [
+      `Este producto se encuentra ${conditionText}. Ha sido verificado para garantizar tu satisfacción.`,
+      `Destacamos su condición: ${condition.toUpperCase()}. Listo para disfrutar desde el primer momento.`,
+      `Calidad asegurada. Estado: ${condition}. Una opción inteligente para tu bolsillo.`
+    ];
 
-  return baseDesc + (categoryDetails[category] || ' Consultar por más detalles.');
-}
+    const benefits = [
+      `✅ Compra segura y protegida.\n✅ Excelente relación precio-calidad.\n✅ Vendedor con compromiso de satisfacción.`,
+      `🚀 Envío rápido a coordinar.\n⭐ Producto recomendado por sus características.\n💎 Oportunidad exclusiva en NatMarket.`,
+      `✨ Diseño y funcionalidad garantizados.\n🛡️ Tu compra está respaldada.\n📦 Embalaje profesional para el envío.`
+    ];
 
-function estimatePrice(input, category, condition, priceHint) {
-  if (priceHint && priceHint > 0) {
-    return Math.round(priceHint);
+    const callToAction = [
+      `¡No dudes en consultar! Respondemos a la brevedad.`,
+      `¡Oferta por tiempo limitado! Llevátelo antes de que se agote.`,
+      `Hacé tu oferta o comprá ahora. ¡Te esperamos!`
+    ];
+
+    const intro = intros[Math.floor(Math.random() * intros.length)];
+    const feature = features[Math.floor(Math.random() * features.length)];
+    const benefit = benefits[Math.floor(Math.random() * benefits.length)];
+    const cta = callToAction[Math.floor(Math.random() * callToAction.length)];
+
+    return `${intro}\n\n${feature}\n\nPor qué elegir este producto:\n${benefit}\n\n${cta}\n\n(Generado por Sentinel: Evolution AI 🧬)`;
   }
 
-  // Precios base por categoría (en ARS)
+  // Lógica básica (Genesis)
+  const templates = {
+    'nuevo': [`${name} totalmente nuevo. En caja cerrada.`, `Vendo ${name} a estrenar. Impecable.`],
+    'usado': [`${name} usado en buen estado.`, `Vendo ${name}, tiene uso pero funciona bien.`],
+    'como nuevo': [`${name} igual a nuevo. Muy poco uso.`, `Oportunidad: ${name} impecable.`],
+    'reacondicionado': [`${name} reacondicionado a nuevo. Garantizado.`]
+  };
+  const template = templates[condition] || templates['usado'];
+  return template[Math.floor(Math.random() * template.length)] + `\nCategoría: ${category}. Consultar dudas.`;
+}
+
+function estimatePrice(input, category, condition, priceHint, modelId) {
+  if (priceHint && priceHint > 0) return Math.round(priceHint);
+
   const basePrices = {
-    'Electrónica': 50000,
-    'Ropa y Accesorios': 15000,
-    'Hogar y Jardín': 25000,
-    'Deportes': 20000,
-    'Juguetes y Juegos': 10000,
-    'Libros y Medios': 5000,
-    'Salud y Belleza': 8000,
-    'Automotriz': 100000,
-    'Alimentos y Bebidas': 3000,
-    'Mascotas': 12000,
-    'Otros': 15000
+    'Tecnología': 150000, 'Moda y Accesorios': 25000, 'Hogar y Decoración': 40000,
+    'Vehículos y Repuestos': 80000, 'Deportes y Fitness': 30000, 'Juegos y Juguetes': 20000,
+    'Libros y Multimedia': 10000, 'Salud y Belleza': 15000, 'Inmuebles': 500000, 'Servicios': 20000,
+    'Mascotas': 15000, 'Alimentos y Bebidas': 5000, 'Otros': 15000
   };
 
-  let price = basePrices[category] || 15000;
+  let price = basePrices[category] || 20000;
 
-  // Ajustar por condición
-  const conditionMultipliers = {
-    'nuevo': 1.0,
-    'como nuevo': 0.85,
-    'reacondicionado': 0.75,
-    'usado': 0.6
-  };
+  // Ajuste por palabras clave de valor
+  const lowerInput = input.toLowerCase();
+  if (lowerInput.includes('pro') || lowerInput.includes('max') || lowerInput.includes('ultra') || lowerInput.includes('premium') || lowerInput.includes('original')) price *= 1.5;
+  if (lowerInput.includes('mini') || lowerInput.includes('lite') || lowerInput.includes('básico') || lowerInput.includes('genérico')) price *= 0.7;
+  if (lowerInput.includes('lote') || lowerInput.includes('pack') || lowerInput.includes('combo') || lowerInput.includes('set')) price *= 1.3;
 
+  const conditionMultipliers = { 'nuevo': 1.0, 'como nuevo': 0.85, 'reacondicionado': 0.75, 'usado': 0.6 };
   price *= (conditionMultipliers[condition] || 0.6);
 
-  // Agregar variación aleatoria ±20%
-  const variation = 0.8 + (Math.random() * 0.4);
+  // Sentinel Evolution es más preciso (menos variación aleatoria)
+  const variation = modelId === 'sentinel-evolution' ? (0.9 + Math.random() * 0.2) : (0.7 + Math.random() * 0.6);
   price *= variation;
 
-  // Redondear a múltiplos de 100
   return Math.round(price / 100) * 100;
 }
 
-function generateTags(input, category) {
-  const words = input.toLowerCase().split(' ').filter(w => w.length > 3);
-  const tags = [...new Set(words.slice(0, 5))];
+function generateTags(input, category, modelId) {
+  const words = input.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+  const uniqueWords = [...new Set(words)];
+  const tags = uniqueWords.slice(0, modelId === 'sentinel-evolution' ? 8 : 5);
   tags.push(category.toLowerCase());
-  return tags.slice(0, 5);
+  if (modelId === 'sentinel-evolution') tags.push('premium', 'oportunidad', 'natmarket');
+  return tags.slice(0, 10);
 }
 
-function calculateConfidence(input, category, price) {
-  let nameConf = Math.min(1, input.length / 50); // Más detalle = más confianza
-  let categoryConf = category !== 'Otros' ? 0.9 : 0.5;
-  let priceConf = (price >= 1000 && price <= 1000000) ? 0.85 : 0.6;
+function calculateConfidence(input, category, price, modelId) {
+  let baseConf = modelId === 'sentinel-evolution' ? 0.98 : 0.85;
+  if (input.length < 20) baseConf -= 0.2;
+  if (category === 'Otros') baseConf -= 0.1;
+  return { name: baseConf, category: baseConf, price: baseConf - 0.1 };
+}
+
+function generateProductWithAI(description, hints = {}, modelId = 'genesis-v1') {
+  const category = hints.categoryHint || detectCategory(description);
+  const condition = hints.conditionHint || detectCondition(description);
+  const name = generateProductName(description, category, modelId);
+  const finalDesc = generateProductDescription(description, name, category, condition, modelId);
+  const price = estimatePrice(description, category, condition, hints.priceHint, modelId);
+  const tags = generateTags(description, category, modelId);
+  const confidence = calculateConfidence(description, category, price, modelId);
 
   return {
-    name: Math.round(nameConf * 100) / 100,
-    category: categoryConf,
-    price: priceConf
+    name,
+    description: finalDesc,
+    price,
+    category,
+    condition,
+    tags,
+    aiModel: modelId,
+    confidence
   };
 }
 
@@ -3143,6 +3177,7 @@ app.post('/natmarket/ai/generate-product', async (req, res) => {
 
   try {
     const { userId, modelId, productInput } = req.body;
+    const selectedModel = modelId || 'genesis-v1';
 
     // Validar datos requeridos
     if (!userId || !productInput || !productInput.description) {
@@ -3173,10 +3208,10 @@ app.post('/natmarket/ai/generate-product', async (req, res) => {
     }
 
     // Validar longitud del input
-    if (productInput.description.length < 20) {
+    if (productInput.description.length < 10) {
       return res.status(400).json({
         success: false,
-        error: 'La descripción debe tener al menos 20 caracteres'
+        error: 'La descripción debe tener al menos 10 caracteres'
       });
     }
 
@@ -3194,7 +3229,8 @@ app.post('/natmarket/ai/generate-product', async (req, res) => {
         priceHint: productInput.priceHint,
         categoryHint: productInput.categoryHint,
         conditionHint: productInput.conditionHint
-      }
+      },
+      selectedModel
     );
 
     // Validar contenido generado
@@ -3211,7 +3247,7 @@ app.post('/natmarket/ai/generate-product', async (req, res) => {
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
         [
           userId,
-          modelId || 'sentinel-genesis-v1',
+          selectedModel,
           productInput.description,
           JSON.stringify(generatedProduct),
           JSON.stringify({ valid: false, reason: 'Contenido inapropiado' }),
@@ -3232,11 +3268,6 @@ app.post('/natmarket/ai/generate-product', async (req, res) => {
       generatedProduct.price = Math.max(100, Math.min(10000000, generatedProduct.price));
     }
 
-    // Validar longitud de descripción
-    if (generatedProduct.description.length < 50) {
-      generatedProduct.description += ' Consultar por más información y detalles del producto.';
-    }
-
     // Registrar generación exitosa
     await pool.query(
       `INSERT INTO ai_product_generations 
@@ -3244,7 +3275,7 @@ app.post('/natmarket/ai/generate-product', async (req, res) => {
        VALUES ($1, $2, $3, $4, $5, $6, $7)`,
       [
         userId,
-        modelId || 'sentinel-genesis-v1',
+        selectedModel,
         productInput.description,
         JSON.stringify(generatedProduct),
         JSON.stringify({ valid: true }),
@@ -3266,9 +3297,7 @@ app.post('/natmarket/ai/generate-product', async (req, res) => {
         aiGenerated: true,
         aiModel: generatedProduct.aiModel,
         confidence: generatedProduct.confidence
-      },
-      warnings: generatedProduct.confidence.price < 0.7 ?
-        ['El precio estimado puede no ser preciso. Revísalo antes de publicar.'] : []
+      }
     });
 
   } catch (err) {

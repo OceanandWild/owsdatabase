@@ -4278,6 +4278,38 @@ app.get("/api/featured-update", async (req, res) => {
     const table = PRODUCT_TABLES[product];
     console.log(`📋 Consultando actualizaciones de ${product} desde tabla ${table}`);
 
+    // HARDCODED UPDATE FOR NATMARKET (Sentinel: Evolution)
+    // Esto asegura que el frontend reciba la estructura 'sections' correcta sin depender de la DB de texto plano
+    if (product === 'natmarket') {
+      return res.json({
+        version: '10.12.2025 - Sentinel: Evolution',
+        date: '10 de diciembre de 2025',
+        sections: [
+          {
+            title: '🧠 Nuevo Modelo de IA: Sentinel Evolution',
+            icon: '🚀',
+            items: [
+              'Presentamos Sentinel: Evolution, nuestro modelo de IA más avanzado.',
+              'Detección inteligente de marcas y asignación automática de categorías.',
+              'Descripciones semánticas que entienden el contexto y generan textos persuasivos.',
+              'Generación de tags optimizados para búsqueda con detección de estado (Nuevo/Usado).',
+              'Títulos más limpios y atractivos con emojis contextuales.',
+              'Disponible ahora en el selector de modelos al crear un producto.'
+            ]
+          },
+          {
+            title: '✨ Mejoras en la Experiencia',
+            icon: '💎',
+            items: [
+              'Interfaz de creación de productos rediseñada y más espaciosa.',
+              'Selector de modelos de IA visualmente mejorado.',
+              'Correcciones de estilo y optimizaciones de rendimiento.'
+            ]
+          }
+        ]
+      });
+    }
+
     const { rows } = await pool.query(`SELECT version, news, date FROM ${table} ORDER BY date DESC LIMIT 1`);
     if (!rows[0]) {
       console.log(`ℹ️ No hay actualizaciones en ${table}`);

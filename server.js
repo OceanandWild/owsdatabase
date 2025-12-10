@@ -1,9 +1,10 @@
+import dotenv from "dotenv";
+dotenv.config();
 
 // 1️⃣ Después el resto
 import express from "express";
 import cors from "cors";
 import pg from "pg";
-import dotenv from "dotenv";
 import multer from "multer";
 import bcrypt from "bcrypt";
 import path from "path";
@@ -13,7 +14,7 @@ import { Server } from 'socket.io';
 import { createServer } from 'http';
 
 // URL FOR THIS DATABASE: https://owsdatabase.onrender.com
-dotenv.config();
+// URL FOR THIS DATABASE: https://owsdatabase.onrender.com
 
 /* ===== NAT-MARKET VARS ===== */
 import { v2 as cloudinary } from 'cloudinary';
@@ -24,6 +25,11 @@ let storage;
 const uploadDir = path.join(process.cwd(), 'uploads');
 
 // Configuración condicional de almacenamiento
+console.log('🔍 DEBUG CLOUDINARY:');
+console.log('   - Cloud Name:', process.env.CLOUDINARY_CLOUD_NAME ? '✅ Cargado' : '❌ Faltante');
+console.log('   - API Key:', process.env.CLOUDINARY_API_KEY ? '✅ Cargado' : '❌ Faltante');
+console.log('   - API Secret:', process.env.CLOUDINARY_API_SECRET ? '✅ Cargado' : '❌ Faltante');
+
 if (process.env.CLOUDINARY_CLOUD_NAME && process.env.CLOUDINARY_API_KEY && process.env.CLOUDINARY_API_SECRET) {
   cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -4900,12 +4906,23 @@ app.post('/natmarket/products', upload.array('images', 10), async (req, res) => 
     );
     // Guardar rutas relativas para evitar problemas con cambios de host/puerto
     // El frontend deberá prepender API_BASE si es necesario
+    // DEBUG: Ver qué archivos llegan y sus propiedades
+    if (req.files && req.files.length > 0) {
+      console.log('📦 Primer archivo completo:', req.files[0]);
+    }
+    console.log('📦 Archivos recibidos (resumen):', req.files ? req.files.map(f => ({ path: f.path, filename: f.filename })) : 'Ninguno');
+
     const urls = (req.files || []).map(f => {
       // Si es Cloudinary, f.path ya es la URL completa (https://res.cloudinary.com/...)
+      // A veces viene en secure_url o url
+      if (f.secure_url) return f.secure_url;
+      if (f.url && f.url.startsWith('http')) return f.url;
       if (f.path && f.path.startsWith('http')) return f.path;
+
       // Si es local, construimos la ruta relativa
       return `/uploads/nat/${f.filename}`;
     });
+    console.log('🔗 URLs a guardar en DB:', urls);
     for (const url of urls) await pool.query('INSERT INTO product_images_nat (product_id, url) VALUES ($1,$2)', [product.id, url]);
     const { rows: imgs } = await pool.query('SELECT url FROM product_images_nat WHERE product_id=$1 ORDER BY created_at ASC', [product.id]);
 

@@ -4919,6 +4919,11 @@ app.post('/natmarket/products', upload.array('images', 10), async (req, res) => 
       if (f.url && f.url.startsWith('http')) return f.url;
       if (f.path && f.path.startsWith('http')) return f.path;
 
+      // Fallback: Construir URL manualmente si estamos en modo Cloudinary
+      if (process.env.CLOUDINARY_CLOUD_NAME && f.filename && (!f.path || !f.path.includes('uploads'))) {
+        return `https://res.cloudinary.com/${process.env.CLOUDINARY_CLOUD_NAME}/image/upload/${f.filename}`;
+      }
+
       // Si es local, construimos la ruta relativa
       return `/uploads/nat/${f.filename}`;
     });

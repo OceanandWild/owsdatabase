@@ -4965,8 +4965,24 @@ app.post('/natmarket/products/:id/images', upload.array('images', 10), async (re
     const { rows } = await pool.query('SELECT id FROM products_nat WHERE id=$1', [productId]);
     if (rows.length === 0) return res.status(404).json({ error: 'Producto no encontrado' });
     if (!req.files || req.files.length === 0) return res.status(400).json({ error: 'No se subieron imágenes' });
+
     const host = process.env.BACKEND_URL || `https://${req.get('host')}`;
-    const urls = req.files.map(f => `${host}/uploads/nat/${f.filename}`);
+
+    const urls = (req.files || []).map(f => {
+      // Si hay credenciales de Cloudinary, usar URL de nube
+      if (CLOUD_NAME) {
+        if (f.secure_url) return f.secure_url;
+        if (f.url && f.url.startsWith('http')) return f.url;
+        if (f.path && f.path.startsWith('http')) return f.path;
+
+        // Fallback manual
+        const publicId = f.filename || f.public_id;
+        return `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/${publicId}`;
+      }
+      // Local
+      return `${host}/uploads/nat/${f.filename}`;
+    });
+
     for (const url of urls) await pool.query('INSERT INTO product_images_nat (product_id, url) VALUES ($1,$2)', [productId, url]);
     const { rows: imgs } = await pool.query('SELECT url FROM product_images_nat WHERE product_id=$1 ORDER BY created_at ASC', [productId]);
     res.json({ success: true, image_urls: imgs.map(i => i.url) });
@@ -5521,7 +5537,21 @@ app.post('/natmarket/products/:id/repost-delete', upload.array('images', 10), as
 
     // Subir nuevas imágenes si hay
     const host = process.env.BACKEND_URL || `https://${req.get('host')}`;
-    const newUrls = (req.files || []).map(f => `${host}/uploads/nat/${f.filename}`);
+    const newUrls = (req.files || []).map(f => {
+      // Si hay credenciales de Cloudinary, usar URL de nube
+      if (CLOUD_NAME) {
+        if (f.secure_url) return f.secure_url;
+        if (f.url && f.url.startsWith('http')) return f.url;
+        if (f.path && f.path.startsWith('http')) return f.path;
+
+        // Fallback manual
+        const publicId = f.filename || f.public_id;
+        return `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/${publicId}`;
+      }
+      // Local
+      return `${host}/uploads/nat/${f.filename}`;
+    });
+
     for (const url of newUrls) {
       await client.query('INSERT INTO product_images_nat (product_id, url) VALUES ($1,$2)', [newProduct.id, url]);
     }
@@ -7359,8 +7389,25 @@ app.post('/natmarket/products/v2', upload.fields([
     const imageFiles = (req.files && req.files.images) ? req.files.images : [];
     const videoFiles = (req.files && req.files.videos) ? req.files.videos : [];
 
+    console.log('📦 [V2] Archivos recibidos:', req.files ? Object.keys(req.files) : 'Ninguno');
+    if (imageFiles.length > 0) console.log('📸 [V2] Primer imagen:', imageFiles[0]);
+
     // imágenes
-    const imageUrls = imageFiles.map(f => `${host}/uploads/nat/${f.filename}`);
+    const imageUrls = imageFiles.map(f => {
+      // Si hay credenciales de Cloudinary, usar URL de nube
+      if (CLOUD_NAME) {
+        if (f.secure_url) return f.secure_url;
+        if (f.url && f.url.startsWith('http')) return f.url;
+        if (f.path && f.path.startsWith('http')) return f.path;
+
+        // Fallback manual
+        const publicId = f.filename || f.public_id;
+        return `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/${publicId}`;
+      }
+      // Local
+      return `${host}/uploads/nat/${f.filename}`;
+    });
+
     for (const url of imageUrls) {
       await client.query('INSERT INTO product_images_nat (product_id, url) VALUES ($1,$2)', [product.id, url]);
     }
@@ -7375,7 +7422,20 @@ app.post('/natmarket/products/v2', upload.fields([
           created_at TIMESTAMP DEFAULT NOW()
         )
       `);
-      const videoUrls = videoFiles.map(f => `${host}/uploads/nat/${f.filename}`);
+
+      const videoUrls = videoFiles.map(f => {
+        if (CLOUD_NAME) {
+          if (f.secure_url) return f.secure_url;
+          if (f.url && f.url.startsWith('http')) return f.url;
+          if (f.path && f.path.startsWith('http')) return f.path;
+
+          const publicId = f.filename || f.public_id;
+          // Asumimos video si viene en el campo videos
+          return `https://res.cloudinary.com/${CLOUD_NAME}/video/upload/${publicId}`;
+        }
+        return `${host}/uploads/nat/${f.filename}`;
+      });
+
       for (const url of videoUrls) {
         await client.query('INSERT INTO product_videos_nat (product_id, url) VALUES ($1,$2)', [product.id, url]);
       }
@@ -7459,7 +7519,17 @@ app.post('/natmarket/products/:id/videos', upload.array('videos', 4), async (req
     `);
 
     const host = process.env.BACKEND_URL || `https://${req.get('host')}`;
-    const urls = req.files.map(f => `${host}/uploads/nat/${f.filename}`);
+    const urls = req.files.map(f => {
+      if (CLOUD_NAME) {
+        if (f.secure_url) return f.secure_url;
+        if (f.url && f.url.startsWith('http')) return f.url;
+        if (f.path && f.path.startsWith('http')) return f.path;
+
+        const publicId = f.filename || f.public_id;
+        return `https://res.cloudinary.com/${CLOUD_NAME}/video/upload/${publicId}`;
+      }
+      return `${host}/uploads/nat/${f.filename}`;
+    });
     for (const url of urls) {
       await pool.query('INSERT INTO product_videos_nat (product_id, url) VALUES ($1,$2)', [productId, url]);
     }

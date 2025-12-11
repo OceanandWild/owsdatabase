@@ -5045,7 +5045,7 @@ app.get('/natmarket/products', async (_req, res) => {
 app.patch('/natmarket/products/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { user_id, stock, sold, buyer_id, name, description, price, contact_number, category } = req.body;
+    const { user_id, stock, sold, buyer_id, name, description, price, contact_number, category, status } = req.body;
 
     if (!user_id) return res.status(400).json({ error: 'user_id requerido' });
 
@@ -5088,6 +5088,7 @@ app.patch('/natmarket/products/:id', async (req, res) => {
     if (price !== undefined) { updates.push(`price = $${paramIndex}`); values.push(parseFloat(price)); paramIndex++; }
     if (contact_number !== undefined) { updates.push(`contact_number = $${paramIndex}`); values.push(contact_number); paramIndex++; }
     if (category !== undefined) { updates.push(`category = $${paramIndex}`); values.push(category); paramIndex++; }
+    if (status !== undefined) { updates.push(`status = $${paramIndex}`); values.push(status); paramIndex++; }
 
     if (updates.length === 0) return res.status(400).json({ error: 'No hay campos para actualizar' });
 

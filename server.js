@@ -5045,7 +5045,7 @@ app.get('/natmarket/products', async (_req, res) => {
 app.patch('/natmarket/products/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { user_id, stock, sold, buyer_id } = req.body;
+    const { user_id, stock, sold, buyer_id, name, description, price, contact_number, category } = req.body;
 
     if (!user_id) return res.status(400).json({ error: 'user_id requerido' });
 
@@ -5056,7 +5056,7 @@ app.patch('/natmarket/products/:id', async (req, res) => {
 
     const currentProduct = productRows[0];
 
-    // Si el producto está vendido, NO permitir modificar el stock
+    // Si el producto está vendido, NO permitir modificar el stock (pero sí otros campos si es necesario, aunque con cuidado)
     if (currentProduct.sold && stock !== undefined) {
       return res.status(400).json({ error: 'No se puede modificar el stock de un producto vendido' });
     }
@@ -5082,6 +5082,12 @@ app.patch('/natmarket/products/:id', async (req, res) => {
       values.push(buyer_id ? parseInt(buyer_id) : null);
       paramIndex++;
     }
+
+    if (name !== undefined) { updates.push(`name = $${paramIndex}`); values.push(name); paramIndex++; }
+    if (description !== undefined) { updates.push(`description = $${paramIndex}`); values.push(description); paramIndex++; }
+    if (price !== undefined) { updates.push(`price = $${paramIndex}`); values.push(parseFloat(price)); paramIndex++; }
+    if (contact_number !== undefined) { updates.push(`contact_number = $${paramIndex}`); values.push(contact_number); paramIndex++; }
+    if (category !== undefined) { updates.push(`category = $${paramIndex}`); values.push(category); paramIndex++; }
 
     if (updates.length === 0) return res.status(400).json({ error: 'No hay campos para actualizar' });
 

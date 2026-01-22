@@ -587,14 +587,25 @@
           </div>
         </div>
 
-        <!-- Sub-Divisas -->
-        <div style="background: rgba(255,255,255,0.03); padding: 1.5rem; border-radius: 1rem; margin-top: 2rem;">
-          <h3 style="margin-bottom: 1rem; font-size: 1rem; color: var(--purple);">💎 Sub-Divisas</h3>
+        <!-- EcoPower - Energía para EcoConsole -->
+        <div
+          style="background: linear-gradient(145deg, rgba(0, 255, 100, 0.08), rgba(0, 200, 80, 0.04)); padding: 1.5rem; border-radius: 1rem; margin-top: 2rem; border: 1px solid rgba(0, 255, 100, 0.2);">
+          <h3
+            style="margin-bottom: 1rem; font-size: 1rem; color: #00ff64; display: flex; align-items: center; gap: 8px;">
+            ⚡ EcoPower
+            <span
+              style="font-size: 0.7rem; background: rgba(0, 255, 100, 0.2); padding: 3px 8px; border-radius: 10px; color: #00dd55;">Energía
+              de Consola</span>
+          </h3>
           <div
-            style="display: flex; justify-content: space-between; padding: 1rem; background: rgba(0,0,0,0.2); border-radius: 0.5rem;">
-            <span>Créditos (EcoConsole)</span>
-            <span style="font-weight: bold; color: var(--purple);" id="credits">0</span>
+            style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: rgba(0,0,0,0.3); border-radius: 0.5rem;">
+            <span style="color: #a0a0a0;">Balance Actual</span>
+            <span
+              style="font-weight: bold; color: #00ff64; font-size: 1.5rem; text-shadow: 0 0 10px rgba(0, 255, 100, 0.5);"
+              id="ecopower">100</span>
           </div>
+          <p style="margin-top: 0.75rem; font-size: 0.8rem; color: #64748b;">Usa EcoPower para ejecutar comandos premium
+            en EcoConsole. Se recarga diariamente.</p>
         </div>
 
         <!-- Savage Space Animals Subscription -->
@@ -783,7 +794,7 @@
 
         // Notify Opener
         if (window.opener) {
-          window.opener.postMessage({ type: 'ocean_pay_token', token: token, user: data.user }, '*');
+          window.opener.postMessage({ type: 'ocean-pay-token', token: token, user: data.user, ecoxionums: data.ecoxionums || 0 }, '*');
         }
 
       } catch (err) {
@@ -869,16 +880,15 @@
       } catch (e) { }
     }
 
-    async function loadCreditsBalance() {
-      const user = JSON.parse(localStorage.getItem('opUser') || '{}');
-      if (!user.token) return;
+    async function loadEcoPowerBalance() {
+      // EcoPower is stored locally in EcoConsole
+      // This just displays the last known value from localStorage
       try {
-        const res = await fetch(`${API}/ecocore/credits/${user.id}`, { headers: { 'Authorization': `Bearer ${user.token}` } });
-        if (res.ok) {
-          const data = await res.json();
-          qs('#credits').textContent = Math.round(data.credits || 0).toLocaleString();
-        }
-      } catch (e) { }
+        const ecoPowerData = JSON.parse(localStorage.getItem('ecoConsoleEcoPower') || '{}');
+        qs('#ecopower').textContent = Math.round(ecoPowerData.current || 100);
+      } catch (e) {
+        qs('#ecopower').textContent = '100';
+      }
     }
 
     async function loadAppBuxBalance() {
@@ -994,7 +1004,7 @@
         loadAquaBuxBalance(),
         loadEcoxionumsBalance(),
         loadEcoCoreBitsBalance(),
-        loadCreditsBalance(),
+        loadEcoPowerBalance(),
         loadWildCreditsBalance(),
         loadWildGemsBalance(),
         loadAppBuxBalance(),

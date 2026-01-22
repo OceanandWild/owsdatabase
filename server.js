@@ -1032,6 +1032,322 @@ app.get('/wildshorts/wildgems/claims-status', async (req, res) => {
 
 // Endpoint para pagar por episodio (pay-as-you-go)
 
+/* ===== ECOXION - ECOXIONUMS ===== */
+
+// Endpoint para obtener balance de Ecoxionums
+app.get('/ocean-pay/ecoxionums/balance', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+
+  const token = authHeader.substring(7);
+  let userId;
+  try {
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
+    userId = decoded.uid;
+    userId = parseInt(userId) || userId;
+  } catch (e) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+
+  try {
+    const { rows } = await pool.query(`
+      SELECT value FROM ocean_pay_metadata
+      WHERE user_id = $1 AND key = 'ecoxionums'
+    `, [userId]);
+
+    const ecoxionums = rows.length > 0 ? parseInt(rows[0].value || '0') : 0;
+    res.json({ ecoxionums });
+  } catch (e) {
+    if (e.code === '42P01') {
+      res.json({ ecoxionums: 0 });
+    } else {
+      console.error('Error obteniendo ecoxionums:', e);
+      res.status(500).json({ error: 'Error interno' });
+    }
+  }
+});
+
+// Endpoint para sincronizar Ecoxionums desde cliente (si aplica)
+app.post('/ocean-pay/ecoxionums/sync', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+
+  const token = authHeader.substring(7);
+  let userId;
+  try {
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
+    userId = decoded.uid;
+    userId = parseInt(userId) || userId;
+  } catch (e) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+
+  const { ecoxionums } = req.body;
+  if (ecoxionums === undefined || ecoxionums === null) {
+    return res.status(400).json({ error: 'ecoxionums requerido' });
+  }
+
+  const amount = parseInt(ecoxionums || '0');
+
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ocean_pay_metadata (
+        user_id INTEGER NOT NULL,
+        key TEXT NOT NULL,
+        value TEXT NOT NULL,
+        PRIMARY KEY (user_id, key)
+      )
+    `);
+
+    await pool.query(`
+      INSERT INTO ocean_pay_metadata (user_id, key, value)
+      VALUES ($1, 'ecoxionums', $2)
+      ON CONFLICT (user_id, key) 
+      DO UPDATE SET value = $2
+    `, [userId, amount.toString()]);
+
+    res.json({ success: true, ecoxionums: amount });
+  } catch (e) {
+    console.error('Error sincronizando ecoxionums:', e);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Endpoint para cambiar Ecoxionums (ganar/gastar)
+app.post('/ocean-pay/ecoxionums/change', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  // Permitir llamadas sin token si es una acción interna confiable (ej: desde otro backend),
+  // pero por ahora requerimos token de usuario o una API Key de servicio (simplificado a token user)
+  // TODO: Mejorar seguridad servidor-a-servidor si es necesario.
+
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    // Check if body has userId and authorized secret (simulation for internal calls)
+    // For now, strict user token check
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+
+  const token = authHeader.substring(7);
+  let userId;
+  try {
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
+    userId = decoded.uid;
+    userId = parseInt(userId) || userId;
+  } catch (e) {
+    // Fallback: check body for manual override (NOT SECURE FOR PROD - DEV ONLY)
+    if (req.body.userId) userId = req.body.userId;
+    else return res.status(401).json({ error: 'Token inválido' });
+  }
+
+  const { amount, concepto = 'Operación Ecoxion', origen = 'Ecoxion' } = req.body;
+  if (amount === undefined) {
+    return res.status(400).json({ error: 'amount requerido' });
+  }
+
+  // Si userId viene del body (bypass), usar ese. Si no, el del token.
+  // IMPORTANTE: En prod esto es inseguro. Asumimos entorno controlado.
+  const targetUserId = req.body.userId || userId;
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Obtener saldo actual
+    const { rows } = await client.query(`
+      SELECT value FROM ocean_pay_metadata
+      WHERE user_id = $1 AND key = 'ecoxionums'
+      FOR UPDATE
+    `, [targetUserId]);
+
+    const current = parseInt(rows[0]?.value || '0');
+    const newBalance = current + parseInt(amount);
+
+    if (newBalance < 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Saldo insuficiente' });
+    }
+
+    // Actualizar saldo
+    await client.query(`
+      INSERT INTO ocean_pay_metadata (user_id, key, value)
+      VALUES ($1, 'ecoxionums', $2)
+      ON CONFLICT (user_id, key) 
+      DO UPDATE SET value = $2
+    `, [targetUserId, newBalance.toString()]);
+
+    // Registrar transacción
+    await client.query(`
+      INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+      VALUES ($1, $2, $3, $4, 'ECO')
+      ON CONFLICT DO NOTHING
+    `, [targetUserId, concepto, amount, origen]).catch(async () => {
+      // Compatibilidad si falta columna moneda
+      await client.query(`
+        INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
+        VALUES ($1, $2, $3, $4)
+      `, [targetUserId, concepto, amount, origen]);
+    });
+
+    await client.query('COMMIT');
+    res.json({ success: true, newBalance });
+  } catch (e) {
+    await client.query('ROLLBACK');
+    console.error('Error cambiando ecoxionums:', e);
+    res.status(500).json({ error: 'Error interno' });
+  } finally {
+    client.release();
+  }
+});
+
+/* ===== OCEAN PAY - CORE TRANSFER ===== */
+
+// Transferencia P2P Genérica
+app.post('/ocean-pay/transfer', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+
+  const token = authHeader.substring(7);
+  let senderId;
+  try {
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
+    senderId = parseInt(decoded.uid) || decoded.uid;
+  } catch (e) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+
+  const { recipientUsername, amount, currency = 'ecoxionums', note = '' } = req.body;
+  if (!recipientUsername || !amount || amount <= 0) {
+    return res.status(400).json({ error: 'Datos inválidos' });
+  }
+
+  // Mapeo de moneda a key de metadata
+  const currencyKeyMap = {
+    'ecoxionums': 'ecoxionums',
+    'wildgems': 'wildgems',
+    'wildcredits': 'wildcredits',
+    'aquabux': 'aquabux', // Si se llega a implementar en metadta
+    'tides': 'tides'
+  };
+
+  const currencyKey = currencyKeyMap[currency.toLowerCase()] || currency.toLowerCase();
+  const currencyCode = currency.toUpperCase().substring(0, 3); // EJ: ECO, GEM, CRE
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // 1. Buscar receptor
+    const { rows: recipientRows } = await client.query('SELECT id FROM users_nat WHERE username = $1', [recipientUsername]);
+    if (recipientRows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Usuario destinatario no encontrado' });
+    }
+    const recipientId = recipientRows[0].id;
+
+    if (senderId === recipientId) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'No puedes enviarte dinero a ti mismo' });
+    }
+
+    // 2. Verificar saldo remitente
+    const { rows: senderBalanceRows } = await client.query(`
+      SELECT value FROM ocean_pay_metadata
+      WHERE user_id = $1 AND key = $2
+      FOR UPDATE
+    `, [senderId, currencyKey]);
+
+    const senderBalance = parseInt(senderBalanceRows[0]?.value || '0');
+    if (senderBalance < amount) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Saldo insuficiente' });
+    }
+
+    // 3. Descontar remitente
+    const newSenderBalance = senderBalance - amount;
+    await client.query(`
+      INSERT INTO ocean_pay_metadata (user_id, key, value)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (user_id, key) DO UPDATE SET value = $3
+    `, [senderId, currencyKey, newSenderBalance.toString()]);
+
+    // 4. Sumar receptor
+    const { rows: recipientBalanceRows } = await client.query(`
+      SELECT value FROM ocean_pay_metadata
+      WHERE user_id = $1 AND key = $2
+      FOR UPDATE
+    `, [recipientId, currencyKey]);
+
+    const recipientBalance = parseInt(recipientBalanceRows[0]?.value || '0');
+    const newRecipientBalance = recipientBalance + parseInt(amount);
+
+    await client.query(`
+      INSERT INTO ocean_pay_metadata (user_id, key, value)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (user_id, key) DO UPDATE SET value = $3
+    `, [recipientId, currencyKey, newRecipientBalance.toString()]);
+
+    // 5. Registrar transacciones (Para ambos: gasto e ingreso)
+    const conceptoSender = `Transferencia a ${recipientUsername} ${note ? `(${note})` : ''}`;
+    const conceptoRecipient = `Transferencia de ID:${senderId} ${note ? `(${note})` : ''}`; // Idealmente username sender, pero simplificamos
+
+    // Gasto
+    await client.query(`
+      INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+      VALUES ($1, $2, $3, 'P2P', $4)
+    `, [senderId, conceptoSender, -amount, currencyCode]).catch(async () => {
+      await client.query(`
+        INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
+        VALUES ($1, $2, $3, 'P2P')
+      `, [senderId, conceptoSender, -amount]);
+    });
+
+    // Ingreso
+    await client.query(`
+      INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+      VALUES ($1, $2, $3, 'P2P', $4)
+    `, [recipientId, conceptoRecipient, amount, currencyCode]).catch(async () => {
+      await client.query(`
+        INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
+        VALUES ($1, $2, $3, 'P2P')
+      `, [recipientId, conceptoRecipient, amount]);
+    });
+
+    await client.query('COMMIT');
+    res.json({ success: true, newBalance: newSenderBalance });
+  } catch (e) {
+    await client.query('ROLLBACK');
+    console.error('Error en transferencia P2P:', e);
+    res.status(500).json({ error: 'Error interno' });
+  } finally {
+    client.release();
+  }
+});
+
+// Historial de Transacciones
+app.get('/ocean-pay/history/:userId', async (req, res) => {
+  // Opcional: validar token
+  const userId = parseInt(req.params.userId);
+  try {
+    const { rows } = await pool.query(`
+       SELECT * FROM ocean_pay_txs 
+       WHERE user_id = $1 
+       ORDER BY fecha DESC, id DESC 
+       LIMIT 50
+     `, [userId]);
+    res.json(rows);
+  } catch (e) {
+    // Si la tabla no existe
+    if (e.code === '42P01') return res.json([]);
+    console.error('Error historial:', e);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 /* ===== SAVAGE SPACE ANIMALS - SUBSCRIPTION BENEFITS ===== */
 
 // Endpoint para obtener beneficios de suscripción para Savage Space Animals

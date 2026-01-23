@@ -14,7 +14,7 @@ import { Server } from 'socket.io';
 import { createServer } from 'http';
 
 // URL FOR THIS DATABASE: https://owsdatabase.onrender.com
-// URL FOR THIS DATABASE: https://owsdatabase.onrender.com
+// Last deployment trigger: 2026-01-22T22:17 - Ecoxion Auth Headers Fix
 
 /* ===== NAT-MARKET VARS ===== */
 import { v2 as cloudinary } from 'cloudinary';
@@ -1241,8 +1241,8 @@ app.post('/ocean-pay/transfer', async (req, res) => {
   try {
     await client.query('BEGIN');
 
-    // 1. Buscar receptor
-    const { rows: recipientRows } = await client.query('SELECT id FROM users_nat WHERE username = $1', [recipientUsername]);
+    // 1. Buscar receptor en ocean_pay_users (tabla correcta de Ocean Pay)
+    const { rows: recipientRows } = await client.query('SELECT id FROM ocean_pay_users WHERE username = $1', [recipientUsername]);
     if (recipientRows.length === 0) {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Usuario destinatario no encontrado' });
@@ -1330,9 +1330,25 @@ app.post('/ocean-pay/transfer', async (req, res) => {
 
 // Historial de Transacciones
 app.get('/ocean-pay/history/:userId', async (req, res) => {
-  // Opcional: validar token
   const userId = parseInt(req.params.userId);
+  if (isNaN(userId)) {
+    return res.status(400).json({ error: 'userId inválido' });
+  }
+
   try {
+    // Primero intentar crear la tabla si no existe
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ocean_pay_txs (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        concepto TEXT,
+        monto INTEGER DEFAULT 0,
+        origen TEXT DEFAULT 'Ecoxion',
+        moneda TEXT DEFAULT 'ECO',
+        fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
     const { rows } = await pool.query(`
        SELECT * FROM ocean_pay_txs 
        WHERE user_id = $1 
@@ -1341,8 +1357,23 @@ app.get('/ocean-pay/history/:userId', async (req, res) => {
      `, [userId]);
     res.json(rows);
   } catch (e) {
-    // Si la tabla no existe
+    // Si la tabla no existe (por alguna razón el CREATE falló)
     if (e.code === '42P01') return res.json([]);
+    // Si la columna fecha no existe
+    if (e.code === '42703') {
+      try {
+        const { rows } = await pool.query(`
+           SELECT * FROM ocean_pay_txs 
+           WHERE user_id = $1 
+           ORDER BY id DESC 
+           LIMIT 50
+         `, [userId]);
+        return res.json(rows);
+      } catch (e2) {
+        console.error('Error historial (fallback):', e2);
+        return res.json([]);
+      }
+    }
     console.error('Error historial:', e);
     res.status(500).json({ error: 'Error interno' });
   }

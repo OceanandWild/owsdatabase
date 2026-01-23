@@ -858,6 +858,19 @@
     async function loadEcoxionumsBalance() {
       const user = JSON.parse(localStorage.getItem('opUser') || '{}');
       if (!user.id) return;
+
+      // 🛠️ ECOXION REWORK LOCK - START
+      // Solo OceanandWild puede ver/usar Ecoxionums
+      if (user.username !== 'OceanandWild') {
+        const card = qs('#ecoxionums-card');
+        card.style.opacity = '0.5';
+        card.style.pointerEvents = 'none'; // Bloquear clicks
+        card.querySelector('.app-info').textContent = 'Ecoxion (En Rework) 🚧';
+        qs('#ecoxionums').textContent = '---';
+        return;
+      }
+      // 🛠️ ECOXION REWORK LOCK - END
+
       const res = await fetch(`${API}/ocean-pay/ecoxionums/${user.id}`);
       const { ecoxionums } = await res.json();
       qs('#ecoxionums').textContent = Math.round(ecoxionums || 0).toLocaleString();

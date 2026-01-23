@@ -1089,7 +1089,7 @@
 
         // Notify Opener
         if (window.opener) {
-          window.opener.postMessage({ type: 'ocean_pay_token', token: token, user: user }, '*');
+          window.opener.postMessage({ type: 'ocean-pay-token', token: token, user: user }, '*');
         }
       } else {
         show('#auth-section', true);

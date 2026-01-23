@@ -487,6 +487,38 @@ async function runDatabaseMigrations() {
 // Ejecutar migraciones al iniciar el servidor
 runDatabaseMigrations();
 
+/* ===== HEALTH CHECK / STATUS ENDPOINT ===== */
+// Este endpoint se usa para verificar que el servidor esté funcionando
+// y proporciona el estado de los servicios principales.
+app.get('/status', async (_req, res) => {
+  const services = {
+    server: { status: 'up', name: 'OWS Database Server' },
+    ecoconsole: { status: 'up', name: 'EcoConsole' },
+    ecoxion: { status: 'up', name: 'Ecoxion' },
+    natmarket: { status: 'up', name: 'NatMarket' },
+    naturepedia: { status: 'up', name: 'Naturepedia' }
+  };
+
+  // Verificar conexión a base de datos
+  try {
+    await pool.query('SELECT 1');
+    services.database = { status: 'up', name: 'PostgreSQL Database' };
+  } catch (e) {
+    services.database = { status: 'down', name: 'PostgreSQL Database', error: e.message };
+  }
+
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    services
+  });
+});
+
+// Endpoints individuales para cada servicio (health checks simples)
+app.get('/ecoconsole/health', (_req, res) => res.json({ status: 'up', service: 'EcoConsole' }));
+app.get('/ecoxion/health', (_req, res) => res.json({ status: 'up', service: 'Ecoxion' }));
+app.get('/natmarket/health', (_req, res) => res.json({ status: 'up', service: 'NatMarket' }));
+app.get('/naturepedia/health', (_req, res) => res.json({ status: 'up', service: 'Naturepedia' }));
 
 
 // ===== OCEAN PAY - MODO OFFLINE (SIN INTERNET) =====

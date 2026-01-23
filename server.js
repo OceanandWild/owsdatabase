@@ -1110,6 +1110,12 @@ app.post('/ocean-pay/ecoxionums/sync', async (req, res) => {
       DO UPDATE SET value = $2
     `, [userId, amount.toString()]);
 
+    // También actualizar en la tabla de usuarios para consistencia
+    await pool.query(
+      `UPDATE ocean_pay_users SET ecoxionums = $1 WHERE id = $2`,
+      [amount, userId]
+    );
+
     res.json({ success: true, ecoxionums: amount });
   } catch (e) {
     console.error('Error sincronizando ecoxionums:', e);
@@ -1177,6 +1183,12 @@ app.post('/ocean-pay/ecoxionums/change', async (req, res) => {
       ON CONFLICT (user_id, key) 
       DO UPDATE SET value = $2
     `, [targetUserId, newBalance.toString()]);
+
+    // También actualizar en la tabla de usuarios
+    await client.query(
+      `UPDATE ocean_pay_users SET ecoxionums = $1 WHERE id = $2`,
+      [newBalance, targetUserId]
+    );
 
     // Registrar transacción
     await client.query(`
@@ -1295,6 +1307,12 @@ app.post('/ocean-pay/transfer', async (req, res) => {
       ON CONFLICT (user_id, key) DO UPDATE SET value = $3
     `, [recipientId, currencyKey, newRecipientBalance.toString()]);
 
+    // Si la moneda es ecoxionums, actualizar también la tabla ocean_pay_users
+    if (currencyKey === 'ecoxionums') {
+      await client.query(`UPDATE ocean_pay_users SET ecoxionums = $1 WHERE id = $2`, [newSenderBalance, senderId]);
+      await client.query(`UPDATE ocean_pay_users SET ecoxionums = $1 WHERE id = $2`, [newRecipientBalance, recipientId]);
+    }
+
     // 5. Registrar transacciones (Para ambos: gasto e ingreso)
     const conceptoSender = `Transferencia a ${recipientUsername} ${note ? `(${note})` : ''}`;
     const conceptoRecipient = `Transferencia de ${senderUsername} ${note ? `(${note})` : ''}`;
@@ -1380,6 +1398,25 @@ app.get('/ocean-pay/history/:userId', async (req, res) => {
     }
     console.error('Error historial:', e);
     res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Endpoint de compatibilidad para Ocean Pay (sin token, solo display)
+app.get('/ocean-pay/ecoxionums/:userId', async (req, res) => {
+  const userId = parseInt(req.params.userId);
+  if (isNaN(userId)) return res.status(400).json({ error: 'userId inválido' });
+
+  try {
+    const { rows } = await pool.query(`
+      SELECT value FROM ocean_pay_metadata
+      WHERE user_id = $1 AND key = 'ecoxionums'
+    `, [userId]);
+
+    const ecoxionums = rows.length > 0 ? parseInt(rows[0].value || '0') : 0;
+    res.json({ ecoxionums });
+  } catch (e) {
+    if (e.code === '42P01') res.json({ ecoxionums: 0 });
+    else res.status(500).json({ error: 'Error interno' });
   }
 });
 
@@ -9523,6 +9560,12 @@ app.post('/ocean-pay/ecoxionums/change', async (req, res) => {
        ON CONFLICT (user_id, key)
        DO UPDATE SET value = $2`,
       [userIdInt, newBal.toString()]
+    );
+
+    // Actualizar también en la tabla users
+    await client.query(
+      `UPDATE ocean_pay_users SET ecoxionums = $1 WHERE id = $2`,
+      [newBal, userIdInt]
     );
 
     // log en Ocean Pay

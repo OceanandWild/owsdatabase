@@ -4269,23 +4269,68 @@ app.get("/api/stats/countries", async (_req, res) => {
 });
 
 // === Blogs ===
+async function initBlogsTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS blogs (
+      id SERIAL PRIMARY KEY,
+      title TEXT NOT NULL,
+      content TEXT NOT NULL,
+      author TEXT DEFAULT 'Anónimo',
+      likes INTEGER DEFAULT 0,
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `);
+}
+
 app.post("/api/blogs", async (req, res) => {
   const { title, content, author } = req.body;
   if (!title || !content) return res.status(400).json({ error: "Faltan datos" });
 
-  const { rows } = await pool.query(
-    `INSERT INTO blogs (title, content, author) VALUES ($1, $2, $3) RETURNING *`,
-    [title, content, author || "Anónimo"]
-  );
-
-  res.json({ success: true, blog: rows[0] });
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO blogs (title, content, author) VALUES ($1, $2, $3) RETURNING *`,
+      [title, content, author || "Anónimo"]
+    );
+    res.json({ success: true, blog: rows[0] });
+  } catch (err) {
+    if (err.message.includes('does not exist') || err.code === '42P01') {
+      await initBlogsTable();
+      const { rows } = await pool.query(
+        `INSERT INTO blogs (title, content, author) VALUES ($1, $2, $3) RETURNING *`,
+        [title, content, author || "Anónimo"]
+      );
+      return res.json({ success: true, blog: rows[0] });
+    }
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.get("/api/blogs", async (_req, res) => {
-  const { rows } = await pool.query(
-    `SELECT * FROM blogs ORDER BY created_at DESC LIMIT 20`
-  );
-  res.json(rows);
+  try {
+    const { rows } = await pool.query(
+      `SELECT * FROM blogs ORDER BY created_at DESC LIMIT 20`
+    );
+    res.json(rows);
+  } catch (err) {
+    if (err.message.includes('does not exist') || err.code === '42P01') {
+      await initBlogsTable();
+      return res.json([]);
+    }
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/blogs/:id/like", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { rows } = await pool.query(
+      `UPDATE blogs SET likes = likes + 1 WHERE id = $1 RETURNING likes`,
+      [id]
+    );
+    res.json({ success: true, likes: rows[0]?.likes || 0 });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Obtener todos los eclipses
@@ -6671,6 +6716,58 @@ async function initAllAppMessagesTable() {
 // Inicializar al arrancar
 initAllAppMessagesTable().catch(err => {
   console.error('[ALLAPP] Error crítico inicializando tabla:', err);
+});
+
+// ===== ECOXION - QUICK CHAT =====
+async function initEcoxionMessagesTable() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ecoxion_messages (
+        id SERIAL PRIMARY KEY,
+        sender_username VARCHAR(50) NOT NULL,
+        message TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+    console.log('[ECOXION] Tabla ecoxion_messages inicializada');
+  } catch (err) {
+    if (!err.message.includes('already exists')) throw err;
+  }
+}
+
+// Inicializar al arrancar
+initEcoxionMessagesTable().catch(e => console.error('[ECOXION] Error init:', e));
+
+app.post('/ecoxion/messages', async (req, res) => {
+  try {
+    const { username, message } = req.body;
+    if (!username || !message) return res.status(400).json({ error: 'Faltan datos' });
+
+    const { rows: [msg] } = await pool.query(
+      `INSERT INTO ecoxion_messages (sender_username, message) VALUES ($1, $2) RETURNING *`,
+      [username.trim().substring(0, 50), message]
+    );
+    res.json(msg);
+  } catch (err) {
+    if (err.code === '42P01') {
+      await initEcoxionMessagesTable();
+      // Reintentar...
+    }
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/ecoxion/messages', async (req, res) => {
+  try {
+    const { rows } = await pool.query(`SELECT * FROM ecoxion_messages ORDER BY created_at ASC LIMIT 100`);
+    res.json(rows);
+  } catch (err) {
+    if (err.code === '42P01') {
+      await initEcoxionMessagesTable();
+      return res.json([]);
+    }
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // Endpoint específico para AllApp LionChat - Enviar mensajes

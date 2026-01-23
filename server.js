@@ -9508,93 +9508,9 @@ app.get('/ocean-pay/ecoxionums/:userId', async (req, res) => {
 });
 
 
-// 1.b  Movimiento Ecoxionums (origen = "Ecoxion")
-app.post('/ocean-pay/ecoxionums/change', async (req, res) => {
-  const { userId, amount, concepto = 'Operación', origen = 'Ecoxion' } = req.body;
-  if (amount === undefined) return res.status(400).json({ error: 'Falta amount' });
 
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
 
-    const userIdInt = parseInt(userId);
 
-    // Verificar que el usuario existe
-    const { rows: userRows } = await client.query(
-      'SELECT id FROM ocean_pay_users WHERE id = $1',
-      [userIdInt]
-    );
-    if (!userRows.length) {
-      await client.query('ROLLBACK');
-      return res.status(404).json({ error: 'Usuario no encontrado' });
-    }
-
-    // Asegurar tabla de metadata
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS ocean_pay_metadata (
-        user_id INTEGER NOT NULL,
-        key TEXT NOT NULL,
-        value TEXT NOT NULL,
-        PRIMARY KEY (user_id, key)
-      )
-    `);
-
-    // lock & read desde ocean_pay_metadata
-    const { rows } = await client.query(
-      `SELECT value FROM ocean_pay_metadata 
-       WHERE user_id = $1 AND key = 'ecoxionums' FOR UPDATE`,
-      [userIdInt]
-    );
-
-    const currentEcoxionums = rows.length > 0 ? parseFloat(rows[0].value || '0') : 0;
-    const newBal = currentEcoxionums + amount;
-    if (newBal < 0) {
-      await client.query('ROLLBACK');
-      return res.status(400).json({ error: 'Saldo insuficiente' });
-    }
-
-    // update ecoxionums en ocean_pay_metadata
-    await client.query(
-      `INSERT INTO ocean_pay_metadata (user_id, key, value)
-       VALUES ($1, 'ecoxionums', $2)
-       ON CONFLICT (user_id, key)
-       DO UPDATE SET value = $2`,
-      [userIdInt, newBal.toString()]
-    );
-
-    // Actualizar también en la tabla users
-    await client.query(
-      `UPDATE ocean_pay_users SET ecoxionums = $1 WHERE id = $2`,
-      [newBal, userIdInt]
-    );
-
-    // log en Ocean Pay
-    // Intentar con moneda si existe la columna
-    try {
-      await client.query(
-        `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
-         VALUES ($1, $2, $3, $4, 'EX')`,
-        [userId, concepto, amount, origen]
-      );
-    } catch (e) {
-      // Si falla por falta de columna moneda, insertar sin ella
-      await client.query(
-        `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
-         VALUES ($1, $2, $3, $4)`,
-        [userId, concepto, amount, origen]
-      );
-    }
-
-    await client.query('COMMIT');
-    res.json({ success: true, newBalance: newBal });
-  } catch (e) {
-    await client.query('ROLLBACK');
-    console.error('❌ Error en /ocean-pay/ecoxionums/change:', e);
-    res.status(500).json({ error: e.message || 'Error interno' });
-  } finally {
-    client.release();
-  }
-});
 
 /* ----------  APPBUX ENDPOINTS  ---------- */
 // Obtener balance de AppBux

@@ -1249,6 +1249,10 @@ app.post('/ocean-pay/transfer', async (req, res) => {
     }
     const recipientId = recipientRows[0].id;
 
+    // 1.5 Obtener username del remitente para mostrarlo en el historial del receptor
+    const { rows: senderRows } = await client.query('SELECT username FROM ocean_pay_users WHERE id = $1', [senderId]);
+    const senderUsername = senderRows[0]?.username || `Usuario #${senderId}`;
+
     if (senderId === recipientId) {
       await client.query('ROLLBACK');
       return res.status(400).json({ error: 'No puedes enviarte dinero a ti mismo' });
@@ -1293,7 +1297,7 @@ app.post('/ocean-pay/transfer', async (req, res) => {
 
     // 5. Registrar transacciones (Para ambos: gasto e ingreso)
     const conceptoSender = `Transferencia a ${recipientUsername} ${note ? `(${note})` : ''}`;
-    const conceptoRecipient = `Transferencia de ID:${senderId} ${note ? `(${note})` : ''}`; // Idealmente username sender, pero simplificamos
+    const conceptoRecipient = `Transferencia de ${senderUsername} ${note ? `(${note})` : ''}`;
 
     // Gasto
     await client.query(`

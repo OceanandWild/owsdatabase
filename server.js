@@ -87,6 +87,223 @@ const io = new Server(httpServer, {
 app.use(cors());
 app.use(express.json());
 
+/* =========================================
+   WORD BATTLE MULTIPLAYER LOGIC
+   ========================================= */
+const wbRooms = {};
+
+io.on('connection', (socket) => {
+  console.log('🔌 Nuevo cliente conectado:', socket.id);
+
+  // --- Crear Sala ---
+  socket.on('wb_create_room', ({ playerName }) => {
+    try {
+      const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+      wbRooms[roomCode] = {
+        code: roomCode,
+        host: socket.id,
+        players: [{
+          id: socket.id,
+          name: playerName || 'Jugador 1',
+          lives: 3,
+          score: 0,
+          avatar: '😎',
+          eliminated: false
+        }],
+        state: 'lobby',
+        round: 0,
+        currentLetters: '',
+        turnIndex: 0,
+        timer: null,
+        timeLeft: 0
+      };
+
+      socket.join(roomCode);
+      socket.emit('wb_joined', { roomCode, isHost: true });
+      io.to(roomCode).emit('wb_room_update', wbRooms[roomCode]);
+      console.log(`Sala creada: ${roomCode} por ${playerName}`);
+    } catch (e) {
+      console.error(e);
+    }
+  });
+
+  // --- Unirse a Sala ---
+  socket.on('wb_join_room', ({ roomCode, playerName }) => {
+    roomCode = roomCode?.toUpperCase();
+    const room = wbRooms[roomCode];
+
+    if (!room) {
+      socket.emit('wb_error', 'Sala no encontrada');
+      return;
+    }
+
+    if (room.state !== 'lobby') {
+      socket.emit('wb_error', 'La partida ya comenzó');
+      return;
+    }
+
+    if (room.players.length >= 8) {
+      socket.emit('wb_error', 'Sala llena');
+      return;
+    }
+
+    const newPlayer = {
+      id: socket.id,
+      name: playerName || `Jugador ${room.players.length + 1}`,
+      lives: 3,
+      score: 0,
+      avatar: '👤',
+      eliminated: false
+    };
+
+    room.players.push(newPlayer);
+    socket.join(roomCode);
+
+    socket.emit('wb_joined', { roomCode, isHost: false });
+    io.to(roomCode).emit('wb_room_update', room);
+    console.log(`${playerName} se unió a ${roomCode}`);
+  });
+
+  // --- Iniciar Partida ---
+  socket.on('wb_start_game', ({ roomCode }) => {
+    const room = wbRooms[roomCode];
+    if (!room || room.host !== socket.id) return;
+
+    room.state = 'playing';
+    room.round = 1;
+    room.turnIndex = 0; // Empieza el host
+
+    io.to(roomCode).emit('wb_game_started');
+    startTurn(roomCode);
+  });
+
+  // --- Enviar Palabra ---
+  socket.on('wb_submit_word', ({ roomCode, word }) => {
+    const room = wbRooms[roomCode];
+    if (!room || room.state !== 'playing') return;
+
+    // Verificar si es turno del jugador
+    const activePlayers = room.players.filter(p => !p.eliminated);
+    const currentPlayer = activePlayers[room.turnIndex % activePlayers.length];
+
+    if (currentPlayer.id !== socket.id) return;
+
+    word = word.toLowerCase();
+    const letters = room.currentLetters.toLowerCase();
+
+    // Validación básica: debe contener las letras y ser > 2 chars
+    if (word.includes(letters) && word.length > 2) {
+      // Palabra válida (simplificado para demo)
+      stopRoomTimer(room);
+      currentPlayer.score += 10 + word.length; // Puntos
+
+      io.to(roomCode).emit('wb_word_accepted', { word, playerId: socket.id, score: currentPlayer.score });
+
+      // Siguiente turno
+      room.turnIndex++;
+      startTurn(roomCode);
+    } else {
+      socket.emit('wb_error', `La palabra debe contener "${room.currentLetters.toUpperCase()}"`);
+    }
+  });
+
+  // --- Desconexión ---
+  socket.on('disconnect', () => {
+    // Buscar en qué sala estaba y remover
+    Object.keys(wbRooms).forEach(code => {
+      const room = wbRooms[code];
+      const pIndex = room.players.findIndex(p => p.id === socket.id);
+      if (pIndex !== -1) {
+        room.players.splice(pIndex, 1);
+        if (room.players.length === 0) {
+          delete wbRooms[code]; // Eliminar sala vacía
+        } else {
+          // Si era host, asignar nuevo
+          if (room.host === socket.id) {
+            room.host = room.players[0].id;
+          }
+          io.to(code).emit('wb_room_update', room);
+        }
+      }
+    });
+  });
+});
+
+// --- Helpers Word Battle ---
+function startTurn(roomCode) {
+  const room = wbRooms[roomCode];
+  if (!room) return;
+
+  const activePlayers = room.players.filter(p => !p.eliminated);
+
+  // Verificar condiciones de fin
+  if (activePlayers.length <= 1 && room.players.length > 1) { // Si queda 1 y había más de 1
+    endGame(roomCode, activePlayers[0]);
+    return;
+  }
+
+  // Generar letras aleatorias
+  const syllables = ['CAR', 'TER', 'QUE', 'SOL', 'MAR', 'CON', 'EST', 'VER', 'SAL', 'PAN', 'LUZ', 'RIO', 'TRA', 'PLA', 'DIS'];
+  room.currentLetters = syllables[Math.floor(Math.random() * syllables.length)];
+  room.timeLeft = 10; // 10 segundos para responder (Rápido!)
+
+  const currentPlayer = activePlayers[room.turnIndex % activePlayers.length];
+
+  io.to(roomCode).emit('wb_new_turn', {
+    letters: room.currentLetters,
+    playerId: currentPlayer.id,
+    playerName: currentPlayer.name,
+    timeLeft: room.timeLeft
+  });
+
+  // Iniciar timer
+  clearInterval(room.timer);
+  room.timer = setInterval(() => {
+    room.timeLeft--;
+
+    if (room.timeLeft <= 0) {
+      clearInterval(room.timer);
+      handlePlayerFail(roomCode, currentPlayer.id);
+    }
+  }, 1000);
+}
+
+function handlePlayerFail(roomCode, playerId) {
+  const room = wbRooms[roomCode];
+  if (!room) return;
+
+  const player = room.players.find(p => p.id === playerId);
+  if (player) {
+    player.lives--;
+    io.to(roomCode).emit('wb_player_damage', { playerId, lives: player.lives });
+
+    if (player.lives <= 0) {
+      player.eliminated = true;
+      io.to(roomCode).emit('wb_player_eliminated', { playerId });
+    }
+  }
+
+  room.turnIndex++;
+  startTurn(roomCode); // Siguiente turno
+}
+
+function stopRoomTimer(room) {
+  if (room && room.timer) clearInterval(room.timer);
+}
+
+function endGame(roomCode, winner) {
+  const room = wbRooms[roomCode];
+  if (!room) return;
+  stopRoomTimer(room);
+  room.state = 'ended';
+  io.to(roomCode).emit('wb_game_over', { winner });
+
+  // Limpiar después de un tiempo
+  setTimeout(() => {
+    delete wbRooms[roomCode];
+  }, 60000);
+}
+
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 

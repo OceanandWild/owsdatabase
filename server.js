@@ -11177,21 +11177,29 @@ app.post('/api/extend-limit', async (req, res) => {
 
     // Verify token and get user
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
-    // El token de Ocean Pay usa 'uid', no 'userId'
-    const userId = String(decoded.uid || decoded.userId || decoded.id || decoded.user?.id || '');
+    // Asegurar que userId sea un número (el id de ocean_pay_users es INTEGER)
+    const rawId = decoded.uid || decoded.userId || decoded.id || decoded.user?.id;
+    const userId = parseInt(rawId);
 
-    if (!userId || userId === 'undefined' || userId === 'null') {
+    if (!userId || isNaN(userId)) {
       console.error('Token decodificado:', decoded);
       return res.status(401).json({ error: 'Token inválido: falta userId. Campos disponibles: ' + Object.keys(decoded).join(', ') });
     }
 
-    // Verificar que el usuario existe
-    const { rows: userCheck } = await pool.query(
+    // Verificar que el usuario existe - Buscar en ambas tablas
+    let userCheck = await pool.query(
       'SELECT id FROM users WHERE id = $1',
       [userId]
     );
 
-    if (!userCheck || userCheck.length === 0) {
+    if (userCheck.rows.length === 0) {
+      userCheck = await pool.query(
+        'SELECT id FROM ocean_pay_users WHERE id = $1',
+        [userId]
+      );
+    }
+
+    if (userCheck.rows.length === 0) {
       return res.status(404).json({ error: 'Usuario no encontrado' });
     }
 
@@ -11226,10 +11234,37 @@ app.post('/api/extend-limit', async (req, res) => {
       );
 
       // Incrementar command limit en el estado local (se guarda en localStorage)
-      // El límite se maneja en el frontend, no en la BD
       result = {
         success: true,
-        newLimit: null, // Se calculará en el frontend
+        newLimit: null,
+        ecocorebits: newBalance
+      };
+
+    } else if (option === 'ecocorebits_large') {
+      // Super Boost: 350 ECB -> +50 comandos
+      const { rows: ecorebitsRows } = await pool.query(
+        `SELECT amount FROM user_currency 
+                 WHERE user_id = $1 AND currency_type = 'ecocorebits' FOR UPDATE`,
+        [userId]
+      );
+
+      const currentBalance = ecorebitsRows[0]?.amount || 0;
+      if (currentBalance < 350) {
+        return res.status(400).json({ error: 'No tienes suficientes EcoCoreBits' });
+      }
+
+      const newBalance = currentBalance - 350;
+      await pool.query(
+        `INSERT INTO user_currency (user_id, currency_type, amount)
+                 VALUES ($1, 'ecocorebits', $2)
+                 ON CONFLICT (user_id, currency_type)
+                 DO UPDATE SET amount = EXCLUDED.amount`,
+        [userId, newBalance]
+      );
+
+      result = {
+        success: true,
+        newBalance: newBalance,
         ecocorebits: newBalance
       };
 
@@ -11281,10 +11316,10 @@ app.post('/api/extend-limit', async (req, res) => {
              (user_id, extension_type, commands_added, cost, extended_at)
              VALUES ($1, $2, $3, $4, $5)`,
       [
-        String(userId),
+        Number(userId),
         option,
-        option === 'ecocorebits' ? 10 : 5,
-        option === 'ecocorebits' ? 100 : 1,
+        option === 'ecocorebits' ? 10 : (option === 'ecocorebits_large' ? 50 : 5),
+        option === 'ecocorebits' ? 100 : (option === 'ecocorebits_large' ? 350 : 1),
         now
       ]
     );

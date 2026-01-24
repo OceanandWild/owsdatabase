@@ -315,6 +315,30 @@ async function runDatabaseMigrations() {
   console.log('🔄 Ejecutando migraciones de base de datos...');
 
   try {
+    // 0. Corregir nombres de columnas en users_nat (necesario para Supabase / NatMarket)
+    console.log('🔧 Corrigiendo esquema de users_nat...');
+    await pool.query(`
+      DO $$ 
+      BEGIN
+        -- Renombrar password_hash a password si existe
+        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users_nat' AND column_name = 'password_hash') 
+        AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users_nat' AND column_name = 'password') THEN
+          ALTER TABLE users_nat RENAME COLUMN password_hash TO password;
+        END IF;
+
+        -- Renombrar unique_id a user_unique_id si existe
+        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users_nat' AND column_name = 'unique_id') 
+        AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users_nat' AND column_name = 'user_unique_id') THEN
+          ALTER TABLE users_nat RENAME COLUMN unique_id TO user_unique_id;
+        END IF;
+
+        -- Hacer email opcional (null) si existe, ya que el registro no lo pide
+        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users_nat' AND column_name = 'email') THEN
+          ALTER TABLE users_nat ALTER COLUMN email DROP NOT NULL;
+        END IF;
+      END $$;
+    `).catch(err => console.log('⚠️ Aviso: Migración de nombres de columna users_nat:', err.message));
+
     // 1. Agregar columna comment a user_ratings_nat si no existe
     await pool.query(`
       ALTER TABLE user_ratings_nat 
@@ -15662,6 +15686,336 @@ app.get('/api/word-battle/rewards/:userId', async (req, res) => {
 
 // ... (Aquí terminan todas tus rutas de app.get/app.post) ...
 
+/* =========================================
+   ECOCONSOLE API ENDPOINTS
+   ========================================= */
+
+// Middleware para verificar JWT de EcoConsole
+const verifyEcoConsoleToken = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+
+  try {
+    const token = authHeader.substring(7);
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
+    req.userId = parseInt(decoded.uid) || decoded.uid;
+    next();
+  } catch (e) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+};
+
+// Asegurar tabla de cuota de comandos
+async function ensureEcoConsoleTable() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ecoconsole_quota (
+        user_id INTEGER PRIMARY KEY REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
+        daily_limit INTEGER DEFAULT 50,
+        remaining INTEGER DEFAULT 50,
+        bonus_quota INTEGER DEFAULT 0,
+        last_reset TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        total_commands_executed BIGINT DEFAULT 0,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ecoconsole_transactions (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
+        type VARCHAR(50) NOT NULL,
+        command_name VARCHAR(100),
+        cost INTEGER DEFAULT 0,
+        description TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    console.log('✅ Tablas de EcoConsole aseguradas');
+  } catch (err) {
+    console.error('❌ Error creando tablas EcoConsole:', err);
+  }
+}
+
+// Obtener cuota de comandos del usuario
+app.get('/ecoconsole/quota', verifyEcoConsoleToken, async (req, res) => {
+  try {
+    const userId = req.userId;
+
+    // Verificar si necesita reset diario (cada 24 horas)
+    let { rows } = await pool.query(
+      'SELECT * FROM ecoconsole_quota WHERE user_id = $1',
+      [userId]
+    );
+
+    if (rows.length === 0) {
+      // Crear registro inicial
+      await pool.query(
+        `INSERT INTO ecoconsole_quota (user_id, daily_limit, remaining, bonus_quota, last_reset) 
+         VALUES ($1, 50, 50, 0, NOW())`,
+        [userId]
+      );
+      rows = [{ daily_limit: 50, remaining: 50, bonus_quota: 0, last_reset: new Date(), total_commands_executed: 0 }];
+    } else {
+      const lastReset = new Date(rows[0].last_reset);
+      const now = new Date();
+      const hoursSinceReset = (now - lastReset) / (1000 * 60 * 60);
+
+      // Reset diario después de 24 horas
+      if (hoursSinceReset >= 24) {
+        await pool.query(
+          `UPDATE ecoconsole_quota 
+           SET remaining = daily_limit, last_reset = NOW() 
+           WHERE user_id = $1`,
+          [userId]
+        );
+        rows[0].remaining = rows[0].daily_limit;
+        rows[0].last_reset = now;
+      }
+    }
+
+    const quota = rows[0];
+    const nextReset = new Date(quota.last_reset);
+    nextReset.setHours(nextReset.getHours() + 24);
+
+    res.json({
+      dailyLimit: quota.daily_limit,
+      remaining: quota.remaining + (quota.bonus_quota || 0),
+      bonusQuota: quota.bonus_quota || 0,
+      totalExecuted: quota.total_commands_executed || 0,
+      nextReset: nextReset.toISOString()
+    });
+  } catch (err) {
+    console.error('Error en /ecoconsole/quota:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Usar un comando (decrementar cuota)
+app.post('/ecoconsole/use-command', verifyEcoConsoleToken, async (req, res) => {
+  const { commandName } = req.body;
+  const userId = req.userId;
+
+  try {
+    // Verificar cuota disponible
+    const { rows } = await pool.query(
+      'SELECT remaining, bonus_quota FROM ecoconsole_quota WHERE user_id = $1 FOR UPDATE',
+      [userId]
+    );
+
+    if (rows.length === 0 || (rows[0].remaining + (rows[0].bonus_quota || 0)) <= 0) {
+      return res.status(403).json({ error: 'Sin cuota de comandos disponible', needsQuota: true });
+    }
+
+    // Usar primero el bonus, luego el remaining
+    if (rows[0].bonus_quota > 0) {
+      await pool.query(
+        `UPDATE ecoconsole_quota 
+         SET bonus_quota = bonus_quota - 1, total_commands_executed = total_commands_executed + 1 
+         WHERE user_id = $1`,
+        [userId]
+      );
+    } else {
+      await pool.query(
+        `UPDATE ecoconsole_quota 
+         SET remaining = remaining - 1, total_commands_executed = total_commands_executed + 1 
+         WHERE user_id = $1`,
+        [userId]
+      );
+    }
+
+    // Registrar transacción
+    await pool.query(
+      `INSERT INTO ecoconsole_transactions (user_id, type, command_name, description) 
+       VALUES ($1, 'command_use', $2, 'Uso de comando')`,
+      [userId, commandName]
+    );
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error en /ecoconsole/use-command:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Comprar más cuota con EcoCoreBits
+app.post('/ecoconsole/purchase-quota', verifyEcoConsoleToken, async (req, res) => {
+  const { pack } = req.body; // 'small' (25 por 100 ECB), 'large' (100 por 350 ECB)
+  const userId = req.userId;
+
+  const packs = {
+    small: { quota: 25, cost: 100 },
+    large: { quota: 100, cost: 350 }
+  };
+
+  const selectedPack = packs[pack];
+  if (!selectedPack) {
+    return res.status(400).json({ error: 'Pack inválido' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Verificar saldo de EcoCoreBits (aquabux en ocean_pay_users)
+    const { rows: userRows } = await client.query(
+      'SELECT aquabux FROM ocean_pay_users WHERE id = $1 FOR UPDATE',
+      [userId]
+    );
+
+    if (userRows.length === 0) {
+      throw new Error('Usuario no encontrado');
+    }
+
+    const currentBalance = userRows[0].aquabux || 0;
+    if (currentBalance < selectedPack.cost) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        error: 'EcoCoreBits insuficientes',
+        required: selectedPack.cost,
+        current: currentBalance
+      });
+    }
+
+    // Descontar EcoCoreBits
+    await client.query(
+      'UPDATE ocean_pay_users SET aquabux = aquabux - $1 WHERE id = $2',
+      [selectedPack.cost, userId]
+    );
+
+    // Añadir cuota bonus
+    await client.query(
+      `INSERT INTO ecoconsole_quota (user_id, bonus_quota) 
+       VALUES ($1, $2)
+       ON CONFLICT (user_id) 
+       DO UPDATE SET bonus_quota = ecoconsole_quota.bonus_quota + $2`,
+      [userId, selectedPack.quota]
+    );
+
+    // Registrar transacción
+    await client.query(
+      `INSERT INTO ecoconsole_transactions (user_id, type, cost, description) 
+       VALUES ($1, 'quota_purchase', $2, $3)`,
+      [userId, selectedPack.cost, `Compra de ${selectedPack.quota} comandos extra`]
+    );
+
+    await client.query('COMMIT');
+
+    // Obtener nuevo saldo
+    const { rows: newBalance } = await client.query(
+      'SELECT aquabux FROM ocean_pay_users WHERE id = $1',
+      [userId]
+    );
+
+    res.json({
+      success: true,
+      quotaAdded: selectedPack.quota,
+      newBalance: newBalance[0].aquabux
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error en /ecoconsole/purchase-quota:', err);
+    res.status(500).json({ error: err.message || 'Error interno' });
+  } finally {
+    client.release();
+  }
+});
+
+// Ejecutar comando de pago
+app.post('/ecoconsole/paid-command', verifyEcoConsoleToken, async (req, res) => {
+  const { commandName, cost } = req.body;
+  const userId = req.userId;
+
+  if (!commandName || !cost || cost <= 0) {
+    return res.status(400).json({ error: 'Datos inválidos' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Verificar saldo
+    const { rows } = await client.query(
+      'SELECT aquabux FROM ocean_pay_users WHERE id = $1 FOR UPDATE',
+      [userId]
+    );
+
+    if (rows.length === 0 || rows[0].aquabux < cost) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        error: 'EcoCoreBits insuficientes',
+        required: cost,
+        current: rows[0]?.aquabux || 0
+      });
+    }
+
+    // Descontar EcoCoreBits
+    await client.query(
+      'UPDATE ocean_pay_users SET aquabux = aquabux - $1 WHERE id = $2',
+      [cost, userId]
+    );
+
+    // Registrar transacción
+    await client.query(
+      `INSERT INTO ecoconsole_transactions (user_id, type, command_name, cost, description) 
+       VALUES ($1, 'paid_command', $2, $3, $4)`,
+      [userId, commandName, cost, `Comando de pago: ${commandName}`]
+    );
+
+    // Actualizar contador de comandos
+    await client.query(
+      `UPDATE ecoconsole_quota 
+       SET total_commands_executed = total_commands_executed + 1 
+       WHERE user_id = $1`,
+      [userId]
+    );
+
+    await client.query('COMMIT');
+
+    // Obtener nuevo saldo
+    const { rows: newBalance } = await client.query(
+      'SELECT aquabux FROM ocean_pay_users WHERE id = $1',
+      [userId]
+    );
+
+    res.json({
+      success: true,
+      newBalance: newBalance[0].aquabux
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error en /ecoconsole/paid-command:', err);
+    res.status(500).json({ error: 'Error interno' });
+  } finally {
+    client.release();
+  }
+});
+
+// Obtener historial de transacciones de EcoConsole
+app.get('/ecoconsole/transactions', verifyEcoConsoleToken, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT * FROM ecoconsole_transactions 
+       WHERE user_id = $1 
+       ORDER BY created_at DESC 
+       LIMIT 50`,
+      [req.userId]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('Error en /ecoconsole/transactions:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Health check de EcoConsole
+app.get('/ecoconsole/health', (_req, res) => {
+  res.json({ status: 'up', service: 'EcoConsole', version: '2.0' });
+});
+
 // =================================================================
 // FUNCIÓN PARA ASEGURAR TABLA DE MONEDAS DEL USUARIO (user_currency)
 // =================================================================
@@ -15704,6 +16058,9 @@ await ensureTables();
 await ensureQuizTables();
 await ensureWordBattleTables();
 await ensureUserCurrencyTable();
+
+// Crear tablas de EcoConsole
+await ensureEcoConsoleTable();
 
 // Crear tablas de NatMarket
 await createNatMarketTables();

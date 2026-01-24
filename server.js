@@ -11099,11 +11099,18 @@ app.get('/api/ecorebits/user', async (req, res) => {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
     const userId = decoded.uid || decoded.id || decoded.userId;
 
-    // Get user info
-    const userResult = await pool.query(
+    // Get user info - Try both users and ocean_pay_users
+    let userResult = await pool.query(
       'SELECT id, username FROM users WHERE id = $1',
       [userId]
     );
+
+    if (userResult.rows.length === 0) {
+      userResult = await pool.query(
+        'SELECT id, username FROM ocean_pay_users WHERE id = $1',
+        [userId]
+      );
+    }
 
     if (userResult.rows.length === 0) {
       return res.status(404).json({ message: 'Usuario no encontrado' });

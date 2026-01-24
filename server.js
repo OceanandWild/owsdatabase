@@ -501,6 +501,29 @@ async function runDatabaseMigrations() {
       ADD COLUMN IF NOT EXISTS appbux INTEGER DEFAULT 0
     `).catch(() => console.log('⚠️ Columnas de monedas ya existen en ocean_pay_users'));
 
+    // 7. Fix command_limit_extensions foreign key and data type
+    await pool.query(`
+      DO $$ 
+      BEGIN
+        -- Drop legacy foreign key if exists
+        IF EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'command_limit_extensions_user_id_fkey') THEN
+          ALTER TABLE command_limit_extensions DROP CONSTRAINT command_limit_extensions_user_id_fkey;
+        END IF;
+
+        -- Convert user_id to INTEGER if it is TEXT
+        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'command_limit_extensions' AND column_name = 'user_id' AND data_type = 'text') THEN
+          ALTER TABLE command_limit_extensions ALTER COLUMN user_id TYPE INTEGER USING (user_id::integer);
+        END IF;
+
+        -- Add correct foreign key to ocean_pay_users
+        IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'command_limit_extensions_user_id_ocean_fkey') THEN
+          ALTER TABLE command_limit_extensions 
+          ADD CONSTRAINT command_limit_extensions_user_id_ocean_fkey 
+          FOREIGN KEY (user_id) REFERENCES ocean_pay_users(id) ON DELETE CASCADE;
+        END IF;
+      END $$;
+    `).catch(err => console.log('⚠️ Aviso: Migración command_limit_extensions:', err.message));
+
     console.log('✅ Migraciones completadas exitosamente!');
 
   } catch (err) {
@@ -596,21 +619,21 @@ app.post('/ocean-pay/wildcredits/sync', async (req, res) => {
   try {
     // Asegurar que la tabla existe con el esquema correcto (INTEGER)
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS ocean_pay_metadata (
-        user_id INTEGER NOT NULL,
-        key TEXT NOT NULL,
-        value TEXT NOT NULL,
-        PRIMARY KEY (user_id, key)
-      )
-    `);
+      CREATE TABLE IF NOT EXISTS ocean_pay_metadata(
+      user_id INTEGER NOT NULL,
+      key TEXT NOT NULL,
+      value TEXT NOT NULL,
+      PRIMARY KEY(user_id, key)
+    )
+      `);
 
     // Intentar actualizar o insertar
     await pool.query(`
-      INSERT INTO ocean_pay_metadata (user_id, key, value)
-      VALUES ($1, 'wildcredits', $2)
-      ON CONFLICT (user_id, key) 
+      INSERT INTO ocean_pay_metadata(user_id, key, value)
+    VALUES($1, 'wildcredits', $2)
+      ON CONFLICT(user_id, key) 
       DO UPDATE SET value = $2
-    `, [userId, wildCreditsValue.toString()]);
+      `, [userId, wildCreditsValue.toString()]);
 
     res.json({ success: true, wildcredits: wildCreditsValue });
   } catch (e) {
@@ -620,17 +643,17 @@ app.post('/ocean-pay/wildcredits/sync', async (req, res) => {
         console.log('Recreando tabla ocean_pay_metadata con INTEGER...');
         await pool.query('DROP TABLE IF EXISTS ocean_pay_metadata CASCADE');
         await pool.query(`
-          CREATE TABLE ocean_pay_metadata (
-            user_id INTEGER NOT NULL,
-            key TEXT NOT NULL,
-            value TEXT NOT NULL,
-            PRIMARY KEY (user_id, key)
-          )
-        `);
+          CREATE TABLE ocean_pay_metadata(
+        user_id INTEGER NOT NULL,
+        key TEXT NOT NULL,
+        value TEXT NOT NULL,
+        PRIMARY KEY(user_id, key)
+      )
+      `);
         await pool.query(`
-          INSERT INTO ocean_pay_metadata (user_id, key, value)
-          VALUES ($1, 'wildcredits', $2)
-        `, [userId, wildCreditsValue.toString()]);
+          INSERT INTO ocean_pay_metadata(user_id, key, value)
+    VALUES($1, 'wildcredits', $2)
+      `, [userId, wildCreditsValue.toString()]);
         res.json({ success: true, wildcredits: wildCreditsValue });
       } catch (e2) {
         console.error('Error recreando tabla ocean_pay_metadata:', e2);
@@ -640,17 +663,17 @@ app.post('/ocean-pay/wildcredits/sync', async (req, res) => {
       // Si la tabla no existe, crearla
       try {
         await pool.query(`
-          CREATE TABLE ocean_pay_metadata (
-            user_id INTEGER NOT NULL,
-            key TEXT NOT NULL,
-            value TEXT NOT NULL,
-            PRIMARY KEY (user_id, key)
-          )
-        `);
+          CREATE TABLE ocean_pay_metadata(
+        user_id INTEGER NOT NULL,
+        key TEXT NOT NULL,
+        value TEXT NOT NULL,
+        PRIMARY KEY(user_id, key)
+      )
+      `);
         await pool.query(`
-          INSERT INTO ocean_pay_metadata (user_id, key, value)
-          VALUES ($1, 'wildcredits', $2)
-        `, [userId, wildCreditsValue.toString()]);
+          INSERT INTO ocean_pay_metadata(user_id, key, value)
+    VALUES($1, 'wildcredits', $2)
+      `, [userId, wildCreditsValue.toString()]);
         res.json({ success: true, wildcredits: wildCreditsValue });
       } catch (e2) {
         console.error('Error creando tabla ocean_pay_metadata:', e2);
@@ -685,7 +708,7 @@ app.get('/ocean-pay/wildcredits/balance', async (req, res) => {
     const { rows } = await pool.query(`
       SELECT value FROM ocean_pay_metadata
       WHERE user_id = $1 AND key = 'wildcredits'
-    `, [userId]);
+      `, [userId]);
 
     const wildCredits = rows.length > 0 ? parseInt(rows[0].value || '0') : 0;
     res.json({ wildcredits: wildCredits });
@@ -722,7 +745,7 @@ app.get('/wildshorts/wildgems/balance', async (req, res) => {
     const { rows } = await pool.query(`
       SELECT value FROM ocean_pay_metadata
       WHERE user_id = $1 AND key = 'wildgems'
-    `, [userId]);
+      `, [userId]);
 
     const wildGems = rows.length > 0 ? parseInt(rows[0].value || '0') : 0;
     res.json({ wildgems: wildGems });
@@ -762,20 +785,20 @@ app.post('/wildshorts/wildgems/sync', async (req, res) => {
 
   try {
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS ocean_pay_metadata (
+      CREATE TABLE IF NOT EXISTS ocean_pay_metadata(
         user_id INTEGER NOT NULL,
         key TEXT NOT NULL,
         value TEXT NOT NULL,
-        PRIMARY KEY (user_id, key)
+        PRIMARY KEY(user_id, key)
       )
-    `);
+      `);
 
     await pool.query(`
-      INSERT INTO ocean_pay_metadata (user_id, key, value)
-      VALUES ($1, 'wildgems', $2)
-      ON CONFLICT (user_id, key) 
+      INSERT INTO ocean_pay_metadata(user_id, key, value)
+    VALUES($1, 'wildgems', $2)
+      ON CONFLICT(user_id, key) 
       DO UPDATE SET value = $2
-    `, [userId, wildGemsValue.toString()]);
+      `, [userId, wildGemsValue.toString()]);
 
     res.json({ success: true, wildgems: wildGemsValue });
   } catch (e) {
@@ -815,7 +838,7 @@ app.post('/wildshorts/wildgems/change', async (req, res) => {
       SELECT value FROM ocean_pay_metadata
       WHERE user_id = $1 AND key = 'wildgems'
       FOR UPDATE
-    `, [userId]);
+      `, [userId]);
 
     const current = parseInt(rows[0]?.value || '0');
     const newBalance = current + parseInt(amount);
@@ -827,22 +850,22 @@ app.post('/wildshorts/wildgems/change', async (req, res) => {
 
     // Actualizar saldo
     await client.query(`
-      INSERT INTO ocean_pay_metadata (user_id, key, value)
-      VALUES ($1, 'wildgems', $2)
-      ON CONFLICT (user_id, key) 
+      INSERT INTO ocean_pay_metadata(user_id, key, value)
+    VALUES($1, 'wildgems', $2)
+      ON CONFLICT(user_id, key) 
       DO UPDATE SET value = $2
-    `, [userId, newBalance.toString()]);
+      `, [userId, newBalance.toString()]);
 
     // Registrar transacción
     await client.query(`
-      INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
-      VALUES ($1, $2, $3, $4, 'WG')
+      INSERT INTO ocean_pay_txs(user_id, concepto, monto, origen, moneda)
+    VALUES($1, $2, $3, $4, 'WG')
       ON CONFLICT DO NOTHING
-    `, [userId, concepto, amount, origen]).catch(async () => {
+      `, [userId, concepto, amount, origen]).catch(async () => {
       // Si falla por falta de columna moneda, intentar sin ella
       await client.query(`
-        INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
-        VALUES ($1, $2, $3, $4)
+        INSERT INTO ocean_pay_txs(user_id, concepto, monto, origen)
+    VALUES($1, $2, $3, $4)
       `, [userId, concepto, amount, origen]);
     });
 
@@ -909,27 +932,27 @@ app.post('/wildshorts/subscribe', async (req, res) => {
 
     if (paymentMethod === 'weekly' && currentGems < planPrice) {
       await client.query('ROLLBACK');
-      return res.status(400).json({ error: `Saldo insuficiente. Necesitas ${planPrice} WildGems.` });
+      return res.status(400).json({ error: `Saldo insuficiente.Necesitas ${planPrice} WildGems.` });
     }
 
     // Si es weekly, descontar inmediatamente
     if (paymentMethod === 'weekly') {
       const newBalance = currentGems - planPrice;
       await client.query(`
-        INSERT INTO ocean_pay_metadata (user_id, key, value)
-        VALUES ($1, 'wildgems', $2)
-        ON CONFLICT (user_id, key) 
+        INSERT INTO ocean_pay_metadata(user_id, key, value)
+    VALUES($1, 'wildgems', $2)
+        ON CONFLICT(user_id, key) 
         DO UPDATE SET value = $2
       `, [userId, newBalance.toString()]);
 
       // Registrar transacción
       await client.query(`
-        INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
-        VALUES ($1, $2, $3, $4, 'WG')
+        INSERT INTO ocean_pay_txs(user_id, concepto, monto, origen, moneda)
+    VALUES($1, $2, $3, $4, 'WG')
       `, [userId, `Suscripción ${planId} (WildShorts) - Semanal`, -planPrice, 'WildShorts']).catch(async () => {
         await client.query(`
-          INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
-          VALUES ($1, $2, $3, $4)
+          INSERT INTO ocean_pay_txs(user_id, concepto, monto, origen)
+    VALUES($1, $2, $3, $4)
         `, [userId, `Suscripción ${planId} (WildShorts) - Semanal`, -planPrice, 'WildShorts']);
       });
     }
@@ -942,34 +965,34 @@ app.post('/wildshorts/subscribe', async (req, res) => {
 
     // Crear tabla de suscripciones de WildShorts si no existe
     await client.query(`
-      CREATE TABLE IF NOT EXISTS wildshorts_subs (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER NOT NULL,
-        plan_id TEXT NOT NULL,
-        payment_method TEXT NOT NULL,
-        starts_at TIMESTAMP NOT NULL DEFAULT NOW(),
-        ends_at TIMESTAMP,
-        active BOOLEAN DEFAULT true,
-        created_at TIMESTAMP DEFAULT NOW(),
-        UNIQUE(user_id, plan_id, payment_method)
-      )
-    `);
+      CREATE TABLE IF NOT EXISTS wildshorts_subs(
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL,
+      plan_id TEXT NOT NULL,
+      payment_method TEXT NOT NULL,
+      starts_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      ends_at TIMESTAMP,
+      active BOOLEAN DEFAULT true,
+      created_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(user_id, plan_id, payment_method)
+    )
+      `);
 
     // Cerrar suscripciones anteriores del mismo plan
     await client.query(`
       UPDATE wildshorts_subs 
       SET active = false 
       WHERE user_id = $1 AND plan_id = $2 AND active = true
-    `, [userId, planId]);
+      `, [userId, planId]);
 
     // Crear nueva suscripción
     const { rows: subRows } = await client.query(`
-      INSERT INTO wildshorts_subs (user_id, plan_id, payment_method, starts_at, ends_at, active)
-      VALUES ($1, $2, $3, $4, $5, true)
-      ON CONFLICT (user_id, plan_id, payment_method)
+      INSERT INTO wildshorts_subs(user_id, plan_id, payment_method, starts_at, ends_at, active)
+    VALUES($1, $2, $3, $4, $5, true)
+      ON CONFLICT(user_id, plan_id, payment_method)
       DO UPDATE SET starts_at = $4, ends_at = $5, active = true
-      RETURNING *
-    `, [userId, planId, paymentMethod, now, endsAt]);
+    RETURNING *
+      `, [userId, planId, paymentMethod, now, endsAt]);
 
     await client.query('COMMIT');
 
@@ -1006,12 +1029,12 @@ app.get('/wildshorts/subscription/:userId', async (req, res) => {
 
   try {
     const { rows } = await pool.query(`
-      SELECT * FROM wildshorts_subs
+    SELECT * FROM wildshorts_subs
       WHERE user_id = $1 AND active = true
-      AND (ends_at IS NULL OR ends_at > NOW())
+    AND(ends_at IS NULL OR ends_at > NOW())
       ORDER BY created_at DESC
       LIMIT 1
-    `, [userId]);
+      `, [userId]);
 
     res.json(rows[0] || null);
   } catch (e) {
@@ -1049,20 +1072,20 @@ app.post('/wildshorts/wildgems/claim', async (req, res) => {
   // Crear tabla e índices FUERA de la transacción (operaciones DDL)
   try {
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS wildgems_claims (
+      CREATE TABLE IF NOT EXISTS wildgems_claims(
         id SERIAL PRIMARY KEY,
         user_id INTEGER NOT NULL,
         claim_type TEXT NOT NULL,
         amount INTEGER NOT NULL,
         claimed_at TIMESTAMP DEFAULT NOW()
       )
-    `);
+      `);
 
     // Crear índice simple para mejorar el rendimiento de las consultas
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_wildgems_claims_user_type 
-      ON wildgems_claims (user_id, claim_type)
-    `).catch(() => {
+      ON wildgems_claims(user_id, claim_type)
+      `).catch(() => {
       // Ignorar errores si el índice ya existe
     });
   } catch (ddlError) {
@@ -1076,10 +1099,10 @@ app.post('/wildshorts/wildgems/claim', async (req, res) => {
   // Verificar si ya reclamó hoy (para recompensas diarias)
   if (type === 'daily') {
     const { rows: dailyRows } = await pool.query(`
-      SELECT * FROM wildgems_claims
+    SELECT * FROM wildgems_claims
       WHERE user_id = $1 AND claim_type = 'daily' 
       AND DATE(claimed_at) = DATE(NOW())
-    `, [userId]);
+      `, [userId]);
 
     if (dailyRows.length > 0) {
       const nextClaim = new Date(dailyRows[0].claimed_at);
@@ -1087,7 +1110,7 @@ app.post('/wildshorts/wildgems/claim', async (req, res) => {
       nextClaim.setHours(0, 0, 0, 0);
       const hoursUntil = Math.ceil((nextClaim - now) / (1000 * 60 * 60));
       return res.status(400).json({
-        error: `Ya reclamaste tu recompensa diaria hoy. Próxima recompensa en ${hoursUntil} horas.`,
+        error: `Ya reclamaste tu recompensa diaria hoy.Próxima recompensa en ${hoursUntil} horas.`,
         nextClaim: nextClaim.toISOString()
       });
     }
@@ -1096,9 +1119,9 @@ app.post('/wildshorts/wildgems/claim', async (req, res) => {
   // Verificar si ya reclamó (para recompensas únicas)
   if (type === 'welcome') {
     const { rows: welcomeRows } = await pool.query(`
-      SELECT * FROM wildgems_claims
+    SELECT * FROM wildgems_claims
       WHERE user_id = $1 AND claim_type = 'welcome'
-    `, [userId]);
+      `, [userId]);
 
     if (welcomeRows.length > 0) {
       return res.status(400).json({ error: 'Ya reclamaste tu recompensa de bienvenida.' });
@@ -1111,7 +1134,7 @@ app.post('/wildshorts/wildgems/claim', async (req, res) => {
       SELECT COUNT(*) as count FROM wildgems_claims
       WHERE user_id = $1 AND claim_type = 'ad_watch' 
       AND DATE(claimed_at) = DATE(NOW())
-    `, [userId]);
+      `, [userId]);
 
     if (parseInt(adRows[0].count) >= 5) {
       return res.status(400).json({ error: 'Has alcanzado el límite de 5 anuncios por día.' });
@@ -1124,7 +1147,7 @@ app.post('/wildshorts/wildgems/claim', async (req, res) => {
       SELECT COUNT(*) as count FROM wildgems_claims
       WHERE user_id = $1 AND claim_type = 'social_share' 
       AND DATE(claimed_at) = DATE(NOW())
-    `, [userId]);
+      `, [userId]);
 
     if (parseInt(shareRows[0].count) >= 3) {
       return res.status(400).json({ error: 'Has alcanzado el límite de 3 compartidos por día.' });
@@ -1138,7 +1161,7 @@ app.post('/wildshorts/wildgems/claim', async (req, res) => {
       SELECT column_name 
       FROM information_schema.columns 
       WHERE table_name = 'ocean_pay_txs' AND column_name = 'moneda'
-    `);
+      `);
     hasMonedaColumn = columnCheck.length > 0;
   } catch (checkError) {
     // Si falla la verificación, asumir que no existe la columna (por defecto)
@@ -1185,35 +1208,35 @@ app.post('/wildshorts/wildgems/claim', async (req, res) => {
       SELECT value FROM ocean_pay_metadata
       WHERE user_id = $1 AND key = 'wildgems'
       FOR UPDATE
-    `, [userId]);
+      `, [userId]);
 
     const current = parseInt(gemsRows[0]?.value || '0');
     const newBalance = current + gemsAmount;
 
     // Actualizar saldo
     await client.query(`
-      INSERT INTO ocean_pay_metadata (user_id, key, value)
-      VALUES ($1, 'wildgems', $2)
-      ON CONFLICT (user_id, key) 
+      INSERT INTO ocean_pay_metadata(user_id, key, value)
+    VALUES($1, 'wildgems', $2)
+      ON CONFLICT(user_id, key) 
       DO UPDATE SET value = $2
-    `, [userId, newBalance.toString()]);
+      `, [userId, newBalance.toString()]);
 
     // Registrar reclamación
     await client.query(`
-      INSERT INTO wildgems_claims (user_id, claim_type, amount)
-      VALUES ($1, $2, $3)
-    `, [userId, type, gemsAmount]);
+      INSERT INTO wildgems_claims(user_id, claim_type, amount)
+    VALUES($1, $2, $3)
+      `, [userId, type, gemsAmount]);
 
     // Insertar transacción según la estructura de la tabla (ya sabemos si tiene moneda)
     if (hasMonedaColumn) {
       await client.query(`
-        INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
-        VALUES ($1, $2, $3, $4, 'WG')
+        INSERT INTO ocean_pay_txs(user_id, concepto, monto, origen, moneda)
+    VALUES($1, $2, $3, $4, 'WG')
       `, [userId, conceptos[type] || `Recompensa ${type} (WildShorts)`, gemsAmount, 'WildShorts']);
     } else {
       await client.query(`
-        INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
-        VALUES ($1, $2, $3, $4)
+        INSERT INTO ocean_pay_txs(user_id, concepto, monto, origen)
+    VALUES($1, $2, $3, $4)
       `, [userId, conceptos[type] || `Recompensa ${type} (WildShorts)`, gemsAmount, 'WildShorts']);
     }
 
@@ -1261,16 +1284,16 @@ app.get('/wildshorts/wildgems/claims-status', async (req, res) => {
   try {
     // Verificar recompensa diaria
     const { rows: dailyRows } = await pool.query(`
-      SELECT * FROM wildgems_claims
+    SELECT * FROM wildgems_claims
       WHERE user_id = $1 AND claim_type = 'daily' 
       AND DATE(claimed_at) = DATE(NOW())
-    `, [userId]);
+      `, [userId]);
 
     // Verificar recompensa de bienvenida
     const { rows: welcomeRows } = await pool.query(`
-      SELECT * FROM wildgems_claims
+    SELECT * FROM wildgems_claims
       WHERE user_id = $1 AND claim_type = 'welcome'
-    `, [userId]);
+      `, [userId]);
 
     // Calcular próxima recompensa diaria
     let nextDaily = null;
@@ -1328,7 +1351,7 @@ app.get('/ocean-pay/ecoxionums/balance', async (req, res) => {
     const { rows } = await pool.query(`
       SELECT value FROM ocean_pay_metadata
       WHERE user_id = $1 AND key = 'ecoxionums'
-    `, [userId]);
+      `, [userId]);
 
     const ecoxionums = rows.length > 0 ? parseInt(rows[0].value || '0') : 0;
     res.json({ ecoxionums });
@@ -1368,20 +1391,20 @@ app.post('/ocean-pay/ecoxionums/sync', async (req, res) => {
 
   try {
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS ocean_pay_metadata (
+      CREATE TABLE IF NOT EXISTS ocean_pay_metadata(
         user_id INTEGER NOT NULL,
         key TEXT NOT NULL,
         value TEXT NOT NULL,
-        PRIMARY KEY (user_id, key)
+        PRIMARY KEY(user_id, key)
       )
-    `);
+      `);
 
     await pool.query(`
-      INSERT INTO ocean_pay_metadata (user_id, key, value)
-      VALUES ($1, 'ecoxionums', $2)
-      ON CONFLICT (user_id, key) 
+      INSERT INTO ocean_pay_metadata(user_id, key, value)
+    VALUES($1, 'ecoxionums', $2)
+      ON CONFLICT(user_id, key) 
       DO UPDATE SET value = $2
-    `, [userId, amount.toString()]);
+      `, [userId, amount.toString()]);
 
     // También actualizar en la tabla de usuarios para consistencia
     await pool.query(
@@ -1439,7 +1462,7 @@ app.post('/ocean-pay/ecoxionums/change', async (req, res) => {
       SELECT value FROM ocean_pay_metadata
       WHERE user_id = $1 AND key = 'ecoxionums'
       FOR UPDATE
-    `, [targetUserId]);
+      `, [targetUserId]);
 
     const current = parseInt(rows[0]?.value || '0');
     const newBalance = current + parseInt(amount);
@@ -1451,11 +1474,11 @@ app.post('/ocean-pay/ecoxionums/change', async (req, res) => {
 
     // Actualizar saldo
     await client.query(`
-      INSERT INTO ocean_pay_metadata (user_id, key, value)
-      VALUES ($1, 'ecoxionums', $2)
-      ON CONFLICT (user_id, key) 
+      INSERT INTO ocean_pay_metadata(user_id, key, value)
+    VALUES($1, 'ecoxionums', $2)
+      ON CONFLICT(user_id, key) 
       DO UPDATE SET value = $2
-    `, [targetUserId, newBalance.toString()]);
+      `, [targetUserId, newBalance.toString()]);
 
     // También actualizar en la tabla de usuarios
     await client.query(
@@ -1465,14 +1488,14 @@ app.post('/ocean-pay/ecoxionums/change', async (req, res) => {
 
     // Registrar transacción
     await client.query(`
-      INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
-      VALUES ($1, $2, $3, $4, 'ECO')
+      INSERT INTO ocean_pay_txs(user_id, concepto, monto, origen, moneda)
+    VALUES($1, $2, $3, $4, 'ECO')
       ON CONFLICT DO NOTHING
-    `, [targetUserId, concepto, amount, origen]).catch(async () => {
+      `, [targetUserId, concepto, amount, origen]).catch(async () => {
       // Compatibilidad si falta columna moneda
       await client.query(`
-        INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
-        VALUES ($1, $2, $3, $4)
+        INSERT INTO ocean_pay_txs(user_id, concepto, monto, origen)
+    VALUES($1, $2, $3, $4)
       `, [targetUserId, concepto, amount, origen]);
     });
 
@@ -1536,7 +1559,7 @@ app.post('/ocean-pay/transfer', async (req, res) => {
 
     // 1.5 Obtener username del remitente para mostrarlo en el historial del receptor
     const { rows: senderRows } = await client.query('SELECT username FROM ocean_pay_users WHERE id = $1', [senderId]);
-    const senderUsername = senderRows[0]?.username || `Usuario #${senderId}`;
+    const senderUsername = senderRows[0]?.username || `Usuario #${senderId} `;
 
     if (senderId === recipientId) {
       await client.query('ROLLBACK');
@@ -1548,7 +1571,7 @@ app.post('/ocean-pay/transfer', async (req, res) => {
       SELECT value FROM ocean_pay_metadata
       WHERE user_id = $1 AND key = $2
       FOR UPDATE
-    `, [senderId, currencyKey]);
+      `, [senderId, currencyKey]);
 
     const senderBalance = parseInt(senderBalanceRows[0]?.value || '0');
     if (senderBalance < amount) {
@@ -1559,26 +1582,26 @@ app.post('/ocean-pay/transfer', async (req, res) => {
     // 3. Descontar remitente
     const newSenderBalance = senderBalance - amount;
     await client.query(`
-      INSERT INTO ocean_pay_metadata (user_id, key, value)
-      VALUES ($1, $2, $3)
-      ON CONFLICT (user_id, key) DO UPDATE SET value = $3
-    `, [senderId, currencyKey, newSenderBalance.toString()]);
+      INSERT INTO ocean_pay_metadata(user_id, key, value)
+    VALUES($1, $2, $3)
+      ON CONFLICT(user_id, key) DO UPDATE SET value = $3
+      `, [senderId, currencyKey, newSenderBalance.toString()]);
 
     // 4. Sumar receptor
     const { rows: recipientBalanceRows } = await client.query(`
       SELECT value FROM ocean_pay_metadata
       WHERE user_id = $1 AND key = $2
       FOR UPDATE
-    `, [recipientId, currencyKey]);
+      `, [recipientId, currencyKey]);
 
     const recipientBalance = parseInt(recipientBalanceRows[0]?.value || '0');
     const newRecipientBalance = recipientBalance + parseInt(amount);
 
     await client.query(`
-      INSERT INTO ocean_pay_metadata (user_id, key, value)
-      VALUES ($1, $2, $3)
-      ON CONFLICT (user_id, key) DO UPDATE SET value = $3
-    `, [recipientId, currencyKey, newRecipientBalance.toString()]);
+      INSERT INTO ocean_pay_metadata(user_id, key, value)
+    VALUES($1, $2, $3)
+      ON CONFLICT(user_id, key) DO UPDATE SET value = $3
+      `, [recipientId, currencyKey, newRecipientBalance.toString()]);
 
     // Si la moneda es ecoxionums, actualizar también la tabla ocean_pay_users
     if (currencyKey === 'ecoxionums') {
@@ -1587,28 +1610,28 @@ app.post('/ocean-pay/transfer', async (req, res) => {
     }
 
     // 5. Registrar transacciones (Para ambos: gasto e ingreso)
-    const conceptoSender = `Transferencia a ${recipientUsername} ${note ? `(${note})` : ''}`;
-    const conceptoRecipient = `Transferencia de ${senderUsername} ${note ? `(${note})` : ''}`;
+    const conceptoSender = `Transferencia a ${recipientUsername} ${note ? `(${note})` : ''} `;
+    const conceptoRecipient = `Transferencia de ${senderUsername} ${note ? `(${note})` : ''} `;
 
     // Gasto
     await client.query(`
-      INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
-      VALUES ($1, $2, $3, 'P2P', $4)
-    `, [senderId, conceptoSender, -amount, currencyCode]).catch(async () => {
+      INSERT INTO ocean_pay_txs(user_id, concepto, monto, origen, moneda)
+    VALUES($1, $2, $3, 'P2P', $4)
+      `, [senderId, conceptoSender, -amount, currencyCode]).catch(async () => {
       await client.query(`
-        INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
-        VALUES ($1, $2, $3, 'P2P')
+        INSERT INTO ocean_pay_txs(user_id, concepto, monto, origen)
+    VALUES($1, $2, $3, 'P2P')
       `, [senderId, conceptoSender, -amount]);
     });
 
     // Ingreso
     await client.query(`
-      INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
-      VALUES ($1, $2, $3, 'P2P', $4)
-    `, [recipientId, conceptoRecipient, amount, currencyCode]).catch(async () => {
+      INSERT INTO ocean_pay_txs(user_id, concepto, monto, origen, moneda)
+    VALUES($1, $2, $3, 'P2P', $4)
+      `, [recipientId, conceptoRecipient, amount, currencyCode]).catch(async () => {
       await client.query(`
-        INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
-        VALUES ($1, $2, $3, 'P2P')
+        INSERT INTO ocean_pay_txs(user_id, concepto, monto, origen)
+    VALUES($1, $2, $3, 'P2P')
       `, [recipientId, conceptoRecipient, amount]);
     });
 
@@ -1633,7 +1656,7 @@ app.get('/ocean-pay/history/:userId', async (req, res) => {
   try {
     // Primero intentar crear la tabla si no existe
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS ocean_pay_txs (
+      CREATE TABLE IF NOT EXISTS ocean_pay_txs(
         id SERIAL PRIMARY KEY,
         user_id INTEGER NOT NULL,
         concepto TEXT,
@@ -1642,14 +1665,14 @@ app.get('/ocean-pay/history/:userId', async (req, res) => {
         moneda TEXT DEFAULT 'ECO',
         fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
-    `);
+      `);
 
     const { rows } = await pool.query(`
-       SELECT * FROM ocean_pay_txs 
+    SELECT * FROM ocean_pay_txs 
        WHERE user_id = $1 
        ORDER BY fecha DESC, id DESC 
        LIMIT 50
-     `, [userId]);
+      `, [userId]);
     res.json(rows);
   } catch (e) {
     // Si la tabla no existe (por alguna razón el CREATE falló)
@@ -1658,11 +1681,11 @@ app.get('/ocean-pay/history/:userId', async (req, res) => {
     if (e.code === '42703') {
       try {
         const { rows } = await pool.query(`
-           SELECT * FROM ocean_pay_txs 
+    SELECT * FROM ocean_pay_txs 
            WHERE user_id = $1 
            ORDER BY id DESC 
            LIMIT 50
-         `, [userId]);
+      `, [userId]);
         return res.json(rows);
       } catch (e2) {
         console.error('Error historial (fallback):', e2);
@@ -1683,7 +1706,7 @@ app.get('/ocean-pay/ecoxionums/:userId', async (req, res) => {
     const { rows } = await pool.query(`
       SELECT value FROM ocean_pay_metadata
       WHERE user_id = $1 AND key = 'ecoxionums'
-    `, [userId]);
+      `, [userId]);
 
     const ecoxionums = rows.length > 0 ? parseInt(rows[0].value || '0') : 0;
     res.json({ ecoxionums });
@@ -1717,7 +1740,7 @@ app.get('/savage-space-animals/benefits', async (req, res) => {
     const { rows: subRows } = await pool.query(`
       SELECT value FROM ocean_pay_metadata
       WHERE user_id = $1 AND key = 'studio_plan'
-    `, [userId]);
+      `, [userId]);
 
     const plan = subRows.length > 0 ? subRows[0].value : 'free';
 
@@ -1779,9 +1802,9 @@ app.post('/savage-space-animals/dust/sync', async (req, res) => {
     // Guardar pólvora cósmica
     if (cosmicDust !== undefined) {
       await pool.query(`
-        INSERT INTO ocean_pay_metadata (user_id, key, value)
-        VALUES ($1, 'ssa_cosmic_dust', $2)
-        ON CONFLICT (user_id, key) 
+        INSERT INTO ocean_pay_metadata(user_id, key, value)
+    VALUES($1, 'ssa_cosmic_dust', $2)
+        ON CONFLICT(user_id, key) 
         DO UPDATE SET value = $2
       `, [userId, cosmicDust.toString()]);
     }
@@ -1789,9 +1812,9 @@ app.post('/savage-space-animals/dust/sync', async (req, res) => {
     // Guardar high score
     if (highScore !== undefined) {
       await pool.query(`
-        INSERT INTO ocean_pay_metadata (user_id, key, value)
-        VALUES ($1, 'ssa_high_score', $2)
-        ON CONFLICT (user_id, key) 
+        INSERT INTO ocean_pay_metadata(user_id, key, value)
+    VALUES($1, 'ssa_high_score', $2)
+        ON CONFLICT(user_id, key) 
         DO UPDATE SET value = $2
       `, [userId, highScore.toString()]);
     }
@@ -1799,9 +1822,9 @@ app.post('/savage-space-animals/dust/sync', async (req, res) => {
     // Guardar animales desbloqueados
     if (unlockedAnimals !== undefined) {
       await pool.query(`
-        INSERT INTO ocean_pay_metadata (user_id, key, value)
-        VALUES ($1, 'ssa_unlocked_animals', $2)
-        ON CONFLICT (user_id, key) 
+        INSERT INTO ocean_pay_metadata(user_id, key, value)
+    VALUES($1, 'ssa_unlocked_animals', $2)
+        ON CONFLICT(user_id, key) 
         DO UPDATE SET value = $2
       `, [userId, JSON.stringify(unlockedAnimals)]);
     }
@@ -1834,7 +1857,7 @@ app.get('/savage-space-animals/player-data', async (req, res) => {
     const { rows } = await pool.query(`
       SELECT key, value FROM ocean_pay_metadata
       WHERE user_id = $1 AND key LIKE 'ssa_%'
-    `, [userId]);
+      `, [userId]);
 
     const data = {};
     rows.forEach(row => {
@@ -1883,13 +1906,13 @@ app.get('/savage-space-animals/verify-subscription', async (req, res) => {
     const { rows: planRows } = await pool.query(`
       SELECT value FROM ocean_pay_metadata
       WHERE user_id = $1 AND key = 'studio_plan'
-    `, [userId]);
+      `, [userId]);
 
     // Verificar fecha de expiración
     const { rows: expiryRows } = await pool.query(`
       SELECT value FROM ocean_pay_metadata
       WHERE user_id = $1 AND key = 'studio_plan_expiry'
-    `, [userId]);
+      `, [userId]);
 
     const plan = planRows.length > 0 ? planRows[0].value : 'free';
     const expiry = expiryRows.length > 0 ? new Date(expiryRows[0].value) : null;
@@ -1932,7 +1955,7 @@ app.get('/hub/tides/balance', async (req, res) => {
     const { rows } = await pool.query(`
       SELECT value FROM ocean_pay_metadata
       WHERE user_id = $1 AND key = 'tides'
-    `, [userId]);
+      `, [userId]);
 
     const tides = rows.length > 0 ? parseInt(rows[0].value || '0') : 0;
     res.json({ tides: tides });
@@ -1977,7 +2000,7 @@ app.post('/hub/tides/change', async (req, res) => {
       SELECT value FROM ocean_pay_metadata
       WHERE user_id = $1 AND key = 'tides'
       FOR UPDATE
-    `, [userId]);
+      `, [userId]);
 
     const current = parseInt(rows[0]?.value || '0');
     const newBalance = current + parseInt(amount);
@@ -1989,23 +2012,23 @@ app.post('/hub/tides/change', async (req, res) => {
 
     // Actualizar saldo
     await client.query(`
-      INSERT INTO ocean_pay_metadata (user_id, key, value)
-      VALUES ($1, 'tides', $2)
-      ON CONFLICT (user_id, key) 
+      INSERT INTO ocean_pay_metadata(user_id, key, value)
+    VALUES($1, 'tides', $2)
+      ON CONFLICT(user_id, key) 
       DO UPDATE SET value = $2
-    `, [userId, newBalance.toString()]);
+      `, [userId, newBalance.toString()]);
 
     // Registrar transacción
     await client.query(`
-      INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
-      VALUES ($1, $2, $3, $4, 'TIDES')
+      INSERT INTO ocean_pay_txs(user_id, concepto, monto, origen, moneda)
+    VALUES($1, $2, $3, $4, 'TIDES')
       ON CONFLICT DO NOTHING
-    `, [userId, concepto, amount, origen]).catch(async () => {
+      `, [userId, concepto, amount, origen]).catch(async () => {
       // Fallback si falla
       await client.query(`
-            INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
-            VALUES ($1, $2, $3, $4)
-        `, [userId, concepto, amount, origen]);
+            INSERT INTO ocean_pay_txs(user_id, concepto, monto, origen)
+    VALUES($1, $2, $3, $4)
+      `, [userId, concepto, amount, origen]);
     });
 
     await client.query('COMMIT');
@@ -2066,42 +2089,42 @@ app.post('/hub/subscribe', async (req, res) => {
 
     if (currentTides < price) {
       await client.query('ROLLBACK');
-      return res.status(400).json({ error: `Saldo insuficiente. Necesitas ${price} Tides.` });
+      return res.status(400).json({ error: `Saldo insuficiente.Necesitas ${price} Tides.` });
     }
 
     // Descontar Tides
     const newBalance = currentTides - price;
     await client.query(`
-      INSERT INTO ocean_pay_metadata (user_id, key, value)
-      VALUES ($1, 'tides', $2)
-      ON CONFLICT (user_id, key) 
+      INSERT INTO ocean_pay_metadata(user_id, key, value)
+    VALUES($1, 'tides', $2)
+      ON CONFLICT(user_id, key) 
       DO UPDATE SET value = $2
-    `, [userId, newBalance.toString()]);
+      `, [userId, newBalance.toString()]);
 
     // Registrar transacción
     await client.query(`
-      INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
-      VALUES ($1, $2, $3, $4, 'TIDES')
+      INSERT INTO ocean_pay_txs(user_id, concepto, monto, origen, moneda)
+    VALUES($1, $2, $3, $4, 'TIDES')
     `, [userId, `Suscripción ${planId} (${duration})`, -price, 'Hub']).catch(async () => {
       await client.query(`
-            INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
-            VALUES ($1, $2, $3, $4)
+            INSERT INTO ocean_pay_txs(user_id, concepto, monto, origen)
+    VALUES($1, $2, $3, $4)
         `, [userId, `Suscripción ${planId} (${duration})`, -price, 'Hub']);
     });
 
     // Crear tabla de suscripciones del Hub si no existe
     await client.query(`
-      CREATE TABLE IF NOT EXISTS hub_subs (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER NOT NULL,
-        plan_id TEXT NOT NULL,
-        duration TEXT NOT NULL,
-        starts_at TIMESTAMP NOT NULL DEFAULT NOW(),
-        ends_at TIMESTAMP NOT NULL,
-        active BOOLEAN DEFAULT true,
-        created_at TIMESTAMP DEFAULT NOW()
-      )
-    `);
+      CREATE TABLE IF NOT EXISTS hub_subs(
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL,
+      plan_id TEXT NOT NULL,
+      duration TEXT NOT NULL,
+      starts_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      ends_at TIMESTAMP NOT NULL,
+      active BOOLEAN DEFAULT true,
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+      `);
 
     // Calcular fecha de expiración
     const now = new Date();
@@ -2113,14 +2136,14 @@ app.post('/hub/subscribe', async (req, res) => {
       UPDATE hub_subs 
       SET active = false 
       WHERE user_id = $1 AND active = true
-    `, [userId]);
+      `, [userId]);
 
     // Crear nueva suscripción
     const { rows: subRows } = await client.query(`
-      INSERT INTO hub_subs (user_id, plan_id, duration, starts_at, ends_at, active)
-      VALUES ($1, $2, $3, $4, $5, true)
-      RETURNING *
-    `, [userId, planId, duration, now, endsAt]);
+      INSERT INTO hub_subs(user_id, plan_id, duration, starts_at, ends_at, active)
+    VALUES($1, $2, $3, $4, $5, true)
+    RETURNING *
+      `, [userId, planId, duration, now, endsAt]);
 
     await client.query('COMMIT');
 
@@ -2157,12 +2180,12 @@ app.get('/hub/subscription/:userId', async (req, res) => {
 
   try {
     const { rows } = await pool.query(`
-      SELECT * FROM hub_subs
+    SELECT * FROM hub_subs
       WHERE user_id = $1 AND active = true
       AND ends_at > NOW()
       ORDER BY created_at DESC
       LIMIT 1
-    `, [userId]);
+      `, [userId]);
 
     res.json(rows[0] || null);
   } catch (e) {
@@ -2202,7 +2225,7 @@ app.get('/savage-space-animals/benefits', async (req, res) => {
       AND ends_at > NOW()
       ORDER BY created_at DESC
       LIMIT 1
-    `, [userId]);
+      `, [userId]);
 
     if (rows.length === 0) {
       return res.json({ plan: 'free', benefits: null });
@@ -2268,7 +2291,7 @@ app.post('/wildshorts/episode/pay', async (req, res) => {
       SELECT column_name 
       FROM information_schema.columns 
       WHERE table_name = 'ocean_pay_txs' AND column_name = 'moneda'
-    `);
+      `);
     hasMonedaColumn = columnCheck.length > 0;
   } catch (checkError) {
     // Si falla la verificación, asumir que no existe la columna
@@ -2280,8 +2303,8 @@ app.post('/wildshorts/episode/pay', async (req, res) => {
     const { rows: subRows } = await pool.query(`
       SELECT plan_id FROM wildshorts_subs
       WHERE user_id = $1 AND active = true
-      AND (ends_at IS NULL OR ends_at > NOW())
-    `, [userId]);
+    AND(ends_at IS NULL OR ends_at > NOW())
+      `, [userId]);
 
     const planHierarchy = ['free', 'starter', 'explorer', 'adventurer', 'legend', 'ultra', 'founder'];
     const userPlan = subRows[0]?.plan_id || 'free';
@@ -2297,13 +2320,13 @@ app.post('/wildshorts/episode/pay', async (req, res) => {
   const { rows: gemsRows } = await pool.query(`
     SELECT value FROM ocean_pay_metadata
     WHERE user_id = $1 AND key = 'wildgems'
-  `, [userId]);
+      `, [userId]);
 
   const currentGems = parseInt(gemsRows[0]?.value || '0');
   const price = parseInt(episodePrice);
 
   if (currentGems < price) {
-    return res.status(400).json({ error: `Saldo insuficiente. Necesitas ${price} WildGems.` });
+    return res.status(400).json({ error: `Saldo insuficiente.Necesitas ${price} WildGems.` });
   }
 
   // Ahora sí, comenzar la transacción para las operaciones DML
@@ -2324,28 +2347,28 @@ app.post('/wildshorts/episode/pay', async (req, res) => {
     if (currentGemsLocked < price) {
       await client.query('ROLLBACK');
       client.release();
-      return res.status(400).json({ error: `Saldo insuficiente. Necesitas ${price} WildGems.` });
+      return res.status(400).json({ error: `Saldo insuficiente.Necesitas ${price} WildGems.` });
     }
 
     // Descontar WildGems
     const newBalance = currentGemsLocked - price;
     await client.query(`
-      INSERT INTO ocean_pay_metadata (user_id, key, value)
-      VALUES ($1, 'wildgems', $2)
-      ON CONFLICT (user_id, key) 
+      INSERT INTO ocean_pay_metadata(user_id, key, value)
+    VALUES($1, 'wildgems', $2)
+      ON CONFLICT(user_id, key) 
       DO UPDATE SET value = $2
-    `, [userId, newBalance.toString()]);
+      `, [userId, newBalance.toString()]);
 
     // Registrar transacción según la estructura de la tabla (ya sabemos si tiene moneda)
     if (hasMonedaColumn) {
       await client.query(`
-        INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
-        VALUES ($1, $2, $3, $4, 'WG')
+        INSERT INTO ocean_pay_txs(user_id, concepto, monto, origen, moneda)
+    VALUES($1, $2, $3, $4, 'WG')
       `, [userId, `Episodio ${episodeId} (WildShorts)`, -price, 'WildShorts']);
     } else {
       await client.query(`
-        INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
-        VALUES ($1, $2, $3, $4)
+        INSERT INTO ocean_pay_txs(user_id, concepto, monto, origen)
+    VALUES($1, $2, $3, $4)
       `, [userId, `Episodio ${episodeId} (WildShorts)`, -price, 'WildShorts']);
     }
 
@@ -2377,11 +2400,11 @@ app.post('/ocean-pay/link-account', async (req, res) => {
     // Verificar credenciales
     const { rows } = await pool.query(`
       SELECT opu.id, opu.pwd_hash, opu.aquabux, opu.appbux,
-             COALESCE(uc.amount, 0) as ecorebits
+      COALESCE(uc.amount, 0) as ecorebits
       FROM ocean_pay_users opu
       LEFT JOIN user_currency uc ON opu.id = uc.user_id AND uc.currency_type = 'ecocorebits'
       WHERE opu.username = $1
-    `, [username]);
+      `, [username]);
 
     if (rows.length === 0) return res.status(401).json({ error: 'Credenciales incorrectas' });
 
@@ -2397,18 +2420,18 @@ app.post('/ocean-pay/link-account', async (req, res) => {
     // Guardar wildCredits y wildGems en el servidor
     try {
       await pool.query(`
-        CREATE TABLE IF NOT EXISTS ocean_pay_metadata (
-          user_id INTEGER NOT NULL,
-          key TEXT NOT NULL,
-          value TEXT NOT NULL,
-          PRIMARY KEY (user_id, key)
-        )
+        CREATE TABLE IF NOT EXISTS ocean_pay_metadata(
+        user_id INTEGER NOT NULL,
+        key TEXT NOT NULL,
+        value TEXT NOT NULL,
+        PRIMARY KEY(user_id, key)
+      )
       `);
 
       // Obtener valores existentes del servidor
       const { rows: existingRows } = await pool.query(`
         SELECT key, value FROM ocean_pay_metadata
-        WHERE user_id = $1 AND key IN ('wildcredits', 'wildgems')
+        WHERE user_id = $1 AND key IN('wildcredits', 'wildgems')
       `, [rows[0].id]);
 
       let existingWildCredits = 0;
@@ -2422,22 +2445,22 @@ app.post('/ocean-pay/link-account', async (req, res) => {
       const finalWildCredits = Math.max(existingWildCredits, wildCreditsValue);
       const finalWildGems = Math.max(existingWildGems, wildGemsValue);
 
-      console.log(`[Ocean Pay Link] WildCredits: existente=${existingWildCredits}, nuevo=${wildCreditsValue}, final=${finalWildCredits}`);
-      console.log(`[Ocean Pay Link] WildGems: existente=${existingWildGems}, nuevo=${wildGemsValue}, final=${finalWildGems}`);
+      console.log(`[Ocean Pay Link]WildCredits: existente = ${existingWildCredits}, nuevo = ${wildCreditsValue}, final = ${finalWildCredits} `);
+      console.log(`[Ocean Pay Link]WildGems: existente = ${existingWildGems}, nuevo = ${wildGemsValue}, final = ${finalWildGems} `);
 
       // Guardar siempre (incluso si es 0) para mantener consistencia
       await pool.query(`
-        INSERT INTO ocean_pay_metadata (user_id, key, value)
-        VALUES ($1, 'wildcredits', $2)
-        ON CONFLICT (user_id, key) 
-        DO UPDATE SET value = GREATEST(CAST(ocean_pay_metadata.value AS INTEGER), CAST($2 AS INTEGER))::TEXT
+        INSERT INTO ocean_pay_metadata(user_id, key, value)
+    VALUES($1, 'wildcredits', $2)
+        ON CONFLICT(user_id, key) 
+        DO UPDATE SET value = GREATEST(CAST(ocean_pay_metadata.value AS INTEGER), CAST($2 AS INTEGER)):: TEXT
       `, [rows[0].id, finalWildCredits.toString()]);
 
       await pool.query(`
-        INSERT INTO ocean_pay_metadata (user_id, key, value)
-        VALUES ($1, 'wildgems', $2)
-        ON CONFLICT (user_id, key) 
-        DO UPDATE SET value = GREATEST(CAST(ocean_pay_metadata.value AS INTEGER), CAST($2 AS INTEGER))::TEXT
+        INSERT INTO ocean_pay_metadata(user_id, key, value)
+    VALUES($1, 'wildgems', $2)
+        ON CONFLICT(user_id, key) 
+        DO UPDATE SET value = GREATEST(CAST(ocean_pay_metadata.value AS INTEGER), CAST($2 AS INTEGER)):: TEXT
       `, [rows[0].id, finalWildGems.toString()]);
 
     } catch (e) {
@@ -2451,7 +2474,7 @@ app.post('/ocean-pay/link-account', async (req, res) => {
     try {
       const { rows: metaRows } = await pool.query(`
         SELECT key, value FROM ocean_pay_metadata
-        WHERE user_id = $1 AND key IN ('wildcredits', 'wildgems', 'ecoxionums')
+        WHERE user_id = $1 AND key IN('wildcredits', 'wildgems', 'ecoxionums')
       `, [rows[0].id]);
 
       metaRows.forEach(row => {
@@ -2464,7 +2487,7 @@ app.post('/ocean-pay/link-account', async (req, res) => {
         }
       });
 
-      console.log(`[Ocean Pay Link] Valores finales del servidor: WildCredits=${serverWildCredits}, WildGems=${serverWildGems}`);
+      console.log(`[Ocean Pay Link] Valores finales del servidor: WildCredits = ${serverWildCredits}, WildGems = ${serverWildGems} `);
     } catch (e) {
       console.warn('[Ocean Pay Link] Error obteniendo valores del servidor:', e.message);
       serverWildCredits = wildCreditsValue;
@@ -2606,7 +2629,7 @@ function fallbackSlidesFromScript(script = '', style = {}) {
   sentences.forEach(s => {
     const toks = tokenize(s).filter(w => !STOP.has(w));
     for (let i = 0; i < toks.length - 1; i++) {
-      const bg = `${toks[i]} ${toks[i + 1]}`;
+      const bg = `${toks[i]} ${toks[i + 1]} `;
       bigrams.set(bg, (bigrams.get(bg) || 0) + 1);
     }
   });
@@ -2688,7 +2711,7 @@ function fallbackSlidesFromScript(script = '', style = {}) {
   if (topPhrase) {
     const scriptHasIntro = /\b(introduc|present[a-z]+)/i.test(raw);
     const nice = topPhrase.replace(/\b\w/g, m => m.toUpperCase());
-    title = scriptHasIntro ? `Introducing ${nice}` : nice;
+    title = scriptHasIntro ? `Introducing ${nice} ` : nice;
   } else {
     const head = (scored[0]?.s.split(/[\-:–—]/)[0] || '').trim();
     title = head ? clip(toSentenceCase(head), 60) : 'Introducing';
@@ -2737,7 +2760,7 @@ function fallbackSlidesFromScript(script = '', style = {}) {
 app.post('/deepdive/ai/script-to-slides', async (req, res) => {
   try {
     const f = globalThis.fetch || (await import('node-fetch')).default;
-    const r = await f(`${AI_BASE_URL}/ai/script_to_slides`, {
+    const r = await f(`${AI_BASE_URL} /ai/script_to_slides`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(req.body || {})
@@ -2760,7 +2783,7 @@ app.post('/deepdive/ai/script-to-slides', async (req, res) => {
 app.post('/deepdive/ai/tts', async (req, res) => {
   try {
     const f = globalThis.fetch || (await import('node-fetch')).default;
-    const r = await f(`${AI_BASE_URL}/ai/tts`, {
+    const r = await f(`${AI_BASE_URL} /ai/tts`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(req.body || {})
@@ -2779,7 +2802,7 @@ app.post('/deepdive/ai/tts', async (req, res) => {
 app.post('/deepdive/ai/stt', async (req, res) => {
   try {
     const f = globalThis.fetch || (await import('node-fetch')).default;
-    const r = await f(`${AI_BASE_URL}/ai/stt`, {
+    const r = await f(`${AI_BASE_URL} /ai/stt`, {
       method: 'POST',
       headers: { 'content-type': req.headers['content-type'] || 'multipart/form-data' },
       body: req
@@ -2884,7 +2907,7 @@ app.post('/deepdive/export/video', async (req, res) => {
 
     // Frame capture directory
     const outDir = path.join(process.cwd(), 'exports');
-    const framesDir = path.join(outDir, `frames_${Date.now()}`);
+    const framesDir = path.join(outDir, `frames_${Date.now()} `);
     fs.mkdirSync(framesDir, { recursive: true });
 
     // Compute total ms
@@ -2956,7 +2979,7 @@ app.post('/deepdive/export/video', async (req, res) => {
       if (code !== 0) {
         return res.status(500).json({ error: 'ffmpeg failed' });
       }
-      const publicUrl = `/exports/${path.basename(outFile)}`;
+      const publicUrl = `/ exports / ${path.basename(outFile)} `;
       return res.json({ url: publicUrl, filename: path.basename(outFile) });
     });
   } catch (e) {
@@ -2985,7 +3008,7 @@ app.post('/natmarket/support/request', async (req, res) => {
   try {
     // tables
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS support_chats (
+      CREATE TABLE IF NOT EXISTS support_chats(
         id SERIAL PRIMARY KEY,
         user_id INTEGER NOT NULL REFERENCES users_nat(id) ON DELETE CASCADE,
         admin_id INTEGER REFERENCES users_nat(id),
@@ -2994,9 +3017,9 @@ app.post('/natmarket/support/request', async (req, res) => {
         closed_at TIMESTAMP,
         last_message_at TIMESTAMP DEFAULT NOW()
       )
-    `);
+      `);
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS support_messages (
+      CREATE TABLE IF NOT EXISTS support_messages(
         id SERIAL PRIMARY KEY,
         chat_id INTEGER NOT NULL REFERENCES support_chats(id) ON DELETE CASCADE,
         sender_id INTEGER NOT NULL,
@@ -3017,7 +3040,7 @@ app.post('/natmarket/support/request', async (req, res) => {
 
     // pick admin randomly between OceanandWild and Jorge Barboza that exists
     const { rows: admins } = await pool.query(
-      `SELECT id, username FROM users_nat WHERE username IN ('OceanandWild','Jorge Barboza')`
+      `SELECT id, username FROM users_nat WHERE username IN('OceanandWild', 'Jorge Barboza')`
     );
     let adminId = null, adminUsername = null;
     if (admins.length) {
@@ -3026,7 +3049,7 @@ app.post('/natmarket/support/request', async (req, res) => {
     }
 
     const { rows: created } = await pool.query(
-      `INSERT INTO support_chats (user_id, admin_id, status) VALUES ($1,$2,'open') RETURNING *`,
+      `INSERT INTO support_chats(user_id, admin_id, status) VALUES($1, $2, 'open') RETURNING * `,
       [user_id, adminId]
     );
     created[0].admin_username = adminUsername;
@@ -3088,7 +3111,7 @@ app.get('/natmarket/support/chats/:chatId', async (req, res) => {
       JOIN users_nat u1 ON u1.id = sc.user_id
       LEFT JOIN users_nat u2 ON u2.id = sc.admin_id
       WHERE sc.id = $1
-    `, [chatId]);
+      `, [chatId]);
     if (!rows.length) return res.status(404).json({ error: 'Chat no encontrado' });
     res.json(rows[0]);
   } catch (err) {
@@ -3124,7 +3147,7 @@ app.post('/natmarket/support/chats/:chatId/message', async (req, res) => {
     if (chatRows[0].status === 'closed') return res.status(400).json({ error: 'Chat cerrado' });
 
     await pool.query(
-      `INSERT INTO support_messages (chat_id, sender_id, sender_type, message) VALUES ($1,$2,$3,$4)`,
+      `INSERT INTO support_messages(chat_id, sender_id, sender_type, message) VALUES($1, $2, $3, $4)`,
       [chatId, sender_id, sender_type, message]
     );
     await pool.query('UPDATE support_chats SET last_message_at = NOW() WHERE id=$1', [chatId]);
@@ -3157,19 +3180,19 @@ app.patch('/natmarket/support/chats/:chatId/close', async (req, res) => {
 // Tabla: recovery_requests_nat
 async function ensureRecoveryTable() {
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS recovery_requests_nat (
-      id BIGSERIAL PRIMARY KEY,
-      username TEXT NOT NULL,
-      approx_registration_date DATE,
-      evidence JSONB NOT NULL,
-      oe_username TEXT,
-      oe_verified BOOLEAN DEFAULT FALSE,
-      status TEXT NOT NULL DEFAULT 'pending',
-      reviewer TEXT,
-      resolution_note TEXT,
-      created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-      updated_at TIMESTAMP NOT NULL DEFAULT NOW()
-    )`);
+    CREATE TABLE IF NOT EXISTS recovery_requests_nat(
+        id BIGSERIAL PRIMARY KEY,
+        username TEXT NOT NULL,
+        approx_registration_date DATE,
+        evidence JSONB NOT NULL,
+        oe_username TEXT,
+        oe_verified BOOLEAN DEFAULT FALSE,
+        status TEXT NOT NULL DEFAULT 'pending',
+        reviewer TEXT,
+        resolution_note TEXT,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )`);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_rr_nat_status ON recovery_requests_nat(status)`);
 }
 
@@ -3224,8 +3247,8 @@ app.post('/natmarket/recovery-request', async (req, res) => {
     }
 
     const { rows } = await pool.query(
-      `INSERT INTO recovery_requests_nat (username, approx_registration_date, evidence, oe_username, oe_verified, status)
-       VALUES ($1,$2,$3,$4,$5,'pending') RETURNING id`,
+      `INSERT INTO recovery_requests_nat(username, approx_registration_date, evidence, oe_username, oe_verified, status)
+    VALUES($1, $2, $3, $4, $5, 'pending') RETURNING id`,
       [
         username.trim(),
         approx_registration_date || null,
@@ -3336,7 +3359,7 @@ app.post('/natmarket/recovery-requests/:id/reject', async (req, res) => {
 // ===== NatMarket: Seguimientos de entrega/chat =====
 async function ensureTrackingTables() {
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS nat_trackings (
+    CREATE TABLE IF NOT EXISTS nat_trackings(
       id BIGSERIAL PRIMARY KEY,
       product_id INTEGER NOT NULL REFERENCES products_nat(id) ON DELETE CASCADE,
       seller_id INTEGER NOT NULL REFERENCES users_nat(id) ON DELETE CASCADE,
@@ -3383,8 +3406,8 @@ app.post('/natmarket/trackings', async (req, res) => {
     };
 
     const { rows } = await pool.query(
-      `INSERT INTO nat_trackings (product_id, seller_id, buyer_id, title, status, events)
-       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+      `INSERT INTO nat_trackings(product_id, seller_id, buyer_id, title, status, events)
+    VALUES($1, $2, $3, $4, $5, $6) RETURNING * `,
       [product_id, seller_id, buyer_id, title, ev.status, JSON.stringify([{ ...ev, created_at: new Date().toISOString() }])]
     );
 
@@ -3413,7 +3436,7 @@ app.post('/natmarket/trackings/:id/events', async (req, res) => {
     const newStatus = status || tr.status;
 
     const { rows: upd } = await pool.query(
-      `UPDATE nat_trackings SET events = $1::jsonb, status=$2, updated_at=NOW() WHERE id=$3 RETURNING *`,
+      `UPDATE nat_trackings SET events = $1:: jsonb, status = $2, updated_at = NOW() WHERE id = $3 RETURNING * `,
       [newEvents, newStatus, id]
     );
     res.json(upd[0]);
@@ -3437,12 +3460,12 @@ app.patch('/natmarket/trackings/:id', async (req, res) => {
     if (Number(tr.seller_id) !== Number(seller_id)) return res.status(403).json({ error: 'No autorizado' });
 
     const { rows: upd } = await pool.query(
-      `UPDATE nat_trackings SET 
-         status=COALESCE($1,status), 
-         title=COALESCE($2,title), 
-         active=COALESCE($3,active), 
-         updated_at=NOW()
-       WHERE id=$4 RETURNING *`,
+      `UPDATE nat_trackings SET
+    status = COALESCE($1, status),
+      title = COALESCE($2, title),
+      active = COALESCE($3, active),
+      updated_at = NOW()
+       WHERE id = $4 RETURNING * `,
       [status || null, title || null, (active === undefined ? null : !!active), id]
     );
     res.json(upd[0]);
@@ -3467,7 +3490,7 @@ app.get('/natmarket/trackings/by-participants', async (req, res) => {
        JOIN products_nat p ON p.id = t.product_id
        JOIN users_nat u1 ON u1.id = t.seller_id
        JOIN users_nat u2 ON u2.id = t.buyer_id
-       WHERE t.product_id=$1 AND t.seller_id=$2 AND t.buyer_id=$3
+       WHERE t.product_id = $1 AND t.seller_id = $2 AND t.buyer_id = $3
        ORDER BY t.created_at DESC LIMIT 1`,
       [product_id, seller_id, buyer_id]
     );
@@ -3489,7 +3512,7 @@ app.get('/natmarket/trackings/seller/:sellerId', async (req, res) => {
        FROM nat_trackings t
        JOIN products_nat p ON p.id = t.product_id
        JOIN users_nat u2 ON u2.id = t.buyer_id
-       WHERE t.seller_id=$1 AND ($2::boolean OR t.active=true)
+       WHERE t.seller_id = $1 AND($2:: boolean OR t.active = true)
        ORDER BY t.updated_at DESC`,
       [sellerId, all]
     );
@@ -3511,7 +3534,7 @@ app.get('/natmarket/trackings/buyer/:buyerId', async (req, res) => {
        FROM nat_trackings t
        JOIN products_nat p ON p.id = t.product_id
        JOIN users_nat u1 ON u1.id = t.seller_id
-       WHERE t.buyer_id=$1 AND ($2::boolean OR t.active=true)
+       WHERE t.buyer_id = $1 AND($2:: boolean OR t.active = true)
        ORDER BY t.updated_at DESC`,
       [buyerId, all]
     );
@@ -3533,7 +3556,7 @@ app.get('/natmarket/trackings/:id', async (req, res) => {
        JOIN products_nat p ON p.id = t.product_id
        JOIN users_nat u1 ON u1.id = t.seller_id
        JOIN users_nat u2 ON u2.id = t.buyer_id
-       WHERE t.id=$1`,
+       WHERE t.id = $1`,
       [id]
     );
     if (!rows.length) return res.status(404).json({ error: 'No encontrado' });
@@ -3556,7 +3579,7 @@ async function ensureAIGenerationTables() {
   try {
     // Create AI generation logs table
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS ai_product_generations (
+      CREATE TABLE IF NOT EXISTS ai_product_generations(
         id BIGSERIAL PRIMARY KEY,
         user_id INTEGER NOT NULL REFERENCES users_nat(id),
         model_id TEXT NOT NULL,
@@ -3568,22 +3591,22 @@ async function ensureAIGenerationTables() {
         generation_time_ms INTEGER,
         created_at TIMESTAMP DEFAULT NOW()
       )
-    `);
+      `);
 
     // Create indexes for performance
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_ai_gen_user ON ai_product_generations(user_id)
-    `);
+      `);
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_ai_gen_created ON ai_product_generations(created_at)
-    `);
+      `);
 
     // Add AI-related columns to products_nat table
     await pool.query(`
       ALTER TABLE products_nat 
       ADD COLUMN IF NOT EXISTS ai_generated BOOLEAN DEFAULT FALSE,
       ADD COLUMN IF NOT EXISTS ai_model TEXT,
-      ADD COLUMN IF NOT EXISTS ai_confidence JSONB
+        ADD COLUMN IF NOT EXISTS ai_confidence JSONB
     `);
 
     console.log('✅ AI generation tables initialized');
@@ -3718,14 +3741,14 @@ function generateProductName(input, category, modelId) {
     const emoji = categoryEmojis[category] || '✨';
 
     if (brandName) {
-      return `${emoji} ${brandName} ${mainKeywords} | ${category}`;
+      return `${emoji} ${brandName} ${mainKeywords} | ${category} `;
     }
     return `${emoji} ${mainKeywords} - ${category} Premium`;
   }
 
   // Lógica básica (Genesis)
   const capitalized = keywords.slice(0, 5).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-  return capitalized || `Producto de ${category}`;
+  return capitalized || `Producto de ${category} `;
 }
 
 function generateProductDescription(input, name, category, condition, modelId) {
@@ -3746,11 +3769,11 @@ function generateProductDescription(input, name, category, condition, modelId) {
     // 2. Detección de Especificaciones Técnicas (Regex simple)
     const specs = [];
     const gbMatch = input.match(/(\d+)\s*(gb|tb)/i);
-    if (gbMatch) specs.push(`Almacenamiento/Memoria: ${gbMatch[0].toUpperCase()}`);
+    if (gbMatch) specs.push(`Almacenamiento / Memoria: ${gbMatch[0].toUpperCase()} `);
     const ramMatch = input.match(/(\d+)\s*ram/i);
-    if (ramMatch) specs.push(`Memoria RAM: ${ramMatch[1]}GB`);
+    if (ramMatch) specs.push(`Memoria RAM: ${ramMatch[1]} GB`);
     const inchMatch = input.match(/(\d+(\.\d+)?)\s*("|pulgadas)/i);
-    if (inchMatch) specs.push(`Pantalla: ${inchMatch[1]}"`);
+    if (inchMatch) specs.push(`Pantalla: ${inchMatch[1]} "`);
 
     // 3. Detección de Urgencia
     const isUrgent = lowerInput.includes('urgente') || lowerInput.includes('viaje') || lowerInput.includes('mudanza') || lowerInput.includes('hoy');
@@ -11571,7 +11594,7 @@ async function ensureTables() {
 
     CREATE TABLE IF NOT EXISTS command_limit_extensions (
       id SERIAL PRIMARY KEY,
-      user_id TEXT NOT NULL REFERENCES users(id), 
+      user_id INTEGER NOT NULL REFERENCES ocean_pay_users(id) ON DELETE CASCADE, 
       extension_type VARCHAR(20) NOT NULL,
       commands_added INTEGER NOT NULL,
       cost INTEGER NOT NULL,
@@ -11886,7 +11909,7 @@ async function ensureTables() {
     console.warn('⚠️ Error al ejecutar migración de products_nat columnas:', err.message);
   }
 
-  // Migración: Si la tabla command_limit_extensions existe con user_id INTEGER, cambiarla a TEXT
+  // Migración: Si la tabla command_limit_extensions existe con user_id TEXT, cambiarla a INTEGER (Ocean Pay Sync)
   try {
     const checkColumn = await pool.query(`
       SELECT data_type 
@@ -11895,8 +11918,8 @@ async function ensureTables() {
       AND column_name = 'user_id'
     `);
 
-    if (checkColumn.rows.length > 0 && checkColumn.rows[0].data_type === 'integer') {
-      console.log('🔄 Migrando command_limit_extensions: cambiando user_id de INTEGER a TEXT...');
+    if (checkColumn.rows.length > 0 && checkColumn.rows[0].data_type === 'text') {
+      console.log('🔄 Migrando command_limit_extensions: cambiando user_id de TEXT a INTEGER (Ocean Pay Sync)...');
 
       await pool.query(`
         ALTER TABLE command_limit_extensions 
@@ -11905,16 +11928,16 @@ async function ensureTables() {
 
       await pool.query(`
         ALTER TABLE command_limit_extensions 
-        ALTER COLUMN user_id TYPE TEXT USING user_id::TEXT
+        ALTER COLUMN user_id TYPE INTEGER USING user_id::INTEGER
       `);
 
       await pool.query(`
         ALTER TABLE command_limit_extensions 
         ADD CONSTRAINT command_limit_extensions_user_id_fkey 
-        FOREIGN KEY (user_id) REFERENCES users(id)
+        FOREIGN KEY (user_id) REFERENCES ocean_pay_users(id) ON DELETE CASCADE
       `);
 
-      console.log('✅ Migración completada: user_id ahora es TEXT');
+      console.log('✅ Migración completada: user_id ahora es INTEGER y apunta a ocean_pay_users');
     }
   } catch (err) {
     if (!err.message.includes('relation "command_limit_extensions" does not exist')) {

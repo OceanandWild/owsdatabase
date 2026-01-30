@@ -392,6 +392,14 @@
       background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(34, 197, 94, 0.1));
     }
 
+    #ecotokens-card .amount {
+      color: #39b54a;
+    }
+
+    #ecotokens-card:hover {
+      border-color: #39b54a;
+    }
+
     /* Utilities */
     .hidden {
       display: none !important;
@@ -584,6 +592,15 @@
             <span class="label">EcoBooks</span>
             <span class="amount" id="ecobooks">0</span>
             <div class="app-info">Naturepedia 🌿 <span style="font-size:10px;opacity:0.7;">🔄</span></div>
+          </div>
+
+          <!-- EcoTokens (Wild Savage) -->
+          <div class="currency-card" id="ecotokens-card">
+            <div class="currency-icon"
+              style="background: linear-gradient(135deg, rgba(57, 181, 74, 0.2), rgba(34, 139, 34, 0.1));">💎</div>
+            <span class="label">EcoTokens</span>
+            <span class="amount" id="ecotokens">0</span>
+            <div class="app-info">No-Extinction - Wild Savage 🦁</div>
           </div>
         </div>
 
@@ -1012,6 +1029,18 @@
       } catch (e) { console.error('Error loading SSA benefits:', e); }
     }
 
+    async function loadEcoTokensBalance() {
+      const user = JSON.parse(localStorage.getItem('opUser') || '{}');
+      if (!user.id) return;
+      try {
+        const res = await fetch(`${API}/wild-savage/ecotokens/balance`, { headers: { 'Authorization': `Bearer ${token}` } });
+        if (res.ok) {
+          const data = await res.json();
+          qs('#ecotokens').textContent = parseInt(data.ecotokens || 0).toLocaleString();
+        }
+      } catch (e) { console.error('Error loading EcoTokens:', e); }
+    }
+
     async function refreshAllBalances() {
       await Promise.all([
         loadAquaBuxBalance(),
@@ -1023,7 +1052,8 @@
         loadAppBuxBalance(),
         loadTidesBalance(),
         loadSSABenefits(),
-        loadEcoBooksBalance()
+        loadEcoBooksBalance(),
+        loadEcoTokensBalance()
       ]);
     }
 

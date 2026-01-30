@@ -880,6 +880,162 @@ app.post('/wildshorts/wildgems/change', async (req, res) => {
   }
 });
 
+/* ===== WILD SAVAGE - ECOTOKENS ===== */
+// Endpoint para obtener balance de EcoTokens
+app.get('/wild-savage/ecotokens/balance', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+
+  const token = authHeader.substring(7);
+  let userId;
+  try {
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
+    userId = decoded.uid;
+    userId = parseInt(userId) || userId;
+  } catch (e) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+
+  try {
+    const { rows } = await pool.query(`
+      SELECT value FROM ocean_pay_metadata
+      WHERE user_id = $1 AND key = 'ecotokens'
+    `, [userId]);
+
+    const ecotokens = rows.length > 0 ? parseInt(rows[0].value || '0') : 0;
+    res.json({ ecotokens });
+  } catch (e) {
+    if (e.code === '42P01') {
+      res.json({ ecotokens: 0 });
+    } else {
+      console.error('Error obteniendo EcoTokens:', e);
+      res.status(500).json({ error: 'Error interno' });
+    }
+  }
+});
+
+// Endpoint para sincronizar EcoTokens desde Wild Savage
+app.post('/wild-savage/ecotokens/sync', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+
+  const token = authHeader.substring(7);
+  let userId;
+  try {
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
+    userId = decoded.uid;
+    userId = parseInt(userId) || userId;
+  } catch (e) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+
+  const { ecotokens } = req.body;
+  if (ecotokens === undefined || ecotokens === null) {
+    return res.status(400).json({ error: 'ecotokens requerido' });
+  }
+
+  const ecotokensValue = parseInt(ecotokens || '0');
+
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ocean_pay_metadata(
+        user_id INTEGER NOT NULL,
+        key TEXT NOT NULL,
+        value TEXT NOT NULL,
+        PRIMARY KEY(user_id, key)
+      )
+    `);
+
+    await pool.query(`
+      INSERT INTO ocean_pay_metadata(user_id, key, value)
+      VALUES($1, 'ecotokens', $2)
+      ON CONFLICT(user_id, key) 
+      DO UPDATE SET value = $2
+    `, [userId, ecotokensValue.toString()]);
+
+    res.json({ success: true, ecotokens: ecotokensValue });
+  } catch (e) {
+    console.error('Error sincronizando EcoTokens:', e);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Endpoint para cambiar EcoTokens (ganar/gastar)
+app.post('/wild-savage/ecotokens/change', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+
+  const token = authHeader.substring(7);
+  let userId;
+  try {
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
+    userId = decoded.uid;
+    userId = parseInt(userId) || userId;
+  } catch (e) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+
+  const { amount, concepto = 'Operación', origen = 'Wild Savage' } = req.body;
+  if (amount === undefined) {
+    return res.status(400).json({ error: 'amount requerido' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Obtener saldo actual
+    const { rows } = await client.query(`
+      SELECT value FROM ocean_pay_metadata
+      WHERE user_id = $1 AND key = 'ecotokens'
+      FOR UPDATE
+    `, [userId]);
+
+    const current = parseInt(rows[0]?.value || '0');
+    const newBalance = current + parseInt(amount);
+
+    if (newBalance < 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Saldo insuficiente' });
+    }
+
+    // Actualizar saldo
+    await client.query(`
+      INSERT INTO ocean_pay_metadata(user_id, key, value)
+      VALUES($1, 'ecotokens', $2)
+      ON CONFLICT(user_id, key) 
+      DO UPDATE SET value = $2
+    `, [userId, newBalance.toString()]);
+
+    // Registrar transacción
+    await client.query(`
+      INSERT INTO ocean_pay_txs(user_id, concepto, monto, origen, moneda)
+      VALUES($1, $2, $3, $4, 'ET')
+      ON CONFLICT DO NOTHING
+    `, [userId, concepto, amount, origen]).catch(async () => {
+      await client.query(`
+        INSERT INTO ocean_pay_txs(user_id, concepto, monto, origen)
+        VALUES($1, $2, $3, $4)
+      `, [userId, concepto, amount, origen]);
+    });
+
+    await client.query('COMMIT');
+    res.json({ success: true, newBalance });
+  } catch (e) {
+    await client.query('ROLLBACK');
+    console.error('Error cambiando EcoTokens:', e);
+    res.status(500).json({ error: 'Error interno' });
+  } finally {
+    client.release();
+  }
+});
+
 /* ===== WILDSHORTS - SUSCRIPCIONES ===== */
 // Endpoint para suscribirse a un plan de WildShorts
 app.post('/wildshorts/subscribe', async (req, res) => {

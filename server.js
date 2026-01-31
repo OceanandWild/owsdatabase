@@ -566,6 +566,108 @@ app.get('/ecoconsole/health', (_req, res) => res.json({ status: 'up', service: '
 app.get('/ecoxion/health', (_req, res) => res.json({ status: 'up', service: 'Ecoxion' }));
 app.get('/natmarket/health', (_req, res) => res.json({ status: 'up', service: 'NatMarket' }));
 app.get('/naturepedia/health', (_req, res) => res.json({ status: 'up', service: 'Naturepedia' }));
+app.get('/floret/health', (_req, res) => res.json({ status: 'up', service: 'Floret Shop' }));
+
+// ========== FLORET SHOP ENDPOINTS ==========
+// Registro
+app.post('/floret/register', async (req, res) => {
+  const { username, email, password } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Usuario y contraseña son requeridos' });
+  }
+  try {
+    const hashed = await bcrypt.hash(password, 10);
+    const { rows } = await pool.query(
+      `INSERT INTO floret_users (username, email, password) VALUES ($1, $2, $3) RETURNING id, username, email, created_at`,
+      [username, email || null, hashed]
+    );
+    res.json({ success: true, user: rows[0] });
+  } catch (e) {
+    if (e.code === '23505') {
+      return res.status(400).json({ error: 'El usuario ya existe' });
+    }
+    console.error('Error en registro Floret:', e);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Login
+app.post('/floret/login', async (req, res) => {
+  const { username, password } = req.body;
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Usuario y contraseña son requeridos' });
+  }
+  try {
+    const { rows } = await pool.query('SELECT * FROM floret_users WHERE username = $1', [username]);
+    if (rows.length === 0) {
+      return res.status(401).json({ error: 'Usuario no encontrado' });
+    }
+    const valid = await bcrypt.compare(password, rows[0].password);
+    if (!valid) {
+      return res.status(401).json({ error: 'Contraseña incorrecta' });
+    }
+    const { id, email, created_at } = rows[0];
+    res.json({ success: true, user: { id, username, email, created_at } });
+  } catch (e) {
+    console.error('Error en login Floret:', e);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Obtener productos
+app.get('/floret/products', async (_req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT id, name, description, price, condition, images, requires_size, sizes, measurements, created_at 
+      FROM floret_products ORDER BY created_at DESC
+    `);
+    const products = rows.map(r => ({
+      id: r.id,
+      name: r.name,
+      description: r.description,
+      price: parseFloat(r.price),
+      condition: r.condition,
+      images: r.images || [],
+      requiresSize: r.requires_size,
+      sizes: r.sizes || [],
+      measurements: r.measurements
+    }));
+    res.json(products);
+  } catch (e) {
+    console.error('Error obteniendo productos Floret:', e);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Crear producto (admin)
+app.post('/floret/products', async (req, res) => {
+  const { name, description, price, condition, images, requiresSize, sizes, measurements } = req.body;
+  if (!name || !price) {
+    return res.status(400).json({ error: 'Nombre y precio son requeridos' });
+  }
+  try {
+    const { rows } = await pool.query(`
+      INSERT INTO floret_products (name, description, price, condition, images, requires_size, sizes, measurements)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *
+    `, [name, description || '', price, condition || 'Nuevo', images || [], requiresSize || false, sizes || [], measurements || '']);
+    res.json({ success: true, product: rows[0] });
+  } catch (e) {
+    console.error('Error creando producto Floret:', e);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Eliminar producto
+app.delete('/floret/products/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query('DELETE FROM floret_products WHERE id = $1', [id]);
+    res.json({ success: true });
+  } catch (e) {
+    console.error('Error eliminando producto Floret:', e);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
 
 
 // ===== OCEAN PAY - MODO OFFLINE (SIN INTERNET) =====
@@ -16291,6 +16393,33 @@ console.log("Iniciando limpieza de eventos antiguos...");
 await cleanupOldEvents(); // <--- ASEGÚRATE DE QUE SE EJECUTA AQUÍ
 console.log("Limpieza de eventos antiguos finalizada.");
 
+// ========== FLORET SHOP TABLES ==========
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS floret_users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    email VARCHAR(100),
+    password TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+  )
+`).catch(() => console.log('⚠️ Tabla floret_users ya existe'));
+
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS floret_products (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(200) NOT NULL,
+    description TEXT,
+    price DECIMAL(12,2) NOT NULL,
+    condition VARCHAR(50) DEFAULT 'Nuevo',
+    images TEXT[] DEFAULT '{}',
+    requires_size BOOLEAN DEFAULT FALSE,
+    sizes TEXT[] DEFAULT '{}',
+    measurements VARCHAR(100),
+    created_at TIMESTAMP DEFAULT NOW()
+  )
+`).catch(() => console.log('⚠️ Tabla floret_products ya existe'));
+
+console.log('🌸 Tablas de Floret Shop verificadas');
 
 const PORT = process.env.PORT || 3000;
 httpServer.listen(PORT, '0.0.0.0', () => {

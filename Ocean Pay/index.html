@@ -450,7 +450,177 @@
         font-size: 1.5rem;
       }
     }
+
+    /* Ocean Card Premium Styles */
+    .cards-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2rem;
+      margin-bottom: 3rem;
+    }
+
+    .ocean-card {
+      width: 380px;
+      height: 220px;
+      border-radius: 20px;
+      background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+      position: relative;
+      padding: 1.5rem;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      cursor: pointer;
+    }
+
+    .ocean-card:hover {
+      transform: translateY(-10px) rotateX(5deg) rotateY(5deg);
+      box-shadow: 0 25px 50px rgba(34, 211, 238, 0.15);
+      border-color: var(--accent);
+    }
+
+    .ocean-card::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle at center, rgba(34, 211, 238, 0.05) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .card-chip {
+      width: 50px;
+      height: 38px;
+      background: linear-gradient(135deg, #ffd700 0%, #b8860b 100%);
+      border-radius: 8px;
+      margin-bottom: 1.5rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card-chip::after {
+      content: '';
+      position: absolute;
+      inset: 5px;
+      border: 1px solid rgba(0, 0, 0, 0.2);
+      border-radius: 4px;
+    }
+
+    .card-number {
+      font-size: 1.4rem;
+      font-family: 'Courier New', Courier, monospace;
+      letter-spacing: 4px;
+      color: white;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+      margin-bottom: 1.5rem;
+      display: block;
+    }
+
+    .card-details {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+    }
+
+    .card-label {
+      font-size: 0.65rem;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    .card-val {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: white;
+    }
+
+    .card-brand {
+      position: absolute;
+      top: 1.5rem;
+      right: 1.5rem;
+      text-align: right;
+    }
+
+    .card-brand span {
+      font-weight: 900;
+      font-style: italic;
+      font-size: 1.2rem;
+      color: var(--accent);
+    }
+
+    .card-status {
+      position: absolute;
+      bottom: 1.5rem;
+      right: 1.5rem;
+    }
+
+    .status-badge {
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 0.7rem;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    .status-active {
+      background: rgba(16, 185, 129, 0.2);
+      color: #10b981;
+    }
+
+    .status-expired {
+      background: rgba(239, 68, 68, 0.2);
+      color: #ef4444;
+    }
+
+    .new-card-btn {
+      width: 380px;
+      height: 220px;
+      border-radius: 20px;
+      border: 2px dashed rgba(255, 255, 255, 0.1);
+      background: transparent;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      color: #94a3b8;
+      transition: all 0.3s ease;
+      text-transform: none;
+      letter-spacing: normal;
+    }
+
+    .new-card-btn:hover {
+      background: rgba(255, 255, 255, 0.02);
+      border-color: var(--accent);
+      color: var(--accent);
+      transform: none;
+      box-shadow: none;
+    }
+
+    .new-card-btn i {
+      font-size: 2rem;
+    }
+
+    @media (max-width: 480px) {
+
+      .ocean-card,
+      .new-card-btn {
+        width: 100%;
+        height: 200px;
+      }
+
+      .card-number {
+        font-size: 1.1rem;
+        letter-spacing: 2px;
+      }
+    }
   </style>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 
 <body>
@@ -524,9 +694,24 @@
       <section id="wallet-section">
         <div class="main-header">
           <h2 class="page-title">Mi Billetera</h2>
-          <button class="secondary" style="width: auto; padding: 0.5rem 1rem;" onclick="refreshAllBalances()">🔄
-            Actualizar</button>
+          <button class="secondary" style="width: auto; padding: 0.5rem 1rem;" onclick="refreshAllBalances()">
+            <i class="fas fa-sync-alt"></i> Actualizar
+          </button>
         </div>
+
+        <h3
+          style="margin-bottom: 1.5rem; color: #94a3b8; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 2px;">
+          Mis Tarjetas Ocean Card
+        </h3>
+
+        <div id="cards-container" class="cards-container">
+          <!-- Tarjetas se cargarán aquí -->
+        </div>
+
+        <h3
+          style="margin-bottom: 1.5rem; color: #94a3b8; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 2px;">
+          Mis Divisas
+        </h3>
 
         <div class="balance-grid">
           <!-- AquaBux -->
@@ -1041,6 +1226,125 @@
       } catch (e) { console.error('Error loading EcoTokens:', e); }
     }
 
+    async function loadOceanCards() {
+      const userStr = localStorage.getItem('opUser');
+      if (!userStr) return;
+
+      try {
+        // Usamos el token para obtener info actualizada, incluyendo tarjetas
+        const resMe = await fetch(`${API}/ocean-pay/me`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (resMe.ok) {
+          const data = await resMe.json();
+          renderCards(data.cards || []);
+
+          // Actualizar localStorage con las cards
+          const currentUser = JSON.parse(localStorage.getItem('opUser') || '{}');
+          currentUser.cards = data.cards;
+          localStorage.setItem('opUser', JSON.stringify(currentUser));
+        }
+      } catch (e) { console.error('Error loading cards:', e); }
+    }
+
+    function renderCards(cards) {
+      const container = qs('#cards-container');
+      if (!container) return;
+
+      let html = cards.map(card => {
+        const isExpired = checkExpiry(card.expiry_date);
+        const formattedNumber = card.card_number.match(/.{1,4}/g).join(' ');
+
+        return `
+          <div class="ocean-card" onclick="${isExpired ? `renewCard('${card.card_number}')` : ''}">
+            <div class="card-brand"><span>OCEAN</span><br><small>PAY</small></div>
+            <div class="card-chip"></div>
+            <span class="card-number">${formattedNumber}</span>
+            <div class="card-details">
+              <div>
+                <span class="card-label">Titular</span>
+                <span class="card-val">${JSON.parse(localStorage.getItem('opUser')).username}</span>
+              </div>
+              <div style="margin-left: auto; margin-right: 2rem;">
+                <span class="card-label">Expira</span>
+                <span class="card-val">${card.expiry_date}</span>
+              </div>
+              <div>
+                <span class="card-label">CVV</span>
+                <span class="card-val">***</span>
+              </div>
+            </div>
+            <div class="card-status">
+              <span class="status-badge ${isExpired ? 'status-expired' : 'status-active'}">
+                ${isExpired ? 'Expirada - Clic para renovar' : 'Activa'}
+              </span>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      if (cards.length < 2) {
+        html += `
+          <button class="new-card-btn" onclick="createNewCard()">
+            <i class="fas fa-plus-circle"></i>
+            <span>Solicitar Nueva Tarjeta</span>
+            <small style="opacity:0.6;">Máximo 2 tarjetas</small>
+          </button>
+        `;
+      }
+
+      container.innerHTML = html;
+    }
+
+    function checkExpiry(expiry) {
+      if (!expiry) return true;
+      const [m, y] = expiry.split('/').map(Number);
+      const now = new Date();
+      const expYear = 2000 + y;
+      const expMonth = m - 1; // 0-indexed
+
+      // La tarjeta expira el último día del mes
+      const expDate = new Date(expYear, expMonth + 1, 0);
+      return now > expDate;
+    }
+
+    async function renewCard(cardNumber) {
+      if (!confirm('¿Deseas renovar esta tarjeta por 3 años más?')) return;
+
+      try {
+        const res = await fetch(`${API}/ocean-pay/cards/renew`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ cardNumber })
+        });
+
+        if (res.ok) {
+          alert('¡Tarjeta renovada con éxito!');
+          loadOceanCards();
+        }
+      } catch (e) { alert('Error al renovar'); }
+    }
+
+    async function createNewCard() {
+      if (!confirm('¿Solicitar una segunda Ocean Card vinculada a tu cuenta?')) return;
+
+      try {
+        const res = await fetch(`${API}/ocean-pay/cards/create`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (res.ok) {
+          alert('¡Nueva tarjeta generada!');
+          loadOceanCards();
+        } else {
+          const data = await res.json();
+          alert(data.error || 'Error al crear tarjeta');
+        }
+      } catch (e) { alert('Error de conexión'); }
+    }
+
     async function refreshAllBalances() {
       await Promise.all([
         loadAquaBuxBalance(),
@@ -1053,7 +1357,8 @@
         loadTidesBalance(),
         loadSSABenefits(),
         loadEcoBooksBalance(),
-        loadEcoTokensBalance()
+        loadEcoTokensBalance(),
+        loadOceanCards()
       ]);
     }
 

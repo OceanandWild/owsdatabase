@@ -58,6 +58,24 @@ function generateUserUniqueId() {
   return result;
 }
 
+// Función para generar datos de tarjeta
+function generateCardDetails() {
+  let cardNumber = '';
+  for (let i = 0; i < 16; i++) {
+    cardNumber += Math.floor(Math.random() * 10).toString();
+  }
+  let cvv = '';
+  for (let i = 0; i < 3; i++) {
+    cvv += Math.floor(Math.random() * 10).toString();
+  }
+  const now = new Date();
+  const month = (now.getMonth() + 1).toString().padStart(2, '0');
+  const year = (now.getFullYear() + 3).toString().slice(-2);
+  const expiryDate = `${month}/${year}`;
+
+  return { cardNumber, cvv, expiryDate };
+}
+
 const { Pool } = pg;
 const pool = new Pool(
   process.env.DATABASE_URL
@@ -524,6 +542,33 @@ async function runDatabaseMigrations() {
       END $$;
     `).catch(err => console.log('⚠️ Aviso: Migración command_limit_extensions:', err.message));
 
+    // 8. Crear tabla ocean_pay_cards si no existe
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ocean_pay_cards (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
+        card_number VARCHAR(16) NOT NULL UNIQUE,
+        cvv VARCHAR(3) NOT NULL,
+        expiry_date VARCHAR(5) NOT NULL,
+        is_active BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `).catch(() => console.log('⚠️ Tabla ocean_pay_cards ya existe'));
+
+    // 9. Generar tarjetas para usuarios existentes que no tengan una
+    const usersWithoutCard = await pool.query(`
+      SELECT id FROM ocean_pay_users 
+      WHERE id NOT IN (SELECT user_id FROM ocean_pay_cards)
+    `);
+
+    for (const user of usersWithoutCard.rows) {
+      const { cardNumber, cvv, expiryDate } = generateCardDetails();
+      await pool.query(
+        'INSERT INTO ocean_pay_cards (user_id, card_number, cvv, expiry_date) VALUES ($1, $2, $3, $4)',
+        [user.id, cardNumber, cvv, expiryDate]
+      ).catch(e => console.error('Error generando tarjeta para usuario:', user.id, e.message));
+    }
+
     console.log('✅ Migraciones completadas exitosamente!');
 
   } catch (err) {
@@ -563,6 +608,51 @@ app.get('/status', async (_req, res) => {
 
 // Endpoints individuales para cada servicio (health checks simples)
 app.get('/ecoconsole/health', (_req, res) => res.json({ status: 'up', service: 'EcoConsole' }));
+
+/* =========================================
+   ECOCONSOLE REWORK ENDPOINTS (SKELETON)
+   ========================================= */
+
+// Autenticación directa con Ocean Pay
+app.post('/ecoconsole/auth', async (req, res) => {
+  const { token } = req.body;
+  // TODO: Validar token con Ocean Pay system
+  res.json({ success: true, message: "Placeholder: Autenticación exitosa" });
+});
+
+// Obtener cuota de comandos
+app.get('/ecoconsole/command-quota', async (req, res) => {
+  res.json({
+    success: true,
+    dailyLimit: 50,
+    remaining: 50,
+    resetAt: new Date(new Date().setHours(24, 0, 0, 0)).toISOString()
+  });
+});
+
+// Ejecutar comando de pago
+app.post('/ecoconsole/paid-command', async (req, res) => {
+  const { commandName, cost } = req.body;
+  // TODO: Descontar EcoCoreBits del usuario
+  res.json({
+    success: true,
+    newBalance: 1000, // Placeholder
+    message: `Comando ${commandName} ejecutado correctamente`
+  });
+});
+
+// Estadísticas del usuario
+app.get('/ecoconsole/user-stats', async (req, res) => {
+  res.json({
+    success: true,
+    stats: {
+      totalCommands: 0,
+      favoriteCommand: 'none',
+      joinDate: new Date().toISOString()
+    }
+  });
+});
+
 app.get('/ecoxion/health', (_req, res) => res.json({ status: 'up', service: 'Ecoxion' }));
 app.get('/natmarket/health', (_req, res) => res.json({ status: 'up', service: 'NatMarket' }));
 app.get('/naturepedia/health', (_req, res) => res.json({ status: 'up', service: 'Naturepedia' }));
@@ -9731,7 +9821,14 @@ app.post('/ocean-pay/register', async (req, res) => {
     );
     const opUserId = opResult.rows[0].id;
 
-    // 5. Confirmar la transacción
+    // 5. Generar tarjeta automática para el nuevo usuario
+    const { cardNumber, cvv, expiryDate } = generateCardDetails();
+    await client.query(
+      `INSERT INTO ocean_pay_cards (user_id, card_number, cvv, expiry_date) VALUES ($1, $2, $3, $4)`,
+      [opUserId, cardNumber, cvv, expiryDate]
+    );
+
+    // 6. Confirmar la transacción
     await client.query('COMMIT');
 
     // 6. Respuesta exitosa (201 Created)
@@ -9811,6 +9908,12 @@ app.post('/ocean-pay/login', async (req, res) => {
   // Obtener AppBux de la columna appbux
   const appbux = rows[0].appbux || 0;
 
+  // Obtener tarjetas del usuario
+  const { rows: cardRows } = await pool.query(
+    'SELECT card_number, cvv, expiry_date, is_active FROM ocean_pay_cards WHERE user_id = $1',
+    [rows[0].id]
+  );
+
   res.json({
     token,
     user: {
@@ -9821,9 +9924,59 @@ app.post('/ocean-pay/login', async (req, res) => {
       ecorebits: Number(rows[0].ecorebits),
       wildcredits: wildCredits,
       appbux: appbux,
-      ecobooks: ecobooks  // 📚 Nueva divisa para Naturepedia
+      ecobooks: ecobooks,
+      cards: cardRows
     }
   });
+});
+
+/* ----------  MANAGE CARDS  ---------- */
+app.post('/ocean-pay/cards/create', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) return res.status(401).json({ error: 'No token' });
+
+  try {
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
+    const userId = decoded.uid;
+
+    const { rows: countRows } = await pool.query('SELECT COUNT(*) FROM ocean_pay_cards WHERE user_id = $1', [userId]);
+    if (parseInt(countRows[0].count) >= 2) {
+      return res.status(400).json({ error: 'Ya tienes el máximo de 2 tarjetas permitidas.' });
+    }
+
+    const { cardNumber, cvv, expiryDate } = generateCardDetails();
+    const { rows } = await pool.query(
+      'INSERT INTO ocean_pay_cards (user_id, card_number, cvv, expiry_date) VALUES ($1, $2, $3, $4) RETURNING *',
+      [userId, cardNumber, cvv, expiryDate]
+    );
+
+    res.json({ success: true, card: rows[0] });
+  } catch (e) {
+    res.status(500).json({ error: 'Error al crear tarjeta' });
+  }
+});
+
+app.post('/ocean-pay/cards/renew', async (req, res) => {
+  const { cardNumber } = req.body;
+  if (!cardNumber) return res.status(400).json({ error: 'Falta número de tarjeta' });
+
+  try {
+    const now = new Date();
+    const month = (now.getMonth() + 1).toString().padStart(2, '0');
+    const year = (now.getFullYear() + 3).toString().slice(-2); // +3 años
+    const newExpiry = `${month}/${year}`;
+
+    const { rowCount } = await pool.query(
+      'UPDATE ocean_pay_cards SET expiry_date = $1, is_active = true WHERE card_number = $2',
+      [newExpiry, cardNumber]
+    );
+
+    if (rowCount === 0) return res.status(404).json({ error: 'Tarjeta no encontrada' });
+    res.json({ success: true, newExpiry });
+  } catch (e) {
+    res.status(500).json({ error: 'Error al renovar tarjeta' });
+  }
 });
 
 /* ----------  CURRENT BALANCE  ---------- */
@@ -9891,7 +10044,14 @@ app.get('/ocean-pay/me', async (req, res) => {
       [payload.uid]
     );
     if (rows.length === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
-    res.json(rows[0]);
+
+    // Obtener tarjetas del usuario
+    const { rows: cardRows } = await pool.query(
+      'SELECT card_number, cvv, expiry_date, is_active FROM ocean_pay_cards WHERE user_id = $1',
+      [payload.uid]
+    );
+
+    res.json({ ...rows[0], cards: cardRows });
   } catch (e) { res.status(401).json({ error: 'Token inválido' }); }
 });
 
@@ -11426,7 +11586,7 @@ app.get('/api/ecorebits/user', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error del servidor',
-      error: error.message
+      details: error.message
     });
   }
 });

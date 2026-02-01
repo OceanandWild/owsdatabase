@@ -806,9 +806,9 @@ app.post('/floret/create_preference', async (req, res) => {
         currency_id: 'UYU',
       })),
       back_urls: {
-        success: 'http://localhost:5173', // Ajustar a la URL real del frontend
-        failure: 'http://localhost:5173',
-        pending: 'http://localhost:5173'
+        success: 'https://owsdatabase.onrender.com', // URL temporal válida
+        failure: 'https://owsdatabase.onrender.com',
+        pending: 'https://owsdatabase.onrender.com'
       },
       auto_return: 'approved',
     };

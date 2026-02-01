@@ -19,6 +19,10 @@ import { createServer } from 'http';
 /* ===== NAT-MARKET VARS ===== */
 import { v2 as cloudinary } from 'cloudinary';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
+import { MercadoPagoConfig, Preference } from 'mercadopago';
+
+// Configuración de MercadoPago
+const mpClient = new MercadoPagoConfig({ accessToken: 'TEST-5761093164230281-020117-88b51453f4f07dd0e52e6ae5bb580609-3171975745' });
 
 /* ===== NAT-MARKET VARS ===== */
 let storage;
@@ -639,7 +643,19 @@ async function runDatabaseMigrations() {
       ) AND NOT EXISTS (
         SELECT 1 FROM ocean_pay_cards WHERE user_id = c.user_id AND is_primary = true
       )
+    `); \n
+
+    // 13. LIMPIEZA DE SALDOS - Resetear todos a 0 (excepto ecopower = 100)
+    // NOTA: Ejecutar una vez y luego comentar esta sección
+    console.log('🧹 Limpiando saldos de tarjetas...');
+    await pool.query(`
+      UPDATE ocean_pay_card_balances 
+      SET amount = CASE 
+        WHEN currency_type = 'ecopower' THEN 100 
+        ELSE 0 
+      END
     `);
+    console.log('✅ Saldos limpiados correctamente');
 
     console.log('✅ Migraciones completadas exitosamente!');
 
@@ -773,6 +789,37 @@ app.post('/floret/login', async (req, res) => {
   } catch (e) {
     console.error('Error en login Floret:', e);
     res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Endpoint para crear preferencia de MercadoPago
+app.post('/floret/create_preference', async (req, res) => {
+  try {
+    const { items } = req.body;
+
+    // Transformar items al formato de MP
+    const body = {
+      items: items.map(item => ({
+        title: item.name,
+        quantity: Number(item.quantity) || 1,
+        unit_price: Number(item.price),
+        currency_id: 'UYU',
+      })),
+      back_urls: {
+        success: 'http://localhost:5173', // Ajustar a la URL real del frontend
+        failure: 'http://localhost:5173',
+        pending: 'http://localhost:5173'
+      },
+      auto_return: 'approved',
+    };
+
+    const preference = new Preference(mpClient);
+    const result = await preference.create({ body });
+
+    res.json({ id: result.id });
+  } catch (error) {
+    console.error('Error creando preferencia MP:', error);
+    res.status(500).json({ error: 'Error al crear la preferencia de pago' });
   }
 });
 

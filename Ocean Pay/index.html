@@ -877,6 +877,8 @@
   <script>
     const API = 'https://owsdatabase.onrender.com';
     let token = '', userId = 0;
+    let userCards = []; // Array de tarjetas con saldos
+    let activeCardIndex = 0; // Índice de la tarjeta activa
 
     /* ----------  HELPERS  ---------- */
     const qs = x => document.querySelector(x);
@@ -884,6 +886,42 @@
       const el = typeof sel === 'string' ? qs(sel) : sel;
       if (el) el.classList.toggle('hidden', !on);
     };
+
+    // Obtener saldo de la tarjeta activa
+    function getActiveCardBalance(currencyType) {
+      if (!userCards[activeCardIndex]) return 0;
+      return userCards[activeCardIndex].balances?.[currencyType] || 0;
+    }
+
+    // Actualizar displays de saldos según tarjeta activa
+    function updateBalanceDisplays() {
+      if (!userCards[activeCardIndex]) return;
+
+      const balances = userCards[activeCardIndex].balances || {};
+
+      qs('#bux').textContent = Math.round(balances.aquabux || 0).toLocaleString();
+      qs('#ecoxionums').textContent = Math.round(balances.ecoxionums || 0).toLocaleString();
+      qs('#ecobits').textContent = Math.round(balances.ecorebits || 0).toLocaleString();
+      qs('#wildcredits').textContent = Math.round(balances.wildcredits || 0).toLocaleString();
+      qs('#wildgems').textContent = Math.round(balances.wildgems || 0).toLocaleString();
+      qs('#appbux').textContent = Math.round(balances.appbux || 0).toLocaleString();
+      qs('#tides').textContent = Math.round(balances.tides || 0).toLocaleString();
+      qs('#ecobooks').textContent = Math.round(balances.ecobooks || 0).toLocaleString();
+      qs('#ecotokens').textContent = Math.round(balances.ecotokens || 0).toLocaleString();
+      qs('#ecopower').textContent = Math.round(balances.ecopower || 100);
+    }
+
+    // Cambiar tarjeta activa
+    function setActiveCard(index) {
+      activeCardIndex = index;
+      updateBalanceDisplays();
+      renderCards(userCards);
+
+      // Guardar preferencia
+      const user = JSON.parse(localStorage.getItem('opUser') || '{}');
+      user.activeCardIndex = index;
+      localStorage.setItem('opUser', JSON.stringify(user));
+    }
 
     /* ----------  NAVIGATION  ---------- */
     function showSection(sectionId) {
@@ -1244,6 +1282,19 @@
           const currentUser = JSON.parse(localStorage.getItem('opUser') || '{}');
           currentUser.cards = data.cards;
           localStorage.setItem('opUser', JSON.stringify(currentUser));
+
+          // Actualizar variable global
+          userCards = data.cards;
+
+          // Restaurar índice de tarjeta activa
+          if (currentUser.activeCardIndex !== undefined && currentUser.activeCardIndex < userCards.length) {
+            activeCardIndex = currentUser.activeCardIndex;
+          } else {
+            activeCardIndex = 0;
+          }
+
+          // Actualizar displays
+          updateBalanceDisplays();
         }
       } catch (e) { console.error('Error loading cards:', e); }
     }
@@ -1252,18 +1303,21 @@
       const container = qs('#cards-container');
       if (!container) return;
 
-      let html = cards.map(card => {
+      let html = cards.map((card, index) => {
         const isExpired = checkExpiry(card.expiry_date);
         const formattedNumber = card.card_number.match(/.{1,4}/g).join(' ');
+        const isActive = index === activeCardIndex;
+        const cardName = card.card_name || (card.is_primary ? 'Tarjeta Principal' : 'Tarjeta Secundaria');
 
         return `
-          <div class="ocean-card" onclick="${isExpired ? `renewCard('${card.card_number}')` : ''}">
+          <div class="ocean-card ${isActive ? 'card-selected' : ''}" onclick="${isExpired ? `renewCard('${card.card_number}')` : `setActiveCard(${index})`}" style="${isActive ? 'border: 2px solid var(--accent); box-shadow: 0 0 30px rgba(34, 211, 238, 0.3);' : ''}">
             <div class="card-brand"><span>OCEAN</span><br><small>PAY</small></div>
+            ${isActive ? '<div style="position: absolute; top: 10px; left: 10px; background: var(--accent); color: #0a0e1a; padding: 3px 8px; border-radius: 10px; font-size: 0.65rem; font-weight: 800;">EN USO</div>' : ''}
             <div class="card-chip"></div>
             <span class="card-number">${formattedNumber}</span>
             <div class="card-details">
               <div>
-                <span class="card-label">Titular</span>
+                <span class="card-label">${cardName}</span>
                 <span class="card-val">${JSON.parse(localStorage.getItem('opUser')).username}</span>
               </div>
               <div style="margin-left: auto; margin-right: 2rem;">
@@ -1277,7 +1331,7 @@
             </div>
             <div class="card-status">
               <span class="status-badge ${isExpired ? 'status-expired' : 'status-active'}">
-                ${isExpired ? 'Expirada - Clic para renovar' : 'Activa'}
+                ${isExpired ? 'Expirada - Clic para renovar' : (isActive ? '✓ Seleccionada' : 'Clic para usar')}
               </span>
             </div>
           </div>
@@ -1346,20 +1400,11 @@
     }
 
     async function refreshAllBalances() {
-      await Promise.all([
-        loadAquaBuxBalance(),
-        loadEcoxionumsBalance(),
-        loadEcoCoreBitsBalance(),
-        loadEcoPowerBalance(),
-        loadWildCreditsBalance(),
-        loadWildGemsBalance(),
-        loadAppBuxBalance(),
-        loadTidesBalance(),
-        loadSSABenefits(),
-        loadEcoBooksBalance(),
-        loadEcoTokensBalance(),
-        loadOceanCards()
-      ]);
+      // Cargar tarjetas (incluyen todos los saldos)
+      await loadOceanCards();
+
+      // Cargar beneficios SSA (no dependen de tarjeta)
+      await loadSSABenefits();
     }
 
     let balanceRefreshInterval = null;

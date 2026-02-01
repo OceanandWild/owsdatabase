@@ -551,11 +551,31 @@ async function runDatabaseMigrations() {
         cvv VARCHAR(3) NOT NULL,
         expiry_date VARCHAR(5) NOT NULL,
         is_active BOOLEAN DEFAULT true,
+        is_primary BOOLEAN DEFAULT false,
+        card_name VARCHAR(50) DEFAULT 'Mi Tarjeta',
         created_at TIMESTAMP DEFAULT NOW()
       )
     `).catch(() => console.log('⚠️ Tabla ocean_pay_cards ya existe'));
 
-    // 9. Generar tarjetas para usuarios existentes que no tengan una
+    // 9. Crear tabla ocean_pay_card_balances para saldos por tarjeta
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ocean_pay_card_balances (
+        id SERIAL PRIMARY KEY,
+        card_id INTEGER NOT NULL REFERENCES ocean_pay_cards(id) ON DELETE CASCADE,
+        currency_type VARCHAR(50) NOT NULL,
+        amount DECIMAL(20, 2) DEFAULT 0,
+        UNIQUE(card_id, currency_type)
+      )
+    `).catch(() => console.log('⚠️ Tabla ocean_pay_card_balances ya existe'));
+
+    // 10. Añadir columnas faltantes a ocean_pay_cards
+    await pool.query(`
+      ALTER TABLE ocean_pay_cards 
+      ADD COLUMN IF NOT EXISTS is_primary BOOLEAN DEFAULT false,
+      ADD COLUMN IF NOT EXISTS card_name VARCHAR(50) DEFAULT 'Mi Tarjeta'
+    `).catch(() => { });
+
+    // 11. Generar tarjetas para usuarios existentes que no tengan una
     const usersWithoutCard = await pool.query(`
       SELECT id FROM ocean_pay_users 
       WHERE id NOT IN (SELECT user_id FROM ocean_pay_cards)
@@ -563,11 +583,63 @@ async function runDatabaseMigrations() {
 
     for (const user of usersWithoutCard.rows) {
       const { cardNumber, cvv, expiryDate } = generateCardDetails();
-      await pool.query(
-        'INSERT INTO ocean_pay_cards (user_id, card_number, cvv, expiry_date) VALUES ($1, $2, $3, $4)',
-        [user.id, cardNumber, cvv, expiryDate]
-      ).catch(e => console.error('Error generando tarjeta para usuario:', user.id, e.message));
+      const cardResult = await pool.query(
+        'INSERT INTO ocean_pay_cards (user_id, card_number, cvv, expiry_date, is_primary, card_name) VALUES ($1, $2, $3, $4, true, $5) RETURNING id',
+        [user.id, cardNumber, cvv, expiryDate, 'Tarjeta Principal']
+      ).catch(e => { console.error('Error generando tarjeta para usuario:', user.id, e.message); return null; });
+
+      if (cardResult && cardResult.rows[0]) {
+        // Inicializar saldos para la nueva tarjeta
+        const currencies = ['aquabux', 'ecoxionums', 'ecorebits', 'wildcredits', 'wildgems', 'appbux', 'tides', 'ecobooks', 'ecotokens', 'ecopower'];
+        for (const curr of currencies) {
+          await pool.query(
+            'INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount) VALUES ($1, $2, 0) ON CONFLICT DO NOTHING',
+            [cardResult.rows[0].id, curr]
+          );
+        }
+      }
     }
+
+    // 12. Migrar saldos existentes a la tarjeta principal de cada usuario
+    const cardsWithoutBalances = await pool.query(`
+      SELECT c.id as card_id, c.user_id, u.aquabux, u.ecoxionums, u.appbux
+      FROM ocean_pay_cards c
+      JOIN ocean_pay_users u ON c.user_id = u.id
+      WHERE c.id NOT IN (SELECT card_id FROM ocean_pay_card_balances)
+      AND c.is_primary = true
+    `);
+
+    for (const card of cardsWithoutBalances.rows) {
+      const currencies = [
+        { type: 'aquabux', amount: card.aquabux || 0 },
+        { type: 'ecoxionums', amount: card.ecoxionums || 0 },
+        { type: 'appbux', amount: card.appbux || 0 },
+        { type: 'ecorebits', amount: 0 },
+        { type: 'wildcredits', amount: 0 },
+        { type: 'wildgems', amount: 0 },
+        { type: 'tides', amount: 0 },
+        { type: 'ecobooks', amount: 0 },
+        { type: 'ecotokens', amount: 0 },
+        { type: 'ecopower', amount: 100 }
+      ];
+
+      for (const curr of currencies) {
+        await pool.query(
+          'INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount) VALUES ($1, $2, $3) ON CONFLICT (card_id, currency_type) DO NOTHING',
+          [card.card_id, curr.type, curr.amount]
+        );
+      }
+    }
+
+    // Establecer tarjeta principal para usuarios que no tengan una
+    await pool.query(`
+      UPDATE ocean_pay_cards c SET is_primary = true
+      WHERE c.id = (
+        SELECT MIN(id) FROM ocean_pay_cards WHERE user_id = c.user_id
+      ) AND NOT EXISTS (
+        SELECT 1 FROM ocean_pay_cards WHERE user_id = c.user_id AND is_primary = true
+      )
+    `);
 
     console.log('✅ Migraciones completadas exitosamente!');
 
@@ -9823,12 +9895,35 @@ app.post('/ocean-pay/register', async (req, res) => {
 
     // 5. Generar tarjeta automática para el nuevo usuario
     const { cardNumber, cvv, expiryDate } = generateCardDetails();
-    await client.query(
-      `INSERT INTO ocean_pay_cards (user_id, card_number, cvv, expiry_date) VALUES ($1, $2, $3, $4)`,
+    const cardResult = await client.query(
+      `INSERT INTO ocean_pay_cards (user_id, card_number, cvv, expiry_date, is_primary, card_name) 
+       VALUES ($1, $2, $3, $4, true, 'Tarjeta Principal') RETURNING id`,
       [opUserId, cardNumber, cvv, expiryDate]
     );
+    const cardId = cardResult.rows[0].id;
 
-    // 6. Confirmar la transacción
+    // 6. Inicializar saldos para la tarjeta
+    const currencies = [
+      { type: 'aquabux', amount: 0 },
+      { type: 'ecoxionums', amount: 0 },
+      { type: 'ecorebits', amount: 0 },
+      { type: 'wildcredits', amount: 0 },
+      { type: 'wildgems', amount: 0 },
+      { type: 'appbux', amount: 0 },
+      { type: 'tides', amount: 0 },
+      { type: 'ecobooks', amount: 0 },
+      { type: 'ecotokens', amount: 0 },
+      { type: 'ecopower', amount: 100 }
+    ];
+
+    for (const curr of currencies) {
+      await client.query(
+        'INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount) VALUES ($1, $2, $3)',
+        [cardId, curr.type, curr.amount]
+      );
+    }
+
+    // 7. Confirmar la transacción
     await client.query('COMMIT');
 
     // 6. Respuesta exitosa (201 Created)
@@ -9908,24 +10003,37 @@ app.post('/ocean-pay/login', async (req, res) => {
   // Obtener AppBux de la columna appbux
   const appbux = rows[0].appbux || 0;
 
-  // Obtener tarjetas del usuario
+  // Obtener tarjetas del usuario CON sus saldos
   const { rows: cardRows } = await pool.query(
-    'SELECT card_number, cvv, expiry_date, is_active FROM ocean_pay_cards WHERE user_id = $1',
+    `SELECT c.id, c.card_number, c.cvv, c.expiry_date, c.is_active, c.is_primary, c.card_name
+     FROM ocean_pay_cards c WHERE c.user_id = $1`,
     [rows[0].id]
   );
+
+  // Para cada tarjeta, obtener sus saldos
+  const cardsWithBalances = await Promise.all(cardRows.map(async (card) => {
+    const { rows: balanceRows } = await pool.query(
+      'SELECT currency_type, amount FROM ocean_pay_card_balances WHERE card_id = $1',
+      [card.id]
+    );
+
+    const balances = {};
+    balanceRows.forEach(b => {
+      balances[b.currency_type] = parseFloat(b.amount);
+    });
+
+    return {
+      ...card,
+      balances
+    };
+  }));
 
   res.json({
     token,
     user: {
       id: rows[0].id,
       username,
-      aquabux: rows[0].aquabux,
-      ecoxionums: ecoxionums,
-      ecorebits: Number(rows[0].ecorebits),
-      wildcredits: wildCredits,
-      appbux: appbux,
-      ecobooks: ecobooks,
-      cards: cardRows
+      cards: cardsWithBalances
     }
   });
 });
@@ -9935,25 +10043,65 @@ app.post('/ocean-pay/cards/create', async (req, res) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) return res.status(401).json({ error: 'No token' });
 
+  const client = await pool.connect();
   try {
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
     const userId = decoded.uid;
 
-    const { rows: countRows } = await pool.query('SELECT COUNT(*) FROM ocean_pay_cards WHERE user_id = $1', [userId]);
+    const { rows: countRows } = await client.query('SELECT COUNT(*) FROM ocean_pay_cards WHERE user_id = $1', [userId]);
     if (parseInt(countRows[0].count) >= 2) {
       return res.status(400).json({ error: 'Ya tienes el máximo de 2 tarjetas permitidas.' });
     }
 
+    await client.query('BEGIN');
+
     const { cardNumber, cvv, expiryDate } = generateCardDetails();
-    const { rows } = await pool.query(
-      'INSERT INTO ocean_pay_cards (user_id, card_number, cvv, expiry_date) VALUES ($1, $2, $3, $4) RETURNING *',
+    const { rows } = await client.query(
+      `INSERT INTO ocean_pay_cards (user_id, card_number, cvv, expiry_date, is_primary, card_name) 
+       VALUES ($1, $2, $3, $4, false, 'Tarjeta Secundaria') RETURNING *`,
       [userId, cardNumber, cvv, expiryDate]
     );
+    const newCardId = rows[0].id;
 
-    res.json({ success: true, card: rows[0] });
+    // Inicializar saldos para la nueva tarjeta
+    const currencies = [
+      { type: 'aquabux', amount: 0 },
+      { type: 'ecoxionums', amount: 0 },
+      { type: 'ecorebits', amount: 0 },
+      { type: 'wildcredits', amount: 0 },
+      { type: 'wildgems', amount: 0 },
+      { type: 'appbux', amount: 0 },
+      { type: 'tides', amount: 0 },
+      { type: 'ecobooks', amount: 0 },
+      { type: 'ecotokens', amount: 0 },
+      { type: 'ecopower', amount: 100 }
+    ];
+
+    for (const curr of currencies) {
+      await client.query(
+        'INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount) VALUES ($1, $2, $3)',
+        [newCardId, curr.type, curr.amount]
+      );
+    }
+
+    await client.query('COMMIT');
+
+    // Obtener los saldos para la respuesta
+    const { rows: balanceRows } = await pool.query(
+      'SELECT currency_type, amount FROM ocean_pay_card_balances WHERE card_id = $1',
+      [newCardId]
+    );
+    const balances = {};
+    balanceRows.forEach(b => { balances[b.currency_type] = parseFloat(b.amount); });
+
+    res.json({ success: true, card: { ...rows[0], balances } });
   } catch (e) {
+    await client.query('ROLLBACK');
+    console.error('Error creando tarjeta:', e);
     res.status(500).json({ error: 'Error al crear tarjeta' });
+  } finally {
+    client.release();
   }
 });
 
@@ -9976,6 +10124,132 @@ app.post('/ocean-pay/cards/renew', async (req, res) => {
     res.json({ success: true, newExpiry });
   } catch (e) {
     res.status(500).json({ error: 'Error al renovar tarjeta' });
+  }
+});
+
+/* ----------  CARD BALANCE OPERATIONS  ---------- */
+// Cambiar saldo de una tarjeta específica
+app.post('/ocean-pay/cards/change-balance', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) return res.status(401).json({ error: 'No token' });
+
+  const { cardNumber, currencyType, amount, concepto = 'Operación' } = req.body;
+
+  if (!cardNumber || !currencyType || amount === undefined) {
+    return res.status(400).json({ error: 'Faltan datos requeridos' });
+  }
+
+  const client = await pool.connect();
+  try {
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
+    const userId = decoded.uid;
+
+    await client.query('BEGIN');
+
+    // Verificar que la tarjeta pertenece al usuario
+    const { rows: cardRows } = await client.query(
+      'SELECT id FROM ocean_pay_cards WHERE card_number = $1 AND user_id = $2',
+      [cardNumber, userId]
+    );
+
+    if (cardRows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Tarjeta no encontrada o no pertenece al usuario' });
+    }
+
+    const cardId = cardRows[0].id;
+
+    // Obtener saldo actual
+    const { rows: balanceRows } = await client.query(
+      'SELECT amount FROM ocean_pay_card_balances WHERE card_id = $1 AND currency_type = $2',
+      [cardId, currencyType]
+    );
+
+    const currentBalance = balanceRows[0]?.amount || 0;
+    const newBalance = parseFloat(currentBalance) + parseFloat(amount);
+
+    if (newBalance < 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Saldo insuficiente' });
+    }
+
+    // Actualizar o insertar saldo
+    await client.query(
+      `INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount) 
+       VALUES ($1, $2, $3)
+       ON CONFLICT (card_id, currency_type) 
+       DO UPDATE SET amount = $3`,
+      [cardId, currencyType, newBalance]
+    );
+
+    // Registrar transacción
+    await client.query(
+      'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)',
+      [userId, concepto, amount, 'Card Transaction', currencyType.toUpperCase()]
+    );
+
+    await client.query('COMMIT');
+
+    res.json({
+      success: true,
+      newBalance,
+      cardNumber,
+      currencyType
+    });
+  } catch (e) {
+    await client.query('ROLLBACK');
+    console.error('Error cambiando saldo de tarjeta:', e);
+    res.status(500).json({ error: 'Error interno' });
+  } finally {
+    client.release();
+  }
+});
+
+// Obtener saldo de una tarjeta específica
+app.get('/ocean-pay/cards/:cardNumber/balance', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) return res.status(401).json({ error: 'No token' });
+
+  const { cardNumber } = req.params;
+  const { currencyType } = req.query;
+
+  try {
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
+    const userId = decoded.uid;
+
+    // Verificar que la tarjeta pertenece al usuario
+    const { rows: cardRows } = await pool.query(
+      'SELECT id FROM ocean_pay_cards WHERE card_number = $1 AND user_id = $2',
+      [cardNumber, userId]
+    );
+
+    if (cardRows.length === 0) {
+      return res.status(404).json({ error: 'Tarjeta no encontrada' });
+    }
+
+    const cardId = cardRows[0].id;
+
+    if (currencyType) {
+      // Obtener saldo específico
+      const { rows } = await pool.query(
+        'SELECT amount FROM ocean_pay_card_balances WHERE card_id = $1 AND currency_type = $2',
+        [cardId, currencyType]
+      );
+      res.json({ balance: rows[0]?.amount || 0, currencyType });
+    } else {
+      // Obtener todos los saldos
+      const { rows } = await pool.query(
+        'SELECT currency_type, amount FROM ocean_pay_card_balances WHERE card_id = $1',
+        [cardId]
+      );
+      const balances = {};
+      rows.forEach(r => { balances[r.currency_type] = parseFloat(r.amount); });
+      res.json({ balances });
+    }
+  } catch (e) {
+    res.status(500).json({ error: 'Error obteniendo saldo' });
   }
 });
 
@@ -10040,18 +10314,37 @@ app.get('/ocean-pay/me', async (req, res) => {
   try {
     const payload = jwt.verify(auth.split(' ')[1], process.env.STUDIO_SECRET);
     const { rows } = await pool.query(
-      'SELECT id,username,aquabux FROM ocean_pay_users WHERE id=$1',
+      'SELECT id,username FROM ocean_pay_users WHERE id=$1',
       [payload.uid]
     );
     if (rows.length === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
 
-    // Obtener tarjetas del usuario
+    // Obtener tarjetas del usuario CON sus saldos
     const { rows: cardRows } = await pool.query(
-      'SELECT card_number, cvv, expiry_date, is_active FROM ocean_pay_cards WHERE user_id = $1',
+      `SELECT c.id, c.card_number, c.cvv, c.expiry_date, c.is_active, c.is_primary, c.card_name
+       FROM ocean_pay_cards c WHERE c.user_id = $1`,
       [payload.uid]
     );
 
-    res.json({ ...rows[0], cards: cardRows });
+    // Para cada tarjeta, obtener sus saldos
+    const cardsWithBalances = await Promise.all(cardRows.map(async (card) => {
+      const { rows: balanceRows } = await pool.query(
+        'SELECT currency_type, amount FROM ocean_pay_card_balances WHERE card_id = $1',
+        [card.id]
+      );
+
+      const balances = {};
+      balanceRows.forEach(b => {
+        balances[b.currency_type] = parseFloat(b.amount);
+      });
+
+      return {
+        ...card,
+        balances
+      };
+    }));
+
+    res.json({ ...rows[0], cards: cardsWithBalances });
   } catch (e) { res.status(401).json({ error: 'Token inválido' }); }
 });
 

@@ -819,7 +819,12 @@ app.post('/floret/create_preference', async (req, res) => {
     res.json({ id: result.id });
   } catch (error) {
     console.error('Error creando preferencia MP:', error);
-    res.status(500).json({ error: 'Error al crear la preferencia de pago' });
+    // Devolvemos el mensaje de error real para depurar
+    res.status(500).json({
+      error: 'Error al crear la preferencia de pago',
+      details: error.message,
+      mp_error: error.cause || error
+    });
   }
 });
 

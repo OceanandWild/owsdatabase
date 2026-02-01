@@ -643,7 +643,7 @@ async function runDatabaseMigrations() {
       ) AND NOT EXISTS (
         SELECT 1 FROM ocean_pay_cards WHERE user_id = c.user_id AND is_primary = true
       )
-    `); \n
+    `);
 
     // 13. LIMPIEZA DE SALDOS - Resetear todos a 0 (excepto ecopower = 100)
     // NOTA: Ejecutar una vez y luego comentar esta sección

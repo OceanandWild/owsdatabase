@@ -798,14 +798,11 @@ app.post('/floret/create_preference', async (req, res) => {
   try {
     const { items, back_url } = req.body;
 
-    // Lógica defensiva: Si no hay back_url, usar Netlify.
-    // También limpiamos posibles espacios.
-    let returnUrl = back_url ? back_url.trim() : 'https://floretshop.netlify.app';
+    // ⚠️ FIX CRÍTICO: MercadoPago rechaza localhost/http en auto_return.
+    // Forzamos SIEMPRE la URL de producción (HTTPS) para evitar el error 400.
+    const returnUrl = 'https://floretshop.netlify.app';
 
-    // Fallback de seguridad final
-    if (!returnUrl || returnUrl === '') {
-      returnUrl = 'https://floretshop.netlify.app';
-    }
+    console.log(`[MP Preference] Creando preferencia. Return URL forzada: ${returnUrl}`);
 
     // Transformar items al formato de MP
     const body = {

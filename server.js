@@ -646,6 +646,7 @@ async function runDatabaseMigrations() {
       )
     `);
 
+    /* 
     // 13. LIMPIEZA DE SALDOS - Resetear todos a 0 (excepto ecopower = 100)
     // Se limpian tanto los nuevos saldos por tarjeta como los antiguos saldos globales
     console.log('🧹 Iniciando limpieza profunda de saldos...');
@@ -673,6 +674,8 @@ async function runDatabaseMigrations() {
     `);
 
     console.log('✅ Limpieza de saldos completada. Todos los sistemas en cero.');
+    */
+    console.log('✅ Sistema de persistencia de saldos activo.');
 
     console.log('✅ Migraciones completadas exitosamente!');
 
@@ -11969,24 +11972,35 @@ app.get('/api/ecorebits/user', async (req, res) => {
 
     const userData = userResult.rows[0];
 
-    // Get the balance
-    const balanceResult = await pool.query(
-      `SELECT amount 
-             FROM user_currency 
-             WHERE user_id = $1 AND currency_type = 'ecocorebits'`,
+    // Obtener tarjetas y sus balances (NUEVO SISTEMA)
+    const { rows: cardRows } = await pool.query(
+      `SELECT id, card_number, cvv, expiry_date, is_active, is_primary, card_name
+       FROM ocean_pay_cards WHERE user_id = $1`,
       [userId]
     );
 
-    const balance = balanceResult.rows[0]?.amount || 0;
+    const cards = await Promise.all(cardRows.map(async (card) => {
+      const { rows: balRows } = await pool.query(
+        'SELECT currency_type, amount FROM ocean_pay_card_balances WHERE card_id = $1',
+        [card.id]
+      );
+      const balances = {};
+      balRows.forEach(b => balances[b.currency_type] = parseFloat(b.amount));
+      return { ...card, balances };
+    }));
 
-    // Return in the same format as Ocean Pay
+    // El balance principal para ecorebits se saca de la tarjeta primaria (o la primera)
+    const primaryCard = cards.find(c => c.is_primary) || cards[0];
+    const balance = primaryCard?.balances?.ecorebits || 0;
+
     res.json({
       success: true,
       user: {
         id: userData.id,
         username: userData.username,
+        cards: cards,
         ecorebits: {
-          balance: parseInt(balance, 10)
+          balance: parseFloat(balance)
         }
       }
     });

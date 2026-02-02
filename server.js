@@ -798,8 +798,14 @@ app.post('/floret/create_preference', async (req, res) => {
   try {
     const { items, back_url } = req.body;
 
-    // Usar la URL que nos manda el cliente o fallback a Netlify (producción)
-    const returnUrl = back_url || 'https://floretshop.netlify.app';
+    // Lógica defensiva: Si no hay back_url, usar Netlify.
+    // También limpiamos posibles espacios.
+    let returnUrl = back_url ? back_url.trim() : 'https://floretshop.netlify.app';
+
+    // Fallback de seguridad final
+    if (!returnUrl || returnUrl === '') {
+      returnUrl = 'https://floretshop.netlify.app';
+    }
 
     // Transformar items al formato de MP
     const body = {

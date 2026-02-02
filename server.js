@@ -796,7 +796,10 @@ app.post('/floret/login', async (req, res) => {
 // Endpoint para crear preferencia de MercadoPago
 app.post('/floret/create_preference', async (req, res) => {
   try {
-    const { items } = req.body;
+    const { items, back_url } = req.body;
+
+    // Usar la URL que nos manda el cliente o fallback a Netlify (producción)
+    const returnUrl = back_url || 'https://floretshop.netlify.app';
 
     // Transformar items al formato de MP
     const body = {
@@ -807,9 +810,9 @@ app.post('/floret/create_preference', async (req, res) => {
         currency_id: 'UYU',
       })),
       back_urls: {
-        success: 'https://owsdatabase.onrender.com', // URL temporal válida
-        failure: 'https://owsdatabase.onrender.com',
-        pending: 'https://owsdatabase.onrender.com'
+        success: returnUrl,
+        failure: returnUrl,
+        pending: returnUrl
       },
       auto_return: 'approved',
     };

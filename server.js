@@ -647,8 +647,10 @@ async function runDatabaseMigrations() {
     `);
 
     // 13. LIMPIEZA DE SALDOS - Resetear todos a 0 (excepto ecopower = 100)
-    // NOTA: Ejecutar una vez y luego comentar esta sección
-    console.log('🧹 Limpiando saldos de tarjetas...');
+    // Se limpian tanto los nuevos saldos por tarjeta como los antiguos saldos globales
+    console.log('🧹 Iniciando limpieza profunda de saldos...');
+
+    // Resetear saldos por tarjeta
     await pool.query(`
       UPDATE ocean_pay_card_balances 
       SET amount = CASE 
@@ -656,7 +658,21 @@ async function runDatabaseMigrations() {
         ELSE 0 
       END
     `);
-    console.log('✅ Saldos limpiados correctamente');
+
+    // Resetear saldos globales antiguos en ocean_pay_users
+    await pool.query(`UPDATE ocean_pay_users SET aquabux = 0, appbux = 0`);
+
+    // Resetear saldos en user_currency (usado para ecorebits)
+    await pool.query(`UPDATE user_currency SET amount = 0`);
+
+    // Resetear metadatos (wildcredits, ecoxionums, ecobooks)
+    await pool.query(`
+      UPDATE ocean_pay_metadata 
+      SET value = '0' 
+      WHERE key IN ('wildcredits', 'ecoxionums', 'ecobooks')
+    `);
+
+    console.log('✅ Limpieza de saldos completada. Todos los sistemas en cero.');
 
     console.log('✅ Migraciones completadas exitosamente!');
 
@@ -8242,25 +8258,67 @@ app.post("/api/subscriptions/subscribe", async (req, res) => {
       }
     }
 
-    // 2) Leer saldo EcoCoreBits desde user_currency
-    const { rows: curRows } = await client.query(
-      `SELECT amount FROM user_currency WHERE user_id = $1 AND currency_type = 'ecocorebits' FOR UPDATE`,
-      [userIdStr]
-    );
-    const current = curRows[0]?.amount || 0;
-    if (current < plan.price) {
-      await client.query('ROLLBACK');
-      return res.status(400).json({ error: `Te faltan ${plan.price - current} EcoCoreBits.` });
-    }
+    // 2) Leer saldo y descontar
+    let current = 0;
+    const { cardNumber } = req.body;
 
-    const next = current - plan.price;
-    await client.query(
-      `INSERT INTO user_currency (user_id, currency_type, amount)
-       VALUES ($1,'ecocorebits',$2)
-       ON CONFLICT (user_id, currency_type)
-       DO UPDATE SET amount = EXCLUDED.amount`,
-      [userIdStr, next]
-    );
+    if (cardNumber) {
+      // Nueva lógica: Descontar de la tarjeta
+      const { rows: cardRows } = await client.query(
+        'SELECT id FROM ocean_pay_cards WHERE card_number = $1 AND user_id = $2',
+        [cardNumber, userIdStr]
+      );
+
+      if (cardRows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Tarjeta no encontrada o no pertenece al usuario' });
+      }
+
+      const cardId = cardRows[0].id;
+      const { rows: balanceRows } = await client.query(
+        'SELECT amount FROM ocean_pay_card_balances WHERE card_id = $1 AND currency_type = \'ecorebits\' FOR UPDATE',
+        [cardId]
+      );
+
+      current = parseFloat(balanceRows[0]?.amount || 0);
+      if (current < plan.price) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: `Saldo insuficiente en la tarjeta. Faltan ${plan.price - current} ECB.` });
+      }
+
+      const next = current - plan.price;
+      await client.query(
+        'UPDATE ocean_pay_card_balances SET amount = $1 WHERE card_id = $2 AND currency_type = \'ecorebits\'',
+        [next, cardId]
+      );
+
+      // Registrar tx en el historial de Ocean Pay
+      await client.query(
+        'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)',
+        [userIdStr, `Suscripción: ${plan.name}`, -plan.price, 'EcoConsole Sub', 'ECOREBITS']
+      );
+
+    } else {
+      // Lógica antigua: Descontar de user_currency (global)
+      const { rows: curRows } = await client.query(
+        `SELECT amount FROM user_currency WHERE user_id = $1 AND currency_type = 'ecocorebits' FOR UPDATE`,
+        [userIdStr]
+      );
+      current = curRows[0]?.amount || 0;
+      if (current < plan.price) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: `Te faltan ${plan.price - current} EcoCoreBits.` });
+      }
+
+      const next = current - plan.price;
+      await client.query(
+        `INSERT INTO user_currency (user_id, currency_type, amount)
+         VALUES ($1,'ecocorebits',$2)
+         ON CONFLICT (user_id, currency_type)
+         DO UPDATE SET amount = EXCLUDED.amount`,
+        [userIdStr, next]
+      );
+    }
 
     // 3) Registrar transacción en EcoCoreBits
     await client.query(

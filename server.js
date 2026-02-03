@@ -580,7 +580,24 @@ async function runDatabaseMigrations() {
       ADD COLUMN IF NOT EXISTS card_name VARCHAR(50) DEFAULT 'Mi Tarjeta'
     `).catch(() => { });
 
-    // 11. Generar tarjetas para usuarios existentes que no tengan una
+    // 11. Crear tabla ocean_pay_pos si no existe (POS Virtual)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ocean_pay_pos (
+        id SERIAL PRIMARY KEY,
+        code VARCHAR(10) UNIQUE NOT NULL,
+        sender_id INTEGER NOT NULL REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
+        sender_card_id INTEGER REFERENCES ocean_pay_cards(id) ON DELETE CASCADE,
+        receiver_id INTEGER REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
+        receiver_card_id INTEGER REFERENCES ocean_pay_cards(id) ON DELETE CASCADE,
+        amount DECIMAL(20, 2) NOT NULL,
+        currency VARCHAR(50) NOT NULL,
+        status VARCHAR(20) DEFAULT 'pending', -- pending, completed, expired, cancelled
+        created_at TIMESTAMP DEFAULT NOW(),
+        completed_at TIMESTAMP
+      )
+    `).catch(() => console.log('⚠️ Tabla ocean_pay_pos ya existe'));
+
+    // 12. Generar tarjetas para usuarios existentes que no tengan una
     const usersWithoutCard = await pool.query(`
       SELECT id FROM ocean_pay_users 
       WHERE id NOT IN (SELECT user_id FROM ocean_pay_cards)
@@ -595,7 +612,7 @@ async function runDatabaseMigrations() {
 
       if (cardResult && cardResult.rows[0]) {
         // Inicializar saldos para la nueva tarjeta
-        const currencies = ['aquabux', 'ecoxionums', 'ecorebits', 'wildcredits', 'wildgems', 'appbux', 'tides', 'ecobooks', 'ecotokens', 'ecopower'];
+        const currencies = ['aquabux', 'ecoxionums', 'ecorebits', 'wildcredits', 'wildgems', 'appbux', 'ecobooks', 'ecotokens', 'ecopower'];
         for (const curr of currencies) {
           await pool.query(
             'INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount) VALUES ($1, $2, 0) ON CONFLICT DO NOTHING',
@@ -2427,335 +2444,148 @@ app.get('/savage-space-animals/verify-subscription', async (req, res) => {
   }
 });
 
-/* ===== OCEAN AND WILD STUDIOS HUB - TIDES & PLANS ===== */
+/* ===== HUB SUBSCRIPTIONS (TIDES REMOVED) ===== */
+// Tides currency and related subscription logic have been removed.
 
-// Endpoint para obtener Tides
-app.get('/hub/tides/balance', async (req, res) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Token requerido' });
+/* ===== POS VIRTUAL (TRANSFER BY CODE) ===== */
+
+// Generar código aleatorio de 6 caracteres
+function generatePosCode() {
+  return Math.random().toString(36).substring(2, 8).toUpperCase();
+}
+
+// Crear una transacción POS (Sender)
+app.post('/pos/create', async (req, res) => {
+  const { userId, cardId, amount, currency } = req.body;
+
+  if (!userId || !cardId || !amount || !currency) {
+    return res.status(400).json({ error: 'Faltan datos requeridos (userId, cardId, amount, currency)' });
   }
 
-  const token = authHeader.substring(7);
-  let userId;
   try {
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
-    userId = decoded.uid;
-    userId = parseInt(userId) || userId;
+    const code = generatePosCode();
+    const { rows } = await pool.query(
+      'INSERT INTO ocean_pay_pos (code, sender_id, sender_card_id, amount, currency, status) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+      [code, userId, cardId, amount, currency, 'pending']
+    );
+    res.json({ success: true, pos: rows[0] });
   } catch (e) {
-    return res.status(401).json({ error: 'Token inválido' });
-  }
-
-  try {
-    const { rows } = await pool.query(`
-      SELECT value FROM ocean_pay_metadata
-      WHERE user_id = $1 AND key = 'tides'
-      `, [userId]);
-
-    const tides = rows.length > 0 ? parseInt(rows[0].value || '0') : 0;
-    res.json({ tides: tides });
-  } catch (e) {
-    if (e.code === '42P01') {
-      res.json({ tides: 0 });
-    } else {
-      console.error('Error obteniendo Tides:', e);
-      res.status(500).json({ error: 'Error interno' });
-    }
+    console.error('Error creando POS:', e);
+    res.status(500).json({ error: 'Error al crear POS' });
   }
 });
 
-// Endpoint para cambiar Tides (ganar/gastar)
-app.post('/hub/tides/change', async (req, res) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Token requerido' });
-  }
-
-  const token = authHeader.substring(7);
-  let userId;
+// Obtener info de POS por código
+app.get('/pos/:code', async (req, res) => {
+  const { code } = req.params;
   try {
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
-    userId = decoded.uid;
-    userId = parseInt(userId) || userId;
-  } catch (e) {
-    return res.status(401).json({ error: 'Token inválido' });
-  }
-
-  const { amount, concepto = 'Operación', origen = 'Hub' } = req.body;
-  if (amount === undefined) {
-    return res.status(400).json({ error: 'amount requerido' });
-  }
-
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-
-    // Obtener saldo actual
-    const { rows } = await client.query(`
-      SELECT value FROM ocean_pay_metadata
-      WHERE user_id = $1 AND key = 'tides'
-      FOR UPDATE
-      `, [userId]);
-
-    const current = parseInt(rows[0]?.value || '0');
-    const newBalance = current + parseInt(amount);
-
-    if (newBalance < 0) {
-      await client.query('ROLLBACK');
-      return res.status(400).json({ error: 'Saldo insuficiente' });
-    }
-
-    // Actualizar saldo
-    await client.query(`
-      INSERT INTO ocean_pay_metadata(user_id, key, value)
-    VALUES($1, 'tides', $2)
-      ON CONFLICT(user_id, key) 
-      DO UPDATE SET value = $2
-      `, [userId, newBalance.toString()]);
-
-    // Registrar transacción
-    await client.query(`
-      INSERT INTO ocean_pay_txs(user_id, concepto, monto, origen, moneda)
-    VALUES($1, $2, $3, $4, 'TIDES')
-      ON CONFLICT DO NOTHING
-      `, [userId, concepto, amount, origen]).catch(async () => {
-      // Fallback si falla
-      await client.query(`
-            INSERT INTO ocean_pay_txs(user_id, concepto, monto, origen)
-    VALUES($1, $2, $3, $4)
-      `, [userId, concepto, amount, origen]);
-    });
-
-    await client.query('COMMIT');
-    res.json({ success: true, newBalance });
-  } catch (e) {
-    await client.query('ROLLBACK');
-    console.error('Error cambiando Tides:', e);
-    res.status(500).json({ error: 'Error interno' });
-  } finally {
-    client.release();
-  }
-});
-
-// Endpoint para suscribirse a un plan del Hub (Savage/Oceanic)
-app.post('/hub/subscribe', async (req, res) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Token requerido' });
-  }
-
-  const token = authHeader.substring(7);
-  let userId;
-  try {
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
-    userId = decoded.uid;
-    userId = parseInt(userId) || userId;
-  } catch (e) {
-    return res.status(401).json({ error: 'Token inválido' });
-  }
-
-  const { planId, duration } = req.body; // planId: 'savage' | 'oceanic', duration: 'daily' | 'weekly'
-  if (!planId || !duration) {
-    return res.status(400).json({ error: 'planId y duration requeridos' });
-  }
-
-  const prices = {
-    savage: { daily: 50, weekly: 125 },
-    oceanic: { daily: 75, weekly: 175 }
-  };
-
-  const price = prices[planId]?.[duration];
-  if (!price) {
-    return res.status(400).json({ error: 'Plan o duración inválida' });
-  }
-
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-
-    // Obtener saldo de Tides
-    const { rows: tidesRows } = await client.query(`
-      SELECT value FROM ocean_pay_metadata
-      WHERE user_id = $1 AND key = 'tides'
-      FOR UPDATE
-    `, [userId]);
-
-    const currentTides = parseInt(tidesRows[0]?.value || '0');
-
-    if (currentTides < price) {
-      await client.query('ROLLBACK');
-      return res.status(400).json({ error: `Saldo insuficiente.Necesitas ${price} Tides.` });
-    }
-
-    // Descontar Tides
-    const newBalance = currentTides - price;
-    await client.query(`
-      INSERT INTO ocean_pay_metadata(user_id, key, value)
-    VALUES($1, 'tides', $2)
-      ON CONFLICT(user_id, key) 
-      DO UPDATE SET value = $2
-      `, [userId, newBalance.toString()]);
-
-    // Registrar transacción
-    await client.query(`
-      INSERT INTO ocean_pay_txs(user_id, concepto, monto, origen, moneda)
-    VALUES($1, $2, $3, $4, 'TIDES')
-    `, [userId, `Suscripción ${planId} (${duration})`, -price, 'Hub']).catch(async () => {
-      await client.query(`
-            INSERT INTO ocean_pay_txs(user_id, concepto, monto, origen)
-    VALUES($1, $2, $3, $4)
-        `, [userId, `Suscripción ${planId} (${duration})`, -price, 'Hub']);
-    });
-
-    // Crear tabla de suscripciones del Hub si no existe
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS hub_subs(
-      id SERIAL PRIMARY KEY,
-      user_id INTEGER NOT NULL,
-      plan_id TEXT NOT NULL,
-      duration TEXT NOT NULL,
-      starts_at TIMESTAMP NOT NULL DEFAULT NOW(),
-      ends_at TIMESTAMP NOT NULL,
-      active BOOLEAN DEFAULT true,
-      created_at TIMESTAMP DEFAULT NOW()
-    )
-      `);
-
-    // Calcular fecha de expiración
-    const now = new Date();
-    const durationMs = duration === 'daily' ? 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000;
-    const endsAt = new Date(now.getTime() + durationMs);
-
-    // Desactivar suscripciones anteriores activas
-    await client.query(`
-      UPDATE hub_subs 
-      SET active = false 
-      WHERE user_id = $1 AND active = true
-      `, [userId]);
-
-    // Crear nueva suscripción
-    const { rows: subRows } = await client.query(`
-      INSERT INTO hub_subs(user_id, plan_id, duration, starts_at, ends_at, active)
-    VALUES($1, $2, $3, $4, $5, true)
-    RETURNING *
-      `, [userId, planId, duration, now, endsAt]);
-
-    await client.query('COMMIT');
-
-    res.json({
-      success: true,
-      subscription: subRows[0],
-      newBalance: newBalance
-    });
-  } catch (e) {
-    await client.query('ROLLBACK');
-    console.error('Error suscribiendo al Hub:', e);
-    res.status(500).json({ error: 'Error interno' });
-  } finally {
-    client.release();
-  }
-});
-
-// Endpoint para obtener suscripción activa del Hub
-app.get('/hub/subscription/:userId', async (req, res) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Token requerido' });
-  }
-
-  const token = authHeader.substring(7);
-  let userId;
-  try {
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
-    userId = decoded.uid;
-    userId = parseInt(userId) || userId;
-  } catch (e) {
-    return res.status(401).json({ error: 'Token inválido' });
-  }
-
-  try {
-    const { rows } = await pool.query(`
-    SELECT * FROM hub_subs
-      WHERE user_id = $1 AND active = true
-      AND ends_at > NOW()
-      ORDER BY created_at DESC
-      LIMIT 1
-      `, [userId]);
-
-    res.json(rows[0] || null);
-  } catch (e) {
-    if (e.code === '42P01') {
-      res.json(null);
-    } else {
-      console.error('Error obteniendo suscripción del Hub:', e);
-      res.status(500).json({ error: 'Error interno' });
-    }
-  }
-});
-
-/* ===== SAVAGE SPACE ANIMALS - SUBSCRIPTION BENEFITS ===== */
-
-// Endpoint para obtener beneficios de suscripción en SSA
-app.get('/savage-space-animals/benefits', async (req, res) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.json({ plan: 'free', benefits: null });
-  }
-
-  const token = authHeader.substring(7);
-  let userId;
-  try {
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
-    userId = decoded.uid;
-    userId = parseInt(userId) || userId;
-  } catch (e) {
-    return res.json({ plan: 'free', benefits: null });
-  }
-
-  try {
-    // Buscar suscripción activa del Hub
-    const { rows } = await pool.query(`
-      SELECT plan_id, ends_at FROM hub_subs
-      WHERE user_id = $1 AND active = true
-      AND ends_at > NOW()
-      ORDER BY created_at DESC
-      LIMIT 1
-      `, [userId]);
+    const { rows } = await pool.query(
+      `SELECT p.*, u.username as sender_name 
+       FROM ocean_pay_pos p 
+       JOIN ocean_pay_users u ON p.sender_id = u.id 
+       WHERE p.code = $1 AND p.status = 'pending'`,
+      [code.toUpperCase()]
+    );
 
     if (rows.length === 0) {
-      return res.json({ plan: 'free', benefits: null });
+      return res.status(404).json({ error: 'Código inválido o ya procesado' });
     }
 
-    const subscription = rows[0];
-    const plan = subscription.plan_id; // 'savage' or 'oceanic'
-
-    // Define benefits based on plan
-    const benefits = {
-      savage: {
-        extraLives: 1,
-        bossCooldownReduction: 10,
-        cosmicDustBonus: 5,
-        extendedInvincibility: false,
-        earlyAnimalUnlock: false
-      },
-      oceanic: {
-        extraLives: 2,
-        bossCooldownReduction: 25,
-        cosmicDustBonus: 15,
-        extendedInvincibility: true,
-        earlyAnimalUnlock: true
-      }
-    };
-
-    res.json({
-      plan: plan,
-      benefits: benefits[plan] || null,
-      expiresAt: subscription.ends_at
-    });
+    res.json({ success: true, pos: rows[0] });
   } catch (e) {
-    console.error('Error obteniendo beneficios SSA:', e);
-    res.json({ plan: 'free', benefits: null });
+    console.error('Error buscando POS:', e);
+    res.status(500).json({ error: 'Error interno' });
   }
+});
+
+// Completar transacción POS (Receiver)
+app.post('/pos/complete', async (req, res) => {
+  const { code, receiverId, receiverCardId } = req.body;
+
+  if (!code || !receiverId || !receiverCardId) {
+    return res.status(400).json({ error: 'Faltan datos' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // 1. Bloquear y obtener transacción POS
+    const { rows: posRows } = await client.query(
+      'SELECT * FROM ocean_pay_pos WHERE code = $1 AND status = $2 FOR UPDATE',
+      [code.toUpperCase(), 'pending']
+    );
+
+    if (posRows.length === 0) {
+      throw new Error('Transacción no válida o ya completada');
+    }
+
+    const pos = posRows[0];
+
+    if (pos.sender_id === receiverId) {
+      throw new Error('No puedes recibir dinero de ti mismo mediante POS');
+    }
+
+    // 2. Verificar saldo del Sender en la tarjeta especificada
+    const { rows: senderBalance } = await client.query(
+      'SELECT amount FROM ocean_pay_card_balances WHERE card_id = $1 AND currency_type = $2 FOR UPDATE',
+      [pos.sender_card_id, pos.currency]
+    );
+
+    if (senderBalance.length === 0 || parseFloat(senderBalance[0].amount) < parseFloat(pos.amount)) {
+      throw new Error('El emisor no tiene saldo suficiente en la tarjeta seleccionada');
+    }
+
+    // 3. Descontar al Sender
+    await client.query(
+      'UPDATE ocean_pay_card_balances SET amount = amount - $1 WHERE card_id = $2 AND currency_type = $3',
+      [pos.amount, pos.sender_card_id, pos.currency]
+    );
+
+    // 4. Aumentar al Receiver (asegurar que tenga el registro de esa divisa)
+    await client.query(
+      'INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount) VALUES ($1, $2, $3) ON CONFLICT (card_id, currency_type) DO UPDATE SET amount = ocean_pay_card_balances.amount + $3',
+      [receiverCardId, pos.currency, pos.amount]
+    );
+
+    // 5. Marcar POS como completado
+    await client.query(
+      'UPDATE ocean_pay_pos SET receiver_id = $1, receiver_card_id = $2, status = $3, completed_at = NOW() WHERE id = $4',
+      [receiverId, receiverCardId, 'completed', pos.id]
+    );
+
+    // 6. Registrar transacciones formales
+    await client.query(
+      'INSERT INTO ocean_pay_txs (user_id, concepto, monto, moneda, origen) VALUES ($1, $2, $3, $4, $5)',
+      [pos.sender_id, `POS Virtual - Envío (${code})`, -pos.amount, pos.currency.toUpperCase(), 'POS']
+    );
+
+    await client.query(
+      'INSERT INTO ocean_pay_txs (user_id, concepto, monto, moneda, origen) VALUES ($1, $2, $3, $4, $5)',
+      [receiverId, `POS Virtual - Recepción (${code})`, pos.amount, pos.currency.toUpperCase(), 'POS']
+    );
+
+    await client.query('COMMIT');
+    res.json({ success: true, message: 'Pago procesado exitosamente' });
+
+  } catch (e) {
+    await client.query('ROLLBACK');
+    console.error('Error completando POS:', e.message);
+    res.status(400).json({ error: e.message });
+  } finally {
+    client.release();
+  }
+});
+
+res.json({
+  plan: plan,
+  benefits: benefits[plan] || null,
+  expiresAt: subscription.ends_at
+});
+  } catch (e) {
+  console.error('Error obteniendo beneficios SSA:', e);
+  res.json({ plan: 'free', benefits: null });
+}
 });
 
 app.post('/wildshorts/episode/pay', async (req, res) => {

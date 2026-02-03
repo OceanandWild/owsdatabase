@@ -10120,37 +10120,64 @@ app.post('/ocean-pay/login', async (req, res) => {
   // Obtener AppBux de la columna appbux
   const appbux = rows[0].appbux || 0;
 
-  // Obtener tarjetas del usuario CON sus saldos
+  // 1. Asegurar que el usuario tenga al menos una tarjeta vinculada
+  const { rows: existingCards } = await pool.query('SELECT id FROM ocean_pay_cards WHERE user_id = $1', [rows[0].id]);
+  if (existingCards.length === 0) {
+    const { cardNumber, cvv, expiryDate } = generateCardDetails ? generateCardDetails() : { cardNumber: '4000' + Math.random().toString().slice(2, 14), cvv: '123', expiryDate: '12/28' };
+    await pool.query(
+      'INSERT INTO ocean_pay_cards (user_id, card_number, cvv, expiry_date, is_primary, card_name) VALUES ($1, $2, $3, $4, true, $5)',
+      [rows[0].id, cardNumber, cvv, expiryDate, 'Tarjeta Principal']
+    );
+  } else {
+    // Asegurar que al menos una sea primaria
+    await pool.query(`
+      UPDATE ocean_pay_cards SET is_primary = true 
+      WHERE id = (SELECT MIN(id) FROM ocean_pay_cards WHERE user_id = $1)
+      AND NOT EXISTS (SELECT 1 FROM ocean_pay_cards WHERE user_id = $1 AND is_primary = true)
+    `, [rows[0].id]);
+  }
+
+  // 2. Sincronización robusta de saldos legacy (Vinculando por nombre de usuario para evitar desajustes de ID)
+  await pool.query(`
+    INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
+    SELECT c.id, 'ecorebits', uc.amount
+    FROM ocean_pay_cards c
+    JOIN ocean_pay_users opu ON c.user_id = opu.id
+    JOIN users u ON LOWER(u.username) = LOWER(opu.username)
+    JOIN user_currency uc ON uc.user_id = u.id AND uc.currency_type = 'ecocorebits'
+    WHERE c.user_id = $1 AND c.is_primary = true AND uc.amount > 0
+    ON CONFLICT (card_id, currency_type) DO UPDATE SET amount = EXCLUDED.amount WHERE ocean_pay_card_balances.amount = 0
+  `, [rows[0].id]).catch(() => { });
+
+  // 3. Obtener tarjetas del usuario CON sus saldos actualizados
   const { rows: cardRows } = await pool.query(
     `SELECT c.id, c.card_number, c.cvv, c.expiry_date, c.is_active, c.is_primary, c.card_name
      FROM ocean_pay_cards c WHERE c.user_id = $1`,
     [rows[0].id]
   );
 
-  // Para cada tarjeta, obtener sus saldos
   const cardsWithBalances = await Promise.all(cardRows.map(async (card) => {
     const { rows: balanceRows } = await pool.query(
       'SELECT currency_type, amount FROM ocean_pay_card_balances WHERE card_id = $1',
       [card.id]
     );
-
     const balances = {};
-    balanceRows.forEach(b => {
-      balances[b.currency_type] = parseFloat(b.amount);
-    });
-
-    return {
-      ...card,
-      balances
-    };
+    balanceRows.forEach(b => balances[b.currency_type] = parseFloat(b.amount));
+    return { ...card, balances };
   }));
+
+  const primaryCard = cardsWithBalances.find(c => c.is_primary) || cardsWithBalances[0];
+  const ecorebitsBalance = primaryCard?.balances?.ecorebits || 0;
 
   res.json({
     token,
     user: {
       id: rows[0].id,
       username,
-      cards: cardsWithBalances
+      cards: cardsWithBalances,
+      ecorebits: {
+        balance: parseFloat(ecorebitsBalance)
+      }
     }
   });
 });
@@ -11969,13 +11996,32 @@ app.get('/api/ecorebits/user', async (req, res) => {
 
     const userData = userResult.rows[0];
 
-    // Sincronización perezosa de balance legacy
+    // 1. Asegurar que el usuario tenga al menos una tarjeta vinculada
+    const { rows: existingCards } = await pool.query('SELECT id FROM ocean_pay_cards WHERE user_id = $1', [userId]);
+    if (existingCards.length === 0) {
+      const { cardNumber, cvv, expiryDate } = generateCardDetails ? generateCardDetails() : { cardNumber: '4000' + Math.random().toString().slice(2, 14), cvv: '123', expiryDate: '12/28' };
+      await pool.query(
+        'INSERT INTO ocean_pay_cards (user_id, card_number, cvv, expiry_date, is_primary, card_name) VALUES ($1, $2, $3, $4, true, $5)',
+        [userId, cardNumber, cvv, expiryDate, 'Tarjeta Principal']
+      );
+    } else {
+      // Asegurar que al menos una sea primaria
+      await pool.query(`
+        UPDATE ocean_pay_cards SET is_primary = true 
+        WHERE id = (SELECT MIN(id) FROM ocean_pay_cards WHERE user_id = $1)
+        AND NOT EXISTS (SELECT 1 FROM ocean_pay_cards WHERE user_id = $1 AND is_primary = true)
+      `, [userId]);
+    }
+
+    // 2. Sincronización robusta de saldos legacy (Vinculando por nombre de usuario)
     await pool.query(`
       INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
-      SELECT c.id, 'ecorebits', COALESCE(uc.amount, 0)
+      SELECT c.id, 'ecorebits', uc.amount
       FROM ocean_pay_cards c
-      JOIN user_currency uc ON c.user_id = uc.user_id AND uc.currency_type = 'ecocorebits'
-      WHERE c.user_id = $1 AND c.is_primary = true
+      JOIN ocean_pay_users opu ON c.user_id = opu.id
+      JOIN users u ON LOWER(u.username) = LOWER(opu.username)
+      JOIN user_currency uc ON uc.user_id = u.id AND uc.currency_type = 'ecocorebits'
+      WHERE c.user_id = $1 AND c.is_primary = true AND uc.amount > 0
       ON CONFLICT (card_id, currency_type) DO UPDATE SET amount = EXCLUDED.amount WHERE ocean_pay_card_balances.amount = 0
     `, [userId]).catch(() => { });
 

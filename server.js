@@ -2494,14 +2494,18 @@ app.post('/pos/complete', async (req, res) => {
     );
 
     // 6. Registrar transacciones formales
+    const safeAmount = parseFloat(pos.amount);
+
+    // Sender Transaction (Negative)
     await client.query(
       'INSERT INTO ocean_pay_txs (user_id, concepto, monto, moneda, origen) VALUES ($1, $2, $3, $4, $5)',
-      [pos.sender_id, `POS Virtual - Envío (${code})`, -pos.amount, pos.currency.toUpperCase(), 'POS']
+      [pos.sender_id, `POS Virtual - Envío (${code})`, -safeAmount, pos.currency.toUpperCase(), 'POS']
     );
 
+    // Receiver Transaction (Positive)
     await client.query(
       'INSERT INTO ocean_pay_txs (user_id, concepto, monto, moneda, origen) VALUES ($1, $2, $3, $4, $5)',
-      [receiverId, `POS Virtual - Recepción (${code})`, pos.amount, pos.currency.toUpperCase(), 'POS']
+      [receiverId, `POS Virtual - Recepción (${code})`, safeAmount, pos.currency.toUpperCase(), 'POS']
     );
 
     await client.query('COMMIT');

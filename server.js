@@ -10137,14 +10137,12 @@ app.post('/ocean-pay/login', async (req, res) => {
     `, [rows[0].id]);
   }
 
-  // 2. Sincronización robusta de saldos legacy (Vinculando por nombre de usuario para evitar desajustes de ID)
+  // 2. Sincronización robusta de saldos legado (Usando el user_id directo del banco)
   await pool.query(`
     INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
     SELECT c.id, 'ecorebits', uc.amount
     FROM ocean_pay_cards c
-    JOIN ocean_pay_users opu ON c.user_id = opu.id
-    JOIN users u ON LOWER(u.username) = LOWER(opu.username)
-    JOIN user_currency uc ON uc.user_id = u.id AND uc.currency_type = 'ecocorebits'
+    JOIN user_currency uc ON uc.user_id = c.user_id AND uc.currency_type = 'ecocorebits'
     WHERE c.user_id = $1 AND c.is_primary = true AND uc.amount > 0
     ON CONFLICT (card_id, currency_type) DO UPDATE SET amount = EXCLUDED.amount WHERE ocean_pay_card_balances.amount = 0
   `, [rows[0].id]).catch(() => { });
@@ -10167,7 +10165,8 @@ app.post('/ocean-pay/login', async (req, res) => {
   }));
 
   const primaryCard = cardsWithBalances.find(c => c.is_primary) || cardsWithBalances[0];
-  const ecorebitsBalance = primaryCard?.balances?.ecorebits || 0;
+  // Fallback al saldo detectado en el login si la tarjeta aún marca 0
+  const ecorebitsBalance = Math.max(parseFloat(primaryCard?.balances?.ecorebits || 0), parseFloat(rows[0].ecorebits || 0));
 
   res.json({
     token,
@@ -12013,14 +12012,12 @@ app.get('/api/ecorebits/user', async (req, res) => {
       `, [userId]);
     }
 
-    // 2. Sincronización robusta de saldos legacy (Vinculando por nombre de usuario)
+    // 2. Sincronización robusta de saldos legacy
     await pool.query(`
       INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
       SELECT c.id, 'ecorebits', uc.amount
       FROM ocean_pay_cards c
-      JOIN ocean_pay_users opu ON c.user_id = opu.id
-      JOIN users u ON LOWER(u.username) = LOWER(opu.username)
-      JOIN user_currency uc ON uc.user_id = u.id AND uc.currency_type = 'ecocorebits'
+      JOIN user_currency uc ON uc.user_id = c.user_id AND uc.currency_type = 'ecocorebits'
       WHERE c.user_id = $1 AND c.is_primary = true AND uc.amount > 0
       ON CONFLICT (card_id, currency_type) DO UPDATE SET amount = EXCLUDED.amount WHERE ocean_pay_card_balances.amount = 0
     `, [userId]).catch(() => { });

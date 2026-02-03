@@ -22,7 +22,7 @@
       --orange: #f97316;
       --wild: #667eea;
       --gold: #ffd700;
-      --tides: #06b6d4;
+      --gold: #ffd700;
       --shadow-accent: 0 0 40px rgba(34, 211, 238, .3);
       --shadow-card: 0 8px 32px rgba(0, 0, 0, .4);
     }
@@ -368,17 +368,7 @@
       border-color: var(--orange);
     }
 
-    #tides-card .amount {
-      color: var(--tides);
-    }
 
-    #tides-card:hover {
-      border-color: var(--tides);
-    }
-
-    #tides-card .currency-icon {
-      background: linear-gradient(135deg, rgba(6, 182, 212, 0.2), rgba(59, 130, 246, 0.1));
-    }
 
     #ecobooks-card .amount {
       color: #10b981;
@@ -673,6 +663,9 @@
         <button class="nav-item" onclick="showSection('history')">
           <span>📋</span> Historial
         </button>
+        <button class="nav-item" onclick="showSection('pos')">
+          <span>🏧</span> POS Virtual
+        </button>
         <button class="nav-item" onclick="showSection('settings')">
           <span>⚙️</span> Ajustes
         </button>
@@ -722,13 +715,7 @@
             <div class="app-info">Ocean Cinemas 🎬</div>
           </div>
 
-          <!-- Tides (NEW) -->
-          <div class="currency-card" id="tides-card">
-            <div class="currency-icon">🌊</div>
-            <span class="label">Tides</span>
-            <span class="amount" id="tides">0</span>
-            <div class="app-info">Ocean and Wild Studios Hub</div>
-          </div>
+
 
           <!-- WildCredits -->
           <div class="currency-card" id="wildcredits-card">
@@ -848,8 +835,91 @@
         <div class="main-header">
           <h2 class="page-title">Historial de Transacciones</h2>
         </div>
-        <div id="txList" class="tx-list" style="background: rgba(0,0,0,0.2); border-radius: 1rem; padding: 1rem;">
-          <!-- Transactions will be loaded here -->
+        <div id="tx-history-list">
+          <!-- Transacciones se cargarán aquí -->
+        </div>
+      </section>
+
+      <!-- POS Section -->
+      <section id="pos-section" class="hidden">
+        <div class="main-header">
+          <h2 class="page-title">POS Virtual</h2>
+        </div>
+
+        <div class="pos-container" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+          <!-- Generar Cobro (Sender/Giver) -->
+          <div class="card-glass"
+            style="padding: 2rem; border-radius: 1.5rem; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05);">
+            <h3 style="margin-bottom: 1.5rem; color: var(--accent);">Generar Transferencia</h3>
+            <p style="font-size: 0.9rem; color: #94a3b8; margin-bottom: 1.5rem;">Crea un código de transferencia para
+              que otra persona lo reclame.</p>
+
+            <label class="card-label">Divisa</label>
+            <select id="pos-currency"
+              style="width: 100%; padding: 1rem; margin-bottom: 1rem; border-radius: 0.75rem; background: #0a0e1a; border: 1px solid rgba(255,255,255,0.1); color: white;">
+              <option value="aquabux">AquaBux 💧</option>
+              <option value="ecoxionums">Ecoxionums 🌍</option>
+              <option value="ecorebits">EcoCoreBits 💻</option>
+              <option value="wildcredits">WildCredits 🌿</option>
+              <option value="wildgems">WildGems 💎</option>
+              <option value="appbux">AppBux 📱</option>
+              <option value="ecobooks">EcoBooks 📚</option>
+              <option value="ecotokens">EcoTokens 🦁</option>
+            </select>
+
+            <label class="card-label">Monto</label>
+            <input type="number" id="pos-amount" placeholder="0.00" min="0" step="0.01">
+
+            <label class="card-label">Tarjeta de Origen</label>
+            <select id="pos-sender-card"
+              style="width: 100%; padding: 1rem; margin-bottom: 1.5rem; border-radius: 0.75rem; background: #0a0e1a; border: 1px solid rgba(255,255,255,0.1); color: white;">
+              <!-- Tarjetas cargadas dinámicamente -->
+            </select>
+
+            <button onclick="generatePOS()">Generar Código 🎫</button>
+
+            <div id="pos-display-code" class="hidden"
+              style="margin-top: 2rem; padding: 1.5rem; background: rgba(34, 211, 238, 0.1); border: 2px dashed var(--accent); border-radius: 1rem; text-align: center;">
+              <span style="font-size: 0.8rem; color: var(--accent); text-transform: uppercase;">Código de
+                Transferencia</span>
+              <div id="pos-code-text"
+                style="font-size: 3rem; font-weight: 900; letter-spacing: 10px; color: white; margin: 0.5rem 0;">------
+              </div>
+              <p style="font-size: 0.8rem; color: #94a3b8;">Entrega este código a la persona que recibirá el monto.</p>
+            </div>
+          </div>
+
+          <!-- Reclamar Cobro (Receiver) -->
+          <div class="card-glass"
+            style="padding: 2rem; border-radius: 1.5rem; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05);">
+            <h3 style="margin-bottom: 1.5rem; color: var(--ok);">Reclamar Transferencia</h3>
+            <p style="font-size: 0.9rem; color: #94a3b8; margin-bottom: 1.5rem;">Ingresa el código que te dio la otra
+              persona para recibir el monto.</p>
+
+            <label class="card-label">Código POS</label>
+            <input type="text" id="claim-pos-code" placeholder="ABCDEF" maxlength="6"
+              style="text-transform: uppercase; text-align: center; font-size: 1.5rem; letter-spacing: 5px;">
+
+            <button class="secondary" onclick="fetchPOSInfo()" style="margin-bottom: 1.5rem;">Verificar Código
+              🔍</button>
+
+            <div id="pos-claim-details" class="hidden" style="margin-top: 1rem;">
+              <div
+                style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); padding: 1.5rem; border-radius: 1rem;">
+                <p style="font-size: 0.9rem; color: #94a3b8;">Vas a recibir:</p>
+                <div style="font-size: 1.8rem; font-weight: 800; margin: 0.5rem 0;" id="claim-display-amount">0.00</div>
+                <p style="font-size: 0.8rem; color: #94a3b8;" id="claim-display-sender">De: ---</p>
+              </div>
+
+              <label class="card-label" style="margin-top: 1.5rem;">Tarjeta de Destino</label>
+              <select id="pos-receiver-card"
+                style="width: 100%; padding: 1rem; margin-bottom: 1.5rem; border-radius: 0.75rem; background: #0a0e1a; border: 1px solid rgba(255,255,255,0.1); color: white;">
+                <!-- Tarjetas cargadas dinámicamente -->
+              </select>
+
+              <button onclick="completePOS()">Confirmar y Recibir ✅</button>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -905,10 +975,99 @@
       qs('#wildcredits').textContent = Math.round(balances.wildcredits || 0).toLocaleString();
       qs('#wildgems').textContent = Math.round(balances.wildgems || 0).toLocaleString();
       qs('#appbux').textContent = Math.round(balances.appbux || 0).toLocaleString();
-      qs('#tides').textContent = Math.round(balances.tides || 0).toLocaleString();
       qs('#ecobooks').textContent = Math.round(balances.ecobooks || 0).toLocaleString();
       qs('#ecotokens').textContent = Math.round(balances.ecotokens || 0).toLocaleString();
       qs('#ecopower').textContent = Math.round(balances.ecopower || 100);
+    }
+
+    /* ---------- POS LOGIC ---------- */
+    async function generatePOS() {
+      const amount = parseFloat(qs('#pos-amount').value);
+      const currency = qs('#pos-currency').value;
+      const cardId = qs('#pos-sender-card').value;
+
+      if (!amount || amount <= 0) return alert('Ingresa un monto válido');
+      if (!cardId) return alert('Selecciona una tarjeta de origen');
+
+      try {
+        const res = await fetch(`${API}/pos/create`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, cardId, amount, currency })
+        });
+        const data = await res.json();
+        if (data.success) {
+          qs('#pos-code-text').textContent = data.pos.code;
+          show('#pos-display-code', true);
+          alert('Código generado. El saldo se descontará cuando el receptor reclame el código.');
+        } else {
+          alert('Error: ' + data.error);
+        }
+      } catch (e) {
+        alert('Error de conexión');
+      }
+    }
+
+    async function fetchPOSInfo() {
+      const code = qs('#claim-pos-code').value.trim();
+      if (!code) return alert('Ingresa un código');
+
+      try {
+        const res = await fetch(`${API}/pos/${code}`);
+        const data = await res.json();
+        if (data.success) {
+          qs('#claim-display-amount').textContent = `${data.pos.amount} ${data.pos.currency.toUpperCase()}`;
+          qs('#claim-display-sender').textContent = `De: ${data.pos.sender_name}`;
+          show('#pos-claim-details', true);
+        } else {
+          alert(data.error);
+          show('#pos-claim-details', false);
+        }
+      } catch (e) {
+        alert('Error de conexión');
+      }
+    }
+
+    async function completePOS() {
+      const code = qs('#claim-pos-code').value.trim();
+      const receiverCardId = qs('#pos-receiver-card').value;
+
+      if (!receiverCardId) return alert('Selecciona una tarjeta de destino');
+
+      try {
+        const res = await fetch(`${API}/pos/complete`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code, receiverId: userId, receiverCardId })
+        });
+        const data = await res.json();
+        if (data.success) {
+          alert('¡Transferencia recibida con éxito!');
+          show('#pos-claim-details', false);
+          qs('#claim-pos-code').value = '';
+          refreshAllBalances();
+        } else {
+          alert('Error: ' + data.error);
+        }
+      } catch (e) {
+        alert('Error de conexión');
+      }
+    }
+
+    // Actualizar selects de POS con las tarjetas del usuario
+    function updatePOSCardSelects() {
+      const senderSelect = qs('#pos-sender-card');
+      const receiverSelect = qs('#pos-receiver-card');
+
+      if (!senderSelect || !receiverSelect) return;
+
+      const options = userCards.map(card => {
+        const name = card.card_name || (card.is_primary ? 'Tarjeta Principal' : 'Tarjeta Secundaria');
+        return `<option value="${card.id}">${name} (**** ${card.card_number.slice(-4)})</option>`;
+      }).join('');
+
+      senderSelect.innerHTML = options;
+      receiverSelect.innerHTML = options;
     }
 
     // Cambiar tarjeta activa
@@ -924,18 +1083,16 @@
     }
 
     /* ----------  NAVIGATION  ---------- */
-    function showSection(sectionId) {
-      // Hide all sections
-      ['wallet', 'history', 'settings'].forEach(s => show(`#${s}-section`, false));
-      // Show target
-      show(`#${sectionId}-section`, true);
+    function showSection(id) {
+      document.querySelectorAll('section').forEach(s => s.classList.add('hidden'));
+      qs(`#${id}-section`).classList.remove('hidden');
 
-      // Update Nav
       document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
-      const activeBtn = Array.from(document.querySelectorAll('.nav-item')).find(btn => btn.textContent.toLowerCase().includes(sectionId === 'wallet' ? 'billetera' : sectionId === 'history' ? 'historial' : 'ajustes'));
+      const activeBtn = Array.from(document.querySelectorAll('.nav-item')).find(btn => btn.getAttribute('onclick')?.includes(id));
       if (activeBtn) activeBtn.classList.add('active');
 
-      if (sectionId === 'history') renderTransacciones();
+      if (id === 'pos') updatePOSCardSelects();
+      if (id === 'history') renderTransacciones();
     }
 
     /* ----------  AUTH TOGGLE  ---------- */
@@ -1058,23 +1215,7 @@
       if (balanceRefreshInterval) clearInterval(balanceRefreshInterval);
     }
 
-    async function loadTidesBalance() {
-      const user = JSON.parse(localStorage.getItem('opUser') || '{}');
-      if (!user.id) { qs('#tides').textContent = '0'; return; }
 
-      try {
-        const res = await fetch(`${API}/hub/tides/balance`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (res.ok) {
-          const data = await res.json();
-          qs('#tides').textContent = (data.tides || 0).toLocaleString();
-        }
-      } catch (e) {
-        console.error("Error fetching Tides", e);
-        qs('#tides').textContent = '0';
-      }
-    }
 
     async function loadAquaBuxBalance() {
       try {

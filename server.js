@@ -2228,68 +2228,7 @@ app.get('/ocean-pay/ecoxionums/:userId', async (req, res) => {
   }
 });
 
-/* ===== SAVAGE SPACE ANIMALS - SUBSCRIPTION BENEFITS ===== */
 
-// Endpoint para obtener beneficios de suscripción para Savage Space Animals
-app.get('/savage-space-animals/benefits', async (req, res) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Token requerido' });
-  }
-
-  const token = authHeader.substring(7);
-  let userId;
-  try {
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
-    userId = decoded.uid;
-    userId = parseInt(userId) || userId;
-  } catch (e) {
-    return res.status(401).json({ error: 'Token inválido' });
-  }
-
-  try {
-    // Verificar suscripción del usuario
-    const { rows: subRows } = await pool.query(`
-      SELECT value FROM ocean_pay_metadata
-      WHERE user_id = $1 AND key = 'studio_plan'
-      `, [userId]);
-
-    const plan = subRows.length > 0 ? subRows[0].value : 'free';
-
-    // Beneficios por plan
-    const benefits = {
-      free: {
-        extraLives: 0,
-        bossCooldownReduction: 0,
-        cosmicDustBonus: 0,
-        extendedInvincibility: false,
-        earlyAnimalUnlock: false
-      },
-      savage: {
-        extraLives: 1,              // +1 vida extra (4 total)
-        bossCooldownReduction: 10,  // -10% cooldown del boss
-        cosmicDustBonus: 5,         // +5% pólvora cósmica
-        extendedInvincibility: false,
-        earlyAnimalUnlock: false
-      },
-      oceanic: {
-        extraLives: 2,              // +2 vidas extra (5 total)
-        bossCooldownReduction: 25,  // -25% cooldown del boss
-        cosmicDustBonus: 15,        // +15% pólvora cósmica
-        extendedInvincibility: true, // Invencibilidad extendida al respawn
-        earlyAnimalUnlock: true      // Desbloqueo anticipado de animales
-      }
-    };
-
-    res.json({
-      plan,
-      benefits: benefits[plan] || benefits.free
-    });
-  } catch (e) {
-    console.error('Error obteniendo beneficios SSA:', e);
-    res.status(500).json({ error: 'Error interno' });
-  }
-});
 
 // Endpoint para sincronizar pólvora cósmica
 app.post('/savage-space-animals/dust/sync', async (req, res) => {
@@ -2577,15 +2516,75 @@ app.post('/pos/complete', async (req, res) => {
   }
 });
 
-res.json({
-  plan: plan,
-  benefits: benefits[plan] || null,
-  expiresAt: subscription.ends_at
-});
+// Endpoint para obtener beneficios de suscripción en SSA
+
+app.get('/savage-space-animals/benefits', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.json({ plan: 'free', benefits: null });
+  }
+
+  const token = authHeader.substring(7);
+  let userId;
+  try {
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
+    userId = decoded.uid;
+    userId = parseInt(userId) || userId;
   } catch (e) {
-  console.error('Error obteniendo beneficios SSA:', e);
-  res.json({ plan: 'free', benefits: null });
-}
+    return res.json({ plan: 'free', benefits: null });
+  }
+
+  try {
+    // Buscar suscripción activa del Hub (si la tabla existe)
+    let rows = [];
+    try {
+      const result = await pool.query(`
+        SELECT plan_id, ends_at FROM hub_subs
+        WHERE user_id = $1 AND active = true
+        AND ends_at > NOW()
+        ORDER BY created_at DESC
+        LIMIT 1
+      `, [userId]);
+      rows = result.rows;
+    } catch (dbError) {
+      // Ignore table not found error
+      rows = [];
+    }
+
+    if (rows.length === 0) {
+      return res.json({ plan: 'free', benefits: null });
+    }
+
+    const subscription = rows[0];
+    const plan = subscription.plan_id; // 'savage' or 'oceanic'
+
+    // Define benefits based on plan
+    const benefits = {
+      savage: {
+        extraLives: 1,
+        bossCooldownReduction: 10,
+        cosmicDustBonus: 5,
+        extendedInvincibility: false,
+        earlyAnimalUnlock: false
+      },
+      oceanic: {
+        extraLives: 2,
+        bossCooldownReduction: 25,
+        cosmicDustBonus: 15,
+        extendedInvincibility: true,
+        earlyAnimalUnlock: true
+      }
+    };
+
+    res.json({
+      plan: plan,
+      benefits: benefits[plan] || null,
+      expiresAt: subscription.ends_at
+    });
+  } catch (e) {
+    console.error('Error obteniendo beneficios SSA:', e);
+    res.json({ plan: 'free', benefits: null });
+  }
 });
 
 app.post('/wildshorts/episode/pay', async (req, res) => {

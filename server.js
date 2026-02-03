@@ -605,36 +605,34 @@ async function runDatabaseMigrations() {
       }
     }
 
-    // 12. Migrar saldos existentes a la tarjeta principal de cada usuario
-    const cardsWithoutBalances = await pool.query(`
-      SELECT c.id as card_id, c.user_id, u.aquabux, u.ecoxionums, u.appbux
+    // 12. Migrar saldos existentes (AquaBux, Ecoxionums, AppBux, EcoCoreBits) a la tarjeta principal
+    // Esta migración es segura porque no sobrescribe saldos existentes en la tarjeta
+    console.log('🔄 Sincronizando saldos históricos con el sistema de tarjetas...');
+
+    await pool.query(`
+      INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
+      SELECT c.id, 'aquabux', u.aquabux
+      FROM ocean_pay_cards c JOIN ocean_pay_users u ON c.user_id = u.id WHERE c.is_primary = true
+      ON CONFLICT (card_id, currency_type) DO NOTHING;
+
+      INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
+      SELECT c.id, 'appbux', u.appbux
+      FROM ocean_pay_cards c JOIN ocean_pay_users u ON c.user_id = u.id WHERE c.is_primary = true
+      ON CONFLICT (card_id, currency_type) DO NOTHING;
+
+      INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
+      SELECT c.id, 'ecorebits', COALESCE(uc.amount, 0)
       FROM ocean_pay_cards c
       JOIN ocean_pay_users u ON c.user_id = u.id
-      WHERE c.id NOT IN (SELECT card_id FROM ocean_pay_card_balances)
-      AND c.is_primary = true
+      LEFT JOIN user_currency uc ON u.id = uc.user_id AND uc.currency_type = 'ecocorebits'
+      WHERE c.is_primary = true
+      ON CONFLICT (card_id, currency_type) DO NOTHING;
+
+      INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
+      SELECT c.id, 'ecopower', 100
+      FROM ocean_pay_cards c WHERE c.is_primary = true
+      ON CONFLICT (card_id, currency_type) DO NOTHING;
     `);
-
-    for (const card of cardsWithoutBalances.rows) {
-      const currencies = [
-        { type: 'aquabux', amount: card.aquabux || 0 },
-        { type: 'ecoxionums', amount: card.ecoxionums || 0 },
-        { type: 'appbux', amount: card.appbux || 0 },
-        { type: 'ecorebits', amount: 0 },
-        { type: 'wildcredits', amount: 0 },
-        { type: 'wildgems', amount: 0 },
-        { type: 'tides', amount: 0 },
-        { type: 'ecobooks', amount: 0 },
-        { type: 'ecotokens', amount: 0 },
-        { type: 'ecopower', amount: 100 }
-      ];
-
-      for (const curr of currencies) {
-        await pool.query(
-          'INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount) VALUES ($1, $2, $3) ON CONFLICT (card_id, currency_type) DO NOTHING',
-          [card.card_id, curr.type, curr.amount]
-        );
-      }
-    }
 
     // Establecer tarjeta principal para usuarios que no tengan una
     await pool.query(`

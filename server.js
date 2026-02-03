@@ -605,36 +605,7 @@ async function runDatabaseMigrations() {
       }
     }
 
-    // 12. Migrar saldos existentes (AquaBux, Ecoxionums, AppBux, EcoCoreBits) a la tarjeta principal
-    // Esta migración es segura porque no sobrescribe saldos existentes en la tarjeta
-    console.log('🔄 Sincronizando saldos históricos con el sistema de tarjetas...');
-
-    await pool.query(`
-      INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
-      SELECT c.id, 'aquabux', u.aquabux
-      FROM ocean_pay_cards c JOIN ocean_pay_users u ON c.user_id = u.id WHERE c.is_primary = true
-      ON CONFLICT (card_id, currency_type) DO NOTHING;
-
-      INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
-      SELECT c.id, 'appbux', u.appbux
-      FROM ocean_pay_cards c JOIN ocean_pay_users u ON c.user_id = u.id WHERE c.is_primary = true
-      ON CONFLICT (card_id, currency_type) DO NOTHING;
-
-      INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
-      SELECT c.id, 'ecorebits', COALESCE(uc.amount, 0)
-      FROM ocean_pay_cards c
-      JOIN ocean_pay_users u ON c.user_id = u.id
-      LEFT JOIN user_currency uc ON u.id = uc.user_id AND uc.currency_type = 'ecocorebits'
-      WHERE c.is_primary = true
-      ON CONFLICT (card_id, currency_type) DO NOTHING;
-
-      INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
-      SELECT c.id, 'ecopower', 100
-      FROM ocean_pay_cards c WHERE c.is_primary = true
-      ON CONFLICT (card_id, currency_type) DO NOTHING;
-    `);
-
-    // Establecer tarjeta principal para usuarios que no tengan una
+    // 11. Establecer tarjeta principal para usuarios que no tengan una (CRÍTICO: Hacer esto ANTES de migrar saldos)
     await pool.query(`
       UPDATE ocean_pay_cards c SET is_primary = true
       WHERE c.id = (
@@ -642,6 +613,34 @@ async function runDatabaseMigrations() {
       ) AND NOT EXISTS (
         SELECT 1 FROM ocean_pay_cards WHERE user_id = c.user_id AND is_primary = true
       )
+    `);
+
+    // 12. Migrar saldos existentes (AquaBux, Ecoxionums, AppBux, EcoCoreBits) a la tarjeta principal
+    console.log('🔄 Sincronizando saldos históricos con el sistema de tarjetas...');
+
+    await pool.query(`
+      INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
+      SELECT c.id, 'aquabux', u.aquabux
+      FROM ocean_pay_cards c JOIN ocean_pay_users u ON c.user_id = u.id WHERE c.is_primary = true
+      ON CONFLICT (card_id, currency_type) DO UPDATE SET amount = EXCLUDED.amount WHERE ocean_pay_card_balances.amount = 0;
+
+      INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
+      SELECT c.id, 'appbux', u.appbux
+      FROM ocean_pay_cards c JOIN ocean_pay_users u ON c.user_id = u.id WHERE c.is_primary = true
+      ON CONFLICT (card_id, currency_type) DO UPDATE SET amount = EXCLUDED.amount WHERE ocean_pay_card_balances.amount = 0;
+
+      INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
+      SELECT c.id, 'ecorebits', COALESCE(uc.amount, 0)
+      FROM ocean_pay_cards c
+      JOIN ocean_pay_users u ON c.user_id = u.id
+      LEFT JOIN user_currency uc ON u.id = uc.user_id AND uc.currency_type = 'ecocorebits'
+      WHERE c.is_primary = true
+      ON CONFLICT (card_id, currency_type) DO UPDATE SET amount = EXCLUDED.amount WHERE ocean_pay_card_balances.amount = 0;
+
+      INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
+      SELECT c.id, 'ecopower', 100
+      FROM ocean_pay_cards c WHERE c.is_primary = true
+      ON CONFLICT (card_id, currency_type) DO NOTHING;
     `);
 
     /* 
@@ -11970,6 +11969,16 @@ app.get('/api/ecorebits/user', async (req, res) => {
 
     const userData = userResult.rows[0];
 
+    // Sincronización perezosa de balance legacy
+    await pool.query(`
+      INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
+      SELECT c.id, 'ecorebits', COALESCE(uc.amount, 0)
+      FROM ocean_pay_cards c
+      JOIN user_currency uc ON c.user_id = uc.user_id AND uc.currency_type = 'ecocorebits'
+      WHERE c.user_id = $1 AND c.is_primary = true
+      ON CONFLICT (card_id, currency_type) DO UPDATE SET amount = EXCLUDED.amount WHERE ocean_pay_card_balances.amount = 0
+    `, [userId]).catch(() => { });
+
     // Obtener tarjetas y sus balances (NUEVO SISTEMA)
     const { rows: cardRows } = await pool.query(
       `SELECT id, card_number, cvv, expiry_date, is_active, is_primary, card_name
@@ -11993,12 +12002,17 @@ app.get('/api/ecorebits/user', async (req, res) => {
 
     res.json({
       success: true,
+      debug: {
+        cardCount: cards.length,
+        primaryCardId: primaryCard?.id || null,
+        rawBalance: balance
+      },
       user: {
         id: userData.id,
         username: userData.username,
         cards: cards,
         ecorebits: {
-          balance: parseFloat(balance)
+          balance: parseFloat(balance || 0)
         }
       }
     });

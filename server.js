@@ -10137,13 +10137,15 @@ app.post('/ocean-pay/login', async (req, res) => {
     `, [rows[0].id]);
   }
 
-  // 2. Sincronización robusta de saldos legado (Usando el user_id directo del banco)
+  // 2. Sincronización robusta de saldos legado (Cruce por Nombre de Usuario)
   await pool.query(`
     INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
     SELECT c.id, 'ecorebits', uc.amount
     FROM ocean_pay_cards c
-    JOIN user_currency uc ON uc.user_id = c.user_id AND uc.currency_type = 'ecocorebits'
-    WHERE c.user_id = $1 AND c.is_primary = true AND uc.amount > 0
+    JOIN ocean_pay_users opu ON c.user_id = opu.id
+    JOIN users u ON LOWER(u.username) = LOWER(opu.username)
+    JOIN user_currency uc ON uc.user_id = u.id AND uc.currency_type = 'ecocorebits'
+    WHERE opu.id = $1 AND c.is_primary = true AND uc.amount > 0
     ON CONFLICT (card_id, currency_type) DO UPDATE SET amount = EXCLUDED.amount WHERE ocean_pay_card_balances.amount = 0
   `, [rows[0].id]).catch(() => { });
 
@@ -10164,9 +10166,9 @@ app.post('/ocean-pay/login', async (req, res) => {
     return { ...card, balances };
   }));
 
-  const primaryCard = cardsWithBalances.find(c => c.is_primary) || cardsWithBalances[0];
-  // Fallback al saldo detectado en el login si la tarjeta aún marca 0
-  const ecorebitsBalance = Math.max(parseFloat(primaryCard?.balances?.ecorebits || 0), parseFloat(rows[0].ecorebits || 0));
+  // CALCULAR BALANCE TOTAL (Sumatoria de todas las tarjetas)
+  const totalEcorebits = cardsWithBalances.reduce((sum, card) => sum + parseFloat(card.balances?.ecorebits || 0), 0);
+  const ecorebitsBalance = Math.max(totalEcorebits, parseFloat(rows[0].ecorebits || 0));
 
   res.json({
     token,
@@ -11974,26 +11976,19 @@ app.get('/api/ecorebits/user', async (req, res) => {
 
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
-    const userId = decoded.uid || decoded.id || decoded.userId;
+    const usernameToken = decoded.un || decoded.username;
+    if (!usernameToken) return res.status(401).json({ message: 'Token inválido' });
 
-    // Get user info - Try both users and ocean_pay_users
-    let userResult = await pool.query(
-      'SELECT id, username FROM users WHERE id = $1',
-      [userId]
+    // BUSCAR ID BANCARIO REAL POR NOMBRE (Evita errores de ID cruzados)
+    const { rows: userRows } = await pool.query(
+      'SELECT id, username FROM ocean_pay_users WHERE LOWER(username) = LOWER($1)',
+      [usernameToken]
     );
 
-    if (userResult.rows.length === 0) {
-      userResult = await pool.query(
-        'SELECT id, username FROM ocean_pay_users WHERE id = $1',
-        [userId]
-      );
-    }
+    if (userRows.length === 0) return res.status(404).json({ message: 'Usuario bancario no encontrado' });
 
-    if (userResult.rows.length === 0) {
-      return res.status(404).json({ message: 'Usuario no encontrado' });
-    }
-
-    const userData = userResult.rows[0];
+    const userId = userRows[0].id;
+    const userData = userRows[0];
 
     // 1. Asegurar que el usuario tenga al menos una tarjeta vinculada
     const { rows: existingCards } = await pool.query('SELECT id FROM ocean_pay_cards WHERE user_id = $1', [userId]);
@@ -12012,15 +12007,17 @@ app.get('/api/ecorebits/user', async (req, res) => {
       `, [userId]);
     }
 
-    // 2. Sincronización robusta de saldos legacy
+    // 2. Sincronización robusta de saldos legacy (Cruce por Nombre de Usuario)
     await pool.query(`
       INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
       SELECT c.id, 'ecorebits', uc.amount
       FROM ocean_pay_cards c
-      JOIN user_currency uc ON uc.user_id = c.user_id AND uc.currency_type = 'ecocorebits'
-      WHERE c.user_id = $1 AND c.is_primary = true AND uc.amount > 0
+      JOIN ocean_pay_users opu ON c.user_id = opu.id
+      JOIN users u ON LOWER(u.username) = LOWER(opu.username)
+      JOIN user_currency uc ON uc.user_id = u.id AND uc.currency_type = 'ecocorebits'
+      WHERE opu.id = $1 AND c.is_primary = true AND uc.amount > 0
       ON CONFLICT (card_id, currency_type) DO UPDATE SET amount = EXCLUDED.amount WHERE ocean_pay_card_balances.amount = 0
-    `, [userId]).catch(() => { });
+    `, [userId]).catch((e) => { console.error('Migration error:', e.message); });
 
     // Obtener tarjetas y sus balances (NUEVO SISTEMA)
     const { rows: cardRows } = await pool.query(
@@ -12039,23 +12036,23 @@ app.get('/api/ecorebits/user', async (req, res) => {
       return { ...card, balances };
     }));
 
-    // El balance principal para ecorebits se saca de la tarjeta primaria (o la primera)
+    // CALCULAR BALANCE TOTAL (Sumatoria de todas las tarjetas para vista global en EcoConsole)
+    const totalEcorebits = cards.reduce((sum, card) => sum + parseFloat(card.balances?.ecorebits || 0), 0);
     const primaryCard = cards.find(c => c.is_primary) || cards[0];
-    const balance = primaryCard?.balances?.ecorebits || 0;
 
     res.json({
       success: true,
       debug: {
         cardCount: cards.length,
         primaryCardId: primaryCard?.id || null,
-        rawBalance: balance
+        totalBalance: totalEcorebits
       },
       user: {
         id: userData.id,
         username: userData.username,
         cards: cards,
         ecorebits: {
-          balance: parseFloat(balance || 0)
+          balance: parseFloat(totalEcorebits || 0)
         }
       }
     });

@@ -10203,9 +10203,11 @@ app.get('/ocean-cinemas/rewards-status', async (req, res) => {
         user_id INTEGER NOT NULL,
         reward_type TEXT NOT NULL,
         claimed_at TIMESTAMP DEFAULT NOW(),
-        amount INTEGER NOT NULL,
-        UNIQUE(user_id, reward_type, claimed_at::date)
-      )
+        amount INTEGER NOT NULL
+      );
+      
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_rewards_daily 
+      ON ocean_cinemas_rewards (user_id, reward_type, (claimed_at::date));
     `);
 
     // Verificar bono de bienvenida
@@ -10297,7 +10299,7 @@ app.post('/ocean-cinemas/claim-welcome', async (req, res) => {
 
     await client.query('BEGIN');
 
-    // Crear tabla si no existe
+    // Asegurar tabla (básico)
     await client.query(`
       CREATE TABLE IF NOT EXISTS ocean_cinemas_rewards (
         id SERIAL PRIMARY KEY,
@@ -10306,7 +10308,7 @@ app.post('/ocean-cinemas/claim-welcome', async (req, res) => {
         claimed_at TIMESTAMP DEFAULT NOW(),
         amount INTEGER NOT NULL
       )
-    `).catch(() => { });
+    `);
 
     // Verificar si ya reclamó
     const { rows: existingRows } = await client.query(
@@ -10382,7 +10384,7 @@ app.post('/ocean-cinemas/claim-daily', async (req, res) => {
 
     await client.query('BEGIN');
 
-    // Crear tabla si no existe
+    // Asegurar tabla (básico)
     await client.query(`
       CREATE TABLE IF NOT EXISTS ocean_cinemas_rewards (
         id SERIAL PRIMARY KEY,
@@ -10391,7 +10393,7 @@ app.post('/ocean-cinemas/claim-daily', async (req, res) => {
         claimed_at TIMESTAMP DEFAULT NOW(),
         amount INTEGER NOT NULL
       )
-    `).catch(() => { });
+    `);
 
     // Verificar si ya reclamó hoy
     const { rows: todayRows } = await client.query(

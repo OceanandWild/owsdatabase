@@ -10196,7 +10196,7 @@ app.get('/ocean-cinemas/rewards-status', async (req, res) => {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
     const userId = decoded.uid;
 
-    // Crear tabla si no existe
+    // Crear tabla si no existe (asegurar existencia antes de consultar)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS ocean_cinemas_rewards (
         id SERIAL PRIMARY KEY,
@@ -10206,7 +10206,7 @@ app.get('/ocean-cinemas/rewards-status', async (req, res) => {
         amount INTEGER NOT NULL,
         UNIQUE(user_id, reward_type, claimed_at::date)
       )
-    `).catch(() => { });
+    `);
 
     // Verificar bono de bienvenida
     const { rows: welcomeRows } = await pool.query(

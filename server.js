@@ -10184,6 +10184,275 @@ app.post('/ocean-pay/cards/change-balance', async (req, res) => {
   }
 });
 
+/* ----------  OCEAN CINEMAS REWARDS SYSTEM  ---------- */
+
+// Verificar estado de recompensas de Ocean Cinemas
+app.get('/ocean-cinemas/rewards-status', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) return res.status(401).json({ error: 'No token' });
+
+  try {
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
+    const userId = decoded.uid;
+
+    // Crear tabla si no existe
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ocean_cinemas_rewards (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        reward_type TEXT NOT NULL,
+        claimed_at TIMESTAMP DEFAULT NOW(),
+        amount INTEGER NOT NULL,
+        UNIQUE(user_id, reward_type, claimed_at::date)
+      )
+    `).catch(() => { });
+
+    // Verificar bono de bienvenida
+    const { rows: welcomeRows } = await pool.query(
+      `SELECT * FROM ocean_cinemas_rewards WHERE user_id = $1 AND reward_type = 'welcome'`,
+      [userId]
+    );
+
+    // Verificar recompensa diaria
+    const { rows: dailyRows } = await pool.query(
+      `SELECT * FROM ocean_cinemas_rewards WHERE user_id = $1 AND reward_type = 'daily' AND DATE(claimed_at) = CURRENT_DATE`,
+      [userId]
+    );
+
+    // Obtener racha de días
+    const { rows: streakRows } = await pool.query(
+      `SELECT DISTINCT DATE(claimed_at) as claim_date FROM ocean_cinemas_rewards 
+       WHERE user_id = $1 AND reward_type = 'daily' 
+       ORDER BY claim_date DESC LIMIT 8`,
+      [userId]
+    );
+
+    // Calcular racha
+    let streak = 0;
+    if (streakRows.length > 0) {
+      const today = new Date().toISOString().split('T')[0];
+      const dates = streakRows.map(r => r.claim_date.toISOString().split('T')[0]);
+
+      // Si reclamó hoy, cuenta como día 1 de la racha
+      if (dates.includes(today)) {
+        streak = 1;
+        for (let i = 1; i < dates.length; i++) {
+          const prev = new Date(dates[i - 1]);
+          const curr = new Date(dates[i]);
+          const diff = (prev - curr) / (1000 * 60 * 60 * 24);
+          if (diff === 1) streak++;
+          else break;
+        }
+      } else {
+        // Verificar si reclamó ayer para mantener la racha
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yestStr = yesterday.toISOString().split('T')[0];
+        if (dates.includes(yestStr)) {
+          streak = 1;
+          for (let i = 0; i < dates.length - 1; i++) {
+            const prev = new Date(dates[i]);
+            const curr = new Date(dates[i + 1]);
+            const diff = (prev - curr) / (1000 * 60 * 60 * 24);
+            if (diff === 1) streak++;
+            else break;
+          }
+        }
+      }
+    }
+
+    res.json({
+      welcome: {
+        claimed: welcomeRows.length > 0,
+        amount: 500
+      },
+      daily: {
+        claimed: dailyRows.length > 0,
+        baseAmount: 50,
+        streakBonus: Math.min(streak, 7) * 15,
+        totalAmount: 50 + Math.min(streak, 7) * 15,
+        streak: Math.min(streak, 7)
+      }
+    });
+  } catch (e) {
+    console.error('Error verificando recompensas:', e);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Reclamar bono de bienvenida (500 AquaBux)
+app.post('/ocean-cinemas/claim-welcome', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) return res.status(401).json({ error: 'No token' });
+
+  const { cardNumber } = req.body;
+  if (!cardNumber) return res.status(400).json({ error: 'cardNumber requerido' });
+
+  const client = await pool.connect();
+  try {
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
+    const userId = decoded.uid;
+
+    await client.query('BEGIN');
+
+    // Crear tabla si no existe
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ocean_cinemas_rewards (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        reward_type TEXT NOT NULL,
+        claimed_at TIMESTAMP DEFAULT NOW(),
+        amount INTEGER NOT NULL
+      )
+    `).catch(() => { });
+
+    // Verificar si ya reclamó
+    const { rows: existingRows } = await client.query(
+      `SELECT * FROM ocean_cinemas_rewards WHERE user_id = $1 AND reward_type = 'welcome' FOR UPDATE`,
+      [userId]
+    );
+
+    if (existingRows.length > 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Ya reclamaste tu bono de bienvenida' });
+    }
+
+    // Verificar que la tarjeta pertenece al usuario
+    const { rows: cardRows } = await client.query(
+      'SELECT id FROM ocean_pay_cards WHERE card_number = $1 AND user_id = $2',
+      [cardNumber, userId]
+    );
+
+    if (cardRows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Tarjeta no encontrada' });
+    }
+
+    const cardId = cardRows[0].id;
+    const welcomeAmount = 500;
+
+    // Agregar saldo a la tarjeta
+    await client.query(
+      `INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount) 
+       VALUES ($1, 'aquabux', $2)
+       ON CONFLICT (card_id, currency_type) 
+       DO UPDATE SET amount = ocean_pay_card_balances.amount + $2`,
+      [cardId, welcomeAmount]
+    );
+
+    // Registrar la recompensa
+    await client.query(
+      `INSERT INTO ocean_cinemas_rewards (user_id, reward_type, amount) VALUES ($1, 'welcome', $2)`,
+      [userId, welcomeAmount]
+    );
+
+    // Registrar transacción
+    await client.query(
+      'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)',
+      [userId, '🎬 Bono de Bienvenida - Ocean Cinemas', welcomeAmount, 'Ocean Cinemas', 'AQUABUX']
+    );
+
+    await client.query('COMMIT');
+    res.json({ success: true, amount: welcomeAmount, message: '¡Bienvenido a Ocean Cinemas!' });
+
+  } catch (e) {
+    await client.query('ROLLBACK');
+    console.error('Error reclamando bono de bienvenida:', e);
+    res.status(500).json({ error: 'Error interno' });
+  } finally {
+    client.release();
+  }
+});
+
+// Reclamar recompensa diaria
+app.post('/ocean-cinemas/claim-daily', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) return res.status(401).json({ error: 'No token' });
+
+  const { cardNumber, streak = 1 } = req.body;
+  if (!cardNumber) return res.status(400).json({ error: 'cardNumber requerido' });
+
+  const client = await pool.connect();
+  try {
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
+    const userId = decoded.uid;
+
+    await client.query('BEGIN');
+
+    // Crear tabla si no existe
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ocean_cinemas_rewards (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        reward_type TEXT NOT NULL,
+        claimed_at TIMESTAMP DEFAULT NOW(),
+        amount INTEGER NOT NULL
+      )
+    `).catch(() => { });
+
+    // Verificar si ya reclamó hoy
+    const { rows: todayRows } = await client.query(
+      `SELECT * FROM ocean_cinemas_rewards WHERE user_id = $1 AND reward_type = 'daily' AND DATE(claimed_at) = CURRENT_DATE`,
+      [userId]
+    );
+
+    if (todayRows.length > 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Ya reclamaste tu recompensa diaria hoy' });
+    }
+
+    // Verificar que la tarjeta pertenece al usuario
+    const { rows: cardRows } = await client.query(
+      'SELECT id FROM ocean_pay_cards WHERE card_number = $1 AND user_id = $2',
+      [cardNumber, userId]
+    );
+
+    if (cardRows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Tarjeta no encontrada' });
+    }
+
+    const cardId = cardRows[0].id;
+    const baseAmount = 50;
+    const streakBonus = Math.min(streak - 1, 6) * 15; // Max 7 días de racha
+    const totalAmount = baseAmount + streakBonus;
+
+    // Agregar saldo a la tarjeta
+    await client.query(
+      `INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount) 
+       VALUES ($1, 'aquabux', $2)
+       ON CONFLICT (card_id, currency_type) 
+       DO UPDATE SET amount = ocean_pay_card_balances.amount + $2`,
+      [cardId, totalAmount]
+    );
+
+    // Registrar la recompensa
+    await client.query(
+      `INSERT INTO ocean_cinemas_rewards (user_id, reward_type, amount) VALUES ($1, 'daily', $2)`,
+      [userId, totalAmount]
+    );
+
+    // Registrar transacción
+    await client.query(
+      'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)',
+      [userId, `🎬 Recompensa Diaria (Racha: ${streak} días) - Ocean Cinemas`, totalAmount, 'Ocean Cinemas', 'AQUABUX']
+    );
+
+    await client.query('COMMIT');
+    res.json({ success: true, amount: totalAmount, streak, message: `¡Recompensa diaria reclamada!` });
+
+  } catch (e) {
+    await client.query('ROLLBACK');
+    console.error('Error reclamando recompensa diaria:', e);
+    res.status(500).json({ error: 'Error interno' });
+  } finally {
+    client.release();
+  }
+});
+
 // Obtener saldo de una tarjeta específica
 app.get('/ocean-pay/cards/:cardNumber/balance', async (req, res) => {
   const authHeader = req.headers.authorization;

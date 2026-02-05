@@ -10557,13 +10557,40 @@ app.post('/ocean-pay/change', async (req, res) => {
 
 
 /* ----------  WHO AM I ?  (validates JWT)  ---------- */
+app.post('/ocean-pay/update-balance', async (req, res) => {
+  const auth = req.headers.authorization;
+  if (!auth) return res.status(401).json({ error: 'Sin token' });
+  const { aquabux } = req.body;
+  try {
+    const payload = jwt.verify(auth.split(' ')[1], process.env.STUDIO_SECRET);
+
+    // 1. Actualizar balance global
+    await pool.query(
+      'UPDATE ocean_pay_users SET aquabux = $1 WHERE id = $2',
+      [aquabux, payload.uid]
+    );
+
+    // 2. Sincronizar con la tarjeta primaria si existe
+    await pool.query(`
+      UPDATE ocean_pay_card_balances SET amount = $1
+      WHERE card_id = (SELECT id FROM ocean_pay_cards WHERE user_id = $2 AND is_primary = true)
+      AND currency_type = 'aquabux'
+    `, [aquabux, payload.uid]);
+
+    res.json({ success: true, newBalance: aquabux });
+  } catch (e) {
+    console.error(e);
+    res.status(401).json({ error: 'Token inválido o error de BD' });
+  }
+});
+
 app.get('/ocean-pay/me', async (req, res) => {
   const auth = req.headers.authorization;            // Bearer <token>
   if (!auth) return res.status(401).json({ error: 'Sin token' });
   try {
     const payload = jwt.verify(auth.split(' ')[1], process.env.STUDIO_SECRET);
     const { rows } = await pool.query(
-      'SELECT id,username FROM ocean_pay_users WHERE id=$1',
+      'SELECT id, username, aquabux FROM ocean_pay_users WHERE id=$1',
       [payload.uid]
     );
     if (rows.length === 0) return res.status(404).json({ error: 'Usuario no encontrado' });

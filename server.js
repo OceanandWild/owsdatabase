@@ -11010,59 +11010,7 @@ app.post('/ocean-pay/transfer', async (req, res) => {
   }
 });
 
-// 2. Eliminar tarjeta secundaria
-app.delete('/ocean-pay/cards/:cardId', async (req, res) => {
-  const { cardId } = req.params;
-  const { userId } = req.body; // Se debe enviar userId en el body por seguridad simple
 
-  if (!cardId || !userId) {
-    return res.status(400).json({ error: 'Faltan datos' });
-  }
-
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-
-    // Verificar tarjeta
-    const { rows: cardRows } = await client.query(
-      'SELECT id, user_id, is_primary FROM ocean_pay_cards WHERE id = $1',
-      [cardId]
-    );
-
-    if (cardRows.length === 0) {
-      await client.query('ROLLBACK');
-      return res.status(404).json({ error: 'Tarjeta no encontrada' });
-    }
-
-    const card = cardRows[0];
-
-    if (card.user_id != userId) {
-      await client.query('ROLLBACK');
-      return res.status(403).json({ error: 'No autorizado' });
-    }
-
-    if (card.is_primary) {
-      await client.query('ROLLBACK');
-      return res.status(400).json({ error: 'No puedes eliminar tu tarjeta principal' });
-    }
-
-    // Eliminar balances asociados
-    await client.query('DELETE FROM ocean_pay_card_balances WHERE card_id = $1', [cardId]);
-
-    // Eliminar tarjeta
-    await client.query('DELETE FROM ocean_pay_cards WHERE id = $1', [cardId]);
-
-    await client.query('COMMIT');
-    res.json({ success: true, message: 'Tarjeta eliminada' });
-
-  } catch (err) {
-    await client.query('ROLLBACK');
-    console.error('❌ Error en /ocean-pay/cards/:cardId:', err);
-    res.status(500).json({ error: 'Error interno' });
-  } finally {
-    client.release();
-  }
-});
 
 // 3. Estadísticas de uso de divisas (Misc)
 app.get('/ocean-pay/stats/tx-usage/:userId', async (req, res) => {
@@ -17494,8 +17442,8 @@ app.post('/ocean-pay/api/transfer-self', async (req, res) => {
   }
 });
 
-// Eliminar tarjeta secundaria
-app.delete('/ocean-pay/api/cards/:id', async (req, res) => {
+// Eliminar tarjeta secundaria (Supports both paths for compatibility)
+app.delete(['/ocean-pay/api/cards/:id', '/ocean-pay/cards/:id'], async (req, res) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) return res.status(401).json({ error: 'Token requerido' });
 

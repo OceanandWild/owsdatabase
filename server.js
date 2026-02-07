@@ -17396,7 +17396,7 @@ async function ensureOceanPayTables() {
 await ensureOceanPayTables();
 
 // Transferir saldo entre propias tarjetas
-app.post('/api/ocean-pay/transfer-self', async (req, res) => {
+app.post('/ocean-pay/transfer-self', async (req, res) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) return res.status(401).json({ error: 'Token requerido' });
 
@@ -17492,7 +17492,7 @@ app.post('/api/ocean-pay/transfer-self', async (req, res) => {
 });
 
 // Eliminar tarjeta secundaria
-app.delete('/api/ocean-pay/cards/:id', async (req, res) => {
+app.delete('/ocean-pay/cards/:id', async (req, res) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) return res.status(401).json({ error: 'Token requerido' });
 
@@ -17531,7 +17531,7 @@ app.delete('/api/ocean-pay/cards/:id', async (req, res) => {
 });
 
 // Stats for charts: Ingresos y Gastos por divisa
-app.get('/api/ocean-pay/stats/transactions', async (req, res) => {
+app.get('/ocean-pay/stats/transactions', async (req, res) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) return res.status(401).json({ error: 'Token requerido' });
 
@@ -17552,26 +17552,64 @@ app.get('/api/ocean-pay/stats/transactions', async (req, res) => {
   if (!userId) return res.status(404).json({ error: 'Usuario no encontrado' });
 
   try {
-    // Ingresos: receiver_id = userId
-    const incomes = await pool.query(`
-            SELECT currency, SUM(amount) as total
-            FROM ocean_pay_pos
-            WHERE receiver_id = $1 AND status = 'completed' AND sender_id != $1
-            GROUP BY currency
-        `, [userId]);
+    // 1. POS Data
+    // Ingresos (POS): Recibido por mi (receiver_id = userId)
+    const posIncomes = await pool.query(`
+      SELECT currency, SUM(amount) as total
+      FROM ocean_pay_pos
+      WHERE receiver_id = $1 AND status = 'completed' AND sender_id != $1
+      GROUP BY currency
+    `, [userId]);
 
-    // Gastos: sender_id = userId
-    const expenses = await pool.query(`
-            SELECT currency, SUM(amount) as total
-            FROM ocean_pay_pos
-            WHERE sender_id = $1 AND status = 'completed' AND receiver_id != $1
-            GROUP BY currency
-        `, [userId]);
+    // Gastos (POS): Enviado por mi (sender_id = userId)
+    const posExpenses = await pool.query(`
+      SELECT currency, SUM(amount) as total
+      FROM ocean_pay_pos
+      WHERE sender_id = $1 AND status = 'completed' AND receiver_id != $1
+      GROUP BY currency
+    `, [userId]);
 
-    res.json({
-      incomes: incomes.rows,
-      expenses: expenses.rows
+    // 2. Legacy Data (ocean_pay_txs)
+    let legacyStats = { rows: [] };
+    try {
+      legacyStats = await pool.query(`
+          SELECT moneda as currency, SUM(monto) as total
+          FROM ocean_pay_txs
+          WHERE user_id = $1
+          GROUP BY moneda
+        `, [userId]);
+    } catch (e) { console.warn('Legacy stats table missing or error'); }
+
+    // Merge Logic (Assuming Legacy 'monto' > 0 is Income, < 0 is Expense)
+    // If ocean_pay_txs are all absolute values, we treat as Income unless we know better.
+    // Given the context of "historial", usually it is mixed. Let's assume + for now.
+
+    const incomeMap = {};
+    const expenseMap = {};
+
+    const addToMap = (map, currency, amount) => {
+      if (!amount) return;
+      const c = (currency || 'unknown').toLowerCase();
+      const val = parseFloat(amount);
+      map[c] = (map[c] || 0) + val;
+    };
+
+    posIncomes.rows.forEach(r => addToMap(incomeMap, r.currency, r.total));
+    posExpenses.rows.forEach(r => addToMap(expenseMap, r.currency, r.total));
+
+    // Legacy Merge
+    legacyStats.rows.forEach(r => {
+      const val = parseFloat(r.total);
+      // Assuming legacy 'monto' is signed (+ income, - expense) or absolute.
+      // Without more metadata, we'll treat positive as Income.
+      if (val >= 0) addToMap(incomeMap, r.currency, val);
+      else addToMap(expenseMap, r.currency, Math.abs(val));
     });
+
+    const incomes = Object.keys(incomeMap).map(k => ({ currency: k, total: incomeMap[k] }));
+    const expenses = Object.keys(expenseMap).map(k => ({ currency: k, total: expenseMap[k] }));
+
+    res.json({ incomes, expenses });
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: 'Error obteniendo estadisticas' });

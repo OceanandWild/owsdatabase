@@ -17499,6 +17499,10 @@ app.delete('/ocean-pay/cards/:id', async (req, res) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) return res.status(401).json({ error: 'Token requerido' });
 
+  // Debug Params
+  const requestId = req.params.id;
+  console.log(`[DELETE /ocean-pay/cards/${requestId}] Request received.`);
+
   let userId;
   try {
     const token = authHeader.split(' ')[1];
@@ -17513,22 +17517,39 @@ app.delete('/ocean-pay/cards/:id', async (req, res) => {
     return res.status(401).json({ error: 'Token inválido' });
   }
 
-  if (!userId) return res.status(404).json({ error: 'Usuario no encontrado' });
+  if (!userId) {
+    console.log(`[DELETE /ocean-pay/cards/${requestId}] User not found.`);
+    return res.status(404).json({ error: 'Usuario no encontrado' });
+  }
 
-  const cardId = parseInt(req.params.id);
+  const cardId = parseInt(requestId);
+  if (isNaN(cardId)) {
+    console.log(`[DELETE /ocean-pay/cards/${requestId}] Invalid Card ID.`);
+    return res.status(400).json({ error: 'ID de tarjeta inválido' });
+  }
 
   try {
     const cardRes = await pool.query('SELECT is_primary, user_id FROM ocean_pay_cards WHERE id = $1', [cardId]);
-    if (!cardRes.rows.length) return res.status(404).json({ error: 'Tarjeta no encontrada' });
+    if (!cardRes.rows.length) {
+      console.log(`[DELETE /ocean-pay/cards/${requestId}] Card not found in DB.`);
+      return res.status(404).json({ error: 'Tarjeta no encontrada' });
+    }
 
     const card = cardRes.rows[0];
-    if (card.user_id !== userId) return res.status(403).json({ error: 'No autorizado' });
-    if (card.is_primary) return res.status(400).json({ error: 'No puedes eliminar la tarjeta principal' });
+    if (card.user_id !== userId) {
+      console.log(`[DELETE /ocean-pay/cards/${requestId}] Unauthorized access (User: ${userId}, Owner: ${card.user_id}).`);
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+    if (card.is_primary) {
+      console.log(`[DELETE /ocean-pay/cards/${requestId}] Attempt to delete primary card.`);
+      return res.status(400).json({ error: 'No puedes eliminar la tarjeta principal' });
+    }
 
     await pool.query('DELETE FROM ocean_pay_cards WHERE id = $1', [cardId]);
+    console.log(`[DELETE /ocean-pay/cards/${requestId}] Success.`);
     res.json({ success: true, message: 'Tarjeta eliminada' });
   } catch (e) {
-    console.error(e);
+    console.error(`[DELETE /ocean-pay/cards/${requestId}] Internal Error:`, e);
     res.status(500).json({ error: 'Error al eliminar tarjeta' });
   }
 });

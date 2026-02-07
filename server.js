@@ -10003,11 +10003,15 @@ app.post('/ocean-pay/login', async (req, res) => {
   const totalEcorebits = cardsWithBalances.reduce((sum, card) => sum + parseFloat(card.balances?.ecorebits || 0), 0);
   const ecorebitsBalance = Math.max(totalEcorebits, parseFloat(rows[0].ecorebits || 0));
 
+  const totalAquabux = cardsWithBalances.reduce((sum, card) => sum + parseFloat(card.balances?.aquabux || 0), 0);
+  const aquabuxBalance = Math.max(totalAquabux, parseFloat(rows[0].aquabux || 0));
+
   res.json({
     token,
     user: {
       id: rows[0].id,
       username,
+      aquabux: aquabuxBalance,
       cards: cardsWithBalances,
       ecorebits: {
         balance: parseFloat(ecorebitsBalance)
@@ -10590,7 +10594,7 @@ app.get('/ocean-pay/me', async (req, res) => {
   try {
     const payload = jwt.verify(auth.split(' ')[1], process.env.STUDIO_SECRET);
     const { rows } = await pool.query(
-      'SELECT id, username, aquabux FROM ocean_pay_users WHERE id=$1',
+      'SELECT id, username, aquabux, appbux FROM ocean_pay_users WHERE id=$1',
       [payload.uid]
     );
     if (rows.length === 0) return res.status(404).json({ error: 'Usuario no encontrado' });

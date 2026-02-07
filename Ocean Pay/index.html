@@ -676,6 +676,7 @@
     }
   </style>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
@@ -730,6 +731,12 @@
         </button>
         <button class="nav-item" onclick="showSection('pos')">
           <span>🏧</span> POS Virtual
+        </button>
+        <button class="nav-item" onclick="showSection('pos')">
+          <span>🏧</span> POS Virtual
+        </button>
+        <button class="nav-item" onclick="showSection('misc')">
+          <span>📊</span> Misc.
         </button>
         <button class="nav-item" onclick="showSection('settings')">
           <span>⚙️</span> Ajustes
@@ -891,7 +898,7 @@
       </section>
 
       <!-- POS Section -->
-      <!-- POS Section Redesigned -->
+      <!-- POS Section Redesigned & Enhanced -->
       <section id="pos-section" class="hidden">
         <style>
           /* POS Specific Styles */
@@ -900,94 +907,102 @@
             justify-content: center;
             align-items: center;
             padding: 2rem;
-            perspective: 1000px;
+            perspective: 1500px;
           }
 
           .virtual-pos-device {
-            width: 380px;
-            height: 700px;
-            background: linear-gradient(145deg, #1e293b, #0f172a);
-            border-radius: 40px;
+            width: 400px;
+            height: 750px;
+            background: linear-gradient(160deg, #1e293b 0%, #0f172a 100%);
+            border-radius: 45px;
             box-shadow:
-              0 20px 50px rgba(0, 0, 0, 0.5),
-              0 0 0 2px rgba(255, 255, 255, 0.05),
-              inset 0 0 20px rgba(0, 0, 0, 0.5);
-            padding: 20px;
+              0 30px 60px rgba(0, 0, 0, 0.6),
+              0 0 0 2px rgba(255, 255, 255, 0.08),
+              inset 0 0 30px rgba(0, 0, 0, 0.8);
+            padding: 25px;
             position: relative;
             display: flex;
             flex-direction: column;
-            border: 8px solid #0f172a;
+            border: 10px solid #0f172a;
+            transform-style: preserve-3d;
+            transition: transform 0.5s ease;
+          }
+
+          .virtual-pos-device:hover {
+            transform: rotateX(2deg) rotateY(2deg);
           }
 
           /* Glossy reflection */
           .virtual-pos-device::before {
             content: '';
             position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 40%;
-            background: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, transparent 100%);
-            border-radius: 32px 32px 0 0;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            height: 150px;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, transparent 100%);
+            border-radius: 30px;
             pointer-events: none;
+            z-index: 5;
           }
 
           .pos-screen-frame {
             background: #000;
-            border-radius: 25px;
-            padding: 5px;
+            border-radius: 30px;
+            padding: 8px;
             flex: 1;
-            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.8);
+            box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.9);
             overflow: hidden;
             position: relative;
+            z-index: 2;
           }
 
           .pos-screen {
             background: #f8fafc;
             width: 100%;
             height: 100%;
-            border-radius: 20px;
+            border-radius: 22px;
             position: relative;
             overflow: hidden;
             color: #1e293b;
-            font-family: 'Roboto Mono', monospace;
+            font-family: 'Roboto', sans-serif;
             display: flex;
             flex-direction: column;
           }
 
           .pos-top-bar {
             background: #e2e8f0;
-            padding: 5px 15px;
+            padding: 8px 15px;
             display: flex;
             justify-content: space-between;
-            font-size: 0.7rem;
+            font-size: 0.75rem;
             color: #475569;
             font-weight: bold;
+            border-bottom: 1px solid #cbd5e1;
           }
 
           .pos-view {
             flex: 1;
             display: flex;
             flex-direction: column;
-            padding: 20px;
-            transition: transform 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+            padding: 25px;
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease;
             position: absolute;
-            top: 30px;
+            top: 35px;
             bottom: 0;
             left: 0;
             right: 0;
-            background: #f8fafc;
+            background: #f1f5f9;
             transform: translateX(100%);
             opacity: 0;
             pointer-events: none;
+            overflow-y: auto;
           }
 
           .pos-view.active {
             transform: translateX(0);
             opacity: 1;
             pointer-events: auto;
-            position: relative;
-            top: 0;
           }
 
           .pos-logo-area {
@@ -996,15 +1011,16 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            gap: 15px;
+            gap: 20px;
           }
 
           .pos-logo-icon {
-            font-size: 4rem;
+            font-size: 5rem;
             background: linear-gradient(135deg, #06b6d4, #3b82f6);
             -webkit-background-clip: text;
             background-clip: text;
             -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 10px 10px rgba(6, 182, 212, 0.3));
           }
 
           .pos-home-buttons {
@@ -1012,235 +1028,277 @@
             grid-template-columns: 1fr 1fr;
             gap: 15px;
             margin-top: auto;
-            margin-bottom: 20px;
+            margin-bottom: 10px;
+          }
+
+          .pos-home-buttons-full {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-top: auto;
+            margin-bottom: 10px;
           }
 
           .pos-big-btn {
             background: white;
             border: 1px solid #cbd5e1;
-            border-radius: 15px;
-            padding: 20px 10px;
+            border-radius: 18px;
+            padding: 20px 15px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 10px;
+            justify-content: center;
+            gap: 12px;
             color: #334155;
-            box-shadow: 0 4px 0 #94a3b8;
+            box-shadow: 0 4px 0 #94a3b8, 0 8px 15px rgba(0, 0, 0, 0.05);
             transition: all 0.1s;
             cursor: pointer;
+            height: 100%;
           }
 
           .pos-big-btn:active {
             transform: translateY(4px);
-            box-shadow: none;
+            box-shadow: 0 0 0 #94a3b8;
           }
 
           .pos-big-btn i {
-            font-size: 1.5rem;
+            font-size: 1.8rem;
             color: #0ea5e9;
           }
 
           .pos-big-btn span {
-            font-weight: bold;
-            font-size: 0.9rem;
+            font-weight: 700;
+            font-size: 0.95rem;
           }
 
           .pos-header-nav {
             display: flex;
             align-items: center;
             gap: 15px;
-            margin-bottom: 20px;
-            border-bottom: 2px solid #e2e8f0;
-            padding-bottom: 10px;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 2px dashed #cbd5e1;
           }
 
           .pos-back-btn {
-            background: transparent !important;
-            border: none;
-            font-size: 1.2rem;
+            background: white !important;
+            border: 1px solid #cbd5e1 !important;
+            font-size: 1rem;
             color: #64748b;
             cursor: pointer;
-            width: auto !important;
-            padding: 8px !important;
-            box-shadow: none !important;
-            border-radius: 50%;
+            width: 40px !important;
+            height: 40px !important;
+            padding: 0 !important;
+            box-shadow: 0 2px 0 #94a3b8 !important;
+            border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-right: 10px;
           }
 
-          .pos-back-btn:hover {
-            background: rgba(0, 0, 0, 0.05) !important;
-            transform: none !important;
-            color: #0ea5e9;
+          .pos-back-btn:active {
+            transform: translateY(2px) !important;
+            box-shadow: none !important;
           }
 
           .pos-title {
-            font-size: 1.1rem;
+            font-size: 1.2rem;
             font-weight: 800;
             color: #0f172a;
           }
 
           /* Forms inside POS */
           .pos-field {
-            margin-bottom: 15px;
+            margin-bottom: 20px;
           }
 
           .pos-field label {
             display: block;
-            font-size: 0.75rem;
+            font-size: 0.8rem;
             color: #64748b;
-            margin-bottom: 5px;
-            font-weight: bold;
+            margin-bottom: 8px;
+            font-weight: 700;
             text-transform: uppercase;
+            letter-spacing: 0.5px;
           }
 
           .pos-input-group {
             background: #fff;
             border: 2px solid #e2e8f0;
-            border-radius: 12px;
+            border-radius: 16px;
             display: flex;
             align-items: center;
-            padding: 0 10px;
-            transition: border-color 0.2s;
+            padding: 0 15px;
+            transition: all 0.2s;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
           }
 
           .pos-input-group:focus-within {
             border-color: #3b82f6;
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
           }
 
           .pos-input {
             width: 100%;
             border: none;
-            padding: 12px;
+            padding: 15px 0;
             font-family: inherit;
-            font-size: 1.1rem;
+            font-size: 1.2rem;
             font-weight: bold;
             color: #0f172a;
             outline: none;
             background: transparent;
           }
 
+          .pos-input::placeholder {
+            color: #cbd5e1;
+          }
+
           .pos-select {
             width: 100%;
             border: none;
-            padding: 12px;
+            padding: 15px 0;
             font-family: inherit;
             font-size: 1rem;
             color: #0f172a;
             outline: none;
             background: transparent;
             font-weight: 700;
+            cursor: pointer;
           }
 
           .pos-visual-card {
             background: white;
-            border-radius: 20px;
-            padding: 20px;
-            margin: 10px 0;
+            border-radius: 24px;
+            padding: 25px;
+            margin: 10px 0 25px 0;
             display: flex;
             flex-direction: column;
             align-items: center;
-            border: 2px solid #e2e8f0;
+            border: 1px solid #e2e8f0;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
           }
 
           .pos-currency-symbol {
-            width: 80px;
-            height: 80px;
-            margin-bottom: 10px;
+            width: 90px;
+            height: 90px;
+            margin-bottom: 15px;
           }
 
           .pos-btn-primary {
             width: 100%;
-            background: #0ea5e9;
+            background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
             color: white;
             border: none;
-            padding: 15px;
-            border-radius: 12px;
-            font-size: 1rem;
-            font-weight: bold;
-            box-shadow: 0 4px 0 #0284c7;
+            padding: 18px;
+            border-radius: 16px;
+            font-size: 1.1rem;
+            font-weight: 800;
+            box-shadow: 0 6px 0 #0369a1, 0 10px 20px rgba(14, 165, 233, 0.3);
             cursor: pointer;
-            margin-top: 20px;
+            margin-top: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: transform 0.1s;
           }
 
           .pos-btn-primary:active {
-            transform: translateY(4px);
-            box-shadow: none;
+            transform: translateY(6px);
+            box-shadow: 0 0 0 #0369a1;
+          }
+
+          .pos-btn-secondary {
+            background: #f1f5f9;
+            color: #64748b;
+            border: 2px solid #cbd5e1;
+            box-shadow: 0 4px 0 #94a3b8;
           }
 
           /* Code Display */
           .pos-code-container {
             background: #0f172a;
             color: #22d3ee;
-            padding: 20px;
-            border-radius: 15px;
+            padding: 25px;
+            border-radius: 20px;
             text-align: center;
-            margin: 20px 0;
+            margin: 25px 0;
             border: 4px dashed #334155;
+            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
           }
 
           .pos-generated-code {
-            font-size: 2.5rem;
+            font-size: 3rem;
             font-weight: 900;
-            letter-spacing: 5px;
+            letter-spacing: 6px;
             font-family: 'Courier New', monospace;
+            text-shadow: 0 0 20px rgba(34, 211, 238, 0.5);
           }
 
           .pos-printer-slit {
             height: 12px;
             background: #020617;
             border-radius: 6px;
-            margin-top: 20px;
+            margin-top: 25px;
             position: relative;
+            z-index: 10;
           }
 
           .pos-receipt {
             position: absolute;
-            top: 50%;
+            top: 60%;
             left: 50%;
             transform: translate(-50%, -100%) scale(0.9);
-            width: 80%;
+            width: 85%;
             background: #fff;
-            padding: 15px;
+            padding: 20px;
             text-align: center;
-            font-size: 0.7rem;
+            font-size: 0.8rem;
             color: #000;
             box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-            transition: transform 0.5s;
-            z-index: -1;
+            transition: transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.5s;
+            z-index: 1;
+            /* Behind device frame, but visible coming out of slit? no needs to be carefully layered */
             opacity: 0;
+            border-bottom: 5px jagged white;
+            /* CSS jagged edge trick? simplified to just shadow for now */
           }
 
+          /* Receipt animation: We need it to slide OUT of the slit. 
+             Slit is at bottom of device. Receipt is behind device? 
+             Let's make it float "above" functionality-wise but visually below the frame bottom lip.
+          */
+
           .pos-receipt.printing {
-            transform: translate(-50%, 20px) scale(1);
+            transform: translate(-50%, 150px) scale(1);
+            /* Push it down */
             opacity: 1;
-            z-index: 10;
+            z-index: 20;
           }
 
           .pos-numpad {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            margin-top: 10px;
+            gap: 12px;
+            margin-top: 15px;
           }
 
           .pos-num-key {
             background: #fff;
             border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            padding: 15px 0;
+            border-radius: 12px;
+            padding: 18px 0;
             text-align: center;
-            font-weight: bold;
+            font-weight: 800;
+            font-size: 1.2rem;
             color: #1e293b;
-            box-shadow: 0 2px 0 #cbd5e1;
+            box-shadow: 0 3px 0 #cbd5e1;
             cursor: pointer;
             user-select: none;
+            transition: all 0.1s;
           }
 
           .pos-num-key:active {
-            transform: translateY(2px);
+            transform: translateY(3px);
             box-shadow: none;
           }
         </style>
@@ -1249,39 +1307,50 @@
           <div class="virtual-pos-device">
             <!-- Receipt animation element -->
             <div id="pos-printer-receipt" class="pos-receipt">
-              <h3>OceanPay</h3>
-              <p>Transferencia Exitosa</p>
-              <hr style="border-top:1px dashed #000; margin: 5px 0;">
-              <p id="receipt-amount" style="font-size: 1.2rem; font-weight: bold; margin: 5px 0;"></p>
+              <h3 style="margin-top:0;">🌊 OceanPay</h3>
+              <p style="font-size:0.7rem; color:#64748b;">COMPROBANTE DE TRANSACCIÓN</p>
+              <hr style="border-top:1px dashed #cbd5e1; margin: 10px 0;">
+              <p style="margin:5px 0;">MONTO TRANSFERIDO</p>
+              <p id="receipt-amount" style="font-size: 1.8rem; font-weight: 900; margin: 5px 0; color:#0f172a;"></p>
               <canvas id="receiptCanvas" class="currency-canvas" data-currency="bux"
-                style="width: 40px; height: 40px; margin: 5px auto;"></canvas>
-              <p id="receipt-id" style="font-size: 0.6rem; opacity: 0.7;"></p>
-              <p>Gracias por usar OceanPay</p>
+                style="width: 50px; height: 50px; margin: 10px auto; display:block;"></canvas>
+              <p id="receipt-id" style="font-size: 0.7rem; font-family:'Courier New'; margin-top:10px;"></p>
+              <p style="margin-bottom:0;">Gracias por su preferencia</p>
+              <div style="margin-top:10px; font-size:1.5rem;">barcode</div>
             </div>
 
             <div class="pos-screen-frame">
               <div class="pos-screen">
                 <div class="pos-top-bar">
-                  <span>📶 4G</span>
-                  <span>14:02</span>
-                  <span>🔋 92%</span>
+                  <span style="display:flex; gap:5px;"><i class="fas fa-signal"></i> 5G</span>
+                  <span>14:02 PM</span>
+                  <span style="display:flex; gap:5px;"><i class="fas fa-battery-full"></i> 100%</span>
                 </div>
 
                 <!-- VIEW: HOME -->
                 <div id="pos-home" class="pos-view active">
                   <div class="pos-logo-area">
                     <i class="fas fa-water pos-logo-icon"></i>
-                    <h2 style="margin:0; font-weight:800; color:#0f172a;">OceanPay</h2>
-                    <p style="margin:0; color:#64748b; font-size:0.8rem;">Terminal Virtual v2.0</p>
+                    <h2 style="margin:0; font-weight:900; font-size: 2rem; color:#0f172a; letter-spacing:-1px;">OceanPay
+                    </h2>
+                    <p style="margin:0; color:#64748b; font-size:0.9rem; font-weight:500;">Terminal Virtual Pro v2.1</p>
                   </div>
+
                   <div class="pos-home-buttons">
                     <button class="pos-big-btn" onclick="showPosView('pos-send')">
                       <i class="fas fa-paper-plane"></i>
                       <span>Enviar</span>
                     </button>
                     <button class="pos-big-btn" onclick="showPosView('pos-receive')">
-                      <i class="fas fa-download"></i>
-                      <span>Recibir</span>
+                      <i class="fas fa-qrcode"></i>
+                      <span>Cobrar</span>
+                    </button>
+                  </div>
+                  <div class="pos-home-buttons-full">
+                    <button class="pos-big-btn" style="flex-direction:row; height:auto;"
+                      onclick="showPosView('pos-self')">
+                      <i class="fas fa-exchange-alt" style="color:#8b5cf6;"></i>
+                      <span>Transferencia Propia</span>
                     </button>
                   </div>
                 </div>
@@ -1295,9 +1364,9 @@
                   </div>
 
                   <div class="pos-field">
-                    <label>Monto</label>
+                    <label>Monto a enviar</label>
                     <div class="pos-input-group">
-                      <span style="color:#64748b; font-weight:bold;">$</span>
+                      <span style="color:#64748b; font-weight:bold; font-size:1.2rem;">$</span>
                       <input type="number" id="pos-amount-input" class="pos-input" placeholder="0.00" min="0"
                         step="0.01">
                     </div>
@@ -1307,9 +1376,9 @@
                     <label>Divisa</label>
                     <div class="pos-input-group">
                       <select id="pos-currency-select" class="pos-select" onchange="updatePosSendVisual()">
-                        <option value="bux">AquaBux</option>
+                        <option value="aquabux">AquaBux</option>
                         <option value="ecoxionums">Ecoxionums</option>
-                        <option value="ecobits">EcoCoreBits</option>
+                        <option value="ecorebits">EcoCoreBits</option>
                         <option value="wildcredits">WildCredits</option>
                         <option value="wildgems">WildGems</option>
                         <option value="appbux">AppBux</option>
@@ -1322,16 +1391,72 @@
                   <div class="pos-visual-card">
                     <canvas id="posSendCanvas" class="currency-canvas pos-currency-symbol"
                       data-currency="aquabux"></canvas>
+                    <span style="font-size:0.8rem; color:#64748b; font-weight:600;">Seleccionado</span>
                   </div>
 
                   <div class="pos-field">
-                    <label>Tarjeta Origen</label>
+                    <label>Pagar desde</label>
                     <div class="pos-input-group">
                       <select id="pos-card-source" class="pos-select"></select>
                     </div>
                   </div>
 
-                  <button class="pos-btn-primary" onclick="generatePOSCode()">Generar Código POS</button>
+                  <button class="pos-btn-primary" onclick="generatePOSCode()">Generar Código</button>
+                </div>
+
+                <!-- VIEW: SELF TRANSFER (NEW) -->
+                <div id="pos-self" class="pos-view">
+                  <div class="pos-header-nav">
+                    <button class="pos-back-btn" onclick="showPosView('pos-home')"><i
+                        class="fas fa-arrow-left"></i></button>
+                    <span class="pos-title">Transferirse a sí mismo</span>
+                  </div>
+
+                  <div class="pos-field">
+                    <label>Monto</label>
+                    <div class="pos-input-group">
+                      <input type="number" id="self-amount-input" class="pos-input" placeholder="0.00" min="0"
+                        step="0.01">
+                    </div>
+                  </div>
+
+                  <div class="pos-field">
+                    <label>Divisa</label>
+                    <div class="pos-input-group">
+                      <select id="self-currency-select" class="pos-select">
+                        <option value="aquabux">AquaBux</option>
+                        <option value="ecoxionums">Ecoxionums</option>
+                        <option value="ecorebits">EcoCoreBits</option>
+                        <option value="wildcredits">WildCredits</option>
+                        <option value="wildgems">WildGems</option>
+                        <option value="appbux">AppBux</option>
+                        <option value="ecobooks">EcoBooks</option>
+                        <option value="ecotokens">EcoTokens</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div class="pos-field">
+                    <label>Desde (Origen)</label>
+                    <div class="pos-input-group">
+                      <select id="self-card-source" class="pos-select"></select>
+                    </div>
+                  </div>
+
+                  <div style="text-align:center; margin:-10px 0 10px 0;">
+                    <i class="fas fa-arrow-down" style="color:#64748b;"></i>
+                  </div>
+
+                  <div class="pos-field">
+                    <label>Hacia (Destino)</label>
+                    <div class="pos-input-group">
+                      <select id="self-card-dest" class="pos-select"></select>
+                    </div>
+                  </div>
+
+                  <button class="pos-btn-primary"
+                    style="background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%); box-shadow: 0 6px 0 #5b21b6, 0 10px 20px rgba(139, 92, 246, 0.3);"
+                    onclick="executeSelfTransfer()">Confirmar Transferencia</button>
                 </div>
 
                 <!-- VIEW: CODE RESULT -->
@@ -1343,16 +1468,16 @@
                   </div>
 
                   <div style="text-align:center; flex:1; display:flex; flex-direction:column; justify-content:center;">
-                    <p style="color:#64748b; margin-bottom:10px;">Muestra este código al receptor</p>
+                    <p style="color:#64748b; margin-bottom:10px; font-weight:600;">Muestra este código al receptor</p>
                     <div class="pos-code-container">
                       <div id="pos-generated-code-display" class="pos-generated-code">------</div>
                     </div>
-                    <p style="color:#0ea5e9; font-weight:bold; font-size:0.9rem;">
+                    <p
+                      style="color:#0ea5e9; font-weight:bold; font-size:1rem; display:flex; align-items:center; justify-content:center; gap:10px;">
                       <i class="fas fa-spinner fa-spin"></i> Esperando cobro...
                     </p>
                   </div>
-                  <button class="pos-btn-primary" style="background:#64748b; box-shadow:0 4px 0 #475569;"
-                    onclick="showPosView('pos-home')">Cancelar</button>
+                  <button class="pos-btn-primary pos-btn-secondary" onclick="showPosView('pos-home')">Cancelar</button>
                 </div>
 
                 <!-- VIEW: RECEIVE (CLAIM) -->
@@ -1360,20 +1485,20 @@
                   <div class="pos-header-nav">
                     <button class="pos-back-btn" onclick="showPosView('pos-home')"><i
                         class="fas fa-arrow-left"></i></button>
-                    <span class="pos-title">Recibir Dinero</span>
+                    <span class="pos-title">Ingresar Código</span>
                   </div>
 
                   <div class="pos-field">
                     <label>Código POS</label>
                     <div class="pos-input-group">
-                      <input type="text" id="pos-claim-input" class="pos-input" placeholder="INGRESA CÓDIGO"
-                        style="text-transform:uppercase; text-align:center; letter-spacing:2px; font-size:1.4rem;">
+                      <input type="text" id="pos-claim-input" class="pos-input" placeholder="------"
+                        style="text-transform:uppercase; text-align:center; letter-spacing:4px; font-size:2rem; font-family:'Courier New'; font-weight:900;">
                     </div>
                   </div>
 
                   <!-- Numeric Pad Simulation -->
                   <div class="pos-numpad" id="pos-numpad">
-                    <!-- JS will fill logic to append to input, simplicity for now -->
+                    <!-- JS will fill logic to append to input -->
                     <div class="pos-num-key" onclick="posType('1')">1</div>
                     <div class="pos-num-key" onclick="posType('2')">2</div>
                     <div class="pos-num-key" onclick="posType('3')">3</div>
@@ -1383,9 +1508,11 @@
                     <div class="pos-num-key" onclick="posType('7')">7</div>
                     <div class="pos-num-key" onclick="posType('8')">8</div>
                     <div class="pos-num-key" onclick="posType('9')">9</div>
-                    <div class="pos-num-key" onclick="posType('C')" style="color:#ef4444;">C</div>
+                    <div class="pos-num-key" onclick="posType('C')" style="color:#ef4444; background:#fef2f2;">DEL</div>
                     <div class="pos-num-key" onclick="posType('0')">0</div>
-                    <div class="pos-num-key" onclick="posType('OK')" style="background:#0ea5e9; color:white;">OK</div>
+                    <div class="pos-num-key" onclick="posType('OK')"
+                      style="background:#0ea5e9; color:white; border-color:#0369a1; box-shadow:0 3px 0 #0369a1;">OK
+                    </div>
                   </div>
                 </div>
 
@@ -1394,32 +1521,65 @@
                   <div class="pos-header-nav">
                     <button class="pos-back-btn" onclick="showPosView('pos-receive')"><i
                         class="fas fa-arrow-left"></i></button>
-                    <span class="pos-title">Confirmar</span>
+                    <span class="pos-title">Confirmar Cobro</span>
                   </div>
 
                   <div
-                    style="background:#fff; border-radius:15px; padding:20px; box-shadow:0 5px 20px rgba(0,0,0,0.05); margin-bottom:20px; display:flex; flex-direction:column; align-items:center;">
-                    <p style="color:#64748b; font-size:0.8rem; margin:0;">Monto a recibir</p>
-                    <h2 id="pos-confirm-amount" style="margin:5px 0; font-size:2rem; color:#0f172a;">0.00</h2>
+                    style="background:#fff; border-radius:24px; padding:30px 20px; box-shadow:0 10px 40px rgba(0,0,0,0.05); margin-bottom:25px; display:flex; flex-direction:column; align-items:center;">
+                    <p style="color:#64748b; font-size:0.8rem; margin:0; font-weight:700; text-transform:uppercase;">Vas
+                      a recibir</p>
+                    <h2 id="pos-confirm-amount"
+                      style="margin:10px 0; font-size:2.5rem; color:#0f172a; font-weight:900;">0.00</h2>
                     <canvas id="posConfirmCanvas" class="currency-canvas" data-currency="aquabux"
-                      style="width: 60px; height: 60px; margin: 10px 0;"></canvas>
-                    <p id="pos-confirm-sender" style="color:#3b82f6; font-size:0.9rem; margin:0;">De: Usuario</p>
+                      style="width: 70px; height: 70px; margin: 10px 0;"></canvas>
+                    <div
+                      style="background:#f1f5f9; padding:5px 15px; border-radius:20px; color:#3b82f6; font-size:0.9rem; font-weight:700;">
+                      <i class="fas fa-user-circle"></i> <span id="pos-confirm-sender">Usuario</span>
+                    </div>
                   </div>
 
                   <div class="pos-field">
-                    <label>Depositar en Tarjeta</label>
+                    <label>Depositar en</label>
                     <div class="pos-input-group">
                       <select id="pos-card-dest" class="pos-select"></select>
                     </div>
                   </div>
 
-                  <button class="pos-btn-primary" onclick="completePOS()">Confirmar Cobro</button>
+                  <button class="pos-btn-primary" onclick="completePOS()">Aceptar Transacción</button>
                 </div>
 
               </div>
             </div>
 
             <div class="pos-printer-slit"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Misc Section (Charts) -->
+      <section id="misc-section" class="hidden">
+        <div class="main-header">
+          <h2 class="page-title">Estadísticas y Gráficas</h2>
+          <button class="secondary" style="width: auto; padding: 0.5rem 1rem;" onclick="loadMiscStats()">
+            <i class="fas fa-sync-alt"></i> Actualizar
+          </button>
+        </div>
+
+        <div class="balance-grid" style="grid-template-columns: 1fr 1fr; gap: 2rem;">
+          <div
+            style="background: var(--card); padding: 2rem; border-radius: 20px; border: 1px solid rgba(255,255,255,0.05);">
+            <h3 style="margin-bottom: 20px; color: var(--ok); text-align:center;">🏆 Ingresos (Más Usado)</h3>
+            <div style="position: relative; height: 300px;">
+              <canvas id="chartIncomes"></canvas>
+            </div>
+          </div>
+
+          <div
+            style="background: var(--card); padding: 2rem; border-radius: 20px; border: 1px solid rgba(255,255,255,0.05);">
+            <h3 style="margin-bottom: 20px; color: var(--err); text-align:center;">💸 Gastos (Más Usado)</h3>
+            <div style="position: relative; height: 300px;">
+              <canvas id="chartExpenses"></canvas>
+            </div>
           </div>
         </div>
       </section>
@@ -1853,16 +2013,20 @@
     function updatePOSCardSelects() {
       const senderSelect = qs('#pos-card-source');
       const receiverSelect = qs('#pos-card-dest');
+      const selfSource = qs('#self-card-source');
+      const selfDest = qs('#self-card-dest');
 
-      if (!senderSelect || !receiverSelect) return;
+      if (!senderSelect) return;
 
       const options = userCards.map(card => {
         const name = card.card_name || (card.is_primary ? 'Tarjeta Principal' : 'Tarjeta Secundaria');
         return `<option value="${card.id}">${name} (**** ${card.card_number.slice(-4)})</option>`;
       }).join('');
 
-      senderSelect.innerHTML = options;
-      receiverSelect.innerHTML = options;
+      if (senderSelect) senderSelect.innerHTML = options;
+      if (receiverSelect) receiverSelect.innerHTML = options;
+      if (selfSource) selfSource.innerHTML = options;
+      if (selfDest) selfDest.innerHTML = options;
     }
 
     // Cambiar tarjeta activa
@@ -1888,6 +2052,7 @@
 
       if (id === 'pos') updatePOSCardSelects();
       if (id === 'history') renderTransacciones();
+      if (id === 'misc') loadMiscStats();
     }
 
     /* ----------  AUTH TOGGLE  ---------- */
@@ -2216,9 +2381,12 @@
         const cardName = card.card_name || (card.is_primary ? 'Tarjeta Principal' : 'Tarjeta Secundaria');
 
         return `
-          <div class="ocean-card ${isActive ? 'card-selected' : ''}" onclick="${isExpired ? `renewCard('${card.card_number}')` : `setActiveCard(${index})`}" style="${isActive ? 'border: 2px solid var(--accent); box-shadow: 0 0 30px rgba(34, 211, 238, 0.3);' : ''}">
+          <div class="ocean-card ${isActive ? 'card-selected' : ''}" onclick="${isExpired ? `renewCard('${card.card_number}')` : `setActiveCard(${index})`}" style="${isActive ? 'border: 2px solid var(--accent); box-shadow: 0 0 30px rgba(34, 211, 238, 0.3);' : ''}; position:relative;">
             <div class="card-brand"><span>OCEAN</span><br><small>PAY</small></div>
             ${isActive ? '<div style="position: absolute; top: 10px; left: 10px; background: var(--accent); color: #0a0e1a; padding: 3px 8px; border-radius: 10px; font-size: 0.65rem; font-weight: 800;">EN USO</div>' : ''}
+            
+            ${!card.is_primary ? `<button onclick="deleteCard(event, ${card.id})" style="position: absolute; top: 40px; right: 20px; background: rgba(239,68,68,0.2); color: #ef4444; border:none; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 10; font-size: 0.8rem;" title="Eliminar Tarjeta"><i class="fas fa-trash"></i></button>` : ''}
+
             <div class="card-chip"></div>
             <span class="card-number">${formattedNumber}</span>
             <div class="card-details">
@@ -2363,6 +2531,127 @@
                 </div>`;
         }).join('');
       } catch (e) { container.innerHTML = '<div style="color:var(--err)">Error cargando historial</div>'; }
+    }
+
+
+    /* ----------  NEW FEATURES (Self Transfer, Delete, Misc)  ---------- */
+
+    async function deleteCard(e, cardId) {
+      e.stopPropagation(); // Avoid selecting card
+      if (!confirm('¿Eliminar esta tarjeta secundaria y todo su historial/saldo asociado? Esta acción no se puede deshacer.')) return;
+
+      try {
+        const res = await fetch(`${API}/ocean-pay/cards/${cardId}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          alert('Tarjeta eliminada correctamente.');
+          loadOceanCards();
+        } else {
+          const d = await res.json();
+          alert(d.error || 'No se pudo eliminar');
+        }
+      } catch (err) { alert('Error de conexión'); }
+    }
+
+    async function executeSelfTransfer() {
+      const amount = parseFloat(qs('#self-amount-input').value);
+      const currency = qs('#self-currency-select').value;
+      const sourceCardId = qs('#self-card-source').value;
+      const destCardId = qs('#self-card-dest').value;
+
+      if (!amount || amount <= 0) return alert('Monto inválido');
+      if (sourceCardId === destCardId) return alert('Selecciona tarjetas diferentes');
+
+      try {
+        const res = await fetch(`${API}/ocean-pay/transfer-self`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ sourceCardId, destCardId, currency, amount })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          alert('¡Transferencia Exitosa!');
+          qs('#self-amount-input').value = '';
+          loadOceanCards(); // Refresh balances
+          showPosView('pos-home');
+        } else {
+          alert('Error: ' + data.error);
+        }
+      } catch (e) { alert('Error de conexión'); }
+    }
+
+    let chartIncomesInstance = null;
+    let chartExpensesInstance = null;
+
+    async function loadMiscStats() {
+      try {
+        const res = await fetch(`${API}/ocean-pay/stats/transactions`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) return;
+
+        const data = await res.json();
+
+        updateChart('chartIncomes', data.incomes, 'Ingresos Totales', 'rgba(16, 185, 129, 0.7)');
+        updateChart('chartExpenses', data.expenses, 'Gastos Totales', 'rgba(239, 68, 68, 0.7)');
+      } catch (e) { console.error('Error stats', e); }
+    }
+
+    function updateChart(canvasId, data, label, color) {
+      const ctx = document.getElementById(canvasId);
+      if (!ctx) return;
+
+      if (!data || data.length === 0) return;
+
+      const labels = data.map(d => d.currency.toUpperCase());
+      const values = data.map(d => parseFloat(d.total));
+
+      if (canvasId === 'chartIncomes') {
+        if (chartIncomesInstance) chartIncomesInstance.destroy();
+      } else {
+        if (chartExpensesInstance) chartExpensesInstance.destroy();
+      }
+
+      const config = {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: label,
+            data: values,
+            backgroundColor: color,
+            borderColor: color.replace('0.7', '1'),
+            borderWidth: 1,
+            borderRadius: 8
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { labels: { color: '#cbd5e1', font: { family: 'Inter' } } }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              grid: { color: 'rgba(255,255,255,0.05)' },
+              ticks: { color: '#94a3b8' }
+            },
+            x: {
+              grid: { display: false },
+              ticks: { color: '#94a3b8' }
+            }
+          }
+        }
+      };
+
+      const newChart = new Chart(ctx, config);
+
+      if (canvasId === 'chartIncomes') chartIncomesInstance = newChart;
+      else chartExpensesInstance = newChart;
     }
 
     /* ----------  INIT  ---------- */

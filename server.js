@@ -10934,6 +10934,172 @@ app.post('/ocean-pay/appbux/change', async (req, res) => {
   }
 });
 
+/* ----------  OCEAN PAY V2 ENDPOINTS  ---------- */
+
+// 1. Transferencia entre tarjetas propias
+app.post('/ocean-pay/transfer', async (req, res) => {
+  const { userId, fromCardId, toCardId, currency, amount } = req.body;
+
+  if (!userId || !fromCardId || !toCardId || !currency || amount <= 0) {
+    return res.status(400).json({ error: 'Datos incompletos o inválidos' });
+  }
+
+  if (fromCardId === toCardId) {
+    return res.status(400).json({ error: 'No puedes transferir a la misma tarjeta' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Verificar propiedad de tarjetas
+    const { rows: cards } = await client.query(
+      'SELECT id, user_id FROM ocean_pay_cards WHERE id IN ($1, $2)',
+      [fromCardId, toCardId]
+    );
+
+    if (cards.length !== 2 || cards.some(c => c.user_id != userId)) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'Tarjetas inválidas o no pertenecen al usuario' });
+    }
+
+    // Verificar saldo origen
+    const { rows: balanceRows } = await client.query(
+      'SELECT amount FROM ocean_pay_card_balances WHERE card_id = $1 AND currency_type = $2',
+      [fromCardId, currency]
+    );
+    const currentBalance = parseFloat(balanceRows[0]?.amount || 0);
+
+    if (currentBalance < amount) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Saldo insuficiente en tarjeta origen' });
+    }
+
+    // Descontar origen
+    await client.query(`
+      INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (card_id, currency_type)
+      DO UPDATE SET amount = ocean_pay_card_balances.amount - $3
+    `, [fromCardId, currency, amount]);
+
+    // Sumar destino
+    await client.query(`
+      INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (card_id, currency_type)
+      DO UPDATE SET amount = ocean_pay_card_balances.amount + $3
+    `, [toCardId, currency, amount]);
+
+    // Registrar transacción
+    await client.query(
+      `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+       VALUES ($1, $2, $3, 'Transferencia Interna', $4)`,
+      [userId, `Transferencia a tarjeta ${toCardId}`, -amount, currency]
+    );
+
+    await client.query('COMMIT');
+    res.json({ success: true, message: 'Transferencia exitosa' });
+
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('❌ Error en /ocean-pay/transfer:', err);
+    res.status(500).json({ error: 'Error interno' });
+  } finally {
+    client.release();
+  }
+});
+
+// 2. Eliminar tarjeta secundaria
+app.delete('/ocean-pay/cards/:cardId', async (req, res) => {
+  const { cardId } = req.params;
+  const { userId } = req.body; // Se debe enviar userId en el body por seguridad simple
+
+  if (!cardId || !userId) {
+    return res.status(400).json({ error: 'Faltan datos' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Verificar tarjeta
+    const { rows: cardRows } = await client.query(
+      'SELECT id, user_id, is_primary FROM ocean_pay_cards WHERE id = $1',
+      [cardId]
+    );
+
+    if (cardRows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Tarjeta no encontrada' });
+    }
+
+    const card = cardRows[0];
+
+    if (card.user_id != userId) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+
+    if (card.is_primary) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'No puedes eliminar tu tarjeta principal' });
+    }
+
+    // Eliminar balances asociados
+    await client.query('DELETE FROM ocean_pay_card_balances WHERE card_id = $1', [cardId]);
+
+    // Eliminar tarjeta
+    await client.query('DELETE FROM ocean_pay_cards WHERE id = $1', [cardId]);
+
+    await client.query('COMMIT');
+    res.json({ success: true, message: 'Tarjeta eliminada' });
+
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('❌ Error en /ocean-pay/cards/:cardId:', err);
+    res.status(500).json({ error: 'Error interno' });
+  } finally {
+    client.release();
+  }
+});
+
+// 3. Estadísticas de uso de divisas (Misc)
+app.get('/ocean-pay/stats/tx-usage/:userId', async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    // Top divisas ingresos (monto > 0)
+    const { rows: incomeRows } = await pool.query(`
+      SELECT moneda, COUNT(*) as count, SUM(monto) as total
+      FROM ocean_pay_txs
+      WHERE user_id = $1 AND monto > 0
+      GROUP BY moneda
+      ORDER BY count DESC
+      LIMIT 5
+    `, [userId]);
+
+    // Top divisas gastos (monto < 0)
+    const { rows: expenseRows } = await pool.query(`
+      SELECT moneda, COUNT(*) as count, SUM(ABS(monto)) as total
+      FROM ocean_pay_txs
+      WHERE user_id = $1 AND monto < 0
+      GROUP BY moneda
+      ORDER BY count DESC
+      LIMIT 5
+    `, [userId]);
+
+    res.json({
+      income: incomeRows,
+      expenses: expenseRows
+    });
+
+  } catch (err) {
+    console.error('❌ Error en /ocean-pay/stats/tx-usage:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 /* ----------  DELETE ACCOUNT  ---------- */
 app.delete('/ocean-pay/delete-account', async (req, res) => {
   const auth = req.headers.authorization;
@@ -17204,6 +17370,213 @@ await pool.query(`
 `).catch(() => console.log('⚠️ Tabla floret_products ya existe'));
 
 console.log('🌸 Tablas de Floret Shop verificadas');
+
+// ==========================================
+// OCEAN PAY - NEW FEATURES (POS, CARDS, STATS)
+// ==========================================
+
+// Ensure tables for Ocean Pay stats and POS if not exist
+async function ensureOceanPayTables() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ocean_pay_pos (
+      id SERIAL PRIMARY KEY,
+      code VARCHAR(10) UNIQUE NOT NULL,
+      sender_id INTEGER NOT NULL REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
+      sender_card_id INTEGER REFERENCES ocean_pay_cards(id) ON DELETE CASCADE,
+      receiver_id INTEGER REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
+      receiver_card_id INTEGER REFERENCES ocean_pay_cards(id) ON DELETE CASCADE,
+      amount DECIMAL(20, 2) NOT NULL,
+      currency VARCHAR(50) NOT NULL,
+      status VARCHAR(20) DEFAULT 'pending',
+      created_at TIMESTAMP DEFAULT NOW(),
+      completed_at TIMESTAMP
+    );
+  `).catch(e => console.log('⚠️ Tabla ocean_pay_pos ya existe o error:', e.message));
+}
+await ensureOceanPayTables();
+
+// Transferir saldo entre propias tarjetas
+app.post('/api/ocean-pay/transfer-self', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) return res.status(401).json({ error: 'Token requerido' });
+
+  let userId;
+  try {
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
+    if (decoded.uid) {
+      userId = parseInt(decoded.uid);
+    } else if (decoded.username || decoded.un) {
+      const u = await pool.query('SELECT id FROM ocean_pay_users WHERE username=$1', [decoded.username || decoded.un]);
+      if (u.rows.length) userId = u.rows[0].id;
+    }
+  } catch (e) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+
+  if (!userId) return res.status(404).json({ error: 'Usuario no encontrado' });
+
+  const { sourceCardId, destCardId, currency, amount } = req.body;
+  const amt = parseFloat(amount);
+
+  if (!sourceCardId || !destCardId || !currency || amt <= 0) {
+    return res.status(400).json({ error: 'Datos inválidos' });
+  }
+
+  if (sourceCardId === destCardId) {
+    return res.status(400).json({ error: 'Tarjetas deben ser diferentes' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Verificar propiedad de tarjetas
+    const cardCheck = await client.query(
+      'SELECT id, user_id FROM ocean_pay_cards WHERE id IN ($1, $2)',
+      [sourceCardId, destCardId]
+    );
+
+    if (cardCheck.rows.length !== 2) return res.status(404).json({ error: 'Tarjetas no encontradas' });
+    if (cardCheck.rows[0].user_id !== userId || cardCheck.rows[1].user_id !== userId) {
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+
+    // Verificar saldo origen
+    const balRes = await client.query(
+      'SELECT amount FROM ocean_pay_card_balances WHERE card_id = $1 AND currency_type = $2 FOR UPDATE',
+      [sourceCardId, currency]
+    );
+    const currentBal = parseFloat(balRes.rows[0]?.amount || 0);
+
+    if (currentBal < amt) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Saldo insuficiente' });
+    }
+
+    // Descontar
+    await client.query(
+      `INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (card_id, currency_type)
+       DO UPDATE SET amount = ocean_pay_card_balances.amount + $3`,
+      [sourceCardId, currency, -amt]
+    );
+
+    // Sumar
+    await client.query(
+      `INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (card_id, currency_type)
+         DO UPDATE SET amount = ocean_pay_card_balances.amount + $3`,
+      [destCardId, currency, amt]
+    );
+
+    // Log transaction (Internal transfer)
+    await client.query(
+      `INSERT INTO ocean_pay_pos (sender_id, sender_card_id, receiver_id, receiver_card_id, amount, currency, status, completed_at)
+         VALUES ($1, $2, $1, $3, $4, $5, 'completed', NOW())`,
+      [userId, sourceCardId, destCardId, amt, currency]
+    );
+
+    await client.query('COMMIT');
+    res.json({ success: true, message: 'Transferencia completada' });
+
+  } catch (e) {
+    await client.query('ROLLBACK');
+    console.error(e);
+    res.status(500).json({ error: 'Error del servidor' });
+  } finally {
+    client.release();
+  }
+});
+
+// Eliminar tarjeta secundaria
+app.delete('/api/ocean-pay/cards/:id', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) return res.status(401).json({ error: 'Token requerido' });
+
+  let userId;
+  try {
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
+    if (decoded.uid) {
+      userId = parseInt(decoded.uid);
+    } else if (decoded.username || decoded.un) {
+      const u = await pool.query('SELECT id FROM ocean_pay_users WHERE username=$1', [decoded.username || decoded.un]);
+      if (u.rows.length) userId = u.rows[0].id;
+    }
+  } catch (e) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+
+  if (!userId) return res.status(404).json({ error: 'Usuario no encontrado' });
+
+  const cardId = parseInt(req.params.id);
+
+  try {
+    const cardRes = await pool.query('SELECT is_primary, user_id FROM ocean_pay_cards WHERE id = $1', [cardId]);
+    if (!cardRes.rows.length) return res.status(404).json({ error: 'Tarjeta no encontrada' });
+
+    const card = cardRes.rows[0];
+    if (card.user_id !== userId) return res.status(403).json({ error: 'No autorizado' });
+    if (card.is_primary) return res.status(400).json({ error: 'No puedes eliminar la tarjeta principal' });
+
+    await pool.query('DELETE FROM ocean_pay_cards WHERE id = $1', [cardId]);
+    res.json({ success: true, message: 'Tarjeta eliminada' });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Error al eliminar tarjeta' });
+  }
+});
+
+// Stats for charts: Ingresos y Gastos por divisa
+app.get('/api/ocean-pay/stats/transactions', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) return res.status(401).json({ error: 'Token requerido' });
+
+  let userId;
+  try {
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET);
+    if (decoded.uid) {
+      userId = parseInt(decoded.uid);
+    } else if (decoded.username || decoded.un) {
+      const u = await pool.query('SELECT id FROM ocean_pay_users WHERE username=$1', [decoded.username || decoded.un]);
+      if (u.rows.length) userId = u.rows[0].id;
+    }
+  } catch (e) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+
+  if (!userId) return res.status(404).json({ error: 'Usuario no encontrado' });
+
+  try {
+    // Ingresos: receiver_id = userId
+    const incomes = await pool.query(`
+            SELECT currency, SUM(amount) as total
+            FROM ocean_pay_pos
+            WHERE receiver_id = $1 AND status = 'completed' AND sender_id != $1
+            GROUP BY currency
+        `, [userId]);
+
+    // Gastos: sender_id = userId
+    const expenses = await pool.query(`
+            SELECT currency, SUM(amount) as total
+            FROM ocean_pay_pos
+            WHERE sender_id = $1 AND status = 'completed' AND receiver_id != $1
+            GROUP BY currency
+        `, [userId]);
+
+    res.json({
+      incomes: incomes.rows,
+      expenses: expenses.rows
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Error obteniendo estadisticas' });
+  }
+});
 
 const PORT = process.env.PORT || 3000;
 httpServer.listen(PORT, '0.0.0.0', () => {

@@ -17581,11 +17581,23 @@ app.get('/ocean-pay/stats/transactions', async (req, res) => {
           WHERE user_id = $1
           GROUP BY moneda
         `, [userId]);
-    } catch (e) { console.warn('Legacy stats table missing or error'); }
+    } catch (e) {
+      console.warn('Legacy stats table missing or error');
+    }
 
-    // Merge Logic (Assuming Legacy 'monto' > 0 is Income, < 0 is Expense)
-    // If ocean_pay_txs are all absolute values, we treat as Income unless we know better.
-    // Given the context of "historial", usually it is mixed. Let's assume + for now.
+    // 3. EcoCore Transactions (ecocore_txs)
+    let ecoStats = { rows: [] };
+    try {
+      // ecocore_txs usually uses TEXT userId. We cast consistent with other queries.
+      // Also assuming currency is 'ecocorebits' if not specified.
+      ecoStats = await pool.query(`
+          SELECT SUM(monto) as total
+          FROM ecocore_txs
+          WHERE user_id = $1::text
+        `, [userId]);
+    } catch (e) {
+      console.warn('EcoCore stats error', e.message);
+    }
 
     const incomeMap = {};
     const expenseMap = {};
@@ -17594,6 +17606,7 @@ app.get('/ocean-pay/stats/transactions', async (req, res) => {
       if (!amount) return;
       const c = (currency || 'unknown').toLowerCase();
       const val = parseFloat(amount);
+      if (val === 0) return;
       map[c] = (map[c] || 0) + val;
     };
 
@@ -17603,11 +17616,17 @@ app.get('/ocean-pay/stats/transactions', async (req, res) => {
     // Legacy Merge
     legacyStats.rows.forEach(r => {
       const val = parseFloat(r.total);
-      // Assuming legacy 'monto' is signed (+ income, - expense) or absolute.
-      // Without more metadata, we'll treat positive as Income.
       if (val >= 0) addToMap(incomeMap, r.currency, val);
       else addToMap(expenseMap, r.currency, Math.abs(val));
     });
+
+    // EcoCore Merge
+    if (ecoStats.rows.length > 0 && ecoStats.rows[0].total) {
+      const val = parseFloat(ecoStats.rows[0].total);
+      if (val >= 0) addToMap(incomeMap, 'ecocorebits', val);
+      else addToMap(expenseMap, 'ecocorebits', Math.abs(val));
+    }
+
 
     const incomes = Object.keys(incomeMap).map(k => ({ currency: k, total: incomeMap[k] }));
     const expenses = Object.keys(expenseMap).map(k => ({ currency: k, total: expenseMap[k] }));

@@ -10624,7 +10624,10 @@ app.get('/ocean-pay/me', async (req, res) => {
       };
     }));
 
-    res.json({ ...rows[0], cards: cardsWithBalances });
+    // Calcular el total de appbux desde las tarjetas para el campo global
+    const totalAppBux = cardsWithBalances.reduce((sum, card) => sum + (card.balances?.appbux || 0), 0);
+
+    res.json({ ...rows[0], appbux: totalAppBux, cards: cardsWithBalances });
   } catch (e) { res.status(401).json({ error: 'Token inválido' }); }
 });
 
@@ -10804,16 +10807,16 @@ app.get('/ocean-pay/ecoxionums/:userId', async (req, res) => {
 app.get('/ocean-pay/appbux/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
-    const { rows } = await pool.query(
-      'SELECT appbux FROM ocean_pay_users WHERE id = $1',
-      [userId]
-    );
 
-    if (rows.length === 0) {
-      return res.status(404).json({ error: 'Usuario no encontrado' });
-    }
+    // Calcular el total de AppBux sumando todas las tarjetas del usuario
+    const { rows } = await pool.query(`
+      SELECT COALESCE(SUM(amount), 0) as total 
+      FROM ocean_pay_card_balances opcb
+      JOIN ocean_pay_cards opc ON opcb.card_id = opc.id
+      WHERE opc.user_id = $1 AND opcb.currency_type = 'appbux'
+    `, [userId]);
 
-    res.json({ appbux: rows[0].appbux || 0 });
+    res.json({ appbux: parseFloat(rows[0].total) || 0 });
   } catch (err) {
     console.error('❌ Error en /ocean-pay/appbux/:userId', err);
     res.status(500).json({ error: 'Error interno' });
@@ -12867,37 +12870,6 @@ async function ensureTables() {
     console.log('✅ Migración de ocean_pay_users appbux ejecutada.');
   } catch (err) {
     console.warn('⚠️ Error al ejecutar migración de ocean_pay_users appbux:', err.message);
-  }
-
-  // Sincronizar appbux de ocean_pay_users a la tarjeta primaria si la tarjeta tiene 0
-  try {
-    // 1. Actualizar tarjetas primarias que tienen saldo 0 pero el usuario tiene saldo global
-    await pool.query(`
-      UPDATE ocean_pay_card_balances opcb
-      SET amount = opu.appbux
-      FROM ocean_pay_cards opc
-      JOIN ocean_pay_users opu ON opc.user_id = opu.id
-      WHERE opcb.card_id = opc.id
-      AND opcb.currency_type = 'appbux'
-      AND opc.is_primary = true
-      AND opcb.amount = 0
-      AND opu.appbux > 0;
-    `);
-
-    // 2. Insertar registros de saldo faltantes para tarjetas primarias
-    await pool.query(`
-      INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
-      SELECT opc.id, 'appbux', opu.appbux
-      FROM ocean_pay_cards opc
-      JOIN ocean_pay_users opu ON opc.user_id = opu.id
-      LEFT JOIN ocean_pay_card_balances opcb ON opc.id = opcb.card_id AND opcb.currency_type = 'appbux'
-      WHERE opc.is_primary = true
-      AND opu.appbux > 0
-      AND opcb.card_id IS NULL;
-    `);
-    console.log('✅ Sincronización de appbux de usuarios a tarjetas ejecutada.');
-  } catch (err) {
-    console.warn('⚠️ Error al sincronizar appbux a tarjetas:', err.message);
   }
 
   // Agregar user_unique_id y unique_id_shown a users_nat si no existen

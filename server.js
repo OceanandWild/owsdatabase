@@ -17396,7 +17396,7 @@ async function ensureOceanPayTables() {
 await ensureOceanPayTables();
 
 // Transferir saldo entre propias tarjetas
-app.post('/ocean-pay/transfer-self', async (req, res) => {
+app.post('/ocean-pay/api/transfer-self', async (req, res) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) return res.status(401).json({ error: 'Token requerido' });
 
@@ -17495,7 +17495,7 @@ app.post('/ocean-pay/transfer-self', async (req, res) => {
 });
 
 // Eliminar tarjeta secundaria
-app.delete('/ocean-pay/cards/:id', async (req, res) => {
+app.delete('/ocean-pay/api/cards/:id', async (req, res) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) return res.status(401).json({ error: 'Token requerido' });
 
@@ -17555,7 +17555,7 @@ app.delete('/ocean-pay/cards/:id', async (req, res) => {
 });
 
 // Stats for charts: Ingresos y Gastos por divisa
-app.get('/ocean-pay/stats/transactions', async (req, res) => {
+app.get('/ocean-pay/api/stats/transactions', async (req, res) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) return res.status(401).json({ error: 'Token requerido' });
 

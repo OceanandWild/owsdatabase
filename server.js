@@ -10594,7 +10594,7 @@ app.get('/ocean-pay/me', async (req, res) => {
   try {
     const payload = jwt.verify(auth.split(' ')[1], process.env.STUDIO_SECRET);
     const { rows } = await pool.query(
-      'SELECT id, username, aquabux, appbux FROM ocean_pay_users WHERE id=$1',
+      'SELECT id, username, aquabux FROM ocean_pay_users WHERE id=$1',
       [payload.uid]
     );
     if (rows.length === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
@@ -10624,8 +10624,9 @@ app.get('/ocean-pay/me', async (req, res) => {
       };
     }));
 
-    // Calcular el total de appbux desde las tarjetas para el campo global
-    const totalAppBux = cardsWithBalances.reduce((sum, card) => sum + (card.balances?.appbux || 0), 0);
+    // Obtener el balance global de appbux basándonos en la tarjeta primaria para consistencia con Ocean Pay
+    const primaryCard = cardsWithBalances.find(c => c.is_primary) || cardsWithBalances[0];
+    const totalAppBux = primaryCard?.balances?.appbux || 0;
 
     res.json({ ...rows[0], appbux: totalAppBux, cards: cardsWithBalances });
   } catch (e) { res.status(401).json({ error: 'Token inválido' }); }
@@ -10808,15 +10809,17 @@ app.get('/ocean-pay/appbux/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
 
-    // Calcular el total de AppBux sumando todas las tarjetas del usuario
+    // Obtener el balance de AppBux de la tarjeta primaria para consistencia con la vista de Ocean Pay
     const { rows } = await pool.query(`
-      SELECT COALESCE(SUM(amount), 0) as total 
+      SELECT COALESCE(opcb.amount, 0) as total 
       FROM ocean_pay_card_balances opcb
       JOIN ocean_pay_cards opc ON opcb.card_id = opc.id
       WHERE opc.user_id = $1 AND opcb.currency_type = 'appbux'
+      ORDER BY opc.is_primary DESC, opc.id ASC
+      LIMIT 1
     `, [userId]);
 
-    res.json({ appbux: parseFloat(rows[0].total) || 0 });
+    res.json({ appbux: parseFloat(rows[0]?.total || 0) });
   } catch (err) {
     console.error('❌ Error en /ocean-pay/appbux/:userId', err);
     res.status(500).json({ error: 'Error interno' });

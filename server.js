@@ -10602,7 +10602,8 @@ app.get('/ocean-pay/me', async (req, res) => {
     // Obtener tarjetas del usuario CON sus saldos
     const { rows: cardRows } = await pool.query(
       `SELECT c.id, c.card_number, c.cvv, c.expiry_date, c.is_active, c.is_primary, c.card_name
-       FROM ocean_pay_cards c WHERE c.user_id = $1`,
+       FROM ocean_pay_cards c WHERE c.user_id = $1
+       ORDER BY c.is_primary DESC, c.id ASC`,
       [payload.uid]
     );
 

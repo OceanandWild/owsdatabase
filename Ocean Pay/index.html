@@ -291,7 +291,7 @@
       justify-content: center;
       font-size: 1.5rem;
       margin-bottom: 1rem;
-      background: rgba(255, 255, 255, .1);
+      background: transparent;
     }
 
     .currency-card .label {
@@ -390,6 +390,13 @@
       border-color: #39b54a;
     }
 
+    .currency-canvas {
+      width: 48px;
+      height: 48px;
+      display: block;
+      flex-shrink: 0;
+    }
+
     /* Utilities */
     .hidden {
       display: none !important;
@@ -416,28 +423,86 @@
 
       .sidebar {
         width: 100%;
-        height: auto;
-        padding: 1rem;
+        height: 70px;
+        padding: 0 1.5rem;
         flex-direction: row;
-        justify-content: space-between;
+        justify-content: center;
         align-items: center;
+        position: sticky;
+        top: 0;
+        background: rgba(11, 16, 30, 0.95);
+        border-right: none;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        z-index: 1001;
+      }
+
+      .brand {
+        margin-bottom: 0;
       }
 
       .nav-menu {
-        display: none;
+        display: flex;
+        flex-direction: row;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 75px;
+        background: rgba(11, 16, 30, 0.98);
+        backdrop-filter: blur(20px);
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 0;
+        gap: 0;
+        justify-content: space-around;
+        align-items: center;
+        z-index: 1000;
+        border-right: none;
       }
 
-      /* Simplified for now */
+      .nav-item {
+        flex: 1;
+        height: 100%;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        padding: 0.5rem 0;
+        gap: 4px;
+        font-size: 0.7rem;
+        border-radius: 0;
+        background: transparent !important;
+        border-left: none !important;
+        border-bottom: 3px solid transparent;
+      }
+
+      .nav-item.active {
+        color: var(--accent);
+        border-bottom: 3px solid var(--accent);
+        background: rgba(34, 211, 238, 0.05) !important;
+      }
+
+      .nav-item span {
+        font-size: 1.5rem;
+        margin: 0;
+      }
+
       .user-profile-mini {
         display: none;
       }
 
       .main-content {
-        padding: 1.5rem;
+        padding: 1.5rem 1rem 100px 1rem;
       }
 
       .page-title {
-        font-size: 1.5rem;
+        font-size: 1.6rem;
+      }
+
+      .balance-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .cards-container {
+        justify-content: center;
       }
     }
 
@@ -709,70 +774,85 @@
         <div class="balance-grid">
           <!-- AquaBux -->
           <div class="currency-card" id="aquabux-card">
-            <div class="currency-icon">💧</div>
+            <div class="currency-icon" style="background: transparent;">
+              <canvas class="currency-canvas" data-currency="bux"></canvas>
+            </div>
             <span class="label">AquaBux</span>
             <span class="amount" id="bux">0</span>
-            <div class="app-info">Ocean Cinemas 🎬</div>
+            <div class="app-info">Ocean Cinemas</div>
           </div>
 
 
 
           <!-- WildCredits -->
           <div class="currency-card" id="wildcredits-card">
-            <div class="currency-icon">🌿</div>
+            <div class="currency-icon" style="background: transparent;">
+              <canvas class="currency-canvas" data-currency="wildcredits"></canvas>
+            </div>
             <span class="label">WildCredits</span>
             <span class="amount" id="wildcredits">0</span>
-            <div class="app-info">Wild Explorer 🌿</div>
+            <div class="app-info">Wild Explorer</div>
           </div>
 
           <!-- WildGems -->
           <div class="currency-card" id="wildgems-card">
-            <div class="currency-icon">💎</div>
+            <div class="currency-icon" style="background: transparent;">
+              <canvas class="currency-canvas" data-currency="wildgems"></canvas>
+            </div>
             <span class="label">WildGems</span>
             <span class="amount" id="wildgems">0</span>
-            <div class="app-info">WildShorts ⚡</div>
+            <div class="app-info">WildShorts</div>
           </div>
 
           <!-- Ecoxionums -->
           <div class="currency-card" id="ecoxionums-card">
-            <div class="currency-icon">🌍</div>
+            <div class="currency-icon" style="background: transparent;">
+              <canvas class="currency-canvas" data-currency="ecoxionums"></canvas>
+            </div>
             <span class="label">Ecoxionums</span>
             <span class="amount" id="ecoxionums">0</span>
-            <div class="app-info">Ecoxion 🌍</div>
+            <div class="app-info">Ecoxion</div>
           </div>
 
           <!-- EcoCoreBits -->
           <div class="currency-card" id="ecobits-card">
-            <div class="currency-icon">💻</div>
+            <div class="currency-icon" style="background: transparent;">
+              <canvas class="currency-canvas" data-currency="ecobits"></canvas>
+            </div>
             <span class="label">EcoCoreBits</span>
             <span class="amount" id="ecobits">0</span>
-            <div class="app-info">EcoConsole 💻</div>
+            <div class="app-info">EcoConsole</div>
           </div>
 
           <!-- AppBux -->
           <div class="currency-card" id="appbux-card">
-            <div class="currency-icon">📱</div>
+            <div class="currency-icon" style="background: transparent;">
+              <canvas class="currency-canvas" data-currency="appbux"></canvas>
+            </div>
             <span class="label">AppBux</span>
             <span class="amount" id="appbux">0</span>
-            <div class="app-info">AllApp 📱</div>
+            <div class="app-info">AllApp</div>
           </div>
 
           <!-- EcoBooks (NEW) -->
           <div class="currency-card" id="ecobooks-card" onclick="loadEcoBooksBalance()" style="cursor:pointer;"
             title="Click para actualizar">
-            <div class="currency-icon">📚</div>
+            <div class="currency-icon" style="background: transparent;">
+              <canvas class="currency-canvas" data-currency="ecobooks"></canvas>
+            </div>
             <span class="label">EcoBooks</span>
             <span class="amount" id="ecobooks">0</span>
-            <div class="app-info">Naturepedia 🌿 <span style="font-size:10px;opacity:0.7;">🔄</span></div>
+            <div class="app-info">Naturepedia <span style="font-size:10px;opacity:0.7;">🔄</span></div>
           </div>
 
           <!-- EcoTokens (Wild Savage) -->
           <div class="currency-card" id="ecotokens-card">
-            <div class="currency-icon"
-              style="background: linear-gradient(135deg, rgba(57, 181, 74, 0.2), rgba(34, 139, 34, 0.1));">💎</div>
+            <div class="currency-icon" style="background: transparent;">
+              <canvas class="currency-canvas" data-currency="ecotokens"></canvas>
+            </div>
             <span class="label">EcoTokens</span>
             <span class="amount" id="ecotokens">0</span>
-            <div class="app-info">No-Extinction - Wild Savage 🦁</div>
+            <div class="app-info">No-Extinction - Wild Savage</div>
           </div>
         </div>
 
@@ -797,37 +877,7 @@
             en EcoConsole. Se recarga diariamente.</p>
         </div>
 
-        <!-- Savage Space Animals Subscription -->
-        <div
-          style="background: linear-gradient(145deg, rgba(147, 51, 234, 0.1), rgba(79, 70, 229, 0.05)); padding: 1.5rem; border-radius: 1rem; margin-top: 2rem; border: 1px solid rgba(147, 51, 234, 0.3);">
-          <h3
-            style="margin-bottom: 1rem; font-size: 1rem; color: #a855f7; display: flex; align-items: center; gap: 8px;">
-            🚀 Savage Space Animals
-            <span id="ssa-plan-badge"
-              style="font-size: 0.75rem; background: rgba(147, 51, 234, 0.3); padding: 4px 10px; border-radius: 12px; color: #c4b5fd;">FREE</span>
-          </h3>
-          <div id="ssa-benefits" style="display: grid; gap: 8px;">
-            <div
-              style="display: flex; justify-content: space-between; padding: 0.8rem 1rem; background: rgba(0,0,0,0.2); border-radius: 0.5rem;">
-              <span>❤️ Vidas Extra</span>
-              <span style="font-weight: bold; color: #f97316;" id="ssa-lives">+0</span>
-            </div>
-            <div
-              style="display: flex; justify-content: space-between; padding: 0.8rem 1rem; background: rgba(0,0,0,0.2); border-radius: 0.5rem;">
-              <span>⏱️ Cooldown Boss</span>
-              <span style="font-weight: bold; color: #10b981;" id="ssa-cooldown">-0%</span>
-            </div>
-            <div
-              style="display: flex; justify-content: space-between; padding: 0.8rem 1rem; background: rgba(0,0,0,0.2); border-radius: 0.5rem;">
-              <span>✨ Pólvora Cósmica</span>
-              <span style="font-weight: bold; color: #ffd700;" id="ssa-dust">+0%</span>
-            </div>
-          </div>
-          <a href="../Ocean and Wild Studios Hub/index.html#pricing-section"
-            style="display: block; text-align: center; margin-top: 1rem; color: #a855f7; font-size: 0.85rem; text-decoration: none;">
-            🔗 Gestionar suscripción en el Hub
-          </a>
-        </div>
+
       </section>
 
       <!-- History Section -->
@@ -1005,11 +1055,25 @@
           }
 
           .pos-back-btn {
-            background: none;
+            background: transparent !important;
             border: none;
             font-size: 1.2rem;
             color: #64748b;
             cursor: pointer;
+            width: auto !important;
+            padding: 8px !important;
+            box-shadow: none !important;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 10px;
+          }
+
+          .pos-back-btn:hover {
+            background: rgba(0, 0, 0, 0.05) !important;
+            transform: none !important;
+            color: #0ea5e9;
           }
 
           .pos-title {
@@ -1063,10 +1127,28 @@
             border: none;
             padding: 12px;
             font-family: inherit;
-            font-size: 0.9rem;
+            font-size: 1rem;
             color: #0f172a;
             outline: none;
             background: transparent;
+            font-weight: 700;
+          }
+
+          .pos-visual-card {
+            background: white;
+            border-radius: 20px;
+            padding: 20px;
+            margin: 10px 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border: 2px solid #e2e8f0;
+          }
+
+          .pos-currency-symbol {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 10px;
           }
 
           .pos-btn-primary {
@@ -1170,8 +1252,10 @@
               <h3>OceanPay</h3>
               <p>Transferencia Exitosa</p>
               <hr style="border-top:1px dashed #000; margin: 5px 0;">
-              <p id="receipt-amount"></p>
-              <p id="receipt-id"></p>
+              <p id="receipt-amount" style="font-size: 1.2rem; font-weight: bold; margin: 5px 0;"></p>
+              <canvas id="receiptCanvas" class="currency-canvas" data-currency="bux"
+                style="width: 40px; height: 40px; margin: 5px auto;"></canvas>
+              <p id="receipt-id" style="font-size: 0.6rem; opacity: 0.7;"></p>
               <p>Gracias por usar OceanPay</p>
             </div>
 
@@ -1222,17 +1306,22 @@
                   <div class="pos-field">
                     <label>Divisa</label>
                     <div class="pos-input-group">
-                      <select id="pos-currency-select" class="pos-select">
-                        <option value="aquabux">AquaBux 💧</option>
-                        <option value="ecoxionums">Ecoxionums 🌍</option>
-                        <option value="ecorebits">EcoCoreBits 💻</option>
-                        <option value="wildcredits">WildCredits 🌿</option>
-                        <option value="wildgems">WildGems 💎</option>
-                        <option value="appbux">AppBux 📱</option>
-                        <option value="ecobooks">EcoBooks 📚</option>
-                        <option value="ecotokens">EcoTokens 🦁</option>
+                      <select id="pos-currency-select" class="pos-select" onchange="updatePosSendVisual()">
+                        <option value="bux">AquaBux</option>
+                        <option value="ecoxionums">Ecoxionums</option>
+                        <option value="ecobits">EcoCoreBits</option>
+                        <option value="wildcredits">WildCredits</option>
+                        <option value="wildgems">WildGems</option>
+                        <option value="appbux">AppBux</option>
+                        <option value="ecobooks">EcoBooks</option>
+                        <option value="ecotokens">EcoTokens</option>
                       </select>
                     </div>
+                  </div>
+
+                  <div class="pos-visual-card">
+                    <canvas id="posSendCanvas" class="currency-canvas pos-currency-symbol"
+                      data-currency="aquabux"></canvas>
                   </div>
 
                   <div class="pos-field">
@@ -1309,9 +1398,11 @@
                   </div>
 
                   <div
-                    style="background:#fff; border-radius:15px; padding:20px; box-shadow:0 5px 20px rgba(0,0,0,0.05); margin-bottom:20px;">
+                    style="background:#fff; border-radius:15px; padding:20px; box-shadow:0 5px 20px rgba(0,0,0,0.05); margin-bottom:20px; display:flex; flex-direction:column; align-items:center;">
                     <p style="color:#64748b; font-size:0.8rem; margin:0;">Monto a recibir</p>
                     <h2 id="pos-confirm-amount" style="margin:5px 0; font-size:2rem; color:#0f172a;">0.00</h2>
+                    <canvas id="posConfirmCanvas" class="currency-canvas" data-currency="aquabux"
+                      style="width: 60px; height: 60px; margin: 10px 0;"></canvas>
                     <p id="pos-confirm-sender" style="color:#3b82f6; font-size:0.9rem; margin:0;">De: Usuario</p>
                   </div>
 
@@ -1371,6 +1462,244 @@
     function getActiveCardBalance(currencyType) {
       if (!userCards[activeCardIndex]) return 0;
       return userCards[activeCardIndex].balances?.[currencyType] || 0;
+    }
+
+    /* ----------  CURRENCY ANIMATION SYSTEM  ---------- */
+    /* ----------  CURRENCY ANIMATION SYSTEM  ---------- */
+    function drawEcoTokenIcon(ctx, x, y, size) {
+      ctx.save(); ctx.translate(x, y);
+      ctx.shadowBlur = size * 0.4; ctx.shadowColor = "rgba(46, 204, 113, 0.6)";
+      ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(0, 0, size * 0.5, 0, Math.PI * 2); ctx.fill();
+      const grad = ctx.createLinearGradient(-size, -size, size, size);
+      grad.addColorStop(0, "#2ecc71"); grad.addColorStop(1, "#27ae60");
+      ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(0, 0, size * 0.43, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "rgba(255,255,255,0.2)"; ctx.beginPath(); ctx.arc(-size * 0.1, -size * 0.1, size * 0.15, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0; ctx.fillStyle = "#fff"; ctx.font = `bold ${size * 0.55}px sans-serif`;
+      ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("E", 0, 0);
+      ctx.restore();
+    }
+
+    function drawAquaBuxIcon(ctx, x, y, size, time) {
+      ctx.save(); ctx.translate(x, y);
+
+      // Outer Glow Pulse
+      const pulse = Math.sin(time * 2) * 0.1 + 0.9;
+      ctx.shadowBlur = size * 0.4 * pulse; ctx.shadowColor = "rgba(0, 191, 255, 0.5)";
+
+      // 1. Outer Glassy Shell
+      const shellGrad = ctx.createRadialGradient(-size * 0.2, -size * 0.3, 0, 0, 0, size * 0.6);
+      shellGrad.addColorStop(0, "rgba(255, 255, 255, 0.3)");
+      shellGrad.addColorStop(0.5, "rgba(0, 184, 212, 0.1)");
+      shellGrad.addColorStop(1, "rgba(0, 96, 128, 0.4)");
+
+      ctx.beginPath();
+      ctx.moveTo(0, -size * 0.6);
+      ctx.bezierCurveTo(size * 0.4, -size * 0.1, size * 0.5, size * 0.3, size * 0.5, size * 0.4);
+      ctx.arc(0, size * 0.4, size * 0.5, 0, Math.PI);
+      ctx.bezierCurveTo(-size * 0.5, size * 0.3, -size * 0.4, -size * 0.1, 0, -size * 0.6);
+      ctx.fillStyle = shellGrad; ctx.fill();
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.5)"; ctx.lineWidth = 2; ctx.stroke();
+
+      // 2. Inner Energy Core (Pulsating)
+      ctx.save();
+      const coreSize = size * (0.2 + Math.sin(time * 3) * 0.04);
+      const coreGrad = ctx.createRadialGradient(0, size * 0.3, 0, 0, size * 0.3, coreSize * 1.5);
+      coreGrad.addColorStop(0, "#ffffff");
+      coreGrad.addColorStop(0.4, "#00e5ff");
+      coreGrad.addColorStop(1, "transparent");
+
+      ctx.fillStyle = coreGrad;
+      ctx.beginPath(); ctx.arc(0, size * 0.3, coreSize, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+
+      // 3. Swirling "Water" Currents
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.2)"; ctx.lineWidth = 2; ctx.lineCap = "round";
+      for (let i = 0; i < 3; i++) {
+        const angle = time + (i * Math.PI * 2 / 3);
+        const sx = Math.cos(angle) * size * 0.2;
+        const sy = size * 0.3 + Math.sin(angle) * size * 0.15;
+        ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx * 1.1, sy); ctx.stroke();
+      }
+
+      // 4. Surface Refraction (Top Shine)
+      ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+      ctx.beginPath();
+      ctx.ellipse(-size * 0.15, -size * 0.25, size * 0.1, size * 0.15, -0.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    function drawWildCreditsIcon(ctx, x, y, size) {
+      ctx.save(); ctx.translate(x, y);
+      ctx.shadowBlur = size * 0.4; ctx.shadowColor = "rgba(100, 255, 100, 0.5)";
+      // Leaf Shape
+      ctx.beginPath();
+      ctx.moveTo(0, -size * 0.6);
+      ctx.quadraticCurveTo(size * 0.6, -size * 0.5, size * 0.4, size * 0.4);
+      ctx.quadraticCurveTo(0, size * 0.7, -size * 0.4, size * 0.4);
+      ctx.quadraticCurveTo(-size * 0.6, -size * 0.5, 0, -size * 0.6);
+      const grad = ctx.createLinearGradient(0, -size * 0.6, 0, size * 0.7);
+      grad.addColorStop(0, "#4ade80"); grad.addColorStop(1, "#166534");
+      ctx.fillStyle = grad; ctx.fill();
+      // Glowing Veins
+      ctx.strokeStyle = "rgba(255,255,255,0.4)"; ctx.lineWidth = size * 0.05;
+      ctx.beginPath(); ctx.moveTo(0, -size * 0.5); ctx.lineTo(0, size * 0.5); ctx.stroke();
+      ctx.lineWidth = size * 0.02;
+      ctx.beginPath(); ctx.moveTo(0, -size * 0.2); ctx.lineTo(size * 0.3, -size * 0.4); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, size * 0.1); ctx.lineTo(-size * 0.3, -size * 0.1); ctx.stroke();
+      // Text over a chip
+      ctx.fillStyle = "rgba(0,0,0,0.4)"; ctx.beginPath(); ctx.arc(0, 0, size * 0.25, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#fff"; ctx.font = `bold ${size * 0.25}px sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("WC", 0, 0);
+      ctx.restore();
+    }
+
+    function drawWildGemsIcon(ctx, x, y, size) {
+      ctx.save(); ctx.translate(x, y);
+      ctx.shadowBlur = size * 0.5; ctx.shadowColor = "rgba(168, 85, 247, 0.6)";
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const angle = (i * Math.PI * 2) / 6 - Math.PI / 2;
+        const px = Math.cos(angle) * size * 0.5; const py = Math.sin(angle) * size * 0.5;
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, size * 0.6);
+      grad.addColorStop(0, "#d8b4fe"); grad.addColorStop(1, "#a855f7");
+      ctx.fillStyle = grad; ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,0.4)"; ctx.lineWidth = 1;
+      for (let i = 0; i < 6; i++) {
+        const angle = (i * Math.PI * 2) / 6 - Math.PI / 2;
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(angle) * size * 0.5, Math.sin(angle) * size * 0.5); ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function drawEcoxionumsIcon(ctx, x, y, size) {
+      ctx.save(); ctx.translate(x, y);
+      ctx.shadowBlur = size * 0.4; ctx.shadowColor = "rgba(16, 185, 129, 0.4)";
+      ctx.fillStyle = "#0ea5e9"; ctx.beginPath(); ctx.arc(0, 0, size * 0.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#10b981";
+      ctx.beginPath(); ctx.arc(-size * 0.15, -size * 0.1, size * 0.25, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(size * 0.2, size * 0.15, size * 0.2, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,0.3)"; ctx.lineWidth = 2; ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawEcoCoreBitsIcon(ctx, x, y, size) {
+      ctx.save(); ctx.translate(x, y);
+      ctx.shadowBlur = size * 0.6; ctx.shadowColor = "rgba(168, 85, 247, 0.6)";
+      // Isometric Cube Frame
+      const drawHex = (s, color) => {
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        for (let i = 0; i < 6; i++) {
+          const a = (i * Math.PI * 2) / 6 - Math.PI / 2;
+          ctx.lineTo(Math.cos(a) * s, Math.sin(a) * s);
+        }
+        ctx.closePath(); ctx.fill();
+      };
+      drawHex(size * 0.5, "#7c3aed");
+      drawHex(size * 0.4, "#4c1d95");
+      // Circuit Dot
+      ctx.fillStyle = "#a78bfa"; ctx.beginPath(); ctx.arc(0, 0, size * 0.15, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke();
+      // Glowing border
+      ctx.strokeStyle = "rgba(255,255,255,0.5)"; ctx.strokeRect(-size * 0.2, -size * 0.2, size * 0.4, size * 0.4);
+      ctx.restore();
+    }
+
+    function drawAppBuxIcon(ctx, x, y, size) {
+      ctx.save(); ctx.translate(x, y);
+      ctx.shadowBlur = size * 0.5; ctx.shadowColor = "rgba(251, 146, 60, 0.6)";
+      // Multi-layered Ring
+      const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, size * 0.6);
+      grad.addColorStop(0, "#ffedd5"); grad.addColorStop(0.5, "#fb923c"); grad.addColorStop(1, "#ea580c");
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.arc(0, 0, size * 0.55, 0, Math.PI * 2); ctx.fill();
+      // Inner Tech Hole
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.beginPath(); ctx.arc(0, 0, size * 0.3, 0, Math.PI * 2); ctx.fill();
+      ctx.globalCompositeOperation = 'source-over';
+      // Center Floating Symbol
+      ctx.fillStyle = "#fff"; ctx.font = `bold ${size * 0.5}px sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("+", 0, -size * 0.05);
+      // Shine
+      ctx.beginPath(); ctx.strokeStyle = "rgba(255,255,255,0.6)"; ctx.lineWidth = size * 0.08;
+      ctx.arc(0, 0, size * 0.45, -Math.PI * 0.4, -0.2); ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawEcoBooksIcon(ctx, x, y, size) {
+      ctx.save(); ctx.translate(x, y);
+      ctx.shadowBlur = size * 0.4; ctx.shadowColor = "rgba(6, 182, 212, 0.5)";
+      // Book Body (Open 3D look)
+      ctx.fillStyle = "#fff";
+      // Left Page
+      ctx.beginPath(); ctx.moveTo(-size * 0.4, -size * 0.3); ctx.quadraticCurveTo(-size * 0.2, -size * 0.4, 0, -size * 0.3);
+      ctx.lineTo(0, size * 0.3); ctx.quadraticCurveTo(-size * 0.2, size * 0.2, -size * 0.4, size * 0.3); ctx.closePath(); ctx.fill();
+      // Right Page
+      ctx.beginPath(); ctx.moveTo(size * 0.4, -size * 0.3); ctx.quadraticCurveTo(size * 0.2, -size * 0.4, 0, -size * 0.3);
+      ctx.lineTo(0, size * 0.3); ctx.quadraticCurveTo(size * 0.2, size * 0.2, size * 0.4, size * 0.3); ctx.closePath(); ctx.fill();
+      // Cover edges
+      ctx.strokeStyle = "#0891b2"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(-size * 0.4, -size * 0.3); ctx.lineTo(-size * 0.4, size * 0.3); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(size * 0.4, -size * 0.3); ctx.lineTo(size * 0.4, size * 0.3); ctx.stroke();
+      // Leaf Bookmark
+      ctx.fillStyle = "#22c55e"; ctx.beginPath();
+      ctx.moveTo(-size * 0.1, -size * 0.3); ctx.quadraticCurveTo(0, -size * 0.1, size * 0.1, -size * 0.3); ctx.lineTo(0, size * 0.1); ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
+
+    function animateCurrencies() {
+      const canvases = document.querySelectorAll('.currency-canvas');
+      const time = Date.now() * 0.002;
+
+      canvases.forEach(canvas => {
+        const ctx = canvas.getContext('2d');
+        const type = canvas.dataset.currency;
+        const size = 128; // Higher res for crispness
+
+        if (canvas.width !== size) {
+          canvas.width = size;
+          canvas.height = size;
+        }
+
+        ctx.clearRect(0, 0, size, size);
+
+        // Floating motion
+        const hover = Math.sin(time) * 3;
+        const x = size / 2;
+        const y = size / 2 + hover;
+
+        switch (type) {
+          case 'ecotokens': drawEcoTokenIcon(ctx, x, y, size * 0.8); break;
+          case 'bux':
+          case 'aquabux': drawAquaBuxIcon(ctx, x, y, size * 0.8, time); break;
+          case 'wildcredits': drawWildCreditsIcon(ctx, x, y, size * 0.8); break;
+          case 'wildgems': drawWildGemsIcon(ctx, x, y, size * 0.8); break;
+          case 'ecoxionums': drawEcoxionumsIcon(ctx, x, y, size * 0.8); break;
+          case 'ecobits':
+          case 'ecorebits': drawEcoCoreBitsIcon(ctx, x, y, size * 0.8); break;
+          case 'appbux': drawAppBuxIcon(ctx, x, y, size * 0.8); break;
+          case 'ecobooks': drawEcoBooksIcon(ctx, x, y, size * 0.8); break;
+          default:
+            ctx.fillStyle = "#fff"; ctx.font = "64px serif"; ctx.textAlign = "center";
+            ctx.textBaseline = "middle"; ctx.fillText("💰", x, y);
+        }
+      });
+
+      requestAnimationFrame(animateCurrencies);
+    }
+
+    // Start animation loop
+    animateCurrencies();
+
+    function updatePosSendVisual() {
+      const select = qs('#pos-currency-select');
+      const canvas = qs('#posSendCanvas');
+      if (select && canvas) {
+        canvas.dataset.currency = select.value;
+      }
     }
 
     // Actualizar displays de saldos según tarjeta activa
@@ -1458,6 +1787,11 @@
           qs('#pos-confirm-amount').textContent = `${data.pos.amount} ${data.pos.currency.toUpperCase()}`;
           qs('#pos-confirm-sender').textContent = `De: ${data.pos.sender_name}`;
 
+          const confirmCanvas = qs('#posConfirmCanvas');
+          if (confirmCanvas) {
+            confirmCanvas.dataset.currency = data.pos.currency;
+          }
+
           // Store data for completion
           qs('#pos-confirm').dataset.code = code;
 
@@ -1489,6 +1823,12 @@
           const receipt = qs('#pos-printer-receipt');
           qs('#receipt-amount').textContent = qs('#pos-confirm-amount').textContent;
           qs('#receipt-id').textContent = `TRX-${Date.now().toString().slice(-6)}`;
+
+          const receiptCanvas = qs('#receiptCanvas');
+          const confirmCanvas = qs('#posConfirmCanvas');
+          if (receiptCanvas && confirmCanvas) {
+            receiptCanvas.dataset.currency = confirmCanvas.dataset.currency;
+          }
 
           receipt.classList.add('printing');
 
@@ -1815,38 +2155,8 @@
       }
     }
 
-    async function loadSSABenefits() {
-      const user = JSON.parse(localStorage.getItem('opUser') || '{}');
-      if (!user.id) return;
-      try {
-        const res = await fetch(`${API}/savage-space-animals/benefits`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (res.ok) {
-          const data = await res.json();
-          const plan = data.plan || 'free';
-          const benefits = data.benefits;
 
-          // Update badge
-          const badge = qs('#ssa-plan-badge');
-          if (badge) {
-            badge.textContent = plan.toUpperCase();
-            badge.style.background = plan === 'oceanic' ? 'rgba(59, 130, 246, 0.3)' :
-              plan === 'savage' ? 'rgba(239, 68, 68, 0.3)' :
-                'rgba(147, 51, 234, 0.3)';
-            badge.style.color = plan === 'oceanic' ? '#93c5fd' :
-              plan === 'savage' ? '#fca5a5' : '#c4b5fd';
-          }
 
-          // Update benefits display
-          if (benefits) {
-            qs('#ssa-lives').textContent = `+${benefits.extraLives}`;
-            qs('#ssa-cooldown').textContent = `-${benefits.bossCooldownReduction}%`;
-            qs('#ssa-dust').textContent = `+${benefits.cosmicDustBonus}%`;
-          }
-        }
-      } catch (e) { console.error('Error loading SSA benefits:', e); }
-    }
 
     async function loadEcoTokensBalance() {
       const user = JSON.parse(localStorage.getItem('opUser') || '{}');
@@ -1998,9 +2308,6 @@
     async function refreshAllBalances() {
       // Cargar tarjetas (incluyen todos los saldos)
       await loadOceanCards();
-
-      // Cargar beneficios SSA (no dependen de tarjeta)
-      await loadSSABenefits();
     }
 
     let balanceRefreshInterval = null;

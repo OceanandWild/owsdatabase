@@ -10838,13 +10838,7 @@ app.post('/ocean-pay/appbux/change', async (req, res) => {
   try {
     await client.query('BEGIN');
 
-    // 1. Update legacy user table total balance (keep it for compatibility but we won't return it)
-    await client.query(
-      'UPDATE ocean_pay_users SET appbux = appbux + $1 WHERE id = $2',
-      [amount, userId]
-    );
-
-    // 2. Update specific card balance if provided, or primary card if not
+    // 1. Determinar la tarjeta objetivo
     let targetCardId = cardId;
     if (!targetCardId) {
       const { rows: primaryRows } = await client.query(
@@ -10862,16 +10856,46 @@ app.post('/ocean-pay/appbux/change', async (req, res) => {
       }
     }
 
-    if (targetCardId) {
-      await client.query(`
-        INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
-        VALUES ($1, 'appbux', $2)
-        ON CONFLICT (card_id, currency_type)
-        DO UPDATE SET amount = ocean_pay_card_balances.amount + $2
-      `, [targetCardId, amount]);
+    if (!targetCardId) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'No se encontró una tarjeta válida' });
     }
 
-    // 3. Register transaction
+    // 2. VALIDAR: Si es un gasto (amount < 0), verificar saldo suficiente en la tarjeta
+    if (amount < 0) {
+      const { rows: balanceRows } = await client.query(
+        `SELECT COALESCE(amount, 0) as current_balance 
+         FROM ocean_pay_card_balances 
+         WHERE card_id = $1 AND currency_type = 'appbux'`,
+        [targetCardId]
+      );
+      const currentCardBalance = parseFloat(balanceRows[0]?.current_balance || 0);
+
+      if (currentCardBalance + amount < 0) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({
+          error: 'Saldo insuficiente en la tarjeta seleccionada',
+          currentBalance: currentCardBalance,
+          required: Math.abs(amount)
+        });
+      }
+    }
+
+    // 3. Update legacy user table total balance (for compatibility)
+    await client.query(
+      'UPDATE ocean_pay_users SET appbux = appbux + $1 WHERE id = $2',
+      [amount, userId]
+    );
+
+    // 4. Update card balance
+    await client.query(`
+      INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
+      VALUES ($1, 'appbux', $2)
+      ON CONFLICT (card_id, currency_type)
+      DO UPDATE SET amount = ocean_pay_card_balances.amount + $2
+    `, [targetCardId, amount]);
+
+    // 5. Register transaction
     try {
       await client.query(
         `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
@@ -10886,7 +10910,7 @@ app.post('/ocean-pay/appbux/change', async (req, res) => {
       );
     }
 
-    // 4. Calculate balance of PRIMARY card (source of truth for display)
+    // 6. Calculate return balance (Primary Card only)
     const { rows: totalRows } = await client.query(`
       SELECT COALESCE(opcb.amount, 0) as total 
       FROM ocean_pay_card_balances opcb

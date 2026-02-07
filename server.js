@@ -10822,7 +10822,7 @@ app.get('/ocean-pay/appbux/:userId', async (req, res) => {
 
 // Cambiar balance de AppBux
 app.post('/ocean-pay/appbux/change', async (req, res) => {
-  const { userId, amount, concepto = 'Operación', origen = 'AllApp' } = req.body;
+  const { userId, amount, concepto = 'Operación', origen = 'AllApp', cardId } = req.body;
 
   if (!userId || amount === undefined) {
     return res.status(400).json({ error: 'Faltan datos' });
@@ -10832,7 +10832,7 @@ app.post('/ocean-pay/appbux/change', async (req, res) => {
   try {
     await client.query('BEGIN');
 
-    // Lock & read
+    // 1. Lock & read user total balance
     const { rows } = await client.query(
       'SELECT appbux FROM ocean_pay_users WHERE id = $1 FOR UPDATE',
       [userId]
@@ -10851,13 +10851,40 @@ app.post('/ocean-pay/appbux/change', async (req, res) => {
       return res.status(400).json({ error: 'Saldo insuficiente' });
     }
 
-    // Update balance
+    // 2. Update user table total balance
     await client.query(
       'UPDATE ocean_pay_users SET appbux = $1 WHERE id = $2',
       [newBalance, userId]
     );
 
-    // Registrar transacción
+    // 3. Update specific card balance if provided, or primary card if not
+    let targetCardId = cardId;
+    if (!targetCardId) {
+      const { rows: primaryRows } = await client.query(
+        'SELECT id FROM ocean_pay_cards WHERE user_id = $1 AND is_primary = true',
+        [userId]
+      );
+      if (primaryRows.length > 0) {
+        targetCardId = primaryRows[0].id;
+      } else {
+        const { rows: firstCardRows } = await client.query(
+          'SELECT id FROM ocean_pay_cards WHERE user_id = $1 LIMIT 1',
+          [userId]
+        );
+        if (firstCardRows.length > 0) targetCardId = firstCardRows[0].id;
+      }
+    }
+
+    if (targetCardId) {
+      await client.query(`
+        INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
+        VALUES ($1, 'appbux', $2)
+        ON CONFLICT (card_id, currency_type)
+        DO UPDATE SET amount = ocean_pay_card_balances.amount + $2
+      `, [targetCardId, amount]);
+    }
+
+    // 4. Register transaction
     try {
       await client.query(
         `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
@@ -10865,49 +10892,12 @@ app.post('/ocean-pay/appbux/change', async (req, res) => {
         [userId, concepto, amount, origen]
       );
     } catch (e) {
-      // Si falla por falta de columna moneda, hacer rollback y reintentar todo sin ella
-      await client.query('ROLLBACK');
-      await client.query('BEGIN');
-
-      // Volver a leer el balance (porque hicimos rollback)
-      const { rows: balanceRows } = await client.query(
-        'SELECT appbux FROM ocean_pay_users WHERE id = $1 FOR UPDATE',
-        [userId]
-      );
-
-      if (balanceRows.length === 0) {
-        await client.query('ROLLBACK');
-        return res.status(404).json({ error: 'Usuario no encontrado' });
-      }
-
-      const currentAppBuxRetry = balanceRows[0].appbux || 0;
-      const newBalanceRetry = currentAppBuxRetry + amount;
-
-      if (newBalanceRetry < 0) {
-        await client.query('ROLLBACK');
-        return res.status(400).json({ error: 'Saldo insuficiente' });
-      }
-
-      // Volver a hacer el UPDATE
+      // Fallback if moneda column doesn't exist
       await client.query(
-        'UPDATE ocean_pay_users SET appbux = $1 WHERE id = $2',
-        [newBalanceRetry, userId]
+        `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
+         VALUES ($1, $2, $3, $4)`,
+        [userId, concepto, amount, origen]
       );
-
-      try {
-        // Intentar INSERT sin la columna moneda
-        await client.query(
-          `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
-           VALUES ($1, $2, $3, $4)`,
-          [userId, concepto, amount, origen]
-        );
-        await client.query('COMMIT');
-        return res.json({ success: true, newBalance: newBalanceRetry });
-      } catch (e2) {
-        // Si también falla el segundo INSERT, hacer rollback y lanzar error
-        await client.query('ROLLBACK');
-        throw e2;
-      }
     }
 
     await client.query('COMMIT');
@@ -12877,6 +12867,37 @@ async function ensureTables() {
     console.log('✅ Migración de ocean_pay_users appbux ejecutada.');
   } catch (err) {
     console.warn('⚠️ Error al ejecutar migración de ocean_pay_users appbux:', err.message);
+  }
+
+  // Sincronizar appbux de ocean_pay_users a la tarjeta primaria si la tarjeta tiene 0
+  try {
+    // 1. Actualizar tarjetas primarias que tienen saldo 0 pero el usuario tiene saldo global
+    await pool.query(`
+      UPDATE ocean_pay_card_balances opcb
+      SET amount = opu.appbux
+      FROM ocean_pay_cards opc
+      JOIN ocean_pay_users opu ON opc.user_id = opu.id
+      WHERE opcb.card_id = opc.id
+      AND opcb.currency_type = 'appbux'
+      AND opc.is_primary = true
+      AND opcb.amount = 0
+      AND opu.appbux > 0;
+    `);
+
+    // 2. Insertar registros de saldo faltantes para tarjetas primarias
+    await pool.query(`
+      INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
+      SELECT opc.id, 'appbux', opu.appbux
+      FROM ocean_pay_cards opc
+      JOIN ocean_pay_users opu ON opc.user_id = opu.id
+      LEFT JOIN ocean_pay_card_balances opcb ON opc.id = opcb.card_id AND opcb.currency_type = 'appbux'
+      WHERE opc.is_primary = true
+      AND opu.appbux > 0
+      AND opcb.card_id IS NULL;
+    `);
+    console.log('✅ Sincronización de appbux de usuarios a tarjetas ejecutada.');
+  } catch (err) {
+    console.warn('⚠️ Error al sincronizar appbux a tarjetas:', err.message);
   }
 
   // Agregar user_unique_id y unique_id_shown a users_nat si no existen

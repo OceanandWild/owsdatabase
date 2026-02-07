@@ -17472,11 +17472,14 @@ app.post('/ocean-pay/transfer-self', async (req, res) => {
       [destCardId, currency, amt]
     );
 
+    // Generate internal transfer code
+    const selfCode = 'SLF-' + Math.random().toString(36).substring(2, 7).toUpperCase();
+
     // Log transaction (Internal transfer)
     await client.query(
-      `INSERT INTO ocean_pay_pos (sender_id, sender_card_id, receiver_id, receiver_card_id, amount, currency, status, completed_at)
-         VALUES ($1, $2, $1, $3, $4, $5, 'completed', NOW())`,
-      [userId, sourceCardId, destCardId, amt, currency]
+      `INSERT INTO ocean_pay_pos (code, sender_id, sender_card_id, receiver_id, receiver_card_id, amount, currency, status, completed_at)
+         VALUES ($1, $2, $3, $2, $4, $5, $6, 'completed', NOW())`,
+      [selfCode, userId, sourceCardId, destCardId, amt, currency]
     );
 
     await client.query('COMMIT');

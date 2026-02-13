@@ -1,0 +1,13 @@
+# Ignorar TODO por defecto
+*
+
+# Permitir solo archivos del servidor
+!server.js
+!package.json
+!package-lock.json
+!.gitignore
+
+# Siempre ignorar estos
+node_modules/
+.env
+uploads/

@@ -528,7 +528,13 @@ async function runDatabaseMigrations() {
       )
     `).catch(() => console.log('⚠️ Tabla ocean_pay_cards ya existe'));
 
-    // 9. Crear tabla ocean_pay_card_balances para saldos por tarjeta
+    // 9. Agregar columna balances (JSONB) a ocean_pay_cards para multisaldo flexible
+    await pool.query(`
+      ALTER TABLE ocean_pay_cards 
+      ADD COLUMN IF NOT EXISTS balances JSONB DEFAULT '{}'
+    `).catch(() => console.log('⚠️ Columna balances ya existe en ocean_pay_cards'));
+
+    // 10. Crear tabla ocean_pay_card_balances para saldos por tarjeta (Legado/Compatibilidad)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS ocean_pay_card_balances (
         id SERIAL PRIMARY KEY,
@@ -544,46 +550,46 @@ async function runDatabaseMigrations() {
       ALTER TABLE ocean_pay_cards 
       ADD COLUMN IF NOT EXISTS is_primary BOOLEAN DEFAULT false,
       ADD COLUMN IF NOT EXISTS card_name VARCHAR(50) DEFAULT 'Mi Tarjeta'
-    `).catch(() => { });
+        `).catch(() => { });
 
     // 11. Crear tabla ocean_pay_pos si no existe (POS Virtual)
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS ocean_pay_pos (
-        id SERIAL PRIMARY KEY,
-        code VARCHAR(10) UNIQUE NOT NULL,
-        sender_id INTEGER NOT NULL REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
-        sender_card_id INTEGER REFERENCES ocean_pay_cards(id) ON DELETE CASCADE,
-        receiver_id INTEGER REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
-        receiver_card_id INTEGER REFERENCES ocean_pay_cards(id) ON DELETE CASCADE,
-        amount DECIMAL(20, 2) NOT NULL,
-        currency VARCHAR(50) NOT NULL,
-        target_currency VARCHAR(50),  -- Para Intercambios (Swap)
+      CREATE TABLE IF NOT EXISTS ocean_pay_pos(
+          id SERIAL PRIMARY KEY,
+          code VARCHAR(10) UNIQUE NOT NULL,
+          sender_id INTEGER NOT NULL REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
+          sender_card_id INTEGER REFERENCES ocean_pay_cards(id) ON DELETE CASCADE,
+          receiver_id INTEGER REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
+          receiver_card_id INTEGER REFERENCES ocean_pay_cards(id) ON DELETE CASCADE,
+          amount DECIMAL(20, 2) NOT NULL,
+          currency VARCHAR(50) NOT NULL,
+          target_currency VARCHAR(50), --Para Intercambios(Swap)
         is_exchange BOOLEAN DEFAULT FALSE,
-        status VARCHAR(20) DEFAULT 'pending', -- pending, completed, expired, cancelled
+          status VARCHAR(20) DEFAULT 'pending', --pending, completed, expired, cancelled
         created_at TIMESTAMP DEFAULT NOW(),
-        completed_at TIMESTAMP
-      )
-    `).catch(() => console.log('⚠️ Tabla ocean_pay_pos ya existe'));
+          completed_at TIMESTAMP
+        )
+      `).catch(() => console.log('⚠️ Tabla ocean_pay_pos ya existe'));
 
     // Migración: Asegurar columnas para Intercambio (Swap)
     await pool.query(`
       ALTER TABLE ocean_pay_pos
       ADD COLUMN IF NOT EXISTS target_currency VARCHAR(50),
       ADD COLUMN IF NOT EXISTS is_exchange BOOLEAN DEFAULT FALSE
-    `).catch(() => { });
+        `).catch(() => { });
 
     // --- CRITICAL FIX: Add Password Column to Ocean Pay Users ---
     // User requested that ocean_pay_users be the authority.
     await pool.query(`
       ALTER TABLE ocean_pay_users
       ADD COLUMN IF NOT EXISTS password VARCHAR(255)
-    `).catch(() => console.log('⚠️ Columna password ya existe en ocean_pay_users'));
+      `).catch(() => console.log('⚠️ Columna password ya existe en ocean_pay_users'));
 
     // 12. Generar tarjetas para usuarios existentes que no tengan una
     const usersWithoutCard = await pool.query(`
       SELECT id FROM ocean_pay_users 
-      WHERE id NOT IN (SELECT user_id FROM ocean_pay_cards)
-    `);
+      WHERE id NOT IN(SELECT user_id FROM ocean_pay_cards)
+      `);
 
     for (const user of usersWithoutCard.rows) {
       const { cardNumber, cvv, expiryDate } = generateCardDetails();
@@ -608,38 +614,38 @@ async function runDatabaseMigrations() {
     await pool.query(`
       UPDATE ocean_pay_cards c SET is_primary = true
       WHERE c.id = (
-        SELECT MIN(id) FROM ocean_pay_cards WHERE user_id = c.user_id
-      ) AND NOT EXISTS (
+      SELECT MIN(id) FROM ocean_pay_cards WHERE user_id = c.user_id
+      ) AND NOT EXISTS(
         SELECT 1 FROM ocean_pay_cards WHERE user_id = c.user_id AND is_primary = true
       )
-    `);
+      `);
 
     // 12. Migrar saldos existentes (AquaBux, Ecoxionums, AppBux, EcoCoreBits) a la tarjeta principal
     console.log('🔄 Sincronizando saldos históricos con el sistema de tarjetas...');
 
     await pool.query(`
-      INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
+      INSERT INTO ocean_pay_card_balances(card_id, currency_type, amount)
       SELECT c.id, 'aquabux', u.aquabux
       FROM ocean_pay_cards c JOIN ocean_pay_users u ON c.user_id = u.id WHERE c.is_primary = true
-      ON CONFLICT (card_id, currency_type) DO UPDATE SET amount = EXCLUDED.amount WHERE ocean_pay_card_balances.amount = 0;
+      ON CONFLICT(card_id, currency_type) DO UPDATE SET amount = EXCLUDED.amount WHERE ocean_pay_card_balances.amount = 0;
 
-      INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
+      INSERT INTO ocean_pay_card_balances(card_id, currency_type, amount)
       SELECT c.id, 'appbux', u.appbux
       FROM ocean_pay_cards c JOIN ocean_pay_users u ON c.user_id = u.id WHERE c.is_primary = true
-      ON CONFLICT (card_id, currency_type) DO UPDATE SET amount = EXCLUDED.amount WHERE ocean_pay_card_balances.amount = 0;
+      ON CONFLICT(card_id, currency_type) DO UPDATE SET amount = EXCLUDED.amount WHERE ocean_pay_card_balances.amount = 0;
 
-      INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
+      INSERT INTO ocean_pay_card_balances(card_id, currency_type, amount)
       SELECT c.id, 'ecorebits', COALESCE(uc.amount, 0)
       FROM ocean_pay_cards c
       JOIN ocean_pay_users u ON c.user_id = u.id
       LEFT JOIN user_currency uc ON u.id = uc.user_id AND uc.currency_type = 'ecocorebits'
       WHERE c.is_primary = true
-      ON CONFLICT (card_id, currency_type) DO UPDATE SET amount = EXCLUDED.amount WHERE ocean_pay_card_balances.amount = 0;
+      ON CONFLICT(card_id, currency_type) DO UPDATE SET amount = EXCLUDED.amount WHERE ocean_pay_card_balances.amount = 0;
 
-      INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
+      INSERT INTO ocean_pay_card_balances(card_id, currency_type, amount)
       SELECT c.id, 'ecopower', 100
       FROM ocean_pay_cards c WHERE c.is_primary = true
-      ON CONFLICT (card_id, currency_type) DO NOTHING;
+      ON CONFLICT(card_id, currency_type) DO NOTHING;
     `);
 
     /* 
@@ -652,8 +658,8 @@ async function runDatabaseMigrations() {
       UPDATE ocean_pay_card_balances 
       SET amount = CASE 
         WHEN currency_type = 'ecopower' THEN 100 
-        ELSE 0 
-      END
+        ELSE 0
+    END
     `);
 
     // Resetear saldos globales antiguos en ocean_pay_users
@@ -666,7 +672,7 @@ async function runDatabaseMigrations() {
     await pool.query(`
       UPDATE ocean_pay_metadata 
       SET value = '0' 
-      WHERE key IN ('wildcredits', 'ecoxionums', 'ecobooks')
+      WHERE key IN('wildcredits', 'ecoxionums', 'ecobooks')
     `);
 
     console.log('✅ Limpieza de saldos completada. Todos los sistemas en cero.');
@@ -772,7 +778,7 @@ app.post('/floret/register', async (req, res) => {
   try {
     const hashed = await bcrypt.hash(password, 10);
     const { rows } = await pool.query(
-      `INSERT INTO floret_users (username, email, password) VALUES ($1, $2, $3) RETURNING id, username, email, created_at`,
+      `INSERT INTO floret_users(username, email, password) VALUES($1, $2, $3) RETURNING id, username, email, created_at`,
       [username, email || null, hashed]
     );
     res.json({ success: true, user: rows[0] });
@@ -817,7 +823,7 @@ app.post('/floret/create_preference', async (req, res) => {
     // Forzamos SIEMPRE la URL de producción (HTTPS) para evitar el error 400.
     const returnUrl = 'https://floretshop.netlify.app';
 
-    console.log(`[MP Preference] Creando preferencia. Return URL forzada: ${returnUrl}`);
+    console.log(`[MP Preference] Creando preferencia.Return URL forzada: ${returnUrl} `);
 
     // Transformar items al formato de MP
     const body = {
@@ -856,7 +862,7 @@ app.get('/floret/products', async (_req, res) => {
     const { rows } = await pool.query(`
       SELECT id, name, description, price, condition, images, requires_size, sizes, measurements, created_at 
       FROM floret_products ORDER BY created_at DESC
-    `);
+      `);
     const products = rows.map(r => ({
       id: r.id,
       name: r.name,
@@ -883,9 +889,9 @@ app.post('/floret/products', async (req, res) => {
   }
   try {
     const { rows } = await pool.query(`
-      INSERT INTO floret_products (name, description, price, condition, images, requires_size, sizes, measurements)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *
-    `, [name, description || '', price, condition || 'Nuevo', images || [], requiresSize || false, sizes || [], measurements || '']);
+      INSERT INTO floret_products(name, description, price, condition, images, requires_size, sizes, measurements)
+    VALUES($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *
+      `, [name, description || '', price, condition || 'Nuevo', images || [], requiresSize || false, sizes || [], measurements || '']);
     res.json({ success: true, product: rows[0] });
   } catch (e) {
     console.error('Error creando producto Floret:', e);
@@ -958,11 +964,11 @@ app.post('/ocean-pay/wildcredits/sync', async (req, res) => {
     // Asegurar que la tabla existe con el esquema correcto (INTEGER)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS ocean_pay_metadata(
-      user_id INTEGER NOT NULL,
-      key TEXT NOT NULL,
-      value TEXT NOT NULL,
-      PRIMARY KEY(user_id, key)
-    )
+        user_id INTEGER NOT NULL,
+        key TEXT NOT NULL,
+        value TEXT NOT NULL,
+        PRIMARY KEY(user_id, key)
+      )
       `);
 
     // Intentar actualizar o insertar
@@ -1240,7 +1246,7 @@ app.get('/dinobox/amber/balance', async (req, res) => {
     const { rows } = await pool.query(`
       SELECT value FROM ocean_pay_metadata
       WHERE user_id = $1 AND key = 'amber'
-    `, [userId]);
+      `, [userId]);
 
     const amber = rows.length > 0 ? parseInt(rows[0].value || '0') : 0;
     res.json({ amber });
@@ -1281,10 +1287,10 @@ app.post('/dinobox/amber/sync', async (req, res) => {
   try {
     await pool.query(`
       INSERT INTO ocean_pay_metadata(user_id, key, value)
-      VALUES($1, 'amber', $2)
+    VALUES($1, 'amber', $2)
       ON CONFLICT(user_id, key) 
       DO UPDATE SET value = $2
-    `, [userId, amberValue.toString()]);
+      `, [userId, amberValue.toString()]);
 
     res.json({ success: true, amber: amberValue });
   } catch (e) {
@@ -1314,7 +1320,7 @@ app.get('/wild-savage/ecotokens/balance', async (req, res) => {
     const { rows } = await pool.query(`
       SELECT value FROM ocean_pay_metadata
       WHERE user_id = $1 AND key = 'ecotokens'
-    `, [userId]);
+      `, [userId]);
 
     const ecotokens = rows.length > 0 ? parseInt(rows[0].value || '0') : 0;
     res.json({ ecotokens });
@@ -1360,14 +1366,14 @@ app.post('/wild-savage/ecotokens/sync', async (req, res) => {
         value TEXT NOT NULL,
         PRIMARY KEY(user_id, key)
       )
-    `);
+      `);
 
     await pool.query(`
       INSERT INTO ocean_pay_metadata(user_id, key, value)
-      VALUES($1, 'ecotokens', $2)
+    VALUES($1, 'ecotokens', $2)
       ON CONFLICT(user_id, key) 
       DO UPDATE SET value = $2
-    `, [userId, ecotokensValue.toString()]);
+      `, [userId, ecotokensValue.toString()]);
 
     res.json({ success: true, ecotokens: ecotokensValue });
   } catch (e) {
@@ -1407,7 +1413,7 @@ app.post('/wild-savage/ecotokens/change', async (req, res) => {
       SELECT value FROM ocean_pay_metadata
       WHERE user_id = $1 AND key = 'ecotokens'
       FOR UPDATE
-    `, [userId]);
+      `, [userId]);
 
     const current = parseInt(rows[0]?.value || '0');
     const newBalance = current + parseInt(amount);
@@ -1420,20 +1426,20 @@ app.post('/wild-savage/ecotokens/change', async (req, res) => {
     // Actualizar saldo
     await client.query(`
       INSERT INTO ocean_pay_metadata(user_id, key, value)
-      VALUES($1, 'ecotokens', $2)
+    VALUES($1, 'ecotokens', $2)
       ON CONFLICT(user_id, key) 
       DO UPDATE SET value = $2
-    `, [userId, newBalance.toString()]);
+      `, [userId, newBalance.toString()]);
 
     // Registrar transacción
     await client.query(`
       INSERT INTO ocean_pay_txs(user_id, concepto, monto, origen, moneda)
-      VALUES($1, $2, $3, $4, 'ET')
+    VALUES($1, $2, $3, $4, 'ET')
       ON CONFLICT DO NOTHING
-    `, [userId, concepto, amount, origen]).catch(async () => {
+      `, [userId, concepto, amount, origen]).catch(async () => {
       await client.query(`
         INSERT INTO ocean_pay_txs(user_id, concepto, monto, origen)
-        VALUES($1, $2, $3, $4)
+    VALUES($1, $2, $3, $4)
       `, [userId, concepto, amount, origen]);
     });
 
@@ -2046,12 +2052,12 @@ app.post('/ocean-pay/ecoxionums/change', async (req, res) => {
 
     await client.query(`
       UPDATE ocean_pay_cards SET balances = $1 WHERE id = $2
-    `, [balances, card.id]);
+      `, [balances, card.id]);
 
     // Registrar transacción
     await client.query(`
       INSERT INTO ocean_pay_txs(user_id, concepto, monto, origen, moneda)
-      VALUES($1, $2, $3, $4, 'ecoxionums')
+    VALUES($1, $2, $3, $4, 'ecoxionums')
     `, [targetUserId, concepto, Math.abs(change), origen]);
 
     await client.query('COMMIT');
@@ -2263,10 +2269,10 @@ app.get('/ocean-pay/ecoxionums/:userId', async (req, res) => {
   try {
     // Read from cards (primary card)
     const { rows } = await pool.query(`
-      SELECT balances->>'ecoxionums' as ecoxionums 
+      SELECT balances ->> 'ecoxionums' as ecoxionums 
       FROM ocean_pay_cards
       WHERE user_id = $1 AND is_primary = true
-    `, [userId]);
+      `, [userId]);
 
     const ecoxionums = rows.length > 0 ? parseFloat(rows[0].ecoxionums || '0') : 0;
     res.json({ ecoxionums });
@@ -2583,13 +2589,13 @@ app.post('/pos/complete', async (req, res) => {
     // Sender Transaction (Negative)
     await client.query(
       'INSERT INTO ocean_pay_txs (user_id, concepto, monto, moneda, origen) VALUES ($1, $2, $3, $4, $5)',
-      [pos.sender_id, `POS Virtual - Envío (${code})`, -safeAmount, pos.currency.toUpperCase(), 'POS']
+      [pos.sender_id, `POS Virtual - Envío(${code})`, -safeAmount, pos.currency.toUpperCase(), 'POS']
     );
 
     // Receiver Transaction (Positive)
     await client.query(
       'INSERT INTO ocean_pay_txs (user_id, concepto, monto, moneda, origen) VALUES ($1, $2, $3, $4, $5)',
-      [receiverId, `POS Virtual - Recepción (${code})`, safeAmount, pos.currency.toUpperCase(), 'POS']
+      [receiverId, `POS Virtual - Recepción(${code})`, safeAmount, pos.currency.toUpperCase(), 'POS']
     );
 
     await client.query('COMMIT');

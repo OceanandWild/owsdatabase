@@ -1942,15 +1942,10 @@ app.post('/ocean-pay/ecoxionums/sync', async (req, res) => {
 });
 
 // Endpoint para cambiar Ecoxionums (ganar/gastar)
+// Endpoint para cambiar Ecoxionums (ganar/gastar)
 app.post('/ocean-pay/ecoxionums/change', async (req, res) => {
   const authHeader = req.headers.authorization;
-  // Permitir llamadas sin token si es una acción interna confiable (ej: desde otro backend),
-  // pero por ahora requerimos token de usuario o una API Key de servicio (simplificado a token user)
-  // TODO: Mejorar seguridad servidor-a-servidor si es necesario.
-
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    // Check if body has userId and authorized secret (simulation for internal calls)
-    // For now, strict user token check
     return res.status(401).json({ error: 'Token requerido' });
   }
 
@@ -1958,8 +1953,7 @@ app.post('/ocean-pay/ecoxionums/change', async (req, res) => {
   let userId;
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    userId = decoded.uid;
-    userId = parseInt(userId) || userId;
+    userId = decoded.id || decoded.uid;
   } catch (e) {
     // Fallback: check body for manual override (NOT SECURE FOR PROD - DEV ONLY)
     if (req.body.userId) userId = req.body.userId;
@@ -1967,70 +1961,65 @@ app.post('/ocean-pay/ecoxionums/change', async (req, res) => {
   }
 
   const { amount, concepto = 'Operación Ecoxion', origen = 'Ecoxion' } = req.body;
+
   if (amount === undefined) {
     return res.status(400).json({ error: 'amount requerido' });
   }
 
-  // Si userId viene del body (bypass), usar ese. Si no, el del token.
-  // IMPORTANTE: En prod esto es inseguro. Asumimos entorno controlado.
-  const targetUserId = req.body.userId || userId;
+  const targetUserId = req.body.userId || userId; // Allow override if passed
 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
 
-    // Obtener saldo actual
+    // Obtener tarjeta principal
     const { rows } = await client.query(`
-      SELECT value FROM ocean_pay_metadata
-      WHERE user_id = $1 AND key = 'ecoxionums'
+      SELECT id, balances FROM ocean_pay_cards
+      WHERE user_id = $1 AND is_primary = true
       FOR UPDATE
       `, [targetUserId]);
 
-    const current = parseInt(rows[0]?.value || '0');
-    const newBalance = current + parseInt(amount);
+    if (rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'No tienes una tarjeta Ocean Pay activa.' });
+    }
+
+    const card = rows[0];
+    const balances = card.balances || {};
+    const current = parseFloat(balances.ecoxionums || 0);
+    const change = parseFloat(amount);
+    const newBalance = current + change;
 
     if (newBalance < 0) {
       await client.query('ROLLBACK');
       return res.status(400).json({ error: 'Saldo insuficiente' });
     }
 
-    // Actualizar saldo
-    await client.query(`
-      INSERT INTO ocean_pay_metadata(user_id, key, value)
-    VALUES($1, 'ecoxionums', $2)
-      ON CONFLICT(user_id, key) 
-      DO UPDATE SET value = $2
-      `, [targetUserId, newBalance.toString()]);
+    // Actualizar balances
+    balances.ecoxionums = newBalance;
 
-    // También actualizar en la tabla de usuarios
-    await client.query(
-      `UPDATE ocean_pay_users SET ecoxionums = $1 WHERE id = $2`,
-      [newBalance, targetUserId]
-    );
+    await client.query(`
+      UPDATE ocean_pay_cards SET balances = $1 WHERE id = $2
+    `, [balances, card.id]);
 
     // Registrar transacción
     await client.query(`
       INSERT INTO ocean_pay_txs(user_id, concepto, monto, origen, moneda)
-    VALUES($1, $2, $3, $4, 'ECO')
-      ON CONFLICT DO NOTHING
-      `, [targetUserId, concepto, amount, origen]).catch(async () => {
-      // Compatibilidad si falta columna moneda
-      await client.query(`
-        INSERT INTO ocean_pay_txs(user_id, concepto, monto, origen)
-    VALUES($1, $2, $3, $4)
-      `, [targetUserId, concepto, amount, origen]);
-    });
+      VALUES($1, $2, $3, $4, 'ecoxionums')
+    `, [targetUserId, concepto, Math.abs(change), origen]);
 
     await client.query('COMMIT');
-    res.json({ success: true, newBalance });
-  } catch (e) {
+    res.json({ success: true, newBalance, ecoxionums: newBalance });
+
+  } catch (err) {
     await client.query('ROLLBACK');
-    console.error('Error cambiando ecoxionums:', e);
-    res.status(500).json({ error: 'Error interno' });
+    console.error(err);
+    res.status(500).json({ error: 'Error interno de transacción' });
   } finally {
     client.release();
   }
 });
+
 
 /* ===== OCEAN PAY - CORE TRANSFER ===== */
 
@@ -10034,7 +10023,7 @@ app.post('/ocean-pay/login', async (req, res) => {
 
   // 3. Obtener tarjetas del usuario CON sus saldos actualizados
   const { rows: cardRows } = await pool.query(
-    `SELECT c.id, c.card_number, c.cvv, c.expiry_date, c.is_active, c.is_primary, c.card_name
+    `SELECT c.id, c.card_number, c.cvv, c.expiry_date, c.is_active, c.is_primary, c.card_name, c.balances
      FROM ocean_pay_cards c WHERE c.user_id = $1`,
     [rows[0].id]
   );
@@ -10044,20 +10033,28 @@ app.post('/ocean-pay/login', async (req, res) => {
       'SELECT currency_type, amount FROM ocean_pay_card_balances WHERE card_id = $1',
       [card.id]
     );
-    const balances = {};
+    // Merge JSONB balances with SQL Table balances
+    const balances = card.balances || {};
     balanceRows.forEach(b => balances[b.currency_type] = parseFloat(b.amount));
+
+    // Ensure ecoxionums is a number
+    if (balances.ecoxionums) balances.ecoxionums = parseFloat(balances.ecoxionums);
+
     return { ...card, balances };
   }));
 
-  // CALCULAR BALANCE TOTAL (Sumatoria de todas las tarjetas)
+  // CALCULAR BALANCE TOTAL
   const totalEcorebits = cardsWithBalances.reduce((sum, card) => sum + parseFloat(card.balances?.ecorebits || 0), 0);
   const ecorebitsBalance = Math.max(totalEcorebits, parseFloat(rows[0].ecorebits || 0));
 
   const totalAquabux = cardsWithBalances.reduce((sum, card) => sum + parseFloat(card.balances?.aquabux || 0), 0);
   const aquabuxBalance = Math.max(totalAquabux, parseFloat(rows[0].aquabux || 0));
 
+  const totalEcoxionums = cardsWithBalances.reduce((sum, card) => sum + parseFloat(card.balances?.ecoxionums || 0), 0);
+
   res.json({
     token,
+    ecoxionums: totalEcoxionums,
     user: {
       id: rows[0].id,
       username,

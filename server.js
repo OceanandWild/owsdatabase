@@ -534,6 +534,19 @@ async function runDatabaseMigrations() {
       ADD COLUMN IF NOT EXISTS balances JSONB DEFAULT '{}'
     `).catch(() => console.log('⚠️ Columna balances ya existe en ocean_pay_cards'));
 
+    // --- MIGRACIÓN DE DATOS (Legacy Metadata -> Card Balances) ---
+    console.log('🔄 Migrando saldos de Ecoxionums desde metadatos...');
+    await pool.query(`
+      UPDATE ocean_pay_cards opc
+      SET balances = jsonb_set(COALESCE(opc.balances, '{}'::jsonb), '{ecoxionums}', to_jsonb((m.value)::numeric))
+      FROM ocean_pay_metadata m
+      WHERE opc.user_id = m.user_id 
+      AND m.key = 'ecoxionums' 
+      AND opc.is_primary = true
+      AND (opc.balances->>'ecoxionums' IS NULL OR (opc.balances->>'ecoxionums')::numeric = 0)
+      AND m.value ~ '^[0-9.]+$'
+    `).catch(err => console.log('⚠️ Aviso: Migración de balances:', err.message));
+
     // 10. Crear tabla ocean_pay_card_balances para saldos por tarjeta (Legado/Compatibilidad)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS ocean_pay_card_balances (

@@ -1,19 +1,4 @@
-# Strict Ignore Policy
-*
-
-# Whitelist Allow List (Excepciones)
-!server.js
-!package.json
-!package-lock.json
-!.gitignore
-!README.txt
-!migrate_ebs.js
-
-# Excepción Única Frontend (Ocean Pay)
-!Ocean Pay/
-!Ocean Pay/**
-
-# Bloqueos de Seguridad
+# Carpetas de sistema y dependencias (NUNCA subir)
 node_modules/
 .env
 uploads/
@@ -21,6 +6,12 @@ uploads/
 .gemini/
 .agent/
 .git/
+
+# Archivos temporales
 *.log
 .DS_Store
 
+# NOTA: He eliminado el '*' para que tus proyectos no se vean en gris y puedas usar @ con ellos.
+# RECUERDA: Para no subir todo el workspace al servidor, usa solo:
+# git add server.js "Ocean Pay/" package.json
+# Evita usar 'git add .' a menos que quieras subir nuevos proyectos.

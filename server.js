@@ -1953,7 +1953,7 @@ app.post('/ocean-pay/ecoxionums/change', async (req, res) => {
   let userId;
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    userId = decoded.id || decoded.uid;
+    userId = decoded.id || decoded.uid || decoded.sub; // Más robusto
   } catch (e) {
     // Fallback: check body for manual override (NOT SECURE FOR PROD - DEV ONLY)
     if (req.body.userId) userId = req.body.userId;

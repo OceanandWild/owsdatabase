@@ -7,6 +7,10 @@
 !package-lock.json
 !.gitignore
 
+# Permitir Ocean Pay
+!Ocean Pay/
+!Ocean Pay/index.html
+
 # Siempre ignorar estos
 node_modules/
 .env

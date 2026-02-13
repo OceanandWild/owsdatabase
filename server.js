@@ -17465,6 +17465,66 @@ async function createNotification(userId, type, title, message) {
   }
 }
 
+// Sync Ecoxionums from Client (Ecoxion App)
+app.post('/ocean-pay/sync-ecoxionums', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) return res.status(401).json({ error: 'Token requerido' });
+    const token = authHeader.substring(7);
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const userId = decoded.id || decoded.uid;
+    const { amount } = req.body;
+
+    if (!amount || amount <= 0) return res.json({ success: true, message: 'No amount to sync' });
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Get Primary Card
+      const { rows: cards } = await client.query(
+        'SELECT id, balances FROM ocean_pay_cards WHERE user_id = $1 AND is_primary = true',
+        [userId]
+      );
+
+      if (cards.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'No tienes una tarjeta principal activa en Ocean Pay.' });
+      }
+
+      const card = cards[0];
+      let balances = card.balances || {};
+
+      // Update Balance
+      const current = parseFloat(balances.ecoxionums || 0);
+      balances.ecoxionums = current + parseFloat(amount);
+
+      await client.query(
+        'UPDATE ocean_pay_cards SET balances = $1 WHERE id = $2',
+        [balances, card.id]
+      );
+
+      // Log Transaction
+      await client.query(
+        "INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)",
+        [userId, 'Sincronización Ecoxion (App)', amount, 'Ecoxion', 'ecoxionums']
+      );
+
+      await client.query('COMMIT');
+      res.json({ success: true, newBalance: balances.ecoxionums });
+
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post('/ocean-pay/subscriptions/purchase', async (req, res) => {
   try {
     const authHeader = req.headers.authorization;

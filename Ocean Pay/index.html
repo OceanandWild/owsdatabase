@@ -2062,12 +2062,31 @@
 
     function drawEcoxionumsIcon(ctx, x, y, size) {
       ctx.save(); ctx.translate(x, y);
-      ctx.shadowBlur = size * 0.4; ctx.shadowColor = "rgba(16, 185, 129, 0.4)";
-      ctx.fillStyle = "#0ea5e9"; ctx.beginPath(); ctx.arc(0, 0, size * 0.5, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = "#10b981";
-      ctx.beginPath(); ctx.arc(-size * 0.15, -size * 0.1, size * 0.25, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.arc(size * 0.2, size * 0.15, size * 0.2, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = "rgba(255,255,255,0.3)"; ctx.lineWidth = 2; ctx.stroke();
+      ctx.shadowBlur = size * 0.4; ctx.shadowColor = "rgba(34, 211, 238, 0.6)";
+
+      // Gradient Body
+      const grad = ctx.createLinearGradient(-size / 2, -size / 2, size / 2, size / 2);
+      grad.addColorStop(0, "#22d3ee");
+      grad.addColorStop(1, "#0ea5e9");
+
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.arc(0, 0, size * 0.45, 0, Math.PI * 2); ctx.fill();
+
+      // Inner Ring
+      ctx.strokeStyle = "rgba(255,255,255,0.3)"; ctx.lineWidth = size * 0.04;
+      ctx.beginPath(); ctx.arc(0, 0, size * 0.35, 0, Math.PI * 2); ctx.stroke();
+
+      // Cross Pattern
+      ctx.strokeStyle = "rgba(255,255,255,0.5)"; ctx.lineWidth = size * 0.08; ctx.lineCap = "round";
+      // Vertical
+      ctx.beginPath(); ctx.moveTo(0, -size * 0.25); ctx.lineTo(0, size * 0.25); ctx.stroke();
+      // Horizontal
+      ctx.beginPath(); ctx.moveTo(-size * 0.25, 0); ctx.lineTo(size * 0.25, 0); ctx.stroke();
+
+      // Shine
+      ctx.fillStyle = "rgba(255,255,255,0.2)";
+      ctx.beginPath(); ctx.arc(0, 0, size * 0.15, 0, Math.PI * 2); ctx.fill();
+
       ctx.restore();
     }
 

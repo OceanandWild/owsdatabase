@@ -552,7 +552,13 @@ async function runDatabaseMigrations() {
       ADD COLUMN IF NOT EXISTS card_name VARCHAR(50) DEFAULT 'Mi Tarjeta'
         `).catch(() => { });
 
-    // 11. Crear tabla ocean_pay_pos si no existe (POS Virtual)
+    // 11. Asegurar columna moneda en ocean_pay_txs
+    await pool.query(`
+      ALTER TABLE ocean_pay_txs 
+      ADD COLUMN IF NOT EXISTS moneda VARCHAR(50) DEFAULT 'ecoxionums'
+    `).catch(() => { });
+
+    // 12. Crear tabla ocean_pay_pos si no existe (POS Virtual)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS ocean_pay_pos(
           id SERIAL PRIMARY KEY,

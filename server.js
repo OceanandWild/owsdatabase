@@ -2220,21 +2220,25 @@ app.get('/ocean-pay/history/:userId', async (req, res) => {
 });
 
 // Endpoint de compatibilidad para Ocean Pay (sin token, solo display)
+// Endpoint de compatibilidad para Ocean Pay (sin token, solo display)
 app.get('/ocean-pay/ecoxionums/:userId', async (req, res) => {
   const userId = parseInt(req.params.userId);
   if (isNaN(userId)) return res.status(400).json({ error: 'userId inválido' });
 
   try {
+    // Read from cards (primary card)
     const { rows } = await pool.query(`
-      SELECT value FROM ocean_pay_metadata
-      WHERE user_id = $1 AND key = 'ecoxionums'
-      `, [userId]);
+      SELECT balances->>'ecoxionums' as ecoxionums 
+      FROM ocean_pay_cards
+      WHERE user_id = $1 AND is_primary = true
+    `, [userId]);
 
-    const ecoxionums = rows.length > 0 ? parseInt(rows[0].value || '0') : 0;
+    const ecoxionums = rows.length > 0 ? parseFloat(rows[0].ecoxionums || '0') : 0;
     res.json({ ecoxionums });
   } catch (e) {
-    if (e.code === '42P01') res.json({ ecoxionums: 0 });
-    else res.status(500).json({ error: 'Error interno' });
+    console.error('Error fetching ecoxionums:', e);
+    // Return 0 on error instead of breaking UI
+    res.json({ ecoxionums: 0 });
   }
 });
 

@@ -2665,17 +2665,15 @@
       const user = JSON.parse(localStorage.getItem('opUser') || '{}');
       if (!user.id) return;
 
-      // 🛠️ ECOXION REWORK LOCK - START
-      // Solo OceanandWild puede ver/usar Ecoxionums
-      if (user.username !== 'OceanandWild') {
-        const card = qs('#ecoxionums-card');
-        card.style.opacity = '0.5';
-        card.style.pointerEvents = 'none'; // Bloquear clicks
-        card.querySelector('.app-info').textContent = 'Ecoxion (En Rework) 🚧';
-        qs('#ecoxionums').textContent = '---';
-        return;
+      // 🛠️ ECOXION REWORK LOCK - REMOVED
+      // Feature enabled for all users via Sync
+      const card = qs('#ecoxionums-card');
+      if (card) {
+        card.style.opacity = '1';
+        card.style.pointerEvents = 'auto';
+        const info = card.querySelector('.app-info');
+        if (info) info.textContent = 'Ecoxion App';
       }
-      // 🛠️ ECOXION REWORK LOCK - END
 
       const res = await fetch(`${API}/ocean-pay/ecoxionums/${user.id}`);
       const { ecoxionums } = await res.json();

@@ -813,6 +813,55 @@
       box-shadow: 0 0 15px rgba(239, 68, 68, 0.5);
     }
 
+
+
+    /* Notifications Styles */
+    .notif-card {
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 12px;
+      padding: 1.5rem;
+      border-left: 4px solid #64748b;
+      margin-bottom: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .notif-card.success {
+      border-left-color: #10b981;
+      background: linear-gradient(90deg, rgba(16, 185, 129, 0.05) 0%, transparent 100%);
+    }
+
+    .notif-card.error {
+      border-left-color: #ef4444;
+      background: linear-gradient(90deg, rgba(239, 68, 68, 0.05) 0%, transparent 100%);
+    }
+
+    .notif-card.warning {
+      border-left-color: #f59e0b;
+      background: linear-gradient(90deg, rgba(245, 158, 11, 0.05) 0%, transparent 100%);
+    }
+
+    .notif-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.8rem;
+      color: #94a3b8;
+    }
+
+    .notif-title {
+      color: white;
+      font-weight: 700;
+      font-size: 1rem;
+    }
+
+    .notif-msg {
+      color: #cbd5e1;
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+
     @media (max-width: 480px) {
 
       .ocean-card,
@@ -929,6 +978,9 @@
         </button>
         <button class="nav-item" onclick="showSection('pos')">
           <span>🏧</span> POS Virtual
+        </button>
+        <button class="nav-item" onclick="showSection('notifications')">
+          <span>🔔</span> Notificaciones
         </button>
 
         <button class="nav-item" onclick="showSection('misc')">
@@ -1815,6 +1867,20 @@
         </div>
       </section>
 
+      <!-- Notifications Section -->
+      <section id="notifications-section" class="hidden">
+        <div class="main-header" style="justify-content: space-between; display: flex;">
+          <h2 class="page-title">Notificaciones</h2>
+          <button class="secondary" style="width: auto; padding: 0.5rem 1rem;" onclick="loadNotifications()">
+            <i class="fas fa-sync-alt"></i> Actualizar
+          </button>
+        </div>
+
+        <div id="notifications-list">
+          <p style="color: #64748b; text-align: center; margin-top: 2rem;">Cargando notificaciones...</p>
+        </div>
+      </section>
+
       <!-- Misc Section (Charts) -->
       <section id="misc-section" class="hidden">
         <div class="main-header">
@@ -2430,7 +2496,9 @@
 
       if (id === 'pos') updatePOSCardSelects();
       if (id === 'history') renderTransacciones();
+      if (id === 'history') renderTransacciones();
       if (id === 'misc') loadMiscStats();
+      if (id === 'notifications') loadNotifications();
     }
 
     /* ----------  AUTH TOGGLE  ---------- */
@@ -2935,6 +3003,39 @@
     };
 
     /* ----------  TRANSACTIONS  ---------- */
+    /* ----------  NOTIFICATIONS LOGIC  ---------- */
+    async function loadNotifications() {
+      const listEl = qs('#notifications-list');
+      listEl.innerHTML = '<p style="color: #64748b; text-align: center; margin-top: 2rem;">Cargando notificaciones...</p>';
+
+      try {
+        const res = await fetch(API + '/ocean-pay/notifications', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const notifications = await res.json();
+
+        if (!notifications || notifications.length === 0) {
+          listEl.innerHTML = '<p style="color: #64748b; text-align: center; margin-top: 2rem;">No tienes notificaciones recientes.</p>';
+          return;
+        }
+
+        listEl.innerHTML = notifications.map(n => `
+          <div class="notif-card ${n.type}">
+            <div class="notif-header">
+              <span>${new Date(n.created_at).toLocaleString()}</span>
+              <span style="text-transform:uppercase; font-size:0.7rem; font-weight:700;">${n.type}</span>
+            </div>
+            <div class="notif-title">${n.title}</div>
+            <div class="notif-msg">${n.message}</div>
+          </div>
+        `).join('');
+
+      } catch (e) {
+        console.error(e);
+        listEl.innerHTML = '<p style="color: #ef4444; text-align: center; margin-top: 2rem;">Error al cargar notificaciones.</p>';
+      }
+    }
+
     async function renderTransacciones() {
       const container = qs('#txList');
       container.innerHTML = '<div style="color:#94a3b8">Cargando...</div>';

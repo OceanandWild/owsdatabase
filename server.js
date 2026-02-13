@@ -17402,6 +17402,16 @@ async function ensureOceanPayTables() {
       next_payment TIMESTAMP NOT NULL,
       created_at TIMESTAMP DEFAULT NOW()
     );
+
+    CREATE TABLE IF NOT EXISTS ocean_pay_notifications (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
+        type VARCHAR(20) NOT NULL, -- 'success', 'error', 'info', 'warning'
+        title VARCHAR(100) NOT NULL,
+        message TEXT,
+        is_read BOOLEAN DEFAULT false,
+        created_at TIMESTAMP DEFAULT NOW()
+    );
   `).catch(e => console.log('⚠️ Tablas de Ocean Pay ya existen o error:', e.message));
 }
 await ensureOceanPayTables();
@@ -17421,6 +17431,39 @@ app.get('/ocean-pay/subscriptions/me', async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+
+// Endpoint: Get Notifications
+app.get('/ocean-pay/notifications', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) return res.status(401).json({ error: 'Token requerido' });
+    const token = authHeader.substring(7);
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const userId = decoded.id || decoded.uid;
+
+    const { rows } = await pool.query(
+      'SELECT * FROM ocean_pay_notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50',
+      [userId]
+    );
+    res.json(rows);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Helper to create notification (Internal)
+async function createNotification(userId, type, title, message) {
+  try {
+    const client = await pool.connect(); // Use a fresh client or pool directly
+    await client.query(
+      'INSERT INTO ocean_pay_notifications (user_id, type, title, message) VALUES ($1, $2, $3, $4)',
+      [userId, type, title, message]
+    );
+    client.release();
+  } catch (e) {
+    console.error('Error creating notification:', e);
+  }
+}
 
 app.post('/ocean-pay/subscriptions/purchase', async (req, res) => {
   try {
@@ -17561,6 +17604,8 @@ setInterval(async () => {
             [sub.user_id, `Renovación: ${sub.sub_name}`, -sub.price, sub.project_id, sub.currency]
           );
 
+          await createNotification(sub.user_id, 'success', 'Suscripción Renovada', `Tu suscripción a ${sub.sub_name} ha sido renovada exitosamente por ${sub.price} ${sub.currency}.`);
+
           console.log(`[SUBS] Renovado ${sub.sub_name} para usuario ${sub.user_id}`);
         } else {
           // Cancel for insufficient funds
@@ -17571,6 +17616,14 @@ setInterval(async () => {
           if (sub.sub_name === 'Nature-Pass') {
             await client.query("UPDATE ocean_pay_metadata SET value = 'false' WHERE user_id = $1 AND key = 'nature_pass'", [sub.user_id]);
           }
+
+          await createNotification(
+            sub.user_id,
+            'error',
+            'Suscripción Cancelada',
+            `No pudimos renovar tu ${sub.sub_name} por saldo insuficiente (${current} ${sub.currency}). Tu suscripción ha sido cancelada.`
+          );
+
           console.log(`[SUBS] Suspensión por falta de pago: ${sub.sub_name} (Usuario ${sub.user_id})`);
         }
         await client.query('COMMIT');

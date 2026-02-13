@@ -160,33 +160,7 @@ app.post('/ocean-pay/register', async (req, res) => {
 });
 
 // Endpoint to get current user info (AquaBux, etc.)
-app.get('/ocean-pay/me', async (req, res) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Token requerido' });
-  }
-
-  const token = authHeader.substring(7);
-  try {
-    const secret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
-    const decoded = jwt.verify(token, secret);
-    const userId = decoded.id || decoded.uid;
-
-    const { rows } = await pool.query('SELECT id, username, ecoxionums, aquabux, appbux FROM ocean_pay_users WHERE id = $1', [userId]);
-
-    if (rows.length === 0) {
-      return res.status(404).json({ error: 'Usuario no encontrado' });
-    }
-
-    // Add extra info if needed (e.g. nature pass)
-    const user = rows[0];
-
-    res.json(user);
-  } catch (e) {
-    console.error('Error in /ocean-pay/me:', e);
-    return res.status(401).json({ error: 'Token inválido o expirado' });
-  }
-});
+// [DUPLICATE ENDPOINT REMOVED] - Redirecting to line ~10663 implementation
 
 app.post('/ocean-pay/login', async (req, res) => {
   let { username, password } = req.body;

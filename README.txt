@@ -23,6 +23,6 @@ Se incluiran mas cosas luego, pero esto te ayudara a por lo menos entender como 
 
 - DEPLOY SELECTIVO:
   Para evitar subir el escritorio completo, usa estrictamente:
-  git add server.js "Ocean Pay/" .gitignore package.json package-lock.json README.txt
+  git add server.js "Ocean Pay/" .gitignore package.json package-lock.json (Opcional) README.txt (Opcional)
   git commit -m "..." 
   git push origin main

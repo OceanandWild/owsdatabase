@@ -223,15 +223,61 @@ app.post('/ocean-pay/login', async (req, res) => {
 
     if (match) {
       // Success
-      // Use STUDIO_SECRET to match other Ocean Pay endpoints
       const secret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
       const token = jwt.sign({ id: opUser.id, username: opUser.username }, secret, { expiresIn: '7d' });
+
+      // 1. Asegurar que el usuario tenga al menos una tarjeta principal
+      const { rows: existingCards } = await pool.query('SELECT id FROM ocean_pay_cards WHERE user_id = $1', [opUser.id]);
+      if (existingCards.length === 0) {
+        // Generar detalles de tarjeta si no existen
+        const cardNumber = '4000' + Math.random().toString().slice(2, 14);
+        const cvv = Math.floor(100 + Math.random() * 900).toString();
+        const expiryDate = '12/28';
+        await pool.query(
+          'INSERT INTO ocean_pay_cards (user_id, card_number, cvv, expiry_date, is_primary, card_name) VALUES ($1, $2, $3, $4, true, $5)',
+          [opUser.id, cardNumber, cvv, expiryDate, 'Tarjeta Principal']
+        );
+      } else {
+        // Asegurar que haya una primaria
+        await pool.query(`
+          UPDATE ocean_pay_cards SET is_primary = true 
+          WHERE id = (SELECT MIN(id) FROM ocean_pay_cards WHERE user_id = $1)
+          AND NOT EXISTS (SELECT 1 FROM ocean_pay_cards WHERE user_id = $1 AND is_primary = true)
+        `, [opUser.id]);
+      }
+
+      // Fetch cards and balances (Correct logic)
+      const { rows: cardRows } = await pool.query(
+        `SELECT c.id, c.card_number, c.cvv, c.expiry_date, c.is_active, c.is_primary, c.card_name, c.balances
+         FROM ocean_pay_cards c WHERE c.user_id = $1`,
+        [opUser.id]
+      );
+
+      const cardsWithBalances = await Promise.all(cardRows.map(async (card) => {
+        const { rows: balanceRows } = await pool.query(
+          'SELECT currency_type, amount FROM ocean_pay_card_balances WHERE card_id = $1',
+          [card.id]
+        );
+        const balances = card.balances || {};
+        balanceRows.forEach(b => balances[b.currency_type] = parseFloat(b.amount));
+        if (balances.ecoxionums) balances.ecoxionums = parseFloat(balances.ecoxionums);
+        return { ...card, balances };
+      }));
+
+      const totalEcoxionums = cardsWithBalances.reduce((sum, card) => sum + parseFloat(card.balances?.ecoxionums || 0), 0);
+      const totalAquabux = cardsWithBalances.reduce((sum, card) => sum + parseFloat(card.balances?.aquabux || 0), 0);
+      const aquabuxBalance = Math.max(totalAquabux, parseFloat(opUser.aquabux || 0));
 
       return res.json({
         success: true,
         token,
-        user: { id: opUser.id, username: opUser.username },
-        ecoxionums: opUser.ecoxionums || 0
+        ecoxionums: totalEcoxionums,
+        user: {
+          id: opUser.id,
+          username: opUser.username,
+          aquabux: aquabuxBalance,
+          cards: cardsWithBalances
+        }
       });
     } else {
       return res.status(401).json({ error: 'Contraseña incorrecta.' });
@@ -9946,126 +9992,7 @@ app.post('/ocean-pay/register', async (req, res) => {
 // EL RESTO DE TUS RUTAS CONTINÚA AQUÍ...
 // =================================================================
 
-/* ----------  LOGIN  ---------- */
-app.post('/ocean-pay/login', async (req, res) => {
-  const { username, password } = req.body;
-  if (!username || !password) return res.status(400).json({ error: 'Faltan datos' });
 
-  // Unimos ocean_pay_users con user_currency para obtener todo en una sola consulta
-  const { rows } = await pool.query(`
-    SELECT opu.id, opu.pwd_hash, opu.aquabux, opu.appbux, COALESCE(uc.amount, 0) as ecorebits
-    FROM ocean_pay_users opu
-    LEFT JOIN user_currency uc ON opu.id = uc.user_id AND uc.currency_type = 'ecocorebits'
-    WHERE opu.username = $1
-  `, [username]);
-
-  if (rows.length === 0) return res.status(401).json({ error: 'Credenciales incorrectas' });
-
-  const ok = await bcrypt.compare(password, rows[0].pwd_hash);
-  if (!ok) return res.status(401).json({ error: 'Credenciales incorrectas' });
-
-  const token = jwt.sign({ uid: rows[0].id, un: username }, process.env.STUDIO_SECRET, { expiresIn: '7d' });
-
-  // Intentar obtener wildCredits, ecoxionums y ecobooks desde la tabla de metadatos
-  let wildCredits = 0;
-  let ecoxionums = 0;
-  let ecobooks = 0;
-  try {
-    const { rows: metaRows } = await pool.query(`
-      SELECT key, value FROM ocean_pay_metadata
-      WHERE user_id = $1 AND key IN ('wildcredits', 'ecoxionums', 'ecobooks')
-    `, [rows[0].id]);
-
-    metaRows.forEach(row => {
-      if (row.key === 'wildcredits') {
-        wildCredits = parseInt(row.value || '0');
-      } else if (row.key === 'ecoxionums') {
-        ecoxionums = parseFloat(row.value || '0');
-      } else if (row.key === 'ecobooks') {
-        ecobooks = parseInt(row.value || '0');
-      }
-    });
-  } catch (e) {
-    // Si la tabla no existe, quedan en 0
-  }
-
-  // Obtener AppBux de la columna appbux
-  const appbux = rows[0].appbux || 0;
-
-  // 1. Asegurar que el usuario tenga al menos una tarjeta vinculada
-  const { rows: existingCards } = await pool.query('SELECT id FROM ocean_pay_cards WHERE user_id = $1', [rows[0].id]);
-  if (existingCards.length === 0) {
-    const { cardNumber, cvv, expiryDate } = generateCardDetails ? generateCardDetails() : { cardNumber: '4000' + Math.random().toString().slice(2, 14), cvv: '123', expiryDate: '12/28' };
-    await pool.query(
-      'INSERT INTO ocean_pay_cards (user_id, card_number, cvv, expiry_date, is_primary, card_name) VALUES ($1, $2, $3, $4, true, $5)',
-      [rows[0].id, cardNumber, cvv, expiryDate, 'Tarjeta Principal']
-    );
-  } else {
-    // Asegurar que al menos una sea primaria
-    await pool.query(`
-      UPDATE ocean_pay_cards SET is_primary = true 
-      WHERE id = (SELECT MIN(id) FROM ocean_pay_cards WHERE user_id = $1)
-      AND NOT EXISTS (SELECT 1 FROM ocean_pay_cards WHERE user_id = $1 AND is_primary = true)
-    `, [rows[0].id]);
-  }
-
-  // 2. Sincronización robusta de saldos legado (Cruce por Nombre de Usuario)
-  await pool.query(`
-    INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
-    SELECT c.id, 'ecorebits', uc.amount
-    FROM ocean_pay_cards c
-    JOIN ocean_pay_users opu ON c.user_id = opu.id
-    JOIN users u ON LOWER(u.username) = LOWER(opu.username)
-    JOIN user_currency uc ON uc.user_id = u.id AND uc.currency_type = 'ecocorebits'
-    WHERE opu.id = $1 AND c.is_primary = true AND uc.amount > 0
-    ON CONFLICT (card_id, currency_type) DO UPDATE SET amount = EXCLUDED.amount WHERE ocean_pay_card_balances.amount = 0
-  `, [rows[0].id]).catch(() => { });
-
-  // 3. Obtener tarjetas del usuario CON sus saldos actualizados
-  const { rows: cardRows } = await pool.query(
-    `SELECT c.id, c.card_number, c.cvv, c.expiry_date, c.is_active, c.is_primary, c.card_name, c.balances
-     FROM ocean_pay_cards c WHERE c.user_id = $1`,
-    [rows[0].id]
-  );
-
-  const cardsWithBalances = await Promise.all(cardRows.map(async (card) => {
-    const { rows: balanceRows } = await pool.query(
-      'SELECT currency_type, amount FROM ocean_pay_card_balances WHERE card_id = $1',
-      [card.id]
-    );
-    // Merge JSONB balances with SQL Table balances
-    const balances = card.balances || {};
-    balanceRows.forEach(b => balances[b.currency_type] = parseFloat(b.amount));
-
-    // Ensure ecoxionums is a number
-    if (balances.ecoxionums) balances.ecoxionums = parseFloat(balances.ecoxionums);
-
-    return { ...card, balances };
-  }));
-
-  // CALCULAR BALANCE TOTAL
-  const totalEcorebits = cardsWithBalances.reduce((sum, card) => sum + parseFloat(card.balances?.ecorebits || 0), 0);
-  const ecorebitsBalance = Math.max(totalEcorebits, parseFloat(rows[0].ecorebits || 0));
-
-  const totalAquabux = cardsWithBalances.reduce((sum, card) => sum + parseFloat(card.balances?.aquabux || 0), 0);
-  const aquabuxBalance = Math.max(totalAquabux, parseFloat(rows[0].aquabux || 0));
-
-  const totalEcoxionums = cardsWithBalances.reduce((sum, card) => sum + parseFloat(card.balances?.ecoxionums || 0), 0);
-
-  res.json({
-    token,
-    ecoxionums: totalEcoxionums,
-    user: {
-      id: rows[0].id,
-      username,
-      aquabux: aquabuxBalance,
-      cards: cardsWithBalances,
-      ecorebits: {
-        balance: parseFloat(ecorebitsBalance)
-      }
-    }
-  });
-});
 
 /* ----------  MANAGE CARDS  ---------- */
 app.post('/ocean-pay/cards/create', async (req, res) => {
@@ -10822,30 +10749,7 @@ app.post('/ecocore/change', async (req, res) => {
   }
 });
 
-/* -------  Ecoxionums ⇄ Ocean Pay  ------- */
 
-app.get('/ocean-pay/ecoxionums/:userId', async (req, res) => {
-  const { userId } = req.params;
-
-  try {
-    // Ecoxionums se almacenan en ocean_pay_metadata
-    const { rows } = await pool.query(
-      `SELECT value FROM ocean_pay_metadata 
-       WHERE user_id = $1 AND key = 'ecoxionums'`,
-      [parseInt(userId)]
-    );
-    const ecoxionums = rows.length > 0 ? parseFloat(rows[0].value || '0') : 0;
-    res.json({ ecoxionums });
-  } catch (err) {
-    console.error('❌ Error en /ocean-pay/ecoxionums/:userId', err);
-    // Si la tabla no existe, devolver 0
-    if (err.code === '42P01') {
-      res.json({ ecoxionums: 0 });
-    } else {
-      res.status(500).json({ error: 'Error interno' });
-    }
-  }
-});
 
 
 

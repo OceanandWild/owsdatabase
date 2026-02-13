@@ -1,17 +1,26 @@
-# Ignorar TODO por defecto
+# Strict Ignore Policy
 *
 
-# Permitir solo archivos del servidor
+# Whitelist Allow List (Excepciones)
 !server.js
 !package.json
 !package-lock.json
 !.gitignore
+!README.txt
+!migrate_ebs.js
 
-# Permitir Ocean Pay
+# Excepción Única Frontend (Ocean Pay)
 !Ocean Pay/
-!Ocean Pay/index.html
+!Ocean Pay/**
 
-# Siempre ignorar estos
+# Bloqueos de Seguridad
 node_modules/
 .env
 uploads/
+.vscode/
+.gemini/
+.agent/
+.git/
+*.log
+.DS_Store
+

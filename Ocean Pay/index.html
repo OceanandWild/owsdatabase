@@ -1040,6 +1040,16 @@
             <div class="app-info">Ocean Cinemas</div>
           </div>
 
+          <!-- Nexus Bits (NXB) -->
+          <div class="currency-card" id="nxb-card" style="border-color: #f08a5d;">
+            <div class="currency-icon" style="background: transparent;">
+              <canvas class="currency-canvas" data-currency="nxb"></canvas>
+            </div>
+            <span class="label">Nexus Bits</span>
+            <span class="amount" id="nxb-balance" style="color: #f08a5d;">0</span>
+            <div class="app-info">Primal Velocity Nexus</div>
+          </div>
+
 
 
           <!-- WildCredits -->
@@ -2280,6 +2290,7 @@
       qs('#appbux').textContent = Math.round(balances.appbux || 0).toLocaleString();
       qs('#ecobooks').textContent = Math.round(balances.ecobooks || 0).toLocaleString();
       qs('#ecotokens').textContent = Math.round(balances.ecotokens || 0).toLocaleString();
+      qs('#nxb-balance').textContent = Math.round(balances.nxb || 0).toLocaleString();
       qs('#ecopower').textContent = Math.round(balances.ecopower || 100);
     }
 

@@ -534,18 +534,35 @@ async function runDatabaseMigrations() {
       ADD COLUMN IF NOT EXISTS balances JSONB DEFAULT '{}'
     `).catch(() => console.log('⚠️ Columna balances ya existe en ocean_pay_cards'));
 
-    // --- MIGRACIÓN DE DATOS (Legacy Metadata -> Card Balances) ---
-    console.log('🔄 Migrando saldos de Ecoxionums desde metadatos...');
-    await pool.query(`
-      UPDATE ocean_pay_cards opc
-      SET balances = jsonb_set(COALESCE(opc.balances, '{}'::jsonb), '{ecoxionums}', to_jsonb((m.value)::numeric))
-      FROM ocean_pay_metadata m
-      WHERE opc.user_id = m.user_id 
-      AND m.key = 'ecoxionums' 
-      AND opc.is_primary = true
-      AND (opc.balances->>'ecoxionums' IS NULL OR (opc.balances->>'ecoxionums')::numeric = 0)
-      AND m.value ~ '^[0-9.]+$'
-    `).catch(err => console.log('⚠️ Aviso: Migración de balances:', err.message));
+    // --- MIGRACIÓN DE DATOS REFORZADA (Legacy Metadata + Users Column -> Card Balances) ---
+    console.log('🔄 Ejecutando migración de saldos Ecoxionums (Fondo de Rescate)...');
+    try {
+      // 1. Migrar desde Metadata
+      await pool.query(`
+        UPDATE ocean_pay_cards opc
+        SET balances = jsonb_set(COALESCE(opc.balances, '{}'::jsonb), '{ecoxionums}', to_jsonb((m.value)::numeric))
+        FROM ocean_pay_metadata m
+        WHERE opc.user_id = m.user_id 
+        AND m.key = 'ecoxionums' 
+        AND opc.is_primary = true
+        AND (opc.balances->>'ecoxionums' IS NULL OR (opc.balances->>'ecoxionums')::numeric = 0)
+        AND m.value ~ '^[0-9.]+$'
+      `);
+
+      // 2. Migrar desde Columna ocean_pay_users (muy importante ya que algunos se guardaban ahí)
+      await pool.query(`
+        UPDATE ocean_pay_cards opc
+        SET balances = jsonb_set(COALESCE(opc.balances, '{}'::jsonb), '{ecoxionums}', to_jsonb(u.ecoxionums))
+        FROM ocean_pay_users u
+        WHERE opc.user_id = u.id 
+        AND opc.is_primary = true
+        AND (opc.balances->>'ecoxionums' IS NULL OR (opc.balances->>'ecoxionums')::numeric = 0)
+        AND u.ecoxionums > 0
+      `);
+      console.log('✅ Migración de saldos completada.');
+    } catch (migErr) {
+      console.log('⚠️ Aviso: Error en migración balance:', migErr.message);
+    }
 
     // 10. Crear tabla ocean_pay_card_balances para saldos por tarjeta (Legado/Compatibilidad)
     await pool.query(`
@@ -1923,7 +1940,7 @@ app.get('/wildshorts/wildgems/claims-status', async (req, res) => {
 
 /* ===== ECOXION - ECOXIONUMS ===== */
 
-// Endpoint para obtener balance de Ecoxionums
+// Endpoint para obtener balance de Ecoxionums (Estandarizado a Cards)
 app.get('/ocean-pay/ecoxionums/balance', async (req, res) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -1934,7 +1951,7 @@ app.get('/ocean-pay/ecoxionums/balance', async (req, res) => {
   let userId;
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    userId = decoded.uid;
+    userId = decoded.id || decoded.uid || decoded.sub;
     userId = parseInt(userId) || userId;
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
@@ -1942,74 +1959,24 @@ app.get('/ocean-pay/ecoxionums/balance', async (req, res) => {
 
   try {
     const { rows } = await pool.query(`
-      SELECT value FROM ocean_pay_metadata
-      WHERE user_id = $1 AND key = 'ecoxionums'
+      SELECT balances->>'ecoxionums' as ecoxionums 
+      FROM ocean_pay_cards
+      WHERE user_id = $1 AND is_primary = true
       `, [userId]);
 
-    const ecoxionums = rows.length > 0 ? parseInt(rows[0].value || '0') : 0;
+    const ecoxionums = rows.length > 0 ? parseFloat(rows[0].ecoxionums || '0') : 0;
     res.json({ ecoxionums });
   } catch (e) {
-    if (e.code === '42P01') {
-      res.json({ ecoxionums: 0 });
-    } else {
-      console.error('Error obteniendo ecoxionums:', e);
-      res.status(500).json({ error: 'Error interno' });
-    }
+    console.error('Error obteniendo ecoxionums:', e);
+    res.json({ ecoxionums: 0 });
   }
 });
 
-// Endpoint para sincronizar Ecoxionums desde cliente (si aplica)
+// Endpoint para sincronizar (Legacy Alias for Compatibility)
 app.post('/ocean-pay/ecoxionums/sync', async (req, res) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Token requerido' });
-  }
-
-  const token = authHeader.substring(7);
-  let userId;
-  try {
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    userId = decoded.uid;
-    userId = parseInt(userId) || userId;
-  } catch (e) {
-    return res.status(401).json({ error: 'Token inválido' });
-  }
-
-  const { ecoxionums } = req.body;
-  if (ecoxionums === undefined || ecoxionums === null) {
-    return res.status(400).json({ error: 'ecoxionums requerido' });
-  }
-
-  const amount = parseInt(ecoxionums || '0');
-
-  try {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS ocean_pay_metadata(
-        user_id INTEGER NOT NULL,
-        key TEXT NOT NULL,
-        value TEXT NOT NULL,
-        PRIMARY KEY(user_id, key)
-      )
-      `);
-
-    await pool.query(`
-      INSERT INTO ocean_pay_metadata(user_id, key, value)
-    VALUES($1, 'ecoxionums', $2)
-      ON CONFLICT(user_id, key) 
-      DO UPDATE SET value = $2
-      `, [userId, amount.toString()]);
-
-    // También actualizar en la tabla de usuarios para consistencia
-    await pool.query(
-      `UPDATE ocean_pay_users SET ecoxionums = $1 WHERE id = $2`,
-      [amount, userId]
-    );
-
-    res.json({ success: true, ecoxionums: amount });
-  } catch (e) {
-    console.error('Error sincronizando ecoxionums:', e);
-    res.status(500).json({ error: 'Error interno' });
-  }
+  // Redirigimos a la lógica de cards para no mantener dos sistemas
+  req.url = '/ocean-pay/sync-ecoxionums';
+  return app.handle(req, res);
 });
 
 // Endpoint para cambiar Ecoxionums (ganar/gastar)

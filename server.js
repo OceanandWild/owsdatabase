@@ -636,7 +636,7 @@ async function runDatabaseMigrations() {
 
       if (cardResult && cardResult.rows[0]) {
         // Inicializar saldos para la nueva tarjeta
-        const currencies = ['aquabux', 'ecoxionums', 'ecorebits', 'wildcredits', 'wildgems', 'appbux', 'ecobooks', 'ecotokens', 'ecopower', 'amber'];
+        const currencies = ['aquabux', 'ecoxionums', 'ecorebits', 'wildcredits', 'wildgems', 'appbux', 'ecobooks', 'ecotokens', 'ecopower', 'amber', 'nxb'];
         for (const curr of currencies) {
           await pool.query(
             'INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount) VALUES ($1, $2, 0) ON CONFLICT DO NOTHING',
@@ -2550,12 +2550,18 @@ app.post('/pos/complete', async (req, res) => {
     // 4. Aumentar al Receiver la divisa (puede ser la misma o una diferente en caso de Swap)
     const creditedCurrency = isExchange ? pos.target_currency.toLowerCase() : pos.currency.toLowerCase();
 
-    // Tasa de Intercambio (A WildGems por ahora)
+    // Tasa de Intercambio
     let creditedAmount = requiredAmount;
-    if (isExchange && creditedCurrency === 'wildgems') {
-      const rates = { 'aquabux': 10, 'ecoxionums': 50, 'ecorebits': 100, 'wildcredits': 5 };
-      const rate = rates[pos.currency.toLowerCase()] || 1;
-      creditedAmount = requiredAmount * rate;
+    if (isExchange) {
+      if (creditedCurrency === 'wildgems') {
+        const rates = { 'aquabux': 10, 'ecoxionums': 50, 'ecorebits': 100, 'wildcredits': 5, 'nxb': 2 };
+        const rate = rates[pos.currency.toLowerCase()] || 1;
+        creditedAmount = requiredAmount * rate;
+      } else if (creditedCurrency === 'nxb') {
+        const rates = { 'amber': 25, 'ecotokens': 5, 'appbux': 15, 'wildcredits': 10, 'aquabux': 5 };
+        const rate = rates[pos.currency.toLowerCase()] || 1;
+        creditedAmount = requiredAmount * rate;
+      }
     }
 
     await client.query(

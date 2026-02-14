@@ -1,32 +1,42 @@
-# Ignorar todo por defecto
+# ==========================================
+# CONFIGURACIÓN DE PRIVACIDAD Y ORDEN VISUAL
+# ==========================================
+
+# 1. Ignorar todo por defecto
 *
 
-# PERMITIR CARPETAS (Para que se vean blancas y el @ funcione en carpetas)
+# 2. PERMITIR CARPETAS RAÍZ (Las pone en BLANCO/Normal en el sidebar)
+# Esto permite que el @ funcione con los nombres de las carpetas.
 !*/
 
-# PERMITIR ARCHIVOS ESTRUCTURALES DEL SERVIDOR (Tracked)
-!.gitignore
-!README.txt
-!package.json
-!package-lock.json
-!server.js
-!migrate_ebs.js
+# 3. PROTEGER CONTENIDO PRIVADO (Pone el interior en GRIS e INVISIBLE para Git)
+# NADA de lo que metas en las carpetas de proyectos se subirá a GitHub.
+/*/*
 
-# PERMITIR OCEAN PAY (Proyecto principal)
+# 4. EXCEPCIÓN: Ocean Pay y Archivos del Servidor (Lo que SÍ queremos en GitHub)
 !Ocean Pay/
 !Ocean Pay/**
+!server.js
+!package.json
+!package-lock.json
+!README.txt
+!.gitignore
+!migrate_ebs.js
 
-# TRUCO PARA EL CONTEXTO (@): Permitir los index.html de todos los proyectos
-# Esto obligará al IDE a indexar el contenido de las carpetas sin poner todo en verde.
-!**/index.html
-
-# REGLAS DE SEGURIDAD (Ignorar siempre)
+# 5. REGLAS DE SEGURIDAD ESTRICTAS (NUNCA SUBIR)
 node_modules/
 .env
-uploads/
-.vscode/
-.gemini/
-.agent/
 .git/
+.vscode/
+.agent/
+.gemini/
 *.log
 .DS_Store
+**/assets/
+**/images/
+**/videos/
+**/audio/
+**/*.png
+**/*.jpg
+**/*.mp4
+**/*.zip

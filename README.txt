@@ -26,3 +26,5 @@ Se incluiran mas cosas luego, pero esto te ayudara a por lo menos entender como 
   git add server.js "Ocean Pay/" .gitignore package.json package-lock.json (Opcional) README.txt (Opcional)
   git commit -m "..." 
   git push origin main
+
+  NUNCA OTROS PROYECTOS, solo esos son admitidos o es muy posible que se te cancele el comando si lo ejecutas mal.

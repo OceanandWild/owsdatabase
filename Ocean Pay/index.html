@@ -1667,6 +1667,7 @@
                         <option value="ecobooks">EcoBooks</option>
                         <option value="ecotokens">EcoTokens</option>
                         <option value="amber">Amber</option>
+                        <option value="nxb">Nexus Bits (NXB)</option>
                       </select>
                     </div>
                   </div>
@@ -1716,6 +1717,7 @@
                         <option value="ecobooks">EcoBooks</option>
                         <option value="ecotokens">EcoTokens</option>
                         <option value="amber">Amber</option>
+                        <option value="nxb">Nexus Bits (NXB)</option>
                       </select>
                     </div>
                   </div>
@@ -2167,6 +2169,28 @@
       ctx.restore();
     }
 
+    function drawNXBIcon(ctx, x, y, size) {
+      ctx.save(); ctx.translate(x, y);
+      ctx.shadowBlur = size * 0.5; ctx.shadowColor = "rgba(240, 138, 93, 0.6)";
+      // Hexagon base
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const angle = (i * Math.PI * 2) / 6;
+        ctx.lineTo(Math.cos(angle) * size * 0.5, Math.sin(angle) * size * 0.5);
+      }
+      ctx.closePath();
+      const grad = ctx.createLinearGradient(-size, -size, size, size);
+      grad.addColorStop(0, "#f08a5d"); grad.addColorStop(1, "#b83b5e");
+      ctx.fillStyle = grad; ctx.fill();
+      // Tech Pattern
+      ctx.strokeStyle = "rgba(255,255,255,0.3)"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(0, -size * 0.3); ctx.lineTo(0, size * 0.3); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-size * 0.3, 0); ctx.lineTo(size * 0.3, 0); ctx.stroke();
+      // Inner Glow
+      ctx.fillStyle = "#fff"; ctx.font = `bold ${size * 0.3}px sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("N", 0, 0);
+      ctx.restore();
+    }
+
     function drawEcoBooksIcon(ctx, x, y, size) {
       ctx.save(); ctx.translate(x, y);
       ctx.shadowBlur = size * 0.4; ctx.shadowColor = "rgba(6, 182, 212, 0.5)";
@@ -2221,6 +2245,7 @@
           case 'appbux': drawAppBuxIcon(ctx, x, y, size * 0.8); break;
           case 'ecobooks': drawEcoBooksIcon(ctx, x, y, size * 0.8); break;
           case 'amber': drawAmberIcon(ctx, x, y, size * 0.8); break;
+          case 'nxb': drawNXBIcon(ctx, x, y, size * 0.8); break;
           default:
             ctx.fillStyle = "#fff"; ctx.font = "64px serif"; ctx.textAlign = "center";
             ctx.textBaseline = "middle"; ctx.fillText("💰", x, y);
@@ -2334,8 +2359,14 @@
           show('#pos-dest-card-field', !isExchange);
 
           if (isExchange) {
-            const rates = { 'aquabux': 10, 'ecoxionums': 50, 'ecorebits': 100, 'wildcredits': 5, 'amber': 8 };
-            const rate = rates[pos.currency.toLowerCase()] || 1;
+            let rate = 1;
+            if (pos.target_currency === 'wildgems') {
+              const rates = { 'aquabux': 10, 'ecoxionums': 50, 'ecorebits': 100, 'wildcredits': 5, 'nxb': 2 };
+              rate = rates[pos.currency.toLowerCase()] || 1;
+            } else if (pos.target_currency === 'nxb') {
+              const rates = { 'amber': 25, 'ecotokens': 5, 'appbux': 15, 'wildcredits': 10, 'aquabux': 5 };
+              rate = rates[pos.currency.toLowerCase()] || 1;
+            }
             qs('#pos-swap-target-amount').textContent = `${Math.floor(pos.amount * rate)} ${pos.target_currency.toUpperCase()}`;
             qs('#posSwapTargetCanvas').dataset.currency = pos.target_currency;
             qs('#pos-confirm-btn').textContent = 'Confirmar Intercambio';
@@ -2418,7 +2449,14 @@
         if (data.success && data.swaps.length > 0) {
           const rates = { 'aquabux': 10, 'ecoxionums': 50, 'ecorebits': 100, 'wildcredits': 5, 'amber': 8 };
           listEl.innerHTML = data.swaps.map(swap => {
-            const rate = rates[swap.currency.toLowerCase()] || 1;
+            let rate = 1;
+            if (swap.target_currency === 'wildgems') {
+              const rates = { 'aquabux': 10, 'ecoxionums': 50, 'ecorebits': 100, 'wildcredits': 5, 'nxb': 2 };
+              rate = rates[swap.currency.toLowerCase()] || 1;
+            } else if (swap.target_currency === 'nxb') {
+              const rates = { 'amber': 25, 'ecotokens': 5, 'appbux': 15, 'wildcredits': 10, 'aquabux': 5 };
+              rate = rates[swap.currency.toLowerCase()] || 1;
+            }
             const targetAmount = Math.floor(swap.amount * rate);
             return `
               <div style="background:#fff; border-radius:20px; padding:20px; box-shadow:0 4px 12px rgba(0,0,0,0.05); border:1px solid #e2e8f0;">

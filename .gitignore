@@ -1,7 +1,10 @@
-# Ignorar todo por defecto (limpia el sidebar y quita el verde "U")
+# Ignorar todo por defecto
 *
 
-# Permitir archivos de configuración y raíz
+# PERMITIR CARPETAS (Para que se vean blancas y el @ funcione en carpetas)
+!*/
+
+# PERMITIR ARCHIVOS ESTRUCTURALES DEL SERVIDOR (Tracked)
 !.gitignore
 !README.txt
 !package.json
@@ -9,11 +12,15 @@
 !server.js
 !migrate_ebs.js
 
-# Permitir Ocean Pay (es parte del repo principal)
+# PERMITIR OCEAN PAY (Proyecto principal)
 !Ocean Pay/
 !Ocean Pay/**
 
-# Carpetas de sistema y dependencias (NUNCA subir)
+# TRUCO PARA EL CONTEXTO (@): Permitir los index.html de todos los proyectos
+# Esto obligará al IDE a indexar el contenido de las carpetas sin poner todo en verde.
+!**/index.html
+
+# REGLAS DE SEGURIDAD (Ignorar siempre)
 node_modules/
 .env
 uploads/
@@ -21,7 +28,5 @@ uploads/
 .gemini/
 .agent/
 .git/
-
-# Archivos temporales
 *.log
 .DS_Store

@@ -10604,11 +10604,19 @@ app.get('/ocean-pay/me', async (req, res) => {
       };
     }));
 
+    // Calcular el total de Ecoxionums para mostrar en la billetera principal
+    const totalEcoxionums = cardsWithBalances.reduce((sum, c) => sum + (parseFloat(c.balances?.ecoxionums) || 0), 0);
+
     // Obtener el balance de appbux solo de la tarjeta primaria (evita confusión con múltiples tarjetas)
     const primaryCard = cardsWithBalances.find(c => c.is_primary) || cardsWithBalances[0];
     const totalAppBux = primaryCard?.balances?.appbux || 0;
 
-    res.json({ ...rows[0], appbux: totalAppBux, cards: cardsWithBalances });
+    res.json({
+      ...rows[0],
+      ecoxionums: totalEcoxionums,
+      appbux: totalAppBux,
+      cards: cardsWithBalances
+    });
   } catch (e) { res.status(401).json({ error: 'Token inválido' }); }
 });
 

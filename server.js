@@ -2501,8 +2501,8 @@ app.get('/pos/pending-swaps/:userId', async (req, res) => {
 app.post('/pos/complete', async (req, res) => {
   const { code, receiverId, receiverCardId } = req.body;
 
-  if (!code || !receiverId || !receiverCardId) {
-    return res.status(400).json({ error: 'Faltan datos' });
+  if (!code) {
+    return res.status(400).json({ error: 'Faltan datos (Código)' });
   }
 
   const client = await pool.connect();
@@ -2526,8 +2526,13 @@ app.post('/pos/complete', async (req, res) => {
     const actualReceiverId = isExchange ? pos.sender_id : receiverId;
     const actualReceiverCardId = isExchange ? pos.sender_card_id : receiverCardId;
 
-    if (!isExchange && pos.sender_id === receiverId) {
-      throw new Error('No puedes recibir dinero de ti mismo mediante POS');
+    if (!isExchange) {
+      if (!receiverId || !receiverCardId) {
+        throw new Error('Faltan datos del receptor para esta transacción');
+      }
+      if (pos.sender_id === receiverId) {
+        throw new Error('No puedes recibir dinero de ti mismo mediante POS');
+      }
     }
 
     // 2. Verificar saldo del Sender en la tarjeta especificada
@@ -2587,7 +2592,7 @@ app.post('/pos/complete', async (req, res) => {
     // Receiver Transaction (Positive)
     await client.query(
       'INSERT INTO ocean_pay_txs (user_id, concepto, monto, moneda, origen) VALUES ($1, $2, $3, $4, $5)',
-      [receiverId, `POS Virtual - Recepción(${code})`, safeAmount, pos.currency.toUpperCase(), 'POS']
+      [actualReceiverId, `POS Virtual - Recepción(${code})`, safeAmount, pos.currency.toUpperCase(), 'POS']
     );
 
     await client.query('COMMIT');

@@ -2407,7 +2407,8 @@
       const code = qs('#pos-confirm').dataset.code;
       const receiverCardId = qs('#pos-card-dest').value;
 
-      if (!receiverCardId) return alert('Selecciona una tarjeta de destino');
+      const isExchange = qs('#pos-confirm-title').textContent === 'Confirmar Intercambio';
+      if (!isExchange && !receiverCardId) return alert('Selecciona una tarjeta de destino');
 
       try {
         const res = await fetch(`${API}/pos/complete`, {

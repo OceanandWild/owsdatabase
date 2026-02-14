@@ -10572,7 +10572,7 @@ app.post('/ocean-pay/nxb/change', async (req, res) => {
   try {
     await client.query('BEGIN');
 
-    // Obtener tarjeta principal
+    // 1. Obtener tarjeta principal
     const { rows: cards } = await client.query(
       'SELECT id, balances FROM ocean_pay_cards WHERE user_id = $1 AND is_primary = true FOR UPDATE',
       [userId]
@@ -10582,21 +10582,56 @@ app.post('/ocean-pay/nxb/change', async (req, res) => {
       throw new Error('Usuario no tiene tarjeta principal vinculada');
     }
 
-    const card = cards[0];
-    const balances = card.balances || {};
-    const current = parseFloat(balances.nxb || 0);
-    const next = current + parseFloat(amount);
+    const cardId = cards[0].id;
+    const jsonBalances = cards[0].balances || {};
 
-    if (next < 0) {
-      throw new Error('Saldo insuficiente de Nexus Bits');
+    // 2. Obtener saldo de la tabla de balances (donde el POS deposita)
+    const { rows: tableBalances } = await client.query(
+      'SELECT amount FROM ocean_pay_card_balances WHERE card_id = $1 AND currency_type = $2 FOR UPDATE',
+      [cardId, 'nxb']
+    );
+
+    const tableAmount = parseFloat(tableBalances[0]?.amount || 0);
+    const jsonAmount = parseFloat(jsonBalances.nxb || 0);
+
+    // Saldo TOTAL
+    const currentTotal = tableAmount + jsonAmount;
+    const change = parseFloat(amount);
+    const nextTotal = currentTotal + change;
+
+    if (nextTotal < 0) {
+      throw new Error(`Saldo insuficiente: Tienes ${currentTotal} NXB e intentas gastar ${Math.abs(change)}`);
     }
 
-    // Actualizar JSONB
-    const newBalances = { ...balances, nxb: next };
-    await client.query(
-      'UPDATE ocean_pay_cards SET balances = $1 WHERE id = $2',
-      [JSON.stringify(newBalances), card.id]
-    );
+    // 3. Aplicar el cambio. Preferimos usar la tabla de balances por consistencia con POS
+    // Si es positivo (ganancia), sumamos a la tabla
+    // Si es negativo (gasto), descontamos de la tabla hasta donde llegue, y el resto de JSON
+    if (change >= 0) {
+      await client.query(
+        'INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount) VALUES ($1, $2, $3) ON CONFLICT (card_id, currency_type) DO UPDATE SET amount = ocean_pay_card_balances.amount + $3',
+        [cardId, 'nxb', change]
+      );
+    } else {
+      const toDeduct = Math.abs(change);
+      if (tableAmount >= toDeduct) {
+        // Todo sale de la tabla
+        await client.query(
+          'UPDATE ocean_pay_card_balances SET amount = amount - $1 WHERE card_id = $2 AND currency_type = $3',
+          [toDeduct, cardId, 'nxb']
+        );
+      } else {
+        // Sale lo que hay en tabla y el resto de JSON
+        const remaining = toDeduct - tableAmount;
+        if (tableAmount > 0) {
+          await client.query('UPDATE ocean_pay_card_balances SET amount = 0 WHERE card_id = $2 AND currency_type = $3', [cardId, 'nxb']);
+        }
+        const newJsonNxb = jsonAmount - remaining;
+        await client.query(
+          'UPDATE ocean_pay_cards SET balances = jsonb_set(COALESCE(balances, \'{}\'), \'{nxb}\', $1) WHERE id = $2',
+          [newJsonNxb.toString(), cardId]
+        );
+      }
+    }
 
     // Registrar transacción
     await client.query(
@@ -10605,7 +10640,7 @@ app.post('/ocean-pay/nxb/change', async (req, res) => {
     );
 
     await client.query('COMMIT');
-    res.json({ success: true, newBalance: next });
+    res.json({ success: true, newBalance: nextTotal });
   } catch (e) {
     await client.query('ROLLBACK');
     console.error('Error en /ocean-pay/nxb/change:', e.message);

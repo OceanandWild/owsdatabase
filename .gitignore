@@ -1,3 +1,18 @@
+# Ignorar todo por defecto (limpia el sidebar y quita el verde "U")
+*
+
+# Permitir archivos de configuración y raíz
+!.gitignore
+!README.txt
+!package.json
+!package-lock.json
+!server.js
+!migrate_ebs.js
+
+# Permitir Ocean Pay (es parte del repo principal)
+!Ocean Pay/
+!Ocean Pay/**
+
 # Carpetas de sistema y dependencias (NUNCA subir)
 node_modules/
 .env
@@ -10,8 +25,3 @@ uploads/
 # Archivos temporales
 *.log
 .DS_Store
-
-# NOTA: He eliminado el '*' para que tus proyectos no se vean en gris y puedas usar @ con ellos.
-# RECUERDA: Para no subir todo el workspace al servidor, usa solo:
-# git add server.js "Ocean Pay/" package.json
-# Evita usar 'git add .' a menos que quieras subir nuevos proyectos.

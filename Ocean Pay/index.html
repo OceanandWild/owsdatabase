@@ -2662,22 +2662,7 @@
     }
 
     async function loadEcoxionumsBalance() {
-      const user = JSON.parse(localStorage.getItem('opUser') || '{}');
-      if (!user.id) return;
-
-      // 🛠️ ECOXION REWORK LOCK - REMOVED
-      // Feature enabled for all users via Sync
-      const card = qs('#ecoxionums-card');
-      if (card) {
-        card.style.opacity = '1';
-        card.style.pointerEvents = 'auto';
-        const info = card.querySelector('.app-info');
-        if (info) info.textContent = 'Ecoxion App';
-      }
-
-      const res = await fetch(`${API}/ocean-pay/ecoxionums/${user.id}`);
-      const { ecoxionums } = await res.json();
-      qs('#ecoxionums').textContent = Math.round(ecoxionums || 0).toLocaleString();
+      // Redundant: covered by loadOceanCards and updateBalanceDisplays
     }
 
     async function loadEcoCoreBitsBalance() {

@@ -10581,16 +10581,22 @@ app.get('/ocean-pay/me', async (req, res) => {
         [card.id]
       );
 
-      // Iniciar con balances de JSONB (Nuevo sistema)
+      // Iniciar con balances de JSONB (Nuevo sistema - Prioridad)
       const balances = card.balances || {};
 
-      // Mezclar con balances de tabla SQL (Sistema legado)
+      // Mezclar con saldos de tabla SQL (Legado - Fallback)
       balanceRows.forEach(b => {
-        balances[b.currency_type] = parseFloat(b.amount);
+        const tableVal = parseFloat(b.amount || 0);
+        const jsonVal = parseFloat(balances[b.currency_type] || 0);
+
+        // Solo sobreescribimos si el valor en tabla es mayor o no existe en JSONB
+        if (balances[b.currency_type] === undefined || tableVal > jsonVal) {
+          balances[b.currency_type] = tableVal;
+        }
       });
 
-      // Asegurar que ecoxionums sea numérico
-      if (balances.ecoxionums) balances.ecoxionums = parseFloat(balances.ecoxionums);
+      // Asegurar formato numérico
+      if (balances.ecoxionums !== undefined) balances.ecoxionums = parseFloat(balances.ecoxionums);
 
       return {
         ...card,

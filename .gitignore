@@ -2,36 +2,16 @@
 # CONFIGURACIÓN DE PRIVACIDAD Y ORDEN VISUAL
 # ==========================================
 
-# 1. Ignorar todo por defecto
-*
+# 1. NO IGNORAR LOS ARCHIVOS DE CÓDIGO
+# (Esto permite que el @ de VS Code y Antigravity los encuentre siempre)
 
-# 2. PERMITIR CARPETAS RAÍZ (Las pone en BLANCO/Normal en el sidebar)
-# Esto permite que el @ funcione con los nombres de las carpetas.
-!*/
-
-# 3. PROTEGER CONTENIDO PRIVADO (Pone el interior en GRIS e INVISIBLE para Git)
-# NADA de lo que metas en las carpetas de proyectos se subirá a GitHub.
-/*/*
-
-# 4. EXCEPCIÓN: Ocean Pay y Archivos del Servidor (Lo que SÍ queremos en GitHub)
-!Ocean Pay/
-!Ocean Pay/**
-!server.js
-!package.json
-!package-lock.json
-!README.txt
-!.gitignore
-!migrate_ebs.js
-
-# 5. REGLAS DE SEGURIDAD ESTRICTAS (NUNCA SUBIR)
+# 2. IGNORAR SOLO CARPETAS PESADAS O BINARIOS
 node_modules/
 .env
 .git/
-.vscode/
 .agent/
 .gemini/
 *.log
-.DS_Store
 **/assets/
 **/images/
 **/videos/
@@ -40,3 +20,18 @@ node_modules/
 **/*.jpg
 **/*.mp4
 **/*.zip
+
+# 3. SEGURIDAD ADICIONAL:
+# Aunque ahora están en el índice (tracked), el comando 'assume-unchanged'
+# evita que Git detecte cambios en ellos a menos que hagamos 'git add' explícito.
+# Esto mantiene los proyectos en Blanco (No Verdes) en la mayoría de temas.
+
+# 4. EXCEPCIÓN: LO QUE SÍ SE SUBE
+!/server.js
+!/Ocean Pay/
+!/package.json
+!/package-lock.json
+!/README.txt
+!/.gitignore
+!/migrate_ebs.js
+!/implementation_summary.md

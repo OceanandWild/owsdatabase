@@ -1,0 +1,14 @@
+{
+    "codium.codeCompletion.enable": true,
+    "html.autoClosingTags": false,
+    "search.useIgnoreFiles": false,
+    "search.exclude": {
+        "**/node_modules": true,
+        "**/.git": true,
+        "**/.agent": true,
+        "**/.gemini": true,
+        "**/assets": true,
+        "**/images": true,
+        "**/videos": true
+    }
+}

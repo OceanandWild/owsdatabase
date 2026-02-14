@@ -23,8 +23,8 @@ Se incluiran mas cosas luego, pero esto te ayudara a por lo menos entender como 
 
 - DEPLOY SELECTIVO:
   Para evitar subir el escritorio completo, usa estrictamente:
-  git add server.js "Ocean Pay/" .gitignore package.json package-lock.json (Opcional) README.txt (Opcional)
-  git commit -m "..." 
+  git add server.js "Ocean Pay/" .gitignore package.json package-lock.json README.txt implementation_summary.md migrate_ebs.js
+  git commit -m "feat: Studio sync and fixes" 
   git push origin main
 
   NUNCA OTROS PROYECTOS, solo esos son admitidos o es muy posible que se te cancele el comando si lo ejecutas mal.

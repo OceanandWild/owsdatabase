@@ -2535,25 +2535,46 @@ app.post('/pos/complete', async (req, res) => {
       }
     }
 
-    // 2. Verificar saldo del Sender en la tarjeta especificada
-    const { rows: senderBalance } = await client.query(
-      'SELECT amount FROM ocean_pay_card_balances WHERE card_id = $1 AND currency_type = $2 FOR UPDATE',
-      [pos.sender_card_id, pos.currency.toLowerCase()]
-    );
-
+    // 2. Verificar saldo del Sender (Tarjeta o Metadata)
+    const currency = pos.currency.toLowerCase();
+    const isMetadataCurrency = ['amber', 'ecotokens'].includes(currency);
     const requiredAmount = parseFloat(pos.amount);
-    if (senderBalance.length === 0 || parseFloat(senderBalance[0].amount) < requiredAmount) {
-      throw new Error('Saldo insuficiente en la divisa de origen');
+    let currentBalance = 0;
+
+    if (isMetadataCurrency) {
+      const { rows: metaRows } = await client.query(
+        'SELECT value FROM ocean_pay_metadata WHERE user_id = $1 AND key = $2 FOR UPDATE',
+        [pos.sender_id, currency]
+      );
+      currentBalance = parseFloat(metaRows[0]?.value || '0');
+    } else {
+      const { rows: senderBalance } = await client.query(
+        'SELECT amount FROM ocean_pay_card_balances WHERE card_id = $1 AND currency_type = $2 FOR UPDATE',
+        [pos.sender_card_id, currency]
+      );
+      currentBalance = parseFloat(senderBalance[0]?.amount || '0');
     }
 
-    // 3. Descontar al Sender la divisa de origen
-    await client.query(
-      'UPDATE ocean_pay_card_balances SET amount = amount - $1 WHERE card_id = $2 AND currency_type = $3',
-      [requiredAmount, pos.sender_card_id, pos.currency.toLowerCase()]
-    );
+    if (currentBalance < requiredAmount) {
+      throw new Error(`Saldo insuficiente: Tienes ${currentBalance} ${currency.toUpperCase()} y necesitas ${requiredAmount}`);
+    }
+
+    // 3. Descontar al Sender
+    if (isMetadataCurrency) {
+      await client.query(
+        'UPDATE ocean_pay_metadata SET value = $1 WHERE user_id = $2 AND key = $3',
+        [(currentBalance - requiredAmount).toString(), pos.sender_id, currency]
+      );
+    } else {
+      await client.query(
+        'UPDATE ocean_pay_card_balances SET amount = amount - $1 WHERE card_id = $2 AND currency_type = $3',
+        [requiredAmount, pos.sender_card_id, currency]
+      );
+    }
 
     // 4. Aumentar al Receiver la divisa (puede ser la misma o una diferente en caso de Swap)
     const creditedCurrency = isExchange ? pos.target_currency.toLowerCase() : pos.currency.toLowerCase();
+    const isTargetMetadata = ['amber', 'ecotokens'].includes(creditedCurrency);
 
     // Tasa de Intercambio
     let creditedAmount = requiredAmount;
@@ -2569,10 +2590,22 @@ app.post('/pos/complete', async (req, res) => {
       }
     }
 
-    await client.query(
-      'INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount) VALUES ($1, $2, $3) ON CONFLICT (card_id, currency_type) DO UPDATE SET amount = ocean_pay_card_balances.amount + $3',
-      [actualReceiverCardId, creditedCurrency, creditedAmount]
-    );
+    if (isTargetMetadata) {
+      const { rows: targetMeta } = await client.query(
+        'SELECT value FROM ocean_pay_metadata WHERE user_id = $1 AND key = $2 FOR UPDATE',
+        [actualReceiverId, creditedCurrency]
+      );
+      const targetCurrent = parseFloat(targetMeta[0]?.value || '0');
+      await client.query(
+        'INSERT INTO ocean_pay_metadata (user_id, key, value) VALUES ($1, $2, $3) ON CONFLICT (user_id, key) DO UPDATE SET value = EXCLUDED.value',
+        [actualReceiverId, creditedCurrency, (targetCurrent + creditedAmount).toString()]
+      );
+    } else {
+      await client.query(
+        'INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount) VALUES ($1, $2, $3) ON CONFLICT (card_id, currency_type) DO UPDATE SET amount = ocean_pay_card_balances.amount + $3',
+        [actualReceiverCardId, creditedCurrency, creditedAmount]
+      );
+    }
 
     // 5. Marcar POS como completado
     await client.query(

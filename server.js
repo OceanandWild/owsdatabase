@@ -10568,23 +10568,29 @@ app.get('/ocean-pay/me', async (req, res) => {
 
     // Obtener tarjetas del usuario CON sus saldos
     const { rows: cardRows } = await pool.query(
-      `SELECT c.id, c.card_number, c.cvv, c.expiry_date, c.is_active, c.is_primary, c.card_name
+      `SELECT c.id, c.card_number, c.cvv, c.expiry_date, c.is_active, c.is_primary, c.card_name, c.balances
        FROM ocean_pay_cards c WHERE c.user_id = $1
        ORDER BY c.is_primary DESC, c.id ASC`,
       [userId]
     );
 
-    // Para cada tarjeta, obtener sus saldos
+    // Para cada tarjeta, obtener sus saldos (Unificar JSONB + Tabla)
     const cardsWithBalances = await Promise.all(cardRows.map(async (card) => {
       const { rows: balanceRows } = await pool.query(
         'SELECT currency_type, amount FROM ocean_pay_card_balances WHERE card_id = $1',
         [card.id]
       );
 
-      const balances = {};
+      // Iniciar con balances de JSONB (Nuevo sistema)
+      const balances = card.balances || {};
+
+      // Mezclar con balances de tabla SQL (Sistema legado)
       balanceRows.forEach(b => {
         balances[b.currency_type] = parseFloat(b.amount);
       });
+
+      // Asegurar que ecoxionums sea numérico
+      if (balances.ecoxionums) balances.ecoxionums = parseFloat(balances.ecoxionums);
 
       return {
         ...card,

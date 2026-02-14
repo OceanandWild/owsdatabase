@@ -10564,6 +10564,57 @@ app.post('/ocean-pay/update-balance', async (req, res) => {
     res.status(401).json({ error: 'Token inválido o error de BD' });
   }
 });
+app.post('/ocean-pay/nxb/change', async (req, res) => {
+  const { userId, amount, concepto = 'Operación en Nexus' } = req.body;
+  if (!userId || amount === undefined) return res.status(400).json({ error: 'Faltan datos' });
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Obtener tarjeta principal
+    const { rows: cards } = await client.query(
+      'SELECT id, balances FROM ocean_pay_cards WHERE user_id = $1 AND is_primary = true FOR UPDATE',
+      [userId]
+    );
+
+    if (cards.length === 0) {
+      throw new Error('Usuario no tiene tarjeta principal vinculada');
+    }
+
+    const card = cards[0];
+    const balances = card.balances || {};
+    const current = parseFloat(balances.nxb || 0);
+    const next = current + parseFloat(amount);
+
+    if (next < 0) {
+      throw new Error('Saldo insuficiente de Nexus Bits');
+    }
+
+    // Actualizar JSONB
+    const newBalances = { ...balances, nxb: next };
+    await client.query(
+      'UPDATE ocean_pay_cards SET balances = $1 WHERE id = $2',
+      [JSON.stringify(newBalances), card.id]
+    );
+
+    // Registrar transacción
+    await client.query(
+      'INSERT INTO ocean_pay_txs (user_id, concepto, monto, moneda, origen) VALUES ($1, $2, $3, $4, $5)',
+      [userId, concepto, amount, 'NXB', 'Primal Velocity Nexus']
+    );
+
+    await client.query('COMMIT');
+    res.json({ success: true, newBalance: next });
+  } catch (e) {
+    await client.query('ROLLBACK');
+    console.error('Error en /ocean-pay/nxb/change:', e.message);
+    res.status(400).json({ error: e.message });
+  } finally {
+    client.release();
+  }
+});
+
 
 app.get('/ocean-pay/me', async (req, res) => {
   const auth = req.headers.authorization;            // Bearer <token>

@@ -980,6 +980,27 @@ const wildTransferStorage = multer.diskStorage({
 
 const wildTransferUpload = multer({ storage: wildTransferStorage });
 
+// Función para limpiar archivos viejos (> 24 horas)
+const cleanOldWildTransferFiles = () => {
+  const dir = join(__dirname, 'uploads', 'wild-transfer');
+  if (!fs.existsSync(dir)) return;
+  const now = Date.now();
+  const files = fs.readdirSync(dir);
+  files.forEach(f => {
+    const filePath = join(dir, f);
+    const stats = fs.statSync(filePath);
+    const age = now - stats.mtimeMs;
+    // 24 horas = 86400000 ms
+    if (age > 86400000) {
+      fs.unlinkSync(filePath);
+      console.log(`🗑️ Wild Transfer: Archivo expirado eliminado: ${f}`);
+    }
+  });
+};
+
+// Limpiar cada 6 horas
+setInterval(cleanOldWildTransferFiles, 6 * 60 * 60 * 1000);
+
 app.use('/wild-transfer', express.static(join(__dirname, 'WildTransfer')));
 
 app.post('/api/wild-transfer/upload', wildTransferUpload.array('files', 10), (req, res) => {
@@ -1016,6 +1037,30 @@ app.get('/api/wild-transfer/info/:code', (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+// Compatibilidad con URL antigua de descarga
+app.get('/api/wild-transfer/download/:code', (req, res) => {
+  const { code } = req.params;
+  const dir = join(__dirname, 'uploads', 'wild-transfer');
+  if (!fs.existsSync(dir)) return res.status(404).send('Directorio no encontrado');
+
+  const files = fs.readdirSync(dir);
+  const sessionFiles = files.filter(f => f.startsWith(code.toUpperCase() + '-'));
+
+  if (sessionFiles.length === 0) return res.status(404).send('Código no encontrado');
+
+  // Si solo hay uno, lo descargamos directamente como antes
+  if (sessionFiles.length === 1) {
+    const f = sessionFiles[0];
+    const filePath = join(dir, f);
+    const originalName = f.split('-').slice(2).join('-');
+    return res.download(filePath, originalName);
+  }
+
+  // Si hay varios, no podemos descargar todos en un solo GET de navegador fácilmente sin ZIP
+  // Así que redirigimos a la interfaz para que los vea
+  res.send(`Este código contiene ${sessionFiles.length} archivos. Por favor usa la interfaz de Wild Transfer para revisarlos.`);
 });
 
 app.get('/api/wild-transfer/download-file/:filename', (req, res) => {

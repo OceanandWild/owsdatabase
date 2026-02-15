@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wild Transfer | Ocean and Wild Studios</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #00d2ff;
+            --secondary: #3a7bd5;
+            --accent: #ff007a;
+            --bg-dark: #0a0b10;
+            --glass: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --text: #ffffff;
+            --text-dim: #b0b0b0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow-x: hidden;
+        }
+
+        /* Background Blobs */
+        .background-blobs {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            filter: blur(80px);
+        }
+
+        .blob {
+            position: absolute;
+            border-radius: 50%;
+            opacity: 0.5;
+            animation: blob-float 20s infinite alternate;
+        }
+
+        .blob-1 {
+            width: 400px;
+            height: 400px;
+            background: var(--primary);
+            top: -100px;
+            left: -100px;
+        }
+
+        .blob-2 {
+            width: 350px;
+            height: 350px;
+            background: var(--secondary);
+            bottom: -50px;
+            right: -50px;
+            animation-delay: -5s;
+        }
+
+        .blob-3 {
+            width: 300px;
+            height: 300px;
+            background: var(--accent);
+            top: 40%;
+            left: 60%;
+            animation-delay: -10s;
+        }
+
+        @keyframes blob-float {
+            0% {
+                transform: translate(0, 0) scale(1);
+            }
+
+            100% {
+                transform: translate(50px, 100px) scale(1.2);
+            }
+        }
+
+        /* Container */
+        .container {
+            width: 90%;
+            max-width: 600px;
+            padding: 2rem;
+            z-index: 1;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .title {
+            font-size: 3.5rem;
+            font-weight: 800;
+            letter-spacing: -1px;
+            margin-bottom: 0.5rem;
+        }
+
+        .title span {
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            font-size: 1.1rem;
+            color: var(--text-dim);
+            font-weight: 300;
+        }
+
+        /* Tabs */
+        .glass-tabs {
+            background: var(--glass);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 100px;
+            padding: 5px;
+            display: flex;
+            margin-bottom: 2rem;
+        }
+
+        .tab-btn {
+            padding: 12px;
+            border: none;
+            background: transparent;
+            color: var(--text-dim);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 100px;
+            transition: all 0.3s ease;
+            flex: 1;
+        }
+
+        .tab-btn.active {
+            background: white;
+            color: var(--bg-dark);
+        }
+
+        /* Content Sections */
+        .content-section {
+            display: none;
+            background: var(--glass);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 30px;
+            padding: 2.5rem;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .content-section.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Upload Section */
+        .drop-zone {
+            border: 2px dashed var(--glass-border);
+            border-radius: 20px;
+            height: 250px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .drop-zone:hover,
+        .drop-zone.drag-over {
+            border-color: var(--primary);
+            background: rgba(0, 210, 255, 0.05);
+        }
+
+        /* Hide drop zone when uploaded */
+        .hidden {
+            display: none !important;
+        }
+
+        .drop-zone-content {
+            text-align: center;
+            color: var(--text-dim);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .icon-upload {
+            width: 60px;
+            height: 60px;
+            margin-bottom: 1rem;
+            color: var(--primary);
+        }
+
+        /* Progress Bar */
+        .status-box {
+            margin-top: 2rem;
+            text-align: center;
+        }
+
+        .progress-bar-container {
+            width: 100%;
+            height: 8px;
+            background: var(--glass-border);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 1rem;
+        }
+
+        .progress-bar {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            transition: width 0.3s ease;
+        }
+
+        /* Result Box */
+        .result-box {
+            text-align: center;
+        }
+
+        .result-box h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .code-display {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            padding: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1.5rem;
+            margin: 1.5rem 0;
+            border: 1px solid var(--glass-border);
+        }
+
+        #generated-code {
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: 5px;
+            color: var(--primary);
+            text-transform: uppercase;
+        }
+
+        .copy-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-dim);
+            cursor: pointer;
+            width: 24px;
+            height: 24px;
+            transition: color 0.3s ease;
+        }
+
+        .copy-btn:hover {
+            color: white;
+        }
+
+        /* Receive Section */
+        .receive-form {
+            text-align: center;
+        }
+
+        .receive-form p {
+            margin-bottom: 1.5rem;
+        }
+
+        .receive-form input {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--glass-border);
+            border-radius: 15px;
+            padding: 1.2rem;
+            color: white;
+            font-size: 1.5rem;
+            text-align: center;
+            margin-bottom: 1.5rem;
+            letter-spacing: 5px;
+            outline: none;
+            transition: border-color 0.3s ease;
+        }
+
+        .receive-form input:focus {
+            border-color: var(--primary);
+        }
+
+        .main-btn {
+            width: 100%;
+            padding: 1.2rem;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            border: none;
+            border-radius: 15px;
+            color: white;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .main-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 210, 255, 0.2);
+        }
+
+        .reset-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-dim);
+            text-decoration: underline;
+            cursor: pointer;
+            margin-top: 1rem;
+        }
+
+        /* Footer */
+        .footer {
+            position: fixed;
+            bottom: 2rem;
+            color: var(--text-dim);
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 480px) {
+            .title {
+                font-size: 2.5rem;
+            }
+
+            .content-section {
+                padding: 1.5rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="background-blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+    </div>
+
+    <main class="container">
+        <header class="header">
+            <h1 class="title">Wild <span>Transfer</span></h1>
+            <p class="subtitle">Comparte archivos de forma rápida y segura mediante un código único.</p>
+        </header>
+
+        <div class="glass-tabs">
+            <button class="tab-btn active" onclick="switchTab('upload')">Enviar</button>
+            <button class="tab-btn" onclick="switchTab('receive')">Recibir</button>
+        </div>
+
+        <section id="upload-section" class="content-section active">
+            <div class="drop-zone" id="drop-zone">
+                <div class="drop-zone-content">
+                    <div class="icon-upload">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M12 16V8M12 8L9 11M12 8L15 11" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round" />
+                            <path d="M3 15V16C3 18.2091 4.79086 20 7 20H17C19.2091 20 21 18.2091 21 16V15"
+                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                            <path d="M3 9V8C3 5.79086 4.79086 4 7 4H17C19.2091 4 21 5.79086 21 8V9"
+                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </div>
+                    <span>Arrastra archivos aquí o haz clic para seleccionar</span>
+                    <input type="file" id="file-input" hidden>
+                </div>
+            </div>
+
+            <div id="upload-status" class="status-box hidden">
+                <div class="progress-bar-container">
+                    <div id="progress-bar" class="progress-bar"></div>
+                </div>
+                <p id="status-text">Subiendo...</p>
+            </div>
+
+            <div id="result-box" class="result-box hidden">
+                <h3>¡Archivo listo!</h3>
+                <p>Comparte este código con la otra persona:</p>
+                <div class="code-display">
+                    <span id="generated-code">XXXXXX</span>
+                    <button class="copy-btn" onclick="copyCode()">
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path
+                                d="M16 4H8C6.89543 4 6 4.89543 6 6V18C6 19.1046 6.89543 20 8 20H16C17.1046 20 18 19.1046 18 18V6C18 4.89543 17.1046 4 16 4Z"
+                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                            <path
+                                d="M4 8H3C2.44772 8 2 8.44772 2 9V21C2 21.5523 2.44772 22 3 22H15C15.5523 22 16 21.5523 16 21V20"
+                                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </button>
+                </div>
+                <button class="reset-btn" onclick="resetUpload()">Enviar otro archivo</button>
+            </div>
+        </section>
+
+        <section id="receive-section" class="content-section">
+            <div class="receive-form">
+                <p>Ingresa el código que te compartieron:</p>
+                <input type="text" id="receive-code" placeholder="Ej: A1B2C3" maxlength="6">
+                <button id="download-btn" class="main-btn">Obtener Archivo</button>
+            </div>
+            <div id="receive-status" class="status-box hidden">
+                <p id="receive-status-text"></p>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <p>Ocean and Wild Studios &copy; 2026</p>
+    </footer>
+
+    <script>
+        const API_URL = '/api/wild-transfer';
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.content-section').forEach(sec => sec.classList.remove('active'));
+
+            const activeBtn = document.querySelector(`.tab-btn[onclick="switchTab('${tab}')"]`);
+            const activeSec = document.getElementById(`${tab}-section`);
+
+            if (activeBtn) activeBtn.classList.add('active');
+            if (activeSec) activeSec.classList.add('active');
+        }
+
+        // Upload Logic
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const statusBox = document.getElementById('upload-status');
+        const progressBar = document.getElementById('progress-bar');
+        const statusText = document.getElementById('status-text');
+        const resultBox = document.getElementById('result-box');
+        const generatedCode = document.getElementById('generated-code');
+
+        dropZone.onclick = () => fileInput.click();
+
+        dropZone.ondragover = (e) => {
+            e.preventDefault();
+            dropZone.classList.add('drag-over');
+        };
+
+        dropZone.ondragleave = () => {
+            dropZone.classList.remove('drag-over');
+        };
+
+        dropZone.ondrop = (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            if (e.dataTransfer.files.length > 0) {
+                handleUpload(e.dataTransfer.files[0]);
+            }
+        };
+
+        fileInput.onchange = () => {
+            if (fileInput.files.length > 0) {
+                handleUpload(fileInput.files[0]);
+            }
+        };
+
+        async function handleUpload(file) {
+            dropZone.classList.add('hidden');
+            statusBox.classList.remove('hidden');
+            statusText.innerText = `Subiendo ${file.name}...`;
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch(`${API_URL}/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    statusBox.classList.add('hidden');
+                    resultBox.classList.remove('hidden');
+                    generatedCode.innerText = data.code;
+                } else {
+                    statusText.innerText = 'Error: ' + (data.error || 'Ocurrió un problema');
+                }
+            } catch (error) {
+                statusText.innerText = 'Error de conexión';
+                console.error(error);
+            }
+        }
+
+        function resetUpload() {
+            resultBox.classList.add('hidden');
+            dropZone.classList.remove('hidden');
+            fileInput.value = '';
+        }
+
+        function copyCode() {
+            const code = generatedCode.innerText;
+            navigator.clipboard.writeText(code).then(() => {
+                const originalText = generatedCode.innerText;
+                generatedCode.innerText = 'COPIADO';
+                setTimeout(() => {
+                    generatedCode.innerText = originalText;
+                }, 1000);
+            });
+        }
+
+        // Receive Logic
+        const receiveCode = document.getElementById('receive-code');
+        const downloadBtn = document.getElementById('download-btn');
+        const receiveStatus = document.getElementById('receive-status');
+        const receiveStatusText = document.getElementById('receive-status-text');
+
+        downloadBtn.onclick = async () => {
+            const code = receiveCode.value.trim().toUpperCase();
+            if (!code) return alert('Ingresa un código');
+
+            receiveStatus.classList.remove('hidden');
+            receiveStatusText.innerText = 'Buscando archivo...';
+
+            window.location.href = `${API_URL}/download/${code}`;
+
+            // Reset status after a delay as we can't easily detect download completion via window.location.href
+            setTimeout(() => {
+                receiveStatus.classList.add('hidden');
+            }, 5000);
+        };
+    </script>
+</body>
+
+</html>

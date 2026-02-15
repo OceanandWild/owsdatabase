@@ -962,6 +962,53 @@ app.get('/ocean-pay/index.html', (_req, res) => {
 // Servir archivos estáticos de Ocean Pay
 app.use('/ocean-pay', express.static(join(__dirname, 'Ocean Pay')));
 
+// ===== WILD TRANSFER - COMPARTIR ARCHIVOS =====
+const wildTransferStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = join(__dirname, 'uploads', 'wild-transfer');
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => {
+    // Generamos un código de 6 caracteres
+    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+    req.generatedCode = code;
+    cb(null, code + '-' + file.originalname);
+  }
+});
+
+const wildTransferUpload = multer({ storage: wildTransferStorage });
+
+app.use('/wild-transfer', express.static(join(__dirname, 'WildTransfer')));
+
+app.post('/api/wild-transfer/upload', wildTransferUpload.single('file'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No se subió ningún archivo' });
+  console.log(`📤 Archivo subido a Wild Transfer: ${req.file.originalname} con código ${req.generatedCode}`);
+  res.json({ success: true, code: req.generatedCode, filename: req.file.originalname });
+});
+
+app.get('/api/wild-transfer/download/:code', (req, res) => {
+  try {
+    const { code } = req.params;
+    const dir = join(__dirname, 'uploads', 'wild-transfer');
+
+    if (!fs.existsSync(dir)) return res.status(404).send('No se han encontrado archivos en el sistema.');
+
+    const files = fs.readdirSync(dir);
+    const targetFile = files.find(f => f.startsWith(code.toUpperCase() + '-'));
+
+    if (!targetFile) return res.status(404).send('Código no encontrado o archivo expirado.');
+
+    const filePath = join(dir, targetFile);
+    const originalName = targetFile.substring(7); // Remueve los 7 caracteres (CODIGO-)
+
+    res.download(filePath, originalName);
+  } catch (err) {
+    console.error('Error en Wild Transfer Download:', err);
+    res.status(500).send('Error interno al descargar el archivo.');
+  }
+});
+
 app.get('/oceanic-ethernet/index.html', (_req, res) => {
   try {
     const html = fs.readFileSync(join(__dirname, 'OceanicEthernet', 'index.html'), 'utf-8');

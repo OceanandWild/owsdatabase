@@ -605,7 +605,31 @@ async function runDatabaseMigrations() {
         created_at TIMESTAMP DEFAULT NOW(),
           completed_at TIMESTAMP
         )
-      `).catch(() => console.log('⚠️ Tabla ocean_pay_pos ya existe'));
+      -- 13. Crear tabla ocean_pay_subscriptions (VIP System)
+      CREATE TABLE IF NOT EXISTS ocean_pay_subscriptions(
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
+        plan_name VARCHAR(50) NOT NULL, -- 'premium', 'free'
+        price DECIMAL(20, 2) NOT NULL,
+        currency VARCHAR(20) DEFAULT 'wildgems',
+        status VARCHAR(20) DEFAULT 'active', -- active, expired, cancelled
+        start_date TIMESTAMP DEFAULT NOW(),
+        end_date TIMESTAMP NOT NULL,
+        auto_renew BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+
+      -- 14. Crear tabla ocean_pay_notifications
+      CREATE TABLE IF NOT EXISTS ocean_pay_notifications(
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
+        title VARCHAR(100) NOT NULL,
+        message TEXT NOT NULL,
+        type VARCHAR(20) DEFAULT 'info', -- info, success, warning, error, payment
+        is_read BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `).catch(() => console.log('⚠️ Tablas de suscripciones/notificaciones procesadas'));
 
     // Migración: Asegurar columnas para Intercambio (Swap)
     await pool.query(`
@@ -18280,6 +18304,93 @@ app.post('/ocean-pay/ecobooks/change', async (req, res) => {
     console.error(e);
     res.status(500).json({ error: e.message });
   }
+});
+
+/* ===== OCEAN PAY - SUBSCRIPTIONS & NOTIFICATIONS ===== */
+
+// Obtener mis suscripciones
+app.get('/ocean-pay/subscriptions/me', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) return res.status(401).json({ error: 'No autorizado' });
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const { rows } = await pool.query('SELECT * FROM ocean_pay_subscriptions WHERE user_id = $1 ORDER BY end_date DESC', [decoded.id]);
+    res.json(rows);
+  } catch (e) {
+    res.status(401).json({ error: 'Token inválido' });
+  }
+});
+
+// Comprar/Renovar Suscripción Premium (Semanal)
+app.post('/ocean-pay/subscriptions/subscribe', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) return res.status(401).json({ error: 'No autorizado' });
+  const token = authHeader.split(' ')[1];
+  const { cardId, plan = 'Premium', durationDays = 7, price = 500 } = req.body;
+
+  const client = await pool.connect();
+  try {
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    await client.query('BEGIN');
+
+    // 1. Verificar saldo en la tarjeta
+    const { rows: cardRows } = await client.query('SELECT balances FROM ocean_pay_cards WHERE id = $1 AND user_id = $2', [cardId, decoded.id]);
+    if (cardRows.length === 0) throw new Error('Tarjeta no encontrada');
+
+    let balances = cardRows[0].balances || {};
+    let wildgems = parseFloat(balances.wildgems || 0);
+
+    if (wildgems < price) throw new Error('Saldo insuficiente de WildGems');
+
+    // 2. Descontar saldo
+    balances.wildgems = wildgems - price;
+    await client.query('UPDATE ocean_pay_cards SET balances = $1 WHERE id = $2', [balances, cardId]);
+
+    // 3. Crear suscripción (o extender si ya existe una activa del mismo tipo)
+    const endDate = new Date();
+    endDate.setDate(endDate.getDate() + durationDays);
+
+    const { rows: subRows } = await client.query(
+      'INSERT INTO ocean_pay_subscriptions(user_id, plan_name, price, end_date) VALUES($1, $2, $3, $4) RETURNING *',
+      [decoded.id, plan, price, endDate]
+    );
+
+    // 4. Crear notificación de éxito
+    await client.query(
+      'INSERT INTO ocean_pay_notifications(user_id, title, message, type) VALUES($1, $2, $3, $4)',
+      [decoded.id, 'Suscripción Activada', `¡Felicidades! Tu plan ${plan} ha sido activado correctamente por ${durationDays} días.`, 'success']
+    );
+
+    await client.query('COMMIT');
+    res.json({ success: true, subscription: subRows[0] });
+  } catch (e) {
+    await client.query('ROLLBACK');
+    res.status(400).json({ error: e.message });
+  } finally {
+    client.release();
+  }
+});
+
+// Obtener mis notificaciones
+app.get('/ocean-pay/notifications/me', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) return res.status(401).json({ error: 'No autorizado' });
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const { rows } = await pool.query('SELECT * FROM ocean_pay_notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 20', [decoded.id]);
+    res.json(rows);
+  } catch (e) {
+    res.status(401).json({ error: 'Token inválido' });
+  }
+});
+
+// Marcar notificación como leída
+app.post('/ocean-pay/notifications/read/:id', async (req, res) => {
+  const { id } = req.params;
+  await pool.query('UPDATE ocean_pay_notifications SET is_read = TRUE WHERE id = $1', [id]);
+  res.json({ success: true });
 });
 
 const PORT = process.env.PORT || 3000;

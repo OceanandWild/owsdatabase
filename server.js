@@ -962,7 +962,7 @@ app.get('/ocean-pay/index.html', (_req, res) => {
 // Servir archivos estáticos de Ocean Pay
 app.use('/ocean-pay', express.static(join(__dirname, 'Ocean Pay')));
 
-// ===== WILD TRANSFER - COMPARTIR ARCHIVOS =====
+// ===== WILD TRANSFER - COMPARTIR ARCHIVOS (MULTIPLE) =====
 const wildTransferStorage = multer.diskStorage({
   destination: (req, file, cb) => {
     const dir = join(__dirname, 'uploads', 'wild-transfer');
@@ -970,10 +970,11 @@ const wildTransferStorage = multer.diskStorage({
     cb(null, dir);
   },
   filename: (req, file, cb) => {
-    // Generamos un código de 6 caracteres
-    const code = Math.random().toString(36).substring(2, 8).toUpperCase();
-    req.generatedCode = code;
-    cb(null, code + '-' + file.originalname);
+    // Si no tenemos un código en el request (primer archivo), lo generamos
+    if (!req.sessionCode) {
+      req.sessionCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    }
+    cb(null, req.sessionCode + '-' + Date.now() + '-' + file.originalname);
   }
 });
 
@@ -981,31 +982,50 @@ const wildTransferUpload = multer({ storage: wildTransferStorage });
 
 app.use('/wild-transfer', express.static(join(__dirname, 'WildTransfer')));
 
-app.post('/api/wild-transfer/upload', wildTransferUpload.single('file'), (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'No se subió ningún archivo' });
-  console.log(`📤 Archivo subido a Wild Transfer: ${req.file.originalname} con código ${req.generatedCode}`);
-  res.json({ success: true, code: req.generatedCode, filename: req.file.originalname });
+app.post('/api/wild-transfer/upload', wildTransferUpload.array('files', 10), (req, res) => {
+  if (!req.files || req.files.length === 0) return res.status(400).json({ error: 'No se subieron archivos' });
+  console.log(`📤 ${req.files.length} archivos subidos a Wild Transfer con código ${req.sessionCode}`);
+  res.json({
+    success: true,
+    code: req.sessionCode,
+    files: req.files.map(f => ({ name: f.originalname, size: f.size }))
+  });
 });
 
-app.get('/api/wild-transfer/download/:code', (req, res) => {
+app.get('/api/wild-transfer/info/:code', (req, res) => {
   try {
     const { code } = req.params;
     const dir = join(__dirname, 'uploads', 'wild-transfer');
+    if (!fs.existsSync(dir)) return res.json({ success: false, error: 'No hay archivos' });
 
-    if (!fs.existsSync(dir)) return res.status(404).send('No se han encontrado archivos en el sistema.');
+    const allFiles = fs.readdirSync(dir);
+    const sessionFiles = allFiles.filter(f => f.startsWith(code.toUpperCase() + '-'));
 
-    const files = fs.readdirSync(dir);
-    const targetFile = files.find(f => f.startsWith(code.toUpperCase() + '-'));
+    if (sessionFiles.length === 0) return res.status(404).json({ success: false, error: 'Código no encontrado' });
 
-    if (!targetFile) return res.status(404).send('Código no encontrado o archivo expirado.');
+    const fileList = sessionFiles.map(f => {
+      const parts = f.split('-');
+      return {
+        id: f,
+        name: parts.slice(2).join('-'), // Quitamos CODE y TIMESTAMP
+        size: fs.statSync(join(dir, f)).size
+      };
+    });
 
-    const filePath = join(dir, targetFile);
-    const originalName = targetFile.substring(7); // Remueve los 7 caracteres (CODIGO-)
-
-    res.download(filePath, originalName);
+    res.json({ success: true, code, files: fileList });
   } catch (err) {
-    console.error('Error en Wild Transfer Download:', err);
-    res.status(500).send('Error interno al descargar el archivo.');
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/wild-transfer/download-file/:filename', (req, res) => {
+  const { filename } = req.params;
+  const filePath = join(__dirname, 'uploads', 'wild-transfer', filename);
+  if (fs.existsSync(filePath)) {
+    const originalName = filename.split('-').slice(2).join('-');
+    res.download(filePath, originalName);
+  } else {
+    res.status(404).send('Archivo no encontrado');
   }
 });
 

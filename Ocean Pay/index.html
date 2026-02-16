@@ -3101,51 +3101,6 @@
     }
 
 
-    async function renderSubscriptions() {
-      const containerWallet = qs('#subs-container');
-      const loadingHtml = '<p style="color: #64748b; text-align: center; grid-column: 1/-1;">Cargando...</p>';
-
-      if (containerWallet) containerWallet.innerHTML = loadingHtml;
-
-      try {
-        const res = await fetch(`${API}/ocean-pay/subscriptions/me`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (!res.ok) throw new Error('Error HTTP: ' + res.status);
-        const subs = await res.json();
-
-        const noSubsHtml = `
-            <div style="background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.1); padding: 2rem; border-radius: 1rem; text-align: center; color: #64748b; grid-column: 1/-1;">
-              No tienes suscripciones activas vinculadas
-            </div>`;
-
-        if (!Array.isArray(subs) || subs.length === 0) {
-          if (containerWallet) containerWallet.innerHTML = noSubsHtml;
-          return;
-        }
-
-        const subsHtml = subs.map(s => {
-          const name = s.plan_name || s.sub_name || 'Plan';
-          const expiry = s.end_date || s.next_payment;
-          const isExpired = expiry ? new Date(expiry) < new Date() : false;
-          const expiryText = expiry ? new Date(expiry).toLocaleDateString() : 'Sin fecha';
-          return `
-            <div class="currency-card" style="border-color: ${isExpired ? '#ef4444' : 'var(--accent)'};">
-              <div class="currency-icon"><i class="fas fa-crown" style="color: ${isExpired ? '#64748b' : 'gold'};"></i></div>
-              <span class="label">${name}</span>
-              <span class="amount" style="font-size: 1.2rem;">${isExpired ? 'Expirado' : 'Activo'}</span>
-              <div class="app-info">Vence: ${expiryText}</div>
-            </div>
-          `;
-        }).join('');
-
-        if (containerWallet) containerWallet.innerHTML = subsHtml;
-      } catch (e) {
-        console.error('Error suscripciones:', e);
-        const errorHtml = `<p style="color:var(--err); text-align:center; grid-column:1/-1;">Error al cargar suscripciones</p>`;
-        if (containerWallet) containerWallet.innerHTML = errorHtml;
-      }
-    }
 
     async function renderTransacciones() {
       const container = qs('#txList');
@@ -3406,13 +3361,17 @@
     /* ----------  SUBSCRIPTIONS  ---------- */
     async function renderSubscriptions() {
       const container = qs('#subs-container');
+      const loadingHtml = '<p style="color: #64748b; text-align: center; grid-column: 1/-1;">Cargando...</p>';
+      if (container) container.innerHTML = loadingHtml;
+
       try {
         const res = await fetch(`${API}/ocean-pay/subscriptions/me`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
+        if (!res.ok) throw new Error('Error HTTP: ' + res.status);
         const subs = await res.json();
 
-        if (!subs || subs.length === 0) {
+        if (!Array.isArray(subs) || subs.length === 0) {
           container.innerHTML = `
                     <div style="background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.1); padding: 2rem; border-radius: 1rem; text-align: center; color: #64748b; grid-column: 1/-1;">
                         No hay suscripciones activas vinculadas
@@ -3422,40 +3381,45 @@
 
         container.innerHTML = subs
           .filter((s, index, self) => {
+            const name = s.plan_name || s.sub_name || '';
             // Si es DinoPass Premium, ocultarlo si ya existe DinoPass Elite activado
-            if (s.sub_name.includes('DinoPass Premium')) {
-              const hasElite = self.some(sub => sub.sub_name.includes('DinoPass Elite') && sub.project_id === s.project_id);
+            if (name.includes('DinoPass Premium')) {
+              const hasElite = self.some(sub => (sub.plan_name || sub.sub_name || '').includes('DinoPass Elite') && sub.project_id === s.project_id);
               if (hasElite) return false;
             }
             return true;
           })
           .map(s => {
+            const name = s.plan_name || s.sub_name || 'Plan';
+            const expiry = s.end_date || s.next_payment;
+            const pid = s.project_id || (name.includes('Nature') ? 'Naturepedia' : (name.includes('Dino') ? 'DinoBox' : 'Desconocido'));
+
             let themeClass = '';
             let icon = 'fas fa-bolt';
-            if (s.sub_name === 'Nature-Pass') { themeClass = 'sub-nature-pass'; icon = 'fas fa-leaf'; }
-            else if (s.sub_name.includes('DinoPass Premium')) { themeClass = 'sub-dinopass-premium'; icon = 'fas fa-dragon'; }
-            else if (s.sub_name.includes('DinoPass Elite')) { themeClass = 'sub-dinopass-elite'; icon = 'fas fa-crown'; }
+            if (name === 'Nature-Pass') { themeClass = 'sub-nature-pass'; icon = 'fas fa-leaf'; }
+            else if (name.includes('DinoPass Premium')) { themeClass = 'sub-dinopass-premium'; icon = 'fas fa-dragon'; }
+            else if (name.includes('DinoPass Elite')) { themeClass = 'sub-dinopass-elite'; icon = 'fas fa-crown'; }
+            else if (name.includes('Premium VIP')) { themeClass = 'sub-dinopass-elite'; icon = 'fas fa-star'; }
 
-            const nextDate = new Date(s.next_payment).toLocaleDateString();
-            const nextTime = new Date(s.next_payment).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const nextDate = expiry ? new Date(expiry).toLocaleDateString() : 'N/A';
 
             // Formatear duración: 30 días -> 1 Mes, o duración de temporada
-            let durationLabel = `${s.interval_days} días`;
-            if (s.sub_name.includes('DinoPass')) {
+            let durationLabel = `${s.interval_days || 7} días`;
+            if (name.includes('DinoPass')) {
               if (s.interval_days === 30) durationLabel = '1 Mes';
-              else durationLabel = `Temporada (${s.interval_days} días)`;
+              else durationLabel = `Temporada (${s.interval_days || 30} días)`;
             }
 
             return `
                     <div class="subscription-card ${themeClass}" style="background: ${themeClass ? '' : 'var(--card)'}; border: 1px solid ${themeClass ? '' : 'var(--border)'}; padding: 1.5rem; border-radius: 1.25rem; position: relative; overflow: hidden; box-shadow: var(--shadow-card);">
-                        ${themeClass ? `<div style="position:absolute; top:10px; right:10px; background:white; color:black; font-size:0.6rem; font-weight:900; padding:3px 8px; border-radius:10px; text-transform:uppercase;">${s.sub_name.split(' ').pop()}</div>` : ''}
+                        ${themeClass ? `<div style="position:absolute; top:10px; right:10px; background:white; color:black; font-size:0.6rem; font-weight:900; padding:3px 8px; border-radius:10px; text-transform:uppercase;">${name.split(' ').pop()}</div>` : ''}
                         <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem;">
                             <div class="sub-icon" style="width: 48px; height: 48px; border-radius: 12px; background: var(--accent); display: flex; align-items: center; justify-content: center; color: black; font-size: 1.5rem;">
                                 <i class="${icon}"></i>
                             </div>
                             <div>
-                                <h4 style="color: white; font-weight: 800; font-size: 1.1rem;">${s.sub_name}</h4>
-                                <p style="font-size: 0.8rem; color: #94a3b8;">${s.project_id}</p>
+                                <h4 style="color: white; font-weight: 800; font-size: 1.1rem;">${name}</h4>
+                                <p style="font-size: 0.8rem; color: #94a3b8;">${pid}</p>
                             </div>
                         </div>
                         <div style="display: flex; justify-content: space-between; align-items: flex-end;">
@@ -3464,7 +3428,7 @@
                                 <p style="color: var(--accent); font-weight: 700;">${nextDate}</p>
                             </div>
                             <div style="text-align: right;">
-                                <p style="font-size: 1.2rem; font-weight: 900; color: white;">${s.price} <span style="font-size:0.7rem; opacity:0.6;">${s.currency.toUpperCase()}</span></p>
+                                <p style="font-size: 1.2rem; font-weight: 900; color: white;">${s.price || 0} <span style="font-size:0.7rem; opacity:0.6;">${(s.currency || 'wildgems').toUpperCase()}</span></p>
                                 <p style="font-size: 0.65rem; color: #64748b;">${durationLabel}</p>
                             </div>
                         </div>
@@ -3472,7 +3436,8 @@
                 `;
           }).join('');
       } catch (e) {
-        container.innerHTML = `<div style="color:var(--err)">Error al cargar suscripciones</div>`;
+        console.error('Error in renderSubscriptions:', e);
+        if (container) container.innerHTML = `<div style="color:var(--err); text-align:center; padding:1rem;">Error al cargar suscripciones</div>`;
       }
     }
 

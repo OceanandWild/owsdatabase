@@ -17620,17 +17620,13 @@ app.get('/ocean-pay/subscriptions/me', async (req, res) => {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
     const userId = decoded.id || decoded.uid;
 
-    const { rows } = await pool.query(`
-      SELECT id, user_id, 
-        COALESCE(plan_name, sub_name, 'Plan') as plan_name,
-        price, currency, status,
-        COALESCE(end_date, next_payment) as end_date,
-        created_at
-      FROM ocean_pay_subscriptions 
-      WHERE user_id = $1 
-      ORDER BY COALESCE(end_date, next_payment, created_at) DESC
-    `, [userId]);
-    res.json(rows);
+    const { rows } = await pool.query('SELECT * FROM ocean_pay_subscriptions WHERE user_id = $1 ORDER BY created_at DESC', [userId]);
+    const mapped = rows.map(s => ({
+      ...s,
+      plan_name: s.plan_name || s.sub_name || 'Plan',
+      end_date: s.end_date || s.next_payment || s.created_at
+    }));
+    res.json(mapped);
   } catch (e) {
     console.error('Error suscripciones:', e);
     res.status(500).json({ error: e.message });
@@ -18330,7 +18326,7 @@ app.post('/ocean-pay/ecobooks/change', async (req, res) => {
 
 /* ===== OCEAN PAY - SUBSCRIPTIONS & NOTIFICATIONS ===== */
 
-// Obtener mis suscripciones (con compatibilidad de esquemas)
+// Obtener mis suscripciones (con compatibilidad de esquemas) - duplicado
 app.get('/ocean-pay/subscriptions/me', async (req, res) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) return res.status(401).json({ error: 'No autorizado' });
@@ -18338,17 +18334,13 @@ app.get('/ocean-pay/subscriptions/me', async (req, res) => {
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
     const userId = decoded.id || decoded.uid;
-    const { rows } = await pool.query(`
-      SELECT id, user_id, 
-        COALESCE(plan_name, sub_name, 'Plan') as plan_name,
-        price, currency, status,
-        COALESCE(end_date, next_payment) as end_date,
-        created_at
-      FROM ocean_pay_subscriptions 
-      WHERE user_id = $1 
-      ORDER BY COALESCE(end_date, next_payment, created_at) DESC
-    `, [userId]);
-    res.json(rows);
+    const { rows } = await pool.query('SELECT * FROM ocean_pay_subscriptions WHERE user_id = $1 ORDER BY created_at DESC', [userId]);
+    const mapped = rows.map(s => ({
+      ...s,
+      plan_name: s.plan_name || s.sub_name || 'Plan',
+      end_date: s.end_date || s.next_payment || s.created_at
+    }));
+    res.json(mapped);
   } catch (e) {
     console.error('Error suscripciones endpoint:', e);
     res.status(500).json({ error: 'Error al cargar suscripciones' });

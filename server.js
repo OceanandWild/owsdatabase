@@ -18315,7 +18315,8 @@ app.get('/ocean-pay/subscriptions/me', async (req, res) => {
   const token = authHeader.split(' ')[1];
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    const { rows } = await pool.query('SELECT * FROM ocean_pay_subscriptions WHERE user_id = $1 ORDER BY end_date DESC', [decoded.id]);
+    const userId = decoded.id || decoded.uid;
+    const { rows } = await pool.query('SELECT * FROM ocean_pay_subscriptions WHERE user_id = $1 ORDER BY end_date DESC', [userId]);
     res.json(rows);
   } catch (e) {
     res.status(401).json({ error: 'Token inválido' });
@@ -18332,10 +18333,11 @@ app.post('/ocean-pay/subscriptions/subscribe', async (req, res) => {
   const client = await pool.connect();
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const userId = decoded.id || decoded.uid;
     await client.query('BEGIN');
 
     // 1. Verificar saldo en la tarjeta
-    const { rows: cardRows } = await client.query('SELECT balances FROM ocean_pay_cards WHERE id = $1 AND user_id = $2', [cardId, decoded.id]);
+    const { rows: cardRows } = await client.query('SELECT balances FROM ocean_pay_cards WHERE id = $1 AND user_id = $2', [cardId, userId]);
     if (cardRows.length === 0) throw new Error('Tarjeta no encontrada');
 
     let balances = cardRows[0].balances || {};
@@ -18353,13 +18355,13 @@ app.post('/ocean-pay/subscriptions/subscribe', async (req, res) => {
 
     const { rows: subRows } = await client.query(
       'INSERT INTO ocean_pay_subscriptions(user_id, plan_name, price, end_date) VALUES($1, $2, $3, $4) RETURNING *',
-      [decoded.id, plan, price, endDate]
+      [userId, plan, price, endDate]
     );
 
     // 4. Crear notificación de éxito
     await client.query(
       'INSERT INTO ocean_pay_notifications(user_id, title, message, type) VALUES($1, $2, $3, $4)',
-      [decoded.id, 'Suscripción Activada', `¡Felicidades! Tu plan ${plan} ha sido activado correctamente por ${durationDays} días.`, 'success']
+      [userId, 'Suscripción Activada', `¡Felicidades! Tu plan ${plan} ha sido activado correctamente por ${durationDays} días.`, 'success']
     );
 
     await client.query('COMMIT');
@@ -18379,7 +18381,8 @@ app.get('/ocean-pay/notifications/me', async (req, res) => {
   const token = authHeader.split(' ')[1];
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    const { rows } = await pool.query('SELECT * FROM ocean_pay_notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 20', [decoded.id]);
+    const userId = decoded.id || decoded.uid;
+    const { rows } = await pool.query('SELECT * FROM ocean_pay_notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 20', [userId]);
     res.json(rows);
   } catch (e) {
     res.status(401).json({ error: 'Token inválido' });

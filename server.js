@@ -3363,6 +3363,33 @@ app.post('/deepdive/ai/script-to-slides', async (req, res) => {
   }
 });
 
+/* --- Premium ElevenLabs TTS --- */
+app.post("/ocean-pay/ai/tts-premium", async (req, res) => {
+  const { text, voiceId = "ErXw9S1S7zD4R600L1sS" } = req.body;
+  const API_KEY = process.env.ELEVENLABS_API_KEY;
+  if (!API_KEY) return res.status(503).json({ error: "ElevenLabs API Key not configured in server." });
+  try {
+    const f = globalThis.fetch || (await import("node-fetch")).default;
+    const r = await f(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "xi-api-key": API_KEY },
+      body: JSON.stringify({
+        text,
+        model_id: "eleven_multilingual_v2",
+        voice_settings: { stability: 0.5, similarity_boost: 0.5 }
+      })
+    });
+    if (!r.ok) {
+      const err = await r.json();
+      return res.status(r.status).json(err);
+    }
+    res.set("Content-Type", "audio/mpeg");
+    r.body.pipe(res);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Text-to-Speech (streams audio back)
 app.post('/deepdive/ai/tts', async (req, res) => {
   try {

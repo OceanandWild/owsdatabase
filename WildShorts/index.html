@@ -1,0 +1,1946 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WildShorts | Ethereal Jungle</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <style>
+        :root {
+            --bg: #03050a;
+            --surface: rgba(15, 18, 25, 0.7);
+            --accent: #60efff;
+            --accent-soft: rgba(96, 239, 255, 0.1);
+            --text-primary: #ffffff;
+            --text-secondary: #94a3b8;
+            --glass: blur(20px) saturate(180%);
+            --border: rgba(255, 255, 255, 0.1);
+            --font-main: 'Outfit', sans-serif;
+            --ease: cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text-primary);
+            font-family: var(--font-main);
+            overflow-x: hidden;
+            background-image:
+                radial-gradient(circle at 50% 0%, rgba(96, 239, 255, 0.05) 0%, transparent 50%),
+                radial-gradient(circle at 100% 100%, rgba(139, 92, 246, 0.05) 0%, transparent 50%);
+            min-height: 100vh;
+        }
+
+        /* --- Custom Scrollbar --- */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-secondary);
+        }
+
+        /* --- Header --- */
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 80px;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 4rem;
+            background: rgba(3, 5, 10, 0.5);
+            backdrop-filter: var(--glass);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .brand {
+            font-size: 1.5rem;
+            font-weight: 800;
+            letter-spacing: -1px;
+            background: linear-gradient(to right, #fff, var(--accent));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            cursor: pointer;
+        }
+
+        .nav-actions {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+        }
+
+        .user-panel {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.5rem 1rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 100px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: 0.3s var(--ease);
+        }
+
+        .user-panel:hover {
+            border-color: var(--accent);
+            background: var(--accent-soft);
+        }
+
+        .balance {
+            font-weight: 700;
+            color: #fbbf24;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* --- Sidebar / Bottom Dock --- */
+        .dock {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--surface);
+            backdrop-filter: var(--glass);
+            border: 1px solid var(--border);
+            padding: 0.8rem;
+            border-radius: 24px;
+            display: flex;
+            gap: 1rem;
+            z-index: 1000;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        .dock-btn {
+            width: 48px;
+            height: 48px;
+            border-radius: 16px;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            transition: 0.3s var(--ease);
+            position: relative;
+        }
+
+        .dock-btn:hover {
+            background: var(--accent-soft);
+            color: var(--accent);
+            transform: translateY(-5px);
+        }
+
+        .dock-btn.active {
+            color: var(--accent);
+            background: var(--accent-soft);
+        }
+
+        .dock-btn span {
+            position: absolute;
+            bottom: 120%;
+            left: 50%;
+            transform: translateX(-50%) translateY(10px);
+            background: var(--bg);
+            border: 1px solid var(--border);
+            padding: 0.4rem 0.8rem;
+            border-radius: 8px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: 0.3s var(--ease);
+        }
+
+        .dock-btn:hover span {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* --- Main Content --- */
+        main {
+            padding: 120px 4rem 150px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .hero {
+            margin-bottom: 6rem;
+            position: relative;
+        }
+
+        .hero-card {
+            height: 500px;
+            border-radius: 40px;
+            overflow: hidden;
+            position: relative;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            padding: 4rem;
+        }
+
+        .hero-img {
+            position: absolute;
+            right: 0;
+            top: 0;
+            width: 60%;
+            height: 100%;
+            object-fit: cover;
+            mask-image: linear-gradient(to left, black 60%, transparent);
+            opacity: 0.6;
+            transition: 0.5s var(--ease);
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 2;
+            max-width: 500px;
+        }
+
+        .hero-tag {
+            font-size: 0.75rem;
+            font-weight: 800;
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            margin-bottom: 1rem;
+            display: block;
+        }
+
+        .hero-title {
+            font-size: 4rem;
+            line-height: 1;
+            font-weight: 800;
+            margin-bottom: 1.5rem;
+            letter-spacing: -2px;
+        }
+
+        .hero-desc {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            margin-bottom: 2.5rem;
+            line-height: 1.6;
+        }
+
+        /* --- Grid Section --- */
+        .section-title {
+            font-size: 2rem;
+            font-weight: 800;
+            margin-bottom: 3rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .section-title::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 2.5rem;
+        }
+
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 32px;
+            padding: 2rem;
+            transition: 0.5s var(--ease);
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card:hover {
+            transform: translateY(-10px);
+            border-color: var(--accent);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .card-cover {
+            width: 100%;
+            aspect-ratio: 3/4;
+            border-radius: 20px;
+            object-fit: cover;
+            margin-bottom: 1.5rem;
+            transition: 0.5s var(--ease);
+        }
+
+        .card:hover .card-cover {
+            transform: scale(1.05);
+        }
+
+        .card-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .card-desc {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        /* --- Buttons --- */
+        .btn {
+            padding: 1rem 2rem;
+            border-radius: 100px;
+            border: none;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.3s var(--ease);
+            font-family: var(--font-main);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            letter-spacing: 1px;
+        }
+
+        .btn-primary {
+            background: var(--text-primary);
+            color: var(--bg);
+        }
+
+        .btn-primary:hover {
+            transform: scale(1.05);
+            background: var(--accent);
+        }
+
+        /* --- Modal --- */
+        .modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(10px);
+            z-index: 2000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: 0.4s var(--ease);
+        }
+
+        .modal.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .modal-content {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            width: 90%;
+            max-width: 800px;
+            height: 80vh;
+            border-radius: 40px;
+            position: relative;
+            padding: 3rem;
+            overflow-y: auto;
+            transform: translateY(30px);
+            transition: 0.5s var(--ease);
+        }
+
+        .modal.active .modal-content {
+            transform: translateY(0);
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 2rem;
+            right: 2rem;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: #fff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* --- Story Elements --- */
+        .story-header {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+
+        .story-content {
+            font-size: 1.2rem;
+            line-height: 1.8;
+            color: var(--text-secondary);
+        }
+
+        .story-chapter {
+            margin-bottom: 3rem;
+        }
+
+        .story-title {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 2rem;
+            color: #fff;
+        }
+
+        @media (max-width: 900px) {
+            .header {
+                padding: 0 1.5rem;
+            }
+
+            main {
+                padding: 100px 1.5rem 120px;
+            }
+
+            .hero-card {
+                padding: 2rem;
+                height: auto;
+                flex-direction: column-reverse;
+            }
+
+            .hero-img {
+                position: relative;
+                width: 100%;
+                height: 300px;
+                mask-image: none;
+                opacity: 1;
+                margin-bottom: 2rem;
+                border-radius: 20px;
+            }
+
+            .hero-title {
+                font-size: 2.5rem;
+            }
+
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Premium Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 10px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--accent);
+        }
+
+        .card:hover {
+            transform: translateY(-8px);
+            border-color: var(--accent);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px var(--accent-soft);
+        }
+
+        .hero-card:hover .hero-img {
+            transform: scale(1.05);
+        }
+
+        .hero-img {
+            transition: transform 1s cubic-bezier(0.2, 0, 0.2, 1);
+        }
+
+        .episode-row:hover {
+            border-color: var(--accent) !important;
+            background: var(--accent-soft) !important;
+            transform: translateX(10px);
+        }
+    </style>
+</head>
+
+<body>
+    <header class="header">
+        <div class="brand" onclick="location.reload()">WildShorts</div>
+        <div class="nav-actions">
+            <div class="user-panel" id="ws-card-display" onclick="showCardSelector()">
+                <i class="fa-solid fa-credit-card"></i>
+                <span id="ws-card-name-label">Seleccionar Tarjeta</span>
+            </div>
+            <div class="user-panel">
+                <div class="balance">
+                    <img src="" class="ws-gem-icon wildgems-static-icon" style="width:20px;">
+                    <span id="ws-balance">0</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <nav class="dock">
+        <button id="ws-store-btn" class="dock-btn active">
+            <i class="fa-solid fa-house"></i>
+            <span>Inicio</span>
+        </button>
+        <button id="ws-gems-btn" class="dock-btn">
+            <i class="fa-solid fa-gem"></i>
+            <span>Gemas</span>
+        </button>
+        <button id="ws-swap-btn" class="dock-btn">
+            <i class="fa-solid fa-shuffle"></i>
+            <span>Canje</span>
+        </button>
+        <button id="ws-premium-btn" class="dock-btn">
+            <i class="fa-solid fa-crown"></i>
+            <span>VIP</span>
+        </button>
+    </nav>
+
+    <main>
+        <section class="hero" id="ws-hero"></section>
+
+        <h2 class="section-title">Nuevas Historias</h2>
+        <section class="grid" id="ws-books"></section>
+    </main>
+
+    <div id="ws-modal" class="modal">
+        <div class="modal-content">
+            <button class="close-btn" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
+            <div id="ws-modal-body"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'https://owsdatabase.onrender.com';
+        let oceanPayToken = localStorage.getItem('opToken');
+        let oceanPayUser = JSON.parse(localStorage.getItem('opUser') || 'null');
+        let userBalance = 0;
+        let userCards = [];
+        let selected_card_id = localStorage.getItem('ws_selected_card_id');
+        let premiumPlan = 'free';
+        let purchasedEpisodes = JSON.parse(localStorage.getItem('ws_purchased_episodes') || '{}');
+        let WILDGEMS_ICON_URL = '';
+        let currentUtterance = null;
+        let currentAudio = null;
+        let selectedQuality = 'standard';
+
+        function generateWildGemsIcon() {
+            const canvas = document.createElement('canvas');
+            const size = 64;
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            const x = size / 2, y = size / 2, s = size * 0.4;
+
+            ctx.save(); ctx.translate(x, y);
+            ctx.shadowBlur = s * 0.5; ctx.shadowColor = "rgba(168, 85, 247, 0.6)";
+            ctx.beginPath();
+            for (let i = 0; i < 6; i++) {
+                const angle = (i * Math.PI * 2) / 6 - Math.PI / 2;
+                const px = Math.cos(angle) * s * 0.5; const py = Math.sin(angle) * s * 0.5;
+                if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, s * 0.6);
+            grad.addColorStop(0, "#d8b4fe"); grad.addColorStop(1, "#a855f7");
+            ctx.fillStyle = grad; ctx.fill();
+            ctx.strokeStyle = "rgba(255,255,255,0.4)"; ctx.lineWidth = 1;
+            for (let i = 0; i < 6; i++) {
+                const angle = (i * Math.PI * 2) / 6 - Math.PI / 2;
+                ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(angle) * s * 0.5, Math.sin(angle) * s * 0.5); ctx.stroke();
+            }
+            ctx.restore();
+            return canvas.toDataURL();
+        }
+
+        const subscriptionPlans = [
+            { id: 'free', name: 'Explorador', price: 0, icon: 'fa-user-circle', color: '#94a3b8' },
+            { id: 'raptor', name: 'Raptor', price: 500, icon: 'fa-dragon', color: '#00f5a0' },
+            { id: 'hunter', name: 'Cazador', price: 1200, icon: 'fa-compass', color: '#00d9f5' },
+            { id: 'expedition', name: 'Expedición', price: 2500, icon: 'fa-mountain', color: '#fbbf24' },
+            { id: 'trex', name: 'T-Rex', price: 5000, icon: 'fa-crown', color: '#ff4b2b' }
+        ];
+
+        const LAUNCH_DATE = new Date('2026-02-12T00:00:00');
+
+        const booksByCategory = [
+            {
+                category: "Nuevas Historias",
+                books: [
+                    {
+                        id: "hijo-ente-primario",
+                        title: "Hijo del Ente Primario",
+                        desc: "Nacido de la unión entre una madre humana y una antigua entidad cósmica, Ocean entra al mundo como algo mucho más grande de lo que cualquiera podría imaginar. Mientras la sociedad mide el poder en rangos y auras, Ocean es etiquetado como 'El Vacío'—un niño con cero potencial. Pero a medida que los sellos cósmicos colocados por su padre comienzan a agrietarse, Ocean descubrirá que no es solo el hijo de algo poderoso; él es el heredero de la existencia más peligrosa del universo.",
+                        cover: "https://images.unsplash.com/photo-1462331940025-496dfbfc7564?auto=format&fit=crop&q=80&w=800",
+                        releaseDate: "2026-02-20T00:00:00",
+                        isPreOrder: true,
+                        featured: true,
+                        seasons: [
+                            {
+                                name: "Temporada 1: El Despertar del Vacío",
+                                episodes: [
+                                    {
+                                        id: "hep-e1",
+                                        title: "Episodio I — El Niño sin Poder",
+                                        price: 100,
+                                        content: {
+                                            ES: `En la noche en que el cielo se desgarró, las estrellas no brillaron: observaron.
+
+Una fractura silenciosa dividió los cielos sobre un pueblo tranquilo, y de ella descendió un ser que ninguna mente humana podría comprender plenamente. No estaba hecho de carne como los hombres, ni estaba atado por la gravedad o el tiempo. Era antiguo. Vasto. Un soberano de estrellas colapsadas y galaxias recién nacidas.
+
+Y sin embargo, esa noche, era simplemente un padre.
+
+Había cruzado dimensiones por una sola razón: para crear vida.
+
+La mujer que lo conoció no entendió lo que era realmente. Sólo sintió la extraña calma en su presencia, como estar bajo un cielo sin fin. Él no vino a conquistar. No vino a gubernar. Vino con un anhelo silencioso e imposible.
+
+Quería un hijo.
+
+Meses después, ella dio a luz a un niño.
+
+En el momento en que nació, el aire tembló. Las ventanas se rompieron. Las líneas eléctricas chispearon. El cielo parpadeó como si la realidad misma luchara por contenerlo.
+
+Y entonces... ella murió.
+
+No por violencia. No por enfermedad.
+
+Su cuerpo simplemente no pudo soportar la fuerza de lo que había traído al mundo.
+
+El alienígena observó en silencio mientras los latidos de su corazón se desvanecían. Por primera vez en su existencia eterna, sintió algo cercano al duelo.
+
+Llamó al niño Ocean.
+
+Luego desapareció.
+
+No por abandono, sino por protección.
+
+Había entidades más antiguas que las galaxias que sentirían la existencia del niño. Si lo descubrían demasiado pronto, la Tierra se convertiría en un campo de batalla. Así que el padre selló la energía del niño profundamente en su núcleo, enterrando su inconmensurable poder tras un cerrojo cósmico.
+
+Ocean crecería... humano.
+
+Pasaron los años.
+
+En la escuela, Ocean era corriente.
+
+Sin ojos brillantes.
+Sin fuerza antinatural.
+Sin habilidades extrañas.
+
+Nada.
+
+Los otros niños se burlaban de él por ser callado, por ser diferente, por nunca defenderse.
+
+“Haz algo”, le decían después de empujarlo al suelo.
+“Enséñanos tus poderes.”
+
+Pero no había poderes.
+
+No que él supiera.
+
+Cada moretón dolía. Cada risa resonaba. Cada noche miraba al cielo desde la ventana de su habitación, sintiendo una extraña atracción hacia las estrellas, como si algo allí arriba estuviera esperando.
+
+A veces soñaba con una silueta imponente hecha de constelaciones, observándolo desde el borde del espacio.
+
+Una presencia que se sentía... protectora.
+
+Invisible.
+
+Inalcanzable.
+
+En su decimotercer cumpleaños, algo cambió.
+
+Los matones lo acorralaron detrás de la escuela. Esta vez, no solo lo empujaron. Lo golpearon. Fuerte.
+
+Ocean cayó al concreto. La sangre tocó el suelo.
+
+Y mucho más allá de la atmósfera, en el abismo silencioso entre galaxias—
+
+Algo despertó.
+
+Un pulso recorrió el espacio. Sistemas estelares enteros temblaron. Los agujeros negros se desviaron de sus caminos.
+
+El sello... se había agrietado.
+
+De vuelta en la Tierra, los ojos de Ocean parpadearon, no con luz, sino con ausencia. Un vacío más oscuro que la noche.
+
+Por una fracción de segundo, la gravedad se dobló a su alrededor.
+
+Los matones retrocedieron.
+
+El aire se volvió pesado.
+
+Y en algún lugar del cosmos, el padre abrió los ojos.
+
+Su hijo ya no era invisible.
+
+Y el universo acababa de ser advertido.`
+                                        }
+                                    },
+                                    {
+                                        id: "hep-e2",
+                                        title: "Episodio II — La Grieta en el Cielo",
+                                        price: 100,
+                                        content: {
+                                            ES: `El mundo siempre había sido extraordinario.
+
+Ya nadie lo llamaba extraño.
+
+Los niños podían encender chispas en sus palmas. Los maestros podían doblar el viento para llevar sus voces a través de las aulas. Los atletas potenciaban su velocidad con ráfagas controladas de fuerza cinética. Incluso la persona más débil poseía algo — un fragmento de energía tejido en la humanidad hace generaciones.
+
+El poder era normal.
+
+La jerarquía era normal.
+
+Y Ocean… no tenía nada.
+
+Al menos, eso es lo que todos creían.
+
+Vivía en una sociedad clasificada por habilidades. Los estudiantes eran categorizados. Evaluados. Medidos.
+
+Ocean ocupaba el último lugar.
+
+Sin rastro de aura.
+Sin alineación elemental.
+Sin impronta psíquica.
+
+Cero.
+
+Lo llamaban «El Vacío».
+
+La ironía era cósmica.
+
+Porque mucho más allá de la atmósfera de la Tierra, más allá de las estrellas mapeadas y las dimensiones ocultas, existían seres que se habrían reído de la palabra 'poder' tal como la usaban los humanos.
+
+El padre de Ocean era uno de ellos.
+
+El día después del incidente detrás de la escuela, algo sutil cambió.
+
+Ocean podía sentirlo.
+
+No era fuerza. No era energía.
+
+Era presión.
+
+Como si la gravedad se hubiera vuelto ligeramente más pesada — pero solo alrededor de él. Sus compañeros de clase seguían lanzando rayos entre sus dedos. El estudiante de más alto rango destrozaba pilares de piedra con pulsos telequinéticos durante el entrenamiento de combate.
+
+Ocean no podía ni levantar una piedra pequeña.
+
+Pero cuando se concentraba… solo por un segundo… el aire se distorsionaba.
+
+No hacia afuera.
+
+Hacia adentro.
+
+Como si el espacio mismo se plegara hacia él.
+
+Se detuvo rápidamente.
+
+No quería llamar la atención.
+
+Esa noche, todos los humanos con habilidades sensoriales de alto nivel lo sintieron.
+
+Un temblor.
+
+Los astrónomos informaron de una extraña ondulación gravitacional más allá de Plutón. Los analistas de energía detectaron una frecuencia más antigua que la radiación cósmica registrada. Los gobiernos la clasificaron de inmediato.
+
+Asumieron que era una anomalía solar.
+
+Se equivocaban.
+
+En la oscuridad silenciosa entre galaxias, el padre de Ocean se encontraba dentro de una estrella colapsando — ileso.
+
+Su forma ya no estaba restringida.
+
+El sello no se había roto por completo… pero había respondido.
+
+Su hijo había sangrado.
+
+Y el universo había reaccionado.
+
+Extendió su conciencia hacia la Tierra.
+
+Los poderes de la humanidad brillaban como brasas dispersas por todo el planeta. Impresionantes para los estándares terrestres. Suficientes para dominar su mundo.
+
+¿Pero comparados con él?
+
+Eran chispas al lado de una supernova.
+
+Simplemente no lo sabían.
+
+Nadie lo sabía.
+
+Aún no.
+
+La semana siguiente, la Academia llevó a cabo su Prueba anual de Manifestación de Poder — la confirmación final del rango de potencial de cada uno.
+
+Ocean estaba parado en el centro de la arena.
+
+Miles de personas observaban.
+
+El orbe de prueba flotaba ante él — una esfera cristalina diseñada para amplificar y revelar la energía central de una persona.
+
+—Pon tu mano sobre él —dijo el examinador con frialdad.
+
+Ocean vaciló.
+
+Recordó la distorsión. El peso. La forma en que el cielo se sentía más cerca desde ese día.
+
+Lo tocó.
+
+Por un latido del corazón—
+
+Nada.
+
+La audiencia murmuró.
+
+Entonces el orbe no brilló.
+
+No se hizo añicos.
+
+No explotó.
+
+Desapareció.
+
+No destruido.
+
+No roto.
+
+Borrado.
+
+El espacio que ocupaba se plegó hacia adentro con una implosión silenciosa, como una estrella colapsando sin luz.
+
+Toda la arena perdió energía.
+
+Cada humano potenciado en el estadio cayó de rodillas mientras sus habilidades parpadeaban violentamente.
+
+Ocean retrocedió, con los ojos muy abiertos.
+
+Él no había hecho nada.
+
+Sobre el planeta, las nubes giraban de forma antinatural.
+
+Y más allá del universo observable—
+
+Algo más despertó.
+
+No su padre.
+
+Algo más antiguo.
+
+Algo que había sentido la misma ondulación días atrás.
+
+Algo que reconoció la firma.
+
+—El Heredero… —susurró hacia el vacío.
+
+De vuelta en la arena, Ocean miró sus manos temblorosas.
+
+Por primera vez en su vida…
+
+Ya no ocupaba el último lugar.
+
+Era algo completamente distinto.
+
+Y la humanidad acababa de experimentar la fracción más pequeña de lo que dormía en su interior.`
+                                        }
+                                    },
+                                    {
+                                        id: "hep-e3",
+                                        title: "Episodio III — El Nombre Bajo las Estrellas",
+                                        price: 100,
+                                        content: {
+                                            ES: `El silencio siguió al incidente en la Academia.
+
+No era confusión.
+No era pánico.
+
+Era silencio.
+
+La arena había sido evacuada. Los oficiales lo llamaron un «fallo de contención». Los medios de comunicación culparon a un fallo técnico experimental. Se ordenó a los estudiantes que no hablaran sobre lo que vieron.
+
+Pero todos lo sintieron.
+
+Durante cinco segundos completos, cada humano con poderes en el planeta perdió el control.
+
+Cinco segundos donde los telequinéticos más fuertes no podían levantar polvo.
+Donde los manipuladores de llamas producían humo en lugar de fuego.
+Donde incluso los guardianes de élite se sentían… pequeños.
+
+Y en el centro de todo estaba Ocean.
+
+Ileso.
+
+Inafectado.
+
+Sin rango.
+
+Lo llevaron a una cámara de evaluación sellada bajo la Academia.
+
+Paredes de aleación reforzada.
+Campos de anulación de energía.
+Amortiguadores psíquicos.
+
+Precauciones diseñadas para niveles altos fuera de control.
+
+Ocean se sentó solo en la mesa de metal.
+
+—No fue mi intención —dijo por tercera vez.
+
+Al otro lado del cristal, los especialistas observaban sus lecturas.
+
+Sin picos de energía.
+Sin aura medible.
+Sin salida.
+
+Pero sus instrumentos seguían fallando.
+
+Cada escáner apuntado a Ocean devolía el mismo error:
+
+Profundidad Ilegible.
+
+No vacío.
+
+Inalcanzable.
+
+Esa noche, Ocean soñó de nuevo.
+
+Pero esta vez, la silueta en las estrellas estaba más cerca.
+
+Era masiva — más grande que los planetas, su contorno formado por constelaciones doblándose a su alrededor. Su presencia no quemaba. No rabiaba.
+
+Observaba.
+
+Protectora.
+
+Antigua.
+
+—Ocean.
+
+La voz no era sonido. Era la gravedad pronunciando su nombre.
+
+—Tu silencio nunca fue debilidad.
+
+Ocean estaba parado en el paisaje onírico, flotando sobre un campo de estrellas destrozadas.
+
+—¿Quién eres? —pregó.
+
+El ser no respondió directamente.
+
+En su lugar, las galaxias se desplazaron detrás de él como capas flotantes.
+
+—No eres un ser sin poder —dijo—. Estás sellado.
+
+La palabra resonó a través de él.
+
+Sellado.
+
+Ocean miró sus manos — y por primera vez, lo vio.
+
+No era luz.
+
+No era fuego.
+
+No eran rayos.
+
+Una oscuridad tan densa que doblaba las estrellas a su alrededor. No era malvada. No era fría.
+
+Simplemente absoluta.
+
+—Nunca estuviste destinado a crecer entre chispas —continuó la voz—. Eres la gravedad que decide dónde arden las estrellas.
+
+El pecho de Ocean se apretó.
+
+—Entonces, ¿por qué me siento tan pequeño?
+
+Por primera vez, la presencia colosal se acercó.
+
+—Porque yo te hice pequeño.
+
+La confesión onduló a través del vacío.
+
+—Para protegerte.
+
+Las estrellas se atenuaron.
+
+—Hay seres que miden la existencia en extinciones. Sintieron tu despertar.
+
+El pulso de Ocean se aceleró. —¿Despertar de qué?
+
+Una pausa.
+
+—De mí.
+
+Se despertó jadeando.
+
+Las luces de la cámara de contención parpadearon violentamente.
+
+Afuera, la población potenciada de la ciudad lo sintió de nuevo — pero más suave esta vez.
+
+Una frecuencia. Una presión.
+
+Como si el planeta se hubiera vuelto más pesado por una fracción.
+
+En el espacio profundo, mucho más allá del alcance de la humanidad, la presencia antigua de antes se agitó de nuevo.
+
+Ya no estaba sola.
+
+Otros estaban dirigiendo su atención hacia la Tierra.
+
+El Heredero había hablado con el Soberano.
+
+Y el sello se estaba debilitando.
+
+De vuelta en la cámara, Ocean presionó su palma contra la fría pared de metal.
+
+No se derritió.
+
+No se agrietó.
+
+Simplemente se curvó ligeramente hacia adentro… como si la realidad misma le hiciera espacio.
+
+Ocean tragó saliva.
+
+Si su padre era el ser más poderoso de la existencia—
+
+Y si todo el poder humano era solo un fragmento de algo más antiguo—
+
+Entonces, ¿en qué se estaba convirtiendo exactamente?
+
+Sobre el planeta, las estrellas se desplazaron sutilmente.
+
+No al azar.
+
+Se estaban alineando.
+
+Observando.
+
+Esperando.
+
+Y por primera vez en la historia humana—
+
+El universo ya no ignoraba a la Tierra.`
+                                        }
+                                    },
+                                    {
+                                        id: "hep-e4",
+                                        title: "Episodio IV — La Gravedad de un Padre",
+                                        price: 100,
+                                        content: {
+                                            ES: `Los rumores se extendieron rápido. Ya no llamaban a Ocean “Vacío”. Ahora lo llamaban “Error”. Algo que no debería existir. Algo inestable. Lo cual, para las personas que construían sus identidades sobre sistemas de poder clasificados, era peor que ser débil.
+
+Tres de los estudiantes de nivel superior de la Academia lo acorralaron de nuevo después de las clases. No en el patio abierto esta vez; había demasiadas cámaras. Eligieron un sector de entrenamiento abandonado donde los daños elementales eran comunes y las preguntas raras. Uno controlaba arcos de plasma como látigos vivientes. Uno podía amplificar su fuerza física diez veces. El tercero manipulaba ondas sonoras, comprimiéndolas en ráfagas de conmoción. Todos ellos superiores. Todos ellos clasificados.
+
+Ocean se quedó quieto mientras se acercaban. —Cerraste la arena —dijo el manipulador de plasma, con chispas recorriendo sus dedos—. ¿Crees que eso te hace especial?
+Ocean sacudió la cabeza. —Yo no hice nada.
+—Ese es el problema.
+
+El primer golpe llegó rápido: un latigazo de plasma chasqueando hacia el hombro de Ocean. Antes de que lo tocara... se ralentizó. No visiblemente al principio. Sólo ligeramente. Como si se moviera a través de aire más denso. Entonces, el espacio entre el plasma y Ocean se comprimió por una fracción. La energía se dobló hacia los lados, curvándose alrededor de él y estrellándose inofensivamente contra una pared lejana.
+
+Los matones se congelaron. Los ojos de Ocean se abrieron de par en par. No se había movido. El manipulador de sonido reaccionó después, desatando una ráfaga sónica comprimida lo suficientemente fuerte como para fracturar vidrio reforzado. La onda alcanzó a Ocean... y colapsó hacia adentro. No fue desviada. No fue bloqueada. Se plegó en el silencio. La presión del aire a su alrededor disminuyó. El suelo tembló débilmente.
+
+El estudiante de fuerza aumentada rugió y cargó, con el puño dirigido directamente a la cara de Ocean. Por una fracción de segundo, Ocean sintió miedo. Y ese miedo alcanzó las estrellas.
+
+Muy por encima del planeta, más allá de los satélites y los desechos en órbita, el espacio ondeó como agua perturbada. Una presencia presionó contra el tejido de la realidad. Sin entrar del todo. Sin manifestarse plenamente. Sólo... tocando. El estudiante que cargaba se ralentizó a mitad de su paso. Su impulso no se detuvo. Dejó de existir. La energía cinética se desvaneció como si hubiera sido borrada de la ecuación. Cayó hacia adelante inofensivamente a los pies de Ocean.
+
+La temperatura cayó en picada. El cielo afuera se oscureció de forma antinatural, las nubes girando hacia adentro como si fueran atraídas hacia un centro silencioso. Ocean lo sintió entonces. No poder. Protección. Un peso detrás del mundo. Una vasta conciencia fijándose en la amenaza.
+
+Los matones también lo sintieron. Sus habilidades parpadearon violentamente. El plasma se extinguió. Las ondas sonoras se distorsionaron en estática. Los músculos perdieron el aumento como si el permiso hubiera sido revocado. Una presión descendió sobre todo el sector de entrenamiento; no aplastante, sino absoluta. Un mensaje sin palabras: No lo toquen.
+
+El aliento de Ocean se volvió desigual. —Detente... —susurró hacia arriba, sin saber a quién le hablaba. La presión se mantuvo durante tres largos segundos. En todo el mundo, los sensores de alto nivel cayeron de rodillas de nuevo. Los instrumentos gravitacionales se dispararon. Los observatorios de espacio profundo registraron una distorsión en la posición de las estrellas cercanas.
+
+Y mucho más allá de la Tierra... el padre de Ocean estaba en el umbral entre dimensiones. Su forma no apareció por completo. Pero un fragmento de su presencia cruzó a nivel de la realidad de la Tierra, lo suficiente para recordarle al universo a quién pertenecía el niño. Las entidades antiguas que observaban desde la oscuridad retrocedieron ligeramente. El Soberano se había movido.
+
+De vuelta en el sector de entrenamiento, la presión disminuyó. El cielo volvió a la normalidad. Los matones retrocedieron gateando, pálidos y temblorosos. Ocean se quedó solo en el tranquilo desenlace. No había atacado. No se había defendido. Pero algo había respondido por él. Miró hacia el techo, más allá de él, más allá del cielo.
+
+—Dijiste que me sellaste —susurró—. Pero sigues observando.
+
+Mucho más arriba, invisible a los ojos humanos, un sutil cambio en las estrellas se alineó brevemente en una formación silenciosa. No era una constelación. Era un símbolo. Y Ocean comprendió algo por primera vez: Su padre no interferiría en su crecimiento. Pero si el universo intentaba romperlo... sería corregido.
+
+Los matones no informaron de lo sucedido. No pudieron. ¿Cómo explicas que tu poder simplemente se detuvo? ¿Que las propias leyes del movimiento parecieron olvidar que te estabas moviendo? Evitaron a Ocean después de eso. No por bondad. Sino por instinto. Los depredadores reconocen cuando algo más alto en la cadena está cerca.
+
+Ocean caminó a casa solo, pero el aire a su alrededor se sentía más pesado de lo habitual. No opresivo: protector. Como una atmósfera invisible superpuesta a la realidad misma. Se detuvo bajo una farola. —¿Por qué? —preguntó en voz baja, mirando al pavimento—. Dijiste que tengo que crecer. Entonces, ¿por qué interveniste?
+
+El viento no respondió. Pero la gravedad sí lo hizo. La más mínima distorsión se formó alrededor de la luz sobre él. El haz se curvó ligeramente hacia adentro, inclinándose hacia Ocean como si fuera atraído por un centro invisible. Una voz no habló. Sin embargo, él comprendió. Porque el miedo es una cosa. La amenaza es otra. El ataque había cruzado una línea. Y en algún lugar más allá de las estrellas, un padre había decidido que esa línea importaba.
+
+Ocean apretó el puño, no con ira, sino con frustración. —No quiero que pelees mis batallas.
+Esta vez, la respuesta fue diferente. La presión a su alrededor no aumentó. Se retiró. No completamente. Pero lo suficiente para que él sintiera la diferencia. El mensaje fue claro: Entonces levántate.
+
+Mucho más allá de la órbita de la Tierra, el Soberano regresó a la estrella colapsada que ocupaba. No se había manifestado completamente. Eso habría fracturado la estabilidad planetaria. Sólo se había apoyado contra la realidad. Incluso eso había sido suficiente para silenciar a tres humanos aumentados y alertar a media galaxia. Los antiguos observadores ya no sólo estaban mirando. Estaban calculando. Si el Heredero podía desencadenar una incursión parcial sólo a través de la angustia emocional... entonces el sello se estaba debilitando más rápido de lo previsto.
+
+De vuelta en la Tierra, Ocean exhaló lentamente. La farola se enderezó. El aire se normalizó. Por primera vez, sintió algo nuevo bajo la protección. El espacio no sólo se doblaba para escudarlo. Lo esperaba. Y si su padre podía presionar contra la realidad desde otras dimensiones... Entonces un día, Ocean no necesitaría que nadie respondiera por él. Un día, la gravedad sería suya.
+
+Ocean miró hacia el cielo nocturno una última vez antes de entrar en su casa. Las estrellas ya no se sentían distantes. Se sentían dispuestas. Intencionalmente. Como si líneas invisibles las conectaran; hilos convergiendo hacia él. Dentro, las luces parpadearon brevemente cuando cruzó la puerta. No por un mal funcionamiento. Sino por un ajuste. El mundo recalibrándose sutilmente alrededor de su presencia.
+
+Colocó su mano contra la pared de nuevo, probándola. Esta vez, no sintió miedo. Sintió restricción. No impuesta sobre él... Sino elegida. En algún lugar más allá de la vista, su padre no se movió. No interfirió. Pero permaneció atento.
+
+Y Ocean comprendió algo silenciosamente aterrador: La próxima vez que alguien cruzara esa línea... Podría no ser su padre quien responda.`
+                                        }
+                                    },
+                                    {
+                                        id: "hep-e5",
+                                        title: "Episodio V — Cuando el Cielo Escucha",
+                                        price: 100,
+                                        isPremium: true,
+                                        content: {
+                                            ES: `El miedo no llegó como un grito. Llegó en silencio. Ocean lo sintió en las pausas entre los momentos. En la forma en que las luces del pasillo se atenuaban medio segundo después de que él pasara caminando. En cómo las superficies reflectantes parecían ondular si se quedaba mirando demasiado tiempo. En la sensación de que el silencio ya no estaba vacío. Estaba ocupado.
+
+Ya no tenía miedo de los matones. Ya no tenía miedo de la Academia. Tenía miedo de lo que respondía cuando sentía algo con demasiada fuerza. El sector de entrenamiento se repetía en su mente cada noche. El plasma doblándose. El sonido plegándose en nada. El impulso borrado como tiza de una pizarra. Y por encima de todo... Esa presencia.
+
+Ocean se sentó en el borde de su cama, con las manos apretadas. —¿Si siempre estás ahí... ¿qué se supone que sea yo?
+La habitación permaneció inmóvil. Pero la gravedad cambió. No hacia abajo. Hacia adentro. La más leve compresión del espacio se envolvió a su alrededor como manos invisibles estabilizando el aire.
+
+Se levantó y caminó hacia la ventana. Las luces de la ciudad parpadeaban abajo. Arriba, las estrellas brillaban débilmente a través de la bruma. Las sentía ahora. No visualmente. Estructuralmente.
+—¿Lo ves todo?
+Una pausa. Luego, una presencia rozó sus pensamientos: vasta, firme, antigua. ⟪Sí.⟫
+A Ocean se le cortó la respiración. —¿También me oyes? ⟪Siempre.⟫
+Su corazón latía más fuerte. —¿Has estado escuchando... todo este tiempo?
+La presión se profundizó, calmada e innegable. ⟪Desde tu primer aliento.⟫
+
+Lágrimas se formaron en los ojos de Ocean antes de que se diera cuenta. Cada insulto. Cada noche solitaria. Cada momento en que pensó que nadie se daba cuenta. Nunca había dejado de ser escuchado.
+—Tenía miedo.
+El aire se suavizó. La gravedad se estabilizó. Calor —no fuego, sino equilibrio— se asentó a su alrededor. ⟪No estás solo.⟫
+
+Ocean se limpió el rostro bruscamente. —No quiero que arregles todo. No quiero que el universo se doble cada vez que sienta algo.
+Una respuesta firme fluyó a través de él. ⟪Entonces debes aprender a mantenerte en pie.⟫
+La firmeza no era fría. Era orientadora.
+—¿Entonces por qué lo vigilas todo?
+La respuesta llegó lentamente. ⟪Porque otros te vigilan a ti.⟫
+
+Se le apretó el pecho. Fragmentos parpadearon a través de su conciencia: formas vastas a la deriva en la oscuridad cósmica, atenciones antiguas estrechándose.
+—Me sintieron. ⟪Sí.⟫
+—¿Vienen?
+Una pausa medida. ⟪Todavía no.⟫
+—Pero lo harán. ⟪Eventualmente.⟫
+
+La honestidad se asentó con más peso que el consuelo. Ocean empezó a caminar de un lado a otro. —Yo no pedí esto. ⟪No.⟫
+El acuerdo lo sobresaltó. —Tú elegiste tenerme.
+Siguió un silencio, no ausencia, sino peso. ⟪Elegí crearte. No elegí en qué te convertirías.⟫
+
+Ocean dejó de moverse. —¿Qué significa eso?
+La gravedad a su alrededor se profundizó, vasta pero controlada. ⟪No eres mi fragmento. No eres mi sombra. Eres evolución.⟫
+Su pulso se disparó. —¿Más fuerte que tú?
+Un silencio más largo. ⟪Potencialmente.⟫
+
+El miedo surgió bruscamente. Las luces parpadearon violentamente. Afuera, los vehículos cercanos se detuvieron. Las redes eléctricas registraron distorsiones de microsegundos. Ocean se agarró la cabeza. —¡No quiero eso!
+Al instante, la presión se retiró: deliberada, disciplinada. ⟪Tu emoción moldea la realidad.⟫
+Su respiración temblaba. —No sé cómo controlarlo. ⟪Entonces aprende.⟫
+
+Sin rescate. Sin corrección. Sólo expectativa.
+Ocean bajó las manos. Las luces se estabilizaron. Tragó saliva. —¿Dijiste que lo ves todo. ¿La viste a ella?
+La presencia se suavizó. ⟪Sí.⟫
+Su madre. —¿Sabía ella que moriría? ⟪Ella entendía el riesgo.⟫
+Su voz tembló. —¿La amabas?
+Una pausa más larga. ⟪A mi manera.⟫
+
+Ocean asintió lentamente. Eso fue suficiente. Se deslizó por la pared para sentarse bajo la ventana.
+—Escuchaste cuando dije que tenía miedo. ⟪Sí.⟫
+—Y no lo arreglaste. ⟪No.⟫
+Una risa temblorosa escapó de él. —Eres estricto.
+Una sutil onda —casi como una diversión distante— movió el aire. ⟪El miedo no es tu enemigo. Es información.⟫
+—¿Información sobre qué? ⟪Sobre la escala.⟫
+
+Volvió a mirar las estrellas. Parecían más cercanas. Esperando. —¿Y si no puedo manejarlo?
+La respuesta llegó sin dudar. ⟪Podrás.⟫
+—¿Cómo estás tan seguro? ⟪Porque lo cuestionas. El poder sin duda fractura mundos. El poder con conciencia los moldea.⟫
+
+El significado se asentó lentamente. La humanidad doblaba los elementos. Él doblaba las condiciones. Esa diferencia lo aterraba. Pero bajo el miedo... Había claridad.
+—¿Vigilarás siempre? ⟪Siempre.⟫
+—¿Y si algo ataca la Tierra por mi culpa? ⟪Será respondido.⟫
+—¿Por ti?
+La gravedad se profundizó sutilmente. ⟪Si es necesario.⟫
+
+Ocean se recostó en su cama, mirando al techo. El miedo no se había desvanecido. Se había transformado.
+—Entonces vigila. Pero no intervengas a menos que caiga.
+Un largo silencio. Luego— ⟪Muy bien.⟫
+
+Mucho más allá de la Tierra, el Soberano se retiró un poco del límite dimensional del planeta: no abandonando, sino confiando. Los antiguos observadores malinterpretaron el movimiento como una duda. Empezaron a reposicionarse. Más cerca.
+
+Y bajo el tranquilo cielo nocturno, Ocean cerró los ojos. Todavía tenía miedo. Pero ahora comprendía algo crucial: El universo estaba escuchando. Y también su padre.
+
+---
+
+Ocean no volvió a la cama inmediatamente. El peso de todo presionó a la vez. Se deslizó del colchón y se dejó caer al suelo, con la espalda contra el lateral de la cama. Sus piernas se doblaron instintivamente hacia arriba, con las rodillas flexionadas y los pies apoyados en el suelo. Las envolvió con sus brazos, usándolas como apoyo, bajando la frente hasta que casi tocó sus rodillas.
+
+Y entonces— tembló. No violentamente. No dramáticamente. Sino de forma constante. Su respiración se volvió superficial. Cada inhalación se sentía como tirar de aire a través de algo denso. Sus pensamientos giraban: seres antiguos observando, estrellas alineándose, la posibilidad de superar incluso a quien se llamaba a sí mismo su padre.
+
+No había dicho nada. Ni una palabra. Pero el miedo irradiaba de él como ondas de gravedad. Al otro lado de la habitación, leves distorsiones brillaron y desaparecieron. La luz del techo se atenuó ligeramente, luego se estabilizó. Un vaso de agua en su escritorio vibró en pequeñas y desiguales ondas.
+
+Mucho más allá de la Tierra, dentro del corazón silencioso de una estrella agonizante, el Soberano lo sintió. No a través del sonido. No a través de la vista. Sino a través de la conexión.
+
+El miedo de Ocean no era un caos. Era una sobrecarga. La escala se había vuelto demasiado real. En el dormitorio, el temblor empeoró. Ocean apretó sus brazos con más fuerza alrededor de sus piernas como si intentara comprimirse a sí mismo: hacerse más pequeño, contenido, humano. No quería que el cielo respondiera de nuevo. No quería que el planeta reaccionara. Sólo quería que el ruido dentro de su cabeza se aquietara.
+
+El aire se quedó quieto. No pesado. Quieto. Las distorsiones en la habitación cesaron. El vaso en el escritorio dejó de temblar. El débil zumbido de la electricidad lejana volvió a la normalidad. Una presencia se acercó: no forzada, no abrumadora. Medida.
+
+El corazón de Ocean latía con fuerza en sus oídos. Seguía sin decir nada. Pero la respuesta llegó de todos modos. ⟪Respira.⟫ La palabra no era un sonido. Era un ritmo. Los pulmones de Ocean flaquearon, luego obedecieron. Una inhalación más profunda. Más lenta. Controlada.
+
+⟪No te estás rompiendo.⟫ Su temblor disminuyó ligeramente. ⟪El miedo a esta escala es natural. Estás percibiendo más allá de los límites humanos por primera vez.⟫ Ocean cerró sus ojos aún más fuerte. ⟪Tu cuerpo reacciona porque todavía es humano. Eso no es debilidad. Es equilibrio.⟫
+
+La temperatura en la habitación se estabilizó en una neutralidad perfecta: ni cálida ni fría. Su ritmo cardíaco empezó a ralentizarse, alineándose gradualmente con una cadencia interna constante que no se sentía impuesta. Se sentía guiada.
+
+⟪No estás obligado a cargar con el infinito todo a la vez.⟫ El agarre de Ocean se relajó ligeramente alrededor de sus piernas. ⟪Crecerás en él.⟫ El temblor en sus manos se suavizó. ⟪Ahora mismo, eres un hijo en una habitación de noche. No se te exige nada más.⟫
+
+Esa frase hizo algo que las otras no habían logrado. Estrechó la escala. Encogió el universo de nuevo a paredes, una ventana, una cama. Ocean inhaló otra vez, más profundamente. Sus hombros cayeron. La presión invisible que una vez había doblado la realidad ahora se centraba sólo en la estabilidad, como un campo gravitacional sintonizado para proteger sin distorsionar.
+
+⟪Descansa.⟫ La orden no llevaba dominio. Sólo certeza.
+
+Ocean desenrolló lentamente sus brazos de sus piernas. Colocó sus palmas planas contra el suelo, estabilizándose mientras se levantaba. La habitación no parpadeó. Nada se dobló. Nada reaccionó. Simplemente estaba de pie.
+
+Su respiración era normal ahora. Sus pensamientos, más tranquilos. Sin hablar, sin mirar hacia arriba, caminó de regreso a la cama. Se cubrió con la manta y se acostó de lado, de cara a la ventana donde las estrellas brillaban débilmente. Se sentían distantes de nuevo. No desaparecidas. Sino respetuosamente lejos.
+
+Sus párpados se volvieron pesados. La conexión permaneció, pero suavizada a la débil conciencia de una órbita en lugar de una presencia. El último aliento de Ocean antes de dormir fue lento y pausado.
+
+Y en algún lugar más allá de las dimensiones, el Soberano no se retiró por completo. Observó. No porque dudara. Sino porque incluso la fuerza más poderosa de la existencia comprendía esta sencilla verdad— A veces, el universo no necesita corrección. Sólo necesita silencio.`
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        id: "prehistoric-era",
+                        title: "Prehistoric Era: Defensa Meteórica",
+                        desc: "Los dinosaurios protegen su paraíso prehistórico de meteoritos catastróficos usando poderes ancestrales.",
+                        cover: "assets/Prehistoric Era.jpg",
+                        releaseDate: "2026-02-12T00:00:00",
+                        isPreOrder: false,
+                        seasons: [
+                            {
+                                name: "Temporada 1: El Despertar del Caos",
+                                episodes: [
+                                    {
+                                        id: "pe-e1",
+                                        title: "Episodio I — El Primer Impacto",
+                                        price: 300,
+                                        content: {
+                                            ES: "El cielo se partió en dos cuando el primer meteorito atravesó la atmósfera perfecta, marcando el inicio del fin para el paraíso jurásico."
+                                        }
+                                    }
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            }
+        ];
+
+        const preOrderOffers = [
+            {
+                id: 'explorer',
+                name: 'Explorador Jurásico',
+                episodes: 3,
+                price: 600,
+                originalPrice: 750,
+                discount: 20,
+                description: 'Primeros 3 episodios al lanzamiento',
+                icon: 'fa-compass'
+            },
+            {
+                id: 'strategist',
+                name: 'Estratega Prehistórico',
+                episodes: 5,
+                price: 1000,
+                originalPrice: 1250,
+                discount: 20,
+                description: 'Primeros 5 episodios + Acceso anticipado 24h',
+                icon: 'fa-chess',
+                bonus: 'Acceso 24 horas antes'
+            },
+            {
+                id: 'guardian',
+                name: 'Guardián Jurásico',
+                episodes: 7,
+                price: 1200,
+                originalPrice: 1750,
+                discount: 31,
+                description: 'Temporada completa + Contenido exclusivo',
+                icon: 'fa-crown',
+                bonus: 'Wallpapers exclusivos + Acceso 48h antes'
+            }
+        ];
+
+        async function checkAuthAndCards() {
+            if (!oceanPayToken || oceanPayToken === 'undefined' || oceanPayToken === 'null') {
+                localStorage.removeItem('opToken');
+                oceanPayToken = null;
+                showLoginForm();
+                return;
+            }
+            try {
+                const res = await fetch(`${API_URL}/ocean-pay/me`, { headers: { 'Authorization': `Bearer ${oceanPayToken}` } });
+                if (!res.ok) throw new Error("Auth failed");
+                const data = await res.json();
+                if (data.token) oceanPayToken = data.token;
+                oceanPayUser = data.id ? data : oceanPayUser;
+                premiumPlan = 'free';
+
+                // Verificamos suscripciones
+                try {
+                    const subRes = await fetch(`${API_URL}/ocean-pay/subscriptions/me`, {
+                        headers: { 'Authorization': `Bearer ${oceanPayToken}` }
+                    });
+                    const subs = await subRes.json();
+                    if (Array.isArray(subs) && subs.some(s => s.plan_name && s.plan_name.includes('Premium') && new Date(s.end_date) > new Date())) {
+                        premiumPlan = 'Premium VIP';
+                        console.log("💎 Usuario VIP detectado");
+                    }
+                } catch (e) {
+                    console.error("Error verificando suscripciones:", e);
+                }
+
+                userCards = data.cards || [];
+
+                // Restaurar el saldo de la tarjeta seleccionada previamente
+                if (selected_card_id) {
+                    const selectedCard = userCards.find(c => c.id == selected_card_id);
+                    if (selectedCard) {
+                        userBalance = selectedCard.balances?.wildgems || 0;
+                    }
+                }
+
+                if (userCards.length === 1 && !selected_card_id) { selectCard(userCards[0].id); }
+                else if (!selected_card_id || !userCards.find(c => c.id == selected_card_id)) { showCardSelector(true); }
+                else { updateUI(); }
+            } catch (err) {
+                localStorage.removeItem('opToken');
+                showLoginForm();
+            }
+        }
+
+        function showLoginForm() {
+            showModal(`
+                <div style="text-align:center;">
+                    <i class="fa-solid fa-lock" style="font-size:4rem; color:var(--ws-neon); margin-bottom:2rem;"></i>
+                    <h2 style="font-size:2.5rem; font-weight:900; margin-bottom:1rem;">Ingresar a Ocean Pay</h2>
+                    <p style="color:#94a3b8; margin-bottom:3rem;">Introduce tus credenciales bancarias para continuar en WildShorts.</p>
+                    <div class="ws-auth-form" id="ws-login-form">
+                        <div class="ws-input-group">
+                            <label>Nombre de Usuario</label>
+                            <input type="text" id="ws-user" class="ws-input" placeholder="Usuario">
+                        </div>
+                        <div class="ws-input-group">
+                            <label>Contraseña</label>
+                            <input type="password" id="ws-pass" class="ws-input" placeholder="********">
+                        </div>
+                        <button class="ws-btn-primary" onclick="processLogin()">Conectar Ahora</button>
+                    </div>
+                    <div id="ws-login-error" style="color:var(--ws-red); margin-top:1.5rem; font-weight:800; display:none;"></div>
+                </div>
+            `, false);
+        }
+
+        async function processLogin() {
+            const user = document.getElementById('ws-user').value;
+            const pass = document.getElementById('ws-pass').value;
+            const errorEl = document.getElementById('ws-login-error');
+            errorEl.style.display = 'none';
+            if (!user || !pass) { errorEl.textContent = "Campos requeridos"; errorEl.style.display = 'block'; return; }
+            try {
+                const res = await fetch(`${API_URL}/ocean-pay/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: user, password: pass })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    oceanPayToken = data.token;
+                    localStorage.setItem('opToken', oceanPayToken);
+                    localStorage.setItem('opUser', JSON.stringify(data.user));
+                    closeModal();
+                    await checkAuthAndCards();
+                } else { errorEl.textContent = data.error || "Credenciales incorrectas"; errorEl.style.display = 'block'; }
+            } catch (err) { errorEl.textContent = "Error de servidor"; errorEl.style.display = 'block'; }
+        }
+
+        function showCardSelector(isForced = false) {
+            let html = `<div style="text-align:center;"><h2 style="font-size:2.5rem; font-weight:900; margin-bottom:1rem;">Selecciona tu Tarjeta</h2><p style="color:#94a3b8; margin-bottom:3rem;">Elige la tarjeta para tus transacciones en WildShorts.</p><div style="margin-top:2rem;">`;
+            userCards.forEach(c => {
+                const isActive = selected_card_id == c.id;
+                html += `<div class="ws-card-option ${isActive ? 'active' : ''}" onclick="selectCard(${c.id})"><div style="text-align:left;"><div class="ws-card-name">${c.card_name}</div><div class="ws-card-number">**** ${c.card_number.slice(-4)}</div></div><div class="ws-card-balance">${c.balances?.wildgems || 0} <img src="${WILDGEMS_ICON_URL}" class="ws-gem-icon"></div></div>`;
+            });
+            html += `</div></div>`; showModal(html, !isForced);
+        }
+
+        function selectCard(id) {
+            selected_card_id = id; localStorage.setItem('ws_selected_card_id', id);
+            const card = userCards.find(c => c.id == id);
+            userBalance = card?.balances?.wildgems || 0;
+            updateUI(); closeModal();
+        }
+
+        function renderBooks() {
+            const container = document.getElementById('ws-books');
+            container.innerHTML = '';
+            booksByCategory.forEach(cat => {
+                cat.books.forEach(book => {
+                    const card = document.createElement('div');
+                    card.className = 'card';
+                    card.onclick = () => openBookStore(book.id);
+                    card.innerHTML = `
+                        <img src="${book.cover}" class="card-cover">
+                        <div class="card-title">${book.title}</div>
+                        <p class="card-desc">${book.desc}</p>
+                    `;
+                    container.appendChild(card);
+                });
+            });
+        }
+
+        function renderHero() {
+            const hero = document.getElementById('ws-hero');
+            const featured = booksByCategory.flatMap(c => c.books).find(b => b.featured) || booksByCategory[0].books[0];
+
+            hero.innerHTML = `
+                <div class="hero-card">
+                    <img src="${featured.cover}" class="hero-img">
+                    <div class="hero-content">
+                        <span class="hero-tag">Destacado</span>
+                        <h1 class="hero-title">${featured.title}</h1>
+                        <p class="hero-desc">${featured.desc}</p>
+                        <button class="btn btn-primary" onclick="openBookStore('${featured.id}')">
+                            <i class="fa-solid fa-play"></i> Leer Ahora
+                        </button>
+                    </div>
+                </div>
+            `;
+            gsap.from(".hero-content > *", { duration: 1, y: 30, opacity: 0, stagger: 0.1, ease: "power4.out" });
+        }
+
+        function showModal(html, showClose = true) {
+            const m = document.getElementById('ws-modal');
+            m.querySelector('.close-btn').style.display = showClose ? 'flex' : 'none';
+            document.getElementById('ws-modal-body').innerHTML = html;
+            m.classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('ws-modal').classList.remove('active');
+        }
+
+        window.openBookStore = (id) => {
+            const b = booksByCategory.flatMap(c => c.books).find(x => x.id === id);
+            if (!b) return;
+
+            const isVip = premiumPlan === 'Premium VIP';
+
+            let h = `
+                <div class="story-header" style="background: linear-gradient(to bottom, var(--accent-soft), transparent); padding: 3rem 2rem; border-radius: 40px; margin-bottom: 3rem;">
+                    <img src="${b.cover}" style="width:180px; height:240px; object-fit:cover; border-radius:24px; margin-bottom:1.5rem; box-shadow: 0 20px 40px rgba(0,0,0,0.5); border: 1px solid var(--border);">
+                    <h2 class="story-title" style="margin-bottom:1rem; font-size:2.8rem;">${b.title}</h2>
+                    <p style="color:var(--text-secondary); max-width:600px; margin: 0 auto; font-size:1rem; line-height:1.6;">${b.desc}</p>
+                </div>
+                <div style="display:grid; gap:1.2rem; padding: 0 1rem;">
+                    <h3 style="font-size:1.2rem; margin-bottom:0.5rem; display:flex; align-items:center; gap:10px;">
+                        <i class="fa-solid fa-list-ul" style="color:var(--accent);"></i> Episodios Disponibles
+                    </h3>
+            `;
+
+            b.seasons.forEach(s => {
+                s.episodes.forEach((e, idx) => {
+                    const isPurchased = purchasedEpisodes[e.id];
+                    const discountedPrice = Math.floor(e.price * 0.6); // 40% discount for VIP
+                    const finalPrice = isVip ? discountedPrice : e.price;
+                    const isFree = e.price === 0;
+
+                    h += `
+                        <div class="episode-row" style="background:var(--surface); padding:1.2rem 1.5rem; border-radius:24px; display:flex; justify-content:space-between; align-items:center; border:1px solid ${isVip && !isFree && !isPurchased ? 'var(--accent)' : 'var(--border)'}; transition: 0.3s var(--ease); hover: { border-color: var(--accent); }">
+                            <div style="display:flex; align-items:center; gap:1.5rem;">
+                                <div style="width:40px; height:40px; background:var(--bg); border-radius:12px; display:flex; align-items:center; justify-content:center; font-weight:800; color:var(--accent); border:1px solid var(--border);">
+                                    ${idx + 1}
+                                </div>
+                                <div>
+                                    <div style="font-weight:700; font-size:1.1rem; color:#fff;">${e.title}</div>
+                                    <div style="font-size:0.85rem; color:var(--text-secondary); margin-top:4px;">
+                                        ${isPurchased ? '<span style="color:var(--accent);"><i class="fa-solid fa-check-circle"></i> En tu biblioteca</span>' :
+                            (isFree ? '<span style="color:#00f5a0;">Gratis</span>' :
+                                `<span>${finalPrice} WildGems</span> ${isVip ? `<span style="text-decoration:line-through; font-size:0.75rem; margin-left:8px; opacity:0.5;">${e.price}</span>` : ''}`
+                            )}
+                                    </div>
+                                </div>
+                            </div>
+                            <button class="btn" style="padding:0.7rem 1.8rem; border-radius:16px; font-size:0.75rem; ${isPurchased || isFree ? 'background:var(--accent-soft); color:var(--accent); border:1px solid var(--accent);' : 'background:var(--text-primary); color:var(--bg);'}" 
+                                onclick="${(isPurchased || isFree) ? `showArticle('${e.id}')` : `buyEpisode('${e.id}', ${finalPrice})`}">
+                                ${(isPurchased || isFree) ? 'LEER' : 'DESBLOQUEAR'}
+                            </button>
+                        </div>
+                    `;
+                });
+            });
+
+            h += `</div>`;
+            showModal(h);
+        }
+
+        window.showArticle = (id) => {
+            let episode = null;
+            booksByCategory.forEach(c => c.books.forEach(b => b.seasons.forEach(s => s.episodes.forEach(e => { if (e.id === id) episode = e; }))));
+
+            const isVip = premiumPlan === 'Premium VIP';
+
+            showModal(`
+                <article style="padding:1rem; position:relative;">
+                    <h2 class="story-title" style="margin-bottom: 1.5rem;">${episode.title}</h2>
+                    
+                    ${isVip ? `
+                    <div style="background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 20px; padding: 1.5rem; margin-bottom: 2rem; display: flex; align-items: center; justify-content: space-between;">
+                        <div>
+                            <div style="color: var(--accent); font-weight: 800; font-size: 0.9rem; letter-spacing: 1px; margin-bottom: 4px;">BENEFICIO PREMIUM</div>
+                            <div style="color: #fff; font-size: 1.1rem; font-weight: 600;">Resumen por Voz</div>
+                        </div>
+                        <button class="btn btn-primary" style="padding: 0.8rem 1.5rem; display: flex; align-items: center; gap: 8px;" onclick="showVoiceOptions('${id}')">
+                            <i class="fa-solid fa-microphone-lines"></i> ESCUCHAR
+                        </button>
+                    </div>
+                    ` : `
+                    <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 1.5rem; margin-bottom: 2rem; display: flex; align-items: center; gap: 1rem; opacity: 0.7;">
+                        <i class="fa-solid fa-crown" style="font-size: 1.5rem; color: #fbbf24;"></i>
+                        <div>
+                            <div style="color: #fff; font-size: 0.9rem; font-weight: 600;">Resumen por Voz disponible para VIP</div>
+                            <div style="color: var(--text-secondary); font-size: 0.8rem;">Suscríbete para escuchar la narrativa profesional.</div>
+                        </div>
+                    </div>
+                    `}
+
+                    <div class="story-content" style="white-space:pre-wrap; font-size: 1.05rem; line-height: 1.8; color: #e2e8f0;">${episode.content.ES}</div>
+                </article>
+            `);
+        }
+
+        window.showVoiceOptions = (id) => {
+            let episode = null;
+            booksByCategory.forEach(c => c.books.forEach(b => b.seasons.forEach(s => s.episodes.forEach(e => { if (e.id === id) episode = e; }))));
+
+            showModal(`
+                <div style="text-align:center; padding: 1rem;">
+                    <div style="width: 80px; height: 80px; background: var(--accent-soft); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.5rem; border: 2px solid var(--accent);">
+                        <i class="fa-solid fa-waveform-lines" style="font-size: 2.5rem; color: var(--accent);"></i>
+                    </div>
+                    <h2 class="story-title" style="font-size: 2rem; margin-bottom: 1rem;">Configurar Voz</h2>
+                    <p style="color: var(--text-secondary); margin-bottom: 2.5rem;">Elige el estilo de narración para este episodio.</p>
+                    
+                    <div style="display: grid; gap: 1.5rem; text-align: left;">
+                        <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 24px; padding: 1.5rem;">
+                            <label style="color: var(--accent); font-weight: 800; font-size: 0.8rem; text-transform: uppercase; margin-bottom: 1rem; display: block;">Calidad de Audio</label>
+                            <div style="display: flex; gap: 1rem;">
+                                <button id="quality-std" class="btn" style="flex: 1; background: var(--bg); color: #fff; border: 1px solid var(--accent); font-size: 0.8rem;" onclick="setQuality('standard')">ESTÁNDAR</button>
+                                <button id="quality-ai" class="btn" style="flex: 1; background: var(--bg); color: #94a3b8; border: 1px solid var(--border); font-size: 0.8rem; display: flex; align-items: center; justify-content: center; gap: 6px;" onclick="setQuality('ai')">
+                                    <i class="fa-solid fa-sparkles" style="color:#fbbf24;"></i> AI PREMIUM
+                                </button>
+                            </div>
+                        </div>
+
+                        <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 24px; padding: 1.5rem;">
+                            <label style="color: var(--accent); font-weight: 800; font-size: 0.8rem; text-transform: uppercase; margin-bottom: 1rem; display: block;">Género de Voz</label>
+                            <div style="display: flex; gap: 1rem;">
+                                <button id="voice-gender-male" class="btn" style="flex: 1; background: var(--bg); color: #fff; border: 1px solid var(--accent);" onclick="setVoiceGender('male')">Hombre</button>
+                                <button id="voice-gender-female" class="btn" style="flex: 1; background: var(--bg); color: #94a3b8; border: 1px solid var(--border);" onclick="setVoiceGender('female')">Mujer</button>
+                            </div>
+                        </div>
+
+                        <div id="voice-styles-group" style="background: var(--surface); border: 1px solid var(--border); border-radius: 24px; padding: 1.5rem; transition: opacity 0.3s ease;">
+                            <label style="color: var(--accent); font-weight: 800; font-size: 0.8rem; text-transform: uppercase; margin-bottom: 1rem; display: block;">Estilo de Narración</label>
+                            <div style="display: flex; gap: 1rem;">
+                                <button id="voice-style-calm" class="btn" style="flex: 1; background: var(--bg); color: #fff; border: 1px solid var(--accent);" onclick="setVoiceStyle('calm')">Calmado</button>
+                                <button id="voice-style-imp" class="btn" style="flex: 1; background: var(--bg); color: #94a3b8; border: 1px solid var(--border);" onclick="setVoiceStyle('imposing')">Imponente</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 3rem; display: flex; gap: 1rem;">
+                        <button class="btn btn-primary" style="flex: 2; padding: 1.2rem;" onclick="startNarration('${id}')">INICIAR NARRACIÓN</button>
+                        <button class="btn" style="flex: 1; background: var(--ws-red); color: #fff; display: none;" id="stop-voice-btn" onclick="stopNarration()">DETENER</button>
+                    </div>
+                </div>
+            `);
+        }
+
+        let selectedGender = 'male';
+        let selectedStyle = 'calm';
+
+        window.setVoiceGender = (g) => {
+            selectedGender = g;
+            document.getElementById('voice-gender-male').style.borderColor = g === 'male' ? 'var(--accent)' : 'var(--border)';
+            document.getElementById('voice-gender-male').style.color = g === 'male' ? '#fff' : '#94a3b8';
+            document.getElementById('voice-gender-female').style.borderColor = g === 'female' ? 'var(--accent)' : 'var(--border)';
+            document.getElementById('voice-gender-female').style.color = g === 'female' ? '#fff' : '#94a3b8';
+        }
+
+        window.setVoiceStyle = (s) => {
+            selectedStyle = s;
+            document.getElementById('voice-style-calm').style.borderColor = s === 'calm' ? 'var(--accent)' : 'var(--border)';
+            document.getElementById('voice-style-calm').style.color = s === 'calm' ? '#fff' : '#94a3b8';
+            document.getElementById('voice-style-imp').style.borderColor = s === 'imposing' ? 'var(--accent)' : 'var(--border)';
+            document.getElementById('voice-style-imp').style.color = s === 'imposing' ? '#fff' : '#94a3b8';
+        }
+
+        window.setQuality = (q) => {
+            selectedQuality = q;
+            document.getElementById('quality-std').style.borderColor = q === 'standard' ? 'var(--accent)' : 'var(--border)';
+            document.getElementById('quality-std').style.color = q === 'standard' ? '#fff' : '#94a3b8';
+            document.getElementById('quality-ai').style.borderColor = q === 'ai' ? 'var(--accent)' : 'var(--border)';
+            document.getElementById('quality-ai').style.color = q === 'ai' ? '#fff' : '#94a3b8';
+
+            // Mostrar estilos solo en calidad estándar (o adaptarlos según el sistema)
+            document.getElementById('voice-styles-group').style.opacity = q === 'ai' ? '0.5' : '1';
+        }
+
+        window.startNarration = async (id) => {
+            let episode = null;
+            booksByCategory.forEach(c => c.books.forEach(b => b.seasons.forEach(s => s.episodes.forEach(e => { if (e.id === id) episode = e; }))));
+
+            if (currentUtterance) window.speechSynthesis.cancel();
+            if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+
+            let narrationText = episode.content.ES;
+            const isTruncated = narrationText.length > 15000;
+            if (isTruncated) {
+                const lastPoint = narrationText.substring(0, 15000).lastIndexOf('.');
+                narrationText = narrationText.substring(0, lastPoint > 5000 ? lastPoint + 1 : 15000) + " Esta historia continúa en los siguientes capítulos de WildShorts.";
+            }
+
+            const textToSpeak = `Narración del episodio: ${episode.title}. ${narrationText}`;
+
+            if (selectedQuality === 'ai') {
+                const stopBtn = document.getElementById('stop-voice-btn');
+                stopBtn.style.display = 'block';
+                stopBtn.textContent = 'PROCESANDO AI...';
+
+                try {
+                    const res = await fetch(`${API_URL}/ocean-pay/ai/tts-premium`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            text: textToSpeak,
+                            voiceId: selectedGender === 'male' ? "ErXw9S1S7zD4R600L1sS" : "Lcf7u96SOmH0A7R832uO"
+                        })
+                    });
+
+                    if (!res.ok) {
+                        const err = await res.json();
+                        throw new Error(err.error || "Error en el servidor de AI");
+                    }
+
+                    const blob = await res.blob();
+                    const audioUrl = URL.createObjectURL(blob);
+                    currentAudio = new Audio(audioUrl);
+                    currentAudio.volume = 0.9;
+                    currentAudio.play();
+                    stopBtn.textContent = 'DETENER';
+
+                    currentAudio.onended = () => {
+                        stopBtn.style.display = 'none';
+                        currentAudio = null;
+                    };
+                } catch (e) {
+                    alert("Modo Premium AI: " + e.message + "\n\nUsando voz estándar como alternativa.");
+                    selectedQuality = 'standard';
+                    setQuality('standard');
+                    startNarration(id);
+                }
+                return;
+            }
+
+            // --- Lógica Estándar (SpeechSynthesis) ---
+            let voices = window.speechSynthesis.getVoices();
+            if (voices.length === 0) {
+                window.speechSynthesis.getVoices();
+                setTimeout(() => startNarration(id), 100);
+                return;
+            }
+
+            const utterance = new SpeechSynthesisUtterance(textToSpeak);
+            const esVoices = voices.filter(v => v.lang.startsWith('es'));
+            const maleNames = ['pablo', 'raul', 'david', 'jacobo', 'jose', 'claudio'];
+            const femaleNames = ['helena', 'laura', 'sabina', 'lucia', 'monica', 'elsa'];
+
+            let voice = null;
+            if (selectedGender === 'male') {
+                voice = esVoices.find(v => maleNames.some(name => v.name.toLowerCase().includes(name)) && !femaleNames.some(f => v.name.toLowerCase().includes(f)));
+                if (!voice && esVoices.length > 1) voice = esVoices.find(v => !v.name.toLowerCase().includes('helena'));
+            } else {
+                voice = esVoices.find(v => femaleNames.some(name => v.name.toLowerCase().includes(name)));
+            }
+            if (!voice) voice = esVoices[0];
+
+            if (voice) utterance.voice = voice;
+            utterance.lang = 'es-ES';
+            utterance.volume = 0.95;
+
+            if (selectedGender === 'male') {
+                if (selectedStyle === 'calm') {
+                    utterance.pitch = 0.75; utterance.rate = 0.85;
+                } else {
+                    utterance.pitch = 0.45; utterance.rate = 0.75;
+                }
+            } else {
+                if (selectedStyle === 'calm') {
+                    utterance.pitch = 1.05; utterance.rate = 0.9;
+                } else {
+                    utterance.pitch = 0.85; utterance.rate = 0.8;
+                }
+            }
+
+            document.getElementById('stop-voice-btn').style.display = 'block';
+            document.getElementById('stop-voice-btn').textContent = 'DETENER';
+            currentUtterance = utterance;
+            window.speechSynthesis.speak(utterance);
+
+            utterance.onend = () => {
+                document.getElementById('stop-voice-btn').style.display = 'none';
+                currentUtterance = null;
+            };
+        }
+
+        window.stopNarration = () => {
+            window.speechSynthesis.cancel();
+            if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+            document.getElementById('stop-voice-btn').style.display = 'none';
+            currentUtterance = null;
+        }
+
+        async function buyEpisode(id, price) {
+            if (!selected_card_id) { showCardSelector(true); return; }
+            if (userBalance < price) { alert("Balance insuficiente"); return; }
+            const card = userCards.find(c => c.id == selected_card_id);
+            try {
+                const res = await fetch(`${API_URL}/ocean-pay/cards/change-balance`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${oceanPayToken}` },
+                    body: JSON.stringify({
+                        cardNumber: card.card_number,
+                        currencyType: 'wildgems',
+                        amount: -price,
+                        concepto: `WildShorts: ${id}`
+                    })
+                });
+                if (res.ok) {
+                    purchasedEpisodes[id] = true;
+                    localStorage.setItem('ws_purchased_episodes', JSON.stringify(purchasedEpisodes));
+                    await checkAuthAndCards();
+                    alert("¡Episodio desbloqueado!");
+                    checkAuthAndCards(); // Refresh VIP status
+                    closeModal();
+                } else {
+                    const data = await res.json();
+                    if (data.error?.includes('token') || data.error?.includes('jwt')) {
+                        localStorage.removeItem('opToken');
+                        oceanPayToken = null;
+                        alert("Sesión expirada o inválida. Por favor, inicia sesión de nuevo.");
+                        showLoginForm();
+                    } else {
+                        alert(data.error || "Error al procesar el pago");
+                    }
+                }
+            } catch (err) { alert("Error de conexión"); }
+        }
+
+        window.showSubscriptionUI = () => {
+            let html = `
+                <div style="text-align:center; padding:1rem;">
+                    <div style="font-size:4rem; margin-bottom:1.5rem;">👑</div>
+                    <h2 class="story-title">Premium VIP</h2>
+                    <p style="color:var(--text-secondary); margin-bottom:2rem;">Acceso ilimitado a todos los episodios premium, insignias exclusivas y soporte prioritario.</p>
+                    
+                    <div style="background:var(--surface); padding:2rem; border-radius:32px; border:1px solid var(--accent); margin-bottom:2rem; text-align:left;">
+                        <h3 style="color:#fff; margin-bottom:1rem;">Beneficios VIP:</h3>
+                        <ul style="color:var(--text-secondary); list-style:none; padding:0; display:grid; gap:12px;">
+                            <li><i class="fa-solid fa-percent" style="color:var(--accent); width:20px;"></i> 40% de descuento en la compra de episodios</li>
+                            <li><i class="fa-solid fa-microphone-lines" style="color:var(--accent); width:20px;"></i> Resúmenes narrados profesionales</li>
+                            <li><i class="fa-solid fa-bolt" style="color:var(--accent); width:20px;"></i> Acceso prioritario a nuevos lanzamientos</li>
+                            <li><i class="fa-solid fa-crown" style="color:var(--accent); width:20px;"></i> Insignia exclusiva y perfil destacado</li>
+                            <li><i class="fa-solid fa-gem" style="color:var(--accent); width:20px;"></i> Multiplicador de recompensas diarias</li>
+                        </ul>
+                    </div>
+
+                    <div style="background:var(--bg); padding:1.5rem; border-radius:24px; border:1px solid var(--border); margin-bottom:2rem;">
+                        <span style="font-size:0.8rem; color:var(--text-secondary); text-transform:uppercase;">Precio de Suscripción</span>
+                        <div style="font-size:2rem; font-weight:900; color:#fff;">500 <span style="font-size:1rem; color:var(--accent);">WildGems</span></div>
+                        <span style="font-size:0.8rem; color:var(--text-secondary);">Válido por 7 días</span>
+                    </div>
+
+                    <button id="ws-btn-subscribe" class="btn btn-primary" style="width:100%; padding:1.2rem;" onclick="subscribePremium()">
+                        ${premiumPlan === 'Premium VIP' ? 'RENOVAR SUSCRIPCIÓN' : 'SUSCRIBIRSE AHORA'}
+                    </button>
+                </div>
+            `;
+            showModal(html);
+        };
+
+        async function subscribePremium() {
+            if (!selected_card_id) { showCardSelector(true); return; }
+            const btn = document.getElementById('ws-btn-subscribe');
+            const originalText = btn.textContent;
+            btn.textContent = 'Procesando...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch(`${API_URL}/ocean-pay/subscriptions/subscribe`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${oceanPayToken}` },
+                    body: JSON.stringify({
+                        cardId: selected_card_id,
+                        plan: 'Premium VIP',
+                        durationDays: 7,
+                        price: 500
+                    })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    alert('¡Suscripción exitosa!');
+                    await checkAuthAndCards();
+                    closeModal();
+                } else {
+                    if (data.error?.includes('token') || data.error?.includes('jwt')) {
+                        localStorage.removeItem('opToken');
+                        oceanPayToken = null;
+                        alert("Sesión expirada o inválida. Por favor, inicia sesión de nuevo.");
+                        showLoginForm();
+                    } else {
+                        alert('Error: ' + data.error);
+                    }
+                }
+            } catch (err) {
+                alert('Error de conexión');
+            } finally {
+                btn.textContent = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        function updateUI() {
+            document.getElementById('ws-balance').textContent = userBalance;
+            const c = userCards.find(x => x.id == selected_card_id);
+            document.getElementById('ws-card-name-label').textContent = c ? c.card_name : "Seleccionar Tarjeta";
+        }
+
+        // --- Event Listeners and Init ---
+        document.getElementById('ws-store-btn').onclick = () => { renderBooks(); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+        document.getElementById('ws-gems-btn').onclick = () => {
+            showModal(`
+                <div style="text-align:center; padding:2rem;">
+                    <i class="fa-solid fa-gem" style="font-size:3rem; color: #fbbf24; margin-bottom:2rem;"></i>
+                    <h2 class="story-title">Recargar WildGems</h2>
+                    <p style="color:var(--text-secondary); margin-bottom:2.5rem;">Las WildGems te permiten desbloquear nuevas dimensiones de historias.</p>
+                    <button class="btn btn-primary" onclick="showSwapUI()">Ir al Intercambio</button>
+                </div>
+             `);
+        };
+
+        window.showSwapUI = () => {
+            let html = `
+                <div style="text-align:center;">
+                    <h2 class="story-title">Intercambio</h2>
+                    <div style="background:var(--surface); padding:2rem; border-radius:32px; border:1px solid var(--border); text-align:left;">
+                        <label style="color:var(--accent); font-weight:700; display:block; margin-bottom:1rem;">Desde Ocean Pay:</label>
+                        <select id="swap-source-currency" class="btn" style="width:100%; background:var(--bg); color:#fff; border:1px solid var(--border); margin-bottom:2rem;">
+                            <option value="aquabux">AquaBux (1 = 10💎)</option>
+                            <option value="ecoxionums">Ecoxionums (1 = 50💎)</option>
+                        </select>
+                        <input type="number" id="swap-amount" class="btn" placeholder="Monto" style="width:100%; background:var(--bg); color:#fff; border:1px solid var(--border); margin-bottom:2rem;" value="10">
+                    </div>
+                    <button class="btn btn-primary" style="margin-top:2rem; width:100%;" onclick="createSwapRequest()">Confirmar</button>
+                </div>
+            `;
+            showModal(html);
+        };
+        async function createSwapRequest() {
+            if (!selected_card_id) { showCardSelector(true); return; }
+            const cur = document.getElementById('swap-source-currency').value;
+            const amt = parseFloat(document.getElementById('swap-amount').value) || 0;
+            if (amt <= 0) return alert("Ingresa un monto válido");
+
+            try {
+                const res = await fetch(`${API_URL}/pos/create`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${oceanPayToken}` },
+                    body: JSON.stringify({
+                        userId: oceanPayUser.id,
+                        cardId: selected_card_id,
+                        amount: amt,
+                        currency: cur,
+                        targetCurrency: 'wildgems',
+                        isExchange: true
+                    })
+                });
+                if (res.ok) {
+                    showModal(`
+                        <div style="text-align:center; padding:2rem;">
+                            <i class="fa-solid fa-check-circle" style="font-size:4rem; color:var(--accent); margin-bottom:2rem;"></i>
+                            <h2 class="story-title">Solicitud Enviada</h2>
+                            <p style="color:var(--text-secondary); margin-bottom:2rem;">Abre Ocean Pay para confirmar el intercambio.</p>
+                            <button class="btn btn-primary" onclick="closeModal()">Entendido</button>
+                        </div>
+                    `);
+                } else {
+                    const data = await res.json();
+                    if (data.error?.includes('token') || data.error?.includes('jwt')) {
+                        localStorage.removeItem('opToken');
+                        oceanPayToken = null;
+                        alert("Sesión expirada o inválida. Por favor, inicia sesión de nuevo.");
+                        showLoginForm();
+                    } else {
+                        alert(data.error || "Error al generar solicitud");
+                    }
+                }
+            } catch (e) { alert("Error de conexión"); }
+        }
+
+        document.getElementById('ws-swap-btn').onclick = showSwapUI;
+        document.getElementById('ws-premium-btn').onclick = () => showSubscriptionUI();
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            WILDGEMS_ICON_URL = generateWildGemsIcon();
+            document.querySelectorAll('.wildgems-static-icon').forEach(img => img.src = WILDGEMS_ICON_URL);
+            renderBooks();
+            renderHero();
+            await checkAuthAndCards();
+
+            gsap.from(".header", { duration: 1.2, y: -100, opacity: 0, ease: "expo.out" });
+            gsap.from(".dock", { duration: 1.2, y: 100, opacity: 0, ease: "expo.out", delay: 0.5 });
+            gsap.from(".card", { duration: 0.8, scale: 0.9, opacity: 0, stagger: 0.1, ease: "power2.out", delay: 0.8 });
+        });
+    </script>
+</body>
+
+</html>

@@ -17586,13 +17586,16 @@ async function ensureOceanPayTables() {
     );
   `).catch(e => console.log('⚠️ Error base:', e.message));
 
-  // Migraciones rápidas para asegurar columnas nuevas
+  // Migraciones rápidas para asegurar columnas nuevas y flexibilizar antiguas
   await pool.query(`
     ALTER TABLE ocean_pay_subscriptions ADD COLUMN IF NOT EXISTS plan_name VARCHAR(50);
     ALTER TABLE ocean_pay_subscriptions ADD COLUMN IF NOT EXISTS end_date TIMESTAMP;
     ALTER TABLE ocean_pay_subscriptions ALTER COLUMN card_id DROP NOT NULL;
     ALTER TABLE ocean_pay_subscriptions ALTER COLUMN project_id DROP NOT NULL;
-  `).catch(() => { });
+    ALTER TABLE ocean_pay_subscriptions ALTER COLUMN sub_name DROP NOT NULL;
+    ALTER TABLE ocean_pay_subscriptions ALTER COLUMN next_payment DROP NOT NULL;
+    ALTER TABLE ocean_pay_subscriptions ALTER COLUMN next_payment SET DEFAULT NOW();
+  `).catch((e) => console.log('⚠️ Error migración:', e.message));
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS ocean_pay_notifications (

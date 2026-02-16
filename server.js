@@ -3363,32 +3363,7 @@ app.post('/deepdive/ai/script-to-slides', async (req, res) => {
   }
 });
 
-/* --- Premium ElevenLabs TTS --- */
-app.post("/ocean-pay/tts-premium-narration", async (req, res) => {
-  const { text, voiceId = "5egO01tkUjEzu7xSSE8M" } = req.body;
-  const API_KEY = process.env.ELEVENLABS_API_KEY;
-  if (!API_KEY) return res.status(503).json({ error: "ElevenLabs API Key not configured in server." });
-  try {
-    const f = globalThis.fetch || (await import("node-fetch")).default;
-    const r = await f(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "xi-api-key": API_KEY },
-      body: JSON.stringify({
-        text,
-        model_id: "eleven_multilingual_v2",
-        voice_settings: { stability: 0.5, similarity_boost: 0.5 }
-      })
-    });
-    if (!r.ok) {
-      const err = await r.json();
-      return res.status(r.status).json(err);
-    }
-    res.set("Content-Type", "audio/mpeg");
-    r.body.pipe(res);
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
+/* --- ElevenLabs TTS Removed due to quota --- */
 
 // Text-to-Speech (streams audio back)
 app.post('/deepdive/ai/tts', async (req, res) => {
@@ -10315,21 +10290,40 @@ app.post('/ocean-pay/cards/change-balance', async (req, res) => {
 
     const cardId = cardRows[0].id;
 
-    // Obtener saldo actual
-    const { rows: balanceRows } = await client.query(
-      'SELECT amount FROM ocean_pay_card_balances WHERE card_id = $1 AND currency_type = $2',
+    // Proceso de cambio de saldo unificado (JSONB + SQL)
+
+    // Obtener saldos de ambos lugares para unificar (Fuente de verdad robusta)
+    const { rows: tableBalanceRows } = await client.query(
+      'SELECT amount FROM ocean_pay_card_balances WHERE card_id = $1 AND currency_type = $2 FOR UPDATE',
       [cardId, currencyType]
     );
 
-    const currentBalance = balanceRows[0]?.amount || 0;
-    const newBalance = parseFloat(currentBalance) + parseFloat(amount);
+    const { rows: jsonBalanceRows } = await client.query(
+      'SELECT balances FROM ocean_pay_cards WHERE id = $1',
+      [cardId]
+    );
+
+    const tableAmount = parseFloat(tableBalanceRows[0]?.amount || 0);
+    const jsonBalances = jsonBalanceRows[0]?.balances || {};
+    const jsonAmount = parseFloat(jsonBalances[currencyType] || 0);
+
+    // El saldo actual es el mayor (para soportar migraciones o desincronización)
+    const currentBalance = Math.max(tableAmount, jsonAmount);
+    const newBalance = currentBalance + parseFloat(amount);
 
     if (newBalance < 0) {
       await client.query('ROLLBACK');
       return res.status(400).json({ error: 'Saldo insuficiente' });
     }
 
-    // Actualizar o insertar saldo
+    // Actualizar JSONB
+    jsonBalances[currencyType] = newBalance;
+    await client.query(
+      'UPDATE ocean_pay_cards SET balances = $1 WHERE id = $2',
+      [jsonBalances, cardId]
+    );
+
+    // Actualizar Tabla SQL
     await client.query(
       `INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount) 
        VALUES ($1, $2, $3)

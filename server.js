@@ -17574,17 +17574,24 @@ async function ensureOceanPayTables() {
     CREATE TABLE IF NOT EXISTS ocean_pay_subscriptions (
       id SERIAL PRIMARY KEY,
       user_id INTEGER NOT NULL REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
-      card_id INTEGER NOT NULL REFERENCES ocean_pay_cards(id) ON DELETE CASCADE,
-      project_id VARCHAR(50) NOT NULL,
-      sub_name VARCHAR(50) NOT NULL,
+      card_id INTEGER REFERENCES ocean_pay_cards(id) ON DELETE CASCADE,
+      project_id VARCHAR(50),
+      plan_name VARCHAR(50),
       price DECIMAL(20, 2) NOT NULL,
-      currency VARCHAR(50) NOT NULL,
-      interval_days INTEGER DEFAULT 7,
+      currency VARCHAR(50) DEFAULT 'wildgems',
       status VARCHAR(20) DEFAULT 'active',
-      last_payment TIMESTAMP DEFAULT NOW(),
-      next_payment TIMESTAMP NOT NULL,
+      start_date TIMESTAMP DEFAULT NOW(),
+      end_date TIMESTAMP,
       created_at TIMESTAMP DEFAULT NOW()
     );
+
+    // Migraciones rápidas para asegurar columnas nuevas
+    await pool.query(`
+      ALTER TABLE ocean_pay_subscriptions ADD COLUMN IF NOT EXISTS plan_name VARCHAR(50);
+      ALTER TABLE ocean_pay_subscriptions ADD COLUMN IF NOT EXISTS end_date TIMESTAMP;
+      ALTER TABLE ocean_pay_subscriptions ALTER COLUMN card_id DROP NOT NULL;
+      ALTER TABLE ocean_pay_subscriptions ALTER COLUMN project_id DROP NOT NULL;
+  `).catch(() => {});
 
     CREATE TABLE IF NOT EXISTS ocean_pay_notifications (
         id SERIAL PRIMARY KEY,
@@ -17595,7 +17602,7 @@ async function ensureOceanPayTables() {
         is_read BOOLEAN DEFAULT false,
         created_at TIMESTAMP DEFAULT NOW()
     );
-  `).catch(e => console.log('⚠️ Tablas de Ocean Pay ya existen o error:', e.message));
+  `).catch (e => console.log('⚠️ Tablas de Ocean Pay ya existen o error:', e.message));
 }
 await ensureOceanPayTables();
 
@@ -18374,8 +18381,8 @@ app.post('/ocean-pay/subscriptions/subscribe', async (req, res) => {
     endDate.setDate(endDate.getDate() + durationDays);
 
     const { rows: subRows } = await client.query(
-      'INSERT INTO ocean_pay_subscriptions(user_id, plan_name, price, end_date) VALUES($1, $2, $3, $4) RETURNING *',
-      [userId, plan, price, endDate]
+      'INSERT INTO ocean_pay_subscriptions(user_id, plan_name, price, end_date, currency, card_id) VALUES($1, $2, $3, $4, $5, $6) RETURNING *',
+      [userId, plan, price, endDate, 'wildgems', cardId]
     );
 
     // 4. Crear notificación de éxito

@@ -17611,22 +17611,6 @@ async function ensureOceanPayTables() {
 }
 await ensureOceanPayTables();
 
-// TEMP DEBUG: Ver esquema de tabla suscripciones
-app.get('/debug/subs-schema', async (req, res) => {
-  try {
-    const { rows: cols } = await pool.query(`
-      SELECT column_name, data_type, is_nullable, column_default 
-      FROM information_schema.columns 
-      WHERE table_name = 'ocean_pay_subscriptions' 
-      ORDER BY ordinal_position
-    `);
-    const { rows: sample } = await pool.query('SELECT * FROM ocean_pay_subscriptions LIMIT 3');
-    res.json({ columns: cols, sample_data: sample, count: sample.length });
-  } catch (e) {
-    res.json({ error: e.message, stack: e.stack });
-  }
-});
-
 // Subscriptions Endpoints
 app.get('/ocean-pay/subscriptions/me', async (req, res) => {
   try {

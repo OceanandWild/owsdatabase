@@ -136,12 +136,12 @@ app.post('/ocean-pay/register', async (req, res) => {
       const opUser = newUser.rows[0];
 
       const secret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
-      const token = jwt.sign({ id: opUser.id, username: opUser.username }, secret, { expiresIn: '7d' });
+      const token = jwt.sign({ id: opUser.id, uid: opUser.id, username: opUser.username }, secret, { expiresIn: '7d' });
 
       res.json({
         success: true,
         token,
-        user: { id: opUser.id, username: opUser.username },
+        user: { id: opUser.id, uid: opUser.id, username: opUser.username },
         ecoxionums: opUser.ecoxionums || 0
       });
     } catch (dbErr) {
@@ -224,7 +224,7 @@ app.post('/ocean-pay/login', async (req, res) => {
     if (match) {
       // Success
       const secret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
-      const token = jwt.sign({ id: opUser.id, username: opUser.username }, secret, { expiresIn: '7d' });
+      const token = jwt.sign({ id: opUser.id, uid: opUser.id, username: opUser.username }, secret, { expiresIn: '7d' });
 
       // 1. Asegurar que el usuario tenga al menos una tarjeta principal
       const { rows: existingCards } = await pool.query('SELECT id FROM ocean_pay_cards WHERE user_id = $1', [opUser.id]);
@@ -1118,7 +1118,7 @@ app.post('/ocean-pay/wildcredits/sync', async (req, res) => {
   let userId;
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    userId = decoded.uid;
+    userId = (decoded.id || decoded.uid);
     // Asegurar que userId sea un entero (el id de ocean_pay_users es INTEGER)
     userId = parseInt(userId) || userId;
   } catch (e) {
@@ -1213,7 +1213,7 @@ app.get('/ocean-pay/wildcredits/balance', async (req, res) => {
   let userId;
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    userId = decoded.uid;
+    userId = (decoded.id || decoded.uid);
     // Asegurar que userId sea un entero (el id de ocean_pay_users es INTEGER)
     userId = parseInt(userId) || userId;
   } catch (e) {
@@ -1251,7 +1251,7 @@ app.get('/wildshorts/wildgems/balance', async (req, res) => {
   let userId;
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    userId = decoded.uid;
+    userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
@@ -1286,7 +1286,7 @@ app.post('/wildshorts/wildgems/sync', async (req, res) => {
   let userId;
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    userId = decoded.uid;
+    userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
@@ -1334,7 +1334,7 @@ app.post('/wildshorts/wildgems/change', async (req, res) => {
   let userId;
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    userId = decoded.uid;
+    userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
@@ -1408,7 +1408,7 @@ app.get('/dinobox/amber/balance', async (req, res) => {
   let userId;
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    userId = decoded.uid || decoded.id;
+    userId = (decoded.id || decoded.uid) || decoded.id;
     userId = parseInt(userId) || userId;
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
@@ -1443,7 +1443,7 @@ app.post('/dinobox/amber/sync', async (req, res) => {
   let userId;
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    userId = decoded.uid || decoded.id;
+    userId = (decoded.id || decoded.uid) || decoded.id;
     userId = parseInt(userId) || userId;
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
@@ -1482,7 +1482,7 @@ app.get('/wild-savage/ecotokens/balance', async (req, res) => {
   let userId;
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    userId = decoded.uid;
+    userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
@@ -1517,7 +1517,7 @@ app.post('/wild-savage/ecotokens/sync', async (req, res) => {
   let userId;
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    userId = decoded.uid;
+    userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
@@ -1565,7 +1565,7 @@ app.post('/wild-savage/ecotokens/change', async (req, res) => {
   let userId;
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    userId = decoded.uid;
+    userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
@@ -1638,7 +1638,7 @@ app.post('/wildshorts/subscribe', async (req, res) => {
   let userId;
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    userId = decoded.uid;
+    userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
@@ -1767,7 +1767,7 @@ app.get('/wildshorts/subscription/:userId', async (req, res) => {
   let userId;
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    userId = decoded.uid;
+    userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
@@ -1804,7 +1804,7 @@ app.post('/wildshorts/wildgems/claim', async (req, res) => {
   let userId;
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    userId = decoded.uid;
+    userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
@@ -2021,7 +2021,7 @@ app.get('/wildshorts/wildgems/claims-status', async (req, res) => {
   let userId;
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    userId = decoded.uid;
+    userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
@@ -2087,7 +2087,7 @@ app.get('/ocean-pay/ecoxionums/balance', async (req, res) => {
   let userId;
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    userId = decoded.id || decoded.uid || decoded.sub;
+    userId = decoded.id || (decoded.id || decoded.uid) || decoded.sub;
     userId = parseInt(userId) || userId;
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
@@ -2127,7 +2127,7 @@ app.post('/ocean-pay/ecoxionums/change', async (req, res) => {
   let userId;
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    userId = decoded.id || decoded.uid || decoded.sub; // Más robusto
+    userId = decoded.id || (decoded.id || decoded.uid) || decoded.sub; // Más robusto
   } catch (e) {
     // Fallback: check body for manual override (NOT SECURE FOR PROD - DEV ONLY)
     if (req.body.userId) userId = req.body.userId;
@@ -2208,7 +2208,7 @@ app.post('/ocean-pay/transfer', async (req, res) => {
   let senderId;
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    senderId = parseInt(decoded.uid) || decoded.uid;
+    senderId = parseInt((decoded.id || decoded.uid)) || (decoded.id || decoded.uid);
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
   }
@@ -2418,7 +2418,7 @@ app.post('/savage-space-animals/dust/sync', async (req, res) => {
   let userId;
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    userId = decoded.uid;
+    userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
@@ -2475,7 +2475,7 @@ app.get('/savage-space-animals/player-data', async (req, res) => {
   let userId;
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    userId = decoded.uid;
+    userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
@@ -2523,7 +2523,7 @@ app.get('/savage-space-animals/verify-subscription', async (req, res) => {
   let userId;
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    userId = decoded.uid;
+    userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
@@ -2788,7 +2788,7 @@ app.get('/savage-space-animals/benefits', async (req, res) => {
   let userId;
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    userId = decoded.uid;
+    userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
     return res.json({ plan: 'free', benefits: null });
@@ -2857,7 +2857,7 @@ app.post('/wildshorts/episode/pay', async (req, res) => {
   let userId;
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    userId = decoded.uid;
+    userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
@@ -4904,7 +4904,7 @@ app.post('/ocean-cinemas/prereserva', async (req, res) => {
   let userId;
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    userId = decoded.uid;
+    userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
@@ -4998,7 +4998,7 @@ app.get('/ocean-cinemas/prereservas/:userId', async (req, res) => {
   let tokenUserId;
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    tokenUserId = decoded.uid;
+    tokenUserId = (decoded.id || decoded.uid);
     tokenUserId = parseInt(tokenUserId) || tokenUserId;
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
@@ -9452,7 +9452,7 @@ app.get('/np/auth/me', async (req, res) => {
   if (!hdr) return res.status(401).json({ error: 'Sin token' });
   try {
     const payload = jwt.verify(hdr.split(' ')[1], process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    const { rows } = await pool.query('SELECT id, username FROM np_users WHERE id=$1', [payload.uid]);
+    const { rows } = await pool.query('SELECT id, username FROM np_users WHERE id=$1', [(payload.id || payload.uid)]);
     if (!rows.length) return res.status(404).json({ error: 'Usuario no existe' });
     res.json(rows[0]);
   } catch {
@@ -9911,7 +9911,7 @@ app.get('/naturepedia/ecobooks/balance', async (req, res) => {
   let userId;
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    userId = decoded.uid;
+    userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
@@ -9954,7 +9954,7 @@ app.post('/naturepedia/ecobooks/sync', async (req, res) => {
   let userId;
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    userId = decoded.uid;
+    userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
@@ -10002,7 +10002,7 @@ app.post('/naturepedia/ecobooks/change', async (req, res) => {
   let userId;
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    userId = decoded.uid;
+    userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
@@ -10175,7 +10175,7 @@ app.post('/ocean-pay/cards/create', async (req, res) => {
   try {
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    const userId = decoded.uid;
+    const userId = decoded.id || (decoded.id || decoded.uid);
 
     const { rows: countRows } = await client.query('SELECT COUNT(*) FROM ocean_pay_cards WHERE user_id = $1', [userId]);
     if (parseInt(countRows[0].count) >= 2) {
@@ -10271,7 +10271,7 @@ app.post('/ocean-pay/cards/change-balance', async (req, res) => {
   try {
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    const userId = decoded.uid;
+    const userId = decoded.id || (decoded.id || decoded.uid);
 
     await client.query('BEGIN');
 
@@ -10344,7 +10344,7 @@ app.get('/ocean-cinemas/rewards-status', async (req, res) => {
   try {
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    const userId = decoded.uid;
+    const userId = decoded.id || (decoded.id || decoded.uid);
 
     // Crear tabla si no existe (asegurar existencia antes de consultar)
     await pool.query(`
@@ -10445,7 +10445,7 @@ app.post('/ocean-cinemas/claim-welcome', async (req, res) => {
   try {
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    const userId = decoded.uid;
+    const userId = decoded.id || (decoded.id || decoded.uid);
 
     await client.query('BEGIN');
 
@@ -10530,7 +10530,7 @@ app.post('/ocean-cinemas/claim-daily', async (req, res) => {
   try {
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    const userId = decoded.uid;
+    const userId = decoded.id || (decoded.id || decoded.uid);
 
     await client.query('BEGIN');
 
@@ -10616,7 +10616,7 @@ app.get('/ocean-pay/cards/:cardNumber/balance', async (req, res) => {
   try {
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    const userId = decoded.uid;
+    const userId = decoded.id || (decoded.id || decoded.uid);
 
     // Verificar que la tarjeta pertenece al usuario
     const { rows: cardRows } = await pool.query(
@@ -10717,7 +10717,7 @@ app.post('/ocean-pay/update-balance', async (req, res) => {
     // 1. Actualizar balance global
     await pool.query(
       'UPDATE ocean_pay_users SET aquabux = $1 WHERE id = $2',
-      [aquabux, payload.uid]
+      [aquabux, (payload.id || payload.uid)]
     );
 
     // 2. Sincronizar con la tarjeta primaria si existe
@@ -10725,7 +10725,7 @@ app.post('/ocean-pay/update-balance', async (req, res) => {
       UPDATE ocean_pay_card_balances SET amount = $1
       WHERE card_id = (SELECT id FROM ocean_pay_cards WHERE user_id = $2 AND is_primary = true)
       AND currency_type = 'aquabux'
-    `, [aquabux, payload.uid]);
+    `, [aquabux, (payload.id || payload.uid)]);
 
     res.json({ success: true, newBalance: aquabux });
   } catch (e) {
@@ -10825,7 +10825,7 @@ app.get('/ocean-pay/me', async (req, res) => {
   if (!auth) return res.status(401).json({ error: 'Sin token' });
   try {
     const payload = jwt.verify(auth.split(' ')[1], process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    const userId = payload.id || payload.uid;
+    const userId = payload.id || (payload.id || payload.uid);
     const { rows } = await pool.query(
       'SELECT id, username, aquabux FROM ocean_pay_users WHERE id=$1',
       [userId]
@@ -11294,7 +11294,7 @@ app.delete('/ocean-pay/delete-account', async (req, res) => {
       const payload = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
 
       // Verificar que el token corresponda al usuario
-      if (payload.uid !== userId) {
+      if ((payload.id || payload.uid) !== userId) {
         return res.status(403).json({ error: 'No autorizado' });
       }
     } catch (e) {
@@ -11537,7 +11537,7 @@ app.post('/oceanic-ethernet/link-user', async (req, res) => {
   let userId;
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    userId = decoded.uid;
+    userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
@@ -11575,7 +11575,7 @@ app.get('/oceanic-ethernet/balance/:userId', async (req, res) => {
   let oeUserId; // Renombramos a oeUserId para mayor claridad
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    oeUserId = decoded.uid;
+    oeUserId = (decoded.id || decoded.uid);
     oeUserId = parseInt(oeUserId) || oeUserId;
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
@@ -11652,7 +11652,7 @@ app.get('/oceanic-ethernet/ocean-pay-balances', async (req, res) => {
   let opUserId;
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    opUserId = decoded.uid;
+    opUserId = (decoded.id || decoded.uid);
     opUserId = parseInt(opUserId) || opUserId;
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
@@ -11737,7 +11737,7 @@ app.post('/oceanic-ethernet/recharge', async (req, res) => {
   let userId;
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    userId = decoded.uid;
+    userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
@@ -11755,7 +11755,7 @@ app.post('/oceanic-ethernet/recharge', async (req, res) => {
   if (opToken && opToken.trim() !== '') {
     try {
       const decoded = jwt.verify(opToken, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-      opUserId = decoded.uid;
+      opUserId = (decoded.id || decoded.uid);
       opUserId = parseInt(opUserId) || opUserId;
       console.log('✅ Token de Ocean Pay válido, opUserId:', opUserId);
     } catch (e) {
@@ -12108,7 +12108,7 @@ app.post('/oceanic-ethernet/consume', async (req, res) => {
   let userId;
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    userId = decoded.uid;
+    userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
@@ -12191,7 +12191,7 @@ app.get('/oceanic-ethernet/transactions/:userId', async (req, res) => {
   let userId;
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    userId = decoded.uid;
+    userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
@@ -12232,7 +12232,7 @@ app.get('/oceanic-ethernet/recent/:userId', async (req, res) => {
   let userId;
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    userId = decoded.uid;
+    userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
@@ -12587,7 +12587,7 @@ app.post('/api/extend-limit', async (req, res) => {
     // Verify token and get user
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
     // Asegurar que userId sea un número (el id de ocean_pay_users es INTEGER)
-    const rawId = decoded.uid || decoded.userId || decoded.id || decoded.user?.id;
+    const rawId = (decoded.id || decoded.uid) || decoded.userId || decoded.id || decoded.user?.id;
     const userId = parseInt(rawId);
 
     if (!userId || isNaN(userId)) {
@@ -13563,7 +13563,7 @@ app.post('/ecocore/credits/:userId', async (req, res) => {
 });
 
 app.post('/api/ecocore/bypass-key-system', authenticateToken, async (req, res) => {
-  const userId = req.user.uid; // CORRECCIÓN: El token guarda el ID como 'uid'
+  const userId = (req.user.id || req.user.uid); // CORRECCIÓN: El token guarda el ID como 'uid'
   const BYPASS_COST = 5000; // Costo para el bypass
 
   const client = await pool.connect();
@@ -15393,7 +15393,7 @@ app.post('/wildx/api/verify/blue/subscribe', async (req, res) => {
     let opUserId;
     try {
       const decoded = jwt.verify(oceanPayToken, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-      opUserId = parseInt(decoded.uid) || decoded.uid;
+      opUserId = parseInt((decoded.id || decoded.uid)) || (decoded.id || decoded.uid);
     } catch (e) {
       return res.status(401).json({ error: 'Token de Ocean Pay inválido' });
     }
@@ -15814,7 +15814,7 @@ app.post('/wildx/api/posts/:id/donate', async (req, res) => {
     let opUserId;
     try {
       const decoded = jwt.verify(oceanPayToken, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-      opUserId = parseInt(decoded.uid) || decoded.uid;
+      opUserId = parseInt((decoded.id || decoded.uid)) || (decoded.id || decoded.uid);
     } catch (e) {
       client.release();
       return res.status(401).json({ error: 'Token de Ocean Pay inválido' });
@@ -17151,7 +17151,7 @@ const verifyEcoConsoleToken = (req, res, next) => {
   try {
     const token = authHeader.substring(7);
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    req.userId = parseInt(decoded.uid) || decoded.uid;
+    req.userId = parseInt((decoded.id || decoded.uid)) || (decoded.id || decoded.uid);
     next();
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
@@ -17618,7 +17618,7 @@ app.get('/ocean-pay/subscriptions/me', async (req, res) => {
     if (!authHeader) return res.status(401).json({ error: 'Token requerido' });
     const token = authHeader.substring(7);
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    const userId = decoded.id || decoded.uid;
+    const userId = decoded.id || (decoded.id || decoded.uid);
 
     const { rows } = await pool.query('SELECT * FROM ocean_pay_subscriptions WHERE user_id = $1 ORDER BY created_at DESC', [userId]);
     const mapped = rows.map(s => ({
@@ -17640,7 +17640,7 @@ app.get('/ocean-pay/notifications', async (req, res) => {
     if (!authHeader) return res.status(401).json({ error: 'Token requerido' });
     const token = authHeader.substring(7);
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    const userId = decoded.id || decoded.uid;
+    const userId = decoded.id || (decoded.id || decoded.uid);
 
     const { rows } = await pool.query(
       'SELECT * FROM ocean_pay_notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50',
@@ -17673,7 +17673,7 @@ app.post('/ocean-pay/sync-ecoxionums', async (req, res) => {
     if (!authHeader) return res.status(401).json({ error: 'Token requerido' });
     const token = authHeader.substring(7);
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    const userId = decoded.id || decoded.uid;
+    const userId = decoded.id || (decoded.id || decoded.uid);
     const { amount } = req.body;
 
     if (!amount || amount <= 0) return res.json({ success: true, message: 'No amount to sync' });
@@ -17732,7 +17732,7 @@ app.post('/ocean-pay/subscriptions/purchase', async (req, res) => {
     if (!authHeader) return res.status(401).json({ error: 'Token requerido' });
     const token = authHeader.substring(7);
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    const userId = decoded.uid || decoded.id;
+    const userId = (decoded.id || decoded.uid) || decoded.id;
 
     const { projectId, subName, price, currency, intervalDays, cardId } = req.body;
 
@@ -17909,7 +17909,7 @@ app.patch('/ocean-pay/api/cards/:id/rename', async (req, res) => {
   try {
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    userId = decoded.uid || decoded.id;
+    userId = (decoded.id || decoded.uid) || decoded.id;
   } catch (e) {
     return res.status(401).json({ error: 'Token inválido' });
   }
@@ -17949,8 +17949,8 @@ app.post('/ocean-pay/api/transfer-self', async (req, res) => {
   try {
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    if (decoded.uid) {
-      userId = parseInt(decoded.uid);
+    if ((decoded.id || decoded.uid)) {
+      userId = parseInt((decoded.id || decoded.uid));
     } else if (decoded.username || decoded.un) {
       const u = await pool.query('SELECT id FROM ocean_pay_users WHERE username=$1', [decoded.username || decoded.un]);
       if (u.rows.length) userId = u.rows[0].id;
@@ -18052,8 +18052,8 @@ app.delete(['/ocean-pay/api/cards/:id', '/ocean-pay/cards/:id'], async (req, res
   try {
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    if (decoded.uid) {
-      userId = parseInt(decoded.uid);
+    if ((decoded.id || decoded.uid)) {
+      userId = parseInt((decoded.id || decoded.uid));
     } else if (decoded.username || decoded.un) {
       const u = await pool.query('SELECT id FROM ocean_pay_users WHERE username=$1', [decoded.username || decoded.un]);
       if (u.rows.length) userId = u.rows[0].id;
@@ -18108,8 +18108,8 @@ app.get('/ocean-pay/api/stats/transactions', async (req, res) => {
   try {
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    if (decoded.uid) {
-      userId = parseInt(decoded.uid);
+    if ((decoded.id || decoded.uid)) {
+      userId = parseInt((decoded.id || decoded.uid));
     } else if (decoded.username || decoded.un) {
       const u = await pool.query('SELECT id FROM ocean_pay_users WHERE username=$1', [decoded.username || decoded.un]);
       if (u.rows.length) userId = u.rows[0].id;
@@ -18210,7 +18210,7 @@ app.get('/ocean-pay/user-info', async (req, res) => {
     if (!authHeader || !authHeader.startsWith('Bearer ')) return res.status(401).json({ error: 'Token requerido' });
     const token = authHeader.substring(7);
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    const userId = decoded.uid || decoded.id;
+    const userId = (decoded.id || decoded.uid) || decoded.id;
 
     const { rows } = await pool.query('SELECT id, username, email FROM ocean_pay_users WHERE id = $1', [userId]);
     if (rows.length === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
@@ -18235,7 +18235,7 @@ app.get('/ocean-pay/ecobooks/balance', async (req, res) => {
     if (!authHeader || !authHeader.startsWith('Bearer ')) return res.status(401).json({ error: 'Token requerido' });
     const token = authHeader.substring(7);
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    const userId = decoded.uid || decoded.id;
+    const userId = (decoded.id || decoded.uid) || decoded.id;
 
     const { cardId } = req.query;
 
@@ -18267,7 +18267,7 @@ app.post('/ocean-pay/ecobooks/change', async (req, res) => {
     if (!authHeader || !authHeader.startsWith('Bearer ')) return res.status(401).json({ error: 'Token requerido' });
     const token = authHeader.substring(7);
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    const userId = decoded.uid || decoded.id;
+    const userId = (decoded.id || decoded.uid) || decoded.id;
 
     const { amount, cardId, concept = 'Naturepedia', origin = 'Naturepedia' } = req.body;
     if (amount === undefined || !cardId) return res.status(400).json({ error: 'Monto y cardId requeridos' });
@@ -18333,7 +18333,7 @@ app.get('/ocean-pay/subscriptions/me', async (req, res) => {
   const token = authHeader.split(' ')[1];
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    const userId = decoded.id || decoded.uid;
+    const userId = decoded.id || (decoded.id || decoded.uid);
     const { rows } = await pool.query('SELECT * FROM ocean_pay_subscriptions WHERE user_id = $1 ORDER BY created_at DESC', [userId]);
     const mapped = rows.map(s => ({
       ...s,
@@ -18357,7 +18357,7 @@ app.post('/ocean-pay/subscriptions/subscribe', async (req, res) => {
   const client = await pool.connect();
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    const userId = decoded.id || decoded.uid;
+    const userId = decoded.id || (decoded.id || decoded.uid);
     await client.query('BEGIN');
 
     // 1. Verificar saldo unificado (JSONB + Tabla)
@@ -18425,7 +18425,7 @@ app.get('/ocean-pay/notifications/me', async (req, res) => {
   const token = authHeader.split(' ')[1];
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    const userId = decoded.id || decoded.uid;
+    const userId = decoded.id || (decoded.id || decoded.uid);
     const { rows } = await pool.query('SELECT * FROM ocean_pay_notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 20', [userId]);
     res.json(rows);
   } catch (e) {

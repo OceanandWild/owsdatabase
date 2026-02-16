@@ -18336,18 +18336,38 @@ app.post('/ocean-pay/subscriptions/subscribe', async (req, res) => {
     const userId = decoded.id || decoded.uid;
     await client.query('BEGIN');
 
-    // 1. Verificar saldo en la tarjeta
+    // 1. Verificar saldo unificado (JSONB + Tabla)
     const { rows: cardRows } = await client.query('SELECT balances FROM ocean_pay_cards WHERE id = $1 AND user_id = $2', [cardId, userId]);
     if (cardRows.length === 0) throw new Error('Tarjeta no encontrada');
 
+    // Obtener saldos de la tabla SQL
+    const { rows: balanceRows } = await client.query(
+      'SELECT amount FROM ocean_pay_card_balances WHERE card_id = $1 AND currency_type = $2 FOR UPDATE',
+      [cardId, 'wildgems']
+    );
+
     let balances = cardRows[0].balances || {};
-    let wildgems = parseFloat(balances.wildgems || 0);
+    let tableWildgems = parseFloat(balanceRows[0]?.amount || 0);
+    let jsonWildgems = parseFloat(balances.wildgems || 0);
 
-    if (wildgems < price) throw new Error('Saldo insuficiente de WildGems');
+    // El saldo real es el mayor o la unión (siguiendo lógica de /ocean-pay/me)
+    let currentWildgems = Math.max(tableWildgems, jsonWildgems);
 
-    // 2. Descontar saldo
-    balances.wildgems = wildgems - price;
+    if (currentWildgems < price) throw new Error('Saldo insuficiente de WildGems');
+
+    // 2. Descontar saldo y actualizar ambos lugares para consistencia
+    let newWildgems = currentWildgems - price;
+
+    // Actualizar JSONB
+    balances.wildgems = newWildgems;
     await client.query('UPDATE ocean_pay_cards SET balances = $1 WHERE id = $2', [balances, cardId]);
+
+    // Actualizar Tabla SQL
+    await client.query(`
+      INSERT INTO ocean_pay_card_balances(card_id, currency_type, amount)
+      VALUES($1, 'wildgems', $2)
+      ON CONFLICT(card_id, currency_type) DO UPDATE SET amount = $2
+    `, [cardId, newWildgems]);
 
     // 3. Crear suscripción (o extender si ya existe una activa del mismo tipo)
     const endDate = new Date();

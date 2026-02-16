@@ -813,6 +813,17 @@
       box-shadow: 0 0 15px rgba(239, 68, 68, 0.5);
     }
 
+    .sub-wildshorts-premium .sub-icon {
+      background: linear-gradient(135deg, #ffd700, #b8860b) !important;
+      color: black !important;
+      box-shadow: 0 0 15px rgba(255, 215, 0, 0.6);
+    }
+
+    .sub-wildshorts-premium {
+      border-color: #ffd700 !important;
+      background: linear-gradient(145deg, #2a2000, #0f111a) !important;
+    }
+
 
 
     /* Notifications Styles */
@@ -3392,14 +3403,14 @@
           .map(s => {
             const name = s.plan_name || s.sub_name || 'Plan';
             const expiry = s.end_date || s.next_payment;
-            const pid = s.project_id || (name.includes('Nature') ? 'Naturepedia' : (name.includes('Dino') ? 'DinoBox' : 'Desconocido'));
+            const pid = s.project_id || (name.includes('Nature') ? 'Naturepedia' : (name.includes('Dino') ? 'DinoBox' : (name.includes('VIP') ? 'WildShorts' : 'Desconocido')));
 
             let themeClass = '';
             let icon = 'fas fa-bolt';
             if (name === 'Nature-Pass') { themeClass = 'sub-nature-pass'; icon = 'fas fa-leaf'; }
             else if (name.includes('DinoPass Premium')) { themeClass = 'sub-dinopass-premium'; icon = 'fas fa-dragon'; }
             else if (name.includes('DinoPass Elite')) { themeClass = 'sub-dinopass-elite'; icon = 'fas fa-crown'; }
-            else if (name.includes('Premium VIP')) { themeClass = 'sub-dinopass-elite'; icon = 'fas fa-star'; }
+            else if (name.includes('Premium VIP')) { themeClass = 'sub-wildshorts-premium'; icon = 'fas fa-crown'; }
 
             const nextDate = expiry ? new Date(expiry).toLocaleDateString() : 'N/A';
 

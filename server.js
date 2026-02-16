@@ -17584,15 +17584,17 @@ async function ensureOceanPayTables() {
       end_date TIMESTAMP,
       created_at TIMESTAMP DEFAULT NOW()
     );
+  `).catch(e => console.log('⚠️ Error base:', e.message));
 
-    // Migraciones rápidas para asegurar columnas nuevas
-    await pool.query(`
-      ALTER TABLE ocean_pay_subscriptions ADD COLUMN IF NOT EXISTS plan_name VARCHAR(50);
-      ALTER TABLE ocean_pay_subscriptions ADD COLUMN IF NOT EXISTS end_date TIMESTAMP;
-      ALTER TABLE ocean_pay_subscriptions ALTER COLUMN card_id DROP NOT NULL;
-      ALTER TABLE ocean_pay_subscriptions ALTER COLUMN project_id DROP NOT NULL;
-  `).catch(() => {});
+  // Migraciones rápidas para asegurar columnas nuevas
+  await pool.query(`
+    ALTER TABLE ocean_pay_subscriptions ADD COLUMN IF NOT EXISTS plan_name VARCHAR(50);
+    ALTER TABLE ocean_pay_subscriptions ADD COLUMN IF NOT EXISTS end_date TIMESTAMP;
+    ALTER TABLE ocean_pay_subscriptions ALTER COLUMN card_id DROP NOT NULL;
+    ALTER TABLE ocean_pay_subscriptions ALTER COLUMN project_id DROP NOT NULL;
+  `).catch(() => { });
 
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS ocean_pay_notifications (
         id SERIAL PRIMARY KEY,
         user_id INTEGER NOT NULL REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
@@ -17602,7 +17604,7 @@ async function ensureOceanPayTables() {
         is_read BOOLEAN DEFAULT false,
         created_at TIMESTAMP DEFAULT NOW()
     );
-  `).catch (e => console.log('⚠️ Tablas de Ocean Pay ya existen o error:', e.message));
+  `).catch(e => console.log('⚠️ Error notificaciones:', e.message));
 }
 await ensureOceanPayTables();
 

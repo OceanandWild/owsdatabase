@@ -3365,7 +3365,7 @@ app.post('/deepdive/ai/script-to-slides', async (req, res) => {
 
 /* --- Premium ElevenLabs TTS --- */
 app.post("/ocean-pay/tts-premium-narration", async (req, res) => {
-  const { text, voiceId = "ErXw9S1S7zD4R600L1sS" } = req.body;
+  const { text, voiceId = "5egO01tkUjEzu7xSSE8M" } = req.body;
   const API_KEY = process.env.ELEVENLABS_API_KEY;
   if (!API_KEY) return res.status(503).json({ error: "ElevenLabs API Key not configured in server." });
   try {

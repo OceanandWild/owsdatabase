@@ -3111,6 +3111,7 @@
         const res = await fetch(`${API}/ocean-pay/subscriptions/me`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
+        if (!res.ok) throw new Error('Error HTTP: ' + res.status);
         const subs = await res.json();
 
         const noSubsHtml = `
@@ -3118,25 +3119,29 @@
               No tienes suscripciones activas vinculadas
             </div>`;
 
-        if (!subs || subs.length === 0) {
+        if (!Array.isArray(subs) || subs.length === 0) {
           if (containerWallet) containerWallet.innerHTML = noSubsHtml;
           return;
         }
 
         const subsHtml = subs.map(s => {
-          const isExpired = new Date(s.end_date) < new Date();
+          const name = s.plan_name || s.sub_name || 'Plan';
+          const expiry = s.end_date || s.next_payment;
+          const isExpired = expiry ? new Date(expiry) < new Date() : false;
+          const expiryText = expiry ? new Date(expiry).toLocaleDateString() : 'Sin fecha';
           return `
             <div class="currency-card" style="border-color: ${isExpired ? '#ef4444' : 'var(--accent)'};">
               <div class="currency-icon"><i class="fas fa-crown" style="color: ${isExpired ? '#64748b' : 'gold'};"></i></div>
-              <span class="label">${s.plan_name}</span>
+              <span class="label">${name}</span>
               <span class="amount" style="font-size: 1.2rem;">${isExpired ? 'Expirado' : 'Activo'}</span>
-              <div class="app-info">Vence: ${new Date(s.end_date).toLocaleDateString()}</div>
+              <div class="app-info">Vence: ${expiryText}</div>
             </div>
           `;
         }).join('');
 
         if (containerWallet) containerWallet.innerHTML = subsHtml;
       } catch (e) {
+        console.error('Error suscripciones:', e);
         const errorHtml = `<p style="color:var(--err); text-align:center; grid-column:1/-1;">Error al cargar suscripciones</p>`;
         if (containerWallet) containerWallet.innerHTML = errorHtml;
       }

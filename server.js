@@ -564,6 +564,19 @@ async function runDatabaseMigrations() {
       console.log('⚠️ Aviso: Error en migración balance:', migErr.message);
     }
 
+    // 2.5. Asegurar 500 VoltBits de cortesía para Velocity Surge
+    try {
+      await pool.query(`
+        UPDATE ocean_pay_cards 
+        SET balances = jsonb_set(COALESCE(balances, '{}'::jsonb), '{voltbit}', '500'::jsonb)
+        WHERE is_primary = true 
+        AND (balances->>'voltbit' IS NULL OR (balances->>'voltbit')::numeric = 0)
+      `);
+      console.log('✅ Balance de VoltBits (500) inicializado para usuarios existentes');
+    } catch (voltErr) {
+      console.log('⚠️ Aviso: Error en inicialización VoltBits:', voltErr.message);
+    }
+
     // 10. Crear tabla ocean_pay_card_balances para saldos por tarjeta (Legado/Compatibilidad)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS ocean_pay_card_balances (
@@ -662,9 +675,10 @@ async function runDatabaseMigrations() {
         // Inicializar saldos para la nueva tarjeta
         const currencies = ['aquabux', 'ecoxionums', 'ecorebits', 'wildcredits', 'wildgems', 'appbux', 'ecobooks', 'ecotokens', 'ecopower', 'amber', 'nxb', 'voltbit'];
         for (const curr of currencies) {
+          const initialBalance = (curr === 'voltbit') ? 500 : (curr === 'ecopower' ? 100 : 0);
           await pool.query(
-            'INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount) VALUES ($1, $2, 0) ON CONFLICT DO NOTHING',
-            [cardResult.rows[0].id, curr]
+            'INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING',
+            [cardResult.rows[0].id, curr, initialBalance]
           );
         }
       }
@@ -2187,6 +2201,73 @@ app.post('/ocean-pay/currency/change', async (req, res) => {
     await client.query('ROLLBACK');
     console.error('Error en currency change:', e);
     res.status(500).json({ error: 'Error del servidor' });
+  } finally {
+    client.release();
+  }
+});
+
+// Endpoint para pago directo con tarjeta (sin login previo)
+app.post('/ocean-pay/direct-card-pay', async (req, res) => {
+  const { cardNumber, cvv, expiryDate, amount, currency, concepto = 'Pago Directo', origen = 'Sistema' } = req.body;
+
+  if (!cardNumber || !cvv || !amount || !currency) {
+    return res.status(400).json({ error: 'Faltan datos de la tarjeta o del pago.' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Buscar la tarjeta y verificar CVV/Exp
+    const { rows } = await client.query(`
+      SELECT c.id, c.user_id, c.balances, c.cvv, c.expiry_date
+      FROM ocean_pay_cards c
+      WHERE c.card_number = $1 AND c.is_active = true
+      FOR UPDATE
+    `, [cardNumber]);
+
+    if (rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Tarjeta no encontrada o inactiva.' });
+    }
+
+    const card = rows[0];
+
+    // Verificación básica (CVV y Expiry)
+    if (card.cvv !== cvv.toString()) {
+      await client.query('ROLLBACK');
+      return res.status(401).json({ error: 'CVV incorrecto.' });
+    }
+
+    const currKey = currency.toLowerCase();
+    const balances = card.balances || {};
+    const current = parseFloat(balances[currKey] || 0);
+    const change = parseFloat(amount);
+    const newBalance = current - change; // El amount recibido suele ser positivo para cobros
+
+    if (newBalance < 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Saldo insuficiente en la tarjeta.' });
+    }
+
+    balances[currKey] = newBalance;
+
+    await client.query(`
+      UPDATE ocean_pay_cards SET balances = $1 WHERE id = $2
+    `, [balances, card.id]);
+
+    await client.query(`
+      INSERT INTO ocean_pay_txs (user_id, concepto, monto, moneda, origen)
+      VALUES ($1, $2, $3, $4, $5)
+    `, [card.user_id, concepto, -change, currKey.toUpperCase(), origen]);
+
+    await client.query('COMMIT');
+    res.json({ success: true, newBalance, message: 'Pago procesado exitosamente.' });
+
+  } catch (e) {
+    await client.query('ROLLBACK');
+    console.error('Error en direct card pay:', e);
+    res.status(500).json({ error: 'Error interno del servidor.' });
   } finally {
     client.release();
   }

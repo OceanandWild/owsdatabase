@@ -660,7 +660,7 @@ async function runDatabaseMigrations() {
 
       if (cardResult && cardResult.rows[0]) {
         // Inicializar saldos para la nueva tarjeta
-        const currencies = ['aquabux', 'ecoxionums', 'ecorebits', 'wildcredits', 'wildgems', 'appbux', 'ecobooks', 'ecotokens', 'ecopower', 'amber', 'nxb'];
+        const currencies = ['aquabux', 'ecoxionums', 'ecorebits', 'wildcredits', 'wildgems', 'appbux', 'ecobooks', 'ecotokens', 'ecopower', 'amber', 'nxb', 'voltbit'];
         for (const curr of currencies) {
           await pool.query(
             'INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount) VALUES ($1, $2, 0) ON CONFLICT DO NOTHING',
@@ -2117,6 +2117,81 @@ app.post('/ocean-pay/ecoxionums/sync', async (req, res) => {
 
 // Endpoint para cambiar Ecoxionums (ganar/gastar)
 // Endpoint para cambiar Ecoxionums (ganar/gastar)
+// Endpoint genérico para cambio de saldo en cualquier moneda de Ocean Pay
+app.post('/ocean-pay/currency/change', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+
+  const token = authHeader.substring(7);
+  let userId;
+  try {
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    userId = decoded.id || decoded.uid || decoded.sub;
+  } catch (e) {
+    if (req.body.userId) userId = req.body.userId;
+    else return res.status(401).json({ error: 'Token inválido' });
+  }
+
+  const { amount, currency, concepto = 'Transacción de Sistema', origen = 'Sistema' } = req.body;
+
+  if (amount === undefined || !currency) {
+    return res.status(400).json({ error: 'amount y currency son requeridos' });
+  }
+
+  const targetUserId = req.body.userId || userId;
+  const currKey = currency.toLowerCase();
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const { rows } = await client.query(`
+      SELECT id, balances FROM ocean_pay_cards
+      WHERE user_id = $1 AND is_primary = true
+      FOR UPDATE
+      `, [targetUserId]);
+
+    if (rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'No tienes una tarjeta Ocean Pay activa.' });
+    }
+
+    const card = rows[0];
+    const balances = card.balances || {};
+    const current = parseFloat(balances[currKey] || 0);
+    const change = parseFloat(amount);
+    const newBalance = current + change;
+
+    if (newBalance < 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Saldo insuficiente' });
+    }
+
+    balances[currKey] = newBalance;
+
+    await client.query(`
+      UPDATE ocean_pay_cards SET balances = $1 WHERE id = $2
+      `, [balances, card.id]);
+
+    await client.query(`
+      INSERT INTO ocean_pay_txs (user_id, concepto, monto, moneda, origen)
+      VALUES ($1, $2, $3, $4, $5)
+    `, [targetUserId, concepto, change, currKey.toUpperCase(), origen]);
+
+    await client.query('COMMIT');
+    res.json({ success: true, newBalance, currency: currKey });
+
+  } catch (e) {
+    await client.query('ROLLBACK');
+    console.error('Error en currency change:', e);
+    res.status(500).json({ error: 'Error del servidor' });
+  } finally {
+    client.release();
+  }
+});
+
 app.post('/ocean-pay/ecoxionums/change', async (req, res) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {

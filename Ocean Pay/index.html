@@ -1144,6 +1144,17 @@
             <span class="amount" id="amber" style="color: #f59e0b;">0</span>
             <div class="app-info">DinoBox</div>
           </div>
+
+          <!-- VoltBits (Velocity Surge) -->
+          <div class="currency-card" id="voltbits-card" onclick="refreshAllBalances()"
+            style="border-color: #00e5ff; cursor:pointer;" title="Click para actualizar">
+            <div class="currency-icon" style="background: transparent;">
+              <canvas class="currency-canvas" data-currency="voltbit"></canvas>
+            </div>
+            <span class="label">VoltBits</span>
+            <span class="amount" id="voltbit" style="color: #00e5ff;">0</span>
+            <div class="app-info">Velocity Surge</div>
+          </div>
         </div>
 
         <!-- EcoPower - Energía para EcoConsole -->
@@ -1700,6 +1711,7 @@
                         <option value="ecotokens">EcoTokens</option>
                         <option value="amber">Amber</option>
                         <option value="nxb">Nexus Bits (NXB)</option>
+                        <option value="voltbit">VoltBits</option>
                       </select>
                     </div>
                   </div>
@@ -1750,6 +1762,7 @@
                         <option value="ecotokens">EcoTokens</option>
                         <option value="amber">Amber</option>
                         <option value="nxb">Nexus Bits (NXB)</option>
+                        <option value="voltbit">VoltBits</option>
                       </select>
                     </div>
                   </div>
@@ -2214,12 +2227,37 @@
       const grad = ctx.createLinearGradient(-size, -size, size, size);
       grad.addColorStop(0, "#f08a5d"); grad.addColorStop(1, "#b83b5e");
       ctx.fillStyle = grad; ctx.fill();
-      // Tech Pattern
+
       ctx.strokeStyle = "rgba(255,255,255,0.3)"; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(0, -size * 0.3); ctx.lineTo(0, size * 0.3); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(-size * 0.3, 0); ctx.lineTo(size * 0.3, 0); ctx.stroke();
-      // Inner Glow
+
       ctx.fillStyle = "#fff"; ctx.font = `bold ${size * 0.3}px sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("N", 0, 0);
+      ctx.restore();
+    }
+
+    function drawVoltBitIcon(ctx, x, y, size) {
+      ctx.save(); ctx.translate(x, y);
+      const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, size * 0.5);
+      glow.addColorStop(0, '#fff');
+      glow.addColorStop(0.5, '#00e5ff');
+      glow.addColorStop(1, 'transparent');
+      ctx.fillStyle = glow;
+      ctx.beginPath(); ctx.arc(0, 0, size * 0.5, 0, Math.PI * 2); ctx.fill();
+
+      ctx.fillStyle = '#00e5ff';
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const a = (Math.PI * 2 / 6) * i;
+        ctx.lineTo(Math.cos(a) * size * 0.35, Math.sin(a) * size * 0.35);
+      }
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+      // Rayo central
+      ctx.fillStyle = '#fff';
+      ctx.beginPath();
+      ctx.moveTo(0, -size * 0.2); ctx.lineTo(-size * 0.1, size * 0.05); ctx.lineTo(size * 0.05, size * 0.05); ctx.lineTo(-size * 0.05, size * 0.2); ctx.lineTo(size * 0.1, -size * 0.05); ctx.lineTo(-size * 0.05, -size * 0.05);
+      ctx.closePath(); ctx.fill();
       ctx.restore();
     }
 
@@ -2278,6 +2316,7 @@
           case 'ecobooks': drawEcoBooksIcon(ctx, x, y, size * 0.8); break;
           case 'amber': drawAmberIcon(ctx, x, y, size * 0.8); break;
           case 'nxb': drawNXBIcon(ctx, x, y, size * 0.8); break;
+          case 'voltbit': drawVoltBitIcon(ctx, x, y, size * 0.8); break;
           default:
             ctx.fillStyle = "#fff"; ctx.font = "64px serif"; ctx.textAlign = "center";
             ctx.textBaseline = "middle"; ctx.fillText("💰", x, y);
@@ -2313,6 +2352,7 @@
       qs('#ecobooks').textContent = Math.round(balances.ecobooks || 0).toLocaleString();
       qs('#ecotokens').textContent = Math.round(balances.ecotokens || 0).toLocaleString();
       qs('#nxb-balance').textContent = Math.round(balances.nxb || 0).toLocaleString();
+      qs('#voltbit').textContent = Math.round(balances.voltbit || 0).toLocaleString();
       qs('#ecopower').textContent = Math.round(balances.ecopower || 100);
     }
 
@@ -2923,7 +2963,7 @@
 
             ${!card.is_primary ? `<button onclick="deleteCard(event, ${card.id})" style="position: absolute; top: 10px; right: 20px; background: rgba(239,68,68,0.2); color: #ef4444; border:none; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 10; font-size: 0.8rem;" title="Eliminar Tarjeta"><i class="fas fa-trash"></i></button>` : ''}
 
-            <span class="card-number">${formattedNumber}</span>
+            <span class="card-number" onclick="event.stopPropagation(); navigator.clipboard.writeText('${card.card_number}'); alert('Número copiado')" style="cursor:pointer;" title="Clic para copiar">${formattedNumber}</span>
             <div class="card-details">
               <div>
                 <span class="card-label">${cardName}</span>
@@ -2933,10 +2973,10 @@
                 <span class="card-label">Expira</span>
                 <span class="card-val">${card.expiry_date}</span>
               </div>
-              <div>
-                <span class="card-label">CVV</span>
-                <span class="card-val">***</span>
-              </div>
+              <div onclick="event.stopPropagation(); navigator.clipboard.writeText('${card.cvv}'); alert('CVV Copiado')" style="cursor:pointer;" title="Clic para copiar CVV">
+            <span class="card-label">CVV</span>
+            <span class="card-val">${card.cvv} <i class="fas fa-copy" style="font-size:0.7rem; opacity:0.5;"></i></span>
+          </div>
             </div>
             <div class="card-status">
               <span class="status-badge ${isExpired ? 'status-expired' : 'status-active'}">
@@ -3354,14 +3394,42 @@
       btn.disabled = true;
 
       try {
-        // En un sistema real esto llamaría al API para mover fondos
-        // Para DinoBox, si es metadata, actualizaremos el metadata
-        if (currentCheckout.callback) await currentCheckout.callback(userCards[activeCardIndex].id);
+        if (currentCheckout.callback) {
+          await currentCheckout.callback(userCards[activeCardIndex].id);
+        } else {
+          // Default checkout logic: Deduct via API
+          const res = await fetch(`${API}/ocean-pay/currency/change`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              amount: -currentCheckout.amount,
+              currency: currentCheckout.currency,
+              concepto: currentCheckout.concept || 'Gasto Checkout',
+              origen: currentCheckout.origin || 'Ocean Pay'
+            })
+          });
+          if (!res.ok) {
+            const errData = await res.json();
+            throw new Error(errData.error || 'Error en el servidor');
+          }
+        }
+
+        // Notify result to parent if iframe
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({ type: 'OCEAN_PAY_RESULT', success: true }, '*');
+        }
 
         alert('Transacción completada exitosamente');
         closeCheckout();
+        refreshAllBalances();
       } catch (e) {
         alert('Error al procesar: ' + e.message);
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({ type: 'OCEAN_PAY_RESULT', success: false, error: e.message }, '*');
+        }
       } finally {
         btn.textContent = originalText;
         btn.disabled = false;
@@ -3475,6 +3543,21 @@
         // Notify Opener
         if (window.opener) {
           window.opener.postMessage({ type: 'ocean-pay-token', token: token, user: user }, '*');
+        }
+
+        // CHECKOUT MODE
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('mode') === 'checkout') {
+          const details = {
+            type: 'expense',
+            amount: parseFloat(urlParams.get('amount') || 0),
+            currency: urlParams.get('currency') || 'voltbit',
+            concept: urlParams.get('concept') || 'Compra Externa',
+            origin: urlParams.get('origin') || 'Aplicación Externa'
+          };
+          // Show Pos Section to make it look contextual, or just wallet
+          showSection('wallet');
+          setTimeout(() => openCheckout(details), 500);
         }
       } else {
         show('#auth-section', true);

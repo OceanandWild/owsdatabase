@@ -987,7 +987,7 @@ app.post('/floret/grant-quota', async (req, res) => {
 app.get('/floret/products', async (_req, res) => {
   try {
     const { rows } = await pool.query(`
-      SELECT id, name, description, price, condition, images, requires_size, sizes, measurements, created_at 
+      SELECT id, name, description, price, stock, condition, images, requires_size, sizes, measurements, created_at 
       FROM floret_products ORDER BY created_at DESC
       `);
     const products = rows.map(r => ({
@@ -995,6 +995,7 @@ app.get('/floret/products', async (_req, res) => {
       name: r.name,
       description: r.description,
       price: parseFloat(r.price),
+      stock: parseInt(r.stock) || 0,
       condition: r.condition,
       images: r.images || [],
       requiresSize: r.requires_size,
@@ -1010,7 +1011,7 @@ app.get('/floret/products', async (_req, res) => {
 
 // Crear producto (admin con cuotas y Cloudinary)
 app.post('/floret/products', upload.array('images'), async (req, res) => {
-  let { name, description, price, condition, requiresSize, sizes, measurements, userId, images: existingImages } = req.body;
+  let { name, description, price, stock, condition, requiresSize, sizes, measurements, userId, images: existingImages } = req.body;
 
   if (!userId) return res.status(401).json({ error: 'Usuario no identificado' });
 
@@ -1040,12 +1041,13 @@ app.post('/floret/products', upload.array('images'), async (req, res) => {
     }
 
     const { rows } = await pool.query(`
-      INSERT INTO floret_products(name, description, price, condition, images, requires_size, sizes, measurements)
-      VALUES($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *
+      INSERT INTO floret_products(name, description, price, stock, condition, images, requires_size, sizes, measurements)
+      VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *
     `, [
       name,
       description || '',
       price,
+      parseInt(stock) || 1,
       condition || 'Nuevo',
       imgUrls,
       requiresSize === 'true' || requiresSize === true,
@@ -17829,6 +17831,7 @@ await pool.query(`
     name VARCHAR(200) NOT NULL,
     description TEXT,
     price DECIMAL(12,2) NOT NULL,
+    stock INTEGER DEFAULT 1,
     condition VARCHAR(50) DEFAULT 'Nuevo',
     images TEXT[] DEFAULT '{}',
     requires_size BOOLEAN DEFAULT FALSE,
@@ -17837,6 +17840,8 @@ await pool.query(`
     created_at TIMESTAMP DEFAULT NOW()
   )
 `).catch(() => console.log('⚠️ Tabla floret_products ya existe'));
+
+await pool.query(`ALTER TABLE floret_products ADD COLUMN IF NOT EXISTS stock INTEGER DEFAULT 1`).catch(() => { });
 
 await pool.query(`
   CREATE TABLE IF NOT EXISTS floret_admin_quotas (

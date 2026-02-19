@@ -2264,24 +2264,38 @@ app.post('/ocean-pay/currency/change', async (req, res) => {
   }
 
   const targetUserId = req.body.userId || userId;
+  const cardId = req.body.cardId;
   const currKey = currency.toLowerCase();
 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
 
-    const { rows } = await client.query(`
-      SELECT id, balances FROM ocean_pay_cards
-      WHERE user_id = $1 AND is_primary = true
-      FOR UPDATE
-      `, [targetUserId]);
-
-    if (rows.length === 0) {
-      await client.query('ROLLBACK');
-      return res.status(404).json({ error: 'No tienes una tarjeta Ocean Pay activa.' });
+    let card;
+    if (cardId) {
+      const { rows } = await client.query(`
+          SELECT id, balances FROM ocean_pay_cards
+          WHERE id = $1 AND user_id = $2
+          FOR UPDATE
+        `, [cardId, targetUserId]);
+      if (rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Tarjeta no encontrada' });
+      }
+      card = rows[0];
+    } else {
+      const { rows } = await client.query(`
+          SELECT id, balances FROM ocean_pay_cards
+          WHERE user_id = $1 AND is_primary = true
+          FOR UPDATE
+        `, [targetUserId]);
+      if (rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'No tienes una tarjeta Ocean Pay activa.' });
+      }
+      card = rows[0];
     }
 
-    const card = rows[0];
     const balances = card.balances || {};
     const current = parseFloat(balances[currKey] || 0);
     const change = parseFloat(amount);
@@ -2294,9 +2308,23 @@ app.post('/ocean-pay/currency/change', async (req, res) => {
         return res.status(400).json({ error: 'Saldo insuficiente' });
       }
       balances[currKey] = newBalance;
-      await client.query(`
-        UPDATE ocean_pay_cards SET balances = $1 WHERE id = $2
-        `, [balances, card.id]);
+
+      // Sincronización Doble: JSONB y Tabla SQL (Evita el "Healing" de balances altos)
+      await client.query(`UPDATE ocean_pay_cards SET balances = $1 WHERE id = $2`, [balances, card.id]);
+
+      // Actualizar tabla legada para persistencia total
+      const { rowCount } = await client.query(`
+          UPDATE ocean_pay_card_balances 
+          SET amount = $1 
+          WHERE card_id = $2 AND currency_type = $3
+        `, [newBalance, card.id, currKey]);
+
+      if (rowCount === 0) {
+        await client.query(`
+            INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
+            VALUES ($1, $2, $3)
+          `, [card.id, currKey, newBalance]);
+      }
     }
 
     // Registrar transacción siempre

@@ -1777,7 +1777,8 @@
                             currency: this.currentCheckout.currency,
                             concepto: this.currentCheckout.concept,
                             origen: this.currentCheckout.origin,
-                            isExternal: this.opMethod === 'external'
+                            isExternal: this.opMethod === 'external',
+                            cardId: (this.opMethod === 'ocean' && this.opCards[this.opActiveCardIndex]) ? this.opCards[this.opActiveCardIndex].id : null
                         })
                     });
 

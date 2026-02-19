@@ -2257,7 +2257,7 @@ app.post('/ocean-pay/currency/change', async (req, res) => {
     else return res.status(401).json({ error: 'Token inválido' });
   }
 
-  const { amount, currency, concepto = 'Transacción de Sistema', origen = 'Sistema' } = req.body;
+  const { amount, currency, concepto = 'Transacción de Sistema', origen = 'Sistema', isExternal = false } = req.body;
 
   if (amount === undefined || !currency) {
     return res.status(400).json({ error: 'amount y currency son requeridos' });
@@ -2287,29 +2287,30 @@ app.post('/ocean-pay/currency/change', async (req, res) => {
     const change = parseFloat(amount);
     const newBalance = current + change;
 
-    if (newBalance < 0) {
-      await client.query('ROLLBACK');
-      return res.status(400).json({ error: 'Saldo insuficiente' });
+    // Si es externo, no validamos saldo insuficiente ni actualizamos balances internos
+    if (!isExternal) {
+      if (newBalance < 0) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Saldo insuficiente' });
+      }
+      balances[currKey] = newBalance;
+      await client.query(`
+        UPDATE ocean_pay_cards SET balances = $1 WHERE id = $2
+        `, [balances, card.id]);
     }
 
-    balances[currKey] = newBalance;
-
+    // Registrar transacción siempre
     await client.query(`
-      UPDATE ocean_pay_cards SET balances = $1 WHERE id = $2
-      `, [balances, card.id]);
-
-    await client.query(`
-      INSERT INTO ocean_pay_txs (user_id, concepto, monto, moneda, origen)
-      VALUES ($1, $2, $3, $4, $5)
-    `, [targetUserId, concepto, change, currKey.toUpperCase(), origen]);
+      INSERT INTO ocean_pay_txs (user_id, card_id, concepto, monto, origen, moneda)
+      VALUES ($1, $2, $3, $4, $5, $6)
+    `, [targetUserId, card.id, concepto + (isExternal ? ' (Tarj. Externa)' : ''), change, origen, currKey]);
 
     await client.query('COMMIT');
-    res.json({ success: true, newBalance, currency: currKey });
-
+    res.json({ success: true, balance: isExternal ? current : newBalance });
   } catch (e) {
     await client.query('ROLLBACK');
     console.error('Error en currency change:', e);
-    res.status(500).json({ error: 'Error del servidor' });
+    res.status(500).json({ error: 'Error del servidor: ' + e.message });
   } finally {
     client.release();
   }

@@ -664,15 +664,15 @@
     .checkout-overlay {
       position: fixed;
       inset: 0;
-      background: rgba(0, 0, 0, 0.85);
-      backdrop-filter: blur(10px);
+      background: rgba(4, 7, 13, 0.95);
+      backdrop-filter: blur(12px);
       z-index: 5000;
       display: flex;
       align-items: center;
       justify-content: center;
       opacity: 0;
       pointer-events: none;
-      transition: 0.3s;
+      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
     .checkout-overlay.active {
@@ -681,67 +681,170 @@
     }
 
     .checkout-card {
-      background: var(--card);
+      background: #1a1f2e;
       width: 100%;
-      max-width: 450px;
-      border-radius: 2rem;
-      border: 1px solid var(--border);
-      padding: 2rem;
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-      transform: translateY(20px);
-      transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      max-width: 520px;
+      border-radius: 1.5rem;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      overflow: hidden;
+      box-shadow: 0 50px 100px -20px rgba(0, 0, 0, 0.7);
+      transform: scale(0.95) translateY(30px);
+      transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      display: flex;
+      flex-direction: column;
     }
 
     .checkout-overlay.active .checkout-card {
-      transform: translateY(0);
+      transform: scale(1) translateY(0);
     }
 
     .checkout-header {
-      text-align: center;
-      margin-bottom: 2rem;
+      padding: 1.5rem 2rem;
+      background: rgba(255, 255, 255, 0.02);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      display: flex;
+      align-items: center;
+      gap: 1rem;
     }
 
-    .checkout-type-icon {
-      width: 60px;
-      height: 60px;
-      border-radius: 50%;
+    .checkout-header img {
+      width: 32px;
+      filter: drop-shadow(0 0 8px var(--accent));
+    }
+
+    .checkout-body {
+      padding: 2rem;
+      flex: 1;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+
+    /* Product Preview Section */
+    .product-preview {
+      display: flex;
+      gap: 1.5rem;
+      background: rgba(0, 0, 0, 0.2);
+      padding: 1rem;
+      border-radius: 1rem;
+      margin-bottom: 2rem;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      align-items: center;
+    }
+
+    .product-img {
+      width: 80px;
+      height: 80px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #334155, #0f172a);
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 1.5rem;
-      margin: 0 auto 1rem;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.1);
     }
 
-    .type-deposit {
-      background: rgba(16, 185, 129, 0.1);
-      color: #10b981;
+    .product-info h3 {
+      font-size: 1.1rem;
+      font-weight: 800;
+      margin-bottom: 4px;
     }
 
-    .type-charge {
-      background: rgba(239, 68, 68, 0.1);
-      color: #ef4444;
+    .product-info p {
+      font-size: 0.85rem;
+      color: #94a3b8;
+    }
+
+    /* Payment Method Tabs */
+    .payment-tabs {
+      display: flex;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 4px;
+      border-radius: 12px;
+      margin-bottom: 2rem;
+      gap: 4px;
+    }
+
+    .payment-tab {
+      flex: 1;
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #94a3b8;
+      cursor: pointer;
+      transition: all 0.3s;
+      text-align: center;
+      background: transparent;
+      border: none;
+    }
+
+    .payment-tab.active {
+      background: #2563eb;
+      color: white;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+    }
+
+    /* Card Form Styles (Steam/Mercado Pago) */
+    .card-form {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    .input-wrapper {
+      position: relative;
+    }
+
+    .input-wrapper label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: #64748b;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+      letter-spacing: 0.5px;
+    }
+
+    .checkout-input {
+      width: 100%;
+      padding: 12px 16px;
+      background: #0f172a;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      color: white;
+      font-size: 1rem;
+      transition: all 0.3s;
+    }
+
+    .checkout-input:focus {
+      outline: none;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
     }
 
     .card-selector-list {
       display: flex;
       flex-direction: column;
-      gap: 1rem;
-      margin-bottom: 2rem;
-      max-height: 250px;
-      overflow-y: auto;
-      padding-right: 5px;
+      gap: 0.75rem;
+      margin-bottom: 1.5rem;
     }
 
     .card-option {
       background: rgba(255, 255, 255, 0.03);
-      border: 1px solid var(--border);
+      border: 1px solid rgba(255, 255, 255, 0.05);
       padding: 1rem;
-      border-radius: 1rem;
+      border-radius: 12px;
       display: flex;
       align-items: center;
       gap: 1rem;
       cursor: pointer;
-      transition: 0.2s;
+      transition: all 0.2s;
     }
 
     .card-option:hover {
@@ -749,45 +852,86 @@
     }
 
     .card-option.selected {
-      border-color: var(--accent);
-      background: rgba(34, 211, 238, 0.05);
+      border-color: #2563eb;
+      background: rgba(37, 99, 235, 0.05);
+      box-shadow: inset 0 0 15px rgba(37, 99, 235, 0.05);
     }
 
-    .card-option-info {
-      flex: 1;
-    }
-
-    .card-option-name {
-      font-weight: 700;
-      display: block;
-    }
-
-    .card-option-number {
-      font-size: 0.8rem;
-      color: #94a3b8;
+    .checkout-footer {
+      padding: 2rem;
+      background: rgba(0, 0, 0, 0.2);
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
     }
 
     .checkout-summary {
-      background: rgba(0, 0, 0, 0.2);
-      padding: 1rem;
-      border-radius: 1rem;
-      margin-bottom: 2rem;
-    }
-
-    .summary-row {
       display: flex;
       justify-content: space-between;
-      margin-bottom: 0.5rem;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .summary-label {
       font-size: 0.9rem;
+      color: #94a3b8;
+      font-weight: 600;
     }
 
     .summary-total {
-      border-top: 1px solid var(--border);
-      padding-top: 0.5rem;
-      margin-top: 0.5rem;
+      font-size: 1.8rem;
       font-weight: 900;
       color: white;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .summary-total .currency {
+      font-size: 0.9rem;
+      opacity: 0.6;
+    }
+
+    .btn-checkout-confirm {
+      width: 100%;
+      padding: 16px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+      color: white;
+      font-weight: 800;
       font-size: 1.1rem;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      box-shadow: 0 10px 20px rgba(37, 99, 235, 0.2);
+      transition: all 0.3s;
+    }
+
+    .btn-checkout-confirm:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 25px rgba(37, 99, 235, 0.3);
+    }
+
+    .btn-checkout-confirm:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    .btn-checkout-cancel {
+      width: 100%;
+      margin-top: 1rem;
+      background: transparent;
+      color: #64748b;
+      font-size: 0.9rem;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+    }
+
+    .btn-checkout-cancel:hover {
+      color: #94a3b8;
     }
 
     /* --- Subscriptions Themes --- */
@@ -928,46 +1072,80 @@
 
   </div>
 
-  <!-- NEW: Checkout Modal -->
+  <!-- CHECKOUT MODAL REDESIGN -->
   <div id="checkout-modal" class="checkout-overlay">
     <div class="checkout-card">
       <div class="checkout-header">
-        <div id="checkout-icon" class="checkout-type-icon">
-          <i class="fas fa-shopping-cart"></i>
-        </div>
-        <h2 id="checkout-title" style="font-weight:900; font-size:1.5rem;">Caja Ocean Pay</h2>
-        <p id="checkout-concept" style="color:#94a3b8; font-size:0.9rem;">Concepto de transacción</p>
+        <i class="fas fa-water" style="color:var(--accent); font-size:1.5rem;"></i>
+        <h2 style="font-weight:900; font-size:1.2rem; letter-spacing:-0.5px;">Ocean Pay Checkout</h2>
       </div>
 
-      <div class="checkout-summary">
-        <div class="summary-row">
-          <span>Monto</span>
-          <span id="checkout-amount">0.00</span>
+      <div class="checkout-body">
+        <!-- Order Context -->
+        <div class="product-preview">
+          <div class="product-img">
+            <canvas id="checkout-product-canvas" class="currency-canvas" data-currency="wildgems"></canvas>
+          </div>
+          <div class="product-info">
+            <h3 id="checkout-concept-display">Suscripción Premium</h3>
+            <p id="checkout-origin-display">WildShorts VIP</p>
+          </div>
         </div>
-        <div class="summary-row">
-          <span>Divisa</span>
-          <span id="checkout-currency">---</span>
+
+        <!-- Method Selector -->
+        <div class="payment-tabs">
+          <button class="payment-tab active" id="tab-ocean" onclick="setPaymentMethod('ocean')">Ocean Card</button>
+          <button class="payment-tab" id="tab-external" onclick="setPaymentMethod('external')">Otra Tarjeta</button>
         </div>
-        <div class="summary-row summary-total">
-          <span>Total a procesar</span>
-          <span id="checkout-total-val">0.00</span>
+
+        <!-- Method: Ocean Card Selection -->
+        <div id="method-ocean" class="method-section">
+          <p style="margin-bottom:1rem; font-size:0.85rem; font-weight:700; color:#64748b; text-transform:uppercase;">
+            Selecciona tu tarjeta Ocean</p>
+          <div id="checkout-card-list" class="card-selector-list">
+            <!-- Rendered by JS -->
+          </div>
+        </div>
+
+        <!-- Method: External Card Form -->
+        <div id="method-external" class="method-section hidden">
+          <div class="card-form">
+            <div class="input-wrapper">
+              <label>Número de Tarjeta</label>
+              <input type="text" id="ext-card-number" class="checkout-input" placeholder="0000 0000 0000 0000"
+                maxlength="19">
+            </div>
+            <div class="input-wrapper">
+              <label>Nombre del Titular</label>
+              <input type="text" id="ext-card-name" class="checkout-input" placeholder="JUAN PEREZ">
+            </div>
+            <div class="form-row">
+              <div class="input-wrapper">
+                <label>Vencimiento (MM/AA)</label>
+                <input type="text" id="ext-card-expiry" class="checkout-input" placeholder="MM/AA" maxlength="5">
+              </div>
+              <div class="input-wrapper">
+                <label>CVV</label>
+                <input type="password" id="ext-card-cvv" class="checkout-input" placeholder="***" maxlength="3">
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div
-        style="margin-bottom: 0.8rem; font-size: 0.8rem; color: #94a3b8; font-weight: 700; text-transform: uppercase;">
-        Selecciona tu Tarjeta
-      </div>
-      <div id="checkout-card-list" class="card-selector-list">
-        <!-- populated by JS -->
-      </div>
+      <div class="checkout-footer">
+        <div class="checkout-summary">
+          <span class="summary-label">Total a pagar:</span>
+          <div class="summary-total">
+            <span id="checkout-amount-val">0</span>
+            <span class="currency" id="checkout-currency-val">WILDGEMS</span>
+          </div>
+        </div>
 
-      <div style="display: flex; gap: 1rem;">
-        <button class="secondary" style="flex: 1;" onclick="closeCheckout()">Cancelar</button>
-        <button id="checkout-confirm-btn" class="pos-btn-primary" style="flex: 2; margin:0;"
-          onclick="confirmCheckout()">
+        <button id="checkout-confirm-btn" class="btn-checkout-confirm" onclick="confirmCheckout()">
           Confirmar y Pagar
         </button>
+        <button class="btn-checkout-cancel" onclick="closeCheckout()">Cancelar transacción</button>
       </div>
     </div>
   </div>
@@ -3326,37 +3504,48 @@
     let currentCheckout = null;
 
     window.openCheckout = function (details) {
-      // details: { type: 'income'|'expense', amount: 0, currency: 'amber', concept: '', callback: fn }
+      // details: { type: 'income'|'expense', amount: 0, currency: 'amber', concept: '', origin: '', callback: fn }
       currentCheckout = details;
+      paymentMethod = 'ocean';
 
       const modal = qs('#checkout-modal');
-      const icon = qs('#checkout-icon');
-      const title = qs('#checkout-title');
-      const concept = qs('#checkout-concept');
-      const amount = qs('#checkout-amount');
-      const currency = qs('#checkout-currency');
-      const total = qs('#checkout-total-val');
+      const conceptDisplay = qs('#checkout-concept-display');
+      const originDisplay = qs('#checkout-origin-display');
+      const amountVal = qs('#checkout-amount-val');
+      const currencyVal = qs('#checkout-currency-val');
       const btn = qs('#checkout-confirm-btn');
 
       modal.classList.add('active');
-      concept.textContent = details.concept || 'Transacción';
-      amount.textContent = details.amount.toLocaleString();
-      currency.textContent = details.currency.toUpperCase();
-      total.textContent = details.amount.toLocaleString();
+      conceptDisplay.textContent = details.concept || 'Transacción';
+      originDisplay.textContent = details.origin || 'Ocean Pay';
+      amountVal.textContent = details.amount.toLocaleString();
+      currencyVal.textContent = (details.currency || 'wildgems').toUpperCase();
 
-      if (details.type === 'income') {
-        icon.className = 'checkout-type-icon type-deposit';
-        icon.innerHTML = '<i class="fas fa-file-invoice-dollar"></i>';
-        title.textContent = 'Recibir Ingreso';
-        btn.textContent = 'Confirmar Ingreso';
-      } else {
-        icon.className = 'checkout-type-icon type-charge';
-        icon.innerHTML = '<i class="fas fa-shopping-cart"></i>';
-        title.textContent = 'Confirmar Pago';
-        btn.textContent = 'Confirmar y Pagar';
-      }
+      btn.textContent = details.type === 'income' ? 'Recibir Ingreso' : 'Confirmar y Pagar';
 
+      setPaymentMethod('ocean');
       renderCheckoutCards();
+
+      // Setup external card formatting
+      setTimeout(() => {
+        const numInput = qs('#ext-card-number');
+        const expInput = qs('#ext-card-expiry');
+
+        if (numInput) {
+          numInput.oninput = (e) => {
+            let val = e.target.value.replace(/\D/g, '');
+            e.target.value = val.replace(/(.{4})/g, '$1 ').trim();
+          };
+        }
+
+        if (expInput) {
+          expInput.oninput = (e) => {
+            let val = e.target.value.replace(/\D/g, '');
+            if (val.length > 2) val = val.substring(0, 2) + '/' + val.substring(2, 4);
+            e.target.value = val;
+          };
+        }
+      }, 100);
     };
 
     window.closeCheckout = function () {
@@ -3364,18 +3553,29 @@
       currentCheckout = null;
     };
 
+    window.setPaymentMethod = function (method) {
+      paymentMethod = method;
+      qs('#tab-ocean').classList.toggle('active', method === 'ocean');
+      qs('#tab-external').classList.toggle('active', method === 'external');
+      show('#method-ocean', method === 'ocean');
+      show('#method-external', method === 'external');
+    };
+
     function renderCheckoutCards() {
       const container = qs('#checkout-card-list');
+      if (!container) return;
       container.innerHTML = userCards.map((card, idx) => {
         const isSelected = idx === activeCardIndex;
         return `
           <div class="card-option ${isSelected ? 'selected' : ''}" onclick="selectCheckoutCard(${idx})">
-            <div style="width: 40px; height: 25px; border-radius: 4px; background: linear-gradient(135deg, #334155, #0f172a); border: 1px solid rgba(255,255,255,0.1);"></div>
+            <div style="width: 45px; height: 30px; border-radius: 6px; background: linear-gradient(135deg, #1e293b, #0f172a); border: 1px solid rgba(255,255,255,0.1); display:flex; align-items:center; justify-content:center;">
+               <i class="fas fa-water" style="font-size:0.6rem; color:var(--accent); opacity:0.5;"></i>
+            </div>
             <div class="card-option-info">
-              <span class="card-option-name">${card.card_name || 'Tarjeta Ocean'}</span>
+              <span class="card-option-name" style="font-size:0.9rem; font-weight:800;">${card.card_name || 'Tarjeta Ocean'}</span>
               <span class="card-option-number">**** ${card.card_number.slice(-4)}</span>
             </div>
-            ${isSelected ? '<i class="fas fa-check-circle" style="color:var(--accent)"></i>' : ''}
+            ${isSelected ? '<i class="fas fa-check-circle" style="color:#2563eb; font-size:1.2rem;"></i>' : ''}
           </div>
         `;
       }).join('');
@@ -3388,14 +3588,36 @@
 
     window.confirmCheckout = async function () {
       if (!currentCheckout) return;
+
       const btn = qs('#checkout-confirm-btn');
       const originalText = btn.textContent;
-      btn.textContent = 'Procesando...';
+
+      // Verification logic if external
+      if (paymentMethod === 'external') {
+        const num = qs('#ext-card-number').value.replace(/\s/g, '');
+        const name = qs('#ext-card-name').value;
+        const exp = qs('#ext-card-expiry').value;
+        const cvv = qs('#ext-card-cvv').value;
+
+        if (num.length < 16 || !name || exp.length < 5 || cvv.length < 3) {
+          alert('Por favor completa todos los campos de la tarjeta.');
+          return;
+        }
+
+        // Simular verificación de red bancaria (Mercado Pago Style)
+        btn.textContent = 'Verificando red bancaria...';
+        btn.disabled = true;
+        await new Promise(r => setTimeout(r, 1500));
+        btn.textContent = 'Autorizando compra...';
+        await new Promise(r => setTimeout(r, 1000));
+      }
+
+      btn.textContent = 'Procesando pago...';
       btn.disabled = true;
 
       try {
         if (currentCheckout.callback) {
-          await currentCheckout.callback(userCards[activeCardIndex].id);
+          await currentCheckout.callback(userCards[activeCardIndex].id, paymentMethod === 'external');
         } else {
           // Default checkout logic: Deduct via API
           const res = await fetch(`${API}/ocean-pay/currency/change`, {
@@ -3406,11 +3628,13 @@
             },
             body: JSON.stringify({
               amount: -currentCheckout.amount,
-              currency: currentCheckout.currency,
+              currency: currentCheckout.currency || 'wildgems',
               concepto: currentCheckout.concept || 'Gasto Checkout',
-              origen: currentCheckout.origin || 'Ocean Pay'
+              origen: currentCheckout.origin || 'Ocean Pay',
+              isExternal: paymentMethod === 'external'
             })
           });
+
           if (!res.ok) {
             const errData = await res.json();
             throw new Error(errData.error || 'Error en el servidor');
@@ -3422,9 +3646,10 @@
           window.parent.postMessage({ type: 'OCEAN_PAY_RESULT', success: true }, '*');
         }
 
-        alert('Transacción completada exitosamente');
+        alert('¡Pago completado! Se ha procesado tu compra exitosamente.');
         closeCheckout();
         refreshAllBalances();
+        renderTransacciones();
       } catch (e) {
         alert('Error al procesar: ' + e.message);
         if (window.parent && window.parent !== window) {

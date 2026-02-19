@@ -866,6 +866,33 @@ app.post('/floret/register', async (req, res) => {
 });
 
 // Login
+// Helper for Floret Quota
+async function getFloretQuota(userId) {
+  const { rows } = await pool.query('SELECT * FROM floret_admin_quotas WHERE user_id = $1', [userId]);
+  let quota = rows[0];
+
+  if (!quota) {
+    const res = await pool.query('INSERT INTO floret_admin_quotas(user_id) VALUES($1) RETURNING *', [userId]);
+    quota = res.rows[0];
+  }
+
+  // Check reset logic (24h cooldown)
+  if (quota.last_upload_time) {
+    const last = new Date(quota.last_upload_time);
+    const now = new Date();
+    const diffHrs = (now - last) / (1000 * 60 * 60);
+
+    if (diffHrs >= 24) {
+      await pool.query('UPDATE floret_admin_quotas SET uploads_today = 0, last_upload_time = NULL WHERE user_id = $1', [userId]);
+      quota.uploads_today = 0;
+      quota.last_upload_time = null;
+    }
+  }
+
+  return quota;
+}
+
+// Login
 app.post('/floret/login', async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) {
@@ -880,13 +907,14 @@ app.post('/floret/login', async (req, res) => {
     if (!valid) {
       return res.status(401).json({ error: 'Contraseña incorrecta' });
     }
-    const { id, email, created_at } = rows[0];
-    res.json({ success: true, user: { id, username, email, created_at } });
+    const { id, email, created_at, is_admin, power_level } = rows[0];
+    res.json({ success: true, user: { id, username, email, created_at, is_admin, power_level } });
   } catch (e) {
     console.error('Error en login Floret:', e);
     res.status(500).json({ error: 'Error interno' });
   }
 });
+
 
 // Endpoint para crear preferencia de MercadoPago
 app.post('/floret/create_preference', async (req, res) => {
@@ -930,6 +958,31 @@ app.post('/floret/create_preference', async (req, res) => {
   }
 });
 
+// Obtener cuota
+app.get('/floret/quota/:userId', async (req, res) => {
+  try {
+    const quota = await getFloretQuota(req.params.userId);
+    res.json(quota);
+  } catch (e) {
+    res.status(500).json({ error: 'Error obteniendo cuota' });
+  }
+});
+
+// Otorgar cuota (Solo Super-Admin PowerLevel 2)
+app.post('/floret/grant-quota', async (req, res) => {
+  const { adminId, targetUserId, amount } = req.body;
+  try {
+    const admin = await pool.query('SELECT power_level FROM floret_users WHERE id = $1', [adminId]);
+    if (!admin.rows[0] || admin.rows[0].power_level < 2) {
+      return res.status(403).json({ error: 'No tienes permiso para otorgar cuota' });
+    }
+    await pool.query('UPDATE floret_admin_quotas SET uploads_today = uploads_today - $1 WHERE user_id = $2', [amount || 1, targetUserId]);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Error otorgando cuota' });
+  }
+});
+
 // Obtener productos
 app.get('/floret/products', async (_req, res) => {
   try {
@@ -955,28 +1008,81 @@ app.get('/floret/products', async (_req, res) => {
   }
 });
 
-// Crear producto (admin)
-app.post('/floret/products', async (req, res) => {
-  const { name, description, price, condition, images, requiresSize, sizes, measurements } = req.body;
-  if (!name || !price) {
-    return res.status(400).json({ error: 'Nombre y precio son requeridos' });
-  }
+// Crear producto (admin con cuotas y Cloudinary)
+app.post('/floret/products', upload.array('images'), async (req, res) => {
+  let { name, description, price, condition, requiresSize, sizes, measurements, userId, images: existingImages } = req.body;
+
+  if (!userId) return res.status(401).json({ error: 'Usuario no identificado' });
+
   try {
+    const userRes = await pool.query('SELECT * FROM floret_users WHERE id = $1', [userId]);
+    const user = userRes.rows[0];
+    if (!user || !user.is_admin) return res.status(403).json({ error: 'No tienes permisos de administrador' });
+
+    // Verificar cuota para Sub-Admin (Malevo)
+    if (user.power_level === 1) {
+      const quota = await getFloretQuota(user.id);
+      if (quota.uploads_today >= quota.max_daily) {
+        return res.status(429).json({ error: 'Has alcanzado tu cuota diaria (4 productos). La cuota se reinicia 24hs después de tu primera publicación del ciclo.' });
+      }
+    }
+
+    // Procesar imágenes (Cloudinary a través de multer-storage-cloudinary)
+    let imgUrls = [];
+    if (req.files && req.files.length > 0) {
+      imgUrls = req.files.map(f => f.path);
+    } else if (existingImages) {
+      imgUrls = Array.isArray(existingImages) ? existingImages : existingImages.split(',').map(s => s.trim());
+    }
+
+    if (!name || !price) {
+      return res.status(400).json({ error: 'Nombre y precio son requeridos' });
+    }
+
     const { rows } = await pool.query(`
       INSERT INTO floret_products(name, description, price, condition, images, requires_size, sizes, measurements)
-    VALUES($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *
-      `, [name, description || '', price, condition || 'Nuevo', images || [], requiresSize || false, sizes || [], measurements || '']);
+      VALUES($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *
+    `, [
+      name,
+      description || '',
+      price,
+      condition || 'Nuevo',
+      imgUrls,
+      requiresSize === 'true' || requiresSize === true,
+      Array.isArray(sizes) ? sizes : (sizes ? sizes.split(',').map(s => s.trim()) : []),
+      measurements || ''
+    ]);
+
+    // Actualizar cuota si es sub-admin
+    if (user.power_level === 1) {
+      await pool.query(`
+        UPDATE floret_admin_quotas 
+        SET uploads_today = uploads_today + 1, 
+            last_upload_time = COALESCE(last_upload_time, NOW()) 
+        WHERE user_id = $1
+      `, [user.id]);
+    }
+
     res.json({ success: true, product: rows[0] });
   } catch (e) {
     console.error('Error creando producto Floret:', e);
-    res.status(500).json({ error: 'Error interno' });
+    res.status(500).json({ error: 'Error interno de servidor' });
   }
 });
 
 // Eliminar producto
 app.delete('/floret/products/:id', async (req, res) => {
   const { id } = req.params;
+  const { userId } = req.query; // Pasado por query string
+
+  if (!userId) return res.status(401).json({ error: 'No autorizado' });
+
   try {
+    const userRes = await pool.query('SELECT is_admin FROM floret_users WHERE id = $1', [userId]);
+    if (!userRes.rows[0] || !userRes.rows[0].is_admin) {
+      return res.status(403).json({ error: 'No tienes permisos' });
+    }
+
     await pool.query('DELETE FROM floret_products WHERE id = $1', [id]);
     res.json({ success: true });
   } catch (e) {
@@ -984,6 +1090,7 @@ app.delete('/floret/products/:id', async (req, res) => {
     res.status(500).json({ error: 'Error interno' });
   }
 });
+
 
 
 // ===== OCEAN PAY - MODO OFFLINE (SIN INTERNET) =====
@@ -17699,15 +17806,22 @@ await cleanupOldEvents(); // <--- ASEGÚRATE DE QUE SE EJECUTA AQUÍ
 console.log("Limpieza de eventos antiguos finalizada.");
 
 // ========== FLORET SHOP TABLES ==========
+// ========== FLORET SHOP TABLES ==========
 await pool.query(`
   CREATE TABLE IF NOT EXISTS floret_users (
     id SERIAL PRIMARY KEY,
     username VARCHAR(50) UNIQUE NOT NULL,
     email VARCHAR(100),
     password TEXT NOT NULL,
+    is_admin BOOLEAN DEFAULT FALSE,
+    power_level INTEGER DEFAULT 0, -- 0: User, 1: Sub-Admin (Malevo), 2: Super-Admin (OceanandWild)
     created_at TIMESTAMP DEFAULT NOW()
   )
 `).catch(() => console.log('⚠️ Tabla floret_users ya existe'));
+
+// Add columns if they don't exist
+await pool.query(`ALTER TABLE floret_users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE`).catch(() => { });
+await pool.query(`ALTER TABLE floret_users ADD COLUMN IF NOT EXISTS power_level INTEGER DEFAULT 0`).catch(() => { });
 
 await pool.query(`
   CREATE TABLE IF NOT EXISTS floret_products (
@@ -17723,6 +17837,28 @@ await pool.query(`
     created_at TIMESTAMP DEFAULT NOW()
   )
 `).catch(() => console.log('⚠️ Tabla floret_products ya existe'));
+
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS floret_admin_quotas (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER UNIQUE REFERENCES floret_users(id) ON DELETE CASCADE,
+    uploads_today INTEGER DEFAULT 0,
+    max_daily INTEGER DEFAULT 4,
+    last_upload_time TIMESTAMP,
+    cycle_active BOOLEAN DEFAULT FALSE
+  )
+`).catch(() => console.log('⚠️ Tabla floret_admin_quotas ya existe'));
+
+// Ensure Malevo and OceanandWild are set up correctly if they exist
+try {
+  await pool.query(`
+    UPDATE floret_users SET is_admin = true, power_level = 2 WHERE username = 'OceanandWild';
+    UPDATE floret_users SET is_admin = true, power_level = 1 WHERE username = 'Malevo' OR email = 'karatedojor@gmail.com';
+  `);
+} catch (e) {
+  console.log('⚠️ Error updating floret admin roles:', e.message);
+}
+
 
 console.log('🌸 Tablas de Floret Shop verificadas');
 

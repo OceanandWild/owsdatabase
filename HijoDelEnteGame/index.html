@@ -1,0 +1,2547 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hijo del Ente Primario - El Juego</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Montserrat:wght@300;400;600;700&display=swap');
+
+        :root {
+            --bg-color: #030508;
+            --void-color: #000000;
+            --star-color: #ffffff;
+            --accent-color: #8A2BE2;
+            --accent-glow: #b366ff;
+            --danger-color: #FF2D2D;
+            --text-color: #E8E8E8;
+            --glass-bg: rgba(10, 10, 20, 0.95);
+            --border-glow: rgba(138, 43, 226, 0.4);
+            --floor-color: #0a0a12;
+            --wall-color: #151520;
+        }
+
+        /* NATIVE OCEAN PAY CHECKOUT STYLES */
+        .op-checkout-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(4, 7, 13, 0.9);
+            backdrop-filter: blur(15px);
+            z-index: 999999;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .op-checkout-overlay.active {
+            display: flex;
+            opacity: 1;
+        }
+
+        .op-checkout-card {
+            background: #1a1f2e;
+            width: 450px;
+            border-radius: 28px;
+            border: 1px solid rgba(138, 43, 226, 0.3);
+            overflow: hidden;
+            box-shadow: 0 40px 100px rgba(0, 0, 0, 0.8), 0 0 50px rgba(138, 43, 226, 0.1);
+            position: relative;
+            animation: op-slide-up 0.5s ease-out;
+            font-family: 'Montserrat', sans-serif;
+        }
+
+        @keyframes op-slide-up {
+            from {
+                transform: translateY(40px) scale(0.95);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0) scale(1);
+                opacity: 1;
+            }
+        }
+
+        .op-product-preview {
+            background: linear-gradient(135deg, #1e293b, #0f172a);
+            padding: 2.5rem 2rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            text-align: center;
+        }
+
+        .op-payment-tabs {
+            display: flex;
+            background: rgba(0, 0, 0, 0.4);
+            padding: 5px;
+            border-radius: 16px;
+            margin: 1.5rem;
+            gap: 5px;
+        }
+
+        .op-payment-tab {
+            flex: 1;
+            padding: 12px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 800;
+            color: #64748b;
+            cursor: pointer;
+            border: none;
+            background: transparent;
+            transition: all 0.3s;
+            font-family: 'Montserrat';
+        }
+
+        .op-payment-tab.active {
+            background: #8A2BE2;
+            color: white;
+            box-shadow: 0 4px 15px rgba(138, 43, 226, 0.3);
+        }
+
+        .op-card-option {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 1.25rem;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            cursor: pointer;
+            margin: 0 1.5rem 1rem 1.5rem;
+            transition: 0.2s;
+        }
+
+        .op-card-option.selected {
+            border-color: #8A2BE2;
+            background: rgba(138, 43, 226, 0.08);
+            box-shadow: inset 0 0 20px rgba(138, 43, 226, 0.05);
+        }
+
+        .op-input {
+            width: 100%;
+            padding: 14px 18px;
+            background: #0f172a;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            color: white;
+            font-family: 'Montserrat';
+            font-size: 0.95rem;
+            margin-bottom: 1.25rem;
+            transition: 0.3s;
+        }
+
+        .op-input:focus {
+            outline: none;
+            border-color: #8A2BE2;
+            background: #151b2e;
+        }
+
+        .op-btn {
+            width: 100%;
+            height: 56px;
+            border-radius: 16px;
+            border: none;
+            font-weight: 800;
+            cursor: pointer;
+            transition: 0.3s;
+            font-family: 'Orbitron';
+            letter-spacing: 1px;
+            font-size: 0.85rem;
+        }
+
+        .op-btn-primary {
+            background: #8A2BE2;
+            color: white;
+            box-shadow: 0 8px 25px rgba(138, 43, 226, 0.4);
+        }
+
+        .op-btn-primary:active {
+            transform: scale(0.98);
+        }
+
+        .op-btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .op-hidden {
+            display: none !important;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Montserrat', sans-serif;
+            user-select: none;
+            cursor: default;
+        }
+
+        /* Background Atmosphere */
+        #atmosphere {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background:
+                radial-gradient(ellipse at 20% 80%, rgba(138, 43, 226, 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(0, 100, 255, 0.05) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 50%, #030508 0%, #000000 100%);
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        /* Stars Background */
+        #stars {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            background-color: #000;
+            box-shadow: 0 0 100px rgba(0, 0, 0, 0.8);
+        }
+
+        /* UI Overlay */
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 25px;
+            box-sizing: border-box;
+            z-index: 20;
+        }
+
+        /* Top HUD */
+        .hud-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        /* Power Meter */
+        #power-meter {
+            background: rgba(0, 0, 0, 0.7);
+            border: 1px solid var(--border-glow);
+            border-radius: 8px;
+            padding: 12px 20px;
+            min-width: 200px;
+        }
+
+        .power-label {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.7rem;
+            color: #666;
+            letter-spacing: 2px;
+            margin-bottom: 8px;
+        }
+
+        .power-bar-container {
+            width: 100%;
+            height: 8px;
+            background: #111;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        #power-bar {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #333, #666);
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+
+        #power-bar.charging {
+            background: linear-gradient(90deg, var(--accent-color), var(--accent-glow));
+            box-shadow: 0 0 10px var(--accent-color);
+        }
+
+        /* Objective */
+        #objective-container {
+            background: rgba(0, 0, 0, 0.85);
+            border: 1px solid var(--border-glow);
+            border-radius: 8px;
+            padding: 15px 25px;
+            max-width: 350px;
+            text-align: right;
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+            z-index: 100;
+        }
+
+        #objective-container.centered {
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            max-width: 500px;
+            padding: 25px 40px;
+            border-width: 2px;
+            box-shadow: 0 0 30px rgba(138, 43, 226, 0.5);
+        }
+
+        #objective-container.centered .obj-text {
+            font-size: 1.2rem;
+            color: #fff;
+        }
+
+        #objective-container.centered .obj-label {
+            font-size: 0.8rem;
+            margin-bottom: 10px;
+        }
+
+        #objective-container.collapsed {
+            top: 20px;
+            right: 20px;
+            transform: none;
+            max-width: 300px;
+            padding: 12px 18px;
+            border-width: 1px;
+            box-shadow: none;
+            opacity: 0.9;
+        }
+
+        #objective-container.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        #objective-container.collapsed .obj-text {
+            font-size: 0.9rem;
+            color: #aaa;
+        }
+
+        #objective-container.collapsed .obj-label {
+            font-size: 0.65rem;
+            margin-bottom: 5px;
+        }
+
+        .obj-label {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.65rem;
+            color: var(--accent-color);
+            letter-spacing: 3px;
+            margin-bottom: 5px;
+        }
+
+        .obj-text {
+            font-size: 0.9rem;
+            color: #aaa;
+            text-shadow: 0 0 5px #000;
+            line-height: 1.4;
+        }
+
+        /* Narrative Screen (Cutscenes) */
+        #narrative-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 90;
+            opacity: 0;
+            transition: opacity 0.8s ease;
+            pointer-events: auto;
+            cursor: pointer;
+        }
+
+        #narrative-screen.active {
+            opacity: 1;
+        }
+
+        #narrative-text {
+            max-width: 900px;
+            text-align: center;
+            font-size: 1.6rem;
+            line-height: 1.9;
+            color: #fff;
+            padding: 30px 50px;
+            font-weight: 300;
+            text-shadow: 0 2px 20px rgba(0, 0, 0, 0.8);
+        }
+
+        .narrative-accent {
+            color: var(--accent-glow);
+            font-weight: 600;
+            text-shadow: 0 0 15px var(--accent-color);
+            animation: glow-pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes glow-pulse {
+
+            0%,
+            100% {
+                text-shadow: 0 0 15px var(--accent-color);
+            }
+
+            50% {
+                text-shadow: 0 0 30px var(--accent-glow), 0 0 50px var(--accent-color);
+            }
+        }
+
+        .narrative-danger {
+            color: var(--danger-color);
+            text-shadow: 0 0 20px var(--danger-color);
+        }
+
+        .narrative-quote {
+            font-style: italic;
+            color: #aaa;
+            font-size: 1.4rem;
+        }
+
+        .click-to-continue {
+            margin-top: 60px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.75rem;
+            color: #444;
+            letter-spacing: 3px;
+            animation: pulse-fade 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-fade {
+
+            0%,
+            100% {
+                opacity: 0.3;
+            }
+
+            50% {
+                opacity: 0.7;
+            }
+        }
+
+        /* Menu Screen - Cosmic Style */
+        #menu-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            overflow: hidden;
+        }
+
+        /* Cosmic background */
+        #menu-screen::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background:
+                radial-gradient(ellipse at 20% 80%, rgba(138, 43, 226, 0.15) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(0, 100, 255, 0.1) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 50%, rgba(80, 0, 120, 0.1) 0%, transparent 70%),
+                linear-gradient(180deg, #050510 0%, #000000 100%);
+            pointer-events: none;
+        }
+
+        /* Stars overlay */
+        #menu-screen::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Ccircle cx='10' cy='10' r='1' fill='white' opacity='0.5'/%3E%3Ccircle cx='50' cy='30' r='0.5' fill='white' opacity='0.3'/%3E%3Ccircle cx='80' cy='60' r='1' fill='white' opacity='0.4'/%3E%3Ccircle cx='30' cy='80' r='0.8' fill='white' opacity='0.3'/%3E%3C/svg%3E");
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
+        #menu-screen.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* Header - Poppy Playtime Bordered Box */
+        .chapter-header {
+            font-family: 'Orbitron', sans-serif;
+            font-size: clamp(1.6rem, 4.5vw, 2.8rem);
+            font-weight: 900;
+            color: #fff;
+            letter-spacing: 10px;
+            margin-bottom: 55px;
+            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+            position: relative;
+            z-index: 2;
+            border: 3px solid rgba(255, 255, 255, 0.5);
+            padding: 16px 50px;
+            background: rgba(0, 0, 0, 0.5);
+            text-transform: uppercase;
+        }
+
+        .chapter-header::before {
+            content: '';
+            position: absolute;
+            top: -5px;
+            left: -5px;
+            right: -5px;
+            bottom: -5px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            pointer-events: none;
+        }
+
+        .chapter-header::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, transparent 50%);
+            pointer-events: none;
+        }
+
+        /* Chapter Grid - Horizontal row */
+        .chapter-grid {
+            display: flex;
+            flex-direction: row;
+            justify-content: center;
+            align-items: center;
+            gap: 25px;
+            width: 90%;
+            max-width: 1400px;
+            z-index: 2;
+        }
+
+        /* Chapter Cards */
+        .chapter-card {
+            position: relative;
+            width: 260px;
+            height: 380px;
+            background: linear-gradient(180deg, rgba(10, 10, 30, 0.9) 0%, rgba(5, 5, 15, 0.95) 100%);
+            border: 1px solid rgba(138, 43, 226, 0.3);
+            cursor: pointer;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            border-radius: 8px;
+        }
+
+        .chapter-card:hover:not(.disabled) {
+            transform: translateY(-10px) scale(1.02);
+            border-color: rgba(179, 102, 255, 0.8);
+            box-shadow: 0 20px 40px rgba(138, 43, 226, 0.3), 0 0 30px rgba(138, 43, 226, 0.2);
+        }
+
+        .chapter-card.disabled {
+            cursor: not-allowed;
+            opacity: 0.4;
+            filter: grayscale(0.5) brightness(0.6);
+        }
+
+        .chapter-card.disabled:hover {
+            transform: none;
+            border-color: rgba(138, 43, 226, 0.3);
+            box-shadow: none;
+        }
+
+        /* Card background - Cosmic patterns */
+        .chapter-card-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            transition: all 0.4s ease;
+        }
+
+        /* Chapter 1 - Blue/Electric - "El Chico Sin Poder" */
+        .chapter-card.chapter-1 {
+            border-color: rgba(40, 100, 220, 0.5);
+        }
+
+        .chapter-card.chapter-1 .chapter-card-bg {
+            background:
+                radial-gradient(ellipse at 50% 30%, rgba(30, 80, 220, 0.6) 0%, transparent 45%),
+                radial-gradient(ellipse at 50% 55%, rgba(20, 50, 180, 0.35) 0%, transparent 35%),
+                radial-gradient(circle at 25% 75%, rgba(0, 40, 150, 0.25) 0%, transparent 30%),
+                radial-gradient(circle at 75% 75%, rgba(0, 60, 200, 0.15) 0%, transparent 30%),
+                linear-gradient(180deg, #060818 0%, #000008 100%);
+        }
+
+        .chapter-card.chapter-1 .chapter-card-bg::after {
+            content: '';
+            position: absolute;
+            top: 10%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 130px;
+            height: 180px;
+            background:
+                radial-gradient(ellipse at 50% 20%, rgba(60, 140, 255, 0.5) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 60%, rgba(30, 80, 200, 0.3) 0%, transparent 40%);
+            border-radius: 40% 40% 30% 30%;
+            filter: blur(12px);
+        }
+
+        .chapter-card.chapter-1:hover:not(.disabled) {
+            border-color: rgba(60, 140, 255, 0.9);
+            box-shadow: 0 20px 50px rgba(30, 80, 220, 0.4), 0 0 40px rgba(60, 140, 255, 0.25);
+        }
+
+        /* Chapter 2 - Magenta/Cosmic - "La Grieta en el Cielo" */
+        .chapter-card.chapter-2 {
+            border-color: rgba(200, 40, 130, 0.5);
+        }
+
+        .chapter-card.chapter-2 .chapter-card-bg {
+            background:
+                radial-gradient(ellipse at 50% 30%, rgba(180, 30, 120, 0.55) 0%, transparent 45%),
+                radial-gradient(ellipse at 50% 55%, rgba(150, 20, 100, 0.3) 0%, transparent 35%),
+                radial-gradient(circle at 70% 25%, rgba(220, 50, 160, 0.2) 0%, transparent 25%),
+                radial-gradient(circle at 30% 80%, rgba(120, 20, 80, 0.2) 0%, transparent 25%),
+                linear-gradient(180deg, #140810 0%, #080408 100%);
+        }
+
+        .chapter-card.chapter-2 .chapter-card-bg::after {
+            content: '';
+            position: absolute;
+            top: 8%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 140px;
+            height: 190px;
+            background:
+                radial-gradient(ellipse at 50% 25%, rgba(220, 60, 160, 0.5) 0%, transparent 45%),
+                radial-gradient(ellipse at 50% 55%, rgba(180, 30, 120, 0.3) 0%, transparent 40%);
+            border-radius: 45% 45% 35% 35%;
+            filter: blur(14px);
+        }
+
+        .chapter-card.chapter-2:hover:not(.disabled) {
+            border-color: rgba(220, 60, 160, 0.9);
+            box-shadow: 0 20px 50px rgba(180, 30, 120, 0.4), 0 0 40px rgba(220, 60, 160, 0.25);
+        }
+
+        /* Chapter 3 - Deep Purple - "El Nombre Bajo las Estrellas" */
+        .chapter-card.chapter-3 {
+            border-color: rgba(120, 40, 200, 0.5);
+        }
+
+        .chapter-card.chapter-3 .chapter-card-bg {
+            background:
+                radial-gradient(ellipse at 50% 30%, rgba(100, 30, 180, 0.55) 0%, transparent 45%),
+                radial-gradient(ellipse at 45% 55%, rgba(80, 20, 160, 0.3) 0%, transparent 35%),
+                radial-gradient(circle at 60% 20%, rgba(140, 50, 220, 0.2) 0%, transparent 25%),
+                radial-gradient(circle at 40% 80%, rgba(60, 10, 120, 0.2) 0%, transparent 25%),
+                linear-gradient(180deg, #0c0618 0%, #040208 100%);
+        }
+
+        .chapter-card.chapter-3 .chapter-card-bg::after {
+            content: '';
+            position: absolute;
+            top: 10%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 125px;
+            height: 175px;
+            background:
+                radial-gradient(ellipse at 50% 20%, rgba(140, 60, 230, 0.5) 0%, transparent 45%),
+                radial-gradient(ellipse at 50% 60%, rgba(100, 30, 180, 0.3) 0%, transparent 40%);
+            border-radius: 50% 50% 30% 30%;
+            filter: blur(12px);
+        }
+
+        .chapter-card.chapter-3:hover:not(.disabled) {
+            border-color: rgba(140, 60, 230, 0.9);
+            box-shadow: 0 20px 50px rgba(100, 30, 180, 0.4), 0 0 40px rgba(140, 60, 230, 0.25);
+        }
+
+        /* Chapter 4 - Cyan/Teal - "La Gravedad de un Padre" */
+        .chapter-card.chapter-4 {
+            border-color: rgba(30, 180, 160, 0.5);
+        }
+
+        .chapter-card.chapter-4 .chapter-card-bg {
+            background:
+                radial-gradient(ellipse at 50% 30%, rgba(20, 160, 140, 0.5) 0%, transparent 45%),
+                radial-gradient(ellipse at 50% 55%, rgba(15, 120, 110, 0.3) 0%, transparent 35%),
+                radial-gradient(circle at 70% 70%, rgba(30, 200, 180, 0.15) 0%, transparent 25%),
+                radial-gradient(circle at 30% 25%, rgba(20, 140, 130, 0.2) 0%, transparent 25%),
+                linear-gradient(180deg, #061412 0%, #020808 100%);
+        }
+
+        .chapter-card.chapter-4 .chapter-card-bg::after {
+            content: '';
+            position: absolute;
+            top: 12%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 120px;
+            height: 170px;
+            background:
+                radial-gradient(ellipse at 50% 25%, rgba(40, 200, 180, 0.5) 0%, transparent 45%),
+                radial-gradient(ellipse at 50% 60%, rgba(20, 160, 140, 0.3) 0%, transparent 40%);
+            border-radius: 40% 40% 35% 35%;
+            filter: blur(12px);
+        }
+
+        .chapter-card.chapter-4:hover:not(.disabled) {
+            border-color: rgba(40, 200, 180, 0.9);
+            box-shadow: 0 20px 50px rgba(20, 160, 140, 0.4), 0 0 40px rgba(40, 200, 180, 0.25);
+        }
+
+        /* Silhouette shape in all cards */
+        .chapter-card-bg::before {
+            content: '';
+            position: absolute;
+            top: 15%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90px;
+            height: 130px;
+            border-radius: 50% 50% 40% 40%;
+            background: rgba(0, 0, 0, 0.3);
+            filter: blur(8px);
+            z-index: 1;
+        }
+
+        /* Card text overlay */
+        .chapter-card-content {
+            position: relative;
+            padding: 20px 15px;
+            background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.7) 30%, rgba(0, 0, 0, 0.95) 100%);
+            z-index: 1;
+            text-align: center;
+        }
+
+        .chapter-card-number {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: rgba(255, 255, 255, 0.9);
+            letter-spacing: 4px;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+        }
+
+        .chapter-card-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: rgba(255, 255, 255, 0.7);
+            text-align: center;
+            line-height: 1.4;
+            text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+        }
+
+        /* Play button for available chapters */
+        .chapter-play-btn {
+            display: none;
+            margin-top: 15px;
+            padding: 10px 20px;
+            background: linear-gradient(135deg, rgba(138, 43, 226, 0.8), rgba(91, 33, 182, 0.9));
+            color: #fff;
+            border: 1px solid rgba(179, 102, 255, 0.5);
+            font-family: 'Courier New', monospace;
+            font-size: 0.75rem;
+            font-weight: bold;
+            letter-spacing: 2px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-radius: 4px;
+        }
+
+        .chapter-card:not(.disabled) .chapter-play-btn {
+            display: block;
+        }
+
+        .chapter-card:not(.disabled):hover .chapter-play-btn {
+            background: linear-gradient(135deg, #8A2BE2, #6B21A8);
+            box-shadow: 0 0 20px rgba(138, 43, 226, 0.5);
+        }
+
+        /* Logo - Bottom right */
+        .game-logo {
+            position: absolute;
+            bottom: 30px;
+            right: 40px;
+            font-family: 'Courier New', monospace;
+            font-size: 1rem;
+            color: rgba(255, 255, 255, 0.4);
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            z-index: 2;
+        }
+
+        /* Locked indicator */
+        .chapter-locked {
+            display: none;
+            margin-top: 15px;
+            padding: 8px 15px;
+            background: rgba(255, 255, 255, 0.05);
+            color: rgba(255, 255, 255, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            font-family: 'Courier New', monospace;
+            font-size: 0.65rem;
+            letter-spacing: 2px;
+            text-align: center;
+            border-radius: 4px;
+        }
+
+        .chapter-card.disabled .chapter-locked {
+            display: block;
+        }
+
+        /* Old chapter selector - hide */
+        .chapter-selector {
+            display: none;
+        }
+
+        /* Shimmer hover effect on cards */
+        .chapter-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+            transition: left 0.6s;
+            z-index: 3;
+        }
+
+        .chapter-card:hover:not(.disabled)::before {
+            left: 100%;
+        }
+
+        /* Dialogue Box */
+        #dialogue-box {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: min(80%, 900px);
+            background: var(--glass-bg);
+            border: 1px solid var(--border-glow);
+            border-left: 5px solid var(--accent-color);
+            padding: 25px 35px;
+            font-size: 1.1rem;
+            line-height: 1.7;
+            display: none;
+            color: #fff;
+            box-shadow:
+                0 15px 40px rgba(0, 0, 0, 0.6),
+                inset 0 1px 0 rgba(255, 255, 255, 0.05);
+            pointer-events: auto;
+            cursor: pointer;
+            z-index: 50;
+            backdrop-filter: blur(15px);
+            border-radius: 8px;
+        }
+
+        #speaker-name {
+            color: var(--accent-glow);
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        #dialogue-text {
+            min-height: 1.7em;
+        }
+
+        /* Interaction Prompt */
+        #interaction-prompt {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -60px);
+            background: rgba(0, 0, 0, 0.85);
+            color: #fff;
+            padding: 12px 25px;
+            border-radius: 6px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.85rem;
+            display: none;
+            pointer-events: none;
+            z-index: 40;
+            border: 1px solid var(--accent-color);
+            box-shadow: 0 0 20px rgba(138, 43, 226, 0.3);
+            animation: prompt-float 1.5s ease-in-out infinite;
+        }
+
+        @keyframes prompt-float {
+
+            0%,
+            100% {
+                transform: translate(-50%, -60px);
+            }
+
+            50% {
+                transform: translate(-50%, -65px);
+            }
+        }
+
+        /* Dialogue Box */
+        #dialogue-box {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: min(80%, 900px);
+            background: var(--glass-bg);
+            border: 1px solid var(--border-glow);
+            border-left: 5px solid var(--accent-color);
+            padding: 25px 35px;
+            font-size: 1.1rem;
+            line-height: 1.7;
+            display: none;
+            color: #fff;
+            box-shadow:
+                0 15px 40px rgba(0, 0, 0, 0.6),
+                inset 0 1px 0 rgba(255, 255, 255, 0.05);
+            pointer-events: auto;
+            cursor: pointer;
+            z-index: 50;
+            backdrop-filter: blur(15px);
+            border-radius: 8px;
+        }
+
+        #speaker-name {
+            color: var(--accent-glow);
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        #dialogue-text {
+            min-height: 1.7em;
+        }
+
+        /* Interaction Prompt */
+        #interaction-prompt {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -60px);
+            background: rgba(0, 0, 0, 0.85);
+            color: #fff;
+            padding: 12px 25px;
+            border-radius: 6px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.85rem;
+            display: none;
+            pointer-events: none;
+            z-index: 40;
+            border: 1px solid var(--accent-color);
+            box-shadow: 0 0 20px rgba(138, 43, 226, 0.3);
+            animation: prompt-float 1.5s ease-in-out infinite;
+        }
+
+        @keyframes prompt-float {
+
+            0%,
+            100% {
+                transform: translate(-50%, -60px);
+            }
+
+            50% {
+                transform: translate(-50%, -65px);
+            }
+        }
+
+        /* Glitch Effect */
+        .glitch {
+            animation: glitch 0.3s ease-in-out;
+        }
+
+        @keyframes glitch {
+            0% {
+                transform: translate(0);
+                filter: hue-rotate(0deg);
+            }
+
+            20% {
+                transform: translate(-5px, 5px);
+                filter: hue-rotate(90deg);
+            }
+
+            40% {
+                transform: translate(5px, -5px);
+                filter: hue-rotate(-90deg);
+            }
+
+            60% {
+                transform: translate(-5px, -5px);
+            }
+
+            80% {
+                transform: translate(5px, 5px);
+            }
+
+            100% {
+                transform: translate(0);
+                filter: hue-rotate(0deg);
+            }
+        }
+
+        /* Vignette */
+        .vignette {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 15;
+            background: radial-gradient(ellipse at center, transparent 40%, rgba(0, 0, 0, 0.6) 100%);
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="atmosphere"></div>
+    <canvas id="stars"></canvas>
+
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+
+        <div id="narrative-screen">
+            <div id="narrative-text"></div>
+            <div class="click-to-continue">[ HAZ CLICK PARA CONTINUAR ]</div>
+        </div>
+
+        <div id="ui-layer">
+            <div class="hud-top">
+                <div id="power-meter">
+                    <div class="power-label">PODER DEL VACÍO</div>
+                    <div class="power-bar-container">
+                        <div id="power-bar"></div>
+                    </div>
+                </div>
+                <div id="objective-container" class="collapsed">
+                    <div class="obj-label">MISIÓN</div>
+                    <div class="obj-text" id="current-objective">...</div>
+                </div>
+            </div>
+            <div id="interaction-prompt">[E] INTERACTUAR</div>
+        </div>
+
+        <!-- NATIVE PREMIUM CHECKOUT MODAL -->
+        <div id="op-checkout-modal" class="op-checkout-overlay">
+            <div class="op-checkout-card">
+                <button onclick="Game.closeCheckout()"
+                    style="position: absolute; top: 1.25rem; right: 1.25rem; background: rgba(255,255,255,0.05); border:none; color:white; width:36px; height:36px; border-radius:50%; cursor:pointer; z-index:100; display:flex; align-items:center; justify-content:center; transition:0.3s;">
+                    <i class="fas fa-times"></i>
+                </button>
+
+                <!-- Step: Login -->
+                <div id="op-step-login" class="op-hidden">
+                    <div style="padding: 3.5rem 2.5rem; text-align: center;">
+                        <div
+                            style="width: 70px; height: 70px; background: linear-gradient(135deg, #8A2BE2, #4c1d95); border-radius: 20px; display: flex; align-items: center; justify-content: center; margin: 0 auto 2rem; box-shadow: 0 10px 30px rgba(138, 43, 226, 0.5);">
+                            <i class="fas fa-water" style="font-size: 2.2rem; color: white;"></i>
+                        </div>
+                        <h2 style="font-family: 'Orbitron'; margin-bottom: 0.75rem; color: white; letter-spacing: 2px;">
+                            OCEAN PAY</h2>
+                        <p style="color: #94a3b8; font-size: 0.9rem; margin-bottom: 2.5rem; line-height: 1.5;">Conecta
+                            tu cuenta para acceder a tus WildGems y métodos de pago.</p>
+
+                        <div style="text-align: left;">
+                            <label
+                                style="font-size: 0.7rem; color: #64748b; font-weight: 800; text-transform: uppercase; margin-bottom: 8px; display: block; letter-spacing: 1px;">Usuario</label>
+                            <input type="text" id="op-login-user" placeholder="Ingresa tu usuario" class="op-input">
+                            <label
+                                style="font-size: 0.7rem; color: #64748b; font-weight: 800; text-transform: uppercase; margin-bottom: 8px; display: block; letter-spacing: 1px;">Contraseña</label>
+                            <input type="password" id="op-login-pass" placeholder="••••••••" class="op-input">
+                        </div>
+
+                        <button class="op-btn op-btn-primary" onclick="Game.opLogin()"
+                            style="margin-top: 1rem;">CONECTAR CUENTA</button>
+                        <p id="op-login-error"
+                            style="color: #ef4444; font-size: 0.8rem; margin-top: 1.25rem; font-weight: 600;"></p>
+                    </div>
+                </div>
+
+                <!-- Step: Payment -->
+                <div id="op-step-pay" class="op-hidden">
+                    <div class="op-product-preview">
+                        <div style="font-size: 0.75rem; color: #a78bfa; font-weight: 800; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 0.75rem;"
+                            id="op-preview-origin">---</div>
+                        <h2 style="font-size: 1.4rem; margin-bottom: 0.75rem; font-family: 'Orbitron'; color: white;"
+                            id="op-preview-name">---</h2>
+                        <div
+                            style="font-size: 2.2rem; font-weight: 900; color: white; display: flex; align-items: center; justify-content: center; gap: 12px;">
+                            <i class="fas fa-gem" style="color: #8A2BE2; font-size: 1.5rem;"></i>
+                            <span id="op-preview-price">---</span>
+                        </div>
+                    </div>
+
+                    <div class="op-payment-tabs">
+                        <button id="op-tab-ocean" class="op-payment-tab active"
+                            onclick="Game.setOpMethod('ocean')">OCEAN CARD</button>
+                        <button id="op-tab-external" class="op-payment-tab" onclick="Game.setOpMethod('external')">OTRA
+                            TARJETA</button>
+                    </div>
+
+                    <div id="op-method-ocean" style="max-height: 220px; overflow-y: auto;">
+                        <div id="op-card-list"></div>
+                    </div>
+
+                    <div id="op-method-external" class="op-hidden" style="padding: 0 1.5rem;">
+                        <input type="text" id="op-ext-number" placeholder="0000 0000 0000 0000" class="op-input"
+                            maxlength="19">
+                        <div style="display: flex; gap: 1rem;">
+                            <input type="text" id="op-ext-exp" placeholder="MM/AA" class="op-input" style="flex: 1;"
+                                maxlength="5">
+                            <input type="text" id="op-ext-cvv" placeholder="CVV" class="op-input" style="flex: 1;"
+                                maxlength="4">
+                        </div>
+                        <input type="text" id="op-ext-name" placeholder="Nombre del Titular" class="op-input">
+                    </div>
+
+                    <div style="padding: 2rem 1.5rem 2.5rem 1.5rem;">
+                        <button id="op-confirm-btn" class="op-btn op-btn-primary" onclick="Game.opConfirm()">FINALIZAR
+                            COMPRA</button>
+                        <div
+                            style="display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 1.5rem; color: #64748b; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">
+                            <i class="fas fa-shield-alt" style="color: #8A2BE2;"></i> Transacción Encriptada
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="dialogue-box">
+            <div id="speaker-name"></div>
+            <div id="dialogue-text"></div>
+        </div>
+
+        <div id="menu-screen">
+            <div class="chapter-header">SELECT CHAPTER</div>
+
+            <div class="chapter-grid">
+                <!-- Chapter 1 -->
+                <div id="card-ch-1" class="chapter-card chapter-1"
+                    onclick="Game.handleChapterClick(1, 'El Chico Sin Poder', 5000)">
+                    <div class="chapter-card-bg"></div>
+                    <div class="chapter-card-content">
+                        <div class="chapter-card-number">CHAPTER 1</div>
+                        <div class="chapter-card-title">"El Chico Sin Poder"</div>
+                        <div id="price-ch-1" class="chapter-locked" style="display:block;"><i class="fas fa-gem"></i>
+                            5000 WILDGEMS</div>
+                        <button id="btn-ch-1" class="chapter-play-btn"
+                            style="background:var(--accent-color);">COMPRAR</button>
+                    </div>
+                </div>
+
+                <!-- Chapter 2 -->
+                <div class="chapter-card chapter-2 disabled">
+                    <div class="chapter-card-bg"></div>
+                    <div class="chapter-card-content">
+                        <div class="chapter-card-number">CHAPTER 2</div>
+                        <div class="chapter-card-title">"La Grieta en el Cielo"</div>
+                        <div class="chapter-locked">PRÓXIMAMENTE</div>
+                    </div>
+                </div>
+
+                <!-- Chapter 3 -->
+                <div class="chapter-card chapter-3 disabled">
+                    <div class="chapter-card-bg"></div>
+                    <div class="chapter-card-content">
+                        <div class="chapter-card-number">CHAPTER 3</div>
+                        <div class="chapter-card-title">"El Nombre Bajo las Estrellas"</div>
+                        <div class="chapter-locked">PRÓXIMAMENTE</div>
+                    </div>
+                </div>
+
+                <!-- Chapter 4 -->
+                <div class="chapter-card chapter-4 disabled">
+                    <div class="chapter-card-bg"></div>
+                    <div class="chapter-card-content">
+                        <div class="chapter-card-number">CHAPTER 4</div>
+                        <div class="chapter-card-title">"La Gravedad de un Padre"</div>
+                        <div class="chapter-locked">PRÓXIMAMENTE</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="game-logo">Ocean & Wild Studios</div>
+        </div>
+
+        <div id="controls-hint">
+            <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> MOVERSE</span>
+            <span><kbd>E</kbd> INTERACTUAR</span>
+        </div>
+    </div>
+
+    <div class="vignette"></div>
+
+    <script>
+        /**
+         * MOTOR DE JUEGO NARRATIVO - VERSIÓN POPPY PLAYTIME
+         * Hijo del Ente Primario - Capítulo 1: El Chico Sin Poder
+         */
+
+        // === CANVAS & CONTEXT ===
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const starsCanvas = document.getElementById('stars');
+        const starsCtx = starsCanvas.getContext('2d');
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            starsCanvas.width = window.innerWidth;
+            starsCanvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // === STARFIELD BACKGROUND ===
+        const stars = [];
+        for (let i = 0; i < 200; i++) {
+            stars.push({
+                x: Math.random() * window.innerWidth,
+                y: Math.random() * window.innerHeight,
+                size: Math.random() * 2,
+                speed: Math.random() * 0.5 + 0.1,
+                brightness: Math.random()
+            });
+        }
+
+        function drawStars() {
+            starsCtx.fillStyle = '#030508';
+            starsCtx.fillRect(0, 0, starsCanvas.width, starsCanvas.height);
+
+            stars.forEach(star => {
+                star.y += star.speed;
+                if (star.y > starsCanvas.height) star.y = 0;
+
+                const alpha = 0.3 + Math.sin(Date.now() / 1000 * star.brightness) * 0.3;
+                starsCtx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+                starsCtx.beginPath();
+                starsCtx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+                starsCtx.fill();
+            });
+            requestAnimationFrame(drawStars);
+        }
+        drawStars();
+
+        // === PARTICLE SYSTEM ===
+        const particles = [];
+
+        class Particle {
+            constructor(x, y, color, type = 'dust') {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.type = type;
+                this.vx = (Math.random() - 0.5) * 3;
+                this.vy = (Math.random() - 0.5) * 3;
+                this.life = 1;
+                this.decay = 0.02 + Math.random() * 0.02;
+                this.size = Math.random() * 4 + 2;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.life -= this.decay;
+                if (this.type === 'void') {
+                    this.vy -= 0.05; // Float upward
+                    this.size += 0.1;
+                }
+            }
+
+            draw(ctx, cx, cy) {
+                ctx.globalAlpha = this.life;
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x - cx, this.y - cy, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1;
+            }
+        }
+
+        function spawnParticles(x, y, color, count = 10, type = 'dust') {
+            for (let i = 0; i < count; i++) {
+                particles.push(new Particle(x, y, color, type));
+            }
+        }
+
+        // === AUDIO SYSTEM ===
+        const AudioSys = {
+            ctx: null,
+            humNode: null,
+
+            init: function () {
+                if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+            },
+
+            playTone: function (freq, type, dur, vol = 0.1) {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.frequency.value = freq;
+                osc.type = type;
+                gain.gain.value = vol;
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + dur);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + dur);
+            },
+
+            playDeepHum: function () {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.frequency.value = 40;
+                osc.type = 'sawtooth';
+
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.value = 150;
+
+                osc.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                gain.gain.setValueAtTime(0, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.08, this.ctx.currentTime + 3);
+                osc.start();
+                this.humNode = { osc, gain };
+            },
+
+            playVoidHum: function () {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.frequency.value = 30;
+                osc.type = 'sine';
+
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.value = 80;
+
+                osc.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                gain.gain.setValueAtTime(0, this.ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.15, this.ctx.currentTime + 1);
+                osc.start();
+                this.voidHum = { osc, gain };
+            },
+
+            stopHum: function () {
+                if (!this.ctx) return;
+                if (this.humNode && this.humNode.gain) {
+                    try {
+                        this.humNode.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 1);
+                        setTimeout(() => { try { this.humNode.osc.stop(); } catch (e) { } }, 1000);
+                    } catch (e) { }
+                }
+                if (this.voidHum && this.voidHum.gain) {
+                    try {
+                        this.voidHum.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 2);
+                        setTimeout(() => { try { this.voidHum.osc.stop(); } catch (e) { } }, 2000);
+                    } catch (e) { }
+                }
+            },
+
+            playCrack: function () {
+                this.playTone(120, 'square', 0.1, 0.15);
+                setTimeout(() => this.playTone(60, 'sawtooth', 0.3, 0.25), 50);
+            },
+
+            playGlitch: function () {
+                for (let i = 0; i < 5; i++) {
+                    setTimeout(() => {
+                        this.playTone(100 + Math.random() * 200, 'square', 0.05, 0.1);
+                    }, i * 30);
+                }
+            },
+
+            // Create puzzle overlay dynamically
+            createPuzzleOverlay: function () {
+                // Remove existing if any
+                const existing = document.getElementById('puzzle-overlay');
+                if (existing) existing.remove();
+
+                const overlay = document.createElement('div');
+                overlay.id = 'puzzle-overlay';
+                overlay.innerHTML =
+                    '<h2 class="puzzle-title">ROMPE EL SELLO</h2>' +
+                    '<div class="puzzle-container">' +
+                    '<div class="seal-circle" id="seal-container"></div>' +
+                    '</div>' +
+                    '<p class="puzzle-instruction">Encuentra las fracturas en el vacío</p>';
+
+                // Set styles using individual properties
+                overlay.style.position = 'fixed';
+                overlay.style.top = '0';
+                overlay.style.left = '0';
+                overlay.style.width = '100vw';
+                overlay.style.height = '100vh';
+                overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.98)';
+                overlay.style.display = 'none';
+                overlay.style.flexDirection = 'column';
+                overlay.style.alignItems = 'center';
+                overlay.style.justifyContent = 'center';
+                overlay.style.zIndex = '9999';
+                overlay.style.pointerEvents = 'auto';
+
+                document.body.appendChild(overlay);
+                return overlay;
+            }
+        };
+
+        // === INPUT ===
+        const Input = {
+            keys: {},
+            init: function () {
+                window.addEventListener('keydown', e => this.keys[e.key.toLowerCase()] = true);
+                window.addEventListener('keyup', e => {
+                    this.keys[e.key.toLowerCase()] = false;
+                    if (e.key.toLowerCase() === 'e') Game.interact();
+                });
+            }
+        };
+
+        // === WORLD & MAP ===
+        // WORLD MAP - Academia + Surroundings + Ocean's House
+        // 0: Empty/Void, 1: Wall, 2: Floor, 3: Locker, 4: Desk, 5: Window, 6: Tree, 7: Bench, 8: Fence, 9: Door, 10: Bed, 11: Table, 12: Lamp, 13: Plant
+        const MAP_H = 50;
+        const MAP_W = 60;
+        const TILE_S = 48;
+
+        const WORLD_MAP = [
+            // Row 0 - Sky/Void
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            // Row 1 - Academia Rooftop + Sky
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            // Row 2 - Academia exterior north
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            // Row 3 - Academia exterior + windows
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 5, 2, 2, 2, 2, 2, 5, 2, 2, 2, 2, 2, 5, 2, 2, 2, 2, 2, 5, 2, 2, 2, 2, 2, 5, 2, 2, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            // Row 4 - Academia main floor 1
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            // Row 5 - Academia hallway with lockers
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 2, 2, 2, 3, 2, 2, 2, 3, 2, 2, 2, 3, 2, 2, 2, 3, 2, 2, 2, 3, 2, 2, 2, 3, 2, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            // Row 6 - Academy hallway
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 2, 2, 2, 3, 2, 2, 2, 3, 2, 2, 2, 3, 2, 2, 2, 3, 2, 2, 2, 3, 2, 2, 2, 3, 2, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            // Row 7 - Academy classroom wall (doors at col 21 and 35)
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 9, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 9, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            // Row 8 - Academy classroom interior
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 2, 4, 4, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4, 4, 2, 2, 2, 2, 2, 2, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            // Row 9 - Academy classroom
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 2, 4, 4, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 4, 4, 2, 2, 2, 2, 2, 2, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            // Row 10 - Academy classroom back
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            // Row 11 - Academy wall + exterior
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 9, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            // Row 12 - Courtyard/Driveway
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            // Row 13 - School entrance area
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            // Row 14 - Front gate area
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 8, 8, 8, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 8, 8, 8, 8, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            // Row 15 - Street/Outside
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            // Row 16 - Street
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            // Row 17 - Street + Ocean's House entrance
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 9, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            // Row 18 - Ocean's House hallway
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            // Row 19 - Ocean's House living room
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 2, 2, 2, 2, 2, 11, 2, 2, 2, 2, 2, 2, 11, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            // Row 20 - Ocean's House
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            // Row 21 - Ocean's House kitchen area
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            // Row 22 - Ocean's House wall
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            // Row 23 - Back of house + garden
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            // Row 24 - Garden/Trees
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 6, 6, 6, 2, 2, 2, 2, 6, 6, 6, 6, 6, 2, 2, 2, 2, 6, 6, 6, 2, 2, 2, 2, 6, 6, 6, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            // Row 25 - More trees/garden
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 6, 6, 2, 2, 2, 2, 2, 2, 6, 6, 6, 6, 2, 2, 2, 2, 2, 6, 6, 2, 2, 2, 2, 2, 6, 6, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            // Row 26 - Fence line
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            // Rows 27-49 - Extended area (void/wilderness)
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+        ];
+
+        // Alias for compatibility
+        const SCHOOL_MAP = WORLD_MAP;
+
+        // Entities - Interactive objects across the world
+        const ENTITIES = [
+            // === ACADEMY AREA ===
+            // Classroom
+            { id: 'mirror', type: 'interact', x: 3, y: 9, label: 'Espejo', text: 'Solo veo a un chico normal. Sin brillo en los ojos. Sin aura. Nada.', triggered: false },
+            { id: 'window_class', type: 'interact', x: 5, y: 4, label: 'Ventana', text: 'El cielo se ve diferente hoy. Como si estuviera... esperando algo.', triggered: false },
+            { id: 'desk', type: 'interact', x: 8, y: 9, label: 'Escritorio', text: 'Mi escritorio. El único lugar donde estoy solo.', triggered: false },
+            { id: 'locker_mine', type: 'interact', x: 2, y: 5, label: 'Casillero', text: '"En Blanco" está escrito con marcador. Como si pudiera olvidarlo.', triggered: false },
+            // Hallway
+            { id: 'poster', type: 'interact', x: 10, y: 4, label: 'Póster', text: '"La Era del Potencial Humano". Todos tienen poder... menos yo.', triggered: false },
+            { id: 'water_fountain', type: 'interact', x: 15, y: 5, label: 'Bebedero', text: 'El agua fresca es lo único que no me juzga.', triggered: false },
+            { id: 'locker_2', type: 'interact', x: 20, y: 5, label: 'Casillero', text: 'Un casillero abandonado. Algunos tienen suerte, otros no.', triggered: false },
+            { id: 'locker_3', type: 'interact', x: 26, y: 5, label: 'Casillero', text: 'Este también está vacío. Como yo.', triggered: false },
+            // Courtyard/Patio
+            { id: 'courtyard_bench', type: 'interact', x: 20, y: 13, label: 'Banco', text: 'A veces me siento aquí a observar las estrellas.', triggered: false },
+            { id: 'gate', type: 'interact', x: 20, y: 14, label: 'Entrada', text: 'La puerta de la Academia. Nunca me siento bienvenido aquí.', triggered: false },
+            // === STREET ===
+            { id: 'street_lamp', type: 'interact', x: 30, y: 15, label: 'Farola', text: 'La farola parpadea. Como el cielo aquella noche.', triggered: false },
+            // === OCEAN'S HOUSE ===
+            { id: 'house_door', type: 'interact', x: 38, y: 17, label: 'Puerta', text: 'Mi casa. Vacía desde que mi madre me abandonó.', triggered: false },
+            { id: 'living_room', type: 'interact', x: 25, y: 19, label: 'Sala', text: 'La sala donde solía ver la televisión con ella.', triggered: false },
+            { id: 'kitchen', type: 'interact', x: 25, y: 21, label: 'Cocina', text: 'La cocina está vacía. Nunca más olió a comida casera.', triggered: false },
+            { id: 'bedroom', type: 'interact', x: 25, y: 25, label: 'Mi Cuarto', text: 'Mi habitación. El único lugar donde puedo ser yo mismo.', triggered: false },
+            // === GARDEN ===
+            { id: 'garden_tree', type: 'interact', x: 20, y: 24, label: 'Árbol', text: 'Un árbol viejo. Dicen que la memoria tiene raíces profundas.', triggered: false },
+            { id: 'fence', type: 'interact', x: 25, y: 26, label: 'Cerca', text: 'La cerca del jardín. Más allá está el mundo que me teme.', triggered: false },
+            // === TRIGGERS ===
+            // Bully trigger in courtyard
+            { id: 'bully_trigger', type: 'trigger', x: 30, y: 12, label: '', active: true },
+            // Secret sign
+            { id: 'secret_sign', type: 'interact', x: 15, y: 10, label: 'Señal ROTA', text: 'Algo está escrito..."No mires a las estrellas esta noche"', triggered: false }
+        ];
+
+        // === GAME ENGINE ===
+        const Game = {
+            state: 'menu',
+            player: { x: 192, y: 448, w: 24, h: 48, color: '#4a5568', speed: 4, dir: 1 },
+            camera: { x: 0, y: 0 },
+            dialogueQueue: [],
+            narrativeQueue: [],
+            objective: '',
+            lastObjectiveText: '',
+            powerLevel: 0,
+            currentInteract: null,
+            bullies: null,
+            voidEyes: false,
+            typeInt: null,
+
+            startEpisode1: function () {
+                Input.init();
+                AudioSys.init();
+                document.getElementById('menu-screen').classList.add('hidden');
+                setTimeout(() => {
+                    document.getElementById('menu-screen').style.display = 'none';
+                    this.playPrologue();
+                }, 800);
+            },
+
+            OP_API: 'https://owsdatabase.onrender.com',
+            opToken: localStorage.getItem('opToken'),
+            opCards: [],
+            opActiveCardIndex: 0,
+            opMethod: 'ocean',
+            currentCheckout: null,
+
+            unlockedChapters: [],
+
+            handleChapterClick: function (num, title, price) {
+                if (this.unlockedChapters.includes(num)) {
+                    if (num === 1) this.startEpisode1();
+                    else alert("¡Cargando Capítulo " + num + "!");
+                } else {
+                    this.openCheckout({
+                        num,
+                        concept: "Episodio " + num + ": " + title,
+                        amount: price,
+                        currency: 'wildgems',
+                        origin: 'Hijo Del Ente'
+                    });
+                }
+            },
+
+            openCheckout: function (details) {
+                this.currentCheckout = details;
+                const modal = document.getElementById('op-checkout-modal');
+                modal.classList.add('active');
+
+                if (!this.opToken) {
+                    this.showOpStep('login');
+                } else {
+                    this.initPaymentStep();
+                }
+            },
+
+            showOpStep: function (step) {
+                document.getElementById('op-step-login').classList.toggle('op-hidden', step !== 'login');
+                document.getElementById('op-step-pay').classList.toggle('op-hidden', step !== 'pay');
+            },
+
+            opLogin: async function () {
+                const user = document.getElementById('op-login-user').value;
+                const pass = document.getElementById('op-login-pass').value;
+                const error = document.getElementById('op-login-error');
+                const btn = document.querySelector('#op-step-login .op-btn');
+
+                if (!user || !pass) {
+                    error.textContent = "Ingresa tus credenciales";
+                    return;
+                }
+
+                btn.disabled = true;
+                const originalText = btn.textContent;
+                btn.textContent = "CONECTANDO...";
+
+                try {
+                    const res = await fetch(`${this.OP_API}/ocean-pay/login`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ username: user, password: pass })
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error || 'Acceso denegado');
+
+                    this.opToken = data.token;
+                    localStorage.setItem('opToken', data.token);
+                    this.initPaymentStep();
+                } catch (e) {
+                    error.textContent = e.message;
+                } finally {
+                    btn.disabled = false;
+                    btn.textContent = originalText;
+                }
+            },
+
+            initPaymentStep: async function () {
+                this.showOpStep('pay');
+                document.getElementById('op-preview-origin').textContent = this.currentCheckout.origin;
+                document.getElementById('op-preview-name').textContent = this.currentCheckout.concept;
+                document.getElementById('op-preview-price').textContent = this.currentCheckout.amount;
+
+                await this.loadOpCards();
+            },
+
+            loadOpCards: async function () {
+                const list = document.getElementById('op-card-list');
+                if (!list) return;
+                list.innerHTML = `<div style="padding: 2rem; text-align: center; color: #64748b;"><i class="fas fa-spinner fa-spin"></i></div>`;
+
+                try {
+                    const res = await fetch(`${this.OP_API}/ocean-pay/me`, {
+                        headers: { 'Authorization': `Bearer ${this.opToken}` }
+                    });
+                    const data = await res.json();
+                    this.opCards = data.cards || [];
+                    this.renderOpCards();
+                } catch (e) {
+                    if (list) list.innerHTML = `<div style="color: #ef4444; font-size: 0.8rem; padding: 2rem; text-align:center;">Error al cargar tarjetas</div>`;
+                }
+            },
+
+            renderOpCards: function () {
+                const list = document.getElementById('op-card-list');
+                if (!list) return;
+                if (!this.opCards || !this.opCards.length) {
+                    list.innerHTML = `<div style="padding: 1.5rem; color: #64748b; font-size: 0.8rem; text-align: center;">No tienes tarjetas vinculadas.</div>`;
+                    return;
+                }
+                list.innerHTML = this.opCards.map((c, i) => `
+                    <div class="op-card-option ${i === this.opActiveCardIndex ? 'selected' : ''}" onclick="Game.selectOpCard(${i})">
+                        <div style="width: 40px; height: 25px; background: linear-gradient(135deg, #1e293b, #0f172a); border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); display:flex; align-items:center; justify-content:center;">
+                            <i class="fas fa-water" style="font-size: 0.6rem; color: #8A2BE2; opacity: 0.6;"></i>
+                        </div>
+                        <div style="flex:1">
+                            <div style="font-weight:700; font-size:0.9rem; color: white;">${c.card_name || 'Tarjeta Ocean'}</div>
+                            <div style="font-size:0.75rem; color:#64748b; font-family: monospace;">**** ${c.card_number.slice(-4)}</div>
+                        </div>
+                        ${i === this.opActiveCardIndex ? '<i class="fas fa-check-circle" style="color:#8A2BE2; font-size: 1.1rem;"></i>' : ''}
+                    </div>
+                `).join('');
+            },
+
+            selectOpCard: function (i) {
+                this.opActiveCardIndex = i;
+                this.renderOpCards();
+            },
+
+            setOpMethod: function (m) {
+                this.opMethod = m;
+                document.getElementById('op-tab-ocean').classList.toggle('active', m === 'ocean');
+                document.getElementById('op-tab-external').classList.toggle('active', m === 'external');
+                document.getElementById('op-method-ocean').classList.toggle('op-hidden', m !== 'ocean');
+                document.getElementById('op-method-external').classList.toggle('op-hidden', m !== 'external');
+            },
+
+            opConfirm: async function () {
+                const btn = document.getElementById('op-confirm-btn');
+                const originalText = btn.textContent;
+
+                if (this.opMethod === 'external') {
+                    const num = document.getElementById('op-ext-number').value;
+                    const name = document.getElementById('op-ext-name').value;
+                    if (!num || !name) return alert('Por favor, completa los datos de la tarjeta.');
+
+                    btn.textContent = 'VERIFICANDO RED...';
+                    btn.disabled = true;
+                    await new Promise(r => setTimeout(r, 1500));
+                    btn.textContent = 'AUTORIZANDO...';
+                    await new Promise(r => setTimeout(r, 1000));
+                }
+
+                btn.textContent = 'PROCESANDO PAGO...';
+                btn.disabled = true;
+
+                try {
+                    const res = await fetch(`${this.OP_API}/ocean-pay/currency/change`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${this.opToken}`
+                        },
+                        body: JSON.stringify({
+                            amount: -this.currentCheckout.amount,
+                            currency: this.currentCheckout.currency,
+                            concepto: this.currentCheckout.concept,
+                            origen: this.currentCheckout.origin,
+                            isExternal: this.opMethod === 'external'
+                        })
+                    });
+
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error || 'Error en la transacción');
+
+                    this.unlockChapter(this.currentCheckout.num);
+                    alert('¡Compra exitosa! El contenido ha sido desbloqueado.');
+                    this.closeCheckout();
+                } catch (e) {
+                    alert('Error: ' + e.message);
+                } finally {
+                    btn.textContent = originalText;
+                    btn.disabled = false;
+                }
+            },
+
+            closeCheckout: function () {
+                const modal = document.getElementById('op-checkout-modal');
+                modal.style.opacity = '0';
+                setTimeout(() => {
+                    modal.classList.remove('active');
+                    modal.style.opacity = '';
+                }, 400);
+            },
+
+            unlockChapter: function (num) {
+                this.unlockedChapters.push(num);
+                const btn = document.getElementById('btn-ch-' + num);
+                const priceLabel = document.getElementById('price-ch-' + num);
+                const card = document.getElementById('card-ch-' + num);
+
+                if (btn) {
+                    btn.textContent = "JUGAR";
+                    btn.style.background = ""; // Reset to default CSS
+                }
+                if (priceLabel) priceLabel.style.display = "none";
+                if (card) card.classList.remove('disabled');
+            },
+
+            // === NARRATIVE SYSTEM - FULL EPISODE 1 ===
+            playPrologue: function () {
+                this.state = 'narrative';
+                AudioSys.playDeepHum();
+
+                const lines = [
+                    "Esa noche el cielo no se abrió. Simplemente... <span class='narrative-accent'>parpadeó</span>.",
+                    "Una fractura silenciosa dividió los cielos sobre un pueblo tranquilo.",
+                    "Descendió un ser que ninguna mente humana podía comprender por completo.",
+                    "No estaba hecho de carne como los hombres. Era anciano. Vasto. Un soberano de estrellas en colapso y galaxias recién nacidas.",
+                    "Y, sin embargo, esa noche, él era simplemente un padre.",
+                    "Había cruzado dimensiones por una razón: <span class='narrative-accent'>crear vida</span>.",
+                    "La mujer que lo conoció no entendió quién era realmente. Ella sólo sentía una extraña calma, como estar bajo un cielo infinito.",
+                    "No vino a conquistar. No vino a reinar. Llegó con un anhelo silencioso e imposible.<br><br><span class='narrative-quote'>'He deseado un hijo.'</span>",
+                    "Meses después dio a luz a un niño.",
+                    "En el momento en que nació, el aire tembló. Las ventanas se rompieron. Las líneas eléctricas chispearon.",
+                    "El cielo luchó por contenerlo.",
+                    "Y entonces... <span class='narrative-danger'>ella murió</span>.",
+                    "No por la violencia. No por enfermedad. Su cuerpo simplemente no podía soportar la fuerza de lo que había traído al mundo.",
+                    "El alienígena observó en silencio cómo los latidos de su corazón se desvanecían.",
+                    "Por primera vez en su existencia eterna, sintió algo parecido al dolor.",
+                    "Le llamó <span class='narrative-accent'>Ocean</span> al niño.",
+                    "Luego desapareció. No por abandono, sino por protección.",
+                    "Había entidades más antiguas que las galaxias que sentirían la existencia del niño.",
+                    "Si lo descubrieran demasiado pronto, la Tierra se convertiría en un campo de batalla.",
+                    "Entonces el padre selló la energía del niño en lo más profundo de su núcleo, enterrando su poder detrás de un <span class='narrative-accent'>cerrojo cósmico</span>.",
+                    "Ocean se volvería... <span class='narrative-accent'>humano</span>.",
+                    "---",
+                    "<span class='narrative-accent'>13 años después...</span>",
+                    "Ocean es un niño de 13 años. Sin ojos brillantes. Sin poderes. Sin nada.",
+                    "Los otros niños se burlan de él. 'El En Blanco' le llaman.",
+                    "Pero algo está por cambiar.",
+                    "Esta noche, los sellos van a agrietarse."
+                ];
+
+                this.narrativeQueue = lines;
+                this.showNextNarrative();
+            },
+
+            showNextNarrative: function () {
+                const screen = document.getElementById('narrative-screen');
+                const textParams = this.narrativeQueue.shift();
+
+                if (!textParams) {
+                    screen.classList.remove('active');
+                    setTimeout(() => {
+                        screen.style.display = 'none';
+                        this.startGameplay();
+                    }, 1000);
+                    return;
+                }
+
+                screen.style.display = 'flex';
+                screen.classList.remove('active');
+
+                setTimeout(() => {
+                    document.getElementById('narrative-text').innerHTML = textParams;
+                    screen.classList.add('active');
+                }, 300);
+            },
+
+            // === GAMEPLAY ===
+            startGameplay: function () {
+                this.state = 'play';
+                // Start in academy hallway - center of corridor (row 5, col 18)
+                // Row 5: tiles 16-20 are floor (2), safe area in hallway
+                this.player.x = 18 * TILE_S;
+                this.player.y = 5 * TILE_S;
+
+                this.setObjective("Sobrevive a otro día en la Academia.");
+
+                // Intro thoughts
+                setTimeout(() => {
+                    this.queueDialogue("Ocean", "(Trece años... y sigo siendo un error de redondeo.)");
+                    this.queueDialogue("Ocean", "(Cada mañana lo mismo... las miradas. Los susurros.)");
+                    this.queueDialogue("Ocean", "('En Blanco'. Como si mi existencia fuera un error de cálculo.)");
+                }, 500);
+            },
+
+            setObjective: function (text) {
+                // Only show if objective changed
+                if (text === this.lastObjectiveText) return;
+                this.lastObjectiveText = text;
+
+                const container = document.getElementById('objective-container');
+                document.getElementById('current-objective').innerText = text;
+
+                // Reset and show centered first
+                container.classList.remove('collapsed');
+                container.classList.add('centered');
+
+                // After 3 seconds, collapse to corner
+                setTimeout(() => {
+                    container.classList.remove('centered');
+                    container.classList.add('collapsed');
+                }, 3000);
+            },
+
+            update: function () {
+                // Allow movement in 'play' and 'puzzle' states
+                if (this.state === 'play' || this.state === 'puzzle') {
+                    let dx = 0;
+                    let dy = 0;
+                    if (Input.keys['w']) dy = -this.player.speed;
+                    if (Input.keys['s']) dy = this.player.speed;
+                    if (Input.keys['a']) { dx = -this.player.speed; this.player.dir = -1; }
+                    if (Input.keys['d']) { dx = this.player.speed; this.player.dir = 1; }
+
+                    // Move & Collide
+                    if (!this.checkWall(this.player.x + dx, this.player.y)) this.player.x += dx;
+                    if (!this.checkWall(this.player.x, this.player.y + dy)) this.player.y += dy;
+
+                    // Camera follow
+                    this.camera.x = this.player.x - canvas.width / 2 + this.player.w / 2;
+                    this.camera.y = this.player.y - canvas.height / 2 + this.player.h / 2;
+
+                    // Clamp camera
+                    this.camera.x = Math.max(0, Math.min(this.camera.x, MAP_W * TILE_S - canvas.width));
+                    this.camera.y = Math.max(0, Math.min(this.camera.y, MAP_H * TILE_S - canvas.height));
+
+                    // Spawn ambient particles
+                    if (Math.random() < 0.1) {
+                        spawnParticles(
+                            this.player.x + this.player.w / 2 + (Math.random() - 0.5) * 50,
+                            this.player.y + this.player.h / 2 + (Math.random() - 0.5) * 50,
+                            'rgba(138, 43, 226, 0.3)', 1
+                        );
+                    }
+
+                    this.checkTriggers();
+                }
+
+                // Update particles
+                for (let i = particles.length - 1; i >= 0; i--) {
+                    particles[i].update();
+                    if (particles[i].life <= 0) particles.splice(i, 1);
+                }
+            },
+
+            checkWall: function (x, y) {
+                const corners = [
+                    { x: x, y: y },
+                    { x: x + this.player.w, y: y },
+                    { x: x, y: y + this.player.h },
+                    { x: x + this.player.w, y: y + this.player.h }
+                ];
+                for (let p of corners) {
+                    let col = Math.floor(p.x / TILE_S);
+                    let row = Math.floor(p.y / TILE_S);
+                    if (row < 0 || row >= MAP_H || col < 0 || col >= MAP_W) return true;
+                    let tile = WORLD_MAP[row] ? WORLD_MAP[row][col] : 0;
+                    // Block on walls (1), trees (6), fences (8)
+                    if (tile === 1 || tile === 6 || tile === 8) return true;
+                }
+                return false;
+            },
+
+            checkTriggers: function () {
+                const cx = this.player.x + this.player.w / 2;
+                const cy = this.player.y + this.player.h / 2;
+
+                // Check interactables
+                let near = null;
+                ENTITIES.forEach(e => {
+                    if (e.type === 'interact') {
+                        let ex = e.x * TILE_S + TILE_S / 2;
+                        let ey = e.y * TILE_S + TILE_S / 2;
+                        if (Math.hypot(cx - ex, cy - ey) < 60) near = e;
+                    }
+                    // Auto triggers
+                    if (e.type === 'trigger' && e.active) {
+                        let ex = e.x * TILE_S + TILE_S / 2;
+                        let ey = e.y * TILE_S + TILE_S / 2;
+                        if (Math.hypot(cx - ex, cy - ey) < 120) {
+                            this.triggerEvent(e.id);
+                            e.active = false;
+                        }
+                    }
+                });
+
+                const prompt = document.getElementById('interaction-prompt');
+                if (near) {
+                    prompt.style.display = 'block';
+                    prompt.innerHTML = `[E] ${near.label}`;
+                    this.currentInteract = near;
+                } else {
+                    prompt.style.display = 'none';
+                    this.currentInteract = null;
+                }
+            },
+
+            interact: function () {
+                if (this.currentInteract) {
+                    this.queueDialogue("Ocean", this.currentInteract.text);
+
+                    // Quest progression
+                    if (this.currentInteract.id === 'window_class') {
+                        this.setObjective("Explora la escuela. Busca respuestas.");
+                    }
+                    if (this.currentInteract.id === 'secret_sign') {
+                        this.setObjective("El patio trasero... algo me espera allí.");
+                    }
+                }
+            },
+
+            triggerEvent: function (id) {
+                if (id === 'bully_trigger') {
+                    this.startBullyScene();
+                }
+            },
+
+            // === BULLY SCENE ===
+            startBullyScene: function () {
+                this.state = 'cutscene';
+                this.setObjective("...");
+
+                this.bullies = [
+                    { x: this.player.x + 150, y: this.player.y, color: '#dc2626', vx: 0 },
+                    { x: this.player.x + 180, y: this.player.y - 30, color: '#b91c1c', vx: 0 },
+                    { x: this.player.x + 180, y: this.player.y + 30, color: '#b91c1c', vx: 0 }
+                ];
+
+                this.queueDialogue("???", "¡Miren! El 'En Blanco' está solo.", () => {
+                    this.queueDialogue("Marcus", "¡El freak del vacío! ¿Buscando más problemas?");
+                    this.queueDialogue("Ocean", "(No respondas. Nunca respondas. Es más fácil así.)");
+                    this.queueDialogue("Marcus", "¿Qué pasa? ¿Tu aura se quedó en casa?");
+                    this.queueDialogue("Marcus", "¿O es que simplemente <span class='narrative-accent'>no tienes</span>?");
+                    this.queueDialogue("Ocean", "(Cada palabra es un golpe. Cada risa, una herida.)");
+                    this.queueDialogue("Marcus", "¡DIME QUE ERES UN ERROR!", () => {
+                        this.queueDialogue("Narrador", "Lo golpearon. Duro.", () => {
+                            this.startAwakeningSequence();
+                        });
+                    });
+                });
+            },
+
+            startAwakeningSequence: function () {
+                const screen = document.getElementById('narrative-screen');
+                screen.style.display = 'flex';
+
+                setTimeout(() => {
+                    screen.classList.add('active');
+                    document.getElementById('narrative-text').innerHTML =
+                        "<span class='narrative-danger'>Sangre...</span><br>Caliente. Humana.<br><br>Mucho más allá de la atmósfera... <span class='narrative-accent'>algo despertó.</span>";
+
+                    AudioSys.stopHum();
+                    AudioSys.playVoidHum();
+
+                    // Spawn void particles
+                    spawnParticles(canvas.width / 2, canvas.height / 2, '#8A2BE2', 30, 'void');
+
+                }, 500);
+
+                setTimeout(() => {
+                    screen.classList.remove('active');
+                }, 5000);
+
+                setTimeout(() => {
+                    screen.style.display = 'none';
+                    this.startSealPuzzle();
+                }, 6500);
+            },
+
+            // === PUZZLE: THE SEAL ===
+            startSealPuzzle: function () {
+                this.state = 'puzzle';
+                this.setObjective("Rompe el sello cósmico.");
+
+                // Create puzzle overlay dynamically
+                const pOverlay = AudioSys.createPuzzleOverlay();
+                const pCont = document.getElementById('seal-container');
+
+                // Show puzzle
+                pOverlay.style.display = 'flex';
+
+                pCont.innerHTML = '';
+
+                let cracksFound = 0;
+                const totalCracks = 6;
+
+                for (let i = 0; i < totalCracks; i++) {
+                    let crack = document.createElement('div');
+                    crack.className = 'seal-crack';
+                    crack.style.position = 'absolute';
+                    crack.style.width = '50px';
+                    crack.style.height = '50px';
+                    crack.style.borderRadius = '50%';
+                    crack.style.cursor = 'pointer';
+                    crack.style.background = '#222';
+                    crack.style.border = '2px solid #444';
+                    crack.style.left = (Math.random() * 230) + 'px';
+                    crack.style.top = (Math.random() * 230) + 'px';
+
+                    crack.onclick = () => {
+                        if (crack.classList.contains('active')) return;
+                        crack.classList.add('active');
+                        crack.style.background = '#8A2BE2';
+                        crack.style.boxShadow = '0 0 25px #8A2BE2, 0 0 50px #8A2BE2';
+                        crack.style.borderColor = '#b366ff';
+                        AudioSys.playCrack();
+                        cracksFound++;
+
+                        spawnParticles(
+                            crack.offsetLeft + 25,
+                            crack.offsetTop + 25,
+                            '#8A2BE2', 15, 'void'
+                        );
+
+                        if (cracksFound === totalCracks) {
+                            setTimeout(() => this.finishPuzzleSeal(), 1000);
+                        }
+                    };
+                    pCont.appendChild(crack);
+                }
+            },
+
+            finishPuzzleSeal: function () {
+                // Remove puzzle overlay completely
+                const pOverlay = document.getElementById('puzzle-overlay');
+                if (pOverlay) pOverlay.remove();
+
+                this.state = 'cutscene';
+                this.voidEyes = true;
+
+                // Visual glitch effect
+                document.getElementById('game-container').classList.add('glitch');
+                setTimeout(() => document.getElementById('game-container').classList.remove('glitch'), 500);
+
+                AudioSys.playGlitch();
+                this.queueDialogue("Narrador", "El sello... <span class='narrative-accent'>se había agrietado</span>.");
+                this.queueDialogue("Ocean", "(Mi ojo derecho... es un túnel hacia la oscuridad.)");
+                this.queueDialogue("Ocean", "(Algo está ahí dentro. Algo antiguo.)");
+                this.queueDialogue("???", "Ocean...", () => {
+                    this.queueDialogue("???", "<span class='narrative-accent'>Mi hijo.</span>", () => {
+                        this.queueDialogue("Narrador", "La gravedad se invirtió. Los matones flotaron, pálidos de terror.", () => {
+                            this.queueDialogue("???", "Su hijo ya no era invisible.", () => {
+                                this.queueDialogue("Narrador", "El universo acababa de recibir una advertencia.", () => {
+                                    this.finishEpisode();
+                                });
+                            });
+                        });
+                    });
+                });
+            },
+
+            finishEpisode: function () {
+                this.state = 'cutscene';
+
+                // Final visual effect
+                const vignette = document.querySelector('.vignette');
+                if (vignette) {
+                    vignette.style.background = 'radial-gradient(ellipse at center, transparent 10%, rgba(138, 43, 226, 0.4) 100%)';
+                }
+
+                // Ending without spoiling - Episodio 1 no revela que es el Hijo del Ente Primario
+                this.queueDialogue("Ocean", "(Algo antiguo me observa desde las estrellas.)", () => {
+                    this.queueDialogue("Ocean", "(Mi padre... no es humano.)", () => {
+                        this.queueDialogue("Ocean", "(Y yo... yo no soy ordinario.)", () => {
+                            setTimeout(() => {
+                                alert("🎮 FIN DEL EPISODIO 1\n\nHas completado 'El Chico Sin Poder'\n\nPróximo episodio: La Grieta en el Cielo");
+                                location.reload();
+                            }, 2000);
+                        });
+                    });
+                });
+            },
+
+            // === DIALOGUE SYSTEM ===
+            queueDialogue: function (speaker, text, callback) {
+                this.dialogueQueue.push({ sp: speaker, txt: text, cb: callback });
+                if (this.dialogueQueue.length === 1) this.showDialogue();
+            },
+
+            showDialogue: function () {
+                if (this.dialogueQueue.length === 0) {
+                    document.getElementById('dialogue-box').style.display = 'none';
+                    return;
+                }
+
+                const d = this.dialogueQueue[0];
+                const box = document.getElementById('dialogue-box');
+                box.style.display = 'block';
+                document.getElementById('speaker-name').innerText = d.sp;
+
+                let i = 0;
+                const el = document.getElementById('dialogue-text');
+                el.innerHTML = '';
+
+                if (this.typeInt) clearInterval(this.typeInt);
+                this.typeInt = setInterval(() => {
+                    el.innerHTML = d.txt.substring(0, i++);
+                    if (i > d.txt.length) clearInterval(this.typeInt);
+                }, 15);
+            },
+
+            advanceDialogue: function () {
+                const d = this.dialogueQueue.shift();
+                if (d && d.cb) d.cb();
+                this.showDialogue();
+            },
+
+            // === RENDER ===
+            draw: function () {
+                // Background
+                ctx.fillStyle = '#050510';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                if (this.state === 'narrative' || this.state === 'menu') return;
+
+                const cx = Math.floor(this.camera.x);
+                const cy = Math.floor(this.camera.y);
+
+                // Cosmic fog/vignette based on player position
+                const playerScreenX = this.player.x - cx;
+                const playerScreenY = this.player.y - cy;
+
+                // Draw Map - Cosmic/Industrial Style
+                for (let y = 0; y < MAP_H; y++) {
+                    for (let x = 0; x < MAP_W; x++) {
+                        if (!WORLD_MAP[y] || WORLD_MAP[y][x] === undefined) continue;
+
+                        let tile = WORLD_MAP[y][x];
+                        let tx = x * TILE_S - cx;
+                        let ty = y * TILE_S - cy;
+
+                        // Skip if off screen
+                        if (tx < -TILE_S || tx > canvas.width || ty < -TILE_S || ty > canvas.height) continue;
+
+                        // Calculate distance for fog effect
+                        const distToPlayer = Math.hypot(tx + TILE_S / 2 - playerScreenX, ty + TILE_S / 2 - playerScreenY);
+                        const fogAmount = Math.min(1, Math.max(0, (distToPlayer - 200) / 400));
+                        const lightAmount = 1 - fogAmount * 0.7;
+
+                        if (tile === 0) { // Void/Empty - dark cosmic
+                            ctx.fillStyle = `rgba(5, 5, 15, ${lightAmount})`;
+                            ctx.fillRect(tx, ty, TILE_S, TILE_S);
+
+                            // Add subtle stars in void areas
+                            if (Math.random() < 0.02 && lightAmount < 0.5) {
+                                ctx.fillStyle = `rgba(255, 255, 255, ${Math.random() * 0.3})`;
+                                ctx.fillRect(tx + Math.random() * TILE_S, ty + Math.random() * TILE_S, 1, 1);
+                            }
+                        } else if (tile === 1) { // Wall - industrial dark
+                            // Base wall
+                            ctx.fillStyle = `rgba(20, 20, 35, ${lightAmount})`;
+                            ctx.fillRect(tx, ty, TILE_S, TILE_S);
+
+                            // Wall texture/lines
+                            ctx.fillStyle = `rgba(30, 30, 50, ${lightAmount})`;
+                            ctx.fillRect(tx, ty, TILE_S, 2);
+                            ctx.fillRect(tx + 2, ty, 2, TILE_S);
+
+                            // Industrial details
+                            ctx.fillStyle = `rgba(15, 15, 25, ${lightAmount})`;
+                            ctx.fillRect(tx + 5, ty + 5, TILE_S - 10, TILE_S - 10);
+
+                            // Edge highlight
+                            ctx.fillStyle = `rgba(40, 40, 60, ${lightAmount})`;
+                            ctx.fillRect(tx + TILE_S - 2, ty, 2, TILE_S);
+
+                        } else if (tile === 2) { // Floor - worn concrete
+                            // Base floor
+                            ctx.fillStyle = `rgba(12, 12, 18, ${lightAmount})`;
+                            ctx.fillRect(tx, ty, TILE_S, TILE_S);
+
+                            // Floor texture - worn lines
+                            ctx.fillStyle = `rgba(18, 18, 25, ${lightAmount})`;
+                            ctx.fillRect(tx + 2, ty + TILE_S - 3, TILE_S - 4, 2);
+                            ctx.fillRect(tx + 2, ty + 2, TILE_S - 4, 1);
+
+                            // Cracks/details
+                            if (Math.random() < 0.1) {
+                                ctx.fillStyle = `rgba(8, 8, 12, ${lightAmount})`;
+                                ctx.fillRect(tx + Math.random() * TILE_S * 0.7, ty + Math.random() * TILE_S * 0.7, 3, 3);
+                            }
+
+                        } else if (tile === 3) { // Locker - metal cabinet
+                            // Locker body
+                            ctx.fillStyle = `rgba(25, 35, 50, ${lightAmount})`;
+                            ctx.fillRect(tx + 6, ty + 4, TILE_S - 12, TILE_S - 8);
+
+                            // Locker door line
+                            ctx.fillStyle = `rgba(35, 50, 70, ${lightAmount})`;
+                            ctx.fillRect(tx + TILE_S / 2 - 1, ty + 6, 2, TILE_S - 14);
+
+                            // Locker handle
+                            ctx.fillStyle = `rgba(50, 60, 80, ${lightAmount})`;
+                            ctx.fillRect(tx + TILE_S - 14, ty + TILE_S / 2, 4, 8);
+
+                            // Locker vents
+                            ctx.fillStyle = `rgba(15, 20, 30, ${lightAmount})`;
+                            for (let v = 0; v < 3; v++) {
+                                ctx.fillRect(tx + 8, ty + 8 + v * 10, TILE_S - 16, 2);
+                            }
+
+                        } else if (tile === 4) { // Desk - wooden
+                            // Desk top
+                            ctx.fillStyle = `rgba(50, 35, 20, ${lightAmount})`;
+                            ctx.fillRect(tx + 4, ty + 8, TILE_S - 8, 8);
+
+                            // Desk legs
+                            ctx.fillStyle = `rgba(40, 28, 15, ${lightAmount})`;
+                            ctx.fillRect(tx + 6, ty + 16, 6, TILE_S - 20);
+                            ctx.fillRect(tx + TILE_S - 12, ty + 16, 6, TILE_S - 20);
+
+                            // Desk drawer
+                            ctx.fillStyle = `rgba(35, 25, 12, ${lightAmount})`;
+                            ctx.fillRect(tx + TILE_S / 2 - 10, ty + 12, 20, 10);
+
+                        } else if (tile === 5) { // Window - with sky
+                            // Window frame
+                            ctx.fillStyle = `rgba(30, 30, 40, ${lightAmount})`;
+                            ctx.fillRect(tx + 2, ty + 2, TILE_S - 4, TILE_S - 4);
+
+                            // Window glass
+                            ctx.fillStyle = `rgba(20, 30, 50, ${lightAmount * 0.7})`;
+                            ctx.fillRect(tx + 4, ty + 4, TILE_S - 8, TILE_S - 12);
+
+                            // Night sky glow
+                            ctx.fillStyle = `rgba(30, 50, 100, ${lightAmount * 0.3})`;
+                            ctx.fillRect(tx + 6, ty + 6, TILE_S - 12, TILE_S - 18);
+
+                            // Stars in window
+                            ctx.fillStyle = `rgba(200, 220, 255, ${lightAmount * 0.5})`;
+                            for (let s = 0; s < 3; s++) {
+                                ctx.fillRect(tx + 8 + s * 10 + Math.random() * 5, ty + 8 + Math.random() * 10, 1, 1);
+                            }
+
+                        } else if (tile === 6) { // Tree - silhouette
+                            // Tree trunk
+                            ctx.fillStyle = `rgba(15, 10, 5, ${lightAmount})`;
+                            ctx.fillRect(tx + TILE_S / 2 - 4, ty + TILE_S / 2, 8, TILE_S / 2);
+
+                            // Tree foliage - dark silhouette
+                            ctx.fillStyle = `rgba(5, 8, 5, ${lightAmount})`;
+                            ctx.beginPath();
+                            ctx.arc(tx + TILE_S / 2, ty + TILE_S / 2 - 5, TILE_S / 2 - 4, 0, Math.PI * 2);
+                            ctx.fill();
+
+                        } else if (tile === 7) { // Bench
+                            // Bench seat
+                            ctx.fillStyle = `rgba(35, 25, 15, ${lightAmount})`;
+                            ctx.fillRect(tx + 4, ty + TILE_S / 2, TILE_S - 8, 6);
+
+                            // Bench legs
+                            ctx.fillStyle = `rgba(25, 20, 10, ${lightAmount})`;
+                            ctx.fillRect(tx + 6, ty + TILE_S / 2 + 6, 4, TILE_S / 2 - 6);
+                            ctx.fillRect(tx + TILE_S - 10, ty + TILE_S / 2 + 6, 4, TILE_S / 2 - 6);
+
+                        } else if (tile === 8) { // Fence
+                            // Fence posts
+                            ctx.fillStyle = `rgba(40, 35, 30, ${lightAmount})`;
+                            for (let f = 0; f < 3; f++) {
+                                ctx.fillRect(tx + f * (TILE_S / 3) + 4, ty + 4, 4, TILE_S - 8);
+                            }
+
+                            // Fence wire
+                            ctx.fillStyle = `rgba(30, 25, 20, ${lightAmount})`;
+                            ctx.fillRect(tx + 2, ty + TILE_S / 3, TILE_S - 4, 2);
+                            ctx.fillRect(tx + 2, ty + TILE_S * 2 / 3, TILE_S - 4, 2);
+
+                        } else if (tile === 9) { // Door - industrial
+                            // Door frame
+                            ctx.fillStyle = `rgba(35, 25, 15, ${lightAmount})`;
+                            ctx.fillRect(tx + 4, ty, TILE_S - 8, TILE_S);
+
+                            // Door
+                            ctx.fillStyle = `rgba(45, 30, 15, ${lightAmount})`;
+                            ctx.fillRect(tx + 6, ty + 2, TILE_S - 12, TILE_S - 4);
+
+                            // Door handle
+                            ctx.fillStyle = `rgba(70, 60, 40, ${lightAmount})`;
+                            ctx.fillRect(tx + TILE_S - 14, ty + TILE_S / 2, 4, 10);
+
+                            // Door panel details
+                            ctx.fillStyle = `rgba(35, 22, 10, ${lightAmount})`;
+                            ctx.fillRect(tx + 8, ty + 6, TILE_S - 16, TILE_S / 3);
+                            ctx.fillRect(tx + 8, ty + TILE_S / 2 + 4, TILE_S - 16, TILE_S / 3);
+
+                        } else if (tile === 10) { // Bed
+                            // Mattress
+                            ctx.fillStyle = `rgba(40, 40, 50, ${lightAmount})`;
+                            ctx.fillRect(tx + 4, ty + TILE_S / 2, TILE_S - 8, TILE_S / 2 - 4);
+
+                            // Pillow
+                            ctx.fillStyle = `rgba(50, 50, 60, ${lightAmount})`;
+                            ctx.fillRect(tx + 6, ty + TILE_S / 2 + 2, TILE_S / 3, TILE_S / 3);
+
+                            // Blanket
+                            ctx.fillStyle = `rgba(30, 30, 45, ${lightAmount})`;
+                            ctx.fillRect(tx + TILE_S / 2, ty + TILE_S / 2 + 2, TILE_S / 2 - 6, TILE_S / 2 - 6);
+
+                        } else if (tile === 11) { // Table
+                            // Table top
+                            ctx.fillStyle = `rgba(45, 30, 18, ${lightAmount})`;
+                            ctx.fillRect(tx + 4, ty + TILE_S / 3, TILE_S - 8, 8);
+
+                            // Table legs
+                            ctx.fillStyle = `rgba(35, 25, 15, ${lightAmount})`;
+                            ctx.fillRect(tx + 6, ty + TILE_S / 3 + 8, 6, TILE_S / 2);
+                            ctx.fillRect(tx + TILE_S - 12, ty + TILE_S / 3 + 8, 6, TILE_S / 2);
+
+                        } else if (tile === 12) { // Lamp
+                            // Lamp base
+                            ctx.fillStyle = `rgba(30, 30, 35, ${lightAmount})`;
+                            ctx.fillRect(tx + TILE_S / 2 - 4, ty + TILE_S - 10, 8, 10);
+
+                            // Lamp glow (emits light)
+                            const glowIntensity = 0.3 + Math.sin(Date.now() / 500) * 0.1;
+                            ctx.fillStyle = `rgba(255, 220, 150, ${glowIntensity * lightAmount})`;
+                            ctx.beginPath();
+                            ctx.arc(tx + TILE_S / 2, ty + TILE_S / 2, TILE_S / 2, 0, Math.PI * 2);
+                            ctx.fill();
+
+                        } else if (tile === 13) { // Plant
+                            // Pot
+                            ctx.fillStyle = `rgba(60, 40, 25, ${lightAmount})`;
+                            ctx.fillRect(tx + TILE_S / 3, ty + TILE_S / 2, TILE_S / 3, TILE_S / 2);
+
+                            // Plant leaves
+                            ctx.fillStyle = `rgba(20, 40, 20, ${lightAmount})`;
+                            ctx.beginPath();
+                            ctx.arc(tx + TILE_S / 2, ty + TILE_S / 3, TILE_S / 3, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                    }
+                }
+
+                // Draw Interactables with cosmic glow
+                ENTITIES.forEach(e => {
+                    if (e.type === 'interact') {
+                        let tx = e.x * TILE_S - cx;
+                        let ty = e.y * TILE_S - cy;
+
+                        // Skip if off screen
+                        if (tx < -50 || tx > canvas.width + 50 || ty < -50 || ty > canvas.height + 50) return;
+
+                        // Pulsing cosmic glow
+                        const pulse = 0.3 + Math.sin(Date.now() / 400) * 0.2;
+                        const glowSize = 30;
+
+                        // Outer glow
+                        const gradient = ctx.createRadialGradient(tx + 24, ty + 24, 0, tx + 24, ty + 24, glowSize);
+                        gradient.addColorStop(0, `rgba(138, 43, 226, ${pulse})`);
+                        gradient.addColorStop(0.5, `rgba(138, 43, 226, ${pulse * 0.5})`);
+                        gradient.addColorStop(1, 'rgba(138, 43, 226, 0)');
+                        ctx.fillStyle = gradient;
+                        ctx.fillRect(tx + 24 - glowSize, ty + 24 - glowSize, glowSize * 2, glowSize * 2);
+
+                        // Inner core
+                        ctx.fillStyle = `rgba(179, 102, 255, ${pulse + 0.2})`;
+                        ctx.fillRect(tx + 18, ty + 18, 12, 12);
+
+                        // Highlight
+                        ctx.fillStyle = `rgba(255, 255, 255, ${pulse * 0.5})`;
+                        ctx.fillRect(tx + 20, ty + 20, 4, 4);
+                    }
+                });
+
+                // Draw Bullies
+                if (this.bullies) {
+                    this.bullies.forEach(b => {
+                        // Body
+                        ctx.fillStyle = b.color;
+                        ctx.fillRect(b.x - cx - 15, b.y - cy - 30, 30, 60);
+                        // Head
+                        ctx.fillStyle = '#fca5a5';
+                        ctx.fillRect(b.x - cx - 12, b.y - cy - 55, 24, 24);
+                    });
+                }
+
+                // Draw Player
+                const px = this.player.x - cx;
+                const py = this.player.y - cy;
+
+                // Body
+                ctx.fillStyle = this.player.color;
+                ctx.fillRect(px, py, this.player.w, this.player.h);
+
+                // Head
+                ctx.fillStyle = '#64748b';
+                ctx.fillRect(px - 2, py - 20, this.player.w + 4, 20);
+
+                // Eyes
+                ctx.fillStyle = this.voidEyes ? '#000' : '#1e293b';
+                ctx.fillRect(px + 3, py - 14, 6, 6);
+                ctx.fillRect(px + this.player.w - 9, py - 14, 6, 6);
+
+                // Void eye glow
+                if (this.voidEyes) {
+                    ctx.fillStyle = 'rgba(138, 43, 226, 0.5)';
+                    ctx.fillRect(px + 3, py - 14, 6, 6);
+                    ctx.fillRect(px + this.player.w - 9, py - 14, 6, 6);
+
+                    // Void particles around player
+                    spawnParticles(this.player.x + this.player.w / 2, this.player.y + this.player.h / 2, '#8A2BE2', 1, 'void');
+                }
+
+                // Draw particles
+                particles.forEach(p => p.draw(ctx, cx, cy));
+            },
+
+            loop: function () {
+                this.update();
+                this.draw();
+                requestAnimationFrame(() => this.loop());
+            }
+        };
+
+        // Start game loop
+        Game.loop();
+
+        // Event Listeners
+        document.getElementById('narrative-screen').addEventListener('click', () => Game.showNextNarrative());
+        document.getElementById('dialogue-box').addEventListener('click', () => Game.advanceDialogue());
+
+        // Input Formatting for External Card
+        document.getElementById('op-ext-number').oninput = (e) => {
+            e.target.value = e.target.value.replace(/\s+/g, '').replace(/(\d{4})/g, '$1 ').trim();
+        };
+        document.getElementById('op-ext-exp').oninput = (e) => {
+            e.target.value = e.target.value.replace(/\D/g, '').replace(/(\d{2})/, '$1/').substring(0, 5);
+        };
+    </script>
+</body>
+
+</html>

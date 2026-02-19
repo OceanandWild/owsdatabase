@@ -2301,9 +2301,9 @@ app.post('/ocean-pay/currency/change', async (req, res) => {
 
     // Registrar transacción siempre
     await client.query(`
-      INSERT INTO ocean_pay_txs (user_id, card_id, concepto, monto, origen, moneda)
-      VALUES ($1, $2, $3, $4, $5, $6)
-    `, [targetUserId, card.id, concepto + (isExternal ? ' (Tarj. Externa)' : ''), change, origen, currKey]);
+      INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+      VALUES ($1, $2, $3, $4, $5)
+    `, [targetUserId, concepto + (isExternal ? ' (Tarj. Externa)' : ''), change, origen, currKey]);
 
     await client.query('COMMIT');
     res.json({ success: true, balance: isExternal ? current : newBalance });

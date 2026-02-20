@@ -10608,7 +10608,7 @@ app.post('/ocean-pay/cards/change-balance', async (req, res) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) return res.status(401).json({ error: 'No token' });
 
-  const { cardNumber, currencyType, amount, concepto = 'Operación' } = req.body;
+  const { cardNumber, currencyType, amount, concepto = 'Operación', origen = 'Card Transaction' } = req.body;
 
   if (!cardNumber || !currencyType || amount === undefined) {
     return res.status(400).json({ error: 'Faltan datos requeridos' });
@@ -10680,7 +10680,7 @@ app.post('/ocean-pay/cards/change-balance', async (req, res) => {
     // Registrar transacción
     await client.query(
       'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)',
-      [userId, concepto, amount, 'Card Transaction', currencyType.toUpperCase()]
+      [userId, concepto, amount, origen, currencyType.toUpperCase()]
     );
 
     await client.query('COMMIT');

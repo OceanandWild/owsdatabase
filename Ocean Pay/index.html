@@ -4400,6 +4400,7 @@
 
     /* ---------- SUBSCRIPTIONS ---------- */
     async function renderSubscriptions() {
+      const container = qs('#subs-container');
       const loadingHtml = '<p style="color: #64748b; text-align: center; grid-column: 1/-1;">Cargando...</p>';
       if (container) container.innerHTML = loadingHtml;
 

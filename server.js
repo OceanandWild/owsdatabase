@@ -663,38 +663,45 @@ async function runDatabaseMigrations() {
           receiver_card_id INTEGER REFERENCES ocean_pay_cards(id) ON DELETE CASCADE,
           amount DECIMAL(20, 2) NOT NULL,
           currency VARCHAR(50) NOT NULL,
-          target_currency VARCHAR(50), --Para Intercambios(Swap)
-        is_exchange BOOLEAN DEFAULT FALSE,
-          status VARCHAR(20) DEFAULT 'pending', --pending, completed, expired, cancelled
-        created_at TIMESTAMP DEFAULT NOW(),
+          target_currency VARCHAR(50),
+          is_exchange BOOLEAN DEFAULT FALSE,
+          status VARCHAR(20) DEFAULT 'pending',
+          created_at TIMESTAMP DEFAULT NOW(),
           completed_at TIMESTAMP
-        )
-      -- 13. Crear tabla ocean_pay_subscriptions (VIP System)
+      );
+    `).catch(err => console.log('⚠️ Error creando ocean_pay_pos:', err.message));
+
+    // 13. Crear tabla ocean_pay_subscriptions (VIP System)
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS ocean_pay_subscriptions(
         id SERIAL PRIMARY KEY,
         user_id INTEGER NOT NULL REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
-        plan_name VARCHAR(50) NOT NULL, -- 'premium', 'free'
+        plan_name VARCHAR(50) NOT NULL,
         price DECIMAL(20, 2) NOT NULL,
         currency VARCHAR(20) DEFAULT 'wildgems',
-        status VARCHAR(20) DEFAULT 'active', -- active, expired, cancelled
+        status VARCHAR(20) DEFAULT 'active',
         start_date TIMESTAMP DEFAULT NOW(),
         end_date TIMESTAMP NOT NULL,
         auto_renew BOOLEAN DEFAULT TRUE,
         created_at TIMESTAMP DEFAULT NOW()
       );
+    `).catch(err => console.log('⚠️ Error creando ocean_pay_subscriptions:', err.message));
 
-      -- 14. Crear tabla ocean_pay_notifications
+    // 14. Crear tabla ocean_pay_notifications
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS ocean_pay_notifications(
         id SERIAL PRIMARY KEY,
         user_id INTEGER NOT NULL REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
         title VARCHAR(100) NOT NULL,
         message TEXT NOT NULL,
-        type VARCHAR(20) DEFAULT 'info', -- info, success, warning, error, payment
+        type VARCHAR(20) DEFAULT 'info',
         is_read BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT NOW()
       );
+    `).catch(err => console.log('⚠️ Error creando ocean_pay_notifications:', err.message));
 
-      -- 15. Crear tabla ocean_pass
+    // 15. Crear tabla ocean_pass
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS ocean_pass(
         user_id INTEGER PRIMARY KEY REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
         is_active BOOLEAN DEFAULT FALSE,
@@ -706,7 +713,7 @@ async function runDatabaseMigrations() {
         minutes_tracked INTEGER DEFAULT 0,
         created_at TIMESTAMP DEFAULT NOW()
       );
-    `).catch(() => console.log('⚠️ Tablas de suscripciones/notificaciones/pass procesadas'));
+    `).catch(err => console.log('⚠️ Error creando ocean_pass:', err.message));
 
     // Migración: Asegurar columnas para Intercambio (Swap)
     await pool.query(`

@@ -3084,73 +3084,68 @@
 
     /* ---------- OCEAN PASS LOGIC ---------- */
     async function activateOceanPass() {
-      if (oceanPass.hasDebt) return alert('Debes pagar tu deuda en el POS Virtual para reactivar el pase.');
-
-      oceanPass.active = true;
-      oceanPass.expiry = Date.now() + (2 * 60 * 60 * 1000); // 2 hours
-      oceanPass.minutesTracked = 0;
-      oceanPass.missions = [
-        { id: 'minutes', title: 'Estar en Ocean Pay', target: 5, current: 0, completed: false },
-        { id: 'activity', title: 'Sesión Activa', target: 1, current: 1, completed: true }
-      ];
-      saveOceanPass();
-      updateOceanPassUI();
-      showToast('¡Ocean Pass Activado! Completa las misiones en 2 horas.', 'success');
-    }
-
-    function saveOceanPass() {
-      localStorage.setItem('oceanPass', JSON.stringify(oceanPass));
-    }
-
-    function loadOceanPass() {
-      const saved = localStorage.getItem('oceanPass');
-      if (saved) {
-        oceanPass = JSON.parse(saved);
-        // Ensure missions exist if active
-        if (oceanPass.active && (!oceanPass.missions || oceanPass.missions.length === 0)) {
-          oceanPass.missions = [
-            { id: 'minutes', title: 'Estar en Ocean Pay', target: 5, current: 0, completed: false },
-            { id: 'activity', title: 'Sesión Activa', target: 1, current: 1, completed: true }
-          ];
+      try {
+        const res = await apiFetch(`${API}/ocean-pay/pass/activate`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          oceanPass = {
+            ...oceanPass,
+            active: true,
+            expiry: new Date(data.expiry).getTime(),
+            missions: data.missions,
+            hasDebt: false
+          };
+          updateOceanPassUI();
+          showToast('¡Ocean Pass Activado! Completa las misiones en 2 horas.', 'success');
+        } else {
+          alert(data.error);
         }
-      }
+      } catch (e) { alert('Error al activar pase'); }
     }
 
-    function checkOceanPassStatus() {
+    async function loadOceanPass() {
+      try {
+        const res = await apiFetch(`${API}/ocean-pay/pass/status`);
+        const data = await res.json();
+        oceanPass = {
+          active: data.active,
+          expiry: data.expiry ? new Date(data.expiry).getTime() : null,
+          hasDebt: data.hasDebt,
+          debtAmount: data.debtAmount,
+          missions: data.missions || [],
+          lastRewardClaim: data.lastRewardClaim ? new Date(data.lastRewardClaim).getTime() : null,
+          minutesTracked: data.minutesTracked || 0
+        };
+        updateOceanPassUI();
+      } catch (e) { console.error('Error loading pass:', e); }
+    }
+
+    let lastTrackTime = 0;
+    async function checkOceanPassStatus() {
       if (!oceanPass.active && !oceanPass.hasDebt) return;
 
       const now = Date.now();
 
-      // Update minutes tracked
-      const minsInSession = Math.floor((now - appSessionStartTime) / 60000);
+      // Actualización local para suavidad visual
       if (oceanPass.active) {
+        const minsInSession = Math.floor((now - appSessionStartTime) / 60000);
         const m = oceanPass.missions.find(m => m.id === 'minutes');
         if (m && !m.completed) {
           m.current = Math.min(m.target, minsInSession);
           if (m.current >= m.target) m.completed = true;
-          saveOceanPass();
         }
 
-        // Check for expiry
-        if (now > oceanPass.expiry) {
-          const allCompleted = oceanPass.missions.every(m => m.completed);
-          if (allCompleted) {
-            // Renew for 2 more hours
-            oceanPass.expiry = now + (2 * 60 * 60 * 1000);
-            oceanPass.missions.forEach(m => {
-              if (m.id === 'minutes') { m.current = 0; m.completed = false; }
-            });
-            appSessionStartTime = now;
-            showToast('¡Misiones completadas! Ocean Pass renovado por 2 horas más.', 'success');
-          } else {
-            // Cancel and add debt
-            oceanPass.active = false;
-            oceanPass.hasDebt = true;
-            oceanPass.debtAmount = 500; // Example debt
-            showToast('Ocean Pass cancelado. No completaste las misiones. Deuda pendiente.', 'error');
-          }
-          saveOceanPass();
-          updateOceanPassUI();
+        // Sincronizar con servidor cada 1 minuto o si el pase está por expirar
+        if (now - lastTrackTime > 60000 || (oceanPass.expiry && now > oceanPass.expiry)) {
+          lastTrackTime = now;
+          apiFetch(`${API}/ocean-pay/pass/track`, {
+            method: 'POST',
+            body: JSON.stringify({ minutes: minsInSession }),
+            headers: { 'Content-Type': 'application/json' }
+          });
+
+          // Refrescar estado oficial desde el servidor (maneja expiry y deuda)
+          loadOceanPass();
         }
       }
 
@@ -3236,35 +3231,24 @@
 
     async function payPassDebt() {
       const currency = qs('#debt-currency-select').value;
-      const amount = oceanPass.debtAmount;
-
-      if (!confirm(`¿Pagar ${amount} ${currency.toUpperCase()} para saldar tu deuda?`)) return;
+      if (!confirm(`¿Pagar la deuda con ${currency.toUpperCase()}?`)) return;
 
       try {
-        const res = await fetch(`${API}/ocean-pay/currency/change`, {
+        const res = await apiFetch(`${API}/ocean-pay/pass/pay-debt`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-          body: JSON.stringify({
-            amount: -amount,
-            currency: currency,
-            concepto: 'Pago Deuda Ocean Pass',
-            origen: 'Ocean Pay POS'
-          })
+          body: JSON.stringify({ currency }),
+          headers: { 'Content-Type': 'application/json' }
         });
-
-        if (res.ok) {
-          oceanPass.hasDebt = false;
-          oceanPass.debtAmount = 0;
-          saveOceanPass();
+        const data = await res.json();
+        if (data.success) {
           showToast('¡Deuda saldada! Ocean Pass reactivado.', 'success');
           refreshAllBalances();
-          activateOceanPass();
+          loadOceanPass();
           showPosView('pos-home');
         } else {
-          const d = await res.json();
-          alert(d.error || 'Fondos insuficientes');
+          alert(data.error);
         }
-      } catch (e) { alert('Error de conexión'); }
+      } catch (e) { alert('Error al pagar deuda'); }
     }
 
     function renderPosRewards() {
@@ -3306,32 +3290,25 @@
     }
 
     async function claimPassReward() {
-      const select = qs('#reward-currency-select');
-      const val = select.value;
-      const amount = val === 'aquabux' ? 100 : (val === 'wildgems' ? 50 : 25);
+      const currency = qs('#reward-currency-select').value;
+      const amount = currency === 'aquabux' ? 100 : (currency === 'wildgems' ? 50 : 25);
 
       try {
-        const res = await fetch(`${API}/ocean-pay/currency/change`, {
+        const res = await apiFetch(`${API}/ocean-pay/pass/claim-reward`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-          body: JSON.stringify({
-            amount: amount,
-            currency: val,
-            concepto: 'Recompensa Ocean Pass',
-            origen: 'Ocean Pass System'
-          })
+          body: JSON.stringify({ currency, amount }),
+          headers: { 'Content-Type': 'application/json' }
         });
-
-        if (res.ok) {
-          oceanPass.lastRewardClaim = Date.now();
-          saveOceanPass();
-          showToast(`¡Has reclamado ${amount} ${val.toUpperCase()}!`, 'success');
+        const data = await res.json();
+        if (data.success) {
+          showToast('¡Recompensa reclamada!', 'success');
           refreshAllBalances();
+          loadOceanPass();
           showPosView('pos-home');
         } else {
-          alert('Error al reclamar');
+          alert(data.error);
         }
-      } catch (e) { alert('Error de conexión'); }
+      } catch (e) { alert('Error al reclamar recompensa'); }
     }
 
     /* ---------- NAVIGATION ---------- */

@@ -693,7 +693,20 @@ async function runDatabaseMigrations() {
         is_read BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT NOW()
       );
-    `).catch(() => console.log('⚠️ Tablas de suscripciones/notificaciones procesadas'));
+
+      -- 15. Crear tabla ocean_pass
+      CREATE TABLE IF NOT EXISTS ocean_pass(
+        user_id INTEGER PRIMARY KEY REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
+        is_active BOOLEAN DEFAULT FALSE,
+        expiry TIMESTAMP,
+        has_debt BOOLEAN DEFAULT FALSE,
+        debt_amount DECIMAL(20, 2) DEFAULT 0,
+        missions JSONB DEFAULT '[]',
+        last_reward_claim TIMESTAMP,
+        minutes_tracked INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `).catch(() => console.log('⚠️ Tablas de suscripciones/notificaciones/pass procesadas'));
 
     // Migración: Asegurar columnas para Intercambio (Swap)
     await pool.query(`
@@ -2459,6 +2472,247 @@ app.post('/ocean-pay/direct-card-pay', async (req, res) => {
     res.status(500).json({ error: 'Error interno del servidor.' });
   } finally {
     client.release();
+  }
+});
+
+// --- Ocean Pass System ---
+
+app.get('/ocean-pay/pass/status', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) return res.status(401).json({ error: 'Token requerido' });
+  const token = authHeader.split(' ')[1];
+  const secret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
+
+  try {
+    const decoded = jwt.verify(token, secret);
+    const userId = decoded.id || decoded.uid || decoded.sub;
+
+    const { rows } = await pool.query('SELECT * FROM ocean_pass WHERE user_id = $1', [userId]);
+    if (rows.length === 0) {
+      return res.json({ active: false, hasDebt: false, missions: [], minutesTracked: 0 });
+    }
+
+    let pass = rows[0];
+    const now = new Date();
+
+    // Verificar expiración y misiones
+    if (pass.is_active && now > new Date(pass.expiry)) {
+      const missions = pass.missions || [];
+      const allCompleted = missions.length > 0 && missions.every(m => m.completed);
+
+      if (allCompleted) {
+        // Auto-renovación por 2 horas
+        const newExpiry = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+        const resetMissions = missions.map(m => {
+          if (m.id === 'minutes') return { ...m, current: 0, completed: false };
+          return m;
+        });
+        await pool.query(
+          'UPDATE ocean_pass SET expiry = $1, missions = $2, minutes_tracked = 0 WHERE user_id = $3',
+          [newExpiry, JSON.stringify(resetMissions), userId]
+        );
+        pass.expiry = newExpiry;
+        pass.missions = resetMissions;
+        pass.minutes_tracked = 0;
+      } else {
+        // Fin de pase por incumplimiento -> Generar Deuda
+        await pool.query(
+          'UPDATE ocean_pass SET is_active = false, has_debt = true, debt_amount = 500 WHERE user_id = $1',
+          [userId]
+        );
+        pass.is_active = false;
+        pass.has_debt = true;
+        pass.debt_amount = 500;
+
+        // Notificar al usuario
+        await pool.query(`
+          INSERT INTO ocean_pay_notifications (user_id, title, message, type)
+          VALUES ($1, 'Ocean Pass Cancelado', 'No completaste las misiones a tiempo. Deuda de $500 generada.', 'error')
+        `, [userId]);
+      }
+    }
+
+    res.json({
+      active: pass.is_active,
+      expiry: pass.expiry,
+      hasDebt: pass.has_debt,
+      debtAmount: pass.debt_amount,
+      missions: pass.missions,
+      lastRewardClaim: pass.last_reward_claim,
+      minutesTracked: pass.minutes_tracked
+    });
+  } catch (e) {
+    console.error('Error in /ocean-pay/pass/status:', e);
+    res.status(401).json({ error: 'Sesión inválida' });
+  }
+});
+
+app.post('/ocean-pay/pass/activate', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) return res.status(401).json({ error: 'Token requerido' });
+  const token = authHeader.split(' ')[1];
+  const secret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
+
+  try {
+    const decoded = jwt.verify(token, secret);
+    const userId = decoded.id || decoded.uid || decoded.sub;
+
+    const { rows } = await pool.query('SELECT has_debt FROM ocean_pass WHERE user_id = $1', [userId]);
+    if (rows.length > 0 && rows[0].has_debt) {
+      return res.status(400).json({ error: 'Debes saldar tu deuda en el POS Virtual primero.' });
+    }
+
+    const expiry = new Date(Date.now() + 2 * 60 * 60 * 1000);
+    const missions = [
+      { id: 'minutes', title: 'Estar en Ocean Pay', target: 5, current: 0, completed: false },
+      { id: 'activity', title: 'Sesión Activa', target: 1, current: 1, completed: true }
+    ];
+
+    await pool.query(`
+      INSERT INTO ocean_pass (user_id, is_active, expiry, has_debt, debt_amount, missions, minutes_tracked)
+      VALUES ($1, true, $2, false, 0, $3, 0)
+      ON CONFLICT (user_id) DO UPDATE SET 
+          is_active = true, expiry = $2, has_debt = false, debt_amount = 0, missions = $3, minutes_tracked = 0
+    `, [userId, expiry, JSON.stringify(missions)]);
+
+    res.json({ success: true, expiry, missions });
+  } catch (e) {
+    console.error('Error in /ocean-pay/pass/activate:', e);
+    res.status(500).json({ error: 'Error al activar pase' });
+  }
+});
+
+app.post('/ocean-pay/pass/track', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) return res.status(401).json({ error: 'Token requerido' });
+  const token = authHeader.split(' ')[1];
+  const secret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
+
+  try {
+    const decoded = jwt.verify(token, secret);
+    const userId = decoded.id || decoded.uid || decoded.sub;
+    const { minutes } = req.body;
+
+    const { rows } = await pool.query('SELECT is_active, missions FROM ocean_pass WHERE user_id = $1', [userId]);
+    if (rows.length === 0 || !rows[0].is_active) return res.status(400).json({ error: 'Pase no activo' });
+
+    let missions = rows[0].missions || [];
+    const minMission = missions.find(m => m.id === 'minutes');
+    if (minMission && !minMission.completed) {
+      minMission.current = Math.min(minMission.target, minutes);
+      if (minMission.current >= minMission.target) {
+        minMission.completed = true;
+      }
+      await pool.query('UPDATE ocean_pass SET missions = $1, minutes_tracked = $2 WHERE user_id = $3',
+        [JSON.stringify(missions), minutes, userId]);
+    }
+
+    res.json({ success: true, missions });
+  } catch (e) {
+    res.status(500).json({ error: 'Error al trackear actividad' });
+  }
+});
+
+app.post('/ocean-pay/pass/claim-reward', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) return res.status(401).json({ error: 'Token requerido' });
+  const token = authHeader.split(' ')[1];
+  const secret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
+
+  try {
+    const decoded = jwt.verify(token, secret);
+    const userId = decoded.id || decoded.uid || decoded.sub;
+    const { currency, amount } = req.body;
+
+    const { rows } = await pool.query('SELECT is_active, last_reward_claim FROM ocean_pass WHERE user_id = $1', [userId]);
+    if (rows.length === 0 || !rows[0].is_active) return res.status(400).json({ error: 'Ocean Pass no activo.' });
+
+    const lastClaim = rows[0].last_reward_claim;
+    if (lastClaim && (Date.now() - new Date(lastClaim).getTime() < 6 * 60 * 60 * 1000)) {
+      return res.status(400).json({ error: 'Aún no puedes reclamar otra recompensa.' });
+    }
+
+    // Actualizar última fecha de reclamo
+    await pool.query('UPDATE ocean_pass SET last_reward_claim = NOW() WHERE user_id = $1', [userId]);
+
+    // Usamos el endpoint interno o lógica directa para añadir saldo a la tarjeta primaria
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const { rows: cardRows } = await client.query('SELECT id, balances FROM ocean_pay_cards WHERE user_id = $1 AND is_primary = true FOR UPDATE', [userId]);
+      if (cardRows.length === 0) throw new Error('No se encontró tarjeta primaria.');
+
+      const card = cardRows[0];
+      const balances = card.balances || {};
+      const currKey = currency.toLowerCase();
+      balances[currKey] = parseFloat(balances[currKey] || 0) + parseFloat(amount);
+
+      await client.query('UPDATE ocean_pay_cards SET balances = $1 WHERE id = $2', [balances, card.id]);
+      await client.query('INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)', [userId, 'Recompensa Ocean Pass', amount, 'Pass System', currKey]);
+      await client.query('COMMIT');
+
+      res.json({ success: true, newBalance: balances[currKey] });
+    } catch (innerErr) {
+      await client.query('ROLLBACK');
+      throw innerErr;
+    } finally {
+      client.release();
+    }
+  } catch (e) {
+    console.error('Error claiming reward:', e);
+    res.status(500).json({ error: 'Error al reclamar recompensa: ' + e.message });
+  }
+});
+
+app.post('/ocean-pay/pass/pay-debt', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) return res.status(401).json({ error: 'Token requerido' });
+  const token = authHeader.split(' ')[1];
+  const secret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
+
+  try {
+    const decoded = jwt.verify(token, secret);
+    const userId = decoded.id || decoded.uid || decoded.sub;
+    const { currency } = req.body;
+
+    const { rows: passRows } = await pool.query('SELECT has_debt, debt_amount FROM ocean_pass WHERE user_id = $1', [userId]);
+    if (passRows.length === 0 || !passRows[0].has_debt) return res.status(400).json({ error: 'No tienes deudas pendientes.' });
+
+    const debt = parseFloat(passRows[0].debt_amount);
+    const currKey = currency.toLowerCase();
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const { rows: cardRows } = await client.query('SELECT id, balances FROM ocean_pay_cards WHERE user_id = $1 AND is_primary = true FOR UPDATE', [userId]);
+      if (cardRows.length === 0) throw new Error('No se encontró tarjeta primaria.');
+
+      const card = cardRows[0];
+      const balances = card.balances || {};
+      const currentBalance = parseFloat(balances[currKey] || 0);
+
+      if (currentBalance < debt) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Saldo insuficiente para pagar la deuda.' });
+      }
+
+      balances[currKey] = currentBalance - debt;
+
+      await client.query('UPDATE ocean_pay_cards SET balances = $1 WHERE id = $2', [balances, card.id]);
+      await client.query('UPDATE ocean_pass SET has_debt = false, debt_amount = 0 WHERE user_id = $1', [userId]);
+      await client.query('INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)', [userId, 'Pago Deuda Ocean Pass', -debt, 'Pass System', currKey]);
+
+      await client.query('COMMIT');
+      res.json({ success: true, message: 'Deuda pagada exitosamente.' });
+    } catch (innerErr) {
+      await client.query('ROLLBACK');
+      throw innerErr;
+    } finally {
+      client.release();
+    }
+  } catch (e) {
+    console.error('Error paying debt:', e);
+    res.status(500).json({ error: 'Error al pagar deuda: ' + e.message });
   }
 });
 

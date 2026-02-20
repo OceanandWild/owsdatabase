@@ -398,91 +398,253 @@
     }
 
     /* Ocean Pass Styles */
+    /* Ocean Pass Styles */
     .ocean-pass-section {
-      background: linear-gradient(135deg, rgba(34, 211, 238, 0.05), rgba(168, 85, 247, 0.05));
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 2rem;
-      padding: 2.5rem;
+      background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+      border: 1px solid rgba(34, 211, 238, 0.2);
+      border-radius: 2.5rem;
+      padding: 3rem;
       position: relative;
       overflow: hidden;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4), inset 0 0 100px rgba(34, 211, 238, 0.05);
+    }
+
+    .ocean-pass-section::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle at center, rgba(34, 211, 238, 0.1) 0%, transparent 50%);
+      animation: ocean-pulse 10s infinite alternate;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    @keyframes ocean-pulse {
+      0% {
+        transform: translate(-10%, -10%) scale(1);
+      }
+
+      100% {
+        transform: translate(10%, 10%) scale(1.1);
+      }
     }
 
     .pass-header {
+      position: relative;
+      z-index: 2;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 2rem;
+      margin-bottom: 3rem;
+      background: rgba(255, 255, 255, 0.05);
+      padding: 1.5rem 2rem;
+      border-radius: 1.5rem;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
     }
 
     .pass-status-badge {
-      padding: 0.5rem 1.5rem;
+      padding: 0.6rem 1.8rem;
       border-radius: 2rem;
-      font-weight: 800;
-      font-size: 0.8rem;
+      font-weight: 900;
+      font-size: 0.85rem;
       text-transform: uppercase;
-      letter-spacing: 1px;
+      letter-spacing: 2px;
+      box-shadow: 0 0 20px rgba(0, 0, 0, 0.2);
     }
 
     .status-active {
-      background: rgba(16, 185, 129, 0.2);
-      color: #10b981;
-      border: 1px solid #10b981;
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: white;
+      border: none;
+      box-shadow: 0 0 20px rgba(16, 185, 129, 0.4);
     }
 
     .status-inactive {
-      background: rgba(239, 68, 68, 0.2);
-      color: #ef4444;
-      border: 1px solid #ef4444;
+      background: linear-gradient(135deg, #64748b, #475569);
+      color: white;
+      border: none;
     }
 
     .status-debt {
-      background: rgba(249, 115, 22, 0.2);
-      color: #f97316;
-      border: 1px solid #f97316;
+      background: linear-gradient(135deg, #ef4444, #b91c1c);
+      color: white;
+      border: none;
+      box-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
     }
 
     .mission-grid {
+      position: relative;
+      z-index: 2;
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 1.5rem;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 2rem;
       margin-top: 2rem;
     }
 
     .mission-card {
       background: rgba(255, 255, 255, 0.03);
+      backdrop-filter: blur(15px);
       border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 1.5rem;
-      padding: 1.5rem;
-      transition: all 0.3s ease;
+      border-radius: 2rem;
+      padding: 2rem;
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .mission-card:hover {
+      transform: translateY(-10px);
+      background: rgba(255, 255, 255, 0.06);
+      border-color: var(--accent);
+      box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
+    }
+
+    .mission-card::after {
+      content: '💧';
+      position: absolute;
+      top: -10px;
+      right: -10px;
+      font-size: 3rem;
+      opacity: 0.05;
+      transform: rotate(20deg);
     }
 
     .mission-card.completed {
-      border-color: var(--ok);
-      background: rgba(16, 185, 129, 0.05);
+      border-color: #10b981;
+      background: rgba(16, 185, 129, 0.1);
     }
 
     .mission-card h4 {
-      margin-bottom: 0.5rem;
-      color: var(--text);
-    }
-
-    .mission-card p {
-      font-size: 0.9rem;
-      color: #94a3b8;
-      margin-bottom: 1.5rem;
+      margin-bottom: 0.8rem;
+      color: white;
+      font-size: 1.2rem;
+      font-weight: 700;
     }
 
     .progress-bar {
-      height: 8px;
-      background: rgba(255, 255, 255, 0.05);
-      border-radius: 4px;
+      height: 12px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 10px;
       overflow: hidden;
+      margin-top: 1rem;
+      border: 1px solid rgba(255, 255, 255, 0.05);
     }
 
     .progress-fill {
       height: 100%;
-      background: var(--accent);
-      transition: width 0.3s ease;
+      background: linear-gradient(90deg, var(--accent), #3b82f6);
+      border-radius: 10px;
+      position: relative;
+    }
+
+    .progress-fill::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+      animation: shimmer 2s infinite;
+    }
+
+    @keyframes shimmer {
+      0% {
+        transform: translateX(-100%);
+      }
+
+      100% {
+        transform: translateX(100%);
+      }
+    }
+
+    /* Wave SVG Animation */
+    .ocean-wave-container {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 100px;
+      z-index: 1;
+      pointer-events: none;
+      opacity: 0.5;
+    }
+
+    .waves {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      margin-bottom: -7px;
+      min-height: 100px;
+    }
+
+    .parallax>use {
+      animation: move-forever 25s cubic-bezier(.55, .5, .45, .5) infinite;
+    }
+
+    .parallax>use:nth-child(1) {
+      animation-delay: -2s;
+      animation-duration: 7s;
+    }
+
+    .parallax>use:nth-child(2) {
+      animation-delay: -3s;
+      animation-duration: 10s;
+    }
+
+    .parallax>use:nth-child(3) {
+      animation-delay: -4s;
+      animation-duration: 13s;
+    }
+
+    .parallax>use:nth-child(4) {
+      animation-delay: -5s;
+      animation-duration: 20s;
+    }
+
+    @keyframes move-forever {
+      0% {
+        transform: translate3d(-90px, 0, 0);
+      }
+
+      100% {
+        transform: translate3d(85px, 0, 0);
+      }
+    }
+
+    .bubble {
+      position: absolute;
+      bottom: -20px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 1;
+      animation: rise var(--t) infinite ease-in;
+    }
+
+    @keyframes rise {
+      0% {
+        transform: translateY(0) scale(1);
+        opacity: 0;
+      }
+
+      20% {
+        opacity: 0.3;
+      }
+
+      80% {
+        opacity: 0.3;
+      }
+
+      100% {
+        transform: translateY(-400px) scale(1.5);
+        opacity: 0;
+      }
     }
 
     .debt-alert {
@@ -1527,10 +1689,26 @@
         </div>
 
         <div class="ocean-pass-section">
+          <!-- Ocean Wave Background -->
+          <div class="ocean-wave-container">
+            <svg class="waves" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+              viewBox="0 24 150 28" preserveAspectRatio="none" shape-rendering="auto">
+              <defs>
+                <path id="gentle-wave" d="M-160 44c30 0 58-18 88-18s 58 18 88 18 58-18 88-18 58 18 88 18 v44h-352z" />
+              </defs>
+              <g class="parallax">
+                <use xlink:href="#gentle-wave" x="48" y="0" fill="rgba(34, 211, 238, 0.7)" />
+                <use xlink:href="#gentle-wave" x="48" y="3" fill="rgba(34, 211, 238, 0.5)" />
+                <use xlink:href="#gentle-wave" x="48" y="5" fill="rgba(34, 211, 238, 0.3)" />
+                <use xlink:href="#gentle-wave" x="48" y="7" fill="#0f172a" />
+              </g>
+            </svg>
+          </div>
+
           <div class="pass-header">
             <div>
-              <h3 style="font-size: 1.5rem; margin-bottom: 0.5rem;">Estado del Pase</h3>
-              <p style="color: #94a3b8;" id="pass-timer-display">Cargando tiempo restante...</p>
+              <h3 style="font-size: 1.5rem; margin-bottom: 0.5rem; color: white;">Estado del Pase</h3>
+              <p style="color: #cbd5e1;" id="pass-timer-display">Cargando tiempo restante...</p>
             </div>
             <div id="pass-status-container">
               <span class="pass-status-badge status-inactive" id="pass-status-badge">Inactivo</span>
@@ -1538,50 +1716,62 @@
           </div>
 
           <div id="pass-active-content" class="hidden">
-            <h4 style="margin-bottom: 1rem; color: var(--accent);">Misiones Actuales</h4>
+            <h4 style="margin-bottom: 1.5rem; color: var(--accent); position: relative; z-index: 2;">Misiones Actuales
+            </h4>
             <div class="mission-grid" id="mission-grid">
               <!-- Misiones se cargarán aquí -->
             </div>
           </div>
 
           <div id="pass-inactive-content">
-            <div style="text-align: center; padding: 3rem;">
-              <i class="fas fa-shield-alt" style="font-size: 4rem; color: #1e293b; margin-bottom: 2rem;"></i>
-              <h3>Ocean Pass no está activo</h3>
-              <p style="color: #94a3b8; margin: 1rem 0 2rem;">Completa misiones cada 2 horas para mantener los
-                beneficios. Si el pase expira, deberás pagar la deuda en el POS Virtual.</p>
-              <button onclick="activateOceanPass()" style="max-width: 300px;">Activar Ocean Pass Gratis</button>
+            <div style="text-align: center; padding: 3rem; position: relative; z-index: 2;">
+              <div class="mission-card" style="display:inline-block; max-width: 500px; margin: 0 auto;">
+                <i class="fas fa-water"
+                  style="font-size: 4rem; color: var(--accent); margin-bottom: 2rem; display: block;"></i>
+                <h3 style="color: white;">Sumergirte en Ocean Pass</h3>
+                <p style="color: #94a3b8; margin: 1rem 0 2rem;">Activa el pase para desbloquear recompensas exclusivas y
+                  misiones de lealtad. Mantente a flote completando misiones cada 2 horas.</p>
+                <button class="pos-btn-primary" onclick="activateOceanPass()" style="width: 100%;">Activar Ocean Pass
+                  Gratis</button>
+              </div>
             </div>
           </div>
 
           <div id="pass-debt-content" class="hidden">
-            <div class="debt-alert">
-              <i class="fas fa-exclamation-triangle" style="font-size: 1.5rem;"></i>
+            <div class="debt-alert" style="position: relative; z-index: 2;">
+              <i class="fas fa-exclamation-triangle" style="font-size: 2rem; color: #ef4444;"></i>
               <div>
-                <h4 style="color: #ef4444;">¡Pase Cancelado por Deuda!</h4>
-                <p style="color: #94a3b8; font-size: 0.9rem;">No completaste las misiones a tiempo. Ve al POS Virtual >
-                  Sección Deudas para regularizar tu situación.</p>
+                <h4 style="color: #ef4444; font-size: 1.2rem;">¡Pase Cancelado por Deuda!</h4>
+                <p style="color: #cbd5e1; font-size: 0.95rem; margin-top: 0.5rem;">Te has hundido en deudas. No
+                  completaste las misiones a tiempo. Ve al POS Virtual > Sección Deudas para regularizar tu situación y
+                  volver a la superficie.</p>
               </div>
             </div>
           </div>
         </div>
 
-        <div style="margin-top: 3rem;">
+        <div style="margin-top: 3rem; position: relative; z-index: 2;">
           <h3
-            style="margin-bottom: 1.5rem; color: #94a3b8; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 2px;">
-            Beneficios</h3>
-          <div class="balance-grid">
-            <div class="currency-card">
-              <span class="label">Recompensas</span>
-              <span class="amount">6h</span>
-              <p style="font-size: 0.8rem; color: #64748b; margin-top: 1rem;">Recibe divisas a elección cada 6 horas
-                mientras el pase esté activo.</p>
+            style="margin-bottom: 2rem; color: #94a3b8; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 3px; text-align: center;">
+            🔥 Beneficios Exclusivos</h3>
+          <div class="mission-grid">
+            <div class="mission-card">
+              <i class="fas fa-gift" style="font-size: 2rem; color: var(--ok); margin-bottom: 1rem;"></i>
+              <h4>Tesoro cada 6h</h4>
+              <p style="color: #cbd5e1;">Reclama divisas gratis (AquaBux, WildGems o VoltBits) directamente desde tu POS
+                Virtual.</p>
             </div>
-            <div class="currency-card">
-              <span class="label">Estatus</span>
-              <span class="amount">VIP</span>
-              <p style="font-size: 0.8rem; color: #64748b; margin-top: 1rem;">Acceso prioritario y funciones exclusivas
-                en el ecosistema.</p>
+            <div class="mission-card">
+              <i class="fas fa-crown" style="font-size: 2rem; color: #fbbf24; margin-bottom: 1rem;"></i>
+              <h4>Estatus VIP</h4>
+              <p style="color: #cbd5e1;">Acceso prioritario a futuros eventos y multiplicadores de experiencia en el
+                ecosistema.</p>
+            </div>
+            <div class="mission-card">
+              <i class="fas fa-bolt" style="font-size: 2rem; color: #3b82f6; margin-bottom: 1rem;"></i>
+              <h4>Mantenimiento</h4>
+              <p style="color: #cbd5e1;">Solo requiere 5 minutos de actividad cada 2 horas para mantenerse gratuito y
+                activo.</p>
             </div>
           </div>
         </div>
@@ -3154,10 +3344,30 @@
       }
     }
 
+    function createOceanBubbles() {
+      const container = qs('.ocean-pass-section');
+      if (!container || container.querySelector('.bubble')) return;
+
+      for (let i = 0; i < 20; i++) {
+        const bubble = document.createElement('div');
+        bubble.className = 'bubble';
+        const size = Math.random() * 15 + 5 + 'px';
+        bubble.style.width = size;
+        bubble.style.height = size;
+        bubble.style.left = Math.random() * 100 + '%';
+        bubble.style.setProperty('--t', Math.random() * 5 + 3 + 's');
+        bubble.style.animationDelay = Math.random() * 5 + 's';
+        container.appendChild(bubble);
+      }
+    }
+
     function updateOceanPassUI() {
       const timerDisplay = qs('#pass-timer-display');
       const badge = qs('#pass-status-badge');
       if (!timerDisplay || !badge) return;
+
+      // Generar burbujas si no existen
+      createOceanBubbles();
 
       if (oceanPass.hasDebt) {
         badge.textContent = 'Deuda Pendiente';

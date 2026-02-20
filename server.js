@@ -17976,6 +17976,9 @@ app.get('/ocean-pay/subscriptions/me', async (req, res) => {
     res.json(mapped);
   } catch (e) {
     console.error('Error suscripciones:', e);
+    if (e.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: 'Token expirado' });
+    }
     res.status(500).json({ error: e.message });
   }
 });
@@ -17995,6 +17998,9 @@ app.get('/ocean-pay/notifications', async (req, res) => {
     );
     res.json(rows);
   } catch (e) {
+    if (e.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: 'Token expirado' });
+    }
     res.status(500).json({ error: e.message });
   }
 });

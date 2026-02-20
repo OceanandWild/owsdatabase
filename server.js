@@ -293,6 +293,57 @@ app.post('/ocean-pay/login', async (req, res) => {
   }
 });
 
+// === REFRESH TOKEN ENDPOINT ===
+// Allows clients to silently renew an expired JWT within a 30-day grace window
+app.post('/ocean-pay/refresh-token', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) return res.status(401).json({ error: 'Token requerido' });
+    const oldToken = authHeader.substring(7);
+    const secret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
+
+    // Decode ignoring expiration to get user info
+    let decoded;
+    try {
+      decoded = jwt.verify(oldToken, secret, { ignoreExpiration: true });
+    } catch (e) {
+      return res.status(401).json({ error: 'Token inválido', code: 'INVALID_TOKEN' });
+    }
+
+    // Check grace period: only allow refresh if expired less than 30 days ago
+    const expiredAt = decoded.exp ? new Date(decoded.exp * 1000) : null;
+    if (expiredAt) {
+      const gracePeriodMs = 30 * 24 * 60 * 60 * 1000; // 30 days
+      const now = Date.now();
+      if (now - expiredAt.getTime() > gracePeriodMs) {
+        return res.status(401).json({ error: 'Sesión expirada hace demasiado tiempo. Inicia sesión de nuevo.', code: 'GRACE_EXPIRED' });
+      }
+    }
+
+    // Verify user still exists in DB
+    const userId = decoded.id || decoded.uid;
+    const { rows } = await pool.query('SELECT id, username FROM ocean_pay_users WHERE id = $1', [userId]);
+    if (rows.length === 0) {
+      return res.status(401).json({ error: 'Usuario no encontrado', code: 'USER_NOT_FOUND' });
+    }
+
+    const user = rows[0];
+    const newToken = jwt.sign({ id: user.id, uid: user.id, username: user.username }, secret, { expiresIn: '7d' });
+
+    console.log(`🔄 Token refreshed for user: ${user.username} (ID: ${user.id})`);
+
+    res.json({
+      success: true,
+      token: newToken,
+      user: { id: user.id, username: user.username }
+    });
+
+  } catch (e) {
+    console.error('Refresh token error:', e);
+    res.status(500).json({ error: 'Error al renovar sesión' });
+  }
+});
+
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 

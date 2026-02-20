@@ -2376,14 +2376,19 @@
           grad = ctx.createLinearGradient(0, -size * 0.6, 0, size * 0.7); grad.addColorStop(0, "#4ade80");
       grad.addColorStop(1, "#166534"); ctx.fillStyle = grad; ctx.fill(); // Glowing Veins
       ctx.strokeStyle = "rgba(255,255,255,0.4)"; ctx.lineWidth = size * 0.05; ctx.beginPath(); ctx.moveTo(0, -size * 0.5);
-      ctx.lineTo(0, size * 0.5); ctx.stroke(); ctx.lineWidth = size * 0.02; ctx.beginPath(); ctx.moveTo(0, -size * 0.2);
-      ctx.lineTo(size * 0.3, -size * 0.4); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, size * 0.1); ctx.lineTo(-size *
-        0.3, -size * 0.1); ctx.stroke(); // Text over a chip ctx.fillStyle="rgba(0,0,0,0.4)" ; ctx.beginPath(); ctx.arc(0,
-      0, size * 0.25, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = "#fff"; ctx.font = `bold ${size * 0.25}px sans-serif`;
+      ctx.lineTo(0, size * 0.5); ctx.stroke(); ctx.lineWidth = size * 0.02;
+      ctx.beginPath(); ctx.moveTo(0, -size * 0.2);
+      ctx.lineTo(size * 0.3, -size * 0.4); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, size * 0.1); ctx.lineTo(-size * 0.3, -size * 0.1); ctx.stroke();
+      // Text over a chip 
+      ctx.fillStyle = "rgba(0,0,0,0.4)";
+      ctx.beginPath();
+      ctx.arc(0, 0, size * 0.25, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#fff"; ctx.font = `bold ${size * 0.25}px sans-serif`;
       ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText("WC", 0, 0); ctx.restore();
     } function
       drawWildGemsIcon(ctx, x, y, size) {
-        ctx.save(); ctx.translate(x, y); ctx.shadowBlur = size * 0.5;
+      ctx.save(); ctx.translate(x, y); ctx.shadowBlur = size * 0.5;
       ctx.shadowColor = "rgba(168, 85, 247, 0.6)"; ctx.beginPath(); for (let i = 0; i < 6; i++) {
         const angle = (i * Math.PI *
           2) / 6 - Math.PI / 2; const px = Math.cos(angle) * size * 0.5; const py = Math.sin(angle) * size * 0.5; if (i === 0)
@@ -2407,51 +2412,67 @@
       ctx.lineTo(size * 0.25, 0); ctx.stroke(); // Shine ctx.fillStyle="rgba(255,255,255,0.2)" ; ctx.beginPath();
       ctx.arc(0, 0, size * 0.15, 0, Math.PI * 2); ctx.fill(); ctx.restore();
     } function drawAmberIcon(ctx, x, y, size) {
-      ctx.save(); ctx.translate(x, y); ctx.shadowBlur = size * 0.5; ctx.shadowColor = "rgba(245, 158, 11, 0.6)"; // Outer
-    Amber Gem(slightly irregular for organic look) const grad = ctx.createRadialGradient(-size * 0.1, -size * 0.1, size *
-        0.05, 0, 0, size * 0.5); grad.addColorStop(0, "#fbbf24"); grad.addColorStop(0.6, "#d97706");
+      ctx.save(); ctx.translate(x, y); ctx.shadowBlur = size * 0.5; ctx.shadowColor = "rgba(245, 158, 11, 0.6)";
+      // Outer Amber Gem (slightly irregular for organic look)
+      const grad = ctx.createRadialGradient(-size * 0.1, -size * 0.1, size * 0.05, 0, 0, size * 0.5); grad.addColorStop(0, "#fbbf24"); grad.addColorStop(0.6, "#d97706");
       grad.addColorStop(1, "#92400e"); ctx.beginPath(); for (let i = 0; i < 8; i++) {
         const angle = (i * Math.PI * 2) / 8;
         const r = size * (0.4 + (i % 2 === 0 ? 0.05 : -0.02)); ctx.lineTo(Math.cos(angle) * r, Math.sin(angle) * r);
       }
-      ctx.closePath(); ctx.fillStyle = grad; ctx.fill(); // Fossilized Footprint (Inside) ctx.globalAlpha=0.5;
-      ctx.fillStyle = "rgba(69, 26, 3, 0.8)"; const fs = size * 0.1; const fy = size * 0.05; ctx.beginPath(); ctx.ellipse(0, fy
-        + fs * 0.5, fs * 1.2, fs * 0.8, 0, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.ellipse(-fs * 1.1, fy - fs *
-          0.2, fs * 0.5, fs * 0.8, -Math.PI / 6, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.ellipse(0, fy - fs * 0.8,
-            fs * 0.5, fs * 0.9, 0, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.ellipse(fs * 1.1, fy - fs * 0.2, fs * 0.5,
-              fs * 0.8, Math.PI / 6, 0, Math.PI * 2); ctx.fill(); // Shines ctx.globalAlpha=1; ctx.beginPath(); ctx.ellipse(-size
-    * 0.15, -size * 0.15, size * 0.1, size * 0.05, Math.PI / 4, 0, Math.PI * 2);
+      ctx.closePath(); ctx.fillStyle = grad; ctx.fill();
+      // Fossilized Footprint (Inside) 
+      ctx.globalAlpha = 0.5;
+      ctx.fillStyle = "rgba(69, 26, 3, 0.8)"; const fs = size * 0.1; const fy = size * 0.05;
+      ctx.beginPath(); ctx.ellipse(0, fy + fs * 0.5, fs * 1.2, fs * 0.8, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(-fs * 1.1, fy - fs * 0.2, fs * 0.5, fs * 0.8, -Math.PI / 6, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(0, fy - fs * 0.8, fs * 0.5, fs * 0.9, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(fs * 1.1, fy - fs * 0.2, fs * 0.5, fs * 0.8, Math.PI / 6, 0, Math.PI * 2); ctx.fill();
+      // Shines 
+      ctx.globalAlpha = 1; ctx.beginPath();
+      ctx.ellipse(-size * 0.15, -size * 0.15, size * 0.1, size * 0.05, Math.PI / 4, 0, Math.PI * 2);
       ctx.fillStyle = "rgba(255, 255, 255, 0.4)"; ctx.fill(); ctx.restore();
     } function drawEcoCoreBitsIcon(ctx, x, y,
       size) {
-        ctx.save(); ctx.translate(x, y); ctx.shadowBlur = size * 0.6; ctx.shadowColor = "rgba(168, 85, 247, 0.6)"; //
-    Isometric Cube Frame const drawHex = (s, color) => {
+      ctx.save(); ctx.translate(x, y); ctx.shadowBlur = size * 0.6; ctx.shadowColor = "rgba(168, 85, 247, 0.6)";
+      // Isometric Cube Frame 
+      const drawHex = (s, color) => {
         ctx.fillStyle = color;
         ctx.beginPath();
         for (let i = 0; i < 6; i++) {
           const a = (i * Math.PI * 2) / 6 - Math.PI / 2; ctx.lineTo(Math.cos(a) * s, Math.sin(a) *
             s);
         } ctx.closePath(); ctx.fill();
-      }; drawHex(size * 0.5, "#7c3aed"); drawHex(size * 0.4, "#4c1d95"); // Circuit
-      Dot ctx.fillStyle = "#a78bfa"; ctx.beginPath(); ctx.arc(0, 0, size * 0.15, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke(); // Glowing border ctx.strokeStyle="rgba(255,255,255,0.5)"
-      ; ctx.strokeRect(-size * 0.2, -size * 0.2, size * 0.4, size * 0.4); ctx.restore();
+      }; drawHex(size * 0.5, "#7c3aed"); drawHex(size * 0.4, "#4c1d95");
+      // Circuit Dot 
+      ctx.fillStyle = "#a78bfa"; ctx.beginPath(); ctx.arc(0, 0, size * 0.15, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke();
+      // Glowing border 
+      ctx.strokeStyle = "rgba(255,255,255,0.5)";
+      ctx.strokeRect(-size * 0.2, -size * 0.2, size * 0.4, size * 0.4); ctx.restore();
     } function drawAppBuxIcon(ctx,
       x, y, size) {
-        ctx.save(); ctx.translate(x, y); ctx.shadowBlur = size * 0.5;
-      ctx.shadowColor = "rgba(251, 146, 60, 0.6)"; // Multi-layered Ring const grad=ctx.createRadialGradient(0, 0, 0, 0,
-      0, size * 0.6); grad.addColorStop(0, "#ffedd5"); grad.addColorStop(0.5, "#fb923c");
+      ctx.save(); ctx.translate(x, y); ctx.shadowBlur = size * 0.5;
+      ctx.shadowColor = "rgba(251, 146, 60, 0.6)";
+      // Multi-layered Ring 
+      const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, size * 0.6);
+      grad.addColorStop(0, "#ffedd5"); grad.addColorStop(0.5, "#fb923c");
       grad.addColorStop(1, "#ea580c"); ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(0, 0, size * 0.55, 0, Math.PI * 2);
-      ctx.fill(); // Inner Tech Hole ctx.globalCompositeOperation='destination-out' ; ctx.beginPath(); ctx.arc(0, 0,
-      size * 0.3, 0, Math.PI * 2); ctx.fill(); ctx.globalCompositeOperation = 'source-over'; // Center Floating Symbol
+      ctx.fill();
+      // Inner Tech Hole 
+      ctx.globalCompositeOperation = 'destination-out'; ctx.beginPath(); ctx.arc(0, 0,
+        size * 0.3, 0, Math.PI * 2); ctx.fill(); ctx.globalCompositeOperation = 'source-over';
+      // Center Floating Symbol
       ctx.fillStyle = "#fff"; ctx.font = `bold ${size * 0.5}px sans-serif`; ctx.textAlign = "center";
-      ctx.textBaseline = "middle"; ctx.fillText("+", 0, -size * 0.05); // Shine ctx.beginPath();
+      ctx.textBaseline = "middle"; ctx.fillText("+", 0, -size * 0.05);
+      // Shine 
+      ctx.beginPath();
       ctx.strokeStyle = "rgba(255,255,255,0.6)"; ctx.lineWidth = size * 0.08; ctx.arc(0, 0, size * 0.45, -Math.PI * 0.4,
         -0.2); ctx.stroke(); ctx.restore();
     } function drawNXBIcon(ctx, x, y, size) {
       ctx.save(); ctx.translate(x, y);
-      ctx.shadowBlur = size * 0.5; ctx.shadowColor = "rgba(240, 138, 93, 0.6)"; // Hexagon base ctx.beginPath(); for (let
-      i = 0; i < 6; i++) {
+      ctx.shadowBlur = size * 0.5; ctx.shadowColor = "rgba(240, 138, 93, 0.6)";
+      // Hexagon base 
+      ctx.beginPath(); for (let i = 0; i < 6; i++) {
         const angle = (i * Math.PI * 2) / 6; ctx.lineTo(Math.cos(angle) * size * 0.5, Math.sin(angle) *
           size * 0.5);
       } ctx.closePath(); const grad = ctx.createLinearGradient(-size, -size, size, size);
@@ -2460,34 +2481,50 @@
       ctx.lineTo(0, size * 0.3); ctx.stroke(); ctx.beginPath(); ctx.moveTo(-size * 0.3, 0); ctx.lineTo(size * 0.3, 0);
       ctx.stroke(); ctx.fillStyle = "#fff"; ctx.font = `bold ${size * 0.3}px sans-serif`; ctx.textAlign = "center";
       ctx.textBaseline = "middle"; ctx.fillText("N", 0, 0); ctx.restore();
-    } function drawVoltBitIcon(ctx, x, y, size) {
-      ctx.save(); ctx.translate(x, y); const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, size * 0.5);
+    }
+
+    function drawVoltBitIcon(ctx, x, y, size) {
+      ctx.save(); ctx.translate(x, y);
+      const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, size * 0.5);
       glow.addColorStop(0, '#fff'); glow.addColorStop(0.5, '#00e5ff'); glow.addColorStop(1, 'transparent');
       ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(0, 0, size * 0.5, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#00e5ff'; ctx.beginPath(); for (let i = 0; i < 6; i++) {
+      ctx.fillStyle = '#00e5ff'; ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
         const a = (Math.PI * 2 / 6) * i;
         ctx.lineTo(Math.cos(a) * size * 0.35, Math.sin(a) * size * 0.35);
-      } ctx.closePath(); ctx.fill();
-      ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke(); // Rayo central ctx.fillStyle='#fff' ; ctx.beginPath();
+      }
+      ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+      // Rayo central 
+      ctx.fillStyle = '#fff'; ctx.beginPath();
       ctx.moveTo(0, -size * 0.2); ctx.lineTo(-size * 0.1, size * 0.05); ctx.lineTo(size * 0.05, size * 0.05);
-      ctx.lineTo(-size * 0.05, size * 0.2); ctx.lineTo(size * 0.1, -size * 0.05); ctx.lineTo(-size * 0.05, -size *
-        0.05); ctx.closePath(); ctx.fill(); ctx.restore();
-    } function drawEcoBooksIcon(ctx, x, y, size) {
+      ctx.lineTo(-size * 0.05, size * 0.2); ctx.lineTo(size * 0.1, -size * 0.05); ctx.lineTo(-size * 0.05, -size * 0.05);
+      ctx.closePath(); ctx.fill(); ctx.restore();
+    }
+
+    function drawEcoBooksIcon(ctx, x, y, size) {
       ctx.save();
-      ctx.translate(x, y); ctx.shadowBlur = size * 0.4; ctx.shadowColor = "rgba(6, 182, 212, 0.5)"; // Book Body (Open 3D
-      look) ctx.fillStyle = "#fff"; // Left Page ctx.beginPath(); ctx.moveTo(-size * 0.4, -size * 0.3);
+      ctx.translate(x, y); ctx.shadowBlur = size * 0.4; ctx.shadowColor = "rgba(6, 182, 212, 0.5)";
+      // Book Body (Open 3D look)
+      ctx.fillStyle = "#fff";
+      // Left Page 
+      ctx.beginPath(); ctx.moveTo(-size * 0.4, -size * 0.3);
       ctx.quadraticCurveTo(-size * 0.2, -size * 0.4, 0, -size * 0.3); ctx.lineTo(0, size * 0.3);
-      ctx.quadraticCurveTo(-size * 0.2, size * 0.2, -size * 0.4, size * 0.3); ctx.closePath(); ctx.fill(); // Right Page
-      ctx.beginPath(); ctx.moveTo(size * 0.4, -size * 0.3); ctx.quadraticCurveTo(size * 0.2, -size * 0.4, 0, -size *
-        0.3); ctx.lineTo(0, size * 0.3); ctx.quadraticCurveTo(size * 0.2, size * 0.2, size * 0.4, size * 0.3);
-      ctx.closePath(); ctx.fill(); // Cover edges ctx.strokeStyle="#0891b2" ; ctx.lineWidth=2; ctx.beginPath();
+      ctx.quadraticCurveTo(-size * 0.2, size * 0.2, -size * 0.4, size * 0.3); ctx.closePath(); ctx.fill();
+      // Right Page
+      ctx.beginPath(); ctx.moveTo(size * 0.4, -size * 0.3); ctx.quadraticCurveTo(size * 0.2, -size * 0.4, 0, -size * 0.3);
+      ctx.lineTo(0, size * 0.3); ctx.quadraticCurveTo(size * 0.2, size * 0.2, size * 0.4, size * 0.3);
+      ctx.closePath(); ctx.fill();
+      // Cover edges 
+      ctx.strokeStyle = "#0891b2"; ctx.lineWidth = 2; ctx.beginPath();
       ctx.moveTo(-size * 0.4, -size * 0.3); ctx.lineTo(-size * 0.4, size * 0.3); ctx.stroke(); ctx.beginPath();
-      ctx.moveTo(size * 0.4, -size * 0.3); ctx.lineTo(size * 0.4, size * 0.3); ctx.stroke(); // Leaf Bookmark
-      ctx.fillStyle = "#22c55e"; ctx.beginPath(); ctx.moveTo(-size * 0.1, -size * 0.3); ctx.quadraticCurveTo(0, -size *
-        0.1, size * 0.1, -size * 0.3); ctx.lineTo(0, size * 0.1); ctx.closePath(); ctx.fill(); ctx.restore();
+      ctx.moveTo(size * 0.4, -size * 0.3); ctx.lineTo(size * 0.4, size * 0.3); ctx.stroke();
+      // Leaf Bookmark
+      ctx.fillStyle = "#22c55e"; ctx.beginPath(); ctx.moveTo(-size * 0.1, -size * 0.3); ctx.quadraticCurveTo(0, -size * 0.1, size * 0.1, -size * 0.3);
+      ctx.lineTo(0, size * 0.1); ctx.closePath(); ctx.fill(); ctx.restore();
     } function
       animateCurrencies() {
-        const canvases = document.querySelectorAll('.currency-canvas'); const time = Date.now() * 0.002;
+      const canvases = document.querySelectorAll('.currency-canvas'); const time = Date.now() * 0.002;
       canvases.forEach(canvas => {
         const ctx = canvas.getContext('2d');
         const type = canvas.dataset.currency;
@@ -2583,85 +2620,104 @@
       } else {
         if (input.value.length < 6) { input.value += key; }
       }
-    } // Sender: Generate Code async function generatePOSCode() {
-    const amount = parseFloat(qs('#pos-amount-input').value); const currency = qs('#pos-currency-select').value; const
-      cardId = qs('#pos-card-source').value; if (!amount || amount <= 0) return alert('Ingresa un monto válido'); if
-      (!cardId) return alert('Selecciona una tarjeta de origen'); try {
+    }
+
+    // Sender: Generate Code
+    async function generatePOSCode() {
+      const amount = parseFloat(qs('#pos-amount-input').value);
+      const currency = qs('#pos-currency-select').value;
+      const cardId = qs('#pos-card-source').value;
+      if (!amount || amount <= 0) return alert('Ingresa un monto válido');
+      if (!cardId) return alert('Selecciona una tarjeta de origen');
+      try {
         const res = await fetch(`${API}/pos/create`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
             userId, cardId,
             amount, currency
           })
-        }); const data = await res.json(); if (data.success) {
-          qs('#pos-generated-code-display').textContent = data.pos.code; showPosView('pos-result');
+        });
+        const data = await res.json();
+        if (data.success) {
+          qs('#pos-generated-code-display').textContent = data.pos.code;
+          showPosView('pos-result');
         } else {
           alert('Error: ' + data.error);
         }
       } catch (e) {
-        alert(' Error de conexión');
-      } } // Receiver: Verify Code async function fetchPOSInfo() { const
-    code = qs('#pos-claim-input').value.trim(); if (!code) return alert('Ingresa un código'); try {
-      const res = await
-      fetch(`${API}/pos/${code}`); const data = await res.json(); if (data.success) {
-        const pos = data.pos; const
-          isExchange = pos.is_exchange; qs('#pos-confirm-title').textContent = isExchange ? 'Confirmar Intercambio'
-            : 'Confirmar Cobro'; qs('#pos-confirm-amount').textContent = `${pos.amount} ${pos.currency.toUpperCase()}`;
-        qs('#pos-confirm-sender').textContent = isExchange ? `Tu Tarjeta (Intercambio)` : `De: ${pos.sender_name}`;
-        show('#pos-swap-details', isExchange); show('#pos-dest-card-field', !isExchange); if (isExchange) {
-          let rate = 1;
-          if (pos.target_currency === 'wildgems') {
-            const rates = {
-              'aquabux': 10, 'ecoxionums': 50, 'ecorebits':
-                100, 'wildcredits': 5, 'nxb': 2
-            }; rate = rates[pos.currency.toLowerCase()] || 1;
-          } else if
-            (pos.target_currency === 'nxb') {
-              const rates = {
-                'amber': 25, 'ecotokens': 5, 'appbux': 15, 'wildcredits':
-                  10, 'aquabux': 5
-              }; rate = rates[pos.currency.toLowerCase()] || 1;
-          }
-          qs('#pos-swap-target-amount').textContent = `${Math.floor(pos.amount * rate)}
-        ${pos.target_currency.toUpperCase()}`; qs('#posSwapTargetCanvas').dataset.currency = pos.target_currency;
-          qs('#pos-confirm-btn').textContent = 'Confirmar Intercambio';
-        } else {
-          qs('#pos-confirm-btn').textContent = 'Aceptar Transacción';
-        } const confirmCanvas = qs('#posConfirmCanvas'); if
-          (confirmCanvas) { confirmCanvas.dataset.currency = pos.currency; } // Store data for completion
-        qs('#pos-confirm').dataset.code = code; showPosView('pos-confirm');
-      } else { alert(data.error); }
-    } catch (e) {
-      alert('Error de conexión');
-    } } // Receiver: Complete Transfer & Print Receipt async function completePOS() {
-    const code = qs('#pos-confirm').dataset.code; const receiverCardId = qs('#pos-card-dest').value; const
-      isExchange = qs('#pos-confirm-title').textContent === 'Confirmar Intercambio'; if (!isExchange && !receiverCardId)
-      return alert('Selecciona una tarjeta de destino'); try {
-        const res = await fetch(`${API}/pos/complete`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
-            code, receiverId:
-              userId, receiverCardId
-          })
-        }); const data = await res.json(); if (data.success) { // Print Receipt Animation const
-          receipt = qs('#pos-printer-receipt'); qs('#receipt-amount').textContent = qs('#pos-confirm-amount').textContent;
-          qs('#receipt-id').textContent = `TRX-${Date.now().toString().slice(-6)}`; const
-            receiptCanvas = qs('#receiptCanvas'); const confirmCanvas = qs('#posConfirmCanvas'); if (receiptCanvas &&
-              confirmCanvas) { receiptCanvas.dataset.currency = confirmCanvas.dataset.currency; }
-          receipt.classList.add('printing'); setTimeout(() => {
-            alert('¡Transacción completada!');
-            receipt.classList.remove('printing');
-            qs('#pos-claim-input').value = '';
-            refreshAllBalances();
-            showPosView('pos-home');
-          }, 2500);
-
-        } else {
-          alert('Error: ' + data.error);
-        }
-      } catch (e) {
-        console.error(e);
-        alert('Error al procesar el pago');
+        alert('Error de conexión');
       }
+    }
+
+    // Receiver: Verify Code 
+    async function fetchPOSInfo() {
+      const code = qs('#pos-claim-input').value.trim();
+      if (!code) return alert('Ingresa un código');
+      try {
+        const res = await
+          fetch(`${API}/pos/${code}`); const data = await res.json(); if (data.success) {
+            const pos = data.pos; const
+              isExchange = pos.is_exchange; qs('#pos-confirm-title').textContent = isExchange ? 'Confirmar Intercambio'
+                : 'Confirmar Cobro'; qs('#pos-confirm-amount').textContent = `${pos.amount} ${pos.currency.toUpperCase()}`;
+            qs('#pos-confirm-sender').textContent = isExchange ? `Tu Tarjeta (Intercambio)` : `De: ${pos.sender_name}`;
+            show('#pos-swap-details', isExchange); show('#pos-dest-card-field', !isExchange); if (isExchange) {
+              let rate = 1;
+              if (pos.target_currency === 'wildgems') {
+                const rates = {
+                  'aquabux': 10, 'ecoxionums': 50, 'ecorebits':
+                    100, 'wildcredits': 5, 'nxb': 2
+                }; rate = rates[pos.currency.toLowerCase()] || 1;
+              } else if
+                (pos.target_currency === 'nxb') {
+                const rates = {
+                  'amber': 25, 'ecotokens': 5, 'appbux': 15, 'wildcredits':
+                    10, 'aquabux': 5
+                }; rate = rates[pos.currency.toLowerCase()] || 1;
+              }
+              qs('#pos-swap-target-amount').textContent = `${Math.floor(pos.amount * rate)}
+        ${pos.target_currency.toUpperCase()}`; qs('#posSwapTargetCanvas').dataset.currency = pos.target_currency;
+              qs('#pos-confirm-btn').textContent = 'Confirmar Intercambio';
+            } else {
+              qs('#pos-confirm-btn').textContent = 'Aceptar Transacción';
+            } const confirmCanvas = qs('#posConfirmCanvas'); if
+              (confirmCanvas) { confirmCanvas.dataset.currency = pos.currency; } // Store data for completion
+            qs('#pos-confirm').dataset.code = code; showPosView('pos-confirm');
+          } else { alert(data.error); }
+      } catch (e) {
+        alert('Error de conexión');
+      }
+    }
+
+    // Receiver: Complete Transfer & Print Receipt
+    async function completePOS() {
+      const code = qs('#pos-confirm').dataset.code; const receiverCardId = qs('#pos-card-dest').value; const
+        isExchange = qs('#pos-confirm-title').textContent === 'Confirmar Intercambio'; if (!isExchange && !receiverCardId)
+        return alert('Selecciona una tarjeta de destino'); try {
+          const res = await fetch(`${API}/pos/complete`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+              code, receiverId:
+                userId, receiverCardId
+            })
+          }); const data = await res.json(); if (data.success) { // Print Receipt Animation const
+            receipt = qs('#pos-printer-receipt'); qs('#receipt-amount').textContent = qs('#pos-confirm-amount').textContent;
+            qs('#receipt-id').textContent = `TRX-${Date.now().toString().slice(-6)}`; const
+              receiptCanvas = qs('#receiptCanvas'); const confirmCanvas = qs('#posConfirmCanvas'); if (receiptCanvas &&
+                confirmCanvas) { receiptCanvas.dataset.currency = confirmCanvas.dataset.currency; }
+            receipt.classList.add('printing'); setTimeout(() => {
+              alert('¡Transacción completada!');
+              receipt.classList.remove('printing');
+              qs('#pos-claim-input').value = '';
+              refreshAllBalances();
+              showPosView('pos-home');
+            }, 2500);
+
+          } else {
+            alert('Error: ' + data.error);
+          }
+        } catch (e) {
+          console.error(e);
+          alert('Error al procesar el pago');
         }
+    }
 
     // Mostrar solicitudes de intercambio pendientes
     async function showPendingSwaps() {
@@ -2712,9 +2768,11 @@
         `;
           }).join('');
         } else {
-          listEl.innerHTML = '<p style="text-align:center; color:#64748b; margin-top:40px;"><i class="fas fa-inbox"
-          style = "font-size:3rem; display:block; margin-bottom:10px; opacity:0.3;" ></i > No tienes solicitudes pendientes
-        </p > ';
+          listEl.innerHTML = `
+              <p style="text-align:center; color:#64748b; margin-top:40px;">
+                <i class="fas fa-inbox" style="font-size:3rem; display:block; margin-bottom:10px; opacity:0.3;"></i>
+                No tienes solicitudes pendientes
+              </p>`;
         }
       } catch (e) {
         listEl.innerHTML = '<p style="text-align:center; color:#ef4444; margin-top:20px;">Error al cargar</p>';
@@ -2816,16 +2874,21 @@
         qs('#regMsg').className = 'msg error'; return;
       } try {
         const res = await fetch(API + '/ocean-pay/register', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
-            username, password
-          })
-        }); let data; try { data = await res.json(); } catch (err) {
-          throw new Error('Error del servidor (respuesta
-          no válida)'); } if (!res.ok) { qs('#regMsg').textContent=data.error || `Error del servidor (${res.status})`;
-          qs('#regMsg').className = 'msg error'; return;
-        } qs('#regMsg').className = 'msg success';
-        qs('#regMsg').textContent = '¡Cuenta creada! Bienvenido.'; setTimeout(() => autoLogin(username, password),
-          1000);
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+        const data = await res.json().catch(() => { throw new Error('Error del servidor (respuesta no válida)'); });
+
+        if (!res.ok) {
+          qs('#regMsg').textContent = data.error || `Error del servidor (${res.status})`;
+          qs('#regMsg').className = 'msg error';
+          return;
+        }
+
+        qs('#regMsg').className = 'msg success';
+        qs('#regMsg').textContent = '¡Cuenta creada! Bienvenido.';
+        setTimeout(() => autoLogin(username, password), 1000);
       } catch (err) {
         console.error(err);
         qs('#regMsg').textContent = 'Error de conexión o del servidor.';
@@ -2874,14 +2937,9 @@
         refreshAllBalances();
         startBalanceRefresh();
 
-        // Notify Opener
         if (window.opener) {
-          window.opener.postMessage({
-            type: 'ocean-pay-token', token: token, user: data.user, ecoxionums:
-              data.ecoxionums || 0
-          }, '*');
+          window.opener.postMessage({ type: 'ocean-pay-token', token: token, user: data.user }, '*');
         }
-
       } catch (err) {
         console.error(err);
         qs('#logMsg').textContent = 'Error de conexión';
@@ -3113,33 +3171,29 @@
       } catch (e) { console.error('Error loading cards:', e); }
     } function
       renderCards(cards) {
-        const container = qs('#cards-container'); if (!container) return; let
-          html = cards.map((card, index) => {
-            const isExpired = checkExpiry(card.expiry_date);
-            const formattedNumber = card.card_number.match(/.{1,4}/g).join(' ');
-            const isActive = index === activeCardIndex;
-            const cardName = card.card_name || (card.is_primary ? 'Tarjeta Principal' : 'Tarjeta Secundaria');
+      const container = qs('#cards-container'); if (!container) return; let
+        html = cards.map((card, index) => {
+          const isExpired = checkExpiry(card.expiry_date);
+          const formattedNumber = card.card_number.match(/.{1,4}/g).join(' ');
+          const isActive = index === activeCardIndex;
+          const cardName = card.card_name || (card.is_primary ? 'Tarjeta Principal' : 'Tarjeta Secundaria');
 
-            return `
+          return `
             <div class="ocean-card ${isActive ? 'card-selected' : ''}"
               onclick="${isExpired ? `renewCard('${card.card_number}')` : `setActiveCard(${index})`}"
               style="${isActive ? 'border: 2px solid var(--accent); box-shadow: 0 0 30px rgba(34, 211, 238, 0.3);' : ''}; position:relative;">
               <div class="card-brand"><span>OCEAN</span><br><small>PAY</small></div>
-              ${isActive ? '<div
-                style = "position: absolute; top: 10px; left: 10px; background: var(--accent); color: #0a0e1a; padding: 3px 8px; border-radius: 10px; font-size: 0.65rem; font-weight: 800;" >
-              EN USO</div > ' : ''}
+              ${isActive ? `<div style="position: absolute; top: 10px; left: 10px; background: var(--accent); color: #0a0e1a; padding: 3px 8px; border-radius: 10px; font-size: 0.65rem; font-weight: 800;">EN USO</div>` : ''}
 
-                < div class="card-chip" ></div >
+              <div class="card-chip"></div>
 
-                  <button onclick="handleRenameCard(event, ${card.id}, '${cardName}')"
-                    style="position: absolute; top: 10px; right: 60px; background: rgba(255,255,255,0.1); color: white; border:none; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 10; font-size: 0.8rem;"
-                    title="Renombrar Tarjeta"><i class="fas fa-pencil-alt"></i></button>
+              <button onclick="handleRenameCard(event, ${card.id}, '${cardName}')"
+                style="position: absolute; top: 10px; right: 60px; background: rgba(255,255,255,0.1); color: white; border:none; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 10; font-size: 0.8rem;"
+                title="Renombrar Tarjeta"><i class="fas fa-pencil-alt"></i></button>
 
-              ${
-              !card.is_primary ? `<button onclick="deleteCard(event, ${card.id})"
+              ${!card.is_primary ? `<button onclick="deleteCard(event, ${card.id})"
                 style="position: absolute; top: 10px; right: 20px; background: rgba(239,68,68,0.2); color: #ef4444; border:none; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 10; font-size: 0.8rem;"
-                title="Eliminar Tarjeta"><i class="fas fa-trash"></i></button>` : ''
-            }
+                title="Eliminar Tarjeta"><i class="fas fa-trash"></i></button>` : ''}
 
               <span class="card-number"
                 onclick="event.stopPropagation(); navigator.clipboard.writeText('${card.card_number}'); alert('Número copiado')"
@@ -3168,189 +3222,187 @@
               </div>
             </div >
         `;
-            }).join('');
+        }).join('');
 
-            if (cards.length < 2) { html +=` < button class="new-card-btn" onclick = "createNewCard()" >
+      if (cards.length < 2) {
+        html += ` < button class="new-card-btn" onclick = "createNewCard()" >
               <i class="fas fa-plus-circle"></i>
               <span>Solicitar Nueva Tarjeta</span>
               <small style="opacity:0.6;">Máximo 2 tarjetas</small>
               </button >
         `;
-              }
+      }
 
-              container.innerHTML = html;
-              }
+      container.innerHTML = html;
+    }
 
-              function checkExpiry(expiry) {
-              if (!expiry) return true;
-              const [m, y] = expiry.split('/').map(Number);
-              const now = new Date();
-              const expYear = 2000 + y;
-              const expMonth = m - 1; // 0-indexed
+    function checkExpiry(expiry) {
+      if (!expiry) return true;
+      const [m, y] = expiry.split('/').map(Number);
+      const now = new Date();
+      const expYear = 2000 + y;
+      const expMonth = m - 1; // 0-indexed
 
-              // La tarjeta expira el último día del mes
-              const expDate = new Date(expYear, expMonth + 1, 0);
-              return now > expDate;
-              }
+      // La tarjeta expira el último día del mes
+      const expDate = new Date(expYear, expMonth + 1, 0);
+      return now > expDate;
+    }
 
-              async function renewCard(cardNumber) {
-              if (!confirm('¿Deseas renovar esta tarjeta por 3 años más?')) return;
+    async function renewCard(cardNumber) {
+      if (!confirm('¿Deseas renovar esta tarjeta por 3 años más?')) return;
 
-              try {
-              const res = await fetch(`${ API } /ocean-pay/cards / renew`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${ token } ` },
-              body: JSON.stringify({ cardNumber })
-              });
+      try {
+        const res = await fetch(`${API} /ocean-pay/cards / renew`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token} ` },
+          body: JSON.stringify({ cardNumber })
+        });
 
-              if (res.ok) {
-              alert('¡Tarjeta renovada con éxito!');
-              loadOceanCards();
-              }
-              } catch (e) { alert('Error al renovar'); }
-              }
+        if (res.ok) {
+          alert('¡Tarjeta renovada con éxito!');
+          loadOceanCards();
+        }
+      } catch (e) { alert('Error al renovar'); }
+    }
 
-              async function createNewCard() {
-              if (!confirm('¿Solicitar una segunda Ocean Card vinculada a tu cuenta?')) return;
+    async function createNewCard() {
+      if (!confirm('¿Solicitar una segunda Ocean Card vinculada a tu cuenta?')) return;
 
-              try {
-              const res = await fetch(`${ API } /ocean-pay/cards / create`, {
-              method: 'POST',
-              headers: { 'Authorization': `Bearer ${ token } ` }
-              });
+      try {
+        const res = await fetch(`${API} /ocean-pay/cards / create`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token} ` }
+        });
 
-              if (res.ok) {
-              alert('¡Nueva tarjeta generada!');
-              loadOceanCards();
-              } else {
-              const data = await res.json();
-              alert(data.error || 'Error al crear tarjeta');
-              }
-              } catch (e) { alert('Error de conexión'); }
-              }
+        if (res.ok) {
+          alert('¡Nueva tarjeta generada!');
+          loadOceanCards();
+        } else {
+          const data = await res.json();
+          alert(data.error || 'Error al crear tarjeta');
+        }
+      } catch (e) { alert('Error de conexión'); }
+    }
 
-              async function refreshAllBalances() {
-              // Cargar tarjetas (incluyen todos los saldos)
-              await loadOceanCards();
-              await loadAmberBalance();
-              }
+    async function refreshAllBalances() {
+      // Cargar tarjetas (incluyen todos los saldos)
+      await loadOceanCards();
+      await loadAmberBalance();
+    }
 
-              let balanceRefreshInterval = null;
-              function startBalanceRefresh() {
-              if (balanceRefreshInterval) clearInterval(balanceRefreshInterval);
-              balanceRefreshInterval = setInterval(refreshAllBalances, 30000);
-              }
+    let balanceRefreshInterval = null;
+    function startBalanceRefresh() {
+      if (balanceRefreshInterval) clearInterval(balanceRefreshInterval);
+      balanceRefreshInterval = setInterval(refreshAllBalances, 30000);
+    }
 
-              /* ---------- LOGOUT & DELETE ---------- */
-              qs('#logoutBtn').onclick = () => {
-              localStorage.removeItem('opToken'); localStorage.removeItem('opUser');
-              token = ''; userId = 0;
-              show('#app-layout', false); show('#auth-section', true); show('#loginForm', true);
-              };
+    /* ---------- LOGOUT & DELETE ---------- */
+    qs('#logoutBtn').onclick = () => {
+      localStorage.removeItem('opToken'); localStorage.removeItem('opUser');
+      token = ''; userId = 0;
+      show('#app-layout', false); show('#auth-section', true); show('#loginForm', true);
+    };
 
-              /* ---------- CHECKOUT INTEGRATION ---------- */
-              window.triggerDeposit = function () {
-              const amount = parseFloat(prompt('¿Qué cantidad deseas cargar?', '1000'));
-              if (!amount || amount <= 0) return; openCheckout({ type: 'income' , amount: amount, currency: 'aquabux' ,
-                concept: 'Carga de Saldo desde Tarjeta Externa' , callback: async (cardId)=> {
-                const res = await fetch(`${ API } /ocean-pay/api / deposit`, {
-                method: 'POST',
-                headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${ token } `
-                },
-                body: JSON.stringify({
-                cardId: cardId,
-                amount: amount,
-                currency: 'aquabux',
-                concept: 'Carga de Saldo vía Checkout'
-                })
-                });
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error || 'Error al procesar depósito');
+    /* ---------- CHECKOUT INTEGRATION ---------- */
+    window.triggerDeposit = function () {
+      const amount = parseFloat(prompt('¿Qué cantidad deseas cargar?', '1000'));
+      if (!amount || amount <= 0) return; openCheckout({
+        type: 'income', amount: amount, currency: 'aquabux',
+        concept: 'Carga de Saldo desde Tarjeta Externa', callback: async (cardId) => {
+          const res = await fetch(`${API}/ocean-pay/api/deposit`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              cardId: cardId,
+              amount: amount,
+              currency: 'aquabux',
+              concept: 'Carga de Saldo vía Checkout'
+            })
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Error al procesar depósito');
 
-                await refreshAllBalances();
-                await renderTransacciones(); // Actualizar historial
-                }
-                });
-                };
+          await refreshAllBalances();
+          await renderTransacciones(); // Actualizar historial
+        }
+      });
+    };
 
-                qs('#deleteAccountBtn').onclick = async () => {
-                if (!confirm('¿Estás seguro de eliminar tu cuenta permanentemente?')) return;
-                const user = JSON.parse(localStorage.getItem('opUser') || '{}');
-                try {
-                const res = await fetch(`${ API } /ocean-pay/delete - account`, {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${ token } ` },
-                body: JSON.stringify({ userId: user.id, username: user.username })
-                });
-                if (res.ok) {
-                alert('Cuenta eliminada');
-                qs('#logoutBtn').click();
-                }
-                } catch (e) { alert('Error al eliminar'); }
-                };
+    qs('#deleteAccountBtn').onclick = async () => {
+      if (!confirm('¿Estás seguro de eliminar tu cuenta permanentemente?')) return;
+      const user = JSON.parse(localStorage.getItem('opUser') || '{}');
+      try {
+        const res = await fetch(`${API}/ocean-pay/delete-account`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ userId: user.id, username: user.username })
+        });
+        if (res.ok) {
+          alert('Cuenta eliminada');
+          qs('#logoutBtn').click();
+        }
+      } catch (e) { alert('Error al eliminar'); }
+    };
 
-                /* ---------- TRANSACTIONS ---------- */
-                /* ---------- NOTIFICATIONS LOGIC ---------- */
-                async function loadNotifications() {
-                const listEl = qs('#notifications-list');
-                if (!listEl) return;
-                listEl.innerHTML = '<p style="color: #64748b; text-align: center; margin-top: 2rem;">Cargando
-                  notificaciones...</p>';
+    /* ---------- TRANSACTIONS ---------- */
+    /* ---------- NOTIFICATIONS LOGIC ---------- */
+    async function loadNotifications() {
+      const listEl = qs('#notifications-list');
+      if (!listEl) return;
+      listEl.innerHTML = '<p style="color: #64748b; text-align: center; margin-top: 2rem;">Cargando notificaciones...</p>';
 
-                try {
-                const res = await apiFetch(API + '/ocean-pay/notifications/me', {
-                headers: { 'Authorization': 'Bearer ' + token }
-                });
-                const notifications = await res.json();
+      try {
+        const res = await apiFetch(API + '/ocean-pay/notifications/me', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        const notifications = await res.json();
 
-                if (!notifications || notifications.length === 0) {
-                listEl.innerHTML = '<p style="color: #64748b; text-align: center; margin-top: 2rem;">No tienes
-                  notificaciones recientes.</p>';
-                return;
-                }
+        if (!notifications || notifications.length === 0) {
+          listEl.innerHTML = '<p style="color: #64748b; text-align: center; margin-top: 2rem;">No tienes notificaciones recientes.</p>';
+          return;
+        }
 
-                listEl.innerHTML = notifications.map(n => `
-        < div class="notif-card ${n.type}"
-      style = "background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); padding: 1.5rem; border-radius: 1rem; position: relative;" >
-                  <div class="notif-header"
-                    style="display:flex; justify-content:space-between; font-size:0.75rem; color:#64748b; margin-bottom:0.5rem;">
-                    <span>${new Date(n.created_at).toLocaleString()}</span>
-                    <span class="status-badge"
-                      style="background: ${n.type === 'success' ? 'rgba(16,185,129,0.1)' : 'rgba(34,211,238,0.1)'}; color: ${n.type === 'success' ? '#10b981' : '#22d3ee'};">${n.type}</span>
-                  </div>
-                  <div class="notif-title"
-                    style="color:white; font-weight:700; font-size:1.1rem; margin-bottom:0.25rem;">${n.title}</div>
-                  <div class="notif-msg" style="color:#cbd5e1; font-size:0.9rem;">${n.message}</div>
-                </div >
-        `).join('');
+        listEl.innerHTML = notifications.map(n => `
+            <div class="notif-card ${n.type}" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); padding: 1.5rem; border-radius: 1rem; position: relative;">
+              <div class="notif-header" style="display:flex; justify-content:space-between; font-size:0.75rem; color:#64748b; margin-bottom:0.5rem;">
+                <span>${new Date(n.created_at).toLocaleString()}</span>
+                <span class="status-badge" style="background: ${n.type === 'success' ? 'rgba(16,185,129,0.1)' : 'rgba(34,211,238,0.1)'}; color: ${n.type === 'success' ? '#10b981' : '#22d3ee'};">${n.type}</span>
+              </div>
+              <div class="notif-title" style="color:white; font-weight:700; font-size:1.1rem; margin-bottom:0.25rem;">${n.title}</div>
+              <div class="notif-msg" style="color:#cbd5e1; font-size:0.9rem;">${n.message}</div>
+            </div>`).join('');
 
-                } catch (e) {
-                console.error(e);
-                listEl.innerHTML = '<p style="color: #ef4444; text-align: center; margin-top: 2rem;">Error al cargar
-                  notificaciones.</p>';
-                }
-                }
+      } catch (e) {
+        console.error(e);
+        listEl.innerHTML = '<p style="color: #ef4444; text-align: center; margin-top: 2rem;">Error al cargar notificaciones.</p>';
+      }
+    }
 
 
 
-                async function renderTransacciones() {
-                const container = qs('#txList');
-                container.innerHTML = '<div style="color:#94a3b8">Cargando...</div>';
-                try {
-                const res = await fetch(`${ API } /ocean-pay/txs / ${ userId } `, { headers: { Authorization: 'Bearer ' + token
-                } });
-                const txs = await res.json();
-                if (txs.length === 0) { container.innerHTML = '<div style="color:#94a3b8">No hay transacciones</div>';
-                return; }
+    async function renderTransacciones() {
+      const container = qs('#txList');
+      container.innerHTML = '<div style="color:#94a3b8">Cargando...</div>';
+      try {
+        const res = await fetch(`${API}/ocean-pay/txs/${userId}`, {
+          headers: {
+            Authorization: 'Bearer ' + token
+          }
+        });
+        const txs = await res.json();
+        if (txs.length === 0) {
+          container.innerHTML = '<div style="color:#94a3b8">No hay transacciones</div>';
+          return;
+        }
 
-                container.innerHTML = txs.map(tx => {
-                const date = new Date(tx.created_at).toLocaleDateString();
-                const isPos = tx.monto > 0;
-                return `
-        < div
-      style = "display:flex; justify-content:space-between; padding:1rem; border-bottom:1px solid rgba(255,255,255,0.05); align-items:center;" >
+        container.innerHTML = txs.map(tx => {
+          const date = new Date(tx.created_at).toLocaleDateString();
+          const isPos = tx.monto > 0;
+          return `
+        <div style="display:flex; justify-content:space-between; padding:1rem; border-bottom:1px solid rgba(255,255,255,0.05); align-items:center;">
                   <div>
                     <div style="font-weight:bold;">${tx.concepto || 'Transacción'}</div>
                     <div style="font-size:0.8rem; color:#64748b;">${date} • ${tx.origen || 'Sistema'}</div>
@@ -3358,58 +3410,57 @@
                   <div style="font-weight:bold; color:${isPos ? 'var(--ok)' : 'var(--err)'}">
                     ${isPos ? '+' : ''}${tx.monto} ${tx.moneda || ''}
                   </div>
-                </div > `;
-                }).join('');
-                } catch (e) { container.innerHTML = '<div style="color:var(--err)">Error cargando historial</div>'; }
-                }
-
-
-                /* ---------- NEW FEATURES (Self Transfer, Delete, Misc) ---------- */
-
-                async function deleteCard(e, cardId) {
-                e.stopPropagation(); // Avoid selecting card
-                if (!confirm('¿Eliminar esta tarjeta secundaria y todo su historial/saldo asociado? Esta acción no se
-                puede deshacer.')) return;
-
-                try {
-                const res = await fetch(`${ API } /ocean-pay/api / cards / ${ cardId } `, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${ token } ` }
-                });
-                if (res.ok) {
-                alert('Tarjeta eliminada correctamente.');
-                loadOceanCards();
-                } else {
-                const d = await res.json();
-                alert(d.error || 'No se pudo eliminar');
-                }
-                } catch (err) { alert('Error de conexión'); }
-                }
-
-                async function handleRenameCard(e, cardId, currentName) {
-                e.stopPropagation();
-                const newName = prompt('Ingrese el nuevo nombre para la tarjeta:', currentName);
-                if (!newName || newName.trim() === '' || newName === currentName) return;
-
-                try {
-                const res = await fetch(`${ API } /ocean-pay/api / cards / ${ cardId }/rename`, {
-      method: 'PATCH',
-        headers: {
-        'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({ name: newName })
-    });
-
-    if (res.ok) {
-      alert('¡Tarjeta personalizada exitosamente!');
-      loadOceanCards(); // Refresh to show new name
-    } else {
-      const d = await res.json();
-      alert(d.error || 'No se pudo renombrar');
+                </div>`;
+        }).join('');
+      } catch (e) { container.innerHTML = '<div style="color:var(--err)">Error cargando historial</div>'; }
     }
-                } catch (err) { alert('Error de conexión'); }
-                }
+
+
+    /* ---------- NEW FEATURES (Self Transfer, Delete, Misc) ---------- */
+
+    async function deleteCard(e, cardId) {
+      e.stopPropagation(); // Avoid selecting card
+      if (!confirm('¿Eliminar esta tarjeta secundaria y todo su historial/saldo asociado? Esta acción no se puede deshacer.')) return;
+
+      try {
+        const res = await fetch(`${API}/ocean-pay/api/cards/${cardId}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          alert('Tarjeta eliminada correctamente.');
+          loadOceanCards();
+        } else {
+          const d = await res.json();
+          alert(d.error || 'No se pudo eliminar');
+        }
+      } catch (err) { alert('Error de conexión'); }
+    }
+
+    async function handleRenameCard(e, cardId, currentName) {
+      e.stopPropagation();
+      const newName = prompt('Ingrese el nuevo nombre para la tarjeta:', currentName);
+      if (!newName || newName.trim() === '' || newName === currentName) return;
+
+      try {
+        const res = await fetch(`${API} /ocean-pay/api / cards / ${cardId}/rename`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ name: newName })
+        });
+
+        if (res.ok) {
+          alert('¡Tarjeta personalizada exitosamente!');
+          loadOceanCards(); // Refresh to show new name
+        } else {
+          const d = await res.json();
+          alert(d.error || 'No se pudo renombrar');
+        }
+      } catch (err) { alert('Error de conexión'); }
+    }
 
     async function executeSelfTransfer() {
       const amount = parseFloat(qs('#self-amount-input').value);
@@ -3429,10 +3480,12 @@
               destCardId, currency, amount
             })
           }); const data = await res.json(); if (data.success) {
-            alert('¡Transferencia Exitosa!'); qs('#self-amount-input').value = ''; loadOceanCards(); // Refresh
-                  balances showPosView('pos-home');
+            alert('¡Transferencia Exitosa!');
+            qs('#self-amount-input').value = '';
+            loadOceanCards(); // Refresh balances
+            showPosView('pos-home');
           } else {
-            alert('Error: ' + data.error);
+          alert('Error: ' + data.error);
         }
       } catch (e) { alert(' Error de conexión'); }
     } let chartIncomesInstance = null; let chartExpensesInstance = null;
@@ -3445,62 +3498,59 @@
             data.incomes, 'Ingresos Totales', 'rgba(16, 185, 129, 0.7)'); updateChart('chartExpenses',
               data.expenses, 'Gastos Totales', 'rgba(239, 68, 68, 0.7)');
       } catch (e) {
-        console.error('Error
-                  stats', e); } } function updateChart(canvasId, data, label, color) { const
-                  ctx = document.getElementById(canvasId); if (!ctx) return; if (!data || data.length === 0) return; const
-          labels = data.map(d => d.currency.toUpperCase());
-        const values = data.map(d => parseFloat(d.total));
+        console.error('Error stats', e);
+      } if (!ctx) return; if (!data || data.length === 0) return; const
+        labels = data.map(d => d.currency.toUpperCase());
+      const values = data.map(d => parseFloat(d.total));
 
-        if (canvasId === 'chartIncomes') {
-          if (chartIncomesInstance) chartIncomesInstance.destroy();
-        } else {
-          if (chartExpensesInstance) chartExpensesInstance.destroy();
-        }
+      if (canvasId === 'chartIncomes') {
+        if (chartIncomesInstance) chartIncomesInstance.destroy();
+      } else {
+        if (chartExpensesInstance) chartExpensesInstance.destroy();
+      }
 
-        const config = {
-          type: 'bar',
-          data: {
-            labels: labels,
-            datasets: [{
-              label: label,
-              data: values,
-              backgroundColor: color,
-              borderColor: color.replace('0.7', '1'),
-              borderWidth: 1,
-              borderRadius: 8
-            }]
+      const config = {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: label,
+            data: values,
+            backgroundColor: color,
+            borderColor: color.replace('0.7', '1'),
+            borderWidth: 1,
+            borderRadius: 8
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { labels: { color: '#cbd5e1', font: { family: 'Inter' } } }
           },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: { labels: { color: '#cbd5e1', font: { family: 'Inter' } } }
+          scales: {
+            y: {
+              beginAtZero: true,
+              grid: { color: 'rgba(255,255,255,0.05)' },
+              ticks: { color: '#94a3b8' }
             },
-            scales: {
-              y: {
-                beginAtZero: true,
-                grid: { color: 'rgba(255,255,255,0.05)' },
-                ticks: { color: '#94a3b8' }
-              },
-              x: {
-                grid: { display: false },
-                ticks: { color: '#94a3b8' }
-              }
+            x: {
+              grid: { display: false },
+              ticks: { color: '#94a3b8' }
             }
           }
-        };
+        }
+      };
 
-        const newChart = new Chart(ctx, config);
+      const newChart = new Chart(ctx, config);
 
-        if (canvasId === 'chartIncomes') chartIncomesInstance = newChart;
-        else chartExpensesInstance = newChart;
-      }
-      let currentCheckout = null;
+      if (canvasId === 'chartIncomes') chartIncomesInstance = newChart;
+      else chartExpensesInstance = newChart;
+    }
+    let currentCheckout = null;
 
-      window.openCheckout = function (details) {
-        // details: { type: 'income'|'expense', amount: 0, currency: 'amber', concept: '', origin: '',
-        callback: fn
-      }
+    window.openCheckout = function (details) {
+      // details: { type: 'income'|'expense', amount: 0, currency: 'amber', concept: '', origin: '', callback: fn }
       currentCheckout = details;
       paymentMethod = 'ocean';
 
@@ -3598,127 +3648,125 @@
         const cvv = qs('#ext-card-cvv').value;
 
         if (num.length < 16 || !name || exp.length < 5 || cvv.length < 3) {
-          alert('Por favor completa todos
-                    los campos de la tarjeta.'); return; } // Simular verificación de red bancaria (Mercado Pago Style)
-                    btn.textContent = 'Verificando red bancaria...' ; btn.disabled = true; await new Promise(r =>
-            setTimeout(r, 1500));
-          btn.textContent = 'Autorizando compra...';
-          await new Promise(r => setTimeout(r, 1000));
+          alert('Por favor completa todos los campos de la tarjeta.');
+          return;
         }
 
-        btn.textContent = 'Procesando pago...';
+        // Simular verificación de red bancaria (Mercado Pago Style)
+        btn.textContent = 'Verificando red bancaria...';
         btn.disabled = true;
+        await new Promise(r => setTimeout(r, 1500));
+        btn.textContent = 'Autorizando compra...';
+        await new Promise(r => setTimeout(r, 1000));
+        btn.textContent = 'Autorizando compra...';
+        await new Promise(r => setTimeout(r, 1000));
+      }
 
-        try {
-          if (currentCheckout.callback) {
-            await currentCheckout.callback(userCards[activeCardIndex].id, paymentMethod === 'external');
-          } else {
-            // Default checkout logic: Deduct via API
-            const res = await fetch(`${API}/ocean-pay/currency/change`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-              },
-              body: JSON.stringify({
-                amount: -currentCheckout.amount,
-                currency: currentCheckout.currency || 'wildgems',
-                concepto: currentCheckout.concept || 'Gasto Checkout',
-                origen: currentCheckout.origin || 'Ocean Pay',
-                isExternal: paymentMethod === 'external'
-              })
-            });
+      btn.textContent = 'Procesando pago...';
+      btn.disabled = true;
 
-            if (!res.ok) {
-              const errData = await res.json();
-              throw new Error(errData.error || 'Error en el servidor');
-            }
-          }
-
-          // Notify result to parent if iframe
-          if (window.parent && window.parent !== window) {
-            window.parent.postMessage({ type: 'OCEAN_PAY_RESULT', success: true }, '*');
-          }
-
-          alert('¡Pago completado! Se ha procesado tu compra exitosamente.');
-          closeCheckout();
-          refreshAllBalances();
-          renderTransacciones();
-        } catch (e) {
-          alert('Error al procesar: ' + e.message);
-          if (window.parent && window.parent !== window) {
-            window.parent.postMessage({ type: 'OCEAN_PAY_RESULT', success: false, error: e.message }, '*');
-          }
-        } finally {
-          btn.textContent = originalText;
-          btn.disabled = false;
-        }
-      };
-
-
-      /* ---------- SUBSCRIPTIONS ---------- */
-      async function renderSubscriptions() {
-        const container = qs('#subs-container');
-        const loadingHtml = '<p style="color: #64748b; text-align: center; grid-column: 1/-1;">Cargando...
-                    </p > ';
-        if (container) container.innerHTML = loadingHtml;
-
-        try {
-          const res = await apiFetch(`${API}/ocean-pay/subscriptions/me`, {
-            headers: { 'Authorization': `Bearer ${token}` }
+      try {
+        if (currentCheckout.callback) {
+          await currentCheckout.callback(userCards[activeCardIndex].id, paymentMethod === 'external');
+        } else {
+          // Default checkout logic: Deduct via API
+          const res = await fetch(`${API}/ocean-pay/currency/change`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              amount: -currentCheckout.amount,
+              currency: currentCheckout.currency || 'wildgems',
+              concepto: currentCheckout.concept || 'Gasto Checkout',
+              origen: currentCheckout.origin || 'Ocean Pay',
+              isExternal: paymentMethod === 'external'
+            })
           });
-          if (!res.ok) throw new Error('Error HTTP: ' + res.status);
-          const subs = await res.json();
 
-          if (!Array.isArray(subs) || subs.length === 0) {
-            container.innerHTML = `
+          if (!res.ok) {
+            const errData = await res.json();
+            throw new Error(errData.error || 'Error en el servidor');
+          }
+        }
+
+        // Notify result to parent if iframe
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({ type: 'OCEAN_PAY_RESULT', success: true }, '*');
+        }
+
+        alert('¡Pago completado! Se ha procesado tu compra exitosamente.');
+        closeCheckout();
+        refreshAllBalances();
+        renderTransacciones();
+      } catch (e) {
+        alert('Error al procesar: ' + e.message);
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({ type: 'OCEAN_PAY_RESULT', success: false, error: e.message }, '*');
+        }
+      } finally {
+        btn.textContent = originalText;
+        btn.disabled = false;
+      }
+    };
+
+
+    /* ---------- SUBSCRIPTIONS ---------- */
+    async function renderSubscriptions() {
+      const loadingHtml = '<p style="color: #64748b; text-align: center; grid-column: 1/-1;">Cargando...</p>';
+      if (container) container.innerHTML = loadingHtml;
+
+      try {
+        const res = await apiFetch(`${API}/ocean-pay/subscriptions/me`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error('Error HTTP: ' + res.status);
+        const subs = await res.json();
+
+        if (!Array.isArray(subs) || subs.length === 0) {
+          container.innerHTML = `
                     <div
                       style="background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.1); padding: 2rem; border-radius: 1rem; text-align: center; color: #64748b; grid-column: 1/-1;">
                       No hay suscripciones activas vinculadas
                     </div>`;
-            return;
-          }
+          return;
+        }
 
-          container.innerHTML = subs
-            .filter((s, index, self) => {
-              const name = s.plan_name || s.sub_name || '';
-              // Si es DinoPass Premium, ocultarlo si ya existe DinoPass Elite activado
-              if (name.includes('DinoPass Premium')) {
-                const hasElite = self.some(sub => (sub.plan_name || sub.sub_name || '').includes('DinoPass Elite')
-                  && sub.project_id === s.project_id);
-                if (hasElite) return false;
-              }
-              return true;
-            })
-            .map(s => {
-              const name = s.plan_name || s.sub_name || 'Plan';
-              const expiry = s.end_date || s.next_payment;
-              const pid = s.project_id || (name.includes('Nature') ? 'Naturepedia' : (name.includes('Dino') ?
-                'DinoBox' : (name.includes('VIP') ? 'WildShorts' : 'Desconocido')));
+        container.innerHTML = subs
+          .filter((s, index, self) => {
+            const name = s.plan_name || s.sub_name || '';
+            // Si es DinoPass Premium, ocultarlo si ya existe DinoPass Elite activado
+            if (name.includes('DinoPass Premium')) {
+              const hasElite = self.some(sub => (sub.plan_name || sub.sub_name || '').includes('DinoPass Elite')
+                && sub.project_id === s.project_id);
+              if (hasElite) return false;
+            }
+            return true;
+          })
+          .map(s => {
+            const name = s.plan_name || s.sub_name || 'Plan';
+            const expiry = s.end_date || s.next_payment;
+            const pid = s.project_id || (name.includes('Nature') ? 'Naturepedia' : (name.includes('Dino') ?
+              'DinoBox' : (name.includes('VIP') ? 'WildShorts' : 'Desconocido')));
 
-              let themeClass = '';
-              let icon = 'fas fa-bolt';
-              if (name === 'Nature-Pass') { themeClass = 'sub-nature-pass'; icon = 'fas fa-leaf'; }
-              else if (name.includes('DinoPass Premium')) {
-                themeClass = 'sub-dinopass-premium'; icon = 'fas
-                fa - dragon'; }
-                    else if (name.includes('DinoPass Elite')) {
-                  themeClass = 'sub-dinopass-elite'; icon = 'fas
-                  fa - crown'; }
-                    else if (name.includes('Premium VIP')) {
-                    themeClass = 'sub-wildshorts-premium'; icon = 'fas
-                    fa - crown'; }
+            let themeClass = '';
+            let icon = 'fas fa-bolt';
+            if (name === 'Nature-Pass') { themeClass = 'sub-nature-pass'; icon = 'fas fa-leaf'; }
+            else if (name.includes('DinoPass Premium')) { themeClass = 'sub-dinopass-premium'; icon = 'fas fa-dragon'; }
+            else if (name.includes('DinoPass Elite')) { themeClass = 'sub-dinopass-elite'; icon = 'fas fa-crown'; }
+            else if (name.includes('Premium VIP')) { themeClass = 'sub-wildshorts-premium'; icon = 'fas fa-crown'; }
 
-                    const nextDate = expiry ? new Date(expiry).toLocaleDateString() : 'N/A';
+            const nextDate = expiry ? new Date(expiry).toLocaleDateString() : 'N/A';
 
-                    // Formatear duración: 30 días -> 1 Mes, o duración de temporada
-                    let durationLabel = `${s.interval_days || 7} días`;
-                    if (name.includes('DinoPass')) {
-                      if (s.interval_days === 30) durationLabel = '1 Mes';
-                      else durationLabel = `Temporada (${s.interval_days || 30} días)`;
-                    }
+            // Formatear duración: 30 días -> 1 Mes, o duración de temporada
+            let durationLabel = `${s.interval_days || 7} días`;
+            if (name.includes('DinoPass')) {
+              if (s.interval_days === 30) durationLabel = '1 Mes';
+              else durationLabel = `Temporada (${s.interval_days || 30} días)`;
+            }
 
-                    return `
+            return `
                     <div class="subscription-card ${themeClass}"
                       style="background: ${themeClass ? '' : 'var(--card)'}; border: 1px solid ${themeClass ? '' : 'var(--border)'}; padding: 1.5rem; border-radius: 1.25rem; position: relative; overflow: hidden; box-shadow: var(--shadow-card);">
                       ${themeClass ? `<div
@@ -3749,58 +3797,58 @@
                       </div>
                     </div>
                     `;
-                  }).join('');
-        } catch (e) {
-          console.error('Error in renderSubscriptions:', e);
-          if (container) container.innerHTML = `<div
+          }).join('');
+      } catch (e) {
+        console.error('Error in renderSubscriptions:', e);
+        if (container) container.innerHTML = `<div
                       style="color:var(--err); text-align:center; padding:1rem;">Error al cargar suscripciones</div>`;
-        }
       }
+    }
 
-      /* ---------- INIT ---------- */
-      window.addEventListener('DOMContentLoaded', async () => {
-        const t = localStorage.getItem('opToken');
-        if (t) {
-          token = t;
-          const user = JSON.parse(localStorage.getItem('opUser') || '{}');
-          userId = user.id;
+    /* ---------- INIT ---------- */
+    window.addEventListener('DOMContentLoaded', async () => {
+      const t = localStorage.getItem('opToken');
+      if (t) {
+        token = t;
+        const user = JSON.parse(localStorage.getItem('opUser') || '{}');
+        userId = user.id;
 
-          qs('#userNameDisplay').textContent = user.username || 'Usuario';
-          qs('#userIdDisplay').textContent = `ID: ${user.id}`;
-          qs('#userAvatar').textContent = (user.username || 'U').charAt(0).toUpperCase();
+        qs('#userNameDisplay').textContent = user.username || 'Usuario';
+        qs('#userIdDisplay').textContent = `ID: ${user.id}`;
+        qs('#userAvatar').textContent = (user.username || 'U').charAt(0).toUpperCase();
 
-          show('#auth-section', false);
-          show('#app-layout', true);
+        show('#auth-section', false);
+        show('#app-layout', true);
 
-          refreshAllBalances();
-          loadAmberBalance();
-          renderSubscriptions();
-          startBalanceRefresh();
+        refreshAllBalances();
+        loadAmberBalance();
+        renderSubscriptions();
+        startBalanceRefresh();
 
-          // Notify Opener
-          if (window.opener) {
-            window.opener.postMessage({ type: 'ocean-pay-token', token: token, user: user }, '*');
-          }
-
-          // CHECKOUT MODE
-          const urlParams = new URLSearchParams(window.location.search);
-          if (urlParams.get('mode') === 'checkout') {
-            const details = {
-              type: 'expense',
-              amount: parseFloat(urlParams.get('amount') || 0),
-              currency: urlParams.get('currency') || 'voltbit',
-              concept: urlParams.get('concept') || 'Compra Externa',
-              origin: urlParams.get('origin') || 'Aplicación Externa'
-            };
-            // Show Pos Section to make it look contextual, or just wallet
-            showSection('wallet');
-            setTimeout(() => openCheckout(details), 500);
-          }
-        } else {
-          show('#auth-section', true);
-          show('#loginForm', true);
+        // Notify Opener
+        if (window.opener) {
+          window.opener.postMessage({ type: 'ocean-pay-token', token: token, user: user }, '*');
         }
-      });
+
+        // CHECKOUT MODE
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('mode') === 'checkout') {
+          const details = {
+            type: 'expense',
+            amount: parseFloat(urlParams.get('amount') || 0),
+            currency: urlParams.get('currency') || 'voltbit',
+            concept: urlParams.get('concept') || 'Compra Externa',
+            origin: urlParams.get('origin') || 'Aplicación Externa'
+          };
+          // Show Pos Section to make it look contextual, or just wallet
+          showSection('wallet');
+          setTimeout(() => openCheckout(details), 500);
+        }
+      } else {
+        show('#auth-section', true);
+        show('#loginForm', true);
+      }
+    });
   </script>
 </body>
 

@@ -18238,6 +18238,8 @@ setInterval(async () => {
 
     for (const sub of dueSubs) {
       const client = await pool.connect();
+      // Resolve name from either column (plan_name from /subscribe, sub_name from /purchase)
+      const displayName = sub.plan_name || sub.sub_name || 'Plan';
       try {
         await client.query('BEGIN');
 
@@ -18266,19 +18268,19 @@ setInterval(async () => {
 
           await client.query(
             "INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)",
-            [sub.user_id, `Renovación: ${sub.sub_name}`, -sub.price, sub.project_id, sub.currency]
+            [sub.user_id, `Renovación: ${displayName}`, -sub.price, sub.project_id, sub.currency]
           );
 
-          await createNotification(sub.user_id, 'success', 'Suscripción Renovada', `Tu suscripción a ${sub.sub_name} ha sido renovada exitosamente por ${sub.price} ${sub.currency}.`);
+          await createNotification(sub.user_id, 'success', 'Suscripción Renovada', `Tu suscripción a ${displayName} ha sido renovada exitosamente por ${sub.price} ${sub.currency}.`);
 
-          console.log(`[SUBS] Renovado ${sub.sub_name} para usuario ${sub.user_id}`);
+          console.log(`[SUBS] Renovado ${displayName} para usuario ${sub.user_id}`);
         } else {
           // Cancel for insufficient funds
           await client.query(
             "UPDATE ocean_pay_subscriptions SET status = 'cancelled' WHERE id = $1",
             [sub.id]
           );
-          if (sub.sub_name === 'Nature-Pass') {
+          if (displayName === 'Nature-Pass') {
             await client.query("UPDATE ocean_pay_metadata SET value = 'false' WHERE user_id = $1 AND key = 'nature_pass'", [sub.user_id]);
           }
 
@@ -18286,10 +18288,10 @@ setInterval(async () => {
             sub.user_id,
             'error',
             'Suscripción Cancelada',
-            `No pudimos renovar tu ${sub.sub_name} por saldo insuficiente (${current} ${sub.currency}). Tu suscripción ha sido cancelada.`
+            `No pudimos renovar tu ${displayName} por saldo insuficiente (${current} ${sub.currency}). Tu suscripción ha sido cancelada.`
           );
 
-          console.log(`[SUBS] Suspensión por falta de pago: ${sub.sub_name} (Usuario ${sub.user_id})`);
+          console.log(`[SUBS] Suspensión por falta de pago: ${displayName} (Usuario ${sub.user_id})`);
         }
         await client.query('COMMIT');
       } catch (e) {

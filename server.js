@@ -2571,8 +2571,8 @@ app.post('/ocean-pay/pass/activate', async (req, res) => {
 
     const expiry = new Date(Date.now() + 2 * 60 * 60 * 1000);
     const missions = [
-      { id: 'minutes', title: 'Estar en Ocean Pay', target: 5, current: 0, completed: false },
-      { id: 'activity', title: 'Sesión Activa', target: 1, current: 1, completed: true }
+      { id: 'minutes', title: 'Tiempo de Inmersión', target: 5, current: 0, completed: false },
+      { id: 'activity', title: 'Sesión Verificada', target: 1, current: 0, completed: false }
     ];
 
     await pool.query(`
@@ -2604,14 +2604,28 @@ app.post('/ocean-pay/pass/track', async (req, res) => {
     if (rows.length === 0 || !rows[0].is_active) return res.status(400).json({ error: 'Pase no activo' });
 
     let missions = rows[0].missions || [];
+    let updated = false;
+
+    // 1. Mission: Minutes
     const minMission = missions.find(m => m.id === 'minutes');
     if (minMission && !minMission.completed) {
-      minMission.current = Math.min(minMission.target, minutes);
-      if (minMission.current >= minMission.target) {
-        minMission.completed = true;
-      }
-      await pool.query('UPDATE ocean_pass SET missions = $1, minutes_tracked = $2 WHERE user_id = $3',
-        [JSON.stringify(missions), minutes, userId]);
+      const oldVal = minMission.current;
+      minMission.current = Math.min(minMission.target, Math.max(minMission.current, minutes || 0));
+      if (minMission.current >= minMission.target) minMission.completed = true;
+      if (minMission.current !== oldVal) updated = true;
+    }
+
+    // 2. Mission: Activity (Just by calling track once, it should progress or complete if we want)
+    const actMission = missions.find(m => m.id === 'activity');
+    if (actMission && !actMission.completed) {
+      actMission.current = 1;
+      actMission.completed = true;
+      updated = true;
+    }
+
+    if (updated) {
+      await pool.query('UPDATE ocean_pass SET missions = $1, minutes_tracked = GREATEST(minutes_tracked, $2) WHERE user_id = $3',
+        [JSON.stringify(missions), minutes || 0, userId]);
     }
 
     res.json({ success: true, missions });

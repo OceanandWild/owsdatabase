@@ -3355,21 +3355,23 @@
       if (oceanPass.active) {
         const minsInSession = Math.floor((now - appSessionStartTime) / 60000);
         const m = oceanPass.missions.find(m => m.id === 'minutes');
+
         if (m && !m.completed) {
-          m.current = Math.min(m.target, minsInSession);
+          if (m._start === undefined) m._start = m.current || 0;
+          m.current = Math.min(m.target, m._start + minsInSession);
           if (m.current >= m.target) m.completed = true;
         }
 
-        // Sincronizar con servidor cada 1 minuto o si el pase está por expirar
-        if (now - lastTrackTime > 60000 || (oceanPass.expiry && now > oceanPass.expiry)) {
+        // Sincronizar cada 30 segundos o si el pase está por expirar
+        if (now - lastTrackTime > 30000 || (oceanPass.expiry && now > oceanPass.expiry)) {
           lastTrackTime = now;
           apiFetch(`${API}/ocean-pay/pass/track`, {
             method: 'POST',
-            body: JSON.stringify({ minutes: minsInSession }),
+            body: JSON.stringify({ minutes: m ? m.current : 0 }),
             headers: { 'Content-Type': 'application/json' }
           });
 
-          // Refrescar estado oficial desde el servidor (maneja expiry y deuda)
+          // Refrescar estado oficial para manejar expiry/deuda
           loadOceanPass();
         }
       }

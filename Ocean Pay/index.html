@@ -1663,36 +1663,6 @@
       opacity: 1;
     }
 
-    .asset-card-wildcredits {
-      border-color: rgba(102, 126, 234, 0.2);
-    }
-
-    .asset-card-wildcredits:hover {
-      border-color: rgba(102, 126, 234, 0.5);
-    }
-
-    .asset-earn-link {
-      color: var(--wild);
-      font-size: 0.7rem;
-      font-weight: 700;
-      text-decoration: none;
-      padding: 2px 8px;
-      border-radius: 6px;
-      background: rgba(102, 126, 234, 0.15);
-      transition: all 0.25s;
-    }
-
-    .asset-earn-link:hover {
-      background: rgba(102, 126, 234, 0.3);
-    }
-
-    .asset-card-hint {
-      font-size: 0.65rem;
-      color: var(--text-dim);
-      margin-top: 0.75rem;
-      opacity: 0.8;
-    }
-
     .asset-card-modern:nth-child(1) { animation-delay: 0.05s; }
     .asset-card-modern:nth-child(2) { animation-delay: 0.1s; }
     .asset-card-modern:nth-child(3) { animation-delay: 0.15s; }
@@ -2220,7 +2190,7 @@
             <div class="asset-ecosystem-block">
               <h4 class="ecosystem-label">🌿 Wild</h4>
               <div class="assets-grid-modern assets-row-wild">
-                <div class="asset-card-modern asset-card-wildcredits" id="wildcredits-card" onclick="window.open('https://wildexplorer.netlify.app', '_blank')" style="cursor:pointer;">
+                <div class="asset-card-modern" id="wildcredits-card">
                   <div class="asset-icon-container">
                     <canvas class="currency-canvas" data-currency="wildcredits" width="44" height="44"></canvas>
                   </div>
@@ -2228,9 +2198,8 @@
                   <span class="asset-balance-modern" id="wildcredits">0</span>
                   <div class="asset-footer-modern">
                     <span>Wild Explorer</span>
-                    <a href="https://wildexplorer.netlify.app" target="_blank" rel="noopener" class="asset-earn-link" onclick="event.stopPropagation()">Ganar WC</a>
+                    <span style="color:var(--wild)">Wild</span>
                   </div>
-                  <div class="asset-card-hint">Explorar para ganar · Recompensas cada 5 min</div>
                 </div>
                 <div class="asset-card-modern" id="wildgems-card">
                   <div class="asset-icon-container">
@@ -2412,12 +2381,6 @@
                 onmouseover="this.style.background='rgba(255,255,255,0.08)'; this.style.borderColor='rgba(34,211,238,0.3)'"
                 onmouseout="this.style.background='rgba(255,255,255,0.04)'; this.style.borderColor='rgba(255,255,255,0.1)'"
                 onclick="showSection('pass')">Gestionar Ocean Pass</button>
-              <a href="https://wildexplorer.netlify.app" target="_blank" rel="noopener"
-                style="display:flex; align-items:center; justify-content:center; gap:8px; width:100%; margin-top:8px; padding:0.8rem; border-radius:14px; font-size:0.85rem; font-weight:600; background: rgba(102,126,234,0.1); color:#a5b4fc; border: 1px solid rgba(102,126,234,0.3); text-decoration:none; transition: all 0.25s;"
-                onmouseover="this.style.background='rgba(102,126,234,0.2)'; this.style.borderColor='rgba(102,126,234,0.5)'"
-                onmouseout="this.style.background='rgba(102,126,234,0.1)'; this.style.borderColor='rgba(102,126,234,0.3)'">
-                <i class="fas fa-compass"></i> Ganar WildCredits en Wild Explorer
-              </a>
             </div>
           </div>
         </div>

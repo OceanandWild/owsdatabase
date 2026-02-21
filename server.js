@@ -129,8 +129,9 @@ app.post('/ocean-pay/register', async (req, res) => {
     // We assume the table has a password column. If not, this might fail, but it's the requested source.
     // We add error handling for missing column to be safe.
     try {
+      // Usar pwd_hash que es el est??ndar en la DB
       const newUser = await pool.query(
-        'INSERT INTO ocean_pay_users (username, unique_id, password) VALUES ($1, $2, $3) RETURNING *',
+        'INSERT INTO ocean_pay_users (username, unique_id, pwd_hash, aquabux, ecoxionums, appbux) VALUES ($1, $2, $3, 0, 0, 0) RETURNING *',
         [username, userUniqueId, passwordHash]
       );
       const opUser = newUser.rows[0];
@@ -188,7 +189,7 @@ app.post('/ocean-pay/login', async (req, res) => {
     }
 
     // Resolve password field
-    const dbPass = opUser.password || opUser.password_hash || opUser.pass;
+    const dbPass = opUser.pwd_hash || opUser.password || opUser.password_hash || opUser.pass;
 
     let match = false;
 

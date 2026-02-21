@@ -1633,6 +1633,151 @@
       background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.05));
     }
 
+    /* ASSETS MODAL */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(4, 7, 13, 0.9);
+      backdrop-filter: blur(15px);
+      z-index: 9000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-container {
+      width: 90%;
+      max-width: 1000px;
+      max-height: 85vh;
+      background: var(--bg-darker);
+      border: 1px solid var(--card-border);
+      border-radius: 2.5rem;
+      padding: 3rem;
+      overflow-y: auto;
+      position: relative;
+      box-shadow: 0 50px 100px -20px rgba(0, 0, 0, 0.8);
+      transform: scale(0.9) translateY(30px);
+      transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .modal-overlay.active .modal-container {
+      transform: scale(1) translateY(0);
+    }
+
+    .modal-header-nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2.5rem;
+      position: sticky;
+      top: 0;
+      background: var(--bg-darker);
+      z-index: 10;
+      padding-bottom: 1rem;
+    }
+
+    .modal-close {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.05);
+      border: none;
+      color: white;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s;
+    }
+
+    .modal-close:hover {
+      background: var(--err);
+    }
+
+    .view-toggle {
+      background: rgba(255, 255, 255, 0.03);
+      padding: 0.5rem;
+      border-radius: 1.25rem;
+      display: flex;
+      gap: 0.5rem;
+      border: 1px solid var(--card-border);
+    }
+
+    .toggle-btn {
+      padding: 0.6rem 1.2rem;
+      border-radius: 0.85rem;
+      border: none;
+      background: transparent;
+      color: var(--text-dim);
+      font-weight: 700;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .toggle-btn.active {
+      background: var(--accent);
+      color: black;
+      box-shadow: 0 10px 20px var(--accent-glow);
+    }
+
+    .assets-full-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .asset-item-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--card-border);
+      border-radius: 1.5rem;
+      padding: 1.75rem;
+      position: relative;
+      transition: all 0.3s;
+    }
+
+    .asset-item-card:hover {
+      border-color: var(--accent);
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .asset-item-info {
+      display: none;
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      line-height: 1.5;
+      margin-top: 1rem;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .asset-item-economy.hide {
+      display: none;
+    }
+
+    .asset-item-info.show {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(5px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
     @media (max-width: 1100px) {
       .wallet-grid {
         grid-template-columns: 1fr;
@@ -1811,11 +1956,12 @@
         <!-- Hero: Portfolio Overview -->
         <div class="wallet-hero">
           <div class="hero-content">
-            <span class="hero-label">Portfolio – Balance Total</span>
-            <h1 class="hero-amount">$<span id="total-estimated-value">0.00</span></h1>
+            <span class="hero-label">Valuación Global – Ecosystem EX</span>
+            <h1 class="hero-amount"><span id="total-estimated-value">0.00</span> <small
+                style="font-size: 1.5rem; opacity: 0.7; vertical-align: middle;">EX</small></h1>
             <div class="hero-subtitle">
-              <i class="fas fa-arrow-trend-up"></i>
-              <span>+2.45% este mes (Proyectado)</span>
+              <i class="fas fa-chart-line"></i>
+              <span>Índice de Activos Digitales Ocean</span>
             </div>
           </div>
           <div class="hero-actions">
@@ -1844,7 +1990,7 @@
             <div class="asset-group">
               <div class="section-header-modern">
                 <h3>Activos y Divisas</h3>
-                <span class="view-all">Ver todos</span>
+                <span class="view-all" onclick="openAssetsModal()">Ver todos</span>
               </div>
 
               <div class="assets-grid-modern">
@@ -3451,48 +3597,43 @@
       const getVal = (id) => {
         const el = document.getElementById(id);
         if (!el) return 0;
-        // Eliminar comas y convertir a numero
-        const val = parseFloat(el.textContent.replace(/,/g, '')) || 0;
-        return val;
+        return parseFloat(el.textContent.replace(/,/g, '')) || 0;
       };
 
-      // Tasas de conversión "Reales" (Simuladas en USD)
-      const rates = {
-        bux: 0.05,           // 1 AquaBux = 0.05 USD
-        wildcredits: 0.10,   // 1 WildCredit = 0.10 USD
-        wildgems: 1.50,      // 1 WildGem = 1.50 USD
-        ecoxionums: 1.00,    // 1 Ecoxionum = 1.00 USD
-        nxb: 0.20,           // 1 NXB = 0.20 USD
-        amber: 0.15,         // 1 Amber = 0.15 USD
-        voltbit: 0.08,       // 1 VoltBit = 0.08 USD
-        appbux: 0.02,        // 1 AppBux = 0.02 USD
-        ecobooks: 0.50,      // 1 EcoBook = 0.50 USD
-        ecobits: 1.10,       // 1 EcoCoreBit = 1.10 USD
-        ecotokens: 0.25      // 1 EcoToken = 0.25 USD
+      // Tasas de conversión Oficiales (Ecosystem Parity EX)
+      const parity = {
+        bux: 0.1,          // 10 Bux = 1 EX
+        wildcredits: 0.5,  // 2 WC = 1 EX
+        wildgems: 10.0,    // 1 Gem = 10 EX
+        ecoxionums: 1.0,   // Base
+        nxb: 0.25,
+        amber: 0.15,
+        voltbit: 0.1,
+        appbux: 0.05,
+        ecobooks: 0.5,
+        ecobits: 2.0,
+        ecotokens: 0.3
       };
 
-      let totalUSD = 0;
-      totalUSD += getVal('bux') * rates.bux;
-      totalUSD += getVal('wildcredits') * rates.wildcredits;
-      totalUSD += getVal('wildgems') * rates.wildgems;
-      totalUSD += getVal('ecoxionums') * rates.ecoxionums;
-      totalUSD += getVal('nxb-balance') * rates.nxb;
-      totalUSD += getVal('amber') * rates.amber;
-      totalUSD += getVal('voltbit') * rates.voltbit;
-      totalUSD += getVal('appbux') * rates.appbux;
-      totalUSD += getVal('ecobooks') * rates.ecobooks;
-      totalUSD += getVal('ecobits') * rates.ecobits;
-      totalUSD += getVal('ecotokens') * rates.ecotokens;
+      let totalEX = 0;
+      totalEX += getVal('bux') * parity.bux;
+      totalEX += getVal('wildcredits') * parity.wildcredits;
+      totalEX += getVal('wildgems') * parity.wildgems;
+      totalEX += getVal('ecoxionums') * parity.ecoxionums;
+      totalEX += getVal('nxb-balance') * parity.nxb;
+      totalEX += getVal('amber') * parity.amber;
+      totalEX += getVal('voltbit') * parity.voltbit;
+      totalEX += getVal('appbux') * parity.appbux;
+      totalEX += getVal('ecobooks') * parity.ecobooks;
+      totalEX += getVal('ecobits') * parity.ecobits;
+      totalEX += getVal('ecotokens') * parity.ecotokens;
 
       const totalEl = document.getElementById('total-estimated-value');
       if (totalEl) {
-        // Animación suave del número opcionalmente, pero por ahora actualización directa
-        totalEl.textContent = totalUSD.toLocaleString('en-US', {
-          style: 'currency',
-          currency: 'USD',
+        totalEl.textContent = totalEX.toLocaleString('en-US', {
           minimumFractionDigits: 2,
           maximumFractionDigits: 2
-        }).replace('$', ''); // Quitamos el $ porque ya está en el HTML o lo dejamos si el diseño lo pide
+        });
       }
     }
 
@@ -5045,7 +5186,108 @@
         show('#loginForm', true);
       }
     });
+
+    /* --- ASSETS MODAL LOGIC --- */
+    function openAssetsModal() {
+      const overlay = document.getElementById('assets-modal');
+      overlay.classList.add('active');
+      renderModalAssets('economy');
+    }
+
+    function closeAssetsModal() {
+      document.getElementById('assets-modal').classList.remove('active');
+    }
+
+    function renderModalAssets(viewType) {
+      const container = document.getElementById('modal-assets-grid');
+      const economyBtn = document.getElementById('toggle-economy');
+      const infoBtn = document.getElementById('toggle-info');
+
+      if (viewType === 'economy') {
+        economyBtn.classList.add('active');
+        infoBtn.classList.remove('active');
+      } else {
+        infoBtn.classList.add('active');
+        economyBtn.classList.remove('active');
+      }
+
+      const currencies = [
+        { id: 'bux', name: 'AquaBux', desc: 'Moneda oficial de Ocean Cinemas y transacciones generales del ecosistema.', project: 'Ocean Cinemas' },
+        { id: 'wildcredits', name: 'WildCredits', desc: 'Créditos de recompensa obtenidos en Wild Explorer y misiones de campo.', project: 'Wild Explorer' },
+        { id: 'wildgems', name: 'WildGems', desc: 'Gemas premium utilizadas para acceder a contenido exclusivo en WildShorts.', project: 'WildShorts' },
+        { id: 'ecoxionums', name: 'Ecoxionums', desc: 'Activo digital de alto valor, base del protocolo de intercambio Ecoxion.', project: 'Ecoxion' },
+        { id: 'nxb-balance', name: 'NXB', desc: 'Divisa de combate y mejoras utilizada en Primal Velocity Nexus.', project: 'Primal Velocity' },
+        { id: 'amber', name: 'Amber', desc: 'Resina fósil valiosa para la gestión de expediciones dinosáuricas.', project: 'DinoBox' },
+        { id: 'voltbit', name: 'VoltBit', desc: 'Unidades de energía sintética necesarias para la aceleración en Velocity Surge.', project: 'Velocity Surge' },
+        { id: 'appbux', name: 'AppBux', desc: 'Créditos universales para microtransacciones en aplicaciones de terceros.', project: 'Ecosistema' },
+        { id: 'ecobooks', name: 'EcoBooks', desc: 'Activo de conocimiento para desbloquear recursos en Naturepedia.', project: 'Naturepedia' },
+        { id: 'ecobits', name: 'EcoCoreBits', desc: 'Unidades de procesamiento de datos para la infraestructura Core.', project: 'Tidal Core' },
+        { id: 'ecotokens', name: 'EcoTokens', desc: 'Tokens de gobernanza para participar en decisiones de Wild Savage.', project: 'Wild Savage' }
+      ];
+
+      container.innerHTML = currencies.map(c => {
+        const balance = document.getElementById(c.id)?.textContent || '0';
+        return `
+          <div class="asset-item-card">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:1rem;">
+               <div class="asset-icon-container" style="margin-bottom:0; width:40px; height:40px;">
+                  <canvas class="currency-canvas" data-currency="${c.id === 'nxb-balance' ? 'nxb' : c.id}" width="36" height="36"></canvas>
+               </div>
+               <span style="font-size:0.65rem; color:var(--accent); font-weight:800; text-transform:uppercase; letter-spacing:1px;">${c.project}</span>
+            </div>
+            
+            <div class="asset-item-economy ${viewType === 'info' ? 'hide' : ''}">
+               <span class="asset-name-modern" style="font-size:0.75rem;">${c.name}</span>
+               <span class="asset-balance-modern" style="font-size:1.5rem; margin-bottom:0;">${balance}</span>
+            </div>
+
+            <div class="asset-item-info ${viewType === 'info' ? 'show' : ''}">
+               <strong style="color:white; display:block; margin-bottom:0.5rem;">${c.name}</strong>
+               ${c.desc}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      // Re-inicializar canvases en el modal
+      setTimeout(() => {
+        container.querySelectorAll('canvas').forEach(canvas => {
+          const currency = canvas.dataset.currency;
+          if (typeof drawCurrencyIcon === 'function') {
+            const ctx = canvas.getContext('2d');
+            drawCurrencyIcon(ctx, currency, 18, 18, 16);
+          }
+        });
+      }, 50);
+    }
   </script>
+
+  <!-- ASSETS MODAL OVERLAY -->
+  <div id="assets-modal" class="modal-overlay">
+    <div class="modal-container">
+      <div class="modal-header-nav">
+        <div>
+          <h2 style="font-size:1.75rem; font-weight:900; letter-spacing:-1px;">Activos del Ecosistema</h2>
+          <p style="color:var(--text-dim); font-size:0.85rem; font-weight:600;">Gestión centralizada de divisas
+            digitales</p>
+        </div>
+        <div style="display:flex; gap:1.5rem; align-items:center;">
+          <div class="view-toggle">
+            <button id="toggle-economy" class="toggle-btn active" onclick="renderModalAssets('economy')">Saldos</button>
+            <button id="toggle-info" class="toggle-btn" onclick="renderModalAssets('info')">Información</button>
+          </div>
+          <button class="modal-close" onclick="closeAssetsModal()">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      </div>
+
+      <div id="modal-assets-grid" class="assets-full-grid">
+        <!-- Dinámico -->
+      </div>
+    </div>
+  </div>
+
 </body>
 
 </html>

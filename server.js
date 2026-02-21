@@ -642,6 +642,24 @@ async function runDatabaseMigrations() {
       console.log('⚠️ Aviso: Error en inicialización VoltBits:', voltErr.message);
     }
 
+    // 2.6. Asegurar MayhemCoins para WildWeapon Mayhem (inicializar en 0 para usuarios existentes)
+    try {
+      await pool.query(`
+        INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
+        SELECT c.id, 'mayhemcoins', 0
+        FROM ocean_pay_cards c
+        WHERE c.is_primary = true
+        AND NOT EXISTS (
+          SELECT 1 FROM ocean_pay_card_balances 
+          WHERE card_id = c.id AND currency_type = 'mayhemcoins'
+        )
+        ON CONFLICT (card_id, currency_type) DO NOTHING
+      `);
+      console.log('✅ MayhemCoins inicializados para usuarios existentes');
+    } catch (mcErr) {
+      console.log('⚠️ Aviso: Error en inicialización MayhemCoins:', mcErr.message);
+    }
+
     // 10. Crear tabla ocean_pay_card_balances para saldos por tarjeta (Legado/Compatibilidad)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS ocean_pay_card_balances (
@@ -771,7 +789,7 @@ async function runDatabaseMigrations() {
 
       if (cardResult && cardResult.rows[0]) {
         // Inicializar saldos para la nueva tarjeta
-        const currencies = ['aquabux', 'ecoxionums', 'ecorebits', 'wildcredits', 'wildgems', 'appbux', 'ecobooks', 'ecotokens', 'ecopower', 'amber', 'nxb', 'voltbit'];
+        const currencies = ['aquabux', 'ecoxionums', 'ecorebits', 'wildcredits', 'wildgems', 'appbux', 'ecobooks', 'ecotokens', 'ecopower', 'amber', 'nxb', 'voltbit', 'mayhemcoins'];
         for (const curr of currencies) {
           const initialBalance = (curr === 'voltbit') ? 500 : (curr === 'ecopower' ? 100 : 0);
           await pool.query(
@@ -2301,6 +2319,188 @@ app.get('/wildshorts/wildgems/claims-status', async (req, res) => {
 });
 
 // Endpoint para pagar por episodio (pay-as-you-go)
+
+/* ===== WILDWEAPON MAYHEM - MAYHEMCOINS ===== */
+
+// Sincronizar MayhemCoins desde WildWeapon Mayhem
+app.post('/wildweapon/mayhemcoins/sync', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+
+  const token = authHeader.substring(7);
+  let userId;
+  try {
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    userId = (decoded.id || decoded.uid);
+    userId = parseInt(userId) || userId;
+  } catch (e) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+
+  const { mayhemcoins } = req.body;
+  if (mayhemcoins === undefined || mayhemcoins === null) {
+    return res.status(400).json({ error: 'mayhemcoins requerido' });
+  }
+
+  const mcValue = parseInt(mayhemcoins || '0');
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Obtener tarjeta principal
+    const { rows: cards } = await client.query(
+      'SELECT id, balances FROM ocean_pay_cards WHERE user_id = $1 AND is_primary = true FOR UPDATE',
+      [userId]
+    );
+
+    if (cards.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'No se encontró tarjeta principal' });
+    }
+
+    const cardId = cards[0].id;
+    const balances = cards[0].balances || {};
+
+    // Actualizar JSONB
+    balances.mayhemcoins = mcValue;
+    await client.query('UPDATE ocean_pay_cards SET balances = $1 WHERE id = $2', [balances, cardId]);
+
+    // Actualizar tabla SQL
+    await client.query(`
+      INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
+      VALUES ($1, 'mayhemcoins', $2)
+      ON CONFLICT (card_id, currency_type)
+      DO UPDATE SET amount = $2
+    `, [cardId, mcValue]);
+
+    await client.query('COMMIT');
+    res.json({ success: true, mayhemcoins: mcValue });
+  } catch (e) {
+    await client.query('ROLLBACK');
+    console.error('Error sincronizando MayhemCoins:', e);
+    res.status(500).json({ error: 'Error interno' });
+  } finally {
+    client.release();
+  }
+});
+
+// Obtener balance de MayhemCoins
+app.get('/wildweapon/mayhemcoins/balance', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+
+  const token = authHeader.substring(7);
+  let userId;
+  try {
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    userId = (decoded.id || decoded.uid);
+    userId = parseInt(userId) || userId;
+  } catch (e) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+
+  try {
+    const { rows } = await pool.query(`
+      SELECT cb.amount FROM ocean_pay_card_balances cb
+      JOIN ocean_pay_cards c ON cb.card_id = c.id
+      WHERE c.user_id = $1 AND c.is_primary = true AND cb.currency_type = 'mayhemcoins'
+    `, [userId]);
+
+    const mayhemcoins = rows.length > 0 ? parseFloat(rows[0].amount || 0) : 0;
+    res.json({ mayhemcoins });
+  } catch (e) {
+    console.error('Error obteniendo MayhemCoins:', e);
+    res.json({ mayhemcoins: 0 });
+  }
+});
+
+// Cambiar MayhemCoins (ganar/gastar)
+app.post('/wildweapon/mayhemcoins/change', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+
+  const token = authHeader.substring(7);
+  let userId;
+  try {
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    userId = (decoded.id || decoded.uid);
+    userId = parseInt(userId) || userId;
+  } catch (e) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+
+  const { amount, concepto = 'Operación', origen = 'WildWeapon Mayhem' } = req.body;
+  if (amount === undefined) return res.status(400).json({ error: 'amount requerido' });
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Obtener tarjeta principal
+    const { rows: cards } = await client.query(
+      'SELECT id, balances FROM ocean_pay_cards WHERE user_id = $1 AND is_primary = true FOR UPDATE',
+      [userId]
+    );
+
+    if (cards.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'No se encontró tarjeta principal' });
+    }
+
+    const cardId = cards[0].id;
+    const balances = cards[0].balances || {};
+
+    // Obtener saldo actual de la tabla SQL (fuente de verdad)
+    const { rows: balRows } = await client.query(
+      "SELECT amount FROM ocean_pay_card_balances WHERE card_id = $1 AND currency_type = 'mayhemcoins' FOR UPDATE",
+      [cardId]
+    );
+
+    const current = parseFloat(balRows[0]?.amount || 0);
+    const jsonCurrent = parseFloat(balances.mayhemcoins || 0);
+    const effectiveCurrent = Math.max(current, jsonCurrent);
+    const newBalance = effectiveCurrent + parseFloat(amount);
+
+    if (newBalance < 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Saldo insuficiente de MayhemCoins', current: effectiveCurrent });
+    }
+
+    // Actualizar JSONB
+    balances.mayhemcoins = newBalance;
+    await client.query('UPDATE ocean_pay_cards SET balances = $1 WHERE id = $2', [balances, cardId]);
+
+    // Actualizar tabla SQL
+    await client.query(`
+      INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
+      VALUES ($1, 'mayhemcoins', $2)
+      ON CONFLICT (card_id, currency_type)
+      DO UPDATE SET amount = $2
+    `, [cardId, newBalance]);
+
+    // Registrar transacción
+    await client.query(`
+      INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+      VALUES ($1, $2, $3, $4, 'MC')
+    `, [userId, concepto, amount, origen]);
+
+    await client.query('COMMIT');
+    res.json({ success: true, newBalance });
+  } catch (e) {
+    await client.query('ROLLBACK');
+    console.error('Error cambiando MayhemCoins:', e);
+    res.status(500).json({ error: 'Error interno' });
+  } finally {
+    client.release();
+  }
+});
 
 /* ===== ECOXION - ECOXIONUMS ===== */
 
@@ -10776,7 +10976,8 @@ app.post('/ocean-pay/register', async (req, res) => {
       { type: 'tides', amount: 0 },
       { type: 'ecobooks', amount: 0 },
       { type: 'ecotokens', amount: 0 },
-      { type: 'ecopower', amount: 100 }
+      { type: 'ecopower', amount: 100 },
+      { type: 'mayhemcoins', amount: 0 }
     ];
 
     for (const curr of currencies) {
@@ -10859,7 +11060,8 @@ app.post('/ocean-pay/cards/create', async (req, res) => {
       { type: 'tides', amount: 0 },
       { type: 'ecobooks', amount: 0 },
       { type: 'ecotokens', amount: 0 },
-      { type: 'ecopower', amount: 100 }
+      { type: 'ecopower', amount: 100 },
+      { type: 'mayhemcoins', amount: 0 }
     ];
 
     for (const curr of currencies) {

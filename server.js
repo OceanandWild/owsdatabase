@@ -268,14 +268,27 @@ app.post('/ocean-pay/login', async (req, res) => {
       const totalAquabux = cardsWithBalances.reduce((sum, card) => sum + parseFloat(card.balances?.aquabux || 0), 0);
       const aquabuxBalance = Math.max(totalAquabux, parseFloat(opUser.aquabux || 0));
 
+      // Obtener WildCredits desde metadata como respaldo oficial
+      const { rows: wcRows } = await pool.query(
+        "SELECT value FROM ocean_pay_metadata WHERE user_id = $1 AND key = 'wildcredits'",
+        [opUser.id]
+      );
+      const metadataWC = wcRows.length > 0 ? parseInt(wcRows[0].value || '0') : 0;
+
+      // Calcular total desde tarjetas y comparar con metadata
+      const totalWildCredits = cardsWithBalances.reduce((sum, card) => sum + parseFloat(card.balances?.wildcredits || 0), 0);
+      const finalWildCredits = Math.max(metadataWC, totalWildCredits);
+
       return res.json({
         success: true,
         token,
         ecoxionums: totalEcoxionums,
+        wildcredits: finalWildCredits,
         user: {
           id: opUser.id,
           username: opUser.username,
           aquabux: aquabuxBalance,
+          wildcredits: finalWildCredits,
           cards: cardsWithBalances
         }
       });
@@ -11518,10 +11531,22 @@ app.get('/ocean-pay/me', async (req, res) => {
     const primaryCard = cardsWithBalances.find(c => c.is_primary) || cardsWithBalances[0];
     const totalAppBux = primaryCard?.balances?.appbux || 0;
 
+    // Obtener WildCredits (Fondo de Rescate de metadatos)
+    const { rows: wcMetadata } = await pool.query(
+      "SELECT value FROM ocean_pay_metadata WHERE user_id = $1 AND key = 'wildcredits'",
+      [userId]
+    );
+    const metadataWC = wcMetadata.length > 0 ? parseInt(wcMetadata[0].value || '0') : 0;
+
+    // Calcular total de WildCredits desde tarjetas
+    const cardWildCredits = cardsWithBalances.reduce((sum, c) => sum + (parseFloat(c.balances?.wildcredits) || 0), 0);
+    const finalWildCredits = Math.max(metadataWC, cardWildCredits);
+
     res.json({
       ...rows[0],
       ecoxionums: totalEcoxionums,
       appbux: totalAppBux,
+      wildcredits: finalWildCredits,
       cards: cardsWithBalances
     });
   } catch (e) { res.status(401).json({ error: 'Token inválido' }); }

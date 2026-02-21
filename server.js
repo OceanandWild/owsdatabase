@@ -729,6 +729,19 @@ async function runDatabaseMigrations() {
       );
     `).catch(err => console.log('⚠️ Error creando ocean_pass:', err.message));
 
+    // 16. Crear tabla ows_news_updates para automatización de News
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ows_news_updates (
+        id SERIAL PRIMARY KEY,
+        project_names TEXT[],
+        title VARCHAR(255) NOT NULL,
+        description TEXT,
+        changes TEXT,
+        update_date DATE DEFAULT CURRENT_DATE,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `).catch(err => console.log('⚠️ Error creando ows_news_updates:', err.message));
+
     // Migración: Asegurar columnas para Intercambio (Swap)
     await pool.query(`
       ALTER TABLE ocean_pay_pos
@@ -11709,12 +11722,39 @@ app.post('/ecocore/change', async (req, res) => {
   }
 });
 
+res.status(500).json({ error: 'Error interno' });
+  } finally {
+  client.release();
+}
+});
 
+/* ----------  OWS NEWS UPDATES SYSTEM  ---------- */
+app.get('/ows-news/updates', async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM ows_news_updates ORDER BY update_date DESC, created_at DESC');
+    res.json(rows);
+  } catch (err) {
+    console.error('❌ Error en GET /ows-news/updates:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
 
+app.post('/ows-news/updates', async (req, res) => {
+  const { title, description, changes, project_names, update_date } = req.body;
+  if (!title) return res.status(400).json({ error: 'El título es obligatorio' });
 
-
-
-
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO ows_news_updates (title, description, changes, project_names, update_date)
+       VALUES ($1, $2, $3, $4, COALESCE($5, CURRENT_DATE)) RETURNING *`,
+      [title, description, changes, project_names || [], update_date]
+    );
+    res.json({ success: true, update: rows[0] });
+  } catch (err) {
+    console.error('❌ Error en POST /ows-news/updates:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
 
 /* ----------  APPBUX ENDPOINTS  ---------- */
 // Obtener balance de AppBux

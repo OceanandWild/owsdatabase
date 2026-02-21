@@ -151,11 +151,56 @@
     .user-info-text {
       display: flex;
       flex-direction: column;
+      gap: 2px;
     }
 
     .user-name {
       font-weight: 700;
       font-size: 0.9rem;
+    }
+
+    .pass-ticket-badge {
+      display: none;
+      background: #00e5ff;
+      color: #0a0e1a;
+      font-size: 0.6rem;
+      font-weight: 900;
+      padding: 2px 6px;
+      border-radius: 4px;
+      align-items: center;
+      gap: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      position: relative;
+      overflow: visible;
+      box-shadow: 0 0 10px rgba(0, 229, 255, 0.3);
+      width: fit-content;
+      margin-top: 2px;
+    }
+
+    /* Ticket 2D notches */
+    .pass-ticket-badge::before,
+    .pass-ticket-badge::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      width: 4px;
+      height: 4px;
+      background: #0f172a;
+      border-radius: 50%;
+      transform: translateY(-50%);
+    }
+
+    .pass-ticket-badge::before {
+      left: -2px;
+    }
+
+    .pass-ticket-badge::after {
+      right: -2px;
+    }
+
+    .pass-ticket-badge.active {
+      display: inline-flex;
     }
 
     .user-id {
@@ -1472,6 +1517,9 @@
         <div class="user-info-text">
           <span class="user-name" id="userNameDisplay">Usuario</span>
           <span class="user-id" id="userIdDisplay">ID: 0</span>
+          <div id="user-pass-badge" class="pass-ticket-badge">
+            <i class="fas fa-water"></i> PASS
+          </div>
         </div>
       </div>
     </aside>
@@ -3351,7 +3399,13 @@
     function updateOceanPassUI() {
       const timerDisplay = qs('#pass-timer-display');
       const badge = qs('#pass-status-badge');
+      const userPassBadge = qs('#user-pass-badge');
       if (!timerDisplay || !badge) return;
+
+      // Actualizar etiqueta del perfil
+      if (userPassBadge) {
+        userPassBadge.classList.toggle('active', !!oceanPass.active && !oceanPass.hasDebt);
+      }
 
       // Generar burbujas si no existen
       createOceanBubbles();

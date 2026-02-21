@@ -11722,12 +11722,6 @@ app.post('/ecocore/change', async (req, res) => {
   }
 });
 
-res.status(500).json({ error: 'Error interno' });
-  } finally {
-  client.release();
-}
-});
-
 /* ----------  OWS NEWS UPDATES SYSTEM  ---------- */
 app.get('/ows-news/updates', async (req, res) => {
   try {

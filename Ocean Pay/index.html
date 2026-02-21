@@ -1373,8 +1373,15 @@
     }
 
     @keyframes sectionEnter {
-      from { opacity: 0; transform: translateY(24px); }
-      to { opacity: 1; transform: translateY(0); }
+      from {
+        opacity: 0;
+        transform: translateY(24px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
 
     /* Hero: Diseño tipo "dashboard premium" con glassmorphism intenso */
@@ -1390,7 +1397,7 @@
       grid-template-columns: 1fr auto;
       align-items: center;
       gap: 3rem;
-      box-shadow: 0 0 0 1px rgba(255,255,255,0.03) inset, 0 50px 120px -30px rgba(0, 0, 0, 0.6), 0 0 80px -20px rgba(34, 211, 238, 0.15);
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.03) inset, 0 50px 120px -30px rgba(0, 0, 0, 0.6), 0 0 80px -20px rgba(34, 211, 238, 0.15);
       backdrop-filter: blur(24px);
     }
 
@@ -1421,8 +1428,8 @@
     /* Patrón grid sutil sobre el hero */
     .wallet-hero {
       background-image: linear-gradient(145deg, rgba(6, 78, 99, 0.2) 0%, rgba(15, 23, 42, 0.7) 40%, rgba(30, 58, 138, 0.1) 100%),
-        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+        linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
       background-size: 100% 100%, 48px 48px, 48px 48px;
     }
 
@@ -1637,8 +1644,15 @@
     }
 
     @keyframes assetCardEnter {
-      from { opacity: 0; transform: translateY(16px); }
-      to { opacity: 1; transform: translateY(0); }
+      from {
+        opacity: 0;
+        transform: translateY(16px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
 
     .asset-card-modern::before {
@@ -1663,17 +1677,53 @@
       opacity: 1;
     }
 
-    .asset-card-modern:nth-child(1) { animation-delay: 0.05s; }
-    .asset-card-modern:nth-child(2) { animation-delay: 0.1s; }
-    .asset-card-modern:nth-child(3) { animation-delay: 0.15s; }
-    .asset-card-modern:nth-child(4) { animation-delay: 0.2s; }
-    .asset-card-modern:nth-child(5) { animation-delay: 0.25s; }
-    .asset-card-modern:nth-child(6) { animation-delay: 0.3s; }
-    .asset-card-modern:nth-child(7) { animation-delay: 0.35s; }
-    .asset-card-modern:nth-child(8) { animation-delay: 0.4s; }
-    .asset-card-modern:nth-child(9) { animation-delay: 0.45s; }
-    .asset-card-modern:nth-child(10) { animation-delay: 0.5s; }
-    .asset-card-modern:nth-child(11) { animation-delay: 0.55s; }
+    .asset-card-modern:nth-child(1) {
+      animation-delay: 0.05s;
+    }
+
+    .asset-card-modern:nth-child(2) {
+      animation-delay: 0.1s;
+    }
+
+    .asset-card-modern:nth-child(3) {
+      animation-delay: 0.15s;
+    }
+
+    .asset-card-modern:nth-child(4) {
+      animation-delay: 0.2s;
+    }
+
+    .asset-card-modern:nth-child(5) {
+      animation-delay: 0.25s;
+    }
+
+    .asset-card-modern:nth-child(6) {
+      animation-delay: 0.3s;
+    }
+
+    .asset-card-modern:nth-child(7) {
+      animation-delay: 0.35s;
+    }
+
+    .asset-card-modern:nth-child(8) {
+      animation-delay: 0.4s;
+    }
+
+    .asset-card-modern:nth-child(9) {
+      animation-delay: 0.45s;
+    }
+
+    .asset-card-modern:nth-child(10) {
+      animation-delay: 0.5s;
+    }
+
+    .asset-card-modern:nth-child(11) {
+      animation-delay: 0.55s;
+    }
+
+    .asset-card-modern:nth-child(12) {
+      animation-delay: 0.6s;
+    }
 
     .asset-icon-container {
       width: 52px;
@@ -1939,9 +1989,11 @@
       .wallet-grid {
         grid-template-columns: 1fr;
       }
+
       .wallet-side-stack {
         position: static;
       }
+
       .assets-row-core,
       .assets-row-gaming {
         grid-template-columns: repeat(2, 1fr);
@@ -1954,16 +2006,28 @@
         padding: 2.5rem 2rem;
         text-align: center;
       }
+
       .hero-actions {
         justify-content: center;
       }
+
       .hero-amount {
         font-size: 3rem;
       }
-      .assets-row-ocean { grid-template-columns: 1fr; }
-      .assets-row-wild { grid-template-columns: 1fr; }
+
+      .assets-row-ocean {
+        grid-template-columns: 1fr;
+      }
+
+      .assets-row-wild {
+        grid-template-columns: 1fr;
+      }
+
       .assets-row-core,
-      .assets-row-gaming { grid-template-columns: 1fr; }
+      .assets-row-gaming {
+        grid-template-columns: 1fr;
+      }
+
       .modern-cards-grid {
         grid-template-columns: 1fr;
       }
@@ -2142,7 +2206,8 @@
         <div class="wallet-hero">
           <div class="hero-content">
             <span class="hero-label">Tu balance total (estimado)</span>
-            <h1 class="hero-amount"><span id="total-estimated-value">0.00</span> <small style="font-size: 1.5rem; opacity: 0.7; vertical-align: middle;">EX</small></h1>
+            <h1 class="hero-amount"><span id="total-estimated-value">0.00</span> <small
+                style="font-size: 1.5rem; opacity: 0.7; vertical-align: middle;">EX</small></h1>
             <div class="hero-subtitle" id="hero-currencies-breakdown">
               <i class="fas fa-wallet"></i>
               <span id="hero-balances-text">Sincroniza para ver tus saldos reales</span>
@@ -2172,234 +2237,251 @@
               <div class="asset-ecosystem-block">
                 <h4 class="ecosystem-label">🌊 Ocean</h4>
                 <div class="assets-grid-modern assets-row-ocean">
-                <div class="asset-card-modern" id="aquabux-card">
-                  <div class="asset-icon-container">
-                    <canvas class="currency-canvas" data-currency="bux" width="44" height="44"></canvas>
+                  <div class="asset-card-modern" id="aquabux-card">
+                    <div class="asset-icon-container">
+                      <canvas class="currency-canvas" data-currency="bux" width="44" height="44"></canvas>
+                    </div>
+                    <span class="asset-name-modern">AquaBux</span>
+                    <span class="asset-balance-modern" id="bux">0</span>
+                    <div class="asset-footer-modern">
+                      <span>Ocean Cinemas</span>
+                      <span style="color:var(--accent)">Ocean</span>
+                    </div>
                   </div>
-                  <span class="asset-name-modern">AquaBux</span>
-                  <span class="asset-balance-modern" id="bux">0</span>
-                  <div class="asset-footer-modern">
-                    <span>Ocean Cinemas</span>
-                    <span style="color:var(--accent)">Ocean</span>
+                </div>
+              </div>
+
+              <!-- Grupo: Ecosistema Wild -->
+              <div class="asset-ecosystem-block">
+                <h4 class="ecosystem-label">🌿 Wild</h4>
+                <div class="assets-grid-modern assets-row-wild">
+                  <div class="asset-card-modern" id="wildcredits-card">
+                    <div class="asset-icon-container">
+                      <canvas class="currency-canvas" data-currency="wildcredits" width="44" height="44"></canvas>
+                    </div>
+                    <span class="asset-name-modern">WildCredits</span>
+                    <span class="asset-balance-modern" id="wildcredits">0</span>
+                    <div class="asset-footer-modern">
+                      <span>Wild Explorer</span>
+                      <span style="color:var(--wild)">Wild</span>
+                    </div>
                   </div>
+                  <div class="asset-card-modern" id="wildgems-card">
+                    <div class="asset-icon-container">
+                      <canvas class="currency-canvas" data-currency="wildgems" width="44" height="44"></canvas>
+                    </div>
+                    <span class="asset-name-modern">WildGems</span>
+                    <span class="asset-balance-modern" id="wildgems">0</span>
+                    <div class="asset-footer-modern">
+                      <span>WildShorts</span>
+                      <span style="color:var(--gold)">Wild</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Grupo: Core & Knowledge -->
+              <div class="asset-ecosystem-block">
+                <h4 class="ecosystem-label">⚡ Core & Knowledge</h4>
+                <div class="assets-grid-modern assets-row-core">
+                  <div class="asset-card-modern" id="ecoxionums-card">
+                    <div class="asset-icon-container">
+                      <canvas class="currency-canvas" data-currency="ecoxionums" width="44" height="44"></canvas>
+                    </div>
+                    <span class="asset-name-modern">Ecoxionums</span>
+                    <span class="asset-balance-modern" id="ecoxionums">0</span>
+                    <div class="asset-footer-modern">
+                      <span>Ecoxion</span>
+                      <span style="color:var(--ok)">Core</span>
+                    </div>
+                  </div>
+                  <div class="asset-card-modern" id="ecobits-card">
+                    <div class="asset-icon-container">
+                      <canvas class="currency-canvas" data-currency="ecobits" width="44" height="44"></canvas>
+                    </div>
+                    <span class="asset-name-modern">EcoCoreBits</span>
+                    <span class="asset-balance-modern" id="ecobits">0</span>
+                    <div class="asset-footer-modern">
+                      <span>EcoConsole</span>
+                      <span style="color:var(--purple)">Core</span>
+                    </div>
+                  </div>
+                  <div class="asset-card-modern" id="ecobooks-card" onclick="loadEcoBooksBalance()"
+                    style="cursor:pointer;">
+                    <div class="asset-icon-container">
+                      <canvas class="currency-canvas" data-currency="ecobooks" width="44" height="44"></canvas>
+                    </div>
+                    <span class="asset-name-modern">EcoBooks</span>
+                    <span class="asset-balance-modern" id="ecobooks">0</span>
+                    <div class="asset-footer-modern">
+                      <span>Naturepedia</span>
+                      <span style="color:var(--ok)">Knowledge</span>
+                    </div>
+                  </div>
+                  <div class="asset-card-modern" id="ecotokens-card">
+                    <div class="asset-icon-container">
+                      <canvas class="currency-canvas" data-currency="ecotokens" width="44" height="44"></canvas>
+                    </div>
+                    <span class="asset-name-modern">EcoTokens</span>
+                    <span class="asset-balance-modern" id="ecotokens">0</span>
+                    <div class="asset-footer-modern">
+                      <span>Wild Savage</span>
+                      <span style="color:var(--ok)">Survival</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Grupo: Gaming & Premium -->
+              <div class="asset-ecosystem-block">
+                <h4 class="ecosystem-label">🎮 Gaming & Premium</h4>
+                <div class="assets-grid-modern assets-row-gaming">
+                  <div class="asset-card-modern" id="nxb-card">
+                    <div class="asset-icon-container">
+                      <canvas class="currency-canvas" data-currency="nxb" width="44" height="44"></canvas>
+                    </div>
+                    <span class="asset-name-modern">Nexus Bits</span>
+                    <span class="asset-balance-modern" id="nxb-balance" style="color: #f08a5d;">0</span>
+                    <div class="asset-footer-modern">
+                      <span>PV Nexus</span>
+                      <span style="color:#f08a5d">Gaming</span>
+                    </div>
+                  </div>
+                  <div class="asset-card-modern" id="amber-card" onclick="loadAmberBalance()" style="cursor:pointer;">
+                    <div class="asset-icon-container">
+                      <canvas class="currency-canvas" data-currency="amber" width="44" height="44"></canvas>
+                    </div>
+                    <span class="asset-name-modern">Ambar</span>
+                    <span class="asset-balance-modern" id="amber" style="color: #fbbf24;">0</span>
+                    <div class="asset-footer-modern">
+                      <span>DinoBox</span>
+                      <span style="color:#fbbf24">Prehistoric Assets</span>
+                    </div>
+                  </div>
+
+                  <!-- VoltBits -->
+                  <div class="asset-card-modern" id="voltbits-card">
+                    <div class="asset-icon-container">
+                      <canvas class="currency-canvas" data-currency="voltbit" width="44" height="44"></canvas>
+                    </div>
+                    <span class="asset-name-modern">VoltBits</span>
+                    <span class="asset-balance-modern" id="voltbit" style="color: #00e5ff;">0</span>
+                    <div class="asset-footer-modern">
+                      <span>Velocity Surge</span>
+                      <span style="color:#00e5ff">Volt Network</span>
+                    </div>
+                  </div>
+
+                  <div class="asset-card-modern" id="appbux-card">
+                    <div class="asset-icon-container">
+                      <canvas class="currency-canvas" data-currency="appbux" width="44" height="44"></canvas>
+                    </div>
+                    <span class="asset-name-modern">AppBux</span>
+                    <span class="asset-balance-modern" id="appbux">0</span>
+                    <div class="asset-footer-modern">
+                      <span>AllApp</span>
+                      <span style="color:var(--orange)">Gaming</span>
+                    </div>
+                  </div>
+
+                  <!-- MayhemCoins -->
+                  <div class="asset-card-modern" id="mayhemcoins-card">
+                    <div class="asset-icon-container">
+                      <canvas class="currency-canvas" data-currency="mayhemcoins" width="44" height="44"></canvas>
+                    </div>
+                    <span class="asset-name-modern">MayhemCoins</span>
+                    <span class="asset-balance-modern" id="mayhemcoins" style="color: #e040fb;">0</span>
+                    <div class="asset-footer-modern">
+                      <span>WildWeapon Mayhem</span>
+                      <span style="color:#e040fb">Mayhem Network</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Cards Section - DESPUÉS de activos -->
+              <div class="cards-group">
+                <div class="section-header-modern">
+                  <h3>Tarjetas Ocean Card</h3>
+                  <span class="view-all" onclick="showNewCardModal()">+ Nueva Tarjeta</span>
+                </div>
+                <div id="cards-container" class="modern-cards-grid">
+                  <!-- Rendered by JS -->
                 </div>
               </div>
             </div>
 
-            <!-- Grupo: Ecosistema Wild -->
-            <div class="asset-ecosystem-block">
-              <h4 class="ecosystem-label">🌿 Wild</h4>
-              <div class="assets-grid-modern assets-row-wild">
-                <div class="asset-card-modern" id="wildcredits-card">
-                  <div class="asset-icon-container">
-                    <canvas class="currency-canvas" data-currency="wildcredits" width="44" height="44"></canvas>
-                  </div>
-                  <span class="asset-name-modern">WildCredits</span>
-                  <span class="asset-balance-modern" id="wildcredits">0</span>
-                  <div class="asset-footer-modern">
-                    <span>Wild Explorer</span>
-                    <span style="color:var(--wild)">Wild</span>
-                  </div>
+            <!-- SIDE AREA -->
+            <div class="wallet-side-stack">
+              <!-- Stats Box -->
+              <div class="glass-box">
+                <h4 style="margin-bottom:1.5rem; font-weight:800; font-size:1.1rem; color:#f8fafc;">Resumen de Cuenta
+                </h4>
+                <div class="stat-row">
+                  <span class="stat-label">Tipo de Cuenta</span>
+                  <span class="stat-value" style="color:var(--accent)" id="account-type-display">GLOBAL VIP</span>
                 </div>
-                <div class="asset-card-modern" id="wildgems-card">
-                  <div class="asset-icon-container">
-                    <canvas class="currency-canvas" data-currency="wildgems" width="44" height="44"></canvas>
-                  </div>
-                  <span class="asset-name-modern">WildGems</span>
-                  <span class="asset-balance-modern" id="wildgems">0</span>
-                  <div class="asset-footer-modern">
-                    <span>WildShorts</span>
-                    <span style="color:var(--gold)">Wild</span>
-                  </div>
+                <div class="stat-row">
+                  <span class="stat-label">Límite Diario</span>
+                  <span class="stat-value" id="daily-limit-display">ilimitado</span>
                 </div>
-              </div>
-            </div>
-
-            <!-- Grupo: Core & Knowledge -->
-            <div class="asset-ecosystem-block">
-              <h4 class="ecosystem-label">⚡ Core & Knowledge</h4>
-              <div class="assets-grid-modern assets-row-core">
-                <div class="asset-card-modern" id="ecoxionums-card">
-                  <div class="asset-icon-container">
-                    <canvas class="currency-canvas" data-currency="ecoxionums" width="44" height="44"></canvas>
-                  </div>
-                  <span class="asset-name-modern">Ecoxionums</span>
-                  <span class="asset-balance-modern" id="ecoxionums">0</span>
-                  <div class="asset-footer-modern">
-                    <span>Ecoxion</span>
-                    <span style="color:var(--ok)">Core</span>
-                  </div>
+                <div class="stat-row">
+                  <span class="stat-label">Verificación</span>
+                  <span class="stat-value" style="color:var(--ok)" id="verification-level-display">
+                    <i class="fas fa-check-circle"></i> Nivel 3
+                  </span>
                 </div>
-                <div class="asset-card-modern" id="ecobits-card">
-                  <div class="asset-icon-container">
-                    <canvas class="currency-canvas" data-currency="ecobits" width="44" height="44"></canvas>
-                  </div>
-                  <span class="asset-name-modern">EcoCoreBits</span>
-                  <span class="asset-balance-modern" id="ecobits">0</span>
-                  <div class="asset-footer-modern">
-                    <span>EcoConsole</span>
-                    <span style="color:var(--purple)">Core</span>
-                  </div>
-                </div>
-                <div class="asset-card-modern" id="ecobooks-card" onclick="loadEcoBooksBalance()" style="cursor:pointer;">
-                  <div class="asset-icon-container">
-                    <canvas class="currency-canvas" data-currency="ecobooks" width="44" height="44"></canvas>
-                  </div>
-                  <span class="asset-name-modern">EcoBooks</span>
-                  <span class="asset-balance-modern" id="ecobooks">0</span>
-                  <div class="asset-footer-modern">
-                    <span>Naturepedia</span>
-                    <span style="color:var(--ok)">Knowledge</span>
-                  </div>
-                </div>
-                <div class="asset-card-modern" id="ecotokens-card">
-                  <div class="asset-icon-container">
-                    <canvas class="currency-canvas" data-currency="ecotokens" width="44" height="44"></canvas>
-                  </div>
-                  <span class="asset-name-modern">EcoTokens</span>
-                  <span class="asset-balance-modern" id="ecotokens">0</span>
-                  <div class="asset-footer-modern">
-                    <span>Wild Savage</span>
-                    <span style="color:var(--ok)">Survival</span>
-                  </div>
+                <div class="stat-row"
+                  style="margin-top:2rem; padding-top:1rem; border-top:1px solid rgba(255,255,255,0.05);">
+                  <span class="stat-label">EcoPower ⚡</span>
+                  <span class="stat-value" style="color:#00ff64" id="ecopower-display">100</span>
                 </div>
               </div>
-            </div>
 
-            <!-- Grupo: Gaming & Premium -->
-            <div class="asset-ecosystem-block">
-              <h4 class="ecosystem-label">🎮 Gaming & Premium</h4>
-              <div class="assets-grid-modern assets-row-gaming">
-                <div class="asset-card-modern" id="nxb-card">
-                  <div class="asset-icon-container">
-                    <canvas class="currency-canvas" data-currency="nxb" width="44" height="44"></canvas>
-                  </div>
-                  <span class="asset-name-modern">Nexus Bits</span>
-                  <span class="asset-balance-modern" id="nxb-balance" style="color: #f08a5d;">0</span>
-                  <div class="asset-footer-modern">
-                    <span>PV Nexus</span>
-                    <span style="color:#f08a5d">Gaming</span>
+              <!-- Quick Access -->
+              <div class="glass-box">
+                <h4 style="margin-bottom:1.5rem; font-weight:800; font-size:1.1rem; color:#f8fafc;">Novedades Ecosistema
+                </h4>
+                <div class="card-mini-preview"
+                  style="background: linear-gradient(145deg, rgba(30, 58, 138, 0.3) 0%, rgba(15, 23, 42, 0.9) 100%); border: 1px solid rgba(34, 211, 238, 0.15); display: flex; align-items: center; justify-content: center;">
+                  <div style="text-align:center; padding: 1rem;">
+                    <i class="fas fa-newspaper"
+                      style="font-size:2.25rem; color:var(--accent); margin-bottom:0.5rem; display:block; opacity:0.9;"></i>
+                    <p style="font-size:0.75rem; color:var(--text-dim); line-height: 1.3;">
+                      Consulta los últimos logs de actualización del protocolo.
+                    </p>
                   </div>
                 </div>
-                <div class="asset-card-modern" id="amber-card" onclick="loadAmberBalance()" style="cursor:pointer;">
-                  <div class="asset-icon-container">
-                    <canvas class="currency-canvas" data-currency="amber" width="44" height="44"></canvas>
-                  </div>
-                  <span class="asset-name-modern">Ambar</span>
-                  <span class="asset-balance-modern" id="amber" style="color: #fbbf24;">0</span>
-                  <div class="asset-footer-modern">
-                    <span>DinoBox</span>
-                    <span style="color:#fbbf24">Prehistoric Assets</span>
-                  </div>
-                </div>
-
-                <!-- VoltBits -->
-                <div class="asset-card-modern" id="voltbits-card">
-                  <div class="asset-icon-container">
-                    <canvas class="currency-canvas" data-currency="voltbit" width="44" height="44"></canvas>
-                  </div>
-                  <span class="asset-name-modern">VoltBits</span>
-                  <span class="asset-balance-modern" id="voltbit" style="color: #00e5ff;">0</span>
-                  <div class="asset-footer-modern">
-                    <span>Velocity Surge</span>
-                    <span style="color:#00e5ff">Volt Network</span>
-                  </div>
-                </div>
-
-                <div class="asset-card-modern" id="appbux-card">
-                  <div class="asset-icon-container">
-                    <canvas class="currency-canvas" data-currency="appbux" width="44" height="44"></canvas>
-                  </div>
-                  <span class="asset-name-modern">AppBux</span>
-                  <span class="asset-balance-modern" id="appbux">0</span>
-                  <div class="asset-footer-modern">
-                    <span>AllApp</span>
-                    <span style="color:var(--orange)">Gaming</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Cards Section - DESPUÉS de activos -->
-            <div class="cards-group">
-              <div class="section-header-modern">
-                <h3>Tarjetas Ocean Card</h3>
-                <span class="view-all" onclick="showNewCardModal()">+ Nueva Tarjeta</span>
-              </div>
-              <div id="cards-container" class="modern-cards-grid">
-                <!-- Rendered by JS -->
+                <button class="primary"
+                  style="width:100%; border-radius:14px; font-size:0.9rem; font-weight:700; margin-bottom:10px; border:none; padding: 1rem; cursor:pointer; background: linear-gradient(135deg, #0891b2, #22d3ee); color:#0f172a; transition: all 0.3s;"
+                  onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 10px 30px rgba(34,211,238,0.3)'"
+                  onmouseout="this.style.transform=''; this.style.boxShadow=''"
+                  onclick="window.open('https://owsnews.netlify.app', '_blank')">Ver Update Logs</button>
+                <button class="secondary"
+                  style="width:100%; border-radius:14px; font-size:0.9rem; font-weight:600; background: rgba(255,255,255,0.04); color:white; border: 1px solid rgba(255,255,255,0.1); padding: 1rem; cursor:pointer; transition: all 0.25s;"
+                  onmouseover="this.style.background='rgba(255,255,255,0.08)'; this.style.borderColor='rgba(34,211,238,0.3)'"
+                  onmouseout="this.style.background='rgba(255,255,255,0.04)'; this.style.borderColor='rgba(255,255,255,0.1)'"
+                  onclick="showSection('pass')">Gestionar Ocean Pass</button>
               </div>
             </div>
           </div>
 
-          <!-- SIDE AREA -->
-          <div class="wallet-side-stack">
-            <!-- Stats Box -->
-            <div class="glass-box">
-              <h4 style="margin-bottom:1.5rem; font-weight:800; font-size:1.1rem; color:#f8fafc;">Resumen de Cuenta</h4>
-              <div class="stat-row">
-                <span class="stat-label">Tipo de Cuenta</span>
-                <span class="stat-value" style="color:var(--accent)" id="account-type-display">GLOBAL VIP</span>
-              </div>
-              <div class="stat-row">
-                <span class="stat-label">Límite Diario</span>
-                <span class="stat-value" id="daily-limit-display">ilimitado</span>
-              </div>
-              <div class="stat-row">
-                <span class="stat-label">Verificación</span>
-                <span class="stat-value" style="color:var(--ok)" id="verification-level-display">
-                  <i class="fas fa-check-circle"></i> Nivel 3
-                </span>
-              </div>
-              <div class="stat-row"
-                style="margin-top:2rem; padding-top:1rem; border-top:1px solid rgba(255,255,255,0.05);">
-                <span class="stat-label">EcoPower ⚡</span>
-                <span class="stat-value" style="color:#00ff64" id="ecopower-display">100</span>
+          <!-- Subscriptions Section -->
+          <div style="margin-top: 4rem; padding-top: 2.5rem; border-top: 1px solid rgba(255,255,255,0.06);">
+            <h3
+              style="margin-bottom: 1.75rem; color: #94a3b8; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.2em; font-weight: 800; font-family: 'Plus Jakarta Sans', sans-serif;">
+              Suscripciones Activas
+            </h3>
+
+            <div id="subs-container"
+              style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem;">
+              <!-- Cargando... -->
+              <div
+                style="background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.08); padding: 2.5rem; border-radius: 20px; text-align: center; color: #64748b; grid-column: 1/-1; font-size: 0.9rem;">
+                No hay suscripciones activas vinculadas
               </div>
             </div>
-
-            <!-- Quick Access -->
-            <div class="glass-box">
-              <h4 style="margin-bottom:1.5rem; font-weight:800; font-size:1.1rem; color:#f8fafc;">Novedades Ecosistema</h4>
-              <div class="card-mini-preview"
-                style="background: linear-gradient(145deg, rgba(30, 58, 138, 0.3) 0%, rgba(15, 23, 42, 0.9) 100%); border: 1px solid rgba(34, 211, 238, 0.15); display: flex; align-items: center; justify-content: center;">
-                <div style="text-align:center; padding: 1rem;">
-                  <i class="fas fa-newspaper"
-                    style="font-size:2.25rem; color:var(--accent); margin-bottom:0.5rem; display:block; opacity:0.9;"></i>
-                  <p style="font-size:0.75rem; color:var(--text-dim); line-height: 1.3;">
-                    Consulta los últimos logs de actualización del protocolo.
-                  </p>
-                </div>
-              </div>
-              <button class="primary"
-                style="width:100%; border-radius:14px; font-size:0.9rem; font-weight:700; margin-bottom:10px; border:none; padding: 1rem; cursor:pointer; background: linear-gradient(135deg, #0891b2, #22d3ee); color:#0f172a; transition: all 0.3s;"
-                onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 10px 30px rgba(34,211,238,0.3)'"
-                onmouseout="this.style.transform=''; this.style.boxShadow=''"
-                onclick="window.open('https://owsnews.netlify.app', '_blank')">Ver Update Logs</button>
-              <button class="secondary"
-                style="width:100%; border-radius:14px; font-size:0.9rem; font-weight:600; background: rgba(255,255,255,0.04); color:white; border: 1px solid rgba(255,255,255,0.1); padding: 1rem; cursor:pointer; transition: all 0.25s;"
-                onmouseover="this.style.background='rgba(255,255,255,0.08)'; this.style.borderColor='rgba(34,211,238,0.3)'"
-                onmouseout="this.style.background='rgba(255,255,255,0.04)'; this.style.borderColor='rgba(255,255,255,0.1)'"
-                onclick="showSection('pass')">Gestionar Ocean Pass</button>
-            </div>
           </div>
-        </div>
-
-        <!-- Subscriptions Section -->
-        <div style="margin-top: 4rem; padding-top: 2.5rem; border-top: 1px solid rgba(255,255,255,0.06);">
-          <h3 style="margin-bottom: 1.75rem; color: #94a3b8; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.2em; font-weight: 800; font-family: 'Plus Jakarta Sans', sans-serif;">
-            Suscripciones Activas
-          </h3>
-
-          <div id="subs-container"
-            style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem;">
-          <!-- Cargando... -->
-          <div
-            style="background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.08); padding: 2.5rem; border-radius: 20px; text-align: center; color: #64748b; grid-column: 1/-1; font-size: 0.9rem;">
-            No hay suscripciones activas vinculadas
-          </div>
-        </div>
-        </div>
       </section>
 
       <!-- History Section -->
@@ -3092,6 +3174,7 @@
                         <option value="amber">Amber</option>
                         <option value="nxb">Nexus Bits (NXB)</option>
                         <option value="voltbit">VoltBits</option>
+                        <option value="mayhemcoins">MayhemCoins</option>
                       </select>
                     </div>
                   </div>
@@ -3143,6 +3226,7 @@
                         <option value="amber">Amber</option>
                         <option value="nxb">Nexus Bits (NXB)</option>
                         <option value="voltbit">VoltBits</option>
+                        <option value="mayhemcoins">MayhemCoins</option>
                       </select>
                     </div>
                   </div>
@@ -3718,6 +3802,33 @@
       ctx.closePath(); ctx.fill(); ctx.restore();
     }
 
+    function drawMayhemCoinsIcon(ctx, x, y, size) {
+      ctx.save(); ctx.translate(x, y);
+      ctx.shadowBlur = size * 0.5; ctx.shadowColor = "rgba(224, 64, 251, 0.6)";
+      // Outer coin body
+      const grad = ctx.createRadialGradient(-size * 0.1, -size * 0.1, 0, 0, 0, size * 0.5);
+      grad.addColorStop(0, '#f3e5f5'); grad.addColorStop(0.4, '#e040fb'); grad.addColorStop(1, '#7b1fa2');
+      ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(0, 0, size * 0.45, 0, Math.PI * 2); ctx.fill();
+      // Inner ring
+      ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = size * 0.04;
+      ctx.beginPath(); ctx.arc(0, 0, size * 0.35, 0, Math.PI * 2); ctx.stroke();
+      // Swirl pattern
+      ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = size * 0.06; ctx.lineCap = 'round';
+      ctx.beginPath();
+      for (let i = 0; i < Math.PI * 1.5; i += 0.1) {
+        const r = size * (0.1 + i * 0.08);
+        ctx.lineTo(Math.cos(i * 2) * r, Math.sin(i * 2) * r);
+      }
+      ctx.stroke();
+      // Center letter M
+      ctx.shadowBlur = 0; ctx.fillStyle = '#fff'; ctx.font = `bold ${size * 0.35}px sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('M', 0, 0);
+      // Shine
+      ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.beginPath();
+      ctx.ellipse(-size * 0.12, -size * 0.15, size * 0.08, size * 0.12, -0.5, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+
     function drawEcoBooksIcon(ctx, x, y, size) {
       ctx.save();
       ctx.translate(x, y); ctx.shadowBlur = size * 0.4; ctx.shadowColor = "rgba(6, 182, 212, 0.5)";
@@ -3772,6 +3883,7 @@
           case 'amber': drawAmberIcon(ctx, x, y, size * 0.8); break;
           case 'nxb': drawNXBIcon(ctx, x, y, size * 0.8); break;
           case 'voltbit': drawVoltBitIcon(ctx, x, y, size * 0.8); break;
+          case 'mayhemcoins': drawMayhemCoinsIcon(ctx, x, y, size * 0.8); break;
           default:
             ctx.fillStyle = "#fff"; ctx.font = "64px serif"; ctx.textAlign = "center";
             ctx.textBaseline = "middle"; ctx.fillText("💰", x, y);
@@ -3828,6 +3940,8 @@
       qs('#nxb-balance').textContent = Math.round(balances.nxb || 0).toLocaleString();
       const voltEl = qs('#voltbit');
       if (voltEl) voltEl.textContent = Math.round(balances.voltbit || 0).toLocaleString();
+      const mcEl = qs('#mayhemcoins');
+      if (mcEl) mcEl.textContent = Math.round(balances.mayhemcoins || 0).toLocaleString();
       qs('#ecopower-display').textContent = Math.round(balances.ecopower || 100);
 
       // Actualizar Resumen Lateral con info real del usuario
@@ -3855,17 +3969,17 @@
       const parity = {
         bux: 0.1, wildcredits: 0.5, wildgems: 10.0, ecoxionums: 1.0,
         nxb: 0.25, amber: 0.15, voltbit: 0.1, appbux: 0.05,
-        ecobooks: 0.5, ecobits: 2.0, ecotokens: 0.3
+        ecobooks: 0.5, ecobits: 2.0, ecotokens: 0.3, mayhemcoins: 0.08
       };
 
       const currencyLabels = {
         bux: 'AquaBux', wildcredits: 'WildCredits', wildgems: 'WildGems',
         ecoxionums: 'Ecoxionums', 'nxb-balance': 'Nexus Bits', amber: 'Amber',
         voltbit: 'VoltBits', appbux: 'AppBux', ecobooks: 'EcoBooks',
-        ecobits: 'EcoCoreBits', ecotokens: 'EcoTokens'
+        ecobits: 'EcoCoreBits', ecotokens: 'EcoTokens', mayhemcoins: 'MayhemCoins'
       };
 
-      const ids = ['bux','wildcredits','wildgems','ecoxionums','nxb-balance','amber','voltbit','appbux','ecobooks','ecobits','ecotokens'];
+      const ids = ['bux', 'wildcredits', 'wildgems', 'ecoxionums', 'nxb-balance', 'amber', 'voltbit', 'appbux', 'ecobooks', 'ecobits', 'ecotokens', 'mayhemcoins'];
 
       let totalEX = 0;
       const breakdown = [];
@@ -5478,7 +5592,8 @@
         { id: 'appbux', name: 'AppBux', desc: 'Créditos universales para microtransacciones en aplicaciones de terceros.', project: 'Ecosistema' },
         { id: 'ecobooks', name: 'EcoBooks', desc: 'Activo de conocimiento para desbloquear recursos en Naturepedia.', project: 'Naturepedia' },
         { id: 'ecobits', name: 'EcoCoreBits', desc: 'Unidades de procesamiento de datos para la infraestructura Core.', project: 'Tidal Core' },
-        { id: 'ecotokens', name: 'EcoTokens', desc: 'Tokens de gobernanza para participar en decisiones de Wild Savage.', project: 'Wild Savage' }
+        { id: 'ecotokens', name: 'EcoTokens', desc: 'Tokens de gobernanza para participar en decisiones de Wild Savage.', project: 'Wild Savage' },
+        { id: 'mayhemcoins', name: 'MayhemCoins', desc: 'Moneda caótica obtenida en WildWeapon Mayhem a través de combates y misiones.', project: 'WildWeapon Mayhem' }
       ];
 
       container.innerHTML = currencies.map(c => {

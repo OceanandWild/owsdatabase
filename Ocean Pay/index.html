@@ -1457,16 +1457,23 @@
     }
 
     .hero-subtitle {
-      font-size: 0.95rem;
+      font-size: 0.9rem;
       color: var(--ok);
       font-weight: 600;
       display: flex;
       align-items: center;
       gap: 10px;
+      flex-wrap: wrap;
+      max-width: 90%;
     }
 
     .hero-subtitle i {
       opacity: 0.9;
+    }
+
+    #hero-balances-text {
+      font-weight: 500;
+      color: rgba(148, 163, 184, 0.95);
     }
 
     .hero-actions {
@@ -1516,9 +1523,14 @@
     /* Grid principal: layout bento-style */
     .wallet-grid {
       display: grid;
-      grid-template-columns: 1fr 380px;
+      grid-template-columns: 1fr 340px;
       gap: 2.5rem;
       align-items: start;
+    }
+
+    .wallet-main-content {
+      width: 100%;
+      min-width: 0;
     }
 
     .section-header-modern {
@@ -1565,6 +1577,7 @@
 
     .asset-ecosystem-block {
       margin-bottom: 2.5rem;
+      width: 100%;
     }
 
     .asset-ecosystem-block:last-of-type {
@@ -1589,23 +1602,33 @@
       border-top: 1px solid rgba(255, 255, 255, 0.08);
     }
 
-    /* Assets: grid por filas de ecosistema */
+    /* Assets: grids que usan todo el ancho disponible */
     .assets-grid-modern {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-      gap: 1.25rem;
+      width: 100%;
+      gap: 1.5rem;
     }
 
-    .assets-row-ocean { grid-template-columns: repeat(1, minmax(200px, 320px)); }
-    .assets-row-wild { grid-template-columns: repeat(2, 1fr); }
-    .assets-row-core { grid-template-columns: repeat(4, 1fr); }
-    .assets-row-gaming { grid-template-columns: repeat(4, 1fr); }
+    .assets-row-ocean {
+      grid-template-columns: repeat(1, 1fr);
+    }
+
+    .assets-row-wild {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .assets-row-core,
+    .assets-row-gaming {
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1.5rem;
+    }
 
     .asset-card-modern {
       background: linear-gradient(160deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.4) 100%);
       border: 1px solid rgba(255, 255, 255, 0.06);
       border-radius: 20px;
-      padding: 2rem;
+      padding: 1.75rem;
+      min-width: 0;
       transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
       position: relative;
       overflow: hidden;
@@ -1638,6 +1661,36 @@
 
     .asset-card-modern:hover::before {
       opacity: 1;
+    }
+
+    .asset-card-wildcredits {
+      border-color: rgba(102, 126, 234, 0.2);
+    }
+
+    .asset-card-wildcredits:hover {
+      border-color: rgba(102, 126, 234, 0.5);
+    }
+
+    .asset-earn-link {
+      color: var(--wild);
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-decoration: none;
+      padding: 2px 8px;
+      border-radius: 6px;
+      background: rgba(102, 126, 234, 0.15);
+      transition: all 0.25s;
+    }
+
+    .asset-earn-link:hover {
+      background: rgba(102, 126, 234, 0.3);
+    }
+
+    .asset-card-hint {
+      font-size: 0.65rem;
+      color: var(--text-dim);
+      margin-top: 0.75rem;
+      opacity: 0.8;
     }
 
     .asset-card-modern:nth-child(1) { animation-delay: 0.05s; }
@@ -1677,12 +1730,13 @@
 
     .asset-balance-modern {
       font-family: 'Plus Jakarta Sans', sans-serif;
-      font-size: 2rem;
+      font-size: 1.75rem;
       font-weight: 800;
       color: white;
       margin-bottom: 1rem;
       display: block;
       letter-spacing: -0.5px;
+      overflow-wrap: break-word;
     }
 
     .asset-footer-modern {
@@ -1691,9 +1745,12 @@
       color: var(--text-dim);
       display: flex;
       justify-content: space-between;
+      align-items: center;
+      gap: 0.5rem;
       padding-top: 1.25rem;
       border-top: 1px solid rgba(255, 255, 255, 0.04);
     }
+
 
     /* Sidebar derecho: cards con más personalidad */
     .wallet-side-stack {
@@ -1933,13 +1990,10 @@
       .hero-amount {
         font-size: 3rem;
       }
-      .assets-grid-modern,
-      .assets-row-ocean,
-      .assets-row-wild,
+      .assets-row-ocean { grid-template-columns: 1fr; }
+      .assets-row-wild { grid-template-columns: 1fr; }
       .assets-row-core,
-      .assets-row-gaming {
-        grid-template-columns: 1fr;
-      }
+      .assets-row-gaming { grid-template-columns: 1fr; }
       .modern-cards-grid {
         grid-template-columns: 1fr;
       }
@@ -2114,14 +2168,14 @@
 
       <!-- Wallet Section -->
       <section id="wallet-section" class="wallet-viewport">
-        <!-- Hero: Portfolio Overview - Rediseño premium -->
+        <!-- Hero: Resumen real de tu billetera -->
         <div class="wallet-hero">
           <div class="hero-content">
-            <span class="hero-label">Valuación Global – Ecosystem EX</span>
+            <span class="hero-label">Tu balance total (estimado)</span>
             <h1 class="hero-amount"><span id="total-estimated-value">0.00</span> <small style="font-size: 1.5rem; opacity: 0.7; vertical-align: middle;">EX</small></h1>
-            <div class="hero-subtitle">
-              <i class="fas fa-chart-line"></i>
-              <span>Índice de Activos Digitales Ocean</span>
+            <div class="hero-subtitle" id="hero-currencies-breakdown">
+              <i class="fas fa-wallet"></i>
+              <span id="hero-balances-text">Sincroniza para ver tus saldos reales</span>
             </div>
           </div>
           <div class="hero-actions">
@@ -2166,7 +2220,7 @@
             <div class="asset-ecosystem-block">
               <h4 class="ecosystem-label">🌿 Wild</h4>
               <div class="assets-grid-modern assets-row-wild">
-                <div class="asset-card-modern" id="wildcredits-card">
+                <div class="asset-card-modern asset-card-wildcredits" id="wildcredits-card" onclick="window.open('https://wildexplorer.netlify.app', '_blank')" style="cursor:pointer;">
                   <div class="asset-icon-container">
                     <canvas class="currency-canvas" data-currency="wildcredits" width="44" height="44"></canvas>
                   </div>
@@ -2174,8 +2228,9 @@
                   <span class="asset-balance-modern" id="wildcredits">0</span>
                   <div class="asset-footer-modern">
                     <span>Wild Explorer</span>
-                    <span style="color:var(--wild)">Wild</span>
+                    <a href="https://wildexplorer.netlify.app" target="_blank" rel="noopener" class="asset-earn-link" onclick="event.stopPropagation()">Ganar WC</a>
                   </div>
+                  <div class="asset-card-hint">Explorar para ganar · Recompensas cada 5 min</div>
                 </div>
                 <div class="asset-card-modern" id="wildgems-card">
                   <div class="asset-icon-container">
@@ -2195,7 +2250,6 @@
             <div class="asset-ecosystem-block">
               <h4 class="ecosystem-label">⚡ Core & Knowledge</h4>
               <div class="assets-grid-modern assets-row-core">
-                <div class="asset-card-modern" id="ecoxionums-card">
                 <div class="asset-card-modern" id="ecoxionums-card">
                   <div class="asset-icon-container">
                     <canvas class="currency-canvas" data-currency="ecoxionums" width="44" height="44"></canvas>
@@ -2358,6 +2412,12 @@
                 onmouseover="this.style.background='rgba(255,255,255,0.08)'; this.style.borderColor='rgba(34,211,238,0.3)'"
                 onmouseout="this.style.background='rgba(255,255,255,0.04)'; this.style.borderColor='rgba(255,255,255,0.1)'"
                 onclick="showSection('pass')">Gestionar Ocean Pass</button>
+              <a href="https://wildexplorer.netlify.app" target="_blank" rel="noopener"
+                style="display:flex; align-items:center; justify-content:center; gap:8px; width:100%; margin-top:8px; padding:0.8rem; border-radius:14px; font-size:0.85rem; font-weight:600; background: rgba(102,126,234,0.1); color:#a5b4fc; border: 1px solid rgba(102,126,234,0.3); text-decoration:none; transition: all 0.25s;"
+                onmouseover="this.style.background='rgba(102,126,234,0.2)'; this.style.borderColor='rgba(102,126,234,0.5)'"
+                onmouseout="this.style.background='rgba(102,126,234,0.1)'; this.style.borderColor='rgba(102,126,234,0.3)'">
+                <i class="fas fa-compass"></i> Ganar WildCredits en Wild Explorer
+              </a>
             </div>
           </div>
         </div>
@@ -3803,6 +3863,8 @@
       qs('#ecobooks').textContent = Math.round(balances.ecobooks || 0).toLocaleString();
       qs('#ecotokens').textContent = Math.round(balances.ecotokens || 0).toLocaleString();
       qs('#nxb-balance').textContent = Math.round(balances.nxb || 0).toLocaleString();
+      const voltEl = qs('#voltbit');
+      if (voltEl) voltEl.textContent = Math.round(balances.voltbit || 0).toLocaleString();
       qs('#ecopower-display').textContent = Math.round(balances.ecopower || 100);
 
       // Actualizar Resumen Lateral con info real del usuario
@@ -3826,40 +3888,45 @@
         return parseFloat(el.textContent.replace(/,/g, '')) || 0;
       };
 
-      // Tasas de conversión Oficiales (Ecosystem Parity EX)
+      // Tasas de conversión oficiales (paridad Ecosystem EX)
       const parity = {
-        bux: 0.1,          // 10 Bux = 1 EX
-        wildcredits: 0.5,  // 2 WC = 1 EX
-        wildgems: 10.0,    // 1 Gem = 10 EX
-        ecoxionums: 1.0,   // Base
-        nxb: 0.25,
-        amber: 0.15,
-        voltbit: 0.1,
-        appbux: 0.05,
-        ecobooks: 0.5,
-        ecobits: 2.0,
-        ecotokens: 0.3
+        bux: 0.1, wildcredits: 0.5, wildgems: 10.0, ecoxionums: 1.0,
+        nxb: 0.25, amber: 0.15, voltbit: 0.1, appbux: 0.05,
+        ecobooks: 0.5, ecobits: 2.0, ecotokens: 0.3
       };
 
+      const currencyLabels = {
+        bux: 'AquaBux', wildcredits: 'WildCredits', wildgems: 'WildGems',
+        ecoxionums: 'Ecoxionums', 'nxb-balance': 'Nexus Bits', amber: 'Amber',
+        voltbit: 'VoltBits', appbux: 'AppBux', ecobooks: 'EcoBooks',
+        ecobits: 'EcoCoreBits', ecotokens: 'EcoTokens'
+      };
+
+      const ids = ['bux','wildcredits','wildgems','ecoxionums','nxb-balance','amber','voltbit','appbux','ecobooks','ecobits','ecotokens'];
+
       let totalEX = 0;
-      totalEX += getVal('bux') * parity.bux;
-      totalEX += getVal('wildcredits') * parity.wildcredits;
-      totalEX += getVal('wildgems') * parity.wildgems;
-      totalEX += getVal('ecoxionums') * parity.ecoxionums;
-      totalEX += getVal('nxb-balance') * parity.nxb;
-      totalEX += getVal('amber') * parity.amber;
-      totalEX += getVal('voltbit') * parity.voltbit;
-      totalEX += getVal('appbux') * parity.appbux;
-      totalEX += getVal('ecobooks') * parity.ecobooks;
-      totalEX += getVal('ecobits') * parity.ecobits;
-      totalEX += getVal('ecotokens') * parity.ecotokens;
+      const breakdown = [];
+      ids.forEach(id => {
+        const val = getVal(id);
+        const key = id === 'nxb-balance' ? 'nxb' : id;
+        totalEX += val * (parity[key] || 0);
+        if (val > 0) {
+          const label = currencyLabels[id] || id;
+          const fmt = val >= 1000 ? val.toLocaleString('es-ES', { maximumFractionDigits: 0 }) : val.toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+          breakdown.push(`${label} ${fmt}`);
+        }
+      });
 
       const totalEl = document.getElementById('total-estimated-value');
       if (totalEl) {
-        totalEl.textContent = totalEX.toLocaleString('en-US', {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2
-        });
+        totalEl.textContent = totalEX.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      }
+
+      const breakdownEl = document.getElementById('hero-balances-text');
+      if (breakdownEl) {
+        breakdownEl.textContent = breakdown.length > 0
+          ? breakdown.join(' · ')
+          : 'Sin saldo en divisas. Sincroniza o carga desde el POS.';
       }
     }
 

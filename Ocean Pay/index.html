@@ -7,6 +7,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
     :root {
       --bg: #030712;
@@ -1366,47 +1367,63 @@
       }
     }
 
-    /* --- PROFESSIONAL WALLET REDESIGN --- */
+    /* --- BILLETERA: REDISEÑO VISUAL PREMIUM --- */
     .wallet-viewport {
-      animation: sectionEnter 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      animation: sectionEnter 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     }
 
     @keyframes sectionEnter {
-      from {
-        opacity: 0;
-        transform: translateY(20px);
-      }
-
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
+      from { opacity: 0; transform: translateY(24px); }
+      to { opacity: 1; transform: translateY(0); }
     }
 
+    /* Hero: Diseño tipo "dashboard premium" con glassmorphism intenso */
     .wallet-hero {
-      background: linear-gradient(135deg, rgba(14, 165, 233, 0.15) 0%, rgba(15, 23, 42, 0.4) 100%);
-      border: 1px solid var(--card-border);
-      border-radius: 2.5rem;
-      padding: 3.5rem;
-      margin-bottom: 3.5rem;
+      background: linear-gradient(145deg, rgba(6, 78, 99, 0.25) 0%, rgba(15, 23, 42, 0.6) 40%, rgba(30, 58, 138, 0.15) 100%);
+      border: 1px solid rgba(34, 211, 238, 0.2);
+      border-radius: 28px;
+      padding: 4rem 4.5rem;
+      margin-bottom: 4rem;
       position: relative;
       overflow: hidden;
-      display: flex;
-      justify-content: space-between;
+      display: grid;
+      grid-template-columns: 1fr auto;
       align-items: center;
-      box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.5);
+      gap: 3rem;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.03) inset, 0 50px 120px -30px rgba(0, 0, 0, 0.6), 0 0 80px -20px rgba(34, 211, 238, 0.15);
+      backdrop-filter: blur(24px);
     }
 
     .wallet-hero::before {
       content: '';
       position: absolute;
-      top: -50%;
-      right: -10%;
-      width: 500px;
-      height: 500px;
-      background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+      top: -80%;
+      right: -15%;
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(34, 211, 238, 0.25) 0%, transparent 60%);
       pointer-events: none;
       z-index: 0;
+    }
+
+    .wallet-hero::after {
+      content: '';
+      position: absolute;
+      bottom: -40%;
+      left: -10%;
+      width: 400px;
+      height: 400px;
+      background: radial-gradient(circle, rgba(139, 92, 246, 0.12) 0%, transparent 60%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Patrón grid sutil sobre el hero */
+    .wallet-hero {
+      background-image: linear-gradient(145deg, rgba(6, 78, 99, 0.2) 0%, rgba(15, 23, 42, 0.7) 40%, rgba(30, 58, 138, 0.1) 100%),
+        linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+      background-size: 100% 100%, 48px 48px, 48px 48px;
     }
 
     .hero-content {
@@ -1415,161 +1432,226 @@
     }
 
     .hero-label {
-      color: var(--text-dim);
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      color: rgba(148, 163, 184, 0.9);
       text-transform: uppercase;
-      letter-spacing: 0.15rem;
+      letter-spacing: 0.2em;
       font-weight: 800;
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       display: block;
-      margin-bottom: 0.75rem;
-    }
-
-    .hero-amount {
-      font-size: 4rem;
-      font-weight: 900;
-      letter-spacing: -2px;
-      background: linear-gradient(to right, #ffffff, var(--accent));
-      -webkit-background-clip: text;
-      background-clip: text;
-      -webkit-text-fill-color: transparent;
       margin-bottom: 0.5rem;
     }
 
+    .hero-amount {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 4.5rem;
+      font-weight: 800;
+      letter-spacing: -3px;
+      line-height: 1.1;
+      background: linear-gradient(135deg, #ffffff 0%, #67e8f9 50%, #22d3ee 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 0.75rem;
+      filter: drop-shadow(0 0 30px rgba(34, 211, 238, 0.2));
+    }
+
     .hero-subtitle {
-      font-size: 0.9rem;
+      font-size: 0.95rem;
       color: var(--ok);
       font-weight: 600;
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
+    }
+
+    .hero-subtitle i {
+      opacity: 0.9;
     }
 
     .hero-actions {
       display: flex;
-      gap: 1.25rem;
+      gap: 1rem;
       position: relative;
       z-index: 1;
+      flex-wrap: wrap;
     }
 
     .action-pill {
-      background: rgba(255, 255, 255, 0.05);
-      backdrop-filter: blur(10px);
-      border: 1px solid var(--card-border);
-      padding: 0.85rem 1.75rem;
-      border-radius: 1rem;
+      background: rgba(255, 255, 255, 0.04);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 1rem 2rem;
+      border-radius: 16px;
       color: white;
       font-weight: 700;
+      font-size: 0.9rem;
       display: flex;
       align-items: center;
       gap: 0.75rem;
       cursor: pointer;
-      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-      font-size: 0.9rem;
+      transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
     .action-pill:hover {
-      background: white;
-      color: #000;
-      transform: translateY(-3px);
-      box-shadow: 0 20px 40px rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(34, 211, 238, 0.4);
+      transform: translateY(-4px);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
     }
 
     .action-pill.primary {
-      background: var(--accent);
-      color: #000;
+      background: linear-gradient(135deg, #0891b2 0%, #22d3ee 100%);
+      color: #0f172a;
       border: none;
+      box-shadow: 0 10px 30px -5px rgba(34, 211, 238, 0.4);
     }
 
     .action-pill.primary:hover {
-      background: white;
-      box-shadow: 0 20px 40px rgba(14, 165, 233, 0.3);
+      background: linear-gradient(135deg, #22d3ee 0%, #67e8f9 100%);
+      transform: translateY(-4px);
+      box-shadow: 0 20px 50px -5px rgba(34, 211, 238, 0.5);
     }
 
+    /* Grid principal: layout bento-style */
     .wallet-grid {
       display: grid;
-      grid-template-columns: 1.8fr 1fr;
-      gap: 3rem;
+      grid-template-columns: 1fr 380px;
+      gap: 2.5rem;
+      align-items: start;
     }
 
     .section-header-modern {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 2rem;
+      margin-bottom: 1.75rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     }
 
     .section-header-modern h3 {
-      font-size: 1.25rem;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 1.35rem;
       font-weight: 800;
       letter-spacing: -0.5px;
+      color: #f8fafc;
     }
 
     .section-header-modern .view-all {
       color: var(--accent);
       font-size: 0.85rem;
       font-weight: 700;
-      text-decoration: none;
       cursor: pointer;
+      padding: 0.5rem 1rem;
+      border-radius: 10px;
+      transition: all 0.25s;
+    }
+
+    .section-header-modern .view-all:hover {
+      background: rgba(34, 211, 238, 0.1);
     }
 
     .modern-cards-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
       gap: 1.5rem;
       align-items: start;
     }
 
     .asset-group {
-      margin-top: 3.5rem;
+      margin-top: 3rem;
     }
 
+    /* Assets: grid bento con cards más grandes y distintivas */
     .assets-grid-modern {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      grid-template-columns: repeat(3, 1fr);
       gap: 1.25rem;
     }
 
     .asset-card-modern {
-      background: var(--card-glass);
-      border: 1px solid var(--card-border);
-      border-radius: 1.5rem;
-      padding: 1.75rem;
+      background: linear-gradient(160deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.4) 100%);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 20px;
+      padding: 2rem;
       transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+      overflow: hidden;
+      animation: assetCardEnter 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      opacity: 0;
+    }
+
+    @keyframes assetCardEnter {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .asset-card-modern::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.3), transparent);
+      opacity: 0;
+      transition: opacity 0.3s;
     }
 
     .asset-card-modern:hover {
-      border-color: var(--accent);
-      transform: translateY(-5px);
-      background: rgba(255, 255, 255, 0.02);
+      border-color: rgba(34, 211, 238, 0.35);
+      transform: translateY(-6px) scale(1.02);
+      box-shadow: 0 25px 50px -15px rgba(0, 0, 0, 0.5);
     }
 
+    .asset-card-modern:hover::before {
+      opacity: 1;
+    }
+
+    .asset-card-modern:nth-child(1) { animation-delay: 0.05s; }
+    .asset-card-modern:nth-child(2) { animation-delay: 0.1s; }
+    .asset-card-modern:nth-child(3) { animation-delay: 0.15s; }
+    .asset-card-modern:nth-child(4) { animation-delay: 0.2s; }
+    .asset-card-modern:nth-child(5) { animation-delay: 0.25s; }
+    .asset-card-modern:nth-child(6) { animation-delay: 0.3s; }
+    .asset-card-modern:nth-child(7) { animation-delay: 0.35s; }
+    .asset-card-modern:nth-child(8) { animation-delay: 0.4s; }
+    .asset-card-modern:nth-child(9) { animation-delay: 0.45s; }
+    .asset-card-modern:nth-child(10) { animation-delay: 0.5s; }
+    .asset-card-modern:nth-child(11) { animation-delay: 0.55s; }
+
     .asset-icon-container {
-      width: 44px;
-      height: 44px;
-      background: rgba(255, 255, 255, 0.03);
-      border-radius: 12px;
+      width: 52px;
+      height: 52px;
+      background: rgba(255, 255, 255, 0.04);
+      border-radius: 14px;
       display: flex;
       align-items: center;
       justify-content: center;
       margin-bottom: 1.5rem;
+      border: 1px solid rgba(255, 255, 255, 0.05);
     }
 
     .asset-name-modern {
-      font-size: 0.85rem;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 0.8rem;
       color: var(--text-dim);
       font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 1px;
+      letter-spacing: 1.5px;
       margin-bottom: 0.5rem;
       display: block;
     }
 
     .asset-balance-modern {
-      font-size: 1.75rem;
-      font-weight: 900;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 2rem;
+      font-weight: 800;
       color: white;
-      margin-bottom: 0.75rem;
+      margin-bottom: 1rem;
       display: block;
+      letter-spacing: -0.5px;
     }
 
     .asset-footer-modern {
@@ -1578,22 +1660,30 @@
       color: var(--text-dim);
       display: flex;
       justify-content: space-between;
-      padding-top: 1rem;
-      border-top: 1px solid rgba(255, 255, 255, 0.03);
+      padding-top: 1.25rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.04);
     }
 
-    /* RIGHT SIDEBAR */
+    /* Sidebar derecho: cards con más personalidad */
     .wallet-side-stack {
       display: flex;
       flex-direction: column;
       gap: 1.5rem;
+      position: sticky;
+      top: 2rem;
     }
 
     .glass-box {
-      background: var(--card-glass);
-      border: 1px solid var(--card-border);
-      border-radius: 2rem;
+      background: linear-gradient(165deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.5) 100%);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 24px;
       padding: 2rem;
+      backdrop-filter: blur(20px);
+      box-shadow: 0 20px 50px -20px rgba(0, 0, 0, 0.4);
+    }
+
+    .glass-box h4 {
+      font-family: 'Plus Jakarta Sans', sans-serif;
     }
 
     .stat-row {
@@ -1601,6 +1691,13 @@
       justify-content: space-between;
       align-items: center;
       margin-bottom: 1.25rem;
+      padding: 0.75rem 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .stat-row:last-child {
+      margin-bottom: 0;
+      border-bottom: none;
     }
 
     .stat-label {
@@ -1610,18 +1707,20 @@
     }
 
     .stat-value {
+      font-family: 'Plus Jakarta Sans', sans-serif;
       font-weight: 800;
       color: white;
     }
 
     .card-mini-preview {
-      height: 120px;
-      background: linear-gradient(135deg, #334155, #0f172a);
-      border-radius: 1rem;
+      height: 130px;
+      background: linear-gradient(145deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 16px;
       display: flex;
       align-items: center;
       justify-content: center;
-      margin-bottom: 1rem;
+      margin-bottom: 1.25rem;
       position: relative;
       overflow: hidden;
     }
@@ -1630,7 +1729,7 @@
       content: '';
       position: absolute;
       inset: 0;
-      background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.05));
+      background: linear-gradient(135deg, rgba(34, 211, 238, 0.05) 0%, transparent 50%);
     }
 
     /* ASSETS MODAL */
@@ -1778,8 +1877,34 @@
       }
     }
 
-    @media (max-width: 1100px) {
+    @media (max-width: 1200px) {
       .wallet-grid {
+        grid-template-columns: 1fr;
+      }
+      .wallet-side-stack {
+        position: static;
+      }
+      .assets-grid-modern {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 768px) {
+      .wallet-hero {
+        grid-template-columns: 1fr;
+        padding: 2.5rem 2rem;
+        text-align: center;
+      }
+      .hero-actions {
+        justify-content: center;
+      }
+      .hero-amount {
+        font-size: 3rem;
+      }
+      .assets-grid-modern {
+        grid-template-columns: 1fr;
+      }
+      .modern-cards-grid {
         grid-template-columns: 1fr;
       }
     }
@@ -1953,12 +2078,11 @@
 
       <!-- Wallet Section -->
       <section id="wallet-section" class="wallet-viewport">
-        <!-- Hero: Portfolio Overview -->
+        <!-- Hero: Portfolio Overview - Rediseño premium -->
         <div class="wallet-hero">
           <div class="hero-content">
             <span class="hero-label">Valuación Global – Ecosystem EX</span>
-            <h1 class="hero-amount"><span id="total-estimated-value">0.00</span> <small
-                style="font-size: 1.5rem; opacity: 0.7; vertical-align: middle;">EX</small></h1>
+            <h1 class="hero-amount"><span id="total-estimated-value">0.00</span> <small style="font-size: 1.5rem; opacity: 0.7; vertical-align: middle;">EX</small></h1>
             <div class="hero-subtitle">
               <i class="fas fa-chart-line"></i>
               <span>Índice de Activos Digitales Ocean</span>
@@ -2145,7 +2269,7 @@
           <div class="wallet-side-stack">
             <!-- Stats Box -->
             <div class="glass-box">
-              <h4 style="margin-bottom:1.5rem; font-weight:800; font-size:1rem;">Resumen de Cuenta</h4>
+              <h4 style="margin-bottom:1.5rem; font-weight:800; font-size:1.1rem; color:#f8fafc;">Resumen de Cuenta</h4>
               <div class="stat-row">
                 <span class="stat-label">Tipo de Cuenta</span>
                 <span class="stat-value" style="color:var(--accent)" id="account-type-display">GLOBAL VIP</span>
@@ -2169,40 +2293,45 @@
 
             <!-- Quick Access -->
             <div class="glass-box">
-              <h4 style="margin-bottom:1.5rem; font-weight:800; font-size:1rem;">Novedades Ecosistema</h4>
+              <h4 style="margin-bottom:1.5rem; font-weight:800; font-size:1.1rem; color:#f8fafc;">Novedades Ecosistema</h4>
               <div class="card-mini-preview"
-                style="background: linear-gradient(135deg, #1e293b, #0f172a); border: 1px solid rgba(14, 165, 233, 0.2); height: 120px; border-radius: 1rem; display: flex; align-items: center; justify-content: center; margin-bottom: 1rem;">
-                <div style="text-align:center;">
+                style="background: linear-gradient(145deg, rgba(30, 58, 138, 0.3) 0%, rgba(15, 23, 42, 0.9) 100%); border: 1px solid rgba(34, 211, 238, 0.15); display: flex; align-items: center; justify-content: center;">
+                <div style="text-align:center; padding: 1rem;">
                   <i class="fas fa-newspaper"
-                    style="font-size:2rem; color:var(--accent); margin-bottom:0.5rem; display:block;"></i>
-                  <p style="font-size:0.7rem; color:var(--text-dim); padding:0 1rem; line-height: 1.2;">
+                    style="font-size:2.25rem; color:var(--accent); margin-bottom:0.5rem; display:block; opacity:0.9;"></i>
+                  <p style="font-size:0.75rem; color:var(--text-dim); line-height: 1.3;">
                     Consulta los últimos logs de actualización del protocolo.
                   </p>
                 </div>
               </div>
               <button class="primary"
-                style="width:100%; border-radius:1rem; font-size:0.85rem; margin-bottom:10px; border:none; padding: 0.8rem; cursor:pointer;"
+                style="width:100%; border-radius:14px; font-size:0.9rem; font-weight:700; margin-bottom:10px; border:none; padding: 1rem; cursor:pointer; background: linear-gradient(135deg, #0891b2, #22d3ee); color:#0f172a; transition: all 0.3s;"
+                onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 10px 30px rgba(34,211,238,0.3)'"
+                onmouseout="this.style.transform=''; this.style.boxShadow=''"
                 onclick="window.open('https://owsnews.netlify.app', '_blank')">Ver Update Logs</button>
               <button class="secondary"
-                style="width:100%; border-radius:1rem; font-size:0.85rem; background: rgba(255,255,255,0.05); color:white; border: 1px solid var(--card-border); padding: 0.8rem; cursor:pointer;"
+                style="width:100%; border-radius:14px; font-size:0.9rem; font-weight:600; background: rgba(255,255,255,0.04); color:white; border: 1px solid rgba(255,255,255,0.1); padding: 1rem; cursor:pointer; transition: all 0.25s;"
+                onmouseover="this.style.background='rgba(255,255,255,0.08)'; this.style.borderColor='rgba(34,211,238,0.3)'"
+                onmouseout="this.style.background='rgba(255,255,255,0.04)'; this.style.borderColor='rgba(255,255,255,0.1)'"
                 onclick="showSection('pass')">Gestionar Ocean Pass</button>
             </div>
           </div>
         </div>
 
         <!-- Subscriptions Section -->
-        <h3
-          style="margin-bottom: 1.5rem; margin-top: 2.5rem; color: #94a3b8; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 2px;">
-          Suscripciones Activas
-        </h3>
+        <div style="margin-top: 4rem; padding-top: 2.5rem; border-top: 1px solid rgba(255,255,255,0.06);">
+          <h3 style="margin-bottom: 1.75rem; color: #94a3b8; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.2em; font-weight: 800; font-family: 'Plus Jakarta Sans', sans-serif;">
+            Suscripciones Activas
+          </h3>
 
-        <div id="subs-container"
-          style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem;">
+          <div id="subs-container"
+            style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem;">
           <!-- Cargando... -->
           <div
-            style="background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.1); padding: 2rem; border-radius: 1rem; text-align: center; color: #64748b; grid-column: 1/-1;">
+            style="background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.08); padding: 2.5rem; border-radius: 20px; text-align: center; color: #64748b; grid-column: 1/-1; font-size: 0.9rem;">
             No hay suscripciones activas vinculadas
           </div>
+        </div>
         </div>
       </section>
 

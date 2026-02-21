@@ -1353,10 +1353,17 @@ app.post('/ocean-pay/wildcredits/sync', async (req, res) => {
     // Intentar actualizar o insertar
     await pool.query(`
       INSERT INTO ocean_pay_metadata(user_id, key, value)
-    VALUES($1, 'wildcredits', $2)
+      VALUES($1, 'wildcredits', $2)
       ON CONFLICT(user_id, key) 
       DO UPDATE SET value = $2
       `, [userId, wildCreditsValue.toString()]);
+
+    // ADICIONAL: Actualizar el balance en la tarjeta principal para que Ocean Pay lo vea de inmediato
+    await pool.query(`
+      UPDATE ocean_pay_cards 
+      SET balances = jsonb_set(COALESCE(balances, '{}'::jsonb), '{wildcredits}', to_jsonb($2::numeric))
+      WHERE user_id = $1 AND is_primary = true
+    `, [userId, wildCreditsValue]);
 
     res.json({ success: true, wildcredits: wildCreditsValue });
   } catch (e) {
@@ -11541,6 +11548,14 @@ app.get('/ocean-pay/me', async (req, res) => {
     // Calcular total de WildCredits desde tarjetas
     const cardWildCredits = cardsWithBalances.reduce((sum, c) => sum + (parseFloat(c.balances?.wildcredits) || 0), 0);
     const finalWildCredits = Math.max(metadataWC, cardWildCredits);
+
+    // INYECTAR en la tarjeta primaria para que la UI (que lee cards[0].balances) lo vea
+    if (cardsWithBalances.length > 0) {
+      const pIdx = cardsWithBalances.findIndex(c => c.is_primary);
+      const targetIdx = pIdx !== -1 ? pIdx : 0;
+      if (!cardsWithBalances[targetIdx].balances) cardsWithBalances[targetIdx].balances = {};
+      cardsWithBalances[targetIdx].balances.wildcredits = finalWildCredits;
+    }
 
     res.json({
       ...rows[0],

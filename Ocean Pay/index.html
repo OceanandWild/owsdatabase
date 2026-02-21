@@ -848,7 +848,8 @@
     }
 
     .ocean-card {
-      width: 380px;
+      width: 100%;
+      max-width: 380px;
       height: 220px;
       border-radius: 20px;
       background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
@@ -966,7 +967,8 @@
     }
 
     .new-card-btn {
-      width: 380px;
+      width: 100%;
+      max-width: 380px;
       height: 220px;
       border-radius: 20px;
       border: 2px dashed rgba(255, 255, 255, 0.1);
@@ -1512,8 +1514,9 @@
 
     .modern-cards-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
       gap: 1.5rem;
+      align-items: start;
     }
 
     .asset-group {
@@ -1999,33 +2002,44 @@
               <h4 style="margin-bottom:1.5rem; font-weight:800; font-size:1rem;">Resumen de Cuenta</h4>
               <div class="stat-row">
                 <span class="stat-label">Tipo de Cuenta</span>
-                <span class="stat-value" style="color:var(--accent)">GLOBAL VIP</span>
+                <span class="stat-value" style="color:var(--accent)" id="account-type-display">GLOBAL VIP</span>
               </div>
               <div class="stat-row">
                 <span class="stat-label">Límite Diario</span>
-                <span class="stat-value">ilimitado</span>
+                <span class="stat-value" id="daily-limit-display">ilimitado</span>
               </div>
               <div class="stat-row">
                 <span class="stat-label">Verificación</span>
-                <span class="stat-value" style="color:var(--ok)"><i class="fas fa-check-circle"></i> Nivel 3</span>
+                <span class="stat-value" style="color:var(--ok)" id="verification-level-display">
+                  <i class="fas fa-check-circle"></i> Nivel 3
+                </span>
               </div>
               <div class="stat-row"
                 style="margin-top:2rem; padding-top:1rem; border-top:1px solid rgba(255,255,255,0.05);">
                 <span class="stat-label">EcoPower ⚡</span>
-                <span class="stat-value" style="color:#00ff64" id="ecopower">100</span>
+                <span class="stat-value" style="color:#00ff64" id="ecopower-display">100</span>
               </div>
             </div>
 
             <!-- Quick Access -->
             <div class="glass-box">
               <h4 style="margin-bottom:1.5rem; font-weight:800; font-size:1rem;">Novedades Ecosistema</h4>
-              <div class="card-mini-preview">
-                <p style="font-size:0.75rem; text-align:center; padding: 0 1rem; color:var(--text-dim);">
-                  Próximamente: Staking de WildCredits en Wild Explorer.
-                </p>
+              <div class="card-mini-preview"
+                style="background: linear-gradient(135deg, #1e293b, #0f172a); border: 1px solid rgba(14, 165, 233, 0.2); height: 120px; border-radius: 1rem; display: flex; align-items: center; justify-content: center; margin-bottom: 1rem;">
+                <div style="text-align:center;">
+                  <i class="fas fa-newspaper"
+                    style="font-size:2rem; color:var(--accent); margin-bottom:0.5rem; display:block;"></i>
+                  <p style="font-size:0.7rem; color:var(--text-dim); padding:0 1rem; line-height: 1.2;">
+                    Consulta los últimos logs de actualización del protocolo.
+                  </p>
+                </div>
               </div>
-              <button class="secondary" style="width:100%; border-radius:1rem; font-size:0.8rem;"
-                onclick="showSection('pass')">Explorar Ocean Pass</button>
+              <button class="primary"
+                style="width:100%; border-radius:1rem; font-size:0.85rem; margin-bottom:10px; border:none; padding: 0.8rem; cursor:pointer;"
+                onclick="window.open('https://owsnews.netlify.app', '_blank')">Ver Update Logs</button>
+              <button class="secondary"
+                style="width:100%; border-radius:1rem; font-size:0.85rem; background: rgba(255,255,255,0.05); color:white; border: 1px solid var(--card-border); padding: 0.8rem; cursor:pointer;"
+                onclick="showSection('pass')">Gestionar Ocean Pass</button>
             </div>
           </div>
         </div>
@@ -3393,19 +3407,43 @@
       qs('#ecoxionums').textContent = Math.round(balances.ecoxionums || 0).toLocaleString();
       qs('#ecobits').textContent = Math.round(balances.ecorebits || 0).toLocaleString();
 
-      // Sincronización de WildCredits (Preferencia LocalStorage si existe para evitar retraso del servidor)
+      // Sincronización de WildCredits mejorada
       const localWildCredits = localStorage.getItem('wildCredits');
       const serverWildCredits = Math.round(balances.wildcredits || 0);
+
+      // Intentamos usar el valor local si es mayor (indicador de desincronización temporal)
       const finalWildCredits = localWildCredits !== null ? Math.max(parseInt(localWildCredits), serverWildCredits) : serverWildCredits;
-      qs('#wildcredits').textContent = finalWildCredits.toLocaleString();
+
+      const wcEl = qs('#wildcredits');
+      if (wcEl) {
+        wcEl.textContent = finalWildCredits.toLocaleString();
+        if (localWildCredits !== null && parseInt(localWildCredits) > serverWildCredits) {
+          wcEl.title = "Sincronizando con servidor...";
+          wcEl.style.opacity = "0.7";
+        } else {
+          wcEl.title = "";
+          wcEl.style.opacity = "1";
+        }
+      }
 
       qs('#wildgems').textContent = Math.round(balances.wildgems || 0).toLocaleString();
       qs('#appbux').textContent = Math.round(balances.appbux || 0).toLocaleString();
       qs('#ecobooks').textContent = Math.round(balances.ecobooks || 0).toLocaleString();
       qs('#ecotokens').textContent = Math.round(balances.ecotokens || 0).toLocaleString();
       qs('#nxb-balance').textContent = Math.round(balances.nxb || 0).toLocaleString();
-      qs('#voltbit').textContent = Math.round(balances.voltbit || 0).toLocaleString();
-      qs('#ecopower').textContent = Math.round(balances.ecopower || 100);
+      qs('#ecopower-display').textContent = Math.round(balances.ecopower || 100);
+
+      // Actualizar Resumen Lateral con info real del usuario
+      const opUser = JSON.parse(localStorage.getItem('opUser') || '{}');
+      if (opUser.username) {
+        const isAdmin = opUser.username.toLowerCase() === 'oceanandwild';
+        qs('#account-type-display').textContent = isAdmin ? 'STUDIO OWNER' : 'GLOBAL VIP';
+        qs('#daily-limit-display').textContent = isAdmin ? 'ILIMITADO' : '10,000 BUX';
+        qs('#verification-level-display').innerHTML = isAdmin ?
+          '<i class="fas fa-shield-check"></i> VERIFICADO' :
+          '<i class="fas fa-check-circle"></i> Nivel 3';
+      }
+
       updateTotalPortfolioValue();
     }
 
@@ -3413,24 +3451,48 @@
       const getVal = (id) => {
         const el = document.getElementById(id);
         if (!el) return 0;
-        return parseFloat(el.textContent.replace(/,/g, '')) || 0;
+        // Eliminar comas y convertir a numero
+        const val = parseFloat(el.textContent.replace(/,/g, '')) || 0;
+        return val;
       };
 
+      // Tasas de conversión "Reales" (Simuladas en USD)
       const rates = {
-        bux: 0.1, wildcredits: 0.5, wildgems: 2.0, ecoxionums: 1.0,
-        nxb: 0.25, amber: 0.05, voltbit: 0.15, appbux: 0.08,
-        ecobooks: 0.3, ecobits: 1.2, ecotokens: 0.2
+        bux: 0.05,           // 1 AquaBux = 0.05 USD
+        wildcredits: 0.10,   // 1 WildCredit = 0.10 USD
+        wildgems: 1.50,      // 1 WildGem = 1.50 USD
+        ecoxionums: 1.00,    // 1 Ecoxionum = 1.00 USD
+        nxb: 0.20,           // 1 NXB = 0.20 USD
+        amber: 0.15,         // 1 Amber = 0.15 USD
+        voltbit: 0.08,       // 1 VoltBit = 0.08 USD
+        appbux: 0.02,        // 1 AppBux = 0.02 USD
+        ecobooks: 0.50,      // 1 EcoBook = 0.50 USD
+        ecobits: 1.10,       // 1 EcoCoreBit = 1.10 USD
+        ecotokens: 0.25      // 1 EcoToken = 0.25 USD
       };
 
-      let total = 0;
-      for (const [id, rate] of Object.entries(rates)) {
-        let elementId = id === 'nxb' ? 'nxb-balance' : id;
-        total += getVal(elementId) * rate;
-      }
+      let totalUSD = 0;
+      totalUSD += getVal('bux') * rates.bux;
+      totalUSD += getVal('wildcredits') * rates.wildcredits;
+      totalUSD += getVal('wildgems') * rates.wildgems;
+      totalUSD += getVal('ecoxionums') * rates.ecoxionums;
+      totalUSD += getVal('nxb-balance') * rates.nxb;
+      totalUSD += getVal('amber') * rates.amber;
+      totalUSD += getVal('voltbit') * rates.voltbit;
+      totalUSD += getVal('appbux') * rates.appbux;
+      totalUSD += getVal('ecobooks') * rates.ecobooks;
+      totalUSD += getVal('ecobits') * rates.ecobits;
+      totalUSD += getVal('ecotokens') * rates.ecotokens;
 
       const totalEl = document.getElementById('total-estimated-value');
       if (totalEl) {
-        totalEl.textContent = total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        // Animación suave del número opcionalmente, pero por ahora actualización directa
+        totalEl.textContent = totalUSD.toLocaleString('en-US', {
+          style: 'currency',
+          currency: 'USD',
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        }).replace('$', ''); // Quitamos el $ porque ya está en el HTML o lo dejamos si el diseño lo pide
       }
     }
 
@@ -4926,17 +4988,34 @@
         renderSubscriptions();
         startBalanceRefresh();
 
-        // Escuchar actualizaciones en tiempo real desde Wild Explorer
-        const syncChannel = new BroadcastChannel('wildcredits-balance');
-        syncChannel.onmessage = (e) => {
-          if (e.data.type === 'wildcredits-balance') {
+        // Escuchar actualizaciones en tiempo real desde Wild Explorer (Mismo origen)
+        try {
+          const syncChannel = new BroadcastChannel('wildcredits-balance');
+          syncChannel.onmessage = (e) => {
+            if (e.data.type === 'wildcredits-balance' || e.data.type === 'wildcredits-update') {
+              const val = parseInt(e.data.balance || e.data.wildCredits);
+              localStorage.setItem('wildCredits', val);
+              const el = qs('#wildcredits');
+              if (el) {
+                el.textContent = val.toLocaleString();
+                updateTotalPortfolioValue();
+              }
+            }
+          };
+        } catch (err) { console.warn('BroadcastChannel not available'); }
+
+        // Escuchar mensajes postMessage (Origen cruzado si se usa en iframe o popup)
+        window.addEventListener('message', (e) => {
+          if (e.data && (e.data.type === 'wildcredits-update' || e.data.type === 'wildcredits-balance')) {
+            const val = parseInt(e.data.balance || e.data.wildCredits || e.data.amount);
+            localStorage.setItem('wildCredits', val);
             const el = qs('#wildcredits');
             if (el) {
-              el.textContent = parseInt(e.data.balance).toLocaleString();
+              el.textContent = val.toLocaleString();
               updateTotalPortfolioValue();
             }
           }
-        };
+        });
 
         loadOceanPass();
         setInterval(checkOceanPassStatus, 1000); // UI updates every second if active

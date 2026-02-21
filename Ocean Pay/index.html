@@ -1560,15 +1560,46 @@
     }
 
     .asset-group {
-      margin-top: 3rem;
+      margin-bottom: 3rem;
     }
 
-    /* Assets: grid bento con cards más grandes y distintivas */
+    .asset-ecosystem-block {
+      margin-bottom: 2.5rem;
+    }
+
+    .asset-ecosystem-block:last-of-type {
+      margin-bottom: 0;
+    }
+
+    .ecosystem-label {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 0.8rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      color: var(--text-dim);
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .cards-group {
+      margin-top: 3rem;
+      padding-top: 2.5rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    /* Assets: grid por filas de ecosistema */
     .assets-grid-modern {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
       gap: 1.25rem;
     }
+
+    .assets-row-ocean { grid-template-columns: repeat(1, minmax(200px, 320px)); }
+    .assets-row-wild { grid-template-columns: repeat(2, 1fr); }
+    .assets-row-core { grid-template-columns: repeat(4, 1fr); }
+    .assets-row-gaming { grid-template-columns: repeat(4, 1fr); }
 
     .asset-card-modern {
       background: linear-gradient(160deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.4) 100%);
@@ -1884,7 +1915,8 @@
       .wallet-side-stack {
         position: static;
       }
-      .assets-grid-modern {
+      .assets-row-core,
+      .assets-row-gaming {
         grid-template-columns: repeat(2, 1fr);
       }
     }
@@ -1901,7 +1933,11 @@
       .hero-amount {
         font-size: 3rem;
       }
-      .assets-grid-modern {
+      .assets-grid-modern,
+      .assets-row-ocean,
+      .assets-row-wild,
+      .assets-row-core,
+      .assets-row-gaming {
         grid-template-columns: 1fr;
       }
       .modern-cards-grid {
@@ -2099,26 +2135,19 @@
         </div>
 
         <div class="wallet-grid">
-          <!-- MAIN AREA -->
+          <!-- MAIN AREA - Reordenado: Activos primero, Tarjetas después -->
           <div class="wallet-main-content">
-            <!-- Cards Section -->
-            <div class="section-header-modern">
-              <h3>Tarjetas Ocean Card</h3>
-              <span class="view-all" onclick="showNewCardModal()">+ Nueva Tarjeta</span>
-            </div>
-            <div id="cards-container" class="modern-cards-grid">
-              <!-- Rendered by JS -->
-            </div>
-
-            <!-- Assets Section -->
+            <!-- Assets Section - PRIMERO, agrupados por ecosistema -->
             <div class="asset-group">
               <div class="section-header-modern">
                 <h3>Activos y Divisas</h3>
                 <span class="view-all" onclick="openAssetsModal()">Ver todos</span>
               </div>
 
-              <div class="assets-grid-modern">
-                <!-- AquaBux -->
+              <!-- Grupo: Ecosistema Ocean -->
+              <div class="asset-ecosystem-block">
+                <h4 class="ecosystem-label">🌊 Ocean</h4>
+                <div class="assets-grid-modern assets-row-ocean">
                 <div class="asset-card-modern" id="aquabux-card">
                   <div class="asset-icon-container">
                     <canvas class="currency-canvas" data-currency="bux" width="44" height="44"></canvas>
@@ -2127,11 +2156,16 @@
                   <span class="asset-balance-modern" id="bux">0</span>
                   <div class="asset-footer-modern">
                     <span>Ocean Cinemas</span>
-                    <span style="color:var(--accent)">Ecosistema Ocean</span>
+                    <span style="color:var(--accent)">Ocean</span>
                   </div>
                 </div>
+              </div>
+            </div>
 
-                <!-- WildCredits -->
+            <!-- Grupo: Ecosistema Wild -->
+            <div class="asset-ecosystem-block">
+              <h4 class="ecosystem-label">🌿 Wild</h4>
+              <div class="assets-grid-modern assets-row-wild">
                 <div class="asset-card-modern" id="wildcredits-card">
                   <div class="asset-icon-container">
                     <canvas class="currency-canvas" data-currency="wildcredits" width="44" height="44"></canvas>
@@ -2140,11 +2174,9 @@
                   <span class="asset-balance-modern" id="wildcredits">0</span>
                   <div class="asset-footer-modern">
                     <span>Wild Explorer</span>
-                    <span style="color:var(--wild)">Ecosistema Wild</span>
+                    <span style="color:var(--wild)">Wild</span>
                   </div>
                 </div>
-
-                <!-- WildGems -->
                 <div class="asset-card-modern" id="wildgems-card">
                   <div class="asset-icon-container">
                     <canvas class="currency-canvas" data-currency="wildgems" width="44" height="44"></canvas>
@@ -2153,11 +2185,17 @@
                   <span class="asset-balance-modern" id="wildgems">0</span>
                   <div class="asset-footer-modern">
                     <span>WildShorts</span>
-                    <span style="color:var(--gold)">Premium Assets</span>
+                    <span style="color:var(--gold)">Wild</span>
                   </div>
                 </div>
+              </div>
+            </div>
 
-                <!-- Ecoxionums -->
+            <!-- Grupo: Core & Knowledge -->
+            <div class="asset-ecosystem-block">
+              <h4 class="ecosystem-label">⚡ Core & Knowledge</h4>
+              <div class="assets-grid-modern assets-row-core">
+                <div class="asset-card-modern" id="ecoxionums-card">
                 <div class="asset-card-modern" id="ecoxionums-card">
                   <div class="asset-icon-container">
                     <canvas class="currency-canvas" data-currency="ecoxionums" width="44" height="44"></canvas>
@@ -2166,11 +2204,49 @@
                   <span class="asset-balance-modern" id="ecoxionums">0</span>
                   <div class="asset-footer-modern">
                     <span>Ecoxion</span>
-                    <span style="color:var(--ok)">Oficial Core</span>
+                    <span style="color:var(--ok)">Core</span>
                   </div>
                 </div>
+                <div class="asset-card-modern" id="ecobits-card">
+                  <div class="asset-icon-container">
+                    <canvas class="currency-canvas" data-currency="ecobits" width="44" height="44"></canvas>
+                  </div>
+                  <span class="asset-name-modern">EcoCoreBits</span>
+                  <span class="asset-balance-modern" id="ecobits">0</span>
+                  <div class="asset-footer-modern">
+                    <span>EcoConsole</span>
+                    <span style="color:var(--purple)">Core</span>
+                  </div>
+                </div>
+                <div class="asset-card-modern" id="ecobooks-card" onclick="loadEcoBooksBalance()" style="cursor:pointer;">
+                  <div class="asset-icon-container">
+                    <canvas class="currency-canvas" data-currency="ecobooks" width="44" height="44"></canvas>
+                  </div>
+                  <span class="asset-name-modern">EcoBooks</span>
+                  <span class="asset-balance-modern" id="ecobooks">0</span>
+                  <div class="asset-footer-modern">
+                    <span>Naturepedia</span>
+                    <span style="color:var(--ok)">Knowledge</span>
+                  </div>
+                </div>
+                <div class="asset-card-modern" id="ecotokens-card">
+                  <div class="asset-icon-container">
+                    <canvas class="currency-canvas" data-currency="ecotokens" width="44" height="44"></canvas>
+                  </div>
+                  <span class="asset-name-modern">EcoTokens</span>
+                  <span class="asset-balance-modern" id="ecotokens">0</span>
+                  <div class="asset-footer-modern">
+                    <span>Wild Savage</span>
+                    <span style="color:var(--ok)">Survival</span>
+                  </div>
+                </div>
+              </div>
+            </div>
 
-                <!-- Nexus Bits -->
+            <!-- Grupo: Gaming & Premium -->
+            <div class="asset-ecosystem-block">
+              <h4 class="ecosystem-label">🎮 Gaming & Premium</h4>
+              <div class="assets-grid-modern assets-row-gaming">
                 <div class="asset-card-modern" id="nxb-card">
                   <div class="asset-icon-container">
                     <canvas class="currency-canvas" data-currency="nxb" width="44" height="44"></canvas>
@@ -2179,11 +2255,9 @@
                   <span class="asset-balance-modern" id="nxb-balance" style="color: #f08a5d;">0</span>
                   <div class="asset-footer-modern">
                     <span>PV Nexus</span>
-                    <span style="color:#f08a5d">Gaming Assets</span>
+                    <span style="color:#f08a5d">Gaming</span>
                   </div>
                 </div>
-
-                <!-- Amber -->
                 <div class="asset-card-modern" id="amber-card" onclick="loadAmberBalance()" style="cursor:pointer;">
                   <div class="asset-icon-container">
                     <canvas class="currency-canvas" data-currency="amber" width="44" height="44"></canvas>
@@ -2209,7 +2283,6 @@
                   </div>
                 </div>
 
-                <!-- AppBux -->
                 <div class="asset-card-modern" id="appbux-card">
                   <div class="asset-icon-container">
                     <canvas class="currency-canvas" data-currency="appbux" width="44" height="44"></canvas>
@@ -2218,49 +2291,20 @@
                   <span class="asset-balance-modern" id="appbux">0</span>
                   <div class="asset-footer-modern">
                     <span>AllApp</span>
-                    <span style="color:var(--orange)">Multiverse</span>
+                    <span style="color:var(--orange)">Gaming</span>
                   </div>
                 </div>
+              </div>
+            </div>
 
-                <!-- EcoBooks -->
-                <div class="asset-card-modern" id="ecobooks-card" onclick="loadEcoBooksBalance()"
-                  style="cursor:pointer;">
-                  <div class="asset-icon-container">
-                    <canvas class="currency-canvas" data-currency="ecobooks" width="44" height="44"></canvas>
-                  </div>
-                  <span class="asset-name-modern">EcoBooks</span>
-                  <span class="asset-balance-modern" id="ecobooks">0</span>
-                  <div class="asset-footer-modern">
-                    <span>Naturepedia</span>
-                    <span style="color:var(--ok)">Knowledge Assets</span>
-                  </div>
-                </div>
-
-                <!-- EcoCoreBits -->
-                <div class="asset-card-modern" id="ecobits-card">
-                  <div class="asset-icon-container">
-                    <canvas class="currency-canvas" data-currency="ecobits" width="44" height="44"></canvas>
-                  </div>
-                  <span class="asset-name-modern">EcoCoreBits</span>
-                  <span class="asset-balance-modern" id="ecobits">0</span>
-                  <div class="asset-footer-modern">
-                    <span>EcoConsole</span>
-                    <span style="color:var(--purple)">Core Network</span>
-                  </div>
-                </div>
-
-                <!-- EcoTokens -->
-                <div class="asset-card-modern" id="ecotokens-card">
-                  <div class="asset-icon-container">
-                    <canvas class="currency-canvas" data-currency="ecotokens" width="44" height="44"></canvas>
-                  </div>
-                  <span class="asset-name-modern">EcoTokens</span>
-                  <span class="asset-balance-modern" id="ecotokens">0</span>
-                  <div class="asset-footer-modern">
-                    <span>Wild Savage</span>
-                    <span style="color:var(--ok)">Survival Assets</span>
-                  </div>
-                </div>
+            <!-- Cards Section - DESPUÉS de activos -->
+            <div class="cards-group">
+              <div class="section-header-modern">
+                <h3>Tarjetas Ocean Card</h3>
+                <span class="view-all" onclick="showNewCardModal()">+ Nueva Tarjeta</span>
+              </div>
+              <div id="cards-container" class="modern-cards-grid">
+                <!-- Rendered by JS -->
               </div>
             </div>
           </div>
@@ -2441,89 +2485,123 @@
         </div>
       </section>
 
-      <!-- POS Section -->
-
       <!-- POS Section Redesigned & Enhanced -->
-      <section id="pos-section" class="hidden">
+      <section id="pos-section" class="hidden pos-section-viewport">
+        <div class="pos-section-header">
+          <h2 class="pos-section-title">🏧 POS Virtual</h2>
+          <p class="pos-section-subtitle">Terminal de pagos integrada con Ocean Pay</p>
+        </div>
         <style>
-          /* POS Specific Styles */
+          /* POS Section - Rediseño Premium */
+          .pos-section-viewport {
+            animation: sectionEnter 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          }
+
+          .pos-section-header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+          }
+
+          .pos-section-title {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-size: 2rem;
+            font-weight: 800;
+            color: #f8fafc;
+            margin-bottom: 0.5rem;
+          }
+
+          .pos-section-subtitle {
+            font-size: 0.95rem;
+            color: var(--text-dim);
+          }
+
           .pos-wrapper {
             display: flex;
             justify-content: center;
             align-items: center;
             padding: 2rem;
             perspective: 1500px;
+            background: linear-gradient(145deg, rgba(6, 78, 99, 0.08) 0%, transparent 50%);
+            border-radius: 32px;
+            border: 1px solid rgba(34, 211, 238, 0.1);
+            margin: 0 auto;
+            max-width: 480px;
           }
 
           .virtual-pos-device {
-            width: 400px;
-            height: 750px;
-            background: linear-gradient(160deg, #1e293b 0%, #0f172a 100%);
-            border-radius: 45px;
+            width: 380px;
+            height: 720px;
+            background: linear-gradient(165deg, #1e293b 0%, #0f172a 50%, #020617 100%);
+            border-radius: 42px;
             box-shadow:
-              0 30px 60px rgba(0, 0, 0, 0.6),
-              0 0 0 2px rgba(255, 255, 255, 0.08),
-              inset 0 0 30px rgba(0, 0, 0, 0.8);
-            padding: 25px;
+              0 0 0 1px rgba(34, 211, 238, 0.15),
+              0 40px 80px -20px rgba(0, 0, 0, 0.7),
+              0 0 60px -15px rgba(34, 211, 238, 0.2),
+              inset 0 1px 0 rgba(255, 255, 255, 0.05);
+            padding: 22px;
             position: relative;
             display: flex;
             flex-direction: column;
-            border: 10px solid #0f172a;
+            border: 8px solid #0f172a;
             transform-style: preserve-3d;
-            transition: transform 0.5s ease;
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
           }
 
           .virtual-pos-device:hover {
-            transform: rotateX(2deg) rotateY(2deg);
+            transform: rotateX(1deg) rotateY(1deg) translateY(-4px);
+            box-shadow:
+              0 0 0 1px rgba(34, 211, 238, 0.25),
+              0 50px 100px -20px rgba(0, 0, 0, 0.7),
+              0 0 80px -10px rgba(34, 211, 238, 0.25);
           }
 
-          /* Glossy reflection */
           .virtual-pos-device::before {
             content: '';
             position: absolute;
-            top: 20px;
-            left: 20px;
-            right: 20px;
-            height: 150px;
-            background: linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, transparent 100%);
-            border-radius: 30px;
+            top: 18px;
+            left: 18px;
+            right: 18px;
+            height: 120px;
+            background: linear-gradient(180deg, rgba(34, 211, 238, 0.06) 0%, transparent 100%);
+            border-radius: 28px;
             pointer-events: none;
             z-index: 5;
           }
 
           .pos-screen-frame {
             background: #000;
-            border-radius: 30px;
-            padding: 8px;
+            border-radius: 28px;
+            padding: 6px;
             flex: 1;
-            box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.9);
+            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.9);
             overflow: hidden;
             position: relative;
             z-index: 2;
+            border: 1px solid rgba(0, 0, 0, 0.5);
           }
 
           .pos-screen {
-            background: #f8fafc;
+            background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
             width: 100%;
             height: 100%;
             border-radius: 22px;
             position: relative;
             overflow: hidden;
             color: #1e293b;
-            font-family: 'Roboto', sans-serif;
+            font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
             display: flex;
             flex-direction: column;
           }
 
           .pos-top-bar {
-            background: #e2e8f0;
-            padding: 8px 15px;
+            background: linear-gradient(180deg, #e2e8f0 0%, #cbd5e1 100%);
+            padding: 10px 18px;
             display: flex;
             justify-content: space-between;
             font-size: 0.75rem;
             color: #475569;
-            font-weight: bold;
-            border-bottom: 1px solid #cbd5e1;
+            font-weight: 700;
+            border-bottom: 1px solid #94a3b8;
           }
 
           .pos-view {
@@ -2560,55 +2638,61 @@
           }
 
           .pos-logo-icon {
-            font-size: 5rem;
-            background: linear-gradient(135deg, #06b6d4, #3b82f6);
+            font-size: 4.5rem;
+            background: linear-gradient(135deg, #0891b2 0%, #22d3ee 50%, #06b6d4 100%);
             -webkit-background-clip: text;
             background-clip: text;
             -webkit-text-fill-color: transparent;
-            filter: drop-shadow(0 10px 10px rgba(6, 182, 212, 0.3));
+            filter: drop-shadow(0 8px 16px rgba(34, 211, 238, 0.35));
           }
 
           .pos-home-buttons {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 15px;
+            gap: 14px;
             margin-top: auto;
-            margin-bottom: 10px;
+            margin-bottom: 12px;
           }
 
           .pos-home-buttons-full {
             display: flex;
             flex-direction: column;
-            gap: 15px;
+            gap: 12px;
             margin-top: auto;
-            margin-bottom: 10px;
+            margin-bottom: 12px;
           }
 
           .pos-big-btn {
-            background: white;
-            border: 1px solid #cbd5e1;
-            border-radius: 18px;
-            padding: 20px 15px;
+            background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+            border: 1px solid #e2e8f0;
+            border-radius: 20px;
+            padding: 22px 16px;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             gap: 12px;
             color: #334155;
-            box-shadow: 0 4px 0 #94a3b8, 0 8px 15px rgba(0, 0, 0, 0.05);
-            transition: all 0.1s;
+            box-shadow: 0 4px 0 #cbd5e1, 0 10px 25px -5px rgba(0, 0, 0, 0.08);
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
             cursor: pointer;
             height: 100%;
           }
 
+          .pos-big-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 0 #cbd5e1, 0 14px 30px -5px rgba(34, 211, 238, 0.15);
+            border-color: rgba(34, 211, 238, 0.3);
+          }
+
           .pos-big-btn:active {
             transform: translateY(4px);
-            box-shadow: 0 0 0 #94a3b8;
+            box-shadow: 0 0 0 #cbd5e1;
           }
 
           .pos-big-btn i {
-            font-size: 1.8rem;
-            color: #0ea5e9;
+            font-size: 1.9rem;
+            color: #0891b2;
           }
 
           .pos-big-btn span {
@@ -2619,26 +2703,32 @@
           .pos-header-nav {
             display: flex;
             align-items: center;
-            gap: 15px;
-            margin-bottom: 25px;
-            padding-bottom: 15px;
-            border-bottom: 2px dashed #cbd5e1;
+            gap: 16px;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 2px dashed #e2e8f0;
           }
 
           .pos-back-btn {
             background: white !important;
-            border: 1px solid #cbd5e1 !important;
+            border: 1px solid #e2e8f0 !important;
             font-size: 1rem;
             color: #64748b;
             cursor: pointer;
-            width: 40px !important;
-            height: 40px !important;
+            width: 42px !important;
+            height: 42px !important;
             padding: 0 !important;
-            box-shadow: 0 2px 0 #94a3b8 !important;
-            border-radius: 12px;
+            box-shadow: 0 2px 0 #cbd5e1 !important;
+            border-radius: 14px;
             display: flex;
             align-items: center;
             justify-content: center;
+            transition: all 0.2s;
+          }
+
+          .pos-back-btn:hover {
+            border-color: rgba(34, 211, 238, 0.4) !important;
+            color: #0891b2;
           }
 
           .pos-back-btn:active {
@@ -2647,7 +2737,8 @@
           }
 
           .pos-title {
-            font-size: 1.2rem;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-size: 1.25rem;
             font-weight: 800;
             color: #0f172a;
           }
@@ -2670,17 +2761,17 @@
           .pos-input-group {
             background: #fff;
             border: 2px solid #e2e8f0;
-            border-radius: 16px;
+            border-radius: 18px;
             display: flex;
             align-items: center;
-            padding: 0 15px;
-            transition: all 0.2s;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
+            padding: 0 18px;
+            transition: all 0.25s;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
           }
 
           .pos-input-group:focus-within {
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+            border-color: #22d3ee;
+            box-shadow: 0 0 0 4px rgba(34, 211, 238, 0.12);
           }
 
           .pos-input {
@@ -2713,15 +2804,15 @@
           }
 
           .pos-visual-card {
-            background: white;
+            background: linear-gradient(180deg, #fff 0%, #f8fafc 100%);
             border-radius: 24px;
-            padding: 25px;
-            margin: 10px 0 25px 0;
+            padding: 28px;
+            margin: 12px 0 28px 0;
             display: flex;
             flex-direction: column;
             align-items: center;
             border: 1px solid #e2e8f0;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 12px 30px -8px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(34, 211, 238, 0.05);
           }
 
           .pos-currency-symbol {
@@ -2732,24 +2823,30 @@
 
           .pos-btn-primary {
             width: 100%;
-            background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
-            color: white;
+            background: linear-gradient(135deg, #0891b2 0%, #22d3ee 100%);
+            color: #0f172a;
             border: none;
             padding: 18px;
-            border-radius: 16px;
-            font-size: 1.1rem;
+            border-radius: 18px;
+            font-size: 1.05rem;
             font-weight: 800;
-            box-shadow: 0 6px 0 #0369a1, 0 10px 20px rgba(14, 165, 233, 0.3);
+            box-shadow: 0 5px 0 #0e7490, 0 12px 25px rgba(34, 211, 238, 0.35);
             cursor: pointer;
-            margin-top: 10px;
+            margin-top: 12px;
             text-transform: uppercase;
             letter-spacing: 1px;
-            transition: transform 0.1s;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+          }
+
+          .pos-btn-primary:hover {
+            background: linear-gradient(135deg, #22d3ee 0%, #67e8f9 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 7px 0 #0e7490, 0 16px 35px rgba(34, 211, 238, 0.4);
           }
 
           .pos-btn-primary:active {
-            transform: translateY(6px);
-            box-shadow: 0 0 0 #0369a1;
+            transform: translateY(5px);
+            box-shadow: 0 0 0 #0e7490;
           }
 
           .pos-btn-secondary {
@@ -2761,22 +2858,22 @@
 
           /* Code Display */
           .pos-code-container {
-            background: #0f172a;
+            background: linear-gradient(145deg, #0f172a 0%, #1e293b 100%);
             color: #22d3ee;
-            padding: 25px;
-            border-radius: 20px;
+            padding: 28px;
+            border-radius: 22px;
             text-align: center;
-            margin: 25px 0;
-            border: 4px dashed #334155;
-            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
+            margin: 28px 0;
+            border: 2px dashed rgba(34, 211, 238, 0.3);
+            box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.5), 0 0 40px -10px rgba(34, 211, 238, 0.15);
           }
 
           .pos-generated-code {
-            font-size: 3rem;
+            font-size: 2.75rem;
             font-weight: 900;
-            letter-spacing: 6px;
+            letter-spacing: 8px;
             font-family: 'Courier New', monospace;
-            text-shadow: 0 0 20px rgba(34, 211, 238, 0.5);
+            text-shadow: 0 0 25px rgba(34, 211, 238, 0.5);
           }
 
           .pos-printer-slit {

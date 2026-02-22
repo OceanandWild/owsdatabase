@@ -742,6 +742,17 @@ async function runDatabaseMigrations() {
       `).catch(e => console.log('⚠️ Migración WildShorts:', e.message));
 
       console.log('✅ Unificación de suscripciones completada');
+
+      // Parche: Reparar registros con nulos (evitar "null" en la UI)
+      await pool.query(`
+        UPDATE ocean_pay_subscriptions 
+        SET plan_name = COALESCE(plan_name, sub_name, 'Suscripción'),
+            sub_name = COALESCE(sub_name, plan_name, 'Suscripción'),
+            project_id = COALESCE(project_id, 'Ocean Pay'),
+            currency = COALESCE(currency, 'wildgems')
+        WHERE plan_name IS NULL OR sub_name IS NULL OR project_id IS NULL OR currency IS NULL
+      `).catch(e => console.log('⚠️ Error reparando nulos en subs:', e.message));
+
     } catch (subErr) {
       console.log('⚠️ Aviso: Error en unificación de suscripciones:', subErr.message);
     }

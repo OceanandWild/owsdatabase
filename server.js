@@ -875,6 +875,12 @@ async function runDatabaseMigrations() {
       );
     `).catch(err => console.log('⚠️ Error creando ows_projects:', err.message));
 
+    // Migración: installer_url para descarga de .exe en OWS Store
+    await pool.query(`
+      ALTER TABLE ows_projects
+      ADD COLUMN IF NOT EXISTS installer_url TEXT
+    `).catch(() => console.log('⚠️ Columna installer_url ya existe en ows_projects'));
+
     // Migración: Asegurar columnas para Intercambio (Swap)
     await pool.query(`
       ALTER TABLE ocean_pay_pos
@@ -12124,13 +12130,13 @@ app.get('/ows-store/projects/:slug', async (req, res) => {
 
 // Registrar o actualizar un proyecto (Upsert)
 app.post('/ows-store/projects', async (req, res) => {
-  const { slug, name, description, icon_url, banner_url, url, version, status, release_date, metadata } = req.body;
+  const { slug, name, description, icon_url, banner_url, url, version, status, release_date, metadata, installer_url } = req.body;
   if (!slug || !name || !url) return res.status(400).json({ error: 'Faltan campos obligatorios (slug, name, url)' });
 
   try {
     const { rows } = await pool.query(
-      `INSERT INTO ows_projects (slug, name, description, icon_url, banner_url, url, version, status, release_date, metadata)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      `INSERT INTO ows_projects (slug, name, description, icon_url, banner_url, url, version, status, release_date, metadata, installer_url)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        ON CONFLICT (slug) DO UPDATE SET
          name = EXCLUDED.name,
          description = EXCLUDED.description,
@@ -12141,9 +12147,10 @@ app.post('/ows-store/projects', async (req, res) => {
          status = EXCLUDED.status,
          release_date = EXCLUDED.release_date,
          metadata = ows_projects.metadata || EXCLUDED.metadata,
+         installer_url = COALESCE(EXCLUDED.installer_url, ows_projects.installer_url),
          last_update = NOW()
        RETURNING *`,
-      [slug, name, description, icon_url, banner_url, url, version || '1.0.0', status || 'launched', release_date, metadata || {}]
+      [slug, name, description, icon_url, banner_url, url, version || '1.0.0', status || 'launched', release_date, metadata || {}, installer_url || null]
     );
     res.json({ success: true, project: rows[0] });
   } catch (err) {

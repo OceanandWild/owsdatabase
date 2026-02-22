@@ -660,6 +660,43 @@ async function runDatabaseMigrations() {
       console.log('⚠️ Aviso: Error en inicialización MayhemCoins:', mcErr.message);
     }
 
+    // 2.7. FUSIÓN: Migrar saldos de ocean_pay_metadata → ocean_pay_card_balances (Fuente única de verdad)
+    console.log('🔄 Sincronizando saldos de metadata → card_balances...');
+    try {
+      const metaKeys = ['wildcredits', 'wildgems', 'ecobooks'];
+      for (const key of metaKeys) {
+        await pool.query(`
+          INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
+          SELECT c.id, '${key}', GREATEST(
+            COALESCE((m.value)::numeric, 0),
+            COALESCE((SELECT amount FROM ocean_pay_card_balances WHERE card_id = c.id AND currency_type = '${key}'), 0)
+          )
+          FROM ocean_pay_cards c
+          JOIN ocean_pay_metadata m ON m.user_id = c.user_id AND m.key = '${key}'
+          WHERE c.is_primary = true
+          AND m.value ~ '^[0-9.]+$'
+          ON CONFLICT (card_id, currency_type)
+          DO UPDATE SET amount = GREATEST(ocean_pay_card_balances.amount, EXCLUDED.amount)
+        `).catch(e => console.log(`⚠️ Migración ${key}:`, e.message));
+      }
+
+      // Sincronizar card_balances → JSONB balances en ocean_pay_cards
+      await pool.query(`
+        UPDATE ocean_pay_cards opc
+        SET balances = COALESCE(opc.balances, '{}'::jsonb) || (
+          SELECT jsonb_object_agg(cb.currency_type, cb.amount)
+          FROM ocean_pay_card_balances cb
+          WHERE cb.card_id = opc.id
+        )
+        WHERE opc.is_primary = true
+        AND EXISTS (SELECT 1 FROM ocean_pay_card_balances WHERE card_id = opc.id)
+      `).catch(e => console.log('⚠️ Sync JSONB:', e.message));
+
+      console.log('✅ Fusión de saldos metadata → card_balances completada');
+    } catch (fusionErr) {
+      console.log('⚠️ Aviso: Error en fusión de saldos:', fusionErr.message);
+    }
+
     // 10. Crear tabla ocean_pay_card_balances para saldos por tarjeta (Legado/Compatibilidad)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS ocean_pay_card_balances (

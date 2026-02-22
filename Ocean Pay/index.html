@@ -1617,30 +1617,38 @@
     }
 
     .assets-row-ocean {
-      grid-template-columns: repeat(1, 1fr);
+      grid-template-columns: 1fr;
     }
 
     .assets-row-wild {
       grid-template-columns: repeat(2, 1fr);
     }
 
-    .assets-row-core,
+    .assets-row-core {
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+    }
+
     .assets-row-gaming {
-      grid-template-columns: repeat(4, 1fr);
-      gap: 1.5rem;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
     }
 
     .asset-card-modern {
       background: linear-gradient(160deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.4) 100%);
       border: 1px solid rgba(255, 255, 255, 0.06);
       border-radius: 20px;
-      padding: 1.75rem;
+      padding: 1.25rem 1.5rem;
       min-width: 0;
       transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
       position: relative;
       overflow: hidden;
       animation: assetCardEnter 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
       opacity: 0;
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 1rem;
     }
 
     @keyframes assetCardEnter {
@@ -1726,49 +1734,50 @@
     }
 
     .asset-icon-container {
-      width: 52px;
-      height: 52px;
+      width: 48px;
+      height: 48px;
+      min-width: 48px;
       background: rgba(255, 255, 255, 0.04);
       border-radius: 14px;
       display: flex;
       align-items: center;
       justify-content: center;
-      margin-bottom: 1.5rem;
       border: 1px solid rgba(255, 255, 255, 0.05);
     }
 
     .asset-name-modern {
       font-family: 'Plus Jakarta Sans', sans-serif;
-      font-size: 0.8rem;
+      font-size: 0.7rem;
       color: var(--text-dim);
       font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 1.5px;
-      margin-bottom: 0.5rem;
+      letter-spacing: 1.2px;
+      margin-bottom: 0.15rem;
       display: block;
     }
 
     .asset-balance-modern {
       font-family: 'Plus Jakarta Sans', sans-serif;
-      font-size: 1.75rem;
+      font-size: 1.4rem;
       font-weight: 800;
       color: white;
-      margin-bottom: 1rem;
+      margin-bottom: 0;
       display: block;
       letter-spacing: -0.5px;
       overflow-wrap: break-word;
     }
 
     .asset-footer-modern {
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       font-weight: 600;
       color: var(--text-dim);
       display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 0.5rem;
-      padding-top: 1.25rem;
-      border-top: 1px solid rgba(255, 255, 255, 0.04);
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 0.15rem;
+      margin-left: auto;
+      text-align: right;
+      white-space: nowrap;
     }
 
 

@@ -663,7 +663,7 @@ async function runDatabaseMigrations() {
     // 2.7. FUSIÓN: Migrar saldos de ocean_pay_metadata → ocean_pay_card_balances (Fuente única de verdad)
     console.log('🔄 Sincronizando saldos de metadata → card_balances...');
     try {
-      const metaKeys = ['wildcredits', 'wildgems', 'ecobooks'];
+      const metaKeys = ['wildcredits', 'wildgems', 'ecobooks', 'amber', 'nxb', 'voltbit', 'appbux', 'ecotokens', 'ecobits'];
       for (const key of metaKeys) {
         await pool.query(`
           INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
@@ -695,6 +695,54 @@ async function runDatabaseMigrations() {
       console.log('✅ Fusión de saldos metadata → card_balances completada');
     } catch (fusionErr) {
       console.log('⚠️ Aviso: Error en fusión de saldos:', fusionErr.message);
+    }
+
+    // 2.8. UNIFICACIÓN DE SUSCRIPCIONES: Migrar DinoPass, NaturePass y WildShorts a ocean_pay_subscriptions
+    console.log('🔄 Unificando suscripciones en ocean_pay_subscriptions...');
+    try {
+      // 1. Nature-Pass desde metadata
+      await pool.query(`
+        INSERT INTO ocean_pay_subscriptions (user_id, project_id, plan_name, price, currency, status, start_date)
+        SELECT m.user_id, 'Naturepedia', 'Nature-Pass', 0, 'wildgems', 'active', m.created_at
+        FROM ocean_pay_metadata m
+        WHERE m.key = 'nature_pass' AND m.value = 'true'
+        AND NOT EXISTS (
+          SELECT 1 FROM ocean_pay_subscriptions s 
+          WHERE s.user_id = m.user_id AND s.project_id = 'Naturepedia' AND s.plan_name = 'Nature-Pass'
+        )
+      `).catch(e => console.log('⚠️ Migración Nature-Pass:', e.message));
+
+      // 2. DinoPass desde metadata
+      await pool.query(`
+        INSERT INTO ocean_pay_subscriptions (user_id, project_id, plan_name, price, currency, status, start_date)
+        SELECT m.user_id, 'DinoBox', 
+               CASE WHEN m.value = 'elite' THEN 'DinoPass Elite' ELSE 'DinoPass Premium' END,
+               0, 'wildgems', 'active', m.created_at
+        FROM ocean_pay_metadata m
+        WHERE m.key = 'dinopass_type'
+        AND NOT EXISTS (
+          SELECT 1 FROM ocean_pay_subscriptions s 
+          WHERE s.user_id = m.user_id AND s.project_id = 'DinoBox' 
+          AND s.plan_name IN ('DinoPass Elite', 'DinoPass Premium')
+        )
+      `).catch(e => console.log('⚠️ Migración DinoPass:', e.message));
+
+      // 3. WildShorts Premium (desde wildshorts_subs)
+      await pool.query(`
+        INSERT INTO ocean_pay_subscriptions (user_id, project_id, plan_name, price, currency, status, start_date, end_date)
+        SELECT ws.user_id, 'WildShorts', ws.plan_id, 0, 'wildgems', 
+               CASE WHEN ws.active = true THEN 'active' ELSE 'cancelled' END,
+               ws.starts_at, ws.ends_at
+        FROM wildshorts_subs ws
+        WHERE NOT EXISTS (
+          SELECT 1 FROM ocean_pay_subscriptions s 
+          WHERE s.user_id = ws.user_id AND s.project_id = 'WildShorts' AND s.plan_name = ws.plan_id
+        )
+      `).catch(e => console.log('⚠️ Migración WildShorts:', e.message));
+
+      console.log('✅ Unificación de suscripciones completada');
+    } catch (subErr) {
+      console.log('⚠️ Aviso: Error en unificación de suscripciones:', subErr.message);
     }
 
     // 10. Crear tabla ocean_pay_card_balances para saldos por tarjeta (Legado/Compatibilidad)

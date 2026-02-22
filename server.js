@@ -702,8 +702,8 @@ async function runDatabaseMigrations() {
     try {
       // 1. Nature-Pass desde metadata
       await pool.query(`
-        INSERT INTO ocean_pay_subscriptions (user_id, project_id, plan_name, price, currency, status, start_date)
-        SELECT m.user_id, 'Naturepedia', 'Nature-Pass', 0, 'wildgems', 'active', m.created_at
+        INSERT INTO ocean_pay_subscriptions (user_id, project_id, plan_name, sub_name, price, currency, status, start_date)
+        SELECT m.user_id, 'Naturepedia', 'Nature-Pass', 'Nature-Pass', 0, 'wildgems', 'active', m.created_at
         FROM ocean_pay_metadata m
         WHERE m.key = 'nature_pass' AND m.value = 'true'
         AND NOT EXISTS (
@@ -714,8 +714,9 @@ async function runDatabaseMigrations() {
 
       // 2. DinoPass desde metadata
       await pool.query(`
-        INSERT INTO ocean_pay_subscriptions (user_id, project_id, plan_name, price, currency, status, start_date)
+        INSERT INTO ocean_pay_subscriptions (user_id, project_id, plan_name, sub_name, price, currency, status, start_date)
         SELECT m.user_id, 'DinoBox', 
+               CASE WHEN m.value = 'elite' THEN 'DinoPass Elite' ELSE 'DinoPass Premium' END,
                CASE WHEN m.value = 'elite' THEN 'DinoPass Elite' ELSE 'DinoPass Premium' END,
                0, 'wildgems', 'active', m.created_at
         FROM ocean_pay_metadata m
@@ -729,8 +730,8 @@ async function runDatabaseMigrations() {
 
       // 3. WildShorts Premium (desde wildshorts_subs)
       await pool.query(`
-        INSERT INTO ocean_pay_subscriptions (user_id, project_id, plan_name, price, currency, status, start_date, end_date)
-        SELECT ws.user_id, 'WildShorts', ws.plan_id, 0, 'wildgems', 
+        INSERT INTO ocean_pay_subscriptions (user_id, project_id, plan_name, sub_name, price, currency, status, start_date, end_date)
+        SELECT ws.user_id, 'WildShorts', ws.plan_id, ws.plan_id, 0, 'wildgems', 
                CASE WHEN ws.active = true THEN 'active' ELSE 'cancelled' END,
                ws.starts_at, ws.ends_at
         FROM wildshorts_subs ws
@@ -18860,8 +18861,8 @@ app.post('/ocean-pay/subscriptions/purchase', async (req, res) => {
       nextPayment.setDate(nextPayment.getDate() + (intervalDays || 7));
 
       const { rows: sub } = await client.query(`
-        INSERT INTO ocean_pay_subscriptions (user_id, card_id, project_id, sub_name, price, currency, interval_days, next_payment)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        INSERT INTO ocean_pay_subscriptions (user_id, card_id, project_id, sub_name, plan_name, price, currency, interval_days, next_payment)
+        VALUES ($1, $2, $3, $4, $4, $5, $6, $7, $8)
         RETURNING *
       `, [userId, cardId, projectId, subName, price, currency, intervalDays || 7, nextPayment]);
 
@@ -19425,7 +19426,7 @@ app.post('/ocean-pay/subscriptions/subscribe', async (req, res) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) return res.status(401).json({ error: 'No autorizado' });
   const token = authHeader.split(' ')[1];
-  const { cardId, plan = 'Premium', durationDays = 7, price = 500 } = req.body;
+  const { cardId, plan = 'Premium', durationDays = 7, price = 500, projectId = 'Ocean Pay', subName } = req.body;
 
   const client = await pool.connect();
   try {
@@ -19471,14 +19472,15 @@ app.post('/ocean-pay/subscriptions/subscribe', async (req, res) => {
     endDate.setDate(endDate.getDate() + durationDays);
 
     const { rows: subRows } = await client.query(
-      'INSERT INTO ocean_pay_subscriptions(user_id, plan_name, price, end_date, currency, card_id) VALUES($1, $2, $3, $4, $5, $6) RETURNING *',
-      [userId, plan, price, endDate, 'wildgems', cardId]
+      `INSERT INTO ocean_pay_subscriptions(user_id, plan_name, sub_name, project_id, price, end_date, currency, card_id) 
+       VALUES($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      [userId, plan, subName || plan, projectId, price, endDate, 'wildgems', cardId]
     );
 
     // 4. Crear notificación de éxito
     await client.query(
       'INSERT INTO ocean_pay_notifications(user_id, title, message, type) VALUES($1, $2, $3, $4)',
-      [userId, 'Suscripción Activada', `¡Felicidades! Tu plan ${plan} ha sido activado correctamente por ${durationDays} días.`, 'success']
+      [userId, 'Suscripción Activada', `¡Felicidades! Tu plan ${plan} de ${projectId} ha sido activado correctamente por ${durationDays} días.`, 'success']
     );
 
     await client.query('COMMIT');

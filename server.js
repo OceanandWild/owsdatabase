@@ -11989,6 +11989,36 @@ app.post('/ows-news/updates', async (req, res) => {
   }
 });
 
+app.put('/ows-news/updates/:id', async (req, res) => {
+  const { id } = req.params;
+  const { title, description, changes, project_names, update_date } = req.body;
+  try {
+    const { rows } = await pool.query(
+      `UPDATE ows_news_updates SET title = COALESCE($1, title), description = COALESCE($2, description), 
+       changes = COALESCE($3, changes), project_names = COALESCE($4, project_names),
+       update_date = COALESCE($5, update_date) WHERE id = $6 RETURNING *`,
+      [title, description, changes, project_names, update_date, id]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: 'Update no encontrado' });
+    res.json({ success: true, update: rows[0] });
+  } catch (err) {
+    console.error('❌ Error en PUT /ows-news/updates:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+app.delete('/ows-news/updates/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const { rowCount } = await pool.query('DELETE FROM ows_news_updates WHERE id = $1', [id]);
+    if (rowCount === 0) return res.status(404).json({ error: 'Update no encontrado' });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('❌ Error en DELETE /ows-news/updates:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 /* ----------  APPBUX ENDPOINTS  ---------- */
 // Obtener balance de AppBux
 app.get('/ocean-pay/appbux/:userId', async (req, res) => {

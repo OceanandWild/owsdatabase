@@ -53,3 +53,13 @@ Se incluiran mas cosas luego, pero esto te ayudara a por lo menos entender como 
 
 - Sobre Ocean Pay
  Ocean Pay funciona bajo server.js, no local, es como un invento de como una pasarela de pago, aclarando esto por si se malintenciona el hecho de que me refiero a agregar un checkout o integracion de Ocean Pay a un proyecto
+
+- GESTIÓN DE OWS STORE (Central de Apps):
+  El sistema OWS Store centraliza la instalación virtual y actualización de proyectos web.
+  - Tabla DB: 'ows_projects'.
+  - Estados permitidos: 'launched' (disponible), 'unavailable' (mantenimiento), 'coming_soon' (próximamente).
+  - Fecha de Lanzamiento: Si un proyecto es 'coming_soon', definir 'release_date' (ISO string) para activar el contador regresivo.
+  - Sistema de Updates: Cada proyecto tiene una columna 'version' (ej: '1.2.5'). Al terminar una tarea, el agente DEBE incrementar esta versión en la DB para que los usuarios reciban el aviso de actualización en la OWS Store.
+  - Endpoints Clave:
+    - POST /ows-store/projects: Registrar/Editar proyecto.
+    - PATCH /ows-store/projects/:slug/version: Actualizar versión rápidamente.

@@ -843,19 +843,37 @@ async function runDatabaseMigrations() {
         created_at TIMESTAMP DEFAULT NOW()
       );
     `).catch(err => console.log('⚠️ Error creando ocean_pass:', err.message));
-
     // 16. Crear tabla ows_news_updates para automatización de News
     await pool.query(`
       CREATE TABLE IF NOT EXISTS ows_news_updates (
         id SERIAL PRIMARY KEY,
-        project_names TEXT[],
-        title VARCHAR(255) NOT NULL,
+        project_names TEXT[] DEFAULT '{}',
+        title VARCHAR(150) NOT NULL,
         description TEXT,
         changes TEXT,
-        update_date DATE DEFAULT CURRENT_DATE,
+        update_date TIMESTAMP DEFAULT NOW(),
         created_at TIMESTAMP DEFAULT NOW()
       );
     `).catch(err => console.log('⚠️ Error creando ows_news_updates:', err.message));
+
+    // 17. Crear tabla ows_projects para el Sistema OWS Store
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ows_projects(
+      id SERIAL PRIMARY KEY,
+      slug VARCHAR(50) UNIQUE NOT NULL,
+      name VARCHAR(100) NOT NULL,
+      description TEXT,
+      icon_url TEXT,
+      banner_url TEXT,
+      url TEXT NOT NULL,
+      version VARCHAR(20) DEFAULT '1.0.0',
+      status VARCHAR(20) DEFAULT 'launched', -- 'launched', 'unavailable', 'coming_soon'
+        release_date TIMESTAMP, --Para countdown en 'coming_soon'
+        last_update TIMESTAMP DEFAULT NOW(),
+      created_at TIMESTAMP DEFAULT NOW(),
+      metadata JSONB DEFAULT '{}' -- Para capturas, requisitos, tags, etc.
+      );
+    `).catch(err => console.log('⚠️ Error creando ows_projects:', err.message));
 
     // Migración: Asegurar columnas para Intercambio (Swap)
     await pool.query(`
@@ -1255,8 +1273,8 @@ app.post('/floret/products', upload.array('images'), async (req, res) => {
 
     const { rows } = await pool.query(`
       INSERT INTO floret_products(name, description, price, stock, condition, images, requires_size, sizes, measurements)
-      VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *
-    `, [
+    VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *
+      `, [
       name,
       description || '',
       price,
@@ -1272,8 +1290,8 @@ app.post('/floret/products', upload.array('images'), async (req, res) => {
     if (user.power_level === 1) {
       await pool.query(`
         UPDATE floret_admin_quotas 
-        SET uploads_today = uploads_today + 1, 
-            last_upload_time = COALESCE(last_upload_time, NOW()) 
+        SET uploads_today = uploads_today + 1,
+      last_upload_time = COALESCE(last_upload_time, NOW()) 
         WHERE user_id = $1
       `, [user.id]);
     }
@@ -1353,7 +1371,7 @@ const cleanOldWildTransferFiles = () => {
     // 24 horas = 86400000 ms
     if (age > 86400000) {
       fs.unlinkSync(filePath);
-      console.log(`🗑️ Wild Transfer: Archivo expirado eliminado: ${f}`);
+      console.log(`🗑️ Wild Transfer: Archivo expirado eliminado: ${f} `);
     }
   });
 };
@@ -1365,7 +1383,7 @@ app.use('/wild-transfer', express.static(join(__dirname, 'WildTransfer')));
 
 app.post('/api/wild-transfer/upload', wildTransferUpload.array('files', 10), (req, res) => {
   if (!req.files || req.files.length === 0) return res.status(400).json({ error: 'No se subieron archivos' });
-  console.log(`📤 ${req.files.length} archivos subidos a Wild Transfer con código ${req.sessionCode}`);
+  console.log(`📤 ${req.files.length} archivos subidos a Wild Transfer con código ${req.sessionCode} `);
   res.json({
     success: true,
     code: req.sessionCode,
@@ -1420,7 +1438,7 @@ app.get('/api/wild-transfer/download/:code', (req, res) => {
 
   // Si hay varios, no podemos descargar todos en un solo GET de navegador fácilmente sin ZIP
   // Así que redirigimos a la interfaz para que los vea
-  res.send(`Este código contiene ${sessionFiles.length} archivos. Por favor usa la interfaz de Wild Transfer para revisarlos.`);
+  res.send(`Este código contiene ${sessionFiles.length} archivos.Por favor usa la interfaz de Wild Transfer para revisarlos.`);
 });
 
 app.get('/api/wild-transfer/download-file/:filename', (req, res) => {
@@ -1482,7 +1500,7 @@ app.post('/ocean-pay/wildcredits/sync', async (req, res) => {
     // Intentar actualizar o insertar
     await pool.query(`
       INSERT INTO ocean_pay_metadata(user_id, key, value)
-      VALUES($1, 'wildcredits', $2)
+    VALUES($1, 'wildcredits', $2)
       ON CONFLICT(user_id, key) 
       DO UPDATE SET value = $2
       `, [userId, wildCreditsValue.toString()]);
@@ -1490,9 +1508,9 @@ app.post('/ocean-pay/wildcredits/sync', async (req, res) => {
     // ADICIONAL: Actualizar el balance en la tarjeta principal para que Ocean Pay lo vea de inmediato
     await pool.query(`
       UPDATE ocean_pay_cards 
-      SET balances = jsonb_set(COALESCE(balances, '{}'::jsonb), '{wildcredits}', to_jsonb($2::numeric))
+      SET balances = jsonb_set(COALESCE(balances, '{}':: jsonb), '{wildcredits}', to_jsonb($2:: numeric))
       WHERE user_id = $1 AND is_primary = true
-    `, [userId, wildCreditsValue]);
+      `, [userId, wildCreditsValue]);
 
     res.json({ success: true, wildcredits: wildCreditsValue });
   } catch (e) {
@@ -2467,11 +2485,11 @@ app.post('/wildweapon/mayhemcoins/sync', async (req, res) => {
 
     // Actualizar tabla SQL
     await client.query(`
-      INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
-      VALUES ($1, 'mayhemcoins', $2)
-      ON CONFLICT (card_id, currency_type)
+      INSERT INTO ocean_pay_card_balances(card_id, currency_type, amount)
+    VALUES($1, 'mayhemcoins', $2)
+      ON CONFLICT(card_id, currency_type)
       DO UPDATE SET amount = $2
-    `, [cardId, mcValue]);
+      `, [cardId, mcValue]);
 
     await client.query('COMMIT');
     res.json({ success: true, mayhemcoins: mcValue });
@@ -2506,7 +2524,7 @@ app.get('/wildweapon/mayhemcoins/balance', async (req, res) => {
       SELECT cb.amount FROM ocean_pay_card_balances cb
       JOIN ocean_pay_cards c ON cb.card_id = c.id
       WHERE c.user_id = $1 AND c.is_primary = true AND cb.currency_type = 'mayhemcoins'
-    `, [userId]);
+      `, [userId]);
 
     const mayhemcoins = rows.length > 0 ? parseFloat(rows[0].amount || 0) : 0;
     res.json({ mayhemcoins });
@@ -2576,17 +2594,17 @@ app.post('/wildweapon/mayhemcoins/change', async (req, res) => {
 
     // Actualizar tabla SQL
     await client.query(`
-      INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
-      VALUES ($1, 'mayhemcoins', $2)
-      ON CONFLICT (card_id, currency_type)
+      INSERT INTO ocean_pay_card_balances(card_id, currency_type, amount)
+    VALUES($1, 'mayhemcoins', $2)
+      ON CONFLICT(card_id, currency_type)
       DO UPDATE SET amount = $2
-    `, [cardId, newBalance]);
+      `, [cardId, newBalance]);
 
     // Registrar transacción
     await client.query(`
-      INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
-      VALUES ($1, $2, $3, $4, 'MC')
-    `, [userId, concepto, amount, origen]);
+      INSERT INTO ocean_pay_txs(user_id, concepto, monto, origen, moneda)
+    VALUES($1, $2, $3, $4, 'MC')
+      `, [userId, concepto, amount, origen]);
 
     await client.query('COMMIT');
     res.json({ success: true, newBalance });
@@ -2620,7 +2638,7 @@ app.get('/ocean-pay/ecoxionums/balance', async (req, res) => {
 
   try {
     const { rows } = await pool.query(`
-      SELECT balances->>'ecoxionums' as ecoxionums 
+      SELECT balances ->> 'ecoxionums' as ecoxionums 
       FROM ocean_pay_cards
       WHERE user_id = $1 AND is_primary = true
       `, [userId]);
@@ -2679,7 +2697,7 @@ app.post('/ocean-pay/currency/change', async (req, res) => {
           SELECT id, balances FROM ocean_pay_cards
           WHERE id = $1 AND user_id = $2
           FOR UPDATE
-        `, [cardId, targetUserId]);
+      `, [cardId, targetUserId]);
       if (rows.length === 0) {
         await client.query('ROLLBACK');
         return res.status(404).json({ error: 'Tarjeta no encontrada' });
@@ -2719,21 +2737,21 @@ app.post('/ocean-pay/currency/change', async (req, res) => {
           UPDATE ocean_pay_card_balances 
           SET amount = $1 
           WHERE card_id = $2 AND currency_type = $3
-        `, [newBalance, card.id, currKey]);
+      `, [newBalance, card.id, currKey]);
 
       if (rowCount === 0) {
         await client.query(`
-            INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
-            VALUES ($1, $2, $3)
-          `, [card.id, currKey, newBalance]);
+            INSERT INTO ocean_pay_card_balances(card_id, currency_type, amount)
+    VALUES($1, $2, $3)
+      `, [card.id, currKey, newBalance]);
       }
     }
 
     // Registrar transacción siempre
     await client.query(`
-      INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
-      VALUES ($1, $2, $3, $4, $5)
-    `, [targetUserId, concepto + (isExternal ? ' (Tarj. Externa)' : ''), change, origen, currKey]);
+      INSERT INTO ocean_pay_txs(user_id, concepto, monto, origen, moneda)
+    VALUES($1, $2, $3, $4, $5)
+      `, [targetUserId, concepto + (isExternal ? ' (Tarj. Externa)' : ''), change, origen, currKey]);
 
     await client.query('COMMIT');
     res.json({ success: true, balance: isExternal ? current : newBalance });
@@ -2764,7 +2782,7 @@ app.post('/ocean-pay/direct-card-pay', async (req, res) => {
       FROM ocean_pay_cards c
       WHERE c.card_number = $1 AND c.is_active = true
       FOR UPDATE
-    `, [cardNumber]);
+      `, [cardNumber]);
 
     if (rows.length === 0) {
       await client.query('ROLLBACK');
@@ -2794,12 +2812,12 @@ app.post('/ocean-pay/direct-card-pay', async (req, res) => {
 
     await client.query(`
       UPDATE ocean_pay_cards SET balances = $1 WHERE id = $2
-    `, [balances, card.id]);
+      `, [balances, card.id]);
 
     await client.query(`
-      INSERT INTO ocean_pay_txs (user_id, concepto, monto, moneda, origen)
-      VALUES ($1, $2, $3, $4, $5)
-    `, [card.user_id, concepto, -change, currKey.toUpperCase(), origen]);
+      INSERT INTO ocean_pay_txs(user_id, concepto, monto, moneda, origen)
+    VALUES($1, $2, $3, $4, $5)
+      `, [card.user_id, concepto, -change, currKey.toUpperCase(), origen]);
 
     await client.query('COMMIT');
     res.json({ success: true, newBalance, message: 'Pago procesado exitosamente.' });
@@ -2864,9 +2882,9 @@ app.get('/ocean-pay/pass/status', async (req, res) => {
 
         // Notificar al usuario
         await pool.query(`
-          INSERT INTO ocean_pay_notifications (user_id, title, message, type)
-          VALUES ($1, 'Ocean Pass Cancelado', 'No completaste las misiones a tiempo. Deuda de $500 generada.', 'error')
-        `, [userId]);
+          INSERT INTO ocean_pay_notifications(user_id, title, message, type)
+    VALUES($1, 'Ocean Pass Cancelado', 'No completaste las misiones a tiempo. Deuda de $500 generada.', 'error')
+      `, [userId]);
       }
     }
 
@@ -2907,11 +2925,11 @@ app.post('/ocean-pay/pass/activate', async (req, res) => {
     ];
 
     await pool.query(`
-      INSERT INTO ocean_pass (user_id, is_active, expiry, has_debt, debt_amount, missions, minutes_tracked)
-      VALUES ($1, true, $2, false, 0, $3, 0)
-      ON CONFLICT (user_id) DO UPDATE SET 
-          is_active = true, expiry = $2, has_debt = false, debt_amount = 0, missions = $3, minutes_tracked = 0
-    `, [userId, expiry, JSON.stringify(missions)]);
+      INSERT INTO ocean_pass(user_id, is_active, expiry, has_debt, debt_amount, missions, minutes_tracked)
+    VALUES($1, true, $2, false, 0, $3, 0)
+      ON CONFLICT(user_id) DO UPDATE SET
+    is_active = true, expiry = $2, has_debt = false, debt_amount = 0, missions = $3, minutes_tracked = 0
+      `, [userId, expiry, JSON.stringify(missions)]);
 
     res.json({ success: true, expiry, missions });
   } catch (e) {
@@ -3643,7 +3661,7 @@ app.post('/pos/complete', async (req, res) => {
     }
 
     if (currentBalance < requiredAmount) {
-      throw new Error(`Saldo insuficiente: Tienes ${currentBalance} ${currency.toUpperCase()} y necesitas ${requiredAmount}`);
+      throw new Error(`Saldo insuficiente: Tienes ${currentBalance} ${currency.toUpperCase()} y necesitas ${requiredAmount} `);
     }
 
     // 3. Descontar al Sender
@@ -12075,6 +12093,80 @@ app.delete('/ows-news/updates/:id', async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error('❌ Error en DELETE /ows-news/updates:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+/* ----------  OWS STORE SYSTEM (Projects Hub)  ---------- */
+// Obtener todos los proyectos
+app.get('/ows-store/projects', async (req, res) => {
+  try {
+    const { rows } = await pool.query('SELECT * FROM ows_projects ORDER BY status ASC, name ASC');
+    res.json(rows);
+  } catch (err) {
+    console.error('❌ Error en GET /ows-store/projects:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Obtener un proyecto específico por slug
+app.get('/ows-store/projects/:slug', async (req, res) => {
+  const { slug } = req.params;
+  try {
+    const { rows } = await pool.query('SELECT * FROM ows_projects WHERE slug = $1', [slug]);
+    if (rows.length === 0) return res.status(404).json({ error: 'Proyecto no encontrado' });
+    res.json(rows[0]);
+  } catch (err) {
+    console.error('❌ Error en GET /ows-store/projects/:slug:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Registrar o actualizar un proyecto (Upsert)
+app.post('/ows-store/projects', async (req, res) => {
+  const { slug, name, description, icon_url, banner_url, url, version, status, release_date, metadata } = req.body;
+  if (!slug || !name || !url) return res.status(400).json({ error: 'Faltan campos obligatorios (slug, name, url)' });
+
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO ows_projects (slug, name, description, icon_url, banner_url, url, version, status, release_date, metadata)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       ON CONFLICT (slug) DO UPDATE SET
+         name = EXCLUDED.name,
+         description = EXCLUDED.description,
+         icon_url = EXCLUDED.icon_url,
+         banner_url = EXCLUDED.banner_url,
+         url = EXCLUDED.url,
+         version = EXCLUDED.version,
+         status = EXCLUDED.status,
+         release_date = EXCLUDED.release_date,
+         metadata = ows_projects.metadata || EXCLUDED.metadata,
+         last_update = NOW()
+       RETURNING *`,
+      [slug, name, description, icon_url, banner_url, url, version || '1.0.0', status || 'launched', release_date, metadata || {}]
+    );
+    res.json({ success: true, project: rows[0] });
+  } catch (err) {
+    console.error('❌ Error en POST /ows-store/projects:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Actualizar versión rápidamente (Patch)
+app.patch('/ows-store/projects/:slug/version', async (req, res) => {
+  const { slug } = req.params;
+  const { version } = req.body;
+  if (!version) return res.status(400).json({ error: 'Versión requerida' });
+
+  try {
+    const { rows } = await pool.query(
+      'UPDATE ows_projects SET version = $1, last_update = NOW() WHERE slug = $2 RETURNING *',
+      [version, slug]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: 'Proyecto no encontrado' });
+    res.json({ success: true, project: rows[0] });
+  } catch (err) {
+    console.error('❌ Error en PATCH /ows-store/projects/:version:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });

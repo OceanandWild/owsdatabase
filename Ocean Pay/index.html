@@ -1621,17 +1621,17 @@
     }
 
     .assets-row-wild {
-      grid-template-columns: repeat(2, 1fr);
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
     }
 
     .assets-row-core {
-      grid-template-columns: repeat(3, 1fr);
-      gap: 1rem;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 1.5rem;
     }
 
     .assets-row-gaming {
-      grid-template-columns: repeat(3, 1fr);
-      gap: 1rem;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 1.5rem;
     }
 
     .asset-card-modern {
@@ -1764,7 +1764,15 @@
       margin-bottom: 0;
       display: block;
       letter-spacing: -0.5px;
-      overflow-wrap: break-word;
+      line-height: 1.1;
+    }
+
+    .asset-info-modern {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 2px;
+      min-width: 0;
     }
 
     .asset-footer-modern {
@@ -2004,8 +2012,9 @@
       }
 
       .assets-row-core,
-      .assets-row-gaming {
-        grid-template-columns: repeat(2, 1fr);
+      .assets-row-gaming,
+      .assets-row-wild {
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
       }
     }
 
@@ -2250,8 +2259,10 @@
                     <div class="asset-icon-container">
                       <canvas class="currency-canvas" data-currency="bux" width="44" height="44"></canvas>
                     </div>
-                    <span class="asset-name-modern">AquaBux</span>
-                    <span class="asset-balance-modern" id="bux">0</span>
+                    <div class="asset-info-modern">
+                      <span class="asset-name-modern">AquaBux</span>
+                      <span class="asset-balance-modern" id="bux">0</span>
+                    </div>
                     <div class="asset-footer-modern">
                       <span>Ocean Cinemas</span>
                       <span style="color:var(--accent)">Ocean</span>
@@ -2268,8 +2279,10 @@
                     <div class="asset-icon-container">
                       <canvas class="currency-canvas" data-currency="wildcredits" width="44" height="44"></canvas>
                     </div>
-                    <span class="asset-name-modern">WildCredits</span>
-                    <span class="asset-balance-modern" id="wildcredits">0</span>
+                    <div class="asset-info-modern">
+                      <span class="asset-name-modern">WildCredits</span>
+                      <span class="asset-balance-modern" id="wildcredits">0</span>
+                    </div>
                     <div class="asset-footer-modern">
                       <span>Wild Explorer</span>
                       <span style="color:var(--wild)">Wild</span>
@@ -2279,8 +2292,10 @@
                     <div class="asset-icon-container">
                       <canvas class="currency-canvas" data-currency="wildgems" width="44" height="44"></canvas>
                     </div>
-                    <span class="asset-name-modern">WildGems</span>
-                    <span class="asset-balance-modern" id="wildgems">0</span>
+                    <div class="asset-info-modern">
+                      <span class="asset-name-modern">WildGems</span>
+                      <span class="asset-balance-modern" id="wildgems">0</span>
+                    </div>
                     <div class="asset-footer-modern">
                       <span>WildShorts</span>
                       <span style="color:var(--gold)">Wild</span>
@@ -2297,8 +2312,10 @@
                     <div class="asset-icon-container">
                       <canvas class="currency-canvas" data-currency="ecoxionums" width="44" height="44"></canvas>
                     </div>
-                    <span class="asset-name-modern">Ecoxionums</span>
-                    <span class="asset-balance-modern" id="ecoxionums">0</span>
+                    <div class="asset-info-modern">
+                      <span class="asset-name-modern">Ecoxionums</span>
+                      <span class="asset-balance-modern" id="ecoxionums">0</span>
+                    </div>
                     <div class="asset-footer-modern">
                       <span>Ecoxion</span>
                       <span style="color:var(--ok)">Core</span>
@@ -2308,8 +2325,10 @@
                     <div class="asset-icon-container">
                       <canvas class="currency-canvas" data-currency="ecobits" width="44" height="44"></canvas>
                     </div>
-                    <span class="asset-name-modern">EcoCoreBits</span>
-                    <span class="asset-balance-modern" id="ecobits">0</span>
+                    <div class="asset-info-modern">
+                      <span class="asset-name-modern">EcoCoreBits</span>
+                      <span class="asset-balance-modern" id="ecobits">0</span>
+                    </div>
                     <div class="asset-footer-modern">
                       <span>EcoConsole</span>
                       <span style="color:var(--purple)">Core</span>
@@ -2320,8 +2339,10 @@
                     <div class="asset-icon-container">
                       <canvas class="currency-canvas" data-currency="ecobooks" width="44" height="44"></canvas>
                     </div>
-                    <span class="asset-name-modern">EcoBooks</span>
-                    <span class="asset-balance-modern" id="ecobooks">0</span>
+                    <div class="asset-info-modern">
+                      <span class="asset-name-modern">EcoBooks</span>
+                      <span class="asset-balance-modern" id="ecobooks">0</span>
+                    </div>
                     <div class="asset-footer-modern">
                       <span>Naturepedia</span>
                       <span style="color:var(--ok)">Knowledge</span>
@@ -2331,8 +2352,10 @@
                     <div class="asset-icon-container">
                       <canvas class="currency-canvas" data-currency="ecotokens" width="44" height="44"></canvas>
                     </div>
-                    <span class="asset-name-modern">EcoTokens</span>
-                    <span class="asset-balance-modern" id="ecotokens">0</span>
+                    <div class="asset-info-modern">
+                      <span class="asset-name-modern">EcoTokens</span>
+                      <span class="asset-balance-modern" id="ecotokens">0</span>
+                    </div>
                     <div class="asset-footer-modern">
                       <span>Wild Savage</span>
                       <span style="color:var(--ok)">Survival</span>
@@ -2349,8 +2372,10 @@
                     <div class="asset-icon-container">
                       <canvas class="currency-canvas" data-currency="nxb" width="44" height="44"></canvas>
                     </div>
-                    <span class="asset-name-modern">Nexus Bits</span>
-                    <span class="asset-balance-modern" id="nxb-balance" style="color: #f08a5d;">0</span>
+                    <div class="asset-info-modern">
+                      <span class="asset-name-modern">Nexus Bits</span>
+                      <span class="asset-balance-modern" id="nxb-balance" style="color: #f08a5d;">0</span>
+                    </div>
                     <div class="asset-footer-modern">
                       <span>PV Nexus</span>
                       <span style="color:#f08a5d">Gaming</span>
@@ -2360,8 +2385,10 @@
                     <div class="asset-icon-container">
                       <canvas class="currency-canvas" data-currency="amber" width="44" height="44"></canvas>
                     </div>
-                    <span class="asset-name-modern">Ambar</span>
-                    <span class="asset-balance-modern" id="amber" style="color: #fbbf24;">0</span>
+                    <div class="asset-info-modern">
+                      <span class="asset-name-modern">Ambar</span>
+                      <span class="asset-balance-modern" id="amber" style="color: #fbbf24;">0</span>
+                    </div>
                     <div class="asset-footer-modern">
                       <span>DinoBox</span>
                       <span style="color:#fbbf24">Prehistoric Assets</span>
@@ -2373,8 +2400,10 @@
                     <div class="asset-icon-container">
                       <canvas class="currency-canvas" data-currency="voltbit" width="44" height="44"></canvas>
                     </div>
-                    <span class="asset-name-modern">VoltBits</span>
-                    <span class="asset-balance-modern" id="voltbit" style="color: #00e5ff;">0</span>
+                    <div class="asset-info-modern">
+                      <span class="asset-name-modern">VoltBits</span>
+                      <span class="asset-balance-modern" id="voltbit" style="color: #00e5ff;">0</span>
+                    </div>
                     <div class="asset-footer-modern">
                       <span>Velocity Surge</span>
                       <span style="color:#00e5ff">Volt Network</span>
@@ -2385,8 +2414,10 @@
                     <div class="asset-icon-container">
                       <canvas class="currency-canvas" data-currency="appbux" width="44" height="44"></canvas>
                     </div>
-                    <span class="asset-name-modern">AppBux</span>
-                    <span class="asset-balance-modern" id="appbux">0</span>
+                    <div class="asset-info-modern">
+                      <span class="asset-name-modern">AppBux</span>
+                      <span class="asset-balance-modern" id="appbux">0</span>
+                    </div>
                     <div class="asset-footer-modern">
                       <span>AllApp</span>
                       <span style="color:var(--orange)">Gaming</span>
@@ -2398,8 +2429,10 @@
                     <div class="asset-icon-container">
                       <canvas class="currency-canvas" data-currency="mayhemcoins" width="44" height="44"></canvas>
                     </div>
-                    <span class="asset-name-modern">MayhemCoins</span>
-                    <span class="asset-balance-modern" id="mayhemcoins" style="color: #e040fb;">0</span>
+                    <div class="asset-info-modern">
+                      <span class="asset-name-modern">MayhemCoins</span>
+                      <span class="asset-balance-modern" id="mayhemcoins" style="color: #e040fb;">0</span>
+                    </div>
                     <div class="asset-footer-modern">
                       <span>WildWeapon Mayhem</span>
                       <span style="color:#e040fb">Mayhem Network</span>

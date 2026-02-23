@@ -910,7 +910,7 @@ async function runDatabaseMigrations() {
 
       if (cardResult && cardResult.rows[0]) {
         // Inicializar saldos para la nueva tarjeta
-        const currencies = ['aquabux', 'ecoxionums', 'ecorebits', 'wildcredits', 'wildgems', 'appbux', 'ecobooks', 'ecotokens', 'ecopower', 'amber', 'nxb', 'voltbit', 'mayhemcoins'];
+        const currencies = ['aquabux', 'ecoxionums', 'ecorebits', 'wildcredits', 'wildgems', 'appbux', 'ecobooks', 'ecotokens', 'ecopower', 'amber', 'nxb', 'voltbit', 'mayhemcoins', 'cosmicdust'];
         for (const curr of currencies) {
           const initialBalance = (curr === 'voltbit') ? 500 : (curr === 'ecopower' ? 100 : 0);
           await pool.query(
@@ -2440,6 +2440,105 @@ app.get('/wildshorts/wildgems/claims-status', async (req, res) => {
 });
 
 // Endpoint para pagar por episodio (pay-as-you-go)
+
+/* ===== SAVAGE SPACE ANIMALS - COSMIC DUST ===== */
+
+app.post('/ssa/cosmicdust/sync', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+
+  let userId;
+  try {
+    const token = authHeader.substring(7);
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    userId = parseInt(decoded.id || decoded.uid || decoded.sub) || (decoded.id || decoded.uid || decoded.sub);
+  } catch (e) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+
+  const raw = req.body?.cosmicdust;
+  if (raw === undefined || raw === null) {
+    return res.status(400).json({ error: 'cosmicdust requerido' });
+  }
+  const nextDust = Math.max(0, Math.floor(Number(raw) || 0));
+  const concept = String(req.body?.concept || 'Sincronizacion SSA');
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const { rows: cards } = await client.query(
+      'SELECT id, balances FROM ocean_pay_cards WHERE user_id = $1 AND is_primary = true FOR UPDATE',
+      [userId]
+    );
+    if (!cards.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'No se encontró tarjeta principal' });
+    }
+
+    const cardId = cards[0].id;
+    const balances = cards[0].balances || {};
+    balances.cosmicdust = nextDust;
+    await client.query('UPDATE ocean_pay_cards SET balances = $1 WHERE id = $2', [balances, cardId]);
+
+    await client.query(
+      `INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
+       VALUES ($1, 'cosmicdust', $2)
+       ON CONFLICT (card_id, currency_type) DO UPDATE SET amount = $2`,
+      [cardId, nextDust]
+    );
+
+    await client.query(
+      `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+       VALUES ($1, $2, 0, 'Savage Space Animals', 'CD')`,
+      [userId, `${concept} (saldo: ${nextDust})`]
+    );
+
+    await client.query('COMMIT');
+    res.json({ success: true, cosmicdust: nextDust });
+  } catch (e) {
+    await client.query('ROLLBACK');
+    console.error('Error en /ssa/cosmicdust/sync:', e);
+    res.status(500).json({ error: 'Error interno' });
+  } finally {
+    client.release();
+  }
+});
+
+app.get('/ssa/cosmicdust/balance', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+
+  let userId;
+  try {
+    const token = authHeader.substring(7);
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    userId = parseInt(decoded.id || decoded.uid || decoded.sub) || (decoded.id || decoded.uid || decoded.sub);
+  } catch (e) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+
+  try {
+    const { rows } = await pool.query(
+      `SELECT cb.amount
+       FROM ocean_pay_cards c
+       LEFT JOIN ocean_pay_card_balances cb
+         ON cb.card_id = c.id AND cb.currency_type = 'cosmicdust'
+       WHERE c.user_id = $1 AND c.is_primary = true
+       LIMIT 1`,
+      [userId]
+    );
+    const cosmicdust = rows.length > 0 ? Math.max(0, Math.floor(Number(rows[0].amount || 0))) : 0;
+    res.json({ cosmicdust });
+  } catch (e) {
+    console.error('Error en /ssa/cosmicdust/balance:', e);
+    res.json({ cosmicdust: 0 });
+  }
+});
 
 /* ===== WILDWEAPON MAYHEM - MAYHEMCOINS ===== */
 
@@ -11098,7 +11197,8 @@ app.post('/ocean-pay/register', async (req, res) => {
       { type: 'ecobooks', amount: 0 },
       { type: 'ecotokens', amount: 0 },
       { type: 'ecopower', amount: 100 },
-      { type: 'mayhemcoins', amount: 0 }
+      { type: 'mayhemcoins', amount: 0 },
+      { type: 'cosmicdust', amount: 0 }
     ];
 
     for (const curr of currencies) {
@@ -11182,7 +11282,8 @@ app.post('/ocean-pay/cards/create', async (req, res) => {
       { type: 'ecobooks', amount: 0 },
       { type: 'ecotokens', amount: 0 },
       { type: 'ecopower', amount: 100 },
-      { type: 'mayhemcoins', amount: 0 }
+      { type: 'mayhemcoins', amount: 0 },
+      { type: 'cosmicdust', amount: 0 }
     ];
 
     for (const curr of currencies) {

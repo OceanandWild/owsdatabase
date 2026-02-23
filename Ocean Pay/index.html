@@ -2438,6 +2438,20 @@
                       <span style="color:#e040fb">Mayhem Network</span>
                     </div>
                   </div>
+
+                  <div class="asset-card-modern" id="cosmicdust-card">
+                    <div class="asset-icon-container">
+                      <canvas class="currency-canvas" data-currency="cosmicdust" width="44" height="44"></canvas>
+                    </div>
+                    <div class="asset-info-modern">
+                      <span class="asset-name-modern">Polvora Cosmica</span>
+                      <span class="asset-balance-modern" id="cosmicdust" style="color:#ffb74d;">0</span>
+                    </div>
+                    <div class="asset-footer-modern">
+                      <span>Savage Space Animals</span>
+                      <span style="color:#ffb74d">SSA</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -3871,6 +3885,53 @@
       ctx.restore();
     }
 
+    function drawCosmicDustIcon(ctx, x, y, size) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.shadowBlur = size * 0.5;
+      ctx.shadowColor = "rgba(255, 180, 54, 0.75)";
+
+      const grad = ctx.createRadialGradient(-size * 0.12, -size * 0.12, size * 0.05, 0, 0, size * 0.5);
+      grad.addColorStop(0, "#fff7b0");
+      grad.addColorStop(0.35, "#ffd34f");
+      grad.addColorStop(1, "#ff8f1f");
+      const boxX = -size * 0.38;
+      const boxY = -size * 0.38;
+      const boxW = size * 0.76;
+      const boxH = size * 0.76;
+      const r = size * 0.15;
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.moveTo(boxX + r, boxY);
+      ctx.lineTo(boxX + boxW - r, boxY);
+      ctx.quadraticCurveTo(boxX + boxW, boxY, boxX + boxW, boxY + r);
+      ctx.lineTo(boxX + boxW, boxY + boxH - r);
+      ctx.quadraticCurveTo(boxX + boxW, boxY + boxH, boxX + boxW - r, boxY + boxH);
+      ctx.lineTo(boxX + r, boxY + boxH);
+      ctx.quadraticCurveTo(boxX, boxY + boxH, boxX, boxY + boxH - r);
+      ctx.lineTo(boxX, boxY + r);
+      ctx.quadraticCurveTo(boxX, boxY, boxX + r, boxY);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = "rgba(255,255,255,0.92)";
+      ctx.save();
+      ctx.rotate(Math.PI / 4);
+      ctx.fillRect(-size * 0.05, -size * 0.3, size * 0.1, size * 0.6);
+      ctx.fillRect(-size * 0.3, -size * 0.05, size * 0.6, size * 0.1);
+      ctx.restore();
+
+      ctx.fillStyle = "rgba(255,255,255,0.85)";
+      ctx.beginPath();
+      ctx.arc(size * 0.22, -size * 0.2, size * 0.06, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(-size * 0.2, size * 0.2, size * 0.05, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.restore();
+    }
+
     function drawEcoBooksIcon(ctx, x, y, size) {
       ctx.save();
       ctx.translate(x, y); ctx.shadowBlur = size * 0.4; ctx.shadowColor = "rgba(6, 182, 212, 0.5)";
@@ -3926,6 +3987,7 @@
           case 'nxb': drawNXBIcon(ctx, x, y, size * 0.8); break;
           case 'voltbit': drawVoltBitIcon(ctx, x, y, size * 0.8); break;
           case 'mayhemcoins': drawMayhemCoinsIcon(ctx, x, y, size * 0.8); break;
+          case 'cosmicdust': drawCosmicDustIcon(ctx, x, y, size * 0.8); break;
           default:
             ctx.fillStyle = "#fff"; ctx.font = "64px serif"; ctx.textAlign = "center";
             ctx.textBaseline = "middle"; ctx.fillText("💰", x, y);
@@ -3984,6 +4046,8 @@
       if (voltEl) voltEl.textContent = Math.round(balances.voltbit || 0).toLocaleString();
       const mcEl = qs('#mayhemcoins');
       if (mcEl) mcEl.textContent = Math.round(balances.mayhemcoins || 0).toLocaleString();
+      const cdEl = qs('#cosmicdust');
+      if (cdEl) cdEl.textContent = Math.round(balances.cosmicdust || 0).toLocaleString();
       qs('#ecopower-display').textContent = Math.round(balances.ecopower || 100);
 
       // Actualizar Resumen Lateral con info real del usuario
@@ -4011,17 +4075,17 @@
       const parity = {
         bux: 0.1, wildcredits: 0.5, wildgems: 10.0, ecoxionums: 1.0,
         nxb: 0.25, amber: 0.15, voltbit: 0.1, appbux: 0.05,
-        ecobooks: 0.5, ecobits: 2.0, ecotokens: 0.3, mayhemcoins: 0.08
+        ecobooks: 0.5, ecobits: 2.0, ecotokens: 0.3, mayhemcoins: 0.08, cosmicdust: 0.04
       };
 
       const currencyLabels = {
         bux: 'AquaBux', wildcredits: 'WildCredits', wildgems: 'WildGems',
         ecoxionums: 'Ecoxionums', 'nxb-balance': 'Nexus Bits', amber: 'Amber',
         voltbit: 'VoltBits', appbux: 'AppBux', ecobooks: 'EcoBooks',
-        ecobits: 'EcoCoreBits', ecotokens: 'EcoTokens', mayhemcoins: 'MayhemCoins'
+        ecobits: 'EcoCoreBits', ecotokens: 'EcoTokens', mayhemcoins: 'MayhemCoins', cosmicdust: 'Polvora Cosmica'
       };
 
-      const ids = ['bux', 'wildcredits', 'wildgems', 'ecoxionums', 'nxb-balance', 'amber', 'voltbit', 'appbux', 'ecobooks', 'ecobits', 'ecotokens', 'mayhemcoins'];
+      const ids = ['bux', 'wildcredits', 'wildgems', 'ecoxionums', 'nxb-balance', 'amber', 'voltbit', 'appbux', 'ecobooks', 'ecobits', 'ecotokens', 'mayhemcoins', 'cosmicdust'];
 
       let totalEX = 0;
       const breakdown = [];
@@ -5635,7 +5699,8 @@
         { id: 'ecobooks', name: 'EcoBooks', desc: 'Activo de conocimiento para desbloquear recursos en Naturepedia.', project: 'Naturepedia' },
         { id: 'ecobits', name: 'EcoCoreBits', desc: 'Unidades de procesamiento de datos para la infraestructura Core.', project: 'Tidal Core' },
         { id: 'ecotokens', name: 'EcoTokens', desc: 'Tokens de gobernanza para participar en decisiones de Wild Savage.', project: 'Wild Savage' },
-        { id: 'mayhemcoins', name: 'MayhemCoins', desc: 'Moneda caótica obtenida en WildWeapon Mayhem a través de combates y misiones.', project: 'WildWeapon Mayhem' }
+        { id: 'mayhemcoins', name: 'MayhemCoins', desc: 'Moneda caótica obtenida en WildWeapon Mayhem a través de combates y misiones.', project: 'WildWeapon Mayhem' },
+        { id: 'cosmicdust', name: 'Polvora Cosmica', desc: 'Recurso principal de Savage Space Animals para mejoras, compras y eventos.', project: 'Savage Space Animals' }
       ];
 
       container.innerHTML = currencies.map(c => {

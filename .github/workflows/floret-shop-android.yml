@@ -29,8 +29,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-          cache-dependency-path: "Floret Shop/package-lock.json"
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -40,7 +38,8 @@ jobs:
           cache: gradle
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          npm ci || npm install
 
       - name: Sync Capacitor
         run: npx cap sync android

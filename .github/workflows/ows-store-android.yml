@@ -8,6 +8,7 @@ on:
       - master
     paths:
       - "OWS Store/**"
+      - "OWS Store Electron/**"
       - ".github/workflows/ows-store-android.yml"
 
 permissions:

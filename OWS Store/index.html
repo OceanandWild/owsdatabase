@@ -3747,7 +3747,8 @@
         }
 
         async function fetchLatestAndroidReleaseFromStoreApi(slug, fallbackReleaseUrl = '') {
-            const res = await fetch(`${OWS_STORE_ANDROID_API_BASE}/releases/${encodeURIComponent(slug)}/latest`);
+            const cacheBust = Date.now();
+            const res = await fetch(`${OWS_STORE_ANDROID_API_BASE}/releases/${encodeURIComponent(slug)}/latest?nocache=${cacheBust}`);
             if (!res.ok) throw new Error(`OWS Android API ${res.status}`);
             const data = await res.json();
             const release = data?.release || null;

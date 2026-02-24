@@ -12360,6 +12360,9 @@ app.get('/ows-store/android/releases/:slug/latest', async (req, res) => {
       [slug]
     );
     if (rows.length === 0) return res.status(404).json({ error: 'Release Android no encontrada' });
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     res.json({ success: true, release: rows[0] });
   } catch (err) {
     console.error('❌ Error en GET /ows-store/android/releases/:slug/latest:', err);

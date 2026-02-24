@@ -163,8 +163,22 @@ jobs:
         run: |
           set -euo pipefail
           KS_PATH="$RUNNER_TEMP/ows-signing.jks"
-          echo "$ANDROID_SIGNING_KEY_BASE64" | base64 -d > "$KS_PATH"
-          keytool -list -keystore "$KS_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null
+          if ! echo "$ANDROID_SIGNING_KEY_BASE64" | base64 -d > "$KS_PATH"; then
+            echo "ANDROID_SIGNING_KEY_BASE64 no es un Base64 valido."
+            exit 1
+          fi
+          if ! keytool -list -keystore "$KS_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" >/dev/null 2>"$RUNNER_TEMP/ks-storepass-error.txt"; then
+            echo "ANDROID_KEYSTORE_PASSWORD invalido o keystore corrupto."
+            sed -n '1,5p' "$RUNNER_TEMP/ks-storepass-error.txt" || true
+            exit 1
+          fi
+          if ! keytool -list -keystore "$KS_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null 2>"$RUNNER_TEMP/ks-alias-error.txt"; then
+            echo "ANDROID_KEY_ALIAS no encontrado: $ANDROID_KEY_ALIAS"
+            echo "Aliases disponibles:"
+            keytool -list -keystore "$KS_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" | sed -n 's/,.*//p'
+            sed -n '1,5p' "$RUNNER_TEMP/ks-alias-error.txt" || true
+            exit 1
+          fi
           echo "SIGNING_KEYSTORE_PATH=$KS_PATH" >> "$GITHUB_ENV"
 
       - name: Sign release APK (optional)

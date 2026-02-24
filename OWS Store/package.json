@@ -6,6 +6,10 @@
   "author": "Ocean and Wild Studios",
   "license": "MIT",
   "dependencies": {
+    "@capawesome-team/capacitor-file-opener": "^8.0.1",
+    "@capacitor/core": "^8.1.0",
+    "@capacitor/file-transfer": "^2.0.4",
+    "@capacitor/filesystem": "^8.1.2",
     "electron-updater": "^6.1.7"
   },
   "scripts": {

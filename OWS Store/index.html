@@ -3051,14 +3051,15 @@
                             sessionIsApp: false,
                         });
                         if (!nativeResult?.ok) {
+                            const errorDetail = formatInstallErrorDetail(nativeResult, 'desconocido');
                             setRuntimeState(project.slug, { phase: 'idle', percent: 0, taskId: '' });
                             updateDownloadSession(item.key, {
                                 phase: 'error',
-                                status: 'Error instalando APK en app: ' + (nativeResult?.error || 'desconocido'),
+                                status: 'Error instalando APK en app: ' + errorDetail,
                             });
                             if (updatesStatus) updatesStatus.textContent = 'Error instalando APK de ' + project.name;
-                            addNotification('Error instalando APK de ' + project.name + ': ' + (nativeResult?.error || 'desconocido'), 'error');
-                            showActionMessage('Error instalando APK de ' + project.name + '.', { state: 'error' });
+                            addNotification('Error instalando APK de ' + project.name + ': ' + errorDetail, 'error');
+                            showActionMessage('Error instalando APK de ' + project.name + ': ' + errorDetail, { state: 'error' });
                             await refreshInstallationStates();
                             scheduleSectionRender({ projects: true, library: true, immediate: true });
                             activeInstallTaskKey = '';
@@ -3080,14 +3081,15 @@
                             expectedSize: Number(item.sizeBytes || 0),
                         });
                         if (!result?.ok) {
+                            const errorDetail = formatInstallErrorDetail(result, 'desconocido');
                             setRuntimeState(project.slug, { phase: 'idle', percent: 0, taskId: '' });
                             updateDownloadSession(item.key, {
                                 phase: 'error',
-                                status: 'Error al descargar APK: ' + (result?.error || 'desconocido'),
+                                status: 'Error al descargar APK: ' + errorDetail,
                             });
                             if (updatesStatus) updatesStatus.textContent = 'Error descargando APK de ' + project.name;
-                            addNotification('Error al descargar APK de ' + project.name + ': ' + (result?.error || 'desconocido'), 'error');
-                            showActionMessage('Error al descargar APK de ' + project.name + '.', { state: 'error' });
+                            addNotification('Error al descargar APK de ' + project.name + ': ' + errorDetail, 'error');
+                            showActionMessage('Error al descargar APK de ' + project.name + ': ' + errorDetail, { state: 'error' });
                             await refreshInstallationStates();
                             scheduleSectionRender({ projects: true, library: true, immediate: true });
                             activeInstallTaskKey = '';
@@ -3152,14 +3154,15 @@
                     expectedSize: Number(item.sizeBytes || 0),
                 });
                 if (!result?.ok) {
+                    const errorDetail = formatInstallErrorDetail(result, 'desconocido');
                     setRuntimeState(project.slug, { phase: 'idle', percent: 0, taskId: '' });
                     updateDownloadSession(item.key, {
                         phase: 'error',
-                        status: 'Error al instalar: ' + (result?.error || 'desconocido'),
+                        status: 'Error al instalar: ' + errorDetail,
                     });
                     if (updatesStatus) updatesStatus.textContent = 'Error instalando ' + project.name;
-                    addNotification('Error al instalar ' + project.name + ': ' + (result?.error || 'desconocido'), 'error');
-                    showActionMessage('Error al instalar ' + project.name + '.', { state: 'error' });
+                    addNotification('Error al instalar ' + project.name + ': ' + errorDetail, 'error');
+                    showActionMessage('Error al instalar ' + project.name + ': ' + errorDetail, { state: 'error' });
                     await refreshInstallationStates();
                     scheduleSectionRender({ projects: true, library: true, immediate: true });
                     activeInstallTaskKey = '';
@@ -4191,6 +4194,27 @@
             return String(cap?.getPlatform?.() || '').toLowerCase() === 'android';
         }
 
+        function formatInstallErrorDetail(err, fallback = 'desconocido') {
+            if (!err) return fallback;
+            if (typeof err === 'string') return err;
+            const chunks = [];
+            if (typeof err?.error === 'string' && err.error.trim()) chunks.push(err.error.trim());
+            if (typeof err?.message === 'string' && err.message.trim()) chunks.push(err.message.trim());
+            if (Array.isArray(err?.missingPlugins) && err.missingPlugins.length) {
+                chunks.push(`Plugins faltantes: ${err.missingPlugins.join(', ')}`);
+            }
+            if (Array.isArray(err?.availablePlugins) && err.availablePlugins.length) {
+                chunks.push(`Plugins disponibles: ${err.availablePlugins.join(', ')}`);
+            }
+            if (typeof err?.code === 'string' && err.code.trim()) chunks.push(`Codigo: ${err.code.trim()}`);
+            if (chunks.length) return chunks.join(' | ');
+            try {
+                return JSON.stringify(err);
+            } catch (_) {
+                return fallback;
+            }
+        }
+
         async function installAndroidApkInApp({
             url,
             fileName = 'ows-project.apk',
@@ -4208,7 +4232,21 @@
             const FileTransfer = getCapacitorPlugin('FileTransfer');
             const FileOpener = getCapacitorPlugin('FileOpener');
             if (!Filesystem || !FileTransfer || !FileOpener) {
-                return { ok: false, error: 'Plugins Android faltantes (Filesystem/FileTransfer/FileOpener).' };
+                const missingPlugins = [];
+                if (!Filesystem) missingPlugins.push('Filesystem');
+                if (!FileTransfer) missingPlugins.push('FileTransfer');
+                if (!FileOpener) missingPlugins.push('FileOpener');
+                const availablePlugins = Object.keys(window.Capacitor?.Plugins || {}).sort();
+                console.error('[OWS Store][Android] Plugins faltantes para instalar APK', {
+                    missingPlugins,
+                    availablePlugins,
+                });
+                return {
+                    ok: false,
+                    error: `Plugins Android faltantes (${missingPlugins.join(', ')}).`,
+                    missingPlugins,
+                    availablePlugins,
+                };
             }
 
             const safeNameBase = String(fileName || 'ows-project.apk').replace(/[^\w.\-]+/g, '-').replace(/-+/g, '-');
@@ -4309,7 +4347,18 @@
 
                 return { ok: true, path: downloadedPath };
             } catch (err) {
-                return { ok: false, error: err?.message || String(err || 'error desconocido') };
+                return {
+                    ok: false,
+                    error: err?.message || String(err || 'error desconocido'),
+                    code: err?.code || '',
+                    details: (() => {
+                        try {
+                            return JSON.stringify(err);
+                        } catch (_) {
+                            return '';
+                        }
+                    })(),
+                };
             } finally {
                 try {
                     await progressHandle?.remove?.();
@@ -5376,12 +5425,13 @@
                     sessionIsApp: true,
                 });
                 if (!result?.ok) {
+                    const errorDetail = formatInstallErrorDetail(result, 'desconocido');
                     updateDownloadSession(sessionKey, {
                         phase: 'error',
-                        status: 'Error instalando APK Android: ' + (result?.error || 'desconocido'),
+                        status: 'Error instalando APK Android: ' + errorDetail,
                     });
-                    addNotification('Error instalando APK de OWS Store Android: ' + (result?.error || 'desconocido'), 'error');
-                    showActionMessage('Error instalando APK de OWS Store Android.', { state: 'error' });
+                    addNotification('Error instalando APK de OWS Store Android: ' + errorDetail, 'error');
+                    showActionMessage('Error instalando APK de OWS Store Android: ' + errorDetail, { state: 'error' });
                     return;
                 }
                 updateDownloadSession(sessionKey, {

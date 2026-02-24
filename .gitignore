@@ -35,3 +35,19 @@ node_modules/
 !/.gitignore
 !/migrate_ebs.js
 !/implementation_summary.md
+
+# 5. FLORET SHOP (Android CI liviano)
+# Guardamos solo el nucleo web/config. El resto se genera en CI.
+Floret Shop/node_modules/
+Floret Shop/android/
+Floret Shop/.gradle/
+Floret Shop/www/
+Floret Shop/assets/
+Floret Shop/*.log
+Floret Shop/**/.DS_Store
+
+!Floret Shop/
+!Floret Shop/index.html
+!Floret Shop/package.json
+!Floret Shop/package-lock.json
+!Floret Shop/capacitor.config.json

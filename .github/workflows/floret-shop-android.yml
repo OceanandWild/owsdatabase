@@ -53,6 +53,30 @@ jobs:
           cd "$APP_DIR"
           npm ci || npm install
 
+      - name: Prepare web and android platform
+        shell: bash
+        run: |
+          cd "$APP_DIR"
+
+          # If webDir does not exist, build a minimal web bundle from root index.html.
+          if [ ! -d "www" ]; then
+            mkdir -p www
+          fi
+          if [ ! -f "www/index.html" ] && [ -f "index.html" ]; then
+            cp index.html www/index.html
+          fi
+
+          if [ ! -f "www/index.html" ]; then
+            echo "No se encontro index.html para generar webDir (www/index.html)."
+            ls -la
+            exit 1
+          fi
+
+          # Add platform in CI if it is not committed.
+          if [ ! -d "android" ]; then
+            npx cap add android
+          fi
+
       - name: Sync Capacitor
         shell: bash
         run: |

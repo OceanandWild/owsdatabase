@@ -51,3 +51,18 @@ Floret Shop/**/.DS_Store
 !Floret Shop/package.json
 !Floret Shop/package-lock.json
 !Floret Shop/capacitor.config.json
+
+# 6. OWS STORE (Android CI liviano)
+OWS Store/node_modules/
+OWS Store/android/
+OWS Store/.gradle/
+OWS Store/www/
+OWS Store/assets/
+OWS Store/*.log
+OWS Store/**/.DS_Store
+
+!OWS Store/
+!OWS Store/index.html
+!OWS Store/package.json
+!OWS Store/package-lock.json
+!OWS Store/capacitor.config.json

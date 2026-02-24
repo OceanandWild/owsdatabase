@@ -1,0 +1,103 @@
+name: OWS Store Android Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - "OWS Store/**"
+      - ".github/workflows/ows-store-android.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve project directory
+        shell: bash
+        run: |
+          if [ -d "OWS Store" ]; then
+            echo "APP_DIR=OWS Store" >> "$GITHUB_ENV"
+          elif [ -d "OWSStore" ]; then
+            echo "APP_DIR=OWSStore" >> "$GITHUB_ENV"
+          else
+            echo "No se encontro la carpeta del proyecto (OWS Store / OWSStore)."
+            echo "Directorios disponibles en raiz:"
+            ls -la
+            exit 1
+          fi
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          cd "$APP_DIR"
+          npm ci || npm install
+
+      - name: Prepare web and android platform
+        shell: bash
+        run: |
+          cd "$APP_DIR"
+
+          if [ ! -d "www" ]; then
+            mkdir -p www
+          fi
+
+          if [ ! -f "www/index.html" ] && [ -f "index.html" ]; then
+            cp index.html www/index.html
+          fi
+
+          if [ ! -f "www/index.html" ]; then
+            echo "No se encontro index.html para generar webDir (www/index.html)."
+            ls -la
+            exit 1
+          fi
+
+          if [ ! -d "android" ]; then
+            npx cap add android
+          fi
+
+      - name: Sync Capacitor
+        shell: bash
+        run: |
+          cd "$APP_DIR"
+          npx cap sync android
+
+      - name: Build Android release artifacts (unsigned)
+        shell: bash
+        run: |
+          cd "$APP_DIR/android"
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleRelease bundleRelease
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ows-store-apk-release-unsigned
+          path: "${{ env.APP_DIR }}/android/app/build/outputs/apk/release/app-release-unsigned.apk"
+          if-no-files-found: error
+
+      - name: Upload AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ows-store-aab-release-unsigned
+          path: "${{ env.APP_DIR }}/android/app/build/outputs/bundle/release/app-release.aab"
+          if-no-files-found: error

@@ -3031,6 +3031,44 @@
                 requestRenderDownloadSurfaces({ immediate: true });
                 await sleep(120);
 
+                if (item.platform === 'android') {
+                    if (updatesStatus) updatesStatus.textContent = 'Iniciando descarga APK de ' + project.name + '...';
+                    setRuntimeState(project.slug, { phase: 'launching', percent: 100, taskId: `install_${project.slug}` });
+                    updateDownloadSession(item.key, {
+                        phase: 'launching',
+                        percent: 100,
+                        status: 'Abriendo instalador Android...',
+                        downloadedBytes: Number(item.sizeBytes || 0),
+                        etaSeconds: 0,
+                    });
+                    showActionMessage('Abriendo instalador Android de ' + project.name + '...', {
+                        sticky: true,
+                        state: 'downloading',
+                        title: project.name,
+                        showProgress: true,
+                    });
+                    openExternal(item.url);
+                    localStorage.setItem(`installed_${project.slug}`, item.versionName || project.version || 'latest');
+                    localStorage.setItem(`installed_platform_${project.slug}`, 'android');
+                    if (Number.isFinite(Number(item.versionCode)) && Number(item.versionCode) > 0) {
+                        localStorage.setItem(`installed_version_code_${project.slug}`, String(item.versionCode));
+                    }
+                    setRuntimeState(project.slug, { phase: 'installed', percent: 100, taskId: '' });
+                    updateDownloadSession(item.key, {
+                        phase: 'done',
+                        percent: 100,
+                        status: 'APK abierto. Completa la instalacion en Android.',
+                    });
+                    if (updatesStatus) updatesStatus.textContent = 'APK abierto para ' + project.name;
+                    addNotification('APK abierto para ' + project.name + '. Completa la instalacion en Android.', 'success');
+                    showActionMessage('APK abierto para ' + project.name + '.', { state: 'ready' });
+                    await refreshInstallationStates();
+                    scheduleSectionRender({ projects: true, library: true, immediate: true });
+                    activeInstallTaskKey = '';
+                    syncQueueMarkers();
+                    continue;
+                }
+
                 if (!window.owsUpdater?.installExternalInstaller) {
                     updateDownloadSession(item.key, { phase: 'error', status: 'Updater no disponible para instalar externo.' });
                     setRuntimeState(project.slug, { phase: 'idle', percent: 0, taskId: '' });
@@ -3062,6 +3100,8 @@
                     continue;
                 }
                 localStorage.setItem(`installed_${project.slug}`, project.version || 'latest');
+                localStorage.setItem(`installed_platform_${project.slug}`, 'windows');
+                localStorage.removeItem(`installed_version_code_${project.slug}`);
                 setRuntimeState(project.slug, { phase: 'installed', percent: 100, taskId: '' });
                 updateDownloadSession(item.key, {
                     phase: 'done',
@@ -3869,9 +3909,7 @@
             }
 
             if (supportsAndroidDownloads(project)) {
-                const releaseUrl = project.android_release_url || FLORET_RELEASES_URL || '';
                 const apkUrl = project.android_apk_url || '';
-                const aabUrl = project.android_aab_url || '';
                 targets.push({
                     id: 'android-apk',
                     kind: 'android',
@@ -3883,30 +3921,6 @@
                     available: Boolean(apkUrl),
                     pending: !apkUrl,
                 });
-                targets.push({
-                    id: 'android-aab',
-                    kind: 'android',
-                    label: 'Android (AAB)',
-                    actionLabel: 'Descargar AAB',
-                    url: aabUrl,
-                    sizeBytes: Number(project.android_aab_size || 0),
-                    version: project.android_version || project.version || '',
-                    available: Boolean(aabUrl),
-                    pending: !aabUrl,
-                });
-                if (releaseUrl) {
-                    targets.push({
-                        id: 'android-release-page',
-                        kind: 'android',
-                        label: 'Android (Releases)',
-                        actionLabel: 'Abrir releases',
-                        url: releaseUrl,
-                        sizeBytes: 0,
-                        version: project.android_version || project.version || '',
-                        available: true,
-                        pending: false,
-                    });
-                }
             }
             return targets;
         }
@@ -4110,6 +4124,10 @@
             return localStorage.getItem(`installed_${slug}`) || '';
         }
 
+        function getInstalledPlatform(slug) {
+            return localStorage.getItem(`installed_platform_${slug}`) || '';
+        }
+
         function getInstallHints(project) {
             const slug = String(project?.slug || '').toLowerCase();
             const name = String(project?.name || '').trim();
@@ -4270,6 +4288,8 @@
                 card.className = 'app-card';
                 const metaVersion = state.version || p.version || '1.0.0';
                 const installDate = (isWildWeaponProject(p) || isSSAProject(p) || isOceanPayProject(p) || isFloretProject(p)) && p.last_update_at ? formatDateTime(p.last_update_at) : 'Sin datos';
+                const installedPlatform = getInstalledPlatform(p.slug);
+                const openLabel = installedPlatform === 'android' ? 'Abrir APK' : 'Abrir';
                 const statusLabel = isQueued
                     ? 'EN COLA'
                     : (isPreparing ? 'PREPARANDO' : (isDownloading ? `DESCARGANDO ${Math.round(runtime.percent || 0)}%` : 'INSTALADO'));
@@ -4283,7 +4303,7 @@
                         <button class="btn-install full" style="background:#b96700;" onclick="cancelInstallFromLibrary('${p.slug}')"><i class="fas fa-ban"></i> Cancelar instalacion</button>
                     </div>`
                     : `<div class="library-actions">
-                        <button class="btn-install" onclick="launchFromLibrary('${p.slug}')"><i class="fas fa-play"></i> Abrir</button>
+                        <button class="btn-install" onclick="launchFromLibrary('${p.slug}')"><i class="fas fa-play"></i> ${openLabel}</button>
                         <button class="btn-install" style="background:linear-gradient(90deg,var(--brand-2),#2aa0a6);" onclick="reinstallFromLibrary('${p.slug}')"><i class="fas fa-rotate"></i> ${updateInfo.needsUpdate ? 'Actualizar' : 'Reinstalar'}</button>
                         <button class="btn-install full" style="background:#2b2e37;" onclick="uninstallFromLibrary('${p.slug}')"><i class="fas fa-trash"></i> Desinstalar</button>
                     </div>`;
@@ -4379,12 +4399,10 @@
             else if (isExternal) {
                 if (selectedIsAndroid) {
                     if (!selectedTarget?.available || !selectedTarget?.url) {
-                        btnText = '<i class="fas fa-clock"></i> APK/AAB PENDIENTE';
+                        btnText = '<i class="fas fa-clock"></i> APK PENDIENTE';
                         btnClass += ' unavailable';
                     } else {
-                        btnText = selectedTarget.id === 'android-aab'
-                            ? '<i class="fas fa-mobile-screen-button"></i> DESCARGAR AAB'
-                            : '<i class="fas fa-mobile-screen-button"></i> DESCARGAR APK';
+                        btnText = '<i class="fas fa-mobile-screen-button"></i> DESCARGAR APK';
                     }
                 } else if (selectedIsWindows) {
                     if (p.pending_release || p.installer_available === false) {
@@ -4447,9 +4465,36 @@
                         showActionMessage(warningText);
                         return;
                     }
-                    addNotification(`Abriendo descarga ${selectedTarget.label} de ${project.name}.`, 'neutral');
-                    showActionMessage(`Abriendo ${selectedTarget.label} de ${project.name}...`, { state: 'info' });
-                    openExternal(selectedTarget.url);
+                    const updatesStatus = document.getElementById('updates-project-status');
+                    if (updatesStatus) updatesStatus.textContent = 'Descargando APK de ' + project.name + '...';
+                    addNotification('Iniciando instalacion Android de ' + project.name + '...', 'neutral');
+                    showActionMessage('Agregando ' + project.name + ' a la cola de instalacion Android...', { state: 'info' });
+                    const queueKey = getDownloadKeyForProject(project);
+                    const queueItem = {
+                        key: queueKey,
+                        slug: project.slug,
+                        platform: 'android',
+                        url: selectedTarget.url,
+                        targetLabel: selectedTarget.label || 'Android (APK)',
+                        sizeBytes: Number(selectedTarget.sizeBytes || project.android_apk_size || 0),
+                        versionName: selectedTarget.version || project.version || 'latest',
+                        versionCode: Number(project.android_version_code || 0),
+                    };
+                    projectInstallQueue.push(queueItem);
+                    setRuntimeState(project.slug, { phase: 'queued', percent: 0, taskId: `install_${project.slug}` });
+                    updateDownloadSession(queueKey, {
+                        name: project.name,
+                        slug: project.slug,
+                        icon: getProjectIcon(project, 64),
+                        phase: 'queued',
+                        percent: 0,
+                        status: 'En cola para descargar APK...',
+                        sizeBytes: Number(queueItem.sizeBytes || 0),
+                        isApp: false,
+                    });
+                    scheduleSectionRender({ projects: true, library: true, immediate: false });
+                    syncQueueMarkers();
+                    processProjectInstallQueue();
                     return;
                 }
 
@@ -4541,6 +4586,20 @@
             if (!project) return;
             if (isExternalInstallerProject(project)) {
                 const state = installStateBySlug[slug] || {};
+                const installedPlatform = getInstalledPlatform(slug);
+                const androidTarget = getProjectInstallTargets(project).find((t) => t.id === 'android-apk' && t.url);
+                const shouldUseAndroid = installedPlatform === 'android' || (!state.exePath && Boolean(androidTarget));
+                if (shouldUseAndroid) {
+                    if (!androidTarget?.url) {
+                        addNotification('No se encontro APK para ' + project.name + '.', 'warning');
+                        showActionMessage('No se encontro APK para ' + project.name + '.');
+                        return;
+                    }
+                    openExternal(androidTarget.url);
+                    addNotification('Abriendo APK de ' + project.name + '...', 'neutral');
+                    showActionMessage('Abriendo APK de ' + project.name + '...', { state: 'info' });
+                    return;
+                }
                 if (!state.exePath) {
                     addNotification('No se encontro ejecutable instalado para ' + project.name + '.', 'warning');
                     showActionMessage('No se encontro ejecutable instalado para ' + project.name + '.');
@@ -4600,6 +4659,8 @@
             if (!project) return;
             uninstallSuppressedBySlug[slug] = true;
             localStorage.removeItem(`installed_${slug}`);
+            localStorage.removeItem(`installed_platform_${slug}`);
+            localStorage.removeItem(`installed_version_code_${slug}`);
             installStateBySlug[slug] = { ...(installStateBySlug[slug] || {}), installed: false, version: '' };
             scheduleSectionRender({ projects: true, library: true, immediate: true });
             const state = installStateBySlug[slug] || {};

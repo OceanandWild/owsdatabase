@@ -61,6 +61,7 @@ jobs:
         run: |
           cd "$APP_DIR"
           npm ci || npm install
+          npm install --no-save @capacitor/assets@latest
 
       - name: Prepare web and android platform
         shell: bash
@@ -84,6 +85,17 @@ jobs:
           # Add platform in CI if it is not committed.
           if [ ! -d "android" ]; then
             npx cap add android
+          fi
+
+          mkdir -p resources
+          if [ -f "assets/floretshopicon.png" ]; then
+            cp -f "assets/floretshopicon.png" "resources/icon.png"
+          elif [ -f "build/icon.png" ]; then
+            cp -f "build/icon.png" "resources/icon.png"
+          fi
+
+          if [ -f "resources/icon.png" ]; then
+            npx --yes @capacitor/assets generate --android
           fi
 
       - name: Sync Capacitor

@@ -1,0 +1,107 @@
+name: Promote Action Artifact To Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: "GitHub Actions run ID de origen"
+        required: true
+        type: string
+      artifact_name:
+        description: "Nombre del artifact (usa este o artifact_id)"
+        required: false
+        type: string
+      artifact_id:
+        description: "ID numerico del artifact (opcional, preferido si lo tienes)"
+        required: false
+        type: string
+      release_tag:
+        description: "Tag del Release destino (debe ser unico)"
+        required: true
+        type: string
+      release_name:
+        description: "Nombre visible del Release"
+        required: true
+        type: string
+      release_notes:
+        description: "Notas / changelog del Release"
+        required: false
+        type: string
+      mark_latest:
+        description: "Marcar como latest"
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+      prerelease:
+        description: "Publicar como prerelease"
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+      target_repository:
+        description: "Repo destino owner/name (default: OceanandWild/floretshop)"
+        required: true
+        default: "OceanandWild/floretshop"
+        type: string
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Validate inputs
+        shell: bash
+        run: |
+          if [ -z "${{ inputs.artifact_name }}" ] && [ -z "${{ inputs.artifact_id }}" ]; then
+            echo "Debes indicar artifact_name o artifact_id."
+            exit 1
+          fi
+
+      - name: Download artifact by ID
+        if: ${{ inputs.artifact_id != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ inputs.source_run_id }}
+          artifact-ids: ${{ inputs.artifact_id }}
+          github-token: ${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }}
+          path: promoted-artifact
+
+      - name: Download artifact by name
+        if: ${{ inputs.artifact_id == '' && inputs.artifact_name != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ inputs.source_run_id }}
+          name: ${{ inputs.artifact_name }}
+          github-token: ${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }}
+          path: promoted-artifact
+
+      - name: Show downloaded files
+        shell: bash
+        run: |
+          echo "Contenido descargado:"
+          find promoted-artifact -type f -maxdepth 5 -print
+
+      - name: Publish release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          repository: ${{ inputs.target_repository }}
+          tag_name: ${{ inputs.release_tag }}
+          name: ${{ inputs.release_name }}
+          body: ${{ inputs.release_notes }}
+          draft: false
+          prerelease: ${{ inputs.prerelease == 'true' }}
+          make_latest: ${{ inputs.mark_latest }}
+          files: |
+            promoted-artifact/**/*
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }}

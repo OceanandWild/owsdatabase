@@ -1942,6 +1942,15 @@
                         <div class="stat-label">Tiempo Estimado</div>
                         <div class="stat-value" id="updates-eta">-</div>
                     </div>
+                    <div class="stat-box">
+                        <div class="stat-label">OWS Store Android</div>
+                        <div class="stat-value" style="display:flex; flex-direction:column; gap:0.55rem;">
+                            <span style="font-size:0.82rem; color:var(--ink-soft);">Descarga directa APK/AAB (artifact)</span>
+                            <button class="btn-install" style="width:auto; padding:0.55rem 0.8rem;" onclick="openStoreAndroidDownload()">
+                                <i class="fas fa-mobile-screen-button"></i> Descargar Android
+                            </button>
+                        </div>
+                    </div>
                 </div>
                 <div class="section-title">Actualizaciones de Proyectos</div>
                 <div id="project-updates-list" style="display:flex; flex-direction:column; gap:0.6rem; margin-bottom:1rem;">
@@ -1962,8 +1971,9 @@
         const SSA_RELEASES_API_URL = 'https://api.github.com/repos/OceanandWild/savagespaceanimals/releases/latest';
         const OCEAN_PAY_RELEASES_URL = 'https://github.com/OceanandWild/oceanpay/releases/';
         const OCEAN_PAY_RELEASES_API_URL = 'https://api.github.com/repos/OceanandWild/oceanpay/releases/latest';
-        const FLORET_RELEASES_URL = 'https://github.com/OceanandWild/floretshop/releases/latest';
-        const FLORET_RELEASES_API_URL = 'https://api.github.com/repos/OceanandWild/floretshop/releases/latest';
+        const OWS_STORE_ANDROID_DOWNLOAD_URL = 'https://github.com/OceanandWild/owsdatabase/actions/runs/22334632748/artifacts/5628368739';
+        const FLORET_RELEASES_URL = 'https://github.com/OceanandWild/floretshop/releases';
+        const FLORET_RELEASES_API_URL = 'https://api.github.com/repos/OceanandWild/floretshop/releases?per_page=50';
         const FLORET_ARTIFACTS_URL = 'https://github.com/OceanandWild/owsdatabase/actions/runs/22334179560/artifacts/5628212719';
         const SSA_LOCAL_ICON = './build/ssa.ico?v=20260223-0443';
         const OCEAN_PAY_LOCAL_ICON = './build/oceanpay.ico?v=20260223-1825';
@@ -1992,7 +2002,7 @@
             platform: 'android,windows',
             install_type: 'external',
             installer_url: '',
-            android_release_url: FLORET_ARTIFACTS_URL,
+            android_release_url: FLORET_RELEASES_URL,
             android_apk_url: FLORET_ARTIFACTS_URL,
             description: 'Marketplace de Floret. Descarga Android disponible; Windows en progreso.',
             icon_url: FLORET_LOCAL_ICON
@@ -3472,24 +3482,65 @@
                 });
                 if (!res.ok) throw new Error(`GitHub API ${res.status}`);
                 const data = await res.json();
-                const assets = Array.isArray(data.assets) ? data.assets : [];
-                const versionFromTag = String(data.tag_name || '').replace(/^v/i, '');
-                const exeAsset = assets.find(a => typeof a?.name === 'string' && /\.exe$/i.test(a.name)) || null;
-                const apkAsset = assets.find(a => typeof a?.name === 'string' && /\.apk$/i.test(a.name)) || null;
-                const aabAsset = assets.find(a => typeof a?.name === 'string' && /\.aab$/i.test(a.name)) || null;
+                const releases = Array.isArray(data) ? data : [];
+                const isFloretRelease = (rel) => {
+                    const tag = String(rel?.tag_name || '').toLowerCase();
+                    const name = String(rel?.name || '').toLowerCase();
+                    return tag.includes('floret') || name.includes('floret');
+                };
+
+                const candidates = releases
+                    .filter((rel) => !rel?.draft)
+                    .filter(isFloretRelease);
+
+                const pool = (candidates.length ? candidates : releases.filter((rel) => !rel?.draft))
+                    .sort((a, b) => {
+                        const at = Date.parse(a?.published_at || a?.created_at || '') || 0;
+                        const bt = Date.parse(b?.published_at || b?.created_at || '') || 0;
+                        return bt - at;
+                    });
+
+                const selectedRelease = pool[0] || null;
+                if (!selectedRelease) throw new Error('No hay releases disponibles para Floret Shop.');
+
+                const assets = Array.isArray(selectedRelease.assets) ? selectedRelease.assets : [];
+                const pickAsset = (extRegex) => {
+                    const options = assets
+                        .filter(a => typeof a?.name === 'string' && extRegex.test(a.name))
+                        .map((a) => ({
+                            asset: a,
+                            hasFloretName: /floret/i.test(String(a?.name || '')),
+                            updatedAtMs: Date.parse(a?.updated_at || '') || 0
+                        }))
+                        .sort((x, y) => {
+                            if (x.hasFloretName !== y.hasFloretName) return x.hasFloretName ? -1 : 1;
+                            return y.updatedAtMs - x.updatedAtMs;
+                        });
+                    return options[0]?.asset || null;
+                };
+
+                const exeAsset = pickAsset(/\.exe$/i);
+                const apkAsset = pickAsset(/\.apk$/i);
+                const aabAsset = pickAsset(/\.aab$/i);
+                const versionFromTag = String(selectedRelease.tag_name || '').replace(/^v/i, '');
+                const releaseUrl = selectedRelease.html_url || FLORET_RELEASES_URL;
+                const warning = (!apkAsset && !aabAsset)
+                    ? 'Release de Floret sin APK/AAB adjunto. Usa el enlace de artifacts temporal.'
+                    : '';
 
                 const payload = {
                     version: versionFromTag || extractVersionFromText(exeAsset?.name || apkAsset?.name || aabAsset?.name || ''),
                     installerUrl: exeAsset?.browser_download_url || '',
                     installerSize: Number(exeAsset?.size || 0),
                     installerAvailable: Boolean(exeAsset?.browser_download_url),
-                    androidApkUrl: apkAsset?.browser_download_url || FLORET_ARTIFACTS_URL,
+                    androidApkUrl: apkAsset?.browser_download_url || releaseUrl || FLORET_ARTIFACTS_URL,
                     androidApkSize: Number(apkAsset?.size || 0),
-                    androidAabUrl: aabAsset?.browser_download_url || '',
+                    androidAabUrl: aabAsset?.browser_download_url || releaseUrl || '',
                     androidAabSize: Number(aabAsset?.size || 0),
-                    androidAvailable: Boolean(apkAsset?.browser_download_url || aabAsset?.browser_download_url || FLORET_ARTIFACTS_URL),
-                    publishedAt: data.published_at || data.created_at || null,
-                    warning: '',
+                    androidAvailable: Boolean(apkAsset?.browser_download_url || aabAsset?.browser_download_url || releaseUrl || FLORET_ARTIFACTS_URL),
+                    releaseUrl,
+                    publishedAt: selectedRelease.published_at || selectedRelease.created_at || null,
+                    warning,
                     checkedAt: now,
                 };
                 floretProjectReleaseCache = payload;
@@ -3502,9 +3553,10 @@
                     installerAvailable: false,
                     androidApkUrl: FLORET_ARTIFACTS_URL,
                     androidApkSize: 0,
-                    androidAabUrl: '',
+                    androidAabUrl: FLORET_ARTIFACTS_URL,
                     androidAabSize: 0,
                     androidAvailable: true,
+                    releaseUrl: FLORET_ARTIFACTS_URL,
                     publishedAt: null,
                     warning: 'Usando enlace de artifacts temporal mientras llega la release final.',
                     checkedAt: now,
@@ -3761,6 +3813,7 @@
                     const latest = await fetchLatestFloretRelease();
                     if (latest?.version) floret.version = latest.version;
                     if (latest?.installerUrl) floret.installer_url = latest.installerUrl;
+                    if (latest?.releaseUrl) floret.android_release_url = latest.releaseUrl;
                     if (latest?.androidApkUrl) floret.android_apk_url = latest.androidApkUrl;
                     if (latest?.androidAabUrl) floret.android_aab_url = latest.androidAabUrl;
                     floret.installer_size = Number(latest?.installerSize || 0);
@@ -4747,6 +4800,10 @@
         }
         function installUpdate() {
             if (window.owsUpdater?.installUpdate) window.owsUpdater.installUpdate();
+        }
+
+        function openStoreAndroidDownload() {
+            openExternal(OWS_STORE_ANDROID_DOWNLOAD_URL);
         }
 
         function initSearch() {

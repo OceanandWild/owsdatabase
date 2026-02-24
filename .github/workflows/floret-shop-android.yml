@@ -90,12 +90,17 @@ jobs:
           mkdir -p resources
           if [ -f "assets/floretshopicon.png" ]; then
             cp -f "assets/floretshopicon.png" "resources/icon.png"
+            cp -f "assets/floretshopicon.png" "resources/icon-only.png"
+            cp -f "assets/floretshopicon.png" "resources/icon-foreground.png"
           elif [ -f "build/icon.png" ]; then
             cp -f "build/icon.png" "resources/icon.png"
+            cp -f "build/icon.png" "resources/icon-only.png"
+            cp -f "build/icon.png" "resources/icon-foreground.png"
           fi
 
           if [ -f "resources/icon.png" ]; then
             npx --yes @capacitor/assets generate --android
+            ls -la android/app/src/main/res/mipmap-* || true
           fi
 
       - name: Sync Capacitor

@@ -4143,6 +4143,26 @@
 
         function openExternal(url) {
             if (!url) return;
+            const isApkUrl = /\.apk(?:$|[?#])/i.test(String(url));
+            const isNativeRuntime = Boolean(window.Capacitor?.isNativePlatform?.());
+            if (isApkUrl && isNativeRuntime) {
+                try {
+                    const anchor = document.createElement('a');
+                    anchor.href = url;
+                    anchor.download = '';
+                    anchor.rel = 'noopener noreferrer';
+                    anchor.target = '_self';
+                    document.body.appendChild(anchor);
+                    anchor.click();
+                    anchor.remove();
+                    return;
+                } catch (_) {
+                    try {
+                        window.location.assign(url);
+                        return;
+                    } catch (_) {}
+                }
+            }
             if (window.owsUpdater?.openExternalUrl) {
                 window.owsUpdater.openExternalUrl(url);
                 return;
@@ -4630,6 +4650,10 @@
                     if (!androidTarget?.url) {
                         addNotification('No se encontro APK para ' + project.name + '.', 'warning');
                         showActionMessage('No se encontro APK para ' + project.name + '.');
+                        return;
+                    }
+                    if (window.owsUpdater?.installExternalInstaller) {
+                        await handleProjectAction({ stopPropagation: () => {} }, project);
                         return;
                     }
                     openExternal(androidTarget.url);

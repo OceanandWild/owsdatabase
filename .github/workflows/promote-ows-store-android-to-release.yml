@@ -1,0 +1,101 @@
+name: Promote OWS Store Android Artifact To Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: "GitHub Actions run ID que contiene el artifact Android"
+        required: true
+        type: string
+      artifact_id:
+        description: "Artifact ID (opcional si usas artifact_name)"
+        required: false
+        type: string
+      artifact_name:
+        description: "Artifact name (ej. ows-store-apk-release-unsigned)"
+        required: false
+        type: string
+      release_tag:
+        description: "Tag unico del release (ej. ows-store-android-v2026.02.24-001)"
+        required: true
+        type: string
+      release_name:
+        description: "Nombre del release"
+        required: true
+        type: string
+      release_notes:
+        description: "Notas/changelog"
+        required: false
+        type: string
+      mark_latest:
+        description: "Marcar release como latest"
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+      prerelease:
+        description: "Publicar como prerelease"
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate inputs
+        shell: bash
+        run: |
+          if [ -z "${{ inputs.artifact_id }}" ] && [ -z "${{ inputs.artifact_name }}" ]; then
+            echo "Debes indicar artifact_id o artifact_name."
+            exit 1
+          fi
+
+      - name: Download artifact by ID
+        if: ${{ inputs.artifact_id != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ inputs.source_run_id }}
+          artifact-ids: ${{ inputs.artifact_id }}
+          github-token: ${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }}
+          path: promoted-android
+
+      - name: Download artifact by name
+        if: ${{ inputs.artifact_id == '' && inputs.artifact_name != '' }}
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ inputs.source_run_id }}
+          name: ${{ inputs.artifact_name }}
+          github-token: ${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }}
+          path: promoted-android
+
+      - name: List files
+        shell: bash
+        run: |
+          echo "Files to release:"
+          find promoted-android -type f -maxdepth 6 -print
+
+      - name: Publish to owsdatabase releases
+        uses: softprops/action-gh-release@v2
+        with:
+          repository: OceanandWild/owsdatabase
+          tag_name: ${{ inputs.release_tag }}
+          name: ${{ inputs.release_name }}
+          body: ${{ inputs.release_notes }}
+          draft: false
+          prerelease: ${{ inputs.prerelease == 'true' }}
+          make_latest: ${{ inputs.mark_latest }}
+          files: |
+            promoted-android/**/*
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }}

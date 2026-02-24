@@ -999,11 +999,11 @@
             font-size: 1.14rem;
             font-weight: 700;
             margin-bottom: 0.25rem;
-            color: #23242a;
+            color: var(--ink);
         }
 
         .app-meta {
-            color: #6f7280;
+            color: var(--ink-soft);
             font-size: 0.82rem;
             margin-bottom: 0.4rem;
             display: flex;
@@ -1036,6 +1036,11 @@
             background: #ece3d7;
             color: #888;
             cursor: not-allowed;
+        }
+
+        body[data-theme="dark"] .btn-install.unavailable {
+            background: #263243;
+            color: #8ca0bc;
         }
 
         .btn-install.coming-soon {
@@ -1075,6 +1080,11 @@
             z-index: 10;
             color: #473326;
             backdrop-filter: blur(2px);
+        }
+
+        body[data-theme="dark"] .progress-overlay {
+            background: rgba(14, 23, 36, 0.92);
+            color: #d9e6fb;
         }
 
         .progress-bar-container {
@@ -1502,6 +1512,69 @@
             flex-direction: column;
             gap: 0.72rem;
             margin-bottom: 1rem;
+        }
+
+        .info-note-card {
+            background: #fff;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 0.7rem 0.85rem;
+            color: var(--ink-soft);
+        }
+
+        .project-update-card {
+            background: #fff;
+            border: 1px solid var(--line);
+            border-left: 4px solid var(--brand-2);
+            border-radius: 10px;
+            padding: 0.7rem 0.85rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.6rem;
+        }
+
+        .project-update-title {
+            font-weight: 800;
+            color: var(--ink);
+        }
+
+        .project-update-meta {
+            font-size: 0.8rem;
+            color: var(--ink-soft);
+        }
+
+        .notification-card {
+            --tone-color: var(--brand-2);
+            background: #fff;
+            border: 1px solid var(--line);
+            border-left: 4px solid var(--tone-color);
+            border-radius: 10px;
+            padding: 0.7rem 0.85rem;
+        }
+
+        .notification-time {
+            font-size: 0.82rem;
+            color: var(--ink-soft);
+        }
+
+        .notification-text {
+            font-weight: 700;
+            margin-top: 0.15rem;
+            color: var(--ink);
+        }
+
+        .android-release-meta {
+            font-size: 0.75rem;
+            color: var(--ink-soft);
+            line-height: 1.35;
+        }
+
+        body[data-theme="dark"] .info-note-card,
+        body[data-theme="dark"] .project-update-card,
+        body[data-theme="dark"] .notification-card {
+            background: linear-gradient(180deg, #121b2a 0%, #101827 100%);
+            border-color: var(--line);
         }
 
         .download-item {
@@ -1945,7 +2018,7 @@
                     <div class="stat-box">
                         <div class="stat-label">OWS Store Android</div>
                         <div class="stat-value" style="display:flex; flex-direction:column; gap:0.55rem;">
-                            <span style="font-size:0.82rem; color:var(--ink-soft);">Descarga directa APK/AAB (artifact)</span>
+                            <span id="ows-android-release-meta" class="android-release-meta">Buscando release Android...</span>
                             <button class="btn-install" style="width:auto; padding:0.55rem 0.8rem;" onclick="openStoreAndroidDownload()">
                                 <i class="fas fa-mobile-screen-button"></i> Descargar Android
                             </button>
@@ -1954,7 +2027,7 @@
                 </div>
                 <div class="section-title">Actualizaciones de Proyectos</div>
                 <div id="project-updates-list" style="display:flex; flex-direction:column; gap:0.6rem; margin-bottom:1rem;">
-                    <div style="background:#fff; border:1px solid var(--line); border-radius:10px; padding:0.7rem 0.85rem; color:var(--ink-soft);">No hay actualizaciones pendientes.</div>
+                    <div class="info-note-card">No hay actualizaciones pendientes.</div>
                 </div>
                 <div class="section-title">Notificaciones</div>
                 <div id="notifications-list" style="display:flex; flex-direction:column; gap:0.6rem;"></div>
@@ -1971,7 +2044,8 @@
         const SSA_RELEASES_API_URL = 'https://api.github.com/repos/OceanandWild/savagespaceanimals/releases/latest';
         const OCEAN_PAY_RELEASES_URL = 'https://github.com/OceanandWild/oceanpay/releases/';
         const OCEAN_PAY_RELEASES_API_URL = 'https://api.github.com/repos/OceanandWild/oceanpay/releases/latest';
-        const OWS_STORE_ANDROID_DOWNLOAD_URL = 'https://github.com/OceanandWild/owsdatabase/actions/runs/22334632748/artifacts/5628368739';
+        const OWS_STORE_ANDROID_ARTIFACT_FALLBACK_URL = 'https://github.com/OceanandWild/owsdatabase/actions/runs/22334632748/artifacts/5628368739';
+        const OWS_STORE_RELEASES_API_URL = 'https://api.github.com/repos/OceanandWild/owsdatabase/releases?per_page=50';
         const FLORET_RELEASES_URL = 'https://github.com/OceanandWild/floretshop/releases';
         const FLORET_RELEASES_API_URL = 'https://api.github.com/repos/OceanandWild/floretshop/releases?per_page=50';
         const FLORET_ARTIFACTS_URL = 'https://github.com/OceanandWild/owsdatabase/actions/runs/22334179560/artifacts/5628212719';
@@ -2017,6 +2091,7 @@
         let ssaReleaseCache = null;
         let oceanPayProjectReleaseCache = null;
         let floretProjectReleaseCache = null;
+        let owsStoreAndroidReleaseCache = null;
         let allProjects = [];
         const notificationLog = [];
         let lastExternalStatusNotification = '';
@@ -2057,6 +2132,13 @@
         const projectUpdateNotified = new Set();
         const externalProgressUiState = {};
         const selectedInstallTargetBySlug = {};
+        const owsStoreAndroidState = {
+            downloadUrl: OWS_STORE_ANDROID_ARTIFACT_FALLBACK_URL,
+            version: '',
+            sizeBytes: 0,
+            publishedAt: null,
+            source: 'artifact'
+        };
 
         function applyTheme(theme) {
             const mode = theme === 'dark' ? 'dark' : 'light';
@@ -2921,9 +3003,9 @@
             list.innerHTML = notificationLog.map((item) => {
                 const stamp = item.at.toLocaleTimeString();
                 const color = colorMap[item.tone] || colorMap.neutral;
-                return `<div style="background:#fff; border:1px solid var(--line); border-left:4px solid ${color}; border-radius:10px; padding:0.7rem 0.85rem;">
-                    <div style="font-size:0.82rem; color:var(--ink-soft);">${stamp}</div>
-                    <div style="font-weight:700; margin-top:0.15rem;">${item.text}</div>
+                return `<div class="notification-card" style="--tone-color:${color};">
+                    <div class="notification-time">${stamp}</div>
+                    <div class="notification-text">${item.text}</div>
                 </div>`;
             }).join('');
         }
@@ -3206,15 +3288,15 @@
                 const appHint = appUpdateAvailable
                     ? `<div style="margin-top:0.5rem; color:var(--brand-2);">Hay una actualizacion de OWS Store disponible en el banner superior.</div>`
                     : '';
-                list.innerHTML = `<div style="background:#fff; border:1px solid var(--line); border-radius:10px; padding:0.7rem 0.85rem; color:var(--ink-soft);">No hay actualizaciones pendientes de proyectos.${appHint}</div>`;
+                list.innerHTML = `<div class="info-note-card">No hay actualizaciones pendientes de proyectos.${appHint}</div>`;
                 return;
             }
 
             list.innerHTML = updates.map(({ project, info }) => `
-                <div style="background:#fff; border:1px solid var(--line); border-left:4px solid var(--brand-2); border-radius:10px; padding:0.7rem 0.85rem; display:flex; align-items:center; justify-content:space-between; gap:0.6rem;">
+                <div class="project-update-card">
                     <div>
-                        <div style="font-weight:800;">${project.name}</div>
-                        <div style="font-size:0.8rem; color:var(--ink-soft);">v${info.installedVersion} -> v${info.latestVersion}</div>
+                        <div class="project-update-title">${project.name}</div>
+                        <div class="project-update-meta">v${info.installedVersion} -> v${info.latestVersion}</div>
                     </div>
                     <button class="btn-install" style="width:auto; padding:0.55rem 0.8rem;" onclick="reinstallFromLibrary('${project.slug}')"><i class="fas fa-arrow-up"></i> Actualizar</button>
                 </div>
@@ -3564,6 +3646,93 @@
                 floretProjectReleaseCache = fallback;
                 return fallback;
             }
+        }
+
+        async function fetchLatestOWSStoreAndroidRelease() {
+            const now = Date.now();
+            if (owsStoreAndroidReleaseCache && (now - owsStoreAndroidReleaseCache.checkedAt) < 120000) {
+                return owsStoreAndroidReleaseCache;
+            }
+
+            try {
+                const res = await fetch(OWS_STORE_RELEASES_API_URL, {
+                    headers: { 'Accept': 'application/vnd.github+json' }
+                });
+                if (!res.ok) throw new Error(`GitHub API ${res.status}`);
+                const data = await res.json();
+                const releases = Array.isArray(data) ? data : [];
+
+                const filtered = releases
+                    .filter((rel) => !rel?.draft && !rel?.prerelease)
+                    .map((rel) => {
+                        const assets = Array.isArray(rel.assets) ? rel.assets : [];
+                        const apk = assets.find((a) => typeof a?.name === 'string' && /\.apk$/i.test(a.name)) || null;
+                        const aab = assets.find((a) => typeof a?.name === 'string' && /\.aab$/i.test(a.name)) || null;
+                        const tag = String(rel?.tag_name || '').toLowerCase();
+                        const name = String(rel?.name || '').toLowerCase();
+                        const isAndroidTagged = tag.includes('android') || name.includes('android');
+                        const isStoreTagged = tag.includes('ows-store') || name.includes('ows store');
+                        return {
+                            release: rel,
+                            apk,
+                            aab,
+                            score: (isStoreTagged ? 4 : 0) + (isAndroidTagged ? 3 : 0) + (apk ? 2 : 0) + (aab ? 1 : 0)
+                        };
+                    })
+                    .filter((x) => x.score > 0)
+                    .sort((a, b) => {
+                        if (a.score !== b.score) return b.score - a.score;
+                        const at = Date.parse(a.release?.published_at || a.release?.created_at || '') || 0;
+                        const bt = Date.parse(b.release?.published_at || b.release?.created_at || '') || 0;
+                        return bt - at;
+                    });
+
+                const selected = filtered[0] || null;
+                if (!selected) throw new Error('No se encontro release Android de OWS Store.');
+
+                const downloadAsset = selected.apk || selected.aab || null;
+                const payload = {
+                    version: String(selected.release?.tag_name || '').replace(/^v/i, ''),
+                    downloadUrl: downloadAsset?.browser_download_url || selected.release?.html_url || OWS_STORE_ANDROID_ARTIFACT_FALLBACK_URL,
+                    sizeBytes: Number(downloadAsset?.size || 0),
+                    publishedAt: selected.release?.published_at || selected.release?.created_at || null,
+                    source: downloadAsset ? 'release-asset' : 'release-page',
+                    checkedAt: now
+                };
+                owsStoreAndroidReleaseCache = payload;
+                return payload;
+            } catch (err) {
+                const fallback = {
+                    version: '',
+                    downloadUrl: OWS_STORE_ANDROID_ARTIFACT_FALLBACK_URL,
+                    sizeBytes: 0,
+                    publishedAt: null,
+                    source: 'artifact',
+                    checkedAt: now
+                };
+                owsStoreAndroidReleaseCache = fallback;
+                return fallback;
+            }
+        }
+
+        function renderOWSStoreAndroidMeta() {
+            const meta = document.getElementById('ows-android-release-meta');
+            if (!meta) return;
+            const versionText = owsStoreAndroidState.version ? `Tag ${owsStoreAndroidState.version}` : 'Tag sin resolver';
+            const sizeText = owsStoreAndroidState.sizeBytes > 0 ? formatByteSize(owsStoreAndroidState.sizeBytes) : '-';
+            const dateText = owsStoreAndroidState.publishedAt ? formatDateTime(owsStoreAndroidState.publishedAt) : 'sin fecha';
+            const sourceText = owsStoreAndroidState.source === 'artifact' ? 'source: artifact fallback' : 'source: release';
+            meta.textContent = `${versionText} | ${sizeText} | ${dateText} | ${sourceText}`;
+        }
+
+        async function refreshStoreAndroidReleaseLink() {
+            const payload = await fetchLatestOWSStoreAndroidRelease();
+            owsStoreAndroidState.downloadUrl = payload?.downloadUrl || OWS_STORE_ANDROID_ARTIFACT_FALLBACK_URL;
+            owsStoreAndroidState.version = payload?.version || '';
+            owsStoreAndroidState.sizeBytes = Number(payload?.sizeBytes || 0);
+            owsStoreAndroidState.publishedAt = payload?.publishedAt || null;
+            owsStoreAndroidState.source = payload?.source || 'artifact';
+            renderOWSStoreAndroidMeta();
         }
 
         function formatDateTime(value) {
@@ -4803,7 +4972,7 @@
         }
 
         function openStoreAndroidDownload() {
-            openExternal(OWS_STORE_ANDROID_DOWNLOAD_URL);
+            openExternal(owsStoreAndroidState.downloadUrl || OWS_STORE_ANDROID_ARTIFACT_FALLBACK_URL);
         }
 
         function initSearch() {
@@ -4817,17 +4986,22 @@
 
         window.onload = () => {
             initTheme();
+            renderOWSStoreAndroidMeta();
             initOceanPayStore();
             renderDownloadSurfaces();
             loadProjects();
             initBrandCycle();
             initUpdater();
+            refreshStoreAndroidReleaseLink().catch(() => {
+                renderOWSStoreAndroidMeta();
+            });
             initSearch();
             setInterval(() => {
                 if (document.hidden) return;
                 checkProjectUpdatesAndNotify().then(() => {
                     scheduleSectionRender({ projects: true, library: true, immediate: false });
                 }).catch(() => {});
+                refreshStoreAndroidReleaseLink().catch(() => {});
             }, 120000);
         };
 

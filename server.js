@@ -12367,6 +12367,47 @@ app.get('/ows-store/android/releases/:slug/latest', async (req, res) => {
   }
 });
 
+// Descargar APK Android de la ultima release publicada (proxy para evitar bloqueos de navegador)
+app.get('/ows-store/android/releases/:slug/latest/download', async (req, res) => {
+  const { slug } = req.params;
+  try {
+    const { rows } = await pool.query(
+      `SELECT *
+       FROM ows_android_releases
+       WHERE project_slug = $1
+         AND status = 'published'
+       ORDER BY version_code DESC, published_at DESC, id DESC
+       LIMIT 1`,
+      [slug]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: 'Release Android no encontrada' });
+    const release = rows[0];
+    const sourceUrl = String(release.apk_url || '').trim();
+    if (!sourceUrl) return res.status(404).json({ error: 'Release Android sin apk_url' });
+
+    const upstream = await fetch(sourceUrl, { redirect: 'follow' });
+    if (!upstream.ok) {
+      return res.status(502).json({ error: `No se pudo obtener APK desde origen (${upstream.status})` });
+    }
+
+    const filename = `${slug}-${release.version_name || release.version_code || 'latest'}.apk`
+      .replace(/[^\w.\-]+/g, '-')
+      .replace(/-+/g, '-');
+    const contentType = upstream.headers.get('content-type') || 'application/vnd.android.package-archive';
+    const contentLength = upstream.headers.get('content-length');
+    const payload = Buffer.from(await upstream.arrayBuffer());
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Cache-Control', 'no-store');
+    if (contentLength) res.setHeader('Content-Length', contentLength);
+    return res.status(200).send(payload);
+  } catch (err) {
+    console.error('❌ Error en GET /ows-store/android/releases/:slug/latest/download:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 // Listar releases Android (opcionalmente por slug)
 app.get('/ows-store/android/releases', async (req, res) => {
   const slug = String(req.query.slug || '').trim();

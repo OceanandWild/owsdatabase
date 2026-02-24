@@ -2149,7 +2149,7 @@
         const FLORET_RELEASES_URL = 'https://github.com/OceanandWild/floretshop/releases';
         const SSA_LOCAL_ICON = './build/ssa.ico?v=20260223-0443';
         const OCEAN_PAY_LOCAL_ICON = './build/oceanpay.ico?v=20260223-1825';
-        const FLORET_LOCAL_ICON = './build/floretshop.ico?v=20260224-0010';
+        const FLORET_LOCAL_ICON = 'https://raw.githubusercontent.com/OceanandWild/owsdatabase/main/Floret%20Shop/assets/floretshopicon.png?v=20260224-1938';
         const STORE_LOCAL_ICON = './build/icon.ico?v=20260223-0452';
         const STORE_DOWNLOAD_KEY = '__ows_store_update__';
         const STORE_THEME_KEY = 'ows_store_theme';
@@ -3752,11 +3752,13 @@
             const data = await res.json();
             const release = data?.release || null;
             if (!release) throw new Error('Release Android sin payload.');
+            const proxyDownloadUrl = `${OWS_STORE_ANDROID_API_BASE}/releases/${encodeURIComponent(slug)}/latest/download`;
             return {
                 version: release.version_name || '',
                 versionCode: Number(release.version_code || 0),
                 packageId: release.package_id || '',
-                downloadUrl: release.apk_url || fallbackReleaseUrl || '',
+                downloadUrl: release.apk_url ? proxyDownloadUrl : (fallbackReleaseUrl || ''),
+                directDownloadUrl: release.apk_url || '',
                 sizeBytes: Number(release.size_bytes || 0),
                 sha256: release.sha256 || '',
                 minStoreVersion: release.min_store_version || '',

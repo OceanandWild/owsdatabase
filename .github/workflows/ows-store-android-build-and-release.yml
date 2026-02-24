@@ -15,14 +15,6 @@ on:
         description: "Changelog / notas del release"
         required: false
         type: string
-      mark_latest:
-        description: "Marcar release como latest"
-        required: true
-        default: "false"
-        type: choice
-        options:
-          - "false"
-          - "true"
       prerelease:
         description: "Publicar como prerelease"
         required: true
@@ -182,7 +174,7 @@ jobs:
           body: ${{ inputs.release_notes }}
           draft: false
           prerelease: ${{ inputs.prerelease == 'true' }}
-          make_latest: ${{ inputs.mark_latest }}
+          make_latest: false
           files: |
             release-assets/**/*
           fail_on_unmatched_files: true

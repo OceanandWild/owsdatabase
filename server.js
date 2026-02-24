@@ -1152,28 +1152,61 @@ async function getFloretQuota(userId) {
 
 // Login
 app.post('/floret/login', async (req, res) => {
-  const { username, password } = req.body;
-  if (!username || !password) {
-    return res.status(400).json({ error: 'Usuario y contraseña son requeridos' });
+  const { username, password, identifier, email } = req.body;
+  const loginId = String(identifier || username || email || '').trim();
+  if (!loginId || !password) {
+    return res.status(400).json({ error: 'Usuario/email y contrase\u00f1a son requeridos' });
   }
   try {
-    const { rows } = await pool.query('SELECT * FROM floret_users WHERE username = $1', [username]);
+    const { rows } = await pool.query(
+      "SELECT * FROM floret_users WHERE LOWER(username) = LOWER($1) OR LOWER(COALESCE(email, '')) = LOWER($1) LIMIT 1",
+      [loginId]
+    );
     if (rows.length === 0) {
-      return res.status(401).json({ error: 'Usuario no encontrado' });
+      return res.status(401).json({ error: 'Usuario o email no encontrado' });
     }
     const valid = await bcrypt.compare(password, rows[0].password);
     if (!valid) {
-      return res.status(401).json({ error: 'Contraseña incorrecta' });
+      return res.status(401).json({ error: 'Contrase\u00f1a incorrecta' });
     }
-    const { id, email, created_at, is_admin, power_level } = rows[0];
-    res.json({ success: true, user: { id, username, email, created_at, is_admin, power_level } });
+    const { id, email: accountEmail, created_at, is_admin, power_level } = rows[0];
+    res.json({ success: true, user: { id, username: rows[0].username, email: accountEmail, created_at, is_admin, power_level } });
   } catch (e) {
     console.error('Error en login Floret:', e);
     res.status(500).json({ error: 'Error interno' });
   }
 });
 
+app.post('/floret/reset-password', async (req, res) => {
+  const { identifier, email, newPassword } = req.body || {};
+  const loginId = String(identifier || '').trim();
+  const safeEmail = String(email || '').trim();
+  const safePass = String(newPassword || '');
 
+  if (!loginId || !safeEmail || !safePass) {
+    return res.status(400).json({ error: 'Completa usuario/email, email y nueva contrase\u00f1a' });
+  }
+  if (safePass.length < 8) {
+    return res.status(400).json({ error: 'La nueva contrase\u00f1a debe tener al menos 8 caracteres' });
+  }
+
+  try {
+    const { rows } = await pool.query(
+      "SELECT id FROM floret_users WHERE (LOWER(username) = LOWER($1) OR LOWER(COALESCE(email, '')) = LOWER($1)) AND LOWER(COALESCE(email, '')) = LOWER($2) LIMIT 1",
+      [loginId, safeEmail]
+    );
+    if (!rows.length) {
+      return res.status(404).json({ error: 'No se encontro una cuenta que coincida con esos datos' });
+    }
+
+    const hashed = await bcrypt.hash(safePass, 10);
+    await pool.query('UPDATE floret_users SET password = $1 WHERE id = $2', [hashed, rows[0].id]);
+    res.json({ success: true, message: 'Contrasena actualizada' });
+  } catch (e) {
+    console.error('Error en reset de contrasena Floret:', e);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
 // Endpoint para crear preferencia de MercadoPago
 app.post('/floret/create_preference', async (req, res) => {
   try {
@@ -20003,3 +20036,4 @@ httpServer.listen(PORT, '0.0.0.0', () => {
     }, 5000); // Esperar 5 segundos después del inicio
   }
 });
+

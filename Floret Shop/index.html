@@ -638,6 +638,75 @@
             border-color: var(--pri)
         }
 
+        .auth-hint {
+            font-size: 0.78rem;
+            color: var(--muted);
+            margin-top: -6px;
+            margin-bottom: 10px;
+        }
+
+        .auth-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-top: 8px;
+            margin-bottom: 10px;
+        }
+
+        .auth-check {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--muted);
+            font-size: 0.82rem;
+        }
+
+        .auth-link-btn {
+            border: none;
+            background: transparent;
+            color: var(--pri);
+            font-weight: 700;
+            cursor: pointer;
+            font-size: 0.82rem;
+            padding: 0;
+        }
+
+        .auth-link-btn:hover {
+            text-decoration: underline;
+        }
+
+        .pass-wrap {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 10px;
+            padding: 0 10px;
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .pass-wrap .frm-inp {
+            border: none !important;
+            background: transparent !important;
+            box-shadow: none !important;
+            padding-left: 0;
+            padding-right: 0;
+        }
+
+        .pass-toggle {
+            border: none;
+            background: transparent;
+            color: var(--muted);
+            cursor: pointer;
+            font-size: 0.85rem;
+            padding: 0;
+        }
+
+        .pass-toggle:hover {
+            color: #fff;
+        }
+
         @media (max-width: 768px) {
             .cart-panel {
                 max-width: 100%;
@@ -1216,7 +1285,26 @@
         const WA_NUM2 = '59893994250';
 
         // ========== STATE ==========
-        let user = JSON.parse(localStorage.getItem('floret_user')) || null;
+        function safeParseJSON(value, fallback = null) {
+            try { return value ? JSON.parse(value) : fallback; } catch (_) { return fallback; }
+        }
+        function saveAuthUser(nextUser, remember = true) {
+            const payload = nextUser ? JSON.stringify(nextUser) : '';
+            if (!nextUser) {
+                localStorage.removeItem('floret_user');
+                sessionStorage.removeItem('floret_user');
+                return;
+            }
+            if (remember) {
+                localStorage.setItem('floret_user', payload);
+                sessionStorage.removeItem('floret_user');
+            } else {
+                sessionStorage.setItem('floret_user', payload);
+                localStorage.removeItem('floret_user');
+            }
+        }
+
+        let user = safeParseJSON(localStorage.getItem('floret_user')) || safeParseJSON(sessionStorage.getItem('floret_user')) || null;
         let cart = JSON.parse(localStorage.getItem('floret_cart')) || [];
         let products = [];
         let isAdmin = user ? user.is_admin : false;
@@ -1541,8 +1629,9 @@
     <div class="modal-hd"><h3>Acceder</h3><button class="modal-cl" onclick="closeModal()"><i class="fas fa-times"></i></button></div>
     <div class="modal-bd">
       <div class="auth-tabs">
-        <button class="auth-tab on" onclick="switchAuth('login', this)">Iniciar Sesión</button>
-        <button class="auth-tab" onclick="switchAuth('register', this)">Registrarse</button>
+        <button class="auth-tab on" data-auth="login" onclick="switchAuth('login', this)">Iniciar sesion</button>
+        <button class="auth-tab" data-auth="register" onclick="switchAuth('register', this)">Registrarse</button>
+        <button class="auth-tab" data-auth="reset" onclick="switchAuth('reset', this)">Restablecer</button>
       </div>
       <div id="auth-form"></div>
     </div>
@@ -1550,50 +1639,116 @@
             showLoginForm();
         }
 
+        function setActiveAuthTab(type) {
+            document.querySelectorAll('.auth-tab').forEach((tab) => {
+                tab.classList.toggle('on', tab.dataset.auth === type);
+            });
+        }
+
         function switchAuth(type, el) {
-            document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('on'));
-            el.classList.add('on');
-            type === 'login' ? showLoginForm() : showRegisterForm();
+            if (el) setActiveAuthTab(type);
+            if (type === 'login') return showLoginForm();
+            if (type === 'register') return showRegisterForm();
+            return showResetForm();
+        }
+
+        function togglePasswordVisibility(inputId, buttonEl) {
+            const input = document.getElementById(inputId);
+            if (!input) return;
+            const reveal = input.type === 'password';
+            input.type = reveal ? 'text' : 'password';
+            if (buttonEl) buttonEl.innerHTML = reveal ? '<i class="fas fa-eye-slash"></i>' : '<i class="fas fa-eye"></i>';
+        }
+
+        function isValidPassword(pass) {
+            const value = String(pass || '');
+            return value.length >= 8 && /[A-Za-z]/.test(value) && /\d/.test(value);
         }
 
         function showLoginForm() {
+            setActiveAuthTab('login');
             document.getElementById('auth-form').innerHTML = `
-    <div class="frm-grp"><label class="frm-lbl">Usuario</label><input class="frm-inp" id="login-user" placeholder="Tu usuario"></div>
-    <div class="frm-grp"><label class="frm-lbl">Contraseña</label><input class="frm-inp" type="password" id="login-pass" placeholder="••••••"></div>
+    <div class="frm-grp"><label class="frm-lbl">Usuario o email</label><input class="frm-inp" id="login-user" placeholder="Tu usuario o email"></div>
+    <div class="frm-grp">
+      <label class="frm-lbl">Contrasena</label>
+      <div class="pass-wrap">
+        <input class="frm-inp" type="password" id="login-pass" placeholder="Minimo 8 caracteres">
+        <button class="pass-toggle" type="button" onclick="togglePasswordVisibility('login-pass', this)"><i class="fas fa-eye"></i></button>
+      </div>
+    </div>
+    <div class="auth-row">
+      <label class="auth-check"><input type="checkbox" id="login-remember" checked> Recordarme</label>
+      <button class="auth-link-btn" type="button" onclick="showResetForm(document.getElementById('login-user')?.value || '')">Olvide mi contrasena</button>
+    </div>
     <button class="btn btn-p" style="width:100%" onclick="doLogin()"><i class="fas fa-sign-in-alt"></i> Entrar</button>
   `;
         }
 
         function showRegisterForm() {
+            setActiveAuthTab('register');
             document.getElementById('auth-form').innerHTML = `
     <div class="frm-grp"><label class="frm-lbl">Usuario</label><input class="frm-inp" id="reg-user" placeholder="Elige un usuario"></div>
     <div class="frm-grp"><label class="frm-lbl">Email</label><input class="frm-inp" type="email" id="reg-email" placeholder="tu@email.com"></div>
-    <div class="frm-grp"><label class="frm-lbl">Contraseña</label><input class="frm-inp" type="password" id="reg-pass" placeholder="Mínimo 6 caracteres"></div>
+    <div class="frm-grp">
+      <label class="frm-lbl">Contrasena</label>
+      <div class="pass-wrap">
+        <input class="frm-inp" type="password" id="reg-pass" placeholder="Minimo 8 caracteres, incluye numeros">
+        <button class="pass-toggle" type="button" onclick="togglePasswordVisibility('reg-pass', this)"><i class="fas fa-eye"></i></button>
+      </div>
+    </div>
+    <div class="auth-hint">Usa minimo 8 caracteres y al menos 1 numero para mayor seguridad.</div>
     <button class="btn btn-p" style="width:100%" onclick="doRegister()"><i class="fas fa-user-plus"></i> Crear cuenta</button>
   `;
         }
 
+        function showResetForm(prefillIdentifier = '') {
+            setActiveAuthTab('reset');
+            const safeIdentifier = String(prefillIdentifier || '').replace(/"/g, '&quot;');
+            document.getElementById('auth-form').innerHTML = `
+    <div class="frm-grp"><label class="frm-lbl">Usuario o email</label><input class="frm-inp" id="reset-id" placeholder="Tu usuario o email" value="${safeIdentifier}"></div>
+    <div class="frm-grp"><label class="frm-lbl">Email de la cuenta</label><input class="frm-inp" type="email" id="reset-email" placeholder="tu@email.com"></div>
+    <div class="frm-grp">
+      <label class="frm-lbl">Nueva contrasena</label>
+      <div class="pass-wrap">
+        <input class="frm-inp" type="password" id="reset-pass" placeholder="Minimo 8 caracteres y 1 numero">
+        <button class="pass-toggle" type="button" onclick="togglePasswordVisibility('reset-pass', this)"><i class="fas fa-eye"></i></button>
+      </div>
+    </div>
+    <div class="frm-grp">
+      <label class="frm-lbl">Confirmar contrasena</label>
+      <div class="pass-wrap">
+        <input class="frm-inp" type="password" id="reset-pass-2" placeholder="Repite la nueva contrasena">
+        <button class="pass-toggle" type="button" onclick="togglePasswordVisibility('reset-pass-2', this)"><i class="fas fa-eye"></i></button>
+      </div>
+    </div>
+    <div class="auth-hint">Validaremos usuario/email para permitir el cambio.</div>
+    <button class="btn btn-p" style="width:100%" onclick="doResetPassword()"><i class="fas fa-key"></i> Restablecer contrasena</button>
+  `;
+        }
+
         async function doLogin() {
-            const username = document.getElementById('login-user').value;
+            const identifier = document.getElementById('login-user').value.trim();
             const password = document.getElementById('login-pass').value;
-            if (!username || !password) return showToast('Completa todos los campos', true);
+            const remember = document.getElementById('login-remember')?.checked !== false;
+            if (!identifier || !password) return showToast('Completa todos los campos', true);
 
             try {
                 const res = await fetch(API + '/floret/login', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ identifier, username: identifier, password })
                 });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error);
                 user = data.user;
                 isAdmin = user.is_admin || (user.power_level > 0);
-                localStorage.setItem('floret_user', JSON.stringify(user));
+                saveAuthUser(user, remember);
                 closeModal();
                 render();
                 if (user.power_level === 1) loadQuota();
-                showToast('¡Bienvenido!');
+                showToast('Bienvenido!');
             } catch (e) {
-                showToast(e.message || 'Error al iniciar sesión', true);
+                showToast(e.message || 'Error al iniciar sesion', true);
             }
         }
 
@@ -1602,25 +1757,55 @@
             const email = document.getElementById('reg-email').value;
             const password = document.getElementById('reg-pass').value;
             if (!username || !email || !password) return showToast('Completa todos los campos', true);
+            if (!isValidPassword(password)) {
+                return showToast('La contrasena debe tener 8+ caracteres e incluir numeros', true);
+            }
 
             try {
                 const res = await fetch(API + '/floret/register', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ username, email, password })
                 });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error);
                 user = data.user;
                 isAdmin = user.is_admin || (user.power_level > 0);
-                localStorage.setItem('floret_user', JSON.stringify(user));
+                saveAuthUser(user, true);
                 closeModal();
                 render();
-                showToast('¡Cuenta creada!');
+                showToast('Cuenta creada!');
             } catch (e) {
                 showToast(e.message || 'Error al registrar', true);
             }
         }
 
+        async function doResetPassword() {
+            const identifier = document.getElementById('reset-id').value.trim();
+            const email = document.getElementById('reset-email').value.trim();
+            const pass = document.getElementById('reset-pass').value;
+            const pass2 = document.getElementById('reset-pass-2').value;
+            if (!identifier || !email || !pass || !pass2) return showToast('Completa todos los campos', true);
+            if (pass !== pass2) return showToast('Las contrasenas no coinciden', true);
+            if (!isValidPassword(pass)) {
+                return showToast('La nueva contrasena debe tener 8+ caracteres e incluir numeros', true);
+            }
+            try {
+                const res = await fetch(API + '/floret/reset-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ identifier, email, newPassword: pass })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'No se pudo restablecer la contrasena');
+                showToast('Contrasena actualizada. Inicia sesion con la nueva clave.');
+                showLoginForm();
+                const loginInput = document.getElementById('login-user');
+                if (loginInput) loginInput.value = identifier;
+            } catch (e) {
+                showToast(e.message || 'Error restableciendo contrasena', true);
+            }
+        }
 
         // ========== ADMIN ==========
         function openAddProduct() {
@@ -1989,7 +2174,7 @@
                 const localData = [
                     {
                         id: 113,
-                        name: "Muñeca Monster High",
+                        name: "Mu�eca Monster High",
                         description: "Monster High, Generacion 1",
                         price: 4500,
                         stock: 1,
@@ -2203,8 +2388,8 @@
                     },
                     {
                         id: 106,
-                        name: "Lote de Muñecos Action Man",
-                        description: "Colección de figuras Action Man. Incluye varios muñecos articulados con vestimenta y accesorios. Ideal coleccionistas.",
+                        name: "Lote de Mu�ecos Action Man",
+                        description: "Colecci�n de figuras Action Man. Incluye varios mu�ecos articulados con vestimenta y accesorios. Ideal coleccionistas.",
                         price: 2200,
                         stock: 1,
                         condition: "Usado",
@@ -2240,8 +2425,8 @@
                     },
                     {
                         id: 103,
-                        name: "Lote para Bebé (18 Artículos)",
-                        description: "Excelente estado. Incluye 18 prendas y artículos variados para bebé. Oportunidad única.",
+                        name: "Lote para Beb� (18 Art�culos)",
+                        description: "Excelente estado. Incluye 18 prendas y art�culos variados para beb�. Oportunidad �nica.",
                         price: 2200,
                         stock: 1,
                         condition: "Usado",
@@ -2275,7 +2460,7 @@
                     {
                         id: 105,
                         name: "Vestido Asimetrico FAR",
-                        description: "Talle S y tiene elásticos que se adaptan al cuerpo. Diseño asimétrico moderno.",
+                        description: "Talle S y tiene el�sticos que se adaptan al cuerpo. Dise�o asim�trico moderno.",
                         price: 3300,
                         stock: 1,
                         condition: "Nuevo",
@@ -2293,7 +2478,7 @@
                     {
                         id: 101,
                         name: "Vestido FARM RIO",
-                        description: "Talle S. Diseño exclusivo, tela fresca y caída perfecta.",
+                        description: "Talle S. Dise�o exclusivo, tela fresca y ca�da perfecta.",
                         price: 2200,
                         stock: 1,
                         condition: "Nuevo",
@@ -2391,7 +2576,7 @@
             user = null;
             isAdmin = false;
             quota = null;
-            localStorage.removeItem('floret_user');
+            saveAuthUser(null, false);
             closeModal();
             render();
             showToast('Sesión cerrada');
@@ -2486,3 +2671,6 @@
 </body>
 
 </html>
+
+
+

@@ -99,6 +99,25 @@ jobs:
           cd "$APP_DIR"
           npx cap sync android
 
+      - name: Set Android version metadata
+        shell: bash
+        run: |
+          cd "$APP_DIR"
+          VERSION_NAME="$(node -p "require('./package.json').version" | tr -d '\r\n')"
+          VERSION_CODE="$(date -u +%y%j%H%M)"
+          if [ -z "$VERSION_NAME" ]; then
+            VERSION_NAME="1.0.0"
+          fi
+          GRADLE_FILE="android/app/build.gradle"
+          if [ ! -f "$GRADLE_FILE" ]; then
+            echo "No existe $GRADLE_FILE"
+            exit 1
+          fi
+          sed -i -E "s/versionCode[[:space:]]+[0-9]+/versionCode ${VERSION_CODE}/" "$GRADLE_FILE"
+          sed -i -E "s/versionName[[:space:]]+\"[^\"]+\"/versionName \"${VERSION_NAME}\"/" "$GRADLE_FILE"
+          echo "Floret Android versionName=${VERSION_NAME} versionCode=${VERSION_CODE}"
+          grep -n "versionCode\\|versionName" "$GRADLE_FILE"
+
       - name: Force Floret launcher icon in Android resources
         shell: bash
         run: |

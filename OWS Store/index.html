@@ -2153,6 +2153,8 @@
         const STORE_LOCAL_ICON = './build/icon.ico?v=20260223-0452';
         const STORE_DOWNLOAD_KEY = '__ows_store_update__';
         const STORE_THEME_KEY = 'ows_store_theme';
+        const OWS_STORE_ANDROID_INSTALLED_VERSION_KEY = 'ows_store_android_installed_version_name';
+        const OWS_STORE_ANDROID_INSTALLED_VERSION_CODE_KEY = 'ows_store_android_installed_version_code';
         const OCEAN_PAY_STORAGE_USER = 'opUser';
         const OCEAN_PAY_STORAGE_TOKEN = 'opToken';
         const SSA_PROJECT = {
@@ -2233,6 +2235,7 @@
         const owsStoreAndroidState = {
             downloadUrl: OWS_STORE_ANDROID_ARTIFACT_FALLBACK_URL,
             version: '',
+            versionCode: 0,
             sizeBytes: 0,
             publishedAt: null,
             source: 'release-page',
@@ -3863,6 +3866,7 @@
                 const latest = await fetchLatestAndroidReleaseFromStoreApi(OWS_STORE_ANDROID_SLUG, OWS_STORE_RELEASES_URL);
                 const payload = {
                     version: latest.version || '',
+                    versionCode: Number(latest.versionCode || 0),
                     downloadUrl: latest.downloadUrl || OWS_STORE_ANDROID_ARTIFACT_FALLBACK_URL,
                     sizeBytes: Number(latest.sizeBytes || 0),
                     publishedAt: latest.publishedAt || null,
@@ -3875,6 +3879,7 @@
             } catch (err) {
                 const fallback = {
                     version: '',
+                    versionCode: 0,
                     downloadUrl: OWS_STORE_ANDROID_ARTIFACT_FALLBACK_URL,
                     sizeBytes: 0,
                     publishedAt: null,
@@ -3890,7 +3895,9 @@
         function renderOWSStoreAndroidMeta() {
             const meta = document.getElementById('ows-android-release-meta');
             if (!meta) return;
-            const versionText = owsStoreAndroidState.version ? `Tag ${owsStoreAndroidState.version}` : 'Tag sin resolver';
+            const versionText = owsStoreAndroidState.version
+                ? `Tag ${owsStoreAndroidState.version}${owsStoreAndroidState.versionCode > 0 ? ` (code ${owsStoreAndroidState.versionCode})` : ''}`
+                : 'Tag sin resolver';
             const sizeText = owsStoreAndroidState.sizeBytes > 0 ? formatByteSize(owsStoreAndroidState.sizeBytes) : '-';
             const dateText = owsStoreAndroidState.publishedAt ? formatDateTime(owsStoreAndroidState.publishedAt) : 'sin fecha';
             const sourceText = owsStoreAndroidState.source === 'release-asset'
@@ -3904,11 +3911,161 @@
             const payload = await fetchLatestOWSStoreAndroidRelease();
             owsStoreAndroidState.downloadUrl = payload?.downloadUrl || OWS_STORE_ANDROID_ARTIFACT_FALLBACK_URL;
             owsStoreAndroidState.version = payload?.version || '';
+            owsStoreAndroidState.versionCode = Number(payload?.versionCode || 0);
             owsStoreAndroidState.sizeBytes = Number(payload?.sizeBytes || 0);
             owsStoreAndroidState.publishedAt = payload?.publishedAt || null;
             owsStoreAndroidState.source = payload?.source || 'release-page';
             owsStoreAndroidState.warning = payload?.warning || '';
             renderOWSStoreAndroidMeta();
+        }
+
+        function getStoredStoreAndroidInstalledVersion() {
+            const versionName = String(localStorage.getItem(OWS_STORE_ANDROID_INSTALLED_VERSION_KEY) || '').trim();
+            const versionCode = Number(localStorage.getItem(OWS_STORE_ANDROID_INSTALLED_VERSION_CODE_KEY) || 0);
+            return {
+                versionName,
+                versionCode: Number.isFinite(versionCode) ? versionCode : 0,
+            };
+        }
+
+        function persistStoreAndroidInstalledVersion(versionName = '', versionCode = 0) {
+            const cleanedName = String(versionName || '').trim();
+            const cleanedCode = Number(versionCode || 0);
+            if (cleanedName) localStorage.setItem(OWS_STORE_ANDROID_INSTALLED_VERSION_KEY, cleanedName);
+            if (Number.isFinite(cleanedCode) && cleanedCode > 0) {
+                localStorage.setItem(OWS_STORE_ANDROID_INSTALLED_VERSION_CODE_KEY, String(cleanedCode));
+            }
+        }
+
+        async function resolveCurrentStoreAndroidVersionInfo() {
+            const fallback = getStoredStoreAndroidInstalledVersion();
+            let versionName = fallback.versionName;
+            let versionCode = fallback.versionCode;
+            let source = versionName || versionCode > 0 ? 'local-storage' : 'unknown';
+
+            const AppPlugin = getCapacitorPlugin('App');
+            if (AppPlugin?.getInfo) {
+                try {
+                    const info = await AppPlugin.getInfo();
+                    const pluginName = String(info?.version || '').trim();
+                    const pluginCode = Number(info?.build || 0);
+                    if (pluginName) versionName = pluginName;
+                    if (Number.isFinite(pluginCode) && pluginCode > 0) versionCode = pluginCode;
+                    if (pluginName || pluginCode > 0) source = 'capacitor-app';
+                } catch (_) {}
+            }
+
+            return { versionName, versionCode, source };
+        }
+
+        function isStoreAndroidUpdateNeeded(current, latest) {
+            const latestCode = Number(latest?.versionCode || 0);
+            const currentCode = Number(current?.versionCode || 0);
+            if (latestCode > 0 && currentCode > 0) {
+                return latestCode > currentCode;
+            }
+            const latestName = String(latest?.version || '').trim();
+            const currentName = String(current?.versionName || '').trim();
+            if (latestName && currentName) {
+                return compareVersionLike(currentName, latestName) < 0;
+            }
+            if (latestCode > 0 && currentCode <= 0 && latestName) {
+                return true;
+            }
+            return false;
+        }
+
+        async function checkOWSStoreAndroidUpdate({ silent = false } = {}) {
+            const status = document.getElementById('updates-status');
+            const btn = document.getElementById('btn-install-update');
+            const closeBtn = document.getElementById('btn-close-update-banner');
+            const wrap = document.getElementById('update-progress-wrap');
+            if (btn) {
+                btn.style.display = 'none';
+                btn.innerHTML = '<i class="fas fa-mobile-screen-button"></i> Descargar update Android';
+            }
+            if (wrap) wrap.style.display = 'none';
+
+            const latest = await fetchLatestOWSStoreAndroidRelease();
+            owsStoreAndroidState.downloadUrl = latest?.downloadUrl || OWS_STORE_ANDROID_ARTIFACT_FALLBACK_URL;
+            owsStoreAndroidState.version = latest?.version || '';
+            owsStoreAndroidState.versionCode = Number(latest?.versionCode || 0);
+            owsStoreAndroidState.sizeBytes = Number(latest?.sizeBytes || 0);
+            owsStoreAndroidState.publishedAt = latest?.publishedAt || null;
+            owsStoreAndroidState.source = latest?.source || 'release-page';
+            owsStoreAndroidState.warning = latest?.warning || '';
+            renderOWSStoreAndroidMeta();
+
+            const current = await resolveCurrentStoreAndroidVersionInfo();
+            const needsUpdate = isStoreAndroidUpdateNeeded(current, latest);
+            appUpdateAvailable = Boolean(needsUpdate);
+            appUpdateSizeBytes = Number(latest?.sizeBytes || 0);
+            appUpdateEtaSeconds = null;
+            syncUpdatesBadge();
+
+            const currentLabel = current.versionName
+                ? `${current.versionName}${current.versionCode > 0 ? ` (code ${current.versionCode})` : ''}`
+                : (current.versionCode > 0 ? `code ${current.versionCode}` : 'desconocida');
+            const latestLabel = latest?.version
+                ? `${latest.version}${Number(latest?.versionCode || 0) > 0 ? ` (code ${Number(latest.versionCode || 0)})` : ''}`
+                : 'desconocida';
+            const appVersionLabel = current.versionName || (current.versionCode > 0 ? String(current.versionCode) : '');
+            if (appVersionLabel) {
+                const appVersionEl = document.getElementById('app-version');
+                const updatesVersionEl = document.getElementById('updates-app-version');
+                if (appVersionEl) appVersionEl.textContent = `v${appVersionLabel}`;
+                if (updatesVersionEl) updatesVersionEl.textContent = `v${appVersionLabel}`;
+            }
+
+            if (needsUpdate) {
+                if (status) status.textContent = `Update Android disponible: ${latestLabel}`;
+                if (btn) btn.style.display = 'flex';
+                if (closeBtn) {
+                    closeBtn.disabled = false;
+                    closeBtn.style.opacity = '1';
+                    closeBtn.style.cursor = 'pointer';
+                }
+                setUpdateBannerVisual({
+                    state: 'available',
+                    title: 'Actualizacion Android disponible',
+                    message: `Version ${latestLabel} disponible (actual: ${currentLabel}).`,
+                    iconClass: 'fa-mobile-screen-button',
+                    iconSpin: false,
+                });
+                setUpdateMetaUI({ sizeBytes: appUpdateSizeBytes, etaSeconds: null, transferredBytes: null, speedBps: 0 });
+                updateDownloadSession(STORE_DOWNLOAD_KEY, {
+                    name: 'OWS Store Android',
+                    icon: STORE_LOCAL_ICON,
+                    isApp: true,
+                    phase: 'available',
+                    percent: 0,
+                    sizeBytes: appUpdateSizeBytes,
+                    downloadedBytes: 0,
+                    speedBps: 0,
+                    etaSeconds: null,
+                    status: `Update disponible ${currentLabel} -> ${latestLabel}`,
+                });
+                if (!silent) addNotification(`Update Android disponible: ${currentLabel} -> ${latestLabel}.`, 'warning');
+                return { needsUpdate, latest, current };
+            }
+
+            if (status) status.textContent = 'OWS Store Android al dia';
+            if (closeBtn) {
+                closeBtn.disabled = false;
+                closeBtn.style.opacity = '1';
+                closeBtn.style.cursor = 'pointer';
+            }
+            setUpdateBannerVisual({
+                state: 'success',
+                title: 'OWS Store Android actualizada',
+                message: `Sin actualizaciones. Version actual: ${currentLabel}.`,
+                iconClass: 'fa-circle-check',
+                iconSpin: false,
+            });
+            setUpdateMetaUI({ sizeBytes: 0, etaSeconds: null, transferredBytes: null, speedBps: 0 });
+            removeDownloadSession(STORE_DOWNLOAD_KEY);
+            if (!silent) addNotification('No hay actualizaciones Android pendientes para OWS Store.', 'neutral');
+            return { needsUpdate, latest, current };
         }
 
         function formatDateTime(value) {
@@ -5052,7 +5209,74 @@
         }
 
         function initUpdater() {
-            if (typeof window.owsUpdater === 'undefined') return;
+            if (typeof window.owsUpdater === 'undefined') {
+                if (!isNativeAndroidRuntime()) return;
+                const banner = document.getElementById('update-banner');
+                const btn = document.getElementById('btn-install-update');
+                const closeBtn = document.getElementById('btn-close-update-banner');
+                const status = document.getElementById('updates-status');
+                if (btn) {
+                    btn.style.display = 'none';
+                    btn.innerHTML = '<i class="fas fa-mobile-screen-button"></i> Descargar update Android';
+                }
+                if (closeBtn) {
+                    closeBtn.disabled = true;
+                    closeBtn.style.opacity = '0.45';
+                    closeBtn.style.cursor = 'not-allowed';
+                }
+                setUpdateBannerVisual({
+                    state: 'checking',
+                    title: 'Buscando updates Android',
+                    message: 'Comprobando nuevas versiones de OWS Store para Android...',
+                    iconClass: 'fa-mobile-screen-button',
+                    iconSpin: true,
+                    meta: 'Tamano: - | ETA: -'
+                });
+                updateDownloadSession(STORE_DOWNLOAD_KEY, {
+                    name: 'OWS Store Android',
+                    icon: STORE_LOCAL_ICON,
+                    isApp: true,
+                    phase: 'checking',
+                    percent: 0,
+                    status: 'Verificando update Android...',
+                    sizeBytes: 0,
+                    downloadedBytes: 0,
+                    speedBps: 0,
+                    etaSeconds: null,
+                });
+                if (banner) banner.classList.add('visible');
+                if (status) status.textContent = 'Buscando actualizaciones Android...';
+                setUpdateMetaUI({ sizeBytes: 0, etaSeconds: null, transferredBytes: null, speedBps: 0 });
+                checkOWSStoreAndroidUpdate({ silent: false })
+                    .catch((err) => {
+                        const msg = err?.message || 'desconocido';
+                        appUpdateAvailable = false;
+                        syncUpdatesBadge();
+                        if (status) status.textContent = 'Error de verificacion Android';
+                        setUpdateBannerVisual({
+                            state: 'error',
+                            title: 'Error de actualizacion Android',
+                            message: 'No se pudo verificar updates Android: ' + msg,
+                            iconClass: 'fa-triangle-exclamation',
+                            iconSpin: false,
+                        });
+                        updateDownloadSession(STORE_DOWNLOAD_KEY, {
+                            name: 'OWS Store Android',
+                            icon: STORE_LOCAL_ICON,
+                            isApp: true,
+                            phase: 'error',
+                            percent: 0,
+                            status: 'Error verificando update Android: ' + msg,
+                        });
+                        addNotification('Error verificando updates Android: ' + msg, 'error');
+                        if (closeBtn) {
+                            closeBtn.disabled = false;
+                            closeBtn.style.opacity = '1';
+                            closeBtn.style.cursor = 'pointer';
+                        }
+                    });
+                return;
+            }
             const isExternalInstallActive = () => Boolean(activeInstallTaskKey && activeInstallTaskKey !== STORE_DOWNLOAD_KEY);
             window.owsUpdater.getAppVersion?.().then(v => {
                 const el = document.getElementById('app-version');
@@ -5408,6 +5632,10 @@
             window.owsUpdater.checkForUpdates?.();
         }
         function installUpdate() {
+            if (isNativeAndroidRuntime()) {
+                openStoreAndroidDownload();
+                return;
+            }
             if (window.owsUpdater?.installUpdate) window.owsUpdater.installUpdate();
         }
 
@@ -5451,6 +5679,10 @@
                     showActionMessage('Error instalando APK de OWS Store Android: ' + errorDetail, { state: 'error' });
                     return;
                 }
+                persistStoreAndroidInstalledVersion(
+                    owsStoreAndroidState.version || '',
+                    Number(owsStoreAndroidState.versionCode || 0)
+                );
                 updateDownloadSession(sessionKey, {
                     phase: 'done',
                     percent: 100,
@@ -5491,6 +5723,9 @@
                     scheduleSectionRender({ projects: true, library: true, immediate: false });
                 }).catch(() => {});
                 refreshStoreAndroidReleaseLink().catch(() => {});
+                if (isNativeAndroidRuntime() && typeof window.owsUpdater === 'undefined') {
+                    checkOWSStoreAndroidUpdate({ silent: true }).catch(() => {});
+                }
             }, 120000);
         };
 

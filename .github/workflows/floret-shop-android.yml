@@ -83,20 +83,45 @@ jobs:
           cd "$APP_DIR"
           npx cap sync android
 
-      - name: Build Android release artifacts (unsigned)
+      - name: Build Android artifacts
         shell: bash
         run: |
           cd "$APP_DIR"
           cd android
           chmod +x gradlew
-          ./gradlew --no-daemon assembleRelease bundleRelease
+          ./gradlew --no-daemon assembleDebug assembleRelease bundleRelease
+
+      - name: Sign release APK (optional)
+        if: ${{ secrets.ANDROID_SIGNING_KEY_BASE64 != '' && secrets.ANDROID_KEY_ALIAS != '' && secrets.ANDROID_KEYSTORE_PASSWORD != '' && secrets.ANDROID_KEY_PASSWORD != '' }}
+        uses: r0adkll/sign-android-release@v1
+        with:
+          releaseDirectory: "${{ env.APP_DIR }}/android/app/build/outputs/apk/release"
+          signingKeyBase64: ${{ secrets.ANDROID_SIGNING_KEY_BASE64 }}
+          alias: ${{ secrets.ANDROID_KEY_ALIAS }}
+          keyStorePassword: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          keyPassword: ${{ secrets.ANDROID_KEY_PASSWORD }}
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: floret-shop-apk-release-unsigned
           path: "${{ env.APP_DIR }}/android/app/build/outputs/apk/release/app-release-unsigned.apk"
+          if-no-files-found: warn
+
+      - name: Upload APK debug artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: floret-shop-apk-debug
+          path: "${{ env.APP_DIR }}/android/app/build/outputs/apk/debug/app-debug.apk"
           if-no-files-found: error
+
+      - name: Upload APK signed artifact
+        if: ${{ secrets.ANDROID_SIGNING_KEY_BASE64 != '' && secrets.ANDROID_KEY_ALIAS != '' && secrets.ANDROID_KEYSTORE_PASSWORD != '' && secrets.ANDROID_KEY_PASSWORD != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: floret-shop-apk-release-signed
+          path: "${{ env.APP_DIR }}/android/app/build/outputs/apk/release/*signed*.apk"
+          if-no-files-found: warn
 
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4

@@ -3586,15 +3586,29 @@
                 if (!selectedRelease) throw new Error('No hay releases disponibles para Floret Shop.');
 
                 const assets = Array.isArray(selectedRelease.assets) ? selectedRelease.assets : [];
+                const scoreAndroidAssetName = (name, type = 'apk') => {
+                    const n = String(name || '').toLowerCase();
+                    let score = 0;
+                    if (type === 'apk' && n.endsWith('.apk')) score += 12;
+                    if (type === 'aab' && n.endsWith('.aab')) score += 12;
+                    if (n.includes('signed')) score += 7;
+                    if (n.includes('release') && !n.includes('unsigned')) score += 5;
+                    if (n.includes('debug')) score += 4;
+                    if (n.includes('unsigned')) score -= 8;
+                    if (n.includes('universal')) score += 2;
+                    return score;
+                };
                 const pickAsset = (extRegex) => {
                     const options = assets
                         .filter(a => typeof a?.name === 'string' && extRegex.test(a.name))
                         .map((a) => ({
                             asset: a,
                             hasFloretName: /floret/i.test(String(a?.name || '')),
-                            updatedAtMs: Date.parse(a?.updated_at || '') || 0
+                            updatedAtMs: Date.parse(a?.updated_at || '') || 0,
+                            score: scoreAndroidAssetName(a?.name, /\.aab$/i.test(a?.name || '') ? 'aab' : 'apk')
                         }))
                         .sort((x, y) => {
+                            if (x.score !== y.score) return y.score - x.score;
                             if (x.hasFloretName !== y.hasFloretName) return x.hasFloretName ? -1 : 1;
                             return y.updatedAtMs - x.updatedAtMs;
                         });
@@ -3666,8 +3680,28 @@
                     .filter((rel) => !rel?.draft && !rel?.prerelease)
                     .map((rel) => {
                         const assets = Array.isArray(rel.assets) ? rel.assets : [];
-                        const apk = assets.find((a) => typeof a?.name === 'string' && /\.apk$/i.test(a.name)) || null;
-                        const aab = assets.find((a) => typeof a?.name === 'string' && /\.aab$/i.test(a.name)) || null;
+                        const scoreAndroidAssetName = (name, type = 'apk') => {
+                            const n = String(name || '').toLowerCase();
+                            let score = 0;
+                            if (type === 'apk' && n.endsWith('.apk')) score += 12;
+                            if (type === 'aab' && n.endsWith('.aab')) score += 12;
+                            if (n.includes('signed')) score += 7;
+                            if (n.includes('release') && !n.includes('unsigned')) score += 5;
+                            if (n.includes('debug')) score += 4;
+                            if (n.includes('unsigned')) score -= 8;
+                            if (n.includes('universal')) score += 2;
+                            return score;
+                        };
+                        const apkCandidates = assets
+                            .filter((a) => typeof a?.name === 'string' && /\.apk$/i.test(a.name))
+                            .map((a) => ({ asset: a, score: scoreAndroidAssetName(a?.name, 'apk') }))
+                            .sort((a, b) => b.score - a.score);
+                        const aabCandidates = assets
+                            .filter((a) => typeof a?.name === 'string' && /\.aab$/i.test(a.name))
+                            .map((a) => ({ asset: a, score: scoreAndroidAssetName(a?.name, 'aab') }))
+                            .sort((a, b) => b.score - a.score);
+                        const apk = apkCandidates[0]?.asset || null;
+                        const aab = aabCandidates[0]?.asset || null;
                         const tag = String(rel?.tag_name || '').toLowerCase();
                         const name = String(rel?.name || '').toLowerCase();
                         const isAndroidTagged = tag.includes('android') || name.includes('android');

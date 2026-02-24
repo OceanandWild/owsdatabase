@@ -881,6 +881,27 @@ async function runDatabaseMigrations() {
       ADD COLUMN IF NOT EXISTS installer_url TEXT
     `).catch(() => console.log('⚠️ Columna installer_url ya existe en ows_projects'));
 
+    // Tabla de releases Android para updater asistido (OWS Store Launcher)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ows_android_releases (
+        id SERIAL PRIMARY KEY,
+        project_slug VARCHAR(50) NOT NULL REFERENCES ows_projects(slug) ON DELETE CASCADE,
+        package_id VARCHAR(120) NOT NULL,
+        version_name VARCHAR(60) NOT NULL,
+        version_code INTEGER NOT NULL,
+        apk_url TEXT NOT NULL,
+        sha256 VARCHAR(128),
+        size_bytes BIGINT DEFAULT 0,
+        min_store_version VARCHAR(40),
+        release_notes TEXT,
+        status VARCHAR(20) DEFAULT 'published',
+        is_mandatory BOOLEAN DEFAULT FALSE,
+        published_at TIMESTAMP DEFAULT NOW(),
+        created_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(project_slug, version_code)
+      );
+    `).catch(err => console.log('⚠️ Error creando ows_android_releases:', err.message));
+
     // Migración: Asegurar columnas para Intercambio (Swap)
     await pool.query(`
       ALTER TABLE ocean_pay_pos
@@ -12204,11 +12225,55 @@ app.delete('/ows-news/updates/:id', async (req, res) => {
   }
 });
 
+const OWS_STORE_ADMIN_KEY = process.env.OWS_STORE_ADMIN_KEY || '';
+const OWS_PROJECTS_WITH_ANDROID_RELEASE_SQL = `
+  SELECT
+    p.*,
+    ar.package_id AS android_package_id,
+    ar.version_name AS android_version_name,
+    ar.version_code AS android_version_code,
+    ar.apk_url AS android_apk_url,
+    ar.sha256 AS android_sha256,
+    ar.size_bytes AS android_size_bytes,
+    ar.min_store_version AS android_min_store_version,
+    ar.release_notes AS android_release_notes,
+    ar.is_mandatory AS android_is_mandatory,
+    ar.published_at AS android_published_at
+  FROM ows_projects p
+  LEFT JOIN LATERAL (
+    SELECT
+      r.package_id,
+      r.version_name,
+      r.version_code,
+      r.apk_url,
+      r.sha256,
+      r.size_bytes,
+      r.min_store_version,
+      r.release_notes,
+      r.is_mandatory,
+      r.published_at
+    FROM ows_android_releases r
+    WHERE r.project_slug = p.slug
+      AND r.status = 'published'
+    ORDER BY r.version_code DESC, r.published_at DESC, r.id DESC
+    LIMIT 1
+  ) ar ON TRUE
+`;
+
+function requireOwsStoreAdmin(req, res) {
+  if (!OWS_STORE_ADMIN_KEY) return true;
+  const headerKey = req.headers['x-ows-store-admin-key'];
+  const bodyKey = req.body?.admin_key;
+  if (headerKey === OWS_STORE_ADMIN_KEY || bodyKey === OWS_STORE_ADMIN_KEY) return true;
+  res.status(403).json({ error: 'Admin key inválida para OWS Store' });
+  return false;
+}
+
 /* ----------  OWS STORE SYSTEM (Projects Hub)  ---------- */
 // Obtener todos los proyectos
 app.get('/ows-store/projects', async (req, res) => {
   try {
-    const { rows } = await pool.query('SELECT * FROM ows_projects ORDER BY status ASC, name ASC');
+    const { rows } = await pool.query(`${OWS_PROJECTS_WITH_ANDROID_RELEASE_SQL} ORDER BY p.status ASC, p.name ASC`);
     res.json(rows);
   } catch (err) {
     console.error('❌ Error en GET /ows-store/projects:', err);
@@ -12220,7 +12285,7 @@ app.get('/ows-store/projects', async (req, res) => {
 app.get('/ows-store/projects/:slug', async (req, res) => {
   const { slug } = req.params;
   try {
-    const { rows } = await pool.query('SELECT * FROM ows_projects WHERE slug = $1', [slug]);
+    const { rows } = await pool.query(`${OWS_PROJECTS_WITH_ANDROID_RELEASE_SQL} WHERE p.slug = $1`, [slug]);
     if (rows.length === 0) return res.status(404).json({ error: 'Proyecto no encontrado' });
     res.json(rows[0]);
   } catch (err) {
@@ -12275,6 +12340,172 @@ app.patch('/ows-store/projects/:slug/version', async (req, res) => {
     res.json({ success: true, project: rows[0] });
   } catch (err) {
     console.error('❌ Error en PATCH /ows-store/projects/:version:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Obtener último release Android publicado por slug
+app.get('/ows-store/android/releases/:slug/latest', async (req, res) => {
+  const { slug } = req.params;
+  const includeDraft = String(req.query.include_draft || '').toLowerCase() === 'true';
+  try {
+    const whereStatus = includeDraft ? '' : "AND status = 'published'";
+    const { rows } = await pool.query(
+      `SELECT *
+       FROM ows_android_releases
+       WHERE project_slug = $1
+         ${whereStatus}
+       ORDER BY version_code DESC, published_at DESC, id DESC
+       LIMIT 1`,
+      [slug]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: 'Release Android no encontrada' });
+    res.json({ success: true, release: rows[0] });
+  } catch (err) {
+    console.error('❌ Error en GET /ows-store/android/releases/:slug/latest:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Listar releases Android (opcionalmente por slug)
+app.get('/ows-store/android/releases', async (req, res) => {
+  const slug = String(req.query.slug || '').trim();
+  const limit = Math.min(Math.max(Number(req.query.limit || 50), 1), 200);
+  try {
+    const { rows } = slug
+      ? await pool.query(
+        `SELECT *
+         FROM ows_android_releases
+         WHERE project_slug = $1
+         ORDER BY published_at DESC, version_code DESC, id DESC
+         LIMIT $2`,
+        [slug, limit]
+      )
+      : await pool.query(
+        `SELECT *
+         FROM ows_android_releases
+         ORDER BY published_at DESC, version_code DESC, id DESC
+         LIMIT $1`,
+        [limit]
+      );
+    res.json(rows);
+  } catch (err) {
+    console.error('❌ Error en GET /ows-store/android/releases:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Registrar o actualizar release Android
+app.post('/ows-store/android/releases', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+
+  const {
+    project_slug,
+    package_id,
+    version_name,
+    version_code,
+    apk_url,
+    sha256,
+    size_bytes,
+    min_store_version,
+    release_notes,
+    status,
+    is_mandatory,
+    published_at
+  } = req.body || {};
+
+  if (!project_slug || !package_id || !version_name || !version_code || !apk_url) {
+    return res.status(400).json({ error: 'Campos requeridos: project_slug, package_id, version_name, version_code, apk_url' });
+  }
+
+  const numericVersionCode = Number(version_code);
+  if (!Number.isInteger(numericVersionCode) || numericVersionCode <= 0) {
+    return res.status(400).json({ error: 'version_code debe ser entero positivo' });
+  }
+
+  try {
+    const projectExists = await pool.query('SELECT 1 FROM ows_projects WHERE slug = $1 LIMIT 1', [project_slug]);
+    if (projectExists.rowCount === 0) {
+      return res.status(404).json({ error: 'Proyecto no registrado en ows_projects' });
+    }
+
+    const { rows } = await pool.query(
+      `INSERT INTO ows_android_releases (
+         project_slug, package_id, version_name, version_code, apk_url,
+         sha256, size_bytes, min_store_version, release_notes, status, is_mandatory, published_at
+       )
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,COALESCE($12, NOW()))
+       ON CONFLICT (project_slug, version_code) DO UPDATE SET
+         package_id = EXCLUDED.package_id,
+         version_name = EXCLUDED.version_name,
+         apk_url = EXCLUDED.apk_url,
+         sha256 = EXCLUDED.sha256,
+         size_bytes = EXCLUDED.size_bytes,
+         min_store_version = EXCLUDED.min_store_version,
+         release_notes = EXCLUDED.release_notes,
+         status = EXCLUDED.status,
+         is_mandatory = EXCLUDED.is_mandatory,
+         published_at = COALESCE(EXCLUDED.published_at, ows_android_releases.published_at)
+       RETURNING *`,
+      [
+        project_slug,
+        package_id,
+        version_name,
+        numericVersionCode,
+        apk_url,
+        sha256 || null,
+        Number(size_bytes || 0),
+        min_store_version || null,
+        release_notes || null,
+        status || 'published',
+        Boolean(is_mandatory),
+        published_at || null
+      ]
+    );
+
+    res.json({ success: true, release: rows[0] });
+  } catch (err) {
+    console.error('❌ Error en POST /ows-store/android/releases:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Check de update Android por proyecto
+app.post('/ows-store/android/check-update', async (req, res) => {
+  const { project_slug, package_id, installed_version_code, installed_version_name } = req.body || {};
+  if (!project_slug) return res.status(400).json({ error: 'project_slug requerido' });
+
+  const installedCode = Number(installed_version_code || 0);
+  try {
+    const { rows } = await pool.query(
+      `SELECT *
+       FROM ows_android_releases
+       WHERE project_slug = $1
+         AND status = 'published'
+         AND ($2::text IS NULL OR package_id = $2)
+       ORDER BY version_code DESC, published_at DESC, id DESC
+       LIMIT 1`,
+      [project_slug, package_id || null]
+    );
+
+    if (rows.length === 0) {
+      return res.json({ success: true, update_available: false, reason: 'no_release' });
+    }
+
+    const latest = rows[0];
+    const updateAvailable = Number(latest.version_code || 0) > (Number.isFinite(installedCode) ? installedCode : 0);
+
+    return res.json({
+      success: true,
+      update_available: updateAvailable,
+      installed: {
+        version_code: Number.isFinite(installedCode) ? installedCode : 0,
+        version_name: installed_version_name || null
+      },
+      latest
+    });
+  } catch (err) {
+    console.error('❌ Error en POST /ows-store/android/check-update:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });

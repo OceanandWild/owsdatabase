@@ -8,7 +8,6 @@ on:
       - master
     paths:
       - "OWS Store/**"
-      - "OWS Store Electron/**"
       - ".github/workflows/ows-store-android.yml"
 
 permissions:
@@ -36,12 +35,6 @@ jobs:
             exit 1
           fi
 
-          if [ -d "OWS Store Electron" ]; then
-            echo "STORE_ELECTRON_DIR=OWS Store Electron" >> "$GITHUB_ENV"
-          else
-            echo "STORE_ELECTRON_DIR=" >> "$GITHUB_ENV"
-          fi
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
@@ -67,6 +60,7 @@ jobs:
         run: |
           cd "$APP_DIR"
           npm ci || npm install
+          npm install --no-save @capacitor/core@^8.1.0 @capacitor/android@^8.1.0 @capacitor/cli@^8.1.0
 
       - name: Prepare web and android platform
         shell: bash
@@ -77,24 +71,21 @@ jobs:
             mkdir -p www
           fi
 
-          if [ -n "$STORE_ELECTRON_DIR" ] && [ -f "../$STORE_ELECTRON_DIR/index.html" ]; then
-            cp "../$STORE_ELECTRON_DIR/index.html" "www/index.html"
-            mkdir -p "www/build"
-            shopt -s nullglob
-            for asset in "../$STORE_ELECTRON_DIR"/build/*.ico "../$STORE_ELECTRON_DIR"/build/*.png; do
-              cp -f "$asset" "www/build/$(basename "$asset")"
-            done
-            shopt -u nullglob
-          elif [ -f "index.html" ]; then
+          if [ -f "index.html" ]; then
             cp "index.html" "www/index.html"
           fi
 
-          mkdir -p "resources"
-          if [ -n "$STORE_ELECTRON_DIR" ] && [ -f "../$STORE_ELECTRON_DIR/build/icon.png" ]; then
-            cp -f "../$STORE_ELECTRON_DIR/build/icon.png" "resources/icon.png"
-          fi
+          mkdir -p "www/build"
+          shopt -s nullglob
+          for asset in build/*.ico build/*.png; do
+            cp -f "$asset" "www/build/$(basename "$asset")"
+          done
+          shopt -u nullglob
 
-          if [ ! -f "resources/icon.png" ] && [ -f "www/build/icon.png" ]; then
+          mkdir -p "resources"
+          if [ -f "build/icon.png" ]; then
+            cp -f "build/icon.png" "resources/icon.png"
+          elif [ -f "www/build/icon.png" ]; then
             cp -f "www/build/icon.png" "resources/icon.png"
           fi
 
@@ -102,6 +93,16 @@ jobs:
             echo "No se encontro index.html para generar webDir (www/index.html)."
             ls -la
             exit 1
+          fi
+
+          if [ ! -f "capacitor.config.json" ]; then
+            cat > capacitor.config.json <<'EOF'
+          {
+            "appId": "com.oceanandwild.owsstore",
+            "appName": "OWS Store",
+            "webDir": "www"
+          }
+          EOF
           fi
 
           if [ ! -d "android" ]; then

@@ -3032,7 +3032,40 @@
                 await sleep(120);
 
                 if (item.platform === 'android') {
-                    if (window.owsUpdater?.installExternalInstaller) {
+                    if (!window.owsUpdater?.installExternalInstaller && isNativeAndroidRuntime()) {
+                        if (updatesStatus) updatesStatus.textContent = 'Descargando APK de ' + project.name + ' en OWS Store...';
+                        showActionMessage('Descargando APK de ' + project.name + ' en OWS Store...', {
+                            sticky: true,
+                            state: 'downloading',
+                            title: project.name,
+                            showProgress: true,
+                        });
+                        const nativeResult = await installAndroidApkInApp({
+                            url: item.url,
+                            fileName: item.fileName || `${project.name || 'android-app'}.apk`,
+                            taskId: `install_${project.slug}`,
+                            sessionKey: item.key,
+                            slug: project.slug,
+                            projectName: project.name,
+                            expectedSize: Number(item.sizeBytes || 0),
+                            sessionIsApp: false,
+                        });
+                        if (!nativeResult?.ok) {
+                            setRuntimeState(project.slug, { phase: 'idle', percent: 0, taskId: '' });
+                            updateDownloadSession(item.key, {
+                                phase: 'error',
+                                status: 'Error instalando APK en app: ' + (nativeResult?.error || 'desconocido'),
+                            });
+                            if (updatesStatus) updatesStatus.textContent = 'Error instalando APK de ' + project.name;
+                            addNotification('Error instalando APK de ' + project.name + ': ' + (nativeResult?.error || 'desconocido'), 'error');
+                            showActionMessage('Error instalando APK de ' + project.name + '.', { state: 'error' });
+                            await refreshInstallationStates();
+                            scheduleSectionRender({ projects: true, library: true, immediate: true });
+                            activeInstallTaskKey = '';
+                            syncQueueMarkers();
+                            continue;
+                        }
+                    } else if (window.owsUpdater?.installExternalInstaller) {
                         if (updatesStatus) updatesStatus.textContent = 'Descargando APK de ' + project.name + '...';
                         showActionMessage('Descargando APK de ' + project.name + '...', {
                             sticky: true,
@@ -3062,7 +3095,7 @@
                             continue;
                         }
                     } else {
-                        if (updatesStatus) updatesStatus.textContent = 'Iniciando descarga APK de ' + project.name + '...';
+                        if (updatesStatus) updatesStatus.textContent = 'Iniciando instalador APK de ' + project.name + '...';
                         setRuntimeState(project.slug, { phase: 'launching', percent: 100, taskId: `install_${project.slug}` });
                         updateDownloadSession(item.key, {
                             phase: 'launching',
@@ -4144,6 +4177,146 @@
             return '';
         }
 
+        function getCapacitorPlugin(pluginName) {
+            const cap = window.Capacitor;
+            if (!cap || !pluginName) return null;
+            if (cap.Plugins && cap.Plugins[pluginName]) return cap.Plugins[pluginName];
+            if (cap[pluginName]) return cap[pluginName];
+            return null;
+        }
+
+        function isNativeAndroidRuntime() {
+            const cap = window.Capacitor;
+            if (!cap?.isNativePlatform?.()) return false;
+            return String(cap?.getPlatform?.() || '').toLowerCase() === 'android';
+        }
+
+        async function installAndroidApkInApp({
+            url,
+            fileName = 'ows-project.apk',
+            taskId = 'install_android',
+            sessionKey = '',
+            slug = '',
+            projectName = 'Proyecto',
+            expectedSize = 0,
+            sessionIsApp = false,
+        } = {}) {
+            if (!url) return { ok: false, error: 'URL APK vacia.' };
+            if (!isNativeAndroidRuntime()) return { ok: false, error: 'No es runtime Android nativo.' };
+
+            const Filesystem = getCapacitorPlugin('Filesystem');
+            const FileTransfer = getCapacitorPlugin('FileTransfer');
+            const FileOpener = getCapacitorPlugin('FileOpener');
+            if (!Filesystem || !FileTransfer || !FileOpener) {
+                return { ok: false, error: 'Plugins Android faltantes (Filesystem/FileTransfer/FileOpener).' };
+            }
+
+            const safeNameBase = String(fileName || 'ows-project.apk').replace(/[^\w.\-]+/g, '-').replace(/-+/g, '-');
+            const safeName = /\.apk$/i.test(safeNameBase) ? safeNameBase : `${safeNameBase}.apk`;
+            const relativePath = `ows-store/apk/${safeName}`;
+            const directory = 'CACHE';
+            const expectedBytes = Number(expectedSize || 0);
+
+            let progressHandle = null;
+            let lastBytes = 0;
+            let lastTs = Date.now();
+
+            try {
+                try {
+                    await Filesystem.deleteFile({ directory, path: relativePath });
+                } catch (_) {}
+
+                let targetUri = '';
+                try {
+                    const uriResult = await Filesystem.getUri({ directory, path: relativePath });
+                    targetUri = String(uriResult?.uri || '');
+                } catch (_) {}
+                if (!targetUri) return { ok: false, error: 'No se pudo resolver ruta local APK.' };
+
+                if (sessionKey) {
+                    updateDownloadSession(sessionKey, {
+                        name: projectName,
+                        slug,
+                        phase: 'downloading',
+                        percent: 0,
+                        status: `Descargando APK (${safeName})...`,
+                        sizeBytes: expectedBytes,
+                        downloadedBytes: 0,
+                        speedBps: 0,
+                        etaSeconds: null,
+                        isApp: Boolean(sessionIsApp),
+                    });
+                }
+                if (slug) setRuntimeState(slug, { phase: 'downloading', percent: 0, taskId });
+
+                if (typeof FileTransfer.addListener === 'function') {
+                    progressHandle = await FileTransfer.addListener('progress', (p) => {
+                        if (String(p?.type || '') !== 'download') return;
+                        const transferred = Math.max(0, Number(p?.bytes || 0));
+                        const totalFromEvent = Math.max(0, Number(p?.contentLength || 0));
+                        const total = totalFromEvent > 0 ? totalFromEvent : expectedBytes;
+                        const percent = total > 0 ? Math.max(0, Math.min(100, (transferred / total) * 100)) : 0;
+
+                        const now = Date.now();
+                        const dt = Math.max(0.08, (now - lastTs) / 1000);
+                        const speed = Math.max(0, (transferred - lastBytes) / dt);
+                        lastBytes = transferred;
+                        lastTs = now;
+                        const eta = speed > 0 && total > transferred ? (total - transferred) / speed : null;
+
+                        if (slug) setRuntimeState(slug, { phase: 'downloading', percent, taskId });
+                        if (sessionKey) {
+                            updateDownloadSession(sessionKey, {
+                                phase: 'downloading',
+                                percent,
+                                status: `Descargando APK... ${Math.round(percent)}%`,
+                                sizeBytes: total > 0 ? total : expectedBytes,
+                                downloadedBytes: transferred,
+                                speedBps: speed,
+                                etaSeconds: eta,
+                                isApp: Boolean(sessionIsApp),
+                            });
+                        }
+                    });
+                }
+
+                const downloadResult = await FileTransfer.downloadFile({
+                    url,
+                    path: targetUri,
+                    progress: true,
+                    readTimeout: 180000,
+                    connectTimeout: 120000,
+                });
+                const downloadedPath = String(downloadResult?.path || targetUri || '');
+                if (!downloadedPath) return { ok: false, error: 'APK descargado sin ruta valida.' };
+
+                if (slug) setRuntimeState(slug, { phase: 'launching', percent: 100, taskId });
+                if (sessionKey) {
+                    updateDownloadSession(sessionKey, {
+                        phase: 'launching',
+                        percent: 100,
+                        status: 'Abriendo instalador Android...',
+                        downloadedBytes: expectedBytes > 0 ? expectedBytes : lastBytes,
+                        etaSeconds: 0,
+                        isApp: Boolean(sessionIsApp),
+                    });
+                }
+
+                await FileOpener.openFile({
+                    path: downloadedPath,
+                    mimeType: 'application/vnd.android.package-archive',
+                });
+
+                return { ok: true, path: downloadedPath };
+            } catch (err) {
+                return { ok: false, error: err?.message || String(err || 'error desconocido') };
+            } finally {
+                try {
+                    await progressHandle?.remove?.();
+                } catch (_) {}
+            }
+        }
+
         function openExternal(url) {
             if (!url) return;
             const isApkUrl = /\.apk(?:$|[?#])/i.test(String(url));
@@ -4655,7 +4828,7 @@
                         showActionMessage('No se encontro APK para ' + project.name + '.');
                         return;
                     }
-                    if (window.owsUpdater?.installExternalInstaller) {
+                    if (window.owsUpdater?.installExternalInstaller || isNativeAndroidRuntime()) {
                         await handleProjectAction({ stopPropagation: () => {} }, project);
                         return;
                     }
@@ -5172,8 +5345,56 @@
             if (window.owsUpdater?.installUpdate) window.owsUpdater.installUpdate();
         }
 
-        function openStoreAndroidDownload() {
-            openExternal(owsStoreAndroidState.downloadUrl || OWS_STORE_ANDROID_ARTIFACT_FALLBACK_URL);
+        async function openStoreAndroidDownload() {
+            const url = owsStoreAndroidState.downloadUrl || OWS_STORE_ANDROID_ARTIFACT_FALLBACK_URL;
+            if (isNativeAndroidRuntime()) {
+                const sessionKey = 'app_ows_store_android_manual';
+                updateDownloadSession(sessionKey, {
+                    name: 'OWS Store Android',
+                    slug: 'ows-store-android',
+                    icon: STORE_LOCAL_ICON,
+                    phase: 'preparing',
+                    percent: 0,
+                    status: 'Preparando instalador Android...',
+                    sizeBytes: Number(owsStoreAndroidState.sizeBytes || 0),
+                    isApp: true,
+                });
+                showActionMessage('Preparando instalador Android de OWS Store...', {
+                    sticky: true,
+                    state: 'checking',
+                    title: 'OWS Store Android',
+                    showProgress: true,
+                });
+                const result = await installAndroidApkInApp({
+                    url,
+                    fileName: `OWS-Store-Android-${owsStoreAndroidState.version || 'latest'}.apk`,
+                    taskId: 'install_ows_store_android',
+                    sessionKey,
+                    slug: '',
+                    projectName: 'OWS Store Android',
+                    expectedSize: Number(owsStoreAndroidState.sizeBytes || 0),
+                    sessionIsApp: true,
+                });
+                if (!result?.ok) {
+                    updateDownloadSession(sessionKey, {
+                        phase: 'error',
+                        status: 'Error instalando APK Android: ' + (result?.error || 'desconocido'),
+                    });
+                    addNotification('Error instalando APK de OWS Store Android: ' + (result?.error || 'desconocido'), 'error');
+                    showActionMessage('Error instalando APK de OWS Store Android.', { state: 'error' });
+                    return;
+                }
+                updateDownloadSession(sessionKey, {
+                    phase: 'done',
+                    percent: 100,
+                    status: 'Instalador Android abierto. Completa la instalacion.',
+                    etaSeconds: 0,
+                });
+                addNotification('Instalador Android de OWS Store abierto.', 'success');
+                showActionMessage('Instalador Android de OWS Store abierto.', { state: 'ready' });
+                return;
+            }
+            openExternal(url);
         }
 
         function initSearch() {

@@ -60,7 +60,7 @@ jobs:
         run: |
           cd "$APP_DIR"
           npm ci || npm install
-          npm install --no-save @capacitor/core@^8.1.0 @capacitor/android@^8.1.0 @capacitor/cli@^8.1.0
+          npm install --no-save @capacitor/core@^8.1.0 @capacitor/android@^8.1.0 @capacitor/cli@^8.1.0 @capacitor/filesystem@^8.1.2 @capacitor/file-transfer@^2.0.4 @capawesome-team/capacitor-file-opener@^8.0.1
 
       - name: Prepare web and android platform
         shell: bash

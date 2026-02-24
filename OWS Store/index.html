@@ -4345,6 +4345,23 @@
                     mimeType: 'application/vnd.android.package-archive',
                 });
 
+                // On some Android ROMs, chooser can close without launching installer
+                // when "Install unknown apps" is disabled for this app.
+                setTimeout(() => {
+                    if (!isNativeAndroidRuntime()) return;
+                    if (document.visibilityState === 'visible') {
+                        const helpMsg = 'Si no se abre el instalador, habilita "Instalar apps desconocidas" para OWS Store en Ajustes de Android y reintenta.';
+                        if (sessionKey) {
+                            updateDownloadSession(sessionKey, {
+                                phase: 'ready',
+                                status: helpMsg,
+                            });
+                        }
+                        addNotification(helpMsg, 'warning');
+                        showActionMessage(helpMsg, { state: 'info' });
+                    }
+                }, 1400);
+
                 return { ok: true, path: downloadedPath };
             } catch (err) {
                 return {

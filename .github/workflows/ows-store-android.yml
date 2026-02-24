@@ -121,6 +121,21 @@ jobs:
           cd "$APP_DIR"
           npx cap sync android
 
+      - name: Ensure Android install permission for APK handoff
+        shell: bash
+        run: |
+          set -e
+          MANIFEST="$APP_DIR/android/app/src/main/AndroidManifest.xml"
+          if [ ! -f "$MANIFEST" ]; then
+            echo "AndroidManifest.xml no encontrado en $MANIFEST"
+            exit 1
+          fi
+          if ! grep -q "android.permission.REQUEST_INSTALL_PACKAGES" "$MANIFEST"; then
+            sed -i '/android.permission.INTERNET/a\    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />' "$MANIFEST"
+          fi
+          echo "Permisos en manifest:"
+          grep -n "uses-permission" "$MANIFEST" || true
+
       - name: Build Android artifacts
         shell: bash
         run: |

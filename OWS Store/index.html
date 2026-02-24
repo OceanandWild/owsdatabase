@@ -3753,7 +3753,7 @@
             const data = await res.json();
             const release = data?.release || null;
             if (!release) throw new Error('Release Android sin payload.');
-            const proxyDownloadUrl = `${OWS_STORE_ANDROID_API_BASE}/releases/${encodeURIComponent(slug)}/latest/download`;
+            const proxyDownloadUrl = `${OWS_STORE_ANDROID_API_BASE}/releases/${encodeURIComponent(slug)}/latest/download?versionCode=${encodeURIComponent(release.version_code || 'latest')}&nocache=${cacheBust}`;
             return {
                 version: release.version_name || '',
                 versionCode: Number(release.version_code || 0),

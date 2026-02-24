@@ -12370,7 +12370,7 @@ app.get('/ows-store/android/releases/:slug/latest', async (req, res) => {
   }
 });
 
-// Descargar APK Android de la ultima release publicada (proxy para evitar bloqueos de navegador)
+// Descargar APK Android de la ultima release publicada (redirige al asset final de GitHub Releases)
 app.get('/ows-store/android/releases/:slug/latest/download', async (req, res) => {
   const { slug } = req.params;
   try {
@@ -12387,24 +12387,12 @@ app.get('/ows-store/android/releases/:slug/latest/download', async (req, res) =>
     const release = rows[0];
     const sourceUrl = String(release.apk_url || '').trim();
     if (!sourceUrl) return res.status(404).json({ error: 'Release Android sin apk_url' });
-
-    const upstream = await fetch(sourceUrl, { redirect: 'follow' });
-    if (!upstream.ok) {
-      return res.status(502).json({ error: `No se pudo obtener APK desde origen (${upstream.status})` });
-    }
-
-    const filename = `${slug}-${release.version_name || release.version_code || 'latest'}.apk`
-      .replace(/[^\w.\-]+/g, '-')
-      .replace(/-+/g, '-');
-    const contentType = upstream.headers.get('content-type') || 'application/vnd.android.package-archive';
-    const contentLength = upstream.headers.get('content-length');
-    const payload = Buffer.from(await upstream.arrayBuffer());
-
-    res.setHeader('Content-Type', contentType);
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.setHeader('Cache-Control', 'no-store');
-    if (contentLength) res.setHeader('Content-Length', contentLength);
-    return res.status(200).send(payload);
+    // Redireccion directa al asset final para evitar descargas colgadas en navegadores moviles.
+    // Mantiene el endpoint estable en OWS Store y delega la transferencia al origen real (GitHub Releases).
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    return res.redirect(302, sourceUrl);
   } catch (err) {
     console.error('❌ Error en GET /ows-store/android/releases/:slug/latest/download:', err);
     res.status(500).json({ error: 'Error interno' });

@@ -115,14 +115,29 @@ jobs:
             exit 1
           fi
 
+          SOURCE_HASH="$(sha256sum "$ICON_SRC" | awk '{print $1}')"
+          echo "Icon source: $ICON_SRC"
+          echo "Icon source sha256: $SOURCE_HASH"
+
           for dir in android/app/src/main/res/mipmap-*; do
             [ -d "$dir" ] || continue
             if [[ "$dir" == *"anydpi-v26"* ]]; then
               continue
             fi
-            cp -f "$ICON_SRC" "$dir/ic_launcher.png" || true
-            cp -f "$ICON_SRC" "$dir/ic_launcher_round.png" || true
-            cp -f "$ICON_SRC" "$dir/ic_launcher_foreground.png" || true
+            cp -f "$ICON_SRC" "$dir/ic_launcher.png"
+            cp -f "$ICON_SRC" "$dir/ic_launcher_round.png"
+            cp -f "$ICON_SRC" "$dir/ic_launcher_foreground.png"
+
+            for icon_file in ic_launcher.png ic_launcher_round.png ic_launcher_foreground.png; do
+              TARGET_PATH="$dir/$icon_file"
+              TARGET_HASH="$(sha256sum "$TARGET_PATH" | awk '{print $1}')"
+              if [ "$TARGET_HASH" != "$SOURCE_HASH" ]; then
+                echo "Hash mismatch en $TARGET_PATH"
+                echo "Esperado: $SOURCE_HASH"
+                echo "Actual:   $TARGET_HASH"
+                exit 1
+              fi
+            done
           done
 
           echo "Launcher icon override aplicado desde $ICON_SRC"

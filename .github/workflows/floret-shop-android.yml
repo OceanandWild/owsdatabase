@@ -8,6 +8,7 @@ on:
       - master
     paths:
       - "Floret Shop/**"
+      - "FloretShop/**"
       - ".github/workflows/floret-shop-android.yml"
 
 permissions:
@@ -16,14 +17,24 @@ permissions:
 jobs:
   build-android:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        shell: bash
-        working-directory: "Floret Shop"
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Resolve project directory
+        shell: bash
+        run: |
+          if [ -d "Floret Shop" ]; then
+            echo "APP_DIR=Floret Shop" >> "$GITHUB_ENV"
+          elif [ -d "FloretShop" ]; then
+            echo "APP_DIR=FloretShop" >> "$GITHUB_ENV"
+          else
+            echo "No se encontro la carpeta del proyecto (Floret Shop / FloretShop)."
+            echo "Directorios disponibles en raiz:"
+            ls -la
+            exit 1
+          fi
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -37,14 +48,21 @@ jobs:
           java-version: "21"
 
       - name: Install dependencies
+        shell: bash
         run: |
+          cd "$APP_DIR"
           npm ci || npm install
 
       - name: Sync Capacitor
-        run: npx cap sync android
+        shell: bash
+        run: |
+          cd "$APP_DIR"
+          npx cap sync android
 
       - name: Build Android release artifacts (unsigned)
+        shell: bash
         run: |
+          cd "$APP_DIR"
           cd android
           chmod +x gradlew
           ./gradlew --no-daemon assembleRelease bundleRelease
@@ -53,12 +71,12 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: floret-shop-apk-release-unsigned
-          path: "Floret Shop/android/app/build/outputs/apk/release/app-release-unsigned.apk"
+          path: "${{ env.APP_DIR }}/android/app/build/outputs/apk/release/app-release-unsigned.apk"
           if-no-files-found: error
 
       - name: Upload AAB artifact
         uses: actions/upload-artifact@v4
         with:
           name: floret-shop-aab-release-unsigned
-          path: "Floret Shop/android/app/build/outputs/bundle/release/app-release.aab"
+          path: "${{ env.APP_DIR }}/android/app/build/outputs/bundle/release/app-release.aab"
           if-no-files-found: error

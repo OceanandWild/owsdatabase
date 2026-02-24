@@ -1,0 +1,176 @@
+name: OWS Store Android Build And Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Tag del release destino (puede ser uno existente para adjuntar assets)"
+        required: true
+        type: string
+      release_name:
+        description: "Nombre visible del release"
+        required: true
+        type: string
+      release_notes:
+        description: "Changelog / notas del release"
+        required: false
+        type: string
+      mark_latest:
+        description: "Marcar release como latest"
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+      prerelease:
+        description: "Publicar como prerelease"
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve project directory
+        shell: bash
+        run: |
+          if [ -d "OWS Store" ]; then
+            echo "APP_DIR=OWS Store" >> "$GITHUB_ENV"
+          elif [ -d "OWSStore" ]; then
+            echo "APP_DIR=OWSStore" >> "$GITHUB_ENV"
+          else
+            echo "No se encontro la carpeta OWS Store / OWSStore."
+            ls -la
+            exit 1
+          fi
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          cd "$APP_DIR"
+          npm ci || npm install
+
+      - name: Prepare web and android platform
+        shell: bash
+        run: |
+          cd "$APP_DIR"
+
+          if [ ! -d "www" ]; then
+            mkdir -p www
+          fi
+
+          if [ ! -f "www/index.html" ] && [ -f "index.html" ]; then
+            cp index.html www/index.html
+          fi
+
+          if [ ! -f "www/index.html" ]; then
+            echo "No se encontro index.html para webDir (www/index.html)."
+            ls -la
+            exit 1
+          fi
+
+          if [ ! -d "android" ]; then
+            npx cap add android
+          fi
+
+      - name: Sync Capacitor
+        shell: bash
+        run: |
+          cd "$APP_DIR"
+          npx cap sync android
+
+      - name: Build Android artifacts
+        shell: bash
+        run: |
+          cd "$APP_DIR/android"
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleDebug assembleRelease bundleRelease
+
+      - name: Sign release APK (optional)
+        if: ${{ secrets.ANDROID_SIGNING_KEY_BASE64 != '' && secrets.ANDROID_KEY_ALIAS != '' && secrets.ANDROID_KEYSTORE_PASSWORD != '' && secrets.ANDROID_KEY_PASSWORD != '' }}
+        uses: r0adkll/sign-android-release@v1
+        with:
+          releaseDirectory: "${{ env.APP_DIR }}/android/app/build/outputs/apk/release"
+          signingKeyBase64: ${{ secrets.ANDROID_SIGNING_KEY_BASE64 }}
+          alias: ${{ secrets.ANDROID_KEY_ALIAS }}
+          keyStorePassword: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          keyPassword: ${{ secrets.ANDROID_KEY_PASSWORD }}
+
+      - name: Collect release files
+        shell: bash
+        run: |
+          set -e
+          mkdir -p release-assets
+
+          SIGNED_APK=$(find "${APP_DIR}/android/app/build/outputs/apk/release" -maxdepth 1 -type f -name "*signed*.apk" | head -n 1 || true)
+          DEBUG_APK="${APP_DIR}/android/app/build/outputs/apk/debug/app-debug.apk"
+          UNSIGNED_APK="${APP_DIR}/android/app/build/outputs/apk/release/app-release-unsigned.apk"
+          AAB_PATH="${APP_DIR}/android/app/build/outputs/bundle/release/app-release.aab"
+
+          if [ -n "$SIGNED_APK" ] && [ -f "$SIGNED_APK" ]; then
+            cp "$SIGNED_APK" "release-assets/OWS.Store.Android.release-signed.apk"
+          fi
+          if [ -f "$DEBUG_APK" ]; then
+            cp "$DEBUG_APK" "release-assets/OWS.Store.Android.debug.apk"
+          fi
+          if [ -f "$UNSIGNED_APK" ]; then
+            cp "$UNSIGNED_APK" "release-assets/OWS.Store.Android.release-unsigned.apk"
+          fi
+          if [ -f "$AAB_PATH" ]; then
+            cp "$AAB_PATH" "release-assets/OWS.Store.Android.release.aab"
+          fi
+
+          FILE_COUNT=$(find release-assets -type f | wc -l | tr -d ' ')
+          if [ "$FILE_COUNT" = "0" ]; then
+            echo "No se encontraron archivos para publicar."
+            exit 1
+          fi
+
+          echo "Archivos listos para release:"
+          find release-assets -type f -maxdepth 2 -print
+
+      - name: Upload build artifact (debug)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ows-store-android-release-files
+          path: release-assets/**/*
+          if-no-files-found: error
+
+      - name: Publish assets to owsdatabase release
+        uses: softprops/action-gh-release@v2
+        with:
+          repository: OceanandWild/owsdatabase
+          tag_name: ${{ inputs.release_tag }}
+          name: ${{ inputs.release_name }}
+          body: ${{ inputs.release_notes }}
+          draft: false
+          prerelease: ${{ inputs.prerelease == 'true' }}
+          make_latest: ${{ inputs.mark_latest }}
+          files: |
+            release-assets/**/*
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }}

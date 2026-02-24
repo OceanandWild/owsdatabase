@@ -61,7 +61,6 @@ jobs:
         run: |
           cd "$APP_DIR"
           npm ci || npm install
-          npm install --no-save @capacitor/assets@latest
 
       - name: Prepare web and android platform
         shell: bash
@@ -90,17 +89,8 @@ jobs:
           mkdir -p resources
           if [ -f "assets/floretshopicon.png" ]; then
             cp -f "assets/floretshopicon.png" "resources/icon.png"
-            cp -f "assets/floretshopicon.png" "resources/icon-only.png"
-            cp -f "assets/floretshopicon.png" "resources/icon-foreground.png"
           elif [ -f "build/icon.png" ]; then
             cp -f "build/icon.png" "resources/icon.png"
-            cp -f "build/icon.png" "resources/icon-only.png"
-            cp -f "build/icon.png" "resources/icon-foreground.png"
-          fi
-
-          if [ -f "resources/icon.png" ]; then
-            npx --yes @capacitor/assets generate --android
-            ls -la android/app/src/main/res/mipmap-* || true
           fi
 
       - name: Sync Capacitor
@@ -108,6 +98,32 @@ jobs:
         run: |
           cd "$APP_DIR"
           npx cap sync android
+
+      - name: Force Floret launcher icon in Android resources
+        shell: bash
+        run: |
+          cd "$APP_DIR"
+          ICON_SRC=""
+          if [ -f "assets/floretshopicon.png" ]; then
+            ICON_SRC="assets/floretshopicon.png"
+          elif [ -f "resources/icon.png" ]; then
+            ICON_SRC="resources/icon.png"
+          fi
+
+          if [ -z "$ICON_SRC" ]; then
+            echo "No se encontro icono fuente para launcher (assets/floretshopicon.png o resources/icon.png)."
+            exit 1
+          fi
+
+          for dir in android/app/src/main/res/mipmap-*; do
+            [ -d "$dir" ] || continue
+            cp -f "$ICON_SRC" "$dir/ic_launcher.png" || true
+            cp -f "$ICON_SRC" "$dir/ic_launcher_round.png" || true
+            cp -f "$ICON_SRC" "$dir/ic_launcher_foreground.png" || true
+          done
+
+          echo "Launcher icon override aplicado desde $ICON_SRC"
+          ls -la android/app/src/main/res/mipmap-hdpi || true
 
       - name: Build Android artifacts
         shell: bash

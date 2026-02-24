@@ -3987,9 +3987,6 @@
             if (latestName && currentName) {
                 return compareVersionLike(currentName, latestName) < 0;
             }
-            if (latestCode > 0 && currentCode <= 0 && latestName) {
-                return true;
-            }
             return false;
         }
 
@@ -4067,7 +4064,7 @@
                 return { needsUpdate, latest, current };
             }
 
-            if (status) status.textContent = 'OWS Store Android al dia';
+            if (status) status.textContent = 'No hay actualizaciones pendientes.';
             if (closeBtn) {
                 closeBtn.disabled = false;
                 closeBtn.style.opacity = '1';
@@ -4075,14 +4072,14 @@
             }
             setUpdateBannerVisual({
                 state: 'success',
-                title: 'OWS Store Android actualizada',
-                message: `Sin actualizaciones. Version actual: ${currentLabel}.`,
+                title: 'No hay actualizaciones pendientes',
+                message: 'Tu OWS Store esta al dia.',
                 iconClass: 'fa-circle-check',
                 iconSpin: false,
             });
             setUpdateMetaUI({ sizeBytes: 0, etaSeconds: null, transferredBytes: null, speedBps: 0 });
             removeDownloadSession(STORE_DOWNLOAD_KEY);
-            if (!silent) addNotification('No hay actualizaciones Android pendientes para OWS Store.', 'neutral');
+            if (!silent) addNotification('No hay actualizaciones pendientes.', 'neutral');
             return { needsUpdate, latest, current };
         }
 

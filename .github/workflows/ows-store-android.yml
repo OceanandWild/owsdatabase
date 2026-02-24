@@ -151,7 +151,7 @@ jobs:
         run: |
           set -euo pipefail
           KS_PATH="$RUNNER_TEMP/ows-signing.jks"
-          if ! echo "$ANDROID_SIGNING_KEY_BASE64" | base64 -d > "$KS_PATH"; then
+          if ! printf "%s" "$ANDROID_SIGNING_KEY_BASE64" | tr -d "\r\n\t " | base64 -d > "$KS_PATH"; then
             echo "ANDROID_SIGNING_KEY_BASE64 no es un Base64 valido."
             exit 1
           fi
@@ -243,3 +243,4 @@ jobs:
           name: ows-store-aab-release-unsigned
           path: "${{ env.APP_DIR }}/android/app/build/outputs/bundle/release/app-release.aab"
           if-no-files-found: error
+

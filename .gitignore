@@ -66,3 +66,5 @@ OWS Store/**/.DS_Store
 !OWS Store/package.json
 !OWS Store/package-lock.json
 !OWS Store/capacitor.config.json
+!OWS Store/resources/
+!OWS Store/resources/icon.png

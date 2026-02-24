@@ -2141,11 +2141,11 @@
         const SSA_RELEASES_API_URL = 'https://api.github.com/repos/OceanandWild/savagespaceanimals/releases/latest';
         const OCEAN_PAY_RELEASES_URL = 'https://github.com/OceanandWild/oceanpay/releases/';
         const OCEAN_PAY_RELEASES_API_URL = 'https://api.github.com/repos/OceanandWild/oceanpay/releases/latest';
-        const OWS_STORE_ANDROID_ARTIFACT_FALLBACK_URL = 'https://github.com/OceanandWild/owsdatabase/actions/runs/22334632748/artifacts/5628368739';
+        const OWS_STORE_RELEASES_URL = 'https://github.com/OceanandWild/owsdatabase/releases';
+        const OWS_STORE_ANDROID_ARTIFACT_FALLBACK_URL = OWS_STORE_RELEASES_URL;
         const OWS_STORE_RELEASES_API_URL = 'https://api.github.com/repos/OceanandWild/owsdatabase/releases?per_page=50';
         const FLORET_RELEASES_URL = 'https://github.com/OceanandWild/floretshop/releases';
         const FLORET_RELEASES_API_URL = 'https://api.github.com/repos/OceanandWild/floretshop/releases?per_page=50';
-        const FLORET_ARTIFACTS_URL = 'https://github.com/OceanandWild/owsdatabase/actions/runs/22334179560/artifacts/5628212719';
         const SSA_LOCAL_ICON = './build/ssa.ico?v=20260223-0443';
         const OCEAN_PAY_LOCAL_ICON = './build/oceanpay.ico?v=20260223-1825';
         const FLORET_LOCAL_ICON = './build/floretshop.ico?v=20260224-0010';
@@ -2174,7 +2174,7 @@
             install_type: 'external',
             installer_url: '',
             android_release_url: FLORET_RELEASES_URL,
-            android_apk_url: FLORET_ARTIFACTS_URL,
+            android_apk_url: '',
             description: 'Marketplace de Floret. Descarga Android disponible; Windows en progreso.',
             icon_url: FLORET_LOCAL_ICON
         };
@@ -2234,7 +2234,8 @@
             version: '',
             sizeBytes: 0,
             publishedAt: null,
-            source: 'artifact'
+            source: 'release-page',
+            warning: ''
         };
 
         function applyTheme(theme) {
@@ -3270,6 +3271,27 @@
             return match ? match[1] : '';
         }
 
+        function isInstallableAndroidApkAsset(assetName) {
+            const n = String(assetName || '').toLowerCase();
+            if (!n.endsWith('.apk')) return false;
+            if (n.includes('unsigned')) return false;
+            if (n.includes('debug')) return false;
+            return true;
+        }
+
+        function scoreAndroidAssetName(name, type = 'apk') {
+            const n = String(name || '').toLowerCase();
+            let score = 0;
+            if (type === 'apk' && n.endsWith('.apk')) score += 12;
+            if (type === 'aab' && n.endsWith('.aab')) score += 12;
+            if (n.includes('signed')) score += 10;
+            if (n.includes('release') && !n.includes('unsigned')) score += 6;
+            if (n.includes('universal')) score += 2;
+            if (n.includes('debug')) score -= 18;
+            if (n.includes('unsigned')) score -= 30;
+            return score;
+        }
+
         function getPendingProjectUpdates() {
             return allProjects
                 .map((p) => ({ project: p, info: getProjectUpdateInfo(p) }))
@@ -3683,21 +3705,11 @@
                 if (!selectedRelease) throw new Error('No hay releases disponibles para Floret Shop.');
 
                 const assets = Array.isArray(selectedRelease.assets) ? selectedRelease.assets : [];
-                const scoreAndroidAssetName = (name, type = 'apk') => {
-                    const n = String(name || '').toLowerCase();
-                    let score = 0;
-                    if (type === 'apk' && n.endsWith('.apk')) score += 12;
-                    if (type === 'aab' && n.endsWith('.aab')) score += 12;
-                    if (n.includes('signed')) score += 7;
-                    if (n.includes('release') && !n.includes('unsigned')) score += 5;
-                    if (n.includes('debug')) score += 4;
-                    if (n.includes('unsigned')) score -= 8;
-                    if (n.includes('universal')) score += 2;
-                    return score;
-                };
-                const pickAsset = (extRegex) => {
-                    const options = assets
+                const pickAsset = (extRegex, options = {}) => {
+                    const onlyInstallableApk = Boolean(options.onlyInstallableApk);
+                    const candidates = assets
                         .filter(a => typeof a?.name === 'string' && extRegex.test(a.name))
+                        .filter(a => !onlyInstallableApk || isInstallableAndroidApkAsset(a.name))
                         .map((a) => ({
                             asset: a,
                             hasFloretName: /floret/i.test(String(a?.name || '')),
@@ -3709,16 +3721,16 @@
                             if (x.hasFloretName !== y.hasFloretName) return x.hasFloretName ? -1 : 1;
                             return y.updatedAtMs - x.updatedAtMs;
                         });
-                    return options[0]?.asset || null;
+                    return candidates[0]?.asset || null;
                 };
 
                 const exeAsset = pickAsset(/\.exe$/i);
-                const apkAsset = pickAsset(/\.apk$/i);
+                const apkAsset = pickAsset(/\.apk$/i, { onlyInstallableApk: true });
                 const aabAsset = pickAsset(/\.aab$/i);
                 const versionFromTag = String(selectedRelease.tag_name || '').replace(/^v/i, '');
                 const releaseUrl = selectedRelease.html_url || FLORET_RELEASES_URL;
                 const warning = (!apkAsset && !aabAsset)
-                    ? 'Release de Floret sin APK/AAB adjunto. Usa el enlace de artifacts temporal.'
+                    ? 'Release de Floret sin APK firmado instalable. Publica un asset *release-signed.apk*.'
                     : '';
 
                 const payload = {
@@ -3726,11 +3738,11 @@
                     installerUrl: exeAsset?.browser_download_url || '',
                     installerSize: Number(exeAsset?.size || 0),
                     installerAvailable: Boolean(exeAsset?.browser_download_url),
-                    androidApkUrl: apkAsset?.browser_download_url || releaseUrl || FLORET_ARTIFACTS_URL,
+                    androidApkUrl: apkAsset?.browser_download_url || '',
                     androidApkSize: Number(apkAsset?.size || 0),
-                    androidAabUrl: aabAsset?.browser_download_url || releaseUrl || '',
+                    androidAabUrl: aabAsset?.browser_download_url || '',
                     androidAabSize: Number(aabAsset?.size || 0),
-                    androidAvailable: Boolean(apkAsset?.browser_download_url || aabAsset?.browser_download_url || releaseUrl || FLORET_ARTIFACTS_URL),
+                    androidAvailable: Boolean(apkAsset?.browser_download_url || aabAsset?.browser_download_url),
                     releaseUrl,
                     publishedAt: selectedRelease.published_at || selectedRelease.created_at || null,
                     warning,
@@ -3744,14 +3756,14 @@
                     installerUrl: '',
                     installerSize: 0,
                     installerAvailable: false,
-                    androidApkUrl: FLORET_ARTIFACTS_URL,
+                    androidApkUrl: '',
                     androidApkSize: 0,
-                    androidAabUrl: FLORET_ARTIFACTS_URL,
+                    androidAabUrl: '',
                     androidAabSize: 0,
-                    androidAvailable: true,
-                    releaseUrl: FLORET_ARTIFACTS_URL,
+                    androidAvailable: false,
+                    releaseUrl: FLORET_RELEASES_URL,
                     publishedAt: null,
-                    warning: 'Usando enlace de artifacts temporal mientras llega la release final.',
+                    warning: 'No se pudo resolver release Android de Floret. Abre la pagina de releases.',
                     checkedAt: now,
                 };
                 floretProjectReleaseCache = fallback;
@@ -3777,20 +3789,8 @@
                     .filter((rel) => !rel?.draft && !rel?.prerelease)
                     .map((rel) => {
                         const assets = Array.isArray(rel.assets) ? rel.assets : [];
-                        const scoreAndroidAssetName = (name, type = 'apk') => {
-                            const n = String(name || '').toLowerCase();
-                            let score = 0;
-                            if (type === 'apk' && n.endsWith('.apk')) score += 12;
-                            if (type === 'aab' && n.endsWith('.aab')) score += 12;
-                            if (n.includes('signed')) score += 7;
-                            if (n.includes('release') && !n.includes('unsigned')) score += 5;
-                            if (n.includes('debug')) score += 4;
-                            if (n.includes('unsigned')) score -= 8;
-                            if (n.includes('universal')) score += 2;
-                            return score;
-                        };
                         const apkCandidates = assets
-                            .filter((a) => typeof a?.name === 'string' && /\.apk$/i.test(a.name))
+                            .filter((a) => typeof a?.name === 'string' && isInstallableAndroidApkAsset(a.name))
                             .map((a) => ({ asset: a, score: scoreAndroidAssetName(a?.name, 'apk') }))
                             .sort((a, b) => b.score - a.score);
                         const aabCandidates = assets
@@ -3821,13 +3821,17 @@
                 const selected = filtered[0] || null;
                 if (!selected) throw new Error('No se encontro release Android de OWS Store.');
 
-                const downloadAsset = selected.apk || selected.aab || null;
+                const downloadAsset = selected.apk || null;
+                const warning = downloadAsset
+                    ? ''
+                    : 'No hay APK firmado instalable en la release Android. Publica un asset *release-signed.apk*.';
                 const payload = {
                     version: String(selected.release?.tag_name || '').replace(/^v/i, ''),
                     downloadUrl: downloadAsset?.browser_download_url || selected.release?.html_url || OWS_STORE_ANDROID_ARTIFACT_FALLBACK_URL,
                     sizeBytes: Number(downloadAsset?.size || 0),
                     publishedAt: selected.release?.published_at || selected.release?.created_at || null,
                     source: downloadAsset ? 'release-asset' : 'release-page',
+                    warning,
                     checkedAt: now
                 };
                 owsStoreAndroidReleaseCache = payload;
@@ -3838,7 +3842,8 @@
                     downloadUrl: OWS_STORE_ANDROID_ARTIFACT_FALLBACK_URL,
                     sizeBytes: 0,
                     publishedAt: null,
-                    source: 'artifact',
+                    source: 'release-page',
+                    warning: 'No se pudo resolver un APK Android instalable. Abre la pagina de releases.',
                     checkedAt: now
                 };
                 owsStoreAndroidReleaseCache = fallback;
@@ -3852,8 +3857,11 @@
             const versionText = owsStoreAndroidState.version ? `Tag ${owsStoreAndroidState.version}` : 'Tag sin resolver';
             const sizeText = owsStoreAndroidState.sizeBytes > 0 ? formatByteSize(owsStoreAndroidState.sizeBytes) : '-';
             const dateText = owsStoreAndroidState.publishedAt ? formatDateTime(owsStoreAndroidState.publishedAt) : 'sin fecha';
-            const sourceText = owsStoreAndroidState.source === 'artifact' ? 'source: artifact fallback' : 'source: release';
-            meta.textContent = `${versionText} | ${sizeText} | ${dateText} | ${sourceText}`;
+            const sourceText = owsStoreAndroidState.source === 'release-asset'
+                ? 'source: release asset'
+                : 'source: release page';
+            const warningText = owsStoreAndroidState.warning ? ` | ${owsStoreAndroidState.warning}` : '';
+            meta.textContent = `${versionText} | ${sizeText} | ${dateText} | ${sourceText}${warningText}`;
         }
 
         async function refreshStoreAndroidReleaseLink() {
@@ -3862,7 +3870,8 @@
             owsStoreAndroidState.version = payload?.version || '';
             owsStoreAndroidState.sizeBytes = Number(payload?.sizeBytes || 0);
             owsStoreAndroidState.publishedAt = payload?.publishedAt || null;
-            owsStoreAndroidState.source = payload?.source || 'artifact';
+            owsStoreAndroidState.source = payload?.source || 'release-page';
+            owsStoreAndroidState.warning = payload?.warning || '';
             renderOWSStoreAndroidMeta();
         }
 
@@ -3938,7 +3947,7 @@
 
             if (supportsAndroidDownloads(project)) {
                 const releaseUrl = project.android_release_url || FLORET_RELEASES_URL || '';
-                const apkUrl = project.android_apk_url || releaseUrl || FLORET_ARTIFACTS_URL;
+                const apkUrl = project.android_apk_url || '';
                 const aabUrl = project.android_aab_url || '';
                 targets.push({
                     id: 'android-apk',
@@ -3956,12 +3965,25 @@
                     kind: 'android',
                     label: 'Android (AAB)',
                     actionLabel: 'Descargar AAB',
-                    url: aabUrl || releaseUrl || FLORET_ARTIFACTS_URL,
+                    url: aabUrl,
                     sizeBytes: Number(project.android_aab_size || 0),
                     version: project.android_version || project.version || '',
-                    available: Boolean(aabUrl || releaseUrl || FLORET_ARTIFACTS_URL),
-                    pending: !(aabUrl || releaseUrl || FLORET_ARTIFACTS_URL),
+                    available: Boolean(aabUrl),
+                    pending: !aabUrl,
                 });
+                if (releaseUrl) {
+                    targets.push({
+                        id: 'android-release-page',
+                        kind: 'android',
+                        label: 'Android (Releases)',
+                        actionLabel: 'Abrir releases',
+                        url: releaseUrl,
+                        sizeBytes: 0,
+                        version: project.android_version || project.version || '',
+                        available: true,
+                        pending: false,
+                    });
+                }
             }
             return targets;
         }
@@ -4099,10 +4121,10 @@
                 floret.platform = 'android,windows';
                 floret.install_type = 'external';
                 if (!floret.android_release_url) floret.android_release_url = FLORET_RELEASES_URL;
-                if (!floret.android_apk_url) floret.android_apk_url = FLORET_ARTIFACTS_URL;
+                if (!floret.android_apk_url) floret.android_apk_url = '';
                 floret.icon_url = floret.icon_url || FLORET_LOCAL_ICON;
                 floret.installer_available = false;
-                floret.android_available = true;
+                floret.android_available = false;
                 floret.last_update_at = null;
                 floret.pending_release = false;
                 floret.installer_size = Number(floret.installer_size || 0);
@@ -4127,7 +4149,7 @@
                 } catch (err) {
                     console.log('No se pudo resolver la ultima release de Floret Shop:', err?.message || err);
                     floret.pending_release = false;
-                    floret.release_warning = 'Floret Shop usa enlace temporal de artifacts para Android.';
+                    floret.release_warning = 'No se pudo validar la release Android de Floret Shop.';
                 }
             }
         }

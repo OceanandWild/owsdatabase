@@ -12,9 +12,18 @@ on:
         required: false
         type: string
       artifact_name:
-        description: "Artifact name (ej. ows-store-apk-release-signed / ows-store-apk-debug)"
+        description: "Artifact name (recomendado: ows-store-apk-release-signed)"
         required: false
+        default: "ows-store-apk-release-signed"
         type: string
+      allow_non_production_artifacts:
+        description: "Permitir artifact debug/unsigned (no recomendado)"
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
       release_tag:
         description: "Tag unico del release (ej. ows-store-android-v2026.02.24-001)"
         required: true
@@ -50,6 +59,15 @@ jobs:
           if [ -z "${{ inputs.artifact_id }}" ] && [ -z "${{ inputs.artifact_name }}" ]; then
             echo "Debes indicar artifact_id o artifact_name."
             exit 1
+          fi
+
+          name_lc="$(echo '${{ inputs.artifact_name }}' | tr '[:upper:]' '[:lower:]')"
+          if [ "${{ inputs.allow_non_production_artifacts }}" != "true" ] && [ -n "$name_lc" ]; then
+            if [[ "$name_lc" == *"debug"* ]] || [[ "$name_lc" == *"unsigned"* ]]; then
+              echo "Artifact no-productivo detectado: $name_lc"
+              echo "Usa ows-store-apk-release-signed o habilita allow_non_production_artifacts=true."
+              exit 1
+            fi
           fi
 
       - name: Download artifact by ID

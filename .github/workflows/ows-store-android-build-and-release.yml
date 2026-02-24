@@ -161,19 +161,14 @@ jobs:
           mkdir -p release-assets
 
           SIGNED_APK=$(find "${APP_DIR}/android/app/build/outputs/apk/release" -maxdepth 1 -type f -name "*signed*.apk" | head -n 1 || true)
-          DEBUG_APK="${APP_DIR}/android/app/build/outputs/apk/debug/app-debug.apk"
-          UNSIGNED_APK="${APP_DIR}/android/app/build/outputs/apk/release/app-release-unsigned.apk"
           AAB_PATH="${APP_DIR}/android/app/build/outputs/bundle/release/app-release.aab"
 
-          if [ -n "$SIGNED_APK" ] && [ -f "$SIGNED_APK" ]; then
-            cp "$SIGNED_APK" "release-assets/OWS.Store.Android.release-signed.apk"
+          if [ -z "$SIGNED_APK" ] || [ ! -f "$SIGNED_APK" ]; then
+            echo "No se encontro APK firmado. Configura ANDROID_SIGNING_* secrets para publicar una build instalable."
+            exit 1
           fi
-          if [ -f "$DEBUG_APK" ]; then
-            cp "$DEBUG_APK" "release-assets/OWS.Store.Android.debug.apk"
-          fi
-          if [ -f "$UNSIGNED_APK" ]; then
-            cp "$UNSIGNED_APK" "release-assets/OWS.Store.Android.release-unsigned.apk"
-          fi
+          cp "$SIGNED_APK" "release-assets/OWS.Store.Android.release-signed.apk"
+
           if [ -f "$AAB_PATH" ]; then
             cp "$AAB_PATH" "release-assets/OWS.Store.Android.release.aab"
           fi

@@ -51,6 +51,10 @@ Floret Shop/**/.DS_Store
 !Floret Shop/package.json
 !Floret Shop/package-lock.json
 !Floret Shop/capacitor.config.json
+!Floret Shop/assets/
+Floret Shop/assets/*
+!Floret Shop/assets/floretshopicon.png
+!Floret Shop/assets/floretshopicon.ico
 
 # 6. OWS STORE (Android CI liviano)
 OWS Store/node_modules/

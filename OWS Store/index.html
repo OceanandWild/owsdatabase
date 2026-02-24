@@ -3032,22 +3032,54 @@
                 await sleep(120);
 
                 if (item.platform === 'android') {
-                    if (updatesStatus) updatesStatus.textContent = 'Iniciando descarga APK de ' + project.name + '...';
-                    setRuntimeState(project.slug, { phase: 'launching', percent: 100, taskId: `install_${project.slug}` });
-                    updateDownloadSession(item.key, {
-                        phase: 'launching',
-                        percent: 100,
-                        status: 'Abriendo instalador Android...',
-                        downloadedBytes: Number(item.sizeBytes || 0),
-                        etaSeconds: 0,
-                    });
-                    showActionMessage('Abriendo instalador Android de ' + project.name + '...', {
-                        sticky: true,
-                        state: 'downloading',
-                        title: project.name,
-                        showProgress: true,
-                    });
-                    openExternal(item.url);
+                    if (window.owsUpdater?.installExternalInstaller) {
+                        if (updatesStatus) updatesStatus.textContent = 'Descargando APK de ' + project.name + '...';
+                        showActionMessage('Descargando APK de ' + project.name + '...', {
+                            sticky: true,
+                            state: 'downloading',
+                            title: project.name,
+                            showProgress: true,
+                        });
+                        const result = await window.owsUpdater.installExternalInstaller({
+                            url: item.url,
+                            name: item.fileName || `${project.name || 'android-app'}.apk`,
+                            taskId: `install_${project.slug}`,
+                            expectedSize: Number(item.sizeBytes || 0),
+                        });
+                        if (!result?.ok) {
+                            setRuntimeState(project.slug, { phase: 'idle', percent: 0, taskId: '' });
+                            updateDownloadSession(item.key, {
+                                phase: 'error',
+                                status: 'Error al descargar APK: ' + (result?.error || 'desconocido'),
+                            });
+                            if (updatesStatus) updatesStatus.textContent = 'Error descargando APK de ' + project.name;
+                            addNotification('Error al descargar APK de ' + project.name + ': ' + (result?.error || 'desconocido'), 'error');
+                            showActionMessage('Error al descargar APK de ' + project.name + '.', { state: 'error' });
+                            await refreshInstallationStates();
+                            scheduleSectionRender({ projects: true, library: true, immediate: true });
+                            activeInstallTaskKey = '';
+                            syncQueueMarkers();
+                            continue;
+                        }
+                    } else {
+                        if (updatesStatus) updatesStatus.textContent = 'Iniciando descarga APK de ' + project.name + '...';
+                        setRuntimeState(project.slug, { phase: 'launching', percent: 100, taskId: `install_${project.slug}` });
+                        updateDownloadSession(item.key, {
+                            phase: 'launching',
+                            percent: 100,
+                            status: 'Abriendo instalador Android...',
+                            downloadedBytes: Number(item.sizeBytes || 0),
+                            etaSeconds: 0,
+                        });
+                        showActionMessage('Abriendo instalador Android de ' + project.name + '...', {
+                            sticky: true,
+                            state: 'downloading',
+                            title: project.name,
+                            showProgress: true,
+                        });
+                        openExternal(item.url);
+                    }
+
                     localStorage.setItem(`installed_${project.slug}`, item.versionName || project.version || 'latest');
                     localStorage.setItem(`installed_platform_${project.slug}`, 'android');
                     if (Number.isFinite(Number(item.versionCode)) && Number(item.versionCode) > 0) {
@@ -3058,6 +3090,8 @@
                         phase: 'done',
                         percent: 100,
                         status: 'APK abierto. Completa la instalacion en Android.',
+                        etaSeconds: 0,
+                        downloadedBytes: Number(item.sizeBytes || 0),
                     });
                     if (updatesStatus) updatesStatus.textContent = 'APK abierto para ' + project.name;
                     addNotification('APK abierto para ' + project.name + '. Completa la instalacion en Android.', 'success');
@@ -4470,11 +4504,14 @@
                     addNotification('Iniciando instalacion Android de ' + project.name + '...', 'neutral');
                     showActionMessage('Agregando ' + project.name + ' a la cola de instalacion Android...', { state: 'info' });
                     const queueKey = getDownloadKeyForProject(project);
+                    const safeBaseName = String(project.name || 'android-app').replace(/[^\w.\-]+/g, '-').replace(/-+/g, '-');
+                    const safeVersion = String(selectedTarget.version || project.version || 'latest').replace(/[^\w.\-]+/g, '-').replace(/-+/g, '-');
                     const queueItem = {
                         key: queueKey,
                         slug: project.slug,
                         platform: 'android',
                         url: selectedTarget.url,
+                        fileName: `${safeBaseName}-${safeVersion}.apk`,
                         targetLabel: selectedTarget.label || 'Android (APK)',
                         sizeBytes: Number(selectedTarget.sizeBytes || project.android_apk_size || 0),
                         versionName: selectedTarget.version || project.version || 'latest',

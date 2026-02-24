@@ -2155,6 +2155,8 @@
         const STORE_THEME_KEY = 'ows_store_theme';
         const OWS_STORE_ANDROID_INSTALLED_VERSION_KEY = 'ows_store_android_installed_version_name';
         const OWS_STORE_ANDROID_INSTALLED_VERSION_CODE_KEY = 'ows_store_android_installed_version_code';
+        const OWS_STORE_ANDROID_UNKNOWN_SOURCES_ACK_KEY = 'ows_store_android_unknown_sources_ack_ts';
+        const OWS_STORE_ANDROID_UNKNOWN_SOURCES_ACK_TTL_MS = 6 * 60 * 60 * 1000;
         const OCEAN_PAY_STORAGE_USER = 'opUser';
         const OCEAN_PAY_STORAGE_TOKEN = 'opToken';
         const SSA_PROJECT = {
@@ -3054,6 +3056,22 @@
                             sessionIsApp: false,
                         });
                         if (!nativeResult?.ok) {
+                            if (nativeResult?.code === 'unknown_sources_not_confirmed') {
+                                const waitMsg = 'Instalacion pausada. Habilita "Instalar apps desconocidas" para OWS Store y reintenta.';
+                                setRuntimeState(project.slug, { phase: 'idle', percent: 0, taskId: '' });
+                                updateDownloadSession(item.key, {
+                                    phase: 'ready',
+                                    status: waitMsg,
+                                });
+                                if (updatesStatus) updatesStatus.textContent = waitMsg;
+                                addNotification(waitMsg, 'warning');
+                                showActionMessage(waitMsg, { state: 'info' });
+                                await refreshInstallationStates();
+                                scheduleSectionRender({ projects: true, library: true, immediate: true });
+                                activeInstallTaskKey = '';
+                                syncQueueMarkers();
+                                continue;
+                            }
                             const errorDetail = formatInstallErrorDetail(nativeResult, 'desconocido');
                             setRuntimeState(project.slug, { phase: 'idle', percent: 0, taskId: '' });
                             updateDownloadSession(item.key, {
@@ -4351,6 +4369,73 @@
             return String(cap?.getPlatform?.() || '').toLowerCase() === 'android';
         }
 
+        function hasRecentUnknownSourcesAck() {
+            try {
+                const ts = Number(localStorage.getItem(OWS_STORE_ANDROID_UNKNOWN_SOURCES_ACK_KEY) || 0);
+                if (!Number.isFinite(ts) || ts <= 0) return false;
+                return (Date.now() - ts) < OWS_STORE_ANDROID_UNKNOWN_SOURCES_ACK_TTL_MS;
+            } catch (_) {
+                return false;
+            }
+        }
+
+        function persistUnknownSourcesAckNow() {
+            try {
+                localStorage.setItem(OWS_STORE_ANDROID_UNKNOWN_SOURCES_ACK_KEY, String(Date.now()));
+            } catch (_) {}
+        }
+
+        function openAndroidUnknownSourcesSettings() {
+            const attempts = [
+                'intent://settings#Intent;action=android.settings.MANAGE_UNKNOWN_APP_SOURCES;end',
+                'intent://settings#Intent;action=android.settings.SECURITY_SETTINGS;end',
+            ];
+            for (const uri of attempts) {
+                try {
+                    const anchor = document.createElement('a');
+                    anchor.href = uri;
+                    anchor.target = '_self';
+                    anchor.rel = 'noopener noreferrer';
+                    anchor.style.display = 'none';
+                    document.body.appendChild(anchor);
+                    anchor.click();
+                    anchor.remove();
+                    return true;
+                } catch (_) {}
+            }
+            return false;
+        }
+
+        async function ensureAndroidUnknownSourcesReady(projectName = 'esta app') {
+            if (!isNativeAndroidRuntime()) return { ok: true };
+            if (hasRecentUnknownSourcesAck()) return { ok: true };
+            const safeProject = String(projectName || 'esta app');
+            const confirmText = [
+                `Antes de instalar ${safeProject}, habilita "Instalar apps desconocidas" para OWS Store.`,
+                '',
+                'HONOR:',
+                'Ajustes > Seguridad y privacidad > Mayor seguridad y privacidad > Instalar aplicaciones de fuentes externas > OWS Store.',
+                '',
+                'Pulsa Aceptar si YA lo habilitaste. Pulsa Cancelar para abrir Ajustes ahora.',
+            ].join('\n');
+            const alreadyEnabled = window.confirm(confirmText);
+            if (alreadyEnabled) {
+                persistUnknownSourcesAckNow();
+                return { ok: true };
+            }
+            const opened = openAndroidUnknownSourcesSettings();
+            const helpMessage = opened
+                ? 'Ajustes abiertos. Habilita "Instalar apps desconocidas" para OWS Store y reintenta.'
+                : 'No se pudo abrir Ajustes automaticamente. Habilita "Instalar apps desconocidas" para OWS Store y reintenta.';
+            addNotification(helpMessage, 'warning');
+            showActionMessage(helpMessage, { state: 'info' });
+            return {
+                ok: false,
+                code: 'unknown_sources_not_confirmed',
+                error: 'Permiso de fuentes externas no confirmado.',
+            };
+        }
+
         function formatInstallErrorDetail(err, fallback = 'desconocido') {
             if (!err) return fallback;
             if (typeof err === 'string') return err;
@@ -4384,6 +4469,8 @@
         } = {}) {
             if (!url) return { ok: false, error: 'URL APK vacia.' };
             if (!isNativeAndroidRuntime()) return { ok: false, error: 'No es runtime Android nativo.' };
+            const unknownSourcesReady = await ensureAndroidUnknownSourcesReady(projectName);
+            if (!unknownSourcesReady?.ok) return unknownSourcesReady;
 
             const Filesystem = getCapacitorPlugin('Filesystem');
             const FileTransfer = getCapacitorPlugin('FileTransfer');
@@ -5670,6 +5757,16 @@
                     sessionIsApp: true,
                 });
                 if (!result?.ok) {
+                    if (result?.code === 'unknown_sources_not_confirmed') {
+                        const waitMsg = 'Instalacion pausada. Habilita "Instalar apps desconocidas" para OWS Store y reintenta.';
+                        updateDownloadSession(sessionKey, {
+                            phase: 'ready',
+                            status: waitMsg,
+                        });
+                        addNotification(waitMsg, 'warning');
+                        showActionMessage(waitMsg, { state: 'info' });
+                        return;
+                    }
                     const errorDetail = formatInstallErrorDetail(result, 'desconocido');
                     updateDownloadSession(sessionKey, {
                         phase: 'error',

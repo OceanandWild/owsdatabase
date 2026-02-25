@@ -236,8 +236,10 @@ jobs:
         run: |
           set -euo pipefail
           UNSIGNED_APK="${APP_DIR}/android/app/build/outputs/apk/release/app-release-unsigned.apk"
+          ALIGNED_APK="${APP_DIR}/android/app/build/outputs/apk/release/app-release-aligned.apk"
           SIGNED_APK="${APP_DIR}/android/app/build/outputs/apk/release/app-release-signed.apk"
           APKSIGNER="${ANDROID_SDK_ROOT}/build-tools/34.0.0/apksigner"
+          ZIPALIGN="${ANDROID_SDK_ROOT}/build-tools/34.0.0/zipalign"
 
           if [ ! -f "$UNSIGNED_APK" ]; then
             echo "No se encontro APK unsigned para firmar: $UNSIGNED_APK"
@@ -247,18 +249,28 @@ jobs:
             echo "No se encontro apksigner en: $APKSIGNER"
             exit 1
           fi
+          if [ ! -x "$ZIPALIGN" ]; then
+            echo "No se encontro zipalign en: $ZIPALIGN"
+            exit 1
+          fi
 
           if [ -z "${ANDROID_KEY_PASSWORD:-}" ]; then
             ANDROID_KEY_PASSWORD="$ANDROID_KEYSTORE_PASSWORD"
           fi
+
+          "$ZIPALIGN" -f -p 4 "$UNSIGNED_APK" "$ALIGNED_APK"
 
           if ! "$APKSIGNER" sign \
             --ks "$SIGNING_KEYSTORE_PATH" \
             --ks-key-alias "$ANDROID_KEY_ALIAS" \
             --ks-pass env:ANDROID_KEYSTORE_PASSWORD \
             --key-pass env:ANDROID_KEY_PASSWORD \
+            --v1-signing-enabled true \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
+            --v4-signing-enabled false \
             --out "$SIGNED_APK" \
-            "$UNSIGNED_APK"; then
+            "$ALIGNED_APK"; then
             echo "Primera firma fallo. Reintentando con key password = keystore password..."
             ANDROID_KEY_PASSWORD="$ANDROID_KEYSTORE_PASSWORD" \
             "$APKSIGNER" sign \
@@ -266,11 +278,15 @@ jobs:
               --ks-key-alias "$ANDROID_KEY_ALIAS" \
               --ks-pass env:ANDROID_KEYSTORE_PASSWORD \
               --key-pass env:ANDROID_KEY_PASSWORD \
+              --v1-signing-enabled true \
+              --v2-signing-enabled true \
+              --v3-signing-enabled true \
+              --v4-signing-enabled false \
               --out "$SIGNED_APK" \
-              "$UNSIGNED_APK"
+              "$ALIGNED_APK"
           fi
 
-          "$APKSIGNER" verify --print-certs "$SIGNED_APK" >/dev/null
+          "$APKSIGNER" verify --verbose --print-certs "$SIGNED_APK" >/dev/null
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4

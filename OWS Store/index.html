@@ -2421,6 +2421,7 @@
         const selectedInstallTargetBySlug = {};
         const owsStoreAndroidState = {
             downloadUrl: OWS_STORE_ANDROID_ARTIFACT_FALLBACK_URL,
+            directDownloadUrl: '',
             version: '',
             versionCode: 0,
             sizeBytes: 0,
@@ -4233,12 +4234,13 @@
             const release = data?.release || null;
             if (!release) throw new Error('Release Android sin payload.');
             const proxyDownloadUrl = `${OWS_STORE_ANDROID_API_BASE}/releases/${encodeURIComponent(slug)}/latest/download?versionCode=${encodeURIComponent(release.version_code || 'latest')}&nocache=${cacheBust}`;
+            const directDownloadUrl = String(release.apk_url || '').trim();
             return {
                 version: release.version_name || '',
                 versionCode: Number(release.version_code || 0),
                 packageId: release.package_id || '',
-                downloadUrl: release.apk_url ? proxyDownloadUrl : (fallbackReleaseUrl || ''),
-                directDownloadUrl: release.apk_url || '',
+                downloadUrl: selectAndroidDownloadUrl(proxyDownloadUrl, directDownloadUrl) || (fallbackReleaseUrl || ''),
+                directDownloadUrl,
                 sizeBytes: Number(release.size_bytes || 0),
                 sha256: release.sha256 || '',
                 minStoreVersion: release.min_store_version || '',
@@ -4318,6 +4320,7 @@
                     version: '',
                     versionCode: 0,
                     downloadUrl: '',
+                    directDownloadUrl: '',
                     sizeBytes: 0,
                     publishedAt: null,
                     warning: 'No se pudo resolver release Android desde OWS Store API.',
@@ -4344,11 +4347,13 @@
                 installerUrl: windowsData.installerUrl || '',
                 installerSize: Number(windowsData.installerSize || 0),
                 installerAvailable: Boolean(windowsData.installerAvailable && windowsData.installerUrl),
-                androidApkUrl: androidData.downloadUrl || '',
+                androidApkUrl: androidData.directDownloadUrl || androidData.downloadUrl || '',
+                androidApkDirectUrl: androidData.directDownloadUrl || '',
+                androidApkProxyUrl: androidData.downloadUrl || '',
                 androidApkSize: Number(androidData.sizeBytes || 0),
                 androidAabUrl: '',
                 androidAabSize: 0,
-                androidAvailable: Boolean(androidData.downloadUrl),
+                androidAvailable: Boolean(androidData.directDownloadUrl || androidData.downloadUrl),
                 releaseUrl: windowsData.releaseUrl || FLORET_RELEASES_URL,
                 publishedAt: pickLatestDate(windowsData.publishedAt, androidData.publishedAt),
                 warning: warnings,
@@ -4370,6 +4375,7 @@
                     version: latest.version || '',
                     versionCode: Number(latest.versionCode || 0),
                     downloadUrl: latest.downloadUrl || OWS_STORE_ANDROID_ARTIFACT_FALLBACK_URL,
+                    directDownloadUrl: latest.directDownloadUrl || '',
                     sizeBytes: Number(latest.sizeBytes || 0),
                     publishedAt: latest.publishedAt || null,
                     source: latest.source || 'ows-store-api',
@@ -4383,6 +4389,7 @@
                     version: '',
                     versionCode: 0,
                     downloadUrl: OWS_STORE_ANDROID_ARTIFACT_FALLBACK_URL,
+                    directDownloadUrl: '',
                     sizeBytes: 0,
                     publishedAt: null,
                     source: 'release-page',
@@ -4412,6 +4419,7 @@
         async function refreshStoreAndroidReleaseLink() {
             const payload = await fetchLatestOWSStoreAndroidRelease();
             owsStoreAndroidState.downloadUrl = payload?.downloadUrl || OWS_STORE_ANDROID_ARTIFACT_FALLBACK_URL;
+            owsStoreAndroidState.directDownloadUrl = payload?.directDownloadUrl || '';
             owsStoreAndroidState.version = payload?.version || '';
             owsStoreAndroidState.versionCode = Number(payload?.versionCode || 0);
             owsStoreAndroidState.sizeBytes = Number(payload?.sizeBytes || 0);
@@ -4487,6 +4495,7 @@
 
             const latest = await fetchLatestOWSStoreAndroidRelease();
             owsStoreAndroidState.downloadUrl = latest?.downloadUrl || OWS_STORE_ANDROID_ARTIFACT_FALLBACK_URL;
+            owsStoreAndroidState.directDownloadUrl = latest?.directDownloadUrl || '';
             owsStoreAndroidState.version = latest?.version || '';
             owsStoreAndroidState.versionCode = Number(latest?.versionCode || 0);
             owsStoreAndroidState.sizeBytes = Number(latest?.sizeBytes || 0);
@@ -4619,6 +4628,13 @@
             return Boolean(project.android_apk_url || project.android_aab_url || project.android_release_url);
         }
 
+        function selectAndroidDownloadUrl(proxyUrl = '', directUrl = '') {
+            const proxy = String(proxyUrl || '').trim();
+            const direct = String(directUrl || '').trim();
+            if (isNativeAndroidRuntime()) return direct || proxy || '';
+            return proxy || direct || '';
+        }
+
         function getProjectInstallTargets(project) {
             if (!project) return [];
             const targets = [];
@@ -4639,13 +4655,17 @@
             }
 
             if (supportsAndroidDownloads(project)) {
-                const apkUrl = project.android_apk_url || '';
+                const apkProxyUrl = String(project.android_apk_proxy_url || '').trim();
+                const apkDirectUrl = String(project.android_apk_direct_url || '').trim();
+                const apkUrl = selectAndroidDownloadUrl(apkProxyUrl || project.android_apk_url || '', apkDirectUrl);
                 targets.push({
                     id: 'android-apk',
                     kind: 'android',
                     label: 'Android (APK)',
                     actionLabel: 'Descargar APK',
                     url: apkUrl,
+                    directUrl: apkDirectUrl,
+                    proxyUrl: apkProxyUrl,
                     sizeBytes: Number(project.android_apk_size || 0),
                     version: project.android_version || project.version || '',
                     available: Boolean(apkUrl),
@@ -4806,6 +4826,8 @@
                 floret.install_type = 'external';
                 if (!floret.android_release_url) floret.android_release_url = FLORET_RELEASES_URL;
                 if (!floret.android_apk_url) floret.android_apk_url = '';
+                if (!floret.android_apk_direct_url) floret.android_apk_direct_url = '';
+                if (!floret.android_apk_proxy_url) floret.android_apk_proxy_url = '';
                 if (!floret.windows_version) floret.windows_version = floret.version || '';
                 if (!floret.android_version) floret.android_version = '';
                 floret.icon_url = floret.icon_url || FLORET_LOCAL_ICON;
@@ -4826,6 +4848,8 @@
                     if (latest?.installerUrl) floret.installer_url = latest.installerUrl;
                     if (latest?.releaseUrl) floret.android_release_url = latest.releaseUrl;
                     if (latest?.androidApkUrl) floret.android_apk_url = latest.androidApkUrl;
+                    floret.android_apk_direct_url = latest?.androidApkDirectUrl || floret.android_apk_direct_url || '';
+                    floret.android_apk_proxy_url = latest?.androidApkProxyUrl || floret.android_apk_proxy_url || '';
                     if (latest?.androidAabUrl) floret.android_aab_url = latest.androidAabUrl;
                     floret.installer_size = Number(latest?.installerSize || 0);
                     floret.installer_available = Boolean(latest?.installerAvailable);
@@ -4993,6 +5017,7 @@
             const chunks = [];
             if (typeof err?.error === 'string' && err.error.trim()) chunks.push(err.error.trim());
             if (typeof err?.message === 'string' && err.message.trim()) chunks.push(err.message.trim());
+            if (typeof err?.hint === 'string' && err.hint.trim()) chunks.push(err.hint.trim());
             if (Array.isArray(err?.missingPlugins) && err.missingPlugins.length) {
                 chunks.push(`Plugins faltantes: ${err.missingPlugins.join(', ')}`);
             }
@@ -5122,6 +5147,27 @@
                 });
                 const downloadedPath = String(downloadResult?.path || targetUri || '');
                 if (!downloadedPath) return { ok: false, error: 'APK descargado sin ruta valida.' };
+                const stat = await Filesystem.stat({ directory, path: relativePath }).catch(() => null);
+                const downloadedBytes = Number(stat?.size || 0);
+                if (expectedBytes > 0 && downloadedBytes > 0) {
+                    const minAcceptedBytes = Math.floor(expectedBytes * 0.8);
+                    if (downloadedBytes < minAcceptedBytes) {
+                        return {
+                            ok: false,
+                            error: `APK incompleto (${formatByteSize(downloadedBytes)} / ${formatByteSize(expectedBytes)}).`,
+                            code: 'apk_incomplete_download',
+                            hint: 'La descarga no termino correctamente. Reintenta con buena red.',
+                        };
+                    }
+                }
+                if (downloadedBytes > 0 && downloadedBytes < 200000) {
+                    return {
+                        ok: false,
+                        error: `APK demasiado pequeno (${formatByteSize(downloadedBytes)}).`,
+                        code: 'apk_too_small',
+                        hint: 'El enlace devolvio un archivo invalido. Reintenta en unos segundos.',
+                    };
+                }
 
                 if (slug) setRuntimeState(slug, { phase: 'launching', percent: 100, taskId });
                 if (sessionKey) {
@@ -5145,7 +5191,7 @@
                 setTimeout(() => {
                     if (!isNativeAndroidRuntime()) return;
                     if (document.visibilityState === 'visible') {
-                        const helpMsg = 'Si no se abre el instalador, habilita "Instalar apps desconocidas" para OWS Store en Ajustes de Android y reintenta.';
+                        const helpMsg = 'Si no se abre el instalador, habilita "Instalar apps desconocidas" para OWS Store. Si Android dice "paquete no valido", puede ser APK incompleto o firma distinta.';
                         if (sessionKey) {
                             updateDownloadSession(sessionKey, {
                                 phase: 'ready',
@@ -5632,6 +5678,8 @@
                             if (latest?.windowsVersion) project.version = latest.windowsVersion;
                             project.windows_version = latest?.windowsVersion || project.windows_version || project.version || '';
                             project.android_version = latest?.androidVersion || project.android_version || '';
+                            project.android_apk_direct_url = latest?.androidApkDirectUrl || project.android_apk_direct_url || '';
+                            project.android_apk_proxy_url = latest?.androidApkProxyUrl || project.android_apk_proxy_url || '';
                         } else if (latest?.version) {
                             project.version = latest.version;
                         }
@@ -6313,7 +6361,10 @@
         }
 
         async function openStoreAndroidDownload() {
-            const url = owsStoreAndroidState.downloadUrl || OWS_STORE_ANDROID_ARTIFACT_FALLBACK_URL;
+            const url = selectAndroidDownloadUrl(
+                owsStoreAndroidState.downloadUrl || OWS_STORE_ANDROID_ARTIFACT_FALLBACK_URL,
+                owsStoreAndroidState.directDownloadUrl || ''
+            ) || OWS_STORE_ANDROID_ARTIFACT_FALLBACK_URL;
             if (isNativeAndroidRuntime()) {
                 if (!confirmAndroidInstallIntent('OWS Store Android')) return;
                 const gate = await ensureAndroidUnknownSourcesReady('OWS Store Android', { forcePrompt: true });

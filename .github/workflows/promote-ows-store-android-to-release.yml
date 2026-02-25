@@ -39,7 +39,7 @@ on:
       prerelease:
         description: "Publicar como prerelease"
         required: true
-        default: "false"
+        default: "true"
         type: choice
         options:
           - "false"
@@ -112,7 +112,7 @@ jobs:
           name: ${{ inputs.release_name }}
           body: ${{ inputs.release_notes }}
           draft: false
-          prerelease: ${{ inputs.prerelease == 'true' }}
+          prerelease: true
           make_latest: false
           files: |
             promoted-android/**/*
@@ -203,3 +203,4 @@ PY
           curl -fsS -X POST "https://owsdatabase.onrender.com/ows-store/android/releases" \
             -H "Content-Type: application/json" \
             --data "$PAYLOAD"
+

@@ -18,7 +18,7 @@ on:
       prerelease:
         description: "Publicar como prerelease"
         required: true
-        default: "false"
+        default: "true"
         type: choice
         options:
           - "false"
@@ -350,11 +350,12 @@ jobs:
           name: ${{ inputs.release_name }}
           body: ${{ inputs.release_notes }}
           draft: false
-          prerelease: ${{ inputs.prerelease == 'true' }}
+          prerelease: true
           make_latest: false
           files: |
             release-assets/**/*
           fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }}
+
 

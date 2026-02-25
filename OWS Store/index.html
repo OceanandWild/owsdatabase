@@ -2422,6 +2422,7 @@
         const owsStoreAndroidState = {
             downloadUrl: OWS_STORE_ANDROID_ARTIFACT_FALLBACK_URL,
             directDownloadUrl: '',
+            sha256: '',
             version: '',
             versionCode: 0,
             sizeBytes: 0,
@@ -3239,6 +3240,7 @@
                             slug: project.slug,
                             projectName: project.name,
                             expectedSize: Number(item.sizeBytes || 0),
+                            expectedSha256: String(item.sha256 || ''),
                             sessionIsApp: false,
                         });
                         if (!nativeResult?.ok) {
@@ -4350,6 +4352,7 @@
                 androidApkUrl: androidData.directDownloadUrl || androidData.downloadUrl || '',
                 androidApkDirectUrl: androidData.directDownloadUrl || '',
                 androidApkProxyUrl: androidData.downloadUrl || '',
+                androidSha256: androidData.sha256 || '',
                 androidApkSize: Number(androidData.sizeBytes || 0),
                 androidAabUrl: '',
                 androidAabSize: 0,
@@ -4376,6 +4379,7 @@
                     versionCode: Number(latest.versionCode || 0),
                     downloadUrl: latest.downloadUrl || OWS_STORE_ANDROID_ARTIFACT_FALLBACK_URL,
                     directDownloadUrl: latest.directDownloadUrl || '',
+                    sha256: latest.sha256 || '',
                     sizeBytes: Number(latest.sizeBytes || 0),
                     publishedAt: latest.publishedAt || null,
                     source: latest.source || 'ows-store-api',
@@ -4390,6 +4394,7 @@
                     versionCode: 0,
                     downloadUrl: OWS_STORE_ANDROID_ARTIFACT_FALLBACK_URL,
                     directDownloadUrl: '',
+                    sha256: '',
                     sizeBytes: 0,
                     publishedAt: null,
                     source: 'release-page',
@@ -4420,6 +4425,7 @@
             const payload = await fetchLatestOWSStoreAndroidRelease();
             owsStoreAndroidState.downloadUrl = payload?.downloadUrl || OWS_STORE_ANDROID_ARTIFACT_FALLBACK_URL;
             owsStoreAndroidState.directDownloadUrl = payload?.directDownloadUrl || '';
+            owsStoreAndroidState.sha256 = payload?.sha256 || '';
             owsStoreAndroidState.version = payload?.version || '';
             owsStoreAndroidState.versionCode = Number(payload?.versionCode || 0);
             owsStoreAndroidState.sizeBytes = Number(payload?.sizeBytes || 0);
@@ -4509,6 +4515,7 @@
             const latest = await fetchLatestOWSStoreAndroidRelease();
             owsStoreAndroidState.downloadUrl = latest?.downloadUrl || OWS_STORE_ANDROID_ARTIFACT_FALLBACK_URL;
             owsStoreAndroidState.directDownloadUrl = latest?.directDownloadUrl || '';
+            owsStoreAndroidState.sha256 = latest?.sha256 || '';
             owsStoreAndroidState.version = latest?.version || '';
             owsStoreAndroidState.versionCode = Number(latest?.versionCode || 0);
             owsStoreAndroidState.sizeBytes = Number(latest?.sizeBytes || 0);
@@ -4679,6 +4686,7 @@
                     url: apkUrl,
                     directUrl: apkDirectUrl,
                     proxyUrl: apkProxyUrl,
+                    sha256: String(project.android_sha256 || '').trim(),
                     sizeBytes: Number(project.android_apk_size || 0),
                     version: project.android_version || project.version || '',
                     available: Boolean(apkUrl),
@@ -4841,6 +4849,7 @@
                 if (!floret.android_apk_url) floret.android_apk_url = '';
                 if (!floret.android_apk_direct_url) floret.android_apk_direct_url = '';
                 if (!floret.android_apk_proxy_url) floret.android_apk_proxy_url = '';
+                if (!floret.android_sha256) floret.android_sha256 = '';
                 if (!floret.windows_version) floret.windows_version = floret.version || '';
                 if (!floret.android_version) floret.android_version = '';
                 floret.icon_url = floret.icon_url || FLORET_LOCAL_ICON;
@@ -4863,6 +4872,7 @@
                     if (latest?.androidApkUrl) floret.android_apk_url = latest.androidApkUrl;
                     floret.android_apk_direct_url = latest?.androidApkDirectUrl || floret.android_apk_direct_url || '';
                     floret.android_apk_proxy_url = latest?.androidApkProxyUrl || floret.android_apk_proxy_url || '';
+                    floret.android_sha256 = latest?.androidSha256 || floret.android_sha256 || '';
                     if (latest?.androidAabUrl) floret.android_aab_url = latest.androidAabUrl;
                     floret.installer_size = Number(latest?.installerSize || 0);
                     floret.installer_available = Boolean(latest?.installerAvailable);
@@ -5046,6 +5056,23 @@
             }
         }
 
+        function base64ToUint8Array(base64Value = '') {
+            const clean = String(base64Value || '').replace(/\s+/g, '');
+            if (!clean) return new Uint8Array(0);
+            const binary = atob(clean);
+            const out = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
+            return out;
+        }
+
+        async function computeSha256HexFromBase64(base64Value = '') {
+            if (!window.crypto?.subtle) return '';
+            const bytes = base64ToUint8Array(base64Value);
+            if (!bytes.length) return '';
+            const digest = await window.crypto.subtle.digest('SHA-256', bytes);
+            return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
+        }
+
         async function installAndroidApkInApp({
             url,
             fileName = 'ows-project.apk',
@@ -5054,6 +5081,7 @@
             slug = '',
             projectName = 'Proyecto',
             expectedSize = 0,
+            expectedSha256 = '',
             sessionIsApp = false,
         } = {}) {
             if (!url) return { ok: false, error: 'URL APK vacia.' };
@@ -5085,8 +5113,9 @@
             const safeNameBase = String(fileName || 'ows-project.apk').replace(/[^\w.\-]+/g, '-').replace(/-+/g, '-');
             const safeName = /\.apk$/i.test(safeNameBase) ? safeNameBase : `${safeNameBase}.apk`;
             const relativePath = `ows-store/apk/${safeName}`;
-            const directory = 'CACHE';
+            const directory = 'DOCUMENTS';
             const expectedBytes = Number(expectedSize || 0);
+            const expectedHash = String(expectedSha256 || '').trim().toLowerCase();
 
             let progressHandle = null;
             let lastBytes = 0;
@@ -5180,6 +5209,24 @@
                         code: 'apk_too_small',
                         hint: 'El enlace devolvio un archivo invalido. Reintenta en unos segundos.',
                     };
+                }
+                if (expectedHash && typeof Filesystem.readFile === 'function') {
+                    try {
+                        const fileData = await Filesystem.readFile({ directory, path: relativePath });
+                        const rawPayload = typeof fileData?.data === 'string' ? fileData.data : '';
+                        const rawBase64 = rawPayload.includes(',') ? rawPayload.split(',').pop() : rawPayload;
+                        const actualHash = await computeSha256HexFromBase64(rawBase64 || '');
+                        if (actualHash && actualHash.toLowerCase() !== expectedHash) {
+                            return {
+                                ok: false,
+                                error: 'Integridad APK fallida (SHA-256 no coincide).',
+                                code: 'apk_hash_mismatch',
+                                hint: `Esperado ${expectedHash.slice(0, 12)}..., recibido ${actualHash.slice(0, 12)}...`,
+                            };
+                        }
+                    } catch (hashErr) {
+                        console.log('[OWS Store][Android] No se pudo validar hash APK:', hashErr?.message || hashErr);
+                    }
                 }
 
                 if (slug) setRuntimeState(slug, { phase: 'launching', percent: 100, taskId });
@@ -5654,6 +5701,7 @@
                         fileName: `${safeBaseName}-${safeVersion}.apk`,
                         targetLabel: selectedTarget.label || 'Android (APK)',
                         sizeBytes: Number(selectedTarget.sizeBytes || project.android_apk_size || 0),
+                        sha256: String(selectedTarget.sha256 || project.android_sha256 || '').trim(),
                         versionName: selectedTarget.version || project.version || 'latest',
                         versionCode: Number(project.android_version_code || 0),
                     };
@@ -5693,6 +5741,7 @@
                             project.android_version = latest?.androidVersion || project.android_version || '';
                             project.android_apk_direct_url = latest?.androidApkDirectUrl || project.android_apk_direct_url || '';
                             project.android_apk_proxy_url = latest?.androidApkProxyUrl || project.android_apk_proxy_url || '';
+                            project.android_sha256 = latest?.androidSha256 || project.android_sha256 || '';
                         } else if (latest?.version) {
                             project.version = latest.version;
                         }
@@ -6407,6 +6456,7 @@
                     slug: '',
                     projectName: 'OWS Store Android',
                     expectedSize: Number(owsStoreAndroidState.sizeBytes || 0),
+                    expectedSha256: String(owsStoreAndroidState.sha256 || ''),
                     sessionIsApp: true,
                 });
                 if (!result?.ok) {

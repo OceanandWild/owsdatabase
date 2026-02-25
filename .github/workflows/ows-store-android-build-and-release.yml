@@ -122,7 +122,7 @@ jobs:
           fi
 
           if [ -f "resources/icon.png" ]; then
-            npx --yes @capacitor/assets generate --android --assetPath resources
+            npx --yes @capacitor/assets generate --android --assetPath resources || echo "No se pudo generar iconos con @capacitor/assets; se continua con recursos actuales."
           else
             echo "resources/icon.png no encontrado, se mantienen iconos por defecto de Capacitor."
           fi

@@ -1,0 +1,53 @@
+{
+  "name": "ows-news",
+  "version": "2026.2.25-1",
+  "description": "OWS News desktop app",
+  "main": "main.js",
+  "author": "Ocean and Wild Studios",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis --publish never"
+  },
+  "build": {
+    "appId": "com.oceanandwild.owsnews",
+    "productName": "OWS News",
+    "artifactName": "OWS.News.Setup.${version}.${ext}",
+    "files": [
+      "index.html",
+      "main.js",
+      "preload.js",
+      "assets/**/*",
+      "build/icon.ico",
+      "package.json"
+    ],
+    "directories": {
+      "buildResources": "build",
+      "output": "C:/builds/ows-news"
+    },
+    "asar": true,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "OWS News",
+      "artifactName": "OWS.News.Setup.${version}.exe"
+    }
+  },
+  "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8"
+  }
+}

@@ -922,6 +922,13 @@
             margin-bottom: 0;
         }
 
+        .ecosystem-title-wrap {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            flex-wrap: wrap;
+        }
+
         .ecosystem-platform {
             font-size: 0.65rem;
             border-radius: 999px;
@@ -933,6 +940,30 @@
             color: var(--accent-primary);
             border: 1px solid rgba(0, 127, 132, 0.26);
             white-space: nowrap;
+        }
+
+        .new-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 999px;
+            border: 1px solid rgba(245, 158, 11, 0.45);
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(251, 113, 133, 0.2));
+            color: #8a4300;
+            font-size: 0.62rem;
+            font-weight: 900;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            padding: 0.14rem 0.46rem;
+            line-height: 1;
+            box-shadow: 0 3px 10px rgba(245, 158, 11, 0.2);
+        }
+
+        body[data-theme="dark"] .new-badge {
+            color: #ffd58a;
+            border-color: rgba(245, 158, 11, 0.5);
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.25), rgba(244, 63, 94, 0.28));
+            box-shadow: 0 4px 14px rgba(245, 158, 11, 0.26);
         }
 
         .ecosystem-submeta {
@@ -2317,10 +2348,13 @@
         const FLORET_RELEASES_API_URL = `${GITHUB_RELEASES_PROXY_BASE}/floretshop/releases?per_page=20`;
         const WILDTRANSFER_RELEASES_URL = 'https://github.com/OceanandWild/wildtransfer/releases/latest';
         const WILDTRANSFER_RELEASES_API_URL = `${GITHUB_RELEASES_PROXY_BASE}/wildtransfer/releases/latest`;
+        const OWSNEWS_RELEASES_URL = 'https://github.com/OceanandWild/ocean-and-wild-studios-news/releases/latest';
+        const OWSNEWS_RELEASES_API_URL = `${GITHUB_RELEASES_PROXY_BASE}/ocean-and-wild-studios-news/releases/latest`;
         const SSA_LOCAL_ICON = './build/ssa.ico?v=20260223-0443';
         const OCEAN_PAY_LOCAL_ICON = './build/oceanpay.ico?v=20260223-1825';
         const FLORET_LOCAL_ICON = 'https://raw.githubusercontent.com/OceanandWild/owsdatabase/main/Floret%20Shop/assets/floretshopicon.png?v=20260224-1938';
         const WILDTRANSFER_LOCAL_ICON = './build/wildtransfer.ico?v=20260225-0100';
+        const OWSNEWS_LOCAL_ICON = './build/owsnews.ico?v=20260225-2248';
         const STORE_LOCAL_ICON = './build/icon.ico?v=20260223-0452';
         const STORE_DOWNLOAD_KEY = '__ows_store_update__';
         const STORE_THEME_KEY = 'ows_store_theme';
@@ -2370,6 +2404,23 @@
             description: 'Transferencia rapida de archivos con codigo unico.',
             icon_url: WILDTRANSFER_LOCAL_ICON
         };
+        const OWSNEWS_PROJECT = {
+            slug: 'ows-news',
+            name: 'OWS News',
+            short: 'NEWS',
+            status: 'launched',
+            version: '2026.2.25-1',
+            platform: 'windows',
+            install_type: 'external',
+            installer_url: OWSNEWS_RELEASES_URL,
+            description: 'Portal oficial de noticias y eventos del ecosistema Ocean and Wild Studios.',
+            icon_url: OWSNEWS_LOCAL_ICON
+        };
+        const NEW_BADGE_DURATION_MS = 14 * 24 * 60 * 60 * 1000;
+        const NEW_BADGE_START_BY_SLUG = {
+            'ows-news': '2026-02-25T00:00:00Z',
+            'wildtransfer': '2026-02-25T00:00:00Z',
+        };
         const BRAND_STATES = [
             { word: 'ATLAS', iconClass: 'fa-cube', color: '#d14f2a', caption: 'Mapa vivo de proyectos y ideas.' },
             { word: 'STORE', iconClass: 'fa-store', color: '#007f84', caption: 'Instala juegos, herramientas y experiencias.' },
@@ -2381,6 +2432,7 @@
         let oceanPayProjectReleaseCache = null;
         let floretProjectReleaseCache = null;
         let wildTransferReleaseCache = null;
+        let owsNewsReleaseCache = null;
         let owsStoreAndroidReleaseCache = null;
         let owsStoreWindowsReleaseCache = null;
         let allProjects = [];
@@ -3825,10 +3877,26 @@
             return slug.includes('wildtransfer') || slug.includes('wild-transfer') || name.includes('wildtransfer') || name.includes('wild transfer');
         }
 
+        function isOWSNewsProject(project) {
+            if (!project) return false;
+            const slug = String(project.slug || '').toLowerCase();
+            const name = String(project.name || '').toLowerCase();
+            return slug.includes('ows-news') || slug.includes('owsnews') || name.includes('ows news');
+        }
+
+        function isReleaseTrackedProject(project) {
+            return isWildWeaponProject(project)
+                || isSSAProject(project)
+                || isOceanPayProject(project)
+                || isFloretProject(project)
+                || isOWSNewsProject(project);
+        }
+
         function getProjectShort(project) {
             if (isSSAProject(project)) return 'SSA';
             if (isFloretProject(project)) return 'FLR';
             if (isWildTransferProject(project)) return 'WTR';
+            if (isOWSNewsProject(project)) return 'NEWS';
             return '';
         }
 
@@ -3866,6 +3934,28 @@
                 list[idx] = { ...WILDTRANSFER_PROJECT, ...list[idx], short: 'WTR', status: 'launched' };
             }
             return list;
+        }
+
+        function ensureOWSNewsProject(projects) {
+            if (!Array.isArray(projects)) return [];
+            const list = [...projects];
+            const idx = list.findIndex(isOWSNewsProject);
+            if (idx === -1) {
+                list.unshift({ ...OWSNEWS_PROJECT });
+            } else {
+                list[idx] = { ...OWSNEWS_PROJECT, ...list[idx], short: 'NEWS', status: 'launched' };
+            }
+            return list;
+        }
+
+        function hasNewBadge(project) {
+            if (!project) return false;
+            const slug = String(project.slug || '').toLowerCase();
+            const startIso = NEW_BADGE_START_BY_SLUG[slug];
+            if (!startIso) return false;
+            const startMs = Date.parse(startIso);
+            if (!Number.isFinite(startMs)) return false;
+            return (Date.now() - startMs) <= NEW_BADGE_DURATION_MS;
         }
 
         function syncUpdatesBadge() {
@@ -4156,6 +4246,7 @@
             } catch (err) {
                 console.error("Error cargando proyectos:", err);
                 allProjects = [
+                    { ...OWSNEWS_PROJECT },
                     { ...SSA_PROJECT },
                     { ...WILDTRANSFER_PROJECT },
                     { ...FLORET_PROJECT },
@@ -4163,7 +4254,7 @@
                     { slug: 'ocean-pay', name: 'Ocean Pay', status: 'launched', version: '3.1.0', platform: 'windows', install_type: 'external', installer_url: OCEAN_PAY_RELEASES_URL, icon_url: OCEAN_PAY_LOCAL_ICON, description: 'Pasarela universal.' }
                 ];
             }
-            allProjects = ensureWildTransferProject(ensureFloretProject(ensureSSAProject(allProjects)));
+            allProjects = ensureOWSNewsProject(ensureWildTransferProject(ensureFloretProject(ensureSSAProject(allProjects))));
             await applyLatestInstallerData(allProjects);
             await refreshInstallationStates();
             renderVisibleProjects();
@@ -4381,6 +4472,62 @@
                 checkedAt: now,
             };
             oceanPayProjectReleaseCache = payload;
+            return payload;
+        }
+
+        async function fetchLatestOWSNewsRelease() {
+            const now = Date.now();
+            if (owsNewsReleaseCache && (now - owsNewsReleaseCache.checkedAt) < 120000) {
+                return owsNewsReleaseCache;
+            }
+
+            const res = await fetch(OWSNEWS_RELEASES_API_URL, {
+                headers: { 'Accept': 'application/vnd.github+json' }
+            });
+            if (!res.ok) throw new Error(`GitHub API ${res.status}`);
+            const data = await res.json();
+            const assets = Array.isArray(data.assets) ? data.assets : [];
+            const versionFromTag = String(data.tag_name || '').replace(/^v/i, '');
+            const exeCandidates = assets.filter(a => typeof a?.name === 'string' && /\.exe$/i.test(a.name));
+            const scoredCandidates = exeCandidates.map((a) => ({
+                asset: a,
+                version: extractVersionFromText(a.name),
+                updatedAtMs: Date.parse(a.updated_at || '') || 0,
+                hasOWSNewsName: /ows[-_.\s]*news|ocean[-_.\s]*and[-_.\s]*wild[-_.\s]*studios[-_.\s]*news/i.test(String(a.name || '')),
+            }));
+
+            scoredCandidates.sort((x, y) => {
+                if (x.hasOWSNewsName !== y.hasOWSNewsName) return x.hasOWSNewsName ? -1 : 1;
+                const cmp = compareVersionLike(y.version, x.version);
+                if (cmp !== 0) return cmp;
+                return y.updatedAtMs - x.updatedAtMs;
+            });
+
+            let selected = scoredCandidates[0] || null;
+            if (versionFromTag) {
+                const tagMatch = scoredCandidates.find(c => c.version && compareVersionLike(c.version, versionFromTag) === 0);
+                if (tagMatch) selected = tagMatch;
+            }
+
+            const exeAsset = selected?.asset || null;
+            const versionFromAsset = selected?.version || '';
+            const staleInstaller = Boolean(versionFromTag && versionFromAsset && compareVersionLike(versionFromAsset, versionFromTag) < 0);
+            const warning = staleInstaller
+                ? `Release latest apunta a tag ${versionFromTag}, pero el instalador publicado es ${versionFromAsset}.`
+                : '';
+
+            const payload = {
+                version: versionFromTag || versionFromAsset || null,
+                tagVersion: versionFromTag || null,
+                assetVersion: versionFromAsset || null,
+                installerUrl: exeAsset?.browser_download_url || '',
+                installerSize: Number(exeAsset?.size || 0),
+                installerAvailable: Boolean(exeAsset?.browser_download_url) && !staleInstaller,
+                publishedAt: data.published_at || data.created_at || null,
+                warning,
+                checkedAt: now,
+            };
+            owsNewsReleaseCache = payload;
             return payload;
         }
 
@@ -4999,6 +5146,7 @@
             if (isOceanPayProject(project)) return project?.icon_url || OCEAN_PAY_LOCAL_ICON;
             if (isFloretProject(project)) return project?.icon_url || FLORET_LOCAL_ICON || `https://placehold.co/${size}/2b0a45/f2a3ff?text=FLR`;
             if (isWildTransferProject(project)) return project?.icon_url || WILDTRANSFER_LOCAL_ICON || `https://placehold.co/${size}/0a1120/35d7ff?text=WTR`;
+            if (isOWSNewsProject(project)) return project?.icon_url || OWSNEWS_LOCAL_ICON || `https://placehold.co/${size}/07111f/00eaff?text=NEWS`;
             return project?.icon_url || `https://placehold.co/${size}/0f172a/00f3ff?text=OWS`;
         }
 
@@ -5025,7 +5173,7 @@
         function supportsWindowsInstaller(project) {
             if (!project) return false;
             const tokens = getPlatformTokens(project);
-            if (isWildWeaponProject(project) || isSSAProject(project) || isOceanPayProject(project) || isWildTransferProject(project)) return true;
+            if (isWildWeaponProject(project) || isSSAProject(project) || isOceanPayProject(project) || isWildTransferProject(project) || isOWSNewsProject(project)) return true;
             if (tokens.has('windows') || tokens.has('win')) return true;
             return Boolean(project.installer_url || project.release_url || project.windows_installer_url);
         }
@@ -5137,6 +5285,7 @@
             const oceanPay = projects.find(p => isOceanPayProject(p));
             const floret = projects.find(p => isFloretProject(p));
             const wildTransfer = projects.find(p => isWildTransferProject(p));
+            const owsNews = projects.find(p => isOWSNewsProject(p));
 
             if (wildWeapon) {
                 wildWeapon.platform = 'windows';
@@ -5321,6 +5470,36 @@
                     wildTransfer.release_warning = 'No se pudo validar el instalador de la ultima release.';
                 }
             }
+
+            if (owsNews) {
+                owsNews.platform = 'windows';
+                owsNews.install_type = 'external';
+                if (!owsNews.installer_url) owsNews.installer_url = OWSNEWS_RELEASES_URL;
+                owsNews.icon_url = owsNews.icon_url || OWSNEWS_LOCAL_ICON;
+                owsNews.installer_available = false;
+                owsNews.last_update_at = null;
+                owsNews.windows_last_update_at = null;
+                owsNews.android_last_update_at = null;
+                owsNews.pending_release = false;
+                owsNews.short = 'NEWS';
+                owsNews.installer_size = Number(owsNews.installer_size || 0);
+
+                try {
+                    const latest = await fetchLatestOWSNewsRelease();
+                    if (latest?.version) owsNews.version = latest.version;
+                    if (latest?.installerUrl) owsNews.installer_url = latest.installerUrl;
+                    owsNews.installer_size = Number(latest?.installerSize || 0);
+                    owsNews.installer_available = Boolean(latest?.installerAvailable);
+                    owsNews.last_update_at = latest?.publishedAt || null;
+                    owsNews.windows_last_update_at = latest?.publishedAt || null;
+                    owsNews.pending_release = !owsNews.installer_available;
+                    owsNews.release_warning = latest?.warning || '';
+                } catch (err) {
+                    console.log('No se pudo resolver la ultima release de OWS News:', err?.message || err);
+                    owsNews.pending_release = true;
+                    owsNews.release_warning = 'No se pudo validar el instalador de la ultima release.';
+                }
+            }
         }
         function isExternalInstallerProject(project) {
             if (!project) return false;
@@ -5337,6 +5516,7 @@
             if (isOceanPayProject(project)) return OCEAN_PAY_RELEASES_URL;
             if (isFloretProject(project)) return FLORET_RELEASES_URL;
             if (isWildTransferProject(project)) return WILDTRANSFER_RELEASES_URL;
+            if (isOWSNewsProject(project)) return OWSNEWS_RELEASES_URL;
             return '';
         }
 
@@ -5802,6 +5982,13 @@
                     uninstallerNames: ['Uninstall WildTransfer.exe', 'unins000.exe']
                 };
             }
+            if (isOWSNewsProject(project)) {
+                return {
+                    installDirNames: ['OWS News', 'ows-news', 'owsnews', 'Ocean and Wild Studios News'],
+                    executableNames: ['OWS News.exe', 'ows-news.exe', 'owsnews.exe', 'Ocean and Wild Studios News.exe'],
+                    uninstallerNames: ['Uninstall OWS News.exe', 'unins000.exe']
+                };
+            }
             return {
                 installDirNames: [fallbackName, slug, fallbackName.replace(/\s+/g, '')],
                 executableNames: [`${fallbackName}.exe`, `${slug}.exe`, `${fallbackName.replace(/\s+/g, '')}.exe`],
@@ -5881,12 +6068,13 @@
                 const availabilityLabel = getProjectPlatformLabel(p);
                 const short = getProjectShort(p);
                 const updateInfo = getProjectUpdateInfo(p);
-                const updateHint = (isWildWeaponProject(p) || isSSAProject(p) || isOceanPayProject(p) || isFloretProject(p))
+                const updateHint = isReleaseTrackedProject(p)
                     ? (p.last_update_at ? `Ultima actualizacion: ${formatDateTime(p.last_update_at)}` : 'Ultima actualizacion: pendiente')
                     : (p.description || 'Proyecto oficial del ecosistema Ocean and Wild Studios.');
-                const updateInfoHtml = (isWildWeaponProject(p) || isSSAProject(p) || isOceanPayProject(p) || isFloretProject(p))
+                const updateInfoHtml = isReleaseTrackedProject(p)
                     ? `<div class="ecosystem-submeta">${updateHint}</div>`
                     : '';
+                const newBadgeHtml = hasNewBadge(p) ? `<span class="new-badge">NUEVO!</span>` : '';
                 const updateFlagHtml = updateInfo.needsUpdate
                     ? `<div class="ecosystem-submeta" style="color:var(--brand-2); font-weight:700;">Update ${updateInfo.installedPlatform === 'android' ? 'Android' : 'Windows'} disponible: v${updateInfo.latestVersion}</div>`
                     : '';
@@ -5906,7 +6094,7 @@
                     <img src="${getProjectIcon(p, 64)}" class="app-icon" alt="Icon">
                     <div class="ecosystem-main">
                         <div class="ecosystem-topline">
-                            <div class="app-name">${p.name}${short ? ` <span style="font-size:0.72rem;color:var(--brand-2);">(${short})</span>` : ''}</div>
+                            <div class="app-name"><span class="ecosystem-title-wrap">${p.name}${short ? ` <span style="font-size:0.72rem;color:var(--brand-2);">(${short})</span>` : ''}${newBadgeHtml}</span></div>
                             <span class="ecosystem-platform">${availabilityLabel}</span>
                         </div>
                         <div class="app-meta"><span>v${p.version || '1.0.0'}</span>${countdownHtml}</div>
@@ -5943,7 +6131,7 @@
                 const card = document.createElement('div');
                 card.className = 'app-card';
                 const metaVersion = state.version || p.version || '1.0.0';
-                const installDate = (isWildWeaponProject(p) || isSSAProject(p) || isOceanPayProject(p) || isFloretProject(p)) && p.last_update_at ? formatDateTime(p.last_update_at) : 'Sin datos';
+                const installDate = isReleaseTrackedProject(p) && p.last_update_at ? formatDateTime(p.last_update_at) : 'Sin datos';
                 const installedPlatform = getInstalledPlatform(p.slug);
                 const openLabel = installedPlatform === 'android' ? 'Abrir APK' : 'Abrir';
                 const statusLabel = isQueued
@@ -5982,16 +6170,17 @@
         function openDetails(slug) {
             const p = allProjects.find(pro => pro.slug === slug);
             if (!p) return;
-            document.getElementById('m-title').innerText = getProjectShort(p) ? `${p.name} (${getProjectShort(p)})` : p.name;
+            const detailNewTag = hasNewBadge(p) ? ' · NUEVO!' : '';
+            document.getElementById('m-title').innerText = getProjectShort(p) ? `${p.name} (${getProjectShort(p)})${detailNewTag}` : `${p.name}${detailNewTag}`;
             document.getElementById('m-desc').innerText = p.description || "Explora una nueva dimension de entretenimiento con este proyecto oficial de Ocean and Wild Studios.";
-            if (isWildWeaponProject(p) || isSSAProject(p) || isOceanPayProject(p) || isFloretProject(p)) {
+            if (isReleaseTrackedProject(p)) {
                 const statusText = p.pending_release
                     ? (p.release_warning || 'Pendiente de publicacion en Releases')
                     : `Ultima actualizacion: ${formatDateTime(p.last_update_at)}`;
                 document.getElementById('m-desc').innerText += `\n\n${statusText}.`;
             }
             document.getElementById('m-version').innerText = p.version || '1.0.0';
-            document.getElementById('m-status').innerText = (isWildWeaponProject(p) || isSSAProject(p) || isOceanPayProject(p) || isFloretProject(p))
+            document.getElementById('m-status').innerText = isReleaseTrackedProject(p)
                 ? (p.pending_release ? 'PENDING RELEASE' : 'READY TO INSTALL')
                 : (p.status || 'launched').toUpperCase();
             document.getElementById('m-icon').src = getProjectIcon(p, 140);
@@ -6167,7 +6356,7 @@
                 setRuntimeState(project.slug, { phase: 'queued', percent: 0, taskId: `install_${project.slug}` });
                 scheduleSectionRender({ projects: true, library: true, immediate: false });
                 showActionMessage('Validando release de ' + project.name + '...', { state: 'checking' });
-                if (isWildWeaponProject(project) || isSSAProject(project) || isOceanPayProject(project) || isFloretProject(project)) {
+                if (isReleaseTrackedProject(project)) {
                     const refreshRelease = async () => {
                         const latest = isWildWeaponProject(project)
                             ? await fetchLatestWildWeaponRelease()
@@ -6175,7 +6364,9 @@
                                 ? await fetchLatestSSARelease()
                                 : (isOceanPayProject(project)
                                     ? await fetchLatestOceanPayRelease()
-                                    : await fetchLatestFloretRelease()));
+                                    : (isFloretProject(project)
+                                        ? await fetchLatestFloretRelease()
+                                        : await fetchLatestOWSNewsRelease())));
                         if (isFloretProject(project)) {
                             if (latest?.windowsVersion) project.version = latest.windowsVersion;
                             project.windows_version = latest?.windowsVersion || project.windows_version || project.version || '';

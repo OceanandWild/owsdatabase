@@ -12894,7 +12894,9 @@ const OWS_GITHUB_ALLOWED_REPOS = new Set([
   'savagespaceanimals',
   'oceanpay',
   'floretshop',
-  'wildtransfer'
+  'wildtransfer',
+  'ocean-and-wild-studios-news',
+  'ows-news'
 ]);
 const OWS_GITHUB_CACHE_TTL_MS = Math.max(Number(process.env.OWS_GITHUB_CACHE_TTL_MS || 180000), 30000);
 const owsGithubApiCache = new Map();

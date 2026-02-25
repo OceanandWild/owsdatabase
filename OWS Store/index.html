@@ -2400,6 +2400,8 @@
         let owsStoreWindowsManualUpdateUrl = '';
         let owsStoreWindowsManualVersion = '';
         let currentStoreWindowsVersion = '';
+        let lastStoreUpdaterCheckSilent = true;
+        let lastStoreUpdaterCheckOrigin = 'auto';
         let projectUpdatesCount = 0;
         let brandStateIndex = 0;
         let brandCycleTimer = null;
@@ -3696,6 +3698,58 @@
             return 'windows';
         }
 
+        function detectCurrentDevicePlatform() {
+            if (isNativeAndroidRuntime()) {
+                return { platform: 'android', label: 'Android', source: 'capacitor', detected: true };
+            }
+            if (typeof window.owsUpdater !== 'undefined') {
+                return { platform: 'windows', label: 'Windows', source: 'electron', detected: true };
+            }
+            const ua = String(navigator.userAgent || '').toLowerCase();
+            if (ua.includes('android')) return { platform: 'android', label: 'Android', source: 'user-agent', detected: true };
+            if (ua.includes('windows nt')) return { platform: 'windows', label: 'Windows', source: 'user-agent', detected: true };
+            return { platform: '', label: 'No detectada', source: 'unknown', detected: false };
+        }
+
+        function resolveProjectUpdateAction(project, info = null, requestedPlatform = '') {
+            const forced = normalizePlatformKind(requestedPlatform);
+            const details = Array.isArray(info?.platformDetails) ? info.platformDetails : [];
+            const availableFromDetails = details
+                .filter((d) => d.available)
+                .map((d) => normalizePlatformKind(d.platform))
+                .filter(Boolean);
+            const availableFromTargets = getProjectInstallTargets(project)
+                .filter((t) => t.available)
+                .map((t) => normalizePlatformKind(t.kind))
+                .filter(Boolean);
+            const available = [...new Set([...availableFromDetails, ...availableFromTargets])];
+            const installedPlatform = normalizePlatformKind(info?.installedPlatform || getInstalledPlatform(project?.slug || ''));
+            const device = detectCurrentDevicePlatform();
+
+            const build = (platform, reason) => ({
+                platform,
+                label: platform === 'android' ? 'Android' : 'Windows',
+                requiresChoice: false,
+                options: [],
+                reason,
+                device,
+            });
+
+            if (forced && available.includes(forced)) return build(forced, 'forced');
+            if (installedPlatform && available.includes(installedPlatform)) return build(installedPlatform, 'installed');
+            if (device.platform && available.includes(device.platform)) return build(device.platform, 'device');
+            if (available.length === 1) return build(available[0], 'single');
+
+            return {
+                platform: '',
+                label: '',
+                requiresChoice: available.length > 1,
+                options: available.map((p) => (p === 'android' ? 'Android' : 'Windows')),
+                reason: 'choose',
+                device,
+            };
+        }
+
         function evaluatePlatformUpdate({
             platform = '',
             installedVersion = '',
@@ -3991,25 +4045,44 @@
                 `;
             };
 
-            list.innerHTML = updates.map(({ project, info }) => `
-                <div class="project-update-card">
-                    <div>
-                        <div class="project-update-title">${project.name}</div>
-                        <div class="project-update-meta">Actualizacion detectada para ${info.installedPlatform === 'android' ? 'Android' : 'Windows'}.</div>
-                        <div class="project-update-platforms">${info.platformDetails.map((d) => formatPlatformRow(d)).join('')}</div>
+            list.innerHTML = updates.map(({ project, info }) => {
+                const action = resolveProjectUpdateAction(project, info);
+                const targetLabel = action.label || (info.installedPlatform === 'android' ? 'Android' : 'Windows');
+                const metaText = action.requiresChoice
+                    ? `No se pudo detectar plataforma automaticamente. Elige ${action.options.join(' o ')} antes de actualizar.`
+                    : (action.reason === 'device'
+                        ? `Actualizacion recomendada para ${targetLabel} (dispositivo detectado: ${action.device.label}).`
+                        : `Actualizacion detectada para ${targetLabel}.`);
+                const buttonLabel = action.requiresChoice ? 'Elegir plataforma' : `Actualizar ${targetLabel}`;
+                const buttonIcon = action.requiresChoice ? 'fa-layer-group' : 'fa-arrow-up';
+
+                return `
+                    <div class="project-update-card">
+                        <div>
+                            <div class="project-update-title">${project.name}</div>
+                            <div class="project-update-meta">${metaText}</div>
+                            <div class="project-update-platforms">${info.platformDetails.map((d) => formatPlatformRow(d)).join('')}</div>
+                        </div>
+                        <button class="btn-install" style="width:auto; padding:0.55rem 0.8rem;" onclick="triggerProjectUpdate('${project.slug}', '${action.platform || ''}')"><i class="fas ${buttonIcon}"></i> ${buttonLabel}</button>
                     </div>
-                    <button class="btn-install" style="width:auto; padding:0.55rem 0.8rem;" onclick="triggerProjectUpdate('${project.slug}', '${info.installedPlatform || 'windows'}')"><i class="fas fa-arrow-up"></i> Actualizar ${info.installedPlatform === 'android' ? 'Android' : 'Windows'}</button>
-                </div>
-            `).join('');
+                `;
+            }).join('');
         }
 
         async function triggerProjectUpdate(slug, platform = '') {
-            const normalizedPlatform = normalizePlatformKind(platform) || normalizePlatformKind(getInstalledPlatform(slug)) || 'windows';
-            if (normalizedPlatform === 'android') {
-                selectedInstallTargetBySlug[slug] = 'android-apk';
-            } else {
-                selectedInstallTargetBySlug[slug] = 'windows';
+            const project = allProjects.find((p) => p.slug === slug);
+            if (!project) return;
+            const info = getProjectUpdateInfo(project);
+            const resolved = resolveProjectUpdateAction(project, info, platform);
+            if (!resolved.platform) {
+                const opts = resolved.options?.length ? resolved.options.join(' / ') : 'Windows / Android';
+                openDetails(slug);
+                addNotification(`Selecciona plataforma para actualizar ${project.name}: ${opts}.`, 'warning');
+                showActionMessage(`No se pudo detectar plataforma automaticamente. Selecciona ${opts} para ${project.name}.`, { state: 'info' });
+                return;
             }
+            const normalizedPlatform = normalizePlatformKind(resolved.platform) || 'windows';
+            selectedInstallTargetBySlug[slug] = normalizedPlatform === 'android' ? 'android-apk' : 'windows';
             await reinstallFromLibrary(slug);
         }
 
@@ -4705,8 +4778,10 @@
             return { needsUpdate: true, latest, current };
         }
 
-        async function requestWindowsUpdaterCheck({ silent = false } = {}) {
+        async function requestWindowsUpdaterCheck({ silent = false, origin = '' } = {}) {
             if (!window.owsUpdater?.checkForUpdates) return { ok: false, reason: 'updater-unavailable' };
+            lastStoreUpdaterCheckSilent = Boolean(silent);
+            lastStoreUpdaterCheckOrigin = String(origin || (silent ? 'auto' : 'manual'));
             let response = null;
             try {
                 response = await window.owsUpdater.checkForUpdates();
@@ -4737,11 +4812,12 @@
             return response;
         }
 
-        async function checkOWSStoreAndroidUpdate({ silent = false } = {}) {
+        async function checkOWSStoreAndroidUpdate({ silent = false, origin = '' } = {}) {
             const status = document.getElementById('updates-status');
             const btn = document.getElementById('btn-install-update');
             const closeBtn = document.getElementById('btn-close-update-banner');
             const wrap = document.getElementById('update-progress-wrap');
+            const checkOrigin = String(origin || (silent ? 'auto' : 'manual'));
             if (btn) {
                 btn.style.display = 'none';
                 btn.innerHTML = '<i class="fas fa-mobile-screen-button"></i> Descargar update Android';
@@ -4849,7 +4925,10 @@
                 return { needsUpdate, latest, current };
             }
 
-            if (status) status.textContent = 'No hay actualizaciones pendientes.';
+            const autoCheck = checkOrigin === 'auto' || Boolean(silent);
+            if (status) status.textContent = autoCheck
+                ? 'Verificacion automatica completada: sin actualizaciones nuevas.'
+                : 'No hay actualizaciones pendientes.';
             if (closeBtn) {
                 closeBtn.disabled = false;
                 closeBtn.style.opacity = '1';
@@ -4857,8 +4936,10 @@
             }
             setUpdateBannerVisual({
                 state: 'success',
-                title: 'No hay actualizaciones pendientes',
-                message: 'Tu OWS Store esta al dia.',
+                title: autoCheck ? 'Verificacion automatica completada' : 'No hay actualizaciones pendientes',
+                message: autoCheck
+                    ? 'Sin novedades de update en esta verificacion.'
+                    : 'Tu OWS Store esta al dia.',
                 iconClass: 'fa-circle-check',
                 iconSpin: false,
             });
@@ -6315,9 +6396,9 @@
             if (id === 'updates') {
                 renderDownloadSurfaces();
                 if (isNativeAndroidRuntime() && typeof window.owsUpdater === 'undefined') {
-                    checkOWSStoreAndroidUpdate({ silent: true }).catch(() => {});
+                    checkOWSStoreAndroidUpdate({ silent: true, origin: 'auto' }).catch(() => {});
                 } else if (window.owsUpdater?.checkForUpdates) {
-                    requestWindowsUpdaterCheck({ silent: true }).catch(() => {});
+                    requestWindowsUpdaterCheck({ silent: true, origin: 'auto' }).catch(() => {});
                 }
             }
         }
@@ -6361,7 +6442,7 @@
                 if (banner) banner.classList.add('visible');
                 if (status) status.textContent = 'Buscando actualizaciones Android...';
                 setUpdateMetaUI({ sizeBytes: 0, etaSeconds: null, transferredBytes: null, speedBps: 0 });
-                checkOWSStoreAndroidUpdate({ silent: false })
+                checkOWSStoreAndroidUpdate({ silent: true, origin: 'auto' })
                     .catch((err) => {
                         const msg = err?.message || 'desconocido';
                         appUpdateAvailable = false;
@@ -6436,7 +6517,7 @@
             if (banner) banner.classList.add('visible');
             if (status) status.textContent = 'Buscando actualizaciones...';
             setUpdateMetaUI({ sizeBytes: 0, etaSeconds: null, transferredBytes: null, speedBps: 0 });
-            addNotification('Buscando actualizaciones de OWS Store...', 'neutral');
+            if (!lastStoreUpdaterCheckSilent) addNotification('Buscando actualizaciones de OWS Store...', 'neutral');
             window.owsUpdater.onUpdateAvailable?.((info) => {
                 const banner = document.getElementById('update-banner');
                 const msg = document.getElementById('update-msg');
@@ -6566,6 +6647,7 @@
                 addNotification('Actualizacion descargada, lista para instalar.', 'success');
             });
             window.owsUpdater.onUpdateNotAvailable?.(async () => {
+                const autoCheck = lastStoreUpdaterCheckSilent || lastStoreUpdaterCheckOrigin === 'auto';
                 const currentVersion = String(await window.owsUpdater.getAppVersion?.().catch(() => '') || '').trim();
                 if (currentVersion) currentStoreWindowsVersion = currentVersion;
                 const manual = await applyWindowsManualUpdateSignal(currentStoreWindowsVersion, { silent: true }).catch(() => ({ needsUpdate: false }));
@@ -6584,8 +6666,10 @@
                 if (!isExternalInstallActive()) {
                     setUpdateBannerVisual({
                         state: 'success',
-                        title: 'OWS Store actualizada',
-                        message: 'No hay actualizaciones pendientes en este momento.',
+                        title: autoCheck ? 'Verificacion automatica completada' : 'OWS Store actualizada',
+                        message: autoCheck
+                            ? 'Sin novedades de update en esta verificacion.'
+                            : 'No hay actualizaciones pendientes en este momento.',
                         iconClass: 'fa-circle-check',
                         iconSpin: false,
                     });
@@ -6597,7 +6681,7 @@
                 }
                 setUpdateMetaUI({ sizeBytes: 0, etaSeconds: null, transferredBytes: null, speedBps: 0 });
                 removeDownloadSession(STORE_DOWNLOAD_KEY);
-                addNotification('No hay actualizaciones pendientes.', 'neutral');
+                if (!lastStoreUpdaterCheckSilent) addNotification('No hay actualizaciones pendientes.', 'neutral');
                 if (!isExternalInstallActive()) {
                     setTimeout(() => {
                         if (banner && !actionBannerSticky) dismissUpdateBanner(true);
@@ -6755,7 +6839,7 @@
                 }
                 showActionMessage(payload.message);
             });
-            requestWindowsUpdaterCheck({ silent: false }).catch(() => {});
+            requestWindowsUpdaterCheck({ silent: true, origin: 'auto' }).catch(() => {});
         }
         function installUpdate() {
             if (isNativeAndroidRuntime()) {
@@ -6893,9 +6977,9 @@
                 }).catch(() => {});
                 refreshStoreAndroidReleaseLink().catch(() => {});
                 if (isNativeAndroidRuntime() && typeof window.owsUpdater === 'undefined') {
-                    checkOWSStoreAndroidUpdate({ silent: true }).catch(() => {});
+                    checkOWSStoreAndroidUpdate({ silent: true, origin: 'auto' }).catch(() => {});
                 } else if (window.owsUpdater?.checkForUpdates) {
-                    requestWindowsUpdaterCheck({ silent: true }).catch(() => {});
+                    requestWindowsUpdaterCheck({ silent: true, origin: 'auto' }).catch(() => {});
                 }
             }, 120000);
         };

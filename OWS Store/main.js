@@ -8,7 +8,7 @@ const http = require('http');
 const { spawn } = require('child_process');
 
 let mainWindow = null;
-const semverTripletRegex = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z-.]+)?(?:\+[0-9A-Za-z-.]+)?$/;
+const semverTripletRegex = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/;
 const APP_ID = 'com.oceanwildstudios.nexusstore';
 const APP_DISPLAY_NAME = 'OWS Store';
 const INSTALLER_CACHE_DIR = path.join(os.tmpdir(), 'ows-store-installers');
@@ -231,6 +231,21 @@ function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function isValidSemverVersion(version) {
+  const value = String(version || '').trim();
+  const match = semverTripletRegex.exec(value);
+  if (!match) return false;
+  const prerelease = match[4] || '';
+  if (!prerelease) return true;
+  const parts = prerelease.split('.');
+  for (const part of parts) {
+    if (/^\d+$/.test(part) && part.length > 1 && part.startsWith('0')) {
+      return false;
+    }
+  }
+  return true;
+}
+
 async function openPathWithRetry(filePath, attempts = 6, delayMs = 350) {
   let lastError = '';
   for (let i = 0; i < attempts; i += 1) {
@@ -337,25 +352,33 @@ function downloadWithRedirects(url, destinationPath, taskRef, onProgress, redire
 
 function initAutoUpdater() {
   if (!app.isPackaged || updaterReady) return;
-
-  autoUpdater.autoDownload = true;
-  autoUpdater.autoInstallOnAppQuit = false;
-  autoUpdater.allowPrerelease = true;
-  autoUpdater.channel = 'latest';
-  autoUpdater.on('update-available', (info) => sendToRenderer('update-available', info));
-  autoUpdater.on('update-not-available', () => sendToRenderer('update-not-available'));
-  autoUpdater.on('download-progress', (p) => sendToRenderer('update-download-progress', p));
-  autoUpdater.on('error', (err) => sendToRenderer('update-error', err.message));
-  autoUpdater.on('update-downloaded', () => sendToRenderer('update-downloaded'));
-  updaterReady = true;
+  try {
+    autoUpdater.autoDownload = true;
+    autoUpdater.autoInstallOnAppQuit = false;
+    autoUpdater.allowPrerelease = false;
+    autoUpdater.channel = 'latest';
+    autoUpdater.on('update-available', (info) => sendToRenderer('update-available', info));
+    autoUpdater.on('update-not-available', () => sendToRenderer('update-not-available'));
+    autoUpdater.on('download-progress', (p) => sendToRenderer('update-download-progress', p));
+    autoUpdater.on('error', (err) => sendToRenderer('update-error', err.message));
+    autoUpdater.on('update-downloaded', () => sendToRenderer('update-downloaded'));
+    updaterReady = true;
+  } catch (err) {
+    updaterReady = false;
+    const message = err && err.message ? err.message : String(err);
+    sendToRenderer('update-error', `No se pudo inicializar updater: ${message}`);
+  }
 }
 
 async function checkForUpdatesSafe() {
   if (!app.isPackaged) return { ok: false, reason: 'not-packaged' };
   if (!updaterReady) initAutoUpdater();
+  if (!updaterReady) {
+    return { ok: false, reason: 'updater-init-failed' };
+  }
 
   const currentVersion = app.getVersion();
-  if (!semverTripletRegex.test(currentVersion)) {
+  if (!isValidSemverVersion(currentVersion)) {
     const msg = `Auto-update deshabilitado: version invalida "${currentVersion}". Usa formato SemVer (x.y.z).`;
     sendToRenderer('update-error', msg);
     return { ok: false, reason: 'invalid-version', message: msg };

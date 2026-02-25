@@ -5354,26 +5354,24 @@
             return String(cap?.getPlatform?.() || '').toLowerCase() === 'android';
         }
 
-        function isLikelyStrictAndroidInstallerDevice() {
-            const ua = String(navigator.userAgent || '').toLowerCase();
-            return /(honor|huawei|xiaomi|miui|redmi|oppo|vivo|realme)/i.test(ua);
-        }
-
         function getAndroidApkInstallMode() {
             try {
                 const raw = String(localStorage.getItem(OWS_STORE_ANDROID_APK_MODE_KEY) || '').trim().toLowerCase();
-                if (raw === 'inapp' || raw === 'external') return raw;
+                if (raw === 'inapp') return raw;
+                if (raw === 'external') {
+                    // Migrate legacy external-default behavior to in-app installs.
+                    localStorage.setItem(OWS_STORE_ANDROID_APK_MODE_KEY, 'inapp');
+                    return 'inapp';
+                }
             } catch (_) {}
-            // Default to external mode for reliability until OEM-specific installer issues are fully solved.
-            return 'external';
+            // Default behavior must stay inside OWS Store on Android.
+            return 'inapp';
         }
 
         function shouldUseAndroidExternalInstallCompat() {
             if (!isNativeAndroidRuntime()) return false;
             const mode = getAndroidApkInstallMode();
-            if (mode === 'external') return true;
-            if (mode === 'inapp') return false;
-            return isLikelyStrictAndroidInstallerDevice();
+            return mode === 'external';
         }
 
         function hasRecentUnknownSourcesAck() {

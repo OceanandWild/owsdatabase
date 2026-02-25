@@ -12820,6 +12820,18 @@ app.delete('/ows-news/updates/:id', async (req, res) => {
 });
 
 const OWS_STORE_ADMIN_KEY = process.env.OWS_STORE_ADMIN_KEY || '';
+const OWS_GITHUB_TOKEN = process.env.OWS_GITHUB_TOKEN || process.env.GITHUB_TOKEN || process.env.GH_TOKEN || '';
+const OWS_GITHUB_ALLOWED_OWNER = 'OceanandWild';
+const OWS_GITHUB_ALLOWED_REPOS = new Set([
+  'owsdatabase',
+  'wildweapon-mayhem',
+  'savagespaceanimals',
+  'oceanpay',
+  'floretshop',
+  'wildtransfer'
+]);
+const OWS_GITHUB_CACHE_TTL_MS = Math.max(Number(process.env.OWS_GITHUB_CACHE_TTL_MS || 180000), 30000);
+const owsGithubApiCache = new Map();
 const OWS_PROJECTS_WITH_ANDROID_RELEASE_SQL = `
   SELECT
     p.*,
@@ -12863,7 +12875,91 @@ function requireOwsStoreAdmin(req, res) {
   return false;
 }
 
+function canProxyGitHubRepo(owner, repo) {
+  return owner === OWS_GITHUB_ALLOWED_OWNER && OWS_GITHUB_ALLOWED_REPOS.has(repo);
+}
+
+async function fetchGitHubApiJsonCached(pathWithQuery, ttlMs = OWS_GITHUB_CACHE_TTL_MS) {
+  const cacheKey = String(pathWithQuery || '');
+  const now = Date.now();
+  const cached = owsGithubApiCache.get(cacheKey);
+  if (cached && cached.expiresAt > now) {
+    return { data: cached.data, cacheState: 'hit', fetchedAt: cached.fetchedAt };
+  }
+
+  const headers = {
+    'Accept': 'application/vnd.github+json',
+    'User-Agent': 'OWS-Store-Server'
+  };
+  if (OWS_GITHUB_TOKEN) {
+    headers['Authorization'] = `Bearer ${OWS_GITHUB_TOKEN}`;
+    headers['X-GitHub-Api-Version'] = '2022-11-28';
+  }
+
+  try {
+    const response = await fetch(`https://api.github.com${cacheKey}`, { headers });
+    if (!response.ok) {
+      const body = (await response.text().catch(() => '')).slice(0, 300);
+      const error = new Error(`GitHub API ${response.status}${body ? `: ${body}` : ''}`);
+      error.status = response.status;
+      throw error;
+    }
+
+    const data = await response.json();
+    owsGithubApiCache.set(cacheKey, {
+      data,
+      fetchedAt: now,
+      expiresAt: now + ttlMs
+    });
+    return { data, cacheState: cached ? 'refresh' : 'miss', fetchedAt: now };
+  } catch (err) {
+    if (cached) {
+      return { data: cached.data, cacheState: 'stale', fetchedAt: cached.fetchedAt };
+    }
+    throw err;
+  }
+}
+
 /* ----------  OWS STORE SYSTEM (Projects Hub)  ---------- */
+// Proxy cacheado para GitHub Releases (evita rate-limit por cliente)
+app.get('/ows-store/github/repos/:owner/:repo/releases/latest', async (req, res) => {
+  const owner = String(req.params.owner || '').trim();
+  const repo = String(req.params.repo || '').trim();
+  if (!canProxyGitHubRepo(owner, repo)) {
+    return res.status(404).json({ error: 'Repositorio no permitido para proxy' });
+  }
+
+  try {
+    const result = await fetchGitHubApiJsonCached(`/repos/${owner}/${repo}/releases/latest`);
+    res.setHeader('Cache-Control', 'public, max-age=60');
+    res.setHeader('X-OWS-GitHub-Cache', result.cacheState);
+    return res.json(result.data);
+  } catch (err) {
+    console.error('❌ Error en GET /ows-store/github/repos/:owner/:repo/releases/latest:', err.message);
+    return res.status(502).json({ error: 'No se pudo consultar GitHub Releases latest', detail: err.message || 'error' });
+  }
+});
+
+app.get('/ows-store/github/repos/:owner/:repo/releases', async (req, res) => {
+  const owner = String(req.params.owner || '').trim();
+  const repo = String(req.params.repo || '').trim();
+  if (!canProxyGitHubRepo(owner, repo)) {
+    return res.status(404).json({ error: 'Repositorio no permitido para proxy' });
+  }
+
+  const perPage = Math.min(Math.max(Number(req.query.per_page || 20), 1), 100);
+  const page = Math.min(Math.max(Number(req.query.page || 1), 1), 20);
+  try {
+    const result = await fetchGitHubApiJsonCached(`/repos/${owner}/${repo}/releases?per_page=${perPage}&page=${page}`);
+    res.setHeader('Cache-Control', 'public, max-age=60');
+    res.setHeader('X-OWS-GitHub-Cache', result.cacheState);
+    return res.json(result.data);
+  } catch (err) {
+    console.error('❌ Error en GET /ows-store/github/repos/:owner/:repo/releases:', err.message);
+    return res.status(502).json({ error: 'No se pudo consultar GitHub Releases', detail: err.message || 'error' });
+  }
+});
+
 // Obtener todos los proyectos
 app.get('/ows-store/projects', async (req, res) => {
   try {

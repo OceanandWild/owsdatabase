@@ -4438,6 +4438,11 @@
             };
         }
 
+        function clearStoredStoreAndroidInstalledVersion() {
+            localStorage.removeItem(OWS_STORE_ANDROID_INSTALLED_VERSION_KEY);
+            localStorage.removeItem(OWS_STORE_ANDROID_INSTALLED_VERSION_CODE_KEY);
+        }
+
         function persistStoreAndroidInstalledVersion(versionName = '', versionCode = 0) {
             const cleanedName = String(versionName || '').trim();
             const cleanedCode = Number(versionCode || 0);
@@ -4449,9 +4454,14 @@
 
         async function resolveCurrentStoreAndroidVersionInfo() {
             const fallback = getStoredStoreAndroidInstalledVersion();
-            let versionName = fallback.versionName;
-            let versionCode = fallback.versionCode;
-            let source = versionName || versionCode > 0 ? 'local-storage' : 'unknown';
+            let versionName = '';
+            let versionCode = 0;
+            let source = 'unknown';
+            if (!isNativeAndroidRuntime()) {
+                versionName = fallback.versionName;
+                versionCode = fallback.versionCode;
+                source = versionName || versionCode > 0 ? 'local-storage' : 'unknown';
+            }
 
             const AppPlugin = getCapacitorPlugin('App');
             if (AppPlugin?.getInfo) {
@@ -4461,7 +4471,10 @@
                     const pluginCode = Number(info?.build || 0);
                     if (pluginName) versionName = pluginName;
                     if (Number.isFinite(pluginCode) && pluginCode > 0) versionCode = pluginCode;
-                    if (pluginName || pluginCode > 0) source = 'capacitor-app';
+                    if (pluginName || pluginCode > 0) {
+                        source = 'capacitor-app';
+                        persistStoreAndroidInstalledVersion(pluginName, pluginCode);
+                    }
                 } catch (_) {}
             }
 
@@ -6416,18 +6429,14 @@
                     showActionMessage('Error instalando APK de OWS Store Android: ' + errorDetail, { state: 'error' });
                     return;
                 }
-                persistStoreAndroidInstalledVersion(
-                    owsStoreAndroidState.version || '',
-                    Number(owsStoreAndroidState.versionCode || 0)
-                );
                 updateDownloadSession(sessionKey, {
-                    phase: 'done',
+                    phase: 'ready',
                     percent: 100,
-                    status: 'Instalador Android abierto. Completa la instalacion.',
+                    status: 'Instalador Android abierto. Instala la update y vuelve a abrir OWS Store para confirmar version.',
                     etaSeconds: 0,
                 });
-                addNotification('Instalador Android de OWS Store abierto.', 'success');
-                showActionMessage('Instalador Android de OWS Store abierto.', { state: 'ready' });
+                addNotification('Instalador Android abierto. La update se confirma al reabrir OWS Store.', 'success');
+                showActionMessage('Instalador Android abierto. Instala y reabre OWS Store.', { state: 'ready' });
                 return;
             }
             openExternal(url);

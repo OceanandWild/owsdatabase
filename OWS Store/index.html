@@ -3420,6 +3420,11 @@
                 localStorage.setItem(`installed_${project.slug}`, project.version || 'latest');
                 localStorage.setItem(`installed_platform_${project.slug}`, 'windows');
                 localStorage.removeItem(`installed_version_code_${project.slug}`);
+                setInstalledReleasePublishedAt(
+                    project.slug,
+                    'windows',
+                    item.releasePublishedAt || project.windows_last_update_at || project.last_update_at || ''
+                );
                 setRuntimeState(project.slug, { phase: 'installed', percent: 100, taskId: '' });
                 updateDownloadSession(item.key, {
                     phase: 'done',
@@ -3697,6 +3702,9 @@
             installedVersionCode = 0,
             latestVersion = '',
             latestVersionCode = 0,
+            installedReleasePublishedAt = '',
+            latestReleasePublishedAt = '',
+            allowMissingReleaseMetadataBootstrap = false,
             installedOnThisDevice = false,
             available = false,
         } = {}) {
@@ -3706,6 +3714,22 @@
                     needsUpdate = Number(latestVersionCode) > Number(installedVersionCode);
                 } else if (installedVersion && latestVersion) {
                     needsUpdate = compareVersionLike(installedVersion, latestVersion) < 0;
+                }
+
+                if (!needsUpdate && installedVersion && latestVersion) {
+                    const sameVersion = compareVersionLike(installedVersion, latestVersion) === 0;
+                    if (sameVersion) {
+                        const latestReleaseTs = Date.parse(String(latestReleasePublishedAt || '')) || 0;
+                        const installedReleaseTs = Date.parse(String(installedReleasePublishedAt || '')) || 0;
+                        if (latestReleaseTs > 0) {
+                            if (installedReleaseTs > 0) {
+                                needsUpdate = latestReleaseTs > installedReleaseTs;
+                            } else if (allowMissingReleaseMetadataBootstrap) {
+                                // One-time bootstrap for users installed before release metadata tracking.
+                                needsUpdate = true;
+                            }
+                        }
+                    }
                 }
             }
             return needsUpdate;
@@ -3809,10 +3833,14 @@
             const installedVersionCode = Number(state.versionCode || getInstalledVersionCode(project.slug) || 0);
             const installed = Boolean(state.installed || installedVersion);
             const installedPlatform = installed ? getPreferredInstalledPlatform(project, state) : '';
+            const windowsInstalledReleasePublishedAt = getInstalledReleasePublishedAt(project.slug, 'windows');
+            const androidInstalledReleasePublishedAt = getInstalledReleasePublishedAt(project.slug, 'android');
 
             const windowsLatestVersion = String(project.windows_version || project.version || '').trim();
             const androidLatestVersion = String(project.android_version || project.version || '').trim();
             const androidLatestVersionCode = Number(project.android_version_code || project.version_code || 0);
+            const windowsLatestReleasePublishedAt = String(project.windows_last_update_at || project.last_update_at || '').trim();
+            const androidLatestReleasePublishedAt = String(project.android_last_update_at || project.last_update_at || '').trim();
 
             const platformDetails = [];
             if (supportsWindowsInstaller(project)) {
@@ -3822,6 +3850,9 @@
                     platform: 'windows',
                     installedVersion,
                     latestVersion: windowsLatestVersion,
+                    installedReleasePublishedAt: windowsInstalledReleasePublishedAt,
+                    latestReleasePublishedAt: windowsLatestReleasePublishedAt,
+                    allowMissingReleaseMetadataBootstrap: true,
                     installedOnThisDevice,
                     available,
                 });
@@ -3834,6 +3865,8 @@
                     installedVersionCode: 0,
                     latestVersion: windowsLatestVersion,
                     latestVersionCode: 0,
+                    installedReleasePublishedAt: installedOnThisDevice ? windowsInstalledReleasePublishedAt : '',
+                    latestReleasePublishedAt: windowsLatestReleasePublishedAt,
                     needsUpdate,
                 });
             }
@@ -3847,6 +3880,8 @@
                     installedVersionCode,
                     latestVersion: androidLatestVersion,
                     latestVersionCode: androidLatestVersionCode,
+                    installedReleasePublishedAt: androidInstalledReleasePublishedAt,
+                    latestReleasePublishedAt: androidLatestReleasePublishedAt,
                     installedOnThisDevice,
                     available,
                 });
@@ -3859,6 +3894,8 @@
                     installedVersionCode: installedOnThisDevice ? installedVersionCode : 0,
                     latestVersion: androidLatestVersion,
                     latestVersionCode: androidLatestVersionCode,
+                    installedReleasePublishedAt: installedOnThisDevice ? androidInstalledReleasePublishedAt : '',
+                    latestReleasePublishedAt: androidLatestReleasePublishedAt,
                     needsUpdate,
                 });
             }
@@ -3928,8 +3965,14 @@
                                 ? `Code ${detail.installedVersionCode} -> ${detail.latestVersionCode}`
                                 : `Code ${detail.latestVersionCode} (al dia)`;
                         } else {
+                            const releaseRefreshOnly = detail.needsUpdate
+                                && detail.installedVersion
+                                && detail.latestVersion
+                                && compareVersionLike(detail.installedVersion, detail.latestVersion) === 0;
                             statusText = detail.needsUpdate
-                                ? `v${detail.installedVersion || '-'} -> v${detail.latestVersion || '-'}`
+                                ? (releaseRefreshOnly
+                                    ? `v${detail.latestVersion || '-'} (release renovada)`
+                                    : `v${detail.installedVersion || '-'} -> v${detail.latestVersion || '-'}`)
                                 : `v${detail.latestVersion || '-'} (al dia)`;
                         }
                     } else {
@@ -4384,6 +4427,8 @@
                 version: windowsData.version || androidData.version || null,
                 windowsVersion: windowsData.version || '',
                 androidVersion: androidData.version || '',
+                windowsPublishedAt: windowsData.publishedAt || null,
+                androidPublishedAt: androidData.publishedAt || null,
                 versionCode: Number(androidData.versionCode || 0),
                 installerUrl: windowsData.installerUrl || '',
                 installerSize: Number(windowsData.installerSize || 0),
@@ -4982,6 +5027,8 @@
                 wildWeapon.icon_url = WILDWEAPON_LOCAL_ICON;
                 wildWeapon.installer_available = false;
                 wildWeapon.last_update_at = null;
+                wildWeapon.windows_last_update_at = null;
+                wildWeapon.android_last_update_at = null;
                 wildWeapon.pending_release = false;
                 wildWeapon.installer_size = Number(wildWeapon.installer_size || 0);
 
@@ -4992,6 +5039,7 @@
                     wildWeapon.installer_size = Number(latest?.installerSize || 0);
                     wildWeapon.installer_available = Boolean(latest?.installerAvailable);
                     wildWeapon.last_update_at = latest?.publishedAt || null;
+                    wildWeapon.windows_last_update_at = latest?.publishedAt || null;
                     wildWeapon.pending_release = !wildWeapon.installer_available;
                     if (latest?.warning) {
                         wildWeapon.pending_release = true;
@@ -5013,6 +5061,8 @@
                 ssa.icon_url = SSA_LOCAL_ICON;
                 ssa.installer_available = false;
                 ssa.last_update_at = null;
+                ssa.windows_last_update_at = null;
+                ssa.android_last_update_at = null;
                 ssa.pending_release = false;
                 ssa.short = 'SSA';
                 ssa.installer_size = Number(ssa.installer_size || 0);
@@ -5024,6 +5074,7 @@
                     ssa.installer_size = Number(latest?.installerSize || 0);
                     ssa.installer_available = Boolean(latest?.installerAvailable);
                     ssa.last_update_at = latest?.publishedAt || null;
+                    ssa.windows_last_update_at = latest?.publishedAt || null;
                     ssa.pending_release = !ssa.installer_available;
                     if (latest?.warning) {
                         ssa.pending_release = true;
@@ -5045,6 +5096,8 @@
                 oceanPay.icon_url = OCEAN_PAY_LOCAL_ICON;
                 oceanPay.installer_available = false;
                 oceanPay.last_update_at = null;
+                oceanPay.windows_last_update_at = null;
+                oceanPay.android_last_update_at = null;
                 oceanPay.pending_release = false;
                 oceanPay.installer_size = Number(oceanPay.installer_size || 0);
 
@@ -5055,6 +5108,7 @@
                     oceanPay.installer_size = Number(latest?.installerSize || 0);
                     oceanPay.installer_available = Boolean(latest?.installerAvailable);
                     oceanPay.last_update_at = latest?.publishedAt || null;
+                    oceanPay.windows_last_update_at = latest?.publishedAt || null;
                     oceanPay.pending_release = !oceanPay.installer_available;
                     if (latest?.warning) {
                         oceanPay.pending_release = true;
@@ -5083,6 +5137,8 @@
                 floret.installer_available = false;
                 floret.android_available = false;
                 floret.last_update_at = null;
+                floret.windows_last_update_at = null;
+                floret.android_last_update_at = null;
                 floret.pending_release = false;
                 floret.installer_size = Number(floret.installer_size || 0);
                 floret.android_apk_size = Number(floret.android_apk_size || 0);
@@ -5107,6 +5163,8 @@
                     floret.android_aab_size = Number(latest?.androidAabSize || 0);
                     floret.android_available = Boolean(latest?.androidAvailable || floret.android_apk_url || floret.android_aab_url);
                     floret.last_update_at = latest?.publishedAt || null;
+                    floret.windows_last_update_at = latest?.windowsPublishedAt || null;
+                    floret.android_last_update_at = latest?.androidPublishedAt || null;
                     floret.pending_release = !floret.installer_available && !floret.android_available;
                     floret.release_warning = latest?.warning || '';
                 } catch (err) {
@@ -5123,6 +5181,8 @@
                 wildTransfer.icon_url = wildTransfer.icon_url || WILDTRANSFER_LOCAL_ICON;
                 wildTransfer.installer_available = false;
                 wildTransfer.last_update_at = null;
+                wildTransfer.windows_last_update_at = null;
+                wildTransfer.android_last_update_at = null;
                 wildTransfer.pending_release = false;
                 wildTransfer.short = 'WTR';
                 wildTransfer.installer_size = Number(wildTransfer.installer_size || 0);
@@ -5134,6 +5194,7 @@
                     wildTransfer.installer_size = Number(latest?.installerSize || 0);
                     wildTransfer.installer_available = Boolean(latest?.installerAvailable);
                     wildTransfer.last_update_at = latest?.publishedAt || null;
+                    wildTransfer.windows_last_update_at = latest?.publishedAt || null;
                     wildTransfer.pending_release = !wildTransfer.installer_available;
                     wildTransfer.release_warning = latest?.warning || '';
                 } catch (err) {
@@ -5582,6 +5643,17 @@
             return localStorage.getItem(`installed_platform_${slug}`) || '';
         }
 
+        function getInstalledReleasePublishedAt(slug, platform = 'windows') {
+            return localStorage.getItem(`installed_release_published_at_${slug}_${platform}`) || '';
+        }
+
+        function setInstalledReleasePublishedAt(slug, platform = 'windows', publishedAt = '') {
+            const key = `installed_release_published_at_${slug}_${platform}`;
+            const value = String(publishedAt || '').trim();
+            if (value) localStorage.setItem(key, value);
+            else localStorage.removeItem(key);
+        }
+
         function getInstallHints(project) {
             const slug = String(project?.slug || '').toLowerCase();
             const name = String(project?.name || '').trim();
@@ -5956,6 +6028,7 @@
                         sha256: String(selectedTarget.sha256 || project.android_sha256 || '').trim(),
                         versionName: selectedTarget.version || project.version || 'latest',
                         versionCode: Number(project.android_version_code || 0),
+                        releasePublishedAt: project.android_last_update_at || project.last_update_at || null,
                     };
                     projectInstallQueue.push(queueItem);
                     setRuntimeState(project.slug, { phase: 'queued', percent: 0, taskId: `install_${project.slug}` });
@@ -5991,11 +6064,14 @@
                             if (latest?.windowsVersion) project.version = latest.windowsVersion;
                             project.windows_version = latest?.windowsVersion || project.windows_version || project.version || '';
                             project.android_version = latest?.androidVersion || project.android_version || '';
+                            project.windows_last_update_at = latest?.windowsPublishedAt || project.windows_last_update_at || null;
+                            project.android_last_update_at = latest?.androidPublishedAt || project.android_last_update_at || null;
                             project.android_apk_direct_url = latest?.androidApkDirectUrl || project.android_apk_direct_url || '';
                             project.android_apk_proxy_url = latest?.androidApkProxyUrl || project.android_apk_proxy_url || '';
                             project.android_sha256 = latest?.androidSha256 || project.android_sha256 || '';
                         } else if (latest?.version) {
                             project.version = latest.version;
+                            project.windows_last_update_at = latest?.publishedAt || project.windows_last_update_at || null;
                         }
                         if (latest?.installerUrl) project.installer_url = latest.installerUrl;
                         project.installer_size = Number(latest?.installerSize || 0);
@@ -6045,6 +6121,7 @@
                     url: installerUrl,
                     fileName: `${project.name || 'installer'}-${project.version || 'latest'}.exe`,
                     sizeBytes: Number(project.installer_size || 0),
+                    releasePublishedAt: project.windows_last_update_at || project.last_update_at || null,
                 };
                 projectInstallQueue.push(queueItem);
                 setRuntimeState(project.slug, { phase: 'queued', percent: 0, taskId: `install_${project.slug}` });
@@ -6151,6 +6228,8 @@
             localStorage.removeItem(`installed_${slug}`);
             localStorage.removeItem(`installed_platform_${slug}`);
             localStorage.removeItem(`installed_version_code_${slug}`);
+            setInstalledReleasePublishedAt(slug, 'windows', '');
+            setInstalledReleasePublishedAt(slug, 'android', '');
             installStateBySlug[slug] = { ...(installStateBySlug[slug] || {}), installed: false, version: '' };
             scheduleSectionRender({ projects: true, library: true, immediate: true });
             const state = installStateBySlug[slug] || {};

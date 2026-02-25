@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 
 <head>
@@ -2126,7 +2126,7 @@
                     <button id="op-mini-refresh" class="op-mini-btn" onclick="refreshOceanPayStore()" disabled>Sincronizar</button>
                     <button id="op-mini-disconnect" class="op-mini-btn warn" onclick="disconnectOceanPayStore()" disabled>Salir</button>
                 </div>
-                <div id="app-version" style="font-size: 0.7rem; color: var(--text-dim); margin-top: 0.25rem;">v25.2.26-2555</div>
+                <div id="app-version" style="font-size: 0.7rem; color: var(--text-dim); margin-top: 0.25rem;">v-</div>
             </div>
         </aside>
 
@@ -2310,6 +2310,7 @@
         const OCEAN_PAY_RELEASES_URL = 'https://github.com/OceanandWild/oceanpay/releases/';
         const OCEAN_PAY_RELEASES_API_URL = 'https://api.github.com/repos/OceanandWild/oceanpay/releases/latest';
         const OWS_STORE_RELEASES_URL = 'https://github.com/OceanandWild/owsdatabase/releases';
+        const OWS_STORE_RELEASES_API_URL = 'https://api.github.com/repos/OceanandWild/owsdatabase/releases/latest';
         const OWS_STORE_ANDROID_ARTIFACT_FALLBACK_URL = OWS_STORE_RELEASES_URL;
         const FLORET_RELEASES_URL = 'https://github.com/OceanandWild/floretshop/releases';
         const FLORET_RELEASES_API_URL = 'https://api.github.com/repos/OceanandWild/floretshop/releases?per_page=20';
@@ -2380,6 +2381,7 @@
         let floretProjectReleaseCache = null;
         let wildTransferReleaseCache = null;
         let owsStoreAndroidReleaseCache = null;
+        let owsStoreWindowsReleaseCache = null;
         let allProjects = [];
         const notificationLog = [];
         let lastExternalStatusNotification = '';
@@ -2395,6 +2397,9 @@
         let appUpdateAvailable = false;
         let appUpdateSizeBytes = 0;
         let appUpdateEtaSeconds = null;
+        let owsStoreWindowsManualUpdateUrl = '';
+        let owsStoreWindowsManualVersion = '';
+        let currentStoreWindowsVersion = '';
         let projectUpdatesCount = 0;
         let brandStateIndex = 0;
         let brandCycleTimer = null;
@@ -2429,7 +2434,8 @@
             sizeBytes: 0,
             publishedAt: null,
             source: 'release-page',
-            warning: ''
+            warning: '',
+            resolvable: false
         };
 
         function applyTheme(theme) {
@@ -4417,6 +4423,7 @@
                     publishedAt: latest.publishedAt || null,
                     source: latest.source || 'ows-store-api',
                     warning: latest.warning || '',
+                    resolvable: Boolean((latest.version || '').trim() || Number(latest.versionCode || 0) > 0),
                     checkedAt: now
                 };
                 owsStoreAndroidReleaseCache = payload;
@@ -4432,11 +4439,66 @@
                     publishedAt: null,
                     source: 'release-page',
                     warning: 'No se pudo resolver release Android desde OWS Store API.',
+                    resolvable: false,
                     checkedAt: now
                 };
                 owsStoreAndroidReleaseCache = fallback;
                 return fallback;
             }
+        }
+
+        async function fetchLatestOWSStoreWindowsRelease() {
+            const now = Date.now();
+            if (owsStoreWindowsReleaseCache && (now - owsStoreWindowsReleaseCache.checkedAt) < 120000) {
+                return owsStoreWindowsReleaseCache;
+            }
+
+            const res = await fetch(OWS_STORE_RELEASES_API_URL, {
+                headers: { 'Accept': 'application/vnd.github+json' }
+            });
+            if (!res.ok) throw new Error(`GitHub API ${res.status}`);
+            const data = await res.json();
+            const assets = Array.isArray(data.assets) ? data.assets : [];
+            const versionFromTag = String(data.tag_name || '').replace(/^v/i, '');
+            const exeCandidates = assets
+                .filter((a) => typeof a?.name === 'string' && /\.exe$/i.test(a.name))
+                .map((a) => {
+                    const name = String(a?.name || '').toLowerCase();
+                    let score = scoreWindowsAssetName(name);
+                    if (name.includes('ows.store') || name.includes('ows store') || name.includes('nexus store')) score += 18;
+                    return {
+                        asset: a,
+                        version: extractVersionFromText(a.name),
+                        updatedAtMs: Date.parse(a.updated_at || '') || 0,
+                        score,
+                    };
+                })
+                .sort((x, y) => {
+                    if (y.score !== x.score) return y.score - x.score;
+                    const cmp = compareVersionLike(y.version, x.version);
+                    if (cmp !== 0) return cmp;
+                    return y.updatedAtMs - x.updatedAtMs;
+                });
+
+            let selected = exeCandidates[0] || null;
+            if (versionFromTag) {
+                const tagMatch = exeCandidates.find((c) => c.version && compareVersionLike(c.version, versionFromTag) === 0);
+                if (tagMatch) selected = tagMatch;
+            }
+
+            const versionFromAsset = selected?.version || '';
+            const payload = {
+                version: versionFromTag || versionFromAsset || '',
+                tagVersion: versionFromTag || '',
+                assetVersion: versionFromAsset || '',
+                downloadUrl: selected?.asset?.browser_download_url || OWS_STORE_RELEASES_URL,
+                sizeBytes: Number(selected?.asset?.size || 0),
+                publishedAt: data.published_at || data.created_at || null,
+                warning: selected?.asset?.browser_download_url ? '' : 'No se encontro instalador Windows (.exe) en latest release.',
+                checkedAt: now,
+            };
+            owsStoreWindowsReleaseCache = payload;
+            return payload;
         }
 
         function renderOWSStoreAndroidMeta() {
@@ -4447,9 +4509,11 @@
                 : 'Tag sin resolver';
             const sizeText = owsStoreAndroidState.sizeBytes > 0 ? formatByteSize(owsStoreAndroidState.sizeBytes) : '-';
             const dateText = owsStoreAndroidState.publishedAt ? formatDateTime(owsStoreAndroidState.publishedAt) : 'sin fecha';
-            const sourceText = owsStoreAndroidState.source === 'release-asset'
-                ? 'source: release asset'
-                : 'source: release page';
+            const sourceText = owsStoreAndroidState.source === 'ows-store-api'
+                ? 'source: OWS API'
+                : (owsStoreAndroidState.source === 'release-asset'
+                    ? 'source: release asset'
+                    : 'source: release page');
             const warningText = owsStoreAndroidState.warning ? ` | ${owsStoreAndroidState.warning}` : '';
             meta.textContent = `${versionText} | ${sizeText} | ${dateText} | ${sourceText}${warningText}`;
         }
@@ -4465,6 +4529,7 @@
             owsStoreAndroidState.publishedAt = payload?.publishedAt || null;
             owsStoreAndroidState.source = payload?.source || 'release-page';
             owsStoreAndroidState.warning = payload?.warning || '';
+            owsStoreAndroidState.resolvable = Boolean(payload?.resolvable || (payload?.version || '').trim() || Number(payload?.versionCode || 0) > 0);
             renderOWSStoreAndroidMeta();
         }
 
@@ -4534,6 +4599,99 @@
             return false;
         }
 
+        async function applyWindowsManualUpdateSignal(currentVersion = '', { silent = false } = {}) {
+            const latest = await fetchLatestOWSStoreWindowsRelease();
+            const current = String(currentVersion || '').trim();
+            const latestVersion = String(latest?.version || '').trim();
+            if (!current || !latestVersion) {
+                owsStoreWindowsManualUpdateUrl = '';
+                owsStoreWindowsManualVersion = '';
+                return { needsUpdate: false, latest, current };
+            }
+
+            const needsUpdate = compareVersionLike(current, latestVersion) < 0;
+            if (!needsUpdate) {
+                owsStoreWindowsManualUpdateUrl = '';
+                owsStoreWindowsManualVersion = '';
+                return { needsUpdate: false, latest, current };
+            }
+
+            owsStoreWindowsManualUpdateUrl = latest?.downloadUrl || OWS_STORE_RELEASES_URL;
+            owsStoreWindowsManualVersion = latestVersion;
+            appUpdateAvailable = true;
+            appUpdateSizeBytes = Number(latest?.sizeBytes || 0);
+            appUpdateEtaSeconds = null;
+            syncUpdatesBadge();
+
+            const btn = document.getElementById('btn-install-update');
+            const closeBtn = document.getElementById('btn-close-update-banner');
+            const status = document.getElementById('updates-status');
+            if (btn) {
+                btn.style.display = 'flex';
+                btn.innerHTML = '<i class="fas fa-download"></i> Descargar update manual';
+            }
+            if (closeBtn) {
+                closeBtn.disabled = false;
+                closeBtn.style.opacity = '1';
+                closeBtn.style.cursor = 'pointer';
+            }
+            if (status) status.textContent = `Update disponible: v${latestVersion} (manual)`;
+            setUpdateBannerVisual({
+                state: 'available',
+                title: 'Actualizacion disponible',
+                message: `Version v${latestVersion} detectada (actual: v${current}). Descarga manual recomendada.`,
+                iconClass: 'fa-download',
+                iconSpin: false,
+            });
+            setUpdateMetaUI({ sizeBytes: appUpdateSizeBytes, etaSeconds: null, transferredBytes: null, speedBps: 0 });
+            updateDownloadSession(STORE_DOWNLOAD_KEY, {
+                name: 'OWS Store',
+                icon: STORE_LOCAL_ICON,
+                isApp: true,
+                phase: 'available',
+                percent: 0,
+                sizeBytes: appUpdateSizeBytes,
+                downloadedBytes: 0,
+                speedBps: 0,
+                etaSeconds: null,
+                status: `Update manual v${latestVersion} disponible`,
+            });
+            if (!silent) addNotification(`Update manual disponible: v${latestVersion}.`, 'warning');
+            return { needsUpdate: true, latest, current };
+        }
+
+        async function requestWindowsUpdaterCheck({ silent = false } = {}) {
+            if (!window.owsUpdater?.checkForUpdates) return { ok: false, reason: 'updater-unavailable' };
+            let response = null;
+            try {
+                response = await window.owsUpdater.checkForUpdates();
+            } catch (err) {
+                response = {
+                    ok: false,
+                    reason: 'check-crash',
+                    message: err?.message || String(err || 'desconocido'),
+                };
+            }
+
+            if (response && response.ok === false) {
+                const msg = response.message || response.reason || 'desconocido';
+                const status = document.getElementById('updates-status');
+                if (status) status.textContent = 'Error de verificacion';
+                setUpdateBannerVisual({
+                    state: 'error',
+                    title: 'Error de actualizacion',
+                    message: 'No se pudo verificar updates automÃ¡ticas: ' + msg,
+                    iconClass: 'fa-triangle-exclamation',
+                    iconSpin: false,
+                });
+                if (!silent) addNotification('No se pudo verificar updater automÃ¡tico: ' + msg, 'warning');
+                const currentVersion = String(await window.owsUpdater.getAppVersion?.().catch(() => '') || '').trim();
+                if (currentVersion) currentStoreWindowsVersion = currentVersion;
+                await applyWindowsManualUpdateSignal(currentStoreWindowsVersion, { silent: true }).catch(() => {});
+            }
+            return response;
+        }
+
         async function checkOWSStoreAndroidUpdate({ silent = false } = {}) {
             const status = document.getElementById('updates-status');
             const btn = document.getElementById('btn-install-update');
@@ -4555,9 +4713,45 @@
             owsStoreAndroidState.publishedAt = latest?.publishedAt || null;
             owsStoreAndroidState.source = latest?.source || 'release-page';
             owsStoreAndroidState.warning = latest?.warning || '';
+            owsStoreAndroidState.resolvable = Boolean(latest?.resolvable || (latest?.version || '').trim() || Number(latest?.versionCode || 0) > 0);
             renderOWSStoreAndroidMeta();
 
             const current = await resolveCurrentStoreAndroidVersionInfo();
+            const latestResolvable = Boolean(owsStoreAndroidState.resolvable);
+            if (!latestResolvable) {
+                appUpdateAvailable = false;
+                appUpdateSizeBytes = 0;
+                appUpdateEtaSeconds = null;
+                syncUpdatesBadge();
+                if (status) status.textContent = 'No se pudo confirmar updates Android';
+                if (closeBtn) {
+                    closeBtn.disabled = false;
+                    closeBtn.style.opacity = '1';
+                    closeBtn.style.cursor = 'pointer';
+                }
+                setUpdateBannerVisual({
+                    state: 'info',
+                    title: 'Estado de updates Android no concluyente',
+                    message: 'No se pudo resolver la Ãºltima release Android. Reintenta en unos segundos.',
+                    iconClass: 'fa-circle-info',
+                    iconSpin: false,
+                });
+                setUpdateMetaUI({ sizeBytes: 0, etaSeconds: null, transferredBytes: null, speedBps: 0 });
+                updateDownloadSession(STORE_DOWNLOAD_KEY, {
+                    name: 'OWS Store Android',
+                    icon: STORE_LOCAL_ICON,
+                    isApp: true,
+                    phase: 'error',
+                    percent: 0,
+                    status: 'No se pudo resolver la metadata Android de la Ãºltima release.',
+                    sizeBytes: 0,
+                    downloadedBytes: 0,
+                    speedBps: 0,
+                    etaSeconds: null,
+                });
+                if (!silent) addNotification('No se pudo confirmar updates Android (metadata no resoluble).', 'warning');
+                return { needsUpdate: false, latest, current, uncertain: true };
+            }
             const needsUpdate = isStoreAndroidUpdateNeeded(current, latest);
             appUpdateAvailable = Boolean(needsUpdate);
             appUpdateSizeBytes = Number(latest?.sizeBytes || 0);
@@ -6044,7 +6238,7 @@
                 if (isNativeAndroidRuntime() && typeof window.owsUpdater === 'undefined') {
                     checkOWSStoreAndroidUpdate({ silent: true }).catch(() => {});
                 } else if (window.owsUpdater?.checkForUpdates) {
-                    window.owsUpdater.checkForUpdates().catch(() => {});
+                    requestWindowsUpdaterCheck({ silent: true }).catch(() => {});
                 }
             }
         }
@@ -6120,11 +6314,12 @@
             }
             const isExternalInstallActive = () => Boolean(activeInstallTaskKey && activeInstallTaskKey !== STORE_DOWNLOAD_KEY);
             window.owsUpdater.getAppVersion?.().then(v => {
+                currentStoreWindowsVersion = String(v || '').trim();
                 const el = document.getElementById('app-version');
                 if (el) el.textContent = 'v' + v;
                 const updatesVersion = document.getElementById('updates-app-version');
                 if (updatesVersion) updatesVersion.textContent = 'v' + v;
-            });
+            }).catch(() => {});
             const banner = document.getElementById('update-banner');
             const btn = document.getElementById('btn-install-update');
             const wrap = document.getElementById('update-progress-wrap');
@@ -6169,6 +6364,8 @@
                 const btn = document.getElementById('btn-install-update');
                 const dot = document.getElementById('update-indicator-dot');
                 const closeBtn = document.getElementById('btn-close-update-banner');
+                owsStoreWindowsManualUpdateUrl = '';
+                owsStoreWindowsManualVersion = '';
                 appUpdateSizeBytes = extractUpdateSizeBytes(info);
                 appUpdateEtaSeconds = null;
                 if (!isExternalInstallActive()) {
@@ -6252,6 +6449,8 @@
                 const btn = document.getElementById('btn-install-update');
                 const wrap = document.getElementById('update-progress-wrap');
                 const closeBtn = document.getElementById('btn-close-update-banner');
+                owsStoreWindowsManualUpdateUrl = '';
+                owsStoreWindowsManualVersion = '';
                 if (!isExternalInstallActive()) {
                     if (msg) msg.textContent = 'Descarga completa. Reinicia para instalar.';
                     if (wrap) wrap.style.display = 'none';
@@ -6287,7 +6486,11 @@
                 });
                 addNotification('Actualizacion descargada, lista para instalar.', 'success');
             });
-            window.owsUpdater.onUpdateNotAvailable?.(() => {
+            window.owsUpdater.onUpdateNotAvailable?.(async () => {
+                const currentVersion = String(await window.owsUpdater.getAppVersion?.().catch(() => '') || '').trim();
+                if (currentVersion) currentStoreWindowsVersion = currentVersion;
+                const manual = await applyWindowsManualUpdateSignal(currentStoreWindowsVersion, { silent: true }).catch(() => ({ needsUpdate: false }));
+                if (manual?.needsUpdate) return;
                 const banner = document.getElementById('update-banner');
                 const msg = document.getElementById('update-msg');
                 const dot = document.getElementById('update-indicator-dot');
@@ -6322,7 +6525,7 @@
                     }, 5000);
                 }
             });
-            window.owsUpdater.onUpdateError?.((err) => {
+            window.owsUpdater.onUpdateError?.(async (err) => {
                 const banner = document.getElementById('update-banner');
                 const msg = document.getElementById('update-msg');
                 const closeBtn = document.getElementById('btn-close-update-banner');
@@ -6355,6 +6558,9 @@
                     status: 'Error en update de OWS Store: ' + (err || 'desconocido'),
                 });
                 addNotification('Error de actualizacion: ' + (err || 'desconocido'), 'error');
+                const currentVersion = String(await window.owsUpdater.getAppVersion?.().catch(() => '') || '').trim();
+                if (currentVersion) currentStoreWindowsVersion = currentVersion;
+                await applyWindowsManualUpdateSignal(currentStoreWindowsVersion, { silent: true }).catch(() => {});
             });
             window.owsUpdater.onExternalInstallStatus?.((payload) => {
                 const projectStatus = document.getElementById('updates-project-status');
@@ -6470,11 +6676,17 @@
                 }
                 showActionMessage(payload.message);
             });
-            window.owsUpdater.checkForUpdates?.();
+            requestWindowsUpdaterCheck({ silent: false }).catch(() => {});
         }
         function installUpdate() {
             if (isNativeAndroidRuntime()) {
                 openStoreAndroidDownload();
+                return;
+            }
+            if (owsStoreWindowsManualUpdateUrl) {
+                openExternal(owsStoreWindowsManualUpdateUrl);
+                showActionMessage('Abriendo descarga manual de update para OWS Store...', { state: 'ready' });
+                addNotification('Descargando update manual de OWS Store...', 'neutral');
                 return;
             }
             if (window.owsUpdater?.installUpdate) window.owsUpdater.installUpdate();
@@ -6604,7 +6816,7 @@
                 if (isNativeAndroidRuntime() && typeof window.owsUpdater === 'undefined') {
                     checkOWSStoreAndroidUpdate({ silent: true }).catch(() => {});
                 } else if (window.owsUpdater?.checkForUpdates) {
-                    window.owsUpdater.checkForUpdates().catch(() => {});
+                    requestWindowsUpdaterCheck({ silent: true }).catch(() => {});
                 }
             }, 120000);
         };

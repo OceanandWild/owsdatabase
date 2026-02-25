@@ -166,6 +166,29 @@
             color: var(--pri)
         }
 
+        .catalog-meta {
+            margin-top: -6px;
+            margin-bottom: 14px;
+            color: var(--muted);
+            font-size: 0.84rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .sync-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(139, 92, 246, 0.12);
+            border: 1px solid rgba(139, 92, 246, 0.25);
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 0.75rem;
+            color: #d8c9ff;
+        }
+
         .swipe {
             display: flex;
             overflow-x: auto;
@@ -1309,6 +1332,9 @@
         let products = [];
         let isAdmin = user ? user.is_admin : false;
         let quota = null;
+        let catalogLastSync = null;
+        let catalogSyncState = 'idle';
+        let catalogSyncError = '';
 
         async function loadQuota() {
             if (!user || user.power_level !== 1) return;
@@ -1383,6 +1409,7 @@
             if (quota) {
                 quotaText = ((quota.max_daily || 4) - (quota.uploads_today || 0)) + '/' + (quota.max_daily || 4);
             }
+            const catalogSyncTag = getCatalogSyncLabel();
 
             app.innerHTML = `
     <header class="header">
@@ -1390,6 +1417,7 @@
       <div class="hdr-btns">
         ${user && user.power_level === 1 ? `<div class="hdr-btn" style="background:rgba(236,72,153,0.15);border-color:var(--pink);cursor:default" title="Cuota"><i class="fas fa-fire" style="color:var(--pink)"></i> <b style="margin-left:5px;color:#fff;font-size:0.85rem">${quotaText}</b></div>` : ''}
         ${user ? `<button class="hdr-btn" onclick="openProfile()"><i class="fas fa-user"></i> ${user.username}</button>` : `<button class="hdr-btn" onclick="openAuth()"><i class="fas fa-user"></i> <span>Entrar</span></button>`}
+        <button class="hdr-btn" onclick="refreshCatalog()" title="Sincronizar catalogo"><i class="fas fa-rotate"></i> Sync</button>
         <button class="hdr-btn cart-btn" onclick="openCart()">
           <i class="fas fa-shopping-cart"></i>
           ${cart.length > 0 ? `<span class="cart-count">${cart.length}</span>` : ''}
@@ -1399,6 +1427,10 @@
 
     <main class="container">
       <h2 class="title"><i class="fas fa-store"></i> Productos</h2>
+      <div class="catalog-meta">
+        <span class="sync-tag" id="catalog-sync-tag">${catalogSyncTag}</span>
+        <span>${products.length} productos cargados</span>
+      </div>
       <div class="swipe" id="products-grid"></div>
     </main>
     <div class="fly-cart" id="fly-cart">ðŸ›’</div>
@@ -2098,8 +2130,7 @@
                     product.stock = Math.max(0, (product.stock || 0) - 1);
                 }
             });
-            // Guardar cambios de stock
-            localStorage.setItem('floret_products', JSON.stringify(products));
+            // Stock changes only in current UI state. Product source is server catalog.
 
             let msg = 'ðŸŒ¸ *PEDIDO FLORET SHOP - PAGO CONFIRMADO*\n\n';
             msg += 'ðŸ“‹ *PRODUCTOS:*\n';
@@ -2136,379 +2167,64 @@
         }
 
         // ========== LOAD PRODUCTS ==========
-        async function loadProducts() {
-            // Primero intentar cargar del servidor
+        function formatSyncDate(dateValue) {
+            if (!dateValue) return 'nunca';
             try {
-                const res = await fetch(API + '/floret/products');
-                if (res.ok) {
-                    products = await res.json();
-                    render();
-                    return;
-                }
-            } catch (e) {
-                console.log('Servidor no disponible, usando datos locales');
+                return new Date(dateValue).toLocaleString();
+            } catch (_e) {
+                return 'nunca';
             }
-
-            // Fallback: datos locales
-            products = JSON.parse(localStorage.getItem('floret_products')) || [];
-
-            // Demo products si no hay nada (usando imÃ¡genes de assets/)
-            if (products.length === 0) {
-                products = [
-                    { name: 'Producto Demo 1', description: 'Producto de demostraciÃ³n. Agrega imÃ¡genes en assets/', price: 100, stock: 5, condition: 'Nuevo', images: ['assets/demo.png'], requiresSize: false, sizes: [], measurements: '' },
-                ];
-            }
-            render();
         }
 
-        async function loadProducts() {
-            try {
-                let serverData = [];
-                try {
-                    const res = await fetch(`${API}/floret/products`);
-                    if (res.ok) serverData = await res.json();
-                } catch (err) {
-                    console.warn("No se pudo conectar al servidor de productos, usando local.");
-                }
+        function getCatalogSyncLabel() {
+            if (catalogSyncState === 'loading') return '<i class="fas fa-spinner fa-spin"></i> Sincronizando catalogo...';
+            if (catalogSyncState === 'error') {
+                return `<i class="fas fa-triangle-exclamation"></i> Error de sync${catalogSyncError ? ': ' + catalogSyncError : ''}`;
+            }
+            if (!catalogLastSync) return '<i class="fas fa-cloud"></i> Catalogo pendiente de sincronizar';
+            return `<i class="fas fa-check-circle"></i> Sincronizado: ${formatSyncDate(catalogLastSync)}`;
+        }
 
-                const localData = [
-                    {
-                        id: 113,
-                        name: "Muñeca Monster High",
-                        description: "Monster High, Generacion 1",
-                        price: 4500,
-                        stock: 1,
-                        condition: "Usado - Como nuevo",
-                        images: [
-                            "assets/munecamonsterhigh1.jpg",
-                            "assets/munecamonsterhigh2.jpg",
-                            "assets/munecamonsterhigh3.jpg",
-                            "assets/munecamonsterhigh4.jpg",
-                            "assets/munecamonsterhigh5.jpg",
-                            "assets/munecamonsterhigh6.jpg",
-                            "assets/munecamonsterhigh7.jpg",
-                            "assets/munecamonsterhigh8.jpg"
-                        ],
-                        requiresSize: false
-                    },
-                    {
-                        id: 114,
-                        name: "Arenero de Gato",
-                        description: "",
-                        price: 700,
-                        stock: 1,
-                        condition: "Nuevo",
-                        images: [
-                            "assets/arenerodegato1.jpg",
-                            "assets/arenerodegato2.jpg",
-                            "assets/arenerodegato3.jpg",
-                            "assets/arenerodegato4.jpg",
-                            "assets/arenerodegato5.jpg",
-                            "assets/arenerodegato6.jpg",
-                            "assets/arenerodegato7.jpg",
-                            "assets/arenerodegato8.jpg",
-                            "assets/arenerodegato9.jpg",
-                            "assets/arenerodegato10.jpg",
-                            "assets/arenerodegato11.jpg",
-                            "assets/arenerodegato12.jpg"
-                        ],
-                        requiresSize: false
-                    },
-                    {
-                        id: 115,
-                        name: "Bici Cheta Negra",
-                        description: "",
-                        price: 1000,
-                        stock: 1,
-                        condition: "Nuevo",
-                        images: [
-                            "assets/bicichetanegra1.jpg",
-                            "assets/bicichetanegra2.jpg",
-                            "assets/bicichetanegra3.jpg",
-                            "assets/bicichetanegra4.jpg"
-                        ],
-                        requiresSize: false
-                    },
-                    {
-                        id: 116,
-                        name: "Bici Cheta Rosada",
-                        description: "",
-                        price: 1000,
-                        stock: 1,
-                        condition: "Nuevo",
-                        images: [
-                            "assets/Bicichetarosada1.jpg",
-                            "assets/Bicichetarosada2.jpg",
-                            "assets/Bicichetarosada3.jpg",
-                            "assets/Bicichetarosada4.jpg",
-                            "assets/Bicichetarosada5.jpg"
-                        ],
-                        requiresSize: false
-                    },
-                    {
-                        id: 112,
-                        name: "Pelota PUMA",
-                        description: "Pelota de Futbol Puma Team Final 6, se puede ver sin compromiso",
-                        price: 2200,
-                        stock: 1,
-                        condition: "Nuevo",
-                        images: [
-                            "assets/pelotapuma1.jpg",
-                            "assets/pelotapuma2.jpg"
-                        ],
-                        requiresSize: false
-                    },
-                    {
-                        id: 111,
-                        name: "Revista NINTENDO y Action Game",
-                        description: "Cada revista sale 500, se puede ver sin compromisos",
-                        price: 650,
-                        stock: 1,
-                        condition: "Usado - Como Nuevo",
-                        images: [
-                            "assets/revistanintendo1.jpg",
-                            "assets/revistanintendo2.jpg",
-                            "assets/revistanintendo3.jpg",
-                            "assets/revistanintendo4.jpg",
-                            "assets/revistanintendo5.jpg",
-                            "assets/revistanintendo6.jpg",
-                            "assets/revistanintendo7.jpg",
-                            "assets/revistanintendo8.jpg",
-                            "assets/revistanintendo9.jpg"
-                        ],
-                        requiresSize: false
-                    },
-                    {
-                        id: 110,
-                        name: "Olla de Hierro Fundido Premium",
-                        description: "Olla de hierro fundido de 24cm de largo y 9cm de alto, se puede ver sin compromiso",
-                        price: 1200,
-                        stock: 1,
-                        condition: "Nuevo",
-                        images: [
-                            "assets/olla1.jpg",
-                            "assets/olla2.jpg",
-                            "assets/olla3.jpg",
-                            "assets/olla4.jpg",
-                            "assets/olla5.jpg"
-                        ],
-                        requiresSize: false
-                    },
-                    {
-                        id: 109,
-                        name: "Cartucho para impresora laser",
-                        description: "6 Cartuchos de impresora laser hay nuevos y usados",
-                        price: 1800,
-                        stock: 1,
-                        condition: "Usado - Buen Estado",
-                        images: [
-                            "assets/cartuchoparaimpresoralaser1.jpg",
-                            "assets/cartuchoparaimpresoralaser2.jpg",
-                            "assets/cartuchoparaimpresoralaser3.jpg",
-                            "assets/cartuchoparaimpresoralaser4.jpg",
-                            "assets/cartuchoparaimpresoralaser5.jpg",
-                            "assets/cartuchoparaimpresoralaser6.jpg",
-                            "assets/cartuchoparaimpresoralaser7.jpg",
-                            "assets/cartuchoparaimpresoralaser8.jpg",
-                            "assets/cartuchoparaimpresoralaser9.jpg"
-                        ],
-                        requiresSize: false
-                    },
-                    {
-                        id: 108,
-                        name: "Lote Jarra Electrica",
-                        description: "No se probaron, se venden asi, se pueden ver sin compromiso, son 23 Jarras Electricas",
-                        price: 2200,
-                        stock: 1,
-                        condition: "Nuevo",
-                        images: [
-                            "assets/lotejarraelectrica1.jpg",
-                            "assets/lotejarraelectrica2.jpg",
-                            "assets/lotejarraelectrica3.jpg",
-                            "assets/lotejarraelectrica4.jpg",
-                            "assets/lotejarraelectrica5.jpg",
-                            "assets/lotejarraelectrica6.jpg",
-                            "assets/lotejarraelectrica7.jpg",
-                            "assets/lotejarraelectrica8.jpg",
-                            "assets/lotejarraelectrica9.jpg",
-                            "assets/lotejarraelectrica10.jpg"
-                        ],
-                        requiresSize: false
-                    },
-                    {
-                        id: 108,
-                        name: "Comoda de Ratan",
-                        description: "El mueble mide 103cm de largo por 66cm de ancho y profundidad de la misma ultima medida, se puede ver sin comproiso",
-                        price: 11000,
-                        stock: 1,
-                        condition: "Usado",
-                        images: [
-                            "assets/comodaderatan1.jpg",
-                            "assets/comodaderatan2.jpg",
-                            "assets/comodaderatan3.jpg",
-                            "assets/comodaderatan4.jpg",
-                            "assets/comodaderatan5.jpg"
-                        ],
-                        requiresSize: false
-                    },
-                    {
-                        id: 107,
-                        name: "Abridores para Bebes",
-                        description: "El precio es por unidad, se puede ver sin compromiso.",
-                        price: 500,
-                        stock: 10,
-                        condition: "Nuevo",
-                        images: [
-                            "assets/abridoresparabebes1.jpg",
-                            "assets/abridoresparabebes2.jpg",
-                            "assets/abridoresparabebes3.jpg",
-                            "assets/abridoresparabebes4.jpg",
-                            "assets/abridoresparabebes5.jpg",
-                            "assets/abridoresparabebes6.jpg",
-                            "assets/abridoresparabebes7.jpg",
-                            "assets/abridoresparabebes8.jpg",
-                            "assets/abridoresparabebes9.jpg"
-                        ],
-                        requiresSize: false
-                    },
-                    {
-                        id: 106,
-                        name: "Lote Variado",
-                        description: "Son 22 articulos nuevos, se puede ver sin compromiso.",
-                        price: 4400,
-                        stock: 1,
-                        condition: "Nuevo",
-                        images: [
-                            "assets/lotevariado1.jpg",
-                            "assets/lotevariado2.jpg",
-                            "assets/lotevariado3.jpg",
-                            "assets/lotevariado4.jpg"
-                        ],
-                        requiresSize: false
-                    },
-                    {
-                        id: 106,
-                        name: "Lote de Muñecos Action Man",
-                        description: "Colección de figuras Action Man. Incluye varios muñecos articulados con vestimenta y accesorios. Ideal coleccionistas.",
-                        price: 2200,
-                        stock: 1,
-                        condition: "Usado",
-                        images: [
-                            "assets/lotemunecos1.jpeg",
-                            "assets/lotemunecos2.jpeg",
-                            "assets/lotemunecos3.jpeg",
-                            "assets/lotemunecos4.jpeg",
-                            "assets/lotemunecos5.jpeg",
-                            "assets/lotemunecos6.jpeg"
-                        ],
-                        requiresSize: false
-                    },
-                    {
-                        id: 102,
-                        name: "Lote 12 Pares Championes HEAD",
-                        description: "Oportunidad para Revendedores. 12 pares nuevos en caja. Talles surtidos del 36 al 41. Se vende el lote completo.",
-                        price: 7600,
-                        stock: 1,
-                        condition: "Nuevo",
-                        images: [
-                            "assets/championhead1.jpeg",
-                            "assets/championhead2.jpeg",
-                            "assets/championhead3.jpeg",
-                            "assets/championhead4.jpeg",
-                            "assets/championhead5.jpeg",
-                            "assets/championhead6.jpeg",
-                            "assets/championhead7.jpeg",
-                            "assets/championhead8.jpeg",
-                            "assets/championhead9.jpeg"
-                        ],
-                        requiresSize: false
-                    },
-                    {
-                        id: 103,
-                        name: "Lote para Bebé (18 Artículos)",
-                        description: "Excelente estado. Incluye 18 prendas y artículos variados para bebé. Oportunidad única.",
-                        price: 2200,
-                        stock: 1,
-                        condition: "Usado",
-                        images: [
-                            "assets/lotebebe1.jpeg",
-                            "assets/lotebebe2.jpeg",
-                            "assets/lotebebe3.jpeg",
-                            "assets/lotebebe4.jpeg",
-                            "assets/lotebebe5.jpeg",
-                            "assets/lotebebe6.jpeg",
-                            "assets/lotebebe7.jpeg",
-                            "assets/lotebebe8.jpeg"
-                        ],
-                        requiresSize: false
-                    },
-                    {
-                        id: 104,
-                        name: "Acolchado 2 Plazas + Fundas",
-                        description: "Hermoso acolchado para cama de 2 plazas. Viene con relleno y 2 fundas de almohada haciendo juego.",
-                        price: 1700,
-                        stock: 0,
-                        condition: "Usado",
-                        images: [
-                            "assets/alcolchadode2plazas1.jpeg",
-                            "assets/alcolchadode2plazas2.jpeg",
-                            "assets/alcolchadode2plazas3.jpeg",
-                            "assets/alcolchadode2plazas4.jpeg"
-                        ],
-                        requiresSize: false
-                    },
-                    {
-                        id: 105,
-                        name: "Vestido Asimetrico FAR",
-                        description: "Talle S y tiene elásticos que se adaptan al cuerpo. Diseño asimétrico moderno.",
-                        price: 3300,
-                        stock: 1,
-                        condition: "Nuevo",
-                        images: [
-                            "assets/vestidoasimetricofar1.jpeg",
-                            "assets/vestidoasimetricofar2.jpeg",
-                            "assets/vestidoasimetricofar3.jpeg",
-                            "assets/vestidoasimetricofar4.jpeg",
-                            "assets/vestidoasimetricofar5.jpeg",
-                            "assets/vestidoasimetricofar6.jpeg"
-                        ],
-                        requiresSize: true,
-                        sizes: ["S"]
-                    },
-                    {
-                        id: 101,
-                        name: "Vestido FARM RIO",
-                        description: "Talle S. Diseño exclusivo, tela fresca y caída perfecta.",
-                        price: 2200,
-                        stock: 1,
-                        condition: "Nuevo",
-                        images: [
-                            "assets/vestidofarmrio1.jpeg",
-                            "assets/vestidofarmrio2.jpeg",
-                            "assets/vestidofarmrio3.jpeg",
-                            "assets/vestidofarmrio4.jpeg",
-                            "assets/vestidofarmrio5.jpeg",
-                            "assets/vestidofarmrio6.jpeg"
-                        ],
-                        requiresSize: true,
-                        sizes: ["S"]
-                    }
-                ];
+        async function refreshCatalog(showSuccessToast = true) {
+            const ok = await loadProducts({ silent: false, showErrorToast: true });
+            if (ok && showSuccessToast) {
+                showToast('Catalogo actualizado');
+            }
+        }
 
-                // Unir productos del servidor con locales
-                const fullData = [...serverData, ...localData];
+        async function loadProducts(options = {}) {
+            const { silent = false, showErrorToast = true } = options;
 
-                products = fullData.map(p => ({
-                    ...p,
-                    price: parseFloat(p.price),
-                    stock: parseInt(p.stock) || 0,
-                    images: p.images || []
-                }));
+            if (!silent) {
+                catalogSyncState = 'loading';
+                catalogSyncError = '';
                 render();
+            }
 
+            try {
+                const res = await fetch(`${API}/floret/products`, { cache: 'no-store' });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+                const serverData = await res.json();
+                products = (Array.isArray(serverData) ? serverData : []).map((p) => ({
+                    ...p,
+                    price: parseFloat(p.price) || 0,
+                    stock: parseInt(p.stock, 10) || 0,
+                    images: Array.isArray(p.images) ? p.images : []
+                }));
+
+                catalogLastSync = new Date();
+                catalogSyncState = 'idle';
+                catalogSyncError = '';
+                render();
+                return true;
             } catch (e) {
                 console.error(e);
-                showToast('Error cargando productos', true);
+                catalogSyncState = 'error';
+                catalogSyncError = e?.message || 'desconocido';
+                render();
+                if (showErrorToast) showToast('Error cargando catalogo del servidor', true);
+                return false;
             }
         }
 

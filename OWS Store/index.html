@@ -2325,6 +2325,7 @@
         const OWS_STORE_ANDROID_INSTALLED_VERSION_KEY = 'ows_store_android_installed_version_name';
         const OWS_STORE_ANDROID_INSTALLED_VERSION_CODE_KEY = 'ows_store_android_installed_version_code';
         const OWS_STORE_ANDROID_UNKNOWN_SOURCES_ACK_KEY = 'ows_store_android_unknown_sources_ack_ts';
+        const OWS_STORE_ANDROID_APK_MODE_KEY = 'ows_store_android_apk_mode';
         const OWS_STORE_ANDROID_UNKNOWN_SOURCES_ACK_TTL_MS = 2 * 60 * 1000;
         const OCEAN_PAY_STORAGE_USER = 'opUser';
         const OCEAN_PAY_STORAGE_TOKEN = 'opToken';
@@ -3224,6 +3225,42 @@
                 await sleep(120);
 
                 if (item.platform === 'android') {
+                    const useExternalCompat = shouldUseAndroidExternalInstallCompat();
+                    if (useExternalCompat) {
+                        if (updatesStatus) updatesStatus.textContent = 'Descargando APK de ' + project.name + ' (modo compatibilidad)...';
+                        setRuntimeState(project.slug, { phase: 'launching', percent: 100, taskId: `install_${project.slug}` });
+                        updateDownloadSession(item.key, {
+                            phase: 'launching',
+                            percent: 100,
+                            status: 'Abriendo descarga externa del APK (modo compatibilidad)...',
+                            downloadedBytes: Number(item.sizeBytes || 0),
+                            etaSeconds: 0,
+                        });
+                        showActionMessage('Abriendo descarga externa de ' + project.name + ' (modo compatibilidad)...', {
+                            sticky: true,
+                            state: 'downloading',
+                            title: project.name,
+                            showProgress: true,
+                        });
+                        openExternal(item.url);
+                        setRuntimeState(project.slug, { phase: 'ready', percent: 100, taskId: '' });
+                        updateDownloadSession(item.key, {
+                            phase: 'ready',
+                            percent: 100,
+                            status: 'APK enviado a descarga externa. Completa la instalacion desde Descargas.',
+                            etaSeconds: 0,
+                            downloadedBytes: Number(item.sizeBytes || 0),
+                        });
+                        if (updatesStatus) updatesStatus.textContent = 'APK enviado a descarga externa para ' + project.name;
+                        addNotification('Modo compatibilidad: APK de ' + project.name + ' enviado a descarga externa.', 'success');
+                        showActionMessage('APK de ' + project.name + ' enviado a descarga externa. Instala desde Descargas.', { state: 'ready' });
+                        await refreshInstallationStates();
+                        scheduleSectionRender({ projects: true, library: true, immediate: true });
+                        activeInstallTaskKey = '';
+                        syncQueueMarkers();
+                        continue;
+                    }
+
                     if (!window.owsUpdater?.installExternalInstaller && isNativeAndroidRuntime()) {
                         if (updatesStatus) updatesStatus.textContent = 'Descargando APK de ' + project.name + ' en OWS Store...';
                         showActionMessage('Descargando APK de ' + project.name + ' en OWS Store...', {
@@ -3324,14 +3361,10 @@
                         openExternal(item.url);
                     }
 
-                    localStorage.setItem(`installed_${project.slug}`, item.versionName || project.version || 'latest');
-                    localStorage.setItem(`installed_platform_${project.slug}`, 'android');
-                    if (Number.isFinite(Number(item.versionCode)) && Number(item.versionCode) > 0) {
-                        localStorage.setItem(`installed_version_code_${project.slug}`, String(item.versionCode));
-                    }
-                    setRuntimeState(project.slug, { phase: 'installed', percent: 100, taskId: '' });
+                    // Android install confirmation happens outside app; avoid marking as installed prematurely.
+                    setRuntimeState(project.slug, { phase: 'ready', percent: 100, taskId: '' });
                     updateDownloadSession(item.key, {
-                        phase: 'done',
+                        phase: 'ready',
                         percent: 100,
                         status: 'APK abierto. Completa la instalacion en Android.',
                         etaSeconds: 0,
@@ -4948,6 +4981,28 @@
             return String(cap?.getPlatform?.() || '').toLowerCase() === 'android';
         }
 
+        function isLikelyStrictAndroidInstallerDevice() {
+            const ua = String(navigator.userAgent || '').toLowerCase();
+            return /(honor|huawei|xiaomi|miui|redmi|oppo|vivo|realme)/i.test(ua);
+        }
+
+        function getAndroidApkInstallMode() {
+            try {
+                const raw = String(localStorage.getItem(OWS_STORE_ANDROID_APK_MODE_KEY) || '').trim().toLowerCase();
+                if (raw === 'inapp' || raw === 'external') return raw;
+            } catch (_) {}
+            // Default to external mode for reliability until OEM-specific installer issues are fully solved.
+            return 'external';
+        }
+
+        function shouldUseAndroidExternalInstallCompat() {
+            if (!isNativeAndroidRuntime()) return false;
+            const mode = getAndroidApkInstallMode();
+            if (mode === 'external') return true;
+            if (mode === 'inapp') return false;
+            return isLikelyStrictAndroidInstallerDevice();
+        }
+
         function hasRecentUnknownSourcesAck() {
             try {
                 const ts = Number(localStorage.getItem(OWS_STORE_ANDROID_UNKNOWN_SOURCES_ACK_KEY) || 0);
@@ -5019,10 +5074,13 @@
         function confirmAndroidInstallIntent(projectName = 'este proyecto') {
             if (!isNativeAndroidRuntime()) return true;
             const safeProject = String(projectName || 'este proyecto');
+            const externalMode = shouldUseAndroidExternalInstallCompat();
             const confirmText = [
                 `Vas a descargar e instalar ${safeProject} desde OWS Store.`,
                 '',
-                'Por seguridad, Android pedira confirmacion del instalador APK.',
+                externalMode
+                    ? 'Se usara modo compatibilidad: descarga externa del APK para mejor compatibilidad.'
+                    : 'Por seguridad, Android pedira confirmacion del instalador APK.',
                 'Pulsa Aceptar para continuar o Cancelar para detener el proceso.',
             ].join('\n');
             const accepted = window.confirm(confirmText);
@@ -6429,6 +6487,30 @@
             ) || OWS_STORE_ANDROID_ARTIFACT_FALLBACK_URL;
             if (isNativeAndroidRuntime()) {
                 if (!confirmAndroidInstallIntent('OWS Store Android')) return;
+                if (shouldUseAndroidExternalInstallCompat()) {
+                    const sessionKey = 'app_ows_store_android_manual';
+                    updateDownloadSession(sessionKey, {
+                        name: 'OWS Store Android',
+                        slug: 'ows-store-android',
+                        icon: STORE_LOCAL_ICON,
+                        phase: 'launching',
+                        percent: 100,
+                        status: 'Abriendo descarga externa del APK (modo compatibilidad)...',
+                        sizeBytes: Number(owsStoreAndroidState.sizeBytes || 0),
+                        isApp: true,
+                    });
+                    openExternal(url);
+                    updateDownloadSession(sessionKey, {
+                        phase: 'ready',
+                        percent: 100,
+                        status: 'APK enviado a descarga externa. Instala y vuelve a abrir OWS Store.',
+                        sizeBytes: Number(owsStoreAndroidState.sizeBytes || 0),
+                        isApp: true,
+                    });
+                    addNotification('OWS Store Android: modo compatibilidad activo (descarga externa).', 'success');
+                    showActionMessage('APK enviado a descarga externa. Instala y vuelve a abrir OWS Store.', { state: 'ready' });
+                    return;
+                }
                 const gate = await ensureAndroidUnknownSourcesReady('OWS Store Android', { forcePrompt: true });
                 if (!gate?.ok) return;
                 const sessionKey = 'app_ows_store_android_manual';

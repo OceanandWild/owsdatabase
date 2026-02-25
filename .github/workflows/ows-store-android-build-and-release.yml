@@ -134,6 +134,39 @@ jobs:
           cd "$APP_DIR"
           npx cap sync android
 
+      - name: Set Android version metadata
+        shell: bash
+        run: |
+          cd "$APP_DIR"
+          VERSION_NAME="$(node -p "require('./package.json').version" | tr -d '\r\n')"
+          VERSION_CODE="$(date -u +%y%j%H%M)"
+          if [ -z "$VERSION_NAME" ]; then
+            VERSION_NAME="1.0.0"
+          fi
+          APP_ID="$(node -e "try{const fs=require('fs');const c=JSON.parse(fs.readFileSync('capacitor.config.json','utf8'));process.stdout.write(String(c.appId||''));}catch(_){process.stdout.write('');}")"
+          if [ -z "$APP_ID" ]; then
+            APP_ID="com.oceanandwild.owsstore"
+          fi
+          GRADLE_FILE="android/app/build.gradle"
+          if [ ! -f "$GRADLE_FILE" ]; then
+            echo "No existe $GRADLE_FILE"
+            exit 1
+          fi
+          sed -i -E "s/versionCode[[:space:]]+[0-9]+/versionCode ${VERSION_CODE}/" "$GRADLE_FILE"
+          sed -i -E "s/versionName[[:space:]]+\"[^\"]+\"/versionName \"${VERSION_NAME}\"/" "$GRADLE_FILE"
+          echo "OWS Store Android versionName=${VERSION_NAME} versionCode=${VERSION_CODE}"
+          grep -n "versionCode\\|versionName" "$GRADLE_FILE"
+          cat > android-release-metadata.json <<EOF
+          {
+            "project_slug": "ows-store",
+            "package_id": "${APP_ID}",
+            "version_name": "${VERSION_NAME}",
+            "version_code": ${VERSION_CODE}
+          }
+          EOF
+          echo "Android metadata generated:"
+          cat android-release-metadata.json
+
       - name: Ensure Android install permission for APK handoff
         shell: bash
         run: |
@@ -267,6 +300,10 @@ jobs:
           if [ "$FILE_COUNT" = "0" ]; then
             echo "No se encontraron archivos para publicar."
             exit 1
+          fi
+
+          if [ -f "${APP_DIR}/android-release-metadata.json" ]; then
+            cp "${APP_DIR}/android-release-metadata.json" "release-assets/android-release-metadata.json"
           fi
 
           echo "Archivos listos para release:"

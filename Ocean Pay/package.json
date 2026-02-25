@@ -1,6 +1,6 @@
 {
   "name": "ocean-pay-desktop",
-  "version": "2026.2.25-t1349",
+  "version": "2026.2.25-t1359",
   "description": "Ocean Pay for Windows (Electron build)",
   "main": "main.js",
   "author": "Ocean and Wild Studios",
@@ -54,7 +54,7 @@
           ]
         }
       ],
-      "executableName": "Ocean Pay",
+      "executableName": "OceanPay",
       "icon": "build/icon.ico",
       "signAndEditExecutable": true
     },

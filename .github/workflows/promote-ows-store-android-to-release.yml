@@ -94,6 +94,16 @@ jobs:
           echo "Files to release:"
           find promoted-android -type f -maxdepth 6 -print
 
+      - name: Sanitize promoted files
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ inputs.allow_non_production_artifacts }}" != "true" ]; then
+            find promoted-android -type f \( -iname "*unsigned*.apk" -o -iname "*debug*.apk" \) -print -delete || true
+          fi
+          echo "Files after sanitize:"
+          find promoted-android -type f -maxdepth 6 -print
+
       - name: Publish to owsdatabase releases
         uses: softprops/action-gh-release@v2
         with:
@@ -115,12 +125,12 @@ jobs:
         shell: bash
         run: |
           set -u
-          APK_FILE="$(find promoted-android -type f -name '*.apk' | grep -Evi 'unsigned' | grep -Ei 'signed|release' | head -n1 || true)"
-          if [ -z "$APK_FILE" ]; then
+          APK_FILE="$(find promoted-android -type f -name '*.apk' | grep -Evi 'unsigned' | grep -Ei 'signed' | head -n1 || true)"
+          if [ -z "$APK_FILE" ] && [ "${{ inputs.allow_non_production_artifacts }}" = "true" ]; then
             APK_FILE="$(find promoted-android -type f -name '*.apk' | head -n1 || true)"
           fi
           if [ -z "$APK_FILE" ]; then
-            echo "No se encontro APK para sincronizar metadata."
+            echo "No se encontro APK firmado para sincronizar metadata."
             exit 0
           fi
 

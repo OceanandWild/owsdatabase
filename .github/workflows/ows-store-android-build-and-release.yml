@@ -299,13 +299,24 @@ jobs:
           set -e
           mkdir -p release-assets
 
-          SIGNED_APK=$(find "${APP_DIR}/android/app/build/outputs/apk/release" -maxdepth 1 -type f -name "*signed*.apk" | head -n 1 || true)
+          SIGNED_APK="${APP_DIR}/android/app/build/outputs/apk/release/app-release-signed.apk"
+          if [ ! -f "$SIGNED_APK" ]; then
+            SIGNED_APK="$(find "${APP_DIR}/android/app/build/outputs/apk/release" -maxdepth 1 -type f -name "*signed*.apk" ! -name "*unsigned*" | head -n 1 || true)"
+          fi
           AAB_PATH="${APP_DIR}/android/app/build/outputs/bundle/release/app-release.aab"
 
-          if [ -z "$SIGNED_APK" ] || [ ! -f "$SIGNED_APK" ]; then
+          SIGNED_BASENAME="$(basename "${SIGNED_APK:-}")"
+          SIGNED_BASENAME_LC="$(echo "$SIGNED_BASENAME" | tr '[:upper:]' '[:lower:]')"
+          if [ -z "$SIGNED_APK" ] || [ ! -f "$SIGNED_APK" ] || [[ "$SIGNED_BASENAME_LC" == *"unsigned"* ]]; then
             echo "No se encontro APK firmado. Configura ANDROID_SIGNING_* secrets para publicar una build instalable."
             exit 1
           fi
+          APKSIGNER="${ANDROID_SDK_ROOT}/build-tools/34.0.0/apksigner"
+          if [ ! -x "$APKSIGNER" ]; then
+            echo "No se encontro apksigner en: $APKSIGNER"
+            exit 1
+          fi
+          "$APKSIGNER" verify --verbose "$SIGNED_APK" >/dev/null
           cp "$SIGNED_APK" "release-assets/OWS.Store.Android.release-signed.apk"
 
           if [ -f "$AAB_PATH" ]; then

@@ -308,7 +308,7 @@ jobs:
         with:
           name: floret-shop-apk-release-signed
           path: |
-            ${{ env.APP_DIR }}/android/app/build/outputs/apk/release/*signed*.apk
+            ${{ env.APP_DIR }}/android/app/build/outputs/apk/release/app-release-signed.apk
             ${{ env.APP_DIR }}/android-release-metadata.json
           if-no-files-found: warn
 

@@ -90,6 +90,14 @@ jobs:
           echo "Contenido descargado:"
           find promoted-artifact -type f -maxdepth 5 -print
 
+      - name: Sanitize promoted files
+        shell: bash
+        run: |
+          set -euo pipefail
+          find promoted-artifact -type f \( -iname "*unsigned*.apk" -o -iname "*debug*.apk" \) -print -delete || true
+          echo "Contenido tras limpieza:"
+          find promoted-artifact -type f -maxdepth 5 -print
+
       - name: Publish release assets
         uses: softprops/action-gh-release@v2
         with:
@@ -126,12 +134,9 @@ jobs:
             exit 0
           fi
 
-          APK_FILE="$(find promoted-artifact -type f -name '*.apk' | grep -Evi 'unsigned' | grep -Ei 'signed|release' | head -n1 || true)"
+          APK_FILE="$(find promoted-artifact -type f -name '*.apk' | grep -Evi 'unsigned' | grep -Ei 'signed' | head -n1 || true)"
           if [ -z "$APK_FILE" ]; then
-            APK_FILE="$(find promoted-artifact -type f -name '*.apk' | head -n1 || true)"
-          fi
-          if [ -z "$APK_FILE" ]; then
-            echo "No se encontro APK para sincronizar metadata."
+            echo "No se encontro APK firmado para sincronizar metadata."
             exit 0
           fi
 

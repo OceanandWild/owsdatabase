@@ -1512,6 +1512,430 @@ app.get('/api/wild-transfer/download-file/:filename', (req, res) => {
   }
 });
 
+const WT_PROJECT_ID = 'WildTransfer';
+const WT_WEEKLY_INTERVAL_DAYS = 7;
+const WT_WEEKLY_PLANS = [
+  {
+    id: 'relay-core',
+    label: 'Relay Core',
+    perks: [
+      'Up to 10 files per transfer',
+      'Up to 2 GB total per batch',
+      'Priority sync window'
+    ],
+    limits: { maxFiles: 10, maxBatchMb: 2048 },
+    priceByCurrency: { wildgems: 220, aquabux: 420, appbux: 300 }
+  },
+  {
+    id: 'relay-plus',
+    label: 'Relay Plus',
+    perks: [
+      'Up to 20 files per transfer',
+      'Up to 8 GB total per batch',
+      'Fast lane delivery'
+    ],
+    limits: { maxFiles: 20, maxBatchMb: 8192 },
+    priceByCurrency: { wildgems: 460, aquabux: 860, appbux: 640 }
+  },
+  {
+    id: 'relay-ultra',
+    label: 'Relay Ultra',
+    perks: [
+      'Up to 40 files per transfer',
+      'Up to 20 GB total per batch',
+      'Highest relay priority'
+    ],
+    limits: { maxFiles: 40, maxBatchMb: 20480 },
+    priceByCurrency: { wildgems: 790, aquabux: 1440, appbux: 1090 }
+  }
+];
+const WT_PLAN_MAP = new Map(WT_WEEKLY_PLANS.map((p) => [p.id, p]));
+const WT_META_CURRENCIES = new Set(['amber', 'ecotokens']);
+let wtSubscriptionColumnsCache = { expiresAt: 0, columns: new Set() };
+
+function getOceanPayUserIdFromAuthHeader(authHeader) {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
+  try {
+    const token = authHeader.substring(7);
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const candidate = decoded.id || decoded.uid;
+    const userId = Number(candidate);
+    return Number.isFinite(userId) ? userId : null;
+  } catch (_e) {
+    return null;
+  }
+}
+
+function normalizeWtCurrency(currency) {
+  return String(currency || '').trim().toLowerCase();
+}
+
+function normalizeWtPlanName(name) {
+  const raw = String(name || '').toLowerCase();
+  if (raw.includes('ultra')) return 'relay-ultra';
+  if (raw.includes('plus')) return 'relay-plus';
+  if (raw.includes('core')) return 'relay-core';
+  return 'relay-core';
+}
+
+function serializeWtPlan(plan) {
+  return {
+    id: plan.id,
+    label: plan.label,
+    perks: plan.perks,
+    limits: plan.limits,
+    priceByCurrency: plan.priceByCurrency,
+    cadence: 'weekly'
+  };
+}
+
+async function getWtSubscriptionColumnSet() {
+  const now = Date.now();
+  if (wtSubscriptionColumnsCache.columns.size > 0 && now < wtSubscriptionColumnsCache.expiresAt) {
+    return wtSubscriptionColumnsCache.columns;
+  }
+  const { rows } = await pool.query(
+    `SELECT column_name
+     FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'ocean_pay_subscriptions'`
+  );
+  const set = new Set(rows.map((r) => String(r.column_name || '').toLowerCase()));
+  wtSubscriptionColumnsCache = {
+    columns: set,
+    expiresAt: now + 5 * 60 * 1000
+  };
+  return set;
+}
+
+app.get('/wildtransfer/subscription/plans', (_req, res) => {
+  res.json({
+    success: true,
+    projectId: WT_PROJECT_ID,
+    cadence: 'weekly',
+    plans: WT_WEEKLY_PLANS.map(serializeWtPlan)
+  });
+});
+
+app.get('/wildtransfer/subscription/status', async (req, res) => {
+  try {
+    const userId = getOceanPayUserIdFromAuthHeader(req.headers.authorization);
+    if (!userId) return res.status(401).json({ error: 'Token de Ocean Pay requerido' });
+
+    const columns = await getWtSubscriptionColumnSet();
+    const hasEndDate = columns.has('end_date');
+    const hasNextPayment = columns.has('next_payment');
+    const hasStatus = columns.has('status');
+    const hasSubName = columns.has('sub_name');
+    const expiryExpr = hasEndDate && hasNextPayment
+      ? 'COALESCE(end_date, next_payment, created_at)'
+      : (hasEndDate ? 'COALESCE(end_date, created_at)' : (hasNextPayment ? 'COALESCE(next_payment, created_at)' : 'created_at'));
+    const statusClause = hasStatus ? "AND (status IS NULL OR LOWER(status) = 'active')" : '';
+
+    const { rows: cardRows } = await pool.query(
+      `SELECT id, card_name, is_primary
+       FROM ocean_pay_cards
+       WHERE user_id = $1 AND COALESCE(is_active, true) = true
+       ORDER BY is_primary DESC, id ASC`,
+      [userId]
+    );
+
+    const { rows: subRows } = await pool.query(
+      `SELECT *, ${expiryExpr} AS effective_end_date
+       FROM ocean_pay_subscriptions
+       WHERE user_id = $1
+         AND LOWER(COALESCE(project_id, '')) = LOWER($2)
+         ${statusClause}
+       ORDER BY ${expiryExpr} DESC, created_at DESC
+       LIMIT 1`,
+      [userId, WT_PROJECT_ID]
+    );
+
+    const rawSub = subRows[0] || null;
+    const effectiveEnd = rawSub?.effective_end_date ? new Date(rawSub.effective_end_date) : null;
+    const isActive = Boolean(rawSub) && effectiveEnd instanceof Date && !Number.isNaN(effectiveEnd.getTime()) && effectiveEnd.getTime() > Date.now();
+    const planName = rawSub ? (rawSub.plan_name || (hasSubName ? rawSub.sub_name : '') || 'Relay Core') : '';
+    const planId = normalizeWtPlanName(planName);
+    const plan = WT_PLAN_MAP.get(planId) || WT_WEEKLY_PLANS[0];
+
+    res.json({
+      success: true,
+      linked: true,
+      projectId: WT_PROJECT_ID,
+      cards: cardRows,
+      plans: WT_WEEKLY_PLANS.map(serializeWtPlan),
+      subscription: isActive ? {
+        id: rawSub.id,
+        active: true,
+        planId,
+        planName: plan.label,
+        currency: String(rawSub.currency || 'wildgems').toLowerCase(),
+        price: Number(rawSub.price || plan.priceByCurrency.wildgems || 0),
+        endsAt: effectiveEnd.toISOString(),
+        perks: plan.perks,
+        limits: plan.limits
+      } : null
+    });
+  } catch (e) {
+    console.error('WildTransfer subscription status error:', e);
+    res.status(500).json({ error: 'No se pudo obtener el estado de suscripcion' });
+  }
+});
+
+app.post('/wildtransfer/subscription/checkout', async (req, res) => {
+  const userId = getOceanPayUserIdFromAuthHeader(req.headers.authorization);
+  if (!userId) return res.status(401).json({ error: 'Token de Ocean Pay requerido' });
+
+  const planId = String(req.body?.planId || '').trim();
+  const currency = normalizeWtCurrency(req.body?.currency);
+  const preferredCardId = Number(req.body?.cardId || 0);
+
+  const plan = WT_PLAN_MAP.get(planId);
+  if (!plan) return res.status(400).json({ error: 'Plan no valido' });
+  const price = Number(plan.priceByCurrency[currency]);
+  if (!Number.isFinite(price) || price <= 0) {
+    return res.status(400).json({ error: 'Divisa no disponible para ese plan' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const { rows: cards } = await client.query(
+      `SELECT id, card_name, is_primary
+       FROM ocean_pay_cards
+       WHERE user_id = $1 AND COALESCE(is_active, true) = true
+       ORDER BY is_primary DESC, id ASC`,
+      [userId]
+    );
+    if (cards.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'No tienes una tarjeta activa en Ocean Pay' });
+    }
+
+    const selectedCard = cards.find((c) => Number(c.id) === preferredCardId)
+      || cards.find((c) => Boolean(c.is_primary))
+      || cards[0];
+    if (!selectedCard) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'No se pudo seleccionar una tarjeta valida' });
+    }
+
+    let currentBalance = 0;
+    let newBalance = 0;
+
+    if (WT_META_CURRENCIES.has(currency)) {
+      await client.query(
+        `INSERT INTO ocean_pay_metadata (user_id, key, value)
+         VALUES ($1, $2, '0')
+         ON CONFLICT (user_id, key) DO NOTHING`,
+        [userId, currency]
+      );
+      const { rows: metaRows } = await client.query(
+        `SELECT value
+         FROM ocean_pay_metadata
+         WHERE user_id = $1 AND key = $2
+         FOR UPDATE`,
+        [userId, currency]
+      );
+      currentBalance = Number(metaRows[0]?.value || 0);
+      if (currentBalance < price) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: `Saldo insuficiente de ${currency.toUpperCase()}` });
+      }
+      newBalance = currentBalance - price;
+      await client.query(
+        `UPDATE ocean_pay_metadata
+         SET value = $1
+         WHERE user_id = $2 AND key = $3`,
+        [String(newBalance), userId, currency]
+      );
+    } else {
+      await client.query(
+        `INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
+         VALUES ($1, $2, 0)
+         ON CONFLICT (card_id, currency_type) DO NOTHING`,
+        [selectedCard.id, currency]
+      );
+      const { rows: balRows } = await client.query(
+        `SELECT amount
+         FROM ocean_pay_card_balances
+         WHERE card_id = $1 AND currency_type = $2
+         FOR UPDATE`,
+        [selectedCard.id, currency]
+      );
+      currentBalance = Number(balRows[0]?.amount || 0);
+      if (currentBalance < price) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: `Saldo insuficiente de ${currency.toUpperCase()}` });
+      }
+      newBalance = currentBalance - price;
+      await client.query(
+        `UPDATE ocean_pay_card_balances
+         SET amount = $1
+         WHERE card_id = $2 AND currency_type = $3`,
+        [newBalance, selectedCard.id, currency]
+      );
+    }
+
+    const columns = await getWtSubscriptionColumnSet();
+    const hasEndDate = columns.has('end_date');
+    const hasNextPayment = columns.has('next_payment');
+    const hasStatus = columns.has('status');
+    const hasSubName = columns.has('sub_name');
+    const hasIntervalDays = columns.has('interval_days');
+    const hasStartDate = columns.has('start_date');
+    const expiryExpr = hasEndDate && hasNextPayment
+      ? 'COALESCE(end_date, next_payment, created_at)'
+      : (hasEndDate ? 'COALESCE(end_date, created_at)' : (hasNextPayment ? 'COALESCE(next_payment, created_at)' : 'created_at'));
+    const statusClause = hasStatus ? "AND (status IS NULL OR LOWER(status) = 'active')" : '';
+
+    const { rows: existingRows } = await client.query(
+      `SELECT id, ${expiryExpr} AS effective_end_date
+       FROM ocean_pay_subscriptions
+       WHERE user_id = $1
+         AND LOWER(COALESCE(project_id, '')) = LOWER($2)
+         ${statusClause}
+       ORDER BY ${expiryExpr} DESC, created_at DESC
+       LIMIT 1
+       FOR UPDATE`,
+      [userId, WT_PROJECT_ID]
+    );
+
+    const now = new Date();
+    const existing = existingRows[0] || null;
+    const existingEnd = existing?.effective_end_date ? new Date(existing.effective_end_date) : null;
+    const baseDate = existingEnd instanceof Date && !Number.isNaN(existingEnd.getTime()) && existingEnd.getTime() > now.getTime()
+      ? existingEnd
+      : now;
+    const finalEnd = new Date(baseDate.getTime() + WT_WEEKLY_INTERVAL_DAYS * 24 * 60 * 60 * 1000);
+
+    let subscriptionId = 0;
+    if (existing?.id) {
+      const updateFields = ['project_id = $1', 'plan_name = $2', 'price = $3', 'currency = $4', 'card_id = $5'];
+      const updateValues = [WT_PROJECT_ID, plan.label, price, currency, selectedCard.id];
+      if (hasSubName) {
+        updateFields.push(`sub_name = $${updateValues.length + 1}`);
+        updateValues.push(plan.label);
+      }
+      if (hasStatus) {
+        updateFields.push(`status = $${updateValues.length + 1}`);
+        updateValues.push('active');
+      }
+      if (hasIntervalDays) {
+        updateFields.push(`interval_days = $${updateValues.length + 1}`);
+        updateValues.push(WT_WEEKLY_INTERVAL_DAYS);
+      }
+      if (hasNextPayment) {
+        updateFields.push(`next_payment = $${updateValues.length + 1}`);
+        updateValues.push(finalEnd);
+      }
+      if (hasEndDate) {
+        updateFields.push(`end_date = $${updateValues.length + 1}`);
+        updateValues.push(finalEnd);
+      }
+      updateValues.push(existing.id);
+
+      const updateSql = `
+        UPDATE ocean_pay_subscriptions
+        SET ${updateFields.join(', ')}
+        WHERE id = $${updateValues.length}
+        RETURNING id`;
+      const { rows: updated } = await client.query(updateSql, updateValues);
+      subscriptionId = Number(updated[0]?.id || existing.id);
+    } else {
+      const insertCols = ['user_id', 'project_id', 'plan_name', 'price', 'currency', 'card_id'];
+      const insertVals = [userId, WT_PROJECT_ID, plan.label, price, currency, selectedCard.id];
+      if (hasSubName) {
+        insertCols.push('sub_name');
+        insertVals.push(plan.label);
+      }
+      if (hasStatus) {
+        insertCols.push('status');
+        insertVals.push('active');
+      }
+      if (hasStartDate) {
+        insertCols.push('start_date');
+        insertVals.push(now);
+      }
+      if (hasIntervalDays) {
+        insertCols.push('interval_days');
+        insertVals.push(WT_WEEKLY_INTERVAL_DAYS);
+      }
+      if (hasNextPayment) {
+        insertCols.push('next_payment');
+        insertVals.push(finalEnd);
+      }
+      if (hasEndDate) {
+        insertCols.push('end_date');
+        insertVals.push(finalEnd);
+      }
+      const placeholders = insertVals.map((_, idx) => `$${idx + 1}`).join(', ');
+      const insertSql = `
+        INSERT INTO ocean_pay_subscriptions (${insertCols.join(', ')})
+        VALUES (${placeholders})
+        RETURNING id`;
+      const { rows: inserted } = await client.query(insertSql, insertVals);
+      subscriptionId = Number(inserted[0]?.id || 0);
+    }
+
+    await client.query(
+      `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [userId, `Suscripcion semanal: ${plan.label}`, -price, WT_PROJECT_ID, currency]
+    );
+
+    await client.query(
+      `INSERT INTO ocean_pay_notifications (user_id, type, title, message)
+       VALUES ($1, $2, $3, $4)`,
+      [
+        userId,
+        'success',
+        'WildTransfer activado',
+        `Tu plan ${plan.label} quedo activo hasta ${finalEnd.toLocaleString('es-ES')}.`
+      ]
+    ).catch(() => null);
+
+    const { rows: finalRows } = await client.query(
+      `SELECT *, ${expiryExpr} AS effective_end_date
+       FROM ocean_pay_subscriptions
+       WHERE id = $1
+       LIMIT 1`,
+      [subscriptionId]
+    );
+    const finalSub = finalRows[0] || null;
+
+    await client.query('COMMIT');
+    res.json({
+      success: true,
+      projectId: WT_PROJECT_ID,
+      subscription: finalSub ? {
+        id: finalSub.id,
+        active: true,
+        planId: normalizeWtPlanName(finalSub.plan_name || finalSub.sub_name || plan.label),
+        planName: finalSub.plan_name || finalSub.sub_name || plan.label,
+        currency: String(finalSub.currency || currency).toLowerCase(),
+        price: Number(finalSub.price || price),
+        endsAt: (finalSub.effective_end_date ? new Date(finalSub.effective_end_date) : finalEnd).toISOString(),
+        perks: plan.perks,
+        limits: plan.limits
+      } : null,
+      charged: {
+        currency,
+        amount: price,
+        previousBalance: currentBalance,
+        newBalance
+      }
+    });
+  } catch (e) {
+    await client.query('ROLLBACK');
+    console.error('WildTransfer subscription checkout error:', e);
+    res.status(500).json({ error: 'No se pudo procesar el checkout de WildTransfer' });
+  } finally {
+    client.release();
+  }
+});
+
 app.get('/oceanic-ethernet/index.html', (_req, res) => {
   try {
     const html = fs.readFileSync(join(__dirname, 'OceanicEthernet', 'index.html'), 'utf-8');

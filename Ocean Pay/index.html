@@ -1304,6 +1304,17 @@
       background: linear-gradient(145deg, #2a2000, #0f111a) !important;
     }
 
+    .sub-wildtransfer-relay {
+      border-color: #22d3ee !important;
+      background: linear-gradient(145deg, #0f1d2e, #0c1322) !important;
+    }
+
+    .sub-wildtransfer-relay .sub-icon {
+      background: linear-gradient(135deg, #22d3ee, #3b82f6) !important;
+      color: #06111f !important;
+      box-shadow: 0 0 16px rgba(34, 211, 238, 0.45);
+    }
+
 
 
     /* Notifications Styles */
@@ -5536,6 +5547,10 @@
             else if (name.includes('DinoPass Premium')) { themeClass = 'sub-dinopass-premium'; icon = 'fas fa-dragon'; }
             else if (name.includes('DinoPass Elite')) { themeClass = 'sub-dinopass-elite'; icon = 'fas fa-crown'; }
             else if (name.includes('Premium VIP')) { themeClass = 'sub-wildshorts-premium'; icon = 'fas fa-crown'; }
+            else if ((name || '').toLowerCase().includes('wildtransfer') || (pid || '').toLowerCase().includes('wildtransfer')) {
+              themeClass = 'sub-wildtransfer-relay';
+              icon = 'fas fa-paper-plane';
+            }
 
             const nextDate = expiry ? new Date(expiry).toLocaleDateString() : 'N/A';
 
@@ -5765,6 +5780,22 @@
       </div>
     </div>
   </div>
+
+  <script>
+    (function initOceanPayDesktopBridge() {
+      if (!window.oceanPayDesktop) return;
+
+      window.oceanPayDesktop.getVersion()
+        .then((version) => {
+          if (version) document.title = `Ocean Pay v${version}`;
+        })
+        .catch(() => { });
+
+      window.oceanPayDesktop.onUpdateStatus((status) => {
+        window.__oceanPayUpdateStatus = status || {};
+      });
+    })();
+  </script>
 
 </body>
 

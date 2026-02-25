@@ -107,7 +107,9 @@ const io = new Server(httpServer, {
   }
 });
 
-app.use(cors());
+app.use(cors({
+  exposedHeaders: ['X-WT-Reward-Currency', 'X-WT-Reward-Amount', 'X-WT-New-Balance']
+}));
 app.use(express.json());
 
 // --- Ocean Pay Authentication ---
@@ -1441,13 +1443,30 @@ setInterval(cleanOldWildTransferFiles, 6 * 60 * 60 * 1000);
 
 app.use('/wild-transfer', express.static(join(__dirname, 'WildTransfer')));
 
-app.post('/api/wild-transfer/upload', wildTransferUpload.array('files', 10), (req, res) => {
+app.post('/api/wild-transfer/upload', wildTransferUpload.array('files', 10), async (req, res) => {
   if (!req.files || req.files.length === 0) return res.status(400).json({ error: 'No se subieron archivos' });
+  const totalBytes = req.files.reduce((sum, f) => sum + Number(f.size || 0), 0);
+  const userId = getOceanPayUserIdFromAuthHeader(req.headers.authorization);
+  let reward = null;
+  if (userId) {
+    const rewardAmount = computeWildTransferReward(totalBytes, req.files.length, 'upload');
+    reward = await awardWildTransferCurrency(
+      userId,
+      rewardAmount,
+      `Recompensa por subir ${req.files.length} archivo(s)`,
+      { transferCode: req.sessionCode, action: 'upload' }
+    );
+  }
   console.log(`📤 ${req.files.length} archivos subidos a Wild Transfer con código ${req.sessionCode} `);
   res.json({
     success: true,
     code: req.sessionCode,
-    files: req.files.map(f => ({ name: f.originalname, size: f.size }))
+    files: req.files.map(f => ({ name: f.originalname, size: f.size })),
+    reward: reward ? {
+      currency: WT_RELAY_CURRENCY,
+      amount: reward.amount,
+      newBalance: reward.newBalance
+    } : null
   });
 });
 
@@ -1501,11 +1520,27 @@ app.get('/api/wild-transfer/download/:code', (req, res) => {
   res.send(`Este código contiene ${sessionFiles.length} archivos.Por favor usa la interfaz de Wild Transfer para revisarlos.`);
 });
 
-app.get('/api/wild-transfer/download-file/:filename', (req, res) => {
+app.get('/api/wild-transfer/download-file/:filename', async (req, res) => {
   const { filename } = req.params;
   const filePath = join(__dirname, 'uploads', 'wild-transfer', filename);
   if (fs.existsSync(filePath)) {
     const originalName = filename.split('-').slice(2).join('-');
+    const userId = getOceanPayUserIdFromAuthHeader(req.headers.authorization);
+    if (userId) {
+      const stats = fs.statSync(filePath);
+      const rewardAmount = computeWildTransferReward(Number(stats.size || 0), 1, 'receive');
+      const reward = await awardWildTransferCurrency(
+        userId,
+        rewardAmount,
+        `Recompensa por recibir archivo (${originalName})`,
+        { transferCode: filename.split('-')[0] || null, action: 'receive' }
+      );
+      if (reward) {
+        res.setHeader('X-WT-Reward-Currency', WT_RELAY_CURRENCY);
+        res.setHeader('X-WT-Reward-Amount', String(reward.amount));
+        res.setHeader('X-WT-New-Balance', String(reward.newBalance));
+      }
+    }
     res.download(filePath, originalName);
   } else {
     res.status(404).send('Archivo no encontrado');
@@ -1514,6 +1549,8 @@ app.get('/api/wild-transfer/download-file/:filename', (req, res) => {
 
 const WT_PROJECT_ID = 'WildTransfer';
 const WT_WEEKLY_INTERVAL_DAYS = 7;
+const WT_RELAY_CURRENCY = 'relayshards';
+const WT_RELAY_CURRENCY_LABEL = 'RelayShards';
 const WT_WEEKLY_PLANS = [
   {
     id: 'relay-core',
@@ -1524,7 +1561,7 @@ const WT_WEEKLY_PLANS = [
       'Priority sync window'
     ],
     limits: { maxFiles: 10, maxBatchMb: 2048 },
-    priceByCurrency: { wildgems: 220, aquabux: 420, appbux: 300 }
+    priceByCurrency: { [WT_RELAY_CURRENCY]: 160 }
   },
   {
     id: 'relay-plus',
@@ -1535,7 +1572,7 @@ const WT_WEEKLY_PLANS = [
       'Fast lane delivery'
     ],
     limits: { maxFiles: 20, maxBatchMb: 8192 },
-    priceByCurrency: { wildgems: 460, aquabux: 860, appbux: 640 }
+    priceByCurrency: { [WT_RELAY_CURRENCY]: 340 }
   },
   {
     id: 'relay-ultra',
@@ -1546,7 +1583,7 @@ const WT_WEEKLY_PLANS = [
       'Highest relay priority'
     ],
     limits: { maxFiles: 40, maxBatchMb: 20480 },
-    priceByCurrency: { wildgems: 790, aquabux: 1440, appbux: 1090 }
+    priceByCurrency: { [WT_RELAY_CURRENCY]: 560 }
   }
 ];
 const WT_PLAN_MAP = new Map(WT_WEEKLY_PLANS.map((p) => [p.id, p]));
@@ -1578,6 +1615,104 @@ function normalizeWtPlanName(name) {
   return 'relay-core';
 }
 
+function computeWildTransferReward(totalBytes, fileCount, action) {
+  const mb = Math.max(0, Number(totalBytes || 0) / (1024 * 1024));
+  const files = Math.max(1, Number(fileCount || 1));
+  if (action === 'receive') {
+    return Math.max(1, Math.round((mb * 0.65) + (files * 0.4)));
+  }
+  return Math.max(2, Math.round((mb * 1.6) + (files * 1.1)));
+}
+
+async function awardWildTransferCurrency(userId, amount, reason, extraMeta = {}) {
+  const safeAmount = Math.floor(Number(amount || 0));
+  if (!Number.isFinite(userId) || userId <= 0 || !Number.isFinite(safeAmount) || safeAmount <= 0) {
+    return null;
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const { rows: cards } = await client.query(
+      `SELECT id
+       FROM ocean_pay_cards
+       WHERE user_id = $1 AND COALESCE(is_active, true) = true
+       ORDER BY is_primary DESC, id ASC
+       LIMIT 1
+       FOR UPDATE`,
+      [userId]
+    );
+
+    if (!cards.length) {
+      await client.query('ROLLBACK');
+      return null;
+    }
+
+    const cardId = Number(cards[0].id);
+    await client.query(
+      `INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
+       VALUES ($1, $2, 0)
+       ON CONFLICT (card_id, currency_type) DO NOTHING`,
+      [cardId, WT_RELAY_CURRENCY]
+    );
+
+    const { rows: balanceRows } = await client.query(
+      `SELECT amount
+       FROM ocean_pay_card_balances
+       WHERE card_id = $1 AND currency_type = $2
+       FOR UPDATE`,
+      [cardId, WT_RELAY_CURRENCY]
+    );
+    const previousBalance = Number(balanceRows[0]?.amount || 0);
+    const newBalance = previousBalance + safeAmount;
+
+    await client.query(
+      `UPDATE ocean_pay_card_balances
+       SET amount = $1
+       WHERE card_id = $2 AND currency_type = $3`,
+      [newBalance, cardId, WT_RELAY_CURRENCY]
+    );
+
+    await client.query(
+      `UPDATE ocean_pay_cards
+       SET balances = jsonb_set(
+         COALESCE(balances, '{}'::jsonb),
+         '{relayshards}',
+         to_jsonb($1::numeric),
+         true
+       )
+       WHERE id = $2`,
+      [newBalance, cardId]
+    );
+
+    await client.query(
+      `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [userId, reason || 'Recompensa WildTransfer', safeAmount, 'WildTransfer', WT_RELAY_CURRENCY]
+    );
+
+    await client.query(
+      `INSERT INTO ocean_pay_notifications (user_id, type, title, message)
+       VALUES ($1, 'success', $2, $3)`,
+      [
+        userId,
+        'Recompensa WildTransfer',
+        `Ganaste +${safeAmount} ${WT_RELAY_CURRENCY_LABEL} por ${extraMeta.action === 'receive' ? 'recibir' : 'subir'} archivos.`
+      ]
+    ).catch(() => null);
+
+    await client.query('COMMIT');
+    return { amount: safeAmount, previousBalance, newBalance, cardId };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('WildTransfer reward error:', error);
+    return null;
+  } finally {
+    client.release();
+  }
+}
+
 function serializeWtPlan(plan) {
   return {
     id: plan.id,
@@ -1585,6 +1720,7 @@ function serializeWtPlan(plan) {
     perks: plan.perks,
     limits: plan.limits,
     priceByCurrency: plan.priceByCurrency,
+    checkoutCurrency: WT_RELAY_CURRENCY,
     cadence: 'weekly'
   };
 }
@@ -1612,6 +1748,7 @@ app.get('/wildtransfer/subscription/plans', (_req, res) => {
   res.json({
     success: true,
     projectId: WT_PROJECT_ID,
+    currency: WT_RELAY_CURRENCY,
     cadence: 'weekly',
     plans: WT_WEEKLY_PLANS.map(serializeWtPlan)
   });
@@ -1669,8 +1806,8 @@ app.get('/wildtransfer/subscription/status', async (req, res) => {
         active: true,
         planId,
         planName: plan.label,
-        currency: String(rawSub.currency || 'wildgems').toLowerCase(),
-        price: Number(rawSub.price || plan.priceByCurrency.wildgems || 0),
+        currency: String(rawSub.currency || WT_RELAY_CURRENCY).toLowerCase(),
+        price: Number(rawSub.price || plan.priceByCurrency[WT_RELAY_CURRENCY] || 0),
         endsAt: effectiveEnd.toISOString(),
         perks: plan.perks,
         limits: plan.limits
@@ -1687,14 +1824,14 @@ app.post('/wildtransfer/subscription/checkout', async (req, res) => {
   if (!userId) return res.status(401).json({ error: 'Token de Ocean Pay requerido' });
 
   const planId = String(req.body?.planId || '').trim();
-  const currency = normalizeWtCurrency(req.body?.currency);
+  const currency = WT_RELAY_CURRENCY;
   const preferredCardId = Number(req.body?.cardId || 0);
 
   const plan = WT_PLAN_MAP.get(planId);
   if (!plan) return res.status(400).json({ error: 'Plan no valido' });
   const price = Number(plan.priceByCurrency[currency]);
   if (!Number.isFinite(price) || price <= 0) {
-    return res.status(400).json({ error: 'Divisa no disponible para ese plan' });
+    return res.status(400).json({ error: 'No se encontro un precio valido para el plan seleccionado' });
   }
 
   const client = await pool.connect();

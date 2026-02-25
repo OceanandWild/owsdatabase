@@ -2312,6 +2312,19 @@
                       <span style="color:var(--gold)">Wild</span>
                     </div>
                   </div>
+                  <div class="asset-card-modern" id="relayshards-card">
+                    <div class="asset-icon-container">
+                      <canvas class="currency-canvas" data-currency="relayshards" width="44" height="44"></canvas>
+                    </div>
+                    <div class="asset-info-modern">
+                      <span class="asset-name-modern">RelayShards</span>
+                      <span class="asset-balance-modern" id="relayshards">0</span>
+                    </div>
+                    <div class="asset-footer-modern">
+                      <span>WildTransfer</span>
+                      <span style="color:#00f3ff">Wild</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -3869,6 +3882,41 @@
       ctx.closePath(); ctx.fill(); ctx.restore();
     }
 
+    function drawRelayShardsIcon(ctx, x, y, size) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.shadowBlur = size * 0.45;
+      ctx.shadowColor = "rgba(0, 243, 255, 0.55)";
+      const body = ctx.createLinearGradient(-size * 0.45, -size * 0.45, size * 0.45, size * 0.45);
+      body.addColorStop(0, "#b2fbff");
+      body.addColorStop(0.5, "#00f3ff");
+      body.addColorStop(1, "#2e5dff");
+      ctx.fillStyle = body;
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const angle = ((Math.PI * 2) / 6) * i - Math.PI / 2;
+        ctx.lineTo(Math.cos(angle) * size * 0.42, Math.sin(angle) * size * 0.42);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,0.45)";
+      ctx.lineWidth = size * 0.05;
+      ctx.stroke();
+      ctx.fillStyle = "rgba(7,11,20,0.35)";
+      ctx.beginPath();
+      ctx.arc(0, 0, size * 0.18, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,0.6)";
+      ctx.lineWidth = size * 0.04;
+      ctx.beginPath();
+      ctx.moveTo(-size * 0.12, 0);
+      ctx.lineTo(size * 0.12, 0);
+      ctx.moveTo(0, -size * 0.12);
+      ctx.lineTo(0, size * 0.12);
+      ctx.stroke();
+      ctx.restore();
+    }
+
     function drawMayhemCoinsIcon(ctx, x, y, size) {
       ctx.save(); ctx.translate(x, y);
       ctx.shadowBlur = size * 0.5; ctx.shadowColor = "rgba(224, 64, 251, 0.6)";
@@ -3997,6 +4045,7 @@
           case 'amber': drawAmberIcon(ctx, x, y, size * 0.8); break;
           case 'nxb': drawNXBIcon(ctx, x, y, size * 0.8); break;
           case 'voltbit': drawVoltBitIcon(ctx, x, y, size * 0.8); break;
+          case 'relayshards': drawRelayShardsIcon(ctx, x, y, size * 0.8); break;
           case 'mayhemcoins': drawMayhemCoinsIcon(ctx, x, y, size * 0.8); break;
           case 'cosmicdust': drawCosmicDustIcon(ctx, x, y, size * 0.8); break;
           default:
@@ -4049,6 +4098,8 @@
       }
 
       qs('#wildgems').textContent = Math.round(balances.wildgems || 0).toLocaleString();
+      const rsEl = qs('#relayshards');
+      if (rsEl) rsEl.textContent = Math.round(balances.relayshards || 0).toLocaleString();
       qs('#appbux').textContent = Math.round(balances.appbux || 0).toLocaleString();
       qs('#ecobooks').textContent = Math.round(balances.ecobooks || 0).toLocaleString();
       qs('#ecotokens').textContent = Math.round(balances.ecotokens || 0).toLocaleString();
@@ -4086,17 +4137,17 @@
       const parity = {
         bux: 0.1, wildcredits: 0.5, wildgems: 10.0, ecoxionums: 1.0,
         nxb: 0.25, amber: 0.15, voltbit: 0.1, appbux: 0.05,
-        ecobooks: 0.5, ecobits: 2.0, ecotokens: 0.3, mayhemcoins: 0.08, cosmicdust: 0.04
+        ecobooks: 0.5, ecobits: 2.0, ecotokens: 0.3, mayhemcoins: 0.08, cosmicdust: 0.04, relayshards: 0.12
       };
 
       const currencyLabels = {
         bux: 'AquaBux', wildcredits: 'WildCredits', wildgems: 'WildGems',
         ecoxionums: 'Ecoxionums', 'nxb-balance': 'Nexus Bits', amber: 'Amber',
         voltbit: 'VoltBits', appbux: 'AppBux', ecobooks: 'EcoBooks',
-        ecobits: 'EcoCoreBits', ecotokens: 'EcoTokens', mayhemcoins: 'MayhemCoins', cosmicdust: 'Polvora Cosmica'
+        ecobits: 'EcoCoreBits', ecotokens: 'EcoTokens', mayhemcoins: 'MayhemCoins', cosmicdust: 'Polvora Cosmica', relayshards: 'RelayShards'
       };
 
-      const ids = ['bux', 'wildcredits', 'wildgems', 'ecoxionums', 'nxb-balance', 'amber', 'voltbit', 'appbux', 'ecobooks', 'ecobits', 'ecotokens', 'mayhemcoins', 'cosmicdust'];
+      const ids = ['bux', 'wildcredits', 'wildgems', 'relayshards', 'ecoxionums', 'nxb-balance', 'amber', 'voltbit', 'appbux', 'ecobooks', 'ecobits', 'ecotokens', 'mayhemcoins', 'cosmicdust'];
 
       let totalEX = 0;
       const breakdown = [];
@@ -5706,6 +5757,7 @@
         { id: 'bux', name: 'AquaBux', desc: 'Moneda oficial de Ocean Cinemas y transacciones generales del ecosistema.', project: 'Ocean Cinemas' },
         { id: 'wildcredits', name: 'WildCredits', desc: 'Créditos de recompensa obtenidos en Wild Explorer y misiones de campo.', project: 'Wild Explorer' },
         { id: 'wildgems', name: 'WildGems', desc: 'Gemas premium utilizadas para acceder a contenido exclusivo en WildShorts.', project: 'WildShorts' },
+        { id: 'relayshards', name: 'RelayShards', desc: 'Divisa nativa de WildTransfer. Se gana al subir y recibir archivos para pagar planes semanales.', project: 'WildTransfer' },
         { id: 'ecoxionums', name: 'Ecoxionums', desc: 'Activo digital de alto valor, base del protocolo de intercambio Ecoxion.', project: 'Ecoxion' },
         { id: 'nxb-balance', name: 'NXB', desc: 'Divisa de combate y mejoras utilizada en Primal Velocity Nexus.', project: 'Primal Velocity' },
         { id: 'amber', name: 'Amber', desc: 'Resina fósil valiosa para la gestión de expediciones dinosáuricas.', project: 'DinoBox' },

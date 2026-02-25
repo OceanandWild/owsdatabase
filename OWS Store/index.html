@@ -2199,6 +2199,7 @@
                                 <div id="explore-release-feed" class="spotlight-list">
                                     <div class="spotlight-list-item"><span>WildWeapon Mayhem</span><span>Windows</span></div>
                                     <div class="spotlight-list-item"><span>Savage Space Animals</span><span>Windows</span></div>
+                                    <div class="spotlight-list-item"><span>WildTransfer</span><span>Windows</span></div>
                                     <div class="spotlight-list-item"><span>OWS Store</span><span>Core Hub</span></div>
                                 </div>
                             </div>
@@ -2312,9 +2313,12 @@
         const OWS_STORE_ANDROID_ARTIFACT_FALLBACK_URL = OWS_STORE_RELEASES_URL;
         const FLORET_RELEASES_URL = 'https://github.com/OceanandWild/floretshop/releases';
         const FLORET_RELEASES_API_URL = 'https://api.github.com/repos/OceanandWild/floretshop/releases?per_page=20';
+        const WILDTRANSFER_RELEASES_URL = 'https://github.com/OceanandWild/wildtransfer/releases/latest';
+        const WILDTRANSFER_RELEASES_API_URL = 'https://api.github.com/repos/OceanandWild/wildtransfer/releases/latest';
         const SSA_LOCAL_ICON = './build/ssa.ico?v=20260223-0443';
         const OCEAN_PAY_LOCAL_ICON = './build/oceanpay.ico?v=20260223-1825';
         const FLORET_LOCAL_ICON = 'https://raw.githubusercontent.com/OceanandWild/owsdatabase/main/Floret%20Shop/assets/floretshopicon.png?v=20260224-1938';
+        const WILDTRANSFER_LOCAL_ICON = './build/wildtransfer.ico?v=20260225-0100';
         const STORE_LOCAL_ICON = './build/icon.ico?v=20260223-0452';
         const STORE_DOWNLOAD_KEY = '__ows_store_update__';
         const STORE_THEME_KEY = 'ows_store_theme';
@@ -2351,6 +2355,18 @@
             description: 'Marketplace de Floret. Disponible para Android y Windows.',
             icon_url: FLORET_LOCAL_ICON
         };
+        const WILDTRANSFER_PROJECT = {
+            slug: 'wildtransfer',
+            name: 'WildTransfer',
+            short: 'WTR',
+            status: 'launched',
+            version: '1.0.0',
+            platform: 'windows',
+            install_type: 'external',
+            installer_url: WILDTRANSFER_RELEASES_URL,
+            description: 'Transferencia rapida de archivos con codigo unico.',
+            icon_url: WILDTRANSFER_LOCAL_ICON
+        };
         const BRAND_STATES = [
             { word: 'ATLAS', iconClass: 'fa-cube', color: '#d14f2a', caption: 'Mapa vivo de proyectos y ideas.' },
             { word: 'STORE', iconClass: 'fa-store', color: '#007f84', caption: 'Instala juegos, herramientas y experiencias.' },
@@ -2361,6 +2377,7 @@
         let ssaReleaseCache = null;
         let oceanPayProjectReleaseCache = null;
         let floretProjectReleaseCache = null;
+        let wildTransferReleaseCache = null;
         let owsStoreAndroidReleaseCache = null;
         let allProjects = [];
         const notificationLog = [];
@@ -3680,9 +3697,17 @@
             return slug.includes('floret') || name.includes('floret shop');
         }
 
+        function isWildTransferProject(project) {
+            if (!project) return false;
+            const slug = String(project.slug || '').toLowerCase();
+            const name = String(project.name || '').toLowerCase();
+            return slug.includes('wildtransfer') || slug.includes('wild-transfer') || name.includes('wildtransfer') || name.includes('wild transfer');
+        }
+
         function getProjectShort(project) {
             if (isSSAProject(project)) return 'SSA';
             if (isFloretProject(project)) return 'FLR';
+            if (isWildTransferProject(project)) return 'WTR';
             return '';
         }
 
@@ -3706,6 +3731,18 @@
                 list.unshift({ ...FLORET_PROJECT });
             } else {
                 list[idx] = { ...FLORET_PROJECT, ...list[idx], short: 'FLR', status: 'launched' };
+            }
+            return list;
+        }
+
+        function ensureWildTransferProject(projects) {
+            if (!Array.isArray(projects)) return [];
+            const list = [...projects];
+            const idx = list.findIndex(isWildTransferProject);
+            if (idx === -1) {
+                list.unshift({ ...WILDTRANSFER_PROJECT });
+            } else {
+                list[idx] = { ...WILDTRANSFER_PROJECT, ...list[idx], short: 'WTR', status: 'launched' };
             }
             return list;
         }
@@ -3961,12 +3998,13 @@
                 console.error("Error cargando proyectos:", err);
                 allProjects = [
                     { ...SSA_PROJECT },
+                    { ...WILDTRANSFER_PROJECT },
                     { ...FLORET_PROJECT },
                     { slug: 'wildweapon', name: 'WildWeapon Mayhem', status: 'launched', version: '22.2.26-1900', platform: 'windows', install_type: 'external', installer_url: WILDWEAPON_RELEASES_URL, description: 'Combate tactico definitivo, ahora disponible en ejecutable para Windows.' },
                     { slug: 'ocean-pay', name: 'Ocean Pay', status: 'launched', version: '3.1.0', platform: 'windows', install_type: 'external', installer_url: OCEAN_PAY_RELEASES_URL, icon_url: OCEAN_PAY_LOCAL_ICON, description: 'Pasarela universal.' }
                 ];
             }
-            allProjects = ensureFloretProject(ensureSSAProject(allProjects));
+            allProjects = ensureWildTransferProject(ensureFloretProject(ensureSSAProject(allProjects)));
             await applyLatestInstallerData(allProjects);
             await refreshInstallationStates();
             renderVisibleProjects();
@@ -4083,6 +4121,52 @@
                 checkedAt: now,
             };
             ssaReleaseCache = payload;
+            return payload;
+        }
+
+        async function fetchLatestWildTransferRelease() {
+            const now = Date.now();
+            if (wildTransferReleaseCache && (now - wildTransferReleaseCache.checkedAt) < 120000) {
+                return wildTransferReleaseCache;
+            }
+
+            const res = await fetch(WILDTRANSFER_RELEASES_API_URL, {
+                headers: { 'Accept': 'application/vnd.github+json' }
+            });
+            if (!res.ok) throw new Error(`GitHub API ${res.status}`);
+            const data = await res.json();
+            const assets = Array.isArray(data.assets) ? data.assets : [];
+            const versionFromTag = String(data.tag_name || '').replace(/^v/i, '');
+            const exeCandidates = assets.filter(a => typeof a?.name === 'string' && /\.exe$/i.test(a.name));
+            const scoredCandidates = exeCandidates.map((a) => ({
+                asset: a,
+                version: extractVersionFromText(a.name),
+                updatedAtMs: Date.parse(a.updated_at || '') || 0,
+                hasWildTransferName: /wildtransfer|wild-transfer/i.test(String(a.name || '')),
+            }));
+
+            scoredCandidates.sort((x, y) => {
+                if (x.hasWildTransferName !== y.hasWildTransferName) return x.hasWildTransferName ? -1 : 1;
+                const cmp = compareVersionLike(y.version, x.version);
+                if (cmp !== 0) return cmp;
+                return y.updatedAtMs - x.updatedAtMs;
+            });
+
+            const selected = scoredCandidates[0] || null;
+            const exeAsset = selected?.asset || null;
+            const versionFromAsset = selected?.version || '';
+            const payload = {
+                version: versionFromTag || versionFromAsset || null,
+                tagVersion: versionFromTag || null,
+                assetVersion: versionFromAsset || null,
+                installerUrl: exeAsset?.browser_download_url || '',
+                installerSize: Number(exeAsset?.size || 0),
+                installerAvailable: Boolean(exeAsset?.browser_download_url),
+                publishedAt: data.published_at || data.created_at || null,
+                warning: Boolean(exeAsset?.browser_download_url) ? '' : 'No se encontro release Windows (.exe) para WildTransfer.',
+                checkedAt: now,
+            };
+            wildTransferReleaseCache = payload;
             return payload;
         }
 
@@ -4495,6 +4579,7 @@
             if (isSSAProject(project)) return project?.icon_url || `https://placehold.co/${size}/0f172a/00f3ff?text=SSA`;
             if (isOceanPayProject(project)) return project?.icon_url || OCEAN_PAY_LOCAL_ICON;
             if (isFloretProject(project)) return project?.icon_url || FLORET_LOCAL_ICON || `https://placehold.co/${size}/2b0a45/f2a3ff?text=FLR`;
+            if (isWildTransferProject(project)) return project?.icon_url || WILDTRANSFER_LOCAL_ICON || `https://placehold.co/${size}/0a1120/35d7ff?text=WTR`;
             return project?.icon_url || `https://placehold.co/${size}/0f172a/00f3ff?text=OWS`;
         }
 
@@ -4521,7 +4606,7 @@
         function supportsWindowsInstaller(project) {
             if (!project) return false;
             const tokens = getPlatformTokens(project);
-            if (isWildWeaponProject(project) || isSSAProject(project) || isOceanPayProject(project)) return true;
+            if (isWildWeaponProject(project) || isSSAProject(project) || isOceanPayProject(project) || isWildTransferProject(project)) return true;
             if (tokens.has('windows') || tokens.has('win')) return true;
             return Boolean(project.installer_url || project.release_url || project.windows_installer_url);
         }
@@ -4620,6 +4705,7 @@
             const ssa = projects.find(p => isSSAProject(p));
             const oceanPay = projects.find(p => isOceanPayProject(p));
             const floret = projects.find(p => isFloretProject(p));
+            const wildTransfer = projects.find(p => isWildTransferProject(p));
 
             if (wildWeapon) {
                 wildWeapon.platform = 'windows';
@@ -4755,6 +4841,33 @@
                     floret.release_warning = 'No se pudo validar la release de Floret Shop (Windows/Android).';
                 }
             }
+
+            if (wildTransfer) {
+                wildTransfer.platform = 'windows';
+                wildTransfer.install_type = 'external';
+                if (!wildTransfer.installer_url) wildTransfer.installer_url = WILDTRANSFER_RELEASES_URL;
+                wildTransfer.icon_url = wildTransfer.icon_url || WILDTRANSFER_LOCAL_ICON;
+                wildTransfer.installer_available = false;
+                wildTransfer.last_update_at = null;
+                wildTransfer.pending_release = false;
+                wildTransfer.short = 'WTR';
+                wildTransfer.installer_size = Number(wildTransfer.installer_size || 0);
+
+                try {
+                    const latest = await fetchLatestWildTransferRelease();
+                    if (latest?.version) wildTransfer.version = latest.version;
+                    if (latest?.installerUrl) wildTransfer.installer_url = latest.installerUrl;
+                    wildTransfer.installer_size = Number(latest?.installerSize || 0);
+                    wildTransfer.installer_available = Boolean(latest?.installerAvailable);
+                    wildTransfer.last_update_at = latest?.publishedAt || null;
+                    wildTransfer.pending_release = !wildTransfer.installer_available;
+                    wildTransfer.release_warning = latest?.warning || '';
+                } catch (err) {
+                    console.log('No se pudo resolver la ultima release de WildTransfer:', err?.message || err);
+                    wildTransfer.pending_release = true;
+                    wildTransfer.release_warning = 'No se pudo validar el instalador de la ultima release.';
+                }
+            }
         }
         function isExternalInstallerProject(project) {
             if (!project) return false;
@@ -4770,6 +4883,7 @@
             if (isSSAProject(project)) return SSA_RELEASES_URL;
             if (isOceanPayProject(project)) return OCEAN_PAY_RELEASES_URL;
             if (isFloretProject(project)) return FLORET_RELEASES_URL;
+            if (isWildTransferProject(project)) return WILDTRANSFER_RELEASES_URL;
             return '';
         }
 
@@ -5133,6 +5247,13 @@
                     installDirNames: ['Floret Shop', 'floretshop', 'floret-shop'],
                     executableNames: ['Floret Shop.exe', 'floretshop.exe', 'floret-shop.exe'],
                     uninstallerNames: ['Uninstall Floret Shop.exe', 'unins000.exe']
+                };
+            }
+            if (isWildTransferProject(project)) {
+                return {
+                    installDirNames: ['WildTransfer', 'wildtransfer', 'wild-transfer'],
+                    executableNames: ['WildTransfer.exe', 'wildtransfer.exe', 'wild-transfer.exe'],
+                    uninstallerNames: ['Uninstall WildTransfer.exe', 'unins000.exe']
                 };
             }
             return {

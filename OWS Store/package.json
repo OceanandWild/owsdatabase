@@ -1,6 +1,6 @@
 {
   "name": "ows-store",
-  "version": "25.2.26-2815",
+  "version": "25.2.26-0115",
   "description": "OWS Store - Central Studio Hub",
   "main": "main.js",
   "author": "Ocean and Wild Studios",
@@ -44,7 +44,8 @@
       "build/wildweaponmayhem.ico",
       "build/ssa.ico",
       "build/oceanpay.ico",
-      "build/floretshop.ico"
+      "build/floretshop.ico",
+      "build/wildtransfer.ico"
     ],
     "win": {
       "target": [

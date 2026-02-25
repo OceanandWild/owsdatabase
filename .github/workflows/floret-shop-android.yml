@@ -108,6 +108,10 @@ jobs:
           if [ -z "$VERSION_NAME" ]; then
             VERSION_NAME="1.0.0"
           fi
+          APP_ID="$(node -e "try{const fs=require('fs');const c=JSON.parse(fs.readFileSync('capacitor.config.json','utf8'));process.stdout.write(String(c.appId||''));}catch(_){process.stdout.write('');}")"
+          if [ -z "$APP_ID" ]; then
+            APP_ID="com.oceanandwild.floretshop"
+          fi
           GRADLE_FILE="android/app/build.gradle"
           if [ ! -f "$GRADLE_FILE" ]; then
             echo "No existe $GRADLE_FILE"
@@ -117,6 +121,16 @@ jobs:
           sed -i -E "s/versionName[[:space:]]+\"[^\"]+\"/versionName \"${VERSION_NAME}\"/" "$GRADLE_FILE"
           echo "Floret Android versionName=${VERSION_NAME} versionCode=${VERSION_CODE}"
           grep -n "versionCode\\|versionName" "$GRADLE_FILE"
+          cat > android-release-metadata.json <<EOF
+          {
+            "project_slug": "floret-shop",
+            "package_id": "${APP_ID}",
+            "version_name": "${VERSION_NAME}",
+            "version_code": ${VERSION_CODE}
+          }
+          EOF
+          echo "Android metadata generated:"
+          cat android-release-metadata.json
 
       - name: Force Floret launcher icon in Android resources
         shell: bash
@@ -277,7 +291,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: floret-shop-apk-release-signed
-          path: "${{ env.APP_DIR }}/android/app/build/outputs/apk/release/*signed*.apk"
+          path: |
+            ${{ env.APP_DIR }}/android/app/build/outputs/apk/release/*signed*.apk
+            ${{ env.APP_DIR }}/android-release-metadata.json
           if-no-files-found: warn
 
       - name: Upload AAB artifact

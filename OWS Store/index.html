@@ -2274,6 +2274,7 @@
             installer_url: '',
             android_release_url: FLORET_RELEASES_URL,
             android_apk_url: '',
+            android_version_code: 0,
             description: 'Marketplace de Floret. Descarga Android disponible; Windows en progreso.',
             icon_url: FLORET_LOCAL_ICON
         };
@@ -3592,15 +3593,29 @@
         function getProjectUpdateInfo(project) {
             const state = installStateBySlug[project.slug] || {};
             const installedVersion = state.version || getInstalledVersion(project.slug);
+            const installedVersionCode = Number(state.versionCode || getInstalledVersionCode(project.slug) || 0);
             const latestVersion = project.version || '';
+            const latestVersionCode = Number(project.android_version_code || project.version_code || 0);
             const installed = Boolean(state.installed || installedVersion);
             if (!installed || !installedVersion || !latestVersion) {
-                return { installed, needsUpdate: false, installedVersion, latestVersion };
+                return { installed, needsUpdate: false, installedVersion, latestVersion, installedVersionCode, latestVersionCode };
+            }
+            if (installedVersionCode > 0 && latestVersionCode > 0) {
+                return {
+                    installed,
+                    installedVersion,
+                    latestVersion,
+                    installedVersionCode,
+                    latestVersionCode,
+                    needsUpdate: latestVersionCode > installedVersionCode,
+                };
             }
             return {
                 installed,
                 installedVersion,
                 latestVersion,
+                installedVersionCode,
+                latestVersionCode,
                 needsUpdate: compareVersionLike(installedVersion, latestVersion) < 0,
             };
         }
@@ -3932,6 +3947,7 @@
                 const latest = await fetchLatestAndroidReleaseFromStoreApi(FLORET_ANDROID_SLUG, FLORET_RELEASES_URL);
                 const payload = {
                     version: latest.version || null,
+                    versionCode: Number(latest.versionCode || 0),
                     installerUrl: '',
                     installerSize: 0,
                     installerAvailable: false,
@@ -3950,6 +3966,7 @@
             } catch (err) {
                 const fallback = {
                     version: null,
+                    versionCode: 0,
                     installerUrl: '',
                     installerSize: 0,
                     installerAvailable: false,
@@ -4410,6 +4427,7 @@
                 try {
                     const latest = await fetchLatestFloretRelease();
                     if (latest?.version) floret.version = latest.version;
+                    floret.android_version_code = Number(latest?.versionCode || 0);
                     if (latest?.installerUrl) floret.installer_url = latest.installerUrl;
                     if (latest?.releaseUrl) floret.android_release_url = latest.releaseUrl;
                     if (latest?.androidApkUrl) floret.android_apk_url = latest.androidApkUrl;
@@ -4774,6 +4792,11 @@
             return localStorage.getItem(`installed_${slug}`) || '';
         }
 
+        function getInstalledVersionCode(slug) {
+            const raw = Number(localStorage.getItem(`installed_version_code_${slug}`) || 0);
+            return Number.isFinite(raw) ? raw : 0;
+        }
+
         function getInstalledPlatform(slug) {
             return localStorage.getItem(`installed_platform_${slug}`) || '';
         }
@@ -4821,6 +4844,7 @@
             const next = {};
             for (const p of allProjects) {
                 const marker = getInstalledVersion(p.slug);
+                const markerCode = getInstalledVersionCode(p.slug);
                 const runtime = getRuntimeState(p.slug);
                 const installingRuntime = ['queued', 'waiting', 'preparing', 'downloading', 'launching'].includes(runtime.phase);
                 const suppressed = uninstallSuppressedBySlug[p.slug] === true;
@@ -4833,6 +4857,7 @@
                         next[p.slug] = {
                             installed,
                             version: marker || '',
+                            versionCode: markerCode,
                             exePath: detected?.exePath || '',
                             uninstallPath: detected?.uninstallPath || '',
                             installDir: detected?.installDir || '',
@@ -4840,11 +4865,11 @@
                         };
                     } catch (_) {
                         const installed = installingRuntime ? true : (suppressed ? false : Boolean(marker));
-                        next[p.slug] = { installed, version: marker || '', runtime };
+                        next[p.slug] = { installed, version: marker || '', versionCode: markerCode, runtime };
                     }
                 } else {
                     const installed = suppressed ? false : Boolean(marker);
-                    next[p.slug] = { installed, version: marker || '', runtime };
+                    next[p.slug] = { installed, version: marker || '', versionCode: markerCode, runtime };
                 }
             }
             installStateBySlug = next;
@@ -5407,6 +5432,11 @@
             }
             if (id === 'updates') {
                 renderDownloadSurfaces();
+                if (isNativeAndroidRuntime() && typeof window.owsUpdater === 'undefined') {
+                    checkOWSStoreAndroidUpdate({ silent: true }).catch(() => {});
+                } else if (window.owsUpdater?.checkForUpdates) {
+                    window.owsUpdater.checkForUpdates().catch(() => {});
+                }
             }
         }
 
@@ -5940,6 +5970,8 @@
                 refreshStoreAndroidReleaseLink().catch(() => {});
                 if (isNativeAndroidRuntime() && typeof window.owsUpdater === 'undefined') {
                     checkOWSStoreAndroidUpdate({ silent: true }).catch(() => {});
+                } else if (window.owsUpdater?.checkForUpdates) {
+                    window.owsUpdater.checkForUpdates().catch(() => {});
                 }
             }, 120000);
         };

@@ -109,3 +109,87 @@ jobs:
           fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }}
+
+      - name: Sync Android release metadata to OWS API
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -u
+          APK_FILE="$(find promoted-android -type f -name '*.apk' | grep -Evi 'unsigned' | grep -Ei 'signed|release' | head -n1 || true)"
+          if [ -z "$APK_FILE" ]; then
+            APK_FILE="$(find promoted-android -type f -name '*.apk' | head -n1 || true)"
+          fi
+          if [ -z "$APK_FILE" ]; then
+            echo "No se encontro APK para sincronizar metadata."
+            exit 0
+          fi
+
+          META_FILE="$(find promoted-android -type f -name 'android-release-metadata.json' | head -n1 || true)"
+          PROJECT_SLUG="ows-store"
+          PACKAGE_ID="com.oceanandwild.owsstore"
+          VERSION_NAME="${{ inputs.release_tag }}"
+          VERSION_CODE="0"
+
+          if [ -n "$META_FILE" ]; then
+            mapfile -t META_FIELDS < <(python - "$META_FILE" <<'PY'
+import json,sys
+p=sys.argv[1]
+data=json.load(open(p,'r',encoding='utf-8'))
+print(data.get('project_slug',''))
+print(data.get('package_id',''))
+print(data.get('version_name',''))
+print(data.get('version_code',''))
+PY
+            )
+            [ -n "${META_FIELDS[0]:-}" ] && PROJECT_SLUG="${META_FIELDS[0]}"
+            [ -n "${META_FIELDS[1]:-}" ] && PACKAGE_ID="${META_FIELDS[1]}"
+            [ -n "${META_FIELDS[2]:-}" ] && VERSION_NAME="${META_FIELDS[2]}"
+            [ -n "${META_FIELDS[3]:-}" ] && VERSION_CODE="${META_FIELDS[3]}"
+          fi
+
+          if ! [[ "$VERSION_CODE" =~ ^[0-9]+$ ]]; then
+            VERSION_CODE="0"
+          fi
+          if [ "$VERSION_CODE" -le 0 ]; then
+            VERSION_CODE="$(python - <<'PY'
+import re
+tag=r"${{ inputs.release_tag }}"
+m=re.search(r'(\d{4})\.(\d{2})\.(\d{2})-(\d{3,4})', tag)
+if not m:
+    print("0")
+else:
+    y,mn,d,hhmm=m.groups()
+    print(f"{y[-2:]}{mn}{d}{hhmm}")
+PY
+            )"
+          fi
+
+          APK_NAME="$(basename "$APK_FILE")"
+          APK_URL="https://github.com/OceanandWild/owsdatabase/releases/download/${{ inputs.release_tag }}/${APK_NAME}"
+          SIZE_BYTES="$(stat -c%s "$APK_FILE" 2>/dev/null || wc -c < "$APK_FILE")"
+          SHA256="$(sha256sum "$APK_FILE" | awk '{print $1}')"
+          PUBLISHED_AT="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+
+          PAYLOAD="$(python - <<PY
+import json
+payload={
+  "project_slug": "${PROJECT_SLUG}",
+  "package_id": "${PACKAGE_ID}",
+  "version_name": "${VERSION_NAME}",
+  "version_code": int("${VERSION_CODE}" or 0),
+  "apk_url": "${APK_URL}",
+  "sha256": "${SHA256}",
+  "size_bytes": int("${SIZE_BYTES}" or 0),
+  "release_notes": """${{ inputs.release_notes }}""".strip(),
+  "status": "published",
+  "is_mandatory": False,
+  "published_at": "${PUBLISHED_AT}"
+}
+print(json.dumps(payload))
+PY
+          )"
+
+          echo "Sincronizando metadata Android para ${PROJECT_SLUG}..."
+          curl -fsS -X POST "https://owsdatabase.onrender.com/ows-store/android/releases" \
+            -H "Content-Type: application/json" \
+            --data "$PAYLOAD"

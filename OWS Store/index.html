@@ -4676,14 +4676,9 @@
 
         async function resolveCurrentStoreAndroidVersionInfo() {
             const fallback = getStoredStoreAndroidInstalledVersion();
-            let versionName = '';
-            let versionCode = 0;
-            let source = 'unknown';
-            if (!isNativeAndroidRuntime()) {
-                versionName = fallback.versionName;
-                versionCode = fallback.versionCode;
-                source = versionName || versionCode > 0 ? 'local-storage' : 'unknown';
-            }
+            let versionName = fallback.versionName;
+            let versionCode = fallback.versionCode;
+            let source = versionName || versionCode > 0 ? 'local-storage' : 'unknown';
 
             const AppPlugin = getCapacitorPlugin('App');
             if (AppPlugin?.getInfo) {
@@ -4701,6 +4696,12 @@
             }
 
             return { versionName, versionCode, source };
+        }
+
+        function isCurrentStoreAndroidVersionKnown(current = null) {
+            const name = String(current?.versionName || '').trim();
+            const code = Number(current?.versionCode || 0);
+            return Boolean(name || (Number.isFinite(code) && code > 0));
         }
 
         function isStoreAndroidUpdateNeeded(current, latest) {
@@ -4873,6 +4874,7 @@
                 if (!silent) addNotification('No se pudo confirmar updates Android (metadata no resoluble).', 'warning');
                 return { needsUpdate: false, latest, current, uncertain: true };
             }
+            const currentKnown = isCurrentStoreAndroidVersionKnown(current);
             const needsUpdate = isStoreAndroidUpdateNeeded(current, latest);
             appUpdateAvailable = Boolean(needsUpdate);
             appUpdateSizeBytes = Number(latest?.sizeBytes || 0);
@@ -4891,6 +4893,40 @@
                 const updatesVersionEl = document.getElementById('updates-app-version');
                 if (appVersionEl) appVersionEl.textContent = `v${appVersionLabel}`;
                 if (updatesVersionEl) updatesVersionEl.textContent = `v${appVersionLabel}`;
+            }
+
+            if (!currentKnown) {
+                appUpdateAvailable = true;
+                syncUpdatesBadge();
+                if (status) status.textContent = `No se pudo leer version instalada. Release detectada: ${latestLabel}`;
+                if (btn) btn.style.display = 'flex';
+                if (closeBtn) {
+                    closeBtn.disabled = false;
+                    closeBtn.style.opacity = '1';
+                    closeBtn.style.cursor = 'pointer';
+                }
+                setUpdateBannerVisual({
+                    state: 'available',
+                    title: 'Verificacion Android incompleta',
+                    message: `No se pudo leer la version instalada. Descarga recomendada: ${latestLabel}.`,
+                    iconClass: 'fa-mobile-screen-button',
+                    iconSpin: false,
+                });
+                setUpdateMetaUI({ sizeBytes: appUpdateSizeBytes, etaSeconds: null, transferredBytes: null, speedBps: 0 });
+                updateDownloadSession(STORE_DOWNLOAD_KEY, {
+                    name: 'OWS Store Android',
+                    icon: STORE_LOCAL_ICON,
+                    isApp: true,
+                    phase: 'available',
+                    percent: 0,
+                    sizeBytes: appUpdateSizeBytes,
+                    downloadedBytes: 0,
+                    speedBps: 0,
+                    etaSeconds: null,
+                    status: `Comparacion no concluyente. Release ${latestLabel} disponible.`,
+                });
+                if (!silent) addNotification('No se pudo leer la version instalada de OWS Store Android. Se recomienda actualizar.', 'warning');
+                return { needsUpdate: true, latest, current, uncertainCurrent: true };
             }
 
             if (needsUpdate) {

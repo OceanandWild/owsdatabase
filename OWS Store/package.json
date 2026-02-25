@@ -1,12 +1,13 @@
 {
   "name": "ows-store",
-  "version": "2026.2.25-1952",
+  "version": "2026.2.25-2108",
   "description": "OWS Store - Central Studio Hub",
   "main": "main.js",
   "author": "Ocean and Wild Studios",
   "license": "MIT",
   "dependencies": {
     "@capawesome-team/capacitor-file-opener": "^8.0.1",
+    "@capacitor/app": "^8.0.1",
     "@capacitor/android": "^8.1.0",
     "@capacitor/core": "^8.1.0",
     "@capacitor/file-transfer": "^2.0.4",

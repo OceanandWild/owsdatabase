@@ -1544,6 +1544,61 @@
             color: var(--ink-soft);
         }
 
+        .project-update-platforms {
+            display: grid;
+            gap: 0.35rem;
+            margin-top: 0.5rem;
+        }
+
+        .project-update-platform-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.55rem;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            padding: 0.35rem 0.5rem;
+            background: #fcfaf7;
+        }
+
+        .project-update-platform-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            font-size: 0.72rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--ink);
+        }
+
+        .project-update-platform-label .dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--brand-2);
+        }
+
+        .project-update-platform-status {
+            font-size: 0.75rem;
+            color: var(--ink-soft);
+            text-align: right;
+        }
+
+        .project-update-platform-row.is-target {
+            border-color: #4ab9c0;
+            background: rgba(74, 185, 192, 0.08);
+        }
+
+        .project-update-platform-row.is-updating {
+            border-color: #1f9d63;
+            background: rgba(31, 157, 99, 0.08);
+        }
+
+        .project-update-platform-row.is-unavailable {
+            opacity: 0.72;
+        }
+
         .notification-card {
             --tone-color: var(--brand-2);
             background: #fff;
@@ -1575,6 +1630,21 @@
         body[data-theme="dark"] .notification-card {
             background: linear-gradient(180deg, #121b2a 0%, #101827 100%);
             border-color: var(--line);
+        }
+
+        body[data-theme="dark"] .project-update-platform-row {
+            background: rgba(10, 18, 30, 0.78);
+            border-color: #213148;
+        }
+
+        body[data-theme="dark"] .project-update-platform-row.is-target {
+            background: rgba(62, 126, 153, 0.2);
+            border-color: #3d89a7;
+        }
+
+        body[data-theme="dark"] .project-update-platform-row.is-updating {
+            background: rgba(31, 157, 99, 0.2);
+            border-color: #24865e;
         }
 
         .download-item {
@@ -2241,6 +2311,7 @@
         const OWS_STORE_RELEASES_URL = 'https://github.com/OceanandWild/owsdatabase/releases';
         const OWS_STORE_ANDROID_ARTIFACT_FALLBACK_URL = OWS_STORE_RELEASES_URL;
         const FLORET_RELEASES_URL = 'https://github.com/OceanandWild/floretshop/releases';
+        const FLORET_RELEASES_API_URL = 'https://api.github.com/repos/OceanandWild/floretshop/releases?per_page=20';
         const SSA_LOCAL_ICON = './build/ssa.ico?v=20260223-0443';
         const OCEAN_PAY_LOCAL_ICON = './build/oceanpay.ico?v=20260223-1825';
         const FLORET_LOCAL_ICON = 'https://raw.githubusercontent.com/OceanandWild/owsdatabase/main/Floret%20Shop/assets/floretshopicon.png?v=20260224-1938';
@@ -2272,10 +2343,12 @@
             platform: 'android,windows',
             install_type: 'external',
             installer_url: '',
+            windows_version: '',
             android_release_url: FLORET_RELEASES_URL,
             android_apk_url: '',
+            android_version: '',
             android_version_code: 0,
-            description: 'Marketplace de Floret. Descarga Android disponible; Windows en progreso.',
+            description: 'Marketplace de Floret. Disponible para Android y Windows.',
             icon_url: FLORET_LOCAL_ICON
         };
         const BRAND_STATES = [
@@ -3519,10 +3592,71 @@
             return score;
         }
 
+        function scoreWindowsAssetName(name) {
+            const n = String(name || '').toLowerCase();
+            let score = 0;
+            if (n.endsWith('.exe')) score += 14;
+            if (n.includes('setup') || n.includes('installer')) score += 8;
+            if (n.includes('floret')) score += 8;
+            if (n.includes('shop')) score += 4;
+            if (n.includes('portable')) score -= 4;
+            if (n.includes('unsigned')) score -= 16;
+            if (n.includes('debug')) score -= 16;
+            return score;
+        }
+
+        function pickLatestDate(...values) {
+            let best = null;
+            values.forEach((v) => {
+                const t = Date.parse(v || '');
+                if (Number.isNaN(t)) return;
+                if (!best || t > best.time) best = { time: t, value: v };
+            });
+            return best?.value || null;
+        }
+
+        function normalizePlatformKind(rawValue) {
+            const raw = String(rawValue || '').toLowerCase();
+            if (raw.includes('android')) return 'android';
+            if (raw.includes('win')) return 'windows';
+            return '';
+        }
+
+        function getPreferredInstalledPlatform(project, state = null) {
+            if (!project) return '';
+            const explicit = normalizePlatformKind(getInstalledPlatform(project.slug));
+            if (explicit) return explicit;
+            const current = state || installStateBySlug[project.slug] || {};
+            if (current?.exePath) return 'windows';
+            if (supportsAndroidDownloads(project) && !supportsWindowsInstaller(project)) return 'android';
+            return 'windows';
+        }
+
+        function evaluatePlatformUpdate({
+            platform = '',
+            installedVersion = '',
+            installedVersionCode = 0,
+            latestVersion = '',
+            latestVersionCode = 0,
+            installedOnThisDevice = false,
+            available = false,
+        } = {}) {
+            let needsUpdate = false;
+            if (installedOnThisDevice && available) {
+                if (platform === 'android' && Number(latestVersionCode) > 0 && Number(installedVersionCode) > 0) {
+                    needsUpdate = Number(latestVersionCode) > Number(installedVersionCode);
+                } else if (installedVersion && latestVersion) {
+                    needsUpdate = compareVersionLike(installedVersion, latestVersion) < 0;
+                }
+            }
+            return needsUpdate;
+        }
+
         function getPendingProjectUpdates() {
             return allProjects
                 .map((p) => ({ project: p, info: getProjectUpdateInfo(p) }))
-                .filter((x) => x.info.needsUpdate);
+                .filter((x) => x.info.needsUpdate)
+                .sort((a, b) => String(a.project?.name || '').localeCompare(String(b.project?.name || '')));
         }
 
         function isSSAProject(project) {
@@ -3592,31 +3726,78 @@
 
         function getProjectUpdateInfo(project) {
             const state = installStateBySlug[project.slug] || {};
-            const installedVersion = state.version || getInstalledVersion(project.slug);
+            const installedVersion = String(state.version || getInstalledVersion(project.slug) || '').trim();
             const installedVersionCode = Number(state.versionCode || getInstalledVersionCode(project.slug) || 0);
-            const latestVersion = project.version || '';
-            const latestVersionCode = Number(project.android_version_code || project.version_code || 0);
             const installed = Boolean(state.installed || installedVersion);
-            if (!installed || !installedVersion || !latestVersion) {
-                return { installed, needsUpdate: false, installedVersion, latestVersion, installedVersionCode, latestVersionCode };
-            }
-            if (installedVersionCode > 0 && latestVersionCode > 0) {
-                return {
-                    installed,
+            const installedPlatform = installed ? getPreferredInstalledPlatform(project, state) : '';
+
+            const windowsLatestVersion = String(project.windows_version || project.version || '').trim();
+            const androidLatestVersion = String(project.android_version || project.version || '').trim();
+            const androidLatestVersionCode = Number(project.android_version_code || project.version_code || 0);
+
+            const platformDetails = [];
+            if (supportsWindowsInstaller(project)) {
+                const available = Boolean(getProjectInstallTargets(project).some((t) => t.kind === 'windows' && t.available));
+                const installedOnThisDevice = installed && installedPlatform === 'windows';
+                const needsUpdate = evaluatePlatformUpdate({
+                    platform: 'windows',
                     installedVersion,
-                    latestVersion,
-                    installedVersionCode,
-                    latestVersionCode,
-                    needsUpdate: latestVersionCode > installedVersionCode,
-                };
+                    latestVersion: windowsLatestVersion,
+                    installedOnThisDevice,
+                    available,
+                });
+                platformDetails.push({
+                    platform: 'windows',
+                    label: 'Windows',
+                    available,
+                    installedOnThisDevice,
+                    installedVersion: installedOnThisDevice ? installedVersion : '',
+                    installedVersionCode: 0,
+                    latestVersion: windowsLatestVersion,
+                    latestVersionCode: 0,
+                    needsUpdate,
+                });
             }
+
+            if (supportsAndroidDownloads(project)) {
+                const available = Boolean(getProjectInstallTargets(project).some((t) => t.kind === 'android' && t.available));
+                const installedOnThisDevice = installed && installedPlatform === 'android';
+                const needsUpdate = evaluatePlatformUpdate({
+                    platform: 'android',
+                    installedVersion,
+                    installedVersionCode,
+                    latestVersion: androidLatestVersion,
+                    latestVersionCode: androidLatestVersionCode,
+                    installedOnThisDevice,
+                    available,
+                });
+                platformDetails.push({
+                    platform: 'android',
+                    label: 'Android',
+                    available,
+                    installedOnThisDevice,
+                    installedVersion: installedOnThisDevice ? installedVersion : '',
+                    installedVersionCode: installedOnThisDevice ? installedVersionCode : 0,
+                    latestVersion: androidLatestVersion,
+                    latestVersionCode: androidLatestVersionCode,
+                    needsUpdate,
+                });
+            }
+
+            const targetDetail = platformDetails.find((d) => d.installedOnThisDevice) || platformDetails[0] || null;
+            const needsUpdate = platformDetails.some((d) => d.installedOnThisDevice && d.needsUpdate);
+            const updatePlatforms = platformDetails.filter((d) => d.needsUpdate && d.installedOnThisDevice);
+
             return {
                 installed,
+                installedPlatform,
+                needsUpdate,
                 installedVersion,
-                latestVersion,
                 installedVersionCode,
-                latestVersionCode,
-                needsUpdate: compareVersionLike(installedVersion, latestVersion) < 0,
+                latestVersion: targetDetail?.latestVersion || '',
+                latestVersionCode: Number(targetDetail?.latestVersionCode || 0),
+                platformDetails,
+                updatePlatforms,
             };
         }
 
@@ -3652,15 +3833,62 @@
                 return;
             }
 
+            const formatPlatformRow = (detail) => {
+                const rowClasses = [
+                    'project-update-platform-row',
+                    detail.installedOnThisDevice ? 'is-target' : '',
+                    detail.needsUpdate ? 'is-updating' : '',
+                    !detail.available ? 'is-unavailable' : '',
+                ].filter(Boolean).join(' ');
+
+                let statusText = 'Sin release publicada';
+                if (detail.available) {
+                    if (detail.installedOnThisDevice) {
+                        if (detail.platform === 'android' && detail.installedVersionCode > 0 && detail.latestVersionCode > 0) {
+                            statusText = detail.needsUpdate
+                                ? `Code ${detail.installedVersionCode} -> ${detail.latestVersionCode}`
+                                : `Code ${detail.latestVersionCode} (al dia)`;
+                        } else {
+                            statusText = detail.needsUpdate
+                                ? `v${detail.installedVersion || '-'} -> v${detail.latestVersion || '-'}`
+                                : `v${detail.latestVersion || '-'} (al dia)`;
+                        }
+                    } else {
+                        statusText = detail.latestVersion ? `Disponible: v${detail.latestVersion}` : 'Disponible';
+                    }
+                }
+
+                return `
+                    <div class="${rowClasses}">
+                        <div class="project-update-platform-label">
+                            <span class="dot"></span>
+                            <span>${detail.label}${detail.installedOnThisDevice ? ' (instalada)' : ''}</span>
+                        </div>
+                        <div class="project-update-platform-status">${statusText}</div>
+                    </div>
+                `;
+            };
+
             list.innerHTML = updates.map(({ project, info }) => `
                 <div class="project-update-card">
                     <div>
                         <div class="project-update-title">${project.name}</div>
-                        <div class="project-update-meta">v${info.installedVersion} -> v${info.latestVersion}</div>
+                        <div class="project-update-meta">Actualizacion detectada para ${info.installedPlatform === 'android' ? 'Android' : 'Windows'}.</div>
+                        <div class="project-update-platforms">${info.platformDetails.map((d) => formatPlatformRow(d)).join('')}</div>
                     </div>
-                    <button class="btn-install" style="width:auto; padding:0.55rem 0.8rem;" onclick="reinstallFromLibrary('${project.slug}')"><i class="fas fa-arrow-up"></i> Actualizar</button>
+                    <button class="btn-install" style="width:auto; padding:0.55rem 0.8rem;" onclick="triggerProjectUpdate('${project.slug}', '${info.installedPlatform || 'windows'}')"><i class="fas fa-arrow-up"></i> Actualizar ${info.installedPlatform === 'android' ? 'Android' : 'Windows'}</button>
                 </div>
             `).join('');
+        }
+
+        async function triggerProjectUpdate(slug, platform = '') {
+            const normalizedPlatform = normalizePlatformKind(platform) || normalizePlatformKind(getInstalledPlatform(slug)) || 'windows';
+            if (normalizedPlatform === 'android') {
+                selectedInstallTargetBySlug[slug] = 'android-apk';
+            } else {
+                selectedInstallTargetBySlug[slug] = 'windows';
+            }
+            await reinstallFromLibrary(slug);
         }
 
         async function checkProjectUpdatesAndNotify() {
@@ -3670,10 +3898,11 @@
             const updates = getPendingProjectUpdates();
 
             updates.forEach(({ project, info }) => {
-                const key = `${project.slug}:${info.installedVersion}->${info.latestVersion}`;
+                const platformLabel = info.installedPlatform === 'android' ? 'Android' : 'Windows';
+                const key = `${project.slug}:${platformLabel}:${info.installedVersion}->${info.latestVersion}`;
                 if (projectUpdateNotified.has(key)) return;
                 projectUpdateNotified.add(key);
-                addNotification(`Actualizacion disponible para ${project.name}: v${info.latestVersion}.`, 'warning');
+                addNotification(`Actualizacion disponible para ${project.name} [${platformLabel}]: v${info.latestVersion}.`, 'warning');
             });
         }
 
@@ -3937,52 +4166,112 @@
             };
         }
 
+        async function fetchLatestFloretWindowsRelease() {
+            const res = await fetch(FLORET_RELEASES_API_URL, {
+                headers: { 'Accept': 'application/vnd.github+json' }
+            });
+            if (!res.ok) throw new Error(`GitHub API ${res.status}`);
+            const releases = await res.json();
+            const list = Array.isArray(releases) ? releases : [];
+
+            for (const rel of list) {
+                const assets = Array.isArray(rel?.assets) ? rel.assets : [];
+                const exeCandidates = assets
+                    .filter((a) => typeof a?.name === 'string' && /\.exe$/i.test(a.name))
+                    .map((a) => ({
+                        asset: a,
+                        score: scoreWindowsAssetName(a.name),
+                        version: extractVersionFromText(a.name),
+                        updatedAtMs: Date.parse(a.updated_at || '') || 0,
+                    }))
+                    .sort((x, y) => {
+                        if (y.score !== x.score) return y.score - x.score;
+                        const cmp = compareVersionLike(y.version, x.version);
+                        if (cmp !== 0) return cmp;
+                        return y.updatedAtMs - x.updatedAtMs;
+                    });
+
+                if (!exeCandidates.length) continue;
+                const selected = exeCandidates[0];
+                const versionFromTag = String(rel?.tag_name || '').replace(/^v/i, '');
+                const versionFromAsset = selected?.version || '';
+                return {
+                    version: versionFromAsset || versionFromTag || null,
+                    installerUrl: selected?.asset?.browser_download_url || '',
+                    installerSize: Number(selected?.asset?.size || 0),
+                    installerAvailable: Boolean(selected?.asset?.browser_download_url),
+                    releaseUrl: rel?.html_url || FLORET_RELEASES_URL,
+                    publishedAt: rel?.published_at || rel?.created_at || null,
+                    warning: '',
+                };
+            }
+
+            return {
+                version: null,
+                installerUrl: '',
+                installerSize: 0,
+                installerAvailable: false,
+                releaseUrl: FLORET_RELEASES_URL,
+                publishedAt: null,
+                warning: 'No se encontro release Windows (.exe) para Floret Shop.',
+            };
+        }
+
         async function fetchLatestFloretRelease() {
             const now = Date.now();
             if (floretProjectReleaseCache && (now - floretProjectReleaseCache.checkedAt) < 120000) {
                 return floretProjectReleaseCache;
             }
 
-            try {
-                const latest = await fetchLatestAndroidReleaseFromStoreApi(FLORET_ANDROID_SLUG, FLORET_RELEASES_URL);
-                const payload = {
-                    version: latest.version || null,
-                    versionCode: Number(latest.versionCode || 0),
-                    installerUrl: '',
-                    installerSize: 0,
-                    installerAvailable: false,
-                    androidApkUrl: latest.downloadUrl || '',
-                    androidApkSize: Number(latest.sizeBytes || 0),
-                    androidAabUrl: '',
-                    androidAabSize: 0,
-                    androidAvailable: Boolean(latest.downloadUrl),
-                    releaseUrl: FLORET_RELEASES_URL,
-                    publishedAt: latest.publishedAt || null,
-                    warning: latest.warning || '',
-                    checkedAt: now,
-                };
-                floretProjectReleaseCache = payload;
-                return payload;
-            } catch (err) {
-                const fallback = {
-                    version: null,
+            const [androidResult, windowsResult] = await Promise.allSettled([
+                fetchLatestAndroidReleaseFromStoreApi(FLORET_ANDROID_SLUG, FLORET_RELEASES_URL),
+                fetchLatestFloretWindowsRelease(),
+            ]);
+
+            const androidData = androidResult.status === 'fulfilled'
+                ? androidResult.value
+                : {
+                    version: '',
                     versionCode: 0,
-                    installerUrl: '',
-                    installerSize: 0,
-                    installerAvailable: false,
-                    androidApkUrl: '',
-                    androidApkSize: 0,
-                    androidAabUrl: '',
-                    androidAabSize: 0,
-                    androidAvailable: false,
-                    releaseUrl: FLORET_RELEASES_URL,
+                    downloadUrl: '',
+                    sizeBytes: 0,
                     publishedAt: null,
                     warning: 'No se pudo resolver release Android desde OWS Store API.',
-                    checkedAt: now,
                 };
-                floretProjectReleaseCache = fallback;
-                return fallback;
-            }
+
+            const windowsData = windowsResult.status === 'fulfilled'
+                ? windowsResult.value
+                : {
+                    version: '',
+                    installerUrl: '',
+                    installerSize: 0,
+                    installerAvailable: false,
+                    releaseUrl: FLORET_RELEASES_URL,
+                    publishedAt: null,
+                    warning: 'No se pudo resolver release Windows desde GitHub Releases.',
+                };
+
+            const warnings = [windowsData.warning, androidData.warning].filter(Boolean).join(' | ');
+            const payload = {
+                version: windowsData.version || androidData.version || null,
+                windowsVersion: windowsData.version || '',
+                androidVersion: androidData.version || '',
+                versionCode: Number(androidData.versionCode || 0),
+                installerUrl: windowsData.installerUrl || '',
+                installerSize: Number(windowsData.installerSize || 0),
+                installerAvailable: Boolean(windowsData.installerAvailable && windowsData.installerUrl),
+                androidApkUrl: androidData.downloadUrl || '',
+                androidApkSize: Number(androidData.sizeBytes || 0),
+                androidAabUrl: '',
+                androidAabSize: 0,
+                androidAvailable: Boolean(androidData.downloadUrl),
+                releaseUrl: windowsData.releaseUrl || FLORET_RELEASES_URL,
+                publishedAt: pickLatestDate(windowsData.publishedAt, androidData.publishedAt),
+                warning: warnings,
+                checkedAt: now,
+            };
+            floretProjectReleaseCache = payload;
+            return payload;
         }
 
         async function fetchLatestOWSStoreAndroidRelease() {
@@ -4258,7 +4547,7 @@
                     actionLabel: 'Instalar en Windows',
                     url: winUrl,
                     sizeBytes: Number(project.installer_size || 0),
-                    version: project.version || '',
+                    version: project.windows_version || project.version || '',
                     available: Boolean(winUrl) && !winPending,
                     pending: Boolean(winPending),
                 });
@@ -4288,6 +4577,22 @@
             if (selectedId) {
                 const selected = targets.find((t) => t.id === selectedId);
                 if (selected) return selected;
+            }
+            const installedPlatform = normalizePlatformKind(getInstalledPlatform(project.slug));
+            if (installedPlatform === 'android') {
+                const androidTarget = targets.find((t) => t.kind === 'android');
+                if (androidTarget) return androidTarget;
+            }
+            if (installedPlatform === 'windows') {
+                const windowsTarget = targets.find((t) => t.kind === 'windows');
+                if (windowsTarget) return windowsTarget;
+            }
+            if (isNativeAndroidRuntime()) {
+                const androidTarget = targets.find((t) => t.kind === 'android');
+                if (androidTarget) return androidTarget;
+            } else {
+                const windowsTarget = targets.find((t) => t.kind === 'windows');
+                if (windowsTarget) return windowsTarget;
             }
             return targets.find((t) => t.available) || targets[0];
         }
@@ -4415,6 +4720,8 @@
                 floret.install_type = 'external';
                 if (!floret.android_release_url) floret.android_release_url = FLORET_RELEASES_URL;
                 if (!floret.android_apk_url) floret.android_apk_url = '';
+                if (!floret.windows_version) floret.windows_version = floret.version || '';
+                if (!floret.android_version) floret.android_version = '';
                 floret.icon_url = floret.icon_url || FLORET_LOCAL_ICON;
                 floret.installer_available = false;
                 floret.android_available = false;
@@ -4426,7 +4733,9 @@
 
                 try {
                     const latest = await fetchLatestFloretRelease();
-                    if (latest?.version) floret.version = latest.version;
+                    if (latest?.windowsVersion) floret.version = latest.windowsVersion;
+                    floret.windows_version = latest?.windowsVersion || floret.windows_version || floret.version || '';
+                    floret.android_version = latest?.androidVersion || floret.android_version || '';
                     floret.android_version_code = Number(latest?.versionCode || 0);
                     if (latest?.installerUrl) floret.installer_url = latest.installerUrl;
                     if (latest?.releaseUrl) floret.android_release_url = latest.releaseUrl;
@@ -4443,7 +4752,7 @@
                 } catch (err) {
                     console.log('No se pudo resolver la ultima release de Floret Shop:', err?.message || err);
                     floret.pending_release = false;
-                    floret.release_warning = 'No se pudo validar la release Android de Floret Shop.';
+                    floret.release_warning = 'No se pudo validar la release de Floret Shop (Windows/Android).';
                 }
             }
         }
@@ -4904,11 +5213,15 @@
                 const isPreparing = runtime.phase === 'preparing';
                 const availabilityLabel = getProjectPlatformLabel(p);
                 const short = getProjectShort(p);
+                const updateInfo = getProjectUpdateInfo(p);
                 const updateHint = (isWildWeaponProject(p) || isSSAProject(p) || isOceanPayProject(p) || isFloretProject(p))
                     ? (p.last_update_at ? `Ultima actualizacion: ${formatDateTime(p.last_update_at)}` : 'Ultima actualizacion: pendiente')
                     : (p.description || 'Proyecto oficial del ecosistema Ocean and Wild Studios.');
                 const updateInfoHtml = (isWildWeaponProject(p) || isSSAProject(p) || isOceanPayProject(p) || isFloretProject(p))
                     ? `<div class="ecosystem-submeta">${updateHint}</div>`
+                    : '';
+                const updateFlagHtml = updateInfo.needsUpdate
+                    ? `<div class="ecosystem-submeta" style="color:var(--brand-2); font-weight:700;">Update ${updateInfo.installedPlatform === 'android' ? 'Android' : 'Windows'} disponible: v${updateInfo.latestVersion}</div>`
                     : '';
                 const installingHtml = `
                     <div id="installing-text-${p.slug}" class="ecosystem-submeta" style="color:var(--brand-2); display:${(isInstalling || isQueued || isPreparing) ? 'block' : 'none'};">
@@ -4931,6 +5244,7 @@
                         </div>
                         <div class="app-meta"><span>v${p.version || '1.0.0'}</span>${countdownHtml}</div>
                         ${updateInfoHtml || `<div class="ecosystem-submeta">${updateHint}</div>`}
+                        ${updateFlagHtml}
                         ${installingHtml}
                     </div>
                     <button class="btn-install ecosystem-open-btn" onclick="event.stopPropagation(); openDetails('${p.slug}')">
@@ -4983,7 +5297,7 @@
                         <button class="btn-install full" style="background:#2b2e37;" onclick="uninstallFromLibrary('${p.slug}')"><i class="fas fa-trash"></i> Desinstalar</button>
                     </div>`;
                 const updateBadgeHtml = updateInfo.needsUpdate
-                    ? `<div style="font-size:0.74rem; color:var(--brand-2); margin-bottom:0.8rem; font-weight:700;">Actualizacion disponible: v${updateInfo.latestVersion}</div>`
+                    ? `<div style="font-size:0.74rem; color:var(--brand-2); margin-bottom:0.8rem; font-weight:700;">Actualizacion disponible (${updateInfo.installedPlatform === 'android' ? 'Android' : 'Windows'}): v${updateInfo.latestVersion}</div>`
                     : '';
                 card.innerHTML = `
                     <img src="${getProjectIcon(p, 64)}" class="app-icon" alt="Icon">
@@ -5193,7 +5507,13 @@
                                 : (isOceanPayProject(project)
                                     ? await fetchLatestOceanPayRelease()
                                     : await fetchLatestFloretRelease()));
-                        if (latest?.version) project.version = latest.version;
+                        if (isFloretProject(project)) {
+                            if (latest?.windowsVersion) project.version = latest.windowsVersion;
+                            project.windows_version = latest?.windowsVersion || project.windows_version || project.version || '';
+                            project.android_version = latest?.androidVersion || project.android_version || '';
+                        } else if (latest?.version) {
+                            project.version = latest.version;
+                        }
                         if (latest?.installerUrl) project.installer_url = latest.installerUrl;
                         project.installer_size = Number(latest?.installerSize || 0);
                         project.installer_available = Boolean(latest?.installerAvailable);

@@ -1,20 +1,69 @@
 {
   "name": "floret-shop",
-  "version": "1.2.1",
-  "description": "",
-  "main": "index.js",
+  "version": "1.2.2",
+  "description": "Floret Shop desktop app",
+  "main": "main.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "electron .",
+    "dist": "electron-builder --win nsis --publish never",
+    "dist:portable": "electron-builder --win portable --publish never"
   },
   "keywords": [],
-  "author": "",
+  "author": "Ocean and Wild Studios",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
     "@capacitor/android": "^8.1.0",
-    "@capacitor/core": "^8.1.0"
+    "@capacitor/core": "^8.1.0",
+    "electron-updater": "^6.1.7"
   },
   "devDependencies": {
-    "@capacitor/cli": "^8.1.0"
+    "@capacitor/cli": "^8.1.0",
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1"
+  },
+  "build": {
+    "appId": "com.ows.floretshop",
+    "productName": "Floret Shop",
+    "artifactName": "Floret.Shop.Setup.${version}.exe",
+    "detectUpdateChannel": false,
+    "publish": {
+      "provider": "github",
+      "owner": "OceanandWild",
+      "repo": "floretshop"
+    },
+    "directories": {
+      "output": "C:/builds/floret-shop",
+      "buildResources": "build"
+    },
+    "files": [
+      "index.html",
+      "main.js",
+      "preload.js",
+      "assets/**/*",
+      "build/icon.ico"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "executableName": "Floret Shop",
+      "signAndEditExecutable": true
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Floret Shop",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico"
+    }
   }
 }

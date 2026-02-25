@@ -1744,6 +1744,68 @@ async function getWtSubscriptionColumnSet() {
   return set;
 }
 
+async function cancelLegacyWildTransferSubscriptions({ userId = null, client = null } = {}) {
+  const ownClient = !client;
+  const db = client || await pool.connect();
+  try {
+    if (ownClient) await db.query('BEGIN');
+
+    const columns = await getWtSubscriptionColumnSet();
+    const hasEndDate = columns.has('end_date');
+    const hasNextPayment = columns.has('next_payment');
+    const hasStatus = columns.has('status');
+
+    const setClauses = [];
+    if (hasStatus) setClauses.push(`status = 'cancelled'`);
+    if (hasEndDate) setClauses.push('end_date = NOW()');
+    if (hasNextPayment) setClauses.push('next_payment = NOW()');
+    if (!setClauses.length) {
+      if (ownClient) await db.query('COMMIT');
+      return { migrated: 0 };
+    }
+
+    const params = [WT_PROJECT_ID, WT_RELAY_CURRENCY];
+    const whereClauses = [
+      'LOWER(COALESCE(project_id, \'\')) = LOWER($1)',
+      'LOWER(COALESCE(currency, \'\')) <> LOWER($2)'
+    ];
+    if (hasStatus) {
+      whereClauses.push("(status IS NULL OR LOWER(status) = 'active')");
+    }
+    if (Number.isFinite(Number(userId)) && Number(userId) > 0) {
+      params.push(Number(userId));
+      whereClauses.push(`user_id = $${params.length}`);
+    }
+
+    const { rowCount } = await db.query(
+      `UPDATE ocean_pay_subscriptions
+       SET ${setClauses.join(', ')}
+       WHERE ${whereClauses.join(' AND ')}`,
+      params
+    );
+
+    if (rowCount > 0 && Number.isFinite(Number(userId)) && Number(userId) > 0) {
+      await db.query(
+        `INSERT INTO ocean_pay_notifications (user_id, type, title, message)
+         VALUES ($1, 'info', $2, $3)`,
+        [
+          Number(userId),
+          'Migracion RelayShards',
+          `Tu suscripcion legacy de WildTransfer fue cancelada automaticamente. Vuelve a suscribirte con ${WT_RELAY_CURRENCY_LABEL}.`
+        ]
+      ).catch(() => null);
+    }
+
+    if (ownClient) await db.query('COMMIT');
+    return { migrated: Number(rowCount || 0) };
+  } catch (error) {
+    if (ownClient) await db.query('ROLLBACK');
+    throw error;
+  } finally {
+    if (ownClient) db.release();
+  }
+}
+
 app.get('/wildtransfer/subscription/plans', (_req, res) => {
   res.json({
     success: true,
@@ -1758,6 +1820,7 @@ app.get('/wildtransfer/subscription/status', async (req, res) => {
   try {
     const userId = getOceanPayUserIdFromAuthHeader(req.headers.authorization);
     if (!userId) return res.status(401).json({ error: 'Token de Ocean Pay requerido' });
+    await cancelLegacyWildTransferSubscriptions({ userId });
 
     const columns = await getWtSubscriptionColumnSet();
     const hasEndDate = columns.has('end_date');
@@ -1782,10 +1845,11 @@ app.get('/wildtransfer/subscription/status', async (req, res) => {
        FROM ocean_pay_subscriptions
        WHERE user_id = $1
          AND LOWER(COALESCE(project_id, '')) = LOWER($2)
+         AND LOWER(COALESCE(currency, '')) = LOWER($3)
          ${statusClause}
        ORDER BY ${expiryExpr} DESC, created_at DESC
        LIMIT 1`,
-      [userId, WT_PROJECT_ID]
+      [userId, WT_PROJECT_ID, WT_RELAY_CURRENCY]
     );
 
     const rawSub = subRows[0] || null;
@@ -1837,6 +1901,7 @@ app.post('/wildtransfer/subscription/checkout', async (req, res) => {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    await cancelLegacyWildTransferSubscriptions({ userId, client });
 
     const { rows: cards } = await client.query(
       `SELECT id, card_name, is_primary
@@ -1932,11 +1997,12 @@ app.post('/wildtransfer/subscription/checkout', async (req, res) => {
        FROM ocean_pay_subscriptions
        WHERE user_id = $1
          AND LOWER(COALESCE(project_id, '')) = LOWER($2)
+         AND LOWER(COALESCE(currency, '')) = LOWER($3)
          ${statusClause}
        ORDER BY ${expiryExpr} DESC, created_at DESC
        LIMIT 1
        FOR UPDATE`,
-      [userId, WT_PROJECT_ID]
+      [userId, WT_PROJECT_ID, WT_RELAY_CURRENCY]
     );
 
     const now = new Date();
@@ -19840,6 +19906,17 @@ async function ensureOceanPayTables() {
   `).catch(e => console.log('⚠️ Error notificaciones:', e.message));
 }
 await ensureOceanPayTables();
+cancelLegacyWildTransferSubscriptions()
+  .then((result) => {
+    if (Number(result?.migrated || 0) > 0) {
+      console.log(`✅ WildTransfer migration: ${result.migrated} suscripciones legacy canceladas (RelayShards).`);
+    } else {
+      console.log('ℹ️ WildTransfer migration: sin suscripciones legacy para cancelar.');
+    }
+  })
+  .catch((err) => {
+    console.error('⚠️ WildTransfer migration error:', err.message);
+  });
 
 // Subscriptions Endpoints
 app.get('/ocean-pay/subscriptions/me', async (req, res) => {

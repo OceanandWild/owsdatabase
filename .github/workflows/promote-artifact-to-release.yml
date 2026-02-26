@@ -1,4 +1,4 @@
-name: Promote Action Artifact To Release
+name: Promote Artifact To Release
 
 on:
   workflow_dispatch:
@@ -6,48 +6,36 @@ on:
       source_run_id:
         description: "GitHub Actions run ID de origen"
         required: true
-        type: string
       artifact_name:
-        description: "Nombre del artifact (usa este o artifact_id)"
+        description: "Nombre del artifact (preferido)"
         required: false
-        type: string
+        default: ""
       artifact_id:
-        description: "ID numerico del artifact (opcional, preferido si lo tienes)"
+        description: "Artifact ID numerico (opcional)"
         required: false
-        type: string
+        default: ""
       release_tag:
-        description: "Tag del Release destino (debe ser unico)"
+        description: "Tag destino del release"
         required: true
-        type: string
       release_name:
-        description: "Nombre visible del Release"
+        description: "Nombre visible del release"
         required: true
-        type: string
       release_notes:
-        description: "Notas / changelog del Release"
+        description: "Notas/changelog"
         required: false
-        type: string
+        default: ""
       mark_latest:
-        description: "Marcar como latest"
-        required: true
+        description: "Marcar como latest (true/false)"
+        required: false
         default: "false"
-        type: choice
-        options:
-          - "false"
-          - "true"
       prerelease:
-        description: "Publicar como prerelease"
-        required: true
+        description: "Publicar como prerelease (true/false)"
+        required: false
         default: "false"
-        type: choice
-        options:
-          - "false"
-          - "true"
       target_repository:
-        description: "Repo destino owner/name (default: OceanandWild/floretshop)"
+        description: "Repositorio destino owner/name"
         required: true
         default: "OceanandWild/floretshop"
-        type: string
 
 permissions:
   contents: write
@@ -70,11 +58,11 @@ jobs:
         shell: bash
         env:
           RELEASE_PAT: ${{ secrets.RELEASE_PAT }}
-          GH_DEFAULT_TOKEN: ${{ github.token }}
+          GH_TOKEN_DEFAULT: ${{ github.token }}
         run: |
           TOKEN="$RELEASE_PAT"
           if [ -z "$TOKEN" ]; then
-            TOKEN="$GH_DEFAULT_TOKEN"
+            TOKEN="$GH_TOKEN_DEFAULT"
           fi
           echo "RELEASE_TOKEN=$TOKEN" >> "$GITHUB_ENV"
 
@@ -94,19 +82,28 @@ jobs:
           name: ${{ inputs.artifact_name }}
           path: promoted-artifact
 
-      - name: Show downloaded files
+      - name: Validate downloaded files
         shell: bash
         run: |
-          echo "Contenido descargado:"
-          find promoted-artifact -type f -maxdepth 5 -print
+          if [ ! -d promoted-artifact ]; then
+            echo "No existe carpeta promoted-artifact"
+            exit 1
+          fi
+          COUNT="$(find promoted-artifact -type f | wc -l | tr -d ' ')"
+          if [ "$COUNT" = "0" ]; then
+            echo "No se descargaron archivos."
+            exit 1
+          fi
+          echo "Archivos descargados:"
+          find promoted-artifact -type f -maxdepth 6 -print
 
       - name: Sanitize promoted files
         shell: bash
         run: |
           set -euo pipefail
           find promoted-artifact -type f \( -iname "*unsigned*.apk" -o -iname "*debug*.apk" \) -print -delete || true
-          echo "Contenido tras limpieza:"
-          find promoted-artifact -type f -maxdepth 5 -print
+          echo "Archivos finales:"
+          find promoted-artifact -type f -maxdepth 6 -print
 
       - name: Publish release assets
         uses: softprops/action-gh-release@v2
@@ -123,105 +120,3 @@ jobs:
           fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ env.RELEASE_TOKEN }}
-
-      - name: Sync Android release metadata to OWS API
-        continue-on-error: true
-        shell: bash
-        run: |
-          set -u
-          TARGET_REPO="${{ inputs.target_repository }}"
-          DEFAULT_PROJECT_SLUG=""
-          DEFAULT_PACKAGE_ID=""
-
-          if [ "$TARGET_REPO" = "OceanandWild/floretshop" ]; then
-            DEFAULT_PROJECT_SLUG="floret-shop"
-            DEFAULT_PACKAGE_ID="com.oceanandwild.floretshop"
-          elif [ "$TARGET_REPO" = "OceanandWild/wildtransfer" ]; then
-            DEFAULT_PROJECT_SLUG="wildtransfer"
-            DEFAULT_PACKAGE_ID="com.oceanandwild.wildtransfer"
-          elif [ "$TARGET_REPO" = "OceanandWild/ocean-and-wild-studios-news" ]; then
-            DEFAULT_PROJECT_SLUG="ows-news"
-            DEFAULT_PACKAGE_ID="com.oceanandwild.owsnews"
-          elif [ "$TARGET_REPO" = "OceanandWild/owsdatabase" ]; then
-            DEFAULT_PROJECT_SLUG="ows-store"
-            DEFAULT_PACKAGE_ID="com.oceanandwild.owsstore"
-          else
-            echo "Repositorio sin mapeo Android para OWS API: $TARGET_REPO"
-            exit 0
-          fi
-
-          APK_FILE="$(find promoted-artifact -type f -name '*.apk' | grep -Evi 'unsigned' | grep -Ei 'signed' | head -n1 || true)"
-          if [ -z "$APK_FILE" ]; then
-            echo "No se encontro APK firmado para sincronizar metadata."
-            exit 0
-          fi
-
-          META_FILE="$(find promoted-artifact -type f -name 'android-release-metadata.json' | head -n1 || true)"
-          PROJECT_SLUG="$DEFAULT_PROJECT_SLUG"
-          PACKAGE_ID="$DEFAULT_PACKAGE_ID"
-          VERSION_NAME="${{ inputs.release_tag }}"
-          VERSION_CODE="0"
-
-          if [ -n "$META_FILE" ]; then
-            mapfile -t META_FIELDS < <(python - "$META_FILE" <<'PY'
-import json,sys
-p=sys.argv[1]
-data=json.load(open(p,'r',encoding='utf-8'))
-print(data.get('project_slug',''))
-print(data.get('package_id',''))
-print(data.get('version_name',''))
-print(data.get('version_code',''))
-PY
-            )
-            [ -n "${META_FIELDS[0]:-}" ] && PROJECT_SLUG="${META_FIELDS[0]}"
-            [ -n "${META_FIELDS[1]:-}" ] && PACKAGE_ID="${META_FIELDS[1]}"
-            [ -n "${META_FIELDS[2]:-}" ] && VERSION_NAME="${META_FIELDS[2]}"
-            [ -n "${META_FIELDS[3]:-}" ] && VERSION_CODE="${META_FIELDS[3]}"
-          fi
-
-          if ! [[ "$VERSION_CODE" =~ ^[0-9]+$ ]]; then
-            VERSION_CODE="0"
-          fi
-          if [ "$VERSION_CODE" -le 0 ]; then
-            VERSION_CODE="$(python - <<'PY'
-import re
-tag=r"${{ inputs.release_tag }}"
-m=re.search(r'(\d{4})\.(\d{2})\.(\d{2})-(\d{3,4})', tag)
-if not m:
-    print("0")
-else:
-    y,mn,d,hhmm=m.groups()
-    print(f"{y[-2:]}{mn}{d}{hhmm}")
-PY
-            )"
-          fi
-
-          APK_NAME="$(basename "$APK_FILE")"
-          APK_URL="https://github.com/${TARGET_REPO}/releases/download/${{ inputs.release_tag }}/${APK_NAME}"
-          SIZE_BYTES="$(stat -c%s "$APK_FILE" 2>/dev/null || wc -c < "$APK_FILE")"
-          SHA256="$(sha256sum "$APK_FILE" | awk '{print $1}')"
-          PUBLISHED_AT="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-
-          PAYLOAD="$(python - <<PY
-import json
-payload={
-  "project_slug": "${PROJECT_SLUG}",
-  "package_id": "${PACKAGE_ID}",
-  "version_name": "${VERSION_NAME}",
-  "version_code": int("${VERSION_CODE}" or 0),
-  "apk_url": "${APK_URL}",
-  "sha256": "${SHA256}",
-  "size_bytes": int("${SIZE_BYTES}" or 0),
-  "release_notes": """${{ inputs.release_notes }}""".strip(),
-  "status": "published",
-  "is_mandatory": False,
-  "published_at": "${PUBLISHED_AT}"
-}
-print(json.dumps(payload))
-PY
-          )"
-
-          echo "Sincronizando metadata Android para ${PROJECT_SLUG}..."
-          curl -fsS -X POST "https://owsdatabase.onrender.com/ows-store/android/releases" \
-            -H "Content-Type: application/json" \
-            --data "$PAYLOAD"

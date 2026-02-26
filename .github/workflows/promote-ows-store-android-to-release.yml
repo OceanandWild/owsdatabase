@@ -4,46 +4,34 @@ on:
   workflow_dispatch:
     inputs:
       source_run_id:
-        description: "GitHub Actions run ID que contiene el artifact Android"
+        description: "GitHub Actions run ID con artifact Android"
         required: true
-        type: string
-      artifact_id:
-        description: "Artifact ID (opcional si usas artifact_name)"
-        required: false
-        type: string
       artifact_name:
-        description: "Artifact name (recomendado: ows-store-apk-release-signed)"
+        description: "Artifact name (preferido)"
         required: false
         default: "ows-store-apk-release-signed"
-        type: string
+      artifact_id:
+        description: "Artifact ID numerico (opcional)"
+        required: false
+        default: ""
       allow_non_production_artifacts:
-        description: "Permitir artifact debug/unsigned (no recomendado)"
-        required: true
+        description: "Permitir debug/unsigned (true/false)"
+        required: false
         default: "false"
-        type: choice
-        options:
-          - "false"
-          - "true"
       release_tag:
-        description: "Tag unico del release (ej. ows-store-android-v2026.02.24-001)"
+        description: "Tag destino del release"
         required: true
-        type: string
       release_name:
         description: "Nombre del release"
         required: true
-        type: string
       release_notes:
         description: "Notas/changelog"
         required: false
-        type: string
+        default: ""
       prerelease:
-        description: "Publicar como prerelease"
-        required: true
-        default: "true"
-        type: choice
-        options:
-          - "false"
-          - "true"
+        description: "Publicar como prerelease (true/false)"
+        required: false
+        default: "false"
 
 permissions:
   contents: write
@@ -52,33 +40,25 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+
     steps:
       - name: Validate inputs
         shell: bash
         run: |
-          if [ -z "${{ inputs.artifact_id }}" ] && [ -z "${{ inputs.artifact_name }}" ]; then
-            echo "Debes indicar artifact_id o artifact_name."
+          if [ -z "${{ inputs.artifact_name }}" ] && [ -z "${{ inputs.artifact_id }}" ]; then
+            echo "Debes indicar artifact_name o artifact_id."
             exit 1
-          fi
-
-          name_lc="$(echo '${{ inputs.artifact_name }}' | tr '[:upper:]' '[:lower:]')"
-          if [ "${{ inputs.allow_non_production_artifacts }}" != "true" ] && [ -n "$name_lc" ]; then
-            if [[ "$name_lc" == *"debug"* ]] || [[ "$name_lc" == *"unsigned"* ]]; then
-              echo "Artifact no-productivo detectado: $name_lc"
-              echo "Usa ows-store-apk-release-signed o habilita allow_non_production_artifacts=true."
-              exit 1
-            fi
           fi
 
       - name: Resolve release token
         shell: bash
         env:
           RELEASE_PAT: ${{ secrets.RELEASE_PAT }}
-          GH_DEFAULT_TOKEN: ${{ github.token }}
+          GH_TOKEN_DEFAULT: ${{ github.token }}
         run: |
           TOKEN="$RELEASE_PAT"
           if [ -z "$TOKEN" ]; then
-            TOKEN="$GH_DEFAULT_TOKEN"
+            TOKEN="$GH_TOKEN_DEFAULT"
           fi
           echo "RELEASE_TOKEN=$TOKEN" >> "$GITHUB_ENV"
 
@@ -98,10 +78,19 @@ jobs:
           name: ${{ inputs.artifact_name }}
           path: promoted-android
 
-      - name: List files
+      - name: Validate downloaded files
         shell: bash
         run: |
-          echo "Files to release:"
+          if [ ! -d promoted-android ]; then
+            echo "No existe carpeta promoted-android"
+            exit 1
+          fi
+          COUNT="$(find promoted-android -type f | wc -l | tr -d ' ')"
+          if [ "$COUNT" = "0" ]; then
+            echo "No se descargaron archivos."
+            exit 1
+          fi
+          echo "Archivos descargados:"
           find promoted-android -type f -maxdepth 6 -print
 
       - name: Sanitize promoted files
@@ -111,10 +100,10 @@ jobs:
           if [ "${{ inputs.allow_non_production_artifacts }}" != "true" ]; then
             find promoted-android -type f \( -iname "*unsigned*.apk" -o -iname "*debug*.apk" \) -print -delete || true
           fi
-          echo "Files after sanitize:"
+          echo "Archivos finales:"
           find promoted-android -type f -maxdepth 6 -print
 
-      - name: Publish to owsdatabase releases
+      - name: Publish to owsdatabase release
         uses: softprops/action-gh-release@v2
         with:
           repository: OceanandWild/owsdatabase
@@ -122,7 +111,7 @@ jobs:
           name: ${{ inputs.release_name }}
           body: ${{ inputs.release_notes }}
           draft: false
-          prerelease: true
+          prerelease: ${{ inputs.prerelease == 'true' }}
           make_latest: false
           files: |
             promoted-android/**/*
@@ -130,17 +119,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ env.RELEASE_TOKEN }}
 
-      - name: Sync Android release metadata to OWS API
+      - name: Sync Android metadata to OWS API
         continue-on-error: true
         shell: bash
         run: |
-          set -u
-          APK_FILE="$(find promoted-android -type f -name '*.apk' | grep -Evi 'unsigned' | grep -Ei 'signed' | head -n1 || true)"
-          if [ -z "$APK_FILE" ] && [ "${{ inputs.allow_non_production_artifacts }}" = "true" ]; then
-            APK_FILE="$(find promoted-android -type f -name '*.apk' | head -n1 || true)"
-          fi
+          set -euo pipefail
+          APK_FILE="$(find promoted-android -type f -name '*.apk' | grep -Evi 'unsigned' | head -n1 || true)"
           if [ -z "$APK_FILE" ]; then
-            echo "No se encontro APK firmado para sincronizar metadata."
+            echo "No se encontro APK para sincronizar metadata."
             exit 0
           fi
 
@@ -151,37 +137,23 @@ jobs:
           VERSION_CODE="0"
 
           if [ -n "$META_FILE" ]; then
-            mapfile -t META_FIELDS < <(python - "$META_FILE" <<'PY'
+            mapfile -t FIELDS < <(python - "$META_FILE" <<'PY'
 import json,sys
-p=sys.argv[1]
-data=json.load(open(p,'r',encoding='utf-8'))
+data=json.load(open(sys.argv[1],'r',encoding='utf-8'))
 print(data.get('project_slug',''))
 print(data.get('package_id',''))
 print(data.get('version_name',''))
 print(data.get('version_code',''))
 PY
             )
-            [ -n "${META_FIELDS[0]:-}" ] && PROJECT_SLUG="${META_FIELDS[0]}"
-            [ -n "${META_FIELDS[1]:-}" ] && PACKAGE_ID="${META_FIELDS[1]}"
-            [ -n "${META_FIELDS[2]:-}" ] && VERSION_NAME="${META_FIELDS[2]}"
-            [ -n "${META_FIELDS[3]:-}" ] && VERSION_CODE="${META_FIELDS[3]}"
+            [ -n "${FIELDS[0]:-}" ] && PROJECT_SLUG="${FIELDS[0]}"
+            [ -n "${FIELDS[1]:-}" ] && PACKAGE_ID="${FIELDS[1]}"
+            [ -n "${FIELDS[2]:-}" ] && VERSION_NAME="${FIELDS[2]}"
+            [ -n "${FIELDS[3]:-}" ] && VERSION_CODE="${FIELDS[3]}"
           fi
 
           if ! [[ "$VERSION_CODE" =~ ^[0-9]+$ ]]; then
             VERSION_CODE="0"
-          fi
-          if [ "$VERSION_CODE" -le 0 ]; then
-            VERSION_CODE="$(python - <<'PY'
-import re
-tag=r"${{ inputs.release_tag }}"
-m=re.search(r'(\d{4})\.(\d{2})\.(\d{2})-(\d{3,4})', tag)
-if not m:
-    print("0")
-else:
-    y,mn,d,hhmm=m.groups()
-    print(f"{y[-2:]}{mn}{d}{hhmm}")
-PY
-            )"
           fi
 
           APK_NAME="$(basename "$APK_FILE")"
@@ -192,7 +164,7 @@ PY
 
           PAYLOAD="$(python - <<PY
 import json
-payload={
+print(json.dumps({
   "project_slug": "${PROJECT_SLUG}",
   "package_id": "${PACKAGE_ID}",
   "version_name": "${VERSION_NAME}",
@@ -204,13 +176,10 @@ payload={
   "status": "published",
   "is_mandatory": False,
   "published_at": "${PUBLISHED_AT}"
-}
-print(json.dumps(payload))
+}))
 PY
           )"
 
-          echo "Sincronizando metadata Android para ${PROJECT_SLUG}..."
           curl -fsS -X POST "https://owsdatabase.onrender.com/ows-store/android/releases" \
             -H "Content-Type: application/json" \
             --data "$PAYLOAD"
-

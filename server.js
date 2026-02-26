@@ -12984,6 +12984,19 @@ function normalizeGitHubAssetLinksFromHtml(owner, repo, tagName, html) {
   return assets;
 }
 
+async function fetchGitHubExpandedAssets(owner, repo, tagName) {
+  const url = `https://github.com/${owner}/${repo}/releases/expanded_assets/${encodeURIComponent(tagName)}`;
+  const response = await fetch(url, {
+    headers: {
+      'User-Agent': 'OWS-Store-Server',
+      'Accept': 'text/html'
+    }
+  });
+  if (!response.ok) return [];
+  const html = await response.text();
+  return normalizeGitHubAssetLinksFromHtml(owner, repo, tagName, html);
+}
+
 function parsePublishedAtFromReleaseHtml(html = '') {
   const m = html.match(/<relative-time[^>]*datetime="([^"]+)"/i);
   return m?.[1] || null;
@@ -13012,7 +13025,10 @@ async function fetchGitHubLatestReleaseFallback(owner, repo) {
     throw new Error('No se pudo resolver tag desde releases/latest');
   }
   const html = await response.text();
-  const assets = normalizeGitHubAssetLinksFromHtml(owner, repo, tagName, html);
+  let assets = await fetchGitHubExpandedAssets(owner, repo, tagName);
+  if (!assets.length) {
+    assets = normalizeGitHubAssetLinksFromHtml(owner, repo, tagName, html);
+  }
   const publishedAt = parsePublishedAtFromReleaseHtml(html);
   return {
     id: null,
@@ -13056,7 +13072,10 @@ async function fetchGitHubReleaseTagPage(owner, repo, tagName) {
   }
   const html = await response.text();
   const publishedAt = parsePublishedAtFromReleaseHtml(html);
-  const assets = normalizeGitHubAssetLinksFromHtml(owner, repo, tagName, html);
+  let assets = await fetchGitHubExpandedAssets(owner, repo, tagName);
+  if (!assets.length) {
+    assets = normalizeGitHubAssetLinksFromHtml(owner, repo, tagName, html);
+  }
   return {
     id: null,
     tag_name: tagName,
@@ -13107,8 +13126,7 @@ async function fetchGitHubReleasesFallback(owner, repo, perPage = 20, page = 1) 
 
 function shouldUseGitHubWebFallback(err) {
   const status = Number(err?.status || 0);
-  const msg = String(err?.message || '').toLowerCase();
-  if (status === 403 && msg.includes('rate limit')) return true;
+  if (status === 403) return true;
   if (status === 401 || status === 429) return true;
   if (status >= 500 && status < 600) return true;
   return false;

@@ -72,6 +72,7 @@ jobs:
         with:
           run-id: ${{ inputs.source_run_id }}
           artifact-ids: ${{ inputs.artifact_id }}
+          github-token: ${{ env.RELEASE_TOKEN }}
           path: promoted-artifact
 
       - name: Download artifact by name
@@ -80,6 +81,7 @@ jobs:
         with:
           run-id: ${{ inputs.source_run_id }}
           name: ${{ inputs.artifact_name }}
+          github-token: ${{ env.RELEASE_TOKEN }}
           path: promoted-artifact
 
       - name: Validate downloaded files

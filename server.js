@@ -12947,6 +12947,173 @@ function canProxyGitHubRepo(owner, repo) {
   return owner === OWS_GITHUB_ALLOWED_OWNER && OWS_GITHUB_ALLOWED_REPOS.has(repo);
 }
 
+function escapeRegex(value = '') {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function decodeGitHubPathSegment(segment = '') {
+  try {
+    return decodeURIComponent(segment);
+  } catch (_) {
+    return segment;
+  }
+}
+
+function normalizeGitHubAssetLinksFromHtml(owner, repo, tagName, html) {
+  const assets = [];
+  if (!html || !owner || !repo || !tagName) return assets;
+  const ownerEsc = escapeRegex(owner);
+  const repoEsc = escapeRegex(repo);
+  const tagEsc = escapeRegex(tagName);
+  const rgx = new RegExp(`href="(/${ownerEsc}/${repoEsc}/releases/download/${tagEsc}/([^"#?]+))"`, 'gi');
+  const seen = new Set();
+  let match;
+  while ((match = rgx.exec(html)) !== null) {
+    const hrefPath = match[1] || '';
+    const rawName = match[2] || '';
+    const name = decodeGitHubPathSegment(rawName);
+    if (!name || seen.has(name)) continue;
+    seen.add(name);
+    assets.push({
+      name,
+      browser_download_url: `https://github.com${hrefPath}`,
+      size: 0,
+      updated_at: null
+    });
+  }
+  return assets;
+}
+
+function parsePublishedAtFromReleaseHtml(html = '') {
+  const m = html.match(/<relative-time[^>]*datetime="([^"]+)"/i);
+  return m?.[1] || null;
+}
+
+function extractTagFromReleaseUrl(url = '') {
+  const m = String(url || '').match(/\/releases\/tag\/([^/?#]+)/i);
+  return decodeGitHubPathSegment(m?.[1] || '');
+}
+
+async function fetchGitHubLatestReleaseFallback(owner, repo) {
+  const latestUrl = `https://github.com/${owner}/${repo}/releases/latest`;
+  const response = await fetch(latestUrl, {
+    headers: {
+      'User-Agent': 'OWS-Store-Server',
+      'Accept': 'text/html'
+    },
+    redirect: 'follow'
+  });
+  if (!response.ok) {
+    throw new Error(`GitHub web latest ${response.status}`);
+  }
+  const finalUrl = response.url || latestUrl;
+  const tagName = extractTagFromReleaseUrl(finalUrl);
+  if (!tagName) {
+    throw new Error('No se pudo resolver tag desde releases/latest');
+  }
+  const html = await response.text();
+  const assets = normalizeGitHubAssetLinksFromHtml(owner, repo, tagName, html);
+  const publishedAt = parsePublishedAtFromReleaseHtml(html);
+  return {
+    id: null,
+    tag_name: tagName,
+    name: tagName,
+    html_url: `https://github.com/${owner}/${repo}/releases/tag/${encodeURIComponent(tagName)}`,
+    draft: false,
+    prerelease: false,
+    created_at: publishedAt,
+    published_at: publishedAt,
+    assets
+  };
+}
+
+function extractReleaseTagsFromListHtml(owner, repo, html = '') {
+  const ownerEsc = escapeRegex(owner);
+  const repoEsc = escapeRegex(repo);
+  const rgx = new RegExp(`href="/${ownerEsc}/${repoEsc}/releases/tag/([^"#?]+)"`, 'gi');
+  const tags = [];
+  const seen = new Set();
+  let match;
+  while ((match = rgx.exec(html)) !== null) {
+    const tag = decodeGitHubPathSegment(match[1] || '');
+    if (!tag || seen.has(tag)) continue;
+    seen.add(tag);
+    tags.push(tag);
+  }
+  return tags;
+}
+
+async function fetchGitHubReleaseTagPage(owner, repo, tagName) {
+  const tagUrl = `https://github.com/${owner}/${repo}/releases/tag/${encodeURIComponent(tagName)}`;
+  const response = await fetch(tagUrl, {
+    headers: {
+      'User-Agent': 'OWS-Store-Server',
+      'Accept': 'text/html'
+    }
+  });
+  if (!response.ok) {
+    throw new Error(`GitHub web release tag ${response.status}`);
+  }
+  const html = await response.text();
+  const publishedAt = parsePublishedAtFromReleaseHtml(html);
+  const assets = normalizeGitHubAssetLinksFromHtml(owner, repo, tagName, html);
+  return {
+    id: null,
+    tag_name: tagName,
+    name: tagName,
+    html_url: tagUrl,
+    draft: false,
+    prerelease: false,
+    created_at: publishedAt,
+    published_at: publishedAt,
+    assets
+  };
+}
+
+async function fetchGitHubReleasesFallback(owner, repo, perPage = 20, page = 1) {
+  const listUrl = `https://github.com/${owner}/${repo}/releases?page=${page}`;
+  const response = await fetch(listUrl, {
+    headers: {
+      'User-Agent': 'OWS-Store-Server',
+      'Accept': 'text/html'
+    }
+  });
+  if (!response.ok) {
+    throw new Error(`GitHub web releases ${response.status}`);
+  }
+  const html = await response.text();
+  const tags = extractReleaseTagsFromListHtml(owner, repo, html).slice(0, Math.min(perPage, 12));
+  const releases = [];
+  for (const tagName of tags) {
+    try {
+      const release = await fetchGitHubReleaseTagPage(owner, repo, tagName);
+      releases.push(release);
+    } catch (_) {
+      releases.push({
+        id: null,
+        tag_name: tagName,
+        name: tagName,
+        html_url: `https://github.com/${owner}/${repo}/releases/tag/${encodeURIComponent(tagName)}`,
+        draft: false,
+        prerelease: false,
+        created_at: null,
+        published_at: null,
+        assets: []
+      });
+    }
+  }
+  return releases;
+}
+
+function shouldUseGitHubWebFallback(err) {
+  const status = Number(err?.status || 0);
+  const msg = String(err?.message || '').toLowerCase();
+  if (status === 403 && msg.includes('rate limit')) return true;
+  if (status === 401 || status === 429) return true;
+  if (status >= 500 && status < 600) return true;
+  return false;
+}
+
 async function fetchGitHubApiJsonCached(pathWithQuery, ttlMs = OWS_GITHUB_CACHE_TTL_MS) {
   const cacheKey = String(pathWithQuery || '');
   const now = Date.now();
@@ -13003,7 +13170,17 @@ app.get('/ows-store/github/repos/:owner/:repo/releases/latest', async (req, res)
     res.setHeader('X-OWS-GitHub-Cache', result.cacheState);
     return res.json(result.data);
   } catch (err) {
-    console.error('❌ Error en GET /ows-store/github/repos/:owner/:repo/releases/latest:', err.message);
+    if (shouldUseGitHubWebFallback(err)) {
+      try {
+        const data = await fetchGitHubLatestReleaseFallback(owner, repo);
+        res.setHeader('Cache-Control', 'public, max-age=60');
+        res.setHeader('X-OWS-GitHub-Cache', 'fallback-web');
+        return res.json(data);
+      } catch (fallbackErr) {
+        console.error('Error fallback web latest:', fallbackErr.message);
+      }
+    }
+    console.error('Error en GET /ows-store/github/repos/:owner/:repo/releases/latest:', err.message);
     return res.status(502).json({ error: 'No se pudo consultar GitHub Releases latest', detail: err.message || 'error' });
   }
 });
@@ -13023,7 +13200,17 @@ app.get('/ows-store/github/repos/:owner/:repo/releases', async (req, res) => {
     res.setHeader('X-OWS-GitHub-Cache', result.cacheState);
     return res.json(result.data);
   } catch (err) {
-    console.error('❌ Error en GET /ows-store/github/repos/:owner/:repo/releases:', err.message);
+    if (shouldUseGitHubWebFallback(err)) {
+      try {
+        const data = await fetchGitHubReleasesFallback(owner, repo, perPage, page);
+        res.setHeader('Cache-Control', 'public, max-age=60');
+        res.setHeader('X-OWS-GitHub-Cache', 'fallback-web');
+        return res.json(data);
+      } catch (fallbackErr) {
+        console.error('Error fallback web releases:', fallbackErr.message);
+      }
+    }
+    console.error('Error en GET /ows-store/github/repos/:owner/:repo/releases:', err.message);
     return res.status(502).json({ error: 'No se pudo consultar GitHub Releases', detail: err.message || 'error' });
   }
 });

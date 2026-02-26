@@ -1,0 +1,282 @@
+name: Build External Android (Signed)
+
+on:
+  workflow_dispatch:
+    inputs:
+      project:
+        description: "Proyecto a compilar"
+        required: true
+        type: choice
+        options:
+          - wildtransfer
+          - ows-news
+      source_ref:
+        description: "Branch/tag/commit del repo fuente"
+        required: true
+        default: "main"
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Resolve project mapping
+        shell: bash
+        run: |
+          case "${{ inputs.project }}" in
+            wildtransfer)
+              echo "SRC_REPO=OceanandWild/wildtransfer" >> "$GITHUB_ENV"
+              echo "APP_ID=com.oceanandwild.wildtransfer" >> "$GITHUB_ENV"
+              echo "PROJECT_SLUG=wildtransfer" >> "$GITHUB_ENV"
+              echo "ICON_REL_PATH=build/wildtransfericon.png" >> "$GITHUB_ENV"
+              echo "ARTIFACT_APK_RELEASE_UNSIGNED=wildtransfer-apk-release-unsigned" >> "$GITHUB_ENV"
+              echo "ARTIFACT_APK_DEBUG=wildtransfer-apk-debug" >> "$GITHUB_ENV"
+              echo "ARTIFACT_APK_SIGNED=wildtransfer-apk-release-signed" >> "$GITHUB_ENV"
+              echo "ARTIFACT_AAB_UNSIGNED=wildtransfer-aab-release-unsigned" >> "$GITHUB_ENV"
+              ;;
+            ows-news)
+              echo "SRC_REPO=OceanandWild/ocean-and-wild-studios-news" >> "$GITHUB_ENV"
+              echo "APP_ID=com.oceanandwild.owsnews" >> "$GITHUB_ENV"
+              echo "PROJECT_SLUG=ows-news" >> "$GITHUB_ENV"
+              echo "ICON_REL_PATH=build/owsnewsicon.png" >> "$GITHUB_ENV"
+              echo "ARTIFACT_APK_RELEASE_UNSIGNED=ows-news-apk-release-unsigned" >> "$GITHUB_ENV"
+              echo "ARTIFACT_APK_DEBUG=ows-news-apk-debug" >> "$GITHUB_ENV"
+              echo "ARTIFACT_APK_SIGNED=ows-news-apk-release-signed" >> "$GITHUB_ENV"
+              echo "ARTIFACT_AAB_UNSIGNED=ows-news-aab-release-unsigned" >> "$GITHUB_ENV"
+              ;;
+            *)
+              echo "Proyecto no soportado: ${{ inputs.project }}"
+              exit 1
+              ;;
+          esac
+          echo "APP_DIR=app" >> "$GITHUB_ENV"
+
+      - name: Checkout external project repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.SRC_REPO }}
+          ref: ${{ inputs.source_ref }}
+          path: app
+          token: ${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android build tools
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+
+      - name: Install dependencies
+        shell: bash
+        run: |
+          cd "$APP_DIR"
+          npm ci || npm install
+
+      - name: Prepare web and android platform
+        shell: bash
+        run: |
+          cd "$APP_DIR"
+
+          if [ ! -d "www" ]; then
+            mkdir -p www
+          fi
+          if [ ! -f "www/index.html" ] && [ -f "index.html" ]; then
+            cp index.html www/index.html
+          fi
+          if [ ! -f "www/index.html" ]; then
+            echo "No se encontro index.html para generar webDir (www/index.html)."
+            ls -la
+            exit 1
+          fi
+
+          if [ ! -d "android" ]; then
+            npx cap add android
+          fi
+
+          mkdir -p resources
+          if [ -f "$ICON_REL_PATH" ]; then
+            cp -f "$ICON_REL_PATH" "resources/icon.png"
+          elif [ -f "build/icon.png" ]; then
+            cp -f "build/icon.png" "resources/icon.png"
+          fi
+
+      - name: Sync Capacitor
+        shell: bash
+        run: |
+          cd "$APP_DIR"
+          npx cap sync android
+
+      - name: Set Android version metadata
+        shell: bash
+        run: |
+          cd "$APP_DIR"
+          VERSION_NAME="$(node -p "require('./package.json').version" | tr -d '\r\n')"
+          VERSION_CODE="$(date -u +%y%j%H%M)"
+          if [ -z "$VERSION_NAME" ]; then
+            VERSION_NAME="1.0.0"
+          fi
+          GRADLE_FILE="android/app/build.gradle"
+          if [ ! -f "$GRADLE_FILE" ]; then
+            echo "No existe $GRADLE_FILE"
+            exit 1
+          fi
+          sed -i -E "s/versionCode[[:space:]]+[0-9]+/versionCode ${VERSION_CODE}/" "$GRADLE_FILE"
+          sed -i -E "s/versionName[[:space:]]+\"[^\"]+\"/versionName \"${VERSION_NAME}\"/" "$GRADLE_FILE"
+          echo "${{ inputs.project }} Android versionName=${VERSION_NAME} versionCode=${VERSION_CODE}"
+          cat > android-release-metadata.json <<EOF
+          {
+            "project_slug": "${PROJECT_SLUG}",
+            "package_id": "${APP_ID}",
+            "version_name": "${VERSION_NAME}",
+            "version_code": ${VERSION_CODE}
+          }
+          EOF
+          cat android-release-metadata.json
+
+      - name: Force launcher icon in Android resources
+        shell: bash
+        run: |
+          cd "$APP_DIR"
+          ICON_SRC=""
+          if [ -f "$ICON_REL_PATH" ]; then
+            ICON_SRC="$ICON_REL_PATH"
+          elif [ -f "resources/icon.png" ]; then
+            ICON_SRC="resources/icon.png"
+          elif [ -f "build/icon.png" ]; then
+            ICON_SRC="build/icon.png"
+          fi
+
+          if [ -z "$ICON_SRC" ]; then
+            echo "No se encontro icono PNG para override de launcher. Se conserva icono por defecto."
+            exit 0
+          fi
+
+          for dir in android/app/src/main/res/mipmap-*; do
+            [ -d "$dir" ] || continue
+            if [[ "$dir" == *"anydpi-v26"* ]]; then
+              continue
+            fi
+            cp -f "$ICON_SRC" "$dir/ic_launcher.png"
+            cp -f "$ICON_SRC" "$dir/ic_launcher_round.png"
+            cp -f "$ICON_SRC" "$dir/ic_launcher_foreground.png"
+          done
+          echo "Launcher icon override aplicado desde $ICON_SRC"
+
+      - name: Build Android artifacts
+        shell: bash
+        run: |
+          cd "$APP_DIR/android"
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleDebug assembleRelease bundleRelease
+
+      - name: Detect signing config
+        shell: bash
+        env:
+          ANDROID_SIGNING_KEY_BASE64: ${{ secrets.ANDROID_SIGNING_KEY_BASE64 }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -n "$ANDROID_SIGNING_KEY_BASE64" ] && [ -n "$ANDROID_KEY_ALIAS" ] && [ -n "$ANDROID_KEYSTORE_PASSWORD" ] && [ -n "$ANDROID_KEY_PASSWORD" ]; then
+            echo "HAS_ANDROID_SIGNING=true" >> "$GITHUB_ENV"
+          else
+            echo "HAS_ANDROID_SIGNING=false" >> "$GITHUB_ENV"
+            echo "Faltan secrets de firma Android en owsdatabase."
+            exit 1
+          fi
+
+      - name: Validate Android signing keystore
+        if: ${{ env.HAS_ANDROID_SIGNING == 'true' }}
+        shell: bash
+        env:
+          ANDROID_SIGNING_KEY_BASE64: ${{ secrets.ANDROID_SIGNING_KEY_BASE64 }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          KS_PATH="$RUNNER_TEMP/ows-signing.jks"
+          printf "%s" "$ANDROID_SIGNING_KEY_BASE64" | tr -d "\r\n\t " | base64 -d > "$KS_PATH"
+          keytool -list -keystore "$KS_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" >/dev/null
+          keytool -list -keystore "$KS_PATH" -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null
+          echo "SIGNING_KEYSTORE_PATH=$KS_PATH" >> "$GITHUB_ENV"
+
+      - name: Sign release APK
+        if: ${{ env.HAS_ANDROID_SIGNING == 'true' }}
+        shell: bash
+        env:
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          UNSIGNED_APK="${APP_DIR}/android/app/build/outputs/apk/release/app-release-unsigned.apk"
+          ALIGNED_APK="${APP_DIR}/android/app/build/outputs/apk/release/app-release-aligned.apk"
+          SIGNED_APK="${APP_DIR}/android/app/build/outputs/apk/release/app-release-signed.apk"
+          APKSIGNER="${ANDROID_SDK_ROOT}/build-tools/34.0.0/apksigner"
+          ZIPALIGN="${ANDROID_SDK_ROOT}/build-tools/34.0.0/zipalign"
+
+          if [ -z "${ANDROID_KEY_PASSWORD:-}" ]; then
+            ANDROID_KEY_PASSWORD="$ANDROID_KEYSTORE_PASSWORD"
+          fi
+
+          "$ZIPALIGN" -f -p 4 "$UNSIGNED_APK" "$ALIGNED_APK"
+          "$APKSIGNER" sign \
+            --ks "$SIGNING_KEYSTORE_PATH" \
+            --ks-key-alias "$ANDROID_KEY_ALIAS" \
+            --ks-pass env:ANDROID_KEYSTORE_PASSWORD \
+            --key-pass env:ANDROID_KEY_PASSWORD \
+            --v1-signing-enabled true \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
+            --v4-signing-enabled false \
+            --out "$SIGNED_APK" \
+            "$ALIGNED_APK"
+          "$APKSIGNER" verify --verbose --print-certs "$SIGNED_APK"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_APK_RELEASE_UNSIGNED }}
+          path: ${{ env.APP_DIR }}/android/app/build/outputs/apk/release/app-release-unsigned.apk
+          if-no-files-found: error
+
+      - name: Upload APK debug artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_APK_DEBUG }}
+          path: ${{ env.APP_DIR }}/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+      - name: Upload APK signed artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_APK_SIGNED }}
+          path: |
+            ${{ env.APP_DIR }}/android/app/build/outputs/apk/release/app-release-signed.apk
+            ${{ env.APP_DIR }}/android-release-metadata.json
+          if-no-files-found: error
+
+      - name: Upload AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTIFACT_AAB_UNSIGNED }}
+          path: ${{ env.APP_DIR }}/android/app/build/outputs/bundle/release/app-release.aab
+          if-no-files-found: error

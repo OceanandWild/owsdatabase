@@ -358,4 +358,72 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }}
 
+      - name: Sync Android metadata to OWS API
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          META_FILE="release-assets/android-release-metadata.json"
+          APK_FILE="release-assets/OWS.Store.Android.release-signed.apk"
+
+          if [ ! -f "$META_FILE" ] || [ ! -f "$APK_FILE" ]; then
+            echo "No hay metadata/APK firmado para sincronizar."
+            exit 0
+          fi
+
+          mapfile -t META_FIELDS < <(python - "$META_FILE" <<'PY'
+import json,sys
+p=sys.argv[1]
+data=json.load(open(p,'r',encoding='utf-8'))
+print(data.get('project_slug','ows-store'))
+print(data.get('package_id','com.oceanandwild.owsstore'))
+print(data.get('version_name',''))
+print(data.get('version_code',''))
+PY
+          )
+
+          PROJECT_SLUG="${META_FIELDS[0]:-ows-store}"
+          PACKAGE_ID="${META_FIELDS[1]:-com.oceanandwild.owsstore}"
+          VERSION_NAME="${META_FIELDS[2]:-}"
+          VERSION_CODE="${META_FIELDS[3]:-0}"
+
+          if ! [[ "$VERSION_CODE" =~ ^[0-9]+$ ]]; then
+            VERSION_CODE="0"
+          fi
+          if [ -z "$VERSION_NAME" ] || [ "$VERSION_CODE" -le 0 ]; then
+            echo "Metadata invalida; se omite sync."
+            exit 0
+          fi
+
+          SHA256="$(sha256sum "$APK_FILE" | awk '{print $1}')"
+          SIZE_BYTES="$(stat -c%s "$APK_FILE" 2>/dev/null || wc -c < "$APK_FILE")"
+          APK_URL="https://github.com/OceanandWild/owsdatabase/releases/download/${{ inputs.release_tag }}/OWS.Store.Android.release-signed.apk"
+          PUBLISHED_AT="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+          RELEASE_NOTES="${{ inputs.release_notes }}"
+
+          PAYLOAD="$(python - <<PY
+import json, os
+payload = {
+  "project_slug": "${PROJECT_SLUG}",
+  "package_id": "${PACKAGE_ID}",
+  "version_name": "${VERSION_NAME}",
+  "version_code": int("${VERSION_CODE}" or 0),
+  "apk_url": "${APK_URL}",
+  "sha256": "${SHA256}",
+  "size_bytes": int("${SIZE_BYTES}" or 0),
+  "release_notes": os.environ.get("RELEASE_NOTES", "").strip(),
+  "status": "published",
+  "is_mandatory": False,
+  "published_at": "${PUBLISHED_AT}"
+}
+print(json.dumps(payload))
+PY
+          )"
+
+          echo "Sincronizando metadata Android para ${PROJECT_SLUG}..."
+          curl -fsS -X POST "https://owsdatabase.onrender.com/ows-store/android/releases" \
+            -H "Content-Type: application/json" \
+            --data "$PAYLOAD"
+
 

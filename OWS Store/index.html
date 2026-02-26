@@ -4532,6 +4532,7 @@
             const description = String(entry.description || '').trim();
             const searchText = `${title} ${description} ${changes.join(' ')} ${projects.join(' ')}`.toLowerCase();
             const isEvent = searchText.includes('evento') || searchText.includes('event') || searchText.includes('temporada');
+            const platformHint = detectNewsPlatforms(`${title}\n${description}\n${changes.join('\n')}\n${projects.join(' ')}`);
             return {
                 id: Number(entry.id || 0),
                 title,
@@ -4540,7 +4541,75 @@
                 projectNames: projects,
                 updateDate,
                 isEvent,
+                platforms: platformHint,
             };
+        }
+
+        function detectNewsPlatforms(rawText = '') {
+            const text = String(rawText || '').toLowerCase();
+            const hasAndroid = /\bandroid\b|\.apk\b|\.aab\b|play\s*store|mobile\b/.test(text);
+            const hasWindows = /\bwindows\b|\.exe\b|desktop\b|pc\b|win32\b/.test(text);
+            const explicitAll = /all platforms|cross[-\s]?platform|multi[-\s]?platform|todas las plataformas|ambas plataformas|windows y android|android y windows|both platforms/.test(text);
+            if (explicitAll || (hasAndroid && hasWindows)) return ['windows', 'android'];
+            if (hasAndroid) return ['android'];
+            if (hasWindows) return ['windows'];
+            return ['all'];
+        }
+
+        function getPlatformLabelFromKinds(kinds = []) {
+            const set = new Set((Array.isArray(kinds) ? kinds : []).map((k) => String(k || '').toLowerCase()).filter(Boolean));
+            if (set.has('windows') && set.has('android')) return 'Windows + Android';
+            if (set.has('windows')) return 'Windows';
+            if (set.has('android')) return 'Android';
+            return 'Todas';
+        }
+
+        function getNewsPlatformsBadgeHtml(platformKinds = []) {
+            const label = getPlatformLabelFromKinds(platformKinds);
+            return `<span class="platform-pill is-disabled" style="display:inline-flex; align-items:center; gap:0.35rem; cursor:default; padding:0.22rem 0.58rem; font-size:0.64rem;">${label}</span>`;
+        }
+
+        function summarizeReleaseNotes(rawText = '', fallback = 'Sin notas detalladas.') {
+            const lines = String(rawText || '')
+                .split(/\r?\n/)
+                .map((l) => l.replace(/^[#*\-\s>]+/, '').trim())
+                .filter(Boolean);
+            return lines[0] || fallback;
+        }
+
+        function getReleaseDerivedProjectEntries(project) {
+            if (!project) return [];
+            if (!isWildTransferProject(project)) return [];
+            const entries = [];
+            const wtName = String(project.name || 'WildTransfer');
+
+            if (project.windows_version || project.windows_last_update_at || project.last_update_at) {
+                entries.push({
+                    id: 0,
+                    title: `${wtName} Windows v${project.windows_version || project.version || '-'}`,
+                    description: summarizeReleaseNotes(project.windows_release_notes, 'Version de Windows publicada en GitHub Releases.'),
+                    changes: [],
+                    projectNames: ['wildtransfer'],
+                    updateDate: project.windows_last_update_at || project.last_update_at || null,
+                    isEvent: false,
+                    platforms: ['windows'],
+                });
+            }
+
+            if (project.android_version || project.android_last_update_at || project.last_update_at) {
+                entries.push({
+                    id: 0,
+                    title: `${wtName} Android v${project.android_version || project.version || '-'}`,
+                    description: summarizeReleaseNotes(project.android_release_notes, 'Version de Android publicada en GitHub Releases.'),
+                    changes: [],
+                    projectNames: ['wildtransfer'],
+                    updateDate: project.android_last_update_at || project.last_update_at || null,
+                    isEvent: false,
+                    platforms: ['android'],
+                });
+            }
+
+            return entries;
         }
 
         async function fetchOWSNewsUpdates(force = false) {
@@ -4606,6 +4675,7 @@
                             <div class="news-hub-item-date">${formatDateTime(item.updateDate)}</div>
                         </div>
                         <div class="news-hub-item-meta">${item.description || (item.changes[0] || 'Sin descripcion')}</div>
+                        <div style="margin-top:0.35rem;">${getNewsPlatformsBadgeHtml(item.platforms || ['all'])}</div>
                     </div>
                 `).join('');
             };
@@ -4619,14 +4689,18 @@
             const eventsWrap = document.getElementById('m-events-list');
             const newsWrap = document.getElementById('m-news-wrap');
             if (!changelogWrap || !eventsWrap || !newsWrap) return;
-            const entries = (owsNewsUpdatesCache || []).filter((entry) => doesNewsEntryMatchProject(entry, project));
-            const changelog = entries.filter((entry) => !entry.isEvent).slice(0, 3);
+            const owsNewsEntries = (owsNewsUpdatesCache || []).filter((entry) => doesNewsEntryMatchProject(entry, project));
+            const releaseEntries = getReleaseDerivedProjectEntries(project);
+            const entries = [...releaseEntries, ...owsNewsEntries]
+                .sort((a, b) => (Date.parse(b?.updateDate || '') || 0) - (Date.parse(a?.updateDate || '') || 0));
+            const changelog = entries.filter((entry) => !entry.isEvent).slice(0, 4);
             const events = entries.filter((entry) => entry.isEvent).slice(0, 3);
             newsWrap.style.display = 'grid';
             changelogWrap.innerHTML = changelog.length
                 ? changelog.map((item) => `
                     <div class="modal-news-item">
                         <strong>${item.title}</strong>
+                        <span style="margin-bottom:0.2rem;">${getNewsPlatformsBadgeHtml(item.platforms || ['all'])}</span>
                         <span>${item.description || (item.changes[0] || 'Sin descripcion')}</span>
                         <span>${formatDateTime(item.updateDate)}</span>
                     </div>
@@ -4636,6 +4710,7 @@
                 ? events.map((item) => `
                     <div class="modal-news-item">
                         <strong>${item.title}</strong>
+                        <span style="margin-bottom:0.2rem;">${getNewsPlatformsBadgeHtml(item.platforms || ['all'])}</span>
                         <span>${item.description || (item.changes[0] || 'Sin descripcion')}</span>
                         <span>${formatDateTime(item.updateDate)}</span>
                     </div>
@@ -5091,6 +5166,7 @@
                     title: `OWS Store Windows v${storeWindows.version}`,
                     date: storeWindows.publishedAt || null,
                     text: pickSummary(storeWindows.releaseNotes, 'Release de Windows publicada en GitHub Releases.'),
+                    platforms: ['windows'],
                 });
             }
 
@@ -5101,6 +5177,7 @@
                     title: `OWS Store Android ${owsStoreAndroidState.version ? `v${owsStoreAndroidState.version}` : `(code ${owsStoreAndroidState.versionCode})`}`,
                     date: owsStoreAndroidState.publishedAt || null,
                     text: pickSummary(owsStoreAndroidState.releaseNotes, 'Build Android sincronizada con metadata oficial.'),
+                    platforms: ['android'],
                 });
             }
 
@@ -5117,6 +5194,7 @@
                     title: entry.title,
                     date: entry.updateDate || null,
                     text: entry.description || entry.changes[0] || 'Sin descripcion.',
+                    platforms: entry.platforms || ['all'],
                 });
             });
 
@@ -5131,6 +5209,13 @@
                     title: `${project.name} disponible en OWS Store`,
                     date: project.last_update_at || null,
                     text: `Version ${getProjectDisplayVersion(project)} | ${getProjectPlatformLabel(project)}`,
+                    platforms: (function () {
+                        const tokens = getPlatformTokens(project);
+                        const kinds = [];
+                        if (tokens.has('windows') || supportsWindowsInstaller(project)) kinds.push('windows');
+                        if (tokens.has('android') || supportsAndroidDownloads(project)) kinds.push('android');
+                        return kinds.length ? kinds : ['all'];
+                    })(),
                 });
             });
 
@@ -5154,7 +5239,7 @@
                 const tone = toneColors[item.tone] || toneColors.neutral;
                 return `
                     <div class="notification-card" style="--tone-color:${tone};">
-                        <div class="notification-time">${formatDateTime(item.date)} · ${String(item.type || 'dato').toUpperCase()}</div>
+                        <div class="notification-time">${formatDateTime(item.date)} · ${String(item.type || 'dato').toUpperCase()} · ${getPlatformLabelFromKinds(item.platforms || ['all'])}</div>
                         <div class="notification-text">${item.title}</div>
                         <div class="notification-time" style="margin-top:0.2rem;">${item.text}</div>
                     </div>
@@ -5479,6 +5564,7 @@
                         installerAvailable: Boolean(exeAsset?.browser_download_url),
                         releaseUrl: data.html_url || WILDTRANSFER_RELEASES_URL,
                         publishedAt: data.published_at || data.created_at || null,
+                        releaseNotes: String(data.body || '').trim(),
                         warning: Boolean(exeAsset?.browser_download_url) ? '' : 'No se encontro release Windows (.exe) para WildTransfer.',
                     };
                 })(),
@@ -5495,6 +5581,7 @@
                     installerAvailable: false,
                     releaseUrl: WILDTRANSFER_RELEASES_URL,
                     publishedAt: null,
+                    releaseNotes: '',
                     warning: 'No se pudo resolver release Windows desde GitHub.',
                 };
 
@@ -5506,6 +5593,7 @@
                     downloadUrl: '',
                     directDownloadUrl: '',
                     sizeBytes: 0,
+                    notes: '',
                     publishedAt: null,
                     warning: 'No se pudo resolver release Android desde OWS Store API.',
                 };
@@ -5533,6 +5621,8 @@
                 androidAabUrl: '',
                 androidAabSize: 0,
                 androidAvailable: Boolean(androidData.directDownloadUrl || androidData.downloadUrl),
+                windowsReleaseNotes: windowsData.releaseNotes || '',
+                androidReleaseNotes: androidData.notes || '',
                 releaseUrl: windowsData.releaseUrl || WILDTRANSFER_RELEASES_URL,
                 publishedAt: pickLatestDate(windowsData.publishedAt, androidData.publishedAt),
                 warning: warnings,
@@ -6579,6 +6669,8 @@
                 if (!wildTransfer.android_apk_direct_url) wildTransfer.android_apk_direct_url = '';
                 if (!wildTransfer.android_apk_proxy_url) wildTransfer.android_apk_proxy_url = '';
                 if (!wildTransfer.android_sha256) wildTransfer.android_sha256 = '';
+                if (!wildTransfer.windows_release_notes) wildTransfer.windows_release_notes = '';
+                if (!wildTransfer.android_release_notes) wildTransfer.android_release_notes = '';
                 if (!wildTransfer.windows_version) wildTransfer.windows_version = wildTransfer.version || '';
                 if (!wildTransfer.android_version) wildTransfer.android_version = '';
                 wildTransfer.icon_url = wildTransfer.icon_url || WILDTRANSFER_LOCAL_ICON;
@@ -6608,6 +6700,8 @@
                     wildTransfer.android_apk_direct_url = latest?.androidApkDirectUrl || wildTransfer.android_apk_direct_url || '';
                     wildTransfer.android_apk_proxy_url = latest?.androidApkProxyUrl || wildTransfer.android_apk_proxy_url || '';
                     wildTransfer.android_sha256 = latest?.androidSha256 || wildTransfer.android_sha256 || '';
+                    wildTransfer.windows_release_notes = latest?.windowsReleaseNotes || wildTransfer.windows_release_notes || '';
+                    wildTransfer.android_release_notes = latest?.androidReleaseNotes || wildTransfer.android_release_notes || '';
                     wildTransfer.installer_size = Number(latest?.installerSize || 0);
                     wildTransfer.installer_available = Boolean(latest?.installerAvailable);
                     wildTransfer.android_apk_size = Number(latest?.androidApkSize || 0);
@@ -7439,6 +7533,67 @@
 
         function closeDetails() { document.getElementById('details-modal').classList.remove('active'); }
 
+        async function refreshTrackedProjectRelease(project, options = {}) {
+            if (!project || !isReleaseTrackedProject(project)) return null;
+            const force = Boolean(options?.force);
+            if (force) {
+                if (isWildWeaponProject(project)) wildWeaponReleaseCache = null;
+                if (isSSAProject(project)) ssaReleaseCache = null;
+                if (isOceanPayProject(project)) oceanPayProjectReleaseCache = null;
+                if (isWildTransferProject(project)) wildTransferReleaseCache = null;
+                if (isOWSNewsProject(project)) owsNewsReleaseCache = null;
+            }
+            const latest = isWildWeaponProject(project)
+                ? await fetchLatestWildWeaponRelease()
+                : (isSSAProject(project)
+                    ? await fetchLatestSSARelease()
+                    : (isOceanPayProject(project)
+                        ? await fetchLatestOceanPayRelease()
+                        : (isFloretProject(project)
+                            ? await fetchLatestFloretRelease()
+                            : (isWildTransferProject(project)
+                                ? await fetchLatestWildTransferRelease()
+                                : await fetchLatestOWSNewsRelease()))));
+
+            if (isFloretProject(project) || isWildTransferProject(project)) {
+                const preferred = isNativeAndroidRuntime()
+                    ? (latest?.androidVersion || latest?.windowsVersion || project.version)
+                    : (latest?.windowsVersion || latest?.androidVersion || project.version);
+                if (preferred) project.version = preferred;
+                project.windows_version = latest?.windowsVersion || project.windows_version || project.version || '';
+                project.android_version = latest?.androidVersion || project.android_version || '';
+                project.android_version_code = Number(latest?.versionCode || project.android_version_code || 0);
+                if (latest?.releaseUrl) project.android_release_url = latest.releaseUrl;
+                project.windows_last_update_at = latest?.windowsPublishedAt || project.windows_last_update_at || null;
+                project.android_last_update_at = latest?.androidPublishedAt || project.android_last_update_at || null;
+                project.android_apk_direct_url = latest?.androidApkDirectUrl || project.android_apk_direct_url || '';
+                project.android_apk_proxy_url = latest?.androidApkProxyUrl || project.android_apk_proxy_url || '';
+                project.android_sha256 = latest?.androidSha256 || project.android_sha256 || '';
+                if (isWildTransferProject(project)) {
+                    project.windows_release_notes = latest?.windowsReleaseNotes || project.windows_release_notes || '';
+                    project.android_release_notes = latest?.androidReleaseNotes || project.android_release_notes || '';
+                }
+            } else if (latest?.version) {
+                project.version = latest.version;
+                project.windows_last_update_at = latest?.publishedAt || project.windows_last_update_at || null;
+            }
+
+            if (latest?.installerUrl) project.installer_url = latest.installerUrl;
+            project.installer_size = Number(latest?.installerSize || 0);
+            project.installer_available = Boolean(latest?.installerAvailable);
+            if (latest?.androidApkUrl) project.android_apk_url = latest.androidApkUrl;
+            if (latest?.androidAabUrl) project.android_aab_url = latest.androidAabUrl;
+            project.android_apk_size = Number(latest?.androidApkSize || 0);
+            project.android_aab_size = Number(latest?.androidAabSize || 0);
+            project.android_available = Boolean(latest?.androidAvailable || project.android_apk_url || project.android_aab_url);
+            project.last_update_at = latest?.publishedAt || project.last_update_at || null;
+            project.pending_release = supportsAndroidDownloads(project)
+                ? (!project.installer_available && !project.android_available)
+                : !project.installer_available;
+            project.release_warning = latest?.warning || '';
+            return latest;
+        }
+
         async function handleProjectAction(e, project) {
             e.stopPropagation();
             if (!project) return;
@@ -7459,11 +7614,21 @@
                 return;
             }
             const installedV = localStorage.getItem(`installed_${project.slug}`);
-            const selectedTarget = getSelectedInstallTarget(project);
+            let selectedTarget = getSelectedInstallTarget(project);
             if (isExternalInstallerProject(project)) {
                 if (selectedTarget?.kind === 'android') {
-                    if (!selectedTarget.url) {
-                        const warningText = `No hay enlace de descarga ${selectedTarget.label} para ${project.name}.`;
+                    if (isReleaseTrackedProject(project)) {
+                        showActionMessage('Validando release Android de ' + project.name + '...', { state: 'checking' });
+                        try {
+                            await refreshTrackedProjectRelease(project, { force: true });
+                            selectedTarget = getSelectedInstallTarget(project);
+                        } catch (err) {
+                            console.log('No se pudo refrescar release Android:', err?.message || err);
+                            addNotification(`No se pudo validar la ultima release Android de ${project.name}.`, 'warning');
+                        }
+                    }
+                    if (!selectedTarget || selectedTarget.kind !== 'android' || !selectedTarget.url) {
+                        const warningText = `No hay enlace de descarga Android para ${project.name}.`;
                         addNotification(warningText, 'warning');
                         showActionMessage(warningText);
                         return;
@@ -7515,61 +7680,10 @@
                 scheduleSectionRender({ projects: true, library: true, immediate: false });
                 showActionMessage('Validando release de ' + project.name + '...', { state: 'checking' });
                 if (isReleaseTrackedProject(project)) {
-                    const refreshRelease = async () => {
-                        const latest = isWildWeaponProject(project)
-                            ? await fetchLatestWildWeaponRelease()
-                            : (isSSAProject(project)
-                                ? await fetchLatestSSARelease()
-                                : (isOceanPayProject(project)
-                                    ? await fetchLatestOceanPayRelease()
-                                    : (isFloretProject(project)
-                                        ? await fetchLatestFloretRelease()
-                                        : await fetchLatestOWSNewsRelease())));
-                        if (isFloretProject(project)) {
-                            const preferred = isNativeAndroidRuntime()
-                                ? (latest?.androidVersion || latest?.windowsVersion || project.version)
-                                : (latest?.windowsVersion || latest?.androidVersion || project.version);
-                            if (preferred) project.version = preferred;
-                            project.windows_version = latest?.windowsVersion || project.windows_version || project.version || '';
-                            project.android_version = latest?.androidVersion || project.android_version || '';
-                            project.windows_last_update_at = latest?.windowsPublishedAt || project.windows_last_update_at || null;
-                            project.android_last_update_at = latest?.androidPublishedAt || project.android_last_update_at || null;
-                            project.android_apk_direct_url = latest?.androidApkDirectUrl || project.android_apk_direct_url || '';
-                            project.android_apk_proxy_url = latest?.androidApkProxyUrl || project.android_apk_proxy_url || '';
-                            project.android_sha256 = latest?.androidSha256 || project.android_sha256 || '';
-                        } else if (isWildTransferProject(project)) {
-                            const preferred = isNativeAndroidRuntime()
-                                ? (latest?.androidVersion || latest?.windowsVersion || project.version)
-                                : (latest?.windowsVersion || latest?.androidVersion || project.version);
-                            if (preferred) project.version = preferred;
-                            project.windows_version = latest?.windowsVersion || project.windows_version || project.version || '';
-                            project.android_version = latest?.androidVersion || project.android_version || '';
-                            project.android_version_code = Number(latest?.versionCode || project.android_version_code || 0);
-                            project.windows_last_update_at = latest?.windowsPublishedAt || project.windows_last_update_at || null;
-                            project.android_last_update_at = latest?.androidPublishedAt || project.android_last_update_at || null;
-                            project.android_apk_direct_url = latest?.androidApkDirectUrl || project.android_apk_direct_url || '';
-                            project.android_apk_proxy_url = latest?.androidApkProxyUrl || project.android_apk_proxy_url || '';
-                            project.android_sha256 = latest?.androidSha256 || project.android_sha256 || '';
-                        } else if (latest?.version) {
-                            project.version = latest.version;
-                            project.windows_last_update_at = latest?.publishedAt || project.windows_last_update_at || null;
-                        }
-                        if (latest?.installerUrl) project.installer_url = latest.installerUrl;
-                        project.installer_size = Number(latest?.installerSize || 0);
-                        project.installer_available = Boolean(latest?.installerAvailable);
-                        if (latest?.androidApkUrl) project.android_apk_url = latest.androidApkUrl;
-                        if (latest?.androidAabUrl) project.android_aab_url = latest.androidAabUrl;
-                        project.android_apk_size = Number(latest?.androidApkSize || 0);
-                        project.android_aab_size = Number(latest?.androidAabSize || 0);
-                        project.android_available = Boolean(latest?.androidAvailable || project.android_apk_url || project.android_aab_url);
-                        project.last_update_at = latest?.publishedAt || null;
-                        project.pending_release = !project.installer_available && !project.android_available;
-                        project.release_warning = latest?.warning || '';
-                    };
                     const requiresBlockingRefresh = !project.installer_url || project.installer_available === false || project.pending_release;
                     if (requiresBlockingRefresh) {
                         try {
-                            await refreshRelease();
+                            await refreshTrackedProjectRelease(project);
                         } catch (err) {
                             console.log('No se pudo actualizar metadata release externa:', err?.message || err);
                             addNotification(`No se pudo resolver la ultima release de ${project.name}.`, 'warning');
@@ -7577,7 +7691,7 @@
                             project.release_warning = 'No se pudo validar el instalador de la ultima release.';
                         }
                     } else {
-                        refreshRelease()
+                        refreshTrackedProjectRelease(project)
                             .then(() => scheduleSectionRender({ projects: true, library: true, immediate: false }))
                             .catch((err) => console.log('Refresh release en background fallo:', err?.message || err));
                     }

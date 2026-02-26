@@ -238,7 +238,8 @@ jobs:
           fi
 
           "$ZIPALIGN" -f -p 4 "$UNSIGNED_APK" "$ALIGNED_APK"
-          "$APKSIGNER" sign \
+
+          if ! "$APKSIGNER" sign \
             --ks "$SIGNING_KEYSTORE_PATH" \
             --ks-key-alias "$ANDROID_KEY_ALIAS" \
             --ks-pass env:ANDROID_KEYSTORE_PASSWORD \
@@ -248,7 +249,21 @@ jobs:
             --v3-signing-enabled true \
             --v4-signing-enabled false \
             --out "$SIGNED_APK" \
-            "$ALIGNED_APK"
+            "$ALIGNED_APK"; then
+            echo "Primera firma fallo. Reintentando con key password = keystore password..."
+            ANDROID_KEY_PASSWORD="$ANDROID_KEYSTORE_PASSWORD" \
+            "$APKSIGNER" sign \
+              --ks "$SIGNING_KEYSTORE_PATH" \
+              --ks-key-alias "$ANDROID_KEY_ALIAS" \
+              --ks-pass env:ANDROID_KEYSTORE_PASSWORD \
+              --key-pass env:ANDROID_KEY_PASSWORD \
+              --v1-signing-enabled true \
+              --v2-signing-enabled true \
+              --v3-signing-enabled true \
+              --v4-signing-enabled false \
+              --out "$SIGNED_APK" \
+              "$ALIGNED_APK"
+          fi
           "$APKSIGNER" verify --verbose --print-certs "$SIGNED_APK"
 
       - name: Upload APK artifact

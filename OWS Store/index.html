@@ -2807,22 +2807,9 @@
             description: 'Transferencia rapida de archivos con codigo unico.',
             icon_url: WILDTRANSFER_LOCAL_ICON
         };
-        const OWSNEWS_PROJECT = {
-            slug: 'ows-news',
-            name: 'OWS News',
-            short: 'NEWS',
-            status: 'launched',
-            version: '2026.2.25-1',
-            platform: 'windows',
-            install_type: 'external',
-            installer_url: OWSNEWS_RELEASES_URL,
-            description: 'Portal oficial de noticias y eventos del ecosistema Ocean and Wild Studios.',
-            icon_url: OWSNEWS_LOCAL_ICON
-        };
         const OWS_NEWS_CACHE_TTL_MS = 120000;
         const NEW_BADGE_DURATION_MS = 14 * 24 * 60 * 60 * 1000;
         const NEW_BADGE_START_BY_SLUG = {
-            'ows-news': '2026-02-25T00:00:00Z',
             'wildtransfer': '2026-02-25T00:00:00Z',
         };
         const BRAND_STATES = [
@@ -2833,11 +2820,11 @@
         ];
         const SPOTLIGHT_SLIDES = [
             {
-                key: 'ows-news-arrival',
-                label: 'Lanzamiento',
-                title: 'OWS News ya esta disponible en OWS Store',
-                text: 'Instalalo para seguir anuncios, notas clave y novedades del ecosistema OWS.',
-                slug: 'ows-news',
+                key: 'ows-news-retired',
+                label: 'Store Changelog',
+                title: 'OWS News fue retirado como app independiente',
+                text: 'Noticias y eventos oficiales ahora se gestionan directamente dentro de OWS Store.',
+                slug: '',
             },
             {
                 key: 'wildtransfer-arrival',
@@ -2847,11 +2834,11 @@
                 slug: 'wildtransfer',
             },
             {
-                key: 'ows-news-recommend',
-                label: 'Recomendado',
-                title: 'Se recomienda instalar OWS News',
-                text: 'Es la fuente oficial para anuncios que impactan proyectos, lanzamientos y updates.',
-                slug: 'ows-news',
+                key: 'store-news-hub',
+                label: 'Novedad',
+                title: 'Nuevo centro de noticias dentro de OWS Store',
+                text: 'Ahora los anuncios, changelogs y eventos viven en un solo lugar: OWS Store.',
+                slug: '',
             },
             {
                 key: 'ocean-pay-recommend',
@@ -2861,7 +2848,7 @@
                 slug: 'ocean-pay',
             },
         ];
-        const ONE_SHOT_RECOMMENDED_SLUGS = new Set(['ows-news', 'ocean-pay']);
+        const ONE_SHOT_RECOMMENDED_SLUGS = new Set(['ocean-pay']);
         const ONE_SHOT_RECOMMEND_PREFIX = 'ows_store_recommend_shown_';
         let wildWeaponReleaseCache = null;
         let ssaReleaseCache = null;
@@ -3468,7 +3455,7 @@
             ctx.lineTo(cssW - 12, cssH - 16);
             ctx.stroke();
 
-            if (slide.key === 'ows-news-arrival') {
+            if (slide.key === 'ows-news-retired') {
                 drawSpotlightCanvasRoundedRect(ctx, 22, 22, 106, cssH - 40, 10);
                 ctx.fillStyle = dark ? '#1b2a3e' : '#e7f2f7';
                 ctx.fill();
@@ -3520,7 +3507,7 @@
                     ctx.arc(42 + i * 20, cssH * 0.54, 2.2, 0, Math.PI * 2);
                     ctx.fill();
                 }
-            } else if (slide.key === 'ows-news-recommend') {
+            } else if (slide.key === 'store-news-hub') {
                 const cx = 72;
                 const cy = cssH * 0.5;
                 const outer = 28;
@@ -3621,7 +3608,20 @@
             labelEl.innerHTML = `<i class="fas fa-bullhorn"></i> ${slide.label}`;
             titleEl.textContent = slide.title;
             textEl.textContent = slide.text;
-            btn.onclick = () => openDetails(slide.slug);
+            const linkedProject = slide.slug ? getProjectBySlug(slide.slug) : null;
+            if (linkedProject) {
+                btn.disabled = false;
+                btn.style.opacity = '1';
+                btn.style.cursor = 'pointer';
+                btn.innerHTML = '<i class="fas fa-circle-info"></i> Ver ficha';
+                btn.onclick = () => openDetails(slide.slug);
+            } else {
+                btn.disabled = true;
+                btn.style.opacity = '0.65';
+                btn.style.cursor = 'not-allowed';
+                btn.innerHTML = '<i class="fas fa-circle-info"></i> Solo informativo';
+                btn.onclick = null;
+            }
             renderSpotlightIllustration(slide);
 
             dots.innerHTML = SPOTLIGHT_SLIDES.map((s, idx) => {
@@ -4873,15 +4873,13 @@
                 || isSSAProject(project)
                 || isOceanPayProject(project)
                 || isFloretProject(project)
-                || isWildTransferProject(project)
-                || isOWSNewsProject(project);
+                || isWildTransferProject(project);
         }
 
         function getProjectShort(project) {
             if (isSSAProject(project)) return 'SSA';
             if (isFloretProject(project)) return 'FLR';
             if (isWildTransferProject(project)) return 'WTR';
-            if (isOWSNewsProject(project)) return 'NEWS';
             return '';
         }
 
@@ -4917,18 +4915,6 @@
                 list.unshift({ ...WILDTRANSFER_PROJECT });
             } else {
                 list[idx] = { ...WILDTRANSFER_PROJECT, ...list[idx], short: 'WTR', status: 'launched' };
-            }
-            return list;
-        }
-
-        function ensureOWSNewsProject(projects) {
-            if (!Array.isArray(projects)) return [];
-            const list = [...projects];
-            const idx = list.findIndex(isOWSNewsProject);
-            if (idx === -1) {
-                list.unshift({ ...OWSNEWS_PROJECT });
-            } else {
-                list[idx] = { ...OWSNEWS_PROJECT, ...list[idx], short: 'NEWS', status: 'launched' };
             }
             return list;
         }
@@ -5181,6 +5167,15 @@
                 });
             }
 
+            entries.push({
+                type: 'changelog',
+                tone: 'warning',
+                title: 'OWS News retirado como app independiente',
+                date: '2026-02-26T00:00:00Z',
+                text: 'OWS News fue integrado en OWS Store. Desde ahora, noticias y eventos se consultan dentro de OWS Store.',
+                platforms: ['windows', 'android'],
+            });
+
             const storeNews = (owsNewsUpdatesCache || []).filter((entry) => {
                 const keys = Array.isArray(entry.projectNames) ? entry.projectNames : [];
                 if (keys.some((k) => k.includes('ows-store') || k.includes('ows store'))) return true;
@@ -5337,7 +5332,6 @@
             } catch (err) {
                 console.error("Error cargando proyectos:", err);
                 allProjects = [
-                    { ...OWSNEWS_PROJECT },
                     { ...SSA_PROJECT },
                     { ...WILDTRANSFER_PROJECT },
                     { ...FLORET_PROJECT },
@@ -5345,7 +5339,8 @@
                     { slug: 'ocean-pay', name: 'Ocean Pay', status: 'launched', version: '3.1.0', platform: 'windows', install_type: 'external', installer_url: OCEAN_PAY_RELEASES_URL, icon_url: OCEAN_PAY_LOCAL_ICON, description: 'Pasarela universal.' }
                 ];
             }
-            allProjects = ensureOWSNewsProject(ensureWildTransferProject(ensureFloretProject(ensureSSAProject(allProjects))));
+            allProjects = Array.isArray(allProjects) ? allProjects.filter((p) => !isOWSNewsProject(p)) : [];
+            allProjects = ensureWildTransferProject(ensureFloretProject(ensureSSAProject(allProjects)));
             await applyLatestInstallerData(allProjects);
             try {
                 await fetchOWSNewsUpdates(true);
@@ -6362,7 +6357,6 @@
             if (isOceanPayProject(project)) return project?.icon_url || OCEAN_PAY_LOCAL_ICON;
             if (isFloretProject(project)) return project?.icon_url || FLORET_LOCAL_ICON || `https://placehold.co/${size}/2b0a45/f2a3ff?text=FLR`;
             if (isWildTransferProject(project)) return project?.icon_url || WILDTRANSFER_LOCAL_ICON || `https://placehold.co/${size}/0a1120/35d7ff?text=WTR`;
-            if (isOWSNewsProject(project)) return project?.icon_url || OWSNEWS_LOCAL_ICON || `https://placehold.co/${size}/07111f/00eaff?text=NEWS`;
             return project?.icon_url || `https://placehold.co/${size}/0f172a/00f3ff?text=OWS`;
         }
 
@@ -6389,7 +6383,7 @@
         function supportsWindowsInstaller(project) {
             if (!project) return false;
             const tokens = getPlatformTokens(project);
-            if (isWildWeaponProject(project) || isSSAProject(project) || isOceanPayProject(project) || isWildTransferProject(project) || isOWSNewsProject(project)) return true;
+            if (isWildWeaponProject(project) || isSSAProject(project) || isOceanPayProject(project) || isWildTransferProject(project)) return true;
             if (tokens.has('windows') || tokens.has('win')) return true;
             return Boolean(project.installer_url || project.release_url || project.windows_installer_url);
         }
@@ -6501,7 +6495,6 @@
             const oceanPay = projects.find(p => isOceanPayProject(p));
             const floret = projects.find(p => isFloretProject(p));
             const wildTransfer = projects.find(p => isWildTransferProject(p));
-            const owsNews = projects.find(p => isOWSNewsProject(p));
 
             if (wildWeapon) {
                 wildWeapon.platform = 'windows';
@@ -6719,35 +6712,6 @@
                 }
             }
 
-            if (owsNews) {
-                owsNews.platform = 'windows';
-                owsNews.install_type = 'external';
-                if (!owsNews.installer_url) owsNews.installer_url = OWSNEWS_RELEASES_URL;
-                owsNews.icon_url = owsNews.icon_url || OWSNEWS_LOCAL_ICON;
-                owsNews.installer_available = false;
-                owsNews.last_update_at = null;
-                owsNews.windows_last_update_at = null;
-                owsNews.android_last_update_at = null;
-                owsNews.pending_release = false;
-                owsNews.short = 'NEWS';
-                owsNews.installer_size = Number(owsNews.installer_size || 0);
-
-                try {
-                    const latest = await fetchLatestOWSNewsRelease();
-                    if (latest?.version) owsNews.version = latest.version;
-                    if (latest?.installerUrl) owsNews.installer_url = latest.installerUrl;
-                    owsNews.installer_size = Number(latest?.installerSize || 0);
-                    owsNews.installer_available = Boolean(latest?.installerAvailable);
-                    owsNews.last_update_at = latest?.publishedAt || null;
-                    owsNews.windows_last_update_at = latest?.publishedAt || null;
-                    owsNews.pending_release = !owsNews.installer_available;
-                    owsNews.release_warning = latest?.warning || '';
-                } catch (err) {
-                    console.log('No se pudo resolver la ultima release de OWS News:', err?.message || err);
-                    owsNews.pending_release = true;
-                    owsNews.release_warning = 'No se pudo validar el instalador de la ultima release.';
-                }
-            }
         }
         function isExternalInstallerProject(project) {
             if (!project) return false;
@@ -6764,7 +6728,6 @@
             if (isOceanPayProject(project)) return OCEAN_PAY_RELEASES_URL;
             if (isFloretProject(project)) return FLORET_RELEASES_URL;
             if (isWildTransferProject(project)) return WILDTRANSFER_RELEASES_URL;
-            if (isOWSNewsProject(project)) return OWSNEWS_RELEASES_URL;
             return '';
         }
 
@@ -7541,7 +7504,6 @@
                 if (isSSAProject(project)) ssaReleaseCache = null;
                 if (isOceanPayProject(project)) oceanPayProjectReleaseCache = null;
                 if (isWildTransferProject(project)) wildTransferReleaseCache = null;
-                if (isOWSNewsProject(project)) owsNewsReleaseCache = null;
             }
             const latest = isWildWeaponProject(project)
                 ? await fetchLatestWildWeaponRelease()

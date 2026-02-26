@@ -70,13 +70,24 @@ jobs:
             fi
           fi
 
+      - name: Resolve release token
+        shell: bash
+        env:
+          RELEASE_PAT: ${{ secrets.RELEASE_PAT }}
+          GH_DEFAULT_TOKEN: ${{ github.token }}
+        run: |
+          TOKEN="$RELEASE_PAT"
+          if [ -z "$TOKEN" ]; then
+            TOKEN="$GH_DEFAULT_TOKEN"
+          fi
+          echo "RELEASE_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+
       - name: Download artifact by ID
         if: ${{ inputs.artifact_id != '' }}
         uses: actions/download-artifact@v4
         with:
           run-id: ${{ inputs.source_run_id }}
           artifact-ids: ${{ inputs.artifact_id }}
-          github-token: ${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }}
           path: promoted-android
 
       - name: Download artifact by name
@@ -85,7 +96,6 @@ jobs:
         with:
           run-id: ${{ inputs.source_run_id }}
           name: ${{ inputs.artifact_name }}
-          github-token: ${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }}
           path: promoted-android
 
       - name: List files
@@ -118,7 +128,7 @@ jobs:
             promoted-android/**/*
           fail_on_unmatched_files: true
         env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ env.RELEASE_TOKEN }}
 
       - name: Sync Android release metadata to OWS API
         continue-on-error: true

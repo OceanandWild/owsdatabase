@@ -342,6 +342,18 @@ jobs:
           path: release-assets/**/*
           if-no-files-found: error
 
+      - name: Resolve release token
+        shell: bash
+        env:
+          RELEASE_PAT: ${{ secrets.RELEASE_PAT }}
+          GH_DEFAULT_TOKEN: ${{ github.token }}
+        run: |
+          TOKEN="$RELEASE_PAT"
+          if [ -z "$TOKEN" ]; then
+            TOKEN="$GH_DEFAULT_TOKEN"
+          fi
+          echo "RELEASE_TOKEN=$TOKEN" >> "$GITHUB_ENV"
+
       - name: Publish assets to owsdatabase release
         uses: softprops/action-gh-release@v2
         with:
@@ -356,7 +368,7 @@ jobs:
             release-assets/**/*
           fail_on_unmatched_files: true
         env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ env.RELEASE_TOKEN }}
 
       - name: Sync Android metadata to OWS API
         continue-on-error: true

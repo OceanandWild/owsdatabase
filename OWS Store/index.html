@@ -861,6 +861,78 @@
             font-size: 0.66rem;
         }
 
+        .news-hub-board {
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            background: linear-gradient(180deg, #fff 0%, #f7efe3 100%);
+            padding: 0.95rem;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.85rem;
+            margin-bottom: 0.95rem;
+        }
+
+        body[data-theme="dark"] .news-hub-board {
+            background: linear-gradient(180deg, #121b2a 0%, #101827 100%);
+            border-color: var(--line);
+        }
+
+        .news-hub-col {
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 0.42rem;
+        }
+
+        .news-hub-col-title {
+            font-size: 0.7rem;
+            font-weight: 800;
+            letter-spacing: 0.45px;
+            text-transform: uppercase;
+            color: var(--ink-soft);
+        }
+
+        .news-hub-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.45rem;
+        }
+
+        .news-hub-item {
+            border: 1px solid var(--line);
+            border-radius: 11px;
+            background: var(--surface);
+            padding: 0.52rem 0.6rem;
+        }
+
+        .news-hub-item-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 0.45rem;
+        }
+
+        .news-hub-item-title {
+            font-size: 0.78rem;
+            font-weight: 800;
+            color: var(--ink);
+            line-height: 1.28;
+        }
+
+        .news-hub-item-date {
+            font-size: 0.66rem;
+            color: var(--ink-soft);
+            font-family: 'Space Mono', monospace;
+            white-space: nowrap;
+        }
+
+        .news-hub-item-meta {
+            margin-top: 0.25rem;
+            font-size: 0.72rem;
+            color: var(--ink-soft);
+            line-height: 1.4;
+        }
+
         .spotlight-slider {
             position: relative;
             overflow: hidden;
@@ -1460,6 +1532,64 @@
             font-size: 0.8rem;
         }
 
+        .modal-news-wrap {
+            margin-bottom: 1rem;
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.7rem;
+        }
+
+        .modal-news-card {
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: var(--surface);
+            padding: 0.65rem;
+            min-height: 116px;
+        }
+
+        .modal-news-title {
+            font-size: 0.68rem;
+            color: var(--ink-soft);
+            text-transform: uppercase;
+            letter-spacing: 0.42px;
+            font-weight: 800;
+            margin-bottom: 0.48rem;
+        }
+
+        .modal-news-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.45rem;
+        }
+
+        .modal-news-item {
+            border: 1px solid var(--line);
+            border-radius: 9px;
+            background: var(--paper);
+            padding: 0.45rem 0.52rem;
+        }
+
+        .modal-news-item strong {
+            display: block;
+            font-size: 0.73rem;
+            color: var(--ink);
+            margin-bottom: 0.15rem;
+            line-height: 1.25;
+        }
+
+        .modal-news-item span {
+            display: block;
+            font-size: 0.68rem;
+            color: var(--ink-soft);
+            line-height: 1.34;
+        }
+
+        .modal-news-empty {
+            color: var(--ink-soft);
+            font-size: 0.73rem;
+            line-height: 1.35;
+        }
+
         .stat-box {
             background: #fff;
             padding: 0.9rem;
@@ -2016,6 +2146,10 @@
             .explore-shell {
                 gap: 0.85rem;
             }
+            .news-hub-board,
+            .modal-news-wrap {
+                grid-template-columns: 1fr;
+            }
             .connection-card,
             .download-dock {
                 border-radius: 14px;
@@ -2195,6 +2329,12 @@
             .spotlight-panel-title {
                 font-size: 0.82rem;
             }
+            .news-hub-board {
+                padding: 0.75rem;
+            }
+            .modal-news-card {
+                min-height: unset;
+            }
             .filter-chips {
                 overflow-x: auto;
                 flex-wrap: nowrap;
@@ -2270,11 +2410,11 @@
                 <div class="modal-title" id="m-title">Project Name</div>
             </div>
         </div>
-        <div class="modal-body">
-            <p class="modal-description" id="m-desc">Cargando informacion...</p>
-            <div class="modal-stats">
-                <div class="stat-box">
-                    <div class="stat-label">Version</div>
+            <div class="modal-body">
+                <p class="modal-description" id="m-desc">Cargando informacion...</p>
+                <div class="modal-stats">
+                    <div class="stat-box">
+                        <div class="stat-label">Version</div>
                     <div class="stat-value" id="m-version">1.0.0</div>
                 </div>
                 <div class="stat-box">
@@ -2282,14 +2422,28 @@
                     <div class="stat-value" id="m-status">Lanzado</div>
                 </div>
             </div>
-            <div id="m-platforms" class="modal-platforms" style="display:none;">
-                <div class="stat-label">Plataforma de descarga</div>
-                <div id="m-platform-options" class="modal-platform-options"></div>
-                <div id="m-platform-meta" class="modal-platform-meta"></div>
+                <div id="m-platforms" class="modal-platforms" style="display:none;">
+                    <div class="stat-label">Plataforma de descarga</div>
+                    <div id="m-platform-options" class="modal-platform-options"></div>
+                    <div id="m-platform-meta" class="modal-platform-meta"></div>
+                </div>
+                <div id="m-news-wrap" class="modal-news-wrap">
+                    <div class="modal-news-card">
+                        <div class="modal-news-title">Changelog del Proyecto</div>
+                        <div id="m-changelog-list" class="modal-news-list">
+                            <div class="modal-news-empty">Sin datos todavia.</div>
+                        </div>
+                    </div>
+                    <div class="modal-news-card">
+                        <div class="modal-news-title">Eventos del Proyecto</div>
+                        <div id="m-events-list" class="modal-news-list">
+                            <div class="modal-news-empty">Sin eventos cargados.</div>
+                        </div>
+                    </div>
+                </div>
             </div>
+            <div class="modal-actions" id="m-actions"></div>
         </div>
-        <div class="modal-actions" id="m-actions"></div>
-    </div>
 
     <div class="app-container">
         <aside class="sidebar">
@@ -2463,6 +2617,34 @@
                         <div class="explore-note">Tip: selecciona varios proyectos para encadenar descargas en cola.</div>
                     </div>
 
+                    <div class="section-title">Noticias y Eventos OWS</div>
+                    <div class="news-hub-board" id="news-hub-board">
+                        <div class="news-hub-col">
+                            <div class="news-hub-col-title">Noticias Globales</div>
+                            <div id="news-hub-global" class="news-hub-list">
+                                <div class="news-hub-item">
+                                    <div class="news-hub-item-head">
+                                        <div class="news-hub-item-title">Cargando noticias...</div>
+                                        <div class="news-hub-item-date">--</div>
+                                    </div>
+                                    <div class="news-hub-item-meta">Esperando respuesta del servidor.</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="news-hub-col">
+                            <div class="news-hub-col-title">Eventos Destacados</div>
+                            <div id="news-hub-events" class="news-hub-list">
+                                <div class="news-hub-item">
+                                    <div class="news-hub-item-head">
+                                        <div class="news-hub-item-title">Sin eventos por ahora</div>
+                                        <div class="news-hub-item-date">--</div>
+                                    </div>
+                                    <div class="news-hub-item-meta">Se mostraran aqui los proximos eventos del ecosistema.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="section-title">Ecosistema de Estudio <span style="font-size: 0.8rem; color: var(--accent-primary); cursor:pointer;">Ver todos</span></div>
                     <div class="project-grid ecosystem-list" id="projects-container">
                         <div class="app-card" style="opacity: 0.5;">
@@ -2534,12 +2716,17 @@
                 </div>
                 <div class="section-title">Notificaciones</div>
                 <div id="notifications-list" style="display:flex; flex-direction:column; gap:0.6rem;"></div>
+                <div class="section-title">OWS Store Changelog y Eventos</div>
+                <div id="store-news-timeline" style="display:flex; flex-direction:column; gap:0.6rem;">
+                    <div class="info-note-card">Cargando changelogs y eventos de OWS Store...</div>
+                </div>
             </section>
         </main>
     </div>
 
     <script>
         const API_URL = 'https://owsdatabase.onrender.com';
+        const OWS_NEWS_UPDATES_API_URL = `${API_URL}/ows-news/updates`;
         const OWS_STORE_ANDROID_API_BASE = `${API_URL}/ows-store/android`;
         const OWS_STORE_ANDROID_SLUG = 'ows-store';
         const FLORET_ANDROID_SLUG = 'floret-shop';
@@ -2558,6 +2745,7 @@
         const FLORET_RELEASES_API_URL = `${GITHUB_RELEASES_PROXY_BASE}/floretshop/releases?per_page=20`;
         const WILDTRANSFER_RELEASES_URL = 'https://github.com/OceanandWild/wildtransfer/releases/latest';
         const WILDTRANSFER_RELEASES_API_URL = `${GITHUB_RELEASES_PROXY_BASE}/wildtransfer/releases/latest`;
+        const WILDTRANSFER_RELEASES_LIST_API_URL = `${GITHUB_RELEASES_PROXY_BASE}/wildtransfer/releases?per_page=20`;
         const OWSNEWS_RELEASES_URL = 'https://github.com/OceanandWild/ocean-and-wild-studios-news/releases/latest';
         const OWSNEWS_RELEASES_API_URL = `${GITHUB_RELEASES_PROXY_BASE}/ocean-and-wild-studios-news/releases/latest`;
         const SSA_LOCAL_ICON = './build/ssa.ico?v=20260223-0443';
@@ -2631,6 +2819,7 @@
             description: 'Portal oficial de noticias y eventos del ecosistema Ocean and Wild Studios.',
             icon_url: OWSNEWS_LOCAL_ICON
         };
+        const OWS_NEWS_CACHE_TTL_MS = 120000;
         const NEW_BADGE_DURATION_MS = 14 * 24 * 60 * 60 * 1000;
         const NEW_BADGE_START_BY_SLUG = {
             'ows-news': '2026-02-25T00:00:00Z',
@@ -2680,6 +2869,8 @@
         let floretProjectReleaseCache = null;
         let wildTransferReleaseCache = null;
         let owsNewsReleaseCache = null;
+        let owsNewsUpdatesCache = [];
+        let owsNewsUpdatesFetchedAt = 0;
         let owsStoreAndroidReleaseCache = null;
         let owsStoreWindowsReleaseCache = null;
         let allProjects = [];
@@ -2741,6 +2932,7 @@
             publishedAt: null,
             source: 'release-page',
             warning: '',
+            releaseNotes: '',
             resolvable: false
         };
 
@@ -4267,6 +4459,190 @@
             return best?.value || null;
         }
 
+        function normalizeDateVersionString(rawValue) {
+            const raw = String(rawValue || '').trim();
+            if (!raw) return '';
+            const m = raw.match(/(\d{4})[.-](\d{1,2})[.-](\d{1,2})(?:[-_]?(\d{3,4}))?/);
+            if (!m) return raw;
+            const year = Number(m[1]);
+            const month = Number(m[2]);
+            const day = Number(m[3]);
+            const suffix = m[4] ? Number(m[4]) : 0;
+            if (!year || !month || !day) return raw;
+            return suffix > 0
+                ? `${year}.${month}.${day}-${suffix}`
+                : `${year}.${month}.${day}`;
+        }
+
+        function deriveVersionCodeFromVersionName(versionName) {
+            const m = String(versionName || '').match(/(\d{4})\.(\d{1,2})\.(\d{1,2})-(\d{3,4})/);
+            if (!m) return 0;
+            const yy = String(m[1]).slice(-2).padStart(2, '0');
+            const mm = String(Number(m[2])).padStart(2, '0');
+            const dd = String(Number(m[3])).padStart(2, '0');
+            const hhmm = String(Number(m[4])).padStart(4, '0');
+            return Number(`${yy}${mm}${dd}${hhmm}`) || 0;
+        }
+
+        function pickNewestAndroidRelease(primary, fallback) {
+            if (!primary) return fallback || null;
+            if (!fallback) return primary;
+            const primaryVersion = String(primary.version || '').trim();
+            const fallbackVersion = String(fallback.version || '').trim();
+            if (primaryVersion && fallbackVersion) {
+                const cmp = compareVersionLike(primaryVersion, fallbackVersion);
+                if (cmp !== 0) return cmp > 0 ? primary : fallback;
+            }
+            const primaryCode = Number(primary.versionCode || 0);
+            const fallbackCode = Number(fallback.versionCode || 0);
+            if (primaryCode > 0 && fallbackCode > 0 && primaryCode !== fallbackCode) {
+                return primaryCode > fallbackCode ? primary : fallback;
+            }
+            const primaryDate = Date.parse(primary.publishedAt || '') || 0;
+            const fallbackDate = Date.parse(fallback.publishedAt || '') || 0;
+            if (primaryDate !== fallbackDate) return primaryDate > fallbackDate ? primary : fallback;
+            return compareVersionLike(primary.version, fallback.version) >= 0 ? primary : fallback;
+        }
+
+        function getProjectDisplayVersion(project) {
+            if (!project) return '1.0.0';
+            if (isNativeAndroidRuntime() && supportsAndroidDownloads(project)) {
+                return project.android_version || project.version || project.windows_version || '1.0.0';
+            }
+            if (supportsWindowsInstaller(project)) {
+                return project.windows_version || project.version || project.android_version || '1.0.0';
+            }
+            return project.version || '1.0.0';
+        }
+
+        function normalizeNewsUpdateRecord(entry) {
+            if (!entry || typeof entry !== 'object') return null;
+            const updateDate = entry.update_date || entry.created_at || entry.updated_at || null;
+            const changes = Array.isArray(entry.changes)
+                ? entry.changes
+                : String(entry.changes || '')
+                    .split(/\r?\n/)
+                    .map((line) => line.trim())
+                    .filter(Boolean);
+            const projects = Array.isArray(entry.project_names)
+                ? entry.project_names.map((p) => String(p || '').toLowerCase()).filter(Boolean)
+                : [];
+            const title = String(entry.title || '').trim();
+            if (!title) return null;
+            const description = String(entry.description || '').trim();
+            const searchText = `${title} ${description} ${changes.join(' ')} ${projects.join(' ')}`.toLowerCase();
+            const isEvent = searchText.includes('evento') || searchText.includes('event') || searchText.includes('temporada');
+            return {
+                id: Number(entry.id || 0),
+                title,
+                description,
+                changes,
+                projectNames: projects,
+                updateDate,
+                isEvent,
+            };
+        }
+
+        async function fetchOWSNewsUpdates(force = false) {
+            const now = Date.now();
+            if (!force && owsNewsUpdatesCache.length && (now - owsNewsUpdatesFetchedAt) < OWS_NEWS_CACHE_TTL_MS) {
+                return owsNewsUpdatesCache;
+            }
+            const res = await fetch(`${OWS_NEWS_UPDATES_API_URL}?nocache=${now}`);
+            if (!res.ok) throw new Error(`OWS News API ${res.status}`);
+            const payload = await res.json();
+            const list = (Array.isArray(payload) ? payload : [])
+                .map(normalizeNewsUpdateRecord)
+                .filter(Boolean)
+                .sort((a, b) => (Date.parse(b.updateDate || '') || 0) - (Date.parse(a.updateDate || '') || 0));
+            owsNewsUpdatesCache = list;
+            owsNewsUpdatesFetchedAt = now;
+            return list;
+        }
+
+        function getProjectNewsAlias(project) {
+            if (!project) return [];
+            const aliases = new Set();
+            aliases.add(String(project.slug || '').toLowerCase());
+            aliases.add(String(project.name || '').toLowerCase());
+            if (isWildWeaponProject(project)) {
+                aliases.add('wildweapon');
+                aliases.add('wildweapon mayhem');
+            }
+            if (isSSAProject(project)) aliases.add('savage space animals');
+            if (isFloretProject(project)) aliases.add('floret');
+            if (isWildTransferProject(project)) aliases.add('wild transfer');
+            if (isOceanPayProject(project)) aliases.add('ocean pay');
+            if (isOWSNewsProject(project)) aliases.add('ows news');
+            return [...aliases].filter(Boolean);
+        }
+
+        function doesNewsEntryMatchProject(entry, project) {
+            if (!entry || !project) return false;
+            const aliases = getProjectNewsAlias(project);
+            if (!aliases.length) return false;
+            const projectNames = Array.isArray(entry.projectNames) ? entry.projectNames : [];
+            if (projectNames.some((p) => aliases.some((a) => p.includes(a) || a.includes(p)))) return true;
+            const text = `${entry.title} ${entry.description} ${(entry.changes || []).join(' ')}`.toLowerCase();
+            return aliases.some((alias) => alias && text.includes(alias));
+        }
+
+        function renderNewsHub() {
+            const globalWrap = document.getElementById('news-hub-global');
+            const eventsWrap = document.getElementById('news-hub-events');
+            if (!globalWrap || !eventsWrap) return;
+            const list = Array.isArray(owsNewsUpdatesCache) ? owsNewsUpdatesCache : [];
+            const globals = list.filter((n) => !n.isEvent).slice(0, 4);
+            const events = list.filter((n) => n.isEvent).slice(0, 4);
+
+            const renderList = (items, fallbackText) => {
+                if (!items.length) {
+                    return `<div class="news-hub-item"><div class="news-hub-item-head"><div class="news-hub-item-title">${fallbackText}</div><div class="news-hub-item-date">--</div></div><div class="news-hub-item-meta">Los datos apareceran aqui en cuanto haya publicaciones.</div></div>`;
+                }
+                return items.map((item) => `
+                    <div class="news-hub-item">
+                        <div class="news-hub-item-head">
+                            <div class="news-hub-item-title">${item.title}</div>
+                            <div class="news-hub-item-date">${formatDateTime(item.updateDate)}</div>
+                        </div>
+                        <div class="news-hub-item-meta">${item.description || (item.changes[0] || 'Sin descripcion')}</div>
+                    </div>
+                `).join('');
+            };
+
+            globalWrap.innerHTML = renderList(globals, 'Sin noticias globales');
+            eventsWrap.innerHTML = renderList(events, 'Sin eventos activos');
+        }
+
+        function renderProjectNewsInModal(project) {
+            const changelogWrap = document.getElementById('m-changelog-list');
+            const eventsWrap = document.getElementById('m-events-list');
+            const newsWrap = document.getElementById('m-news-wrap');
+            if (!changelogWrap || !eventsWrap || !newsWrap) return;
+            const entries = (owsNewsUpdatesCache || []).filter((entry) => doesNewsEntryMatchProject(entry, project));
+            const changelog = entries.filter((entry) => !entry.isEvent).slice(0, 3);
+            const events = entries.filter((entry) => entry.isEvent).slice(0, 3);
+            newsWrap.style.display = 'grid';
+            changelogWrap.innerHTML = changelog.length
+                ? changelog.map((item) => `
+                    <div class="modal-news-item">
+                        <strong>${item.title}</strong>
+                        <span>${item.description || (item.changes[0] || 'Sin descripcion')}</span>
+                        <span>${formatDateTime(item.updateDate)}</span>
+                    </div>
+                `).join('')
+                : '<div class="modal-news-empty">Sin changelogs vinculados a este proyecto.</div>';
+            eventsWrap.innerHTML = events.length
+                ? events.map((item) => `
+                    <div class="modal-news-item">
+                        <strong>${item.title}</strong>
+                        <span>${item.description || (item.changes[0] || 'Sin descripcion')}</span>
+                        <span>${formatDateTime(item.updateDate)}</span>
+                    </div>
+                `).join('')
+                : '<div class="modal-news-empty">Sin eventos vinculados a este proyecto.</div>';
+        }
+
         function normalizePlatformKind(rawValue) {
             const raw = String(rawValue || '').toLowerCase();
             if (raw.includes('android')) return 'android';
@@ -4422,6 +4798,7 @@
                 || isSSAProject(project)
                 || isOceanPayProject(project)
                 || isFloretProject(project)
+                || isWildTransferProject(project)
                 || isOWSNewsProject(project);
         }
 
@@ -4610,6 +4987,7 @@
         function renderVisibleProjects() {
             renderProjects(getVisibleProjects());
             renderExploreInsights();
+            renderNewsHub();
         }
 
         function renderProjectUpdatesList() {
@@ -4693,6 +5071,97 @@
             }).join('');
         }
 
+        function renderStoreNewsTimeline() {
+            const container = document.getElementById('store-news-timeline');
+            if (!container) return;
+            const entries = [];
+            const pickSummary = (rawText, fallback = 'Sin notas detalladas.') => {
+                const line = String(rawText || '')
+                    .split(/\r?\n/)
+                    .map((l) => l.replace(/^[#*\-\s>]+/, '').trim())
+                    .find(Boolean);
+                return line || fallback;
+            };
+
+            const storeWindows = owsStoreWindowsReleaseCache || null;
+            if (storeWindows?.version) {
+                entries.push({
+                    type: 'changelog',
+                    tone: 'info',
+                    title: `OWS Store Windows v${storeWindows.version}`,
+                    date: storeWindows.publishedAt || null,
+                    text: pickSummary(storeWindows.releaseNotes, 'Release de Windows publicada en GitHub Releases.'),
+                });
+            }
+
+            if (owsStoreAndroidState.version || owsStoreAndroidState.versionCode > 0) {
+                entries.push({
+                    type: 'changelog',
+                    tone: 'success',
+                    title: `OWS Store Android ${owsStoreAndroidState.version ? `v${owsStoreAndroidState.version}` : `(code ${owsStoreAndroidState.versionCode})`}`,
+                    date: owsStoreAndroidState.publishedAt || null,
+                    text: pickSummary(owsStoreAndroidState.releaseNotes, 'Build Android sincronizada con metadata oficial.'),
+                });
+            }
+
+            const storeNews = (owsNewsUpdatesCache || []).filter((entry) => {
+                const keys = Array.isArray(entry.projectNames) ? entry.projectNames : [];
+                if (keys.some((k) => k.includes('ows-store') || k.includes('ows store'))) return true;
+                const blob = `${entry.title} ${entry.description} ${(entry.changes || []).join(' ')}`.toLowerCase();
+                return blob.includes('ows store');
+            });
+            storeNews.slice(0, 6).forEach((entry) => {
+                entries.push({
+                    type: entry.isEvent ? 'evento' : 'changelog',
+                    tone: entry.isEvent ? 'warning' : 'neutral',
+                    title: entry.title,
+                    date: entry.updateDate || null,
+                    text: entry.description || entry.changes[0] || 'Sin descripcion.',
+                });
+            });
+
+            const launchEvents = [...allProjects]
+                .filter((project) => !project.pending_release && project.last_update_at && !isOWSNewsProject(project))
+                .sort((a, b) => (Date.parse(b.last_update_at || '') || 0) - (Date.parse(a.last_update_at || '') || 0))
+                .slice(0, 6);
+            launchEvents.forEach((project) => {
+                entries.push({
+                    type: 'lanzamiento',
+                    tone: 'success',
+                    title: `${project.name} disponible en OWS Store`,
+                    date: project.last_update_at || null,
+                    text: `Version ${getProjectDisplayVersion(project)} | ${getProjectPlatformLabel(project)}`,
+                });
+            });
+
+            const sorted = entries
+                .filter((e) => e.title)
+                .sort((a, b) => (Date.parse(b.date || '') || 0) - (Date.parse(a.date || '') || 0))
+                .slice(0, 12);
+
+            if (!sorted.length) {
+                container.innerHTML = '<div class="info-note-card">Sin changelogs o eventos de Store por ahora.</div>';
+                return;
+            }
+
+            const toneColors = {
+                success: '#1f9d63',
+                warning: '#b96700',
+                info: '#007f84',
+                neutral: '#5a6470',
+            };
+            container.innerHTML = sorted.map((item) => {
+                const tone = toneColors[item.tone] || toneColors.neutral;
+                return `
+                    <div class="notification-card" style="--tone-color:${tone};">
+                        <div class="notification-time">${formatDateTime(item.date)} · ${String(item.type || 'dato').toUpperCase()}</div>
+                        <div class="notification-text">${item.title}</div>
+                        <div class="notification-time" style="margin-top:0.2rem;">${item.text}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
         async function triggerProjectUpdate(slug, platform = '') {
             const project = allProjects.find((p) => p.slug === slug);
             if (!project) return;
@@ -4728,7 +5197,10 @@
         function renderIfVisible(target) {
             if (target === 'projects' && activeSection === 'home') renderVisibleProjects();
             if (target === 'library' && activeSection === 'library') renderLibrary();
-            if (target === 'updates' && activeSection === 'updates') renderProjectUpdatesList();
+            if (target === 'updates' && activeSection === 'updates') {
+                renderProjectUpdatesList();
+                renderStoreNewsTimeline();
+            }
         }
 
         function scheduleSectionRender({ projects = false, library = false, immediate = false } = {}) {
@@ -4736,6 +5208,7 @@
                 if (projects) renderIfVisible('projects');
                 if (library) renderIfVisible('library');
                 renderProjectUpdatesList();
+                renderStoreNewsTimeline();
                 renderDownloadSurfaces();
             };
             if (immediate) {
@@ -4789,10 +5262,17 @@
             }
             allProjects = ensureOWSNewsProject(ensureWildTransferProject(ensureFloretProject(ensureSSAProject(allProjects))));
             await applyLatestInstallerData(allProjects);
+            try {
+                await fetchOWSNewsUpdates(true);
+            } catch (err) {
+                console.log('No se pudieron cargar noticias OWS:', err?.message || err);
+                owsNewsUpdatesCache = [];
+            }
             await refreshInstallationStates();
             renderVisibleProjects();
             renderLibrary();
             renderProjectUpdatesList();
+            renderStoreNewsTimeline();
             requestRenderDownloadSurfaces({ immediate: true });
             await checkProjectUpdatesAndNotify();
         }
@@ -4907,12 +5387,65 @@
             return payload;
         }
 
+        async function fetchLatestWildTransferAndroidFromGitHub() {
+            const res = await fetch(WILDTRANSFER_RELEASES_LIST_API_URL, {
+                headers: { 'Accept': 'application/vnd.github+json' }
+            });
+            if (!res.ok) throw new Error(`GitHub API ${res.status}`);
+            const releases = await res.json();
+            const list = Array.isArray(releases) ? releases : [];
+            let best = null;
+
+            for (const rel of list) {
+                const assets = Array.isArray(rel?.assets) ? rel.assets : [];
+                const apk = assets
+                    .filter((a) => isInstallableAndroidApkAsset(a?.name))
+                    .map((a) => ({
+                        asset: a,
+                        score: scoreAndroidAssetName(a?.name, 'apk'),
+                    }))
+                    .sort((a, b) => b.score - a.score)[0]?.asset || null;
+                if (!apk) continue;
+
+                const rawTag = String(rel?.tag_name || '').trim();
+                const versionFromTag = normalizeDateVersionString(rawTag.replace(/^.*?v/i, ''));
+                const versionFromAsset = normalizeDateVersionString(extractVersionFromText(apk?.name || ''));
+                const version = versionFromTag || versionFromAsset || '';
+                const candidate = {
+                    version,
+                    versionCode: deriveVersionCodeFromVersionName(version),
+                    packageId: '',
+                    downloadUrl: apk?.browser_download_url || '',
+                    directDownloadUrl: apk?.browser_download_url || '',
+                    sizeBytes: Number(apk?.size || 0),
+                    sha256: '',
+                    minStoreVersion: '',
+                    mandatory: false,
+                    notes: String(rel?.body || '').trim(),
+                    publishedAt: rel?.published_at || rel?.created_at || null,
+                    source: 'github-releases',
+                    warning: '',
+                };
+
+                if (!best) {
+                    best = candidate;
+                    continue;
+                }
+                best = pickNewestAndroidRelease(best, candidate);
+            }
+
+            if (!best || !best.downloadUrl) {
+                throw new Error('No se encontro release Android en GitHub para WildTransfer.');
+            }
+            return best;
+        }
+
         async function fetchLatestWildTransferRelease() {
             const now = Date.now();
             if (wildTransferReleaseCache && (now - wildTransferReleaseCache.checkedAt) < 120000) {
                 return wildTransferReleaseCache;
             }
-            const [windowsResult, androidResult] = await Promise.allSettled([
+            const [windowsResult, androidResult, androidGithubResult] = await Promise.allSettled([
                 (async () => {
                     const res = await fetch(WILDTRANSFER_RELEASES_API_URL, {
                         headers: { 'Accept': 'application/vnd.github+json' }
@@ -4950,6 +5483,7 @@
                     };
                 })(),
                 fetchLatestAndroidReleaseFromStoreApi('wildtransfer', WILDTRANSFER_RELEASES_URL),
+                fetchLatestWildTransferAndroidFromGitHub(),
             ]);
 
             const windowsData = windowsResult.status === 'fulfilled'
@@ -4964,7 +5498,7 @@
                     warning: 'No se pudo resolver release Windows desde GitHub.',
                 };
 
-            const androidData = androidResult.status === 'fulfilled'
+            const androidDataFromApi = androidResult.status === 'fulfilled'
                 ? androidResult.value
                 : {
                     version: '',
@@ -4975,6 +5509,10 @@
                     publishedAt: null,
                     warning: 'No se pudo resolver release Android desde OWS Store API.',
                 };
+            const androidDataFromGithub = androidGithubResult.status === 'fulfilled'
+                ? androidGithubResult.value
+                : null;
+            const androidData = pickNewestAndroidRelease(androidDataFromApi, androidDataFromGithub) || androidDataFromApi;
 
             const warnings = [windowsData.warning, androidData.warning].filter(Boolean).join(' | ');
             const payload = {
@@ -5273,6 +5811,7 @@
                     publishedAt: latest.publishedAt || null,
                     source: latest.source || 'ows-store-api',
                     warning: latest.warning || '',
+                    releaseNotes: latest.notes || '',
                     resolvable: Boolean((latest.version || '').trim() || Number(latest.versionCode || 0) > 0),
                     checkedAt: now
                 };
@@ -5289,6 +5828,7 @@
                     publishedAt: null,
                     source: 'release-page',
                     warning: 'No se pudo resolver release Android desde OWS Store API.',
+                    releaseNotes: '',
                     resolvable: false,
                     checkedAt: now
                 };
@@ -5344,6 +5884,7 @@
                 downloadUrl: selected?.asset?.browser_download_url || OWS_STORE_RELEASES_URL,
                 sizeBytes: Number(selected?.asset?.size || 0),
                 publishedAt: data.published_at || data.created_at || null,
+                releaseNotes: String(data.body || '').trim(),
                 warning: selected?.asset?.browser_download_url ? '' : 'No se encontro instalador Windows (.exe) en latest release.',
                 checkedAt: now,
             };
@@ -5379,6 +5920,7 @@
             owsStoreAndroidState.publishedAt = payload?.publishedAt || null;
             owsStoreAndroidState.source = payload?.source || 'release-page';
             owsStoreAndroidState.warning = payload?.warning || '';
+            owsStoreAndroidState.releaseNotes = payload?.releaseNotes || '';
             owsStoreAndroidState.resolvable = Boolean(payload?.resolvable || (payload?.version || '').trim() || Number(payload?.versionCode || 0) > 0);
             renderOWSStoreAndroidMeta();
         }
@@ -5997,7 +6539,10 @@
 
                 try {
                     const latest = await fetchLatestFloretRelease();
-                    if (latest?.windowsVersion) floret.version = latest.windowsVersion;
+                    const preferredFloretVersion = isNativeAndroidRuntime()
+                        ? (latest?.androidVersion || latest?.windowsVersion || floret.version)
+                        : (latest?.windowsVersion || latest?.androidVersion || floret.version);
+                    if (preferredFloretVersion) floret.version = preferredFloretVersion;
                     floret.windows_version = latest?.windowsVersion || floret.windows_version || floret.version || '';
                     floret.android_version = latest?.androidVersion || floret.android_version || '';
                     floret.android_version_code = Number(latest?.versionCode || 0);
@@ -6050,7 +6595,10 @@
 
                 try {
                     const latest = await fetchLatestWildTransferRelease();
-                    if (latest?.windowsVersion) wildTransfer.version = latest.windowsVersion;
+                    const preferredWildTransferVersion = isNativeAndroidRuntime()
+                        ? (latest?.androidVersion || latest?.windowsVersion || wildTransfer.version)
+                        : (latest?.windowsVersion || latest?.androidVersion || wildTransfer.version);
+                    if (preferredWildTransferVersion) wildTransfer.version = preferredWildTransferVersion;
                     wildTransfer.windows_version = latest?.windowsVersion || wildTransfer.windows_version || wildTransfer.version || '';
                     wildTransfer.android_version = latest?.androidVersion || wildTransfer.android_version || '';
                     wildTransfer.android_version_code = Number(latest?.versionCode || 0);
@@ -6674,6 +7222,7 @@
                 const availabilityLabel = getProjectPlatformLabel(p);
                 const short = getProjectShort(p);
                 const updateInfo = getProjectUpdateInfo(p);
+                const displayVersion = getProjectDisplayVersion(p);
                 const updateHint = isReleaseTrackedProject(p)
                     ? (p.last_update_at ? `Ultima actualizacion: ${formatDateTime(p.last_update_at)}` : 'Ultima actualizacion: pendiente')
                     : (p.description || 'Proyecto oficial del ecosistema Ocean and Wild Studios.');
@@ -6703,7 +7252,7 @@
                             <div class="app-name"><span class="ecosystem-title-wrap">${p.name}${short ? ` <span style="font-size:0.72rem;color:var(--brand-2);">(${short})</span>` : ''}${newBadgeHtml}</span></div>
                             <span class="ecosystem-platform">${availabilityLabel}</span>
                         </div>
-                        <div class="app-meta"><span>v${p.version || '1.0.0'}</span>${countdownHtml}</div>
+                        <div class="app-meta"><span>v${displayVersion || '1.0.0'}</span>${countdownHtml}</div>
                         ${updateInfoHtml || `<div class="ecosystem-submeta">${updateHint}</div>`}
                         ${updateFlagHtml}
                         ${installingHtml}
@@ -6785,7 +7334,6 @@
                     : `Ultima actualizacion: ${formatDateTime(p.last_update_at)}`;
                 document.getElementById('m-desc').innerText += `\n\n${statusText}.`;
             }
-            document.getElementById('m-version').innerText = p.version || '1.0.0';
             document.getElementById('m-status').innerText = isReleaseTrackedProject(p)
                 ? (p.pending_release ? 'PENDING RELEASE' : 'READY TO INSTALL')
                 : (p.status || 'launched').toUpperCase();
@@ -6795,6 +7343,8 @@
             const targets = getProjectInstallTargets(p);
             const selectedTarget = getSelectedInstallTarget(p);
             if (selectedTarget) selectedInstallTargetBySlug[p.slug] = selectedTarget.id;
+            const modalVersion = selectedTarget?.version || getProjectDisplayVersion(p) || p.version || '1.0.0';
+            document.getElementById('m-version').innerText = modalVersion;
             const platformsWrap = document.getElementById('m-platforms');
             const platformOptions = document.getElementById('m-platform-options');
             const platformMeta = document.getElementById('m-platform-meta');
@@ -6882,6 +7432,7 @@
                 cancelBtn.onclick = async () => { closeDetails(); await cancelInstallFromLibrary(p.slug); };
                 actions.appendChild(cancelBtn);
             }
+            renderProjectNewsInModal(p);
             maybeShowRecommendBubble(p);
             document.getElementById('details-modal').classList.add('active');
         }
@@ -6975,9 +7526,25 @@
                                         ? await fetchLatestFloretRelease()
                                         : await fetchLatestOWSNewsRelease())));
                         if (isFloretProject(project)) {
-                            if (latest?.windowsVersion) project.version = latest.windowsVersion;
+                            const preferred = isNativeAndroidRuntime()
+                                ? (latest?.androidVersion || latest?.windowsVersion || project.version)
+                                : (latest?.windowsVersion || latest?.androidVersion || project.version);
+                            if (preferred) project.version = preferred;
                             project.windows_version = latest?.windowsVersion || project.windows_version || project.version || '';
                             project.android_version = latest?.androidVersion || project.android_version || '';
+                            project.windows_last_update_at = latest?.windowsPublishedAt || project.windows_last_update_at || null;
+                            project.android_last_update_at = latest?.androidPublishedAt || project.android_last_update_at || null;
+                            project.android_apk_direct_url = latest?.androidApkDirectUrl || project.android_apk_direct_url || '';
+                            project.android_apk_proxy_url = latest?.androidApkProxyUrl || project.android_apk_proxy_url || '';
+                            project.android_sha256 = latest?.androidSha256 || project.android_sha256 || '';
+                        } else if (isWildTransferProject(project)) {
+                            const preferred = isNativeAndroidRuntime()
+                                ? (latest?.androidVersion || latest?.windowsVersion || project.version)
+                                : (latest?.windowsVersion || latest?.androidVersion || project.version);
+                            if (preferred) project.version = preferred;
+                            project.windows_version = latest?.windowsVersion || project.windows_version || project.version || '';
+                            project.android_version = latest?.androidVersion || project.android_version || '';
+                            project.android_version_code = Number(latest?.versionCode || project.android_version_code || 0);
                             project.windows_last_update_at = latest?.windowsPublishedAt || project.windows_last_update_at || null;
                             project.android_last_update_at = latest?.androidPublishedAt || project.android_last_update_at || null;
                             project.android_apk_direct_url = latest?.androidApkDirectUrl || project.android_apk_direct_url || '';
@@ -7228,11 +7795,14 @@
             }
             if (id === 'updates') {
                 renderDownloadSurfaces();
+                renderStoreNewsTimeline();
                 if (isNativeAndroidRuntime() && typeof window.owsUpdater === 'undefined') {
                     checkOWSStoreAndroidUpdate({ silent: true, origin: 'auto' }).catch(() => {});
                 } else if (window.owsUpdater?.checkForUpdates) {
                     requestWindowsUpdaterCheck({ silent: true, origin: 'auto' }).catch(() => {});
                 }
+            } else if (id === 'home') {
+                renderNewsHub();
             }
         }
 
@@ -7808,6 +8378,9 @@
                 if (document.hidden) return;
                 checkProjectUpdatesAndNotify().then(() => {
                     scheduleSectionRender({ projects: true, library: true, immediate: false });
+                }).catch(() => {});
+                fetchOWSNewsUpdates(false).then(() => {
+                    if (activeSection === 'home') renderNewsHub();
                 }).catch(() => {});
                 refreshStoreAndroidReleaseLink().catch(() => {});
                 if (isNativeAndroidRuntime() && typeof window.owsUpdater === 'undefined') {

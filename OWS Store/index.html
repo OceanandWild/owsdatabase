@@ -2608,9 +2608,14 @@
             short: 'WTR',
             status: 'launched',
             version: '1.0.0',
-            platform: 'windows',
+            platform: 'android,windows',
             install_type: 'external',
             installer_url: WILDTRANSFER_RELEASES_URL,
+            windows_version: '',
+            android_release_url: WILDTRANSFER_RELEASES_URL,
+            android_apk_url: '',
+            android_version: '',
+            android_version_code: 0,
             description: 'Transferencia rapida de archivos con codigo unico.',
             icon_url: WILDTRANSFER_LOCAL_ICON
         };
@@ -4907,41 +4912,92 @@
             if (wildTransferReleaseCache && (now - wildTransferReleaseCache.checkedAt) < 120000) {
                 return wildTransferReleaseCache;
             }
+            const [windowsResult, androidResult] = await Promise.allSettled([
+                (async () => {
+                    const res = await fetch(WILDTRANSFER_RELEASES_API_URL, {
+                        headers: { 'Accept': 'application/vnd.github+json' }
+                    });
+                    if (!res.ok) throw new Error(`GitHub API ${res.status}`);
+                    const data = await res.json();
+                    const assets = Array.isArray(data.assets) ? data.assets : [];
+                    const versionFromTag = String(data.tag_name || '').replace(/^v/i, '');
+                    const exeCandidates = assets.filter(a => typeof a?.name === 'string' && /\.exe$/i.test(a.name));
+                    const scoredCandidates = exeCandidates.map((a) => ({
+                        asset: a,
+                        version: extractVersionFromText(a.name),
+                        updatedAtMs: Date.parse(a.updated_at || '') || 0,
+                        hasWildTransferName: /wildtransfer|wild-transfer/i.test(String(a.name || '')),
+                    }));
 
-            const res = await fetch(WILDTRANSFER_RELEASES_API_URL, {
-                headers: { 'Accept': 'application/vnd.github+json' }
-            });
-            if (!res.ok) throw new Error(`GitHub API ${res.status}`);
-            const data = await res.json();
-            const assets = Array.isArray(data.assets) ? data.assets : [];
-            const versionFromTag = String(data.tag_name || '').replace(/^v/i, '');
-            const exeCandidates = assets.filter(a => typeof a?.name === 'string' && /\.exe$/i.test(a.name));
-            const scoredCandidates = exeCandidates.map((a) => ({
-                asset: a,
-                version: extractVersionFromText(a.name),
-                updatedAtMs: Date.parse(a.updated_at || '') || 0,
-                hasWildTransferName: /wildtransfer|wild-transfer/i.test(String(a.name || '')),
-            }));
+                    scoredCandidates.sort((x, y) => {
+                        if (x.hasWildTransferName !== y.hasWildTransferName) return x.hasWildTransferName ? -1 : 1;
+                        const cmp = compareVersionLike(y.version, x.version);
+                        if (cmp !== 0) return cmp;
+                        return y.updatedAtMs - x.updatedAtMs;
+                    });
 
-            scoredCandidates.sort((x, y) => {
-                if (x.hasWildTransferName !== y.hasWildTransferName) return x.hasWildTransferName ? -1 : 1;
-                const cmp = compareVersionLike(y.version, x.version);
-                if (cmp !== 0) return cmp;
-                return y.updatedAtMs - x.updatedAtMs;
-            });
+                    const selected = scoredCandidates[0] || null;
+                    const exeAsset = selected?.asset || null;
+                    const versionFromAsset = selected?.version || '';
+                    return {
+                        version: versionFromTag || versionFromAsset || null,
+                        installerUrl: exeAsset?.browser_download_url || '',
+                        installerSize: Number(exeAsset?.size || 0),
+                        installerAvailable: Boolean(exeAsset?.browser_download_url),
+                        releaseUrl: data.html_url || WILDTRANSFER_RELEASES_URL,
+                        publishedAt: data.published_at || data.created_at || null,
+                        warning: Boolean(exeAsset?.browser_download_url) ? '' : 'No se encontro release Windows (.exe) para WildTransfer.',
+                    };
+                })(),
+                fetchLatestAndroidReleaseFromStoreApi('wildtransfer', WILDTRANSFER_RELEASES_URL),
+            ]);
 
-            const selected = scoredCandidates[0] || null;
-            const exeAsset = selected?.asset || null;
-            const versionFromAsset = selected?.version || '';
+            const windowsData = windowsResult.status === 'fulfilled'
+                ? windowsResult.value
+                : {
+                    version: '',
+                    installerUrl: '',
+                    installerSize: 0,
+                    installerAvailable: false,
+                    releaseUrl: WILDTRANSFER_RELEASES_URL,
+                    publishedAt: null,
+                    warning: 'No se pudo resolver release Windows desde GitHub.',
+                };
+
+            const androidData = androidResult.status === 'fulfilled'
+                ? androidResult.value
+                : {
+                    version: '',
+                    versionCode: 0,
+                    downloadUrl: '',
+                    directDownloadUrl: '',
+                    sizeBytes: 0,
+                    publishedAt: null,
+                    warning: 'No se pudo resolver release Android desde OWS Store API.',
+                };
+
+            const warnings = [windowsData.warning, androidData.warning].filter(Boolean).join(' | ');
             const payload = {
-                version: versionFromTag || versionFromAsset || null,
-                tagVersion: versionFromTag || null,
-                assetVersion: versionFromAsset || null,
-                installerUrl: exeAsset?.browser_download_url || '',
-                installerSize: Number(exeAsset?.size || 0),
-                installerAvailable: Boolean(exeAsset?.browser_download_url),
-                publishedAt: data.published_at || data.created_at || null,
-                warning: Boolean(exeAsset?.browser_download_url) ? '' : 'No se encontro release Windows (.exe) para WildTransfer.',
+                version: windowsData.version || androidData.version || null,
+                windowsVersion: windowsData.version || '',
+                androidVersion: androidData.version || '',
+                windowsPublishedAt: windowsData.publishedAt || null,
+                androidPublishedAt: androidData.publishedAt || null,
+                versionCode: Number(androidData.versionCode || 0),
+                installerUrl: windowsData.installerUrl || '',
+                installerSize: Number(windowsData.installerSize || 0),
+                installerAvailable: Boolean(windowsData.installerAvailable && windowsData.installerUrl),
+                androidApkUrl: androidData.directDownloadUrl || androidData.downloadUrl || '',
+                androidApkDirectUrl: androidData.directDownloadUrl || '',
+                androidApkProxyUrl: androidData.downloadUrl || '',
+                androidSha256: androidData.sha256 || '',
+                androidApkSize: Number(androidData.sizeBytes || 0),
+                androidAabUrl: '',
+                androidAabSize: 0,
+                androidAvailable: Boolean(androidData.directDownloadUrl || androidData.downloadUrl),
+                releaseUrl: windowsData.releaseUrl || WILDTRANSFER_RELEASES_URL,
+                publishedAt: pickLatestDate(windowsData.publishedAt, androidData.publishedAt),
+                warning: warnings,
                 checkedAt: now,
             };
             wildTransferReleaseCache = payload;
@@ -5970,32 +6026,54 @@
             }
 
             if (wildTransfer) {
-                wildTransfer.platform = 'windows';
+                wildTransfer.platform = 'android,windows';
                 wildTransfer.install_type = 'external';
                 if (!wildTransfer.installer_url) wildTransfer.installer_url = WILDTRANSFER_RELEASES_URL;
+                if (!wildTransfer.android_release_url) wildTransfer.android_release_url = WILDTRANSFER_RELEASES_URL;
+                if (!wildTransfer.android_apk_url) wildTransfer.android_apk_url = '';
+                if (!wildTransfer.android_apk_direct_url) wildTransfer.android_apk_direct_url = '';
+                if (!wildTransfer.android_apk_proxy_url) wildTransfer.android_apk_proxy_url = '';
+                if (!wildTransfer.android_sha256) wildTransfer.android_sha256 = '';
+                if (!wildTransfer.windows_version) wildTransfer.windows_version = wildTransfer.version || '';
+                if (!wildTransfer.android_version) wildTransfer.android_version = '';
                 wildTransfer.icon_url = wildTransfer.icon_url || WILDTRANSFER_LOCAL_ICON;
                 wildTransfer.installer_available = false;
+                wildTransfer.android_available = false;
                 wildTransfer.last_update_at = null;
                 wildTransfer.windows_last_update_at = null;
                 wildTransfer.android_last_update_at = null;
                 wildTransfer.pending_release = false;
                 wildTransfer.short = 'WTR';
                 wildTransfer.installer_size = Number(wildTransfer.installer_size || 0);
+                wildTransfer.android_apk_size = Number(wildTransfer.android_apk_size || 0);
+                wildTransfer.android_aab_size = Number(wildTransfer.android_aab_size || 0);
 
                 try {
                     const latest = await fetchLatestWildTransferRelease();
-                    if (latest?.version) wildTransfer.version = latest.version;
+                    if (latest?.windowsVersion) wildTransfer.version = latest.windowsVersion;
+                    wildTransfer.windows_version = latest?.windowsVersion || wildTransfer.windows_version || wildTransfer.version || '';
+                    wildTransfer.android_version = latest?.androidVersion || wildTransfer.android_version || '';
+                    wildTransfer.android_version_code = Number(latest?.versionCode || 0);
                     if (latest?.installerUrl) wildTransfer.installer_url = latest.installerUrl;
+                    if (latest?.releaseUrl) wildTransfer.android_release_url = latest.releaseUrl;
+                    if (latest?.androidApkUrl) wildTransfer.android_apk_url = latest.androidApkUrl;
+                    wildTransfer.android_apk_direct_url = latest?.androidApkDirectUrl || wildTransfer.android_apk_direct_url || '';
+                    wildTransfer.android_apk_proxy_url = latest?.androidApkProxyUrl || wildTransfer.android_apk_proxy_url || '';
+                    wildTransfer.android_sha256 = latest?.androidSha256 || wildTransfer.android_sha256 || '';
                     wildTransfer.installer_size = Number(latest?.installerSize || 0);
                     wildTransfer.installer_available = Boolean(latest?.installerAvailable);
+                    wildTransfer.android_apk_size = Number(latest?.androidApkSize || 0);
+                    wildTransfer.android_aab_size = Number(latest?.androidAabSize || 0);
+                    wildTransfer.android_available = Boolean(latest?.androidAvailable || wildTransfer.android_apk_url || wildTransfer.android_aab_url);
                     wildTransfer.last_update_at = latest?.publishedAt || null;
-                    wildTransfer.windows_last_update_at = latest?.publishedAt || null;
-                    wildTransfer.pending_release = !wildTransfer.installer_available;
+                    wildTransfer.windows_last_update_at = latest?.windowsPublishedAt || null;
+                    wildTransfer.android_last_update_at = latest?.androidPublishedAt || null;
+                    wildTransfer.pending_release = !wildTransfer.installer_available && !wildTransfer.android_available;
                     wildTransfer.release_warning = latest?.warning || '';
                 } catch (err) {
                     console.log('No se pudo resolver la ultima release de WildTransfer:', err?.message || err);
-                    wildTransfer.pending_release = true;
-                    wildTransfer.release_warning = 'No se pudo validar el instalador de la ultima release.';
+                    wildTransfer.pending_release = false;
+                    wildTransfer.release_warning = 'No se pudo validar la release de WildTransfer (Windows/Android).';
                 }
             }
 

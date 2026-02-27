@@ -1103,6 +1103,102 @@ app.get('/naturepedia/health', (_req, res) => res.json({ status: 'up', service: 
 app.get('/floret/health', (_req, res) => res.json({ status: 'up', service: 'Floret Shop' }));
 
 // ========== FLORET SHOP ENDPOINTS ==========
+const FLORET_MAIN_SELLER_EMAIL = 'karatedojor@gmail.com';
+
+function normalizeFloretEmail(email) {
+  return String(email || '').trim().toLowerCase();
+}
+
+async function getFloretMalevoRecipient() {
+  const safeEmail = normalizeFloretEmail(FLORET_MAIN_SELLER_EMAIL);
+  const { rows } = await pool.query(
+    `SELECT id, username, email, power_level
+     FROM floret_users
+     WHERE LOWER(COALESCE(email, '')) = $1
+        OR LOWER(COALESCE(username, '')) = 'malevo'
+     ORDER BY power_level DESC, id ASC
+     LIMIT 1`,
+    [safeEmail]
+  );
+  const user = rows[0] || null;
+  return {
+    userId: user?.id || null,
+    email: user?.email || FLORET_MAIN_SELLER_EMAIL
+  };
+}
+
+async function resolveFloretReviewerName(userId, fallbackName = '') {
+  const safeName = String(fallbackName || '').trim();
+  if (!userId) return safeName || 'Cliente Floret';
+
+  try {
+    const { rows } = await pool.query(
+      'SELECT username FROM floret_users WHERE id = $1 LIMIT 1',
+      [userId]
+    );
+    if (rows[0]?.username) return rows[0].username;
+  } catch (_err) {
+    // Keep fallback name when DB lookup fails
+  }
+  return safeName || 'Cliente Floret';
+}
+
+async function createFloretReviewNotification({
+  type,
+  title,
+  message,
+  productId = null,
+  reviewId,
+  reviewScope
+}) {
+  const recipient = await getFloretMalevoRecipient();
+  await pool.query(
+    `INSERT INTO floret_notifications
+      (target_user_id, target_email, type, title, message, product_id, review_id, review_scope)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+    [
+      recipient.userId,
+      recipient.email,
+      String(type || 'product_review'),
+      String(title || 'Nueva reseña'),
+      String(message || ''),
+      productId || null,
+      reviewId,
+      String(reviewScope || 'product')
+    ]
+  );
+}
+
+async function assertFloretMalevoAccess({ userId, email }) {
+  const normalizedEmail = normalizeFloretEmail(email);
+  const requiredEmail = normalizeFloretEmail(FLORET_MAIN_SELLER_EMAIL);
+
+  if (normalizedEmail && normalizedEmail === requiredEmail) {
+    return { allowed: true };
+  }
+
+  if (!userId) return { allowed: false, reason: 'Acceso restringido a Malevo' };
+
+  const { rows } = await pool.query(
+    `SELECT id, email, username, power_level, is_admin
+     FROM floret_users
+     WHERE id = $1
+     LIMIT 1`,
+    [userId]
+  );
+  const actor = rows[0];
+  if (!actor) return { allowed: false, reason: 'Usuario no encontrado' };
+
+  const actorEmail = normalizeFloretEmail(actor.email);
+  const actorUser = String(actor.username || '').trim().toLowerCase();
+  const isMalevo = actorEmail === requiredEmail || actorUser === 'malevo';
+  const hasPrivileges = Number(actor.power_level || 0) >= 1 || actor.is_admin === true;
+  if (!isMalevo && !hasPrivileges) {
+    return { allowed: false, reason: 'Acceso restringido a Malevo' };
+  }
+  return { allowed: true, actor };
+}
+
 // Registro
 app.post('/floret/register', async (req, res) => {
   const { username, email, password } = req.body;
@@ -1280,8 +1376,30 @@ app.post('/floret/grant-quota', async (req, res) => {
 app.get('/floret/products', async (_req, res) => {
   try {
     const { rows } = await pool.query(`
-      SELECT id, name, description, price, stock, condition, images, requires_size, sizes, measurements, created_at 
-      FROM floret_products ORDER BY created_at DESC
+      SELECT
+        p.id,
+        p.name,
+        p.description,
+        p.price,
+        p.stock,
+        p.condition,
+        p.images,
+        p.requires_size,
+        p.sizes,
+        p.measurements,
+        p.created_at,
+        p.seller_email,
+        COALESCE(rs.review_count, 0)::int AS review_count,
+        COALESCE(rs.avg_rating, 0)::numeric AS avg_rating
+      FROM floret_products p
+      LEFT JOIN LATERAL (
+        SELECT
+          COUNT(*) AS review_count,
+          ROUND(AVG(rating)::numeric, 1) AS avg_rating
+        FROM floret_product_reviews
+        WHERE product_id = p.id
+      ) rs ON TRUE
+      ORDER BY p.created_at DESC
       `);
     const products = rows.map(r => ({
       id: r.id,
@@ -1293,11 +1411,387 @@ app.get('/floret/products', async (_req, res) => {
       images: r.images || [],
       requiresSize: r.requires_size,
       sizes: r.sizes || [],
-      measurements: r.measurements
+      measurements: r.measurements,
+      sellerEmail: r.seller_email || FLORET_MAIN_SELLER_EMAIL,
+      reviewSummary: {
+        count: parseInt(r.review_count, 10) || 0,
+        avgRating: parseFloat(r.avg_rating) || 0
+      }
     }));
     res.json(products);
   } catch (e) {
     console.error('Error obteniendo productos Floret:', e);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Obtener reviews/comentarios de un producto
+app.get('/floret/reviews/product/:productId', async (req, res) => {
+  try {
+    const productId = Number(req.params.productId);
+    if (!productId) return res.status(400).json({ error: 'productId invalido' });
+
+    const [reviewsRes, summaryRes] = await Promise.all([
+      pool.query(
+        `SELECT
+          r.id,
+          r.product_id,
+          r.reviewer_user_id,
+          COALESCE(u.username, r.reviewer_name, 'Cliente Floret') AS reviewer_name,
+          r.rating,
+          r.comment,
+          r.created_at
+        FROM floret_product_reviews r
+        LEFT JOIN floret_users u ON u.id = r.reviewer_user_id
+        WHERE r.product_id = $1
+        ORDER BY r.created_at DESC`,
+        [productId]
+      ),
+      pool.query(
+        `SELECT
+          COUNT(*)::int AS review_count,
+          COALESCE(ROUND(AVG(rating)::numeric, 1), 0) AS avg_rating
+        FROM floret_product_reviews
+        WHERE product_id = $1`,
+        [productId]
+      )
+    ]);
+
+    res.json({
+      productId,
+      summary: {
+        count: Number(summaryRes.rows[0]?.review_count || 0),
+        avgRating: Number(summaryRes.rows[0]?.avg_rating || 0)
+      },
+      reviews: reviewsRes.rows
+    });
+  } catch (e) {
+    console.error('Error obteniendo reviews de producto Floret:', e);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Crear review/comentario de producto
+app.post('/floret/reviews/product', async (req, res) => {
+  try {
+    const {
+      productId,
+      rating,
+      comment,
+      reviewerUserId = null,
+      reviewerName = ''
+    } = req.body || {};
+
+    const safeProductId = Number(productId);
+    const safeRating = Number(rating);
+    const safeComment = String(comment || '').trim();
+
+    if (!safeProductId) return res.status(400).json({ error: 'productId requerido' });
+    if (!Number.isInteger(safeRating) || safeRating < 1 || safeRating > 5) {
+      return res.status(400).json({ error: 'rating debe estar entre 1 y 5' });
+    }
+    if (!safeComment) return res.status(400).json({ error: 'comment es requerido' });
+
+    const productRes = await pool.query(
+      'SELECT id, name, seller_email FROM floret_products WHERE id = $1 LIMIT 1',
+      [safeProductId]
+    );
+    if (!productRes.rows.length) {
+      return res.status(404).json({ error: 'Producto no encontrado' });
+    }
+    const product = productRes.rows[0];
+    const reviewerDisplayName = await resolveFloretReviewerName(reviewerUserId, reviewerName);
+
+    const { rows } = await pool.query(
+      `INSERT INTO floret_product_reviews
+        (product_id, reviewer_user_id, reviewer_name, rating, comment)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING *`,
+      [safeProductId, reviewerUserId || null, reviewerDisplayName, safeRating, safeComment]
+    );
+    const review = rows[0];
+
+    await createFloretReviewNotification({
+      type: 'product_review',
+      title: `Nueva review en "${product.name}"`,
+      message: `${reviewerDisplayName} dejo ${safeRating} estrellas en ${product.name}.`,
+      productId: safeProductId,
+      reviewId: review.id,
+      reviewScope: 'product'
+    });
+
+    res.json({ success: true, review });
+  } catch (e) {
+    console.error('Error creando review de producto Floret:', e);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Crear review/comentario al vendedor Malevo
+app.post('/floret/reviews/seller', async (req, res) => {
+  try {
+    const {
+      rating,
+      comment,
+      reviewerUserId = null,
+      reviewerName = '',
+      sellerEmail = FLORET_MAIN_SELLER_EMAIL
+    } = req.body || {};
+
+    const safeRating = Number(rating);
+    const safeComment = String(comment || '').trim();
+    const safeSellerEmail = normalizeFloretEmail(sellerEmail) || FLORET_MAIN_SELLER_EMAIL;
+
+    if (!Number.isInteger(safeRating) || safeRating < 1 || safeRating > 5) {
+      return res.status(400).json({ error: 'rating debe estar entre 1 y 5' });
+    }
+    if (!safeComment) return res.status(400).json({ error: 'comment es requerido' });
+
+    const reviewerDisplayName = await resolveFloretReviewerName(reviewerUserId, reviewerName);
+    const { rows } = await pool.query(
+      `INSERT INTO floret_seller_reviews
+        (seller_email, reviewer_user_id, reviewer_name, rating, comment)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING *`,
+      [safeSellerEmail, reviewerUserId || null, reviewerDisplayName, safeRating, safeComment]
+    );
+    const review = rows[0];
+
+    await createFloretReviewNotification({
+      type: 'seller_review',
+      title: 'Nueva review para Malevo',
+      message: `${reviewerDisplayName} califico a Malevo con ${safeRating} estrellas.`,
+      reviewId: review.id,
+      reviewScope: 'seller'
+    });
+
+    res.json({ success: true, review });
+  } catch (e) {
+    console.error('Error creando review de seller Floret:', e);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Obtener reviews de Malevo
+app.get('/floret/reviews/seller', async (req, res) => {
+  try {
+    const sellerEmail = normalizeFloretEmail(req.query.sellerEmail) || FLORET_MAIN_SELLER_EMAIL;
+    const { rows } = await pool.query(
+      `SELECT
+        r.id,
+        r.seller_email,
+        r.reviewer_user_id,
+        COALESCE(u.username, r.reviewer_name, 'Cliente Floret') AS reviewer_name,
+        r.rating,
+        r.comment,
+        r.created_at
+      FROM floret_seller_reviews r
+      LEFT JOIN floret_users u ON u.id = r.reviewer_user_id
+      WHERE LOWER(r.seller_email) = LOWER($1)
+      ORDER BY r.created_at DESC`,
+      [sellerEmail]
+    );
+    const summaryRes = await pool.query(
+      `SELECT
+        COUNT(*)::int AS review_count,
+        COALESCE(ROUND(AVG(rating)::numeric, 1), 0) AS avg_rating
+      FROM floret_seller_reviews
+      WHERE LOWER(seller_email) = LOWER($1)`,
+      [sellerEmail]
+    );
+
+    res.json({
+      sellerEmail,
+      summary: {
+        count: Number(summaryRes.rows[0]?.review_count || 0),
+        avgRating: Number(summaryRes.rows[0]?.avg_rating || 0)
+      },
+      reviews: rows
+    });
+  } catch (e) {
+    console.error('Error obteniendo reviews del seller Floret:', e);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Obtener una review puntual de producto (para modal de notificacion)
+app.get('/floret/reviews/product-detail/:reviewId', async (req, res) => {
+  try {
+    const reviewId = Number(req.params.reviewId);
+    if (!reviewId) return res.status(400).json({ error: 'reviewId invalido' });
+
+    const access = await assertFloretMalevoAccess({
+      userId: Number(req.query.userId || 0) || null,
+      email: req.query.email || ''
+    });
+    if (!access.allowed) return res.status(403).json({ error: access.reason || 'No autorizado' });
+
+    const { rows } = await pool.query(
+      `SELECT
+        r.id,
+        r.product_id,
+        p.name AS product_name,
+        COALESCE(u.username, r.reviewer_name, 'Cliente Floret') AS reviewer_name,
+        r.rating,
+        r.comment,
+        r.created_at
+      FROM floret_product_reviews r
+      LEFT JOIN floret_products p ON p.id = r.product_id
+      LEFT JOIN floret_users u ON u.id = r.reviewer_user_id
+      WHERE r.id = $1
+      LIMIT 1`,
+      [reviewId]
+    );
+
+    if (!rows.length) return res.status(404).json({ error: 'Review no encontrada' });
+    res.json(rows[0]);
+  } catch (e) {
+    console.error('Error obteniendo detalle review producto Floret:', e);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Notificaciones de Malevo para reviews
+app.get('/floret/notifications', async (req, res) => {
+  try {
+    const userId = Number(req.query.userId || 0) || null;
+    const email = String(req.query.email || '');
+    const access = await assertFloretMalevoAccess({ userId, email });
+    if (!access.allowed) return res.status(403).json({ error: access.reason || 'No autorizado' });
+
+    const safeEmail = normalizeFloretEmail(email) || FLORET_MAIN_SELLER_EMAIL;
+    const { rows } = await pool.query(
+      `SELECT
+        n.id,
+        n.type,
+        n.title,
+        n.message,
+        n.product_id,
+        n.review_id,
+        n.review_scope,
+        n.is_read,
+        n.created_at,
+        p.name AS product_name
+      FROM floret_notifications n
+      LEFT JOIN floret_products p ON p.id = n.product_id
+      WHERE (n.target_user_id = $1)
+         OR (LOWER(COALESCE(n.target_email, '')) = LOWER($2))
+      ORDER BY n.created_at DESC
+      LIMIT 150`,
+      [userId || -1, safeEmail]
+    );
+
+    const unreadCount = rows.reduce((count, n) => count + (n.is_read ? 0 : 1), 0);
+    res.json({ notifications: rows, unreadCount });
+  } catch (e) {
+    console.error('Error obteniendo notificaciones Floret:', e);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+app.post('/floret/notifications/read/:id', async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const userId = Number(req.body?.userId || 0) || null;
+    const email = String(req.body?.email || '');
+    if (!id) return res.status(400).json({ error: 'id invalido' });
+
+    const access = await assertFloretMalevoAccess({ userId, email });
+    if (!access.allowed) return res.status(403).json({ error: access.reason || 'No autorizado' });
+
+    const safeEmail = normalizeFloretEmail(email) || FLORET_MAIN_SELLER_EMAIL;
+    await pool.query(
+      `UPDATE floret_notifications
+       SET is_read = TRUE
+       WHERE id = $1
+         AND ((target_user_id = $2) OR (LOWER(COALESCE(target_email, '')) = LOWER($3)))`,
+      [id, userId || -1, safeEmail]
+    );
+    res.json({ success: true });
+  } catch (e) {
+    console.error('Error marcando notificacion Floret como leida:', e);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+app.post('/floret/notifications/read-all', async (req, res) => {
+  try {
+    const userId = Number(req.body?.userId || 0) || null;
+    const email = String(req.body?.email || '');
+    const access = await assertFloretMalevoAccess({ userId, email });
+    if (!access.allowed) return res.status(403).json({ error: access.reason || 'No autorizado' });
+
+    const safeEmail = normalizeFloretEmail(email) || FLORET_MAIN_SELLER_EMAIL;
+    await pool.query(
+      `UPDATE floret_notifications
+       SET is_read = TRUE
+       WHERE (target_user_id = $1)
+          OR (LOWER(COALESCE(target_email, '')) = LOWER($2))`,
+      [userId || -1, safeEmail]
+    );
+    res.json({ success: true });
+  } catch (e) {
+    console.error('Error marcando todas las notificaciones Floret:', e);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Consolidado de reviews (seller + productos) para Malevo
+app.get('/floret/reviews/all', async (req, res) => {
+  try {
+    const userId = Number(req.query.userId || 0) || null;
+    const email = String(req.query.email || '');
+    const access = await assertFloretMalevoAccess({ userId, email });
+    if (!access.allowed) return res.status(403).json({ error: access.reason || 'No autorizado' });
+
+    const sellerEmail = FLORET_MAIN_SELLER_EMAIL;
+    const [sellerRows, productRows] = await Promise.all([
+      pool.query(
+        `SELECT
+          r.id,
+          'seller' AS scope,
+          NULL::int AS product_id,
+          NULL::text AS product_name,
+          COALESCE(u.username, r.reviewer_name, 'Cliente Floret') AS reviewer_name,
+          r.rating,
+          r.comment,
+          r.created_at
+        FROM floret_seller_reviews r
+        LEFT JOIN floret_users u ON u.id = r.reviewer_user_id
+        WHERE LOWER(r.seller_email) = LOWER($1)
+        ORDER BY r.created_at DESC`,
+        [sellerEmail]
+      ),
+      pool.query(
+        `SELECT
+          r.id,
+          'product' AS scope,
+          r.product_id,
+          p.name AS product_name,
+          COALESCE(u.username, r.reviewer_name, 'Cliente Floret') AS reviewer_name,
+          r.rating,
+          r.comment,
+          r.created_at
+        FROM floret_product_reviews r
+        LEFT JOIN floret_products p ON p.id = r.product_id
+        LEFT JOIN floret_users u ON u.id = r.reviewer_user_id
+        WHERE LOWER(COALESCE(p.seller_email, $1)) = LOWER($1)
+        ORDER BY r.created_at DESC`
+        ,
+        [sellerEmail]
+      )
+    ]);
+
+    const allReviews = [...sellerRows.rows, ...productRows.rows]
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+    res.json({
+      sellerReviews: sellerRows.rows,
+      productReviews: productRows.rows,
+      allReviews
+    });
+  } catch (e) {
+    console.error('Error obteniendo consolidado de reviews Floret:', e);
     res.status(500).json({ error: 'Error interno' });
   }
 });
@@ -1333,9 +1827,10 @@ app.post('/floret/products', upload.array('images'), async (req, res) => {
       return res.status(400).json({ error: 'Nombre y precio son requeridos' });
     }
 
+    const sellerEmail = normalizeFloretEmail(user.email) || FLORET_MAIN_SELLER_EMAIL;
     const { rows } = await pool.query(`
-      INSERT INTO floret_products(name, description, price, stock, condition, images, requires_size, sizes, measurements)
-    VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *
+      INSERT INTO floret_products(name, description, price, stock, condition, images, requires_size, sizes, measurements, seller_email)
+    VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *
       `, [
       name,
       description || '',
@@ -1345,7 +1840,8 @@ app.post('/floret/products', upload.array('images'), async (req, res) => {
       imgUrls,
       requiresSize === 'true' || requiresSize === true,
       Array.isArray(sizes) ? sizes : (sizes ? sizes.split(',').map(s => s.trim()) : []),
-      measurements || ''
+      measurements || '',
+      sellerEmail
     ]);
 
     // Actualizar cuota si es sub-admin
@@ -20027,6 +20523,58 @@ await pool.query(`
 `).catch(() => console.log('⚠️ Tabla floret_products ya existe'));
 
 await pool.query(`ALTER TABLE floret_products ADD COLUMN IF NOT EXISTS stock INTEGER DEFAULT 1`).catch(() => { });
+await pool.query(`ALTER TABLE floret_products ADD COLUMN IF NOT EXISTS seller_email VARCHAR(120) DEFAULT 'karatedojor@gmail.com'`).catch(() => { });
+await pool.query(
+  `UPDATE floret_products
+   SET seller_email = $1
+   WHERE seller_email IS NULL OR TRIM(seller_email) = ''`,
+  [FLORET_MAIN_SELLER_EMAIL]
+).catch(() => { });
+
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS floret_product_reviews (
+    id SERIAL PRIMARY KEY,
+    product_id INTEGER NOT NULL REFERENCES floret_products(id) ON DELETE CASCADE,
+    reviewer_user_id INTEGER REFERENCES floret_users(id) ON DELETE SET NULL,
+    reviewer_name VARCHAR(80),
+    rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+    comment TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+  )
+`).catch(() => console.log('⚠️ Tabla floret_product_reviews ya existe'));
+
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS floret_seller_reviews (
+    id SERIAL PRIMARY KEY,
+    seller_email VARCHAR(120) NOT NULL DEFAULT 'karatedojor@gmail.com',
+    reviewer_user_id INTEGER REFERENCES floret_users(id) ON DELETE SET NULL,
+    reviewer_name VARCHAR(80),
+    rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+    comment TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW()
+  )
+`).catch(() => console.log('⚠️ Tabla floret_seller_reviews ya existe'));
+
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS floret_notifications (
+    id SERIAL PRIMARY KEY,
+    target_user_id INTEGER REFERENCES floret_users(id) ON DELETE CASCADE,
+    target_email VARCHAR(120),
+    type VARCHAR(40) NOT NULL,
+    title VARCHAR(180) NOT NULL,
+    message TEXT,
+    product_id INTEGER REFERENCES floret_products(id) ON DELETE SET NULL,
+    review_id INTEGER NOT NULL,
+    review_scope VARCHAR(20) NOT NULL DEFAULT 'product',
+    is_read BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT NOW()
+  )
+`).catch(() => console.log('⚠️ Tabla floret_notifications ya existe'));
+
+await pool.query(`CREATE INDEX IF NOT EXISTS idx_floret_product_reviews_product ON floret_product_reviews(product_id, created_at DESC)`).catch(() => { });
+await pool.query(`CREATE INDEX IF NOT EXISTS idx_floret_seller_reviews_email ON floret_seller_reviews(seller_email, created_at DESC)`).catch(() => { });
+await pool.query(`CREATE INDEX IF NOT EXISTS idx_floret_notifications_target ON floret_notifications(target_user_id, created_at DESC)`).catch(() => { });
+await pool.query(`CREATE INDEX IF NOT EXISTS idx_floret_notifications_email ON floret_notifications(target_email, created_at DESC)`).catch(() => { });
 
 await pool.query(`
   CREATE TABLE IF NOT EXISTS floret_admin_quotas (

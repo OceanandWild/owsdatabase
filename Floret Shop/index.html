@@ -1291,6 +1291,216 @@
         .profile-menu-item.danger i {
             color: var(--pink)
         }
+
+        .rating-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 10px 0 12px;
+            color: #f7d56b;
+            font-size: 0.88rem;
+            flex-wrap: wrap;
+        }
+
+        .rating-row small {
+            color: var(--muted);
+        }
+
+        .rating-pill {
+            background: rgba(16, 185, 129, 0.14);
+            border: 1px solid rgba(16, 185, 129, 0.35);
+            color: #9df8d5;
+            border-radius: 999px;
+            padding: 3px 9px;
+            font-size: 0.72rem;
+            font-weight: 600;
+        }
+
+        .review-card {
+            background: rgba(139, 92, 246, 0.08);
+            border: 1px solid rgba(139, 92, 246, 0.22);
+            border-radius: 12px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+
+        .review-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+            flex-wrap: wrap;
+        }
+
+        .review-head strong {
+            font-size: 0.92rem;
+            color: #f1ebff;
+        }
+
+        .review-date {
+            font-size: 0.75rem;
+            color: var(--muted);
+        }
+
+        .review-stars {
+            color: #f7d56b;
+            font-size: 0.85rem;
+            letter-spacing: 1px;
+        }
+
+        .review-comment {
+            color: #ddd3f8;
+            font-size: 0.88rem;
+            line-height: 1.5;
+            white-space: pre-wrap;
+        }
+
+        .review-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .review-box {
+            background: rgba(14, 10, 24, 0.82);
+            border: 1px solid rgba(139, 92, 246, 0.25);
+            border-radius: 12px;
+            padding: 12px;
+        }
+
+        .review-box h4 {
+            font-size: 0.95rem;
+            margin-bottom: 8px;
+            color: #f2edff;
+        }
+
+        .notif-item {
+            border: 1px solid rgba(139, 92, 246, 0.25);
+            background: rgba(139, 92, 246, 0.08);
+            border-radius: 12px;
+            padding: 10px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: .25s;
+        }
+
+        .notif-item:hover {
+            border-color: var(--pri);
+            transform: translateY(-2px);
+        }
+
+        .notif-item.unread {
+            border-color: rgba(236, 72, 153, 0.45);
+            background: rgba(236, 72, 153, 0.12);
+        }
+
+        .notif-title {
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+
+        .notif-title strong {
+            font-size: 0.92rem;
+        }
+
+        .notif-chip {
+            font-size: 0.68rem;
+            border-radius: 999px;
+            padding: 3px 7px;
+            background: rgba(139, 92, 246, 0.24);
+            border: 1px solid rgba(139, 92, 246, 0.36);
+            color: #d8c8ff;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .notif-msg {
+            font-size: 0.84rem;
+            color: #e5ddfa;
+            margin-bottom: 5px;
+        }
+
+        .notif-date {
+            font-size: 0.72rem;
+            color: var(--muted);
+        }
+
+        .review-compose {
+            display: grid;
+            gap: 10px;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid rgba(139, 92, 246, 0.2);
+        }
+
+        .star-picker {
+            display: flex;
+            gap: 7px;
+            font-size: 1.2rem;
+            color: #7f7698;
+        }
+
+        .star-picker i {
+            cursor: pointer;
+            transition: .2s;
+        }
+
+        .star-picker i.on {
+            color: #f7d56b;
+            text-shadow: 0 0 12px rgba(247, 213, 107, 0.45);
+        }
+
+        .notif-badge {
+            background: var(--pink);
+            color: #fff;
+            border-radius: 999px;
+            font-size: 0.68rem;
+            min-width: 19px;
+            height: 19px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 6px;
+            margin-left: 6px;
+        }
+
+        @media(max-width: 768px) {
+            .card-btns {
+                flex-direction: column;
+            }
+
+            .btn {
+                width: 100%;
+            }
+
+            .card-body {
+                padding: 13px;
+            }
+
+            .modal {
+                max-height: 92vh;
+            }
+
+            .review-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .rating-row {
+                font-size: 0.82rem;
+            }
+
+            .notif-title strong {
+                font-size: 0.85rem;
+            }
+
+            .notif-msg {
+                font-size: 0.8rem;
+            }
+        }
     </style>
 </head>
 
@@ -1335,6 +1545,12 @@
         let catalogLastSync = null;
         let catalogSyncState = 'idle';
         let catalogSyncError = '';
+        const FLORET_MAIN_SELLER_EMAIL = 'karatedojor@gmail.com';
+        let productReviewsCache = {};
+        let sellerReviewsCache = null;
+        let allReviewsCache = null;
+        let malevoNotifications = [];
+        let malevoUnreadCount = 0;
 
         async function loadQuota() {
             if (!user || user.power_level !== 1) return;
@@ -1345,6 +1561,83 @@
             } catch (e) {
                 console.error("Error cargando cuota:", e);
             }
+        }
+
+        function escapeHtml(value) {
+            return String(value || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function formatStars(rating = 0) {
+            const safeRating = Math.max(0, Math.min(5, Number(rating) || 0));
+            const full = Math.round(safeRating);
+            let html = '';
+            for (let i = 1; i <= 5; i++) {
+                html += `<i class="fas fa-star" style="opacity:${i <= full ? 1 : 0.28}"></i>`;
+            }
+            return html;
+        }
+
+        function isMalevoSession() {
+            if (!user) return false;
+            const email = String(user.email || '').trim().toLowerCase();
+            const username = String(user.username || '').trim().toLowerCase();
+            return email === FLORET_MAIN_SELLER_EMAIL || username === 'malevo' || Number(user.power_level || 0) >= 1;
+        }
+
+        function formatDateTime(dateValue) {
+            try {
+                return new Date(dateValue).toLocaleString();
+            } catch (_e) {
+                return String(dateValue || '');
+            }
+        }
+
+        async function loadProductReviews(productId, force = false) {
+            const safeId = Number(productId);
+            if (!safeId) return { summary: { count: 0, avgRating: 0 }, reviews: [] };
+            if (!force && productReviewsCache[safeId]) return productReviewsCache[safeId];
+            const res = await fetch(`${API}/floret/reviews/product/${safeId}`, { cache: 'no-store' });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'No se pudieron cargar reviews');
+            productReviewsCache[safeId] = data;
+            return data;
+        }
+
+        async function loadSellerReviews(force = false) {
+            if (!force && sellerReviewsCache) return sellerReviewsCache;
+            const res = await fetch(`${API}/floret/reviews/seller?sellerEmail=${encodeURIComponent(FLORET_MAIN_SELLER_EMAIL)}`, { cache: 'no-store' });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'No se pudieron cargar reviews de vendedor');
+            sellerReviewsCache = data;
+            return data;
+        }
+
+        async function loadAllReviews(force = false) {
+            if (!user || !isMalevoSession()) throw new Error('Acceso restringido');
+            if (!force && allReviewsCache) return allReviewsCache;
+            const res = await fetch(`${API}/floret/reviews/all?userId=${encodeURIComponent(user.id)}&email=${encodeURIComponent(user.email || '')}`, { cache: 'no-store' });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'No se pudo cargar centro de reviews');
+            allReviewsCache = data;
+            return data;
+        }
+
+        async function loadMalevoNotifications(force = false) {
+            if (!user || !isMalevoSession()) return { notifications: [], unreadCount: 0 };
+            if (!force && malevoNotifications.length > 0) {
+                return { notifications: malevoNotifications, unreadCount: malevoUnreadCount };
+            }
+            const res = await fetch(`${API}/floret/notifications?userId=${encodeURIComponent(user.id)}&email=${encodeURIComponent(user.email || '')}`, { cache: 'no-store' });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'No se pudieron cargar notificaciones');
+            malevoNotifications = Array.isArray(data.notifications) ? data.notifications : [];
+            malevoUnreadCount = Number(data.unreadCount || 0);
+            return { notifications: malevoNotifications, unreadCount: malevoUnreadCount };
         }
 
         // ========== FLOWERS CANVAS ==========
@@ -1416,7 +1709,7 @@
       <div class="logo"><i class="fas fa-leaf"></i> <span>Floret Shop</span></div>
       <div class="hdr-btns">
         ${user && user.power_level === 1 ? `<div class="hdr-btn" style="background:rgba(236,72,153,0.15);border-color:var(--pink);cursor:default" title="Cuota"><i class="fas fa-fire" style="color:var(--pink)"></i> <b style="margin-left:5px;color:#fff;font-size:0.85rem">${quotaText}</b></div>` : ''}
-        ${user ? `<button class="hdr-btn" onclick="openProfile()"><i class="fas fa-user"></i> ${user.username}</button>` : `<button class="hdr-btn" onclick="openAuth()"><i class="fas fa-user"></i> <span>Entrar</span></button>`}
+        ${user ? `<button class="hdr-btn" onclick="openProfile()"><i class="fas fa-user"></i> ${user.username}${isMalevoSession() && malevoUnreadCount > 0 ? `<span class="notif-badge">${malevoUnreadCount}</span>` : ''}</button>` : `<button class="hdr-btn" onclick="openAuth()"><i class="fas fa-user"></i> <span>Entrar</span></button>`}
         <button class="hdr-btn" onclick="refreshCatalog()" title="Sincronizar catalogo"><i class="fas fa-rotate"></i> Sync</button>
         <button class="hdr-btn cart-btn" onclick="openCart()">
           <i class="fas fa-shopping-cart"></i>
@@ -1479,8 +1772,12 @@
         <h3 class="card-name">${p.name}</h3>
         <p class="card-desc">${p.description}</p>
         <div class="card-price">$${p.price.toLocaleString()}</div>
+        <div class="rating-row">
+          <span>${formatStars(p?.reviewSummary?.avgRating || 0)}</span>
+          <small>${(p?.reviewSummary?.avgRating || 0).toFixed(1)} (${p?.reviewSummary?.count || 0} reviews)</small>
+        </div>
         <div class="card-btns">
-            <button class="btn btn-s" onclick="openDetail(${i})"><i class="fas fa-info-circle"></i> Info</button>
+            <button class="btn btn-s" onclick="openDetail(${i})"><i class="fas fa-info-circle"></i> Ver ficha</button>
             <button class="btn btn-p" onclick="addToCart(${i}, event)" ${isSoldOut ? 'disabled' : ''}>
             ${isSoldOut ? 'Agotado' : '<i class="fas fa-cart-plus"></i> Agregar'}
             </button>
@@ -1619,25 +1916,61 @@
             m.classList.add('on');
         }
         function closeModal() { document.getElementById('modal').classList.remove('on'); }
-
-        function openDetail(idx) {
+        async function openDetail(idx) {
             const p = products[idx];
             openModal(`
-    <div class="modal-hd"><h3>${p.name}</h3><button class="modal-cl" onclick="closeModal()"><i class="fas fa-times"></i></button></div>
+    <div class="modal-hd"><h3>${escapeHtml(p.name)}</h3><button class="modal-cl" onclick="closeModal()"><i class="fas fa-times"></i></button></div>
+    <div class="modal-bd"><div class="empty"><i class="fas fa-spinner fa-spin"></i><p>Cargando ficha...</p></div></div>
+  `);
+
+            try {
+                const reviewData = await loadProductReviews(p.id);
+                const previewReviews = (reviewData.reviews || []).slice(0, 3);
+                openModal(`
+    <div class="modal-hd"><h3>${escapeHtml(p.name)}</h3><button class="modal-cl" onclick="closeModal()"><i class="fas fa-times"></i></button></div>
     <div class="modal-bd">
       ${p.images.length > 1 ? `<div class="gallery">${p.images.map((img, i) => `<img src="${img}" class="${i === 0 ? 'on' : ''}" onclick="changeMainImg(this, '${img}')">`).join('')}</div>` : ''}
       <img class="main-img" id="main-img" src="${p.images[0] || 'https://via.placeholder.com/400x300'}">
-      <p style="margin-bottom:12px;color:var(--muted)">${p.description}</p>
-      <div style="display:flex;gap:12px;margin-bottom:12px">
-        <span class="badge badge-${p.condition === 'Nuevo' ? 'new' : 'used'}">${p.condition}</span>
-        ${p.measurements ? `<span style="color:var(--muted)">📏 ${p.measurements}</span>` : ''}
+      <p style="margin-bottom:12px;color:var(--muted)">${escapeHtml(p.description)}</p>
+      <div style="display:flex;gap:12px;margin-bottom:12px;flex-wrap:wrap">
+        <span class="badge badge-${p.condition === 'Nuevo' ? 'new' : 'used'}">${escapeHtml(p.condition)}</span>
+        ${p.measurements ? `<span style="color:var(--muted)"><i class="fas fa-ruler-combined"></i> ${escapeHtml(p.measurements)}</span>` : ''}
       </div>
-      ${p.requiresSize && p.sizes?.length ? `<p style="font-weight:600;margin-bottom:8px">Selecciona talle:</p><div class="size-sel">${p.sizes.map(s => `<button class="size-btn" onclick="addToCartWithSize(${idx}, '${s}')">${s}</button>`).join('')}</div>` : `<button class="btn btn-p" style="width:100%;margin-top:12px" onclick="addToCart(${idx})"><i class="fas fa-cart-plus"></i> Agregar al carrito</button>`}
+      <div class="rating-row">
+        <span>${formatStars(reviewData.summary?.avgRating || 0)}</span>
+        <small>${Number(reviewData.summary?.avgRating || 0).toFixed(1)} (${reviewData.summary?.count || 0} reviews)</small>
+        <span class="rating-pill">Servidor</span>
+      </div>
+      ${previewReviews.length ? `
+        <div>
+          ${previewReviews.map(r => `
+            <div class="review-card">
+              <div class="review-head">
+                <strong>${escapeHtml(r.reviewer_name || 'Cliente Floret')}</strong>
+                <span class="review-date">${formatDateTime(r.created_at)}</span>
+              </div>
+              <div class="review-stars">${formatStars(r.rating)}</div>
+              <div class="review-comment">${escapeHtml(r.comment)}</div>
+            </div>
+          `).join('')}
+        </div>
+      ` : `<div class="review-card"><div class="review-comment">Todavia no hay reviews para este producto.</div></div>`}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+        <button class="btn btn-s" style="flex:1;min-width:190px" onclick="openProductReviewComposer(${idx})"><i class="fas fa-star"></i> Dejar review del producto</button>
+        <button class="btn btn-s" style="flex:1;min-width:190px" onclick="openProductReviewsList(${p.id}, '${escapeHtml(p.name)}')"><i class="fas fa-comments"></i> Ver todas las reviews</button>
+      </div>
+      <button class="btn btn-s" style="width:100%;margin-top:8px" onclick="openSellerReviewComposer()"><i class="fas fa-user-check"></i> Calificar a Malevo</button>
+      ${p.requiresSize && p.sizes?.length ? `<p style="font-weight:600;margin:12px 0 8px">Selecciona talle:</p><div class="size-sel">${p.sizes.map(s => `<button class="size-btn" onclick="addToCartWithSize(${idx}, '${s}')">${s}</button>`).join('')}</div>` : `<button class="btn btn-p" style="width:100%;margin-top:12px" onclick="addToCart(${idx})"><i class="fas fa-cart-plus"></i> Agregar al carrito</button>`}
       <div style="font-size:1.6rem;font-weight:700;color:var(--pri);margin-top:16px">$${p.price.toLocaleString()}</div>
     </div>
   `);
+            } catch (error) {
+                openModal(`
+    <div class="modal-hd"><h3>${escapeHtml(p.name)}</h3><button class="modal-cl" onclick="closeModal()"><i class="fas fa-times"></i></button></div>
+    <div class="modal-bd"><div class="empty"><i class="fas fa-triangle-exclamation"></i><p>${escapeHtml(error.message || 'No se pudo cargar la ficha')}</p></div></div>
+  `);
+            }
         }
-
         function changeMainImg(el, src) {
             document.getElementById('main-img').src = src;
             document.querySelectorAll('.gallery img').forEach(i => i.classList.remove('on'));
@@ -1653,6 +1986,333 @@
       <div class="size-sel">${p.sizes.map(s => `<button class="size-btn" onclick="addToCartWithSize(${idx}, '${s}')">${s}</button>`).join('')}</div>
     </div>
   `);
+        }
+
+        function renderStarPicker(selected = 5, inputId = 'review-stars') {
+            const safeSelected = Math.max(1, Math.min(5, Number(selected) || 5));
+            return `
+    <input type="hidden" id="${inputId}" value="${safeSelected}">
+    <div class="star-picker" data-target="${inputId}">
+      ${[1, 2, 3, 4, 5].map(v => `<i class="fas fa-star ${v <= safeSelected ? 'on' : ''}" onclick="setStarValue('${inputId}', ${v}, this)"></i>`).join('')}
+    </div>
+  `;
+        }
+
+        function setStarValue(inputId, value, iconEl) {
+            const input = document.getElementById(inputId);
+            if (!input) return;
+            input.value = String(value);
+            const root = iconEl?.parentElement;
+            if (!root) return;
+            const stars = root.querySelectorAll('i');
+            stars.forEach((star, idx) => star.classList.toggle('on', idx < value));
+        }
+
+        function openProductReviewComposer(idx) {
+            const p = products[idx];
+            if (!user) {
+                showToast('Debes iniciar sesion para dejar una review', true);
+                return openAuth();
+            }
+            openModal(`
+    <div class="modal-hd"><h3><i class="fas fa-star"></i> Review de producto</h3><button class="modal-cl" onclick="closeModal()"><i class="fas fa-times"></i></button></div>
+    <div class="modal-bd">
+      <div class="review-box">
+        <h4>${escapeHtml(p.name)}</h4>
+        <div class="frm-grp">
+          <label class="frm-lbl">Estrellas</label>
+          ${renderStarPicker(5, 'product-review-stars')}
+        </div>
+        <div class="frm-grp">
+          <label class="frm-lbl">Comentario</label>
+          <textarea class="frm-txt" id="product-review-comment" placeholder="Cuenta tu experiencia con este producto"></textarea>
+        </div>
+        <button class="btn btn-p" style="width:100%" onclick="submitProductReview(${idx})"><i class="fas fa-paper-plane"></i> Publicar review</button>
+      </div>
+    </div>
+  `);
+        }
+
+        async function submitProductReview(idx) {
+            const p = products[idx];
+            const stars = Number(document.getElementById('product-review-stars')?.value || 0);
+            const comment = String(document.getElementById('product-review-comment')?.value || '').trim();
+            if (!stars || stars < 1 || stars > 5) return showToast('Selecciona una calificacion valida', true);
+            if (!comment) return showToast('Escribe un comentario', true);
+
+            try {
+                const res = await fetch(`${API}/floret/reviews/product`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        productId: p.id,
+                        rating: stars,
+                        comment,
+                        reviewerUserId: user?.id || null,
+                        reviewerName: user?.username || 'Cliente Floret'
+                    })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'No se pudo publicar la review');
+                productReviewsCache[p.id] = null;
+                await loadProducts({ silent: true, showErrorToast: false });
+                closeModal();
+                showToast('Review publicada');
+            } catch (error) {
+                showToast(error.message || 'Error al publicar review', true);
+            }
+        }
+
+        function openSellerReviewComposer() {
+            if (!user) {
+                showToast('Debes iniciar sesion para calificar a Malevo', true);
+                return openAuth();
+            }
+            openModal(`
+    <div class="modal-hd"><h3><i class="fas fa-user-check"></i> Calificar a Malevo</h3><button class="modal-cl" onclick="closeModal()"><i class="fas fa-times"></i></button></div>
+    <div class="modal-bd">
+      <div class="review-box">
+        <h4>Vendedor: Malevo (${FLORET_MAIN_SELLER_EMAIL})</h4>
+        <div class="frm-grp">
+          <label class="frm-lbl">Estrellas</label>
+          ${renderStarPicker(5, 'seller-review-stars')}
+        </div>
+        <div class="frm-grp">
+          <label class="frm-lbl">Comentario</label>
+          <textarea class="frm-txt" id="seller-review-comment" placeholder="Como fue tu experiencia con Malevo"></textarea>
+        </div>
+        <button class="btn btn-p" style="width:100%" onclick="submitSellerReview()"><i class="fas fa-paper-plane"></i> Publicar review</button>
+      </div>
+    </div>
+  `);
+        }
+
+        async function submitSellerReview() {
+            const stars = Number(document.getElementById('seller-review-stars')?.value || 0);
+            const comment = String(document.getElementById('seller-review-comment')?.value || '').trim();
+            if (!stars || stars < 1 || stars > 5) return showToast('Selecciona una calificacion valida', true);
+            if (!comment) return showToast('Escribe un comentario', true);
+
+            try {
+                const res = await fetch(`${API}/floret/reviews/seller`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        rating: stars,
+                        comment,
+                        reviewerUserId: user?.id || null,
+                        reviewerName: user?.username || 'Cliente Floret',
+                        sellerEmail: FLORET_MAIN_SELLER_EMAIL
+                    })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'No se pudo publicar la review');
+                sellerReviewsCache = null;
+                allReviewsCache = null;
+                closeModal();
+                showToast('Review enviada a Malevo');
+            } catch (error) {
+                showToast(error.message || 'Error al publicar review', true);
+            }
+        }
+
+        async function openProductReviewsList(productId, productName) {
+            try {
+                const data = await loadProductReviews(productId, true);
+                openModal(`
+    <div class="modal-hd"><h3><i class="fas fa-comments"></i> Reviews: ${escapeHtml(productName)}</h3><button class="modal-cl" onclick="closeModal()"><i class="fas fa-times"></i></button></div>
+    <div class="modal-bd">
+      <div class="rating-row">
+        <span>${formatStars(data.summary?.avgRating || 0)}</span>
+        <small>${Number(data.summary?.avgRating || 0).toFixed(1)} (${data.summary?.count || 0} reviews)</small>
+      </div>
+      ${(data.reviews || []).length ? data.reviews.map(r => `
+        <div class="review-card">
+          <div class="review-head">
+            <strong>${escapeHtml(r.reviewer_name || 'Cliente Floret')}</strong>
+            <span class="review-date">${formatDateTime(r.created_at)}</span>
+          </div>
+          <div class="review-stars">${formatStars(r.rating)}</div>
+          <div class="review-comment">${escapeHtml(r.comment)}</div>
+        </div>
+      `).join('') : `<div class="empty"><i class="fas fa-comment-slash"></i><p>Sin reviews por ahora</p></div>`}
+    </div>
+  `);
+            } catch (error) {
+                showToast(error.message || 'No se pudieron cargar reviews', true);
+            }
+        }
+
+        async function openSellerReviewsPanel() {
+            try {
+                const data = await loadSellerReviews(true);
+                openModal(`
+    <div class="modal-hd"><h3><i class="fas fa-user-check"></i> Reviews a Malevo</h3><button class="modal-cl" onclick="closeModal()"><i class="fas fa-times"></i></button></div>
+    <div class="modal-bd">
+      <div class="rating-row">
+        <span>${formatStars(data.summary?.avgRating || 0)}</span>
+        <small>${Number(data.summary?.avgRating || 0).toFixed(1)} (${data.summary?.count || 0} reviews)</small>
+      </div>
+      ${(data.reviews || []).length ? data.reviews.map(r => `
+        <div class="review-card">
+          <div class="review-head">
+            <strong>${escapeHtml(r.reviewer_name || 'Cliente Floret')}</strong>
+            <span class="review-date">${formatDateTime(r.created_at)}</span>
+          </div>
+          <div class="review-stars">${formatStars(r.rating)}</div>
+          <div class="review-comment">${escapeHtml(r.comment)}</div>
+        </div>
+      `).join('') : `<div class="empty"><i class="fas fa-comment-slash"></i><p>Sin reviews por ahora</p></div>`}
+    </div>
+  `);
+            } catch (error) {
+                showToast(error.message || 'No se pudo abrir panel de reviews', true);
+            }
+        }
+
+        async function openMalevoNotifications() {
+            if (!user || !isMalevoSession()) return showToast('Solo Malevo puede ver esta seccion', true);
+            try {
+                const data = await loadMalevoNotifications(true);
+                openModal(`
+    <div class="modal-hd"><h3><i class="fas fa-bell"></i> Notificaciones de Malevo</h3><button class="modal-cl" onclick="closeModal()"><i class="fas fa-times"></i></button></div>
+    <div class="modal-bd">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px;flex-wrap:wrap">
+        <span class="rating-pill">${data.unreadCount || 0} sin leer</span>
+        <button class="btn btn-s" style="max-width:200px" onclick="markAllMalevoNotificationsRead()"><i class="fas fa-check-double"></i> Marcar todo leido</button>
+      </div>
+      ${(data.notifications || []).length ? data.notifications.map(n => `
+        <div class="notif-item ${n.is_read ? '' : 'unread'}" onclick="openNotificationTarget(${n.id}, '${n.review_scope}', ${n.review_id || 0})">
+          <div class="notif-title">
+            <strong>${escapeHtml(n.title || 'Notificacion')}</strong>
+            <span class="notif-chip">${escapeHtml(n.review_scope || 'review')}</span>
+          </div>
+          <div class="notif-msg">${escapeHtml(n.message || '')}</div>
+          <div class="notif-date">${formatDateTime(n.created_at)}</div>
+        </div>
+      `).join('') : `<div class="empty"><i class="fas fa-bell-slash"></i><p>Sin notificaciones por ahora</p></div>`}
+    </div>
+  `);
+            } catch (error) {
+                showToast(error.message || 'No se pudieron cargar notificaciones', true);
+            }
+        }
+
+        async function markMalevoNotificationRead(notificationId) {
+            if (!user) return;
+            await fetch(`${API}/floret/notifications/read/${notificationId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: user.id, email: user.email || '' })
+            }).catch(() => null);
+        }
+
+        async function markAllMalevoNotificationsRead() {
+            if (!user) return;
+            try {
+                await fetch(`${API}/floret/notifications/read-all`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: user.id, email: user.email || '' })
+                });
+                malevoNotifications = malevoNotifications.map(n => ({ ...n, is_read: true }));
+                malevoUnreadCount = 0;
+                render();
+                openMalevoNotifications();
+            } catch (_error) {
+                showToast('No se pudieron marcar como leidas', true);
+            }
+        }
+
+        async function openNotificationTarget(notificationId, scope, reviewId) {
+            await markMalevoNotificationRead(notificationId);
+            malevoNotifications = malevoNotifications.map(n => n.id === notificationId ? { ...n, is_read: true } : n);
+            malevoUnreadCount = malevoNotifications.filter(n => !n.is_read).length;
+            render();
+
+            if (scope === 'seller') {
+                return openSellerReviewsPanel();
+            }
+
+            try {
+                const res = await fetch(`${API}/floret/reviews/product-detail/${reviewId}?userId=${encodeURIComponent(user.id)}&email=${encodeURIComponent(user.email || '')}`, { cache: 'no-store' });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'No se encontro la review');
+                openModal(`
+    <div class="modal-hd"><h3><i class="fas fa-message"></i> Review de producto</h3><button class="modal-cl" onclick="closeModal()"><i class="fas fa-times"></i></button></div>
+    <div class="modal-bd">
+      <div class="review-card">
+        <div class="review-head">
+          <strong>${escapeHtml(data.product_name || 'Producto')}</strong>
+          <span class="review-date">${formatDateTime(data.created_at)}</span>
+        </div>
+        <div class="review-comment"><b>Cliente:</b> ${escapeHtml(data.reviewer_name || 'Cliente Floret')}</div>
+        <div class="review-stars" style="margin:8px 0">${formatStars(data.rating)}</div>
+        <div class="review-comment">${escapeHtml(data.comment || '')}</div>
+      </div>
+      <button class="btn btn-s" style="width:100%" onclick="openMalevoReviewHub()"><i class="fas fa-layer-group"></i> Ver todas las reviews</button>
+    </div>
+  `);
+            } catch (error) {
+                showToast(error.message || 'No se pudo abrir detalle de review', true);
+            }
+        }
+
+        async function openMalevoReviewHub() {
+            if (!user || !isMalevoSession()) return showToast('Solo Malevo puede abrir este centro', true);
+            try {
+                const data = await loadAllReviews(true);
+                openModal(`
+    <div class="modal-hd"><h3><i class="fas fa-layer-group"></i> Centro de Reviews</h3><button class="modal-cl" onclick="closeModal()"><i class="fas fa-times"></i></button></div>
+    <div class="modal-bd">
+      <div class="review-grid">
+        <div class="review-box">
+          <h4>Reviews a Malevo (${(data.sellerReviews || []).length})</h4>
+          ${(data.sellerReviews || []).slice(0, 8).map(r => `
+            <div class="review-card">
+              <div class="review-head">
+                <strong>${escapeHtml(r.reviewer_name || 'Cliente Floret')}</strong>
+                <span class="review-date">${formatDateTime(r.created_at)}</span>
+              </div>
+              <div class="review-stars">${formatStars(r.rating)}</div>
+              <div class="review-comment">${escapeHtml(r.comment || '')}</div>
+            </div>
+          `).join('') || '<div class="review-comment">Sin reviews de vendedor.</div>'}
+        </div>
+        <div class="review-box">
+          <h4>Reviews de Productos (${(data.productReviews || []).length})</h4>
+          ${(data.productReviews || []).slice(0, 8).map(r => `
+            <div class="review-card">
+              <div class="review-head">
+                <strong>${escapeHtml(r.product_name || 'Producto')}</strong>
+                <span class="review-date">${formatDateTime(r.created_at)}</span>
+              </div>
+              <div class="review-comment"><b>Cliente:</b> ${escapeHtml(r.reviewer_name || 'Cliente Floret')}</div>
+              <div class="review-stars" style="margin:6px 0">${formatStars(r.rating)}</div>
+              <div class="review-comment">${escapeHtml(r.comment || '')}</div>
+            </div>
+          `).join('') || '<div class="review-comment">Sin reviews de producto.</div>'}
+        </div>
+      </div>
+      <div style="margin-top:14px">
+        <h4 style="margin-bottom:10px">Timeline general (reciente primero)</h4>
+        ${(data.allReviews || []).slice(0, 20).map(r => `
+          <div class="review-card">
+            <div class="review-head">
+              <strong>${r.scope === 'seller' ? 'Review a Malevo' : `Review de ${escapeHtml(r.product_name || 'Producto')}`}</strong>
+              <span class="review-date">${formatDateTime(r.created_at)}</span>
+            </div>
+            <div class="review-comment"><b>Cliente:</b> ${escapeHtml(r.reviewer_name || 'Cliente Floret')}</div>
+            <div class="review-stars" style="margin:6px 0">${formatStars(r.rating)}</div>
+            <div class="review-comment">${escapeHtml(r.comment || '')}</div>
+          </div>
+        `).join('') || '<div class="review-comment">Sin datos.</div>'}
+      </div>
+    </div>
+  `);
+            } catch (error) {
+                showToast(error.message || 'No se pudo cargar el centro de reviews', true);
+            }
         }
 
         // ========== AUTH ==========
@@ -1778,6 +2438,10 @@
                 closeModal();
                 render();
                 if (user.power_level === 1) loadQuota();
+                if (isMalevoSession()) {
+                    await loadMalevoNotifications(true).catch(() => null);
+                    render();
+                }
                 showToast('Bienvenido!');
             } catch (e) {
                 showToast(e.message || 'Error al iniciar sesion', true);
@@ -1806,6 +2470,10 @@
                 saveAuthUser(user, true);
                 closeModal();
                 render();
+                if (isMalevoSession()) {
+                    await loadMalevoNotifications(true).catch(() => null);
+                    render();
+                }
                 showToast('Cuenta creada!');
             } catch (e) {
                 showToast(e.message || 'Error al registrar', true);
@@ -2210,7 +2878,12 @@
                     ...p,
                     price: parseFloat(p.price) || 0,
                     stock: parseInt(p.stock, 10) || 0,
-                    images: Array.isArray(p.images) ? p.images : []
+                    images: Array.isArray(p.images) ? p.images : [],
+                    sellerEmail: p.sellerEmail || FLORET_MAIN_SELLER_EMAIL,
+                    reviewSummary: {
+                        count: Number(p?.reviewSummary?.count || 0),
+                        avgRating: Number(p?.reviewSummary?.avgRating || 0)
+                    }
                 }));
 
                 catalogLastSync = new Date();
@@ -2260,15 +2933,18 @@
 
                     <div class="profile-menu">
                         ${user.power_level === 2 ? `<button class="profile-menu-item" style="background:rgba(236,72,153,0.1);border-color:var(--pink);color:var(--pink)" onclick="openGrantQuota()"><i class="fas fa-gift"></i> Otorgar Cuota a Malevo</button>` : ''}
+                        ${isMalevoSession() ? `<button class="profile-menu-item" style="background:rgba(236,72,153,0.14);border-color:rgba(236,72,153,0.35);color:#ffc7eb" onclick="openMalevoNotifications()"><i class="fas fa-bell"></i> Notificaciones ${malevoUnreadCount > 0 ? `<span class="notif-badge">${malevoUnreadCount}</span>` : ''}</button>` : ''}
+                        ${isMalevoSession() ? `<button class="profile-menu-item" onclick="openMalevoReviewHub()"><i class="fas fa-layer-group"></i> Centro de Reviews</button>` : ''}
+                        <button class="profile-menu-item" onclick="openSellerReviewComposer()"><i class="fas fa-user-check"></i> Calificar a Malevo</button>
+                        <button class="profile-menu-item" onclick="openSellerReviewsPanel()"><i class="fas fa-star"></i> Reviews de vendedor</button>
                         <button class="profile-menu-item"><i class="fas fa-history"></i> Historial de Pedidos</button>
-                        <button class="profile-menu-item"><i class="fas fa-cog"></i> Configuración</button>
+                        <button class="profile-menu-item"><i class="fas fa-cog"></i> Configuracion</button>
                         <button class="profile-menu-item" onclick="window.open('https://wa.me/${WA_NUM1}', '_blank')"><i class="fab fa-whatsapp"></i> Soporte (+598 098 725 223)</button>
-                        <button class="profile-menu-item danger" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Cerrar Sesión</button>
+                        <button class="profile-menu-item danger" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Cerrar Sesion</button>
                     </div>
                 </div>
             `);
         }
-
         async function openGrantQuota() {
             const targetId = prompt("ID de usuario (Malevo):", "1");
             const amount = prompt("Cantidad de cuota a restaurar:", "1");
@@ -2287,15 +2963,19 @@
                 showToast("Error de conexión", true);
             }
         }
-
         function logout() {
             user = null;
             isAdmin = false;
             quota = null;
+            productReviewsCache = {};
+            sellerReviewsCache = null;
+            allReviewsCache = null;
+            malevoNotifications = [];
+            malevoUnreadCount = 0;
             saveAuthUser(null, false);
             closeModal();
             render();
-            showToast('Sesión cerrada');
+            showToast('Sesion cerrada');
         }
 
         // ========== INIT ==========
@@ -2317,6 +2997,11 @@
 
             loadProducts();
             if (user && user.power_level === 1) loadQuota();
+            if (user && isMalevoSession()) {
+                loadMalevoNotifications(true)
+                    .then(() => render())
+                    .catch(() => null);
+            }
 
             // Detectar retorno de pago exitoso MP
             const urlParams = new URLSearchParams(window.location.search);
@@ -2387,6 +3072,9 @@
 </body>
 
 </html>
+
+
+
 
 
 

@@ -1,6 +1,6 @@
 {
   "name": "floret-shop",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "Floret Shop desktop app",
   "main": "main.js",
   "scripts": {

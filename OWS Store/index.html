@@ -4641,17 +4641,17 @@
 
         function getReleaseDerivedProjectEntries(project) {
             if (!project) return [];
-            if (!isWildTransferProject(project)) return [];
+            if (!isWildTransferProject(project) && !isFloretProject(project)) return [];
             const entries = [];
-            const wtName = String(project.name || 'WildTransfer');
+            const projectName = String(project.name || 'Proyecto');
 
             if (project.windows_version || project.windows_last_update_at || project.last_update_at) {
                 entries.push({
                     id: 0,
-                    title: `${wtName} Windows v${project.windows_version || project.version || '-'}`,
+                    title: `${projectName} Windows v${project.windows_version || project.version || '-'}`,
                     description: summarizeReleaseNotes(project.windows_release_notes, 'Version de Windows publicada en GitHub Releases.'),
                     changes: [],
-                    projectNames: ['wildtransfer'],
+                    projectNames: [String(project.slug || '').toLowerCase(), String(project.name || '').toLowerCase()],
                     updateDate: project.windows_last_update_at || project.last_update_at || null,
                     isEvent: false,
                     platforms: ['windows'],
@@ -4661,10 +4661,10 @@
             if (project.android_version || project.android_last_update_at || project.last_update_at) {
                 entries.push({
                     id: 0,
-                    title: `${wtName} Android v${project.android_version || project.version || '-'}`,
+                    title: `${projectName} Android v${project.android_version || project.version || '-'}`,
                     description: summarizeReleaseNotes(project.android_release_notes, 'Version de Android publicada en GitHub Releases.'),
                     changes: [],
-                    projectNames: ['wildtransfer'],
+                    projectNames: [String(project.slug || '').toLowerCase(), String(project.name || '').toLowerCase()],
                     updateDate: project.android_last_update_at || project.last_update_at || null,
                     isEvent: false,
                     platforms: ['android'],
@@ -4787,6 +4787,14 @@
             return '';
         }
 
+        function detectVersionFamily(versionText = '') {
+            const value = String(versionText || '').trim();
+            if (!value) return '';
+            if (/^\d{4}[.-]\d{1,2}[.-]\d{1,2}(?:[-_]\d{3,4})?$/.test(value)) return 'date';
+            if (/^\d+(?:\.\d+){1,3}(?:[-+][a-z0-9.\-_]+)?$/i.test(value)) return 'semver';
+            return 'other';
+        }
+
         function getPreferredInstalledPlatform(project, state = null) {
             if (!project) return '';
             const explicit = normalizePlatformKind(getInstalledPlatform(project.slug));
@@ -4891,8 +4899,19 @@
         } = {}) {
             let needsUpdate = false;
             if (installedOnThisDevice && available) {
-                if (platform === 'android' && Number(latestVersionCode) > 0 && Number(installedVersionCode) > 0) {
-                    needsUpdate = Number(latestVersionCode) > Number(installedVersionCode);
+                if (platform === 'android' && Number(latestVersionCode) > 0) {
+                    if (Number(installedVersionCode) > 0) {
+                        needsUpdate = Number(latestVersionCode) > Number(installedVersionCode);
+                    } else if (installedVersion && latestVersion) {
+                        const installedFamily = detectVersionFamily(installedVersion);
+                        const latestFamily = detectVersionFamily(latestVersion);
+                        if (installedFamily && latestFamily && installedFamily !== latestFamily) {
+                            // One-time correction for legacy Android markers stored with date-style versions.
+                            needsUpdate = true;
+                        } else {
+                            needsUpdate = compareVersionLike(installedVersion, latestVersion) < 0;
+                        }
+                    }
                 } else if (installedVersion && latestVersion) {
                     needsUpdate = compareVersionLike(installedVersion, latestVersion) < 0;
                 }
@@ -6051,6 +6070,7 @@
                     installerUrl: selected?.asset?.browser_download_url || '',
                     installerSize: Number(selected?.asset?.size || 0),
                     installerAvailable: Boolean(selected?.asset?.browser_download_url),
+                    releaseNotes: String(rel?.body || '').trim(),
                     releaseUrl: rel?.html_url || FLORET_RELEASES_URL,
                     publishedAt: rel?.published_at || rel?.created_at || null,
                     warning: '',
@@ -6062,6 +6082,7 @@
                 installerUrl: '',
                 installerSize: 0,
                 installerAvailable: false,
+                releaseNotes: '',
                 releaseUrl: FLORET_RELEASES_URL,
                 publishedAt: null,
                 warning: 'No se encontro release Windows (.exe) para Floret Shop.',
@@ -6098,6 +6119,7 @@
                     installerUrl: '',
                     installerSize: 0,
                     installerAvailable: false,
+                    releaseNotes: '',
                     releaseUrl: FLORET_RELEASES_URL,
                     publishedAt: null,
                     warning: 'No se pudo resolver release Windows desde GitHub Releases.',
@@ -6114,6 +6136,8 @@
                 installerUrl: windowsData.installerUrl || '',
                 installerSize: Number(windowsData.installerSize || 0),
                 installerAvailable: Boolean(windowsData.installerAvailable && windowsData.installerUrl),
+                windowsReleaseNotes: windowsData.releaseNotes || '',
+                androidReleaseNotes: androidData.notes || '',
                 androidApkUrl: androidData.directDownloadUrl || androidData.downloadUrl || '',
                 androidApkDirectUrl: androidData.directDownloadUrl || '',
                 androidApkProxyUrl: androidData.downloadUrl || '',
@@ -6892,6 +6916,8 @@
                 floret.installer_size = Number(floret.installer_size || 0);
                 floret.android_apk_size = Number(floret.android_apk_size || 0);
                 floret.android_aab_size = Number(floret.android_aab_size || 0);
+                if (!floret.windows_release_notes) floret.windows_release_notes = '';
+                if (!floret.android_release_notes) floret.android_release_notes = '';
 
                 try {
                     const latest = await fetchLatestFloretRelease();
@@ -6911,6 +6937,8 @@
                     if (latest?.androidAabUrl) floret.android_aab_url = latest.androidAabUrl;
                     floret.installer_size = Number(latest?.installerSize || 0);
                     floret.installer_available = Boolean(latest?.installerAvailable);
+                    floret.windows_release_notes = latest?.windowsReleaseNotes || floret.windows_release_notes || '';
+                    floret.android_release_notes = latest?.androidReleaseNotes || floret.android_release_notes || '';
                     floret.android_apk_size = Number(latest?.androidApkSize || 0);
                     floret.android_aab_size = Number(latest?.androidAabSize || 0);
                     floret.android_available = Boolean(latest?.androidAvailable || floret.android_apk_url || floret.android_aab_url);
@@ -7454,6 +7482,55 @@
             );
         }
 
+        function getLegacyInstallKeyAliases(project) {
+            const slug = String(project?.slug || '').toLowerCase().trim();
+            if (!slug) return [];
+            const aliases = new Set();
+            aliases.add(slug);
+            aliases.add(slug.replace(/-/g, ''));
+            aliases.add(slug.replace(/-/g, '_'));
+            if (isFloretProject(project)) {
+                aliases.add('floret');
+                aliases.add('floretshop');
+                aliases.add('floret-shop');
+            }
+            if (isWildTransferProject(project)) {
+                aliases.add('wildtransfer');
+                aliases.add('wild-transfer');
+            }
+            if (isWildWeaponProject(project)) {
+                aliases.add('wildweapon');
+                aliases.add('wildweapon-mayhem');
+            }
+            return [...aliases].filter(Boolean);
+        }
+
+        function migrateLegacyInstallMarkerKeys(project) {
+            if (!project?.slug) return;
+            const canonicalSlug = String(project.slug || '').trim();
+            if (!canonicalSlug) return;
+            const aliases = getLegacyInstallKeyAliases(project).filter((x) => x !== canonicalSlug);
+            if (!aliases.length) return;
+            const canonicalVersionKey = `installed_${canonicalSlug}`;
+            const canonicalPlatformKey = `installed_platform_${canonicalSlug}`;
+            const canonicalCodeKey = `installed_version_code_${canonicalSlug}`;
+            if (localStorage.getItem(canonicalVersionKey)) return;
+
+            for (const alias of aliases) {
+                const v = String(localStorage.getItem(`installed_${alias}`) || '').trim();
+                if (!v) continue;
+                localStorage.setItem(canonicalVersionKey, v);
+                const p = normalizePlatformKind(localStorage.getItem(`installed_platform_${alias}`) || '');
+                if (p) localStorage.setItem(canonicalPlatformKey, p);
+                const code = String(localStorage.getItem(`installed_version_code_${alias}`) || '').trim();
+                if (code) localStorage.setItem(canonicalCodeKey, code);
+                if (!p && isNativeAndroidRuntime() && supportsAndroidDownloads(project)) {
+                    localStorage.setItem(canonicalPlatformKey, 'android');
+                }
+                break;
+            }
+        }
+
         function getInstallHints(project) {
             const slug = String(project?.slug || '').toLowerCase();
             const name = String(project?.name || '').trim();
@@ -7517,8 +7594,13 @@
         async function refreshInstallationStates() {
             const next = {};
             for (const p of allProjects) {
+                migrateLegacyInstallMarkerKeys(p);
                 const marker = getInstalledVersion(p.slug);
                 const markerCode = getInstalledVersionCode(p.slug);
+                const markerPlatform = normalizePlatformKind(getInstalledPlatform(p.slug));
+                if (marker && !markerPlatform && isNativeAndroidRuntime() && supportsAndroidDownloads(p)) {
+                    localStorage.setItem(`installed_platform_${p.slug}`, 'android');
+                }
                 const runtime = getRuntimeState(p.slug);
                 const installingRuntime = ['queued', 'waiting', 'preparing', 'downloading', 'launching'].includes(runtime.phase);
                 const suppressed = uninstallSuppressedBySlug[p.slug] === true;
@@ -7857,7 +7939,7 @@
                 project.android_apk_direct_url = latest?.androidApkDirectUrl || project.android_apk_direct_url || '';
                 project.android_apk_proxy_url = latest?.androidApkProxyUrl || project.android_apk_proxy_url || '';
                 project.android_sha256 = latest?.androidSha256 || project.android_sha256 || '';
-                if (isWildTransferProject(project)) {
+                if (isWildTransferProject(project) || isFloretProject(project)) {
                     project.windows_release_notes = latest?.windowsReleaseNotes || project.windows_release_notes || '';
                     project.android_release_notes = latest?.androidReleaseNotes || project.android_release_notes || '';
                 }

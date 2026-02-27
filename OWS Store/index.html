@@ -4089,6 +4089,7 @@
                             showProgress: true,
                         });
                         openExternal(item.url);
+                        persistAndroidInstallMarker(project, item);
                         setRuntimeState(project.slug, { phase: 'ready', percent: 100, taskId: '' });
                         updateDownloadSession(item.key, {
                             phase: 'ready',
@@ -4207,7 +4208,8 @@
                         openExternal(item.url);
                     }
 
-                    // Android install confirmation happens outside app; avoid marking as installed prematurely.
+                    // Android confirms install outside app; persist target metadata now to keep update tracking coherent.
+                    persistAndroidInstallMarker(project, item);
                     setRuntimeState(project.slug, { phase: 'ready', percent: 100, taskId: '' });
                     updateDownloadSession(item.key, {
                         phase: 'ready',
@@ -4788,11 +4790,39 @@
         function getPreferredInstalledPlatform(project, state = null) {
             if (!project) return '';
             const explicit = normalizePlatformKind(getInstalledPlatform(project.slug));
-            if (explicit) return explicit;
+            if (explicit) {
+                const device = detectCurrentDevicePlatform();
+                if (device.platform === 'android' && explicit === 'windows' && supportsAndroidDownloads(project)) return 'android';
+                if (device.platform === 'windows' && explicit === 'android' && supportsWindowsInstaller(project)) return 'windows';
+                return explicit;
+            }
             const current = state || installStateBySlug[project.slug] || {};
             if (current?.exePath) return 'windows';
+            const device = detectCurrentDevicePlatform();
+            if (device.platform === 'android' && supportsAndroidDownloads(project)) return 'android';
+            if (device.platform === 'windows' && supportsWindowsInstaller(project)) return 'windows';
             if (supportsAndroidDownloads(project) && !supportsWindowsInstaller(project)) return 'android';
-            return 'windows';
+            if (supportsWindowsInstaller(project) && !supportsAndroidDownloads(project)) return 'windows';
+            if (supportsWindowsInstaller(project)) return 'windows';
+            if (supportsAndroidDownloads(project)) return 'android';
+            return '';
+        }
+
+        function getResolvedUpdatePlatforms(info = null) {
+            const entries = Array.isArray(info?.updatePlatforms) ? info.updatePlatforms : [];
+            const normalized = entries
+                .map((d) => normalizePlatformKind(d?.platform))
+                .filter(Boolean);
+            if (normalized.length) return [...new Set(normalized)];
+            const installedPlatform = normalizePlatformKind(info?.installedPlatform || '');
+            return installedPlatform ? [installedPlatform] : [];
+        }
+
+        function getPrimaryUpdatePlatformLabel(info = null) {
+            const kinds = getResolvedUpdatePlatforms(info);
+            if (!kinds.length) return 'Windows';
+            if (kinds.length > 1) return kinds.includes('windows') && kinds.includes('android') ? 'Windows + Android' : kinds.join(' + ').toUpperCase();
+            return kinds[0] === 'android' ? 'Android' : 'Windows';
         }
 
         function detectCurrentDevicePlatform() {
@@ -5298,7 +5328,9 @@
                                 : `v${detail.latestVersion || '-'} (al dia)`;
                         }
                     } else {
-                        statusText = detail.latestVersion ? `Disponible: v${detail.latestVersion}` : 'Disponible';
+                        statusText = detail.latestVersion
+                            ? `No instalada en este dispositivo (ultima: v${detail.latestVersion})`
+                            : 'No instalada en este dispositivo';
                     }
                 }
 
@@ -5315,7 +5347,7 @@
 
             list.innerHTML = updates.map(({ project, info }) => {
                 const action = resolveProjectUpdateAction(project, info);
-                const targetLabel = action.label || (info.installedPlatform === 'android' ? 'Android' : 'Windows');
+                const targetLabel = action.label || getPrimaryUpdatePlatformLabel(info);
                 const metaText = gateBlocked
                     ? getStoreObsoleteGateMessage(`actualizar ${project.name}`)
                     : (action.requiresChoice
@@ -5486,8 +5518,9 @@
             const updates = getPendingProjectUpdates();
 
             updates.forEach(({ project, info }) => {
-                const platformLabel = info.installedPlatform === 'android' ? 'Android' : 'Windows';
-                const key = `${project.slug}:${platformLabel}:${info.installedVersion}->${info.latestVersion}`;
+                const platformLabel = getPrimaryUpdatePlatformLabel(info);
+                const platformKey = getResolvedUpdatePlatforms(info).join('+') || platformLabel.toLowerCase();
+                const key = `${project.slug}:${platformKey}:${info.installedVersion}->${info.latestVersion}`;
                 if (projectUpdateNotified.has(key)) return;
                 projectUpdateNotified.add(key);
                 addNotification(`Actualizacion disponible para ${project.name} [${platformLabel}]: v${info.latestVersion}.`, 'warning');
@@ -7401,6 +7434,26 @@
             else localStorage.removeItem(key);
         }
 
+        function persistAndroidInstallMarker(project, item = {}) {
+            if (!project?.slug) return;
+            const slug = String(project.slug || '').trim();
+            if (!slug) return;
+            const versionName = String(item?.versionName || project.android_version || project.version || '').trim();
+            const versionCode = Number(item?.versionCode || project.android_version_code || project.version_code || 0);
+            if (versionName) localStorage.setItem(`installed_${slug}`, versionName);
+            localStorage.setItem(`installed_platform_${slug}`, 'android');
+            if (Number.isFinite(versionCode) && versionCode > 0) {
+                localStorage.setItem(`installed_version_code_${slug}`, String(versionCode));
+            } else {
+                localStorage.removeItem(`installed_version_code_${slug}`);
+            }
+            setInstalledReleasePublishedAt(
+                slug,
+                'android',
+                item?.releasePublishedAt || project.android_last_update_at || project.last_update_at || ''
+            );
+        }
+
         function getInstallHints(project) {
             const slug = String(project?.slug || '').toLowerCase();
             const name = String(project?.name || '').trim();
@@ -7535,7 +7588,7 @@
                     : '';
                 const newBadgeHtml = hasNewBadge(p) ? `<span class="new-badge">NUEVO!</span>` : '';
                 const updateFlagHtml = updateInfo.needsUpdate
-                    ? `<div class="ecosystem-submeta" style="color:var(--brand-2); font-weight:700;">Update ${updateInfo.installedPlatform === 'android' ? 'Android' : 'Windows'} disponible: v${updateInfo.latestVersion}</div>`
+                    ? `<div class="ecosystem-submeta" style="color:var(--brand-2); font-weight:700;">Update ${getPrimaryUpdatePlatformLabel(updateInfo)} disponible: v${updateInfo.latestVersion}</div>`
                     : '';
                 const installingHtml = `
                     <div id="installing-text-${p.slug}" class="ecosystem-submeta" style="color:var(--brand-2); display:${(isInstalling || isQueued || isPreparing) ? 'block' : 'none'};">
@@ -7619,7 +7672,7 @@
                         <button class="btn-install full" style="background:#2b2e37;" onclick="uninstallFromLibrary('${p.slug}')"><i class="fas fa-trash"></i> Desinstalar</button>
                     </div>`;
                 const updateBadgeHtml = updateInfo.needsUpdate
-                    ? `<div style="font-size:0.74rem; color:var(--brand-2); margin-bottom:0.8rem; font-weight:700;">Actualizacion disponible (${updateInfo.installedPlatform === 'android' ? 'Android' : 'Windows'}): v${updateInfo.latestVersion}</div>`
+                    ? `<div style="font-size:0.74rem; color:var(--brand-2); margin-bottom:0.8rem; font-weight:700;">Actualizacion disponible (${getPrimaryUpdatePlatformLabel(updateInfo)}): v${updateInfo.latestVersion}</div>`
                     : '';
                 card.innerHTML = `
                     <img src="${getProjectIcon(p, 64)}" class="app-icon" alt="Icon">

@@ -2759,6 +2759,7 @@
         const STORE_LOCAL_ICON = './build/icon.ico?v=20260223-0452';
         const STORE_DOWNLOAD_KEY = '__ows_store_update__';
         const STORE_THEME_KEY = 'ows_store_theme';
+        const PROJECT_LIBRARY_KEY = 'ows_store_library_owned_slugs_v1';
         const OWS_STORE_ANDROID_INSTALLED_VERSION_KEY = 'ows_store_android_installed_version_name';
         const OWS_STORE_ANDROID_INSTALLED_VERSION_CODE_KEY = 'ows_store_android_installed_version_code';
         const OWS_STORE_ANDROID_UNKNOWN_SOURCES_ACK_KEY = 'ows_store_android_unknown_sources_ack_ts';
@@ -2886,6 +2887,7 @@
         let owsStoreAndroidReleaseCache = null;
         let owsStoreWindowsReleaseCache = null;
         let allProjects = [];
+        let libraryOwnedSlugs = new Set();
         const notificationLog = [];
         let lastExternalStatusNotification = '';
         let installStateBySlug = {};
@@ -2983,6 +2985,50 @@
         function toggleTheme() {
             const current = document.body.getAttribute('data-theme') || 'light';
             applyTheme(current === 'dark' ? 'light' : 'dark');
+        }
+
+        function loadLibraryOwnedSlugs() {
+            try {
+                const raw = localStorage.getItem(PROJECT_LIBRARY_KEY) || '[]';
+                const list = JSON.parse(raw);
+                if (!Array.isArray(list)) return new Set();
+                return new Set(
+                    list
+                        .map((v) => String(v || '').trim())
+                        .filter(Boolean)
+                );
+            } catch (_) {
+                return new Set();
+            }
+        }
+
+        function persistLibraryOwnedSlugs() {
+            try {
+                localStorage.setItem(PROJECT_LIBRARY_KEY, JSON.stringify([...libraryOwnedSlugs]));
+            } catch (_) {}
+        }
+
+        function rememberProjectInLibrary(slug = '') {
+            const key = String(slug || '').trim();
+            if (!key) return;
+            if (libraryOwnedSlugs.has(key)) return;
+            libraryOwnedSlugs.add(key);
+            persistLibraryOwnedSlugs();
+        }
+
+        function isProjectInLibrary(slug = '') {
+            return libraryOwnedSlugs.has(String(slug || '').trim());
+        }
+
+        function seedLibraryFromProjectCatalog() {
+            if (libraryOwnedSlugs.size > 0) return;
+            const defaults = (Array.isArray(allProjects) ? allProjects : [])
+                .filter((p) => isExternalInstallerProject(p) && String(p?.slug || '').toLowerCase() !== 'ows-store')
+                .map((p) => String(p.slug || '').trim())
+                .filter(Boolean);
+            if (!defaults.length) return;
+            defaults.forEach((slug) => libraryOwnedSlugs.add(slug));
+            persistLibraryOwnedSlugs();
         }
 
         function getOceanPayToken() {
@@ -5614,6 +5660,7 @@
             allProjects = Array.isArray(allProjects) ? allProjects.filter((p) => !isOWSNewsProject(p)) : [];
             allProjects = ensureWildDestinyProject(ensureWildTransferProject(ensureFloretProject(ensureSSAProject(allProjects))));
             await applyLatestInstallerData(allProjects);
+            seedLibraryFromProjectCatalog();
             try {
                 await fetchOWSNewsUpdates(true);
             } catch (err) {
@@ -7610,6 +7657,7 @@
                         const installedBySystem = Boolean(detected?.installed || marker);
                         const installed = installingRuntime ? true : (suppressed ? false : installedBySystem);
                         if (!installed && suppressed) uninstallSuppressedBySlug[p.slug] = false;
+                        if (installed || installingRuntime || isProjectQueued(p.slug)) rememberProjectInLibrary(p.slug);
                         next[p.slug] = {
                             installed,
                             version: marker || '',
@@ -7621,10 +7669,12 @@
                         };
                     } catch (_) {
                         const installed = installingRuntime ? true : (suppressed ? false : Boolean(marker));
+                        if (installed || installingRuntime || isProjectQueued(p.slug)) rememberProjectInLibrary(p.slug);
                         next[p.slug] = { installed, version: marker || '', versionCode: markerCode, runtime };
                     }
                 } else {
                     const installed = suppressed ? false : Boolean(marker);
+                    if (installed || installingRuntime || isProjectQueued(p.slug)) rememberProjectInLibrary(p.slug);
                     next[p.slug] = { installed, version: marker || '', versionCode: markerCode, runtime };
                 }
             }
@@ -7709,28 +7759,39 @@
             const container = document.getElementById('library-container');
             if (!container) return;
             container.innerHTML = '';
-            const installedProjects = allProjects.filter((p) => Boolean(installStateBySlug[p.slug]?.installed));
-            if (!installedProjects.length) {
-                container.innerHTML = `<p style="color:var(--text-dim)">No tienes proyectos instalados aun.</p>`;
+            const libraryProjects = allProjects.filter((p) => {
+                const state = installStateBySlug[p.slug] || {};
+                const runtime = getRuntimeState(p.slug);
+                const inRuntime = isInstallingPhase(runtime.phase) || runtime.phase === 'queued' || runtime.phase === 'preparing';
+                return Boolean(state.installed) || isProjectInLibrary(p.slug) || inRuntime;
+            });
+            if (!libraryProjects.length) {
+                container.innerHTML = `<p style="color:var(--text-dim)">Tu biblioteca esta vacia. Instala un proyecto desde Explorar para verlo aqui.</p>`;
                 return;
             }
 
-            installedProjects.forEach((p) => {
+            libraryProjects.forEach((p) => {
                 const state = installStateBySlug[p.slug] || {};
                 const runtime = getRuntimeState(p.slug);
+                const isInstalled = Boolean(state.installed);
                 const isDownloading = isInstallingPhase(runtime.phase);
                 const isQueued = runtime.phase === 'queued';
                 const isPreparing = runtime.phase === 'preparing';
                 const updateInfo = getProjectUpdateInfo(p);
                 const card = document.createElement('div');
                 card.className = 'app-card';
-                const metaVersion = state.version || p.version || '1.0.0';
-                const installDate = isReleaseTrackedProject(p) && p.last_update_at ? formatDateTime(p.last_update_at) : 'Sin datos';
+                const metaVersion = isInstalled
+                    ? (state.version || getInstalledVersion(p.slug) || p.version || '1.0.0')
+                    : (getProjectDisplayVersion(p) || p.version || '1.0.0');
+                const installDate = isReleaseTrackedProject(p) && p.last_update_at
+                    ? formatDateTime(p.last_update_at)
+                    : 'Sin datos';
                 const installedPlatform = getInstalledPlatform(p.slug);
                 const openLabel = installedPlatform === 'android' ? 'Abrir APK' : 'Abrir';
                 const statusLabel = isQueued
                     ? 'EN COLA'
                     : (isPreparing ? 'PREPARANDO' : (isDownloading ? `DESCARGANDO ${Math.round(runtime.percent || 0)}%` : 'INSTALADO'));
+                const resolvedStatusLabel = isInstalled ? statusLabel : 'NO INSTALADO';
                 const progressHtml = `
                     <div id="lib-progress-${p.slug}" class="progress-bar-container" style="margin-bottom:0.8rem; display:${isDownloading ? 'block' : 'none'};">
                         <div id="lib-fill-${p.slug}" class="progress-fill" style="width:${Math.round(runtime.percent || 0)}%"></div>
@@ -7748,18 +7809,25 @@
                     ? `<div class="library-actions">
                         <button class="btn-install full" style="background:#b96700;" onclick="cancelInstallFromLibrary('${p.slug}')"><i class="fas fa-ban"></i> Cancelar instalacion</button>
                     </div>`
-                    : `<div class="library-actions">
-                        <button class="btn-install" onclick="launchFromLibrary('${p.slug}')"><i class="fas fa-play"></i> ${openLabel}</button>
-                        <button class="btn-install ${blockedByStore ? 'unavailable' : ''}" style="background:linear-gradient(90deg,var(--brand-2),#2aa0a6);" onclick="${reinstallAction}"><i class="fas ${reinstallIcon}"></i> ${reinstallLabel}</button>
-                        <button class="btn-install full" style="background:#2b2e37;" onclick="uninstallFromLibrary('${p.slug}')"><i class="fas fa-trash"></i> Desinstalar</button>
-                    </div>`;
-                const updateBadgeHtml = updateInfo.needsUpdate
+                    : (isInstalled
+                        ? `<div class="library-actions">
+                            <button class="btn-install" onclick="launchFromLibrary('${p.slug}')"><i class="fas fa-play"></i> ${openLabel}</button>
+                            <button class="btn-install ${blockedByStore ? 'unavailable' : ''}" style="background:linear-gradient(90deg,var(--brand-2),#2aa0a6);" onclick="${reinstallAction}"><i class="fas ${reinstallIcon}"></i> ${reinstallLabel}</button>
+                            <button class="btn-install full" style="background:#2b2e37;" onclick="uninstallFromLibrary('${p.slug}')"><i class="fas fa-trash"></i> Desinstalar</button>
+                        </div>`
+                        : `<div class="library-actions">
+                            <button class="btn-install ${blockedByStore ? 'unavailable' : ''}" onclick="${reinstallAction}"><i class="fas ${blockedByStore ? 'fa-shield-halved' : 'fa-download'}"></i> ${blockedByStore ? 'Actualizar Store' : 'Instalar'}</button>
+                            <button class="btn-install full" style="background:#2b2e37;" onclick="openDetails('${p.slug}')"><i class="fas fa-circle-info"></i> Ver ficha</button>
+                        </div>`);
+                const updateBadgeHtml = (isInstalled && updateInfo.needsUpdate)
                     ? `<div style="font-size:0.74rem; color:var(--brand-2); margin-bottom:0.8rem; font-weight:700;">Actualizacion disponible (${getPrimaryUpdatePlatformLabel(updateInfo)}): v${updateInfo.latestVersion}</div>`
-                    : '';
+                    : (!isInstalled
+                        ? `<div style="font-size:0.74rem; color:var(--ink-soft); margin-bottom:0.8rem;">Guardado en biblioteca. Instala para jugar o usar.</div>`
+                        : '');
                 card.innerHTML = `
                     <img src="${getProjectIcon(p, 64)}" class="app-icon" alt="Icon">
                     <div class="app-name">${p.name}</div>
-                    <div class="app-meta"><span>v${metaVersion}</span><span id="lib-status-${p.slug}">${statusLabel}</span></div>
+                    <div class="app-meta"><span>v${metaVersion}</span><span id="lib-status-${p.slug}">${resolvedStatusLabel}</span></div>
                     <div style="font-size:0.74rem; color:var(--ink-soft); margin-bottom:0.8rem;">Ult. update: ${installDate}</div>
                     ${updateBadgeHtml}
                     ${progressHtml}
@@ -8034,6 +8102,7 @@
                         versionCode: Number(project.android_version_code || 0),
                         releasePublishedAt: project.android_last_update_at || project.last_update_at || null,
                     };
+                    rememberProjectInLibrary(project.slug);
                     projectInstallQueue.push(queueItem);
                     setRuntimeState(project.slug, { phase: 'queued', percent: 0, taskId: `install_${project.slug}` });
                     updateDownloadSession(queueKey, {
@@ -8094,6 +8163,7 @@
                     sizeBytes: Number(project.installer_size || 0),
                     releasePublishedAt: project.windows_last_update_at || project.last_update_at || null,
                 };
+                rememberProjectInLibrary(project.slug);
                 projectInstallQueue.push(queueItem);
                 setRuntimeState(project.slug, { phase: 'queued', percent: 0, taskId: `install_${project.slug}` });
                 updateDownloadSession(queueKey, {
@@ -8112,7 +8182,10 @@
                 return;
             }
             if (installedV === project.version) launchGame(project.url);
-            else simulateInstall(project.slug, project.version);
+            else {
+                rememberProjectInLibrary(project.slug);
+                simulateInstall(project.slug, project.version);
+            }
         }
 
         async function launchFromLibrary(slug) {
@@ -8195,6 +8268,7 @@
         async function uninstallFromLibrary(slug) {
             const project = allProjects.find((p) => p.slug === slug);
             if (!project) return;
+            rememberProjectInLibrary(slug);
             uninstallSuppressedBySlug[slug] = true;
             localStorage.removeItem(`installed_${slug}`);
             localStorage.removeItem(`installed_platform_${slug}`);
@@ -8860,6 +8934,7 @@
         }
 
         window.onload = () => {
+            libraryOwnedSlugs = loadLibraryOwnedSlugs();
             initTheme();
             renderOWSStoreAndroidMeta();
             initOceanPayStore();

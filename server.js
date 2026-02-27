@@ -13391,6 +13391,7 @@ const OWS_GITHUB_ALLOWED_REPOS = new Set([
   'oceanpay',
   'floretshop',
   'wildtransfer',
+  'velocity-surge',
   'ocean-and-wild-studios-news',
   'ows-news'
 ]);

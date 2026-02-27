@@ -2748,6 +2748,8 @@
         const WILDTRANSFER_RELEASES_API_URL = `${GITHUB_RELEASES_PROXY_BASE}/wildtransfer/releases/latest`;
         const WILDTRANSFER_RELEASES_LIST_API_URL = `${GITHUB_RELEASES_PROXY_BASE}/wildtransfer/releases?per_page=20`;
         const WILDDESTINY_RELEASES_URL = 'https://github.com/OceanandWild/wilddestiny/releases/latest';
+        const VELOCITY_SURGE_RELEASES_URL = 'https://github.com/OceanandWild/velocity-surge/releases/latest';
+        const VELOCITY_SURGE_RELEASES_API_URL = `${GITHUB_RELEASES_PROXY_BASE}/velocity-surge/releases/latest`;
         const OWSNEWS_RELEASES_URL = 'https://github.com/OceanandWild/ocean-and-wild-studios-news/releases/latest';
         const OWSNEWS_RELEASES_API_URL = `${GITHUB_RELEASES_PROXY_BASE}/ocean-and-wild-studios-news/releases/latest`;
         const SSA_LOCAL_ICON = './build/ssa.ico?v=20260223-0443';
@@ -2755,6 +2757,7 @@
         const FLORET_LOCAL_ICON = 'https://raw.githubusercontent.com/OceanandWild/owsdatabase/main/Floret%20Shop/assets/floretshopicon.png?v=20260224-1938';
         const WILDTRANSFER_LOCAL_ICON = './build/wildtransfer.ico?v=20260225-0100';
         const WILDDESTINY_LOCAL_ICON = './build/wilddestiny.ico?v=20260227-1935';
+        const VELOCITY_SURGE_LOCAL_ICON = './build/velocitysurge.ico?v=20260227-2200';
         const OWSNEWS_LOCAL_ICON = './build/owsnews.ico?v=20260225-2248';
         const STORE_LOCAL_ICON = './build/icon.ico?v=20260223-0452';
         const STORE_DOWNLOAD_KEY = '__ows_store_update__';
@@ -2822,14 +2825,27 @@
             installer_url: WILDDESTINY_RELEASES_URL,
             installer_available: false,
             pending_release: true,
-            release_date: '2026-03-15T21:00:00Z',
+            release_date: '2026-03-07T18:00:00Z',
             description: 'Action RPG de raids con clases, maestrias y progresion avanzada. Lanzamiento inicial para Windows en preparacion.',
             icon_url: WILDDESTINY_LOCAL_ICON
+        };
+        const VELOCITY_SURGE_PROJECT = {
+            slug: 'velocity-surge',
+            name: 'Velocity Surge',
+            short: 'VSG',
+            status: 'launched',
+            version: '1.0.0',
+            platform: 'windows',
+            install_type: 'external',
+            installer_url: VELOCITY_SURGE_RELEASES_URL,
+            description: 'Racing arcade competitivo con eventos tematicos, cofres y progresion por corredores.',
+            icon_url: VELOCITY_SURGE_LOCAL_ICON
         };
         const OWS_NEWS_CACHE_TTL_MS = 120000;
         const NEW_BADGE_DURATION_MS = 14 * 24 * 60 * 60 * 1000;
         const NEW_BADGE_START_BY_SLUG = {
             'wildtransfer': '2026-02-25T00:00:00Z',
+            'velocity-surge': '2026-02-27T00:00:00Z',
         };
         const BRAND_STATES = [
             { word: 'ATLAS', iconClass: 'fa-cube', color: '#d14f2a', caption: 'Mapa vivo de proyectos y ideas.' },
@@ -2844,6 +2860,13 @@
                 title: 'Wild Destiny llega pronto a OWS Store (Windows)',
                 text: 'La ventana de lanzamiento ya tiene fecha. Puedes seguir el countdown desde su ficha en Ecosistema de Estudio.',
                 slug: 'wild-destiny',
+            },
+            {
+                key: 'velocity-surge-launch',
+                label: 'Nuevo proyecto',
+                title: 'Velocity Surge entra a OWS Store para Windows',
+                text: 'Carreras arcade con progresion competitiva y eventos de temporada ya disponibles.',
+                slug: 'velocity-surge',
             },
             {
                 key: 'ows-news-retired',
@@ -2881,6 +2904,7 @@
         let oceanPayProjectReleaseCache = null;
         let floretProjectReleaseCache = null;
         let wildTransferReleaseCache = null;
+        let velocitySurgeReleaseCache = null;
         let owsNewsReleaseCache = null;
         let owsNewsUpdatesCache = [];
         let owsNewsUpdatesFetchedAt = 0;
@@ -4749,6 +4773,7 @@
             if (isSSAProject(project)) aliases.add('savage space animals');
             if (isFloretProject(project)) aliases.add('floret');
             if (isWildTransferProject(project)) aliases.add('wild transfer');
+            if (isVelocitySurgeProject(project)) aliases.add('velocity surge');
             if (isOceanPayProject(project)) aliases.add('ocean pay');
             if (isOWSNewsProject(project)) aliases.add('ows news');
             return [...aliases].filter(Boolean);
@@ -5030,12 +5055,20 @@
             return slug.includes('wild-destiny') || slug.includes('wilddestiny') || name.includes('wild destiny');
         }
 
+        function isVelocitySurgeProject(project) {
+            if (!project) return false;
+            const slug = String(project.slug || '').toLowerCase();
+            const name = String(project.name || '').toLowerCase();
+            return slug.includes('velocity-surge') || slug.includes('velocitysurge') || name.includes('velocity surge');
+        }
+
         function isReleaseTrackedProject(project) {
             return isWildWeaponProject(project)
                 || isSSAProject(project)
                 || isOceanPayProject(project)
                 || isFloretProject(project)
-                || isWildTransferProject(project);
+                || isWildTransferProject(project)
+                || isVelocitySurgeProject(project);
         }
 
         function getProjectShort(project) {
@@ -5043,6 +5076,7 @@
             if (isFloretProject(project)) return 'FLR';
             if (isWildTransferProject(project)) return 'WTR';
             if (isWildDestinyProject(project)) return 'WD';
+            if (isVelocitySurgeProject(project)) return 'VSG';
             return '';
         }
 
@@ -5096,6 +5130,24 @@
                     status: list[idx].status || 'coming_soon',
                     pending_release: true,
                     icon_url: WILDDESTINY_LOCAL_ICON
+                };
+            }
+            return list;
+        }
+
+        function ensureVelocitySurgeProject(projects) {
+            if (!Array.isArray(projects)) return [];
+            const list = [...projects];
+            const idx = list.findIndex(isVelocitySurgeProject);
+            if (idx === -1) {
+                list.unshift({ ...VELOCITY_SURGE_PROJECT });
+            } else {
+                list[idx] = {
+                    ...VELOCITY_SURGE_PROJECT,
+                    ...list[idx],
+                    short: 'VSG',
+                    status: list[idx].status || 'launched',
+                    icon_url: VELOCITY_SURGE_LOCAL_ICON
                 };
             }
             return list;
@@ -5653,12 +5705,13 @@
                     { ...SSA_PROJECT },
                     { ...WILDTRANSFER_PROJECT },
                     { ...FLORET_PROJECT },
+                    { ...VELOCITY_SURGE_PROJECT },
                     { slug: 'wildweapon', name: 'WildWeapon Mayhem', status: 'launched', version: '22.2.26-1900', platform: 'windows', install_type: 'external', installer_url: WILDWEAPON_RELEASES_URL, description: 'Combate tactico definitivo, ahora disponible en ejecutable para Windows.' },
                     { slug: 'ocean-pay', name: 'Ocean Pay', status: 'launched', version: '3.1.0', platform: 'windows', install_type: 'external', installer_url: OCEAN_PAY_RELEASES_URL, icon_url: OCEAN_PAY_LOCAL_ICON, description: 'Pasarela universal.' }
                 ];
             }
             allProjects = Array.isArray(allProjects) ? allProjects.filter((p) => !isOWSNewsProject(p)) : [];
-            allProjects = ensureWildDestinyProject(ensureWildTransferProject(ensureFloretProject(ensureSSAProject(allProjects))));
+            allProjects = ensureVelocitySurgeProject(ensureWildDestinyProject(ensureWildTransferProject(ensureFloretProject(ensureSSAProject(allProjects)))));
             await applyLatestInstallerData(allProjects);
             seedLibraryFromProjectCatalog();
             try {
@@ -5943,6 +5996,62 @@
                 checkedAt: now,
             };
             wildTransferReleaseCache = payload;
+            return payload;
+        }
+
+        async function fetchLatestVelocitySurgeRelease() {
+            const now = Date.now();
+            if (velocitySurgeReleaseCache && (now - velocitySurgeReleaseCache.checkedAt) < 120000) {
+                return velocitySurgeReleaseCache;
+            }
+
+            const res = await fetch(VELOCITY_SURGE_RELEASES_API_URL, {
+                headers: { 'Accept': 'application/vnd.github+json' }
+            });
+            if (!res.ok) throw new Error(`GitHub API ${res.status}`);
+            const data = await res.json();
+            const assets = Array.isArray(data.assets) ? data.assets : [];
+            const versionFromTag = String(data.tag_name || '').replace(/^v/i, '');
+            const exeCandidates = assets.filter(a => typeof a?.name === 'string' && /\.exe$/i.test(a.name));
+            const scoredCandidates = exeCandidates.map((a) => ({
+                asset: a,
+                version: extractVersionFromText(a.name),
+                updatedAtMs: Date.parse(a.updated_at || '') || 0,
+                hasVelocityName: /velocity|surge|velocity[-_\s]*surge/i.test(String(a.name || '')),
+            }));
+
+            scoredCandidates.sort((x, y) => {
+                if (x.hasVelocityName !== y.hasVelocityName) return x.hasVelocityName ? -1 : 1;
+                const cmp = compareVersionLike(y.version, x.version);
+                if (cmp !== 0) return cmp;
+                return y.updatedAtMs - x.updatedAtMs;
+            });
+
+            let selected = scoredCandidates[0] || null;
+            if (versionFromTag) {
+                const tagMatch = scoredCandidates.find(c => c.version && compareVersionLike(c.version, versionFromTag) === 0);
+                if (tagMatch) selected = tagMatch;
+            }
+
+            const exeAsset = selected?.asset || null;
+            const versionFromAsset = selected?.version || '';
+            const staleInstaller = Boolean(versionFromTag && versionFromAsset && compareVersionLike(versionFromAsset, versionFromTag) < 0);
+            const warning = staleInstaller
+                ? `Release latest apunta a tag ${versionFromTag}, pero el instalador publicado es ${versionFromAsset}.`
+                : '';
+
+            const payload = {
+                version: versionFromTag || versionFromAsset || null,
+                tagVersion: versionFromTag || null,
+                assetVersion: versionFromAsset || null,
+                installerUrl: exeAsset?.browser_download_url || '',
+                installerSize: Number(exeAsset?.size || 0),
+                installerAvailable: Boolean(exeAsset?.browser_download_url) && !staleInstaller,
+                publishedAt: data.published_at || data.created_at || null,
+                warning,
+                checkedAt: now,
+            };
+            velocitySurgeReleaseCache = payload;
             return payload;
         }
 
@@ -6701,6 +6810,7 @@
             if (isFloretProject(project)) return project?.icon_url || FLORET_LOCAL_ICON || `https://placehold.co/${size}/2b0a45/f2a3ff?text=FLR`;
             if (isWildTransferProject(project)) return project?.icon_url || WILDTRANSFER_LOCAL_ICON || `https://placehold.co/${size}/0a1120/35d7ff?text=WTR`;
             if (isWildDestinyProject(project)) return project?.icon_url || WILDDESTINY_LOCAL_ICON || `https://placehold.co/${size}/111827/67e8f9?text=WD`;
+            if (isVelocitySurgeProject(project)) return project?.icon_url || VELOCITY_SURGE_LOCAL_ICON || `https://placehold.co/${size}/0a0f1e/26e0ff?text=VSG`;
             return project?.icon_url || `https://placehold.co/${size}/0f172a/00f3ff?text=OWS`;
         }
 
@@ -6727,7 +6837,7 @@
         function supportsWindowsInstaller(project) {
             if (!project) return false;
             const tokens = getPlatformTokens(project);
-            if (isWildWeaponProject(project) || isSSAProject(project) || isOceanPayProject(project) || isWildTransferProject(project)) return true;
+            if (isWildWeaponProject(project) || isSSAProject(project) || isOceanPayProject(project) || isWildTransferProject(project) || isVelocitySurgeProject(project)) return true;
             if (tokens.has('windows') || tokens.has('win')) return true;
             return Boolean(project.installer_url || project.release_url || project.windows_installer_url);
         }
@@ -6839,6 +6949,7 @@
             const oceanPay = projects.find(p => isOceanPayProject(p));
             const floret = projects.find(p => isFloretProject(p));
             const wildTransfer = projects.find(p => isWildTransferProject(p));
+            const velocitySurge = projects.find(p => isVelocitySurgeProject(p));
 
             if (wildWeapon) {
                 wildWeapon.platform = 'windows';
@@ -7060,6 +7171,41 @@
                 }
             }
 
+            if (velocitySurge) {
+                velocitySurge.platform = 'windows';
+                velocitySurge.install_type = 'external';
+                if (!velocitySurge.installer_url) velocitySurge.installer_url = VELOCITY_SURGE_RELEASES_URL;
+                velocitySurge.icon_url = velocitySurge.icon_url || VELOCITY_SURGE_LOCAL_ICON;
+                velocitySurge.installer_available = false;
+                velocitySurge.last_update_at = null;
+                velocitySurge.windows_last_update_at = null;
+                velocitySurge.android_last_update_at = null;
+                velocitySurge.pending_release = false;
+                velocitySurge.short = 'VSG';
+                velocitySurge.installer_size = Number(velocitySurge.installer_size || 0);
+
+                try {
+                    const latest = await fetchLatestVelocitySurgeRelease();
+                    if (latest?.version) velocitySurge.version = latest.version;
+                    if (latest?.installerUrl) velocitySurge.installer_url = latest.installerUrl;
+                    velocitySurge.installer_size = Number(latest?.installerSize || 0);
+                    velocitySurge.installer_available = Boolean(latest?.installerAvailable);
+                    velocitySurge.last_update_at = latest?.publishedAt || null;
+                    velocitySurge.windows_last_update_at = latest?.publishedAt || null;
+                    velocitySurge.pending_release = !velocitySurge.installer_available;
+                    if (latest?.warning) {
+                        velocitySurge.pending_release = true;
+                        velocitySurge.release_warning = latest.warning;
+                    } else {
+                        velocitySurge.release_warning = '';
+                    }
+                } catch (err) {
+                    console.log('No se pudo resolver la ultima release de Velocity Surge:', err?.message || err);
+                    velocitySurge.pending_release = true;
+                    velocitySurge.release_warning = 'No se pudo validar el instalador de la ultima release.';
+                }
+            }
+
         }
         function isExternalInstallerProject(project) {
             if (!project) return false;
@@ -7076,6 +7222,7 @@
             if (isOceanPayProject(project)) return OCEAN_PAY_RELEASES_URL;
             if (isFloretProject(project)) return FLORET_RELEASES_URL;
             if (isWildTransferProject(project)) return WILDTRANSFER_RELEASES_URL;
+            if (isVelocitySurgeProject(project)) return VELOCITY_SURGE_RELEASES_URL;
             return '';
         }
 
@@ -7545,6 +7692,10 @@
                 aliases.add('wildtransfer');
                 aliases.add('wild-transfer');
             }
+            if (isVelocitySurgeProject(project)) {
+                aliases.add('velocitysurge');
+                aliases.add('velocity-surge');
+            }
             if (isWildWeaponProject(project)) {
                 aliases.add('wildweapon');
                 aliases.add('wildweapon-mayhem');
@@ -7615,6 +7766,13 @@
                     installDirNames: ['Wild Destiny', 'wild-destiny', 'wilddestiny'],
                     executableNames: ['Wild Destiny.exe', 'wild-destiny.exe', 'wilddestiny.exe'],
                     uninstallerNames: ['Uninstall Wild Destiny.exe', 'unins000.exe']
+                };
+            }
+            if (isVelocitySurgeProject(project)) {
+                return {
+                    installDirNames: ['Velocity Surge', 'velocity-surge', 'velocitysurge'],
+                    executableNames: ['Velocity Surge.exe', 'velocity-surge.exe', 'velocitysurge.exe'],
+                    uninstallerNames: ['Uninstall Velocity Surge.exe', 'unins000.exe']
                 };
             }
             if (isOWSNewsProject(project)) {
@@ -7980,6 +8138,7 @@
                 if (isSSAProject(project)) ssaReleaseCache = null;
                 if (isOceanPayProject(project)) oceanPayProjectReleaseCache = null;
                 if (isWildTransferProject(project)) wildTransferReleaseCache = null;
+                if (isVelocitySurgeProject(project)) velocitySurgeReleaseCache = null;
             }
             const latest = isWildWeaponProject(project)
                 ? await fetchLatestWildWeaponRelease()
@@ -7991,7 +8150,9 @@
                             ? await fetchLatestFloretRelease()
                             : (isWildTransferProject(project)
                                 ? await fetchLatestWildTransferRelease()
-                                : await fetchLatestOWSNewsRelease()))));
+                                : (isVelocitySurgeProject(project)
+                                    ? await fetchLatestVelocitySurgeRelease()
+                                    : await fetchLatestOWSNewsRelease())))));
 
             if (isFloretProject(project) || isWildTransferProject(project)) {
                 const preferred = isNativeAndroidRuntime()

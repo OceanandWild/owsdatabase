@@ -1,0 +1,54 @@
+{
+  "name": "velocitysurge",
+  "version": "2026.2.27-515",
+  "description": "Velocity Surge desktop app",
+  "main": "main.js",
+  "author": "Ocean and Wild Studios",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win nsis",
+    "dist": "electron-builder --win nsis --publish never"
+  },
+  "build": {
+    "appId": "com.oceanandwild.velocitysurge",
+    "productName": "Velocity Surge",
+    "artifactName": "VelocitySurge.Setup.${version}.${ext}",
+    "files": [
+      "index.html",
+      "main.js",
+      "preload.js",
+      "package.json"
+    ],
+    "directories": {
+      "buildResources": "build",
+      "output": "C:/builds/velocity-surge"
+    },
+    "asar": true,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/velocitysurge.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Velocity Surge",
+      "deleteAppDataOnUninstall": false,
+      "installerIcon": "build/velocitysurge.ico",
+      "uninstallerIcon": "build/velocitysurge.ico"
+    }
+  },
+  "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8"
+  }
+}

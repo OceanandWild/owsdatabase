@@ -2577,6 +2577,7 @@
                             <div class="spotlight-panel">
                                 <div class="spotlight-panel-title">Lanzamientos recientes</div>
                                 <div id="explore-release-feed" class="spotlight-list">
+                                    <div class="spotlight-list-item"><span>Wild Destiny</span><span>Countdown</span></div>
                                     <div class="spotlight-list-item"><span>WildWeapon Mayhem</span><span>Windows</span></div>
                                     <div class="spotlight-list-item"><span>Savage Space Animals</span><span>Windows</span></div>
                                     <div class="spotlight-list-item"><span>WildTransfer</span><span>Windows</span></div>
@@ -2746,12 +2747,14 @@
         const WILDTRANSFER_RELEASES_URL = 'https://github.com/OceanandWild/wildtransfer/releases/latest';
         const WILDTRANSFER_RELEASES_API_URL = `${GITHUB_RELEASES_PROXY_BASE}/wildtransfer/releases/latest`;
         const WILDTRANSFER_RELEASES_LIST_API_URL = `${GITHUB_RELEASES_PROXY_BASE}/wildtransfer/releases?per_page=20`;
+        const WILDDESTINY_RELEASES_URL = 'https://github.com/OceanandWild/wilddestiny/releases/latest';
         const OWSNEWS_RELEASES_URL = 'https://github.com/OceanandWild/ocean-and-wild-studios-news/releases/latest';
         const OWSNEWS_RELEASES_API_URL = `${GITHUB_RELEASES_PROXY_BASE}/ocean-and-wild-studios-news/releases/latest`;
         const SSA_LOCAL_ICON = './build/ssa.ico?v=20260223-0443';
         const OCEAN_PAY_LOCAL_ICON = './build/oceanpay.ico?v=20260223-1825';
         const FLORET_LOCAL_ICON = 'https://raw.githubusercontent.com/OceanandWild/owsdatabase/main/Floret%20Shop/assets/floretshopicon.png?v=20260224-1938';
         const WILDTRANSFER_LOCAL_ICON = './build/wildtransfer.ico?v=20260225-0100';
+        const WILDDESTINY_LOCAL_ICON = './build/wilddestiny.ico?v=20260226-1';
         const OWSNEWS_LOCAL_ICON = './build/owsnews.ico?v=20260225-2248';
         const STORE_LOCAL_ICON = './build/icon.ico?v=20260223-0452';
         const STORE_DOWNLOAD_KEY = '__ows_store_update__';
@@ -2807,6 +2810,21 @@
             description: 'Transferencia rapida de archivos con codigo unico.',
             icon_url: WILDTRANSFER_LOCAL_ICON
         };
+        const WILDDESTINY_PROJECT = {
+            slug: 'wild-destiny',
+            name: 'Wild Destiny',
+            short: 'WD',
+            status: 'coming_soon',
+            version: '1.0.0',
+            platform: 'windows',
+            install_type: 'external',
+            installer_url: WILDDESTINY_RELEASES_URL,
+            installer_available: false,
+            pending_release: true,
+            release_date: '2026-03-15T21:00:00Z',
+            description: 'Action RPG de raids con clases, maestrias y progresion avanzada. Lanzamiento inicial para Windows en preparacion.',
+            icon_url: WILDDESTINY_LOCAL_ICON
+        };
         const OWS_NEWS_CACHE_TTL_MS = 120000;
         const NEW_BADGE_DURATION_MS = 14 * 24 * 60 * 60 * 1000;
         const NEW_BADGE_START_BY_SLUG = {
@@ -2819,6 +2837,13 @@
             { word: 'ARCADE', iconClass: 'fa-gamepad', color: '#b96700', caption: 'Diversidad de estilos para cada jugador.' },
         ];
         const SPOTLIGHT_SLIDES = [
+            {
+                key: 'wild-destiny-countdown',
+                label: 'Proximo lanzamiento',
+                title: 'Wild Destiny llega pronto a OWS Store (Windows)',
+                text: 'La ventana de lanzamiento ya tiene fecha. Puedes seguir el countdown desde su ficha en Ecosistema de Estudio.',
+                slug: 'wild-destiny',
+            },
             {
                 key: 'ows-news-retired',
                 label: 'Store Changelog',
@@ -2922,6 +2947,19 @@
             releaseNotes: '',
             resolvable: false
         };
+        const STORE_OBSOLETE_GATE_REFRESH_MS = 90000;
+        const STORE_OBSOLETE_BLOCK_NOTICE_COOLDOWN_MS = 4000;
+        let storeObsoleteGate = {
+            blocked: false,
+            platform: '',
+            currentVersion: '',
+            requiredVersion: '',
+            reason: '',
+            source: '',
+            checkedAt: 0
+        };
+        let storeObsoleteGateRefreshPromise = null;
+        let storeObsoleteGateLastNoticeAt = 0;
 
         function applyTheme(theme) {
             const mode = theme === 'dark' ? 'dark' : 'light';
@@ -3990,6 +4028,28 @@
                 if (!item) break;
                 const project = getProjectBySlug(item.slug);
                 if (!project) continue;
+                const blockedByStore = await ensureStoreIsUpToDateForProjectAction(`instalar o actualizar ${project.name}`, { openUpdates: false });
+                if (blockedByStore) {
+                    const blockedStatus = 'Bloqueado por OWS Store obsoleta. Actualiza OWS Store para continuar.';
+                    const blockedItems = [item, ...projectInstallQueue.splice(0)];
+                    blockedItems.forEach((queued) => {
+                        const queuedProject = getProjectBySlug(queued.slug);
+                        setRuntimeState(queued.slug, { phase: 'idle', percent: 0, taskId: '' });
+                        updateDownloadSession(queued.key, {
+                            phase: 'error',
+                            percent: 0,
+                            status: blockedStatus,
+                        });
+                        if (queuedProject) {
+                            addNotification(`Instalacion bloqueada para ${queuedProject.name}: OWS Store necesita update.`, 'warning');
+                        }
+                    });
+                    const updatesStatusBlocked = document.getElementById('updates-project-status');
+                    if (updatesStatusBlocked) updatesStatusBlocked.textContent = blockedStatus;
+                    activeInstallTaskKey = '';
+                    syncQueueMarkers();
+                    break;
+                }
                 activeInstallTaskKey = item.key;
                 const updatesStatus = document.getElementById('updates-project-status');
                 if (updatesStatus) updatesStatus.textContent = 'Preparando instalador de ' + project.name + '...';
@@ -4868,6 +4928,13 @@
             return slug.includes('ows-news') || slug.includes('owsnews') || name.includes('ows news');
         }
 
+        function isWildDestinyProject(project) {
+            if (!project) return false;
+            const slug = String(project.slug || '').toLowerCase();
+            const name = String(project.name || '').toLowerCase();
+            return slug.includes('wild-destiny') || slug.includes('wilddestiny') || name.includes('wild destiny');
+        }
+
         function isReleaseTrackedProject(project) {
             return isWildWeaponProject(project)
                 || isSSAProject(project)
@@ -4880,6 +4947,7 @@
             if (isSSAProject(project)) return 'SSA';
             if (isFloretProject(project)) return 'FLR';
             if (isWildTransferProject(project)) return 'WTR';
+            if (isWildDestinyProject(project)) return 'WD';
             return '';
         }
 
@@ -4919,6 +4987,24 @@
             return list;
         }
 
+        function ensureWildDestinyProject(projects) {
+            if (!Array.isArray(projects)) return [];
+            const list = [...projects];
+            const idx = list.findIndex(isWildDestinyProject);
+            if (idx === -1) {
+                list.unshift({ ...WILDDESTINY_PROJECT });
+            } else {
+                list[idx] = {
+                    ...WILDDESTINY_PROJECT,
+                    ...list[idx],
+                    short: 'WD',
+                    status: list[idx].status || 'coming_soon',
+                    pending_release: true
+                };
+            }
+            return list;
+        }
+
         function hasNewBadge(project) {
             if (!project) return false;
             const slug = String(project.slug || '').toLowerCase();
@@ -4941,6 +5027,117 @@
             } else {
                 badge.textContent = '!';
             }
+        }
+
+        function isStoreObsoleteGateActive() {
+            return Boolean(storeObsoleteGate?.blocked);
+        }
+
+        function getStoreObsoleteGateMessage(actionText = 'instalar o actualizar proyectos') {
+            const platformLabel = storeObsoleteGate.platform === 'android' ? 'Android' : 'Windows';
+            const currentText = storeObsoleteGate.currentVersion ? `v${storeObsoleteGate.currentVersion}` : 'version instalada';
+            const requiredText = storeObsoleteGate.requiredVersion ? `v${storeObsoleteGate.requiredVersion}` : 'la ultima version';
+            return `OWS Store ${platformLabel} esta obsoleta (${currentText}). Debes actualizar a ${requiredText} antes de ${actionText}.`;
+        }
+
+        function setStoreObsoleteGateBlocked({
+            platform = '',
+            currentVersion = '',
+            requiredVersion = '',
+            reason = '',
+            source = '',
+        } = {}) {
+            storeObsoleteGate = {
+                blocked: true,
+                platform: normalizePlatformKind(platform) || (isNativeAndroidRuntime() ? 'android' : 'windows'),
+                currentVersion: String(currentVersion || '').trim(),
+                requiredVersion: String(requiredVersion || '').trim(),
+                reason: String(reason || '').trim(),
+                source: String(source || '').trim(),
+                checkedAt: Date.now(),
+            };
+        }
+
+        function clearStoreObsoleteGate({ platform = '', reason = '', source = '' } = {}) {
+            const keepPlatform = normalizePlatformKind(platform) || storeObsoleteGate.platform || (isNativeAndroidRuntime() ? 'android' : 'windows');
+            storeObsoleteGate = {
+                blocked: false,
+                platform: keepPlatform,
+                currentVersion: storeObsoleteGate.currentVersion || '',
+                requiredVersion: '',
+                reason: String(reason || '').trim(),
+                source: String(source || '').trim(),
+                checkedAt: Date.now(),
+            };
+        }
+
+        async function refreshStoreObsoleteGateIfNeeded({ force = false } = {}) {
+            if (!force && storeObsoleteGateRefreshPromise) return storeObsoleteGate;
+            const now = Date.now();
+            if (!force && storeObsoleteGate.checkedAt > 0 && (now - storeObsoleteGate.checkedAt) < STORE_OBSOLETE_GATE_REFRESH_MS) {
+                return storeObsoleteGate;
+            }
+
+            const run = async () => {
+                try {
+                    if (isNativeAndroidRuntime() && typeof window.owsUpdater === 'undefined') {
+                        await checkOWSStoreAndroidUpdate({ silent: true, origin: 'guard' });
+                    } else if (window.owsUpdater?.checkForUpdates) {
+                        await requestWindowsUpdaterCheck({ silent: true, origin: 'guard' });
+                        const currentVersion = String(await window.owsUpdater.getAppVersion?.().catch(() => currentStoreWindowsVersion || '') || currentStoreWindowsVersion || '').trim();
+                        if (currentVersion) currentStoreWindowsVersion = currentVersion;
+                        await applyWindowsManualUpdateSignal(currentStoreWindowsVersion, { silent: true }).catch(() => {});
+                    } else {
+                        clearStoreObsoleteGate({ source: 'guard-no-updater', reason: 'updater-unavailable' });
+                    }
+                } catch (_) {}
+                if (!storeObsoleteGate.checkedAt) {
+                    storeObsoleteGate.checkedAt = Date.now();
+                }
+            };
+
+            storeObsoleteGateRefreshPromise = run().finally(() => {
+                storeObsoleteGateRefreshPromise = null;
+            });
+            await storeObsoleteGateRefreshPromise;
+            return storeObsoleteGate;
+        }
+
+        function showStoreObsoleteBlockMessage(actionText = 'instalar o actualizar proyectos', { openUpdates = true } = {}) {
+            const message = getStoreObsoleteGateMessage(actionText);
+            const now = Date.now();
+            if ((now - storeObsoleteGateLastNoticeAt) >= STORE_OBSOLETE_BLOCK_NOTICE_COOLDOWN_MS) {
+                addNotification(message, 'warning');
+                storeObsoleteGateLastNoticeAt = now;
+            }
+            const status = document.getElementById('updates-project-status');
+            if (status) status.textContent = 'Bloqueado: actualiza OWS Store para continuar';
+            showActionMessage(message, {
+                state: 'available',
+                title: 'OWS Store obsoleta',
+                iconClass: 'fa-shield-halved',
+                iconSpin: false,
+            });
+            if (openUpdates && activeSection !== 'updates') {
+                const updatesNav = document.querySelector('.nav-menu .nav-item:nth-child(3)');
+                showSection('updates', updatesNav || null);
+            }
+            return message;
+        }
+
+        async function ensureStoreIsUpToDateForProjectAction(actionText = 'instalar o actualizar proyectos', { openUpdates = true, forceCheck = false } = {}) {
+            await refreshStoreObsoleteGateIfNeeded({ force: forceCheck });
+            if (!isStoreObsoleteGateActive()) return false;
+            showStoreObsoleteBlockMessage(actionText, { openUpdates });
+            return true;
+        }
+
+        function triggerStoreObsoleteNotice(slug = '') {
+            const project = getProjectBySlug(slug);
+            const actionText = project
+                ? `instalar o actualizar ${project.name}`
+                : 'instalar o actualizar proyectos';
+            showStoreObsoleteBlockMessage(actionText, { openUpdates: true });
         }
 
         function getProjectUpdateInfo(project) {
@@ -5055,6 +5252,13 @@
             const list = document.getElementById('project-updates-list');
             if (!list) return;
             const updates = getPendingProjectUpdates();
+            const gateBlocked = isStoreObsoleteGateActive();
+            const gateNoticeHtml = gateBlocked
+                ? `<div class="info-note-card" style="border-color:#b96700; background:rgba(185,103,0,0.08);">\
+                    <strong style="display:block; margin-bottom:0.25rem; color:#b96700;">OWS Store obsoleta</strong>\
+                    <span>${getStoreObsoleteGateMessage('instalar o actualizar proyectos')}</span>\
+                </div>`
+                : '';
             projectUpdatesCount = updates.length;
             syncUpdatesBadge();
 
@@ -5062,7 +5266,7 @@
                 const appHint = appUpdateAvailable
                     ? `<div style="margin-top:0.5rem; color:var(--brand-2);">Hay una actualizacion de OWS Store disponible en el banner superior.</div>`
                     : '';
-                list.innerHTML = `<div class="info-note-card">No hay actualizaciones pendientes de proyectos.${appHint}</div>`;
+                list.innerHTML = `${gateNoticeHtml}<div class="info-note-card">No hay actualizaciones pendientes de proyectos.${appHint}</div>`;
                 return;
             }
 
@@ -5111,13 +5315,23 @@
             list.innerHTML = updates.map(({ project, info }) => {
                 const action = resolveProjectUpdateAction(project, info);
                 const targetLabel = action.label || (info.installedPlatform === 'android' ? 'Android' : 'Windows');
-                const metaText = action.requiresChoice
-                    ? `No se pudo detectar plataforma automaticamente. Elige ${action.options.join(' o ')} antes de actualizar.`
-                    : (action.reason === 'device'
-                        ? `Actualizacion recomendada para ${targetLabel} (dispositivo detectado: ${action.device.label}).`
-                        : `Actualizacion detectada para ${targetLabel}.`);
-                const buttonLabel = action.requiresChoice ? 'Elegir plataforma' : `Actualizar ${targetLabel}`;
-                const buttonIcon = action.requiresChoice ? 'fa-layer-group' : 'fa-arrow-up';
+                const metaText = gateBlocked
+                    ? getStoreObsoleteGateMessage(`actualizar ${project.name}`)
+                    : (action.requiresChoice
+                        ? `No se pudo detectar plataforma automaticamente. Elige ${action.options.join(' o ')} antes de actualizar.`
+                        : (action.reason === 'device'
+                            ? `Actualizacion recomendada para ${targetLabel} (dispositivo detectado: ${action.device.label}).`
+                            : `Actualizacion detectada para ${targetLabel}.`));
+                const buttonLabel = gateBlocked
+                    ? 'Actualizar OWS Store'
+                    : (action.requiresChoice ? 'Elegir plataforma' : `Actualizar ${targetLabel}`);
+                const buttonIcon = gateBlocked
+                    ? 'fa-shield-halved'
+                    : (action.requiresChoice ? 'fa-layer-group' : 'fa-arrow-up');
+                const buttonClass = gateBlocked ? 'btn-install unavailable' : 'btn-install';
+                const buttonAction = gateBlocked
+                    ? `triggerStoreObsoleteNotice('${project.slug}')`
+                    : `triggerProjectUpdate('${project.slug}', '${action.platform || ''}')`;
 
                 return `
                     <div class="project-update-card">
@@ -5126,10 +5340,12 @@
                             <div class="project-update-meta">${metaText}</div>
                             <div class="project-update-platforms">${info.platformDetails.map((d) => formatPlatformRow(d)).join('')}</div>
                         </div>
-                        <button class="btn-install" style="width:auto; padding:0.55rem 0.8rem;" onclick="triggerProjectUpdate('${project.slug}', '${action.platform || ''}')"><i class="fas ${buttonIcon}"></i> ${buttonLabel}</button>
+                        <button class="${buttonClass}" style="width:auto; padding:0.55rem 0.8rem;" onclick="${buttonAction}"><i class="fas ${buttonIcon}"></i> ${buttonLabel}</button>
                     </div>
                 `;
             }).join('');
+
+            list.innerHTML = `${gateNoticeHtml}${list.innerHTML}`;
         }
 
         function renderStoreNewsTimeline() {
@@ -5245,6 +5461,9 @@
         async function triggerProjectUpdate(slug, platform = '') {
             const project = allProjects.find((p) => p.slug === slug);
             if (!project) return;
+            if (await ensureStoreIsUpToDateForProjectAction(`actualizar ${project.name}`, { openUpdates: false, forceCheck: true })) {
+                return;
+            }
             const info = getProjectUpdateInfo(project);
             const resolved = resolveProjectUpdateAction(project, info, platform);
             if (!resolved.platform) {
@@ -5340,7 +5559,7 @@
                 ];
             }
             allProjects = Array.isArray(allProjects) ? allProjects.filter((p) => !isOWSNewsProject(p)) : [];
-            allProjects = ensureWildTransferProject(ensureFloretProject(ensureSSAProject(allProjects)));
+            allProjects = ensureWildDestinyProject(ensureWildTransferProject(ensureFloretProject(ensureSSAProject(allProjects))));
             await applyLatestInstallerData(allProjects);
             try {
                 await fetchOWSNewsUpdates(true);
@@ -6082,6 +6301,7 @@
             const current = String(currentVersion || '').trim();
             const latestVersion = String(latest?.version || '').trim();
             if (!current || !latestVersion) {
+                clearStoreObsoleteGate({ platform: 'windows', source: 'windows-manual-check', reason: 'insufficient-version-data' });
                 owsStoreWindowsManualUpdateUrl = '';
                 owsStoreWindowsManualVersion = '';
                 return { needsUpdate: false, latest, current };
@@ -6089,11 +6309,19 @@
 
             const needsUpdate = compareVersionLike(current, latestVersion) < 0;
             if (!needsUpdate) {
+                clearStoreObsoleteGate({ platform: 'windows', source: 'windows-manual-check', reason: 'up-to-date' });
                 owsStoreWindowsManualUpdateUrl = '';
                 owsStoreWindowsManualVersion = '';
                 return { needsUpdate: false, latest, current };
             }
 
+            setStoreObsoleteGateBlocked({
+                platform: 'windows',
+                currentVersion: current,
+                requiredVersion: latestVersion,
+                reason: 'store-outdated',
+                source: 'windows-manual-check',
+            });
             owsStoreWindowsManualUpdateUrl = latest?.downloadUrl || OWS_STORE_RELEASES_URL;
             owsStoreWindowsManualVersion = latestVersion;
             appUpdateAvailable = true;
@@ -6200,6 +6428,7 @@
             const current = await resolveCurrentStoreAndroidVersionInfo();
             const latestResolvable = Boolean(owsStoreAndroidState.resolvable);
             if (!latestResolvable) {
+                clearStoreObsoleteGate({ platform: 'android', source: 'android-check', reason: 'latest-not-resolved' });
                 appUpdateAvailable = false;
                 appUpdateSizeBytes = 0;
                 appUpdateEtaSeconds = null;
@@ -6255,6 +6484,7 @@
             }
 
             if (!currentKnown) {
+                clearStoreObsoleteGate({ platform: 'android', source: 'android-check', reason: 'installed-version-unknown' });
                 appUpdateAvailable = true;
                 syncUpdatesBadge();
                 if (status) status.textContent = `No se pudo leer version instalada. Release detectada: ${latestLabel}`;
@@ -6289,6 +6519,13 @@
             }
 
             if (needsUpdate) {
+                setStoreObsoleteGateBlocked({
+                    platform: 'android',
+                    currentVersion: current.versionName || (current.versionCode > 0 ? String(current.versionCode) : ''),
+                    requiredVersion: latest?.version || (Number(latest?.versionCode || 0) > 0 ? String(latest.versionCode) : ''),
+                    reason: 'store-outdated',
+                    source: 'android-check',
+                });
                 if (status) status.textContent = `Update Android disponible: ${latestLabel}`;
                 if (btn) btn.style.display = 'flex';
                 if (closeBtn) {
@@ -6321,6 +6558,7 @@
             }
 
             const autoCheck = checkOrigin === 'auto' || Boolean(silent);
+            clearStoreObsoleteGate({ platform: 'android', source: 'android-check', reason: 'up-to-date' });
             if (status) status.textContent = autoCheck
                 ? 'Verificacion automatica completada: sin actualizaciones nuevas.'
                 : 'No hay actualizaciones pendientes.';
@@ -6357,6 +6595,7 @@
             if (isOceanPayProject(project)) return project?.icon_url || OCEAN_PAY_LOCAL_ICON;
             if (isFloretProject(project)) return project?.icon_url || FLORET_LOCAL_ICON || `https://placehold.co/${size}/2b0a45/f2a3ff?text=FLR`;
             if (isWildTransferProject(project)) return project?.icon_url || WILDTRANSFER_LOCAL_ICON || `https://placehold.co/${size}/0a1120/35d7ff?text=WTR`;
+            if (isWildDestinyProject(project)) return project?.icon_url || WILDDESTINY_LOCAL_ICON || `https://placehold.co/${size}/111827/67e8f9?text=WD`;
             return project?.icon_url || `https://placehold.co/${size}/0f172a/00f3ff?text=OWS`;
         }
 
@@ -7193,6 +7432,13 @@
                     uninstallerNames: ['Uninstall WildTransfer.exe', 'unins000.exe']
                 };
             }
+            if (isWildDestinyProject(project)) {
+                return {
+                    installDirNames: ['Wild Destiny', 'wild-destiny', 'wilddestiny'],
+                    executableNames: ['Wild Destiny.exe', 'wild-destiny.exe', 'wilddestiny.exe'],
+                    uninstallerNames: ['Uninstall Wild Destiny.exe', 'unins000.exe']
+                };
+            }
             if (isOWSNewsProject(project)) {
                 return {
                     installDirNames: ['OWS News', 'ows-news', 'owsnews', 'Ocean and Wild Studios News'],
@@ -7354,13 +7600,21 @@
                         <div id="lib-fill-${p.slug}" class="progress-fill" style="width:${Math.round(runtime.percent || 0)}%"></div>
                     </div>
                 `;
+                const blockedByStore = isStoreObsoleteGateActive();
+                const reinstallLabel = blockedByStore
+                    ? 'Actualizar Store'
+                    : (updateInfo.needsUpdate ? 'Actualizar' : 'Reinstalar');
+                const reinstallIcon = blockedByStore ? 'fa-shield-halved' : 'fa-rotate';
+                const reinstallAction = blockedByStore
+                    ? `triggerStoreObsoleteNotice('${p.slug}')`
+                    : `reinstallFromLibrary('${p.slug}')`;
                 const actionsHtml = (isDownloading || isPreparing || isQueued)
                     ? `<div class="library-actions">
                         <button class="btn-install full" style="background:#b96700;" onclick="cancelInstallFromLibrary('${p.slug}')"><i class="fas fa-ban"></i> Cancelar instalacion</button>
                     </div>`
                     : `<div class="library-actions">
                         <button class="btn-install" onclick="launchFromLibrary('${p.slug}')"><i class="fas fa-play"></i> ${openLabel}</button>
-                        <button class="btn-install" style="background:linear-gradient(90deg,var(--brand-2),#2aa0a6);" onclick="reinstallFromLibrary('${p.slug}')"><i class="fas fa-rotate"></i> ${updateInfo.needsUpdate ? 'Actualizar' : 'Reinstalar'}</button>
+                        <button class="btn-install ${blockedByStore ? 'unavailable' : ''}" style="background:linear-gradient(90deg,var(--brand-2),#2aa0a6);" onclick="${reinstallAction}"><i class="fas ${reinstallIcon}"></i> ${reinstallLabel}</button>
                         <button class="btn-install full" style="background:#2b2e37;" onclick="uninstallFromLibrary('${p.slug}')"><i class="fas fa-trash"></i> Desinstalar</button>
                     </div>`;
                 const updateBadgeHtml = updateInfo.needsUpdate
@@ -7385,15 +7639,22 @@
             const detailNewTag = hasNewBadge(p) ? ' · NUEVO!' : '';
             document.getElementById('m-title').innerText = getProjectShort(p) ? `${p.name} (${getProjectShort(p)})${detailNewTag}` : `${p.name}${detailNewTag}`;
             document.getElementById('m-desc').innerText = p.description || "Explora una nueva dimension de entretenimiento con este proyecto oficial de Ocean and Wild Studios.";
+            const isComingSoon = p.status === 'coming_soon';
+            if (isComingSoon && p.release_date) {
+                const launchDate = formatDateTime(p.release_date);
+                document.getElementById('m-desc').innerText += `\n\nLanzamiento Windows programado: ${launchDate}.`;
+            }
             if (isReleaseTrackedProject(p)) {
                 const statusText = p.pending_release
                     ? (p.release_warning || 'Pendiente de publicacion en Releases')
                     : `Ultima actualizacion: ${formatDateTime(p.last_update_at)}`;
                 document.getElementById('m-desc').innerText += `\n\n${statusText}.`;
             }
-            document.getElementById('m-status').innerText = isReleaseTrackedProject(p)
+            document.getElementById('m-status').innerText = isComingSoon
+                ? 'LANZAMIENTO PROGRAMADO'
+                : (isReleaseTrackedProject(p)
                 ? (p.pending_release ? 'PENDING RELEASE' : 'READY TO INSTALL')
-                : (p.status || 'launched').toUpperCase();
+                : (p.status || 'launched').toUpperCase());
             document.getElementById('m-icon').src = getProjectIcon(p, 140);
             document.getElementById('m-banner').style.backgroundImage = `url(${p.banner_url || 'https://images.unsplash.com/photo-1614850523296-d8c1af93d400?auto=format&fit=crop&q=80&w=800'})`;
 
@@ -7435,7 +7696,6 @@
 
             const actions = document.getElementById('m-actions');
             actions.innerHTML = '';
-            const isComingSoon = p.status === 'coming_soon';
             const state = installStateBySlug[p.slug] || {};
             const installedV = state.version || localStorage.getItem(`installed_${p.slug}`);
             const isExternal = isExternalInstallerProject(p);
@@ -7444,6 +7704,7 @@
             const updateInfo = getProjectUpdateInfo(p);
             const selectedIsAndroid = selectedTarget?.kind === 'android';
             const selectedIsWindows = !selectedTarget || selectedTarget.kind === 'windows';
+            const storeBlocked = isStoreObsoleteGateActive();
 
             let btnText = '<i class="fas fa-download"></i> INSTALAR PROYECTO';
             let btnClass = 'btn-install';
@@ -7474,11 +7735,22 @@
                 if (updateInfo.needsUpdate) btnText = '<i class="fas fa-arrow-up"></i> ACTUALIZAR A v' + p.version;
                 else btnText = '<i class="fas fa-play"></i> JUGAR AHORA';
             }
+            if (!isComingSoon && !busy && storeBlocked && (isExternal || !installedV || updateInfo.needsUpdate)) {
+                btnText = '<i class="fas fa-shield-halved"></i> ACTUALIZA OWS STORE';
+                btnClass += ' unavailable';
+            }
 
             const btn = document.createElement('button');
             btn.className = btnClass;
             btn.innerHTML = btnText;
-            btn.onclick = async (e) => { closeDetails(); await handleProjectAction(e, p); };
+            btn.onclick = async (e) => {
+                closeDetails();
+                if (!isComingSoon && !busy && storeBlocked && (isExternal || !installedV || updateInfo.needsUpdate)) {
+                    triggerStoreObsoleteNotice(p.slug);
+                    return;
+                }
+                await handleProjectAction(e, p);
+            };
             actions.appendChild(btn);
             if (busy) {
                 const cancelBtn = document.createElement('button');
@@ -7559,6 +7831,13 @@
         async function handleProjectAction(e, project) {
             e.stopPropagation();
             if (!project) return;
+            const installedV = localStorage.getItem(`installed_${project.slug}`);
+            const isExternalProject = isExternalInstallerProject(project);
+            const isPureLaunch = !isExternalProject && installedV === project.version;
+            if (!isPureLaunch) {
+                const blockedByStore = await ensureStoreIsUpToDateForProjectAction(`instalar o actualizar ${project.name}`, { openUpdates: true, forceCheck: true });
+                if (blockedByStore) return;
+            }
             uninstallSuppressedBySlug[project.slug] = false;
             if (isExternalInstallerProject(project) && (isProjectQueued(project.slug) || activeInstallTaskKey === getDownloadKeyForProject(project))) {
                 addNotification(project.name + ' ya esta en cola de descarga.', 'warning');
@@ -7575,7 +7854,6 @@
                 showActionMessage(project.name + ' aun no esta disponible.');
                 return;
             }
-            const installedV = localStorage.getItem(`installed_${project.slug}`);
             let selectedTarget = getSelectedInstallTarget(project);
             if (isExternalInstallerProject(project)) {
                 if (selectedTarget?.kind === 'android') {
@@ -8003,6 +8281,13 @@
                 const btn = document.getElementById('btn-install-update');
                 const dot = document.getElementById('update-indicator-dot');
                 const closeBtn = document.getElementById('btn-close-update-banner');
+                setStoreObsoleteGateBlocked({
+                    platform: 'windows',
+                    currentVersion: currentStoreWindowsVersion,
+                    requiredVersion: String(info?.version || '').trim(),
+                    reason: 'store-outdated',
+                    source: 'windows-updater-event',
+                });
                 owsStoreWindowsManualUpdateUrl = '';
                 owsStoreWindowsManualVersion = '';
                 appUpdateSizeBytes = extractUpdateSizeBytes(info);
@@ -8131,6 +8416,7 @@
                 if (currentVersion) currentStoreWindowsVersion = currentVersion;
                 const manual = await applyWindowsManualUpdateSignal(currentStoreWindowsVersion, { silent: true }).catch(() => ({ needsUpdate: false }));
                 if (manual?.needsUpdate) return;
+                clearStoreObsoleteGate({ platform: 'windows', source: 'windows-updater-event', reason: 'up-to-date' });
                 const banner = document.getElementById('update-banner');
                 const msg = document.getElementById('update-msg');
                 const dot = document.getElementById('update-indicator-dot');

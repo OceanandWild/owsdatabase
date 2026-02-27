@@ -3999,7 +3999,17 @@ app.post('/ocean-pay/currency/change', async (req, res) => {
     }
 
     const balances = card.balances || {};
-    const current = parseFloat(balances[currKey] || 0);
+    const currentJson = parseFloat(balances[currKey] || 0);
+    const { rows: tableBalRows } = await client.query(
+      `SELECT amount
+       FROM ocean_pay_card_balances
+       WHERE card_id = $1 AND currency_type = $2
+       FOR UPDATE`,
+      [card.id, currKey]
+    );
+    const currentTable = parseFloat(tableBalRows[0]?.amount || 0);
+    // Mismo criterio que /ocean-pay/me para evitar "saldo visible alto" + "saldo insuficiente" al gastar.
+    const current = Math.max(currentJson, currentTable);
     const change = parseFloat(amount);
     const newBalance = current + change;
 
@@ -4011,22 +4021,14 @@ app.post('/ocean-pay/currency/change', async (req, res) => {
       }
       balances[currKey] = newBalance;
 
-      // Sincronización Doble: JSONB y Tabla SQL (Evita el "Healing" de balances altos)
+      // Sincronización doble JSONB + tabla de balances.
       await client.query(`UPDATE ocean_pay_cards SET balances = $1 WHERE id = $2`, [balances, card.id]);
-
-      // Actualizar tabla legada para persistencia total
-      const { rowCount } = await client.query(`
-          UPDATE ocean_pay_card_balances 
-          SET amount = $1 
-          WHERE card_id = $2 AND currency_type = $3
-      `, [newBalance, card.id, currKey]);
-
-      if (rowCount === 0) {
-        await client.query(`
-            INSERT INTO ocean_pay_card_balances(card_id, currency_type, amount)
-    VALUES($1, $2, $3)
+      await client.query(`
+          INSERT INTO ocean_pay_card_balances(card_id, currency_type, amount)
+          VALUES($1, $2, $3)
+          ON CONFLICT (card_id, currency_type)
+          DO UPDATE SET amount = EXCLUDED.amount
       `, [card.id, currKey, newBalance]);
-      }
     }
 
     // Registrar transacción siempre

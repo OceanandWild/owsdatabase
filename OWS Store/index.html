@@ -5049,6 +5049,8 @@
         } = {}) {
             let needsUpdate = false;
             if (installedOnThisDevice && available) {
+                const latestReleaseTs = Date.parse(String(latestReleasePublishedAt || '')) || 0;
+                const installedReleaseTs = Date.parse(String(installedReleasePublishedAt || '')) || 0;
                 if (platform === 'android' && Number(latestVersionCode) > 0) {
                     if (Number(installedVersionCode) > 0) {
                         needsUpdate = Number(latestVersionCode) > Number(installedVersionCode);
@@ -5066,19 +5068,19 @@
                     needsUpdate = compareVersionLike(installedVersion, latestVersion) < 0;
                 }
 
-                if (!needsUpdate && installedVersion && latestVersion) {
-                    const sameVersion = compareVersionLike(installedVersion, latestVersion) === 0;
-                    if (sameVersion) {
-                        const latestReleaseTs = Date.parse(String(latestReleasePublishedAt || '')) || 0;
-                        const installedReleaseTs = Date.parse(String(installedReleasePublishedAt || '')) || 0;
-                        if (latestReleaseTs > 0) {
-                            if (installedReleaseTs > 0) {
-                                needsUpdate = latestReleaseTs > installedReleaseTs;
-                            } else if (allowMissingReleaseMetadataBootstrap) {
-                                // One-time bootstrap for users installed before release metadata tracking.
-                                needsUpdate = true;
-                            }
-                        }
+                const sameVersion = Boolean(installedVersion && latestVersion)
+                    && compareVersionLike(installedVersion, latestVersion) === 0;
+                const sameAndroidCode = platform === 'android'
+                    && Number(installedVersionCode) > 0
+                    && Number(latestVersionCode) > 0
+                    && Number(installedVersionCode) === Number(latestVersionCode);
+
+                if (!needsUpdate && (sameVersion || sameAndroidCode) && latestReleaseTs > 0) {
+                    if (installedReleaseTs > 0) {
+                        needsUpdate = latestReleaseTs > installedReleaseTs;
+                    } else if (allowMissingReleaseMetadataBootstrap) {
+                        // One-time bootstrap for users installed before release metadata tracking.
+                        needsUpdate = true;
                     }
                 }
             }
@@ -5422,6 +5424,7 @@
                     latestVersionCode: androidLatestVersionCode,
                     installedReleasePublishedAt: androidInstalledReleasePublishedAt,
                     latestReleasePublishedAt: androidLatestReleasePublishedAt,
+                    allowMissingReleaseMetadataBootstrap: true,
                     installedOnThisDevice,
                     available,
                 });

@@ -1742,10 +1742,11 @@
         .update-banner .update-text span {
             color: #5f6270;
             font-size: 0.8rem;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            white-space: normal;
+            overflow: visible;
+            text-overflow: clip;
             display: block;
+            line-height: 1.25;
         }
 
         .update-banner .update-meta {
@@ -8412,6 +8413,13 @@
             }
             let selectedTarget = getSelectedInstallTarget(project);
             if (isExternalInstallerProject(project)) {
+                if (!isNativeAndroidRuntime() && selectedTarget?.kind === 'android') {
+                    const winTarget = getProjectInstallTargets(project).find((t) => t.kind === 'windows' && t.available);
+                    if (winTarget) {
+                        selectedTarget = winTarget;
+                        selectedInstallTargetBySlug[project.slug] = winTarget.id;
+                    }
+                }
                 if (selectedTarget?.kind && !isPlatformCompatibleWithCurrentDevice(selectedTarget.kind)) {
                     notifyProjectIncompatible(project.slug, selectedTarget.kind);
                     return;

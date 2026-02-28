@@ -4996,6 +4996,21 @@
             return { platform: '', label: 'No detectada', source: 'unknown', detected: false };
         }
 
+        function isPlatformCompatibleWithCurrentDevice(platformKind = '') {
+            const target = normalizePlatformKind(platformKind);
+            const device = detectCurrentDevicePlatform();
+            if (!target) return true;
+            if (!device.platform) return true;
+            return target === device.platform;
+        }
+
+        function getIncompatiblePlatformMessage(project, targetPlatform = '') {
+            const device = detectCurrentDevicePlatform();
+            const targetLabel = normalizePlatformKind(targetPlatform) === 'android' ? 'Android' : 'Windows';
+            const deviceLabel = device.label || 'tu dispositivo';
+            return `${project?.name || 'Este proyecto'} no esta disponible para ${deviceLabel}. Esta descarga/update es para ${targetLabel}.`;
+        }
+
         function resolveProjectUpdateAction(project, info = null, requestedPlatform = '') {
             const forced = normalizePlatformKind(requestedPlatform);
             const details = Array.isArray(info?.platformDetails) ? info.platformDetails : [];
@@ -5035,6 +5050,18 @@
             };
         }
 
+        function getPreferredUpdatePlatform(project, info = null) {
+            const details = Array.isArray(info?.platformDetails) ? info.platformDetails : [];
+            const candidates = details
+                .filter((d) => d?.needsUpdate && d?.available)
+                .map((d) => normalizePlatformKind(d.platform))
+                .filter(Boolean);
+            if (!candidates.length) return '';
+            const device = detectCurrentDevicePlatform();
+            if (device.platform && candidates.includes(device.platform)) return device.platform;
+            return candidates[0];
+        }
+
         function evaluatePlatformUpdate({
             platform = '',
             installedVersion = '',
@@ -5063,6 +5090,10 @@
                         } else {
                             needsUpdate = compareVersionLike(installedVersion, latestVersion) < 0;
                         }
+                    } else {
+                        // Installed on Android but local marker has no reliable version/code.
+                        // Keep it actionable in Updates so users can revalidate/install latest APK.
+                        needsUpdate = true;
                     }
                 } else if (installedVersion && latestVersion) {
                     needsUpdate = compareVersionLike(installedVersion, latestVersion) < 0;
@@ -5375,6 +5406,7 @@
             const installedVersionCode = Number(state.versionCode || getInstalledVersionCode(project.slug) || 0);
             const installed = Boolean(state.installed || installedVersion);
             const installedPlatform = installed ? getPreferredInstalledPlatform(project, state) : '';
+            const compareAgainstInstalled = installed && Boolean(installedVersion || installedVersionCode || installedPlatform);
             const windowsInstalledReleasePublishedAt = getInstalledReleasePublishedAt(project.slug, 'windows');
             const androidInstalledReleasePublishedAt = getInstalledReleasePublishedAt(project.slug, 'android');
 
@@ -5395,7 +5427,7 @@
                     installedReleasePublishedAt: windowsInstalledReleasePublishedAt,
                     latestReleasePublishedAt: windowsLatestReleasePublishedAt,
                     allowMissingReleaseMetadataBootstrap: true,
-                    installedOnThisDevice,
+                    installedOnThisDevice: compareAgainstInstalled,
                     available,
                 });
                 platformDetails.push({
@@ -5425,7 +5457,7 @@
                     installedReleasePublishedAt: androidInstalledReleasePublishedAt,
                     latestReleasePublishedAt: androidLatestReleasePublishedAt,
                     allowMissingReleaseMetadataBootstrap: true,
-                    installedOnThisDevice,
+                    installedOnThisDevice: compareAgainstInstalled,
                     available,
                 });
                 platformDetails.push({
@@ -5444,8 +5476,8 @@
             }
 
             const targetDetail = platformDetails.find((d) => d.installedOnThisDevice) || platformDetails[0] || null;
-            const needsUpdate = platformDetails.some((d) => d.installedOnThisDevice && d.needsUpdate);
-            const updatePlatforms = platformDetails.filter((d) => d.needsUpdate && d.installedOnThisDevice);
+            const needsUpdate = platformDetails.some((d) => d.needsUpdate);
+            const updatePlatforms = platformDetails.filter((d) => d.needsUpdate);
 
             return {
                 installed,
@@ -5527,9 +5559,11 @@
                                 : `v${detail.latestVersion || '-'} (al dia)`;
                         }
                     } else {
-                        statusText = detail.latestVersion
-                            ? `No instalada en este dispositivo (ultima: v${detail.latestVersion})`
-                            : 'No instalada en este dispositivo';
+                        statusText = detail.needsUpdate
+                            ? `Update disponible en ${detail.label}: v${detail.latestVersion || '-'}`
+                            : (detail.latestVersion
+                                ? `No instalada en este dispositivo (ultima: v${detail.latestVersion})`
+                                : 'No instalada en este dispositivo');
                     }
                 }
 
@@ -5545,10 +5579,16 @@
             };
 
             list.innerHTML = updates.map(({ project, info }) => {
-                const action = resolveProjectUpdateAction(project, info);
+                const preferredPlatform = getPreferredUpdatePlatform(project, info);
+                const action = resolveProjectUpdateAction(project, info, preferredPlatform);
+                const requestedPlatform = normalizePlatformKind(action.platform || preferredPlatform);
+                const incompatible = Boolean(requestedPlatform) && !isPlatformCompatibleWithCurrentDevice(requestedPlatform);
+                const detectedDevice = detectCurrentDevicePlatform();
                 const targetLabel = action.label || getPrimaryUpdatePlatformLabel(info);
                 const metaText = gateBlocked
                     ? getStoreObsoleteGateMessage(`actualizar ${project.name}`)
+                    : incompatible
+                        ? `${getIncompatiblePlatformMessage(project, requestedPlatform)} Tu plataforma detectada: ${detectedDevice.label}.`
                     : (action.requiresChoice
                         ? `No se pudo detectar plataforma automaticamente. Elige ${action.options.join(' o ')} antes de actualizar.`
                         : (action.reason === 'device'
@@ -5556,13 +5596,19 @@
                             : `Actualizacion detectada para ${targetLabel}.`));
                 const buttonLabel = gateBlocked
                     ? 'Actualizar OWS Store'
+                    : incompatible
+                        ? `Incompatible (${detectedDevice.label})`
                     : (action.requiresChoice ? 'Elegir plataforma' : `Actualizar ${targetLabel}`);
                 const buttonIcon = gateBlocked
                     ? 'fa-shield-halved'
+                    : incompatible
+                        ? 'fa-ban'
                     : (action.requiresChoice ? 'fa-layer-group' : 'fa-arrow-up');
-                const buttonClass = gateBlocked ? 'btn-install unavailable' : 'btn-install';
+                const buttonClass = (gateBlocked || incompatible) ? 'btn-install unavailable' : 'btn-install';
                 const buttonAction = gateBlocked
                     ? `triggerStoreObsoleteNotice('${project.slug}')`
+                    : incompatible
+                        ? `notifyProjectIncompatible('${project.slug}', '${requestedPlatform}')`
                     : `triggerProjectUpdate('${project.slug}', '${action.platform || ''}')`;
 
                 return `
@@ -5578,6 +5624,18 @@
             }).join('');
 
             list.innerHTML = `${gateNoticeHtml}${list.innerHTML}`;
+        }
+
+        function notifyProjectIncompatible(slug = '', platform = '') {
+            const project = getProjectBySlug(slug);
+            const message = getIncompatiblePlatformMessage(project, platform);
+            addNotification(message, 'warning');
+            showActionMessage(message, {
+                state: 'info',
+                title: 'Plataforma incompatible',
+                iconClass: 'fa-ban',
+                iconSpin: false,
+            });
         }
 
         function renderStoreNewsTimeline() {
@@ -5698,6 +5756,10 @@
                 return;
             }
             const normalizedPlatform = normalizePlatformKind(resolved.platform) || 'windows';
+            if (!isPlatformCompatibleWithCurrentDevice(normalizedPlatform)) {
+                notifyProjectIncompatible(slug, normalizedPlatform);
+                return;
+            }
             selectedInstallTargetBySlug[slug] = normalizedPlatform === 'android' ? 'android-apk' : 'windows';
             await reinstallFromLibrary(slug);
         }
@@ -7890,7 +7952,10 @@
                 if (isExternalInstallerProject(p)) {
                     try {
                         const detected = await resolveInstalledApp(p);
-                        const installedBySystem = Boolean(detected?.installed || marker);
+                        const androidPlatformMarker = isNativeAndroidRuntime()
+                            && supportsAndroidDownloads(p)
+                            && normalizePlatformKind(markerPlatform) === 'android';
+                        const installedBySystem = Boolean(detected?.installed || marker || androidPlatformMarker);
                         const installed = installingRuntime ? true : (suppressed ? false : installedBySystem);
                         if (!installed && suppressed) uninstallSuppressedBySlug[p.slug] = false;
                         if (installed || installingRuntime || isProjectQueued(p.slug)) rememberProjectInLibrary(p.slug);
@@ -7904,7 +7969,10 @@
                             runtime,
                         };
                     } catch (_) {
-                        const installed = installingRuntime ? true : (suppressed ? false : Boolean(marker));
+                        const androidPlatformMarker = isNativeAndroidRuntime()
+                            && supportsAndroidDownloads(p)
+                            && normalizePlatformKind(markerPlatform) === 'android';
+                        const installed = installingRuntime ? true : (suppressed ? false : Boolean(marker || androidPlatformMarker));
                         if (installed || installingRuntime || isProjectQueued(p.slug)) rememberProjectInLibrary(p.slug);
                         next[p.slug] = { installed, version: marker || '', versionCode: markerCode, runtime };
                     }
@@ -8299,6 +8367,10 @@
             }
             let selectedTarget = getSelectedInstallTarget(project);
             if (isExternalInstallerProject(project)) {
+                if (selectedTarget?.kind && !isPlatformCompatibleWithCurrentDevice(selectedTarget.kind)) {
+                    notifyProjectIncompatible(project.slug, selectedTarget.kind);
+                    return;
+                }
                 if (selectedTarget?.kind === 'android') {
                     if (isReleaseTrackedProject(project)) {
                         showActionMessage('Validando release Android de ' + project.name + '...', { state: 'checking' });

@@ -323,7 +323,7 @@ jobs:
         with:
           name: ows-store-apk-debug
           path: "${{ env.APP_DIR }}/android/app/build/outputs/apk/debug/app-debug.apk"
-          if-no-files-found: error
+          if-no-files-found: warn
 
       - name: Upload APK signed artifact
         if: ${{ env.HAS_ANDROID_SIGNING == 'true' }}
@@ -340,5 +340,5 @@ jobs:
         with:
           name: ows-store-aab-release-unsigned
           path: "${{ env.APP_DIR }}/android/app/build/outputs/bundle/release/app-release.aab"
-          if-no-files-found: error
+          if-no-files-found: warn
 

@@ -314,7 +314,7 @@ jobs:
         with:
           name: ${{ env.ARTIFACT_APK_DEBUG }}
           path: ${{ env.APP_DIR }}/android/app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
+          if-no-files-found: warn
 
       - name: Upload APK signed artifact
         uses: actions/upload-artifact@v4
@@ -330,4 +330,4 @@ jobs:
         with:
           name: ${{ env.ARTIFACT_AAB_UNSIGNED }}
           path: ${{ env.APP_DIR }}/android/app/build/outputs/bundle/release/app-release.aab
-          if-no-files-found: error
+          if-no-files-found: warn

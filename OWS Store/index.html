@@ -521,9 +521,10 @@
             margin-top: 0.08rem;
             font-size: 0.67rem;
             color: var(--ink-soft);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            white-space: normal;
+            overflow: visible;
+            text-overflow: clip;
+            word-break: break-word;
         }
 
         .download-dock-progress {
@@ -1605,7 +1606,13 @@
             letter-spacing: 0.6px;
         }
 
-        .stat-value { font-weight: 700; font-size: 0.88rem; }
+        .stat-value {
+            font-weight: 700;
+            font-size: 0.88rem;
+            white-space: normal;
+            overflow-wrap: anywhere;
+            word-break: break-word;
+        }
 
         .modal-actions {
             padding: 1.2rem 1.6rem 1.6rem;
@@ -2042,9 +2049,10 @@
             color: var(--ink-soft);
             font-family: 'Space Mono', monospace;
             margin-bottom: 0.34rem;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            white-space: normal;
+            overflow: visible;
+            text-overflow: clip;
+            word-break: break-word;
         }
 
         .download-item-progress-wrap {
@@ -3047,14 +3055,18 @@
         }
 
         function seedLibraryFromProjectCatalog() {
-            if (libraryOwnedSlugs.size > 0) return;
             const defaults = (Array.isArray(allProjects) ? allProjects : [])
                 .filter((p) => isExternalInstallerProject(p) && String(p?.slug || '').toLowerCase() !== 'ows-store')
                 .map((p) => String(p.slug || '').trim())
                 .filter(Boolean);
             if (!defaults.length) return;
-            defaults.forEach((slug) => libraryOwnedSlugs.add(slug));
-            persistLibraryOwnedSlugs();
+            let changed = false;
+            defaults.forEach((slug) => {
+                if (libraryOwnedSlugs.has(slug)) return;
+                libraryOwnedSlugs.add(slug);
+                changed = true;
+            });
+            if (changed) persistLibraryOwnedSlugs();
         }
 
         function getOceanPayToken() {
@@ -4153,6 +4165,43 @@
                 requestRenderDownloadSurfaces({ immediate: true });
                 await sleep(120);
 
+                // Safety guard: on Windows, never execute Android APK flow.
+                if (item.platform === 'android' && !isNativeAndroidRuntime()) {
+                    const windowsFallbackTarget = getProjectInstallTargets(project)
+                        .find((t) => normalizePlatformKind(t.kind) === 'windows' && t.available && t.url);
+                    if (windowsFallbackTarget) {
+                        item.platform = 'windows';
+                        item.url = windowsFallbackTarget.url;
+                        item.fileName = `${project.name || 'installer'}-${windowsFallbackTarget.version || project.windows_version || project.version || 'latest'}.exe`;
+                        item.sizeBytes = Number(windowsFallbackTarget.sizeBytes || project.installer_size || 0);
+                        item.releasePublishedAt = project.windows_last_update_at || project.last_update_at || null;
+                        item.sha256 = '';
+                        item.versionName = windowsFallbackTarget.version || project.windows_version || project.version || '';
+                        if (updatesStatus) updatesStatus.textContent = `Corrigiendo plataforma para ${project.name}: Windows`;
+                        updateDownloadSession(item.key, {
+                            phase: 'preparing',
+                            status: 'Target Android detectado en Windows. Corrigiendo a instalador Windows...',
+                            sizeBytes: Number(item.sizeBytes || 0),
+                            downloadedBytes: 0,
+                            speedBps: 0,
+                            etaSeconds: null,
+                        });
+                    } else {
+                        const blockMsg = `${project.name} no tiene instalador Windows disponible para esta actualizacion.`;
+                        setRuntimeState(project.slug, { phase: 'idle', percent: 0, taskId: '' });
+                        updateDownloadSession(item.key, {
+                            phase: 'error',
+                            status: blockMsg,
+                        });
+                        if (updatesStatus) updatesStatus.textContent = blockMsg;
+                        addNotification(blockMsg, 'warning');
+                        showActionMessage(blockMsg, { state: 'info' });
+                        activeInstallTaskKey = '';
+                        syncQueueMarkers();
+                        continue;
+                    }
+                }
+
                 if (item.platform === 'android') {
                     const useExternalCompat = shouldUseAndroidExternalInstallCompat();
                     if (useExternalCompat) {
@@ -4952,7 +5001,6 @@
             if (explicit) {
                 const device = detectCurrentDevicePlatform();
                 if (device.platform === 'android' && explicit === 'windows' && supportsAndroidDownloads(project)) return 'android';
-                if (device.platform === 'windows' && explicit === 'android' && supportsWindowsInstaller(project)) return 'windows';
                 return explicit;
             }
             const current = state || installStateBySlug[project.slug] || {};
@@ -5126,10 +5174,46 @@
         }
 
         function getPendingProjectUpdates() {
+            const devicePlatform = normalizePlatformKind(detectCurrentDevicePlatform().platform || '');
             return allProjects
                 .map((p) => ({ project: p, info: getProjectUpdateInfo(p) }))
-                .filter((x) => x.info.needsUpdate)
+                .filter((x) => hasDevicePendingUpdate(x.info, devicePlatform))
                 .sort((a, b) => String(a.project?.name || '').localeCompare(String(b.project?.name || '')));
+        }
+
+        function getProjectUpdatePanelEntries() {
+            const pending = getPendingProjectUpdates();
+            const pendingSlugs = new Set(pending.map((x) => String(x?.project?.slug || '')));
+            const devicePlatform = normalizePlatformKind(detectCurrentDevicePlatform().platform || '');
+            if (!devicePlatform) return pending;
+            const supplemental = allProjects
+                .map((project) => ({ project, info: getProjectUpdateInfo(project) }))
+                .filter(({ project, info }) => {
+                    const slug = String(project?.slug || '');
+                    if (!slug || pendingSlugs.has(slug)) return false;
+                    if (!isReleaseTrackedProject(project)) return false;
+                    const state = installStateBySlug[slug] || {};
+                    const listedInLibrary = isProjectInLibrary(slug);
+                    if (!state.installed && !listedInLibrary) return false;
+                    return info.platformDetails.some((d) =>
+                        normalizePlatformKind(d?.platform) === devicePlatform
+                        && Boolean(d?.available)
+                    );
+                })
+                .sort((a, b) => String(a.project?.name || '').localeCompare(String(b.project?.name || '')));
+            return [...pending, ...supplemental];
+        }
+
+        function hasDevicePendingUpdate(info = null, platform = '') {
+            const devicePlatform = normalizePlatformKind(platform || detectCurrentDevicePlatform().platform || '');
+            if (!info || typeof info !== 'object') return false;
+            if (!devicePlatform) return Boolean(info.needsUpdate);
+            const details = Array.isArray(info.platformDetails) ? info.platformDetails : [];
+            return details.some((d) =>
+                normalizePlatformKind(d?.platform) === devicePlatform
+                && Boolean(d?.available)
+                && Boolean(d?.needsUpdate)
+            );
         }
 
         function isSSAProject(project) {
@@ -5413,7 +5497,7 @@
             const installedVersionCode = Number(state.versionCode || getInstalledVersionCode(project.slug) || 0);
             const installed = Boolean(state.installed || installedVersion);
             const installedPlatform = installed ? getPreferredInstalledPlatform(project, state) : '';
-            const compareAgainstInstalled = installed && Boolean(installedVersion || installedVersionCode || installedPlatform);
+            const devicePlatform = normalizePlatformKind(detectCurrentDevicePlatform().platform || '');
             const windowsInstalledReleasePublishedAt = getInstalledReleasePublishedAt(project.slug, 'windows');
             const androidInstalledReleasePublishedAt = getInstalledReleasePublishedAt(project.slug, 'android');
 
@@ -5434,7 +5518,7 @@
                     installedReleasePublishedAt: windowsInstalledReleasePublishedAt,
                     latestReleasePublishedAt: windowsLatestReleasePublishedAt,
                     allowMissingReleaseMetadataBootstrap: true,
-                    installedOnThisDevice: compareAgainstInstalled,
+                    installedOnThisDevice,
                     available,
                 });
                 platformDetails.push({
@@ -5464,7 +5548,7 @@
                     installedReleasePublishedAt: androidInstalledReleasePublishedAt,
                     latestReleasePublishedAt: androidLatestReleasePublishedAt,
                     allowMissingReleaseMetadataBootstrap: true,
-                    installedOnThisDevice: compareAgainstInstalled,
+                    installedOnThisDevice,
                     available,
                 });
                 platformDetails.push({
@@ -5480,6 +5564,30 @@
                     latestReleasePublishedAt: androidLatestReleasePublishedAt,
                     needsUpdate,
                 });
+            }
+
+            // Android self-heal: if app is marked installed but platform marker is stale,
+            // remap "installed on this device" to current Android runtime.
+            if (installed && devicePlatform === 'android' && !platformDetails.some((d) => d.installedOnThisDevice)) {
+                const androidDetail = platformDetails.find((d) => normalizePlatformKind(d.platform) === 'android' && d.available);
+                if (androidDetail) {
+                    androidDetail.installedOnThisDevice = true;
+                    androidDetail.installedVersion = installedVersion;
+                    androidDetail.installedVersionCode = Number(installedVersionCode || 0);
+                    androidDetail.installedReleasePublishedAt = androidInstalledReleasePublishedAt || androidDetail.installedReleasePublishedAt || '';
+                    androidDetail.needsUpdate = evaluatePlatformUpdate({
+                        platform: 'android',
+                        installedVersion,
+                        installedVersionCode,
+                        latestVersion: androidDetail.latestVersion,
+                        latestVersionCode: Number(androidDetail.latestVersionCode || 0),
+                        installedReleasePublishedAt: androidDetail.installedReleasePublishedAt,
+                        latestReleasePublishedAt: androidDetail.latestReleasePublishedAt,
+                        allowMissingReleaseMetadataBootstrap: true,
+                        installedOnThisDevice: true,
+                        available: Boolean(androidDetail.available),
+                    });
+                }
             }
 
             const targetDetail = platformDetails.find((d) => d.installedOnThisDevice) || platformDetails[0] || null;
@@ -5506,7 +5614,7 @@
                 if (!searchOk) return false;
                 if (currentProjectFilter === 'installed') return Boolean(installStateBySlug[p.slug]?.installed);
                 if (currentProjectFilter === 'external') return isExternalInstallerProject(p);
-                if (currentProjectFilter === 'updates') return getProjectUpdateInfo(p).needsUpdate;
+                if (currentProjectFilter === 'updates') return hasDevicePendingUpdate(getProjectUpdateInfo(p));
                 return true;
             });
         }
@@ -5520,7 +5628,8 @@
         function renderProjectUpdatesList() {
             const list = document.getElementById('project-updates-list');
             if (!list) return;
-            const updates = getPendingProjectUpdates();
+            const pendingUpdates = getPendingProjectUpdates();
+            const updates = getProjectUpdatePanelEntries();
             const gateBlocked = isStoreObsoleteGateActive();
             const gateNoticeHtml = gateBlocked
                 ? `<div class="info-note-card" style="border-color:#b96700; background:rgba(185,103,0,0.08);">\
@@ -5528,7 +5637,7 @@
                     <span>${getStoreObsoleteGateMessage('instalar o actualizar proyectos')}</span>\
                 </div>`
                 : '';
-            projectUpdatesCount = updates.length;
+            projectUpdatesCount = pendingUpdates.length;
             syncUpdatesBadge();
 
             if (!updates.length) {
@@ -5601,8 +5710,11 @@
                 const crossPlatformOnly = Boolean(devicePlatform && projectSupportsDevice && !deviceHasUpdate && hasAnyUpdate);
                 const incompatible = Boolean(requestedPlatform) && !isPlatformCompatibleWithCurrentDevice(requestedPlatform) && !projectSupportsDevice;
                 const targetLabel = action.label || getPrimaryUpdatePlatformLabel(info);
+                const noPending = !hasAnyUpdate;
                 const metaText = gateBlocked
                     ? getStoreObsoleteGateMessage(`actualizar ${project.name}`)
+                    : noPending
+                        ? `${project.name} esta al dia en ${detectedDevice.label}.`
                     : crossPlatformOnly
                         ? getNoDeviceUpdateMessage(project, devicePlatform, requestedPlatform || targetLabel.toLowerCase())
                     : incompatible
@@ -5614,6 +5726,8 @@
                             : `Actualizacion detectada para ${targetLabel}.`));
                 const buttonLabel = gateBlocked
                     ? 'Actualizar OWS Store'
+                    : noPending
+                        ? `Al dia (${detectedDevice.label})`
                     : crossPlatformOnly
                         ? `Al dia (${detectedDevice.label})`
                     : incompatible
@@ -5621,14 +5735,18 @@
                     : (action.requiresChoice ? 'Elegir plataforma' : `Actualizar ${targetLabel}`);
                 const buttonIcon = gateBlocked
                     ? 'fa-shield-halved'
+                    : noPending
+                        ? 'fa-check'
                     : crossPlatformOnly
                         ? 'fa-check'
                     : incompatible
                         ? 'fa-ban'
                     : (action.requiresChoice ? 'fa-layer-group' : 'fa-arrow-up');
-                const buttonClass = (gateBlocked || incompatible || crossPlatformOnly) ? 'btn-install unavailable' : 'btn-install';
+                const buttonClass = (gateBlocked || incompatible || crossPlatformOnly || noPending) ? 'btn-install unavailable' : 'btn-install';
                 const buttonAction = gateBlocked
                     ? `triggerStoreObsoleteNotice('${project.slug}')`
+                    : noPending
+                        ? `notifyProjectUpToDate('${project.slug}')`
                     : crossPlatformOnly
                         ? `notifyProjectNoDeviceUpdate('${project.slug}', '${devicePlatform}', '${requestedPlatform || ''}')`
                     : incompatible
@@ -5670,6 +5788,19 @@
                 state: 'info',
                 title: 'Sin update en tu plataforma',
                 iconClass: 'fa-circle-info',
+                iconSpin: false,
+            });
+        }
+
+        function notifyProjectUpToDate(slug = '') {
+            const project = getProjectBySlug(slug);
+            const device = detectCurrentDevicePlatform();
+            const message = `${project?.name || 'Proyecto'} ya esta al dia en ${device?.label || 'tu dispositivo'}.`;
+            addNotification(message, 'neutral');
+            showActionMessage(message, {
+                state: 'ready',
+                title: 'Sin updates pendientes',
+                iconClass: 'fa-check',
                 iconSpin: false,
             });
         }
@@ -8061,6 +8192,7 @@
                 const availabilityLabel = getProjectPlatformLabel(p);
                 const short = getProjectShort(p);
                 const updateInfo = getProjectUpdateInfo(p);
+                const devicePendingUpdate = hasDevicePendingUpdate(updateInfo);
                 const displayVersion = getProjectDisplayVersion(p);
                 const updateHint = isReleaseTrackedProject(p)
                     ? (p.last_update_at ? `Ultima actualizacion: ${formatDateTime(p.last_update_at)}` : 'Ultima actualizacion: pendiente')
@@ -8069,7 +8201,7 @@
                     ? `<div class="ecosystem-submeta">${updateHint}</div>`
                     : '';
                 const newBadgeHtml = hasNewBadge(p) ? `<span class="new-badge">NUEVO!</span>` : '';
-                const updateFlagHtml = updateInfo.needsUpdate
+                const updateFlagHtml = devicePendingUpdate
                     ? `<div class="ecosystem-submeta" style="color:var(--brand-2); font-weight:700;">Update ${getPrimaryUpdatePlatformLabel(updateInfo)} disponible: v${updateInfo.latestVersion}</div>`
                     : '';
                 const installingHtml = `
@@ -8128,6 +8260,7 @@
                 const isQueued = runtime.phase === 'queued';
                 const isPreparing = runtime.phase === 'preparing';
                 const updateInfo = getProjectUpdateInfo(p);
+                const devicePendingUpdate = hasDevicePendingUpdate(updateInfo);
                 const card = document.createElement('div');
                 card.className = 'app-card';
                 const metaVersion = isInstalled
@@ -8150,7 +8283,7 @@
                 const blockedByStore = isStoreObsoleteGateActive();
                 const reinstallLabel = blockedByStore
                     ? 'Actualizar Store'
-                    : (updateInfo.needsUpdate ? 'Actualizar' : 'Reinstalar');
+                    : (devicePendingUpdate ? 'Actualizar' : 'Reinstalar');
                 const reinstallIcon = blockedByStore ? 'fa-shield-halved' : 'fa-rotate';
                 const reinstallAction = blockedByStore
                     ? `triggerStoreObsoleteNotice('${p.slug}')`
@@ -8169,7 +8302,7 @@
                             <button class="btn-install ${blockedByStore ? 'unavailable' : ''}" onclick="${reinstallAction}"><i class="fas ${blockedByStore ? 'fa-shield-halved' : 'fa-download'}"></i> ${blockedByStore ? 'Actualizar Store' : 'Instalar'}</button>
                             <button class="btn-install full" style="background:#2b2e37;" onclick="openDetails('${p.slug}')"><i class="fas fa-circle-info"></i> Ver ficha</button>
                         </div>`);
-                const updateBadgeHtml = (isInstalled && updateInfo.needsUpdate)
+                const updateBadgeHtml = (isInstalled && devicePendingUpdate)
                     ? `<div style="font-size:0.74rem; color:var(--brand-2); margin-bottom:0.8rem; font-weight:700;">Actualizacion disponible (${getPrimaryUpdatePlatformLabel(updateInfo)}): v${updateInfo.latestVersion}</div>`
                     : (!isInstalled
                         ? `<div style="font-size:0.74rem; color:var(--ink-soft); margin-bottom:0.8rem;">Guardado en biblioteca. Instala para jugar o usar.</div>`
@@ -8256,6 +8389,7 @@
             const busy = isBusyInstalling(p.slug);
             const phase = getRuntimeState(p.slug).phase;
             const updateInfo = getProjectUpdateInfo(p);
+            const devicePendingUpdate = hasDevicePendingUpdate(updateInfo);
             const selectedIsAndroid = selectedTarget?.kind === 'android';
             const selectedIsWindows = !selectedTarget || selectedTarget.kind === 'windows';
             const storeBlocked = isStoreObsoleteGateActive();
@@ -8281,15 +8415,15 @@
                     if (p.pending_release || p.installer_available === false) {
                         btnText = '<i class="fas fa-clock"></i> PENDIENTE DE RELEASE';
                         btnClass += ' unavailable';
-                    } else if (updateInfo.needsUpdate) btnText = '<i class="fas fa-arrow-up"></i> ACTUALIZAR A v' + (p.version || 'latest');
+                    } else if (devicePendingUpdate) btnText = '<i class="fas fa-arrow-up"></i> ACTUALIZAR A v' + (p.version || 'latest');
                     else if (state.installed || installedV) btnText = '<i class="fas fa-rotate"></i> VER ULTIMA VERSION';
                     else btnText = '<i class="fas fa-download"></i> INSTALAR PROYECTO';
                 }
             } else if (installedV) {
-                if (updateInfo.needsUpdate) btnText = '<i class="fas fa-arrow-up"></i> ACTUALIZAR A v' + p.version;
+                if (devicePendingUpdate) btnText = '<i class="fas fa-arrow-up"></i> ACTUALIZAR A v' + p.version;
                 else btnText = '<i class="fas fa-play"></i> JUGAR AHORA';
             }
-            if (!isComingSoon && !busy && storeBlocked && (isExternal || !installedV || updateInfo.needsUpdate)) {
+            if (!isComingSoon && !busy && storeBlocked && (isExternal || !installedV || devicePendingUpdate)) {
                 btnText = '<i class="fas fa-shield-halved"></i> ACTUALIZA OWS STORE';
                 btnClass += ' unavailable';
             }
@@ -8299,7 +8433,7 @@
             btn.innerHTML = btnText;
             btn.onclick = async (e) => {
                 closeDetails();
-                if (!isComingSoon && !busy && storeBlocked && (isExternal || !installedV || updateInfo.needsUpdate)) {
+                if (!isComingSoon && !busy && storeBlocked && (isExternal || !installedV || devicePendingUpdate)) {
                     triggerStoreObsoleteNotice(p.slug);
                     return;
                 }

@@ -5011,6 +5011,12 @@
             return `${project?.name || 'Este proyecto'} no esta disponible para ${deviceLabel}. Esta descarga/update es para ${targetLabel}.`;
         }
 
+        function getNoDeviceUpdateMessage(project, devicePlatform = '', targetPlatform = '') {
+            const deviceLabel = normalizePlatformKind(devicePlatform) === 'android' ? 'Android' : 'Windows';
+            const targetLabel = normalizePlatformKind(targetPlatform) === 'android' ? 'Android' : 'Windows';
+            return `${project?.name || 'Este proyecto'} esta al dia en ${deviceLabel}. La update pendiente es solo para ${targetLabel}.`;
+        }
+
         function resolveProjectUpdateAction(project, info = null, requestedPlatform = '') {
             const forced = normalizePlatformKind(requestedPlatform);
             const details = Array.isArray(info?.platformDetails) ? info.platformDetails : [];
@@ -5582,11 +5588,22 @@
                 const preferredPlatform = getPreferredUpdatePlatform(project, info);
                 const action = resolveProjectUpdateAction(project, info, preferredPlatform);
                 const requestedPlatform = normalizePlatformKind(action.platform || preferredPlatform);
-                const incompatible = Boolean(requestedPlatform) && !isPlatformCompatibleWithCurrentDevice(requestedPlatform);
                 const detectedDevice = detectCurrentDevicePlatform();
+                const devicePlatform = normalizePlatformKind(detectedDevice.platform || '');
+                const projectTargets = getProjectInstallTargets(project).filter((t) => t.available);
+                const projectSupportsDevice = !devicePlatform || projectTargets.some((t) => normalizePlatformKind(t.kind) === devicePlatform);
+                const deviceHasUpdate = Boolean(
+                    devicePlatform
+                    && info.platformDetails.some((d) => normalizePlatformKind(d.platform) === devicePlatform && d.needsUpdate && d.available)
+                );
+                const hasAnyUpdate = info.platformDetails.some((d) => d.needsUpdate && d.available);
+                const crossPlatformOnly = Boolean(devicePlatform && projectSupportsDevice && !deviceHasUpdate && hasAnyUpdate);
+                const incompatible = Boolean(requestedPlatform) && !isPlatformCompatibleWithCurrentDevice(requestedPlatform) && !projectSupportsDevice;
                 const targetLabel = action.label || getPrimaryUpdatePlatformLabel(info);
                 const metaText = gateBlocked
                     ? getStoreObsoleteGateMessage(`actualizar ${project.name}`)
+                    : crossPlatformOnly
+                        ? getNoDeviceUpdateMessage(project, devicePlatform, requestedPlatform || targetLabel.toLowerCase())
                     : incompatible
                         ? `${getIncompatiblePlatformMessage(project, requestedPlatform)} Tu plataforma detectada: ${detectedDevice.label}.`
                     : (action.requiresChoice
@@ -5596,17 +5613,23 @@
                             : `Actualizacion detectada para ${targetLabel}.`));
                 const buttonLabel = gateBlocked
                     ? 'Actualizar OWS Store'
+                    : crossPlatformOnly
+                        ? `Al dia (${detectedDevice.label})`
                     : incompatible
                         ? `Incompatible (${detectedDevice.label})`
                     : (action.requiresChoice ? 'Elegir plataforma' : `Actualizar ${targetLabel}`);
                 const buttonIcon = gateBlocked
                     ? 'fa-shield-halved'
+                    : crossPlatformOnly
+                        ? 'fa-check'
                     : incompatible
                         ? 'fa-ban'
                     : (action.requiresChoice ? 'fa-layer-group' : 'fa-arrow-up');
-                const buttonClass = (gateBlocked || incompatible) ? 'btn-install unavailable' : 'btn-install';
+                const buttonClass = (gateBlocked || incompatible || crossPlatformOnly) ? 'btn-install unavailable' : 'btn-install';
                 const buttonAction = gateBlocked
                     ? `triggerStoreObsoleteNotice('${project.slug}')`
+                    : crossPlatformOnly
+                        ? `notifyProjectNoDeviceUpdate('${project.slug}', '${devicePlatform}', '${requestedPlatform || ''}')`
                     : incompatible
                         ? `notifyProjectIncompatible('${project.slug}', '${requestedPlatform}')`
                     : `triggerProjectUpdate('${project.slug}', '${action.platform || ''}')`;
@@ -5634,6 +5657,18 @@
                 state: 'info',
                 title: 'Plataforma incompatible',
                 iconClass: 'fa-ban',
+                iconSpin: false,
+            });
+        }
+
+        function notifyProjectNoDeviceUpdate(slug = '', devicePlatform = '', targetPlatform = '') {
+            const project = getProjectBySlug(slug);
+            const message = getNoDeviceUpdateMessage(project, devicePlatform, targetPlatform);
+            addNotification(message, 'info');
+            showActionMessage(message, {
+                state: 'info',
+                title: 'Sin update en tu plataforma',
+                iconClass: 'fa-circle-info',
                 iconSpin: false,
             });
         }
@@ -5756,6 +5791,16 @@
                 return;
             }
             const normalizedPlatform = normalizePlatformKind(resolved.platform) || 'windows';
+            const device = detectCurrentDevicePlatform();
+            const devicePlatform = normalizePlatformKind(device.platform || '');
+            const infoForGuard = getProjectUpdateInfo(project);
+            const deviceDetail = devicePlatform
+                ? infoForGuard.platformDetails.find((d) => normalizePlatformKind(d.platform) === devicePlatform && d.available)
+                : null;
+            if (deviceDetail && !deviceDetail.needsUpdate && normalizedPlatform !== devicePlatform) {
+                notifyProjectNoDeviceUpdate(slug, devicePlatform, normalizedPlatform);
+                return;
+            }
             if (!isPlatformCompatibleWithCurrentDevice(normalizedPlatform)) {
                 notifyProjectIncompatible(slug, normalizedPlatform);
                 return;

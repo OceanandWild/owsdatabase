@@ -973,6 +973,293 @@
             transition: width 0.3s ease;
         }
 
+        .stat-bar-fill.upgrade-pop {
+            animation: upgradeBarPop 0.62s ease;
+            box-shadow: 0 0 14px rgba(0, 247, 255, 0.65);
+        }
+
+        #upgradeCharacterPreview.upgrade-flare {
+            animation: upgradePreviewFlare 0.9s ease;
+            filter: drop-shadow(0 0 18px rgba(0, 247, 255, 0.6));
+        }
+
+        .modal-content.upgrade-celebrate {
+            animation: upgradeModalKick 0.44s cubic-bezier(0.2, 0.86, 0.26, 1.1);
+        }
+
+        .upgrade-levelup-fx {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 6;
+            animation: upgradeFxIn 0.18s ease;
+        }
+
+        .upgrade-levelup-fx.out {
+            animation: upgradeFxOut 0.46s ease forwards;
+        }
+
+        .upgrade-levelup-ring {
+            position: absolute;
+            width: 280px;
+            height: 280px;
+            border-radius: 50%;
+            border: 2px solid rgba(0, 247, 255, 0.72);
+            box-shadow: 0 0 26px rgba(0, 247, 255, 0.48);
+            animation: upgradeRingBlast 0.84s ease;
+        }
+
+        .upgrade-levelup-flash {
+            position: absolute;
+            width: 340px;
+            height: 340px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.45), rgba(0, 247, 255, 0.16), transparent 72%);
+            filter: blur(1px);
+            animation: upgradeFlashPulse 0.9s ease;
+        }
+
+        .upgrade-levelup-explosion {
+            position: absolute;
+            width: 420px;
+            height: 420px;
+            border-radius: 50%;
+            background:
+                radial-gradient(circle, rgba(255, 255, 255, 0.52) 0%, rgba(0, 247, 255, 0.24) 28%, rgba(255, 170, 60, 0.14) 47%, transparent 70%);
+            mix-blend-mode: screen;
+            filter: blur(2px);
+            animation: upgradeExplosionPulse 0.95s ease;
+        }
+
+        .upgrade-levelup-streaks,
+        .upgrade-levelup-sparks {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+        }
+
+        .upgrade-levelup-streak {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: var(--len, 120px);
+            height: 2px;
+            border-radius: 999px;
+            background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.9), rgba(0, 247, 255, 0.5), rgba(255, 140, 40, 0));
+            box-shadow: 0 0 8px rgba(0, 247, 255, 0.7);
+            transform-origin: 0 50%;
+            transform: rotate(var(--rot, 0deg)) translateX(0) scaleX(0.1);
+            opacity: 0;
+            animation: upgradeStreakLaunch var(--dur, 0.75s) ease-out var(--delay, 0s) forwards;
+        }
+
+        .upgrade-levelup-spark {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: var(--size, 6px);
+            height: var(--size, 6px);
+            border-radius: 50%;
+            background: var(--spark, #ffffff);
+            box-shadow: 0 0 10px var(--spark, #ffffff);
+            opacity: 0;
+            transform: translate(-50%, -50%) scale(0.3);
+            animation: upgradeSparkFly var(--dur, 0.9s) cubic-bezier(0.15, 0.7, 0.22, 1) var(--delay, 0s) forwards;
+        }
+
+        .upgrade-levelup-card {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            border-radius: 12px;
+            background: linear-gradient(160deg, rgba(8, 16, 34, 0.94), rgba(15, 9, 26, 0.94));
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 10px 28px rgba(0, 0, 0, 0.52);
+        }
+
+        .upgrade-levelup-text {
+            text-align: left;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .upgrade-levelup-text .kicker {
+            font-family: 'Orbitron';
+            font-size: 0.62rem;
+            letter-spacing: 1px;
+            color: var(--accent-cyan);
+            font-weight: 900;
+        }
+
+        .upgrade-levelup-text .name {
+            font-family: 'Orbitron';
+            font-size: 0.95rem;
+            font-weight: 900;
+        }
+
+        .upgrade-levelup-text .lvl {
+            font-size: 0.75rem;
+            color: #e4f8ff;
+            opacity: 0.88;
+        }
+
+        @keyframes upgradeBarPop {
+            0% {
+                filter: brightness(1);
+                transform: scaleY(1);
+            }
+
+            35% {
+                filter: brightness(1.85);
+                transform: scaleY(1.28);
+            }
+
+            100% {
+                filter: brightness(1);
+                transform: scaleY(1);
+            }
+        }
+
+        @keyframes upgradePreviewFlare {
+            0% {
+                transform: scale(1) rotate(0deg);
+            }
+
+            35% {
+                transform: scale(1.1) rotate(4deg);
+            }
+
+            70% {
+                transform: scale(1.03) rotate(-2deg);
+            }
+
+            100% {
+                transform: scale(1) rotate(0deg);
+            }
+        }
+
+        @keyframes upgradeModalKick {
+            0% {
+                transform: scale(1) translateX(0);
+            }
+
+            20% {
+                transform: scale(1.025) translateX(-3px);
+            }
+
+            38% {
+                transform: scale(1.018) translateX(3px);
+            }
+
+            55% {
+                transform: scale(1.01) translateX(-2px);
+            }
+
+            100% {
+                transform: scale(1) translateX(0);
+            }
+        }
+
+        @keyframes upgradeFxIn {
+            from {
+                opacity: 0;
+                transform: scale(0.88);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        @keyframes upgradeFxOut {
+            to {
+                opacity: 0;
+                transform: scale(1.07);
+                filter: blur(1px);
+            }
+        }
+
+        @keyframes upgradeRingBlast {
+            0% {
+                transform: scale(0.4);
+                opacity: 0.9;
+            }
+
+            100% {
+                transform: scale(1.28);
+                opacity: 0;
+            }
+        }
+
+        @keyframes upgradeFlashPulse {
+            0% {
+                opacity: 0;
+            }
+
+            18% {
+                opacity: 1;
+            }
+
+            100% {
+                opacity: 0;
+            }
+        }
+
+        @keyframes upgradeExplosionPulse {
+            0% {
+                transform: scale(0.35);
+                opacity: 0;
+            }
+
+            24% {
+                transform: scale(0.95);
+                opacity: 0.95;
+            }
+
+            100% {
+                transform: scale(1.55);
+                opacity: 0;
+            }
+        }
+
+        @keyframes upgradeStreakLaunch {
+            0% {
+                opacity: 0;
+                transform: rotate(var(--rot, 0deg)) translateX(0) scaleX(0.1);
+            }
+
+            20% {
+                opacity: 0.95;
+            }
+
+            100% {
+                opacity: 0;
+                transform: rotate(var(--rot, 0deg)) translateX(92px) scaleX(1);
+            }
+        }
+
+        @keyframes upgradeSparkFly {
+            0% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.24);
+            }
+
+            15% {
+                opacity: 1;
+            }
+
+            100% {
+                opacity: 0;
+                transform: translate(calc(-50% + var(--tx, 0px)), calc(-50% + var(--ty, 0px))) scale(0.05);
+            }
+        }
+
         /* MISSION PANEL */
         #missionsPanel {
             position: fixed;
@@ -1107,6 +1394,13 @@
             box-sizing: border-box;
         }
 
+        .chest-rewards.chest-single-large {
+            width: min(760px, 96%);
+            max-height: none;
+            overflow: hidden;
+            padding: 10px 12px 14px;
+        }
+
         .chest-rewards.show {
             animation: rewardFade 0.5s forwards;
         }
@@ -1116,6 +1410,119 @@
             bottom: 6px;
             z-index: 3;
             margin-top: 16px !important;
+        }
+
+        .chest-unlock-fx {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 5;
+            animation: chestUnlockFxIn 0.26s ease;
+        }
+
+        .chest-unlock-fx.out {
+            animation: chestUnlockFxOut 0.44s ease forwards;
+        }
+
+        .chest-unlock-flash {
+            position: absolute;
+            width: 340px;
+            height: 340px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.48), rgba(0, 247, 255, 0.16), transparent 72%);
+            filter: blur(2px);
+            animation: chestUnlockFlashPulse 1.12s ease;
+        }
+
+        .chest-unlock-ring {
+            position: absolute;
+            width: 260px;
+            height: 260px;
+            border-radius: 50%;
+            border: 2px solid rgba(0, 247, 255, 0.7);
+            box-shadow: 0 0 24px rgba(0, 247, 255, 0.45);
+            animation: chestUnlockRing 1.15s ease;
+        }
+
+        .chest-unlock-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            padding: 12px 16px;
+            border-radius: 12px;
+            background: linear-gradient(160deg, rgba(7, 15, 32, 0.92), rgba(12, 8, 24, 0.92));
+            border: 1px solid rgba(255, 255, 255, 0.28);
+            box-shadow: 0 10px 34px rgba(0, 0, 0, 0.5);
+        }
+
+        .chest-unlock-title {
+            font-family: 'Orbitron';
+            font-size: 0.72rem;
+            color: var(--accent-cyan);
+            letter-spacing: 1.2px;
+            font-weight: 900;
+        }
+
+        .chest-unlock-name {
+            font-family: 'Orbitron';
+            font-size: 1.05rem;
+            font-weight: 900;
+            letter-spacing: 0.8px;
+        }
+
+        @keyframes chestUnlockFxIn {
+            from {
+                opacity: 0;
+                transform: scale(0.86);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        @keyframes chestUnlockFxOut {
+            to {
+                opacity: 0;
+                transform: scale(1.08);
+            }
+        }
+
+        @keyframes chestUnlockFlashPulse {
+            0% {
+                opacity: 0;
+                transform: scale(0.35);
+            }
+
+            30% {
+                opacity: 1;
+            }
+
+            100% {
+                opacity: 0;
+                transform: scale(1.35);
+            }
+        }
+
+        @keyframes chestUnlockRing {
+            0% {
+                opacity: 0;
+                transform: scale(0.4);
+            }
+
+            20% {
+                opacity: 1;
+            }
+
+            100% {
+                opacity: 0;
+                transform: scale(1.24);
+            }
         }
 
         @media (max-width: 680px) {
@@ -1192,6 +1599,115 @@
             align-items: center;
             justify-content: center;
             gap: 8px;
+        }
+
+        .shop-buy-controls {
+            margin-top: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .shop-qty-btn {
+            min-width: 34px;
+            height: 34px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.06);
+            color: #fff;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+
+        .shop-qty-value {
+            min-width: 44px;
+            padding: 7px 10px;
+            border-radius: 10px;
+            font-family: 'Orbitron';
+            font-weight: 700;
+            color: #dff8ff;
+            background: rgba(0, 247, 255, 0.12);
+            border: 1px solid rgba(0, 247, 255, 0.35);
+            text-align: center;
+        }
+
+        .shop-buy-btn {
+            border: 1px solid rgba(0, 247, 255, 0.45);
+            background: linear-gradient(135deg, rgba(0, 247, 255, 0.18), rgba(168, 85, 247, 0.2));
+            color: #fff;
+            font-family: 'Orbitron';
+            font-weight: 700;
+            letter-spacing: 0.4px;
+            border-radius: 10px;
+            padding: 8px 12px;
+            cursor: pointer;
+        }
+
+        .shop-chest-stash {
+            width: min(1180px, 97vw);
+            margin: 14px auto 30px;
+            border-radius: 16px;
+            border: 1px solid rgba(0, 247, 255, 0.26);
+            background: linear-gradient(145deg, rgba(10, 18, 38, 0.92), rgba(7, 10, 22, 0.96));
+            padding: 14px;
+        }
+
+        .shop-chest-stash-title {
+            font-family: 'Orbitron';
+            font-size: 0.95rem;
+            letter-spacing: 1.2px;
+            color: var(--accent-cyan);
+            margin-bottom: 10px;
+        }
+
+        .shop-chest-stash-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 10px;
+        }
+
+        .shop-stash-card {
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            background: rgba(255, 255, 255, 0.04);
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            min-height: 178px;
+        }
+
+        .shop-stash-count {
+            font-family: 'Orbitron';
+            font-size: 0.82rem;
+            color: #dff8ff;
+            text-align: center;
+        }
+
+        .shop-stash-actions {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 6px;
+        }
+
+        .shop-stash-btn {
+            border: 1px solid rgba(0, 247, 255, 0.35);
+            border-radius: 8px;
+            background: rgba(0, 247, 255, 0.09);
+            color: #fff;
+            font-family: 'Orbitron';
+            font-size: 0.66rem;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            padding: 6px 4px;
+            cursor: pointer;
+        }
+
+        .shop-stash-btn:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
         }
 
         .currency-display {
@@ -1519,6 +2035,110 @@
             background: rgba(255, 255, 255, 0.03);
         }
 
+        .garage-roster .char-card.unlock-reveal {
+            position: relative;
+            overflow: hidden;
+            animation: unlockCardNeutralize 1.15s ease forwards;
+        }
+
+        .garage-roster .char-card.unlock-reveal::before {
+            content: '';
+            position: absolute;
+            inset: -40%;
+            background: radial-gradient(circle, rgba(0, 247, 255, 0.3), transparent 62%);
+            pointer-events: none;
+            animation: unlockCardGlowSweep 1.1s ease;
+        }
+
+        .unlock-break-lock {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 2rem;
+            z-index: 4;
+            text-shadow: 0 0 12px rgba(0, 0, 0, 0.8);
+            animation: unlockLockBreak 0.65s ease forwards;
+            pointer-events: none;
+        }
+
+        .unlock-break-flash {
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at center, rgba(255, 255, 255, 0.7), rgba(0, 247, 255, 0.18), transparent 68%);
+            opacity: 0;
+            z-index: 3;
+            pointer-events: none;
+            animation: unlockBreakFlash 0.62s ease forwards;
+        }
+
+        @keyframes unlockCardNeutralize {
+            0% {
+                filter: grayscale(1) brightness(0.68);
+                border-color: rgba(144, 144, 144, 0.6);
+                box-shadow: none;
+            }
+
+            40% {
+                filter: grayscale(0.55) brightness(1);
+                border-color: rgba(0, 247, 255, 0.95);
+                box-shadow: 0 0 18px rgba(0, 247, 255, 0.45);
+            }
+
+            100% {
+                filter: grayscale(0) brightness(1);
+                border-color: rgba(255, 255, 255, 0.26);
+                box-shadow: 0 0 10px rgba(0, 247, 255, 0.2);
+            }
+        }
+
+        @keyframes unlockCardGlowSweep {
+            from {
+                opacity: 0;
+                transform: translateX(-10%) scale(0.8);
+            }
+
+            35% {
+                opacity: 1;
+            }
+
+            to {
+                opacity: 0;
+                transform: translateX(8%) scale(1.2);
+            }
+        }
+
+        @keyframes unlockLockBreak {
+            0% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1);
+            }
+
+            60% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1.24) rotate(-8deg);
+            }
+
+            100% {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.6) rotate(22deg);
+            }
+        }
+
+        @keyframes unlockBreakFlash {
+            0% {
+                opacity: 0;
+            }
+
+            30% {
+                opacity: 1;
+            }
+
+            100% {
+                opacity: 0;
+            }
+        }
+
         .garage-roster .char-card .char-avatar {
             width: 72px;
             height: 72px;
@@ -1544,7 +2164,11 @@
             border-radius: 16px;
             padding: 1rem;
             position: relative;
-            overflow: hidden;
+            overflow-y: auto;
+            overflow-x: hidden;
+            max-height: 74vh;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(0, 247, 255, 0.5) transparent;
         }
 
         .garage-detail::before {
@@ -1577,7 +2201,7 @@
 
         .garage-info-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: 1fr;
             gap: 0.7rem;
             margin-top: 0.8rem;
         }
@@ -1593,6 +2217,104 @@
             font-size: 0.82rem;
             color: rgba(255, 255, 255, 0.85);
             margin-top: 0.25rem;
+        }
+
+        .garage-skills-panel {
+            margin-top: 0.85rem;
+            padding: 0.75rem;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: rgba(255, 255, 255, 0.035);
+        }
+
+        .garage-skills-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.6rem;
+        }
+
+        .garage-skill-card {
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(7, 12, 28, 0.72);
+            border-radius: 10px;
+            padding: 6px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .garage-skill-icon-wrap {
+            width: 52px;
+            height: 52px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            background: rgba(255, 255, 255, 0.04);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .garage-skill-icon-wrap[data-tip]:hover::after {
+            content: attr(data-tip);
+            position: absolute;
+            bottom: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(10, 15, 34, 0.96);
+            border: 1px solid rgba(0, 247, 255, 0.35);
+            border-radius: 8px;
+            color: #dff8ff;
+            font-family: Orbitron;
+            font-size: 0.62rem;
+            letter-spacing: 0.4px;
+            padding: 6px 8px;
+            white-space: nowrap;
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        .garage-skill-icon {
+            width: 46px;
+            height: 46px;
+        }
+
+        .garage-skill-track {
+            width: 100%;
+            height: 10px;
+            border-radius: 999px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(0, 0, 0, 0.4);
+        }
+
+        .garage-skill-fill {
+            height: 100%;
+            width: 0%;
+            transition: width 0.25s ease;
+        }
+
+        .garage-skill-pct {
+            font-family: Orbitron;
+            font-size: 0.6rem;
+            color: #bfe7ff;
+            opacity: 0.95;
+        }
+
+        @media (max-width: 1120px) {
+            .garage-detail {
+                max-height: 68vh;
+            }
+            .garage-skills-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 760px) {
+            .garage-skills-grid {
+                grid-template-columns: 1fr;
+            }
         }
 
         #modeSelectScreen {
@@ -2038,44 +2760,84 @@
         <button class="back-btn" onclick="showMainMenu()">VOLVER</button>
         <h1 class="select-title">TIENDA DEL MULTIVERSO</h1>
         <div class="shop-grid">
-            <div class="shop-card" onclick="buyChest('electric')">
+            <div class="shop-card" data-chest="electric">
                 <canvas id="iconChestElectric" width="120" height="120"></canvas>
                 <h3>COFRE ELÉCTRICO</h3>
                 <p>Cartas: Común/Poco Común</p>
                 <div class="shop-price"><canvas id="priceIcon1" width="25" height="25"></canvas> 500</div>
+                <div class="shop-buy-controls" onclick="event.stopPropagation();">
+                    <button class="shop-qty-btn" onclick="changeChestQuantity('electric', -1)">-</button>
+                    <span id="qty-electric" class="shop-qty-value">1</span>
+                    <button class="shop-qty-btn" onclick="changeChestQuantity('electric', 1)">+</button>
+                    <button class="shop-buy-btn" onclick="buyChest('electric')">COMPRAR</button>
+                </div>
             </div>
-            <div class="shop-card" onclick="buyChest('fortune')">
+            <div class="shop-card" data-chest="fortune">
                 <canvas id="iconChestFortune" width="120" height="120"></canvas>
                 <h3>COFRE FORTUNA</h3>
                 <p>Cartas: +Raro Chance</p>
                 <div class="shop-price"><canvas id="priceIcon2" width="25" height="25"></canvas> 1200</div>
+                <div class="shop-buy-controls" onclick="event.stopPropagation();">
+                    <button class="shop-qty-btn" onclick="changeChestQuantity('fortune', -1)">-</button>
+                    <span id="qty-fortune" class="shop-qty-value">1</span>
+                    <button class="shop-qty-btn" onclick="changeChestQuantity('fortune', 1)">+</button>
+                    <button class="shop-buy-btn" onclick="buyChest('fortune')">COMPRAR</button>
+                </div>
             </div>
-            <div class="shop-card" onclick="buyChest('iron')">
+            <div class="shop-card" data-chest="iron">
                 <canvas id="iconChestIron" width="120" height="120"></canvas>
                 <h3>COFRE DE HIERRO</h3>
                 <p>Alta Chance Poco Común</p>
                 <div class="shop-price"><canvas id="priceIcon3" width="25" height="25"></canvas> 2000</div>
+                <div class="shop-buy-controls" onclick="event.stopPropagation();">
+                    <button class="shop-qty-btn" onclick="changeChestQuantity('iron', -1)">-</button>
+                    <span id="qty-iron" class="shop-qty-value">1</span>
+                    <button class="shop-qty-btn" onclick="changeChestQuantity('iron', 1)">+</button>
+                    <button class="shop-buy-btn" onclick="buyChest('iron')">COMPRAR</button>
+                </div>
             </div>
-            <div class="shop-card" onclick="buyChest('gold')">
+            <div class="shop-card" data-chest="gold">
                 <canvas id="iconChestGold" width="120" height="120"></canvas>
                 <h3>COFRE DE ORO</h3>
                 <p>Alta Chance Epico</p>
                 <div class="shop-price"><canvas id="priceIcon4" width="25" height="25"></canvas> 5000</div>
+                <div class="shop-buy-controls" onclick="event.stopPropagation();">
+                    <button class="shop-qty-btn" onclick="changeChestQuantity('gold', -1)">-</button>
+                    <span id="qty-gold" class="shop-qty-value">1</span>
+                    <button class="shop-qty-btn" onclick="changeChestQuantity('gold', 1)">+</button>
+                    <button class="shop-buy-btn" onclick="buyChest('gold')">COMPRAR</button>
+                </div>
             </div>
-            <div class="shop-card" onclick="buyChest('diamond')">
+            <div class="shop-card" data-chest="diamond">
                 <canvas id="iconChestDiamond" width="120" height="120"></canvas>
                 <h3>COFRE DIAMANTE</h3>
                 <p>Garantizado Legendario+</p>
                 <div class="shop-price"><canvas id="priceIcon5" width="25" height="25"></canvas> 10000</div>
+                <div class="shop-buy-controls" onclick="event.stopPropagation();">
+                    <button class="shop-qty-btn" onclick="changeChestQuantity('diamond', -1)">-</button>
+                    <span id="qty-diamond" class="shop-qty-value">1</span>
+                    <button class="shop-qty-btn" onclick="changeChestQuantity('diamond', 1)">+</button>
+                    <button class="shop-buy-btn" onclick="buyChest('diamond')">COMPRAR</button>
+                </div>
             </div>
-            <div class="shop-card" onclick="buyChest('cosmic')">
+            <div class="shop-card" data-chest="cosmic">
                 <canvas id="iconChestCosmic" width="120" height="120"></canvas>
                 <h3>COFRE CÓSMICO</h3>
                 <p>¡El Poder del Universo!</p>
                 <div class="shop-price"><canvas id="priceIcon6" width="25" height="25"></canvas> 25000</div>
+                <div class="shop-buy-controls" onclick="event.stopPropagation();">
+                    <button class="shop-qty-btn" onclick="changeChestQuantity('cosmic', -1)">-</button>
+                    <span id="qty-cosmic" class="shop-qty-value">1</span>
+                    <button class="shop-qty-btn" onclick="changeChestQuantity('cosmic', 1)">+</button>
+                    <button class="shop-buy-btn" onclick="buyChest('cosmic')">COMPRAR</button>
+                </div>
             </div>
             <!-- Event Offers in Shop -->
             <div id="shopEventOffers" class="shop-offer-wrap" style="display:none;"></div>
+        </div>
+        <div id="shopChestStash" class="shop-chest-stash">
+            <div class="shop-chest-stash-title">COFRES ALMACENADOS</div>
+            <div id="shopChestStashGrid" class="shop-chest-stash-grid"></div>
         </div>
     </div>
 
@@ -2184,7 +2946,15 @@
             lastMissionDate: null,
             lastMissionResetTime: 0,
             missionResetCost: 100, // Default price
-            consecutiveWins: 0
+            consecutiveWins: 0,
+            chestInventory: {
+                electric: 0,
+                fortune: 0,
+                iron: 0,
+                gold: 0,
+                diamond: 0,
+                cosmic: 0
+            }
         };
 
         // ==================== VARIABLES GLOBALES DE JUEGO ====================
@@ -2567,7 +3337,7 @@
         function completeMission(mission) {
             if (GameData.completedMissions.includes(mission.id)) return;
             GameData.completedMissions.push(mission.id);
-            if (grantVoltBits(mission.reward, true)) {
+            if (grantVoltBits(mission.reward, true, `Mision: ${mission.text || mission.id || 'Objetivo'}`)) {
                 showNotification(`¡MISIÓN CUMPLIDA! +${mission.reward} VoltBits`);
             }
             updateVoltBitsDisplay();
@@ -2640,32 +3410,207 @@
             document.getElementById('mainMenu').style.display = 'none';
             document.getElementById('shopMenu').style.display = 'flex';
             updateVoltBitsDisplay();
+            Object.keys(shopChestQuantities).forEach(updateChestQuantityUI);
 
             // Dibujar SIEMPRE los 6 cofres; reintentos por timing de layout/pintado
             renderShopChestIcons();
             setTimeout(renderShopChestIcons, 120);
             setTimeout(renderShopChestIcons, 320);
             renderShopEventOffers();
+            renderShopChestStash();
         }
 
         let currentChestData = null;
+        let chestOpenQueue = [];
+        const SHOP_CHEST_TYPES = ['electric', 'fortune', 'iron', 'gold', 'diamond', 'cosmic'];
+        const shopChestQuantities = {
+            electric: 1,
+            fortune: 1,
+            iron: 1,
+            gold: 1,
+            diamond: 1,
+            cosmic: 1
+        };
 
-        function buyChest(type) {
+        function ensureChestInventory() {
+            if (!GameData.chestInventory || typeof GameData.chestInventory !== 'object') {
+                GameData.chestInventory = {};
+            }
+            SHOP_CHEST_TYPES.forEach(type => {
+                const raw = Math.floor(Number(GameData.chestInventory[type]) || 0);
+                GameData.chestInventory[type] = Math.max(0, raw);
+            });
+        }
+
+        function getChestQuantity(type) {
+            const stored = Number(shopChestQuantities[type] || 1);
+            return Math.max(1, Math.min(25, Math.floor(stored)));
+        }
+
+        function updateChestQuantityUI(type) {
+            const el = document.getElementById(`qty-${type}`);
+            if (el) el.textContent = String(getChestQuantity(type));
+        }
+
+        function changeChestQuantity(type, delta) {
+            const current = getChestQuantity(type);
+            const next = Math.max(1, Math.min(25, current + Number(delta || 0)));
+            shopChestQuantities[type] = next;
+            updateChestQuantityUI(type);
+        }
+
+        function addChestToInventory(type, amount = 1) {
+            ensureChestInventory();
+            const add = Math.max(1, Math.floor(Number(amount) || 1));
+            GameData.chestInventory[type] = Math.max(0, Math.floor(Number(GameData.chestInventory[type] || 0)) + add);
+        }
+
+        function getChestInventoryCount(type) {
+            ensureChestInventory();
+            return Math.max(0, Math.floor(Number(GameData.chestInventory[type] || 0)));
+        }
+
+        function consumeChestFromInventory(type, amount = 1) {
+            ensureChestInventory();
+            const need = Math.max(1, Math.floor(Number(amount) || 1));
+            const current = getChestInventoryCount(type);
+            if (current < need) return false;
+            GameData.chestInventory[type] = current - need;
+            return true;
+        }
+
+        function renderShopChestStash() {
+            const grid = document.getElementById('shopChestStashGrid');
+            if (!grid) return;
+            ensureChestInventory();
+            grid.innerHTML = '';
+
+            SHOP_CHEST_TYPES.forEach(type => {
+                const chest = CHEST_TYPES[type];
+                if (!chest) return;
+                const count = getChestInventoryCount(type);
+                const card = document.createElement('div');
+                card.className = 'shop-stash-card';
+                card.innerHTML = `
+                    <canvas id="stashChest-${type}" width="90" height="90" style="margin:0 auto;display:block;"></canvas>
+                    <div style="font-family:Orbitron;font-size:0.72rem;text-align:center;color:#fff;">${chest.name}</div>
+                    <div class="shop-stash-count">Guardados: <span style="color:var(--accent-gold)">${count}</span></div>
+                    <div class="shop-stash-actions">
+                        <button class="shop-stash-btn" ${count < 1 ? 'disabled' : ''} onclick="openStoredChest('${type}',1)">ABRIR 1</button>
+                        <button class="shop-stash-btn" ${count < 5 ? 'disabled' : ''} onclick="openStoredChest('${type}',5)">ABRIR 5</button>
+                        <button class="shop-stash-btn" ${count < 10 ? 'disabled' : ''} onclick="openStoredChest('${type}',10)">ABRIR 10</button>
+                    </div>
+                `;
+                grid.appendChild(card);
+                setTimeout(() => {
+                    const c = document.getElementById(`stashChest-${type}`);
+                    if (!c) return;
+                    const cctx = c.getContext('2d');
+                    cctx.clearRect(0, 0, c.width, c.height);
+                    drawChestModel(cctx, type, 45, 45, 1.15);
+                }, 0);
+            });
+        }
+
+        window.openStoredChest = function openStoredChest(type, amount = 1) {
+            const available = getChestInventoryCount(type);
+            const qty = Math.max(1, Math.min(available, Math.floor(Number(amount) || 1)));
+            if (qty <= 0) return;
+
+            for (let i = 0; i < qty; i++) {
+                awardChest(type, false, null, 'storage');
+            }
+            saveGame();
+            showNotification(`Preparados ${qty}x ${type.toUpperCase()} del almacen`);
+        };
+
+        function updateChestContinueLabel() {
+            const btn = document.getElementById('chestCloseBtn');
+            if (!btn) return;
+            const pending = chestOpenQueue.length;
+            btn.textContent = pending > 0 ? `CONTINUAR (${pending} restantes)` : 'CONTINUAR';
+        }
+
+        function showNextChestFromQueue() {
+            if (currentChestData || chestOpenQueue.length === 0) return;
+            const nextChest = chestOpenQueue.shift();
+            if (!nextChest) return;
+            currentChestData = { ...nextChest, opened: false };
+
+            const type = currentChestData.type;
+            const missionReward = currentChestData.missionReward;
+            const isFromShop = !!currentChestData.isFromShop;
+            const source = String(currentChestData.source || 'auto');
+
+            // Definir tipos de cofre de evento al vuelo si no existen
+            if (type === 'event_glitch' && !CHEST_TYPES.event_glitch) {
+                CHEST_TYPES.event_glitch = { name: 'COFRE GLITCH', cardAmount: [5, 10] };
+            }
+            if (type === 'event_valentine' && !CHEST_TYPES.event_valentine) {
+                CHEST_TYPES.event_valentine = { name: 'COFRE VALENTIN', cardAmount: [5, 10] };
+            }
+
+            const modal = document.getElementById('chestModal');
+            modal.style.display = 'flex';
+
+            const title = document.getElementById('chestTitle');
+            if (missionReward) {
+                title.textContent = "¡MISIÓN COMPLETADA!";
+                document.getElementById('chestInstruction').innerHTML = `<span style="color:var(--accent-gold)">${missionReward.txt || missionReward.text}</span><br>Haz clic para abrir`;
+            } else {
+                title.textContent = source === 'storage'
+                    ? "¡COFRE DE INVENTARIO!"
+                    : isFromShop
+                        ? "¡COFRE COMPRADO!"
+                    : (type === 'battle_1' ? "¡COFRE DE VICTORIA!" : "¡COFRE DE BATALLA!");
+                document.getElementById('chestInstruction').textContent = "Haz clic para abrir";
+            }
+
+            const container = document.getElementById('chestContainer');
+            container.className = 'chest-container shake';
+            container.style.display = 'block';
+            container.style.opacity = '1';
+            container.style.transform = '';
+
+            const cvs = document.getElementById('chestCanvas');
+            const ctx = cvs.getContext('2d');
+            ctx.clearRect(0, 0, cvs.width, cvs.height);
+
+            if (type === 'event_glitch') drawChestModel(ctx, 'glitch', 150, 150, 4);
+            else if (type === 'event_valentine') drawChestModel(ctx, 'heart', 150, 150, 4);
+            else drawChestModel(ctx, type, 150, 150, 4);
+
+            const rewardEl = document.getElementById('chestReward');
+            rewardEl.classList.remove('show');
+            rewardEl.innerHTML = '';
+            rewardEl.scrollTop = 0;
+            document.getElementById('chestCloseBtn').style.display = 'none';
+            document.getElementById('chestInstruction').style.display = 'block';
+            updateChestContinueLabel();
+        }
+
+        function buyChest(type, forcedQuantity = null) {
             const chest = CHEST_TYPES[type];
             if (!chest) return;
 
-            if (GameData.voltBits >= chest.price) {
-                // Ocean Pay Integration
-                startOceanPayTransaction(chest.price, `Cofre ${type.toUpperCase()}`, () => {
-                    GameData.voltBits -= chest.price;
-                    updateVoltBitsDisplay();
-                    awardChest(type, true);
-                    saveGame();
-                    showNotification(`¡Compra exitosa! -${chest.price} VoltBits`);
-                });
-            } else {
-                alert("¡No tienes suficientes VoltBits!");
+            const quantity = forcedQuantity == null
+                ? getChestQuantity(type)
+                : Math.max(1, Math.min(25, Math.floor(Number(forcedQuantity) || 1)));
+
+            const totalPrice = chest.price * quantity;
+            if (GameData.voltBits < totalPrice) {
+                alert(`¡No tienes suficientes VoltBits! Necesitas ${totalPrice}.`);
+                return;
             }
+
+            startOceanPayTransaction(totalPrice, `${quantity}x Cofre ${type.toUpperCase()}`, () => {
+                GameData.voltBits -= totalPrice;
+                updateVoltBitsDisplay();
+                addChestToInventory(type, quantity);
+                saveGame();
+                renderShopChestStash();
+                showNotification(`¡Compra exitosa! +${quantity} ${type.toUpperCase()} guardados (-${totalPrice} VoltBits)`);
+            });
         }
 
         // --- EVENT SYSTEM (REDESIGNED) ---
@@ -2818,7 +3763,7 @@
                 GameData.purchasedOffers.push(offer.id);
                 if (selectedCharId && !GameData.unlockedCharacters.includes(selectedCharId)) GameData.unlockedCharacters.push(selectedCharId);
                 if (offer.gives.cards && selectedCharId) GameData.characterCards[selectedCharId] = (GameData.characterCards[selectedCharId] || 0) + offer.gives.cards;
-                if (offer.gives.bits) grantVoltBits(offer.gives.bits, false);
+                if (offer.gives.bits) grantVoltBits(offer.gives.bits, false, `Oferta: ${offer.name}`);
                 updateVoltBitsDisplay(); saveGame();
                 if (offer.chestType) {
                     awardChest(offer.chestType, false, { txt: offer.name, rewardCards: offer.gives.cards, rarity: 'legendary' });
@@ -3021,56 +3966,30 @@
             else awardChest('event_valentine', false, mission);
         }
 
-        function awardChest(type, isFromShop = false, missionReward = null) {
-            currentChestData = { type, isFromShop, opened: false, missionReward };
-
-            // Definir tipos de cofre de evento al vuelo si no existen
-            if (type === 'event_glitch' && !CHEST_TYPES.event_glitch) {
-                CHEST_TYPES.event_glitch = { name: 'COFRE GLITCH', cardAmount: [5, 10] }; // Fallback
-            }
-            if (type === 'event_valentine' && !CHEST_TYPES.event_valentine) {
-                CHEST_TYPES.event_valentine = { name: 'COFRE VALENTIN', cardAmount: [5, 10] }; // Fallback
-            }
-
-            const modal = document.getElementById('chestModal');
-            modal.style.display = 'flex';
-
-            const title = document.getElementById('chestTitle');
-            if (missionReward) {
-                title.textContent = "¡MISIÓN COMPLETADA!";
-                document.getElementById('chestInstruction').innerHTML = `<span style="color:var(--accent-gold)">${missionReward.txt || missionReward.text}</span><br>Haz clic para abrir`;
-            } else {
-                title.textContent = isFromShop
-                    ? "¡COFRE COMPRADO!"
-                    : (type === 'battle_1' ? "¡COFRE DE VICTORIA!" : "¡COFRE DE BATALLA!");
-                document.getElementById('chestInstruction').textContent = "Haz clic para abrir";
-            }
-
-            const container = document.getElementById('chestContainer');
-            container.className = 'chest-container shake';
-            container.style.display = 'block';
-            container.style.opacity = '1';
-            container.style.transform = '';
-
-            const cvs = document.getElementById('chestCanvas');
-            const ctx = cvs.getContext('2d');
-            ctx.clearRect(0, 0, cvs.width, cvs.height);
-
-            // Custom colors for event chests
-            if (type === 'event_glitch') drawChestModel(ctx, 'glitch', 150, 150, 4);
-            else if (type === 'event_valentine') drawChestModel(ctx, 'heart', 150, 150, 4);
-            else drawChestModel(ctx, type, 150, 150, 4);
-
-            const rewardEl = document.getElementById('chestReward');
-            rewardEl.classList.remove('show');
-            rewardEl.innerHTML = '';
-            rewardEl.scrollTop = 0;
-            document.getElementById('chestCloseBtn').style.display = 'none';
-            document.getElementById('chestInstruction').style.display = 'block';
+        function awardChest(type, isFromShop = false, missionReward = null, source = 'auto') {
+            chestOpenQueue.push({ type, isFromShop, missionReward, source, opened: false });
+            showNextChestFromQueue();
         }
 
         function openChestAnimation() {
-            if (currentChestData.opened) return;
+            if (!currentChestData || currentChestData.opened) return;
+
+            if (currentChestData.source === 'storage') {
+                if (!consumeChestFromInventory(currentChestData.type, 1)) {
+                    showNotification('No quedan cofres de ese tipo en almacen.');
+                    currentChestData = null;
+                    renderShopChestStash();
+                    if (chestOpenQueue.length > 0) {
+                        setTimeout(showNextChestFromQueue, 100);
+                    } else {
+                        document.getElementById('chestModal').style.display = 'none';
+                    }
+                    return;
+                }
+                saveGame();
+                renderShopChestStash();
+            }
+
             currentChestData.opened = true;
 
             const container = document.getElementById('chestContainer');
@@ -3084,11 +4003,380 @@
             }, 800);
         }
 
+        let __vsAudioCtx = null;
+        let __vsCardTickLastMs = 0;
+
+        function getVsAudioContext() {
+            try {
+                const Ctx = window.AudioContext || window.webkitAudioContext;
+                if (!Ctx) return null;
+                if (!__vsAudioCtx) __vsAudioCtx = new Ctx();
+                if (__vsAudioCtx.state === 'suspended') {
+                    __vsAudioCtx.resume().catch(() => { });
+                }
+                return __vsAudioCtx;
+            } catch (_) {
+                return null;
+            }
+        }
+
+        function playCardTickSfx(stepIndex = 1, totalSteps = 1) {
+            const nowMs = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+            if (nowMs - __vsCardTickLastMs < 20) return;
+            __vsCardTickLastMs = nowMs;
+
+            const ctx = getVsAudioContext();
+            if (!ctx) return;
+
+            try {
+                const t = ctx.currentTime;
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                const ratio = Math.max(0, Math.min(1, Number(stepIndex || 1) / Math.max(1, Number(totalSteps || 1))));
+                const baseFreq = 680 + (ratio * 260);
+
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(baseFreq, t);
+                osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.12, t + 0.035);
+
+                gain.gain.setValueAtTime(0.0001, t);
+                gain.gain.exponentialRampToValueAtTime(0.035, t + 0.006);
+                gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.055);
+
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(t);
+                osc.stop(t + 0.06);
+            } catch (_) { }
+        }
+
+        function playCardRowCompleteSfx(rarity = 'common') {
+            const ctx = getVsAudioContext();
+            if (!ctx) return;
+            try {
+                const t = ctx.currentTime;
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                const rarityBoost = {
+                    common: 0,
+                    uncommon: 18,
+                    rare: 36,
+                    epic: 56,
+                    legendary: 82,
+                    mythic: 110
+                };
+                const base = 760 + (rarityBoost[rarity] || 0);
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(base, t);
+                osc.frequency.exponentialRampToValueAtTime(base * 1.22, t + 0.09);
+
+                gain.gain.setValueAtTime(0.0001, t);
+                gain.gain.exponentialRampToValueAtTime(0.045, t + 0.01);
+                gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
+
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(t);
+                osc.stop(t + 0.13);
+            } catch (_) { }
+        }
+
+        function playChestCardsCompleteSfx() {
+            const ctx = getVsAudioContext();
+            if (!ctx) return;
+            try {
+                const t = ctx.currentTime;
+                const notes = [620, 780, 980];
+                notes.forEach((freq, i) => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    const start = t + (i * 0.045);
+                    const end = start + 0.11;
+
+                    osc.type = i === 2 ? 'triangle' : 'sine';
+                    osc.frequency.setValueAtTime(freq, start);
+                    osc.frequency.exponentialRampToValueAtTime(freq * 1.06, end);
+
+                    gain.gain.setValueAtTime(0.0001, start);
+                    gain.gain.exponentialRampToValueAtTime(0.04, start + 0.012);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, end);
+
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(start);
+                    osc.stop(end + 0.005);
+                });
+            } catch (_) { }
+        }
+
+        function playChestUnlockRunnerSfx() {
+            const ctx = getVsAudioContext();
+            if (!ctx) return;
+            try {
+                const t = ctx.currentTime;
+                const notes = [520, 680, 860, 1120];
+                notes.forEach((freq, i) => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    const start = t + (i * 0.055);
+                    const end = start + 0.14;
+
+                    osc.type = i < 2 ? 'triangle' : 'sine';
+                    osc.frequency.setValueAtTime(freq, start);
+                    osc.frequency.exponentialRampToValueAtTime(freq * 1.18, end);
+
+                    gain.gain.setValueAtTime(0.0001, start);
+                    gain.gain.exponentialRampToValueAtTime(0.06, start + 0.014);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, end);
+
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(start);
+                    osc.stop(end + 0.01);
+                });
+            } catch (_) { }
+        }
+
+        function playRunnerUpgradeSfx(rarity = 'common', nextLevel = 1) {
+            const ctx = getVsAudioContext();
+            if (!ctx) return;
+            try {
+                const t = ctx.currentTime;
+                const boostByRarity = {
+                    common: 0,
+                    uncommon: 20,
+                    rare: 42,
+                    epic: 66,
+                    legendary: 94,
+                    mythic: 130
+                };
+                const rarityBoost = boostByRarity[rarity] || 0;
+                const lvlBoost = Math.max(0, Math.min(180, (Number(nextLevel) || 1) * 10));
+                const base = 520 + rarityBoost + lvlBoost;
+                const notes = [base, base * 1.2, base * 1.47, base * 1.78];
+
+                notes.forEach((freq, i) => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    const start = t + (i * 0.05);
+                    const end = start + 0.16;
+
+                    osc.type = i < 2 ? 'triangle' : 'sine';
+                    osc.frequency.setValueAtTime(freq, start);
+                    osc.frequency.exponentialRampToValueAtTime(freq * 1.06, end);
+
+                    gain.gain.setValueAtTime(0.0001, start);
+                    gain.gain.exponentialRampToValueAtTime(0.055, start + 0.014);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, end);
+
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(start);
+                    osc.stop(end + 0.01);
+                });
+
+                const burst = ctx.createOscillator();
+                const burstGain = ctx.createGain();
+                const burstStart = t + 0.09;
+                const burstEnd = burstStart + 0.2;
+                burst.type = 'sawtooth';
+                burst.frequency.setValueAtTime(base * 0.74, burstStart);
+                burst.frequency.exponentialRampToValueAtTime(base * 1.9, burstEnd);
+                burstGain.gain.setValueAtTime(0.0001, burstStart);
+                burstGain.gain.exponentialRampToValueAtTime(0.02, burstStart + 0.025);
+                burstGain.gain.exponentialRampToValueAtTime(0.0001, burstEnd);
+                burst.connect(burstGain);
+                burstGain.connect(ctx.destination);
+                burst.start(burstStart);
+                burst.stop(burstEnd + 0.01);
+
+                const impact = ctx.createOscillator();
+                const impactGain = ctx.createGain();
+                const impactStart = t + 0.018;
+                const impactEnd = impactStart + 0.23;
+                impact.type = 'square';
+                impact.frequency.setValueAtTime(Math.max(90, base * 0.34), impactStart);
+                impact.frequency.exponentialRampToValueAtTime(Math.max(40, base * 0.13), impactEnd);
+                impactGain.gain.setValueAtTime(0.0001, impactStart);
+                impactGain.gain.exponentialRampToValueAtTime(0.028, impactStart + 0.02);
+                impactGain.gain.exponentialRampToValueAtTime(0.0001, impactEnd);
+                impact.connect(impactGain);
+                impactGain.connect(ctx.destination);
+                impact.start(impactStart);
+                impact.stop(impactEnd + 0.01);
+
+                const sparkle = [base * 2.1, base * 2.45, base * 2.85];
+                sparkle.forEach((freq, i) => {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    const start = t + 0.18 + (i * 0.04);
+                    const end = start + 0.11;
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, start);
+                    osc.frequency.exponentialRampToValueAtTime(freq * 1.1, end);
+                    gain.gain.setValueAtTime(0.0001, start);
+                    gain.gain.exponentialRampToValueAtTime(0.02, start + 0.012);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, end);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(start);
+                    osc.stop(end + 0.01);
+                });
+            } catch (_) { }
+        }
+
+        function showRunnerUpgradeFx(charId, nextLevel) {
+            const char = CHARACTERS[charId];
+            const host = document.querySelector('#upgradeModal .modal-content');
+            if (!host || !char) return;
+
+            host.querySelectorAll('.upgrade-levelup-fx').forEach(el => el.remove());
+            host.classList.remove('upgrade-celebrate');
+            void host.offsetWidth;
+            host.classList.add('upgrade-celebrate');
+            setTimeout(() => host.classList.remove('upgrade-celebrate'), 520);
+
+            const preview = document.getElementById('upgradeCharacterPreview');
+            if (preview) {
+                preview.classList.remove('upgrade-flare');
+                void preview.offsetWidth;
+                preview.classList.add('upgrade-flare');
+                setTimeout(() => preview.classList.remove('upgrade-flare'), 960);
+            }
+
+            document.querySelectorAll('.upgrade-stats .stat-bar-fill').forEach((bar, idx) => {
+                const delay = idx * 70;
+                setTimeout(() => {
+                    bar.classList.remove('upgrade-pop');
+                    void bar.offsetWidth;
+                    bar.classList.add('upgrade-pop');
+                }, delay);
+                setTimeout(() => bar.classList.remove('upgrade-pop'), delay + 720);
+            });
+
+            const fx = document.createElement('div');
+            fx.className = 'upgrade-levelup-fx';
+            fx.innerHTML = `
+                <div class="upgrade-levelup-flash"></div>
+                <div class="upgrade-levelup-ring"></div>
+                <div class="upgrade-levelup-explosion"></div>
+                <div class="upgrade-levelup-streaks"></div>
+                <div class="upgrade-levelup-sparks"></div>
+                <div class="upgrade-levelup-card">
+                    <canvas width="70" height="70"></canvas>
+                    <div class="upgrade-levelup-text">
+                        <div class="kicker">POWER UPGRADE</div>
+                        <div class="name" style="color:${char.color};">${char.name}</div>
+                        <div class="lvl">Nivel ${Math.max(1, Number(nextLevel) || 1)}</div>
+                    </div>
+                </div>
+            `;
+            host.appendChild(fx);
+
+            const streaks = fx.querySelector('.upgrade-levelup-streaks');
+            if (streaks) {
+                const streakCount = 16;
+                for (let i = 0; i < streakCount; i++) {
+                    const s = document.createElement('span');
+                    s.className = 'upgrade-levelup-streak';
+                    const rot = (360 / streakCount) * i + ((Math.random() * 16) - 8);
+                    s.style.setProperty('--rot', `${rot}deg`);
+                    s.style.setProperty('--delay', `${(Math.random() * 0.12).toFixed(3)}s`);
+                    s.style.setProperty('--dur', `${(0.56 + Math.random() * 0.38).toFixed(3)}s`);
+                    s.style.setProperty('--len', `${90 + Math.floor(Math.random() * 80)}px`);
+                    streaks.appendChild(s);
+                }
+            }
+
+            const sparks = fx.querySelector('.upgrade-levelup-sparks');
+            if (sparks) {
+                const palette = [char.color || '#00f7ff', char.secondaryColor || '#8ef3ff', '#ffffff', '#ffb347', '#00f7ff'];
+                const sparkCount = 22;
+                for (let i = 0; i < sparkCount; i++) {
+                    const p = document.createElement('span');
+                    p.className = 'upgrade-levelup-spark';
+                    const angle = Math.random() * Math.PI * 2;
+                    const dist = 72 + Math.random() * 160;
+                    p.style.setProperty('--tx', `${Math.cos(angle) * dist}px`);
+                    p.style.setProperty('--ty', `${Math.sin(angle) * dist}px`);
+                    p.style.setProperty('--size', `${3 + Math.random() * 5}px`);
+                    p.style.setProperty('--delay', `${(Math.random() * 0.16).toFixed(3)}s`);
+                    p.style.setProperty('--dur', `${(0.72 + Math.random() * 0.55).toFixed(3)}s`);
+                    p.style.setProperty('--spark', palette[i % palette.length]);
+                    sparks.appendChild(p);
+                }
+            }
+
+            const c = fx.querySelector('canvas');
+            if (c) {
+                try {
+                    renderRacerModel(c.getContext('2d'), charId, 35, 35, 1.05, char, true);
+                } catch (_) { }
+            }
+
+            setTimeout(() => fx.classList.add('out'), 960);
+            setTimeout(() => fx.remove(), 1500);
+        }
+
+        function triggerRunnerUpgradeCelebration(charId, nextLevel) {
+            const char = CHARACTERS[charId];
+            showRunnerUpgradeFx(charId, nextLevel);
+            playRunnerUpgradeSfx(char?.rarity || 'common', nextLevel);
+        }
+
+        function showChestUnlockCelebration(charId) {
+            const char = CHARACTERS[charId];
+            const host = document.querySelector('#chestModal .chest-modal-content');
+            if (!char || !host) return;
+
+            const fx = document.createElement('div');
+            fx.className = 'chest-unlock-fx';
+            fx.innerHTML = `
+                <div class="chest-unlock-flash"></div>
+                <div class="chest-unlock-ring"></div>
+                <div class="chest-unlock-card">
+                    <canvas width="86" height="86" id="chestUnlockAvatar-${charId}-${Date.now()}"></canvas>
+                    <div class="chest-unlock-title">NUEVO CORREDOR</div>
+                    <div class="chest-unlock-name" style="color:${char.color};">${char.name}</div>
+                </div>
+            `;
+            host.appendChild(fx);
+            const c = fx.querySelector('canvas');
+            if (c) {
+                try {
+                    renderRacerModel(c.getContext('2d'), charId, 43, 43, 1.1, char);
+                } catch (_) { }
+            }
+            setTimeout(() => fx.classList.add('out'), 1180);
+            setTimeout(() => fx.remove(), 1700);
+        }
+
+        function unlockCharacterFromChest(charId) {
+            const char = CHARACTERS[charId];
+            if (!char) return false;
+            if (!Array.isArray(GameData.unlockedCharacters)) GameData.unlockedCharacters = [];
+            if (GameData.unlockedCharacters.includes(charId)) return false;
+
+            GameData.unlockedCharacters.push(charId);
+            if (!GameData.characterLevels[charId]) GameData.characterLevels[charId] = 1;
+            if (!Array.isArray(window.__VS_UNLOCK_QUEUE)) window.__VS_UNLOCK_QUEUE = [];
+            window.__VS_UNLOCK_QUEUE.push({ id: charId, ts: Date.now(), source: 'chest' });
+
+            playChestUnlockRunnerSfx();
+            showChestUnlockCelebration(charId);
+            showNotification(`¡NUEVO CORREDOR DESBLOQUEADO! ${char.name}`);
+            saveGame();
+            return true;
+        }
+
         function animateCardRewardProgress(cardsGiven, rewardEl) {
             if (!rewardEl || !Array.isArray(cardsGiven) || cardsGiven.length === 0) {
                 return Promise.resolve();
             }
 
+            rewardEl.classList.add('chest-single-large');
+            const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
             const valid = cardsGiven
                 .filter(c => c && c.id && CHARACTERS[c.id] && Number(c.count) > 0)
                 .map(c => ({
@@ -3099,7 +4387,7 @@
 
             if (valid.length === 0) return Promise.resolve();
             const rarityOrder = { mythic: 0, legendary: 1, epic: 2, rare: 3, uncommon: 4, common: 5 };
-            const useGroupedLayout = valid.length >= 8;
+            const useGroupedLayout = true;
             const queue = valid.slice().sort((a, b) => {
                 const aw = rarityOrder[a.char.rarity] ?? 99;
                 const bw = rarityOrder[b.char.rarity] ?? 99;
@@ -3107,132 +4395,350 @@
                 if (b.gain !== a.gain) return b.gain - a.gain;
                 return String(a.char.name || '').localeCompare(String(b.char.name || ''));
             });
+            const rarityVisuals = {
+                common: {
+                    cardBg: 'linear-gradient(145deg, rgba(38,45,60,0.78), rgba(20,24,34,0.9))',
+                    border: 'rgba(190, 202, 220, 0.3)',
+                    glow: '0 0 18px rgba(190, 202, 220, 0.12)',
+                    badgeBg: 'rgba(190,202,220,0.14)'
+                },
+                uncommon: {
+                    cardBg: 'linear-gradient(145deg, rgba(20,56,34,0.82), rgba(10,22,15,0.92))',
+                    border: 'rgba(82, 240, 142, 0.42)',
+                    glow: '0 0 22px rgba(82, 240, 142, 0.18)',
+                    badgeBg: 'rgba(82,240,142,0.16)'
+                },
+                rare: {
+                    cardBg: 'linear-gradient(145deg, rgba(18,48,90,0.84), rgba(10,20,42,0.94))',
+                    border: 'rgba(101, 173, 255, 0.5)',
+                    glow: '0 0 24px rgba(101, 173, 255, 0.22)',
+                    badgeBg: 'rgba(101,173,255,0.2)'
+                },
+                epic: {
+                    cardBg: 'linear-gradient(145deg, rgba(56,24,92,0.84), rgba(24,12,42,0.94))',
+                    border: 'rgba(196, 123, 255, 0.52)',
+                    glow: '0 0 26px rgba(196, 123, 255, 0.24)',
+                    badgeBg: 'rgba(196,123,255,0.2)'
+                },
+                legendary: {
+                    cardBg: 'linear-gradient(145deg, rgba(92,56,10,0.86), rgba(38,24,8,0.95))',
+                    border: 'rgba(255, 201, 88, 0.6)',
+                    glow: '0 0 30px rgba(255, 201, 88, 0.28)',
+                    badgeBg: 'rgba(255,201,88,0.22)'
+                },
+                mythic: {
+                    cardBg: 'linear-gradient(145deg, rgba(56,20,76,0.9), rgba(10,34,56,0.92), rgba(58,14,40,0.9))',
+                    border: 'rgba(247, 112, 255, 0.65)',
+                    glow: '0 0 34px rgba(163, 94, 255, 0.34)',
+                    badgeBg: 'linear-gradient(135deg, rgba(255,62,141,0.24), rgba(0,247,255,0.18), rgba(168,85,247,0.22))'
+                }
+            };
 
             const wrapper = document.createElement('div');
             wrapper.style.display = 'flex';
             wrapper.style.flexDirection = 'column';
-            wrapper.style.gap = '12px';
-            wrapper.style.marginTop = '14px';
+            wrapper.style.gap = '11px';
+            wrapper.style.margin = '10px auto 0';
+            wrapper.style.width = 'min(660px, 100%)';
             wrapper.style.textAlign = 'left';
-            wrapper.style.paddingRight = '2px';
+            wrapper.style.paddingRight = '0';
+
+            const header = document.createElement('div');
+            header.style.display = 'flex';
+            header.style.alignItems = 'center';
+            header.style.justifyContent = 'space-between';
+            header.style.gap = '12px';
+
+            const rarityBadge = document.createElement('div');
+            rarityBadge.style.fontFamily = 'Orbitron';
+            rarityBadge.style.fontSize = '0.84rem';
+            rarityBadge.style.letterSpacing = '1.2px';
+            rarityBadge.style.opacity = '0.95';
+            rarityBadge.style.padding = '7px 11px';
+            rarityBadge.style.borderRadius = '999px';
+            rarityBadge.style.border = '1px solid rgba(255,255,255,0.2)';
+            rarityBadge.style.background = 'rgba(255,255,255,0.05)';
+            rarityBadge.style.textTransform = 'uppercase';
+
+            const sequenceHint = document.createElement('div');
+            sequenceHint.style.fontFamily = 'Orbitron';
+            sequenceHint.style.fontSize = '0.82rem';
+            sequenceHint.style.opacity = '0.88';
+            sequenceHint.style.color = '#f9e27d';
+            sequenceHint.style.padding = '5px 10px';
+            sequenceHint.style.borderRadius = '999px';
+            sequenceHint.style.background = 'rgba(255,215,0,0.08)';
+            sequenceHint.style.border = '1px solid rgba(255,215,0,0.25)';
+
+            header.appendChild(rarityBadge);
+            header.appendChild(sequenceHint);
+            wrapper.appendChild(header);
+
+            const slot = document.createElement('div');
+            slot.style.minHeight = '176px';
+            slot.style.display = 'flex';
+            slot.style.alignItems = 'center';
+            slot.style.justifyContent = 'center';
+            slot.style.position = 'relative';
+            slot.style.overflow = 'hidden';
+            wrapper.appendChild(slot);
 
             rewardEl.appendChild(wrapper);
 
-            const rows = [];
-            let currentRarityBlock = null;
+            const rarityShiftColors = {
+                common: '#c2cad8',
+                uncommon: '#52f08e',
+                rare: '#65adff',
+                epic: '#c47bff',
+                legendary: '#ffc958',
+                mythic: '#ff62d5'
+            };
 
-            queue.forEach(item => {
-                if (useGroupedLayout && currentRarityBlock !== item.char.rarity) {
-                    currentRarityBlock = item.char.rarity;
-                    const badge = document.createElement('div');
-                    badge.style.fontFamily = 'Orbitron';
-                    badge.style.fontSize = '0.74rem';
-                    badge.style.letterSpacing = '1px';
-                    badge.style.color = item.char.color || '#fff';
-                    badge.style.opacity = '0.9';
-                    badge.style.padding = '4px 2px 0';
-                    badge.textContent = `${getRarityName(item.char.rarity).toUpperCase()} · ${item.char.rarity.toUpperCase()}`;
-                    wrapper.appendChild(badge);
-                }
-
-                const req = CARD_REQUIREMENTS[item.char.rarity] || 10;
-                const startOwned = Math.max(0, Math.floor(Number(GameData.characterCards[item.id] || 0)));
-                const targetOwned = startOwned + item.gain;
-
-                const row = document.createElement('div');
-                row.style.display = 'flex';
-                row.style.alignItems = 'center';
-                row.style.gap = '10px';
-                row.style.padding = '10px';
-                row.style.border = '1px solid rgba(255,255,255,0.12)';
-                row.style.borderRadius = '10px';
-                row.style.background = 'rgba(255,255,255,0.04)';
-
-                const icon = document.createElement('canvas');
-                const iconSize = useGroupedLayout ? 38 : 44;
-                icon.width = iconSize;
-                icon.height = iconSize;
-                row.appendChild(icon);
-                try {
-                    renderRacerModel(icon.getContext('2d'), item.id, iconSize / 2, iconSize / 2, useGroupedLayout ? 0.54 : 0.62, item.char);
-                } catch (_) { }
-
-                const info = document.createElement('div');
-                info.style.flex = '1';
-                info.style.minWidth = '0';
-                info.innerHTML = `
-                    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px;">
-                        <span style="font-weight:700;color:${item.char.color};font-size:0.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${item.char.name}</span>
-                        <span style="color:var(--accent-gold);font-size:0.8rem;">+${item.gain} tarjetas</span>
-                    </div>
-                `;
-
-                const bar = document.createElement('div');
-                bar.style.position = 'relative';
-                bar.style.height = '17px';
-                bar.style.borderRadius = '999px';
-                bar.style.overflow = 'hidden';
-                bar.style.border = '1px solid rgba(255,255,255,0.18)';
-                bar.style.background = 'rgba(0,0,0,0.38)';
-
-                const fill = document.createElement('div');
-                fill.style.position = 'absolute';
-                fill.style.left = '0';
-                fill.style.top = '0';
-                fill.style.bottom = '0';
-                fill.style.width = '0%';
-                fill.style.background = `linear-gradient(90deg, ${item.char.color}, ${item.char.secondaryColor || '#b9e8ff'})`;
-                fill.style.transition = 'width 70ms linear';
-
-                const label = document.createElement('div');
-                label.style.position = 'absolute';
-                label.style.inset = '0';
-                label.style.display = 'flex';
-                label.style.alignItems = 'center';
-                label.style.justifyContent = 'center';
-                label.style.fontSize = '0.72rem';
-                label.style.fontFamily = 'Orbitron';
-                label.style.color = '#eaf9ff';
-                label.style.textShadow = '0 1px 2px rgba(0,0,0,0.8)';
-
-                bar.appendChild(fill);
-                bar.appendChild(label);
-                info.appendChild(bar);
-                row.appendChild(info);
-                wrapper.appendChild(row);
-
-                const state = { current: startOwned, target: targetOwned, req, fill, label, id: item.id, gain: item.gain };
-                const update = () => {
-                    const pct = Math.max(0, Math.min(100, (state.current / Math.max(1, state.req)) * 100));
-                    state.fill.style.width = `${pct}%`;
-                    state.label.textContent = `${state.current}/${state.req} tarjetas`;
-                };
-                update();
-
-                rows.push({ state, update });
-            });
-
-            const animators = rows.map(({ state, update }) => new Promise(resolve => {
-                const perStepDelay = Math.max(22, Math.min(180, 190 - (state.gain * 7)));
-                if (state.gain <= 0) {
+            const runRarityWipe = (fromRarity, toRarity) => new Promise(resolve => {
+                if (!fromRarity || !toRarity || fromRarity === toRarity) {
                     resolve();
                     return;
                 }
+                const fromColor = rarityShiftColors[fromRarity] || '#8aa4d6';
+                const toColor = rarityShiftColors[toRarity] || '#8aa4d6';
+                const wipe = document.createElement('div');
+                wipe.style.position = 'absolute';
+                wipe.style.inset = '0';
+                wipe.style.pointerEvents = 'none';
+                wipe.style.zIndex = '3';
+                wipe.style.background = `linear-gradient(100deg, transparent 5%, ${fromColor}26 30%, ${toColor}45 52%, ${toColor}10 72%, transparent 95%)`;
+                wipe.style.transform = 'translateX(-120%) skewX(-10deg)';
+                wipe.style.opacity = '0.95';
+                wipe.style.transition = 'transform 0.5s cubic-bezier(.2,.72,.25,1), opacity 0.5s ease';
+                slot.appendChild(wipe);
 
-                const tick = () => {
-                    if (state.current >= state.target) {
-                        resolve();
-                        return;
+                requestAnimationFrame(() => {
+                    wipe.style.transform = 'translateX(120%) skewX(-10deg)';
+                    wipe.style.opacity = '0.2';
+                });
+
+                setTimeout(() => {
+                    wipe.remove();
+                    resolve();
+                }, 520);
+            });
+
+            const runSequential = async () => {
+                let previousRarity = null;
+                for (let qIndex = 0; qIndex < queue.length; qIndex++) {
+                    const item = queue[qIndex];
+                    if (qIndex > 0 && previousRarity !== item.char.rarity) {
+                        await runRarityWipe(previousRarity, item.char.rarity);
                     }
-                    state.current += 1;
-                    GameData.characterCards[state.id] = state.current;
-                    update();
-                    setTimeout(tick, perStepDelay);
-                };
-                setTimeout(tick, perStepDelay);
-            }));
+                    const skin = rarityVisuals[item.char.rarity] || rarityVisuals.common;
+                    sequenceHint.textContent = `${qIndex + 1}/${queue.length}`;
+                    rarityBadge.textContent = `${getRarityName(item.char.rarity).toUpperCase()} · ${item.char.rarity.toUpperCase()}`;
+                    rarityBadge.style.color = item.char.color || '#fff';
+                    rarityBadge.style.borderColor = skin.border;
+                    rarityBadge.style.background = skin.badgeBg;
+                    rarityBadge.style.boxShadow = `0 0 16px ${(item.char.color || '#fff')}33`;
 
-            return Promise.all(animators).then(() => {
+                    const startOwned = Math.max(0, Math.floor(Number(GameData.characterCards[item.id] || 0)));
+
+                    const row = document.createElement('div');
+                    row.style.display = 'flex';
+                    row.style.alignItems = 'center';
+                    row.style.gap = '14px';
+                    row.style.padding = '16px 18px';
+                    row.style.width = '100%';
+                    row.style.minHeight = '138px';
+                    row.style.border = `1px solid ${skin.border}`;
+                    row.style.borderRadius = '14px';
+                    row.style.background = skin.cardBg;
+                    row.style.boxShadow = `0 10px 26px rgba(0,0,0,0.3), inset 0 0 18px rgba(255,255,255,0.02), ${skin.glow}`;
+                    row.style.opacity = '0';
+                    row.style.transform = 'translateY(8px)';
+                    row.style.transition = 'opacity 0.22s ease, transform 0.22s ease';
+
+                    const icon = document.createElement('canvas');
+                    const iconSize = useGroupedLayout ? 76 : 84;
+                    icon.width = iconSize;
+                    icon.height = iconSize;
+                    row.appendChild(icon);
+                    try {
+                        renderRacerModel(icon.getContext('2d'), item.id, iconSize / 2, iconSize / 2, useGroupedLayout ? 1.03 : 1.12, item.char);
+                    } catch (_) { }
+
+                    const info = document.createElement('div');
+                    info.style.flex = '1';
+                    info.style.minWidth = '0';
+                    info.innerHTML = `
+                        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px;">
+                            <span style="font-weight:900;color:${item.char.color};font-size:1.24rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:Orbitron;letter-spacing:0.4px;">${item.char.name}</span>
+                            <span style="color:var(--accent-gold);font-size:1rem;font-family:Orbitron;">+${item.gain} tarjetas</span>
+                        </div>
+                    `;
+
+                    const bar = document.createElement('div');
+                    bar.style.position = 'relative';
+                    bar.style.height = '24px';
+                    bar.style.borderRadius = '999px';
+                    bar.style.overflow = 'hidden';
+                    bar.style.border = `1px solid ${skin.border}`;
+                    bar.style.background = 'rgba(5,10,20,0.5)';
+
+                    const fill = document.createElement('div');
+                    fill.style.position = 'absolute';
+                    fill.style.left = '0';
+                    fill.style.top = '0';
+                    fill.style.bottom = '0';
+                    fill.style.width = '0%';
+                    fill.style.background = `linear-gradient(90deg, ${item.char.color}, ${item.char.secondaryColor || '#b9e8ff'})`;
+                    fill.style.transition = 'width 70ms linear';
+
+                    const label = document.createElement('div');
+                    label.style.position = 'absolute';
+                    label.style.inset = '0';
+                    label.style.display = 'flex';
+                    label.style.alignItems = 'center';
+                    label.style.justifyContent = 'center';
+                    label.style.fontSize = '0.9rem';
+                    label.style.fontFamily = 'Orbitron';
+                    label.style.color = '#eaf9ff';
+                    label.style.textShadow = '0 1px 3px rgba(0,0,0,0.9)';
+
+                    bar.appendChild(fill);
+                    bar.appendChild(label);
+                    info.appendChild(bar);
+
+                    const statusLine = document.createElement('div');
+                    statusLine.style.marginTop = '7px';
+                    statusLine.style.fontSize = '0.78rem';
+                    statusLine.style.opacity = '0.92';
+                    statusLine.style.color = '#bfe7ff';
+                    statusLine.style.fontFamily = 'Orbitron';
+                    info.appendChild(statusLine);
+
+                    row.appendChild(info);
+                    slot.innerHTML = '';
+                    slot.appendChild(row);
+
+                    requestAnimationFrame(() => {
+                        row.style.opacity = '1';
+                        row.style.transform = 'translateY(0)';
+                    });
+
+                    let current = startOwned;
+                    let unlockTriggered = false;
+                    let progressMode = 'unlock';
+                    let req = CARD_REQUIREMENTS[item.char.rarity] || 10;
+                    let currentLevel = GameData.characterLevels[item.id] || 1;
+
+                    const resolveProgressTarget = () => {
+                        const isUnlocked = GameData.unlockedCharacters.includes(item.id);
+                        currentLevel = GameData.characterLevels[item.id] || 1;
+                        if (!isUnlocked) {
+                            progressMode = 'unlock';
+                            req = CARD_REQUIREMENTS[item.char.rarity] || 10;
+                            return;
+                        }
+                        if (currentLevel >= 10) {
+                            progressMode = 'max';
+                            req = Math.max(1, current);
+                            return;
+                        }
+                        progressMode = 'upgrade';
+                        req = Math.max(1, getUpgradeCardCost(item.id, currentLevel));
+                    };
+
+                    const computeUpgradeOverflowView = () => {
+                        let overflow = Math.max(0, current - req);
+                        let targetLevel = Math.min(10, currentLevel + 1);
+                        if (targetLevel >= 10) {
+                            return { overflow, targetLevel: 10, targetReq: Math.max(1, overflow || 1) };
+                        }
+                        let targetReq = Math.max(1, getUpgradeCardCost(item.id, targetLevel));
+                        // Si hay tarjetas de sobra para más de un nivel, avanzar visualmente al siguiente pendiente.
+                        while (targetLevel < 10 && overflow > targetReq) {
+                            overflow -= targetReq;
+                            targetLevel += 1;
+                            if (targetLevel >= 10) {
+                                return { overflow, targetLevel: 10, targetReq: Math.max(1, overflow || 1) };
+                            }
+                            targetReq = Math.max(1, getUpgradeCardCost(item.id, targetLevel));
+                        }
+                        return { overflow, targetLevel, targetReq };
+                    };
+
+                    const update = () => {
+                        let displayCurrent = current;
+                        let displayReq = req;
+
+                        if (progressMode === 'upgrade' && current > req) {
+                            const ov = computeUpgradeOverflowView();
+                            displayCurrent = ov.overflow;
+                            displayReq = ov.targetReq;
+                        }
+
+                        const pct = Math.max(0, Math.min(100, (displayCurrent / Math.max(1, displayReq)) * 100));
+                        fill.style.width = `${pct}%`;
+                        label.textContent = `${displayCurrent}/${displayReq} tarjetas`;
+                        if (progressMode === 'unlock') {
+                            const remain = Math.max(0, req - current);
+                            statusLine.textContent = remain > 0
+                                ? `Faltan ${remain} para desbloquear`
+                                : `Listo para desbloquear`;
+                            statusLine.style.color = remain > 0 ? '#bfe7ff' : '#7dffb2';
+                        } else if (progressMode === 'upgrade') {
+                            const overflow = Math.max(0, current - req);
+                            if (overflow > 0) {
+                                const ov = computeUpgradeOverflowView();
+                                statusLine.textContent = ov.targetLevel >= 10
+                                    ? `Excedente: ${ov.overflow}. Preparado para nivel máximo`
+                                    : `Excedente: ${overflow}. Siguiente nivel (NVL ${ov.targetLevel}): ${ov.overflow}/${ov.targetReq}`;
+                                statusLine.style.color = '#ffe37e';
+                            } else {
+                                const remain = Math.max(0, req - current);
+                                statusLine.textContent = `Mejora NVL ${currentLevel + 1}: faltan ${remain}`;
+                                statusLine.style.color = '#9fd3ff';
+                            }
+                        } else {
+                            statusLine.textContent = 'Nivel máximo alcanzado';
+                            statusLine.style.color = '#7dffb2';
+                        }
+                    };
+                    resolveProgressTarget();
+                    update();
+
+                    const perStepDelay = Math.max(22, Math.min(180, 190 - (item.gain * 7)));
+                    if (item.gain > 0) {
+                        for (let i = 0; i < item.gain; i++) {
+                            current += 1;
+                            GameData.characterCards[item.id] = current;
+                            update();
+                            playCardTickSfx(i + 1, item.gain);
+                            if (!unlockTriggered && progressMode === 'unlock' && current >= req && !GameData.unlockedCharacters.includes(item.id)) {
+                                unlockTriggered = unlockCharacterFromChest(item.id);
+                                if (unlockTriggered) {
+                                    const unlockCost = CARD_REQUIREMENTS[item.char.rarity] || 10;
+                                    const overflowAfterUnlock = Math.max(0, current - unlockCost);
+                                    // Consumir tarjetas de desbloqueo y preservar solo excedente.
+                                    current = overflowAfterUnlock;
+                                    GameData.characterCards[item.id] = overflowAfterUnlock;
+                                    resolveProgressTarget();
+                                    update();
+                                    if (overflowAfterUnlock > 0) {
+                                        showNotification(`Excedente de ${item.char.name}: ${overflowAfterUnlock} tarjetas hacia mejora`);
+                                    }
+                                }
+                            }
+                            await sleep(perStepDelay);
+                        }
+                        playCardRowCompleteSfx(item.char.rarity);
+                    }
+                    rewardEl.scrollTop = 0;
+                    await sleep(220);
+                    previousRarity = item.char.rarity;
+                }
+            };
+
+            return runSequential().then(() => {
+                playChestCardsCompleteSfx();
                 saveGame();
                 if (typeof renderCharacters === 'function') {
                     renderCharacters();
@@ -3297,7 +4803,7 @@
             }
 
             // Aplicar recompensas
-            const bitsGranted = grantVoltBits(bits, true) ? bits : 0;
+            const bitsGranted = grantVoltBits(bits, true, `Cofre: ${currentChestData.type || 'normal'}`) ? bits : 0;
             // Build UI
             if (bitsGranted > 0) {
                 rewardText += `<div>+${bitsGranted} <canvas id="rewardCoin" width="20" height="20"></canvas></div>`;
@@ -3316,15 +4822,23 @@
 
             updateVoltBitsDisplay();
             saveGame();
-            animateCardRewardProgress(cardsGiven, rewardEl);
 
             rewardEl.classList.add('show');
-            document.getElementById('chestCloseBtn').style.display = 'inline-block';
+            const closeBtn = document.getElementById('chestCloseBtn');
+            closeBtn.style.display = 'none';
+            animateCardRewardProgress(cardsGiven, rewardEl).finally(() => {
+                closeBtn.style.display = 'inline-block';
+                updateChestContinueLabel();
+            });
         }
 
 
         function closeChestModal() {
             document.getElementById('chestModal').style.display = 'none';
+            currentChestData = null;
+            if (chestOpenQueue.length > 0) {
+                setTimeout(showNextChestFromQueue, 120);
+            }
         }
 
         function drawChestModel(ctx, type, x, y, scale = 1) {
@@ -4038,6 +5552,90 @@
 
             const btn = document.getElementById('upgradeBtn');
             if (!btn) return;
+            const upgradeStatsEl = document.querySelector('.upgrade-stats');
+            const upListId = 'upgradeBoostList';
+            const renderUpgradeBoostLayout = () => {
+                if (!upgradeStatsEl) return;
+                let list = document.getElementById(upListId);
+                if (!list) {
+                    list = document.createElement('div');
+                    list.id = upListId;
+                    list.style.display = 'flex';
+                    list.style.flexDirection = 'column';
+                    list.style.gap = '10px';
+                    list.style.marginTop = '10px';
+                    upgradeStatsEl.after(list);
+                }
+
+                const levelForPreview = Math.min(nextLevel, 10);
+                const affectsTurbo = [2, 5, 8].includes(levelForPreview);
+                const affectsProjectile = [3, 6, 9].includes(levelForPreview);
+                const affectsTrap = [4, 7, 10].includes(levelForPreview);
+                const rows = [];
+
+                rows.push({
+                    title: 'ESTADÍSTICAS BASE',
+                    detail: 'VELOCIDAD/ACELERACIÓN/MANEJO AUMENTADO',
+                    color: 'var(--accent-cyan)',
+                    iconEffect: 'knockback'
+                });
+                if (affectsProjectile || level >= 10) {
+                    rows.push({
+                        title: char.projectile?.name || 'ATAQUE',
+                        detail: 'DAÑO/VELOCIDAD AUMENTADO',
+                        color: char.color || '#ff9800',
+                        iconEffect: char.projectile?.effect || 'knockback'
+                    });
+                }
+                if (affectsTurbo || level >= 10) {
+                    rows.push({
+                        title: char.turbo?.name || 'TURBO',
+                        detail: 'VELOCIDAD/IMPACTO AUMENTADO',
+                        color: char.secondaryColor || '#00e5ff',
+                        iconEffect: char.turbo?.effect || 'fire_trail'
+                    });
+                }
+                if (affectsTrap || level >= 10) {
+                    rows.push({
+                        title: char.trap?.name || 'TRAMPA',
+                        detail: 'EFECTO/DURACIÓN AUMENTADO',
+                        color: '#ff6d6d',
+                        iconEffect: char.trap?.effect || 'slow'
+                    });
+                }
+
+                list.innerHTML = '';
+                rows.forEach((row) => {
+                    const card = document.createElement('div');
+                    card.style.display = 'flex';
+                    card.style.alignItems = 'center';
+                    card.style.gap = '10px';
+                    card.style.padding = '9px 10px';
+                    card.style.border = `1px solid ${row.color}55`;
+                    card.style.borderRadius = '10px';
+                    card.style.background = 'rgba(6, 10, 24, 0.78)';
+                    card.style.textAlign = 'left';
+
+                    const icon = document.createElement('canvas');
+                    icon.width = 44;
+                    icon.height = 44;
+                    card.appendChild(icon);
+                    try {
+                        renderAbilityIcon(icon.getContext('2d'), row.iconEffect, row.color, 44);
+                    } catch (_) { }
+
+                    const txt = document.createElement('div');
+                    txt.style.flex = '1';
+                    txt.innerHTML = `
+                        <div style="font-family:Orbitron;font-size:0.76rem;color:${row.color};letter-spacing:0.4px;">${row.title}</div>
+                        <hr style="border:none;border-top:1px solid rgba(255,255,255,0.16);margin:4px 0 5px 0;">
+                        <div style="font-size:0.73rem;color:#d8f8ff;opacity:0.94;">${row.detail}</div>
+                    `;
+                    card.appendChild(txt);
+                    list.appendChild(card);
+                });
+            };
+
             if (level >= 10) {
                 btn.textContent = 'NIVEL MÁXIMO';
                 btn.disabled = true;
@@ -4046,28 +5644,8 @@
                 btn.textContent = `MEJORAR (LVL ${nextLevel})`;
                 btn.disabled = false;
                 btn.style.opacity = '1';
-
-                // Mostrar qué se mejora
-                let upgradeNote = "Mejora: Estadísticas Generales";
-                if (nextLevel === 2 || nextLevel === 5) upgradeNote += " + TURBO";
-                if (nextLevel === 3 || nextLevel === 6) upgradeNote += " + ATAQUE";
-                if (nextLevel === 4 || nextLevel === 7) upgradeNote += " + TRAMPA";
-
-                const noteEl = document.createElement('p');
-                noteEl.style.fontSize = '0.8rem';
-                noteEl.style.color = 'var(--accent-cyan)';
-                noteEl.style.marginTop = '10px';
-                noteEl.textContent = upgradeNote;
-                const upgradeStatsEl = document.querySelector('.upgrade-stats');
-                if (upgradeStatsEl) {
-                    const existingNote = upgradeStatsEl.nextElementSibling;
-                    if (existingNote && existingNote.tagName === 'P' && existingNote.style.fontSize === '0.8rem') {
-                        existingNote.textContent = upgradeNote;
-                    } else {
-                        upgradeStatsEl.after(noteEl);
-                    }
-                }
             }
+            renderUpgradeBoostLayout();
 
             const modal = document.getElementById('upgradeModal');
             if (modal) modal.style.display = 'flex';
@@ -4094,6 +5672,7 @@
                     updateVoltBitsDisplay();
                     renderCharacters();
                     openUpgradeModal(charId); // Refrescar modal
+                    setTimeout(() => triggerRunnerUpgradeCelebration(charId, level + 1), 30);
 
                     showNotification(`¡${char.name} MEJORADO AL NIVEL ${level + 1}!`);
                 });
@@ -7732,7 +9311,7 @@
             if (GameData.xp >= xpPerLevel) {
                 GameData.xp -= xpPerLevel;
                 GameData.level++;
-                if (grantVoltBits(1000, true)) {
+                if (grantVoltBits(1000, true, 'Subida de nivel')) {
                     showNotification(`¡NIVEL ALCANZADO: ${GameData.level}! +1000 VoltBits`);
                 } else {
                     showNotification(`¡NIVEL ALCANZADO: ${GameData.level}! Vincula Ocean Pay para reclamar VoltBits.`);
@@ -8051,6 +9630,7 @@
                         'Authorization': `Bearer ${oceanPayState.token}`
                     },
                     body: JSON.stringify({
+                        cardId: cardId,
                         amount: -oceanPayState.amount,
                         currency: 'voltbit',
                         concepto: oceanPayState.concept,
@@ -8089,6 +9669,8 @@
         window.__velocitySurgeCorePatchApplied = true;
 
         const SAVE_SCHEMA_VERSION = 3;
+        const PRIMARY_SAVE_KEY = 'velocity_surge_save';
+        const BACKUP_SAVE_KEY = 'velocity_surge_save_backup';
         const ELEMENTAL_EVENT_ID = 'elemental_convergence';
         const FUTURE_EVENT_ID = 'velocity_classics';
         const ELEMENTAL_EVENT_RACERS = [
@@ -8202,6 +9784,7 @@
         function migrateGameData(rawData) {
             const data = { ...rawData };
             const ensureArray = (v) => Array.isArray(v) ? v : [];
+            const ensureChestInventory = (v) => (v && typeof v === 'object') ? v : {};
 
             data.saveVersion = Number(data.saveVersion || 0);
             data.unlockedCharacters = ensureArray(data.unlockedCharacters);
@@ -8217,6 +9800,20 @@
             if (!data.unlockedCharacters.includes('blaze')) data.unlockedCharacters.unshift('blaze');
             if (!data.characterLevels.blaze) data.characterLevels.blaze = 1;
             if (!data.eventTargetRacer || !CHARACTERS[data.eventTargetRacer]) data.eventTargetRacer = ELEMENTAL_EVENT_RACERS[0];
+            const baseChestInventory = {
+                electric: 0,
+                fortune: 0,
+                iron: 0,
+                gold: 0,
+                diamond: 0,
+                cosmic: 0
+            };
+            const rawInventory = ensureChestInventory(data.chestInventory);
+            Object.keys(rawInventory).forEach(key => {
+                const n = Math.floor(Number(rawInventory[key]) || 0);
+                baseChestInventory[key] = Math.max(0, n);
+            });
+            data.chestInventory = baseChestInventory;
             data.saveVersion = SAVE_SCHEMA_VERSION;
             return data;
         }
@@ -8227,18 +9824,34 @@
                 saveVersion: SAVE_SCHEMA_VERSION,
                 updatedAt: new Date().toISOString()
             });
-            localStorage.setItem('velocity_surge_save', JSON.stringify(payload));
+            const serialized = JSON.stringify(payload);
+            localStorage.setItem(PRIMARY_SAVE_KEY, serialized);
+            localStorage.setItem(BACKUP_SAVE_KEY, serialized);
         };
 
         loadGame = function loadGamePatched() {
-            const saved = localStorage.getItem('velocity_surge_save');
-            if (!saved) return;
+            const saved = localStorage.getItem(PRIMARY_SAVE_KEY);
+            const backup = localStorage.getItem(BACKUP_SAVE_KEY);
+            if (!saved && !backup) return;
             try {
-                const parsed = JSON.parse(saved);
+                const parsed = JSON.parse(saved || backup);
                 const migrated = migrateGameData(parsed);
                 GameData = { ...GameData, ...migrated };
-                localStorage.setItem('velocity_surge_save', JSON.stringify(migrated));
+                const reserialized = JSON.stringify(migrated);
+                localStorage.setItem(PRIMARY_SAVE_KEY, reserialized);
+                localStorage.setItem(BACKUP_SAVE_KEY, reserialized);
             } catch (err) {
+                if (backup && backup !== saved) {
+                    try {
+                        const parsedBackup = JSON.parse(backup);
+                        const migratedBackup = migrateGameData(parsedBackup);
+                        GameData = { ...GameData, ...migratedBackup };
+                        const fixed = JSON.stringify(migratedBackup);
+                        localStorage.setItem(PRIMARY_SAVE_KEY, fixed);
+                        localStorage.setItem(BACKUP_SAVE_KEY, fixed);
+                        return;
+                    } catch (_) { }
+                }
                 console.warn('Save migration failed:', err);
             }
         };
@@ -8414,7 +10027,7 @@
                 const racer = CHARACTERS[racerId] || CHARACTERS[GameData.eventTargetRacer];
                 const cards = Math.max(4, Number(mission.rewardCards || 8));
                 const bits = Math.floor(80 + Math.random() * 170);
-                const bitsGranted = grantVoltBits(bits, true) ? bits : 0;
+                const bitsGranted = grantVoltBits(bits, true, `Cofre de evento: ${racer?.name || 'Evento'}`) ? bits : 0;
 
                 saveGame();
                 updateVoltBitsDisplay();
@@ -8434,10 +10047,17 @@
                     }, 0);
                 }
                 if (racerId && CHARACTERS[racerId] && typeof animateCardRewardProgress === 'function') {
-                    animateCardRewardProgress([{ id: racerId, count: cards }], rewardEl);
+                    const closeBtn = document.getElementById('chestCloseBtn');
+                    closeBtn.style.display = 'none';
+                    animateCardRewardProgress([{ id: racerId, count: cards }], rewardEl).finally(() => {
+                        closeBtn.style.display = 'inline-block';
+                        if (typeof updateChestContinueLabel === 'function') updateChestContinueLabel();
+                    });
+                } else {
+                    document.getElementById('chestCloseBtn').style.display = 'inline-block';
+                    if (typeof updateChestContinueLabel === 'function') updateChestContinueLabel();
                 }
                 rewardEl.classList.add('show');
-                document.getElementById('chestCloseBtn').style.display = 'inline-block';
                 return;
             }
             return baseProcessChestReward();
@@ -8497,6 +10117,196 @@
                 }
             }
             throw lastErr || new Error('Network error');
+        }
+
+        const VS_PENDING_VOLTBIT_KEY = 'velocity_surge_pending_voltbit_credits_v1';
+        const voltbitSyncState = {
+            flushing: false,
+            timer: null,
+            lastFlushOkAt: 0
+        };
+
+        function readPendingVoltBitCredits() {
+            try {
+                const raw = localStorage.getItem(VS_PENDING_VOLTBIT_KEY);
+                if (!raw) return [];
+                const parsed = JSON.parse(raw);
+                if (!Array.isArray(parsed)) return [];
+                return parsed
+                    .map(entry => ({
+                        id: String(entry.id || `${Date.now()}_${Math.random().toString(16).slice(2, 8)}`),
+                        amount: Math.max(0, Math.floor(Number(entry.amount) || 0)),
+                        source: String(entry.source || 'Recompensa'),
+                        createdAt: Number(entry.createdAt || Date.now())
+                    }))
+                    .filter(entry => entry.amount > 0);
+            } catch (_) {
+                return [];
+            }
+        }
+
+        function writePendingVoltBitCredits(list) {
+            try {
+                if (!Array.isArray(list) || list.length === 0) {
+                    localStorage.removeItem(VS_PENDING_VOLTBIT_KEY);
+                    return;
+                }
+                localStorage.setItem(VS_PENDING_VOLTBIT_KEY, JSON.stringify(list));
+            } catch (_) { }
+        }
+
+        function getPendingVoltBitCreditsTotal() {
+            return readPendingVoltBitCredits().reduce((acc, item) => acc + (item.amount || 0), 0);
+        }
+
+        function queueVoltBitCredit(amount, source = 'Recompensa') {
+            const safeAmount = Math.max(0, Math.floor(Number(amount) || 0));
+            if (!safeAmount) return;
+            const queue = readPendingVoltBitCredits();
+            queue.push({
+                id: `${Date.now()}_${Math.random().toString(16).slice(2, 8)}`,
+                amount: safeAmount,
+                source: String(source || 'Recompensa'),
+                createdAt: Date.now()
+            });
+            writePendingVoltBitCredits(queue);
+        }
+
+        async function flushPendingVoltBitCredits({ silent = true } = {}) {
+            if (voltbitSyncState.flushing) return false;
+            if (!oceanPayState || !oceanPayState.token || oceanPayState.linked !== true) return false;
+            if (typeof navigator !== 'undefined' && navigator.onLine === false) return false;
+
+            let queue = readPendingVoltBitCredits();
+            if (queue.length === 0) return true;
+
+            voltbitSyncState.flushing = true;
+            try {
+                while (queue.length > 0) {
+                    const next = queue[0];
+                    const res = await fetchWithTimeoutAndRetry('https://owsdatabase.onrender.com/ocean-pay/currency/change', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${oceanPayState.token}`
+                        },
+                        body: JSON.stringify({
+                            amount: next.amount,
+                            currency: 'voltbit',
+                            concepto: `${next.source} (Sync)`,
+                            origen: 'Velocity Surge'
+                        })
+                    }, 1, 15000);
+
+                    let data = {};
+                    try { data = await res.json(); } catch (_) { }
+
+                    if (res.status === 401 || res.status === 403) {
+                        clearOceanPaySession(true);
+                        break;
+                    }
+                    if (!res.ok || !data.success) {
+                        if (!silent && typeof showNotification === 'function') {
+                            showNotification('No se pudo sincronizar saldo con Ocean Pay. Se reintentara automaticamente.');
+                        }
+                        break;
+                    }
+
+                    queue.shift();
+                    writePendingVoltBitCredits(queue);
+                    oceanPayState.lastSyncAt = Date.now();
+                }
+
+                if (queue.length === 0) {
+                    voltbitSyncState.lastFlushOkAt = Date.now();
+                    return true;
+                }
+                return false;
+            } catch (_) {
+                return false;
+            } finally {
+                voltbitSyncState.flushing = false;
+            }
+        }
+
+        function scheduleVoltBitCreditSync(delayMs = 900) {
+            if (voltbitSyncState.timer) clearTimeout(voltbitSyncState.timer);
+            voltbitSyncState.timer = setTimeout(() => {
+                flushPendingVoltBitCredits({ silent: true });
+            }, Math.max(150, Number(delayMs) || 900));
+        }
+
+        grantVoltBits = function grantVoltBitsPatched(amount, showNotice = true, source = 'Recompensa de carrera') {
+            const safeAmount = Math.max(0, Math.floor(Number(amount) || 0));
+            if (!safeAmount) return false;
+            if (!canUseVoltBits(showNotice)) return false;
+            GameData.voltBits += safeAmount;
+            queueVoltBitCredit(safeAmount, source);
+            saveGame();
+            updateVoltBitsDisplay();
+            scheduleVoltBitCreditSync(600);
+            return true;
+        };
+
+        syncOceanPayLinkState = async function syncOceanPayLinkStatePatched() {
+            if (!oceanPayState.token) {
+                oceanPayState.linked = false;
+                updateVoltBitsDisplay();
+                return false;
+            }
+            const wasLinked = oceanPayState.linked;
+            const cardList = document.getElementById('opCardList');
+            if (cardList) {
+                cardList.innerHTML = '<p style="color:var(--accent-cyan); font-family:Orbitron; font-size:0.8rem;">VALIDANDO SESION...</p>';
+            }
+            try {
+                const res = await fetchWithTimeoutAndRetry('https://owsdatabase.onrender.com/ocean-pay/me', {
+                    headers: { 'Authorization': `Bearer ${oceanPayState.token}` }
+                }, 1, 12000);
+                const data = await res.json();
+                if (res.status === 401 || res.status === 403) {
+                    clearOceanPaySession(true);
+                    return false;
+                }
+                if (!res.ok || !Array.isArray(data.cards)) {
+                    oceanPayState.linked = wasLinked;
+                    updateVoltBitsDisplay();
+                    return wasLinked;
+                }
+
+                if (data.user && typeof data.user === 'object') {
+                    oceanPayState.user = data.user;
+                    localStorage.setItem('opUser', JSON.stringify(data.user));
+                }
+
+                oceanPayState.linked = true;
+                oceanPayState.lastSyncAt = Date.now();
+                localStorage.setItem('opLinked', '1');
+
+                await flushPendingVoltBitCredits({ silent: true });
+
+                const primary = data.cards.find(c => c.is_primary) || data.cards[0];
+                const serverBalance = Math.floor(primary?.balances?.voltbit || 0);
+                const pendingTotal = getPendingVoltBitCreditsTotal();
+                GameData.voltBits = pendingTotal > 0
+                    ? Math.max(Math.floor(GameData.voltBits || 0), serverBalance + pendingTotal)
+                    : serverBalance;
+                saveGame();
+                updateVoltBitsDisplay();
+                return true;
+            } catch (_) {
+                oceanPayState.linked = wasLinked;
+                updateVoltBitsDisplay();
+                return wasLinked;
+            }
+        };
+
+        if (!window.__vsVoltBitSyncListenersAttached) {
+            window.__vsVoltBitSyncListenersAttached = true;
+            window.addEventListener('online', () => scheduleVoltBitCreditSync(200));
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'visible') scheduleVoltBitCreditSync(300);
+            });
         }
 
         opLogin = async function opLoginPatched() {
@@ -8575,7 +10385,9 @@
                 oceanPayState.linked = true;
                 oceanPayState.lastSyncAt = Date.now();
                 localStorage.setItem('opLinked', '1');
+                await flushPendingVoltBitCredits({ silent: true });
                 cardList.innerHTML = '';
+                let pendingTotal = getPendingVoltBitCreditsTotal();
                 let hasPrimary = false;
                 data.cards.forEach(card => {
                     const div = document.createElement('div');
@@ -8583,7 +10395,9 @@
                     const balance = Math.floor(card.balances?.voltbit || 0);
                     if (card.is_primary) {
                         hasPrimary = true;
-                        GameData.voltBits = balance;
+                        GameData.voltBits = pendingTotal > 0
+                            ? Math.max(Math.floor(GameData.voltBits || 0), balance + pendingTotal)
+                            : balance;
                         updateVoltBitsDisplay();
                         saveGame();
                     }
@@ -8596,7 +10410,10 @@
                     cardList.appendChild(div);
                 });
                 if (!hasPrimary && data.cards[0]) {
-                    GameData.voltBits = Math.floor(data.cards[0].balances?.voltbit || 0);
+                    const firstBalance = Math.floor(data.cards[0].balances?.voltbit || 0);
+                    GameData.voltBits = pendingTotal > 0
+                        ? Math.max(Math.floor(GameData.voltBits || 0), firstBalance + pendingTotal)
+                        : firstBalance;
                     updateVoltBitsDisplay();
                     saveGame();
                 }
@@ -8625,6 +10442,7 @@
                         'Authorization': `Bearer ${oceanPayState.token}`
                     },
                     body: JSON.stringify({
+                        cardId: cardId,
                         amount: -oceanPayState.amount,
                         currency: 'voltbit',
                         concepto: oceanPayState.concept,
@@ -8704,6 +10522,51 @@
             const lvl = GameData.characterLevels[id] || 1;
             const req = CARD_REQUIREMENTS[char.rarity] || 10;
             const owned = GameData.characterCards[id] || 0;
+            const safeTip = (txt) => String(txt || '-').replace(/"/g, '&quot;');
+            const countMilestonesReached = (level, milestones) => milestones.reduce((acc, m) => acc + (level >= m ? 1 : 0), 0);
+            const abilitySlots = [
+                {
+                    id: 'projectile',
+                    label: 'ATAQUE',
+                    name: char.projectile?.name || 'Ataque',
+                    effect: char.projectile?.effect || 'knockback',
+                    color: char.color || '#8fd6ff',
+                    milestones: [3, 6, 9]
+                },
+                {
+                    id: 'turbo',
+                    label: 'TURBO',
+                    name: char.turbo?.name || 'Turbo',
+                    effect: char.turbo?.effect || 'fire_trail',
+                    color: char.secondaryColor || '#8effff',
+                    milestones: [2, 5, 8]
+                },
+                {
+                    id: 'trap',
+                    label: 'TRAMPA',
+                    name: char.trap?.name || 'Trampa',
+                    effect: char.trap?.effect || 'slow',
+                    color: '#ff9d7a',
+                    milestones: [4, 7, 10]
+                }
+            ].map(slot => {
+                const reached = unlocked ? countMilestonesReached(lvl, slot.milestones) : 0;
+                const total = slot.milestones.length;
+                const pct = Math.max(0, Math.min(100, (reached / Math.max(1, total)) * 100));
+                return { ...slot, reached, total, pct };
+            });
+            const abilityHtml = abilitySlots.map(slot => `
+                <div class="garage-skill-card">
+                    <div class="garage-skill-icon-wrap" data-tip="${safeTip(slot.name)}">
+                        <canvas id="garageSkillIcon-${id}-${slot.id}" class="garage-skill-icon" width="52" height="52"></canvas>
+                    </div>
+                    <div style="font-family:Orbitron;font-size:0.62rem;letter-spacing:0.6px;color:#dff6ff;opacity:0.9;">${slot.label}</div>
+                    <div class="garage-skill-track">
+                        <div class="garage-skill-fill" style="width:${slot.pct}%;background:linear-gradient(90deg, ${slot.color}, ${char.secondaryColor || '#b9e8ff'});"></div>
+                    </div>
+                    <div class="garage-skill-pct">${slot.reached}/${slot.total} mejoras</div>
+                </div>
+            `).join('');
 
             panel.innerHTML = `
             <div class="garage-detail-header">
@@ -8722,11 +10585,11 @@
                     <div class="garage-ability">Manejo: ${char.stats.handling}</div>
                     <div class="garage-ability">Peso: ${char.stats.weight}</div>
                 </div>
-                <div class="garage-info-block">
-                    <div style="font-family:Orbitron;font-size:0.78rem;color:var(--accent-pink);">ITEMS</div>
-                    <div class="garage-ability">Ataque: ${char.projectile?.name || '-'}</div>
-                    <div class="garage-ability">Turbo: ${char.turbo?.name || '-'}</div>
-                    <div class="garage-ability">Trampa: ${char.trap?.name || '-'}</div>
+            </div>
+            <div class="garage-skills-panel">
+                <div style="font-family:Orbitron;font-size:0.78rem;color:var(--accent-pink);margin-bottom:8px;">HABILIDADES</div>
+                <div class="garage-skills-grid">
+                    ${abilityHtml}
                 </div>
             </div>
             <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
@@ -8745,7 +10608,61 @@
                 c.height = 100;
                 host.appendChild(c);
                 renderRacerModel(c.getContext('2d'), id, 50, 50, 1.3, char);
+
+                abilitySlots.forEach(slot => {
+                    const sc = document.getElementById(`garageSkillIcon-${id}-${slot.id}`);
+                    if (!sc) return;
+                    try {
+                        renderAbilityIcon(sc.getContext('2d'), slot.effect, slot.color, 52);
+                    } catch (_) { }
+                });
             }, 0);
+        }
+
+        function playSelectorUnlockRevealSfx() {
+            try {
+                if (typeof playCardRowCompleteSfx === 'function') playCardRowCompleteSfx('legendary');
+                if (typeof playChestUnlockRunnerSfx === 'function') {
+                    setTimeout(() => playChestUnlockRunnerSfx(), 70);
+                }
+            } catch (_) { }
+        }
+
+        function triggerPendingUnlockReveal() {
+            const root = document.getElementById('characterSelect');
+            if (!root || root.style.display !== 'flex') return;
+            if (!Array.isArray(window.__VS_UNLOCK_QUEUE) || window.__VS_UNLOCK_QUEUE.length === 0) return;
+
+            const pending = window.__VS_UNLOCK_QUEUE[0];
+            if (!pending || !pending.id) return;
+            const card = document.querySelector(`#charactersGrid .char-card[data-char-id="${pending.id}"]`);
+            if (!card) return;
+
+            window.__VS_UNLOCK_QUEUE.shift();
+            card.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+            card.classList.add('unlock-reveal');
+
+            const flash = document.createElement('div');
+            flash.className = 'unlock-break-flash';
+            card.appendChild(flash);
+            const lock = document.createElement('div');
+            lock.className = 'unlock-break-lock';
+            lock.textContent = '🔒';
+            card.appendChild(lock);
+
+            GameData.selectedCharacter = pending.id;
+            renderGarageDetail(pending.id);
+            playSelectorUnlockRevealSfx();
+
+            setTimeout(() => {
+                flash.remove();
+                lock.remove();
+                card.classList.remove('unlock-reveal');
+            }, 1250);
+
+            if (window.__VS_UNLOCK_QUEUE.length > 0) {
+                setTimeout(triggerPendingUnlockReveal, 1350);
+            }
         }
 
         renderCharacters = function renderCharactersPatched() {
@@ -8773,6 +10690,7 @@
                 const card = document.createElement('div');
                 card.className = `char-card ${selected ? 'selected' : ''} ${unlocked ? '' : 'locked'}`;
                 card.style.borderColor = selected ? char.color : 'transparent';
+                card.dataset.charId = id;
                 card.innerHTML = `
                 <div class="char-avatar" id="avatar-${id}"></div>
                 <div class="char-name" style="color:${char.color};">${char.name}</div>
@@ -8802,6 +10720,7 @@
 
             if (!GameData.selectedCharacter || !CHARACTERS[GameData.selectedCharacter]) GameData.selectedCharacter = 'blaze';
             renderGarageDetail(GameData.selectedCharacter);
+            setTimeout(triggerPendingUnlockReveal, 120);
         };
 
         unlockCharacter = function unlockCharacterPatched(id) {
@@ -8816,6 +10735,8 @@
             GameData.characterCards[id] -= req;
             if (!GameData.unlockedCharacters.includes(id)) GameData.unlockedCharacters.push(id);
             if (!GameData.characterLevels[id]) GameData.characterLevels[id] = 1;
+            if (!Array.isArray(window.__VS_UNLOCK_QUEUE)) window.__VS_UNLOCK_QUEUE = [];
+            window.__VS_UNLOCK_QUEUE.push({ id, ts: Date.now(), source: 'manual' });
             saveGame();
             showNotification(`¡${char.name} desbloqueado!`);
             renderCharacters();
@@ -8985,6 +10906,57 @@
             refreshSandboxPanel();
         };
 
+        function getBlazeProfile(racer) {
+            const lvl = Math.max(1, Number(racer?.level || 1));
+            const projectileTier = lvl >= 6 ? 3 : (lvl >= 2 ? 2 : 1); // Primera mejora visible desde nivel 2
+            const trapTier = lvl >= 7 ? 3 : (lvl >= 4 ? 2 : 1);
+            const turboTier = lvl >= 5 ? 3 : (lvl >= 2 ? 2 : 1);
+            return {
+                projectileTier,
+                trapTier,
+                turboTier,
+                projectile: projectileTier === 3
+                    ? { speed: 34, damage: 790, slow: 1.8, splashDamage: 320, splashRadius: 235, duration: 1.5 }
+                    : projectileTier === 2
+                        ? { speed: 27, damage: 460, slow: 1.35, splashDamage: 0, splashRadius: 0, duration: 1.45 }
+                        : { speed: 21, damage: 290, slow: 1.1, splashDamage: 0, splashRadius: 0, duration: 1.4 },
+                trap: trapTier === 3
+                    ? { auraDuration: 3, shotsPerSecond: 1, totalShots: 3, shotSpeed: 28, shotDamage: 260, baseSlow: 1.6, duration: 1.45 }
+                    : trapTier === 2
+                        ? { auraDuration: 2, shotsPerSecond: 1, totalShots: 2, shotSpeed: 24, shotDamage: 205, baseSlow: 1.25, duration: 1.35 }
+                        : { auraDuration: 2, shotsPerSecond: 1, totalShots: 2, shotSpeed: 18, shotDamage: 145, baseSlow: 1.0, duration: 1.28 },
+                turbo: turboTier === 3
+                    ? { duration: 1.52, boost: 2.48, contactDamage: 220, slow: 1.1, pulse: 0.24 }
+                    : turboTier === 2
+                        ? { duration: 1.38, boost: 2.28, contactDamage: 165, slow: 0.95, pulse: 0.27 }
+                        : { duration: 1.24, boost: 2.1, contactDamage: 120, slow: 0.75, pulse: 0.3 }
+            };
+        }
+
+        function applyCombatImpactResponse(racer, directDamage, extraImpulse = 0) {
+            if (!racer) return;
+            const stats = racer.character?.stats || { weight: 5, handling: 5, accel: 5 };
+            const safeDamage = Math.max(0, Number(directDamage) || 0);
+            const safeImpulse = Math.max(0, Number(extraImpulse) || 0);
+
+            // Heavy + good handling reduces effective retroceso.
+            const resistance = Math.max(0, Math.min(0.45, (stats.weight * 0.018) + (stats.handling * 0.012)));
+            const effectiveDamage = safeDamage * (1 - resistance);
+            const impulseFromDamage = Math.max(0, effectiveDamage / 26);
+            const totalImpulse = impulseFromDamage + safeImpulse;
+
+            if (totalImpulse > 0) {
+                racer.knockbackForce = Math.max(Number(racer.knockbackForce || 0), totalImpulse);
+            }
+
+            // Recovery duration: lighter racers recover slower, heavier/handling recover faster.
+            const recoveryPower = 180 + (stats.weight * 20) + (stats.handling * 16) + (stats.accel * 8);
+            const recoveryDuration = Math.max(0.25, Math.min(2.8, effectiveDamage / Math.max(90, recoveryPower)));
+            racer.combatRecoveryMax = Math.max(Number(racer.combatRecoveryMax || 0), recoveryDuration);
+            racer.combatRecoveryTimer = Math.max(Number(racer.combatRecoveryTimer || 0), recoveryDuration);
+            racer.hitFlashTimer = Math.max(Number(racer.hitFlashTimer || 0), 0.18 + Math.min(0.55, effectiveDamage / 750));
+        }
+
         const baseRacerUpdate = Racer.prototype.update;
         Racer.prototype.update = function patchedRacerUpdate(dt) {
             if (this.disconnected) {
@@ -8997,13 +10969,427 @@
                 this.x = this.progress;
                 return;
             }
-            return baseRacerUpdate.call(this, dt);
+            const progressBeforeTick = Number(this.progress || 0);
+            const knockbackBeforeTick = Number(this.knockbackForce || 0);
+            const result = baseRacerUpdate.call(this, dt);
+            const instantDrop = Math.max(0, progressBeforeTick - Number(this.progress || 0));
+
+            // Anti-teleport hit behavior:
+            // if a single frame causes a very large drop, convert it to physical retroceso.
+            if (instantDrop >= 55 && knockbackBeforeTick < 1 && !this.finished && !this.eliminated) {
+                this.progress = progressBeforeTick;
+                applyCombatImpactResponse(this, instantDrop, 0);
+            }
+
+            if (this.blazeMineAuraTimer > 0) {
+                this.blazeMineAuraTimer = Math.max(0, this.blazeMineAuraTimer - dt);
+                this.blazeMineShotCooldown = (this.blazeMineShotCooldown || 0) - dt;
+
+                const spawnBlazeMineShot = () => {
+                    if (this.blazeMineShotsRemaining <= 0) return;
+                    const owner = this.blazeMineOwner || this;
+                    const shot = new Projectile(this.x - 35, this.lane, -1, owner, 'blaze_counterfire', 'burn', '#ff6a2e');
+                    shot.speed = this.blazeMineShotSpeed || 16;
+                    shot.blazeDamage = this.blazeMineShotDamage || 140;
+                    shot.blazeSlow = 0.9;
+                    gameState.projectiles.push(shot);
+
+                    this.blazeMineShotsRemaining -= 1;
+                    const cadence = Math.max(0.2, Number(this.blazeMineShotCadence || 0.5));
+                    this.blazeMineShotCooldown += cadence;
+
+                    const laneHeight = canvas.height / (LANE_COUNT + 1);
+                    particles.emit(this.x, laneHeight * (this.lane + 1), 12, '#ff5a2f', 3);
+                };
+
+                // 2 bolas por segundo mientras dura el aura (0.5s de cadencia)
+                while (this.blazeMineShotsRemaining > 0 && this.blazeMineAuraTimer > 0 && this.blazeMineShotCooldown <= 0) {
+                    spawnBlazeMineShot();
+                }
+
+                // Si queda una bola extra (última mejora), se dispara al finalizar el aura
+                if (this.blazeMineAuraTimer <= 0 && this.blazeMineShotsRemaining > 0 && !this.blazeMineFinalBurstDone) {
+                    this.blazeMineFinalBurstDone = true;
+                    while (this.blazeMineShotsRemaining > 0) {
+                        spawnBlazeMineShot();
+                    }
+                }
+            }
+
+            if (this.characterId === 'blaze' && this.turboActive && !this.finished) {
+                this.blazeTurboHitCooldown = Math.max(0, (this.blazeTurboHitCooldown || 0) - dt);
+                if (this.blazeTurboHitCooldown <= 0) {
+                    const touchDamage = Math.max(100, Number(this.blazeTurboContactDamage || 130));
+                    const victims = [gameState.player, ...gameState.bots].filter(r =>
+                        r !== this &&
+                        !r.finished &&
+                        !r.isInvulnerable &&
+                        !r.shieldActive &&
+                        Math.abs(r.progress - this.progress) < 95 &&
+                        Math.abs(r.lane - this.lane) <= 1
+                    );
+                    if (victims.length > 0) {
+                        victims.forEach(v => {
+                            v.progress -= touchDamage;
+                            v.effects.push({ type: 'slow', duration: Math.max(0.55, Number(this.blazeTurboSlow || 0.8)) });
+                            v.knockbackForce = Math.max(v.knockbackForce || 0, 9 + Math.floor(touchDamage / 70));
+                            addHitToLog(this, v, 'blaze_turbo_burn');
+                        });
+                        const laneHeight = canvas.height / (LANE_COUNT + 1);
+                        particles.emit(this.x, laneHeight * (this.lane + 1), 18, '#ff8a38', 4);
+                        this.blazeTurboHitCooldown = Math.max(0.2, Number(this.blazeTurboPulse || 0.28));
+                    }
+                }
+            }
+
+            if (this.combatRecoveryTimer > 0) {
+                const maxRec = Math.max(0.001, Number(this.combatRecoveryMax || this.combatRecoveryTimer));
+                const t = Math.max(0, Math.min(1, this.combatRecoveryTimer / maxRec));
+                const slowMul = 0.68 + (0.32 * (1 - t));
+                this.speed *= slowMul;
+                this.vSpeed *= slowMul;
+                this.combatRecoveryTimer = Math.max(0, this.combatRecoveryTimer - dt);
+                if (this.combatRecoveryTimer <= 0) this.combatRecoveryMax = 0;
+            }
+            if (this.hitFlashTimer > 0) {
+                this.hitFlashTimer = Math.max(0, this.hitFlashTimer - dt);
+            }
+
+            return result;
         };
 
         const baseRacerUseItem = Racer.prototype.useItem;
         Racer.prototype.useItem = function patchedRacerUseItem() {
             if (this.disconnected) return;
+            if (this.characterId === 'blaze' && this.item) {
+                const consumeItem = (itemType, activeDuration) => {
+                    if (this.isPlayer) {
+                        this.activeItemType = itemType;
+                        this.itemMaxDuration = activeDuration;
+                        this.itemActiveTimer = activeDuration;
+                    }
+                    this.item = null;
+                    updateItemDisplay();
+                };
+                const profile = getBlazeProfile(this);
+
+                if (this.item.type === 'projectile') {
+                    const fireball = new Projectile(this.x + 52, this.lane, 1, this, 'blaze_fireball', 'burn', '#ff6f2f');
+                    fireball.speed = profile.projectile.speed;
+                    fireball.blazeDamage = profile.projectile.damage;
+                    fireball.blazeSlow = profile.projectile.slow;
+                    fireball.blazeSplashDamage = profile.projectile.splashDamage;
+                    fireball.blazeSplashRadius = profile.projectile.splashRadius;
+                    gameState.projectiles.push(fireball);
+                    consumeItem('projectile', profile.projectile.duration);
+                    return;
+                }
+
+                if (this.item.type === 'trap') {
+                    // Rework: no deja mina inmovil.
+                    // Blaze activa un "escudo visual rojo" sobre si mismo y dispara fuego mientras corre.
+                    this.blazeMineAuraTimer = profile.trap.auraDuration;
+                    this.blazeMineShotsRemaining = profile.trap.totalShots;
+                    this.blazeMineShotTotal = profile.trap.totalShots;
+                    this.blazeMineShotCooldown = 0;
+                    this.blazeMineShotSpeed = profile.trap.shotSpeed;
+                    this.blazeMineShotDamage = profile.trap.shotDamage;
+                    this.blazeMineShotCadence = Math.max(0.2, 1 / Math.max(1, profile.trap.shotsPerSecond));
+                    this.blazeMineFinalBurstDone = false;
+                    this.blazeMineOwner = this;
+                    consumeItem('trap', profile.trap.duration);
+                    return;
+                }
+
+                if (this.item.type === 'turbo') {
+                    const turboDuration = profile.turbo.duration;
+                    this.turboActive = true;
+                    this.activeTurboBoost = profile.turbo.boost;
+                    this.blazeTurboHitCooldown = 0;
+                    this.blazeTurboContactDamage = profile.turbo.contactDamage;
+                    this.blazeTurboSlow = profile.turbo.slow;
+                    this.blazeTurboPulse = profile.turbo.pulse;
+                    if (this.isPlayer) updateMissionProgress('use_turbo');
+
+                    setTimeout(() => {
+                        this.turboActive = false;
+                        this.activeTurboBoost = 0;
+                        this.blazeTurboContactDamage = 0;
+                    }, turboDuration * 1000);
+
+                    consumeItem('turbo', turboDuration);
+                    return;
+                }
+            }
             return baseRacerUseItem.call(this);
+        };
+
+        const baseProjectileApplyEffect = Projectile.prototype.applyEffect;
+        Projectile.prototype.applyEffect = function patchedProjectileApplyEffect(racer) {
+            if (this.effect === 'blaze_fireball' || this.effect === 'blaze_counterfire') {
+                if (racer.shieldActive || racer.isInvulnerable || racer.intangibleTimer > 0) {
+                    if (racer.shieldActive) {
+                        racer.shieldActive = false;
+                        addHitToLog(this.owner, racer, 'shield');
+                    }
+                    this.active = false;
+                    return;
+                }
+
+                addHitToLog(this.owner, racer, this.effect);
+                if (racer.isPlayer) {
+                    gameState.cameraShake = 10;
+                    gameState.hitFlash = 0.32;
+                }
+
+                const ownerLvl = Math.max(1, Number(this.owner?.projectileLevel || 1));
+                const directDamage = Math.max(100, Math.floor(Number(this.blazeDamage || (220 + ownerLvl * 120))));
+                racer.effects.push({ type: 'slow', duration: Math.max(0.8, Number(this.blazeSlow || 1.25)) });
+                applyCombatImpactResponse(racer, directDamage, 8 + (ownerLvl * 3));
+
+                if (this.effect === 'blaze_fireball' && Number(this.blazeSplashDamage || 0) > 0) {
+                    const splashDamage = Math.floor(Number(this.blazeSplashDamage || 0));
+                    const splashRadius = Math.max(120, Number(this.blazeSplashRadius || 160));
+                    [gameState.player, ...gameState.bots].forEach(v => {
+                        if (v === racer || v === this.owner || v.isInvulnerable || v.shieldActive) return;
+                        if (Math.abs(v.x - racer.x) > splashRadius) return;
+                        if (Math.abs(v.lane - racer.lane) > 1) return;
+                        v.effects.push({ type: 'slow', duration: 0.75 });
+                        applyCombatImpactResponse(v, splashDamage, 6);
+                        addHitToLog(this.owner, v, 'blaze_splash');
+                    });
+                }
+
+                const laneHeight = canvas.height / (LANE_COUNT + 1);
+                particles.emit(racer.x, laneHeight * (racer.lane + 1), this.effect === 'blaze_fireball' ? 24 : 12, '#ff7b2e', 4);
+                this.active = false;
+                return;
+            }
+            return baseProjectileApplyEffect.call(this, racer);
+        };
+
+        const baseProjectileApplyEffectCombat = Projectile.prototype.applyEffect;
+        Projectile.prototype.applyEffect = function patchedProjectileCombatResponse(racer) {
+            const prevProgress = Number(racer?.progress || 0);
+            const prevKB = Number(racer?.knockbackForce || 0);
+            const out = baseProjectileApplyEffectCombat.call(this, racer);
+            if (!racer) return out;
+            if (this.effect === 'blaze_fireball' || this.effect === 'blaze_counterfire') return out;
+
+            const instantLoss = Math.max(0, prevProgress - Number(racer.progress || 0));
+            const kbGain = Math.max(0, Number(racer.knockbackForce || 0) - prevKB);
+            if (instantLoss > 0) {
+                racer.progress = prevProgress;
+                applyCombatImpactResponse(racer, instantLoss, kbGain);
+            } else if (kbGain > 0) {
+                applyCombatImpactResponse(racer, 0, kbGain);
+            }
+            return out;
+        };
+
+        const baseTrapApplyEffect = Trap.prototype.applyEffect;
+        Trap.prototype.applyEffect = function patchedTrapApplyEffect(racer) {
+            if (this.effect === 'blaze_mine') {
+                if (racer.shieldActive || racer.isInvulnerable || racer.intangibleTimer > 0) {
+                    if (racer.shieldActive) {
+                        racer.shieldActive = false;
+                        addHitToLog(this.owner, racer, 'shield');
+                    }
+                    this.active = false;
+                    return;
+                }
+
+                addHitToLog(this.owner, racer, 'blaze_mine');
+                if (racer.isPlayer) {
+                    gameState.cameraShake = 12;
+                    gameState.hitFlash = 0.4;
+                }
+
+                const trapLvl = Math.max(1, Number(this.owner?.trapLevel || 1));
+                racer.blazeMineAuraTimer = Number(this.blazeAuraDuration || (trapLvl >= 3 ? 3 : 2));
+                racer.blazeMineShotsRemaining = Math.max(2, Math.floor(Number(this.blazeCounterShots || (trapLvl >= 3 ? 3 : 2))));
+                racer.blazeMineShotTotal = racer.blazeMineShotsRemaining;
+                racer.blazeMineShotCooldown = 0;
+                racer.blazeMineShotSpeed = Math.max(14, Number(this.blazeCounterSpeed || (trapLvl >= 2 ? 21 : 16)));
+                racer.blazeMineShotDamage = Math.max(120, Number(this.blazeCounterDamage || (trapLvl >= 3 ? 240 : (trapLvl === 2 ? 190 : 140))));
+                racer.blazeMineShotCadence = Math.max(0.2, Number(this.blazeShotCadence || 0.5));
+                racer.blazeMineFinalBurstDone = false;
+                racer.blazeMineOwner = this.owner || null;
+                racer.effects.push({ type: 'slow', duration: Math.max(0.9, Number(this.blazeTrapSlow || (0.8 + (trapLvl * 0.35)))) });
+                applyCombatImpactResponse(racer, 170 + trapLvl * 65, 12 + (trapLvl * 4));
+
+                const laneHeight = canvas.height / (LANE_COUNT + 1);
+                particles.emit(racer.x, laneHeight * (racer.lane + 1), 16, '#ff4d2d', 4);
+                this.active = false;
+                return;
+            }
+            return baseTrapApplyEffect.call(this, racer);
+        };
+
+        const baseTrapApplyEffectCombat = Trap.prototype.applyEffect;
+        Trap.prototype.applyEffect = function patchedTrapCombatResponse(racer) {
+            const prevProgress = Number(racer?.progress || 0);
+            const prevKB = Number(racer?.knockbackForce || 0);
+            const out = baseTrapApplyEffectCombat.call(this, racer);
+            if (!racer) return out;
+            if (this.effect === 'blaze_mine') return out;
+
+            const instantLoss = Math.max(0, prevProgress - Number(racer.progress || 0));
+            const kbGain = Math.max(0, Number(racer.knockbackForce || 0) - prevKB);
+            if (instantLoss > 0) {
+                racer.progress = prevProgress;
+                applyCombatImpactResponse(racer, instantLoss, kbGain);
+            } else if (kbGain > 0) {
+                applyCombatImpactResponse(racer, 0, kbGain);
+            }
+            return out;
+        };
+
+        const baseRacerDraw = Racer.prototype.draw;
+        Racer.prototype.draw = function patchedRacerDraw(ctx, cameraX) {
+            baseRacerDraw.call(this, ctx, cameraX);
+            const screenX = this.x - cameraX + canvas.width * 0.3;
+            const laneHeight = canvas.height / (LANE_COUNT + 1);
+            const y = this.y || (laneHeight * (this.lane + 1));
+
+            if (this.hitFlashTimer > 0) {
+                ctx.save();
+                const p = Math.max(0, Math.min(1, this.hitFlashTimer / 0.7));
+                ctx.strokeStyle = `rgba(255, 80, 80, ${0.25 + p * 0.45})`;
+                ctx.lineWidth = 2.4 + p * 2;
+                ctx.shadowBlur = 12;
+                ctx.shadowColor = '#ff6464';
+                ctx.beginPath();
+                ctx.arc(screenX, y, 28 + p * 7, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            if (this.blazeMineAuraTimer > 0) {
+                ctx.save();
+                const pulse = 0.55 + (Math.sin(Date.now() / 120) * 0.45);
+                const bubble = ctx.createRadialGradient(screenX, y, 8, screenX, y, 42 + (pulse * 10));
+                bubble.addColorStop(0, 'rgba(255,70,50,0.08)');
+                bubble.addColorStop(0.6, 'rgba(255,55,40,0.16)');
+                bubble.addColorStop(1, 'rgba(255,30,20,0)');
+                ctx.fillStyle = bubble;
+                ctx.beginPath();
+                ctx.arc(screenX, y, 39 + (pulse * 8), 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = `rgba(255, 80, 50, ${0.25 + pulse * 0.35})`;
+                ctx.lineWidth = 2 + pulse * 2;
+                ctx.shadowBlur = 16;
+                ctx.shadowColor = '#ff4d2e';
+                ctx.beginPath();
+                ctx.arc(screenX, y, 38 + (pulse * 6), 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            if (this.characterId === 'blaze' && this.turboActive) {
+                ctx.save();
+                ctx.globalCompositeOperation = 'lighter';
+                for (let i = 0; i < 4; i++) {
+                    const jitter = (Math.random() - 0.5) * 4;
+                    const len = 26 + (i * 7);
+                    ctx.fillStyle = i % 2 === 0 ? 'rgba(255,130,40,0.55)' : 'rgba(255,70,20,0.45)';
+                    ctx.beginPath();
+                    ctx.moveTo(screenX - 20 - i * 2, y + jitter);
+                    ctx.lineTo(screenX - len, y - 8 + jitter);
+                    ctx.lineTo(screenX - len - 8, y + jitter);
+                    ctx.lineTo(screenX - len, y + 8 + jitter);
+                    ctx.closePath();
+                    ctx.fill();
+                }
+                const ringPulse = 0.55 + Math.sin(Date.now() / 90) * 0.45;
+                ctx.strokeStyle = `rgba(255,120,40,${0.35 + ringPulse * 0.25})`;
+                ctx.lineWidth = 3.5;
+                ctx.beginPath();
+                ctx.arc(screenX, y, 34 + ringPulse * 7, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
+            }
+        };
+
+        const baseProjectileDraw = Projectile.prototype.draw;
+        Projectile.prototype.draw = function patchedProjectileDraw(ctx, cameraX) {
+            if (this.effect !== 'blaze_fireball' && this.effect !== 'blaze_counterfire') {
+                return baseProjectileDraw.call(this, ctx, cameraX);
+            }
+            const screenX = this.x - cameraX + canvas.width * 0.3;
+            if (screenX < -130 || screenX > canvas.width + 130) return;
+            const laneHeight = canvas.height / (LANE_COUNT + 1);
+            const y = laneHeight * (this.lane + 1);
+            const isMain = this.effect === 'blaze_fireball';
+            const core = isMain ? 14 : 9;
+
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.fillStyle = 'rgba(255,90,25,0.3)';
+            for (let i = 0; i < 4; i++) {
+                const tx = screenX - (this.direction * (12 + i * 13));
+                const ty = y + Math.sin(Date.now() / 90 + i) * (isMain ? 2.2 : 1.4);
+                const rx = Math.max(0.8, (core - i * 2.1));
+                const ry = Math.max(0.8, (core - i * 3.3));
+                ctx.beginPath();
+                ctx.ellipse(tx, ty, rx, ry, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            const g = ctx.createRadialGradient(screenX, y, 1, screenX, y, core * 2.6);
+            g.addColorStop(0, '#fff7d6');
+            g.addColorStop(0.35, '#ffb347');
+            g.addColorStop(0.75, '#ff5f2e');
+            g.addColorStop(1, 'rgba(255,70,10,0)');
+            ctx.fillStyle = g;
+            ctx.beginPath();
+            ctx.arc(screenX, y, core * 1.75, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#fff';
+            ctx.globalAlpha = 0.8;
+            ctx.beginPath();
+            ctx.arc(screenX + 2, y - 1, Math.max(2.5, core * 0.35), 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        };
+
+        const baseTrapDraw = Trap.prototype.draw;
+        Trap.prototype.draw = function patchedTrapDraw(ctx, cameraX) {
+            if (this.effect !== 'blaze_mine') {
+                return baseTrapDraw.call(this, ctx, cameraX);
+            }
+            if (!this.active) return;
+            const screenX = this.x - cameraX + canvas.width * 0.3;
+            const laneHeight = canvas.height / (LANE_COUNT + 1);
+            const y = laneHeight * (this.lane + 1);
+            const pulse = 0.55 + Math.sin(Date.now() / 130) * 0.45;
+
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.fillStyle = 'rgba(255, 60, 20, 0.28)';
+            ctx.beginPath();
+            ctx.arc(screenX, y + 24, 24 + pulse * 8, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#271109';
+            ctx.strokeStyle = '#ff5f2e';
+            ctx.lineWidth = 2.2;
+            ctx.beginPath();
+            ctx.arc(screenX, y + 24, 14, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = '#ffb347';
+            for (let i = 0; i < 6; i++) {
+                const ang = (Math.PI * 2 / 6) * i + Date.now() / 600;
+                const px = screenX + Math.cos(ang) * 9;
+                const py = y + 24 + Math.sin(ang) * 9;
+                ctx.beginPath();
+                ctx.arc(px, py, 1.8, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.restore();
         };
 
         const baseUseTypedItem = useTypedItem;

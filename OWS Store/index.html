@@ -2853,7 +2853,7 @@
             { word: 'LABS', iconClass: 'fa-flask', color: '#1f9d63', caption: 'Prototipos inesperados en evolucion constante.' },
             { word: 'ARCADE', iconClass: 'fa-gamepad', color: '#b96700', caption: 'Diversidad de estilos para cada jugador.' },
         ];
-        const SPOTLIGHT_SLIDES = [
+        const SPOTLIGHT_SLIDES_FALLBACK = [
             {
                 key: 'wild-destiny-countdown',
                 label: 'Proximo lanzamiento',
@@ -2936,6 +2936,7 @@
         let brandCycleTimer = null;
         let brandSwapCleanupTimer = null;
         let spotlightSlideIndex = 0;
+        let spotlightSlidesDynamic = [];
         let spotlightSlideTimer = null;
         let spotlightSlideCleanupTimer = null;
         let spotlightCanvasResizeHandlerBound = false;
@@ -3546,9 +3547,11 @@
             ctx.fillStyle = bgGrad;
             ctx.fill();
 
-            const accentA = dark ? '#52d9df' : '#0aaeb5';
-            const accentB = dark ? '#ff9b6a' : '#d96a2e';
+            const model2d = slide.model2d && typeof slide.model2d === 'object' ? slide.model2d : {};
+            const accentA = model2d.primaryColor || (dark ? '#52d9df' : '#0aaeb5');
+            const accentB = model2d.secondaryColor || (dark ? '#ff9b6a' : '#d96a2e');
             const softLine = dark ? 'rgba(194,220,255,0.2)' : 'rgba(13,49,63,0.18)';
+            const visualKey = String(model2d.key || slide.key || '').toLowerCase();
 
             const glow = ctx.createRadialGradient(cssW * 0.24, cssH * 0.45, 4, cssW * 0.24, cssH * 0.45, cssW * 0.4);
             glow.addColorStop(0, dark ? 'rgba(82,217,223,0.32)' : 'rgba(10,174,181,0.22)');
@@ -3563,7 +3566,7 @@
             ctx.lineTo(cssW - 12, cssH - 16);
             ctx.stroke();
 
-            if (slide.key === 'ows-news-retired') {
+            if (visualKey === 'ows-news-retired' || visualKey.includes('news-retired') || visualKey.includes('news_signal')) {
                 drawSpotlightCanvasRoundedRect(ctx, 22, 22, 106, cssH - 40, 10);
                 ctx.fillStyle = dark ? '#1b2a3e' : '#e7f2f7';
                 ctx.fill();
@@ -3585,7 +3588,7 @@
                 ctx.beginPath();
                 ctx.arc(cssW - 64, cssH * 0.5, 31, -0.8, 0.8);
                 ctx.stroke();
-            } else if (slide.key === 'wildtransfer-arrival') {
+            } else if (visualKey === 'wildtransfer-arrival' || visualKey.includes('transfer')) {
                 ctx.strokeStyle = accentA;
                 ctx.lineWidth = 3;
                 ctx.beginPath();
@@ -3615,7 +3618,7 @@
                     ctx.arc(42 + i * 20, cssH * 0.54, 2.2, 0, Math.PI * 2);
                     ctx.fill();
                 }
-            } else if (slide.key === 'store-news-hub') {
+            } else if (visualKey === 'store-news-hub' || visualKey.includes('store-hub') || visualKey.includes('launch_orbit')) {
                 const cx = 72;
                 const cy = cssH * 0.5;
                 const outer = 28;
@@ -3684,25 +3687,33 @@
             }
         }
 
+        function getSpotlightSlides() {
+            return Array.isArray(spotlightSlidesDynamic) && spotlightSlidesDynamic.length
+                ? spotlightSlidesDynamic
+                : SPOTLIGHT_SLIDES_FALLBACK;
+        }
+
         function restartSpotlightSliderAuto() {
+            const slides = getSpotlightSlides();
             if (spotlightSlideTimer) clearInterval(spotlightSlideTimer);
-            if (SPOTLIGHT_SLIDES.length <= 1) return;
+            if (slides.length <= 1) return;
             spotlightSlideTimer = setInterval(() => {
-                spotlightSlideIndex = (spotlightSlideIndex + 1) % SPOTLIGHT_SLIDES.length;
+                spotlightSlideIndex = (spotlightSlideIndex + 1) % slides.length;
                 renderSpotlightSlider(true);
             }, 4600);
         }
 
         function renderSpotlightSlider(animate = true) {
+            const slides = getSpotlightSlides();
             const wrap = document.getElementById('spotlight-slider');
             const labelEl = document.getElementById('spotlight-slider-label');
             const titleEl = document.getElementById('spotlight-slider-title');
             const textEl = document.getElementById('spotlight-slider-text');
             const btn = document.getElementById('spotlight-slider-btn');
             const dots = document.getElementById('spotlight-slider-dots');
-            if (!wrap || !labelEl || !titleEl || !textEl || !btn || !dots || !SPOTLIGHT_SLIDES.length) return;
+            if (!wrap || !labelEl || !titleEl || !textEl || !btn || !dots || !slides.length) return;
 
-            const slide = SPOTLIGHT_SLIDES[spotlightSlideIndex % SPOTLIGHT_SLIDES.length];
+            const slide = slides[spotlightSlideIndex % slides.length];
             if (!slide) return;
 
             if (animate) {
@@ -3721,7 +3732,7 @@
                 btn.disabled = false;
                 btn.style.opacity = '1';
                 btn.style.cursor = 'pointer';
-                btn.innerHTML = '<i class="fas fa-circle-info"></i> Ver ficha';
+                btn.innerHTML = `<i class="fas fa-circle-info"></i> ${slide.cta || 'Ver ficha'}`;
                 btn.onclick = () => openDetails(slide.slug);
             } else {
                 btn.disabled = true;
@@ -3732,16 +3743,17 @@
             }
             renderSpotlightIllustration(slide);
 
-            dots.innerHTML = SPOTLIGHT_SLIDES.map((s, idx) => {
+            dots.innerHTML = slides.map((s, idx) => {
                 const active = idx === spotlightSlideIndex ? 'active' : '';
                 return `<button type="button" class="spotlight-slider-dot ${active}" title="${s.title.replace(/"/g, '&quot;')}" onclick="setSpotlightSlide(${idx})"></button>`;
             }).join('');
         }
 
         function setSpotlightSlide(nextIndex) {
-            if (!SPOTLIGHT_SLIDES.length) return;
+            const slides = getSpotlightSlides();
+            if (!slides.length) return;
             const safe = Number.isFinite(Number(nextIndex)) ? Number(nextIndex) : 0;
-            spotlightSlideIndex = ((safe % SPOTLIGHT_SLIDES.length) + SPOTLIGHT_SLIDES.length) % SPOTLIGHT_SLIDES.length;
+            spotlightSlideIndex = ((safe % slides.length) + slides.length) % slides.length;
             renderSpotlightSlider(true);
             restartSpotlightSliderAuto();
         }
@@ -4662,9 +4674,22 @@
             const title = String(entry.title || '').trim();
             if (!title) return null;
             const description = String(entry.description || '').trim();
+            const entryTypeRaw = String(entry.entry_type || '').trim().toLowerCase();
+            const entryType = entryTypeRaw === 'banner'
+                ? 'banner'
+                : (entryTypeRaw === 'event' || entryTypeRaw === 'evento' ? 'event' : 'changelog');
             const searchText = `${title} ${description} ${changes.join(' ')} ${projects.join(' ')}`.toLowerCase();
-            const isEvent = searchText.includes('evento') || searchText.includes('event') || searchText.includes('temporada');
-            const platformHint = detectNewsPlatforms(`${title}\n${description}\n${changes.join('\n')}\n${projects.join(' ')}`);
+            const isEvent = entryType === 'event' || searchText.includes('evento') || searchText.includes('event') || searchText.includes('temporada');
+            const isBanner = entryType === 'banner';
+            const platformHint = Array.isArray(entry.platforms) && entry.platforms.length
+                ? entry.platforms.map((p) => String(p || '').toLowerCase()).filter(Boolean)
+                : detectNewsPlatforms(`${title}\n${description}\n${changes.join('\n')}\n${projects.join(' ')}`);
+            const model2dPayload = entry.model_2d_payload && typeof entry.model_2d_payload === 'object'
+                ? entry.model_2d_payload
+                : {};
+            const bannerMeta = entry.banner_meta && typeof entry.banner_meta === 'object'
+                ? entry.banner_meta
+                : {};
             return {
                 id: Number(entry.id || 0),
                 title,
@@ -4673,7 +4698,16 @@
                 projectNames: projects,
                 updateDate,
                 isEvent,
+                isBanner,
+                entryType,
                 platforms: platformHint,
+                isActive: entry.is_active !== false,
+                priority: Number(entry.priority || 0),
+                model2d: {
+                    key: String(entry.model_2d_key || model2dPayload.key || '').trim(),
+                    ...model2dPayload,
+                },
+                bannerMeta,
             };
         }
 
@@ -4711,7 +4745,7 @@
 
         function getReleaseDerivedProjectEntries(project) {
             if (!project) return [];
-            if (!isWildTransferProject(project) && !isFloretProject(project)) return [];
+            if (!isWildTransferProject(project) && !isFloretProject(project) && !isVelocitySurgeProject(project)) return [];
             const entries = [];
             const projectName = String(project.name || 'Proyecto');
 
@@ -4744,6 +4778,46 @@
             return entries;
         }
 
+        function resolveProjectSlugFromNames(projectNames = []) {
+            const names = (Array.isArray(projectNames) ? projectNames : [])
+                .map((n) => String(n || '').toLowerCase().trim())
+                .filter(Boolean);
+            if (!names.length || !Array.isArray(allProjects) || !allProjects.length) return '';
+            for (const p of allProjects) {
+                const slug = String(p?.slug || '').toLowerCase();
+                const name = String(p?.name || '').toLowerCase();
+                if (!slug && !name) continue;
+                if (names.some((n) => n.includes(slug) || slug.includes(n) || n.includes(name) || name.includes(n))) {
+                    return String(p.slug || '');
+                }
+            }
+            return '';
+        }
+
+        function buildSpotlightSlidesFromUpdates(list = []) {
+            const rows = (Array.isArray(list) ? list : [])
+                .filter((entry) => entry && entry.isBanner && entry.isActive !== false)
+                .sort((a, b) => {
+                    const pa = Number(a.priority || 0);
+                    const pb = Number(b.priority || 0);
+                    if (pa !== pb) return pb - pa;
+                    return (Date.parse(b.updateDate || '') || 0) - (Date.parse(a.updateDate || '') || 0);
+                });
+            return rows.map((entry) => {
+                const meta = entry.bannerMeta && typeof entry.bannerMeta === 'object' ? entry.bannerMeta : {};
+                const inferredSlug = resolveProjectSlugFromNames(entry.projectNames || []);
+                return {
+                    key: `srv-banner-${entry.id || Math.random().toString(36).slice(2)}`,
+                    label: String(meta.label || 'Novedad'),
+                    title: String(meta.title || entry.title || 'Actualizacion'),
+                    text: String(meta.text || entry.description || (entry.changes?.[0] || 'Nueva informacion disponible.')),
+                    slug: String(meta.slug || inferredSlug || '').trim(),
+                    model2d: entry.model2d || {},
+                    cta: String(meta.cta || '').trim(),
+                };
+            });
+        }
+
         async function fetchOWSNewsUpdates(force = false) {
             const now = Date.now();
             if (!force && owsNewsUpdatesCache.length && (now - owsNewsUpdatesFetchedAt) < OWS_NEWS_CACHE_TTL_MS) {
@@ -4758,6 +4832,11 @@
                 .sort((a, b) => (Date.parse(b.updateDate || '') || 0) - (Date.parse(a.updateDate || '') || 0));
             owsNewsUpdatesCache = list;
             owsNewsUpdatesFetchedAt = now;
+            spotlightSlidesDynamic = buildSpotlightSlidesFromUpdates(list);
+            const activeSlides = getSpotlightSlides();
+            if (spotlightSlideIndex >= activeSlides.length) spotlightSlideIndex = 0;
+            renderSpotlightSlider(false);
+            restartSpotlightSliderAuto();
             return list;
         }
 
@@ -4794,7 +4873,7 @@
             const eventsWrap = document.getElementById('news-hub-events');
             if (!globalWrap || !eventsWrap) return;
             const list = Array.isArray(owsNewsUpdatesCache) ? owsNewsUpdatesCache : [];
-            const globals = list.filter((n) => !n.isEvent).slice(0, 4);
+            const globals = list.filter((n) => !n.isEvent && !n.isBanner).slice(0, 4);
             const events = list.filter((n) => n.isEvent).slice(0, 4);
 
             const renderList = (items, fallbackText) => {
@@ -4826,7 +4905,7 @@
             const releaseEntries = getReleaseDerivedProjectEntries(project);
             const entries = [...releaseEntries, ...owsNewsEntries]
                 .sort((a, b) => (Date.parse(b?.updateDate || '') || 0) - (Date.parse(a?.updateDate || '') || 0));
-            const changelog = entries.filter((entry) => !entry.isEvent).slice(0, 4);
+            const changelog = entries.filter((entry) => !entry.isEvent && !entry.isBanner).slice(0, 4);
             const events = entries.filter((entry) => entry.isEvent).slice(0, 3);
             newsWrap.style.display = 'grid';
             changelogWrap.innerHTML = changelog.length
@@ -5533,16 +5612,8 @@
                 });
             }
 
-            entries.push({
-                type: 'changelog',
-                tone: 'warning',
-                title: 'OWS News retirado como app independiente',
-                date: '2026-02-26T00:00:00Z',
-                text: 'OWS News fue integrado en OWS Store. Desde ahora, noticias y eventos se consultan dentro de OWS Store.',
-                platforms: ['windows', 'android'],
-            });
-
             const storeNews = (owsNewsUpdatesCache || []).filter((entry) => {
+                if (entry?.isBanner) return false;
                 const keys = Array.isArray(entry.projectNames) ? entry.projectNames : [];
                 if (keys.some((k) => k.includes('ows-store') || k.includes('ows store'))) return true;
                 const blob = `${entry.title} ${entry.description} ${(entry.changes || []).join(' ')}`.toLowerCase();
@@ -6047,6 +6118,8 @@
                 installerUrl: exeAsset?.browser_download_url || '',
                 installerSize: Number(exeAsset?.size || 0),
                 installerAvailable: Boolean(exeAsset?.browser_download_url) && !staleInstaller,
+                windowsReleaseNotes: String(data.body || '').trim(),
+                releaseUrl: data.html_url || VELOCITY_SURGE_RELEASES_URL,
                 publishedAt: data.published_at || data.created_at || null,
                 warning,
                 checkedAt: now,
@@ -7183,6 +7256,7 @@
                 velocitySurge.pending_release = false;
                 velocitySurge.short = 'VSG';
                 velocitySurge.installer_size = Number(velocitySurge.installer_size || 0);
+                if (!velocitySurge.windows_release_notes) velocitySurge.windows_release_notes = '';
 
                 try {
                     const latest = await fetchLatestVelocitySurgeRelease();
@@ -7190,6 +7264,7 @@
                     if (latest?.installerUrl) velocitySurge.installer_url = latest.installerUrl;
                     velocitySurge.installer_size = Number(latest?.installerSize || 0);
                     velocitySurge.installer_available = Boolean(latest?.installerAvailable);
+                    velocitySurge.windows_release_notes = latest?.windowsReleaseNotes || velocitySurge.windows_release_notes || '';
                     velocitySurge.last_update_at = latest?.publishedAt || null;
                     velocitySurge.windows_last_update_at = latest?.publishedAt || null;
                     velocitySurge.pending_release = !velocitySurge.installer_available;

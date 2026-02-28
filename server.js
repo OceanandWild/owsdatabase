@@ -858,6 +858,25 @@ async function runDatabaseMigrations() {
       );
     `).catch(err => console.log('⚠️ Error creando ows_news_updates:', err.message));
 
+    await pool.query(`
+      ALTER TABLE ows_news_updates
+      ADD COLUMN IF NOT EXISTS entry_type VARCHAR(20) DEFAULT 'changelog',
+      ADD COLUMN IF NOT EXISTS platforms TEXT[] DEFAULT '{}',
+      ADD COLUMN IF NOT EXISTS model_2d_key TEXT,
+      ADD COLUMN IF NOT EXISTS model_2d_payload JSONB DEFAULT '{}'::jsonb,
+      ADD COLUMN IF NOT EXISTS banner_meta JSONB DEFAULT '{}'::jsonb,
+      ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE,
+      ADD COLUMN IF NOT EXISTS priority INTEGER DEFAULT 0
+    `).catch(err => console.log('⚠️ Error migrando ows_news_updates:', err.message));
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_ows_news_updates_entry_type
+      ON ows_news_updates(entry_type)
+    `).catch(() => {});
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_ows_news_updates_update_date
+      ON ows_news_updates(update_date DESC)
+    `).catch(() => {});
+
     // 17. Crear tabla ows_projects para el Sistema OWS Store
     await pool.query(`
       CREATE TABLE IF NOT EXISTS ows_projects(
@@ -13326,51 +13345,219 @@ app.post('/ecocore/change', async (req, res) => {
 });
 
 /* ----------  OWS NEWS UPDATES SYSTEM  ---------- */
-app.get('/ows-news/updates', async (req, res) => {
+function normalizeNewsTextArray(input) {
+  if (Array.isArray(input)) return input.map(v => String(v || '').trim()).filter(Boolean);
+  if (input == null) return [];
+  const raw = String(input || '').trim();
+  if (!raw) return [];
   try {
-    const { rows } = await pool.query('SELECT * FROM ows_news_updates ORDER BY update_date DESC, created_at DESC');
-    res.json(rows);
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed.map(v => String(v || '').trim()).filter(Boolean);
+  } catch (_) {}
+  return raw.split(',').map(v => String(v || '').trim()).filter(Boolean);
+}
+
+function normalizeNewsChanges(input) {
+  if (Array.isArray(input)) return input.map(v => String(v || '').trim()).filter(Boolean).join('\n');
+  if (input == null) return '';
+  return String(input || '').trim();
+}
+
+function normalizeNewsEntryType(input) {
+  const v = String(input || 'changelog').trim().toLowerCase();
+  if (v === 'event' || v === 'evento') return 'event';
+  if (v === 'banner') return 'banner';
+  return 'changelog';
+}
+
+function normalizeNewsJson(input, fallback = {}) {
+  if (input == null || input === '') return fallback;
+  if (typeof input === 'object') return input;
+  try {
+    const parsed = JSON.parse(String(input));
+    return parsed && typeof parsed === 'object' ? parsed : fallback;
+  } catch (_) {
+    return fallback;
+  }
+}
+
+function normalizeNewsBoolean(input, fallback = true) {
+  if (input == null) return fallback;
+  if (typeof input === 'boolean') return input;
+  const raw = String(input).trim().toLowerCase();
+  if (['1', 'true', 'yes', 'y', 'si', 'on'].includes(raw)) return true;
+  if (['0', 'false', 'no', 'n', 'off'].includes(raw)) return false;
+  return fallback;
+}
+
+function normalizeNewsNumber(input, fallback = 0) {
+  const n = Number(input);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.trunc(n);
+}
+
+function normalizeOwsNewsRow(row) {
+  if (!row || typeof row !== 'object') return row;
+  return {
+    ...row,
+    entry_type: normalizeNewsEntryType(row.entry_type),
+    project_names: normalizeNewsTextArray(row.project_names),
+    platforms: normalizeNewsTextArray(row.platforms),
+    changes: normalizeNewsChanges(row.changes),
+    model_2d_payload: normalizeNewsJson(row.model_2d_payload, {}),
+    banner_meta: normalizeNewsJson(row.banner_meta, {}),
+    is_active: row.is_active !== false,
+    priority: normalizeNewsNumber(row.priority, 0)
+  };
+}
+
+app.get('/ows-news/updates', async (req, res) => {
+  const requestedType = normalizeNewsEntryType(req.query.type || '');
+  const typeFilter = String(req.query.type || '').trim() ? requestedType : '';
+  const projectFilter = String(req.query.project || '').trim().toLowerCase();
+  const includeInactive = normalizeNewsBoolean(req.query.include_inactive, false);
+  const limit = Math.max(0, Math.min(200, normalizeNewsNumber(req.query.limit, 0)));
+
+  try {
+    const { rows } = await pool.query(`
+      SELECT *
+      FROM ows_news_updates
+      ORDER BY COALESCE(priority, 0) DESC, update_date DESC, created_at DESC
+    `);
+    let list = rows.map(normalizeOwsNewsRow);
+    if (!includeInactive) list = list.filter(r => r.is_active !== false);
+    if (typeFilter) list = list.filter(r => r.entry_type === typeFilter);
+    if (projectFilter) {
+      list = list.filter((r) => {
+        const names = Array.isArray(r.project_names) ? r.project_names : [];
+        return names.some((name) => String(name || '').toLowerCase().includes(projectFilter));
+      });
+    }
+    if (limit > 0) list = list.slice(0, limit);
+    res.json(list);
   } catch (err) {
-    console.error('❌ Error en GET /ows-news/updates:', err);
+    console.error('? Error en GET /ows-news/updates:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+app.get('/ows-news/banners', async (req, res) => {
+  const limit = Math.max(1, Math.min(50, normalizeNewsNumber(req.query.limit, 10)));
+  try {
+    const { rows } = await pool.query(
+      `SELECT *
+       FROM ows_news_updates
+       WHERE entry_type = 'banner' AND is_active = TRUE
+       ORDER BY COALESCE(priority, 0) DESC, update_date DESC, created_at DESC
+       LIMIT $1`,
+      [limit]
+    );
+    res.json(rows.map(normalizeOwsNewsRow));
+  } catch (err) {
+    console.error('? Error en GET /ows-news/banners:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
 
 app.post('/ows-news/updates', async (req, res) => {
-  const { title, description, changes, project_names, update_date } = req.body;
-  if (!title) return res.status(400).json({ error: 'El título es obligatorio' });
+  const {
+    title,
+    description,
+    changes,
+    project_names,
+    update_date,
+    entry_type,
+    platforms,
+    model_2d_key,
+    model_2d_payload,
+    banner_meta,
+    is_active,
+    priority
+  } = req.body || {};
+
+  if (!title) return res.status(400).json({ error: 'El t�tulo es obligatorio' });
+
+  const normalizedEntryType = normalizeNewsEntryType(entry_type);
+  const normalizedProjects = normalizeNewsTextArray(project_names);
+  const normalizedPlatforms = normalizeNewsTextArray(platforms);
+  const normalizedChanges = normalizeNewsChanges(changes);
+  const normalizedModelPayload = normalizeNewsJson(model_2d_payload, {});
+  const normalizedBannerMeta = normalizeNewsJson(banner_meta, {});
+  const normalizedActive = normalizeNewsBoolean(is_active, true);
+  const normalizedPriority = normalizeNewsNumber(priority, 0);
 
   try {
     const { rows } = await pool.query(
-      `INSERT INTO ows_news_updates (title, description, changes, project_names, update_date)
-       VALUES ($1, $2, $3, $4, COALESCE($5, CURRENT_DATE)) RETURNING *`,
-      [title, description, changes, project_names || [], update_date]
+      `INSERT INTO ows_news_updates
+       (title, description, changes, project_names, update_date, entry_type, platforms, model_2d_key, model_2d_payload, banner_meta, is_active, priority)
+       VALUES ($1, $2, $3, $4, COALESCE($5, CURRENT_DATE), $6, $7, $8, $9::jsonb, $10::jsonb, $11, $12)
+       RETURNING *`,
+      [
+        String(title || '').trim(),
+        description == null ? null : String(description || '').trim(),
+        normalizedChanges || null,
+        normalizedProjects,
+        update_date,
+        normalizedEntryType,
+        normalizedPlatforms,
+        model_2d_key == null ? null : String(model_2d_key || '').trim() || null,
+        JSON.stringify(normalizedModelPayload),
+        JSON.stringify(normalizedBannerMeta),
+        normalizedActive,
+        normalizedPriority
+      ]
     );
-    res.json({ success: true, update: rows[0] });
+    res.json({ success: true, update: normalizeOwsNewsRow(rows[0]) });
   } catch (err) {
-    console.error('❌ Error en POST /ows-news/updates:', err);
+    console.error('? Error en POST /ows-news/updates:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
 
 app.put('/ows-news/updates/:id', async (req, res) => {
   const { id } = req.params;
-  const { title, description, changes, project_names, update_date } = req.body;
+  const body = req.body || {};
+  const has = (key) => Object.prototype.hasOwnProperty.call(body, key);
   try {
     const { rows } = await pool.query(
-      `UPDATE ows_news_updates SET title = COALESCE($1, title), description = COALESCE($2, description), 
-       changes = COALESCE($3, changes), project_names = COALESCE($4, project_names),
-       update_date = COALESCE($5, update_date) WHERE id = $6 RETURNING *`,
-      [title, description, changes, project_names, update_date, id]
+      `UPDATE ows_news_updates
+       SET title = COALESCE($1, title),
+           description = COALESCE($2, description),
+           changes = COALESCE($3, changes),
+           project_names = COALESCE($4, project_names),
+           update_date = COALESCE($5, update_date),
+           entry_type = COALESCE($6, entry_type),
+           platforms = COALESCE($7, platforms),
+           model_2d_key = COALESCE($8, model_2d_key),
+           model_2d_payload = COALESCE($9::jsonb, model_2d_payload),
+           banner_meta = COALESCE($10::jsonb, banner_meta),
+           is_active = COALESCE($11, is_active),
+           priority = COALESCE($12, priority)
+       WHERE id = $13
+       RETURNING *`,
+      [
+        has('title') ? String(body.title || '').trim() : null,
+        has('description') ? (body.description == null ? null : String(body.description || '').trim()) : null,
+        has('changes') ? normalizeNewsChanges(body.changes) : null,
+        has('project_names') ? normalizeNewsTextArray(body.project_names) : null,
+        has('update_date') ? body.update_date : null,
+        has('entry_type') ? normalizeNewsEntryType(body.entry_type) : null,
+        has('platforms') ? normalizeNewsTextArray(body.platforms) : null,
+        has('model_2d_key') ? (body.model_2d_key == null ? null : String(body.model_2d_key || '').trim() || null) : null,
+        has('model_2d_payload') ? JSON.stringify(normalizeNewsJson(body.model_2d_payload, {})) : null,
+        has('banner_meta') ? JSON.stringify(normalizeNewsJson(body.banner_meta, {})) : null,
+        has('is_active') ? normalizeNewsBoolean(body.is_active, true) : null,
+        has('priority') ? normalizeNewsNumber(body.priority, 0) : null,
+        id
+      ]
     );
     if (rows.length === 0) return res.status(404).json({ error: 'Update no encontrado' });
-    res.json({ success: true, update: rows[0] });
+    res.json({ success: true, update: normalizeOwsNewsRow(rows[0]) });
   } catch (err) {
-    console.error('❌ Error en PUT /ows-news/updates:', err);
+    console.error('? Error en PUT /ows-news/updates:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
-
 app.delete('/ows-news/updates/:id', async (req, res) => {
   const { id } = req.params;
   try {

@@ -866,7 +866,9 @@ async function runDatabaseMigrations() {
       ADD COLUMN IF NOT EXISTS model_2d_payload JSONB DEFAULT '{}'::jsonb,
       ADD COLUMN IF NOT EXISTS banner_meta JSONB DEFAULT '{}'::jsonb,
       ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE,
-      ADD COLUMN IF NOT EXISTS priority INTEGER DEFAULT 0
+      ADD COLUMN IF NOT EXISTS priority INTEGER DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS event_start TIMESTAMP,
+      ADD COLUMN IF NOT EXISTS event_end TIMESTAMP
     `).catch(err => console.log('⚠️ Error migrando ows_news_updates:', err.message));
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_ows_news_updates_entry_type
@@ -876,6 +878,8 @@ async function runDatabaseMigrations() {
       CREATE INDEX IF NOT EXISTS idx_ows_news_updates_update_date
       ON ows_news_updates(update_date DESC)
     `).catch(() => {});
+
+    await ensureOwsStoreNewsSeedData().catch(err => console.log('[OWS] Error seeding ows_news_updates:', err.message));
 
     // 17. Crear tabla ows_projects para el Sistema OWS Store
     await pool.query(`
@@ -1900,7 +1904,6 @@ app.delete('/floret/products/:id', async (req, res) => {
     res.status(500).json({ error: 'Error interno' });
   }
 });
-
 
 
 // ===== OCEAN PAY - MODO OFFLINE (SIN INTERNET) =====
@@ -4466,7 +4469,6 @@ app.post('/ocean-pay/ecoxionums/change', async (req, res) => {
   }
 });
 
-
 /* ===== OCEAN PAY - CORE TRANSFER ===== */
 
 // Transferencia P2P Genérica
@@ -4676,7 +4678,6 @@ app.get('/ocean-pay/ecoxionums/:userId', async (req, res) => {
     res.json({ ecoxionums: 0 });
   }
 });
-
 
 
 // Endpoint para sincronizar pólvora cósmica
@@ -6505,7 +6506,6 @@ async function checkAIRateLimit(userId) {
 }
 
 
-
 /* ===== NATMARKET AI GENERATION V2 (SENTINEL EVOLUTION) ===== */
 
 const AI_MODELS = {
@@ -6902,7 +6902,6 @@ app.post('/natmarket/ai/generate-product', async (req, res) => {
     });
   }
 });
-
 
 
 const FORBIDDEN = [
@@ -7451,7 +7450,6 @@ app.post("/api/save-country", async (req, res) => {
 
 
 
-
 app.get("/api/stats/countries", async (_req, res) => {
   const { rows } = await pool.query(
     `SELECT country, COUNT(*) as count FROM user_stats GROUP BY country ORDER BY count DESC`
@@ -7535,7 +7533,6 @@ app.get("/api/eclipse/all", async (_req, res) => {
   }
 });
 
-
 // Obtener el próximo eclipse
 app.get("/api/eclipse/next", async (_req, res) => {
   try {
@@ -7597,8 +7594,6 @@ app.post("/api/eclipse/:id/reward", async (req, res) => {
 
 
 
-
-
 // === Extensiones ===
 app.post("/api/extensions/save", async (req, res) => {
   const { userId, extensions } = req.body;
@@ -7641,7 +7636,6 @@ app.put("/api/extensions/:userId", async (req, res) => {
     res.status(500).json({ error: 'Error interno' });
   }
 });
-
 
 
 // 📌 Guardar instalación de extensión
@@ -8185,7 +8179,6 @@ async function cleanupOldEvents() {
     console.error('Error al limpiar eventos antiguos:', error);
   }
 }
-
 
 
 // ===== DeepDive: seed update notes and beta announcement (original tables) =====
@@ -10487,13 +10480,11 @@ app.get('/natmarket/ratings/seller/:seller_id', async (req, res) => {
   }
 });
 
-
 const PLANS = [
   { id: 'free', name: 'Plan Free', price: 0, perks: ['Acceso básico', 'Sin publicidad'], highlight: false },
   { id: 'eco-basic', name: 'Eco Basic', price: 200, perks: ['1 extensión premium/mes', 'Soporte prioritario'] },
   { id: 'eco-premium', name: 'Eco Premium', price: 500, perks: ['Extensiones exclusivas', 'Pack mensual sorpresa', 'Sin publicidad'], highlight: true },
 ];
-
 
 /* -----  suscripción activa de un usuario  ----- */
 app.get('/active/:userId', async (req, res) => {
@@ -10512,7 +10503,6 @@ app.get('/history/:userId', async (req, res) => {
     .toArray();
   res.json(rows);
 });
-
 
 app.get("/api/subscriptions/plans", (_req, res) => res.json(PLANS));
 
@@ -10871,7 +10861,6 @@ app.patch("/api/subscriptions/auto-pay", async (req, res) => {
   }
 });
 
-
 app.get("/api/subscriptions/has-access/:userId/:feature", async (req, res) => {
   const { userId, feature } = req.params;
   try {
@@ -10904,7 +10893,6 @@ app.get('/api/users/me', async (req, res) => {
   res.json(rows[0]);
 });
 
-
 app.post('/api/users/create', async (req, res) => {
   const { userId, username } = req.body;
   if (!userId || !username) return res.status(400).json({ error: 'Faltan datos' });
@@ -10926,7 +10914,6 @@ app.post('/api/users/create', async (req, res) => {
   }
 });
 
-
 // GET /api/users/:id/balance
 app.get('/api/users/:id/balance', async (req, res) => {
   const { id } = req.params;
@@ -10941,7 +10928,6 @@ app.get('/api/users/:id/balance', async (req, res) => {
     res.status(500).json({ error: 'Error interno' });
   }
 });
-
 
 
 /* ===== LUGARES RECURRENTES ===== */
@@ -11563,7 +11549,6 @@ app.get('/natmarket/users/:id/metrics', async (req, res) => {
   }
 });
 
-
 /* ---------- NOVEDAD DESTACADA ---------- */
 app.get('/api/featured-update', async (_req, res) => {
   try {
@@ -11654,7 +11639,6 @@ app.get('/api/featured-update', async (_req, res) => {
 });
 
 /* ---------- TOP LECTORES ---------- */
-
 
 /* ----------  SUBIR TIEMPO + LIBRO  ---------- */
 app.post("/api/leaderboard/incr", async (req, res) => {
@@ -12124,7 +12108,6 @@ app.patch('/natmarket/products/:id/view', async (req, res) => {
   }
 });
 
-
 /* ---------- ENDPOINTS de demo: Registrar Empresa ---------- */
 app.get('/enterprise', (_req, res) => {
   // sirve el index.html de la carpeta "Enterprise Registration"
@@ -12439,7 +12422,6 @@ app.post('/ocean-pay/register', async (req, res) => {
 // =================================================================
 // EL RESTO DE TUS RUTAS CONTINÚA AQUÍ...
 // =================================================================
-
 
 
 /* ----------  MANAGE CARDS  ---------- */
@@ -13002,7 +12984,6 @@ app.post('/ocean-pay/change', async (req, res) => {
   }
 });
 
-
 /* ----------  WHO AM I ?  (validates JWT)  ---------- */
 app.post('/ocean-pay/update-balance', async (req, res) => {
   const auth = req.headers.authorization;
@@ -13115,7 +13096,6 @@ app.post('/ocean-pay/nxb/change', async (req, res) => {
     client.release();
   }
 });
-
 
 app.get('/ocean-pay/me', async (req, res) => {
   const auth = req.headers.authorization;            // Bearer <token>
@@ -13345,6 +13325,197 @@ app.post('/ecocore/change', async (req, res) => {
 });
 
 /* ----------  OWS NEWS UPDATES SYSTEM  ---------- */
+async function ensureOwsStoreNewsSeedData() {
+  const seeds = [
+    {
+      title: 'OWS Store recibe una nueva etapa multiplataforma',
+      description: 'Nueva experiencia de launcher con enfoque en Android + Windows y mejor centro de actualizaciones.',
+      changes: [
+        'Layout movil reordenado para navegacion rapida.',
+        'Cola de descargas visible con acceso rapido.',
+        'Noticias, eventos y changelog centralizados en OWS Store.'
+      ],
+      projectNames: ['ows-store'],
+      entryType: 'banner',
+      platforms: ['windows', 'android'],
+      model2dKey: 'launch_orbit',
+      model2dPayload: { key: 'launch_orbit', palette: 'aqua-orange' },
+      bannerMeta: {
+        label: 'Out Now',
+        title: 'OWS Store evoluciona para Android y Windows',
+        text: 'Instala, actualiza y monitorea todo el ecosistema en un solo hub.',
+        slug: 'ows-store',
+        cta: 'Ver novedades'
+      },
+      priority: 180,
+      isActive: true,
+      eventStart: null,
+      eventEnd: null
+    },
+    {
+      title: 'WildTransfer: sincronizacion de versiones en todas las plataformas',
+      description: 'WildTransfer mantiene releases consistentes para Windows y Android.',
+      changes: [
+        'Deteccion de updates por plataforma mejorada.',
+        'Integracion con Ocean Pay para flujo premium semanal.'
+      ],
+      projectNames: ['wildtransfer', 'ows-store'],
+      entryType: 'banner',
+      platforms: ['windows', 'android'],
+      model2dKey: 'wildtransfer-arrival',
+      model2dPayload: { key: 'wildtransfer-arrival' },
+      bannerMeta: {
+        label: 'Actualizacion',
+        title: 'WildTransfer actualizado en OWS Store',
+        text: 'Versiones de Android y Windows alineadas para instalaciones limpias.',
+        slug: 'wildtransfer',
+        cta: 'Ver ficha'
+      },
+      priority: 170,
+      isActive: true,
+      eventStart: null,
+      eventEnd: null
+    },
+    {
+      title: 'Ocean Pay recomendado para todo el ecosistema',
+      description: 'Conecta Ocean Pay para sincronizar identidad y saldos en los proyectos compatibles.',
+      changes: [
+        'Vinculacion persistente desde OWS Store.',
+        'Vista de divisas y sincronizacion de estado mejorada.'
+      ],
+      projectNames: ['ocean-pay', 'ows-store'],
+      entryType: 'banner',
+      platforms: ['windows', 'android'],
+      model2dKey: 'store-news-hub',
+      model2dPayload: { key: 'store-news-hub' },
+      bannerMeta: {
+        label: 'Recomendado',
+        title: 'Instala Ocean Pay para una experiencia completa',
+        text: 'Ocean Pay habilita sincronizacion de cuenta y divisas entre proyectos.',
+        slug: 'ocean-pay',
+        cta: 'Instalar Ocean Pay'
+      },
+      priority: 160,
+      isActive: true,
+      eventStart: null,
+      eventEnd: null
+    },
+    {
+      title: 'Lanzamiento programado: Wild Destiny en OWS Store',
+      description: 'Evento oficial de lanzamiento para Wild Destiny con disponibilidad inicial en Windows.',
+      changes: [
+        'Lanzamiento principal en OWS Store.',
+        'Seguimiento desde el hub de eventos destacados.'
+      ],
+      projectNames: ['wild-destiny', 'ows-store'],
+      entryType: 'event',
+      platforms: ['windows'],
+      model2dKey: 'launch_orbit',
+      model2dPayload: { key: 'launch_orbit', project: 'wild-destiny' },
+      bannerMeta: {
+        starts_at: '2026-03-07T18:00:00Z',
+        ends_at: '2026-03-21T18:00:00Z',
+        label: 'Lanzamiento',
+        title: 'Wild Destiny Launch Event',
+        text: 'El lanzamiento oficial arranca a las 15:00 (Uruguay).',
+        slug: 'wild-destiny'
+      },
+      priority: 210,
+      isActive: true,
+      eventStart: '2026-03-07T18:00:00Z',
+      eventEnd: '2026-03-21T18:00:00Z'
+    },
+    {
+      title: 'Evento de plataforma: Velocity Surge update wave',
+      description: 'Ventana destacada para updates de Velocity Surge dentro de OWS Store.',
+      changes: [
+        'Evento de visibilidad en el launcher.',
+        'Seguimiento de estado por plataforma.'
+      ],
+      projectNames: ['velocity-surge', 'ows-store'],
+      entryType: 'event',
+      platforms: ['windows'],
+      model2dKey: 'velocity-surge-launch',
+      model2dPayload: { key: 'velocity-surge-launch' },
+      bannerMeta: {
+        starts_at: '2026-03-03T18:00:00Z',
+        ends_at: '2026-03-10T18:00:00Z',
+        label: 'Evento',
+        title: 'Velocity Surge Update Wave',
+        text: 'Semana dedicada a novedades y mejoras de velocidad.',
+        slug: 'velocity-surge'
+      },
+      priority: 145,
+      isActive: true,
+      eventStart: '2026-03-03T18:00:00Z',
+      eventEnd: '2026-03-10T18:00:00Z'
+    },
+    {
+      title: 'OWS News se integra dentro de OWS Store',
+      description: 'Noticias y changelogs centralizados directamente en OWS Store.',
+      changes: [
+        'OWS News deja de operar como app separada.',
+        'Noticias y eventos se administran desde servidor para cambios inmediatos.'
+      ],
+      projectNames: ['ows-store'],
+      entryType: 'changelog',
+      platforms: ['windows', 'android'],
+      model2dKey: 'store-news-hub',
+      model2dPayload: { key: 'store-news-hub' },
+      bannerMeta: {},
+      priority: 155,
+      isActive: true,
+      eventStart: null,
+      eventEnd: null
+    }
+  ];
+
+  for (const seed of seeds) {
+    await pool.query(
+      `INSERT INTO ows_news_updates
+       (title, description, changes, project_names, update_date, entry_type, platforms, model_2d_key, model_2d_payload, banner_meta, is_active, priority, event_start, event_end)
+       SELECT $1, $2, $3, $4, NOW(), $5, $6, $7, $8::jsonb, $9::jsonb, $10, $11, $12, $13
+       WHERE NOT EXISTS (
+         SELECT 1
+         FROM ows_news_updates
+         WHERE LOWER(title) = LOWER($1)
+           AND entry_type = $5
+       )`,
+      [
+        seed.title,
+        seed.description || null,
+        Array.isArray(seed.changes) ? seed.changes.join('\n') : (seed.changes || null),
+        Array.isArray(seed.projectNames) ? seed.projectNames : [],
+        seed.entryType || 'changelog',
+        Array.isArray(seed.platforms) ? seed.platforms : [],
+        seed.model2dKey || null,
+        JSON.stringify(seed.model2dPayload || {}),
+        JSON.stringify(seed.bannerMeta || {}),
+        seed.isActive !== false,
+        Number(seed.priority || 0),
+        seed.eventStart || null,
+        seed.eventEnd || null
+      ]
+    );
+  }
+
+  const activeStoreBannerTitles = seeds
+    .filter((s) => s.entryType === 'banner')
+    .map((s) => String(s.title || '').toLowerCase());
+
+  if (activeStoreBannerTitles.length) {
+    await pool.query(
+      `UPDATE ows_news_updates
+       SET is_active = CASE WHEN LOWER(title) = ANY($1::text[]) THEN TRUE ELSE FALSE END
+       WHERE entry_type = 'banner'
+         AND (
+           EXISTS (SELECT 1 FROM unnest(project_names) AS pn WHERE LOWER(pn) IN ('ows-store', 'ows store'))
+           OR LOWER(COALESCE(title, '')) LIKE '%ows store%'
+         )`,
+      [activeStoreBannerTitles]
+    ).catch(() => {});
+  }
+}
 function normalizeNewsTextArray(input) {
   if (Array.isArray(input)) return input.map(v => String(v || '').trim()).filter(Boolean);
   if (input == null) return [];
@@ -13396,6 +13567,13 @@ function normalizeNewsNumber(input, fallback = 0) {
   return Math.trunc(n);
 }
 
+function normalizeNewsDate(input) {
+  if (input == null || input === '') return null;
+  const d = new Date(input);
+  if (!Number.isFinite(d.getTime())) return null;
+  return d.toISOString();
+}
+
 function normalizeOwsNewsRow(row) {
   if (!row || typeof row !== 'object') return row;
   return {
@@ -13407,7 +13585,9 @@ function normalizeOwsNewsRow(row) {
     model_2d_payload: normalizeNewsJson(row.model_2d_payload, {}),
     banner_meta: normalizeNewsJson(row.banner_meta, {}),
     is_active: row.is_active !== false,
-    priority: normalizeNewsNumber(row.priority, 0)
+    priority: normalizeNewsNumber(row.priority, 0),
+    event_start: row.event_start || null,
+    event_end: row.event_end || null
   };
 }
 
@@ -13472,7 +13652,9 @@ app.post('/ows-news/updates', async (req, res) => {
     model_2d_payload,
     banner_meta,
     is_active,
-    priority
+    priority,
+    event_start,
+    event_end
   } = req.body || {};
 
   if (!title) return res.status(400).json({ error: 'El t�tulo es obligatorio' });
@@ -13485,12 +13667,14 @@ app.post('/ows-news/updates', async (req, res) => {
   const normalizedBannerMeta = normalizeNewsJson(banner_meta, {});
   const normalizedActive = normalizeNewsBoolean(is_active, true);
   const normalizedPriority = normalizeNewsNumber(priority, 0);
+  const normalizedEventStart = normalizeNewsDate(event_start || normalizedBannerMeta.starts_at || normalizedBannerMeta.start_at || update_date);
+  const normalizedEventEnd = normalizeNewsDate(event_end || normalizedBannerMeta.ends_at || normalizedBannerMeta.end_at);
 
   try {
     const { rows } = await pool.query(
       `INSERT INTO ows_news_updates
-       (title, description, changes, project_names, update_date, entry_type, platforms, model_2d_key, model_2d_payload, banner_meta, is_active, priority)
-       VALUES ($1, $2, $3, $4, COALESCE($5, CURRENT_DATE), $6, $7, $8, $9::jsonb, $10::jsonb, $11, $12)
+       (title, description, changes, project_names, update_date, entry_type, platforms, model_2d_key, model_2d_payload, banner_meta, is_active, priority, event_start, event_end)
+       VALUES ($1, $2, $3, $4, COALESCE($5, CURRENT_DATE), $6, $7, $8, $9::jsonb, $10::jsonb, $11, $12, $13, $14)
        RETURNING *`,
       [
         String(title || '').trim(),
@@ -13504,7 +13688,9 @@ app.post('/ows-news/updates', async (req, res) => {
         JSON.stringify(normalizedModelPayload),
         JSON.stringify(normalizedBannerMeta),
         normalizedActive,
-        normalizedPriority
+        normalizedPriority,
+        normalizedEntryType === 'event' ? normalizedEventStart : null,
+        normalizedEntryType === 'event' ? normalizedEventEnd : null
       ]
     );
     res.json({ success: true, update: normalizeOwsNewsRow(rows[0]) });
@@ -13532,8 +13718,10 @@ app.put('/ows-news/updates/:id', async (req, res) => {
            model_2d_payload = COALESCE($9::jsonb, model_2d_payload),
            banner_meta = COALESCE($10::jsonb, banner_meta),
            is_active = COALESCE($11, is_active),
-           priority = COALESCE($12, priority)
-       WHERE id = $13
+           priority = COALESCE($12, priority),
+           event_start = COALESCE($13, event_start),
+           event_end = COALESCE($14, event_end)
+       WHERE id = $15
        RETURNING *`,
       [
         has('title') ? String(body.title || '').trim() : null,
@@ -13548,6 +13736,8 @@ app.put('/ows-news/updates/:id', async (req, res) => {
         has('banner_meta') ? JSON.stringify(normalizeNewsJson(body.banner_meta, {})) : null,
         has('is_active') ? normalizeNewsBoolean(body.is_active, true) : null,
         has('priority') ? normalizeNewsNumber(body.priority, 0) : null,
+        has('event_start') ? normalizeNewsDate(body.event_start) : null,
+        has('event_end') ? normalizeNewsDate(body.event_end) : null,
         id
       ]
     );
@@ -14398,7 +14588,6 @@ app.post('/ocean-pay/transfer', async (req, res) => {
 });
 
 
-
 // 3. Estadísticas de uso de divisas (Misc)
 app.get('/ocean-pay/stats/tx-usage/:userId', async (req, res) => {
   const { userId } = req.params;
@@ -14593,7 +14782,6 @@ app.post('/oceanic-ethernet/register', async (req, res) => {
             VALUES ($1, 'internet_gb', '0')
         `, [opUserId]); // ✅ CORREGIDO: Usamos opUserId
     }
-
 
     // 4. Vincular usuario de OceanicEthernet con el de Ocean Pay
     // Nota: Aquí se mantiene ON CONFLICT porque la tabla oceanic_ethernet_user_links tiene un UNIQUE constraint.
@@ -15469,7 +15657,6 @@ app.post('/api/extensions/categories/:userId', async (req, res) => {
   res.json({ success: true });
 });
 
-
 // GET /api/events/active
 app.get("/api/events/active", async (_req, res) => {
   // GET /api/events/active
@@ -15716,7 +15903,6 @@ app.get('/api/ecorebits/user', async (req, res) => {
   }
 });
 
-
 // Add this middleware for token authentication
 function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
@@ -15909,7 +16095,6 @@ app.post('/api/extend-limit', async (req, res) => {
     });
   }
 });
-
 
 /* ---------- ADMIN: listar usuarios ---------- */
 app.get('/admin/users', async (req, res) => {
@@ -16510,7 +16695,6 @@ function handleNatError(res, err, place = '') {
 }
 
 
-
 // Add credits table to the database
 await pool.query(`
   CREATE TABLE IF NOT EXISTS ecocore_credits (
@@ -16622,7 +16806,6 @@ app.get('/api/credits/:userId', async (req, res) => {
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
-
 
 
 // Add credits table to the database
@@ -18076,7 +18259,6 @@ app.get('/deepdive/subscription/history', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch subscription history' });
   }
 });
-
 
 // WildX – mini proyecto tipo X/Twitter
 // Sirve la SPA desde carpeta WildX
@@ -20787,7 +20969,6 @@ try {
   console.log('⚠️ Error updating floret admin roles:', e.message);
 }
 
-
 console.log('🌸 Tablas de Floret Shop verificadas');
 
 // ==========================================
@@ -21452,7 +21633,6 @@ app.get('/ocean-pay/api/stats/transactions', async (req, res) => {
       if (val >= 0) addToMap(incomeMap, 'ecocorebits', val);
       else addToMap(expenseMap, 'ecocorebits', Math.abs(val));
     }
-
 
     const incomes = Object.keys(incomeMap).map(k => ({ currency: k, total: incomeMap[k] }));
     const expenses = Object.keys(expenseMap).map(k => ({ currency: k, total: expenseMap[k] }));

@@ -15,14 +15,31 @@ on:
         required: true
         default: "main"
         type: string
+      build_profile:
+        description: "Perfil de build Android"
+        required: true
+        default: "fast"
+        type: choice
+        options:
+          - fast
+          - full
+      runner:
+        description: "Runner para Android (ubuntu-latest o self-hosted)"
+        required: true
+        default: "ubuntu-latest"
+        type: string
 
 permissions:
   contents: read
   actions: read
 
+concurrency:
+  group: external-android-${{ inputs.project }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-android:
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runner }}
 
     steps:
       - name: Resolve project mapping
@@ -68,12 +85,26 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            app/package-lock.json
+            package-lock.json
 
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "21"
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties', '**/gradle/libs.versions.toml') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
@@ -185,7 +216,12 @@ jobs:
         run: |
           cd "$APP_DIR/android"
           chmod +x gradlew
-          ./gradlew --no-daemon assembleDebug assembleRelease bundleRelease
+          BUILD_PROFILE="${{ inputs.build_profile }}"
+          TARGETS="assembleRelease"
+          if [ "$BUILD_PROFILE" = "full" ]; then
+            TARGETS="assembleDebug assembleRelease bundleRelease"
+          fi
+          ./gradlew --no-daemon --build-cache --parallel -x lint -x test $TARGETS
 
       - name: Detect signing config
         shell: bash

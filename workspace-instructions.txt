@@ -167,6 +167,20 @@ Notas:
 - Verificar que OWS Store detecte version nueva por plataforma.
 - Si no detecta update: revisar semver/tag y que latest apunte al release correcto.
 
+CHECK BLOQUEANTE WINDOWS (UPDATER ELECTRON):
+- Antes de cerrar una release Windows, validar SIEMPRE:
+  1) https://github.com/OceanandWild/<repo>/releases/latest/download/latest.yml responde 200.
+  2) latest.yml incluye version NUEVA (estrictamente mayor a la instalada).
+  3) latest.yml referencia el .exe correcto (mismo build/version) y su hash.
+  4) El release Windows debe quedar como Latest (si usa updater por latest.yml).
+  5) Ninguna release Android debe quedar como Latest en ese repo mixto.
+- Si el usuario reporta "No hay updates" en Windows:
+  - Caso esperado: version instalada == version en latest.yml.
+  - Caso error real: latest.yml ausente, version no incrementada, Latest apuntando a Android, o assets inconsistentes.
+- Regla operativa:
+  - Si quieres forzar deteccion de update en Windows, debes publicar una version nueva (bump de version) + release Windows Latest con latest.yml.
+  - Sin bump de version, el updater no debe ofrecer update.
+
 7) ESTANDAR DE COMANDOS GH EN POWERSHELL
 - Siempre invocar gh con ruta completa:
   & "C:\Program Files\GitHub CLI\gh.exe" <comando>

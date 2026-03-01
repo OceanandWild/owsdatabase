@@ -5510,6 +5510,16 @@
             const eventsWrap = document.getElementById('m-events-list');
             const newsWrap = document.getElementById('m-news-wrap');
             if (!changelogWrap || !eventsWrap || !newsWrap) return;
+            const buildEntryDetailsHtml = (item) => {
+                const desc = String(item?.description || '').trim();
+                const lines = Array.isArray(item?.changes)
+                    ? item.changes.map((line) => String(line || '').trim()).filter(Boolean)
+                    : [];
+                const listHtml = lines.length
+                    ? `<span>${lines.map((line) => `- ${line}`).join('<br>')}</span>`
+                    : `<span>${desc || 'Sin descripcion'}</span>`;
+                return `${desc ? `<span>${desc}</span>` : ''}${listHtml}`;
+            };
             const owsNewsEntries = (owsNewsUpdatesCache || []).filter((entry) => doesNewsEntryMatchProject(entry, project));
             const releaseEntries = getReleaseDerivedProjectEntries(project);
             const entries = [...releaseEntries, ...owsNewsEntries]
@@ -5522,7 +5532,7 @@
                     <div class="modal-news-item">
                         <strong>${item.title}</strong>
                         <span style="margin-bottom:0.2rem;">${getNewsPlatformsBadgeHtml(item.platforms || ['all'])}</span>
-                        <span>${item.description || (item.changes[0] || 'Sin descripcion')}</span>
+                        ${buildEntryDetailsHtml(item)}
                         <span>${formatDateTime(item.updateDate)}</span>
                     </div>
                 `).join('')
@@ -5532,7 +5542,7 @@
                     <div class="modal-news-item">
                         <strong>${item.title}</strong>
                         <span style="margin-bottom:0.2rem;">${getNewsPlatformsBadgeHtml(item.platforms || ['all'])}</span>
-                        <span>${item.description || (item.changes[0] || 'Sin descripcion')}</span>
+                        ${buildEntryDetailsHtml(item)}
                         <span>${formatDateTime(item.updateDate)}</span>
                     </div>
                 `).join('')

@@ -3798,12 +3798,25 @@
             const now = new Date();
             const curEvt = EVENTS_CALENDAR.find(e => now >= e.startDate && now <= e.endDate);
             if (!curEvt || !EVENT_OFFERS[curEvt.id]) { container.style.display = 'none'; return; }
+            const formatRemaining = (ms) => {
+                const safe = Math.max(0, ms);
+                const d = Math.floor(safe / 86400000);
+                const h = Math.floor((safe % 86400000) / 3600000);
+                const m = Math.floor((safe % 3600000) / 60000);
+                const s = Math.floor((safe % 60000) / 1000);
+                if (d > 0) return `${d}d ${String(h).padStart(2, '0')}h ${String(m).padStart(2, '0')}m`;
+                return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+            };
             container.style.display = 'block';
-            container.innerHTML = '<h3 style="font-family:Orbitron;font-size:1rem;color:var(--accent-pink);letter-spacing:3px;text-align:center;margin-bottom:15px;">OFERTAS DE EVENTO: ' + curEvt.shortName + '</h3>';
+            container.innerHTML =
+                '<h3 style="font-family:Orbitron;font-size:1rem;color:var(--accent-pink);letter-spacing:3px;text-align:center;margin-bottom:6px;">OFERTAS DE EVENTO: ' + curEvt.shortName + '</h3>' +
+                '<div data-shop-event-countdown="' + curEvt.id + '" style="text-align:center;font-family:Orbitron;font-size:0.78rem;color:#b8f6ff;opacity:0.9;margin-bottom:12px;">Termina en: ' + formatRemaining(curEvt.endDate.getTime() - now.getTime()) + '</div>';
             const grid = document.createElement('div');
             grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:15px;';
-            const daysLeft = Math.ceil((curEvt.endDate.getTime() - now.getTime()) / 86400000);
             EVENT_OFFERS[curEvt.id].forEach(function (offer) {
+                const msLeftEvt = curEvt.endDate.getTime() - now.getTime();
+                if (msLeftEvt <= 0) return;
+                const daysLeft = Math.ceil(msLeftEvt / 86400000);
                 if (offer.type === 'lastchance' && daysLeft > (offer.lastChanceDays || 3)) return;
                 const bought = GameData.purchasedOffers && GameData.purchasedOffers.includes(offer.id);
                 const poolChars = Array.isArray(offer.pool) ? offer.pool.filter(id => CHARACTERS[id]) : [];
@@ -3831,6 +3844,27 @@
             });
             container.appendChild(grid);
         }
+
+        window.__VS_UPDATE_SHOP_EVENT_COUNTDOWN = function updateShopEventCountdown() {
+            const host = document.querySelector('[data-shop-event-countdown]');
+            if (!host) return;
+            const evtId = host.getAttribute('data-shop-event-countdown');
+            const evt = EVENTS_CALENDAR.find(e => e.id === evtId);
+            if (!evt) return;
+            const diff = evt.endDate.getTime() - Date.now();
+            if (diff <= 0) {
+                host.textContent = 'Evento finalizado';
+                renderShopEventOffers();
+                return;
+            }
+            const d = Math.floor(diff / 86400000);
+            const h = Math.floor((diff % 86400000) / 3600000);
+            const m = Math.floor((diff % 3600000) / 60000);
+            const s = Math.floor((diff % 60000) / 1000);
+            host.textContent = d > 0
+                ? `Termina en: ${d}d ${String(h).padStart(2, '0')}h ${String(m).padStart(2, '0')}m`
+                : `Termina en: ${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        };
 
         function checkEventReset() {
             const now = Date.now();
@@ -4790,7 +4824,16 @@
                         }
 
                         // Pick char
-                        const pool = Object.entries(CHARACTERS).filter(([_, c]) => c.rarity === rarity);
+                        const canDrop = (id) => {
+                            try {
+                                return (typeof window.__VS_CAN_DROP_CHARACTER === 'function')
+                                    ? window.__VS_CAN_DROP_CHARACTER(id)
+                                    : true;
+                            } catch (_) {
+                                return true;
+                            }
+                        };
+                        const pool = Object.entries(CHARACTERS).filter(([id, c]) => c.rarity === rarity && canDrop(id));
                         if (pool.length > 0) {
                             const charId = pool[Math.floor(Math.random() * pool.length)][0];
                             // Add to list
@@ -4984,7 +5027,10 @@
             // Mapas destacados por evento
             const eventFeaturedMaps = {
                 'glitch': 'glitch_void',
-                'valentine': 'jungle_temple'
+                'valentine': 'jungle_temple',
+                'elemental_convergence': 'energy_nexus',
+                'planetary_alignment': 'orbital_station',
+                'glitch_protocol_replay': 'glitch_void'
             };
 
             const featuredMapId = activeEvent ? eventFeaturedMaps[activeEvent] : null;
@@ -6370,6 +6416,66 @@
                     }
                     break;
                 }
+                case 'planet_mercury': { // Núcleo rocoso con mini órbitas
+                    const t = Date.now() / 220;
+                    const grd = ctx.createRadialGradient(0, 0, 4, 0, 0, 36);
+                    grd.addColorStop(0, '#fff4d6');
+                    grd.addColorStop(0.45, color);
+                    grd.addColorStop(1, 'rgba(0,0,0,0)');
+                    ctx.fillStyle = grd;
+                    ctx.beginPath(); ctx.arc(0, 0, 34, 0, Math.PI * 2); ctx.fill();
+
+                    ctx.fillStyle = color;
+                    ctx.beginPath(); ctx.arc(0, 0, 18, 0, Math.PI * 2); ctx.fill();
+                    ctx.strokeStyle = secColor; ctx.lineWidth = 2;
+                    ctx.beginPath(); ctx.arc(0, 0, 24, 0, Math.PI * 2); ctx.stroke();
+
+                    ctx.fillStyle = '#8d6e63';
+                    for (let i = 0; i < 3; i++) {
+                        const a = t + i * (Math.PI * 2 / 3);
+                        ctx.beginPath(); ctx.arc(Math.cos(a) * 26, Math.sin(a) * 16, 4.5, 0, Math.PI * 2); ctx.fill();
+                    }
+                    break;
+                }
+                case 'planet_venus': { // Planeta caliente con estela tóxica
+                    const t = Date.now() / 240;
+                    const g = ctx.createRadialGradient(0, 0, 3, 0, 0, 38);
+                    g.addColorStop(0, '#fff3d0');
+                    g.addColorStop(0.35, color);
+                    g.addColorStop(1, 'rgba(255,111,97,0)');
+                    ctx.fillStyle = g;
+                    ctx.beginPath(); ctx.arc(0, 0, 35, 0, Math.PI * 2); ctx.fill();
+
+                    ctx.fillStyle = color;
+                    ctx.beginPath(); ctx.ellipse(0, 0, 20, 17, 0, 0, Math.PI * 2); ctx.fill();
+                    ctx.strokeStyle = secColor; ctx.lineWidth = 2.2;
+                    ctx.beginPath(); ctx.arc(0, 0, 25, t, t + Math.PI * 1.2); ctx.stroke();
+
+                    ctx.fillStyle = '#7cb342';
+                    for (let i = 0; i < 4; i++) {
+                        ctx.beginPath();
+                        ctx.arc(-24 + i * 8, Math.sin(t + i) * 8, 2.2, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                    break;
+                }
+                case 'planet_terra': { // Tierra estilizada con aro orbital
+                    const t = Date.now() / 280;
+                    ctx.fillStyle = '#0d47a1';
+                    ctx.beginPath(); ctx.arc(0, 0, 20, 0, Math.PI * 2); ctx.fill();
+                    ctx.fillStyle = '#2e7d32';
+                    ctx.beginPath(); ctx.ellipse(-5, -2, 8, 5, 0.3, 0, Math.PI * 2); ctx.fill();
+                    ctx.beginPath(); ctx.ellipse(8, 5, 7, 4, -0.4, 0, Math.PI * 2); ctx.fill();
+                    ctx.strokeStyle = '#81d4fa'; ctx.lineWidth = 2.5;
+                    ctx.beginPath(); ctx.ellipse(0, 0, 31, 10, t * 0.2, 0, Math.PI * 2); ctx.stroke();
+
+                    ctx.fillStyle = secColor;
+                    for (let i = 0; i < 2; i++) {
+                        const a = t + i * Math.PI;
+                        ctx.beginPath(); ctx.arc(Math.cos(a) * 31, Math.sin(a) * 10, 3.2, 0, Math.PI * 2); ctx.fill();
+                    }
+                    break;
+                }
                 default: // Modelo genérico aerodinámico
                     ctx.fillStyle = color;
                     ctx.beginPath();
@@ -6446,6 +6552,66 @@
                         ctx.save(); ctx.rotate(i * Math.PI / 2);
                         ctx.fillRect(15 * s, -2 * s, 10 * s, 4 * s);
                         ctx.restore();
+                    }
+                    break;
+                case 'mercury_megaboulder':
+                    ctx.fillStyle = '#8d6e63';
+                    ctx.beginPath(); ctx.arc(0, 0, 17 * s, 0, Math.PI * 2); ctx.fill();
+                    ctx.strokeStyle = '#ffb673'; ctx.lineWidth = 2 * s; ctx.stroke();
+                    ctx.fillStyle = '#ffb673';
+                    ctx.beginPath(); ctx.moveTo(17 * s, 0); ctx.lineTo(30 * s, -4 * s); ctx.lineTo(30 * s, 4 * s); ctx.closePath(); ctx.fill();
+                    break;
+                case 'mercury_rock_ram':
+                    ctx.fillStyle = '#a1887f';
+                    ctx.beginPath(); ctx.ellipse(0, 0, 20 * s, 14 * s, 0, 0, Math.PI * 2); ctx.fill();
+                    ctx.strokeStyle = '#ffd180'; ctx.lineWidth = 2.2 * s;
+                    ctx.beginPath(); ctx.arc(0, 0, 23 * s, 0, Math.PI * 2); ctx.stroke();
+                    break;
+                case 'mercury_orbit_meteors':
+                    ctx.fillStyle = '#a1887f';
+                    for (let i = 0; i < 3; i++) {
+                        const a = (Math.PI * 2 / 3) * i;
+                        ctx.beginPath(); ctx.arc(Math.cos(a) * 14 * s, Math.sin(a) * 14 * s, 6 * s, 0, Math.PI * 2); ctx.fill();
+                    }
+                    ctx.strokeStyle = '#ffd180'; ctx.lineWidth = 1.6 * s;
+                    ctx.beginPath(); ctx.arc(0, 0, 19 * s, 0, Math.PI * 2); ctx.stroke();
+                    break;
+                case 'venus_heat_wake':
+                    ctx.strokeStyle = '#ff7043'; ctx.lineWidth = 3 * s;
+                    ctx.beginPath(); ctx.moveTo(-20 * s, -6 * s); ctx.quadraticCurveTo(0, -18 * s, 22 * s, -4 * s); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(-20 * s, 6 * s); ctx.quadraticCurveTo(0, 18 * s, 22 * s, 4 * s); ctx.stroke();
+                    ctx.fillStyle = '#ffd166'; ctx.beginPath(); ctx.arc(-3 * s, 0, 6 * s, 0, Math.PI * 2); ctx.fill();
+                    break;
+                case 'venus_sulfur_boost':
+                    ctx.fillStyle = '#7cb342';
+                    ctx.beginPath(); ctx.arc(0, 0, 17 * s, 0, Math.PI * 2); ctx.fill();
+                    ctx.strokeStyle = '#ff7043'; ctx.lineWidth = 2 * s;
+                    ctx.beginPath(); ctx.arc(0, 0, 23 * s, Math.PI * 0.15, Math.PI * 1.85); ctx.stroke();
+                    break;
+                case 'venus_sulfur_pool':
+                    ctx.fillStyle = 'rgba(124,179,66,0.85)';
+                    ctx.beginPath(); ctx.ellipse(0, 0, 22 * s, 11 * s, 0, 0, Math.PI * 2); ctx.fill();
+                    ctx.strokeStyle = '#ff7043'; ctx.lineWidth = 2 * s; ctx.stroke();
+                    break;
+                case 'terra_rocket_salvo':
+                    ctx.fillStyle = '#90caf9';
+                    ctx.fillRect(-14 * s, -5 * s, 28 * s, 10 * s);
+                    ctx.fillStyle = '#66bb6a';
+                    ctx.beginPath(); ctx.moveTo(16 * s, 0); ctx.lineTo(28 * s, -5 * s); ctx.lineTo(28 * s, 5 * s); ctx.closePath(); ctx.fill();
+                    break;
+                case 'terra_geo_launch':
+                    ctx.fillStyle = '#4fc3f7';
+                    ctx.beginPath(); ctx.arc(0, 0, 15 * s, 0, Math.PI * 2); ctx.fill();
+                    ctx.strokeStyle = '#66bb6a'; ctx.lineWidth = 2.2 * s;
+                    ctx.beginPath(); ctx.ellipse(0, 0, 24 * s, 9 * s, Math.PI / 7, 0, Math.PI * 2); ctx.stroke();
+                    break;
+                case 'terra_satellite_field':
+                    ctx.strokeStyle = '#81d4fa'; ctx.lineWidth = 2 * s;
+                    ctx.beginPath(); ctx.arc(0, 0, 20 * s, 0, Math.PI * 2); ctx.stroke();
+                    ctx.fillStyle = '#66bb6a';
+                    for (let i = 0; i < 3; i++) {
+                        const a = (Math.PI * 2 / 3) * i;
+                        ctx.fillRect(Math.cos(a) * 16 * s - 3 * s, Math.sin(a) * 16 * s - 3 * s, 6 * s, 6 * s);
                     }
                     break;
                 case 'dust_blind':
@@ -6968,6 +7134,59 @@
                     }
                 }
 
+                if (this.mercuryOrbitArmed) {
+                    this.mercuryOrbitTimer = Math.max(0, Number(this.mercuryOrbitTimer || 0) - dt);
+                    if (this.mercuryOrbitTimer <= 0) {
+                        this.mercuryOrbitArmed = false;
+                        this.mercuryOrbitMeteors = 0;
+                    }
+                }
+
+                if (this.venusHeatWakeTimer > 0) {
+                    this.venusHeatWakeTimer -= dt;
+                    this.venusHeatWakeTick = (this.venusHeatWakeTick || 0) - dt;
+                    if (this.venusHeatWakeTick <= 0) {
+                        this.venusHeatWakeTick = 0.25;
+                        const victims = [gameState.player, ...gameState.bots].filter(r =>
+                            r !== this &&
+                            r.lane === this.lane &&
+                            r.x < this.x &&
+                            (this.x - r.x) < 360
+                        );
+                        victims.forEach(v => {
+                            v.venusHeatExposure = (v.venusHeatExposure || 0) + 0.15;
+                            if (v.venusHeatExposure >= (this.venusHeatWakeRate || 1.0)) {
+                                v.venusHeatExposure = 0;
+                                v.progress -= Math.max(180, Number(this.venusHeatWakeDamage || 260));
+                                v.effects.push({ type: 'slow', duration: 0.45 });
+                                addHitToLog(this, v, 'venus_heat_wake');
+                            }
+                        });
+                    }
+                }
+
+                if (this.venusAcidTrailTimer > 0) {
+                    this.venusAcidTrailTimer -= dt;
+                    this.venusAcidTrailTick = (this.venusAcidTrailTick || 0) - dt;
+                    if (this.venusAcidTrailTick <= 0) {
+                        this.venusAcidTrailTick = 0.28;
+                        const trail = new Trap(this.x - 40, this.lane, 'venus_acid_trail', 'venus_sulfur_boost', '#7cb342', 2.8, this);
+                        trail.venusDamage = 95 + Math.max(0, Number(this.turboLevel || 1) - 1) * 35;
+                        trail.venusReactionDelay = Math.max(0.7, Number(this.venusAcidReactionDelay || 0.95));
+                        gameState.traps.push(trail);
+                    }
+                }
+
+                if (this.venusHeatBoostTimer > 0) {
+                    this.venusHeatBoostTimer -= dt;
+                    speedMod *= Math.max(1.0, Number(this.venusHeatBoostValue || 1.16));
+                }
+
+                if (this.terraGeoShieldTimer > 0) {
+                    this.terraGeoShieldTimer -= dt;
+                    if (this.terraGeoShieldTimer > 0) this.isInvulnerable = true;
+                }
+
                 // Emisión de partículas según movimiento
                 if (speedMod > 1) {
                     particles.emitSpeed(this.x - 20, this.y, this.character.color);
@@ -6983,12 +7202,20 @@
                 const char = this.character;
 
                 if (this.item.type === 'turbo') {
-                    this.turboActive = true;
                     if (this.isPlayer) updateMissionProgress('use_turbo');
 
                     // Buff based on turbo level
                     const levelBuff = 1 + (this.turboLevel - 1) * 0.15;
-                    this.activeTurboBoost = (char.turbo.boost || 1.8) * levelBuff;
+                    const baseBoost = (char.turbo.boost || 1.8) * levelBuff;
+                    let turboDurationMs = 2000 * (1 + (this.turboLevel - 1) * 0.1);
+                    let pulseCount = 1;
+                    let pulseGapMs = 120;
+                    let turboBoostOverride = null;
+
+                    const activateTurboPulse = () => {
+                        this.turboActive = true;
+                        this.activeTurboBoost = turboBoostOverride ?? baseBoost;
+                    };
 
                     if (char.turbo.effect === 'intangible') this.intangibleTimer = 2.0 * levelBuff;
                     if (char.turbo.effect === 'storm_surge') {
@@ -7026,12 +7253,47 @@
                     if (char.turbo.effect === 'leaf_dash') {
                         this.leafTurboTimer = 3.0; // Leaf dash gives speed buff
                     }
+                    if (char.turbo.effect === 'mercury_rock_ram') {
+                        const turboLvl = Math.max(1, Number(this.turboLevel || 1));
+                        const hasDouble = turboLvl >= 3 ? true : (turboLvl === 2 ? Math.random() < 0.28 : Math.random() < 0.12);
+                        pulseCount = hasDouble ? 2 : 1;
+                        this.mercuryTurboContactDamage = 460 + (turboLvl * 90);
+                        this.mercuryTurboSlow = Math.max(0.35, 0.58 - (turboLvl * 0.05));
+                        turboDurationMs = Math.floor((920 + (turboLvl >= 2 ? 150 : 0)) * (1 + (turboLvl - 1) * 0.04));
+                        turboBoostOverride = baseBoost * 0.88;
+                    }
+                    if (char.turbo.effect === 'venus_sulfur_boost') {
+                        const turboLvl = Math.max(1, Number(this.turboLevel || 1));
+                        this.venusAcidTrailTimer = 1.3 + turboLvl * 0.22;
+                        this.venusAcidTrailTick = 0;
+                        this.venusAcidReactionDelay = Math.max(0.72, 1.15 - turboLvl * 0.15);
+                        turboDurationMs = Math.floor(860 + turboLvl * 130);
+                        turboBoostOverride = Math.max(1.2, baseBoost * 0.62);
+                    }
+                    if (char.turbo.effect === 'terra_geo_launch') {
+                        const turboLvl = Math.max(1, Number(this.turboLevel || 1));
+                        this.terraGeoShieldTimer = 0.8 + turboLvl * 0.2;
+                        this.terraGeoImpactDamage = 280 + turboLvl * 70;
+                        turboDurationMs = Math.floor(940 + turboLvl * 120);
+                        turboBoostOverride = baseBoost * 0.84;
+                    }
 
-                    setTimeout(() => {
-                        this.turboActive = false;
-                        this.isInvulnerable = false;
-                        this.activeTurboBoost = 0;
-                    }, 2000 * (1 + (this.turboLevel - 1) * 0.1));
+                    let pulsesLeft = Math.max(1, pulseCount);
+                    const runPulse = () => {
+                        activateTurboPulse();
+                        setTimeout(() => {
+                            this.turboActive = false;
+                            this.activeTurboBoost = 0;
+                            pulsesLeft -= 1;
+                            if (pulsesLeft > 0) {
+                                setTimeout(runPulse, pulseGapMs);
+                                return;
+                            }
+                            this.isInvulnerable = false;
+                            this.mercuryTurboContactDamage = 0;
+                        }, turboDurationMs);
+                    };
+                    runPulse();
                 } else if (this.item.type === 'shield') {
                     this.shieldActive = true;
                     setTimeout(() => this.shieldActive = false, 5000);
@@ -7096,6 +7358,27 @@
                         const proj = new Projectile(this.x + 50, this.lane, 1, this, 'progressive_bubble', 'progressive_bubble', '#00bcd4');
                         proj.speed = 25;
                         gameState.projectiles.push(proj);
+                    } else if (char.projectile.effect === 'mercury_megaboulder') {
+                        const proj = new Projectile(this.x + 60, this.lane, 1, this, 'mercury_megaboulder', 'mercury_megaboulder', '#b08968');
+                        proj.speed = 23 + (this.projectileLevel >= 2 ? 4 : 0) + (this.projectileLevel >= 3 ? 5 : 0);
+                        proj.mercuryDamage = 620 + Math.max(0, this.projectileLevel - 1) * 45;
+                        gameState.projectiles.push(proj);
+                    } else if (char.projectile.effect === 'venus_heat_wake') {
+                        const projLvl = Math.max(1, Number(this.projectileLevel || 1));
+                        this.venusHeatWakeTimer = 1.45 + projLvl * 0.2;
+                        this.venusHeatWakeTick = 0;
+                        this.venusHeatWakeDamage = 260 + Math.max(0, projLvl - 1) * 80;
+                        this.venusHeatWakeRate = Math.max(1.05, 1.5 - Math.max(0, projLvl - 1) * 0.14);
+                        this.venusHeatBoostTimer = 0.85 + projLvl * 0.12;
+                        this.venusHeatBoostValue = 1.14 + projLvl * 0.04;
+                    } else if (char.projectile.effect === 'terra_rocket_salvo') {
+                        const lanes = [this.lane, Math.max(0, Math.min(LANE_COUNT - 1, this.lane + (Math.random() > 0.5 ? 1 : -1)))];
+                        lanes.forEach((ln, idx) => {
+                            const proj = new Projectile(this.x + 56 + idx * 12, ln, 1, this, 'terra_rocket_salvo', 'terra_rocket_salvo', '#66bb6a');
+                            proj.speed = 20 + this.projectileLevel * 1.5;
+                            proj.terraDamage = 330 + this.projectileLevel * 60;
+                            gameState.projectiles.push(proj);
+                        });
                     } else if (char.projectile.effect === 'fire_fan') {
                         for (let i = 0; i < 3; i++) {
                             let targetLane = this.lane + (i - 1);
@@ -7133,7 +7416,38 @@
                         gameState.projectiles.push(proj);
                     }
                 } else if (this.item.type === 'trap') {
-                    if (char.trap.effect === 'bone_pile_target') {
+                    if (char.trap.effect === 'mercury_orbit_meteors') {
+                        const trapLvl = Math.max(1, Number(this.trapLevel || 1));
+                        this.mercuryOrbitArmed = true;
+                        this.mercuryOrbitArmedAt = Date.now();
+                        this.mercuryOrbitMeteors = 3;
+                        this.mercuryOrbitTimer = 7.2;
+                        this.mercuryOrbitDamage = 520 + (trapLvl >= 2 ? 70 : 0) + (trapLvl >= 3 ? 80 : 0);
+                        this.mercuryOrbitSpeed = 22;
+                        showNotification('METEORITOS ORBITALES LISTOS · Presiona E otra vez para lanzarlos');
+                    } else if (char.trap.effect === 'venus_sulfur_pool') {
+                        const trapLvl = Math.max(1, Number(this.trapLevel || 1));
+                        const pool = new Trap(this.x - 30, this.lane, 'venus_sulfur_pool', 'venus_sulfur_pool', '#7cb342', 4.0, this);
+                        pool.venusDamage = 170 + trapLvl * 45;
+                        pool.venusReactionDelay = trapLvl >= 2 ? 0.95 : 1.25;
+                        pool.laneSpan = trapLvl >= 3 ? 1 : 0; // mejora final: 2 carriles total
+                        gameState.traps.push(pool);
+                    } else if (char.trap.effect === 'terra_satellite_field') {
+                        const trapLvl = Math.max(1, Number(this.trapLevel || 1));
+                        const laneOffsets = trapLvl >= 3
+                            ? [0, -1, 1]
+                            : (trapLvl === 2 ? [0, (Math.random() > 0.5 ? -1 : 1)] : [0]);
+                        const targetLanes = [...new Set(
+                            laneOffsets
+                                .map(off => this.lane + off)
+                                .filter(ln => ln >= 0 && ln < LANE_COUNT)
+                        )];
+                        targetLanes.forEach((lane, idx) => {
+                            const t = new Trap(this.x + 230 + idx * 60, lane, 'terra_satellite_field', 'terra_satellite_field', '#4fc3f7', 3.0, this);
+                            t.terraDamage = 210 + trapLvl * 55;
+                            gameState.traps.push(t);
+                        });
+                    } else if (char.trap.effect === 'bone_pile_target') {
                         // Bone Pile: Spawns on 1st place if not you, else 2nd. Or next rank up.
                         // Logic: "sobre el que este primero si no lo estas, el que tenga el puesto siguiente a ti... o al segundo si estas primero"
 
@@ -7879,6 +8193,30 @@
                         ctx.moveTo(screenX - 15, y + 10); ctx.lineTo(screenX, y); ctx.lineTo(screenX + 15, y - 10);
                         ctx.stroke();
                         break;
+                    case 'mercury_megaboulder':
+                        ctx.fillStyle = '#8d6e63';
+                        ctx.beginPath(); ctx.arc(screenX, y, 14, 0, Math.PI * 2); ctx.fill();
+                        ctx.strokeStyle = '#ffb673'; ctx.lineWidth = 2;
+                        ctx.stroke();
+                        ctx.fillStyle = '#ffb673';
+                        ctx.beginPath();
+                        ctx.moveTo(screenX + 14, y);
+                        ctx.lineTo(screenX + 24, y - 4);
+                        ctx.lineTo(screenX + 24, y + 4);
+                        ctx.closePath();
+                        ctx.fill();
+                        break;
+                    case 'mercury_orbit_shard':
+                        ctx.fillStyle = '#b08968';
+                        ctx.beginPath(); ctx.arc(screenX, y, 9, 0, Math.PI * 2); ctx.fill();
+                        ctx.strokeStyle = '#ffd180'; ctx.lineWidth = 1.6; ctx.stroke();
+                        break;
+                    case 'terra_rocket_salvo':
+                        ctx.fillStyle = '#90caf9';
+                        ctx.fillRect(screenX - 12, y - 4, 20, 8);
+                        ctx.fillStyle = '#66bb6a';
+                        ctx.beginPath(); ctx.moveTo(screenX + 8, y); ctx.lineTo(screenX + 18, y - 4); ctx.lineTo(screenX + 18, y + 4); ctx.closePath(); ctx.fill();
+                        break;
                     case 'bubble_shot':
                     case 'progressive_bubble':
                         ctx.fillStyle = 'rgba(0, 188, 212, 0.4)';
@@ -7992,6 +8330,21 @@
                         racer.effects.push({ type: 'stun', duration: 1.2 });
                         removeRacerItem(racer);
                         racer.knockbackForce = 10;
+                        break;
+                    case 'mercury_megaboulder':
+                        racer.progress -= Math.max(540, Number(this.mercuryDamage || 620));
+                        racer.effects.push({ type: 'stun', duration: 0.65 });
+                        racer.knockbackForce = 18;
+                        break;
+                    case 'mercury_orbit_shard':
+                        racer.progress -= Math.max(430, Number(this.mercuryDamage || 520));
+                        racer.effects.push({ type: 'slow', duration: 0.8 });
+                        racer.knockbackForce = 14;
+                        break;
+                    case 'terra_rocket_salvo':
+                        racer.progress -= Math.max(280, Number(this.terraDamage || 330));
+                        racer.effects.push({ type: 'stun', duration: 0.38 });
+                        racer.knockbackForce = 8;
                         break;
                     case 'dust_blind':
                         racer.effects.push({ type: 'slow', duration: 2.0 });
@@ -8123,6 +8476,27 @@
                         ctx.beginPath(); ctx.arc(screenX, y + 20, 20, 0, Math.PI * 2); ctx.fill();
                         ctx.strokeStyle = '#fff'; ctx.setLineDash([5, 2]); ctx.stroke();
                         break;
+                    case 'venus_sulfur_pool':
+                    case 'venus_acid_trail': {
+                        const radiusX = this.effect === 'venus_acid_trail' ? 26 : 42;
+                        ctx.fillStyle = this.effect === 'venus_acid_trail' ? 'rgba(124, 179, 66, 0.46)' : 'rgba(124, 179, 66, 0.66)';
+                        ctx.beginPath();
+                        ctx.ellipse(screenX, y + 22, radiusX, 14, 0, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.strokeStyle = '#ff7043';
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                        break;
+                    }
+                    case 'terra_satellite_field':
+                        ctx.strokeStyle = '#81d4fa'; ctx.lineWidth = 2;
+                        ctx.beginPath(); ctx.arc(screenX, y + 20, 16, 0, Math.PI * 2); ctx.stroke();
+                        ctx.fillStyle = '#66bb6a';
+                        for (let i = 0; i < 3; i++) {
+                            const a = Date.now() / 300 + i * (Math.PI * 2 / 3);
+                            ctx.fillRect(screenX + Math.cos(a) * 12 - 3, y + 20 + Math.sin(a) * 12 - 3, 6, 6);
+                        }
+                        break;
                     default:
                         ctx.fillStyle = this.color + '80';
                         ctx.beginPath(); ctx.arc(screenX, y + 20, 25, 0, Math.PI * 2); ctx.fill();
@@ -8137,6 +8511,10 @@
                 // Bone Pile and Tornado Mines are lane specific but maybe visually larger
                 if (this.effect === 'tornado_trap_mine' && racer.lane === this.lane && Math.abs(racer.x - this.x) < 50) return true;
                 if (this.effect === 'bone_pile' && racer.lane === this.lane && Math.abs(racer.x - this.x) < 40) return true;
+                if ((this.effect === 'venus_sulfur_pool' || this.effect === 'venus_acid_trail') && Math.abs(racer.x - this.x) < 58) {
+                    const span = Math.max(0, Number(this.laneSpan || 0));
+                    return Math.abs(racer.lane - this.lane) <= span;
+                }
                 if (racer.lane !== this.lane) return false;
                 const dx = Math.abs(racer.x - this.x);
                 return dx < 35;
@@ -8224,6 +8602,26 @@
                     case 'acid_hit':
                         racer.effects.push({ type: 'slow', duration: 3.0 * (1 + (this.owner ? this.owner.trapLevel - 1 : 0) * 0.2) });
                         racer.knockbackForce = 10;
+                        break;
+                    case 'venus_sulfur_pool':
+                    case 'venus_acid_trail':
+                        {
+                            const isTrail = this.effect === 'venus_acid_trail';
+                            const exposureStep = isTrail ? 0.55 : 0.95;
+                            const exposureNeeded = isTrail ? 2.2 : 1.8;
+                            racer.venusAcidExposure = (racer.venusAcidExposure || 0) + exposureStep;
+                            racer.effects.push({ type: 'slow', duration: isTrail ? 0.7 : 0.95 });
+                        if (racer.venusAcidExposure >= exposureNeeded) {
+                            racer.venusAcidExposure = 0;
+                                racer.progress -= Math.max(150, Number(this.venusDamage || (isTrail ? 180 : 230)));
+                            racer.effects.push({ type: 'stun', duration: 0.2 });
+                        }
+                        }
+                        break;
+                    case 'terra_satellite_field':
+                        racer.progress -= Math.max(170, Number(this.terraDamage || 230));
+                        racer.effects.push({ type: 'stun', duration: 0.32 });
+                        racer.knockbackForce = 7;
                         break;
                     case 'stun':
                     case 'storm_hit':
@@ -8766,6 +9164,28 @@
                                         victim.effects.push({ type: 'slow', duration: 2.0 });
                                         addHitToLog(attacker, victim, '🔥');
                                         break;
+                                    case 'planet_mercury':
+                                        victim.progress -= Math.max(460, Number(attacker.mercuryTurboContactDamage || 550));
+                                        victim.effects.push({ type: 'stun', duration: 0.5 });
+                                        victim.effects.push({ type: 'slow', duration: Math.max(0.35, Number(attacker.mercuryTurboSlow || 0.5)) });
+                                        victim.knockbackForce = 16;
+                                        addHitToLog(attacker, victim, '☄️');
+                                        break;
+                                    case 'planet_venus':
+                                        victim.effects.push({ type: 'slow', duration: 1.0 });
+                                        victim.venusAcidExposure = (victim.venusAcidExposure || 0) + 0.7;
+                                        if (victim.venusAcidExposure >= 2.2) {
+                                            victim.venusAcidExposure = 0;
+                                            victim.progress -= 180;
+                                        }
+                                        addHitToLog(attacker, victim, '🧪');
+                                        break;
+                                    case 'planet_terra':
+                                        victim.progress -= Math.max(240, Number(attacker.terraGeoImpactDamage || 320));
+                                        victim.effects.push({ type: 'stun', duration: 0.36 });
+                                        victim.knockbackForce = 12;
+                                        addHitToLog(attacker, victim, '🛰️');
+                                        break;
                                     case 'phantom':
                                         victim.progress -= 300;
                                         removeRacerItem(victim);
@@ -8985,7 +9405,16 @@
 
         // Función para intentar desbloquear un personaje aleatorio (recompensa)
         function tryRandomUnlock() {
-            const locked = Object.keys(CHARACTERS).filter(id => !GameData.unlockedCharacters.includes(id));
+            const canDrop = (id) => {
+                try {
+                    return (typeof window.__VS_CAN_DROP_CHARACTER === 'function')
+                        ? window.__VS_CAN_DROP_CHARACTER(id)
+                        : true;
+                } catch (_) {
+                    return true;
+                }
+            };
+            const locked = Object.keys(CHARACTERS).filter(id => !GameData.unlockedCharacters.includes(id) && canDrop(id));
             if (locked.length > 0 && Math.random() < 0.3) { // 30% de probabilidad si ganas
                 const randomCharId = locked[Math.floor(Math.random() * locked.length)];
                 GameData.unlockedCharacters.push(randomCharId);
@@ -9330,6 +9759,27 @@
         window.addEventListener('keydown', (e) => {
             const key = e.key.toLowerCase();
             if (key === 'e' || key === '3') { // Trap Key
+                if (gameState.player && gameState.player.mercuryOrbitArmed && Number(gameState.player.mercuryOrbitMeteors || 0) > 0) {
+                    const armedForMs = Date.now() - Number(gameState.player.mercuryOrbitArmedAt || 0);
+                    if (armedForMs > 180) {
+                        const total = Math.max(1, Number(gameState.player.mercuryOrbitMeteors || 0));
+                        const owner = gameState.player;
+                        for (let i = 0; i < total; i++) {
+                            const laneShift = i - 1;
+                            const lane = Math.max(0, Math.min(LANE_COUNT - 1, owner.lane + laneShift));
+                            const shard = new Projectile(owner.x + 48, lane, 1, owner, 'mercury_orbit_shard', 'mercury_orbit_meteors', '#b08968');
+                            shard.speed = Number(owner.mercuryOrbitSpeed || 22);
+                            shard.mercuryDamage = Number(owner.mercuryOrbitDamage || 520);
+                            gameState.projectiles.push(shard);
+                        }
+                        owner.mercuryOrbitArmed = false;
+                        owner.mercuryOrbitMeteors = 0;
+                        owner.mercuryOrbitTimer = 0;
+                        particles.emit(owner.x, owner.y, 18, '#ffb673', 5);
+                        showNotification('MERCURY: METEORITOS LANZADOS');
+                        return;
+                    }
+                }
                 // Check if player has Neutron Ammo
                 if (gameState.player && gameState.player.neutronAmmo > 0) {
                     gameState.player.neutronAmmo--;
@@ -9668,11 +10118,13 @@
         if (window.__velocitySurgeCorePatchApplied) return;
         window.__velocitySurgeCorePatchApplied = true;
 
-        const SAVE_SCHEMA_VERSION = 3;
+        const SAVE_SCHEMA_VERSION = 4;
         const PRIMARY_SAVE_KEY = 'velocity_surge_save';
         const BACKUP_SAVE_KEY = 'velocity_surge_save_backup';
         const ELEMENTAL_EVENT_ID = 'elemental_convergence';
-        const FUTURE_EVENT_ID = 'velocity_classics';
+        const PLANET_EVENT_ID = 'planetary_alignment';
+        const GLITCH_RECAP_EVENT_ID = 'glitch_protocol_replay';
+        const FUTURE_EVENT_ID = PLANET_EVENT_ID;
         const ELEMENTAL_EVENT_RACERS = [
             'elemental_aqua',
             'elemental_pyre',
@@ -9682,13 +10134,45 @@
             'elemental_crystal',
             'elemental_thunder'
         ];
+        const PLANET_EVENT_RACERS = [
+            'planet_mercury',
+            'planet_venus',
+            'planet_terra'
+        ];
+        const VS_DEV_EVENT_TEST_ENABLED = false;
 
         window.__VS_EVENT_CONSTANTS = {
             SAVE_SCHEMA_VERSION,
             ELEMENTAL_EVENT_ID,
+            PLANET_EVENT_ID,
+            GLITCH_RECAP_EVENT_ID,
             FUTURE_EVENT_ID,
-            ELEMENTAL_EVENT_RACERS
+            ELEMENTAL_EVENT_RACERS,
+            PLANET_EVENT_RACERS
         };
+
+        function getEventById(eventId) {
+            return EVENTS_CALENDAR.find(evt => evt && evt.id === eventId) || null;
+        }
+
+        function isEventActiveById(eventId, now = new Date()) {
+            const evt = getEventById(eventId);
+            if (!evt) return false;
+            return now >= evt.startDate && now <= evt.endDate;
+        }
+
+        function canCharacterDropFromGeneralLoot(charId, now = new Date()) {
+            if (VS_DEV_EVENT_TEST_ENABLED) return true;
+            const ch = CHARACTERS[charId];
+            if (!ch) return false;
+            const evtList = Array.isArray(ch.exclusiveEvents)
+                ? ch.exclusiveEvents
+                : (ch.exclusiveEvent ? [ch.exclusiveEvent] : []);
+            if (evtList.length === 0) return true;
+            return evtList.some(evtId => isEventActiveById(evtId, now));
+        }
+
+        window.__VS_CAN_DROP_CHARACTER = canCharacterDropFromGeneralLoot;
 
         const EXTRA_CHARACTERS = {
             neutron_core: {
@@ -9724,49 +10208,86 @@
                 effect: 'Flujo absoluto', stats: { speed: 7.9, accel: 7.1, handling: 8.8, weight: 6 },
                 projectile: { name: 'Orbe de Marea', effect: 'progressive_bubble' },
                 turbo: { name: 'Corriente Abisal', boost: 2.35, effect: 'water_tornado' },
-                trap: { name: 'Velo Tsunami', effect: 'tsunami_trap', duration: 2.3 }, unlocked: false, price: 1900
+                trap: { name: 'Velo Tsunami', effect: 'tsunami_trap', duration: 2.3 }, unlocked: false, price: 1900,
+                exclusiveEvent: ELEMENTAL_EVENT_ID
             },
             elemental_pyre: {
                 name: 'PYRE ELEMENTAL', rarity: 'rare', color: '#ff5b2e', secondaryColor: '#ffd180',
                 effect: 'Combustion viva', stats: { speed: 8.2, accel: 7.8, handling: 7.2, weight: 6.8 },
                 projectile: { name: 'Lanza Ignea', effect: 'burn' },
                 turbo: { name: 'Ignicion Total', boost: 2.45, effect: 'fire_trail' },
-                trap: { name: 'Ceniza Letal', effect: 'ash_trap', duration: 2.8 }, unlocked: false, price: 1900
+                trap: { name: 'Ceniza Letal', effect: 'ash_trap', duration: 2.8 }, unlocked: false, price: 1900,
+                exclusiveEvent: ELEMENTAL_EVENT_ID
             },
             elemental_gale: {
                 name: 'GALE ELEMENTAL', rarity: 'rare', color: '#c9f0ff', secondaryColor: '#8dd8ff',
                 effect: 'Viento cortante', stats: { speed: 8.3, accel: 8.7, handling: 9.6, weight: 2.8 },
                 projectile: { name: 'Lamina de Viento', effect: 'mist_trail' },
                 turbo: { name: 'Jet de Ciclon', boost: 2.3, effect: 'cloud_path' },
-                trap: { name: 'Nudo de Aire', effect: 'tornado_trap_mine', duration: 2.8 }, unlocked: false, price: 2100
+                trap: { name: 'Nudo de Aire', effect: 'tornado_trap_mine', duration: 2.8 }, unlocked: false, price: 2100,
+                exclusiveEvent: ELEMENTAL_EVENT_ID
             },
             elemental_terra: {
                 name: 'TERRA ELEMENTAL', rarity: 'rare', color: '#b18b62', secondaryColor: '#e2c298',
                 effect: 'Masa tectonica', stats: { speed: 5.5, accel: 5.9, handling: 5.1, weight: 13.8 },
                 projectile: { name: 'Roca Prismatica', effect: 'knockback' },
                 turbo: { name: 'Pulso Sismico', boost: 1.9, effect: 'rock_collision' },
-                trap: { name: 'Falla de Tierra', effect: 'rock_path', duration: 2.6 }, unlocked: false, price: 2100
+                trap: { name: 'Falla de Tierra', effect: 'rock_path', duration: 2.6 }, unlocked: false, price: 2100,
+                exclusiveEvent: ELEMENTAL_EVENT_ID
             },
             elemental_plasma: {
                 name: 'PLASMA ELEMENTAL', rarity: 'epic', color: '#ffea00', secondaryColor: '#ff4ff2',
                 effect: 'Carga inestable', stats: { speed: 8.8, accel: 9.1, handling: 7.9, weight: 4.5 },
                 projectile: { name: 'Arco de Plasma', effect: 'electric_beam_charge' },
                 turbo: { name: 'Sobrecarga', boost: 2.55, effect: 'electric_dash' },
-                trap: { name: 'Mina Pulsar', effect: 'electric_mines_triple', duration: 2.5 }, unlocked: false, price: 3300
+                trap: { name: 'Mina Pulsar', effect: 'electric_mines_triple', duration: 2.5 }, unlocked: false, price: 3300,
+                exclusiveEvent: ELEMENTAL_EVENT_ID
             },
             elemental_crystal: {
                 name: 'CRYSTAL ELEMENTAL', rarity: 'epic', color: '#8ff7ff', secondaryColor: '#6f77ff',
                 effect: 'Resonancia de cuarzo', stats: { speed: 7.8, accel: 8.4, handling: 8.6, weight: 6.2 },
                 projectile: { name: 'Lanza Prisma', effect: 'storm_seeker_new' },
                 turbo: { name: 'Fase Radiante', boost: 2.35, effect: 'sonic_overload' },
-                trap: { name: 'Nido Prismático', effect: 'storm_block', duration: 2.4 }, unlocked: false, price: 3400
+                trap: { name: 'Nido Prismático', effect: 'storm_block', duration: 2.4 }, unlocked: false, price: 3400,
+                exclusiveEvent: ELEMENTAL_EVENT_ID
             },
             elemental_thunder: {
                 name: 'THUNDER ELEMENTAL', rarity: 'epic', color: '#ffe95c', secondaryColor: '#5ac8ff',
                 effect: 'Ruptura electrica', stats: { speed: 8.7, accel: 9.3, handling: 7.8, weight: 5.1 },
                 projectile: { name: 'Rayo Fractal', effect: 'chain_lightning' },
                 turbo: { name: 'Impulso de Tormenta', boost: 2.5, effect: 'storm_surge' },
-                trap: { name: 'Trampa de Relampagos', effect: 'triple_storm', duration: 2.2 }, unlocked: false, price: 3600
+                trap: { name: 'Trampa de Relampagos', effect: 'triple_storm', duration: 2.2 }, unlocked: false, price: 3600,
+                exclusiveEvent: ELEMENTAL_EVENT_ID
+            },
+            planet_mercury: {
+                name: 'MERCURY', rarity: 'epic', color: '#c9b8a4', secondaryColor: '#ffb673',
+                effect: 'Planeta interno de impacto masivo',
+                stats: { speed: 8.6, accel: 8.1, handling: 7.2, weight: 7.4 },
+                projectile: { name: 'Roca Planetaria', effect: 'mercury_megaboulder' },
+                turbo: { name: 'Armazon Tectonico', boost: 2.18, effect: 'mercury_rock_ram' },
+                trap: { name: 'Orbita Meteoritica', effect: 'mercury_orbit_meteors', duration: 6.2 },
+                unlocked: false, price: 4200,
+                exclusiveEvent: PLANET_EVENT_ID
+            },
+            planet_venus: {
+                name: 'VENUS', rarity: 'epic', color: '#ff6f61', secondaryColor: '#ffd166',
+                effect: 'Infierno de calor y ácido sulfurico',
+                stats: { speed: 8.2, accel: 8.5, handling: 8.8, weight: 5.9 },
+                projectile: { name: 'Estela Solar', effect: 'venus_heat_wake' },
+                turbo: { name: 'Impulso Sulfurico', boost: 2.08, effect: 'venus_sulfur_boost' },
+                trap: { name: 'Poza Sulfurica', effect: 'venus_sulfur_pool', duration: 4.4 },
+                unlocked: false, price: 4300,
+                exclusiveEvent: PLANET_EVENT_ID
+            },
+            planet_terra: {
+                name: 'EARTH', rarity: 'legendary', color: '#4fc3f7', secondaryColor: '#66bb6a',
+                effect: 'Defensa orbital y ataque aeroespacial',
+                stats: { speed: 7.6, accel: 8.7, handling: 9.0, weight: 6.4 },
+                projectile: { name: 'Salva Orbital', effect: 'terra_rocket_salvo' },
+                turbo: { name: 'Lanzamiento Geosync', boost: 2.0, effect: 'terra_geo_launch' },
+                trap: { name: 'Red Satelital', effect: 'terra_satellite_field', duration: 4.2 },
+                unlocked: false, price: 5200,
+                exclusiveEvent: PLANET_EVENT_ID
             }
         };
 
@@ -9857,7 +10378,6 @@
         };
 
         loadGame();
-
         window.__VS_REBUILD_EVENTS = function rebuildEventCalendar() {
             const now = new Date();
             const activeStart = new Date(now);
@@ -9868,13 +10388,21 @@
             activeEnd.setDate(now.getDate() + 6);
             activeEnd.setHours(23, 59, 59, 999);
 
-            const futureStart = new Date(activeEnd);
-            futureStart.setDate(activeEnd.getDate() + 2);
-            futureStart.setHours(0, 0, 0, 0);
+            const planetStart = new Date(activeEnd);
+            planetStart.setDate(activeEnd.getDate() + 1);
+            planetStart.setHours(0, 0, 0, 0);
 
-            const futureEnd = new Date(futureStart);
-            futureEnd.setDate(futureStart.getDate() + 7);
-            futureEnd.setHours(23, 59, 59, 999);
+            const planetEnd = new Date(planetStart);
+            planetEnd.setDate(planetStart.getDate() + 7);
+            planetEnd.setHours(23, 59, 59, 999);
+
+            const glitchStart = new Date(planetEnd);
+            glitchStart.setDate(planetEnd.getDate() + 1);
+            glitchStart.setHours(0, 0, 0, 0);
+
+            const glitchEnd = new Date(glitchStart);
+            glitchEnd.setDate(glitchStart.getDate() + 7);
+            glitchEnd.setHours(23, 59, 59, 999);
 
             EVENTS_CALENDAR.length = 0;
             EVENTS_CALENDAR.push(
@@ -9892,13 +10420,26 @@
                     mapOverride: 'energy_nexus'
                 },
                 {
-                    id: FUTURE_EVENT_ID,
+                    id: PLANET_EVENT_ID,
+                    name: 'PLANETARY RUSH',
+                    shortName: 'PLANETAS',
+                    color: '#7dd3fc',
+                    bgGradient: 'linear-gradient(135deg,#040b1f 0%,#101d42 52%,#1e0f2e 100%)',
+                    startDate: planetStart,
+                    endDate: planetEnd,
+                    featuredRacer: 'planet_terra',
+                    racers: PLANET_EVENT_RACERS,
+                    description: 'Mercurio, Venus y Tierra entran al circuito con habilidades planetarias exclusivas.',
+                    mapOverride: 'orbital_station'
+                },
+                {
+                    id: GLITCH_RECAP_EVENT_ID,
                     name: 'GLITCH PROTOCOL REPLAY',
                     shortName: 'GLITCH REPLAY',
                     color: '#7dff8a',
                     bgGradient: 'linear-gradient(135deg,#071a0d 0%,#1a0f2d 100%)',
-                    startDate: futureStart,
-                    endDate: futureEnd,
+                    startDate: glitchStart,
+                    endDate: glitchEnd,
                     featuredRacer: 'glitch',
                     racers: ['glitch', 'elemental_plasma', 'pulse'],
                     description: 'Repeticion de evento: vuelve GLITCH con recompensas remix para nuevos jugadores.',
@@ -9922,11 +10463,11 @@
                 {
                     id: 'elemental_pack_2',
                     name: 'ULTIMA CORRIENTE',
-                    desc: 'Cofre elemental premium + 45 tarjetas del corredor objetivo.',
+                    desc: 'Cofre elemental premium + 45 tarjetas del corredor objetivo. Expira al final del evento.',
                     price: 9800,
                     originalPrice: 12400,
                     type: 'lastchance',
-                    lastChanceDays: 3,
+                    lastChanceDays: 9999,
                     gives: { character: 'elemental_aqua', cards: 45, bits: 300 },
                     badgeText: '-21%',
                     badgeColor: '#ffd166',
@@ -9934,19 +10475,49 @@
                 }
             ];
 
-        EVENT_OFFERS[FUTURE_EVENT_ID] = [
-            {
-                id: 'glitch_replay_pack_1',
-                name: 'REPLAY PROTOCOL',
-                desc: 'Pack de repeticion: mejora a GLITCH o PLASMA para el evento replay.',
-                price: 5900,
-                type: 'early',
-                gives: { character: 'glitch', cards: 25, bits: 350 },
-                badgeText: 'REPLAY',
-                badgeColor: '#7dff8a',
-                chestType: null
-            }
-        ];
+            EVENT_OFFERS[PLANET_EVENT_ID] = [
+                {
+                    id: 'planet_pack_1',
+                    name: 'PACK SISTEMA INTERNO',
+                    desc: 'Elige entre MERCURY, VENUS o EARTH y recibe 24 tarjetas.',
+                    price: 7600,
+                    type: 'early',
+                    gives: { character: 'planet_mercury', cards: 24, bits: 120 },
+                    pool: PLANET_EVENT_RACERS.slice(),
+                    badgeText: 'NUEVO',
+                    badgeColor: '#7dd3fc',
+                    chestType: null
+                },
+                {
+                    id: 'planet_pack_2',
+                    name: 'COFRE PLANETARIO',
+                    desc: 'Cofre avanzado del corredor planetario elegido + 52 tarjetas.',
+                    price: 11800,
+                    originalPrice: 14500,
+                    type: 'lastchance',
+                    lastChanceDays: 9999,
+                    gives: { character: 'planet_terra', cards: 52, bits: 420 },
+                    pool: PLANET_EVENT_RACERS.slice(),
+                    badgeText: '-19%',
+                    badgeColor: '#ffd166',
+                    chestType: 'event_chest_planet_terra'
+                }
+            ];
+
+            EVENT_OFFERS[GLITCH_RECAP_EVENT_ID] = [
+                {
+                    id: 'glitch_replay_pack_1',
+                    name: 'REPLAY PROTOCOL',
+                    desc: 'Pack de repeticion: mejora a GLITCH o PLASMA para el evento replay.',
+                    price: 5900,
+                    type: 'early',
+                    gives: { character: 'glitch', cards: 25, bits: 350 },
+                    badgeText: 'REPLAY',
+                    badgeColor: '#7dff8a',
+                    chestType: null
+                }
+            ];
+
         };
 
         window.__VS_REBUILD_EVENTS();
@@ -10066,6 +10637,25 @@
         const baseShowShop = showShop;
         showShop = function showShopPatched() {
             baseShowShop();
+            try {
+                if (window.__VS_SHOP_CD_INTERVAL) {
+                    clearInterval(window.__VS_SHOP_CD_INTERVAL);
+                    window.__VS_SHOP_CD_INTERVAL = null;
+                }
+            } catch (_) { }
+            if (typeof window.__VS_UPDATE_SHOP_EVENT_COUNTDOWN === 'function') {
+                window.__VS_UPDATE_SHOP_EVENT_COUNTDOWN();
+                window.__VS_SHOP_CD_INTERVAL = setInterval(() => {
+                    try {
+                        if (document.getElementById('shopMenu').style.display !== 'flex') {
+                            clearInterval(window.__VS_SHOP_CD_INTERVAL);
+                            window.__VS_SHOP_CD_INTERVAL = null;
+                            return;
+                        }
+                        window.__VS_UPDATE_SHOP_EVENT_COUNTDOWN();
+                    } catch (_) { }
+                }, 1000);
+            }
             setTimeout(() => {
                 const ids = [
                     ['iconChestElectric', 'electric'],
@@ -11627,6 +12217,13 @@
         updateVoltBitsDisplay();
         if (oceanPayState.token) {
             syncOceanPayLinkState();
+        }
+        if (VS_DEV_EVENT_TEST_ENABLED) {
+            setTimeout(() => {
+                try {
+                    showNotification('MODO PRUEBA EVENTOS ACTIVO · Solo testing local');
+                } catch (_) { }
+            }, 350);
         }
     })();
 </script>

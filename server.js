@@ -907,6 +907,7 @@ async function runDatabaseMigrations() {
     `).catch(() => console.log('âš ï¸ Columna installer_url ya existe en ows_projects'));
 
     await ensureOwsStoreProjectsSeedData().catch(err => console.log('[OWS] Error seeding ows_projects:', err.message));
+    await ensureProjectChangelogSync({ force: true }).catch(err => console.log('[OWS] Error syncing project changelogs:', err.message));
 
     // Tabla de releases Android para updater asistido (OWS Store Launcher)
     await pool.query(`
@@ -13465,6 +13466,37 @@ async function ensureOwsStoreNewsSeedData() {
       eventEnd: '2026-03-10T18:00:00Z'
     },
     {
+      title: 'Velocity Surge Mega Update: eventos, progresion y combate',
+      description: 'Actualizacion mayor con rediseño sistémico del gameplay, progresion por eventos y mejoras visuales en interfaz.',
+      changes: [
+        'Eventos estacionales rediseñados: Elemental Convergence activo, Planetary Rush y Glitch Replay en secuencia.',
+        'Corredores elementales y planetarios integrados con identidad visual propia, habilidades e iconografia 2D completa.',
+        'Tienda renovada con ofertas de evento por tiempo y countdown para su expiracion.',
+        'Los corredores de evento pasan a exclusivos cuando termina su ventana activa.',
+        'Cofres de evento y de inventario con apertura ordenada, mejor distribución visual y panel optimizado.',
+        'Sistema de recompensa por cartas con progreso por corredor, barras de tarjetas y tratamiento de excedentes por nivel.',
+        'Selector/Garaje rediseñado: panel de informacion expandido, habilidades visibles y progreso de mejora por habilidad.',
+        'Modo Sandbox incorporado como modo separado, sin recompensas y con herramientas de control para pruebas.',
+        'HUD de carrera mejorado con modelos 2D de corredores en barra de posiciones.',
+        'Blaze rework completo: proyectil, trampa activa, turbo, VFX, SFX y balance por niveles.',
+        'Nuevo sistema de impacto: daño con retroceso y recuperación en lugar de teletransporte abrupto.',
+        'Balance integral de Mercurio, Venus y Tierra: nerfs de daño/CC, ventanas de counterplay y cobertura de carriles corregida.',
+        'Sincronizacion con Ocean Pay reforzada para conservar VoltBits y progreso monetario entre sesiones.',
+        'Correcciones de estabilidad: fixes de carrera, errores de render/canvas y flujo de UI en combate.',
+        'Mejoras generales de UX en resultados, desbloqueos, feedback visual y coherencia del loop de progresion.'
+      ],
+      projectNames: ['velocity-surge'],
+      entryType: 'changelog',
+      platforms: ['windows'],
+      model2dKey: 'velocity-surge-launch',
+      model2dPayload: { key: 'velocity-surge-launch', variant: 'mega-update' },
+      bannerMeta: {},
+      priority: 230,
+      isActive: true,
+      eventStart: null,
+      eventEnd: null
+    },
+    {
       title: 'OWS News se integra dentro de OWS Store',
       description: 'Noticias y changelogs centralizados directamente en OWS Store.',
       changes: [
@@ -13660,10 +13692,20 @@ app.get('/ows-news/updates', async (req, res) => {
   const requestedType = normalizeNewsEntryType(req.query.type || '');
   const typeFilter = String(req.query.type || '').trim() ? requestedType : '';
   const projectFilter = String(req.query.project || '').trim().toLowerCase();
+  const projectSlugSync = String(req.query.project_slug || '').trim().toLowerCase();
   const includeInactive = normalizeNewsBoolean(req.query.include_inactive, false);
   const limit = Math.max(0, Math.min(200, normalizeNewsNumber(req.query.limit, 0)));
+  const autoSync = normalizeNewsBoolean(req.query.autosync, true);
+  const forceSync = normalizeNewsBoolean(req.query.force_sync, false);
 
   try {
+    if (autoSync) {
+      await ensureProjectChangelogSync({
+        force: forceSync,
+        projectSlug: projectSlugSync
+      });
+    }
+
     const { rows } = await pool.query(`
       SELECT *
       FROM ows_news_updates
@@ -13841,7 +13883,10 @@ const OWS_GITHUB_ALLOWED_REPOS = new Set([
   'ows-news'
 ]);
 const OWS_GITHUB_CACHE_TTL_MS = Math.max(Number(process.env.OWS_GITHUB_CACHE_TTL_MS || 180000), 30000);
+const OWS_CHANGELOG_SYNC_INTERVAL_MS = Math.max(Number(process.env.OWS_CHANGELOG_SYNC_INTERVAL_MS || 300000), 60000);
 const owsGithubApiCache = new Map();
+let owsChangelogSyncLastAt = 0;
+let owsChangelogSyncPromise = null;
 const OWS_PROJECTS_WITH_ANDROID_RELEASE_SQL = `
   SELECT
     p.*,
@@ -13886,7 +13931,13 @@ function requireOwsStoreAdmin(req, res) {
 }
 
 function canProxyGitHubRepo(owner, repo) {
-  return owner === OWS_GITHUB_ALLOWED_OWNER && OWS_GITHUB_ALLOWED_REPOS.has(repo);
+  const cleanOwner = String(owner || '').trim();
+  const cleanRepo = String(repo || '').trim();
+  if (cleanOwner !== OWS_GITHUB_ALLOWED_OWNER) return false;
+  if (/^[a-z0-9._-]+$/i.test(cleanRepo) === false) return false;
+  if (OWS_GITHUB_ALLOWED_REPOS.has(cleanRepo)) return true;
+  // Fallback dinamico: permite nuevos repos de OceanandWild sin tocar el frontend.
+  return true;
 }
 
 function escapeRegex(value = '') {
@@ -14115,6 +14166,219 @@ async function fetchGitHubApiJsonCached(pathWithQuery, ttlMs = OWS_GITHUB_CACHE_
   }
 }
 
+function normalizeMarkdownLines(rawText = '') {
+  return String(rawText || '')
+    .split(/\r?\n/)
+    .map((line) => line
+      .replace(/^\s*[-*•]\s+/, '')
+      .replace(/^\s*\d+\.\s+/, '')
+      .replace(/^#{1,6}\s*/, '')
+      .trim())
+    .filter(Boolean)
+    .filter((line) => line.length > 1);
+}
+
+function parseGitHubRepoRef(input = '') {
+  const text = String(input || '').trim();
+  if (!text) return null;
+  const direct = text.match(/^([a-z0-9_.-]+)\/([a-z0-9_.-]+)$/i);
+  if (direct) {
+    return { owner: direct[1], repo: direct[2].replace(/\.git$/i, '') };
+  }
+  const url = text.match(/github\.com\/([a-z0-9_.-]+)\/([a-z0-9_.-]+)/i);
+  if (!url) return null;
+  return { owner: url[1], repo: url[2].replace(/\.git$/i, '') };
+}
+
+function resolveProjectGitHubRepo(project = {}) {
+  const metadata = project?.metadata && typeof project.metadata === 'object' ? project.metadata : {};
+  const candidates = [
+    metadata.github_repo,
+    metadata.github,
+    metadata.repo,
+    metadata.repository,
+    metadata.repository_url,
+    metadata.releases_url,
+    project?.installer_url,
+    project?.url
+  ];
+
+  for (const candidate of candidates) {
+    const ref = parseGitHubRepoRef(candidate);
+    if (!ref) continue;
+    if (!canProxyGitHubRepo(ref.owner, ref.repo)) continue;
+    return ref;
+  }
+  return null;
+}
+
+function inferPlatformsFromRelease(release = {}) {
+  const assets = Array.isArray(release.assets) ? release.assets : [];
+  const names = assets.map((a) => String(a?.name || '').toLowerCase());
+  const hasAndroid = names.some((n) => n.endsWith('.apk') || n.endsWith('.aab'));
+  const hasWindows = names.some((n) =>
+    n.endsWith('.exe') || n.endsWith('.msi') || n.endsWith('.appx') || n === 'latest.yml' || n.endsWith('.nupkg')
+  );
+  if (hasAndroid && hasWindows) return ['windows', 'android'];
+  if (hasWindows) return ['windows'];
+  if (hasAndroid) return ['android'];
+  return ['all'];
+}
+
+async function upsertAutoProjectChangelog({
+  projectSlug,
+  projectName,
+  repoOwner,
+  repoName,
+  release
+}) {
+  const tag = String(release?.tag_name || '').trim();
+  if (!tag) return { upserted: false, reason: 'missing_tag' };
+
+  const publishedAt = release?.published_at || release?.created_at || new Date().toISOString();
+  const bodyLines = normalizeMarkdownLines(release?.body || '').slice(0, 14);
+  const description = bodyLines[0] || `Release ${tag} publicada en GitHub.`;
+  const changes = bodyLines.length ? bodyLines.join('\n') : `Release ${tag} publicada en GitHub.`;
+  const title = `${projectName || projectSlug} ${tag}`;
+  const platforms = inferPlatformsFromRelease(release);
+  const sourceMeta = {
+    source: 'github_release_auto',
+    owner: repoOwner,
+    repo: repoName,
+    project_slug: projectSlug,
+    tag
+  };
+
+  const existing = await pool.query(
+    `SELECT id
+     FROM ows_news_updates
+     WHERE entry_type = 'changelog'
+       AND banner_meta->>'source' = 'github_release_auto'
+       AND banner_meta->>'project_slug' = $1
+       AND banner_meta->>'tag' = $2
+     ORDER BY id DESC
+     LIMIT 1`,
+    [projectSlug, tag]
+  );
+
+  if (existing.rowCount > 0) {
+    const id = existing.rows[0].id;
+    await pool.query(
+      `UPDATE ows_news_updates
+       SET title = $1,
+           description = $2,
+           changes = $3,
+           project_names = $4,
+           update_date = $5,
+           platforms = $6,
+           is_active = TRUE,
+           priority = GREATEST(COALESCE(priority, 0), 120),
+           banner_meta = $7::jsonb,
+           updated_at = NOW()
+       WHERE id = $8`,
+      [title, description, changes, [projectSlug], publishedAt, platforms, JSON.stringify(sourceMeta), id]
+    );
+    return { upserted: true, mode: 'update' };
+  }
+
+  await pool.query(
+    `INSERT INTO ows_news_updates
+      (title, description, changes, project_names, update_date, entry_type, platforms, model_2d_key, model_2d_payload, banner_meta, is_active, priority, event_start, event_end)
+     VALUES
+      ($1, $2, $3, $4, $5, 'changelog', $6, NULL, '{}'::jsonb, $7::jsonb, TRUE, 120, NULL, NULL)`,
+    [title, description, changes, [projectSlug], publishedAt, platforms, JSON.stringify(sourceMeta)]
+  );
+  return { upserted: true, mode: 'insert' };
+}
+
+async function syncProjectChangelogsFromGitHub({ projectSlug = '' } = {}) {
+  const slug = String(projectSlug || '').trim().toLowerCase();
+  const query = slug
+    ? {
+      text: `SELECT slug, name, installer_url, url, metadata FROM ows_projects WHERE LOWER(slug) = $1 ORDER BY slug ASC`,
+      values: [slug]
+    }
+    : {
+      text: `SELECT slug, name, installer_url, url, metadata FROM ows_projects ORDER BY slug ASC`,
+      values: []
+    };
+
+  const { rows: projects } = await pool.query(query.text, query.values);
+  let scanned = 0;
+  let synced = 0;
+  let skipped = 0;
+  const errors = [];
+
+  for (const project of projects) {
+    scanned += 1;
+    const ref = resolveProjectGitHubRepo(project);
+    if (!ref) {
+      skipped += 1;
+      continue;
+    }
+
+    try {
+      let release;
+      try {
+        const api = await fetchGitHubApiJsonCached(`/repos/${ref.owner}/${ref.repo}/releases/latest`, 120000);
+        release = api.data;
+      } catch (err) {
+        if (!shouldUseGitHubWebFallback(err)) throw err;
+        release = await fetchGitHubLatestReleaseFallback(ref.owner, ref.repo);
+      }
+      if (!release?.tag_name) {
+        skipped += 1;
+        continue;
+      }
+      const out = await upsertAutoProjectChangelog({
+        projectSlug: String(project.slug || '').toLowerCase(),
+        projectName: String(project.name || project.slug || ''),
+        repoOwner: ref.owner,
+        repoName: ref.repo,
+        release
+      });
+      if (out.upserted) synced += 1;
+      else skipped += 1;
+    } catch (err) {
+      errors.push({ slug: project.slug, error: err?.message || 'sync_error' });
+    }
+  }
+
+  return {
+    scanned,
+    synced,
+    skipped,
+    errors,
+    finishedAt: new Date().toISOString()
+  };
+}
+
+async function ensureProjectChangelogSync({ force = false, projectSlug = '' } = {}) {
+  const slug = String(projectSlug || '').trim().toLowerCase();
+  if (slug) {
+    return syncProjectChangelogsFromGitHub({ projectSlug: slug });
+  }
+  const now = Date.now();
+  if (!force && (now - owsChangelogSyncLastAt) < OWS_CHANGELOG_SYNC_INTERVAL_MS) {
+    return { skipped: true, reason: 'cooldown', lastRunAt: new Date(owsChangelogSyncLastAt).toISOString() };
+  }
+  if (owsChangelogSyncPromise) return owsChangelogSyncPromise;
+
+  owsChangelogSyncPromise = (async () => {
+    const result = await syncProjectChangelogsFromGitHub({});
+    owsChangelogSyncLastAt = Date.now();
+    return result;
+  })()
+    .catch((err) => {
+      return { scanned: 0, synced: 0, skipped: 0, errors: [{ slug: '*', error: err?.message || 'sync_failed' }] };
+    })
+    .finally(() => {
+      owsChangelogSyncPromise = null;
+    });
+
+  return owsChangelogSyncPromise;
+}
+
 /* ----------  OWS STORE SYSTEM (Projects Hub)  ---------- */
 // Proxy cacheado para GitHub Releases (evita rate-limit por cliente)
 app.get('/ows-store/github/repos/:owner/:repo/releases/latest', async (req, res) => {
@@ -14196,6 +14460,61 @@ app.get('/ows-store/projects/:slug', async (req, res) => {
   } catch (err) {
     console.error('âŒ Error en GET /ows-store/projects/:slug:', err);
     res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Changelogs centralizados para todos los proyectos (fuente: ows_news_updates + sync GitHub)
+app.get('/ows-store/changelogs', async (req, res) => {
+  const projectFilter = String(req.query.project || req.query.slug || '').trim().toLowerCase();
+  const includeInactive = normalizeNewsBoolean(req.query.include_inactive, false);
+  const limit = Math.max(1, Math.min(500, normalizeNewsNumber(req.query.limit, 120)));
+  const autoSync = normalizeNewsBoolean(req.query.autosync, true);
+  const forceSync = normalizeNewsBoolean(req.query.force_sync, false);
+  try {
+    if (autoSync) {
+      await ensureProjectChangelogSync({
+        force: forceSync,
+        projectSlug: projectFilter
+      });
+    }
+
+    const { rows } = await pool.query(`
+      SELECT *
+      FROM ows_news_updates
+      WHERE entry_type = 'changelog'
+      ORDER BY COALESCE(priority, 0) DESC, update_date DESC, created_at DESC
+      LIMIT $1
+    `, [limit * 2]);
+
+    let list = rows.map(normalizeOwsNewsRow);
+    if (!includeInactive) list = list.filter(r => r.is_active !== false);
+    if (projectFilter) {
+      list = list.filter((r) => {
+        const names = Array.isArray(r.project_names) ? r.project_names : [];
+        return names.some((name) => String(name || '').toLowerCase().includes(projectFilter));
+      });
+    }
+    list = list.slice(0, limit);
+    return res.json({ success: true, total: list.length, changelogs: list });
+  } catch (err) {
+    console.error('❌ Error en GET /ows-store/changelogs:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Sync manual de changelogs desde GitHub releases hacia ows_news_updates
+app.post('/ows-store/changelogs/sync', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const projectSlug = String(req.body?.project_slug || '').trim().toLowerCase();
+  try {
+    const result = await ensureProjectChangelogSync({
+      force: true,
+      projectSlug
+    });
+    return res.json({ success: true, sync: result });
+  } catch (err) {
+    console.error('❌ Error en POST /ows-store/changelogs/sync:', err);
+    return res.status(500).json({ error: 'Error interno' });
   }
 });
 

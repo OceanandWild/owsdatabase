@@ -9760,37 +9760,44 @@
                 const btn = document.getElementById('btn-install-update');
                 const dot = document.getElementById('update-indicator-dot');
                 const closeBtn = document.getElementById('btn-close-update-banner');
+                const availableVersion = String(info?.version || '').trim();
+                const fallbackDirectExe = availableVersion
+                    ? `https://github.com/OceanandWild/owsdatabase/releases/latest/download/OWS.Store.Setup.${availableVersion}.exe`
+                    : OWS_STORE_RELEASES_URL;
                 setStoreObsoleteGateBlocked({
                     platform: 'windows',
                     currentVersion: currentStoreWindowsVersion,
-                    requiredVersion: String(info?.version || '').trim(),
+                    requiredVersion: availableVersion,
                     reason: 'store-outdated',
                     source: 'windows-updater-event',
                 });
-                owsStoreWindowsManualUpdateUrl = '';
-                owsStoreWindowsManualVersion = '';
+                owsStoreWindowsManualUpdateUrl = fallbackDirectExe;
+                owsStoreWindowsManualVersion = availableVersion;
                 appUpdateSizeBytes = extractUpdateSizeBytes(info);
                 appUpdateEtaSeconds = null;
                 if (!isExternalInstallActive()) {
-                    if (msg) msg.textContent = 'Version ' + (info?.version || 'nueva') + ' disponible. Descargando...';
+                    if (msg) msg.textContent = 'Version ' + (availableVersion || 'nueva') + ' disponible. Descarga e instala manualmente.';
                     if (banner) banner.classList.add('visible');
-                    if (btn) btn.style.display = 'none';
+                    if (btn) {
+                        btn.style.display = 'flex';
+                        btn.innerHTML = '<i class="fas fa-download"></i> Descargar instalador';
+                    }
                     if (closeBtn) {
-                        closeBtn.disabled = true;
-                        closeBtn.style.opacity = '0.45';
-                        closeBtn.style.cursor = 'not-allowed';
+                        closeBtn.disabled = false;
+                        closeBtn.style.opacity = '1';
+                        closeBtn.style.cursor = 'pointer';
                     }
                 }
                 if (dot) dot.style.display = 'block';
                 appUpdateAvailable = true;
                 syncUpdatesBadge();
-                if (status) status.textContent = 'Descargando update v' + (info?.version || 'nueva');
+                if (status) status.textContent = 'Update manual disponible: v' + (availableVersion || 'nueva');
                 if (!isExternalInstallActive()) {
                     setUpdateBannerVisual({
                         state: 'available',
                         title: 'Actualizacion disponible',
-                        message: 'Version ' + (info?.version || 'nueva') + ' detectada. Iniciando descarga...',
-                        iconClass: 'fa-arrow-up',
+                        message: 'Version ' + (availableVersion || 'nueva') + ' detectada. Pulsa para descargar el instalador manual.',
+                        iconClass: 'fa-download',
                         iconSpin: false,
                     });
                 }
@@ -9802,10 +9809,31 @@
                     downloadedBytes: 0,
                     speedBps: 0,
                     etaSeconds: null,
-                    status: 'Update detectada: v' + (info?.version || 'nueva'),
+                    status: 'Update manual detectada: v' + (availableVersion || 'nueva'),
                 });
                 const sizeLabel = formatByteSize(appUpdateSizeBytes);
-                addNotification('Actualizacion encontrada: v' + (info?.version || 'nueva') + (sizeLabel !== '-' ? ` (${sizeLabel})` : '') + '.', 'success');
+                addNotification('Actualizacion manual disponible: v' + (availableVersion || 'nueva') + (sizeLabel !== '-' ? ` (${sizeLabel})` : '') + '.', 'success');
+                if (availableVersion) {
+                    fetchLatestOWSStoreWindowsRelease()
+                        .then((latest) => {
+                            if (latest?.downloadUrl) owsStoreWindowsManualUpdateUrl = latest.downloadUrl;
+                            if (latest?.version) owsStoreWindowsManualVersion = latest.version;
+                            if (Number(latest?.sizeBytes || 0) > 0) {
+                                appUpdateSizeBytes = Number(latest.sizeBytes);
+                                setUpdateMetaUI({ sizeBytes: appUpdateSizeBytes, etaSeconds: null, transferredBytes: null, speedBps: 0 });
+                                updateDownloadSession(STORE_DOWNLOAD_KEY, {
+                                    phase: 'available',
+                                    percent: 0,
+                                    sizeBytes: appUpdateSizeBytes,
+                                    downloadedBytes: 0,
+                                    speedBps: 0,
+                                    etaSeconds: null,
+                                    status: 'Update manual detectada: v' + (owsStoreWindowsManualVersion || availableVersion),
+                                });
+                            }
+                        })
+                        .catch(() => {});
+                }
             });
             window.owsUpdater.onDownloadProgress?.((p) => {
                 const wrap = document.getElementById('update-progress-wrap');
@@ -10085,10 +10113,13 @@
             });
             requestWindowsUpdaterCheck({ silent: true, origin: 'auto' }).catch(() => {});
         }
-        function installUpdate() {
+        async function installUpdate() {
             if (isNativeAndroidRuntime()) {
                 openStoreAndroidDownload();
                 return;
+            }
+            if (!owsStoreWindowsManualUpdateUrl) {
+                await applyWindowsManualUpdateSignal(currentStoreWindowsVersion, { silent: true }).catch(() => {});
             }
             if (owsStoreWindowsManualUpdateUrl) {
                 openExternal(owsStoreWindowsManualUpdateUrl);
@@ -10096,7 +10127,8 @@
                 addNotification('Descargando update manual de OWS Store...', 'neutral');
                 return;
             }
-            if (window.owsUpdater?.installUpdate) window.owsUpdater.installUpdate();
+            showActionMessage('No hay un instalador de update disponible en este momento.', { state: 'error' });
+            addNotification('No se encontro instalador manual para esta update.', 'error');
         }
 
         async function openStoreAndroidDownload() {

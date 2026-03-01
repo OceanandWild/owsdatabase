@@ -1,6 +1,6 @@
 {
   "name": "ocean-pay-desktop",
-  "version": "2026.2.25-t1359",
+  "version": "2026.3.1-t0330",
   "description": "Ocean Pay for Windows (Electron build)",
   "main": "main.js",
   "author": "Ocean and Wild Studios",

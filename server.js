@@ -13497,6 +13497,40 @@ async function ensureOwsStoreNewsSeedData() {
       eventEnd: null
     },
     {
+      title: 'Velocity Surge v2026.3.1-2350: expansion total de evento, progreso y UX',
+      description: 'Release mayor con mejoras de eventos, combate, tienda, cofres, balance y persistencia Ocean Pay.',
+      changes: [
+        'Evento Elementales activo con corredores exclusivos por ventana y oferta temporal con countdown real.',
+        'Nuevo evento Planetary Rush con Mercurio, Venus y Tierra, cada uno con habilidades e iconos 2D propios.',
+        'Secuencia de eventos reorganizada para que Glitch Recap quede despues de planetas.',
+        'Sistema de misiones de evento con seleccion de corredor/cofre objetivo al reiniciar o refrescar misiones.',
+        'Cofres redisenados con apertura una por una, orden por rareza y feedback de progreso mejorado.',
+        'Inventario de cofres persistente: se descuenta solo al abrir y se conserva entre sesiones.',
+        'UI de recompensas expandida para evitar compactacion y overflow con muchas cartas.',
+        'Progreso de tarjetas con manejo de excedente, siguiente nivel visible y barra coherente por nivel.',
+        'Selector de corredores y panel de informacion reworkeados con enfoque minimal y mas legibilidad.',
+        'Panel de habilidades por corredor con progreso por mejora e info contextual en hover.',
+        'Modo Sandbox integrado en la seccion correcta de modos y sin recompensas.',
+        'HUD de posiciones actualizado para usar modelos 2D en lugar de emojis.',
+        'Rework completo de Blaze: proyectil, trampa activa, turbo de impacto, VFX/SFX y nerfs de balance.',
+        'Sistema de impacto actualizado: knockback y recuperacion en vez de teletransporte brusco.',
+        'Balance aplicado a Mercurio, Venus y Tierra para carriles, dano, duracion y counterplay.',
+        'Persistencia reforzada de VoltBits con Ocean Pay para evitar perdida de saldo.',
+        'Fixes criticos de carrera, canvas, selector, tienda, cofre de victoria y fin de partida.',
+        'Animaciones nuevas para desbloqueo y mejora de corredor con mejor feedback visual y sonoro.'
+      ],
+      projectNames: ['velocity-surge'],
+      entryType: 'changelog',
+      platforms: ['windows'],
+      model2dKey: 'velocity-surge-launch',
+      model2dPayload: { key: 'velocity-surge-launch', variant: 'v2026-3-1-2350' },
+      bannerMeta: {},
+      priority: 240,
+      isActive: true,
+      eventStart: null,
+      eventEnd: null
+    },
+    {
       title: 'OWS News se integra dentro de OWS Store',
       description: 'Noticias y changelogs centralizados directamente en OWS Store.',
       changes: [

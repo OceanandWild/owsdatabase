@@ -1,7 +1,7 @@
-﻿import dotenv from "dotenv";
+import dotenv from "dotenv";
 dotenv.config();
 
-// 1ï¸âƒ£ DespuÃ©s el resto
+// 1️⃣ Después el resto
 import express from "express";
 import cors from "cors";
 import pg from "pg";
@@ -21,8 +21,8 @@ import { v2 as cloudinary } from 'cloudinary';
 import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import { MercadoPagoConfig, Preference } from 'mercadopago';
 
-// ConfiguraciÃ³n de MercadoPago
-const mpClient = new MercadoPagoConfig({ accessToken: 'APP_USR-5761093164230281-020117-8a36b5725093b330c07cf54699b7edb1-3171975745' }); // PRODUCCIÃ“N
+// Configuración de MercadoPago
+const mpClient = new MercadoPagoConfig({ accessToken: 'APP_USR-5761093164230281-020117-8a36b5725093b330c07cf54699b7edb1-3171975745' }); // PRODUCCIÓN
 // const mpClient = new MercadoPagoConfig({ accessToken: 'TEST-5761093164230281-020117-88b51453f4f07dd0e52e6ae5bb580609-3171975745' }); // PRUEBA (Comentado)
 
 /* ===== NAT-MARKET VARS ===== */
@@ -34,7 +34,7 @@ const CLOUD_NAME = 'dwoxdneqa';
 const API_KEY = '572422228753764';
 const API_SECRET = 'ORuFuHJqy82NxGlHshZo3SBrC8E';
 
-// ConfiguraciÃ³n INCONDICIONAL de Cloudinary
+// Configuración INCONDICIONAL de Cloudinary
 cloudinary.config({
   cloud_name: CLOUD_NAME,
   api_key: API_KEY,
@@ -49,11 +49,11 @@ storage = new CloudinaryStorage({
     transformation: [{ width: 1000, crop: "limit" }]
   },
 });
-console.log('â˜ï¸ Usando Cloudinary (Hardcoded) para almacenamiento de imÃ¡genes');
+console.log('☁️ Usando Cloudinary (Hardcoded) para almacenamiento de imágenes');
 
 const upload = multer({ storage });
 
-// FunciÃ³n para generar ID Ãºnico de usuario (100 caracteres)
+// Función para generar ID único de usuario (100 caracteres)
 function generateUserUniqueId() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   let result = '';
@@ -63,7 +63,7 @@ function generateUserUniqueId() {
   return result;
 }
 
-// FunciÃ³n para generar datos de tarjeta
+// Función para generar datos de tarjeta
 function generateCardDetails() {
   let cardNumber = '';
   for (let i = 0; i < 16; i++) {
@@ -121,7 +121,7 @@ app.post('/ocean-pay/register', async (req, res) => {
     // Check if user exists in OCEAN PAY USERS (Primary Source)
     const existing = await pool.query('SELECT * FROM ocean_pay_users WHERE username = $1', [username]);
     if (existing.rows.length > 0) {
-      return res.status(400).json({ error: 'El usuario ya existe en Ocean Pay. Intenta iniciar sesiÃ³n.' });
+      return res.status(400).json({ error: 'El usuario ya existe en Ocean Pay. Intenta iniciar sesión.' });
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
@@ -151,7 +151,7 @@ app.post('/ocean-pay/register', async (req, res) => {
       // Fallback for schema mismatch (e.g. if password column missing)
       console.error("DB Error in OceanPay Register:", dbErr);
       if (dbErr.code === '42703') { // Undefined column 'password'
-        return res.status(500).json({ error: 'Error de sistema: La tabla de Ocean Pay no soporta contraseÃ±as aÃºn.' });
+        return res.status(500).json({ error: 'Error de sistema: La tabla de Ocean Pay no soporta contraseñas aún.' });
       }
       throw dbErr;
     }
@@ -296,7 +296,7 @@ app.post('/ocean-pay/login', async (req, res) => {
         }
       });
     } else {
-      return res.status(401).json({ error: 'ContraseÃ±a incorrecta.' });
+      return res.status(401).json({ error: 'Contraseña incorrecta.' });
     }
 
   } catch (e) {
@@ -323,7 +323,7 @@ app.post('/ocean-pay/refresh-token', async (req, res) => {
     try {
       decoded = jwt.verify(oldToken, secret, { ignoreExpiration: true });
     } catch (e) {
-      return res.status(401).json({ error: 'Token invÃ¡lido', code: 'INVALID_TOKEN' });
+      return res.status(401).json({ error: 'Token inválido', code: 'INVALID_TOKEN' });
     }
 
     // Check grace period: only allow refresh if expired less than 30 days ago
@@ -332,7 +332,7 @@ app.post('/ocean-pay/refresh-token', async (req, res) => {
       const gracePeriodMs = 30 * 24 * 60 * 60 * 1000; // 30 days
       const now = Date.now();
       if (now - expiredAt.getTime() > gracePeriodMs) {
-        return res.status(401).json({ error: 'SesiÃ³n expirada hace demasiado tiempo. Inicia sesiÃ³n de nuevo.', code: 'GRACE_EXPIRED' });
+        return res.status(401).json({ error: 'Sesión expirada hace demasiado tiempo. Inicia sesión de nuevo.', code: 'GRACE_EXPIRED' });
       }
     }
 
@@ -346,7 +346,7 @@ app.post('/ocean-pay/refresh-token', async (req, res) => {
     const user = rows[0];
     const newToken = jwt.sign({ id: user.id, uid: user.id, username: user.username }, secret, { expiresIn: '7d' });
 
-    console.log(`ðŸ”„ Token refreshed for user: ${user.username} (ID: ${user.id})`);
+    console.log(`🔄 Token refreshed for user: ${user.username} (ID: ${user.id})`);
 
     res.json({
       success: true,
@@ -356,7 +356,7 @@ app.post('/ocean-pay/refresh-token', async (req, res) => {
 
   } catch (e) {
     console.error('Refresh token error:', e);
-    res.status(500).json({ error: 'Error al renovar sesiÃ³n' });
+    res.status(500).json({ error: 'Error al renovar sesión' });
   }
 });
 
@@ -366,13 +366,13 @@ import { dirname, join } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-/* ========== MIGRACIÃ“N AUTOMÃTICA DE BASE DE DATOS ========== */
+/* ========== MIGRACIÓN AUTOMÁTICA DE BASE DE DATOS ========== */
 async function runDatabaseMigrations() {
-  console.log('ðŸ”„ Ejecutando migraciones de base de datos...');
+  console.log('🔄 Ejecutando migraciones de base de datos...');
 
   try {
     // 0. Corregir nombres de columnas en users_nat (necesario para Supabase / NatMarket)
-    console.log('ðŸ”§ Corrigiendo esquema de users_nat...');
+    console.log('🔧 Corrigiendo esquema de users_nat...');
     await pool.query(`
       DO $$ 
       BEGIN
@@ -393,16 +393,16 @@ async function runDatabaseMigrations() {
           ALTER TABLE users_nat ALTER COLUMN email DROP NOT NULL;
         END IF;
       END $$;
-    `).catch(err => console.log('âš ï¸ Aviso: MigraciÃ³n de nombres de columna users_nat:', err.message));
+    `).catch(err => console.log('⚠️ Aviso: Migración de nombres de columna users_nat:', err.message));
 
     // 1. Agregar columna comment a user_ratings_nat si no existe
     await pool.query(`
       ALTER TABLE user_ratings_nat 
       ADD COLUMN IF NOT EXISTS comment TEXT
-    `).catch(() => console.log('âš ï¸ Columna comment ya existe en user_ratings_nat'));
+    `).catch(() => console.log('⚠️ Columna comment ya existe en user_ratings_nat'));
 
     // 2. Eliminar y recrear foreign keys con ON DELETE CASCADE
-    console.log('ðŸ”§ Arreglando foreign keys...');
+    console.log('🔧 Arreglando foreign keys...');
 
     // ai_product_generations
     await pool.query(`
@@ -415,7 +415,7 @@ async function runDatabaseMigrations() {
       ADD CONSTRAINT ai_product_generations_user_id_fkey 
       FOREIGN KEY (user_id) REFERENCES users_nat(id) 
       ON DELETE CASCADE
-    `).catch(() => console.log('âš ï¸ FK ai_product_generations ya existe'));
+    `).catch(() => console.log('⚠️ FK ai_product_generations ya existe'));
 
     // messages_nat
     await pool.query(`
@@ -428,7 +428,7 @@ async function runDatabaseMigrations() {
       ADD CONSTRAINT messages_nat_sender_id_fkey 
       FOREIGN KEY (sender_id) REFERENCES users_nat(id) 
       ON DELETE CASCADE
-    `).catch(() => console.log('âš ï¸ FK messages_nat ya existe'));
+    `).catch(() => console.log('⚠️ FK messages_nat ya existe'));
 
     // user_favorites_nat
     await pool.query(`
@@ -441,7 +441,7 @@ async function runDatabaseMigrations() {
       ADD CONSTRAINT user_favorites_nat_user_id_fkey 
       FOREIGN KEY (user_id) REFERENCES users_nat(id) 
       ON DELETE CASCADE
-    `).catch(() => console.log('âš ï¸ FK user_favorites_nat ya existe'));
+    `).catch(() => console.log('⚠️ FK user_favorites_nat ya existe'));
 
     // user_wishlist_nat
     await pool.query(`
@@ -454,7 +454,7 @@ async function runDatabaseMigrations() {
       ADD CONSTRAINT user_wishlist_nat_user_id_fkey 
       FOREIGN KEY (user_id) REFERENCES users_nat(id) 
       ON DELETE CASCADE
-    `).catch(() => console.log('âš ï¸ FK user_wishlist_nat ya existe'));
+    `).catch(() => console.log('⚠️ FK user_wishlist_nat ya existe'));
 
     // user_follows (si existe)
     await pool.query(`
@@ -481,8 +481,8 @@ async function runDatabaseMigrations() {
       ON DELETE CASCADE
     `).catch(() => { });
 
-    // 3. Limpiar registros huÃ©rfanos (datos que referencian usuarios inexistentes)
-    console.log('ðŸ§¹ Limpiando datos huÃ©rfanos...');
+    // 3. Limpiar registros huérfanos (datos que referencian usuarios inexistentes)
+    console.log('🧹 Limpiando datos huérfanos...');
 
     // Limpiar ai_product_generations
     await pool.query(`
@@ -527,7 +527,7 @@ async function runDatabaseMigrations() {
         review_type VARCHAR(20) NOT NULL CHECK (review_type IN ('seller', 'buyer')),
         created_at TIMESTAMP DEFAULT NOW()
       )
-    `).catch(() => console.log('âš ï¸ Tabla reviews_nat ya existe'));
+    `).catch(() => console.log('⚠️ Tabla reviews_nat ya existe'));
 
     // Limpiar user_reviews_nat (si existe)
     await pool.query(`
@@ -547,7 +547,7 @@ async function runDatabaseMigrations() {
     await pool.query(`
       ALTER TABLE ocean_pay_users 
       ADD COLUMN IF NOT EXISTS unique_id VARCHAR(100)
-    `).catch(() => console.log('âš ï¸ Columna unique_id ya existe en ocean_pay_users'));
+    `).catch(() => console.log('⚠️ Columna unique_id ya existe en ocean_pay_users'));
 
     // 6. Agregar columnas de monedas si no existen
     await pool.query(`
@@ -555,7 +555,7 @@ async function runDatabaseMigrations() {
       ADD COLUMN IF NOT EXISTS ecoxionums INTEGER DEFAULT 0,
       ADD COLUMN IF NOT EXISTS aquabux INTEGER DEFAULT 0,
       ADD COLUMN IF NOT EXISTS appbux INTEGER DEFAULT 0
-    `).catch(() => console.log('âš ï¸ Columnas de monedas ya existen en ocean_pay_users'));
+    `).catch(() => console.log('⚠️ Columnas de monedas ya existen en ocean_pay_users'));
 
     // 7. Fix command_limit_extensions foreign key and data type
     await pool.query(`
@@ -578,7 +578,7 @@ async function runDatabaseMigrations() {
           FOREIGN KEY (user_id) REFERENCES ocean_pay_users(id) ON DELETE CASCADE;
         END IF;
       END $$;
-    `).catch(err => console.log('âš ï¸ Aviso: MigraciÃ³n command_limit_extensions:', err.message));
+    `).catch(err => console.log('⚠️ Aviso: Migración command_limit_extensions:', err.message));
 
     // 8. Crear tabla ocean_pay_cards si no existe
     await pool.query(`
@@ -593,16 +593,16 @@ async function runDatabaseMigrations() {
         card_name VARCHAR(50) DEFAULT 'Mi Tarjeta',
         created_at TIMESTAMP DEFAULT NOW()
       )
-    `).catch(() => console.log('âš ï¸ Tabla ocean_pay_cards ya existe'));
+    `).catch(() => console.log('⚠️ Tabla ocean_pay_cards ya existe'));
 
     // 9. Agregar columna balances (JSONB) a ocean_pay_cards para multisaldo flexible
     await pool.query(`
       ALTER TABLE ocean_pay_cards 
       ADD COLUMN IF NOT EXISTS balances JSONB DEFAULT '{}'
-    `).catch(() => console.log('âš ï¸ Columna balances ya existe en ocean_pay_cards'));
+    `).catch(() => console.log('⚠️ Columna balances ya existe en ocean_pay_cards'));
 
-    // --- MIGRACIÃ“N DE DATOS REFORZADA (Legacy Metadata + Users Column -> Card Balances) ---
-    console.log('ðŸ”„ Ejecutando migraciÃ³n de saldos Ecoxionums (Fondo de Rescate)...');
+    // --- MIGRACIÓN DE DATOS REFORZADA (Legacy Metadata + Users Column -> Card Balances) ---
+    console.log('🔄 Ejecutando migración de saldos Ecoxionums (Fondo de Rescate)...');
     try {
       // 1. Migrar desde Metadata
       await pool.query(`
@@ -616,7 +616,7 @@ async function runDatabaseMigrations() {
         AND m.value ~ '^[0-9.]+$'
       `);
 
-      // 2. Migrar desde Columna ocean_pay_users (muy importante ya que algunos se guardaban ahÃ­)
+      // 2. Migrar desde Columna ocean_pay_users (muy importante ya que algunos se guardaban ahí)
       await pool.query(`
         UPDATE ocean_pay_cards opc
         SET balances = jsonb_set(COALESCE(opc.balances, '{}'::jsonb), '{ecoxionums}', to_jsonb(u.ecoxionums))
@@ -626,12 +626,12 @@ async function runDatabaseMigrations() {
         AND (opc.balances->>'ecoxionums' IS NULL OR (opc.balances->>'ecoxionums')::numeric = 0)
         AND u.ecoxionums > 0
       `);
-      console.log('âœ… MigraciÃ³n de saldos completada.');
+      console.log('✅ Migración de saldos completada.');
     } catch (migErr) {
-      console.log('âš ï¸ Aviso: Error en migraciÃ³n balance:', migErr.message);
+      console.log('⚠️ Aviso: Error en migración balance:', migErr.message);
     }
 
-    // 2.5. Asegurar 500 VoltBits de cortesÃ­a para Velocity Surge
+    // 2.5. Asegurar 500 VoltBits de cortesía para Velocity Surge
     try {
       await pool.query(`
         UPDATE ocean_pay_cards 
@@ -639,9 +639,9 @@ async function runDatabaseMigrations() {
         WHERE is_primary = true 
         AND (balances->>'voltbit' IS NULL OR (balances->>'voltbit')::numeric = 0)
       `);
-      console.log('âœ… Balance de VoltBits (500) inicializado para usuarios existentes');
+      console.log('✅ Balance de VoltBits (500) inicializado para usuarios existentes');
     } catch (voltErr) {
-      console.log('âš ï¸ Aviso: Error en inicializaciÃ³n VoltBits:', voltErr.message);
+      console.log('⚠️ Aviso: Error en inicialización VoltBits:', voltErr.message);
     }
 
     // 2.6. Asegurar MayhemCoins para WildWeapon Mayhem (inicializar en 0 para usuarios existentes)
@@ -657,13 +657,13 @@ async function runDatabaseMigrations() {
         )
         ON CONFLICT (card_id, currency_type) DO NOTHING
       `);
-      console.log('âœ… MayhemCoins inicializados para usuarios existentes');
+      console.log('✅ MayhemCoins inicializados para usuarios existentes');
     } catch (mcErr) {
-      console.log('âš ï¸ Aviso: Error en inicializaciÃ³n MayhemCoins:', mcErr.message);
+      console.log('⚠️ Aviso: Error en inicialización MayhemCoins:', mcErr.message);
     }
 
-    // 2.7. FUSIÃ“N: Migrar saldos de ocean_pay_metadata â†’ ocean_pay_card_balances (Fuente Ãºnica de verdad)
-    console.log('ðŸ”„ Sincronizando saldos de metadata â†’ card_balances...');
+    // 2.7. FUSIÓN: Migrar saldos de ocean_pay_metadata → ocean_pay_card_balances (Fuente única de verdad)
+    console.log('🔄 Sincronizando saldos de metadata → card_balances...');
     try {
       const metaKeys = ['wildcredits', 'wildgems', 'ecobooks', 'amber', 'nxb', 'voltbit', 'appbux', 'ecotokens', 'ecobits'];
       for (const key of metaKeys) {
@@ -679,10 +679,10 @@ async function runDatabaseMigrations() {
           AND m.value ~ '^[0-9.]+$'
           ON CONFLICT (card_id, currency_type)
           DO UPDATE SET amount = GREATEST(ocean_pay_card_balances.amount, EXCLUDED.amount)
-        `).catch(e => console.log(`âš ï¸ MigraciÃ³n ${key}:`, e.message));
+        `).catch(e => console.log(`⚠️ Migración ${key}:`, e.message));
       }
 
-      // Sincronizar card_balances â†’ JSONB balances en ocean_pay_cards
+      // Sincronizar card_balances → JSONB balances en ocean_pay_cards
       await pool.query(`
         UPDATE ocean_pay_cards opc
         SET balances = COALESCE(opc.balances, '{}'::jsonb) || (
@@ -692,15 +692,15 @@ async function runDatabaseMigrations() {
         )
         WHERE opc.is_primary = true
         AND EXISTS (SELECT 1 FROM ocean_pay_card_balances WHERE card_id = opc.id)
-      `).catch(e => console.log('âš ï¸ Sync JSONB:', e.message));
+      `).catch(e => console.log('⚠️ Sync JSONB:', e.message));
 
-      console.log('âœ… FusiÃ³n de saldos metadata â†’ card_balances completada');
+      console.log('✅ Fusión de saldos metadata → card_balances completada');
     } catch (fusionErr) {
-      console.log('âš ï¸ Aviso: Error en fusiÃ³n de saldos:', fusionErr.message);
+      console.log('⚠️ Aviso: Error en fusión de saldos:', fusionErr.message);
     }
 
-    // 2.8. UNIFICACIÃ“N DE SUSCRIPCIONES: Migrar DinoPass, NaturePass y WildShorts a ocean_pay_subscriptions
-    console.log('ðŸ”„ Unificando suscripciones en ocean_pay_subscriptions...');
+    // 2.8. UNIFICACIÓN DE SUSCRIPCIONES: Migrar DinoPass, NaturePass y WildShorts a ocean_pay_subscriptions
+    console.log('🔄 Unificando suscripciones en ocean_pay_subscriptions...');
     try {
       // 1. Nature-Pass desde metadata
       await pool.query(`
@@ -712,7 +712,7 @@ async function runDatabaseMigrations() {
           SELECT 1 FROM ocean_pay_subscriptions s 
           WHERE s.user_id = m.user_id AND s.project_id = 'Naturepedia' AND s.plan_name = 'Nature-Pass'
         )
-      `).catch(e => console.log('âš ï¸ MigraciÃ³n Nature-Pass:', e.message));
+      `).catch(e => console.log('⚠️ Migración Nature-Pass:', e.message));
 
       // 2. DinoPass desde metadata
       await pool.query(`
@@ -728,7 +728,7 @@ async function runDatabaseMigrations() {
           WHERE s.user_id = m.user_id AND s.project_id = 'DinoBox' 
           AND s.plan_name IN ('DinoPass Elite', 'DinoPass Premium')
         )
-      `).catch(e => console.log('âš ï¸ MigraciÃ³n DinoPass:', e.message));
+      `).catch(e => console.log('⚠️ Migración DinoPass:', e.message));
 
       // 3. WildShorts Premium (desde wildshorts_subs)
       await pool.query(`
@@ -741,22 +741,22 @@ async function runDatabaseMigrations() {
           SELECT 1 FROM ocean_pay_subscriptions s 
           WHERE s.user_id = ws.user_id AND s.project_id = 'WildShorts' AND s.plan_name = ws.plan_id
         )
-      `).catch(e => console.log('âš ï¸ MigraciÃ³n WildShorts:', e.message));
+      `).catch(e => console.log('⚠️ Migración WildShorts:', e.message));
 
-      console.log('âœ… UnificaciÃ³n de suscripciones completada');
+      console.log('✅ Unificación de suscripciones completada');
 
       // Parche: Reparar registros con nulos (evitar "null" en la UI)
       await pool.query(`
         UPDATE ocean_pay_subscriptions 
-        SET plan_name = COALESCE(plan_name, sub_name, 'SuscripciÃ³n'),
-            sub_name = COALESCE(sub_name, plan_name, 'SuscripciÃ³n'),
+        SET plan_name = COALESCE(plan_name, sub_name, 'Suscripción'),
+            sub_name = COALESCE(sub_name, plan_name, 'Suscripción'),
             project_id = COALESCE(project_id, 'Ocean Pay'),
             currency = COALESCE(currency, 'wildgems')
         WHERE plan_name IS NULL OR sub_name IS NULL OR project_id IS NULL OR currency IS NULL
-      `).catch(e => console.log('âš ï¸ Error reparando nulos en subs:', e.message));
+      `).catch(e => console.log('⚠️ Error reparando nulos en subs:', e.message));
 
     } catch (subErr) {
-      console.log('âš ï¸ Aviso: Error en unificaciÃ³n de suscripciones:', subErr.message);
+      console.log('⚠️ Aviso: Error en unificación de suscripciones:', subErr.message);
     }
 
     // 10. Crear tabla ocean_pay_card_balances para saldos por tarjeta (Legado/Compatibilidad)
@@ -768,9 +768,9 @@ async function runDatabaseMigrations() {
         amount DECIMAL(20, 2) DEFAULT 0,
         UNIQUE(card_id, currency_type)
       )
-    `).catch(() => console.log('âš ï¸ Tabla ocean_pay_card_balances ya existe'));
+    `).catch(() => console.log('⚠️ Tabla ocean_pay_card_balances ya existe'));
 
-    // 10. AÃ±adir columnas faltantes a ocean_pay_cards
+    // 10. Añadir columnas faltantes a ocean_pay_cards
     await pool.query(`
       ALTER TABLE ocean_pay_cards 
       ADD COLUMN IF NOT EXISTS is_primary BOOLEAN DEFAULT false,
@@ -800,7 +800,7 @@ async function runDatabaseMigrations() {
           created_at TIMESTAMP DEFAULT NOW(),
           completed_at TIMESTAMP
       );
-    `).catch(err => console.log('âš ï¸ Error creando ocean_pay_pos:', err.message));
+    `).catch(err => console.log('⚠️ Error creando ocean_pay_pos:', err.message));
 
     // 13. Crear tabla ocean_pay_subscriptions (VIP System)
     await pool.query(`
@@ -816,7 +816,7 @@ async function runDatabaseMigrations() {
         auto_renew BOOLEAN DEFAULT TRUE,
         created_at TIMESTAMP DEFAULT NOW()
       );
-    `).catch(err => console.log('âš ï¸ Error creando ocean_pay_subscriptions:', err.message));
+    `).catch(err => console.log('⚠️ Error creando ocean_pay_subscriptions:', err.message));
 
     // 14. Crear tabla ocean_pay_notifications
     await pool.query(`
@@ -829,7 +829,7 @@ async function runDatabaseMigrations() {
         is_read BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT NOW()
       );
-    `).catch(err => console.log('âš ï¸ Error creando ocean_pay_notifications:', err.message));
+    `).catch(err => console.log('⚠️ Error creando ocean_pay_notifications:', err.message));
 
     // 15. Crear tabla ocean_pass
     await pool.query(`
@@ -844,8 +844,8 @@ async function runDatabaseMigrations() {
         minutes_tracked INTEGER DEFAULT 0,
         created_at TIMESTAMP DEFAULT NOW()
       );
-    `).catch(err => console.log('âš ï¸ Error creando ocean_pass:', err.message));
-    // 16. Crear tabla ows_news_updates para automatizaciÃ³n de News
+    `).catch(err => console.log('⚠️ Error creando ocean_pass:', err.message));
+    // 16. Crear tabla ows_news_updates para automatización de News
     await pool.query(`
       CREATE TABLE IF NOT EXISTS ows_news_updates (
         id SERIAL PRIMARY KEY,
@@ -856,7 +856,7 @@ async function runDatabaseMigrations() {
         update_date TIMESTAMP DEFAULT NOW(),
         created_at TIMESTAMP DEFAULT NOW()
       );
-    `).catch(err => console.log('âš ï¸ Error creando ows_news_updates:', err.message));
+    `).catch(err => console.log('⚠️ Error creando ows_news_updates:', err.message));
 
     await pool.query(`
       ALTER TABLE ows_news_updates
@@ -869,7 +869,7 @@ async function runDatabaseMigrations() {
       ADD COLUMN IF NOT EXISTS priority INTEGER DEFAULT 0,
       ADD COLUMN IF NOT EXISTS event_start TIMESTAMP,
       ADD COLUMN IF NOT EXISTS event_end TIMESTAMP
-    `).catch(err => console.log('âš ï¸ Error migrando ows_news_updates:', err.message));
+    `).catch(err => console.log('⚠️ Error migrando ows_news_updates:', err.message));
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_ows_news_updates_entry_type
       ON ows_news_updates(entry_type)
@@ -898,13 +898,13 @@ async function runDatabaseMigrations() {
       created_at TIMESTAMP DEFAULT NOW(),
       metadata JSONB DEFAULT '{}' -- Para capturas, requisitos, tags, etc.
       );
-    `).catch(err => console.log('âš ï¸ Error creando ows_projects:', err.message));
+    `).catch(err => console.log('⚠️ Error creando ows_projects:', err.message));
 
-    // MigraciÃ³n: installer_url para descarga de .exe en OWS Store
+    // Migración: installer_url para descarga de .exe en OWS Store
     await pool.query(`
       ALTER TABLE ows_projects
       ADD COLUMN IF NOT EXISTS installer_url TEXT
-    `).catch(() => console.log('âš ï¸ Columna installer_url ya existe en ows_projects'));
+    `).catch(() => console.log('⚠️ Columna installer_url ya existe en ows_projects'));
 
     // Tabla de releases Android para updater asistido (OWS Store Launcher)
     await pool.query(`
@@ -925,9 +925,9 @@ async function runDatabaseMigrations() {
         created_at TIMESTAMP DEFAULT NOW(),
         UNIQUE(project_slug, version_code)
       );
-    `).catch(err => console.log('âš ï¸ Error creando ows_android_releases:', err.message));
+    `).catch(err => console.log('⚠️ Error creando ows_android_releases:', err.message));
 
-    // MigraciÃ³n: Asegurar columnas para Intercambio (Swap)
+    // Migración: Asegurar columnas para Intercambio (Swap)
     await pool.query(`
       ALTER TABLE ocean_pay_pos
       ADD COLUMN IF NOT EXISTS target_currency VARCHAR(50),
@@ -939,7 +939,7 @@ async function runDatabaseMigrations() {
     await pool.query(`
       ALTER TABLE ocean_pay_users
       ADD COLUMN IF NOT EXISTS password VARCHAR(255)
-      `).catch(() => console.log('âš ï¸ Columna password ya existe en ocean_pay_users'));
+      `).catch(() => console.log('⚠️ Columna password ya existe en ocean_pay_users'));
 
     // 12. Generar tarjetas para usuarios existentes que no tengan una
     const usersWithoutCard = await pool.query(`
@@ -967,7 +967,7 @@ async function runDatabaseMigrations() {
       }
     }
 
-    // 11. Establecer tarjeta principal para usuarios que no tengan una (CRÃTICO: Hacer esto ANTES de migrar saldos)
+    // 11. Establecer tarjeta principal para usuarios que no tengan una (CRÍTICO: Hacer esto ANTES de migrar saldos)
     await pool.query(`
       UPDATE ocean_pay_cards c SET is_primary = true
       WHERE c.id = (
@@ -978,7 +978,7 @@ async function runDatabaseMigrations() {
       `);
 
     // 12. Migrar saldos existentes (AquaBux, Ecoxionums, AppBux, EcoCoreBits) a la tarjeta principal
-    console.log('ðŸ”„ Sincronizando saldos histÃ³ricos con el sistema de tarjetas...');
+    console.log('🔄 Sincronizando saldos históricos con el sistema de tarjetas...');
 
     await pool.query(`
       INSERT INTO ocean_pay_card_balances(card_id, currency_type, amount)
@@ -1008,7 +1008,7 @@ async function runDatabaseMigrations() {
     /* 
     // 13. LIMPIEZA DE SALDOS - Resetear todos a 0 (excepto ecopower = 100)
     // Se limpian tanto los nuevos saldos por tarjeta como los antiguos saldos globales
-    console.log('ðŸ§¹ Iniciando limpieza profunda de saldos...');
+    console.log('🧹 Iniciando limpieza profunda de saldos...');
 
     // Resetear saldos por tarjeta
     await pool.query(`
@@ -1032,14 +1032,14 @@ async function runDatabaseMigrations() {
       WHERE key IN('wildcredits', 'ecoxionums', 'ecobooks')
     `);
 
-    console.log('âœ… Limpieza de saldos completada. Todos los sistemas en cero.');
+    console.log('✅ Limpieza de saldos completada. Todos los sistemas en cero.');
     */
-    console.log('âœ… Sistema de persistencia de saldos activo.');
+    console.log('✅ Sistema de persistencia de saldos activo.');
 
-    console.log('âœ… Migraciones completadas exitosamente!');
+    console.log('✅ Migraciones completadas exitosamente!');
 
   } catch (err) {
-    console.error('âŒ Error en migraciones:', err.message);
+    console.error('❌ Error en migraciones:', err.message);
   }
 }
 
@@ -1047,7 +1047,7 @@ async function runDatabaseMigrations() {
 runDatabaseMigrations();
 
 /* ===== HEALTH CHECK / STATUS ENDPOINT ===== */
-// Este endpoint se usa para verificar que el servidor estÃ© funcionando
+// Este endpoint se usa para verificar que el servidor esté funcionando
 // y proporciona el estado de los servicios principales.
 app.get('/status', async (_req, res) => {
   const services = {
@@ -1058,7 +1058,7 @@ app.get('/status', async (_req, res) => {
     naturepedia: { status: 'up', name: 'Naturepedia' }
   };
 
-  // Verificar conexiÃ³n a base de datos
+  // Verificar conexión a base de datos
   try {
     await pool.query('SELECT 1');
     services.database = { status: 'up', name: 'PostgreSQL Database' };
@@ -1080,11 +1080,11 @@ app.get('/ecoconsole/health', (_req, res) => res.json({ status: 'up', service: '
    ECOCONSOLE REWORK ENDPOINTS (SKELETON)
    ========================================= */
 
-// AutenticaciÃ³n directa con Ocean Pay
+// Autenticación directa con Ocean Pay
 app.post('/ecoconsole/auth', async (req, res) => {
   const { token } = req.body;
   // TODO: Validar token con Ocean Pay system
-  res.json({ success: true, message: "Placeholder: AutenticaciÃ³n exitosa" });
+  res.json({ success: true, message: "Placeholder: Autenticación exitosa" });
 });
 
 // Obtener cuota de comandos
@@ -1108,7 +1108,7 @@ app.post('/ecoconsole/paid-command', async (req, res) => {
   });
 });
 
-// EstadÃ­sticas del usuario
+// Estadísticas del usuario
 app.get('/ecoconsole/user-stats', async (req, res) => {
   res.json({
     success: true,
@@ -1183,7 +1183,7 @@ async function createFloretReviewNotification({
       recipient.userId,
       recipient.email,
       String(type || 'product_review'),
-      String(title || 'Nueva reseÃ±a'),
+      String(title || 'Nueva reseña'),
       String(message || ''),
       productId || null,
       reviewId,
@@ -1226,7 +1226,7 @@ async function assertFloretMalevoAccess({ userId, email }) {
 app.post('/floret/register', async (req, res) => {
   const { username, email, password } = req.body;
   if (!username || !password) {
-    return res.status(400).json({ error: 'Usuario y contraseÃ±a son requeridos' });
+    return res.status(400).json({ error: 'Usuario y contraseña son requeridos' });
   }
   try {
     const hashed = await bcrypt.hash(password, 10);
@@ -1333,8 +1333,8 @@ app.post('/floret/create_preference', async (req, res) => {
   try {
     const { items, back_url } = req.body;
 
-    // âš ï¸ FIX CRÃTICO: MercadoPago rechaza localhost/http en auto_return.
-    // Forzamos SIEMPRE la URL de producciÃ³n (HTTPS) para evitar el error 400.
+    // ⚠️ FIX CRÍTICO: MercadoPago rechaza localhost/http en auto_return.
+    // Forzamos SIEMPRE la URL de producción (HTTPS) para evitar el error 400.
     const returnUrl = 'https://floretshop.netlify.app';
 
     console.log(`[MP Preference] Creando preferencia.Return URL forzada: ${returnUrl} `);
@@ -1834,11 +1834,11 @@ app.post('/floret/products', upload.array('images'), async (req, res) => {
     if (user.power_level === 1) {
       const quota = await getFloretQuota(user.id);
       if (quota.uploads_today >= quota.max_daily) {
-        return res.status(429).json({ error: 'Has alcanzado tu cuota diaria (4 productos). La cuota se reinicia 24hs despuÃ©s de tu primera publicaciÃ³n del ciclo.' });
+        return res.status(429).json({ error: 'Has alcanzado tu cuota diaria (4 productos). La cuota se reinicia 24hs después de tu primera publicación del ciclo.' });
       }
     }
 
-    // Procesar imÃ¡genes (Cloudinary a travÃ©s de multer-storage-cloudinary)
+    // Procesar imágenes (Cloudinary a través de multer-storage-cloudinary)
     let imgUrls = [];
     if (req.files && req.files.length > 0) {
       imgUrls = req.files.map(f => f.path);
@@ -1917,7 +1917,7 @@ app.get('/ocean-pay/index.html', (_req, res) => {
   }
 });
 
-// Servir archivos estÃ¡ticos de Ocean Pay
+// Servir archivos estáticos de Ocean Pay
 app.use('/ocean-pay', express.static(join(__dirname, 'Ocean Pay')));
 
 // ===== WILD TRANSFER - COMPARTIR ARCHIVOS (MULTIPLE) =====
@@ -1928,7 +1928,7 @@ const wildTransferStorage = multer.diskStorage({
     cb(null, dir);
   },
   filename: (req, file, cb) => {
-    // Si no tenemos un cÃ³digo en el request (primer archivo), lo generamos
+    // Si no tenemos un código en el request (primer archivo), lo generamos
     if (!req.sessionCode) {
       req.sessionCode = Math.random().toString(36).substring(2, 8).toUpperCase();
     }
@@ -1938,7 +1938,7 @@ const wildTransferStorage = multer.diskStorage({
 
 const wildTransferUpload = multer({ storage: wildTransferStorage });
 
-// FunciÃ³n para limpiar archivos viejos (> 24 horas)
+// Función para limpiar archivos viejos (> 24 horas)
 const cleanOldWildTransferFiles = () => {
   const dir = join(__dirname, 'uploads', 'wild-transfer');
   if (!fs.existsSync(dir)) return;
@@ -1951,7 +1951,7 @@ const cleanOldWildTransferFiles = () => {
     // 24 horas = 86400000 ms
     if (age > 86400000) {
       fs.unlinkSync(filePath);
-      console.log(`ðŸ—‘ï¸ Wild Transfer: Archivo expirado eliminado: ${f} `);
+      console.log(`🗑️ Wild Transfer: Archivo expirado eliminado: ${f} `);
     }
   });
 };
@@ -1975,7 +1975,7 @@ app.post('/api/wild-transfer/upload', wildTransferUpload.array('files', 10), asy
       { transferCode: req.sessionCode, action: 'upload' }
     );
   }
-  console.log(`ðŸ“¤ ${req.files.length} archivos subidos a Wild Transfer con cÃ³digo ${req.sessionCode} `);
+  console.log(`📤 ${req.files.length} archivos subidos a Wild Transfer con código ${req.sessionCode} `);
   res.json({
     success: true,
     code: req.sessionCode,
@@ -1997,7 +1997,7 @@ app.get('/api/wild-transfer/info/:code', (req, res) => {
     const allFiles = fs.readdirSync(dir);
     const sessionFiles = allFiles.filter(f => f.startsWith(code.toUpperCase() + '-'));
 
-    if (sessionFiles.length === 0) return res.status(404).json({ success: false, error: 'CÃ³digo no encontrado' });
+    if (sessionFiles.length === 0) return res.status(404).json({ success: false, error: 'Código no encontrado' });
 
     const fileList = sessionFiles.map(f => {
       const parts = f.split('-');
@@ -2023,7 +2023,7 @@ app.get('/api/wild-transfer/download/:code', (req, res) => {
   const files = fs.readdirSync(dir);
   const sessionFiles = files.filter(f => f.startsWith(code.toUpperCase() + '-'));
 
-  if (sessionFiles.length === 0) return res.status(404).send('CÃ³digo no encontrado');
+  if (sessionFiles.length === 0) return res.status(404).send('Código no encontrado');
 
   // Si solo hay uno, lo descargamos directamente como antes
   if (sessionFiles.length === 1) {
@@ -2033,9 +2033,9 @@ app.get('/api/wild-transfer/download/:code', (req, res) => {
     return res.download(filePath, originalName);
   }
 
-  // Si hay varios, no podemos descargar todos en un solo GET de navegador fÃ¡cilmente sin ZIP
-  // AsÃ­ que redirigimos a la interfaz para que los vea
-  res.send(`Este cÃ³digo contiene ${sessionFiles.length} archivos.Por favor usa la interfaz de Wild Transfer para revisarlos.`);
+  // Si hay varios, no podemos descargar todos en un solo GET de navegador fácilmente sin ZIP
+  // Así que redirigimos a la interfaz para que los vea
+  res.send(`Este código contiene ${sessionFiles.length} archivos.Por favor usa la interfaz de Wild Transfer para revisarlos.`);
 });
 
 app.get('/api/wild-transfer/download-file/:filename', async (req, res) => {
@@ -2681,7 +2681,7 @@ app.post('/ocean-pay/wildcredits/sync', async (req, res) => {
     // Asegurar que userId sea un entero (el id de ocean_pay_users es INTEGER)
     userId = parseInt(userId) || userId;
   } catch (e) {
-    return res.status(401).json({ error: 'Token invÃ¡lido' });
+    return res.status(401).json({ error: 'Token inválido' });
   }
 
   const { wildCredits } = req.body;
@@ -2783,7 +2783,7 @@ app.get('/ocean-pay/wildcredits/balance', async (req, res) => {
     // Asegurar que userId sea un entero (el id de ocean_pay_users es INTEGER)
     userId = parseInt(userId) || userId;
   } catch (e) {
-    return res.status(401).json({ error: 'Token invÃ¡lido' });
+    return res.status(401).json({ error: 'Token inválido' });
   }
 
   try {
@@ -2820,7 +2820,7 @@ app.get('/wildshorts/wildgems/balance', async (req, res) => {
     userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
-    return res.status(401).json({ error: 'Token invÃ¡lido' });
+    return res.status(401).json({ error: 'Token inválido' });
   }
 
   try {
@@ -2855,7 +2855,7 @@ app.post('/wildshorts/wildgems/sync', async (req, res) => {
     userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
-    return res.status(401).json({ error: 'Token invÃ¡lido' });
+    return res.status(401).json({ error: 'Token inválido' });
   }
 
   const { wildGems } = req.body;
@@ -2903,10 +2903,10 @@ app.post('/wildshorts/wildgems/change', async (req, res) => {
     userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
-    return res.status(401).json({ error: 'Token invÃ¡lido' });
+    return res.status(401).json({ error: 'Token inválido' });
   }
 
-  const { amount, concepto = 'OperaciÃ³n', origen = 'WildShorts' } = req.body;
+  const { amount, concepto = 'Operación', origen = 'WildShorts' } = req.body;
   if (amount === undefined) {
     return res.status(400).json({ error: 'amount requerido' });
   }
@@ -2938,7 +2938,7 @@ app.post('/wildshorts/wildgems/change', async (req, res) => {
       DO UPDATE SET value = $2
       `, [userId, newBalance.toString()]);
 
-    // Registrar transacciÃ³n
+    // Registrar transacción
     await client.query(`
       INSERT INTO ocean_pay_txs(user_id, concepto, monto, origen, moneda)
     VALUES($1, $2, $3, $4, 'WG')
@@ -2977,7 +2977,7 @@ app.get('/dinobox/amber/balance', async (req, res) => {
     userId = (decoded.id || decoded.uid) || decoded.id;
     userId = parseInt(userId) || userId;
   } catch (e) {
-    return res.status(401).json({ error: 'Token invÃ¡lido' });
+    return res.status(401).json({ error: 'Token inválido' });
   }
 
   try {
@@ -3012,7 +3012,7 @@ app.post('/dinobox/amber/sync', async (req, res) => {
     userId = (decoded.id || decoded.uid) || decoded.id;
     userId = parseInt(userId) || userId;
   } catch (e) {
-    return res.status(401).json({ error: 'Token invÃ¡lido' });
+    return res.status(401).json({ error: 'Token inválido' });
   }
 
   const { amber } = req.body;
@@ -3051,7 +3051,7 @@ app.get('/wild-savage/ecotokens/balance', async (req, res) => {
     userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
-    return res.status(401).json({ error: 'Token invÃ¡lido' });
+    return res.status(401).json({ error: 'Token inválido' });
   }
 
   try {
@@ -3086,7 +3086,7 @@ app.post('/wild-savage/ecotokens/sync', async (req, res) => {
     userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
-    return res.status(401).json({ error: 'Token invÃ¡lido' });
+    return res.status(401).json({ error: 'Token inválido' });
   }
 
   const { ecotokens } = req.body;
@@ -3134,10 +3134,10 @@ app.post('/wild-savage/ecotokens/change', async (req, res) => {
     userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
-    return res.status(401).json({ error: 'Token invÃ¡lido' });
+    return res.status(401).json({ error: 'Token inválido' });
   }
 
-  const { amount, concepto = 'OperaciÃ³n', origen = 'Wild Savage' } = req.body;
+  const { amount, concepto = 'Operación', origen = 'Wild Savage' } = req.body;
   if (amount === undefined) {
     return res.status(400).json({ error: 'amount requerido' });
   }
@@ -3169,7 +3169,7 @@ app.post('/wild-savage/ecotokens/change', async (req, res) => {
       DO UPDATE SET value = $2
       `, [userId, newBalance.toString()]);
 
-    // Registrar transacciÃ³n
+    // Registrar transacción
     await client.query(`
       INSERT INTO ocean_pay_txs(user_id, concepto, monto, origen, moneda)
     VALUES($1, $2, $3, $4, 'ET')
@@ -3207,7 +3207,7 @@ app.post('/wildshorts/subscribe', async (req, res) => {
     userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
-    return res.status(401).json({ error: 'Token invÃ¡lido' });
+    return res.status(401).json({ error: 'Token inválido' });
   }
 
   const { planId, paymentMethod } = req.body; // paymentMethod: 'weekly' o 'pay-as-you-go'
@@ -3228,9 +3228,9 @@ app.post('/wildshorts/subscribe', async (req, res) => {
 
     const currentGems = parseInt(gemsRows[0]?.value || '0');
 
-    // Calcular precio segÃºn mÃ©todo de pago
+    // Calcular precio según método de pago
     // Para weekly: precio reducido (ej: 70% del precio mensual)
-    // Para pay-as-you-go: no se cobra aquÃ­, se cobra por episodio
+    // Para pay-as-you-go: no se cobra aquí, se cobra por episodio
     const planPrices = {
       starter: { weekly: 350, payAsYouGo: 0 },
       explorer: { weekly: 840, payAsYouGo: 0 },
@@ -3257,23 +3257,23 @@ app.post('/wildshorts/subscribe', async (req, res) => {
         DO UPDATE SET value = $2
       `, [userId, newBalance.toString()]);
 
-      // Registrar transacciÃ³n
+      // Registrar transacción
       await client.query(`
         INSERT INTO ocean_pay_txs(user_id, concepto, monto, origen, moneda)
     VALUES($1, $2, $3, $4, 'WG')
-      `, [userId, `SuscripciÃ³n ${planId} (WildShorts) - Semanal`, -planPrice, 'WildShorts']).catch(async () => {
+      `, [userId, `Suscripción ${planId} (WildShorts) - Semanal`, -planPrice, 'WildShorts']).catch(async () => {
         await client.query(`
           INSERT INTO ocean_pay_txs(user_id, concepto, monto, origen)
     VALUES($1, $2, $3, $4)
-        `, [userId, `SuscripciÃ³n ${planId} (WildShorts) - Semanal`, -planPrice, 'WildShorts']);
+        `, [userId, `Suscripción ${planId} (WildShorts) - Semanal`, -planPrice, 'WildShorts']);
       });
     }
 
-    // Crear/actualizar suscripciÃ³n
+    // Crear/actualizar suscripción
     const now = new Date();
     const endsAt = paymentMethod === 'weekly'
-      ? new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000) // 7 dÃ­as
-      : null; // pay-as-you-go no tiene fecha de expiraciÃ³n
+      ? new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000) // 7 días
+      : null; // pay-as-you-go no tiene fecha de expiración
 
     // Crear tabla de suscripciones de WildShorts si no existe
     await client.query(`
@@ -3297,7 +3297,7 @@ app.post('/wildshorts/subscribe', async (req, res) => {
       WHERE user_id = $1 AND plan_id = $2 AND active = true
       `, [userId, planId]);
 
-    // Crear nueva suscripciÃ³n
+    // Crear nueva suscripción
     const { rows: subRows } = await client.query(`
       INSERT INTO wildshorts_subs(user_id, plan_id, payment_method, starts_at, ends_at, active)
     VALUES($1, $2, $3, $4, $5, true)
@@ -3322,7 +3322,7 @@ app.post('/wildshorts/subscribe', async (req, res) => {
   }
 });
 
-// Endpoint para obtener suscripciÃ³n activa de WildShorts
+// Endpoint para obtener suscripción activa de WildShorts
 app.get('/wildshorts/subscription/:userId', async (req, res) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -3336,7 +3336,7 @@ app.get('/wildshorts/subscription/:userId', async (req, res) => {
     userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
-    return res.status(401).json({ error: 'Token invÃ¡lido' });
+    return res.status(401).json({ error: 'Token inválido' });
   }
 
   try {
@@ -3353,7 +3353,7 @@ app.get('/wildshorts/subscription/:userId', async (req, res) => {
     if (e.code === '42P01') {
       res.json(null);
     } else {
-      console.error('Error obteniendo suscripciÃ³n:', e);
+      console.error('Error obteniendo suscripción:', e);
       res.status(500).json({ error: 'Error interno' });
     }
   }
@@ -3373,7 +3373,7 @@ app.post('/wildshorts/wildgems/claim', async (req, res) => {
     userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
-    return res.status(401).json({ error: 'Token invÃ¡lido' });
+    return res.status(401).json({ error: 'Token inválido' });
   }
 
   const { type, amount } = req.body; // type: 'daily', 'welcome', 'bonus', etc.
@@ -3381,7 +3381,7 @@ app.post('/wildshorts/wildgems/claim', async (req, res) => {
     return res.status(400).json({ error: 'Tipo de recompensa requerido' });
   }
 
-  // Crear tabla e Ã­ndices FUERA de la transacciÃ³n (operaciones DDL)
+  // Crear tabla e índices FUERA de la transacción (operaciones DDL)
   try {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS wildgems_claims(
@@ -3393,22 +3393,22 @@ app.post('/wildshorts/wildgems/claim', async (req, res) => {
       )
       `);
 
-    // Crear Ã­ndice simple para mejorar el rendimiento de las consultas
+    // Crear índice simple para mejorar el rendimiento de las consultas
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_wildgems_claims_user_type 
       ON wildgems_claims(user_id, claim_type)
       `).catch(() => {
-      // Ignorar errores si el Ã­ndice ya existe
+      // Ignorar errores si el índice ya existe
     });
   } catch (ddlError) {
-    // Ignorar errores de DDL si la tabla/Ã­ndice ya existe
-    console.log('[WildGems] Tabla/Ã­ndice ya existe o error al crear:', ddlError.message);
+    // Ignorar errores de DDL si la tabla/índice ya existe
+    console.log('[WildGems] Tabla/índice ya existe o error al crear:', ddlError.message);
   }
 
-  // Verificar lÃ­mites FUERA de la transacciÃ³n
+  // Verificar límites FUERA de la transacción
   const now = new Date();
 
-  // Verificar si ya reclamÃ³ hoy (para recompensas diarias)
+  // Verificar si ya reclamó hoy (para recompensas diarias)
   if (type === 'daily') {
     const { rows: dailyRows } = await pool.query(`
     SELECT * FROM wildgems_claims
@@ -3422,13 +3422,13 @@ app.post('/wildshorts/wildgems/claim', async (req, res) => {
       nextClaim.setHours(0, 0, 0, 0);
       const hoursUntil = Math.ceil((nextClaim - now) / (1000 * 60 * 60));
       return res.status(400).json({
-        error: `Ya reclamaste tu recompensa diaria hoy.PrÃ³xima recompensa en ${hoursUntil} horas.`,
+        error: `Ya reclamaste tu recompensa diaria hoy.Próxima recompensa en ${hoursUntil} horas.`,
         nextClaim: nextClaim.toISOString()
       });
     }
   }
 
-  // Verificar si ya reclamÃ³ (para recompensas Ãºnicas)
+  // Verificar si ya reclamó (para recompensas únicas)
   if (type === 'welcome') {
     const { rows: welcomeRows } = await pool.query(`
     SELECT * FROM wildgems_claims
@@ -3440,7 +3440,7 @@ app.post('/wildshorts/wildgems/claim', async (req, res) => {
     }
   }
 
-  // Verificar lÃ­mite de anuncios (mÃ¡ximo 5 por dÃ­a)
+  // Verificar límite de anuncios (máximo 5 por día)
   if (type === 'ad_watch') {
     const { rows: adRows } = await pool.query(`
       SELECT COUNT(*) as count FROM wildgems_claims
@@ -3449,11 +3449,11 @@ app.post('/wildshorts/wildgems/claim', async (req, res) => {
       `, [userId]);
 
     if (parseInt(adRows[0].count) >= 5) {
-      return res.status(400).json({ error: 'Has alcanzado el lÃ­mite de 5 anuncios por dÃ­a.' });
+      return res.status(400).json({ error: 'Has alcanzado el límite de 5 anuncios por día.' });
     }
   }
 
-  // Verificar lÃ­mite de compartir (mÃ¡ximo 3 por dÃ­a)
+  // Verificar límite de compartir (máximo 3 por día)
   if (type === 'social_share') {
     const { rows: shareRows } = await pool.query(`
       SELECT COUNT(*) as count FROM wildgems_claims
@@ -3462,11 +3462,11 @@ app.post('/wildshorts/wildgems/claim', async (req, res) => {
       `, [userId]);
 
     if (parseInt(shareRows[0].count) >= 3) {
-      return res.status(400).json({ error: 'Has alcanzado el lÃ­mite de 3 compartidos por dÃ­a.' });
+      return res.status(400).json({ error: 'Has alcanzado el límite de 3 compartidos por día.' });
     }
   }
 
-  // Verificar si la columna moneda existe FUERA de la transacciÃ³n
+  // Verificar si la columna moneda existe FUERA de la transacción
   let hasMonedaColumn = false;
   try {
     const { rows: columnCheck } = await pool.query(`
@@ -3476,7 +3476,7 @@ app.post('/wildshorts/wildgems/claim', async (req, res) => {
       `);
     hasMonedaColumn = columnCheck.length > 0;
   } catch (checkError) {
-    // Si falla la verificaciÃ³n, asumir que no existe la columna (por defecto)
+    // Si falla la verificación, asumir que no existe la columna (por defecto)
     hasMonedaColumn = false;
   }
 
@@ -3496,7 +3496,7 @@ app.post('/wildshorts/wildgems/claim', async (req, res) => {
   }
 
   if (gemsAmount <= 0) {
-    return res.status(400).json({ error: 'Cantidad invÃ¡lida' });
+    return res.status(400).json({ error: 'Cantidad inválida' });
   }
 
   // Conceptos para las transacciones
@@ -3510,7 +3510,7 @@ app.post('/wildshorts/wildgems/claim', async (req, res) => {
     social_share: 'Recompensa por Compartir (WildShorts)'
   };
 
-  // Ahora sÃ­, comenzar la transacciÃ³n para las operaciones DML
+  // Ahora sí, comenzar la transacción para las operaciones DML
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -3533,13 +3533,13 @@ app.post('/wildshorts/wildgems/claim', async (req, res) => {
       DO UPDATE SET value = $2
       `, [userId, newBalance.toString()]);
 
-    // Registrar reclamaciÃ³n
+    // Registrar reclamación
     await client.query(`
       INSERT INTO wildgems_claims(user_id, claim_type, amount)
     VALUES($1, $2, $3)
       `, [userId, type, gemsAmount]);
 
-    // Insertar transacciÃ³n segÃºn la estructura de la tabla (ya sabemos si tiene moneda)
+    // Insertar transacción según la estructura de la tabla (ya sabemos si tiene moneda)
     if (hasMonedaColumn) {
       await client.query(`
         INSERT INTO ocean_pay_txs(user_id, concepto, monto, origen, moneda)
@@ -3562,11 +3562,11 @@ app.post('/wildshorts/wildgems/claim', async (req, res) => {
       type: type
     });
   } catch (e) {
-    // Intentar hacer rollback si la transacciÃ³n estÃ¡ activa
+    // Intentar hacer rollback si la transacción está activa
     try {
       await client.query('ROLLBACK');
     } catch (rollbackError) {
-      // Ignorar errores de rollback si la transacciÃ³n ya fue abortada
+      // Ignorar errores de rollback si la transacción ya fue abortada
       console.log('[WildGems] Error en rollback (posiblemente ya abortado):', rollbackError.message);
     }
     client.release();
@@ -3590,7 +3590,7 @@ app.get('/wildshorts/wildgems/claims-status', async (req, res) => {
     userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
-    return res.status(401).json({ error: 'Token invÃ¡lido' });
+    return res.status(401).json({ error: 'Token inválido' });
   }
 
   try {
@@ -3607,7 +3607,7 @@ app.get('/wildshorts/wildgems/claims-status', async (req, res) => {
       WHERE user_id = $1 AND claim_type = 'welcome'
       `, [userId]);
 
-    // Calcular prÃ³xima recompensa diaria
+    // Calcular próxima recompensa diaria
     let nextDaily = null;
     if (dailyRows.length > 0) {
       const lastClaim = new Date(dailyRows[0].claimed_at);
@@ -3654,7 +3654,7 @@ app.post('/ssa/cosmicdust/sync', async (req, res) => {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
     userId = parseInt(decoded.id || decoded.uid || decoded.sub) || (decoded.id || decoded.uid || decoded.sub);
   } catch (e) {
-    return res.status(401).json({ error: 'Token invÃ¡lido' });
+    return res.status(401).json({ error: 'Token inválido' });
   }
 
   const raw = req.body?.cosmicdust;
@@ -3674,7 +3674,7 @@ app.post('/ssa/cosmicdust/sync', async (req, res) => {
     );
     if (!cards.length) {
       await client.query('ROLLBACK');
-      return res.status(404).json({ error: 'No se encontrÃ³ tarjeta principal' });
+      return res.status(404).json({ error: 'No se encontró tarjeta principal' });
     }
 
     const cardId = cards[0].id;
@@ -3718,7 +3718,7 @@ app.get('/ssa/cosmicdust/balance', async (req, res) => {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
     userId = parseInt(decoded.id || decoded.uid || decoded.sub) || (decoded.id || decoded.uid || decoded.sub);
   } catch (e) {
-    return res.status(401).json({ error: 'Token invÃ¡lido' });
+    return res.status(401).json({ error: 'Token inválido' });
   }
 
   try {
@@ -3755,7 +3755,7 @@ app.post('/wildweapon/mayhemcoins/sync', async (req, res) => {
     userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
-    return res.status(401).json({ error: 'Token invÃ¡lido' });
+    return res.status(401).json({ error: 'Token inválido' });
   }
 
   const { mayhemcoins } = req.body;
@@ -3777,7 +3777,7 @@ app.post('/wildweapon/mayhemcoins/sync', async (req, res) => {
 
     if (cards.length === 0) {
       await client.query('ROLLBACK');
-      return res.status(404).json({ error: 'No se encontrÃ³ tarjeta principal' });
+      return res.status(404).json({ error: 'No se encontró tarjeta principal' });
     }
 
     const cardId = cards[0].id;
@@ -3820,7 +3820,7 @@ app.get('/wildweapon/mayhemcoins/balance', async (req, res) => {
     userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
-    return res.status(401).json({ error: 'Token invÃ¡lido' });
+    return res.status(401).json({ error: 'Token inválido' });
   }
 
   try {
@@ -3852,10 +3852,10 @@ app.post('/wildweapon/mayhemcoins/change', async (req, res) => {
     userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
-    return res.status(401).json({ error: 'Token invÃ¡lido' });
+    return res.status(401).json({ error: 'Token inválido' });
   }
 
-  const { amount, concepto = 'OperaciÃ³n', origen = 'WildWeapon Mayhem' } = req.body;
+  const { amount, concepto = 'Operación', origen = 'WildWeapon Mayhem' } = req.body;
   if (amount === undefined) return res.status(400).json({ error: 'amount requerido' });
 
   const client = await pool.connect();
@@ -3870,7 +3870,7 @@ app.post('/wildweapon/mayhemcoins/change', async (req, res) => {
 
     if (cards.length === 0) {
       await client.query('ROLLBACK');
-      return res.status(404).json({ error: 'No se encontrÃ³ tarjeta principal' });
+      return res.status(404).json({ error: 'No se encontró tarjeta principal' });
     }
 
     const cardId = cards[0].id;
@@ -3904,7 +3904,7 @@ app.post('/wildweapon/mayhemcoins/change', async (req, res) => {
       DO UPDATE SET amount = $2
       `, [cardId, newBalance]);
 
-    // Registrar transacciÃ³n
+    // Registrar transacción
     await client.query(`
       INSERT INTO ocean_pay_txs(user_id, concepto, monto, origen, moneda)
     VALUES($1, $2, $3, $4, 'MC')
@@ -3937,7 +3937,7 @@ app.get('/ocean-pay/ecoxionums/balance', async (req, res) => {
     userId = decoded.id || (decoded.id || decoded.uid) || decoded.sub;
     userId = parseInt(userId) || userId;
   } catch (e) {
-    return res.status(401).json({ error: 'Token invÃ¡lido' });
+    return res.status(401).json({ error: 'Token inválido' });
   }
 
   try {
@@ -3957,14 +3957,14 @@ app.get('/ocean-pay/ecoxionums/balance', async (req, res) => {
 
 // Endpoint para sincronizar (Legacy Alias for Compatibility)
 app.post('/ocean-pay/ecoxionums/sync', async (req, res) => {
-  // Redirigimos a la lÃ³gica de cards para no mantener dos sistemas
+  // Redirigimos a la lógica de cards para no mantener dos sistemas
   req.url = '/ocean-pay/sync-ecoxionums';
   return app.handle(req, res);
 });
 
 // Endpoint para cambiar Ecoxionums (ganar/gastar)
 // Endpoint para cambiar Ecoxionums (ganar/gastar)
-// Endpoint genÃ©rico para cambio de saldo en cualquier moneda de Ocean Pay
+// Endpoint genérico para cambio de saldo en cualquier moneda de Ocean Pay
 app.post('/ocean-pay/currency/change', async (req, res) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -3978,10 +3978,10 @@ app.post('/ocean-pay/currency/change', async (req, res) => {
     userId = decoded.id || decoded.uid || decoded.sub;
   } catch (e) {
     if (req.body.userId) userId = req.body.userId;
-    else return res.status(401).json({ error: 'Token invÃ¡lido' });
+    else return res.status(401).json({ error: 'Token inválido' });
   }
 
-  const { amount, currency, concepto = 'TransacciÃ³n de Sistema', origen = 'Sistema', isExternal = false } = req.body;
+  const { amount, currency, concepto = 'Transacción de Sistema', origen = 'Sistema', isExternal = false } = req.body;
 
   if (amount === undefined || !currency) {
     return res.status(400).json({ error: 'amount y currency son requeridos' });
@@ -4043,7 +4043,7 @@ app.post('/ocean-pay/currency/change', async (req, res) => {
       }
       balances[currKey] = newBalance;
 
-      // SincronizaciÃ³n doble JSONB + tabla de balances.
+      // Sincronización doble JSONB + tabla de balances.
       await client.query(`UPDATE ocean_pay_cards SET balances = $1 WHERE id = $2`, [balances, card.id]);
       await client.query(`
           INSERT INTO ocean_pay_card_balances(card_id, currency_type, amount)
@@ -4053,7 +4053,7 @@ app.post('/ocean-pay/currency/change', async (req, res) => {
       `, [card.id, currKey, newBalance]);
     }
 
-    // Registrar transacciÃ³n siempre
+    // Registrar transacción siempre
     await client.query(`
       INSERT INTO ocean_pay_txs(user_id, concepto, monto, origen, moneda)
     VALUES($1, $2, $3, $4, $5)
@@ -4097,7 +4097,7 @@ app.post('/ocean-pay/direct-card-pay', async (req, res) => {
 
     const card = rows[0];
 
-    // VerificaciÃ³n bÃ¡sica (CVV y Expiry)
+    // Verificación básica (CVV y Expiry)
     if (card.cvv !== cvv.toString()) {
       await client.query('ROLLBACK');
       return res.status(401).json({ error: 'CVV incorrecto.' });
@@ -4157,13 +4157,13 @@ app.get('/ocean-pay/pass/status', async (req, res) => {
     let pass = rows[0];
     const now = new Date();
 
-    // Verificar expiraciÃ³n y misiones
+    // Verificar expiración y misiones
     if (pass.is_active && now > new Date(pass.expiry)) {
       const missions = pass.missions || [];
       const allCompleted = missions.length > 0 && missions.every(m => m.completed);
 
       if (allCompleted) {
-        // Auto-renovaciÃ³n por 2 horas
+        // Auto-renovación por 2 horas
         const newExpiry = new Date(now.getTime() + 2 * 60 * 60 * 1000);
         const resetMissions = missions.map(m => {
           if (m.id === 'minutes') return { ...m, current: 0, completed: false };
@@ -4205,7 +4205,7 @@ app.get('/ocean-pay/pass/status', async (req, res) => {
     });
   } catch (e) {
     console.error('Error in /ocean-pay/pass/status:', e);
-    res.status(401).json({ error: 'SesiÃ³n invÃ¡lida' });
+    res.status(401).json({ error: 'Sesión inválida' });
   }
 });
 
@@ -4226,8 +4226,8 @@ app.post('/ocean-pay/pass/activate', async (req, res) => {
 
     const expiry = new Date(Date.now() + 2 * 60 * 60 * 1000);
     const missions = [
-      { id: 'minutes', title: 'Tiempo de InmersiÃ³n', target: 5, current: 0, completed: false },
-      { id: 'activity', title: 'SesiÃ³n Verificada', target: 1, current: 0, completed: false }
+      { id: 'minutes', title: 'Tiempo de Inmersión', target: 5, current: 0, completed: false },
+      { id: 'activity', title: 'Sesión Verificada', target: 1, current: 0, completed: false }
     ];
 
     await pool.query(`
@@ -4305,18 +4305,18 @@ app.post('/ocean-pay/pass/claim-reward', async (req, res) => {
 
     const lastClaim = rows[0].last_reward_claim;
     if (lastClaim && (Date.now() - new Date(lastClaim).getTime() < 6 * 60 * 60 * 1000)) {
-      return res.status(400).json({ error: 'AÃºn no puedes reclamar otra recompensa.' });
+      return res.status(400).json({ error: 'Aún no puedes reclamar otra recompensa.' });
     }
 
-    // Actualizar Ãºltima fecha de reclamo
+    // Actualizar última fecha de reclamo
     await pool.query('UPDATE ocean_pass SET last_reward_claim = NOW() WHERE user_id = $1', [userId]);
 
-    // Usamos el endpoint interno o lÃ³gica directa para aÃ±adir saldo a la tarjeta primaria
+    // Usamos el endpoint interno o lógica directa para añadir saldo a la tarjeta primaria
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
       const { rows: cardRows } = await client.query('SELECT id, balances FROM ocean_pay_cards WHERE user_id = $1 AND is_primary = true FOR UPDATE', [userId]);
-      if (cardRows.length === 0) throw new Error('No se encontrÃ³ tarjeta primaria.');
+      if (cardRows.length === 0) throw new Error('No se encontró tarjeta primaria.');
 
       const card = cardRows[0];
       const balances = card.balances || {};
@@ -4361,7 +4361,7 @@ app.post('/ocean-pay/pass/pay-debt', async (req, res) => {
     try {
       await client.query('BEGIN');
       const { rows: cardRows } = await client.query('SELECT id, balances FROM ocean_pay_cards WHERE user_id = $1 AND is_primary = true FOR UPDATE', [userId]);
-      if (cardRows.length === 0) throw new Error('No se encontrÃ³ tarjeta primaria.');
+      if (cardRows.length === 0) throw new Error('No se encontró tarjeta primaria.');
 
       const card = cardRows[0];
       const balances = card.balances || {};
@@ -4402,14 +4402,14 @@ app.post('/ocean-pay/ecoxionums/change', async (req, res) => {
   let userId;
   try {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    userId = decoded.id || (decoded.id || decoded.uid) || decoded.sub; // MÃ¡s robusto
+    userId = decoded.id || (decoded.id || decoded.uid) || decoded.sub; // Más robusto
   } catch (e) {
     // Fallback: check body for manual override (NOT SECURE FOR PROD - DEV ONLY)
     if (req.body.userId) userId = req.body.userId;
-    else return res.status(401).json({ error: 'Token invÃ¡lido' });
+    else return res.status(401).json({ error: 'Token inválido' });
   }
 
-  const { amount, concepto = 'OperaciÃ³n Ecoxion', origen = 'Ecoxion' } = req.body;
+  const { amount, concepto = 'Operación Ecoxion', origen = 'Ecoxion' } = req.body;
 
   if (amount === undefined) {
     return res.status(400).json({ error: 'amount requerido' });
@@ -4451,7 +4451,7 @@ app.post('/ocean-pay/ecoxionums/change', async (req, res) => {
       UPDATE ocean_pay_cards SET balances = $1 WHERE id = $2
       `, [balances, card.id]);
 
-    // Registrar transacciÃ³n
+    // Registrar transacción
     await client.query(`
       INSERT INTO ocean_pay_txs(user_id, concepto, monto, origen, moneda)
     VALUES($1, $2, $3, $4, 'ecoxionums')
@@ -4463,7 +4463,7 @@ app.post('/ocean-pay/ecoxionums/change', async (req, res) => {
   } catch (err) {
     await client.query('ROLLBACK');
     console.error(err);
-    res.status(500).json({ error: 'Error interno de transacciÃ³n' });
+    res.status(500).json({ error: 'Error interno de transacción' });
   } finally {
     client.release();
   }
@@ -4471,7 +4471,7 @@ app.post('/ocean-pay/ecoxionums/change', async (req, res) => {
 
 /* ===== OCEAN PAY - CORE TRANSFER ===== */
 
-// Transferencia P2P GenÃ©rica
+// Transferencia P2P Genérica
 app.post('/ocean-pay/transfer', async (req, res) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -4484,12 +4484,12 @@ app.post('/ocean-pay/transfer', async (req, res) => {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
     senderId = parseInt((decoded.id || decoded.uid)) || (decoded.id || decoded.uid);
   } catch (e) {
-    return res.status(401).json({ error: 'Token invÃ¡lido' });
+    return res.status(401).json({ error: 'Token inválido' });
   }
 
   const { recipientUsername, amount, currency = 'ecoxionums', note = '' } = req.body;
   if (!recipientUsername || !amount || amount <= 0) {
-    return res.status(400).json({ error: 'Datos invÃ¡lidos' });
+    return res.status(400).json({ error: 'Datos inválidos' });
   }
 
   // Mapeo de moneda a key de metadata
@@ -4562,7 +4562,7 @@ app.post('/ocean-pay/transfer', async (req, res) => {
       ON CONFLICT(user_id, key) DO UPDATE SET value = $3
       `, [recipientId, currencyKey, newRecipientBalance.toString()]);
 
-    // Si la moneda es ecoxionums, actualizar tambiÃ©n la tabla ocean_pay_users
+    // Si la moneda es ecoxionums, actualizar también la tabla ocean_pay_users
     if (currencyKey === 'ecoxionums') {
       await client.query(`UPDATE ocean_pay_users SET ecoxionums = $1 WHERE id = $2`, [newSenderBalance, senderId]);
       await client.query(`UPDATE ocean_pay_users SET ecoxionums = $1 WHERE id = $2`, [newRecipientBalance, recipientId]);
@@ -4609,7 +4609,7 @@ app.post('/ocean-pay/transfer', async (req, res) => {
 app.get('/ocean-pay/history/:userId', async (req, res) => {
   const userId = parseInt(req.params.userId);
   if (isNaN(userId)) {
-    return res.status(400).json({ error: 'userId invÃ¡lido' });
+    return res.status(400).json({ error: 'userId inválido' });
   }
 
   try {
@@ -4634,7 +4634,7 @@ app.get('/ocean-pay/history/:userId', async (req, res) => {
       `, [userId]);
     res.json(rows);
   } catch (e) {
-    // Si la tabla no existe (por alguna razÃ³n el CREATE fallÃ³)
+    // Si la tabla no existe (por alguna razón el CREATE falló)
     if (e.code === '42P01') return res.json([]);
     // Si la columna fecha no existe
     if (e.code === '42703') {
@@ -4660,7 +4660,7 @@ app.get('/ocean-pay/history/:userId', async (req, res) => {
 // Endpoint de compatibilidad para Ocean Pay (sin token, solo display)
 app.get('/ocean-pay/ecoxionums/:userId', async (req, res) => {
   const userId = parseInt(req.params.userId);
-  if (isNaN(userId)) return res.status(400).json({ error: 'userId invÃ¡lido' });
+  if (isNaN(userId)) return res.status(400).json({ error: 'userId inválido' });
 
   try {
     // Read from cards (primary card)
@@ -4680,7 +4680,7 @@ app.get('/ocean-pay/ecoxionums/:userId', async (req, res) => {
 });
 
 
-// Endpoint para sincronizar pÃ³lvora cÃ³smica
+// Endpoint para sincronizar pólvora cósmica
 app.post('/savage-space-animals/dust/sync', async (req, res) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -4694,13 +4694,13 @@ app.post('/savage-space-animals/dust/sync', async (req, res) => {
     userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
-    return res.status(401).json({ error: 'Token invÃ¡lido' });
+    return res.status(401).json({ error: 'Token inválido' });
   }
 
   const { cosmicDust, highScore, unlockedAnimals } = req.body;
 
   try {
-    // Guardar pÃ³lvora cÃ³smica
+    // Guardar pólvora cósmica
     if (cosmicDust !== undefined) {
       await pool.query(`
         INSERT INTO ocean_pay_metadata(user_id, key, value)
@@ -4751,7 +4751,7 @@ app.get('/savage-space-animals/player-data', async (req, res) => {
     userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
-    return res.status(401).json({ error: 'Token invÃ¡lido' });
+    return res.status(401).json({ error: 'Token inválido' });
   }
 
   try {
@@ -4785,7 +4785,7 @@ app.get('/savage-space-animals/player-data', async (req, res) => {
   }
 });
 
-// Endpoint para verificar suscripciÃ³n desde Ocean Pay
+// Endpoint para verificar suscripción desde Ocean Pay
 app.get('/savage-space-animals/verify-subscription', async (req, res) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -4799,7 +4799,7 @@ app.get('/savage-space-animals/verify-subscription', async (req, res) => {
     userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
-    return res.status(401).json({ error: 'Token invÃ¡lido' });
+    return res.status(401).json({ error: 'Token inválido' });
   }
 
   try {
@@ -4809,7 +4809,7 @@ app.get('/savage-space-animals/verify-subscription', async (req, res) => {
       WHERE user_id = $1 AND key = 'studio_plan'
       `, [userId]);
 
-    // Verificar fecha de expiraciÃ³n
+    // Verificar fecha de expiración
     const { rows: expiryRows } = await pool.query(`
       SELECT value FROM ocean_pay_metadata
       WHERE user_id = $1 AND key = 'studio_plan_expiry'
@@ -4824,11 +4824,11 @@ app.get('/savage-space-animals/verify-subscription', async (req, res) => {
       expiry: expiry?.toISOString() || null,
       isActive,
       message: isActive
-        ? `Tu suscripciÃ³n ${plan.charAt(0).toUpperCase() + plan.slice(1)} estÃ¡ activa`
-        : 'No tienes una suscripciÃ³n activa'
+        ? `Tu suscripción ${plan.charAt(0).toUpperCase() + plan.slice(1)} está activa`
+        : 'No tienes una suscripción activa'
     });
   } catch (e) {
-    console.error('Error verificando suscripciÃ³n SSA:', e);
+    console.error('Error verificando suscripción SSA:', e);
     res.status(500).json({ error: 'Error interno' });
   }
 });
@@ -4838,12 +4838,12 @@ app.get('/savage-space-animals/verify-subscription', async (req, res) => {
 
 /* ===== POS VIRTUAL (TRANSFER BY CODE) ===== */
 
-// Generar cÃ³digo aleatorio de 6 caracteres
+// Generar código aleatorio de 6 caracteres
 function generatePosCode() {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
 
-// Crear una transacciÃ³n POS (Sender)
+// Crear una transacción POS (Sender)
 app.post('/pos/create', async (req, res) => {
   const { userId, cardId, amount, currency, targetCurrency, isExchange = false } = req.body;
 
@@ -4864,7 +4864,7 @@ app.post('/pos/create', async (req, res) => {
   }
 });
 
-// Obtener info de POS por cÃ³digo
+// Obtener info de POS por código
 app.get('/pos/:code', async (req, res) => {
   const { code } = req.params;
   try {
@@ -4877,7 +4877,7 @@ app.get('/pos/:code', async (req, res) => {
     );
 
     if (rows.length === 0) {
-      return res.status(404).json({ error: 'CÃ³digo invÃ¡lido o ya procesado' });
+      return res.status(404).json({ error: 'Código inválido o ya procesado' });
     }
 
     res.json({ success: true, pos: rows[0] });
@@ -4906,26 +4906,26 @@ app.get('/pos/pending-swaps/:userId', async (req, res) => {
   }
 });
 
-// Completar transacciÃ³n POS (Receiver)
+// Completar transacción POS (Receiver)
 app.post('/pos/complete', async (req, res) => {
   const { code, receiverId, receiverCardId } = req.body;
 
   if (!code) {
-    return res.status(400).json({ error: 'Faltan datos (CÃ³digo)' });
+    return res.status(400).json({ error: 'Faltan datos (Código)' });
   }
 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
 
-    // 1. Bloquear y obtener transacciÃ³n POS
+    // 1. Bloquear y obtener transacción POS
     const { rows: posRows } = await client.query(
       'SELECT * FROM ocean_pay_pos WHERE code = $1 AND status = $2 FOR UPDATE',
       [code.toUpperCase(), 'pending']
     );
 
     if (posRows.length === 0) {
-      throw new Error('TransacciÃ³n no vÃ¡lida o ya completada');
+      throw new Error('Transacción no válida o ya completada');
     }
 
     const pos = posRows[0];
@@ -4937,7 +4937,7 @@ app.post('/pos/complete', async (req, res) => {
 
     if (!isExchange) {
       if (!receiverId || !receiverCardId) {
-        throw new Error('Faltan datos del receptor para esta transacciÃ³n');
+        throw new Error('Faltan datos del receptor para esta transacción');
       }
       if (pos.sender_id === receiverId) {
         throw new Error('No puedes recibir dinero de ti mismo mediante POS');
@@ -5028,13 +5028,13 @@ app.post('/pos/complete', async (req, res) => {
     // Sender Transaction (Negative)
     await client.query(
       'INSERT INTO ocean_pay_txs (user_id, concepto, monto, moneda, origen) VALUES ($1, $2, $3, $4, $5)',
-      [pos.sender_id, `POS Virtual - EnvÃ­o(${code})`, -safeAmount, pos.currency.toUpperCase(), 'POS']
+      [pos.sender_id, `POS Virtual - Envío(${code})`, -safeAmount, pos.currency.toUpperCase(), 'POS']
     );
 
     // Receiver Transaction (Positive)
     await client.query(
       'INSERT INTO ocean_pay_txs (user_id, concepto, monto, moneda, origen) VALUES ($1, $2, $3, $4, $5)',
-      [actualReceiverId, `POS Virtual - RecepciÃ³n(${code})`, safeAmount, pos.currency.toUpperCase(), 'POS']
+      [actualReceiverId, `POS Virtual - Recepción(${code})`, safeAmount, pos.currency.toUpperCase(), 'POS']
     );
 
     await client.query('COMMIT');
@@ -5049,7 +5049,7 @@ app.post('/pos/complete', async (req, res) => {
   }
 });
 
-// Endpoint para obtener beneficios de suscripciÃ³n en SSA
+// Endpoint para obtener beneficios de suscripción en SSA
 
 app.get('/savage-space-animals/benefits', async (req, res) => {
   const authHeader = req.headers.authorization;
@@ -5068,7 +5068,7 @@ app.get('/savage-space-animals/benefits', async (req, res) => {
   }
 
   try {
-    // Buscar suscripciÃ³n activa del Hub (si la tabla existe)
+    // Buscar suscripción activa del Hub (si la tabla existe)
     let rows = [];
     try {
       const result = await pool.query(`
@@ -5133,7 +5133,7 @@ app.post('/wildshorts/episode/pay', async (req, res) => {
     userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
-    return res.status(401).json({ error: 'Token invÃ¡lido' });
+    return res.status(401).json({ error: 'Token inválido' });
   }
 
   const { episodeId, episodePrice, requiredPlan } = req.body;
@@ -5141,7 +5141,7 @@ app.post('/wildshorts/episode/pay', async (req, res) => {
     return res.status(400).json({ error: 'episodeId y episodePrice requeridos' });
   }
 
-  // Verificar si la columna moneda existe FUERA de la transacciÃ³n
+  // Verificar si la columna moneda existe FUERA de la transacción
   let hasMonedaColumn = false;
   try {
     const { rows: columnCheck } = await pool.query(`
@@ -5151,11 +5151,11 @@ app.post('/wildshorts/episode/pay', async (req, res) => {
       `);
     hasMonedaColumn = columnCheck.length > 0;
   } catch (checkError) {
-    // Si falla la verificaciÃ³n, asumir que no existe la columna
+    // Si falla la verificación, asumir que no existe la columna
     hasMonedaColumn = false;
   }
 
-  // Verificar suscripciÃ³n FUERA de la transacciÃ³n
+  // Verificar suscripción FUERA de la transacción
   if (requiredPlan) {
     const { rows: subRows } = await pool.query(`
       SELECT plan_id FROM wildshorts_subs
@@ -5173,7 +5173,7 @@ app.post('/wildshorts/episode/pay', async (req, res) => {
     }
   }
 
-  // Verificar saldo FUERA de la transacciÃ³n
+  // Verificar saldo FUERA de la transacción
   const { rows: gemsRows } = await pool.query(`
     SELECT value FROM ocean_pay_metadata
     WHERE user_id = $1 AND key = 'wildgems'
@@ -5186,12 +5186,12 @@ app.post('/wildshorts/episode/pay', async (req, res) => {
     return res.status(400).json({ error: `Saldo insuficiente.Necesitas ${price} WildGems.` });
   }
 
-  // Ahora sÃ­, comenzar la transacciÃ³n para las operaciones DML
+  // Ahora sí, comenzar la transacción para las operaciones DML
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
 
-    // Obtener saldo con FOR UPDATE dentro de la transacciÃ³n
+    // Obtener saldo con FOR UPDATE dentro de la transacción
     const { rows: gemsRowsLocked } = await client.query(`
       SELECT value FROM ocean_pay_metadata
       WHERE user_id = $1 AND key = 'wildgems'
@@ -5200,7 +5200,7 @@ app.post('/wildshorts/episode/pay', async (req, res) => {
 
     const currentGemsLocked = parseInt(gemsRowsLocked[0]?.value || '0');
 
-    // Verificar saldo nuevamente (podrÃ­a haber cambiado)
+    // Verificar saldo nuevamente (podría haber cambiado)
     if (currentGemsLocked < price) {
       await client.query('ROLLBACK');
       client.release();
@@ -5216,7 +5216,7 @@ app.post('/wildshorts/episode/pay', async (req, res) => {
       DO UPDATE SET value = $2
       `, [userId, newBalance.toString()]);
 
-    // Registrar transacciÃ³n segÃºn la estructura de la tabla (ya sabemos si tiene moneda)
+    // Registrar transacción según la estructura de la tabla (ya sabemos si tiene moneda)
     if (hasMonedaColumn) {
       await client.query(`
         INSERT INTO ocean_pay_txs(user_id, concepto, monto, origen, moneda)
@@ -5234,11 +5234,11 @@ app.post('/wildshorts/episode/pay', async (req, res) => {
 
     res.json({ success: true, newBalance });
   } catch (e) {
-    // Intentar hacer rollback si la transacciÃ³n estÃ¡ activa
+    // Intentar hacer rollback si la transacción está activa
     try {
       await client.query('ROLLBACK');
     } catch (rollbackError) {
-      // Ignorar errores de rollback si la transacciÃ³n ya fue abortada
+      // Ignorar errores de rollback si la transacción ya fue abortada
       console.log('[WildShorts] Error en rollback (posiblemente ya abortado):', rollbackError.message);
     }
     client.release();
@@ -5270,7 +5270,7 @@ app.post('/ocean-pay/link-account', async (req, res) => {
 
     const token = jwt.sign({ uid: rows[0].id, un: username }, process.env.STUDIO_SECRET, { expiresIn: '7d' });
 
-    // WildCredits y WildGems se envÃ­an desde el cliente
+    // WildCredits y WildGems se envían desde el cliente
     const wildCreditsValue = parseInt(wildCredits || '0');
     const wildGemsValue = parseInt(wildGems || '0');
 
@@ -5298,7 +5298,7 @@ app.post('/ocean-pay/link-account', async (req, res) => {
         if (row.key === 'wildgems') existingWildGems = parseInt(row.value || '0');
       });
 
-      // Usar el valor mÃ¡ximo entre el existente y el nuevo
+      // Usar el valor máximo entre el existente y el nuevo
       const finalWildCredits = Math.max(existingWildCredits, wildCreditsValue);
       const finalWildGems = Math.max(existingWildGems, wildGemsValue);
 
@@ -5452,7 +5452,7 @@ function fallbackSlidesFromScript(script = '', style = {}) {
 
   // 1) Sentence split
   const sentences = raw
-    .split(/(?<=[.!?])\s+(?=[A-ZÃÃ‰ÃÃ“ÃšÃ‘])/)
+    .split(/(?<=[.!?])\s+(?=[A-ZÁÉÍÓÚÑ])/)
     .map(s => s.trim())
     .filter(s => s.length >= 20);
 
@@ -5461,7 +5461,7 @@ function fallbackSlidesFromScript(script = '', style = {}) {
     'a', 'al', 'algo', 'algun', 'algunas', 'algunos', 'ante', 'antes', 'como', 'con', 'contra', 'cuando', 'de', 'del', 'desde', 'donde', 'el', 'ella', 'ellas', 'ellos', 'en', 'entonces', 'entre', 'era', 'eramos', 'eran', 'eras', 'eres', 'es', 'esa', 'esas', 'ese', 'eso', 'esos', 'esta', 'estaba', 'estabais', 'estaban', 'estabas', 'estais', 'estamos', 'estan', 'estar', 'estas', 'este', 'esto', 'estos', 'estoy', 'fue', 'fueron', 'fui', 'fuimos', 'ha', 'haber', 'han', 'has', 'hasta', 'hay', 'la', 'las', 'le', 'les', 'lo', 'los', 'mas', 'me', 'mi', 'mia', 'mias', 'mientras', 'mio', 'mios', 'mis', 'muy', 'nos', 'nosotras', 'nosotros', 'nuestra', 'nuestras', 'nuestro', 'nuestros', 'nunca', 'otra', 'otras', 'otro', 'otros', 'para', 'pero', 'poco', 'pocos', 'por', 'porque', 'primero', 'puede', 'pueden', 'puedo', 'que', 'quien', 'quienes', 'quizas', 'sea', 'seamos', 'sean', 'seas', 'ser', 'si', 'sido', 'siempre', 'siendo', 'sois', 'somos', 'son', 'soy', 'su', 'sus', 'tambien', 'tampoco', 'teneis', 'tenemos', 'tener', 'ti', 'tiempo', 'tiene', 'tienen', 'todo', 'todos', 'tras', 'tu', 'tus', 'un', 'una', 'uno', 'unos', 'usted', 'ustedes', 'y', 'ya',
     'the', 'of', 'and', 'to', 'in', 'for', 'on', 'with', 'as', 'at', 'by', 'from', 'or', 'an', 'is', 'are', 'be', 'this', 'that', 'these', 'those', 'it', 'its'
   ]);
-  const WORD_RE = /[A-Za-zÃÃ‰ÃÃ“ÃšÃœÃ‘Ã¡Ã©Ã­Ã³ÃºÃ¼Ã±0-9]{2,}/g;
+  const WORD_RE = /[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9]{2,}/g;
 
   function normalizeWord(w) { try { return w.normalize('NFD').replace(/[\u0300-\u036f]/g, ''); } catch { return w; } }
   function tokenize(s) {
@@ -5521,10 +5521,10 @@ function fallbackSlidesFromScript(script = '', style = {}) {
   taken.sort((a, b) => a.idx - b.idx);
 
   // 7) Clean bullet text: shorten; remove trailing punctuation; sentence-case
-  function clip(s, n) { return s.length > n ? s.slice(0, n - 1).replace(/[,;:.!\s]+$/, '') + 'â€¦' : s; }
+  function clip(s, n) { return s.length > n ? s.slice(0, n - 1).replace(/[,;:.!\s]+$/, '') + '…' : s; }
   function toSentenceCase(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
 
-  const GENERIC_PREFIX = [/^\s*(en\s+esta\s+presentaci[oÃ³]n|esta\s+presentaci[oÃ³]n|en\s+este\s+video|este\s+video|vamos\s+a|vamos\b|hoy\b|we\s+will|in\s+this\s+presentation)[:,\s]*/i];
+  const GENERIC_PREFIX = [/^\s*(en\s+esta\s+presentaci[oó]n|esta\s+presentaci[oó]n|en\s+este\s+video|este\s+video|vamos\s+a|vamos\b|hoy\b|we\s+will|in\s+this\s+presentation)[:,\s]*/i];
   const bullets = taken.map(t => {
     let out = t.s.replace(/\s+/g, ' ').trim();
     out = out.replace(/\([^)]*\)/g, ''); // remove parentheticals
@@ -5570,7 +5570,7 @@ function fallbackSlidesFromScript(script = '', style = {}) {
     const nice = topPhrase.replace(/\b\w/g, m => m.toUpperCase());
     title = scriptHasIntro ? `Introducing ${nice} ` : nice;
   } else {
-    const head = (scored[0]?.s.split(/[\-:â€“â€”]/)[0] || '').trim();
+    const head = (scored[0]?.s.split(/[\-:–—]/)[0] || '').trim();
     title = head ? clip(toSentenceCase(head), 60) : 'Introducing';
   }
 
@@ -6035,7 +6035,7 @@ app.patch('/natmarket/support/chats/:chatId/close', async (req, res) => {
   }
 });
 
-/* ===== NatMarket: RecuperaciÃ³n alternativa de cuenta ===== */
+/* ===== NatMarket: Recuperación alternativa de cuenta ===== */
 // Tabla: recovery_requests_nat
 async function ensureRecoveryTable() {
   await pool.query(`
@@ -6055,7 +6055,7 @@ async function ensureRecoveryTable() {
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_rr_nat_status ON recovery_requests_nat(status)`);
 }
 
-// VerificaciÃ³n opcional contra OceanicEthernet
+// Verificación opcional contra OceanicEthernet
 async function verifyOE(username, password) {
   if (!username || !password) return false;
   try {
@@ -6468,9 +6468,9 @@ async function ensureAIGenerationTables() {
         ADD COLUMN IF NOT EXISTS ai_confidence JSONB
     `);
 
-    console.log('âœ… AI generation tables initialized');
+    console.log('✅ AI generation tables initialized');
   } catch (err) {
-    console.error('âŒ Error initializing AI generation tables:', err);
+    console.error('❌ Error initializing AI generation tables:', err);
   }
 }
 
@@ -6494,7 +6494,7 @@ async function checkAIRateLimit(userId) {
         allowed: false,
         remaining: 0,
         resetAt: resetAt.toISOString(),
-        message: 'Has alcanzado el lÃ­mite de 10 generaciones por hora'
+        message: 'Has alcanzado el límite de 10 generaciones por hora'
       };
     }
 
@@ -6509,47 +6509,47 @@ async function checkAIRateLimit(userId) {
 /* ===== NATMARKET AI GENERATION V2 (SENTINEL EVOLUTION) ===== */
 
 const AI_MODELS = {
-  'genesis-v1': { name: 'Genesis (BÃ¡sico)', cost: 1, multiplier: 1 },
+  'genesis-v1': { name: 'Genesis (Básico)', cost: 1, multiplier: 1 },
   'sentinel-evolution': { name: 'Sentinel: Evolution (Premium)', cost: 5, multiplier: 2.0 }
 };
 
 const BRAND_TO_CATEGORY = {
-  'iphone': 'TecnologÃ­a', 'ipad': 'TecnologÃ­a', 'macbook': 'TecnologÃ­a', 'airpods': 'TecnologÃ­a', 'apple': 'TecnologÃ­a',
-  'samsung': 'TecnologÃ­a', 'galaxy': 'TecnologÃ­a', 'xiaomi': 'TecnologÃ­a', 'redmi': 'TecnologÃ­a', 'poco': 'TecnologÃ­a',
-  'motorola': 'TecnologÃ­a', 'moto': 'TecnologÃ­a', 'sony': 'TecnologÃ­a', 'playstation': 'Juegos y Juguetes', 'ps4': 'Juegos y Juguetes',
+  'iphone': 'Tecnología', 'ipad': 'Tecnología', 'macbook': 'Tecnología', 'airpods': 'Tecnología', 'apple': 'Tecnología',
+  'samsung': 'Tecnología', 'galaxy': 'Tecnología', 'xiaomi': 'Tecnología', 'redmi': 'Tecnología', 'poco': 'Tecnología',
+  'motorola': 'Tecnología', 'moto': 'Tecnología', 'sony': 'Tecnología', 'playstation': 'Juegos y Juguetes', 'ps4': 'Juegos y Juguetes',
   'ps5': 'Juegos y Juguetes', 'xbox': 'Juegos y Juguetes', 'nintendo': 'Juegos y Juguetes', 'switch': 'Juegos y Juguetes',
-  'lg': 'TecnologÃ­a', 'asus': 'TecnologÃ­a', 'lenovo': 'TecnologÃ­a', 'hp': 'TecnologÃ­a', 'dell': 'TecnologÃ­a', 'acer': 'TecnologÃ­a',
+  'lg': 'Tecnología', 'asus': 'Tecnología', 'lenovo': 'Tecnología', 'hp': 'Tecnología', 'dell': 'Tecnología', 'acer': 'Tecnología',
   'nike': 'Moda y Accesorios', 'adidas': 'Moda y Accesorios', 'puma': 'Moda y Accesorios', 'zara': 'Moda y Accesorios',
   'gucci': 'Moda y Accesorios', 'levis': 'Moda y Accesorios', 'h&m': 'Moda y Accesorios',
-  'toyota': 'VehÃ­culos y Repuestos', 'ford': 'VehÃ­culos y Repuestos', 'honda': 'VehÃ­culos y Repuestos', 'chevrolet': 'VehÃ­culos y Repuestos',
-  'fiat': 'VehÃ­culos y Repuestos', 'volkswagen': 'VehÃ­culos y Repuestos', 'peugeot': 'VehÃ­culos y Repuestos', 'renault': 'VehÃ­culos y Repuestos',
+  'toyota': 'Vehículos y Repuestos', 'ford': 'Vehículos y Repuestos', 'honda': 'Vehículos y Repuestos', 'chevrolet': 'Vehículos y Repuestos',
+  'fiat': 'Vehículos y Repuestos', 'volkswagen': 'Vehículos y Repuestos', 'peugeot': 'Vehículos y Repuestos', 'renault': 'Vehículos y Repuestos',
   'whiskas': 'Mascotas', 'pedigree': 'Mascotas', 'royal canin': 'Mascotas', 'dog chow': 'Mascotas'
 };
 
 const CATEGORIES_EXTENDED = {
-  'TecnologÃ­a': ['iphone', 'samsung', 'xiaomi', 'motorola', 'laptop', 'notebook', 'pc', 'gamer', 'teclado', 'mouse', 'monitor', 'auriculares', 'bluetooth', 'smart', 'watch', 'reloj', 'tablet', 'ipad', 'cargador', 'usb', 'wifi', 'router', 'cÃ¡mara', 'drone', 'tv', 'televisor', 'audio', 'parlante', 'bocina', 'celular', 'mÃ³vil', 'smartphone', 'funda', 'vidrio', 'templado', 'impresora', 'disco', 'ssd', 'ram', 'procesador', 'placa', 'video'],
-  'Moda y Accesorios': ['camisa', 'pantalÃ³n', 'jean', 'remera', 'camiseta', 'chomba', 'zapatillas', 'zapatos', 'botas', 'sandalias', 'vestido', 'pollera', 'falda', 'campera', 'buzo', 'hoodie', 'gorra', 'sombrero', 'bolso', 'mochila', 'cartera', 'billetera', 'cinturÃ³n', 'accesorio', 'joya', 'anillo', 'collar', 'pulsera', 'aritos', 'lentes', 'gafas', 'reloj', 'ropa', 'interior', 'malla', 'bikini'],
-  'Hogar y DecoraciÃ³n': ['mesa', 'silla', 'sillÃ³n', 'sofÃ¡', 'cama', 'colchÃ³n', 'almohada', 'mueble', 'placard', 'ropero', 'escritorio', 'lÃ¡mpara', 'luz', 'led', 'decoraciÃ³n', 'cuadro', 'espejo', 'alfombra', 'cortina', 'sÃ¡bana', 'acolchado', 'toalla', 'cocina', 'olla', 'sartÃ©n', 'cubiertos', 'vaso', 'plato', 'taza', 'mate', 'termo', 'jardÃ­n', 'planta', 'maceta', 'herramienta', 'taladro', 'martillo', 'destornillador'],
-  'VehÃ­culos y Repuestos': ['auto', 'coche', 'camioneta', 'camiÃ³n', 'moto', 'motocicleta', 'scooter', 'bicicleta', 'bici', 'rueda', 'neumÃ¡tico', 'cubierta', 'llanta', 'casco', 'repuesto', 'motor', 'aceite', 'filtro', 'baterÃ­a', 'freno', 'accesorio auto', 'parabrisas', 'espejo retrovisor'],
-  'Deportes y Fitness': ['fÃºtbol', 'pelota', 'balÃ³n', 'raqueta', 'paleta', 'gimnasio', 'gym', 'pesa', 'mancuerna', 'barra', 'disco', 'bici fija', 'cinta', 'running', 'camiseta', 'short', 'calza', 'botines', 'zapatillas deportivas', 'entrenamiento', 'yoga', 'mat', 'colchoneta', 'suplemento', 'proteÃ­na', 'nataciÃ³n', 'boxeo', 'guantes'],
-  'Juegos y Juguetes': ['juego', 'juguete', 'muÃ±eco', 'figura', 'acciÃ³n', 'peluche', 'consola', 'playstation', 'ps4', 'ps5', 'xbox', 'nintendo', 'switch', 'joystick', 'gamepad', 'videojuego', 'juego de mesa', 'cartas', 'colecciÃ³n', 'funko', 'lego', 'bloques', 'puzzle', 'rompecabezas', 'infantil', 'bebÃ©'],
-  'Libros y Multimedia': ['libro', 'novela', 'texto', 'manual', 'cÃ³mic', 'manga', 'revista', 'enciclopedia', 'diccionario', 'cd', 'dvd', 'vinilo', 'disco', 'pelÃ­cula', 'serie', 'instrumento', 'guitarra', 'piano', 'teclado', 'baterÃ­a', 'bajo', 'micrÃ³fono', 'partitura'],
-  'Salud y Belleza': ['perfume', 'fragancia', 'colonia', 'crema', 'lociÃ³n', 'maquillaje', 'base', 'labial', 'sombras', 'esmalte', 'shampoo', 'acondicionador', 'jabÃ³n', 'cuidado', 'piel', 'facial', 'corporal', 'pelo', 'cabello', 'uÃ±as', 'afeitadora', 'depiladora', 'secador', 'planchita', 'masajeador'],
-  'Inmuebles': ['casa', 'departamento', 'depto', 'ph', 'alquiler', 'venta', 'terreno', 'lote', 'local', 'oficina', 'cochera', 'galpÃ³n', 'quinta', 'temporada'],
-  'Servicios': ['servicio', 'reparaciÃ³n', 'instalaciÃ³n', 'clases', 'curso', 'flete', 'mudanza', 'limpieza', 'mantenimiento', 'diseÃ±o', 'programaciÃ³n', 'fotografÃ­a', 'evento'],
+  'Tecnología': ['iphone', 'samsung', 'xiaomi', 'motorola', 'laptop', 'notebook', 'pc', 'gamer', 'teclado', 'mouse', 'monitor', 'auriculares', 'bluetooth', 'smart', 'watch', 'reloj', 'tablet', 'ipad', 'cargador', 'usb', 'wifi', 'router', 'cámara', 'drone', 'tv', 'televisor', 'audio', 'parlante', 'bocina', 'celular', 'móvil', 'smartphone', 'funda', 'vidrio', 'templado', 'impresora', 'disco', 'ssd', 'ram', 'procesador', 'placa', 'video'],
+  'Moda y Accesorios': ['camisa', 'pantalón', 'jean', 'remera', 'camiseta', 'chomba', 'zapatillas', 'zapatos', 'botas', 'sandalias', 'vestido', 'pollera', 'falda', 'campera', 'buzo', 'hoodie', 'gorra', 'sombrero', 'bolso', 'mochila', 'cartera', 'billetera', 'cinturón', 'accesorio', 'joya', 'anillo', 'collar', 'pulsera', 'aritos', 'lentes', 'gafas', 'reloj', 'ropa', 'interior', 'malla', 'bikini'],
+  'Hogar y Decoración': ['mesa', 'silla', 'sillón', 'sofá', 'cama', 'colchón', 'almohada', 'mueble', 'placard', 'ropero', 'escritorio', 'lámpara', 'luz', 'led', 'decoración', 'cuadro', 'espejo', 'alfombra', 'cortina', 'sábana', 'acolchado', 'toalla', 'cocina', 'olla', 'sartén', 'cubiertos', 'vaso', 'plato', 'taza', 'mate', 'termo', 'jardín', 'planta', 'maceta', 'herramienta', 'taladro', 'martillo', 'destornillador'],
+  'Vehículos y Repuestos': ['auto', 'coche', 'camioneta', 'camión', 'moto', 'motocicleta', 'scooter', 'bicicleta', 'bici', 'rueda', 'neumático', 'cubierta', 'llanta', 'casco', 'repuesto', 'motor', 'aceite', 'filtro', 'batería', 'freno', 'accesorio auto', 'parabrisas', 'espejo retrovisor'],
+  'Deportes y Fitness': ['fútbol', 'pelota', 'balón', 'raqueta', 'paleta', 'gimnasio', 'gym', 'pesa', 'mancuerna', 'barra', 'disco', 'bici fija', 'cinta', 'running', 'camiseta', 'short', 'calza', 'botines', 'zapatillas deportivas', 'entrenamiento', 'yoga', 'mat', 'colchoneta', 'suplemento', 'proteína', 'natación', 'boxeo', 'guantes'],
+  'Juegos y Juguetes': ['juego', 'juguete', 'muñeco', 'figura', 'acción', 'peluche', 'consola', 'playstation', 'ps4', 'ps5', 'xbox', 'nintendo', 'switch', 'joystick', 'gamepad', 'videojuego', 'juego de mesa', 'cartas', 'colección', 'funko', 'lego', 'bloques', 'puzzle', 'rompecabezas', 'infantil', 'bebé'],
+  'Libros y Multimedia': ['libro', 'novela', 'texto', 'manual', 'cómic', 'manga', 'revista', 'enciclopedia', 'diccionario', 'cd', 'dvd', 'vinilo', 'disco', 'película', 'serie', 'instrumento', 'guitarra', 'piano', 'teclado', 'batería', 'bajo', 'micrófono', 'partitura'],
+  'Salud y Belleza': ['perfume', 'fragancia', 'colonia', 'crema', 'loción', 'maquillaje', 'base', 'labial', 'sombras', 'esmalte', 'shampoo', 'acondicionador', 'jabón', 'cuidado', 'piel', 'facial', 'corporal', 'pelo', 'cabello', 'uñas', 'afeitadora', 'depiladora', 'secador', 'planchita', 'masajeador'],
+  'Inmuebles': ['casa', 'departamento', 'depto', 'ph', 'alquiler', 'venta', 'terreno', 'lote', 'local', 'oficina', 'cochera', 'galpón', 'quinta', 'temporada'],
+  'Servicios': ['servicio', 'reparación', 'instalación', 'clases', 'curso', 'flete', 'mudanza', 'limpieza', 'mantenimiento', 'diseño', 'programación', 'fotografía', 'evento'],
   'Mascotas': ['perro', 'gato', 'alimento', 'balanceado', 'piedras', 'cama', 'correa', 'collar', 'juguete', 'ropa', 'acuario', 'pez', 'jaula'],
-  'Alimentos y Bebidas': ['comida', 'bebida', 'vino', 'cerveza', 'whisky', 'cafÃ©', 'tÃ©', 'yerba', 'azÃºcar', 'aceite', 'fideos', 'arroz', 'conserva', 'golosina', 'chocolate', 'snack']
+  'Alimentos y Bebidas': ['comida', 'bebida', 'vino', 'cerveza', 'whisky', 'café', 'té', 'yerba', 'azúcar', 'aceite', 'fideos', 'arroz', 'conserva', 'golosina', 'chocolate', 'snack']
 };
 
 function detectCategory(input) {
   const lowerInput = input.toLowerCase();
 
-  // 1. DetecciÃ³n por marca conocida (Prioridad Alta)
+  // 1. Detección por marca conocida (Prioridad Alta)
   for (const [brand, cat] of Object.entries(BRAND_TO_CATEGORY)) {
     if (lowerInput.includes(brand)) return cat;
   }
 
-  // 2. DetecciÃ³n por palabras clave extendidas
+  // 2. Detección por palabras clave extendidas
   for (const [cat, keywords] of Object.entries(CATEGORIES_EXTENDED)) {
     if (keywords.some(kw => lowerInput.includes(kw))) {
       return cat;
@@ -6565,10 +6565,10 @@ function detectCondition(input) {
   if (lower.includes('reacondicionado') || lower.includes('refurbished') || lower.includes('restaurado')) return 'reacondicionado';
   if (lower.includes('usado') || lower.includes('segunda mano') || lower.includes('detalle') || lower.includes('funciona bien')) return 'usado';
 
-  // Inferencia inteligente si no se dice nada explÃ­cito
+  // Inferencia inteligente si no se dice nada explícito
   if (lower.includes('en caja') && !lower.includes('usado')) return 'nuevo'; // Probable
 
-  return 'usado'; // Default mÃ¡s seguro
+  return 'usado'; // Default más seguro
 }
 
 function generateProductName(input, category, modelId) {
@@ -6576,7 +6576,7 @@ function generateProductName(input, category, modelId) {
   const stopWords = ['el', 'la', 'los', 'las', 'un', 'una', 'de', 'del', 'en', 'con', 'para', 'por', 'muy', 'buen', 'buena', 'que', 'y', 'o', 'a', 'al', 'es', 'son', 'se', 'vende', 'vendo', 'funcional', 'estado', 'calidad'];
   const keywords = words.filter(w => !stopWords.includes(w.toLowerCase()));
 
-  // LÃ³gica avanzada para Sentinel Evolution
+  // Lógica avanzada para Sentinel Evolution
   if (modelId === 'sentinel-evolution') {
     const brands = Object.keys(BRAND_TO_CATEGORY);
     const foundBrand = brands.find(b => input.toLowerCase().includes(b));
@@ -6585,18 +6585,18 @@ function generateProductName(input, category, modelId) {
     // Extraer palabras clave principales (sustantivos probables)
     let mainKeywords = keywords.slice(0, 6).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 
-    // Limpiar marca del tÃ­tulo si ya se detectÃ³ para evitar duplicados (ej: "iPhone Celular iPhone")
+    // Limpiar marca del título si ya se detectó para evitar duplicados (ej: "iPhone Celular iPhone")
     if (brandName) {
       mainKeywords = mainKeywords.replace(new RegExp(brandName, 'gi'), '').trim();
     }
 
-    // Emojis por categorÃ­a
+    // Emojis por categoría
     const categoryEmojis = {
-      'TecnologÃ­a': 'ðŸ“±', 'Moda y Accesorios': 'ðŸ‘—', 'Hogar y DecoraciÃ³n': 'ðŸ ', 'VehÃ­culos y Repuestos': 'ðŸš—',
-      'Deportes y Fitness': 'âš½', 'Juegos y Juguetes': 'ðŸŽ®', 'Libros y Multimedia': 'ðŸ“š', 'Salud y Belleza': 'ðŸ’„',
-      'Inmuebles': 'ðŸ”‘', 'Servicios': 'ðŸ› ï¸', 'Mascotas': 'ðŸ¾', 'Alimentos y Bebidas': 'ðŸ”'
+      'Tecnología': '📱', 'Moda y Accesorios': '👗', 'Hogar y Decoración': '🏠', 'Vehículos y Repuestos': '🚗',
+      'Deportes y Fitness': '⚽', 'Juegos y Juguetes': '🎮', 'Libros y Multimedia': '📚', 'Salud y Belleza': '💄',
+      'Inmuebles': '🔑', 'Servicios': '🛠️', 'Mascotas': '🐾', 'Alimentos y Bebidas': '🍔'
     };
-    const emoji = categoryEmojis[category] || 'âœ¨';
+    const emoji = categoryEmojis[category] || '✨';
 
     if (brandName) {
       return `${emoji} ${brandName} ${mainKeywords} | ${category} `;
@@ -6604,27 +6604,27 @@ function generateProductName(input, category, modelId) {
     return `${emoji} ${mainKeywords} - ${category} Premium`;
   }
 
-  // LÃ³gica bÃ¡sica (Genesis)
+  // Lógica básica (Genesis)
   const capitalized = keywords.slice(0, 5).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
   return capitalized || `Producto de ${category} `;
 }
 
 function generateProductDescription(input, name, category, condition, modelId) {
   if (modelId === 'sentinel-evolution') {
-    // GeneraciÃ³n avanzada con estructura de ventas persuasiva y anÃ¡lisis semÃ¡ntico
+    // Generación avanzada con estructura de ventas persuasiva y análisis semántico
     const lowerInput = input.toLowerCase();
 
-    // 1. DetecciÃ³n de Adjetivos y CaracterÃ­sticas
+    // 1. Detección de Adjetivos y Características
     const adjectives = [];
     if (lowerInput.includes('funcional') || lowerInput.includes('anda bien') || lowerInput.includes('funciona')) adjectives.push('es totalmente funcional');
-    if (lowerInput.includes('rÃ¡pido') || lowerInput.includes('veloz') || lowerInput.includes('potente') || lowerInput.includes('fluido')) adjectives.push('ofrece un rendimiento rÃ¡pido y fluido');
-    if (lowerInput.includes('econÃ³mico') || lowerInput.includes('barato') || lowerInput.includes('oferta')) adjectives.push('es una excelente oportunidad econÃ³mica');
-    if (lowerInput.includes('garantÃ­a')) adjectives.push('cuenta con garantÃ­a');
+    if (lowerInput.includes('rápido') || lowerInput.includes('veloz') || lowerInput.includes('potente') || lowerInput.includes('fluido')) adjectives.push('ofrece un rendimiento rápido y fluido');
+    if (lowerInput.includes('económico') || lowerInput.includes('barato') || lowerInput.includes('oferta')) adjectives.push('es una excelente oportunidad económica');
+    if (lowerInput.includes('garantía')) adjectives.push('cuenta con garantía');
     if (lowerInput.includes('original')) adjectives.push('es un producto 100% original');
     if (lowerInput.includes('caja') || lowerInput.includes('completo')) adjectives.push('se entrega completo con su caja');
-    if (lowerInput.includes('baterÃ­a') || lowerInput.includes('duraciÃ³n')) adjectives.push('tiene muy buena autonomÃ­a');
+    if (lowerInput.includes('batería') || lowerInput.includes('duración')) adjectives.push('tiene muy buena autonomía');
 
-    // 2. DetecciÃ³n de Especificaciones TÃ©cnicas (Regex simple)
+    // 2. Detección de Especificaciones Técnicas (Regex simple)
     const specs = [];
     const gbMatch = input.match(/(\d+)\s*(gb|tb)/i);
     if (gbMatch) specs.push(`Almacenamiento / Memoria: ${gbMatch[0].toUpperCase()} `);
@@ -6633,48 +6633,48 @@ function generateProductDescription(input, name, category, condition, modelId) {
     const inchMatch = input.match(/(\d+(\.\d+)?)\s*("|pulgadas)/i);
     if (inchMatch) specs.push(`Pantalla: ${inchMatch[1]} "`);
 
-    // 3. DetecciÃ³n de Urgencia
+    // 3. Detección de Urgencia
     const isUrgent = lowerInput.includes('urgente') || lowerInput.includes('viaje') || lowerInput.includes('mudanza') || lowerInput.includes('hoy');
-    const urgentText = isUrgent ? "\nâš ï¸ Â¡AtenciÃ³n! Venta por motivo de viaje/mudanza. Escucho ofertas razonables." : "";
+    const urgentText = isUrgent ? "\n⚠️ ¡Atención! Venta por motivo de viaje/mudanza. Escucho ofertas razonables." : "";
 
-    // ConstrucciÃ³n del texto
+    // Construcción del texto
     const intros = [
-      `Â¡LlegÃ³ a NatMarket este increÃ­ble ${name}! Un artÃ­culo destacado en ${category}.`,
-      `Â¿BuscÃ¡s ${name}? Tenemos exactamente lo que necesitÃ¡s.`,
-      `Oportunidad Ãºnica: ${name} disponible ahora mismo.`
+      `¡Llegó a NatMarket este increíble ${name}! Un artículo destacado en ${category}.`,
+      `¿Buscás ${name}? Tenemos exactamente lo que necesitás.`,
+      `Oportunidad única: ${name} disponible ahora mismo.`
     ];
 
     const conditionText = condition === 'nuevo' ? 'totalmente nuevo y en su empaque original' :
-      condition === 'como nuevo' ? 'en estado impecable, cuidado maniÃ¡ticamente' :
+      condition === 'como nuevo' ? 'en estado impecable, cuidado maniáticamente' :
         condition === 'reacondicionado' ? 'reacondicionado a nuevo y verificado' :
           'usado pero en muy buenas condiciones, listo para seguir rindiendo';
 
     const featuresText = adjectives.length > 0
-      ? `Lo mÃ¡s destacado es que este artÃ­culo ${adjectives.join(', y ademÃ¡s ')}.`
+      ? `Lo más destacado es que este artículo ${adjectives.join(', y además ')}.`
       : `Este producto se encuentra ${conditionText}. Ha sido verificado para tu tranquilidad.`;
 
-    const specsList = specs.length > 0 ? `\n\nEspecificaciones:\nâ€¢ ${specs.join('\nâ€¢ ')}` : "";
+    const specsList = specs.length > 0 ? `\n\nEspecificaciones:\n• ${specs.join('\n• ')}` : "";
 
     const benefits = [
-      `âœ… Compra segura y protegida.\nâœ… Excelente relaciÃ³n precio-calidad.`,
-      `ðŸš€ EnvÃ­o rÃ¡pido a coordinar.\nâ­ Producto recomendado.`,
-      `âœ¨ DiseÃ±o y funcionalidad garantizados.`
+      `✅ Compra segura y protegida.\n✅ Excelente relación precio-calidad.`,
+      `🚀 Envío rápido a coordinar.\n⭐ Producto recomendado.`,
+      `✨ Diseño y funcionalidad garantizados.`
     ];
 
     const callToAction = [
-      `Â¡No dudes en consultar! Respondemos a la brevedad.`,
-      `Â¡Aprovechalo antes de que vuele!`,
-      `HacÃ© tu oferta o comprÃ¡ ahora. Â¡Te esperamos!`
+      `¡No dudes en consultar! Respondemos a la brevedad.`,
+      `¡Aprovechalo antes de que vuele!`,
+      `Hacé tu oferta o comprá ahora. ¡Te esperamos!`
     ];
 
     const intro = intros[Math.floor(Math.random() * intros.length)];
     const benefit = benefits[Math.floor(Math.random() * benefits.length)];
     const cta = callToAction[Math.floor(Math.random() * callToAction.length)];
 
-    return `${intro}\n\n${featuresText}${specsList}${urgentText}\n\nPor quÃ© elegirnos:\n${benefit}\n\n${cta}\n\n(Generado por Sentinel: Evolution AI ðŸ§¬)`;
+    return `${intro}\n\n${featuresText}${specsList}${urgentText}\n\nPor qué elegirnos:\n${benefit}\n\n${cta}\n\n(Generado por Sentinel: Evolution AI 🧬)`;
   }
 
-  // LÃ³gica bÃ¡sica (Genesis)
+  // Lógica básica (Genesis)
   const templates = {
     'nuevo': [`${name} totalmente nuevo. En caja cerrada.`, `Vendo ${name} a estrenar. Impecable.`],
     'usado': [`${name} usado en buen estado.`, `Vendo ${name}, tiene uso pero funciona bien.`],
@@ -6682,15 +6682,15 @@ function generateProductDescription(input, name, category, condition, modelId) {
     'reacondicionado': [`${name} reacondicionado a nuevo. Garantizado.`]
   };
   const template = templates[condition] || templates['usado'];
-  return template[Math.floor(Math.random() * template.length)] + `\nCategorÃ­a: ${category}. Consultar dudas.`;
+  return template[Math.floor(Math.random() * template.length)] + `\nCategoría: ${category}. Consultar dudas.`;
 }
 
 function estimatePrice(input, category, condition, priceHint, modelId) {
   if (priceHint && priceHint > 0) return Math.round(priceHint);
 
   const basePrices = {
-    'TecnologÃ­a': 150000, 'Moda y Accesorios': 25000, 'Hogar y DecoraciÃ³n': 40000,
-    'VehÃ­culos y Repuestos': 80000, 'Deportes y Fitness': 30000, 'Juegos y Juguetes': 20000,
+    'Tecnología': 150000, 'Moda y Accesorios': 25000, 'Hogar y Decoración': 40000,
+    'Vehículos y Repuestos': 80000, 'Deportes y Fitness': 30000, 'Juegos y Juguetes': 20000,
     'Libros y Multimedia': 10000, 'Salud y Belleza': 15000, 'Inmuebles': 500000, 'Servicios': 20000,
     'Mascotas': 15000, 'Alimentos y Bebidas': 5000, 'Otros': 15000
   };
@@ -6700,13 +6700,13 @@ function estimatePrice(input, category, condition, priceHint, modelId) {
   // Ajuste por palabras clave de valor
   const lowerInput = input.toLowerCase();
   if (lowerInput.includes('pro') || lowerInput.includes('max') || lowerInput.includes('ultra') || lowerInput.includes('premium') || lowerInput.includes('original')) price *= 1.5;
-  if (lowerInput.includes('mini') || lowerInput.includes('lite') || lowerInput.includes('bÃ¡sico') || lowerInput.includes('genÃ©rico')) price *= 0.7;
+  if (lowerInput.includes('mini') || lowerInput.includes('lite') || lowerInput.includes('básico') || lowerInput.includes('genérico')) price *= 0.7;
   if (lowerInput.includes('lote') || lowerInput.includes('pack') || lowerInput.includes('combo') || lowerInput.includes('set')) price *= 1.3;
 
   const conditionMultipliers = { 'nuevo': 1.0, 'como nuevo': 0.85, 'reacondicionado': 0.75, 'usado': 0.6 };
   price *= (conditionMultipliers[condition] || 0.6);
 
-  // Sentinel Evolution es mÃ¡s preciso (menos variaciÃ³n aleatoria)
+  // Sentinel Evolution es más preciso (menos variación aleatoria)
   const variation = modelId === 'sentinel-evolution' ? (0.9 + Math.random() * 0.2) : (0.7 + Math.random() * 0.6);
   price *= variation;
 
@@ -6722,12 +6722,12 @@ function generateTags(input, category, modelId) {
   tags.push(category.toLowerCase());
 
   if (modelId === 'sentinel-evolution') {
-    // AÃ±adir marca si se detecta
+    // Añadir marca si se detecta
     const brands = Object.keys(BRAND_TO_CATEGORY);
     const foundBrand = brands.find(b => lowerInput.includes(b));
     if (foundBrand && !tags.includes(foundBrand)) tags.unshift(foundBrand);
 
-    // AÃ±adir estado si es relevante
+    // Añadir estado si es relevante
     if (lowerInput.includes('nuevo')) tags.push('nuevo');
     if (lowerInput.includes('usado')) tags.push('usado');
 
@@ -6765,7 +6765,7 @@ function generateProductWithAI(description, hints = {}, modelId = 'genesis-v1') 
   };
 }
 
-// Endpoint principal de generaciÃ³n
+// Endpoint principal de generación
 app.post('/natmarket/ai/generate-product', async (req, res) => {
   const startTime = Date.now();
 
@@ -6781,12 +6781,12 @@ app.post('/natmarket/ai/generate-product', async (req, res) => {
       });
     }
 
-    // Verificar si el usuario estÃ¡ baneado
+    // Verificar si el usuario está baneado
     const banStatus = await isUserBanned(userId);
     if (banStatus.banned) {
       return res.status(403).json({
         success: false,
-        error: `Tu cuenta estÃ¡ suspendida hasta ${new Date(banStatus.banUntil).toLocaleDateString('es-AR')}. RazÃ³n: ${banStatus.reason}`
+        error: `Tu cuenta está suspendida hasta ${new Date(banStatus.banUntil).toLocaleDateString('es-AR')}. Razón: ${banStatus.reason}`
       });
     }
 
@@ -6805,14 +6805,14 @@ app.post('/natmarket/ai/generate-product', async (req, res) => {
     if (productInput.description.length < 10) {
       return res.status(400).json({
         success: false,
-        error: 'La descripciÃ³n debe tener al menos 10 caracteres'
+        error: 'La descripción debe tener al menos 10 caracteres'
       });
     }
 
     if (productInput.description.length > 500) {
       return res.status(400).json({
         success: false,
-        error: 'La descripciÃ³n no puede exceder 500 caracteres'
+        error: 'La descripción no puede exceder 500 caracteres'
       });
     }
 
@@ -6853,7 +6853,7 @@ app.post('/natmarket/ai/generate-product', async (req, res) => {
 
       return res.status(400).json({
         success: false,
-        error: 'El contenido generado no cumple con nuestras polÃ­ticas. Intenta con una descripciÃ³n diferente.'
+        error: 'El contenido generado no cumple con nuestras políticas. Intenta con una descripción diferente.'
       });
     }
 
@@ -6862,7 +6862,7 @@ app.post('/natmarket/ai/generate-product', async (req, res) => {
       generatedProduct.price = Math.max(100, Math.min(10000000, generatedProduct.price));
     }
 
-    // Registrar generaciÃ³n exitosa
+    // Registrar generación exitosa
     await pool.query(
       `INSERT INTO ai_product_generations 
        (user_id, model_id, input_text, generated_product, validation_result, success, generation_time_ms)
@@ -6895,7 +6895,7 @@ app.post('/natmarket/ai/generate-product', async (req, res) => {
     });
 
   } catch (err) {
-    console.error('Error en generaciÃ³n de producto con IA:', err);
+    console.error('Error en generación de producto con IA:', err);
     res.status(500).json({
       success: false,
       error: 'Error interno del servidor al generar el producto'
@@ -6906,29 +6906,29 @@ app.post('/natmarket/ai/generate-product', async (req, res) => {
 
 const FORBIDDEN = [
   // Drogas
-  /\bcoca[iÃ­]na\b/i, /\bporro\b/i, /\bmari[h]uana\b/i,
+  /\bcoca[ií]na\b/i, /\bporro\b/i, /\bmari[h]uana\b/i,
   /\bextasi[s]?\b/i, /\blsd\b/i, /\bmdma\b/i,
-  /\banfetamina[s]?\b/i, /\bhero[Ã­i]na\b/i, /\bmetanfetamina\b/i,
+  /\banfetamina[s]?\b/i, /\bhero[íi]na\b/i, /\bmetanfetamina\b/i,
   /\bcrack\b/i, /\bcristal\b/i, /\bpeyote\b/i,
-  /\bhongos?\b.*m[aÃ¡]gico[s]?\b/i, /\bmescalina\b/i, /\bketamina\b/i,
-  /\bfentanilo\b/i, /\bopi[Ã¡a]ceo[s]?\b/i, /\bcode[iÃ­]na\b/i,
-  /\bmorfin[ao]\b/i, /\bopio\b/i, /\bhash[iÃ­]sh\b/i,
-  /\bpasta\s*b[Ã¡a]sica\b/i, /\bchiva\b/i, /\bchocolate\b/i,
-  /\bcoca\b/i, /\bmar[iÃ­]a\b/i, /\bmar[iÃ­]huana\b/i,
+  /\bhongos?\b.*m[aá]gico[s]?\b/i, /\bmescalina\b/i, /\bketamina\b/i,
+  /\bfentanilo\b/i, /\bopi[áa]ceo[s]?\b/i, /\bcode[ií]na\b/i,
+  /\bmorfin[ao]\b/i, /\bopio\b/i, /\bhash[ií]sh\b/i,
+  /\bpasta\s*b[áa]sica\b/i, /\bchiva\b/i, /\bchocolate\b/i,
+  /\bcoca\b/i, /\bmar[ií]a\b/i, /\bmar[ií]huana\b/i,
   /\bganja\b/i, /\bweed\b/i, /\bgrifa\b/i,
-  /\bmota\b/i, /\bhach[iÃ­]s\b/i,
+  /\bmota\b/i, /\bhach[ií]s\b/i,
 
   // Lenguaje ofensivo/sexual
-  /\bput[ao]s?\b/i, /\bpendej[ao]s?\b/i, /\bcabr[oÃ³]n\b/i,
-  /\bco[Ã±n]o\b/i, /\bcoj[oÃ³]n\b/i, /\bverga\b/i,
+  /\bput[ao]s?\b/i, /\bpendej[ao]s?\b/i, /\bcabr[oó]n\b/i,
+  /\bco[ñn]o\b/i, /\bcoj[oó]n\b/i, /\bverga\b/i,
   /\bpich[ao]\b/i, /\bchup[ao]\b/i, /\bmam[ao]\b/i,
   /\bcojer\b/i, /\bcoger\b/i, /\bviolar\b/i,
-  /\bestupr[ao]\b/i, /\babus[ao]\b/i, /\bsexo\s*expl[iÃ­]cito\b/i,
-  /\bporn[oÃ³]grafi[ao]\b/i, /\bxxx\b/i, /\bonlyfans\b/i,
+  /\bestupr[ao]\b/i, /\babus[ao]\b/i, /\bsexo\s*expl[ií]cito\b/i,
+  /\bporn[oó]grafi[ao]\b/i, /\bxxx\b/i, /\bonlyfans\b/i,
   /\bdesnud[ao]s?\b/i, /\bnud[ao]s?\b/i, /\bdesnudo\b/i,
-  /\bpel[Ã­i]cula\s*porno\b/i, /\bvideo\s*porno\b/i,
+  /\bpel[íi]cula\s*porno\b/i, /\bvideo\s*porno\b/i,
   /\bwebcam\s*sex\b/i, /\bescort\b/i, /\bprostitut[ao]\b/i,
-  /\bputer[iÃ­]a\b/i, /\bwhore\b/i, /\bslut\b/i,
+  /\bputer[ií]a\b/i, /\bwhore\b/i, /\bslut\b/i,
   /\bfuck\b/i, /\bfucking\b/i, /\bfucker\b/i,
   /\bshit\b/i, /\bbitch\b/i, /\basshole\b/i,
 
@@ -6943,15 +6943,15 @@ const FORBIDDEN = [
   // Estafas y fraudes
   /\bestafa\b/i, /\bfraude\b/i, /\bphishing\b/i,
   /\bclonar\s*tarjeta\b/i, /\bcuenta\s*bancaria\b/i,
-  /\btransferencia\s*falsa\b/i, /\benga[Ã±n]o\b/i,
+  /\btransferencia\s*falsa\b/i, /\benga[ñn]o\b/i,
   /\bpyramid\s*scheme\b/i, /\bpiramidal\b/i,
 
   // Otros inapropiados
-  /\bracismo\b/i, /\bracista\b/i, /\bhomof[oÃ³]bico\b/i,
-  /\bdiscriminaci[oÃ³]n\b/i, /\bamenaza\b/i, /\bamenazar\b/i,
+  /\bracismo\b/i, /\bracista\b/i, /\bhomof[oó]bico\b/i,
+  /\bdiscriminaci[oó]n\b/i, /\bamenaza\b/i, /\bamenazar\b/i,
   /\bespam\b/i, /\bspam\b/i, /\bphishing\b/i,
   /\bmaldito\b/i, /\bmalparido\b/i, /\bhijo\s*de\s*puta\b/i,
-  /\bchingar\b/i, /\bch[Ã­i]ngame\b/i, /\bcarajo\b/i,
+  /\bchingar\b/i, /\bch[íi]ngame\b/i, /\bcarajo\b/i,
   /\bchingado\b/i, /\bverga\b/i, /\bpinche\b/i,
   /\bjod[ae]r\b/i, /\bjodido\b/i, /\bjoder\b/i,
 
@@ -6965,7 +6965,7 @@ function containsInappropriate(text = '') {
   return FORBIDDEN.some(rx => rx.test(t));
 }
 
-// FunciÃ³n para agregar un strike a un usuario
+// Función para agregar un strike a un usuario
 async function addStrike(userId, reason, productId = null, transactionClient = null) {
   const shouldRelease = !transactionClient;
   const client = transactionClient || await pool.connect();
@@ -6996,21 +6996,21 @@ async function addStrike(userId, reason, productId = null, transactionClient = n
       [newStrikes, userId]
     );
 
-    // Si llega a 3 strikes, banear por 3 dÃ­as
+    // Si llega a 3 strikes, banear por 3 días
     if (newStrikes >= 3) {
       const banUntil = new Date();
-      banUntil.setDate(banUntil.getDate() + 3); // 3 dÃ­as desde ahora
+      banUntil.setDate(banUntil.getDate() + 3); // 3 días desde ahora
 
       await client.query(
         'UPDATE users_nat SET banned_until = $1, ban_reason = $2 WHERE id = $3',
         [banUntil, reason, userId]
       );
 
-      // Crear notificaciÃ³n de baneo
+      // Crear notificación de baneo
       await client.query(
         `INSERT INTO notifications_nat (user_id, type, message, created_at)
          VALUES ($1, 'ban', $2, NOW())`,
-        [userId, `ðŸš« Has sido baneado por 3 dÃ­as. RazÃ³n: ${reason}. Tu cuenta se recuperarÃ¡ el ${banUntil.toLocaleDateString('es-AR')}.`]
+        [userId, `🚫 Has sido baneado por 3 días. Razón: ${reason}. Tu cuenta se recuperará el ${banUntil.toLocaleDateString('es-AR')}.`]
       );
 
       if (!transactionClient) {
@@ -7024,8 +7024,8 @@ async function addStrike(userId, reason, productId = null, transactionClient = n
       };
     }
 
-    // Crear notificaciÃ³n de strike
-    let strikeMessage = `âš ï¸ Has recibido un strike. RazÃ³n: ${reason}.`;
+    // Crear notificación de strike
+    let strikeMessage = `⚠️ Has recibido un strike. Razón: ${reason}.`;
     if (productId) {
       // Intentar obtener el nombre del producto si existe
       let productName = null;
@@ -7049,13 +7049,13 @@ async function addStrike(userId, reason, productId = null, transactionClient = n
         strikeMessage += ` Este strike es por el producto ID: ${productId}.`;
       }
     }
-    strikeMessage += ` Tienes ${newStrikes}/3 strikes. Con 3 strikes serÃ¡s baneado por 3 dÃ­as.`;
+    strikeMessage += ` Tienes ${newStrikes}/3 strikes. Con 3 strikes serás baneado por 3 días.`;
 
     // Si el producto ya fue eliminado, usar NULL para product_id para evitar problemas de foreign key
     // Pero primero intentamos con el product_id si existe
     let finalProductId = productId;
 
-    // Verificar si el producto existe (solo si estamos en una transacciÃ³n y productId no es null)
+    // Verificar si el producto existe (solo si estamos en una transacción y productId no es null)
     if (productId && transactionClient) {
       try {
         const { rows: productCheck } = await client.query(
@@ -7096,7 +7096,7 @@ async function addStrike(userId, reason, productId = null, transactionClient = n
   }
 }
 
-// Verificar si un usuario estÃ¡ baneado
+// Verificar si un usuario está baneado
 async function isUserBanned(userId) {
   const { rows } = await pool.query(
     'SELECT banned_until, ban_reason FROM users_nat WHERE id = $1',
@@ -7114,10 +7114,10 @@ async function isUserBanned(userId) {
     return {
       banned: true,
       banUntil: banUntil.toISOString(),
-      reason: rows[0].ban_reason || 'ViolaciÃ³n de tÃ©rminos'
+      reason: rows[0].ban_reason || 'Violación de términos'
     };
   } else {
-    // El baneo expirÃ³, limpiarlo
+    // El baneo expiró, limpiarlo
     await pool.query(
       'UPDATE users_nat SET banned_until = NULL, ban_reason = NULL WHERE id = $1',
       [userId]
@@ -7157,9 +7157,9 @@ async function ensurePreReservasTables() {
       CREATE INDEX IF NOT EXISTS idx_prereservas_pelicula ON ocean_cinemas_prereservas(pelicula_id)
     `);
 
-    console.log('âœ… Ocean Cinemas pre-reservas tables initialized');
+    console.log('✅ Ocean Cinemas pre-reservas tables initialized');
   } catch (err) {
-    console.error('âŒ Error initializing pre-reservas tables:', err);
+    console.error('❌ Error initializing pre-reservas tables:', err);
   }
 }
 
@@ -7180,7 +7180,7 @@ app.post('/ocean-cinemas/prereserva', async (req, res) => {
     userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
-    return res.status(401).json({ error: 'Token invÃ¡lido' });
+    return res.status(401).json({ error: 'Token inválido' });
   }
 
   const {
@@ -7236,7 +7236,7 @@ app.post('/ocean-cinemas/prereserva', async (req, res) => {
       [userId, peliculaId, peliculaTitulo, horarioEstreno, asientos, precioTotal, fechaActivacion]
     );
 
-    // Registrar transacciÃ³n
+    // Registrar transacción
     await client.query(
       `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
        VALUES ($1, $2, $3, $4)`,
@@ -7274,7 +7274,7 @@ app.get('/ocean-cinemas/prereservas/:userId', async (req, res) => {
     tokenUserId = (decoded.id || decoded.uid);
     tokenUserId = parseInt(tokenUserId) || tokenUserId;
   } catch (e) {
-    return res.status(401).json({ error: 'Token invÃ¡lido' });
+    return res.status(401).json({ error: 'Token inválido' });
   }
 
   const { userId } = req.params;
@@ -7299,7 +7299,7 @@ app.get('/ocean-cinemas/prereservas/:userId', async (req, res) => {
   }
 });
 
-// Endpoint para activar pre-reservas (ejecutar periÃ³dicamente)
+// Endpoint para activar pre-reservas (ejecutar periódicamente)
 app.post('/ocean-cinemas/activar-prereservas', async (req, res) => {
   try {
     const now = new Date();
@@ -7351,7 +7351,7 @@ app.post('/ocean-cinemas/verificar-asientos', async (req, res) => {
       }
     });
 
-    // Verificar si algÃºn asiento solicitado ya estÃ¡ reservado
+    // Verificar si algún asiento solicitado ya está reservado
     const conflictos = asientos.filter(asiento => asientosReservados.has(asiento));
 
     res.json({
@@ -7366,7 +7366,7 @@ app.post('/ocean-cinemas/verificar-asientos', async (req, res) => {
   }
 });
 
-// Endpoint para obtener estadÃ­sticas de pre-reservas
+// Endpoint para obtener estadísticas de pre-reservas
 app.get('/ocean-cinemas/stats-prereservas', async (req, res) => {
   try {
     const { rows: totalRows } = await pool.query(
@@ -7393,7 +7393,7 @@ app.get('/ocean-cinemas/stats-prereservas', async (req, res) => {
     });
 
   } catch (err) {
-    console.error('Error obteniendo estadÃ­sticas:', err);
+    console.error('Error obteniendo estadísticas:', err);
     res.status(500).json({ error: 'Error interno del servidor' });
   }
 });
@@ -7408,7 +7408,7 @@ app.get('/ocean-cinemas', (_req, res) => {
   }
 });
 
-// Servir archivos estÃ¡ticos de Ocean Cinemas
+// Servir archivos estáticos de Ocean Cinemas
 app.use('/ocean-cinemas', express.static(join(__dirname, 'Ocean Cinemas')));
 
 async function notifyModerator(type, targetId, content, senderId) {
@@ -7416,14 +7416,14 @@ async function notifyModerator(type, targetId, content, senderId) {
   const { rows } = await pool.query(
     "SELECT id FROM users_nat WHERE username = 'OceanandWild'"
   );
-  if (!rows.length) return; // no existe aÃºn
+  if (!rows.length) return; // no existe aún
   const modId = rows[0].id;
 
   const msg = type === 'product'
-    ? `Producto id:${targetId} pendiente de revisiÃ³n (contenido: ${content})`
-    : `Mensaje id:${targetId} pendiente de revisiÃ³n (contenido: ${content})`;
+    ? `Producto id:${targetId} pendiente de revisión (contenido: ${content})`
+    : `Mensaje id:${targetId} pendiente de revisión (contenido: ${content})`;
 
-  const validDummyProductId = 1; // â† uno que exista
+  const validDummyProductId = 1; // ← uno que exista
   await pool.query(
     `INSERT INTO messages_nat (sender_id, product_id, message, created_at)
    VALUES ($1, $2, $3, NOW())`,
@@ -7431,7 +7431,7 @@ async function notifyModerator(type, targetId, content, senderId) {
   );
 }
 
-// === EstadÃ­sticas de usuarios ===
+// === Estadísticas de usuarios ===
 app.post("/api/save-country", async (req, res) => {
   const { userId, country, coreInitDate } = req.body;
   if (!userId) return res.status(400).json({ error: "Falta userId" });
@@ -7464,7 +7464,7 @@ async function initBlogsTable() {
       id SERIAL PRIMARY KEY,
       title TEXT NOT NULL,
       content TEXT NOT NULL,
-      author TEXT DEFAULT 'AnÃ³nimo',
+      author TEXT DEFAULT 'Anónimo',
       likes INTEGER DEFAULT 0,
       created_at TIMESTAMP DEFAULT NOW()
     )
@@ -7478,7 +7478,7 @@ app.post("/api/blogs", async (req, res) => {
   try {
     const { rows } = await pool.query(
       `INSERT INTO blogs (title, content, author) VALUES ($1, $2, $3) RETURNING *`,
-      [title, content, author || "AnÃ³nimo"]
+      [title, content, author || "Anónimo"]
     );
     res.json({ success: true, blog: rows[0] });
   } catch (err) {
@@ -7486,7 +7486,7 @@ app.post("/api/blogs", async (req, res) => {
       await initBlogsTable();
       const { rows } = await pool.query(
         `INSERT INTO blogs (title, content, author) VALUES ($1, $2, $3) RETURNING *`,
-        [title, content, author || "AnÃ³nimo"]
+        [title, content, author || "Anónimo"]
       );
       return res.json({ success: true, blog: rows[0] });
     }
@@ -7533,7 +7533,7 @@ app.get("/api/eclipse/all", async (_req, res) => {
   }
 });
 
-// Obtener el prÃ³ximo eclipse
+// Obtener el próximo eclipse
 app.get("/api/eclipse/next", async (_req, res) => {
   try {
     const now = new Date();
@@ -7544,7 +7544,7 @@ app.get("/api/eclipse/next", async (_req, res) => {
     );
 
     if (rows.length === 0) {
-      // Ãšltimo pasado
+      // Último pasado
       ({ rows } = await pool.query(
         `SELECT * FROM eclipses WHERE end_at < $1 ORDER BY start DESC LIMIT 1`,
         [now]
@@ -7614,7 +7614,7 @@ app.get("/api/extensions/:userId", async (req, res) => {
     const { rows } = await pool.query(`SELECT installed FROM installed_extensions WHERE user_id=$1`, [userId]);
     res.json(rows[0]?.installed || {});
   } catch (err) {
-    console.error('âŒ Error en GET /api/extensions/:userId:', err);
+    console.error('❌ Error en GET /api/extensions/:userId:', err);
     res.json({});
   }
 });
@@ -7632,13 +7632,13 @@ app.put("/api/extensions/:userId", async (req, res) => {
     );
     res.json({ success: true });
   } catch (err) {
-    console.error('âŒ Error en PUT /api/extensions/:userId:', err);
+    console.error('❌ Error en PUT /api/extensions/:userId:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
 
 
-// ðŸ“Œ Guardar instalaciÃ³n de extensiÃ³n
+// 📌 Guardar instalación de extensión
 app.post("/api/extensions/install", async (req, res) => {
   const { userId, extension } = req.body;
   if (!userId || !extension?.id) {
@@ -7692,7 +7692,7 @@ app.delete("/api/extensions/uninstall", async (req, res) => {
     );
     res.json({ success: true });
   } catch (err) {
-    console.error("âŒ Error en /uninstall:", err.message);
+    console.error("❌ Error en /uninstall:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
@@ -7743,11 +7743,11 @@ app.get("/api/ecolight/scenes/:userId", async (req, res) => {
 
 /* ----------  PREGUNTAS IA  ---------- */
 const QUESTIONS_POOL = [
-  { id: 1, question: "Â¿CuÃ¡l es el planeta mÃ¡s grande del sistema solar?", category: "Ciencia", answer: "JÃºpiter" },
-  { id: 2, question: "Â¿En quÃ© paÃ­s naciÃ³ el tango?", category: "Cultura", answer: "Argentina" },
-  { id: 3, question: "Â¿QuÃ© elemento tiene el sÃ­mbolo 'Au'?", category: "QuÃ­mica", answer: "Oro" },
-  { id: 4, question: "Â¿QuiÃ©n pintÃ³ 'La noche estrellada'?", category: "Arte", answer: "Van Gogh" },
-  { id: 5, question: "Â¿CuÃ¡ntos bits hay en un byte?", category: "TecnologÃ­a", answer: "8" }
+  { id: 1, question: "¿Cuál es el planeta más grande del sistema solar?", category: "Ciencia", answer: "Júpiter" },
+  { id: 2, question: "¿En qué país nació el tango?", category: "Cultura", answer: "Argentina" },
+  { id: 3, question: "¿Qué elemento tiene el símbolo 'Au'?", category: "Química", answer: "Oro" },
+  { id: 4, question: "¿Quién pintó 'La noche estrellada'?", category: "Arte", answer: "Van Gogh" },
+  { id: 5, question: "¿Cuántos bits hay en un byte?", category: "Tecnología", answer: "8" }
 ];
 
 /* 1) devuelve pregunta y **marca** como usada ya */
@@ -7761,7 +7761,7 @@ app.get('/api/ia-question/:userId', async (req, res) => {
   if (!avail.length) return res.status(404).json(null);
   const q = avail[Math.floor(Math.random() * avail.length)];
 
-  /* guardarla AHORA â†’ no se repite */
+  /* guardarla AHORA → no se repite */
   await pool.query(
     `UPDATE ia_state SET used_today = array_append(used_today,$2) WHERE user_id=$1`,
     [userId, q.id]
@@ -7800,7 +7800,7 @@ app.post('/api/ia-answer/:userId', async (req, res) => {
   res.json({ success: true, reward, level: { level: newLvl, exp: newExp, nextExp: needed } });
 });
 
-/* 3) lÃ­mite diario */
+/* 3) límite diario */
 app.get('/api/ia-limit/:userId', async (req, res) => {
   const { userId } = req.params;
   const now = new Date();
@@ -7837,12 +7837,12 @@ async function saveLevelLive(userId, level, exp) {
   );
 }
 function expForLevel(lvl) {
-  return 100 * Math.pow(1.05, lvl - 1);   // igual que tenÃ­as
+  return 100 * Math.pow(1.05, lvl - 1);   // igual que tenías
 }
 
 // === RUTAS ===
 
-// ðŸ“Œ VERSIONES
+// 📌 VERSIONES
 app.get("/version", async (_req, res) => {
   try {
     const { rows } = await pool.query(
@@ -7858,7 +7858,7 @@ app.get("/version", async (_req, res) => {
 
     res.json(rows[0]);
   } catch (err) {
-    console.error("âŒ Error en /version:", err.message);
+    console.error("❌ Error en /version:", err.message);
     res.status(500).json({ error: "Error interno del servidor" });
   }
 });
@@ -7870,14 +7870,14 @@ app.get("/api/featured-update", async (req, res) => {
   try {
     const product = String(req.query.product || '').toLowerCase();
 
-    // Si no se especifica producto o no es vÃ¡lido, devolver null (no mezclar productos)
+    // Si no se especifica producto o no es válido, devolver null (no mezclar productos)
     if (!product || !PRODUCT_TABLES[product]) {
-      console.log(`âš ï¸ Producto no especificado o invÃ¡lido: "${product}"`);
+      console.log(`⚠️ Producto no especificado o inválido: "${product}"`);
       return res.json(null);
     }
 
     const table = PRODUCT_TABLES[product];
-    console.log(`ðŸ“‹ Consultando actualizaciones de ${product} desde tabla ${table}`);
+    console.log(`📋 Consultando actualizaciones de ${product} desde tabla ${table}`);
 
     // HARDCODED UPDATE FOR NATMARKET (Sentinel: Evolution)
     // Esto asegura que el frontend reciba la estructura 'sections' correcta sin depender de la DB de texto plano
@@ -7887,22 +7887,22 @@ app.get("/api/featured-update", async (req, res) => {
         date: '10 de diciembre de 2025',
         sections: [
           {
-            title: 'ðŸ§  Nuevo Modelo de IA: Sentinel Evolution',
-            icon: 'ðŸš€',
+            title: '🧠 Nuevo Modelo de IA: Sentinel Evolution',
+            icon: '🚀',
             items: [
-              'Presentamos Sentinel: Evolution, nuestro modelo de IA mÃ¡s avanzado.',
-              'DetecciÃ³n inteligente de marcas y asignaciÃ³n automÃ¡tica de categorÃ­as.',
-              'Descripciones semÃ¡nticas que entienden el contexto y generan textos persuasivos.',
-              'GeneraciÃ³n de tags optimizados para bÃºsqueda con detecciÃ³n de estado (Nuevo/Usado).',
-              'TÃ­tulos mÃ¡s limpios y atractivos con emojis contextuales.',
+              'Presentamos Sentinel: Evolution, nuestro modelo de IA más avanzado.',
+              'Detección inteligente de marcas y asignación automática de categorías.',
+              'Descripciones semánticas que entienden el contexto y generan textos persuasivos.',
+              'Generación de tags optimizados para búsqueda con detección de estado (Nuevo/Usado).',
+              'Títulos más limpios y atractivos con emojis contextuales.',
               'Disponible ahora en el selector de modelos al crear un producto.'
             ]
           },
           {
-            title: 'âœ¨ Mejoras en la Experiencia',
-            icon: 'ðŸ’Ž',
+            title: '✨ Mejoras en la Experiencia',
+            icon: '💎',
             items: [
-              'Interfaz de creaciÃ³n de productos rediseÃ±ada y mÃ¡s espaciosa.',
+              'Interfaz de creación de productos rediseñada y más espaciosa.',
               'Selector de modelos de IA visualmente mejorado.',
               'Correcciones de estilo y optimizaciones de rendimiento.'
             ]
@@ -7913,14 +7913,14 @@ app.get("/api/featured-update", async (req, res) => {
 
     const { rows } = await pool.query(`SELECT version, news, date FROM ${table} ORDER BY date DESC LIMIT 1`);
     if (!rows[0]) {
-      console.log(`â„¹ï¸ No hay actualizaciones en ${table}`);
+      console.log(`ℹ️ No hay actualizaciones en ${table}`);
       return res.json(null);
     }
 
-    console.log(`âœ… ActualizaciÃ³n encontrada para ${product}: ${rows[0].version}`);
+    console.log(`✅ Actualización encontrada para ${product}: ${rows[0].version}`);
     res.json({ version: rows[0].version, date: rows[0].date, news: sanitizeNews(rows[0].news || '') });
   } catch (err) {
-    console.error("âŒ Error en /api/featured-update:", err.message);
+    console.error("❌ Error en /api/featured-update:", err.message);
     res.status(500).json({ error: "Error interno del servidor" });
   }
 });
@@ -7968,14 +7968,14 @@ app.post("/publish-version", async (req, res) => {
     [version, cleanNews]
   );
 
-  res.json({ ok: true, msg: `VersiÃ³n publicada en ${table}` });
+  res.json({ ok: true, msg: `Versión publicada en ${table}` });
 });
 
-// ðŸ“Œ SUGERENCIAS DE COMANDOS
+// 📌 SUGERENCIAS DE COMANDOS
 app.post("/sugerir-comandos", async (req, res) => {
   const { userId, text } = req.body;
   if (!userId || !text || text.length < 10)
-    return res.status(400).json({ error: "Datos invÃ¡lidos" });
+    return res.status(400).json({ error: "Datos inválidos" });
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -7992,7 +7992,7 @@ app.post("/sugerir-comandos", async (req, res) => {
     [userId, text]
   );
 
-  res.json({ ok: true, msg: "âœ… Sugerencia guardada. Gracias." });
+  res.json({ ok: true, msg: "✅ Sugerencia guardada. Gracias." });
 });
 
 app.get("/sugerencias", async (req, res) => {
@@ -8033,13 +8033,13 @@ app.post("/ecoconsole/publish-event", async (req, res) => {
         startDate = new Date(dateString + 'Z');
 
         if (isNaN(startDate.getTime())) {
-          throw new Error("Formato de fecha invÃ¡lido");
+          throw new Error("Formato de fecha inválido");
         }
       }
     } catch (e) {
       return res.status(400).json({
-        error: "Formato de fecha invÃ¡lido",
-        details: "Use el formato: YYYY-MM-DDTHH:mm:ssÂ±HH:mm"
+        error: "Formato de fecha inválido",
+        details: "Use el formato: YYYY-MM-DDTHH:mm:ss±HH:mm"
       });
     }
 
@@ -8085,7 +8085,7 @@ app.post("/ecoconsole/publish-event", async (req, res) => {
 
 app.get("/ecoconsole/active-event", async (_req, res) => {
   try {
-    // Primero, marcar como terminados los eventos con mÃ¡s de 24 horas
+    // Primero, marcar como terminados los eventos con más de 24 horas
     await pool.query(`
             UPDATE ecoconsole_events 
             SET finished = true 
@@ -8159,7 +8159,7 @@ app.get("/ecoconsole/upcoming-events", async (req, res) => {
 
     res.json(rows);
   } catch (error) {
-    console.error('Error al obtener prÃ³ximos eventos:', error);
+    console.error('Error al obtener próximos eventos:', error);
     res.status(500).json({
       error: 'Error al obtener eventos',
       details: error.message
@@ -8167,7 +8167,7 @@ app.get("/ecoconsole/upcoming-events", async (req, res) => {
   }
 });
 
-// En server.js, agrega esta funciÃ³n
+// En server.js, agrega esta función
 async function cleanupOldEvents() {
   try {
     await pool.query(`
@@ -8184,7 +8184,7 @@ async function cleanupOldEvents() {
 // ===== DeepDive: seed update notes and beta announcement (original tables) =====
 async function seedDeepDiveUpdateAndBeta() {
   try {
-    // 1) Update notes entry â€“ use deepdive_updates (original table)
+    // 1) Update notes entry – use deepdive_updates (original table)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS deepdive_updates (
         id SERIAL PRIMARY KEY,
@@ -8194,7 +8194,7 @@ async function seedDeepDiveUpdateAndBeta() {
       )`);
     const version = '0.9.0-beta';
     const newsFull = [
-      'DeepDive Presentations â€” 0.9.0-beta',
+      'DeepDive Presentations — 0.9.0-beta',
       '',
       '- Added 10+ new intro templates (App/Game/Platform/Vertical/Square/Gradient/Neon)',
       '- Added 15 new intro text effects (FadeUp, ZoomCenter, BlurIn, SlideBottom, LightSweep, LetterSpaceIn, FlipX, SplitVertical, ZoomCorner, BounceDown, FadeLeftBig, OutlineDraw, NeonPulse, SparkPop, RibbonSlide)',
@@ -8211,7 +8211,7 @@ async function seedDeepDiveUpdateAndBeta() {
       [version, newsFull]
     );
 
-    // 2) Beta event on 11/11 â€“ use deepdive_events (original table)
+    // 2) Beta event on 11/11 – use deepdive_events (original table)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS deepdive_events (
         id SERIAL PRIMARY KEY,
@@ -8268,7 +8268,7 @@ async function scrubLatestUpdateNews() {
 scrubLatestUpdateNews();
 
 /* ===== NAT-MARKET ENDPOINTS ===== */
-app.use('/uploads/nat', express.static(uploadDir)); // archivos estÃ¡ticos
+app.use('/uploads/nat', express.static(uploadDir)); // archivos estáticos
 
 // AUTH
 app.post('/natmarket/register', async (req, res) => {
@@ -8276,19 +8276,19 @@ app.post('/natmarket/register', async (req, res) => {
     const { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ error: 'username y password requeridos' });
     const hashed = await bcrypt.hash(password, 10);
-    const userUniqueId = generateUserUniqueId(); // Generar ID Ãºnico
+    const userUniqueId = generateUserUniqueId(); // Generar ID único
 
     const { rows } = await pool.query(
       'INSERT INTO users_nat (username, password, user_unique_id) VALUES ($1,$2,$3) RETURNING id, username, user_unique_id',
       [username, hashed, userUniqueId]
     );
 
-    // Devolver el ID Ãºnico solo en el registro (se muestra una vez)
+    // Devolver el ID único solo en el registro (se muestra una vez)
     res.json({
       id: rows[0].id,
       username: rows[0].username,
       user_unique_id: rows[0].user_unique_id, // Solo se muestra en registro
-      message: 'IMPORTANTE: Guarda este ID de Usuario Ãšnico. SerÃ¡ necesario para recuperar tu contraseÃ±a.'
+      message: 'IMPORTANTE: Guarda este ID de Usuario Único. Será necesario para recuperar tu contraseña.'
     });
   } catch (err) {
     if (err.code === '23505') return res.status(400).json({ error: 'Usuario ya existe' });
@@ -8303,9 +8303,9 @@ app.post('/natmarket/login', async (req, res) => {
     const { rows } = await pool.query('SELECT id, username, password, user_unique_id FROM users_nat WHERE username=$1', [username]);
     if (rows.length === 0) return res.status(401).json({ error: 'Usuario no encontrado' });
     const ok = await bcrypt.compare(password, rows[0].password);
-    if (!ok) return res.status(401).json({ error: 'ContraseÃ±a incorrecta' });
+    if (!ok) return res.status(401).json({ error: 'Contraseña incorrecta' });
 
-    // Si el usuario no tiene user_unique_id (usuario existente), generarlo automÃ¡ticamente
+    // Si el usuario no tiene user_unique_id (usuario existente), generarlo automáticamente
     let userUniqueId = rows[0].user_unique_id;
     if (!userUniqueId) {
       userUniqueId = generateUserUniqueId();
@@ -8344,37 +8344,37 @@ app.put('/natmarket/users/:id/password', async (req, res) => {
     const { id } = req.params;
     const { oldPassword, newPassword, user_unique_id } = req.body;
 
-    if (!oldPassword || !newPassword) return res.status(400).json({ error: 'Faltan contraseÃ±as' });
-    if (!user_unique_id) return res.status(400).json({ error: 'Se requiere el ID de Usuario Ãšnico para cambiar la contraseÃ±a' });
+    if (!oldPassword || !newPassword) return res.status(400).json({ error: 'Faltan contraseñas' });
+    if (!user_unique_id) return res.status(400).json({ error: 'Se requiere el ID de Usuario Único para cambiar la contraseña' });
 
     const { rows } = await pool.query('SELECT password, user_unique_id FROM users_nat WHERE id=$1', [id]);
     if (rows.length === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
 
-    // Verificar contraseÃ±a actual
+    // Verificar contraseña actual
     const ok = await bcrypt.compare(oldPassword, rows[0].password);
-    if (!ok) return res.status(401).json({ error: 'ContraseÃ±a actual incorrecta' });
+    if (!ok) return res.status(401).json({ error: 'Contraseña actual incorrecta' });
 
-    // Verificar ID Ãºnico de usuario
+    // Verificar ID único de usuario
     if (rows[0].user_unique_id !== user_unique_id) {
-      return res.status(403).json({ error: 'ID de Usuario Ãšnico incorrecto' });
+      return res.status(403).json({ error: 'ID de Usuario Único incorrecto' });
     }
 
     const hashed = await bcrypt.hash(newPassword, 10);
     await pool.query('UPDATE users_nat SET password=$1 WHERE id=$2', [hashed, id]);
-    res.json({ success: true, message: 'ContraseÃ±a actualizada exitosamente' });
+    res.json({ success: true, message: 'Contraseña actualizada exitosamente' });
   } catch (err) {
     handleNatError(res, err, 'PUT /natmarket/users/:id/password');
   }
 });
 
-// Endpoints de vinculaciÃ³n con OceanicEthernet eliminados - ya no se requiere vinculaciÃ³n
+// Endpoints de vinculación con OceanicEthernet eliminados - ya no se requiere vinculación
 
-// Script de migraciÃ³n: Crear tablas necesarias de NatMarket
+// Script de migración: Crear tablas necesarias de NatMarket
 async function createNatMarketTables() {
   try {
-    console.log('ðŸ”„ Verificando tablas de NatMarket...');
+    console.log('🔄 Verificando tablas de NatMarket...');
 
-    // Crear tabla de imÃ¡genes de productos
+    // Crear tabla de imágenes de productos
     await pool.query(`
       CREATE TABLE IF NOT EXISTS product_images_nat (
         id SERIAL PRIMARY KEY,
@@ -8405,17 +8405,17 @@ async function createNatMarketTables() {
       console.log('Columna views ya existe o no se pudo agregar');
     }
 
-    console.log('âœ… Tablas de NatMarket verificadas/creadas correctamente.');
+    console.log('✅ Tablas de NatMarket verificadas/creadas correctamente.');
 
   } catch (err) {
-    console.error('âŒ Error creando tablas de NatMarket:', err);
+    console.error('❌ Error creando tablas de NatMarket:', err);
   }
 }
 
-// Script de migraciÃ³n: Notificar a usuarios que estaban vinculados con OceanicEthernet
+// Script de migración: Notificar a usuarios que estaban vinculados con OceanicEthernet
 async function notifyUnlinkedUsers() {
   try {
-    console.log('ðŸ”„ Ejecutando migraciÃ³n: Notificando desvinculaciÃ³n de OceanicEthernet...');
+    console.log('🔄 Ejecutando migración: Notificando desvinculación de OceanicEthernet...');
 
     // Obtener todos los usuarios de NatMarket que estaban vinculados
     const { rows: linkedUsers } = await pool.query(`
@@ -8425,7 +8425,7 @@ async function notifyUnlinkedUsers() {
     `);
 
     if (linkedUsers.length === 0) {
-      console.log('âœ… No hay usuarios vinculados para notificar.');
+      console.log('✅ No hay usuarios vinculados para notificar.');
       return;
     }
 
@@ -8437,12 +8437,12 @@ async function notifyUnlinkedUsers() {
          ON CONFLICT DO NOTHING`,
         [
           user.user_id,
-          'ðŸ”„ ActualizaciÃ³n del Sistema: La vinculaciÃ³n con OceanicEthernet ha sido eliminada de NatMarket. Ya no necesitas saldo de internet para publicar productos. Â¡Ahora es completamente gratuito!'
+          '🔄 Actualización del Sistema: La vinculación con OceanicEthernet ha sido eliminada de NatMarket. Ya no necesitas saldo de internet para publicar productos. ¡Ahora es completamente gratuito!'
         ]
       );
     }
 
-    console.log(`âœ… Notificaciones enviadas a ${linkedUsers.length} usuarios sobre la desvinculaciÃ³n.`);
+    console.log(`✅ Notificaciones enviadas a ${linkedUsers.length} usuarios sobre la desvinculación.`);
 
     // Opcional: Eliminar las vinculaciones de la base de datos
     await pool.query(`
@@ -8450,14 +8450,14 @@ async function notifyUnlinkedUsers() {
       WHERE external_system = 'NatMarket'
     `);
 
-    console.log('âœ… Vinculaciones de NatMarket eliminadas de la base de datos.');
+    console.log('✅ Vinculaciones de NatMarket eliminadas de la base de datos.');
 
   } catch (err) {
-    console.error('âŒ Error en migraciÃ³n de desvinculaciÃ³n:', err);
+    console.error('❌ Error en migración de desvinculación:', err);
   }
 }
 
-// Ejecutar la migraciÃ³n una sola vez al iniciar el servidor
+// Ejecutar la migración una sola vez al iniciar el servidor
 let migrationExecuted = false;
 
 // PRODUCTS
@@ -8471,12 +8471,12 @@ app.post('/natmarket/products', upload.array('images', 10), async (req, res) => 
       [user_id, name, description, price, contact_number, stockNum, category, status]
     );
     // Guardar rutas relativas para evitar problemas con cambios de host/puerto
-    // El frontend deberÃ¡ prepender API_BASE si es necesario
-    // DEBUG: Ver quÃ© archivos llegan y sus propiedades
+    // El frontend deberá prepender API_BASE si es necesario
+    // DEBUG: Ver qué archivos llegan y sus propiedades
     if (req.files && req.files.length > 0) {
-      console.log('ðŸ“¦ Primer archivo completo:', req.files[0]);
+      console.log('📦 Primer archivo completo:', req.files[0]);
     }
-    console.log('ðŸ“¦ Archivos recibidos (resumen):', req.files ? req.files.map(f => ({ path: f.path, filename: f.filename })) : 'Ninguno');
+    console.log('📦 Archivos recibidos (resumen):', req.files ? req.files.map(f => ({ path: f.path, filename: f.filename })) : 'Ninguno');
 
     const urls = (req.files || []).map(f => {
       // Si hay credenciales de Cloudinary configuradas, SIEMPRE intentar usar URL de nube
@@ -8494,7 +8494,7 @@ app.post('/natmarket/products', upload.array('images', 10), async (req, res) => 
       // Si NO hay credenciales, usar almacenamiento local
       return `/uploads/nat/${f.filename}`;
     });
-    console.log('ðŸ”— URLs a guardar en DB:', urls);
+    console.log('🔗 URLs a guardar en DB:', urls);
     for (const url of urls) await pool.query('INSERT INTO product_images_nat (product_id, url) VALUES ($1,$2)', [product.id, url]);
     const { rows: imgs } = await pool.query('SELECT url FROM product_images_nat WHERE product_id=$1 ORDER BY created_at ASC', [product.id]);
 
@@ -8520,7 +8520,7 @@ app.post('/natmarket/products', upload.array('images', 10), async (req, res) => 
              VALUES ($1, 'new_product', $2, $3, $4, NOW())`,
             [
               follower.follower_id,
-              `${sellerName} publicÃ³ un nuevo producto: "${name}"`,
+              `${sellerName} publicó un nuevo producto: "${name}"`,
               product.id,
               user_id
             ]
@@ -8530,7 +8530,7 @@ app.post('/natmarket/products', upload.array('images', 10), async (req, res) => 
       }
     } catch (notifErr) {
       console.error('[NOTIFICATIONS] Error notificando a seguidores:', notifErr);
-      // No fallar la creaciÃ³n del producto si falla la notificaciÃ³n
+      // No fallar la creación del producto si falla la notificación
     }
 
     res.json({ ...product, image_urls: imgs.map(i => i.url) });
@@ -8544,7 +8544,7 @@ app.post('/natmarket/products/:id/images', upload.array('images', 10), async (re
     const productId = req.params.id;
     const { rows } = await pool.query('SELECT id FROM products_nat WHERE id=$1', [productId]);
     if (rows.length === 0) return res.status(404).json({ error: 'Producto no encontrado' });
-    if (!req.files || req.files.length === 0) return res.status(400).json({ error: 'No se subieron imÃ¡genes' });
+    if (!req.files || req.files.length === 0) return res.status(400).json({ error: 'No se subieron imágenes' });
 
     const host = process.env.BACKEND_URL || `https://${req.get('host')}`;
 
@@ -8582,7 +8582,7 @@ app.get('/natmarket/products', async (_req, res) => {
     `);
     const products = await Promise.all(rows.map(async p => {
       const { rows: imgs } = await pool.query('SELECT url FROM product_images_nat WHERE product_id=$1 ORDER BY created_at ASC', [p.id]);
-      // videos (tabla puede no existir aÃºn)
+      // videos (tabla puede no existir aún)
       let vids = [];
       try {
         const { rows: v } = await pool.query('SELECT url FROM product_videos_nat WHERE product_id=$1 ORDER BY created_at ASC', [p.id]);
@@ -8636,7 +8636,7 @@ app.patch('/natmarket/products/:id', async (req, res) => {
 
     const currentProduct = productRows[0];
 
-    // Si el producto estÃ¡ vendido, NO permitir modificar el stock (pero sÃ­ otros campos si es necesario, aunque con cuidado)
+    // Si el producto está vendido, NO permitir modificar el stock (pero sí otros campos si es necesario, aunque con cuidado)
     if (currentProduct.sold && stock !== undefined) {
       return res.status(400).json({ error: 'No se puede modificar el stock de un producto vendido' });
     }
@@ -8677,7 +8677,7 @@ app.patch('/natmarket/products/:id', async (req, res) => {
 
     const { rows: [updated] } = await pool.query(query, values);
 
-    // NOTIFICAR AL COMPRADOR SI SE MARCÃ“ COMO VENDIDO
+    // NOTIFICAR AL COMPRADOR SI SE MARCÓ COMO VENDIDO
     if (sold === true && buyer_id) {
       try {
         // Obtener nombre del vendedor y producto
@@ -8696,13 +8696,13 @@ app.patch('/natmarket/products/:id', async (req, res) => {
             VALUES ($1, 'purchase', $2, $3, $4, NOW())
           `, [
             buyer_id,
-            `ðŸŽ‰ Â¡Compra confirmada! ${seller_name} marcÃ³ "${product_name}" como vendido a ti. Â¡No olvides calificarlo!`,
+            `🎉 ¡Compra confirmada! ${seller_name} marcó "${product_name}" como vendido a ti. ¡No olvides calificarlo!`,
             id,
             user_id
           ]);
         }
       } catch (notifErr) {
-        console.error('Error enviando notificaciÃ³n de venta:', notifErr);
+        console.error('Error enviando notificación de venta:', notifErr);
       }
     }
 
@@ -8741,9 +8741,9 @@ app.get('/natmarket/products/:id/chat-participants', async (req, res) => {
   }
 });
 
-/* ---------- SISTEMA DE REVIEWS/REPUTACIÃ“N ---------- */
+/* ---------- SISTEMA DE REVIEWS/REPUTACIÓN ---------- */
 
-// Crear una review (calificaciÃ³n)
+// Crear una review (calificación)
 app.post('/natmarket/reviews', async (req, res) => {
   try {
     const { reviewer_id, reviewed_user_id, product_id, rating, comment, review_type } = req.body;
@@ -8760,7 +8760,7 @@ app.post('/natmarket/reviews', async (req, res) => {
       return res.status(400).json({ error: 'review_type debe ser "seller" o "buyer"' });
     }
 
-    // No permitir auto-calificaciÃ³n
+    // No permitir auto-calificación
     if (Number(reviewer_id) === Number(reviewed_user_id)) {
       return res.status(400).json({ error: 'No puedes calificarte a ti mismo' });
     }
@@ -8812,7 +8812,7 @@ app.get('/natmarket/users/:userId/reviews', async (req, res) => {
   }
 });
 
-// Obtener reputaciÃ³n agregada de un usuario
+// Obtener reputación agregada de un usuario
 app.get('/natmarket/users/:userId/reputation', async (req, res) => {
   try {
     const { userId } = req.params;
@@ -8855,25 +8855,25 @@ app.get('/natmarket/users/:userId/reputation', async (req, res) => {
     const buyerReviews = parseInt(buyerStats[0].buyer_total_reviews) || 0;
 
     const getSellerBadge = (avg, count) => {
-      if (count === 0) return 'ðŸŒ± Vendedor Nuevo';
-      if (avg < 3) return 'âš ï¸ Vendedor Regular';
-      if (count < 5) return 'ðŸŒ¿ Vendedor BÃ¡sico';
-      if (avg >= 4.8 && count >= 50) return 'ðŸ‘‘ Vendedor Leyenda';
-      if (avg >= 4.5 && count >= 20) return 'ðŸ† Vendedor Maestro';
-      if (avg >= 4.3 && count >= 10) return 'ðŸ’Ž Vendedor Experto';
-      if (avg >= 4.0) return 'â­ Vendedor Experimentado';
-      return 'âœ… Vendedor Confiable';
+      if (count === 0) return '🌱 Vendedor Nuevo';
+      if (avg < 3) return '⚠️ Vendedor Regular';
+      if (count < 5) return '🌿 Vendedor Básico';
+      if (avg >= 4.8 && count >= 50) return '👑 Vendedor Leyenda';
+      if (avg >= 4.5 && count >= 20) return '🏆 Vendedor Maestro';
+      if (avg >= 4.3 && count >= 10) return '💎 Vendedor Experto';
+      if (avg >= 4.0) return '⭐ Vendedor Experimentado';
+      return '✅ Vendedor Confiable';
     };
 
     const getBuyerBadge = (avg, count) => {
-      if (count === 0) return 'ðŸŒ± Comprador Nuevo';
-      if (avg < 3) return 'âš ï¸ Comprador Regular';
-      if (count < 5) return 'ðŸŒ¿ Comprador BÃ¡sico';
-      if (avg >= 4.8 && count >= 50) return 'ðŸ‘‘ Comprador Leyenda';
-      if (avg >= 4.5 && count >= 20) return 'ðŸ† Comprador Maestro';
-      if (avg >= 4.3 && count >= 10) return 'ðŸ’Ž Comprador Experto';
-      if (avg >= 4.0) return 'â­ Comprador Experimentado';
-      return 'âœ… Comprador Confiable';
+      if (count === 0) return '🌱 Comprador Nuevo';
+      if (avg < 3) return '⚠️ Comprador Regular';
+      if (count < 5) return '🌿 Comprador Básico';
+      if (avg >= 4.8 && count >= 50) return '👑 Comprador Leyenda';
+      if (avg >= 4.5 && count >= 20) return '🏆 Comprador Maestro';
+      if (avg >= 4.3 && count >= 10) return '💎 Comprador Experto';
+      if (avg >= 4.0) return '⭐ Comprador Experimentado';
+      return '✅ Comprador Confiable';
     };
 
     res.json({
@@ -8902,15 +8902,15 @@ app.delete('/natmarket/products/:id', async (req, res) => {
     const { rows } = await pool.query('SELECT user_id FROM products_nat WHERE id=$1', [id]);
     if (rows.length === 0) return res.status(404).json({ error: 'Producto no encontrado' });
     if (Number(rows[0].user_id) !== Number(user_id)) return res.status(403).json({ error: 'No autorizado' });
-    // borrar imÃ¡genes fÃ­sicas
+    // borrar imágenes físicas
     const { rows: imgs } = await pool.query('SELECT url FROM product_images_nat WHERE product_id=$1', [id]);
     for (const img of imgs) {
       const file = path.join(uploadDir, path.basename(img.url));
       if (fs.existsSync(file)) fs.unlinkSync(file);
     }
     await pool.query('DELETE FROM product_images_nat WHERE product_id=$1', [id]);
-    // Al borrar un producto, las vistas tambiÃ©n se borran automÃ¡ticamente por CASCADE
-    // pero asegurÃ©monos de limpiar manualmente tambiÃ©n
+    // Al borrar un producto, las vistas también se borran automáticamente por CASCADE
+    // pero asegurémonos de limpiar manualmente también
     await pool.query('DELETE FROM product_views_unique WHERE product_id=$1', [id]);
     const { rows: [deleted] } = await pool.query('DELETE FROM products_nat WHERE id=$1 RETURNING *', [id]);
     res.json({ success: true, deleted });
@@ -8932,7 +8932,7 @@ app.post('/natmarket/products/:id/repost', async (req, res) => {
       return res.status(400).json({ error: 'user_id requerido' });
     }
 
-    // VerificaciÃ³n de OceanicEthernet eliminada - ya no se requiere vinculaciÃ³n
+    // Verificación de OceanicEthernet eliminada - ya no se requiere vinculación
 
     // Verificar que el producto existe y pertenece al usuario
     const { rows: productRows } = await client.query('SELECT * FROM products_nat WHERE id=$1', [id]);
@@ -8947,14 +8947,14 @@ app.post('/natmarket/products/:id/repost', async (req, res) => {
 
     const currentProduct = productRows[0];
 
-    // Validar datos si se proporcionan para ediciÃ³n
+    // Validar datos si se proporcionan para edición
     const newName = name || currentProduct.name;
     const newDescription = description !== undefined ? description : currentProduct.description;
     const newPrice = price !== undefined ? (price ? parseFloat(price) : null) : currentProduct.price;
     const newContact = contact_number !== undefined ? contact_number : currentProduct.contact_number;
     const newStock = stock !== undefined ? parseInt(stock) || 1 : currentProduct.stock;
 
-    // ModeraciÃ³n si hay cambios en nombre/descripciÃ³n
+    // Moderación si hay cambios en nombre/descripción
     const bad = containsInappropriate(newName + ' ' + (newDescription || ''));
     if (bad) {
       await client.query('ROLLBACK');
@@ -8963,7 +8963,7 @@ app.post('/natmarket/products/:id/repost', async (req, res) => {
 
     // Consumo de internet eliminado - ya no se requiere saldo de internet
 
-    // Actualizar producto con nueva fecha de publicaciÃ³n
+    // Actualizar producto con nueva fecha de publicación
     const { rows: [updated] } = await client.query(
       `UPDATE products_nat 
        SET name=$1, description=$2, price=$3, contact_number=$4, stock=$5, published_at=NOW(), sold=false, buyer_id=NULL
@@ -8971,7 +8971,7 @@ app.post('/natmarket/products/:id/repost', async (req, res) => {
       [newName, newDescription, newPrice, newContact, newStock, id]
     );
 
-    // Parsear lugares y mÃ©todos si vienen como string JSON
+    // Parsear lugares y métodos si vienen como string JSON
     let placesArray = places;
     let methodsArray = methods;
     if (typeof places === 'string') {
@@ -8981,7 +8981,7 @@ app.post('/natmarket/products/:id/repost', async (req, res) => {
       try { methodsArray = JSON.parse(methods); } catch { methodsArray = []; }
     }
 
-    // Obtener lugares y mÃ©todos actuales si no se proporcionan
+    // Obtener lugares y métodos actuales si no se proporcionan
     if (!placesArray || placesArray.length === 0) {
       const { rows: currentPlaces } = await client.query('SELECT place_id FROM product_places WHERE product_id=$1', [id]);
       placesArray = currentPlaces.map(p => p.place_id.toString());
@@ -8992,7 +8992,7 @@ app.post('/natmarket/products/:id/repost', async (req, res) => {
       methodsArray = currentMethods.map(m => m.shipping_method_id.toString());
     }
 
-    // Actualizar lugares y mÃ©todos
+    // Actualizar lugares y métodos
     await client.query('DELETE FROM product_places WHERE product_id=$1', [id]);
     for (const pId of placesArray) {
       await client.query('INSERT INTO product_places (product_id, place_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [id, pId]);
@@ -9029,7 +9029,7 @@ app.post('/natmarket/products/:id/repost', async (req, res) => {
              VALUES ($1, 'new_product', $2, $3, $4, NOW())`,
             [
               follower.follower_id,
-              `${sellerName} republicÃ³ un producto: "${newName}"`,
+              `${sellerName} republicó un producto: "${newName}"`,
               id,
               user_id
             ]
@@ -9039,7 +9039,7 @@ app.post('/natmarket/products/:id/repost', async (req, res) => {
       }
     } catch (notifErr) {
       console.error('[NOTIFICATIONS] Error notificando a seguidores:', notifErr);
-      // No fallar el repost si falla la notificaciÃ³n
+      // No fallar el repost si falla la notificación
     }
 
     await client.query('COMMIT');
@@ -9066,7 +9066,7 @@ app.post('/natmarket/products/:id/repost-delete', upload.array('images', 10), as
       return res.status(400).json({ error: 'user_id requerido' });
     }
 
-    // VerificaciÃ³n de OceanicEthernet eliminada - ya no se requiere vinculaciÃ³n
+    // Verificación de OceanicEthernet eliminada - ya no se requiere vinculación
 
     // Verificar que el producto existe y pertenece al usuario
     const { rows: productRows } = await client.query('SELECT * FROM products_nat WHERE id=$1', [id]);
@@ -9096,7 +9096,7 @@ app.post('/natmarket/products/:id/repost-delete', upload.array('images', 10), as
       return res.status(400).json({ error: 'Nombre es obligatorio' });
     }
 
-    // ModeraciÃ³n
+    // Moderación
     const bad = containsInappropriate(newName + ' ' + (newDescription || ''));
     if (bad) {
       await client.query('ROLLBACK');
@@ -9105,12 +9105,12 @@ app.post('/natmarket/products/:id/repost-delete', upload.array('images', 10), as
 
     // Consumo de internet eliminado - ya no se requiere saldo de internet
 
-    // Obtener imÃ¡genes, lugares y mÃ©todos actuales antes de borrar
+    // Obtener imágenes, lugares y métodos actuales antes de borrar
     const { rows: currentImgs } = await client.query('SELECT url FROM product_images_nat WHERE product_id=$1', [id]);
     const { rows: currentPlaces } = await client.query('SELECT place_id FROM product_places WHERE product_id=$1', [id]);
     const { rows: currentMethods } = await client.query('SELECT shipping_method_id FROM product_shipping_methods WHERE product_id=$1', [id]);
 
-    // Borrar producto (CASCADE borrarÃ¡ imÃ¡genes y relaciones)
+    // Borrar producto (CASCADE borrará imágenes y relaciones)
     await client.query('DELETE FROM product_images_nat WHERE product_id=$1', [id]);
     await client.query('DELETE FROM product_views_unique WHERE product_id=$1', [id]);
     await client.query('DELETE FROM products_nat WHERE id=$1', [id]);
@@ -9122,7 +9122,7 @@ app.post('/natmarket/products/:id/repost-delete', upload.array('images', 10), as
       [user_id, newName, newDescription, newPrice, newContact, newStock]
     );
 
-    // Subir nuevas imÃ¡genes si hay
+    // Subir nuevas imágenes si hay
     const host = process.env.BACKEND_URL || `https://${req.get('host')}`;
     const newUrls = (req.files || []).map(f => {
       // Si hay credenciales de Cloudinary, usar URL de nube
@@ -9143,7 +9143,7 @@ app.post('/natmarket/products/:id/repost-delete', upload.array('images', 10), as
       await client.query('INSERT INTO product_images_nat (product_id, url) VALUES ($1,$2)', [newProduct.id, url]);
     }
 
-    // Si no hay nuevas imÃ¡genes pero habÃ­a imÃ¡genes anteriores, copiarlas
+    // Si no hay nuevas imágenes pero había imágenes anteriores, copiarlas
     if (newUrls.length === 0 && currentImgs.length > 0) {
       for (const img of currentImgs) {
         await client.query('INSERT INTO product_images_nat (product_id, url) VALUES ($1,$2)', [newProduct.id, img.url]);
@@ -9156,7 +9156,7 @@ app.post('/natmarket/products/:id/repost-delete', upload.array('images', 10), as
       await client.query('INSERT INTO product_places (product_id, place_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [newProduct.id, pId]);
     }
 
-    // MÃ©todos: usar los proporcionados o los actuales
+    // Métodos: usar los proporcionados o los actuales
     const methodsIds = methodsArray.length > 0 ? methodsArray : currentMethods.map(m => m.shipping_method_id);
     for (const mId of methodsIds) {
       await client.query('INSERT INTO product_shipping_methods (product_id, shipping_method_id) VALUES ($1,$2) ON CONFLICT DO NOTHING', [newProduct.id, mId]);
@@ -9184,7 +9184,7 @@ app.post('/natmarket/products/:id/repost-delete', upload.array('images', 10), as
              VALUES ($1, 'new_product', $2, $3, $4, NOW())`,
             [
               follower.follower_id,
-              `${sellerName} publicÃ³ un nuevo producto: "${newName}"`,
+              `${sellerName} publicó un nuevo producto: "${newName}"`,
               newProduct.id,
               user_id
             ]
@@ -9194,7 +9194,7 @@ app.post('/natmarket/products/:id/repost-delete', upload.array('images', 10), as
       }
     } catch (notifErr) {
       console.error('[NOTIFICATIONS] Error notificando a seguidores:', notifErr);
-      // No fallar la creaciÃ³n si falla la notificaciÃ³n
+      // No fallar la creación si falla la notificación
     }
 
     await client.query('COMMIT');
@@ -9211,7 +9211,7 @@ app.post('/natmarket/products/:id/repost-delete', upload.array('images', 10), as
 app.post('/natmarket/messages', async (req, res) => {
   try {
     const { sender_id, product_id, message } = req.body;
-    if (!sender_id || !product_id || !message) return res.status(400).json({ error: 'Faltan parÃ¡metros' });
+    if (!sender_id || !product_id || !message) return res.status(400).json({ error: 'Faltan parámetros' });
     const { rows: [msg] } = await pool.query(
       'INSERT INTO messages_nat (sender_id, product_id, message) VALUES ($1,$2,$3) RETURNING *',
       [sender_id, product_id, message]
@@ -9225,31 +9225,31 @@ app.post('/natmarket/messages', async (req, res) => {
 app.post('/natmarket/messages/v2', async (req, res) => {
   const { sender_id, product_id, message, username } = req.body;
 
-  // ValidaciÃ³n estricta de parÃ¡metros
+  // Validación estricta de parámetros
   if (!product_id || !message) {
-    console.error('[MESSAGES] Faltan parÃ¡metros:', { sender_id, product_id, message: message ? 'presente' : 'faltante' });
+    console.error('[MESSAGES] Faltan parámetros:', { sender_id, product_id, message: message ? 'presente' : 'faltante' });
     return res.status(400).json({ error: 'Faltan datos' });
   }
 
-  // Asegurar que product_id sea un nÃºmero
+  // Asegurar que product_id sea un número
   const productIdNum = parseInt(product_id);
 
   if (isNaN(productIdNum)) {
-    console.error('[MESSAGES] product_id invÃ¡lido:', { product_id });
-    return res.status(400).json({ error: 'product_id invÃ¡lido' });
+    console.error('[MESSAGES] product_id inválido:', { product_id });
+    return res.status(400).json({ error: 'product_id inválido' });
   }
 
   let senderIdNum;
 
-  // Si product_id es 0, es chat global - manejar usuario automÃ¡ticamente
+  // Si product_id es 0, es chat global - manejar usuario automáticamente
   if (productIdNum === 0) {
     console.log(`[MESSAGES] Mensaje para chat global`);
 
-    // Si se proporciona username, buscar o crear usuario automÃ¡ticamente
+    // Si se proporciona username, buscar o crear usuario automáticamente
     if (username) {
       const cleanUsername = username.trim().substring(0, 50); // Limitar longitud
       if (!cleanUsername) {
-        return res.status(400).json({ error: 'Username invÃ¡lido' });
+        return res.status(400).json({ error: 'Username inválido' });
       }
 
       try {
@@ -9279,7 +9279,7 @@ app.post('/natmarket/messages/v2', async (req, res) => {
       // Si se proporciona sender_id directamente, usarlo
       senderIdNum = parseInt(sender_id);
       if (isNaN(senderIdNum)) {
-        return res.status(400).json({ error: 'sender_id invÃ¡lido' });
+        return res.status(400).json({ error: 'sender_id inválido' });
       }
 
       // Verificar que el usuario existe
@@ -9294,13 +9294,13 @@ app.post('/natmarket/messages/v2', async (req, res) => {
       return res.status(400).json({ error: 'Se requiere username o sender_id para chat global' });
     }
   } else {
-    // Chat privado - requiere sender_id vÃ¡lido
+    // Chat privado - requiere sender_id válido
     if (!sender_id) {
       return res.status(400).json({ error: 'Se requiere sender_id para chat privado' });
     }
     senderIdNum = parseInt(sender_id);
     if (isNaN(senderIdNum)) {
-      return res.status(400).json({ error: 'sender_id invÃ¡lido' });
+      return res.status(400).json({ error: 'sender_id inválido' });
     }
   }
 
@@ -9327,12 +9327,12 @@ app.post('/natmarket/messages/v2', async (req, res) => {
     console.log(`[MESSAGES] Producto encontrado: "${product.name}" (id: ${product.id}), vendedor: ${product.user_id}`);
   }
 
-  // Verificar si el usuario estÃ¡ baneado (despuÃ©s de obtener senderIdNum)
+  // Verificar si el usuario está baneado (después de obtener senderIdNum)
   const banCheck = await isUserBanned(senderIdNum);
   if (banCheck.banned) {
     const banUntil = new Date(banCheck.banUntil);
     return res.status(403).json({
-      error: `Tu cuenta estÃ¡ baneada hasta el ${banUntil.toLocaleDateString('es-AR')}. RazÃ³n: ${banCheck.reason}`
+      error: `Tu cuenta está baneada hasta el ${banUntil.toLocaleDateString('es-AR')}. Razón: ${banCheck.reason}`
     });
   }
 
@@ -9345,17 +9345,17 @@ app.post('/natmarket/messages/v2', async (req, res) => {
     );
     await notifyModerator('message', productIdNum, message, senderIdNum);
     return res.status(202).json({
-      warning: 'Tu mensaje estÃ¡ en revisiÃ³n por contenido potencialmente inapropiado.'
+      warning: 'Tu mensaje está en revisión por contenido potencialmente inapropiado.'
     });
   }
 
-  // si estÃ¡ OK, guardar directamente con validaciÃ³n explÃ­cita
+  // si está OK, guardar directamente con validación explícita
   const { rows: [msg] } = await pool.query(
     `INSERT INTO messages_nat (sender_id, product_id, message) VALUES ($1,$2,$3) RETURNING id, sender_id, product_id, message, created_at`,
     [senderIdNum, productIdNum, message]
   );
 
-  // VerificaciÃ³n adicional
+  // Verificación adicional
   if (Number(msg.product_id) !== productIdNum) {
     console.error(`[MESSAGES] ERROR: Mensaje guardado con product_id incorrecto. Esperado: ${productIdNum}, Obtenido: ${msg.product_id}`);
   }
@@ -9372,7 +9372,7 @@ app.post('/natmarket/messages/v2', async (req, res) => {
     const usersToNotify = new Set();
 
     if (isSellerMessage) {
-      // Si el vendedor envÃ­a un mensaje, notificar a todos los que han participado (excepto el vendedor)
+      // Si el vendedor envía un mensaje, notificar a todos los que han participado (excepto el vendedor)
       const { rows: participants } = await pool.query(`
         SELECT DISTINCT sender_id 
         FROM messages_nat 
@@ -9381,7 +9381,7 @@ app.post('/natmarket/messages/v2', async (req, res) => {
 
       participants.forEach(p => usersToNotify.add(String(p.sender_id)));
     } else {
-      // Si un usuario envÃ­a un mensaje, notificar al vendedor y a otros participantes
+      // Si un usuario envía un mensaje, notificar al vendedor y a otros participantes
       usersToNotify.add(String(sellerId));
 
       const { rows: participants } = await pool.query(`
@@ -9410,13 +9410,13 @@ app.post('/natmarket/messages/v2', async (req, res) => {
             VALUES ($1, 'message', $2, $3, $4, NOW())
           `, [
             userId,
-            `${senderName} enviÃ³ un mensaje sobre "${product.name}"`,
+            `${senderName} envió un mensaje sobre "${product.name}"`,
             productIdNum,
             senderIdNum
           ]);
-          console.log(`[NOTIFICATIONS] NotificaciÃ³n creada para usuario ${userId} sobre producto ${productIdNum}`);
+          console.log(`[NOTIFICATIONS] Notificación creada para usuario ${userId} sobre producto ${productIdNum}`);
         } catch (notifErr) {
-          console.error(`[NOTIFICATIONS] Error creando notificaciÃ³n para ${userId}:`, notifErr);
+          console.error(`[NOTIFICATIONS] Error creando notificación para ${userId}:`, notifErr);
         }
       }
     }
@@ -9430,8 +9430,8 @@ app.get('/mod/pending', async (req, res) => {
   const userHeader = (req.headers['x-user-username'] || '').trim();
 
   if (userHeader.toLowerCase() !== 'oceanandwild') {
-    console.log('[DIAG] 401 â€“ No autorizado');
-    return res.status(401).json({ error: 'No autorizado' }); // â† importante el return
+    console.log('[DIAG] 401 – No autorizado');
+    return res.status(401).json({ error: 'No autorizado' }); // ← importante el return
   }
 
   try {
@@ -9473,8 +9473,8 @@ app.post('/mod/decide-product', async (req, res) => {
          VALUES ($1,$2,$3,$4,$5) RETURNING *`,
         [p.user_id, p.name, p.description, p.price, p.contact_number]
       );
-      // 2. imÃ¡genes (no hay en pendientes, se avisarÃ¡ al usuario)
-      // 3. lugares/mÃ©todos
+      // 2. imágenes (no hay en pendientes, se avisará al usuario)
+      // 3. lugares/métodos
       const places = typeof p.places === 'string' ? JSON.parse(p.places) : p.places;
       const methods = typeof p.methods === 'string' ? JSON.parse(p.methods) : p.methods;
       for (const pid of places) await client.query('INSERT INTO product_places (product_id, place_id) VALUES ($1,$2)', [prod.id, pid]);
@@ -9483,8 +9483,8 @@ app.post('/mod/decide-product', async (req, res) => {
       await client.query('COMMIT');
       res.json({ ok: true });
     } else {
-      // rechazar â†’ dar strike al usuario
-      const rejectReason = reason || 'Contenido inapropiado detectado en revisiÃ³n';
+      // rechazar → dar strike al usuario
+      const rejectReason = reason || 'Contenido inapropiado detectado en revisión';
 
       // Agregar strike
       const strikeResult = await addStrike(p.user_id, rejectReason, null, client);
@@ -9564,7 +9564,7 @@ app.post('/natmarket/products/:id/report', async (req, res) => {
       return res.status(404).json({ error: 'Producto no encontrado' });
     }
 
-    // Verificar que no se reporte a sÃ­ mismo
+    // Verificar que no se reporte a sí mismo
     if (productRows[0].user_id === reporter_id) {
       return res.status(400).json({ error: 'No puedes reportar tu propio producto' });
     }
@@ -9602,7 +9602,7 @@ app.post('/natmarket/products/:id/report', async (req, res) => {
       await pool.query(
         `INSERT INTO notifications_nat (user_id, type, message, product_id, created_at)
          VALUES ($1, 'report', $2, $3, NOW())`,
-        [adminId, `ðŸ“¢ Nuevo reporte: ${reporterName} reportÃ³ un producto. RazÃ³n: ${reason}`, id]
+        [adminId, `📢 Nuevo reporte: ${reporterName} reportó un producto. Razón: ${reason}`, id]
       );
     }
 
@@ -9692,24 +9692,24 @@ app.post('/natmarket/admin/reports/:id/decide', async (req, res) => {
     const adminId = adminRows[0]?.id;
 
     if (approve) {
-      // Aprobar: eliminar producto y dar strike al dueÃ±o
-      const reason = admin_response || 'Producto reportado y eliminado por violaciÃ³n de tÃ©rminos';
+      // Aprobar: eliminar producto y dar strike al dueño
+      const reason = admin_response || 'Producto reportado y eliminado por violación de términos';
 
       // Guardar el product_id y nombre del producto antes de eliminarlo
       const deletedProductId = report.product_id;
 
-      // Obtener nombre del producto para la notificaciÃ³n
+      // Obtener nombre del producto para la notificación
       const { rows: productRows } = await client.query(
         'SELECT name FROM products_nat WHERE id = $1',
         [deletedProductId]
       );
       const productName = productRows[0]?.name || `Producto ID: ${deletedProductId}`;
 
-      // Crear razÃ³n completa con informaciÃ³n del producto
+      // Crear razón completa con información del producto
       const fullReason = `${reason} Producto eliminado: "${productName}"`;
 
-      // Dar strike al dueÃ±o del producto ANTES de eliminar el producto
-      // (para que la notificaciÃ³n pueda referenciar el producto)
+      // Dar strike al dueño del producto ANTES de eliminar el producto
+      // (para que la notificación pueda referenciar el producto)
       const strikeResult = await addStrike(report.product_owner_id, fullReason, deletedProductId, client);
 
       if (strikeResult.error) {
@@ -9718,7 +9718,7 @@ app.post('/natmarket/admin/reports/:id/decide', async (req, res) => {
         return res.status(500).json({ error: 'Error agregando strike: ' + strikeResult.error });
       }
 
-      // Ahora eliminar el producto (despuÃ©s de crear la notificaciÃ³n)
+      // Ahora eliminar el producto (después de crear la notificación)
       await client.query('DELETE FROM products_nat WHERE id = $1', [deletedProductId]);
 
       // Actualizar reporte
@@ -9738,7 +9738,7 @@ app.post('/natmarket/admin/reports/:id/decide', async (req, res) => {
       });
     } else {
       // Rechazar: dar strike al reporter
-      const reason = admin_response || 'Reporte infundado. El producto no viola los tÃ©rminos.';
+      const reason = admin_response || 'Reporte infundado. El producto no viola los términos.';
 
       const strikeResult = await addStrike(report.reporter_id, reason, null, client);
 
@@ -9753,7 +9753,7 @@ app.post('/natmarket/admin/reports/:id/decide', async (req, res) => {
         `UPDATE product_reports 
          SET status = 'rejected', admin_id = $1, admin_response = $2, reviewed_at = NOW()
          WHERE id = $3`,
-        [adminId, admin_response || 'Reporte rechazado. El producto no viola los tÃ©rminos.', id]
+        [adminId, admin_response || 'Reporte rechazado. El producto no viola los términos.', id]
       );
 
       await client.query('COMMIT');
@@ -9841,7 +9841,7 @@ app.get('/natmarket/messages/:product_id', async (req, res) => {
     // Si product_id es 0, es el chat global (todos ven todos los mensajes globales)
     // Si product_id > 0, es un chat privado (solo ese producto)
     if (isNaN(productIdNum)) {
-      return res.status(400).json({ error: 'product_id invÃ¡lido' });
+      return res.status(400).json({ error: 'product_id inválido' });
     }
 
     let query, params;
@@ -9857,7 +9857,7 @@ app.get('/natmarket/messages/:product_id', async (req, res) => {
       `;
       params = [];
     } else {
-      // Chat privado: solo mensajes de ese producto especÃ­fico
+      // Chat privado: solo mensajes de ese producto específico
       query = `
         SELECT m.*, u.username AS sender_username
         FROM messages_nat m
@@ -9875,7 +9875,7 @@ app.get('/natmarket/messages/:product_id', async (req, res) => {
   }
 });
 
-/* ========== ALLAPP â€“ MENSAJES GLOBALES ========== */
+/* ========== ALLAPP – MENSAJES GLOBALES ========== */
 // Inicializar tabla allapp_messages si no existe
 async function initAllAppMessagesTable() {
   try {
@@ -9890,7 +9890,7 @@ async function initAllAppMessagesTable() {
     console.log('[ALLAPP] Tabla allapp_messages inicializada');
   } catch (err) {
     console.error('[ALLAPP] Error creando tabla allapp_messages:', err);
-    // Si la tabla ya existe, no es un error crÃ­tico
+    // Si la tabla ya existe, no es un error crítico
     if (!err.message.includes('already exists')) {
       throw err;
     }
@@ -9899,7 +9899,7 @@ async function initAllAppMessagesTable() {
 
 // Inicializar al arrancar
 initAllAppMessagesTable().catch(err => {
-  console.error('[ALLAPP] Error crÃ­tico inicializando tabla:', err);
+  console.error('[ALLAPP] Error crítico inicializando tabla:', err);
 });
 
 // ===== ECOXION - QUICK CHAT =====
@@ -9954,20 +9954,20 @@ app.get('/ecoxion/messages', async (req, res) => {
   }
 });
 
-// Endpoint especÃ­fico para AllApp LionChat - Enviar mensajes
+// Endpoint específico para AllApp LionChat - Enviar mensajes
 app.post('/allapp/messages', async (req, res) => {
   try {
     const { username, message } = req.body;
 
-    // ValidaciÃ³n de parÃ¡metros
+    // Validación de parámetros
     if (!username || !message) {
-      console.error('[ALLAPP] Faltan parÃ¡metros:', { username, message: message ? 'presente' : 'faltante' });
+      console.error('[ALLAPP] Faltan parámetros:', { username, message: message ? 'presente' : 'faltante' });
       return res.status(400).json({ error: 'Se requiere username y message' });
     }
 
     const cleanUsername = username.trim().substring(0, 50);
     if (!cleanUsername) {
-      return res.status(400).json({ error: 'Username invÃ¡lido' });
+      return res.status(400).json({ error: 'Username inválido' });
     }
 
     console.log(`[ALLAPP] Nuevo mensaje - username: ${cleanUsername}, mensaje: "${message.substring(0, 50)}..."`);
@@ -9977,11 +9977,11 @@ app.post('/allapp/messages', async (req, res) => {
     if (bad) {
       // Guardar en tabla de pendientes (opcional, puede ser la misma tabla con un flag)
       return res.status(202).json({
-        warning: 'Tu mensaje estÃ¡ en revisiÃ³n por contenido potencialmente inapropiado.'
+        warning: 'Tu mensaje está en revisión por contenido potencialmente inapropiado.'
       });
     }
 
-    // Guardar mensaje en tabla especÃ­fica de AllApp
+    // Guardar mensaje en tabla específica de AllApp
     const { rows: [msg] } = await pool.query(
       `INSERT INTO allapp_messages (sender_username, message) VALUES ($1, $2) RETURNING id, sender_username, message, created_at`,
       [cleanUsername, message]
@@ -9996,7 +9996,7 @@ app.post('/allapp/messages', async (req, res) => {
     if (err.message.includes('does not exist') || err.message.includes('relation') || err.code === '42P01') {
       try {
         await initAllAppMessagesTable();
-        // Reintentar inserciÃ³n
+        // Reintentar inserción
         const { rows: [msg] } = await pool.query(
           `INSERT INTO allapp_messages (sender_username, message) VALUES ($1, $2) RETURNING id, sender_username, message, created_at`,
           [req.body.username.trim().substring(0, 50), req.body.message]
@@ -10011,10 +10011,10 @@ app.post('/allapp/messages', async (req, res) => {
   }
 });
 
-// Endpoint especÃ­fico para AllApp LionChat - Obtener mensajes
+// Endpoint específico para AllApp LionChat - Obtener mensajes
 app.get('/allapp/messages', async (req, res) => {
   try {
-    // Obtener mensajes de la tabla especÃ­fica de AllApp
+    // Obtener mensajes de la tabla específica de AllApp
     const { rows } = await pool.query(`
       SELECT 
         id,
@@ -10029,7 +10029,7 @@ app.get('/allapp/messages', async (req, res) => {
     res.json(rows);
   } catch (err) {
     console.error('[ALLAPP] Error en GET /allapp/messages:', err);
-    // Si la tabla no existe, devolver array vacÃ­o
+    // Si la tabla no existe, devolver array vacío
     if (err.message.includes('does not exist') || err.message.includes('relation') || err.code === '42P01') {
       try {
         await initAllAppMessagesTable();
@@ -10145,7 +10145,7 @@ app.post('/natmarket/users/:following_id/follow', async (req, res) => {
       [follower_id, following_id]
     );
 
-    // Crear notificaciÃ³n para el usuario seguido
+    // Crear notificación para el usuario seguido
     await pool.query(
       `INSERT INTO notifications_nat (user_id, type, message, sender_id, created_at)
        VALUES ($1, 'follower', $2, $3, NOW())`,
@@ -10190,7 +10190,7 @@ app.post('/natmarket/users/:following_id/unfollow', async (req, res) => {
     );
     const username = userRow[0]?.username || 'Alguien';
 
-    // Crear notificaciÃ³n para el usuario que fue dejado de seguir
+    // Crear notificación para el usuario que fue dejado de seguir
     await pool.query(
       `INSERT INTO notifications_nat (user_id, type, message, sender_id, created_at)
        VALUES ($1, 'unfollow', $2, $3, NOW())`,
@@ -10271,7 +10271,7 @@ app.get('/natmarket/chats/:user_id', async (req, res) => {
         )
     `, [user_id]);
 
-    // 2) Productos donde el usuario participÃ³ como comprador (enviÃ³ al menos un mensaje)
+    // 2) Productos donde el usuario participó como comprador (envió al menos un mensaje)
     const { rows: buyerProductRows } = await pool.query(`
       SELECT DISTINCT p.id AS product_id, p.name AS product_name
       FROM messages_nat m
@@ -10290,7 +10290,7 @@ app.get('/natmarket/chats/:user_id', async (req, res) => {
 
     // Obtener detalles por producto
     const rows = await Promise.all(productRows.map(async (p) => {
-      // Ãšltimo mensaje
+      // Último mensaje
       const { rows: lastMsgRows } = await pool.query(`
         SELECT 
           u2.id AS sender_id,
@@ -10311,7 +10311,7 @@ app.get('/natmarket/chats/:user_id', async (req, res) => {
         WHERE product_id = $1
       `, [p.product_id]);
 
-      // Ãšltima actividad
+      // Última actividad
       const { rows: activityRows } = await pool.query(`
         SELECT MAX(created_at) AS last_activity
         FROM messages_nat
@@ -10332,7 +10332,7 @@ app.get('/natmarket/chats/:user_id', async (req, res) => {
       };
     }));
 
-    // Ordenar por Ãºltima actividad
+    // Ordenar por última actividad
     rows.sort((a, b) => {
       if (!a.last_activity && !b.last_activity) return 0;
       if (!a.last_activity) return 1;
@@ -10343,7 +10343,7 @@ app.get('/natmarket/chats/:user_id', async (req, res) => {
     console.log(`[CHATS] Encontrados ${rows.length} chats para usuario ${user_id}`);
 
     if (!rows || rows.length === 0) {
-      console.log(`[CHATS] No hay chats, devolviendo array vacÃ­o`);
+      console.log(`[CHATS] No hay chats, devolviendo array vacío`);
       return res.json([]);
     }
 
@@ -10386,7 +10386,7 @@ app.get('/natmarket/chats/:user_id', async (req, res) => {
 app.post('/natmarket/rate-product', async (req, res) => {
   try {
     const { product_id, rater_user_id, rating, comment } = req.body;
-    if (!product_id || !rater_user_id || !rating) return res.status(400).json({ error: 'Faltan parÃ¡metros' });
+    if (!product_id || !rater_user_id || !rating) return res.status(400).json({ error: 'Faltan parámetros' });
 
     // Verificar que el producto existe
     const { rows } = await pool.query('SELECT user_id, sold, buyer_id FROM products_nat WHERE id=$1', [product_id]);
@@ -10394,7 +10394,7 @@ app.post('/natmarket/rate-product', async (req, res) => {
 
     const product = rows[0];
 
-    // Si el producto estÃ¡ vendido, solo el comprador puede calificarlo
+    // Si el producto está vendido, solo el comprador puede calificarlo
     if (product.sold && product.buyer_id) {
       if (Number(product.buyer_id) !== Number(rater_user_id)) {
         return res.status(403).json({ error: 'Solo el comprador puede calificar este producto vendido' });
@@ -10415,7 +10415,7 @@ app.post('/natmarket/rate-product', async (req, res) => {
 app.post('/natmarket/rate-seller', async (req, res) => {
   try {
     const { seller_id, rater_user_id, rating, comment } = req.body;
-    if (!seller_id || !rater_user_id || !rating) return res.status(400).json({ error: 'Faltan parÃ¡metros' });
+    if (!seller_id || !rater_user_id || !rating) return res.status(400).json({ error: 'Faltan parámetros' });
     await pool.query(
       `INSERT INTO user_ratings_nat (rated_user_id, rater_user_id, rating, comment, type)
        VALUES ($1,$2,$3,$4,'seller')`,
@@ -10481,12 +10481,12 @@ app.get('/natmarket/ratings/seller/:seller_id', async (req, res) => {
 });
 
 const PLANS = [
-  { id: 'free', name: 'Plan Free', price: 0, perks: ['Acceso bÃ¡sico', 'Sin publicidad'], highlight: false },
-  { id: 'eco-basic', name: 'Eco Basic', price: 200, perks: ['1 extensiÃ³n premium/mes', 'Soporte prioritario'] },
+  { id: 'free', name: 'Plan Free', price: 0, perks: ['Acceso básico', 'Sin publicidad'], highlight: false },
+  { id: 'eco-basic', name: 'Eco Basic', price: 200, perks: ['1 extensión premium/mes', 'Soporte prioritario'] },
   { id: 'eco-premium', name: 'Eco Premium', price: 500, perks: ['Extensiones exclusivas', 'Pack mensual sorpresa', 'Sin publicidad'], highlight: true },
 ];
 
-/* -----  suscripciÃ³n activa de un usuario  ----- */
+/* -----  suscripción activa de un usuario  ----- */
 app.get('/active/:userId', async (req, res) => {
   const { userId } = req.params;
   const row = await db.collection('subs').findOne({ userId, active: true });
@@ -10510,12 +10510,12 @@ app.get("/api/subscriptions/active/:userId", async (req, res) => {
   const { userId } = req.params;
   try {
     const { rows } = await pool.query(
-      `SELECT * FROM subs WHERE user_id = $1 AND active = true AND ends_at > NOW()`, // âœ… ends_at
+      `SELECT * FROM subs WHERE user_id = $1 AND active = true AND ends_at > NOW()`, // ✅ ends_at
       [userId]
     );
     res.json(rows[0] || null);
   } catch (err) {
-    console.error("âŒ /active ERROR:", err.message);
+    console.error("❌ /active ERROR:", err.message);
     res.status(500).json({ error: "Error interno" });
   }
 });
@@ -10529,30 +10529,30 @@ app.get("/api/subscriptions/history/:userId", async (req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    console.error("âŒ /history:", err);
+    console.error("❌ /history:", err);
     res.status(500).json({ error: "Error interno" });
   }
 });
 
-// ðŸ”¥ DESCUENTO + COBRO MENSUAL REAL
+// 🔥 DESCUENTO + COBRO MENSUAL REAL
 app.post("/api/subscriptions/subscribe", async (req, res) => {
   const { userId, planId } = req.body;
 
-  // Validar que userId y planId estÃ©n presentes
+  // Validar que userId y planId estén presentes
   if (!userId) {
-    console.error("âŒ /subscribe ERROR: userId faltante. Body recibido:", req.body);
+    console.error("❌ /subscribe ERROR: userId faltante. Body recibido:", req.body);
     return res.status(400).json({ error: "userId es requerido" });
   }
 
   if (!planId) {
-    console.error("âŒ /subscribe ERROR: planId faltante. Body recibido:", req.body);
+    console.error("❌ /subscribe ERROR: planId faltante. Body recibido:", req.body);
     return res.status(400).json({ error: "planId es requerido" });
   }
 
   const plan = PLANS.find(p => p.id === planId);
   if (!plan) {
-    console.error("âŒ /subscribe ERROR: Plan invÃ¡lido. planId recibido:", planId, "Planes disponibles:", PLANS.map(p => p.id));
-    return res.status(400).json({ error: `Plan invÃ¡lido: ${planId}. Planes disponibles: ${PLANS.map(p => p.id).join(', ')}` });
+    console.error("❌ /subscribe ERROR: Plan inválido. planId recibido:", planId, "Planes disponibles:", PLANS.map(p => p.id));
+    return res.status(400).json({ error: `Plan inválido: ${planId}. Planes disponibles: ${PLANS.map(p => p.id).join(', ')}` });
   }
 
   // Asegurar que userId sea string
@@ -10565,17 +10565,17 @@ app.post("/api/subscriptions/subscribe", async (req, res) => {
   try {
     await client.query('BEGIN');
 
-    // 1) Verificar si tiene suscripciÃ³n activa y si es upgrade
+    // 1) Verificar si tiene suscripción activa y si es upgrade
     const { rows: activeSub } = await client.query(
       `SELECT * FROM subs WHERE user_id = $1 AND active = true AND ends_at > NOW()`,
       [userIdStr]
     );
 
-    // Guardar estado para usar despuÃ©s
+    // Guardar estado para usar después
     const hasActiveSub = activeSub.length > 0;
     const currentPlanId = hasActiveSub ? activeSub[0].plan_id : null;
 
-    console.log(`ðŸ“‹ Verificando suscripciones activas para userId: ${userIdStr}`, {
+    console.log(`📋 Verificando suscripciones activas para userId: ${userIdStr}`, {
       activeSubs: activeSub.length,
       activeSubData: activeSub
     });
@@ -10583,7 +10583,7 @@ app.post("/api/subscriptions/subscribe", async (req, res) => {
     if (hasActiveSub) {
       const currentPlan = PLANS.find(p => p.id === currentPlanId);
 
-      console.log(`ðŸ“Š Comparando planes:`, {
+      console.log(`📊 Comparando planes:`, {
         currentPlanId: currentPlanId,
         currentPlanFound: !!currentPlan,
         currentPlanPrice: currentPlan?.price,
@@ -10592,22 +10592,22 @@ app.post("/api/subscriptions/subscribe", async (req, res) => {
         canUpgrade: currentPlan ? currentPlan.price < plan.price : true
       });
 
-      // Si el plan actual no estÃ¡ en PLANS, permitimos la suscripciÃ³n (plan invÃ¡lido o desactualizado)
+      // Si el plan actual no está en PLANS, permitimos la suscripción (plan inválido o desactualizado)
       if (!currentPlan) {
-        console.log(`âš ï¸ Plan actual (${currentPlanId}) no encontrado en PLANS, permitiendo suscripciÃ³n`);
-        // Cancelaremos la suscripciÃ³n anterior despuÃ©s de validar el saldo
+        console.log(`⚠️ Plan actual (${currentPlanId}) no encontrado en PLANS, permitiendo suscripción`);
+        // Cancelaremos la suscripción anterior después de validar el saldo
       } else if (currentPlan.id === plan.id) {
-        // El usuario ya tiene el mismo plan: permitimos renovar/extender la suscripciÃ³n
-        console.log(`ðŸ”„ Renovando suscripciÃ³n al mismo plan: ${currentPlan.name}`);
+        // El usuario ya tiene el mismo plan: permitimos renovar/extender la suscripción
+        console.log(`🔄 Renovando suscripción al mismo plan: ${currentPlan.name}`);
         // Continuamos con el proceso para extender la fecha de vencimiento
       } else if (currentPlan.price >= plan.price) {
         await client.query('ROLLBACK');
         return res.status(400).json({
-          error: `Ya tienes una suscripciÃ³n activa al plan "${currentPlan.name}" (${currentPlan.price} Bits). Solo puedes suscribirte a un plan superior (${plan.name} cuesta ${plan.price} Bits) o renovar tu plan actual.`
+          error: `Ya tienes una suscripción activa al plan "${currentPlan.name}" (${currentPlan.price} Bits). Solo puedes suscribirte a un plan superior (${plan.name} cuesta ${plan.price} Bits) o renovar tu plan actual.`
         });
       } else {
-        // Es un upgrade vÃ¡lido, cerraremos la suscripciÃ³n anterior despuÃ©s
-        console.log(`âœ… Upgrade vÃ¡lido: ${currentPlan.name} (${currentPlan.price}) â†’ ${plan.name} (${plan.price})`);
+        // Es un upgrade válido, cerraremos la suscripción anterior después
+        console.log(`✅ Upgrade válido: ${currentPlan.name} (${currentPlan.price}) → ${plan.name} (${plan.price})`);
       }
     }
 
@@ -10616,7 +10616,7 @@ app.post("/api/subscriptions/subscribe", async (req, res) => {
     const { cardNumber } = req.body;
 
     if (cardNumber) {
-      // Nueva lÃ³gica: Descontar de la tarjeta
+      // Nueva lógica: Descontar de la tarjeta
       const { rows: cardRows } = await client.query(
         'SELECT id FROM ocean_pay_cards WHERE card_number = $1 AND user_id = $2',
         [cardNumber, userIdStr]
@@ -10648,11 +10648,11 @@ app.post("/api/subscriptions/subscribe", async (req, res) => {
       // Registrar tx en el historial de Ocean Pay
       await client.query(
         'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)',
-        [userIdStr, `SuscripciÃ³n: ${plan.name}`, -plan.price, 'EcoConsole Sub', 'ECOREBITS']
+        [userIdStr, `Suscripción: ${plan.name}`, -plan.price, 'EcoConsole Sub', 'ECOREBITS']
       );
 
     } else {
-      // LÃ³gica antigua: Descontar de user_currency (global)
+      // Lógica antigua: Descontar de user_currency (global)
       const { rows: curRows } = await client.query(
         `SELECT amount FROM user_currency WHERE user_id = $1 AND currency_type = 'ecocorebits' FOR UPDATE`,
         [userIdStr]
@@ -10673,23 +10673,23 @@ app.post("/api/subscriptions/subscribe", async (req, res) => {
       );
     }
 
-    // 3) Registrar transacciÃ³n en EcoCoreBits
+    // 3) Registrar transacción en EcoCoreBits
     await client.query(
       `INSERT INTO ecocore_txs (user_id, concepto, monto, origen)
        VALUES ($1, $2, $3, $4)`,
-      [userIdStr, 'SuscripciÃ³n Plan Pro (EcoConsole)', -plan.price, 'EcoConsole']
+      [userIdStr, 'Suscripción Plan Pro (EcoConsole)', -plan.price, 'EcoConsole']
     );
 
-    // 4) Cerrar suscripciÃ³n anterior (si existe)
+    // 4) Cerrar suscripción anterior (si existe)
     if (hasActiveSub) {
       await client.query(
         `UPDATE subs SET active = false, ends_at = NOW() WHERE user_id = $1 AND active = true`,
         [userIdStr]
       );
-      console.log(`âœ… SuscripciÃ³n anterior cerrada para permitir nueva suscripciÃ³n`);
+      console.log(`✅ Suscripción anterior cerrada para permitir nueva suscripción`);
     }
 
-    // 5) Crear nueva suscripciÃ³n
+    // 5) Crear nueva suscripción
     const { rows } = await client.query(
       `INSERT INTO subs (user_id, plan_id, plan_name, start, ends_at, active)
        VALUES ($1, $2, $3, $4, $5, true) RETURNING *`,
@@ -10700,7 +10700,7 @@ app.post("/api/subscriptions/subscribe", async (req, res) => {
     await client.query(
       `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
        VALUES ($1, $2, $3, $4)`,
-      [userIdStr, 'SuscripciÃ³n Plan Pro (EcoConsole)', 0, 'EcoConsole']
+      [userIdStr, 'Suscripción Plan Pro (EcoConsole)', 0, 'EcoConsole']
     );
 
     await client.query('COMMIT');
@@ -10708,7 +10708,7 @@ app.post("/api/subscriptions/subscribe", async (req, res) => {
 
   } catch (err) {
     await client.query('ROLLBACK');
-    console.error("âŒ /subscribe ERROR:", err.message);
+    console.error("❌ /subscribe ERROR:", err.message);
     res.status(500).json({ error: "Error interno del servidor" });
   } finally {
     client.release();
@@ -10725,22 +10725,22 @@ app.post("/api/subscriptions/cancel", async (req, res) => {
     );
 
     if (rows.length === 0) {
-      return res.status(400).json({ error: "No tienes una suscripciÃ³n activa." });
+      return res.status(400).json({ error: "No tienes una suscripción activa." });
     }
 
-    res.json({ success: true, message: "SuscripciÃ³n cancelada. PodrÃ¡s seguir usando los beneficios hasta la fecha de vencimiento." });
+    res.json({ success: true, message: "Suscripción cancelada. Podrás seguir usando los beneficios hasta la fecha de vencimiento." });
 
   } catch (err) {
-    console.error("âŒ /cancel ERROR:", err.message);
+    console.error("❌ /cancel ERROR:", err.message);
     res.status(500).json({ error: "Error interno" });
   }
 });
 
-// ðŸ“… ESTO SE EJECUTA CADA DÃA A LAS 00:00 UTC
+// 📅 ESTO SE EJECUTA CADA DÍA A LAS 00:00 UTC
 import cron from "node-cron";
 
 cron.schedule("0 0 * * *", async () => {
-  console.log("ðŸ”„ Ejecutando cobro mensual...");
+  console.log("🔄 Ejecutando cobro mensual...");
 
   try {
     // 1) Suscripciones que vencen HOY con auto_pay
@@ -10781,10 +10781,10 @@ cron.schedule("0 0 * * *", async () => {
           await client.query(
             `INSERT INTO ecocore_txs (user_id, concepto, monto, origen)
              VALUES ($1, $2, $3, $4)`,
-            [userId, 'RenovaciÃ³n SuscripciÃ³n Plan Pro (EcoConsole)', -price, 'EcoConsole']
+            [userId, 'Renovación Suscripción Plan Pro (EcoConsole)', -price, 'EcoConsole']
           );
 
-          // Extender 30 dÃ­as
+          // Extender 30 días
           await client.query(
             `UPDATE subs SET ends_at = NOW() + INTERVAL '30 days' WHERE id = $1`,
             [sub.id]
@@ -10794,13 +10794,13 @@ cron.schedule("0 0 * * *", async () => {
           await client.query(
             `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
              VALUES ($1, $2, $3, $4)`,
-            [userId, 'RenovaciÃ³n SuscripciÃ³n Plan Pro (EcoConsole)', 0, 'EcoConsole']
+            [userId, 'Renovación Suscripción Plan Pro (EcoConsole)', 0, 'EcoConsole']
           );
 
           await client.query('COMMIT');
-          console.log(`âœ… Renovado ${planId} para ${userId}`);
+          console.log(`✅ Renovado ${planId} para ${userId}`);
         } else {
-          // Sin saldo suficiente â†’ downgrade
+          // Sin saldo suficiente → downgrade
           await client.query(`UPDATE subs SET active = false WHERE id = $1`, [sub.id]);
           await client.query(
             `INSERT INTO subs (user_id, plan_id, plan_name, start, ends_at, active, auto_pay)
@@ -10809,20 +10809,20 @@ cron.schedule("0 0 * * *", async () => {
           );
           await client.query(
             `INSERT INTO alerts (user_id, type, message) VALUES ($1, 'warning', $2)`,
-            [userId, 'ðŸ’° Saldo insuficiente para renovar tu plan. Se te ha asignado Plan Free temporalmente.']
+            [userId, '💰 Saldo insuficiente para renovar tu plan. Se te ha asignado Plan Free temporalmente.']
           );
           await client.query('COMMIT');
-          console.log(`âŒ Downgrade a Free por falta de fondos: ${userId}`);
+          console.log(`❌ Downgrade a Free por falta de fondos: ${userId}`);
         }
       } catch (err) {
         await client.query('ROLLBACK');
-        console.error('âŒ Error en renovaciÃ³n:', err.message);
+        console.error('❌ Error en renovación:', err.message);
       } finally {
         client.release();
       }
     }
   } catch (err) {
-    console.error("âŒ Error en cobro automÃ¡tico:", err.message);
+    console.error("❌ Error en cobro automático:", err.message);
   }
 });
 
@@ -10851,12 +10851,12 @@ app.patch("/api/subscriptions/auto-pay", async (req, res) => {
       `UPDATE subs SET auto_pay = $1 WHERE user_id = $2 AND active = true RETURNING auto_pay`,
       [enabled, userId]
     );
-    if (rows.length === 0) return res.status(400).json({ error: "No tienes suscripciÃ³n activa." });
+    if (rows.length === 0) return res.status(400).json({ error: "No tienes suscripción activa." });
 
     res.json({ success: true, autoPay: rows[0].auto_pay });
 
   } catch (err) {
-    console.error("âŒ /auto-pay ERROR:", err.message);
+    console.error("❌ /auto-pay ERROR:", err.message);
     res.status(500).json({ error: "Error interno" });
   }
 });
@@ -10868,14 +10868,14 @@ app.get("/api/subscriptions/has-access/:userId/:feature", async (req, res) => {
       `SELECT * FROM subs WHERE user_id = $1 AND active = true AND ends_at > NOW()`,
       [userId]
     );
-    if (rows.length === 0) return res.json({ hasAccess: false, message: "Sin suscripciÃ³n activa" });
+    if (rows.length === 0) return res.json({ hasAccess: false, message: "Sin suscripción activa" });
 
     const plan = rows[0];
     const perks = PLANS.find(p => p.id === plan.plan_id)?.perks || [];
     const hasAccess = perks.includes(feature);
     res.json({ hasAccess, plan: plan.plan_name });
   } catch (err) {
-    console.error("âŒ /has-access:", err);
+    console.error("❌ /has-access:", err);
     res.status(500).json({ error: "Error interno" });
   }
 });
@@ -10909,7 +10909,7 @@ app.post('/api/users/create', async (req, res) => {
     res.json({ success: true, user: rows[0] });
   } catch (err) {
     if (err.code === '23505') return res.status(409).json({ error: 'Username ya existe' });
-    console.error('âŒ /users/create', err);
+    console.error('❌ /users/create', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
@@ -10924,7 +10924,7 @@ app.get('/api/users/:id/balance', async (req, res) => {
     );
     res.json({ balance: rows[0]?.balance ?? 0 });
   } catch (err) {
-    console.error('âŒ /users/:id/balance', err);
+    console.error('❌ /users/:id/balance', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
@@ -10953,7 +10953,7 @@ app.post('/natmarket/places', async (req, res) => {
   } catch (err) { handleNatError(res, err, 'POST /places'); }
 });
 
-/* ===== MÃ‰TODOS DE ENVÃO RECURRENTES ===== */
+/* ===== MÉTODOS DE ENVÍO RECURRENTES ===== */
 app.get('/natmarket/shipping-methods/:userId', async (req, res) => {
   try {
     const { rows } = await pool.query(
@@ -10976,7 +10976,7 @@ app.post('/natmarket/shipping-methods', async (req, res) => {
   } catch (err) { handleNatError(res, err, 'POST /shipping-methods'); }
 });
 
-/* ===== LUGARES / MÃ‰TODOS DE UN PRODUCTO ===== */
+/* ===== LUGARES / MÉTODOS DE UN PRODUCTO ===== */
 app.get('/natmarket/products/:id/places', async (req, res) => {
   try {
     const { rows } = await pool.query(`
@@ -11011,26 +11011,26 @@ app.post('/natmarket/products/v2', upload.fields([
     await client.query('BEGIN');
     const { user_id, name, description, price, contact_number, stock } = req.body;
 
-    // VerificaciÃ³n de OceanicEthernet eliminada - ya no se requiere vinculaciÃ³n
+    // Verificación de OceanicEthernet eliminada - ya no se requiere vinculación
 
-    // Verificar si el usuario estÃ¡ baneado
+    // Verificar si el usuario está baneado
     const banCheck = await isUserBanned(user_id);
     if (banCheck.banned) {
       await client.query('ROLLBACK');
       const banUntil = new Date(banCheck.banUntil);
       return res.status(403).json({
-        error: `Tu cuenta estÃ¡ baneada hasta el ${banUntil.toLocaleDateString('es-AR')}. RazÃ³n: ${banCheck.reason}`
+        error: `Tu cuenta está baneada hasta el ${banUntil.toLocaleDateString('es-AR')}. Razón: ${banCheck.reason}`
       });
     }
 
-    // âžœ parsear arrays y definir variables
+    // ➜ parsear arrays y definir variables
     const places = JSON.parse(req.body.places || '[]');
     const methods = JSON.parse(req.body.methods || '[]');
     const stockNum = parseInt(stock) || 1;
     const category = req.body.category || null;
     const productStatus = req.body.status || 'disponible';
 
-    // --- moderaciÃ³n ---
+    // --- moderación ---
     const bad = containsInappropriate(name + ' ' + description);
     if (bad) {
       // Guardar en pendientes
@@ -11043,10 +11043,10 @@ app.post('/natmarket/products/v2', upload.fields([
       await notifyModerator('product', pend.id, name, user_id);
       await client.query('COMMIT');
       return res.status(202).json({
-        warning: 'Tu producto estÃ¡ en revisiÃ³n por contenido potencialmente inapropiado.'
+        warning: 'Tu producto está en revisión por contenido potencialmente inapropiado.'
       });
     }
-    // si estÃ¡ limpio, continÃºa con el flujo normal (tu INSERT original)
+    // si está limpio, continúa con el flujo normal (tu INSERT original)
 
     if (!user_id || !name) return res.status(400).json({ error: 'Faltan datos' });
 
@@ -11058,15 +11058,15 @@ app.post('/natmarket/products/v2', upload.fields([
 
     // Consumo de internet eliminado - ya no se requiere saldo de internet
 
-    // archivos subidos (imÃ¡genes y videos)
+    // archivos subidos (imágenes y videos)
     const host = process.env.BACKEND_URL || `https://${req.get('host')}`;
     const imageFiles = (req.files && req.files.images) ? req.files.images : [];
     const videoFiles = (req.files && req.files.videos) ? req.files.videos : [];
 
-    console.log('ðŸ“¦ [V2] Archivos recibidos:', req.files ? Object.keys(req.files) : 'Ninguno');
-    if (imageFiles.length > 0) console.log('ðŸ“¸ [V2] Primer imagen:', imageFiles[0]);
+    console.log('📦 [V2] Archivos recibidos:', req.files ? Object.keys(req.files) : 'Ninguno');
+    if (imageFiles.length > 0) console.log('📸 [V2] Primer imagen:', imageFiles[0]);
 
-    // imÃ¡genes
+    // imágenes
     const imageUrls = imageFiles.map(f => {
       // Si hay credenciales de Cloudinary, usar URL de nube
       if (CLOUD_NAME) {
@@ -11122,7 +11122,7 @@ app.post('/natmarket/products/v2', upload.fields([
         [product.id, pId]
       );
     }
-    // mÃ©todos
+    // métodos
     for (const mId of methods) {
       await client.query(
         'INSERT INTO product_shipping_methods (product_id, shipping_method_id) VALUES ($1,$2) ON CONFLICT DO NOTHING',
@@ -11152,7 +11152,7 @@ app.post('/natmarket/products/v2', upload.fields([
              VALUES ($1, 'new_product', $2, $3, $4, NOW())`,
             [
               follower.follower_id,
-              `${sellerName} publicÃ³ un nuevo producto: "${name}"`,
+              `${sellerName} publicó un nuevo producto: "${name}"`,
               product.id,
               user_id
             ]
@@ -11162,7 +11162,7 @@ app.post('/natmarket/products/v2', upload.fields([
       }
     } catch (notifErr) {
       console.error('[NOTIFICATIONS] Error notificando a seguidores:', notifErr);
-      // No fallar la creaciÃ³n del producto si falla la notificaciÃ³n
+      // No fallar la creación del producto si falla la notificación
     }
 
     await client.query('COMMIT');
@@ -11220,7 +11220,7 @@ app.post('/natmarket/products/:id/discount', async (req, res) => {
   const { user_id, percent = null, amount = null, starts_at = null, ends_at = null } = req.body;
   if (!user_id) return res.status(400).json({ error: 'user_id requerido' });
   try {
-    // verificar dueÃ±o
+    // verificar dueño
     const { rows: prod } = await pool.query('SELECT user_id, price FROM products_nat WHERE id=$1', [id]);
     if (!prod.length) return res.status(404).json({ error: 'Producto no encontrado' });
     if (Number(prod[0].user_id) !== Number(user_id)) return res.status(403).json({ error: 'No autorizado' });
@@ -11283,7 +11283,7 @@ app.get('/natmarket/products/:id/discount', async (req, res) => {
     `, [id]);
     res.json(rows[0] || null);
   } catch (err) {
-    if (err.code === '42P01') return res.json(null); // tabla no existe aÃºn
+    if (err.code === '42P01') return res.json(null); // tabla no existe aún
     handleNatError(res, err, 'GET /natmarket/products/:id/discount');
   }
 });
@@ -11413,10 +11413,10 @@ app.get('/natmarket/users/:userId/wishlist/count', async (req, res) => {
   } catch (err) { handleNatError(res, err, 'GET /natmarket/users/:userId/wishlist/count'); }
 });
 
-/* ---------- RESTAURAR CONTRASEÃ‘A ---------- */
+/* ---------- RESTAURAR CONTRASEÑA ---------- */
 app.post('/natmarket/reset-password', async (req, res) => {
   const { user_unique_id } = req.body;
-  if (!user_unique_id) return res.status(400).json({ error: 'Se requiere el ID de Usuario Ãšnico para recuperar la contraseÃ±a' });
+  if (!user_unique_id) return res.status(400).json({ error: 'Se requiere el ID de Usuario Único para recuperar la contraseña' });
 
   try {
     // Buscar usuario por user_unique_id
@@ -11428,22 +11428,22 @@ app.post('/natmarket/reset-password', async (req, res) => {
     if (rows.length === 0) {
       // No revelamos si existe o no por seguridad
       return res.status(404).json({
-        error: 'ID de Usuario Ãšnico no encontrado. Verifica que lo hayas escrito correctamente.'
+        error: 'ID de Usuario Único no encontrado. Verifica que lo hayas escrito correctamente.'
       });
     }
 
     const userId = rows[0].id;
 
-    // Generar nueva contraseÃ±a aleatoria
+    // Generar nueva contraseña aleatoria
     const newPass = Math.random().toString(36).slice(-10) + Math.random().toString(36).slice(-6); // 16 caracteres
     const hashed = await bcrypt.hash(newPass, 10);
 
-    // Actualizar contraseÃ±a
+    // Actualizar contraseña
     await pool.query('UPDATE users_nat SET password = $1 WHERE id = $2', [hashed, userId]);
 
     res.json({
       success: true,
-      message: 'ContraseÃ±a restablecida exitosamente. Guarda esta nueva contraseÃ±a.',
+      message: 'Contraseña restablecida exitosamente. Guarda esta nueva contraseña.',
       newPassword: newPass, // Se muestra solo una vez
       userId: userId
     });
@@ -11452,25 +11452,25 @@ app.post('/natmarket/reset-password', async (req, res) => {
   }
 });
 
-/* ---------- OBTENER ID ÃšNICO DE USUARIO (solo una vez con confirmaciÃ³n de contraseÃ±a) ---------- */
+/* ---------- OBTENER ID ÚNICO DE USUARIO (solo una vez con confirmación de contraseña) ---------- */
 app.post('/natmarket/users/:id/get-unique-id', async (req, res) => {
   try {
     const { id } = req.params;
     const { password } = req.body;
 
-    if (!password) return res.status(400).json({ error: 'Se requiere confirmar la contraseÃ±a' });
+    if (!password) return res.status(400).json({ error: 'Se requiere confirmar la contraseña' });
 
     const { rows } = await pool.query('SELECT password, user_unique_id, unique_id_shown FROM users_nat WHERE id=$1', [id]);
     if (rows.length === 0) return res.status(404).json({ error: 'Usuario no encontrado' });
 
-    // Verificar contraseÃ±a
+    // Verificar contraseña
     const ok = await bcrypt.compare(password, rows[0].password);
-    if (!ok) return res.status(401).json({ error: 'ContraseÃ±a incorrecta' });
+    if (!ok) return res.status(401).json({ error: 'Contraseña incorrecta' });
 
-    // Si ya se mostrÃ³ el ID, no permitir verlo de nuevo por seguridad
+    // Si ya se mostró el ID, no permitir verlo de nuevo por seguridad
     if (rows[0].unique_id_shown) {
       return res.status(403).json({
-        error: 'El ID de Usuario Ãšnico ya fue mostrado anteriormente. Si lo perdiste, no podrÃ¡s recuperarlo.',
+        error: 'El ID de Usuario Único ya fue mostrado anteriormente. Si lo perdiste, no podrás recuperarlo.',
         already_shown: true
       });
     }
@@ -11481,14 +11481,14 @@ app.post('/natmarket/users/:id/get-unique-id', async (req, res) => {
     res.json({
       success: true,
       user_unique_id: rows[0].user_unique_id,
-      message: 'âš ï¸ IMPORTANTE: Guarda este ID de Usuario Ãšnico en un lugar seguro. Solo se mostrarÃ¡ esta vez. SerÃ¡ necesario para recuperar tu contraseÃ±a.'
+      message: '⚠️ IMPORTANTE: Guarda este ID de Usuario Único en un lugar seguro. Solo se mostrará esta vez. Será necesario para recuperar tu contraseña.'
     });
   } catch (err) {
     handleNatError(res, err, 'POST /natmarket/users/:id/get-unique-id');
   }
 });
 
-// MÃ©tricas por usuario (actividad bÃ¡sica)
+// Métricas por usuario (actividad básica)
 app.get('/natmarket/users/:id/metrics', async (req, res) => {
   try {
     const { id } = req.params;
@@ -11561,14 +11561,14 @@ app.get('/api/featured-update', async (_req, res) => {
     );
 
     if (rows.length && rows[0]) {
-      // Si hay actualizaciÃ³n en BD, devolverla
+      // Si hay actualización en BD, devolverla
       const dbUpdate = rows[0];
       // Si tiene sections como JSON, parsearlo
       if (dbUpdate.sections && typeof dbUpdate.sections === 'string') {
         try {
           dbUpdate.sections = JSON.parse(dbUpdate.sections);
         } catch (e) {
-          // Si falla, dejarlo como estÃ¡
+          // Si falla, dejarlo como está
         }
       }
       return res.json(dbUpdate);
@@ -11577,60 +11577,60 @@ app.get('/api/featured-update', async (_req, res) => {
     console.error('Error obteniendo update de BD:', err);
   }
 
-  // Si no hay en BD, enviar actualizaciÃ³n actual con todas las mejoras
+  // Si no hay en BD, enviar actualización actual con todas las mejoras
   const update = {
-    version: 'v2.0.0 - Gran ActualizaciÃ³n',
+    version: 'v2.0.0 - Gran Actualización',
     date: new Date().toISOString().split('T')[0],
     sections: [
       {
-        title: 'ðŸ” BÃºsqueda Inteligente',
-        icon: 'ðŸ”',
+        title: '🔍 Búsqueda Inteligente',
+        icon: '🔍',
         items: [
-          'Nueva bÃºsqueda en tiempo real con sugerencias automÃ¡ticas',
+          'Nueva búsqueda en tiempo real con sugerencias automáticas',
           'Filtros avanzados: Precio, Rating, Vistos, Nuevos',
-          'BÃºsqueda por nombre, descripciÃ³n, vendedor y precio',
+          'Búsqueda por nombre, descripción, vendedor y precio',
           'Contador de resultados con animaciones'
         ]
       },
       {
-        title: 'ðŸŽ¨ Header RediseÃ±ado',
-        icon: 'âœ¨',
+        title: '🎨 Header Rediseñado',
+        icon: '✨',
         items: [
-          'Nuevo diseÃ±o premium con mejor organizaciÃ³n',
+          'Nuevo diseño premium con mejor organización',
           'Botones de usuario mejorados con layout vertical',
-          'SeparaciÃ³n clara entre acciones y bÃºsqueda',
-          'DiseÃ±o completamente responsive para mÃ³vil y PC'
+          'Separación clara entre acciones y búsqueda',
+          'Diseño completamente responsive para móvil y PC'
         ]
       },
       {
-        title: 'ðŸ“± Layout Mejorado',
-        icon: 'ðŸŽ¨',
+        title: '📱 Layout Mejorado',
+        icon: '🎨',
         items: [
-          'Sistema de diseÃ±o responsive mejorado en todo NatMarket',
+          'Sistema de diseño responsive mejorado en todo NatMarket',
           'Nuevas animaciones y transiciones fluidas',
-          'Mejor jerarquÃ­a visual y espaciado',
+          'Mejor jerarquía visual y espaciado',
           'Colores y sombras premium actualizados',
-          'OptimizaciÃ³n para todos los dispositivos'
+          'Optimización para todos los dispositivos'
         ]
       },
       {
-        title: 'ðŸ‘¥ Sistema de Seguidores',
-        icon: 'â¤ï¸',
+        title: '👥 Sistema de Seguidores',
+        icon: '❤️',
         items: [
           'Seguir y dejar de seguir usuarios',
           'Ver seguidores y usuarios que sigues',
           'Notificaciones de nuevos seguidores',
-          'Perfil pÃºblico mejorado'
+          'Perfil público mejorado'
         ]
       },
       {
-        title: 'ðŸ”„ Funciones de Republicar',
-        icon: 'ðŸ”„',
+        title: '🔄 Funciones de Republicar',
+        icon: '🔄',
         items: [
           'Republicar productos manteniendo el original',
-          'Borrar y republicar con opciÃ³n de editar',
-          'Badge "NUEVO" basado en fecha de publicaciÃ³n',
-          'Modales mejorados con mejor organizaciÃ³n'
+          'Borrar y republicar con opción de editar',
+          'Badge "NUEVO" basado en fecha de publicación',
+          'Modales mejorados con mejor organización'
         ]
       }
     ]
@@ -11714,11 +11714,11 @@ app.get('/np/auth/me', async (req, res) => {
     if (!rows.length) return res.status(404).json({ error: 'Usuario no existe' });
     res.json(rows[0]);
   } catch {
-    return res.status(401).json({ error: 'Token invÃ¡lido' });
+    return res.status(401).json({ error: 'Token inválido' });
   }
 });
 
-/* ========== SISTEMA DE REPUTACIÃ“N DUAL (VENDEDOR/COMPRADOR) ========== */
+/* ========== SISTEMA DE REPUTACIÓN DUAL (VENDEDOR/COMPRADOR) ========== */
 
 // Crear review para un usuario (como vendedor o comprador)
 app.post('/natmarket/reviews', async (req, res) => {
@@ -11767,7 +11767,7 @@ app.post('/natmarket/reviews', async (req, res) => {
       [reviewer_id, reviewed_user_id, product_id, transaction_id, rating, comment, review_type]
     );
 
-    // Actualizar cachÃ© de estadÃ­sticas
+    // Actualizar caché de estadísticas
     await updateUserReputationStats(reviewed_user_id);
 
     res.json({ success: true, review });
@@ -11804,7 +11804,7 @@ app.get('/natmarket/users/:userId/reviews', async (req, res) => {
 
     res.json(rows);
   } catch (err) {
-    // Si la tabla no existe, devolver array vacÃ­o
+    // Si la tabla no existe, devolver array vacío
     if (err.code === '42P01') {
       return res.json([]);
     }
@@ -11812,12 +11812,12 @@ app.get('/natmarket/users/:userId/reviews', async (req, res) => {
   }
 });
 
-// Obtener estadÃ­sticas de reputaciÃ³n de un usuario
+// Obtener estadísticas de reputación de un usuario
 app.get('/natmarket/users/:userId/reputation', async (req, res) => {
   try {
     const { userId } = req.params;
 
-    // Intentar obtener del cachÃ© primero
+    // Intentar obtener del caché primero
     const { rows: cachedRows } = await pool.query(
       `SELECT * FROM user_reputation_stats_nat WHERE user_id = $1`,
       [userId]
@@ -11829,13 +11829,13 @@ app.get('/natmarket/users/:userId/reputation', async (req, res) => {
       return res.json({ ...stats, badge });
     }
 
-    // Si no hay cachÃ©, calcular en tiempo real
+    // Si no hay caché, calcular en tiempo real
     const stats = await calculateUserReputationStats(userId);
     const badge = calculateReputationBadge(stats);
 
     res.json({ ...stats, badge });
   } catch (err) {
-    // Si hay error, devolver stats vacÃ­as
+    // Si hay error, devolver stats vacías
     if (err.code === '42P01') {
       const emptyStats = {
         user_id: userId,
@@ -11845,7 +11845,7 @@ app.get('/natmarket/users/:userId/reputation', async (req, res) => {
         buyer_avg_rating: 0,
         buyer_total_reviews: 0,
         buyer_total_purchases: 0,
-        badge: { seller: 'ðŸŒ± Nuevo', buyer: 'ðŸŒ± Nuevo' }
+        badge: { seller: '🌱 Nuevo', buyer: '🌱 Nuevo' }
       };
       return res.json(emptyStats);
     }
@@ -11853,10 +11853,10 @@ app.get('/natmarket/users/:userId/reputation', async (req, res) => {
   }
 });
 
-// FunciÃ³n auxiliar para calcular estadÃ­sticas de reputaciÃ³n
+// Función auxiliar para calcular estadísticas de reputación
 async function calculateUserReputationStats(userId) {
   try {
-    // EstadÃ­sticas como vendedor
+    // Estadísticas como vendedor
     const { rows: sellerRows } = await pool.query(
       `SELECT 
         COUNT(*) as total_reviews,
@@ -11867,7 +11867,7 @@ async function calculateUserReputationStats(userId) {
       [userId]
     ).catch(() => ({ rows: [{ total_reviews: 0, avg_rating: 0, total_sales: 0 }] }));
 
-    // EstadÃ­sticas como comprador
+    // Estadísticas como comprador
     const { rows: buyerRows } = await pool.query(
       `SELECT 
         COUNT(*) as total_reviews,
@@ -11895,7 +11895,7 @@ async function calculateUserReputationStats(userId) {
       buyer_total_purchases: parseInt(purchaseRows[0].total_purchases || 0)
     };
   } catch (err) {
-    console.error('Error calculando estadÃ­sticas de reputaciÃ³n:', err);
+    console.error('Error calculando estadísticas de reputación:', err);
     return {
       user_id: userId,
       seller_avg_rating: 0,
@@ -11908,10 +11908,10 @@ async function calculateUserReputationStats(userId) {
   }
 }
 
-// FunciÃ³n auxiliar para actualizar estadÃ­sticas en cachÃ©
+// Función auxiliar para actualizar estadísticas en caché
 async function updateUserReputationStats(userId) {
   try {
-    // Crear tabla de cachÃ© si no existe
+    // Crear tabla de caché si no existe
     await pool.query(`
       CREATE TABLE IF NOT EXISTS user_reputation_stats_nat (
         user_id INTEGER PRIMARY KEY REFERENCES users_nat(id) ON DELETE CASCADE,
@@ -11952,11 +11952,11 @@ async function updateUserReputationStats(userId) {
       ]
     ).catch(() => { });
   } catch (err) {
-    console.error('Error actualizando stats de reputaciÃ³n:', err);
+    console.error('Error actualizando stats de reputación:', err);
   }
 }
 
-// FunciÃ³n para calcular badge segÃºn estadÃ­sticas
+// Función para calcular badge según estadísticas
 function calculateReputationBadge(stats) {
   const sellerBadge = getReputationBadge(
     stats.seller_total_reviews || 0,
@@ -11976,47 +11976,47 @@ function calculateReputationBadge(stats) {
   };
 }
 
-// FunciÃ³n para obtener el badge basado en transacciones y rating
+// Función para obtener el badge basado en transacciones y rating
 function getReputationBadge(totalReviews, avgRating, type) {
   const typeLabel = type === 'seller' ? 'Vendedor' : 'Comprador';
 
   // Nuevo (menos de 5 reviews)
   if (totalReviews < 5) {
-    return `ðŸŒ± ${typeLabel} Nuevo`;
+    return `🌱 ${typeLabel} Nuevo`;
   }
 
   // Confiable (5-20 reviews, 4.0+ rating)
   if (totalReviews >= 5 && totalReviews < 20 && avgRating >= 4.0) {
-    return `ðŸŒ¿ ${typeLabel} Confiable`;
+    return `🌿 ${typeLabel} Confiable`;
   }
 
   // Experimentado (20-50 reviews, 4.3+ rating)
   if (totalReviews >= 20 && totalReviews < 50 && avgRating >= 4.3) {
-    return `ðŸ€ ${typeLabel} Experimentado`;
+    return `🍀 ${typeLabel} Experimentado`;
   }
 
   // Experto (50-100 reviews, 4.5+ rating)
   if (totalReviews >= 50 && totalReviews < 100 && avgRating >= 4.5) {
-    return `ðŸŒ³ ${typeLabel} Experto`;
+    return `🌳 ${typeLabel} Experto`;
   }
 
   // Maestro (100-200 reviews, 4.7+ rating)
   if (totalReviews >= 100 && totalReviews < 200 && avgRating >= 4.7) {
-    return `â­ ${typeLabel} Maestro`;
+    return `⭐ ${typeLabel} Maestro`;
   }
 
   // Leyenda (200+ reviews, 4.8+ rating)
   if (totalReviews >= 200 && avgRating >= 4.8) {
-    return `ðŸ‘‘ ${typeLabel} Leyenda`;
+    return `👑 ${typeLabel} Leyenda`;
   }
 
   // Si tiene muchas reviews pero rating bajo
   if (totalReviews >= 20 && avgRating < 4.0) {
-    return `âš ï¸ ${typeLabel} Regular`;
+    return `⚠️ ${typeLabel} Regular`;
   }
 
-  // Default: BÃ¡sico
-  return `ðŸŒ± ${typeLabel} BÃ¡sico`;
+  // Default: Básico
+  return `🌱 ${typeLabel} Básico`;
 }
 
 /* ----------  CONTAR VISTA (1 por usuario)  ---------- */
@@ -12031,9 +12031,9 @@ app.patch('/natmarket/products/:id/view', async (req, res) => {
     userId = authUserId;
   }
 
-  // Si no hay userId, usar 'anon-' + IP o un identificador Ãºnico
+  // Si no hay userId, usar 'anon-' + IP o un identificador único
   if (!userId || userId === 'anon' || userId === 'undefined' || userId === 'null') {
-    // Para usuarios no autenticados, usar una combinaciÃ³n de IP y user-agent
+    // Para usuarios no autenticados, usar una combinación de IP y user-agent
     const ip = req.ip || req.connection.remoteAddress || 'unknown';
     const userAgent = req.headers['user-agent'] || 'unknown';
     userId = `anon-${Buffer.from(ip + userAgent).toString('base64').substring(0, 20)}`;
@@ -12053,7 +12053,7 @@ app.patch('/natmarket/products/:id/view', async (req, res) => {
       return res.status(404).json({ error: 'Producto no encontrado' });
     }
 
-    // 2. Â¿ya vio este usuario este producto?
+    // 2. ¿ya vio este usuario este producto?
     const { rows: existingView } = await client.query(
       `SELECT 1 FROM product_views_unique
        WHERE user_id = $1 AND product_id = $2`,
@@ -12061,7 +12061,7 @@ app.patch('/natmarket/products/:id/view', async (req, res) => {
     );
 
     if (existingView.length > 0) {
-      // Ya contÃ³ -> solo devolver total actual
+      // Ya contó -> solo devolver total actual
       const { rows: total } = await client.query(
         'SELECT views FROM products_nat WHERE id = $1', [id]
       );
@@ -12070,7 +12070,7 @@ app.patch('/natmarket/products/:id/view', async (req, res) => {
     }
 
     // 3. Es la primera vez - insertar registro usando INSERT ... ON CONFLICT
-    // Usamos RETURNING para saber si realmente se insertÃ³
+    // Usamos RETURNING para saber si realmente se insertó
     const { rows: insertedRow } = await client.query(
       `INSERT INTO product_views_unique(user_id, product_id) 
        VALUES ($1,$2)
@@ -12079,7 +12079,7 @@ app.patch('/natmarket/products/:id/view', async (req, res) => {
       [String(userId), parseInt(id)]
     );
 
-    // Si no se insertÃ³ nada (ya existÃ­a), no incrementar contador
+    // Si no se insertó nada (ya existía), no incrementar contador
     if (!insertedRow || insertedRow.length === 0) {
       await client.query('COMMIT');
       const { rows: total } = await client.query(
@@ -12123,7 +12123,7 @@ app.post('/api/companies/register', upload.single('logo'), async (req, res) => {
 
     if (!name || !email) return res.status(400).json({ error: 'Faltan name o email' });
 
-    // ModeraciÃ³n ligera (usa containsInappropriate del archivo)
+    // Moderación ligera (usa containsInappropriate del archivo)
     if (containsInappropriate(name + ' ' + description)) {
       // guardamos pero sin publicar (para demo solo devolvemos 202)
       await pool.query(
@@ -12131,9 +12131,9 @@ app.post('/api/companies/register', upload.single('logo'), async (req, res) => {
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
         [name, industry, type, email, phone, address, description, source]
       );
-      // notificar moderador (funciÃ³n existente)
+      // notificar moderador (función existente)
       await notifyModerator('product', null, name, null);
-      return res.status(202).json({ warning: 'Nombre o descripciÃ³n pendiente de revisiÃ³n' });
+      return res.status(202).json({ warning: 'Nombre o descripción pendiente de revisión' });
     }
 
     // url del logo si hubo archivo
@@ -12171,7 +12171,7 @@ app.get('/naturepedia/ecobooks/balance', async (req, res) => {
     userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
-    return res.status(401).json({ error: 'Token invÃ¡lido' });
+    return res.status(401).json({ error: 'Token inválido' });
   }
 
   try {
@@ -12214,7 +12214,7 @@ app.post('/naturepedia/ecobooks/sync', async (req, res) => {
     userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
-    return res.status(401).json({ error: 'Token invÃ¡lido' });
+    return res.status(401).json({ error: 'Token inválido' });
   }
 
   const { ecobooks } = req.body;
@@ -12262,10 +12262,10 @@ app.post('/naturepedia/ecobooks/change', async (req, res) => {
     userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
-    return res.status(401).json({ error: 'Token invÃ¡lido' });
+    return res.status(401).json({ error: 'Token inválido' });
   }
 
-  const { amount, concepto = 'OperaciÃ³n', origen = 'Naturepedia', cardId } = req.body;
+  const { amount, concepto = 'Operación', origen = 'Naturepedia', cardId } = req.body;
   if (amount === undefined) return res.status(400).json({ error: 'amount requerido' });
 
   const client = await pool.connect();
@@ -12285,7 +12285,7 @@ app.post('/naturepedia/ecobooks/change', async (req, res) => {
       targetCardId = anyCard[0]?.id;
     }
 
-    if (!targetCardId) throw new Error('No se encontrÃ³ una tarjeta para el usuario');
+    if (!targetCardId) throw new Error('No se encontró una tarjeta para el usuario');
 
     // Obtener saldo actual
     const { rows } = await client.query(`
@@ -12308,7 +12308,7 @@ app.post('/naturepedia/ecobooks/change', async (req, res) => {
       WHERE card_id = $2 AND currency_type = 'ecobooks'
     `, [newBalance, targetCardId]);
 
-    // Registrar transacciÃ³n
+    // Registrar transacción
     await client.query(`
       INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
       VALUES ($1, $2, $3, $4, 'ecobooks')
@@ -12335,16 +12335,16 @@ app.post('/ocean-pay/register', async (req, res) => {
 
   // 1. Validar datos de entrada
   if (!username || !password) {
-    return res.status(400).json({ error: 'Faltan nombre de usuario o contraseÃ±a' });
+    return res.status(400).json({ error: 'Faltan nombre de usuario o contraseña' });
   }
 
   const client = await pool.connect();
   try {
-    // 2. Iniciar transacciÃ³n
+    // 2. Iniciar transacción
     await client.query('BEGIN');
 
-    // 3. Generar hash de contraseÃ±a y ID Ãºnico
-    // Usamos el factor de coste 10, estÃ¡ndar en el proyecto
+    // 3. Generar hash de contraseña y ID único
+    // Usamos el factor de coste 10, estándar en el proyecto
     const hashedPassword = await bcrypt.hash(password, 10);
     const userUniqueId = generateUserUniqueId();
 
@@ -12357,7 +12357,7 @@ app.post('/ocean-pay/register', async (req, res) => {
     );
     const opUserId = opResult.rows[0].id;
 
-    // 5. Generar tarjeta automÃ¡tica para el nuevo usuario
+    // 5. Generar tarjeta automática para el nuevo usuario
     const { cardNumber, cvv, expiryDate } = generateCardDetails();
     const cardResult = await client.query(
       `INSERT INTO ocean_pay_cards (user_id, card_number, cvv, expiry_date, is_primary, card_name) 
@@ -12389,7 +12389,7 @@ app.post('/ocean-pay/register', async (req, res) => {
       );
     }
 
-    // 7. Confirmar la transacciÃ³n
+    // 7. Confirmar la transacción
     await client.query('COMMIT');
 
     // 6. Respuesta exitosa (201 Created)
@@ -12397,20 +12397,20 @@ app.post('/ocean-pay/register', async (req, res) => {
       success: true,
       userId: opUserId,
       username: username,
-      message: 'Â¡Registro completado! Bienvenido al ocÃ©ano de pagos.'
+      message: '¡Registro completado! Bienvenido al océano de pagos.'
     });
 
   } catch (e) {
     // 7. Manejo de errores y rollback
     await client.query('ROLLBACK');
 
-    // Error 23505: ViolaciÃ³n de restricciÃ³n Ãºnica (ej. nombre de usuario duplicado)
+    // Error 23505: Violación de restricción única (ej. nombre de usuario duplicado)
     if (e.code === '23505') {
-      return res.status(409).json({ error: 'Este nombre de usuario ya existe. Â¡QuÃ© original eres!' });
+      return res.status(409).json({ error: 'Este nombre de usuario ya existe. ¡Qué original eres!' });
     }
 
     // Cualquier otro error se reporta como 500
-    console.error('âŒ Error en /ocean-pay/register:', e);
+    console.error('❌ Error en /ocean-pay/register:', e);
     res.status(500).json({ error: 'Error interno del servidor al registrar. Pide ayuda a los ingenieros marinos.' });
 
   } finally {
@@ -12420,7 +12420,7 @@ app.post('/ocean-pay/register', async (req, res) => {
 });
 
 // =================================================================
-// EL RESTO DE TUS RUTAS CONTINÃšA AQUÃ...
+// EL RESTO DE TUS RUTAS CONTINÚA AQUÍ...
 // =================================================================
 
 
@@ -12437,7 +12437,7 @@ app.post('/ocean-pay/cards/create', async (req, res) => {
 
     const { rows: countRows } = await client.query('SELECT COUNT(*) FROM ocean_pay_cards WHERE user_id = $1', [userId]);
     if (parseInt(countRows[0].count) >= 2) {
-      return res.status(400).json({ error: 'Ya tienes el mÃ¡ximo de 2 tarjetas permitidas.' });
+      return res.status(400).json({ error: 'Ya tienes el máximo de 2 tarjetas permitidas.' });
     }
 
     await client.query('BEGIN');
@@ -12495,12 +12495,12 @@ app.post('/ocean-pay/cards/create', async (req, res) => {
 
 app.post('/ocean-pay/cards/renew', async (req, res) => {
   const { cardNumber } = req.body;
-  if (!cardNumber) return res.status(400).json({ error: 'Falta nÃºmero de tarjeta' });
+  if (!cardNumber) return res.status(400).json({ error: 'Falta número de tarjeta' });
 
   try {
     const now = new Date();
     const month = (now.getMonth() + 1).toString().padStart(2, '0');
-    const year = (now.getFullYear() + 3).toString().slice(-2); // +3 aÃ±os
+    const year = (now.getFullYear() + 3).toString().slice(-2); // +3 años
     const newExpiry = `${month}/${year}`;
 
     const { rowCount } = await pool.query(
@@ -12516,12 +12516,12 @@ app.post('/ocean-pay/cards/renew', async (req, res) => {
 });
 
 /* ----------  CARD BALANCE OPERATIONS  ---------- */
-// Cambiar saldo de una tarjeta especÃ­fica
+// Cambiar saldo de una tarjeta específica
 app.post('/ocean-pay/cards/change-balance', async (req, res) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) return res.status(401).json({ error: 'No token' });
 
-  const { cardNumber, currencyType, amount, concepto = 'OperaciÃ³n', origen = 'Card Transaction' } = req.body;
+  const { cardNumber, currencyType, amount, concepto = 'Operación', origen = 'Card Transaction' } = req.body;
 
   if (!cardNumber || !currencyType || amount === undefined) {
     return res.status(400).json({ error: 'Faltan datos requeridos' });
@@ -12565,7 +12565,7 @@ app.post('/ocean-pay/cards/change-balance', async (req, res) => {
     const jsonBalances = jsonBalanceRows[0]?.balances || {};
     const jsonAmount = parseFloat(jsonBalances[currencyType] || 0);
 
-    // El saldo actual es el mayor (para soportar migraciones o desincronizaciÃ³n)
+    // El saldo actual es el mayor (para soportar migraciones o desincronización)
     const currentBalance = Math.max(tableAmount, jsonAmount);
     const newBalance = currentBalance + parseFloat(amount);
 
@@ -12590,7 +12590,7 @@ app.post('/ocean-pay/cards/change-balance', async (req, res) => {
       [cardId, currencyType, newBalance]
     );
 
-    // Registrar transacciÃ³n
+    // Registrar transacción
     await client.query(
       'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)',
       [userId, concepto, amount, origen, currencyType.toUpperCase()]
@@ -12651,7 +12651,7 @@ app.get('/ocean-cinemas/rewards-status', async (req, res) => {
       [userId]
     );
 
-    // Obtener racha de dÃ­as
+    // Obtener racha de días
     const { rows: streakRows } = await pool.query(
       `SELECT DISTINCT DATE(claimed_at) as claim_date FROM ocean_cinemas_rewards 
        WHERE user_id = $1 AND reward_type = 'daily' 
@@ -12665,7 +12665,7 @@ app.get('/ocean-cinemas/rewards-status', async (req, res) => {
       const today = new Date().toISOString().split('T')[0];
       const dates = streakRows.map(r => r.claim_date.toISOString().split('T')[0]);
 
-      // Si reclamÃ³ hoy, cuenta como dÃ­a 1 de la racha
+      // Si reclamó hoy, cuenta como día 1 de la racha
       if (dates.includes(today)) {
         streak = 1;
         for (let i = 1; i < dates.length; i++) {
@@ -12676,7 +12676,7 @@ app.get('/ocean-cinemas/rewards-status', async (req, res) => {
           else break;
         }
       } else {
-        // Verificar si reclamÃ³ ayer para mantener la racha
+        // Verificar si reclamó ayer para mantener la racha
         const yesterday = new Date();
         yesterday.setDate(yesterday.getDate() - 1);
         const yestStr = yesterday.toISOString().split('T')[0];
@@ -12728,7 +12728,7 @@ app.post('/ocean-cinemas/claim-welcome', async (req, res) => {
 
     await client.query('BEGIN');
 
-    // Asegurar tabla (bÃ¡sico)
+    // Asegurar tabla (básico)
     await client.query(`
       CREATE TABLE IF NOT EXISTS ocean_cinemas_rewards (
         id SERIAL PRIMARY KEY,
@@ -12739,7 +12739,7 @@ app.post('/ocean-cinemas/claim-welcome', async (req, res) => {
       )
     `);
 
-    // Verificar si ya reclamÃ³
+    // Verificar si ya reclamó
     const { rows: existingRows } = await client.query(
       `SELECT * FROM ocean_cinemas_rewards WHERE user_id = $1 AND reward_type = 'welcome' FOR UPDATE`,
       [userId]
@@ -12779,14 +12779,14 @@ app.post('/ocean-cinemas/claim-welcome', async (req, res) => {
       [userId, welcomeAmount]
     );
 
-    // Registrar transacciÃ³n
+    // Registrar transacción
     await client.query(
       'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)',
-      [userId, 'ðŸŽ¬ Bono de Bienvenida - Ocean Cinemas', welcomeAmount, 'Ocean Cinemas', 'AQUABUX']
+      [userId, '🎬 Bono de Bienvenida - Ocean Cinemas', welcomeAmount, 'Ocean Cinemas', 'AQUABUX']
     );
 
     await client.query('COMMIT');
-    res.json({ success: true, amount: welcomeAmount, message: 'Â¡Bienvenido a Ocean Cinemas!' });
+    res.json({ success: true, amount: welcomeAmount, message: '¡Bienvenido a Ocean Cinemas!' });
 
   } catch (e) {
     await client.query('ROLLBACK');
@@ -12813,7 +12813,7 @@ app.post('/ocean-cinemas/claim-daily', async (req, res) => {
 
     await client.query('BEGIN');
 
-    // Asegurar tabla (bÃ¡sico)
+    // Asegurar tabla (básico)
     await client.query(`
       CREATE TABLE IF NOT EXISTS ocean_cinemas_rewards (
         id SERIAL PRIMARY KEY,
@@ -12824,7 +12824,7 @@ app.post('/ocean-cinemas/claim-daily', async (req, res) => {
       )
     `);
 
-    // Verificar si ya reclamÃ³ hoy
+    // Verificar si ya reclamó hoy
     const { rows: todayRows } = await client.query(
       `SELECT * FROM ocean_cinemas_rewards WHERE user_id = $1 AND reward_type = 'daily' AND DATE(claimed_at) = CURRENT_DATE`,
       [userId]
@@ -12848,7 +12848,7 @@ app.post('/ocean-cinemas/claim-daily', async (req, res) => {
 
     const cardId = cardRows[0].id;
     const baseAmount = 50;
-    const streakBonus = Math.min(streak - 1, 6) * 15; // Max 7 dÃ­as de racha
+    const streakBonus = Math.min(streak - 1, 6) * 15; // Max 7 días de racha
     const totalAmount = baseAmount + streakBonus;
 
     // Agregar saldo a la tarjeta
@@ -12866,14 +12866,14 @@ app.post('/ocean-cinemas/claim-daily', async (req, res) => {
       [userId, totalAmount]
     );
 
-    // Registrar transacciÃ³n
+    // Registrar transacción
     await client.query(
       'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)',
-      [userId, `ðŸŽ¬ Recompensa Diaria (Racha: ${streak} dÃ­as) - Ocean Cinemas`, totalAmount, 'Ocean Cinemas', 'AQUABUX']
+      [userId, `🎬 Recompensa Diaria (Racha: ${streak} días) - Ocean Cinemas`, totalAmount, 'Ocean Cinemas', 'AQUABUX']
     );
 
     await client.query('COMMIT');
-    res.json({ success: true, amount: totalAmount, streak, message: `Â¡Recompensa diaria reclamada!` });
+    res.json({ success: true, amount: totalAmount, streak, message: `¡Recompensa diaria reclamada!` });
 
   } catch (e) {
     await client.query('ROLLBACK');
@@ -12884,7 +12884,7 @@ app.post('/ocean-cinemas/claim-daily', async (req, res) => {
   }
 });
 
-// Obtener saldo de una tarjeta especÃ­fica
+// Obtener saldo de una tarjeta específica
 app.get('/ocean-pay/cards/:cardNumber/balance', async (req, res) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) return res.status(401).json({ error: 'No token' });
@@ -12910,7 +12910,7 @@ app.get('/ocean-pay/cards/:cardNumber/balance', async (req, res) => {
     const cardId = cardRows[0].id;
 
     if (currencyType) {
-      // Obtener saldo especÃ­fico
+      // Obtener saldo específico
       const { rows } = await pool.query(
         'SELECT amount FROM ocean_pay_card_balances WHERE card_id = $1 AND currency_type = $2',
         [cardId, currencyType]
@@ -12940,8 +12940,8 @@ app.get('/ocean-pay/balance/:userId', async (req, res) => {
 });
 
 app.post('/ocean-pay/change', async (req, res) => {
-  const { userId, amount, concepto = 'OperaciÃ³n', origen = 'Ocean Pay' } = req.body;
-  console.log('ðŸ“¥ origen recibido:', origen); // â† depuraciÃ³n
+  const { userId, amount, concepto = 'Operación', origen = 'Ocean Pay' } = req.body;
+  console.log('📥 origen recibido:', origen); // ← depuración
 
   const client = await pool.connect();
   try {
@@ -13008,11 +13008,11 @@ app.post('/ocean-pay/update-balance', async (req, res) => {
     res.json({ success: true, newBalance: aquabux });
   } catch (e) {
     console.error(e);
-    res.status(401).json({ error: 'Token invÃ¡lido o error de BD' });
+    res.status(401).json({ error: 'Token inválido o error de BD' });
   }
 });
 app.post('/ocean-pay/nxb/change', async (req, res) => {
-  const { userId, amount, concepto = 'OperaciÃ³n en Nexus' } = req.body;
+  const { userId, amount, concepto = 'Operación en Nexus' } = req.body;
   if (!userId || amount === undefined) return res.status(400).json({ error: 'Faltan datos' });
 
   const client = await pool.connect();
@@ -13080,7 +13080,7 @@ app.post('/ocean-pay/nxb/change', async (req, res) => {
       }
     }
 
-    // Registrar transacciÃ³n
+    // Registrar transacción
     await client.query(
       'INSERT INTO ocean_pay_txs (user_id, concepto, monto, moneda, origen) VALUES ($1, $2, $3, $4, $5)',
       [userId, concepto, amount, 'NXB', 'Primal Velocity Nexus']
@@ -13138,7 +13138,7 @@ app.get('/ocean-pay/me', async (req, res) => {
         }
       });
 
-      // Asegurar formato numÃ©rico
+      // Asegurar formato numérico
       if (balances.ecoxionums !== undefined) balances.ecoxionums = parseFloat(balances.ecoxionums);
 
       return {
@@ -13150,7 +13150,7 @@ app.get('/ocean-pay/me', async (req, res) => {
     // Calcular el total de Ecoxionums para mostrar en la billetera principal
     const totalEcoxionums = cardsWithBalances.reduce((sum, c) => sum + (parseFloat(c.balances?.ecoxionums) || 0), 0);
 
-    // Obtener el balance de appbux solo de la tarjeta primaria (evita confusiÃ³n con mÃºltiples tarjetas)
+    // Obtener el balance de appbux solo de la tarjeta primaria (evita confusión con múltiples tarjetas)
     const primaryCard = cardsWithBalances.find(c => c.is_primary) || cardsWithBalances[0];
     const totalAppBux = primaryCard?.balances?.appbux || 0;
 
@@ -13173,17 +13173,14 @@ app.get('/ocean-pay/me', async (req, res) => {
       cardsWithBalances[targetIdx].balances.wildcredits = finalWildCredits;
     }
 
-    const verification = await getOceanPayVerificationProfile(pool, userId, rows[0]?.username);
-
     res.json({
       ...rows[0],
       ecoxionums: totalEcoxionums,
       appbux: totalAppBux,
       wildcredits: finalWildCredits,
-      cards: cardsWithBalances,
-      verification
+      cards: cardsWithBalances
     });
-  } catch (e) { res.status(401).json({ error: 'Token invÃ¡lido' }); }
+  } catch (e) { res.status(401).json({ error: 'Token inválido' }); }
 });
 
 app.get('/ocean-pay/txs/:userId', async (req, res) => {
@@ -13267,7 +13264,7 @@ app.get('/ocean-pay/txs/:userId', async (req, res) => {
 
 // ----------  ECOCOREBITS  ----------
 
-// ðŸ” Obtener bits del usuario (protegido)
+// 🔍 Obtener bits del usuario (protegido)
 app.get('/ecocore/bits/:userId', async (req, res) => {
   const { userId } = req.params;
   const { rows } = await pool.query(
@@ -13278,9 +13275,9 @@ app.get('/ecocore/bits/:userId', async (req, res) => {
   res.json({ bits: rows[0]?.amount ?? 0 });
 });
 
-// ðŸ’° Modificar bits (protegido)
+// 💰 Modificar bits (protegido)
 app.post('/ecocore/change', async (req, res) => {
-  const { userId, amount, concepto = 'OperaciÃ³n', origen = 'Ocean Pay' } = req.body;
+  const { userId, amount, concepto = 'Operación', origen = 'Ocean Pay' } = req.body;
   if (!userId || amount === undefined) return res.status(400).json({ error: 'Faltan datos' });
 
   const client = await pool.connect();
@@ -13292,7 +13289,7 @@ app.post('/ecocore/change', async (req, res) => {
       `SELECT amount FROM user_currency WHERE user_id = $1 AND currency_type = 'ecocorebits' FOR UPDATE`,
       [userId]
     );
-    // CORRECCIÃ“N: Asegurar que ambos valores sean nÃºmeros antes de sumar
+    // CORRECCIÓN: Asegurar que ambos valores sean números antes de sumar
     const current = parseFloat(rows[0]?.amount || 0);
     const next = Math.round(current + parseFloat(amount));
 
@@ -13660,7 +13657,7 @@ app.post('/ows-news/updates', async (req, res) => {
     event_end
   } = req.body || {};
 
-  if (!title) return res.status(400).json({ error: 'El título es obligatorio' });
+  if (!title) return res.status(400).json({ error: 'El t�tulo es obligatorio' });
 
   const normalizedEntryType = normalizeNewsEntryType(entry_type);
   const normalizedProjects = normalizeNewsTextArray(project_names);
@@ -13758,7 +13755,7 @@ app.delete('/ows-news/updates/:id', async (req, res) => {
     if (rowCount === 0) return res.status(404).json({ error: 'Update no encontrado' });
     res.json({ success: true });
   } catch (err) {
-    console.error('âŒ Error en DELETE /ows-news/updates:', err);
+    console.error('❌ Error en DELETE /ows-news/updates:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
@@ -13818,7 +13815,7 @@ function requireOwsStoreAdmin(req, res) {
   const headerKey = req.headers['x-ows-store-admin-key'];
   const bodyKey = req.body?.admin_key;
   if (headerKey === OWS_STORE_ADMIN_KEY || bodyKey === OWS_STORE_ADMIN_KEY) return true;
-  res.status(403).json({ error: 'Admin key invÃ¡lida para OWS Store' });
+  res.status(403).json({ error: 'Admin key inválida para OWS Store' });
   return false;
 }
 
@@ -14118,12 +14115,12 @@ app.get('/ows-store/projects', async (req, res) => {
     const { rows } = await pool.query(`${OWS_PROJECTS_WITH_ANDROID_RELEASE_SQL} ORDER BY p.status ASC, p.name ASC`);
     res.json(rows);
   } catch (err) {
-    console.error('âŒ Error en GET /ows-store/projects:', err);
+    console.error('❌ Error en GET /ows-store/projects:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
 
-// Obtener un proyecto especÃ­fico por slug
+// Obtener un proyecto específico por slug
 app.get('/ows-store/projects/:slug', async (req, res) => {
   const { slug } = req.params;
   try {
@@ -14131,7 +14128,7 @@ app.get('/ows-store/projects/:slug', async (req, res) => {
     if (rows.length === 0) return res.status(404).json({ error: 'Proyecto no encontrado' });
     res.json(rows[0]);
   } catch (err) {
-    console.error('âŒ Error en GET /ows-store/projects/:slug:', err);
+    console.error('❌ Error en GET /ows-store/projects/:slug:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
@@ -14162,16 +14159,16 @@ app.post('/ows-store/projects', async (req, res) => {
     );
     res.json({ success: true, project: rows[0] });
   } catch (err) {
-    console.error('âŒ Error en POST /ows-store/projects:', err);
+    console.error('❌ Error en POST /ows-store/projects:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
 
-// Actualizar versiÃ³n rÃ¡pidamente (Patch)
+// Actualizar versión rápidamente (Patch)
 app.patch('/ows-store/projects/:slug/version', async (req, res) => {
   const { slug } = req.params;
   const { version } = req.body;
-  if (!version) return res.status(400).json({ error: 'VersiÃ³n requerida' });
+  if (!version) return res.status(400).json({ error: 'Versión requerida' });
 
   try {
     const { rows } = await pool.query(
@@ -14181,12 +14178,12 @@ app.patch('/ows-store/projects/:slug/version', async (req, res) => {
     if (rows.length === 0) return res.status(404).json({ error: 'Proyecto no encontrado' });
     res.json({ success: true, project: rows[0] });
   } catch (err) {
-    console.error('âŒ Error en PATCH /ows-store/projects/:version:', err);
+    console.error('❌ Error en PATCH /ows-store/projects/:version:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
 
-// Obtener Ãºltimo release Android publicado por slug
+// Obtener último release Android publicado por slug
 app.get('/ows-store/android/releases/:slug/latest', async (req, res) => {
   const { slug } = req.params;
   const includeDraft = String(req.query.include_draft || '').toLowerCase() === 'true';
@@ -14207,7 +14204,7 @@ app.get('/ows-store/android/releases/:slug/latest', async (req, res) => {
     res.setHeader('Expires', '0');
     res.json({ success: true, release: rows[0] });
   } catch (err) {
-    console.error('âŒ Error en GET /ows-store/android/releases/:slug/latest:', err);
+    console.error('❌ Error en GET /ows-store/android/releases/:slug/latest:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
@@ -14236,7 +14233,7 @@ app.get('/ows-store/android/releases/:slug/latest/download', async (req, res) =>
     res.setHeader('Expires', '0');
     return res.redirect(302, sourceUrl);
   } catch (err) {
-    console.error('âŒ Error en GET /ows-store/android/releases/:slug/latest/download:', err);
+    console.error('❌ Error en GET /ows-store/android/releases/:slug/latest/download:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
@@ -14264,7 +14261,7 @@ app.get('/ows-store/android/releases', async (req, res) => {
       );
     res.json(rows);
   } catch (err) {
-    console.error('âŒ Error en GET /ows-store/android/releases:', err);
+    console.error('❌ Error en GET /ows-store/android/releases:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
@@ -14339,7 +14336,7 @@ app.post('/ows-store/android/releases', async (req, res) => {
 
     res.json({ success: true, release: rows[0] });
   } catch (err) {
-    console.error('âŒ Error en POST /ows-store/android/releases:', err);
+    console.error('❌ Error en POST /ows-store/android/releases:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
@@ -14379,7 +14376,7 @@ app.post('/ows-store/android/check-update', async (req, res) => {
       latest
     });
   } catch (err) {
-    console.error('âŒ Error en POST /ows-store/android/check-update:', err);
+    console.error('❌ Error en POST /ows-store/android/check-update:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
@@ -14402,14 +14399,14 @@ app.get('/ocean-pay/appbux/:userId', async (req, res) => {
 
     res.json({ appbux: parseFloat(rows[0]?.total || 0) });
   } catch (err) {
-    console.error('âŒ Error en /ocean-pay/appbux/:userId', err);
+    console.error('❌ Error en /ocean-pay/appbux/:userId', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
 
 // Cambiar balance de AppBux
 app.post('/ocean-pay/appbux/change', async (req, res) => {
-  const { userId, amount, concepto = 'OperaciÃ³n', origen = 'AllApp', cardId } = req.body;
+  const { userId, amount, concepto = 'Operación', origen = 'AllApp', cardId } = req.body;
 
   if (!userId || amount === undefined) {
     return res.status(400).json({ error: 'Faltan datos' });
@@ -14439,7 +14436,7 @@ app.post('/ocean-pay/appbux/change', async (req, res) => {
 
     if (!targetCardId) {
       await client.query('ROLLBACK');
-      return res.status(400).json({ error: 'No se encontrÃ³ una tarjeta vÃ¡lida' });
+      return res.status(400).json({ error: 'No se encontró una tarjeta válida' });
     }
 
     // 2. VALIDAR: Si es un gasto (amount < 0), verificar saldo suficiente en la tarjeta
@@ -14507,7 +14504,7 @@ app.post('/ocean-pay/appbux/change', async (req, res) => {
     res.json({ success: true, newBalance });
   } catch (err) {
     await client.query('ROLLBACK');
-    console.error('âŒ Error en /ocean-pay/appbux/change:', err);
+    console.error('❌ Error en /ocean-pay/appbux/change:', err);
     res.status(500).json({ error: 'Error interno' });
   } finally {
     client.release();
@@ -14521,7 +14518,7 @@ app.post('/ocean-pay/transfer', async (req, res) => {
   const { userId, fromCardId, toCardId, currency, amount } = req.body;
 
   if (!userId || !fromCardId || !toCardId || !currency || amount <= 0) {
-    return res.status(400).json({ error: 'Datos incompletos o invÃ¡lidos' });
+    return res.status(400).json({ error: 'Datos incompletos o inválidos' });
   }
 
   if (fromCardId === toCardId) {
@@ -14540,7 +14537,7 @@ app.post('/ocean-pay/transfer', async (req, res) => {
 
     if (cards.length !== 2 || cards.some(c => c.user_id != userId)) {
       await client.query('ROLLBACK');
-      return res.status(403).json({ error: 'Tarjetas invÃ¡lidas o no pertenecen al usuario' });
+      return res.status(403).json({ error: 'Tarjetas inválidas o no pertenecen al usuario' });
     }
 
     // Verificar saldo origen
@@ -14571,7 +14568,7 @@ app.post('/ocean-pay/transfer', async (req, res) => {
       DO UPDATE SET amount = ocean_pay_card_balances.amount + $3
     `, [toCardId, currency, amount]);
 
-    // Registrar transacciÃ³n
+    // Registrar transacción
     await client.query(
       `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
        VALUES ($1, $2, $3, 'Transferencia Interna', $4)`,
@@ -14583,7 +14580,7 @@ app.post('/ocean-pay/transfer', async (req, res) => {
 
   } catch (err) {
     await client.query('ROLLBACK');
-    console.error('âŒ Error en /ocean-pay/transfer:', err);
+    console.error('❌ Error en /ocean-pay/transfer:', err);
     res.status(500).json({ error: 'Error interno' });
   } finally {
     client.release();
@@ -14591,7 +14588,7 @@ app.post('/ocean-pay/transfer', async (req, res) => {
 });
 
 
-// 3. EstadÃ­sticas de uso de divisas (Misc)
+// 3. Estadísticas de uso de divisas (Misc)
 app.get('/ocean-pay/stats/tx-usage/:userId', async (req, res) => {
   const { userId } = req.params;
 
@@ -14622,7 +14619,7 @@ app.get('/ocean-pay/stats/tx-usage/:userId', async (req, res) => {
     });
 
   } catch (err) {
-    console.error('âŒ Error en /ocean-pay/stats/tx-usage:', err);
+    console.error('❌ Error en /ocean-pay/stats/tx-usage:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
@@ -14636,7 +14633,7 @@ app.delete('/ocean-pay/delete-account', async (req, res) => {
     return res.status(400).json({ error: 'Faltan datos' });
   }
 
-  // Verificar token si estÃ¡ presente
+  // Verificar token si está presente
   if (auth) {
     try {
       const token = auth.split(' ')[1];
@@ -14647,7 +14644,7 @@ app.delete('/ocean-pay/delete-account', async (req, res) => {
         return res.status(403).json({ error: 'No autorizado' });
       }
     } catch (e) {
-      return res.status(401).json({ error: 'Token invÃ¡lido' });
+      return res.status(401).json({ error: 'Token inválido' });
     }
   }
 
@@ -14671,7 +14668,7 @@ app.delete('/ocean-pay/delete-account', async (req, res) => {
       return res.status(403).json({ error: 'El nombre de usuario no coincide' });
     }
 
-    console.log(`ðŸ—‘ï¸ Eliminando cuenta de Ocean Pay: ${username} (${userId})`);
+    console.log(`🗑️ Eliminando cuenta de Ocean Pay: ${username} (${userId})`);
 
     // Eliminar transacciones
     await client.query('DELETE FROM ocean_pay_txs WHERE user_id = $1', [userId]);
@@ -14693,12 +14690,12 @@ app.delete('/ocean-pay/delete-account', async (req, res) => {
 
     await client.query('COMMIT');
 
-    console.log(`âœ… Cuenta eliminada exitosamente: ${username}`);
+    console.log(`✅ Cuenta eliminada exitosamente: ${username}`);
     res.json({ success: true, message: 'Cuenta eliminada permanentemente' });
 
   } catch (err) {
     await client.query('ROLLBACK');
-    console.error('âŒ Error en /ocean-pay/delete-account:', err);
+    console.error('❌ Error en /ocean-pay/delete-account:', err);
     res.status(500).json({ error: 'Error interno al eliminar la cuenta' });
   } finally {
     client.release();
@@ -14707,13 +14704,13 @@ app.delete('/ocean-pay/delete-account', async (req, res) => {
 
 /* ----------  WILDCREDITS TRANSACTIONS  ---------- */
 app.post('/ocean-pay/wildcredits/transaction', async (req, res) => {
-  const { userId, amount, concepto = 'OperaciÃ³n', origen = 'Wild Explorer' } = req.body;
+  const { userId, amount, concepto = 'Operación', origen = 'Wild Explorer' } = req.body;
   if (!userId || amount === undefined) {
     return res.status(400).json({ error: 'Faltan datos' });
   }
 
   try {
-    // Insertar transacciÃ³n en ocean_pay_txs con moneda 'WC'
+    // Insertar transacción en ocean_pay_txs con moneda 'WC'
     await pool.query(
       `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
        VALUES ($1, $2, $3, $4, 'WC')`,
@@ -14722,7 +14719,7 @@ app.post('/ocean-pay/wildcredits/transaction', async (req, res) => {
 
     res.json({ success: true });
   } catch (e) {
-    console.error('âŒ Error en /ocean-pay/wildcredits/transaction:', e);
+    console.error('❌ Error en /ocean-pay/wildcredits/transaction:', e);
     // Si falla por falta de columna moneda, intentar sin ella
     try {
       await pool.query(
@@ -14766,14 +14763,14 @@ app.post('/oceanic-ethernet/register', async (req, res) => {
     } catch (e) {
       if (e.code === '23505') {
         const existingOpUser = await client.query('SELECT id FROM ocean_pay_users WHERE username = $1', [username]);
-        if (existingOpUser.rows.length === 0) throw new Error("Error crÃ­tico: usuario duplicado pero ID no recuperado.");
+        if (existingOpUser.rows.length === 0) throw new Error("Error crítico: usuario duplicado pero ID no recuperado.");
         opUserId = existingOpOpUser.rows[0].id;
       } else {
         throw e;
       }
     }
 
-    // 3. [CORRECCIÃ“N 42P10] SELECT ANTES DE INSERTAR METADATA (EVITA ON CONFLICT)
+    // 3. [CORRECCIÓN 42P10] SELECT ANTES DE INSERTAR METADATA (EVITA ON CONFLICT)
     const existingMeta = await client.query(
       'SELECT 1 FROM ocean_pay_metadata WHERE user_id = $1 AND key = $2',
       [opUserId, 'internet_gb']
@@ -14783,11 +14780,11 @@ app.post('/oceanic-ethernet/register', async (req, res) => {
       await client.query(`
             INSERT INTO ocean_pay_metadata (user_id, key, value)
             VALUES ($1, 'internet_gb', '0')
-        `, [opUserId]); // âœ… CORREGIDO: Usamos opUserId
+        `, [opUserId]); // ✅ CORREGIDO: Usamos opUserId
     }
 
     // 4. Vincular usuario de OceanicEthernet con el de Ocean Pay
-    // Nota: AquÃ­ se mantiene ON CONFLICT porque la tabla oceanic_ethernet_user_links tiene un UNIQUE constraint.
+    // Nota: Aquí se mantiene ON CONFLICT porque la tabla oceanic_ethernet_user_links tiene un UNIQUE constraint.
     await client.query(`
       INSERT INTO oceanic_ethernet_user_links (oe_user_id, external_user_id, external_system)
       VALUES ($1, $2, $3)
@@ -14800,7 +14797,7 @@ app.post('/oceanic-ethernet/register', async (req, res) => {
   } catch (e) {
     await client.query('ROLLBACK');
     if (e.code === '23505') {
-      return res.status(409).json({ error: 'Este usuario ya existe. Si es tu cuenta, usa la opciÃ³n "Iniciar sesiÃ³n".' });
+      return res.status(409).json({ error: 'Este usuario ya existe. Si es tu cuenta, usa la opción "Iniciar sesión".' });
     }
     console.error('Error en oceanic-ethernet/register:', e);
     res.status(500).json({ error: 'Error interno del servidor' });
@@ -14822,12 +14819,12 @@ app.post('/oceanic-ethernet/login', async (req, res) => {
     `, [username]);
 
     if (rows.length === 0) {
-      return res.status(401).json({ error: 'Usuario o contraseÃ±a incorrectos' });
+      return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
     }
 
     const ok = await bcrypt.compare(password, rows[0].pwd_hash);
     if (!ok) {
-      return res.status(401).json({ error: 'Usuario o contraseÃ±a incorrectos' });
+      return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
     }
 
     const token = jwt.sign({ uid: rows[0].id, un: username, source: 'oceanic-ethernet' }, process.env.STUDIO_SECRET, { expiresIn: '7d' });
@@ -14840,7 +14837,7 @@ app.post('/oceanic-ethernet/login', async (req, res) => {
         ON CONFLICT (user_id, key) DO NOTHING
       `, [rows[0].id]);
     } catch (e) {
-      // Ignorar errores de inicializaciÃ³n
+      // Ignorar errores de inicialización
       console.error('Error inicializando internet_gb:', e);
     }
 
@@ -14888,7 +14885,7 @@ app.post('/oceanic-ethernet/link-user', async (req, res) => {
     userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
-    return res.status(401).json({ error: 'Token invÃ¡lido' });
+    return res.status(401).json({ error: 'Token inválido' });
   }
 
   const { externalUserId, externalSystem } = req.body;
@@ -14926,19 +14923,19 @@ app.get('/oceanic-ethernet/balance/:userId', async (req, res) => {
     oeUserId = (decoded.id || decoded.uid);
     oeUserId = parseInt(oeUserId) || oeUserId;
   } catch (e) {
-    return res.status(401).json({ error: 'Token invÃ¡lido' });
+    return res.status(401).json({ error: 'Token inválido' });
   }
 
   const { userId: paramUserId } = req.params;
   const paramUserIdNum = parseInt(paramUserId);
 
-  // Verificar que el usuario del token coincida con el parÃ¡metro
+  // Verificar que el usuario del token coincida con el parámetro
   if (oeUserId !== paramUserIdNum) {
     return res.status(403).json({ error: 'No autorizado' });
   }
 
   // =========================================================================
-  // ðŸ’¡ CORRECCIÃ“N CRÃTICA (Error 23503: Foreign Key Violation)
+  // 💡 CORRECCIÓN CRÍTICA (Error 23503: Foreign Key Violation)
   // Traducir el ID de Oceanic Ethernet (oeUserId) al ID de Ocean Pay (opUserId)
   // =========================================================================
   let opUserId;
@@ -14952,18 +14949,18 @@ app.get('/oceanic-ethernet/balance/:userId', async (req, res) => {
 
     if (linkResult.rows.length === 0) {
       console.log(`Usuario OceanicEthernet (ID: ${oeUserId}) no vinculado a Ocean Pay.`);
-      return res.json({ balance: 0 }); // El usuario no estÃ¡ vinculado, el balance es 0
+      return res.json({ balance: 0 }); // El usuario no está vinculado, el balance es 0
     }
 
-    opUserId = parseInt(linkResult.rows[0].external_user_id); // âœ… PARSE TO INTEGER
+    opUserId = parseInt(linkResult.rows[0].external_user_id); // ✅ PARSE TO INTEGER
 
-    // A partir de aquÃ­, solo usamos opUserId para las consultas a ocean_pay_metadata
+    // A partir de aquí, solo usamos opUserId para las consultas a ocean_pay_metadata
 
     // Intentar obtener desde metadata primero
     const { rows: metaRows } = await pool.query(`
       SELECT value FROM ocean_pay_metadata
       WHERE user_id = $1 AND key = 'internet_gb'
-    `, [opUserId]); // âœ… CORREGIDO: Usando opUserId como INTEGER
+    `, [opUserId]); // ✅ CORREGIDO: Usando opUserId como INTEGER
 
     if (metaRows.length > 0) {
       const balance = parseFloat(metaRows[0].value || '0');
@@ -14975,11 +14972,11 @@ app.get('/oceanic-ethernet/balance/:userId', async (req, res) => {
       INSERT INTO ocean_pay_metadata (user_id, key, value)
       VALUES ($1, 'internet_gb', '0')
       ON CONFLICT (user_id, key) DO NOTHING
-    `, [opUserId]); // âœ… CORREGIDO: Usando opUserId
+    `, [opUserId]); // ✅ CORREGIDO: Usando opUserId
 
     res.json({ balance: 0 });
   } catch (err) {
-    console.error('âŒ Error en /oceanic-ethernet/balance/:userId', err);
+    console.error('❌ Error en /oceanic-ethernet/balance/:userId', err);
     // Si la tabla no existe, devolver 0
     if (err.code === '42P01') {
       res.json({ balance: 0 });
@@ -15003,7 +15000,7 @@ app.get('/oceanic-ethernet/ocean-pay-balances', async (req, res) => {
     opUserId = (decoded.id || decoded.uid);
     opUserId = parseInt(opUserId) || opUserId;
   } catch (e) {
-    return res.status(401).json({ error: 'Token invÃ¡lido' });
+    return res.status(401).json({ error: 'Token inválido' });
   }
 
   try {
@@ -15069,7 +15066,7 @@ app.get('/oceanic-ethernet/ocean-pay-balances', async (req, res) => {
 
     res.json(balances);
   } catch (err) {
-    console.error('âŒ Error en /oceanic-ethernet/ocean-pay-balances:', err);
+    console.error('❌ Error en /oceanic-ethernet/ocean-pay-balances:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
@@ -15088,39 +15085,39 @@ app.post('/oceanic-ethernet/recharge', async (req, res) => {
     userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
-    return res.status(401).json({ error: 'Token invÃ¡lido' });
+    return res.status(401).json({ error: 'Token inválido' });
   }
 
   const { userId: bodyUserId, amount, currency, cost } = req.body;
   const opToken = req.headers['x-ocean-pay-token'];
 
   if (!bodyUserId || amount === undefined || amount <= 0) {
-    return res.status(400).json({ error: 'Datos invÃ¡lidos' });
+    return res.status(400).json({ error: 'Datos inválidos' });
   }
 
-  // Si hay opToken vinculado, obtener su userId para validaciÃ³n
+  // Si hay opToken vinculado, obtener su userId para validación
   let opUserId = null;
   if (opToken && opToken.trim() !== '') {
     try {
       const decoded = jwt.verify(opToken, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
       opUserId = (decoded.id || decoded.uid);
       opUserId = parseInt(opUserId) || opUserId;
-      console.log('âœ… Token de Ocean Pay vÃ¡lido, opUserId:', opUserId);
+      console.log('✅ Token de Ocean Pay válido, opUserId:', opUserId);
     } catch (e) {
-      console.error('âŒ Error verificando token de Ocean Pay:', e.message);
-      // Si el token es invÃ¡lido, continuar sin opUserId
+      console.error('❌ Error verificando token de Ocean Pay:', e.message);
+      // Si el token es inválido, continuar sin opUserId
     }
   }
 
-  // Validar autorizaciÃ³n:
-  // IMPORTANTE: El saldo de internet es especÃ­fico de cada cuenta de OceanicEthernet
+  // Validar autorización:
+  // IMPORTANTE: El saldo de internet es específico de cada cuenta de OceanicEthernet
   // Siempre validamos que el bodyUserId coincida con el userId del token de OceanicEthernet
-  // El token de Ocean Pay solo se usa para procesar el pago, no para determinar a quÃ© cuenta se aplica el saldo
+  // El token de Ocean Pay solo se usa para procesar el pago, no para determinar a qué cuenta se aplica el saldo
   const bodyUserIdInt = parseInt(bodyUserId);
 
-  // Validar que el usuario estÃ¡ recargando su propia cuenta de OceanicEthernet
+  // Validar que el usuario está recargando su propia cuenta de OceanicEthernet
   if (userId !== bodyUserIdInt) {
-    console.error('âŒ Error de autorizaciÃ³n en recarga:', {
+    console.error('❌ Error de autorización en recarga:', {
       tokenUserId: userId,
       bodyUserId: bodyUserIdInt,
       opUserId: opUserId,
@@ -15132,15 +15129,15 @@ app.post('/oceanic-ethernet/recharge', async (req, res) => {
     });
   }
 
-  // Si hay opToken, validar que sea vÃ¡lido (para procesar el pago)
+  // Si hay opToken, validar que sea válido (para procesar el pago)
   if (opToken && opToken.trim() !== '' && currency && cost) {
     if (!opUserId) {
-      console.error('âŒ Token de Ocean Pay invÃ¡lido o no decodificable');
-      return res.status(401).json({ error: 'Token de Ocean Pay invÃ¡lido. Por favor, vuelve a vincular tu cuenta de Ocean Pay.' });
+      console.error('❌ Token de Ocean Pay inválido o no decodificable');
+      return res.status(401).json({ error: 'Token de Ocean Pay inválido. Por favor, vuelve a vincular tu cuenta de Ocean Pay.' });
     }
   }
 
-  console.log('âœ… AutorizaciÃ³n exitosa para recarga:', {
+  console.log('✅ Autorización exitosa para recarga:', {
     tokenUserId: userId,
     bodyUserId: bodyUserIdInt,
     username: 'OceanicEthernet',
@@ -15164,10 +15161,10 @@ app.post('/oceanic-ethernet/recharge', async (req, res) => {
 
     // Si hay divisa y costo, procesar pago desde Ocean Pay
     if (currency && cost && opToken) {
-      // opUserId ya fue obtenido arriba en la validaciÃ³n
+      // opUserId ya fue obtenido arriba en la validación
       if (!opUserId) {
         await client.query('ROLLBACK');
-        return res.status(401).json({ error: 'Token de Ocean Pay invÃ¡lido' });
+        return res.status(401).json({ error: 'Token de Ocean Pay inválido' });
       }
 
       // Verificar si la columna moneda existe
@@ -15180,18 +15177,18 @@ app.post('/oceanic-ethernet/recharge', async (req, res) => {
         `);
         hasMonedaColumn = columnCheck.length > 0;
       } catch (e) {
-        // Si falla la verificaciÃ³n, asumir que no existe
+        // Si falla la verificación, asumir que no existe
         hasMonedaColumn = false;
       }
 
-      // Procesar pago segÃºn la divisa
+      // Procesar pago según la divisa
       let paymentSuccess = false;
 
-      // IMPORTANTE: Redondear el costo al entero mÃ¡s cercano para divisas INTEGER
+      // IMPORTANTE: Redondear el costo al entero más cercano para divisas INTEGER
       // Las divisas en ocean_pay_users (aquabux, appbux) son INTEGER, no aceptan decimales
       let roundedCost = Math.round(cost);
       if (roundedCost <= 0 && cost > 0) {
-        // Si el costo es mayor que 0 pero se redondea a 0, usar 1 como mÃ­nimo
+        // Si el costo es mayor que 0 pero se redondea a 0, usar 1 como mínimo
         roundedCost = 1;
       }
 
@@ -15391,13 +15388,13 @@ app.post('/oceanic-ethernet/recharge', async (req, res) => {
 
       if (!paymentSuccess) {
         await client.query('ROLLBACK');
-        return res.status(400).json({ error: 'Divisa no vÃ¡lida' });
+        return res.status(400).json({ error: 'Divisa no válida' });
       }
     }
 
     // Obtener balance actual de internet
     // IMPORTANTE: Siempre usar el userId de OceanicEthernet para el saldo de internet
-    // El saldo de internet es especÃ­fico de cada cuenta de OceanicEthernet
+    // El saldo de internet es específico de cada cuenta de OceanicEthernet
     // Solo usamos opUserId para procesar el pago desde Ocean Pay, pero el saldo se aplica a la cuenta de OceanicEthernet
     const internetUserId = userId; // Siempre usar el ID de OceanicEthernet para el saldo de internet
 
@@ -15424,7 +15421,7 @@ app.post('/oceanic-ethernet/recharge', async (req, res) => {
       `, [internetUserId, newBalance.toString()]);
     }
 
-    // Registrar transacciÃ³n en tabla propia de OceanicEthernet (usar userId de OceanicEthernet para el historial)
+    // Registrar transacción en tabla propia de OceanicEthernet (usar userId de OceanicEthernet para el historial)
     const concepto = currency
       ? `Recarga de ${amount} GB (Pagado con ${currencyNames[currency] || currency})`
       : `Recarga de ${amount} GB`;
@@ -15438,7 +15435,7 @@ app.post('/oceanic-ethernet/recharge', async (req, res) => {
     res.json({ success: true, newBalance });
   } catch (err) {
     await client.query('ROLLBACK');
-    console.error('âŒ Error en /oceanic-ethernet/recharge:', err);
+    console.error('❌ Error en /oceanic-ethernet/recharge:', err);
     res.status(500).json({ error: 'Error interno' });
   } finally {
     client.release();
@@ -15459,13 +15456,13 @@ app.post('/oceanic-ethernet/consume', async (req, res) => {
     userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
-    return res.status(401).json({ error: 'Token invÃ¡lido' });
+    return res.status(401).json({ error: 'Token inválido' });
   }
 
   const { userId: bodyUserId, amount, concepto = 'Uso de internet', origen = 'AllApp' } = req.body;
 
   if (!bodyUserId || amount === undefined || amount <= 0) {
-    return res.status(400).json({ error: 'Datos invÃ¡lidos' });
+    return res.status(400).json({ error: 'Datos inválidos' });
   }
 
   if (userId !== parseInt(bodyUserId)) {
@@ -15510,7 +15507,7 @@ app.post('/oceanic-ethernet/consume', async (req, res) => {
       WHERE user_id = $2 AND key = 'internet_gb'
     `, [newBalance.toString(), userId]);
 
-    // Registrar transacciÃ³n en tabla propia de OceanicEthernet
+    // Registrar transacción en tabla propia de OceanicEthernet
     await client.query(
       `INSERT INTO oceanic_ethernet_txs (user_id, concepto, monto, origen)
        VALUES ($1, $2, $3, $4)`,
@@ -15521,7 +15518,7 @@ app.post('/oceanic-ethernet/consume', async (req, res) => {
     res.json({ success: true, newBalance });
   } catch (err) {
     await client.query('ROLLBACK');
-    console.error('âŒ Error en /oceanic-ethernet/consume:', err);
+    console.error('❌ Error en /oceanic-ethernet/consume:', err);
     res.status(500).json({ error: 'Error interno' });
   } finally {
     client.release();
@@ -15542,7 +15539,7 @@ app.get('/oceanic-ethernet/transactions/:userId', async (req, res) => {
     userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
-    return res.status(401).json({ error: 'Token invÃ¡lido' });
+    return res.status(401).json({ error: 'Token inválido' });
   }
 
   const { userId: paramUserId } = req.params;
@@ -15564,12 +15561,12 @@ app.get('/oceanic-ethernet/transactions/:userId', async (req, res) => {
 
     res.json(rows);
   } catch (err) {
-    console.error('âŒ Error en /oceanic-ethernet/transactions/:userId', err);
+    console.error('❌ Error en /oceanic-ethernet/transactions/:userId', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
 
-// Obtener historial reciente (Ãºltimo minuto) para tiempo real
+// Obtener historial reciente (último minuto) para tiempo real
 app.get('/oceanic-ethernet/recent/:userId', async (req, res) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -15583,7 +15580,7 @@ app.get('/oceanic-ethernet/recent/:userId', async (req, res) => {
     userId = (decoded.id || decoded.uid);
     userId = parseInt(userId) || userId;
   } catch (e) {
-    return res.status(401).json({ error: 'Token invÃ¡lido' });
+    return res.status(401).json({ error: 'Token inválido' });
   }
 
   const { userId: paramUserId } = req.params;
@@ -15594,7 +15591,7 @@ app.get('/oceanic-ethernet/recent/:userId', async (req, res) => {
   }
 
   try {
-    // Obtener transacciones de los Ãºltimos 60 segundos de la tabla propia
+    // Obtener transacciones de los últimos 60 segundos de la tabla propia
     const { rows } = await pool.query(`
       SELECT concepto, monto as amount, origen, created_at
       FROM oceanic_ethernet_txs
@@ -15605,7 +15602,7 @@ app.get('/oceanic-ethernet/recent/:userId', async (req, res) => {
 
     res.json(rows);
   } catch (err) {
-    console.error('âŒ Error en /oceanic-ethernet/recent/:userId', err);
+    console.error('❌ Error en /oceanic-ethernet/recent/:userId', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
@@ -15622,7 +15619,7 @@ app.post('/api/report-error', async (req, res) => {
     );
     res.json({ ok: true });
   } catch (e) {
-    console.error('âŒ report-error', e);
+    console.error('❌ report-error', e);
     res.status(500).json({ error: 'No se pudo guardar' });
   }
 });
@@ -15690,7 +15687,7 @@ app.get("/api/events/active", async (_req, res) => {
     id: ev.id,
     keyword: ev.keyword,
     name: ev.name,
-    emoji: ev.emoji || 'ðŸŽ',
+    emoji: ev.emoji || '🎁',
     bannerColor: ev.banner_color || 'linear-gradient(90deg,#64a7ff,#b388ff)',
     description: ev.description || 'Reclama tu recompensa diaria.',
     rewardBits: ev.rewardbits || 100,
@@ -15747,7 +15744,7 @@ app.post("/api/events/claim", async (req, res) => {
     [userId, eventId, day, day === 7]
   );
 
-  // Entregar extensiÃ³n dÃ­a 7
+  // Entregar extensión día 7
   if (day === 7) {
     const state = await loadState(userId);
     state.installed["halloween-2025"] = {
@@ -15765,7 +15762,7 @@ app.post("/api/events/claim", async (req, res) => {
 app.get('/api/events/claim-status/:userId', async (req, res) => {
   const { userId } = req.params;
 
-  // 1. Â¿Hay evento activo?
+  // 1. ¿Hay evento activo?
   const now = new Date();
   const { rows } = await pool.query(
     `SELECT id, keyword, startat, endat
@@ -15781,12 +15778,12 @@ app.get('/api/events/claim-status/:userId', async (req, res) => {
 
   const event = rows[0];
 
-  // ðŸ•“ PrÃ³ximo reinicio diario (medianoche UTC o local)
+  // 🕓 Próximo reinicio diario (medianoche UTC o local)
   const nextReset = new Date(now);
-  nextReset.setUTCHours(24, 0, 0, 0); // medianoche UTC siguiente dÃ­a
+  nextReset.setUTCHours(24, 0, 0, 0); // medianoche UTC siguiente día
   const msLeft = Math.max(0, nextReset - now);
 
-  // 2. Â¿CuÃ¡ntos dÃ­as ha reclamado este usuario?
+  // 2. ¿Cuántos días ha reclamado este usuario?
   const { rows: userRows } = await pool.query(
     `SELECT COUNT(*) AS claimed
      FROM user_events
@@ -15816,7 +15813,7 @@ app.get('/api/ecorebits/user', async (req, res) => {
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
     const usernameToken = decoded.un || decoded.username;
-    if (!usernameToken) return res.status(401).json({ message: 'Token invÃ¡lido' });
+    if (!usernameToken) return res.status(401).json({ message: 'Token inválido' });
 
     // BUSCAR ID BANCARIO REAL POR NOMBRE (Evita errores de ID cruzados)
     const { rows: userRows } = await pool.query(
@@ -15846,7 +15843,7 @@ app.get('/api/ecorebits/user', async (req, res) => {
       `, [userId]);
     }
 
-    // 2. SincronizaciÃ³n robusta de saldos legacy (Cruce por Nombre de Usuario)
+    // 2. Sincronización robusta de saldos legacy (Cruce por Nombre de Usuario)
     await pool.query(`
       INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
       SELECT c.id, 'ecorebits', uc.amount
@@ -15932,13 +15929,13 @@ app.post('/api/extend-limit', async (req, res) => {
 
     // Verify token and get user
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    // Asegurar que userId sea un nÃºmero (el id de ocean_pay_users es INTEGER)
+    // Asegurar que userId sea un número (el id de ocean_pay_users es INTEGER)
     const rawId = (decoded.id || decoded.uid) || decoded.userId || decoded.id || decoded.user?.id;
     const userId = parseInt(rawId);
 
     if (!userId || isNaN(userId)) {
       console.error('Token decodificado:', decoded);
-      return res.status(401).json({ error: 'Token invÃ¡lido: falta userId. Campos disponibles: ' + Object.keys(decoded).join(', ') });
+      return res.status(401).json({ error: 'Token inválido: falta userId. Campos disponibles: ' + Object.keys(decoded).join(', ') });
     }
 
     // Verificar que el usuario existe - Buscar en ambas tablas
@@ -16024,7 +16021,7 @@ app.post('/api/extend-limit', async (req, res) => {
       };
 
     } else if (option === 'credits') {
-      // Obtener crÃ©ditos desde ecocore_credits
+      // Obtener créditos desde ecocore_credits
       const { rows: creditsRows } = await pool.query(
         'SELECT credits FROM ecocore_credits WHERE user_id = $1 FOR UPDATE',
         [userId]
@@ -16044,7 +16041,7 @@ app.post('/api/extend-limit', async (req, res) => {
       // Check if user has enough credits
       if (currentCredits < 1) {
         return res.status(400).json({
-          error: 'No tienes suficientes crÃ©ditos'
+          error: 'No tienes suficientes créditos'
         });
       }
 
@@ -16057,12 +16054,12 @@ app.post('/api/extend-limit', async (req, res) => {
 
       result = {
         success: true,
-        newLimit: null, // Se calcularÃ¡ en el frontend
+        newLimit: null, // Se calculará en el frontend
         credits: newCredits
       };
 
     } else {
-      return res.status(400).json({ error: 'OpciÃ³n no vÃ¡lida' });
+      return res.status(400).json({ error: 'Opción no válida' });
     }
 
     // Log the transaction (asegurar que userId es string)
@@ -16085,11 +16082,11 @@ app.post('/api/extend-limit', async (req, res) => {
     console.error('Error extending command limit:', error);
 
     if (error.name === 'JsonWebTokenError') {
-      return res.status(401).json({ error: 'Token invÃ¡lido' });
+      return res.status(401).json({ error: 'Token inválido' });
     }
 
     if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({ error: 'SesiÃ³n expirada' });
+      return res.status(401).json({ error: 'Sesión expirada' });
     }
 
     res.status(500).json({
@@ -16119,21 +16116,21 @@ app.get('/admin/users', async (req, res) => {
   }
 });
 
-// === FUNCIONES DE REVISIÃ“N ===
+// === FUNCIONES DE REVISIÓN ===
 async function ensureDatabase() {
   try {
     // Intentar conectar a la base de datos
     await pool.query("SELECT 1");
-    console.log("âœ… ConexiÃ³n a la base de datos OK");
+    console.log("✅ Conexión a la base de datos OK");
   } catch (err) {
-    console.error("âŒ La base de datos no existe o no se puede conectar:", err.message);
+    console.error("❌ La base de datos no existe o no se puede conectar:", err.message);
     process.exit(1); // Terminar servidor si falla
   }
 }
 
 async function ensureTables() {
   const tableQueries = [
-    // ðŸ”‘ TABLA FALTANTE 1: updates_ecoconsole (Ahora deberÃ­a crearse)
+    // 🔑 TABLA FALTANTE 1: updates_ecoconsole (Ahora debería crearse)
     `CREATE TABLE IF NOT EXISTS updates_ecoconsole (
       id SERIAL PRIMARY KEY,
       version TEXT NOT NULL,
@@ -16360,7 +16357,7 @@ async function ensureTables() {
     CREATE INDEX IF NOT EXISTS idx_product_reports_status ON product_reports(status);
     CREATE INDEX IF NOT EXISTS idx_product_reports_product ON product_reports(product_id);
     
-    -- Crear tabla de vistas Ãºnicas por usuario y producto
+    -- Crear tabla de vistas únicas por usuario y producto
     CREATE TABLE IF NOT EXISTS product_views_unique (
       id SERIAL PRIMARY KEY,
       user_id VARCHAR(255) NOT NULL,
@@ -16390,7 +16387,7 @@ async function ensureTables() {
       created_at TIMESTAMP DEFAULT NOW()
     );
     
-    -- Crear Ã­ndice para bÃºsquedas rÃ¡pidas
+    -- Crear índice para búsquedas rápidas
     CREATE INDEX IF NOT EXISTS idx_ecoxion_subs_user_active ON ecoxion_subscriptions(user_id, active, ends_at);
     
     -- Tabla de transacciones de Ocean Pay
@@ -16423,7 +16420,7 @@ async function ensureTables() {
       created_at TIMESTAMP DEFAULT NOW()
     );
     
-    -- Tabla de productos pendientes de moderaciÃ³n (NatMarket)
+    -- Tabla de productos pendientes de moderación (NatMarket)
     CREATE TABLE IF NOT EXISTS products_pending (
       id SERIAL PRIMARY KEY,
       user_id INTEGER NOT NULL REFERENCES users_nat(id) ON DELETE CASCADE,
@@ -16436,7 +16433,7 @@ async function ensureTables() {
       created_at TIMESTAMP DEFAULT NOW()
     );
     
-    -- Tabla de mensajes pendientes de moderaciÃ³n (NatMarket)
+    -- Tabla de mensajes pendientes de moderación (NatMarket)
     CREATE TABLE IF NOT EXISTS messages_pending (
       id SERIAL PRIMARY KEY,
       product_id INTEGER NOT NULL REFERENCES products_nat(id) ON DELETE CASCADE,
@@ -16464,7 +16461,7 @@ async function ensureTables() {
       created_at TIMESTAMP DEFAULT NOW()
     );
     
-    -- Tabla de mÃ©todos de envÃ­o recurrentes (NatMarket)
+    -- Tabla de métodos de envío recurrentes (NatMarket)
     CREATE TABLE IF NOT EXISTS user_shipping_methods (
       id SERIAL PRIMARY KEY,
       user_id INTEGER NOT NULL REFERENCES users_nat(id) ON DELETE CASCADE,
@@ -16472,7 +16469,7 @@ async function ensureTables() {
       created_at TIMESTAMP DEFAULT NOW()
     );
     
-    -- Tablas de relaciÃ³n producto-lugar y producto-mÃ©todo (NatMarket)
+    -- Tablas de relación producto-lugar y producto-método (NatMarket)
     CREATE TABLE IF NOT EXISTS product_places (
       product_id INTEGER NOT NULL REFERENCES products_nat(id) ON DELETE CASCADE,
       place_id INTEGER NOT NULL REFERENCES user_places(id) ON DELETE CASCADE,
@@ -16495,19 +16492,19 @@ async function ensureTables() {
     `,
   ];
 
-  // 1. Ejecutar la creaciÃ³n de todas las tablas
+  // 1. Ejecutar la creación de todas las tablas
   for (const q of tableQueries) {
     try {
       await pool.query(q);
     } catch (error) {
-      console.error(`âŒ Error al ejecutar query de creaciÃ³n de tabla: ${q.substring(0, 50)}...`, error);
-      // Lanzamos el error solo si es crÃ­tico para que las tablas no se creen
+      console.error(`❌ Error al ejecutar query de creación de tabla: ${q.substring(0, 50)}...`, error);
+      // Lanzamos el error solo si es crítico para que las tablas no se creen
       throw error;
     }
   }
 
   // =========================================================
-  // ðŸ”‘ MIGRACIÃ“N CRÃTICA ocean_pay_metadata (Paso a paso)
+  // 🔑 MIGRACIÓN CRÍTICA ocean_pay_metadata (Paso a paso)
   // =========================================================
 
   try {
@@ -16519,12 +16516,12 @@ async function ensureTables() {
     `);
 
     if (columnCheck.rows.length === 0) {
-      console.log('ðŸ”„ Agregando columna user_id a ocean_pay_metadata...');
+      console.log('🔄 Agregando columna user_id a ocean_pay_metadata...');
       await pool.query(`ALTER TABLE ocean_pay_metadata ADD COLUMN user_id INTEGER`);
-      console.log('âœ… Columna user_id agregada.');
+      console.log('✅ Columna user_id agregada.');
     }
 
-    // 2. Verificar y Agregar la llave forÃ¡nea
+    // 2. Verificar y Agregar la llave foránea
     const fkCheck = await pool.query(`
         SELECT 1 
         FROM pg_constraint 
@@ -16532,16 +16529,16 @@ async function ensureTables() {
     `);
 
     if (fkCheck.rows.length === 0) {
-      console.log('ðŸ”„ Agregando FK a ocean_pay_metadata...');
+      console.log('🔄 Agregando FK a ocean_pay_metadata...');
       await pool.query(`
             ALTER TABLE ocean_pay_metadata 
             ADD CONSTRAINT ocean_pay_metadata_user_id_fkey 
             FOREIGN KEY (user_id) REFERENCES ocean_pay_users(id) ON DELETE CASCADE
         `);
-      console.log('âœ… FK ocean_pay_metadata_user_id_fkey agregada.');
+      console.log('✅ FK ocean_pay_metadata_user_id_fkey agregada.');
     }
 
-    // 3. Verificar y Agregar la restricciÃ³n UNIQUE
+    // 3. Verificar y Agregar la restricción UNIQUE
     const uniqueCheck = await pool.query(`
         SELECT 1 
         FROM pg_constraint 
@@ -16549,21 +16546,21 @@ async function ensureTables() {
     `);
 
     if (uniqueCheck.rows.length === 0) {
-      console.log('ðŸ”„ Agregando restricciÃ³n UNIQUE a ocean_pay_metadata...');
+      console.log('🔄 Agregando restricción UNIQUE a ocean_pay_metadata...');
       await pool.query(`
             ALTER TABLE ocean_pay_metadata 
             ADD CONSTRAINT unique_user_key UNIQUE (user_id, key)
         `);
-      console.log('âœ… RestricciÃ³n UNIQUE agregada.');
+      console.log('✅ Restricción UNIQUE agregada.');
     }
 
-    console.log('âœ… MigraciÃ³n de ocean_pay_metadata ejecutada de forma secuencial.');
+    console.log('✅ Migración de ocean_pay_metadata ejecutada de forma secuencial.');
   } catch (err) {
-    console.warn('âš ï¸ Error al ejecutar migraciÃ³n secuencial de ocean_pay_metadata (puede ser un error menor si ya existe):', err.message);
+    console.warn('⚠️ Error al ejecutar migración secuencial de ocean_pay_metadata (puede ser un error menor si ya existe):', err.message);
   }
 
   // =========================================================
-  // Bloque de migraciones restantes (Procedural SQL, ahora mÃ¡s aislado)
+  // Bloque de migraciones restantes (Procedural SQL, ahora más aislado)
   // =========================================================
 
   // Agregar columna appbux a ocean_pay_users si no existe
@@ -16576,9 +16573,9 @@ async function ensureTables() {
         END IF;
       END $$;
     `);
-    console.log('âœ… MigraciÃ³n de ocean_pay_users appbux ejecutada.');
+    console.log('✅ Migración de ocean_pay_users appbux ejecutada.');
   } catch (err) {
-    console.warn('âš ï¸ Error al ejecutar migraciÃ³n de ocean_pay_users appbux:', err.message);
+    console.warn('⚠️ Error al ejecutar migración de ocean_pay_users appbux:', err.message);
   }
 
   // Agregar user_unique_id y unique_id_shown a users_nat si no existen
@@ -16603,9 +16600,9 @@ async function ensureTables() {
         END IF;
       END $$;
     `);
-    console.log('âœ… MigraciÃ³n de users_nat columnas ejecutada.');
+    console.log('✅ Migración de users_nat columnas ejecutada.');
   } catch (err) {
-    console.warn('âš ï¸ Error al ejecutar migraciÃ³n de users_nat columnas:', err.message);
+    console.warn('⚠️ Error al ejecutar migración de users_nat columnas:', err.message);
   }
 
   // Agregar columnas de stock y vendido a products_nat si no existen
@@ -16635,12 +16632,12 @@ async function ensureTables() {
         END IF;
       END $$;
     `);
-    console.log('âœ… MigraciÃ³n de products_nat columnas ejecutada.');
+    console.log('✅ Migración de products_nat columnas ejecutada.');
   } catch (err) {
-    console.warn('âš ï¸ Error al ejecutar migraciÃ³n de products_nat columnas:', err.message);
+    console.warn('⚠️ Error al ejecutar migración de products_nat columnas:', err.message);
   }
 
-  // MigraciÃ³n: Si la tabla command_limit_extensions existe con user_id TEXT, cambiarla a INTEGER (Ocean Pay Sync)
+  // Migración: Si la tabla command_limit_extensions existe con user_id TEXT, cambiarla a INTEGER (Ocean Pay Sync)
   try {
     const checkColumn = await pool.query(`
       SELECT data_type 
@@ -16650,7 +16647,7 @@ async function ensureTables() {
     `);
 
     if (checkColumn.rows.length > 0 && checkColumn.rows[0].data_type === 'text') {
-      console.log('ðŸ”„ Migrando command_limit_extensions: cambiando user_id de TEXT a INTEGER (Ocean Pay Sync)...');
+      console.log('🔄 Migrando command_limit_extensions: cambiando user_id de TEXT a INTEGER (Ocean Pay Sync)...');
 
       await pool.query(`
         ALTER TABLE command_limit_extensions 
@@ -16668,15 +16665,15 @@ async function ensureTables() {
         FOREIGN KEY (user_id) REFERENCES ocean_pay_users(id) ON DELETE CASCADE
       `);
 
-      console.log('âœ… MigraciÃ³n completada: user_id ahora es INTEGER y apunta a ocean_pay_users');
+      console.log('✅ Migración completada: user_id ahora es INTEGER y apunta a ocean_pay_users');
     }
   } catch (err) {
     if (!err.message.includes('relation "command_limit_extensions" does not exist')) {
-      console.warn('âš ï¸ Error en migraciÃ³n de command_limit_extensions:', err.message);
+      console.warn('⚠️ Error en migración de command_limit_extensions:', err.message);
     }
   }
 
-  console.log("âœ… Todas las tablas existen o fueron creadas");
+  console.log("✅ Todas las tablas existen o fueron creadas");
 }
 
 function handleNatError(res, err, place = '') {
@@ -16688,7 +16685,7 @@ function handleNatError(res, err, place = '') {
     // Si el error menciona user_id, sender_id, follower_id, etc. no presente en users_nat
     if (detail.includes('users_nat') || detail.includes('user_id') || detail.includes('sender_id')) {
       return res.status(401).json({
-        error: 'Tu sesiÃ³n ha expirado o el usuario no existe. Por favor inicia sesiÃ³n nuevamente.',
+        error: 'Tu sesión ha expirado o el usuario no existe. Por favor inicia sesión nuevamente.',
         code: 'USER_NOT_FOUND'
       });
     }
@@ -16801,7 +16798,7 @@ app.get('/api/credits/:userId', async (req, res) => {
       [userId]
     );
     if (rows.length === 0) {
-      return res.status(404).json({ error: 'Usuario no encontrado o sin crÃ©ditos.' });
+      return res.status(404).json({ error: 'Usuario no encontrado o sin créditos.' });
     }
     res.json({ credits: rows[0].credits });
   } catch (error) {
@@ -16906,7 +16903,7 @@ app.post('/ecocore/credits/:userId', async (req, res) => {
 });
 
 app.post('/api/ecocore/bypass-key-system', authenticateToken, async (req, res) => {
-  const userId = (req.user.id || req.user.uid); // CORRECCIÃ“N: El token guarda el ID como 'uid'
+  const userId = (req.user.id || req.user.uid); // CORRECCIÓN: El token guarda el ID como 'uid'
   const BYPASS_COST = 5000; // Costo para el bypass
 
   const client = await pool.connect();
@@ -16939,7 +16936,7 @@ app.post('/api/ecocore/bypass-key-system', authenticateToken, async (req, res) =
       return res.status(400).json({ error: `Saldo insuficiente. Necesitas ${BYPASS_COST} EcoCoreBits.` });
     }
 
-    // 4. Deducir costo y registrar transacciÃ³n
+    // 4. Deducir costo y registrar transacción
     const newBalance = balance - BYPASS_COST;
     await client.query(
       `INSERT INTO user_currency (user_id, currency_type, amount) VALUES ($1, 'ecocorebits', $2)
@@ -16955,7 +16952,7 @@ app.post('/api/ecocore/bypass-key-system', authenticateToken, async (req, res) =
     await client.query('UPDATE users SET key_system_bypassed = TRUE WHERE id = $1', [userId]);
 
     await client.query('COMMIT');
-    res.json({ success: true, message: 'Â¡Trato aceptado! El Key System ha sido desactivado permanentemente.', newBalance });
+    res.json({ success: true, message: '¡Trato aceptado! El Key System ha sido desactivado permanentemente.', newBalance });
 
   } catch (error) {
     await client.query('ROLLBACK');
@@ -17000,7 +16997,7 @@ app.get('/api/tigertasks/backup/:userId', async (req, res) => {
 
 /* ===== SUSCRIPCIONES ECOXION ===== */
 
-// GET - Obtener suscripciÃ³n actual del usuario
+// GET - Obtener suscripción actual del usuario
 app.get('/api/ecoxion/subscription/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
@@ -17024,7 +17021,7 @@ app.get('/api/ecoxion/subscription/:userId', async (req, res) => {
       createdAt: rows[0].created_at
     });
   } catch (err) {
-    console.error('Error obteniendo suscripciÃ³n:', err);
+    console.error('Error obteniendo suscripción:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
@@ -17038,7 +17035,7 @@ app.post('/api/ecoxion/subscribe', async (req, res) => {
   }
 
   if (plan !== 'pro') {
-    return res.status(400).json({ error: 'Plan no vÃ¡lido' });
+    return res.status(400).json({ error: 'Plan no válido' });
   }
 
   const client = await pool.connect();
@@ -17078,7 +17075,7 @@ app.post('/api/ecoxion/subscribe', async (req, res) => {
       [userId]
     );
 
-    // Crear nueva suscripciÃ³n (30 dÃ­as)
+    // Crear nueva suscripción (30 días)
     const now = new Date();
     const endsAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
@@ -17089,19 +17086,19 @@ app.post('/api/ecoxion/subscribe', async (req, res) => {
       [userId, plan, now, endsAt]
     );
 
-    // Registrar transacciÃ³n en Ocean Pay
+    // Registrar transacción en Ocean Pay
     try {
       await client.query(
         `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
          VALUES ($1, $2, $3, $4, 'EX')`,
-        [userId, 'SuscripciÃ³n Plan Pro (Ecoxion)', -750, 'Ecoxion']
+        [userId, 'Suscripción Plan Pro (Ecoxion)', -750, 'Ecoxion']
       );
     } catch (e) {
       // Si falla por falta de columna moneda, insertar sin ella
       await client.query(
         `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
          VALUES ($1, $2, $3, $4)`,
-        [userId, 'SuscripciÃ³n Plan Pro (Ecoxion)', -750, 'Ecoxion']
+        [userId, 'Suscripción Plan Pro (Ecoxion)', -750, 'Ecoxion']
       );
     }
 
@@ -17125,7 +17122,7 @@ app.post('/api/ecoxion/subscribe', async (req, res) => {
   }
 });
 
-// POST - Cancelar suscripciÃ³n
+// POST - Cancelar suscripción
 app.post('/api/ecoxion/subscription/cancel', async (req, res) => {
   const { userId } = req.body;
 
@@ -17143,22 +17140,22 @@ app.post('/api/ecoxion/subscription/cancel', async (req, res) => {
     );
 
     if (rows.length === 0) {
-      return res.status(400).json({ error: 'No tienes una suscripciÃ³n activa' });
+      return res.status(400).json({ error: 'No tienes una suscripción activa' });
     }
 
     res.json({
       success: true,
-      message: 'SuscripciÃ³n cancelada. SeguirÃ¡s teniendo acceso hasta la fecha de vencimiento.'
+      message: 'Suscripción cancelada. Seguirás teniendo acceso hasta la fecha de vencimiento.'
     });
   } catch (err) {
-    console.error('Error al cancelar suscripciÃ³n:', err);
+    console.error('Error al cancelar suscripción:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
 
 /* ===== QUIZ KAHOOT SYSTEM ===== */
 
-// Almacenamiento en memoria para salas activas (se puede migrar a Redis en producciÃ³n)
+// Almacenamiento en memoria para salas activas (se puede migrar a Redis en producción)
 const activeRooms = new Map(); // roomPin -> { hostId, quizId, players: [], currentQuestion: 0, scores: {}, state: 'waiting'|'playing'|'results' }
 const playerSockets = new Map(); // socketId -> { playerId, roomPin, playerName }
 
@@ -17204,7 +17201,7 @@ async function ensureQuizTables() {
       console.error('Error creando tabla de quiz:', err.message);
     }
   }
-  console.log("âœ… Tablas de quiz inicializadas");
+  console.log("✅ Tablas de quiz inicializadas");
 }
 
 // Endpoints de API para quizzes
@@ -17213,7 +17210,7 @@ app.post('/api/quiz/create', async (req, res) => {
     const { userId, title, description, questions } = req.body;
 
     if (!title || !questions || !Array.isArray(questions) || questions.length === 0) {
-      return res.status(400).json({ error: 'TÃ­tulo y preguntas son requeridos' });
+      return res.status(400).json({ error: 'Título y preguntas son requeridos' });
     }
 
     const { rows } = await pool.query(
@@ -17280,7 +17277,7 @@ app.post('/api/quiz/start-session', async (req, res) => {
       return res.status(400).json({ error: 'Quiz ID es requerido' });
     }
 
-    // Generar PIN Ãºnico de 6 dÃ­gitos
+    // Generar PIN único de 6 dígitos
     let roomPin;
     let exists = true;
     while (exists) {
@@ -17305,12 +17302,12 @@ app.post('/api/quiz/start-session', async (req, res) => {
 
     // Almacenar en memoria
     const quiz = quizRows[0];
-    // Asegurar que las preguntas estÃ©n parseadas y normalizadas
+    // Asegurar que las preguntas estén parseadas y normalizadas
     let questions = typeof quiz.questions === 'string'
       ? JSON.parse(quiz.questions)
       : quiz.questions;
 
-    // Normalizar correctIndex a nÃºmeros para todas las preguntas
+    // Normalizar correctIndex a números para todas las preguntas
     questions = questions.map(q => {
       if (q.correctIndex !== undefined && q.correctIndex !== null) {
         if (Array.isArray(q.correctIndex)) {
@@ -17336,8 +17333,8 @@ app.post('/api/quiz/start-session', async (req, res) => {
 
     res.json({ success: true, roomPin, sessionId: rows[0].id });
   } catch (err) {
-    console.error('Error creando sesiÃ³n:', err);
-    res.status(500).json({ error: 'Error al crear la sesiÃ³n' });
+    console.error('Error creando sesión:', err);
+    res.status(500).json({ error: 'Error al crear la sesión' });
   }
 });
 
@@ -17348,7 +17345,7 @@ app.get('/api/quiz/session/:pin', async (req, res) => {
     // Primero buscar en memoria
     let room = activeRooms.get(pin);
 
-    // Si no estÃ¡ en memoria, buscar en BD y recrear en memoria si estÃ¡ activa
+    // Si no está en memoria, buscar en BD y recrear en memoria si está activa
     if (!room) {
       const { rows } = await pool.query(
         `SELECT qs.*, q.title, q.questions 
@@ -17368,7 +17365,7 @@ app.get('/api/quiz/session/:pin', async (req, res) => {
         ? JSON.parse(session.questions)
         : session.questions;
 
-      // Normalizar correctIndex a nÃºmeros
+      // Normalizar correctIndex a números
       questions = questions.map(q => {
         if (q.correctIndex !== undefined && q.correctIndex !== null) {
           if (Array.isArray(q.correctIndex)) {
@@ -17420,8 +17417,8 @@ app.get('/api/quiz/session/:pin', async (req, res) => {
       state: room.state
     });
   } catch (err) {
-    console.error('Error obteniendo sesiÃ³n:', err);
-    res.status(500).json({ error: 'Error al obtener la sesiÃ³n' });
+    console.error('Error obteniendo sesión:', err);
+    res.status(500).json({ error: 'Error al obtener la sesión' });
   }
 });
 
@@ -17440,7 +17437,7 @@ io.on('connection', (socket) => {
     socket.join(`room-${roomPin}`);
     socket.join(`host-${roomPin}`);
 
-    // Enviar informaciÃ³n del quiz y jugadores actuales
+    // Enviar información del quiz y jugadores actuales
     socket.emit('host-joined', {
       roomPin,
       quiz: room.quiz,
@@ -17457,7 +17454,7 @@ io.on('connection', (socket) => {
     }
 
     if (room.state !== 'waiting') {
-      socket.emit('error', { message: 'La partida ya comenzÃ³' });
+      socket.emit('error', { message: 'La partida ya comenzó' });
       return;
     }
 
@@ -17511,14 +17508,14 @@ io.on('connection', (socket) => {
     pool.query(
       'UPDATE quiz_sessions SET state = $1, started_at = NOW(), current_question = 0 WHERE room_pin = $2',
       ['playing', roomPin]
-    ).catch(err => console.error('Error actualizando sesiÃ³n:', err));
+    ).catch(err => console.error('Error actualizando sesión:', err));
 
     // Obtener preguntas
     let questions = typeof room.quiz.questions === 'string'
       ? JSON.parse(room.quiz.questions)
       : room.quiz.questions;
 
-    // Normalizar correctIndex a nÃºmeros si es necesario
+    // Normalizar correctIndex a números si es necesario
     const normalizedQuestions = questions.map(q => {
       if (q.correctIndex !== undefined && q.correctIndex !== null) {
         if (Array.isArray(q.correctIndex)) {
@@ -17547,7 +17544,7 @@ io.on('connection', (socket) => {
     });
   });
 
-  // Jugador envÃ­a respuesta
+  // Jugador envía respuesta
   socket.on('submit-answer', ({ roomPin, playerId, answer, timeTaken }) => {
     console.log('submit-answer recibido:', { roomPin, playerId, answer, socketId: socket.id });
     const room = activeRooms.get(roomPin);
@@ -17558,8 +17555,8 @@ io.on('connection', (socket) => {
     }
 
     if (room.state !== 'playing') {
-      console.log('Sala no estÃ¡ en estado playing:', room.state);
-      socket.emit('error', { message: 'El juego no estÃ¡ en curso' });
+      console.log('Sala no está en estado playing:', room.state);
+      socket.emit('error', { message: 'El juego no está en curso' });
       return;
     }
 
@@ -17571,10 +17568,10 @@ io.on('connection', (socket) => {
       return;
     }
 
-    // Verificar si el jugador ya respondiÃ³ esta pregunta
+    // Verificar si el jugador ya respondió esta pregunta
     const alreadyAnswered = player.answers.some(a => a.questionIndex === room.currentQuestion);
     if (alreadyAnswered) {
-      console.log('Jugador ya respondiÃ³ esta pregunta');
+      console.log('Jugador ya respondió esta pregunta');
       return;
     }
 
@@ -17583,7 +17580,7 @@ io.on('connection', (socket) => {
       ? JSON.parse(room.quiz.questions)
       : room.quiz.questions;
 
-    // Normalizar correctIndex a nÃºmeros si es necesario
+    // Normalizar correctIndex a números si es necesario
     const normalizedQuestions = questions.map(q => {
       if (q.correctIndex !== undefined && q.correctIndex !== null) {
         if (Array.isArray(q.correctIndex)) {
@@ -17603,16 +17600,16 @@ io.on('connection', (socket) => {
     let correct = false;
     let points = 0;
 
-    // Calcular puntos segÃºn el tipo de pregunta
+    // Calcular puntos según el tipo de pregunta
     if (currentQ.type === 'multiple-choice') {
-      // correctIndex puede ser un nÃºmero o un array
+      // correctIndex puede ser un número o un array
       if (Array.isArray(currentQ.correctIndex)) {
         correct = currentQ.correctIndex.includes(parseInt(answer));
       } else {
         correct = parseInt(answer) === currentQ.correctIndex;
       }
     } else if (currentQ.type === 'single-choice') {
-      // OpciÃ³n Ãºnica: un solo Ã­ndice correcto
+      // Opción única: un solo índice correcto
       correct = parseInt(answer) === currentQ.correctIndex;
     } else if (currentQ.type === 'true-false') {
       // Verdadero/Falso: se compara con correctIndex (0 = Verdadero, 1 = Falso)
@@ -17624,13 +17621,13 @@ io.on('connection', (socket) => {
         question: currentQ
       });
       correct = parseInt(answer) === currentQ.correctIndex;
-      console.log('Resultado validaciÃ³n true-false:', correct);
+      console.log('Resultado validación true-false:', correct);
     } else if (currentQ.type === 'short-answer') {
       correct = answer.toLowerCase().trim() === currentQ.correctAnswer.toLowerCase().trim();
     } else if (currentQ.type === 'number') {
       const numAnswer = parseFloat(answer);
       const correctNum = typeof currentQ.correctAnswer === 'number' ? currentQ.correctAnswer : parseFloat(currentQ.correctAnswer);
-      correct = Math.abs(numAnswer - correctNum) < 0.01; // Permitir pequeÃ±as diferencias por redondeo
+      correct = Math.abs(numAnswer - correctNum) < 0.01; // Permitir pequeñas diferencias por redondeo
     } else if (currentQ.type === 'date') {
       correct = answer.trim() === currentQ.correctAnswer.trim();
     } else if (currentQ.type === 'fill-blank') {
@@ -17638,14 +17635,14 @@ io.on('connection', (socket) => {
     } else if (currentQ.type === 'slider') {
       const sliderAnswer = parseFloat(answer);
       const correctValue = typeof currentQ.correctAnswer === 'number' ? currentQ.correctAnswer : parseFloat(currentQ.correctAnswer);
-      // Permitir pequeÃ±a tolerancia para valores numÃ©ricos
+      // Permitir pequeña tolerancia para valores numéricos
       correct = Math.abs(sliderAnswer - correctValue) < 0.01;
     } else if (currentQ.type === 'code') {
       correct = answer.toLowerCase().trim() === currentQ.correctAnswer.toLowerCase().trim();
     }
 
     if (correct) {
-      // Puntos base: 1000, con bonus por velocidad (mÃ¡ximo 30 segundos)
+      // Puntos base: 1000, con bonus por velocidad (máximo 30 segundos)
       const maxTime = currentQ.timeLimit || 30;
       const timeBonus = Math.max(0, Math.floor((maxTime - timeTaken) / maxTime * 500));
       let basePoints = 1000 + timeBonus;
@@ -17759,7 +17756,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Host muestra resultados despuÃ©s de cada pregunta
+  // Host muestra resultados después de cada pregunta
   socket.on('show-results', ({ roomPin }) => {
     const room = activeRooms.get(roomPin);
     if (!room) return;
@@ -17769,7 +17766,7 @@ io.on('connection', (socket) => {
       : room.quiz.questions;
     const currentQ = questions[room.currentQuestion];
 
-    // Calcular estadÃ­sticas de respuestas
+    // Calcular estadísticas de respuestas
     const answeredPlayers = room.players.filter(p => p.answers.length > room.currentQuestion);
     const stats = {
       total: room.players.length,
@@ -17794,7 +17791,7 @@ io.on('connection', (socket) => {
     });
   });
 
-  // DesconexiÃ³n
+  // Desconexión
   socket.on('disconnect', () => {
     const playerData = playerSockets.get(socket.id);
     if (playerData) {
@@ -18012,7 +18009,7 @@ app.post('/deepdive/subscription/subscribe', async (req, res) => {
 
     // Log OP tx (moneda='WC' if column exists)
     const hasMoneda = await oceanPayHasMonedaColumn();
-    const concept = `SuscripciÃ³n Pro (DeepDive) - ${plan === 'weekly' ? 'Semanal' : 'Mensual'}`;
+    const concept = `Suscripción Pro (DeepDive) - ${plan === 'weekly' ? 'Semanal' : 'Mensual'}`;
     if (hasMoneda) {
       await client.query(
         `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
@@ -18185,7 +18182,7 @@ app.post('/deepdive/subscription/renew', async (req, res) => {
     await client.query(`ALTER TABLE ocean_pay_txs ADD COLUMN IF NOT EXISTS moneda TEXT`);
 
     const hasMoneda = await oceanPayHasMonedaColumn();
-    const concept = `RenovaciÃ³n Pro (DeepDive) - ${plan === 'weekly' ? 'Semanal' : 'Mensual'}`;
+    const concept = `Renovación Pro (DeepDive) - ${plan === 'weekly' ? 'Semanal' : 'Mensual'}`;
     if (hasMoneda) {
       await client.query(
         `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
@@ -18303,7 +18300,7 @@ async function ensureWildXTables() {
     )
   `);
 
-  // Asegurar columnas nuevas si la tabla ya existÃ­a
+  // Asegurar columnas nuevas si la tabla ya existía
   await pool.query('ALTER TABLE wildx_posts ADD COLUMN IF NOT EXISTS parent_id INTEGER REFERENCES wildx_posts(id) ON DELETE CASCADE');
   await pool.query("ALTER TABLE wildx_posts ADD COLUMN IF NOT EXISTS likes_count INTEGER NOT NULL DEFAULT 0");
 
@@ -18409,7 +18406,7 @@ function getWildXUserId(req) {
   }
 }
 
-// Crear una notificaciÃ³n para un usuario de WildX
+// Crear una notificación para un usuario de WildX
 async function createWildXNotification(userId, type, payload) {
   if (!userId || !type) return;
   try {
@@ -18420,11 +18417,11 @@ async function createWildXNotification(userId, type, payload) {
       [userId, type, JSON.stringify(payload || {})]
     );
   } catch (err) {
-    console.error('Error creando notificaciÃ³n WildX:', err);
+    console.error('Error creando notificación WildX:', err);
   }
 }
 
-// Asegurar columnas extra en wildx_posts (estado, programaciÃ³n, borrado)
+// Asegurar columnas extra en wildx_posts (estado, programación, borrado)
 async function ensureWildXExtraColumns() {
   try {
     await pool.query(`
@@ -18434,7 +18431,7 @@ async function ensureWildXExtraColumns() {
       ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP NULL
     `);
   } catch (err) {
-    // Si la tabla aÃºn no existe, se crearÃ¡ en ensureWildXTables
+    // Si la tabla aún no existe, se creará en ensureWildXTables
     if (err.code !== '42P01') {
       console.warn('No se pudieron asegurar columnas extra de WildX:', err.message);
     }
@@ -18466,7 +18463,7 @@ app.post('/wildwave/api/register', async (req, res) => {
     const { username, password } = req.body || {};
     const uname = (username || '').toString().trim();
     const pwd = (password || '').toString();
-    if (!uname || !pwd) return res.status(400).json({ error: 'Usuario y contraseÃ±a requeridos' });
+    if (!uname || !pwd) return res.status(400).json({ error: 'Usuario y contraseña requeridos' });
     if (uname.length < 3) return res.status(400).json({ error: 'El usuario debe tener al menos 3 caracteres' });
 
     const hash = await bcrypt.hash(pwd, 10);
@@ -18495,7 +18492,7 @@ app.post('/wildwave/api/login', async (req, res) => {
     const { username, password } = req.body || {};
     const uname = (username || '').toString().trim();
     const pwd = (password || '').toString();
-    if (!uname || !pwd) return res.status(400).json({ error: 'Usuario y contraseÃ±a requeridos' });
+    if (!uname || !pwd) return res.status(400).json({ error: 'Usuario y contraseña requeridos' });
 
     const { rows } = await pool.query('SELECT id, username, pwd_hash, created_at FROM wildx_users WHERE username=$1', [uname]);
     if (!rows.length) return res.status(401).json({ error: 'Credenciales incorrectas' });
@@ -18522,7 +18519,7 @@ app.post('/wildwave/api/login', async (req, res) => {
   }
 });
 
-// Datos del usuario actual WildX (incluye stats bÃ¡sicas + verificaciÃ³n)
+// Datos del usuario actual WildX (incluye stats básicas + verificación)
 app.get('/wildwave/api/me', async (req, res) => {
   try {
     await ensureWildXTables();
@@ -18558,7 +18555,7 @@ app.get('/wildwave/api/me', async (req, res) => {
 
     const user = rows[0];
     if (user.username === 'Ocean and Wild Studios') {
-      // Cuenta admin con verificaciÃ³n especial dorada+roja
+      // Cuenta admin con verificación especial dorada+roja
       user.verify_tier = 'admin';
       user.verify_reason = user.verify_reason || 'Desarrollador de Juegos - +50 Proyectos aumentando en cantidad poco a poco.';
       user.verify_started_at = user.verify_started_at || user.created_at;
@@ -18574,7 +18571,7 @@ app.get('/wildwave/api/me', async (req, res) => {
   }
 });
 
-// SelecciÃ³n de post promocionado (uno a la vez)
+// Selección de post promocionado (uno a la vez)
 async function selectPromotedPost() {
   await ensureWildXTables();
   // Buscar promociones activas
@@ -18610,7 +18607,7 @@ async function selectPromotedPost() {
       chosen = poolAll[Math.floor(Math.random() * poolAll.length)];
     }
   } else {
-    // Sin nuevas, elegir cualquiera (se mantiene el â€œmismoâ€ en muchos casos)
+    // Sin nuevas, elegir cualquiera (se mantiene el “mismo” en muchos casos)
     chosen = promos[Math.floor(Math.random() * promos.length)];
   }
 
@@ -18725,17 +18722,17 @@ app.get('/wildwave/api/my-posts', async (req, res) => {
   }
 });
 
-// SuscripciÃ³n a verificaciÃ³n azul usando WildCredits via Ocean Pay
+// Suscripción a verificación azul usando WildCredits via Ocean Pay
 app.post('/wildwave/api/verify/blue/subscribe', async (req, res) => {
   try {
     await ensureWildXTables();
     const wid = getWildXUserId(req);
-    if (!wid) return res.status(401).json({ error: 'Inicia sesiÃ³n en WildX' });
+    if (!wid) return res.status(401).json({ error: 'Inicia sesión en WildX' });
 
     const { reason, oceanPayToken } = req.body || {};
     const r = (reason || '').toString().trim();
     if (!r || r.length < 5) {
-      return res.status(400).json({ error: 'Explica brevemente el motivo de tu verificaciÃ³n' });
+      return res.status(400).json({ error: 'Explica brevemente el motivo de tu verificación' });
     }
     if (!oceanPayToken) {
       return res.status(400).json({ error: 'Token de Ocean Pay requerido' });
@@ -18747,10 +18744,10 @@ app.post('/wildwave/api/verify/blue/subscribe', async (req, res) => {
       const decoded = jwt.verify(oceanPayToken, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
       opUserId = parseInt((decoded.id || decoded.uid)) || (decoded.id || decoded.uid);
     } catch (e) {
-      return res.status(401).json({ error: 'Token de Ocean Pay invÃ¡lido' });
+      return res.status(401).json({ error: 'Token de Ocean Pay inválido' });
     }
 
-    const DAILY_PRICE = 25; // WildCredits por dÃ­a de verificaciÃ³n azul
+    const DAILY_PRICE = 25; // WildCredits por día de verificación azul
 
     const client = await pool.connect();
     try {
@@ -18796,20 +18793,20 @@ app.post('/wildwave/api/verify/blue/subscribe', async (req, res) => {
         );
       }
 
-      // Registrar transacciÃ³n en Ocean Pay
+      // Registrar transacción en Ocean Pay
       await client.query(
         `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
          VALUES ($1, $2, $3, $4, 'WC')`,
-        [opUserId, 'SuscripciÃ³n diaria WildX Blue', -DAILY_PRICE, 'WildX']
+        [opUserId, 'Suscripción diaria WildX Blue', -DAILY_PRICE, 'WildX']
       ).catch(async () => {
         await client.query(
           `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
            VALUES ($1, $2, $3, $4)`,
-          [opUserId, 'SuscripciÃ³n diaria WildX Blue', -DAILY_PRICE, 'WildX']
+          [opUserId, 'Suscripción diaria WildX Blue', -DAILY_PRICE, 'WildX']
         );
       });
 
-      // Crear o extender verificaciÃ³n azul del usuario de WildX
+      // Crear o extender verificación azul del usuario de WildX
       const { rows: existing } = await client.query(
         `SELECT id FROM wildx_verifications
           WHERE user_id = $1 AND tier = 'blue'
@@ -18870,23 +18867,23 @@ async function isWildXAdmin(userId) {
   return uname === 'Ocean and Wild Studios';
 }
 
-// SuscripciÃ³n a verificaciÃ³n azul usando credenciales de Ocean Pay (WildCredits)
+// Suscripción a verificación azul usando credenciales de Ocean Pay (WildCredits)
 app.post('/wildwave/api/verify/blue/subscribe-credentials', async (req, res) => {
   try {
     await ensureWildXTables();
     const wid = getWildXUserId(req);
-    if (!wid) return res.status(401).json({ error: 'Inicia sesiÃ³n en WildX' });
+    if (!wid) return res.status(401).json({ error: 'Inicia sesión en WildX' });
 
     const { reason, opUsername, opPassword } = req.body || {};
     const r = (reason || '').toString().trim();
     if (!r || r.length < 5) {
-      return res.status(400).json({ error: 'Explica brevemente el motivo de tu verificaciÃ³n' });
+      return res.status(400).json({ error: 'Explica brevemente el motivo de tu verificación' });
     }
 
     const uname = (opUsername || '').toString().trim();
     const pwd = (opPassword || '').toString();
     if (!uname || !pwd) {
-      return res.status(400).json({ error: 'Usuario y contraseÃ±a de Ocean Pay requeridos' });
+      return res.status(400).json({ error: 'Usuario y contraseña de Ocean Pay requeridos' });
     }
 
     // Validar credenciales de Ocean Pay directamente contra ocean_pay_users
@@ -18903,7 +18900,7 @@ app.post('/wildwave/api/verify/blue/subscribe-credentials', async (req, res) => 
     }
     const opUserId = opRows[0].id;
 
-    const DAILY_PRICE = 25; // WildCredits por dÃ­a de verificaciÃ³n azul
+    const DAILY_PRICE = 25; // WildCredits por día de verificación azul
 
     const client = await pool.connect();
     try {
@@ -18949,20 +18946,20 @@ app.post('/wildwave/api/verify/blue/subscribe-credentials', async (req, res) => 
         );
       }
 
-      // Registrar transacciÃ³n en Ocean Pay (aparece en Historial de Transacciones)
+      // Registrar transacción en Ocean Pay (aparece en Historial de Transacciones)
       await client.query(
         `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
          VALUES ($1, $2, $3, $4, 'WC')`,
-        [opUserId, 'SuscripciÃ³n diaria WildX Blue', -DAILY_PRICE, 'WildX']
+        [opUserId, 'Suscripción diaria WildX Blue', -DAILY_PRICE, 'WildX']
       ).catch(async () => {
         await client.query(
           `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
            VALUES ($1, $2, $3, $4)`,
-          [opUserId, 'SuscripciÃ³n diaria WildX Blue', -DAILY_PRICE, 'WildX']
+          [opUserId, 'Suscripción diaria WildX Blue', -DAILY_PRICE, 'WildX']
         );
       });
 
-      // Crear o extender verificaciÃ³n azul del usuario de WildX
+      // Crear o extender verificación azul del usuario de WildX
       const { rows: existing } = await client.query(
         `SELECT id FROM wildx_verifications
           WHERE user_id = $1 AND tier = 'blue'
@@ -19020,7 +19017,7 @@ app.get('/wildwave/api/balance', async (req, res) => {
   try {
     await ensureWildXTables();
     const wid = getWildXUserId(req);
-    if (!wid) return res.status(401).json({ error: 'Inicia sesiÃ³n en WildX' });
+    if (!wid) return res.status(401).json({ error: 'Inicia sesión en WildX' });
     const { rows } = await pool.query(
       'SELECT wxt_balance FROM wildx_balances WHERE user_id = $1',
       [wid]
@@ -19038,7 +19035,7 @@ app.get('/wildwave/api/profile/tips-summary', async (req, res) => {
   try {
     await ensureWildXTables();
     const wid = getWildXUserId(req);
-    if (!wid) return res.status(401).json({ error: 'Inicia sesiÃ³n en WildX' });
+    if (!wid) return res.status(401).json({ error: 'Inicia sesión en WildX' });
 
     // Asegurar columna created_at para poder calcular "este mes" (si ya existe, no pasa nada)
     try {
@@ -19062,7 +19059,7 @@ app.get('/wildwave/api/profile/tips-summary', async (req, res) => {
       rows = result.rows;
     } catch (e) {
       if (e.code === '42P01') {
-        // Tabla aÃºn no existe: simplemente devolver ceros
+        // Tabla aún no existe: simplemente devolver ceros
         rows = [{ total_wxt: 0, month_wxt: 0 }];
       } else {
         throw e;
@@ -19086,7 +19083,7 @@ app.get('/wildwave/api/profile/tips-summary', async (req, res) => {
   }
 });
 
-// Constante de conversiÃ³n WildCredits â†’ WXT (reducciÃ³n para que cueste mÃ¡s promocionar)
+// Constante de conversión WildCredits → WXT (reducción para que cueste más promocionar)
 const WXT_PER_WC = 0.2; // 1 WXT por cada 5 WildCredits
 
 // Endpoint de test para acreditar WXT (solo Admin)
@@ -19094,7 +19091,7 @@ app.post('/wildwave/api/wxt/grant', async (req, res) => {
   try {
     await ensureWildXTables();
     const wid = getWildXUserId(req);
-    if (!wid) return res.status(401).json({ error: 'Inicia sesiÃ³n en WildX' });
+    if (!wid) return res.status(401).json({ error: 'Inicia sesión en WildX' });
     if (!(await isWildXAdmin(wid))) {
       return res.status(403).json({ error: 'Solo el administrador puede otorgar WXT de prueba.' });
     }
@@ -19102,7 +19099,7 @@ app.post('/wildwave/api/wxt/grant', async (req, res) => {
     const targetId = userId ? parseInt(userId, 10) : wid;
     const amt = Number(amount) || 0;
     if (!targetId || amt <= 0) {
-      return res.status(400).json({ error: 'ParÃ¡metros invÃ¡lidos' });
+      return res.status(400).json({ error: 'Parámetros inválidos' });
     }
     await pool.query(
       `INSERT INTO wildx_balances (user_id, wxt_balance)
@@ -19126,20 +19123,20 @@ app.post('/wildwave/api/posts/:id/donate', async (req, res) => {
     const wid = getWildXUserId(req);
     if (!wid) {
       client.release();
-      return res.status(401).json({ error: 'Inicia sesiÃ³n en WildX' });
+      return res.status(401).json({ error: 'Inicia sesión en WildX' });
     }
 
     const postId = parseInt(req.params.id, 10);
     if (!postId) {
       client.release();
-      return res.status(400).json({ error: 'Post invÃ¡lido' });
+      return res.status(400).json({ error: 'Post inválido' });
     }
 
     const { amount, oceanPayToken } = req.body || {};
     const wcAmount = parseInt(amount, 10);
     if (!Number.isFinite(wcAmount) || wcAmount <= 0) {
       client.release();
-      return res.status(400).json({ error: 'Cantidad de WildCredits invÃ¡lida' });
+      return res.status(400).json({ error: 'Cantidad de WildCredits inválida' });
     }
     if (!oceanPayToken) {
       client.release();
@@ -19169,7 +19166,7 @@ app.post('/wildwave/api/posts/:id/donate', async (req, res) => {
       opUserId = parseInt((decoded.id || decoded.uid)) || (decoded.id || decoded.uid);
     } catch (e) {
       client.release();
-      return res.status(401).json({ error: 'Token de Ocean Pay invÃ¡lido' });
+      return res.status(401).json({ error: 'Token de Ocean Pay inválido' });
     }
 
     await client.query('BEGIN');
@@ -19215,16 +19212,16 @@ app.post('/wildwave/api/posts/:id/donate', async (req, res) => {
       );
     }
 
-    // Registrar transacciÃ³n en Ocean Pay (historial)
+    // Registrar transacción en Ocean Pay (historial)
     await client.query(
       `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
        VALUES ($1, $2, $3, $4, 'WC')`,
-      [opUserId, `DonaciÃ³n a @${toUsername} en WildX (convertido a WXT)`, -wcAmount, 'WildX']
+      [opUserId, `Donación a @${toUsername} en WildX (convertido a WXT)`, -wcAmount, 'WildX']
     ).catch(async () => {
       await client.query(
         `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
          VALUES ($1, $2, $3, $4)`,
-        [opUserId, `DonaciÃ³n a @${toUsername} en WildX (convertido a WXT)`, -wcAmount, 'WildX']
+        [opUserId, `Donación a @${toUsername} en WildX (convertido a WXT)`, -wcAmount, 'WildX']
       );
     });
 
@@ -19248,7 +19245,7 @@ app.post('/wildwave/api/posts/:id/donate', async (req, res) => {
     await client.query('COMMIT');
     client.release();
 
-    // NotificaciÃ³n para el receptor (fuera de la transacciÃ³n principal)
+    // Notificación para el receptor (fuera de la transacción principal)
     createWildXNotification(toUserId, 'donation', {
       fromUserId: wid,
       postId,
@@ -19273,17 +19270,17 @@ app.post('/wildwave/api/posts/:id/promote', async (req, res) => {
     const wid = getWildXUserId(req);
     if (!wid) {
       client.release();
-      return res.status(401).json({ error: 'Inicia sesiÃ³n en WildX' });
+      return res.status(401).json({ error: 'Inicia sesión en WildX' });
     }
     const postId = parseInt(req.params.id, 10);
     if (!postId) {
       client.release();
-      return res.status(400).json({ error: 'Post invÃ¡lido' });
+      return res.status(400).json({ error: 'Post inválido' });
     }
-    const cost = Number(req.body?.cost || 10); // costo bÃ¡sico 10 WXT
+    const cost = Number(req.body?.cost || 10); // costo básico 10 WXT
     if (cost <= 0) {
       client.release();
-      return res.status(400).json({ error: 'Costo invÃ¡lido' });
+      return res.status(400).json({ error: 'Costo inválido' });
     }
 
     await client.query('BEGIN');
@@ -19320,7 +19317,7 @@ app.post('/wildwave/api/posts/:id/promote', async (req, res) => {
       [wid, newBal]
     );
 
-    // Crear o actualizar promociÃ³n
+    // Crear o actualizar promoción
     const { rows: existing } = await client.query(
       'SELECT id, amount_wxt FROM wildx_promotions WHERE post_id = $1 AND user_id = $2 AND active = TRUE FOR UPDATE',
       [postId, wid]
@@ -19344,7 +19341,7 @@ app.post('/wildwave/api/posts/:id/promote', async (req, res) => {
     await client.query('COMMIT');
     client.release();
 
-    // NotificaciÃ³n para el propio usuario indicando que la promociÃ³n fue registrada
+    // Notificación para el propio usuario indicando que la promoción fue registrada
     createWildXNotification(wid, 'promotion', {
       postId,
       amount: cost
@@ -19359,18 +19356,18 @@ app.post('/wildwave/api/posts/:id/promote', async (req, res) => {
   }
 });
 
-// Solicitud de verificaciÃ³n dorada (empresas)
+// Solicitud de verificación dorada (empresas)
 app.post('/wildwave/api/verify/gold/request', async (req, res) => {
   try {
     await ensureWildXTables();
     const wid = getWildXUserId(req);
-    if (!wid) return res.status(401).json({ error: 'Inicia sesiÃ³n en WildX' });
+    if (!wid) return res.status(401).json({ error: 'Inicia sesión en WildX' });
 
     const { companyName, reason } = req.body || {};
     const r = (reason || '').toString().trim();
     const company = (companyName || '').toString().trim();
     if (!r || r.length < 10) {
-      return res.status(400).json({ error: 'Explica mejor por quÃ© tu empresa merece verificaciÃ³n dorada.' });
+      return res.status(400).json({ error: 'Explica mejor por qué tu empresa merece verificación dorada.' });
     }
 
     await pool.query(`
@@ -19392,7 +19389,7 @@ app.post('/wildwave/api/verify/gold/request', async (req, res) => {
       [wid]
     );
     if (existing.length) {
-      return res.status(400).json({ error: 'Ya tienes una solicitud de verificaciÃ³n dorada pendiente.' });
+      return res.status(400).json({ error: 'Ya tienes una solicitud de verificación dorada pendiente.' });
     }
 
     const { rows } = await pool.query(
@@ -19406,7 +19403,7 @@ app.post('/wildwave/api/verify/gold/request', async (req, res) => {
   }
 });
 
-// Listado de solicitudes de verificaciÃ³n dorada (Admin)
+// Listado de solicitudes de verificación dorada (Admin)
 app.get('/wildwave/api/verify/gold/requests', async (req, res) => {
   try {
     await ensureWildXTables();
@@ -19442,7 +19439,7 @@ app.get('/wildwave/api/verify/gold/requests', async (req, res) => {
   }
 });
 
-// Aprobar verificaciÃ³n dorada (Admin)
+// Aprobar verificación dorada (Admin)
 app.post('/wildwave/api/verify/gold/requests/:id/approve', async (req, res) => {
   const client = await pool.connect();
   try {
@@ -19481,7 +19478,7 @@ app.post('/wildwave/api/verify/gold/requests/:id/approve', async (req, res) => {
       [id, wid, note || null]
     );
 
-    // Crear o actualizar verificaciÃ³n dorada (tier = 'gold') sin expiraciÃ³n cercana
+    // Crear o actualizar verificación dorada (tier = 'gold') sin expiración cercana
     const reason = reqRow.reason;
     const userId = reqRow.user_id;
     const farFuture = new Date();
@@ -19518,7 +19515,7 @@ app.post('/wildwave/api/verify/gold/requests/:id/approve', async (req, res) => {
   }
 });
 
-// Rechazar verificaciÃ³n dorada (Admin)
+// Rechazar verificación dorada (Admin)
 app.post('/wildwave/api/verify/gold/requests/:id/reject', async (req, res) => {
   const client = await pool.connect();
   try {
@@ -19568,13 +19565,13 @@ app.post('/wildwave/api/verify/gold/requests/:id/reject', async (req, res) => {
   }
 });
 
-// Crear post (requiere login, admite programaciÃ³n)
+// Crear post (requiere login, admite programación)
 app.post('/wildwave/api/posts', async (req, res) => {
   try {
     await ensureWildXTables();
     await ensureWildXExtraColumns();
     const wid = getWildXUserId(req);
-    if (!wid) return res.status(401).json({ error: 'Inicia sesiÃ³n para publicar' });
+    if (!wid) return res.status(401).json({ error: 'Inicia sesión para publicar' });
 
     const content = (req.body?.content || '').toString().trim();
     const parentIdRaw = req.body?.parentId;
@@ -19583,8 +19580,8 @@ app.post('/wildwave/api/posts', async (req, res) => {
 
     if (!content) return res.status(400).json({ error: 'Contenido requerido' });
 
-    // LÃ­mite de caracteres segÃºn verificaciÃ³n: base 280, +150% (700) si tiene verificaciÃ³n azul activa.
-    // Los administradores de WildX no tienen lÃ­mite de caracteres.
+    // Límite de caracteres según verificación: base 280, +150% (700) si tiene verificación azul activa.
+    // Los administradores de WildX no tienen límite de caracteres.
     const isAdmin = await isWildXAdmin(wid);
     let maxLen = 280;
 
@@ -19603,19 +19600,19 @@ app.post('/wildwave/api/posts', async (req, res) => {
           maxLen = 700; // 280 + 150% = 700
         }
       } catch (_) {
-        // si falla la consulta, mantener lÃ­mite base
+        // si falla la consulta, mantener límite base
       }
 
       if (content.length > maxLen) {
         const msg = maxLen === 280
-          ? 'MÃ¡ximo 280 caracteres'
-          : 'MÃ¡ximo 700 caracteres con tu verificaciÃ³n azul';
+          ? 'Máximo 280 caracteres'
+          : 'Máximo 700 caracteres con tu verificación azul';
         return res.status(400).json({ error: msg });
       }
     }
 
     if (parentId && Number.isNaN(parentId)) {
-      return res.status(400).json({ error: 'parentId invÃ¡lido' });
+      return res.status(400).json({ error: 'parentId inválido' });
     }
 
     let scheduledAt = null;
@@ -19663,10 +19660,10 @@ app.post('/wildwave/api/posts/:id/like', async (req, res) => {
   try {
     await ensureWildXTables();
     const wid = getWildXUserId(req);
-    if (!wid) return res.status(401).json({ error: 'Inicia sesiÃ³n para dar like' });
+    if (!wid) return res.status(401).json({ error: 'Inicia sesión para dar like' });
 
     const postId = parseInt(req.params.id, 10);
-    if (!postId) return res.status(400).json({ error: 'ID de post invÃ¡lido' });
+    if (!postId) return res.status(400).json({ error: 'ID de post inválido' });
 
     // No permitir dar like a tus propios posts
     const { rows: postOwnerRows } = await pool.query(
@@ -19733,7 +19730,7 @@ app.get('/wildwave/api/notifications', async (req, res) => {
   try {
     await ensureWildXTables();
     const wid = getWildXUserId(req);
-    if (!wid) return res.status(401).json({ error: 'Inicia sesiÃ³n en WildX' });
+    if (!wid) return res.status(401).json({ error: 'Inicia sesión en WildX' });
 
     const { rows } = await pool.query(
       `SELECT id, type, payload, created_at, read_at
@@ -19769,12 +19766,12 @@ app.get('/wildwave/api/notifications', async (req, res) => {
   }
 });
 
-// Marcar notificaciones como leÃ­das
+// Marcar notificaciones como leídas
 app.post('/wildwave/api/notifications/read', async (req, res) => {
   try {
     await ensureWildXTables();
     const wid = getWildXUserId(req);
-    if (!wid) return res.status(401).json({ error: 'Inicia sesiÃ³n en WildX' });
+    if (!wid) return res.status(401).json({ error: 'Inicia sesión en WildX' });
 
     await pool.query(
       `UPDATE wildx_notifications
@@ -19797,7 +19794,7 @@ app.get('/wildwave/api/posts/:id/thread', async (req, res) => {
     await ensureWildXExtraColumns();
     const wid = getWildXUserId(req) || 0;
     const postId = parseInt(req.params.id, 10);
-    if (!postId) return res.status(400).json({ error: 'ID de post invÃ¡lido' });
+    if (!postId) return res.status(400).json({ error: 'ID de post inválido' });
 
     const { rows } = await pool.query(
       `WITH RECURSIVE thread AS (
@@ -19843,7 +19840,7 @@ app.get('/wildwave/api/scheduled', async (req, res) => {
     await ensureWildXTables();
     await ensureWildXExtraColumns();
     const wid = getWildXUserId(req);
-    if (!wid) return res.status(401).json({ error: 'Inicia sesiÃ³n en WildX' });
+    if (!wid) return res.status(401).json({ error: 'Inicia sesión en WildX' });
     const { rows } = await pool.query(
       `SELECT id, user_id, username, content, created_at, parent_id, likes_count, scheduled_at, status
          FROM wildx_posts
@@ -19865,9 +19862,9 @@ app.delete('/wildwave/api/posts/:id', async (req, res) => {
     await ensureWildXTables();
     await ensureWildXExtraColumns();
     const wid = getWildXUserId(req);
-    if (!wid) return res.status(401).json({ error: 'Inicia sesiÃ³n en WildX' });
+    if (!wid) return res.status(401).json({ error: 'Inicia sesión en WildX' });
     const postId = parseInt(req.params.id, 10);
-    if (!postId) return res.status(400).json({ error: 'ID de post invÃ¡lido' });
+    if (!postId) return res.status(400).json({ error: 'ID de post inválido' });
 
     const { rows } = await pool.query('SELECT user_id FROM wildx_posts WHERE id=$1', [postId]);
     if (!rows.length) return res.status(404).json({ error: 'Post no encontrado' });
@@ -19893,13 +19890,13 @@ app.post('/wildwave/api/posts/:id/report', async (req, res) => {
   try {
     await ensureWildXReportsTable();
     const wid = getWildXUserId(req);
-    if (!wid) return res.status(401).json({ error: 'Inicia sesiÃ³n en WildX' });
+    if (!wid) return res.status(401).json({ error: 'Inicia sesión en WildX' });
     const postId = parseInt(req.params.id, 10);
-    if (!postId) return res.status(400).json({ error: 'ID de post invÃ¡lido' });
+    if (!postId) return res.status(400).json({ error: 'ID de post inválido' });
 
     const reasonRaw = (req.body?.reason || '').toString().trim();
     if (!reasonRaw || reasonRaw.length < 10) {
-      return res.status(400).json({ error: 'Describe mejor el motivo del reporte (mÃ­nimo 10 caracteres).' });
+      return res.status(400).json({ error: 'Describe mejor el motivo del reporte (mínimo 10 caracteres).' });
     }
 
     const { rows: postRows } = await pool.query('SELECT user_id FROM wildx_posts WHERE id=$1', [postId]);
@@ -20022,12 +20019,12 @@ app.get('/favicon.ico', (_req, res) => {
 
 /* ===== WORD BATTLE - JUEGO DE PALABRAS ===== */
 
-// Diccionario bÃ¡sico de palabras en espaÃ±ol (se puede expandir)
+// Diccionario básico de palabras en español (se puede expandir)
 const SPANISH_WORDS = new Set([
   'CASA', 'PERRO', 'GATO', 'MESA', 'SILLA', 'LIBRO', 'AGUA', 'FUEGO', 'TIERRA', 'AIRE',
   'SOL', 'LUNA', 'ESTRELLA', 'MAR', 'RIO', 'MONTE', 'VALLE', 'BOSQUE', 'CAMPO', 'CIUDAD',
   'AMOR', 'PAZ', 'GUERRA', 'VIDA', 'MUERTE', 'TIEMPO', 'ESPACIO', 'MUNDO', 'CIELO', 'INFIERNO',
-  'HOMBRE', 'MUJER', 'NIÃ‘O', 'NIÃ‘A', 'PADRE', 'MADRE', 'HIJO', 'HIJA', 'HERMANO', 'HERMANA',
+  'HOMBRE', 'MUJER', 'NIÑO', 'NIÑA', 'PADRE', 'MADRE', 'HIJO', 'HIJA', 'HERMANO', 'HERMANA',
   'AMIGO', 'ENEMIGO', 'REY', 'REINA', 'PRINCIPE', 'PRINCESA', 'CABALLERO', 'DRAGON', 'MAGO', 'BRUJA',
   'ESPADA', 'ESCUDO', 'ARCO', 'FLECHA', 'LANZA', 'HACHA', 'MARTILLO', 'CUCHILLO', 'DAGA', 'BASTON',
   'ORO', 'PLATA', 'BRONCE', 'HIERRO', 'ACERO', 'DIAMANTE', 'RUBI', 'ESMERALDA', 'ZAFIRO', 'PERLA',
@@ -20035,14 +20032,14 @@ const SPANISH_WORDS = new Set([
   'UNO', 'DOS', 'TRES', 'CUATRO', 'CINCO', 'SEIS', 'SIETE', 'OCHO', 'NUEVE', 'DIEZ',
   'LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES', 'SABADO', 'DOMINGO',
   'ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE',
-  'PRIMAVERA', 'VERANO', 'OTOÃ‘O', 'INVIERNO',
+  'PRIMAVERA', 'VERANO', 'OTOÑO', 'INVIERNO',
   'NORTE', 'SUR', 'ESTE', 'OESTE',
   'ARRIBA', 'ABAJO', 'IZQUIERDA', 'DERECHA', 'ADELANTE', 'ATRAS', 'DENTRO', 'FUERA',
-  'GRANDE', 'PEQUEÃ‘O', 'ALTO', 'BAJO', 'LARGO', 'CORTO', 'ANCHO', 'ESTRECHO', 'GORDO', 'FLACO',
+  'GRANDE', 'PEQUEÑO', 'ALTO', 'BAJO', 'LARGO', 'CORTO', 'ANCHO', 'ESTRECHO', 'GORDO', 'FLACO',
   'BUENO', 'MALO', 'BONITO', 'FEO', 'NUEVO', 'VIEJO', 'JOVEN', 'ANCIANO', 'RICO', 'POBRE',
   'FELIZ', 'TRISTE', 'ALEGRE', 'ENOJADO', 'ASUSTADO', 'SORPRENDIDO', 'CANSADO', 'DESPIERTO',
   'COMER', 'BEBER', 'DORMIR', 'DESPERTAR', 'CAMINAR', 'CORRER', 'SALTAR', 'VOLAR', 'NADAR', 'BUCEAR',
-  'HABLAR', 'ESCUCHAR', 'VER', 'MIRAR', 'OIR', 'OLER', 'TOCAR', 'SENTIR', 'PENSAR', 'SOÃ‘AR',
+  'HABLAR', 'ESCUCHAR', 'VER', 'MIRAR', 'OIR', 'OLER', 'TOCAR', 'SENTIR', 'PENSAR', 'SOÑAR',
   'LEER', 'ESCRIBIR', 'DIBUJAR', 'PINTAR', 'CANTAR', 'BAILAR', 'JUGAR', 'TRABAJAR', 'ESTUDIAR', 'APRENDER',
   'AMAR', 'ODIAR', 'QUERER', 'DESEAR', 'NECESITAR', 'PODER', 'DEBER', 'SABER', 'CONOCER', 'ENTENDER',
   'DAR', 'RECIBIR', 'TOMAR', 'DEJAR', 'PONER', 'QUITAR', 'TRAER', 'LLEVAR', 'BUSCAR', 'ENCONTRAR',
@@ -20051,26 +20048,26 @@ const SPANISH_WORDS = new Set([
   'COMPRAR', 'VENDER', 'PAGAR', 'COBRAR', 'GANAR', 'PERDER', 'AHORRAR', 'GASTAR', 'PRESTAR', 'DEVOLVER',
   'AYUDAR', 'PROTEGER', 'DEFENDER', 'ATACAR', 'LUCHAR', 'PELEAR', 'GANAR', 'PERDER', 'EMPATAR', 'RENDIR',
   'COMENZAR', 'TERMINAR', 'CONTINUAR', 'PARAR', 'SEGUIR', 'ESPERAR', 'LLEGAR', 'PARTIR', 'QUEDAR', 'VOLVER',
-  'DECIR', 'CONTAR', 'PREGUNTAR', 'RESPONDER', 'EXPLICAR', 'ENSEÃ‘AR', 'MOSTRAR', 'DEMOSTRAR', 'PROBAR', 'INTENTAR',
-  'CREER', 'DUDAR', 'CONFIAR', 'DESCONFIAR', 'ESPERAR', 'TEMER', 'DESEAR', 'ANHELAR', 'SOÃ‘AR', 'IMAGINAR',
+  'DECIR', 'CONTAR', 'PREGUNTAR', 'RESPONDER', 'EXPLICAR', 'ENSEÑAR', 'MOSTRAR', 'DEMOSTRAR', 'PROBAR', 'INTENTAR',
+  'CREER', 'DUDAR', 'CONFIAR', 'DESCONFIAR', 'ESPERAR', 'TEMER', 'DESEAR', 'ANHELAR', 'SOÑAR', 'IMAGINAR',
   // Palabras comunes adicionales
-  'PALABRA', 'LETRA', 'NUMERO', 'SIGNO', 'SIMBOLO', 'MARCA', 'SEÃ‘AL', 'AVISO', 'MENSAJE', 'NOTA',
+  'PALABRA', 'LETRA', 'NUMERO', 'SIGNO', 'SIMBOLO', 'MARCA', 'SEÑAL', 'AVISO', 'MENSAJE', 'NOTA',
   'PAPEL', 'LAPIZ', 'PLUMA', 'TINTA', 'PINCEL', 'COLOR', 'DIBUJO', 'PINTURA', 'CUADRO', 'FOTO',
   'MUSICA', 'CANCION', 'MELODIA', 'RITMO', 'SONIDO', 'RUIDO', 'SILENCIO', 'VOZ', 'GRITO', 'SUSURRO',
   'COMIDA', 'BEBIDA', 'PAN', 'CARNE', 'PESCADO', 'FRUTA', 'VERDURA', 'LECHE', 'QUESO', 'HUEVO',
   'ARROZ', 'PASTA', 'SOPA', 'ENSALADA', 'POSTRE', 'DULCE', 'SALADO', 'AMARGO', 'ACIDO', 'PICANTE',
   'CAFE', 'TE', 'JUGO', 'VINO', 'CERVEZA', 'REFRESCO', 'HELADO', 'CHOCOLATE', 'CARAMELO', 'GALLETA',
   'ROPA', 'CAMISA', 'PANTALON', 'FALDA', 'VESTIDO', 'ZAPATO', 'BOTA', 'SANDALIA', 'SOMBRERO', 'GORRA',
-  'ABRIGO', 'CHAQUETA', 'SUETER', 'BUFANDA', 'GUANTE', 'CALCETÃN', 'MEDIA', 'ROPA INTERIOR', 'PIJAMA', 'TRAJE',
+  'ABRIGO', 'CHAQUETA', 'SUETER', 'BUFANDA', 'GUANTE', 'CALCETÍN', 'MEDIA', 'ROPA INTERIOR', 'PIJAMA', 'TRAJE',
   'COCHE', 'CARRO', 'AUTO', 'CAMION', 'AUTOBUS', 'TREN', 'AVION', 'BARCO', 'BICICLETA', 'MOTO',
   'CASA', 'EDIFICIO', 'TORRE', 'PUENTE', 'CALLE', 'AVENIDA', 'PLAZA', 'PARQUE', 'JARDIN', 'PATIO',
   'PUERTA', 'VENTANA', 'PARED', 'TECHO', 'SUELO', 'ESCALERA', 'ASCENSOR', 'BALCON', 'TERRAZA', 'SOTANO',
-  'COCINA', 'BAÃ‘O', 'SALA', 'COMEDOR', 'DORMITORIO', 'HABITACION', 'CUARTO', 'OFICINA', 'ESTUDIO', 'BIBLIOTECA',
+  'COCINA', 'BAÑO', 'SALA', 'COMEDOR', 'DORMITORIO', 'HABITACION', 'CUARTO', 'OFICINA', 'ESTUDIO', 'BIBLIOTECA',
   'ESCUELA', 'COLEGIO', 'UNIVERSIDAD', 'INSTITUTO', 'ACADEMIA', 'CLASE', 'AULA', 'SALON', 'LABORATORIO', 'GIMNASIO',
   'HOSPITAL', 'CLINICA', 'FARMACIA', 'DOCTOR', 'MEDICO', 'ENFERMERA', 'PACIENTE', 'MEDICINA', 'PASTILLA', 'INYECCION',
   'TIENDA', 'MERCADO', 'SUPERMERCADO', 'CENTRO COMERCIAL', 'ALMACEN', 'BODEGA', 'DEPOSITO', 'FABRICA', 'TALLER', 'EMPRESA',
   'BANCO', 'DINERO', 'MONEDA', 'BILLETE', 'TARJETA', 'CREDITO', 'DEBITO', 'CUENTA', 'AHORRO', 'PRESTAMO',
-  'TRABAJO', 'EMPLEO', 'PROFESION', 'OFICIO', 'CARRERA', 'NEGOCIO', 'EMPRESA', 'COMPAÃ‘IA', 'ORGANIZACION', 'INSTITUCION',
+  'TRABAJO', 'EMPLEO', 'PROFESION', 'OFICIO', 'CARRERA', 'NEGOCIO', 'EMPRESA', 'COMPAÑIA', 'ORGANIZACION', 'INSTITUCION',
   'JEFE', 'EMPLEADO', 'TRABAJADOR', 'OBRERO', 'INGENIERO', 'ARQUITECTO', 'ABOGADO', 'CONTADOR', 'SECRETARIA', 'GERENTE',
   'ARTE', 'ARTISTA', 'PINTOR', 'ESCULTOR', 'MUSICO', 'CANTANTE', 'BAILARIN', 'ACTOR', 'ACTRIZ', 'DIRECTOR',
   'DEPORTE', 'FUTBOL', 'BALONCESTO', 'TENIS', 'NATACION', 'ATLETISMO', 'GIMNASIA', 'BOXEO', 'LUCHA', 'CICLISMO',
@@ -20084,24 +20081,24 @@ const SPANISH_WORDS = new Set([
   'PATO', 'GANSO', 'CISNE', 'PALOMA', 'LORO', 'AGUILA', 'HALCON', 'BUHO', 'LECHUZA', 'CUERVO',
   'TIBURON', 'BALLENA', 'DELFIN', 'FOCA', 'MORSA', 'PULPO', 'CALAMAR', 'MEDUSA', 'ESTRELLA DE MAR', 'CANGREJO',
   'SERPIENTE', 'LAGARTO', 'COCODRILO', 'CAIMAN', 'TORTUGA', 'IGUANA', 'CAMALEON', 'SALAMANDRA', 'RANA', 'SAPO',
-  'ABEJA', 'AVISPA', 'HORMIGA', 'MOSCA', 'MOSQUITO', 'MARIPOSA', 'POLILLA', 'LIBÃ‰LULA', 'GRILLO', 'SALTAMONTES',
-  'ARAÃ‘A', 'ESCORPION', 'CIEMPIES', 'MILPIES', 'CARACOL', 'BABOSA', 'LOMBRIZ', 'SANGUIJUELA', 'GARRAPATA', 'PULGA',
+  'ABEJA', 'AVISPA', 'HORMIGA', 'MOSCA', 'MOSQUITO', 'MARIPOSA', 'POLILLA', 'LIBÉLULA', 'GRILLO', 'SALTAMONTES',
+  'ARAÑA', 'ESCORPION', 'CIEMPIES', 'MILPIES', 'CARACOL', 'BABOSA', 'LOMBRIZ', 'SANGUIJUELA', 'GARRAPATA', 'PULGA',
   'PLANTA', 'ARBOL', 'FLOR', 'HIERBA', 'PASTO', 'CESPED', 'HOJA', 'RAMA', 'TRONCO', 'RAIZ',
   'ROSA', 'TULIPAN', 'MARGARITA', 'GIRASOL', 'ORQUIDEA', 'LIRIO', 'CLAVEL', 'JAZMIN', 'VIOLETA', 'AMAPOLA',
   'PINO', 'ROBLE', 'SAUCE', 'OLMO', 'HAYA', 'ABEDUL', 'CEREZO', 'MANZANO', 'NARANJO', 'LIMONERO',
   'FRUTA', 'MANZANA', 'PERA', 'NARANJA', 'LIMON', 'PLATANO', 'UVA', 'FRESA', 'CEREZA', 'MELOCOTON',
-  'SANDIA', 'MELON', 'PIÃ‘A', 'MANGO', 'PAPAYA', 'KIWI', 'COCO', 'AGUACATE', 'TOMATE', 'PEPINO',
+  'SANDIA', 'MELON', 'PIÑA', 'MANGO', 'PAPAYA', 'KIWI', 'COCO', 'AGUACATE', 'TOMATE', 'PEPINO',
   'ZANAHORIA', 'PAPA', 'CEBOLLA', 'AJO', 'LECHUGA', 'REPOLLO', 'BROCOLI', 'COLIFLOR', 'ESPARRAGO', 'APIO',
   'PIMIENTO', 'CHILE', 'BERENJENA', 'CALABAZA', 'CALABACIN', 'RABANO', 'NABO', 'REMOLACHA', 'ESPINACA', 'ACELGA',
-  // MÃ¡s palabras comunes
+  // Más palabras comunes
   'COSA', 'OBJETO', 'ARTICULO', 'ELEMENTO', 'PARTE', 'PIEZA', 'TROZO', 'PEDAZO', 'FRAGMENTO', 'PORCION',
   'TODO', 'NADA', 'ALGO', 'ALGUIEN', 'NADIE', 'TODOS', 'ALGUNOS', 'VARIOS', 'MUCHOS', 'POCOS',
   'MAS', 'MENOS', 'MUCHO', 'POCO', 'BASTANTE', 'DEMASIADO', 'SUFICIENTE', 'INSUFICIENTE', 'EXCESO', 'FALTA',
   'BIEN', 'MAL', 'MEJOR', 'PEOR', 'IGUAL', 'DIFERENTE', 'MISMO', 'OTRO', 'DISTINTO', 'SIMILAR',
   'AQUI', 'ALLI', 'AHI', 'CERCA', 'LEJOS', 'JUNTO', 'SEPARADO', 'UNIDO', 'DIVIDIDO', 'ROTO',
   'AHORA', 'ANTES', 'DESPUES', 'LUEGO', 'PRONTO', 'TARDE', 'TEMPRANO', 'SIEMPRE', 'NUNCA', 'JAMAS',
-  'HOY', 'AYER', 'MAÃ‘ANA', 'ANTEAYER', 'PASADO MAÃ‘ANA', 'SEMANA', 'MES', 'AÃ‘O', 'SIGLO', 'MILENIO',
-  'MOMENTO', 'INSTANTE', 'SEGUNDO', 'MINUTO', 'HORA', 'DIA', 'NOCHE', 'MAÃ‘ANA', 'TARDE', 'MEDIODIA',
+  'HOY', 'AYER', 'MAÑANA', 'ANTEAYER', 'PASADO MAÑANA', 'SEMANA', 'MES', 'AÑO', 'SIGLO', 'MILENIO',
+  'MOMENTO', 'INSTANTE', 'SEGUNDO', 'MINUTO', 'HORA', 'DIA', 'NOCHE', 'MAÑANA', 'TARDE', 'MEDIODIA',
   'AMANECER', 'ATARDECER', 'ANOCHECER', 'MEDIANOCHE', 'ALBA', 'OCASO', 'CREPUSCULO', 'AURORA', 'PENUMBRA', 'SOMBRA',
   'LUZ', 'OSCURIDAD', 'BRILLO', 'RESPLANDOR', 'FULGOR', 'DESTELLO', 'RAYO', 'RELAMPAGO', 'TRUENO', 'TORMENTA',
   'LLUVIA', 'NIEVE', 'GRANIZO', 'NIEBLA', 'NEBLINA', 'ROCIO', 'ESCARCHA', 'HIELO', 'VAPOR', 'HUMO',
@@ -20110,10 +20107,10 @@ const SPANISH_WORDS = new Set([
   'PRINCIPIO', 'FIN', 'INICIO', 'FINAL', 'COMIENZO', 'TERMINO', 'ORIGEN', 'DESTINO', 'CAUSA', 'EFECTO',
   'RAZON', 'MOTIVO', 'PROPOSITO', 'OBJETIVO', 'META', 'FIN', 'INTENCION', 'DESEO', 'VOLUNTAD', 'DECISION',
   'IDEA', 'PENSAMIENTO', 'CONCEPTO', 'NOCION', 'OPINION', 'JUICIO', 'CRITERIO', 'PUNTO DE VISTA', 'PERSPECTIVA', 'ENFOQUE',
-  'VERDAD', 'MENTIRA', 'REALIDAD', 'FICCION', 'FANTASIA', 'ILUSION', 'SUEÃ‘O', 'PESADILLA', 'VISION', 'ALUCINACION',
+  'VERDAD', 'MENTIRA', 'REALIDAD', 'FICCION', 'FANTASIA', 'ILUSION', 'SUEÑO', 'PESADILLA', 'VISION', 'ALUCINACION',
   'PROBLEMA', 'SOLUCION', 'PREGUNTA', 'RESPUESTA', 'DUDA', 'CERTEZA', 'SEGURIDAD', 'INSEGURIDAD', 'CONFIANZA', 'DESCONFIANZA',
   'MIEDO', 'VALOR', 'VALENTIA', 'COBARDIA', 'CORAJE', 'AUDACIA', 'TEMERIDAD', 'PRUDENCIA', 'CAUTELA', 'PRECAUCION',
-  'FUERZA', 'DEBILIDAD', 'PODER', 'IMPOTENCIA', 'CAPACIDAD', 'INCAPACIDAD', 'HABILIDAD', 'TORPEZA', 'DESTREZA', 'MAÃ‘A',
+  'FUERZA', 'DEBILIDAD', 'PODER', 'IMPOTENCIA', 'CAPACIDAD', 'INCAPACIDAD', 'HABILIDAD', 'TORPEZA', 'DESTREZA', 'MAÑA',
   'INTELIGENCIA', 'ESTUPIDEZ', 'SABIDURIA', 'IGNORANCIA', 'CONOCIMIENTO', 'DESCONOCIMIENTO', 'CIENCIA', 'ARTE', 'TECNICA', 'METODO',
   'ORDEN', 'DESORDEN', 'ORGANIZACION', 'CAOS', 'ESTRUCTURA', 'SISTEMA', 'ESQUEMA', 'PLAN', 'PROYECTO', 'PROGRAMA',
   'LEY', 'REGLA', 'NORMA', 'PRINCIPIO', 'VALOR', 'MORAL', 'ETICA', 'JUSTICIA', 'INJUSTICIA', 'DERECHO',
@@ -20171,7 +20168,7 @@ async function ensureWordBattleTables() {
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_wb_rooms_status ON word_battle_rooms(status)`);
 }
 
-// Generar cÃ³digo de sala Ãºnico
+// Generar código de sala único
 function generateRoomCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let code = '';
@@ -20195,7 +20192,7 @@ app.post('/api/word-battle/room/create', async (req, res) => {
     let roomCode;
     let attempts = 0;
 
-    // Intentar generar un cÃ³digo Ãºnico
+    // Intentar generar un código único
     while (attempts < 10) {
       roomCode = generateRoomCode();
       const { rows } = await pool.query(
@@ -20208,7 +20205,7 @@ app.post('/api/word-battle/room/create', async (req, res) => {
     }
 
     if (attempts >= 10) {
-      return res.status(500).json({ error: 'No se pudo generar cÃ³digo Ãºnico' });
+      return res.status(500).json({ error: 'No se pudo generar código único' });
     }
 
     const players = [{ userId, name: playerName, lives: 3, attempts: 0, eliminated: false, isHost: true }];
@@ -20251,15 +20248,15 @@ app.post('/api/word-battle/room/join', async (req, res) => {
     const players = room.players || [];
 
     if (players.length >= 6) {
-      return res.status(400).json({ error: 'Sala llena (mÃ¡ximo 6 jugadores)' });
+      return res.status(400).json({ error: 'Sala llena (máximo 6 jugadores)' });
     }
 
     if (players.some(p => p.userId === userId)) {
-      return res.status(400).json({ error: 'Ya estÃ¡s en esta sala' });
+      return res.status(400).json({ error: 'Ya estás en esta sala' });
     }
 
     if (players.some(p => p.name === playerName)) {
-      return res.status(400).json({ error: 'Este nombre ya estÃ¡ en uso' });
+      return res.status(400).json({ error: 'Este nombre ya está en uso' });
     }
 
     players.push({ userId, name: playerName, lives: 3, attempts: 0, eliminated: false, isHost: false });
@@ -20406,7 +20403,7 @@ app.post('/api/word-battle/room/:roomCode/leave', async (req, res) => {
   }
 });
 
-// Verificar si una palabra es vÃ¡lida
+// Verificar si una palabra es válida
 app.post('/api/word-battle/verify', async (req, res) => {
   try {
     const { word } = req.body;
@@ -20417,7 +20414,7 @@ app.post('/api/word-battle/verify', async (req, res) => {
 
     const upperWord = word.toUpperCase().trim();
 
-    // Verificar si la palabra estÃ¡ en el diccionario
+    // Verificar si la palabra está en el diccionario
     const valid = SPANISH_WORDS.has(upperWord);
 
     res.json({ valid });
@@ -20487,7 +20484,7 @@ app.get('/api/word-battle/rewards/:userId', async (req, res) => {
   }
 });
 
-// ... (AquÃ­ terminan todas tus rutas de app.get/app.post) ...
+// ... (Aquí terminan todas tus rutas de app.get/app.post) ...
 
 /* =========================================
    ECOCONSOLE API ENDPOINTS
@@ -20506,7 +20503,7 @@ const verifyEcoConsoleToken = (req, res, next) => {
     req.userId = parseInt((decoded.id || decoded.uid)) || (decoded.id || decoded.uid);
     next();
   } catch (e) {
-    return res.status(401).json({ error: 'Token invÃ¡lido' });
+    return res.status(401).json({ error: 'Token inválido' });
   }
 };
 
@@ -20537,9 +20534,9 @@ async function ensureEcoConsoleTable() {
       )
     `);
 
-    console.log('âœ… Tablas de EcoConsole aseguradas');
+    console.log('✅ Tablas de EcoConsole aseguradas');
   } catch (err) {
-    console.error('âŒ Error creando tablas EcoConsole:', err);
+    console.error('❌ Error creando tablas EcoConsole:', err);
   }
 }
 
@@ -20567,7 +20564,7 @@ app.get('/ecoconsole/quota', verifyEcoConsoleToken, async (req, res) => {
       const now = new Date();
       const hoursSinceReset = (now - lastReset) / (1000 * 60 * 60);
 
-      // Reset diario despuÃ©s de 24 horas
+      // Reset diario después de 24 horas
       if (hoursSinceReset >= 24) {
         await pool.query(
           `UPDATE ecoconsole_quota 
@@ -20630,7 +20627,7 @@ app.post('/ecoconsole/use-command', verifyEcoConsoleToken, async (req, res) => {
       );
     }
 
-    // Registrar transacciÃ³n
+    // Registrar transacción
     await pool.query(
       `INSERT INTO ecoconsole_transactions (user_id, type, command_name, description) 
        VALUES ($1, 'command_use', $2, 'Uso de comando')`,
@@ -20644,7 +20641,7 @@ app.post('/ecoconsole/use-command', verifyEcoConsoleToken, async (req, res) => {
   }
 });
 
-// Comprar mÃ¡s cuota con EcoCoreBits
+// Comprar más cuota con EcoCoreBits
 app.post('/ecoconsole/purchase-quota', verifyEcoConsoleToken, async (req, res) => {
   const { pack } = req.body; // 'small' (25 por 100 ECB), 'large' (100 por 350 ECB)
   const userId = req.userId;
@@ -20656,7 +20653,7 @@ app.post('/ecoconsole/purchase-quota', verifyEcoConsoleToken, async (req, res) =
 
   const selectedPack = packs[pack];
   if (!selectedPack) {
-    return res.status(400).json({ error: 'Pack invÃ¡lido' });
+    return res.status(400).json({ error: 'Pack inválido' });
   }
 
   const client = await pool.connect();
@@ -20689,7 +20686,7 @@ app.post('/ecoconsole/purchase-quota', verifyEcoConsoleToken, async (req, res) =
       [selectedPack.cost, userId]
     );
 
-    // AÃ±adir cuota bonus
+    // Añadir cuota bonus
     await client.query(
       `INSERT INTO ecoconsole_quota (user_id, bonus_quota) 
        VALUES ($1, $2)
@@ -20698,7 +20695,7 @@ app.post('/ecoconsole/purchase-quota', verifyEcoConsoleToken, async (req, res) =
       [userId, selectedPack.quota]
     );
 
-    // Registrar transacciÃ³n
+    // Registrar transacción
     await client.query(
       `INSERT INTO ecoconsole_transactions (user_id, type, cost, description) 
        VALUES ($1, 'quota_purchase', $2, $3)`,
@@ -20733,7 +20730,7 @@ app.post('/ecoconsole/paid-command', verifyEcoConsoleToken, async (req, res) => 
   const userId = req.userId;
 
   if (!commandName || !cost || cost <= 0) {
-    return res.status(400).json({ error: 'Datos invÃ¡lidos' });
+    return res.status(400).json({ error: 'Datos inválidos' });
   }
 
   const client = await pool.connect();
@@ -20761,7 +20758,7 @@ app.post('/ecoconsole/paid-command', verifyEcoConsoleToken, async (req, res) => 
       [cost, userId]
     );
 
-    // Registrar transacciÃ³n
+    // Registrar transacción
     await client.query(
       `INSERT INTO ecoconsole_transactions (user_id, type, command_name, cost, description) 
        VALUES ($1, 'paid_command', $2, $3, $4)`,
@@ -20820,7 +20817,7 @@ app.get('/ecoconsole/health', (_req, res) => {
 });
 
 // =================================================================
-// FUNCIÃ“N PARA ASEGURAR TABLA DE MONEDAS DEL USUARIO (user_currency)
+// FUNCIÓN PARA ASEGURAR TABLA DE MONEDAS DEL USUARIO (user_currency)
 // =================================================================
 async function ensureUserCurrencyTable() {
   try {
@@ -20831,7 +20828,7 @@ async function ensureUserCurrencyTable() {
       CREATE TABLE IF NOT EXISTS user_currency (
         id SERIAL PRIMARY KEY,
         
-        -- Clave forÃ¡nea para relacionarla con tu tabla de usuarios (ocean_pay_users)
+        -- Clave foránea para relacionarla con tu tabla de usuarios (ocean_pay_users)
         user_id INT NOT NULL REFERENCES ocean_pay_users(id) ON DELETE CASCADE, 
         
         currency_type VARCHAR(50) NOT NULL,
@@ -20840,7 +20837,7 @@ async function ensureUserCurrencyTable() {
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
         
-        -- Clave Ãºnica: Un usuario solo puede tener un registro por tipo de moneda.
+        -- Clave única: Un usuario solo puede tener un registro por tipo de moneda.
         UNIQUE(user_id, currency_type) 
       );
     `);
@@ -20848,12 +20845,12 @@ async function ensureUserCurrencyTable() {
     console.log("Tabla 'user_currency' asegurada y lista para nadar.");
 
   } catch (err) {
-    console.error("âŒ ERROR al asegurar la tabla 'user_currency':", err);
+    console.error("❌ ERROR al asegurar la tabla 'user_currency':", err);
   }
 }
 
 // =================================================================
-// CÃ“DIGO DE INICIALIZACIÃ“N (Al final de server.js)
+// CÓDIGO DE INICIALIZACIÓN (Al final de server.js)
 // =================================================================
 
 await ensureDatabase();
@@ -20868,9 +20865,9 @@ await ensureEcoConsoleTable();
 // Crear tablas de NatMarket
 await createNatMarketTables();
 
-// ðŸ’¡ CORRECCIÃ“N 1: Llama a la limpieza DESPUÃ‰S de asegurar que todas las tablas existen.
+// 💡 CORRECCIÓN 1: Llama a la limpieza DESPUÉS de asegurar que todas las tablas existen.
 console.log("Iniciando limpieza de eventos antiguos...");
-await cleanupOldEvents(); // <--- ASEGÃšRATE DE QUE SE EJECUTA AQUÃ
+await cleanupOldEvents(); // <--- ASEGÚRATE DE QUE SE EJECUTA AQUÍ
 console.log("Limpieza de eventos antiguos finalizada.");
 
 // ========== FLORET SHOP TABLES ==========
@@ -20885,7 +20882,7 @@ await pool.query(`
     power_level INTEGER DEFAULT 0, -- 0: User, 1: Sub-Admin (Malevo), 2: Super-Admin (OceanandWild)
     created_at TIMESTAMP DEFAULT NOW()
   )
-`).catch(() => console.log('âš ï¸ Tabla floret_users ya existe'));
+`).catch(() => console.log('⚠️ Tabla floret_users ya existe'));
 
 // Add columns if they don't exist
 await pool.query(`ALTER TABLE floret_users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE`).catch(() => { });
@@ -20905,7 +20902,7 @@ await pool.query(`
     measurements VARCHAR(100),
     created_at TIMESTAMP DEFAULT NOW()
   )
-`).catch(() => console.log('âš ï¸ Tabla floret_products ya existe'));
+`).catch(() => console.log('⚠️ Tabla floret_products ya existe'));
 
 await pool.query(`ALTER TABLE floret_products ADD COLUMN IF NOT EXISTS stock INTEGER DEFAULT 1`).catch(() => { });
 await pool.query(`ALTER TABLE floret_products ADD COLUMN IF NOT EXISTS seller_email VARCHAR(120) DEFAULT 'karatedojor@gmail.com'`).catch(() => { });
@@ -20926,7 +20923,7 @@ await pool.query(`
     comment TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT NOW()
   )
-`).catch(() => console.log('âš ï¸ Tabla floret_product_reviews ya existe'));
+`).catch(() => console.log('⚠️ Tabla floret_product_reviews ya existe'));
 
 await pool.query(`
   CREATE TABLE IF NOT EXISTS floret_seller_reviews (
@@ -20938,7 +20935,7 @@ await pool.query(`
     comment TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT NOW()
   )
-`).catch(() => console.log('âš ï¸ Tabla floret_seller_reviews ya existe'));
+`).catch(() => console.log('⚠️ Tabla floret_seller_reviews ya existe'));
 
 await pool.query(`
   CREATE TABLE IF NOT EXISTS floret_notifications (
@@ -20954,7 +20951,7 @@ await pool.query(`
     is_read BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT NOW()
   )
-`).catch(() => console.log('âš ï¸ Tabla floret_notifications ya existe'));
+`).catch(() => console.log('⚠️ Tabla floret_notifications ya existe'));
 
 await pool.query(`CREATE INDEX IF NOT EXISTS idx_floret_product_reviews_product ON floret_product_reviews(product_id, created_at DESC)`).catch(() => { });
 await pool.query(`CREATE INDEX IF NOT EXISTS idx_floret_seller_reviews_email ON floret_seller_reviews(seller_email, created_at DESC)`).catch(() => { });
@@ -20970,7 +20967,7 @@ await pool.query(`
     last_upload_time TIMESTAMP,
     cycle_active BOOLEAN DEFAULT FALSE
   )
-`).catch(() => console.log('âš ï¸ Tabla floret_admin_quotas ya existe'));
+`).catch(() => console.log('⚠️ Tabla floret_admin_quotas ya existe'));
 
 // Ensure Malevo and OceanandWild are set up correctly if they exist
 try {
@@ -20979,10 +20976,10 @@ try {
     UPDATE floret_users SET is_admin = true, power_level = 1 WHERE username = 'Malevo' OR email = 'karatedojor@gmail.com';
   `);
 } catch (e) {
-  console.log('âš ï¸ Error updating floret admin roles:', e.message);
+  console.log('⚠️ Error updating floret admin roles:', e.message);
 }
 
-console.log('ðŸŒ¸ Tablas de Floret Shop verificadas');
+console.log('🌸 Tablas de Floret Shop verificadas');
 
 // ==========================================
 // OCEAN PAY - NEW FEATURES (POS, CARDS, STATS)
@@ -21019,20 +21016,9 @@ async function ensureOceanPayTables() {
       end_date TIMESTAMP,
       created_at TIMESTAMP DEFAULT NOW()
     );
+  `).catch(e => console.log('⚠️ Error base:', e.message));
 
-    CREATE TABLE IF NOT EXISTS ocean_pay_verification_profiles (
-      id SERIAL PRIMARY KEY,
-      user_id INTEGER UNIQUE NOT NULL REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
-      plan_id VARCHAR(40) NOT NULL DEFAULT 'tidal',
-      badge_color VARCHAR(40) NOT NULL DEFAULT 'red',
-      status VARCHAR(20) NOT NULL DEFAULT 'active',
-      start_date TIMESTAMP DEFAULT NOW(),
-      end_date TIMESTAMP,
-      created_at TIMESTAMP DEFAULT NOW(),
-      updated_at TIMESTAMP DEFAULT NOW()
-    );
-  `).catch(e => console.log('âš ï¸ Error base:', e.message));
-
+  // Migraciones rápidas para asegurar columnas nuevas y flexibilizar antiguas
   await pool.query(`
     ALTER TABLE ocean_pay_subscriptions ADD COLUMN IF NOT EXISTS plan_name VARCHAR(50);
     ALTER TABLE ocean_pay_subscriptions ADD COLUMN IF NOT EXISTS end_date TIMESTAMP;
@@ -21041,40 +21027,31 @@ async function ensureOceanPayTables() {
     ALTER TABLE ocean_pay_subscriptions ALTER COLUMN sub_name DROP NOT NULL;
     ALTER TABLE ocean_pay_subscriptions ALTER COLUMN next_payment DROP NOT NULL;
     ALTER TABLE ocean_pay_subscriptions ALTER COLUMN next_payment SET DEFAULT NOW();
-  `).catch((e) => console.log('âš ï¸ Error migraciÃ³n:', e.message));
-
-  await pool.query(`
-    ALTER TABLE ocean_pay_verification_profiles ADD COLUMN IF NOT EXISTS plan_id VARCHAR(40) DEFAULT 'tidal';
-    ALTER TABLE ocean_pay_verification_profiles ADD COLUMN IF NOT EXISTS badge_color VARCHAR(40) DEFAULT 'red';
-    ALTER TABLE ocean_pay_verification_profiles ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'active';
-    ALTER TABLE ocean_pay_verification_profiles ADD COLUMN IF NOT EXISTS start_date TIMESTAMP DEFAULT NOW();
-    ALTER TABLE ocean_pay_verification_profiles ADD COLUMN IF NOT EXISTS end_date TIMESTAMP;
-    ALTER TABLE ocean_pay_verification_profiles ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW();
-  `).catch((e) => console.log('âš ï¸ Error migraciÃ³n verification:', e.message));
+  `).catch((e) => console.log('⚠️ Error migración:', e.message));
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS ocean_pay_notifications (
-      id SERIAL PRIMARY KEY,
-      user_id INTEGER NOT NULL REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
-      type VARCHAR(20) NOT NULL,
-      title VARCHAR(100) NOT NULL,
-      message TEXT,
-      is_read BOOLEAN DEFAULT false,
-      created_at TIMESTAMP DEFAULT NOW()
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
+        type VARCHAR(20) NOT NULL, -- 'success', 'error', 'info', 'warning'
+        title VARCHAR(100) NOT NULL,
+        message TEXT,
+        is_read BOOLEAN DEFAULT false,
+        created_at TIMESTAMP DEFAULT NOW()
     );
-  `).catch(e => console.log('âš ï¸ Error notificaciones:', e.message));
+  `).catch(e => console.log('⚠️ Error notificaciones:', e.message));
 }
 await ensureOceanPayTables();
 cancelLegacyWildTransferSubscriptions()
   .then((result) => {
     if (Number(result?.migrated || 0) > 0) {
-      console.log(`âœ… WildTransfer migration: ${result.migrated} suscripciones legacy canceladas (RelayShards).`);
+      console.log(`✅ WildTransfer migration: ${result.migrated} suscripciones legacy canceladas (RelayShards).`);
     } else {
-      console.log('â„¹ï¸ WildTransfer migration: sin suscripciones legacy para cancelar.');
+      console.log('ℹ️ WildTransfer migration: sin suscripciones legacy para cancelar.');
     }
   })
   .catch((err) => {
-    console.error('âš ï¸ WildTransfer migration error:', err.message);
+    console.error('⚠️ WildTransfer migration error:', err.message);
   });
 
 // Subscriptions Endpoints
@@ -21138,227 +21115,6 @@ async function createNotification(userId, type, title, message) {
   }
 }
 
-
-const OCEAN_VERIFY_COLORS = {
-  rainbow: 'Arcoiris',
-  red: 'Roja',
-  violet: 'Violeta',
-  emerald: 'Esmeralda',
-  rose: 'Rosa',
-  orange: 'Naranja',
-  silver: 'Plateada',
-  white: 'Blanca',
-  obsidian: 'Obsidiana'
-};
-
-const OCEAN_VERIFY_PLANS = [
-  {
-    id: 'tidal',
-    name: 'Tidal Verify',
-    price: 350,
-    currency: 'wildgems',
-    days: 30,
-    perks: ['Badge premium', 'Visibilidad mejorada del perfil', 'Soporte prioritario basico']
-  },
-  {
-    id: 'nebula',
-    name: 'Nebula Verify',
-    price: 900,
-    currency: 'wildgems',
-    days: 30,
-    perks: ['Badge avanzado', 'Soporte prioritario alto', 'Etiqueta mejorada en identidad']
-  },
-  {
-    id: 'prism',
-    name: 'Prism Verify',
-    price: 1800,
-    currency: 'wildgems',
-    days: 30,
-    perks: ['Badge personalizable', 'Paleta premium', 'Distintivo elite en Ocean Pay']
-  }
-];
-const OCEAN_VERIFY_PLAN_MAP = new Map(OCEAN_VERIFY_PLANS.map((p) => [p.id, p]));
-
-function normalizeVerifyColor(input) {
-  const key = String(input || '').trim().toLowerCase();
-  if (OCEAN_VERIFY_COLORS[key]) return key;
-  return 'red';
-}
-
-function isOceanPayOwnerAdmin(username) {
-  return String(username || '').trim().toLowerCase() === 'oceanandwild';
-}
-
-async function getOceanPayVerificationProfile(client, userId, username) {
-  if (isOceanPayOwnerAdmin(username)) {
-    return {
-      isAdmin: true,
-      status: 'active',
-      planId: 'admin',
-      planName: 'Admin Owner',
-      badgeColor: 'rainbow',
-      badgeColorLabel: OCEAN_VERIFY_COLORS.rainbow,
-      perks: ['Acceso total', 'Badge unico de admin', 'Prioridad absoluta'],
-      endDate: null
-    };
-  }
-
-  const { rows } = await client.query(
-    `SELECT plan_id, badge_color, status, start_date, end_date
-       FROM ocean_pay_verification_profiles
-      WHERE user_id = $1
-      ORDER BY updated_at DESC NULLS LAST, id DESC
-      LIMIT 1`,
-    [userId]
-  );
-
-  if (!rows.length) {
-    const fallback = OCEAN_VERIFY_PLAN_MAP.get('tidal');
-    return {
-      isAdmin: false,
-      status: 'inactive',
-      planId: 'tidal',
-      planName: fallback.name,
-      badgeColor: 'red',
-      badgeColorLabel: OCEAN_VERIFY_COLORS.red,
-      perks: fallback.perks,
-      endDate: null
-    };
-  }
-
-  const row = rows[0];
-  const plan = OCEAN_VERIFY_PLAN_MAP.get(row.plan_id) || OCEAN_VERIFY_PLAN_MAP.get('tidal');
-  const endDate = row.end_date ? new Date(row.end_date) : null;
-  const now = new Date();
-  const isExpired = endDate && endDate <= now;
-
-  return {
-    isAdmin: false,
-    status: isExpired ? 'expired' : (row.status || 'active'),
-    planId: plan.id,
-    planName: plan.name,
-    badgeColor: normalizeVerifyColor(row.badge_color),
-    badgeColorLabel: OCEAN_VERIFY_COLORS[normalizeVerifyColor(row.badge_color)] || OCEAN_VERIFY_COLORS.red,
-    perks: plan.perks,
-    endDate: row.end_date || null
-  };
-}
-
-app.get('/ocean-pay/verification/plans', (_req, res) => {
-  res.json({
-    plans: OCEAN_VERIFY_PLANS,
-    colors: Object.entries(OCEAN_VERIFY_COLORS).map(([id, label]) => ({ id, label }))
-  });
-});
-
-app.get('/ocean-pay/verification/status', async (req, res) => {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader) return res.status(401).json({ error: 'Token requerido' });
-    const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    const userId = decoded.id || decoded.uid;
-
-    const { rows: userRows } = await pool.query('SELECT username FROM ocean_pay_users WHERE id = $1', [userId]);
-    if (!userRows.length) return res.status(404).json({ error: 'Usuario no encontrado' });
-
-    const profile = await getOceanPayVerificationProfile(pool, userId, userRows[0].username);
-    res.json(profile);
-  } catch (e) {
-    if (e.name === 'TokenExpiredError') return res.status(401).json({ error: 'Token expirado' });
-    console.error('Ocean Pay verification status error:', e);
-    res.status(500).json({ error: 'No se pudo obtener el estado de verificacion' });
-  }
-});
-
-app.post('/ocean-pay/verification/subscribe', async (req, res) => {
-  const client = await pool.connect();
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader) return res.status(401).json({ error: 'Token requerido' });
-    const token = authHeader.substring(7);
-    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
-    const userId = decoded.id || decoded.uid;
-    const planId = String(req.body?.planId || '').trim().toLowerCase();
-    const selectedColor = normalizeVerifyColor(req.body?.badgeColor);
-
-    const plan = OCEAN_VERIFY_PLAN_MAP.get(planId);
-    if (!plan) return res.status(400).json({ error: 'Plan no valido' });
-
-    const { rows: userRows } = await client.query('SELECT username FROM ocean_pay_users WHERE id = $1', [userId]);
-    if (!userRows.length) return res.status(404).json({ error: 'Usuario no encontrado' });
-    const username = userRows[0].username;
-
-    if (isOceanPayOwnerAdmin(username)) {
-      const profile = await getOceanPayVerificationProfile(client, userId, username);
-      return res.json({ success: true, verification: profile, skippedCharge: true });
-    }
-
-    await client.query('BEGIN');
-
-    const { rows: cardRows } = await client.query(
-      `SELECT id, balances
-         FROM ocean_pay_cards
-        WHERE user_id = $1
-        ORDER BY is_primary DESC, id ASC
-        LIMIT 1
-        FOR UPDATE`,
-      [userId]
-    );
-    if (!cardRows.length) {
-      await client.query('ROLLBACK');
-      return res.status(404).json({ error: 'No se encontro una tarjeta para debitar el plan' });
-    }
-
-    const card = cardRows[0];
-    const balances = card.balances || {};
-    const current = Number(balances[plan.currency] || 0);
-    if (!Number.isFinite(current) || current < Number(plan.price)) {
-      await client.query('ROLLBACK');
-      return res.status(400).json({ error: `Saldo insuficiente (${plan.currency.toUpperCase()})` });
-    }
-
-    balances[plan.currency] = Number((current - Number(plan.price)).toFixed(2));
-    await client.query('UPDATE ocean_pay_cards SET balances = $1 WHERE id = $2', [balances, card.id]);
-
-    await client.query(
-      `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [userId, `Suscripcion verificacion ${plan.name}`, -Number(plan.price), 'Ocean Pay Verification', plan.currency]
-    );
-
-    const now = new Date();
-    const end = new Date(now);
-    end.setDate(end.getDate() + Number(plan.days || 30));
-
-    await client.query(
-      `INSERT INTO ocean_pay_verification_profiles (user_id, plan_id, badge_color, status, start_date, end_date, updated_at)
-       VALUES ($1, $2, $3, 'active', NOW(), $4, NOW())
-       ON CONFLICT (user_id)
-       DO UPDATE SET plan_id = EXCLUDED.plan_id,
-                     badge_color = EXCLUDED.badge_color,
-                     status = 'active',
-                     start_date = NOW(),
-                     end_date = EXCLUDED.end_date,
-                     updated_at = NOW()`,
-      [userId, plan.id, selectedColor, end]
-    );
-
-    await client.query('COMMIT');
-
-    createNotification(userId, 'success', 'Verificacion actualizada', `Tu plan ${plan.name} esta activo hasta ${end.toLocaleDateString('es-ES')}.`).catch(() => { });
-
-    const verification = await getOceanPayVerificationProfile(pool, userId, username);
-    res.json({ success: true, verification });
-  } catch (e) {
-    await client.query('ROLLBACK').catch(() => { });
-    if (e.name === 'TokenExpiredError') return res.status(401).json({ error: 'Token expirado' });
-    console.error('Ocean Pay verification subscribe error:', e);
-    res.status(500).json({ error: 'No se pudo activar la verificacion' });
-  } finally {
-    client.release();
-  }
-});
 // Sync Ecoxionums from Client (Ecoxion App)
 app.post('/ocean-pay/sync-ecoxionums', async (req, res) => {
   try {
@@ -21401,7 +21157,7 @@ app.post('/ocean-pay/sync-ecoxionums', async (req, res) => {
       // Log Transaction
       await client.query(
         "INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)",
-        [userId, 'SincronizaciÃ³n Ecoxion (App)', amount, 'Ecoxion', 'ecoxionums']
+        [userId, 'Sincronización Ecoxion (App)', amount, 'Ecoxion', 'ecoxionums']
       );
 
       await client.query('COMMIT');
@@ -21474,7 +21230,7 @@ app.post('/ocean-pay/subscriptions/purchase', async (req, res) => {
       // Log TX
       await client.query(
         "INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)",
-        [userId, `SuscripciÃ³n: ${subName}`, -price, projectId, currency]
+        [userId, `Suscripción: ${subName}`, -price, projectId, currency]
       );
 
       // Save Sub
@@ -21557,10 +21313,10 @@ setInterval(async () => {
 
           await client.query(
             "INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)",
-            [sub.user_id, `RenovaciÃ³n: ${displayName}`, -sub.price, sub.project_id, sub.currency]
+            [sub.user_id, `Renovación: ${displayName}`, -sub.price, sub.project_id, sub.currency]
           );
 
-          await createNotification(sub.user_id, 'success', 'SuscripciÃ³n Renovada', `Tu suscripciÃ³n a ${displayName} ha sido renovada exitosamente por ${sub.price} ${sub.currency}.`);
+          await createNotification(sub.user_id, 'success', 'Suscripción Renovada', `Tu suscripción a ${displayName} ha sido renovada exitosamente por ${sub.price} ${sub.currency}.`);
 
           console.log(`[SUBS] Renovado ${displayName} para usuario ${sub.user_id}`);
         } else {
@@ -21576,16 +21332,16 @@ setInterval(async () => {
           await createNotification(
             sub.user_id,
             'error',
-            'SuscripciÃ³n Cancelada',
-            `No pudimos renovar tu ${displayName} por saldo insuficiente (${current} ${sub.currency}). Tu suscripciÃ³n ha sido cancelada.`
+            'Suscripción Cancelada',
+            `No pudimos renovar tu ${displayName} por saldo insuficiente (${current} ${sub.currency}). Tu suscripción ha sido cancelada.`
           );
 
-          console.log(`[SUBS] SuspensiÃ³n por falta de pago: ${displayName} (Usuario ${sub.user_id})`);
+          console.log(`[SUBS] Suspensión por falta de pago: ${displayName} (Usuario ${sub.user_id})`);
         }
         await client.query('COMMIT');
       } catch (e) {
         await client.query('ROLLBACK');
-        console.error(`[SUBS] Error procesando renovaciÃ³n ${sub.id}:`, e.message);
+        console.error(`[SUBS] Error procesando renovación ${sub.id}:`, e.message);
       } finally {
         client.release();
       }
@@ -21593,7 +21349,7 @@ setInterval(async () => {
   } catch (e) {
     console.error('[SUBS] Error en worker:', e.message);
   }
-}, 3600000); // Cada 1 hora (o ajustado segÃºn necesidad de demo)
+}, 3600000); // Cada 1 hora (o ajustado según necesidad de demo)
 
 // Rename card
 app.patch('/ocean-pay/api/cards/:id/rename', async (req, res) => {
@@ -21606,14 +21362,14 @@ app.patch('/ocean-pay/api/cards/:id/rename', async (req, res) => {
     const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
     userId = (decoded.id || decoded.uid) || decoded.id;
   } catch (e) {
-    return res.status(401).json({ error: 'Token invÃ¡lido' });
+    return res.status(401).json({ error: 'Token inválido' });
   }
 
   const { name } = req.body;
   const cardId = req.params.id;
 
   if (!name || name.trim() === '') {
-    return res.status(400).json({ error: 'Nombre invÃ¡lido' });
+    return res.status(400).json({ error: 'Nombre inválido' });
   }
 
   try {
@@ -21651,7 +21407,7 @@ app.post('/ocean-pay/api/transfer-self', async (req, res) => {
       if (u.rows.length) userId = u.rows[0].id;
     }
   } catch (e) {
-    return res.status(401).json({ error: 'Token invÃ¡lido' });
+    return res.status(401).json({ error: 'Token inválido' });
   }
 
   if (!userId) return res.status(404).json({ error: 'Usuario no encontrado' });
@@ -21660,7 +21416,7 @@ app.post('/ocean-pay/api/transfer-self', async (req, res) => {
   const amt = parseFloat(amount);
 
   if (!sourceCardId || !destCardId || !currency || amt <= 0) {
-    return res.status(400).json({ error: 'Datos invÃ¡lidos' });
+    return res.status(400).json({ error: 'Datos inválidos' });
   }
 
   if (sourceCardId === destCardId) {
@@ -21754,7 +21510,7 @@ app.delete(['/ocean-pay/api/cards/:id', '/ocean-pay/cards/:id'], async (req, res
       if (u.rows.length) userId = u.rows[0].id;
     }
   } catch (e) {
-    return res.status(401).json({ error: 'Token invÃ¡lido' });
+    return res.status(401).json({ error: 'Token inválido' });
   }
 
   if (!userId) {
@@ -21765,7 +21521,7 @@ app.delete(['/ocean-pay/api/cards/:id', '/ocean-pay/cards/:id'], async (req, res
   const cardId = parseInt(requestId);
   if (isNaN(cardId)) {
     console.log(`[DELETE /ocean-pay/cards/${requestId}] Invalid Card ID.`);
-    return res.status(400).json({ error: 'ID de tarjeta invÃ¡lido' });
+    return res.status(400).json({ error: 'ID de tarjeta inválido' });
   }
 
   try {
@@ -21810,7 +21566,7 @@ app.get('/ocean-pay/api/stats/transactions', async (req, res) => {
       if (u.rows.length) userId = u.rows[0].id;
     }
   } catch (e) {
-    return res.status(401).json({ error: 'Token invÃ¡lido' });
+    return res.status(401).json({ error: 'Token inválido' });
   }
 
   if (!userId) return res.status(404).json({ error: 'Usuario no encontrado' });
@@ -21976,7 +21732,7 @@ app.post('/ocean-pay/ecobooks/change', async (req, res) => {
       );
       if (cardVerify.length === 0) {
         await client.query('ROLLBACK');
-        return res.status(403).json({ error: 'Tarjeta no vÃ¡lida' });
+        return res.status(403).json({ error: 'Tarjeta no válida' });
       }
 
       const { rows } = await client.query(
@@ -22041,7 +21797,7 @@ app.get('/ocean-pay/subscriptions/me', async (req, res) => {
   }
 });
 
-// Comprar/Renovar SuscripciÃ³n Premium (Semanal)
+// Comprar/Renovar Suscripción Premium (Semanal)
 app.post('/ocean-pay/subscriptions/subscribe', async (req, res) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) return res.status(401).json({ error: 'No autorizado' });
@@ -22068,7 +21824,7 @@ app.post('/ocean-pay/subscriptions/subscribe', async (req, res) => {
     let tableWildgems = parseFloat(balanceRows[0]?.amount || 0);
     let jsonWildgems = parseFloat(balances.wildgems || 0);
 
-    // El saldo real es el mayor o la uniÃ³n (siguiendo lÃ³gica de /ocean-pay/me)
+    // El saldo real es el mayor o la unión (siguiendo lógica de /ocean-pay/me)
     let currentWildgems = Math.max(tableWildgems, jsonWildgems);
 
     if (currentWildgems < price) throw new Error('Saldo insuficiente de WildGems');
@@ -22087,7 +21843,7 @@ app.post('/ocean-pay/subscriptions/subscribe', async (req, res) => {
       ON CONFLICT(card_id, currency_type) DO UPDATE SET amount = $2
     `, [cardId, newWildgems]);
 
-    // 3. Crear suscripciÃ³n (o extender si ya existe una activa del mismo tipo)
+    // 3. Crear suscripción (o extender si ya existe una activa del mismo tipo)
     const endDate = new Date();
     endDate.setDate(endDate.getDate() + durationDays);
 
@@ -22097,10 +21853,10 @@ app.post('/ocean-pay/subscriptions/subscribe', async (req, res) => {
       [userId, plan, subName || plan, projectId, price, endDate, 'wildgems', cardId]
     );
 
-    // 4. Crear notificaciÃ³n de Ã©xito
+    // 4. Crear notificación de éxito
     await client.query(
       'INSERT INTO ocean_pay_notifications(user_id, title, message, type) VALUES($1, $2, $3, $4)',
-      [userId, 'SuscripciÃ³n Activada', `Â¡Felicidades! Tu plan ${plan} de ${projectId} ha sido activado correctamente por ${durationDays} dÃ­as.`, 'success']
+      [userId, 'Suscripción Activada', `¡Felicidades! Tu plan ${plan} de ${projectId} ha sido activado correctamente por ${durationDays} días.`, 'success']
     );
 
     await client.query('COMMIT');
@@ -22124,11 +21880,11 @@ app.get('/ocean-pay/notifications/me', async (req, res) => {
     const { rows } = await pool.query('SELECT * FROM ocean_pay_notifications WHERE user_id = $1 ORDER BY created_at DESC LIMIT 20', [userId]);
     res.json(rows);
   } catch (e) {
-    res.status(401).json({ error: 'Token invÃ¡lido' });
+    res.status(401).json({ error: 'Token inválido' });
   }
 });
 
-// Marcar notificaciÃ³n como leÃ­da
+// Marcar notificación como leída
 app.post('/ocean-pay/notifications/read/:id', async (req, res) => {
   const { id } = req.params;
   await pool.query('UPDATE ocean_pay_notifications SET is_read = TRUE WHERE id = $1', [id]);
@@ -22137,16 +21893,16 @@ app.post('/ocean-pay/notifications/read/:id', async (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 httpServer.listen(PORT, '0.0.0.0', () => {
-  console.log(`ðŸš€ API corriendo en https://owsdatabase.onrender.com/`);
-  console.log(`ï¿½ Puerto:  ${PORT}`);
-  console.log(`ðŸŽ® Sistema de Quiz Kahoot activo`);
+  console.log(`🚀 API corriendo en https://owsdatabase.onrender.com/`);
+  console.log(`� Puerto:  ${PORT}`);
+  console.log(`🎮 Sistema de Quiz Kahoot activo`);
 
   // Ejecutar migraciones una sola vez
   if (!migrationExecuted) {
     migrationExecuted = true;
     setTimeout(() => {
       notifyUnlinkedUsers();
-    }, 5000); // Esperar 5 segundos despuÃ©s del inicio
+    }, 5000); // Esperar 5 segundos después del inicio
   }
 });
 

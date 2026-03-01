@@ -1,9 +1,9 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="es">
 
 <head>
   <meta charset="utf-8" />
-  <title>Ocean Pay â€“ Tu billetera universal</title>
+  <title>Ocean Pay – Tu billetera universal</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
@@ -206,76 +206,6 @@
 
     .pass-ticket-badge.active {
       display: inline-flex;
-    }
-
-    .op-verify-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      margin-top: 4px;
-      padding: 4px 10px;
-      border-radius: 999px;
-      font-size: 0.66rem;
-      font-weight: 900;
-      letter-spacing: .08em;
-      text-transform: uppercase;
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      color: #f8fafc;
-      background: rgba(15, 23, 42, 0.75);
-      width: fit-content;
-    }
-
-    .op-verify-badge i {
-      font-size: 0.72rem;
-    }
-
-    .op-verify-admin {
-      background: linear-gradient(135deg, #6d28d9, #0ea5e9, #14b8a6);
-      border-color: rgba(255, 255, 255, 0.5);
-      box-shadow: 0 0 20px rgba(14, 165, 233, 0.35);
-      animation: adminBadgePulse 2.6s ease-in-out infinite;
-      color: #ffffff;
-    }
-
-    .op-verify-tier1 {
-      background: linear-gradient(135deg, #0891b2, #06b6d4);
-      color: #ecfeff;
-    }
-
-    .op-verify-tier2 {
-      background: linear-gradient(135deg, #6d28d9, #a855f7);
-      color: #f5f3ff;
-    }
-
-    .op-verify-tier3 {
-      background: linear-gradient(120deg, #ef4444, #f97316, #22c55e, #ec4899, #8b5cf6, #e2e8f0);
-      background-size: 300% 300%;
-      animation: rainbowShift 5s linear infinite;
-      color: #ffffff;
-      border-color: rgba(255, 255, 255, 0.45);
-    }
-
-    @keyframes rainbowShift {
-      0% {
-        background-position: 0% 50%;
-      }
-
-      100% {
-        background-position: 100% 50%;
-      }
-    }
-
-    @keyframes adminBadgePulse {
-      0%,
-      100% {
-        transform: scale(1);
-        filter: brightness(1);
-      }
-
-      50% {
-        transform: scale(1.04);
-        filter: brightness(1.12);
-      }
     }
 
     .user-id {
@@ -624,7 +554,7 @@
     }
 
     .mission-card::after {
-      content: 'ðŸ’§';
+      content: '💧';
       position: absolute;
       top: -10px;
       right: -10px;
@@ -1448,7 +1378,7 @@
       }
     }
 
-    /* --- BILLETERA: REDISEÃ‘O VISUAL PREMIUM --- */
+    /* --- BILLETERA: REDISEÑO VISUAL PREMIUM --- */
     .wallet-viewport {
       animation: sectionEnter 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     }
@@ -1465,7 +1395,7 @@
       }
     }
 
-    /* Hero: DiseÃ±o tipo "dashboard premium" con glassmorphism intenso */
+    /* Hero: Diseño tipo "dashboard premium" con glassmorphism intenso */
     .wallet-hero {
       background: linear-gradient(145deg, rgba(6, 78, 99, 0.25) 0%, rgba(15, 23, 42, 0.6) 40%, rgba(30, 58, 138, 0.15) 100%);
       border: 1px solid rgba(34, 211, 238, 0.2);
@@ -1506,7 +1436,7 @@
       z-index: 0;
     }
 
-    /* PatrÃ³n grid sutil sobre el hero */
+    /* Patrón grid sutil sobre el hero */
     .wallet-hero {
       background-image: linear-gradient(145deg, rgba(6, 78, 99, 0.2) 0%, rgba(15, 23, 42, 0.7) 40%, rgba(30, 58, 138, 0.1) 100%),
         linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
@@ -1870,7 +1800,7 @@
     }
 
 
-    /* Sidebar derecho: cards con mÃ¡s personalidad */
+    /* Sidebar derecho: cards con más personalidad */
     .wallet-side-stack {
       display: flex;
       flex-direction: column;
@@ -1916,99 +1846,6 @@
       font-family: 'Plus Jakarta Sans', sans-serif;
       font-weight: 800;
       color: white;
-    }
-
-    .profile-summary-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 10px;
-    }
-
-    .profile-summary-item {
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 14px;
-      padding: 12px 14px;
-      background: rgba(255, 255, 255, 0.02);
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .profile-summary-item .stat-label {
-      font-size: 0.76rem;
-      text-transform: uppercase;
-      letter-spacing: .08em;
-    }
-
-    .profile-summary-item .stat-value {
-      font-size: 0.94rem;
-      text-align: right;
-    }
-
-    .verify-plans-grid {
-      display: grid;
-      gap: 12px;
-    }
-
-    .verify-plan-card {
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 16px;
-      background: rgba(2, 6, 23, 0.5);
-      padding: 14px;
-      transition: border-color .2s ease, transform .2s ease;
-    }
-
-    .verify-plan-card:hover {
-      border-color: rgba(34, 211, 238, 0.4);
-      transform: translateY(-1px);
-    }
-
-    .verify-plan-title {
-      font-weight: 800;
-      font-size: .92rem;
-      color: #e2e8f0;
-      margin-bottom: 4px;
-    }
-
-    .verify-plan-price {
-      color: #22d3ee;
-      font-size: .8rem;
-      font-weight: 700;
-      margin-bottom: 8px;
-    }
-
-    .verify-plan-perks {
-      color: #94a3b8;
-      font-size: .74rem;
-      line-height: 1.35;
-      margin-bottom: 10px;
-      min-height: 42px;
-    }
-
-    .verify-color-picker {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin: 10px 0 6px;
-    }
-
-    .verify-color-chip {
-      border-radius: 999px;
-      border: 1px solid rgba(255, 255, 255, 0.28);
-      color: #e2e8f0;
-      background: rgba(15, 23, 42, 0.8);
-      font-size: 0.68rem;
-      font-weight: 700;
-      padding: 5px 9px;
-      cursor: pointer;
-      text-transform: uppercase;
-      letter-spacing: .06em;
-    }
-
-    .verify-color-chip.active {
-      border-color: #22d3ee;
-      box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.15);
     }
 
     .card-mini-preview {
@@ -2235,18 +2072,18 @@
   <div id="auth-section" class="auth-overlay">
     <div class="auth-card">
       <div class="brand" style="justify-content: center; margin-bottom: 2rem;">
-        <h1>ðŸŒŠ Ocean Pay</h1>
+        <h1>🌊 Ocean Pay</h1>
       </div>
 
       <!-- Login Form -->
       <form id="loginForm" class="form-box">
-        <h2 style="margin-bottom: 1.5rem;">Iniciar SesiÃ³n</h2>
+        <h2 style="margin-bottom: 1.5rem;">Iniciar Sesión</h2>
         <input type="text" id="logUser" required placeholder="Usuario" />
-        <input type="password" id="logPass" required placeholder="ContraseÃ±a" />
+        <input type="password" id="logPass" required placeholder="Contraseña" />
         <button type="submit">Entrar</button>
         <p id="logMsg" class="msg"></p>
         <p style="margin-top: 1.5rem; font-size: 0.9rem; color: #94a3b8;">
-          Â¿No tienes cuenta? <a href="#" id="toRegister" style="color: var(--accent);">RegÃ­strate</a>
+          ¿No tienes cuenta? <a href="#" id="toRegister" style="color: var(--accent);">Regístrate</a>
         </p>
       </form>
 
@@ -2254,11 +2091,11 @@
       <form id="regForm" class="form-box hidden">
         <h2 style="margin-bottom: 1.5rem;">Crear Cuenta</h2>
         <input type="text" id="regUser" required placeholder="Nuevo Usuario" />
-        <input type="password" id="regPass" required placeholder="ContraseÃ±a" />
+        <input type="password" id="regPass" required placeholder="Contraseña" />
         <button type="submit">Crear Cuenta</button>
         <p id="regMsg" class="msg"></p>
         <p style="margin-top: 1.5rem; font-size: 0.9rem; color: #94a3b8;">
-          Â¿Ya tienes cuenta? <a href="#" id="toLogin" style="color: var(--accent);">Inicia SesiÃ³n</a>
+          ¿Ya tienes cuenta? <a href="#" id="toLogin" style="color: var(--accent);">Inicia Sesión</a>
         </p>
       </form>
     </div>
@@ -2281,7 +2118,7 @@
             <canvas id="checkout-product-canvas" class="currency-canvas" data-currency="wildgems"></canvas>
           </div>
           <div class="product-info">
-            <h3 id="checkout-concept-display">SuscripciÃ³n Premium</h3>
+            <h3 id="checkout-concept-display">Suscripción Premium</h3>
             <p id="checkout-origin-display">WildShorts VIP</p>
           </div>
         </div>
@@ -2305,7 +2142,7 @@
         <div id="method-external" class="method-section hidden">
           <div class="card-form">
             <div class="input-wrapper">
-              <label>NÃºmero de Tarjeta</label>
+              <label>Número de Tarjeta</label>
               <input type="text" id="ext-card-number" class="checkout-input" placeholder="0000 0000 0000 0000"
                 maxlength="19">
             </div>
@@ -2339,7 +2176,7 @@
         <button id="checkout-confirm-btn" class="btn-checkout-confirm" onclick="confirmCheckout()">
           Confirmar y Pagar
         </button>
-        <button class="btn-checkout-cancel" onclick="closeCheckout()">Cancelar transacciÃ³n</button>
+        <button class="btn-checkout-cancel" onclick="closeCheckout()">Cancelar transacción</button>
       </div>
     </div>
   </div>
@@ -2349,31 +2186,31 @@
     <!-- Sidebar -->
     <aside class="sidebar">
       <div class="brand">
-        <h1>ðŸŒŠ Ocean Pay</h1>
+        <h1>🌊 Ocean Pay</h1>
       </div>
 
       <nav class="nav-menu">
         <button class="nav-item active" onclick="showSection('wallet')">
-          <span>ðŸ’³</span> Billetera
+          <span>💳</span> Billetera
         </button>
         <button class="nav-item" onclick="showSection('history')">
-          <span>ðŸ“‹</span> Historial
+          <span>📋</span> Historial
         </button>
         <button class="nav-item" onclick="showSection('pos')">
-          <span>ðŸ§</span> POS Virtual
+          <span>🏧</span> POS Virtual
         </button>
         <button class="nav-item" onclick="showSection('pass')">
-          <span>ðŸ›¡ï¸</span> Ocean Pass
+          <span>🛡️</span> Ocean Pass
         </button>
         <button class="nav-item" onclick="showSection('notifications')">
-          <span>ðŸ””</span> Notificaciones
+          <span>🔔</span> Notificaciones
         </button>
 
         <button class="nav-item" onclick="showSection('misc')">
-          <span>ðŸ“Š</span> Misc.
+          <span>📊</span> Misc.
         </button>
         <button class="nav-item" onclick="showSection('settings')">
-          <span>âš™ï¸</span> Ajustes
+          <span>⚙️</span> Ajustes
         </button>
       </nav>
 
@@ -2382,10 +2219,6 @@
         <div class="user-info-text">
           <span class="user-name" id="userNameDisplay">Usuario</span>
           <span class="user-id" id="userIdDisplay">ID: 0</span>
-          <div id="user-verify-badge" class="op-verify-badge op-verify-tier1">
-            <i class="fas fa-shield-check"></i>
-            <span id="user-verify-badge-text">STANDARD</span>
-          </div>
           <div id="user-pass-badge" class="pass-ticket-badge">
             <i class="fas fa-water"></i> PASS
           </div>
@@ -2420,7 +2253,7 @@
         </div>
 
         <div class="wallet-grid">
-          <!-- MAIN AREA - Reordenado: Activos primero, Tarjetas despuÃ©s -->
+          <!-- MAIN AREA - Reordenado: Activos primero, Tarjetas después -->
           <div class="wallet-main-content">
             <!-- Assets Section - PRIMERO, agrupados por ecosistema -->
             <div class="asset-group">
@@ -2431,7 +2264,7 @@
 
               <!-- Grupo: Ecosistema Ocean -->
               <div class="asset-ecosystem-block">
-                <h4 class="ecosystem-label">ðŸŒŠ Ocean</h4>
+                <h4 class="ecosystem-label">🌊 Ocean</h4>
                 <div class="assets-grid-modern assets-row-ocean">
                   <div class="asset-card-modern" id="aquabux-card">
                     <div class="asset-icon-container">
@@ -2451,7 +2284,7 @@
 
               <!-- Grupo: Ecosistema Wild -->
               <div class="asset-ecosystem-block">
-                <h4 class="ecosystem-label">ðŸŒ¿ Wild</h4>
+                <h4 class="ecosystem-label">🌿 Wild</h4>
                 <div class="assets-grid-modern assets-row-wild">
                   <div class="asset-card-modern" id="wildcredits-card">
                     <div class="asset-icon-container">
@@ -2497,7 +2330,7 @@
 
               <!-- Grupo: Core & Knowledge -->
               <div class="asset-ecosystem-block">
-                <h4 class="ecosystem-label">âš¡ Core & Knowledge</h4>
+                <h4 class="ecosystem-label">⚡ Core & Knowledge</h4>
                 <div class="assets-grid-modern assets-row-core">
                   <div class="asset-card-modern" id="ecoxionums-card">
                     <div class="asset-icon-container">
@@ -2557,7 +2390,7 @@
 
               <!-- Grupo: Gaming & Premium -->
               <div class="asset-ecosystem-block">
-                <h4 class="ecosystem-label">ðŸŽ® Gaming & Premium</h4>
+                <h4 class="ecosystem-label">🎮 Gaming & Premium</h4>
                 <div class="assets-grid-modern assets-row-gaming">
                   <div class="asset-card-modern" id="nxb-card">
                     <div class="asset-icon-container">
@@ -2646,7 +2479,7 @@
                 </div>
               </div>
 
-              <!-- Cards Section - DESPUÃ‰S de activos -->
+              <!-- Cards Section - DESPUÉS de activos -->
               <div class="cards-group">
                 <div class="section-header-modern">
                   <h3>Tarjetas Ocean Card</h3>
@@ -2664,29 +2497,24 @@
               <div class="glass-box">
                 <h4 style="margin-bottom:1.5rem; font-weight:800; font-size:1.1rem; color:#f8fafc;">Resumen de Cuenta
                 </h4>
-                <div class="profile-summary-grid">
-                  <div class="profile-summary-item">
-                    <span class="stat-label">Tipo de Cuenta</span>
-                    <span class="stat-value" style="color:var(--accent)" id="account-type-display">GLOBAL VIP</span>
-                  </div>
-                  <div class="profile-summary-item">
-                    <span class="stat-label">Limite Diario</span>
-                    <span class="stat-value" id="daily-limit-display">10,000 BUX</span>
-                  </div>
-                  <div class="profile-summary-item">
-                    <span class="stat-label">Verificacion</span>
-                    <span class="stat-value" style="color:var(--ok)" id="verification-level-display">
-                      <i class="fas fa-check-circle"></i> Basica
-                    </span>
-                  </div>
-                  <div class="profile-summary-item">
-                    <span class="stat-label">Estado de Plan</span>
-                    <span class="stat-value" id="verification-plan-display">Sin plan</span>
-                  </div>
-                  <div class="profile-summary-item">
-                    <span class="stat-label">EcoPower</span>
-                    <span class="stat-value" style="color:#00ff64" id="ecopower-display">100</span>
-                  </div>
+                <div class="stat-row">
+                  <span class="stat-label">Tipo de Cuenta</span>
+                  <span class="stat-value" style="color:var(--accent)" id="account-type-display">GLOBAL VIP</span>
+                </div>
+                <div class="stat-row">
+                  <span class="stat-label">Límite Diario</span>
+                  <span class="stat-value" id="daily-limit-display">ilimitado</span>
+                </div>
+                <div class="stat-row">
+                  <span class="stat-label">Verificación</span>
+                  <span class="stat-value" style="color:var(--ok)" id="verification-level-display">
+                    <i class="fas fa-check-circle"></i> Nivel 3
+                  </span>
+                </div>
+                <div class="stat-row"
+                  style="margin-top:2rem; padding-top:1rem; border-top:1px solid rgba(255,255,255,0.05);">
+                  <span class="stat-label">EcoPower ⚡</span>
+                  <span class="stat-value" style="color:#00ff64" id="ecopower-display">100</span>
                 </div>
               </div>
 
@@ -2700,7 +2528,7 @@
                     <i class="fas fa-newspaper"
                       style="font-size:2.25rem; color:var(--accent); margin-bottom:0.5rem; display:block; opacity:0.9;"></i>
                     <p style="font-size:0.75rem; color:var(--text-dim); line-height: 1.3;">
-                      Consulta los Ãºltimos logs de actualizaciÃ³n del protocolo.
+                      Consulta los últimos logs de actualización del protocolo.
                     </p>
                   </div>
                 </div>
@@ -2714,16 +2542,6 @@
                   onmouseover="this.style.background='rgba(255,255,255,0.08)'; this.style.borderColor='rgba(34,211,238,0.3)'"
                   onmouseout="this.style.background='rgba(255,255,255,0.04)'; this.style.borderColor='rgba(255,255,255,0.1)'"
                   onclick="showSection('pass')">Gestionar Ocean Pass</button>
-              </div>
-
-              <div class="glass-box">
-                <h4 style="margin-bottom:1rem; font-weight:800; font-size:1.1rem; color:#f8fafc;">Verificacion Ocean ID</h4>
-                <p style="color:var(--text-dim); font-size:.78rem; line-height:1.4; margin-bottom:1rem;">
-                  Planes mensuales para destacar tu cuenta y desbloquear ventajas de identidad.
-                </p>
-                <div id="verify-plans-container" class="verify-plans-grid">
-                  <div style="color:#64748b; font-size:.84rem;">Cargando planes...</div>
-                </div>
               </div>
             </div>
           </div>
@@ -2760,7 +2578,7 @@
       <!-- Ocean Pass Section -->
       <section id="pass-section" class="hidden">
         <div class="main-header">
-          <h2 class="page-title">ðŸ›¡ï¸ Ocean Pass</h2>
+          <h2 class="page-title">🛡️ Ocean Pass</h2>
         </div>
 
         <div class="ocean-pass-section">
@@ -2794,7 +2612,7 @@
             <h4 style="margin-bottom: 1.5rem; color: var(--accent); position: relative; z-index: 2;">Misiones Actuales
             </h4>
             <div class="mission-grid" id="mission-grid">
-              <!-- Misiones se cargarÃ¡n aquÃ­ -->
+              <!-- Misiones se cargarán aquí -->
             </div>
           </div>
 
@@ -2816,9 +2634,9 @@
             <div class="debt-alert" style="position: relative; z-index: 2;">
               <i class="fas fa-exclamation-triangle" style="font-size: 2rem; color: #ef4444;"></i>
               <div>
-                <h4 style="color: #ef4444; font-size: 1.2rem;">Â¡Pase Cancelado por Deuda!</h4>
+                <h4 style="color: #ef4444; font-size: 1.2rem;">¡Pase Cancelado por Deuda!</h4>
                 <p style="color: #cbd5e1; font-size: 0.95rem; margin-top: 0.5rem;">Te has hundido en deudas. No
-                  completaste las misiones a tiempo. Ve al POS Virtual > SecciÃ³n Deudas para regularizar tu situaciÃ³n y
+                  completaste las misiones a tiempo. Ve al POS Virtual > Sección Deudas para regularizar tu situación y
                   volver a la superficie.</p>
               </div>
             </div>
@@ -2828,7 +2646,7 @@
         <div style="margin-top: 3rem; position: relative; z-index: 2;">
           <h3
             style="margin-bottom: 2rem; color: #94a3b8; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 3px; text-align: center;">
-            ðŸ”¥ Beneficios Exclusivos</h3>
+            🔥 Beneficios Exclusivos</h3>
           <div class="mission-grid">
             <div class="mission-card">
               <i class="fas fa-gift" style="font-size: 2rem; color: var(--ok); margin-bottom: 1rem;"></i>
@@ -2855,11 +2673,11 @@
       <!-- POS Section Redesigned & Enhanced -->
       <section id="pos-section" class="hidden pos-section-viewport">
         <div class="pos-section-header">
-          <h2 class="pos-section-title">ðŸ§ POS Virtual</h2>
+          <h2 class="pos-section-title">🏧 POS Virtual</h2>
           <p class="pos-section-subtitle">Terminal de pagos integrada con Ocean Pay</p>
         </div>
         <style>
-          /* POS Section - RediseÃ±o Premium */
+          /* POS Section - Rediseño Premium */
           .pos-section-viewport {
             animation: sectionEnter 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
           }
@@ -3316,8 +3134,8 @@
           <div class="virtual-pos-device">
             <!-- Receipt animation element -->
             <div id="pos-printer-receipt" class="pos-receipt">
-              <h3 style="margin-top:0;">ðŸŒŠ OceanPay</h3>
-              <p style="font-size:0.7rem; color:#64748b;">COMPROBANTE DE TRANSACCIÃ“N</p>
+              <h3 style="margin-top:0;">🌊 OceanPay</h3>
+              <p style="font-size:0.7rem; color:#64748b;">COMPROBANTE DE TRANSACCIÓN</p>
               <hr style="border-top:1px dashed #cbd5e1; margin: 10px 0;">
               <p style="margin:5px 0;">MONTO TRANSFERIDO</p>
               <p id="receipt-amount" style="font-size: 1.8rem; font-weight: 900; margin: 5px 0; color:#0f172a;"></p>
@@ -3388,7 +3206,7 @@
                     <span class="pos-title">Deudas Ocean Pass</span>
                   </div>
                   <div id="pos-debts-list" style="margin-top: 20px;">
-                    <!-- Se cargarÃ¡ dinÃ¡micamente -->
+                    <!-- Se cargará dinámicamente -->
                   </div>
                 </div>
 
@@ -3400,7 +3218,7 @@
                     <span class="pos-title">Recompensas Ocean Pass</span>
                   </div>
                   <div id="pos-rewards-list" style="margin-top: 20px;">
-                    <!-- Se cargarÃ¡ dinÃ¡micamente -->
+                    <!-- Se cargará dinámicamente -->
                   </div>
                 </div>
 
@@ -3454,7 +3272,7 @@
                     </div>
                   </div>
 
-                  <button class="pos-btn-primary" onclick="generatePOSCode()">Generar CÃ³digo</button>
+                  <button class="pos-btn-primary" onclick="generatePOSCode()">Generar Código</button>
                 </div>
 
                 <!-- VIEW: SELF TRANSFER (NEW) -->
@@ -3462,7 +3280,7 @@
                   <div class="pos-header-nav">
                     <button class="pos-back-btn" onclick="showPosView('pos-home')"><i
                         class="fas fa-arrow-left"></i></button>
-                    <span class="pos-title">Transferirse a sÃ­ mismo</span>
+                    <span class="pos-title">Transferirse a sí mismo</span>
                   </div>
 
                   <div class="pos-field">
@@ -3521,11 +3339,11 @@
                   <div class="pos-header-nav">
                     <button class="pos-back-btn" onclick="showPosView('pos-send')"><i
                         class="fas fa-arrow-left"></i></button>
-                    <span class="pos-title">CÃ³digo Generado</span>
+                    <span class="pos-title">Código Generado</span>
                   </div>
 
                   <div style="text-align:center; flex:1; display:flex; flex-direction:column; justify-content:center;">
-                    <p style="color:#64748b; margin-bottom:10px; font-weight:600;">Muestra este cÃ³digo al receptor</p>
+                    <p style="color:#64748b; margin-bottom:10px; font-weight:600;">Muestra este código al receptor</p>
                     <div class="pos-code-container">
                       <div id="pos-generated-code-display" class="pos-generated-code">------</div>
                     </div>
@@ -3542,11 +3360,11 @@
                   <div class="pos-header-nav">
                     <button class="pos-back-btn" onclick="showPosView('pos-home')"><i
                         class="fas fa-arrow-left"></i></button>
-                    <span class="pos-title">Ingresar CÃ³digo</span>
+                    <span class="pos-title">Ingresar Código</span>
                   </div>
 
                   <div class="pos-field">
-                    <label>CÃ³digo POS</label>
+                    <label>Código POS</label>
                     <div class="pos-input-group">
                       <input type="text" id="pos-claim-input" class="pos-input" placeholder="------"
                         style="text-transform:uppercase; text-align:center; letter-spacing:4px; font-size:2rem; font-family:'Courier New'; font-weight:900;">
@@ -3603,7 +3421,7 @@
                     <div
                       style="background:rgba(168, 85, 247, 0.1); padding:15px; border-radius:20px; border:1px solid rgba(168, 85, 247, 0.2);">
                       <p style="color:#7c3aed; font-size:0.75rem; font-weight:800; text-transform:uppercase; margin:0;">
-                        RecibirÃ¡s</p>
+                        Recibirás</p>
                       <h3 id="pos-swap-target-amount" style="margin:5px 0; color:#1e293b; font-weight:900;">0.00</h3>
                       <canvas id="posSwapTargetCanvas" class="currency-canvas" data-currency="wildgems"
                         style="width:50px; height:50px;"></canvas>
@@ -3618,7 +3436,7 @@
                   </div>
 
                   <button class="pos-btn-primary" onclick="completePOS()" id="pos-confirm-btn">Aceptar
-                    TransacciÃ³n</button>
+                    Transacción</button>
                 </div>
 
                 <!-- VIEW: PENDING SWAPS -->
@@ -3659,7 +3477,7 @@
       <!-- Misc Section (Charts) -->
       <section id="misc-section" class="hidden">
         <div class="main-header">
-          <h2 class="page-title">EstadÃ­sticas y GrÃ¡ficas</h2>
+          <h2 class="page-title">Estadísticas y Gráficas</h2>
           <button class="secondary" style="width: auto; padding: 0.5rem 1rem;" onclick="loadMiscStats()">
             <i class="fas fa-sync-alt"></i> Actualizar
           </button>
@@ -3668,7 +3486,7 @@
         <div class="balance-grid" style="grid-template-columns: 1fr 1fr; gap: 2rem;">
           <div
             style="background: var(--card); padding: 2rem; border-radius: 20px; border: 1px solid rgba(255,255,255,0.05);">
-            <h3 style="margin-bottom: 20px; color: var(--ok); text-align:center;">ðŸ† Ingresos (MÃ¡s Usado)</h3>
+            <h3 style="margin-bottom: 20px; color: var(--ok); text-align:center;">🏆 Ingresos (Más Usado)</h3>
             <div style="position: relative; height: 300px;">
               <canvas id="chartIncomes"></canvas>
             </div>
@@ -3676,7 +3494,7 @@
 
           <div
             style="background: var(--card); padding: 2rem; border-radius: 20px; border: 1px solid rgba(255,255,255,0.05);">
-            <h3 style="margin-bottom: 20px; color: var(--err); text-align:center;">ðŸ’¸ Gastos (MÃ¡s Usado)</h3>
+            <h3 style="margin-bottom: 20px; color: var(--err); text-align:center;">💸 Gastos (Más Usado)</h3>
             <div style="position: relative; height: 300px;">
               <canvas id="chartExpenses"></canvas>
             </div>
@@ -3693,12 +3511,12 @@
           <div
             style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); padding: 1.5rem; border-radius: 1rem;">
             <h3 style="color: var(--err); margin-bottom: 1rem;">Zona de Peligro</h3>
-            <p style="margin-bottom: 1rem; font-size: 0.9rem;">Eliminar tu cuenta es irreversible. PerderÃ¡s todos tus
+            <p style="margin-bottom: 1rem; font-size: 0.9rem;">Eliminar tu cuenta es irreversible. Perderás todos tus
               fondos.</p>
-            <button id="deleteAccountBtn" style="background: var(--err); color: white;">ðŸ—‘ï¸ Eliminar Cuenta
+            <button id="deleteAccountBtn" style="background: var(--err); color: white;">🗑️ Eliminar Cuenta
               Permanentemente</button>
           </div>
-          <button id="logoutBtn" class="secondary" style="margin-top: 2rem;">Cerrar SesiÃ³n</button>
+          <button id="logoutBtn" class="secondary" style="margin-top: 2rem;">Cerrar Sesión</button>
         </div>
       </section>
 
@@ -3709,45 +3527,8 @@
     const API = 'https://owsdatabase.onrender.com';
     let token = '', userId = 0;
     let userCards = []; // Array de tarjetas con saldos
-    let activeCardIndex = 0; // Ãndice de la tarjeta activa
+    let activeCardIndex = 0; // Índice de la tarjeta activa
     let isRefreshingToken = false; // Prevent concurrent refresh attempts
-    let verificationState = null;
-
-    const VERIFY_COLORS = [
-      { id: 'rainbow', label: 'Arcoiris' },
-      { id: 'red', label: 'Roja' },
-      { id: 'violet', label: 'Violeta' },
-      { id: 'emerald', label: 'Esmeralda' },
-      { id: 'rose', label: 'Rosa' },
-      { id: 'orange', label: 'Naranja' },
-      { id: 'silver', label: 'Plateada' },
-      { id: 'white', label: 'Blanca' },
-      { id: 'obsidian', label: 'Obsidiana' }
-    ];
-
-    const VERIFY_PLANS = [
-      {
-        id: 'tidal',
-        name: 'Tidal Verify',
-        price: 350,
-        currency: 'wildgems',
-        perks: ['Badge premium', 'Mayor visibilidad en perfil', 'Prioridad en soporte basico']
-      },
-      {
-        id: 'nebula',
-        name: 'Nebula Verify',
-        price: 900,
-        currency: 'wildgems',
-        perks: ['Badge mejorado', 'Prioridad alta en soporte', 'Etiqueta avanzada en tu identidad']
-      },
-      {
-        id: 'prism',
-        name: 'Prism Verify',
-        price: 1800,
-        currency: 'wildgems',
-        perks: ['Badge personalizable', 'Color premium elegido por ti', 'Distintivo elite en Ocean Pay']
-      }
-    ];
 
     // Ocean Pass State
     let oceanPass = {
@@ -3859,7 +3640,7 @@
           options.headers = { ...(options.headers || {}), 'Authorization': `Bearer ${token}` };
           return fetch(url, options);
         } else {
-          // Refresh failed â€” session truly expired
+          // Refresh failed — session truly expired
           handleExpiredToken();
         }
       }
@@ -3887,17 +3668,17 @@
           opUser.token = token;
           localStorage.setItem('opUser', JSON.stringify(opUser));
 
-          showToast('SesiÃ³n renovada automÃ¡ticamente.', 'success', 3000);
-          console.log('âœ… Token refreshed successfully');
+          showToast('Sesión renovada automáticamente.', 'success', 3000);
+          console.log('✅ Token refreshed successfully');
           isRefreshingToken = false;
           return true;
         } else {
-          console.warn('âŒ Token refresh failed:', res.status);
+          console.warn('❌ Token refresh failed:', res.status);
           isRefreshingToken = false;
           return false;
         }
       } catch (e) {
-        console.error('âŒ Token refresh error:', e);
+        console.error('❌ Token refresh error:', e);
         isRefreshingToken = false;
         return false;
       }
@@ -3909,168 +3690,7 @@
       return userCards[activeCardIndex].balances?.[currencyType] || 0;
     }
 
-    function getVerifyColorLabel(colorId) {
-      const found = VERIFY_COLORS.find(c => c.id === colorId);
-      return found ? found.label : 'Estandar';
-    }
-
-    function getVerifyBadgeClass(v) {
-      if (!v) return 'op-verify-tier1';
-      if (v.isAdmin) return 'op-verify-admin';
-      if (v.planId === 'prism') return 'op-verify-tier3';
-      if (v.planId === 'nebula') return 'op-verify-tier2';
-      return 'op-verify-tier1';
-    }
-
-    function getPrismBadgeBackground(colorId) {
-      const map = {
-        rainbow: 'linear-gradient(120deg, #ef4444, #f97316, #22c55e, #ec4899, #8b5cf6, #e2e8f0)',
-        red: 'linear-gradient(120deg, #b91c1c, #ef4444)',
-        violet: 'linear-gradient(120deg, #4c1d95, #8b5cf6)',
-        emerald: 'linear-gradient(120deg, #065f46, #10b981)',
-        rose: 'linear-gradient(120deg, #9d174d, #f43f5e)',
-        orange: 'linear-gradient(120deg, #c2410c, #f97316)',
-        silver: 'linear-gradient(120deg, #94a3b8, #e2e8f0)',
-        white: 'linear-gradient(120deg, #f8fafc, #e2e8f0)',
-        obsidian: 'linear-gradient(120deg, #111827, #374151)'
-      };
-      return map[colorId] || map.red;
-    }
-
-    function applyVerificationState(v) {
-      verificationState = v || null;
-
-      const badge = qs('#user-verify-badge');
-      const badgeText = qs('#user-verify-badge-text');
-      const badgeIcon = badge ? badge.querySelector('i') : null;
-      const verificationLevel = qs('#verification-level-display');
-      const planDisplay = qs('#verification-plan-display');
-      const accountType = qs('#account-type-display');
-      const dailyLimit = qs('#daily-limit-display');
-
-      const isAdmin = !!(v && v.isAdmin);
-      const planName = (v && v.planName) || 'Sin plan';
-      const colorLabel = (v && v.badgeColorLabel) || getVerifyColorLabel(v?.badgeColor || 'red');
-
-      if (badge) {
-        badge.className = `op-verify-badge ${getVerifyBadgeClass(v)}`;
-        if (v?.planId === 'prism' && !v?.isAdmin) {
-          badge.style.background = getPrismBadgeBackground(v.badgeColor || 'red');
-          badge.style.color = (v.badgeColor === 'white' || v.badgeColor === 'silver') ? '#0f172a' : '#f8fafc';
-        } else {
-          badge.style.background = '';
-          badge.style.color = '';
-        }
-      }
-      if (badgeIcon) {
-        badgeIcon.className = isAdmin
-          ? 'fas fa-crown'
-          : (v?.planId === 'prism'
-            ? 'fas fa-stars'
-            : (v?.planId === 'nebula' ? 'fas fa-shield-alt' : 'fas fa-check-circle'));
-      }
-      if (badgeText) {
-        badgeText.textContent = isAdmin ? 'ADMIN' : (v?.planId === 'prism' ? `PRISM ${colorLabel.toUpperCase()}` : (v?.planId || 'TIDAL').toUpperCase());
-      }
-
-      if (verificationLevel) {
-        if (isAdmin) {
-          verificationLevel.innerHTML = '<i class="fas fa-sparkles"></i> Admin Owner Verificado';
-        } else if (v?.planId === 'prism') {
-          verificationLevel.innerHTML = `<i class="fas fa-stars"></i> Prism (${colorLabel})`;
-        } else if (v?.planId === 'nebula') {
-          verificationLevel.innerHTML = '<i class="fas fa-badge-check"></i> Nebula';
-        } else {
-          verificationLevel.innerHTML = '<i class="fas fa-check-circle"></i> Tidal';
-        }
-      }
-
-      if (planDisplay) {
-        planDisplay.textContent = isAdmin ? 'Admin override (Ilimitado)' : `${planName}${v?.status === 'active' && v?.endDate ? ` · vence ${new Date(v.endDate).toLocaleDateString('es-ES')}` : ''}`;
-      }
-
-      if (accountType) {
-        accountType.textContent = isAdmin ? 'STUDIO ADMIN OWNER' : (v?.planId === 'prism' ? 'PRISM IDENTITY' : (v?.planId === 'nebula' ? 'NEBULA VERIFIED' : 'TIDAL VERIFIED'));
-      }
-      if (dailyLimit) {
-        dailyLimit.textContent = isAdmin ? 'ILIMITADO' : (v?.planId === 'prism' ? '50,000 BUX' : (v?.planId === 'nebula' ? '25,000 BUX' : '10,000 BUX'));
-      }
-
-      renderVerificationPlans();
-    }
-
-    function renderVerificationPlans() {
-      const container = qs('#verify-plans-container');
-      if (!container) return;
-
-      const selectedColor = verificationState?.badgeColor || 'red';
-      const isAdmin = !!verificationState?.isAdmin;
-      const activePlan = verificationState?.planId || '';
-
-      container.innerHTML = VERIFY_PLANS.map((plan) => {
-        const isActive = activePlan === plan.id;
-        const colorPicker = plan.id === 'prism' ? `
-          <div class="verify-color-picker">
-            ${VERIFY_COLORS.map(color => `<button type="button" class="verify-color-chip ${selectedColor === color.id ? 'active' : ''}" onclick="setVerifyColor('${color.id}')">${color.label}</button>`).join('')}
-          </div>
-        ` : '';
-        return `
-          <div class="verify-plan-card">
-            <div class="verify-plan-title">${plan.name}</div>
-            <div class="verify-plan-price">${plan.price.toLocaleString('es-ES')} ${plan.currency.toUpperCase()} / 30 dias</div>
-            <div class="verify-plan-perks">${plan.perks.join(' · ')}</div>
-            ${colorPicker}
-            <button class="secondary" style="padding:.65rem .8rem; width:100%;" ${isAdmin ? 'disabled' : ''}
-              onclick="purchaseVerifyPlan('${plan.id}')">${isActive ? 'Renovar plan' : 'Activar plan'}</button>
-          </div>
-        `;
-      }).join('');
-
-      if (isAdmin) {
-        container.insertAdjacentHTML('beforeend', '<div style="font-size:.75rem;color:#94a3b8;">Cuenta Admin detectada: badge unico permanente habilitado.</div>');
-      }
-    }
-
-    async function loadVerificationState() {
-      if (!token) return;
-      try {
-        const res = await apiFetch(`${API}/ocean-pay/verification/status`, { headers: { 'Authorization': `Bearer ${token}` } });
-        if (!res.ok) throw new Error('No se pudo cargar verificacion');
-        const data = await res.json();
-        applyVerificationState(data);
-      } catch (e) {
-        console.warn('verification status error', e.message);
-      }
-    }
-
-    function setVerifyColor(colorId) {
-      if (!verificationState || verificationState.isAdmin) return;
-      verificationState.badgeColor = colorId;
-      renderVerificationPlans();
-    }
-
-    async function purchaseVerifyPlan(planId) {
-      if (!token) return;
-      const selectedColor = (verificationState?.badgeColor || 'red');
-      try {
-        const res = await apiFetch(`${API}/ocean-pay/verification/subscribe`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({ planId, badgeColor: selectedColor })
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.error || 'No se pudo activar el plan');
-        showToast('Plan de verificacion actualizado correctamente.', 'success');
-        applyVerificationState(data.verification || null);
-        await refreshAllBalances();
-        await renderSubscriptions();
-      } catch (e) {
-        showToast(e.message || 'Error activando plan de verificacion.', 'error');
-      }
-    }
+    /* ---------- CURRENCY ANIMATION SYSTEM ---------- */
     /* ---------- CURRENCY ANIMATION SYSTEM ---------- */
     function drawEcoTokenIcon(ctx, x, y, size) {
       ctx.save(); ctx.translate(x, y);
@@ -4430,7 +4050,7 @@
           case 'cosmicdust': drawCosmicDustIcon(ctx, x, y, size * 0.8); break;
           default:
             ctx.fillStyle = "#fff"; ctx.font = "64px serif"; ctx.textAlign = "center";
-            ctx.textBaseline = "middle"; ctx.fillText("ðŸ’°", x, y);
+            ctx.textBaseline = "middle"; ctx.fillText("💰", x, y);
         }
       });
 
@@ -4448,7 +4068,7 @@
       }
     }
 
-    // Actualizar displays de saldos segÃºn tarjeta activa
+    // Actualizar displays de saldos según tarjeta activa
     function updateBalanceDisplays() {
       if (!userCards[activeCardIndex]) return;
 
@@ -4458,11 +4078,11 @@
       qs('#ecoxionums').textContent = Math.round(balances.ecoxionums || 0).toLocaleString();
       qs('#ecobits').textContent = Math.round(balances.ecorebits || 0).toLocaleString();
 
-      // SincronizaciÃ³n de WildCredits mejorada
+      // Sincronización de WildCredits mejorada
       const localWildCredits = localStorage.getItem('wildCredits');
       const serverWildCredits = Math.round(balances.wildcredits || 0);
 
-      // Intentamos usar el valor local si es mayor (indicador de desincronizaciÃ³n temporal)
+      // Intentamos usar el valor local si es mayor (indicador de desincronización temporal)
       const finalWildCredits = localWildCredits !== null ? Math.max(parseInt(localWildCredits), serverWildCredits) : serverWildCredits;
 
       const wcEl = qs('#wildcredits');
@@ -4492,27 +4112,15 @@
       if (cdEl) cdEl.textContent = Math.round(balances.cosmicdust || 0).toLocaleString();
       qs('#ecopower-display').textContent = Math.round(balances.ecopower || 100);
 
-      if (!verificationState) {
-        const opUser = JSON.parse(localStorage.getItem('opUser') || '{}');
-        if (opUser.username && opUser.username.toLowerCase() === 'oceanandwild') {
-          applyVerificationState({
-            isAdmin: true,
-            planId: 'admin',
-            planName: 'Admin Owner',
-            badgeColor: 'rainbow',
-            badgeColorLabel: 'Arcoiris',
-            status: 'active'
-          });
-        } else {
-          applyVerificationState({
-            isAdmin: false,
-            planId: 'tidal',
-            planName: 'Tidal Verify',
-            badgeColor: 'red',
-            badgeColorLabel: 'Roja',
-            status: 'active'
-          });
-        }
+      // Actualizar Resumen Lateral con info real del usuario
+      const opUser = JSON.parse(localStorage.getItem('opUser') || '{}');
+      if (opUser.username) {
+        const isAdmin = opUser.username.toLowerCase() === 'oceanandwild';
+        qs('#account-type-display').textContent = isAdmin ? 'STUDIO OWNER' : 'GLOBAL VIP';
+        qs('#daily-limit-display').textContent = isAdmin ? 'ILIMITADO' : '10,000 BUX';
+        qs('#verification-level-display').innerHTML = isAdmin ?
+          '<i class="fas fa-shield-check"></i> VERIFICADO' :
+          '<i class="fas fa-check-circle"></i> Nivel 3';
       }
 
       updateTotalPortfolioValue();
@@ -4525,7 +4133,7 @@
         return parseFloat(el.textContent.replace(/,/g, '')) || 0;
       };
 
-      // Tasas de conversiÃ³n oficiales (paridad Ecosystem EX)
+      // Tasas de conversión oficiales (paridad Ecosystem EX)
       const parity = {
         bux: 0.1, wildcredits: 0.5, wildgems: 10.0, ecoxionums: 1.0,
         nxb: 0.25, amber: 0.15, voltbit: 0.1, appbux: 0.05,
@@ -4562,7 +4170,7 @@
       const breakdownEl = document.getElementById('hero-balances-text');
       if (breakdownEl) {
         breakdownEl.textContent = breakdown.length > 0
-          ? breakdown.join(' Â· ')
+          ? breakdown.join(' · ')
           : 'Sin saldo en divisas. Sincroniza o carga desde el POS.';
       }
     }
@@ -4602,7 +4210,7 @@
       const amount = parseFloat(qs('#pos-amount-input').value);
       const currency = qs('#pos-currency-select').value;
       const cardId = qs('#pos-card-source').value;
-      if (!amount || amount <= 0) return alert('Ingresa un monto vÃ¡lido');
+      if (!amount || amount <= 0) return alert('Ingresa un monto válido');
       if (!cardId) return alert('Selecciona una tarjeta de origen');
       try {
         const res = await fetch(`${API}/pos/create`, {
@@ -4619,14 +4227,14 @@
           alert('Error: ' + data.error);
         }
       } catch (e) {
-        alert('Error de conexiÃ³n');
+        alert('Error de conexión');
       }
     }
 
     // Receiver: Verify Code 
     async function fetchPOSInfo() {
       const code = qs('#pos-claim-input').value.trim();
-      if (!code) return alert('Ingresa un cÃ³digo');
+      if (!code) return alert('Ingresa un código');
       try {
         const res = await
           fetch(`${API}/pos/${code}`); const data = await res.json(); if (data.success) {
@@ -4652,13 +4260,13 @@
         ${pos.target_currency.toUpperCase()}`; qs('#posSwapTargetCanvas').dataset.currency = pos.target_currency;
               qs('#pos-confirm-btn').textContent = 'Confirmar Intercambio';
             } else {
-              qs('#pos-confirm-btn').textContent = 'Aceptar TransacciÃ³n';
+              qs('#pos-confirm-btn').textContent = 'Aceptar Transacción';
             } const confirmCanvas = qs('#posConfirmCanvas'); if
               (confirmCanvas) { confirmCanvas.dataset.currency = pos.currency; } // Store data for completion
             qs('#pos-confirm').dataset.code = code; showPosView('pos-confirm');
           } else { alert(data.error); }
       } catch (e) {
-        alert('Error de conexiÃ³n');
+        alert('Error de conexión');
       }
     }
 
@@ -4678,7 +4286,7 @@
               receiptCanvas = qs('#receiptCanvas'); const confirmCanvas = qs('#posConfirmCanvas'); if (receiptCanvas &&
                 confirmCanvas) { receiptCanvas.dataset.currency = confirmCanvas.dataset.currency; }
             receipt.classList.add('printing'); setTimeout(() => {
-              alert('Â¡TransacciÃ³n completada!');
+              alert('¡Transacción completada!');
               receipt.classList.remove('printing');
               qs('#pos-claim-input').value = '';
               refreshAllBalances();
@@ -4756,7 +4364,7 @@
 
     // Confirmar intercambio directamente
     async function confirmSwap(code) {
-      if (!confirm('Â¿Confirmar esta conversiÃ³n de divisas?')) return;
+      if (!confirm('¿Confirmar esta conversión de divisas?')) return;
 
       try {
         const res = await fetch(`${API}/pos/complete`, {
@@ -4767,14 +4375,14 @@
         const data = await res.json();
 
         if (data.success) {
-          alert('Â¡Intercambio completado exitosamente!');
+          alert('¡Intercambio completado exitosamente!');
           refreshAllBalances();
           showPendingSwaps();
         } else {
           alert('Error: ' + data.error);
         }
       } catch (e) {
-        alert('Error de conexiÃ³n al procesar el intercambio');
+        alert('Error de conexión al procesar el intercambio');
       }
     }
 
@@ -4824,7 +4432,7 @@
             hasDebt: false
           };
           updateOceanPassUI();
-          showToast('Â¡Ocean Pass Activado! Completa las misiones en 2 horas.', 'success');
+          showToast('¡Ocean Pass Activado! Completa las misiones en 2 horas.', 'success');
         } else {
           alert(data.error);
         }
@@ -4854,7 +4462,7 @@
 
       const now = Date.now();
 
-      // ActualizaciÃ³n local para suavidad visual
+      // Actualización local para suavidad visual
       if (oceanPass.active) {
         const minsInSession = Math.floor((now - appSessionStartTime) / 60000);
         const m = oceanPass.missions.find(m => m.id === 'minutes');
@@ -4865,7 +4473,7 @@
           if (m.current >= m.target) m.completed = true;
         }
 
-        // Sincronizar cada 30 segundos o si el pase estÃ¡ por expirar
+        // Sincronizar cada 30 segundos o si el pase está por expirar
         if (now - lastTrackTime > 30000 || (oceanPass.expiry && now > oceanPass.expiry)) {
           lastTrackTime = now;
           apiFetch(`${API}/ocean-pay/pass/track`, {
@@ -4940,7 +4548,7 @@
         grid.innerHTML = oceanPass.missions.map(m => `
           <div class="mission-card ${m.completed ? 'completed' : ''}">
             <h4>${m.title}</h4>
-            <p>${m.completed ? 'Completada âœ…' : `Progreso: ${m.current} / ${m.target} min`}</p>
+            <p>${m.completed ? 'Completada ✅' : `Progreso: ${m.current} / ${m.target} min`}</p>
             <div class="progress-bar">
               <div class="progress-fill" style="width: ${(m.current / m.target) * 100}%"></div>
             </div>
@@ -4987,7 +4595,7 @@
 
     async function payPassDebt() {
       const currency = qs('#debt-currency-select').value;
-      if (!confirm(`Â¿Pagar la deuda con ${currency.toUpperCase()}?`)) return;
+      if (!confirm(`¿Pagar la deuda con ${currency.toUpperCase()}?`)) return;
 
       try {
         const res = await apiFetch(`${API}/ocean-pay/pass/pay-debt`, {
@@ -4997,7 +4605,7 @@
         });
         const data = await res.json();
         if (data.success) {
-          showToast('Â¡Deuda saldada! Ocean Pass reactivado.', 'success');
+          showToast('¡Deuda saldada! Ocean Pass reactivado.', 'success');
           refreshAllBalances();
           loadOceanPass();
           showPosView('pos-home');
@@ -5021,7 +4629,7 @@
         const remaining = nextReward - now;
         const h = Math.floor(remaining / 3600000);
         const m = Math.floor((remaining % 3600000) / 60000);
-        list.innerHTML = `<p style="text-align:center; color:#64748b; margin-top:20px;">PrÃ³ximo regalo disponible en:<br><b style="font-size:1.2rem; color:#0f172a;">${h}h ${m}m</b></p>`;
+        list.innerHTML = `<p style="text-align:center; color:#64748b; margin-top:20px;">Próximo regalo disponible en:<br><b style="font-size:1.2rem; color:#0f172a;">${h}h ${m}m</b></p>`;
         return;
       }
 
@@ -5057,7 +4665,7 @@
         });
         const data = await res.json();
         if (data.success) {
-          showToast('Â¡Recompensa reclamada!', 'success');
+          showToast('¡Recompensa reclamada!', 'success');
           refreshAllBalances();
           loadOceanPass();
           showPosView('pos-home');
@@ -5102,7 +4710,7 @@
       const username = qs('#regUser').value;
       const password = qs('#regPass').value;
       if (password.length < 4) {
-        qs('#regMsg').textContent = 'La contraseÃ±a debe tener al menos 4 caracteres.';
+        qs('#regMsg').textContent = 'La contraseña debe tener al menos 4 caracteres.';
         qs('#regMsg').className = 'msg error'; return;
       } try {
         const res = await fetch(API + '/ocean-pay/register', {
@@ -5110,7 +4718,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ username, password })
         });
-        const data = await res.json().catch(() => { throw new Error('Error del servidor (respuesta no vÃ¡lida)'); });
+        const data = await res.json().catch(() => { throw new Error('Error del servidor (respuesta no válida)'); });
 
         if (!res.ok) {
           qs('#regMsg').textContent = data.error || `Error del servidor (${res.status})`;
@@ -5119,11 +4727,11 @@
         }
 
         qs('#regMsg').className = 'msg success';
-        qs('#regMsg').textContent = 'Â¡Cuenta creada! Bienvenido.';
+        qs('#regMsg').textContent = '¡Cuenta creada! Bienvenido.';
         setTimeout(() => autoLogin(username, password), 1000);
       } catch (err) {
         console.error(err);
-        qs('#regMsg').textContent = 'Error de conexiÃ³n o del servidor.';
+        qs('#regMsg').textContent = 'Error de conexión o del servidor.';
         qs('#regMsg').className = 'msg error';
       }
     };
@@ -5144,7 +4752,7 @@
 
         const data = await res.json();
         if (!res.ok) {
-          qs('#logMsg').textContent = data.error || 'Error al iniciar sesiÃ³n';
+          qs('#logMsg').textContent = data.error || 'Error al iniciar sesión';
           qs('#logMsg').className = 'msg error';
           return;
         }
@@ -5167,8 +4775,6 @@
 
         // Load Data
         refreshAllBalances();
-        renderSubscriptions();
-        loadVerificationState();
         startBalanceRefresh();
 
         if (window.opener) {
@@ -5176,7 +4782,7 @@
         }
       } catch (err) {
         console.error(err);
-        qs('#logMsg').textContent = 'Error de conexiÃ³n';
+        qs('#logMsg').textContent = 'Error de conexión';
       }
     }
 
@@ -5185,7 +4791,7 @@
       console.warn('Session expired. Logging out...');
 
       // Show toast BEFORE clearing state so it's visible
-      showToast('Tu sesiÃ³n ha expirado. Redirigiendo al inicio de sesiÃ³n...', 'warning', 6000);
+      showToast('Tu sesión ha expirado. Redirigiendo al inicio de sesión...', 'warning', 6000);
 
       // Delay logout slightly so user sees the toast
       setTimeout(() => {
@@ -5196,7 +4802,7 @@
         show('#app-layout', false);
         show('#auth-section', true);
         show('#loginForm', true);
-        qs('#logMsg').textContent = 'Tu sesiÃ³n ha expirado. Por favor, inicia sesiÃ³n de nuevo.';
+        qs('#logMsg').textContent = 'Tu sesión ha expirado. Por favor, inicia sesión de nuevo.';
         qs('#logMsg').className = 'msg error';
         if (balanceRefreshInterval) clearInterval(balanceRefreshInterval);
       }, 1500);
@@ -5211,11 +4817,11 @@
           const user = await res.json();
           let balance = user.aquabux || 0;
 
-          // ðŸ”§ DEV MODE: OceanandWild unlimited AquaBux
+          // 🔧 DEV MODE: OceanandWild unlimited AquaBux
           const opUser = JSON.parse(localStorage.getItem('opUser') || '{}');
           if (opUser.username && opUser.username.toLowerCase() === 'oceanandwild') {
             balance = 999999999;
-            console.log('ðŸ”§ [DEV MODE] OceanandWild - AquaBux: 999999999');
+            console.log('🔧 [DEV MODE] OceanandWild - AquaBux: 999999999');
           }
 
           qs('#bux').textContent = balance.toLocaleString();
@@ -5327,7 +4933,7 @@
           const balance = parseInt(data.ecobooks || 0);
           ecobooksEl.textContent = balance.toLocaleString();
 
-          // AnimaciÃ³n de Ã©xito
+          // Animación de éxito
           const card = qs('#ecobooks-card');
           card.style.borderColor = '#10b981';
           setTimeout(() => { card.style.borderColor = ''; }, 1000);
@@ -5392,16 +4998,12 @@
           // Actualizar localStorage con las cards
           const currentUser = JSON.parse(localStorage.getItem('opUser') || '{}');
           currentUser.cards = data.cards;
-          if (data.verification) currentUser.verification = data.verification;
           localStorage.setItem('opUser', JSON.stringify(currentUser));
 
           // Actualizar variable global
           userCards = data.cards;
-          if (data.verification) {
-            applyVerificationState(data.verification);
-          }
 
-          // Restaurar Ã­ndice de tarjeta activa
+          // Restaurar índice de tarjeta activa
           if (currentUser.activeCardIndex !== undefined && currentUser.activeCardIndex < userCards.length) {
             activeCardIndex = currentUser.activeCardIndex;
           } else { activeCardIndex = 0; } // Actualizar displays
@@ -5435,7 +5037,7 @@
                 title="Eliminar Tarjeta"><i class="fas fa-trash"></i></button>` : ''}
 
               <span class="card-number"
-                onclick="event.stopPropagation(); navigator.clipboard.writeText('${card.card_number}'); alert('NÃºmero copiado')"
+                onclick="event.stopPropagation(); navigator.clipboard.writeText('${card.card_number}'); alert('Número copiado')"
                 style="cursor:pointer;" title="Clic para copiar">${formattedNumber}</span>
               <div class="card-details">
                 <div>
@@ -5456,7 +5058,7 @@
               </div>
               <div class="card-status">
                 <span class="status-badge ${isExpired ? 'status-expired' : 'status-active'}">
-                  ${isExpired ? 'Expirada - Clic para renovar' : (isActive ? 'âœ“ Seleccionada' : 'Clic para usar')}
+                  ${isExpired ? 'Expirada - Clic para renovar' : (isActive ? '✓ Seleccionada' : 'Clic para usar')}
                 </span>
               </div>
             </div >
@@ -5467,7 +5069,7 @@
         html += ` <button class="new-card-btn" onclick="createNewCard()">
               <i class="fas fa-plus-circle"></i>
               <span>Solicitar Nueva Tarjeta</span>
-              <small style="opacity:0.6;">MÃ¡ximo 2 tarjetas</small>
+              <small style="opacity:0.6;">Máximo 2 tarjetas</small>
               </button>
         `;
       }
@@ -5482,13 +5084,13 @@
       const expYear = 2000 + y;
       const expMonth = m - 1; // 0-indexed
 
-      // La tarjeta expira el Ãºltimo dÃ­a del mes
+      // La tarjeta expira el último día del mes
       const expDate = new Date(expYear, expMonth + 1, 0);
       return now > expDate;
     }
 
     async function renewCard(cardNumber) {
-      if (!confirm('Â¿Deseas renovar esta tarjeta por 3 aÃ±os mÃ¡s?')) return;
+      if (!confirm('¿Deseas renovar esta tarjeta por 3 años más?')) return;
 
       try {
         const res = await fetch(`${API} /ocean-pay/cards / renew`, {
@@ -5498,14 +5100,14 @@
         });
 
         if (res.ok) {
-          alert('Â¡Tarjeta renovada con Ã©xito!');
+          alert('¡Tarjeta renovada con éxito!');
           loadOceanCards();
         }
       } catch (e) { alert('Error al renovar'); }
     }
 
     async function createNewCard() {
-      if (!confirm('Â¿Solicitar una segunda Ocean Card vinculada a tu cuenta?')) return;
+      if (!confirm('¿Solicitar una segunda Ocean Card vinculada a tu cuenta?')) return;
 
       try {
         const res = await fetch(`${API} /ocean-pay/cards / create`, {
@@ -5514,13 +5116,13 @@
         });
 
         if (res.ok) {
-          alert('Â¡Nueva tarjeta generada!');
+          alert('¡Nueva tarjeta generada!');
           loadOceanCards();
         } else {
           const data = await res.json();
           alert(data.error || 'Error al crear tarjeta');
         }
-      } catch (e) { alert('Error de conexiÃ³n'); }
+      } catch (e) { alert('Error de conexión'); }
     }
 
     async function refreshAllBalances() {
@@ -5544,7 +5146,7 @@
 
     /* ---------- CHECKOUT INTEGRATION ---------- */
     window.triggerDeposit = function () {
-      const amount = parseFloat(prompt('Â¿QuÃ© cantidad deseas cargar?', '1000'));
+      const amount = parseFloat(prompt('¿Qué cantidad deseas cargar?', '1000'));
       if (!amount || amount <= 0) return; openCheckout({
         type: 'income', amount: amount, currency: 'aquabux',
         concept: 'Carga de Saldo desde Tarjeta Externa', callback: async (cardId) => {
@@ -5558,11 +5160,11 @@
               cardId: cardId,
               amount: amount,
               currency: 'aquabux',
-              concept: 'Carga de Saldo vÃ­a Checkout'
+              concept: 'Carga de Saldo vía Checkout'
             })
           });
           const data = await res.json();
-          if (!res.ok) throw new Error(data.error || 'Error al procesar depÃ³sito');
+          if (!res.ok) throw new Error(data.error || 'Error al procesar depósito');
 
           await refreshAllBalances();
           await renderTransacciones(); // Actualizar historial
@@ -5571,7 +5173,7 @@
     };
 
     qs('#deleteAccountBtn').onclick = async () => {
-      if (!confirm('Â¿EstÃ¡s seguro de eliminar tu cuenta permanentemente?')) return;
+      if (!confirm('¿Estás seguro de eliminar tu cuenta permanentemente?')) return;
       const user = JSON.parse(localStorage.getItem('opUser') || '{}');
       try {
         const res = await fetch(`${API}/ocean-pay/delete-account`, {
@@ -5643,8 +5245,8 @@
           return `
         <div style="display:flex; justify-content:space-between; padding:1rem; border-bottom:1px solid rgba(255,255,255,0.05); align-items:center;">
                   <div>
-                    <div style="font-weight:bold;">${tx.concepto || 'TransacciÃ³n'}</div>
-                    <div style="font-size:0.8rem; color:#64748b;">${date} â€¢ ${tx.origen || 'Sistema'}</div>
+                    <div style="font-weight:bold;">${tx.concepto || 'Transacción'}</div>
+                    <div style="font-size:0.8rem; color:#64748b;">${date} • ${tx.origen || 'Sistema'}</div>
                   </div>
                   <div style="font-weight:bold; color:${isPos ? 'var(--ok)' : 'var(--err)'}">
                     ${isPos ? '+' : ''}${tx.monto} ${tx.moneda || ''}
@@ -5659,7 +5261,7 @@
 
     async function deleteCard(e, cardId) {
       e.stopPropagation(); // Avoid selecting card
-      if (!confirm('Â¿Eliminar esta tarjeta secundaria y todo su historial/saldo asociado? Esta acciÃ³n no se puede deshacer.')) return;
+      if (!confirm('¿Eliminar esta tarjeta secundaria y todo su historial/saldo asociado? Esta acción no se puede deshacer.')) return;
 
       try {
         const res = await fetch(`${API}/ocean-pay/api/cards/${cardId}`, {
@@ -5673,7 +5275,7 @@
           const d = await res.json();
           alert(d.error || 'No se pudo eliminar');
         }
-      } catch (err) { alert('Error de conexiÃ³n'); }
+      } catch (err) { alert('Error de conexión'); }
     }
 
     async function handleRenameCard(e, cardId, currentName) {
@@ -5692,13 +5294,13 @@
         });
 
         if (res.ok) {
-          alert('Â¡Tarjeta personalizada exitosamente!');
+          alert('¡Tarjeta personalizada exitosamente!');
           loadOceanCards(); // Refresh to show new name
         } else {
           const d = await res.json();
           alert(d.error || 'No se pudo renombrar');
         }
-      } catch (err) { alert('Error de conexiÃ³n'); }
+      } catch (err) { alert('Error de conexión'); }
     }
 
     async function executeSelfTransfer() {
@@ -5707,7 +5309,7 @@
       const sourceCardId = qs('#self-card-source').value;
       const destCardId = qs('#self-card-dest').value;
 
-      if (!amount || amount <= 0) return alert('Monto invÃ¡lido'); if (sourceCardId === destCardId) return
+      if (!amount || amount <= 0) return alert('Monto inválido'); if (sourceCardId === destCardId) return
       alert('Selecciona tarjetas diferentes'); try {
         const res = await
           fetch(`${API}/ocean-pay/api/transfer-self`, {
@@ -5719,14 +5321,14 @@
               destCardId, currency, amount
             })
           }); const data = await res.json(); if (data.success) {
-            alert('Â¡Transferencia Exitosa!');
+            alert('¡Transferencia Exitosa!');
             qs('#self-amount-input').value = '';
             loadOceanCards(); // Refresh balances
             showPosView('pos-home');
           } else {
           alert('Error: ' + data.error);
         }
-      } catch (e) { alert(' Error de conexiÃ³n'); }
+      } catch (e) { alert(' Error de conexión'); }
     } let chartIncomesInstance = null; let chartExpensesInstance = null;
     async function loadMiscStats() {
       try {
@@ -5801,7 +5403,7 @@
       const btn = qs('#checkout-confirm-btn');
 
       modal.classList.add('active');
-      conceptDisplay.textContent = details.concept || 'TransacciÃ³n';
+      conceptDisplay.textContent = details.concept || 'Transacción';
       originDisplay.textContent = details.origin || 'Ocean Pay';
       amountVal.textContent = details.amount.toLocaleString();
       currencyVal.textContent = (details.currency || 'wildgems').toUpperCase();
@@ -5891,7 +5493,7 @@
           return;
         }
 
-        // Simular verificaciÃ³n de red bancaria (Mercado Pago Style)
+        // Simular verificación de red bancaria (Mercado Pago Style)
         btn.textContent = 'Verificando red bancaria...';
         btn.disabled = true;
         await new Promise(r => setTimeout(r, 1500));
@@ -5935,7 +5537,7 @@
           window.parent.postMessage({ type: 'OCEAN_PAY_RESULT', success: true }, '*');
         }
 
-        alert('Â¡Pago completado! Se ha procesado tu compra exitosamente.');
+        alert('¡Pago completado! Se ha procesado tu compra exitosamente.');
         closeCheckout();
         refreshAllBalances();
         renderTransacciones();
@@ -6003,11 +5605,11 @@
 
             const nextDate = expiry ? new Date(expiry).toLocaleDateString() : 'N/A';
 
-            // Formatear duraciÃ³n: 30 dÃ­as -> 1 Mes, o duraciÃ³n de temporada
-            let durationLabel = `${s.interval_days || 7} dÃ­as`;
+            // Formatear duración: 30 días -> 1 Mes, o duración de temporada
+            let durationLabel = `${s.interval_days || 7} días`;
             if (name.includes('DinoPass')) {
               if (s.interval_days === 30) durationLabel = '1 Mes';
-              else durationLabel = `Temporada (${s.interval_days || 30} dÃ­as)`;
+              else durationLabel = `Temporada (${s.interval_days || 30} días)`;
             }
 
             return `
@@ -6067,7 +5669,6 @@
         refreshAllBalances();
         loadAmberBalance();
         renderSubscriptions();
-        loadVerificationState();
         startBalanceRefresh();
 
         // Escuchar actualizaciones en tiempo real desde Wild Explorer (Mismo origen)
@@ -6116,7 +5717,7 @@
             amount: parseFloat(urlParams.get('amount') || 0),
             currency: urlParams.get('currency') || 'voltbit',
             concept: urlParams.get('concept') || 'Compra Externa',
-            origin: urlParams.get('origin') || 'AplicaciÃ³n Externa'
+            origin: urlParams.get('origin') || 'Aplicación Externa'
           };
           // Show Pos Section to make it look contextual, or just wallet
           showSection('wallet');
@@ -6154,18 +5755,18 @@
 
       const currencies = [
         { id: 'bux', name: 'AquaBux', desc: 'Moneda oficial de Ocean Cinemas y transacciones generales del ecosistema.', project: 'Ocean Cinemas' },
-        { id: 'wildcredits', name: 'WildCredits', desc: 'CrÃ©ditos de recompensa obtenidos en Wild Explorer y misiones de campo.', project: 'Wild Explorer' },
+        { id: 'wildcredits', name: 'WildCredits', desc: 'Créditos de recompensa obtenidos en Wild Explorer y misiones de campo.', project: 'Wild Explorer' },
         { id: 'wildgems', name: 'WildGems', desc: 'Gemas premium utilizadas para acceder a contenido exclusivo en WildShorts.', project: 'WildShorts' },
         { id: 'relayshards', name: 'RelayShards', desc: 'Divisa nativa de WildTransfer. Se gana al subir y recibir archivos para pagar planes semanales.', project: 'WildTransfer' },
         { id: 'ecoxionums', name: 'Ecoxionums', desc: 'Activo digital de alto valor, base del protocolo de intercambio Ecoxion.', project: 'Ecoxion' },
         { id: 'nxb-balance', name: 'NXB', desc: 'Divisa de combate y mejoras utilizada en Primal Velocity Nexus.', project: 'Primal Velocity' },
-        { id: 'amber', name: 'Amber', desc: 'Resina fÃ³sil valiosa para la gestiÃ³n de expediciones dinosÃ¡uricas.', project: 'DinoBox' },
-        { id: 'voltbit', name: 'VoltBit', desc: 'Unidades de energÃ­a sintÃ©tica necesarias para la aceleraciÃ³n en Velocity Surge.', project: 'Velocity Surge' },
-        { id: 'appbux', name: 'AppBux', desc: 'CrÃ©ditos universales para microtransacciones en aplicaciones de terceros.', project: 'Ecosistema' },
+        { id: 'amber', name: 'Amber', desc: 'Resina fósil valiosa para la gestión de expediciones dinosáuricas.', project: 'DinoBox' },
+        { id: 'voltbit', name: 'VoltBit', desc: 'Unidades de energía sintética necesarias para la aceleración en Velocity Surge.', project: 'Velocity Surge' },
+        { id: 'appbux', name: 'AppBux', desc: 'Créditos universales para microtransacciones en aplicaciones de terceros.', project: 'Ecosistema' },
         { id: 'ecobooks', name: 'EcoBooks', desc: 'Activo de conocimiento para desbloquear recursos en Naturepedia.', project: 'Naturepedia' },
         { id: 'ecobits', name: 'EcoCoreBits', desc: 'Unidades de procesamiento de datos para la infraestructura Core.', project: 'Tidal Core' },
         { id: 'ecotokens', name: 'EcoTokens', desc: 'Tokens de gobernanza para participar en decisiones de Wild Savage.', project: 'Wild Savage' },
-        { id: 'mayhemcoins', name: 'MayhemCoins', desc: 'Moneda caÃ³tica obtenida en WildWeapon Mayhem a travÃ©s de combates y misiones.', project: 'WildWeapon Mayhem' },
+        { id: 'mayhemcoins', name: 'MayhemCoins', desc: 'Moneda caótica obtenida en WildWeapon Mayhem a través de combates y misiones.', project: 'WildWeapon Mayhem' },
         { id: 'cosmicdust', name: 'Polvora Cosmica', desc: 'Recurso principal de Savage Space Animals para mejoras, compras y eventos.', project: 'Savage Space Animals' }
       ];
 
@@ -6212,13 +5813,13 @@
       <div class="modal-header-nav">
         <div>
           <h2 style="font-size:1.75rem; font-weight:900; letter-spacing:-1px;">Activos del Ecosistema</h2>
-          <p style="color:var(--text-dim); font-size:0.85rem; font-weight:600;">GestiÃ³n centralizada de divisas
+          <p style="color:var(--text-dim); font-size:0.85rem; font-weight:600;">Gestión centralizada de divisas
             digitales</p>
         </div>
         <div style="display:flex; gap:1.5rem; align-items:center;">
           <div class="view-toggle">
             <button id="toggle-economy" class="toggle-btn active" onclick="renderModalAssets('economy')">Saldos</button>
-            <button id="toggle-info" class="toggle-btn" onclick="renderModalAssets('info')">InformaciÃ³n</button>
+            <button id="toggle-info" class="toggle-btn" onclick="renderModalAssets('info')">Información</button>
           </div>
           <button class="modal-close" onclick="closeAssetsModal()">
             <i class="fas fa-times"></i>
@@ -6227,7 +5828,7 @@
       </div>
 
       <div id="modal-assets-grid" class="assets-full-grid">
-        <!-- DinÃ¡mico -->
+        <!-- Dinámico -->
       </div>
     </div>
   </div>

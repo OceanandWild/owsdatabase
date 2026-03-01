@@ -906,6 +906,8 @@ async function runDatabaseMigrations() {
       ADD COLUMN IF NOT EXISTS installer_url TEXT
     `).catch(() => console.log('âš ï¸ Columna installer_url ya existe en ows_projects'));
 
+    await ensureOwsStoreProjectsSeedData().catch(err => console.log('[OWS] Error seeding ows_projects:', err.message));
+
     // Tabla de releases Android para updater asistido (OWS Store Launcher)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS ows_android_releases (
@@ -13528,6 +13530,57 @@ async function ensureOwsStoreNewsSeedData() {
     ).catch(() => {});
   }
 }
+
+async function ensureOwsStoreProjectsSeedData() {
+  const seeds = [
+    {
+      slug: 'wildwave',
+      name: 'WildWave',
+      description: 'Red social OWS con verificacion, suscripciones y sincronizacion con Ocean Pay.',
+      icon_url: './build/wildwave.ico?v=20260301-0010',
+      banner_url: null,
+      url: '../WildWave/index.html',
+      version: '1.0.0',
+      status: 'launched',
+      metadata: {
+        short: 'WWV',
+        platform: 'windows',
+        install_type: 'external'
+      },
+      installer_url: 'https://github.com/OceanandWild/wildwave/releases/latest'
+    }
+  ];
+
+  for (const seed of seeds) {
+    await pool.query(
+      `INSERT INTO ows_projects (slug, name, description, icon_url, banner_url, url, version, status, metadata, installer_url)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10)
+       ON CONFLICT (slug) DO UPDATE
+       SET name = EXCLUDED.name,
+           description = COALESCE(EXCLUDED.description, ows_projects.description),
+           icon_url = COALESCE(EXCLUDED.icon_url, ows_projects.icon_url),
+           banner_url = COALESCE(EXCLUDED.banner_url, ows_projects.banner_url),
+           url = COALESCE(EXCLUDED.url, ows_projects.url),
+           version = COALESCE(NULLIF(EXCLUDED.version, ''), ows_projects.version),
+           status = COALESCE(NULLIF(EXCLUDED.status, ''), ows_projects.status),
+           metadata = COALESCE(ows_projects.metadata, '{}'::jsonb) || COALESCE(EXCLUDED.metadata, '{}'::jsonb),
+           installer_url = COALESCE(EXCLUDED.installer_url, ows_projects.installer_url)`,
+      [
+        seed.slug,
+        seed.name,
+        seed.description || null,
+        seed.icon_url || null,
+        seed.banner_url || null,
+        seed.url,
+        seed.version || '1.0.0',
+        seed.status || 'launched',
+        JSON.stringify(seed.metadata || {}),
+        seed.installer_url || null
+      ]
+    );
+  }
+}
+
 function normalizeNewsTextArray(input) {
   if (Array.isArray(input)) return input.map(v => String(v || '').trim()).filter(Boolean);
   if (input == null) return [];

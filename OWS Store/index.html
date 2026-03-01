@@ -3079,6 +3079,8 @@
         const WILDDESTINY_RELEASES_URL = 'https://github.com/OceanandWild/wilddestiny/releases/latest';
         const VELOCITY_SURGE_RELEASES_URL = 'https://github.com/OceanandWild/velocity-surge/releases/latest';
         const VELOCITY_SURGE_RELEASES_API_URL = `${GITHUB_RELEASES_PROXY_BASE}/velocity-surge/releases/latest`;
+        const WILDWAVE_RELEASES_URL = 'https://github.com/OceanandWild/wildwave/releases/latest';
+        const WILDWAVE_RELEASES_API_URL = `${GITHUB_RELEASES_PROXY_BASE}/wildwave/releases/latest`;
         const OWSNEWS_RELEASES_URL = 'https://github.com/OceanandWild/ocean-and-wild-studios-news/releases/latest';
         const OWSNEWS_RELEASES_API_URL = `${GITHUB_RELEASES_PROXY_BASE}/ocean-and-wild-studios-news/releases/latest`;
         const SSA_LOCAL_ICON = './build/ssa.ico?v=20260223-0443';
@@ -3087,6 +3089,7 @@
         const WILDTRANSFER_LOCAL_ICON = './build/wildtransfer.ico?v=20260225-0100';
         const WILDDESTINY_LOCAL_ICON = './build/wilddestiny.ico?v=20260227-1935';
         const VELOCITY_SURGE_LOCAL_ICON = './build/velocitysurge.ico?v=20260227-2415';
+        const WILDWAVE_LOCAL_ICON = './build/wildwave.ico?v=20260301-0010';
         const OWSNEWS_LOCAL_ICON = './build/owsnews.ico?v=20260225-2248';
         const STORE_LOCAL_ICON = './build/icon.ico?v=20260223-0452';
         const STORE_DOWNLOAD_KEY = '__ows_store_update__';
@@ -3171,6 +3174,18 @@
             description: 'Racing arcade competitivo con eventos tematicos, cofres y progresion por corredores.',
             icon_url: VELOCITY_SURGE_LOCAL_ICON
         };
+        const WILDWAVE_PROJECT = {
+            slug: 'wildwave',
+            name: 'WildWave',
+            short: 'WWV',
+            status: 'launched',
+            version: '1.0.0',
+            platform: 'windows',
+            install_type: 'external',
+            installer_url: WILDWAVE_RELEASES_URL,
+            description: 'Red social OWS con verificacion, suscripciones y sincronizacion con Ocean Pay.',
+            icon_url: WILDWAVE_LOCAL_ICON
+        };
         const OWS_NEWS_CACHE_TTL_MS = 120000;
         const NEW_BADGE_DURATION_MS = 14 * 24 * 60 * 60 * 1000;
         const NEW_BADGE_START_BY_SLUG = {
@@ -3235,6 +3250,7 @@
         let floretProjectReleaseCache = null;
         let wildTransferReleaseCache = null;
         let velocitySurgeReleaseCache = null;
+        let wildWaveReleaseCache = null;
         let owsNewsReleaseCache = null;
         let owsNewsUpdatesCache = [];
         let owsNewsUpdatesFetchedAt = 0;
@@ -5263,7 +5279,7 @@
 
         function getReleaseDerivedProjectEntries(project) {
             if (!project) return [];
-            if (!isWildTransferProject(project) && !isFloretProject(project) && !isVelocitySurgeProject(project)) return [];
+            if (!isWildTransferProject(project) && !isFloretProject(project) && !isVelocitySurgeProject(project) && !isWildWaveProject(project)) return [];
             const entries = [];
             const projectName = String(project.name || 'Proyecto');
 
@@ -5371,6 +5387,7 @@
             if (isFloretProject(project)) aliases.add('floret');
             if (isWildTransferProject(project)) aliases.add('wild transfer');
             if (isVelocitySurgeProject(project)) aliases.add('velocity surge');
+            if (isWildWaveProject(project)) aliases.add('wildwave');
             if (isOceanPayProject(project)) aliases.add('ocean pay');
             if (isOWSNewsProject(project)) aliases.add('ows news');
             return [...aliases].filter(Boolean);
@@ -5807,13 +5824,21 @@
             return slug.includes('velocity-surge') || slug.includes('velocitysurge') || name.includes('velocity surge');
         }
 
+        function isWildWaveProject(project) {
+            if (!project) return false;
+            const slug = String(project.slug || '').toLowerCase();
+            const name = String(project.name || '').toLowerCase();
+            return slug.includes('wildwave') || slug.includes('wild-wave') || slug.includes('wildx') || name.includes('wildwave') || name.includes('wild wave') || name.includes('wildx');
+        }
+
         function isReleaseTrackedProject(project) {
             return isWildWeaponProject(project)
                 || isSSAProject(project)
                 || isOceanPayProject(project)
                 || isFloretProject(project)
                 || isWildTransferProject(project)
-                || isVelocitySurgeProject(project);
+                || isVelocitySurgeProject(project)
+                || isWildWaveProject(project);
         }
 
         function getProjectShort(project) {
@@ -5822,6 +5847,7 @@
             if (isWildTransferProject(project)) return 'WTR';
             if (isWildDestinyProject(project)) return 'WD';
             if (isVelocitySurgeProject(project)) return 'VSG';
+            if (isWildWaveProject(project)) return 'WWV';
             return '';
         }
 
@@ -5893,6 +5919,26 @@
                     short: 'VSG',
                     status: list[idx].status || 'launched',
                     icon_url: VELOCITY_SURGE_LOCAL_ICON
+                };
+            }
+            return list;
+        }
+
+        function ensureWildWaveProject(projects) {
+            if (!Array.isArray(projects)) return [];
+            const list = [...projects];
+            const idx = list.findIndex(isWildWaveProject);
+            if (idx === -1) {
+                list.unshift({ ...WILDWAVE_PROJECT });
+            } else {
+                list[idx] = {
+                    ...WILDWAVE_PROJECT,
+                    ...list[idx],
+                    slug: 'wildwave',
+                    name: 'WildWave',
+                    short: 'WWV',
+                    status: list[idx].status || 'launched',
+                    icon_url: WILDWAVE_LOCAL_ICON
                 };
             }
             return list;
@@ -6613,12 +6659,13 @@
                     { ...WILDTRANSFER_PROJECT },
                     { ...FLORET_PROJECT },
                     { ...VELOCITY_SURGE_PROJECT },
+                    { ...WILDWAVE_PROJECT },
                     { slug: 'wildweapon', name: 'WildWeapon Mayhem', status: 'launched', version: '22.2.26-1900', platform: 'windows', install_type: 'external', installer_url: WILDWEAPON_RELEASES_URL, description: 'Combate tactico definitivo, ahora disponible en ejecutable para Windows.' },
                     { slug: 'ocean-pay', name: 'Ocean Pay', status: 'launched', version: '3.1.0', platform: 'windows', install_type: 'external', installer_url: OCEAN_PAY_RELEASES_URL, icon_url: OCEAN_PAY_LOCAL_ICON, description: 'Pasarela universal.' }
                 ];
             }
             allProjects = Array.isArray(allProjects) ? allProjects.filter((p) => !isOWSNewsProject(p)) : [];
-            allProjects = ensureVelocitySurgeProject(ensureWildDestinyProject(ensureWildTransferProject(ensureFloretProject(ensureSSAProject(allProjects)))));
+            allProjects = ensureWildWaveProject(ensureVelocitySurgeProject(ensureWildDestinyProject(ensureWildTransferProject(ensureFloretProject(ensureSSAProject(allProjects))))));
             await applyLatestInstallerData(allProjects);
             seedLibraryFromProjectCatalog();
             try {
@@ -6961,6 +7008,64 @@
                 checkedAt: now,
             };
             velocitySurgeReleaseCache = payload;
+            return payload;
+        }
+
+        async function fetchLatestWildWaveRelease() {
+            const now = Date.now();
+            if (wildWaveReleaseCache && (now - wildWaveReleaseCache.checkedAt) < 120000) {
+                return wildWaveReleaseCache;
+            }
+
+            const res = await fetch(WILDWAVE_RELEASES_API_URL, {
+                headers: { 'Accept': 'application/vnd.github+json' }
+            });
+            if (!res.ok) throw new Error(`GitHub API ${res.status}`);
+            const data = await res.json();
+            const assets = Array.isArray(data.assets) ? data.assets : [];
+            const versionFromTag = String(data.tag_name || '').replace(/^v/i, '');
+            const exeCandidates = assets.filter(a => typeof a?.name === 'string' && /\.exe$/i.test(a.name));
+            const scoredCandidates = exeCandidates.map((a) => ({
+                asset: a,
+                version: extractVersionFromText(a.name),
+                updatedAtMs: Date.parse(a.updated_at || '') || 0,
+                hasWildWaveName: /wildwave|wild-wave|wildx/i.test(String(a.name || '')),
+            }));
+
+            scoredCandidates.sort((x, y) => {
+                if (x.hasWildWaveName !== y.hasWildWaveName) return x.hasWildWaveName ? -1 : 1;
+                const cmp = compareVersionLike(y.version, x.version);
+                if (cmp !== 0) return cmp;
+                return y.updatedAtMs - x.updatedAtMs;
+            });
+
+            let selected = scoredCandidates[0] || null;
+            if (versionFromTag) {
+                const tagMatch = scoredCandidates.find(c => c.version && compareVersionLike(c.version, versionFromTag) === 0);
+                if (tagMatch) selected = tagMatch;
+            }
+
+            const exeAsset = selected?.asset || null;
+            const versionFromAsset = selected?.version || '';
+            const staleInstaller = Boolean(versionFromTag && versionFromAsset && compareVersionLike(versionFromAsset, versionFromTag) < 0);
+            const warning = staleInstaller
+                ? `Release latest apunta a tag ${versionFromTag}, pero el instalador publicado es ${versionFromAsset}.`
+                : '';
+
+            const payload = {
+                version: versionFromTag || versionFromAsset || null,
+                tagVersion: versionFromTag || null,
+                assetVersion: versionFromAsset || null,
+                installerUrl: exeAsset?.browser_download_url || '',
+                installerSize: Number(exeAsset?.size || 0),
+                installerAvailable: Boolean(exeAsset?.browser_download_url) && !staleInstaller,
+                windowsReleaseNotes: String(data.body || '').trim(),
+                releaseUrl: data.html_url || WILDWAVE_RELEASES_URL,
+                publishedAt: data.published_at || data.created_at || null,
+                warning,
+                checkedAt: now,
+            };
+            wildWaveReleaseCache = payload;
             return payload;
         }
 
@@ -7720,6 +7825,7 @@
             if (isWildTransferProject(project)) return project?.icon_url || WILDTRANSFER_LOCAL_ICON || `https://placehold.co/${size}/0a1120/35d7ff?text=WTR`;
             if (isWildDestinyProject(project)) return project?.icon_url || WILDDESTINY_LOCAL_ICON || `https://placehold.co/${size}/111827/67e8f9?text=WD`;
             if (isVelocitySurgeProject(project)) return project?.icon_url || VELOCITY_SURGE_LOCAL_ICON || `https://placehold.co/${size}/0a0f1e/26e0ff?text=VSG`;
+            if (isWildWaveProject(project)) return project?.icon_url || WILDWAVE_LOCAL_ICON || `https://placehold.co/${size}/151029/c493ff?text=WWV`;
             return project?.icon_url || `https://placehold.co/${size}/0f172a/00f3ff?text=OWS`;
         }
 
@@ -7746,7 +7852,7 @@
         function supportsWindowsInstaller(project) {
             if (!project) return false;
             const tokens = getPlatformTokens(project);
-            if (isWildWeaponProject(project) || isSSAProject(project) || isOceanPayProject(project) || isWildTransferProject(project) || isVelocitySurgeProject(project)) return true;
+            if (isWildWeaponProject(project) || isSSAProject(project) || isOceanPayProject(project) || isWildTransferProject(project) || isVelocitySurgeProject(project) || isWildWaveProject(project)) return true;
             if (tokens.has('windows') || tokens.has('win')) return true;
             return Boolean(project.installer_url || project.release_url || project.windows_installer_url);
         }
@@ -7859,6 +7965,7 @@
             const floret = projects.find(p => isFloretProject(p));
             const wildTransfer = projects.find(p => isWildTransferProject(p));
             const velocitySurge = projects.find(p => isVelocitySurgeProject(p));
+            const wildWave = projects.find(p => isWildWaveProject(p));
 
             if (wildWeapon) {
                 wildWeapon.platform = 'windows';
@@ -8117,6 +8224,45 @@
                 }
             }
 
+            if (wildWave) {
+                wildWave.platform = 'windows';
+                wildWave.install_type = 'external';
+                if (!wildWave.installer_url) wildWave.installer_url = WILDWAVE_RELEASES_URL;
+                wildWave.icon_url = wildWave.icon_url || WILDWAVE_LOCAL_ICON;
+                wildWave.installer_available = false;
+                wildWave.last_update_at = null;
+                wildWave.windows_last_update_at = null;
+                wildWave.android_last_update_at = null;
+                wildWave.pending_release = false;
+                wildWave.short = 'WWV';
+                if (!wildWave.windows_version) wildWave.windows_version = wildWave.version || '';
+                wildWave.installer_size = Number(wildWave.installer_size || 0);
+                if (!wildWave.windows_release_notes) wildWave.windows_release_notes = '';
+
+                try {
+                    const latest = await fetchLatestWildWaveRelease();
+                    if (latest?.version) wildWave.version = latest.version;
+                    wildWave.windows_version = latest?.version || wildWave.windows_version || wildWave.version || '';
+                    if (latest?.installerUrl) wildWave.installer_url = latest.installerUrl;
+                    wildWave.installer_size = Number(latest?.installerSize || 0);
+                    wildWave.installer_available = Boolean(latest?.installerAvailable);
+                    wildWave.windows_release_notes = latest?.windowsReleaseNotes || wildWave.windows_release_notes || '';
+                    wildWave.last_update_at = latest?.publishedAt || null;
+                    wildWave.windows_last_update_at = latest?.publishedAt || null;
+                    wildWave.pending_release = !wildWave.installer_available;
+                    if (latest?.warning) {
+                        wildWave.pending_release = true;
+                        wildWave.release_warning = latest.warning;
+                    } else {
+                        wildWave.release_warning = '';
+                    }
+                } catch (err) {
+                    console.log('No se pudo resolver la ultima release de WildWave:', err?.message || err);
+                    wildWave.pending_release = true;
+                    wildWave.release_warning = 'No se pudo validar el instalador de la ultima release.';
+                }
+            }
+
         }
         function isExternalInstallerProject(project) {
             if (!project) return false;
@@ -8134,6 +8280,7 @@
             if (isFloretProject(project)) return FLORET_RELEASES_URL;
             if (isWildTransferProject(project)) return WILDTRANSFER_RELEASES_URL;
             if (isVelocitySurgeProject(project)) return VELOCITY_SURGE_RELEASES_URL;
+            if (isWildWaveProject(project)) return WILDWAVE_RELEASES_URL;
             return '';
         }
 
@@ -8607,6 +8754,11 @@
                 aliases.add('velocitysurge');
                 aliases.add('velocity-surge');
             }
+            if (isWildWaveProject(project)) {
+                aliases.add('wildwave');
+                aliases.add('wild-wave');
+                aliases.add('wildx');
+            }
             if (isWildWeaponProject(project)) {
                 aliases.add('wildweapon');
                 aliases.add('wildweapon-mayhem');
@@ -8684,6 +8836,13 @@
                     installDirNames: ['Velocity Surge', 'velocity-surge', 'velocitysurge'],
                     executableNames: ['Velocity Surge.exe', 'velocity-surge.exe', 'velocitysurge.exe'],
                     uninstallerNames: ['Uninstall Velocity Surge.exe', 'unins000.exe']
+                };
+            }
+            if (isWildWaveProject(project)) {
+                return {
+                    installDirNames: ['WildWave', 'wildwave', 'wild-wave', 'WildX'],
+                    executableNames: ['WildWave.exe', 'wildwave.exe', 'wild-wave.exe', 'WildX.exe'],
+                    uninstallerNames: ['Uninstall WildWave.exe', 'unins000.exe']
                 };
             }
             if (isOWSNewsProject(project)) {
@@ -9059,6 +9218,7 @@
                 if (isOceanPayProject(project)) oceanPayProjectReleaseCache = null;
                 if (isWildTransferProject(project)) wildTransferReleaseCache = null;
                 if (isVelocitySurgeProject(project)) velocitySurgeReleaseCache = null;
+                if (isWildWaveProject(project)) wildWaveReleaseCache = null;
             }
             const latest = isWildWeaponProject(project)
                 ? await fetchLatestWildWeaponRelease()
@@ -9072,7 +9232,9 @@
                                 ? await fetchLatestWildTransferRelease()
                                 : (isVelocitySurgeProject(project)
                                     ? await fetchLatestVelocitySurgeRelease()
-                                    : await fetchLatestOWSNewsRelease())))));
+                                    : (isWildWaveProject(project)
+                                        ? await fetchLatestWildWaveRelease()
+                                        : await fetchLatestOWSNewsRelease()))))));
 
             if (isFloretProject(project) || isWildTransferProject(project)) {
                 const preferred = isNativeAndroidRuntime()
@@ -9094,7 +9256,11 @@
                 }
             } else if (latest?.version) {
                 project.version = latest.version;
+                project.windows_version = latest.version || project.windows_version || project.version || '';
                 project.windows_last_update_at = latest?.publishedAt || project.windows_last_update_at || null;
+                if (isWildWaveProject(project)) {
+                    project.windows_release_notes = latest?.windowsReleaseNotes || project.windows_release_notes || '';
+                }
             }
 
             if (latest?.installerUrl) project.installer_url = latest.installerUrl;

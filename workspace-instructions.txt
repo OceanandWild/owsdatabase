@@ -1,65 +1,195 @@
 Lee esto al final de realizar una tarea si es posible.
 
-Aqui hay una serie de cosas que debes hacer, es opcional o te serviran durante tus tareas:
+Aqui hay una serie de cosas que debes hacer. Es opcional, pero te servira durante tus tareas:
 
-- Cuando finalizes de hacer algo, siempre haz un 'git push' ya que el server.js y Ocean Pay/index.html se manejan por Render, plataforma que necesita de GitHub para eso.
-- Es muy posible que tu grep tool no encuentre algunas cosas, pero buscalos sin dudar, esto si yo te digo que esta, no estoy loco, asi que buscalo donde puedas.
-- Debido al uso de .gitignore, se debe de usar git add server.js "Ocean Pay/" package.json explicitamente y no git add . debido a que subira todo el Espacio de Trabajo, algo no deseado
+- Cuando finalices de hacer algo, siempre haz un git push, ya que server.js y Ocean Pay/index.html se manejan por Render, y Render depende de GitHub.
+- Es posible que grep no encuentre algunas cosas. Si el usuario te dice que algo existe, buscalo a fondo antes de descartarlo.
+- Debido al uso de .gitignore, evita git add . si no hace falta.
 
-Se incluiran mas cosas luego, pero esto te ayudara a por lo menos entender como realizar la mayoria de las cosas.
+Se incluiran mas cosas luego, pero esto te ayuda a entender como realizar la mayoria de las tareas.
 
---- NOTAS TÉCNICAS PARA AGENTES ---
+--- NOTAS TECNICAS PARA AGENTES ---
 
-- ESTÁNDAR DE MONEDA (Ecoxionums): El modelo 2D oficial es un "Cyan Coin" (Cian/Azul con patrón de cruz). 
-  - En Canvas: Usar la función 'drawEcoxionumsIcon'.
-  - En HTML: Usar la clase CSS '.icon-ecoxionum'.
-  - Emojis a reemplazar: 🪙 y 💎.
-  - SOLO VALIDA SI ES ECOXION, SI ES OTRO PROYECTO, POR FAVOR, IGNORE
+- ESTANDAR DE MONEDA (Ecoxionums): el modelo 2D oficial es un "Cyan Coin" (cian/azul con patron de cruz).
+  - En Canvas: usar la funcion drawEcoxionumsIcon.
+  - En HTML: usar la clase CSS .icon-ecoxionum.
+  - Emojis a reemplazar: dinamita y diamante cuando correspondan a Ecoxionums.
+  - SOLO aplica a Ecoxion. Si es otro proyecto, ignorar.
 
-- ESTÁNDAR DE PERSISTENCIA:
-  - NO USAR 'ocean_pay_metadata' para saldos de Ecoxionums.
-  - USAR SIEMPRE 'ocean_pay_cards' (columna JSONB 'balances').
+- ESTANDAR DE PERSISTENCIA:
+  - NO usar ocean_pay_metadata para saldos de Ecoxionums.
+  - USAR siempre ocean_pay_cards (columna JSONB balances).
   - Endpoint de cambio: POST /ocean-pay/ecoxionums/change.
-  - Endpoint de sync: POST /ocean-pay/sync-ecoxionums (Migración inicial).
+  - Endpoint de sync: POST /ocean-pay/sync-ecoxionums (migracion inicial).
 
 - DEPLOY SELECTIVO:
-  Para evitar subir el escritorio completo, usa estrictamente:
-  git add server.js "Ocean Pay/" .gitignore package.json (CON ESTO NO SE REFIERE A TODOS ESTOS A LA VEZ, SOLO SI SE MODIFICA ALGUNO DE ESTOS SE SUBE, ES DECIR, SOLO ESTOS ARCHIVOS SI SE MODIFICAN, LOS QUE NO, NO SE SUBEN)
-  git commit -m "feat (o cualquier otro): (commit name)"  
-  git push origin main
+  Para evitar subir el escritorio completo, usar estrictamente:
+  - git add server.js "Ocean Pay/" .gitignore package.json
+  - git commit -m "feat (o tipo): mensaje"
+  - git push origin main
 
-  NUNCA OTROS PROYECTOS, solo esos son admitidos o es muy posible que se te cancele el comando si lo ejecutas mal.
-  Ejemplo Incorrecto:
-  git add server.js "Ocean Pay/" "Velocity Surge/" (o cualquier otro proyecto dentro del Espacio de Trabajo) .gitignore package.json README.txt
+  Solo subir archivos autorizados segun cambios reales.
+  No incluir carpetas de otros proyectos por error.
 
-  Ejemplo Correcto:
-  git add server.js "Ocean Pay/" .gitignore package.json README.txt
-  
-  Para aclarar mejor, todos los que se mencionaron si estan autorizados, los demas estan estrictamente no autorizados a un Git Push
-
-- AUTOMATIZACIÓN DE UPDATE LOGS (OWS News):
-  Para añadir un log que aparezca automáticamente en OWS News sin editar el HTML:
-  - Usar Endpoint: POST /ows-news/updates.
-  - Formato JSON requerido:
+- AUTOMATIZACION DE UPDATE LOGS (OWS News):
+  Para anadir un log que aparezca automaticamente en OWS News sin editar el HTML:
+  - Endpoint: POST /ows-news/updates.
+  - JSON requerido:
     {
-      "title": "Título del Update",
-      "description": "Descripción general breve",
-      "project_names": ["Nombre de Proyecto 1", "Proyecto 2"],
-      "changes": "- Logros mejorados\n- Bug de visualización corregido",
+      "title": "Titulo del Update",
+      "description": "Descripcion general breve",
+      "project_names": ["Nombre Proyecto 1", "Proyecto 2"],
+      "changes": "- Mejora A\n- Fix B",
       "update_date": "YYYY-MM-DD" (opcional, por defecto hoy)
     }
-  - El campo 'changes' soporta listas usando prefijos '-', '*', o '•'.
-  - Los agentes tienen permiso para usar este endpoint para documentar sus cambios si el usuario lo solicita.
+  - El campo changes soporta listas con -, * o bullet.
 
-- Sobre Ocean Pay
- Ocean Pay funciona bajo server.js, no local, es como un invento de como una pasarela de pago, aclarando esto por si se malintenciona el hecho de que me refiero a agregar un checkout o integracion de Ocean Pay a un proyecto
+- Sobre Ocean Pay:
+  Ocean Pay funciona sobre server.js, no local. Tratarlo como pasarela/identidad central cuando se pida checkout o integracion.
 
-- GESTIÓN DE OWS STORE (Central de Apps):
-  El sistema OWS Store centraliza la instalación virtual y actualización de proyectos web.
-  - Tabla DB: 'ows_projects'.
-  - Estados permitidos: 'launched' (disponible), 'unavailable' (mantenimiento), 'coming_soon' (próximamente).
-  - Fecha de Lanzamiento: Si un proyecto es 'coming_soon', definir 'release_date' (ISO string) para activar el contador regresivo.
-  - Sistema de Updates: Cada proyecto tiene una columna 'version' (ej: '1.2.5'). Al terminar una tarea, el agente DEBE incrementar esta versión en la DB para que los usuarios reciban el aviso de actualización en la OWS Store.
-  - Endpoints Clave:
-    - POST /ows-store/projects: Registrar/Editar proyecto.
-    - PATCH /ows-store/projects/:slug/version: Actualizar versión rápidamente.
+- GESTION DE OWS STORE (Central de Apps):
+  - Tabla DB: ows_projects.
+  - Estados permitidos: launched, unavailable, coming_soon.
+  - Si es coming_soon, definir release_date (ISO) para countdown.
+  - Sistema de updates: cada proyecto tiene version (ej: 1.2.5). Al terminar una tarea, actualizar version para notificar en OWS Store.
+  - Endpoints clave:
+    - POST /ows-store/projects
+    - PATCH /ows-store/projects/:slug/version
+
+--- PLAYBOOK BUILDS/RELEASES (PARA OTROS AGENTES CODEX) ---
+
+Objetivo: estandarizar Build Android + Promote, Build Windows y Release Windows sin romper updater.
+
+1) PRECHECKS OBLIGATORIOS
+- Shell: PowerShell (Windows).
+- Ruta de gh (confirmada): C:\Program Files\GitHub CLI\gh.exe
+- Comando recomendado:
+  $GH = "C:\Program Files\GitHub CLI\gh.exe"
+- Verificar auth:
+  & $GH auth status
+- Si falla auth, iniciar sesion antes de cualquier workflow/release.
+
+2) REGLAS DE RELEASE (CRITICAS)
+- NO subir APK Android como latest si ese repo usa updater Windows con latest.yml.
+- Para Android en repos mixtos (Windows + Android): mark_latest=false.
+- Para Windows (instalador + latest.yml): mark_latest=true normalmente.
+- Mantener version semver valida en package.json (recomendado: YYYY.M.D-HHMM).
+
+3) OWS STORE ANDROID (repo: OceanandWild/owsdatabase)
+Workflow build:
+- ows-store-android.yml
+- Ejecutar:
+  & $GH workflow run ows-store-android.yml --repo OceanandWild/owsdatabase --ref main
+
+Run id mas reciente:
+- & $GH run list --repo OceanandWild/owsdatabase --workflow ows-store-android.yml --limit 1
+
+Promote a release:
+- Workflow: promote-artifact-to-release.yml
+- Artifact recomendado: ows-store-apk-release-signed
+- Ejemplo:
+  & $GH workflow run promote-artifact-to-release.yml --repo OceanandWild/owsdatabase --ref main `
+    -f source_run_id=<RUN_ID> `
+    -f artifact_name=ows-store-apk-release-signed `
+    -f release_tag=<TAG> `
+    -f release_name="<RELEASE_NAME>" `
+    -f release_notes="<CHANGELOG>" `
+    -f mark_latest=false `
+    -f prerelease=false `
+    -f target_repository=OceanandWild/owsdatabase
+
+Registro OBLIGATORIO en servidor (fallback Android):
+- Despues de Promote Android, SIEMPRE registrar/actualizar la release en server.js (tabla ows_android_releases).
+- Endpoint: POST /ows-store/android/releases
+- Motivo: si no se registra, el fallback de Android puede seguir devolviendo una version vieja y la app mostrara "sin updates".
+- Payload minimo recomendado:
+  {
+    "project_slug": "ows-store",
+    "package_id": "com.oceanandwild.owsstore",
+    "version_name": "<VERSION_ANDROID>",
+    "version_code": <VERSION_CODE_ANDROID>,
+    "apk_url": "<URL_APK_EN_RELEASE>",
+    "sha256": "<SHA256_APK_OPCIONAL>",
+    "size_bytes": <BYTES_APK_OPCIONAL>,
+    "release_notes": "<CHANGELOG>",
+    "status": "published",
+    "is_mandatory": false,
+    "published_at": "<ISO_DATE_OPCIONAL>"
+  }
+- Verificacion obligatoria posterior:
+  - GET /ows-store/android/releases/ows-store/latest
+  - Debe devolver la version publicada mas nueva (version_name/version_code correctos).
+  - Opcional: POST /ows-store/android/check-update con installed_version_code para validar update_available=true.
+
+CHECK BLOQUEANTE (NO CERRAR TAREA SIN ESTO):
+- Si el release Android se publico pero OWS Store no detecta update, casi siempre falta actualizar ows_android_releases.
+- Antes de dar una tarea por finalizada, ejecutar SIEMPRE:
+  1) GET /ows-store/android/releases/<slug>/latest
+  2) Confirmar que version_name/version_code coincidan con android-release-metadata.json del release promovido.
+  3) POST /ows-store/android/check-update con un installed_version_code menor para validar update_available=true.
+- Si falla cualquiera, re-hacer POST /ows-store/android/releases con el APK/tag nuevo y repetir validacion.
+- Esto aplica a TODOS los proyectos Android (ows-store, floretshop, wildtransfer, etc), no solo a OWS Store.
+
+4) ANDROID EXTERNO (WildTransfer / OWS News)
+Workflow build:
+- build-external-android.yml
+- Inputs:
+  - project: wildtransfer | ows-news
+  - source_ref: main (o branch/tag)
+- Ejemplo:
+  & $GH workflow run build-external-android.yml --repo OceanandWild/owsdatabase --ref main `
+    -f project=wildtransfer -f source_ref=main
+
+Artifacts esperados:
+- wildtransfer-apk-release-signed
+- ows-news-apk-release-signed
+
+Promote:
+- Usar promote-artifact-to-release.yml con target_repository correcto:
+  - WildTransfer -> OceanandWild/wildtransfer
+  - OWS News -> OceanandWild/ocean-and-wild-studios-news
+- En ambos casos: mark_latest=false para APK Android.
+
+5) BUILD WINDOWS (ELECTRON) + RELEASE WINDOWS
+En proyecto Electron (ej: OWS Store, Ocean Pay, Wild Destiny):
+- npm ci (o npm install)
+- npm run dist
+
+Publicar release (CLI opcional):
+- & $GH release create <TAG> "<RUTA_EXE>" "<RUTA_LATEST_YML>" --repo OceanandWild/<REPO> --title "<NAME>" --notes "<CHANGELOG>" --latest
+
+Notas:
+- Para updater Windows debe existir latest.yml + .exe en release Windows.
+- Si solo se publica Android, NO usar --latest en repos con updater Windows.
+
+6) CHEQUEOS RAPIDOS DESPUES DE PROMOTE/RELEASE
+- Ver assets en GitHub (exe/apk/latest.yml segun plataforma).
+- Verificar que OWS Store detecte version nueva por plataforma.
+- Si no detecta update: revisar semver/tag y que latest apunte al release correcto.
+
+7) ESTANDAR DE COMANDOS GH EN POWERSHELL
+- Siempre invocar gh con ruta completa:
+  & "C:\Program Files\GitHub CLI\gh.exe" <comando>
+
+8) ANTI-ERRORES COMUNES
+- "No published versions on GitHub": falta release/tag/asset.
+- "Cannot find channel *.yml": falta latest.yml o canal mal configurado.
+- "package not valid" Android: APK no firmado, firma distinta o asset incorrecto.
+- 403 GitHub API: limite/token/permisos; usar proxy server.js cuando aplique.
+
+9) CHANGELOG Y EVENTOS (OBLIGATORIO EN CADA TAREA)
+- Siempre que un agente modifique un proyecto, debe actualizar el changelog del proyecto.
+- Si el proyecto tiene evento proximo o activo, actualizar tambien su seccion de eventos (fecha inicio/fin o placeholder).
+- Esto aplica tambien para OWS Store:
+  - Actualizar "OWS Store Changelog y Eventos" cuando cambie OWS Store.
+  - Si se modifica una app listada en OWS Store, reflejar changelog/evento en su ficha dentro de OWS Store.
+- No cerrar una tarea sin trazabilidad minima: version, fecha, cambios clave, plataforma afectada (Windows/Android/Ambas).
+
+10) REGLA DE ICONO PARA NUEVOS PROYECTOS EN OWS STORE (CONDICIONAL)
+- Esta regla aplica SOLO cuando se agrega un proyecto nuevo a OWS Store.
+- El agente debe entregar prompt de icono para IA y documentarlo junto con la integracion.
+- El prompt debe incluir: nombre, concepto visual, paleta, estilo, legibilidad 16x16 y 256x256, fondo sin bordes blancos, sin texto.
+- Si no se agrega proyecto nuevo a OWS Store, no es obligatorio generar prompt.
+
+Prompt base recomendado (Wild Destiny):
+"App icon for 'Wild Destiny'. Epic fantasy-action RPG identity. Central symbol: a luminous crossed blade and arcane sigil fused in one emblem. Style: modern, premium, minimal but powerful, rounded-square icon suitable for Windows and Android launchers. Palette: deep midnight navy (#070b14), electric cyan (#26e0ff), royal violet (#7c3aed), subtle gold accents (#f5c542). High contrast, crisp silhouette, recognizable at 16x16 and detailed at 256x256. No text, no letters, no watermark. Fill full canvas. No white corners, no empty borders. Soft atmospheric glow and controlled depth, avoid clutter."

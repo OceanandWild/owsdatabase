@@ -1,0 +1,3952 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <title>WildWave - Red social OWS</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <style>
+      :root {
+        --bg: #020617;
+        --bg-soft: #020617;
+        --card: #020617;
+        --accent: #0ea5e9;
+        --accent-soft: rgba(56,189,248,0.16);
+        --text: #e5e7eb;
+        --text-soft: #9ca3af;
+        --danger: #ef4444;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: radial-gradient(circle at top left,#0f172a,#020617 45%,#020617 100%);
+        color: var(--text);
+        display: flex;
+        justify-content: center;
+      }
+
+      .wx-shell {
+        width: 100%;
+        max-width: 960px;
+        padding: 16px 12px 32px;
+      }
+
+      .wx-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 18px;
+        padding: 10px 14px;
+        border-radius: 18px;
+        background: radial-gradient(circle at 0% 0%, rgba(56,189,248,0.28), rgba(15,23,42,0.95));
+        border: 1px solid rgba(148,163,184,0.35);
+        box-shadow: 0 16px 40px rgba(15,23,42,0.8);
+      }
+
+      .wx-notif-icon {
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 999px;
+        background: rgba(15,23,42,0.85);
+        border: 1px solid rgba(148,163,184,0.6);
+        font-size: 0.9rem;
+        cursor: pointer;
+      }
+
+      .wx-notif-badge {
+        position: absolute;
+        top: -4px;
+        right: -4px;
+        min-width: 16px;
+        height: 16px;
+        padding: 0 4px;
+        border-radius: 999px;
+        background: #ef4444;
+        color: #f9fafb;
+        font-size: 0.7rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .wx-header-left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+      }
+
+      .wx-brand {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+      }
+
+      .wx-nav {
+        display: flex;
+        gap: 6px;
+        background: rgba(15,23,42,0.9);
+        border-radius: 999px;
+        padding: 2px;
+        border: 1px solid rgba(148,163,184,0.35);
+      }
+
+      .wx-tab {
+        flex: 1;
+        border-radius: 999px;
+        border: none;
+        background: transparent;
+        color: var(--text-soft);
+        font-size: 0.78rem;
+        padding: 6px 12px;
+        cursor: pointer;
+      }
+
+      .wx-tab--active {
+        background: radial-gradient(circle at 30% 0%, rgba(56,189,248,0.25), rgba(15,23,42,0.9));
+        color: var(--text);
+      }
+
+      .wx-logo {
+        width: 36px;
+        height: 36px;
+        border-radius: 999px;
+        background: radial-gradient(circle at 30% 30%,#22d3ee,#0ea5e9 55%,#0369a1 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        color: #0b1120;
+        box-shadow: 0 0 18px rgba(56,189,248,0.55);
+      }
+
+      .wx-header h1 {
+        font-size: 1.4rem;
+        margin: 0;
+      }
+
+      .wx-header-tag {
+        margin: 0;
+        color: var(--text-soft);
+        font-size: 0.8rem;
+      }
+
+      .wx-card {
+        background: rgba(15,23,42,0.95);
+        border-radius: 18px;
+        border: 1px solid rgba(148,163,184,0.2);
+        box-shadow: 0 18px 45px rgba(15,23,42,0.7);
+        backdrop-filter: blur(18px);
+      }
+
+      .wx-layout {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .wx-side {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .wx-main {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .wx-new {
+        padding: 14px 14px 10px;
+        margin-bottom: 12px;
+      }
+
+      .wx-new textarea {
+        width: 100%;
+        background: transparent;
+        border: none;
+        resize: none;
+        min-height: 72px;
+        color: var(--text);
+        font-size: 0.95rem;
+        line-height: 1.4;
+        outline: none;
+      }
+
+      .wx-new textarea::placeholder {
+        color: var(--text-soft);
+      }
+
+      .wx-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-top: 8px;
+      }
+
+      .wx-count {
+        font-size: 0.8rem;
+        color: var(--text-soft);
+      }
+
+      .wx-count--danger {
+        color: var(--danger);
+      }
+
+      .wx-btn {
+        border-radius: 999px;
+        border: none;
+        background: linear-gradient(135deg,#38bdf8,#0ea5e9);
+        color: #0b1120;
+        font-weight: 600;
+        padding: 7px 16px;
+        font-size: 0.9rem;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        box-shadow: 0 10px 25px rgba(56,189,248,0.45);
+        transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
+      }
+
+      .wx-btn:disabled {
+        opacity: 0.4;
+        cursor: default;
+        box-shadow: none;
+        filter: grayscale(0.4);
+      }
+
+      .wx-btn:not(:disabled):hover {
+        transform: translateY(-1px);
+        filter: brightness(1.05);
+        box-shadow: 0 14px 32px rgba(56,189,248,0.55);
+      }
+
+      .wx-status {
+        font-size: 0.8rem;
+        color: var(--text-soft);
+        margin-left: 4px;
+        visibility: hidden; /* se deja de usar texto inline, ahora se usan toasts */
+      }
+
+      .wx-toast-container {
+        position: fixed;
+        top: 16px;
+        right: 16px;
+        z-index: 100;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .wx-toast {
+        min-width: 220px;
+        max-width: 320px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        font-size: 0.8rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: rgba(15,23,42,0.96);
+        border: 1px solid rgba(148,163,184,0.5);
+        box-shadow: 0 12px 30px rgba(15,23,42,0.8);
+      }
+
+      .wx-toast--info {
+        border-color: rgba(56,189,248,0.8);
+      }
+
+      .wx-toast--error {
+        border-color: rgba(248,113,113,0.9);
+      }
+
+      .wx-toast-bullet {
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: rgba(56,189,248,0.9);
+      }
+
+      .wx-toast--error .wx-toast-bullet {
+        background: rgba(248,113,113,0.95);
+      }
+
+      .wx-toast-message {
+        flex: 1;
+      }
+
+      .wx-auth {
+        padding: 14px 14px 12px;
+      }
+
+      .wx-auth-title {
+        margin: 0 0 10px;
+        font-size: 0.95rem;
+      }
+
+      .wx-auth-toggle {
+        display: inline-flex;
+        border-radius: 999px;
+        border: 1px solid rgba(148,163,184,0.45);
+        padding: 2px;
+        margin-bottom: 10px;
+      }
+
+      .wx-auth-switch {
+        background: transparent;
+        border-radius: 999px;
+        border: none;
+        font-size: 0.78rem;
+        padding: 4px 10px;
+        color: var(--text-soft);
+        cursor: pointer;
+      }
+
+      .wx-auth-switch--active {
+        background: rgba(15,23,42,0.95);
+        color: var(--text);
+      }
+
+      .wx-auth-form {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-top: 4px;
+      }
+
+      .wx-auth-form--hidden {
+        display: none;
+      }
+
+      .wx-auth-form label {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        font-size: 0.8rem;
+        color: var(--text-soft);
+      }
+
+      .wx-auth-form input {
+        border-radius: 999px;
+        border: 1px solid rgba(148,163,184,0.5);
+        background: rgba(15,23,42,0.95);
+        color: var(--text);
+        padding: 6px 10px;
+        font-size: 0.85rem;
+        outline: none;
+      }
+
+      .wx-auth-footer {
+        margin-top: 6px;
+        font-size: 0.78rem;
+        color: var(--text-soft);
+      }
+
+      .wx-user {
+        padding: 10px 12px 10px;
+      }
+
+      .wx-user-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 8px;
+      }
+
+      .wx-avatar--small {
+        width: 32px;
+        height: 32px;
+      }
+
+      .wx-user-name {
+        font-size: 0.9rem;
+        font-weight: 600;
+      }
+
+      .wx-user-meta {
+        font-size: 0.78rem;
+        color: var(--text-soft);
+      }
+
+      .wx-user-meta span {
+        color: var(--accent);
+      }
+
+      .wx-btn--full {
+        width: 100%;
+        justify-content: center;
+      }
+
+      .wx-btn--outline {
+        background: transparent;
+        color: var(--text);
+        box-shadow: none;
+        border: 1px solid rgba(148,163,184,0.6);
+      }
+
+      .wx-feed {
+        padding: 10px 0 4px;
+      }
+
+      .wx-feed-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 4px 4px;
+      }
+
+      .wx-feed-title h2 {
+        margin: 0;
+        font-size: 0.95rem;
+        color: #e5e7eb;
+      }
+
+      .wx-feed-title button {
+        background: transparent;
+        border-radius: 999px;
+        border: 1px solid rgba(148,163,184,0.4);
+        color: var(--text-soft);
+        font-size: 0.75rem;
+        padding: 4px 10px;
+        cursor: pointer;
+      }
+
+      .wx-feed-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        max-height: 64vh;
+        overflow-y: auto;
+      }
+
+      .wx-promoted {
+        border-top: 1px solid rgba(234,179,8,0.6);
+        border-bottom: 1px solid rgba(30,64,175,0.6);
+        padding: 6px 10px 4px;
+        background: radial-gradient(circle at 0% 0%, rgba(250,204,21,0.12), rgba(15,23,42,0.95));
+      }
+
+      .wx-promoted-label {
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #eab308;
+        margin-bottom: 4px;
+      }
+
+      .wx-post-promoted {
+        border-color: rgba(234,179,8,0.8);
+        box-shadow: 0 0 0 1px rgba(250,204,21,0.35);
+      }
+
+      .wx-empty {
+        padding: 14px;
+        text-align: center;
+        font-size: 0.85rem;
+        color: var(--text-soft);
+      }
+
+      .wx-post {
+        padding: 10px 14px;
+        border-top: 1px solid rgba(30,64,175,0.5);
+        border-bottom: 1px solid rgba(15,23,42,0.9);
+        display: flex;
+        gap: 10px;
+      }
+
+      .wx-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 999px;
+        background: radial-gradient(circle at 30% 20%,#22d3ee,#0ea5e9 60%,#0369a1);
+        flex-shrink: 0;
+      }
+
+      .wx-body {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .wx-meta {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.78rem;
+        color: var(--text-soft);
+        margin-bottom: 3px;
+      }
+
+      .wx-handle {
+        font-weight: 600;
+        color: #e5e7eb;
+      }
+
+      .wx-dot {
+        opacity: 0.4;
+      }
+
+      .wx-time {
+        opacity: 0.8;
+      }
+
+      .wx-text {
+        font-size: 0.92rem;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+      }
+
+      .wx-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 7px;
+        border-radius: 999px;
+        font-size: 0.7rem;
+        background: rgba(15,23,42,0.9);
+        border: 1px solid rgba(56,189,248,0.5);
+      }
+
+      .wx-pill span {
+        color: var(--accent);
+      }
+
+      .wx-post-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 6px;
+        font-size: 0.78rem;
+        flex-wrap: wrap;
+      }
+
+      .wx-post-btn {
+        background: transparent;
+        border-radius: 999px;
+        border: 1px solid rgba(148,163,184,0.35);
+        color: var(--text-soft);
+        padding: 2px 8px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .wx-post-btn--like.wx-post-btn--active {
+        border-color: rgba(248,113,113,0.8);
+        color: #fecaca;
+        background: rgba(127,29,29,0.35);
+      }
+
+      .wx-hashtag {
+        border: none;
+        background: transparent;
+        color: #38bdf8;
+        cursor: pointer;
+        padding: 0;
+        font: inherit;
+      }
+
+      .wx-hashtag:hover {
+        text-decoration: underline;
+      }
+
+      .wx-trends {
+        border-top: 1px solid rgba(30,64,175,0.5);
+        margin-top: 6px;
+        padding: 8px 10px 6px;
+        font-size: 0.8rem;
+      }
+
+      .wx-trends-title {
+        margin: 0 0 4px;
+        font-size: 0.8rem;
+        color: var(--text-soft);
+      }
+
+      .wx-trends-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .wx-trends-list .wx-hashtag {
+        border-radius: 999px;
+        border: 1px solid rgba(56,189,248,0.4);
+        padding: 2px 8px;
+        background: rgba(15,23,42,0.9);
+      }
+
+      .wx-post-btn--self-like {
+        opacity: 0.5;
+        cursor: default;
+      }
+
+      .wx-post-btn--reply {
+        border-style: dashed;
+      }
+
+      .wx-thread-view {
+        margin-top: 12px;
+        padding: 10px 12px 12px;
+        border-top: 1px solid rgba(30,64,175,0.6);
+      }
+
+      .wx-thread-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 6px;
+        font-size: 0.8rem;
+        color: var(--text-soft);
+      }
+
+      .wx-thread-close {
+        background: transparent;
+        border-radius: 999px;
+        border: 1px solid rgba(148,163,184,0.35);
+        color: var(--text-soft);
+        font-size: 0.75rem;
+        padding: 2px 8px;
+        cursor: pointer;
+      }
+
+      .wx-thread-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+
+      .wx-thread-item {
+        padding: 8px 0 8px 6px;
+        border-left: 2px solid rgba(30,64,175,0.5);
+        margin-left: 4px;
+      }
+
+      .wx-thread-item-root {
+        border-left-color: transparent;
+        margin-left: 0;
+        padding-left: 0;
+      }
+
+      .wx-thread-depth-1 { margin-left: 12px; }
+      .wx-thread-depth-2 { margin-left: 24px; }
+      .wx-thread-depth-3 { margin-left: 36px; }
+      .wx-thread-depth-4 { margin-left: 48px; }
+      .wx-thread-depth-5 { margin-left: 60px; }
+
+      .wx-profile {
+        padding: 14px 14px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .wx-profile-header {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+
+      .wx-profile-main {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .wx-profile-layout {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 10px 16px;
+        margin-top: 6px;
+      }
+
+      .wx-profile-group {
+        background: rgba(15,23,42,0.9);
+        border-radius: 10px;
+        border: 1px solid rgba(148,163,184,0.35);
+        padding: 8px 10px;
+        font-size: 0.8rem;
+      }
+
+      .wx-profile-group h3 {
+        margin: 0 0 4px;
+        font-size: 0.8rem;
+        color: var(--text-soft);
+        font-weight: 600;
+      }
+
+      .wx-profile-name {
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+        margin-bottom: 4px;
+      }
+
+      .wx-profile-name h2 {
+        margin: 0;
+        font-size: 1.1rem;
+      }
+
+      .wx-profile-handle {
+        font-size: 0.9rem;
+        color: var(--text-soft);
+      }
+
+      .wx-profile-meta-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px 12px;
+        font-size: 0.8rem;
+        color: var(--text-soft);
+      }
+
+      .wx-profile-stat {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .wx-profile-stat span {
+        color: var(--accent);
+        font-weight: 600;
+      }
+
+      /* Perfil: lista vertical de estadísticas */
+      .wx-profile-meta-vertical {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        font-size: 0.85rem;
+        color: var(--text-soft);
+        margin-top: 4px;
+      }
+
+      .wx-profile-stat-vertical {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .wx-profile-stat-value {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: var(--accent);
+      }
+
+      .wx-profile-stat-label {
+        font-size: 0.78rem;
+        color: var(--text-soft);
+      }
+
+      .wx-verify-badge {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px;
+        height: 22px;
+        border-radius: 999px;
+        box-shadow: 0 0 10px rgba(56,189,248,0.7);
+        cursor: default;
+        /* círculo principal limpio */
+        overflow: visible;
+      }
+
+      /* Halo exterior con efecto zig-zag manteniendo el interior redondo */
+      .wx-verify-badge::before {
+        content: '';
+        position: absolute;
+        inset: -3px;
+        border-radius: inherit;
+        background: inherit;
+        z-index: -1;
+        clip-path: polygon(
+          50% 0%, 62% 6%, 76% 4%, 84% 14%, 96% 10%, 92% 24%, 100% 34%,
+          92% 42%, 98% 54%, 88% 58%, 94% 70%, 82% 72%, 84% 86%, 70% 82%,
+          62% 96%, 50% 88%, 38% 96%, 30% 82%, 16% 86%, 18% 72%, 6% 70%,
+          12% 58%, 2% 54%, 8% 42%, 0% 34%, 8% 24%, 4% 10%, 16% 14%,
+          24% 4%, 38% 6%
+        );
+        opacity: 0.95;
+      }
+
+      .wx-verify-badge--blue {
+        background: radial-gradient(circle at 30% 30%, #38bdf8, #0ea5e9 70%, #0369a1);
+      }
+
+      .wx-verify-badge--gold {
+        background: radial-gradient(circle at 30% 30%, #fde68a, #facc15 60%, #b45309);
+        box-shadow: 0 0 10px rgba(250, 204, 21, 0.8);
+      }
+
+      .wx-verify-badge--admin {
+        background: radial-gradient(circle at 20% 20%, #fde68a, #facc15 45%, #f97373 70%, #b91c1c 90%);
+        box-shadow: 0 0 12px rgba(248, 250, 252, 0.85);
+      }
+
+      .wx-verify-icon {
+        font-size: 0.9rem;
+        color: #0b1120;
+        font-weight: 800;
+        text-shadow: 0 0 1px rgba(15,23,42,0.9), 0 0 3px rgba(15,23,42,0.9), 0 0 6px rgba(255,255,255,0.5);
+        transform: translateY(-0.3px) rotate(-4deg);
+      }
+
+      /* Icono pequeño de verificación en los posts */
+      .wx-verify-icon-badge {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 16px;
+        height: 16px;
+        border-radius: 999px;
+        margin-left: 4px;
+        font-size: 10px;
+        font-weight: 800;
+        color: #0b1120;
+        text-shadow: 0 0 1px rgba(15,23,42,0.9), 0 0 3px rgba(15,23,42,0.9), 0 0 4px rgba(255,255,255,0.4);
+        transform: translateY(-0.3px) rotate(-4deg);
+        /* círculo principal, halo zig-zag por fuera */
+        overflow: visible;
+      }
+
+      .wx-verify-icon-badge::before {
+        content: '';
+        position: absolute;
+        inset: -2px;
+        border-radius: inherit;
+        background: inherit;
+        z-index: -1;
+        clip-path: polygon(
+          50% 0%, 62% 8%, 78% 8%, 86% 22%, 100% 30%, 90% 44%, 92% 60%,
+          78% 66%, 72% 82%, 50% 88%, 28% 82%, 22% 66%, 8% 60%, 10% 44%,
+          0% 30%, 14% 22%, 22% 8%, 38% 8%
+        );
+        opacity: 0.95;
+      }
+
+      .wx-verify-icon-badge--blue {
+        background: radial-gradient(circle at 30% 30%, #38bdf8, #0ea5e9 70%, #0369a1);
+      }
+
+      .wx-verify-icon-badge--gold {
+        background: radial-gradient(circle at 30% 30%, #fde68a, #facc15 60%, #b45309);
+      }
+
+      .wx-verify-icon-badge--admin {
+        background: radial-gradient(circle at 20% 20%, #fde68a, #facc15 45%, #f97373 70%, #b91c1c 90%);
+      }
+
+      .wx-verify-tooltip {
+        position: absolute;
+        top: 140%;
+        left: 50%;
+        transform: translateX(-50%) translateY(4px);
+        background: rgba(15,23,42,0.98);
+        border-radius: 10px;
+        border: 1px solid rgba(148,163,184,0.6);
+        padding: 8px 10px;
+        min-width: 220px;
+        max-width: 260px;
+        box-shadow: 0 18px 45px rgba(15,23,42,0.9);
+        font-size: 0.78rem;
+        color: var(--text-soft);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.12s ease, transform 0.12s ease;
+        z-index: 20;
+      }
+
+      .wx-verify-badge:hover .wx-verify-tooltip {
+        opacity: 1;
+        pointer-events: auto;
+        transform: translateX(-50%) translateY(0);
+      }
+
+      .wx-verify-tooltip-title {
+        font-weight: 600;
+        color: var(--text);
+        margin-bottom: 2px;
+        font-size: 0.8rem;
+      }
+
+      .wx-verify-tooltip-body {
+        line-height: 1.3;
+      }
+
+.wx-profile-actions {
+        margin-top: 8px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .wx-gold-requests-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-top: 8px;
+      }
+
+      .wx-gold-request-item {
+        border-radius: 10px;
+        border: 1px solid #1d9bf0;
+        padding: 8px 10px;
+        background: rgba(13, 17, 23, 0.7);
+        font-size: 0.8rem;
+      }
+
+      .wx-gold-request-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 4px;
+        font-weight: 600;
+      }
+
+      .wx-gold-request-actions {
+        display: flex;
+        gap: 6px;
+        margin-top: 6px;
+      }
+
+      .wx-gold-request-actions button {
+        flex: 1;
+        font-size: 0.75rem;
+        padding: 4px 6px;
+      }
+
+      .wx-profile-empty {
+        padding: 16px 14px 14px;
+        text-align: center;
+        font-size: 0.9rem;
+        color: var(--text-soft);
+      }
+
+      .wx-profile-empty p {
+        margin: 0 0 10px;
+      }
+
+      .wx-modal-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(15,23,42,0.78);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 50;
+      }
+
+      .wx-modal-backdrop[hidden] {
+        display: none !important;
+      }
+
+      .wx-modal {
+        width: 100%;
+        max-width: 380px;
+      }
+
+      .wx-modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 4px;
+      }
+
+      .wx-modal-close {
+        background: transparent;
+        border-radius: 999px;
+        border: 1px solid rgba(148,163,184,0.5);
+        color: var(--text-soft);
+        font-size: 0.8rem;
+        padding: 2px 8px;
+        cursor: pointer;
+      }
+
+      /* WildWave visual refresh */
+      body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        background:
+          radial-gradient(circle at 8% 12%, rgba(56,189,248,0.14), transparent 42%),
+          radial-gradient(circle at 86% 6%, rgba(14,165,233,0.12), transparent 34%),
+          radial-gradient(circle at 80% 86%, rgba(59,130,246,0.1), transparent 38%);
+        z-index: 0;
+      }
+
+      .wx-shell {
+        max-width: 1220px;
+        padding: 18px 16px 36px;
+        position: relative;
+        z-index: 1;
+      }
+
+      .wx-header {
+        position: sticky;
+        top: 10px;
+        z-index: 25;
+        margin-bottom: 16px;
+        border-color: rgba(56, 189, 248, 0.32);
+        box-shadow: 0 20px 44px rgba(2, 6, 23, 0.82);
+      }
+
+      .wx-layout {
+        display: grid;
+        grid-template-columns: 300px minmax(0, 1fr);
+        gap: 16px;
+        align-items: start;
+      }
+
+      .wx-side {
+        position: sticky;
+        top: 92px;
+      }
+
+      .wx-side-card {
+        padding: 14px;
+      }
+
+      .wx-side-card h3 {
+        margin: 0 0 8px;
+        font-size: 0.95rem;
+      }
+
+      .wx-side-card p {
+        margin: 0;
+        color: var(--text-soft);
+        font-size: 0.82rem;
+        line-height: 1.35;
+      }
+
+      .wx-side-grid {
+        margin-top: 10px;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .wx-side-metric {
+        border: 1px solid rgba(148,163,184,0.25);
+        border-radius: 12px;
+        padding: 8px 9px;
+        background: rgba(2, 6, 23, 0.46);
+      }
+
+      .wx-side-metric strong {
+        display: block;
+        font-size: 1rem;
+        color: #f8fafc;
+      }
+
+      .wx-side-metric span {
+        display: block;
+        color: var(--text-soft);
+        font-size: 0.72rem;
+      }
+
+      .wx-topic-list {
+        margin-top: 10px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .wx-topic-chip {
+        border: 1px solid rgba(56,189,248,0.35);
+        color: #67e8f9;
+        background: rgba(8, 47, 73, 0.55);
+        border-radius: 999px;
+        padding: 4px 10px;
+        font-size: 0.75rem;
+      }
+
+      .wx-idea-list {
+        margin-top: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .wx-idea-btn {
+        width: 100%;
+        text-align: left;
+        border-radius: 12px;
+        border: 1px solid rgba(148,163,184,0.28);
+        padding: 8px 10px;
+        background: rgba(15, 23, 42, 0.76);
+        color: #dbeafe;
+        cursor: pointer;
+        font-size: 0.8rem;
+      }
+
+      .wx-idea-btn:hover {
+        border-color: rgba(56,189,248,0.5);
+        color: #f0f9ff;
+      }
+
+      @media (max-width: 900px) {
+        .wx-layout {
+          grid-template-columns: minmax(0, 1fr);
+        }
+
+        .wx-side {
+          position: static;
+          top: auto;
+        }
+      }
+
+      @media (max-width: 600px) {
+        .wx-shell {
+          padding-inline: 10px;
+        }
+        .wx-card {
+          border-radius: 16px;
+        }
+        .wx-header {
+          flex-wrap: wrap;
+          row-gap: 8px;
+        }
+        .wx-side-grid {
+          grid-template-columns: 1fr 1fr;
+        }
+        .wx-side-card {
+          padding: 12px;
+        }
+        .wx-nav {
+          width: 100%;
+          justify-content: space-between;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wx-toast-container" id="wx-toast-container"></div>
+    <div class="wx-shell">
+      <header class="wx-header">
+        <div class="wx-header-left">
+          <div class="wx-logo">W</div>
+          <div class="wx-brand">
+            <h1>WildWave</h1>
+            <span class="wx-header-tag">Red social creativa del ecosistema OWS</span>
+          </div>
+          <button type="button" class="wx-notif-icon" id="wx-notif-icon" aria-label="Notificaciones">
+            &#128276;
+            <span class="wx-notif-badge" id="wx-notif-badge" hidden>0</span>
+          </button>
+        </div>
+        <nav class="wx-nav">
+          <button class="wx-tab wx-tab--active" data-tab="explore" id="wx-tab-explore">Explorar</button>
+          <button class="wx-tab" data-tab="profile" id="wx-tab-profile">Perfil</button>
+          <button class="wx-tab" data-tab="subscription" id="wx-tab-subscription">Suscripción</button>
+          <button class="wx-tab" data-tab="admin" id="wx-tab-admin" hidden>Admin</button>
+        </nav>
+      </header>
+
+      <section class="wx-layout">
+        <aside class="wx-side">
+          <section class="wx-card wx-side-card">
+            <h3>Centro de comunidad</h3>
+            <p>Publica, responde, descubre tendencias y escala tu perfil con un feed más limpio y directo.</p>
+            <div class="wx-side-grid">
+              <div class="wx-side-metric">
+                <strong id="wx-stat-feed-count">0</strong>
+                <span>posts cargados</span>
+              </div>
+              <div class="wx-side-metric">
+                <strong id="wx-stat-trend-count">0</strong>
+                <span>tendencias activas</span>
+              </div>
+              <div class="wx-side-metric">
+                <strong>280</strong>
+                <span>base por post</span>
+              </div>
+              <div class="wx-side-metric">
+                <strong>WXT</strong>
+                <span>economía interna</span>
+              </div>
+            </div>
+          </section>
+
+          <section class="wx-card wx-side-card">
+            <h3>Temas activos</h3>
+            <div class="wx-topic-list">
+              <span class="wx-topic-chip">#OWS</span>
+              <span class="wx-topic-chip">#Gaming</span>
+              <span class="wx-topic-chip">#DevLogs</span>
+              <span class="wx-topic-chip">#OceanPay</span>
+              <span class="wx-topic-chip">#Comunidad</span>
+            </div>
+          </section>
+
+          <section class="wx-card wx-side-card">
+            <h3>Ideas rápidas</h3>
+            <p>Inserta un borrador al editor con un click.</p>
+            <div class="wx-idea-list">
+              <button type="button" class="wx-idea-btn" data-wx-template="Estoy probando la nueva experiencia de WildWave. ¿Qué te parece el rediseño?">Publicar feedback</button>
+              <button type="button" class="wx-idea-btn" data-wx-template="Busco colaboración para un proyecto del ecosistema OWS.">Buscar colaboración</button>
+              <button type="button" class="wx-idea-btn" data-wx-template="Mini devlog: hoy avancé en mi proyecto.">Publicar devlog</button>
+            </div>
+          </section>
+        </aside>
+
+        <main class="wx-main">
+          <section class="wx-card wx-profile" id="wx-user-card" hidden>
+            <div class="wx-profile-header">
+              <div class="wx-avatar wx-avatar--small"></div>
+              <div class="wx-profile-main">
+                <div class="wx-profile-name">
+                  <h2 class="wx-profile-handle" id="wx-user-name">@usuario</h2>
+                  <div class="wx-verify-badge wx-verify-badge--blue" id="wx-verify-badge" hidden>
+                    <span class="wx-verify-icon">✓</span>
+                    <div class="wx-verify-tooltip">
+                      <div class="wx-verify-tooltip-title" id="wx-verify-tooltip-title">Verificación azul</div>
+                      <div class="wx-verify-tooltip-body" id="wx-verify-tooltip-text">
+                        Usa WildCredits desde Ocean Pay para verificar tu cuenta. Se descuenta 25 WildCredits por día de tu saldo para mantener la verificación activa.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="wx-profile-layout">
+              <div class="wx-profile-group">
+                <h3>Actividad</h3>
+                <div class="wx-profile-meta-vertical">
+                <div class="wx-profile-stat-vertical">
+                  <span class="wx-profile-stat-value" id="wx-user-posts-count">0</span>
+                  <span class="wx-profile-stat-label">posts</span>
+                </div>
+                <div class="wx-profile-stat-vertical">
+                  <span class="wx-profile-stat-value" id="wx-user-original-count">0</span>
+                  <span class="wx-profile-stat-label">originales</span>
+                </div>
+                <div class="wx-profile-stat-vertical">
+                  <span class="wx-profile-stat-value" id="wx-user-replies-count">0</span>
+                  <span class="wx-profile-stat-label">respuestas</span>
+                </div>
+                <div class="wx-profile-stat-vertical">
+                  <span class="wx-profile-stat-value" id="wx-user-likes-received">0</span>
+                  <span class="wx-profile-stat-label">likes recibidos</span>
+                </div>
+                <div class="wx-profile-stat-vertical">
+                  <span class="wx-profile-stat-value" id="wx-user-since">—</span>
+                  <span class="wx-profile-stat-label">miembro desde</span>
+                </div>
+                <div class="wx-profile-stat-vertical">
+                  <span class="wx-profile-stat-value" id="wx-user-last-post">—</span>
+                  <span class="wx-profile-stat-label">último post</span>
+                </div>
+              </div>
+              <div class="wx-profile-group">
+                <h3>Economía y propinas</h3>
+                <div class="wx-profile-meta-vertical">
+                  <div class="wx-profile-stat-vertical">
+                    <span class="wx-profile-stat-value" id="wx-user-wxt">0</span>
+                    <span class="wx-profile-stat-label">WildWave Tokens (WXT)</span>
+                  </div>
+                  <div class="wx-profile-stat-vertical">
+                    <span class="wx-profile-stat-value" id="wx-user-tips-wxt">0</span>
+                    <span class="wx-profile-stat-label">WXT recibidos este mes</span>
+                  </div>
+                  <div class="wx-profile-stat-vertical">
+                    <span class="wx-profile-stat-value" id="wx-user-tips-wc">0</span>
+                    <span class="wx-profile-stat-label">WildCredits estimados este mes</span>
+                  </div>
+                  <div class="wx-profile-stat-vertical">
+                    <span class="wx-profile-stat-value" id="wx-op-status">Inicia sesión para conectar Ocean Pay</span>
+                    <span class="wx-profile-stat-label">estado de Ocean Pay</span>
+                  </div>
+                </div>
+              </div>
+              <div class="wx-profile-group">
+                <h3>Cuenta y verificación</h3>
+                <div class="wx-profile-meta-vertical">
+                  <div class="wx-profile-stat-vertical">
+                    <span class="wx-profile-stat-value" id="wx-user-id">—</span>
+                    <span class="wx-profile-stat-label">ID interno</span>
+                  </div>
+                  <div class="wx-profile-stat-vertical" id="wx-user-verify-row" hidden>
+                    <span class="wx-profile-stat-value" id="wx-user-verify-remaining">—</span>
+                    <span class="wx-profile-stat-label">tiempo restante de verificación azul</span>
+                  </div>
+                </div>
+                <div class="wx-profile-actions">
+                  <button type="button" class="wx-btn wx-btn--outline" id="wx-gold-request-btn">Solicitar verificación dorada</button>
+                  <button type="button" class="wx-btn wx-btn--outline" id="wx-connect-op-btn">Conectar Ocean Pay</button>
+                  <button type="button" class="wx-btn wx-btn--outline" id="wx-logout">Cerrar sesión</button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="wx-card wx-profile-empty" id="wx-profile-empty" hidden>
+            <p>Inicia sesión o regístrate para ver tu perfil y tus posts.</p>
+            <button type="button" class="wx-btn" id="wx-open-auth">Iniciar sesión / Registro</button>
+          </section>
+
+          <!-- Sección de Suscripción a WildWave Blue -->
+          <section class="wx-card wx-auth" id="wx-subscription-card" hidden>
+            <div class="wx-profile-empty" style="text-align:left;padding:14px 14px 8px;">
+              <p><strong>Suscripción WildWave Blue</strong></p>
+              <p style="font-size:0.85rem;color:var(--text-soft);">
+                • Verificación azul visible en tu perfil y en todos tus posts.<br/>
+                • Aumento del límite de caracteres por post en un 150% (de 280 a 700 caracteres).<br/>
+                • Costo: 25 WildCredits por día, cobrados desde tu cuenta de Ocean Pay.
+              </p>
+            </div>
+            <div class="wx-profile-actions" style="padding:0 14px 8px;">
+              <button type="button" class="wx-btn wx-btn--full" id="wx-verify-blue-btn">Activar verificación azul</button>
+            </div>
+            <div style="padding:0 14px 12px;">
+              <p id="wx-subscription-status" style="font-size:0.8rem;color:var(--text-soft);margin:0;">
+                No tienes verificación azul activa.
+              </p>
+            </div>
+          </section>
+
+          <section class="wx-card wx-auth" id="wx-admin-card" hidden>
+            <div class="wx-profile-empty" style="text-align:left;padding:14px 14px 8px;">
+              <p><strong>Panel Admin</strong></p>
+              <p style="font-size:0.85rem;color:var(--text-soft);">
+                Revisa y gestiona las solicitudes de verificación dorada.
+              </p>
+            </div>
+            <div class="wx-auth" style="padding:0 14px 12px;">
+              <div id="wx-gold-requests-empty" class="wx-subscription-status">No hay solicitudes pendientes.</div>
+              <div id="wx-gold-requests-list" class="wx-gold-requests-list"></div>
+              <hr style="border:none;border-top:1px solid rgba(148,163,184,0.35);margin:10px 0;" />
+              <p style="font-size:0.85rem;color:var(--text-soft);margin:0 0 4px;"><strong>Reportes de posts</strong></p>
+              <div id="wx-post-reports-empty" class="wx-subscription-status">No hay reportes pendientes.</div>
+              <div id="wx-post-reports-list" class="wx-gold-requests-list"></div>
+            </div>
+          </section>
+
+          <section class="wx-card wx-feed" id="wx-scheduled-card" hidden>
+            <div class="wx-feed-title">
+              <h2>Posts programados</h2>
+              <button type="button" id="wx-refresh-scheduled">Actualizar</button>
+            </div>
+            <ul id="wx-scheduled-list" class="wx-feed-list"></ul>
+          </section>
+
+          <section class="wx-card wx-new">
+            <textarea id="wx-text" maxlength="280" placeholder="Inicia sesión para publicar"></textarea>
+            <div class="wx-row" style="margin-top:4px; align-items:flex-end;">
+              <div style="display:flex; flex-direction:column; gap:4px; align-items:flex-start;">
+                <div>
+                  <span id="wx-count" class="wx-count">0 / 280</span>
+                  <span id="wx-status" class="wx-status"></span>
+                </div>
+                <div style="display:flex; gap:6px; align-items:center; font-size:0.78rem; color:var(--text-soft);">
+                  <label style="display:flex; align-items:center; gap:4px;">
+                    <input type="checkbox" id="wx-schedule-toggle" style="accent-color:#38bdf8;" />
+                    Programar
+                  </label>
+                  <input type="datetime-local" id="wx-schedule-at" style="background:rgba(15,23,42,0.95);border-radius:999px;border:1px solid rgba(148,163,184,0.5);color:var(--text);font-size:0.78rem;padding:4px 8px;" />
+                </div>
+              </div>
+              <button id="wx-send" class="wx-btn" disabled>
+                <span>Publicar</span>
+              </button>
+            </div>
+          </section>
+
+          <section class="wx-card wx-feed" id="wx-main-feed-card">
+            <div class="wx-feed-title">
+              <h2 id="wx-feed-title">Explorar</h2>
+              <button type="button" id="wx-refresh">Actualizar</button>
+            </div>
+            <div class="wx-promoted" id="wx-promoted" hidden>
+              <div class="wx-promoted-label">Promocionado</div>
+              <div id="wx-promoted-content"></div>
+            </div>
+            <ul id="wx-feed" class="wx-feed-list"></ul>
+
+            <div class="wx-trends" id="wx-trends" hidden>
+              <h3 class="wx-trends-title">Tendencias</h3>
+              <div class="wx-trends-list" id="wx-trends-list"></div>
+            </div>
+
+            <div class="wx-thread-view" id="wx-thread-view" hidden>
+              <div class="wx-thread-header">
+                <span id="wx-thread-title">Respuestas</span>
+                <button type="button" class="wx-thread-close" id="wx-thread-close">Cerrar hilo</button>
+              </div>
+              <ul id="wx-thread-list" class="wx-thread-list"></ul>
+            </div>
+          </section>
+        </main>
+      </section>
+    </div>
+
+    <!-- Modal de autenticación -->
+    <div class="wx-modal-backdrop" id="wx-auth-modal" hidden>
+      <div class="wx-modal">
+        <div class="wx-card wx-auth" id="wx-auth-card">
+          <div class="wx-modal-header">
+            <h2 class="wx-auth-title" id="wx-auth-title">Iniciar sesión</h2>
+            <button type="button" class="wx-modal-close" id="wx-auth-close">Cerrar</button>
+          </div>
+
+          <div class="wx-auth-toggle">
+            <button type="button" class="wx-auth-switch wx-auth-switch--active" id="wx-switch-login">Login</button>
+            <button type="button" class="wx-auth-switch" id="wx-switch-register">Registro</button>
+          </div>
+
+          <form id="wx-form-login" class="wx-auth-form">
+            <label>
+              <span>Usuario</span>
+              <input type="text" id="wx-login-username" autocomplete="username" />
+            </label>
+            <label>
+              <span>Contraseña</span>
+              <input type="password" id="wx-login-password" autocomplete="current-password" />
+            </label>
+            <button type="submit" class="wx-btn wx-btn--full">Entrar</button>
+          </form>
+
+          <form id="wx-form-register" class="wx-auth-form wx-auth-form--hidden">
+            <label>
+              <span>Usuario</span>
+              <input type="text" id="wx-register-username" autocomplete="username" />
+            </label>
+            <label>
+              <span>Contraseña</span>
+              <input type="password" id="wx-register-password" autocomplete="new-password" />
+            </label>
+            <button type="submit" class="wx-btn wx-btn--full">Crear cuenta</button>
+          </form>
+
+          <div class="wx-auth-footer" id="wx-auth-footer"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal de credenciales de Ocean Pay para usar WildCredits -->
+    <div class="wx-modal-backdrop" id="wx-op-modal" hidden>
+      <div class="wx-modal">
+        <div class="wx-card wx-auth" id="wx-op-card">
+          <div class="wx-modal-header">
+            <h2 class="wx-auth-title" id="wx-op-title">Conectar Ocean Pay</h2>
+            <button type="button" class="wx-modal-close" id="wx-op-close">Cerrar</button>
+          </div>
+          <div class="wx-auth-form">
+            <label>
+              <span>Usuario de Ocean Pay</span>
+              <input type="text" id="wx-op-username" autocomplete="username" />
+            </label>
+            <label>
+              <span>Contraseña de Ocean Pay</span>
+              <input type="password" id="wx-op-password" autocomplete="current-password" />
+            </label>
+            <button type="button" class="wx-btn wx-btn--full" id="wx-op-submit">Conectar y suscribirme</button>
+          </div>
+          <div class="wx-auth-footer" id="wx-op-footer"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal de notificaciones -->
+    <div class="wx-modal-backdrop" id="wx-notif-modal" hidden>
+      <div class="wx-modal">
+        <div class="wx-card wx-auth" id="wx-notif-card">
+          <div class="wx-modal-header">
+            <h2 class="wx-auth-title">Notificaciones</h2>
+            <button type="button" class="wx-modal-close" id="wx-notif-close">Cerrar</button>
+          </div>
+          <div id="wx-notif-list" class="wx-auth" style="padding:8px 0 8px; max-height:60vh; overflow-y:auto;"></div>
+          <div style="padding:0 14px 12px;">
+            <button type="button" class="wx-btn wx-btn--outline wx-btn--full" id="wx-notif-mark-read">Marcar todo como leído</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const API_BASE = 'https://owsdatabase.onrender.com/wildwave/api/posts';
+      const API_ME = 'https://owsdatabase.onrender.com/wildwave/api/me';
+      const API_LOGIN = 'https://owsdatabase.onrender.com/wildwave/api/login';
+      const API_REGISTER = 'https://owsdatabase.onrender.com/wildwave/api/register';
+      const API_MY_POSTS = 'https://owsdatabase.onrender.com/wildwave/api/my-posts';
+      const API_SCHEDULED = 'https://owsdatabase.onrender.com/wildwave/api/scheduled';
+
+      const $text = document.getElementById('wx-text');
+      const $count = document.getElementById('wx-count');
+      const $status = document.getElementById('wx-status');
+      const $toastContainer = document.getElementById('wx-toast-container');
+      const $send = document.getElementById('wx-send');
+      const $feed = document.getElementById('wx-feed');
+      const $refresh = document.getElementById('wx-refresh');
+      const $scheduledCard = document.getElementById('wx-scheduled-card');
+      const $scheduledList = document.getElementById('wx-scheduled-list');
+      const $scheduledRefresh = document.getElementById('wx-refresh-scheduled');
+      const $feedTitle = document.getElementById('wx-feed-title');
+      const $trends = document.getElementById('wx-trends');
+      const $trendsList = document.getElementById('wx-trends-list');
+      const $promoted = document.getElementById('wx-promoted');
+      const $promotedContent = document.getElementById('wx-promoted-content');
+      const $statFeedCount = document.getElementById('wx-stat-feed-count');
+      const $statTrendCount = document.getElementById('wx-stat-trend-count');
+      const $ideaButtons = Array.from(document.querySelectorAll('[data-wx-template]'));
+
+      const $notifIcon = document.getElementById('wx-notif-icon');
+      const $notifBadge = document.getElementById('wx-notif-badge');
+      const $notifModal = document.getElementById('wx-notif-modal');
+      const $notifClose = document.getElementById('wx-notif-close');
+      const $notifList = document.getElementById('wx-notif-list');
+      const $notifMarkRead = document.getElementById('wx-notif-mark-read');
+
+      const $tabExplore = document.getElementById('wx-tab-explore');
+      const $tabProfile = document.getElementById('wx-tab-profile');
+      const $tabSubscription = document.getElementById('wx-tab-subscription');
+      const $tabAdmin = document.getElementById('wx-tab-admin');
+
+      const $authTitle = document.getElementById('wx-auth-title');
+      const $switchLogin = document.getElementById('wx-switch-login');
+      const $switchRegister = document.getElementById('wx-switch-register');
+      const $formLogin = document.getElementById('wx-form-login');
+      const $formRegister = document.getElementById('wx-form-register');
+      const $authFooter = document.getElementById('wx-auth-footer');
+
+      const $loginUser = document.getElementById('wx-login-username');
+      const $loginPass = document.getElementById('wx-login-password');
+      const $regUser = document.getElementById('wx-register-username');
+      const $regPass = document.getElementById('wx-register-password');
+
+      const $authModal = document.getElementById('wx-auth-modal');
+      const $authCard = document.getElementById('wx-auth-card');
+      const $authClose = document.getElementById('wx-auth-close');
+
+      const $opModal = document.getElementById('wx-op-modal');
+      const $opClose = document.getElementById('wx-op-close');
+      const $opUser = document.getElementById('wx-op-username');
+      const $opPass = document.getElementById('wx-op-password');
+      const $opSubmit = document.getElementById('wx-op-submit');
+      const $opFooter = document.getElementById('wx-op-footer');
+      const $opTitle = document.getElementById('wx-op-title');
+
+      const $userCard = document.getElementById('wx-user-card');
+      const $userName = document.getElementById('wx-user-name');
+      const $userPostsCount = document.getElementById('wx-user-posts-count');
+      const $userOriginalCount = document.getElementById('wx-user-original-count');
+      const $userRepliesCount = document.getElementById('wx-user-replies-count');
+      const $userLikesReceived = document.getElementById('wx-user-likes-received');
+      const $userSince = document.getElementById('wx-user-since');
+      const $userWxt = document.getElementById('wx-user-wxt');
+      const $userTipsWxt = document.getElementById('wx-user-tips-wxt');
+      const $userTipsWc = document.getElementById('wx-user-tips-wc');
+      const $opStatus = document.getElementById('wx-op-status');
+      const $userLastPost = document.getElementById('wx-user-last-post');
+      const $userId = document.getElementById('wx-user-id');
+      const $profileEmpty = document.getElementById('wx-profile-empty');
+      const $subscriptionCard = document.getElementById('wx-subscription-card');
+      const $userVerifyRow = document.getElementById('wx-user-verify-row');
+      const $userVerifyRemaining = document.getElementById('wx-user-verify-remaining');
+      const $subscriptionStatus = document.getElementById('wx-subscription-status');
+      const $goldRequestBtn = document.getElementById('wx-gold-request-btn');
+      const $connectOpBtn = document.getElementById('wx-connect-op-btn');
+      const $adminCard = document.getElementById('wx-admin-card');
+      const $goldRequestsList = document.getElementById('wx-gold-requests-list');
+      const $goldRequestsEmpty = document.getElementById('wx-gold-requests-empty');
+      const $postReportsList = document.getElementById('wx-post-reports-list');
+      const $postReportsEmpty = document.getElementById('wx-post-reports-empty');
+      const $openAuth = document.getElementById('wx-open-auth');
+      const $logout = document.getElementById('wx-logout');
+      const $verifyBadge = document.getElementById('wx-verify-badge');
+      const $verifyTooltipTitle = document.getElementById('wx-verify-tooltip-title');
+      const $verifyTooltipText = document.getElementById('wx-verify-tooltip-text');
+      const $verifyBlueBtn = document.getElementById('wx-verify-blue-btn');
+
+      const $threadView = document.getElementById('wx-thread-view');
+      const $threadList = document.getElementById('wx-thread-list');
+      const $threadClose = document.getElementById('wx-thread-close');
+      const $threadTitle = document.getElementById('wx-thread-title');
+
+      let currentTab = 'explore';
+      let currentUser = null;
+      let currentToken = null;
+      let currentThreadPostId = null;
+      let currentReplyToId = null;
+      let currentReplyToUsername = null;
+      let pendingVerificationReason = null;
+      let opModalMode = 'blue';
+
+      let explorePosts = [];
+      let currentHashtagFilter = null;
+      let lastNotifications = [];
+      let currentPromoted = null;
+
+      $ideaButtons.forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const template = btn.dataset.wxTemplate || '';
+          if (!$text) return;
+          $text.value = template;
+          $text.focus();
+          updateCounter();
+          setStatus('Borrador insertado en el editor.');
+        });
+      });
+
+      function authHeaders() {
+        return currentToken ? { Authorization: 'Bearer ' + currentToken } : {};
+      }
+
+      function showToast(msg, type = 'info', timeoutMs = 2500) {
+        if (!msg || !$toastContainer) return;
+        const toast = document.createElement('div');
+        toast.className = 'wx-toast ' + (type === 'error' ? 'wx-toast--error' : 'wx-toast--info');
+        const bullet = document.createElement('div');
+        bullet.className = 'wx-toast-bullet';
+        const text = document.createElement('div');
+        text.className = 'wx-toast-message';
+        text.textContent = msg;
+        toast.append(bullet, text);
+        $toastContainer.appendChild(toast);
+        setTimeout(() => {
+          toast.style.opacity = '0';
+          toast.style.transform = 'translateY(-4px)';
+          setTimeout(() => toast.remove(), 200);
+        }, timeoutMs);
+      }
+
+      function setStatus(msg, type = 'info') {
+        // Ya no mostramos mensaje dentro del input; usamos toasts.
+        if ($status) {
+          $status.textContent = '';
+        }
+        if (msg) {
+          showToast(msg, type);
+        }
+      }
+
+      function openInputDialog({ title, message, placeholder = '', defaultValue = '', multiline = false, type = 'text', confirmLabel = 'Aceptar', cancelLabel = 'Cancelar' } = {}) {
+        return new Promise((resolve) => {
+          const backdrop = document.createElement('div');
+          backdrop.className = 'wx-modal-backdrop';
+
+          const modal = document.createElement('div');
+          modal.className = 'wx-modal';
+
+          const card = document.createElement('div');
+          card.className = 'wx-card wx-auth';
+
+          const header = document.createElement('div');
+          header.className = 'wx-modal-header';
+
+          const h = document.createElement('h2');
+          h.className = 'wx-auth-title';
+          h.textContent = title || 'Confirmar';
+
+          const closeBtn = document.createElement('button');
+          closeBtn.type = 'button';
+          closeBtn.className = 'wx-modal-close';
+          closeBtn.textContent = 'Cerrar';
+
+          header.append(h, closeBtn);
+
+          const body = document.createElement('div');
+          body.className = 'wx-auth-form';
+
+          if (message) {
+            const p = document.createElement('p');
+            p.style.fontSize = '0.8rem';
+            p.style.color = 'var(--text-soft)';
+            p.textContent = message;
+            body.appendChild(p);
+          }
+
+          let input;
+          if (multiline) {
+            input = document.createElement('textarea');
+            input.rows = 4;
+            input.style.borderRadius = '10px';
+          } else {
+            input = document.createElement('input');
+            input.type = type || 'text';
+            input.style.borderRadius = '999px';
+          }
+          input.style.border = '1px solid rgba(148,163,184,0.5)';
+          input.style.background = 'rgba(15,23,42,0.95)';
+          input.style.color = 'var(--text)';
+          input.style.padding = '6px 10px';
+          input.style.fontSize = '0.85rem';
+          input.style.width = '100%';
+          input.placeholder = placeholder || '';
+          if (defaultValue) input.value = defaultValue;
+
+          body.appendChild(input);
+
+          const footer = document.createElement('div');
+          footer.className = 'wx-profile-actions';
+
+          const cancelBtn = document.createElement('button');
+          cancelBtn.type = 'button';
+          cancelBtn.className = 'wx-btn wx-btn--outline';
+          cancelBtn.textContent = cancelLabel || 'Cancelar';
+
+          const okBtn = document.createElement('button');
+          okBtn.type = 'button';
+          okBtn.className = 'wx-btn';
+          okBtn.textContent = confirmLabel || 'Aceptar';
+
+          footer.append(cancelBtn, okBtn);
+
+          card.append(header, body, footer);
+          modal.appendChild(card);
+          backdrop.appendChild(modal);
+          document.body.appendChild(backdrop);
+
+          function cleanup(value) {
+            backdrop.remove();
+            resolve(value);
+          }
+
+          closeBtn.addEventListener('click', () => cleanup(null));
+          cancelBtn.addEventListener('click', () => cleanup(null));
+          backdrop.addEventListener('click', (ev) => {
+            if (ev.target === backdrop) cleanup(null);
+          });
+          okBtn.addEventListener('click', () => {
+            const value = input.value != null ? input.value : '';
+            cleanup(value);
+          });
+
+          if (!multiline) {
+            input.addEventListener('keydown', (ev) => {
+              if (ev.key === 'Enter') {
+                ev.preventDefault();
+                okBtn.click();
+              }
+            });
+          }
+
+          setTimeout(() => {
+            input.focus();
+            const val = input.value;
+            if (val && input.setSelectionRange) {
+              input.setSelectionRange(val.length, val.length);
+            }
+          }, 10);
+        });
+      }
+
+      function openConfirmDialog({ title, message, confirmLabel = 'Sí', cancelLabel = 'Cancelar' } = {}) {
+        return new Promise((resolve) => {
+          const backdrop = document.createElement('div');
+          backdrop.className = 'wx-modal-backdrop';
+
+          const modal = document.createElement('div');
+          modal.className = 'wx-modal';
+
+          const card = document.createElement('div');
+          card.className = 'wx-card wx-auth';
+
+          const header = document.createElement('div');
+          header.className = 'wx-modal-header';
+
+          const h = document.createElement('h2');
+          h.className = 'wx-auth-title';
+          h.textContent = title || 'Confirmar';
+
+          const closeBtn = document.createElement('button');
+          closeBtn.type = 'button';
+          closeBtn.className = 'wx-modal-close';
+          closeBtn.textContent = 'Cerrar';
+
+          header.append(h, closeBtn);
+
+          const body = document.createElement('div');
+          body.className = 'wx-auth-form';
+          if (message) {
+            const p = document.createElement('p');
+            p.style.fontSize = '0.8rem';
+            p.style.color = 'var(--text-soft)';
+            p.textContent = message;
+            body.appendChild(p);
+          }
+
+          const footer = document.createElement('div');
+          footer.className = 'wx-profile-actions';
+
+          const cancelBtn = document.createElement('button');
+          cancelBtn.type = 'button';
+          cancelBtn.className = 'wx-btn wx-btn--outline';
+          cancelBtn.textContent = cancelLabel || 'Cancelar';
+
+          const okBtn = document.createElement('button');
+          okBtn.type = 'button';
+          okBtn.className = 'wx-btn';
+          okBtn.textContent = confirmLabel || 'Sí';
+
+          footer.append(cancelBtn, okBtn);
+
+          card.append(header, body, footer);
+          modal.appendChild(card);
+          backdrop.appendChild(modal);
+          document.body.appendChild(backdrop);
+
+          function cleanup(result) {
+            backdrop.remove();
+            resolve(result);
+          }
+
+          closeBtn.addEventListener('click', () => cleanup(false));
+          cancelBtn.addEventListener('click', () => cleanup(false));
+          backdrop.addEventListener('click', (ev) => {
+            if (ev.target === backdrop) cleanup(false);
+          });
+          okBtn.addEventListener('click', () => cleanup(true));
+        });
+      }
+
+      function updateVerifyBadge(userLike) {
+        if (!$verifyBadge || !$verifyTooltipText) return;
+        const tier = userLike?.verify_tier || userLike?.tier;
+        const reason = userLike?.verify_reason || userLike?.reason;
+        const startedAt = userLike?.verify_started_at || userLike?.started_at;
+        const validUntil = userLike?.verify_valid_until || userLike?.valid_until;
+
+        // Reset clases de color
+        $verifyBadge.classList.remove('wx-verify-badge--blue', 'wx-verify-badge--gold', 'wx-verify-badge--admin');
+
+        if (!tier || !validUntil) {
+          $verifyBadge.hidden = true;
+          if ($userVerifyRow) {
+            $userVerifyRow.hidden = true;
+            if ($userVerifyRemaining) $userVerifyRemaining.textContent = '—';
+          }
+          if ($verifyBlueBtn) {
+            $verifyBlueBtn.disabled = false;
+            $verifyBlueBtn.textContent = 'Activar verificación azul';
+          }
+          if ($subscriptionStatus) {
+            $subscriptionStatus.textContent = 'No tienes verificación azul activa.';
+          }
+          return;
+        }
+
+        const now = new Date();
+        const untilDate = new Date(validUntil);
+        if (Number.isNaN(untilDate.getTime()) || untilDate <= now) {
+          $verifyBadge.hidden = true;
+          if ($userVerifyRow) {
+            $userVerifyRow.hidden = true;
+            if ($userVerifyRemaining) $userVerifyRemaining.textContent = '—';
+          }
+          if ($verifyBlueBtn) {
+            $verifyBlueBtn.disabled = false;
+            $verifyBlueBtn.textContent = 'Activar verificación azul';
+          }
+          if ($subscriptionStatus) {
+            $subscriptionStatus.textContent = 'No tienes verificación azul activa.';
+          }
+          return;
+        }
+
+        const sinceDate = startedAt ? new Date(startedAt) : null;
+        const sinceStr = sinceDate && !Number.isNaN(sinceDate.getTime())
+          ? sinceDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })
+          : 'fecha desconocida';
+
+        // Calcular tiempo restante aproximado (para azul; dorada/admin no lo muestran)
+        const diffMs = untilDate.getTime() - now.getTime();
+        const totalMinutes = Math.max(0, Math.round(diffMs / 60000));
+        const days = Math.floor(totalMinutes / (60 * 24));
+        const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
+        const minutes = totalMinutes % 60;
+        let remainingText = '';
+        if (days > 0) {
+          remainingText = `${days}d ${hours}h`;
+        } else if (hours > 0) {
+          remainingText = `${hours}h ${minutes}m`;
+        } else {
+          remainingText = `${minutes}m`;
+        }
+
+        let tooltipTitle = 'Cuenta verificada';
+        let tooltipBody = '';
+
+        if (tier === 'blue') {
+          $verifyBadge.classList.add('wx-verify-badge--blue');
+          const reasonText = reason || 'Cuenta verificada por el creador.';
+          tooltipTitle = 'Verificación azul';
+          tooltipBody = `Verificado desde ${sinceStr} · ${reasonText} · Se descuenta 25 WildCredits por día de tu saldo en Ocean Pay.`;
+          if ($userVerifyRow && $userVerifyRemaining) {
+            $userVerifyRow.hidden = false;
+            $userVerifyRemaining.textContent = remainingText;
+          }
+          if ($verifyBlueBtn) {
+            $verifyBlueBtn.disabled = true;
+            $verifyBlueBtn.textContent = 'Verificación azul activa';
+          }
+          if ($subscriptionStatus) {
+            $subscriptionStatus.textContent = `Verificación azul activa · restante: ${remainingText}`;
+          }
+        } else if (tier === 'gold') {
+          $verifyBadge.classList.add('wx-verify-badge--gold');
+          const reasonText = reason || 'Verificación dorada aprobada para empresa reconocida.';
+          tooltipTitle = 'Verificación dorada';
+          tooltipBody = `Verificación dorada desde ${sinceStr} · ${reasonText}`;
+          if ($userVerifyRow) {
+            $userVerifyRow.hidden = true;
+            if ($userVerifyRemaining) $userVerifyRemaining.textContent = '—';
+          }
+        } else if (tier === 'admin') {
+          $verifyBadge.classList.add('wx-verify-badge--admin');
+          tooltipTitle = 'Cuenta Admin de WildWave';
+          tooltipBody = `Admin desde ${sinceStr} · Desarrollador de Juegos - +50 Proyectos aumentando en cantidad poco a poco.`;
+          if ($userVerifyRow) {
+            $userVerifyRow.hidden = true;
+            if ($userVerifyRemaining) $userVerifyRemaining.textContent = '—';
+          }
+        }
+
+        $verifyBadge.hidden = false;
+        if ($verifyTooltipTitle) $verifyTooltipTitle.textContent = tooltipTitle;
+        $verifyTooltipText.textContent = tooltipBody;
+      }
+
+      function getMaxChars() {
+        if (!currentUser) return 280;
+        if (currentUser.verify_tier === 'admin') {
+          // Admin sin límite práctico en el backend; en el cliente devolvemos un valor muy alto
+          return 100000;
+        }
+        if (currentUser.verify_tier === 'blue' && currentUser.verify_valid_until) {
+          const until = new Date(currentUser.verify_valid_until);
+          if (!Number.isNaN(until.getTime()) && until > new Date()) {
+            return 700; // 280 + 150% = 700
+          }
+        }
+        return 280;
+      }
+
+      function updateCounter() {
+        const isAdmin = !!(currentUser && currentUser.verify_tier === 'admin');
+        const max = isAdmin ? Infinity : getMaxChars();
+        if ($text) {
+          if (isAdmin) {
+            $text.removeAttribute('maxlength');
+          } else {
+            $text.maxLength = max;
+          }
+        }
+        const len = ($text.value || '').trim().length;
+        const displayMax = isAdmin ? '∞' : max;
+        $count.textContent = `${len} / ${displayMax}`;
+        const tooLong = !isAdmin && len > max;
+        const empty = len === 0;
+        $count.classList.toggle('wx-count--danger', tooLong);
+        $send.disabled = empty || tooLong || !currentUser;
+      }
+
+      function updateCommunitySideStats(postCount = null, trendCount = null) {
+        if ($statFeedCount && typeof postCount === 'number') {
+          $statFeedCount.textContent = String(postCount);
+        }
+        if ($statTrendCount && typeof trendCount === 'number') {
+          $statTrendCount.textContent = String(trendCount);
+        }
+      }
+
+      function formatTime(iso) {
+        if (!iso) return '';
+        const d = new Date(iso);
+        if (Number.isNaN(d.getTime())) return '';
+        return d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+      }
+
+      function renderTextWithHashtags(container, content) {
+        container.innerHTML = '';
+        const text = content || '';
+        const parts = text.split(/(#[\p{L}0-9_]+)/u);
+        for (const part of parts) {
+          if (part && part.startsWith('#') && part.length > 1) {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'wx-hashtag';
+            btn.textContent = part;
+            btn.dataset.hashtag = part.slice(1);
+            container.appendChild(btn);
+          } else if (part) {
+            container.appendChild(document.createTextNode(part));
+          }
+        }
+      }
+
+      function createPostElement(post, options = {}) {
+        const li = document.createElement('li');
+        li.className = 'wx-post';
+
+        const avatar = document.createElement('div');
+        avatar.className = 'wx-avatar';
+
+        const body = document.createElement('div');
+        body.className = 'wx-body';
+
+        const meta = document.createElement('div');
+        meta.className = 'wx-meta';
+
+        const handle = document.createElement('span');
+        handle.className = 'wx-handle';
+        const uname = post.username || 'wildwave-user';
+        handle.textContent = '@' + uname;
+
+        let verifyIcon = null;
+        let authorTier = post.verify_tier || null;
+        if (uname === 'Ocean and Wild Studios') {
+          authorTier = 'admin';
+        }
+        if (authorTier) {
+          verifyIcon = document.createElement('span');
+          verifyIcon.textContent = '✓';
+          verifyIcon.className = 'wx-verify-icon-badge';
+          if (authorTier === 'blue') {
+            verifyIcon.classList.add('wx-verify-icon-badge--blue');
+          } else if (authorTier === 'gold') {
+            verifyIcon.classList.add('wx-verify-icon-badge--gold');
+          } else if (authorTier === 'admin') {
+            verifyIcon.classList.add('wx-verify-icon-badge--admin');
+          }
+        }
+
+        const isOwn = currentUser && String(post.user_id) === String(currentUser.id);
+
+        const dot = document.createElement('span');
+        dot.className = 'wx-dot';
+        dot.textContent = '·';
+
+        const time = document.createElement('span');
+        time.className = 'wx-time';
+        const timeSource = (options.scheduled && post.scheduled_at) ? post.scheduled_at : post.created_at;
+        time.textContent = formatTime(timeSource);
+
+        const pill = document.createElement('span');
+        pill.className = 'wx-pill';
+        let pillLabel = 'post';
+        if (options.promoted) pillLabel = 'promocionado';
+        else if (options.scheduled) pillLabel = 'programado';
+        pill.innerHTML = `<span>WildWave</span> · ${pillLabel}`;
+
+        if (verifyIcon) {
+          meta.append(handle, verifyIcon, dot, time, pill);
+        } else {
+          meta.append(handle, dot, time, pill);
+        }
+
+        const text = document.createElement('div');
+        text.className = 'wx-text';
+        renderTextWithHashtags(text, post.content || '');
+
+        const actions = document.createElement('div');
+        actions.className = 'wx-post-actions';
+
+        const likeBtn = document.createElement('button');
+        likeBtn.className = 'wx-post-btn wx-post-btn--like';
+        likeBtn.dataset.action = 'like';
+        likeBtn.dataset.id = post.id;
+        likeBtn.dataset.username = uname;
+        if (post.liked) likeBtn.classList.add('wx-post-btn--active');
+        const likes = typeof post.likes_count === 'number' ? post.likes_count : 0;
+        likeBtn.textContent = `❤ ${likes}`;
+
+        const replyBtn = document.createElement('button');
+        replyBtn.className = 'wx-post-btn wx-post-btn--reply';
+        replyBtn.dataset.action = 'reply';
+        replyBtn.dataset.id = post.id;
+        replyBtn.dataset.username = uname;
+        replyBtn.textContent = 'Responder';
+
+        const promoteBtn = document.createElement('button');
+        promoteBtn.className = 'wx-post-btn';
+        promoteBtn.dataset.action = 'promote';
+        promoteBtn.dataset.id = post.id;
+        promoteBtn.textContent = 'Promocionar';
+        if (!isOwn) {
+          promoteBtn.disabled = true;
+          promoteBtn.title = 'Solo puedes promocionar tus propios posts';
+        }
+
+        const hasOceanPayToken = !!localStorage.getItem('opToken');
+        let tipBtn = null;
+        if (currentUser && hasOceanPayToken && !isOwn) {
+          tipBtn = document.createElement('button');
+          tipBtn.className = 'wx-post-btn';
+          tipBtn.dataset.action = 'tip';
+          tipBtn.dataset.id = post.id;
+          tipBtn.dataset.username = uname;
+          tipBtn.textContent = 'Dar propina';
+        }
+
+        // Botones extra: eliminar y reportar
+        let deleteBtn = null;
+        let reportBtn = null;
+        if (isOwn) {
+          deleteBtn = document.createElement('button');
+          deleteBtn.className = 'wx-post-btn';
+          deleteBtn.dataset.action = 'delete';
+          deleteBtn.dataset.id = post.id;
+          deleteBtn.textContent = 'Eliminar';
+        } else if (currentUser) {
+          reportBtn = document.createElement('button');
+          reportBtn.className = 'wx-post-btn';
+          reportBtn.dataset.action = 'report';
+          reportBtn.dataset.id = post.id;
+          reportBtn.textContent = 'Reportar';
+        }
+
+        if (isOwn) {
+          likeBtn.classList.add('wx-post-btn--self-like');
+          likeBtn.dataset.self = '1';
+          likeBtn.title = 'No puedes dar like a tus propios posts';
+        }
+
+        actions.append(likeBtn, replyBtn, promoteBtn);
+        if (tipBtn) actions.append(tipBtn);
+        if (deleteBtn) actions.append(deleteBtn);
+        if (reportBtn) actions.append(reportBtn);
+
+        body.append(meta, text, actions);
+        li.append(avatar, body);
+
+        if (options.promoted) {
+          li.classList.add('wx-post-promoted');
+        }
+
+        return li;
+      }
+
+      function renderPosts(posts) {
+        $feed.innerHTML = '';
+        $threadView.hidden = true;
+        currentThreadPostId = null;
+        updateCommunitySideStats(Array.isArray(posts) ? posts.length : 0, null);
+        if (!posts || posts.length === 0) {
+          const li = document.createElement('li');
+          li.className = 'wx-empty';
+          li.textContent = 'No hay posts aún. ¡Sé el primero en publicar!';
+          $feed.appendChild(li);
+          return;
+        }
+
+        for (const post of posts) {
+          const li = createPostElement(post);
+          $feed.appendChild(li);
+        }
+      }
+
+      async function fetchExplore() {
+        try {
+          setStatus('Cargando explorar...');
+          const res = await fetch(API_BASE, { headers: { ...authHeaders() } });
+          if (!res.ok) throw new Error('Estado ' + res.status);
+          const data = await res.json();
+          const posts = Array.isArray(data)
+            ? data
+            : (Array.isArray(data.posts) ? data.posts : []);
+          explorePosts = posts.slice();
+          currentPromoted = data && data.promoted && data.promoted.post ? data.promoted : null;
+
+          if ($promoted && $promotedContent) {
+            $promotedContent.innerHTML = '';
+            if (currentPromoted && currentPromoted.post) {
+              const promotedEl = createPostElement(currentPromoted.post, { promoted: true });
+              $promotedContent.appendChild(promotedEl);
+              $promoted.hidden = false;
+            } else {
+              $promoted.hidden = true;
+            }
+          }
+          // Reset filtro de hashtag al refrescar
+          if (!currentHashtagFilter) {
+            $feedTitle.textContent = 'Explorar';
+          }
+          const toRender = currentHashtagFilter ? filterPostsByHashtag(explorePosts, currentHashtagFilter) : explorePosts;
+          renderPosts(toRender);
+          updateTrends(explorePosts);
+
+          // En Explorar nunca se muestran los datos de perfil
+          if ($userCard) $userCard.hidden = true;
+          if ($profileEmpty) $profileEmpty.hidden = true;
+
+          setStatus('Explorar actualizado.');
+        } catch (e) {
+          console.error(e);
+          setStatus('No se pudieron cargar los posts', 'error');
+        }
+      }
+
+      async function fetchMyPosts() {
+        try {
+          if (!currentUser) {
+            renderPosts([]);
+            setStatus('Inicia sesión para ver tu perfil.');
+            return;
+          }
+          setStatus('Cargando tu perfil...');
+          const res = await fetch(API_MY_POSTS, { headers: { ...authHeaders() } });
+          if (!res.ok) throw new Error('Estado ' + res.status);
+          const data = await res.json();
+          const posts = Array.isArray(data) ? data : [];
+          renderPosts(posts);
+
+          // Stats de perfil basadas en los posts
+          const total = posts.length;
+          const originales = posts.filter(p => p.parent_id == null).length;
+          const respuestas = total - originales;
+          const likesRecibidos = posts.reduce((acc, p) => acc + (typeof p.likes_count === 'number' ? p.likes_count : 0), 0);
+
+          if ($userPostsCount) $userPostsCount.textContent = String(total);
+          if ($userOriginalCount) $userOriginalCount.textContent = String(originales);
+          if ($userRepliesCount) $userRepliesCount.textContent = String(respuestas);
+          if ($userLikesReceived) $userLikesReceived.textContent = String(likesRecibidos);
+
+          if ($userLastPost) {
+            if (total > 0 && posts[0].created_at) {
+              const d = new Date(posts[0].created_at);
+              $userLastPost.textContent = d.toLocaleDateString('es-ES') + ' ' + d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+            } else {
+              $userLastPost.textContent = '—';
+            }
+          }
+
+          setStatus('');
+        } catch (e) {
+          console.error(e);
+          setStatus('No se pudieron cargar tus posts', 'error');
+        }
+      }
+
+      async function fetchScheduledPosts() {
+        if (!$scheduledList) return;
+        if (!currentUser || !currentToken) {
+          $scheduledList.innerHTML = '';
+          if ($scheduledCard) $scheduledCard.hidden = true;
+          return;
+        }
+        try {
+          const res = await fetch(API_SCHEDULED, { headers: { ...authHeaders() } });
+          const data = await res.json().catch(() => []);
+          const posts = Array.isArray(data) ? data : [];
+          $scheduledList.innerHTML = '';
+          if (!posts.length) {
+            const li = document.createElement('li');
+            li.className = 'wx-empty';
+            li.textContent = 'No tienes posts programados.';
+            $scheduledList.appendChild(li);
+          } else {
+            for (const post of posts) {
+              const li = createPostElement(post, { scheduled: true });
+              $scheduledList.appendChild(li);
+            }
+          }
+          if ($scheduledCard) $scheduledCard.hidden = false;
+        } catch (e) {
+          console.error(e);
+          if ($scheduledCard) $scheduledCard.hidden = false;
+          if (!$scheduledList.children.length) {
+            const li = document.createElement('li');
+            li.className = 'wx-empty';
+            li.textContent = 'No se pudieron cargar tus posts programados.';
+            $scheduledList.appendChild(li);
+          }
+        }
+      }
+
+      async function fetchBalance() {
+        if (!currentUser || !currentToken) {
+          if ($userWxt) $userWxt.textContent = '0';
+          return;
+        }
+        try {
+          const res = await fetch('https://owsdatabase.onrender.com/wildwave/api/balance', {
+            headers: { ...authHeaders() }
+          });
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok) return;
+          if ($userWxt) $userWxt.textContent = String(body.wxt ?? 0);
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      async function fetchTipsSummary() {
+        if (!currentUser || !currentToken) {
+          if ($userTipsWxt) $userTipsWxt.textContent = '0';
+          if ($userTipsWc) $userTipsWc.textContent = '0';
+          return;
+        }
+        try {
+          const res = await fetch('https://owsdatabase.onrender.com/wildwave/api/profile/tips-summary', {
+            headers: { ...authHeaders() }
+          });
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok) return;
+          const monthWxt = Number(body.monthWxt ?? 0);
+          const monthWc = Number(body.monthWc ?? 0);
+          if ($userTipsWxt) $userTipsWxt.textContent = String(monthWxt.toFixed(1).replace(/\.0$/, ''));
+          if ($userTipsWc) $userTipsWc.textContent = String(Math.round(monthWc));
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      function updateOceanPayConnectionUI() {
+        const opToken = localStorage.getItem('opToken');
+        if (!currentUser) {
+          if ($opStatus) $opStatus.textContent = 'Inicia sesión para conectar Ocean Pay';
+          if ($connectOpBtn) {
+            $connectOpBtn.disabled = true;
+            $connectOpBtn.textContent = 'Conectar Ocean Pay';
+          }
+          return;
+        }
+        if (opToken) {
+          if ($opStatus) $opStatus.textContent = 'Conectado a Ocean Pay';
+          if ($connectOpBtn) {
+            $connectOpBtn.disabled = false;
+            $connectOpBtn.textContent = 'Ocean Pay conectado';
+          }
+        } else {
+          if ($opStatus) $opStatus.textContent = 'No conectado a Ocean Pay';
+          if ($connectOpBtn) {
+            $connectOpBtn.disabled = false;
+            $connectOpBtn.textContent = 'Conectar Ocean Pay';
+          }
+        }
+      }
+
+      async function connectOceanPayFromProfile() {
+        if (!currentUser) {
+          setStatus('Inicia sesión en WildWave para conectar Ocean Pay.', 'error');
+          openAuthModal('login');
+          return;
+        }
+        const existing = localStorage.getItem('opToken');
+        if (existing) {
+          setStatus('Ya estás conectado a Ocean Pay en este dispositivo.', 'info');
+          updateOceanPayConnectionUI();
+          return;
+        }
+        openOpModal('connect');
+      }
+
+      async function createPost() {
+        const text = ($text.value || '').trim();
+        const isAdmin = !!(currentUser && currentUser.verify_tier === 'admin');
+        const max = isAdmin ? Infinity : getMaxChars();
+        if (!text || (!isAdmin && text.length > max)) return;
+        $send.disabled = true;
+        setStatus('Publicando...');
+
+        try {
+          const payload = { content: text };
+          if (currentReplyToId) payload.parentId = currentReplyToId;
+          if ($scheduleToggle && $scheduleToggle.checked && $scheduleAt && $scheduleAt.value) {
+            payload.scheduledAt = $scheduleAt.value;
+          }
+
+          const res = await fetch(API_BASE, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...authHeaders() },
+            body: JSON.stringify(payload)
+          });
+          if (!res.ok) {
+            const body = await res.json().catch(() => ({}));
+            throw new Error(body.error || 'Error al publicar');
+          }
+          $text.value = '';
+          if ($scheduleAt) $scheduleAt.value = '';
+          if ($scheduleToggle) $scheduleToggle.checked = false;
+          currentReplyToId = null;
+          currentReplyToUsername = null;
+          $text.placeholder = currentUser ? '¿Qué está pasando?' : 'Inicia sesión para publicar';
+          updateCounter();
+
+          if (currentThreadPostId) {
+            // Si hay un hilo abierto, recargarlo para ver la nueva respuesta
+            await openThread(currentThreadPostId);
+          } else if (currentTab === 'profile') {
+            await fetchMyPosts();
+          } else {
+            await fetchExplore();
+          }
+          setStatus('Publicado.');
+          fetchBalance().catch(() => {});
+        } catch (e) {
+          console.error(e);
+          setStatus(e.message || 'Error al publicar', 'error');
+        } finally {
+          updateCounter();
+        }
+      }
+
+      const $feedCard = document.getElementById('wx-main-feed-card');
+      const $newCard = document.querySelector('.wx-card.wx-new');
+
+      function setTab(tab) {
+        currentTab = tab;
+
+        // Reset estado visual de pestañas
+        if ($tabExplore) $tabExplore.classList.remove('wx-tab--active');
+        if ($tabProfile) $tabProfile.classList.remove('wx-tab--active');
+        if ($tabSubscription) $tabSubscription.classList.remove('wx-tab--active');
+        if ($tabAdmin) $tabAdmin.classList.remove('wx-tab--active');
+
+        if (tab === 'explore') {
+          currentHashtagFilter = null;
+          if ($tabExplore) $tabExplore.classList.add('wx-tab--active');
+          $feedTitle.textContent = 'Explorar';
+
+          if ($userCard) {
+            $userCard.hidden = true;
+            $userCard.style.display = 'none';
+          }
+          if ($profileEmpty) {
+            $profileEmpty.hidden = true;
+            $profileEmpty.style.display = 'none';
+          }
+          if ($scheduledCard) {
+            $scheduledCard.hidden = true;
+            $scheduledCard.style.display = 'none';
+          }
+          if ($subscriptionCard) {
+            $subscriptionCard.hidden = true;
+            $subscriptionCard.style.display = 'none';
+          }
+          if ($adminCard) {
+            $adminCard.hidden = true;
+            $adminCard.style.display = 'none';
+          }
+          if ($feedCard) {
+            $feedCard.hidden = false;
+            $feedCard.style.display = '';
+          }
+          if ($newCard) {
+            $newCard.hidden = false;
+            $newCard.style.display = '';
+          }
+          fetchExplore();
+        } else if (tab === 'profile') {
+          if ($tabProfile) $tabProfile.classList.add('wx-tab--active');
+          $feedTitle.textContent = 'Tus posts';
+
+          if ($feedCard) {
+            $feedCard.hidden = true;
+            $feedCard.style.display = 'none';
+          }
+          if ($newCard) {
+            $newCard.hidden = true;
+            $newCard.style.display = 'none';
+          }
+          if ($subscriptionCard) {
+            $subscriptionCard.hidden = true;
+            $subscriptionCard.style.display = 'none';
+          }
+          if ($adminCard) {
+            $adminCard.hidden = true;
+            $adminCard.style.display = 'none';
+          }
+
+          // Solo mostrar datos de perfil en la pestaña Perfil
+          if (currentUser && $userCard) {
+            $userCard.hidden = false;
+            $userCard.style.display = '';
+            if ($profileEmpty) {
+              $profileEmpty.hidden = true;
+              $profileEmpty.style.display = 'none';
+            }
+            if ($scheduledCard) {
+              $scheduledCard.hidden = false;
+              $scheduledCard.style.display = '';
+            }
+          } else {
+            if ($userCard) {
+              $userCard.hidden = true;
+              $userCard.style.display = 'none';
+            }
+            if ($profileEmpty) {
+              $profileEmpty.hidden = false;
+              $profileEmpty.style.display = '';
+            }
+            if ($scheduledCard) {
+              $scheduledCard.hidden = true;
+              $scheduledCard.style.display = 'none';
+            }
+          }
+
+          fetchMyPosts();
+          if (currentUser) {
+            fetchScheduledPosts();
+          } else if ($scheduledList) {
+            $scheduledList.innerHTML = '';
+          }
+        } else if (tab === 'subscription') {
+          if ($tabSubscription) $tabSubscription.classList.add('wx-tab--active');
+          $feedTitle.textContent = 'Explorar';
+
+          if ($feedCard) {
+            $feedCard.hidden = false;
+            $feedCard.style.display = '';
+          }
+          if ($newCard) {
+            $newCard.hidden = true;
+            $newCard.style.display = 'none';
+          }
+
+          if ($userCard) {
+            $userCard.hidden = true;
+            $userCard.style.display = 'none';
+          }
+          if ($adminCard) {
+            $adminCard.hidden = true;
+            $adminCard.style.display = 'none';
+          }
+          if ($scheduledCard) {
+            $scheduledCard.hidden = true;
+            $scheduledCard.style.display = 'none';
+          }
+
+          if (currentUser && $subscriptionCard) {
+            $subscriptionCard.hidden = false;
+            $subscriptionCard.style.display = '';
+            if ($profileEmpty) {
+              $profileEmpty.hidden = true;
+              $profileEmpty.style.display = 'none';
+            }
+          } else {
+            if ($subscriptionCard) {
+              $subscriptionCard.hidden = true;
+              $subscriptionCard.style.display = 'none';
+            }
+            if ($profileEmpty) {
+              $profileEmpty.hidden = false;
+              $profileEmpty.style.display = '';
+            }
+          }
+
+          // Mantener el feed con explorar por defecto
+          fetchExplore();
+        } else if (tab === 'admin') {
+          if ($tabAdmin && !$tabAdmin.hidden) $tabAdmin.classList.add('wx-tab--active');
+          $feedTitle.textContent = 'Admin';
+
+          if ($feedCard) {
+            $feedCard.hidden = true;
+            $feedCard.style.display = 'none';
+          }
+          if ($newCard) {
+            $newCard.hidden = true;
+            $newCard.style.display = 'none';
+          }
+
+          if ($userCard) {
+            $userCard.hidden = true;
+            $userCard.style.display = 'none';
+          }
+          if ($subscriptionCard) {
+            $subscriptionCard.hidden = true;
+            $subscriptionCard.style.display = 'none';
+          }
+          if ($scheduledCard) {
+            $scheduledCard.hidden = true;
+            $scheduledCard.style.display = 'none';
+          }
+          if ($profileEmpty) {
+            $profileEmpty.hidden = true;
+            $profileEmpty.style.display = 'none';
+          }
+          if ($adminCard) {
+            $adminCard.hidden = false;
+            $adminCard.style.display = '';
+          }
+
+          if (currentUser && currentUser.username === 'Ocean and Wild Studios') {
+            fetchGoldRequests().catch(() => {});
+            fetchPostReports().catch(() => {});
+          }
+        }
+      }
+
+      function setLoggedIn(user, token) {
+        currentUser = user;
+        currentToken = token;
+        if (user) {
+          localStorage.setItem('wildwave_token', token);
+          localStorage.setItem('wildwave_user', JSON.stringify(user));
+          localStorage.removeItem('wildx_token');
+          localStorage.removeItem('wildx_user');
+          const isAdminUser = user.username === 'Ocean and Wild Studios';
+          if ($tabAdmin) $tabAdmin.hidden = !isAdminUser;
+          if ($adminCard) {
+            if (!isAdminUser || currentTab !== 'admin') {
+              $adminCard.hidden = true;
+              $adminCard.style.display = 'none';
+            }
+          }
+          if ($goldRequestBtn) $goldRequestBtn.hidden = isAdminUser;
+
+          if ($authModal) $authModal.hidden = true;
+          if ($userCard) $userCard.hidden = currentTab !== 'profile';
+          if ($profileEmpty) $profileEmpty.hidden = true;
+          if ($userName) $userName.textContent = '@' + user.username;
+          const created = user.created_at ? new Date(user.created_at) : null;
+          if ($userSince) {
+            $userSince.textContent = created
+              ? created.toLocaleDateString('es-ES')
+              : '—';
+          }
+          const postsCount = typeof user.posts_count === 'number' ? user.posts_count : 0;
+          if ($userPostsCount) {
+            $userPostsCount.textContent = postsCount.toString();
+          }
+          if ($userOriginalCount) $userOriginalCount.textContent = postsCount.toString();
+          if ($userRepliesCount) $userRepliesCount.textContent = '0';
+          if ($userLikesReceived) $userLikesReceived.textContent = '0';
+          if ($userWxt) $userWxt.textContent = '0';
+          if ($userTipsWxt) $userTipsWxt.textContent = '0';
+          if ($userTipsWc) $userTipsWc.textContent = '0';
+          if ($opStatus) $opStatus.textContent = 'Inicia sesión para conectar Ocean Pay';
+          if ($userId) $userId.textContent = String(user.id ?? '—');
+          if ($userLastPost) $userLastPost.textContent = '—';
+          if ($userTipsWxt) $userTipsWxt.textContent = '0';
+          if ($userTipsWc) $userTipsWc.textContent = '0';
+          $text.placeholder = '¿Qué está pasando?';
+          updateVerifyBadge(user);
+          updateOceanPayConnectionUI();
+          fetchNotificationsBadge().catch(() => {});
+          fetchTipsSummary().catch(() => {});
+        } else {
+          localStorage.removeItem('wildwave_token');
+          localStorage.removeItem('wildwave_user');
+          localStorage.removeItem('wildx_token');
+          localStorage.removeItem('wildx_user');
+          if ($notifBadge) {
+            $notifBadge.hidden = true;
+            $notifBadge.textContent = '0';
+          }
+          lastNotifications = [];
+          if ($tabAdmin) $tabAdmin.hidden = true;
+          if ($adminCard) {
+            $adminCard.hidden = true;
+            $adminCard.style.display = 'none';
+          }
+          if ($goldRequestBtn) $goldRequestBtn.hidden = true;
+          if ($authModal) $authModal.hidden = true;
+          if ($userCard) $userCard.hidden = true;
+          if ($profileEmpty && currentTab === 'profile') $profileEmpty.hidden = false;
+          if ($userName) $userName.textContent = '@usuario';
+          if ($userSince) $userSince.textContent = '—';
+          if ($userPostsCount) $userPostsCount.textContent = '0';
+          if ($userOriginalCount) $userOriginalCount.textContent = '0';
+          if ($userRepliesCount) $userRepliesCount.textContent = '0';
+          if ($userLikesReceived) $userLikesReceived.textContent = '0';
+          if ($userWxt) $userWxt.textContent = '0';
+          if ($userId) $userId.textContent = '—';
+          if ($userLastPost) $userLastPost.textContent = '—';
+          $text.placeholder = 'Inicia sesión para publicar';
+          if ($verifyBadge) $verifyBadge.hidden = true;
+        }
+        updateCounter();
+      }
+
+      async function hydrateFromStorage() {
+        const storedToken = localStorage.getItem('wildwave_token') || localStorage.getItem('wildx_token');
+        const storedUser = localStorage.getItem('wildwave_user') || localStorage.getItem('wildx_user');
+        if (!storedToken || !storedUser) {
+          setLoggedIn(null, null);
+          return;
+        }
+        try {
+          currentToken = storedToken;
+          const res = await fetch(API_ME, { headers: { ...authHeaders() } });
+          if (!res.ok) throw new Error('Token inválido');
+          const user = await res.json();
+          setLoggedIn(user, storedToken);
+        } catch {
+          setLoggedIn(null, null);
+        }
+      }
+
+      async function reloadMe() {
+        if (!currentToken) return;
+        try {
+          const res = await fetch(API_ME, { headers: { ...authHeaders() } });
+          if (!res.ok) return;
+          const user = await res.json();
+          setLoggedIn(user, currentToken);
+          fetchNotificationsBadge().catch(() => {});
+          fetchTipsSummary().catch(() => {});
+        } catch {
+          // ignorar errores suaves
+        }
+      }
+
+      function switchAuthMode(mode) {
+        if (mode === 'login') {
+          $authTitle.textContent = 'Iniciar sesión';
+          $formLogin.classList.remove('wx-auth-form--hidden');
+          $formRegister.classList.add('wx-auth-form--hidden');
+          $switchLogin.classList.add('wx-auth-switch--active');
+          $switchRegister.classList.remove('wx-auth-switch--active');
+        } else {
+          $authTitle.textContent = 'Crear cuenta';
+          $formRegister.classList.remove('wx-auth-form--hidden');
+          $formLogin.classList.add('wx-auth-form--hidden');
+          $switchRegister.classList.add('wx-auth-switch--active');
+          $switchLogin.classList.remove('wx-auth-switch--active');
+        }
+        $authFooter.textContent = '';
+      }
+
+      const $scheduleToggle = document.getElementById('wx-schedule-toggle');
+      const $scheduleAt = document.getElementById('wx-schedule-at');
+
+      $text.addEventListener('input', updateCounter);
+      $send.addEventListener('click', () => createPost());
+      $text.addEventListener('keydown', (ev) => {
+        if ((ev.ctrlKey || ev.metaKey) && ev.key === 'Enter') {
+          ev.preventDefault();
+          if (!$send.disabled) createPost();
+        }
+      });
+
+      $refresh.addEventListener('click', () => {
+        if (currentTab === 'profile') {
+          fetchMyPosts();
+          fetchScheduledPosts();
+        } else {
+          currentHashtagFilter = null;
+          fetchExplore();
+        }
+      });
+
+      if ($scheduledRefresh) {
+        $scheduledRefresh.addEventListener('click', () => {
+          if (currentTab === 'profile') {
+            fetchScheduledPosts();
+          }
+        });
+      }
+
+      $tabExplore.addEventListener('click', () => setTab('explore'));
+      $tabProfile.addEventListener('click', () => setTab('profile'));
+      if ($tabSubscription) {
+        $tabSubscription.addEventListener('click', () => setTab('subscription'));
+      }
+      if ($tabAdmin) {
+        $tabAdmin.addEventListener('click', () => setTab('admin'));
+      }
+
+      $threadClose.addEventListener('click', () => {
+        $threadView.hidden = true;
+        currentThreadPostId = null;
+      });
+
+      function openAuthModal(mode = 'login') {
+        if (currentUser) return;
+        if ($authModal) {
+          $authModal.hidden = false;
+          switchAuthMode(mode);
+        }
+      }
+
+      if ($openAuth) {
+        $openAuth.addEventListener('click', () => openAuthModal('login'));
+      }
+
+      if ($authClose) {
+        $authClose.addEventListener('click', () => {
+          if ($authModal) $authModal.hidden = true;
+        });
+      }
+
+      if ($authModal) {
+        $authModal.addEventListener('click', (ev) => {
+          if (ev.target === $authModal) {
+            $authModal.hidden = true;
+          }
+        });
+      }
+
+      function openOpModal(mode = 'blue') {
+        opModalMode = mode || 'blue';
+        if ($opModal) {
+          $opFooter.textContent = '';
+          $opUser.value = '';
+          $opPass.value = '';
+          if ($opTitle) {
+            if (opModalMode === 'connect') {
+              $opTitle.textContent = 'Conectar Ocean Pay';
+            } else {
+              $opTitle.textContent = 'Verificación azul con Ocean Pay';
+            }
+          }
+          if ($opSubmit) {
+            if (opModalMode === 'connect') {
+              $opSubmit.textContent = 'Conectar';
+            } else {
+              $opSubmit.textContent = 'Conectar y suscribirme';
+            }
+          }
+          $opModal.hidden = false;
+          $opUser.focus();
+        }
+      }
+
+      function closeOpModal() {
+        if ($opModal) $opModal.hidden = true;
+      }
+
+      if ($opClose) {
+        $opClose.addEventListener('click', () => {
+          closeOpModal();
+        });
+      }
+
+      if ($opModal) {
+        $opModal.addEventListener('click', (ev) => {
+          if (ev.target === $opModal) {
+            closeOpModal();
+          }
+        });
+      }
+
+      $switchLogin.addEventListener('click', () => switchAuthMode('login'));
+      $switchRegister.addEventListener('click', () => switchAuthMode('register'));
+
+      if ($notifIcon) {
+        $notifIcon.addEventListener('click', () => {
+          openNotificationsModal();
+        });
+      }
+
+      if ($notifClose) {
+        $notifClose.addEventListener('click', () => {
+          if ($notifModal) $notifModal.hidden = true;
+        });
+      }
+
+      if ($notifModal) {
+        $notifModal.addEventListener('click', (ev) => {
+          if (ev.target === $notifModal) {
+            $notifModal.hidden = true;
+          }
+        });
+      }
+
+      if ($notifMarkRead) {
+        $notifMarkRead.addEventListener('click', () => {
+          markAllNotificationsRead();
+        });
+      }
+
+      $formLogin.addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        const username = ($loginUser.value || '').trim();
+        const password = $loginPass.value || '';
+        if (!username || !password) {
+          $authFooter.textContent = 'Completa usuario y contraseña.';
+          return;
+        }
+        try {
+          $authFooter.textContent = 'Entrando...';
+          const res = await fetch(API_LOGIN, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+          });
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(body.error || 'Error al iniciar sesión');
+
+          // Tras login, pedir /me para incluir datos de verificación
+          let fullUser = body.user;
+          try {
+            currentToken = body.token;
+            const meRes = await fetch(API_ME, { headers: { ...authHeaders() } });
+            if (meRes.ok) {
+              fullUser = await meRes.json();
+            }
+          } catch {
+            // si falla, usamos body.user
+          }
+
+          setLoggedIn(fullUser, body.token);
+          $authFooter.textContent = '';
+          $loginUser.value = '';
+          $loginPass.value = '';
+          if ($authModal) $authModal.hidden = true;
+          if (currentTab === 'profile') fetchMyPosts();
+          fetchBalance().catch(() => {});
+          fetchTipsSummary().catch(() => {});
+        } catch (e) {
+          $authFooter.textContent = e.message || 'Error al iniciar sesión';
+        }
+      });
+
+      $formRegister.addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        const username = ($regUser.value || '').trim();
+        const password = $regPass.value || '';
+        if (!username || !password) {
+          $authFooter.textContent = 'Completa usuario y contraseña.';
+          return;
+        }
+        try {
+          $authFooter.textContent = 'Creando cuenta...';
+          const res = await fetch(API_REGISTER, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+          });
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(body.error || 'Error al registrar');
+
+          // Tras registro, pedir /me para incluir posibles datos de verificación a futuro
+          let fullUser = body.user;
+          try {
+            currentToken = body.token;
+            const meRes = await fetch(API_ME, { headers: { ...authHeaders() } });
+            if (meRes.ok) {
+              fullUser = await meRes.json();
+            }
+          } catch {
+            // ignorar
+          }
+
+          setLoggedIn(fullUser, body.token);
+          $authFooter.textContent = '';
+          $regUser.value = '';
+          $regPass.value = '';
+          if ($authModal) $authModal.hidden = true;
+          if (currentTab === 'profile') fetchMyPosts();
+          fetchTipsSummary().catch(() => {});
+        } catch (e) {
+          $authFooter.textContent = e.message || 'Error al registrar';
+        }
+      });
+
+      $logout.addEventListener('click', () => {
+        setLoggedIn(null, null);
+        currentReplyToId = null;
+        currentReplyToUsername = null;
+        updateOceanPayConnectionUI();
+        if (currentTab === 'profile') {
+          renderPosts([]);
+          setStatus('Inicia sesión para ver tu perfil.');
+        }
+      });
+
+      async function subscribeBlueVerification() {
+        if (!currentUser || !currentToken) {
+          setStatus('Inicia sesión en WildWave para gestionar tu verificación.', 'error');
+          openAuthModal('login');
+          return;
+        }
+
+        const reason = await openInputDialog({
+          title: 'Verificación azul',
+          message: '¿Por qué quieres la verificación azul? (ej: creador de tal empresa, proyecto, etc.)',
+          multiline: true,
+          placeholder: 'Explica brevemente el motivo...',
+          confirmLabel: 'Continuar'
+        });
+        if (!reason || !reason.trim()) {
+          return;
+        }
+        pendingVerificationReason = reason.trim();
+
+        const oceanPayToken = localStorage.getItem('opToken');
+        if (!oceanPayToken) {
+          // No hay sesión de Ocean Pay: pedir credenciales en un modal propio
+          setStatus('Introduce tus credenciales de Ocean Pay para usar tus WildCredits.', 'info');
+          openOpModal('blue');
+          return;
+        }
+
+        try {
+          setStatus('Procesando verificación azul...', 'info');
+          const res = await fetch('https://owsdatabase.onrender.com/wildwave/api/verify/blue/subscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...authHeaders() },
+            body: JSON.stringify({ reason, oceanPayToken })
+          });
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(body.error || 'No se pudo completar la suscripción');
+
+          if (typeof body.remainingWildcredits === 'number') {
+            // Guardar saldo actualizado para que Ocean Pay pueda leerlo
+            localStorage.setItem('wildCredits', String(body.remainingWildcredits));
+          }
+
+          if (body.verification) {
+            updateVerifyBadge(body.verification);
+          } else {
+            await reloadMe();
+          }
+
+          // Refrescar posts y, si hay hilo abierto, también el hilo
+          if (currentThreadPostId) {
+            await openThread(currentThreadPostId);
+          }
+          if (currentTab === 'profile') {
+            await fetchMyPosts();
+          } else {
+            await fetchExplore();
+          }
+
+          setStatus('Verificación azul activada por 1 día.', 'info');
+        } catch (e) {
+          console.error(e);
+          setStatus(e.message || 'Error al suscribirse a la verificación azul', 'error');
+        }
+      }
+
+      if ($verifyBlueBtn) {
+        $verifyBlueBtn.addEventListener('click', () => {
+          subscribeBlueVerification();
+        });
+      }
+
+      async function sendGoldRequest() {
+        if (!currentUser || !currentToken) {
+          setStatus('Inicia sesión en WildWave para solicitar verificación dorada.', 'error');
+          openAuthModal('login');
+          return;
+        }
+        const companyName = (await openInputDialog({
+          title: 'Verificación dorada',
+          message: 'Nombre de la empresa (opcional):',
+          placeholder: 'Nombre de la empresa',
+          confirmLabel: 'Continuar'
+        })) || '';
+        const reason = await openInputDialog({
+          title: 'Verificación dorada',
+          message: 'Explica por qué tu empresa merece verificación dorada:',
+          multiline: true,
+          placeholder: 'Explica brevemente el motivo...',
+          confirmLabel: 'Enviar solicitud'
+        });
+        if (!reason || reason.trim().length < 10) {
+          setStatus('Por favor escribe una explicación un poco más detallada.', 'error');
+          return;
+        }
+        try {
+          const res = await fetch('https://owsdatabase.onrender.com/wildwave/api/verify/gold/request', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...authHeaders() },
+            body: JSON.stringify({ companyName, reason })
+          });
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            setStatus(body.error || 'No se pudo enviar la solicitud.', 'error');
+            return;
+          }
+          setStatus('Solicitud de verificación dorada enviada. El admin la revisará.', 'info');
+        } catch (e) {
+          console.error(e);
+          setStatus('Error al enviar la solicitud.', 'error');
+        }
+      }
+
+      async function fetchGoldRequests() {
+        if (!currentUser || !currentToken || currentUser.username !== 'Ocean and Wild Studios') return;
+        try {
+          const res = await fetch('https://owsdatabase.onrender.com/wildwave/api/verify/gold/requests', {
+            headers: { ...authHeaders() }
+          });
+          const body = await res.json().catch(() => []);
+          if (!res.ok) {
+            console.error(body);
+            return;
+          }
+          const pending = body.filter(r => r.status === 'pending');
+          if (!$goldRequestsList || !$goldRequestsEmpty) return;
+          $goldRequestsList.innerHTML = '';
+          if (!pending.length) {
+            $goldRequestsEmpty.hidden = false;
+            return;
+          }
+          $goldRequestsEmpty.hidden = true;
+          pending.forEach(r => {
+            const div = document.createElement('div');
+            div.className = 'wx-gold-request-item';
+            div.dataset.id = r.id;
+            div.innerHTML = `
+              <div class="wx-gold-request-header">
+                <span>@${r.username}</span>
+                <span>${new Date(r.created_at).toLocaleString('es-ES')}</span>
+              </div>
+              <div><strong>Empresa:</strong> ${r.company_name || 'No especificada'}</div>
+              <div><strong>Motivo:</strong> ${r.reason}</div>
+              <div class="wx-gold-request-actions">
+                <button type="button" data-action="approve">Aprobar</button>
+                <button type="button" data-action="reject">Rechazar</button>
+              </div>
+            `;
+            $goldRequestsList.appendChild(div);
+          });
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      async function handleGoldRequestAction(id, action) {
+        if (!currentUser || !currentToken || currentUser.username !== 'Ocean and Wild Studios') return;
+        let note = '';
+        if (action === 'reject') {
+          note = (await openInputDialog({
+            title: 'Rechazar verificación dorada',
+            message: 'Motivo del rechazo (opcional):',
+            multiline: true,
+            confirmLabel: 'Rechazar'
+          })) || '';
+        }
+        try {
+          const res = await fetch(`https://owsdatabase.onrender.com/wildwave/api/verify/gold/requests/${id}/${action}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...authHeaders() },
+            body: JSON.stringify({ note })
+          });
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            setStatus(body.error || 'No se pudo procesar la solicitud.', 'error');
+            return;
+          }
+          fetchGoldRequests().catch(() => {});
+        } catch (e) {
+          console.error(e);
+          setStatus('Error al procesar la solicitud.', 'error');
+        }
+      }
+
+      if ($opSubmit) {
+        $opSubmit.addEventListener('click', async () => {
+          if (!currentUser || !currentToken) {
+            setStatus('Inicia sesión en WildWave primero.', 'error');
+            closeOpModal();
+            openAuthModal('login');
+            return;
+          }
+          const opUsername = ($opUser.value || '').trim();
+          const opPassword = $opPass.value || '';
+          if (!opUsername || !opPassword) {
+            $opFooter.textContent = 'Completa usuario y contraseña de Ocean Pay.';
+            return;
+          }
+
+          if (opModalMode === 'connect') {
+            try {
+              $opFooter.textContent = 'Conectando con Ocean Pay...';
+              const res = await fetch('https://owsdatabase.onrender.com/ocean-pay/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: opUsername, password: opPassword })
+              });
+              const body = await res.json().catch(() => ({}));
+              if (!res.ok) {
+                $opFooter.textContent = body.error || 'No se pudo conectar con Ocean Pay.';
+                return;
+              }
+              if (body.token) {
+                localStorage.setItem('opToken', body.token);
+              }
+              if (body.user && typeof body.user.wildcredits === 'number') {
+                localStorage.setItem('wildCredits', String(body.user.wildcredits));
+              }
+              $opFooter.textContent = '';
+              closeOpModal();
+              setStatus('Ocean Pay conectado correctamente.', 'info');
+              updateOceanPayConnectionUI();
+            } catch (e) {
+              console.error(e);
+              $opFooter.textContent = 'Error al conectar con Ocean Pay.';
+            }
+            return;
+          }
+
+          if (!pendingVerificationReason || !pendingVerificationReason.trim()) {
+            const reasonFromDialog = await openInputDialog({
+              title: 'Verificación azul',
+              message: '¿Por qué quieres la verificación azul?',
+              multiline: true,
+              placeholder: 'Explica brevemente el motivo...',
+              confirmLabel: 'Continuar'
+            });
+            if (!reasonFromDialog || !reasonFromDialog.trim()) {
+              $opFooter.textContent = 'Debes indicar un motivo para la verificación.';
+              return;
+            }
+            pendingVerificationReason = reasonFromDialog.trim();
+          }
+
+          try {
+            $opFooter.textContent = 'Conectando y procesando verificación azul...';
+            const res = await fetch('https://owsdatabase.onrender.com/wildwave/api/verify/blue/subscribe-credentials', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', ...authHeaders() },
+              body: JSON.stringify({ reason: pendingVerificationReason, opUsername, opPassword })
+            });
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              $opFooter.textContent = body.error || 'No se pudo completar la suscripción.';
+              return;
+            }
+
+            if (typeof body.remainingWildcredits === 'number') {
+              localStorage.setItem('wildCredits', String(body.remainingWildcredits));
+            }
+
+            if (body.verification) {
+              updateVerifyBadge(body.verification);
+            } else {
+              await reloadMe();
+            }
+
+            // Refrescar posts y, si hay hilo abierto, también el hilo
+            if (currentThreadPostId) {
+              await openThread(currentThreadPostId);
+            }
+            if (currentTab === 'profile') {
+              await fetchMyPosts();
+            } else {
+              await fetchExplore();
+            }
+
+            $opFooter.textContent = '';
+            closeOpModal();
+            setStatus('Verificación azul activada por 1 día.', 'info');
+          } catch (e) {
+            console.error(e);
+            $opFooter.textContent = 'Error al conectar con Ocean Pay.';
+          }
+        });
+      }
+
+      if ($goldRequestBtn) {
+        $goldRequestBtn.addEventListener('click', () => {
+          sendGoldRequest();
+        });
+      }
+
+      if ($connectOpBtn) {
+        $connectOpBtn.addEventListener('click', () => {
+          connectOceanPayFromProfile();
+        });
+      }
+
+      if ($goldRequestsList) {
+        $goldRequestsList.addEventListener('click', (ev) => {
+          const btn = ev.target.closest('button[data-action]');
+          if (!btn) return;
+          const item = btn.closest('.wx-gold-request-item');
+          if (!item) return;
+          const id = item.dataset.id;
+          const action = btn.dataset.action;
+          if (!id || !action) return;
+          handleGoldRequestAction(id, action);
+        });
+      }
+
+      async function fetchPostReports() {
+        if (!currentUser || !currentToken) return;
+        if (!$postReportsList || !$postReportsEmpty) return;
+        try {
+          const res = await fetch('https://owsdatabase.onrender.com/wildwave/api/admin/post-reports', {
+            headers: { ...authHeaders() }
+          });
+          const body = await res.json().catch(() => []);
+          if (!res.ok) {
+            console.error(body);
+            return;
+          }
+          const reports = Array.isArray(body) ? body : [];
+          const pending = reports.filter(r => r.status === 'pending');
+          $postReportsList.innerHTML = '';
+          if (!pending.length) {
+            $postReportsEmpty.hidden = false;
+            return;
+          }
+          $postReportsEmpty.hidden = true;
+          pending.forEach(r => {
+            const div = document.createElement('div');
+            div.className = 'wx-gold-request-item';
+            div.dataset.id = r.id;
+            const createdAt = r.created_at ? new Date(r.created_at).toLocaleString('es-ES') : '';
+            const postUser = r.post_username || r.username || 'usuario';
+            const preview = (r.post_content || r.post_text || '').slice(0, 140);
+            div.innerHTML = `
+              <div class="wx-gold-request-header">
+                <span>Post #${r.post_id} · @${postUser}</span>
+                <span>${createdAt}</span>
+              </div>
+              <div><strong>Motivo:</strong> ${r.reason}</div>
+              <div style="font-size:0.78rem;margin-top:4px;"><strong>Contenido:</strong> ${preview || '(sin contenido)'}</div>
+              <div class="wx-gold-request-actions">
+                <button type="button" data-action="approve-report">Aprobar y ocultar</button>
+                <button type="button" data-action="reject-report">Rechazar</button>
+              </div>
+            `;
+            $postReportsList.appendChild(div);
+          });
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      async function decidePostReport(id, approve, adminResponse) {
+        if (!currentUser || !currentToken) return;
+        try {
+          const res = await fetch(`https://owsdatabase.onrender.com/wildwave/api/admin/post-reports/${id}/decide`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...authHeaders() },
+            body: JSON.stringify({ approve: !!approve, admin_response: adminResponse || '' })
+          });
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            setStatus(body.error || 'No se pudo procesar el reporte.', 'error');
+            return;
+          }
+          fetchPostReports().catch(() => {});
+          if (approve) setStatus('Reporte aprobado y post ocultado.', 'info');
+          else setStatus('Reporte rechazado.', 'info');
+        } catch (e) {
+          console.error(e);
+          setStatus('Error al procesar el reporte.', 'error');
+        }
+      }
+
+      if ($postReportsList) {
+        $postReportsList.addEventListener('click', async (ev) => {
+          const btn = ev.target.closest('button[data-action]');
+          if (!btn) return;
+          const item = btn.closest('.wx-gold-request-item');
+          if (!item) return;
+          const id = item.dataset.id;
+          if (!id) return;
+          const action = btn.dataset.action;
+          if (action === 'approve-report') {
+            const note = (await openInputDialog({
+              title: 'Aprobar reporte',
+              message: 'Comentario para el reporte (opcional):',
+              multiline: true,
+              confirmLabel: 'Aprobar'
+            })) || '';
+            decidePostReport(id, true, note.trim());
+          } else if (action === 'reject-report') {
+            const note = (await openInputDialog({
+              title: 'Rechazar reporte',
+              message: 'Motivo del rechazo (opcional):',
+              multiline: true,
+              confirmLabel: 'Rechazar'
+            })) || '';
+            decidePostReport(id, false, note.trim());
+          }
+        });
+      }
+
+      async function promotePost(postId) {
+        if (!currentUser || !currentToken) {
+          setStatus('Inicia sesión en WildWave para promocionar posts.', 'error');
+          openAuthModal('login');
+          return;
+        }
+        const costStr = await openInputDialog({
+          title: 'Promocionar post',
+          message: '¿Cuántos WildWave Tokens (WXT) quieres usar para promocionar este post? (mínimo 1)',
+          placeholder: '10',
+          defaultValue: '10',
+          type: 'number',
+          confirmLabel: 'Promocionar'
+        });
+        if (!costStr) return;
+        const cost = Number(costStr);
+        if (!Number.isFinite(cost) || cost <= 0) {
+          setStatus('Cantidad inválida.', 'error');
+          return;
+        }
+        try {
+          const res = await fetch(`https://owsdatabase.onrender.com/wildwave/api/posts/${postId}/promote`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...authHeaders() },
+            body: JSON.stringify({ cost })
+          });
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            setStatus(body.error || 'No se pudo promocionar el post.', 'error');
+            return;
+          }
+          if ($userWxt && typeof body.remainingWxt === 'number') {
+            $userWxt.textContent = String(body.remainingWxt);
+          } else {
+            fetchBalance().catch(() => {});
+          }
+          setStatus('Post promocionado con éxito.', 'info');
+          if (currentTab === 'profile') {
+            fetchMyPosts().catch(() => {});
+          } else {
+            fetchExplore().catch(() => {});
+          }
+        } catch (e) {
+          console.error(e);
+          setStatus('Error al promocionar el post.', 'error');
+        }
+      }
+
+      $feed.addEventListener('click', async (ev) => {
+        const tagBtn = ev.target.closest('.wx-hashtag');
+        if (tagBtn) {
+          const tag = tagBtn.dataset.hashtag;
+          if (tag) applyHashtagFilter(tag);
+          return;
+        }
+
+        const btn = ev.target.closest('.wx-post-btn');
+        if (!btn) return;
+        const id = btn.dataset.id;
+        const action = btn.dataset.action;
+        if (!id || !action) return;
+
+        if (action === 'like') {
+          if (!currentUser) {
+            setStatus('Inicia sesión para dar like.', 'error');
+            openAuthModal('login');
+            return;
+          }
+          if (btn.dataset.self === '1') {
+            setStatus('No puedes dar like a tus propios posts.', 'info');
+            return;
+          }
+          try {
+            const res = await fetch(`${API_BASE}/${id}/like`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', ...authHeaders() }
+            });
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(body.error || 'Error al cambiar like');
+            const likesCount = body.likesCount ?? 0;
+            btn.textContent = `❤ ${likesCount}`;
+            if (body.liked) btn.classList.add('wx-post-btn--active');
+            else btn.classList.remove('wx-post-btn--active');
+          } catch (e) {
+            console.error(e);
+            setStatus(e.message || 'Error al cambiar like', 'error');
+          }
+        } else if (action === 'reply') {
+          if (btn.disabled) return;
+          if (!currentUser) {
+            setStatus('Inicia sesión para responder.', 'error');
+            openAuthModal('login');
+            return;
+          }
+          const uname = btn.dataset.username || 'usuario';
+          currentReplyToId = parseInt(id, 10);
+          currentReplyToUsername = uname;
+          $text.placeholder = `Respondiendo a @${uname}`;
+          $text.focus();
+          setStatus(`Respondiendo a @${uname}`, 'info');
+          await openThread(parseInt(id, 10));
+        } else if (action === 'promote') {
+          promotePost(parseInt(id, 10));
+        } else if (action === 'tip') {
+          const uname = btn.dataset.username || 'usuario';
+          donateToPost(parseInt(id, 10), uname);
+        } else if (action === 'delete') {
+          const postId = parseInt(id, 10);
+          if (!Number.isFinite(postId)) return;
+          if (!currentUser) {
+            setStatus('Inicia sesión para eliminar posts.', 'error');
+            openAuthModal('login');
+            return;
+          }
+          const confirmed = await openConfirmDialog({
+            title: 'Eliminar post',
+            message: '¿Seguro que quieres eliminar este post?',
+            confirmLabel: 'Eliminar'
+          });
+          if (!confirmed) return;
+          try {
+            const res = await fetch(`${API_BASE}/${postId}`, {
+              method: 'DELETE',
+              headers: { ...authHeaders() }
+            });
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              setStatus(body.error || 'No se pudo eliminar el post.', 'error');
+              return;
+            }
+            setStatus('Post eliminado.', 'info');
+            if (currentTab === 'profile') {
+              fetchMyPosts().catch(() => {});
+            } else {
+              fetchExplore().catch(() => {});
+            }
+          } catch (e) {
+            console.error(e);
+            setStatus('Error al eliminar el post.', 'error');
+          }
+        } else if (action === 'report') {
+          const postId = parseInt(id, 10);
+          if (!Number.isFinite(postId)) return;
+          if (!currentUser) {
+            setStatus('Inicia sesión para reportar posts.', 'error');
+            openAuthModal('login');
+            return;
+          }
+          const reason = await openInputDialog({
+            title: 'Reportar post',
+            message: 'Describe el motivo del reporte (mínimo 10 caracteres):',
+            multiline: true,
+            placeholder: 'Motivo del reporte',
+            confirmLabel: 'Enviar reporte'
+          });
+          if (!reason || reason.trim().length < 10) {
+            setStatus('Motivo muy corto para el reporte.', 'error');
+            return;
+          }
+          try {
+            const res = await fetch(`${API_BASE}/${postId}/report`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', ...authHeaders() },
+              body: JSON.stringify({ reason: reason.trim() })
+            });
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              setStatus(body.error || 'No se pudo enviar el reporte.', 'error');
+              return;
+            }
+            setStatus('Reporte enviado. Un admin lo revisará.', 'info');
+          } catch (e) {
+            console.error(e);
+            setStatus('Error al enviar el reporte.', 'error');
+          }
+        }
+      });
+
+      // Permitir like/responder también desde el hilo (lista de respuestas)
+      $threadList.addEventListener('click', async (ev) => {
+        const tagBtn = ev.target.closest('.wx-hashtag');
+        if (tagBtn) {
+          const tag = tagBtn.dataset.hashtag;
+          if (tag && currentTab === 'explore') applyHashtagFilter(tag);
+          return;
+        }
+
+        const btn = ev.target.closest('.wx-post-btn');
+        if (!btn) return;
+        const id = btn.dataset.id;
+        const action = btn.dataset.action;
+        if (!id || !action) return;
+
+        if (action === 'like') {
+          if (!currentUser) {
+            setStatus('Inicia sesión para dar like.', 'error');
+            openAuthModal('login');
+            return;
+          }
+          if (btn.dataset.self === '1') {
+            setStatus('No puedes dar like a tus propios posts.', 'info');
+            return;
+          }
+          try {
+            const res = await fetch(`${API_BASE}/${id}/like`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', ...authHeaders() }
+            });
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(body.error || 'Error al cambiar like');
+            const likesCount = body.likesCount ?? 0;
+            btn.textContent = `❤ ${likesCount}`;
+            if (body.liked) btn.classList.add('wx-post-btn--active');
+            else btn.classList.remove('wx-post-btn--active');
+          } catch (e) {
+            console.error(e);
+            setStatus(e.message || 'Error al cambiar like', 'error');
+          }
+        } else if (action === 'reply') {
+          if (btn.disabled) return;
+          if (!currentUser) {
+            setStatus('Inicia sesión para responder.', 'error');
+            openAuthModal('login');
+            return;
+          }
+          const uname = btn.dataset.username || 'usuario';
+          currentReplyToId = parseInt(id, 10);
+          currentReplyToUsername = uname;
+          $text.placeholder = `Respondiendo a @${uname}`;
+          $text.focus();
+          setStatus(`Respondiendo a @${uname}`, 'info');
+          await openThread(parseInt(id, 10));
+        }
+      });
+
+      async function openThread(postId) {
+        if (!postId) return;
+        try {
+          setStatus('Cargando hilo...');
+          const res = await fetch(`${API_BASE}/${postId}/thread`, {
+            headers: { ...authHeaders() }
+          });
+          const data = await res.json().catch(() => []);
+          if (!res.ok) throw new Error(data.error || 'Error al cargar hilo');
+
+          renderThread(data, postId);
+          currentThreadPostId = postId;
+          $threadView.hidden = false;
+          // llevar el hilo a la vista para que el usuario vea que se abrió
+          if ($threadView && typeof $threadView.scrollIntoView === 'function') {
+            $threadView.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+          setStatus('Hilo cargado.');
+        } catch (e) {
+          console.error(e);
+          setStatus(e.message || 'Error al cargar hilo', 'error');
+        }
+      }
+
+      function buildThreadTree(posts) {
+        const map = new Map();
+        posts.forEach(p => {
+          map.set(p.id, { ...p, children: [] });
+        });
+        let root = null;
+        map.forEach(node => {
+          if (node.parent_id && map.has(node.parent_id)) {
+            map.get(node.parent_id).children.push(node);
+          } else if (!root || node.id === currentThreadPostId) {
+            root = node;
+          }
+        });
+        return root;
+      }
+
+      function renderThread(posts, rootId) {
+        $threadList.innerHTML = '';
+        if (!Array.isArray(posts) || posts.length === 0) return;
+        currentThreadPostId = rootId;
+        const root = buildThreadTree(posts);
+        $threadTitle.textContent = 'Hilo de @' + (root?.username || 'usuario');
+
+        function renderNode(node, depth) {
+          const li = document.createElement('li');
+          li.className = 'wx-thread-item ' + (depth === 0 ? 'wx-thread-item-root' : `wx-thread-depth-${Math.min(depth,5)}`);
+
+          const meta = document.createElement('div');
+          meta.className = 'wx-meta';
+          const h = document.createElement('span');
+          h.className = 'wx-handle';
+          const nodeUsername = node.username || 'usuario';
+          h.textContent = '@' + nodeUsername;
+
+          let verifyIcon = null;
+          let nodeTier = node.verify_tier || null;
+          if (nodeUsername === 'Ocean and Wild Studios') {
+            nodeTier = 'admin';
+          }
+          if (nodeTier) {
+            verifyIcon = document.createElement('span');
+            verifyIcon.textContent = '✓';
+            verifyIcon.className = 'wx-verify-icon-badge';
+            if (nodeTier === 'blue') {
+              verifyIcon.classList.add('wx-verify-icon-badge--blue');
+            } else if (nodeTier === 'gold') {
+              verifyIcon.classList.add('wx-verify-icon-badge--gold');
+            } else if (nodeTier === 'admin') {
+              verifyIcon.classList.add('wx-verify-icon-badge--admin');
+            }
+          }
+
+          const dot = document.createElement('span');
+          dot.className = 'wx-dot';
+          dot.textContent = '·';
+          const t = document.createElement('span');
+          t.className = 'wx-time';
+          t.textContent = formatTime(node.created_at);
+          if (verifyIcon) {
+            meta.append(h, verifyIcon, dot, t);
+          } else {
+            meta.append(h, dot, t);
+          }
+
+          const text = document.createElement('div');
+          text.className = 'wx-text';
+          renderTextWithHashtags(text, node.content || '');
+
+          const actions = document.createElement('div');
+          actions.className = 'wx-post-actions';
+
+          const likeBtn = document.createElement('button');
+          likeBtn.className = 'wx-post-btn wx-post-btn--like';
+          likeBtn.dataset.action = 'like';
+          likeBtn.dataset.id = node.id;
+          likeBtn.dataset.username = node.username || 'usuario';
+          if (node.liked) likeBtn.classList.add('wx-post-btn--active');
+          const likes = typeof node.likes_count === 'number' ? node.likes_count : 0;
+          likeBtn.textContent = `❤ ${likes}`;
+
+          const replyBtn = document.createElement('button');
+          replyBtn.className = 'wx-post-btn wx-post-btn--reply';
+          replyBtn.dataset.action = 'reply';
+          replyBtn.dataset.id = node.id;
+          replyBtn.dataset.username = node.username || 'usuario';
+          replyBtn.textContent = 'Responder';
+
+          // No permitir like a uno mismo también en el hilo
+          const isOwnNode = currentUser && String(node.user_id) === String(currentUser.id);
+          if (isOwnNode) {
+            likeBtn.disabled = true;
+            likeBtn.title = 'No puedes dar like a tus propios posts';
+          }
+
+          actions.append(likeBtn, replyBtn);
+
+          li.append(meta, text, actions);
+          $threadList.appendChild(li);
+
+          node.children.forEach(child => renderNode(child, depth + 1));
+        }
+
+        renderNode(root, 0);
+      }
+
+      function filterPostsByHashtag(posts, tag) {
+        if (!tag) return posts;
+        const needle = '#' + tag.toLowerCase();
+        return posts.filter(p => (p.content || '').toLowerCase().includes(needle));
+      }
+
+      function computeTrends(posts) {
+        const counts = new Map();
+        posts.forEach(p => {
+          const matches = (p.content || '').match(/#[\p{L}0-9_]+/gu) || [];
+          const unique = new Set(matches.map(m => m.toLowerCase()));
+          unique.forEach(tag => {
+            const key = tag.slice(1);
+            counts.set(key, (counts.get(key) || 0) + 1);
+          });
+        });
+        return Array.from(counts.entries())
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 5);
+      }
+
+      function updateTrends(posts) {
+        if (!$trends || !$trendsList) return;
+        const trends = computeTrends(posts || []);
+        updateCommunitySideStats(null, trends.length);
+        if (!trends.length) {
+          $trends.hidden = true;
+          $trendsList.innerHTML = '';
+          return;
+        }
+        $trends.hidden = false;
+        $trendsList.innerHTML = '';
+        trends.forEach(([tag, count]) => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'wx-hashtag';
+          btn.dataset.hashtag = tag;
+          btn.textContent = `#${tag} (${count})`;
+          $trendsList.appendChild(btn);
+        });
+      }
+
+      function applyHashtagFilter(tag) {
+        currentHashtagFilter = tag || null;
+        if (currentTab !== 'explore') return;
+        if (!Array.isArray(explorePosts) || !explorePosts.length) return;
+        const posts = currentHashtagFilter ? filterPostsByHashtag(explorePosts, currentHashtagFilter) : explorePosts;
+        if ($feedTitle) {
+          $feedTitle.textContent = currentHashtagFilter ? `#${currentHashtagFilter}` : 'Explorar';
+        }
+        renderPosts(posts);
+      }
+
+      async function fetchNotificationsBadge() {
+        if (!$notifBadge) return;
+        if (!currentUser || !currentToken) {
+          $notifBadge.hidden = true;
+          $notifBadge.textContent = '0';
+          lastNotifications = [];
+          return;
+        }
+        try {
+          const res = await fetch('https://owsdatabase.onrender.com/wildwave/api/notifications', {
+            headers: { ...authHeaders() }
+          });
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok) return;
+          lastNotifications = Array.isArray(body.notifications) ? body.notifications : [];
+          const unread = body.unreadCount || 0;
+          if (unread > 0) {
+            $notifBadge.hidden = false;
+            $notifBadge.textContent = String(unread);
+          } else {
+            $notifBadge.hidden = true;
+            $notifBadge.textContent = '0';
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      function formatNotification(n) {
+        const t = n.type;
+        const p = n.payload || {};
+        if (t === 'donation') {
+          const wxt = p.amountWxt ?? p.amount_wxt;
+          const wc = p.amountWC ?? p.amount_wc;
+          const pid = p.postId ?? p.post_id;
+          return `Recibiste ${wxt ?? '?'} WXT (${wc ?? '?' } WildCredits) en tu post #${pid ?? ''}.`;
+        }
+        if (t === 'promotion') {
+          const pid = p.postId ?? p.post_id;
+          const amt = p.amount ?? p.amount_wxt;
+          return `Has promocionado tu post #${pid ?? ''} con ${amt ?? '?'} WXT.`;
+        }
+        if (t === 'reply') {
+          return 'Alguien respondió a uno de tus posts.';
+        }
+        if (t === 'like') {
+          return 'Recibiste un nuevo like en uno de tus posts.';
+        }
+        if (typeof p.message === 'string' && p.message) return p.message;
+        return 'Notificación';
+      }
+
+      function renderNotificationsList() {
+        if (!$notifList) return;
+        $notifList.innerHTML = '';
+        if (!lastNotifications.length) {
+          const div = document.createElement('div');
+          div.className = 'wx-profile-empty';
+          div.style.padding = '8px 14px 8px';
+          div.textContent = 'No tienes notificaciones.';
+          $notifList.appendChild(div);
+          return;
+        }
+        lastNotifications.forEach(n => {
+          const item = document.createElement('div');
+          item.className = 'wx-gold-request-item';
+          item.style.margin = '4px 14px';
+          const date = n.created_at ? new Date(n.created_at) : null;
+          const when = date ? date.toLocaleString('es-ES') : '';
+          const msg = formatNotification(n);
+          item.innerHTML = `
+            <div class="wx-gold-request-header" style="margin-bottom:2px;">
+              <span>${n.type || 'notificación'}</span>
+              <span>${when}</span>
+            </div>
+            <div style="font-size:0.78rem;">${msg}</div>
+          `;
+          if (!n.read_at) {
+            item.style.borderColor = '#38bdf8';
+          }
+          $notifList.appendChild(item);
+        });
+      }
+
+      function openNotificationsModal() {
+        if (!currentUser) {
+          setStatus('Inicia sesión para ver notificaciones.', 'error');
+          openAuthModal('login');
+          return;
+        }
+        if ($notifModal) {
+          $notifModal.hidden = false;
+        }
+        renderNotificationsList();
+      }
+
+      async function markAllNotificationsRead() {
+        if (!currentUser || !currentToken) return;
+        try {
+          const res = await fetch('https://owsdatabase.onrender.com/wildwave/api/notifications/read', {
+            method: 'POST',
+            headers: { ...authHeaders() }
+          });
+          if (!res.ok) return;
+          // Marcar localmente
+          lastNotifications = lastNotifications.map(n => ({ ...n, read_at: n.read_at || new Date().toISOString() }));
+          renderNotificationsList();
+          fetchNotificationsBadge().catch(() => {});
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      async function donateToPost(postId, username) {
+        if (!currentUser || !currentToken) {
+          setStatus('Inicia sesión en WildWave para dar propinas.', 'error');
+          openAuthModal('login');
+          return;
+        }
+        const opToken = localStorage.getItem('opToken');
+        if (!opToken) {
+          setStatus('Conecta Ocean Pay para usar tus WildCredits (desde la app de Ocean Pay).', 'error');
+          return;
+        }
+        const amountStr = await openInputDialog({
+          title: 'Dar propina',
+          message: `¿Cuántos WildCredits quieres donar a @${username}? (mínimo 1)`,
+          placeholder: '10',
+          defaultValue: '10',
+          type: 'number',
+          confirmLabel: 'Enviar propina'
+        });
+        if (!amountStr) return;
+        const amount = parseInt(amountStr, 10);
+        if (!Number.isFinite(amount) || amount <= 0) {
+          setStatus('Cantidad inválida.', 'error');
+          return;
+        }
+        try {
+          const res = await fetch(`https://owsdatabase.onrender.com/wildwave/api/posts/${postId}/donate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...authHeaders() },
+            body: JSON.stringify({ amount, oceanPayToken: opToken })
+          });
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            setStatus(body.error || 'No se pudo enviar la propina.', 'error');
+            return;
+          }
+          setStatus('Propina enviada con éxito.', 'info');
+          fetchNotificationsBadge().catch(() => {});
+        } catch (e) {
+          console.error(e);
+          setStatus('Error al enviar la propina.', 'error');
+        }
+      }
+
+      // Inicio
+      updateCounter();
+      updateOceanPayConnectionUI();
+      hydrateFromStorage().then(() => {
+        setTab('explore');
+        fetchNotificationsBadge().catch(() => {});
+        fetchTipsSummary().catch(() => {});
+      });
+      setInterval(() => {
+        if (currentTab === 'profile') fetchMyPosts();
+        else fetchExplore();
+      }, 20000);
+    </script>
+  </body>
+</html>

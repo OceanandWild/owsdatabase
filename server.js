@@ -18260,12 +18260,22 @@ app.get('/deepdive/subscription/history', async (req, res) => {
   }
 });
 
-// WildX – mini proyecto tipo X/Twitter
-// Sirve la SPA desde carpeta WildX
-app.get('/wildx', (_req, res) => {
-  res.sendFile(join(__dirname, 'WildX', 'index.html'));
+// WildWave - mini red social
+// Sirve la SPA desde carpeta WildWave
+app.get('/wildwave', (_req, res) => {
+  res.sendFile(join(__dirname, 'WildWave', 'index.html'));
 });
 
+// Compatibilidad legacy con el nombre anterior
+app.get('/wildx', (_req, res) => {
+  res.redirect(302, '/wildwave');
+});
+
+// Compatibilidad de API antigua (/wildx/api/* -> /wildwave/api/*)
+app.use('/wildx/api', (req, _res, next) => {
+  req.url = `/wildwave/api${req.url}`;
+  next();
+});
 // === WildX Auth helpers ===
 async function ensureWildXTables() {
   await pool.query(`
@@ -18447,7 +18457,7 @@ async function ensureWildXReportsTable() {
 }
 
 // Registro de usuario WildX
-app.post('/wildx/api/register', async (req, res) => {
+app.post('/wildwave/api/register', async (req, res) => {
   try {
     await ensureWildXTables();
     const { username, password } = req.body || {};
@@ -18470,13 +18480,13 @@ app.post('/wildx/api/register', async (req, res) => {
     if (err.code === '23505') {
       return res.status(409).json({ error: 'Ese usuario ya existe' });
     }
-    console.error('Error en POST /wildx/api/register:', err);
+    console.error('Error en POST /wildwave/api/register:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
 
 // Login WildX
-app.post('/wildx/api/login', async (req, res) => {
+app.post('/wildwave/api/login', async (req, res) => {
   try {
     await ensureWildXTables();
     const { username, password } = req.body || {};
@@ -18504,13 +18514,13 @@ app.post('/wildx/api/login', async (req, res) => {
     };
     res.json({ token, user });
   } catch (err) {
-    console.error('Error en POST /wildx/api/login:', err);
+    console.error('Error en POST /wildwave/api/login:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
 
 // Datos del usuario actual WildX (incluye stats básicas + verificación)
-app.get('/wildx/api/me', async (req, res) => {
+app.get('/wildwave/api/me', async (req, res) => {
   try {
     await ensureWildXTables();
     const wid = getWildXUserId(req);
@@ -18556,7 +18566,7 @@ app.get('/wildx/api/me', async (req, res) => {
 
     res.json(user);
   } catch (err) {
-    console.error('Error en GET /wildx/api/me:', err);
+    console.error('Error en GET /wildwave/api/me:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
@@ -18635,7 +18645,7 @@ async function selectPromotedPost() {
 }
 
 // API de posts WildX (Explorar = todos los posts publicados)
-app.get('/wildx/api/posts', async (req, res) => {
+app.get('/wildwave/api/posts', async (req, res) => {
   try {
     await ensureWildXTables();
     await ensureWildXExtraColumns();
@@ -18672,13 +18682,13 @@ app.get('/wildx/api/posts', async (req, res) => {
       promoted
     });
   } catch (err) {
-    console.error('Error en GET /wildx/api/posts:', err);
+    console.error('Error en GET /wildwave/api/posts:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
 
 // Posts propios (Perfil, solo publicados)
-app.get('/wildx/api/my-posts', async (req, res) => {
+app.get('/wildwave/api/my-posts', async (req, res) => {
   try {
     await ensureWildXTables();
     await ensureWildXExtraColumns();
@@ -18707,13 +18717,13 @@ app.get('/wildx/api/my-posts', async (req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    console.error('Error en GET /wildx/api/my-posts:', err);
+    console.error('Error en GET /wildwave/api/my-posts:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
 
 // Suscripción a verificación azul usando WildCredits via Ocean Pay
-app.post('/wildx/api/verify/blue/subscribe', async (req, res) => {
+app.post('/wildwave/api/verify/blue/subscribe', async (req, res) => {
   try {
     await ensureWildXTables();
     const wid = getWildXUserId(req);
@@ -18838,13 +18848,13 @@ app.post('/wildx/api/verify/blue/subscribe', async (req, res) => {
       });
     } catch (err) {
       await client.query('ROLLBACK');
-      console.error('Error en POST /wildx/api/verify/blue/subscribe:', err);
+      console.error('Error en POST /wildwave/api/verify/blue/subscribe:', err);
       res.status(500).json({ error: 'Error interno' });
     } finally {
       client.release();
     }
   } catch (err) {
-    console.error('Error en POST /wildx/api/verify/blue/subscribe:', err);
+    console.error('Error en POST /wildwave/api/verify/blue/subscribe:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
@@ -18858,7 +18868,7 @@ async function isWildXAdmin(userId) {
 }
 
 // Suscripción a verificación azul usando credenciales de Ocean Pay (WildCredits)
-app.post('/wildx/api/verify/blue/subscribe-credentials', async (req, res) => {
+app.post('/wildwave/api/verify/blue/subscribe-credentials', async (req, res) => {
   try {
     await ensureWildXTables();
     const wid = getWildXUserId(req);
@@ -18991,19 +19001,19 @@ app.post('/wildx/api/verify/blue/subscribe-credentials', async (req, res) => {
       });
     } catch (err) {
       await client.query('ROLLBACK');
-      console.error('Error en POST /wildx/api/verify/blue/subscribe-credentials:', err);
+      console.error('Error en POST /wildwave/api/verify/blue/subscribe-credentials:', err);
       res.status(500).json({ error: 'Error interno' });
     } finally {
       client.release();
     }
   } catch (err) {
-    console.error('Error en POST /wildx/api/verify/blue/subscribe-credentials:', err);
+    console.error('Error en POST /wildwave/api/verify/blue/subscribe-credentials:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
 
 // Obtener saldo de WildX Tokens (WXT)
-app.get('/wildx/api/balance', async (req, res) => {
+app.get('/wildwave/api/balance', async (req, res) => {
   try {
     await ensureWildXTables();
     const wid = getWildXUserId(req);
@@ -19015,13 +19025,13 @@ app.get('/wildx/api/balance', async (req, res) => {
     const balance = rows.length ? Number(rows[0].wxt_balance) : 0;
     res.json({ wxt: balance });
   } catch (err) {
-    console.error('Error en GET /wildx/api/balance:', err);
+    console.error('Error en GET /wildwave/api/balance:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
 
 // Resumen de propinas (WXT y equivalente en WildCredits)
-app.get('/wildx/api/profile/tips-summary', async (req, res) => {
+app.get('/wildwave/api/profile/tips-summary', async (req, res) => {
   try {
     await ensureWildXTables();
     const wid = getWildXUserId(req);
@@ -19068,7 +19078,7 @@ app.get('/wildx/api/profile/tips-summary', async (req, res) => {
       monthWc
     });
   } catch (err) {
-    console.error('Error en GET /wildx/api/profile/tips-summary:', err);
+    console.error('Error en GET /wildwave/api/profile/tips-summary:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
@@ -19077,7 +19087,7 @@ app.get('/wildx/api/profile/tips-summary', async (req, res) => {
 const WXT_PER_WC = 0.2; // 1 WXT por cada 5 WildCredits
 
 // Endpoint de test para acreditar WXT (solo Admin)
-app.post('/wildx/api/wxt/grant', async (req, res) => {
+app.post('/wildwave/api/wxt/grant', async (req, res) => {
   try {
     await ensureWildXTables();
     const wid = getWildXUserId(req);
@@ -19100,13 +19110,13 @@ app.post('/wildx/api/wxt/grant', async (req, res) => {
     );
     res.json({ success: true });
   } catch (err) {
-    console.error('Error en POST /wildx/api/wxt/grant:', err);
+    console.error('Error en POST /wildwave/api/wxt/grant:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
 
 // Donar WildCredits a un post (se convierten a WXT para el autor)
-app.post('/wildx/api/posts/:id/donate', async (req, res) => {
+app.post('/wildwave/api/posts/:id/donate', async (req, res) => {
   const client = await pool.connect();
   try {
     await ensureWildXTables();
@@ -19247,13 +19257,13 @@ app.post('/wildx/api/posts/:id/donate', async (req, res) => {
   } catch (err) {
     await client.query('ROLLBACK');
     client.release();
-    console.error('Error en POST /wildx/api/posts/:id/donate:', err);
+    console.error('Error en POST /wildwave/api/posts/:id/donate:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
 
 // Promocionar un post usando WXT
-app.post('/wildx/api/posts/:id/promote', async (req, res) => {
+app.post('/wildwave/api/posts/:id/promote', async (req, res) => {
   const client = await pool.connect();
   try {
     await ensureWildXTables();
@@ -19341,13 +19351,13 @@ app.post('/wildx/api/posts/:id/promote', async (req, res) => {
   } catch (err) {
     await client.query('ROLLBACK');
     client.release();
-    console.error('Error en POST /wildx/api/posts/:id/promote:', err);
+    console.error('Error en POST /wildwave/api/posts/:id/promote:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
 
 // Solicitud de verificación dorada (empresas)
-app.post('/wildx/api/verify/gold/request', async (req, res) => {
+app.post('/wildwave/api/verify/gold/request', async (req, res) => {
   try {
     await ensureWildXTables();
     const wid = getWildXUserId(req);
@@ -19388,13 +19398,13 @@ app.post('/wildx/api/verify/gold/request', async (req, res) => {
     );
     res.json({ success: true, request: rows[0] });
   } catch (err) {
-    console.error('Error en POST /wildx/api/verify/gold/request:', err);
+    console.error('Error en POST /wildwave/api/verify/gold/request:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
 
 // Listado de solicitudes de verificación dorada (Admin)
-app.get('/wildx/api/verify/gold/requests', async (req, res) => {
+app.get('/wildwave/api/verify/gold/requests', async (req, res) => {
   try {
     await ensureWildXTables();
     const wid = getWildXUserId(req);
@@ -19424,13 +19434,13 @@ app.get('/wildx/api/verify/gold/requests', async (req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    console.error('Error en GET /wildx/api/verify/gold/requests:', err);
+    console.error('Error en GET /wildwave/api/verify/gold/requests:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
 
 // Aprobar verificación dorada (Admin)
-app.post('/wildx/api/verify/gold/requests/:id/approve', async (req, res) => {
+app.post('/wildwave/api/verify/gold/requests/:id/approve', async (req, res) => {
   const client = await pool.connect();
   try {
     await ensureWildXTables();
@@ -19500,13 +19510,13 @@ app.post('/wildx/api/verify/gold/requests/:id/approve', async (req, res) => {
   } catch (err) {
     await client.query('ROLLBACK');
     client.release();
-    console.error('Error en POST /wildx/api/verify/gold/requests/:id/approve:', err);
+    console.error('Error en POST /wildwave/api/verify/gold/requests/:id/approve:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
 
 // Rechazar verificación dorada (Admin)
-app.post('/wildx/api/verify/gold/requests/:id/reject', async (req, res) => {
+app.post('/wildwave/api/verify/gold/requests/:id/reject', async (req, res) => {
   const client = await pool.connect();
   try {
     await ensureWildXTables();
@@ -19550,13 +19560,13 @@ app.post('/wildx/api/verify/gold/requests/:id/reject', async (req, res) => {
   } catch (err) {
     await client.query('ROLLBACK');
     client.release();
-    console.error('Error en POST /wildx/api/verify/gold/requests/:id/reject:', err);
+    console.error('Error en POST /wildwave/api/verify/gold/requests/:id/reject:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
 
 // Crear post (requiere login, admite programación)
-app.post('/wildx/api/posts', async (req, res) => {
+app.post('/wildwave/api/posts', async (req, res) => {
   try {
     await ensureWildXTables();
     await ensureWildXExtraColumns();
@@ -19640,13 +19650,13 @@ app.post('/wildx/api/posts', async (req, res) => {
     );
     res.json(rows[0]);
   } catch (err) {
-    console.error('Error en POST /wildx/api/posts:', err);
+    console.error('Error en POST /wildwave/api/posts:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
 
 // Toggle like en un post WildX
-app.post('/wildx/api/posts/:id/like', async (req, res) => {
+app.post('/wildwave/api/posts/:id/like', async (req, res) => {
   try {
     await ensureWildXTables();
     const wid = getWildXUserId(req);
@@ -19704,19 +19714,19 @@ app.post('/wildx/api/posts/:id/like', async (req, res) => {
       res.json({ liked, likesCount });
     } catch (err) {
       await client.query('ROLLBACK');
-      console.error('Error en POST /wildx/api/posts/:id/like:', err);
+      console.error('Error en POST /wildwave/api/posts/:id/like:', err);
       res.status(500).json({ error: 'Error interno' });
     } finally {
       client.release();
     }
   } catch (err) {
-    console.error('Error en POST /wildx/api/posts/:id/like:', err);
+    console.error('Error en POST /wildwave/api/posts/:id/like:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
 
 // Listar notificaciones del usuario actual
-app.get('/wildx/api/notifications', async (req, res) => {
+app.get('/wildwave/api/notifications', async (req, res) => {
   try {
     await ensureWildXTables();
     const wid = getWildXUserId(req);
@@ -19751,13 +19761,13 @@ app.get('/wildx/api/notifications', async (req, res) => {
 
     res.json({ notifications, unreadCount });
   } catch (err) {
-    console.error('Error en GET /wildx/api/notifications:', err);
+    console.error('Error en GET /wildwave/api/notifications:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
 
 // Marcar notificaciones como leídas
-app.post('/wildx/api/notifications/read', async (req, res) => {
+app.post('/wildwave/api/notifications/read', async (req, res) => {
   try {
     await ensureWildXTables();
     const wid = getWildXUserId(req);
@@ -19772,13 +19782,13 @@ app.post('/wildx/api/notifications/read', async (req, res) => {
 
     res.json({ success: true });
   } catch (err) {
-    console.error('Error en POST /wildx/api/notifications/read:', err);
+    console.error('Error en POST /wildwave/api/notifications/read:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
 
 // Obtener hilo completo (post + respuestas recursivas)
-app.get('/wildx/api/posts/:id/thread', async (req, res) => {
+app.get('/wildwave/api/posts/:id/thread', async (req, res) => {
   try {
     await ensureWildXTables();
     await ensureWildXExtraColumns();
@@ -19819,13 +19829,13 @@ app.get('/wildx/api/posts/:id/thread', async (req, res) => {
     const filtered = rows.filter(r => !r.deleted_at);
     res.json(filtered);
   } catch (err) {
-    console.error('Error en GET /wildx/api/posts/:id/thread:', err);
+    console.error('Error en GET /wildwave/api/posts/:id/thread:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
 
 // Listar posts programados del usuario actual
-app.get('/wildx/api/scheduled', async (req, res) => {
+app.get('/wildwave/api/scheduled', async (req, res) => {
   try {
     await ensureWildXTables();
     await ensureWildXExtraColumns();
@@ -19841,13 +19851,13 @@ app.get('/wildx/api/scheduled', async (req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    console.error('Error en GET /wildx/api/scheduled:', err);
+    console.error('Error en GET /wildwave/api/scheduled:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
 
 // Eliminar post propio (borrado suave)
-app.delete('/wildx/api/posts/:id', async (req, res) => {
+app.delete('/wildwave/api/posts/:id', async (req, res) => {
   try {
     await ensureWildXTables();
     await ensureWildXExtraColumns();
@@ -19870,13 +19880,13 @@ app.delete('/wildx/api/posts/:id', async (req, res) => {
     );
     res.json({ success: true });
   } catch (err) {
-    console.error('Error en DELETE /wildx/api/posts/:id:', err);
+    console.error('Error en DELETE /wildwave/api/posts/:id:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
 
 // Reportar post (visible para admins luego)
-app.post('/wildx/api/posts/:id/report', async (req, res) => {
+app.post('/wildwave/api/posts/:id/report', async (req, res) => {
   try {
     await ensureWildXReportsTable();
     const wid = getWildXUserId(req);
@@ -19911,13 +19921,13 @@ app.post('/wildx/api/posts/:id/report', async (req, res) => {
     );
     res.json({ success: true, report: rows[0] });
   } catch (err) {
-    console.error('Error en POST /wildx/api/posts/:id/report:', err);
+    console.error('Error en POST /wildwave/api/posts/:id/report:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
 
 // Listar reportes (Admin WildX)
-app.get('/wildx/api/admin/post-reports', async (req, res) => {
+app.get('/wildwave/api/admin/post-reports', async (req, res) => {
   try {
     await ensureWildXReportsTable();
     const wid = getWildXUserId(req);
@@ -19936,13 +19946,13 @@ app.get('/wildx/api/admin/post-reports', async (req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    console.error('Error en GET /wildx/api/admin/post-reports:', err);
+    console.error('Error en GET /wildwave/api/admin/post-reports:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
 
 // Resolver reporte (Admin WildX)
-app.post('/wildx/api/admin/post-reports/:id/decide', async (req, res) => {
+app.post('/wildwave/api/admin/post-reports/:id/decide', async (req, res) => {
   const client = await pool.connect();
   try {
     await ensureWildXReportsTable();
@@ -19997,7 +20007,7 @@ app.post('/wildx/api/admin/post-reports/:id/decide', async (req, res) => {
   } catch (err) {
     await client.query('ROLLBACK');
     client.release();
-    console.error('Error en POST /wildx/api/admin/post-reports/:id/decide:', err);
+    console.error('Error en POST /wildwave/api/admin/post-reports/:id/decide:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });

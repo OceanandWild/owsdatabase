@@ -4904,12 +4904,35 @@ async function githubProxyHandler(req, res) {
     const tagName = tagMatch ? decodeURIComponent(tagMatch[1]) : '';
     if (!tagName) throw new Error('Fallback could not resolve release tag');
 
-    const assetRegex = new RegExp(`/` + owner + `/` + repo + `/releases/download/` + tagName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + `/([^\"'<>\\s]+)`, 'gi');
+    const collectAssetsFromHtml = (sourceHtml) => {
+      const names = new Set();
+      const escapedTag = tagName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const assetRegex = new RegExp(`/` + owner + `/` + repo + `/releases/download/` + escapedTag + `/([^\"'<>\\s?#]+)`, 'gi');
+      let match;
+      while ((match = assetRegex.exec(String(sourceHtml || ''))) !== null) {
+        const raw = decodeURIComponent(String(match[1] || '').trim());
+        if (raw) names.add(raw);
+      }
+      return names;
+    };
+
     const assetNames = new Set();
-    let m;
-    while ((m = assetRegex.exec(html)) !== null) {
-      const raw = String(m[1] || '').trim();
-      if (raw) assetNames.add(raw);
+    const expandedUrl = `https://github.com/${owner}/${repo}/releases/expanded_assets/${encodeURIComponent(tagName)}`;
+    try {
+      const expandedRes = await fetch(expandedUrl, {
+        redirect: 'follow',
+        headers: { 'User-Agent': 'OWS-Store-Proxy' }
+      });
+      if (expandedRes.ok) {
+        const expandedHtml = await expandedRes.text();
+        collectAssetsFromHtml(expandedHtml).forEach((n) => assetNames.add(n));
+      }
+    } catch (_expandedErr) {
+      // best-effort fallback only
+    }
+
+    if (!assetNames.size) {
+      collectAssetsFromHtml(html).forEach((n) => assetNames.add(n));
     }
 
     const assets = [...assetNames].map((name) => ({

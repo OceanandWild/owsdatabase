@@ -107,9 +107,15 @@ const io = new Server(httpServer, {
   }
 });
 
-app.use(cors({
+const corsOptions = {
+  origin: true,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
   exposedHeaders: ['X-WT-Reward-Currency', 'X-WT-Reward-Amount', 'X-WT-New-Balance']
-}));
+};
+app.use(cors(corsOptions));
+app.options(/.*/, cors(corsOptions));
 app.use(express.json());
 
 // --- Ocean Pay Authentication ---
@@ -766,7 +772,7 @@ async function runDatabaseMigrations() {
     try {
       // JSONB balances -> ocean_pay_card_balances
       await pool.query(`
-        WITH expanded AS (
+        WITH parsed AS (
           SELECT
             c.id AS card_id,
             LOWER(e.key) AS currency_type,
@@ -777,11 +783,19 @@ async function runDatabaseMigrations() {
           FROM ocean_pay_cards c
           CROSS JOIN LATERAL jsonb_each_text(COALESCE(c.balances, '{}'::jsonb)) e
           WHERE c.is_primary = true
+        ),
+        expanded AS (
+          SELECT
+            card_id,
+            currency_type,
+            MAX(amount) AS amount
+          FROM parsed
+          WHERE amount IS NOT NULL
+          GROUP BY card_id, currency_type
         )
         INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
         SELECT card_id, currency_type, amount
         FROM expanded
-        WHERE amount IS NOT NULL
         ON CONFLICT (card_id, currency_type)
         DO UPDATE SET amount = GREATEST(ocean_pay_card_balances.amount, EXCLUDED.amount)
       `);
@@ -911,10 +925,16 @@ async function runDatabaseMigrations() {
           INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
           SELECT
             NEW.id,
-            LOWER(kv.key),
-            GREATEST((kv.value)::numeric, 0)
-          FROM jsonb_each_text(COALESCE(NEW.balances, '{}'::jsonb)) kv
-          WHERE kv.value ~ '^-?[0-9]+(\\.[0-9]+)?$'
+            src.currency_type,
+            MAX(src.amount) AS amount
+          FROM (
+            SELECT
+              LOWER(kv.key) AS currency_type,
+              GREATEST((kv.value)::numeric, 0) AS amount
+            FROM jsonb_each_text(COALESCE(NEW.balances, '{}'::jsonb)) kv
+            WHERE kv.value ~ '^-?[0-9]+(\\.[0-9]+)?$'
+          ) src
+          GROUP BY src.currency_type
           ON CONFLICT (card_id, currency_type) DO UPDATE SET amount = EXCLUDED.amount;
 
           RETURN NEW;

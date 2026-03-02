@@ -5803,7 +5803,7 @@
             if (nameHit) return true;
 
             if (projectNames.length === 0) {
-                const text = `${entry.title} ${entry.description} ${(entry.changes || []).join(' ')}`.toLowerCase();
+                const text = String(entry.title || '').toLowerCase();
                 return aliases.some((alias) => {
                     const cleaned = String(alias || '').toLowerCase().trim();
                     if (!cleaned || cleaned.length < 8) return false;
@@ -6213,8 +6213,8 @@
                     if (installedReleaseTs > 0) {
                         needsUpdate = latestReleaseTs > installedReleaseTs;
                     } else if (allowMissingReleaseMetadataBootstrap) {
-                        // One-time bootstrap for users installed before release metadata tracking.
-                        needsUpdate = true;
+                        // Missing release metadata alone should not force a perpetual update loop.
+                        needsUpdate = false;
                     }
                 }
             }
@@ -6249,7 +6249,28 @@
                     );
                 })
                 .sort((a, b) => String(a.project?.name || '').localeCompare(String(b.project?.name || '')));
-            return [...pending, ...supplemental];
+            const merged = [...pending, ...supplemental];
+            const byCanonical = new Map();
+            merged.forEach((entry) => {
+                const key = canonicalProjectSlug(entry?.project || '');
+                if (!key) return;
+                const current = byCanonical.get(key);
+                if (!current) {
+                    byCanonical.set(key, entry);
+                    return;
+                }
+                const currentPending = hasDevicePendingUpdate(current?.info, devicePlatform);
+                const candidatePending = hasDevicePendingUpdate(entry?.info, devicePlatform);
+                if (candidatePending && !currentPending) {
+                    byCanonical.set(key, entry);
+                    return;
+                }
+                const currentTs = Date.parse(current?.project?.last_update_at || current?.project?.last_update || '') || 0;
+                const candidateTs = Date.parse(entry?.project?.last_update_at || entry?.project?.last_update || '') || 0;
+                if (candidateTs >= currentTs) byCanonical.set(key, entry);
+            });
+            return [...byCanonical.values()]
+                .sort((a, b) => String(a.project?.name || '').localeCompare(String(b.project?.name || '')));
         }
 
         function hasDevicePendingUpdate(info = null, platform = '') {
@@ -6337,15 +6358,16 @@
             const name = typeof valueOrProject === 'string'
                 ? ''
                 : String(valueOrProject?.name || '').toLowerCase().trim();
+            const token = `${slug} ${name}`.replace(/[^a-z0-9]+/g, '');
 
-            if (slug === 'ocean-pay' || slug === 'oceanpay' || name === 'ocean pay') return 'oceanpay';
-            if (slug === 'floret-shop' || slug === 'floretshop' || name === 'floret shop') return 'floretshop';
-            if (slug === 'savage-space-animals' || slug === 'savagespaceanimals' || slug === 'ssa' || name === 'savage space animals') return 'savagespaceanimals';
-            if (slug === 'wild-transfer' || slug === 'wildtransfer' || name === 'wild transfer' || name === 'wildtransfer') return 'wildtransfer';
-            if (slug === 'velocitysurge' || slug === 'velocity-surge' || name === 'velocity surge') return 'velocity-surge';
-            if (slug === 'wild-wave' || slug === 'wildwave' || slug === 'wildx' || name === 'wildwave' || name === 'wild wave') return 'wildwave';
-            if (slug === 'wildweapon' || slug === 'wildweapon-mayhem' || name === 'wildweapon mayhem') return 'wildweapon-mayhem';
-            if (slug === 'owsstore' || slug === 'ows-store' || name === 'ows store') return 'ows-store';
+            if (slug === 'ocean-pay' || slug === 'oceanpay' || name === 'ocean pay' || token.includes('oceanpay')) return 'oceanpay';
+            if (slug === 'floret-shop' || slug === 'floretshop' || slug === 'floret' || name === 'floret shop' || token.includes('floretshop')) return 'floretshop';
+            if (slug === 'savage-space-animals' || slug === 'savagespaceanimals' || slug === 'ssa' || name === 'savage space animals' || token.includes('savagespaceanimals')) return 'savagespaceanimals';
+            if (slug === 'wild-transfer' || slug === 'wildtransfer' || name === 'wild transfer' || name === 'wildtransfer' || token.includes('wildtransfer')) return 'wildtransfer';
+            if (slug === 'velocitysurge' || slug === 'velocity-surge' || name === 'velocity surge' || token.includes('velocitysurge')) return 'velocity-surge';
+            if (slug === 'wild-wave' || slug === 'wildwave' || slug === 'wildx' || name === 'wildwave' || name === 'wild wave' || token.includes('wildwave')) return 'wildwave';
+            if (slug === 'wildweapon' || slug === 'wildweapon-mayhem' || name === 'wildweapon mayhem' || token.includes('wildweaponmayhem')) return 'wildweapon-mayhem';
+            if (slug === 'owsstore' || slug === 'ows-store' || name === 'ows store' || token.includes('owsstore')) return 'ows-store';
             return slug || String(valueOrProject?.slug || '').trim();
         }
 

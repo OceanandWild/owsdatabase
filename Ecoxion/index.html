@@ -5966,6 +5966,33 @@
         await saveState(state);
       },
 
+      getMiniGameCooldown(gameData) {
+        const today = new Date().toDateString();
+        const plays = gameData?.lastDate === today ? Number(gameData?.playsToday || 0) : 0;
+        const locked = plays >= 3;
+        if (!locked) {
+          return {
+            plays,
+            locked: false,
+            remainingMs: 0,
+            remainingLabel: 'Listo'
+          };
+        }
+        const now = new Date();
+        const nextReset = new Date(now);
+        nextReset.setHours(24, 0, 0, 0);
+        const remainingMs = Math.max(0, nextReset.getTime() - now.getTime());
+        const hh = Math.floor(remainingMs / 3600000);
+        const mm = Math.floor((remainingMs % 3600000) / 60000);
+        const ss = Math.floor((remainingMs % 60000) / 1000);
+        return {
+          plays,
+          locked: true,
+          remainingMs,
+          remainingLabel: `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`
+        };
+      },
+
       async renderMiniGamesSection() {
         const container = document.getElementById('dr-minigames-container');
         if (!container) return;
@@ -5981,13 +6008,16 @@
 
         Object.values(miniGamesConfig).forEach(game => {
           const gameData = miniGamesData[game.id] || { playsToday: 0, lastDate: today };
-          const plays = gameData.lastDate === today ? gameData.playsToday : 0;
-          const isLocked = plays >= 3;
+          const cooldown = this.getMiniGameCooldown(gameData);
+          const plays = cooldown.plays;
+          const isLocked = cooldown.locked;
           const progress = (plays / 3) * 100;
 
           const card = document.createElement('div');
           card.className = 'minigame-card-premium';
-          card.onclick = isLocked ? null : () => dailyRewards.play(game.id);
+          card.onclick = isLocked
+            ? () => showAlert('info', 'Minijuego en recarga', `${game.name} disponible en ${cooldown.remainingLabel}`)
+            : () => dailyRewards.play(game.id);
           card.style.cssText = `
             background: rgba(255,255,255,0.03);
             border: 1px solid rgba(255,255,255,0.08);
@@ -6024,6 +6054,7 @@
                 <div style="font-size:12px; font-weight:700; color:${isLocked ? 'var(--warn)' : 'var(--ok)'}">
                   ${isLocked ? 'AGOTADO' : 'DISPONIBLE'}
                 </div>
+                ${isLocked ? `<div class="dr-cooldown-time">${cooldown.remainingLabel}</div>` : ''}
               </div>
             </div>
             <div>
@@ -6040,9 +6071,10 @@
               </div>
             </div>
             ${isLocked ? `
-              <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.4); backdrop-filter:blur(2px);">
-                <div style="padding:8px 16px; background:var(--bg-2); border:1px solid rgba(255,255,255,0.1); border-radius:12px; font-size:12px; font-weight:700; color:var(--warn);">
-                  ⏱️ RECARGANDO...
+              <div class="dr-cooldown-overlay">
+                <div class="dr-cooldown-pill">
+                  <span class="dr-cooldown-spinner"></span>
+                  <span>⏱️ Recarga: ${cooldown.remainingLabel}</span>
                 </div>
               </div>
             ` : ''}
@@ -6085,7 +6117,10 @@
             <h2>🖱️ Click Rápido</h2>
             <div class="score-display" id="cg-clicks">0</div>
             <div class="timer-display">Tiempo: <span id="cg-time">10</span>s</div>
-            <button id="cg-clickBtn" class="game-action-btn">CLICK!</button>
+            <div id="cg-hitArea" class="cg-hit-area">
+              <button id="cg-clickBtn" class="game-action-btn" type="button">CLICK!</button>
+              <div class="cg-hit-hint">Toca cualquier parte de esta zona para contar clicks</div>
+            </div>
             <div id="cg-processing" style="display:none; margin-top:16px; color:var(--accent); font-weight:700; animation: pulse 1s infinite;">
               Procesando recompensa...
             </div>
@@ -6095,6 +6130,7 @@
         document.body.appendChild(overlay);
 
         const clickBtn = document.getElementById('cg-clickBtn');
+        const hitArea = document.getElementById('cg-hitArea');
         const clicksEl = document.getElementById('cg-clicks');
         const timeEl = document.getElementById('cg-time');
         const processingEl = document.getElementById('cg-processing');
@@ -6102,7 +6138,8 @@
 
         let lastTapTs = 0;
         const handleClickHit = (ev) => {
-          ev.preventDefault();
+          if (ev) ev.preventDefault();
+          if (ev?.target?.id === 'cg-cancelBtn') return;
           if (isGameOver) return;
           const now = Date.now();
           if (now - lastTapTs < 35) return;
@@ -6113,11 +6150,12 @@
           setTimeout(() => clickBtn.style.transform = 'scale(1)', 50);
         };
 
-        clickBtn.style.touchAction = 'manipulation';
+        hitArea.style.touchAction = 'manipulation';
         clickBtn.style.userSelect = 'none';
-        clickBtn.addEventListener('click', handleClickHit);
-        clickBtn.addEventListener('pointerdown', handleClickHit);
-        clickBtn.addEventListener('touchstart', handleClickHit, { passive: false });
+        // Captura amplia para evitar casos donde el botón no recibe el toque/click.
+        ['click', 'pointerdown', 'touchstart'].forEach((evt) => {
+          hitArea.addEventListener(evt, handleClickHit, { passive: false });
+        });
 
         const interval = setInterval(async () => {
           timeLeft--;
@@ -7695,6 +7733,13 @@
           .timer-display { font-size: 1.2em; color: var(--ink-1); margin-bottom: 18px; font-variant-numeric: tabular-nums; }
           .game-action-btn { width: 180px; height: 180px; border-radius: 50%; border: none; background: linear-gradient(135deg, #667eea, #764ba2); color: white; font-size: 2em; font-weight: 800; cursor: pointer; box-shadow: 0 10px 30px rgba(102,126,234,.35); transition: transform .1s; }
           .game-action-btn:active { transform: scale(0.95); }
+          .cg-hit-area { margin: 0 auto; width: min(100%, 320px); border: 1px dashed rgba(255,255,255,0.24); border-radius: 20px; padding: 12px; display: grid; place-items: center; background: radial-gradient(circle at 50% 20%, rgba(102,126,234,.18), rgba(0,0,0,0)); }
+          .cg-hit-hint { margin-top: 10px; font-size: 11px; color: var(--ink-1); text-align: center; }
+          .dr-cooldown-time { margin-top: 4px; font-size: 11px; font-weight: 700; color: var(--warn); letter-spacing: 0.3px; }
+          .dr-cooldown-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.45); backdrop-filter: blur(2px); }
+          .dr-cooldown-pill { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; background: var(--bg-2); border: 1px solid rgba(255,255,255,0.14); border-radius: 999px; font-size: 12px; font-weight: 700; color: var(--warn); box-shadow: 0 6px 20px rgba(0,0,0,0.35); }
+          .dr-cooldown-spinner { width: 12px; height: 12px; border-radius: 50%; border: 2px solid rgba(245,158,11,0.25); border-top-color: var(--warn); animation: drSpin 1s linear infinite; }
+          @keyframes drSpin { to { transform: rotate(360deg); } }
           .close-btn { margin-top: 24px; padding: 10px 24px; background: rgba(255,255,255,0.1); color: var(--ink-1); border: none; border-radius: 8px; cursor: pointer; font-weight: 600; transition: all 0.2s; }
           .close-btn:hover { background: var(--danger); color: #fff; }
           .memory-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }

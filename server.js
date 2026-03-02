@@ -800,17 +800,29 @@ async function runDatabaseMigrations() {
         DO UPDATE SET amount = GREATEST(ocean_pay_card_balances.amount, EXCLUDED.amount)
       `);
 
-      // metadata -> ocean_pay_card_balances
+      // metadata -> ocean_pay_card_balances (deduplicado por card_id/currency_type)
       await pool.query(`
+        WITH parsed AS (
+          SELECT
+            c.id AS card_id,
+            LOWER(m.key) AS currency_type,
+            GREATEST((m.value)::numeric, 0) AS amount
+          FROM ocean_pay_cards c
+          JOIN ocean_pay_metadata m ON m.user_id = c.user_id
+          WHERE c.is_primary = true
+            AND m.value ~ '^-?[0-9]+(\\.[0-9]+)?$'
+        ),
+        dedup AS (
+          SELECT
+            card_id,
+            currency_type,
+            MAX(amount) AS amount
+          FROM parsed
+          GROUP BY card_id, currency_type
+        )
         INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
-        SELECT
-          c.id,
-          LOWER(m.key),
-          GREATEST((m.value)::numeric, 0)
-        FROM ocean_pay_cards c
-        JOIN ocean_pay_metadata m ON m.user_id = c.user_id
-        WHERE c.is_primary = true
-          AND m.value ~ '^-?[0-9]+(\\.[0-9]+)?$'
+        SELECT card_id, currency_type, amount
+        FROM dedup
         ON CONFLICT (card_id, currency_type)
         DO UPDATE SET amount = GREATEST(ocean_pay_card_balances.amount, EXCLUDED.amount)
       `);
@@ -1142,7 +1154,11 @@ async function runDatabaseMigrations() {
       ON ows_news_updates(update_date DESC)
     `).catch(() => {});
 
-    await ensureOwsStoreNewsSeedData().catch(err => console.log('[OWS] Error seeding ows_news_updates:', err.message));
+    if (typeof ensureOwsStoreNewsSeedData === 'function') {
+      await ensureOwsStoreNewsSeedData().catch(err => console.log('[OWS] Error seeding ows_news_updates:', err.message));
+    } else {
+      console.warn('[OWS] ensureOwsStoreNewsSeedData no definida, se omite seed de ows_news_updates.');
+    }
 
     // 17. Crear tabla ows_projects para el Sistema OWS Store
     await pool.query(`
@@ -1169,8 +1185,17 @@ async function runDatabaseMigrations() {
       ADD COLUMN IF NOT EXISTS installer_url TEXT
     `).catch(() => console.log('Ã¢Å¡Â Ã¯Â¸Â Columna installer_url ya existe en ows_projects'));
 
-    await ensureOwsStoreProjectsSeedData().catch(err => console.log('[OWS] Error seeding ows_projects:', err.message));
-    await ensureProjectChangelogSync({ force: true }).catch(err => console.log('[OWS] Error syncing project changelogs:', err.message));
+    if (typeof ensureOwsStoreProjectsSeedData === 'function') {
+      await ensureOwsStoreProjectsSeedData().catch(err => console.log('[OWS] Error seeding ows_projects:', err.message));
+    } else {
+      console.warn('[OWS] ensureOwsStoreProjectsSeedData no definida, se omite seed de ows_projects.');
+    }
+
+    if (typeof ensureProjectChangelogSync === 'function') {
+      await ensureProjectChangelogSync({ force: true }).catch(err => console.log('[OWS] Error syncing project changelogs:', err.message));
+    } else {
+      console.warn('[OWS] ensureProjectChangelogSync no definida, se omite sync de changelogs.');
+    }
 
     // Tabla de releases Android para updater asistido (OWS Store Launcher)
     await pool.query(`

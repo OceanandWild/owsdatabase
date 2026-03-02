@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 
 <head>
@@ -1660,21 +1660,46 @@
 
         #details-modal {
             position: fixed;
-            top: 0;
-            right: -100%;
-            width: 470px;
+            inset: 0;
+            width: 100vw;
             height: 100vh;
-            background: linear-gradient(180deg, #fffaf2 0%, #f7eee0 100%);
-            border-left: 1px solid var(--line);
             z-index: 5000;
-            transition: right 0.35s ease;
-            display: flex;
-            flex-direction: column;
-            box-shadow: -18px 0 40px rgba(30, 23, 18, 0.15);
+            padding: 1rem;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.24s ease;
+            background: rgba(8, 12, 18, 0.58);
+            backdrop-filter: blur(7px);
+            -webkit-backdrop-filter: blur(7px);
         }
 
         #details-modal.active {
-            right: 0;
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .details-modal-shell {
+            position: relative;
+            width: min(1420px, calc(100vw - 2rem));
+            height: calc(100vh - 2rem);
+            margin: 0 auto;
+            background: linear-gradient(180deg, #fffaf2 0%, #f7eee0 100%);
+            border: 1px solid var(--line);
+            border-radius: 20px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 24px 56px rgba(0, 0, 0, 0.28);
+            transform: translateY(8px) scale(0.992);
+            transition: transform 0.24s ease;
+        }
+
+        #details-modal.active .details-modal-shell {
+            transform: translateY(0) scale(1);
+        }
+
+        body[data-theme="dark"] .details-modal-shell {
+            background: linear-gradient(180deg, #101827 0%, #0f1723 100%);
         }
 
         .modal-banner {
@@ -1691,6 +1716,10 @@
             inset: auto 0 0;
             height: 72px;
             background: linear-gradient(180deg, transparent, #f7eee0);
+        }
+
+        body[data-theme="dark"] .modal-banner::after {
+            background: linear-gradient(180deg, transparent, #101827);
         }
 
         .modal-header {
@@ -1714,6 +1743,11 @@
             object-fit: cover;
         }
 
+        body[data-theme="dark"] .modal-icon-large {
+            background: #0f1723;
+            border-color: #101827;
+        }
+
         .modal-title-area { padding-bottom: 16px; }
         .modal-title { font-size: 1.8rem; font-weight: 800; line-height: 1.02; }
         .modal-dev {
@@ -1726,9 +1760,22 @@
         }
 
         .modal-body {
-            padding: 1.6rem;
+            padding: 1.05rem 1.25rem 1.25rem;
             flex: 1;
             overflow-y: auto;
+        }
+
+        .modal-layout {
+            display: grid;
+            grid-template-columns: minmax(320px, 440px) minmax(0, 1fr);
+            gap: 0.9rem;
+            align-items: start;
+        }
+
+        .modal-summary {
+            display: flex;
+            flex-direction: column;
+            gap: 0.7rem;
         }
 
         .modal-description {
@@ -1740,9 +1787,9 @@
 
         .modal-stats {
             display: grid;
-            grid-template-columns: 1fr 1fr;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 0.8rem;
-            margin-bottom: 1rem;
+            margin-bottom: 0.15rem;
         }
 
         .modal-platforms {
@@ -1791,7 +1838,7 @@
         }
 
         .modal-news-wrap {
-            margin-bottom: 1rem;
+            margin-bottom: 0.2rem;
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 0.7rem;
@@ -1802,7 +1849,28 @@
             border-radius: 12px;
             background: var(--surface);
             padding: 0.65rem;
-            min-height: 116px;
+            min-height: 240px;
+            display: flex;
+            flex-direction: column;
+            gap: 0.48rem;
+        }
+
+        .modal-news-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.45rem;
+        }
+
+        .modal-news-counter {
+            font-size: 0.64rem;
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            padding: 0.15rem 0.45rem;
+            color: var(--ink-soft);
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
         }
 
         .modal-news-title {
@@ -1818,6 +1886,9 @@
             display: flex;
             flex-direction: column;
             gap: 0.45rem;
+            max-height: clamp(220px, 46vh, 560px);
+            overflow: auto;
+            padding-right: 0.2rem;
         }
 
         .modal-news-item {
@@ -1840,6 +1911,49 @@
             font-size: 0.68rem;
             color: var(--ink-soft);
             line-height: 1.34;
+        }
+
+        .modal-news-more {
+            border: 1px dashed var(--line);
+            border-radius: 9px;
+            padding: 0.35rem 0.5rem;
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        .modal-news-more > summary {
+            cursor: pointer;
+            font-size: 0.69rem;
+            font-weight: 800;
+            color: var(--brand-2);
+            list-style: none;
+        }
+
+        .modal-news-more > summary::-webkit-details-marker {
+            display: none;
+        }
+
+        .modal-news-more-list {
+            margin-top: 0.42rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
+        .project-history-btn {
+            border: 1px solid var(--line);
+            background: var(--paper);
+            color: var(--ink);
+            border-radius: 10px;
+            padding: 0.34rem 0.52rem;
+            font-size: 0.68rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.16s ease, border-color 0.16s ease;
+        }
+
+        .project-history-btn:hover {
+            transform: translateY(-1px);
+            border-color: var(--brand-2);
         }
 
         .modal-news-empty {
@@ -1872,10 +1986,14 @@
         }
 
         .modal-actions {
-            padding: 1.2rem 1.6rem 1.6rem;
+            padding: 0.95rem 1.2rem 1.15rem;
             background: rgba(255, 250, 242, 0.92);
             border-top: 1px solid var(--line);
             position: relative;
+        }
+
+        body[data-theme="dark"] .modal-actions {
+            background: rgba(16, 24, 39, 0.94);
         }
 
         .modal-recommend-bubble {
@@ -1928,6 +2046,11 @@
             border-radius: 50%;
             cursor: pointer;
             z-index: 10;
+        }
+
+        #details-modal .btn-close-modal {
+            top: 12px;
+            right: 12px;
         }
 
         .update-banner {
@@ -2122,9 +2245,57 @@
             border-radius: 10px;
             padding: 0.7rem 0.85rem;
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             justify-content: space-between;
             gap: 0.6rem;
+        }
+
+        .project-update-main {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .project-update-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+        }
+
+        .project-update-dismiss {
+            border: 1px solid var(--line);
+            background: var(--paper);
+            color: var(--ink-soft);
+            border-radius: 8px;
+            padding: 0.2rem 0.45rem;
+            font-size: 0.68rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.16s ease;
+        }
+
+        .project-update-dismiss:hover {
+            color: var(--ink);
+            border-color: var(--brand-2);
+        }
+
+        .project-updates-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.55rem;
+            margin-bottom: 0.45rem;
+        }
+
+        .project-updates-toolbar .hint {
+            font-size: 0.75rem;
+            color: var(--ink-soft);
+        }
+
+        .project-updates-toolbar button {
+            width: auto;
+            padding: 0.42rem 0.72rem;
+            font-size: 0.72rem;
         }
 
         .project-update-title {
@@ -2238,6 +2409,12 @@
         body[data-theme="dark"] .project-update-platform-row.is-updating {
             background: rgba(31, 157, 99, 0.2);
             border-color: #24865e;
+        }
+
+        body[data-theme="dark"] .project-update-dismiss {
+            background: #152235;
+            border-color: #2c425f;
+            color: #9db5d2;
         }
 
         .download-item {
@@ -2407,7 +2584,16 @@
             .header { flex-direction: column; align-items: stretch; }
             .search-bar { width: 100%; }
             .featured-hero { height: 350px; }
-            #details-modal { width: 100%; }
+            #details-modal { padding: 0; }
+            .details-modal-shell {
+                width: 100vw;
+                height: 100vh;
+                border-radius: 0;
+                border: none;
+            }
+            .modal-layout {
+                grid-template-columns: 1fr;
+            }
             .explore-spotlight { grid-template-columns: 1fr; }
             .explore-shell {
                 gap: 0.85rem;
@@ -2703,50 +2889,74 @@
         <iframe id="game-frame" src="about:blank"></iframe>
     </div>
 
-    <div id="details-modal">
-        <button class="btn-close-modal" onclick="closeDetails()"><i class="fas fa-times"></i></button>
-        <div class="modal-banner" id="m-banner"></div>
-        <div class="modal-header">
-            <img src="" class="modal-icon-large" id="m-icon" alt="">
-            <div class="modal-title-area">
-                <div class="modal-dev">Ocean and Wild Studios</div>
-                <div class="modal-title" id="m-title">Project Name</div>
+    <div id="details-modal" onclick="if (event.target === this) closeDetails()">
+        <div class="details-modal-shell">
+            <button class="btn-close-modal" onclick="closeDetails()"><i class="fas fa-times"></i></button>
+            <div class="modal-banner" id="m-banner"></div>
+            <div class="modal-header">
+                <img src="" class="modal-icon-large" id="m-icon" alt="">
+                <div class="modal-title-area">
+                    <div class="modal-dev">Ocean and Wild Studios</div>
+                    <div class="modal-title" id="m-title">Project Name</div>
+                </div>
             </div>
-        </div>
             <div class="modal-body">
-                <p class="modal-description" id="m-desc">Cargando informacion...</p>
-                <div class="modal-stats">
-                    <div class="stat-box">
-                        <div class="stat-label">Version</div>
-                    <div class="stat-value" id="m-version">1.0.0</div>
-                </div>
-                <div class="stat-box">
-                    <div class="stat-label">Estado</div>
-                    <div class="stat-value" id="m-status">Lanzado</div>
-                </div>
-            </div>
-                <div id="m-platforms" class="modal-platforms" style="display:none;">
-                    <div class="stat-label">Plataforma de descarga</div>
-                    <div id="m-platform-options" class="modal-platform-options"></div>
-                    <div id="m-platform-meta" class="modal-platform-meta"></div>
-                </div>
-                <div id="m-news-wrap" class="modal-news-wrap">
-                    <div class="modal-news-card">
-                        <div class="modal-news-title">Changelog del Proyecto</div>
-                        <div id="m-changelog-list" class="modal-news-list">
-                            <div class="modal-news-empty">Sin datos todavia.</div>
+                <div class="modal-layout">
+                    <div class="modal-summary">
+                        <p class="modal-description" id="m-desc">Cargando informacion...</p>
+                        <div class="modal-stats">
+                            <div class="stat-box">
+                                <div class="stat-label">Version</div>
+                                <div class="stat-value" id="m-version">1.0.0</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-label">Estado</div>
+                                <div class="stat-value" id="m-status">Lanzado</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-label">Compatibilidad</div>
+                                <div class="stat-value" id="m-compat">Windows</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-label">Ultima release</div>
+                                <div class="stat-value" id="m-last-release">Sin datos</div>
+                            </div>
+                            <div class="stat-box" style="grid-column: 1 / -1;">
+                                <div class="stat-label">Estado local</div>
+                                <div class="stat-value" id="m-install-state">No instalado</div>
+                            </div>
+                        </div>
+                        <div id="m-platforms" class="modal-platforms" style="display:none;">
+                            <div class="stat-label">Plataforma de descarga</div>
+                            <div id="m-platform-options" class="modal-platform-options"></div>
+                            <div id="m-platform-meta" class="modal-platform-meta"></div>
                         </div>
                     </div>
-                    <div class="modal-news-card">
-                        <div class="modal-news-title">Eventos del Proyecto</div>
-                        <div id="m-events-list" class="modal-news-list">
-                            <div class="modal-news-empty">Sin eventos cargados.</div>
+                    <div id="m-news-wrap" class="modal-news-wrap">
+                        <div class="modal-news-card">
+                            <div class="modal-news-head">
+                                <div class="modal-news-title">Changelog del Proyecto</div>
+                                <span id="m-changelog-count" class="modal-news-counter">0 entradas</span>
+                            </div>
+                            <div id="m-changelog-list" class="modal-news-list">
+                                <div class="modal-news-empty">Sin datos todavia.</div>
+                            </div>
+                        </div>
+                        <div class="modal-news-card">
+                            <div class="modal-news-head">
+                                <div class="modal-news-title">Eventos del Proyecto</div>
+                                <span id="m-events-count" class="modal-news-counter">0 eventos</span>
+                            </div>
+                            <div id="m-events-list" class="modal-news-list">
+                                <div class="modal-news-empty">Sin eventos cargados.</div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
             <div class="modal-actions" id="m-actions"></div>
         </div>
+    </div>
 
     <div class="app-container">
         <aside class="sidebar">
@@ -3095,6 +3305,7 @@
         const STORE_DOWNLOAD_KEY = '__ows_store_update__';
         const STORE_THEME_KEY = 'ows_store_theme';
         const PROJECT_LIBRARY_KEY = 'ows_store_library_owned_slugs_v1';
+        const PROJECT_UPDATES_DISMISSED_KEY = 'ows_store_updates_dismissed_up_to_date_v1';
         const OWS_STORE_ANDROID_INSTALLED_VERSION_KEY = 'ows_store_android_installed_version_name';
         const OWS_STORE_ANDROID_INSTALLED_VERSION_CODE_KEY = 'ows_store_android_installed_version_code';
         const OWS_STORE_ANDROID_UNKNOWN_SOURCES_ACK_KEY = 'ows_store_android_unknown_sources_ack_ts';
@@ -3258,6 +3469,7 @@
         let owsStoreWindowsReleaseCache = null;
         let allProjects = [];
         let libraryOwnedSlugs = new Set();
+        let dismissedUpToDateProjectCards = new Set();
         const notificationLog = [];
         let lastExternalStatusNotification = '';
         let installStateBySlug = {};
@@ -3381,7 +3593,7 @@
         }
 
         function rememberProjectInLibrary(slug = '') {
-            const key = String(slug || '').trim();
+            const key = canonicalProjectSlug(slug);
             if (!key) return;
             if (libraryOwnedSlugs.has(key)) return;
             libraryOwnedSlugs.add(key);
@@ -3389,7 +3601,7 @@
         }
 
         function isProjectInLibrary(slug = '') {
-            return libraryOwnedSlugs.has(String(slug || '').trim());
+            return libraryOwnedSlugs.has(canonicalProjectSlug(slug));
         }
 
         function seedLibraryFromProjectCatalog() {
@@ -3405,6 +3617,41 @@
                 changed = true;
             });
             if (changed) persistLibraryOwnedSlugs();
+        }
+
+        function loadDismissedUpToDateProjectCards() {
+            try {
+                const raw = localStorage.getItem(PROJECT_UPDATES_DISMISSED_KEY) || '[]';
+                const list = JSON.parse(raw);
+                if (!Array.isArray(list)) return new Set();
+                return new Set(
+                    list
+                        .map((v) => String(v || '').trim())
+                        .filter(Boolean)
+                );
+            } catch (_) {
+                return new Set();
+            }
+        }
+
+        function persistDismissedUpToDateProjectCards() {
+            try {
+                localStorage.setItem(PROJECT_UPDATES_DISMISSED_KEY, JSON.stringify([...dismissedUpToDateProjectCards]));
+            } catch (_) {}
+        }
+
+        function dismissUpToDateProjectCard(slug = '') {
+            const key = String(slug || '').trim();
+            if (!key) return;
+            dismissedUpToDateProjectCards.add(key);
+            persistDismissedUpToDateProjectCards();
+            renderProjectUpdatesList();
+        }
+
+        function restoreDismissedUpToDateProjectCards() {
+            dismissedUpToDateProjectCards = new Set();
+            persistDismissedUpToDateProjectCards();
+            renderProjectUpdatesList();
         }
 
         function getOceanPayToken() {
@@ -4201,7 +4448,8 @@
         }
 
         function getProjectBySlug(slug) {
-            return Array.isArray(allProjects) ? allProjects.find((p) => p.slug === slug) : null;
+            const key = canonicalProjectSlug(slug);
+            return Array.isArray(allProjects) ? allProjects.find((p) => canonicalProjectSlug(p) === key) : null;
         }
 
         function getDownloadKeyForProject(project) {
@@ -5054,6 +5302,13 @@
             return match ? match[1] : '';
         }
 
+        function normalizeReleaseVersion(value) {
+            const raw = String(value || '').trim();
+            if (!raw) return '';
+            const trimmed = raw.replace(/^v/i, '');
+            return extractVersionFromText(trimmed) || trimmed;
+        }
+
         function isInstallableAndroidApkAsset(assetName) {
             const n = String(assetName || '').toLowerCase();
             if (!n.endsWith('.apk')) return false;
@@ -5377,18 +5632,45 @@
         function getProjectNewsAlias(project) {
             if (!project) return [];
             const aliases = new Set();
+            aliases.add(canonicalProjectSlug(project));
             aliases.add(String(project.slug || '').toLowerCase());
             aliases.add(String(project.name || '').toLowerCase());
             if (isWildWeaponProject(project)) {
                 aliases.add('wildweapon');
                 aliases.add('wildweapon mayhem');
+                aliases.add('wildweapon-mayhem');
             }
-            if (isSSAProject(project)) aliases.add('savage space animals');
-            if (isFloretProject(project)) aliases.add('floret');
-            if (isWildTransferProject(project)) aliases.add('wild transfer');
-            if (isVelocitySurgeProject(project)) aliases.add('velocity surge');
-            if (isWildWaveProject(project)) aliases.add('wildwave');
-            if (isOceanPayProject(project)) aliases.add('ocean pay');
+            if (isSSAProject(project)) {
+                aliases.add('savage space animals');
+                aliases.add('savagespaceanimals');
+                aliases.add('savage-space-animals');
+            }
+            if (isFloretProject(project)) {
+                aliases.add('floret');
+                aliases.add('floret shop');
+                aliases.add('floretshop');
+                aliases.add('floret-shop');
+            }
+            if (isWildTransferProject(project)) {
+                aliases.add('wild transfer');
+                aliases.add('wildtransfer');
+                aliases.add('wild-transfer');
+            }
+            if (isVelocitySurgeProject(project)) {
+                aliases.add('velocity surge');
+                aliases.add('velocity-surge');
+                aliases.add('velocitysurge');
+            }
+            if (isWildWaveProject(project)) {
+                aliases.add('wildwave');
+                aliases.add('wild-wave');
+                aliases.add('wildx');
+            }
+            if (isOceanPayProject(project)) {
+                aliases.add('ocean pay');
+                aliases.add('oceanpay');
+                aliases.add('ocean-pay');
+            }
             if (isOWSNewsProject(project)) aliases.add('ows news');
             return [...aliases].filter(Boolean);
         }
@@ -5398,9 +5680,21 @@
             const aliases = getProjectNewsAlias(project);
             if (!aliases.length) return false;
             const projectNames = Array.isArray(entry.projectNames) ? entry.projectNames : [];
-            if (projectNames.some((p) => aliases.some((a) => p.includes(a) || a.includes(p)))) return true;
-            const text = `${entry.title} ${entry.description} ${(entry.changes || []).join(' ')}`.toLowerCase();
-            return aliases.some((alias) => alias && text.includes(alias));
+            const normalizeAlias = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+            const aliasSet = new Set(aliases.map(normalizeAlias).filter(Boolean));
+            const nameHit = projectNames.some((p) => aliasSet.has(normalizeAlias(p)));
+            if (nameHit) return true;
+
+            if (projectNames.length === 0) {
+                const text = `${entry.title} ${entry.description} ${(entry.changes || []).join(' ')}`.toLowerCase();
+                return aliases.some((alias) => {
+                    const cleaned = String(alias || '').toLowerCase().trim();
+                    if (!cleaned || cleaned.length < 8) return false;
+                    const pattern = new RegExp(`\\b${cleaned.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}\\b`, 'i');
+                    return pattern.test(text);
+                });
+            }
+            return false;
         }
 
         function getEventStatusLabel(item) {
@@ -5466,12 +5760,46 @@
                 .sort((a, b) => (Date.parse(b?.eventWindow?.startAt || b?.updateDate || '') || 0) - (Date.parse(a?.eventWindow?.startAt || a?.updateDate || '') || 0));
         }
 
+        function isInternalOpsNewsEntry(entry) {
+            const text = `${entry?.title || ''} ${entry?.description || ''} ${(entry?.changes || []).join(' ')}`.toLowerCase();
+            const noisyPatterns = [
+                'github',
+                'release',
+                'workflow',
+                'artifact',
+                'promote',
+                'latest.yml',
+                'run id',
+                'published',
+                'apk',
+                'tag '
+            ];
+            return noisyPatterns.some((token) => text.includes(token));
+        }
+
+        function isStoreGlobalNewsEntry(entry) {
+            if (!entry || entry.isEvent || entry.isActive === false) return false;
+            if (entry.isBanner) return true;
+            const names = Array.isArray(entry.projectNames) ? entry.projectNames.map((n) => String(n || '').toLowerCase()) : [];
+            const storeScoped = names.some((n) => n.includes('ows-store') || n.includes('ows store'));
+            if (!storeScoped) return false;
+            return !isInternalOpsNewsEntry(entry);
+        }
+
         function renderNewsHub() {
             const globalWrap = document.getElementById('news-hub-global');
             const eventsWrap = document.getElementById('news-hub-events');
             if (!globalWrap || !eventsWrap) return;
             const list = Array.isArray(owsNewsUpdatesCache) ? owsNewsUpdatesCache : [];
-            const globals = list.filter((n) => !n.isEvent && !n.isBanner).slice(0, 5);
+            const globals = list
+                .filter((n) => isStoreGlobalNewsEntry(n))
+                .sort((a, b) => {
+                    const pa = Number(a?.priority || 0);
+                    const pb = Number(b?.priority || 0);
+                    if (pa !== pb) return pb - pa;
+                    return (Date.parse(b?.updateDate || '') || 0) - (Date.parse(a?.updateDate || '') || 0);
+                })
+                .slice(0, 6);
             const allEvents = list.filter((n) => n.isEvent);
             const featuredEvents = allEvents
                 .filter((e) => e.eventPhase !== 'ended')
@@ -5489,10 +5817,10 @@
                 return items.map((item) => `
                     <div class="news-hub-item">
                         <div class="news-hub-item-head">
-                            <div class="news-hub-item-title">${item.title}</div>
+                            <div class="news-hub-item-title">${item.isBanner ? (item?.bannerMeta?.title || item.title) : item.title}</div>
                             <div class="news-hub-item-date">${formatDateTime(item.updateDate)}</div>
                         </div>
-                        <div class="news-hub-item-meta">${item.description || (item.changes[0] || 'Sin descripcion')}</div>
+                        <div class="news-hub-item-meta">${item.isBanner ? (item?.bannerMeta?.text || item.description || (item.changes[0] || 'Sin descripcion')) : (item.description || (item.changes[0] || 'Sin descripcion'))}</div>
                         <div style="margin-top:0.35rem;">${getNewsPlatformsBadgeHtml(item.platforms || ['all'])}</div>
                     </div>
                 `).join('');
@@ -5509,44 +5837,74 @@
             const changelogWrap = document.getElementById('m-changelog-list');
             const eventsWrap = document.getElementById('m-events-list');
             const newsWrap = document.getElementById('m-news-wrap');
+            const changelogCount = document.getElementById('m-changelog-count');
+            const eventsCount = document.getElementById('m-events-count');
             if (!changelogWrap || !eventsWrap || !newsWrap) return;
-            const buildEntryDetailsHtml = (item) => {
+            const buildEntryDetailsHtml = (item, maxLines = 4) => {
                 const desc = String(item?.description || '').trim();
                 const lines = Array.isArray(item?.changes)
                     ? item.changes.map((line) => String(line || '').trim()).filter(Boolean)
                     : [];
-                const listHtml = lines.length
-                    ? `<span>${lines.map((line) => `- ${line}`).join('<br>')}</span>`
+                const visible = lines.slice(0, maxLines);
+                const remaining = Math.max(0, lines.length - visible.length);
+                const listHtml = visible.length
+                    ? `<span>${visible.map((line) => `- ${line}`).join('<br>')}</span>`
                     : `<span>${desc || 'Sin descripcion'}</span>`;
-                return `${desc ? `<span>${desc}</span>` : ''}${listHtml}`;
+                const moreHtml = remaining > 0 ? `<span>+${remaining} cambios mas...</span>` : '';
+                return `${desc ? `<span>${desc}</span>` : ''}${listHtml}${moreHtml}`;
             };
             const owsNewsEntries = (owsNewsUpdatesCache || []).filter((entry) => doesNewsEntryMatchProject(entry, project));
             const releaseEntries = getReleaseDerivedProjectEntries(project);
             const entries = [...releaseEntries, ...owsNewsEntries]
-                .sort((a, b) => (Date.parse(b?.updateDate || '') || 0) - (Date.parse(a?.updateDate || '') || 0));
-            const changelog = entries.filter((entry) => !entry.isEvent && !entry.isBanner).slice(0, 4);
-            const events = entries.filter((entry) => entry.isEvent).slice(0, 3);
+                .sort((a, b) => (Date.parse(b?.updateDate || '') || 0) - (Date.parse(a?.updateDate || '') || 0))
+                .filter((entry, index, arr) => {
+                    const title = String(entry?.title || '').trim().toLowerCase();
+                    const date = String(entry?.updateDate || '').slice(0, 10);
+                    const type = entry?.isEvent ? 'event' : 'changelog';
+                    const key = `${type}|${title}|${date}`;
+                    return arr.findIndex((it) => {
+                        const itTitle = String(it?.title || '').trim().toLowerCase();
+                        const itDate = String(it?.updateDate || '').slice(0, 10);
+                        const itType = it?.isEvent ? 'event' : 'changelog';
+                        return `${itType}|${itTitle}|${itDate}` === key;
+                    }) === index;
+                });
+            const changelog = entries.filter((entry) => !entry.isEvent && !entry.isBanner);
+            const events = entries.filter((entry) => entry.isEvent);
+            const renderBucket = (items, emptyText, olderLabel) => {
+                if (!items.length) return `<div class="modal-news-empty">${emptyText}</div>`;
+                const recent = items.slice(0, 5);
+                const older = items.slice(5);
+                const recentHtml = recent.map((item) => `
+                    <div class="modal-news-item">
+                        <strong>${item.title}</strong>
+                        <span style="margin-bottom:0.2rem;">${getNewsPlatformsBadgeHtml(item.platforms || ['all'])}</span>
+                        ${buildEntryDetailsHtml(item)}
+                        <span>${formatDateTime(item.updateDate)}</span>
+                    </div>
+                `).join('');
+                const olderHtml = older.length
+                    ? `<details class="modal-news-more">
+                        <summary>${olderLabel} (${older.length})</summary>
+                        <div class="modal-news-more-list">
+                            ${older.map((item) => `
+                                <div class="modal-news-item">
+                                    <strong>${item.title}</strong>
+                                    <span style="margin-bottom:0.2rem;">${getNewsPlatformsBadgeHtml(item.platforms || ['all'])}</span>
+                                    ${buildEntryDetailsHtml(item, 3)}
+                                    <span>${formatDateTime(item.updateDate)}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </details>`
+                    : '';
+                return `${recentHtml}${olderHtml}`;
+            };
             newsWrap.style.display = 'grid';
-            changelogWrap.innerHTML = changelog.length
-                ? changelog.map((item) => `
-                    <div class="modal-news-item">
-                        <strong>${item.title}</strong>
-                        <span style="margin-bottom:0.2rem;">${getNewsPlatformsBadgeHtml(item.platforms || ['all'])}</span>
-                        ${buildEntryDetailsHtml(item)}
-                        <span>${formatDateTime(item.updateDate)}</span>
-                    </div>
-                `).join('')
-                : '<div class="modal-news-empty">Sin changelogs vinculados a este proyecto.</div>';
-            eventsWrap.innerHTML = events.length
-                ? events.map((item) => `
-                    <div class="modal-news-item">
-                        <strong>${item.title}</strong>
-                        <span style="margin-bottom:0.2rem;">${getNewsPlatformsBadgeHtml(item.platforms || ['all'])}</span>
-                        ${buildEntryDetailsHtml(item)}
-                        <span>${formatDateTime(item.updateDate)}</span>
-                    </div>
-                `).join('')
-                : '<div class="modal-news-empty">Sin eventos vinculados a este proyecto.</div>';
+            changelogWrap.innerHTML = renderBucket(changelog, 'Sin changelogs vinculados a este proyecto.', 'Ver historial anterior');
+            eventsWrap.innerHTML = renderBucket(events, 'Sin eventos vinculados a este proyecto.', 'Ver eventos anteriores');
+            if (changelogCount) changelogCount.textContent = `${changelog.length} ${changelog.length === 1 ? 'entrada' : 'entradas'}`;
+            if (eventsCount) eventsCount.textContent = `${events.length} ${events.length === 1 ? 'evento' : 'eventos'}`;
         }
 
         function normalizePlatformKind(rawValue) {
@@ -5849,6 +6207,79 @@
                 || isWildTransferProject(project)
                 || isVelocitySurgeProject(project)
                 || isWildWaveProject(project);
+        }
+
+        function canonicalProjectSlug(valueOrProject) {
+            const slug = typeof valueOrProject === 'string'
+                ? String(valueOrProject || '').toLowerCase().trim()
+                : String(valueOrProject?.slug || '').toLowerCase().trim();
+            const name = typeof valueOrProject === 'string'
+                ? ''
+                : String(valueOrProject?.name || '').toLowerCase().trim();
+
+            if (slug === 'ocean-pay' || slug === 'oceanpay' || name === 'ocean pay') return 'oceanpay';
+            if (slug === 'floret-shop' || slug === 'floretshop' || name === 'floret shop') return 'floretshop';
+            if (slug === 'savage-space-animals' || slug === 'savagespaceanimals' || slug === 'ssa' || name === 'savage space animals') return 'savagespaceanimals';
+            if (slug === 'wild-transfer' || slug === 'wildtransfer' || name === 'wild transfer' || name === 'wildtransfer') return 'wildtransfer';
+            if (slug === 'velocitysurge' || slug === 'velocity-surge' || name === 'velocity surge') return 'velocity-surge';
+            if (slug === 'wild-wave' || slug === 'wildwave' || slug === 'wildx' || name === 'wildwave' || name === 'wild wave') return 'wildwave';
+            if (slug === 'wildweapon' || slug === 'wildweapon-mayhem' || name === 'wildweapon mayhem') return 'wildweapon-mayhem';
+            if (slug === 'owsstore' || slug === 'ows-store' || name === 'ows store') return 'ows-store';
+            return slug || String(valueOrProject?.slug || '').trim();
+        }
+
+        function scoreProjectRecord(project = {}) {
+            const metadata = (project?.metadata && typeof project.metadata === 'object') ? project.metadata : {};
+            const url = String(project?.url || '').toLowerCase();
+            const repo = String(metadata?.repo || '').toLowerCase();
+            const version = normalizeReleaseVersion(project?.version || '');
+            const hasGithubReleaseUrl = url.includes('github.com/oceanandwild/') && url.includes('/releases');
+            const hasRepo = repo.startsWith('oceanandwild/');
+            const hasInstallerUrl = Boolean(String(project?.installer_url || '').trim());
+            const launched = String(project?.status || '').toLowerCase() === 'launched';
+            const hasMeaningfulVersion = Boolean(version && version !== '0.0.0');
+
+            let score = 0;
+            if (hasGithubReleaseUrl) score += 100;
+            if (hasRepo) score += 40;
+            if (hasInstallerUrl) score += 10;
+            if (launched) score += 5;
+            if (hasMeaningfulVersion) score += 5;
+            return score;
+        }
+
+        function dedupeProjectCatalog(projects) {
+            if (!Array.isArray(projects)) return [];
+            const byCanonical = new Map();
+            projects.forEach((project) => {
+                if (!project || typeof project !== 'object') return;
+                const metadata = (project.metadata && typeof project.metadata === 'object') ? project.metadata : {};
+                const merged = { ...project, ...metadata, metadata };
+                const canonical = canonicalProjectSlug(merged);
+                merged.slug = canonical || merged.slug;
+                merged.version = normalizeReleaseVersion(merged.version || '') || merged.version || '';
+                if (!merged.platforms && Array.isArray(metadata.platforms)) merged.platforms = metadata.platforms;
+                if (!merged.platform && Array.isArray(merged.platforms) && merged.platforms.length === 1) merged.platform = merged.platforms[0];
+
+                const current = byCanonical.get(canonical);
+                if (!current) {
+                    byCanonical.set(canonical, merged);
+                    return;
+                }
+
+                const currentScore = scoreProjectRecord(current);
+                const candidateScore = scoreProjectRecord(merged);
+                if (candidateScore > currentScore) {
+                    byCanonical.set(canonical, merged);
+                    return;
+                }
+                if (candidateScore === currentScore) {
+                    const currentTs = Date.parse(current?.last_update || current?.created_at || '') || 0;
+                    const candidateTs = Date.parse(merged?.last_update || merged?.created_at || '') || 0;
+                    if (candidateTs >= currentTs) byCanonical.set(canonical, merged);
+                }
+            });
+            return [...byCanonical.values()];
         }
 
         function getProjectShort(project) {
@@ -6292,7 +6723,7 @@
                 `;
             };
 
-            list.innerHTML = updates.map(({ project, info }) => {
+            const enrichedEntries = updates.map(({ project, info }) => {
                 const preferredPlatform = getPreferredUpdatePlatform(project, info);
                 const action = resolveProjectUpdateAction(project, info, preferredPlatform);
                 const requestedPlatform = normalizePlatformKind(action.platform || preferredPlatform);
@@ -6311,7 +6742,7 @@
                 const noPending = !hasAnyUpdate;
                 const metaText = gateBlocked
                     ? getStoreObsoleteGateMessage(`actualizar ${project.name}`)
-                    : noPending
+                : noPending
                         ? `${project.name} esta al dia en ${detectedDevice.label}.`
                     : crossPlatformOnly
                         ? getNoDeviceUpdateMessage(project, devicePlatform, requestedPlatform || targetLabel.toLowerCase())
@@ -6324,7 +6755,7 @@
                             : `Actualizacion detectada para ${targetLabel}.`));
                 const buttonLabel = gateBlocked
                     ? 'Actualizar OWS Store'
-                    : noPending
+                : noPending
                         ? `Al dia (${detectedDevice.label})`
                     : crossPlatformOnly
                         ? `Al dia (${detectedDevice.label})`
@@ -6333,7 +6764,7 @@
                     : (action.requiresChoice ? 'Elegir plataforma' : `Actualizar ${targetLabel}`);
                 const buttonIcon = gateBlocked
                     ? 'fa-shield-halved'
-                    : noPending
+                : noPending
                         ? 'fa-check'
                     : crossPlatformOnly
                         ? 'fa-check'
@@ -6350,11 +6781,56 @@
                     : incompatible
                         ? `notifyProjectIncompatible('${project.slug}', '${requestedPlatform}')`
                     : `triggerProjectUpdate('${project.slug}', '${action.platform || ''}')`;
+                const dismissible = noPending || crossPlatformOnly;
+
+                return {
+                    project,
+                    info,
+                    metaText,
+                    buttonLabel,
+                    buttonIcon,
+                    buttonClass,
+                    buttonAction,
+                    dismissible,
+                };
+            });
+
+            const hiddenCount = enrichedEntries.filter((entry) => entry.dismissible && dismissedUpToDateProjectCards.has(entry.project.slug)).length;
+            const visibleEntries = enrichedEntries.filter((entry) => !(entry.dismissible && dismissedUpToDateProjectCards.has(entry.project.slug)));
+
+            if (!visibleEntries.length) {
+                const appHint = appUpdateAvailable
+                    ? `<div style="margin-top:0.5rem; color:var(--brand-2);">Hay una actualizacion de OWS Store disponible en el banner superior.</div>`
+                    : '';
+                const restoreBtn = hiddenCount > 0
+                    ? `<div class="project-updates-toolbar">
+                        <span class="hint">${hiddenCount} proyectos al dia ocultos.</span>
+                        <button class="btn-install" onclick="restoreDismissedUpToDateProjectCards()"><i class="fas fa-eye"></i> Mostrar al dia</button>
+                    </div>`
+                    : '';
+                list.innerHTML = `${gateNoticeHtml}${restoreBtn}<div class="info-note-card">No hay actualizaciones pendientes de proyectos.${appHint}</div>`;
+                return;
+            }
+
+            const toolbarHtml = hiddenCount > 0
+                ? `<div class="project-updates-toolbar">
+                    <span class="hint">${hiddenCount} proyectos al dia ocultos para reducir ruido.</span>
+                    <button class="btn-install" onclick="restoreDismissedUpToDateProjectCards()"><i class="fas fa-eye"></i> Mostrar al dia</button>
+                </div>`
+                : '';
+
+            list.innerHTML = visibleEntries.map(({ project, info, metaText, buttonLabel, buttonIcon, buttonClass, buttonAction, dismissible }) => {
+                const dismissHtml = dismissible
+                    ? `<button class="project-update-dismiss" onclick="dismissUpToDateProjectCard('${project.slug}')" title="Ocultar proyecto al dia"><i class="fas fa-xmark"></i> Cerrar</button>`
+                    : '';
 
                 return `
                     <div class="project-update-card">
-                        <div>
-                            <div class="project-update-title">${project.name}</div>
+                        <div class="project-update-main">
+                            <div class="project-update-header">
+                                <div class="project-update-title">${project.name}</div>
+                                ${dismissHtml}
+                            </div>
                             <div class="project-update-meta">${metaText}</div>
                             <div class="project-update-platforms">${info.platformDetails.map((d) => formatPlatformRow(d)).join('')}</div>
                         </div>
@@ -6363,7 +6839,7 @@
                 `;
             }).join('');
 
-            list.innerHTML = `${gateNoticeHtml}${list.innerHTML}`;
+            list.innerHTML = `${gateNoticeHtml}${toolbarHtml}${list.innerHTML}`;
         }
 
         function notifyProjectIncompatible(slug = '', platform = '') {
@@ -6674,8 +7150,10 @@
                     { slug: 'ocean-pay', name: 'Ocean Pay', status: 'launched', version: '3.1.0', platform: 'windows', install_type: 'external', installer_url: OCEAN_PAY_RELEASES_URL, icon_url: OCEAN_PAY_LOCAL_ICON, description: 'Pasarela universal.' }
                 ];
             }
-            allProjects = Array.isArray(allProjects) ? allProjects.filter((p) => !isOWSNewsProject(p)) : [];
+            allProjects = dedupeProjectCatalog(Array.isArray(allProjects) ? allProjects : []);
+            allProjects = allProjects.filter((p) => !isOWSNewsProject(p));
             allProjects = ensureWildWaveProject(ensureVelocitySurgeProject(ensureWildDestinyProject(ensureWildTransferProject(ensureFloretProject(ensureSSAProject(allProjects))))));
+            allProjects = dedupeProjectCatalog(allProjects);
             await applyLatestInstallerData(allProjects);
             seedLibraryFromProjectCatalog();
             try {
@@ -6705,7 +7183,7 @@
             if (!res.ok) throw new Error(`GitHub API ${res.status}`);
             const data = await res.json();
             const assets = Array.isArray(data.assets) ? data.assets : [];
-            const versionFromTag = String(data.tag_name || '').replace(/^v/i, '');
+            const versionFromTag = normalizeReleaseVersion(data.tag_name || '');
             const exeCandidates = assets.filter(a => typeof a?.name === 'string' && /\.exe$/i.test(a.name));
             const scoredCandidates = exeCandidates.map((a) => ({
                 asset: a,
@@ -6760,7 +7238,7 @@
             if (!res.ok) throw new Error(`GitHub API ${res.status}`);
             const data = await res.json();
             const assets = Array.isArray(data.assets) ? data.assets : [];
-            const versionFromTag = String(data.tag_name || '').replace(/^v/i, '');
+            const versionFromTag = normalizeReleaseVersion(data.tag_name || '');
             const exeCandidates = assets.filter(a => typeof a?.name === 'string' && /\.exe$/i.test(a.name));
             const scoredCandidates = exeCandidates.map((a) => ({
                 asset: a,
@@ -6824,7 +7302,7 @@
                 if (!apk) continue;
 
                 const rawTag = String(rel?.tag_name || '').trim();
-                const versionFromTag = normalizeDateVersionString(rawTag.replace(/^.*?v/i, ''));
+                const versionFromTag = normalizeDateVersionString(normalizeReleaseVersion(rawTag));
                 const versionFromAsset = normalizeDateVersionString(extractVersionFromText(apk?.name || ''));
                 const version = versionFromTag || versionFromAsset || '';
                 const candidate = {
@@ -6869,7 +7347,7 @@
                     if (!res.ok) throw new Error(`GitHub API ${res.status}`);
                     const data = await res.json();
                     const assets = Array.isArray(data.assets) ? data.assets : [];
-                    const versionFromTag = String(data.tag_name || '').replace(/^v/i, '');
+                    const versionFromTag = normalizeReleaseVersion(data.tag_name || '');
                     const exeCandidates = assets.filter(a => typeof a?.name === 'string' && /\.exe$/i.test(a.name));
                     const scoredCandidates = exeCandidates.map((a) => ({
                         asset: a,
@@ -6975,7 +7453,7 @@
             if (!res.ok) throw new Error(`GitHub API ${res.status}`);
             const data = await res.json();
             const assets = Array.isArray(data.assets) ? data.assets : [];
-            const versionFromTag = String(data.tag_name || '').replace(/^v/i, '');
+            const versionFromTag = normalizeReleaseVersion(data.tag_name || '');
             const exeCandidates = assets.filter(a => typeof a?.name === 'string' && /\.exe$/i.test(a.name));
             const scoredCandidates = exeCandidates.map((a) => ({
                 asset: a,
@@ -7033,7 +7511,7 @@
             if (!res.ok) throw new Error(`GitHub API ${res.status}`);
             const data = await res.json();
             const assets = Array.isArray(data.assets) ? data.assets : [];
-            const versionFromTag = String(data.tag_name || '').replace(/^v/i, '');
+            const versionFromTag = normalizeReleaseVersion(data.tag_name || '');
             const exeCandidates = assets.filter(a => typeof a?.name === 'string' && /\.exe$/i.test(a.name));
             const scoredCandidates = exeCandidates.map((a) => ({
                 asset: a,
@@ -7091,7 +7569,7 @@
             if (!res.ok) throw new Error(`GitHub API ${res.status}`);
             const data = await res.json();
             const assets = Array.isArray(data.assets) ? data.assets : [];
-            const versionFromTag = String(data.tag_name || '').replace(/^v/i, '');
+            const versionFromTag = normalizeReleaseVersion(data.tag_name || '');
             const exeCandidates = assets.filter(a => typeof a?.name === 'string' && /\.exe$/i.test(a.name));
             const scoredCandidates = exeCandidates.map((a) => ({
                 asset: a,
@@ -7146,7 +7624,7 @@
             if (!res.ok) throw new Error(`GitHub API ${res.status}`);
             const data = await res.json();
             const assets = Array.isArray(data.assets) ? data.assets : [];
-            const versionFromTag = String(data.tag_name || '').replace(/^v/i, '');
+            const versionFromTag = normalizeReleaseVersion(data.tag_name || '');
             const exeCandidates = assets.filter(a => typeof a?.name === 'string' && /\.exe$/i.test(a.name));
             const scoredCandidates = exeCandidates.map((a) => ({
                 asset: a,
@@ -7243,7 +7721,7 @@
 
                 if (!exeCandidates.length) continue;
                 const selected = exeCandidates[0];
-                const versionFromTag = String(rel?.tag_name || '').replace(/^v/i, '');
+                const versionFromTag = normalizeReleaseVersion(rel?.tag_name || '');
                 const versionFromAsset = selected?.version || '';
                 return {
                     version: versionFromAsset || versionFromTag || null,
@@ -7391,7 +7869,7 @@
             if (!res.ok) throw new Error(`GitHub API ${res.status}`);
             const data = await res.json();
             const assets = Array.isArray(data.assets) ? data.assets : [];
-            const versionFromTag = String(data.tag_name || '').replace(/^v/i, '');
+            const versionFromTag = normalizeReleaseVersion(data.tag_name || '');
             const exeCandidates = assets
                 .filter((a) => typeof a?.name === 'string' && /\.exe$/i.test(a.name))
                 .map((a) => {
@@ -9113,6 +9591,16 @@
             if (selectedTarget) selectedInstallTargetBySlug[p.slug] = selectedTarget.id;
             const modalVersion = selectedTarget?.version || getProjectDisplayVersion(p) || p.version || '1.0.0';
             document.getElementById('m-version').innerText = modalVersion;
+            const compatEl = document.getElementById('m-compat');
+            if (compatEl) {
+                const labels = [...new Set(targets.map((t) => t.label).filter(Boolean))];
+                compatEl.innerText = labels.length ? labels.join(' + ') : 'No definida';
+            }
+            const lastReleaseEl = document.getElementById('m-last-release');
+            if (lastReleaseEl) {
+                const releaseDate = selectedTarget?.publishedAt || p.last_update_at || p.windows_last_update_at || p.android_last_update_at || '';
+                lastReleaseEl.innerText = releaseDate ? formatDateTime(releaseDate) : 'Sin datos';
+            }
             const platformsWrap = document.getElementById('m-platforms');
             const platformOptions = document.getElementById('m-platform-options');
             const platformMeta = document.getElementById('m-platform-meta');
@@ -9156,6 +9644,14 @@
             const selectedIsAndroid = selectedTarget?.kind === 'android';
             const selectedIsWindows = !selectedTarget || selectedTarget.kind === 'windows';
             const storeBlocked = isStoreObsoleteGateActive();
+            const installStateEl = document.getElementById('m-install-state');
+            if (installStateEl) {
+                installStateEl.innerText = busy
+                    ? 'Instalando/descargando...'
+                    : (devicePendingUpdate
+                        ? 'Instalado con update pendiente'
+                        : ((state.installed || installedV) ? 'Instalado y al dia' : 'No instalado'));
+            }
 
             let btnText = '<i class="fas fa-download"></i> INSTALAR PROYECTO';
             let btnClass = 'btn-install';
@@ -10236,6 +10732,7 @@
 
         window.onload = () => {
             libraryOwnedSlugs = loadLibraryOwnedSlugs();
+            dismissedUpToDateProjectCards = loadDismissedUpToDateProjectCards();
             initTheme();
             renderOWSStoreAndroidMeta();
             initOceanPayStore();
@@ -10275,6 +10772,8 @@
 </body>
 
 </html>
+
+
 
 
 

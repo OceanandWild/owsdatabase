@@ -9414,7 +9414,7 @@
                             && normalizePlatformKind(markerPlatform) === 'android';
                         const refreshedMarker = getInstalledVersion(p.slug);
                         const refreshedMarkerCode = getInstalledVersionCode(p.slug);
-                        const installedBySystem = Boolean(detected?.installed || refreshedMarker || androidPlatformMarker);
+                        const installedBySystem = Boolean(detected?.installed || androidPlatformMarker);
                         const installed = installingRuntime ? true : (suppressed ? false : installedBySystem);
                         if (!installed && suppressed) uninstallSuppressedBySlug[p.slug] = false;
                         if (installed || installingRuntime || isProjectQueued(p.slug)) rememberProjectInLibrary(p.slug);

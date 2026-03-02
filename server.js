@@ -364,6 +364,20 @@ import { dirname, join } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+function getLocalProjectVersion(relPath, fallback = '0.0.0') {
+  try {
+    const packagePath = join(__dirname, relPath);
+    const raw = fs.readFileSync(packagePath, 'utf8');
+    const parsed = JSON.parse(raw);
+    const version = String(parsed?.version || '').trim();
+    return version || fallback;
+  } catch (_) {
+    return fallback;
+  }
+}
+
+const OCEAN_PAY_LOCAL_VERSION = getLocalProjectVersion('Ocean Pay/package.json', '0.0.0');
+
 /* ========== OWS STORE HELPERS (SEED + CHANGELOG SYNC) ========== */
 const OWS_ADMIN_SECRET = process.env.OWS_ADMIN_SECRET || process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
 
@@ -693,6 +707,27 @@ async function ensureOwsStoreNewsSeedData() {
       priority: 12,
       eventStart: now,
       eventEnd: in14Days
+    },
+    {
+      syncKey: 'seed:oceanpay:ecoxion-integration-pack',
+      projectNames: ['oceanpay', 'Ocean Pay', 'Ecoxion'],
+      title: 'Ocean Pay + Ecoxion: integracion ampliada',
+      description: 'Ocean Pay refuerza el flujo de Ecoxion con mejor sincronizacion de saldo, suscripciones y compatibilidad.',
+      changes: [
+        'Unificacion de persistencia de saldo sobre tarjetas (ocean_pay_cards.balances) para Ecoxionums.',
+        'Mejoras en sincronizacion de Ecoxionums entre app y servidor con trazabilidad de transacciones.',
+        'Suscripciones de Ecoxion alineadas con Ocean Pay y renovacion/estado consistente.',
+        'Compatibilidad reforzada para lectura de saldos legacy sin romper el flujo actual.',
+        'Ajustes de estabilidad para que OWS Store consuma changelogs/eventos de forma centralizada por API.'
+      ],
+      updateDate: now,
+      entryType: 'changelog',
+      platforms: ['windows', 'android'],
+      model2dKey: 'currency_sync',
+      model2dPayload: { accent: '#22d3ee', secondary: '#8b5cf6' },
+      bannerMeta: { visual: 'currency_sync', category: 'changelog', focus: 'ecoxion' },
+      isActive: true,
+      priority: 11
     }
   ];
 

@@ -4917,6 +4917,33 @@ async function githubProxyHandler(req, res) {
     };
 
     const assetNames = new Set();
+    const latestDownloadBase = `https://github.com/${owner}/${repo}/releases/latest/download`;
+
+    // 1) Try latest.yml (works for Electron/NSIS repos, avoids GitHub API limits)
+    try {
+      const latestYmlRes = await fetch(`${latestDownloadBase}/latest.yml`, {
+        redirect: 'follow',
+        headers: { 'User-Agent': 'OWS-Store-Proxy' }
+      });
+      if (latestYmlRes.ok) {
+        const yml = await latestYmlRes.text();
+        const fileUrlMatches = [...String(yml || '').matchAll(/^\s*url:\s*([^\r\n#]+)\s*$/gmi)];
+        const pathMatches = [...String(yml || '').matchAll(/^\s*path:\s*([^\r\n#]+)\s*$/gmi)];
+        const addFromRaw = (rawValue) => {
+          const raw = String(rawValue || '').trim().replace(/^['"]|['"]$/g, '');
+          if (!raw) return;
+          const normalized = raw.split('?')[0];
+          const name = decodeURIComponent(normalized.split('/').pop() || '');
+          if (name) assetNames.add(name);
+        };
+        fileUrlMatches.forEach((m) => addFromRaw(m[1]));
+        pathMatches.forEach((m) => addFromRaw(m[1]));
+      }
+    } catch (_latestYmlErr) {
+      // best-effort fallback only
+    }
+
+    // 2) Try expanded assets HTML page
     const expandedUrl = `https://github.com/${owner}/${repo}/releases/expanded_assets/${encodeURIComponent(tagName)}`;
     try {
       const expandedRes = await fetch(expandedUrl, {

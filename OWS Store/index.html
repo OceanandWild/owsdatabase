@@ -9399,6 +9399,7 @@
             const d = String(releasePublishedAt || '').trim();
             if (d) localStorage.setItem(`pending_install_release_published_at_${slug}_${normalizedPlatform}`, d);
             else localStorage.removeItem(`pending_install_release_published_at_${slug}_${normalizedPlatform}`);
+            localStorage.setItem(`pending_install_started_at_${slug}_${normalizedPlatform}`, String(Date.now()));
         }
 
         function getPendingInstallCandidate(slug, platform = 'windows') {
@@ -9407,6 +9408,7 @@
             return {
                 version: String(localStorage.getItem(`pending_install_version_${slug}_${normalizedPlatform}`) || '').trim(),
                 releasePublishedAt: String(localStorage.getItem(`pending_install_release_published_at_${slug}_${normalizedPlatform}`) || '').trim(),
+                startedAt: Number(localStorage.getItem(`pending_install_started_at_${slug}_${normalizedPlatform}`) || 0),
             };
         }
 
@@ -9415,6 +9417,7 @@
             if (!slug || !normalizedPlatform) return;
             localStorage.removeItem(`pending_install_version_${slug}_${normalizedPlatform}`);
             localStorage.removeItem(`pending_install_release_published_at_${slug}_${normalizedPlatform}`);
+            localStorage.removeItem(`pending_install_started_at_${slug}_${normalizedPlatform}`);
         }
 
         function setInstallMarkerVerified(slug, platform = 'windows', verified = false) {
@@ -9600,9 +9603,18 @@
                 if (isExternalInstallerProject(p)) {
                     try {
                         const detected = await resolveInstalledApp(p);
-                        if (detected?.installed && !marker) {
+                        if (detected?.installed) {
                             const pendingWindows = getPendingInstallCandidate(p.slug, 'windows');
-                            if (pendingWindows.version) {
+                            const pendingVersion = String(pendingWindows.version || '').trim();
+                            const markerVersion = String(marker || '').trim();
+                            const markerOlderThanPending = Boolean(
+                                pendingVersion
+                                && markerVersion
+                                && compareVersionLike(markerVersion, pendingVersion) < 0
+                            );
+                            const missingMarker = !markerVersion;
+                            const shouldPromotePending = Boolean(pendingVersion) && (missingMarker || markerOlderThanPending);
+                            if (shouldPromotePending) {
                                 localStorage.setItem(`installed_${p.slug}`, pendingWindows.version);
                                 localStorage.setItem(`installed_platform_${p.slug}`, 'windows');
                                 localStorage.removeItem(`installed_version_code_${p.slug}`);
@@ -9613,7 +9625,9 @@
                                 );
                                 setInstallMarkerVerified(p.slug, 'windows', true);
                             }
-                            clearPendingInstallCandidate(p.slug, 'windows');
+                            if (shouldPromotePending || (!pendingVersion && markerVersion)) {
+                                clearPendingInstallCandidate(p.slug, 'windows');
+                            }
                         }
                         const androidPlatformMarker = isNativeAndroidRuntime()
                             && supportsAndroidDownloads(p)

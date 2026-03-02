@@ -5084,25 +5084,23 @@
                     syncQueueMarkers();
                     continue;
                 }
-                localStorage.setItem(`installed_${project.slug}`, project.version || 'latest');
-                localStorage.setItem(`installed_platform_${project.slug}`, 'windows');
-                localStorage.removeItem(`installed_version_code_${project.slug}`);
-                setInstalledReleasePublishedAt(
+                setPendingInstallCandidate(
                     project.slug,
                     'windows',
+                    project.windows_version || project.version || 'latest',
                     item.releasePublishedAt || project.windows_last_update_at || project.last_update_at || ''
                 );
                 setRuntimeState(project.slug, { phase: 'installed', percent: 100, taskId: '' });
                 updateDownloadSession(item.key, {
                     phase: 'done',
                     percent: 100,
-                    status: 'Instalador abierto para continuar.',
+                    status: 'Instalador abierto. Esperando confirmacion de instalacion.',
                     etaSeconds: 0,
                     downloadedBytes: item.sizeBytes || 0,
                 });
                 if (updatesStatus) updatesStatus.textContent = 'Instalador abierto para ' + project.name;
-                addNotification('Instalador abierto para ' + project.name + '.', 'success');
-                showActionMessage('Instalador abierto para ' + project.name + '.', { state: 'ready' });
+                addNotification('Instalador abierto para ' + project.name + '. Se confirmara al detectar la app instalada.', 'success');
+                showActionMessage('Instalador abierto para ' + project.name + '. Esperando confirmacion de instalacion...', { state: 'ready' });
                 await refreshInstallationStates();
                 scheduleSectionRender({ projects: true, library: true, immediate: true });
                 activeInstallTaskKey = '';
@@ -9202,6 +9200,33 @@
             else localStorage.removeItem(key);
         }
 
+        function setPendingInstallCandidate(slug, platform = 'windows', version = '', releasePublishedAt = '') {
+            const normalizedPlatform = normalizePlatformKind(platform);
+            if (!slug || !normalizedPlatform) return;
+            const v = String(version || '').trim();
+            if (v) localStorage.setItem(`pending_install_version_${slug}_${normalizedPlatform}`, v);
+            else localStorage.removeItem(`pending_install_version_${slug}_${normalizedPlatform}`);
+            const d = String(releasePublishedAt || '').trim();
+            if (d) localStorage.setItem(`pending_install_release_published_at_${slug}_${normalizedPlatform}`, d);
+            else localStorage.removeItem(`pending_install_release_published_at_${slug}_${normalizedPlatform}`);
+        }
+
+        function getPendingInstallCandidate(slug, platform = 'windows') {
+            const normalizedPlatform = normalizePlatformKind(platform);
+            if (!slug || !normalizedPlatform) return { version: '', releasePublishedAt: '' };
+            return {
+                version: String(localStorage.getItem(`pending_install_version_${slug}_${normalizedPlatform}`) || '').trim(),
+                releasePublishedAt: String(localStorage.getItem(`pending_install_release_published_at_${slug}_${normalizedPlatform}`) || '').trim(),
+            };
+        }
+
+        function clearPendingInstallCandidate(slug, platform = 'windows') {
+            const normalizedPlatform = normalizePlatformKind(platform);
+            if (!slug || !normalizedPlatform) return;
+            localStorage.removeItem(`pending_install_version_${slug}_${normalizedPlatform}`);
+            localStorage.removeItem(`pending_install_release_published_at_${slug}_${normalizedPlatform}`);
+        }
+
         function persistAndroidInstallMarker(project, item = {}) {
             if (!project?.slug) return;
             const slug = String(project.slug || '').trim();
@@ -9370,17 +9395,33 @@
                 if (isExternalInstallerProject(p)) {
                     try {
                         const detected = await resolveInstalledApp(p);
+                        if (detected?.installed && !marker) {
+                            const pendingWindows = getPendingInstallCandidate(p.slug, 'windows');
+                            if (pendingWindows.version) {
+                                localStorage.setItem(`installed_${p.slug}`, pendingWindows.version);
+                                localStorage.setItem(`installed_platform_${p.slug}`, 'windows');
+                                localStorage.removeItem(`installed_version_code_${p.slug}`);
+                                setInstalledReleasePublishedAt(
+                                    p.slug,
+                                    'windows',
+                                    pendingWindows.releasePublishedAt || p.windows_last_update_at || p.last_update_at || ''
+                                );
+                            }
+                            clearPendingInstallCandidate(p.slug, 'windows');
+                        }
                         const androidPlatformMarker = isNativeAndroidRuntime()
                             && supportsAndroidDownloads(p)
                             && normalizePlatformKind(markerPlatform) === 'android';
-                        const installedBySystem = Boolean(detected?.installed || marker || androidPlatformMarker);
+                        const refreshedMarker = getInstalledVersion(p.slug);
+                        const refreshedMarkerCode = getInstalledVersionCode(p.slug);
+                        const installedBySystem = Boolean(detected?.installed || refreshedMarker || androidPlatformMarker);
                         const installed = installingRuntime ? true : (suppressed ? false : installedBySystem);
                         if (!installed && suppressed) uninstallSuppressedBySlug[p.slug] = false;
                         if (installed || installingRuntime || isProjectQueued(p.slug)) rememberProjectInLibrary(p.slug);
                         next[p.slug] = {
                             installed,
-                            version: marker || '',
-                            versionCode: markerCode,
+                            version: refreshedMarker || '',
+                            versionCode: refreshedMarkerCode,
                             exePath: detected?.exePath || '',
                             uninstallPath: detected?.uninstallPath || '',
                             installDir: detected?.installDir || '',
@@ -9390,9 +9431,11 @@
                         const androidPlatformMarker = isNativeAndroidRuntime()
                             && supportsAndroidDownloads(p)
                             && normalizePlatformKind(markerPlatform) === 'android';
-                        const installed = installingRuntime ? true : (suppressed ? false : Boolean(marker || androidPlatformMarker));
+                        const refreshedMarker = getInstalledVersion(p.slug);
+                        const refreshedMarkerCode = getInstalledVersionCode(p.slug);
+                        const installed = installingRuntime ? true : (suppressed ? false : Boolean(refreshedMarker || androidPlatformMarker));
                         if (installed || installingRuntime || isProjectQueued(p.slug)) rememberProjectInLibrary(p.slug);
-                        next[p.slug] = { installed, version: marker || '', versionCode: markerCode, runtime };
+                        next[p.slug] = { installed, version: refreshedMarker || '', versionCode: refreshedMarkerCode, runtime };
                     }
                 } else {
                     const installed = suppressed ? false : Boolean(marker);
@@ -10039,6 +10082,8 @@
             localStorage.removeItem(`installed_version_code_${slug}`);
             setInstalledReleasePublishedAt(slug, 'windows', '');
             setInstalledReleasePublishedAt(slug, 'android', '');
+            clearPendingInstallCandidate(slug, 'windows');
+            clearPendingInstallCandidate(slug, 'android');
             installStateBySlug[slug] = { ...(installStateBySlug[slug] || {}), installed: false, version: '' };
             scheduleSectionRender({ projects: true, library: true, immediate: true });
             const state = installStateBySlug[slug] || {};

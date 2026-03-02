@@ -30,6 +30,7 @@ Se incluiran mas cosas luego, pero esto te ayuda a entender como realizar la may
 
   Solo subir archivos autorizados segun cambios reales.
   No incluir carpetas de otros proyectos por error.
+  Ecoxion queda excluido de deploy: no agregar ni commitear archivos de `Ecoxion/`.
 
 - AUTOMATIZACION DE UPDATE LOGS (OWS News):
   Para anadir un log que aparezca automaticamente en OWS News sin editar el HTML:

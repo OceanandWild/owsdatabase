@@ -249,38 +249,30 @@ app.post('/ocean-pay/login', async (req, res) => {
         `, [opUser.id]);
       }
 
-      // Fetch cards and balances (Correct logic)
+      // Fetch cards and balances (fuente unificada: ocean_pay_cards.balances)
       const { rows: cardRows } = await pool.query(
         `SELECT c.id, c.card_number, c.cvv, c.expiry_date, c.is_active, c.is_primary, c.card_name, c.balances
          FROM ocean_pay_cards c WHERE c.user_id = $1`,
         [opUser.id]
       );
 
-      const cardsWithBalances = await Promise.all(cardRows.map(async (card) => {
-        const { rows: balanceRows } = await pool.query(
-          'SELECT currency_type, amount FROM ocean_pay_card_balances WHERE card_id = $1',
-          [card.id]
-        );
-        const balances = card.balances || {};
-        balanceRows.forEach(b => balances[b.currency_type] = parseFloat(b.amount));
-        if (balances.ecoxionums) balances.ecoxionums = parseFloat(balances.ecoxionums);
-        return { ...card, balances };
-      }));
+      const cardsWithBalances = cardRows.map((card) => {
+        const raw = card.balances || {};
+        const normalized = {};
+        Object.keys(raw).forEach((k) => {
+          const n = Number(raw[k]);
+          normalized[String(k).toLowerCase()] = Number.isFinite(n) ? n : 0;
+        });
+        return { ...card, balances: normalized };
+      });
 
       const totalEcoxionums = cardsWithBalances.reduce((sum, card) => sum + parseFloat(card.balances?.ecoxionums || 0), 0);
       const totalAquabux = cardsWithBalances.reduce((sum, card) => sum + parseFloat(card.balances?.aquabux || 0), 0);
       const aquabuxBalance = Math.max(totalAquabux, parseFloat(opUser.aquabux || 0));
 
-      // Obtener WildCredits desde metadata como respaldo oficial
-      const { rows: wcRows } = await pool.query(
-        "SELECT value FROM ocean_pay_metadata WHERE user_id = $1 AND key = 'wildcredits'",
-        [opUser.id]
-      );
-      const metadataWC = wcRows.length > 0 ? parseInt(wcRows[0].value || '0') : 0;
-
-      // Calcular total desde tarjetas y comparar con metadata
+      // WildCredits desde saldos de tarjeta unificados
       const totalWildCredits = cardsWithBalances.reduce((sum, card) => sum + parseFloat(card.balances?.wildcredits || 0), 0);
-      const finalWildCredits = Math.max(metadataWC, totalWildCredits);
+      const finalWildCredits = totalWildCredits;
 
       return res.json({
         success: true,
@@ -902,6 +894,123 @@ async function runDatabaseMigrations() {
       console.log('Ã¢Å“â€¦ Unificacion de saldos completada (fuente por tarjeta activa).');
     } catch (balanceUnifyErr) {
       console.log('Ã¢Å¡Â Ã¯Â¸Â Aviso: Error en unificacion de saldos:', balanceUnifyErr.message);
+    }
+
+    // 10.2 Sincronizacion bidireccional por compatibilidad (fuente principal: ocean_pay_cards.balances)
+    try {
+      await pool.query(`
+        CREATE OR REPLACE FUNCTION sync_card_balances_from_cards_fn()
+        RETURNS trigger AS $$
+        BEGIN
+          IF pg_trigger_depth() > 1 THEN
+            RETURN NEW;
+          END IF;
+
+          DELETE FROM ocean_pay_card_balances WHERE card_id = NEW.id;
+
+          INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
+          SELECT
+            NEW.id,
+            LOWER(kv.key),
+            GREATEST((kv.value)::numeric, 0)
+          FROM jsonb_each_text(COALESCE(NEW.balances, '{}'::jsonb)) kv
+          WHERE kv.value ~ '^-?[0-9]+(\\.[0-9]+)?$'
+          ON CONFLICT (card_id, currency_type) DO UPDATE SET amount = EXCLUDED.amount;
+
+          RETURN NEW;
+        END;
+        $$ LANGUAGE plpgsql;
+      `);
+
+      await pool.query(`
+        DROP TRIGGER IF EXISTS trg_sync_card_balances_from_cards ON ocean_pay_cards;
+        CREATE TRIGGER trg_sync_card_balances_from_cards
+        AFTER INSERT OR UPDATE OF balances
+        ON ocean_pay_cards
+        FOR EACH ROW
+        EXECUTE FUNCTION sync_card_balances_from_cards_fn();
+      `);
+
+      await pool.query(`
+        CREATE OR REPLACE FUNCTION sync_cards_from_card_balances_fn()
+        RETURNS trigger AS $$
+        BEGIN
+          IF pg_trigger_depth() > 1 THEN
+            RETURN NEW;
+          END IF;
+
+          UPDATE ocean_pay_cards
+          SET balances = jsonb_set(
+            COALESCE(balances, '{}'::jsonb),
+            ARRAY[LOWER(NEW.currency_type)]::text[],
+            to_jsonb(GREATEST(COALESCE(NEW.amount, 0), 0)::numeric),
+            true
+          )
+          WHERE id = NEW.card_id;
+
+          RETURN NEW;
+        END;
+        $$ LANGUAGE plpgsql;
+      `);
+
+      await pool.query(`
+        DROP TRIGGER IF EXISTS trg_sync_cards_from_card_balances ON ocean_pay_card_balances;
+        CREATE TRIGGER trg_sync_cards_from_card_balances
+        AFTER INSERT OR UPDATE OF amount
+        ON ocean_pay_card_balances
+        FOR EACH ROW
+        EXECUTE FUNCTION sync_cards_from_card_balances_fn();
+      `);
+
+      await pool.query(`
+        CREATE OR REPLACE FUNCTION sync_cards_from_metadata_fn()
+        RETURNS trigger AS $$
+        DECLARE
+          v_card_id INTEGER;
+        BEGIN
+          IF pg_trigger_depth() > 1 THEN
+            RETURN NEW;
+          END IF;
+
+          IF NEW.value !~ '^-?[0-9]+(\\.[0-9]+)?$' THEN
+            RETURN NEW;
+          END IF;
+
+          SELECT id INTO v_card_id
+          FROM ocean_pay_cards
+          WHERE user_id = NEW.user_id
+          ORDER BY is_primary DESC, id ASC
+          LIMIT 1;
+
+          IF v_card_id IS NULL THEN
+            RETURN NEW;
+          END IF;
+
+          UPDATE ocean_pay_cards
+          SET balances = jsonb_set(
+            COALESCE(balances, '{}'::jsonb),
+            ARRAY[LOWER(NEW.key)]::text[],
+            to_jsonb(GREATEST((NEW.value)::numeric, 0)),
+            true
+          )
+          WHERE id = v_card_id;
+
+          RETURN NEW;
+        END;
+        $$ LANGUAGE plpgsql;
+      `);
+
+      await pool.query(`
+        DROP TRIGGER IF EXISTS trg_sync_cards_from_metadata ON ocean_pay_metadata;
+        CREATE TRIGGER trg_sync_cards_from_metadata
+        AFTER INSERT OR UPDATE OF value
+        ON ocean_pay_metadata
+        FOR EACH ROW
+        EXECUTE FUNCTION sync_cards_from_metadata_fn();
+      `).catch(() => {});
+      console.log('Ã¢Å“â€¦ Sincronizacion de compatibilidad activada (fuente principal: ocean_pay_cards).');
+    } catch (syncErr) {
+      console.log('Ã¢Å¡Â Ã¯Â¸Â Aviso: Error habilitando sincronizacion de compatibilidad:', syncErr.message);
     }
 
     // 10. AÃƒÂ±adir columnas faltantes a ocean_pay_cards
@@ -7152,16 +7261,7 @@ async function getUnifiedCardCurrencyBalance(client, cardId, currency, forUpdate
   );
   const balances = cardRows[0]?.balances || {};
   const jsonBalance = Number(balances[curr] || 0);
-
-  const { rows: tableRows } = await client.query(
-    `SELECT amount
-     FROM ocean_pay_card_balances
-     WHERE card_id = $1 AND currency_type = $2
-     ${lockSql}`,
-    [cardId, curr]
-  );
-  const tableBalance = Number(tableRows[0]?.amount || 0);
-  return Math.max(jsonBalance, tableBalance);
+  return Number.isFinite(jsonBalance) ? jsonBalance : 0;
 }
 
 async function setUnifiedCardCurrencyBalance(client, { userId, cardId, currency, newBalance }) {
@@ -7178,14 +7278,6 @@ async function setUnifiedCardCurrencyBalance(client, { userId, cardId, currency,
      )
      WHERE id = $3`,
     [curr, safeBalance, cardId]
-  );
-
-  await client.query(
-    `INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
-     VALUES ($1, $2, $3)
-     ON CONFLICT (card_id, currency_type)
-     DO UPDATE SET amount = EXCLUDED.amount`,
-    [cardId, curr, safeBalance]
   );
 
   if (curr === ECOXION_CURRENCY) {
@@ -7351,7 +7443,15 @@ app.post('/api/ecoxion/subscribe', async (req, res) => {
     return res.status(403).json({ error: 'Usuario no autorizado para esta operacion' });
   }
 
-  const planDef = getEcoxionPlanDefinition(req.body?.plan);
+  const rawPlan =
+    req.body?.plan ??
+    req.body?.planId ??
+    req.body?.plan_id ??
+    req.body?.plan_name ??
+    req.body?.subName ??
+    req.body?.tier ??
+    req.body?.id;
+  const planDef = getEcoxionPlanDefinition(rawPlan);
   if (!planDef) {
     return res.status(400).json({ error: 'Plan no valido. Usa plus, pro o ultra.' });
   }
@@ -7360,7 +7460,7 @@ app.post('/api/ecoxion/subscribe', async (req, res) => {
   try {
     await client.query('BEGIN');
 
-    const primaryCard = await getPrimaryCardForUser(client, requestedUserId, true);
+    const primaryCard = await ensurePrimaryCardForUser(client, requestedUserId, true);
     if (!primaryCard) {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'No tienes una tarjeta Ocean Pay activa.' });
@@ -11499,7 +11599,11 @@ await ensureUserCurrencyTable();
 await ensureEcoConsoleTable();
 
 // Crear tablas de NatMarket
-await createNatMarketTables();
+if (typeof createNatMarketTables === 'function') {
+  await createNatMarketTables();
+} else {
+  console.warn('[INIT] createNatMarketTables no definida, se omite sin bloquear el arranque.');
+}
 
 // Ã°Å¸â€™Â¡ CORRECCIÃƒâ€œN 1: Llama a la limpieza DESPUÃƒâ€°S de asegurar que todas las tablas existen.
 console.log("Iniciando limpieza de eventos antiguos...");

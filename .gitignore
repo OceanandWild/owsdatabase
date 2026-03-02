@@ -72,3 +72,6 @@ OWS Store/**/.DS_Store
 !OWS Store/capacitor.config.json
 !OWS Store/resources/
 !OWS Store/resources/icon.png
+
+# 7. ECOXION (EXCLUIDO DE DEPLOYS)
+Ecoxion/

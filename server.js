@@ -4827,6 +4827,358 @@ app.post('/ows-store/changelogs/sync', async (req, res) => {
   }
 });
 
+function parseStudioAuthToken(req) {
+  const authHeader = String(req.headers.authorization || '');
+  if (!authHeader.toLowerCase().startsWith('bearer ')) return '';
+  return authHeader.slice(7).trim();
+}
+
+function decodeStudioTokenOrNull(token) {
+  if (!token) return null;
+  try {
+    return jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+  } catch (_err) {
+    return null;
+  }
+}
+
+function toFiniteNumber(value, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function mergeBalanceMaps(primary = {}, secondary = {}) {
+  const merged = {};
+  const keys = new Set([
+    ...Object.keys(primary || {}),
+    ...Object.keys(secondary || {})
+  ]);
+  keys.forEach((key) => {
+    const a = toFiniteNumber(primary?.[key], 0);
+    const b = toFiniteNumber(secondary?.[key], 0);
+    merged[key] = Math.max(a, b);
+  });
+  return merged;
+}
+
+async function githubProxyHandler(req, res) {
+  const owner = String(req.params.owner || '').trim();
+  const repo = String(req.params.repo || '').trim();
+  const tail = String(req.params[0] || '').replace(/^\/+/, '');
+  if (!owner || !repo) {
+    return res.status(400).json({ error: 'owner/repo requeridos' });
+  }
+
+  const queryIndex = String(req.originalUrl || '').indexOf('?');
+  const query = queryIndex >= 0 ? String(req.originalUrl || '').slice(queryIndex) : '';
+  const ghUrl = `https://api.github.com/repos/${owner}/${repo}${tail ? `/${tail}` : ''}${query}`;
+
+  try {
+    const headers = {
+      'User-Agent': 'OWS-Store-Proxy',
+      'Accept': 'application/vnd.github+json'
+    };
+    const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN || '';
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const ghRes = await fetch(ghUrl, { headers });
+    const text = await ghRes.text();
+
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+
+    if (!ghRes.ok) {
+      return res.status(ghRes.status).json({
+        error: `GitHub API ${ghRes.status}`,
+        status: ghRes.status,
+        url: ghUrl,
+        details: text || null
+      });
+    }
+
+    try {
+      return res.json(JSON.parse(text));
+    } catch (_parseErr) {
+      return res.status(502).json({ error: 'Respuesta invalida de GitHub API', url: ghUrl });
+    }
+  } catch (err) {
+    return res.status(500).json({ error: 'Error en proxy GitHub', details: err?.message || String(err) });
+  }
+}
+
+// OWS Store catalog (fuente principal para launcher)
+app.get('/ows-store/projects', async (req, res) => {
+  const statusFilter = String(req.query.status || '').trim().toLowerCase();
+  const includeUnavailable = normalizeNewsBoolean(req.query.include_unavailable, true);
+  try {
+    const values = [];
+    const where = [];
+    if (statusFilter) {
+      values.push(statusFilter);
+      where.push(`LOWER(status) = $${values.length}`);
+    } else if (!includeUnavailable) {
+      values.push('unavailable');
+      where.push(`LOWER(status) <> $${values.length}`);
+    }
+
+    const sql = `
+      SELECT *
+      FROM ows_projects
+      ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+      ORDER BY
+        CASE LOWER(status)
+          WHEN 'launched' THEN 0
+          WHEN 'coming_soon' THEN 1
+          ELSE 2
+        END,
+        COALESCE(release_date, last_update, created_at) DESC,
+        name ASC
+    `;
+    const { rows } = await pool.query(sql, values);
+
+    const list = rows.map((row) => {
+      const metadata = (row.metadata && typeof row.metadata === 'object') ? row.metadata : {};
+      const merged = { ...row, ...metadata, metadata };
+      if (!merged.platforms && Array.isArray(metadata.platforms)) merged.platforms = metadata.platforms;
+      if (!merged.platform && Array.isArray(merged.platforms) && merged.platforms.length === 1) merged.platform = merged.platforms[0];
+      return merged;
+    });
+
+    return res.json(list);
+  } catch (err) {
+    console.error('Error en GET /ows-store/projects:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// OWS News feed (array simple para compatibilidad con launcher)
+app.get('/ows-news/updates', async (req, res) => {
+  const includeInactive = normalizeNewsBoolean(req.query.include_inactive, false);
+  const limit = Math.max(1, Math.min(300, normalizeNewsNumber(req.query.limit, 120)));
+  try {
+    const { rows } = await pool.query(
+      `SELECT *
+       FROM ows_news_updates
+       ORDER BY COALESCE(priority, 0) DESC, update_date DESC, created_at DESC
+       LIMIT $1`,
+      [limit * 2]
+    );
+
+    let list = rows.map(normalizeOwsNewsRow);
+    if (!includeInactive) list = list.filter((x) => x.is_active !== false && x.isActive !== false);
+    list = list.slice(0, limit);
+    return res.json(list);
+  } catch (err) {
+    console.error('Error en GET /ows-news/updates:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// OWS News upsert/create via API admin token
+app.post('/ows-news/updates', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const payload = req.body || {};
+  const title = String(payload.title || '').trim();
+  if (!title) return res.status(400).json({ error: 'title requerido' });
+
+  const projectNames = toNewsArray(payload.project_names || payload.projectNames || []);
+  const changes = toNewsArray(payload.changes || []);
+  const description = String(payload.description || '').trim() || null;
+  const entryType = String(payload.entry_type || payload.entryType || 'changelog').trim().toLowerCase();
+  const platforms = toNewsArray(payload.platforms || []).map((x) => String(x || '').toLowerCase()).filter(Boolean);
+  const model2dKey = String(payload.model_2d_key || payload.model2dKey || '').trim() || null;
+  const model2dPayload = (payload.model_2d_payload && typeof payload.model_2d_payload === 'object')
+    ? payload.model_2d_payload
+    : ((payload.model2d && typeof payload.model2d === 'object') ? payload.model2d : {});
+  const bannerMeta = (payload.banner_meta && typeof payload.banner_meta === 'object')
+    ? payload.banner_meta
+    : ((payload.bannerMeta && typeof payload.bannerMeta === 'object') ? payload.bannerMeta : {});
+  const isActive = normalizeNewsBoolean(payload.is_active ?? payload.isActive, true);
+  const priority = normalizeNewsNumber(payload.priority, 0);
+  const updateDate = payload.update_date || payload.updateDate || null;
+  const eventStart = payload.event_start || payload.eventStart || null;
+  const eventEnd = payload.event_end || payload.eventEnd || null;
+
+  try {
+    const syncKey = String(bannerMeta?.sync_key || '').trim();
+    let row = null;
+    if (syncKey) {
+      row = await upsertOwsNewsEntryBySyncKey({
+        syncKey,
+        projectNames,
+        title,
+        description,
+        changes,
+        updateDate,
+        entryType,
+        platforms: platforms.length ? platforms : ['windows'],
+        model2dKey,
+        model2dPayload,
+        bannerMeta,
+        isActive,
+        priority,
+        eventStart,
+        eventEnd
+      });
+    } else {
+      const changesText = changes.join('\n');
+      const { rows } = await pool.query(
+        `INSERT INTO ows_news_updates (
+           project_names, title, description, changes, update_date, entry_type, platforms,
+           model_2d_key, model_2d_payload, banner_meta, is_active, priority, event_start, event_end
+         )
+         VALUES ($1,$2,$3,$4,COALESCE($5, NOW()),$6,$7,$8,$9,$10,$11,$12,$13,$14)
+         RETURNING *`,
+        [
+          projectNames,
+          title,
+          description,
+          changesText,
+          updateDate,
+          entryType,
+          platforms,
+          model2dKey,
+          model2dPayload,
+          bannerMeta,
+          isActive,
+          priority,
+          eventStart,
+          eventEnd
+        ]
+      );
+      row = rows[0] || null;
+    }
+
+    return res.json({ success: true, update: normalizeOwsNewsRow(row) });
+  } catch (err) {
+    console.error('Error en POST /ows-news/updates:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Proxy GitHub para evitar limites/CORS en cliente
+app.get('/ows-store/github/repos/:owner/:repo', githubProxyHandler);
+app.get('/ows-store/github/repos/:owner/:repo/*', githubProxyHandler);
+
+// Perfil Ocean Pay usado por apps (cards + balances unificados)
+app.get('/ocean-pay/me', async (req, res) => {
+  const token = parseStudioAuthToken(req);
+  const decoded = decodeStudioTokenOrNull(token);
+  if (!decoded) return res.status(401).json({ error: 'Token invalido' });
+
+  const userId = Number(decoded.id || decoded.uid || decoded.sub || 0);
+  if (!userId) return res.status(401).json({ error: 'Usuario invalido' });
+
+  try {
+    const userRes = await pool.query(
+      `SELECT id, username, unique_id, created_at, aquabux, ecoxionums, appbux
+       FROM ocean_pay_users
+       WHERE id = $1
+       LIMIT 1`,
+      [userId]
+    );
+    if (!userRes.rows.length) return res.status(404).json({ error: 'Usuario no encontrado' });
+    const user = userRes.rows[0];
+
+    const cardsRes = await pool.query(
+      `SELECT
+         c.id, c.user_id, c.card_number, c.cvv, c.expiry_date, c.is_primary, c.is_active, c.card_name, c.balances,
+         COALESCE(
+           jsonb_object_agg(b.currency_type, b.amount) FILTER (WHERE b.currency_type IS NOT NULL),
+           '{}'::jsonb
+         ) AS balance_map
+       FROM ocean_pay_cards c
+       LEFT JOIN ocean_pay_card_balances b ON b.card_id = c.id
+       WHERE c.user_id = $1 AND c.is_active = true
+       GROUP BY c.id
+       ORDER BY c.is_primary DESC, c.id ASC`,
+      [userId]
+    );
+
+    const cards = cardsRes.rows.map((row) => {
+      const tableMap = (row.balance_map && typeof row.balance_map === 'object') ? row.balance_map : {};
+      const jsonMap = (row.balances && typeof row.balances === 'object') ? row.balances : {};
+      const balances = mergeBalanceMaps(tableMap, jsonMap);
+      return {
+        ...row,
+        balances
+      };
+    });
+
+    const primaryCard = cards.find((c) => c.is_primary) || cards[0] || null;
+    const primaryBalances = primaryCard?.balances || {};
+
+    const mergedUserBalances = mergeBalanceMaps(primaryBalances, {
+      aquabux: user.aquabux,
+      ecoxionums: user.ecoxionums,
+      appbux: user.appbux
+    });
+
+    return res.json({
+      success: true,
+      id: user.id,
+      uid: user.id,
+      username: user.username,
+      unique_id: user.unique_id,
+      created_at: user.created_at,
+      aquabux: toFiniteNumber(mergedUserBalances.aquabux, 0),
+      ecoxionums: toFiniteNumber(mergedUserBalances.ecoxionums, 0),
+      appbux: toFiniteNumber(mergedUserBalances.appbux, 0),
+      balances: mergedUserBalances,
+      cards
+    });
+  } catch (err) {
+    console.error('Error en GET /ocean-pay/me:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Estado de Ocean Pass (fallback seguro para clientes)
+app.get('/ocean-pay/pass/status', async (req, res) => {
+  const token = parseStudioAuthToken(req);
+  const decoded = decodeStudioTokenOrNull(token);
+  if (!decoded) return res.status(401).json({ error: 'Token invalido' });
+
+  const userId = Number(decoded.id || decoded.uid || decoded.sub || 0);
+  if (!userId) return res.status(401).json({ error: 'Usuario invalido' });
+
+  try {
+    const { rows } = await pool.query(
+      `SELECT user_id, is_active, expiry, has_debt, debt_amount, missions, last_reward_claim, minutes_tracked
+       FROM ocean_pass
+       WHERE user_id = $1
+       LIMIT 1`,
+      [userId]
+    );
+
+    if (!rows.length) {
+      return res.json({
+        active: false,
+        expiry: null,
+        hasDebt: false,
+        debtAmount: 0,
+        missions: [],
+        lastRewardClaim: null,
+        minutesTracked: 0
+      });
+    }
+
+    const row = rows[0];
+    return res.json({
+      active: Boolean(row.is_active),
+      expiry: row.expiry || null,
+      hasDebt: Boolean(row.has_debt),
+      debtAmount: toFiniteNumber(row.debt_amount, 0),
+      missions: Array.isArray(row.missions) ? row.missions : [],
+      lastRewardClaim: row.last_reward_claim || null,
+      minutesTracked: toFiniteNumber(row.minutes_tracked, 0)
+    });
+  } catch (err) {
+    console.error('Error en GET /ocean-pay/pass/status:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 // Registrar o actualizar un proyecto (Upsert)
 app.post('/ows-store/projects', async (req, res) => {
   const { slug, name, description, icon_url, banner_url, url, version, status, release_date, metadata, installer_url } = req.body;

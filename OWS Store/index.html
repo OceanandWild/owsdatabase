@@ -7318,7 +7318,7 @@
 
         async function loadProjects() {
             try {
-                const res = await fetch(`${API_URL}/ows-store/projects`);
+                const res = await fetch(`${API_URL}/ows-store/projects?nocache=${Date.now()}`, { cache: 'no-store' });
                 allProjects = await res.json();
             } catch (err) {
                 console.error("Error cargando proyectos:", err);
@@ -7359,7 +7359,8 @@
                 return wildWeaponReleaseCache;
             }
 
-            const res = await fetch(WILDWEAPON_RELEASES_API_URL, {
+            const res = await fetch(`${WILDWEAPON_RELEASES_API_URL}?nocache=${Date.now()}`, {
+                cache: 'no-store',
                 headers: { 'Accept': 'application/vnd.github+json' }
             });
             if (!res.ok) throw new Error(`GitHub API ${res.status}`);
@@ -7414,7 +7415,8 @@
                 return ssaReleaseCache;
             }
 
-            const res = await fetch(SSA_RELEASES_API_URL, {
+            const res = await fetch(`${SSA_RELEASES_API_URL}?nocache=${Date.now()}`, {
+                cache: 'no-store',
                 headers: { 'Accept': 'application/vnd.github+json' }
             });
             if (!res.ok) throw new Error(`GitHub API ${res.status}`);
@@ -7523,7 +7525,8 @@
             }
             const [windowsResult, androidResult, androidGithubResult] = await Promise.allSettled([
                 (async () => {
-                    const res = await fetch(WILDTRANSFER_RELEASES_API_URL, {
+                    const res = await fetch(`${WILDTRANSFER_RELEASES_API_URL}?nocache=${Date.now()}`, {
+                cache: 'no-store',
                         headers: { 'Accept': 'application/vnd.github+json' }
                     });
                     if (!res.ok) throw new Error(`GitHub API ${res.status}`);
@@ -7629,7 +7632,8 @@
                 return velocitySurgeReleaseCache;
             }
 
-            const res = await fetch(VELOCITY_SURGE_RELEASES_API_URL, {
+            const res = await fetch(`${VELOCITY_SURGE_RELEASES_API_URL}?nocache=${Date.now()}`, {
+                cache: 'no-store',
                 headers: { 'Accept': 'application/vnd.github+json' }
             });
             if (!res.ok) throw new Error(`GitHub API ${res.status}`);
@@ -7687,7 +7691,8 @@
                 return wildWaveReleaseCache;
             }
 
-            const res = await fetch(WILDWAVE_RELEASES_API_URL, {
+            const res = await fetch(`${WILDWAVE_RELEASES_API_URL}?nocache=${Date.now()}`, {
+                cache: 'no-store',
                 headers: { 'Accept': 'application/vnd.github+json' }
             });
             if (!res.ok) throw new Error(`GitHub API ${res.status}`);
@@ -7745,7 +7750,8 @@
                 return oceanPayProjectReleaseCache;
             }
 
-            const res = await fetch(OCEAN_PAY_RELEASES_API_URL, {
+            const res = await fetch(`${OCEAN_PAY_RELEASES_API_URL}?nocache=${Date.now()}`, {
+                cache: 'no-store',
                 headers: { 'Accept': 'application/vnd.github+json' }
             });
             if (!res.ok) throw new Error(`GitHub API ${res.status}`);
@@ -7800,7 +7806,8 @@
                 return owsNewsReleaseCache;
             }
 
-            const res = await fetch(OWSNEWS_RELEASES_API_URL, {
+            const res = await fetch(`${OWSNEWS_RELEASES_API_URL}?nocache=${Date.now()}`, {
+                cache: 'no-store',
                 headers: { 'Accept': 'application/vnd.github+json' }
             });
             if (!res.ok) throw new Error(`GitHub API ${res.status}`);
@@ -7877,7 +7884,8 @@
         }
 
         async function fetchLatestFloretWindowsRelease() {
-            const res = await fetch(FLORET_RELEASES_API_URL, {
+            const res = await fetch(`${FLORET_RELEASES_API_URL}?nocache=${Date.now()}`, {
+                cache: 'no-store',
                 headers: { 'Accept': 'application/vnd.github+json' }
             });
             if (!res.ok) throw new Error(`GitHub API ${res.status}`);
@@ -8045,7 +8053,8 @@
                 return owsStoreWindowsReleaseCache;
             }
 
-            const res = await fetch(OWS_STORE_RELEASES_API_URL, {
+            const res = await fetch(`${OWS_STORE_RELEASES_API_URL}?nocache=${Date.now()}`, {
+                cache: 'no-store',
                 headers: { 'Accept': 'application/vnd.github+json' }
             });
             if (!res.ok) throw new Error(`GitHub API ${res.status}`);

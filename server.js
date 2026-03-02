@@ -5015,13 +5015,6 @@ async function githubProxyHandler(req, res) {
     if (!ghRes.ok) {
       const isRateLimit = ghRes.status === 403 && /rate limit exceeded/i.test(String(text || ''));
       if (isRateLimit) {
-        if (cached && (now - cached.ts) < GH_STALE_TTL_MS) {
-          res.setHeader('Cache-Control', 'no-store, max-age=0');
-          res.setHeader('Pragma', 'no-cache');
-          res.setHeader('Expires', '0');
-          res.setHeader('X-OWS-GH-Cache', 'stale');
-          return res.json(cached.payload);
-        }
         try {
           const fallbackPayload = await buildReleaseFallbackFromHtml();
           proxyCache.set(cacheKey, { ts: Date.now(), payload: fallbackPayload });
@@ -5031,6 +5024,14 @@ async function githubProxyHandler(req, res) {
           res.setHeader('X-OWS-GH-Fallback', 'html-release');
           return res.json(fallbackPayload);
         } catch (fallbackErr) {
+          if (cached && (now - cached.ts) < GH_STALE_TTL_MS) {
+            res.setHeader('Cache-Control', 'no-store, max-age=0');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
+            res.setHeader('X-OWS-GH-Cache', 'stale');
+            res.setHeader('X-OWS-GH-Fallback', 'stale-cache');
+            return res.json(cached.payload);
+          }
           return res.status(502).json({
             error: 'GitHub API rate limited y fallback fallido',
             status: ghRes.status,

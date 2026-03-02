@@ -1301,6 +1301,7 @@ async function runDatabaseMigrations() {
 
 // Ejecutar migraciones al iniciar el servidor
 runDatabaseMigrations();
+let migrationExecuted = false;
 
 /* ===== HEALTH CHECK / STATUS ENDPOINT ===== */
 // Este endpoint se usa para verificar que el servidor estÃƒÂ© funcionando

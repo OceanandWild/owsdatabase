@@ -5,10 +5,23 @@ Aqui hay una serie de cosas que debes hacer. Es opcional, pero te servira durant
 - Cuando finalices de hacer algo, siempre haz un git push, ya que server.js y Ocean Pay/index.html se manejan por Render, y Render depende de GitHub.
 - Es posible que grep no encuentre algunas cosas. Si el usuario te dice que algo existe, buscalo a fondo antes de descartarlo.
 - Debido al uso de .gitignore, evita git add . si no hace falta.
+- NUNCA subir `.env` al repo. Variables/secretos se gestionan en Render (Environment).
 
 Se incluiran mas cosas luego, pero esto te ayuda a entender como realizar la mayoria de las tareas.
 
 --- NOTAS TECNICAS PARA AGENTES ---
+
+- TOKEN ADMIN / SECRETOS (CRITICO):
+  - Endpoints admin usan `OWS_ADMIN_SECRET` (fallback a `STUDIO_SECRET`/`JWT_SECRET`).
+  - Si se rota `STUDIO_SECRET` (o `OWS_ADMIN_SECRET`), NO rompe datos ni tablas.
+  - SI invalida tokens/sesiones JWT existentes y cualquier llamada admin con el token viejo.
+  - Procedimiento correcto de rotacion:
+    1) Actualizar secreto en Render (`STUDIO_SECRET` y/o `OWS_ADMIN_SECRET`).
+    2) Redeploy del backend.
+    3) Actualizar `.env` local (solo local, no commitear).
+    4) Actualizar clientes/scripts/workflows que envien `x-ows-admin-token`.
+    5) Re-login en apps si hay sesiones previas.
+  - Regla operativa: si endpoints admin devuelven 401 tras cambios de secret, validar primero desalineacion de token.
 
 - ESTANDAR DE MONEDA (Ecoxionums): el modelo 2D oficial es un "Cyan Coin" (cian/azul con patron de cruz).
   - En Canvas: usar la funcion drawEcoxionumsIcon.
@@ -191,6 +204,8 @@ CHECK BLOQUEANTE WINDOWS (UPDATER ELECTRON):
 - "Cannot find channel *.yml": falta latest.yml o canal mal configurado.
 - "package not valid" Android: APK no firmado, firma distinta o asset incorrecto.
 - 403 GitHub API: limite/token/permisos; usar proxy server.js cuando aplique.
+ - Si Render devuelve 403 por rate limit en `/ows-store/github/repos/...`, configurar `GITHUB_TOKEN` o `GH_TOKEN` en Render Environment (token con scope `repo` como minimo).
+ - Aun con token faltante, el proxy debe mantener fallback HTML + cache; si vuelve a 403 sostenido, revisar que Render este en el commit mas reciente y redeploy.
 
 9) CHANGELOG Y EVENTOS (OBLIGATORIO EN CADA TAREA)
 - Siempre que un agente modifique un proyecto, debe actualizar el changelog del proyecto.

@@ -11607,7 +11607,11 @@ if (typeof createNatMarketTables === 'function') {
 
 // Ã°Å¸â€™Â¡ CORRECCIÃƒâ€œN 1: Llama a la limpieza DESPUÃƒâ€°S de asegurar que todas las tablas existen.
 console.log("Iniciando limpieza de eventos antiguos...");
-await cleanupOldEvents(); // <--- ASEGÃƒÅ¡RATE DE QUE SE EJECUTA AQUÃƒÂ
+if (typeof cleanupOldEvents === 'function') {
+  await cleanupOldEvents();
+} else {
+  console.warn('[INIT] cleanupOldEvents no definida, se omite sin bloquear el arranque.');
+}
 console.log("Limpieza de eventos antiguos finalizada.");
 
 // ========== FLORET SHOP TABLES ==========

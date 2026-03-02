@@ -1,4 +1,4 @@
-﻿const { app, BrowserWindow, ipcMain, nativeImage, shell } = require('electron');
+﻿const { app, BrowserWindow, ipcMain, nativeImage, shell, Notification } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
@@ -405,6 +405,29 @@ ipcMain.handle('open-external-url', (_, url) => {
   if (typeof url !== 'string' || !/^https?:\/\//i.test(url)) return false;
   shell.openExternal(url);
   return true;
+});
+
+ipcMain.handle('show-system-notification', (_, payload) => {
+  try {
+    if (!Notification || !Notification.isSupported()) {
+      return { ok: false, reason: 'unsupported' };
+    }
+    const title = String(payload?.title || APP_DISPLAY_NAME).trim() || APP_DISPLAY_NAME;
+    const body = String(payload?.body || '').trim();
+    const silent = Boolean(payload?.silent);
+    const iconPath = path.join(__dirname, 'build', 'icon.ico');
+    const toast = new Notification({
+      title,
+      body,
+      silent,
+      icon: safeExists(iconPath) ? iconPath : undefined,
+    });
+    toast.show();
+    return { ok: true };
+  } catch (err) {
+    const message = err && err.message ? err.message : String(err);
+    return { ok: false, reason: message };
+  }
 });
 
 ipcMain.handle('install-external-installer', async (_, payload) => {

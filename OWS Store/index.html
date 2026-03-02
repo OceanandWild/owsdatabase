@@ -5254,6 +5254,20 @@
                 return true;
             }
 
+            try {
+                if (window.owsUpdater?.showSystemNotification) {
+                    const electronResult = await window.owsUpdater.showSystemNotification({
+                        title: String(title || 'OWS Store'),
+                        body: String(body || ''),
+                        silent: false,
+                    });
+                    if (electronResult?.ok) {
+                        if (dedupeKey) markSystemNotificationSeen(dedupeKey);
+                        return true;
+                    }
+                }
+            } catch (_) {}
+
             if (!('Notification' in window)) return false;
             const permission = await ensureSystemNotificationPermission({ forcePrompt: false });
             if (permission !== 'granted') return false;

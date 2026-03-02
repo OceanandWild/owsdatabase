@@ -3525,6 +3525,8 @@
         let systemNotificationPermission = localStorage.getItem(SYSTEM_NOTIFICATIONS_PERMISSION_KEY) || '';
         let systemNotificationPrompted = false;
         let systemNotificationSeenKeys = new Set();
+        const systemNotificationSessionId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        let systemNotificationsPrimed = false;
         const owsStoreAndroidState = {
             downloadUrl: OWS_STORE_ANDROID_ARTIFACT_FALLBACK_URL,
             directDownloadUrl: '',
@@ -5176,6 +5178,23 @@
         function wasSystemNotificationSeen(key) {
             if (!key) return false;
             return systemNotificationSeenKeys.has(String(key));
+        }
+
+        function getSessionNotificationDedupeKey(baseKey = '') {
+            const key = String(baseKey || '').trim();
+            if (!key) return '';
+            return `${key}|session:${systemNotificationSessionId}`;
+        }
+
+        function primeSystemNotifications() {
+            if (systemNotificationsPrimed) return;
+            systemNotificationsPrimed = true;
+            ensureSystemNotificationPermission({ forcePrompt: false }).catch(() => {});
+            const requestWithGesture = () => {
+                ensureSystemNotificationPermission({ forcePrompt: true }).catch(() => {});
+            };
+            window.addEventListener('pointerdown', requestWithGesture, { once: true, passive: true });
+            window.addEventListener('keydown', requestWithGesture, { once: true });
         }
 
         async function ensureSystemNotificationPermission({ forcePrompt = false } = {}) {
@@ -7226,7 +7245,7 @@
                 sendSystemNotification({
                     title: `Update disponible: ${project.name}`,
                     body: `${platformLabel}: ${info.installedVersion || 'instalada'} -> ${info.latestVersion || 'nueva'}`,
-                    dedupeKey: `project_update:${key}`,
+                    dedupeKey: getSessionNotificationDedupeKey(`project_update:${key}`),
                     requireVisible: false
                 }).catch(() => {});
             });
@@ -8422,7 +8441,7 @@
                 sendSystemNotification({
                     title: 'OWS Store: update disponible',
                     body: `Android: ${currentLabel} -> ${latestLabel}`,
-                    dedupeKey: `store_update_android:${latest?.version || latest?.versionCode || 'unknown'}`,
+                    dedupeKey: getSessionNotificationDedupeKey(`store_update_android:${latest?.version || latest?.versionCode || 'unknown'}`),
                     requireVisible: false
                 }).catch(() => {});
                 return { needsUpdate, latest, current };
@@ -10542,7 +10561,7 @@
                 sendSystemNotification({
                     title: 'OWS Store: update disponible',
                     body: `Windows: ${availableVersion || 'nueva'} lista para descargar`,
-                    dedupeKey: `store_update_windows:${availableVersion || 'unknown'}`,
+                    dedupeKey: getSessionNotificationDedupeKey(`store_update_windows:${availableVersion || 'unknown'}`),
                     requireVisible: false
                 }).catch(() => {});
                 if (availableVersion) {
@@ -10978,6 +10997,7 @@
             libraryOwnedSlugs = loadLibraryOwnedSlugs();
             dismissedUpToDateProjectCards = loadDismissedUpToDateProjectCards();
             loadSystemNotificationSeenKeys();
+            primeSystemNotifications();
             initTheme();
             renderOWSStoreAndroidMeta();
             initOceanPayStore();

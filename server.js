@@ -8400,7 +8400,22 @@ async function closeActiveEcoxionSubscriptions(client, userId) {
 // GET - Obtener suscripcion actual del usuario (ocean_pay_subscriptions + fallback legacy)
 app.get('/api/ecoxion/subscription/:userId', async (req, res) => {
   try {
-    const userId = Number(req.params.userId);
+    let tokenUserId = 0;
+    const authHeader = String(req.headers.authorization || '');
+    if (authHeader.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.substring(7);
+        const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+        tokenUserId = Number(decoded.id || decoded.uid || decoded.sub || 0);
+      } catch (_e) {
+        tokenUserId = 0;
+      }
+    }
+
+    let userId = Number(req.params.userId);
+    if (!Number.isFinite(userId) || userId <= 0) {
+      userId = tokenUserId;
+    }
     if (!Number.isFinite(userId) || userId <= 0) {
       return res.status(400).json({ error: 'userId invalido' });
     }
@@ -8418,7 +8433,8 @@ app.get('/api/ecoxion/subscription/:userId', async (req, res) => {
        FROM ocean_pay_subscriptions
        WHERE user_id = $1
          AND LOWER(COALESCE(project_id, '')) = LOWER($2)
-       ORDER BY created_at DESC
+         AND (status IS NULL OR LOWER(status) = 'active')
+       ORDER BY COALESCE(${renewExpr}, ${endsExpr}, created_at) DESC, created_at DESC
        LIMIT 1`,
       [userId, ECOXION_PROJECT_ID]
     );

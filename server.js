@@ -5081,12 +5081,73 @@ app.get('/ows-store/projects', async (req, res) => {
     `;
     const { rows } = await pool.query(sql, values);
 
-    const list = rows.map((row) => {
+    const canonicalSlugFromProject = (project) => {
+      const slug = String(project?.slug || '').toLowerCase().trim();
+      const name = String(project?.name || '').toLowerCase().trim();
+      if (slug === 'ocean-pay' || slug === 'oceanpay' || name === 'ocean pay') return 'oceanpay';
+      if (slug === 'floret-shop' || slug === 'floretshop' || name === 'floret shop') return 'floretshop';
+      if (slug === 'savage-space-animals' || slug === 'savagespaceanimals' || slug === 'ssa' || name === 'savage space animals') return 'savagespaceanimals';
+      if (slug === 'wild-transfer' || slug === 'wildtransfer' || name === 'wildtransfer' || name === 'wild transfer') return 'wildtransfer';
+      if (slug === 'velocitysurge' || slug === 'velocity-surge' || name === 'velocity surge') return 'velocity-surge';
+      if (slug === 'wildx' || slug === 'wild-wave' || slug === 'wildwave' || name === 'wildwave' || name === 'wild wave') return 'wildwave';
+      if (slug === 'wildweapon' || slug === 'wildweapon-mayhem' || name === 'wildweapon mayhem') return 'wildweapon-mayhem';
+      if (slug === 'owsstore' || slug === 'ows-store' || name === 'ows store') return 'ows-store';
+      return slug || String(project?.slug || '').trim();
+    };
+
+    const projectScore = (project) => {
+      const url = String(project?.url || '').toLowerCase();
+      const metadata = (project?.metadata && typeof project.metadata === 'object') ? project.metadata : {};
+      const repo = String(metadata?.repo || '').toLowerCase();
+      const version = String(project?.version || '').trim().toLowerCase();
+      const hasGithubReleaseUrl = url.includes('github.com/oceanandwild/') && url.includes('/releases');
+      const hasRepo = repo.startsWith('oceanandwild/');
+      const hasInstallerUrl = Boolean(String(project?.installer_url || '').trim());
+      const launched = String(project?.status || '').toLowerCase() === 'launched';
+      const nonPlaceholderVersion = version && version !== '0.0.0';
+
+      let score = 0;
+      if (hasGithubReleaseUrl) score += 100;
+      if (hasRepo) score += 40;
+      if (hasInstallerUrl) score += 10;
+      if (launched) score += 5;
+      if (nonPlaceholderVersion) score += 5;
+      return score;
+    };
+
+    const byCanonical = new Map();
+    for (const row of rows) {
       const metadata = (row.metadata && typeof row.metadata === 'object') ? row.metadata : {};
       const merged = { ...row, ...metadata, metadata };
       if (!merged.platforms && Array.isArray(metadata.platforms)) merged.platforms = metadata.platforms;
       if (!merged.platform && Array.isArray(merged.platforms) && merged.platforms.length === 1) merged.platform = merged.platforms[0];
-      return merged;
+
+      const canonical = canonicalSlugFromProject(merged);
+      merged.slug = canonical || merged.slug;
+
+      const current = byCanonical.get(canonical);
+      if (!current) {
+        byCanonical.set(canonical, merged);
+        continue;
+      }
+
+      const currentScore = projectScore(current);
+      const candidateScore = projectScore(merged);
+      if (candidateScore > currentScore) {
+        byCanonical.set(canonical, merged);
+        continue;
+      }
+      if (candidateScore === currentScore) {
+        const currentTs = Date.parse(current?.last_update || current?.created_at || '') || 0;
+        const candidateTs = Date.parse(merged?.last_update || merged?.created_at || '') || 0;
+        if (candidateTs >= currentTs) byCanonical.set(canonical, merged);
+      }
+    }
+
+    const list = [...byCanonical.values()].sort((a, b) => {
+      const sa = String(a?.name || '');
+      const sb = String(b?.name || '');
+      return sa.localeCompare(sb);
     });
 
     return res.json(list);

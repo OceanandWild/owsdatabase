@@ -12336,6 +12336,47 @@ async function createNotification(userId, type, title, message) {
   }
 }
 
+// Notificar usuarios Ocean Pay que aun no vincularon proyectos clave (evita duplicados diarios).
+async function notifyUnlinkedUsers() {
+  const client = await pool.connect();
+  try {
+    const { rowCount } = await client.query(`
+      INSERT INTO ocean_pay_notifications (user_id, type, title, message)
+      SELECT
+        u.id,
+        'link_reminder',
+        'Vincula tus proyectos',
+        'Conecta Ocean Pay con tus apps del ecosistema para sincronizar saldo, progreso y suscripciones.'
+      FROM ocean_pay_users u
+      WHERE NOT EXISTS (
+        SELECT 1
+        FROM oceanic_ethernet_user_links l
+        WHERE l.external_system = 'ocean_pay'
+          AND l.external_user_id = u.id::text
+      )
+      AND NOT EXISTS (
+        SELECT 1
+        FROM wildx_oceanpay_links w
+        WHERE w.ocean_pay_user_id = u.id
+      )
+      AND NOT EXISTS (
+        SELECT 1
+        FROM ocean_pay_notifications n
+        WHERE n.user_id = u.id
+          AND n.type = 'link_reminder'
+          AND n.created_at >= NOW() - INTERVAL '24 hours'
+      )
+    `);
+    console.log(`[INIT] notifyUnlinkedUsers completado. Notificaciones nuevas: ${Number(rowCount || 0)}.`);
+    return Number(rowCount || 0);
+  } catch (err) {
+    console.error('[INIT] Error en notifyUnlinkedUsers:', err.message || err);
+    return 0;
+  } finally {
+    client.release();
+  }
+}
+
 // Sync Ecoxionums from Client (Ecoxion App)
 app.post('/ocean-pay/sync-ecoxionums', async (req, res) => {
   try {
@@ -13106,8 +13147,12 @@ httpServer.listen(PORT, '0.0.0.0', () => {
   // Ejecutar migraciones una sola vez
   if (!migrationExecuted) {
     migrationExecuted = true;
-    setTimeout(() => {
-      notifyUnlinkedUsers();
+    setTimeout(async () => {
+      if (typeof notifyUnlinkedUsers !== 'function') {
+        console.error('[INIT] notifyUnlinkedUsers no definida. Se omite para evitar crash.');
+        return;
+      }
+      await notifyUnlinkedUsers();
     }, 5000); // Esperar 5 segundos despuÃƒÂ©s del inicio
   }
 });

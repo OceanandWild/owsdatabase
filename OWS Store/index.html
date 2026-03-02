@@ -6077,6 +6077,10 @@
                     }
                 } else if (installedVersion && latestVersion) {
                     needsUpdate = compareVersionLike(installedVersion, latestVersion) < 0;
+                } else if (platform === 'windows') {
+                    // Installed externally but without a trusted version marker.
+                    // Keep update actionable to avoid false "al dia".
+                    needsUpdate = true;
                 }
 
                 const sameVersion = Boolean(installedVersion && latestVersion)
@@ -9227,6 +9231,20 @@
             localStorage.removeItem(`pending_install_release_published_at_${slug}_${normalizedPlatform}`);
         }
 
+        function setInstallMarkerVerified(slug, platform = 'windows', verified = false) {
+            const normalizedPlatform = normalizePlatformKind(platform);
+            if (!slug || !normalizedPlatform) return;
+            const key = `installed_marker_verified_${slug}_${normalizedPlatform}`;
+            if (verified) localStorage.setItem(key, '1');
+            else localStorage.removeItem(key);
+        }
+
+        function isInstallMarkerVerified(slug, platform = 'windows') {
+            const normalizedPlatform = normalizePlatformKind(platform);
+            if (!slug || !normalizedPlatform) return false;
+            return localStorage.getItem(`installed_marker_verified_${slug}_${normalizedPlatform}`) === '1';
+        }
+
         function persistAndroidInstallMarker(project, item = {}) {
             if (!project?.slug) return;
             const slug = String(project.slug || '').trim();
@@ -9240,6 +9258,7 @@
             } else {
                 localStorage.removeItem(`installed_version_code_${slug}`);
             }
+            setInstallMarkerVerified(slug, 'android', true);
             setInstalledReleasePublishedAt(
                 slug,
                 'android',
@@ -9406,6 +9425,7 @@
                                     'windows',
                                     pendingWindows.releasePublishedAt || p.windows_last_update_at || p.last_update_at || ''
                                 );
+                                setInstallMarkerVerified(p.slug, 'windows', true);
                             }
                             clearPendingInstallCandidate(p.slug, 'windows');
                         }
@@ -9414,14 +9434,24 @@
                             && normalizePlatformKind(markerPlatform) === 'android';
                         const refreshedMarker = getInstalledVersion(p.slug);
                         const refreshedMarkerCode = getInstalledVersionCode(p.slug);
+                        const markerVerified = isInstallMarkerVerified(p.slug, 'windows');
+                        const unresolvedLegacyMarker = Boolean(
+                            detected?.installed
+                            && refreshedMarker
+                            && !markerVerified
+                            && supportsWindowsInstaller(p)
+                            && !isNativeAndroidRuntime()
+                        );
+                        const effectiveMarker = unresolvedLegacyMarker ? '' : refreshedMarker;
+                        const effectiveMarkerCode = unresolvedLegacyMarker ? 0 : refreshedMarkerCode;
                         const installedBySystem = Boolean(detected?.installed || androidPlatformMarker);
                         const installed = installingRuntime ? true : (suppressed ? false : installedBySystem);
                         if (!installed && suppressed) uninstallSuppressedBySlug[p.slug] = false;
                         if (installed || installingRuntime || isProjectQueued(p.slug)) rememberProjectInLibrary(p.slug);
                         next[p.slug] = {
                             installed,
-                            version: refreshedMarker || '',
-                            versionCode: refreshedMarkerCode,
+                            version: effectiveMarker || '',
+                            versionCode: effectiveMarkerCode,
                             exePath: detected?.exePath || '',
                             uninstallPath: detected?.uninstallPath || '',
                             installDir: detected?.installDir || '',
@@ -10084,6 +10114,8 @@
             setInstalledReleasePublishedAt(slug, 'android', '');
             clearPendingInstallCandidate(slug, 'windows');
             clearPendingInstallCandidate(slug, 'android');
+            setInstallMarkerVerified(slug, 'windows', false);
+            setInstallMarkerVerified(slug, 'android', false);
             installStateBySlug[slug] = { ...(installStateBySlug[slug] || {}), installed: false, version: '' };
             scheduleSectionRender({ projects: true, library: true, immediate: true });
             const state = installStateBySlug[slug] || {};

@@ -353,9 +353,9 @@ function downloadWithRedirects(url, destinationPath, taskRef, onProgress, redire
 function initAutoUpdater() {
   if (!app.isPackaged || updaterReady) return;
   try {
-    // Manual-controlled updater flow:
-    // Windows checks for updates automatically, but download/install is user-driven.
-    autoUpdater.autoDownload = false;
+    // Auto updater flow:
+    // Windows checks and downloads automatically; install remains user-driven (button restart/install).
+    autoUpdater.autoDownload = true;
     autoUpdater.autoInstallOnAppQuit = false;
     autoUpdater.allowPrerelease = false;
     autoUpdater.channel = 'latest';

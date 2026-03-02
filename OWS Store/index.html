@@ -10272,11 +10272,11 @@
                 appUpdateSizeBytes = extractUpdateSizeBytes(info);
                 appUpdateEtaSeconds = null;
                 if (!isExternalInstallActive()) {
-                    if (msg) msg.textContent = 'Version ' + (availableVersion || 'nueva') + ' disponible. Descarga e instala manualmente.';
+                    if (msg) msg.textContent = 'Version ' + (availableVersion || 'nueva') + ' disponible. Descargando automaticamente...';
                     if (banner) banner.classList.add('visible');
                     if (btn) {
-                        btn.style.display = 'flex';
-                        btn.innerHTML = '<i class="fas fa-download"></i> Descargar instalador';
+                        btn.style.display = 'none';
+                        btn.innerHTML = '<i class="fas fa-sync-alt"></i> Reiniciar e instalar';
                     }
                     if (closeBtn) {
                         closeBtn.disabled = false;
@@ -10287,13 +10287,13 @@
                 if (dot) dot.style.display = 'block';
                 appUpdateAvailable = true;
                 syncUpdatesBadge();
-                if (status) status.textContent = 'Update manual disponible: v' + (availableVersion || 'nueva');
+                if (status) status.textContent = 'Update detectada: v' + (availableVersion || 'nueva') + ' (descarga automatica)';
                 if (!isExternalInstallActive()) {
                     setUpdateBannerVisual({
                         state: 'available',
                         title: 'Actualizacion disponible',
-                        message: 'Version ' + (availableVersion || 'nueva') + ' detectada. Pulsa para descargar el instalador manual.',
-                        iconClass: 'fa-download',
+                        message: 'Version ' + (availableVersion || 'nueva') + ' detectada. Iniciando descarga automatica...',
+                        iconClass: 'fa-cloud-arrow-down',
                         iconSpin: false,
                     });
                 }
@@ -10305,10 +10305,10 @@
                     downloadedBytes: 0,
                     speedBps: 0,
                     etaSeconds: null,
-                    status: 'Update manual detectada: v' + (availableVersion || 'nueva'),
+                    status: 'Update detectada: v' + (availableVersion || 'nueva') + ' (auto)',
                 });
                 const sizeLabel = formatByteSize(appUpdateSizeBytes);
-                addNotification('Actualizacion manual disponible: v' + (availableVersion || 'nueva') + (sizeLabel !== '-' ? ` (${sizeLabel})` : '') + '.', 'success');
+                addNotification('Actualizacion detectada: v' + (availableVersion || 'nueva') + (sizeLabel !== '-' ? ` (${sizeLabel})` : '') + '. Descarga automatica en curso.', 'success');
                 if (availableVersion) {
                     fetchLatestOWSStoreWindowsRelease()
                         .then((latest) => {
@@ -10324,7 +10324,7 @@
                                     downloadedBytes: 0,
                                     speedBps: 0,
                                     etaSeconds: null,
-                                    status: 'Update manual detectada: v' + (owsStoreWindowsManualVersion || availableVersion),
+                                    status: 'Update detectada: v' + (owsStoreWindowsManualVersion || availableVersion) + ' (auto)',
                                 });
                             }
                         })
@@ -10614,13 +10614,21 @@
                 openStoreAndroidDownload();
                 return;
             }
+            if (window.owsUpdater?.installUpdate) {
+                try {
+                    await window.owsUpdater.installUpdate();
+                    return;
+                } catch (err) {
+                    console.log('No se pudo ejecutar installUpdate automatico, usando fallback manual:', err?.message || err);
+                }
+            }
             if (!owsStoreWindowsManualUpdateUrl) {
                 await applyWindowsManualUpdateSignal(currentStoreWindowsVersion, { silent: true }).catch(() => {});
             }
             if (owsStoreWindowsManualUpdateUrl) {
                 openExternal(owsStoreWindowsManualUpdateUrl);
-                showActionMessage('Abriendo descarga manual de update para OWS Store...', { state: 'ready' });
-                addNotification('Descargando update manual de OWS Store...', 'neutral');
+                showActionMessage('Fallback activo: abriendo descarga manual del instalador...', { state: 'ready' });
+                addNotification('Fallback manual activado para OWS Store.', 'warning');
                 return;
             }
             showActionMessage('No hay un instalador de update disponible en este momento.', { state: 'error' });

@@ -13600,6 +13600,38 @@ async function ensureOwsStoreNewsSeedData() {
 async function ensureOwsStoreProjectsSeedData() {
   const seeds = [
     {
+      slug: 'ows-store',
+      name: 'OWS Store',
+      description: 'Central launcher for Ocean and Wild Studios projects.',
+      icon_url: '',
+      banner_url: null,
+      url: '../OWS Store/index.html',
+      version: '2026.3.1-t2235',
+      status: 'launched',
+      metadata: {
+        short: 'OWS',
+        platform: 'windows,android',
+        install_type: 'internal'
+      },
+      installer_url: 'https://github.com/OceanandWild/owsdatabase/releases/latest'
+    },
+    {
+      slug: 'velocity-surge',
+      name: 'Velocity Surge',
+      description: 'Racing arcade competitivo con eventos y progresion por corredores.',
+      icon_url: './build/velocitysurge.ico',
+      banner_url: null,
+      url: '../Velocity Surge/index.html',
+      version: '2026.3.1-2350',
+      status: 'launched',
+      metadata: {
+        short: 'VSG',
+        platform: 'windows',
+        install_type: 'external'
+      },
+      installer_url: 'https://github.com/OceanandWild/velocity-surge/releases/latest'
+    },
+    {
       slug: 'wildwave',
       name: 'WildWave',
       description: 'Red social OWS con verificacion, suscripciones y sincronizacion con Ocean Pay.',
@@ -14259,6 +14291,68 @@ function inferPlatformsFromRelease(release = {}) {
   return ['all'];
 }
 
+function normalizeProjectVersionFromTag(tag = '', projectSlug = '') {
+  const rawTag = String(tag || '').trim();
+  if (!rawTag) return '';
+  const slug = String(projectSlug || '').trim().toLowerCase();
+  const compact = slug.replace(/[^a-z0-9]/g, '');
+  const lower = rawTag.toLowerCase();
+
+  const prefixes = [];
+  if (slug) {
+    prefixes.push(`${slug}-v`, `${slug}_v`, `${slug}-`, `${slug}_`);
+  }
+  if (compact && compact !== slug) {
+    prefixes.push(`${compact}-v`, `${compact}_v`, `${compact}-`, `${compact}_`);
+  }
+  prefixes.push('v');
+
+  for (const prefix of prefixes) {
+    if (!prefix) continue;
+    if (lower.startsWith(prefix)) {
+      const candidate = rawTag.slice(prefix.length).trim();
+      if (candidate) return candidate;
+    }
+  }
+
+  return rawTag;
+}
+
+async function syncProjectVersionFromRelease({
+  projectSlug,
+  projectName,
+  repoOwner,
+  repoName,
+  release
+}) {
+  const tag = String(release?.tag_name || '').trim();
+  if (!tag) return { synced: false, reason: 'missing_tag' };
+
+  const normalizedVersion = normalizeProjectVersionFromTag(tag, projectSlug);
+  const publishedAt = release?.published_at || release?.created_at || new Date().toISOString();
+  const platforms = inferPlatformsFromRelease(release);
+
+  const sourceMeta = {
+    last_release_source: 'github_release_auto',
+    last_release_owner: repoOwner,
+    last_release_repo: repoName,
+    last_release_tag: tag,
+    last_release_published_at: publishedAt,
+    last_release_platforms: platforms
+  };
+
+  await pool.query(
+    `UPDATE ows_projects
+     SET version = $1,
+         metadata = COALESCE(metadata, '{}'::jsonb) || $2::jsonb,
+         last_update = NOW()
+     WHERE LOWER(slug) = $3`,
+    [normalizedVersion || tag, JSON.stringify(sourceMeta), String(projectSlug || '').toLowerCase()]
+  );
+
+  return { synced: true, version: normalizedVersion || tag, tag };
+}
+
 async function upsertAutoProjectChangelog({
   projectSlug,
   projectName,
@@ -14364,6 +14458,15 @@ async function syncProjectChangelogsFromGitHub({ projectSlug = '' } = {}) {
         skipped += 1;
         continue;
       }
+
+      await syncProjectVersionFromRelease({
+        projectSlug: String(project.slug || '').toLowerCase(),
+        projectName: String(project.name || project.slug || ''),
+        repoOwner: ref.owner,
+        repoName: ref.repo,
+        release
+      });
+
       const out = await upsertAutoProjectChangelog({
         projectSlug: String(project.slug || '').toLowerCase(),
         projectName: String(project.name || project.slug || ''),
@@ -14476,6 +14579,12 @@ app.get('/ows-store/github/repos/:owner/:repo/releases', async (req, res) => {
 // Obtener todos los proyectos
 app.get('/ows-store/projects', async (req, res) => {
   try {
+    const autoSync = normalizeNewsBoolean(req.query.autosync, true);
+    if (autoSync) {
+      await ensureProjectChangelogSync({ force: false }).catch((err) => {
+        console.warn('[OWS] Version/changelog autosync skipped:', err?.message || err);
+      });
+    }
     const { rows } = await pool.query(`${OWS_PROJECTS_WITH_ANDROID_RELEASE_SQL} ORDER BY p.status ASC, p.name ASC`);
     res.json(rows);
   } catch (err) {
@@ -14488,6 +14597,12 @@ app.get('/ows-store/projects', async (req, res) => {
 app.get('/ows-store/projects/:slug', async (req, res) => {
   const { slug } = req.params;
   try {
+    const autoSync = normalizeNewsBoolean(req.query.autosync, true);
+    if (autoSync) {
+      await ensureProjectChangelogSync({ force: false }).catch((err) => {
+        console.warn('[OWS] Version/changelog autosync skipped (slug):', err?.message || err);
+      });
+    }
     const { rows } = await pool.query(`${OWS_PROJECTS_WITH_ANDROID_RELEASE_SQL} WHERE p.slug = $1`, [slug]);
     if (rows.length === 0) return res.status(404).json({ error: 'Proyecto no encontrado' });
     res.json(rows[0]);

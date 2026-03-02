@@ -637,7 +637,7 @@ async function ensureOwsStoreProjectsSeedData() {
         name: p.name,
         description: `${p.name} disponible en OWS Store.`,
         url: `https://github.com/${p.repo}/releases/latest`,
-        version: '0.0.0',
+        version: p.slug === 'oceanpay' ? OCEAN_PAY_LOCAL_VERSION : '0.0.0',
         status: 'launched',
         metadata: { platforms: p.defaultPlatforms || ['windows'], repo: p.repo }
       }))
@@ -1561,9 +1561,20 @@ async function runDatabaseMigrations() {
         missions JSONB DEFAULT '[]',
         last_reward_claim TIMESTAMP,
         minutes_tracked INTEGER DEFAULT 0,
+        plan_id VARCHAR(40) DEFAULT 'ocean-pass-standard',
+        billing_currency VARCHAR(40) DEFAULT 'aquabux',
+        billing_amount NUMERIC(20,2) DEFAULT 0,
+        next_renew_at TIMESTAMP,
         created_at TIMESTAMP DEFAULT NOW()
       );
     `).catch(err => console.log('Ã¢Å¡Â Ã¯Â¸Â Error creando ocean_pass:', err.message));
+    await pool.query(`
+      ALTER TABLE ocean_pass
+      ADD COLUMN IF NOT EXISTS plan_id VARCHAR(40) DEFAULT 'ocean-pass-standard',
+      ADD COLUMN IF NOT EXISTS billing_currency VARCHAR(40) DEFAULT 'aquabux',
+      ADD COLUMN IF NOT EXISTS billing_amount NUMERIC(20,2) DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS next_renew_at TIMESTAMP
+    `).catch(err => console.log('Ã¢Å¡Â Ã¯Â¸Â Error alter ocean_pass:', err.message));
     // 16. Crear tabla ows_news_updates para automatizaciÃƒÂ³n de News
     await pool.query(`
       CREATE TABLE IF NOT EXISTS ows_news_updates (
@@ -5339,21 +5350,87 @@ app.get('/ocean-pay/me', async (req, res) => {
   }
 });
 
-// Estado de Ocean Pass (fallback seguro para clientes)
-app.get('/ocean-pay/pass/status', async (req, res) => {
+const OCEAN_PASS_PLAN = Object.freeze({
+  id: 'ocean-pass-standard',
+  name: 'Ocean Pass',
+  durationDays: 30,
+  rewardAmount: 750,
+  rewardEveryHours: 24
+});
+
+const OCEAN_PASS_CURRENCY_PRICES = Object.freeze({
+  aquabux: 1200,
+  ecoxionums: 900,
+  wildcredits: 1400,
+  wildgems: 160,
+  voltbit: 180,
+  appbux: 1000,
+  amber: 800,
+  nxb: 420,
+  mayhemcoins: 2600,
+  relayshards: 720
+});
+
+function getOceanPassPriceForCurrency(currency) {
+  const key = String(currency || '').trim().toLowerCase();
+  if (!key) return null;
+  const amount = OCEAN_PASS_CURRENCY_PRICES[key];
+  if (!Number.isFinite(amount)) return null;
+  return { currency: key, amount };
+}
+
+function serializeOceanPassRow(row) {
+  return {
+    active: Boolean(row?.is_active),
+    expiry: row?.expiry || null,
+    nextRenewAt: row?.next_renew_at || null,
+    hasDebt: Boolean(row?.has_debt),
+    debtAmount: toFiniteNumber(row?.debt_amount, 0),
+    missions: [],
+    lastRewardClaim: row?.last_reward_claim || null,
+    minutesTracked: 0,
+    planId: String(row?.plan_id || OCEAN_PASS_PLAN.id),
+    planName: OCEAN_PASS_PLAN.name,
+    billingCurrency: String(row?.billing_currency || '').toLowerCase(),
+    billingAmount: toFiniteNumber(row?.billing_amount, 0),
+    rewardAmount: OCEAN_PASS_PLAN.rewardAmount,
+    rewardEveryHours: OCEAN_PASS_PLAN.rewardEveryHours,
+    pricing: OCEAN_PASS_CURRENCY_PRICES
+  };
+}
+
+function getAuthenticatedOceanPayUserId(req) {
   const token = parseStudioAuthToken(req);
   const decoded = decodeStudioTokenOrNull(token);
-  if (!decoded) return res.status(401).json({ error: 'Token invalido' });
-
+  if (!decoded) return 0;
   const userId = Number(decoded.id || decoded.uid || decoded.sub || 0);
-  if (!userId) return res.status(401).json({ error: 'Usuario invalido' });
+  return Number.isFinite(userId) && userId > 0 ? userId : 0;
+}
+
+async function getPrimaryCardForOceanPassUser(client, userId) {
+  const { rows } = await client.query(
+    `SELECT id
+       FROM ocean_pay_cards
+      WHERE user_id = $1
+      ORDER BY is_primary DESC, created_at ASC, id ASC
+      LIMIT 1`,
+    [userId]
+  );
+  return rows[0] || null;
+}
+
+// Estado de Ocean Pass (fallback seguro para clientes)
+app.get('/ocean-pay/pass/status', async (req, res) => {
+  const userId = getAuthenticatedOceanPayUserId(req);
+  if (!userId) return res.status(401).json({ error: 'Token invalido' });
 
   try {
     const { rows } = await pool.query(
-      `SELECT user_id, is_active, expiry, has_debt, debt_amount, missions, last_reward_claim, minutes_tracked
-       FROM ocean_pass
-       WHERE user_id = $1
-       LIMIT 1`,
+      `SELECT user_id, is_active, expiry, has_debt, debt_amount, missions, last_reward_claim, minutes_tracked,
+              plan_id, billing_currency, billing_amount, next_renew_at
+         FROM ocean_pass
+        WHERE user_id = $1
+        LIMIT 1`,
       [userId]
     );
 
@@ -5361,27 +5438,290 @@ app.get('/ocean-pay/pass/status', async (req, res) => {
       return res.json({
         active: false,
         expiry: null,
+        nextRenewAt: null,
         hasDebt: false,
         debtAmount: 0,
         missions: [],
         lastRewardClaim: null,
-        minutesTracked: 0
+        minutesTracked: 0,
+        planId: OCEAN_PASS_PLAN.id,
+        planName: OCEAN_PASS_PLAN.name,
+        billingCurrency: null,
+        billingAmount: 0,
+        rewardAmount: OCEAN_PASS_PLAN.rewardAmount,
+        rewardEveryHours: OCEAN_PASS_PLAN.rewardEveryHours,
+        pricing: OCEAN_PASS_CURRENCY_PRICES
       });
     }
 
-    const row = rows[0];
-    return res.json({
-      active: Boolean(row.is_active),
-      expiry: row.expiry || null,
-      hasDebt: Boolean(row.has_debt),
-      debtAmount: toFiniteNumber(row.debt_amount, 0),
-      missions: Array.isArray(row.missions) ? row.missions : [],
-      lastRewardClaim: row.last_reward_claim || null,
-      minutesTracked: toFiniteNumber(row.minutes_tracked, 0)
-    });
+    return res.json(serializeOceanPassRow(rows[0]));
   } catch (err) {
     console.error('Error en GET /ocean-pay/pass/status:', err);
     return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Activar/renovar suscripcion Ocean Pass (obligatoria, sin misiones)
+app.post('/ocean-pay/pass/activate', async (req, res) => {
+  const userId = getAuthenticatedOceanPayUserId(req);
+  if (!userId) return res.status(401).json({ error: 'Token invalido' });
+
+  const requestedCurrency = String(req.body?.currency || '').trim().toLowerCase();
+  const price = getOceanPassPriceForCurrency(requestedCurrency);
+  if (!price) {
+    return res.status(400).json({ error: 'Divisa no valida para Ocean Pass' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const primaryCard = await getPrimaryCardForOceanPassUser(client, userId);
+    if (!primaryCard?.id) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'No tienes una tarjeta principal activa en Ocean Pay' });
+    }
+
+    const { rows: balRows } = await client.query(
+      `SELECT amount
+         FROM ocean_pay_card_balances
+        WHERE card_id = $1 AND currency_type = $2
+        FOR UPDATE`,
+      [primaryCard.id, price.currency]
+    );
+    const currentBalance = toFiniteNumber(balRows[0]?.amount, 0);
+    if (currentBalance < price.amount) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: `Saldo insuficiente en ${price.currency.toUpperCase()}` });
+    }
+
+    await client.query(
+      `INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (card_id, currency_type)
+       DO UPDATE SET amount = ocean_pay_card_balances.amount - $3`,
+      [primaryCard.id, price.currency, price.amount]
+    );
+
+    const now = new Date();
+    const { rows: existingRows } = await client.query(
+      `SELECT expiry
+         FROM ocean_pass
+        WHERE user_id = $1
+        FOR UPDATE`,
+      [userId]
+    );
+    const currentExpiry = existingRows[0]?.expiry ? new Date(existingRows[0].expiry) : null;
+    const base = currentExpiry && currentExpiry > now ? currentExpiry : now;
+    const nextExpiry = new Date(base.getTime() + (OCEAN_PASS_PLAN.durationDays * 24 * 60 * 60 * 1000));
+
+    await client.query(
+      `INSERT INTO ocean_pass (
+         user_id, is_active, expiry, has_debt, debt_amount, missions, minutes_tracked, last_reward_claim,
+         plan_id, billing_currency, billing_amount, next_renew_at
+       )
+       VALUES ($1, TRUE, $2, FALSE, 0, '[]'::jsonb, 0, COALESCE((SELECT last_reward_claim FROM ocean_pass WHERE user_id = $1), NULL), $3, $4, $5, $2)
+       ON CONFLICT (user_id) DO UPDATE SET
+         is_active = TRUE,
+         expiry = EXCLUDED.expiry,
+         has_debt = FALSE,
+         debt_amount = 0,
+         missions = '[]'::jsonb,
+         minutes_tracked = 0,
+         plan_id = EXCLUDED.plan_id,
+         billing_currency = EXCLUDED.billing_currency,
+         billing_amount = EXCLUDED.billing_amount,
+         next_renew_at = EXCLUDED.next_renew_at`,
+      [userId, nextExpiry, OCEAN_PASS_PLAN.id, price.currency, price.amount]
+    );
+
+    await client.query(
+      `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [userId, `Ocean Pass - Suscripcion (${OCEAN_PASS_PLAN.durationDays} dias)`, -price.amount, 'Ocean Pass', price.currency]
+    );
+
+    await client.query('COMMIT');
+
+    const { rows: passRows } = await pool.query(
+      `SELECT user_id, is_active, expiry, has_debt, debt_amount, missions, last_reward_claim, minutes_tracked,
+              plan_id, billing_currency, billing_amount, next_renew_at
+         FROM ocean_pass
+        WHERE user_id = $1
+        LIMIT 1`,
+      [userId]
+    );
+    return res.json({ success: true, ...serializeOceanPassRow(passRows[0]) });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error en POST /ocean-pay/pass/activate:', err);
+    return res.status(500).json({ error: 'No se pudo activar Ocean Pass' });
+  } finally {
+    client.release();
+  }
+});
+
+// Compatibilidad: track no-op (misiones desactivadas por modelo de suscripcion)
+app.post('/ocean-pay/pass/track', async (req, res) => {
+  const userId = getAuthenticatedOceanPayUserId(req);
+  if (!userId) return res.status(401).json({ error: 'Token invalido' });
+  return res.json({ success: true, tracked: false, mode: 'subscription' });
+});
+
+// Pagar deuda legacy de Ocean Pass
+app.post('/ocean-pay/pass/pay-debt', async (req, res) => {
+  const userId = getAuthenticatedOceanPayUserId(req);
+  if (!userId) return res.status(401).json({ error: 'Token invalido' });
+
+  const requestedCurrency = String(req.body?.currency || '').trim().toLowerCase();
+  if (!requestedCurrency) return res.status(400).json({ error: 'Divisa requerida' });
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const { rows: passRows } = await client.query(
+      `SELECT has_debt, debt_amount
+         FROM ocean_pass
+        WHERE user_id = $1
+        FOR UPDATE`,
+      [userId]
+    );
+    if (!passRows.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'No tienes registro de Ocean Pass' });
+    }
+
+    const debtAmount = toFiniteNumber(passRows[0].debt_amount, 0);
+    if (!passRows[0].has_debt || debtAmount <= 0) {
+      await client.query('ROLLBACK');
+      return res.json({ success: true, paid: 0, message: 'No hay deuda pendiente' });
+    }
+
+    const primaryCard = await getPrimaryCardForOceanPassUser(client, userId);
+    if (!primaryCard?.id) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'No tienes una tarjeta principal activa en Ocean Pay' });
+    }
+
+    const { rows: balRows } = await client.query(
+      `SELECT amount
+         FROM ocean_pay_card_balances
+        WHERE card_id = $1 AND currency_type = $2
+        FOR UPDATE`,
+      [primaryCard.id, requestedCurrency]
+    );
+    const currentBalance = toFiniteNumber(balRows[0]?.amount, 0);
+    if (currentBalance < debtAmount) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: `Saldo insuficiente en ${requestedCurrency.toUpperCase()}` });
+    }
+
+    await client.query(
+      `INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
+       VALUES ($1, $2, 0)
+       ON CONFLICT (card_id, currency_type)
+       DO UPDATE SET amount = ocean_pay_card_balances.amount - $3`,
+      [primaryCard.id, requestedCurrency, debtAmount]
+    );
+
+    await client.query(
+      `UPDATE ocean_pass
+          SET has_debt = FALSE,
+              debt_amount = 0,
+              is_active = TRUE
+        WHERE user_id = $1`,
+      [userId]
+    );
+
+    await client.query(
+      `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [userId, 'Ocean Pass - Pago de deuda', -debtAmount, 'Ocean Pass', requestedCurrency]
+    );
+
+    await client.query('COMMIT');
+    return res.json({ success: true, paid: debtAmount, currency: requestedCurrency });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error en POST /ocean-pay/pass/pay-debt:', err);
+    return res.status(500).json({ error: 'No se pudo pagar la deuda' });
+  } finally {
+    client.release();
+  }
+});
+
+// Reclamar regalo de Ocean Pass (cada 24h, 750 en divisa elegida)
+app.post('/ocean-pay/pass/claim-reward', async (req, res) => {
+  const userId = getAuthenticatedOceanPayUserId(req);
+  if (!userId) return res.status(401).json({ error: 'Token invalido' });
+
+  const currency = String(req.body?.currency || '').trim().toLowerCase();
+  if (!Object.prototype.hasOwnProperty.call(OCEAN_PASS_CURRENCY_PRICES, currency)) {
+    return res.status(400).json({ error: 'Divisa de recompensa no valida' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const { rows: passRows } = await client.query(
+      `SELECT is_active, has_debt, last_reward_claim
+         FROM ocean_pass
+        WHERE user_id = $1
+        FOR UPDATE`,
+      [userId]
+    );
+    if (!passRows.length || !passRows[0].is_active || passRows[0].has_debt) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Ocean Pass no esta activo' });
+    }
+
+    const lastClaimAt = passRows[0].last_reward_claim ? new Date(passRows[0].last_reward_claim).getTime() : 0;
+    const now = Date.now();
+    const cooldownMs = OCEAN_PASS_PLAN.rewardEveryHours * 60 * 60 * 1000;
+    if (lastClaimAt && now - lastClaimAt < cooldownMs) {
+      const remaining = cooldownMs - (now - lastClaimAt);
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Recompensa aun en recarga', remainingMs: remaining });
+    }
+
+    const primaryCard = await getPrimaryCardForOceanPassUser(client, userId);
+    if (!primaryCard?.id) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'No tienes una tarjeta principal activa en Ocean Pay' });
+    }
+
+    const rewardAmount = OCEAN_PASS_PLAN.rewardAmount;
+    await client.query(
+      `INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (card_id, currency_type)
+       DO UPDATE SET amount = ocean_pay_card_balances.amount + $3`,
+      [primaryCard.id, currency, rewardAmount]
+    );
+
+    await client.query(
+      `UPDATE ocean_pass
+          SET last_reward_claim = NOW()
+        WHERE user_id = $1`,
+      [userId]
+    );
+
+    await client.query(
+      `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [userId, 'Ocean Pass - Regalo diario', rewardAmount, 'Ocean Pass', currency]
+    );
+
+    await client.query('COMMIT');
+    return res.json({ success: true, amount: rewardAmount, currency, rewardEveryHours: OCEAN_PASS_PLAN.rewardEveryHours });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error en POST /ocean-pay/pass/claim-reward:', err);
+    return res.status(500).json({ error: 'No se pudo reclamar la recompensa' });
+  } finally {
+    client.release();
   }
 });
 

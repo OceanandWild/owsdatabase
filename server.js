@@ -364,6 +364,415 @@ import { dirname, join } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+/* ========== OWS STORE HELPERS (SEED + CHANGELOG SYNC) ========== */
+const OWS_ADMIN_SECRET = process.env.OWS_ADMIN_SECRET || process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
+
+const OWS_PROJECT_RELEASE_SOURCES = [
+  { slug: 'ows-store', name: 'OWS Store', repo: 'OceanandWild/owsdatabase', defaultPlatforms: ['windows', 'android'] },
+  { slug: 'wildweapon-mayhem', name: 'WildWeapon Mayhem', repo: 'OceanandWild/wildweapon-mayhem', defaultPlatforms: ['windows'] },
+  { slug: 'savagespaceanimals', name: 'Savage Space Animals', repo: 'OceanandWild/savagespaceanimals', defaultPlatforms: ['windows'] },
+  { slug: 'oceanpay', name: 'Ocean Pay', repo: 'OceanandWild/oceanpay', defaultPlatforms: ['windows'] },
+  { slug: 'floretshop', name: 'Floret Shop', repo: 'OceanandWild/floretshop', defaultPlatforms: ['windows', 'android'] },
+  { slug: 'wildtransfer', name: 'WildTransfer', repo: 'OceanandWild/wildtransfer', defaultPlatforms: ['windows', 'android'] },
+  { slug: 'velocity-surge', name: 'Velocity Surge', repo: 'OceanandWild/velocity-surge', defaultPlatforms: ['windows'] },
+  { slug: 'wildwave', name: 'WildWave', repo: 'OceanandWild/wildwave', defaultPlatforms: ['windows'] }
+];
+
+function normalizeNewsBoolean(value, fallback = false) {
+  if (value === undefined || value === null || value === '') return Boolean(fallback);
+  const v = String(value).trim().toLowerCase();
+  if (['1', 'true', 'yes', 'y', 'on'].includes(v)) return true;
+  if (['0', 'false', 'no', 'n', 'off'].includes(v)) return false;
+  return Boolean(fallback);
+}
+
+function normalizeNewsNumber(value, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : Number(fallback || 0);
+}
+
+function requireOwsStoreAdmin(req, res) {
+  const provided = String(
+    req.headers['x-ows-admin-token']
+    || req.headers['x-admin-secret']
+    || req.query?.admin_token
+    || req.body?.admin_token
+    || ''
+  ).trim();
+  if (!provided || provided !== OWS_ADMIN_SECRET) {
+    res.status(401).json({ error: 'No autorizado' });
+    return false;
+  }
+  return true;
+}
+
+function toNewsArray(value) {
+  if (Array.isArray(value)) {
+    return value.map((v) => String(v || '').trim()).filter(Boolean);
+  }
+  if (typeof value === 'string') {
+    const raw = value.trim();
+    if (!raw) return [];
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed.map((v) => String(v || '').trim()).filter(Boolean);
+    } catch (_) {
+      // no-op: fallback a split por líneas
+    }
+    return raw
+      .split(/\r?\n/)
+      .map((line) => line.replace(/^\s*[-*•]+\s*/, '').trim())
+      .filter(Boolean);
+  }
+  return [];
+}
+
+function normalizeOwsNewsRow(row) {
+  const safe = row || {};
+  const title = String(safe.title || '').trim();
+  const description = String(safe.description || '').trim();
+  const projectNames = Array.isArray(safe.project_names) ? safe.project_names.map((x) => String(x || '').trim()).filter(Boolean) : [];
+  const platforms = Array.isArray(safe.platforms) ? safe.platforms.map((x) => String(x || '').trim().toLowerCase()).filter(Boolean) : [];
+  const changes = toNewsArray(safe.changes);
+  const entryType = String(safe.entry_type || 'changelog').trim().toLowerCase();
+  const model2d = (safe.model_2d_payload && typeof safe.model_2d_payload === 'object')
+    ? { key: safe.model_2d_key || null, ...safe.model_2d_payload }
+    : { key: safe.model_2d_key || null };
+  const bannerMeta = (safe.banner_meta && typeof safe.banner_meta === 'object') ? safe.banner_meta : {};
+  const eventStart = safe.event_start ? new Date(safe.event_start).toISOString() : null;
+  const eventEnd = safe.event_end ? new Date(safe.event_end).toISOString() : null;
+  const now = Date.now();
+  const startTs = eventStart ? Date.parse(eventStart) : 0;
+  const endTs = eventEnd ? Date.parse(eventEnd) : 0;
+  let eventPhase = null;
+  if (entryType === 'event') {
+    if (startTs && now < startTs) eventPhase = 'upcoming';
+    else if (endTs && now > endTs) eventPhase = 'ended';
+    else eventPhase = 'active';
+  }
+
+  return {
+    id: safe.id,
+    project_names: projectNames,
+    projectNames,
+    title: title || 'Sin titulo',
+    description: description || (changes[0] || ''),
+    changes,
+    update_date: safe.update_date ? new Date(safe.update_date).toISOString() : null,
+    updateDate: safe.update_date ? new Date(safe.update_date).toISOString() : null,
+    created_at: safe.created_at ? new Date(safe.created_at).toISOString() : null,
+    createdAt: safe.created_at ? new Date(safe.created_at).toISOString() : null,
+    entry_type: entryType,
+    entryType,
+    platforms,
+    model_2d_key: safe.model_2d_key || null,
+    model_2d_payload: model2d,
+    model2d,
+    banner_meta: bannerMeta,
+    bannerMeta,
+    is_active: safe.is_active !== false,
+    isActive: safe.is_active !== false,
+    priority: Number(safe.priority || 0),
+    event_start: eventStart,
+    event_end: eventEnd,
+    eventStart,
+    eventEnd,
+    eventWindow: { startAt: eventStart, endAt: eventEnd },
+    eventPhase,
+    isEvent: entryType === 'event',
+    isBanner: entryType === 'banner'
+  };
+}
+
+function splitReleaseBody(body = '') {
+  const text = String(body || '').replace(/\r/g, '\n');
+  return text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => line.replace(/^\s*[-*•]+\s*/, '').trim())
+    .filter(Boolean)
+    .slice(0, 14);
+}
+
+function inferPlatformsFromReleaseAssets(assets = [], fallback = ['windows']) {
+  const set = new Set();
+  (Array.isArray(assets) ? assets : []).forEach((asset) => {
+    const n = String(asset?.name || '').toLowerCase();
+    if (n.endsWith('.apk') || n.endsWith('.aab') || n.includes('android')) set.add('android');
+    if (n.endsWith('.exe') || n.endsWith('.msi') || n.endsWith('.zip') || n.includes('win')) set.add('windows');
+  });
+  if (!set.size) fallback.forEach((p) => set.add(String(p || '').toLowerCase()));
+  return [...set].filter(Boolean);
+}
+
+async function fetchGithubLatestRelease(repo) {
+  const url = `https://api.github.com/repos/${repo}/releases/latest`;
+  const headers = {
+    'User-Agent': 'OWS-Store-Server',
+    'Accept': 'application/vnd.github+json'
+  };
+  const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN || '';
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const res = await fetch(url, { headers });
+  if (!res.ok) {
+    const text = await res.text().catch(() => '');
+    const err = new Error(`GitHub API ${res.status} for ${repo}`);
+    err.status = res.status;
+    err.body = text;
+    throw err;
+  }
+  return res.json();
+}
+
+async function upsertOwsNewsEntryBySyncKey({
+  syncKey,
+  projectNames,
+  title,
+  description,
+  changes,
+  updateDate,
+  entryType = 'changelog',
+  platforms = ['windows'],
+  model2dKey = null,
+  model2dPayload = {},
+  bannerMeta = {},
+  isActive = true,
+  priority = 0,
+  eventStart = null,
+  eventEnd = null
+}) {
+  const existing = await pool.query(
+    `SELECT id
+     FROM ows_news_updates
+     WHERE (banner_meta->>'sync_key') = $1
+     LIMIT 1`,
+    [syncKey]
+  );
+
+  const cleanChanges = Array.isArray(changes) ? changes.filter(Boolean).slice(0, 20) : [];
+  const changesText = cleanChanges.join('\n');
+  const baseParams = [
+    Array.isArray(projectNames) ? projectNames : [],
+    String(title || 'Actualizacion'),
+    String(description || '').trim() || null,
+    changesText,
+    updateDate ? new Date(updateDate) : new Date(),
+    entryType,
+    Array.isArray(platforms) ? platforms : ['windows'],
+    model2dKey || null,
+    model2dPayload && typeof model2dPayload === 'object' ? model2dPayload : {},
+    { ...(bannerMeta && typeof bannerMeta === 'object' ? bannerMeta : {}), sync_key: syncKey },
+    Boolean(isActive),
+    Number(priority || 0),
+    eventStart ? new Date(eventStart) : null,
+    eventEnd ? new Date(eventEnd) : null
+  ];
+
+  if (existing.rowCount > 0) {
+    const { rows } = await pool.query(
+      `UPDATE ows_news_updates
+       SET project_names = $1,
+           title = $2,
+           description = $3,
+           changes = $4,
+           update_date = $5,
+           entry_type = $6,
+           platforms = $7,
+           model_2d_key = $8,
+           model_2d_payload = $9,
+           banner_meta = $10,
+           is_active = $11,
+           priority = $12,
+           event_start = $13,
+           event_end = $14
+       WHERE id = $15
+       RETURNING *`,
+      [...baseParams, existing.rows[0].id]
+    );
+    return rows[0] || null;
+  }
+
+  const { rows } = await pool.query(
+    `INSERT INTO ows_news_updates (
+       project_names, title, description, changes, update_date, entry_type, platforms,
+       model_2d_key, model_2d_payload, banner_meta, is_active, priority, event_start, event_end
+     )
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+     RETURNING *`,
+    baseParams
+  );
+  return rows[0] || null;
+}
+
+async function ensureOwsStoreProjectsSeedData() {
+  const seeds = [
+    {
+      slug: 'ows-store',
+      name: 'OWS Store',
+      description: 'Launcher oficial del ecosistema Ocean and Wild Studios.',
+      url: 'https://github.com/OceanandWild/owsdatabase/releases/latest',
+      version: '0.0.0',
+      status: 'launched',
+      metadata: { platforms: ['windows', 'android'], repo: 'OceanandWild/owsdatabase' }
+    },
+    ...OWS_PROJECT_RELEASE_SOURCES
+      .filter((p) => p.slug !== 'ows-store')
+      .map((p) => ({
+        slug: p.slug,
+        name: p.name,
+        description: `${p.name} disponible en OWS Store.`,
+        url: `https://github.com/${p.repo}/releases/latest`,
+        version: '0.0.0',
+        status: 'launched',
+        metadata: { platforms: p.defaultPlatforms || ['windows'], repo: p.repo }
+      }))
+  ];
+
+  for (const item of seeds) {
+    await pool.query(
+      `INSERT INTO ows_projects (slug, name, description, url, version, status, metadata)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)
+       ON CONFLICT (slug) DO UPDATE SET
+         name = EXCLUDED.name,
+         description = EXCLUDED.description,
+         url = EXCLUDED.url,
+         metadata = ows_projects.metadata || EXCLUDED.metadata`,
+      [
+        item.slug,
+        item.name,
+        item.description,
+        item.url,
+        item.version,
+        item.status,
+        item.metadata || {}
+      ]
+    );
+  }
+
+  return { seeded: seeds.length };
+}
+
+async function ensureOwsStoreNewsSeedData() {
+  const now = new Date();
+  const in14Days = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+
+  const entries = [
+    {
+      syncKey: 'seed:ows-store:welcome',
+      projectNames: ['ows-store', 'OWS Store'],
+      title: 'OWS Store centraliza noticias, changelogs y eventos',
+      description: 'La informacion global del ecosistema ahora vive dentro de OWS Store.',
+      changes: [
+        'Noticias globales integradas',
+        'Eventos destacados con ventana de tiempo',
+        'Changelogs por proyecto con plataforma'
+      ],
+      updateDate: now,
+      entryType: 'changelog',
+      platforms: ['windows', 'android'],
+      model2dKey: 'store_hub',
+      model2dPayload: { palette: 'cyan-orange' },
+      bannerMeta: { visual: 'store_hub', importance: 'high' },
+      isActive: true,
+      priority: 10
+    },
+    {
+      syncKey: 'seed:event:wild-destiny-launch',
+      projectNames: ['wild-destiny', 'Wild Destiny'],
+      title: 'Wild Destiny - Evento de lanzamiento',
+      description: 'Lanzamiento oficial de Wild Destiny en OWS Store para Windows.',
+      changes: ['Countdown de lanzamiento activo en la ficha del proyecto.'],
+      updateDate: now,
+      entryType: 'event',
+      platforms: ['windows'],
+      model2dKey: 'launch_orbit',
+      model2dPayload: { accent: '#00f3ff' },
+      bannerMeta: { visual: 'launch_orbit', category: 'launch' },
+      isActive: true,
+      priority: 12,
+      eventStart: now,
+      eventEnd: in14Days
+    }
+  ];
+
+  let count = 0;
+  for (const item of entries) {
+    await upsertOwsNewsEntryBySyncKey(item);
+    count++;
+  }
+  return { seeded: count };
+}
+
+async function ensureProjectChangelogSync({ force = false, projectSlug = '' } = {}) {
+  const slugFilter = String(projectSlug || '').trim().toLowerCase();
+  const sources = OWS_PROJECT_RELEASE_SOURCES.filter((s) => !slugFilter || s.slug === slugFilter || s.name.toLowerCase() === slugFilter);
+  const summary = { scanned: sources.length, updated: 0, skipped: 0, errors: [] };
+
+  for (const source of sources) {
+    try {
+      const release = await fetchGithubLatestRelease(source.repo);
+      const tag = String(release?.tag_name || release?.name || '').trim();
+      if (!tag) {
+        summary.skipped++;
+        continue;
+      }
+
+      const syncKey = `github:${source.repo}:${tag}`;
+      const already = await pool.query(
+        `SELECT id, update_date
+         FROM ows_news_updates
+         WHERE (banner_meta->>'sync_key') = $1
+         LIMIT 1`,
+        [syncKey]
+      );
+
+      if (already.rowCount > 0 && !force) {
+        summary.skipped++;
+        continue;
+      }
+
+      const bodyLines = splitReleaseBody(release?.body || '');
+      const publishedAt = release?.published_at || release?.created_at || new Date().toISOString();
+      const releasePlatforms = inferPlatformsFromReleaseAssets(release?.assets || [], source.defaultPlatforms || ['windows']);
+
+      await upsertOwsNewsEntryBySyncKey({
+        syncKey,
+        projectNames: [source.slug, source.name],
+        title: `${source.name} ${tag}`,
+        description: bodyLines[0] || `Nueva release publicada para ${source.name}.`,
+        changes: bodyLines.length ? bodyLines : [`Release ${tag} publicada en GitHub.`],
+        updateDate: publishedAt,
+        entryType: 'changelog',
+        platforms: releasePlatforms,
+        model2dKey: 'release_sync',
+        model2dPayload: { repo: source.repo, tag },
+        bannerMeta: {
+          visual: 'release_sync',
+          repo: source.repo,
+          tag,
+          html_url: release?.html_url || '',
+          prerelease: Boolean(release?.prerelease),
+          draft: Boolean(release?.draft)
+        },
+        isActive: true,
+        priority: 0
+      });
+
+      summary.updated++;
+    } catch (err) {
+      summary.errors.push({
+        slug: source.slug,
+        repo: source.repo,
+        message: err?.message || 'sync error',
+        status: err?.status || 0
+      });
+    }
+  }
+
+  return summary;
+}
+
 /* ========== MIGRACIÃƒâ€œN AUTOMÃƒÂTICA DE BASE DE DATOS ========== */
 async function runDatabaseMigrations() {
   console.log('Ã°Å¸â€â€ž Ejecutando migraciones de base de datos...');
@@ -1293,11 +1702,12 @@ async function runDatabaseMigrations() {
       ON CONFLICT(card_id, currency_type) DO UPDATE SET amount = EXCLUDED.amount WHERE ocean_pay_card_balances.amount = 0;
 
       INSERT INTO ocean_pay_card_balances(card_id, currency_type, amount)
-      SELECT c.id, 'ecorebits', COALESCE(uc.amount, 0)
+      SELECT c.id, 'ecorebits', COALESCE(MAX(uc.amount), 0)
       FROM ocean_pay_cards c
       JOIN ocean_pay_users u ON c.user_id = u.id
       LEFT JOIN user_currency uc ON u.id = uc.user_id AND uc.currency_type = 'ecocorebits'
       WHERE c.is_primary = true
+      GROUP BY c.id
       ON CONFLICT(card_id, currency_type) DO UPDATE SET amount = EXCLUDED.amount WHERE ocean_pay_card_balances.amount = 0;
 
       INSERT INTO ocean_pay_card_balances(card_id, currency_type, amount)
@@ -6095,12 +6505,13 @@ app.get('/api/ecorebits/user', async (req, res) => {
     // 2. SincronizaciÃƒÂ³n robusta de saldos legacy (Cruce por Nombre de Usuario)
     await pool.query(`
       INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
-      SELECT c.id, 'ecorebits', uc.amount
+      SELECT c.id, 'ecorebits', MAX(uc.amount)
       FROM ocean_pay_cards c
       JOIN ocean_pay_users opu ON c.user_id = opu.id
       JOIN users u ON LOWER(u.username) = LOWER(opu.username)
       JOIN user_currency uc ON uc.user_id = u.id AND uc.currency_type = 'ecocorebits'
       WHERE opu.id = $1 AND c.is_primary = true AND uc.amount > 0
+      GROUP BY c.id
       ON CONFLICT (card_id, currency_type) DO UPDATE SET amount = EXCLUDED.amount WHERE ocean_pay_card_balances.amount = 0
     `, [userId]).catch((e) => { console.error('Migration error:', e.message); });
 

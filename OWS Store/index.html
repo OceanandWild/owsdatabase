@@ -3306,6 +3306,8 @@
         const STORE_THEME_KEY = 'ows_store_theme';
         const PROJECT_LIBRARY_KEY = 'ows_store_library_owned_slugs_v1';
         const PROJECT_UPDATES_DISMISSED_KEY = 'ows_store_updates_dismissed_up_to_date_v1';
+        const SYSTEM_NOTIFICATIONS_PERMISSION_KEY = 'ows_store_system_notifications_permission_v1';
+        const SYSTEM_NOTIFICATIONS_DEDUPE_KEY = 'ows_store_system_notifications_seen_v1';
         const OWS_STORE_ANDROID_INSTALLED_VERSION_KEY = 'ows_store_android_installed_version_name';
         const OWS_STORE_ANDROID_INSTALLED_VERSION_CODE_KEY = 'ows_store_android_installed_version_code';
         const OWS_STORE_ANDROID_UNKNOWN_SOURCES_ACK_KEY = 'ows_store_android_unknown_sources_ack_ts';
@@ -3520,6 +3522,9 @@
         const projectUpdateNotified = new Set();
         const externalProgressUiState = {};
         const selectedInstallTargetBySlug = {};
+        let systemNotificationPermission = localStorage.getItem(SYSTEM_NOTIFICATIONS_PERMISSION_KEY) || '';
+        let systemNotificationPrompted = false;
+        let systemNotificationSeenKeys = new Set();
         const owsStoreAndroidState = {
             downloadUrl: OWS_STORE_ANDROID_ARTIFACT_FALLBACK_URL,
             directDownloadUrl: '',
@@ -5135,6 +5140,120 @@
                     <div class="notification-text">${item.text}</div>
                 </div>`;
             }).join('');
+        }
+
+        function loadSystemNotificationSeenKeys() {
+            try {
+                const raw = localStorage.getItem(SYSTEM_NOTIFICATIONS_DEDUPE_KEY) || '[]';
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed)) {
+                    systemNotificationSeenKeys = new Set(parsed.filter(Boolean).map(String));
+                    return;
+                }
+            } catch (_) {}
+            systemNotificationSeenKeys = new Set();
+        }
+
+        function persistSystemNotificationSeenKeys() {
+            try {
+                const trimmed = Array.from(systemNotificationSeenKeys).slice(-250);
+                localStorage.setItem(SYSTEM_NOTIFICATIONS_DEDUPE_KEY, JSON.stringify(trimmed));
+            } catch (_) {}
+        }
+
+        function markSystemNotificationSeen(key) {
+            if (!key) return;
+            const normalized = String(key);
+            if (systemNotificationSeenKeys.has(normalized)) return;
+            systemNotificationSeenKeys.add(normalized);
+            if (systemNotificationSeenKeys.size > 250) {
+                const list = Array.from(systemNotificationSeenKeys).slice(-200);
+                systemNotificationSeenKeys = new Set(list);
+            }
+            persistSystemNotificationSeenKeys();
+        }
+
+        function wasSystemNotificationSeen(key) {
+            if (!key) return false;
+            return systemNotificationSeenKeys.has(String(key));
+        }
+
+        async function ensureSystemNotificationPermission({ forcePrompt = false } = {}) {
+            if (!('Notification' in window)) return 'unsupported';
+            try {
+                const current = Notification.permission;
+                if (current === 'granted' || current === 'denied') {
+                    systemNotificationPermission = current;
+                    localStorage.setItem(SYSTEM_NOTIFICATIONS_PERMISSION_KEY, current);
+                    return current;
+                }
+                if (!forcePrompt && systemNotificationPrompted) return current || 'default';
+                systemNotificationPrompted = true;
+                const asked = await Notification.requestPermission();
+                systemNotificationPermission = asked || 'default';
+                localStorage.setItem(SYSTEM_NOTIFICATIONS_PERMISSION_KEY, systemNotificationPermission);
+                return systemNotificationPermission;
+            } catch (_) {
+                return 'error';
+            }
+        }
+
+        async function fireNativeAndroidLocalNotification({ title, body, tag = '' } = {}) {
+            if (!isNativeAndroidRuntime()) return false;
+            const cap = window.Capacitor;
+            if (!cap?.Plugins?.LocalNotifications) return false;
+            try {
+                const LocalNotifications = cap.Plugins.LocalNotifications;
+                const perm = await LocalNotifications.checkPermissions();
+                if (perm?.display !== 'granted') {
+                    const req = await LocalNotifications.requestPermissions();
+                    if (req?.display !== 'granted') return false;
+                }
+                const id = Math.floor(Date.now() % 2000000000);
+                await LocalNotifications.schedule({
+                    notifications: [{
+                        id,
+                        title: String(title || 'OWS Store'),
+                        body: String(body || ''),
+                        schedule: { at: new Date(Date.now() + 300) },
+                        extra: { tag: String(tag || '') }
+                    }]
+                });
+                return true;
+            } catch (_) {
+                return false;
+            }
+        }
+
+        async function sendSystemNotification({ title, body, dedupeKey = '', requireVisible = false } = {}) {
+            if (dedupeKey && wasSystemNotificationSeen(dedupeKey)) return false;
+            if (requireVisible && document.hidden) return false;
+
+            const nativeSent = await fireNativeAndroidLocalNotification({ title, body, tag: dedupeKey });
+            if (nativeSent) {
+                if (dedupeKey) markSystemNotificationSeen(dedupeKey);
+                return true;
+            }
+
+            if (!('Notification' in window)) return false;
+            const permission = await ensureSystemNotificationPermission({ forcePrompt: false });
+            if (permission !== 'granted') return false;
+            try {
+                const n = new Notification(String(title || 'OWS Store'), {
+                    body: String(body || ''),
+                    icon: STORE_LOCAL_ICON,
+                    tag: dedupeKey ? String(dedupeKey) : undefined
+                });
+                n.onclick = () => {
+                    window.focus();
+                    const updatesNav = document.querySelector('.nav-menu .nav-item:nth-child(3)');
+                    showSection('updates', updatesNav || null);
+                };
+                if (dedupeKey) markSystemNotificationSeen(dedupeKey);
+                return true;
+            } catch (_) {
+                return false;
+            }
         }
 
         function setUpdateBannerVisual(options = {}) {
@@ -7082,6 +7201,12 @@
                 if (projectUpdateNotified.has(key)) return;
                 projectUpdateNotified.add(key);
                 addNotification(`Actualizacion disponible para ${project.name} [${platformLabel}]: v${info.latestVersion}.`, 'warning');
+                sendSystemNotification({
+                    title: `Update disponible: ${project.name}`,
+                    body: `${platformLabel}: ${info.installedVersion || 'instalada'} -> ${info.latestVersion || 'nueva'}`,
+                    dedupeKey: `project_update:${key}`,
+                    requireVisible: false
+                }).catch(() => {});
             });
         }
 
@@ -8272,6 +8397,12 @@
                     status: `Update disponible ${currentLabel} -> ${latestLabel}`,
                 });
                 if (!silent) addNotification(`Update Android disponible: ${currentLabel} -> ${latestLabel}.`, 'warning');
+                sendSystemNotification({
+                    title: 'OWS Store: update disponible',
+                    body: `Android: ${currentLabel} -> ${latestLabel}`,
+                    dedupeKey: `store_update_android:${latest?.version || latest?.versionCode || 'unknown'}`,
+                    requireVisible: false
+                }).catch(() => {});
                 return { needsUpdate, latest, current };
             }
 
@@ -10386,6 +10517,12 @@
                 });
                 const sizeLabel = formatByteSize(appUpdateSizeBytes);
                 addNotification('Actualizacion detectada: v' + (availableVersion || 'nueva') + (sizeLabel !== '-' ? ` (${sizeLabel})` : '') + '. Descarga automatica en curso.', 'success');
+                sendSystemNotification({
+                    title: 'OWS Store: update disponible',
+                    body: `Windows: ${availableVersion || 'nueva'} lista para descargar`,
+                    dedupeKey: `store_update_windows:${availableVersion || 'unknown'}`,
+                    requireVisible: false
+                }).catch(() => {});
                 if (availableVersion) {
                     fetchLatestOWSStoreWindowsRelease()
                         .then((latest) => {
@@ -10818,6 +10955,7 @@
         window.onload = () => {
             libraryOwnedSlugs = loadLibraryOwnedSlugs();
             dismissedUpToDateProjectCards = loadDismissedUpToDateProjectCards();
+            loadSystemNotificationSeenKeys();
             initTheme();
             renderOWSStoreAndroidMeta();
             initOceanPayStore();

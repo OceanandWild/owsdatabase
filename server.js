@@ -4862,6 +4862,11 @@ function mergeBalanceMaps(primary = {}, secondary = {}) {
 }
 
 async function githubProxyHandler(req, res) {
+  const GH_CACHE_TTL_MS = 5 * 60 * 1000;
+  const GH_STALE_TTL_MS = 24 * 60 * 60 * 1000;
+  if (!globalThis.__owsGithubProxyCache) globalThis.__owsGithubProxyCache = new Map();
+  const proxyCache = globalThis.__owsGithubProxyCache;
+
   const owner = String(req.params.owner || '').trim();
   const repo = String(req.params.repo || '').trim();
   const tail = String(req.params[0] || '').replace(/^\/+/, '');
@@ -4872,6 +4877,65 @@ async function githubProxyHandler(req, res) {
   const queryIndex = String(req.originalUrl || '').indexOf('?');
   const query = queryIndex >= 0 ? String(req.originalUrl || '').slice(queryIndex) : '';
   const ghUrl = `https://api.github.com/repos/${owner}/${repo}${tail ? `/${tail}` : ''}${query}`;
+  const cacheKey = ghUrl;
+  const now = Date.now();
+  const cached = proxyCache.get(cacheKey);
+  if (cached && (now - cached.ts) < GH_CACHE_TTL_MS) {
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('X-OWS-GH-Cache', 'hit');
+    return res.json(cached.payload);
+  }
+
+  const buildReleaseFallbackFromHtml = async () => {
+    const latestUrl = `https://github.com/${owner}/${repo}/releases/latest`;
+    const latestRes = await fetch(latestUrl, {
+      redirect: 'follow',
+      headers: { 'User-Agent': 'OWS-Store-Proxy' }
+    });
+    if (!latestRes.ok) {
+      throw new Error(`Fallback latest page failed: ${latestRes.status}`);
+    }
+
+    const finalUrl = String(latestRes.url || latestUrl);
+    const html = await latestRes.text();
+    const tagMatch = finalUrl.match(/\/releases\/tag\/([^/?#]+)/i);
+    const tagName = tagMatch ? decodeURIComponent(tagMatch[1]) : '';
+    if (!tagName) throw new Error('Fallback could not resolve release tag');
+
+    const assetRegex = new RegExp(`/` + owner + `/` + repo + `/releases/download/` + tagName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + `/([^\"'<>\\s]+)`, 'gi');
+    const assetNames = new Set();
+    let m;
+    while ((m = assetRegex.exec(html)) !== null) {
+      const raw = String(m[1] || '').trim();
+      if (raw) assetNames.add(raw);
+    }
+
+    const assets = [...assetNames].map((name) => ({
+      name,
+      browser_download_url: `https://github.com/${owner}/${repo}/releases/download/${tagName}/${name}`,
+      size: 0,
+      updated_at: null
+    }));
+
+    const payload = {
+      tag_name: tagName,
+      name: tagName,
+      html_url: `https://github.com/${owner}/${repo}/releases/tag/${tagName}`,
+      draft: false,
+      prerelease: false,
+      published_at: null,
+      created_at: null,
+      body: '',
+      assets
+    };
+
+    if (/^releases$/i.test(tail)) {
+      return [payload];
+    }
+    return payload;
+  };
 
   try {
     const headers = {
@@ -4888,6 +4952,34 @@ async function githubProxyHandler(req, res) {
     res.setHeader('Expires', '0');
 
     if (!ghRes.ok) {
+      const isRateLimit = ghRes.status === 403 && /rate limit exceeded/i.test(String(text || ''));
+      if (isRateLimit) {
+        if (cached && (now - cached.ts) < GH_STALE_TTL_MS) {
+          res.setHeader('Cache-Control', 'no-store, max-age=0');
+          res.setHeader('Pragma', 'no-cache');
+          res.setHeader('Expires', '0');
+          res.setHeader('X-OWS-GH-Cache', 'stale');
+          return res.json(cached.payload);
+        }
+        try {
+          const fallbackPayload = await buildReleaseFallbackFromHtml();
+          proxyCache.set(cacheKey, { ts: Date.now(), payload: fallbackPayload });
+          res.setHeader('Cache-Control', 'no-store, max-age=0');
+          res.setHeader('Pragma', 'no-cache');
+          res.setHeader('Expires', '0');
+          res.setHeader('X-OWS-GH-Fallback', 'html-release');
+          return res.json(fallbackPayload);
+        } catch (fallbackErr) {
+          return res.status(502).json({
+            error: 'GitHub API rate limited y fallback fallido',
+            status: ghRes.status,
+            url: ghUrl,
+            details: text || null,
+            fallback_error: fallbackErr?.message || String(fallbackErr)
+          });
+        }
+      }
+
       return res.status(ghRes.status).json({
         error: `GitHub API ${ghRes.status}`,
         status: ghRes.status,
@@ -4897,7 +4989,10 @@ async function githubProxyHandler(req, res) {
     }
 
     try {
-      return res.json(JSON.parse(text));
+      const payload = JSON.parse(text);
+      proxyCache.set(cacheKey, { ts: Date.now(), payload });
+      res.setHeader('X-OWS-GH-Cache', 'miss');
+      return res.json(payload);
     } catch (_parseErr) {
       return res.status(502).json({ error: 'Respuesta invalida de GitHub API', url: ghUrl });
     }

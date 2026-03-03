@@ -1666,9 +1666,9 @@
         }
 
         .icon-fit-contain {
-            object-fit: contain !important;
-            background: #06111e !important;
-            padding: 4px;
+            object-fit: cover !important;
+            background: transparent !important;
+            padding: 0;
         }
 
         .app-name {
@@ -4975,8 +4975,7 @@
             if (countBadge) countBadge.textContent = String(items.length);
             if (icon) {
                 icon.src = current.icon || STORE_LOCAL_ICON;
-                const isEcoxionDownload = String(current?.slug || '').toLowerCase() === 'ecoxion';
-                icon.classList.toggle('icon-fit-contain', isEcoxionDownload);
+                icon.classList.remove('icon-fit-contain');
             }
             if (title) title.textContent = current.name || 'Descarga';
             if (status) {
@@ -5023,10 +5022,9 @@
                 const showProgress = item.phase === 'downloading' || item.phase === 'launching' || item.phase === 'ready' || item.phase === 'done';
                 const metaText = item.status
                     || `Tamano ${sizeText} | Recibido ${downloadedText} | Velocidad ${speedText} | ETA ${etaText}`;
-                const avatarFit = String(item?.slug || '').toLowerCase() === 'ecoxion' ? 'icon-fit-contain' : '';
                 return `
                     <div class="download-item ${item.phase}">
-                        <img class="avatar ${avatarFit}" src="${item.icon || STORE_LOCAL_ICON}" alt="${item.name}">
+                        <img class="avatar" src="${item.icon || STORE_LOCAL_ICON}" alt="${item.name}">
                         <div class="download-item-main">
                             <div class="download-item-head">
                                 <div class="download-item-title">${item.name}</div>
@@ -9140,7 +9138,7 @@
         }
 
         function getProjectIconClass(project) {
-            return isEcoxionProject(project) ? 'icon-fit-contain' : '';
+            return '';
         }
 
         function isWildWeaponProject(project) {
@@ -10518,7 +10516,7 @@
                 : (p.status || 'launched').toUpperCase());
             const modalIconEl = document.getElementById('m-icon');
             modalIconEl.src = getProjectIcon(p, 140);
-            modalIconEl.classList.toggle('icon-fit-contain', isEcoxionProject(p));
+            modalIconEl.classList.remove('icon-fit-contain');
             document.getElementById('m-banner').style.backgroundImage = `url(${p.banner_url || 'https://images.unsplash.com/photo-1614850523296-d8c1af93d400?auto=format&fit=crop&q=80&w=800'})`;
 
             const targets = getProjectInstallTargets(p);

@@ -1,6 +1,6 @@
 {
     "name": "ows-store",
-    "version": "2026.3.2-t2358",
+    "version": "2026.3.3-t1040",
     "description": "OWS Store - Central Studio Hub",
     "main": "main.js",
     "author": "Ocean and Wild Studios",
@@ -53,7 +53,8 @@
             "build/wilddestiny.ico",
             "build/velocitysurge.ico",
             "build/wildwave.ico",
-            "build/wildwave.png"
+            "build/wildwave.png",
+            "build/ecoxion.png"
         ],
         "win": {
             "target": [

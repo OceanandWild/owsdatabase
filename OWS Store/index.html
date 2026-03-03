@@ -3299,7 +3299,7 @@
         const FLORET_LOCAL_ICON = 'https://raw.githubusercontent.com/OceanandWild/owsdatabase/main/Floret%20Shop/assets/floretshopicon.png?v=20260224-1938';
         const WILDTRANSFER_LOCAL_ICON = './build/wildtransfer.ico?v=20260225-0100';
         const WILDDESTINY_LOCAL_ICON = './build/wilddestiny.ico?v=20260227-1935';
-        const ECOXION_LOCAL_ICON = '';
+        const ECOXION_LOCAL_ICON = './build/ecoxion.png?v=20260303-uy1000';
         const VELOCITY_SURGE_LOCAL_ICON = './build/velocitysurge.ico?v=20260227-2415';
         const WILDWAVE_LOCAL_ICON = './build/wildwave.ico?v=20260301-0010';
         const OWSNEWS_LOCAL_ICON = './build/owsnews.ico?v=20260225-2248';
@@ -3319,6 +3319,8 @@
         const OCEAN_PAY_STORAGE_TOKEN = 'opToken';
         const OCEAN_PAY_STORAGE_STATE = 'opStoreState';
         const WILD_DESTINY_RELEASE_DATE_ISO = '2026-03-07T18:00:00Z';
+        // Uruguay (UYT, UTC-3): 14/03/2026 10:00 -> 2026-03-14T13:00:00Z
+        const ECOXION_RELEASE_DATE_ISO = '2026-03-14T13:00:00Z';
         const SSA_PROJECT = {
             slug: 'savagespaceanimals',
             name: 'Savage Space Animals',
@@ -3389,7 +3391,7 @@
             installer_url: ECOXION_RELEASES_URL,
             installer_available: false,
             pending_release: true,
-            release_date: WILD_DESTINY_RELEASE_DATE_ISO,
+            release_date: ECOXION_RELEASE_DATE_ISO,
             description: 'Proyecto nuevo de Ecoxion preparado para su primer build de Windows. Estado: Proximamente.',
             icon_url: ECOXION_LOCAL_ICON
         };
@@ -3441,7 +3443,7 @@
                 key: 'ecoxion-windows-countdown',
                 label: 'Proximo lanzamiento',
                 title: 'Ecoxion se suma como Proximamente en OWS Store (Windows)',
-                text: 'Ecoxion comparte ventana de lanzamiento con Wild Destiny. Sigue el countdown desde su ficha.',
+                text: 'Ecoxion se lanza el 14 de marzo de 2026 a las 10:00 (Uruguay). Sigue el countdown desde su ficha.',
                 slug: 'ecoxion',
             },
             {
@@ -6561,8 +6563,15 @@
             if (!Array.isArray(projects)) return [];
             const list = [...projects];
             const idx = list.findIndex(isEcoxionProject);
+            const hasReachedLaunch = Date.now() >= (Date.parse(ECOXION_RELEASE_DATE_ISO) || 0);
             if (idx === -1) {
-                list.unshift({ ...ECOXION_PROJECT });
+                const project = { ...ECOXION_PROJECT };
+                if (hasReachedLaunch) {
+                    project.status = 'launched';
+                    project.pending_release = false;
+                    project.installer_available = true;
+                }
+                list.unshift(project);
             } else {
                 list[idx] = {
                     ...ECOXION_PROJECT,
@@ -6570,9 +6579,10 @@
                     slug: 'ecoxion',
                     name: 'Ecoxion',
                     short: 'ECX',
-                    status: list[idx].status || 'coming_soon',
-                    pending_release: true,
-                    release_date: list[idx].release_date || WILD_DESTINY_RELEASE_DATE_ISO,
+                    status: hasReachedLaunch ? 'launched' : (list[idx].status || 'coming_soon'),
+                    pending_release: hasReachedLaunch ? false : true,
+                    installer_available: hasReachedLaunch ? true : false,
+                    release_date: list[idx].release_date || ECOXION_RELEASE_DATE_ISO,
                     icon_url: list[idx].icon_url || ECOXION_LOCAL_ICON
                 };
             }
@@ -7155,13 +7165,13 @@
             entries.push({
                 type: 'evento',
                 tone: 'info',
-                title: 'Ecoxion y Wild Destiny comparten fecha de lanzamiento',
-                date: WILD_DESTINY_RELEASE_DATE_ISO,
-                text: `Ventana de lanzamiento sincronizada para ${formatDateTime(WILD_DESTINY_RELEASE_DATE_ISO)}.`,
+                title: 'Ecoxion: lanzamiento programado para Uruguay',
+                date: ECOXION_RELEASE_DATE_ISO,
+                text: `Lanzamiento planificado para el 14/03/2026 a las 10:00 (UYT) | ${formatDateTime(ECOXION_RELEASE_DATE_ISO)}.`,
                 platforms: ['windows'],
                 isEvent: true,
-                eventPhase: resolveEventPhase({ startAt: WILD_DESTINY_RELEASE_DATE_ISO, endAt: '' }),
-                eventWindow: { startAt: WILD_DESTINY_RELEASE_DATE_ISO, endAt: '' },
+                eventPhase: resolveEventPhase({ startAt: ECOXION_RELEASE_DATE_ISO, endAt: '' }),
+                eventWindow: { startAt: ECOXION_RELEASE_DATE_ISO, endAt: '' },
             });
 
             const storeNews = getStoreNewsEntries();
@@ -9637,6 +9647,13 @@
                     installDirNames: ['Wild Destiny', 'wild-destiny', 'wilddestiny'],
                     executableNames: ['Wild Destiny.exe', 'wild-destiny.exe', 'wilddestiny.exe'],
                     uninstallerNames: ['Uninstall Wild Destiny.exe', 'unins000.exe']
+                };
+            }
+            if (isEcoxionProject(project)) {
+                return {
+                    installDirNames: ['Ecoxion', 'ecoxion'],
+                    executableNames: ['Ecoxion.exe', 'ecoxion.exe'],
+                    uninstallerNames: ['Uninstall Ecoxion.exe', 'unins000.exe']
                 };
             }
             if (isVelocitySurgeProject(project)) {

@@ -3287,6 +3287,7 @@
         const WILDTRANSFER_RELEASES_API_URL = `${GITHUB_RELEASES_PROXY_BASE}/wildtransfer/releases/latest`;
         const WILDTRANSFER_RELEASES_LIST_API_URL = `${GITHUB_RELEASES_PROXY_BASE}/wildtransfer/releases?per_page=20`;
         const WILDDESTINY_RELEASES_URL = 'https://github.com/OceanandWild/wilddestiny/releases/latest';
+        const ECOXION_RELEASES_URL = 'https://github.com/OceanandWild/ecoxion/releases/latest';
         const VELOCITY_SURGE_RELEASES_URL = 'https://github.com/OceanandWild/velocity-surge/releases/latest';
         const VELOCITY_SURGE_RELEASES_API_URL = `${GITHUB_RELEASES_PROXY_BASE}/velocity-surge/releases/latest`;
         const WILDWAVE_RELEASES_URL = 'https://github.com/OceanandWild/wildwave/releases/latest';
@@ -3298,6 +3299,7 @@
         const FLORET_LOCAL_ICON = 'https://raw.githubusercontent.com/OceanandWild/owsdatabase/main/Floret%20Shop/assets/floretshopicon.png?v=20260224-1938';
         const WILDTRANSFER_LOCAL_ICON = './build/wildtransfer.ico?v=20260225-0100';
         const WILDDESTINY_LOCAL_ICON = './build/wilddestiny.ico?v=20260227-1935';
+        const ECOXION_LOCAL_ICON = '';
         const VELOCITY_SURGE_LOCAL_ICON = './build/velocitysurge.ico?v=20260227-2415';
         const WILDWAVE_LOCAL_ICON = './build/wildwave.ico?v=20260301-0010';
         const OWSNEWS_LOCAL_ICON = './build/owsnews.ico?v=20260225-2248';
@@ -3316,6 +3318,7 @@
         const OCEAN_PAY_STORAGE_USER = 'opUser';
         const OCEAN_PAY_STORAGE_TOKEN = 'opToken';
         const OCEAN_PAY_STORAGE_STATE = 'opStoreState';
+        const WILD_DESTINY_RELEASE_DATE_ISO = '2026-03-07T18:00:00Z';
         const SSA_PROJECT = {
             slug: 'savagespaceanimals',
             name: 'Savage Space Animals',
@@ -3371,9 +3374,24 @@
             installer_url: WILDDESTINY_RELEASES_URL,
             installer_available: false,
             pending_release: true,
-            release_date: '2026-03-07T18:00:00Z',
+            release_date: WILD_DESTINY_RELEASE_DATE_ISO,
             description: 'Action RPG de raids con clases, maestrias y progresion avanzada. Lanzamiento inicial para Windows en preparacion.',
             icon_url: WILDDESTINY_LOCAL_ICON
+        };
+        const ECOXION_PROJECT = {
+            slug: 'ecoxion',
+            name: 'Ecoxion',
+            short: 'ECX',
+            status: 'coming_soon',
+            version: '1.0.0',
+            platform: 'windows',
+            install_type: 'external',
+            installer_url: ECOXION_RELEASES_URL,
+            installer_available: false,
+            pending_release: true,
+            release_date: WILD_DESTINY_RELEASE_DATE_ISO,
+            description: 'Proyecto nuevo de Ecoxion preparado para su primer build de Windows. Estado: Proximamente.',
+            icon_url: ECOXION_LOCAL_ICON
         };
         const VELOCITY_SURGE_PROJECT = {
             slug: 'velocity-surge',
@@ -3418,6 +3436,13 @@
                 title: 'Wild Destiny llega pronto a OWS Store (Windows)',
                 text: 'La ventana de lanzamiento ya tiene fecha. Puedes seguir el countdown desde su ficha en Ecosistema de Estudio.',
                 slug: 'wild-destiny',
+            },
+            {
+                key: 'ecoxion-windows-countdown',
+                label: 'Proximo lanzamiento',
+                title: 'Ecoxion se suma como Proximamente en OWS Store (Windows)',
+                text: 'Ecoxion comparte ventana de lanzamiento con Wild Destiny. Sigue el countdown desde su ficha.',
+                slug: 'ecoxion',
             },
             {
                 key: 'velocity-surge-launch',
@@ -6360,6 +6385,13 @@
             return slug.includes('wild-destiny') || slug.includes('wilddestiny') || name.includes('wild destiny');
         }
 
+        function isEcoxionProject(project) {
+            if (!project) return false;
+            const slug = String(project.slug || '').toLowerCase();
+            const name = String(project.name || '').toLowerCase();
+            return slug.includes('ecoxion') || name.includes('ecoxion');
+        }
+
         function isVelocitySurgeProject(project) {
             if (!project) return false;
             const slug = String(project.slug || '').toLowerCase();
@@ -6397,6 +6429,7 @@
             if (slug === 'floret-shop' || slug === 'floretshop' || slug === 'floret' || name === 'floret shop' || token.includes('floretshop')) return 'floretshop';
             if (slug === 'savage-space-animals' || slug === 'savagespaceanimals' || slug === 'ssa' || name === 'savage space animals' || token.includes('savagespaceanimals')) return 'savagespaceanimals';
             if (slug === 'wild-transfer' || slug === 'wildtransfer' || name === 'wild transfer' || name === 'wildtransfer' || token.includes('wildtransfer')) return 'wildtransfer';
+            if (slug === 'ecoxion' || name === 'ecoxion' || token.includes('ecoxion')) return 'ecoxion';
             if (slug === 'velocitysurge' || slug === 'velocity-surge' || name === 'velocity surge' || token.includes('velocitysurge')) return 'velocity-surge';
             if (slug === 'wild-wave' || slug === 'wildwave' || slug === 'wildx' || name === 'wildwave' || name === 'wild wave' || token.includes('wildwave')) return 'wildwave';
             if (slug === 'wildweapon' || slug === 'wildweapon-mayhem' || name === 'wildweapon mayhem' || token.includes('wildweaponmayhem')) return 'wildweapon-mayhem';
@@ -6463,6 +6496,7 @@
             if (isFloretProject(project)) return 'FLR';
             if (isWildTransferProject(project)) return 'WTR';
             if (isWildDestinyProject(project)) return 'WD';
+            if (isEcoxionProject(project)) return 'ECX';
             if (isVelocitySurgeProject(project)) return 'VSG';
             if (isWildWaveProject(project)) return 'WWV';
             return '';
@@ -6518,6 +6552,28 @@
                     status: list[idx].status || 'coming_soon',
                     pending_release: true,
                     icon_url: WILDDESTINY_LOCAL_ICON
+                };
+            }
+            return list;
+        }
+
+        function ensureEcoxionProject(projects) {
+            if (!Array.isArray(projects)) return [];
+            const list = [...projects];
+            const idx = list.findIndex(isEcoxionProject);
+            if (idx === -1) {
+                list.unshift({ ...ECOXION_PROJECT });
+            } else {
+                list[idx] = {
+                    ...ECOXION_PROJECT,
+                    ...list[idx],
+                    slug: 'ecoxion',
+                    name: 'Ecoxion',
+                    short: 'ECX',
+                    status: list[idx].status || 'coming_soon',
+                    pending_release: true,
+                    release_date: list[idx].release_date || WILD_DESTINY_RELEASE_DATE_ISO,
+                    icon_url: list[idx].icon_url || ECOXION_LOCAL_ICON
                 };
             }
             return list;
@@ -7088,6 +7144,26 @@
                 });
             }
 
+            entries.push({
+                type: 'changelog',
+                tone: 'info',
+                title: 'OWS Store: Ecoxion agregado como Proximamente (Windows)',
+                date: '2026-03-02T23:58:00Z',
+                text: 'Se publico la ficha de Ecoxion en OWS Store con countdown y estado coming_soon.',
+                platforms: ['windows'],
+            });
+            entries.push({
+                type: 'evento',
+                tone: 'info',
+                title: 'Ecoxion y Wild Destiny comparten fecha de lanzamiento',
+                date: WILD_DESTINY_RELEASE_DATE_ISO,
+                text: `Ventana de lanzamiento sincronizada para ${formatDateTime(WILD_DESTINY_RELEASE_DATE_ISO)}.`,
+                platforms: ['windows'],
+                isEvent: true,
+                eventPhase: resolveEventPhase({ startAt: WILD_DESTINY_RELEASE_DATE_ISO, endAt: '' }),
+                eventWindow: { startAt: WILD_DESTINY_RELEASE_DATE_ISO, endAt: '' },
+            });
+
             const storeNews = getStoreNewsEntries();
             storeNews.slice(0, 20).forEach((entry) => {
                 const isEvent = Boolean(entry.isEvent);
@@ -7334,7 +7410,7 @@
             }
             allProjects = dedupeProjectCatalog(Array.isArray(allProjects) ? allProjects : []);
             allProjects = allProjects.filter((p) => !isOWSNewsProject(p));
-            allProjects = ensureWildWaveProject(ensureVelocitySurgeProject(ensureWildDestinyProject(ensureWildTransferProject(ensureFloretProject(ensureSSAProject(allProjects))))));
+            allProjects = ensureWildWaveProject(ensureVelocitySurgeProject(ensureEcoxionProject(ensureWildDestinyProject(ensureWildTransferProject(ensureFloretProject(ensureSSAProject(allProjects)))))));
             allProjects = dedupeProjectCatalog(allProjects);
             await applyLatestInstallerData(allProjects);
             seedLibraryFromProjectCatalog();
@@ -8509,6 +8585,7 @@
             if (isFloretProject(project)) return project?.icon_url || FLORET_LOCAL_ICON || `https://placehold.co/${size}/2b0a45/f2a3ff?text=FLR`;
             if (isWildTransferProject(project)) return project?.icon_url || WILDTRANSFER_LOCAL_ICON || `https://placehold.co/${size}/0a1120/35d7ff?text=WTR`;
             if (isWildDestinyProject(project)) return project?.icon_url || WILDDESTINY_LOCAL_ICON || `https://placehold.co/${size}/111827/67e8f9?text=WD`;
+            if (isEcoxionProject(project)) return project?.icon_url || ECOXION_LOCAL_ICON || `https://placehold.co/${size}/07121f/26e0ff?text=ECX`;
             if (isVelocitySurgeProject(project)) return project?.icon_url || VELOCITY_SURGE_LOCAL_ICON || `https://placehold.co/${size}/0a0f1e/26e0ff?text=VSG`;
             if (isWildWaveProject(project)) return project?.icon_url || WILDWAVE_LOCAL_ICON || `https://placehold.co/${size}/151029/c493ff?text=WWV`;
             return project?.icon_url || `https://placehold.co/${size}/0f172a/00f3ff?text=OWS`;
@@ -8964,6 +9041,7 @@
             if (isOceanPayProject(project)) return OCEAN_PAY_RELEASES_URL;
             if (isFloretProject(project)) return FLORET_RELEASES_URL;
             if (isWildTransferProject(project)) return WILDTRANSFER_RELEASES_URL;
+            if (isEcoxionProject(project)) return ECOXION_RELEASES_URL;
             if (isVelocitySurgeProject(project)) return VELOCITY_SURGE_RELEASES_URL;
             if (isWildWaveProject(project)) return WILDWAVE_RELEASES_URL;
             return '';

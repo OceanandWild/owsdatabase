@@ -8878,6 +8878,9 @@ app.get('/api/ecoxion/subscription/:userId', async (req, res) => {
     }
 
     const columns = await getWtSubscriptionColumnSet();
+    const startsExpr = columns.has('start_date')
+      ? 'start_date'
+      : 'created_at';
     const endsExpr = columns.has('end_date')
       ? 'end_date'
       : (columns.has('next_payment') ? 'next_payment' : 'created_at');
@@ -8886,7 +8889,7 @@ app.get('/api/ecoxion/subscription/:userId', async (req, res) => {
       : (columns.has('end_date') ? 'end_date' : 'created_at');
 
     const { rows } = await pool.query(
-      `SELECT id, plan_name, sub_name, price, currency, status, start_date, ${endsExpr} AS ends_at, ${renewExpr} AS renew_at, created_at
+      `SELECT id, plan_name, sub_name, price, currency, status, ${startsExpr} AS starts_at, ${endsExpr} AS ends_at, ${renewExpr} AS renew_at, created_at
        FROM ocean_pay_subscriptions
        WHERE user_id = $1
          AND LOWER(COALESCE(project_id, '')) = LOWER($2)
@@ -8933,7 +8936,7 @@ app.get('/api/ecoxion/subscription/:userId', async (req, res) => {
       planName: current.plan_name || current.sub_name || `Ecoxion ${ECOXION_PLAN_CATALOG[normalizedPlan]?.label || 'Pro'}`,
       price: Number(current.price || 0),
       currency: (current.currency || ECOXION_CURRENCY).toLowerCase(),
-      startsAt: current.start_date || current.created_at,
+      startsAt: current.starts_at || current.created_at,
       endsAt: current.ends_at || null,
       renewAt: current.renew_at || current.ends_at || null,
       status: 'active',

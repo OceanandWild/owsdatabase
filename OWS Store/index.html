@@ -123,6 +123,36 @@
             color: #99afca;
             font-family: 'Space Mono', monospace;
         }
+        .boot-canvas-wrap {
+            margin-top: 0.7rem;
+            border: 1px solid rgba(74, 114, 154, 0.5);
+            border-radius: 12px;
+            overflow: hidden;
+            background: radial-gradient(600px 220px at 20% 30%, rgba(38, 224, 255, 0.15), transparent 65%), #07111d;
+        }
+        .boot-canvas {
+            display: block;
+            width: 100%;
+            height: 210px;
+        }
+        .boot-scene-caption {
+            margin-top: 0.35rem;
+            font-size: 0.72rem;
+            color: #92a9c5;
+            font-family: 'Space Mono', monospace;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+        }
+        .boot-scene-tag {
+            border: 1px solid rgba(95, 135, 176, 0.5);
+            border-radius: 999px;
+            padding: 0.18rem 0.46rem;
+            color: #b9d9f7;
+            background: rgba(12, 30, 48, 0.76);
+            white-space: nowrap;
+        }
         .boot-queue {
             margin-top: 0.75rem;
             display: grid;
@@ -3049,6 +3079,13 @@
                 <span id="boot-progress-percent">0%</span>
                 <span id="boot-progress-counter">0/0</span>
             </div>
+            <div class="boot-canvas-wrap">
+                <canvas id="boot-canvas" class="boot-canvas" width="1200" height="420" aria-hidden="true"></canvas>
+            </div>
+            <div class="boot-scene-caption">
+                <span id="boot-scene-caption-text">Inicializando escena 2D...</span>
+                <span id="boot-scene-caption-tag" class="boot-scene-tag">Cargando</span>
+            </div>
             <div class="boot-queue">
                 <div id="boot-step-next" class="boot-step boot-step-next">...</div>
                 <div id="boot-step-current" class="boot-step boot-step-current">Iniciando...</div>
@@ -3742,6 +3779,15 @@
         let spotlightSlideTimer = null;
         let spotlightSlideCleanupTimer = null;
         let spotlightCanvasResizeHandlerBound = false;
+        let bootAnimationRaf = 0;
+        let bootAnimationState = {
+            running: false,
+            startTs: 0,
+            sceneIndex: 0,
+            forcedSceneIndex: -1,
+            sceneHoldMs: 2800,
+            sceneFadeMs: 620,
+        };
         let sidebarDownloadCursor = 0;
         let sidebarSelectedDownloadKey = '';
         let sidebarSelectionPinnedByUser = false;
@@ -4590,6 +4636,67 @@
                 ctx.moveTo(w - 8, h * 0.7);
                 ctx.lineTo(20, h * 0.7);
                 ctx.stroke();
+            } else if (key.includes('galaxy') || key.includes('ecoxion') || key.includes('space')) {
+                const cx = w * 0.68;
+                const cy = h * 0.45;
+                for (let i = 0; i < 7; i++) {
+                    ctx.strokeStyle = `rgba(82,217,223,${0.32 - i * 0.035})`;
+                    ctx.lineWidth = 1.7;
+                    ctx.beginPath();
+                    ctx.ellipse(cx, cy, 10 + i * 7, 5 + i * 3, i * 0.2, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+                ctx.fillStyle = '#060b12';
+                ctx.beginPath();
+                ctx.arc(cx, cy, 9, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = dark ? '#81dcff' : '#2c638b';
+                ctx.beginPath();
+                ctx.arc(w * 0.24, h * 0.58, 14, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+                ctx.beginPath();
+                ctx.arc(w * 0.24, h * 0.58, 20, 0.2, 2.9);
+                ctx.stroke();
+            } else if (key.includes('forest') || key.includes('naturepedia')) {
+                ctx.strokeStyle = baseA;
+                ctx.lineWidth = 2;
+                for (let i = 0; i < 5; i++) {
+                    const x = 14 + i * 14;
+                    ctx.beginPath();
+                    ctx.moveTo(x, h - 10);
+                    ctx.lineTo(x, h - 34 - (i % 2) * 6);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.arc(x, h - 38 - (i % 2) * 6, 7, 0, Math.PI * 2);
+                    ctx.fillStyle = i % 2 ? 'rgba(38,224,255,0.35)' : 'rgba(126,230,164,0.45)';
+                    ctx.fill();
+                }
+                ctx.strokeStyle = 'rgba(150,190,220,0.3)';
+                ctx.beginPath();
+                ctx.moveTo(0, h - 8);
+                ctx.lineTo(w, h - 8);
+                ctx.stroke();
+            } else if (key.includes('signal') || key.includes('wildshorts')) {
+                ctx.strokeStyle = baseA;
+                ctx.lineWidth = 2.6;
+                ctx.beginPath();
+                ctx.moveTo(12, h * 0.35);
+                ctx.quadraticCurveTo(w * 0.34, h * 0.22, w * 0.5, h * 0.36);
+                ctx.quadraticCurveTo(w * 0.66, h * 0.5, w - 10, h * 0.38);
+                ctx.stroke();
+                ctx.strokeStyle = baseB;
+                ctx.beginPath();
+                ctx.moveTo(12, h * 0.62);
+                ctx.quadraticCurveTo(w * 0.32, h * 0.78, w * 0.5, h * 0.62);
+                ctx.quadraticCurveTo(w * 0.68, h * 0.46, w - 10, h * 0.62);
+                ctx.stroke();
+                for (let i = 0; i < 4; i++) {
+                    ctx.fillStyle = dark ? '#9fd3ff' : '#3a698d';
+                    ctx.beginPath();
+                    ctx.arc(18 + i * 12, h * 0.5, 2.1, 0, Math.PI * 2);
+                    ctx.fill();
+                }
             } else if (key.includes('store') || key.includes('hub') || key.includes('launch_orbit')) {
                 const cx = w * 0.32;
                 const cy = h * 0.52;
@@ -11587,6 +11694,236 @@
             }, 120000);
         }
 
+        function getBootScenes() {
+            return [
+                { key: 'ecoxion_space', label: 'Ecoxion | Espacio profundo', tag: 'Ecoxion' },
+                { key: 'velocity_racers', label: 'Velocity Surge | Corredores en aceleracion', tag: 'Velocity Surge' },
+                { key: 'wildweapon_battle', label: 'WildWeapon Mayhem | Duelo tactico', tag: 'WildWeapon' },
+                { key: 'oceanpay_tx', label: 'Ocean Pay | Transaccion submarina', tag: 'Ocean Pay' },
+                { key: 'ssa_swim', label: 'Savage Space Animals | Fauna estelar', tag: 'SSA' },
+            ];
+        }
+
+        function drawBootScene(canvas, sceneKey, t) {
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
+            const w = Number(canvas.width || 1200);
+            const h = Number(canvas.height || 420);
+            ctx.clearRect(0, 0, w, h);
+            const tt = Math.max(0, Number(t || 0));
+
+            const bg = ctx.createLinearGradient(0, 0, w, h);
+            bg.addColorStop(0, '#050c17');
+            bg.addColorStop(1, '#0b1729');
+            ctx.fillStyle = bg;
+            ctx.fillRect(0, 0, w, h);
+
+            const starCount = 90;
+            for (let i = 0; i < starCount; i++) {
+                const x = (i * 83 + Math.sin(tt * 0.0002 + i) * 60 + w) % w;
+                const y = (i * 47 + Math.cos(tt * 0.00018 + i * 0.4) * 24 + h) % h;
+                const r = (i % 3 === 0 ? 1.7 : 1.1);
+                ctx.fillStyle = `rgba(190,220,255,${0.22 + (Math.sin(tt * 0.002 + i) * 0.18 + 0.18)})`;
+                ctx.beginPath();
+                ctx.arc(x, y, r, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            if (sceneKey === 'ecoxion_space') {
+                const holeX = w * 0.72;
+                const holeY = h * 0.42;
+                for (let i = 0; i < 14; i++) {
+                    const rr = 24 + i * 8;
+                    ctx.strokeStyle = `rgba(38,224,255,${0.22 - i * 0.012})`;
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.ellipse(holeX, holeY, rr * 1.65, rr * 0.7, tt * 0.00035 + i * 0.15, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+                ctx.fillStyle = '#03070d';
+                ctx.beginPath();
+                ctx.arc(holeX, holeY, 40, 0, Math.PI * 2);
+                ctx.fill();
+
+                const planetX = w * 0.28;
+                const planetY = h * 0.56;
+                const grad = ctx.createRadialGradient(planetX - 30, planetY - 36, 6, planetX, planetY, 90);
+                grad.addColorStop(0, '#89edff');
+                grad.addColorStop(1, '#0e304b');
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.arc(planetX, planetY, 88, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(planetX + 6, planetY - 6, 72, -0.4, 2.5);
+                ctx.stroke();
+            } else if (sceneKey === 'velocity_racers') {
+                for (let i = 0; i < 6; i++) {
+                    const laneY = h * 0.2 + i * 46;
+                    ctx.strokeStyle = i % 2 ? 'rgba(38,224,255,0.34)' : 'rgba(243,136,72,0.3)';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(0, laneY);
+                    ctx.lineTo(w, laneY + 14);
+                    ctx.stroke();
+                }
+                for (let c = 0; c < 3; c++) {
+                    const x = (tt * (0.26 + c * 0.04) + c * 250) % (w + 220) - 120;
+                    const y = h * (0.38 + c * 0.18);
+                    ctx.fillStyle = c === 1 ? '#26e0ff' : '#f38848';
+                    ctx.fillRect(x, y, 130, 34);
+                    ctx.fillStyle = '#0a1020';
+                    ctx.beginPath();
+                    ctx.arc(x + 24, y + 36, 10, 0, Math.PI * 2);
+                    ctx.arc(x + 102, y + 36, 10, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = 'rgba(255,255,255,0.22)';
+                    ctx.strokeRect(x + 14, y + 6, 42, 13);
+                }
+            } else if (sceneKey === 'wildweapon_battle') {
+                const centerY = h * 0.56;
+                const swing = Math.sin(tt * 0.004) * 18;
+                ctx.strokeStyle = '#ff8a55';
+                ctx.lineWidth = 9;
+                ctx.beginPath();
+                ctx.moveTo(w * 0.28, centerY + 70);
+                ctx.lineTo(w * 0.45, centerY - 74 + swing);
+                ctx.stroke();
+                ctx.strokeStyle = '#2ce4ff';
+                ctx.beginPath();
+                ctx.moveTo(w * 0.72, centerY + 70);
+                ctx.lineTo(w * 0.55, centerY - 74 - swing);
+                ctx.stroke();
+                for (let i = 0; i < 28; i++) {
+                    const ang = (Math.PI * 2 * i) / 28 + tt * 0.002;
+                    const rr = 28 + (i % 5) * 5;
+                    ctx.fillStyle = i % 2 ? 'rgba(255,154,90,0.8)' : 'rgba(79,233,255,0.8)';
+                    ctx.beginPath();
+                    ctx.arc(w * 0.5 + Math.cos(ang) * rr, centerY + Math.sin(ang) * rr, 2.2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            } else if (sceneKey === 'oceanpay_tx') {
+                const sea = ctx.createLinearGradient(0, h * 0.35, 0, h);
+                sea.addColorStop(0, 'rgba(23,76,110,0.35)');
+                sea.addColorStop(1, 'rgba(9,31,56,0.85)');
+                ctx.fillStyle = sea;
+                ctx.fillRect(0, h * 0.35, w, h * 0.65);
+                const waveY = h * 0.42 + Math.sin(tt * 0.0012) * 6;
+                ctx.strokeStyle = 'rgba(72,189,233,0.5)';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                for (let x = 0; x <= w; x += 20) {
+                    const yy = waveY + Math.sin((x * 0.016) + tt * 0.003) * 8;
+                    if (x === 0) ctx.moveTo(x, yy);
+                    else ctx.lineTo(x, yy);
+                }
+                ctx.stroke();
+
+                const c1x = w * 0.26;
+                const c2x = w * 0.74;
+                const cy = h * 0.66;
+                const pulse = (Math.sin(tt * 0.004) + 1) * 0.5;
+                ctx.fillStyle = '#10253e';
+                ctx.fillRect(c1x - 66, cy - 34, 132, 72);
+                ctx.fillRect(c2x - 66, cy - 34, 132, 72);
+                ctx.strokeStyle = '#2ce4ff';
+                ctx.strokeRect(c1x - 66, cy - 34, 132, 72);
+                ctx.strokeStyle = '#f4a15e';
+                ctx.strokeRect(c2x - 66, cy - 34, 132, 72);
+                ctx.strokeStyle = `rgba(46,228,255,${0.36 + pulse * 0.5})`;
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.moveTo(c1x + 70, cy + 2);
+                ctx.lineTo(c2x - 70, cy + 2);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(c2x - 76, cy - 6);
+                ctx.lineTo(c2x - 58, cy + 2);
+                ctx.lineTo(c2x - 76, cy + 10);
+                ctx.stroke();
+            } else {
+                const bodyX = w * 0.52 + Math.sin(tt * 0.0013) * 20;
+                const bodyY = h * 0.55 + Math.cos(tt * 0.0018) * 16;
+                ctx.fillStyle = '#1f3f5f';
+                ctx.beginPath();
+                ctx.ellipse(bodyX, bodyY, 90, 56, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#57d8f7';
+                ctx.beginPath();
+                ctx.ellipse(bodyX + 20, bodyY - 10, 58, 34, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#0a1627';
+                ctx.beginPath();
+                ctx.arc(bodyX + 40, bodyY - 14, 6, 0, Math.PI * 2);
+                ctx.fill();
+                const tail = 18 + Math.sin(tt * 0.007) * 8;
+                ctx.strokeStyle = '#78ebff';
+                ctx.lineWidth = 9;
+                ctx.beginPath();
+                ctx.moveTo(bodyX - 76, bodyY + 4);
+                ctx.quadraticCurveTo(bodyX - 116, bodyY + tail, bodyX - 144, bodyY - 10);
+                ctx.stroke();
+                for (let i = 0; i < 18; i++) {
+                    const bx = (i * 80 + tt * 0.14) % (w + 50) - 25;
+                    const by = h - ((tt * 0.03 + i * 14) % (h * 0.62));
+                    ctx.fillStyle = 'rgba(115,218,255,0.34)';
+                    ctx.beginPath();
+                    ctx.arc(bx, by, 2.5 + (i % 3), 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+
+        function startBootCanvasAnimation() {
+            const canvas = document.getElementById('boot-canvas');
+            const captionText = document.getElementById('boot-scene-caption-text');
+            const captionTag = document.getElementById('boot-scene-caption-tag');
+            if (!canvas) return;
+            const scenes = getBootScenes();
+            if (!scenes.length) return;
+
+            const render = (ts) => {
+                if (!bootAnimationState.running) return;
+                if (!bootAnimationState.startTs) bootAnimationState.startTs = ts;
+                const elapsed = ts - bootAnimationState.startTs;
+                const cyc = bootAnimationState.sceneHoldMs + bootAnimationState.sceneFadeMs;
+                const autoIndex = Math.floor(elapsed / cyc) % scenes.length;
+                const sceneIndex = bootAnimationState.forcedSceneIndex >= 0
+                    ? Math.min(Math.max(bootAnimationState.forcedSceneIndex, 0), scenes.length - 1)
+                    : autoIndex;
+                const local = elapsed % cyc;
+                const fade = local > bootAnimationState.sceneHoldMs
+                    ? 1 - Math.min(1, (local - bootAnimationState.sceneHoldMs) / bootAnimationState.sceneFadeMs)
+                    : 1;
+                const scene = scenes[sceneIndex];
+                bootAnimationState.sceneIndex = sceneIndex;
+                drawBootScene(canvas, scene.key, elapsed);
+
+                const ctx = canvas.getContext('2d');
+                if (ctx && fade < 1) {
+                    ctx.fillStyle = `rgba(3,8,14,${1 - fade})`;
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                }
+                if (captionText) captionText.textContent = scene.label;
+                if (captionTag) captionTag.textContent = scene.tag;
+                bootAnimationRaf = requestAnimationFrame(render);
+            };
+
+            cancelAnimationFrame(bootAnimationRaf);
+            bootAnimationState.running = true;
+            bootAnimationState.startTs = 0;
+            bootAnimationRaf = requestAnimationFrame(render);
+        }
+
+        function stopBootCanvasAnimation() {
+            bootAnimationState.running = false;
+            cancelAnimationFrame(bootAnimationRaf);
+            bootAnimationRaf = 0;
+        }
+
         function setBootUiState({ index, total, labels }) {
             const fill = document.getElementById('boot-progress-fill');
             const pct = document.getElementById('boot-progress-percent');
@@ -11611,25 +11948,32 @@
             current.textContent = currentLabel;
             next.textContent = nextLabel;
             subtitle.textContent = currentLabel;
+            bootAnimationState.forcedSceneIndex = Math.max(0, Math.min(safeIndex, getBootScenes().length - 1));
         }
 
         async function playBootCompletionSequence() {
             const showcase = document.getElementById('boot-showcase');
             const overlay = document.getElementById('boot-overlay');
             const subtitle = document.getElementById('boot-subtitle');
-            if (subtitle) subtitle.textContent = 'Todo listo. Mostrando universo de proyectos...';
+            if (subtitle) subtitle.textContent = 'Validacion final completada. Iniciando secuencia 2D extendida...';
             if (showcase) showcase.classList.add('active');
+            bootAnimationState.forcedSceneIndex = -1;
             addNotification('Todos los proyectos cargaron correctamente.', 'success');
-            await new Promise((r) => setTimeout(r, 2400));
+            addNotification('Eventos y banners sincronizados correctamente.', 'success');
+            await new Promise((r) => setTimeout(r, 2000));
+            addNotification('Secuencia cinematica de arranque en progreso...', 'neutral');
+            await new Promise((r) => setTimeout(r, 5200));
             if (overlay) overlay.classList.add('done');
             await new Promise((r) => setTimeout(r, 1200));
             if (overlay) overlay.classList.remove('active');
+            stopBootCanvasAnimation();
         }
 
         async function runBootSequence() {
             const overlay = document.getElementById('boot-overlay');
             if (!overlay) return;
             overlay.classList.add('active');
+            startBootCanvasAnimation();
 
             const steps = [
                 {
@@ -11708,6 +12052,9 @@
         window.onload = () => {
             runBootSequence().catch((err) => {
                 console.log('Boot sequence fallo, continuando inicializacion basica:', err?.message || err);
+                stopBootCanvasAnimation();
+                const overlay = document.getElementById('boot-overlay');
+                if (overlay) overlay.classList.remove('active');
                 libraryOwnedSlugs = loadLibraryOwnedSlugs();
                 dismissedUpToDateProjectCards = loadDismissedUpToDateProjectCards();
                 loadSystemNotificationSeenKeys();
@@ -11731,6 +12078,7 @@
             if (brandCycleTimer) clearInterval(brandCycleTimer);
             if (spotlightSlideTimer) clearInterval(spotlightSlideTimer);
             if (spotlightSlideCleanupTimer) clearTimeout(spotlightSlideCleanupTimer);
+            stopBootCanvasAnimation();
         };
     </script>
 </body>

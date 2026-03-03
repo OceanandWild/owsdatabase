@@ -70,6 +70,157 @@
                         var(--bg);
         }
 
+        .boot-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 12000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            background:
+                radial-gradient(900px 500px at 10% 20%, rgba(38, 224, 255, 0.16), transparent 60%),
+                radial-gradient(900px 500px at 90% 80%, rgba(209, 79, 42, 0.2), transparent 62%),
+                #050d18;
+        }
+
+        .boot-overlay.active { display: flex; }
+        .boot-overlay.done { animation: bootFadeOut 1.2s ease forwards; }
+
+        .boot-card {
+            width: min(760px, 100%);
+            border: 1px solid rgba(89, 156, 190, 0.4);
+            border-radius: 18px;
+            padding: 1.1rem;
+            background: linear-gradient(165deg, rgba(8, 22, 37, 0.95), rgba(9, 17, 29, 0.95));
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+            color: #e5efff;
+        }
+
+        .boot-title { font-size: 1.05rem; font-weight: 800; letter-spacing: 0.2px; }
+        .boot-subtitle { margin-top: 0.2rem; color: #a6bbd5; font-size: 0.78rem; }
+        .boot-progress {
+            margin-top: 0.8rem;
+            width: 100%;
+            height: 11px;
+            border-radius: 999px;
+            background: rgba(93, 119, 148, 0.35);
+            overflow: hidden;
+        }
+        .boot-progress-fill {
+            width: 0%;
+            height: 100%;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #26e0ff, #f38848);
+            transition: width 0.35s ease;
+        }
+        .boot-progress-meta {
+            margin-top: 0.4rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.72rem;
+            color: #99afca;
+            font-family: 'Space Mono', monospace;
+        }
+        .boot-queue {
+            margin-top: 0.75rem;
+            display: grid;
+            gap: 0.45rem;
+        }
+        .boot-step {
+            border: 1px solid #344b67;
+            border-radius: 10px;
+            padding: 0.45rem 0.6rem;
+            font-size: 0.77rem;
+            color: #8ea4c0;
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            background: rgba(16, 30, 47, 0.72);
+        }
+        .boot-step::before {
+            content: '';
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: 2px solid #5f7799;
+            box-sizing: border-box;
+            flex-shrink: 0;
+        }
+        .boot-step-current {
+            color: #dff5ff;
+            border-color: #57bfd4;
+            background: rgba(24, 52, 76, 0.78);
+        }
+        .boot-step-current::before {
+            border-color: transparent;
+            border-top-color: #26e0ff;
+            animation: spinLoop 1s linear infinite;
+        }
+        .boot-step-next,
+        .boot-step-prev {
+            color: #7f94ad;
+            border-color: #33485f;
+        }
+        .boot-step-next::before {
+            border-color: #5b6f86;
+            position: relative;
+        }
+        .boot-step-next::after {
+            content: '...';
+            margin-left: -2px;
+            color: #6f8299;
+            font-family: 'Space Mono', monospace;
+        }
+        .boot-step-prev::before {
+            border: 0;
+            width: 14px;
+            height: 14px;
+            border-radius: 4px;
+            background: linear-gradient(135deg, #27d993, #6ce0b3);
+            clip-path: polygon(14% 54%, 0 68%, 38% 100%, 100% 26%, 86% 12%, 38% 72%);
+            opacity: 0.9;
+        }
+        .boot-showcase {
+            margin-top: 0.9rem;
+            border-top: 1px solid rgba(80, 112, 146, 0.36);
+            padding-top: 0.7rem;
+            display: none;
+            gap: 0.42rem;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.55s ease;
+        }
+        .boot-showcase.active {
+            display: grid;
+            max-height: 320px;
+            animation: bootShowcaseIn 0.6s ease both;
+        }
+        .boot-scene {
+            border: 1px solid rgba(78, 131, 168, 0.42);
+            border-radius: 10px;
+            padding: 0.42rem 0.6rem;
+            color: #b8d8f3;
+            font-size: 0.75rem;
+            background: linear-gradient(120deg, rgba(17, 35, 53, 0.88), rgba(14, 24, 41, 0.88));
+            animation: bootSceneFloat 2.8s ease-in-out infinite;
+        }
+        .boot-scene:nth-child(2n) { animation-delay: 0.3s; }
+        .boot-scene:nth-child(3n) { animation-delay: 0.6s; }
+
+        @keyframes bootFadeOut {
+            to { opacity: 0; transform: scale(1.02); visibility: hidden; }
+        }
+        @keyframes bootShowcaseIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes bootSceneFloat {
+            0%, 100% { transform: translateX(0); }
+            50% { transform: translateX(4px); }
+        }
+
         .app-container {
             display: grid;
             grid-template-columns: 300px 1fr;
@@ -1484,6 +1635,12 @@
             border: 1px solid #e6d9ca;
         }
 
+        .icon-fit-contain {
+            object-fit: contain !important;
+            background: #06111e !important;
+            padding: 4px;
+        }
+
         .app-name {
             font-size: 1.14rem;
             font-weight: 700;
@@ -2881,6 +3038,32 @@
 </head>
 
 <body>
+    <div id="boot-overlay" class="boot-overlay active" aria-live="polite">
+        <div class="boot-card">
+            <div class="boot-title">OWS Store iniciando ecosistema</div>
+            <div class="boot-subtitle" id="boot-subtitle">Preparando carga inicial de proyectos...</div>
+            <div class="boot-progress">
+                <div id="boot-progress-fill" class="boot-progress-fill"></div>
+            </div>
+            <div class="boot-progress-meta">
+                <span id="boot-progress-percent">0%</span>
+                <span id="boot-progress-counter">0/0</span>
+            </div>
+            <div class="boot-queue">
+                <div id="boot-step-next" class="boot-step boot-step-next">...</div>
+                <div id="boot-step-current" class="boot-step boot-step-current">Iniciando...</div>
+                <div id="boot-step-prev" class="boot-step boot-step-prev">Esperando...</div>
+            </div>
+            <div id="boot-showcase" class="boot-showcase">
+                <div class="boot-scene">Ecoxion: espacio profundo y estrellas.</div>
+                <div class="boot-scene">Velocity Surge: corredores en alta velocidad.</div>
+                <div class="boot-scene">WildWeapon: combate tactico en progreso.</div>
+                <div class="boot-scene">Ocean Pay: transaccion bajo el oceano.</div>
+                <div class="boot-scene">SSA: criatura espacial en movimiento.</div>
+            </div>
+        </div>
+    </div>
+
     <div id="game-overlay">
         <div class="game-controls">
             <button class="btn-close-game" onclick="closeGame()"><i class="fas fa-house"></i> CARGAR STORE</button>
@@ -3093,7 +3276,7 @@
                                     <div class="spotlight-list-item"><span>WildWeapon Mayhem</span><span>Windows</span></div>
                                     <div class="spotlight-list-item"><span>Savage Space Animals</span><span>Windows</span></div>
                                     <div class="spotlight-list-item"><span>WildTransfer</span><span>Windows</span></div>
-                                    <div class="spotlight-list-item"><span>OWS Store</span><span>Core Hub</span></div>
+                                    <div class="spotlight-list-item"><span>Naturepedia</span><span>Proximamente</span></div>
                                 </div>
                             </div>
                             <div class="spotlight-panel">
@@ -3321,6 +3504,8 @@
         const WILD_DESTINY_RELEASE_DATE_ISO = '2026-03-07T18:00:00Z';
         // Uruguay (UYT, UTC-3): 14/03/2026 10:00 -> 2026-03-14T13:00:00Z
         const ECOXION_RELEASE_DATE_ISO = '2026-03-14T13:00:00Z';
+        const NATUREPEDIA_PLACEHOLDER_DATE_ISO = '';
+        const WILDSHORTS_PLACEHOLDER_DATE_ISO = '';
         const SSA_PROJECT = {
             slug: 'savagespaceanimals',
             name: 'Savage Space Animals',
@@ -3395,6 +3580,36 @@
             description: 'Proyecto nuevo de Ecoxion preparado para su primer build de Windows. Estado: Proximamente.',
             icon_url: ECOXION_LOCAL_ICON
         };
+        const NATUREPEDIA_PROJECT = {
+            slug: 'naturepedia',
+            name: 'Naturepedia',
+            short: 'NTP',
+            status: 'coming_soon',
+            version: '1.0.0',
+            platform: 'windows',
+            install_type: 'external',
+            installer_url: '',
+            installer_available: false,
+            pending_release: true,
+            release_date: NATUREPEDIA_PLACEHOLDER_DATE_ISO,
+            description: 'Enciclopedia interactiva del ecosistema natural. Proximamente (fecha por decidir).',
+            icon_url: ''
+        };
+        const WILDSHORTS_PROJECT = {
+            slug: 'wildshorts',
+            name: 'WildShorts',
+            short: 'WSH',
+            status: 'coming_soon',
+            version: '1.0.0',
+            platform: 'windows',
+            install_type: 'external',
+            installer_url: '',
+            installer_available: false,
+            pending_release: true,
+            release_date: WILDSHORTS_PLACEHOLDER_DATE_ISO,
+            description: 'Contenido corto del universo OWS. Proximamente (fecha por decidir).',
+            icon_url: ''
+        };
         const VELOCITY_SURGE_PROJECT = {
             slug: 'velocity-surge',
             name: 'Velocity Surge',
@@ -3447,38 +3662,38 @@
                 slug: 'ecoxion',
             },
             {
-                key: 'velocity-surge-launch',
-                label: 'Nuevo proyecto',
-                title: 'Velocity Surge entra a OWS Store para Windows',
-                text: 'Carreras arcade con progresion competitiva y eventos de temporada ya disponibles.',
+                key: 'naturepedia-coming-soon',
+                label: 'Proximamente',
+                title: 'Naturepedia llegara a OWS Store',
+                text: 'Proyecto en preparacion. Fecha de lanzamiento por decidir.',
+                slug: 'naturepedia',
+            },
+            {
+                key: 'wildshorts-coming-soon',
+                label: 'Proximamente',
+                title: 'WildShorts llegara a OWS Store',
+                text: 'Lanzamiento en planificacion. Fecha por decidir.',
+                slug: 'wildshorts',
+            },
+            {
+                key: 'velocity-surge-live',
+                label: 'Disponible',
+                title: 'Velocity Surge ya disponible en OWS Store',
+                text: 'Carreras arcade con progresion competitiva activas.',
                 slug: 'velocity-surge',
             },
             {
-                key: 'ows-news-retired',
-                label: 'Store Changelog',
-                title: 'OWS News fue retirado como app independiente',
-                text: 'Noticias y eventos oficiales ahora se gestionan directamente dentro de OWS Store.',
-                slug: '',
+                key: 'wildweapon-live',
+                label: 'Disponible',
+                title: 'WildWeapon Mayhem listo para instalar',
+                text: 'Combate tactico de alto impacto en Windows.',
+                slug: 'wildweapon',
             },
             {
-                key: 'wildtransfer-arrival',
-                label: 'Lanzamiento',
-                title: 'WildTransfer ya forma parte de OWS Store',
-                text: 'Transferencia de archivos con enfoque rapido y mas integrado al ecosistema.',
-                slug: 'wildtransfer',
-            },
-            {
-                key: 'store-news-hub',
-                label: 'Novedad',
-                title: 'Nuevo centro de noticias dentro de OWS Store',
-                text: 'Ahora los anuncios, changelogs y eventos viven en un solo lugar: OWS Store.',
-                slug: '',
-            },
-            {
-                key: 'ocean-pay-recommend',
-                label: 'Recomendado',
-                title: 'Se recomienda instalar Ocean Pay',
-                text: 'Ocean Pay centraliza identidad y divisas para integraciones entre proyectos OWS.',
+                key: 'ocean-pay-core',
+                label: 'Core',
+                title: 'Ocean Pay conecta el ecosistema',
+                text: 'Identidad y transacciones unificadas para apps OWS.',
                 slug: 'ocean-pay',
             },
         ];
@@ -4401,9 +4616,7 @@
         }
 
         function getSpotlightSlides() {
-            return Array.isArray(spotlightSlidesDynamic) && spotlightSlidesDynamic.length
-                ? spotlightSlidesDynamic
-                : SPOTLIGHT_SLIDES_FALLBACK;
+            return SPOTLIGHT_SLIDES_FALLBACK;
         }
 
         function restartSpotlightSliderAuto() {
@@ -4653,7 +4866,11 @@
             sidebarSelectedDownloadKey = current?.key || '';
             dock.classList.add('visible');
             if (countBadge) countBadge.textContent = String(items.length);
-            if (icon) icon.src = current.icon || STORE_LOCAL_ICON;
+            if (icon) {
+                icon.src = current.icon || STORE_LOCAL_ICON;
+                const isEcoxionDownload = String(current?.slug || '').toLowerCase() === 'ecoxion';
+                icon.classList.toggle('icon-fit-contain', isEcoxionDownload);
+            }
             if (title) title.textContent = current.name || 'Descarga';
             if (status) {
                 status.textContent = current.status
@@ -4699,9 +4916,10 @@
                 const showProgress = item.phase === 'downloading' || item.phase === 'launching' || item.phase === 'ready' || item.phase === 'done';
                 const metaText = item.status
                     || `Tamano ${sizeText} | Recibido ${downloadedText} | Velocidad ${speedText} | ETA ${etaText}`;
+                const avatarFit = String(item?.slug || '').toLowerCase() === 'ecoxion' ? 'icon-fit-contain' : '';
                 return `
                     <div class="download-item ${item.phase}">
-                        <img class="avatar" src="${item.icon || STORE_LOCAL_ICON}" alt="${item.name}">
+                        <img class="avatar ${avatarFit}" src="${item.icon || STORE_LOCAL_ICON}" alt="${item.name}">
                         <div class="download-item-main">
                             <div class="download-item-head">
                                 <div class="download-item-title">${item.name}</div>
@@ -5833,6 +6051,17 @@
                 aliases.add('wildtransfer');
                 aliases.add('wild-transfer');
             }
+            if (isEcoxionProject(project)) {
+                aliases.add('ecoxion');
+            }
+            if (isNaturepediaProject(project)) {
+                aliases.add('naturepedia');
+            }
+            if (isWildShortsProject(project)) {
+                aliases.add('wildshorts');
+                aliases.add('wild shorts');
+                aliases.add('wild-shorts');
+            }
             if (isVelocitySurgeProject(project)) {
                 aliases.add('velocity surge');
                 aliases.add('velocity-surge');
@@ -5921,13 +6150,142 @@
             });
         }
 
+        function detectKnownEventProjectKey(entry) {
+            const names = Array.isArray(entry?.projectNames) ? entry.projectNames.map((n) => String(n || '').toLowerCase()) : [];
+            const blob = `${entry?.title || ''} ${entry?.description || ''} ${(entry?.changes || []).join(' ')} ${names.join(' ')}`.toLowerCase();
+            if (blob.includes('wild destiny') || blob.includes('wild-destiny') || blob.includes('wilddestiny')) return 'wild-destiny';
+            if (blob.includes('ecoxion')) return 'ecoxion';
+            if (blob.includes('naturepedia')) return 'naturepedia';
+            if (blob.includes('wildshorts') || blob.includes('wild shorts') || blob.includes('wild-shorts')) return 'wildshorts';
+            return '';
+        }
+
+        function getManualStoreEvents() {
+            const ecoWindow = { startAt: ECOXION_RELEASE_DATE_ISO, endAt: '' };
+            const ecoPhase = resolveEventPhase(ecoWindow);
+            return [
+                {
+                    id: -1001,
+                    title: 'Wild Destiny - Evento de lanzamiento',
+                    description: 'Lanzamiento oficial de Wild Destiny en OWS Store para Windows.',
+                    changes: [],
+                    projectNames: ['wild-destiny', 'wild destiny'],
+                    updateDate: WILD_DESTINY_RELEASE_DATE_ISO,
+                    isEvent: true,
+                    isBanner: false,
+                    entryType: 'event',
+                    platforms: ['windows'],
+                    isActive: true,
+                    priority: 900,
+                    model2d: { key: 'launch_orbit' },
+                    bannerMeta: {},
+                    eventWindow: { startAt: WILD_DESTINY_RELEASE_DATE_ISO, endAt: '' },
+                    eventPhase: resolveEventPhase({ startAt: WILD_DESTINY_RELEASE_DATE_ISO, endAt: '' }),
+                },
+                {
+                    id: -1002,
+                    title: 'Ecoxion: lanzamiento a Windows en OWS Store',
+                    description: 'Evento de lanzamiento para Ecoxion en OWS Store.',
+                    changes: [],
+                    projectNames: ['ecoxion'],
+                    updateDate: ECOXION_RELEASE_DATE_ISO,
+                    isEvent: true,
+                    isBanner: false,
+                    entryType: 'event',
+                    platforms: ['windows'],
+                    isActive: true,
+                    priority: 950,
+                    model2d: { key: 'galaxy_core' },
+                    bannerMeta: {},
+                    eventWindow: ecoWindow,
+                    // Forzamos "proximo" hasta que llegue la fecha.
+                    eventPhase: ecoPhase === 'active' ? 'upcoming' : ecoPhase,
+                },
+                {
+                    id: -1003,
+                    title: 'Naturepedia - lanzamiento proximamente',
+                    description: 'Evento placeholder de lanzamiento. Fecha por decidir.',
+                    changes: ['Fecha por decidir'],
+                    projectNames: ['naturepedia'],
+                    updateDate: '2026-03-03T00:00:00Z',
+                    isEvent: true,
+                    isBanner: false,
+                    entryType: 'event',
+                    platforms: ['windows'],
+                    isActive: true,
+                    priority: 700,
+                    model2d: { key: 'forest_grid' },
+                    bannerMeta: {},
+                    eventWindow: { startAt: null, endAt: null },
+                    eventPhase: 'upcoming',
+                },
+                {
+                    id: -1004,
+                    title: 'WildShorts - lanzamiento proximamente',
+                    description: 'Evento placeholder de lanzamiento. Fecha por decidir.',
+                    changes: ['Fecha por decidir'],
+                    projectNames: ['wildshorts', 'wild shorts'],
+                    updateDate: '2026-03-03T00:00:00Z',
+                    isEvent: true,
+                    isBanner: false,
+                    entryType: 'event',
+                    platforms: ['windows'],
+                    isActive: true,
+                    priority: 700,
+                    model2d: { key: 'signal_flow' },
+                    bannerMeta: {},
+                    eventWindow: { startAt: null, endAt: null },
+                    eventPhase: 'upcoming',
+                },
+            ];
+        }
+
+        function dedupeLaunchEvents(entries = []) {
+            const dedupeProjectKeys = new Set(['wild-destiny', 'ecoxion', 'naturepedia', 'wildshorts']);
+            const normal = [];
+            const byKey = new Map();
+            (Array.isArray(entries) ? entries : []).forEach((entry) => {
+                if (!entry?.isEvent) {
+                    normal.push(entry);
+                    return;
+                }
+                const known = detectKnownEventProjectKey(entry);
+                if (!dedupeProjectKeys.has(known)) {
+                    normal.push(entry);
+                    return;
+                }
+                const current = byKey.get(known);
+                if (!current) {
+                    byKey.set(known, entry);
+                    return;
+                }
+                const curPriority = Number(current?.priority || 0);
+                const nextPriority = Number(entry?.priority || 0);
+                if (nextPriority > curPriority) {
+                    byKey.set(known, entry);
+                    return;
+                }
+                const curTs = Date.parse(current?.updateDate || current?.eventWindow?.startAt || '') || 0;
+                const nextTs = Date.parse(entry?.updateDate || entry?.eventWindow?.startAt || '') || 0;
+                if (nextTs >= curTs) byKey.set(known, entry);
+            });
+            return [...normal, ...[...byKey.values()]];
+        }
+
         function getStoreNewsEntries() {
-            return (owsNewsUpdatesCache || []).filter((entry) => {
+            const merged = [
+                ...((owsNewsUpdatesCache || []).filter((entry) => {
+                    if (entry?.isBanner) return false;
+                    const keys = Array.isArray(entry?.projectNames) ? entry.projectNames : [];
+                    if (keys.some((k) => String(k || '').toLowerCase().includes('ows-store') || String(k || '').toLowerCase().includes('ows store'))) return true;
+                    const blob = `${entry?.title || ''} ${entry?.description || ''} ${(entry?.changes || []).join(' ')}`.toLowerCase();
+                    return blob.includes('ows store');
+                })),
+                ...getManualStoreEvents(),
+            ];
+            return dedupeLaunchEvents(merged).filter((entry) => {
                 if (entry?.isBanner) return false;
-                const keys = Array.isArray(entry?.projectNames) ? entry.projectNames : [];
-                if (keys.some((k) => String(k || '').toLowerCase().includes('ows-store') || String(k || '').toLowerCase().includes('ows store'))) return true;
-                const blob = `${entry?.title || ''} ${entry?.description || ''} ${(entry?.changes || []).join(' ')}`.toLowerCase();
-                return blob.includes('ows store');
+                return true;
             });
         }
 
@@ -5977,7 +6335,10 @@
                     return (Date.parse(b?.updateDate || '') || 0) - (Date.parse(a?.updateDate || '') || 0);
                 })
                 .slice(0, 6);
-            const allEvents = list.filter((n) => n.isEvent);
+            const allEvents = dedupeLaunchEvents([
+                ...list.filter((n) => n.isEvent),
+                ...getManualStoreEvents(),
+            ]);
             const featuredEvents = allEvents
                 .filter((e) => e.eventPhase !== 'ended')
                 .sort((a, b) => {
@@ -6030,7 +6391,10 @@
                 const moreHtml = remaining > 0 ? `<span>+${remaining} cambios mas...</span>` : '';
                 return `${desc ? `<span>${desc}</span>` : ''}${listHtml}${moreHtml}`;
             };
-            const owsNewsEntries = (owsNewsUpdatesCache || []).filter((entry) => doesNewsEntryMatchProject(entry, project));
+            const owsNewsEntries = dedupeLaunchEvents([
+                ...((owsNewsUpdatesCache || []).filter((entry) => doesNewsEntryMatchProject(entry, project))),
+                ...(getManualStoreEvents().filter((entry) => doesNewsEntryMatchProject(entry, project))),
+            ]);
             const releaseEntries = getReleaseDerivedProjectEntries(project);
             const entries = [...releaseEntries, ...owsNewsEntries]
                 .sort((a, b) => (Date.parse(b?.updateDate || '') || 0) - (Date.parse(a?.updateDate || '') || 0))
@@ -6394,6 +6758,20 @@
             return slug.includes('ecoxion') || name.includes('ecoxion');
         }
 
+        function isNaturepediaProject(project) {
+            if (!project) return false;
+            const slug = String(project.slug || '').toLowerCase();
+            const name = String(project.name || '').toLowerCase();
+            return slug.includes('naturepedia') || name.includes('naturepedia');
+        }
+
+        function isWildShortsProject(project) {
+            if (!project) return false;
+            const slug = String(project.slug || '').toLowerCase();
+            const name = String(project.name || '').toLowerCase();
+            return slug.includes('wildshorts') || slug.includes('wild-shorts') || name.includes('wildshorts') || name.includes('wild shorts');
+        }
+
         function isVelocitySurgeProject(project) {
             if (!project) return false;
             const slug = String(project.slug || '').toLowerCase();
@@ -6432,6 +6810,8 @@
             if (slug === 'savage-space-animals' || slug === 'savagespaceanimals' || slug === 'ssa' || name === 'savage space animals' || token.includes('savagespaceanimals')) return 'savagespaceanimals';
             if (slug === 'wild-transfer' || slug === 'wildtransfer' || name === 'wild transfer' || name === 'wildtransfer' || token.includes('wildtransfer')) return 'wildtransfer';
             if (slug === 'ecoxion' || name === 'ecoxion' || token.includes('ecoxion')) return 'ecoxion';
+            if (slug === 'naturepedia' || name === 'naturepedia' || token.includes('naturepedia')) return 'naturepedia';
+            if (slug === 'wildshorts' || slug === 'wild-shorts' || name === 'wildshorts' || name === 'wild shorts' || token.includes('wildshorts')) return 'wildshorts';
             if (slug === 'velocitysurge' || slug === 'velocity-surge' || name === 'velocity surge' || token.includes('velocitysurge')) return 'velocity-surge';
             if (slug === 'wild-wave' || slug === 'wildwave' || slug === 'wildx' || name === 'wildwave' || name === 'wild wave' || token.includes('wildwave')) return 'wildwave';
             if (slug === 'wildweapon' || slug === 'wildweapon-mayhem' || name === 'wildweapon mayhem' || token.includes('wildweaponmayhem')) return 'wildweapon-mayhem';
@@ -6499,6 +6879,8 @@
             if (isWildTransferProject(project)) return 'WTR';
             if (isWildDestinyProject(project)) return 'WD';
             if (isEcoxionProject(project)) return 'ECX';
+            if (isNaturepediaProject(project)) return 'NTP';
+            if (isWildShortsProject(project)) return 'WSH';
             if (isVelocitySurgeProject(project)) return 'VSG';
             if (isWildWaveProject(project)) return 'WWV';
             return '';
@@ -6584,6 +6966,50 @@
                     installer_available: hasReachedLaunch ? true : false,
                     release_date: list[idx].release_date || ECOXION_RELEASE_DATE_ISO,
                     icon_url: list[idx].icon_url || ECOXION_LOCAL_ICON
+                };
+            }
+            return list;
+        }
+
+        function ensureNaturepediaProject(projects) {
+            if (!Array.isArray(projects)) return [];
+            const list = [...projects];
+            const idx = list.findIndex(isNaturepediaProject);
+            if (idx === -1) {
+                list.unshift({ ...NATUREPEDIA_PROJECT });
+            } else {
+                list[idx] = {
+                    ...NATUREPEDIA_PROJECT,
+                    ...list[idx],
+                    slug: 'naturepedia',
+                    name: 'Naturepedia',
+                    short: 'NTP',
+                    status: 'coming_soon',
+                    pending_release: true,
+                    installer_available: false,
+                    release_date: ''
+                };
+            }
+            return list;
+        }
+
+        function ensureWildShortsProject(projects) {
+            if (!Array.isArray(projects)) return [];
+            const list = [...projects];
+            const idx = list.findIndex(isWildShortsProject);
+            if (idx === -1) {
+                list.unshift({ ...WILDSHORTS_PROJECT });
+            } else {
+                list[idx] = {
+                    ...WILDSHORTS_PROJECT,
+                    ...list[idx],
+                    slug: 'wildshorts',
+                    name: 'WildShorts',
+                    short: 'WSH',
+                    status: 'coming_soon',
+                    pending_release: true,
+                    installer_available: false,
+                    release_date: ''
                 };
             }
             return list;
@@ -7154,26 +7580,6 @@
                 });
             }
 
-            entries.push({
-                type: 'changelog',
-                tone: 'info',
-                title: 'OWS Store: Ecoxion agregado como Proximamente (Windows)',
-                date: '2026-03-02T23:58:00Z',
-                text: 'Se publico la ficha de Ecoxion en OWS Store con countdown y estado coming_soon.',
-                platforms: ['windows'],
-            });
-            entries.push({
-                type: 'evento',
-                tone: 'info',
-                title: 'Ecoxion: lanzamiento programado para Uruguay',
-                date: ECOXION_RELEASE_DATE_ISO,
-                text: `Lanzamiento planificado para el 14/03/2026 a las 10:00 (UYT) | ${formatDateTime(ECOXION_RELEASE_DATE_ISO)}.`,
-                platforms: ['windows'],
-                isEvent: true,
-                eventPhase: resolveEventPhase({ startAt: ECOXION_RELEASE_DATE_ISO, endAt: '' }),
-                eventWindow: { startAt: ECOXION_RELEASE_DATE_ISO, endAt: '' },
-            });
-
             const storeNews = getStoreNewsEntries();
             storeNews.slice(0, 20).forEach((entry) => {
                 const isEvent = Boolean(entry.isEvent);
@@ -7419,8 +7825,24 @@
                 ];
             }
             allProjects = dedupeProjectCatalog(Array.isArray(allProjects) ? allProjects : []);
-            allProjects = allProjects.filter((p) => !isOWSNewsProject(p));
-            allProjects = ensureWildWaveProject(ensureVelocitySurgeProject(ensureEcoxionProject(ensureWildDestinyProject(ensureWildTransferProject(ensureFloretProject(ensureSSAProject(allProjects)))))));
+            allProjects = allProjects.filter((p) => !isOWSNewsProject(p) && canonicalProjectSlug(p) !== 'ows-store');
+            allProjects = ensureWildWaveProject(
+                ensureVelocitySurgeProject(
+                    ensureWildShortsProject(
+                        ensureNaturepediaProject(
+                            ensureEcoxionProject(
+                                ensureWildDestinyProject(
+                                    ensureWildTransferProject(
+                                        ensureFloretProject(
+                                            ensureSSAProject(allProjects)
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            );
             allProjects = dedupeProjectCatalog(allProjects);
             await applyLatestInstallerData(allProjects);
             seedLibraryFromProjectCatalog();
@@ -8596,9 +9018,15 @@
             if (isWildTransferProject(project)) return project?.icon_url || WILDTRANSFER_LOCAL_ICON || `https://placehold.co/${size}/0a1120/35d7ff?text=WTR`;
             if (isWildDestinyProject(project)) return project?.icon_url || WILDDESTINY_LOCAL_ICON || `https://placehold.co/${size}/111827/67e8f9?text=WD`;
             if (isEcoxionProject(project)) return project?.icon_url || ECOXION_LOCAL_ICON || `https://placehold.co/${size}/07121f/26e0ff?text=ECX`;
+            if (isNaturepediaProject(project)) return project?.icon_url || `https://placehold.co/${size}/0b1420/8ee5a1?text=NTP`;
+            if (isWildShortsProject(project)) return project?.icon_url || `https://placehold.co/${size}/12131f/ffb96a?text=WSH`;
             if (isVelocitySurgeProject(project)) return project?.icon_url || VELOCITY_SURGE_LOCAL_ICON || `https://placehold.co/${size}/0a0f1e/26e0ff?text=VSG`;
             if (isWildWaveProject(project)) return project?.icon_url || WILDWAVE_LOCAL_ICON || `https://placehold.co/${size}/151029/c493ff?text=WWV`;
             return project?.icon_url || `https://placehold.co/${size}/0f172a/00f3ff?text=OWS`;
+        }
+
+        function getProjectIconClass(project) {
+            return isEcoxionProject(project) ? 'icon-fit-contain' : '';
         }
 
         function isWildWeaponProject(project) {
@@ -9656,6 +10084,20 @@
                     uninstallerNames: ['Uninstall Ecoxion.exe', 'unins000.exe']
                 };
             }
+            if (isNaturepediaProject(project)) {
+                return {
+                    installDirNames: ['Naturepedia', 'naturepedia'],
+                    executableNames: ['Naturepedia.exe', 'naturepedia.exe'],
+                    uninstallerNames: ['Uninstall Naturepedia.exe', 'unins000.exe']
+                };
+            }
+            if (isWildShortsProject(project)) {
+                return {
+                    installDirNames: ['WildShorts', 'wildshorts', 'wild-shorts'],
+                    executableNames: ['WildShorts.exe', 'wildshorts.exe', 'wild-shorts.exe'],
+                    uninstallerNames: ['Uninstall WildShorts.exe', 'unins000.exe']
+                };
+            }
             if (isVelocitySurgeProject(project)) {
                 return {
                     installDirNames: ['Velocity Surge', 'velocity-surge', 'velocitysurge'],
@@ -9835,7 +10277,7 @@
                         <div style="font-weight: 800; font-size: 0.8rem;">INSTALANDO...</div>
                         <div class="progress-bar-container"><div class="progress-fill" id="fill-${p.slug}"></div></div>
                     </div>
-                    <img src="${getProjectIcon(p, 64)}" class="app-icon" alt="Icon">
+                    <img src="${getProjectIcon(p, 64)}" class="app-icon ${getProjectIconClass(p)}" alt="Icon">
                     <div class="ecosystem-main">
                         <div class="ecosystem-topline">
                             <div class="app-name"><span class="ecosystem-title-wrap">${p.name}${short ? ` <span style="font-size:0.72rem;color:var(--brand-2);">(${short})</span>` : ''}${newBadgeHtml}</span></div>
@@ -9926,7 +10368,7 @@
                         ? `<div style="font-size:0.74rem; color:var(--ink-soft); margin-bottom:0.8rem;">Guardado en biblioteca. Instala para jugar o usar.</div>`
                         : '');
                 card.innerHTML = `
-                    <img src="${getProjectIcon(p, 64)}" class="app-icon" alt="Icon">
+                    <img src="${getProjectIcon(p, 64)}" class="app-icon ${getProjectIconClass(p)}" alt="Icon">
                     <div class="app-name">${p.name}</div>
                     <div class="app-meta"><span>v${metaVersion}</span><span id="lib-status-${p.slug}">${resolvedStatusLabel}</span></div>
                     <div style="font-size:0.74rem; color:var(--ink-soft); margin-bottom:0.8rem;">Ult. update: ${installDate}</div>
@@ -9960,7 +10402,9 @@
                 : (isReleaseTrackedProject(p)
                 ? (p.pending_release ? 'PENDING RELEASE' : 'READY TO INSTALL')
                 : (p.status || 'launched').toUpperCase());
-            document.getElementById('m-icon').src = getProjectIcon(p, 140);
+            const modalIconEl = document.getElementById('m-icon');
+            modalIconEl.src = getProjectIcon(p, 140);
+            modalIconEl.classList.toggle('icon-fit-contain', isEcoxionProject(p));
             document.getElementById('m-banner').style.backgroundImage = `url(${p.banner_url || 'https://images.unsplash.com/photo-1614850523296-d8c1af93d400?auto=format&fit=crop&q=80&w=800'})`;
 
             const targets = getProjectInstallTargets(p);
@@ -11125,24 +11569,7 @@
             });
         }
 
-        window.onload = () => {
-            libraryOwnedSlugs = loadLibraryOwnedSlugs();
-            dismissedUpToDateProjectCards = loadDismissedUpToDateProjectCards();
-            loadSystemNotificationSeenKeys();
-            primeSystemNotifications();
-            initTheme();
-            renderOWSStoreAndroidMeta();
-            initOceanPayStore();
-            bindStoreTimelineModalEvents();
-            renderDownloadSurfaces();
-            loadProjects();
-            initBrandCycle();
-            initSpotlightSlider();
-            initUpdater();
-            refreshStoreAndroidReleaseLink().catch(() => {
-                renderOWSStoreAndroidMeta();
-            });
-            initSearch();
+        function setupRecurringRefreshLoop() {
             setInterval(() => {
                 if (document.hidden) return;
                 checkProjectUpdatesAndNotify().then(() => {
@@ -11158,6 +11585,146 @@
                     requestWindowsUpdaterCheck({ silent: true, origin: 'auto' }).catch(() => {});
                 }
             }, 120000);
+        }
+
+        function setBootUiState({ index, total, labels }) {
+            const fill = document.getElementById('boot-progress-fill');
+            const pct = document.getElementById('boot-progress-percent');
+            const counter = document.getElementById('boot-progress-counter');
+            const subtitle = document.getElementById('boot-subtitle');
+            const next = document.getElementById('boot-step-next');
+            const current = document.getElementById('boot-step-current');
+            const prev = document.getElementById('boot-step-prev');
+            if (!fill || !pct || !counter || !subtitle || !next || !current || !prev) return;
+
+            const safeTotal = Math.max(1, Number(total || 1));
+            const safeIndex = Math.max(0, Math.min(Number(index || 0), safeTotal));
+            const percent = Math.round((safeIndex / safeTotal) * 100);
+            fill.style.width = `${percent}%`;
+            pct.textContent = `${percent}%`;
+            counter.textContent = `${safeIndex}/${safeTotal}`;
+
+            const prevLabel = labels[safeIndex - 1] || 'Esperando...';
+            const currentLabel = labels[Math.min(safeIndex, safeTotal - 1)] || 'Iniciando...';
+            const nextLabel = labels[safeIndex + 1] || 'Finalizando...';
+            prev.textContent = prevLabel;
+            current.textContent = currentLabel;
+            next.textContent = nextLabel;
+            subtitle.textContent = currentLabel;
+        }
+
+        async function playBootCompletionSequence() {
+            const showcase = document.getElementById('boot-showcase');
+            const overlay = document.getElementById('boot-overlay');
+            const subtitle = document.getElementById('boot-subtitle');
+            if (subtitle) subtitle.textContent = 'Todo listo. Mostrando universo de proyectos...';
+            if (showcase) showcase.classList.add('active');
+            addNotification('Todos los proyectos cargaron correctamente.', 'success');
+            await new Promise((r) => setTimeout(r, 2400));
+            if (overlay) overlay.classList.add('done');
+            await new Promise((r) => setTimeout(r, 1200));
+            if (overlay) overlay.classList.remove('active');
+        }
+
+        async function runBootSequence() {
+            const overlay = document.getElementById('boot-overlay');
+            if (!overlay) return;
+            overlay.classList.add('active');
+
+            const steps = [
+                {
+                    label: 'Inicializando preferencias locales',
+                    toast: 'Preferencias cargadas.',
+                    run: async () => {
+                        libraryOwnedSlugs = loadLibraryOwnedSlugs();
+                        dismissedUpToDateProjectCards = loadDismissedUpToDateProjectCards();
+                        loadSystemNotificationSeenKeys();
+                        primeSystemNotifications();
+                    }
+                },
+                {
+                    label: 'Aplicando tema y paneles base',
+                    toast: 'Interfaz base lista.',
+                    run: async () => {
+                        initTheme();
+                        renderOWSStoreAndroidMeta();
+                        initOceanPayStore();
+                        bindStoreTimelineModalEvents();
+                        renderDownloadSurfaces();
+                        initSearch();
+                    }
+                },
+                {
+                    label: 'Sincronizando catalogo de proyectos',
+                    toast: 'Catalogo de proyectos sincronizado.',
+                    run: async () => {
+                        await loadProjects();
+                    }
+                },
+                {
+                    label: 'Consultando metadata Android',
+                    toast: 'Metadata Android actualizada.',
+                    run: async () => {
+                        await refreshStoreAndroidReleaseLink().catch(() => {
+                            renderOWSStoreAndroidMeta();
+                        });
+                    }
+                },
+                {
+                    label: 'Activando sistema de updates',
+                    toast: 'Sistema de actualizaciones listo.',
+                    run: async () => {
+                        initUpdater();
+                    }
+                },
+                {
+                    label: 'Preparando experiencia visual final',
+                    toast: 'Experiencia visual preparada.',
+                    run: async () => {
+                        initBrandCycle();
+                        initSpotlightSlider();
+                    }
+                }
+            ];
+
+            const labels = steps.map((s) => s.label);
+            setBootUiState({ index: 0, total: steps.length, labels });
+            for (let i = 0; i < steps.length; i++) {
+                setBootUiState({ index: i, total: steps.length, labels });
+                try {
+                    await steps[i].run();
+                    addNotification(steps[i].toast, 'neutral');
+                } catch (err) {
+                    const msg = `${steps[i].label}: no se completo correctamente`;
+                    addNotification(msg, 'warning');
+                    console.log('[Boot] Step fallo:', steps[i].label, err?.message || err);
+                }
+                setBootUiState({ index: i + 1, total: steps.length, labels });
+            }
+
+            await playBootCompletionSequence();
+        }
+
+        window.onload = () => {
+            runBootSequence().catch((err) => {
+                console.log('Boot sequence fallo, continuando inicializacion basica:', err?.message || err);
+                libraryOwnedSlugs = loadLibraryOwnedSlugs();
+                dismissedUpToDateProjectCards = loadDismissedUpToDateProjectCards();
+                loadSystemNotificationSeenKeys();
+                primeSystemNotifications();
+                initTheme();
+                renderOWSStoreAndroidMeta();
+                initOceanPayStore();
+                bindStoreTimelineModalEvents();
+                renderDownloadSurfaces();
+                loadProjects().catch(() => {});
+                initBrandCycle();
+                initSpotlightSlider();
+                initUpdater();
+                initSearch();
+            }).finally(() => {
+                setupRecurringRefreshLoop();
+            });
         };
 
         window.onbeforeunload = () => {

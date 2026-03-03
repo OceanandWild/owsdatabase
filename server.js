@@ -8599,6 +8599,122 @@ const ECOXION_PLAN_CATALOG = {
   ultra: { id: 'ultra', label: 'Ultra', price: 1250, intervalDays: 30 }
 };
 
+const ECOXION_PLAN_CONFIG_DEFAULT = {
+  planAdvantages: {
+    free: {
+      'eco-luck': ['Tabla base de probabilidades.', 'Costo por tirada: 25 🪙.'],
+      'eco-generator': ['1 reclamo cada 20h.', 'Bono de racha estándar.'],
+      'clicky-coin': ['Límite diario estándar (50 clics).'],
+      'eco-stock': ['Acceso al mercado base.'],
+      'quick-surveys': ['Encuestas normales sin prioridad.'],
+      'smart-notes': ['Funciones base de edición y guardado local.']
+    },
+    plus: {
+      'eco-luck': ['Suerte aumentada: sube chance de x3/x10.', 'Pérdida total reducida frente al plan base.'],
+      'eco-generator': ['Eficiencia de generación mejorada.', 'Mejor rendimiento en rachas intermedias.'],
+      'clicky-coin': ['Mejor respuesta visual y recompensas consistentes.'],
+      'eco-stock': ['Panel de movimiento con lectura más rápida.'],
+      'quick-surveys': ['Acceso a más encuestas activas por ciclo.'],
+      'smart-notes': ['Capas de organización adicionales.']
+    },
+    pro: {
+      'eco-luck': ['Suerte premium: mejora clara de premios altos.', 'Mayor estabilidad en resultados no negativos.'],
+      'eco-generator': ['Multiplicador de productividad avanzado.', 'Bonos de racha reforzados.'],
+      'clicky-coin': ['Optimización de flujo en sesiones largas.'],
+      'eco-stock': ['Mejoras de señales y lectura de tendencia.'],
+      'quick-surveys': ['Prioridad de tareas con mejor recompensa media.'],
+      'smart-notes': ['Herramientas avanzadas de estructura y foco.']
+    },
+    ultra: {
+      'eco-luck': ['Suerte Ultra Nova: máxima probabilidad de x3/x10.', 'Mitigación alta de tiradas fallidas.'],
+      'eco-generator': ['Rendimiento máximo y consolidación de rachas.', 'Mejor estabilidad en ciclos largos.'],
+      'clicky-coin': ['Flujo experto + mejor consistencia de sesión.'],
+      'eco-stock': ['Lectura avanzada con ejecución de alto nivel.'],
+      'quick-surveys': ['Canal prioritario de encuestas premium.'],
+      'smart-notes': ['Suite completa de productividad premium.']
+    }
+  },
+  fortuneOdds: {
+    free: { tier0: 50, tier15: 30, tier3: 17, tier10: 3 },
+    plus: { tier0: 47, tier15: 31, tier3: 18, tier10: 4 },
+    pro: { tier0: 43, tier15: 32, tier3: 20, tier10: 5 },
+    ultra: { tier0: 38, tier15: 32, tier3: 23, tier10: 7 }
+  }
+};
+
+function sanitizeEcoxionPlanAdvantages(input) {
+  const source = input && typeof input === 'object' ? input : {};
+  const out = {};
+  for (const planId of ['free', 'plus', 'pro', 'ultra']) {
+    const rawPlan = source[planId] && typeof source[planId] === 'object' ? source[planId] : {};
+    out[planId] = {};
+    for (const [extKey, rawBenefits] of Object.entries(rawPlan)) {
+      if (!extKey) continue;
+      const benefits = Array.isArray(rawBenefits)
+        ? rawBenefits.map((x) => String(x || '').trim()).filter(Boolean).slice(0, 20)
+        : [];
+      out[planId][String(extKey).trim()] = benefits;
+    }
+  }
+  return out;
+}
+
+function sanitizeEcoxionFortuneOdds(input) {
+  const defaults = ECOXION_PLAN_CONFIG_DEFAULT.fortuneOdds;
+  const source = input && typeof input === 'object' ? input : {};
+  const out = {};
+  for (const planId of ['free', 'plus', 'pro', 'ultra']) {
+    const row = source[planId] && typeof source[planId] === 'object' ? source[planId] : {};
+    const tier0 = Number(row.tier0 ?? defaults[planId].tier0);
+    const tier15 = Number(row.tier15 ?? defaults[planId].tier15);
+    const tier3 = Number(row.tier3 ?? defaults[planId].tier3);
+    const tier10 = Number(row.tier10 ?? defaults[planId].tier10);
+    const values = [tier0, tier15, tier3, tier10].map((n) => (Number.isFinite(n) && n >= 0 ? n : 0));
+    const total = values.reduce((acc, n) => acc + n, 0);
+    if (total <= 0) {
+      out[planId] = { ...defaults[planId] };
+      continue;
+    }
+    const scaled = values.map((n) => Math.round((n / total) * 100));
+    const diff = 100 - scaled.reduce((acc, n) => acc + n, 0);
+    scaled[0] += diff;
+    out[planId] = { tier0: scaled[0], tier15: scaled[1], tier3: scaled[2], tier10: scaled[3] };
+  }
+  return out;
+}
+
+function sanitizeEcoxionPlanConfig(input) {
+  const source = input && typeof input === 'object' ? input : {};
+  return {
+    planAdvantages: sanitizeEcoxionPlanAdvantages(source.planAdvantages || ECOXION_PLAN_CONFIG_DEFAULT.planAdvantages),
+    fortuneOdds: sanitizeEcoxionFortuneOdds(source.fortuneOdds || ECOXION_PLAN_CONFIG_DEFAULT.fortuneOdds)
+  };
+}
+
+async function ensureEcoxionPlanConfigTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ecoxion_plan_configs (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      config JSONB NOT NULL,
+      updated_at TIMESTAMP DEFAULT NOW()
+    )
+  `);
+}
+
+async function getEcoxionPlanConfig() {
+  await ensureEcoxionPlanConfigTable();
+  const { rows } = await pool.query('SELECT config FROM ecoxion_plan_configs WHERE id = 1 LIMIT 1');
+  if (!rows.length) {
+    const initial = sanitizeEcoxionPlanConfig(ECOXION_PLAN_CONFIG_DEFAULT);
+    await pool.query(
+      'INSERT INTO ecoxion_plan_configs (id, config, updated_at) VALUES (1, $1::jsonb, NOW()) ON CONFLICT (id) DO NOTHING',
+      [JSON.stringify(initial)]
+    );
+    return initial;
+  }
+  return sanitizeEcoxionPlanConfig(rows[0].config || {});
+}
+
 function normalizeEcoxionPlanId(planId) {
   const key = String(planId || '').trim().toLowerCase();
   if (key.includes('ultra') || key.includes('nexus') || key.includes('elite')) return 'ultra';
@@ -8826,6 +8942,50 @@ app.get('/api/ecoxion/subscription/:userId', async (req, res) => {
   } catch (err) {
     console.error('Error obteniendo suscripcion Ecoxion:', err);
     res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// GET - Configuracion de planes Ecoxion (ventajas por extension + odds Fortuna)
+app.get('/api/ecoxion/plans/config', async (_req, res) => {
+  try {
+    const config = await getEcoxionPlanConfig();
+    return res.json({ success: true, config });
+  } catch (err) {
+    console.error('Error obteniendo config de planes Ecoxion:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// PUT - Actualizar configuracion de planes Ecoxion (admin)
+app.put('/api/ecoxion/plans/config', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  try {
+    const current = await getEcoxionPlanConfig();
+    const incoming = (req.body && typeof req.body === 'object') ? req.body : {};
+    const merged = sanitizeEcoxionPlanConfig({
+      planAdvantages: {
+        ...(current.planAdvantages || {}),
+        ...(incoming.planAdvantages && typeof incoming.planAdvantages === 'object' ? incoming.planAdvantages : {})
+      },
+      fortuneOdds: {
+        ...(current.fortuneOdds || {}),
+        ...(incoming.fortuneOdds && typeof incoming.fortuneOdds === 'object' ? incoming.fortuneOdds : {})
+      }
+    });
+
+    await pool.query(
+      `INSERT INTO ecoxion_plan_configs (id, config, updated_at)
+       VALUES (1, $1::jsonb, NOW())
+       ON CONFLICT (id) DO UPDATE SET
+         config = EXCLUDED.config,
+         updated_at = NOW()`,
+      [JSON.stringify(merged)]
+    );
+
+    return res.json({ success: true, config: merged });
+  } catch (err) {
+    console.error('Error actualizando config de planes Ecoxion:', err);
+    return res.status(500).json({ error: 'Error interno' });
   }
 });
 

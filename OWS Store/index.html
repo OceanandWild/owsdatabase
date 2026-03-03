@@ -1671,6 +1671,13 @@
             padding: 0;
         }
 
+        .icon-fit-ecoxion {
+            object-fit: cover !important;
+            object-position: center !important;
+            /* Crop transparent margins from source art while preserving square frame */
+            clip-path: inset(7% 7% 7% 7%);
+        }
+
         .app-name {
             font-size: 1.14rem;
             font-weight: 700;
@@ -3788,6 +3795,10 @@
             sceneHoldMs: 2800,
             sceneFadeMs: 620,
         };
+        let bootSequenceInProgress = false;
+        let bootDeferredStoreInstall = false;
+        let bootStoreUpdateCheckPromise = null;
+        let bootStoreUpdateCheckResult = null;
         let sidebarDownloadCursor = 0;
         let sidebarSelectedDownloadKey = '';
         let sidebarSelectionPinnedByUser = false;
@@ -4976,6 +4987,7 @@
             if (icon) {
                 icon.src = current.icon || STORE_LOCAL_ICON;
                 icon.classList.remove('icon-fit-contain');
+                icon.classList.toggle('icon-fit-ecoxion', String(current?.slug || '').toLowerCase() === 'ecoxion');
             }
             if (title) title.textContent = current.name || 'Descarga';
             if (status) {
@@ -5022,9 +5034,10 @@
                 const showProgress = item.phase === 'downloading' || item.phase === 'launching' || item.phase === 'ready' || item.phase === 'done';
                 const metaText = item.status
                     || `Tamano ${sizeText} | Recibido ${downloadedText} | Velocidad ${speedText} | ETA ${etaText}`;
+                const avatarEcoxion = String(item?.slug || '').toLowerCase() === 'ecoxion' ? 'icon-fit-ecoxion' : '';
                 return `
                     <div class="download-item ${item.phase}">
-                        <img class="avatar" src="${item.icon || STORE_LOCAL_ICON}" alt="${item.name}">
+                        <img class="avatar ${avatarEcoxion}" src="${item.icon || STORE_LOCAL_ICON}" alt="${item.name}">
                         <div class="download-item-main">
                             <div class="download-item-head">
                                 <div class="download-item-title">${item.name}</div>
@@ -9138,7 +9151,7 @@
         }
 
         function getProjectIconClass(project) {
-            return '';
+            return isEcoxionProject(project) ? 'icon-fit-ecoxion' : '';
         }
 
         function isWildWeaponProject(project) {
@@ -10517,6 +10530,7 @@
             const modalIconEl = document.getElementById('m-icon');
             modalIconEl.src = getProjectIcon(p, 140);
             modalIconEl.classList.remove('icon-fit-contain');
+            modalIconEl.classList.toggle('icon-fit-ecoxion', isEcoxionProject(p));
             document.getElementById('m-banner').style.backgroundImage = `url(${p.banner_url || 'https://images.unsplash.com/photo-1614850523296-d8c1af93d400?auto=format&fit=crop&q=80&w=800'})`;
 
             const targets = getProjectInstallTargets(p);
@@ -11072,7 +11086,8 @@
             }
         }
 
-        function initUpdater() {
+        function initUpdater(options = {}) {
+            const skipInitialCheck = Boolean(options?.skipInitialCheck);
             if (typeof window.owsUpdater === 'undefined') {
                 if (!isNativeAndroidRuntime()) return;
                 const banner = document.getElementById('update-banner');
@@ -11111,34 +11126,36 @@
                 if (banner) banner.classList.add('visible');
                 if (status) status.textContent = 'Buscando actualizaciones Android...';
                 setUpdateMetaUI({ sizeBytes: 0, etaSeconds: null, transferredBytes: null, speedBps: 0 });
-                checkOWSStoreAndroidUpdate({ silent: true, origin: 'auto' })
-                    .catch((err) => {
-                        const msg = err?.message || 'desconocido';
-                        appUpdateAvailable = false;
-                        syncUpdatesBadge();
-                        if (status) status.textContent = 'Error de verificacion Android';
-                        setUpdateBannerVisual({
-                            state: 'error',
-                            title: 'Error de actualizacion Android',
-                            message: 'No se pudo verificar updates Android: ' + msg,
-                            iconClass: 'fa-triangle-exclamation',
-                            iconSpin: false,
+                if (!skipInitialCheck) {
+                    checkOWSStoreAndroidUpdate({ silent: true, origin: 'auto' })
+                        .catch((err) => {
+                            const msg = err?.message || 'desconocido';
+                            appUpdateAvailable = false;
+                            syncUpdatesBadge();
+                            if (status) status.textContent = 'Error de verificacion Android';
+                            setUpdateBannerVisual({
+                                state: 'error',
+                                title: 'Error de actualizacion Android',
+                                message: 'No se pudo verificar updates Android: ' + msg,
+                                iconClass: 'fa-triangle-exclamation',
+                                iconSpin: false,
+                            });
+                            updateDownloadSession(STORE_DOWNLOAD_KEY, {
+                                name: 'OWS Store Android',
+                                icon: STORE_LOCAL_ICON,
+                                isApp: true,
+                                phase: 'error',
+                                percent: 0,
+                                status: 'Error verificando update Android: ' + msg,
+                            });
+                            addNotification('Error verificando updates Android: ' + msg, 'error');
+                            if (closeBtn) {
+                                closeBtn.disabled = false;
+                                closeBtn.style.opacity = '1';
+                                closeBtn.style.cursor = 'pointer';
+                            }
                         });
-                        updateDownloadSession(STORE_DOWNLOAD_KEY, {
-                            name: 'OWS Store Android',
-                            icon: STORE_LOCAL_ICON,
-                            isApp: true,
-                            phase: 'error',
-                            percent: 0,
-                            status: 'Error verificando update Android: ' + msg,
-                        });
-                        addNotification('Error verificando updates Android: ' + msg, 'error');
-                        if (closeBtn) {
-                            closeBtn.disabled = false;
-                            closeBtn.style.opacity = '1';
-                            closeBtn.style.cursor = 'pointer';
-                        }
-                    });
+                }
                 return;
             }
             const isExternalInstallActive = () => Boolean(activeInstallTaskKey && activeInstallTaskKey !== STORE_DOWNLOAD_KEY);
@@ -11354,7 +11371,13 @@
                     etaSeconds: 0,
                     status: 'Descarga completa. Reinicia para instalar.',
                 });
-                addNotification('Actualizacion descargada, lista para instalar.', 'success');
+                if (bootSequenceInProgress && !bootDeferredStoreInstall) {
+                    bootDeferredStoreInstall = true;
+                    addNotification('Update lista durante la carga inicial. Al terminar la pantalla de carga se ejecutara el instalador.', 'warning');
+                    showActionMessage('Update lista. El instalador se ejecutara al finalizar la carga inicial.', { state: 'ready' });
+                } else {
+                    addNotification('Actualizacion descargada, lista para instalar.', 'success');
+                }
             });
             window.owsUpdater.onUpdateNotAvailable?.(async () => {
                 const autoCheck = lastStoreUpdaterCheckSilent || lastStoreUpdaterCheckOrigin === 'auto';
@@ -11550,7 +11573,9 @@
                 }
                 showActionMessage(payload.message);
             });
-            requestWindowsUpdaterCheck({ silent: true, origin: 'auto' }).catch(() => {});
+            if (!skipInitialCheck) {
+                requestWindowsUpdaterCheck({ silent: true, origin: 'auto' }).catch(() => {});
+            }
         }
         async function installUpdate() {
             if (isNativeAndroidRuntime()) {
@@ -11974,11 +11999,48 @@
             stopBootCanvasAnimation();
         }
 
+        async function runStoreUpdateCheckForBoot() {
+            const isAndroidStore = isNativeAndroidRuntime() && typeof window.owsUpdater === 'undefined';
+            if (isAndroidStore) {
+                const res = await checkOWSStoreAndroidUpdate({ silent: true, origin: 'boot' });
+                if (res?.uncertain) return { platform: 'android', status: 'uncertain' };
+                return { platform: 'android', status: res?.needsUpdate ? 'available' : 'up_to_date' };
+            }
+
+            const response = await requestWindowsUpdaterCheck({ silent: true, origin: 'boot' });
+            await new Promise((r) => setTimeout(r, 1000));
+            const phase = String(downloadSessions?.[STORE_DOWNLOAD_KEY]?.phase || '');
+            if (response?.ok === false || phase === 'error') {
+                return { platform: 'windows', status: 'error', detail: response?.message || response?.reason || 'desconocido' };
+            }
+            if (bootDeferredStoreInstall || phase === 'ready') {
+                return { platform: 'windows', status: 'ready' };
+            }
+            if (appUpdateAvailable || ['available', 'downloading', 'checking'].includes(phase)) {
+                return { platform: 'windows', status: 'available' };
+            }
+            return { platform: 'windows', status: 'up_to_date' };
+        }
+
+        async function awaitBootUpdateCheckResult(timeoutMs = 3400) {
+            if (!bootStoreUpdateCheckPromise) return { platform: 'unknown', status: 'not_started' };
+            const timeout = new Promise((resolve) => setTimeout(() => resolve({ platform: 'unknown', status: 'pending' }), Math.max(400, Number(timeoutMs || 0))));
+            const result = await Promise.race([
+                bootStoreUpdateCheckPromise.then((r) => r || { platform: 'unknown', status: 'unknown' }).catch((err) => ({ platform: 'unknown', status: 'error', detail: err?.message || String(err || 'desconocido') })),
+                timeout
+            ]);
+            return result;
+        }
+
         async function runBootSequence() {
             const overlay = document.getElementById('boot-overlay');
             if (!overlay) return;
             overlay.classList.add('active');
             startBootCanvasAnimation();
+            bootSequenceInProgress = true;
+            bootDeferredStoreInstall = false;
+            bootStoreUpdateCheckPromise = null;
+            bootStoreUpdateCheckResult = null;
 
             const steps = [
                 {
@@ -12020,10 +12082,21 @@
                     }
                 },
                 {
-                    label: 'Activando sistema de updates',
-                    toast: 'Sistema de actualizaciones listo.',
+                    label: 'Analizando actualizaciones de OWS Store',
+                    toast: 'Analisis de updates iniciado en segundo plano.',
                     run: async () => {
-                        initUpdater();
+                        initUpdater({ skipInitialCheck: true });
+                        bootStoreUpdateCheckPromise = runStoreUpdateCheckForBoot()
+                            .then((result) => {
+                                bootStoreUpdateCheckResult = result;
+                                return result;
+                            })
+                            .catch((err) => {
+                                const result = { platform: 'unknown', status: 'error', detail: err?.message || String(err || 'desconocido') };
+                                bootStoreUpdateCheckResult = result;
+                                return result;
+                            });
+                        await new Promise((r) => setTimeout(r, 240));
                     }
                 },
                 {
@@ -12032,6 +12105,28 @@
                     run: async () => {
                         initBrandCycle();
                         initSpotlightSlider();
+                        await new Promise((r) => setTimeout(r, 240));
+                    }
+                },
+                {
+                    label: 'Consolidando resultado de updates',
+                    toast: 'Estado de updates consolidado.',
+                    run: async () => {
+                        const result = await awaitBootUpdateCheckResult(3600);
+                        bootStoreUpdateCheckResult = result;
+                        if (result?.status === 'ready') {
+                            addNotification('La nueva update ya quedo lista. Se instalara automaticamente al finalizar la carga.', 'warning');
+                        } else if (result?.status === 'available') {
+                            addNotification('Update detectada. La carga continua mientras la update avanza en segundo plano.', 'warning');
+                        } else if (result?.status === 'up_to_date') {
+                            addNotification('No hay nuevas actualizaciones de OWS Store en esta verificacion inicial.', 'success');
+                        } else if (result?.status === 'pending') {
+                            addNotification('La verificacion de updates sigue en segundo plano y se completara en breve.', 'neutral');
+                        } else if (result?.status === 'uncertain') {
+                            addNotification('No se pudo confirmar completamente el estado de updates. Se reintentara en segundo plano.', 'warning');
+                        } else if (result?.status === 'error') {
+                            addNotification('La verificacion de updates tuvo un error inicial. Se reintentara en segundo plano.', 'warning');
+                        }
                     }
                 }
             ];
@@ -12052,11 +12147,20 @@
             }
 
             await playBootCompletionSequence();
+            bootSequenceInProgress = false;
+            if (bootDeferredStoreInstall) {
+                addNotification('Pantalla de carga finalizada. Ejecutando instalador de la update detectada...', 'warning');
+                showActionMessage('Pantalla de carga finalizada. Ejecutando instalador de update...', { state: 'ready' });
+                bootDeferredStoreInstall = false;
+                await installUpdate().catch(() => {});
+            }
         }
 
         window.onload = () => {
             runBootSequence().catch((err) => {
                 console.log('Boot sequence fallo, continuando inicializacion basica:', err?.message || err);
+                bootSequenceInProgress = false;
+                bootDeferredStoreInstall = false;
                 stopBootCanvasAnimation();
                 const overlay = document.getElementById('boot-overlay');
                 if (overlay) overlay.classList.remove('active');

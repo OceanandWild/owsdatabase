@@ -14091,7 +14091,7 @@ app.get('/ocean-pay/ecobooks/balance', async (req, res) => {
   }
 });
 
-app.post('/ocean-pay/ecobooks/change', async (req, res) => {
+app.post(['/ocean-pay/ecobooks/change', '/naturepedia/ecobooks/change'], async (req, res) => {
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) return res.status(401).json({ error: 'Token requerido' });

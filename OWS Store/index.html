@@ -3526,7 +3526,7 @@
         const FLORET_LOCAL_ICON = 'https://raw.githubusercontent.com/OceanandWild/owsdatabase/main/Floret%20Shop/assets/floretshopicon.png?v=20260224-1938';
         const WILDTRANSFER_LOCAL_ICON = './build/wildtransfer.ico?v=20260225-0100';
         const WILDDESTINY_LOCAL_ICON = './build/wilddestiny.ico?v=20260227-1935';
-        const ECOXION_LOCAL_ICON = './build/ecoxion.png?v=20260303-uy1455';
+        const ECOXION_LOCAL_ICON = './build/ecoxion.ico?v=20260303-ecxico';
         const VELOCITY_SURGE_LOCAL_ICON = './build/velocitysurge.ico?v=20260227-2415';
         const WILDWAVE_LOCAL_ICON = './build/wildwave.ico?v=20260301-0010';
         const OWSNEWS_LOCAL_ICON = './build/owsnews.ico?v=20260225-2248';
@@ -3772,6 +3772,11 @@
         let appUpdateAvailable = false;
         let appUpdateSizeBytes = 0;
         let appUpdateEtaSeconds = null;
+        let storeUpdateCheckState = {
+            status: 'idle',
+            detail: '',
+            updatedAt: 0
+        };
         let owsStoreWindowsManualUpdateUrl = '';
         let owsStoreWindowsManualVersion = '';
         let currentStoreWindowsVersion = '';
@@ -3797,6 +3802,8 @@
         };
         let bootSequenceInProgress = false;
         let bootDeferredStoreInstall = false;
+        let bootAutoInstallRequested = false;
+        let bootAutoInstallInFlight = false;
         let bootStoreUpdateCheckPromise = null;
         let bootStoreUpdateCheckResult = null;
         let sidebarDownloadCursor = 0;
@@ -8865,6 +8872,7 @@
             owsStoreWindowsManualUpdateUrl = latest?.downloadUrl || OWS_STORE_RELEASES_URL;
             owsStoreWindowsManualVersion = latestVersion;
             appUpdateAvailable = true;
+            setStoreUpdateCheckState('available', `windows-manual-${latestVersion}`);
             appUpdateSizeBytes = Number(latest?.sizeBytes || 0);
             appUpdateEtaSeconds = null;
             syncUpdatesBadge();
@@ -8906,10 +8914,19 @@
             return { needsUpdate: true, latest, current };
         }
 
+        function setStoreUpdateCheckState(status, detail = '') {
+            storeUpdateCheckState = {
+                status: String(status || 'idle'),
+                detail: String(detail || ''),
+                updatedAt: Date.now()
+            };
+        }
+
         async function requestWindowsUpdaterCheck({ silent = false, origin = '' } = {}) {
             if (!window.owsUpdater?.checkForUpdates) return { ok: false, reason: 'updater-unavailable' };
             lastStoreUpdaterCheckSilent = Boolean(silent);
             lastStoreUpdaterCheckOrigin = String(origin || (silent ? 'auto' : 'manual'));
+            setStoreUpdateCheckState('checking', 'windows-request');
             let response = null;
             try {
                 response = await window.owsUpdater.checkForUpdates();
@@ -8923,6 +8940,7 @@
 
             if (response && response.ok === false) {
                 const msg = response.message || response.reason || 'desconocido';
+                setStoreUpdateCheckState('error', msg);
                 const status = document.getElementById('updates-status');
                 if (status) status.textContent = 'Error de verificacion';
                 setUpdateBannerVisual({
@@ -8946,6 +8964,7 @@
             const closeBtn = document.getElementById('btn-close-update-banner');
             const wrap = document.getElementById('update-progress-wrap');
             const checkOrigin = String(origin || (silent ? 'auto' : 'manual'));
+            setStoreUpdateCheckState('checking', `android-${checkOrigin || 'check'}`);
             if (btn) {
                 btn.style.display = 'none';
                 btn.innerHTML = '<i class="fas fa-mobile-screen-button"></i> Descargar update Android';
@@ -8970,6 +8989,7 @@
             if (!latestResolvable) {
                 clearStoreObsoleteGate({ platform: 'android', source: 'android-check', reason: 'latest-not-resolved' });
                 appUpdateAvailable = false;
+                setStoreUpdateCheckState('uncertain', 'android-latest-unresolved');
                 appUpdateSizeBytes = 0;
                 appUpdateEtaSeconds = null;
                 syncUpdatesBadge();
@@ -9026,6 +9046,7 @@
             if (!currentKnown) {
                 clearStoreObsoleteGate({ platform: 'android', source: 'android-check', reason: 'installed-version-unknown' });
                 appUpdateAvailable = true;
+                setStoreUpdateCheckState('available', 'android-current-unknown');
                 syncUpdatesBadge();
                 if (status) status.textContent = `No se pudo leer version instalada. Release detectada: ${latestLabel}`;
                 if (btn) btn.style.display = 'flex';
@@ -9059,6 +9080,7 @@
             }
 
             if (needsUpdate) {
+                setStoreUpdateCheckState('available', `android-${latestLabel}`);
                 setStoreObsoleteGateBlocked({
                     platform: 'android',
                     currentVersion: current.versionName || (current.versionCode > 0 ? String(current.versionCode) : ''),
@@ -9105,6 +9127,7 @@
 
             const autoCheck = checkOrigin === 'auto' || Boolean(silent);
             clearStoreObsoleteGate({ platform: 'android', source: 'android-check', reason: 'up-to-date' });
+            setStoreUpdateCheckState('up_to_date', 'android-no-update');
             if (status) status.textContent = autoCheck
                 ? 'Verificacion automatica completada: sin actualizaciones nuevas.'
                 : 'No hay actualizaciones pendientes.';
@@ -11123,6 +11146,7 @@
                     speedBps: 0,
                     etaSeconds: null,
                 });
+                setStoreUpdateCheckState('checking', 'android-init');
                 if (banner) banner.classList.add('visible');
                 if (status) status.textContent = 'Buscando actualizaciones Android...';
                 setUpdateMetaUI({ sizeBytes: 0, etaSeconds: null, transferredBytes: null, speedBps: 0 });
@@ -11200,6 +11224,7 @@
                 speedBps: 0,
                 etaSeconds: null,
             });
+            setStoreUpdateCheckState('checking', 'windows-init');
             if (banner) banner.classList.add('visible');
             if (status) status.textContent = 'Buscando actualizaciones...';
             setUpdateMetaUI({ sizeBytes: 0, etaSeconds: null, transferredBytes: null, speedBps: 0 });
@@ -11240,6 +11265,7 @@
                 }
                 if (dot) dot.style.display = 'block';
                 appUpdateAvailable = true;
+                setStoreUpdateCheckState('available', availableVersion || 'windows-update-available');
                 syncUpdatesBadge();
                 if (status) status.textContent = 'Update detectada: v' + (availableVersion || 'nueva') + ' (descarga automatica)';
                 if (!isExternalInstallActive()) {
@@ -11330,6 +11356,7 @@
                     etaSeconds: appUpdateEtaSeconds,
                     status: 'Descargando update de OWS Store...',
                 });
+                setStoreUpdateCheckState('downloading', `${Math.round(p?.percent || 0)}%`);
             });
             window.owsUpdater.onUpdateDownloaded?.(() => {
                 const msg = document.getElementById('update-msg');
@@ -11371,15 +11398,21 @@
                     etaSeconds: 0,
                     status: 'Descarga completa. Reinicia para instalar.',
                 });
-                if (bootSequenceInProgress && !bootDeferredStoreInstall) {
-                    bootDeferredStoreInstall = true;
-                    addNotification('Update lista durante la carga inicial. Al terminar la pantalla de carga se ejecutara el instalador.', 'warning');
-                    showActionMessage('Update lista. El instalador se ejecutara al finalizar la carga inicial.', { state: 'ready' });
+                setStoreUpdateCheckState('ready', 'download-complete');
+                if (bootAutoInstallRequested) {
+                    if (bootSequenceInProgress && !bootDeferredStoreInstall) {
+                        bootDeferredStoreInstall = true;
+                        addNotification('Update lista durante la carga inicial. Al terminar la pantalla de carga se ejecutara el instalador.', 'warning');
+                        showActionMessage('Update lista. El instalador se ejecutara al finalizar la carga inicial.', { state: 'ready' });
+                    } else {
+                        triggerBootAutoInstall('download-finished-after-boot').catch(() => {});
+                    }
                 } else {
                     addNotification('Actualizacion descargada, lista para instalar.', 'success');
                 }
             });
             window.owsUpdater.onUpdateNotAvailable?.(async () => {
+                bootAutoInstallRequested = false;
                 const autoCheck = lastStoreUpdaterCheckSilent || lastStoreUpdaterCheckOrigin === 'auto';
                 const currentVersion = String(await window.owsUpdater.getAppVersion?.().catch(() => '') || '').trim();
                 if (currentVersion) currentStoreWindowsVersion = currentVersion;
@@ -11395,6 +11428,7 @@
                 if (!isExternalInstallActive() && msg) msg.textContent = 'No hay actualizaciones disponibles.';
                 if (dot) dot.style.display = 'none';
                 appUpdateAvailable = false;
+                setStoreUpdateCheckState('up_to_date', 'windows-no-update');
                 syncUpdatesBadge();
                 if (status) status.textContent = 'Sin actualizaciones pendientes';
                 if (!isExternalInstallActive()) {
@@ -11423,6 +11457,7 @@
                 }
             });
             window.owsUpdater.onUpdateError?.(async (err) => {
+                bootAutoInstallRequested = false;
                 const banner = document.getElementById('update-banner');
                 const msg = document.getElementById('update-msg');
                 const closeBtn = document.getElementById('btn-close-update-banner');
@@ -11432,6 +11467,7 @@
                     if (banner) banner.classList.add('visible');
                 }
                 appUpdateAvailable = false;
+                setStoreUpdateCheckState('error', err || 'windows-update-error');
                 syncUpdatesBadge();
                 if (status) status.textContent = 'Error de verificacion';
                 if (!isExternalInstallActive()) {
@@ -12002,24 +12038,70 @@
         async function runStoreUpdateCheckForBoot() {
             const isAndroidStore = isNativeAndroidRuntime() && typeof window.owsUpdater === 'undefined';
             if (isAndroidStore) {
+                bootAutoInstallRequested = false;
                 const res = await checkOWSStoreAndroidUpdate({ silent: true, origin: 'boot' });
                 if (res?.uncertain) return { platform: 'android', status: 'uncertain' };
                 return { platform: 'android', status: res?.needsUpdate ? 'available' : 'up_to_date' };
             }
 
+            bootAutoInstallRequested = true;
+            setStoreUpdateCheckState('checking', 'windows-boot-check');
             const response = await requestWindowsUpdaterCheck({ silent: true, origin: 'boot' });
-            await new Promise((r) => setTimeout(r, 1000));
-            const phase = String(downloadSessions?.[STORE_DOWNLOAD_KEY]?.phase || '');
-            if (response?.ok === false || phase === 'error') {
+            if (response?.ok === false) {
+                bootAutoInstallRequested = false;
                 return { platform: 'windows', status: 'error', detail: response?.message || response?.reason || 'desconocido' };
             }
-            if (bootDeferredStoreInstall || phase === 'ready') {
-                return { platform: 'windows', status: 'ready' };
+
+            const start = Date.now();
+            const waitMs = 9000;
+            while (Date.now() - start < waitMs) {
+                const state = String(storeUpdateCheckState?.status || 'idle');
+                const phase = String(downloadSessions?.[STORE_DOWNLOAD_KEY]?.phase || '');
+                if (bootDeferredStoreInstall || state === 'ready' || phase === 'ready') {
+                    return { platform: 'windows', status: 'ready' };
+                }
+                if (state === 'available' || state === 'downloading' || phase === 'available' || phase === 'downloading') {
+                    return { platform: 'windows', status: 'available' };
+                }
+                if (state === 'up_to_date') {
+                    bootAutoInstallRequested = false;
+                    return { platform: 'windows', status: 'up_to_date' };
+                }
+                if (state === 'error' || phase === 'error') {
+                    bootAutoInstallRequested = false;
+                    return { platform: 'windows', status: 'error', detail: storeUpdateCheckState?.detail || 'windows-update-error' };
+                }
+                await new Promise((r) => setTimeout(r, 220));
             }
-            if (appUpdateAvailable || ['available', 'downloading', 'checking'].includes(phase)) {
-                return { platform: 'windows', status: 'available' };
+
+            const finalPhase = String(downloadSessions?.[STORE_DOWNLOAD_KEY]?.phase || '');
+            if (finalPhase === 'ready') return { platform: 'windows', status: 'ready' };
+            if (finalPhase === 'available' || finalPhase === 'downloading' || appUpdateAvailable) return { platform: 'windows', status: 'available' };
+            if (String(storeUpdateCheckState?.status || '') === 'up_to_date') {
+                bootAutoInstallRequested = false;
+                return { platform: 'windows', status: 'up_to_date' };
             }
-            return { platform: 'windows', status: 'up_to_date' };
+            return { platform: 'windows', status: 'pending' };
+        }
+
+        async function triggerBootAutoInstall(reason = '') {
+            if (!bootAutoInstallRequested || bootAutoInstallInFlight) return;
+            if (bootSequenceInProgress) {
+                bootDeferredStoreInstall = true;
+                return;
+            }
+            bootAutoInstallInFlight = true;
+            bootAutoInstallRequested = false;
+            bootDeferredStoreInstall = false;
+            addNotification('Update detectada en arranque. Ejecutando instalador automaticamente...', 'warning');
+            showActionMessage('Update detectada en arranque. Ejecutando instalador automaticamente...', { state: 'ready' });
+            try {
+                await installUpdate();
+            } catch (_) {
+                // installUpdate ya publica estado/error en UI.
+            } finally {
+                bootAutoInstallInFlight = false;
+            }
         }
 
         async function awaitBootUpdateCheckResult(timeoutMs = 3400) {
@@ -12039,6 +12121,8 @@
             startBootCanvasAnimation();
             bootSequenceInProgress = true;
             bootDeferredStoreInstall = false;
+            bootAutoInstallRequested = false;
+            bootAutoInstallInFlight = false;
             bootStoreUpdateCheckPromise = null;
             bootStoreUpdateCheckResult = null;
 
@@ -12149,10 +12233,7 @@
             await playBootCompletionSequence();
             bootSequenceInProgress = false;
             if (bootDeferredStoreInstall) {
-                addNotification('Pantalla de carga finalizada. Ejecutando instalador de la update detectada...', 'warning');
-                showActionMessage('Pantalla de carga finalizada. Ejecutando instalador de update...', { state: 'ready' });
-                bootDeferredStoreInstall = false;
-                await installUpdate().catch(() => {});
+                await triggerBootAutoInstall('boot-finished-with-ready-update');
             }
         }
 
@@ -12161,6 +12242,8 @@
                 console.log('Boot sequence fallo, continuando inicializacion basica:', err?.message || err);
                 bootSequenceInProgress = false;
                 bootDeferredStoreInstall = false;
+                bootAutoInstallRequested = false;
+                bootAutoInstallInFlight = false;
                 stopBootCanvasAnimation();
                 const overlay = document.getElementById('boot-overlay');
                 if (overlay) overlay.classList.remove('active');

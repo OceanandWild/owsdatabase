@@ -3513,6 +3513,7 @@
         const WILDTRANSFER_RELEASES_URL = 'https://github.com/OceanandWild/wildtransfer/releases/latest';
         const WILDTRANSFER_RELEASES_API_URL = `${GITHUB_RELEASES_PROXY_BASE}/wildtransfer/releases/latest`;
         const WILDTRANSFER_RELEASES_LIST_API_URL = `${GITHUB_RELEASES_PROXY_BASE}/wildtransfer/releases?per_page=20`;
+        const AWQG_WINDOWS_PLAY_URL = '/a-wild-question-game';
         const WILDDESTINY_RELEASES_URL = 'https://github.com/OceanandWild/wilddestiny/releases/latest';
         const ECOXION_RELEASES_URL = 'https://github.com/OceanandWild/ecoxion/releases/latest';
         const VELOCITY_SURGE_RELEASES_URL = 'https://github.com/OceanandWild/velocity-surge/releases/latest';
@@ -3593,6 +3594,17 @@
             android_version_code: 0,
             description: 'Transferencia rapida de archivos con codigo unico.',
             icon_url: WILDTRANSFER_LOCAL_ICON
+        };
+        const AWQG_PROJECT = {
+            slug: 'a-wild-question-game',
+            name: 'A Wild Question Game',
+            short: 'AWQ',
+            status: 'launched',
+            version: '1.0.0',
+            platform: 'windows',
+            url: AWQG_WINDOWS_PLAY_URL,
+            description: 'Juego de deduccion por personajes con modo online de 2 jugadores. Version de Windows integrada en OWS Store.',
+            icon_url: ''
         };
         const WILDDESTINY_PROJECT = {
             slug: 'wild-destiny',
@@ -3691,6 +3703,13 @@
             { word: 'ARCADE', iconClass: 'fa-gamepad', color: '#b96700', caption: 'Diversidad de estilos para cada jugador.' },
         ];
         const SPOTLIGHT_SLIDES_FALLBACK = [
+            {
+                key: 'awqg-windows-live',
+                label: 'Nuevo en Store',
+                title: 'A Wild Question Game (Windows) ya esta disponible',
+                text: 'Nuevo juego de deduccion con modo multiplayer y salas privadas desde OWS Store.',
+                slug: 'a-wild-question-game',
+            },
             {
                 key: 'wild-destiny-countdown',
                 label: 'Proximo lanzamiento',
@@ -6911,6 +6930,17 @@
             return slug.includes('velocity-surge') || slug.includes('velocitysurge') || name.includes('velocity surge');
         }
 
+        function isAWQGProject(project) {
+            if (!project) return false;
+            const slug = String(project.slug || '').toLowerCase();
+            const name = String(project.name || '').toLowerCase();
+            return slug.includes('a-wild-question-game')
+                || slug.includes('awqg')
+                || slug.includes('wild-question-game')
+                || name.includes('a wild question game')
+                || name.includes('wild question game');
+        }
+
         function isWildWaveProject(project) {
             if (!project) return false;
             const slug = String(project.slug || '').toLowerCase();
@@ -6941,6 +6971,7 @@
             if (slug === 'floret-shop' || slug === 'floretshop' || slug === 'floret' || name === 'floret shop' || token.includes('floretshop')) return 'floretshop';
             if (slug === 'savage-space-animals' || slug === 'savagespaceanimals' || slug === 'ssa' || name === 'savage space animals' || token.includes('savagespaceanimals')) return 'savagespaceanimals';
             if (slug === 'wild-transfer' || slug === 'wildtransfer' || name === 'wild transfer' || name === 'wildtransfer' || token.includes('wildtransfer')) return 'wildtransfer';
+            if (slug === 'a-wild-question-game' || slug === 'awqg' || slug === 'wild-question-game' || name === 'a wild question game' || token.includes('awildquestiongame')) return 'a-wild-question-game';
             if (slug === 'ecoxion' || name === 'ecoxion' || token.includes('ecoxion')) return 'ecoxion';
             if (slug === 'naturepedia' || name === 'naturepedia' || token.includes('naturepedia')) return 'naturepedia';
             if (slug === 'wildshorts' || slug === 'wild-shorts' || name === 'wildshorts' || name === 'wild shorts' || token.includes('wildshorts')) return 'wildshorts';
@@ -7009,6 +7040,7 @@
             if (isSSAProject(project)) return 'SSA';
             if (isFloretProject(project)) return 'FLR';
             if (isWildTransferProject(project)) return 'WTR';
+            if (isAWQGProject(project)) return 'AWQ';
             if (isWildDestinyProject(project)) return 'WD';
             if (isEcoxionProject(project)) return 'ECX';
             if (isNaturepediaProject(project)) return 'NTP';
@@ -7050,6 +7082,27 @@
                 list.unshift({ ...WILDTRANSFER_PROJECT });
             } else {
                 list[idx] = { ...WILDTRANSFER_PROJECT, ...list[idx], short: 'WTR', status: 'launched' };
+            }
+            return list;
+        }
+
+        function ensureAWQGProject(projects) {
+            if (!Array.isArray(projects)) return [];
+            const list = [...projects];
+            const idx = list.findIndex(isAWQGProject);
+            if (idx === -1) {
+                list.unshift({ ...AWQG_PROJECT });
+            } else {
+                list[idx] = {
+                    ...AWQG_PROJECT,
+                    ...list[idx],
+                    slug: 'a-wild-question-game',
+                    name: 'A Wild Question Game',
+                    short: 'AWQ',
+                    status: list[idx].status || 'launched',
+                    platform: list[idx].platform || 'windows',
+                    url: list[idx].url || AWQG_WINDOWS_PLAY_URL
+                };
             }
             return list;
         }
@@ -7700,6 +7753,14 @@
                     platforms: ['windows'],
                 });
             }
+            entries.push({
+                type: 'changelog',
+                tone: 'success',
+                title: 'A Wild Question Game (Windows) publicado en OWS Store',
+                date: '2026-03-04T00:00:00Z',
+                text: 'Nueva ficha integrada con acceso directo desde OWS Store y mejoras de visibilidad en catalogo.',
+                platforms: ['windows'],
+            });
 
             if (owsStoreAndroidState.version || owsStoreAndroidState.versionCode > 0) {
                 entries.push({
@@ -7949,6 +8010,7 @@
                 allProjects = [
                     { ...SSA_PROJECT },
                     { ...WILDTRANSFER_PROJECT },
+                    { ...AWQG_PROJECT },
                     { ...FLORET_PROJECT },
                     { ...VELOCITY_SURGE_PROJECT },
                     { ...WILDWAVE_PROJECT },
@@ -7965,8 +8027,10 @@
                             ensureEcoxionProject(
                                 ensureWildDestinyProject(
                                     ensureWildTransferProject(
-                                        ensureFloretProject(
-                                            ensureSSAProject(allProjects)
+                                        ensureAWQGProject(
+                                            ensureFloretProject(
+                                                ensureSSAProject(allProjects)
+                                            )
                                         )
                                     )
                                 )
@@ -9169,6 +9233,7 @@
             if (isNaturepediaProject(project)) return project?.icon_url || `https://placehold.co/${size}/0b1420/8ee5a1?text=NTP`;
             if (isWildShortsProject(project)) return project?.icon_url || `https://placehold.co/${size}/12131f/ffb96a?text=WSH`;
             if (isVelocitySurgeProject(project)) return project?.icon_url || VELOCITY_SURGE_LOCAL_ICON || `https://placehold.co/${size}/0a0f1e/26e0ff?text=VSG`;
+            if (isAWQGProject(project)) return project?.icon_url || `https://placehold.co/${size}/0f1527/6ff3ff?text=AWQ`;
             if (isWildWaveProject(project)) return project?.icon_url || WILDWAVE_LOCAL_ICON || `https://placehold.co/${size}/151029/c493ff?text=WWV`;
             return project?.icon_url || `https://placehold.co/${size}/0f172a/00f3ff?text=OWS`;
         }
@@ -9199,6 +9264,7 @@
 
         function supportsWindowsInstaller(project) {
             if (!project) return false;
+            if (isAWQGProject(project)) return false;
             const tokens = getPlatformTokens(project);
             if (isWildWeaponProject(project) || isSSAProject(project) || isOceanPayProject(project) || isWildTransferProject(project) || isVelocitySurgeProject(project) || isWildWaveProject(project)) return true;
             if (tokens.has('windows') || tokens.has('win')) return true;
@@ -9294,6 +9360,7 @@
         }
 
         function getProjectPlatformLabel(project) {
+            if (isAWQGProject(project)) return 'WINDOWS';
             const targets = getProjectInstallTargets(project);
             const hasWin = targets.some((t) => t.kind === 'windows');
             const hasAndroid = targets.some((t) => t.kind === 'android');

@@ -9363,7 +9363,13 @@ function createAwqgRoom({ hostName = 'Jugador 1' } = {}) {
     currentTurn: 'host',
     questionsLeftThisTurn: 1,
     extraQuestionFor: null, // host|guest|null
-    pendingQuestion: null // { askedBy, trait, value, text }
+    pendingQuestion: null, // { askedBy, trait, value, text }
+    noGuessSwitches: 0,
+    finalDuel: {
+      active: false,
+      hostChoice: null,
+      guestChoice: null
+    }
   };
   awqgRooms.set(code, room);
   return room;
@@ -9405,8 +9411,21 @@ function emitAwqgTurnState(code) {
   });
 }
 
+function startAwqgFinalDuel(room, reason = '') {
+  if (!room || room.finalDuel?.active) return;
+  room.finalDuel = {
+    active: true,
+    hostChoice: null,
+    guestChoice: null
+  };
+  io.to(`awqg-${room.code}`).emit('awqg:final-duel-start', {
+    reason: reason || 'Fase final activada. Ambos deben elegir su veredicto.'
+  });
+}
+
 function switchAwqgTurn(room) {
   room.currentTurn = room.currentTurn === 'host' ? 'guest' : 'host';
+  room.noGuessSwitches = (room.noGuessSwitches || 0) + 1;
   if (room.extraQuestionFor === room.currentTurn) {
     room.questionsLeftThisTurn = 2;
     room.extraQuestionFor = null;
@@ -10180,6 +10199,8 @@ io.on('connection', (socket) => {
       room.questionsLeftThisTurn = 1;
       room.extraQuestionFor = null;
       room.pendingQuestion = null;
+      room.noGuessSwitches = 0;
+      room.finalDuel = { active: false, hostChoice: null, guestChoice: null };
       io.to(`awqg-${room.code}`).emit('awqg:game-started', {
         room: getAwqgRoomPublic(room)
       });
@@ -10190,6 +10211,7 @@ io.on('connection', (socket) => {
   socket.on('awqg:ask-question', ({ code, question }) => {
     const room = awqgRooms.get(String(code || '').toUpperCase());
     if (!room || room.status !== 'playing') return;
+    if (room.finalDuel?.active) return;
     const role = getAwqgRole(room, socket.id);
     if (!role) return;
     if (role !== room.currentTurn) {
@@ -10240,6 +10262,9 @@ io.on('connection', (socket) => {
         currentTurn: room.currentTurn,
         questionsLeftThisTurn: room.questionsLeftThisTurn
       });
+      if ((room.noGuessSwitches || 0) >= 6) {
+        startAwqgFinalDuel(room, 'El duelo se estancó. Se activa la DECISIÓN FINAL para ambos jugadores.');
+      }
     } else {
       emitAwqgTurnState(room.code);
     }
@@ -10248,6 +10273,7 @@ io.on('connection', (socket) => {
   socket.on('awqg:skip-turn', ({ code }) => {
     const room = awqgRooms.get(String(code || '').toUpperCase());
     if (!room || room.status !== 'playing') return;
+    if (room.finalDuel?.active) return;
     const role = getAwqgRole(room, socket.id);
     if (!role || role !== room.currentTurn) return;
     room.extraQuestionFor = role === 'host' ? 'guest' : 'host';
@@ -10257,11 +10283,15 @@ io.on('connection', (socket) => {
       currentTurn: room.currentTurn,
       questionsLeftThisTurn: room.questionsLeftThisTurn
     });
+    if ((room.noGuessSwitches || 0) >= 6) {
+      startAwqgFinalDuel(room, 'Demasiados turnos sin cierre. Se activa la DECISIÓN FINAL.');
+    }
   });
 
   socket.on('awqg:end-turn', ({ code }) => {
     const room = awqgRooms.get(String(code || '').toUpperCase());
     if (!room || room.status !== 'playing') return;
+    if (room.finalDuel?.active) return;
     const role = getAwqgRole(room, socket.id);
     if (!role || role !== room.currentTurn) return;
     switchAwqgTurn(room);
@@ -10269,16 +10299,21 @@ io.on('connection', (socket) => {
       currentTurn: room.currentTurn,
       questionsLeftThisTurn: room.questionsLeftThisTurn
     });
+    if ((room.noGuessSwitches || 0) >= 6) {
+      startAwqgFinalDuel(room, 'Demasiados turnos sin cierre. Se activa la DECISIÓN FINAL.');
+    }
   });
 
   socket.on('awqg:guess', ({ code, guess }) => {
     const room = awqgRooms.get(String(code || '').toUpperCase());
     if (!room || room.status !== 'playing') return;
+    if (room.finalDuel?.active) return;
     const role = getAwqgRole(room, socket.id);
     if (!role || role !== room.currentTurn) return;
 
     const targetSecret = role === 'host' ? room.guestSecret : room.hostSecret;
     if (!targetSecret) return;
+    room.noGuessSwitches = 0;
 
     const ok = String(guess || '').trim().toLowerCase() === String(targetSecret.name || '').trim().toLowerCase();
     if (ok) {
@@ -10299,6 +10334,49 @@ io.on('connection', (socket) => {
       currentTurn: room.currentTurn,
       questionsLeftThisTurn: room.questionsLeftThisTurn
     });
+  });
+
+  socket.on('awqg:request-final-duel', ({ code }) => {
+    const room = awqgRooms.get(String(code || '').toUpperCase());
+    if (!room || room.status !== 'playing') return;
+    const role = getAwqgRole(room, socket.id);
+    if (!role) return;
+    startAwqgFinalDuel(room, 'Candidatos mínimos detectados. Inicia el protocolo de DECISIÓN FINAL.');
+  });
+
+  socket.on('awqg:submit-final-choice', ({ code, choice }) => {
+    const room = awqgRooms.get(String(code || '').toUpperCase());
+    if (!room || room.status !== 'playing') return;
+    if (!room.finalDuel?.active) return;
+    const role = getAwqgRole(room, socket.id);
+    if (!role) return;
+    const normalizedChoice = String(choice || '').trim();
+    if (!normalizedChoice) return;
+
+    if (role === 'host') room.finalDuel.hostChoice = normalizedChoice;
+    if (role === 'guest') room.finalDuel.guestChoice = normalizedChoice;
+    io.to(`awqg-${room.code}`).emit('awqg:final-choice-submitted', { by: role });
+
+    const hostChoice = room.finalDuel.hostChoice;
+    const guestChoice = room.finalDuel.guestChoice;
+    if (!hostChoice || !guestChoice) return;
+
+    const hostCorrect = hostChoice.toLowerCase() === String(room.guestSecret?.name || '').toLowerCase();
+    const guestCorrect = guestChoice.toLowerCase() === String(room.hostSecret?.name || '').toLowerCase();
+    let winner = null;
+    if (hostCorrect && !guestCorrect) winner = 'host';
+    if (guestCorrect && !hostCorrect) winner = 'guest';
+    if (winner) room.status = 'finished';
+
+    io.to(`awqg-${room.code}`).emit('awqg:final-reveal', {
+      winner,
+      hostCorrect,
+      guestCorrect,
+      hostChoice,
+      guestChoice
+    });
+
+    room.finalDuel = { active: false, hostChoice: null, guestChoice: null };
   });
 
   // DesconexiÃƒÂ³n
@@ -10331,6 +10409,8 @@ io.on('connection', (socket) => {
           room.questionsLeftThisTurn = 1;
           room.extraQuestionFor = null;
           room.pendingQuestion = null;
+          room.noGuessSwitches = 0;
+          room.finalDuel = { active: false, hostChoice: null, guestChoice: null };
           io.to(`awqg-${awqgCode}`).emit('awqg:guest-left', { message: 'El jugador 2 se desconectó.' });
           emitAwqgRoomState(awqgCode);
         }

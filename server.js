@@ -8693,19 +8693,25 @@ app.post('/api/ecocore/bypass-key-system', authenticateToken, async (req, res) =
 
 // Guardar/Actualizar backup de un usuario
 app.post('/api/tigertasks/backup', async (req, res) => {
-  const { userId, listsData } = req.body;
+  const { userId, listsData, notesData } = req.body;
   if (!userId || !listsData) {
     return res.status(400).json({ error: 'Faltan userId o listsData' });
   }
 
   try {
+    const payload = {
+      version: 2,
+      saved_at: new Date().toISOString(),
+      lists: Array.isArray(listsData) ? listsData : [],
+      notes: Array.isArray(notesData) ? notesData : []
+    };
     await pool.query(
       `INSERT INTO tigertasks_backups (user_id, backup_data, updated_at)
        VALUES ($1, $2, NOW())
        ON CONFLICT (user_id) DO UPDATE SET
          backup_data = EXCLUDED.backup_data,
          updated_at = NOW()`,
-      [userId, JSON.stringify(listsData)]
+      [userId, JSON.stringify(payload)]
     );
     res.json({ success: true, message: 'Copia de seguridad guardada.' });
   } catch (err) {
@@ -8718,7 +8724,21 @@ app.post('/api/tigertasks/backup', async (req, res) => {
 app.get('/api/tigertasks/backup/:userId', async (req, res) => {
   const { userId } = req.params;
   const { rows } = await pool.query('SELECT backup_data FROM tigertasks_backups WHERE user_id = $1', [userId]);
-  res.json(rows[0]?.backup_data || null);
+  const data = rows[0]?.backup_data || null;
+  if (!data) return res.json(null);
+
+  // Compatibilidad con backups legacy (array de listas directo)
+  if (Array.isArray(data)) {
+    return res.json(data);
+  }
+
+  // Backup versionado (listas + notas)
+  return res.json({
+    version: Number(data.version || 2),
+    saved_at: data.saved_at || null,
+    lists: Array.isArray(data.lists) ? data.lists : [],
+    notes: Array.isArray(data.notes) ? data.notes : []
+  });
 });
 
 /* ===== SUSCRIPCIONES ECOXION ===== */

@@ -3514,6 +3514,8 @@
         const WILDTRANSFER_RELEASES_API_URL = `${GITHUB_RELEASES_PROXY_BASE}/wildtransfer/releases/latest`;
         const WILDTRANSFER_RELEASES_LIST_API_URL = `${GITHUB_RELEASES_PROXY_BASE}/wildtransfer/releases?per_page=20`;
         const AWQG_WINDOWS_PLAY_URL = '/a-wild-question-game';
+        const AWQG_RELEASES_URL = 'https://github.com/OceanandWild/a-wild-question-game/releases/latest';
+        const AWQG_ANDROID_APK_LATEST_URL = 'https://github.com/OceanandWild/a-wild-question-game/releases/latest/download/awqg-android-debug.apk';
         const WILDDESTINY_RELEASES_URL = 'https://github.com/OceanandWild/wilddestiny/releases/latest';
         const ECOXION_RELEASES_URL = 'https://github.com/OceanandWild/ecoxion/releases/latest';
         const VELOCITY_SURGE_RELEASES_URL = 'https://github.com/OceanandWild/velocity-surge/releases/latest';
@@ -3601,10 +3603,16 @@
             name: 'A Wild Question Game',
             short: 'AWQ',
             status: 'launched',
-            version: '1.0.0',
-            platform: 'windows',
+            version: '2026.3.4-t2305',
+            platform: 'android',
+            install_type: 'external',
             url: AWQG_WINDOWS_PLAY_URL,
-            description: 'Juego de deduccion por personajes con modo online de 2 jugadores. Version de Windows integrada en OWS Store.',
+            android_release_url: AWQG_RELEASES_URL,
+            android_apk_url: AWQG_ANDROID_APK_LATEST_URL,
+            android_apk_direct_url: AWQG_ANDROID_APK_LATEST_URL,
+            android_version: '2026.3.4-t2305',
+            android_version_code: 260632305,
+            description: 'Juego de deduccion por personajes con modo online de 2 jugadores. Disponible para Android (APK) y Windows.',
             icon_url: AWQG_LOCAL_ICON
         };
         const WILDDESTINY_PROJECT = {
@@ -3768,6 +3776,7 @@
         let oceanPayProjectReleaseCache = null;
         let floretProjectReleaseCache = null;
         let wildTransferReleaseCache = null;
+        let awqgAndroidReleaseCache = null;
         let velocitySurgeReleaseCache = null;
         let wildWaveReleaseCache = null;
         let owsNewsReleaseCache = null;
@@ -6955,6 +6964,7 @@
                 || isOceanPayProject(project)
                 || isFloretProject(project)
                 || isWildTransferProject(project)
+                || isAWQGProject(project)
                 || isVelocitySurgeProject(project)
                 || isWildWaveProject(project);
         }
@@ -7101,7 +7111,7 @@
                     name: 'A Wild Question Game',
                     short: 'AWQ',
                     status: list[idx].status || 'launched',
-                    platform: list[idx].platform || 'windows',
+                    platform: list[idx].platform || 'android',
                     url: list[idx].url || AWQG_WINDOWS_PLAY_URL
                 };
             }
@@ -7754,15 +7764,6 @@
                     platforms: ['windows'],
                 });
             }
-            entries.push({
-                type: 'changelog',
-                tone: 'success',
-                title: 'A Wild Question Game (Windows) publicado en OWS Store',
-                date: '2026-03-04T00:00:00Z',
-                text: 'Nueva ficha integrada con acceso directo desde OWS Store y mejoras de visibilidad en catalogo.',
-                platforms: ['windows'],
-            });
-
             if (owsStoreAndroidState.version || owsStoreAndroidState.versionCode > 0) {
                 entries.push({
                     type: 'changelog',
@@ -8642,6 +8643,33 @@
             };
         }
 
+        async function fetchLatestAWQGRelease() {
+            const now = Date.now();
+            if (awqgAndroidReleaseCache && (now - awqgAndroidReleaseCache.checkedAt) < 120000) {
+                return awqgAndroidReleaseCache;
+            }
+            const latest = await fetchLatestAndroidReleaseFromStoreApi('a-wild-question-game', AWQG_RELEASES_URL);
+            const payload = {
+                version: latest?.version || null,
+                versionCode: Number(latest?.versionCode || 0),
+                androidVersion: latest?.version || '',
+                androidApkUrl: latest?.downloadUrl || '',
+                androidApkDirectUrl: latest?.directDownloadUrl || '',
+                androidApkProxyUrl: latest?.downloadUrl || '',
+                androidSha256: latest?.sha256 || '',
+                androidApkSize: Number(latest?.sizeBytes || 0),
+                androidAvailable: Boolean(latest?.downloadUrl || latest?.directDownloadUrl),
+                releaseUrl: AWQG_RELEASES_URL,
+                androidReleaseNotes: latest?.notes || '',
+                androidPublishedAt: latest?.publishedAt || null,
+                publishedAt: latest?.publishedAt || null,
+                warning: latest?.warning || '',
+                checkedAt: now,
+            };
+            awqgAndroidReleaseCache = payload;
+            return payload;
+        }
+
         async function fetchLatestFloretRelease() {
             const now = Date.now();
             if (floretProjectReleaseCache && (now - floretProjectReleaseCache.checkedAt) < 120000) {
@@ -9361,7 +9389,6 @@
         }
 
         function getProjectPlatformLabel(project) {
-            if (isAWQGProject(project)) return 'WINDOWS';
             const targets = getProjectInstallTargets(project);
             const hasWin = targets.some((t) => t.kind === 'windows');
             const hasAndroid = targets.some((t) => t.kind === 'android');
@@ -9380,6 +9407,7 @@
             const oceanPay = projects.find(p => isOceanPayProject(p));
             const floret = projects.find(p => isFloretProject(p));
             const wildTransfer = projects.find(p => isWildTransferProject(p));
+            const awqg = projects.find(p => isAWQGProject(p));
             const velocitySurge = projects.find(p => isVelocitySurgeProject(p));
             const wildWave = projects.find(p => isWildWaveProject(p));
 
@@ -9600,6 +9628,48 @@
                     console.log('No se pudo resolver la ultima release de WildTransfer:', err?.message || err);
                     wildTransfer.pending_release = false;
                     wildTransfer.release_warning = 'No se pudo validar la release de WildTransfer (Windows/Android).';
+                }
+            }
+
+            if (awqg) {
+                awqg.platform = 'android';
+                awqg.install_type = 'external';
+                if (!awqg.android_release_url) awqg.android_release_url = AWQG_RELEASES_URL;
+                if (!awqg.android_apk_url) awqg.android_apk_url = AWQG_ANDROID_APK_LATEST_URL;
+                if (!awqg.android_apk_direct_url) awqg.android_apk_direct_url = AWQG_ANDROID_APK_LATEST_URL;
+                if (!awqg.android_apk_proxy_url) awqg.android_apk_proxy_url = '';
+                if (!awqg.android_version) awqg.android_version = awqg.version || '';
+                if (!awqg.android_release_notes) awqg.android_release_notes = '';
+                awqg.icon_url = awqg.icon_url || AWQG_LOCAL_ICON;
+                awqg.installer_available = false;
+                awqg.android_available = false;
+                awqg.last_update_at = null;
+                awqg.windows_last_update_at = null;
+                awqg.android_last_update_at = null;
+                awqg.pending_release = false;
+                awqg.android_apk_size = Number(awqg.android_apk_size || 0);
+
+                try {
+                    const latest = await fetchLatestAWQGRelease();
+                    if (latest?.version) awqg.version = latest.version;
+                    awqg.android_version = latest?.androidVersion || awqg.android_version || awqg.version || '';
+                    awqg.android_version_code = Number(latest?.versionCode || awqg.android_version_code || 0);
+                    if (latest?.androidApkUrl) awqg.android_apk_url = latest.androidApkUrl;
+                    awqg.android_apk_direct_url = latest?.androidApkDirectUrl || awqg.android_apk_direct_url || '';
+                    awqg.android_apk_proxy_url = latest?.androidApkProxyUrl || awqg.android_apk_proxy_url || '';
+                    awqg.android_sha256 = latest?.androidSha256 || awqg.android_sha256 || '';
+                    if (latest?.releaseUrl) awqg.android_release_url = latest.releaseUrl;
+                    awqg.android_apk_size = Number(latest?.androidApkSize || 0);
+                    awqg.android_available = Boolean(latest?.androidAvailable || awqg.android_apk_url);
+                    awqg.android_release_notes = latest?.androidReleaseNotes || awqg.android_release_notes || '';
+                    awqg.last_update_at = latest?.publishedAt || null;
+                    awqg.android_last_update_at = latest?.androidPublishedAt || latest?.publishedAt || null;
+                    awqg.pending_release = !awqg.android_available;
+                    awqg.release_warning = latest?.warning || '';
+                } catch (err) {
+                    console.log('No se pudo resolver la ultima release Android de AWQG:', err?.message || err);
+                    awqg.pending_release = false;
+                    awqg.release_warning = 'No se pudo validar la release Android de AWQG.';
                 }
             }
 
@@ -10761,6 +10831,7 @@
                 if (isSSAProject(project)) ssaReleaseCache = null;
                 if (isOceanPayProject(project)) oceanPayProjectReleaseCache = null;
                 if (isWildTransferProject(project)) wildTransferReleaseCache = null;
+                if (isAWQGProject(project)) awqgAndroidReleaseCache = null;
                 if (isVelocitySurgeProject(project)) velocitySurgeReleaseCache = null;
                 if (isWildWaveProject(project)) wildWaveReleaseCache = null;
             }
@@ -10774,13 +10845,15 @@
                             ? await fetchLatestFloretRelease()
                             : (isWildTransferProject(project)
                                 ? await fetchLatestWildTransferRelease()
+                                : (isAWQGProject(project)
+                                    ? await fetchLatestAWQGRelease()
                                 : (isVelocitySurgeProject(project)
                                     ? await fetchLatestVelocitySurgeRelease()
                                     : (isWildWaveProject(project)
                                         ? await fetchLatestWildWaveRelease()
-                                        : await fetchLatestOWSNewsRelease()))))));
+                                        : await fetchLatestOWSNewsRelease())))))));
 
-            if (isFloretProject(project) || isWildTransferProject(project)) {
+            if (isFloretProject(project) || isWildTransferProject(project) || isAWQGProject(project)) {
                 const preferred = isNativeAndroidRuntime()
                     ? (latest?.androidVersion || latest?.windowsVersion || project.version)
                     : (latest?.windowsVersion || latest?.androidVersion || project.version);
@@ -10794,7 +10867,7 @@
                 project.android_apk_direct_url = latest?.androidApkDirectUrl || project.android_apk_direct_url || '';
                 project.android_apk_proxy_url = latest?.androidApkProxyUrl || project.android_apk_proxy_url || '';
                 project.android_sha256 = latest?.androidSha256 || project.android_sha256 || '';
-                if (isWildTransferProject(project) || isFloretProject(project)) {
+                if (isWildTransferProject(project) || isFloretProject(project) || isAWQGProject(project)) {
                     project.windows_release_notes = latest?.windowsReleaseNotes || project.windows_release_notes || '';
                     project.android_release_notes = latest?.androidReleaseNotes || project.android_release_notes || '';
                 }

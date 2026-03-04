@@ -4782,6 +4782,138 @@ app.get('/ocean-pay/ecoxionums/balance', async (req, res) => {
   }
 });
 
+// Compatibilidad legacy para clientes que aún usan este endpoint (ej. WildShorts)
+app.post('/ocean-pay/cards/change-balance', async (req, res) => {
+  const authHeader = String(req.headers.authorization || '');
+  if (!authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+
+  let userId;
+  try {
+    const token = authHeader.substring(7);
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    userId = Number(decoded.id || decoded.uid || decoded.sub);
+    if (!Number.isFinite(userId) || userId <= 0) {
+      return res.status(401).json({ error: 'Token inválido' });
+    }
+  } catch (_e) {
+    return res.status(401).json({ error: 'Token inválido' });
+  }
+
+  const currencyType = String(req.body?.currencyType || '').trim().toLowerCase();
+  const delta = Number(req.body?.amount);
+  const concepto = String(req.body?.concepto || 'Operación').trim() || 'Operación';
+  const origen = String(req.body?.origen || 'Ocean Pay').trim() || 'Ocean Pay';
+  const cardNumberRaw = req.body?.cardNumber;
+  const cardNumber = cardNumberRaw == null ? '' : String(cardNumberRaw).trim();
+  const cardIdFromBody = Number(req.body?.cardId);
+
+  if (!currencyType) return res.status(400).json({ error: 'currencyType requerido' });
+  if (!Number.isFinite(delta) || delta === 0) return res.status(400).json({ error: 'amount inválido' });
+
+  const txCurrencyCodeByType = {
+    aquabux: 'ABX',
+    ecoxionums: 'EX',
+    wildcredits: 'WC',
+    wildgems: 'WG',
+    appbux: 'ABX',
+    ecobooks: 'EB',
+    ecotokens: 'ET',
+    amber: 'AM',
+    nxb: 'NXB',
+    voltbit: 'VB',
+    mayhemcoins: 'MC',
+    cosmicdust: 'CD',
+    wildwavetokens: 'WXT'
+  };
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    let targetCard = null;
+
+    if (Number.isFinite(cardIdFromBody) && cardIdFromBody > 0) {
+      const { rows } = await client.query(
+        `SELECT id
+         FROM ocean_pay_cards
+         WHERE id = $1 AND user_id = $2 AND COALESCE(is_active, true) = true
+         FOR UPDATE`,
+        [cardIdFromBody, userId]
+      );
+      targetCard = rows[0] || null;
+    } else if (cardNumber) {
+      const { rows } = await client.query(
+        `SELECT id
+         FROM ocean_pay_cards
+         WHERE user_id = $1 AND card_number = $2 AND COALESCE(is_active, true) = true
+         LIMIT 1
+         FOR UPDATE`,
+        [userId, cardNumber]
+      );
+      targetCard = rows[0] || null;
+    }
+
+    if (!targetCard) {
+      targetCard = await ensurePrimaryCardForUser(client, userId, true);
+    }
+
+    if (!targetCard) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'No se encontró una tarjeta válida' });
+    }
+
+    const targetCardId = Number(targetCard.id);
+    const currentBalance = await getUnifiedCardCurrencyBalance(client, targetCardId, currencyType, true);
+    const newBalance = currentBalance + delta;
+
+    if (newBalance < 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        error: 'Saldo insuficiente',
+        currencyType,
+        currentBalance
+      });
+    }
+
+    await setUnifiedCardCurrencyBalance(client, {
+      userId,
+      cardId: targetCardId,
+      currency: currencyType,
+      newBalance
+    });
+
+    const txCurrency = txCurrencyCodeByType[currencyType] || currencyType.toUpperCase().slice(0, 10);
+    await client.query(
+      `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [userId, concepto, delta, origen, txCurrency]
+    ).catch(async () => {
+      await client.query(
+        `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen)
+         VALUES ($1, $2, $3, $4)`,
+        [userId, concepto, delta, origen]
+      );
+    });
+
+    await client.query('COMMIT');
+    return res.json({
+      success: true,
+      currencyType,
+      cardId: targetCardId,
+      previousBalance: currentBalance,
+      newBalance
+    });
+  } catch (e) {
+    await client.query('ROLLBACK');
+    console.error('Error en /ocean-pay/cards/change-balance:', e);
+    return res.status(500).json({ error: 'Error interno' });
+  } finally {
+    client.release();
+  }
+});
+
 
 // Changelogs centralizados para todos los proyectos (fuente: ows_news_updates + sync GitHub)
 app.get('/ows-store/changelogs', async (req, res) => {

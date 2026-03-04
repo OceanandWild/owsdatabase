@@ -3526,6 +3526,7 @@
         const OCEAN_PAY_LOCAL_ICON = './build/oceanpay.ico?v=20260223-1825';
         const FLORET_LOCAL_ICON = 'https://raw.githubusercontent.com/OceanandWild/owsdatabase/main/Floret%20Shop/assets/floretshopicon.png?v=20260224-1938';
         const WILDTRANSFER_LOCAL_ICON = './build/wildtransfer.ico?v=20260225-0100';
+        const AWQG_LOCAL_ICON = '../A Wild Question Game/build/awqgicon.ico?v=20260304-awqg';
         const WILDDESTINY_LOCAL_ICON = './build/wilddestiny.ico?v=20260227-1935';
         const ECOXION_LOCAL_ICON = './build/ecoxion.ico?v=20260303-ecxico';
         const VELOCITY_SURGE_LOCAL_ICON = './build/velocitysurge.ico?v=20260227-2415';
@@ -3604,7 +3605,7 @@
             platform: 'windows',
             url: AWQG_WINDOWS_PLAY_URL,
             description: 'Juego de deduccion por personajes con modo online de 2 jugadores. Version de Windows integrada en OWS Store.',
-            icon_url: ''
+            icon_url: AWQG_LOCAL_ICON
         };
         const WILDDESTINY_PROJECT = {
             slug: 'wild-destiny',
@@ -9233,7 +9234,7 @@
             if (isNaturepediaProject(project)) return project?.icon_url || `https://placehold.co/${size}/0b1420/8ee5a1?text=NTP`;
             if (isWildShortsProject(project)) return project?.icon_url || `https://placehold.co/${size}/12131f/ffb96a?text=WSH`;
             if (isVelocitySurgeProject(project)) return project?.icon_url || VELOCITY_SURGE_LOCAL_ICON || `https://placehold.co/${size}/0a0f1e/26e0ff?text=VSG`;
-            if (isAWQGProject(project)) return project?.icon_url || `https://placehold.co/${size}/0f1527/6ff3ff?text=AWQ`;
+            if (isAWQGProject(project)) return project?.icon_url || AWQG_LOCAL_ICON || `https://placehold.co/${size}/0f1527/6ff3ff?text=AWQ`;
             if (isWildWaveProject(project)) return project?.icon_url || WILDWAVE_LOCAL_ICON || `https://placehold.co/${size}/151029/c493ff?text=WWV`;
             return project?.icon_url || `https://placehold.co/${size}/0f172a/00f3ff?text=OWS`;
         }

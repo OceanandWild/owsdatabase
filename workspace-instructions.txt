@@ -6,6 +6,12 @@ Aqui hay una serie de cosas que debes hacer. Es opcional, pero te servira durant
 - Es posible que grep no encuentre algunas cosas. Si el usuario te dice que algo existe, buscalo a fondo antes de descartarlo.
 - Debido al uso de .gitignore, evita git add . si no hace falta.
 - NUNCA subir `.env` al repo. Variables/secretos se gestionan en Render (Environment).
+- PROTOCOLO ULTIMATUM (errores persistentes):
+  - Si un mismo bug persiste tras multiples intentos, activar "modo ultimatum".
+  - En modo ultimatum se permite una solucion agresiva y no conservadora dentro del modulo que falla.
+  - Prioridad: resolver el fallo funcional por encima de mantener implementaciones intermedias.
+  - Limite estricto: no romper ni alterar comportamiento externo al area afectada.
+  - Al terminar, dejar trazabilidad minima: causa probable, cambio aplicado y validacion ejecutada.
 
 Se incluiran mas cosas luego, pero esto te ayuda a entender como realizar la mayoria de las tareas.
 
@@ -43,7 +49,9 @@ Se incluiran mas cosas luego, pero esto te ayuda a entender como realizar la may
 
   Solo subir archivos autorizados segun cambios reales.
   No incluir carpetas de otros proyectos por error.
-  Ecoxion queda excluido de deploy: no agregar ni commitear archivos de `Ecoxion/`.
+  Regla obligatoria: proyectos "excluidos de deploy" se excluyen por seleccion de `git add` (allowlist), NUNCA agregandolos al `.gitignore`.
+  Motivo: si se ignoran en `.gitignore`, luego no se pueden referenciar bien desde el entorno/IDE (por ejemplo con `@archivo`).
+  Aplicacion: Ecoxion y cualquier otro proyecto temporalmente fuera de deploy se manejan igual (exclusion por `git add` selectivo, no por ignore global).
 
 - AUTOMATIZACION DE UPDATE LOGS (OWS News):
   Para anadir un log que aparezca automaticamente en OWS News sin editar el HTML:
@@ -220,6 +228,13 @@ CHECK BLOQUEANTE WINDOWS (UPDATER ELECTRON):
 - El agente debe entregar prompt de icono para IA y documentarlo junto con la integracion.
 - El prompt debe incluir: nombre, concepto visual, paleta, estilo, legibilidad 16x16 y 256x256, fondo sin bordes blancos, sin texto.
 - Si no se agrega proyecto nuevo a OWS Store, no es obligatorio generar prompt.
+
+11) ESTANDAR DE CARPETA BUILD + ICONOS (OBLIGATORIO PARA PROYECTOS NUEVOS)
+- Todo proyecto nuevo debe crear su carpeta local `build/` dentro del proyecto (si no existe).
+- Icono Windows obligatorio: colocar `.ico` en `build/` (ejemplo: `build/<slug>.ico`).
+- Icono Android recomendado: colocar `.jpg` (o `.png`) en `build/` para uso en ficha/publicacion Android.
+- Al publicar el proyecto en OWS Store, referenciar primero el icono local de `build/` y dejar fallback remoto/placeholder solo como respaldo.
+- No cerrar la tarea sin verificar que `build/` contiene los assets de icono esperados para la plataforma publicada.
 
 Prompt base recomendado (Wild Destiny):
 "App icon for 'Wild Destiny'. Epic fantasy-action RPG identity. Central symbol: a luminous crossed blade and arcane sigil fused in one emblem. Style: modern, premium, minimal but powerful, rounded-square icon suitable for Windows and Android launchers. Palette: deep midnight navy (#070b14), electric cyan (#26e0ff), royal violet (#7c3aed), subtle gold accents (#f5c542). High contrast, crisp silhouette, recognizable at 16x16 and detailed at 256x256. No text, no letters, no watermark. Fill full canvas. No white corners, no empty borders. Soft atmospheric glow and controlled depth, avoid clutter."

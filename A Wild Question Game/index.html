@@ -1,0 +1,2739 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+<base href="https://6n7fuililtnx6.ok.kimi.link">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Adivina Quién Es - Juego de Preguntas</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+            color: #fff;
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            position: relative;
+        }
+
+        .title {
+            font-family: 'Orbitron', monospace;
+            font-size: 3.5rem;
+            font-weight: 900;
+            background: linear-gradient(45deg, #00ffff, #ff00ff, #ffff00);
+            background-size: 200% 200%;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: gradientShift 3s ease-in-out infinite;
+            text-shadow: 0 0 30px rgba(0, 255, 255, 0.5);
+            margin-bottom: 10px;
+        }
+
+        @keyframes gradientShift {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        .subtitle {
+            font-size: 1.2rem;
+            color: #a0a0a0;
+            font-weight: 300;
+        }
+
+        .guide-panel {
+            margin: 0 auto 22px auto;
+            padding: 14px 16px;
+            border-radius: 14px;
+            border: 1px solid rgba(0, 255, 255, 0.35);
+            background: linear-gradient(160deg, rgba(8, 19, 44, 0.85), rgba(10, 12, 24, 0.9));
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 10px 16px;
+            align-items: center;
+        }
+
+        .guide-phase {
+            font-family: 'Orbitron', monospace;
+            color: #00ffff;
+            font-size: 0.86rem;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+        }
+
+        .guide-text {
+            color: #eef6ff;
+            font-size: 1rem;
+            line-height: 1.4;
+        }
+
+        .guide-turn {
+            text-align: right;
+            color: #d2dcff;
+            font-size: 0.9rem;
+            font-weight: 700;
+        }
+
+        .guide-actions {
+            margin-top: 8px;
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .guide-action-btn {
+            border: 1px solid rgba(0, 255, 255, 0.35);
+            background: rgba(7, 20, 47, 0.9);
+            color: #c8f6ff;
+            border-radius: 10px;
+            padding: 6px 10px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .guide-action-btn:hover {
+            border-color: rgba(0, 255, 255, 0.65);
+            color: #ffffff;
+        }
+
+        .guide-steps {
+            margin-top: 8px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .guide-step {
+            font-size: 0.8rem;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #c9d7f7;
+            padding: 4px 10px;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .guide-step.active {
+            color: #00131d;
+            border-color: transparent;
+            background: linear-gradient(45deg, #00ffff, #6fffff);
+            font-weight: 700;
+        }
+
+        /* Pantallas del juego */
+        .screen {
+            display: none;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+
+        .screen.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        /* Menú principal */
+        .menu-shell {
+            margin-top: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 28px;
+        }
+
+        .menu-hero {
+            background:
+                radial-gradient(circle at 20% 10%, rgba(0, 255, 255, 0.2), transparent 40%),
+                radial-gradient(circle at 85% 80%, rgba(255, 0, 255, 0.2), transparent 45%),
+                rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(0, 255, 255, 0.28);
+            border-radius: 22px;
+            padding: 28px;
+            backdrop-filter: blur(8px);
+        }
+
+        .menu-hero-title {
+            font-family: 'Orbitron', monospace;
+            font-size: 1.65rem;
+            color: #dffcff;
+            margin-bottom: 10px;
+        }
+
+        .menu-hero-text {
+            color: #c9d8ff;
+            font-size: 1.05rem;
+            max-width: 760px;
+            line-height: 1.5;
+        }
+
+        .menu-kpis {
+            margin-top: 18px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .menu-chip {
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(8, 14, 35, 0.8);
+            color: #bde9ff;
+            padding: 7px 12px;
+            border-radius: 999px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+        }
+
+        .menu-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 24px;
+        }
+
+        .category-card {
+            background: linear-gradient(160deg, rgba(17, 26, 56, 0.92), rgba(8, 13, 31, 0.95));
+            border: 1px solid rgba(0, 255, 255, 0.2);
+            border-radius: 22px;
+            padding: 22px;
+            cursor: pointer;
+            transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+            position: relative;
+            overflow: hidden;
+            text-align: left;
+        }
+
+        .category-card::before {
+            content: '';
+            position: absolute;
+            inset: -35% auto auto -25%;
+            width: 220px;
+            height: 220px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(0, 255, 255, 0.22), transparent 70%);
+            pointer-events: none;
+        }
+
+        .category-card::after {
+            content: '';
+            position: absolute;
+            inset: auto -35% -45% auto;
+            width: 240px;
+            height: 240px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255, 0, 255, 0.2), transparent 68%);
+            pointer-events: none;
+        }
+
+        .category-card:hover {
+            transform: translateY(-6px);
+            border-color: rgba(0, 255, 255, 0.65);
+            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35), 0 0 26px rgba(0, 255, 255, 0.2);
+        }
+
+        .category-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 14px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .category-icon {
+            font-size: 2.1rem;
+            line-height: 1;
+        }
+
+        .category-badge {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: #00131d;
+            background: linear-gradient(45deg, #00ffff, #6fffff);
+            border-radius: 999px;
+            padding: 6px 10px;
+        }
+
+        .category-title {
+            font-family: 'Orbitron', monospace;
+            font-size: 1.35rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: #eeffff;
+            position: relative;
+            z-index: 1;
+        }
+
+        .category-description {
+            color: #b7c7e8;
+            font-size: 0.98rem;
+            line-height: 1.5;
+            margin-bottom: 14px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .category-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 14px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .category-tag {
+            font-size: 0.78rem;
+            color: #99d8ff;
+            background: rgba(8, 22, 52, 0.75);
+            border: 1px solid rgba(153, 216, 255, 0.35);
+            padding: 5px 8px;
+            border-radius: 8px;
+        }
+
+        .category-cta {
+            margin-top: 6px;
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: #00ffff;
+            text-transform: uppercase;
+            letter-spacing: 0.9px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .howto-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 12px;
+        }
+
+        .howto-card {
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            border-radius: 14px;
+            background: rgba(8, 14, 35, 0.78);
+            padding: 12px;
+        }
+
+        .howto-title {
+            font-size: 0.9rem;
+            color: #00ffff;
+            margin-bottom: 4px;
+            font-weight: 700;
+        }
+
+        .howto-text {
+            font-size: 0.88rem;
+            color: #d4e3ff;
+            line-height: 1.35;
+        }
+
+        .multi-panel {
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 16px;
+            background: rgba(7, 14, 32, 0.84);
+            padding: 14px;
+        }
+
+        .multi-title {
+            color: #00ffff;
+            font-family: 'Orbitron', monospace;
+            font-size: 0.95rem;
+            margin-bottom: 10px;
+        }
+
+        .multi-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .multi-input, .multi-select {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            border-radius: 10px;
+            color: #e6f4ff;
+            padding: 9px 10px;
+            font-family: 'Rajdhani', sans-serif;
+            min-width: 170px;
+        }
+
+        .multi-note {
+            margin-top: 10px;
+            color: #bdd1f4;
+            font-size: 0.88rem;
+        }
+
+        .wait-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,.75);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 3300;
+        }
+
+        .wait-overlay.active { display: flex; }
+
+        .wait-card {
+            width: min(500px, calc(100vw - 24px));
+            border: 1px solid rgba(0,255,255,.35);
+            border-radius: 16px;
+            background: rgba(10,16,38,.96);
+            padding: 18px;
+            text-align: center;
+        }
+
+        .wait-code {
+            margin: 12px 0;
+            font-family: 'Orbitron', monospace;
+            color: #7effd8;
+            font-size: 1.8rem;
+            letter-spacing: 3px;
+        }
+/* Selección de personajes */
+        .character-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+            max-height: 600px;
+            overflow-y: auto;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+        }
+
+        .character-card {
+            background: rgba(255, 255, 255, 0.08);
+            border: 2px solid transparent;
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(5px);
+        }
+
+        .character-card:hover {
+            border-color: #00ffff;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.4);
+            transform: scale(1.05);
+        }
+
+        .character-card.selected {
+            border-color: #ff00ff;
+            box-shadow: 0 0 25px rgba(255, 0, 255, 0.6);
+            background: rgba(255, 0, 255, 0.1);
+        }
+
+        .character-name {
+            font-family: 'Orbitron', monospace;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #00ffff;
+            margin-bottom: 10px;
+        }
+
+        .character-traits {
+            font-size: 0.9rem;
+            color: #a0a0a0;
+        }
+
+        /* Área de juego */
+        .game-layout {
+            display: grid;
+            grid-template-columns: 1fr 2fr 1fr;
+            gap: 30px;
+            margin-top: 30px;
+            min-height: 600px;
+        }
+
+        .player-panel {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            padding: 25px;
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(0, 255, 255, 0.2);
+        }
+
+        .player-panel.active {
+            border-color: #ff00ff;
+            box-shadow: 0 0 30px rgba(255, 0, 255, 0.3);
+        }
+
+        .player-title {
+            font-family: 'Orbitron', monospace;
+            font-size: 1.3rem;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 20px;
+            color: #00ffff;
+        }
+
+        .player-panel.active .player-title {
+            color: #ff00ff;
+        }
+
+        .question-area {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 20px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .current-question {
+            font-size: 1.4rem;
+            text-align: center;
+            margin-bottom: 30px;
+            color: #fff;
+            font-weight: 600;
+        }
+
+        .answer-buttons {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin-bottom: 30px;
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #00ffff, #ff00ff);
+            border: none;
+            border-radius: 50px;
+            padding: 15px 30px;
+            color: #fff;
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(0, 255, 255, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(-1px);
+        }
+
+        .btn.is-disabled,
+        .btn:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+            filter: grayscale(0.2);
+        }
+
+        .btn-yes {
+            background: linear-gradient(45deg, #00ff00, #00aa00);
+        }
+
+        .btn-no {
+            background: linear-gradient(45deg, #ff0000, #aa0000);
+        }
+
+        .question-history {
+            max-height: 300px;
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 15px;
+        }
+
+        .question-item {
+            padding: 10px;
+            margin-bottom: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            border-left: 4px solid #00ffff;
+        }
+
+        .question-item.negative {
+            border-left-color: #ff0000;
+        }
+
+        /* Pantalla de turno */
+        .turn-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+        }
+
+        .turn-title {
+            font-family: 'Orbitron', monospace;
+            font-size: 4rem;
+            font-weight: 900;
+            background: linear-gradient(45deg, #00ffff, #ff00ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .turn-instruction {
+            font-size: 1.5rem;
+            color: #a0a0a0;
+            text-align: center;
+            margin-bottom: 40px;
+            max-width: 600px;
+        }
+
+        /* Pantalla de victoria */
+        .victory-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+        }
+
+        .victory-title {
+            font-family: 'Orbitron', monospace;
+            font-size: 5rem;
+            font-weight: 900;
+            background: linear-gradient(45deg, #ffff00, #ff00ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .victory-subtitle {
+            font-size: 2rem;
+            color: #00ffff;
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        /* Controles del juego */
+        .game-controls {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid #00ffff;
+            color: #00ffff;
+        }
+
+        .btn-secondary:hover {
+            background: #00ffff;
+            color: #000;
+        }
+
+        /* Scrollbar personalizada */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(45deg, #00ffff, #ff00ff);
+            border-radius: 4px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .title {
+                font-size: 2.5rem;
+            }
+            
+            
+            .menu-hero {
+                padding: 22px 16px;
+            }
+
+            .menu-hero-title {
+                font-size: 1.3rem;
+            }
+
+            .menu-hero-text {
+                font-size: 0.98rem;
+            }
+
+            .menu-grid {
+                grid-template-columns: 1fr;
+            }
+            .guide-panel {
+                grid-template-columns: 1fr;
+                gap: 8px;
+                padding: 12px;
+            }
+            .guide-turn {
+                text-align: left;
+            }
+            .guide-actions {
+                justify-content: flex-start;
+            }
+.game-layout {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .answer-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .character-grid {
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+                gap: 15px;
+            }
+        }
+
+        /* Animaciones de carga */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #00ffff;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Efectos de partículas */
+        .particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: #00ffff;
+            border-radius: 50%;
+            animation: float 6s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); opacity: 0; }
+            50% { transform: translateY(-100px) rotate(180deg); opacity: 1; }
+        }
+
+        /* ---- Eliminación de candidatos ---- */
+.elim-table {
+    margin: 20px auto;
+    display: grid;
+    gap: 6px;
+    justify-content: center;
+}
+.elim-cell {
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: rgba(255,255,255,.08);
+    border: 1px solid rgba(0,255,255,.3);
+    text-align: center;
+    cursor: pointer;
+    transition: all .3s ease;
+    font-size: .85rem;
+}
+.elim-cell.eliminated {
+    background: rgba(255,0,0,.25);
+    border-color: #f00;
+    opacity: .35;
+    text-decoration: line-through;
+}
+@keyframes shake {
+    0%,100%{transform:translateX(0)}
+    25%{transform:translateX(-4px)}
+    75%{transform:translateX(4px)}
+}
+.shake {
+    animation: shake .3s ease;
+}
+
+/* 1 pregunta por defecto -> botón adicional */
+.btn-extra { background: linear-gradient(45deg,#ff9800,#ff5722); }
+.btn-extra:hover { box-shadow: 0 10px 25px rgba(255,152,0,.5); }
+
+/* advertencia “arriesgado” */
+.risk-badge{
+    display:inline-block;
+    background:#f44336;
+    color:#fff;
+    padding:2px 8px;
+    border-radius:12px;
+    font-size:.75rem;
+    margin-left:8px;
+    animation:pulse 1.2s infinite;
+}
+@keyframes pulse{ 50%{transform:scale(1.15)} }
+
+/* Recordatorio de rasgos */
+.reminder-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.85);
+    backdrop-filter: blur(8px);
+    z-index: 2000;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    text-align: center;
+}
+.reminder-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 1.8rem;
+    margin-bottom: 20px;
+    color: #00ffff;
+}
+.reminder-card {
+    background: rgba(255,255,255,.08);
+    border: 2px solid #00ffff;
+    border-radius: 15px;
+    padding: 25px 35px;
+    max-width: 400px;
+    width: 100%;
+}
+.reminder-name {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 15px;
+}
+.reminder-traits {
+    font-size: 1rem;
+    color: #c0c0c0;
+    line-height: 1.5;
+}
+.reminder-btn {
+    margin-top: 25px;
+    background: linear-gradient(45deg,#00ffff,#ff00ff);
+    border: none;
+    border-radius: 50px;
+    padding: 12px 30px;
+    color: #000;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all .3s ease;
+}
+.reminder-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 25px rgba(0,255,255,.4);
+}
+
+/* Modal UI unificado */
+.ui-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.65);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 3000;
+    padding: 16px;
+}
+.ui-modal.active { display: flex; }
+.ui-modal-card {
+    width: min(460px, 100%);
+    background: rgba(14,18,35,.96);
+    border: 1px solid rgba(0,255,255,.35);
+    border-radius: 16px;
+    padding: 18px;
+    box-shadow: 0 18px 45px rgba(0,0,0,.35);
+}
+.ui-modal-title {
+    font-family: 'Orbitron', monospace;
+    font-size: 1.05rem;
+    color: #00ffff;
+    margin-bottom: 8px;
+}
+.ui-modal-message {
+    color: #d5e7ff;
+    line-height: 1.45;
+    white-space: pre-line;
+    margin-bottom: 14px;
+}
+.ui-modal-input {
+    width: 100%;
+    border: 1px solid rgba(255,255,255,.2);
+    background: rgba(0,0,0,.35);
+    color: #fff;
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 14px;
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1.05rem;
+}
+.ui-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+.ui-btn {
+    border: none;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-family: 'Rajdhani', sans-serif;
+    font-weight: 700;
+    cursor: pointer;
+}
+.ui-btn.cancel { background: #2d344f; color: #c6d0e6; }
+.ui-btn.ok {
+    background: linear-gradient(45deg, #00ffff, #ff00ff);
+    color: #fff;
+}
+
+.event-toast {
+    position: fixed;
+    right: 16px;
+    bottom: 16px;
+    width: min(360px, calc(100vw - 24px));
+    border-radius: 12px;
+    border: 1px solid rgba(0,255,255,.3);
+    background: rgba(8, 13, 31, 0.95);
+    color: #e8f4ff;
+    padding: 11px 12px;
+    z-index: 3200;
+    box-shadow: 0 14px 28px rgba(0,0,0,.35);
+    font-size: 0.92rem;
+}
+
+.event-toast strong {
+    color: #00ffff;
+}
+
+.tutorial-overlay {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 3400;
+    display: none;
+}
+
+.tutorial-overlay.active {
+    display: block;
+}
+
+.tutorial-highlight {
+    position: relative;
+    z-index: 3401 !important;
+    box-shadow: 0 0 0 4px rgba(88, 255, 114, 0.95), 0 0 0 10px rgba(88, 255, 114, 0.2);
+    border-radius: 10px;
+    transition: box-shadow 0.2s ease;
+}
+
+.tutorial-coach {
+    position: fixed;
+    left: 50%;
+    bottom: 16px;
+    transform: translateX(-50%);
+    width: min(720px, calc(100vw - 24px));
+    background: rgba(8, 13, 31, 0.97);
+    border: 1px solid rgba(88, 255, 114, 0.5);
+    border-radius: 14px;
+    padding: 12px;
+    color: #e9f3ff;
+    pointer-events: auto;
+    box-shadow: 0 18px 35px rgba(0,0,0,.4);
+}
+
+.tutorial-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.tutorial-title {
+    color: #8dff9f;
+    font-family: 'Orbitron', monospace;
+    font-size: 0.9rem;
+}
+
+.tutorial-timer {
+    font-weight: 700;
+    color: #c8ffd0;
+    font-size: 0.85rem;
+}
+
+.tutorial-text {
+    color: #d7e6ff;
+    line-height: 1.45;
+    font-size: 0.95rem;
+}
+
+.tutorial-bar {
+    height: 6px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.15);
+    overflow: hidden;
+    margin-top: 10px;
+}
+
+.tutorial-bar > span {
+    display: block;
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(45deg, #58ff72, #a7ffcf);
+}
+
+.tutorial-actions {
+    margin-top: 10px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.tutorial-btn {
+    border: none;
+    border-radius: 8px;
+    padding: 7px 10px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.tutorial-btn.secondary {
+    background: #2d344f;
+    color: #d2dcff;
+}
+
+.tutorial-btn.primary {
+    background: linear-gradient(45deg, #58ff72, #9affbc);
+    color: #00210a;
+}
+    </style>
+</head>
+<body>
+    <div class="particles" id="particles"></div>
+    
+    <div class="container">
+        <header class="header">
+            <h1 class="title">ADIVINA QUIÉN ES</h1>
+            <p class="subtitle">El juego de preguntas y adivinanzas multitemática</p>
+        </header>
+        <section id="guidePanel" class="guide-panel">
+            <div>
+                <div id="guidePhase" class="guide-phase">Fase: Menú</div>
+                <div id="guideText" class="guide-text">Elige una categoría para iniciar una partida.</div>
+                <div class="guide-steps">
+                    <span id="stepMenu" class="guide-step active">1. Categoría</span>
+                    <span id="stepSelection" class="guide-step">2. Selección</span>
+                    <span id="stepPlay" class="guide-step">3. Preguntas</span>
+                    <span id="stepWin" class="guide-step">4. Victoria</span>
+                </div>
+            </div>
+            <div>
+                <div id="guideTurn" class="guide-turn">Listo para jugar</div>
+                <div class="guide-actions">
+                    <button id="ultraGuideToggle" class="guide-action-btn" onclick="toggleUltraGuide()">Ultra guiado: ON</button>
+                    <button id="tutorialStartBtn" class="guide-action-btn" onclick="startInteractiveTutorial()">Tutorial 60s</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Pantalla del menú principal -->
+                <div id="menuScreen" class="screen active">
+            <div class="menu-shell">
+                <section class="menu-hero">
+                    <h2 class="menu-hero-title">Elige una arena de preguntas</h2>
+                    <p class="menu-hero-text">Cada partida se basa en un universo tematico distinto. Selecciona una categoria, elige el personaje secreto del rival y usa preguntas estrategicas para reducir opciones hasta acertar.</p>
+                    <div class="menu-kpis">
+                        <span class="menu-chip">2 jugadores locales</span>
+                        <span class="menu-chip">Preguntas dinamicas</span>
+                        <span class="menu-chip">Eliminacion visual de candidatos</span>
+                    </div>
+                </section>
+
+                <div class="menu-grid">
+                    <div id="catOcean" class="category-card" onclick="selectCategory('animales_oceanicos')">
+                        <div class="category-head">
+                            <span class="category-icon">🐋</span>
+                            <span class="category-badge">Dificultad media</span>
+                        </div>
+                        <h3 class="category-title">Animales Oceanicos</h3>
+                        <p class="category-description">Adivina que criatura marina eligio tu rival analizando habitat, dieta, tamano, comportamiento y nivel de peligro.</p>
+                        <div class="category-tags">
+                            <span class="category-tag">Fauna</span>
+                            <span class="category-tag">Biologia</span>
+                            <span class="category-tag">Estrategia deductiva</span>
+                        </div>
+                        <p class="category-cta">Iniciar reto marino</p>
+                    </div>
+
+                    <div id="catInvent" class="category-card" onclick="selectCategory('inventos_historicos')">
+                        <div class="category-head">
+                            <span class="category-icon">⚙️</span>
+                            <span class="category-badge">Dificultad alta</span>
+                        </div>
+                        <h3 class="category-title">Inventos Historicos</h3>
+                        <p class="category-description">Descubre que invento representa el oponente usando preguntas sobre epoca, energia, uso principal e impacto social.</p>
+                        <div class="category-tags">
+                            <span class="category-tag">Historia</span>
+                            <span class="category-tag">Tecnologia</span>
+                            <span class="category-tag">Cultura general</span>
+                        </div>
+                        <p class="category-cta">Iniciar reto de inventos</p>
+                    </div>
+                </div>
+
+                <div class="howto-grid">
+                    <div class="howto-card">
+                        <div class="howto-title">Paso 1</div>
+                        <p class="howto-text">El Jugador 1 elige un personaje que deberá adivinar el Jugador 2.</p>
+                    </div>
+                    <div class="howto-card">
+                        <div class="howto-title">Paso 2</div>
+                        <p class="howto-text">El Jugador 2 elige uno distinto y arranca la partida por turnos.</p>
+                    </div>
+                    <div class="howto-card">
+                        <div class="howto-title">Paso 3</div>
+                        <p class="howto-text">Haz preguntas, marca descartes en la tabla y adivina en el momento justo.</p>
+                    </div>
+                </div>
+
+                <div class="multi-panel">
+                    <div class="multi-title">Multijugador Online</div>
+                    <div class="multi-row" style="margin-bottom:10px;">
+                        <button class="btn" style="padding:10px 16px;" onclick="createOnlineRoom()">Crear partida (Jugador 1)</button>
+                        <button class="btn btn-secondary" style="padding:10px 16px;" onclick="refreshWaitingRooms()">Ver salas esperando</button>
+                    </div>
+                    <div class="multi-row">
+                        <select id="onlineRoomList" class="multi-select"></select>
+                        <input id="onlineRoomCodeInput" class="multi-input" type="text" placeholder="Código de sala (ej: AB12CD)" />
+                        <input id="onlinePlayerNameInput" class="multi-input" type="text" placeholder="Tu nombre (Jugador 2)" />
+                        <button class="btn btn-secondary" style="padding:10px 16px;" onclick="joinOnlineRoom()">Unirse</button>
+                    </div>
+                    <div id="onlineStatusNote" class="multi-note">Puedes unirte por lista o por código.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pantalla de selección de personajes -->
+        <div id="selectionScreen" class="screen">
+            <h2 style="text-align: center; font-family: 'Orbitron', monospace; font-size: 2rem; margin-bottom: 20px;">
+                <span id="categoryTitle"></span>
+            </h2>
+            <p id="selectionInstruction" style="text-align: center; color: #a0a0a0; margin-bottom: 30px;">
+                Jugador <span id="currentPlayer">1</span>, selecciona un personaje para tu oponente
+            </p>
+            <div id="characterGrid" class="character-grid"></div>
+            <div class="game-controls">
+                <button id="backSelectionBtn" class="btn btn-secondary" onclick="backToMenu()">Volver al Menú</button>
+            </div>
+        </div>
+
+        <!-- Pantalla de juego -->
+        <div id="gameScreen" class="screen">
+            <div class="game-layout">
+                <!-- Tabla de eliminación -->
+<div id="elimContainer" style="text-align:center; margin-top:20px;">
+    <h3 style="color:#00ffff; margin-bottom:10px;">Candidatos posibles</h3>
+    <div id="elimTable" class="elim-table"></div>
+</div>
+                <div id="player1Panel" class="player-panel">
+                    <h3 class="player-title">Jugador 1</h3>
+                    <div id="player1Character"></div>
+                    <div class="question-history" id="player1History"></div>
+                </div>
+
+                <div class="question-area">
+                    <div class="current-question" id="currentQuestion">
+                        Haz tu primera pregunta para adivinar el personaje de tu oponente
+                    </div>
+                    <div class="answer-buttons" id="answerButtons" style="display: none;">
+                        <button class="btn btn-yes" onclick="answerQuestion(true)">Sí</button>
+                        <button class="btn btn-no" onclick="answerQuestion(false)">No</button>
+                    </div>
+                    <div id="questionButtons"></div>
+                </div>
+
+                <div id="player2Panel" class="player-panel">
+                    <h3 class="player-title">Jugador 2</h3>
+                    <div id="player2Character"></div>
+                    <div class="question-history" id="player2History"></div>
+                </div>
+            </div>
+            <div class="game-controls">
+                <!-- ➊ Botón para saltar turno y ganar una pregunta EXTRA -->
+<div style="text-align:center;margin-top:10px">
+    <button id="skipBtn" class="btn btn-extra" onclick="skipTurnForExtra()">
+        Saltar turno → 2 preguntas el próximo turno
+    </button>
+</div>
+                <button id="endTurnBtn" class="btn" onclick="endTurn()">Terminar Turno</button>
+                <button id="guessBtn" class="btn btn-secondary" onclick="guessCharacter()">Adivinar Personaje</button>
+                <button id="backGameBtn" class="btn btn-secondary" onclick="backToMenu()">Abandonar Juego</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pantalla de cambio de turno -->
+    <div id="turnScreen" class="turn-screen" style="display: none;">
+        <h2 class="turn-title" id="turnTitle"></h2>
+        <p class="turn-instruction" id="turnInstruction"></p>
+        <button class="btn" onclick="startTurn()">Comenzar mi turno</button>
+    </div>
+
+    <!-- Pantalla de victoria -->
+    <div id="victoryScreen" class="victory-screen" style="display: none;">
+        <h2 class="victory-title">¡VICTORIA!</h2>
+        <p class="victory-subtitle" id="victoryMessage"></p>
+        <button class="btn" onclick="backToMenu()">Jugar de Nuevo</button>
+    </div>
+
+    <!-- Recordatorio de rasgos -->
+<div id="reminderOverlay" class="reminder-overlay" style="display:none;">
+    <div class="reminder-card">
+        <div class="reminder-title" id="reminderTitle"></div>
+        <div class="reminder-name"   id="reminderName"></div>
+        <div class="reminder-traits" id="reminderTraits"></div>
+        <button class="reminder-btn" onclick="closeReminder()">Entendido</button>
+    </div>
+</div>
+
+    <div id="waitOverlay" class="wait-overlay" aria-hidden="true">
+        <div class="wait-card">
+            <div class="menu-hero-title" style="font-size:1.1rem;margin-bottom:6px;">Esperando al Jugador 2...</div>
+            <p id="waitMessage" class="menu-hero-text" style="max-width:none;font-size:0.95rem;">Comparte este código para que alguien se una a tu partida.</p>
+            <div id="waitCode" class="wait-code">------</div>
+            <button class="btn btn-secondary" style="padding:10px 16px;" onclick="closeWaitOverlay()">Cerrar</button>
+        </div>
+    </div>
+
+    <div id="uiModal" class="ui-modal" aria-hidden="true">
+        <div class="ui-modal-card">
+            <div id="uiModalTitle" class="ui-modal-title">Mensaje</div>
+            <div id="uiModalMessage" class="ui-modal-message"></div>
+            <input id="uiModalInput" class="ui-modal-input" type="text" style="display:none;">
+            <div class="ui-modal-actions">
+                <button id="uiModalCancel" class="ui-btn cancel">Cancelar</button>
+                <button id="uiModalOk" class="ui-btn ok">Aceptar</button>
+            </div>
+        </div>
+    </div>
+    <div id="tutorialOverlay" class="tutorial-overlay" aria-hidden="true">
+        <div class="tutorial-coach">
+            <div class="tutorial-top">
+                <div id="tutorialTitle" class="tutorial-title">Tutorial interactivo</div>
+                <div id="tutorialTimer" class="tutorial-timer">60s</div>
+            </div>
+            <div id="tutorialText" class="tutorial-text">Vamos a guiar tu primera partida paso a paso.</div>
+            <div class="tutorial-bar"><span id="tutorialProgress"></span></div>
+            <div class="tutorial-actions">
+                <button id="tutorialPrevBtn" class="tutorial-btn secondary" onclick="prevTutorialStep()">Anterior</button>
+                <button id="tutorialNextBtn" class="tutorial-btn primary" onclick="nextTutorialStep()">Siguiente</button>
+                <button id="tutorialSkipBtn" class="tutorial-btn secondary" onclick="stopInteractiveTutorial(true)">Omitir</button>
+            </div>
+        </div>
+    </div>
+    <script>
+
+        // Base de datos de personajes por categoría
+const gameData = {
+    animales_oceanicos: {
+        name: "Animales Oceanicos",
+        characters: [
+            { id: "tiburon_blanco", name: "Tiburon Blanco", traits: { tipo: "Pez", habitat: "Oceanico", tamano: "Grande", dieta: "Carnivoro", movilidad: "Muy rapida", peligro: "Alto", social: "Solitario" } },
+            { id: "delfin", name: "Delfin Nariz de Botella", traits: { tipo: "Mamifero", habitat: "Costero", tamano: "Mediano", dieta: "Carnivoro", movilidad: "Rapida", peligro: "Bajo", social: "Manada" } },
+            { id: "ballena_azul", name: "Ballena Azul", traits: { tipo: "Mamifero", habitat: "Oceanico", tamano: "Gigante", dieta: "Filtrador", movilidad: "Lenta", peligro: "Bajo", social: "Pareja" } },
+            { id: "pulpo", name: "Pulpo Comun", traits: { tipo: "Molusco", habitat: "Arrecife", tamano: "Mediano", dieta: "Carnivoro", movilidad: "Lenta", peligro: "Medio", social: "Solitario" } },
+            { id: "tortuga_verde", name: "Tortuga Verde", traits: { tipo: "Reptil", habitat: "Costero", tamano: "Grande", dieta: "Herbivoro", movilidad: "Lenta", peligro: "Bajo", social: "Solitario" } },
+            { id: "manta", name: "Manta Oceanica", traits: { tipo: "Pez", habitat: "Oceanico", tamano: "Grande", dieta: "Filtrador", movilidad: "Rapida", peligro: "Bajo", social: "Pareja" } },
+            { id: "caballito_mar", name: "Caballito de Mar", traits: { tipo: "Pez", habitat: "Arrecife", tamano: "Pequeno", dieta: "Carnivoro", movilidad: "Lenta", peligro: "Bajo", social: "Pareja" } },
+            { id: "foca_leopardo", name: "Foca Leopardo", traits: { tipo: "Mamifero", habitat: "Polar", tamano: "Grande", dieta: "Carnivoro", movilidad: "Rapida", peligro: "Alto", social: "Solitario" } },
+            { id: "medusa_luna", name: "Medusa Luna", traits: { tipo: "Cnidario", habitat: "Costero", tamano: "Pequeno", dieta: "Plancton", movilidad: "Flotante", peligro: "Bajo", social: "Colonia" } },
+            { id: "pez_payaso", name: "Pez Payaso", traits: { tipo: "Pez", habitat: "Arrecife", tamano: "Pequeno", dieta: "Omnivoro", movilidad: "Rapida", peligro: "Bajo", social: "Pareja" } },
+            { id: "orca", name: "Orca", traits: { tipo: "Mamifero", habitat: "Oceanico", tamano: "Grande", dieta: "Carnivoro", movilidad: "Muy rapida", peligro: "Alto", social: "Manada" } },
+            { id: "cangrejo", name: "Cangrejo Azul", traits: { tipo: "Crustaceo", habitat: "Costero", tamano: "Pequeno", dieta: "Omnivoro", movilidad: "Lenta", peligro: "Bajo", social: "Colonia" } }
+        ]
+    },
+    inventos_historicos: {
+        name: "Inventos Historicos",
+        characters: [
+            { id: "imprenta", name: "Imprenta Moderna", traits: { era: "Renacimiento", energia: "Manual", uso: "Comunicacion", portatil: "No", estado: "Analogico", impacto: "Global", entorno: "Infraestructura" } },
+            { id: "brujula", name: "Brujula Magnetica", traits: { era: "Antiguedad", energia: "Manual", uso: "Navegacion", portatil: "Si", estado: "Analogico", impacto: "Global", entorno: "Movilidad" } },
+            { id: "vapor", name: "Maquina de Vapor", traits: { era: "Revolucion Industrial", energia: "Combustible", uso: "Industria", portatil: "No", estado: "Analogico", impacto: "Global", entorno: "Infraestructura" } },
+            { id: "bombilla", name: "Bombilla Electrica", traits: { era: "Revolucion Industrial", energia: "Electrica", uso: "Hogar", portatil: "No", estado: "Analogico", impacto: "Global", entorno: "Hogar" } },
+            { id: "telefono", name: "Telefono", traits: { era: "Revolucion Industrial", energia: "Electrica", uso: "Comunicacion", portatil: "No", estado: "Analogico", impacto: "Global", entorno: "Hogar" } },
+            { id: "radio", name: "Radio", traits: { era: "Siglo XX", energia: "Electrica", uso: "Comunicacion", portatil: "Si", estado: "Analogico", impacto: "Global", entorno: "Hogar" } },
+            { id: "avion", name: "Avion", traits: { era: "Siglo XX", energia: "Combustible", uso: "Transporte", portatil: "No", estado: "Analogico", impacto: "Global", entorno: "Movilidad" } },
+            { id: "penicilina", name: "Penicilina", traits: { era: "Siglo XX", energia: "Biologico", uso: "Salud", portatil: "Si", estado: "Hibrido", impacto: "Global", entorno: "Laboratorio" } },
+            { id: "pc", name: "Computadora Personal", traits: { era: "Siglo XX", energia: "Electrica", uso: "Computacion", portatil: "No", estado: "Digital", impacto: "Global", entorno: "Hogar" } },
+            { id: "internet", name: "Internet", traits: { era: "Siglo XX", energia: "Red", uso: "Comunicacion", portatil: "No", estado: "Digital", impacto: "Global", entorno: "Infraestructura" } },
+            { id: "smartphone", name: "Smartphone", traits: { era: "Siglo XXI", energia: "Electrica", uso: "Comunicacion", portatil: "Si", estado: "Digital", impacto: "Global", entorno: "Movilidad" } },
+            { id: "impresora_3d", name: "Impresora 3D", traits: { era: "Siglo XXI", energia: "Electrica", uso: "Industria", portatil: "No", estado: "Digital", impacto: "Especializado", entorno: "Laboratorio" } }
+        ]
+    }
+};
+
+// Preguntas posibles por categoría
+const questions = {
+    animales_oceanicos: [
+        { text: "¿Es un mamifero?", trait: "tipo", value: "Mamifero" },
+        { text: "¿Es un pez?", trait: "tipo", value: "Pez" },
+        { text: "¿Es un molusco?", trait: "tipo", value: "Molusco" },
+        { text: "¿Vive en zona oceanica abierta?", trait: "habitat", value: "Oceanico" },
+        { text: "¿Vive en zona costera?", trait: "habitat", value: "Costero" },
+        { text: "¿Vive en arrecifes?", trait: "habitat", value: "Arrecife" },
+        { text: "¿Habita regiones polares?", trait: "habitat", value: "Polar" },
+        { text: "¿Es de tamaño gigante?", trait: "tamano", value: "Gigante" },
+        { text: "¿Es de tamaño grande?", trait: "tamano", value: "Grande" },
+        { text: "¿Es de tamaño pequeño?", trait: "tamano", value: "Pequeno" },
+        { text: "¿Es carnivoro?", trait: "dieta", value: "Carnivoro" },
+        { text: "¿Es herbivoro?", trait: "dieta", value: "Herbivoro" },
+        { text: "¿Es omnivoro?", trait: "dieta", value: "Omnivoro" },
+        { text: "¿Se alimenta filtrando?", trait: "dieta", value: "Filtrador" },
+        { text: "¿Se mueve muy rapido?", trait: "movilidad", value: "Muy rapida" },
+        { text: "¿Se mueve lentamente?", trait: "movilidad", value: "Lenta" },
+        { text: "¿Tiene movimiento flotante?", trait: "movilidad", value: "Flotante" },
+        { text: "¿Su nivel de peligro es alto?", trait: "peligro", value: "Alto" },
+        { text: "¿Suele vivir en manada?", trait: "social", value: "Manada" },
+        { text: "¿Suele vivir en colonia?", trait: "social", value: "Colonia" }
+    ],
+    inventos_historicos: [
+        { text: "¿Es un invento de la antiguedad?", trait: "era", value: "Antiguedad" },
+        { text: "¿Es un invento del renacimiento?", trait: "era", value: "Renacimiento" },
+        { text: "¿Es de la revolucion industrial?", trait: "era", value: "Revolucion Industrial" },
+        { text: "¿Es un invento del siglo XX?", trait: "era", value: "Siglo XX" },
+        { text: "¿Es un invento del siglo XXI?", trait: "era", value: "Siglo XXI" },
+        { text: "¿Funciona con energia manual?", trait: "energia", value: "Manual" },
+        { text: "¿Usa energia electrica?", trait: "energia", value: "Electrica" },
+        { text: "¿Usa combustible?", trait: "energia", value: "Combustible" },
+        { text: "¿Depende de una red?", trait: "energia", value: "Red" },
+        { text: "¿Su uso principal es comunicacion?", trait: "uso", value: "Comunicacion" },
+        { text: "¿Su uso principal es transporte?", trait: "uso", value: "Transporte" },
+        { text: "¿Su uso principal es salud?", trait: "uso", value: "Salud" },
+        { text: "¿Su uso principal es computacion?", trait: "uso", value: "Computacion" },
+        { text: "¿Su uso principal es industria?", trait: "uso", value: "Industria" },
+        { text: "¿Es portatil?", trait: "portatil", value: "Si" },
+        { text: "¿Es digital?", trait: "estado", value: "Digital" },
+        { text: "¿Es analogico?", trait: "estado", value: "Analogico" },
+        { text: "¿Tiene impacto global?", trait: "impacto", value: "Global" },
+        { text: "¿Se usa principalmente en laboratorio?", trait: "entorno", value: "Laboratorio" },
+        { text: "¿Se usa principalmente en movilidad?", trait: "entorno", value: "Movilidad" }
+    ]
+};
+        // Estado del juego
+let gameState = {
+    currentCategory: null,
+    player1Character: null,
+    player2Character: null,
+    currentPlayer: 1,
+    player1Questions: [],
+    player2Questions: [],
+    availableQuestions: [],
+    gamePhase: 'menu', // menu, selection, playing, turn, victory
+    selectionPhase: 1, // 1: jugador 1 selecciona, 2: jugador 2 selecciona
+        questionsLeftThisTurn : 1,   // 1 por defecto
+    extraQuestionAwarded  : false, // se activa cuando el rival salta
+    p1ReminderSeen: false,   // ← nueva
+    ultraGuided: true,
+};
+
+const onlineState = {
+    enabled: false,
+    socket: null,
+    connected: false,
+    roomCode: null,
+    role: null, // host | guest
+    playerName: '',
+    opponentName: '',
+    waitingForGuest: false
+};
+
+function isOnlineMode() {
+    return !!onlineState.enabled;
+}
+
+function getServerBaseUrl() {
+    if (window.location && /^https?:/i.test(window.location.protocol)) {
+        return window.location.origin;
+    }
+    return 'https://owsdatabase.onrender.com';
+}
+
+function ensureOnlineSocket() {
+    if (onlineState.socket) return onlineState.socket;
+    if (typeof io === 'undefined') {
+        uiAlert('No se pudo cargar Socket.IO. Abre el juego desde el servidor (Render) para activar online.', 'Online no disponible');
+        return null;
+    }
+    const base = getServerBaseUrl();
+    const socket = io(base, { transports: ['websocket', 'polling'] });
+    onlineState.socket = socket;
+
+    socket.on('connect', () => {
+        onlineState.connected = true;
+        setOnlineStatus('Conectado al servidor online.');
+    });
+    socket.on('disconnect', () => {
+        onlineState.connected = false;
+        setOnlineStatus('Conexión perdida con el servidor online.');
+    });
+    socket.on('awqg:error', ({ message }) => {
+        if (message) uiAlert(message, 'Multijugador');
+    });
+    socket.on('awqg:guest-joined', ({ room }) => {
+        if (!room) return;
+        onlineState.opponentName = room.guestName || 'Jugador 2';
+        if (onlineState.role === 'guest') {
+            onlineState.opponentName = room.hostName || 'Jugador 1';
+        }
+        closeWaitOverlay();
+        setOnlineStatus(`Se unió ${onlineState.opponentName}. Elige categoría y personaje.`);
+        if (room.category) {
+            gameState.currentCategory = room.category;
+            gameState.gamePhase = 'selection';
+            document.getElementById('categoryTitle').textContent = gameData[room.category]?.name || room.category;
+            document.getElementById('selectionInstruction').innerHTML = 'Elige el personaje secreto que tu rival deberá adivinar.';
+            renderCharacters();
+            showScreen('selectionScreen');
+        }
+    });
+    socket.on('awqg:host-ready', ({ room }) => {
+        if (!room) return;
+        setOnlineStatus(`Sala ${room.code} lista. Esperando Jugador 2.`);
+    });
+    socket.on('awqg:room-state', (room) => {
+        if (!room) return;
+        if (onlineState.role === 'guest') {
+            onlineState.opponentName = room.hostName || 'Jugador 1';
+        }
+    });
+    socket.on('awqg:host-left', () => {
+        uiAlert('El anfitrión abandonó la sala.', 'Partida finalizada');
+        hardResetOnlineState();
+        resetGame();
+        showScreen('menuScreen');
+        hideTurnScreen();
+        hideVictoryScreen();
+    });
+    socket.on('awqg:guest-left', () => {
+        setOnlineStatus('El Jugador 2 se desconectó. Puedes esperar otro jugador.');
+        showWaitOverlay(onlineState.roomCode || '------', 'El Jugador 2 salió. Comparte el código para una nueva unión.');
+    });
+    socket.on('awqg:category-selected', ({ category }) => {
+        if (!category) return;
+        gameState.currentCategory = category;
+        gameState.gamePhase = 'selection';
+        document.getElementById('categoryTitle').textContent = gameData[category]?.name || category;
+        document.getElementById('selectionInstruction').innerHTML = isOnlineMode()
+            ? 'Elige el personaje secreto que tu rival deberá adivinar.'
+            : document.getElementById('selectionInstruction').innerHTML;
+        renderCharacters();
+        showScreen('selectionScreen');
+        setOnlineStatus('Categoría definida. Selecciona tu personaje secreto.');
+    });
+    socket.on('awqg:secret-progress', ({ hostSecretSelected, guestSecretSelected }) => {
+        if (!isOnlineMode()) return;
+        const mine = onlineState.role === 'host' ? hostSecretSelected : guestSecretSelected;
+        const other = onlineState.role === 'host' ? guestSecretSelected : hostSecretSelected;
+        if (mine && !other) {
+            showWaitOverlay(onlineState.roomCode || '------', 'Tu personaje quedó guardado. Esperando al rival...');
+        }
+    });
+    socket.on('awqg:game-started', ({ room }) => {
+        if (!isOnlineMode()) return;
+        closeWaitOverlay();
+        gameState.gamePhase = 'playing';
+        gameState.currentPlayer = room?.currentTurn === 'guest' ? 2 : 1;
+        gameState.questionsLeftThisTurn = room?.questionsLeftThisTurn || 1;
+        gameState.availableQuestions = [...(questions[gameState.currentCategory] || [])];
+        for (let i = gameState.availableQuestions.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [gameState.availableQuestions[i], gameState.availableQuestions[j]] = [gameState.availableQuestions[j], gameState.availableQuestions[i]];
+        }
+        showScreen('gameScreen');
+        updateGameDisplay();
+        generateQuestionButtons();
+        renderElimTable();
+        updateQuestionCountBadge();
+        setOnlineStatus('Partida online iniciada.');
+    });
+    socket.on('awqg:turn-state', ({ currentTurn, questionsLeftThisTurn }) => {
+        if (!isOnlineMode()) return;
+        gameState.currentPlayer = currentTurn === 'guest' ? 2 : 1;
+        gameState.questionsLeftThisTurn = questionsLeftThisTurn ?? 1;
+        updateQuestionCountBadge();
+        updateGuidePanel();
+    });
+    socket.on('awqg:turn-switched', ({ currentTurn, questionsLeftThisTurn }) => {
+        if (!isOnlineMode()) return;
+        gameState.currentPlayer = currentTurn === 'guest' ? 2 : 1;
+        gameState.questionsLeftThisTurn = questionsLeftThisTurn ?? 1;
+        document.getElementById('currentQuestion').textContent = `Turno de ${getCurrentTurnLabel()}: elige una pregunta.`;
+        document.getElementById('questionButtons').style.display = 'block';
+        generateQuestionButtons();
+        updateQuestionCountBadge();
+        showEventToast(`Cambio de turno: ${getCurrentTurnLabel()}`, 'Online');
+    });
+    socket.on('awqg:turn-skipped', ({ currentTurn, questionsLeftThisTurn, skippedBy }) => {
+        if (!isOnlineMode()) return;
+        gameState.currentPlayer = currentTurn === 'guest' ? 2 : 1;
+        gameState.questionsLeftThisTurn = questionsLeftThisTurn ?? 1;
+        updateQuestionCountBadge();
+        showEventToast(`${skippedBy === onlineState.role ? 'Saltaste' : 'El rival saltó'} turno.`, 'Online');
+    });
+    socket.on('awqg:question-result', ({ askedBy, question, answer, questionsLeftThisTurn }) => {
+        if (!isOnlineMode()) return;
+        gameState.questionsLeftThisTurn = questionsLeftThisTurn ?? gameState.questionsLeftThisTurn;
+        const askerLocalPlayer = askedBy === 'guest' ? 2 : 1;
+        const questionRecord = {
+            question: question?.text || '',
+            answer: !!answer,
+            correct: true,
+            player: askerLocalPlayer
+        };
+        if (askerLocalPlayer === 1) gameState.player1Questions.push(questionRecord);
+        else gameState.player2Questions.push(questionRecord);
+        showAnswerFeedback(!!answer, true);
+        if (question) {
+            eliminateByTrait(question.trait, question.value, !!answer);
+            autoEliminateForAsker(question.trait, question.value, !!answer);
+        }
+        document.getElementById('answerButtons').style.display = 'none';
+        document.getElementById('questionButtons').style.display = 'block';
+        updateGameDisplay();
+        generateQuestionButtons();
+        updateQuestionCountBadge();
+    });
+    socket.on('awqg:guess-failed', ({ guessedBy, guessed, currentTurn, questionsLeftThisTurn }) => {
+        if (!isOnlineMode()) return;
+        gameState.currentPlayer = currentTurn === 'guest' ? 2 : 1;
+        gameState.questionsLeftThisTurn = questionsLeftThisTurn ?? 1;
+        showEventToast(`Adivinanza fallida (${guessedBy}): ${guessed}`, 'Online');
+        updateQuestionCountBadge();
+        generateQuestionButtons();
+    });
+    socket.on('awqg:victory', ({ winner, winnerName }) => {
+        if (!isOnlineMode()) return;
+        showVictoryScreen(winner === 'guest' ? 2 : 1);
+        showEventToast(`Ganador: ${winnerName || winner}`, 'Online');
+    });
+
+    return socket;
+}
+
+function getCurrentTurnRole() {
+    return gameState.currentPlayer === 1 ? 'host' : 'guest';
+}
+
+function getCurrentTurnLabel() {
+    return gameState.currentPlayer === 1 ? (onlineState.role === 'host' ? 'Tú' : (onlineState.opponentName || 'Rival')) : (onlineState.role === 'guest' ? 'Tú' : (onlineState.opponentName || 'Rival'));
+}
+
+function setOnlineStatus(msg) {
+    const note = document.getElementById('onlineStatusNote');
+    if (note) note.textContent = msg;
+}
+
+function showWaitOverlay(code, msg) {
+    const o = document.getElementById('waitOverlay');
+    const c = document.getElementById('waitCode');
+    const m = document.getElementById('waitMessage');
+    if (c) c.textContent = code || '------';
+    if (m) m.textContent = msg || 'Esperando segundo jugador...';
+    if (o) {
+        o.classList.add('active');
+        o.setAttribute('aria-hidden', 'false');
+    }
+}
+
+function closeWaitOverlay() {
+    const o = document.getElementById('waitOverlay');
+    if (o) {
+        o.classList.remove('active');
+        o.setAttribute('aria-hidden', 'true');
+    }
+}
+
+async function refreshWaitingRooms() {
+    const select = document.getElementById('onlineRoomList');
+    if (!select) return;
+    const base = getServerBaseUrl();
+    try {
+        const res = await fetch(`${base}/api/awqg/rooms/waiting`);
+        const data = await res.json();
+        const rooms = Array.isArray(data?.rooms) ? data.rooms : [];
+        select.innerHTML = '';
+        const defaultOpt = document.createElement('option');
+        defaultOpt.value = '';
+        defaultOpt.textContent = rooms.length ? 'Selecciona una sala esperando...' : 'No hay salas esperando';
+        select.appendChild(defaultOpt);
+        rooms.forEach((room) => {
+            const opt = document.createElement('option');
+            opt.value = room.code;
+            opt.textContent = `${room.code} - Host: ${room.hostName || 'Jugador 1'}`;
+            select.appendChild(opt);
+        });
+        setOnlineStatus(rooms.length ? `Hay ${rooms.length} salas esperando.` : 'No hay salas esperando ahora.');
+    } catch (err) {
+        setOnlineStatus('No se pudo consultar la lista de salas.');
+    }
+}
+
+async function createOnlineRoom() {
+    const hostName = await uiPrompt('Nombre del Jugador 1 (host):', 'Jugador 1', 'Crear partida online');
+    if (!hostName) return;
+    const base = getServerBaseUrl();
+    try {
+        const res = await fetch(`${base}/api/awqg/rooms/create`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ hostName })
+        });
+        const data = await res.json();
+        const room = data?.room;
+        if (!room?.code) throw new Error('No se obtuvo código');
+        const socket = ensureOnlineSocket();
+        if (!socket) return;
+        onlineState.enabled = true;
+        onlineState.roomCode = room.code;
+        onlineState.role = 'host';
+        onlineState.playerName = hostName;
+        onlineState.opponentName = 'Jugador 2';
+        socket.emit('awqg:host-connect', { code: room.code, hostName });
+        showWaitOverlay(room.code, 'Comparte este código. Cuando se una el Jugador 2 podrás iniciar categoría y selección.');
+        setOnlineStatus(`Sala creada: ${room.code}. Eres Jugador 1.`);
+    } catch (err) {
+        uiAlert('No se pudo crear la sala online.', 'Error');
+    }
+}
+
+function joinOnlineRoom() {
+    const listCode = document.getElementById('onlineRoomList')?.value?.trim();
+    const inputCode = document.getElementById('onlineRoomCodeInput')?.value?.trim();
+    const code = (inputCode || listCode || '').toUpperCase();
+    const name = (document.getElementById('onlinePlayerNameInput')?.value || 'Jugador 2').trim();
+    if (!code) {
+        uiAlert('Ingresa un código o selecciona una sala de la lista.', 'Unirse');
+        return;
+    }
+    const socket = ensureOnlineSocket();
+    if (!socket) return;
+    onlineState.enabled = true;
+    onlineState.roomCode = code;
+    onlineState.role = 'guest';
+    onlineState.playerName = name || 'Jugador 2';
+    socket.emit('awqg:join-room', { code, guestName: onlineState.playerName });
+    setOnlineStatus(`Intentando unirse a ${code}...`);
+}
+
+function hardResetOnlineState() {
+    closeWaitOverlay();
+    if (onlineState.socket) {
+        try { onlineState.socket.disconnect(); } catch (_) {}
+    }
+    onlineState.socket = null;
+    onlineState.connected = false;
+    onlineState.enabled = false;
+    onlineState.roomCode = null;
+    onlineState.role = null;
+    onlineState.playerName = '';
+    onlineState.opponentName = '';
+    onlineState.waitingForGuest = false;
+}
+
+function setGuideStep(activeStep) {
+    ['Menu', 'Selection', 'Play', 'Win'].forEach(step => {
+        const el = document.getElementById(`step${step}`);
+        if (!el) return;
+        el.classList.toggle('active', step === activeStep);
+    });
+}
+
+function updateGuidePanel() {
+    const phase = gameState.gamePhase;
+    const guidePhase = document.getElementById('guidePhase');
+    const guideText = document.getElementById('guideText');
+    const guideTurn = document.getElementById('guideTurn');
+    if (!guidePhase || !guideText || !guideTurn) return;
+
+    if (phase === 'menu') {
+        guidePhase.textContent = 'Fase: Menú';
+        guideText.textContent = 'Elige una categoría para iniciar una partida.';
+        guideTurn.textContent = 'Listo para jugar';
+        setGuideStep('Menu');
+        updateActionLocks();
+        return;
+    }
+    if (phase === 'selection') {
+        guidePhase.textContent = 'Fase: Selección';
+        guideText.textContent = gameState.selectionPhase === 1
+            ? 'Jugador 1: elige el personaje que deberá adivinar el Jugador 2.'
+            : 'Jugador 2: elige un personaje distinto para que lo adivine el Jugador 1.';
+        guideTurn.textContent = `Seleccionando: Jugador ${gameState.selectionPhase === 1 ? 1 : 2}`;
+        setGuideStep('Selection');
+        updateActionLocks();
+        return;
+    }
+    if (phase === 'playing') {
+        guidePhase.textContent = 'Fase: Partida';
+        guideText.textContent = `Haz una pregunta, responde con Sí/No y descarta candidatos. Preguntas restantes este turno: ${gameState.questionsLeftThisTurn ?? 1}.`;
+        guideTurn.textContent = `Turno activo: Jugador ${gameState.currentPlayer}`;
+        setGuideStep('Play');
+        updateActionLocks();
+        return;
+    }
+    if (phase === 'victory') {
+        guidePhase.textContent = 'Fase: Victoria';
+        guideText.textContent = 'La ronda terminó. Puedes volver al menú para iniciar una nueva.';
+        guideTurn.textContent = 'Partida finalizada';
+        setGuideStep('Win');
+    }
+    updateActionLocks();
+}
+
+function showEventToast(message, title = 'Feedback') {
+    const toast = document.createElement('div');
+    toast.className = 'event-toast';
+    toast.innerHTML = `<strong>${title}:</strong> ${message}`;
+    document.body.appendChild(toast);
+
+    anime({
+        targets: toast,
+        translateY: [20, 0],
+        opacity: [0, 1],
+        duration: 220,
+        easing: 'easeOutQuad'
+    });
+
+    setTimeout(() => {
+        anime({
+            targets: toast,
+            translateY: [0, 20],
+            opacity: [1, 0],
+            duration: 240,
+            easing: 'easeInQuad',
+            complete: () => toast.remove()
+        });
+    }, 2600);
+}
+
+const tutorialState = {
+    active: false,
+    index: 0,
+    remaining: 60,
+    tickInterval: null,
+    autoStepInterval: null,
+    steps: [],
+    highlighted: null,
+};
+
+function isElementVisible(el) {
+    if (!el) return false;
+    const cs = getComputedStyle(el);
+    if (cs.display === 'none' || cs.visibility === 'hidden' || Number(cs.opacity) === 0) return false;
+    return !!(el.offsetWidth || el.offsetHeight || el.getClientRects().length);
+}
+
+function setButtonLock(id, enabled, reason = '') {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.disabled = !enabled;
+    btn.classList.toggle('is-disabled', !enabled);
+    btn.title = enabled ? '' : reason;
+}
+
+function getQuestionCountForCurrentPlayer() {
+    return gameState.currentPlayer === 1 ? gameState.player1Questions.length : gameState.player2Questions.length;
+}
+
+function updateActionLocks() {
+    const ultraBtn = document.getElementById('ultraGuideToggle');
+    if (ultraBtn) ultraBtn.textContent = `Ultra guiado: ${gameState.ultraGuided ? 'ON' : 'OFF'}`;
+
+    if (!gameState.ultraGuided) {
+        ['skipBtn', 'endTurnBtn', 'guessBtn', 'backGameBtn', 'backSelectionBtn'].forEach(id => setButtonLock(id, true));
+        return;
+    }
+
+    const inPlaying = gameState.gamePhase === 'playing';
+    const inSelection = gameState.gamePhase === 'selection';
+    const answering = document.getElementById('answerButtons')?.style.display !== 'none';
+    const hasAsked = getQuestionCountForCurrentPlayer() > 0;
+    const myTurn = !isOnlineMode() || (gameState.currentPlayer === (onlineState.role === 'host' ? 1 : 2));
+
+    setButtonLock('backSelectionBtn', inSelection, 'Disponible en fase de selección.');
+    setButtonLock('backGameBtn', inPlaying, 'Disponible durante la partida.');
+    setButtonLock('skipBtn', inPlaying && myTurn && !answering && gameState.questionsLeftThisTurn > 0, 'Primero termina de responder la pregunta activa.');
+    setButtonLock('endTurnBtn', inPlaying && myTurn && !answering, 'Solo el jugador de turno puede terminarlo.');
+    setButtonLock('guessBtn', inPlaying && myTurn && !answering && hasAsked, 'Haz al menos una pregunta antes de adivinar.');
+}
+
+function toggleUltraGuide() {
+    gameState.ultraGuided = !gameState.ultraGuided;
+    updateActionLocks();
+    showEventToast(gameState.ultraGuided ? 'Bloqueo contextual activado.' : 'Bloqueo contextual desactivado.', 'Ultra guiado');
+}
+
+function removeTutorialHighlight() {
+    if (tutorialState.highlighted) {
+        tutorialState.highlighted.classList.remove('tutorial-highlight');
+        tutorialState.highlighted = null;
+    }
+}
+
+function collectTutorialSteps() {
+    const steps = [
+        { selector: '#guidePanel', title: 'Panel de guía', text: 'Aquí ves fase, turno y el siguiente paso recomendado.' },
+        { selector: '#ultraGuideToggle', title: 'Modo ultra guiado', text: 'Con este modo activado, el juego bloquea acciones fuera de secuencia.' },
+        { selector: '#tutorialStartBtn', title: 'Tutorial rápido', text: 'Puedes reiniciar este tutorial en cualquier momento desde aquí.' },
+        { selector: '#catOcean', title: 'Categorías', text: 'Empieza eligiendo una categoría para crear la ronda.' },
+        { selector: '#selectionInstruction', title: 'Selección', text: 'Cada jugador elige el personaje secreto del rival, por turnos.' },
+        { selector: '#characterGrid', title: 'Lista de personajes', text: 'Haz clic en un personaje para fijar el secreto del oponente.' },
+        { selector: '#currentQuestion', title: 'Pregunta actual', text: 'Aquí se muestra la pregunta activa del turno.' },
+        { selector: '#questionButtons', title: 'Banco de preguntas', text: 'Selecciona una pregunta de la lista para continuar deduciendo.' },
+        { selector: '#answerButtons', title: 'Responder Sí/No', text: 'El rival responde según los rasgos de su personaje secreto.' },
+        { selector: '#elimContainer', title: 'Candidatos', text: 'Marca descartes para visualizar rápidamente quién sigue en juego.' },
+        { selector: '#guessBtn', title: 'Adivinar', text: 'Cuando tengas suficiente información, intenta adivinar.' },
+        { selector: '#endTurnBtn', title: 'Terminar turno', text: 'Este botón se habilita cuando ya no quedan preguntas del turno.' },
+    ];
+    return steps.filter(step => isElementVisible(document.querySelector(step.selector)));
+}
+
+function renderTutorialStep() {
+    if (!tutorialState.active || !tutorialState.steps.length) return;
+    removeTutorialHighlight();
+    const step = tutorialState.steps[tutorialState.index];
+    const el = document.querySelector(step.selector);
+    if (!isElementVisible(el)) {
+        nextTutorialStep();
+        return;
+    }
+    tutorialState.highlighted = el;
+    el.classList.add('tutorial-highlight');
+    el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+
+    const titleEl = document.getElementById('tutorialTitle');
+    const textEl = document.getElementById('tutorialText');
+    const progressEl = document.getElementById('tutorialProgress');
+    if (titleEl) titleEl.textContent = `Paso ${tutorialState.index + 1}/${tutorialState.steps.length}: ${step.title}`;
+    if (textEl) textEl.textContent = step.text;
+    if (progressEl) progressEl.style.width = `${((tutorialState.index + 1) / tutorialState.steps.length) * 100}%`;
+}
+
+function updateTutorialTimer() {
+    const timer = document.getElementById('tutorialTimer');
+    if (timer) timer.textContent = `${tutorialState.remaining}s`;
+}
+
+function stopInteractiveTutorial(skipped = false) {
+    if (!tutorialState.active) return;
+    tutorialState.active = false;
+    clearInterval(tutorialState.tickInterval);
+    clearInterval(tutorialState.autoStepInterval);
+    tutorialState.tickInterval = null;
+    tutorialState.autoStepInterval = null;
+    removeTutorialHighlight();
+    const overlay = document.getElementById('tutorialOverlay');
+    if (overlay) {
+        overlay.classList.remove('active');
+        overlay.setAttribute('aria-hidden', 'true');
+    }
+    if (skipped) showEventToast('Tutorial omitido. Puedes reiniciarlo cuando quieras.', 'Tutorial');
+}
+
+function nextTutorialStep() {
+    if (!tutorialState.active) return;
+    tutorialState.index = (tutorialState.index + 1) % tutorialState.steps.length;
+    renderTutorialStep();
+}
+
+function prevTutorialStep() {
+    if (!tutorialState.active) return;
+    tutorialState.index = tutorialState.index <= 0 ? tutorialState.steps.length - 1 : tutorialState.index - 1;
+    renderTutorialStep();
+}
+
+function startInteractiveTutorial() {
+    if (tutorialState.active) return;
+    tutorialState.steps = collectTutorialSteps();
+    if (!tutorialState.steps.length) {
+        showEventToast('No hay elementos visibles para iniciar el tutorial en esta pantalla.', 'Tutorial');
+        return;
+    }
+    tutorialState.active = true;
+    tutorialState.index = 0;
+    tutorialState.remaining = 60;
+
+    const overlay = document.getElementById('tutorialOverlay');
+    if (overlay) {
+        overlay.classList.add('active');
+        overlay.setAttribute('aria-hidden', 'false');
+    }
+    updateTutorialTimer();
+    renderTutorialStep();
+
+    tutorialState.tickInterval = setInterval(() => {
+        tutorialState.remaining -= 1;
+        updateTutorialTimer();
+        if (tutorialState.remaining <= 0) {
+            stopInteractiveTutorial(false);
+            showEventToast('Tutorial completado. Ya tienes la ruta base de juego.', 'Tutorial');
+        }
+    }, 1000);
+
+    tutorialState.autoStepInterval = setInterval(() => {
+        nextTutorialStep();
+    }, 7500);
+}
+
+/* ---------- Mostrar recordatorio ---------- */
+function showReminder(title, character) {
+    document.getElementById('reminderTitle').textContent = title;
+    document.getElementById('reminderName').textContent   = character.name;
+    const traits = Object.entries(character.traits)
+                         .map(([k,v]) => `${k}: ${v}`)
+                         .join('<br>');
+    document.getElementById('reminderTraits').innerHTML = traits;
+    document.getElementById('reminderOverlay').style.display = 'flex';
+}
+
+function closeReminder() {
+    document.getElementById('reminderOverlay').style.display = 'none';
+
+    /* Primera vez: P-1 ya eligió y YA vio el recordatorio */
+    if (gameState.selectionPhase === 2 && !gameState.p1ReminderSeen) {
+        gameState.p1ReminderSeen = true;                  // ← marca como visto
+        document.getElementById('currentPlayer').textContent = '2';
+        document.getElementById('selectionInstruction').innerHTML =
+            'Jugador <span id="currentPlayer">2</span>, selecciona un personaje para tu oponente';
+        renderCharacters();
+        updateGuidePanel();
+        return;
+    }
+
+    /* Segunda vez: P-2 ya eligió – arrancamos el juego */
+    if (gameState.selectionPhase === 2 &&
+        gameState.player1Character &&
+        gameState.player2Character) {
+        startGame();
+    }
+}
+
+// Funciones de utilidad
+function showScreen(screenId) {
+    document.querySelectorAll('.screen').forEach(screen => {
+        screen.classList.remove('active');
+    });
+    document.getElementById(screenId).classList.add('active');
+    updateGuidePanel();
+}
+
+function showTurnScreen() {
+    document.getElementById('turnScreen').style.display = 'flex';
+    const nextPlayer = gameState.currentPlayer === 1 ? 2 : 1;
+    document.getElementById('turnTitle').textContent = `Turno del Jugador ${nextPlayer}`;
+    document.getElementById('turnInstruction').textContent = 
+        `Jugador ${nextPlayer}, es tu turno de hacer preguntas. Jugador ${gameState.currentPlayer}, por favor no mires la pantalla mientras tu oponente juega.`;
+}
+
+function hideTurnScreen() {
+    document.getElementById('turnScreen').style.display = 'none';
+}
+
+function showVictoryScreen(winner) {
+    gameState.gamePhase = 'victory';
+    document.getElementById('victoryScreen').style.display = 'flex';
+    document.getElementById('victoryMessage').textContent = 
+        `¡El Jugador ${winner} ha ganado!`;
+    updateGuidePanel();
+    showEventToast(`Jugador ${winner} adivinó correctamente.`, 'Victoria');
+    
+    // Efecto de confeti
+    if (typeof confetti !== 'undefined') {
+        confetti({
+            particleCount: 100,
+            spread: 70,
+            origin: { y: 0.6 }
+        });
+    }
+}
+
+function hideVictoryScreen() {
+    document.getElementById('victoryScreen').style.display = 'none';
+}
+
+// Funciones del menú
+function selectCategory(category) {
+    if (isOnlineMode()) {
+        if (onlineState.role !== 'host') {
+            uiAlert('En modo online, solo el Jugador 1 elige la categoría.', 'Categoría bloqueada');
+            return;
+        }
+        const socket = ensureOnlineSocket();
+        if (!socket || !onlineState.roomCode) {
+            uiAlert('No hay sala online activa.', 'Online');
+            return;
+        }
+        socket.emit('awqg:set-category', { code: onlineState.roomCode, category });
+    }
+
+    gameState.currentCategory = category;
+    gameState.gamePhase = 'selection';
+    gameState.selectionPhase = 1;
+    gameState.currentPlayer = 1;
+    
+    const categoryData = gameData[category];
+    document.getElementById('categoryTitle').textContent = categoryData.name;
+    document.getElementById('currentPlayer').textContent = '1';
+
+    renderCharacters();
+    showScreen('selectionScreen');
+    updateGuidePanel();
+    showEventToast(`Categoría seleccionada: ${categoryData.name}.`, 'Partida');
+
+    if (isOnlineMode()) {
+        document.getElementById('selectionInstruction').innerHTML = 'Elige el personaje secreto que tu rival deberá adivinar.';
+    }
+}
+
+function renderCharacters() {
+    const categoryData = gameData[gameState.currentCategory];
+    const grid = document.getElementById('characterGrid');
+    grid.innerHTML = '';
+    
+    categoryData.characters.forEach(character => {
+        const card = document.createElement('div');
+        card.className = 'character-card';
+        card.onclick = () => selectCharacter(character);
+        
+        const traits = Object.entries(character.traits).slice(0, 3);
+        const traitsHtml = traits.map(([key, value]) => 
+            `<div><strong>${key}:</strong> ${value}</div>`
+        ).join('');
+        
+        card.innerHTML = `
+            <div class="character-name">${character.name}</div>
+            <div class="character-traits">${traitsHtml}</div>
+        `;
+        
+        grid.appendChild(card);
+    });
+}
+
+function selectCharacter(character) {
+    if (isOnlineMode()) {
+        const socket = ensureOnlineSocket();
+        if (!socket || !onlineState.roomCode) return;
+        if (onlineState.role === 'host') {
+            gameState.player1Character = character;
+        } else {
+            gameState.player2Character = character;
+        }
+        socket.emit('awqg:set-secret', { code: onlineState.roomCode, secret: character });
+        showWaitOverlay(onlineState.roomCode, 'Personaje guardado. Esperando al otro jugador...');
+        updateGameDisplay();
+        return;
+    }
+
+    /* 1er clic – Jugador 1 elige **el personaje que deberá adivinar el Jugador 2** */
+    if (gameState.selectionPhase === 1) {
+        gameState.player1Character = character;   // ← secreto de P2 (objetivo de P1)
+        showEventToast(`Jugador 1 eligió: ${character.name}.`, 'Selección');
+        showReminder(
+            "Antes de que el Jugador 2 elija, recuerda los rasgos de tu elección:",
+            character
+        );
+        gameState.selectionPhase = 2;
+        updateGuidePanel();
+        return;
+    }
+
+
+
+    /* 2º clic – Jugador 2 elige **el personaje que deberá adivinar el Jugador 1** */
+    if (gameState.selectionPhase === 2) {
+        if (character.id === gameState.player1Character.id) {
+            uiAlert('Por favor selecciona un personaje diferente al que eligió el Jugador 1', 'Selección inválida');
+            return;
+        }
+        gameState.player2Character = character;   // ← secreto de P1 (objetivo de P2)
+        showEventToast(`Jugador 2 eligió: ${character.name}.`, 'Selección');
+        showReminder(
+            "Antes de comenzar el juego, recuerda los rasgos de tu elección:",
+            character
+        );
+    }
+}
+
+/* ----------  Eliminación / restauración  ---------- */
+function renderElimTable() {
+    const cont = document.getElementById('elimTable');
+    cont.innerHTML = '';
+    const cat = gameData[gameState.currentCategory].characters;
+    cont.style.gridTemplateColumns = `repeat(${Math.ceil(Math.sqrt(cat.length))}, 1fr)`;
+    cat.forEach(ch => {
+        const cell = document.createElement('div');
+        cell.className = 'elim-cell';
+        cell.textContent = ch.name;
+        cell.dataset.id = ch.id;
+        cell.dataset.elim = '0';   // 0 = vivo, 1 = eliminado
+        cell.onclick = () => toggleCell(cell);
+        cont.appendChild(cell);
+    });
+}
+
+function toggleCell(cell){
+    const flag = cell.dataset.elim === '1';
+    cell.dataset.elim = flag ? '0' : '1';
+    cell.classList.toggle('eliminated', !flag);
+}
+
+function eliminateByTrait(trait, value, answer){
+    const cat = gameData[gameState.currentCategory].characters;
+    cat.forEach(ch => {
+        const match = ch.traits[trait] === value;
+        const mustKill = answer ? !match : match;   // lógica del juego
+        if(mustKill){
+            const cell = document.querySelector(`.elim-cell[data-id="${ch.id}"]`);
+            if(cell && cell.dataset.elim === '0'){
+                cell.classList.add('shake');
+                setTimeout(()=>{
+                    cell.classList.add('eliminated');
+                    cell.dataset.elim = '1';
+                    cell.classList.remove('shake');
+                }, 300);
+            }
+        }
+    });
+}
+
+/* ---- AUTO-ELIMINAR candidatos del jugador que pregunta ---- */
+function autoEliminateForAsker(trait, value, answer){
+    const cat = gameData[gameState.currentCategory].characters;
+    cat.forEach(ch => {
+        // ✅ Solo evaluar si el personaje **tiene** ese trait
+        if (!(trait in ch.traits)) return;
+
+        const match = ch.traits[trait] === value;
+        const mustKill = answer ? !match : match;
+
+        if (mustKill) {
+            const cell = document.querySelector(`.elim-cell[data-id="${ch.id}"]`);
+            if (cell && cell.dataset.elim === '0') {
+                cell.classList.add('shake');
+                setTimeout(() => {
+                    cell.classList.add('eliminated');
+                    cell.dataset.elim = '1';
+                    cell.classList.remove('shake');
+                }, 300);
+            }
+        }
+    });
+}
+
+/* ---- LÓGICA DE 1 PREGUNTA / TURNO + EXTRA ---- */
+function consumeQuestion(){
+    gameState.questionsLeftThisTurn--;
+    updateQuestionCountBadge();
+    if(gameState.questionsLeftThisTurn <= 0){
+        endTurn();
+    }
+}
+function updateQuestionCountBadge(){
+    let badge = document.getElementById('qLeftBadge');
+    if(!badge){                       // ← lo crea si no existe
+        badge = document.createElement('span');
+        badge.id = 'qLeftBadge';
+        badge.style.cssText = 'margin-left:10px;background:#00ffff;color:#000;padding:2px 8px;border-radius:10px;font-size:.8rem;';
+        document.querySelector('.current-question').appendChild(badge);
+    }
+    badge.textContent = `(${gameState.questionsLeftThisTurn})`;
+}
+
+/* ---- SALTAR TURNO ---- */
+function skipTurnForExtra(){
+    if (isOnlineMode()) {
+        const socket = ensureOnlineSocket();
+        if (!socket || !onlineState.roomCode) return;
+        socket.emit('awqg:skip-turn', { code: onlineState.roomCode });
+        return;
+    }
+    if (gameState.ultraGuided && document.getElementById('skipBtn')?.disabled) {
+        showEventToast('No puedes saltar turno mientras hay una respuesta pendiente.', 'Bloqueado');
+        return;
+    }
+    uiConfirm('¿Seguro que quieres saltar este turno? Tu rival podrá hacer 2 preguntas seguidas.', 'Saltar turno')
+        .then(ok => {
+            if(!ok) return;
+            gameState.extraQuestionAwarded = true;
+            endTurn();
+        });
+}
+
+function startGame() {
+    gameState.gamePhase = 'playing';
+    gameState.currentPlayer = 1;
+    gameState.availableQuestions = [...questions[gameState.currentCategory]];
+    gameState.questionsLeftThisTurn = 1; updateQuestionCountBadge();
+    
+    // Mezclar preguntas
+    for (let i = gameState.availableQuestions.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [gameState.availableQuestions[i], gameState.availableQuestions[j]] = [gameState.availableQuestions[j], gameState.availableQuestions[i]];
+    }
+    
+    showScreen('gameScreen');
+    updateGameDisplay();
+    document.getElementById('currentQuestion').textContent = 'Turno del Jugador 1: elige una pregunta para empezar.';
+    
+    generateQuestionButtons();
+    renderElimTable();
+    updateGuidePanel();
+    showEventToast('Comienza el juego. Jugador 1 abre la ronda.', 'Inicio');
+}
+
+function updateGameDisplay() {
+// Ahora:
+const p1Card = document.getElementById('player1Character');
+const p2Card = document.getElementById('player2Character');
+const localIsHost = onlineState.role === 'host';
+const localSecret = localIsHost ? gameState.player1Character : gameState.player2Character;
+
+if (gameState.player1Character) {
+    p1Card.innerHTML = `
+        <div style="text-align:center;padding:20px;background:rgba(0,255,255,.1);border-radius:10px;margin-bottom:20px;">
+            <div style="font-weight:bold;color:#00ffff;">Tu personaje secreto:</div>
+            <div style="font-size:1.2rem;margin-top:10px;">${gameState.player1Character.name}</div>
+        </div>`;
+}
+if (gameState.player2Character) {
+    p2Card.innerHTML = `
+        <div style="text-align:center;padding:20px;background:rgba(255,0,255,.1);border-radius:10px;margin-bottom:20px;">
+            <div style="font-weight:bold;color:#ff00ff;">Tu personaje secreto:</div>
+            <div style="font-size:1.2rem;margin-top:10px;">${gameState.player2Character.name}</div>
+        </div>`;
+}
+
+    if (isOnlineMode()) {
+        if (localSecret) {
+            const mineTitle = `Tu personaje secreto: ${localSecret.name}`;
+            if (localIsHost) {
+                p1Card.innerHTML = `<div style="text-align:center;padding:20px;background:rgba(0,255,255,.1);border-radius:10px;margin-bottom:20px;"><div style="font-weight:bold;color:#00ffff;">${mineTitle}</div></div>`;
+                p2Card.innerHTML = `<div style="text-align:center;padding:20px;background:rgba(255,0,255,.08);border-radius:10px;margin-bottom:20px;"><div style="font-weight:bold;color:#ff00ff;">Rival conectado: ${onlineState.opponentName || 'Jugador 2'}</div></div>`;
+            } else {
+                p2Card.innerHTML = `<div style="text-align:center;padding:20px;background:rgba(255,0,255,.1);border-radius:10px;margin-bottom:20px;"><div style="font-weight:bold;color:#ff00ff;">${mineTitle}</div></div>`;
+                p1Card.innerHTML = `<div style="text-align:center;padding:20px;background:rgba(0,255,255,.08);border-radius:10px;margin-bottom:20px;"><div style="font-weight:bold;color:#00ffff;">Rival conectado: ${onlineState.opponentName || 'Jugador 1'}</div></div>`;
+            }
+        }
+        document.getElementById('player1Panel').style.display = 'block';
+        document.getElementById('player2Panel').style.display = 'block';
+        document.getElementById('player1Panel').classList.toggle('active', gameState.currentPlayer === 1);
+        document.getElementById('player2Panel').classList.toggle('active', gameState.currentPlayer === 2);
+        document.getElementById('answerButtons').style.display = 'none';
+    } else {
+        document.getElementById('player1Panel').style.display = gameState.currentPlayer === 1 ? 'block' : 'none'; 
+        document.getElementById('player2Panel').style.display = gameState.currentPlayer === 2 ? 'block' : 'none';
+    }
+
+    // Actualizar historial de preguntas
+    updateQuestionHistory();
+}
+
+function generateQuestionButtons() {
+    const container = document.getElementById('questionButtons');
+    container.innerHTML = '<h3 style="text-align: center; margin-bottom: 20px; color: #00ffff;">Elige una pregunta:</h3>';
+    
+    const grid = document.createElement('div');
+    grid.style.cssText = 'display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;';
+    
+    // Mostrar las primeras 6 preguntas disponibles
+    const questionsToShow = gameState.availableQuestions.slice(0, 6);
+    if (!questionsToShow.length) {
+        container.innerHTML += '<p style="text-align:center;color:#b9c8eb;">No quedan preguntas disponibles. Puedes intentar adivinar o terminar turno.</p>';
+        return;
+    }
+    
+    questionsToShow.forEach((question, index) => {
+        const button = document.createElement('button');
+        button.className = 'btn btn-secondary';
+        button.style.cssText = 'font-size: 0.9rem; padding: 10px 15px; text-align: left; text-transform: none;';
+        button.textContent = question.text;
+        button.onclick = () => askQuestion(question, index);
+        grid.appendChild(button);
+    });
+    updateQuestionCountBadge();
+    
+    container.appendChild(grid);
+}
+
+function askQuestion(question, questionIndex) {
+    if (isOnlineMode()) {
+        const expectedTurn = onlineState.role === 'host' ? 1 : 2;
+        if (gameState.currentPlayer !== expectedTurn) {
+            showEventToast('No es tu turno para preguntar.', 'Online');
+            return;
+        }
+        const socket = ensureOnlineSocket();
+        if (!socket || !onlineState.roomCode) return;
+        gameState.currentQuestion = question;
+        document.getElementById('currentQuestion').textContent = question.text;
+        document.getElementById('questionButtons').style.display = 'none';
+        gameState.availableQuestions.splice(questionIndex, 1);
+        socket.emit('awqg:ask-question', { code: onlineState.roomCode, question });
+        updateActionLocks();
+        return;
+    }
+
+    gameState.currentQuestion = question;
+    
+    document.getElementById('currentQuestion').textContent = question.text;
+    document.getElementById('answerButtons').style.display = 'flex';
+    document.getElementById('questionButtons').style.display = 'none';
+    showEventToast('Responde con Sí o No según el personaje secreto de tu rival.', 'Pregunta enviada');
+    updateActionLocks();
+    
+    // Remover la pregunta de las disponibles
+    gameState.availableQuestions.splice(questionIndex, 1);
+}
+
+function answerQuestion(answer) {
+    const question = gameState.currentQuestion;
+    const currentPlayer = gameState.currentPlayer;
+    const opponentCharacter = currentPlayer === 1 ? gameState.player2Character : gameState.player1Character;
+    
+    // Verificar si la respuesta es correcta basada en los rasgos del personaje
+    const correctAnswer = opponentCharacter.traits[question.trait] === question.value;
+    
+    // Registrar la pregunta y respuesta
+    const questionRecord = {
+        question: question.text,
+        answer: answer,
+        correct: correctAnswer,
+        player: currentPlayer
+    };
+    
+    if (currentPlayer === 1) {
+        gameState.player1Questions.push(questionRecord);
+    } else {
+        gameState.player2Questions.push(questionRecord);
+    }
+    
+    // Mostrar retroalimentación
+    showAnswerFeedback(answer, correctAnswer);
+    
+    // Ocultar botones de respuesta
+    document.getElementById('answerButtons').style.display = 'none';
+    
+    setTimeout(() => {
+        document.getElementById('currentQuestion').textContent = 'Elige tu siguiente pregunta...';
+        document.getElementById('questionButtons').style.display = 'block';
+        generateQuestionButtons();
+        updateGameDisplay();
+    eliminateByTrait(question.trait, question.value, answer); // <-- déjala aquí
+autoEliminateForAsker(question.trait, question.value, answer);
+    consumeQuestion();             // consume la pregunta
+    updateGuidePanel();
+    }, 2000);
+}
+
+function showAnswerFeedback(playerAnswer, correctAnswer) {
+    const feedback = document.createElement('div');
+    feedback.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0, 0, 0, 0.9);
+        color: white;
+        padding: 30px;
+        border-radius: 20px;
+        border: 3px solid ${playerAnswer === correctAnswer ? '#00ff00' : '#ff0000'};
+        text-align: center;
+        z-index: 1001;
+        font-size: 1.5rem;
+        font-weight: bold;
+    `;
+    
+    feedback.textContent = playerAnswer === correctAnswer ? '¡Correcto! ✅' : '¡Incorrecto! ❌';
+    document.body.appendChild(feedback);
+    
+    anime({
+        targets: feedback,
+        scale: [0, 1],
+        opacity: [0, 1],
+        duration: 500,
+        easing: 'easeOutBack'
+    });
+    
+    setTimeout(() => {
+        anime({
+            targets: feedback,
+            scale: [1, 0],
+            opacity: [1, 0],
+            duration: 300,
+            easing: 'easeInBack',
+            complete: () => feedback.remove()
+        });
+    }, 1500);
+}
+
+function updateQuestionHistory() {
+    const player1History = document.getElementById('player1History');
+    const player2History = document.getElementById('player2History');
+    
+    player1History.innerHTML = '<h4 style="color: #00ffff; margin-bottom: 15px;">Tus Preguntas:</h4>';
+    player2History.innerHTML = '<h4 style="color: #ff00ff; margin-bottom: 15px;">Tus Preguntas:</h4>';
+    
+    gameState.player1Questions.forEach(q => {
+        const item = document.createElement('div');
+        item.className = `question-item ${q.answer !== q.correct ? 'negative' : ''}`;
+        item.innerHTML = `
+            <div><strong>${q.question}</strong></div>
+            <div>Respuesta: ${q.answer ? 'Sí' : 'No'} ${q.answer === q.correct ? '✅' : '❌'}</div>
+        `;
+        player1History.appendChild(item);
+    });
+    
+    gameState.player2Questions.forEach(q => {
+        const item = document.createElement('div');
+        item.className = `question-item ${q.answer !== q.correct ? 'negative' : ''}`;
+        item.innerHTML = `
+            <div><strong>${q.question}</strong></div>
+            <div>Respuesta: ${q.answer ? 'Sí' : 'No'} ${q.answer === q.correct ? '✅' : '❌'}</div>
+        `;
+        player2History.appendChild(item);
+    });
+}
+
+function endTurn() {
+    if (isOnlineMode()) {
+        const expectedTurn = onlineState.role === 'host' ? 1 : 2;
+        if (gameState.currentPlayer !== expectedTurn) {
+            showEventToast('No es tu turno.', 'Online');
+            return;
+        }
+        const socket = ensureOnlineSocket();
+        if (!socket || !onlineState.roomCode) return;
+        socket.emit('awqg:end-turn', { code: onlineState.roomCode });
+        return;
+    }
+    if (gameState.ultraGuided && document.getElementById('endTurnBtn')?.disabled) {
+        showEventToast('Aún no puedes terminar turno en este estado.', 'Bloqueado');
+        return;
+    }
+    // 1) si aún le quedan preguntas en este turno, no hacemos nada
+    if (gameState.questionsLeftThisTurn > 0) return;
+
+    // 2) cambiamos de jugador
+    gameState.currentPlayer = gameState.currentPlayer === 1 ? 2 : 1;
+
+    // 3) asignamos preguntas para el nuevo turno
+    gameState.questionsLeftThisTurn = gameState.extraQuestionAwarded ? 2 : 1;
+    gameState.extraQuestionAwarded = false;
+
+    // 4) mostramos la pantalla de cambio (para que no vea el rival)
+    showTurnScreen();
+    showEventToast(`Cambio de turno: ahora juega el Jugador ${gameState.currentPlayer}.`, 'Turno');
+    updateGuidePanel();
+
+    // 5) **auto-iniciamos** el turno del jugador que toca
+    setTimeout(() => {
+        hideTurnScreen();
+        updateGameDisplay();          // oculta/muestra paneles
+        generateQuestionButtons();    // regenera botones
+        updateQuestionCountBadge();   // muestra (1) o (2)
+        document.getElementById('currentQuestion').textContent = `Turno del Jugador ${gameState.currentPlayer}: elige tu pregunta.`;
+        updateGuidePanel();
+    }, 800); // 0,8 s para que se lea el mensaje
+}
+
+function startTurn() {
+    hideTurnScreen();
+    updateGameDisplay();
+    document.getElementById('currentQuestion').textContent = 'Elige tu primera pregunta...';
+    document.getElementById('questionButtons').style.display = 'block';
+    generateQuestionButtons();
+    updateGuidePanel();
+}
+
+async function guessCharacter(){
+    if (isOnlineMode()) {
+        const expectedTurn = onlineState.role === 'host' ? 1 : 2;
+        if (gameState.currentPlayer !== expectedTurn) {
+            showEventToast('No es tu turno para adivinar.', 'Online');
+            return;
+        }
+        const guess = await uiPrompt('Escribe el nombre exacto del personaje rival:', '', 'Adivinar personaje (Online)');
+        if (!guess) return;
+        const socket = ensureOnlineSocket();
+        if (!socket || !onlineState.roomCode) return;
+        socket.emit('awqg:guess', { code: onlineState.roomCode, guess });
+        return;
+    }
+    if (gameState.ultraGuided && document.getElementById('guessBtn')?.disabled) {
+        showEventToast('Haz al menos una pregunta y responde la actual antes de adivinar.', 'Bloqueado');
+        return;
+    }
+    const currentPlayer = gameState.currentPlayer;
+    const opponent      = currentPlayer===1? gameState.player2Character : gameState.player1Character;
+    const totalQ        = (gameState.player1Questions.length + gameState.player2Questions.length);
+
+    let msg = `¿Cuál crees que es el personaje de tu rival?\n\n`;
+    if(totalQ < 3) msg += '⚠️ Es MUY arriesgado adivinar tan pronto. ';
+    msg += `Escribe el nombre exacto:`;
+
+    const guess = await uiPrompt(msg, '', 'Adivinar personaje');
+    if(!guess) return;
+
+    if(guess.trim().toLowerCase() === opponent.name.toLowerCase()){
+        showVictoryScreen(currentPlayer);
+    }else{
+        await uiAlert(`❌ Incorrecto. El personaje no era “${guess}”.`, 'Intento fallido');
+        endTurn();
+    }
+}
+
+async function backToMenu() {
+    const ok = await uiConfirm('¿Estás seguro de que quieres volver al menú principal? Se perderá el progreso actual.', 'Volver al menú');
+    if (ok) {
+        hardResetOnlineState();
+        resetGame();
+        showScreen('menuScreen');
+        hideTurnScreen();
+        hideVictoryScreen();
+        stopInteractiveTutorial(false);
+        updateGuidePanel();
+        showEventToast('Regresaste al menú principal.', 'Sesión');
+    }
+}
+
+function resetGame() {
+    const keepUltraGuide = gameState.ultraGuided;
+    gameState = {
+        currentCategory: null,
+        player1Character: null,
+        player2Character: null,
+        currentPlayer: 1,
+        player1Questions: [],
+        player2Questions: [],
+        availableQuestions: [],
+        gamePhase: 'menu',
+        selectionPhase: 1,
+        questionsLeftThisTurn: 1,
+        extraQuestionAwarded: false,
+        p1ReminderSeen: false,
+        ultraGuided: keepUltraGuide
+    };
+}
+
+// Efectos visuales
+document.addEventListener('DOMContentLoaded', function() {
+    // Crear partículas flotantes
+    const particlesContainer = document.getElementById('particles');
+    
+    function createParticle() {
+        const particle = document.createElement('div');
+        particle.className = 'particle';
+        particle.style.left = Math.random() * 100 + '%';
+        particle.style.animationDelay = Math.random() * 6 + 's';
+        particle.style.animationDuration = (Math.random() * 3 + 3) + 's';
+        particlesContainer.appendChild(particle);
+        
+        setTimeout(() => {
+            particle.remove();
+        }, 6000);
+    }
+    
+    // Crear partículas periódicamente
+    setInterval(createParticle, 1000);
+    
+    // Animar título principal
+    anime({
+        targets: '.title',
+        scale: [0.8, 1],
+        opacity: [0, 1],
+        duration: 1000,
+        easing: 'easeOutElastic(1, .8)'
+    });
+    
+    // Animar tarjetas de categoría
+    anime({
+        targets: '.category-card',
+        translateY: [50, 0],
+        opacity: [0, 1],
+        duration: 800,
+        delay: anime.stagger(200),
+        easing: 'easeOutQuad'
+    });
+
+    updateGuidePanel();
+    updateActionLocks();
+    showEventToast('Selecciona una categoría para comenzar.', 'Guía');
+    refreshWaitingRooms();
+});
+
+// Prevenir que el jugador vea la pantalla del oponente
+document.addEventListener('visibilitychange', function() {
+    if (document.hidden && gameState.gamePhase === 'playing') {
+        // El jugador cambió de pestaña durante el juego
+        console.log('Jugador cambió de pestaña');
+    }
+});
+
+// Atajos de teclado
+document.addEventListener('keydown', function(e) {
+    if (tutorialState.active) {
+        if (e.key === 'Escape') {
+            stopInteractiveTutorial(true);
+            return;
+        }
+        if (e.key === 'ArrowRight') {
+            nextTutorialStep();
+            return;
+        }
+        if (e.key === 'ArrowLeft') {
+            prevTutorialStep();
+            return;
+        }
+    }
+    if (gameState.gamePhase === 'playing') {
+        if (e.key === 'Enter') {
+            const answerButtons = document.getElementById('answerButtons');
+            if (answerButtons.style.display !== 'none') {
+                if (e.shiftKey) {
+                    answerQuestion(false);
+                } else {
+                    answerQuestion(true);
+                }
+            }
+        } else if (e.key === 'Escape') {
+            endTurn();
+        }
+    }
+});
+
+// Función para debug (puede ser útil para pruebas)
+function debugGame() {
+    console.log('Estado del juego:', gameState);
+}
+
+const uiModal = document.getElementById('uiModal');
+const uiModalTitle = document.getElementById('uiModalTitle');
+const uiModalMessage = document.getElementById('uiModalMessage');
+const uiModalInput = document.getElementById('uiModalInput');
+const uiModalOk = document.getElementById('uiModalOk');
+const uiModalCancel = document.getElementById('uiModalCancel');
+
+function openUIModal({ title = 'Mensaje', message = '', mode = 'alert', defaultValue = '' } = {}) {
+    return new Promise(resolve => {
+        uiModalTitle.textContent = title;
+        uiModalMessage.textContent = message;
+        uiModalInput.style.display = mode === 'prompt' ? 'block' : 'none';
+        uiModalInput.value = mode === 'prompt' ? defaultValue : '';
+        uiModalCancel.style.display = mode === 'alert' ? 'none' : 'inline-flex';
+        uiModal.classList.add('active');
+        uiModal.setAttribute('aria-hidden', 'false');
+
+        const finish = (result) => {
+            uiModal.classList.remove('active');
+            uiModal.setAttribute('aria-hidden', 'true');
+            uiModalOk.onclick = null;
+            uiModalCancel.onclick = null;
+            uiModal.onclick = null;
+            document.removeEventListener('keydown', onKey);
+            resolve(result);
+        };
+
+        const onKey = (e) => {
+            if (!uiModal.classList.contains('active')) return;
+            if (e.key === 'Escape') finish(mode === 'alert' ? true : (mode === 'confirm' ? false : null));
+            if (e.key === 'Enter') finish(mode === 'prompt' ? (uiModalInput.value.trim() || null) : true);
+        };
+
+        uiModalOk.onclick = () => finish(mode === 'prompt' ? (uiModalInput.value.trim() || null) : true);
+        uiModalCancel.onclick = () => finish(mode === 'confirm' ? false : null);
+        uiModal.onclick = (e) => {
+            if (e.target === uiModal) finish(mode === 'confirm' ? false : null);
+        };
+        document.addEventListener('keydown', onKey);
+
+        setTimeout(() => {
+            if (mode === 'prompt') uiModalInput.focus();
+            else uiModalOk.focus();
+        }, 0);
+    });
+}
+
+function uiAlert(message, title = 'Mensaje') {
+    return openUIModal({ title, message, mode: 'alert' });
+}
+
+function uiConfirm(message, title = 'Confirmar') {
+    return openUIModal({ title, message, mode: 'confirm' });
+}
+
+function uiPrompt(message, defaultValue = '', title = 'Entrada') {
+    return openUIModal({ title, message, mode: 'prompt', defaultValue });
+}
+    </script>
+</body>
+</html>
+

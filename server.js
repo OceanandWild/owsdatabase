@@ -2678,6 +2678,17 @@ app.get('/ocean-pay/index.html', (_req, res) => {
 // Servir archivos estÃƒÂ¡ticos de Ocean Pay
 app.use('/ocean-pay', express.static(join(__dirname, 'Ocean Pay')));
 
+// A Wild Question Game - frontend route
+app.get('/a-wild-question-game', (_req, res) => {
+  try {
+    const html = fs.readFileSync(join(__dirname, 'A Wild Question Game', 'index.html'), 'utf-8');
+    res.type('html').send(html);
+  } catch (e) {
+    res.status(404).send('Archivo no encontrado');
+  }
+});
+app.use('/a-wild-question-game', express.static(join(__dirname, 'A Wild Question Game')));
+
 // ===== WILD TRANSFER - COMPARTIR ARCHIVOS (MULTIPLE) =====
 const wildTransferStorage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -9326,6 +9337,128 @@ app.post('/api/ecoxion/subscription/cancel', async (req, res) => {
 
 /* ===== QUIZ KAHOOT SYSTEM ===== */
 
+/* ===== A WILD QUESTION GAME (AWQG) MULTIPLAYER ===== */
+const awqgRooms = new Map(); // code -> room
+const awqgSocketToRoom = new Map(); // socketId -> code
+
+function generateAwqgCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = '';
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+}
+
+function createAwqgRoom({ hostName = 'Jugador 1' } = {}) {
+  let code = generateAwqgCode();
+  while (awqgRooms.has(code)) code = generateAwqgCode();
+  const room = {
+    code,
+    createdAt: Date.now(),
+    status: 'waiting', // waiting|selecting|playing|finished
+    category: null,
+    host: { socketId: null, name: hostName },
+    guest: null,
+    hostSecret: null, // personaje que debe adivinar guest
+    guestSecret: null, // personaje que debe adivinar host
+    currentTurn: 'host',
+    questionsLeftThisTurn: 1,
+    extraQuestionFor: null, // host|guest|null
+    pendingQuestion: null // { askedBy, trait, value, text }
+  };
+  awqgRooms.set(code, room);
+  return room;
+}
+
+function getAwqgRoomPublic(room) {
+  return {
+    code: room.code,
+    status: room.status,
+    category: room.category,
+    hasGuest: !!room.guest,
+    hostName: room.host?.name || 'Jugador 1',
+    guestName: room.guest?.name || null,
+    currentTurn: room.currentTurn,
+    questionsLeftThisTurn: room.questionsLeftThisTurn,
+    hostSecretSelected: !!room.hostSecret,
+    guestSecretSelected: !!room.guestSecret
+  };
+}
+
+function getAwqgRole(room, socketId) {
+  if (room.host?.socketId === socketId) return 'host';
+  if (room.guest?.socketId === socketId) return 'guest';
+  return null;
+}
+
+function emitAwqgRoomState(code) {
+  const room = awqgRooms.get(code);
+  if (!room) return;
+  io.to(`awqg-${code}`).emit('awqg:room-state', getAwqgRoomPublic(room));
+}
+
+function emitAwqgTurnState(code) {
+  const room = awqgRooms.get(code);
+  if (!room) return;
+  io.to(`awqg-${code}`).emit('awqg:turn-state', {
+    currentTurn: room.currentTurn,
+    questionsLeftThisTurn: room.questionsLeftThisTurn
+  });
+}
+
+function switchAwqgTurn(room) {
+  room.currentTurn = room.currentTurn === 'host' ? 'guest' : 'host';
+  if (room.extraQuestionFor === room.currentTurn) {
+    room.questionsLeftThisTurn = 2;
+    room.extraQuestionFor = null;
+  } else {
+    room.questionsLeftThisTurn = 1;
+  }
+  room.pendingQuestion = null;
+}
+
+// Crear sala AWQG
+app.post('/api/awqg/rooms/create', (req, res) => {
+  try {
+    const hostName = String(req.body?.hostName || 'Jugador 1').slice(0, 40);
+    const room = createAwqgRoom({ hostName });
+    res.json({ success: true, room: getAwqgRoomPublic(room) });
+  } catch (err) {
+    console.error('[AWQG] Error creando sala:', err);
+    res.status(500).json({ error: 'No se pudo crear la sala' });
+  }
+});
+
+// Listar salas esperando segundo jugador
+app.get('/api/awqg/rooms/waiting', (_req, res) => {
+  try {
+    const waitingRooms = Array.from(awqgRooms.values())
+      .filter((room) => (room.status === 'waiting' || room.status === 'selecting') && !room.guest)
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .slice(0, 30)
+      .map((room) => ({
+        code: room.code,
+        hostName: room.host?.name || 'Jugador 1',
+        createdAt: room.createdAt
+      }));
+    res.json({ success: true, rooms: waitingRooms });
+  } catch (err) {
+    console.error('[AWQG] Error listando salas waiting:', err);
+    res.status(500).json({ error: 'No se pudo listar salas' });
+  }
+});
+
+app.get('/api/awqg/rooms/:code', (req, res) => {
+  try {
+    const code = String(req.params.code || '').toUpperCase();
+    const room = awqgRooms.get(code);
+    if (!room) return res.status(404).json({ error: 'Sala no encontrada' });
+    res.json({ success: true, room: getAwqgRoomPublic(room) });
+  } catch (err) {
+    console.error('[AWQG] Error obteniendo sala:', err);
+    res.status(500).json({ error: 'No se pudo obtener la sala' });
+  }
+});
+
 // Almacenamiento en memoria para salas activas (se puede migrar a Redis en producciÃƒÂ³n)
 const activeRooms = new Map(); // roomPin -> { hostId, quizId, players: [], currentQuestion: 0, scores: {}, state: 'waiting'|'playing'|'results' }
 const playerSockets = new Map(); // socketId -> { playerId, roomPin, playerName }
@@ -9962,6 +10095,212 @@ io.on('connection', (socket) => {
     });
   });
 
+  // =============================
+  // AWQG multiplayer socket flow
+  // =============================
+  socket.on('awqg:host-connect', ({ code, hostName }) => {
+    const room = awqgRooms.get(String(code || '').toUpperCase());
+    if (!room) {
+      socket.emit('awqg:error', { message: 'Sala no encontrada' });
+      return;
+    }
+    room.host.socketId = socket.id;
+    if (hostName) room.host.name = String(hostName).slice(0, 40);
+    socket.join(`awqg-${room.code}`);
+    awqgSocketToRoom.set(socket.id, room.code);
+    socket.emit('awqg:host-ready', { room: getAwqgRoomPublic(room) });
+    emitAwqgRoomState(room.code);
+  });
+
+  socket.on('awqg:join-room', ({ code, guestName }) => {
+    const room = awqgRooms.get(String(code || '').toUpperCase());
+    if (!room) {
+      socket.emit('awqg:error', { message: 'Código inválido o sala inexistente.' });
+      return;
+    }
+    if (room.guest && room.guest.socketId && room.guest.socketId !== socket.id) {
+      socket.emit('awqg:error', { message: 'La sala ya tiene 2 jugadores.' });
+      return;
+    }
+    room.guest = {
+      socketId: socket.id,
+      name: String(guestName || 'Jugador 2').slice(0, 40)
+    };
+    if (room.status === 'waiting') room.status = 'selecting';
+    socket.join(`awqg-${room.code}`);
+    awqgSocketToRoom.set(socket.id, room.code);
+    io.to(`awqg-${room.code}`).emit('awqg:guest-joined', {
+      room: getAwqgRoomPublic(room)
+    });
+    emitAwqgRoomState(room.code);
+  });
+
+  socket.on('awqg:set-category', ({ code, category }) => {
+    const room = awqgRooms.get(String(code || '').toUpperCase());
+    if (!room) return;
+    const role = getAwqgRole(room, socket.id);
+    if (role !== 'host') {
+      socket.emit('awqg:error', { message: 'Solo el anfitrión puede elegir categoría.' });
+      return;
+    }
+    room.category = String(category || '');
+    room.status = 'selecting';
+    io.to(`awqg-${room.code}`).emit('awqg:category-selected', { category: room.category });
+    emitAwqgRoomState(room.code);
+  });
+
+  socket.on('awqg:set-secret', ({ code, secret }) => {
+    const room = awqgRooms.get(String(code || '').toUpperCase());
+    if (!room) return;
+    const role = getAwqgRole(room, socket.id);
+    if (!role) return;
+    if (!secret || !secret.id || !secret.name || !secret.traits) {
+      socket.emit('awqg:error', { message: 'Personaje secreto inválido.' });
+      return;
+    }
+
+    const safeSecret = {
+      id: String(secret.id),
+      name: String(secret.name),
+      traits: typeof secret.traits === 'object' && secret.traits ? secret.traits : {}
+    };
+
+    if (role === 'host') room.hostSecret = safeSecret;
+    if (role === 'guest') room.guestSecret = safeSecret;
+
+    emitAwqgRoomState(room.code);
+    io.to(`awqg-${room.code}`).emit('awqg:secret-progress', {
+      hostSecretSelected: !!room.hostSecret,
+      guestSecretSelected: !!room.guestSecret
+    });
+
+    if (room.hostSecret && room.guestSecret && room.category) {
+      room.status = 'playing';
+      room.currentTurn = 'host';
+      room.questionsLeftThisTurn = 1;
+      room.extraQuestionFor = null;
+      room.pendingQuestion = null;
+      io.to(`awqg-${room.code}`).emit('awqg:game-started', {
+        room: getAwqgRoomPublic(room)
+      });
+      emitAwqgTurnState(room.code);
+    }
+  });
+
+  socket.on('awqg:ask-question', ({ code, question }) => {
+    const room = awqgRooms.get(String(code || '').toUpperCase());
+    if (!room || room.status !== 'playing') return;
+    const role = getAwqgRole(room, socket.id);
+    if (!role) return;
+    if (role !== room.currentTurn) {
+      socket.emit('awqg:error', { message: 'No es tu turno.' });
+      return;
+    }
+    if (room.questionsLeftThisTurn <= 0) {
+      socket.emit('awqg:error', { message: 'No te quedan preguntas en este turno.' });
+      return;
+    }
+    if (!question || !question.trait) {
+      socket.emit('awqg:error', { message: 'Pregunta inválida.' });
+      return;
+    }
+
+    const targetSecret = role === 'host' ? room.guestSecret : room.hostSecret;
+    if (!targetSecret || !targetSecret.traits) {
+      socket.emit('awqg:error', { message: 'No se pudo evaluar la pregunta.' });
+      return;
+    }
+
+    const trait = String(question.trait);
+    const value = question.value;
+    const traitValue = targetSecret.traits[trait];
+    const autoAnswer = traitValue === value;
+
+    room.pendingQuestion = {
+      askedBy: role,
+      question: {
+        text: String(question.text || ''),
+        trait,
+        value
+      },
+      answer: autoAnswer
+    };
+
+    room.questionsLeftThisTurn -= 1;
+    io.to(`awqg-${room.code}`).emit('awqg:question-result', {
+      askedBy: role,
+      question: room.pendingQuestion.question,
+      answer: autoAnswer,
+      questionsLeftThisTurn: room.questionsLeftThisTurn
+    });
+
+    if (room.questionsLeftThisTurn <= 0) {
+      switchAwqgTurn(room);
+      io.to(`awqg-${room.code}`).emit('awqg:turn-switched', {
+        currentTurn: room.currentTurn,
+        questionsLeftThisTurn: room.questionsLeftThisTurn
+      });
+    } else {
+      emitAwqgTurnState(room.code);
+    }
+  });
+
+  socket.on('awqg:skip-turn', ({ code }) => {
+    const room = awqgRooms.get(String(code || '').toUpperCase());
+    if (!room || room.status !== 'playing') return;
+    const role = getAwqgRole(room, socket.id);
+    if (!role || role !== room.currentTurn) return;
+    room.extraQuestionFor = role === 'host' ? 'guest' : 'host';
+    switchAwqgTurn(room);
+    io.to(`awqg-${room.code}`).emit('awqg:turn-skipped', {
+      skippedBy: role,
+      currentTurn: room.currentTurn,
+      questionsLeftThisTurn: room.questionsLeftThisTurn
+    });
+  });
+
+  socket.on('awqg:end-turn', ({ code }) => {
+    const room = awqgRooms.get(String(code || '').toUpperCase());
+    if (!room || room.status !== 'playing') return;
+    const role = getAwqgRole(room, socket.id);
+    if (!role || role !== room.currentTurn) return;
+    switchAwqgTurn(room);
+    io.to(`awqg-${room.code}`).emit('awqg:turn-switched', {
+      currentTurn: room.currentTurn,
+      questionsLeftThisTurn: room.questionsLeftThisTurn
+    });
+  });
+
+  socket.on('awqg:guess', ({ code, guess }) => {
+    const room = awqgRooms.get(String(code || '').toUpperCase());
+    if (!room || room.status !== 'playing') return;
+    const role = getAwqgRole(room, socket.id);
+    if (!role || role !== room.currentTurn) return;
+
+    const targetSecret = role === 'host' ? room.guestSecret : room.hostSecret;
+    if (!targetSecret) return;
+
+    const ok = String(guess || '').trim().toLowerCase() === String(targetSecret.name || '').trim().toLowerCase();
+    if (ok) {
+      room.status = 'finished';
+      io.to(`awqg-${room.code}`).emit('awqg:victory', {
+        winner: role,
+        winnerName: role === 'host' ? room.host?.name : room.guest?.name,
+        guessed: guess,
+        expected: targetSecret.name
+      });
+      return;
+    }
+
+    switchAwqgTurn(room);
+    io.to(`awqg-${room.code}`).emit('awqg:guess-failed', {
+      guessedBy: role,
+      guessed: guess,
+      currentTurn: room.currentTurn,
+      questionsLeftThisTurn: room.questionsLeftThisTurn
+    });
+  });
+
   // DesconexiÃƒÂ³n
   socket.on('disconnect', () => {
     const playerData = playerSockets.get(socket.id);
@@ -9974,6 +10313,29 @@ io.on('connection', (socket) => {
         });
       }
       playerSockets.delete(socket.id);
+    }
+
+    const awqgCode = awqgSocketToRoom.get(socket.id);
+    if (awqgCode) {
+      const room = awqgRooms.get(awqgCode);
+      if (room) {
+        const role = getAwqgRole(room, socket.id);
+        if (role === 'host') {
+          io.to(`awqg-${awqgCode}`).emit('awqg:host-left', { message: 'El anfitrión salió de la sala.' });
+          awqgRooms.delete(awqgCode);
+        } else if (role === 'guest') {
+          room.guest = null;
+          room.guestSecret = null;
+          room.status = 'waiting';
+          room.currentTurn = 'host';
+          room.questionsLeftThisTurn = 1;
+          room.extraQuestionFor = null;
+          room.pendingQuestion = null;
+          io.to(`awqg-${awqgCode}`).emit('awqg:guest-left', { message: 'El jugador 2 se desconectó.' });
+          emitAwqgRoomState(awqgCode);
+        }
+      }
+      awqgSocketToRoom.delete(socket.id);
     }
   });
 });

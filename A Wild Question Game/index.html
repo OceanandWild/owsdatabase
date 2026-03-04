@@ -1,14 +1,13 @@
 ﻿<!DOCTYPE html>
 <html lang="es">
 <head>
-<base href="https://6n7fuililtnx6.ok.kimi.link">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Adivina Quién Es - Juego de Preguntas</title>
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
-    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://owsdatabase.onrender.com/socket.io/socket.io.js"></script>
     <style>
         * {
             margin: 0;
@@ -1411,7 +1410,7 @@ function isOnlineMode() {
 }
 
 function getServerBaseUrl() {
-    if (window.location && /^https?:/i.test(window.location.protocol)) {
+    if (window.location && /owsdatabase\.onrender\.com$/i.test(window.location.hostname || '')) {
         return window.location.origin;
     }
     return 'https://owsdatabase.onrender.com';

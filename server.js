@@ -5016,6 +5016,38 @@ function mergeBalanceMaps(primary = {}, secondary = {}) {
 }
 
 const OCEAN_AI_CURRENCY = 'coralbits';
+const OCEAN_AI_PROJECT_ID = 'Ocean AI';
+const OCEAN_AI_PLAN_INTERVAL_DAYS = 7;
+const OCEAN_AI_PLANS = Object.freeze({
+  tide: {
+    id: 'tide',
+    name: 'Tide Starter',
+    weeklyCost: 120,
+    models: ['ocean51', 'ocean52'],
+    benefits: ['Respuestas mejoradas', 'Velocidad estable']
+  },
+  coral: {
+    id: 'coral',
+    name: 'Coral Pro',
+    weeklyCost: 280,
+    models: ['ocean51', 'ocean52', 'ocean53'],
+    benefits: ['Analisis avanzado', 'Mayor contexto']
+  },
+  abyss: {
+    id: 'abyss',
+    name: 'Abyss Creative',
+    weeklyCost: 520,
+    models: ['ocean51', 'ocean52', 'ocean53', 'ocean54'],
+    benefits: ['Modo creativo premium', 'Respuestas extendidas']
+  },
+  leviathan: {
+    id: 'leviathan',
+    name: 'Leviathan Elite',
+    weeklyCost: 900,
+    models: ['ocean51', 'ocean52', 'ocean53', 'ocean54', 'ocean55'],
+    benefits: ['Todos los modelos', 'Maxima prioridad de calculo']
+  }
+});
 
 function sanitizeCoralBits(value) {
   const n = Number(value);
@@ -5085,6 +5117,33 @@ async function resolveOceanPayUserByCredentials(client, username, password) {
   }
 
   return ok ? { id: Number(user.id), username: String(user.username || normalizedUser) } : null;
+}
+
+async function getOceanAiActiveSubscription(client, userId) {
+  const { rows } = await client.query(
+    `SELECT id, plan_name, sub_name, project_id, price, currency, start_date, end_date, interval_days
+       FROM ocean_pay_subscriptions
+      WHERE user_id = $1
+        AND project_id = $2
+      ORDER BY end_date DESC NULLS LAST, id DESC
+      LIMIT 1`,
+    [userId, OCEAN_AI_PROJECT_ID]
+  );
+  const row = rows[0] || null;
+  if (!row) return null;
+  const endDate = row.end_date ? new Date(row.end_date) : null;
+  const isActive = !!endDate && endDate.getTime() > Date.now();
+  return {
+    ...row,
+    isActive,
+    renewalAt: endDate ? endDate.toISOString() : null,
+    expiresAt: endDate ? endDate.toISOString() : null
+  };
+}
+
+function getOceanAiPlanByName(name) {
+  const target = String(name || '').trim().toLowerCase();
+  return Object.values(OCEAN_AI_PLANS).find((p) => p.name.toLowerCase() === target) || null;
 }
 
 async function githubProxyHandler(req, res) {
@@ -5591,6 +5650,155 @@ app.post('/ocean-ai/connect-ocean-pay', async (req, res) => {
   } catch (err) {
     console.error('Error en POST /ocean-ai/connect-ocean-pay:', err);
     return res.status(500).json({ error: 'Error interno al conectar Ocean Pay' });
+  } finally {
+    client.release();
+  }
+});
+
+app.post('/ocean-ai/subscriptions/status', async (req, res) => {
+  const username = String(req.body?.username || '').trim();
+  const password = String(req.body?.password || '').trim();
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Usuario y contraseña requeridos' });
+  }
+
+  const client = await pool.connect();
+  try {
+    const user = await resolveOceanPayUserByCredentials(client, username, password);
+    if (!user) {
+      return res.status(401).json({ error: 'Credenciales de Ocean Pay inválidas' });
+    }
+    const sub = await getOceanAiActiveSubscription(client, user.id);
+    const plan = sub ? (getOceanAiPlanByName(sub.plan_name) || null) : null;
+
+    return res.json({
+      success: true,
+      userId: user.id,
+      username: user.username,
+      active: Boolean(sub?.isActive),
+      planId: plan?.id || null,
+      planName: sub?.plan_name || null,
+      weeklyCost: Number(sub?.price || plan?.weeklyCost || 0),
+      renewalAt: sub?.renewalAt || null,
+      expiresAt: sub?.expiresAt || null,
+      models: plan?.models || ['oceanFree'],
+      benefits: plan?.benefits || []
+    });
+  } catch (err) {
+    console.error('Error en POST /ocean-ai/subscriptions/status:', err);
+    return res.status(500).json({ error: 'Error interno al consultar suscripción Ocean AI' });
+  } finally {
+    client.release();
+  }
+});
+
+app.post('/ocean-ai/subscriptions/subscribe', async (req, res) => {
+  const username = String(req.body?.username || '').trim();
+  const password = String(req.body?.password || '').trim();
+  const planId = String(req.body?.planId || '').trim().toLowerCase();
+  const plan = OCEAN_AI_PLANS[planId];
+
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Usuario y contraseña requeridos' });
+  }
+  if (!plan) {
+    return res.status(400).json({ error: 'Plan Ocean AI inválido' });
+  }
+
+  const client = await pool.connect();
+  try {
+    const user = await resolveOceanPayUserByCredentials(client, username, password);
+    if (!user) {
+      return res.status(401).json({ error: 'Credenciales de Ocean Pay inválidas' });
+    }
+
+    await client.query('BEGIN');
+    const card = await getPrimaryCardWithBalances(client, user.id);
+    if (!card?.id) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Usuario sin tarjeta principal en Ocean Pay' });
+    }
+
+    const { rows: balRows } = await client.query(
+      `SELECT amount
+         FROM ocean_pay_card_balances
+        WHERE card_id = $1 AND currency_type = $2
+        FOR UPDATE`,
+      [card.id, OCEAN_AI_CURRENCY]
+    );
+    const currentBal = toFiniteNumber(balRows[0]?.amount, toFiniteNumber(card.balances?.[OCEAN_AI_CURRENCY], 0));
+    if (currentBal < plan.weeklyCost) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: `Saldo insuficiente de ${OCEAN_AI_CURRENCY.toUpperCase()}` });
+    }
+
+    const nextBalance = currentBal - plan.weeklyCost;
+    await client.query(
+      `INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (card_id, currency_type)
+       DO UPDATE SET amount = EXCLUDED.amount`,
+      [card.id, OCEAN_AI_CURRENCY, nextBalance]
+    );
+    await client.query(
+      `UPDATE ocean_pay_cards
+          SET balances = jsonb_set(
+            COALESCE(balances, '{}'::jsonb),
+            $2::text[],
+            to_jsonb($3::numeric),
+            true
+          )
+        WHERE id = $1`,
+      [card.id, [OCEAN_AI_CURRENCY], nextBalance]
+    );
+
+    const activeSub = await getOceanAiActiveSubscription(client, user.id);
+    const baseDate = activeSub?.isActive && activeSub.expiresAt ? new Date(activeSub.expiresAt) : new Date();
+    const renewalDate = new Date(baseDate.getTime() + (OCEAN_AI_PLAN_INTERVAL_DAYS * 24 * 60 * 60 * 1000));
+
+    if (activeSub?.id) {
+      await client.query(
+        `UPDATE ocean_pay_subscriptions
+            SET plan_name = $1,
+                sub_name = $2,
+                price = $3,
+                currency = $4,
+                card_id = $5,
+                start_date = COALESCE(start_date, NOW()),
+                end_date = $6,
+                interval_days = $7,
+                next_payment = $6,
+                status = 'active'
+          WHERE id = $8`,
+        [plan.name, plan.name, plan.weeklyCost, OCEAN_AI_CURRENCY, card.id, renewalDate, OCEAN_AI_PLAN_INTERVAL_DAYS, activeSub.id]
+      );
+    } else {
+      await client.query(
+        `INSERT INTO ocean_pay_subscriptions
+          (user_id, card_id, project_id, sub_name, plan_name, price, currency, interval_days, start_date, end_date, next_payment, status)
+         VALUES
+          ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), $9, $9, 'active')`,
+        [user.id, card.id, OCEAN_AI_PROJECT_ID, plan.name, plan.name, plan.weeklyCost, OCEAN_AI_CURRENCY, OCEAN_AI_PLAN_INTERVAL_DAYS, renewalDate]
+      );
+    }
+
+    await client.query('COMMIT');
+    return res.json({
+      success: true,
+      active: true,
+      planId: plan.id,
+      planName: plan.name,
+      weeklyCost: plan.weeklyCost,
+      renewalAt: renewalDate.toISOString(),
+      expiresAt: renewalDate.toISOString(),
+      models: plan.models,
+      benefits: plan.benefits,
+      coralBitsBalance: nextBalance
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error en POST /ocean-ai/subscriptions/subscribe:', err);
+    return res.status(500).json({ error: 'Error interno al activar plan de Ocean AI' });
   } finally {
     client.release();
   }

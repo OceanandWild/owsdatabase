@@ -5146,6 +5146,58 @@ function getOceanAiPlanByName(name) {
   return Object.values(OCEAN_AI_PLANS).find((p) => p.name.toLowerCase() === target) || null;
 }
 
+async function fetchGithubLatestReleaseLite(owner, repo) {
+  const safeOwner = String(owner || '').trim();
+  const safeRepo = String(repo || '').trim();
+  if (!safeOwner || !safeRepo) return null;
+
+  const headers = {
+    'User-Agent': 'OWS-OceanAI',
+    'Accept': 'application/vnd.github+json'
+  };
+  const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN || '';
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  try {
+    const apiRes = await fetch(`https://api.github.com/repos/${safeOwner}/${safeRepo}/releases/latest`, { headers });
+    if (apiRes.ok) {
+      const payload = await apiRes.json();
+      return payload && typeof payload === 'object' ? payload : null;
+    }
+  } catch (_apiErr) {
+    // fallback below
+  }
+
+  try {
+    const latestRes = await fetch(`https://github.com/${safeOwner}/${safeRepo}/releases/latest`, {
+      redirect: 'follow',
+      headers: { 'User-Agent': 'OWS-OceanAI' }
+    });
+    if (!latestRes.ok) return null;
+
+    const finalUrl = String(latestRes.url || '');
+    const tagMatch = finalUrl.match(/\/releases\/tag\/([^/?#]+)/i);
+    const tagName = tagMatch ? decodeURIComponent(tagMatch[1]) : '';
+    if (!tagName) return null;
+
+    return {
+      tag_name: tagName,
+      name: tagName,
+      html_url: `https://github.com/${safeOwner}/${safeRepo}/releases/tag/${encodeURIComponent(tagName)}`,
+      assets: []
+    };
+  } catch (_fallbackErr) {
+    return null;
+  }
+}
+
+function pickInstallerAssetUrlFromRelease(release) {
+  const assets = Array.isArray(release?.assets) ? release.assets : [];
+  const preferred = assets.find((a) => /\.(exe|msi)$/i.test(String(a?.name || '')));
+  if (preferred?.browser_download_url) return String(preferred.browser_download_url);
+  return '';
+}
+
 async function githubProxyHandler(req, res) {
   const GH_CACHE_TTL_MS = 5 * 60 * 1000;
   const GH_STALE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -5440,6 +5492,103 @@ app.get('/ows-store/projects', async (req, res) => {
   } catch (err) {
     console.error('Error en GET /ows-store/projects:', err);
     return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Ocean AI helper: resumen de OWS Store (latest releases + catalogo segmentado)
+app.get('/ocean-ai/ows-store/context', async (_req, res) => {
+  try {
+    const [release, androidRes, projectsRes] = await Promise.all([
+      fetchGithubLatestReleaseLite('OceanandWild', 'owsdatabase'),
+      pool.query(
+        `SELECT *
+         FROM ows_android_releases
+         WHERE project_slug = 'ows-store'
+           AND status = 'published'
+         ORDER BY version_code DESC, published_at DESC, id DESC
+         LIMIT 1`
+      ),
+      pool.query(
+        `SELECT *
+         FROM ows_projects
+         ORDER BY
+           CASE LOWER(status)
+             WHEN 'launched' THEN 0
+             WHEN 'coming_soon' THEN 1
+             ELSE 2
+           END,
+           COALESCE(release_date, last_update, created_at) DESC,
+           name ASC`
+      )
+    ]);
+
+    const latestAndroid = androidRes.rows[0] || null;
+    const windowsInstallerUrl = pickInstallerAssetUrlFromRelease(release);
+    const fallbackWindowsUrl = String(release?.html_url || 'https://github.com/OceanandWild/owsdatabase/releases/latest');
+    const windowsDownloadUrl = windowsInstallerUrl || fallbackWindowsUrl;
+    const androidDownloadUrl = latestAndroid?.apk_url
+      ? String(latestAndroid.apk_url)
+      : 'https://owsdatabase.onrender.com/ows-store/android/releases/ows-store/latest/download';
+
+    const normalizeProject = (row) => {
+      const metadata = (row?.metadata && typeof row.metadata === 'object') ? row.metadata : {};
+      const merged = { ...row, ...metadata, metadata };
+      const slug = String(merged.slug || '').trim().toLowerCase();
+      const name = String(merged.name || '').trim();
+      return {
+        slug,
+        name,
+        status: String(merged.status || '').trim().toLowerCase(),
+        version: String(merged.version || '').trim(),
+        releaseDate: merged.release_date || merged.releaseDate || null,
+        description: String(merged.description || '').trim(),
+        pendingRelease: Boolean(merged.pending_release || metadata.pending_release),
+        placeholder: Boolean(merged.placeholder || metadata.placeholder || String(merged.version || '').trim() === '0.0.0')
+      };
+    };
+
+    const normalizedProjects = (projectsRes.rows || []).map(normalizeProject).filter((p) => p.slug && p.name);
+    const bySlug = new Map();
+    for (const item of normalizedProjects) {
+      if (!bySlug.has(item.slug)) bySlug.set(item.slug, item);
+    }
+    const allProjects = [...bySlug.values()];
+    const filtered = allProjects.filter((p) => p.slug !== 'ows-store' && p.slug !== 'owsstore');
+    const upcoming = filtered.filter((p) => p.status === 'coming_soon' || p.status === 'unavailable' || p.pendingRelease || p.placeholder);
+    const available = filtered.filter((p) => !upcoming.some((u) => u.slug === p.slug));
+
+    return res.json({
+      success: true,
+      store: {
+        repo: 'OceanandWild/owsdatabase',
+        windows: {
+          version: String(release?.tag_name || release?.name || '').trim() || null,
+          releaseUrl: String(release?.html_url || '').trim() || null,
+          downloadUrl: windowsDownloadUrl
+        },
+        android: latestAndroid ? {
+          versionName: latestAndroid.version_name || null,
+          versionCode: Number(latestAndroid.version_code || 0),
+          downloadUrl: androidDownloadUrl,
+          publishedAt: latestAndroid.published_at || null
+        } : {
+          versionName: null,
+          versionCode: 0,
+          downloadUrl: androidDownloadUrl,
+          publishedAt: null
+        }
+      },
+      projects: {
+        available,
+        upcoming
+      },
+      notes: {
+        installProjectsInsideStore: true
+      }
+    });
+  } catch (err) {
+    console.error('Error en GET /ocean-ai/ows-store/context:', err);
+    return res.status(500).json({ error: 'Error interno al preparar contexto OWS Store' });
   }
 });
 

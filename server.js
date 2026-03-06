@@ -5530,11 +5530,33 @@ app.get('/ocean-ai/ows-store/context', async (_req, res) => {
       ? String(latestAndroid.apk_url)
       : 'https://owsdatabase.onrender.com/ows-store/android/releases/ows-store/latest/download';
 
+    const canonicalProjectSlugForOceanAi = (value) => {
+      const slug = String(value || '').trim().toLowerCase();
+      if (!slug) return '';
+      if (slug === 'ocean-pay' || slug === 'oceanpay') return 'oceanpay';
+      if (slug === 'floret-shop' || slug === 'floretshop') return 'floretshop';
+      if (slug === 'savage-space-animals' || slug === 'savagespaceanimals' || slug === 'ssa') return 'savagespaceanimals';
+      if (slug === 'wild-transfer' || slug === 'wildtransfer') return 'wildtransfer';
+      if (slug === 'velocitysurge' || slug === 'velocity-surge') return 'velocity-surge';
+      if (slug === 'wildx' || slug === 'wild-wave' || slug === 'wildwave') return 'wildwave';
+      if (slug === 'wildweapon' || slug === 'wildweapon-mayhem') return 'wildweapon-mayhem';
+      if (slug === 'owsstore' || slug === 'ows-store') return 'ows-store';
+      return slug;
+    };
+
     const normalizeProject = (row) => {
       const metadata = (row?.metadata && typeof row.metadata === 'object') ? row.metadata : {};
       const merged = { ...row, ...metadata, metadata };
-      const slug = String(merged.slug || '').trim().toLowerCase();
+      const rawSlug = String(merged.slug || '').trim();
+      const slug = canonicalProjectSlugForOceanAi(rawSlug || merged?.name || '');
       const name = String(merged.name || '').trim();
+      const platformRaw = merged.platforms || merged.platform || metadata.platforms || metadata.platform || '';
+      const platforms = Array.isArray(platformRaw)
+        ? platformRaw
+        : String(platformRaw || '')
+          .split(',')
+          .map((x) => String(x || '').trim())
+          .filter(Boolean);
       return {
         slug,
         name,
@@ -5542,6 +5564,7 @@ app.get('/ocean-ai/ows-store/context', async (_req, res) => {
         version: String(merged.version || '').trim(),
         releaseDate: merged.release_date || merged.releaseDate || null,
         description: String(merged.description || '').trim(),
+        platforms,
         pendingRelease: Boolean(merged.pending_release || metadata.pending_release),
         placeholder: Boolean(merged.placeholder || metadata.placeholder || String(merged.version || '').trim() === '0.0.0')
       };
@@ -5553,8 +5576,9 @@ app.get('/ocean-ai/ows-store/context', async (_req, res) => {
       if (!bySlug.has(item.slug)) bySlug.set(item.slug, item);
     }
     const allProjects = [...bySlug.values()];
-    const filtered = allProjects.filter((p) => p.slug !== 'ows-store' && p.slug !== 'owsstore');
-    const upcoming = filtered.filter((p) => p.status === 'coming_soon' || p.status === 'unavailable' || p.pendingRelease || p.placeholder);
+    const filtered = allProjects.filter((p) => p.slug !== 'ows-store');
+    const forcedUpcoming = new Set(['naturepedia', 'dinobox', 'wildshorts']);
+    const upcoming = filtered.filter((p) => forcedUpcoming.has(String(p.slug || '').trim().toLowerCase()));
     const available = filtered.filter((p) => !upcoming.some((u) => u.slug === p.slug));
 
     return res.json({

@@ -2604,6 +2604,29 @@
       if (el) el.classList.toggle('hidden', !on);
     };
 
+    function ensureCoralBitsCard() {
+      if (document.getElementById('coralbits-card')) return;
+      const oceanRow = document.querySelector('.assets-row-ocean');
+      if (!oceanRow) return;
+      const card = document.createElement('div');
+      card.className = 'asset-card-modern';
+      card.id = 'coralbits-card';
+      card.innerHTML = `
+        <div class="asset-icon-container">
+          <canvas class="currency-canvas" data-currency="coralbits" width="44" height="44"></canvas>
+        </div>
+        <div class="asset-info-modern">
+          <span class="asset-name-modern">Coral Bits</span>
+          <span class="asset-balance-modern" id="coralbits">0</span>
+        </div>
+        <div class="asset-footer-modern">
+          <span>Ocean AI</span>
+          <span style="color:var(--accent)">Ocean</span>
+        </div>
+      `;
+      oceanRow.appendChild(card);
+    }
+
 
     /* ---------- TOAST NOTIFICATION SYSTEM ---------- */
     function showToast(message, type = 'info', duration = 5000) {
@@ -3089,6 +3112,26 @@
       // Leaf Bookmark
       ctx.fillStyle = "#22c55e"; ctx.beginPath(); ctx.moveTo(-size * 0.1, -size * 0.3); ctx.quadraticCurveTo(0, -size * 0.1, size * 0.1, -size * 0.3);
       ctx.lineTo(0, size * 0.1); ctx.closePath(); ctx.fill(); ctx.restore();
+    } function drawCoralBitsIcon(ctx, x, y, size) {
+      ctx.save(); ctx.translate(x, y);
+      ctx.shadowBlur = size * 0.45; ctx.shadowColor = "rgba(34, 211, 238, 0.55)";
+      const base = ctx.createRadialGradient(-size * 0.15, -size * 0.2, size * 0.05, 0, 0, size * 0.55);
+      base.addColorStop(0, "#e0f7ff");
+      base.addColorStop(0.45, "#67e8f9");
+      base.addColorStop(1, "#0891b2");
+      ctx.fillStyle = base;
+      ctx.beginPath(); ctx.arc(0, 0, size * 0.48, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,0.45)";
+      ctx.lineWidth = size * 0.05;
+      ctx.beginPath(); ctx.arc(0, 0, size * 0.36, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = "rgba(255,255,255,0.2)";
+      ctx.beginPath(); ctx.arc(-size * 0.14, -size * 0.14, size * 0.11, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#083344";
+      ctx.font = `bold ${size * 0.48}px sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("C", 0, 0);
+      ctx.restore();
     } function
       animateCurrencies() {
       const canvases = document.querySelectorAll('.currency-canvas'); const time = Date.now() * 0.002;
@@ -3127,6 +3170,7 @@
           case 'relayshards': drawRelayShardsIcon(ctx, x, y, size * 0.8); break;
           case 'mayhemcoins': drawMayhemCoinsIcon(ctx, x, y, size * 0.8); break;
           case 'cosmicdust': drawCosmicDustIcon(ctx, x, y, size * 0.8); break;
+          case 'coralbits': drawCoralBitsIcon(ctx, x, y, size * 0.8); break;
           default:
             ctx.fillStyle = "#fff"; ctx.font = "64px serif"; ctx.textAlign = "center";
             ctx.textBaseline = "middle"; ctx.fillText("x", x, y);
@@ -3191,6 +3235,8 @@
       if (mcEl) mcEl.textContent = Math.round(balances.mayhemcoins || 0).toLocaleString();
       const cdEl = qs('#cosmicdust');
       if (cdEl) cdEl.textContent = Math.round(balances.cosmicdust || 0).toLocaleString();
+      const coralEl = qs('#coralbits');
+      if (coralEl) coralEl.textContent = Math.round(balances.coralbits || 0).toLocaleString();
       qs('#ecopower-display').textContent = Math.round(balances.ecopower || 100);
 
       // Actualizar Resumen Lateral con info real del usuario
@@ -3218,17 +3264,17 @@
       const parity = {
         bux: 0.1, wildcredits: 0.5, wildgems: 10.0, ecoxionums: 1.0,
         nxb: 0.25, amber: 0.15, voltbit: 0.1, wildwavetokens: 0.18, appbux: 0.05,
-        ecobooks: 0.5, ecobits: 2.0, ecotokens: 0.3, mayhemcoins: 0.08, cosmicdust: 0.04, relayshards: 0.12
+        ecobooks: 0.5, ecobits: 2.0, ecotokens: 0.3, mayhemcoins: 0.08, cosmicdust: 0.04, relayshards: 0.12, coralbits: 0.22
       };
 
       const currencyLabels = {
         bux: 'AquaBux', wildcredits: 'WildCredits', wildgems: 'WildGems',
         ecoxionums: 'Ecoxionums', 'nxb-balance': 'Nexus Bits', amber: 'Amber',
         voltbit: 'VoltBits', wildwavetokens: 'WildWave Tokens', appbux: 'AppBux', ecobooks: 'EcoBooks',
-        ecobits: 'EcoCoreBits', ecotokens: 'EcoTokens', mayhemcoins: 'MayhemCoins', cosmicdust: 'Polvora Cosmica', relayshards: 'RelayShards'
+        ecobits: 'EcoCoreBits', ecotokens: 'EcoTokens', mayhemcoins: 'MayhemCoins', cosmicdust: 'Polvora Cosmica', relayshards: 'RelayShards', coralbits: 'Coral Bits'
       };
 
-      const ids = ['bux', 'wildcredits', 'wildgems', 'relayshards', 'ecoxionums', 'nxb-balance', 'amber', 'voltbit', 'wildwavetokens', 'appbux', 'ecobooks', 'ecobits', 'ecotokens', 'mayhemcoins', 'cosmicdust'];
+      const ids = ['bux', 'wildcredits', 'wildgems', 'relayshards', 'ecoxionums', 'nxb-balance', 'amber', 'voltbit', 'wildwavetokens', 'appbux', 'ecobooks', 'ecobits', 'ecotokens', 'mayhemcoins', 'cosmicdust', 'coralbits'];
 
       let totalEX = 0;
       const breakdown = [];
@@ -4626,6 +4672,7 @@
 
     /* ---------- INIT ---------- */
     window.addEventListener('DOMContentLoaded', async () => {
+      ensureCoralBitsCard();
       const t = localStorage.getItem('opToken');
       if (t) {
         token = t;
@@ -4734,6 +4781,7 @@
 
       const currencies = [
         { id: 'bux', name: 'AquaBux', desc: 'Moneda oficial de Ocean Cinemas y transacciones generales del ecosistema.', project: 'Ocean Cinemas' },
+        { id: 'coralbits', name: 'Coral Bits', desc: 'Divisa de Ocean AI sincronizada con Ocean Pay.', project: 'Ocean AI' },
         { id: 'wildcredits', name: 'WildCredits', desc: 'Créditos de recompensa obtenidos en Wild Explorer y misiones de campo.', project: 'Wild Explorer' },
         { id: 'wildgems', name: 'WildGems', desc: 'Gemas premium utilizadas para acceder a contenido exclusivo en WildShorts.', project: 'WildShorts' },
         { id: 'relayshards', name: 'RelayShards', desc: 'Divisa nativa de WildTransfer. Se gana al subir y recibir archivos para pagar planes semanales.', project: 'WildTransfer' },

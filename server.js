@@ -8770,7 +8770,8 @@ const ECOXION_PLAN_CONFIG_DEFAULT = {
       'clicky-coin': ['Límite diario estándar (50 clics).'],
       'eco-stock': ['Acceso al mercado base.'],
       'quick-surveys': ['Encuestas normales sin prioridad.'],
-      'smart-notes': ['Funciones base de edición y guardado local.']
+      'smart-notes': ['Funciones base de edición y guardado local.'],
+      'ecoxion-workspace': ['Panel base: checklist, recordatorios y scratchpad en dashboard.', 'Sin acceso de segundo plano.']
     },
     plus: {
       'eco-luck': ['Suerte aumentada: sube chance de x3/x10.', 'Pérdida total reducida frente al plan base.'],
@@ -8778,7 +8779,8 @@ const ECOXION_PLAN_CONFIG_DEFAULT = {
       'clicky-coin': ['Mejor respuesta visual y recompensas consistentes.'],
       'eco-stock': ['Panel de movimiento con lectura más rápida.'],
       'quick-surveys': ['Acceso a más encuestas activas por ciclo.'],
-      'smart-notes': ['Capas de organización adicionales.']
+      'smart-notes': ['Capas de organización adicionales.'],
+      'ecoxion-workspace': ['Mayor capacidad de metas y recordatorios.', 'Autosave más consistente en sesiones largas.']
     },
     pro: {
       'eco-luck': ['Suerte premium: mejora clara de premios altos.', 'Mayor estabilidad en resultados no negativos.'],
@@ -8786,7 +8788,8 @@ const ECOXION_PLAN_CONFIG_DEFAULT = {
       'clicky-coin': ['Optimización de flujo en sesiones largas.'],
       'eco-stock': ['Mejoras de señales y lectura de tendencia.'],
       'quick-surveys': ['Prioridad de tareas con mejor recompensa media.'],
-      'smart-notes': ['Herramientas avanzadas de estructura y foco.']
+      'smart-notes': ['Herramientas avanzadas de estructura y foco.'],
+      'ecoxion-workspace': ['Modo segundo plano activo con botón global.', 'Modal rápido: checklist, recordatorios y scratchpad desde cualquier pestaña.']
     },
     ultra: {
       'eco-luck': ['Suerte Ultra Nova: máxima probabilidad de x3/x10.', 'Mitigación alta de tiradas fallidas.'],
@@ -8794,7 +8797,8 @@ const ECOXION_PLAN_CONFIG_DEFAULT = {
       'clicky-coin': ['Flujo experto + mejor consistencia de sesión.'],
       'eco-stock': ['Lectura avanzada con ejecución de alto nivel.'],
       'quick-surveys': ['Canal prioritario de encuestas premium.'],
-      'smart-notes': ['Suite completa de productividad premium.']
+      'smart-notes': ['Suite completa de productividad premium.'],
+      'ecoxion-workspace': ['Segundo plano siempre activo con acceso instantáneo.', 'Modal global con resumen live y recarga automática de datos.']
     }
   },
   fortuneOdds: {
@@ -8889,6 +8893,88 @@ function normalizeEcoxionPlanId(planId) {
 function getEcoxionPlanDefinition(planId) {
   const normalized = normalizeEcoxionPlanId(planId);
   return ECOXION_PLAN_CATALOG[normalized] || null;
+}
+
+const ECOXION_ECLIPSER_TYPE_META = {
+  solar_total: { label: 'Eclipse Solar Total', reward: 180 },
+  solar_partial: { label: 'Eclipse Solar Parcial', reward: 120 },
+  lunar_total: { label: 'Eclipse Lunar Total', reward: 150 },
+  lunar_partial: { label: 'Eclipse Lunar Parcial', reward: 95 },
+  annular: { label: 'Eclipse Anular', reward: 160 }
+};
+
+function normalizeEclipserType(value) {
+  const key = String(value || '').trim().toLowerCase();
+  if (ECOXION_ECLIPSER_TYPE_META[key]) return key;
+  if (key.includes('solar') && key.includes('total')) return 'solar_total';
+  if (key.includes('solar')) return 'solar_partial';
+  if (key.includes('lunar') && key.includes('total')) return 'lunar_total';
+  if (key.includes('lunar')) return 'lunar_partial';
+  if (key.includes('anular') || key.includes('annular')) return 'annular';
+  return 'solar_partial';
+}
+
+function toIsoDate(value, fallbackMs = 0) {
+  const d = value ? new Date(value) : new Date(Date.now() + fallbackMs);
+  if (!Number.isFinite(d.getTime())) return null;
+  return d;
+}
+
+function buildEclipseCode(prefix = 'ECL') {
+  const rnd = Math.random().toString(36).slice(2, 8).toUpperCase();
+  return `${prefix}-${Date.now()}-${rnd}`;
+}
+
+async function ensureEcoxionEclipserTables() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ecoxion_eclipses (
+      id SERIAL PRIMARY KEY,
+      eclipse_code TEXT UNIQUE NOT NULL,
+      eclipse_type TEXT NOT NULL,
+      eclipse_kind TEXT NOT NULL DEFAULT 'admin',
+      title TEXT NOT NULL,
+      starts_at TIMESTAMP NOT NULL,
+      ends_at TIMESTAMP NOT NULL,
+      reward_amount INTEGER NOT NULL DEFAULT 0,
+      reward_currency TEXT NOT NULL DEFAULT 'ecoxionums',
+      created_by INTEGER,
+      created_by_name TEXT,
+      metadata JSONB DEFAULT '{}'::jsonb,
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ecoxion_eclipse_participations (
+      id SERIAL PRIMARY KEY,
+      eclipse_id INTEGER NOT NULL REFERENCES ecoxion_eclipses(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL,
+      watched_seconds INTEGER NOT NULL DEFAULT 0,
+      reward_amount INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(eclipse_id, user_id)
+    )
+  `);
+}
+
+function mapEclipseRow(row, now = Date.now()) {
+  const starts = new Date(row.starts_at).getTime();
+  const ends = new Date(row.ends_at).getTime();
+  const status = now < starts ? 'upcoming' : (now > ends ? 'ended' : 'active');
+  return {
+    id: Number(row.id),
+    eclipseCode: row.eclipse_code,
+    eclipseType: row.eclipse_type,
+    eclipseKind: row.eclipse_kind,
+    title: row.title,
+    startsAt: row.starts_at,
+    endsAt: row.ends_at,
+    rewardAmount: Number(row.reward_amount || 0),
+    rewardCurrency: row.reward_currency || ECOXION_CURRENCY,
+    createdBy: row.created_by || null,
+    createdByName: row.created_by_name || '',
+    metadata: row.metadata || {},
+    status
+  };
 }
 
 async function getPrimaryCardForUser(client, userId, forUpdate = true) {
@@ -9152,6 +9238,223 @@ app.put('/api/ecoxion/plans/config', async (req, res) => {
   } catch (err) {
     console.error('Error actualizando config de planes Ecoxion:', err);
     return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// GET - Eclipser: próximos eclipses + activos
+app.get('/api/ecoxion/eclipses/upcoming', async (req, res) => {
+  try {
+    await ensureEcoxionEclipserTables();
+    const now = new Date();
+    const userId = Number(req.query?.userId || 0);
+    const { rows } = await pool.query(
+      `SELECT e.*,
+              CASE WHEN p.id IS NULL THEN false ELSE true END AS participated
+       FROM ecoxion_eclipses e
+       LEFT JOIN ecoxion_eclipse_participations p
+              ON p.eclipse_id = e.id
+             AND ($2::int > 0 AND p.user_id = $2::int)
+       WHERE e.ends_at >= $1
+       ORDER BY e.starts_at ASC
+       LIMIT 30`,
+      [now, userId]
+    );
+    return res.json({
+      success: true,
+      events: rows.map((r) => ({ ...mapEclipseRow(r), participated: r.participated === true }))
+    });
+  } catch (err) {
+    console.error('Error en GET /api/ecoxion/eclipses/upcoming:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+app.get('/api/ecoxion/eclipses/active', async (_req, res) => {
+  try {
+    await ensureEcoxionEclipserTables();
+    const { rows } = await pool.query(
+      `SELECT * FROM ecoxion_eclipses
+       WHERE starts_at <= NOW() AND ends_at >= NOW()
+       ORDER BY starts_at ASC
+       LIMIT 12`
+    );
+    return res.json({ success: true, events: rows.map((r) => mapEclipseRow(r)) });
+  } catch (err) {
+    console.error('Error en GET /api/ecoxion/eclipses/active:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// POST - Eclipser admin invoke
+app.post('/api/ecoxion/eclipses/admin/invoke', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  try {
+    await ensureEcoxionEclipserTables();
+    const eclipseType = normalizeEclipserType(req.body?.eclipseType);
+    const typeMeta = ECOXION_ECLIPSER_TYPE_META[eclipseType] || ECOXION_ECLIPSER_TYPE_META.solar_partial;
+    const startsAtDate = toIsoDate(req.body?.startsAt, 5 * 60 * 1000);
+    const endsAtDate = toIsoDate(req.body?.endsAt, 20 * 60 * 1000);
+    if (!startsAtDate || !endsAtDate || endsAtDate.getTime() <= startsAtDate.getTime()) {
+      return res.status(400).json({ error: 'Fechas inválidas para el eclipse.' });
+    }
+    const rewardAmount = Number.isFinite(Number(req.body?.rewardAmount))
+      ? Math.max(0, Math.floor(Number(req.body.rewardAmount)))
+      : Number(typeMeta.reward || 120);
+    const title = String(req.body?.title || typeMeta.label || 'Eclipse Admin').trim().slice(0, 120);
+    const eclipseCode = buildEclipseCode('ADM');
+    const { rows } = await pool.query(
+      `INSERT INTO ecoxion_eclipses
+       (eclipse_code, eclipse_type, eclipse_kind, title, starts_at, ends_at, reward_amount, reward_currency, created_by_name, metadata)
+       VALUES ($1,$2,'admin',$3,$4,$5,$6,$7,$8,$9::jsonb)
+       RETURNING *`,
+      [
+        eclipseCode,
+        eclipseType,
+        title || typeMeta.label,
+        startsAtDate,
+        endsAtDate,
+        rewardAmount,
+        ECOXION_CURRENCY,
+        String(req.body?.createdByName || 'Admin'),
+        JSON.stringify({
+          source: 'admin',
+          announcedType: typeMeta.label
+        })
+      ]
+    );
+    return res.json({ success: true, event: mapEclipseRow(rows[0]) });
+  } catch (err) {
+    console.error('Error en POST /api/ecoxion/eclipses/admin/invoke:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// POST - Eclipser custom (solo Ultra)
+app.post('/api/ecoxion/eclipses/custom', async (req, res) => {
+  const userId = Number(req.body?.userId || 0);
+  const username = String(req.body?.username || 'Usuario').trim().slice(0, 60);
+  const planId = normalizeEcoxionPlanId(req.body?.planId || req.body?.plan || '');
+  if (!Number.isFinite(userId) || userId <= 0) return res.status(400).json({ error: 'userId inválido' });
+  if (planId !== 'ultra') return res.status(403).json({ error: 'Crear eclipses personalizados requiere plan Ultra.' });
+  try {
+    await ensureEcoxionEclipserTables();
+    const eclipseType = normalizeEclipserType(req.body?.eclipseType);
+    const typeMeta = ECOXION_ECLIPSER_TYPE_META[eclipseType] || ECOXION_ECLIPSER_TYPE_META.solar_partial;
+    const startsAtDate = toIsoDate(req.body?.startsAt, 2 * 60 * 1000);
+    const endsAtDate = toIsoDate(req.body?.endsAt, 12 * 60 * 1000);
+    if (!startsAtDate || !endsAtDate || endsAtDate.getTime() <= startsAtDate.getTime()) {
+      return res.status(400).json({ error: 'Fechas inválidas para el eclipse.' });
+    }
+    const baseReward = Number(typeMeta.reward || 120);
+    const reducedReward = Math.max(1, Math.floor(baseReward * 0.1)); // 90% menos
+    const customName = String(req.body?.customName || '').trim().slice(0, 80);
+    const title = customName ? `Eclipse Personalizado: ${customName}` : `Eclipse Personalizado de ${username}`;
+    const eclipseCode = buildEclipseCode('CUS');
+    const { rows } = await pool.query(
+      `INSERT INTO ecoxion_eclipses
+       (eclipse_code, eclipse_type, eclipse_kind, title, starts_at, ends_at, reward_amount, reward_currency, created_by, created_by_name, metadata)
+       VALUES ($1,$2,'custom',$3,$4,$5,$6,$7,$8,$9,$10::jsonb)
+       RETURNING *`,
+      [
+        eclipseCode,
+        eclipseType,
+        title,
+        startsAtDate,
+        endsAtDate,
+        reducedReward,
+        ECOXION_CURRENCY,
+        userId,
+        username,
+        JSON.stringify({
+          source: 'ultra_custom',
+          customName: customName || null,
+          baseReward,
+          reductionPercent: 90
+        })
+      ]
+    );
+    return res.json({ success: true, event: mapEclipseRow(rows[0]) });
+  } catch (err) {
+    console.error('Error en POST /api/ecoxion/eclipses/custom:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// POST - Eclipser participation + reward
+app.post('/api/ecoxion/eclipses/:eclipseId/participate', async (req, res) => {
+  const eclipseId = Number(req.params.eclipseId || 0);
+  const userId = Number(req.body?.userId || 0);
+  const watchedSeconds = Math.max(0, Math.floor(Number(req.body?.watchedSeconds || 0)));
+  if (!Number.isFinite(eclipseId) || eclipseId <= 0) return res.status(400).json({ error: 'eclipseId inválido' });
+  if (!Number.isFinite(userId) || userId <= 0) return res.status(400).json({ error: 'userId inválido' });
+  if (watchedSeconds < 6) return res.status(400).json({ error: 'Debes ver el eclipse por al menos 6 segundos.' });
+  const client = await pool.connect();
+  try {
+    await ensureEcoxionEclipserTables();
+    await client.query('BEGIN');
+    const { rows: eventRows } = await client.query(
+      `SELECT * FROM ecoxion_eclipses WHERE id = $1 FOR UPDATE`,
+      [eclipseId]
+    );
+    if (!eventRows.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Eclipse no encontrado.' });
+    }
+    const event = eventRows[0];
+    const now = Date.now();
+    const starts = new Date(event.starts_at).getTime();
+    const ends = new Date(event.ends_at).getTime();
+    if (now < starts) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Este eclipse aún no comenzó.' });
+    }
+    if (now > ends + 30 * 60 * 1000) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Este eclipse ya finalizó.' });
+    }
+    const { rows: alreadyRows } = await client.query(
+      `SELECT id FROM ecoxion_eclipse_participations WHERE eclipse_id = $1 AND user_id = $2`,
+      [eclipseId, userId]
+    );
+    if (alreadyRows.length) {
+      await client.query('ROLLBACK');
+      return res.json({ success: true, alreadyClaimed: true, reward: 0 });
+    }
+
+    const rewardAmount = Math.max(0, Number(event.reward_amount || 0));
+    if (rewardAmount > 0) {
+      const primaryCard = await ensurePrimaryCardForUser(client, userId, true);
+      if (!primaryCard) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'No se encontró tarjeta principal para abonar recompensa.' });
+      }
+      const currentBalance = await getUnifiedCardCurrencyBalance(client, Number(primaryCard.id), ECOXION_CURRENCY, true);
+      await setUnifiedCardCurrencyBalance(client, {
+        userId,
+        cardId: Number(primaryCard.id),
+        currency: ECOXION_CURRENCY,
+        newBalance: currentBalance + rewardAmount
+      });
+      await client.query(
+        `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [userId, `Recompensa Eclipse (${event.title})`, rewardAmount, 'Ecoxion Eclipser', ECOXION_CURRENCY]
+      ).catch(() => null);
+    }
+
+    await client.query(
+      `INSERT INTO ecoxion_eclipse_participations (eclipse_id, user_id, watched_seconds, reward_amount)
+       VALUES ($1, $2, $3, $4)`,
+      [eclipseId, userId, watchedSeconds, rewardAmount]
+    );
+    await client.query('COMMIT');
+    return res.json({ success: true, reward: rewardAmount, currency: ECOXION_CURRENCY });
+  } catch (err) {
+    try { await client.query('ROLLBACK'); } catch (_) {}
+    console.error('Error en POST /api/ecoxion/eclipses/:eclipseId/participate:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  } finally {
+    client.release();
   }
 });
 

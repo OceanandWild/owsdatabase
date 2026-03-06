@@ -5121,7 +5121,7 @@ async function resolveOceanPayUserByCredentials(client, username, password) {
 
 async function getOceanAiActiveSubscription(client, userId) {
   const { rows } = await client.query(
-    `SELECT id, plan_name, sub_name, project_id, price, currency, start_date, end_date, interval_days
+    `SELECT id, plan_name, sub_name, project_id, price, currency, end_date, interval_days
        FROM ocean_pay_subscriptions
       WHERE user_id = $1
         AND project_id = $2
@@ -5764,7 +5764,6 @@ app.post('/ocean-ai/subscriptions/subscribe', async (req, res) => {
                 price = $3,
                 currency = $4,
                 card_id = $5,
-                start_date = COALESCE(start_date, NOW()),
                 end_date = $6,
                 interval_days = $7,
                 next_payment = $6,
@@ -5775,9 +5774,9 @@ app.post('/ocean-ai/subscriptions/subscribe', async (req, res) => {
     } else {
       await client.query(
         `INSERT INTO ocean_pay_subscriptions
-          (user_id, card_id, project_id, sub_name, plan_name, price, currency, interval_days, start_date, end_date, next_payment, status)
+          (user_id, card_id, project_id, sub_name, plan_name, price, currency, interval_days, end_date, next_payment, status)
          VALUES
-          ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), $9, $9, 'active')`,
+          ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9, 'active')`,
         [user.id, card.id, OCEAN_AI_PROJECT_ID, plan.name, plan.name, plan.weeklyCost, OCEAN_AI_CURRENCY, OCEAN_AI_PLAN_INTERVAL_DAYS, renewalDate]
       );
     }

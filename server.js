@@ -5015,51 +5015,12 @@ function mergeBalanceMaps(primary = {}, secondary = {}) {
   return merged;
 }
 
-const OCEAN_AI_LINK_KEYS = Object.freeze({
-  id: 'ocean_ai_link_id',
-  secretHash: 'ocean_ai_link_secret_hash',
-  linkedAt: 'ocean_ai_linked_at'
-});
 const OCEAN_AI_CURRENCY = 'coralbits';
-
-function normalizeOceanAiId(value) {
-  return String(value || '').trim().toLowerCase();
-}
 
 function sanitizeCoralBits(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) return 0;
   return Math.max(0, Math.floor(n));
-}
-
-async function getOceanAiLinkRecord(client, userId) {
-  const { rows } = await client.query(
-    `SELECT key, value
-       FROM ocean_pay_metadata
-      WHERE user_id = $1
-        AND key = ANY($2::text[])`,
-    [userId, [OCEAN_AI_LINK_KEYS.id, OCEAN_AI_LINK_KEYS.secretHash, OCEAN_AI_LINK_KEYS.linkedAt]]
-  );
-  const map = {};
-  rows.forEach((row) => {
-    map[String(row.key || '')] = String(row.value || '');
-  });
-  return {
-    oceanAiId: map[OCEAN_AI_LINK_KEYS.id] || '',
-    secretHash: map[OCEAN_AI_LINK_KEYS.secretHash] || '',
-    linkedAt: map[OCEAN_AI_LINK_KEYS.linkedAt] || null,
-    linked: Boolean(map[OCEAN_AI_LINK_KEYS.id] && map[OCEAN_AI_LINK_KEYS.secretHash])
-  };
-}
-
-async function upsertOceanPayMetadata(client, userId, key, value) {
-  await client.query(
-    `INSERT INTO ocean_pay_metadata (user_id, key, value)
-     VALUES ($1, $2, $3)
-     ON CONFLICT (user_id, key)
-     DO UPDATE SET value = EXCLUDED.value`,
-    [userId, key, String(value ?? '')]
-  );
 }
 
 async function getPrimaryCardWithBalances(client, userId) {
@@ -5088,6 +5049,42 @@ async function getCoralBitsBalanceForUser(client, userId) {
   const tableBal = toFiniteNumber(rows[0]?.amount, 0);
   const jsonBal = toFiniteNumber(card.balances?.[OCEAN_AI_CURRENCY], 0);
   return Math.max(tableBal, jsonBal);
+}
+
+async function resolveOceanPayUserByCredentials(client, username, password) {
+  const normalizedUser = String(username || '').trim();
+  const rawPassword = String(password || '').trim();
+  if (!normalizedUser || !rawPassword) return null;
+
+  const { rows } = await client.query(
+    `SELECT id, username, pwd_hash, password
+       FROM ocean_pay_users
+      WHERE LOWER(username) = LOWER($1)
+      LIMIT 1`,
+    [normalizedUser]
+  );
+  if (!rows.length) return null;
+
+  const user = rows[0];
+  const candidateHashes = [user.pwd_hash, user.password].filter(Boolean);
+  let ok = false;
+
+  for (const candidate of candidateHashes) {
+    try {
+      if (await bcrypt.compare(rawPassword, String(candidate))) {
+        ok = true;
+        break;
+      }
+    } catch (_) {
+      // no-op
+    }
+    if (String(candidate) === rawPassword) {
+      ok = true;
+      break;
+    }
+  }
+
+  return ok ? { id: Number(user.id), username: String(user.username || normalizedUser) } : null;
 }
 
 async function githubProxyHandler(req, res) {
@@ -5569,146 +5566,57 @@ app.get('/ocean-pay/me', async (req, res) => {
   }
 });
 
-// Vincular Ocean AI con Ocean Pay usando credenciales (ID + Secret)
-app.post('/ocean-pay/ocean-ai/link', async (req, res) => {
-  const userId = getAuthenticatedOceanPayUserId(req);
-  if (!userId) return res.status(401).json({ error: 'Token invalido' });
-
-  const oceanAiId = normalizeOceanAiId(req.body?.oceanAiId);
-  const oceanAiSecret = String(req.body?.oceanAiSecret || '').trim();
-  if (!oceanAiId || oceanAiId.length < 3) {
-    return res.status(400).json({ error: 'Ocean AI ID invalido' });
-  }
-  if (!oceanAiSecret || oceanAiSecret.length < 6) {
-    return res.status(400).json({ error: 'Ocean AI Secret invalido (minimo 6 caracteres)' });
+// Ocean AI -> Ocean Pay bridge (credenciales Ocean Pay)
+app.post('/ocean-ai/connect-ocean-pay', async (req, res) => {
+  const username = String(req.body?.username || '').trim();
+  const password = String(req.body?.password || '').trim();
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Usuario y contraseña requeridos' });
   }
 
   const client = await pool.connect();
   try {
-    await client.query('BEGIN');
-    const secretHash = await bcrypt.hash(oceanAiSecret, 10);
-    const nowIso = new Date().toISOString();
-
-    await upsertOceanPayMetadata(client, userId, OCEAN_AI_LINK_KEYS.id, oceanAiId);
-    await upsertOceanPayMetadata(client, userId, OCEAN_AI_LINK_KEYS.secretHash, secretHash);
-    await upsertOceanPayMetadata(client, userId, OCEAN_AI_LINK_KEYS.linkedAt, nowIso);
-
-    const coralBits = await getCoralBitsBalanceForUser(client, userId);
-    await client.query('COMMIT');
-
+    const user = await resolveOceanPayUserByCredentials(client, username, password);
+    if (!user) {
+      return res.status(401).json({ error: 'Credenciales de Ocean Pay inválidas' });
+    }
+    const coralBits = await getCoralBitsBalanceForUser(client, user.id);
     return res.json({
       success: true,
-      linked: true,
-      oceanAiId,
-      linkedAt: nowIso,
+      connected: true,
+      userId: user.id,
+      username: user.username,
       coralBits
     });
   } catch (err) {
-    await client.query('ROLLBACK');
-    console.error('Error en POST /ocean-pay/ocean-ai/link:', err);
-    return res.status(500).json({ error: 'Error interno al vincular Ocean AI' });
+    console.error('Error en POST /ocean-ai/connect-ocean-pay:', err);
+    return res.status(500).json({ error: 'Error interno al conectar Ocean Pay' });
   } finally {
     client.release();
   }
 });
 
-app.delete('/ocean-pay/ocean-ai/link', async (req, res) => {
-  const userId = getAuthenticatedOceanPayUserId(req);
-  if (!userId) return res.status(401).json({ error: 'Token invalido' });
-
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    await client.query(
-      `DELETE FROM ocean_pay_metadata
-        WHERE user_id = $1
-          AND key = ANY($2::text[])`,
-      [userId, [OCEAN_AI_LINK_KEYS.id, OCEAN_AI_LINK_KEYS.secretHash, OCEAN_AI_LINK_KEYS.linkedAt]]
-    );
-    const coralBits = await getCoralBitsBalanceForUser(client, userId);
-    await client.query('COMMIT');
-
-    return res.json({
-      success: true,
-      linked: false,
-      coralBits
-    });
-  } catch (err) {
-    await client.query('ROLLBACK');
-    console.error('Error en DELETE /ocean-pay/ocean-ai/link:', err);
-    return res.status(500).json({ error: 'Error interno al desvincular Ocean AI' });
-  } finally {
-    client.release();
-  }
-});
-
-app.get('/ocean-pay/ocean-ai/link-status', async (req, res) => {
-  const userId = getAuthenticatedOceanPayUserId(req);
-  if (!userId) return res.status(401).json({ error: 'Token invalido' });
-
-  const client = await pool.connect();
-  try {
-    const link = await getOceanAiLinkRecord(client, userId);
-    const coralBits = await getCoralBitsBalanceForUser(client, userId);
-    return res.json({
-      success: true,
-      linked: link.linked,
-      oceanAiId: link.oceanAiId || '',
-      linkedAt: link.linkedAt,
-      coralBits
-    });
-  } catch (err) {
-    console.error('Error en GET /ocean-pay/ocean-ai/link-status:', err);
-    return res.status(500).json({ error: 'Error interno al consultar vinculación Ocean AI' });
-  } finally {
-    client.release();
-  }
-});
-
-// Endpoint para Ocean AI: sincroniza saldo de Coral Bits por credenciales
+// Endpoint para Ocean AI: sincroniza saldo de Coral Bits por usuario/contraseña de Ocean Pay
 app.post('/ocean-ai/coralbits/sync', async (req, res) => {
-  const oceanAiId = normalizeOceanAiId(req.body?.oceanAiId);
-  const oceanAiSecret = String(req.body?.oceanAiSecret || '').trim();
+  const username = String(req.body?.username || '').trim();
+  const password = String(req.body?.password || '').trim();
   const coralBits = sanitizeCoralBits(req.body?.coralBits);
-
-  if (!oceanAiId || oceanAiId.length < 3) {
-    return res.status(400).json({ error: 'Ocean AI ID invalido' });
-  }
-  if (!oceanAiSecret || oceanAiSecret.length < 6) {
-    return res.status(400).json({ error: 'Ocean AI Secret invalido' });
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Usuario y contraseña requeridos' });
   }
 
   const client = await pool.connect();
   try {
-    const { rows } = await client.query(
-      `SELECT m_id.user_id, m_hash.value AS secret_hash
-         FROM ocean_pay_metadata m_id
-         JOIN ocean_pay_metadata m_hash
-           ON m_hash.user_id = m_id.user_id
-          AND m_hash.key = $2
-        WHERE m_id.key = $1
-          AND LOWER(m_id.value) = LOWER($3)`,
-      [OCEAN_AI_LINK_KEYS.id, OCEAN_AI_LINK_KEYS.secretHash, oceanAiId]
-    );
-
-    let linkedUserId = 0;
-    for (const row of rows) {
-      const ok = await bcrypt.compare(oceanAiSecret, String(row.secret_hash || ''));
-      if (ok) {
-        linkedUserId = Number(row.user_id || 0);
-        break;
-      }
-    }
-
-    if (!linkedUserId) {
-      return res.status(401).json({ error: 'Credenciales Ocean AI invalidas o no vinculadas' });
+    const user = await resolveOceanPayUserByCredentials(client, username, password);
+    if (!user) {
+      return res.status(401).json({ error: 'Credenciales de Ocean Pay inválidas' });
     }
 
     await client.query('BEGIN');
-    const card = await getPrimaryCardWithBalances(client, linkedUserId);
+    const card = await getPrimaryCardWithBalances(client, user.id);
     if (!card?.id) {
       await client.query('ROLLBACK');
-      return res.status(404).json({ error: 'Usuario vinculado sin tarjeta principal en Ocean Pay' });
+      return res.status(404).json({ error: 'Usuario sin tarjeta principal en Ocean Pay' });
     }
 
     await client.query(
@@ -5732,11 +5640,11 @@ app.post('/ocean-ai/coralbits/sync', async (req, res) => {
     );
 
     await client.query('COMMIT');
-
     return res.json({
       success: true,
       synced: true,
-      userId: linkedUserId,
+      userId: user.id,
+      username: user.username,
       coralBits
     });
   } catch (err) {
@@ -5748,47 +5656,25 @@ app.post('/ocean-ai/coralbits/sync', async (req, res) => {
   }
 });
 
-// Endpoint para Ocean AI: consulta saldo por credenciales (lectura)
+// Endpoint para Ocean AI: consulta saldo por usuario/contraseña de Ocean Pay
 app.post('/ocean-ai/coralbits/balance', async (req, res) => {
-  const oceanAiId = normalizeOceanAiId(req.body?.oceanAiId);
-  const oceanAiSecret = String(req.body?.oceanAiSecret || '').trim();
-  if (!oceanAiId || oceanAiId.length < 3) {
-    return res.status(400).json({ error: 'Ocean AI ID invalido' });
-  }
-  if (!oceanAiSecret || oceanAiSecret.length < 6) {
-    return res.status(400).json({ error: 'Ocean AI Secret invalido' });
+  const username = String(req.body?.username || '').trim();
+  const password = String(req.body?.password || '').trim();
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Usuario y contraseña requeridos' });
   }
 
   const client = await pool.connect();
   try {
-    const { rows } = await client.query(
-      `SELECT m_id.user_id, m_hash.value AS secret_hash
-         FROM ocean_pay_metadata m_id
-         JOIN ocean_pay_metadata m_hash
-           ON m_hash.user_id = m_id.user_id
-          AND m_hash.key = $2
-        WHERE m_id.key = $1
-          AND LOWER(m_id.value) = LOWER($3)`,
-      [OCEAN_AI_LINK_KEYS.id, OCEAN_AI_LINK_KEYS.secretHash, oceanAiId]
-    );
-
-    let linkedUserId = 0;
-    for (const row of rows) {
-      const ok = await bcrypt.compare(oceanAiSecret, String(row.secret_hash || ''));
-      if (ok) {
-        linkedUserId = Number(row.user_id || 0);
-        break;
-      }
+    const user = await resolveOceanPayUserByCredentials(client, username, password);
+    if (!user) {
+      return res.status(401).json({ error: 'Credenciales de Ocean Pay inválidas' });
     }
-
-    if (!linkedUserId) {
-      return res.status(401).json({ error: 'Credenciales Ocean AI invalidas o no vinculadas' });
-    }
-
-    const coralBits = await getCoralBitsBalanceForUser(client, linkedUserId);
+    const coralBits = await getCoralBitsBalanceForUser(client, user.id);
     return res.json({
       success: true,
-      userId: linkedUserId,
+      userId: user.id,
+      username: user.username,
       coralBits
     });
   } catch (err) {

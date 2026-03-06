@@ -2576,9 +2576,6 @@
     let userCards = []; // Array de tarjetas con saldos
     let activeCardIndex = 0; // Índice de la tarjeta activa
     let isRefreshingToken = false; // Prevent concurrent refresh attempts
-    const OCEAN_AI_CURRENCY = 'coralbits';
-    let oceanAiLinked = false;
-    let oceanAiLinkedId = '';
 
     // Ocean Pass State
     let oceanPass = {
@@ -2607,117 +2604,6 @@
       if (el) el.classList.toggle('hidden', !on);
     };
 
-    function ensureOceanAiUIStyles() {
-      if (document.getElementById('ocean-ai-link-styles')) return;
-      const style = document.createElement('style');
-      style.id = 'ocean-ai-link-styles';
-      style.textContent = `
-      .ocean-ai-link-card {
-        background: rgba(255,255,255,0.03);
-        border: 1px solid rgba(34,211,238,0.2);
-        border-radius: 14px;
-        padding: 1rem;
-        margin-top: 1rem;
-      }
-      .ocean-ai-link-card h4 {
-        margin: 0 0 0.7rem 0;
-        font-size: 0.95rem;
-        color: #e2e8f0;
-      }
-      .ocean-ai-link-card .link-state {
-        font-size: 0.78rem;
-        margin-bottom: 0.7rem;
-        color: #94a3b8;
-      }
-      .ocean-ai-link-card .linked {
-        color: #10b981;
-        font-weight: 700;
-      }
-      .ocean-ai-link-card .unlinked {
-        color: #f59e0b;
-        font-weight: 700;
-      }
-      .ocean-ai-link-card input {
-        margin-bottom: 0.6rem;
-        padding: 0.7rem 0.85rem;
-        font-size: 0.85rem;
-      }
-      .ocean-ai-link-actions {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 0.45rem;
-      }
-      .ocean-ai-link-actions button {
-        padding: 0.65rem;
-        font-size: 0.75rem;
-      }
-      .ocean-ai-link-actions .secondary {
-        border: 1px solid rgba(34,211,238,0.35);
-      }`;
-      document.head.appendChild(style);
-    }
-
-    function ensureCoralBitsCard() {
-      if (document.getElementById('coralbits-card')) return;
-      const oceanRow = document.querySelector('.assets-row-ocean');
-      if (!oceanRow) return;
-      const card = document.createElement('div');
-      card.className = 'asset-card-modern';
-      card.id = 'coralbits-card';
-      card.innerHTML = `
-        <div class="asset-icon-container">
-          <canvas class="currency-canvas" data-currency="coralbits" width="44" height="44"></canvas>
-        </div>
-        <div class="asset-info-modern">
-          <span class="asset-name-modern">Coral Bits</span>
-          <span class="asset-balance-modern" id="coralbits">0</span>
-        </div>
-        <div class="asset-footer-modern">
-          <span>Ocean AI</span>
-          <span style="color:#22d3ee">Ocean</span>
-        </div>
-      `;
-      oceanRow.appendChild(card);
-    }
-
-    function ensureOceanAiLinkCard() {
-      if (document.getElementById('ocean-ai-link-card')) return;
-      const sideStack = document.querySelector('.wallet-side-stack');
-      if (!sideStack) return;
-      const wrapper = document.createElement('div');
-      wrapper.className = 'glass-box ocean-ai-link-card';
-      wrapper.id = 'ocean-ai-link-card';
-      wrapper.innerHTML = `
-        <h4><i class="fas fa-link" style="margin-right:.45rem;color:var(--accent)"></i>Vincular Ocean AI</h4>
-        <div id="ocean-ai-link-state" class="link-state">Estado: <span class="unlinked">No vinculado</span></div>
-        <input id="ocean-ai-id-input" type="text" placeholder="Ocean AI ID">
-        <input id="ocean-ai-secret-input" type="password" placeholder="Ocean AI Secret">
-        <div class="ocean-ai-link-actions">
-          <button type="button" onclick="linkOceanAiCredentials()">Vincular y sincronizar</button>
-          <button type="button" class="secondary" onclick="refreshOceanAiLinkStatus()">Actualizar saldo Coral Bits</button>
-          <button type="button" class="secondary" onclick="unlinkOceanAiCredentials()">Desvincular</button>
-        </div>
-      `;
-      sideStack.prepend(wrapper);
-    }
-
-    function setOceanAiLinkStatus({ linked = false, oceanAiId = '', balance = 0 } = {}) {
-      oceanAiLinked = Boolean(linked);
-      oceanAiLinkedId = oceanAiId || '';
-
-      const stateEl = qs('#ocean-ai-link-state');
-      if (stateEl) {
-        const mask = oceanAiLinkedId ? `${String(oceanAiLinkedId).slice(0, 3)}***` : '';
-        stateEl.innerHTML = oceanAiLinked
-          ? `Estado: <span class="linked">Vinculado (${mask})</span>`
-          : 'Estado: <span class="unlinked">No vinculado</span>';
-      }
-
-      const coralEl = qs('#coralbits');
-      if (coralEl) {
-        coralEl.textContent = Math.round(balance || 0).toLocaleString();
-      }
-    }
 
     /* ---------- TOAST NOTIFICATION SYSTEM ---------- */
     function showToast(message, type = 'info', duration = 5000) {
@@ -2957,25 +2843,6 @@
       ctx.lineTo(0, size * 0.25); ctx.stroke(); // Horizontal ctx.beginPath(); ctx.moveTo(-size * 0.25, 0);
       ctx.lineTo(size * 0.25, 0); ctx.stroke(); // Shine ctx.fillStyle="rgba(255,255,255,0.2)" ; ctx.beginPath();
       ctx.arc(0, 0, size * 0.15, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-    } function drawCoralBitsIcon(ctx, x, y, size) {
-      ctx.save(); ctx.translate(x, y);
-      ctx.shadowBlur = size * 0.45; ctx.shadowColor = "rgba(34, 211, 238, 0.55)";
-      const base = ctx.createRadialGradient(-size * 0.15, -size * 0.2, size * 0.05, 0, 0, size * 0.55);
-      base.addColorStop(0, "#e0f7ff");
-      base.addColorStop(0.45, "#67e8f9");
-      base.addColorStop(1, "#0891b2");
-      ctx.fillStyle = base;
-      ctx.beginPath(); ctx.arc(0, 0, size * 0.48, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = "rgba(255,255,255,0.45)"; ctx.lineWidth = size * 0.05;
-      ctx.beginPath(); ctx.arc(0, 0, size * 0.36, 0, Math.PI * 2); ctx.stroke();
-      ctx.fillStyle = "rgba(255,255,255,0.2)";
-      ctx.beginPath(); ctx.arc(-size * 0.14, -size * 0.14, size * 0.11, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = "#083344";
-      ctx.font = `bold ${size * 0.48}px sans-serif`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText("C", 0, 0);
-      ctx.restore();
     } function drawAmberIcon(ctx, x, y, size) {
       ctx.save(); ctx.translate(x, y); ctx.shadowBlur = size * 0.5; ctx.shadowColor = "rgba(245, 158, 11, 0.6)";
       // Outer Amber Gem (slightly irregular for organic look)
@@ -3249,7 +3116,6 @@
           case 'wildcredits': drawWildCreditsIcon(ctx, x, y, size * 0.8); break;
           case 'wildgems': drawWildGemsIcon(ctx, x, y, size * 0.8); break;
           case 'ecoxionums': drawEcoxionumsIcon(ctx, x, y, size * 0.8); break;
-          case 'coralbits': drawCoralBitsIcon(ctx, x, y, size * 0.8); break;
           case 'ecobits':
           case 'ecorebits': drawEcoCoreBitsIcon(ctx, x, y, size * 0.8); break;
           case 'appbux': drawAppBuxIcon(ctx, x, y, size * 0.8); break;
@@ -3325,11 +3191,6 @@
       if (mcEl) mcEl.textContent = Math.round(balances.mayhemcoins || 0).toLocaleString();
       const cdEl = qs('#cosmicdust');
       if (cdEl) cdEl.textContent = Math.round(balances.cosmicdust || 0).toLocaleString();
-      const coralEl = qs('#coralbits');
-      if (coralEl) {
-        const coralBalance = oceanAiLinked ? Math.round(balances[OCEAN_AI_CURRENCY] || 0) : 0;
-        coralEl.textContent = coralBalance.toLocaleString();
-      }
       qs('#ecopower-display').textContent = Math.round(balances.ecopower || 100);
 
       // Actualizar Resumen Lateral con info real del usuario
@@ -3357,17 +3218,17 @@
       const parity = {
         bux: 0.1, wildcredits: 0.5, wildgems: 10.0, ecoxionums: 1.0,
         nxb: 0.25, amber: 0.15, voltbit: 0.1, wildwavetokens: 0.18, appbux: 0.05,
-        ecobooks: 0.5, ecobits: 2.0, ecotokens: 0.3, mayhemcoins: 0.08, cosmicdust: 0.04, relayshards: 0.12, coralbits: 0.22
+        ecobooks: 0.5, ecobits: 2.0, ecotokens: 0.3, mayhemcoins: 0.08, cosmicdust: 0.04, relayshards: 0.12
       };
 
       const currencyLabels = {
         bux: 'AquaBux', wildcredits: 'WildCredits', wildgems: 'WildGems',
         ecoxionums: 'Ecoxionums', 'nxb-balance': 'Nexus Bits', amber: 'Amber',
         voltbit: 'VoltBits', wildwavetokens: 'WildWave Tokens', appbux: 'AppBux', ecobooks: 'EcoBooks',
-        ecobits: 'EcoCoreBits', ecotokens: 'EcoTokens', mayhemcoins: 'MayhemCoins', cosmicdust: 'Polvora Cosmica', relayshards: 'RelayShards', coralbits: 'Coral Bits'
+        ecobits: 'EcoCoreBits', ecotokens: 'EcoTokens', mayhemcoins: 'MayhemCoins', cosmicdust: 'Polvora Cosmica', relayshards: 'RelayShards'
       };
 
-      const ids = ['bux', 'wildcredits', 'wildgems', 'relayshards', 'ecoxionums', 'nxb-balance', 'amber', 'voltbit', 'wildwavetokens', 'appbux', 'ecobooks', 'ecobits', 'ecotokens', 'mayhemcoins', 'cosmicdust', 'coralbits'];
+      const ids = ['bux', 'wildcredits', 'wildgems', 'relayshards', 'ecoxionums', 'nxb-balance', 'amber', 'voltbit', 'wildwavetokens', 'appbux', 'ecobooks', 'ecobits', 'ecotokens', 'mayhemcoins', 'cosmicdust'];
 
       let totalEX = 0;
       const breakdown = [];
@@ -4152,67 +4013,6 @@
       } catch (e) { }
     }
 
-    async function refreshOceanAiLinkStatus() {
-      if (!token) return;
-      try {
-        const res = await apiFetch(`${API}/ocean-pay/ocean-ai/link-status`);
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'No se pudo obtener estado de vinculación');
-        setOceanAiLinkStatus({
-          linked: !!data.linked,
-          oceanAiId: data.oceanAiId || '',
-          balance: Number(data.coralBits || 0)
-        });
-      } catch (err) {
-        console.error('[Ocean AI Link] status error:', err);
-      }
-    }
-
-    async function linkOceanAiCredentials() {
-      const oceanAiId = (qs('#ocean-ai-id-input')?.value || '').trim();
-      const oceanAiSecret = (qs('#ocean-ai-secret-input')?.value || '').trim();
-      if (!oceanAiId || !oceanAiSecret) {
-        showToast('Ingresa Ocean AI ID y Ocean AI Secret.', 'warning');
-        return;
-      }
-
-      try {
-        const res = await apiFetch(`${API}/ocean-pay/ocean-ai/link`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ oceanAiId, oceanAiSecret })
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'No se pudo vincular Ocean AI');
-        setOceanAiLinkStatus({
-          linked: true,
-          oceanAiId: data.oceanAiId || oceanAiId,
-          balance: Number(data.coralBits || 0)
-        });
-        if (qs('#ocean-ai-secret-input')) qs('#ocean-ai-secret-input').value = '';
-        showToast('Ocean AI vinculado correctamente.', 'success');
-        await refreshAllBalances();
-      } catch (err) {
-        showToast(err.message || 'Error al vincular Ocean AI.', 'error');
-      }
-    }
-
-    async function unlinkOceanAiCredentials() {
-      if (!confirm('¿Desvincular Ocean AI de esta cuenta de Ocean Pay?')) return;
-      try {
-        const res = await apiFetch(`${API}/ocean-pay/ocean-ai/link`, {
-          method: 'DELETE'
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'No se pudo desvincular');
-        setOceanAiLinkStatus({ linked: false, oceanAiId: '', balance: Number(data.coralBits || 0) });
-        showToast('Ocean AI desvinculado.', 'info');
-        await refreshAllBalances();
-      } catch (err) {
-        showToast(err.message || 'Error al desvincular Ocean AI.', 'error');
-      }
-    }
-
     async function loadOceanCards() {
       const userStr = localStorage.getItem('opUser');
       if (!userStr) return;
@@ -4324,7 +4124,6 @@
       // Cargar tarjetas (incluyen todos los saldos)
       await loadOceanCards();
       await loadAmberBalance();
-      await refreshOceanAiLinkStatus();
     }
 
     let balanceRefreshInterval = null;
@@ -4827,9 +4626,6 @@
 
     /* ---------- INIT ---------- */
     window.addEventListener('DOMContentLoaded', async () => {
-      ensureOceanAiUIStyles();
-      ensureCoralBitsCard();
-      ensureOceanAiLinkCard();
       const t = localStorage.getItem('opToken');
       if (t) {
         token = t;
@@ -4938,7 +4734,6 @@
 
       const currencies = [
         { id: 'bux', name: 'AquaBux', desc: 'Moneda oficial de Ocean Cinemas y transacciones generales del ecosistema.', project: 'Ocean Cinemas' },
-        { id: 'coralbits', name: 'Coral Bits', desc: 'Divisa de Ocean AI. Se sincroniza en Ocean Pay al vincular credenciales Ocean AI + Ocean Pay.', project: 'Ocean AI' },
         { id: 'wildcredits', name: 'WildCredits', desc: 'Créditos de recompensa obtenidos en Wild Explorer y misiones de campo.', project: 'Wild Explorer' },
         { id: 'wildgems', name: 'WildGems', desc: 'Gemas premium utilizadas para acceder a contenido exclusivo en WildShorts.', project: 'WildShorts' },
         { id: 'relayshards', name: 'RelayShards', desc: 'Divisa nativa de WildTransfer. Se gana al subir y recibir archivos para pagar planes semanales.', project: 'WildTransfer' },

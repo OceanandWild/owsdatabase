@@ -3612,6 +3612,7 @@
         const AWQG_RELEASES_API_URL = `${GITHUB_RELEASES_PROXY_BASE}/a-wild-question-game/releases/latest`;
         const AWQG_ANDROID_APK_LATEST_URL = 'https://github.com/OceanandWild/a-wild-question-game/releases/download/awqg-android-2026.3.5-t0015-r2/awqg-android-debug.apk';
         const WILDDESTINY_RELEASES_URL = 'https://github.com/OceanandWild/wilddestiny/releases/latest';
+        const WILDDESTINY_RELEASES_API_URL = `${GITHUB_RELEASES_PROXY_BASE}/wilddestiny/releases/latest`;
         const ECOXION_RELEASES_URL = 'https://github.com/OceanandWild/ecoxion/releases/latest';
         const VELOCITY_SURGE_RELEASES_URL = 'https://github.com/OceanandWild/velocity-surge/releases/latest';
         const VELOCITY_SURGE_RELEASES_API_URL = `${GITHUB_RELEASES_PROXY_BASE}/velocity-surge/releases/latest`;
@@ -3901,6 +3902,7 @@
         let awqgAndroidReleaseCache = null;
         let velocitySurgeReleaseCache = null;
         let wildWaveReleaseCache = null;
+        let wildDestinyReleaseCache = null;
         let owsNewsReleaseCache = null;
         let owsNewsUpdatesCache = [];
         let owsNewsUpdatesFetchedAt = 0;
@@ -6882,8 +6884,6 @@
         } = {}) {
             let needsUpdate = false;
             if (installedOnThisDevice && available) {
-                const latestReleaseTs = Date.parse(String(latestReleasePublishedAt || '')) || 0;
-                const installedReleaseTs = Date.parse(String(installedReleasePublishedAt || '')) || 0;
                 if (platform === 'android' && Number(latestVersionCode) > 0) {
                     if (Number(installedVersionCode) > 0) {
                         needsUpdate = Number(latestVersionCode) > Number(installedVersionCode);
@@ -6904,25 +6904,8 @@
                 } else if (installedVersion && latestVersion) {
                     needsUpdate = compareVersionLike(installedVersion, latestVersion) < 0;
                 } else if (platform === 'windows') {
-                    // Installed externally but without a trusted version marker.
-                    // Keep update actionable to avoid false "al dia".
-                    needsUpdate = true;
-                }
-
-                const sameVersion = Boolean(installedVersion && latestVersion)
-                    && compareVersionLike(installedVersion, latestVersion) === 0;
-                const sameAndroidCode = platform === 'android'
-                    && Number(installedVersionCode) > 0
-                    && Number(latestVersionCode) > 0
-                    && Number(installedVersionCode) === Number(latestVersionCode);
-
-                if (!needsUpdate && (sameVersion || sameAndroidCode) && latestReleaseTs > 0) {
-                    if (installedReleaseTs > 0) {
-                        needsUpdate = latestReleaseTs > installedReleaseTs;
-                    } else if (allowMissingReleaseMetadataBootstrap) {
-                        // Missing release metadata alone should not force a perpetual update loop.
-                        needsUpdate = false;
-                    }
+                    // Sin version local confiable en Windows, no forzar update para evitar falsos positivos.
+                    needsUpdate = false;
                 }
             }
             return needsUpdate;
@@ -7094,6 +7077,7 @@
                 || isFloretProject(project)
                 || isWildTransferProject(project)
                 || isAWQGProject(project)
+                || isWildDestinyProject(project)
                 || isVelocitySurgeProject(project)
                 || isWildWaveProject(project);
         }
@@ -8552,6 +8536,65 @@
             return payload;
         }
 
+        async function fetchLatestWildDestinyRelease() {
+            const now = Date.now();
+            if (wildDestinyReleaseCache && (now - wildDestinyReleaseCache.checkedAt) < 120000) {
+                return wildDestinyReleaseCache;
+            }
+
+            const res = await fetch(`${WILDDESTINY_RELEASES_API_URL}?nocache=${Date.now()}`, {
+                cache: 'no-store',
+                headers: { 'Accept': 'application/vnd.github+json' }
+            });
+            if (!res.ok) throw new Error(`GitHub API ${res.status}`);
+            const data = await res.json();
+            const assets = Array.isArray(data.assets) ? data.assets : [];
+            const versionFromTag = normalizeReleaseVersion(data.tag_name || '');
+            const exeCandidates = assets.filter(a => typeof a?.name === 'string' && /\.exe$/i.test(a.name));
+            const scoredCandidates = exeCandidates.map((a) => ({
+                asset: a,
+                version: extractVersionFromText(a.name),
+                updatedAtMs: Date.parse(a.updated_at || '') || 0,
+                hasWildDestinyName: /wild[\s._-]*destiny|wilddestiny/i.test(String(a.name || '')),
+            }));
+
+            scoredCandidates.sort((x, y) => {
+                if (x.hasWildDestinyName !== y.hasWildDestinyName) return x.hasWildDestinyName ? -1 : 1;
+                const cmp = compareVersionLike(y.version, x.version);
+                if (cmp !== 0) return cmp;
+                return y.updatedAtMs - x.updatedAtMs;
+            });
+
+            let selected = scoredCandidates[0] || null;
+            if (versionFromTag) {
+                const tagMatch = scoredCandidates.find(c => c.version && compareVersionLike(c.version, versionFromTag) === 0);
+                if (tagMatch) selected = tagMatch;
+            }
+
+            const exeAsset = selected?.asset || null;
+            const versionFromAsset = selected?.version || '';
+            const staleInstaller = Boolean(versionFromTag && versionFromAsset && compareVersionLike(versionFromAsset, versionFromTag) < 0);
+            const warning = staleInstaller
+                ? `Release latest apunta a tag ${versionFromTag}, pero el instalador publicado es ${versionFromAsset}.`
+                : '';
+
+            const payload = {
+                version: versionFromTag || versionFromAsset || null,
+                tagVersion: versionFromTag || null,
+                assetVersion: versionFromAsset || null,
+                installerUrl: exeAsset?.browser_download_url || '',
+                installerSize: Number(exeAsset?.size || 0),
+                installerAvailable: Boolean(exeAsset?.browser_download_url) && !staleInstaller,
+                windowsReleaseNotes: String(data.body || '').trim(),
+                releaseUrl: data.html_url || WILDDESTINY_RELEASES_URL,
+                publishedAt: data.published_at || data.created_at || null,
+                warning,
+                checkedAt: now,
+            };
+            wildDestinyReleaseCache = payload;
+            return payload;
+        }
+
         async function fetchLatestWildWaveRelease() {
             const now = Date.now();
             if (wildWaveReleaseCache && (now - wildWaveReleaseCache.checkedAt) < 120000) {
@@ -9507,6 +9550,7 @@
             if (isVelocitySurgeProject(project)) return project?.icon_url || VELOCITY_SURGE_LOCAL_ICON || `https://placehold.co/${size}/0a0f1e/26e0ff?text=VSG`;
             if (isAWQGProject(project)) return project?.icon_url || AWQG_LOCAL_ICON || `https://placehold.co/${size}/0f1527/6ff3ff?text=AWQ`;
             if (isWildWaveProject(project)) return project?.icon_url || WILDWAVE_LOCAL_ICON || `https://placehold.co/${size}/151029/c493ff?text=WWV`;
+            if (isDinoBoxProject(project)) return project?.icon_url || DINOBOX_LOCAL_ICON || `https://placehold.co/${size}/0f172a/00f3ff?text=DNB`;
             return project?.icon_url || `https://placehold.co/${size}/0f172a/00f3ff?text=OWS`;
         }
 
@@ -9651,6 +9695,7 @@
             const floret = projects.find(p => isFloretProject(p));
             const wildTransfer = projects.find(p => isWildTransferProject(p));
             const awqg = projects.find(p => isAWQGProject(p));
+            const wildDestiny = projects.find(p => isWildDestinyProject(p));
             const velocitySurge = projects.find(p => isVelocitySurgeProject(p));
             const wildWave = projects.find(p => isWildWaveProject(p));
 
@@ -9926,6 +9971,45 @@
                 }
             }
 
+            if (wildDestiny) {
+                wildDestiny.platform = 'windows';
+                wildDestiny.install_type = 'external';
+                if (!wildDestiny.installer_url) wildDestiny.installer_url = WILDDESTINY_RELEASES_URL;
+                wildDestiny.icon_url = wildDestiny.icon_url || WILDDESTINY_LOCAL_ICON;
+                wildDestiny.installer_available = false;
+                wildDestiny.last_update_at = null;
+                wildDestiny.windows_last_update_at = null;
+                wildDestiny.android_last_update_at = null;
+                wildDestiny.pending_release = false;
+                wildDestiny.short = 'WD';
+                if (!wildDestiny.windows_version) wildDestiny.windows_version = wildDestiny.version || '';
+                wildDestiny.installer_size = Number(wildDestiny.installer_size || 0);
+                if (!wildDestiny.windows_release_notes) wildDestiny.windows_release_notes = '';
+
+                try {
+                    const latest = await fetchLatestWildDestinyRelease();
+                    if (latest?.version) wildDestiny.version = latest.version;
+                    wildDestiny.windows_version = latest?.version || wildDestiny.windows_version || wildDestiny.version || '';
+                    if (latest?.installerUrl) wildDestiny.installer_url = latest.installerUrl;
+                    wildDestiny.installer_size = Number(latest?.installerSize || 0);
+                    wildDestiny.installer_available = Boolean(latest?.installerAvailable);
+                    wildDestiny.windows_release_notes = latest?.windowsReleaseNotes || wildDestiny.windows_release_notes || '';
+                    wildDestiny.last_update_at = latest?.publishedAt || null;
+                    wildDestiny.windows_last_update_at = latest?.publishedAt || null;
+                    wildDestiny.pending_release = !wildDestiny.installer_available;
+                    if (latest?.warning) {
+                        wildDestiny.pending_release = true;
+                        wildDestiny.release_warning = latest.warning;
+                    } else {
+                        wildDestiny.release_warning = '';
+                    }
+                } catch (err) {
+                    console.log('No se pudo resolver la ultima release de Wild Destiny:', err?.message || err);
+                    wildDestiny.pending_release = true;
+                    wildDestiny.release_warning = 'No se pudo validar el instalador de la ultima release.';
+                }
+            }
+
             if (velocitySurge) {
                 velocitySurge.platform = 'windows';
                 velocitySurge.install_type = 'external';
@@ -10019,6 +10103,7 @@
             if (isFloretProject(project)) return FLORET_RELEASES_URL;
             if (isWildTransferProject(project)) return WILDTRANSFER_RELEASES_URL;
             if (isAWQGProject(project)) return AWQG_RELEASES_URL;
+            if (isWildDestinyProject(project)) return WILDDESTINY_RELEASES_URL;
             if (isEcoxionProject(project)) return ECOXION_RELEASES_URL;
             if (isVelocitySurgeProject(project)) return VELOCITY_SURGE_RELEASES_URL;
             if (isWildWaveProject(project)) return WILDWAVE_RELEASES_URL;
@@ -10721,15 +10806,8 @@
                         const refreshedMarker = getInstalledVersion(p.slug);
                         const refreshedMarkerCode = getInstalledVersionCode(p.slug);
                         const markerVerified = isInstallMarkerVerified(p.slug, 'windows');
-                        const unresolvedLegacyMarker = Boolean(
-                            detected?.installed
-                            && refreshedMarker
-                            && !markerVerified
-                            && supportsWindowsInstaller(p)
-                            && !isNativeAndroidRuntime()
-                        );
-                        const effectiveMarker = unresolvedLegacyMarker ? '' : refreshedMarker;
-                        const effectiveMarkerCode = unresolvedLegacyMarker ? 0 : refreshedMarkerCode;
+                        const effectiveMarker = refreshedMarker;
+                        const effectiveMarkerCode = refreshedMarkerCode;
                         const installedBySystem = Boolean(detected?.installed || androidPlatformMarker);
                         const installed = installingRuntime ? true : (suppressed ? false : installedBySystem);
                         if (!installed && suppressed) uninstallSuppressedBySlug[p.slug] = false;
@@ -11086,6 +11164,7 @@
                 if (isOceanPayProject(project)) oceanPayProjectReleaseCache = null;
                 if (isWildTransferProject(project)) wildTransferReleaseCache = null;
                 if (isAWQGProject(project)) awqgAndroidReleaseCache = null;
+                if (isWildDestinyProject(project)) wildDestinyReleaseCache = null;
                 if (isVelocitySurgeProject(project)) velocitySurgeReleaseCache = null;
                 if (isWildWaveProject(project)) wildWaveReleaseCache = null;
             }
@@ -11101,11 +11180,13 @@
                                 ? await fetchLatestWildTransferRelease()
                                 : (isAWQGProject(project)
                                     ? await fetchLatestAWQGRelease()
+                                : (isWildDestinyProject(project)
+                                    ? await fetchLatestWildDestinyRelease()
                                 : (isVelocitySurgeProject(project)
                                     ? await fetchLatestVelocitySurgeRelease()
                                     : (isWildWaveProject(project)
                                         ? await fetchLatestWildWaveRelease()
-                                        : await fetchLatestOWSNewsRelease())))))));
+                                        : await fetchLatestOWSNewsRelease()))))))));
 
             if (isFloretProject(project) || isWildTransferProject(project) || isAWQGProject(project)) {
                 const preferred = isNativeAndroidRuntime()

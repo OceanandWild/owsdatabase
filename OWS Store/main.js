@@ -262,6 +262,19 @@ async function openPathWithRetry(filePath, attempts = 6, delayMs = 350) {
   return lastError || 'No se pudo abrir instalador.';
 }
 
+function isLikelyWindowsExecutable(filePath) {
+  try {
+    const fd = fs.openSync(filePath, 'r');
+    const header = Buffer.alloc(2);
+    const read = fs.readSync(fd, header, 0, 2, 0);
+    fs.closeSync(fd);
+    if (read < 2) return false;
+    return header[0] === 0x4d && header[1] === 0x5a; // "MZ"
+  } catch (_) {
+    return false;
+  }
+}
+
 function downloadWithRedirects(url, destinationPath, taskRef, onProgress, redirectsLeft = 5) {
   return new Promise((resolve, reject) => {
     if (taskRef?.cancelled) return reject(new Error('Descarga cancelada por el usuario.'));
@@ -503,6 +516,13 @@ ipcMain.handle('install-external-installer', async (_, payload) => {
 
     if (taskRef.cancelled) {
       return { ok: false, error: 'Instalacion cancelada por el usuario.' };
+    }
+    if (!isLikelyWindowsExecutable(targetPath)) {
+      try { fs.unlinkSync(targetPath); } catch (_) {}
+      return {
+        ok: false,
+        error: 'El archivo descargado no es un instalador Windows valido. Recarga OWS Store y reintenta.'
+      };
     }
 
     sendToRenderer('external-install-status', { taskId, phase: 'launching', message: 'Abriendo instalador...' });

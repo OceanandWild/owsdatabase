@@ -3629,6 +3629,7 @@
         const VELOCITY_SURGE_LOCAL_ICON = './build/velocitysurge.ico?v=20260227-2415';
         const WILDWAVE_LOCAL_ICON = './build/wildwave.ico?v=20260301-0010';
         const OWSNEWS_LOCAL_ICON = './build/owsnews.ico?v=20260225-2248';
+        const DINOBOX_LOCAL_ICON = './build/dinobox.ico?v=20260308-0100';
         const STORE_LOCAL_ICON = './build/icon.ico?v=20260223-0452';
         const STORE_DOWNLOAD_KEY = '__ows_store_update__';
         const STORE_THEME_KEY = 'ows_store_theme';
@@ -3796,11 +3797,23 @@
             description: 'Red social OWS con verificacion, suscripciones y sincronizacion con Ocean Pay.',
             icon_url: WILDWAVE_LOCAL_ICON
         };
+        const DINOBOX_PROJECT = {
+            slug: 'dinobox',
+            name: 'DinoBox',
+            short: 'DNB',
+            status: 'launched',
+            version: '2026.3.8-dino',
+            platform: 'windows',
+            url: '../DinoBox/index.html',
+            description: 'Colecciona dinosaurios, completa expediciones y progresa en el pase de temporada.',
+            icon_url: DINOBOX_LOCAL_ICON
+        };
         const OWS_NEWS_CACHE_TTL_MS = 120000;
         const NEW_BADGE_DURATION_MS = 14 * 24 * 60 * 60 * 1000;
         const NEW_BADGE_START_BY_SLUG = {
             'wildtransfer': '2026-02-25T00:00:00Z',
             'velocity-surge': '2026-02-27T00:00:00Z',
+            'dinobox': '2026-03-08T00:00:00Z',
         };
         const BRAND_STATES = [
             { word: 'ATLAS', iconClass: 'fa-cube', color: '#d14f2a', caption: 'Mapa vivo de proyectos y ideas.' },
@@ -3850,6 +3863,13 @@
                 title: 'Velocity Surge ya disponible en OWS Store',
                 text: 'Carreras arcade con progresion competitiva activas.',
                 slug: 'velocity-surge',
+            },
+            {
+                key: 'dinobox-live',
+                label: 'Nuevo en OWS Store',
+                title: 'DinoBox ya disponible',
+                text: 'Expediciones mejoradas, misiones diarias y pase de temporada listos para jugar.',
+                slug: 'dinobox',
             },
             {
                 key: 'wildweapon-live',
@@ -7055,6 +7075,13 @@
             return slug.includes('wildwave') || slug.includes('wild-wave') || slug.includes('wildx') || name.includes('wildwave') || name.includes('wild wave') || name.includes('wildx');
         }
 
+        function isDinoBoxProject(project) {
+            if (!project) return false;
+            const slug = String(project.slug || '').toLowerCase();
+            const name = String(project.name || '').toLowerCase();
+            return slug.includes('dinobox') || slug.includes('dino-box') || name.includes('dinobox') || name.includes('dino box');
+        }
+
         function isReleaseTrackedProject(project) {
             return isWildWeaponProject(project)
                 || isSSAProject(project)
@@ -7085,6 +7112,7 @@
             if (slug === 'wildshorts' || slug === 'wild-shorts' || name === 'wildshorts' || name === 'wild shorts' || token.includes('wildshorts')) return 'wildshorts';
             if (slug === 'velocitysurge' || slug === 'velocity-surge' || name === 'velocity surge' || token.includes('velocitysurge')) return 'velocity-surge';
             if (slug === 'wild-wave' || slug === 'wildwave' || slug === 'wildx' || name === 'wildwave' || name === 'wild wave' || token.includes('wildwave')) return 'wildwave';
+            if (slug === 'dinobox' || slug === 'dino-box' || name === 'dinobox' || name === 'dino box' || token.includes('dinobox')) return 'dinobox';
             if (slug === 'wildweapon' || slug === 'wildweapon-mayhem' || name === 'wildweapon mayhem' || token.includes('wildweaponmayhem')) return 'wildweapon-mayhem';
             if (slug === 'owsstore' || slug === 'ows-store' || name === 'ows store' || token.includes('owsstore')) return 'ows-store';
             return slug || String(valueOrProject?.slug || '').trim();
@@ -7155,6 +7183,7 @@
             if (isWildShortsProject(project)) return 'WSH';
             if (isVelocitySurgeProject(project)) return 'VSG';
             if (isWildWaveProject(project)) return 'WWV';
+            if (isDinoBoxProject(project)) return 'DNB';
             return '';
         }
 
@@ -7341,6 +7370,27 @@
                     short: 'WWV',
                     status: list[idx].status || 'launched',
                     icon_url: WILDWAVE_LOCAL_ICON
+                };
+            }
+            return list;
+        }
+
+        function ensureDinoBoxProject(projects) {
+            if (!Array.isArray(projects)) return [];
+            const list = [...projects];
+            const idx = list.findIndex(isDinoBoxProject);
+            if (idx === -1) {
+                list.unshift({ ...DINOBOX_PROJECT });
+            } else {
+                list[idx] = {
+                    ...DINOBOX_PROJECT,
+                    ...list[idx],
+                    slug: 'dinobox',
+                    name: 'DinoBox',
+                    short: 'DNB',
+                    status: list[idx].status || 'launched',
+                    url: list[idx].url || DINOBOX_PROJECT.url,
+                    icon_url: list[idx].icon_url || DINOBOX_LOCAL_ICON
                 };
             }
             return list;
@@ -8107,6 +8157,7 @@
             } catch (err) {
                 console.error("Error cargando proyectos:", err);
                 allProjects = [
+                    { ...DINOBOX_PROJECT },
                     { ...SSA_PROJECT },
                     { ...WILDTRANSFER_PROJECT },
                     { ...AWQG_PROJECT },
@@ -8119,16 +8170,18 @@
             }
             allProjects = dedupeProjectCatalog(Array.isArray(allProjects) ? allProjects : []);
             allProjects = allProjects.filter((p) => !isOWSNewsProject(p) && canonicalProjectSlug(p) !== 'ows-store');
-            allProjects = ensureWildWaveProject(
-                ensureVelocitySurgeProject(
-                    ensureWildShortsProject(
-                        ensureNaturepediaProject(
-                            ensureEcoxionProject(
-                                ensureWildDestinyProject(
-                                    ensureWildTransferProject(
-                                        ensureAWQGProject(
-                                            ensureFloretProject(
-                                                ensureSSAProject(allProjects)
+            allProjects = ensureDinoBoxProject(
+                ensureWildWaveProject(
+                    ensureVelocitySurgeProject(
+                        ensureWildShortsProject(
+                            ensureNaturepediaProject(
+                                ensureEcoxionProject(
+                                    ensureWildDestinyProject(
+                                        ensureWildTransferProject(
+                                            ensureAWQGProject(
+                                                ensureFloretProject(
+                                                    ensureSSAProject(allProjects)
+                                                )
                                             )
                                         )
                                     )

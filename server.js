@@ -630,6 +630,15 @@ async function ensureOwsStoreProjectsSeedData() {
       status: 'launched',
       metadata: { platforms: ['windows', 'android'], repo: 'OceanandWild/owsdatabase' }
     },
+    {
+      slug: 'dinobox',
+      name: 'DinoBox',
+      description: 'Colecciona dinosaurios, completa expediciones y progresa en el pase de temporada.',
+      url: '/DinoBox/index.html',
+      version: '2026.3.8-dino',
+      status: 'launched',
+      metadata: { platforms: ['windows'], release_channel: 'web_local' }
+    },
     ...OWS_PROJECT_RELEASE_SOURCES
       .filter((p) => p.slug !== 'ows-store')
       .map((p) => ({
@@ -690,6 +699,25 @@ async function ensureOwsStoreNewsSeedData() {
       bannerMeta: { visual: 'store_hub', importance: 'high' },
       isActive: true,
       priority: 10
+    },
+    {
+      syncKey: 'seed:dinobox:launch',
+      projectNames: ['dinobox', 'DinoBox'],
+      title: 'DinoBox ya disponible en OWS Store',
+      description: 'DinoBox entra al catalogo con expediciones mejoradas, misiones diarias y pase de temporada.',
+      changes: [
+        'Integracion oficial de DinoBox en la seccion Explorar.',
+        'Compatibilidad de biblioteca y apertura directa desde OWS Store.',
+        'Ajustes visuales recientes en expediciones y pase para mejorar la experiencia.'
+      ],
+      updateDate: now,
+      entryType: 'changelog',
+      platforms: ['windows'],
+      model2dKey: 'launch_orbit',
+      model2dPayload: { accent: '#f59e0b' },
+      bannerMeta: { visual: 'launch_orbit', category: 'launch' },
+      isActive: true,
+      priority: 11
     },
     {
       syncKey: 'seed:event:wild-destiny-launch',
@@ -5577,7 +5605,7 @@ app.get('/ocean-ai/ows-store/context', async (_req, res) => {
     }
     const allProjects = [...bySlug.values()];
     const filtered = allProjects.filter((p) => p.slug !== 'ows-store');
-    const forcedUpcoming = new Set(['naturepedia', 'dinobox', 'wildshorts']);
+    const forcedUpcoming = new Set(['naturepedia', 'wildshorts']);
     const upcoming = filtered.filter((p) => forcedUpcoming.has(String(p.slug || '').trim().toLowerCase()));
     const available = filtered.filter((p) => !upcoming.some((u) => u.slug === p.slug));
 

@@ -74,6 +74,18 @@ Se incluiran mas cosas luego, pero esto te ayuda a entender como realizar la may
   - Estados permitidos: launched, unavailable, coming_soon.
   - Si es coming_soon, definir release_date (ISO) para countdown.
   - Sistema de updates: cada proyecto tiene version (ej: 1.2.5). Al terminar una tarea, actualizar version para notificar en OWS Store.
+  - ESTANDAR DE VERSIONADO (OBLIGATORIO):
+    - Para proyectos con multiples releases posibles en un mismo dia (ej: OWS Store, DinoBox), usar formato:
+      - `YYYY.M.D-tHHMM` (UTC) para Windows y para `version_name` Android cuando aplique.
+      - Ejemplo: `2026.3.8-t2145`.
+    - NO usar versiones estaticas tipo `v2026.3.8` si puede haber mas de una release el mismo dia.
+    - En cada release:
+      1) Bump en `package.json` (o fuente de version equivalente).
+      2) Publicar assets de la plataforma.
+      3) Reflejar la misma version en OWS Store (DB/API) y changelog/evento.
+    - Para Android:
+      - Mantener `version_name` alineada con el formato anterior.
+      - Actualizar `version_code` monotonicamente (estrictamente mayor al anterior).
   - Endpoints clave:
     - POST /ows-store/projects
     - PATCH /ows-store/projects/:slug/version

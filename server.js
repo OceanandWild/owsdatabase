@@ -636,8 +636,9 @@ async function ensureOwsStoreProjectsSeedData() {
       description: 'Colecciona dinosaurios, completa expediciones y progresa en el pase de temporada.',
       url: '/DinoBox/index.html',
       version: '2026.3.8-dino',
-      status: 'launched',
-      metadata: { platforms: ['windows'], release_channel: 'web_local' }
+      status: 'coming_soon',
+      release_date: '2026-03-11T13:00:00Z',
+      metadata: { platforms: ['windows'], release_channel: 'web_local', pending_release: true }
     },
     ...OWS_PROJECT_RELEASE_SOURCES
       .filter((p) => p.slug !== 'ows-store')
@@ -654,12 +655,13 @@ async function ensureOwsStoreProjectsSeedData() {
 
   for (const item of seeds) {
     await pool.query(
-      `INSERT INTO ows_projects (slug, name, description, url, version, status, metadata)
-       VALUES ($1,$2,$3,$4,$5,$6,$7)
+      `INSERT INTO ows_projects (slug, name, description, url, version, status, release_date, metadata)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
        ON CONFLICT (slug) DO UPDATE SET
          name = EXCLUDED.name,
          description = EXCLUDED.description,
          url = EXCLUDED.url,
+         release_date = COALESCE(EXCLUDED.release_date, ows_projects.release_date),
          metadata = ows_projects.metadata || EXCLUDED.metadata`,
       [
         item.slug,
@@ -668,6 +670,7 @@ async function ensureOwsStoreProjectsSeedData() {
         item.url,
         item.version,
         item.status,
+        item.release_date || null,
         item.metadata || {}
       ]
     );
@@ -703,12 +706,12 @@ async function ensureOwsStoreNewsSeedData() {
     {
       syncKey: 'seed:dinobox:launch',
       projectNames: ['dinobox', 'DinoBox'],
-      title: 'DinoBox ya disponible en OWS Store',
-      description: 'DinoBox entra al catalogo con expediciones mejoradas, misiones diarias y pase de temporada.',
+      title: 'DinoBox - lanzamiento programado en OWS Store',
+      description: 'DinoBox queda programado para lanzamiento en 3 dias dentro de OWS Store.',
       changes: [
-        'Integracion oficial de DinoBox en la seccion Explorar.',
-        'Compatibilidad de biblioteca y apertura directa desde OWS Store.',
-        'Ajustes visuales recientes en expediciones y pase para mejorar la experiencia.'
+        'Ficha de DinoBox habilitada en OWS Store con countdown activo.',
+        'Prelanzamiento marcado como coming_soon para evitar instalacion anticipada.',
+        'Lanzamiento oficial previsto para 2026-03-11 10:00 (Uruguay).'
       ],
       updateDate: now,
       entryType: 'changelog',
@@ -5605,7 +5608,7 @@ app.get('/ocean-ai/ows-store/context', async (_req, res) => {
     }
     const allProjects = [...bySlug.values()];
     const filtered = allProjects.filter((p) => p.slug !== 'ows-store');
-    const forcedUpcoming = new Set(['naturepedia', 'wildshorts']);
+    const forcedUpcoming = new Set(['naturepedia', 'wildshorts', 'dinobox']);
     const upcoming = filtered.filter((p) => forcedUpcoming.has(String(p.slug || '').trim().toLowerCase()));
     const available = filtered.filter((p) => !upcoming.some((u) => u.slug === p.slug));
 
@@ -6484,8 +6487,8 @@ app.post('/ows-store/projects', async (req, res) => {
          banner_url = EXCLUDED.banner_url,
          url = EXCLUDED.url,
          version = EXCLUDED.version,
-         status = EXCLUDED.status,
-         release_date = EXCLUDED.release_date,
+        status = EXCLUDED.status,
+        release_date = COALESCE(EXCLUDED.release_date, ows_projects.release_date),
          metadata = ows_projects.metadata || EXCLUDED.metadata,
          installer_url = COALESCE(EXCLUDED.installer_url, ows_projects.installer_url),
          last_update = NOW()
@@ -7949,7 +7952,7 @@ app.post('/api/report-error', async (req, res) => {
   try {
     await pool.query(
       `INSERT INTO error_reports (user_id, type, description, extensions, user_agent, url, created_at)
-      VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
       [userId, type, description, extensions, userAgent, url, timestamp]
     );
     res.json({ ok: true });

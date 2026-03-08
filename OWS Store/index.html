@@ -3648,6 +3648,8 @@
         const WILD_DESTINY_RELEASE_DATE_ISO = '2026-03-07T18:00:00Z';
         // Uruguay (UYT, UTC-3): 14/03/2026 10:00 -> 2026-03-14T13:00:00Z
         const ECOXION_RELEASE_DATE_ISO = '2026-03-14T13:00:00Z';
+        // Uruguay (UYT, UTC-3): 11/03/2026 10:00 -> 2026-03-11T13:00:00Z
+        const DINOBOX_RELEASE_DATE_ISO = '2026-03-11T13:00:00Z';
         const NATUREPEDIA_PLACEHOLDER_DATE_ISO = '';
         const WILDSHORTS_PLACEHOLDER_DATE_ISO = '';
         const SSA_PROJECT = {
@@ -3801,11 +3803,14 @@
             slug: 'dinobox',
             name: 'DinoBox',
             short: 'DNB',
-            status: 'launched',
+            status: 'coming_soon',
             version: '2026.3.8-dino',
             platform: 'windows',
             url: '../DinoBox/index.html',
-            description: 'Colecciona dinosaurios, completa expediciones y progresa en el pase de temporada.',
+            pending_release: true,
+            installer_available: false,
+            release_date: DINOBOX_RELEASE_DATE_ISO,
+            description: 'Colecciona dinosaurios, completa expediciones y progresa en el pase de temporada. Lanzamiento en 3 dias.',
             icon_url: DINOBOX_LOCAL_ICON
         };
         const OWS_NEWS_CACHE_TTL_MS = 120000;
@@ -3865,10 +3870,10 @@
                 slug: 'velocity-surge',
             },
             {
-                key: 'dinobox-live',
-                label: 'Nuevo en OWS Store',
-                title: 'DinoBox ya disponible',
-                text: 'Expediciones mejoradas, misiones diarias y pase de temporada listos para jugar.',
+                key: 'dinobox-countdown',
+                label: 'Lanzamiento programado',
+                title: 'DinoBox llega en 3 dias',
+                text: 'El lanzamiento de DinoBox queda programado con countdown activo en su ficha.',
                 slug: 'dinobox',
             },
             {
@@ -7388,7 +7393,10 @@
                     slug: 'dinobox',
                     name: 'DinoBox',
                     short: 'DNB',
-                    status: list[idx].status || 'launched',
+                    status: 'coming_soon',
+                    pending_release: true,
+                    installer_available: false,
+                    release_date: list[idx].release_date || DINOBOX_RELEASE_DATE_ISO,
                     url: list[idx].url || DINOBOX_PROJECT.url,
                     icon_url: list[idx].icon_url || DINOBOX_LOCAL_ICON
                 };

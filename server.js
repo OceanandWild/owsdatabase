@@ -620,6 +620,7 @@ async function upsertOwsNewsEntryBySyncKey({
 }
 
 async function ensureOwsStoreProjectsSeedData() {
+  const forcedComingSoonNoDate = new Set(['naturepedia', 'wildshorts']);
   const seeds = [
     {
       slug: 'ows-store',
@@ -642,15 +643,26 @@ async function ensureOwsStoreProjectsSeedData() {
     },
     ...OWS_PROJECT_RELEASE_SOURCES
       .filter((p) => p.slug !== 'ows-store')
-      .map((p) => ({
-        slug: p.slug,
-        name: p.name,
-        description: `${p.name} disponible en OWS Store.`,
-        url: `https://github.com/${p.repo}/releases/latest`,
-        version: p.slug === 'oceanpay' ? OCEAN_PAY_LOCAL_VERSION : '0.0.0',
-        status: 'launched',
-        metadata: { platforms: p.defaultPlatforms || ['windows'], repo: p.repo }
-      }))
+      .map((p) => {
+        const slug = String(p.slug || '').trim().toLowerCase();
+        const isForcedComingSoon = forcedComingSoonNoDate.has(slug);
+        return {
+          slug: p.slug,
+          name: p.name,
+          description: isForcedComingSoon
+            ? `${p.name} se publicara proximamente en OWS Store.`
+            : `${p.name} disponible en OWS Store.`,
+          url: `https://github.com/${p.repo}/releases/latest`,
+          version: p.slug === 'oceanpay' ? OCEAN_PAY_LOCAL_VERSION : '0.0.0',
+          status: isForcedComingSoon ? 'coming_soon' : 'launched',
+          release_date: null,
+          metadata: {
+            platforms: p.defaultPlatforms || ['windows'],
+            repo: p.repo,
+            pending_release: isForcedComingSoon
+          }
+        };
+      })
   ];
 
   for (const item of seeds) {
@@ -661,6 +673,7 @@ async function ensureOwsStoreProjectsSeedData() {
          name = EXCLUDED.name,
          description = EXCLUDED.description,
          url = EXCLUDED.url,
+         status = EXCLUDED.status,
          release_date = COALESCE(EXCLUDED.release_date, ows_projects.release_date),
          metadata = ows_projects.metadata || EXCLUDED.metadata`,
       [

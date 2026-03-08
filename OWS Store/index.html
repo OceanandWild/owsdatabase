@@ -3161,7 +3161,7 @@
 </head>
 
 <body>
-    <div id="boot-overlay" class="boot-overlay active" aria-live="polite">
+    <div id="boot-overlay" class="boot-overlay" aria-live="polite">
         <div class="boot-card">
             <div class="boot-head">
                 <div class="boot-title">OWS Store iniciando ecosistema</div>
@@ -3358,7 +3358,7 @@
                 <i class="fas fa-times"></i>
             </button>
             <button id="btn-install-update" class="btn-update" style="display:none;" onclick="installUpdate()">
-                <i class="fas fa-sync-alt"></i> Reiniciar e instalar
+                <i class="fas fa-rotate-right"></i> Recargar e instalar
             </button>
         </div>
 
@@ -3719,15 +3719,15 @@
             slug: 'wild-destiny',
             name: 'Wild Destiny',
             short: 'WD',
-            status: 'coming_soon',
+            status: 'launched',
             version: '1.0.0',
             platform: 'windows',
             install_type: 'external',
             installer_url: WILDDESTINY_RELEASES_URL,
-            installer_available: false,
-            pending_release: true,
-            release_date: WILD_DESTINY_RELEASE_DATE_ISO,
-            description: 'Action RPG de raids con clases, maestrias y progresion avanzada. Lanzamiento inicial para Windows en preparacion.',
+            installer_available: true,
+            pending_release: false,
+            release_date: '',
+            description: 'Action RPG de raids con clases, maestrias y progresion avanzada. Disponible para Windows.',
             icon_url: WILDDESTINY_LOCAL_ICON
         };
         const ECOXION_PROJECT = {
@@ -3836,9 +3836,9 @@
             },
             {
                 key: 'wild-destiny-countdown',
-                label: 'Proximo lanzamiento',
-                title: 'Wild Destiny llega pronto a OWS Store (Windows)',
-                text: 'La ventana de lanzamiento ya tiene fecha. Puedes seguir el countdown desde su ficha en Ecosistema de Estudio.',
+                label: 'Disponible',
+                title: 'Wild Destiny ya disponible en OWS Store (Windows)',
+                text: 'Instalacion habilitada desde su ficha en Ecosistema de Estudio.',
                 slug: 'wild-destiny',
             },
             {
@@ -7260,8 +7260,11 @@
                     ...WILDDESTINY_PROJECT,
                     ...list[idx],
                     short: 'WD',
-                    status: list[idx].status || 'coming_soon',
-                    pending_release: true,
+                    status: 'launched',
+                    pending_release: false,
+                    installer_available: true,
+                    installer_url: list[idx].installer_url || WILDDESTINY_RELEASES_URL,
+                    release_date: '',
                     icon_url: WILDDESTINY_LOCAL_ICON
                 };
             }
@@ -11647,7 +11650,7 @@
                     if (banner) banner.classList.add('visible');
                     if (btn) {
                         btn.style.display = 'none';
-                        btn.innerHTML = '<i class="fas fa-sync-alt"></i> Reiniciar e instalar';
+                        btn.innerHTML = '<i class="fas fa-rotate-right"></i> Recargar e instalar';
                     }
                     if (closeBtn) {
                         closeBtn.disabled = false;
@@ -11755,10 +11758,8 @@
                 const btn = document.getElementById('btn-install-update');
                 const wrap = document.getElementById('update-progress-wrap');
                 const closeBtn = document.getElementById('btn-close-update-banner');
-                owsStoreWindowsManualUpdateUrl = '';
-                owsStoreWindowsManualVersion = '';
                 if (!isExternalInstallActive()) {
-                    if (msg) msg.textContent = 'Descarga completa. Reinicia para instalar.';
+                    if (msg) msg.textContent = 'Descarga completa. Recarga para instalar.';
                     if (wrap) wrap.style.display = 'none';
                     if (btn) btn.style.display = 'flex';
                     if (closeBtn) {
@@ -11769,7 +11770,7 @@
                     setUpdateBannerVisual({
                         state: 'ready',
                         title: 'Update lista para instalar',
-                        message: 'Descarga completa. Reinicia para aplicar la nueva version.',
+                        message: 'Descarga completa. Presiona "Recargar e instalar" para aplicar la nueva version.',
                         iconClass: 'fa-circle-check',
                         iconSpin: false,
                     });
@@ -11788,20 +11789,10 @@
                     downloadedBytes: appUpdateSizeBytes,
                     speedBps: 0,
                     etaSeconds: 0,
-                    status: 'Descarga completa. Reinicia para instalar.',
+                    status: 'Descarga completa. Recargar e instalar disponible.',
                 });
                 setStoreUpdateCheckState('ready', 'download-complete');
-                if (bootAutoInstallRequested) {
-                    if (bootSequenceInProgress && !bootDeferredStoreInstall) {
-                        bootDeferredStoreInstall = true;
-                        addNotification('Update lista durante la carga inicial. Al terminar la pantalla de carga se ejecutara el instalador.', 'warning');
-                        showActionMessage('Update lista. El instalador se ejecutara al finalizar la carga inicial.', { state: 'ready' });
-                    } else {
-                        triggerBootAutoInstall('download-finished-after-boot').catch(() => {});
-                    }
-                } else {
-                    addNotification('Actualizacion descargada, lista para instalar.', 'success');
-                }
+                addNotification('Actualizacion descargada, lista para instalar.', 'success');
             });
             window.owsUpdater.onUpdateNotAvailable?.(async () => {
                 bootAutoInstallRequested = false;
@@ -12012,8 +12003,9 @@
             }
             if (window.owsUpdater?.installUpdate) {
                 try {
-                    await window.owsUpdater.installUpdate();
-                    return;
+                    const result = await window.owsUpdater.installUpdate();
+                    if (result?.ok) return;
+                    console.log('installUpdate no ejecuto cierre controlado:', result?.reason || result);
                 } catch (err) {
                     console.log('No se pudo ejecutar installUpdate automatico, usando fallback manual:', err?.message || err);
                 }
@@ -12624,38 +12616,31 @@
 
             await playBootCompletionSequence();
             bootSequenceInProgress = false;
-            if (bootDeferredStoreInstall) {
-                await triggerBootAutoInstall('boot-finished-with-ready-update');
-            }
         }
 
         window.onload = () => {
-            runBootSequence().catch((err) => {
-                console.log('Boot sequence fallo, continuando inicializacion basica:', err?.message || err);
-                bootSequenceInProgress = false;
-                bootDeferredStoreInstall = false;
-                bootAutoInstallRequested = false;
-                bootAutoInstallInFlight = false;
-                stopBootCanvasAnimation();
-                const overlay = document.getElementById('boot-overlay');
-                if (overlay) overlay.classList.remove('active');
-                libraryOwnedSlugs = loadLibraryOwnedSlugs();
-                dismissedUpToDateProjectCards = loadDismissedUpToDateProjectCards();
-                loadSystemNotificationSeenKeys();
-                primeSystemNotifications();
-                initTheme();
-                renderOWSStoreAndroidMeta();
-                initOceanPayStore();
-                bindStoreTimelineModalEvents();
-                renderDownloadSurfaces();
-                loadProjects().catch(() => {});
-                initBrandCycle();
-                initSpotlightSlider();
-                initUpdater();
-                initSearch();
-            }).finally(() => {
-                setupRecurringRefreshLoop();
-            });
+            bootSequenceInProgress = false;
+            bootDeferredStoreInstall = false;
+            bootAutoInstallRequested = false;
+            bootAutoInstallInFlight = false;
+            stopBootCanvasAnimation();
+            const overlay = document.getElementById('boot-overlay');
+            if (overlay) overlay.classList.remove('active');
+            libraryOwnedSlugs = loadLibraryOwnedSlugs();
+            dismissedUpToDateProjectCards = loadDismissedUpToDateProjectCards();
+            loadSystemNotificationSeenKeys();
+            primeSystemNotifications();
+            initTheme();
+            renderOWSStoreAndroidMeta();
+            initOceanPayStore();
+            bindStoreTimelineModalEvents();
+            renderDownloadSurfaces();
+            loadProjects().catch(() => {});
+            initBrandCycle();
+            initSpotlightSlider();
+            initUpdater();
+            initSearch();
+            setupRecurringRefreshLoop();
         };
 
         window.onbeforeunload = () => {

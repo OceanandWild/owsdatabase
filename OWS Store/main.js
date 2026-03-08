@@ -13,6 +13,7 @@ const APP_ID = 'com.oceanwildstudios.nexusstore';
 const APP_DISPLAY_NAME = 'OWS Store';
 const INSTALLER_CACHE_DIR = path.join(os.tmpdir(), 'ows-store-installers');
 let updaterReady = false;
+let windowsUpdateDownloaded = false;
 const externalInstallTasks = new Map();
 const httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 8 });
 const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 8 });
@@ -359,11 +360,20 @@ function initAutoUpdater() {
     autoUpdater.autoInstallOnAppQuit = false;
     autoUpdater.allowPrerelease = false;
     autoUpdater.channel = 'latest';
-    autoUpdater.on('update-available', (info) => sendToRenderer('update-available', info));
-    autoUpdater.on('update-not-available', () => sendToRenderer('update-not-available'));
+    autoUpdater.on('update-available', (info) => {
+      windowsUpdateDownloaded = false;
+      sendToRenderer('update-available', info);
+    });
+    autoUpdater.on('update-not-available', () => {
+      windowsUpdateDownloaded = false;
+      sendToRenderer('update-not-available');
+    });
     autoUpdater.on('download-progress', (p) => sendToRenderer('update-download-progress', p));
     autoUpdater.on('error', (err) => sendToRenderer('update-error', err.message));
-    autoUpdater.on('update-downloaded', () => sendToRenderer('update-downloaded'));
+    autoUpdater.on('update-downloaded', () => {
+      windowsUpdateDownloaded = true;
+      sendToRenderer('update-downloaded');
+    });
     updaterReady = true;
   } catch (err) {
     updaterReady = false;
@@ -397,7 +407,17 @@ async function checkForUpdatesSafe() {
 }
 
 ipcMain.handle('install-update', () => {
-  autoUpdater.quitAndInstall(false, true);
+  if (!app.isPackaged) return { ok: false, reason: 'not-packaged' };
+  if (!updaterReady) initAutoUpdater();
+  if (!updaterReady) return { ok: false, reason: 'updater-not-ready' };
+  if (!windowsUpdateDownloaded) return { ok: false, reason: 'update-not-downloaded' };
+  try {
+    autoUpdater.quitAndInstall(false, true);
+    return { ok: true, closing: true };
+  } catch (err) {
+    const message = err && err.message ? err.message : String(err);
+    return { ok: false, reason: message };
+  }
 });
 ipcMain.handle('get-app-version', () => app.getVersion());
 ipcMain.handle('check-for-updates', () => checkForUpdatesSafe());

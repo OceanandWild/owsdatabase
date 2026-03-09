@@ -5500,7 +5500,8 @@ app.get('/ocean-pay/ecoxionums/balance', async (req, res) => {
 });
 
 // Compatibilidad legacy para clientes que aún usan este endpoint (ej. WildShorts)
-app.post('/ocean-pay/cards/change-balance', async (req, res) => {
+// y endpoint general usado por Ocean Pay / Velocity Surge.
+app.post(['/ocean-pay/cards/change-balance', '/ocean-pay/currency/change'], async (req, res) => {
   const authHeader = String(req.headers.authorization || '');
   if (!authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Token requerido' });
@@ -5518,7 +5519,7 @@ app.post('/ocean-pay/cards/change-balance', async (req, res) => {
     return res.status(401).json({ error: 'Token inválido' });
   }
 
-  const currencyType = String(req.body?.currencyType || '').trim().toLowerCase();
+  const currencyType = String(req.body?.currencyType || req.body?.currency || '').trim().toLowerCase();
   const delta = Number(req.body?.amount);
   const concepto = String(req.body?.concepto || 'Operación').trim() || 'Operación';
   const origen = String(req.body?.origen || 'Ocean Pay').trim() || 'Ocean Pay';

@@ -283,6 +283,35 @@
         padding: 10px;
     }
 
+    .hub-actions-row {
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 2px;
+    }
+
+    .hub-action-btn {
+        border: none;
+        border-radius: 999px;
+        padding: 9px 14px;
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.2px;
+        color: #fff;
+        background: rgba(255, 255, 255, 0.22);
+        cursor: pointer;
+        transition: transform .2s ease, background .2s ease, box-shadow .2s ease;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.16);
+    }
+
+    .hub-action-btn:hover {
+        transform: translateY(-1px);
+        background: rgba(255, 255, 255, 0.32);
+        box-shadow: 0 6px 14px rgba(0, 0, 0, 0.24);
+    }
+
     .icon-button {
         background: rgba(255, 255, 255, 0.2);
         border: none;
@@ -1511,6 +1540,15 @@
         
         .buttons-container {
             flex-wrap: wrap;
+        }
+
+        .hub-actions-row {
+            gap: 8px;
+        }
+
+        .hub-action-btn {
+            font-size: 12px;
+            padding: 8px 12px;
         }
         
         h1 {
@@ -3420,6 +3458,12 @@
                         </button>
                     </div>
                 </div>
+                <div class="hub-actions-row">
+                    <button id="openDashboardModalBtn" class="hub-action-btn"><i class="fas fa-chart-line"></i> Dashboard</button>
+                    <button id="openTigerPlansBtn" class="hub-action-btn"><i class="fas fa-crown"></i> Planes</button>
+                    <button id="syncTigrysBtn" class="hub-action-btn"><i class="fas fa-rotate"></i> Sincronizar</button>
+                    <button id="claimTigerDailyBtn" class="hub-action-btn"><i class="fas fa-gift"></i> Reclamar Diario</button>
+                </div>
                 <div class="icon-container" id="logoutContainer" style="display:none;">
                     <button id="logoutBtn" class="icon-button">
                         <i class="fas fa-sign-out-alt"></i>
@@ -3431,12 +3475,6 @@
     </header>
 
     <div id="mainContainer">
-        <div id="taskKpiBoard" class="task-kpi">
-            <div class="kpi-card"><div class="label">Total Tareas</div><div id="kpiTotalTasks" class="value">0</div></div>
-            <div class="kpi-card"><div class="label">Completadas</div><div id="kpiDoneTasks" class="value">0</div></div>
-            <div class="kpi-card"><div class="label">Pendientes</div><div id="kpiPendingTasks" class="value">0</div></div>
-            <div class="kpi-card"><div class="label">Vencidas</div><div id="kpiOverdueTasks" class="value">0</div></div>
-        </div>
         <div class="list-control-bar" id="listControlBar">
             <input id="taskSearchInput" type="text" placeholder="Buscar tarea o etiqueta...">
             <select id="taskStatusFilter">
@@ -3469,77 +3507,79 @@
             </select>
             <button id="clearTaskFiltersBtn" class="secondary-btn" style="padding:10px 12px;">Limpiar</button>
         </div>
-        <div id="productivityShell" class="productivity-shell">
-            <div class="productivity-card">
-                <div class="productivity-header">
-                    <h4><i class="fas fa-chart-line"></i> Productividad Diaria</h4>
-                    <div class="goal-input-wrap">
-                        <span>Meta:</span>
-                        <input type="number" id="dailyGoalInput" min="1" max="50" value="5">
-                    </div>
-                </div>
-                <div id="dailyGoalText">0/5 tareas completadas hoy</div>
-                <div class="daily-progress"><span id="dailyGoalBar"></span></div>
-                <div class="productivity-stats">
-                    <div class="mini-stat"><div class="num" id="dailyDoneValue">0</div><div class="txt">Hoy</div></div>
-                    <div class="mini-stat"><div class="num" id="streakValue">0</div><div class="txt">Racha</div></div>
-                    <div class="mini-stat"><div class="num" id="completionRateValue">0%</div><div class="txt">Eficiencia</div></div>
-                </div>
-                <div class="productivity-actions">
-                    <button id="completeVisibleBtn" class="tiny-btn">Completar visibles</button>
-                    <button id="pushOverdueBtn" class="tiny-btn">Impulsar vencidas</button>
-                    <button id="clearCompletedBtn" class="tiny-btn">Limpiar completadas</button>
-                </div>
-            </div>
-            <div class="productivity-card">
-                <div class="productivity-header">
-                    <h4><i class="fas fa-bullseye"></i> Modo Enfoque</h4>
-                </div>
-                <div id="focusTimerDisplay" class="focus-timer-display">25:00</div>
-                <div class="focus-controls">
-                    <select id="focusPreset">
-                        <option value="1500">25 min</option>
-                        <option value="2700">45 min</option>
-                        <option value="3600">60 min</option>
-                    </select>
-                    <button id="focusStartBtn">Iniciar</button>
-                    <button id="focusPauseBtn">Pausar</button>
-                    <button id="focusResetBtn">Reiniciar</button>
-                </div>
-                <div class="focus-hint" id="focusHintText">Sin sesión activa</div>
-            </div>
-        </div>
-        <div id="tigrysShell" class="tigrys-shell">
-            <div class="tigrys-card">
-                <div class="tigrys-head">
-                    <h4 class="tigrys-title">
-                        <canvas id="tigrysWalletIconCanvas" class="tigrys-title-canvas" width="64" height="64"></canvas>
-                        Tigrys Wallet
-                    </h4>
-                    <button id="syncTigrysBtn" class="tiny-btn">Sincronizar</button>
-                </div>
-                <div id="tigrysBalanceBig" class="tigrys-balance-big">0</div>
-                <div class="tigrys-meta">Saldo actual de Tigrys vinculado con Ocean Pay.</div>
-                <div class="tigrys-actions">
-                    <button id="claimTigerDailyBtn" class="tiny-btn">Reclamar Diario</button>
-                    <button id="openTigerPlansBtn" class="tiny-btn">Ver Planes</button>
-                </div>
-                <div id="tigrysStatusText" class="tigrys-meta" style="margin-top:8px;">Sincroniza tu cuenta para recibir recompensas.</div>
-            </div>
-            <div class="tigrys-card">
-                <div class="tigrys-head">
-                    <h4 class="tigrys-title"><i class="fas fa-crown"></i> Tiger Pass Weekly</h4>
-                </div>
-                <div id="tigerSubscriptionState" class="tigrys-meta">Sin plan activo.</div>
-                <div id="tigerPlanGrid" class="tiger-plan-grid"></div>
-            </div>
-        </div>
         <div id="noTasksMessage" class="no-tasks-message">
             <i class="fas fa-tiger"></i>
             <p>¡No hay tareas ni listas! Crea una lista o agrega una tarea para comenzar.</p>
         </div>
 
         <div id="listsContainer"></div>
+    </div>
+
+    <div id="dashboardModal" class="modal">
+        <div class="modal-content" style="max-width: 1050px;">
+            <h3>Dashboard de Productividad</h3>
+            <div id="taskKpiBoard" class="task-kpi" style="margin-top: 10px;">
+                <div class="kpi-card"><div class="label">Total Tareas</div><div id="kpiTotalTasks" class="value">0</div></div>
+                <div class="kpi-card"><div class="label">Completadas</div><div id="kpiDoneTasks" class="value">0</div></div>
+                <div class="kpi-card"><div class="label">Pendientes</div><div id="kpiPendingTasks" class="value">0</div></div>
+                <div class="kpi-card"><div class="label">Vencidas</div><div id="kpiOverdueTasks" class="value">0</div></div>
+            </div>
+            <div id="productivityShell" class="productivity-shell" style="margin-top: 14px; margin-bottom: 6px;">
+                <div class="productivity-card">
+                    <div class="productivity-header">
+                        <h4><i class="fas fa-chart-line"></i> Productividad Diaria</h4>
+                        <div class="goal-input-wrap">
+                            <span>Meta:</span>
+                            <input type="number" id="dailyGoalInput" min="1" max="50" value="5">
+                        </div>
+                    </div>
+                    <div id="dailyGoalText">0/5 tareas completadas hoy</div>
+                    <div class="daily-progress"><span id="dailyGoalBar"></span></div>
+                    <div class="productivity-stats">
+                        <div class="mini-stat"><div class="num" id="dailyDoneValue">0</div><div class="txt">Hoy</div></div>
+                        <div class="mini-stat"><div class="num" id="streakValue">0</div><div class="txt">Racha</div></div>
+                        <div class="mini-stat"><div class="num" id="completionRateValue">0%</div><div class="txt">Eficiencia</div></div>
+                    </div>
+                    <div class="productivity-actions">
+                        <button id="completeVisibleBtn" class="tiny-btn">Completar visibles</button>
+                        <button id="pushOverdueBtn" class="tiny-btn">Impulsar vencidas</button>
+                        <button id="clearCompletedBtn" class="tiny-btn">Limpiar completadas</button>
+                    </div>
+                </div>
+                <div class="productivity-card">
+                    <div class="productivity-header">
+                        <h4><i class="fas fa-bullseye"></i> Modo Enfoque</h4>
+                    </div>
+                    <div id="focusTimerDisplay" class="focus-timer-display">25:00</div>
+                    <div class="focus-controls">
+                        <select id="focusPreset">
+                            <option value="1500">25 min</option>
+                            <option value="2700">45 min</option>
+                            <option value="3600">60 min</option>
+                        </select>
+                        <button id="focusStartBtn">Iniciar</button>
+                        <button id="focusPauseBtn">Pausar</button>
+                        <button id="focusResetBtn">Reiniciar</button>
+                    </div>
+                    <div class="focus-hint" id="focusHintText">Sin sesión activa</div>
+                </div>
+            </div>
+            <div class="modal-buttons">
+                <button id="closeDashboardModalBtn" class="secondary-btn">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="tigerPlansModal" class="modal">
+        <div class="modal-content" style="max-width: 900px;">
+            <h3><i class="fas fa-crown"></i> Tiger Pass Weekly</h3>
+            <div id="tigerSubscriptionState" class="tigrys-meta" style="margin: 8px 0 10px;">Sin plan activo.</div>
+            <div id="tigrysStatusText" class="tigrys-meta" style="margin-bottom: 12px;">Sincroniza tu cuenta para recibir recompensas.</div>
+            <div id="tigerPlanGrid" class="tiger-plan-grid"></div>
+            <div class="modal-buttons">
+                <button id="closeTigerPlansModalBtn" class="secondary-btn">Cerrar</button>
+            </div>
+        </div>
     </div>
 
     <!-- Modal para crear lista -->
@@ -4490,6 +4530,9 @@ if (chkModeSel) {
         document.getElementById('linkOceanPayBtn').addEventListener('click', openLinkOceanPayModal);
         document.getElementById('confirmLinkOceanBtn').addEventListener('click', linkOceanPayAccount);
         document.getElementById('cancelLinkOceanBtn').addEventListener('click', () => closeModal('linkOceanPayModal'));
+        document.getElementById('openDashboardModalBtn')?.addEventListener('click', () => openModal('dashboardModal'));
+        document.getElementById('closeDashboardModalBtn')?.addEventListener('click', () => closeModal('dashboardModal'));
+        document.getElementById('closeTigerPlansModalBtn')?.addEventListener('click', () => closeModal('tigerPlansModal'));
 
         // AI Chat Modal (con delegación de eventos)
         document.addEventListener('click', function(event) {
@@ -8609,12 +8652,9 @@ function askForSignature(container) {
 
     function setupTigerEconomy() {
         renderTigrysHeaderIcons();
-        renderTigrysWalletIcon();
         document.getElementById('syncTigrysBtn')?.addEventListener('click', loadTigerWalletAndPlans);
         document.getElementById('claimTigerDailyBtn')?.addEventListener('click', claimTigerDailyReward);
-        document.getElementById('openTigerPlansBtn')?.addEventListener('click', () => {
-            document.getElementById('tigerPlanGrid')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        });
+        document.getElementById('openTigerPlansBtn')?.addEventListener('click', () => openModal('tigerPlansModal'));
         renderTigerWalletUI();
     }
 

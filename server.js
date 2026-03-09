@@ -3470,6 +3470,539 @@ app.post('/wildtransfer/subscription/checkout', async (req, res) => {
   }
 });
 
+const TT_PROJECT_ID = 'Tiger Tasks';
+const TT_CURRENCY = 'tigrys';
+const TT_WEEKLY_INTERVAL_DAYS = 7;
+const TT_DAILY_REWARD = 120;
+const TT_TASK_REWARD = 12;
+const TT_TASK_DAILY_CAP = 180;
+const TT_WEEKLY_PLANS = [
+  {
+    id: 'cub-starter',
+    label: 'Cub Starter',
+    perks: ['Acceso a base Tiger Pass', 'Prioridad estandar', 'Perfil premium inicial'],
+    priceByCurrency: { [TT_CURRENCY]: 180 }
+  },
+  {
+    id: 'stripe-plus',
+    label: 'Stripe Plus',
+    perks: ['Rendimiento estable', 'Acceso preferente', 'Panel avanzado'],
+    priceByCurrency: { [TT_CURRENCY]: 320 }
+  },
+  {
+    id: 'jungle-pro',
+    label: 'Jungle Pro',
+    perks: ['Suite Pro Tiger', 'Mayor prioridad', 'Automatizaciones premium'],
+    priceByCurrency: { [TT_CURRENCY]: 520 }
+  },
+  {
+    id: 'alpha-claw',
+    label: 'Alpha Claw',
+    perks: ['Plan maximo Tiger', 'Prioridad total', 'Beneficios elite'],
+    priceByCurrency: { [TT_CURRENCY]: 900 }
+  }
+];
+const TT_PLAN_MAP = new Map(TT_WEEKLY_PLANS.map((p) => [p.id, p]));
+let ttSubscriptionColumnsCache = { expiresAt: 0, columns: new Set() };
+
+function normalizeTtPlanName(name) {
+  const raw = String(name || '').toLowerCase();
+  if (raw.includes('alpha')) return 'alpha-claw';
+  if (raw.includes('jungle')) return 'jungle-pro';
+  if (raw.includes('stripe')) return 'stripe-plus';
+  if (raw.includes('cub')) return 'cub-starter';
+  return 'cub-starter';
+}
+
+function serializeTtPlan(plan) {
+  return {
+    id: plan.id,
+    label: plan.label,
+    perks: plan.perks,
+    priceByCurrency: plan.priceByCurrency,
+    checkoutCurrency: TT_CURRENCY,
+    cadence: 'weekly'
+  };
+}
+
+async function getTtSubscriptionColumnSet() {
+  const now = Date.now();
+  if (ttSubscriptionColumnsCache.columns.size > 0 && now < ttSubscriptionColumnsCache.expiresAt) {
+    return ttSubscriptionColumnsCache.columns;
+  }
+  const { rows } = await pool.query(
+    `SELECT column_name
+     FROM information_schema.columns
+     WHERE table_schema = 'public'
+       AND table_name = 'ocean_pay_subscriptions'`
+  );
+  const set = new Set(rows.map((r) => String(r.column_name || '').toLowerCase()));
+  ttSubscriptionColumnsCache = {
+    columns: set,
+    expiresAt: now + 5 * 60 * 1000
+  };
+  return set;
+}
+
+async function ensureTigerCardBalance(client, userId, lockRow = false) {
+  const lock = lockRow ? 'FOR UPDATE' : '';
+  const { rows: cards } = await client.query(
+    `SELECT id
+     FROM ocean_pay_cards
+     WHERE user_id = $1 AND COALESCE(is_active, true) = true
+     ORDER BY is_primary DESC, id ASC
+     LIMIT 1
+     ${lock}`,
+    [userId]
+  );
+  if (!cards.length) return null;
+  const cardId = Number(cards[0].id);
+  await client.query(
+    `INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
+     VALUES ($1, $2, 0)
+     ON CONFLICT (card_id, currency_type) DO NOTHING`,
+    [cardId, TT_CURRENCY]
+  );
+  return cardId;
+}
+
+async function getTigerBalanceForUser(userId) {
+  const client = await pool.connect();
+  try {
+    const cardId = await ensureTigerCardBalance(client, userId, false);
+    if (!cardId) return 0;
+    const { rows } = await client.query(
+      `SELECT amount
+       FROM ocean_pay_card_balances
+       WHERE card_id = $1 AND currency_type = $2
+       LIMIT 1`,
+      [cardId, TT_CURRENCY]
+    );
+    return Number(rows[0]?.amount || 0);
+  } finally {
+    client.release();
+  }
+}
+
+async function awardTigerCurrency({ userId, amount, claimType, claimKey, reason }) {
+  const safeAmount = Math.max(0, Math.floor(Number(amount || 0)));
+  const safeUserId = Number(userId || 0);
+  if (!Number.isFinite(safeUserId) || safeUserId <= 0 || safeAmount <= 0) {
+    return { awarded: false, error: 'Parámetros inválidos' };
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const cardId = await ensureTigerCardBalance(client, safeUserId, true);
+    if (!cardId) {
+      await client.query('ROLLBACK');
+      return { awarded: false, error: 'No tienes tarjeta activa en Ocean Pay' };
+    }
+
+    if (claimType === 'task_complete') {
+      const { rows: capRows } = await client.query(
+        `SELECT COALESCE(SUM(amount), 0) AS total
+         FROM tiger_tasks_reward_claims
+         WHERE user_id = $1
+           AND claim_type = 'task_complete'
+           AND created_at::date = CURRENT_DATE`,
+        [safeUserId]
+      );
+      const currentToday = Number(capRows[0]?.total || 0);
+      if (currentToday >= TT_TASK_DAILY_CAP) {
+        await client.query('ROLLBACK');
+        return { awarded: false, amount: 0, message: 'Límite diario de Tigrys por tareas alcanzado.' };
+      }
+    }
+
+    const { rows: claimRows } = await client.query(
+      `INSERT INTO tiger_tasks_reward_claims (user_id, claim_type, claim_key, amount)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (user_id, claim_type, claim_key) DO NOTHING
+       RETURNING id`,
+      [safeUserId, claimType, claimKey, safeAmount]
+    );
+    if (!claimRows.length) {
+      await client.query('ROLLBACK');
+      return { awarded: false, amount: 0, message: 'Esta recompensa ya fue reclamada.' };
+    }
+
+    const { rows: balanceRows } = await client.query(
+      `SELECT amount
+       FROM ocean_pay_card_balances
+       WHERE card_id = $1 AND currency_type = $2
+       FOR UPDATE`,
+      [cardId, TT_CURRENCY]
+    );
+    const previousBalance = Number(balanceRows[0]?.amount || 0);
+    const newBalance = previousBalance + safeAmount;
+
+    await client.query(
+      `UPDATE ocean_pay_card_balances
+       SET amount = $1
+       WHERE card_id = $2 AND currency_type = $3`,
+      [newBalance, cardId, TT_CURRENCY]
+    );
+    await client.query(
+      `UPDATE ocean_pay_cards
+       SET balances = jsonb_set(
+         COALESCE(balances, '{}'::jsonb),
+         '{tigrys}',
+         to_jsonb($1::numeric),
+         true
+       )
+       WHERE id = $2`,
+      [newBalance, cardId]
+    );
+    await client.query(
+      `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [safeUserId, reason || 'Recompensa Tiger Tasks', safeAmount, TT_PROJECT_ID, TT_CURRENCY]
+    );
+    await client.query(
+      `INSERT INTO ocean_pay_notifications (user_id, type, title, message)
+       VALUES ($1, 'success', $2, $3)`,
+      [safeUserId, 'Tigrys recibidos', `Ganaste +${safeAmount} TIGRYS en Tiger Tasks.`]
+    ).catch(() => null);
+
+    await client.query('COMMIT');
+    return { awarded: true, amount: safeAmount, previousBalance, newBalance };
+  } catch (e) {
+    await client.query('ROLLBACK');
+    console.error('Tiger currency reward error:', e);
+    return { awarded: false, error: 'Error al otorgar Tigrys' };
+  } finally {
+    client.release();
+  }
+}
+
+app.get('/tiger-tasks/wallet', async (req, res) => {
+  try {
+    const userId = getOceanPayUserIdFromAuthHeader(req.headers.authorization);
+    if (!userId) return res.status(401).json({ error: 'Token de Ocean Pay requerido' });
+    const balance = await getTigerBalanceForUser(userId);
+    res.json({ success: true, currency: TT_CURRENCY, balance });
+  } catch (e) {
+    console.error('Tiger wallet error:', e);
+    res.status(500).json({ error: 'No se pudo cargar la billetera Tiger' });
+  }
+});
+
+app.post('/tiger-tasks/rewards/daily', async (req, res) => {
+  try {
+    const userId = getOceanPayUserIdFromAuthHeader(req.headers.authorization);
+    if (!userId) return res.status(401).json({ error: 'Token de Ocean Pay requerido' });
+    const claimKey = new Date().toISOString().slice(0, 10);
+    const result = await awardTigerCurrency({
+      userId,
+      amount: TT_DAILY_REWARD,
+      claimType: 'daily',
+      claimKey,
+      reason: 'Recompensa diaria Tiger Tasks'
+    });
+    res.json({
+      success: true,
+      awarded: Boolean(result.awarded),
+      amount: Number(result.amount || 0),
+      newBalance: Number(result.newBalance || await getTigerBalanceForUser(userId)),
+      message: result.message || (result.awarded ? `Recompensa diaria reclamada (+${TT_DAILY_REWARD} TIGRYS).` : 'Ya reclamaste la diaria de hoy.')
+    });
+  } catch (e) {
+    console.error('Tiger daily reward error:', e);
+    res.status(500).json({ error: 'No se pudo procesar la recompensa diaria' });
+  }
+});
+
+app.post('/tiger-tasks/rewards/task-complete', async (req, res) => {
+  try {
+    const userId = getOceanPayUserIdFromAuthHeader(req.headers.authorization);
+    if (!userId) return res.status(401).json({ error: 'Token de Ocean Pay requerido' });
+    const taskId = String(req.body?.taskId || '').trim();
+    if (!taskId) return res.status(400).json({ error: 'taskId requerido' });
+    const claimKey = `${new Date().toISOString().slice(0, 10)}:${taskId}`;
+    const result = await awardTigerCurrency({
+      userId,
+      amount: TT_TASK_REWARD,
+      claimType: 'task_complete',
+      claimKey,
+      reason: `Tarea completada Tiger Tasks (${taskId})`
+    });
+    const statusCode = result.error ? 500 : 200;
+    res.status(statusCode).json({
+      success: !result.error,
+      awarded: Boolean(result.awarded),
+      amount: Number(result.amount || 0),
+      newBalance: Number(result.newBalance || await getTigerBalanceForUser(userId)),
+      message: result.message || (result.awarded ? `+${TT_TASK_REWARD} TIGRYS por tarea completada.` : 'No se pudo otorgar Tigrys por esta tarea.'),
+      error: result.error || null
+    });
+  } catch (e) {
+    console.error('Tiger task reward error:', e);
+    res.status(500).json({ error: 'No se pudo procesar la recompensa por tarea' });
+  }
+});
+
+app.get('/tiger-tasks/subscription/plans', (_req, res) => {
+  res.json({
+    success: true,
+    projectId: TT_PROJECT_ID,
+    currency: TT_CURRENCY,
+    cadence: 'weekly',
+    plans: TT_WEEKLY_PLANS.map(serializeTtPlan)
+  });
+});
+
+app.get('/tiger-tasks/subscription/status', async (req, res) => {
+  try {
+    const userId = getOceanPayUserIdFromAuthHeader(req.headers.authorization);
+    if (!userId) return res.status(401).json({ error: 'Token de Ocean Pay requerido' });
+    const columns = await getTtSubscriptionColumnSet();
+    const hasEndDate = columns.has('end_date');
+    const hasNextPayment = columns.has('next_payment');
+    const hasStatus = columns.has('status');
+    const hasSubName = columns.has('sub_name');
+    const expiryExpr = hasEndDate && hasNextPayment
+      ? 'COALESCE(end_date, next_payment, created_at)'
+      : (hasEndDate ? 'COALESCE(end_date, created_at)' : (hasNextPayment ? 'COALESCE(next_payment, created_at)' : 'created_at'));
+    const statusClause = hasStatus ? "AND (status IS NULL OR LOWER(status) = 'active')" : '';
+
+    const { rows } = await pool.query(
+      `SELECT *, ${expiryExpr} AS effective_end_date
+       FROM ocean_pay_subscriptions
+       WHERE user_id = $1
+         AND LOWER(COALESCE(project_id, '')) = LOWER($2)
+         AND LOWER(COALESCE(currency, '')) = LOWER($3)
+         ${statusClause}
+       ORDER BY ${expiryExpr} DESC, created_at DESC
+       LIMIT 1`,
+      [userId, TT_PROJECT_ID, TT_CURRENCY]
+    );
+    const rawSub = rows[0] || null;
+    const effectiveEnd = rawSub?.effective_end_date ? new Date(rawSub.effective_end_date) : null;
+    const isActive = Boolean(rawSub) && effectiveEnd instanceof Date && !Number.isNaN(effectiveEnd.getTime()) && effectiveEnd.getTime() > Date.now();
+    const planName = rawSub ? (rawSub.plan_name || (hasSubName ? rawSub.sub_name : '') || 'Cub Starter') : '';
+    const planId = normalizeTtPlanName(planName);
+    const plan = TT_PLAN_MAP.get(planId) || TT_WEEKLY_PLANS[0];
+
+    res.json({
+      success: true,
+      projectId: TT_PROJECT_ID,
+      plans: TT_WEEKLY_PLANS.map(serializeTtPlan),
+      subscription: isActive ? {
+        id: rawSub.id,
+        active: true,
+        planId,
+        planName: plan.label,
+        currency: String(rawSub.currency || TT_CURRENCY).toLowerCase(),
+        price: Number(rawSub.price || plan.priceByCurrency[TT_CURRENCY] || 0),
+        endsAt: effectiveEnd.toISOString(),
+        perks: plan.perks
+      } : null
+    });
+  } catch (e) {
+    console.error('Tiger subscription status error:', e);
+    res.status(500).json({ error: 'No se pudo obtener el estado de suscripción Tiger' });
+  }
+});
+
+app.post('/tiger-tasks/subscription/checkout', async (req, res) => {
+  const userId = getOceanPayUserIdFromAuthHeader(req.headers.authorization);
+  if (!userId) return res.status(401).json({ error: 'Token de Ocean Pay requerido' });
+
+  const planId = String(req.body?.planId || '').trim();
+  const plan = TT_PLAN_MAP.get(planId);
+  if (!plan) return res.status(400).json({ error: 'Plan Tiger no válido' });
+
+  const price = Number(plan.priceByCurrency[TT_CURRENCY]);
+  if (!Number.isFinite(price) || price <= 0) {
+    return res.status(400).json({ error: 'Precio inválido del plan Tiger' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const cardId = await ensureTigerCardBalance(client, userId, true);
+    if (!cardId) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'No tienes tarjeta activa en Ocean Pay' });
+    }
+
+    const { rows: balRows } = await client.query(
+      `SELECT amount
+       FROM ocean_pay_card_balances
+       WHERE card_id = $1 AND currency_type = $2
+       FOR UPDATE`,
+      [cardId, TT_CURRENCY]
+    );
+    const currentBalance = Number(balRows[0]?.amount || 0);
+    if (currentBalance < price) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Saldo insuficiente de TIGRYS' });
+    }
+    const newBalance = currentBalance - price;
+    await client.query(
+      `UPDATE ocean_pay_card_balances
+       SET amount = $1
+       WHERE card_id = $2 AND currency_type = $3`,
+      [newBalance, cardId, TT_CURRENCY]
+    );
+    await client.query(
+      `UPDATE ocean_pay_cards
+       SET balances = jsonb_set(
+         COALESCE(balances, '{}'::jsonb),
+         '{tigrys}',
+         to_jsonb($1::numeric),
+         true
+       )
+       WHERE id = $2`,
+      [newBalance, cardId]
+    );
+
+    const columns = await getTtSubscriptionColumnSet();
+    const hasEndDate = columns.has('end_date');
+    const hasNextPayment = columns.has('next_payment');
+    const hasStatus = columns.has('status');
+    const hasSubName = columns.has('sub_name');
+    const hasIntervalDays = columns.has('interval_days');
+    const hasStartDate = columns.has('start_date');
+    const expiryExpr = hasEndDate && hasNextPayment
+      ? 'COALESCE(end_date, next_payment, created_at)'
+      : (hasEndDate ? 'COALESCE(end_date, created_at)' : (hasNextPayment ? 'COALESCE(next_payment, created_at)' : 'created_at'));
+    const statusClause = hasStatus ? "AND (status IS NULL OR LOWER(status) = 'active')" : '';
+
+    const { rows: existingRows } = await client.query(
+      `SELECT id, ${expiryExpr} AS effective_end_date
+       FROM ocean_pay_subscriptions
+       WHERE user_id = $1
+         AND LOWER(COALESCE(project_id, '')) = LOWER($2)
+         AND LOWER(COALESCE(currency, '')) = LOWER($3)
+         ${statusClause}
+       ORDER BY ${expiryExpr} DESC, created_at DESC
+       LIMIT 1
+       FOR UPDATE`,
+      [userId, TT_PROJECT_ID, TT_CURRENCY]
+    );
+
+    const now = new Date();
+    const existing = existingRows[0] || null;
+    const existingEnd = existing?.effective_end_date ? new Date(existing.effective_end_date) : null;
+    const baseDate = existingEnd instanceof Date && !Number.isNaN(existingEnd.getTime()) && existingEnd.getTime() > now.getTime()
+      ? existingEnd
+      : now;
+    const finalEnd = new Date(baseDate.getTime() + TT_WEEKLY_INTERVAL_DAYS * 24 * 60 * 60 * 1000);
+
+    let subscriptionId = 0;
+    if (existing?.id) {
+      const updateFields = ['project_id = $1', 'plan_name = $2', 'price = $3', 'currency = $4', 'card_id = $5'];
+      const updateValues = [TT_PROJECT_ID, plan.label, price, TT_CURRENCY, cardId];
+      if (hasSubName) {
+        updateFields.push(`sub_name = $${updateValues.length + 1}`);
+        updateValues.push(plan.label);
+      }
+      if (hasStatus) {
+        updateFields.push(`status = $${updateValues.length + 1}`);
+        updateValues.push('active');
+      }
+      if (hasIntervalDays) {
+        updateFields.push(`interval_days = $${updateValues.length + 1}`);
+        updateValues.push(TT_WEEKLY_INTERVAL_DAYS);
+      }
+      if (hasNextPayment) {
+        updateFields.push(`next_payment = $${updateValues.length + 1}`);
+        updateValues.push(finalEnd);
+      }
+      if (hasEndDate) {
+        updateFields.push(`end_date = $${updateValues.length + 1}`);
+        updateValues.push(finalEnd);
+      }
+      updateValues.push(existing.id);
+      const { rows: updated } = await client.query(
+        `UPDATE ocean_pay_subscriptions
+         SET ${updateFields.join(', ')}
+         WHERE id = $${updateValues.length}
+         RETURNING id`,
+        updateValues
+      );
+      subscriptionId = Number(updated[0]?.id || existing.id);
+    } else {
+      const insertCols = ['user_id', 'project_id', 'plan_name', 'price', 'currency', 'card_id'];
+      const insertVals = [userId, TT_PROJECT_ID, plan.label, price, TT_CURRENCY, cardId];
+      if (hasSubName) {
+        insertCols.push('sub_name');
+        insertVals.push(plan.label);
+      }
+      if (hasStatus) {
+        insertCols.push('status');
+        insertVals.push('active');
+      }
+      if (hasStartDate) {
+        insertCols.push('start_date');
+        insertVals.push(now);
+      }
+      if (hasIntervalDays) {
+        insertCols.push('interval_days');
+        insertVals.push(TT_WEEKLY_INTERVAL_DAYS);
+      }
+      if (hasNextPayment) {
+        insertCols.push('next_payment');
+        insertVals.push(finalEnd);
+      }
+      if (hasEndDate) {
+        insertCols.push('end_date');
+        insertVals.push(finalEnd);
+      }
+      const placeholders = insertVals.map((_, idx) => `$${idx + 1}`).join(', ');
+      const { rows: inserted } = await client.query(
+        `INSERT INTO ocean_pay_subscriptions (${insertCols.join(', ')})
+         VALUES (${placeholders})
+         RETURNING id`,
+        insertVals
+      );
+      subscriptionId = Number(inserted[0]?.id || 0);
+    }
+
+    await client.query(
+      `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [userId, `Suscripción semanal: ${plan.label}`, -price, TT_PROJECT_ID, TT_CURRENCY]
+    );
+    await client.query(
+      `INSERT INTO ocean_pay_notifications (user_id, type, title, message)
+       VALUES ($1, 'success', $2, $3)`,
+      [userId, 'Tiger Tasks suscripción activa', `Tu plan ${plan.label} está activo hasta ${finalEnd.toLocaleString('es-ES')}.`]
+    ).catch(() => null);
+
+    await client.query('COMMIT');
+    res.json({
+      success: true,
+      projectId: TT_PROJECT_ID,
+      subscription: {
+        id: subscriptionId,
+        active: true,
+        planId: plan.id,
+        planName: plan.label,
+        currency: TT_CURRENCY,
+        price,
+        endsAt: finalEnd.toISOString(),
+        perks: plan.perks
+      },
+      charged: {
+        currency: TT_CURRENCY,
+        amount: price,
+        previousBalance: currentBalance,
+        newBalance
+      }
+    });
+  } catch (e) {
+    await client.query('ROLLBACK');
+    console.error('Tiger subscription checkout error:', e);
+    res.status(500).json({ error: 'No se pudo procesar la suscripción Tiger' });
+  } finally {
+    client.release();
+  }
+});
+
 app.get('/oceanic-ethernet/index.html', (_req, res) => {
   try {
     const html = fs.readFileSync(join(__dirname, 'OceanicEthernet', 'index.html'), 'utf-8');
@@ -14866,6 +15399,18 @@ async function ensureOceanPayTables() {
         created_at TIMESTAMP DEFAULT NOW()
     );
   `).catch(e => console.log('Ã¢Å¡Â Ã¯Â¸Â Error notificaciones:', e.message));
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS tiger_tasks_reward_claims (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
+      claim_type VARCHAR(40) NOT NULL,
+      claim_key VARCHAR(120) NOT NULL,
+      amount INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(user_id, claim_type, claim_key)
+    );
+  `).catch(e => console.log('Ã¢Å¡Â Ã¯Â¸Â Error tiger_tasks_reward_claims:', e.message));
 }
 await ensureOceanPayTables();
 cancelLegacyWildTransferSubscriptions()

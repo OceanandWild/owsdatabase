@@ -1043,28 +1043,36 @@
         border-color: var(--primary-orange);
         background: rgba(255, 140, 0, 0.1);
     }
-    .marker-tool-wrap {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
+    .marker-mode-modal-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(180px, 1fr));
+        gap: 12px;
+        margin-top: 8px;
     }
-    .marker-mode-picker {
-        display: none;
-        border: 1px solid #d5d9de;
+    .marker-mode-option {
+        border: 1px solid #d8d8d8;
+        border-radius: 10px;
         background: #fff;
-        border-radius: 8px;
-        padding: 6px 9px;
-        font-size: 12px;
-        color: #22303b;
-        min-width: 160px;
+        padding: 14px 12px;
+        text-align: left;
+        color: #243443;
+        cursor: pointer;
+        transition: all .2s ease;
     }
-    .marker-mode-picker.visible {
-        display: inline-flex;
-    }
-    .marker-mode-picker:focus {
-        outline: none;
+    .marker-mode-option:hover {
         border-color: var(--primary-orange);
-        box-shadow: 0 0 0 2px rgba(255, 140, 0, 0.2);
+        box-shadow: 0 6px 18px rgba(255, 140, 0, 0.18);
+        transform: translateY(-1px);
+    }
+    .marker-mode-option strong {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 14px;
+    }
+    .marker-mode-option small {
+        color: #5b6a77;
+        font-size: 12px;
+        line-height: 1.35;
     }
 
     .tool-action {
@@ -3829,6 +3837,26 @@
         </div>
     </div>
 
+    <div id="markerModeModal" class="modal">
+        <div class="modal-content" style="max-width: 560px;">
+            <h3>Selecciona modo de Marcador</h3>
+            <p style="font-size:13px; color:#667b70; margin-top:2px;">Elige cómo quieres usar la herramienta ahora.</p>
+            <div class="marker-mode-modal-grid">
+                <button id="selectMarkerTextModeBtn" class="marker-mode-option" type="button">
+                    <strong><i class="fas fa-highlighter"></i> Marcador</strong>
+                    <small>Marca texto normal con color.</small>
+                </button>
+                <button id="selectMarkerChecklistModeBtn" class="marker-mode-option" type="button">
+                    <strong><i class="fas fa-brush"></i> Resaltador</strong>
+                    <small>Prioriza items de checklist como importantes.</small>
+                </button>
+            </div>
+            <div class="modal-buttons">
+                <button id="cancelMarkerModeBtn" class="secondary-btn" type="button">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Editor de listas -->
     <div id="listEditor" class="list-editor">
         <div class="editor-header">
@@ -3851,14 +3879,8 @@
             <div class="tool" data-tool="pen">
                 <i class="fas fa-pen"></i> Lapicera
             </div>
-            <div class="marker-tool-wrap">
-                <div class="tool" data-tool="marker" id="markerToolBtn">
-                    <i class="fas fa-highlighter"></i> <span id="markerToolLabel">Marcador</span>
-                </div>
-                <select id="markerModeSelect" class="marker-mode-picker">
-                    <option value="marker">Marcador (texto)</option>
-                    <option value="highlighter">Resaltador (checklist)</option>
-                </select>
+            <div class="tool" data-tool="marker" id="markerToolBtn">
+                <i class="fas fa-highlighter"></i> <span id="markerToolLabel">Marcador</span>
             </div>
             <div class="tool" data-tool="bullets">
                 <i class="fas fa-list-ul"></i> Viñetas
@@ -5700,27 +5722,28 @@ function flashCopy() {
     }
 
     function updateMarkerToolModeUI() {
-        const modeSelect = document.getElementById('markerModeSelect');
         const label = document.getElementById('markerToolLabel');
-        if (!modeSelect) return;
-        markerMode = modeSelect.value === 'highlighter' ? 'highlighter' : 'marker';
         if (label) label.textContent = markerMode === 'highlighter' ? 'Resaltador' : 'Marcador';
-        modeSelect.classList.toggle('visible', currentTool === 'marker' || currentTool === 'highlighter');
     }
 
     function getResolvedMarkerMode() {
-        const modeSelect = document.getElementById('markerModeSelect');
-        if (!modeSelect) return markerMode;
-        markerMode = modeSelect.value === 'highlighter' ? 'highlighter' : 'marker';
-        return markerMode;
+        return markerMode === 'highlighter' ? 'highlighter' : 'marker';
+    }
+
+    function openMarkerModeModal() {
+        openModal('markerModeModal');
+    }
+
+    function applyMarkerMode(mode) {
+        markerMode = mode === 'highlighter' ? 'highlighter' : 'marker';
+        setActiveEditorTool(markerMode);
+        closeModal('markerModeModal');
     }
 
     function setActiveEditorTool(toolName) {
         document.querySelectorAll('.tool').forEach((t) => t.classList.remove('active'));
-        const modeSelect = document.getElementById('markerModeSelect');
-        if (modeSelect && (toolName === 'highlighter' || toolName === 'marker')) {
-            modeSelect.value = toolName === 'highlighter' ? 'highlighter' : modeSelect.value;
-            markerMode = modeSelect.value === 'highlighter' ? 'highlighter' : 'marker';
+        if (toolName === 'highlighter' || toolName === 'marker') {
+            markerMode = toolName === 'highlighter' ? 'highlighter' : markerMode;
         }
         const resolvedTool = toolName === 'highlighter' ? 'marker' : toolName;
         const target = document.querySelector(`.tool[data-tool="${resolvedTool}"]`);
@@ -5761,6 +5784,13 @@ function flashCopy() {
         const normalized = map[key];
         if (!normalized) {
             showAlert('warning', 'Herramienta no reconocida para Zen Mode.');
+            return;
+        }
+
+        if (normalized === 'marker') {
+            openMarkerModeModal();
+            const fromAiMarker = source === 'ai-shortcut' || source === 'ai-panel';
+            showZenAnnouncement(fromAiMarker ? 'IA abrió selector de Marcador.' : 'Selecciona Marcador o Resaltador.');
             return;
         }
 
@@ -5838,18 +5868,9 @@ function flashCopy() {
     // Configurar el editor - COMPLETAMENTE REDISEÑADO
     function setupEditor() {
         setupZenModeControls();
-        const markerModeSelect = document.getElementById('markerModeSelect');
-        if (markerModeSelect) {
-            markerMode = markerModeSelect.value === 'highlighter' ? 'highlighter' : 'marker';
-            markerModeSelect.addEventListener('change', () => {
-                markerMode = markerModeSelect.value === 'highlighter' ? 'highlighter' : 'marker';
-                if (currentTool === 'marker' || currentTool === 'highlighter') {
-                    currentTool = markerMode;
-                    currentTextType = markerMode;
-                }
-                updateMarkerToolModeUI();
-            });
-        }
+        document.getElementById('selectMarkerTextModeBtn')?.addEventListener('click', () => applyMarkerMode('marker'));
+        document.getElementById('selectMarkerChecklistModeBtn')?.addEventListener('click', () => applyMarkerMode('highlighter'));
+        document.getElementById('cancelMarkerModeBtn')?.addEventListener('click', () => closeModal('markerModeModal'));
         // Herramientas
         document.querySelectorAll('.tool').forEach(tool => {
             tool.addEventListener('click', function() {
@@ -5857,7 +5878,8 @@ function flashCopy() {
                 this.classList.add('active');
                 const selected = this.dataset.tool;
                 if (selected === 'marker') {
-                    currentTool = getResolvedMarkerMode();
+                    openMarkerModeModal();
+                    return;
                 } else {
                     currentTool = selected;
                 }

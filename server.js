@@ -3609,25 +3609,25 @@ const TT_WEEKLY_PLANS = [
   {
     id: 'cub-starter',
     label: 'Cub Starter',
-    perks: ['Acceso a base Tiger Pass', 'Prioridad estandar', 'Perfil premium inicial'],
+    perks: ['Resaltador de checklist: hasta 3 importantes', 'Acceso a base Tiger Pass', 'Prioridad estandar', 'Perfil premium inicial'],
     priceByCurrency: { [TT_CURRENCY]: 180 }
   },
   {
     id: 'stripe-plus',
     label: 'Stripe Plus',
-    perks: ['Rendimiento estable', 'Acceso preferente', 'Panel avanzado'],
+    perks: ['Resaltador de checklist: hasta 4 importantes', 'Rendimiento estable', 'Acceso preferente', 'Panel avanzado'],
     priceByCurrency: { [TT_CURRENCY]: 320 }
   },
   {
     id: 'jungle-pro',
     label: 'Jungle Pro',
-    perks: ['Suite Pro Tiger', 'Mayor prioridad', 'Automatizaciones premium'],
+    perks: ['Resaltador de checklist: hasta 7 importantes', 'Suite Pro Tiger', 'Mayor prioridad', 'Automatizaciones premium'],
     priceByCurrency: { [TT_CURRENCY]: 520 }
   },
   {
     id: 'alpha-claw',
     label: 'Alpha Claw',
-    perks: ['Plan maximo Tiger', 'Prioridad total', 'Beneficios elite'],
+    perks: ['Resaltador de checklist: hasta 7 importantes', 'Plan maximo Tiger', 'Prioridad total', 'Beneficios elite'],
     priceByCurrency: { [TT_CURRENCY]: 900 }
   }
 ];

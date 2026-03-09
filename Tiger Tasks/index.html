@@ -4794,6 +4794,14 @@ if (chkModeSel) {
         return 1;
     }
 
+    function getPlanHighlightLimit(planId = '') {
+        const pid = String(planId || '').toLowerCase();
+        if (pid.includes('alpha') || pid.includes('jungle')) return 7;
+        if (pid.includes('stripe')) return 4;
+        if (pid.includes('cub')) return 3;
+        return 1;
+    }
+
     function ensureRowHighlightId(row) {
         if (!row) return '';
         if (!row.dataset.highlightId) {
@@ -8823,7 +8831,11 @@ function askForSignature(container) {
             const isActive = activePlanId && activePlanId === plan.id;
             const card = document.createElement('div');
             card.className = `tiger-plan-card ${isActive ? 'tiger-plan-active' : ''}`;
-            const perks = Array.isArray(plan.perks) ? plan.perks.slice(0, 2).map((p) => `<li>${p}</li>`).join('') : '<li>Plan semanal</li>';
+            const highlightLimit = getPlanHighlightLimit(plan.id);
+            const highlightPerk = `Resaltador de checklist: hasta ${highlightLimit} importante(s) a la vez`;
+            const sourcePerks = Array.isArray(plan.perks) ? plan.perks : [];
+            const mergedPerks = [highlightPerk, ...sourcePerks.filter((p) => !String(p).toLowerCase().includes('resaltador de checklist'))];
+            const perks = mergedPerks.slice(0, 3).map((p) => `<li>${p}</li>`).join('');
             card.innerHTML = `
                 <h5>${plan.label || plan.id}</h5>
                 <div class="tiger-plan-price">${Math.round(Number(plan.priceByCurrency?.tigrys || 0)).toLocaleString()} Tigrys</div>

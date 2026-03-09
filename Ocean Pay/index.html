@@ -3155,6 +3155,34 @@
       ctx.textBaseline = "middle";
       ctx.fillText("C", 0, 0);
       ctx.restore();
+    } function drawTigrysIcon(ctx, x, y, size) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.shadowBlur = size * 0.45;
+      ctx.shadowColor = "rgba(245, 158, 11, 0.6)";
+      const base = ctx.createRadialGradient(-size * 0.12, -size * 0.16, size * 0.03, 0, 0, size * 0.52);
+      base.addColorStop(0, "#fff7d1");
+      base.addColorStop(0.45, "#f59e0b");
+      base.addColorStop(1, "#b45309");
+      ctx.fillStyle = base;
+      ctx.beginPath();
+      ctx.arc(0, 0, size * 0.46, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,0.45)";
+      ctx.lineWidth = size * 0.05;
+      ctx.beginPath();
+      ctx.arc(0, 0, size * 0.34, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = "rgba(17, 24, 39, 0.85)";
+      ctx.font = `bold ${size * 0.42}px sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("T", 0, 0);
+      ctx.fillStyle = "rgba(255,255,255,0.32)";
+      ctx.beginPath();
+      ctx.arc(-size * 0.14, -size * 0.14, size * 0.1, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
     } function
       animateCurrencies() {
       const canvases = document.querySelectorAll('.currency-canvas'); const time = Date.now() * 0.002;
@@ -3194,6 +3222,7 @@
           case 'mayhemcoins': drawMayhemCoinsIcon(ctx, x, y, size * 0.8); break;
           case 'cosmicdust': drawCosmicDustIcon(ctx, x, y, size * 0.8); break;
           case 'coralbits': drawCoralBitsIcon(ctx, x, y, size * 0.8); break;
+          case 'tigrys': drawTigrysIcon(ctx, x, y, size * 0.8); break;
           default:
             ctx.fillStyle = "#fff"; ctx.font = "64px serif"; ctx.textAlign = "center";
             ctx.textBaseline = "middle"; ctx.fillText("x", x, y);

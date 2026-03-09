@@ -3158,29 +3158,69 @@
     } function drawTigrysIcon(ctx, x, y, size) {
       ctx.save();
       ctx.translate(x, y);
-      ctx.shadowBlur = size * 0.45;
-      ctx.shadowColor = "rgba(245, 158, 11, 0.6)";
-      const base = ctx.createRadialGradient(-size * 0.12, -size * 0.16, size * 0.03, 0, 0, size * 0.52);
-      base.addColorStop(0, "#fff7d1");
-      base.addColorStop(0.45, "#f59e0b");
-      base.addColorStop(1, "#b45309");
-      ctx.fillStyle = base;
+      ctx.shadowBlur = size * 0.22;
+      ctx.shadowColor = "rgba(245, 158, 11, 0.62)";
+
+      const ring = ctx.createRadialGradient(-size * 0.2, -size * 0.22, size * 0.06, 0, 0, size * 0.64);
+      ring.addColorStop(0, "#fff3c4");
+      ring.addColorStop(0.4, "#f59e0b");
+      ring.addColorStop(1, "#92400e");
+      ctx.fillStyle = ring;
       ctx.beginPath();
-      ctx.arc(0, 0, size * 0.46, 0, Math.PI * 2);
+      ctx.arc(0, 0, size * 0.48, 0, Math.PI * 2);
       ctx.fill();
-      ctx.strokeStyle = "rgba(255,255,255,0.45)";
-      ctx.lineWidth = size * 0.05;
+
+      ctx.strokeStyle = "rgba(255,255,255,0.56)";
+      ctx.lineWidth = size * 0.055;
       ctx.beginPath();
-      ctx.arc(0, 0, size * 0.34, 0, Math.PI * 2);
+      ctx.arc(0, 0, size * 0.36, 0, Math.PI * 2);
       ctx.stroke();
-      ctx.fillStyle = "rgba(17, 24, 39, 0.85)";
-      ctx.font = `bold ${size * 0.42}px sans-serif`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText("T", 0, 0);
-      ctx.fillStyle = "rgba(255,255,255,0.32)";
+
+      ctx.fillStyle = "#2b1403";
       ctx.beginPath();
-      ctx.arc(-size * 0.14, -size * 0.14, size * 0.1, 0, Math.PI * 2);
+      ctx.moveTo(-size * 0.22, -size * 0.16);
+      ctx.quadraticCurveTo(-size * 0.1, -size * 0.38, 0, -size * 0.2);
+      ctx.quadraticCurveTo(size * 0.1, -size * 0.38, size * 0.22, -size * 0.16);
+      ctx.quadraticCurveTo(size * 0.18, size * 0.2, 0, size * 0.3);
+      ctx.quadraticCurveTo(-size * 0.18, size * 0.2, -size * 0.22, -size * 0.16);
+      ctx.fill();
+
+      ctx.fillStyle = "#f8fafc";
+      ctx.beginPath();
+      ctx.arc(-size * 0.085, -size * 0.03, size * 0.04, 0, Math.PI * 2);
+      ctx.arc(size * 0.085, -size * 0.03, size * 0.04, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#111827";
+      ctx.beginPath();
+      ctx.arc(-size * 0.085, -size * 0.03, size * 0.02, 0, Math.PI * 2);
+      ctx.arc(size * 0.085, -size * 0.03, size * 0.02, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#f59e0b";
+      ctx.beginPath();
+      ctx.moveTo(0, size * 0.02);
+      ctx.lineTo(-size * 0.05, size * 0.12);
+      ctx.lineTo(size * 0.05, size * 0.12);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.strokeStyle = "rgba(255,255,255,0.32)";
+      ctx.lineWidth = size * 0.03;
+      ctx.beginPath();
+      ctx.moveTo(-size * 0.2, -size * 0.1);
+      ctx.lineTo(-size * 0.12, 0);
+      ctx.moveTo(size * 0.2, -size * 0.1);
+      ctx.lineTo(size * 0.12, 0);
+      ctx.moveTo(-size * 0.16, size * 0.1);
+      ctx.lineTo(-size * 0.08, size * 0.16);
+      ctx.moveTo(size * 0.16, size * 0.1);
+      ctx.lineTo(size * 0.08, size * 0.16);
+      ctx.stroke();
+
+      ctx.fillStyle = "rgba(255,255,255,0.25)";
+      ctx.beginPath();
+      ctx.arc(-size * 0.18, -size * 0.2, size * 0.09, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
     } function

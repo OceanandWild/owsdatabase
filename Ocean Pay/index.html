@@ -2627,6 +2627,29 @@
       oceanRow.appendChild(card);
     }
 
+    function ensureTigrysCard() {
+      if (document.getElementById('tigrys-card')) return;
+      const wildRow = document.querySelector('.assets-row-wild');
+      if (!wildRow) return;
+      const card = document.createElement('div');
+      card.className = 'asset-card-modern';
+      card.id = 'tigrys-card';
+      card.innerHTML = `
+        <div class="asset-icon-container">
+          <canvas class="currency-canvas" data-currency="tigrys" width="44" height="44"></canvas>
+        </div>
+        <div class="asset-info-modern">
+          <span class="asset-name-modern">Tigrys</span>
+          <span class="asset-balance-modern" id="tigrys">0</span>
+        </div>
+        <div class="asset-footer-modern">
+          <span>Tiger Tasks</span>
+          <span style="color:#f59e0b">Wild</span>
+        </div>
+      `;
+      wildRow.appendChild(card);
+    }
+
 
     /* ---------- TOAST NOTIFICATION SYSTEM ---------- */
     function showToast(message, type = 'info', duration = 5000) {
@@ -3221,6 +3244,8 @@
       }
 
       qs('#wildgems').textContent = Math.round(balances.wildgems || 0).toLocaleString();
+      const tigrysEl = qs('#tigrys');
+      if (tigrysEl) tigrysEl.textContent = Math.round(balances.tigrys || 0).toLocaleString();
       const rsEl = qs('#relayshards');
       if (rsEl) rsEl.textContent = Math.round(balances.relayshards || 0).toLocaleString();
       qs('#appbux').textContent = Math.round(balances.appbux || 0).toLocaleString();
@@ -3264,17 +3289,17 @@
       const parity = {
         bux: 0.1, wildcredits: 0.5, wildgems: 10.0, ecoxionums: 1.0,
         nxb: 0.25, amber: 0.15, voltbit: 0.1, wildwavetokens: 0.18, appbux: 0.05,
-        ecobooks: 0.5, ecobits: 2.0, ecotokens: 0.3, mayhemcoins: 0.08, cosmicdust: 0.04, relayshards: 0.12, coralbits: 0.22
+        ecobooks: 0.5, ecobits: 2.0, ecotokens: 0.3, mayhemcoins: 0.08, cosmicdust: 0.04, relayshards: 0.12, coralbits: 0.22, tigrys: 0.09
       };
 
       const currencyLabels = {
         bux: 'AquaBux', wildcredits: 'WildCredits', wildgems: 'WildGems',
         ecoxionums: 'Ecoxionums', 'nxb-balance': 'Nexus Bits', amber: 'Amber',
         voltbit: 'VoltBits', wildwavetokens: 'WildWave Tokens', appbux: 'AppBux', ecobooks: 'EcoBooks',
-        ecobits: 'EcoCoreBits', ecotokens: 'EcoTokens', mayhemcoins: 'MayhemCoins', cosmicdust: 'Polvora Cosmica', relayshards: 'RelayShards', coralbits: 'Coral Bits'
+        ecobits: 'EcoCoreBits', ecotokens: 'EcoTokens', mayhemcoins: 'MayhemCoins', cosmicdust: 'Polvora Cosmica', relayshards: 'RelayShards', coralbits: 'Coral Bits', tigrys: 'Tigrys'
       };
 
-      const ids = ['bux', 'wildcredits', 'wildgems', 'relayshards', 'ecoxionums', 'nxb-balance', 'amber', 'voltbit', 'wildwavetokens', 'appbux', 'ecobooks', 'ecobits', 'ecotokens', 'mayhemcoins', 'cosmicdust', 'coralbits'];
+      const ids = ['bux', 'wildcredits', 'wildgems', 'tigrys', 'relayshards', 'ecoxionums', 'nxb-balance', 'amber', 'voltbit', 'wildwavetokens', 'appbux', 'ecobooks', 'ecobits', 'ecotokens', 'mayhemcoins', 'cosmicdust', 'coralbits'];
 
       let totalEX = 0;
       const breakdown = [];
@@ -4673,6 +4698,7 @@
     /* ---------- INIT ---------- */
     window.addEventListener('DOMContentLoaded', async () => {
       ensureCoralBitsCard();
+      ensureTigrysCard();
       const t = localStorage.getItem('opToken');
       if (t) {
         token = t;
@@ -4784,6 +4810,7 @@
         { id: 'coralbits', name: 'Coral Bits', desc: 'Divisa de Ocean AI sincronizada con Ocean Pay.', project: 'Ocean AI' },
         { id: 'wildcredits', name: 'WildCredits', desc: 'Créditos de recompensa obtenidos en Wild Explorer y misiones de campo.', project: 'Wild Explorer' },
         { id: 'wildgems', name: 'WildGems', desc: 'Gemas premium utilizadas para acceder a contenido exclusivo en WildShorts.', project: 'WildShorts' },
+        { id: 'tigrys', name: 'Tigrys', desc: 'Divisa semanal de Tiger Tasks para recompensas y Tiger Pass.', project: 'Tiger Tasks' },
         { id: 'relayshards', name: 'RelayShards', desc: 'Divisa nativa de WildTransfer. Se gana al subir y recibir archivos para pagar planes semanales.', project: 'WildTransfer' },
         { id: 'ecoxionums', name: 'Ecoxionums', desc: 'Activo digital de alto valor, base del protocolo de intercambio Ecoxion.', project: 'Ecoxion' },
         { id: 'nxb-balance', name: 'NXB', desc: 'Divisa de combate y mejoras utilizada en Primal Velocity Nexus.', project: 'Primal Velocity' },

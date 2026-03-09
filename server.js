@@ -269,6 +269,7 @@ app.post('/ocean-pay/login', async (req, res) => {
           const n = Number(raw[k]);
           normalized[String(k).toLowerCase()] = Number.isFinite(n) ? n : 0;
         });
+        if (normalized.tigrys === undefined) normalized.tigrys = 0;
         return { ...card, balances: normalized };
       });
 
@@ -355,6 +356,134 @@ app.post('/ocean-pay/refresh-token', async (req, res) => {
   } catch (e) {
     console.error('Refresh token error:', e);
     res.status(500).json({ error: 'Error al renovar sesiÃƒÂ³n' });
+  }
+});
+
+function getTigerTasksUserFromAuthHeader(authHeader) {
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
+  try {
+    const token = authHeader.substring(7);
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const tigerUserId = Number(decoded.tid || 0);
+    if (!Number.isFinite(tigerUserId) || tigerUserId <= 0) return null;
+    return { id: tigerUserId, username: decoded.username || '' };
+  } catch (_e) {
+    return null;
+  }
+}
+
+app.post('/tigertasks/auth/register', async (req, res) => {
+  try {
+    const username = String(req.body?.username || '').trim();
+    const password = String(req.body?.password || '').trim();
+    if (!username || !password) return res.status(400).json({ error: 'Faltan credenciales' });
+    if (username.length < 3) return res.status(400).json({ error: 'Usuario demasiado corto' });
+    if (password.length < 4) return res.status(400).json({ error: 'Contraseña demasiado corta' });
+
+    const { rows: exists } = await pool.query(
+      'SELECT id FROM tiger_tasks_users WHERE LOWER(username)=LOWER($1) LIMIT 1',
+      [username]
+    );
+    if (exists.length) return res.status(400).json({ error: 'La cuenta Tiger Tasks ya existe' });
+
+    const hash = await bcrypt.hash(password, 10);
+    const { rows } = await pool.query(
+      `INSERT INTO tiger_tasks_users (username, pwd_hash)
+       VALUES ($1, $2)
+       RETURNING id, username`,
+      [username, hash]
+    );
+    const user = rows[0];
+    const token = jwt.sign(
+      { tid: user.id, username: user.username, source: 'tigertasks' },
+      process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret',
+      { expiresIn: '7d' }
+    );
+    res.json({ success: true, token, user: { id: user.id, username: user.username } });
+  } catch (e) {
+    console.error('TigerTasks register error:', e);
+    res.status(500).json({ error: 'Error al registrar cuenta Tiger Tasks' });
+  }
+});
+
+app.post('/tigertasks/auth/login', async (req, res) => {
+  try {
+    const username = String(req.body?.username || '').trim();
+    const password = String(req.body?.password || '').trim();
+    if (!username || !password) return res.status(400).json({ error: 'Faltan credenciales' });
+
+    const { rows } = await pool.query(
+      'SELECT id, username, pwd_hash FROM tiger_tasks_users WHERE LOWER(username)=LOWER($1) LIMIT 1',
+      [username]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Cuenta Tiger Tasks no encontrada' });
+    const user = rows[0];
+    const ok = await bcrypt.compare(password, user.pwd_hash || '');
+    if (!ok) return res.status(401).json({ error: 'Contraseña incorrecta' });
+
+    const token = jwt.sign(
+      { tid: user.id, username: user.username, source: 'tigertasks' },
+      process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret',
+      { expiresIn: '7d' }
+    );
+    res.json({ success: true, token, user: { id: user.id, username: user.username } });
+  } catch (e) {
+    console.error('TigerTasks login error:', e);
+    res.status(500).json({ error: 'Error al iniciar sesión Tiger Tasks' });
+  }
+});
+
+app.post('/tigertasks/link/oceanpay', async (req, res) => {
+  const tigerUser = getTigerTasksUserFromAuthHeader(req.headers.authorization);
+  if (!tigerUser) return res.status(401).json({ error: 'Token Tiger Tasks requerido' });
+  const oceanUsername = String(req.body?.oceanUsername || '').trim();
+  const oceanPassword = String(req.body?.oceanPassword || '').trim();
+  if (!oceanUsername || !oceanPassword) return res.status(400).json({ error: 'Credenciales de Ocean Pay requeridas' });
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows: opRows } = await client.query(
+      'SELECT id, username, pwd_hash FROM ocean_pay_users WHERE LOWER(username)=LOWER($1) LIMIT 1',
+      [oceanUsername]
+    );
+    if (!opRows.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Cuenta Ocean Pay no encontrada' });
+    }
+    const opUser = opRows[0];
+    const ok = await bcrypt.compare(oceanPassword, String(opUser.pwd_hash || ''));
+    if (!ok) {
+      await client.query('ROLLBACK');
+      return res.status(401).json({ error: 'Contraseña de Ocean Pay incorrecta' });
+    }
+
+    await client.query(
+      `INSERT INTO tiger_tasks_oceanpay_links (tiger_user_id, ocean_pay_user_id)
+       VALUES ($1, $2)
+       ON CONFLICT (tiger_user_id)
+       DO UPDATE SET ocean_pay_user_id = EXCLUDED.ocean_pay_user_id, linked_at = NOW()`,
+      [tigerUser.id, opUser.id]
+    );
+    await client.query('COMMIT');
+
+    const oceanPayToken = jwt.sign(
+      { id: opUser.id, uid: opUser.id, username: opUser.username },
+      process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret',
+      { expiresIn: '7d' }
+    );
+
+    res.json({
+      success: true,
+      oceanPayToken,
+      oceanPayUser: { id: opUser.id, username: opUser.username }
+    });
+  } catch (e) {
+    await client.query('ROLLBACK');
+    console.error('TigerTasks link OceanPay error:', e);
+    res.status(500).json({ error: 'No se pudo vincular Ocean Pay' });
+  } finally {
+    client.release();
   }
 });
 
@@ -15411,6 +15540,24 @@ async function ensureOceanPayTables() {
       UNIQUE(user_id, claim_type, claim_key)
     );
   `).catch(e => console.log('Ã¢Å¡Â Ã¯Â¸Â Error tiger_tasks_reward_claims:', e.message));
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS tiger_tasks_users (
+      id SERIAL PRIMARY KEY,
+      username VARCHAR(60) UNIQUE NOT NULL,
+      pwd_hash TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `).catch(e => console.log('Ã¢Å¡Â Ã¯Â¸Â Error tiger_tasks_users:', e.message));
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS tiger_tasks_oceanpay_links (
+      id SERIAL PRIMARY KEY,
+      tiger_user_id INTEGER NOT NULL UNIQUE REFERENCES tiger_tasks_users(id) ON DELETE CASCADE,
+      ocean_pay_user_id INTEGER NOT NULL REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
+      linked_at TIMESTAMP DEFAULT NOW()
+    );
+  `).catch(e => console.log('Ã¢Å¡Â Ã¯Â¸Â Error tiger_tasks_oceanpay_links:', e.message));
 }
 await ensureOceanPayTables();
 cancelLegacyWildTransferSubscriptions()

@@ -1950,6 +1950,316 @@
             padding: 0.7rem 0.6rem;
         }
 
+        .library-shell {
+            display: flex;
+            flex-direction: column;
+            gap: 0.9rem;
+        }
+
+        .library-hero {
+            border: 1px solid color-mix(in srgb, var(--line) 68%, var(--brand-2) 32%);
+            border-radius: 18px;
+            padding: 1rem;
+            background:
+                radial-gradient(980px 220px at 12% -20%, rgba(0, 127, 132, 0.19), transparent 64%),
+                radial-gradient(760px 190px at 94% 120%, rgba(209, 79, 42, 0.16), transparent 67%),
+                linear-gradient(155deg, color-mix(in srgb, var(--paper) 95%, transparent), color-mix(in srgb, var(--surface) 90%, transparent));
+            box-shadow: 0 14px 34px rgba(24, 18, 14, 0.1);
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 0.8rem;
+            align-items: center;
+        }
+
+        .library-hero-kicker {
+            font-size: 0.66rem;
+            text-transform: uppercase;
+            letter-spacing: 0.9px;
+            font-weight: 800;
+            color: color-mix(in srgb, var(--ink-soft) 76%, var(--brand) 24%);
+            margin-bottom: 0.2rem;
+        }
+
+        .library-hero-title {
+            font-size: 1.5rem;
+            font-weight: 900;
+            color: var(--ink);
+            line-height: 1.08;
+            margin-bottom: 0.26rem;
+        }
+
+        .library-hero-sub {
+            font-size: 0.82rem;
+            color: var(--ink-soft);
+            max-width: 760px;
+        }
+
+        .library-hero-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.45rem;
+            justify-content: flex-end;
+        }
+
+        .library-btn {
+            border: 1px solid var(--line);
+            border-radius: 11px;
+            background: var(--surface);
+            color: var(--ink);
+            padding: 0.58rem 0.85rem;
+            font-size: 0.76rem;
+            font-weight: 800;
+            letter-spacing: 0.22px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.38rem;
+        }
+
+        .library-btn:hover {
+            border-color: color-mix(in srgb, var(--line) 62%, var(--brand) 38%);
+            transform: translateY(-1px);
+        }
+
+        .library-toolbar {
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            background: color-mix(in srgb, var(--surface) 94%, transparent);
+            padding: 0.75rem;
+            display: grid;
+            grid-template-columns: minmax(220px, 340px) 1fr;
+            gap: 0.65rem;
+            align-items: center;
+        }
+
+        .library-search {
+            width: 100%;
+            border: 1px solid var(--line);
+            border-radius: 11px;
+            background: var(--paper);
+            color: var(--ink);
+            padding: 0.62rem 0.75rem;
+            font-size: 0.78rem;
+            outline: none;
+        }
+
+        .library-search:focus {
+            border-color: color-mix(in srgb, var(--brand-2) 52%, var(--line) 48%);
+            box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand-2) 18%, transparent);
+        }
+
+        .library-filters {
+            display: flex;
+            gap: 0.45rem;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .library-filter-btn {
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            background: var(--surface);
+            color: var(--ink-soft);
+            padding: 0.35rem 0.66rem;
+            font-size: 0.68rem;
+            font-weight: 800;
+            letter-spacing: 0.4px;
+            text-transform: uppercase;
+            cursor: pointer;
+        }
+
+        .library-filter-btn.active {
+            background: linear-gradient(90deg, var(--brand-2), #2aa0a6);
+            border-color: transparent;
+            color: #fff;
+            box-shadow: 0 8px 20px rgba(0, 127, 132, 0.25);
+        }
+
+        .library-metrics {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 0.6rem;
+        }
+
+        .library-metric {
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            background: linear-gradient(165deg, color-mix(in srgb, var(--paper) 94%, transparent), color-mix(in srgb, var(--surface) 90%, transparent));
+            padding: 0.6rem 0.7rem;
+        }
+
+        .library-metric-value {
+            font-size: 1rem;
+            font-weight: 900;
+            color: var(--ink);
+            line-height: 1;
+        }
+
+        .library-metric-label {
+            margin-top: 0.25rem;
+            font-size: 0.63rem;
+            color: var(--ink-soft);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .library-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 0.8rem;
+        }
+
+        .library-card {
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            background: linear-gradient(180deg, #fff 0%, #fffaf5 100%);
+            padding: 0.86rem;
+            box-shadow: 0 10px 24px rgba(35, 27, 21, 0.08);
+            display: flex;
+            flex-direction: column;
+            gap: 0.62rem;
+        }
+
+        .library-card-head {
+            display: grid;
+            grid-template-columns: 56px minmax(0, 1fr);
+            gap: 0.62rem;
+            align-items: center;
+        }
+
+        .library-card-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 13px;
+            object-fit: cover;
+            border: 1px solid var(--line);
+            background: #f6efe7;
+        }
+
+        .library-card-title {
+            font-size: 1rem;
+            font-weight: 800;
+            color: var(--ink);
+            line-height: 1.2;
+        }
+
+        .library-card-sub {
+            margin-top: 0.14rem;
+            font-size: 0.7rem;
+            color: var(--ink-soft);
+            line-height: 1.3;
+        }
+
+        .library-status-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.28rem;
+            border-radius: 999px;
+            padding: 0.18rem 0.5rem;
+            font-size: 0.62rem;
+            font-weight: 800;
+            letter-spacing: 0.45px;
+            text-transform: uppercase;
+            border: 1px solid transparent;
+            width: fit-content;
+        }
+
+        .library-status-chip.installed {
+            color: #0a6a47;
+            border-color: rgba(16, 144, 93, 0.42);
+            background: rgba(64, 213, 145, 0.16);
+        }
+
+        .library-status-chip.pending {
+            color: #0b5f77;
+            border-color: rgba(0, 127, 132, 0.36);
+            background: rgba(0, 127, 132, 0.15);
+        }
+
+        .library-status-chip.saved {
+            color: #7a4a00;
+            border-color: rgba(185, 103, 0, 0.34);
+            background: rgba(185, 103, 0, 0.14);
+        }
+
+        .library-meta-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.44rem;
+        }
+
+        .library-meta {
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 0.4rem 0.5rem;
+            background: color-mix(in srgb, var(--paper) 84%, transparent);
+        }
+
+        .library-meta-k {
+            font-size: 0.58rem;
+            text-transform: uppercase;
+            letter-spacing: 0.42px;
+            color: var(--ink-soft);
+            margin-bottom: 0.08rem;
+            font-weight: 800;
+        }
+
+        .library-meta-v {
+            font-size: 0.72rem;
+            color: var(--ink);
+            font-weight: 700;
+            line-height: 1.24;
+        }
+
+        .library-update-note {
+            font-size: 0.68rem;
+            line-height: 1.3;
+            border-radius: 9px;
+            padding: 0.38rem 0.48rem;
+            border: 1px solid rgba(0, 127, 132, 0.34);
+            background: rgba(0, 127, 132, 0.09);
+            color: color-mix(in srgb, var(--ink-soft) 68%, var(--brand-2) 32%);
+            font-weight: 700;
+        }
+
+        .library-empty {
+            border: 1px dashed color-mix(in srgb, var(--line) 72%, var(--brand) 28%);
+            border-radius: 16px;
+            padding: 1.1rem;
+            background: color-mix(in srgb, var(--surface) 88%, transparent);
+            color: var(--ink-soft);
+            font-size: 0.82rem;
+        }
+
+        body[data-theme="dark"] .library-hero {
+            box-shadow: 0 16px 30px rgba(0, 0, 0, 0.34);
+        }
+
+        body[data-theme="dark"] .library-card {
+            background: linear-gradient(180deg, #121c2b 0%, #0f1826 100%);
+            border-color: #2f4259;
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.32);
+        }
+
+        body[data-theme="dark"] .library-card-icon {
+            background: #1a2637;
+            border-color: #2f4259;
+        }
+
+        body[data-theme="dark"] .library-meta,
+        body[data-theme="dark"] .library-toolbar,
+        body[data-theme="dark"] .library-btn,
+        body[data-theme="dark"] .library-filter-btn {
+            border-color: #2f4259;
+            background: #121c2b;
+        }
+
+        body[data-theme="dark"] .library-search {
+            border-color: #2f4259;
+            background: #0f1826;
+            color: #dce7f7;
+        }
+
         .progress-overlay {
             position: absolute;
             inset: 0;
@@ -2234,102 +2544,114 @@
             margin-bottom: 0.2rem;
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 0.7rem;
+            gap: 0.9rem;
         }
 
         .modal-news-card {
-            border: 1px solid var(--line);
-            border-radius: 12px;
-            background: var(--surface);
-            padding: 0.65rem;
-            min-height: 240px;
+            border: 1px solid color-mix(in srgb, var(--line) 72%, var(--brand-2) 28%);
+            border-radius: 14px;
+            background:
+                linear-gradient(160deg, color-mix(in srgb, var(--surface) 92%, transparent), color-mix(in srgb, var(--paper) 84%, transparent));
+            padding: 0.8rem;
+            min-height: 280px;
             display: flex;
             flex-direction: column;
-            gap: 0.48rem;
+            gap: 0.6rem;
+            box-shadow: 0 10px 28px rgba(0, 0, 0, 0.08);
         }
 
         .modal-news-head {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 0.45rem;
+            gap: 0.6rem;
+            border-bottom: 1px solid color-mix(in srgb, var(--line) 75%, transparent);
+            padding-bottom: 0.5rem;
         }
 
         .modal-news-counter {
-            font-size: 0.64rem;
-            border: 1px solid var(--line);
+            font-size: 0.62rem;
+            border: 1px solid color-mix(in srgb, var(--line) 72%, var(--brand-2) 28%);
             border-radius: 999px;
-            padding: 0.15rem 0.45rem;
-            color: var(--ink-soft);
+            padding: 0.2rem 0.5rem;
+            color: color-mix(in srgb, var(--ink-soft) 80%, var(--brand-2) 20%);
             font-weight: 700;
-            letter-spacing: 0.04em;
+            letter-spacing: 0.06em;
             text-transform: uppercase;
+            background: color-mix(in srgb, var(--paper) 85%, transparent);
         }
 
         .modal-news-title {
-            font-size: 0.68rem;
-            color: var(--ink-soft);
+            font-size: 0.72rem;
+            color: color-mix(in srgb, var(--ink-soft) 75%, var(--ink) 25%);
             text-transform: uppercase;
-            letter-spacing: 0.42px;
+            letter-spacing: 0.8px;
             font-weight: 800;
-            margin-bottom: 0.48rem;
+            margin-bottom: 0;
         }
 
         .modal-news-list {
             display: flex;
             flex-direction: column;
-            gap: 0.45rem;
-            max-height: clamp(220px, 46vh, 560px);
+            gap: 0.58rem;
+            max-height: clamp(260px, 52vh, 640px);
             overflow: auto;
-            padding-right: 0.2rem;
+            padding-right: 0.35rem;
+            scrollbar-width: thin;
         }
 
         .modal-news-item {
-            border: 1px solid var(--line);
-            border-radius: 9px;
-            background: var(--paper);
-            padding: 0.45rem 0.52rem;
+            border: 1px solid color-mix(in srgb, var(--line) 70%, var(--brand) 30%);
+            border-radius: 11px;
+            background:
+                linear-gradient(155deg, color-mix(in srgb, var(--paper) 92%, transparent), color-mix(in srgb, var(--surface) 88%, transparent));
+            padding: 0.62rem 0.66rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.34rem;
         }
 
         .modal-news-item strong {
             display: block;
-            font-size: 0.73rem;
+            font-size: 0.78rem;
             color: var(--ink);
-            margin-bottom: 0.15rem;
-            line-height: 1.25;
+            margin-bottom: 0;
+            line-height: 1.3;
         }
 
-        .modal-news-item span {
+        .modal-news-meta {
+            font-size: 0.64rem;
+            color: color-mix(in srgb, var(--ink-soft) 86%, var(--brand) 14%);
+            font-weight: 700;
+            letter-spacing: 0.4px;
+            text-transform: uppercase;
+        }
+
+        .modal-news-desc {
             display: block;
-            font-size: 0.68rem;
+            font-size: 0.7rem;
             color: var(--ink-soft);
-            line-height: 1.34;
+            line-height: 1.4;
         }
 
-        .modal-news-more {
-            border: 1px dashed var(--line);
-            border-radius: 9px;
-            padding: 0.35rem 0.5rem;
-            background: rgba(255, 255, 255, 0.5);
-        }
-
-        .modal-news-more > summary {
-            cursor: pointer;
+        .modal-news-changes {
+            margin: 0.08rem 0 0;
+            padding-left: 1rem;
+            display: block;
             font-size: 0.69rem;
-            font-weight: 800;
-            color: var(--brand-2);
-            list-style: none;
+            color: var(--ink-soft);
+            line-height: 1.35;
         }
 
-        .modal-news-more > summary::-webkit-details-marker {
-            display: none;
+        .modal-news-changes li {
+            margin-bottom: 0.2rem;
         }
 
-        .modal-news-more-list {
-            margin-top: 0.42rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.4rem;
+        .modal-news-time {
+            display: block;
+            font-size: 0.65rem;
+            color: color-mix(in srgb, var(--ink-soft) 88%, var(--brand-2) 12%);
+            margin-top: 0.14rem;
         }
 
         .project-history-btn {
@@ -3217,6 +3539,38 @@
             .modal-news-card {
                 min-height: unset;
             }
+            .library-hero {
+                grid-template-columns: 1fr;
+                gap: 0.62rem;
+            }
+            .library-hero-title {
+                font-size: 1.18rem;
+            }
+            .library-hero-actions {
+                justify-content: flex-start;
+            }
+            .library-toolbar {
+                grid-template-columns: 1fr;
+                gap: 0.55rem;
+            }
+            .library-filters {
+                justify-content: flex-start;
+                overflow-x: auto;
+                flex-wrap: nowrap;
+                padding-bottom: 0.15rem;
+            }
+            .library-filter-btn {
+                flex: 0 0 auto;
+            }
+            .library-metrics {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+            .library-grid {
+                grid-template-columns: 1fr;
+            }
+            .library-meta-grid {
+                grid-template-columns: 1fr;
+            }
             .filter-chips {
                 overflow-x: auto;
                 flex-wrap: nowrap;
@@ -3633,9 +3987,52 @@
             </section>
 
             <section id="library-view" style="display:none;">
-                <div class="section-title">Mi Biblioteca Virtual</div>
-                <div class="project-grid" id="library-container">
-                    <p style="color:var(--text-dim)">No tienes proyectos instalados aun.</p>
+                <div class="library-shell">
+                    <div class="library-hero">
+                        <div>
+                            <div class="library-hero-kicker">Coleccion personal</div>
+                            <div class="library-hero-title">Biblioteca OWS</div>
+                            <div class="library-hero-sub">Gestiona tus proyectos guardados, instalados y pendientes con estado claro por plataforma.</div>
+                        </div>
+                        <div class="library-hero-actions">
+                            <button class="library-btn" onclick="syncLibraryNow()"><i class="fas fa-rotate"></i> Sincronizar</button>
+                            <button class="library-btn" onclick="showSection('home', document.querySelector('.nav-menu .nav-item:nth-child(1)'))"><i class="fas fa-compass"></i> Explorar Store</button>
+                        </div>
+                    </div>
+
+                    <div class="library-toolbar">
+                        <input id="library-search-input" class="library-search" type="text" placeholder="Buscar en biblioteca..." oninput="setLibrarySearch(this.value)">
+                        <div class="library-filters">
+                            <button id="library-filter-all" class="library-filter-btn active" onclick="setLibraryFilter('all')">Todo</button>
+                            <button id="library-filter-installed" class="library-filter-btn" onclick="setLibraryFilter('installed')">Instalados</button>
+                            <button id="library-filter-updates" class="library-filter-btn" onclick="setLibraryFilter('updates')">Con update</button>
+                            <button id="library-filter-saved" class="library-filter-btn" onclick="setLibraryFilter('saved')">Guardados</button>
+                            <button id="library-filter-busy" class="library-filter-btn" onclick="setLibraryFilter('busy')">En proceso</button>
+                        </div>
+                    </div>
+
+                    <div class="library-metrics">
+                        <div class="library-metric">
+                            <div id="library-metric-total" class="library-metric-value">0</div>
+                            <div class="library-metric-label">En biblioteca</div>
+                        </div>
+                        <div class="library-metric">
+                            <div id="library-metric-installed" class="library-metric-value">0</div>
+                            <div class="library-metric-label">Instalados</div>
+                        </div>
+                        <div class="library-metric">
+                            <div id="library-metric-updates" class="library-metric-value">0</div>
+                            <div class="library-metric-label">Con update</div>
+                        </div>
+                        <div class="library-metric">
+                            <div id="library-metric-busy" class="library-metric-value">0</div>
+                            <div class="library-metric-label">En proceso</div>
+                        </div>
+                    </div>
+
+                    <div class="library-grid" id="library-container">
+                        <div class="library-empty">Tu biblioteca esta vacia. Instala o guarda proyectos desde Explorar para verlos aqui.</div>
+                    </div>
                 </div>
             </section>
             <section id="updates-view" style="display:none;">
@@ -4050,6 +4447,7 @@
         let uninstallSuppressedBySlug = {};
         let currentSearchTerm = '';
         let currentProjectFilter = 'all';
+        let libraryViewState = { filter: 'all', query: '' };
         let activeSection = 'home';
         let scheduledRenderTimer = null;
         let actionBannerTimer = null;
@@ -6353,11 +6751,11 @@
             const entries = [];
             const projectName = String(project.name || 'Proyecto');
 
-            if (project.windows_version || project.windows_last_update_at || project.last_update_at) {
+            if (project.windows_version || project.windows_last_update_at || project.windows_release_notes || project.windows_download_url) {
                 entries.push({
                     id: 0,
                     title: `${projectName} Windows v${project.windows_version || project.version || '-'}`,
-                    description: summarizeReleaseNotes(project.windows_release_notes, 'Version de Windows publicada en GitHub Releases.'),
+                    description: summarizeReleaseNotes(project.windows_release_notes, 'Version de Windows disponible para instalar.'),
                     changes: [],
                     projectNames: [String(project.slug || '').toLowerCase(), String(project.name || '').toLowerCase()],
                     updateDate: project.windows_last_update_at || project.last_update_at || null,
@@ -6366,11 +6764,11 @@
                 });
             }
 
-            if (project.android_version || project.android_last_update_at || project.last_update_at) {
+            if (project.android_version || project.android_last_update_at || project.android_release_notes || project.android_download_url || project.android_apk_url || project.apk_url) {
                 entries.push({
                     id: 0,
                     title: `${projectName} Android v${project.android_version || project.version || '-'}`,
-                    description: summarizeReleaseNotes(project.android_release_notes, 'Version de Android publicada en GitHub Releases.'),
+                    description: summarizeReleaseNotes(project.android_release_notes, 'Version de Android disponible para instalar.'),
                     changes: [],
                     projectNames: [String(project.slug || '').toLowerCase(), String(project.name || '').toLowerCase()],
                     updateDate: project.android_last_update_at || project.last_update_at || null,
@@ -6798,18 +7196,17 @@
             const changelogCount = document.getElementById('m-changelog-count');
             const eventsCount = document.getElementById('m-events-count');
             if (!changelogWrap || !eventsWrap || !newsWrap) return;
-            const buildEntryDetailsHtml = (item, maxLines = 4) => {
+            const buildEntryDetailsHtml = (item) => {
                 const desc = String(item?.description || '').trim();
                 const lines = Array.isArray(item?.changes)
                     ? item.changes.map((line) => String(line || '').trim()).filter(Boolean)
                     : [];
-                const visible = lines.slice(0, maxLines);
-                const remaining = Math.max(0, lines.length - visible.length);
-                const listHtml = visible.length
-                    ? `<span>${visible.map((line) => `- ${line}`).join('<br>')}</span>`
-                    : `<span>${desc || 'Sin descripcion'}</span>`;
-                const moreHtml = remaining > 0 ? `<span>+${remaining} cambios mas...</span>` : '';
-                return `${desc ? `<span>${desc}</span>` : ''}${listHtml}${moreHtml}`;
+                const descHtml = desc ? `<span class="modal-news-desc">${desc}</span>` : '';
+                const listHtml = lines.length
+                    ? `<ul class="modal-news-changes">${lines.map((line) => `<li>${line}</li>`).join('')}</ul>`
+                    : '';
+                const fallback = (!desc && !lines.length) ? '<span class="modal-news-desc">Sin descripcion</span>' : '';
+                return `${descHtml}${listHtml}${fallback}`;
             };
             const owsNewsEntries = dedupeLaunchEvents([
                 ...((owsNewsUpdatesCache || []).filter((entry) => doesNewsEntryMatchProject(entry, project))),
@@ -6832,38 +7229,21 @@
                 });
             const changelog = entries.filter((entry) => !entry.isEvent && !entry.isBanner);
             const events = entries.filter((entry) => entry.isEvent);
-            const renderBucket = (items, emptyText, olderLabel) => {
+            const renderBucket = (items, emptyText) => {
                 if (!items.length) return `<div class="modal-news-empty">${emptyText}</div>`;
-                const recent = items.slice(0, 5);
-                const older = items.slice(5);
-                const recentHtml = recent.map((item) => `
+                return items.map((item) => `
                     <div class="modal-news-item">
                         <strong>${item.title}</strong>
-                        <span style="margin-bottom:0.2rem;">${getNewsPlatformsBadgeHtml(item.platforms || ['all'])}</span>
+                        <span style="margin-bottom:0.16rem;">${getNewsPlatformsBadgeHtml(item.platforms || ['all'])}</span>
+                        <span class="modal-news-meta">${item.isEvent ? 'Evento' : 'Changelog'}</span>
                         ${buildEntryDetailsHtml(item)}
-                        <span>${formatDateTime(item.updateDate)}</span>
+                        <span class="modal-news-time">${formatDateTime(item.updateDate)}</span>
                     </div>
                 `).join('');
-                const olderHtml = older.length
-                    ? `<details class="modal-news-more">
-                        <summary>${olderLabel} (${older.length})</summary>
-                        <div class="modal-news-more-list">
-                            ${older.map((item) => `
-                                <div class="modal-news-item">
-                                    <strong>${item.title}</strong>
-                                    <span style="margin-bottom:0.2rem;">${getNewsPlatformsBadgeHtml(item.platforms || ['all'])}</span>
-                                    ${buildEntryDetailsHtml(item, 3)}
-                                    <span>${formatDateTime(item.updateDate)}</span>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </details>`
-                    : '';
-                return `${recentHtml}${olderHtml}`;
             };
             newsWrap.style.display = 'grid';
-            changelogWrap.innerHTML = renderBucket(changelog, 'Sin changelogs vinculados a este proyecto.', 'Ver historial anterior');
-            eventsWrap.innerHTML = renderBucket(events, 'Sin eventos vinculados a este proyecto.', 'Ver eventos anteriores');
+            changelogWrap.innerHTML = renderBucket(changelog, 'Sin changelogs vinculados a este proyecto.');
+            eventsWrap.innerHTML = renderBucket(events, 'Sin eventos vinculados a este proyecto.');
             if (changelogCount) changelogCount.textContent = `${changelog.length} ${changelog.length === 1 ? 'entrada' : 'entradas'}`;
             if (eventsCount) eventsCount.textContent = `${events.length} ${events.length === 1 ? 'evento' : 'eventos'}`;
         }
@@ -8037,7 +8417,7 @@
                     tone: 'info',
                     title: `OWS Store Windows v${storeWindows.version}`,
                     date: storeWindows.publishedAt || null,
-                    text: pickSummary(storeWindows.releaseNotes, 'Release de Windows publicada en GitHub Releases.'),
+                    text: pickSummary(storeWindows.releaseNotes, 'Version de Windows disponible para instalar.'),
                     platforms: ['windows'],
                 });
             }
@@ -8270,6 +8650,20 @@
             });
             renderVisibleProjects();
             renderExploreInsights();
+        }
+
+        function setLibraryFilter(filter) {
+            libraryViewState.filter = String(filter || 'all');
+            ['all', 'installed', 'updates', 'saved', 'busy'].forEach((id) => {
+                const btn = document.getElementById(`library-filter-${id}`);
+                if (btn) btn.classList.toggle('active', libraryViewState.filter === id);
+            });
+            renderLibrary();
+        }
+
+        function setLibrarySearch(rawQuery = '') {
+            libraryViewState.query = String(rawQuery || '');
+            renderLibrary();
         }
 
         async function syncLibraryNow() {
@@ -11066,12 +11460,56 @@
                 const inRuntime = isInstallingPhase(runtime.phase) || runtime.phase === 'queued' || runtime.phase === 'preparing';
                 return Boolean(state.installed) || isProjectInLibrary(p.slug) || inRuntime;
             });
-            if (!libraryProjects.length) {
-                container.innerHTML = `<p style="color:var(--text-dim)">Tu biblioteca esta vacia. Instala un proyecto desde Explorar para verlo aqui.</p>`;
+            const metricTotal = document.getElementById('library-metric-total');
+            const metricInstalled = document.getElementById('library-metric-installed');
+            const metricUpdates = document.getElementById('library-metric-updates');
+            const metricBusy = document.getElementById('library-metric-busy');
+            const searchInput = document.getElementById('library-search-input');
+            if (searchInput && searchInput.value !== libraryViewState.query) searchInput.value = libraryViewState.query;
+
+            const counts = { total: 0, installed: 0, updates: 0, busy: 0 };
+            const normalizedFilter = String(libraryViewState.filter || 'all');
+            const query = String(libraryViewState.query || '').trim().toLowerCase();
+            const filtered = libraryProjects.filter((p) => {
+                const state = installStateBySlug[p.slug] || {};
+                const runtime = getRuntimeState(p.slug);
+                const isInstalled = Boolean(state.installed);
+                const isDownloading = isInstallingPhase(runtime.phase);
+                const isQueued = runtime.phase === 'queued';
+                const isPreparing = runtime.phase === 'preparing';
+                const updateInfo = getProjectUpdateInfo(p);
+                const devicePendingUpdate = hasDevicePendingUpdate(updateInfo);
+                const busy = isDownloading || isQueued || isPreparing;
+                const savedOnly = !isInstalled && !busy;
+                counts.total += 1;
+                if (isInstalled) counts.installed += 1;
+                if (devicePendingUpdate) counts.updates += 1;
+                if (busy) counts.busy += 1;
+
+                const haystack = `${String(p.name || '').toLowerCase()} ${String(p.slug || '').toLowerCase()} ${String(p.description || '').toLowerCase()}`;
+                if (query && !haystack.includes(query)) return false;
+                if (normalizedFilter === 'installed' && !isInstalled) return false;
+                if (normalizedFilter === 'updates' && !devicePendingUpdate) return false;
+                if (normalizedFilter === 'saved' && !savedOnly) return false;
+                if (normalizedFilter === 'busy' && !busy) return false;
+                return true;
+            });
+
+            if (metricTotal) metricTotal.textContent = String(counts.total);
+            if (metricInstalled) metricInstalled.textContent = String(counts.installed);
+            if (metricUpdates) metricUpdates.textContent = String(counts.updates);
+            if (metricBusy) metricBusy.textContent = String(counts.busy);
+            ['all', 'installed', 'updates', 'saved', 'busy'].forEach((id) => {
+                const btn = document.getElementById(`library-filter-${id}`);
+                if (btn) btn.classList.toggle('active', normalizedFilter === id);
+            });
+
+            if (!filtered.length) {
+                container.innerHTML = `<div class="library-empty">No hay resultados para tu filtro actual. Prueba con otro estado o limpia la busqueda.</div>`;
                 return;
             }
 
-            libraryProjects.forEach((p) => {
+            filtered.forEach((p) => {
                 const state = installStateBySlug[p.slug] || {};
                 const runtime = getRuntimeState(p.slug);
                 const isInstalled = Boolean(state.installed);
@@ -11081,7 +11519,7 @@
                 const updateInfo = getProjectUpdateInfo(p);
                 const devicePendingUpdate = hasDevicePendingUpdate(updateInfo);
                 const card = document.createElement('div');
-                card.className = 'app-card';
+                card.className = 'library-card';
                 const metaVersion = isInstalled
                     ? (state.version || getInstalledVersion(p.slug) || p.version || '1.0.0')
                     : (getProjectDisplayVersion(p) || p.version || '1.0.0');
@@ -11122,15 +11560,39 @@
                             <button class="btn-install full" style="background:#2b2e37;" onclick="openDetails('${p.slug}')"><i class="fas fa-circle-info"></i> Ver ficha</button>
                         </div>`);
                 const updateBadgeHtml = (isInstalled && devicePendingUpdate)
-                    ? `<div style="font-size:0.74rem; color:var(--brand-2); margin-bottom:0.8rem; font-weight:700;">Actualizacion disponible (${getPrimaryUpdatePlatformLabel(updateInfo)}): v${updateInfo.latestVersion}</div>`
+                    ? `<div class="library-update-note">Update disponible (${getPrimaryUpdatePlatformLabel(updateInfo)}): v${updateInfo.latestVersion}</div>`
                     : (!isInstalled
-                        ? `<div style="font-size:0.74rem; color:var(--ink-soft); margin-bottom:0.8rem;">Guardado en biblioteca. Instala para jugar o usar.</div>`
+                        ? `<div class="library-update-note" style="border-color:var(--line);background:color-mix(in srgb,var(--paper) 84%, transparent);color:var(--ink-soft);">Guardado en biblioteca. Instala para jugar o usar.</div>`
                         : '');
+                const statusClass = isInstalled
+                    ? 'installed'
+                    : ((isDownloading || isQueued || isPreparing) ? 'pending' : 'saved');
+                const statusText = isInstalled
+                    ? (isDownloading || isQueued || isPreparing ? statusLabel : 'INSTALADO')
+                    : ((isDownloading || isQueued || isPreparing) ? statusLabel : 'GUARDADO');
                 card.innerHTML = `
-                    <img src="${getProjectIcon(p, 64)}" class="app-icon ${getProjectIconClass(p)}" alt="Icon">
-                    <div class="app-name">${p.name}</div>
-                    <div class="app-meta"><span>v${metaVersion}</span><span id="lib-status-${p.slug}">${resolvedStatusLabel}</span></div>
-                    <div style="font-size:0.74rem; color:var(--ink-soft); margin-bottom:0.8rem;">Ult. update: ${installDate}</div>
+                    <div class="library-card-head">
+                        <img src="${getProjectIcon(p, 64)}" class="library-card-icon ${getProjectIconClass(p)}" alt="Icon">
+                        <div>
+                            <div class="library-card-title">${p.name}</div>
+                            <div class="library-card-sub">${p.description || 'Proyecto disponible en OWS Store.'}</div>
+                        </div>
+                    </div>
+                    <span class="library-status-chip ${statusClass}" id="lib-status-${p.slug}"><i class="fas ${statusClass === 'installed' ? 'fa-check-circle' : (statusClass === 'pending' ? 'fa-clock' : 'fa-bookmark')}"></i> ${statusText}</span>
+                    <div class="library-meta-grid">
+                        <div class="library-meta">
+                            <div class="library-meta-k">Version</div>
+                            <div class="library-meta-v">v${metaVersion}</div>
+                        </div>
+                        <div class="library-meta">
+                            <div class="library-meta-k">Plataforma</div>
+                            <div class="library-meta-v">${installedPlatform === 'android' ? 'Android' : 'Windows'}</div>
+                        </div>
+                        <div class="library-meta" style="grid-column:1 / -1;">
+                            <div class="library-meta-k">Ultima release</div>
+                            <div class="library-meta-v">${installDate}</div>
+                        </div>
+                    </div>
                     ${updateBadgeHtml}
                     ${progressHtml}
                     ${actionsHtml}

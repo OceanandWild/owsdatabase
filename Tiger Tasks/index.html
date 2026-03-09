@@ -1043,6 +1043,29 @@
         border-color: var(--primary-orange);
         background: rgba(255, 140, 0, 0.1);
     }
+    .marker-tool-wrap {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .marker-mode-picker {
+        display: none;
+        border: 1px solid #d5d9de;
+        background: #fff;
+        border-radius: 8px;
+        padding: 6px 9px;
+        font-size: 12px;
+        color: #22303b;
+        min-width: 160px;
+    }
+    .marker-mode-picker.visible {
+        display: inline-flex;
+    }
+    .marker-mode-picker:focus {
+        outline: none;
+        border-color: var(--primary-orange);
+        box-shadow: 0 0 0 2px rgba(255, 140, 0, 0.2);
+    }
 
     .tool-action {
         padding: 8px 12px;
@@ -1334,6 +1357,88 @@
     }
     .editor-checklist-card button:hover {
         background: #d9f0dd;
+    }
+    .editor-highlights-panel {
+        position: sticky;
+        top: 8px;
+        z-index: 18;
+        margin: 0 0 12px;
+        background: rgba(255,255,255,.97);
+        border: 1px solid #e1d8b5;
+        border-radius: 12px;
+        box-shadow: 0 8px 20px rgba(0,0,0,.1);
+        overflow: hidden;
+    }
+    .editor-highlights-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 10px 12px;
+        background: linear-gradient(135deg, #7a4f00, #9a6b0e);
+        color: #fff9e8;
+    }
+    .editor-highlights-head strong {
+        font-size: 13px;
+        letter-spacing: .2px;
+    }
+    .editor-highlights-head .meta {
+        font-size: 12px;
+        opacity: .9;
+    }
+    .editor-highlights-list {
+        max-height: 220px;
+        overflow: auto;
+        padding: 8px 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .highlight-item-card {
+        border: 1px solid #ead9a8;
+        border-radius: 10px;
+        padding: 8px 10px;
+        background: #fffaf0;
+        font-size: 12px;
+        color: #4d3410;
+    }
+    .highlight-item-card .row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 5px;
+    }
+    .highlight-item-card .tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border: 1px solid #e8d4a6;
+        background: #fff3d8;
+        border-radius: 999px;
+        padding: 3px 8px;
+        font-size: 11px;
+    }
+    .highlight-item-card .swatch {
+        width: 11px;
+        height: 11px;
+        border-radius: 50%;
+        border: 1px solid rgba(0,0,0,.2);
+    }
+    .highlight-item-card button {
+        margin-top: 4px;
+        width: 100%;
+        border: 1px solid #d8c08a;
+        background: #f7e3b0;
+        color: #5b3f10;
+        border-radius: 8px;
+        padding: 6px 8px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 700;
+    }
+    .highlight-item-card button:hover {
+        background: #f2d995;
     }
 
     .paper {
@@ -2077,6 +2182,14 @@
 
 .chk-row:hover {
   background: #fff8f0;
+}
+.chk-row.highlight-important {
+  border-color: var(--chk-highlight-color, #f59e0b);
+  background: var(--chk-highlight-bg, rgba(245, 158, 11, 0.16));
+  box-shadow: 0 0 0 1px var(--chk-highlight-border, rgba(245, 158, 11, 0.45)), 0 4px 10px rgba(0,0,0,0.08);
+}
+.chk-row.highlight-important .chk-label-text {
+  font-weight: 700;
 }
 
 /* label editable */
@@ -3738,11 +3851,14 @@
             <div class="tool" data-tool="pen">
                 <i class="fas fa-pen"></i> Lapicera
             </div>
-            <div class="tool" data-tool="marker">
-                <i class="fas fa-highlighter"></i> Marcador
-            </div>
-            <div class="tool" data-tool="highlighter">
-                <i class="fas fa-brush"></i> Resaltador
+            <div class="marker-tool-wrap">
+                <div class="tool" data-tool="marker" id="markerToolBtn">
+                    <i class="fas fa-highlighter"></i> <span id="markerToolLabel">Marcador</span>
+                </div>
+                <select id="markerModeSelect" class="marker-mode-picker">
+                    <option value="marker">Marcador (texto)</option>
+                    <option value="highlighter">Resaltador (checklist)</option>
+                </select>
             </div>
             <div class="tool" data-tool="bullets">
                 <i class="fas fa-list-ul"></i> Viñetas
@@ -3844,6 +3960,13 @@
                     <button type="button" id="refreshChecklistRegistryBtn">Actualizar</button>
                 </div>
                 <div id="editorChecklistsList" class="editor-checklists-list"></div>
+            </div>
+            <div id="editorHighlightsPanel" class="editor-highlights-panel">
+                <div class="editor-highlights-head">
+                    <strong>Resaltador: Importantes</strong>
+                    <span id="editorHighlightsMeta" class="meta">0/1</span>
+                </div>
+                <div id="editorHighlightsList" class="editor-highlights-list"></div>
             </div>
             <div class="paper">
                 <div class="written-content" id="writtenContent">
@@ -4118,6 +4241,7 @@
     let tigrysBalance = 0;
     let tigerPlans = [];
     let tigerSubscription = null;
+    let markerMode = 'marker';
 
     function drawTigrysCoin(ctx, x, y, size) {
         ctx.save();
@@ -4640,6 +4764,115 @@ if (chkModeSel) {
         return Array.from(document.querySelectorAll('#writtenContent .chk-row'));
     }
 
+    function getHighlightLimitByPlan() {
+        const pid = String(tigerSubscription?.planId || '').toLowerCase();
+        if (pid.includes('alpha') || pid.includes('jungle')) return 7;
+        if (pid.includes('stripe')) return 4;
+        if (pid.includes('cub')) return 3;
+        return 1;
+    }
+
+    function ensureRowHighlightId(row) {
+        if (!row) return '';
+        if (!row.dataset.highlightId) {
+            row.dataset.highlightId = `imp-${Date.now()}-${Math.random().toString(16).slice(2, 7)}`;
+        }
+        return row.dataset.highlightId;
+    }
+
+    function applyRowHighlightVisual(row) {
+        if (!row) return;
+        const color = row.dataset.highlightColor || '#f59e0b';
+        row.style.setProperty('--chk-highlight-color', color);
+        row.style.setProperty('--chk-highlight-bg', hexToRgba(color, 0.16));
+        row.style.setProperty('--chk-highlight-border', hexToRgba(color, 0.45));
+        row.classList.add('highlight-important');
+        row.dataset.highlightImportant = '1';
+    }
+
+    function clearRowHighlightVisual(row) {
+        if (!row) return;
+        row.classList.remove('highlight-important');
+        row.style.removeProperty('--chk-highlight-color');
+        row.style.removeProperty('--chk-highlight-bg');
+        row.style.removeProperty('--chk-highlight-border');
+        delete row.dataset.highlightImportant;
+        delete row.dataset.highlightColor;
+        delete row.dataset.highlightId;
+    }
+
+    function normalizeHighlightRows() {
+        getEditorChecklistRows().forEach((row) => {
+            if (row.dataset.highlightImportant === '1') {
+                ensureRowHighlightId(row);
+                applyRowHighlightVisual(row);
+            }
+        });
+    }
+
+    function renderHighlighterPriorityPanel() {
+        const listEl = document.getElementById('editorHighlightsList');
+        const metaEl = document.getElementById('editorHighlightsMeta');
+        if (!listEl || !metaEl) return;
+
+        const rows = getEditorChecklistRows().filter((row) => row.dataset.highlightImportant === '1');
+        const limit = getHighlightLimitByPlan();
+        metaEl.textContent = `${rows.length}/${limit}`;
+
+        if (!rows.length) {
+            listEl.innerHTML = '<div class="highlight-item-card">No hay elementos priorizados por el Resaltador.</div>';
+            return;
+        }
+
+        listEl.innerHTML = '';
+        rows.forEach((row, index) => {
+            const key = ensureRowHighlightId(row);
+            const text = row.querySelector('.chk-label-text')?.textContent?.trim() || `Ítem ${index + 1}`;
+            const color = row.dataset.highlightColor || '#f59e0b';
+            const card = document.createElement('div');
+            card.className = 'highlight-item-card';
+            card.innerHTML = `
+                <div class="row">
+                    <strong>${text}</strong>
+                    <span class="tag"><span class="swatch" style="background:${color};"></span>Importante</span>
+                </div>
+                <button type="button" data-highlight-remove="${key}">Quitar resaltado</button>
+            `;
+            listEl.appendChild(card);
+        });
+
+        listEl.querySelectorAll('button[data-highlight-remove]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const target = document.querySelector(`#writtenContent .chk-row[data-highlight-id="${btn.dataset.highlightRemove}"]`);
+                if (!target) return;
+                clearRowHighlightVisual(target);
+                renderHighlighterPriorityPanel();
+                recordEditorSnapshot();
+            });
+        });
+    }
+
+    function toggleChecklistRowHighlight(row) {
+        if (!row) return;
+        if (row.dataset.highlightImportant === '1') {
+            clearRowHighlightVisual(row);
+            renderHighlighterPriorityPanel();
+            recordEditorSnapshot();
+            return;
+        }
+        const highlightedRows = getEditorChecklistRows().filter((item) => item.dataset.highlightImportant === '1');
+        const limit = getHighlightLimitByPlan();
+        if (highlightedRows.length >= limit) {
+            showAlert('warning', `Límite del plan alcanzado: ${limit} objeto(s) importante(s).`);
+            return;
+        }
+        ensureRowHighlightId(row);
+        row.dataset.highlightColor = currentColor || '#f59e0b';
+        applyRowHighlightVisual(row);
+        renderHighlighterPriorityPanel();
+        recordEditorSnapshot();
+    }
+
     function ensureChecklistContainerId(container) {
         if (!container) return '';
         if (!container.id) {
@@ -4670,6 +4903,7 @@ if (chkModeSel) {
             empty.className = 'editor-checklist-card';
             empty.textContent = 'No hay checklists en esta lista todavía.';
             listEl.appendChild(empty);
+            renderHighlighterPriorityPanel();
             return;
         }
         data.forEach((entry) => {
@@ -4687,6 +4921,7 @@ if (chkModeSel) {
                 openChecklistPickerModal(btn.dataset.pickId || '');
             });
         });
+        renderHighlighterPriorityPanel();
     }
 
     function populateChecklistPickerOptions() {
@@ -5365,7 +5600,9 @@ function flashCopy() {
         wc.innerHTML = snapshot || '';
         restoreCheckboxStatesFromHTML();
         reattachCheckboxEventListeners();
+        normalizeHighlightRows();
         historySuspend = false;
+        renderHighlighterPriorityPanel();
     }
 
     function undoEditorChange() {
@@ -5437,6 +5674,7 @@ function flashCopy() {
             timer = setTimeout(() => {
                 recordEditorSnapshot();
                 renderChecklistRegistryPanel();
+                renderHighlighterPriorityPanel();
             }, 250);
         });
         historyObserver.observe(wc, { childList: true, subtree: true, characterData: true, attributes: true });
@@ -5461,14 +5699,42 @@ function flashCopy() {
         setTimeout(() => box.classList.remove('visible'), 3500);
     }
 
+    function updateMarkerToolModeUI() {
+        const modeSelect = document.getElementById('markerModeSelect');
+        const label = document.getElementById('markerToolLabel');
+        if (!modeSelect) return;
+        markerMode = modeSelect.value === 'highlighter' ? 'highlighter' : 'marker';
+        if (label) label.textContent = markerMode === 'highlighter' ? 'Resaltador' : 'Marcador';
+        modeSelect.classList.toggle('visible', currentTool === 'marker' || currentTool === 'highlighter');
+    }
+
+    function getResolvedMarkerMode() {
+        const modeSelect = document.getElementById('markerModeSelect');
+        if (!modeSelect) return markerMode;
+        markerMode = modeSelect.value === 'highlighter' ? 'highlighter' : 'marker';
+        return markerMode;
+    }
+
     function setActiveEditorTool(toolName) {
         document.querySelectorAll('.tool').forEach((t) => t.classList.remove('active'));
-        const target = document.querySelector(`.tool[data-tool="${toolName}"]`);
-        if (target) target.classList.add('active');
-        currentTool = toolName;
-        if (['pen', 'marker', 'highlighter', 'bullets', 'numbered', 'checklist'].includes(toolName)) {
-            currentTextType = toolName;
+        const modeSelect = document.getElementById('markerModeSelect');
+        if (modeSelect && (toolName === 'highlighter' || toolName === 'marker')) {
+            modeSelect.value = toolName === 'highlighter' ? 'highlighter' : modeSelect.value;
+            markerMode = modeSelect.value === 'highlighter' ? 'highlighter' : 'marker';
         }
+        const resolvedTool = toolName === 'highlighter' ? 'marker' : toolName;
+        const target = document.querySelector(`.tool[data-tool="${resolvedTool}"]`);
+        if (target) target.classList.add('active');
+        if (resolvedTool === 'marker') {
+            currentTool = getResolvedMarkerMode();
+            currentTextType = currentTool;
+        } else {
+            currentTool = toolName;
+            if (['pen', 'marker', 'highlighter', 'bullets', 'numbered', 'checklist'].includes(toolName)) {
+                currentTextType = toolName;
+            }
+        }
+        updateMarkerToolModeUI();
     }
 
     async function activateEditorTool(toolName, source = 'manual') {
@@ -5531,7 +5797,7 @@ function flashCopy() {
     }
 
     async function openZenAiDispatcher() {
-        const raw = prompt('IA Zen: escribe la herramienta a invocar (pen, marker, bullets, numbered, checklist, ai, eraser).');
+        const raw = prompt('IA Zen: escribe la herramienta a invocar (pen, marker, highlighter, bullets, numbered, checklist, ai, eraser).');
         if (raw === null) return;
         await activateEditorTool(raw, 'ai-shortcut');
     }
@@ -5572,12 +5838,29 @@ function flashCopy() {
     // Configurar el editor - COMPLETAMENTE REDISEÑADO
     function setupEditor() {
         setupZenModeControls();
+        const markerModeSelect = document.getElementById('markerModeSelect');
+        if (markerModeSelect) {
+            markerMode = markerModeSelect.value === 'highlighter' ? 'highlighter' : 'marker';
+            markerModeSelect.addEventListener('change', () => {
+                markerMode = markerModeSelect.value === 'highlighter' ? 'highlighter' : 'marker';
+                if (currentTool === 'marker' || currentTool === 'highlighter') {
+                    currentTool = markerMode;
+                    currentTextType = markerMode;
+                }
+                updateMarkerToolModeUI();
+            });
+        }
         // Herramientas
         document.querySelectorAll('.tool').forEach(tool => {
             tool.addEventListener('click', function() {
                 document.querySelectorAll('.tool').forEach(t => t.classList.remove('active'));
                 this.classList.add('active');
-                currentTool = this.dataset.tool;
+                const selected = this.dataset.tool;
+                if (selected === 'marker') {
+                    currentTool = getResolvedMarkerMode();
+                } else {
+                    currentTool = selected;
+                }
                 
                 // Si es una herramienta de texto, establecer el tipo actual
                 if (['pen', 'marker', 'highlighter', 'bullets', 'numbered'].includes(currentTool)) {
@@ -5587,10 +5870,10 @@ function flashCopy() {
                 if (currentTool === 'ai') {
                     openAIChat();
                 }
-
-                
+                updateMarkerToolModeUI();
             });
         });
+        updateMarkerToolModeUI();
         
         // Configurar búsqueda en el editor
         setupEditorSearch();
@@ -8569,6 +8852,7 @@ function askForSignature(container) {
             }
         }
         renderTigerPlans();
+        renderHighlighterPriorityPanel();
     }
 
     async function loadTigerWalletAndPlans() {
@@ -9149,6 +9433,7 @@ function openListEditor(listId) {
         
         // 4. RE-APLICAR EVENT LISTENERS
         reattachCheckboxEventListeners();
+        normalizeHighlightRows();
         
         writtenContent.querySelectorAll('.written-text, .list-item, .checklist-container')
                       .forEach(el => el.classList.add('fade-in-up'));
@@ -9232,6 +9517,7 @@ if (oldContainer && !oldContainer.querySelector('.chk-row')) {
     refreshTemplateUI();
     renderEditorLogs();
     renderChecklistRegistryPanel();
+    renderHighlighterPriorityPanel();
     startHistoryObserver();
     editorHistory = [];
     editorFuture = [];
@@ -9241,6 +9527,14 @@ if (oldContainer && !oldContainer.querySelector('.chk-row')) {
 /* ---------- 7. click sobre el papel (incluye borrador) ---------- */
 
 writtenContent.onclick = function (e) {
+    const checklistRow = e.target.closest('.chk-row');
+    if (checklistRow && currentTool === 'highlighter') {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleChecklistRowHighlight(checklistRow);
+        return;
+    }
+
     /* si clickeaste DENTRO de un label editable → no abrir modal */
     if (e.target.classList.contains('chk-label')) return;
 
@@ -9256,7 +9550,7 @@ writtenContent.onclick = function (e) {
             askEraseElement(this);
             return;
         }
-        if (['pen','marker','highlighter','bullets','numbered'].includes(currentTool)) {
+        if (['pen','marker','bullets','numbered'].includes(currentTool)) {
             openTextInputModal();
         }
     }

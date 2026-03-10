@@ -53,6 +53,17 @@ console.log('Ã¢ËœÂÃ¯Â¸Â Usando Cloudinary (Hardcoded) para almacen
 
 const upload = multer({ storage });
 
+// WildWave avatar uploads (Cloudinary)
+const wildwaveAvatarStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'wildwave/avatars',
+    allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
+    transformation: [{ width: 512, height: 512, crop: 'fill', gravity: 'face' }]
+  },
+});
+const wildwaveAvatarUpload = multer({ storage: wildwaveAvatarStorage });
+
 // FunciÃƒÂ³n para generar ID ÃƒÂºnico de usuario (100 caracteres)
 function generateUserUniqueId() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -12588,9 +12599,11 @@ async function ensureWildXTables() {
       id SERIAL PRIMARY KEY,
       username TEXT UNIQUE NOT NULL,
       pwd_hash TEXT NOT NULL,
+      avatar_url TEXT,
       created_at TIMESTAMP DEFAULT NOW()
     )
   `);
+  await pool.query('ALTER TABLE wildx_users ADD COLUMN IF NOT EXISTS avatar_url TEXT');
 
   // Tabla principal de posts (con soporte para respuestas y likes)
   await pool.query(`
@@ -12874,13 +12887,13 @@ app.post('/wildwave/api/register', async (req, res) => {
 
     const hash = await bcrypt.hash(pwd, 10);
     const { rows } = await pool.query(
-      'INSERT INTO wildx_users (username, pwd_hash) VALUES ($1,$2) RETURNING id, username, created_at',
+      'INSERT INTO wildx_users (username, pwd_hash) VALUES ($1,$2) RETURNING id, username, avatar_url, created_at',
       [uname, hash]
     );
     const userRow = rows[0];
 
     const token = jwt.sign({ wid: userRow.id, un: userRow.username }, process.env.STUDIO_SECRET, { expiresIn: '7d' });
-    const user = { id: userRow.id, username: userRow.username, created_at: userRow.created_at, posts_count: 0 };
+    const user = { id: userRow.id, username: userRow.username, avatar_url: userRow.avatar_url || null, created_at: userRow.created_at, posts_count: 0 };
     res.json({ token, user });
   } catch (err) {
     if (err.code === '23505') {
@@ -12900,7 +12913,7 @@ app.post('/wildwave/api/login', async (req, res) => {
     const pwd = (password || '').toString();
     if (!uname || !pwd) return res.status(400).json({ error: 'Usuario y contraseÃƒÂ±a requeridos' });
 
-    const { rows } = await pool.query('SELECT id, username, pwd_hash, created_at FROM wildx_users WHERE username=$1', [uname]);
+    const { rows } = await pool.query('SELECT id, username, pwd_hash, avatar_url, created_at FROM wildx_users WHERE username=$1', [uname]);
     if (!rows.length) return res.status(401).json({ error: 'Credenciales incorrectas' });
     const ok = await bcrypt.compare(pwd, rows[0].pwd_hash);
     if (!ok) return res.status(401).json({ error: 'Credenciales incorrectas' });
@@ -12915,6 +12928,7 @@ app.post('/wildwave/api/login', async (req, res) => {
     const user = {
       id: rows[0].id,
       username: rows[0].username,
+      avatar_url: rows[0].avatar_url || null,
       created_at: rows[0].created_at,
       posts_count: postsCount
     };
@@ -12934,6 +12948,7 @@ app.get('/wildwave/api/me', async (req, res) => {
     const { rows } = await pool.query(
       `SELECT u.id,
               u.username,
+              u.avatar_url,
               u.created_at,
               COALESCE(p.posts_count, 0) AS posts_count,
               v.tier          AS verify_tier,
@@ -12980,6 +12995,38 @@ app.get('/wildwave/api/me', async (req, res) => {
     res.json(user);
   } catch (err) {
     console.error('Error en GET /wildwave/api/me:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Subir foto de perfil WildWave
+app.post('/wildwave/api/profile/avatar', wildwaveAvatarUpload.single('avatar'), async (req, res) => {
+  try {
+    await ensureWildXTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Token requerido' });
+    if (!req.file) return res.status(400).json({ error: 'Imagen requerida' });
+    const url = req.file.path || req.file.secure_url;
+    if (!url) return res.status(500).json({ error: 'No se pudo guardar la imagen' });
+
+    await pool.query('UPDATE wildx_users SET avatar_url = $1 WHERE id = $2', [url, wid]);
+    res.json({ success: true, avatar_url: url });
+  } catch (err) {
+    console.error('Error en POST /wildwave/api/profile/avatar:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Quitar foto de perfil WildWave
+app.delete('/wildwave/api/profile/avatar', async (req, res) => {
+  try {
+    await ensureWildXTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Token requerido' });
+    await pool.query('UPDATE wildx_users SET avatar_url = NULL WHERE id = $1', [wid]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error en DELETE /wildwave/api/profile/avatar:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
@@ -13034,9 +13081,11 @@ async function selectPromotedPost() {
   const { rows: posts } = await pool.query(
     `SELECT p.id, p.user_id, p.username, p.content, p.created_at, p.parent_id,
             p.likes_count,
+            u.avatar_url,
             v.tier AS verify_tier,
             v.badge_color AS verify_badge_color
        FROM wildx_posts p
+       LEFT JOIN wildx_users u ON u.id = p.user_id
        LEFT JOIN LATERAL (
          SELECT tier, badge_color
            FROM wildx_verifications
@@ -13067,10 +13116,12 @@ app.get('/wildwave/api/posts', async (req, res) => {
     const postsPromise = pool.query(
       `SELECT p.id, p.user_id, p.username, p.content, p.created_at, p.parent_id,
               p.likes_count,
+              u.avatar_url,
               (l.user_id IS NOT NULL) AS liked,
               v.tier AS verify_tier,
             v.badge_color AS verify_badge_color
          FROM wildx_posts p
+         LEFT JOIN wildx_users u ON u.id = p.user_id
          LEFT JOIN wildx_likes l
            ON l.post_id = p.id AND l.user_id = $1
          LEFT JOIN LATERAL (
@@ -13112,10 +13163,12 @@ app.get('/wildwave/api/my-posts', async (req, res) => {
     const { rows } = await pool.query(
       `SELECT p.id, p.user_id, p.username, p.content, p.created_at, p.parent_id,
               p.likes_count,
+              u.avatar_url,
               (l.user_id IS NOT NULL) AS liked,
               v.tier AS verify_tier,
             v.badge_color AS verify_badge_color
          FROM wildx_posts p
+         LEFT JOIN wildx_users u ON u.id = p.user_id
          LEFT JOIN wildx_likes l
            ON l.post_id = p.id AND l.user_id = $1
          LEFT JOIN LATERAL (
@@ -14399,10 +14452,12 @@ app.get('/wildwave/api/posts/:id/thread', async (req, res) => {
        )
        SELECT t.id, t.user_id, t.username, t.content, t.created_at, t.parent_id,
               t.likes_count,
+              u.avatar_url,
               (l.user_id IS NOT NULL) AS liked,
               v.tier AS verify_tier,
             v.badge_color AS verify_badge_color
          FROM thread t
+         LEFT JOIN wildx_users u ON u.id = t.user_id
          LEFT JOIN wildx_likes l
            ON l.post_id = t.id AND l.user_id = $2
          LEFT JOIN LATERAL (

@@ -1,0 +1,44 @@
+{
+  "name": "ows-nexus-store",
+  "version": "2026.3.10-t0640",
+  "description": "OWS Nexus Store - Central Studio Hub",
+  "main": "main.js",
+  "author": "Ocean and Wild Studios",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "dependencies": {
+    "electron-updater": "^6.1.7"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1"
+  },
+  "build": {
+    "appId": "com.oceanwildstudios.nexusstore",
+    "productName": "OWS Nexus Store",
+    "directories": {
+      "buildResources": "build",
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "index.html",
+      "build/**/*"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "build/icon.ico"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "OceanandWild",
+      "repo": "owsdatabase"
+    }
+  }
+}

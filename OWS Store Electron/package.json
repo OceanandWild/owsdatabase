@@ -1,7 +1,7 @@
 {
-  "name": "ows-nexus-store",
-  "version": "2026.3.10-t0640",
-  "description": "OWS Nexus Store - Central Studio Hub",
+  "name": "ows-store",
+  "version": "2026.3.10-t0750",
+  "description": "OWS Store - Central Studio Hub",
   "main": "main.js",
   "author": "Ocean and Wild Studios",
   "license": "MIT",
@@ -18,7 +18,8 @@
   },
   "build": {
     "appId": "com.oceanwildstudios.nexusstore",
-    "productName": "OWS Nexus Store",
+    "detectUpdateChannel": false,
+    "productName": "OWS Store",
     "directories": {
       "buildResources": "build",
       "output": "dist"
@@ -33,12 +34,23 @@
       "target": [
         "nsis"
       ],
+      "executableName": "OWS Store",
       "icon": "build/icon.ico"
     },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "include": "build/installer.nsh",
+      "artifactName": "OWS.Store.Setup.${version}.exe",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "OWS Store"
+    },
     "publish": {
-      "provider": "github",
-      "owner": "OceanandWild",
-      "repo": "owsdatabase"
+      "provider": "generic",
+      "url": "https://github.com/OceanandWild/owsdatabase/releases/latest/download"
     }
   }
 }

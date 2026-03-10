@@ -6428,6 +6428,117 @@ app.post('/ows-news/updates', async (req, res) => {
   }
 });
 
+// Update parcial de OWS News por id (admin)
+app.patch('/ows-news/updates/:id', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const id = String(req.params.id || '').trim();
+  if (!id) return res.status(400).json({ error: 'id requerido' });
+
+  const payload = req.body || {};
+  const updates = [];
+  const values = [];
+  const pushUpdate = (field, value) => {
+    updates.push(`${field} = $${values.length + 1}`);
+    values.push(value);
+  };
+
+  if (payload.title !== undefined) {
+    const title = String(payload.title || '').trim();
+    if (!title) return res.status(400).json({ error: 'title requerido' });
+    pushUpdate('title', title);
+  }
+
+  if (payload.project_names !== undefined || payload.projectNames !== undefined) {
+    const projectNames = toNewsArray(payload.project_names || payload.projectNames || []);
+    pushUpdate('project_names', projectNames);
+  }
+
+  if (payload.description !== undefined) {
+    const description = String(payload.description || '').trim() || null;
+    pushUpdate('description', description);
+  }
+
+  if (payload.changes !== undefined) {
+    const changes = toNewsArray(payload.changes || []);
+    pushUpdate('changes', changes.join('\n'));
+  }
+
+  if (payload.entry_type !== undefined || payload.entryType !== undefined) {
+    const entryType = String(payload.entry_type || payload.entryType || 'changelog').trim().toLowerCase();
+    pushUpdate('entry_type', entryType);
+  }
+
+  if (payload.platforms !== undefined) {
+    const platforms = toNewsArray(payload.platforms || [])
+      .map((x) => String(x || '').toLowerCase())
+      .filter(Boolean);
+    pushUpdate('platforms', platforms);
+  }
+
+  if (payload.model_2d_key !== undefined || payload.model2dKey !== undefined) {
+    const model2dKey = String(payload.model_2d_key || payload.model2dKey || '').trim() || null;
+    pushUpdate('model_2d_key', model2dKey);
+  }
+
+  if (payload.model_2d_payload !== undefined || payload.model2d !== undefined) {
+    const model2dPayload = (payload.model_2d_payload && typeof payload.model_2d_payload === 'object')
+      ? payload.model_2d_payload
+      : ((payload.model2d && typeof payload.model2d === 'object') ? payload.model2d : {});
+    pushUpdate('model_2d_payload', model2dPayload);
+  }
+
+  if (payload.banner_meta !== undefined || payload.bannerMeta !== undefined) {
+    const bannerMeta = (payload.banner_meta && typeof payload.banner_meta === 'object')
+      ? payload.banner_meta
+      : ((payload.bannerMeta && typeof payload.bannerMeta === 'object') ? payload.bannerMeta : {});
+    pushUpdate('banner_meta', bannerMeta);
+  }
+
+  if (payload.is_active !== undefined || payload.isActive !== undefined) {
+    const isActive = normalizeNewsBoolean(payload.is_active ?? payload.isActive, true);
+    pushUpdate('is_active', isActive);
+  }
+
+  if (payload.priority !== undefined) {
+    const priority = normalizeNewsNumber(payload.priority, 0);
+    pushUpdate('priority', priority);
+  }
+
+  if (payload.update_date !== undefined || payload.updateDate !== undefined) {
+    const updateDate = payload.update_date || payload.updateDate || null;
+    pushUpdate('update_date', updateDate);
+  }
+
+  if (payload.event_start !== undefined || payload.eventStart !== undefined) {
+    const eventStart = payload.event_start || payload.eventStart || null;
+    pushUpdate('event_start', eventStart);
+  }
+
+  if (payload.event_end !== undefined || payload.eventEnd !== undefined) {
+    const eventEnd = payload.event_end || payload.eventEnd || null;
+    pushUpdate('event_end', eventEnd);
+  }
+
+  if (!updates.length) {
+    return res.status(400).json({ error: 'Sin cambios para aplicar' });
+  }
+
+  try {
+    const { rows } = await pool.query(
+      `UPDATE ows_news_updates
+       SET ${updates.join(', ')}
+       WHERE id = $${values.length + 1}
+       RETURNING *`,
+      [...values, id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Update no encontrado' });
+    return res.json({ success: true, update: normalizeOwsNewsRow(rows[0]) });
+  } catch (err) {
+    console.error('Error en PATCH /ows-news/updates/:id:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 // Proxy GitHub para evitar limites/CORS en cliente
 app.get('/ows-store/github/repos/:owner/:repo', githubProxyHandler);
 app.get('/ows-store/github/repos/:owner/:repo/*', githubProxyHandler);

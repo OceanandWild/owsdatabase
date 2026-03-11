@@ -12817,7 +12817,6 @@ const WILDWAVE_DISPLAY_NAME_MAX = 32;
 const WILDWAVE_RESERVED_USERNAMES = new Set([
   'admin',
   'administrator',
-  'wildwave',
   'wildx',
   'support',
   'help',

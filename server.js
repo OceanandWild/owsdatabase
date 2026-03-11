@@ -14853,9 +14853,10 @@ app.post('/wildwave/api/posts', async (req, res) => {
       }
     }
 
+    const imagesJson = JSON.stringify(images);
     const { rows } = await pool.query(
       'INSERT INTO wildx_posts (user_id, username, content, images, parent_id, scheduled_at, status) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id, user_id, username, content, images, created_at, parent_id, likes_count, scheduled_at, status',
-      [wid, uname, content, images, parentId, scheduledAt, status]
+      [wid, uname, content, imagesJson, parentId, scheduledAt, status]
     );
     const post = rows[0];
     if (collabUsers.length) {

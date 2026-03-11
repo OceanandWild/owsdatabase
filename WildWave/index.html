@@ -3008,7 +3008,7 @@
         }
       }
 
-      function switchAccountByKey(key) {
+      async function switchAccountByKey(key) {
         const accounts = readAccounts();
         const chosen = accounts.find(acc => accountKey(acc) === String(key || '').toLowerCase());
         if (!chosen) return;
@@ -3023,6 +3023,12 @@
           posts_count: chosen.posts_count
         };
         setLoggedIn(user, chosen.token);
+        setStatus('Cambiando a @' + (chosen.username || 'usuario') + '...', 'info');
+        const opToken = localStorage.getItem('opToken');
+        if (opToken) {
+          await linkOceanPayToWildWave(opToken);
+        }
+        await reloadMe();
         setStatus('Cuenta activa: @' + (chosen.username || 'usuario'), 'info');
         fetchExplore();
         if (currentTab === 'profile') {
@@ -5190,11 +5196,11 @@ function getMaxChars() {
       }
 
       if ($accountSelect) {
-        $accountSelect.addEventListener('change', () => {
+        $accountSelect.addEventListener('change', async () => {
           const key = $accountSelect.value;
           if (!key) return;
           if (currentUser && accountKey(currentUser) === key) return;
-          switchAccountByKey(key);
+          await switchAccountByKey(key);
         });
       }
 

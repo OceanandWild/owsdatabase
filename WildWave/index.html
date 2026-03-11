@@ -7,16 +7,26 @@
     <link rel="icon" type="image/x-icon" href="./build/icon.ico" />
     <link rel="icon" type="image/png" href="./build/icon.png" />
     <style>
+      @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
       :root {
-        --bg: #020617;
-        --bg-soft: #020617;
-        --card: #020617;
-        --accent: #0ea5e9;
-        --accent-soft: rgba(56,189,248,0.16);
+        --bg: #02040f;
+        --bg-soft: #0b1224;
+        --card: rgba(10, 18, 35, 0.88);
+        --card-strong: rgba(11, 19, 38, 0.96);
+        --stroke: rgba(148, 163, 184, 0.18);
+        --accent: #22d3ee;
+        --accent-strong: #0ea5e9;
+        --accent-soft: rgba(34, 211, 238, 0.16);
+        --accent-glow: rgba(34, 211, 238, 0.35);
         --text: #e5e7eb;
-        --text-soft: #9ca3af;
+        --text-soft: #9aa6bf;
+        --text-faint: #64748b;
         --danger: #ef4444;
+        --success: #22c55e;
         --ww-brand-icon: url('./build/icon.png');
+        --font-display: 'Space Grotesk', 'Trebuchet MS', sans-serif;
+        --font-body: 'Manrope', 'Segoe UI', sans-serif;
       }
 
       * {
@@ -26,17 +36,49 @@
       body {
         margin: 0;
         min-height: 100vh;
-        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        background: radial-gradient(circle at top left,#0f172a,#020617 45%,#020617 100%);
+        font-family: var(--font-body);
+        background:
+          radial-gradient(circle at 12% 20%, rgba(34, 211, 238, 0.22), transparent 45%),
+          radial-gradient(circle at 85% 10%, rgba(14, 165, 233, 0.18), transparent 40%),
+          radial-gradient(circle at 70% 80%, rgba(56, 189, 248, 0.18), transparent 50%),
+          linear-gradient(180deg, #050916 0%, #02040f 60%, #030816 100%);
         color: var(--text);
         display: flex;
         justify-content: center;
+        position: relative;
+        overflow-x: hidden;
+      }
+
+      body::before,
+      body::after {
+        content: '';
+        position: fixed;
+        width: 38vw;
+        height: 38vw;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(34, 211, 238, 0.12), transparent 65%);
+        opacity: 0.55;
+        z-index: 0;
+        pointer-events: none;
+      }
+
+      body::before {
+        top: -12vw;
+        left: -10vw;
+      }
+
+      body::after {
+        bottom: -14vw;
+        right: -10vw;
+        background: radial-gradient(circle, rgba(14, 165, 233, 0.16), transparent 65%);
       }
 
       .wx-shell {
         width: 100%;
-        max-width: 960px;
-        padding: 16px 12px 32px;
+        max-width: 1040px;
+        padding: 20px 16px 40px;
+        position: relative;
+        z-index: 1;
       }
 
       .wx-header {
@@ -495,6 +537,7 @@
         display: flex;
         align-items: center;
         gap: 6px;
+        flex-wrap: wrap;
         font-size: 0.78rem;
         color: var(--text-soft);
         margin-bottom: 3px;
@@ -503,6 +546,11 @@
       .wx-handle {
         font-weight: 600;
         color: #e5e7eb;
+      }
+
+      .wx-display-name {
+        font-weight: 600;
+        color: var(--text);
       }
 
       .wx-dot {
@@ -704,8 +752,8 @@
 
       .wx-profile-name {
         display: flex;
-        align-items: baseline;
-        gap: 6px;
+        align-items: center;
+        gap: 8px;
         margin-bottom: 4px;
       }
 
@@ -714,9 +762,107 @@
         font-size: 1.1rem;
       }
 
+      .wx-profile-name-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .wx-profile-display {
+        font-size: 1.15rem;
+        font-weight: 600;
+        color: var(--text);
+      }
+
       .wx-profile-handle {
         font-size: 0.9rem;
         color: var(--text-soft);
+      }
+
+      .wx-profile-identity {
+        display: grid;
+        gap: 12px;
+        margin-top: 6px;
+      }
+
+      .wx-profile-field {
+        display: grid;
+        gap: 6px;
+      }
+
+      .wx-profile-field label {
+        font-size: 0.78rem;
+        color: var(--text-soft);
+        font-weight: 600;
+      }
+
+      .wx-profile-field input,
+      .wx-profile-field textarea {
+        background: rgba(15,23,42,0.92);
+        border: 1px solid rgba(148,163,184,0.5);
+        border-radius: 10px;
+        padding: 8px 10px;
+        color: var(--text);
+        font-size: 0.9rem;
+        outline: none;
+      }
+
+      .wx-profile-field small {
+        font-size: 0.72rem;
+        color: var(--text-faint);
+      }
+
+      .wx-handle-input {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .wx-handle-input span {
+        font-weight: 600;
+        color: var(--text-faint);
+      }
+
+      .wx-handle-input input {
+        flex: 1;
+      }
+
+      .wx-admin-gold-form {
+        display: grid;
+        gap: 8px;
+      }
+
+      .wx-admin-gold-form label {
+        font-size: 0.78rem;
+        color: var(--text-soft);
+        font-weight: 600;
+      }
+
+      .wx-admin-gold-form input,
+      .wx-admin-gold-form textarea {
+        background: rgba(15,23,42,0.92);
+        border: 1px solid rgba(148,163,184,0.5);
+        border-radius: 10px;
+        padding: 8px 10px;
+        color: var(--text);
+        font-size: 0.85rem;
+      }
+
+      .wx-admin-gold-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .wx-admin-gold-row input {
+        flex: 1 1 140px;
+      }
+
+      @media (min-width: 900px) {
+        .wx-profile-identity {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
       }
 
       .wx-profile-meta-row {
@@ -907,6 +1053,37 @@
         display: flex;
         flex-wrap: wrap;
         gap: 6px;
+      }
+
+      .wx-account-switcher {
+        margin-top: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        font-size: 0.8rem;
+        color: var(--text-soft);
+      }
+
+      .wx-account-controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .wx-account-select {
+        min-width: 180px;
+        border-radius: 999px;
+        border: 1px solid rgba(148,163,184,0.5);
+        background: rgba(15,23,42,0.95);
+        color: var(--text);
+        padding: 6px 12px;
+        font-size: 0.8rem;
+      }
+
+      .wx-account-select:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
       }
 
       .wx-gold-requests-list {
@@ -1111,18 +1288,20 @@
       body::before {
         content: '';
         position: fixed;
-        inset: 0;
-        pointer-events: none;
-        background:
-          radial-gradient(circle at 8% 12%, rgba(56,189,248,0.14), transparent 42%),
-          radial-gradient(circle at 86% 6%, rgba(14,165,233,0.12), transparent 34%),
-          radial-gradient(circle at 80% 86%, rgba(59,130,246,0.1), transparent 38%);
+        width: 38vw;
+        height: 38vw;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(34, 211, 238, 0.12), transparent 65%);
+        opacity: 0.55;
         z-index: 0;
+        pointer-events: none;
+        top: -12vw;
+        left: -10vw;
       }
 
       .wx-shell {
-        max-width: 1220px;
-        padding: 18px 16px 36px;
+        max-width: 1120px;
+        padding: 22px 18px 40px;
         position: relative;
         z-index: 1;
       }
@@ -1132,14 +1311,14 @@
         top: 10px;
         z-index: 25;
         margin-bottom: 16px;
-        border-color: rgba(56, 189, 248, 0.32);
+        border-color: rgba(34, 211, 238, 0.28);
         box-shadow: 0 20px 44px rgba(2, 6, 23, 0.82);
       }
 
       .wx-layout {
         display: grid;
-        grid-template-columns: 300px minmax(0, 1fr);
-        gap: 16px;
+        grid-template-columns: minmax(0, 280px) minmax(0, 1fr);
+        gap: 18px;
         align-items: start;
       }
 
@@ -1230,6 +1409,649 @@
         color: #f0f9ff;
       }
 
+      @keyframes floatIn {
+        from {
+          opacity: 0;
+          transform: translateY(12px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      h1,
+      h2,
+      h3 {
+        font-family: var(--font-display);
+        letter-spacing: -0.02em;
+      }
+
+      .wx-header {
+        background: linear-gradient(135deg, rgba(34, 211, 238, 0.16), rgba(7, 13, 28, 0.92));
+        border: 1px solid rgba(34, 211, 238, 0.22);
+        box-shadow: 0 22px 50px rgba(2, 6, 23, 0.7);
+        backdrop-filter: blur(22px);
+      }
+
+      .wx-header h1 {
+        font-family: var(--font-display);
+      }
+
+      .wx-header-tag {
+        color: var(--text-faint);
+      }
+
+      .wx-nav {
+        background: rgba(5, 11, 26, 0.92);
+        border: 1px solid rgba(34, 211, 238, 0.2);
+        box-shadow: inset 0 0 0 1px rgba(2, 6, 23, 0.6);
+      }
+
+      .wx-tab {
+        font-family: var(--font-display);
+        font-size: 0.78rem;
+        letter-spacing: 0.02em;
+      }
+
+      .wx-tab--active {
+        background: linear-gradient(135deg, rgba(34, 211, 238, 0.28), rgba(14, 165, 233, 0.18));
+        box-shadow: inset 0 0 0 1px rgba(34, 211, 238, 0.35);
+      }
+
+      .wx-card {
+        background: var(--card);
+        border: 1px solid var(--stroke);
+        box-shadow: 0 18px 40px rgba(2, 6, 23, 0.7), inset 0 0 0 1px rgba(148, 163, 184, 0.08);
+        backdrop-filter: blur(18px);
+        animation: floatIn 0.5s ease;
+      }
+
+      .wx-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 280px) minmax(0, 1fr);
+        gap: 18px;
+        align-items: start;
+        min-width: 0;
+      }
+
+      .wx-side-card {
+        background: rgba(8, 15, 32, 0.88);
+        border: 1px solid rgba(148, 163, 184, 0.22);
+      }
+
+      .wx-main {
+        min-width: 0;
+      }
+
+      .wx-layout--focus {
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .wx-layout--focus .wx-side {
+        display: none;
+      }
+
+      .wx-layout--focus .wx-main {
+        width: 100%;
+        max-width: 980px;
+        margin: 0 auto;
+      }
+
+      .wx-side-card h3 {
+        font-family: var(--font-display);
+        font-size: 0.92rem;
+      }
+
+      .wx-btn {
+        font-family: var(--font-display);
+      }
+
+      .wx-btn--outline {
+        border-color: rgba(148, 163, 184, 0.4);
+        background: rgba(6, 12, 28, 0.5);
+      }
+
+      .wx-avatar {
+        --wx-avatar-image: var(--ww-brand-icon);
+        background-image: var(--wx-avatar-image), radial-gradient(circle at 30% 20%, #22d3ee, #0ea5e9 60%, #0369a1);
+        border: 2px solid rgba(34, 211, 238, 0.22);
+        box-shadow: 0 10px 20px rgba(2, 6, 23, 0.65);
+      }
+
+      .wx-avatar--profile {
+        width: 86px;
+        height: 86px;
+      }
+
+      .wx-avatar--composer {
+        width: 42px;
+        height: 42px;
+      }
+
+      .wx-avatar--custom {
+        border-color: rgba(34, 211, 238, 0.55);
+        box-shadow: 0 12px 30px rgba(34, 211, 238, 0.25);
+      }
+
+      .wx-explore {
+        padding: 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .wx-explore-hero {
+        display: flex;
+        justify-content: space-between;
+        gap: 18px;
+        align-items: flex-start;
+      }
+
+      .wx-explore-kicker {
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+        font-size: 0.68rem;
+        color: var(--text-faint);
+        margin-bottom: 6px;
+      }
+
+      .wx-explore-title {
+        margin: 0;
+        font-size: 1.35rem;
+      }
+
+      .wx-explore-subtitle {
+        margin: 6px 0 0;
+        color: var(--text-soft);
+        font-size: 0.9rem;
+        max-width: 440px;
+      }
+
+      .wx-explore-metrics {
+        display: grid;
+        gap: 10px;
+        min-width: 180px;
+      }
+
+      .wx-explore-metric {
+        background: rgba(8, 15, 32, 0.7);
+        border-radius: 12px;
+        padding: 10px 12px;
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        font-size: 0.78rem;
+        color: var(--text-soft);
+      }
+
+      .wx-explore-metric strong {
+        font-size: 1.1rem;
+        color: var(--text);
+      }
+
+      .wx-explore-toolbar {
+        display: grid;
+        grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto;
+        gap: 12px;
+        align-items: center;
+      }
+
+      .wx-explore-search {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        font-size: 0.72rem;
+        color: var(--text-faint);
+      }
+
+      .wx-explore-search input {
+        border-radius: 12px;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        background: rgba(6, 12, 28, 0.75);
+        color: var(--text);
+        padding: 10px 12px;
+        font-size: 0.85rem;
+        outline: none;
+      }
+
+      .wx-explore-search input:focus {
+        border-color: rgba(34, 211, 238, 0.6);
+        box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.12);
+      }
+
+      .wx-explore-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .wx-chip {
+        border-radius: 999px;
+        border: 1px solid rgba(34, 211, 238, 0.35);
+        background: rgba(6, 12, 28, 0.6);
+        color: var(--text);
+        font-size: 0.75rem;
+        padding: 6px 12px;
+        cursor: pointer;
+      }
+
+      .wx-chip:hover {
+        border-color: rgba(34, 211, 238, 0.7);
+        color: #e0f2fe;
+      }
+
+      .wx-explore-actions {
+        display: flex;
+        justify-content: flex-end;
+      }
+
+      .wx-explore-active {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.78rem;
+        color: var(--text-soft);
+      }
+
+      .wx-explore-active strong {
+        color: var(--text);
+      }
+
+      .wx-new {
+        padding: 16px;
+        gap: 12px;
+      }
+
+      .wx-collab-input {
+        margin-top: 6px;
+        display: grid;
+        gap: 6px;
+        font-size: 0.75rem;
+        color: var(--text-faint);
+      }
+
+      .wx-collab-input input {
+        border-radius: 12px;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        background: rgba(6, 12, 28, 0.75);
+        color: var(--text);
+        padding: 8px 10px;
+        font-size: 0.82rem;
+        outline: none;
+      }
+
+      .wx-collab-input input:focus {
+        border-color: rgba(34, 211, 238, 0.6);
+        box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.12);
+      }
+
+      .wx-collab-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.76rem;
+        color: var(--text-faint);
+        margin: 6px 0 2px;
+      }
+
+      .wx-collab-avatars {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        background: rgba(8, 15, 32, 0.7);
+        border-radius: 999px;
+        padding: 2px 6px;
+        cursor: pointer;
+      }
+
+      .wx-collab-avatar {
+        width: 24px;
+        height: 24px;
+        border-radius: 999px;
+        flex: 0 0 auto;
+      }
+
+      .wx-collab-count {
+        font-size: 0.68rem;
+        color: var(--text);
+        background: rgba(56, 189, 248, 0.18);
+        border-radius: 999px;
+        padding: 2px 6px;
+      }
+
+      .wx-collab-section {
+        display: grid;
+        gap: 8px;
+      }
+
+      .wx-collab-section-title {
+        margin: 6px 0 0;
+        font-size: 0.78rem;
+        color: var(--text-soft);
+      }
+
+      .wx-collab-list {
+        display: grid;
+        gap: 8px;
+      }
+
+      .wx-collab-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        border-radius: 12px;
+        padding: 8px 10px;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        background: rgba(8, 15, 32, 0.7);
+      }
+
+      .wx-collab-item-main {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+      }
+
+      .wx-collab-item-text {
+        display: grid;
+        gap: 2px;
+        min-width: 0;
+      }
+
+      .wx-collab-item-text strong {
+        font-size: 0.82rem;
+        color: var(--text);
+      }
+
+      .wx-collab-item-text span {
+        font-size: 0.74rem;
+        color: var(--text-faint);
+      }
+
+      .wx-collab-actions {
+        display: flex;
+        gap: 6px;
+      }
+
+      .wx-collab-empty {
+        font-size: 0.78rem;
+        color: var(--text-faint);
+      }
+
+      .wx-collab-modal-list {
+        display: grid;
+        gap: 10px;
+        padding: 8px 0 2px;
+      }
+
+      .wx-new-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .wx-new-title {
+        margin: 0;
+        font-size: 0.98rem;
+        font-family: var(--font-display);
+      }
+
+      .wx-new-subtitle {
+        margin: 2px 0 0;
+        color: var(--text-faint);
+        font-size: 0.78rem;
+      }
+
+      .wx-feed-title {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        padding: 4px 6px 10px;
+      }
+
+      .wx-feed-title h2 {
+        margin: 0;
+        font-size: 1.05rem;
+      }
+
+      .wx-feed-subtitle {
+        margin: 2px 0 0;
+        font-size: 0.78rem;
+        color: var(--text-faint);
+      }
+
+      .wx-feed-actions {
+        display: flex;
+        gap: 8px;
+      }
+
+      .wx-profile {
+        padding: 18px;
+        gap: 16px;
+      }
+
+      .wx-profile-hero {
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        gap: 18px;
+        align-items: center;
+      }
+
+      .wx-profile-hero-main {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .wx-profile-avatar-wrap {
+        position: relative;
+        display: grid;
+        place-items: center;
+      }
+
+      .wx-avatar-edit {
+        position: absolute;
+        bottom: -6px;
+        right: -6px;
+        background: rgba(6, 12, 28, 0.9);
+        color: var(--text);
+        font-size: 0.7rem;
+        padding: 4px 8px;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.4);
+        cursor: pointer;
+      }
+
+      .wx-profile-subtitle {
+        margin: 4px 0 0;
+        color: var(--text-faint);
+        font-size: 0.82rem;
+      }
+
+      .wx-profile-hero-meta {
+        display: grid;
+        gap: 10px;
+      }
+
+      .wx-profile-chip {
+        background: rgba(8, 15, 32, 0.75);
+        border-radius: 12px;
+        padding: 8px 12px;
+        border: 1px solid rgba(34, 211, 238, 0.2);
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        font-size: 0.72rem;
+        color: var(--text-faint);
+      }
+
+      .wx-profile-chip strong {
+        font-size: 1.05rem;
+        color: var(--text);
+      }
+
+      .wx-profile-upload {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 14px;
+        border-radius: 14px;
+        border: 1px dashed rgba(148, 163, 184, 0.4);
+        background: rgba(5, 10, 24, 0.65);
+      }
+
+      .wx-profile-upload-title {
+        margin: 0;
+        font-size: 0.88rem;
+      }
+
+      .wx-profile-upload-sub {
+        margin: 4px 0 0;
+        font-size: 0.75rem;
+        color: var(--text-faint);
+      }
+
+      .wx-profile-upload-actions {
+        display: flex;
+        gap: 8px;
+      }
+
+      .wx-profile-upload-status {
+        margin: 0;
+        font-size: 0.72rem;
+        color: var(--text-faint);
+      }
+
+      .wx-profile-layout {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 12px;
+      }
+
+      .wx-profile-group {
+        background: rgba(7, 13, 28, 0.88);
+        border: 1px solid rgba(148, 163, 184, 0.22);
+      }
+
+      .wx-subscription {
+        padding: 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+      }
+
+      .wx-subscription-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        align-items: flex-start;
+      }
+
+      .wx-subscription-kicker {
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+        font-size: 0.68rem;
+        color: var(--text-faint);
+        margin-bottom: 6px;
+      }
+
+      .wx-subscription-sub {
+        margin: 6px 0 0;
+        color: var(--text-soft);
+        font-size: 0.9rem;
+      }
+
+      .wx-subscription-status-card {
+        background: rgba(8, 15, 32, 0.85);
+        border-radius: 14px;
+        padding: 12px 14px;
+        border: 1px solid rgba(34, 211, 238, 0.2);
+        min-width: 200px;
+        display: grid;
+        gap: 8px;
+      }
+
+      .wx-subscription-status-card strong {
+        font-size: 0.92rem;
+      }
+
+      .wx-subscription-balance {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.78rem;
+        color: var(--text-soft);
+      }
+
+      .wx-subscription-body {
+        display: grid;
+        grid-template-columns: minmax(0, 1.4fr) minmax(0, 0.6fr);
+        gap: 16px;
+      }
+
+      .wx-subscription-side {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        align-self: start;
+      }
+
+      .wx-subscription-note {
+        font-size: 0.78rem;
+        color: var(--text-faint);
+        margin: 0;
+      }
+
+      .wx-verify-plans {
+        gap: 12px;
+      }
+
+      .wx-verify-plan-item {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        text-align: left;
+        padding: 14px;
+        border-radius: 14px;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        background: rgba(8, 15, 32, 0.85);
+      }
+
+      .wx-verify-plan-item h4 {
+        font-size: 1rem;
+      }
+
+      .wx-verify-plan-item--active {
+        border-color: rgba(34, 211, 238, 0.7);
+        box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.25), 0 18px 35px rgba(2, 6, 23, 0.6);
+      }
+
+      .wx-verify-plan-meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.75rem;
+        color: var(--text-faint);
+      }
+
+      .wx-verify-plan-price {
+        font-size: 0.95rem;
+        color: var(--text);
+        font-weight: 600;
+      }
+
+      .wx-verify-plan-perks {
+        display: grid;
+        gap: 6px;
+        font-size: 0.78rem;
+        color: var(--text-soft);
+      }
+
       @media (max-width: 900px) {
         .wx-layout {
           grid-template-columns: minmax(0, 1fr);
@@ -1238,6 +2060,40 @@
         .wx-side {
           position: static;
           top: auto;
+        }
+
+        .wx-explore-hero {
+          flex-direction: column;
+        }
+
+        .wx-explore-toolbar {
+          grid-template-columns: minmax(0, 1fr);
+        }
+
+        .wx-explore-actions {
+          justify-content: flex-start;
+        }
+
+        .wx-profile-hero {
+          grid-template-columns: minmax(0, 1fr);
+          justify-items: start;
+        }
+
+        .wx-profile-hero-meta {
+          grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        }
+
+        .wx-profile-upload {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .wx-subscription-header {
+          flex-direction: column;
+        }
+
+        .wx-subscription-body {
+          grid-template-columns: minmax(0, 1fr);
         }
 
         .wx-profile-layout {
@@ -1255,6 +2111,16 @@
         .wx-header {
           flex-wrap: wrap;
           row-gap: 8px;
+        }
+        .wx-feed-title {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+        .wx-profile-actions {
+          flex-wrap: wrap;
+        }
+        .wx-explore-metrics {
+          width: 100%;
         }
         .wx-side-grid {
           grid-template-columns: 1fr 1fr;
@@ -1341,11 +2207,18 @@
 
         <main class="wx-main">
           <section class="wx-card wx-profile" id="wx-user-card" hidden>
-            <div class="wx-profile-header">
-              <div class="wx-avatar wx-avatar--small"></div>
-              <div class="wx-profile-main">
+            <input type="file" id="wx-avatar-input" accept="image/*" hidden />
+            <div class="wx-profile-hero">
+              <div class="wx-profile-avatar-wrap">
+                <div class="wx-avatar wx-avatar--profile" id="wx-profile-avatar" aria-label="Foto de perfil"></div>
+                <label class="wx-avatar-edit" for="wx-avatar-input">Editar</label>
+              </div>
+              <div class="wx-profile-hero-main">
                 <div class="wx-profile-name">
-                  <h2 class="wx-profile-handle" id="wx-user-name">@usuario</h2>
+                  <div class="wx-profile-name-stack">
+                    <h2 class="wx-profile-display" id="wx-user-display">Nombre visible</h2>
+                    <h2 class="wx-profile-handle" id="wx-user-name">@usuario</h2>
+                  </div>
                   <div class="wx-verify-badge wx-verify-badge--blue" id="wx-verify-badge" hidden>
                     <span class="wx-verify-icon" id="wx-verify-icon-main">✓</span>
                     <div class="wx-verify-tooltip">
@@ -1356,44 +2229,99 @@
                     </div>
                   </div>
                 </div>
+                <p class="wx-profile-subtitle">Miembro desde <span id="wx-user-since">—</span></p>
+                <div class="wx-profile-actions">
+                  <button type="button" class="wx-btn wx-btn--outline" id="wx-open-verify-plans-btn">Planes de verificación</button>
+                  <button type="button" class="wx-btn wx-btn--outline" id="wx-connect-op-btn">Conectar Ocean Pay</button>
+                  <button type="button" class="wx-btn wx-btn--outline" id="wx-logout">Cerrar sesión</button>
+                </div>
+                <div class="wx-account-switcher" id="wx-account-switcher">
+                  <span>Cuenta activa</span>
+                  <div class="wx-account-controls">
+                    <select id="wx-account-select" class="wx-account-select"></select>
+                    <button type="button" class="wx-btn wx-btn--outline" id="wx-account-add">Agregar cuenta</button>
+                  </div>
+                </div>
+              </div>
+              <div class="wx-profile-hero-meta">
+                <div class="wx-profile-chip">
+                  <span>Posts</span>
+                  <strong id="wx-user-posts-count">0</strong>
+                </div>
+                <div class="wx-profile-chip">
+                  <span>Likes recibidos</span>
+                  <strong id="wx-user-likes-received">0</strong>
+                </div>
+                <div class="wx-profile-chip">
+                  <span>Saldo WXT</span>
+                  <strong id="wx-user-wxt">0</strong>
+                </div>
               </div>
             </div>
+            <div class="wx-profile-upload">
+              <div>
+                <p class="wx-profile-upload-title">Foto de perfil</p>
+                <p class="wx-profile-upload-sub">Formatos JPG, PNG o WEBP · Máx 2MB.</p>
+              </div>
+              <div class="wx-profile-upload-actions">
+                <button type="button" class="wx-btn wx-btn--outline" id="wx-avatar-trigger">Subir foto</button>
+                <button type="button" class="wx-btn wx-btn--outline" id="wx-avatar-remove">Quitar</button>
+              </div>
+              <p id="wx-avatar-status" class="wx-profile-upload-status">Sin foto personalizada.</p>
+            </div>
             <div class="wx-profile-layout">
+              <div class="wx-profile-group wx-profile-group--full">
+                <h3>Identidad</h3>
+                <div class="wx-profile-identity">
+                  <div class="wx-profile-field">
+                    <label for="wx-display-name-input">Nombre de visualizador</label>
+                    <input type="text" id="wx-display-name-input" maxlength="32" placeholder="Nombre visible" />
+                    <small>2 a 32 caracteres. Letras, nÃºmeros y espacios.</small>
+                    <button type="button" class="wx-btn wx-btn--outline" id="wx-save-display-name">Guardar nombre</button>
+                  </div>
+                  <div class="wx-profile-field">
+                    <label for="wx-username-input">Usuario</label>
+                    <div class="wx-handle-input">
+                      <span>@</span>
+                      <input type="text" id="wx-username-input" maxlength="20" placeholder="usuario" />
+                    </div>
+                    <small>3 a 20 caracteres. Letras, nÃºmeros, puntos o guiones bajos.</small>
+                    <button type="button" class="wx-btn wx-btn--outline" id="wx-save-username">Cambiar usuario</button>
+                  </div>
+                </div>
+                <p id="wx-profile-name-status" class="wx-profile-upload-status">â€”</p>
+              </div>
+              <div class="wx-profile-group wx-profile-group--full">
+                <h3>Colaboraciones</h3>
+                <div class="wx-collab-section">
+                  <p class="wx-collab-section-title">Solicitudes recibidas</p>
+                  <div id="wx-collab-requests" class="wx-collab-list"></div>
+                </div>
+                <div class="wx-collab-section">
+                  <p class="wx-collab-section-title">Tus posts en colaboración</p>
+                  <div id="wx-collab-outgoing" class="wx-collab-list"></div>
+                </div>
+              </div>
               <div class="wx-profile-group">
                 <h3>Actividad</h3>
                 <div class="wx-profile-meta-vertical">
-                <div class="wx-profile-stat-vertical">
-                  <span class="wx-profile-stat-value" id="wx-user-posts-count">0</span>
-                  <span class="wx-profile-stat-label">posts</span>
-                </div>
-                <div class="wx-profile-stat-vertical">
-                  <span class="wx-profile-stat-value" id="wx-user-original-count">0</span>
-                  <span class="wx-profile-stat-label">originales</span>
-                </div>
-                <div class="wx-profile-stat-vertical">
-                  <span class="wx-profile-stat-value" id="wx-user-replies-count">0</span>
-                  <span class="wx-profile-stat-label">respuestas</span>
-                </div>
-                <div class="wx-profile-stat-vertical">
-                  <span class="wx-profile-stat-value" id="wx-user-likes-received">0</span>
-                  <span class="wx-profile-stat-label">likes recibidos</span>
-                </div>
-                <div class="wx-profile-stat-vertical">
-                  <span class="wx-profile-stat-value" id="wx-user-since">—</span>
-                  <span class="wx-profile-stat-label">miembro desde</span>
-                </div>
-                <div class="wx-profile-stat-vertical">
-                  <span class="wx-profile-stat-value" id="wx-user-last-post">—</span>
-                  <span class="wx-profile-stat-label">último post</span>
+                  <div class="wx-profile-stat-vertical">
+                    <span class="wx-profile-stat-value" id="wx-user-original-count">0</span>
+                    <span class="wx-profile-stat-label">posts originales</span>
+                  </div>
+                  <div class="wx-profile-stat-vertical">
+                    <span class="wx-profile-stat-value" id="wx-user-replies-count">0</span>
+                    <span class="wx-profile-stat-label">respuestas</span>
+                  </div>
+                  <div class="wx-profile-stat-vertical">
+                    <span class="wx-profile-stat-value" id="wx-user-last-post">—</span>
+                    <span class="wx-profile-stat-label">último post</span>
+                  </div>
                 </div>
               </div>
               <div class="wx-profile-group">
                 <h3>Economía y propinas</h3>
                 <div class="wx-profile-meta-vertical">
-                  <div class="wx-profile-stat-vertical">
-                    <span class="wx-profile-stat-value" id="wx-user-wxt">0</span>
-                    <span class="wx-profile-stat-label">WildWave Tokens (WXT)</span>
-                  </div>
                   <div class="wx-profile-stat-vertical">
                     <span class="wx-profile-stat-value" id="wx-user-tips-wxt">0</span>
                     <span class="wx-profile-stat-label">WXT recibidos este mes</span>
@@ -1408,8 +2336,8 @@
                   </div>
                 </div>
               </div>
-              <div class="wx-profile-group wx-profile-group--full">
-                <h3>Cuenta y verificacion</h3>
+              <div class="wx-profile-group">
+                <h3>Cuenta y verificación</h3>
                 <div class="wx-profile-meta-vertical">
                   <div class="wx-profile-stat-vertical">
                     <span class="wx-profile-stat-value" id="wx-user-id">-</span>
@@ -1417,11 +2345,11 @@
                   </div>
                   <div class="wx-profile-stat-vertical" id="wx-user-verify-row" hidden>
                     <span class="wx-profile-stat-value" id="wx-user-verify-remaining">-</span>
-                    <span class="wx-profile-stat-label">tiempo restante de verificacion</span>
+                    <span class="wx-profile-stat-label">tiempo restante de verificación</span>
                   </div>
                   <div class="wx-profile-stat-vertical">
                     <span class="wx-profile-stat-value" id="wx-user-verify-plan">Sin plan</span>
-                    <span class="wx-profile-stat-label">plan de verificacion</span>
+                    <span class="wx-profile-stat-label">plan de verificación</span>
                   </div>
                   <div class="wx-profile-stat-vertical">
                     <span class="wx-profile-stat-value" id="wx-user-verify-color">Default</span>
@@ -1429,14 +2357,8 @@
                   </div>
                   <div class="wx-profile-stat-vertical">
                     <span class="wx-profile-stat-value" id="wx-user-maxchars">280</span>
-                    <span class="wx-profile-stat-label">limite de caracteres</span>
+                    <span class="wx-profile-stat-label">límite de caracteres</span>
                   </div>
-                </div>
-                <div class="wx-profile-actions">
-                  <button type="button" class="wx-btn wx-btn--outline" id="wx-open-verify-plans-btn">Planes de verificacion</button>
-                  <button type="button" class="wx-btn wx-btn--outline" id="wx-gold-request-btn">Solicitar verificacion dorada</button>
-                  <button type="button" class="wx-btn wx-btn--outline" id="wx-connect-op-btn">Conectar Ocean Pay</button>
-                  <button type="button" class="wx-btn wx-btn--outline" id="wx-logout">Cerrar sesion</button>
                 </div>
               </div>
             </div>
@@ -1448,28 +2370,37 @@
           </section>
 
           <!-- Seccion de Planes de verificacion -->
-          <section class="wx-card wx-auth" id="wx-subscription-card" hidden>
-            <div class="wx-profile-empty" style="text-align:left;padding:14px 14px 8px;">
-              <p><strong>Verificacion WildWave</strong></p>
-              <p style="font-size:0.85rem;color:var(--text-soft);">
-                Selecciona uno de los 3 planes de verificacion. El plan Aurora permite elegir el color de insignia
-                (Arcoiris, Rojo y otros colores, excepto azul y dorado).
-              </p>
-            </div>
-            <div style="padding:0 14px 8px;">
-              <div class="wx-verify-plans" id="wx-verify-plans-list"></div>
-              <div class="wx-verify-color-wrap" id="wx-verify-color-wrap" hidden>
-                <label for="wx-verify-color-select" style="font-size:0.78rem;color:var(--text-soft);">Color</label>
-                <select id="wx-verify-color-select"></select>
+          <section class="wx-card wx-subscription" id="wx-subscription-card" hidden>
+            <div class="wx-subscription-header">
+              <div>
+                <p class="wx-subscription-kicker">Suscripción WildWave</p>
+                <h2>Verificación y presencia premium</h2>
+                <p class="wx-subscription-sub">
+                  Selecciona uno de los 3 planes de verificación. El plan Aurora permite elegir el color de insignia
+                  (arcoiris, rojo y otros colores, excepto azul y dorado).
+                </p>
+              </div>
+              <div class="wx-subscription-status-card">
+                <span style="font-size:0.72rem;color:var(--text-faint);">Estado actual</span>
+                <strong id="wx-subscription-status">No tienes verificación activa.</strong>
+                <div class="wx-subscription-balance">
+                  <span>Saldo WXT</span>
+                  <strong id="wx-subscription-wxt">0</strong>
+                </div>
               </div>
             </div>
-            <div class="wx-profile-actions" style="padding:0 14px 8px;">
-              <button type="button" class="wx-btn wx-btn--full" id="wx-verify-subscribe-btn">Activar plan seleccionado</button>
-            </div>
-            <div style="padding:0 14px 12px;">
-              <p id="wx-subscription-status" style="font-size:0.8rem;color:var(--text-soft);margin:0;">
-                No tienes verificacion activa.
-              </p>
+            <div class="wx-subscription-body">
+              <div class="wx-verify-plans" id="wx-verify-plans-list"></div>
+              <div class="wx-subscription-side">
+                <div class="wx-verify-color-wrap" id="wx-verify-color-wrap" hidden>
+                  <label for="wx-verify-color-select" style="font-size:0.78rem;color:var(--text-soft);">Color</label>
+                  <select id="wx-verify-color-select"></select>
+                </div>
+                <button type="button" class="wx-btn wx-btn--full" id="wx-verify-subscribe-btn">Activar plan seleccionado</button>
+                <p class="wx-subscription-note">
+                  Se descuenta el costo en WildCredits desde Ocean Pay y se renueva cada 7 días.
+                </p>
+              </div>
             </div>
           </section>
 
@@ -1477,12 +2408,21 @@
             <div class="wx-profile-empty" style="text-align:left;padding:14px 14px 8px;">
               <p><strong>Panel Admin</strong></p>
               <p style="font-size:0.85rem;color:var(--text-soft);">
-                Revisa y gestiona las solicitudes de verificación dorada.
+                Otorga verificación dorada directamente a cuentas seleccionadas.
               </p>
             </div>
             <div class="wx-auth" style="padding:0 14px 12px;">
-              <div id="wx-gold-requests-empty" class="wx-subscription-status">No hay solicitudes pendientes.</div>
-              <div id="wx-gold-requests-list" class="wx-gold-requests-list"></div>
+              <div class="wx-admin-gold-form">
+                <label for="wx-admin-gold-username">Usuario objetivo</label>
+                <input id="wx-admin-gold-username" type="text" placeholder="@usuario" />
+                <label for="wx-admin-gold-reason">Motivo</label>
+                <textarea id="wx-admin-gold-reason" rows="3" placeholder="Motivo de la verificacion..."></textarea>
+                <div class="wx-admin-gold-row">
+                  <input id="wx-admin-gold-days" type="number" min="1" placeholder="Duracion (dias)" />
+                  <button type="button" class="wx-btn" id="wx-admin-gold-grant">Otorgar verificacion dorada</button>
+                </div>
+                <div id="wx-admin-gold-status" class="wx-subscription-status">Listo para otorgar verificacion.</div>
+              </div>
               <hr style="border:none;border-top:1px solid rgba(148,163,184,0.35);margin:10px 0;" />
               <p style="font-size:0.85rem;color:var(--text-soft);margin:0 0 4px;"><strong>Reportes de posts</strong></p>
               <div id="wx-post-reports-empty" class="wx-subscription-status">No hay reportes pendientes.</div>
@@ -1498,8 +2438,60 @@
             <ul id="wx-scheduled-list" class="wx-feed-list"></ul>
           </section>
 
+          <section class="wx-card wx-explore" id="wx-explore-card">
+            <div class="wx-explore-hero">
+              <div>
+                <p class="wx-explore-kicker">Explorar</p>
+                <h2 class="wx-explore-title">Oleadas creativas</h2>
+                <p class="wx-explore-subtitle">Descubre, filtra y conecta con los creadores más activos del ecosistema OWS.</p>
+              </div>
+              <div class="wx-explore-metrics">
+                <div class="wx-explore-metric">
+                  <span>Posts en vivo</span>
+                  <strong id="wx-explore-post-count">0</strong>
+                </div>
+                <div class="wx-explore-metric">
+                  <span>Tendencias activas</span>
+                  <strong id="wx-explore-trend-count">0</strong>
+                </div>
+              </div>
+            </div>
+            <div class="wx-explore-toolbar">
+              <div class="wx-explore-search">
+                <label for="wx-explore-search">Buscar</label>
+                <input id="wx-explore-search" type="text" placeholder="Hashtags, usuarios o palabras clave" />
+              </div>
+              <div class="wx-explore-chips" id="wx-explore-chips">
+                <button type="button" class="wx-chip" data-hashtag="OWS">#OWS</button>
+                <button type="button" class="wx-chip" data-hashtag="Gaming">#Gaming</button>
+                <button type="button" class="wx-chip" data-hashtag="DevLogs">#DevLogs</button>
+                <button type="button" class="wx-chip" data-hashtag="OceanPay">#OceanPay</button>
+                <button type="button" class="wx-chip" data-hashtag="Comunidad">#Comunidad</button>
+              </div>
+              <div class="wx-explore-actions">
+                <button type="button" class="wx-btn wx-btn--outline" id="wx-explore-clear">Limpiar filtros</button>
+              </div>
+            </div>
+            <div class="wx-explore-active">
+              <span>Filtro activo:</span>
+              <strong id="wx-explore-active-label">Todas las olas</strong>
+            </div>
+          </section>
+
           <section class="wx-card wx-new">
+            <div class="wx-new-header">
+              <div class="wx-avatar wx-avatar--composer" id="wx-composer-avatar"></div>
+              <div>
+                <p class="wx-new-title">Crear ola</p>
+                <p class="wx-new-subtitle">Comparte novedades, responde a la comunidad o publica un devlog.</p>
+              </div>
+            </div>
             <textarea id="wx-text" maxlength="280" placeholder="Inicia sesión para publicar"></textarea>
+            <div class="wx-collab-input">
+              <label for="wx-collab-input">Colaboradores</label>
+              <input id="wx-collab-input" type="text" placeholder="@usuario1, @usuario2" />
+              <small>Se envía solicitud. El post se publica cuando acepten.</small>
+            </div>
             <div class="wx-row" style="margin-top:4px; align-items:flex-end;">
               <div style="display:flex; flex-direction:column; gap:4px; align-items:flex-start;">
                 <div>
@@ -1522,8 +2514,13 @@
 
           <section class="wx-card wx-feed" id="wx-main-feed-card">
             <div class="wx-feed-title">
-              <h2 id="wx-feed-title">Explorar</h2>
-              <button type="button" id="wx-refresh">Actualizar</button>
+              <div>
+                <h2 id="wx-feed-title">Explorar</h2>
+                <p class="wx-feed-subtitle" id="wx-feed-subtitle">Conecta con las publicaciones más recientes.</p>
+              </div>
+              <div class="wx-feed-actions">
+                <button type="button" id="wx-refresh">Actualizar</button>
+              </div>
             </div>
             <div class="wx-promoted" id="wx-promoted" hidden>
               <div class="wx-promoted-label">Promocionado</div>
@@ -1631,6 +2628,19 @@
       </div>
     </div>
 
+    <!-- Modal de colaboradores -->
+    <div class="wx-modal-backdrop" id="wx-collab-modal" hidden>
+      <div class="wx-modal">
+        <div class="wx-card wx-auth" id="wx-collab-card">
+          <div class="wx-modal-header">
+            <h2 class="wx-auth-title">Colaboradores</h2>
+            <button type="button" class="wx-modal-close" id="wx-collab-close">Cerrar</button>
+          </div>
+          <div id="wx-collab-list" class="wx-collab-modal-list"></div>
+        </div>
+      </div>
+    </div>
+
     <script>
       const API_BASE = 'https://owsdatabase.onrender.com/wildwave/api/posts';
       const API_ME = 'https://owsdatabase.onrender.com/wildwave/api/me';
@@ -1638,6 +2648,11 @@
       const API_REGISTER = 'https://owsdatabase.onrender.com/wildwave/api/register';
       const API_MY_POSTS = 'https://owsdatabase.onrender.com/wildwave/api/my-posts';
       const API_SCHEDULED = 'https://owsdatabase.onrender.com/wildwave/api/scheduled';
+      const API_AVATAR = 'https://owsdatabase.onrender.com/wildwave/api/profile/avatar';
+      const API_COLLAB_REQUESTS = 'https://owsdatabase.onrender.com/wildwave/api/collabs/requests';
+      const API_COLLAB_OUTGOING = 'https://owsdatabase.onrender.com/wildwave/api/collabs/outgoing';
+      const ACCOUNTS_STORAGE_KEY = 'wildwave_accounts';
+      const USERNAME_COOLDOWN_DAYS = 14;
 
       const $text = document.getElementById('wx-text');
       const $count = document.getElementById('wx-count');
@@ -1649,6 +2664,12 @@
       const $scheduledCard = document.getElementById('wx-scheduled-card');
       const $scheduledList = document.getElementById('wx-scheduled-list');
       const $scheduledRefresh = document.getElementById('wx-refresh-scheduled');
+      const $collabInput = document.getElementById('wx-collab-input');
+      const $collabRequests = document.getElementById('wx-collab-requests');
+      const $collabOutgoing = document.getElementById('wx-collab-outgoing');
+      const $collabModal = document.getElementById('wx-collab-modal');
+      const $collabModalList = document.getElementById('wx-collab-list');
+      const $collabClose = document.getElementById('wx-collab-close');
       const $feedTitle = document.getElementById('wx-feed-title');
       const $trends = document.getElementById('wx-trends');
       const $trendsList = document.getElementById('wx-trends-list');
@@ -1657,6 +2678,7 @@
       const $statFeedCount = document.getElementById('wx-stat-feed-count');
       const $statTrendCount = document.getElementById('wx-stat-trend-count');
       const $ideaButtons = Array.from(document.querySelectorAll('[data-wx-template]'));
+      const $layout = document.querySelector('.wx-layout');
 
       const $notifIcon = document.getElementById('wx-notif-icon');
       const $notifBadge = document.getElementById('wx-notif-badge');
@@ -1694,8 +2716,22 @@
       const $opFooter = document.getElementById('wx-op-footer');
       const $opTitle = document.getElementById('wx-op-title');
 
+      const $exploreCard = document.getElementById('wx-explore-card');
+      const $exploreSearch = document.getElementById('wx-explore-search');
+      const $exploreClear = document.getElementById('wx-explore-clear');
+      const $exploreChips = document.getElementById('wx-explore-chips');
+      const $exploreActiveLabel = document.getElementById('wx-explore-active-label');
+      const $explorePostCount = document.getElementById('wx-explore-post-count');
+      const $exploreTrendCount = document.getElementById('wx-explore-trend-count');
+
       const $userCard = document.getElementById('wx-user-card');
       const $userName = document.getElementById('wx-user-name');
+      const $userDisplay = document.getElementById('wx-user-display');
+      const $profileAvatar = document.getElementById('wx-profile-avatar');
+      const $avatarInput = document.getElementById('wx-avatar-input');
+      const $avatarTrigger = document.getElementById('wx-avatar-trigger');
+      const $avatarRemove = document.getElementById('wx-avatar-remove');
+      const $avatarStatus = document.getElementById('wx-avatar-status');
       const $userPostsCount = document.getElementById('wx-user-posts-count');
       const $userOriginalCount = document.getElementById('wx-user-original-count');
       const $userRepliesCount = document.getElementById('wx-user-replies-count');
@@ -1712,15 +2748,21 @@
       const $userVerifyRow = document.getElementById('wx-user-verify-row');
       const $userVerifyRemaining = document.getElementById('wx-user-verify-remaining');
       const $subscriptionStatus = document.getElementById('wx-subscription-status');
-      const $goldRequestBtn = document.getElementById('wx-gold-request-btn');
+      const $subscriptionWxt = document.getElementById('wx-subscription-wxt');
       const $connectOpBtn = document.getElementById('wx-connect-op-btn');
       const $adminCard = document.getElementById('wx-admin-card');
-      const $goldRequestsList = document.getElementById('wx-gold-requests-list');
-      const $goldRequestsEmpty = document.getElementById('wx-gold-requests-empty');
+      const $adminGoldUsername = document.getElementById('wx-admin-gold-username');
+      const $adminGoldReason = document.getElementById('wx-admin-gold-reason');
+      const $adminGoldDays = document.getElementById('wx-admin-gold-days');
+      const $adminGoldGrant = document.getElementById('wx-admin-gold-grant');
+      const $adminGoldStatus = document.getElementById('wx-admin-gold-status');
       const $postReportsList = document.getElementById('wx-post-reports-list');
       const $postReportsEmpty = document.getElementById('wx-post-reports-empty');
       const $openAuth = document.getElementById('wx-open-auth');
       const $logout = document.getElementById('wx-logout');
+      const $accountSelect = document.getElementById('wx-account-select');
+      const $accountAdd = document.getElementById('wx-account-add');
+      const $accountSwitcher = document.getElementById('wx-account-switcher');
       const $verifyBadge = document.getElementById('wx-verify-badge');
       const $verifyIconMain = document.getElementById('wx-verify-icon-main');
       const $verifyTooltipTitle = document.getElementById('wx-verify-tooltip-title');
@@ -1733,17 +2775,25 @@
       const $userVerifyPlan = document.getElementById('wx-user-verify-plan');
       const $userVerifyColor = document.getElementById('wx-user-verify-color');
       const $userMaxChars = document.getElementById('wx-user-maxchars');
+      const $displayNameInput = document.getElementById('wx-display-name-input');
+      const $usernameInput = document.getElementById('wx-username-input');
+      const $saveDisplayName = document.getElementById('wx-save-display-name');
+      const $saveUsername = document.getElementById('wx-save-username');
+      const $profileNameStatus = document.getElementById('wx-profile-name-status');
 
       const $threadView = document.getElementById('wx-thread-view');
       const $threadList = document.getElementById('wx-thread-list');
       const $threadClose = document.getElementById('wx-thread-close');
       const $threadTitle = document.getElementById('wx-thread-title');
+      const $feedSubtitle = document.getElementById('wx-feed-subtitle');
+      const $composerAvatar = document.getElementById('wx-composer-avatar');
 
       let currentTab = 'explore';
       let currentUser = null;
       let currentToken = null;
       let currentThreadPostId = null;
       let currentReplyToId = null;
+      let accountAddMode = false;
       let currentReplyToUsername = null;
       let opModalMode = 'connect';
       let verifyPlans = [];
@@ -1752,6 +2802,7 @@
 
       let explorePosts = [];
       let currentHashtagFilter = null;
+      let exploreSearchTerm = '';
       let lastNotifications = [];
       let currentPromoted = null;
 
@@ -1766,8 +2817,153 @@
         });
       });
 
+      if ($exploreSearch) {
+        $exploreSearch.addEventListener('input', () => {
+          exploreSearchTerm = ($exploreSearch.value || '').trim();
+          if (currentTab === 'explore') {
+            renderExplorePosts();
+          }
+        });
+      }
+
+      if ($exploreClear) {
+        $exploreClear.addEventListener('click', () => {
+          currentHashtagFilter = null;
+          exploreSearchTerm = '';
+          if ($exploreSearch) $exploreSearch.value = '';
+          if ($feedTitle) $feedTitle.textContent = 'Explorar';
+          renderExplorePosts();
+        });
+      }
+
+      if ($exploreChips) {
+        $exploreChips.addEventListener('click', (ev) => {
+          const btn = ev.target.closest('[data-hashtag]');
+          if (!btn) return;
+          const tag = btn.dataset.hashtag;
+          if (tag) applyHashtagFilter(tag);
+        });
+      }
+
+      if ($avatarTrigger && $avatarInput) {
+        $avatarTrigger.addEventListener('click', () => $avatarInput.click());
+      }
+
+      if ($avatarInput) {
+        $avatarInput.addEventListener('change', async () => {
+          const file = $avatarInput.files && $avatarInput.files[0];
+          if (!file) return;
+          await uploadProfileAvatar(file);
+          $avatarInput.value = '';
+        });
+      }
+
+      if ($avatarRemove) {
+        $avatarRemove.addEventListener('click', () => {
+          removeProfileAvatar();
+        });
+      }
+
       function authHeaders() {
         return currentToken ? { Authorization: 'Bearer ' + currentToken } : {};
+      }
+
+      function readAccounts() {
+        try {
+          const raw = localStorage.getItem(ACCOUNTS_STORAGE_KEY);
+          const parsed = raw ? JSON.parse(raw) : [];
+          return Array.isArray(parsed) ? parsed : [];
+        } catch {
+          return [];
+        }
+      }
+
+      function saveAccounts(accounts) {
+        const safe = Array.isArray(accounts) ? accounts.filter(Boolean).slice(0, 10) : [];
+        localStorage.setItem(ACCOUNTS_STORAGE_KEY, JSON.stringify(safe));
+        return safe;
+      }
+
+      function accountKey(account) {
+        if (!account) return '';
+        return String(account.id || account.username || '').toLowerCase();
+      }
+
+      function upsertAccount(user, token) {
+        if (!user || !token) return readAccounts();
+        const list = readAccounts();
+        const key = accountKey(user);
+        if (!key) return list;
+        const next = list.filter(acc => accountKey(acc) !== key);
+        next.unshift({
+          id: user.id,
+          username: user.username,
+          display_name: user.display_name || user.username,
+          avatar_url: user.avatar_url || null,
+          verify_tier: user.verify_tier || null,
+          verify_badge_color: user.verify_badge_color || null,
+          created_at: user.created_at || null,
+          posts_count: user.posts_count || 0,
+          token
+        });
+        return saveAccounts(next);
+      }
+
+      function buildAccountLabel(account) {
+        if (!account) return 'Cuenta';
+        const uname = account.username || 'usuario';
+        const display = account.display_name || uname;
+        return display.toLowerCase() === uname.toLowerCase()
+          ? '@' + uname
+          : `${display} (@${uname})`;
+      }
+
+      function renderAccountSelect() {
+        if (!$accountSelect || !$accountSwitcher) return;
+        const accounts = readAccounts();
+        $accountSelect.innerHTML = '';
+        if (!accounts.length) {
+          const opt = document.createElement('option');
+          opt.value = '';
+          opt.textContent = 'Sin cuentas guardadas';
+          $accountSelect.appendChild(opt);
+          $accountSelect.disabled = true;
+          return;
+        }
+        $accountSelect.disabled = false;
+        accounts.forEach((acc) => {
+          const opt = document.createElement('option');
+          opt.value = accountKey(acc);
+          opt.textContent = buildAccountLabel(acc);
+          $accountSelect.appendChild(opt);
+        });
+        const currentKey = accountKey(currentUser || {});
+        if (currentKey) {
+          $accountSelect.value = currentKey;
+        }
+      }
+
+      function switchAccountByKey(key) {
+        const accounts = readAccounts();
+        const chosen = accounts.find(acc => accountKey(acc) === String(key || '').toLowerCase());
+        if (!chosen) return;
+        const user = {
+          id: chosen.id,
+          username: chosen.username,
+          display_name: chosen.display_name,
+          avatar_url: chosen.avatar_url,
+          verify_tier: chosen.verify_tier,
+          verify_badge_color: chosen.verify_badge_color,
+          created_at: chosen.created_at,
+          posts_count: chosen.posts_count
+        };
+        setLoggedIn(user, chosen.token);
+        setStatus('Cuenta activa: @' + (chosen.username || 'usuario'), 'info');
+        fetchExplore();
+        if (currentTab === 'profile') {
+          fetchMyPosts();
+          fetchScheduledPosts();
+        }
       }
 
       function showToast(msg, type = 'info', timeoutMs = 2500) {
@@ -2115,11 +3311,16 @@
           card.type = 'button';
           card.className = 'wx-verify-plan-item' + (plan.id === selectedVerifyPlanId ? ' wx-verify-plan-item--active' : '');
           card.dataset.planId = plan.id;
+          const perks = Array.isArray(plan.perks) ? plan.perks : [];
           card.innerHTML = `
             <h4>${plan.label}</h4>
-            <p>Tier: <strong>${String(plan.tier || '').toUpperCase()}</strong> · ${plan.durationDays || 7} dias</p>
-            <p>Precio: <strong>${Number(plan.priceWildCredits || 0)} WildCredits</strong></p>
-            <ul>${(Array.isArray(plan.perks) ? plan.perks : []).map((perk) => `<li>${perk}</li>`).join('')}</ul>
+            <div class="wx-verify-plan-meta">
+              <span>${String(plan.tier || '').toUpperCase()} · ${plan.durationDays || 7} dias</span>
+              <span class="wx-verify-plan-price">${Number(plan.priceWildCredits || 0)} WildCredits</span>
+            </div>
+            <div class="wx-verify-plan-perks">
+              ${perks.map((perk) => `<span>- ${perk}</span>`).join('')}
+            </div>
           `;
           card.addEventListener('click', () => {
             selectedVerifyPlanId = plan.id;
@@ -2266,8 +3467,14 @@ function getMaxChars() {
         if ($statFeedCount && typeof postCount === 'number') {
           $statFeedCount.textContent = String(postCount);
         }
+        if ($explorePostCount && typeof postCount === 'number') {
+          $explorePostCount.textContent = String(postCount);
+        }
         if ($statTrendCount && typeof trendCount === 'number') {
           $statTrendCount.textContent = String(trendCount);
+        }
+        if ($exploreTrendCount && typeof trendCount === 'number') {
+          $exploreTrendCount.textContent = String(trendCount);
         }
       }
 
@@ -2296,6 +3503,183 @@ function getMaxChars() {
         }
       }
 
+      function applyAvatarImage(el, url) {
+        if (!el) return;
+        if (url) {
+          el.style.setProperty('--wx-avatar-image', `url('${url}')`);
+          el.classList.add('wx-avatar--custom');
+        } else {
+          el.style.removeProperty('--wx-avatar-image');
+          el.classList.remove('wx-avatar--custom');
+        }
+      }
+
+      function updateAvatarStatus(message, tone = 'info') {
+        if (!$avatarStatus) return;
+        $avatarStatus.textContent = message || '';
+        if (tone === 'error') {
+          $avatarStatus.style.color = 'var(--danger)';
+        } else if (tone === 'success') {
+          $avatarStatus.style.color = 'var(--success)';
+        } else {
+          $avatarStatus.style.color = 'var(--text-faint)';
+        }
+      }
+
+      function updateProfileNameStatus(message, tone = 'info') {
+        if (!$profileNameStatus) return;
+        $profileNameStatus.textContent = message || '';
+        if (tone === 'error') {
+          $profileNameStatus.style.color = 'var(--danger)';
+        } else if (tone === 'success') {
+          $profileNameStatus.style.color = 'var(--success)';
+        } else {
+          $profileNameStatus.style.color = 'var(--text-faint)';
+        }
+      }
+
+      function updateUsernameCooldownNotice(user) {
+        if (!user) {
+          updateProfileNameStatus('', 'info');
+          return;
+        }
+        const last = user.username_changed_at ? new Date(user.username_changed_at) : null;
+        if (!last || Number.isNaN(last.getTime())) {
+          updateProfileNameStatus(`Puedes cambiar tu usuario cada ${USERNAME_COOLDOWN_DAYS} dÃ­as.`, 'info');
+          return;
+        }
+        const next = new Date(last.getTime() + USERNAME_COOLDOWN_DAYS * 24 * 60 * 60 * 1000);
+        if (next > new Date()) {
+          updateProfileNameStatus(`PrÃ³ximo cambio de usuario: ${next.toLocaleDateString('es-ES')}`, 'info');
+        } else {
+          updateProfileNameStatus('Puedes cambiar tu usuario ahora.', 'success');
+        }
+      }
+
+      function parseCollaboratorsInput() {
+        const raw = ($collabInput?.value || '').trim();
+        if (!raw) return [];
+        const list = raw.split(',')
+          .map(val => String(val || '').trim().replace(/^@/, ''))
+          .filter(Boolean);
+        return Array.from(new Set(list));
+      }
+
+      function readPostCollaborators(post) {
+        if (!post || !post.collaborators) return [];
+        if (Array.isArray(post.collaborators)) return post.collaborators;
+        if (typeof post.collaborators === 'string') {
+          try {
+            const parsed = JSON.parse(post.collaborators);
+            return Array.isArray(parsed) ? parsed : [];
+          } catch {
+            return [];
+          }
+        }
+        return [];
+      }
+
+      function buildCollabRow(post, authorAvatarUrl) {
+        const collaborators = readPostCollaborators(post);
+        if (!collaborators.length) return null;
+        const row = document.createElement('div');
+        row.className = 'wx-collab-row';
+
+        const label = document.createElement('span');
+        label.textContent = 'Colabora';
+
+        const avatars = document.createElement('button');
+        avatars.type = 'button';
+        avatars.className = 'wx-collab-avatars';
+        avatars.dataset.collabs = encodeURIComponent(JSON.stringify(collaborators));
+
+        const authorAvatar = document.createElement('div');
+        authorAvatar.className = 'wx-avatar wx-collab-avatar';
+        applyAvatarImage(authorAvatar, authorAvatarUrl);
+        avatars.appendChild(authorAvatar);
+
+        const first = collaborators[0];
+        const firstAvatar = document.createElement('div');
+        firstAvatar.className = 'wx-avatar wx-collab-avatar';
+        applyAvatarImage(firstAvatar, first?.avatar_url || null);
+        avatars.appendChild(firstAvatar);
+
+        if (collaborators.length > 1) {
+          const count = document.createElement('span');
+          count.className = 'wx-collab-count';
+          count.textContent = `+${collaborators.length - 1}`;
+          avatars.appendChild(count);
+        }
+
+        row.append(label, avatars);
+        return row;
+      }
+
+      function openCollabModal(collaborators) {
+        if (!$collabModal || !$collabModalList) return;
+        const list = Array.isArray(collaborators) ? collaborators : [];
+        $collabModalList.innerHTML = '';
+        if (!list.length) {
+          const empty = document.createElement('div');
+          empty.className = 'wx-collab-empty';
+          empty.textContent = 'No hay colaboradores para mostrar.';
+          $collabModalList.appendChild(empty);
+          $collabModal.hidden = false;
+          return;
+        }
+        for (const collab of list) {
+          const item = document.createElement('div');
+          item.className = 'wx-collab-item';
+
+          const main = document.createElement('div');
+          main.className = 'wx-collab-item-main';
+
+          const avatar = document.createElement('div');
+          avatar.className = 'wx-avatar wx-collab-avatar';
+          applyAvatarImage(avatar, collab?.avatar_url || null);
+
+          const text = document.createElement('div');
+          text.className = 'wx-collab-item-text';
+          const name = document.createElement('strong');
+          const uname = collab?.username || 'usuario';
+          const dname = collab?.display_name || uname;
+          name.textContent = dname;
+          const handle = document.createElement('span');
+          handle.textContent = '@' + uname;
+          text.append(name, handle);
+
+          main.append(avatar, text);
+
+          const actions = document.createElement('div');
+          actions.className = 'wx-collab-actions';
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'wx-btn wx-btn--outline';
+          btn.textContent = 'Ver perfil';
+          btn.dataset.action = 'open-collab-profile';
+          btn.dataset.username = uname;
+          actions.appendChild(btn);
+
+          item.append(main, actions);
+          $collabModalList.appendChild(item);
+        }
+        $collabModal.hidden = false;
+      }
+
+      function closeCollabModal() {
+        if ($collabModal) $collabModal.hidden = true;
+      }
+
+      function openUserProfile(username) {
+        const uname = String(username || '').trim().replace(/^@/, '');
+        if (!uname) return;
+        setTab('explore');
+        exploreSearchTerm = uname;
+        if ($exploreSearch) $exploreSearch.value = uname;
+        if ($feedTitle) $feedTitle.textContent = '@' + uname;
+        renderExplorePosts();
+      }
+
       function createPostElement(post, options = {}) {
         const li = document.createElement('li');
         li.className = 'wx-post';
@@ -2312,18 +3696,23 @@ function getMaxChars() {
         const handle = document.createElement('span');
         handle.className = 'wx-handle';
         const uname = post.username || 'wildwave-user';
+        const displayName = post.display_name || uname;
+        const showDisplay = displayName && displayName.toLowerCase() !== uname.toLowerCase();
         handle.textContent = '@' + uname;
+
+        const display = document.createElement('span');
+        display.className = 'wx-display-name';
+        display.textContent = displayName;
 
         let verifyIcon = null;
         let authorTier = post.verify_tier || null;
-        if (uname === 'Ocean and Wild Studios') {
-          authorTier = 'admin';
-        }
         if (authorTier) {
           verifyIcon = createPostVerifyIcon(authorTier, post.verify_badge_color);
         }
 
         const isOwn = currentUser && String(post.user_id) === String(currentUser.id);
+        const avatarUrl = post.avatar_url || (isOwn ? currentUser?.avatar_url : null);
+        applyAvatarImage(avatar, avatarUrl);
 
         const dot = document.createElement('span');
         dot.className = 'wx-dot';
@@ -2342,9 +3731,11 @@ function getMaxChars() {
         pill.innerHTML = `<span>WildWave</span> · ${pillLabel}`;
 
         if (verifyIcon) {
-          meta.append(handle, verifyIcon, dot, time, pill);
+          if (showDisplay) meta.append(display, handle, verifyIcon, dot, time, pill);
+          else meta.append(handle, verifyIcon, dot, time, pill);
         } else {
-          meta.append(handle, dot, time, pill);
+          if (showDisplay) meta.append(display, handle, dot, time, pill);
+          else meta.append(handle, dot, time, pill);
         }
 
         const text = document.createElement('div');
@@ -2419,7 +3810,12 @@ function getMaxChars() {
         if (deleteBtn) actions.append(deleteBtn);
         if (reportBtn) actions.append(reportBtn);
 
-        body.append(meta, text, actions);
+        const collabRow = buildCollabRow(post, avatarUrl);
+        if (collabRow) {
+          body.append(meta, collabRow, text, actions);
+        } else {
+          body.append(meta, text, actions);
+        }
         li.append(avatar, body);
 
         if (options.promoted) {
@@ -2474,8 +3870,7 @@ function getMaxChars() {
           if (!currentHashtagFilter) {
             $feedTitle.textContent = 'Explorar';
           }
-          const toRender = currentHashtagFilter ? filterPostsByHashtag(explorePosts, currentHashtagFilter) : explorePosts;
-          renderPosts(toRender);
+          renderExplorePosts();
           updateTrends(explorePosts);
 
           // En Explorar nunca se muestran los datos de perfil
@@ -2530,6 +3925,168 @@ function getMaxChars() {
         }
       }
 
+      function renderCollabEmpty(container, message) {
+        if (!container) return;
+        container.innerHTML = '';
+        const empty = document.createElement('div');
+        empty.className = 'wx-collab-empty';
+        empty.textContent = message;
+        container.appendChild(empty);
+      }
+
+      async function fetchCollabRequests() {
+        if (!$collabRequests) return;
+        if (!currentUser || !currentToken) {
+          renderCollabEmpty($collabRequests, 'Inicia sesión para ver solicitudes.');
+          return;
+        }
+        try {
+          const res = await fetch(API_COLLAB_REQUESTS, { headers: { ...authHeaders() } });
+          const items = await res.json().catch(() => []);
+          const requests = Array.isArray(items) ? items : [];
+          $collabRequests.innerHTML = '';
+          if (!requests.length) {
+            renderCollabEmpty($collabRequests, 'No hay solicitudes pendientes.');
+            return;
+          }
+          for (const req of requests) {
+            const item = document.createElement('div');
+            item.className = 'wx-collab-item';
+
+            const main = document.createElement('div');
+            main.className = 'wx-collab-item-main';
+
+            const avatar = document.createElement('div');
+            avatar.className = 'wx-avatar wx-collab-avatar';
+            applyAvatarImage(avatar, req.author_avatar || null);
+
+            const text = document.createElement('div');
+            text.className = 'wx-collab-item-text';
+            const name = document.createElement('strong');
+            const author = req.author_display_name || req.author_username || 'usuario';
+            name.textContent = author;
+            const preview = document.createElement('span');
+            preview.textContent = (req.content || '').slice(0, 90) || 'Post sin contenido.';
+            text.append(name, preview);
+
+            const actions = document.createElement('div');
+            actions.className = 'wx-collab-actions';
+            const accept = document.createElement('button');
+            accept.type = 'button';
+            accept.className = 'wx-btn';
+            accept.textContent = 'Aceptar';
+            accept.dataset.action = 'collab-accept';
+            accept.dataset.id = req.id;
+            const decline = document.createElement('button');
+            decline.type = 'button';
+            decline.className = 'wx-btn wx-btn--outline';
+            decline.textContent = 'Rechazar';
+            decline.dataset.action = 'collab-decline';
+            decline.dataset.id = req.id;
+            actions.append(accept, decline);
+
+            main.append(avatar, text);
+            item.append(main, actions);
+            $collabRequests.appendChild(item);
+          }
+        } catch (e) {
+          console.error(e);
+          renderCollabEmpty($collabRequests, 'No se pudieron cargar las solicitudes.');
+        }
+      }
+
+      async function fetchCollabOutgoing() {
+        if (!$collabOutgoing) return;
+        if (!currentUser || !currentToken) {
+          renderCollabEmpty($collabOutgoing, 'Inicia sesión para ver tus colaboraciones.');
+          return;
+        }
+        try {
+          const res = await fetch(API_COLLAB_OUTGOING, { headers: { ...authHeaders() } });
+          const items = await res.json().catch(() => []);
+          const outgoing = Array.isArray(items) ? items : [];
+          $collabOutgoing.innerHTML = '';
+          if (!outgoing.length) {
+            renderCollabEmpty($collabOutgoing, 'No tienes posts en colaboración.');
+            return;
+          }
+          for (const post of outgoing) {
+            const item = document.createElement('div');
+            item.className = 'wx-collab-item';
+
+            const main = document.createElement('div');
+            main.className = 'wx-collab-item-main';
+
+            const text = document.createElement('div');
+            text.className = 'wx-collab-item-text';
+            const name = document.createElement('strong');
+            name.textContent = 'Post en colaboración';
+            const preview = document.createElement('span');
+            const snippet = (post.content || '').slice(0, 90);
+            preview.textContent = snippet || 'Sin contenido.';
+            text.append(name, preview);
+
+            const info = document.createElement('span');
+            const pending = post.pending_count ?? 0;
+            const accepted = post.accepted_count ?? 0;
+            const declined = post.declined_count ?? 0;
+            const isDecision = post.status === 'pending_author' && pending === 0 && accepted === 0;
+            if (isDecision) {
+              info.textContent = 'La colaboración no fue aceptada. ¿Publicar igual?';
+            } else {
+              info.textContent = `Pendientes: ${pending} · Aceptados: ${accepted} · Rechazados: ${declined}`;
+            }
+            text.appendChild(info);
+
+            const actions = document.createElement('div');
+            actions.className = 'wx-collab-actions';
+            if (isDecision) {
+              const publish = document.createElement('button');
+              publish.type = 'button';
+              publish.className = 'wx-btn';
+              publish.textContent = 'Publicar igual';
+              publish.dataset.action = 'collab-publish';
+              publish.dataset.postId = post.id;
+              actions.appendChild(publish);
+            }
+
+            main.append(text);
+            item.append(main, actions);
+            $collabOutgoing.appendChild(item);
+          }
+        } catch (e) {
+          console.error(e);
+          renderCollabEmpty($collabOutgoing, 'No se pudieron cargar tus colaboraciones.');
+        }
+      }
+
+      async function respondCollabRequest(id, accept) {
+        if (!currentUser || !currentToken) return;
+        const action = accept ? 'accept' : 'decline';
+        const url = `https://owsdatabase.onrender.com/wildwave/api/collabs/requests/${id}/${action}`;
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeaders() }
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(body.error || 'No se pudo responder');
+        fetchCollabRequests().catch(() => {});
+        fetchCollabOutgoing().catch(() => {});
+        if (currentTab === 'profile') fetchMyPosts().catch(() => {});
+      }
+
+      async function publishCollabPost(postId) {
+        if (!currentUser || !currentToken) return;
+        const res = await fetch(`https://owsdatabase.onrender.com/wildwave/api/collabs/posts/${postId}/publish`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...authHeaders() }
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(body.error || 'No se pudo publicar');
+        fetchCollabOutgoing().catch(() => {});
+        fetchMyPosts().catch(() => {});
+      }
+
       async function fetchScheduledPosts() {
         if (!$scheduledList) return;
         if (!currentUser || !currentToken) {
@@ -2569,6 +4126,7 @@ function getMaxChars() {
       async function fetchBalance() {
         if (!currentUser || !currentToken) {
           if ($userWxt) $userWxt.textContent = '0';
+          if ($subscriptionWxt) $subscriptionWxt.textContent = '0';
           return;
         }
         try {
@@ -2578,6 +4136,7 @@ function getMaxChars() {
           const body = await res.json().catch(() => ({}));
           if (!res.ok) return;
           if ($userWxt) $userWxt.textContent = String(body.wxt ?? 0);
+          if ($subscriptionWxt) $subscriptionWxt.textContent = String(body.wxt ?? 0);
           if ($opStatus && body.linkedOceanPay) {
             $opStatus.textContent = 'Conectado a Ocean Pay (sincronizado)';
           }
@@ -2601,6 +4160,9 @@ function getMaxChars() {
           }
           if (typeof body.wxt === 'number' && $userWxt) {
             $userWxt.textContent = String(body.wxt);
+          }
+          if (typeof body.wxt === 'number' && $subscriptionWxt) {
+            $subscriptionWxt.textContent = String(body.wxt);
           }
           updateOceanPayConnectionUI();
           return true;
@@ -2671,6 +4233,186 @@ function getMaxChars() {
         openOpModal('connect');
       }
 
+      async function uploadProfileAvatar(file) {
+        if (!currentUser || !currentToken) {
+          setStatus('Inicia sesión para actualizar tu foto.', 'error');
+          openAuthModal('login');
+          return;
+        }
+        if (!file || !file.type.startsWith('image/')) {
+          updateAvatarStatus('Selecciona una imagen válida.', 'error');
+          return;
+        }
+        const maxSize = 2 * 1024 * 1024;
+        if (file.size > maxSize) {
+          updateAvatarStatus('La imagen supera 2MB.', 'error');
+          return;
+        }
+
+        const previous = currentUser?.avatar_url || null;
+        const previewUrl = URL.createObjectURL(file);
+        applyAvatarImage($profileAvatar, previewUrl);
+        applyAvatarImage($composerAvatar, previewUrl);
+        updateAvatarStatus('Subiendo foto...', 'info');
+
+        try {
+          const form = new FormData();
+          form.append('avatar', file);
+          const res = await fetch(API_AVATAR, {
+            method: 'POST',
+            headers: { ...authHeaders() },
+            body: form
+          });
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(body.error || 'No se pudo subir la foto');
+          const url = body.avatar_url || body.url || previous;
+          currentUser.avatar_url = url;
+          localStorage.setItem('wildwave_user', JSON.stringify(currentUser));
+          applyAvatarImage($profileAvatar, url);
+          applyAvatarImage($composerAvatar, url);
+          if ($avatarRemove) $avatarRemove.disabled = !url;
+          updateAvatarStatus('Foto actualizada correctamente.', 'success');
+          fetchExplore().catch(() => {});
+        } catch (e) {
+          console.error(e);
+          applyAvatarImage($profileAvatar, previous);
+          applyAvatarImage($composerAvatar, previous);
+          updateAvatarStatus(e.message || 'Error al subir la foto.', 'error');
+        } finally {
+          URL.revokeObjectURL(previewUrl);
+        }
+      }
+
+      async function removeProfileAvatar() {
+        if (!currentUser || !currentToken) {
+          setStatus('Inicia sesión para actualizar tu foto.', 'error');
+          openAuthModal('login');
+          return;
+        }
+        const confirmed = await openConfirmDialog({
+          title: 'Quitar foto de perfil',
+          message: '¿Seguro que quieres eliminar tu foto de perfil?',
+          confirmLabel: 'Quitar'
+        });
+        if (!confirmed) return;
+        try {
+          updateAvatarStatus('Quitando foto...', 'info');
+          const res = await fetch(API_AVATAR, {
+            method: 'DELETE',
+            headers: { ...authHeaders() }
+          });
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(body.error || 'No se pudo quitar la foto');
+          currentUser.avatar_url = null;
+          localStorage.setItem('wildwave_user', JSON.stringify(currentUser));
+          applyAvatarImage($profileAvatar, null);
+          applyAvatarImage($composerAvatar, null);
+          if ($avatarRemove) $avatarRemove.disabled = true;
+          updateAvatarStatus('Foto eliminada.', 'success');
+          fetchExplore().catch(() => {});
+        } catch (e) {
+          console.error(e);
+          updateAvatarStatus(e.message || 'Error al quitar la foto.', 'error');
+        }
+      }
+      async function saveDisplayName() {
+        if (!currentUser || !currentToken) {
+          setStatus('Inicia sesion para actualizar tu perfil.', 'error');
+          openAuthModal('login');
+          return;
+        }
+        const raw = ($displayNameInput?.value || '').trim();
+        if (raw && (raw.length < 2 || raw.length > 32)) {
+          updateProfileNameStatus('El nombre visible debe tener entre 2 y 32 caracteres.', 'error');
+          return;
+        }
+        updateProfileNameStatus('Guardando nombre visible...', 'info');
+        try {
+          const res = await fetch('https://owsdatabase.onrender.com/wildwave/api/profile/display-name', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', ...authHeaders() },
+            body: JSON.stringify({ displayName: raw })
+          });
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            updateProfileNameStatus(body.error || 'No se pudo actualizar el nombre.', 'error');
+            return;
+          }
+          const updatedUser = { ...currentUser, ...(body.user || {}), display_name: body.user?.display_name || raw || currentUser.username };
+          setLoggedIn(updatedUser, currentToken);
+          updateProfileNameStatus('Nombre visible actualizado.', 'success');
+          if (currentTab === 'profile') {
+            fetchMyPosts();
+            fetchScheduledPosts();
+          } else {
+            fetchExplore().catch(() => {});
+          }
+        } catch (e) {
+          console.error(e);
+          updateProfileNameStatus('Error al actualizar el nombre visible.', 'error');
+        }
+      }
+
+      async function saveUsername() {
+        if (!currentUser || !currentToken) {
+          setStatus('Inicia sesion para actualizar tu perfil.', 'error');
+          openAuthModal('login');
+          return;
+        }
+        const raw = ($usernameInput?.value || '').trim().replace(/^@/, '');
+        if (!raw) {
+          updateProfileNameStatus('El usuario es obligatorio.', 'error');
+          return;
+        }
+        if (raw.length < 3 || raw.length > 20) {
+          updateProfileNameStatus('El usuario debe tener entre 3 y 20 caracteres.', 'error');
+          return;
+        }
+        if (!/^[a-zA-Z0-9._]+$/.test(raw)) {
+          updateProfileNameStatus('Solo se permiten letras, numeros, puntos o guiones bajos.', 'error');
+          return;
+        }
+        if (!/^[a-zA-Z]/.test(raw)) {
+          updateProfileNameStatus('El usuario debe comenzar con una letra.', 'error');
+          return;
+        }
+        if (/[._]$/.test(raw) || /([._]){2,}/.test(raw)) {
+          updateProfileNameStatus('No se permiten puntos o guiones bajos seguidos.', 'error');
+          return;
+        }
+        if (raw.toLowerCase() === (currentUser.username || '').toLowerCase()) {
+          updateProfileNameStatus('El usuario ya es el mismo.', 'info');
+          return;
+        }
+
+        updateProfileNameStatus('Actualizando usuario...', 'info');
+        try {
+          const res = await fetch('https://owsdatabase.onrender.com/wildwave/api/profile/username', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', ...authHeaders() },
+            body: JSON.stringify({ username: raw })
+          });
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            updateProfileNameStatus(body.error || 'No se pudo actualizar el usuario.', 'error');
+            return;
+          }
+          const nextToken = body.token || currentToken;
+          const updatedUser = { ...currentUser, ...(body.user || {}), username: body.user?.username || raw };
+          setLoggedIn(updatedUser, nextToken);
+          updateProfileNameStatus('Usuario actualizado.', 'success');
+          reloadMe().catch(() => {});
+          if (currentTab === 'profile') {
+            fetchMyPosts();
+            fetchScheduledPosts();
+          } else {
+            fetchExplore().catch(() => {});
+          }
+        } catch (e) {
+          console.error(e);
+          updateProfileNameStatus('Error al actualizar el usuario.', 'error');
+        }
+      }
       async function createPost() {
         const text = ($text.value || '').trim();
         const isAdmin = !!(currentUser && currentUser.verify_tier === 'admin');
@@ -2685,19 +4427,22 @@ function getMaxChars() {
           if ($scheduleToggle && $scheduleToggle.checked && $scheduleAt && $scheduleAt.value) {
             payload.scheduledAt = $scheduleAt.value;
           }
+          const collaborators = parseCollaboratorsInput();
+          if (collaborators.length) payload.collaborators = collaborators;
 
           const res = await fetch(API_BASE, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...authHeaders() },
             body: JSON.stringify(payload)
           });
+          const body = await res.json().catch(() => ({}));
           if (!res.ok) {
-            const body = await res.json().catch(() => ({}));
             throw new Error(body.error || 'Error al publicar');
           }
           $text.value = '';
           if ($scheduleAt) $scheduleAt.value = '';
           if ($scheduleToggle) $scheduleToggle.checked = false;
+          if ($collabInput) $collabInput.value = '';
           currentReplyToId = null;
           currentReplyToUsername = null;
           $text.placeholder = currentUser ? '¿Qué está pasando?' : 'Inicia sesión para publicar';
@@ -2711,7 +4456,12 @@ function getMaxChars() {
           } else {
             await fetchExplore();
           }
-          setStatus('Publicado.');
+          if (body?.status === 'pending_collab') {
+            setStatus('Solicitud de colaboraciÃ³n enviada. El post se publicarÃ¡ al aceptar.', 'info');
+            fetchCollabOutgoing().catch(() => {});
+          } else {
+            setStatus('Publicado.');
+          }
           fetchBalance().catch(() => {});
         } catch (e) {
           console.error(e);
@@ -2724,8 +4474,15 @@ function getMaxChars() {
       const $feedCard = document.getElementById('wx-main-feed-card');
       const $newCard = document.querySelector('.wx-card.wx-new');
 
+      function updateLayoutMode(tab) {
+        if (!$layout) return;
+        const focusTabs = tab === 'profile' || tab === 'subscription' || tab === 'admin';
+        $layout.classList.toggle('wx-layout--focus', focusTabs);
+      }
+
       function setTab(tab) {
         currentTab = tab;
+        updateLayoutMode(tab);
 
         // Reset estado visual de pestañas
         if ($tabExplore) $tabExplore.classList.remove('wx-tab--active');
@@ -2735,9 +4492,16 @@ function getMaxChars() {
 
         if (tab === 'explore') {
           currentHashtagFilter = null;
+          exploreSearchTerm = '';
+          if ($exploreSearch) $exploreSearch.value = '';
           if ($tabExplore) $tabExplore.classList.add('wx-tab--active');
           $feedTitle.textContent = 'Explorar';
+          updateExploreLabels(explorePosts.length, explorePosts.length);
 
+          if ($exploreCard) {
+            $exploreCard.hidden = false;
+            $exploreCard.style.display = '';
+          }
           if ($userCard) {
             $userCard.hidden = true;
             $userCard.style.display = 'none';
@@ -2770,10 +4534,17 @@ function getMaxChars() {
         } else if (tab === 'profile') {
           if ($tabProfile) $tabProfile.classList.add('wx-tab--active');
           $feedTitle.textContent = 'Tus posts';
+          if ($feedSubtitle) {
+            $feedSubtitle.textContent = currentUser ? 'Tus publicaciones recientes.' : 'Inicia sesión para ver tu perfil.';
+          }
 
+          if ($exploreCard) {
+            $exploreCard.hidden = true;
+            $exploreCard.style.display = 'none';
+          }
           if ($feedCard) {
-            $feedCard.hidden = true;
-            $feedCard.style.display = 'none';
+            $feedCard.hidden = !currentUser;
+            $feedCard.style.display = currentUser ? '' : 'none';
           }
           if ($newCard) {
             $newCard.hidden = true;
@@ -2800,6 +4571,8 @@ function getMaxChars() {
               $scheduledCard.hidden = false;
               $scheduledCard.style.display = '';
             }
+            fetchCollabRequests().catch(() => {});
+            fetchCollabOutgoing().catch(() => {});
           } else {
             if ($userCard) {
               $userCard.hidden = true;
@@ -2813,6 +4586,8 @@ function getMaxChars() {
               $scheduledCard.hidden = true;
               $scheduledCard.style.display = 'none';
             }
+            renderCollabEmpty($collabRequests, 'Inicia sesión para ver solicitudes.');
+            renderCollabEmpty($collabOutgoing, 'Inicia sesión para ver tus colaboraciones.');
           }
 
           fetchMyPosts();
@@ -2825,6 +4600,10 @@ function getMaxChars() {
           if ($tabSubscription) $tabSubscription.classList.add('wx-tab--active');
           $feedTitle.textContent = 'Explorar';
 
+          if ($exploreCard) {
+            $exploreCard.hidden = true;
+            $exploreCard.style.display = 'none';
+          }
           if ($feedCard) {
             $feedCard.hidden = false;
             $feedCard.style.display = '';
@@ -2872,6 +4651,10 @@ function getMaxChars() {
           if ($tabAdmin && !$tabAdmin.hidden) $tabAdmin.classList.add('wx-tab--active');
           $feedTitle.textContent = 'Admin';
 
+          if ($exploreCard) {
+            $exploreCard.hidden = true;
+            $exploreCard.style.display = 'none';
+          }
           if ($feedCard) {
             $feedCard.hidden = true;
             $feedCard.style.display = 'none';
@@ -2902,14 +4685,16 @@ function getMaxChars() {
             $adminCard.style.display = '';
           }
 
-          if (currentUser && currentUser.username === 'Ocean and Wild Studios') {
-            fetchGoldRequests().catch(() => {});
+          if (currentUser && currentUser.verify_tier === 'admin') {
             fetchPostReports().catch(() => {});
           }
         }
       }
 
       function setLoggedIn(user, token) {
+        if (user && !user.display_name) {
+          user.display_name = user.username || '';
+        }
         currentUser = user;
         currentToken = token;
         if (user) {
@@ -2917,7 +4702,8 @@ function getMaxChars() {
           localStorage.setItem('wildwave_user', JSON.stringify(user));
           localStorage.removeItem('wildx_token');
           localStorage.removeItem('wildx_user');
-          const isAdminUser = user.username === 'Ocean and Wild Studios';
+          upsertAccount(user, token);
+          const isAdminUser = user.verify_tier === 'admin';
           if ($tabAdmin) $tabAdmin.hidden = !isAdminUser;
           if ($adminCard) {
             if (!isAdminUser || currentTab !== 'admin') {
@@ -2925,12 +4711,17 @@ function getMaxChars() {
               $adminCard.style.display = 'none';
             }
           }
-          if ($goldRequestBtn) $goldRequestBtn.hidden = isAdminUser;
 
           if ($authModal) $authModal.hidden = true;
           if ($userCard) $userCard.hidden = currentTab !== 'profile';
           if ($profileEmpty) $profileEmpty.hidden = true;
+          if ($userDisplay) $userDisplay.textContent = user.display_name || user.username;
           if ($userName) $userName.textContent = '@' + user.username;
+          const avatarUrl = user.avatar_url || null;
+          applyAvatarImage($profileAvatar, avatarUrl);
+          applyAvatarImage($composerAvatar, avatarUrl);
+          if ($avatarRemove) $avatarRemove.disabled = !avatarUrl;
+          updateAvatarStatus(avatarUrl ? 'Foto de perfil activa.' : 'Sin foto personalizada.');
           const created = user.created_at ? new Date(user.created_at) : null;
           if ($userSince) {
             $userSince.textContent = created
@@ -2945,10 +4736,14 @@ function getMaxChars() {
           if ($userRepliesCount) $userRepliesCount.textContent = '0';
           if ($userLikesReceived) $userLikesReceived.textContent = '0';
           if ($userWxt) $userWxt.textContent = '0';
+          if ($subscriptionWxt) $subscriptionWxt.textContent = '0';
           if ($userTipsWxt) $userTipsWxt.textContent = '0';
           if ($userTipsWc) $userTipsWc.textContent = '0';
           if ($opStatus) $opStatus.textContent = 'Inicia sesión para conectar Ocean Pay';
           if ($userId) $userId.textContent = String(user.id ?? '—');
+          if ($displayNameInput) $displayNameInput.value = user.display_name || '';
+          if ($usernameInput) $usernameInput.value = user.username || '';
+          updateUsernameCooldownNotice(user);
           if ($userLastPost) $userLastPost.textContent = '—';
           if ($userTipsWxt) $userTipsWxt.textContent = '0';
           if ($userTipsWc) $userTipsWc.textContent = '0';
@@ -2973,10 +4768,10 @@ function getMaxChars() {
             $adminCard.hidden = true;
             $adminCard.style.display = 'none';
           }
-          if ($goldRequestBtn) $goldRequestBtn.hidden = true;
           if ($authModal) $authModal.hidden = true;
           if ($userCard) $userCard.hidden = true;
           if ($profileEmpty && currentTab === 'profile') $profileEmpty.hidden = false;
+          if ($userDisplay) $userDisplay.textContent = '—';
           if ($userName) $userName.textContent = '@usuario';
           if ($userSince) $userSince.textContent = '—';
           if ($userPostsCount) $userPostsCount.textContent = '0';
@@ -2984,11 +4779,22 @@ function getMaxChars() {
           if ($userRepliesCount) $userRepliesCount.textContent = '0';
           if ($userLikesReceived) $userLikesReceived.textContent = '0';
           if ($userWxt) $userWxt.textContent = '0';
+          if ($subscriptionWxt) $subscriptionWxt.textContent = '0';
           if ($userId) $userId.textContent = '—';
+          if ($displayNameInput) $displayNameInput.value = '';
+          if ($usernameInput) $usernameInput.value = '';
+          if ($profileNameStatus) $profileNameStatus.textContent = '';
           if ($userLastPost) $userLastPost.textContent = '—';
+          applyAvatarImage($profileAvatar, null);
+          applyAvatarImage($composerAvatar, null);
+          if ($avatarRemove) $avatarRemove.disabled = true;
+          updateAvatarStatus('Sin foto personalizada.');
           $text.placeholder = 'Inicia sesión para publicar';
           if ($verifyBadge) $verifyBadge.hidden = true;
+          renderCollabEmpty($collabRequests, 'Inicia sesión para ver solicitudes.');
+          renderCollabEmpty($collabOutgoing, 'Inicia sesión para ver tus colaboraciones.');
         }
+        renderAccountSelect();
         updateCounter();
       }
 
@@ -3074,6 +4880,8 @@ function getMaxChars() {
               return;
             }
             setLoggedIn(body.user, body.token);
+            reloadMe().catch(() => {});
+            accountAddMode = false;
             if ($loginPass) $loginPass.value = '';
             if ($authFooter) $authFooter.textContent = '';
             setStatus('Sesion iniciada correctamente.', 'info');
@@ -3115,6 +4923,8 @@ function getMaxChars() {
               return;
             }
             setLoggedIn(body.user, body.token);
+            reloadMe().catch(() => {});
+            accountAddMode = false;
             if ($regPass) $regPass.value = '';
             if ($authFooter) $authFooter.textContent = '';
             setStatus('Cuenta creada e inicio de sesion exitoso.', 'info');
@@ -3165,16 +4975,101 @@ function getMaxChars() {
         $tabAdmin.addEventListener('click', () => setTab('admin'));
       }
 
+      if ($collabRequests) {
+        $collabRequests.addEventListener('click', async (ev) => {
+          const btn = ev.target.closest('[data-action]');
+          if (!btn) return;
+          const id = btn.dataset.id;
+          const action = btn.dataset.action;
+          if (!id) return;
+          try {
+            if (action === 'collab-accept') {
+              await respondCollabRequest(id, true);
+              setStatus('ColaboraciÃ³n aceptada.', 'success');
+            } else if (action === 'collab-decline') {
+              await respondCollabRequest(id, false);
+              setStatus('ColaboraciÃ³n rechazada.', 'info');
+            }
+          } catch (e) {
+            console.error(e);
+            setStatus(e.message || 'No se pudo responder.', 'error');
+          }
+        });
+      }
+
+      if ($collabOutgoing) {
+        $collabOutgoing.addEventListener('click', async (ev) => {
+          const btn = ev.target.closest('[data-action]');
+          if (!btn) return;
+          if (btn.dataset.action !== 'collab-publish') return;
+          const postId = parseInt(btn.dataset.postId || '', 10);
+          if (!postId) return;
+          try {
+            await publishCollabPost(postId);
+            setStatus('Post publicado sin colaboradores.', 'info');
+          } catch (e) {
+            console.error(e);
+            setStatus(e.message || 'No se pudo publicar.', 'error');
+          }
+        });
+      }
+
+      if ($collabClose) {
+        $collabClose.addEventListener('click', () => closeCollabModal());
+      }
+      if ($collabModal) {
+        $collabModal.addEventListener('click', (ev) => {
+          if (ev.target === $collabModal) closeCollabModal();
+        });
+      }
+      if ($collabModalList) {
+        $collabModalList.addEventListener('click', (ev) => {
+          const btn = ev.target.closest('[data-action=\"open-collab-profile\"]');
+          if (!btn) return;
+          const uname = btn.dataset.username || '';
+          closeCollabModal();
+          openUserProfile(uname);
+        });
+      }
+
+      if ($logout) {
+        $logout.addEventListener('click', () => {
+          setLoggedIn(null, null);
+          setTab('explore');
+          setStatus('Sesion cerrada.', 'info');
+        });
+      }
+
+      if ($accountAdd) {
+        $accountAdd.addEventListener('click', () => {
+          openAuthModal('login', true);
+          if ($loginUser) $loginUser.focus();
+        });
+      }
+
+      if ($accountSelect) {
+        $accountSelect.addEventListener('change', () => {
+          const key = $accountSelect.value;
+          if (!key) return;
+          if (currentUser && accountKey(currentUser) === key) return;
+          switchAccountByKey(key);
+        });
+      }
+
       $threadClose.addEventListener('click', () => {
         $threadView.hidden = true;
         currentThreadPostId = null;
       });
 
-      function openAuthModal(mode = 'login') {
-        if (currentUser) return;
+      function openAuthModal(mode = 'login', allowWhenLoggedIn = false) {
+        if (currentUser && !allowWhenLoggedIn) return;
+        accountAddMode = !!allowWhenLoggedIn;
         if ($authModal) {
           $authModal.hidden = false;
           switchAuthMode(mode);
+          if ($authFooter && accountAddMode) {
+            $authFooter.textContent = 'Agregar cuenta nueva a este dispositivo.';
+          }
         }
       }
 
@@ -3184,6 +5079,7 @@ function getMaxChars() {
 
       if ($authClose) {
         $authClose.addEventListener('click', () => {
+          accountAddMode = false;
           if ($authModal) $authModal.hidden = true;
         });
       }
@@ -3191,6 +5087,7 @@ function getMaxChars() {
       if ($authModal) {
         $authModal.addEventListener('click', (ev) => {
           if (ev.target === $authModal) {
+            accountAddMode = false;
             $authModal.hidden = true;
           }
         });
@@ -3304,142 +5201,81 @@ function getMaxChars() {
         });
       }
 
-      async function sendGoldRequest() {
-        if (!currentUser || !currentToken) {
-          setStatus('Inicia sesion en WildWave para solicitar verificacion dorada.', 'error');
-          openAuthModal('login');
-          return;
-        }
-        const companyName = (await openInputDialog({
-          title: 'Verificacion dorada',
-          message: 'Nombre de la empresa (opcional):',
-          placeholder: 'Nombre de la empresa',
-          confirmLabel: 'Continuar'
-        })) || '';
-        const reason = await openInputDialog({
-          title: 'Verificacion dorada',
-          message: 'Explica por que tu empresa merece verificacion dorada:',
-          multiline: true,
-          placeholder: 'Explica brevemente el motivo...',
-          confirmLabel: 'Enviar solicitud'
-        });
-        if (!reason || reason.trim().length < 10) {
-          setStatus('Por favor escribe una explicacion mas detallada.', 'error');
-          return;
-        }
-        try {
-          const res = await fetch('https://owsdatabase.onrender.com/wildwave/api/verify/gold/request', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...authHeaders() },
-            body: JSON.stringify({ companyName, reason })
-          });
-          const body = await res.json().catch(() => ({}));
-          if (!res.ok) {
-            setStatus(body.error || 'No se pudo enviar la solicitud.', 'error');
-            return;
-          }
-          setStatus('Solicitud de verificacion dorada enviada. El admin la revisara.', 'info');
-        } catch (e) {
-          console.error(e);
-          setStatus('Error al enviar la solicitud.', 'error');
-        }
-      }
-
-      async function fetchGoldRequests() {
-        if (!currentUser || !currentToken || currentUser.username !== 'Ocean and Wild Studios') return;
-        try {
-          const res = await fetch('https://owsdatabase.onrender.com/wildwave/api/verify/gold/requests', {
-            headers: { ...authHeaders() }
-          });
-          const body = await res.json().catch(() => []);
-          if (!res.ok) {
-            console.error(body);
-            return;
-          }
-          const pending = Array.isArray(body) ? body.filter((r) => r.status === 'pending') : [];
-          if (!$goldRequestsList || !$goldRequestsEmpty) return;
-          $goldRequestsList.innerHTML = '';
-          if (!pending.length) {
-            $goldRequestsEmpty.hidden = false;
-            return;
-          }
-          $goldRequestsEmpty.hidden = true;
-          pending.forEach((r) => {
-            const div = document.createElement('div');
-            div.className = 'wx-gold-request-item';
-            div.dataset.id = r.id;
-            div.innerHTML =
-              '<div class=\"wx-gold-request-header\">' +
-              '<span>@' + (r.username || 'usuario') + '</span>' +
-              '<span>' + new Date(r.created_at).toLocaleString('es-ES') + '</span>' +
-              '</div>' +
-              '<div><strong>Empresa:</strong> ' + (r.company_name || 'No especificada') + '</div>' +
-              '<div><strong>Motivo:</strong> ' + (r.reason || '') + '</div>' +
-              '<div class=\"wx-gold-request-actions\">' +
-              '<button type=\"button\" data-action=\"approve\">Aprobar</button>' +
-              '<button type=\"button\" data-action=\"reject\">Rechazar</button>' +
-              '</div>';
-            $goldRequestsList.appendChild(div);
-          });
-        } catch (e) {
-          console.error(e);
-        }
-      }
-
-      async function handleGoldRequestAction(id, action) {
-        if (!currentUser || !currentToken || currentUser.username !== 'Ocean and Wild Studios') return;
-        let note = '';
-        if (action === 'reject') {
-          note = (await openInputDialog({
-            title: 'Rechazar verificacion dorada',
-            message: 'Motivo del rechazo (opcional):',
-            multiline: true,
-            confirmLabel: 'Rechazar'
-          })) || '';
-        }
-        try {
-          const res = await fetch(`https://owsdatabase.onrender.com/wildwave/api/verify/gold/requests/${id}/${action}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...authHeaders() },
-            body: JSON.stringify({ note })
-          });
-          const body = await res.json().catch(() => ({}));
-          if (!res.ok) {
-            setStatus(body.error || 'No se pudo procesar la solicitud.', 'error');
-            return;
-          }
-          fetchGoldRequests().catch(() => {});
-        } catch (e) {
-          console.error(e);
-          setStatus('Error al procesar la solicitud.', 'error');
-        }
-      }
-
-      if ($goldRequestBtn) {
-        $goldRequestBtn.addEventListener('click', () => {
-          sendGoldRequest();
-        });
-      }
-
       if ($connectOpBtn) {
         $connectOpBtn.addEventListener('click', () => {
           connectOceanPayFromProfile();
         });
       }
 
-      if ($goldRequestsList) {
-        $goldRequestsList.addEventListener('click', (ev) => {
-          const btn = ev.target.closest('button[data-action]');
-          if (!btn) return;
-          const item = btn.closest('.wx-gold-request-item');
-          if (!item) return;
-          const id = item.dataset.id;
-          const action = btn.dataset.action;
-          if (!id || !action) return;
-          handleGoldRequestAction(id, action);
+      if ($saveDisplayName) {
+        $saveDisplayName.addEventListener('click', () => {
+          saveDisplayName();
         });
       }
 
+      if ($saveUsername) {
+        $saveUsername.addEventListener('click', () => {
+          saveUsername();
+        });
+      }
+
+      if ($adminGoldGrant) {
+        $adminGoldGrant.addEventListener('click', () => {
+          grantGoldVerification();
+        });
+      }
+      function updateAdminGoldStatus(message, tone = 'info') {
+        if (!$adminGoldStatus) return;
+        $adminGoldStatus.textContent = message || '';
+        if (tone === 'error') {
+          $adminGoldStatus.style.color = 'var(--danger)';
+        } else if (tone === 'success') {
+          $adminGoldStatus.style.color = 'var(--success)';
+        } else {
+          $adminGoldStatus.style.color = 'var(--text-faint)';
+        }
+      }
+
+      async function grantGoldVerification() {
+        if (!currentUser || !currentToken) {
+          updateAdminGoldStatus('Inicia sesion en WildWave para usar el panel.', 'error');
+          openAuthModal('login');
+          return;
+        }
+        if (currentUser.verify_tier !== 'admin') {
+          updateAdminGoldStatus('Solo el admin puede otorgar verificacion dorada.', 'error');
+          return;
+        }
+        const unameRaw = ($adminGoldUsername?.value || '').trim().replace(/^@/, '');
+        if (!unameRaw) {
+          updateAdminGoldStatus('Usuario objetivo requerido.', 'error');
+          return;
+        }
+        const reason = ($adminGoldReason?.value || '').trim();
+        const daysRaw = Number.parseInt($adminGoldDays?.value, 10);
+        const payload = { username: unameRaw, reason };
+        if (Number.isFinite(daysRaw) && daysRaw > 0) {
+          payload.durationDays = daysRaw;
+        }
+        updateAdminGoldStatus('Otorgando verificacion dorada...', 'info');
+        try {
+          const res = await fetch('https://owsdatabase.onrender.com/wildwave/api/admin/verify/gold/grant', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...authHeaders() },
+            body: JSON.stringify(payload)
+          });
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            updateAdminGoldStatus(body.error || 'No se pudo otorgar la verificacion.', 'error');
+            return;
+          }
+          updateAdminGoldStatus(`Verificacion dorada otorgada a @${body.username || unameRaw}.`, 'success');
+          if ($adminGoldReason) $adminGoldReason.value = '';
+        } catch (e) {
+          console.error(e);
+          updateAdminGoldStatus('Error al otorgar la verificacion dorada.', 'error');
+        }
+      }
       async function fetchPostReports() {
         if (!currentUser || !currentToken) return;
         if (!$postReportsList || !$postReportsEmpty) return;
@@ -3593,6 +5429,23 @@ function getMaxChars() {
           return;
         }
 
+        const collabBtn = ev.target.closest('.wx-collab-avatars');
+        if (collabBtn) {
+          const raw = collabBtn.dataset.collabs || '';
+          let collabs = [];
+          try {
+            collabs = JSON.parse(decodeURIComponent(raw));
+          } catch {
+            collabs = [];
+          }
+          if (collabs.length > 1) {
+            openCollabModal(collabs);
+          } else if (collabs.length === 1) {
+            openUserProfile(collabs[0]?.username || '');
+          }
+          return;
+        }
+
         const btn = ev.target.closest('.wx-post-btn');
         if (!btn) return;
         const id = btn.dataset.id;
@@ -3724,6 +5577,23 @@ function getMaxChars() {
           return;
         }
 
+        const collabBtn = ev.target.closest('.wx-collab-avatars');
+        if (collabBtn) {
+          const raw = collabBtn.dataset.collabs || '';
+          let collabs = [];
+          try {
+            collabs = JSON.parse(decodeURIComponent(raw));
+          } catch {
+            collabs = [];
+          }
+          if (collabs.length > 1) {
+            openCollabModal(collabs);
+          } else if (collabs.length === 1) {
+            openUserProfile(collabs[0]?.username || '');
+          }
+          return;
+        }
+
         const btn = ev.target.closest('.wx-post-btn');
         if (!btn) return;
         const id = btn.dataset.id;
@@ -3828,13 +5698,16 @@ function getMaxChars() {
           const h = document.createElement('span');
           h.className = 'wx-handle';
           const nodeUsername = node.username || 'usuario';
+          const nodeDisplay = node.display_name || nodeUsername;
+          const showDisplay = nodeDisplay && nodeDisplay.toLowerCase() !== nodeUsername.toLowerCase();
           h.textContent = '@' + nodeUsername;
+
+          const display = document.createElement('span');
+          display.className = 'wx-display-name';
+          display.textContent = nodeDisplay;
 
           let verifyIcon = null;
           let nodeTier = node.verify_tier || null;
-          if (nodeUsername === 'Ocean and Wild Studios') {
-            nodeTier = 'admin';
-          }
           if (nodeTier) {
             verifyIcon = createPostVerifyIcon(nodeTier, node.verify_badge_color);
           }
@@ -3846,9 +5719,11 @@ function getMaxChars() {
           t.className = 'wx-time';
           t.textContent = formatTime(node.created_at);
           if (verifyIcon) {
-            meta.append(h, verifyIcon, dot, t);
+            if (showDisplay) meta.append(display, h, verifyIcon, dot, t);
+            else meta.append(h, verifyIcon, dot, t);
           } else {
-            meta.append(h, dot, t);
+            if (showDisplay) meta.append(display, h, dot, t);
+            else meta.append(h, dot, t);
           }
 
           const text = document.createElement('div');
@@ -3883,7 +5758,12 @@ function getMaxChars() {
 
           actions.append(likeBtn, replyBtn);
 
-          li.append(meta, text, actions);
+          const collabRow = buildCollabRow(node, node.avatar_url || null);
+          if (collabRow) {
+            li.append(meta, collabRow, text, actions);
+          } else {
+            li.append(meta, text, actions);
+          }
           $threadList.appendChild(li);
 
           node.children.forEach(child => renderNode(child, depth + 1));
@@ -3934,15 +5814,58 @@ function getMaxChars() {
         });
       }
 
+      function getExploreFilterLabel() {
+        const parts = [];
+        if (currentHashtagFilter) parts.push(`#${currentHashtagFilter}`);
+        if (exploreSearchTerm) parts.push(`"${exploreSearchTerm}"`);
+        return parts.length ? parts.join(' · ') : 'Todas las olas';
+      }
+
+      function filterExplorePosts(posts) {
+        let filtered = Array.isArray(posts) ? posts.slice() : [];
+        if (currentHashtagFilter) {
+          filtered = filterPostsByHashtag(filtered, currentHashtagFilter);
+        }
+        if (exploreSearchTerm) {
+          const needle = exploreSearchTerm.toLowerCase();
+          filtered = filtered.filter((p) => {
+            const content = (p.content || '').toLowerCase();
+            const uname = (p.username || '').toLowerCase();
+            const dname = (p.display_name || '').toLowerCase();
+            return content.includes(needle) || uname.includes(needle) || dname.includes(needle);
+          });
+        }
+        return filtered;
+      }
+
+      function updateExploreLabels(filteredCount, totalCount) {
+        if ($exploreActiveLabel) {
+          $exploreActiveLabel.textContent = getExploreFilterLabel();
+        }
+        if ($feedSubtitle && (currentTab === 'explore' || currentTab === 'subscription')) {
+          const total = typeof totalCount === 'number' ? totalCount : filteredCount;
+          const base = total === filteredCount
+            ? `${filteredCount} posts activos`
+            : `${filteredCount} de ${total} posts`;
+          const filterLabel = getExploreFilterLabel();
+          $feedSubtitle.textContent = filterLabel === 'Todas las olas' ? base : `${base} · ${filterLabel}`;
+        }
+      }
+
+      function renderExplorePosts() {
+        const filtered = filterExplorePosts(explorePosts);
+        renderPosts(filtered);
+        updateExploreLabels(filtered.length, explorePosts.length);
+      }
+
       function applyHashtagFilter(tag) {
         currentHashtagFilter = tag || null;
-        if (currentTab !== 'explore') return;
+        if (currentTab !== 'explore' && currentTab !== 'subscription') return;
         if (!Array.isArray(explorePosts) || !explorePosts.length) return;
-        const posts = currentHashtagFilter ? filterPostsByHashtag(explorePosts, currentHashtagFilter) : explorePosts;
         if ($feedTitle) {
           $feedTitle.textContent = currentHashtagFilter ? `#${currentHashtagFilter}` : 'Explorar';
         }
-        renderPosts(posts);
+        renderExplorePosts();
       }
 
       async function fetchNotificationsBadge() {
@@ -4117,3 +6040,6 @@ function getMaxChars() {
     </script>
   </body>
 </html>
+
+
+

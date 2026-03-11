@@ -553,6 +553,10 @@
         color: var(--text);
       }
 
+      .wx-open-profile {
+        cursor: pointer;
+      }
+
       .wx-dot {
         opacity: 0.4;
       }
@@ -1519,6 +1523,10 @@
         box-shadow: 0 10px 20px rgba(2, 6, 23, 0.65);
       }
 
+      .wx-avatar--click {
+        cursor: pointer;
+      }
+
       .wx-avatar--profile {
         width: 86px;
         height: 86px;
@@ -1696,22 +1704,38 @@
         margin: 6px 0 2px;
       }
 
+      .wx-collab-label {
+        color: var(--text-soft);
+        font-weight: 600;
+      }
+
       .wx-collab-avatars {
         display: inline-flex;
         align-items: center;
         gap: 4px;
-        border: 1px solid rgba(148, 163, 184, 0.35);
-        background: rgba(8, 15, 32, 0.7);
+        border: none;
+        background: transparent;
         border-radius: 999px;
-        padding: 2px 6px;
+        padding: 0;
         cursor: pointer;
       }
 
+      .wx-collab-stack {
+        display: flex;
+        align-items: center;
+      }
+
       .wx-collab-avatar {
-        width: 24px;
-        height: 24px;
+        width: 22px;
+        height: 22px;
         border-radius: 999px;
         flex: 0 0 auto;
+        border: 2px solid rgba(8, 15, 32, 0.9);
+        margin-left: -6px;
+      }
+
+      .wx-collab-avatar:first-child {
+        margin-left: 0;
       }
 
       .wx-collab-count {
@@ -1720,6 +1744,38 @@
         background: rgba(56, 189, 248, 0.18);
         border-radius: 999px;
         padding: 2px 6px;
+        margin-left: 6px;
+      }
+
+      .wx-collab-tag {
+        font-size: 0.68rem;
+        color: var(--text);
+        background: rgba(14, 116, 144, 0.2);
+        border-radius: 999px;
+        padding: 2px 6px;
+      }
+
+      .wx-collab-join {
+        color: var(--text-soft);
+        font-weight: 500;
+      }
+
+      .wx-collab-name {
+        background: transparent;
+        border: none;
+        padding: 0;
+        font: inherit;
+        color: var(--text);
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      .wx-collab-extra {
+        font-size: 0.7rem;
+        color: var(--text);
+        background: rgba(59, 130, 246, 0.18);
+        border-radius: 999px;
+        padding: 1px 6px;
       }
 
       .wx-collab-section {
@@ -2803,6 +2859,7 @@
       let explorePosts = [];
       let currentHashtagFilter = null;
       let exploreSearchTerm = '';
+      let exploreProfileUser = null;
       let lastNotifications = [];
       let currentPromoted = null;
 
@@ -2820,6 +2877,11 @@
       if ($exploreSearch) {
         $exploreSearch.addEventListener('input', () => {
           exploreSearchTerm = ($exploreSearch.value || '').trim();
+          if (!exploreSearchTerm) {
+            exploreProfileUser = null;
+          } else if (exploreProfileUser && exploreProfileUser.toLowerCase() !== exploreSearchTerm.toLowerCase()) {
+            exploreProfileUser = null;
+          }
           if (currentTab === 'explore') {
             renderExplorePosts();
           }
@@ -2830,6 +2892,7 @@
         $exploreClear.addEventListener('click', () => {
           currentHashtagFilter = null;
           exploreSearchTerm = '';
+          exploreProfileUser = null;
           if ($exploreSearch) $exploreSearch.value = '';
           if ($feedTitle) $feedTitle.textContent = 'Explorar';
           renderExplorePosts();
@@ -3579,39 +3642,64 @@ function getMaxChars() {
         return [];
       }
 
-      function buildCollabRow(post, authorAvatarUrl) {
-        const collaborators = readPostCollaborators(post);
-        if (!collaborators.length) return null;
+      function getPrimaryCollaborator(collaborators) {
+        return Array.isArray(collaborators) && collaborators.length ? collaborators[0] : null;
+      }
+
+      function isUserCollaborator(collaborators, userId) {
+        if (!userId) return false;
+        return (Array.isArray(collaborators) ? collaborators : []).some(c => String(c?.id) === String(userId));
+      }
+
+      function buildCollabRow(collaborators, authorAvatarUrl, authorUsername, authorId) {
+        const list = Array.isArray(collaborators) ? collaborators : [];
+        if (!list.length) return null;
+        const primary = getPrimaryCollaborator(list);
         const row = document.createElement('div');
         row.className = 'wx-collab-row';
 
         const label = document.createElement('span');
+        label.className = 'wx-collab-label';
         label.textContent = 'Colabora';
 
         const avatars = document.createElement('button');
         avatars.type = 'button';
         avatars.className = 'wx-collab-avatars';
-        avatars.dataset.collabs = encodeURIComponent(JSON.stringify(collaborators));
+        avatars.dataset.collabs = encodeURIComponent(JSON.stringify(list));
+
+        const stack = document.createElement('span');
+        stack.className = 'wx-collab-stack';
 
         const authorAvatar = document.createElement('div');
-        authorAvatar.className = 'wx-avatar wx-collab-avatar';
+        authorAvatar.className = 'wx-avatar wx-collab-avatar wx-avatar--click';
+        authorAvatar.dataset.action = 'open-profile';
+        authorAvatar.dataset.username = authorUsername || '';
         applyAvatarImage(authorAvatar, authorAvatarUrl);
-        avatars.appendChild(authorAvatar);
+        stack.appendChild(authorAvatar);
 
-        const first = collaborators[0];
+        const first = primary;
         const firstAvatar = document.createElement('div');
         firstAvatar.className = 'wx-avatar wx-collab-avatar';
         applyAvatarImage(firstAvatar, first?.avatar_url || null);
-        avatars.appendChild(firstAvatar);
+        stack.appendChild(firstAvatar);
 
-        if (collaborators.length > 1) {
+        if (list.length > 1) {
           const count = document.createElement('span');
           count.className = 'wx-collab-count';
-          count.textContent = `+${collaborators.length - 1}`;
-          avatars.appendChild(count);
+          count.textContent = `+${list.length - 1}`;
+          stack.appendChild(count);
         }
 
+        avatars.appendChild(stack);
         row.append(label, avatars);
+
+        const showTag = currentUser && isUserCollaborator(list, currentUser.id) && String(authorId) !== String(currentUser.id);
+        if (showTag) {
+          const tag = document.createElement('span');
+          tag.className = 'wx-collab-tag';
+          tag.textContent = 'Colabora contigo';
+          row.appendChild(tag);
+        }
         return row;
       }
 
@@ -3627,6 +3715,10 @@ function getMaxChars() {
           $collabModal.hidden = false;
           return;
         }
+        const summary = document.createElement('div');
+        summary.className = 'wx-collab-empty';
+        summary.textContent = `${list.length} colaboradores`;
+        $collabModalList.appendChild(summary);
         for (const collab of list) {
           const item = document.createElement('div');
           item.className = 'wx-collab-item';
@@ -3673,11 +3765,21 @@ function getMaxChars() {
       function openUserProfile(username) {
         const uname = String(username || '').trim().replace(/^@/, '');
         if (!uname) return;
+        if (currentUser && String(currentUser.username || '').toLowerCase() === uname.toLowerCase()) {
+          setTab('profile');
+          return;
+        }
         setTab('explore');
+        currentHashtagFilter = null;
         exploreSearchTerm = uname;
+        exploreProfileUser = uname;
         if ($exploreSearch) $exploreSearch.value = uname;
         if ($feedTitle) $feedTitle.textContent = '@' + uname;
-        renderExplorePosts();
+        if (!Array.isArray(explorePosts) || !explorePosts.length) {
+          fetchExplore();
+        } else {
+          renderExplorePosts();
+        }
       }
 
       function createPostElement(post, options = {}) {
@@ -3698,11 +3800,38 @@ function getMaxChars() {
         const uname = post.username || 'wildwave-user';
         const displayName = post.display_name || uname;
         const showDisplay = displayName && displayName.toLowerCase() !== uname.toLowerCase();
+        const collabList = readPostCollaborators(post);
+        const primaryCollab = getPrimaryCollaborator(collabList);
+        const hasCollab = !!primaryCollab;
+        const showName = showDisplay || hasCollab;
         handle.textContent = '@' + uname;
+        handle.dataset.action = 'open-profile';
+        handle.dataset.username = uname;
+        handle.classList.add('wx-open-profile');
 
         const display = document.createElement('span');
         display.className = 'wx-display-name';
         display.textContent = displayName;
+        display.dataset.action = 'open-profile';
+        display.dataset.username = uname;
+        display.classList.add('wx-open-profile');
+
+        let collabJoin = null;
+        let collabNameBtn = null;
+        if (primaryCollab) {
+          const collabName = primaryCollab.display_name || primaryCollab.username || 'colaborador';
+          const collabUsername = primaryCollab.username || '';
+          collabJoin = document.createElement('span');
+          collabJoin.className = 'wx-collab-join';
+          collabJoin.textContent = 'y';
+
+          collabNameBtn = document.createElement('button');
+          collabNameBtn.type = 'button';
+          collabNameBtn.className = 'wx-collab-name';
+          collabNameBtn.textContent = collabName;
+          collabNameBtn.dataset.action = 'open-profile';
+          collabNameBtn.dataset.username = collabUsername;
+        }
 
         let verifyIcon = null;
         let authorTier = post.verify_tier || null;
@@ -3713,6 +3842,9 @@ function getMaxChars() {
         const isOwn = currentUser && String(post.user_id) === String(currentUser.id);
         const avatarUrl = post.avatar_url || (isOwn ? currentUser?.avatar_url : null);
         applyAvatarImage(avatar, avatarUrl);
+        avatar.dataset.action = 'open-profile';
+        avatar.dataset.username = uname;
+        avatar.classList.add('wx-avatar--click');
 
         const dot = document.createElement('span');
         dot.className = 'wx-dot';
@@ -3730,12 +3862,16 @@ function getMaxChars() {
         else if (options.scheduled) pillLabel = 'programado';
         pill.innerHTML = `<span>WildWave</span> · ${pillLabel}`;
 
+        const nameParts = [];
+        if (showName) nameParts.push(display);
+        if (collabJoin && collabNameBtn) nameParts.push(collabJoin, collabNameBtn);
+        if (showName) nameParts.push(handle);
+        else nameParts.push(handle);
+
         if (verifyIcon) {
-          if (showDisplay) meta.append(display, handle, verifyIcon, dot, time, pill);
-          else meta.append(handle, verifyIcon, dot, time, pill);
+          meta.append(...nameParts, verifyIcon, dot, time, pill);
         } else {
-          if (showDisplay) meta.append(display, handle, dot, time, pill);
-          else meta.append(handle, dot, time, pill);
+          meta.append(...nameParts, dot, time, pill);
         }
 
         const text = document.createElement('div');
@@ -3810,7 +3946,7 @@ function getMaxChars() {
         if (deleteBtn) actions.append(deleteBtn);
         if (reportBtn) actions.append(reportBtn);
 
-        const collabRow = buildCollabRow(post, avatarUrl);
+        const collabRow = buildCollabRow(collabList, avatarUrl, uname, post.user_id);
         if (collabRow) {
           body.append(meta, collabRow, text, actions);
         } else {
@@ -3868,7 +4004,9 @@ function getMaxChars() {
           }
           // Reset filtro de hashtag al refrescar
           if (!currentHashtagFilter) {
-            $feedTitle.textContent = 'Explorar';
+            if ($feedTitle) {
+              $feedTitle.textContent = exploreProfileUser ? '@' + exploreProfileUser : 'Explorar';
+            }
           }
           renderExplorePosts();
           updateTrends(explorePosts);
@@ -4493,6 +4631,7 @@ function getMaxChars() {
         if (tab === 'explore') {
           currentHashtagFilter = null;
           exploreSearchTerm = '';
+          exploreProfileUser = null;
           if ($exploreSearch) $exploreSearch.value = '';
           if ($tabExplore) $tabExplore.classList.add('wx-tab--active');
           $feedTitle.textContent = 'Explorar';
@@ -5422,6 +5561,13 @@ function getMaxChars() {
       }
 
       $feed.addEventListener('click', async (ev) => {
+        const profileBtn = ev.target.closest('[data-action="open-profile"]');
+        if (profileBtn) {
+          const uname = profileBtn.dataset.username || '';
+          if (uname) openUserProfile(uname);
+          return;
+        }
+
         const tagBtn = ev.target.closest('.wx-hashtag');
         if (tagBtn) {
           const tag = tagBtn.dataset.hashtag;
@@ -5570,6 +5716,13 @@ function getMaxChars() {
 
       // Permitir like/responder también desde el hilo (lista de respuestas)
       $threadList.addEventListener('click', async (ev) => {
+        const profileBtn = ev.target.closest('[data-action="open-profile"]');
+        if (profileBtn) {
+          const uname = profileBtn.dataset.username || '';
+          if (uname) openUserProfile(uname);
+          return;
+        }
+
         const tagBtn = ev.target.closest('.wx-hashtag');
         if (tagBtn) {
           const tag = tagBtn.dataset.hashtag;
@@ -5700,11 +5853,38 @@ function getMaxChars() {
           const nodeUsername = node.username || 'usuario';
           const nodeDisplay = node.display_name || nodeUsername;
           const showDisplay = nodeDisplay && nodeDisplay.toLowerCase() !== nodeUsername.toLowerCase();
+          const collabList = readPostCollaborators(node);
+          const primaryCollab = getPrimaryCollaborator(collabList);
+          const hasCollab = !!primaryCollab;
+          const showName = showDisplay || hasCollab;
           h.textContent = '@' + nodeUsername;
+          h.dataset.action = 'open-profile';
+          h.dataset.username = nodeUsername;
+          h.classList.add('wx-open-profile');
 
           const display = document.createElement('span');
           display.className = 'wx-display-name';
           display.textContent = nodeDisplay;
+          display.dataset.action = 'open-profile';
+          display.dataset.username = nodeUsername;
+          display.classList.add('wx-open-profile');
+
+          let collabJoin = null;
+          let collabNameBtn = null;
+          if (primaryCollab) {
+            const collabName = primaryCollab.display_name || primaryCollab.username || 'colaborador';
+            const collabUsername = primaryCollab.username || '';
+            collabJoin = document.createElement('span');
+            collabJoin.className = 'wx-collab-join';
+            collabJoin.textContent = 'y';
+
+            collabNameBtn = document.createElement('button');
+            collabNameBtn.type = 'button';
+            collabNameBtn.className = 'wx-collab-name';
+            collabNameBtn.textContent = collabName;
+            collabNameBtn.dataset.action = 'open-profile';
+            collabNameBtn.dataset.username = collabUsername;
+          }
 
           let verifyIcon = null;
           let nodeTier = node.verify_tier || null;
@@ -5718,12 +5898,16 @@ function getMaxChars() {
           const t = document.createElement('span');
           t.className = 'wx-time';
           t.textContent = formatTime(node.created_at);
+          const nameParts = [];
+          if (showName) nameParts.push(display);
+          if (collabJoin && collabNameBtn) nameParts.push(collabJoin, collabNameBtn);
+          if (showName) nameParts.push(h);
+          else nameParts.push(h);
+
           if (verifyIcon) {
-            if (showDisplay) meta.append(display, h, verifyIcon, dot, t);
-            else meta.append(h, verifyIcon, dot, t);
+            meta.append(...nameParts, verifyIcon, dot, t);
           } else {
-            if (showDisplay) meta.append(display, h, dot, t);
-            else meta.append(h, dot, t);
+            meta.append(...nameParts, dot, t);
           }
 
           const text = document.createElement('div');
@@ -5758,7 +5942,7 @@ function getMaxChars() {
 
           actions.append(likeBtn, replyBtn);
 
-          const collabRow = buildCollabRow(node, node.avatar_url || null);
+          const collabRow = buildCollabRow(collabList, node.avatar_url || null, nodeUsername, node.user_id);
           if (collabRow) {
             li.append(meta, collabRow, text, actions);
           } else {
@@ -5848,7 +6032,11 @@ function getMaxChars() {
             ? `${filteredCount} posts activos`
             : `${filteredCount} de ${total} posts`;
           const filterLabel = getExploreFilterLabel();
-          $feedSubtitle.textContent = filterLabel === 'Todas las olas' ? base : `${base} · ${filterLabel}`;
+          if (exploreProfileUser) {
+            $feedSubtitle.textContent = `Perfil de @${exploreProfileUser} · ${base}`;
+          } else {
+            $feedSubtitle.textContent = filterLabel === 'Todas las olas' ? base : `${base} · ${filterLabel}`;
+          }
         }
       }
 
@@ -5860,6 +6048,7 @@ function getMaxChars() {
 
       function applyHashtagFilter(tag) {
         currentHashtagFilter = tag || null;
+        exploreProfileUser = null;
         if (currentTab !== 'explore' && currentTab !== 'subscription') return;
         if (!Array.isArray(explorePosts) || !explorePosts.length) return;
         if ($feedTitle) {

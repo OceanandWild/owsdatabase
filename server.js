@@ -12726,6 +12726,14 @@ async function ensureWildXTables() {
       updated_at TIMESTAMP NOT NULL DEFAULT NOW()
     )
   `);
+  await pool.query(`
+    ALTER TABLE wildx_oceanpay_links
+      DROP CONSTRAINT IF EXISTS wildx_oceanpay_links_ocean_pay_user_id_key
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_wildx_oceanpay_links_ocean_pay_user_id
+      ON wildx_oceanpay_links(ocean_pay_user_id)
+  `);
 
   // Notificaciones de WildX
   await pool.query(`
@@ -12761,7 +12769,7 @@ function getWildXUserId(req) {
   }
 }
 
-// Crear una notificaciÃ³n para un usuario de WildX
+// Crear una notificacion para un usuario de WildX
 async function createWildXNotification(userId, type, payload) {
   if (!userId || !type) return;
   try {
@@ -12772,7 +12780,7 @@ async function createWildXNotification(userId, type, payload) {
       [userId, type, JSON.stringify(payload || {})]
     );
   } catch (err) {
-    console.error('Error creando notificaciÃ³n WildX:', err);
+    console.error('Error creando notificacion WildX:', err);
   }
 }
 

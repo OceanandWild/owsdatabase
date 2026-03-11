@@ -389,7 +389,7 @@ app.post('/tigertasks/auth/register', async (req, res) => {
     const password = String(req.body?.password || '').trim();
     if (!username || !password) return res.status(400).json({ error: 'Faltan credenciales' });
     if (username.length < 3) return res.status(400).json({ error: 'Usuario demasiado corto' });
-    if (password.length < 4) return res.status(400).json({ error: 'Contrase�a demasiado corta' });
+    if (password.length < 4) return res.status(400).json({ error: 'Contrase?a demasiado corta' });
 
     const { rows: exists } = await pool.query(
       'SELECT id FROM tiger_tasks_users WHERE LOWER(username)=LOWER($1) LIMIT 1',
@@ -430,7 +430,7 @@ app.post('/tigertasks/auth/login', async (req, res) => {
     if (!rows.length) return res.status(404).json({ error: 'Cuenta Tiger Tasks no encontrada' });
     const user = rows[0];
     const ok = await bcrypt.compare(password, user.pwd_hash || '');
-    if (!ok) return res.status(401).json({ error: 'Contrase�a incorrecta' });
+    if (!ok) return res.status(401).json({ error: 'Contrase?a incorrecta' });
 
     const token = jwt.sign(
       { tid: user.id, username: user.username, source: 'tigertasks' },
@@ -440,7 +440,7 @@ app.post('/tigertasks/auth/login', async (req, res) => {
     res.json({ success: true, token, user: { id: user.id, username: user.username } });
   } catch (e) {
     console.error('TigerTasks login error:', e);
-    res.status(500).json({ error: 'Error al iniciar sesi�n Tiger Tasks' });
+    res.status(500).json({ error: 'Error al iniciar sesi?n Tiger Tasks' });
   }
 });
 
@@ -466,7 +466,7 @@ app.post('/tigertasks/link/oceanpay', async (req, res) => {
     const ok = await bcrypt.compare(oceanPassword, String(opUser.pwd_hash || ''));
     if (!ok) {
       await client.query('ROLLBACK');
-      return res.status(401).json({ error: 'Contrase�a de Ocean Pay incorrecta' });
+      return res.status(401).json({ error: 'Contrase?a de Ocean Pay incorrecta' });
     }
 
     await client.query(
@@ -571,11 +571,11 @@ function toNewsArray(value) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) return parsed.map((v) => String(v || '').trim()).filter(Boolean);
     } catch (_) {
-      // no-op: fallback a split por l�neas
+      // no-op: fallback a split por l?neas
     }
     return raw
       .split(/\r?\n/)
-      .map((line) => line.replace(/^\s*[-*�]+\s*/, '').trim())
+      .map((line) => line.replace(/^\s*[-*?]+\s*/, '').trim())
       .filter(Boolean);
   }
   return [];
@@ -644,7 +644,7 @@ function splitReleaseBody(body = '') {
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean)
-    .map((line) => line.replace(/^\s*[-*�]+\s*/, '').trim())
+    .map((line) => line.replace(/^\s*[-*?]+\s*/, '').trim())
     .filter(Boolean)
     .slice(0, 14);
 }
@@ -656,1965 +656,6 @@ function inferPlatformsFromReleaseAssets(assets = [], fallback = ['windows']) {
     if (n.endsWith('.apk') || n.endsWith('.aab') || n.includes('android')) set.add('android');
     if (n.endsWith('.exe') || n.endsWith('.msi') || n.endsWith('.zip') || n.includes('win')) set.add('windows');
   });
-  if (!set.size) fallback.forEach((p) => set.add(String(p || '').toLowerCase()));
-  return [...set].filter(Boolean);
-}
-
-async function fetchGithubLatestRelease(repo) {
-  const url = `https://api.github.com/repos/${repo}/releases/latest`;
-  const headers = {
-    'User-Agent': 'OWS-Store-Server',
-    'Accept': 'application/vnd.github+json'
-  };
-  const token = process.env.GITHUB_TOKEN || process.env.GH_TOKEN || '';
-  if (token) headers.Authorization = `Bearer ${token}`;
-  const res = await fetch(url, { headers });
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    const err = new Error(`GitHub API ${res.status} for ${repo}`);
-    err.status = res.status;
-    err.body = text;
-    throw err;
-  }
-  return res.json();
-}
-
-async function upsertOwsNewsEntryBySyncKey({
-  syncKey,
-  projectNames,
-  title,
-  description,
-  changes,
-  updateDate,
-  entryType = 'changelog',
-  platforms = ['windows'],
-  model2dKey = null,
-  model2dPayload = {},
-  bannerMeta = {},
-  isActive = true,
-  priority = 0,
-  eventStart = null,
-  eventEnd = null
-}) {
-  const existing = await pool.query(
-    `SELECT id
-     FROM ows_news_updates
-     WHERE (banner_meta->>'sync_key') = $1
-     LIMIT 1`,
-    [syncKey]
-  );
-
-  const cleanChanges = Array.isArray(changes) ? changes.filter(Boolean).slice(0, 20) : [];
-  const changesText = cleanChanges.join('\n');
-  const baseParams = [
-    Array.isArray(projectNames) ? projectNames : [],
-    String(title || 'Actualizacion'),
-    String(description || '').trim() || null,
-    changesText,
-    updateDate ? new Date(updateDate) : new Date(),
-    entryType,
-    Array.isArray(platforms) ? platforms : ['windows'],
-    model2dKey || null,
-    model2dPayload && typeof model2dPayload === 'object' ? model2dPayload : {},
-    { ...(bannerMeta && typeof bannerMeta === 'object' ? bannerMeta : {}), sync_key: syncKey },
-    Boolean(isActive),
-    Number(priority || 0),
-    eventStart ? new Date(eventStart) : null,
-    eventEnd ? new Date(eventEnd) : null
-  ];
-
-  if (existing.rowCount > 0) {
-    const { rows } = await pool.query(
-      `UPDATE ows_news_updates
-       SET project_names = $1,
-           title = $2,
-           description = $3,
-           changes = $4,
-           update_date = $5,
-           entry_type = $6,
-           platforms = $7,
-           model_2d_key = $8,
-           model_2d_payload = $9,
-           banner_meta = $10,
-           is_active = $11,
-           priority = $12,
-           event_start = $13,
-           event_end = $14
-       WHERE id = $15
-       RETURNING *`,
-      [...baseParams, existing.rows[0].id]
-    );
-    return rows[0] || null;
-  }
-
-  const { rows } = await pool.query(
-    `INSERT INTO ows_news_updates (
-       project_names, title, description, changes, update_date, entry_type, platforms,
-       model_2d_key, model_2d_payload, banner_meta, is_active, priority, event_start, event_end
-     )
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
-     RETURNING *`,
-    baseParams
-  );
-  return rows[0] || null;
-}
-
-async function ensureOwsStoreProjectsSeedData() {
-  const forcedComingSoonNoDate = new Set(['naturepedia', 'wildshorts']);
-  const seeds = [
-    {
-      slug: 'ows-store',
-      name: 'OWS Store',
-      description: 'Launcher oficial del ecosistema Ocean and Wild Studios.',
-      url: 'https://github.com/OceanandWild/owsdatabase/releases/latest',
-      version: '0.0.0',
-      status: 'launched',
-      metadata: { platforms: ['windows', 'android'], repo: 'OceanandWild/owsdatabase' }
-    },
-    {
-      slug: 'dinobox',
-      name: 'DinoBox',
-      description: 'Colecciona dinosaurios, completa expediciones y progresa en el pase de temporada.',
-      url: '/DinoBox/index.html',
-      version: '2026.3.8-dino',
-      status: 'coming_soon',
-      release_date: '2026-03-11T13:00:00Z',
-      metadata: { platforms: ['windows'], release_channel: 'web_local', pending_release: true }
-    },
-    ...OWS_PROJECT_RELEASE_SOURCES
-      .filter((p) => p.slug !== 'ows-store')
-      .map((p) => {
-        const slug = String(p.slug || '').trim().toLowerCase();
-        const isForcedComingSoon = forcedComingSoonNoDate.has(slug);
-        return {
-          slug: p.slug,
-          name: p.name,
-          description: isForcedComingSoon
-            ? `${p.name} se publicara proximamente en OWS Store.`
-            : `${p.name} disponible en OWS Store.`,
-          url: `https://github.com/${p.repo}/releases/latest`,
-          version: p.slug === 'oceanpay' ? OCEAN_PAY_LOCAL_VERSION : '0.0.0',
-          status: isForcedComingSoon ? 'coming_soon' : 'launched',
-          release_date: null,
-          metadata: {
-            platforms: p.defaultPlatforms || ['windows'],
-            repo: p.repo,
-            pending_release: isForcedComingSoon
-          }
-        };
-      })
-  ];
-
-  for (const item of seeds) {
-    await pool.query(
-      `INSERT INTO ows_projects (slug, name, description, url, version, status, release_date, metadata)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
-       ON CONFLICT (slug) DO UPDATE SET
-         name = EXCLUDED.name,
-         description = EXCLUDED.description,
-         url = EXCLUDED.url,
-         status = EXCLUDED.status,
-         release_date = COALESCE(EXCLUDED.release_date, ows_projects.release_date),
-         metadata = ows_projects.metadata || EXCLUDED.metadata`,
-      [
-        item.slug,
-        item.name,
-        item.description,
-        item.url,
-        item.version,
-        item.status,
-        item.release_date || null,
-        item.metadata || {}
-      ]
-    );
-  }
-
-  return { seeded: seeds.length };
-}
-
-async function ensureOwsStoreNewsSeedData() {
-  const now = new Date();
-  const in14Days = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
-
-  const entries = [
-    {
-      syncKey: 'seed:ows-store:welcome',
-      projectNames: ['ows-store', 'OWS Store'],
-      title: 'OWS Store centraliza noticias, changelogs y eventos',
-      description: 'La informacion global del ecosistema ahora vive dentro de OWS Store.',
-      changes: [
-        'Noticias globales integradas',
-        'Eventos destacados con ventana de tiempo',
-        'Changelogs por proyecto con plataforma'
-      ],
-      updateDate: now,
-      entryType: 'changelog',
-      platforms: ['windows', 'android'],
-      model2dKey: 'store_hub',
-      model2dPayload: { palette: 'cyan-orange' },
-      bannerMeta: { visual: 'store_hub', importance: 'high' },
-      isActive: true,
-      priority: 10
-    },
-    {
-      syncKey: 'seed:dinobox:launch',
-      projectNames: ['dinobox', 'DinoBox'],
-      title: 'DinoBox - lanzamiento programado en OWS Store',
-      description: 'DinoBox queda programado para lanzamiento en 3 dias dentro de OWS Store.',
-      changes: [
-        'Ficha de DinoBox habilitada en OWS Store con countdown activo.',
-        'Prelanzamiento marcado como coming_soon para evitar instalacion anticipada.',
-        'Lanzamiento oficial previsto para 2026-03-11 10:00 (Uruguay).'
-      ],
-      updateDate: now,
-      entryType: 'changelog',
-      platforms: ['windows'],
-      model2dKey: 'launch_orbit',
-      model2dPayload: { accent: '#f59e0b' },
-      bannerMeta: { visual: 'launch_orbit', category: 'launch' },
-      isActive: true,
-      priority: 11
-    },
-    {
-      syncKey: 'seed:event:wild-destiny-launch',
-      projectNames: ['wild-destiny', 'Wild Destiny'],
-      title: 'Wild Destiny - Evento de lanzamiento',
-      description: 'Lanzamiento oficial de Wild Destiny en OWS Store para Windows.',
-      changes: ['Countdown de lanzamiento activo en la ficha del proyecto.'],
-      updateDate: now,
-      entryType: 'event',
-      platforms: ['windows'],
-      model2dKey: 'launch_orbit',
-      model2dPayload: { accent: '#00f3ff' },
-      bannerMeta: { visual: 'launch_orbit', category: 'launch' },
-      isActive: true,
-      priority: 12,
-      eventStart: now,
-      eventEnd: in14Days
-    },
-    {
-      syncKey: 'seed:oceanpay:ecoxion-integration-pack',
-      projectNames: ['oceanpay', 'Ocean Pay', 'Ecoxion'],
-      title: 'Ocean Pay + Ecoxion: integracion ampliada',
-      description: 'Ocean Pay refuerza el flujo de Ecoxion con mejor sincronizacion de saldo, suscripciones y compatibilidad.',
-      changes: [
-        'Unificacion de persistencia de saldo sobre tarjetas (ocean_pay_cards.balances) para Ecoxionums.',
-        'Mejoras en sincronizacion de Ecoxionums entre app y servidor con trazabilidad de transacciones.',
-        'Suscripciones de Ecoxion alineadas con Ocean Pay y renovacion/estado consistente.',
-        'Compatibilidad reforzada para lectura de saldos legacy sin romper el flujo actual.',
-        'Ajustes de estabilidad para que OWS Store consuma changelogs/eventos de forma centralizada por API.'
-      ],
-      updateDate: now,
-      entryType: 'changelog',
-      platforms: ['windows', 'android'],
-      model2dKey: 'currency_sync',
-      model2dPayload: { accent: '#22d3ee', secondary: '#8b5cf6' },
-      bannerMeta: { visual: 'currency_sync', category: 'changelog', focus: 'ecoxion' },
-      isActive: true,
-      priority: 11
-    }
-  ];
-
-  let count = 0;
-  for (const item of entries) {
-    await upsertOwsNewsEntryBySyncKey(item);
-    count++;
-  }
-  return { seeded: count };
-}
-
-async function ensureProjectChangelogSync({ force = false, projectSlug = '' } = {}) {
-  const slugFilter = String(projectSlug || '').trim().toLowerCase();
-  const sources = OWS_PROJECT_RELEASE_SOURCES.filter((s) => !slugFilter || s.slug === slugFilter || s.name.toLowerCase() === slugFilter);
-  const summary = { scanned: sources.length, updated: 0, skipped: 0, errors: [] };
-
-  for (const source of sources) {
-    try {
-      const release = await fetchGithubLatestRelease(source.repo);
-      const tag = String(release?.tag_name || release?.name || '').trim();
-      if (!tag) {
-        summary.skipped++;
-        continue;
-      }
-
-      const syncKey = `github:${source.repo}:${tag}`;
-      const already = await pool.query(
-        `SELECT id, update_date
-         FROM ows_news_updates
-         WHERE (banner_meta->>'sync_key') = $1
-         LIMIT 1`,
-        [syncKey]
-      );
-
-      if (already.rowCount > 0 && !force) {
-        summary.skipped++;
-        continue;
-      }
-
-      const bodyLines = splitReleaseBody(release?.body || '');
-      const publishedAt = release?.published_at || release?.created_at || new Date().toISOString();
-      const releasePlatforms = inferPlatformsFromReleaseAssets(release?.assets || [], source.defaultPlatforms || ['windows']);
-
-      await upsertOwsNewsEntryBySyncKey({
-        syncKey,
-        projectNames: [source.slug, source.name],
-        title: `${source.name} ${tag}`,
-        description: bodyLines[0] || `Nueva release publicada para ${source.name}.`,
-        changes: bodyLines.length ? bodyLines : [`Release ${tag} publicada en GitHub.`],
-        updateDate: publishedAt,
-        entryType: 'changelog',
-        platforms: releasePlatforms,
-        model2dKey: 'release_sync',
-        model2dPayload: { repo: source.repo, tag },
-        bannerMeta: {
-          visual: 'release_sync',
-          repo: source.repo,
-          tag,
-          html_url: release?.html_url || '',
-          prerelease: Boolean(release?.prerelease),
-          draft: Boolean(release?.draft)
-        },
-        isActive: true,
-        priority: 0
-      });
-
-      summary.updated++;
-    } catch (err) {
-      summary.errors.push({
-        slug: source.slug,
-        repo: source.repo,
-        message: err?.message || 'sync error',
-        status: err?.status || 0
-      });
-    }
-  }
-
-  return summary;
-}
-
-/* ========== MIGRACIÃ“N AUTOMÃTICA DE BASE DE DATOS ========== */
-async function runDatabaseMigrations() {
-  console.log('ðŸ”„ Ejecutando migraciones de base de datos...');
-
-  try {
-    // 0. Corregir nombres de columnas en users_nat (necesario para Supabase / NatMarket)
-    console.log('ðŸ”§ Corrigiendo esquema de users_nat...');
-    await pool.query(`
-      DO $$ 
-      BEGIN
-        -- Renombrar password_hash a password si existe
-        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users_nat' AND column_name = 'password_hash') 
-        AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users_nat' AND column_name = 'password') THEN
-          ALTER TABLE users_nat RENAME COLUMN password_hash TO password;
-        END IF;
-
-        -- Renombrar unique_id a user_unique_id si existe
-        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users_nat' AND column_name = 'unique_id') 
-        AND NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users_nat' AND column_name = 'user_unique_id') THEN
-          ALTER TABLE users_nat RENAME COLUMN unique_id TO user_unique_id;
-        END IF;
-
-        -- Hacer email opcional (null) si existe, ya que el registro no lo pide
-        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users_nat' AND column_name = 'email') THEN
-          ALTER TABLE users_nat ALTER COLUMN email DROP NOT NULL;
-        END IF;
-      END $$;
-    `).catch(err => console.log('âš ï¸ Aviso: MigraciÃ³n de nombres de columna users_nat:', err.message));
-
-    // 1. Agregar columna comment a user_ratings_nat si no existe
-    await pool.query(`
-      ALTER TABLE user_ratings_nat 
-      ADD COLUMN IF NOT EXISTS comment TEXT
-    `).catch(() => console.log('âš ï¸ Columna comment ya existe en user_ratings_nat'));
-
-    // 2. Eliminar y recrear foreign keys con ON DELETE CASCADE
-    console.log('ðŸ”§ Arreglando foreign keys...');
-
-    // ai_product_generations
-    await pool.query(`
-      ALTER TABLE ai_product_generations 
-      DROP CONSTRAINT IF EXISTS ai_product_generations_user_id_fkey
-    `).catch(() => { });
-
-    await pool.query(`
-      ALTER TABLE ai_product_generations 
-      ADD CONSTRAINT ai_product_generations_user_id_fkey 
-      FOREIGN KEY (user_id) REFERENCES users_nat(id) 
-      ON DELETE CASCADE
-    `).catch(() => console.log('âš ï¸ FK ai_product_generations ya existe'));
-
-    // messages_nat
-    await pool.query(`
-      ALTER TABLE messages_nat 
-      DROP CONSTRAINT IF EXISTS messages_nat_sender_id_fkey
-    `).catch(() => { });
-
-    await pool.query(`
-      ALTER TABLE messages_nat 
-      ADD CONSTRAINT messages_nat_sender_id_fkey 
-      FOREIGN KEY (sender_id) REFERENCES users_nat(id) 
-      ON DELETE CASCADE
-    `).catch(() => console.log('âš ï¸ FK messages_nat ya existe'));
-
-    // user_favorites_nat
-    await pool.query(`
-      ALTER TABLE user_favorites_nat 
-      DROP CONSTRAINT IF EXISTS user_favorites_nat_user_id_fkey
-    `).catch(() => { });
-
-    await pool.query(`
-      ALTER TABLE user_favorites_nat 
-      ADD CONSTRAINT user_favorites_nat_user_id_fkey 
-      FOREIGN KEY (user_id) REFERENCES users_nat(id) 
-      ON DELETE CASCADE
-    `).catch(() => console.log('âš ï¸ FK user_favorites_nat ya existe'));
-
-    // user_wishlist_nat
-    await pool.query(`
-      ALTER TABLE user_wishlist_nat 
-      DROP CONSTRAINT IF EXISTS user_wishlist_nat_user_id_fkey
-    `).catch(() => { });
-
-    await pool.query(`
-      ALTER TABLE user_wishlist_nat 
-      ADD CONSTRAINT user_wishlist_nat_user_id_fkey 
-      FOREIGN KEY (user_id) REFERENCES users_nat(id) 
-      ON DELETE CASCADE
-    `).catch(() => console.log('âš ï¸ FK user_wishlist_nat ya existe'));
-
-    // user_follows (si existe)
-    await pool.query(`
-      ALTER TABLE user_follows 
-      DROP CONSTRAINT IF EXISTS user_follows_follower_id_fkey
-    `).catch(() => { });
-
-    await pool.query(`
-      ALTER TABLE user_follows 
-      ADD CONSTRAINT user_follows_follower_id_fkey 
-      FOREIGN KEY (follower_id) REFERENCES users_nat(id) 
-      ON DELETE CASCADE
-    `).catch(() => { });
-
-    await pool.query(`
-      ALTER TABLE user_follows 
-      DROP CONSTRAINT IF EXISTS user_follows_following_id_fkey
-    `).catch(() => { });
-
-    await pool.query(`
-      ALTER TABLE user_follows 
-      ADD CONSTRAINT user_follows_following_id_fkey 
-      FOREIGN KEY (following_id) REFERENCES users_nat(id) 
-      ON DELETE CASCADE
-    `).catch(() => { });
-
-    // 3. Limpiar registros huÃ©rfanos (datos que referencian usuarios inexistentes)
-    console.log('ðŸ§¹ Limpiando datos huÃ©rfanos...');
-
-    // Limpiar ai_product_generations
-    await pool.query(`
-      DELETE FROM ai_product_generations 
-      WHERE user_id NOT IN (SELECT id FROM users_nat)
-    `).catch(() => { });
-
-    // Limpiar messages_nat
-    await pool.query(`
-      DELETE FROM messages_nat 
-      WHERE sender_id NOT IN (SELECT id FROM users_nat)
-    `).catch(() => { });
-
-    // Limpiar user_favorites_nat
-    await pool.query(`
-      DELETE FROM user_favorites_nat 
-      WHERE user_id NOT IN (SELECT id FROM users_nat)
-    `).catch(() => { });
-
-    // Limpiar user_wishlist_nat
-    await pool.query(`
-      DELETE FROM user_wishlist_nat 
-      WHERE user_id NOT IN (SELECT id FROM users_nat)
-    `).catch(() => { });
-
-    // Limpiar user_follows
-    await pool.query(`
-      DELETE FROM user_follows 
-      WHERE follower_id NOT IN (SELECT id FROM users_nat)
-        OR following_id NOT IN (SELECT id FROM users_nat)
-    `).catch(() => { });
-
-    // 4. Crear tabla reviews_nat si no existe
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS reviews_nat (
-        id SERIAL PRIMARY KEY,
-        reviewer_id INTEGER NOT NULL REFERENCES users_nat(id) ON DELETE CASCADE,
-        reviewed_user_id INTEGER NOT NULL REFERENCES users_nat(id) ON DELETE CASCADE,
-        product_id INTEGER REFERENCES products_nat(id) ON DELETE SET NULL,
-        rating INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
-        comment TEXT,
-        review_type VARCHAR(20) NOT NULL CHECK (review_type IN ('seller', 'buyer')),
-        created_at TIMESTAMP DEFAULT NOW()
-      )
-    `).catch(() => console.log('âš ï¸ Tabla reviews_nat ya existe'));
-
-    // Limpiar user_reviews_nat (si existe)
-    await pool.query(`
-      DELETE FROM user_reviews_nat 
-      WHERE reviewer_id NOT IN (SELECT id FROM users_nat)
-        OR reviewed_user_id NOT IN (SELECT id FROM users_nat)
-    `).catch(() => { });
-
-    // Limpiar reviews_nat
-    await pool.query(`
-      DELETE FROM reviews_nat 
-      WHERE reviewer_id NOT IN (SELECT id FROM users_nat)
-        OR reviewed_user_id NOT IN (SELECT id FROM users_nat)
-    `).catch(() => { });
-
-    // 5. Agregar columna unique_id a ocean_pay_users si no existe
-    await pool.query(`
-      ALTER TABLE ocean_pay_users 
-      ADD COLUMN IF NOT EXISTS unique_id VARCHAR(100)
-    `).catch(() => console.log('âš ï¸ Columna unique_id ya existe en ocean_pay_users'));
-
-    // 6. Agregar columnas de monedas si no existen
-    await pool.query(`
-      ALTER TABLE ocean_pay_users 
-      ADD COLUMN IF NOT EXISTS ecoxionums INTEGER DEFAULT 0,
-      ADD COLUMN IF NOT EXISTS aquabux INTEGER DEFAULT 0,
-      ADD COLUMN IF NOT EXISTS appbux INTEGER DEFAULT 0
-    `).catch(() => console.log('âš ï¸ Columnas de monedas ya existen en ocean_pay_users'));
-
-    // 7. Fix command_limit_extensions foreign key and data type
-    await pool.query(`
-      DO $$ 
-      BEGIN
-        -- Drop legacy foreign key if exists
-        IF EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'command_limit_extensions_user_id_fkey') THEN
-          ALTER TABLE command_limit_extensions DROP CONSTRAINT command_limit_extensions_user_id_fkey;
-        END IF;
-
-        -- Convert user_id to INTEGER if it is TEXT
-        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'command_limit_extensions' AND column_name = 'user_id' AND data_type = 'text') THEN
-          ALTER TABLE command_limit_extensions ALTER COLUMN user_id TYPE INTEGER USING (user_id::integer);
-        END IF;
-
-        -- Add correct foreign key to ocean_pay_users
-        IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'command_limit_extensions_user_id_ocean_fkey') THEN
-          ALTER TABLE command_limit_extensions 
-          ADD CONSTRAINT command_limit_extensions_user_id_ocean_fkey 
-          FOREIGN KEY (user_id) REFERENCES ocean_pay_users(id) ON DELETE CASCADE;
-        END IF;
-      END $$;
-    `).catch(err => console.log('âš ï¸ Aviso: MigraciÃ³n command_limit_extensions:', err.message));
-
-    // 8. Crear tabla ocean_pay_cards si no existe
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS ocean_pay_cards (
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER NOT NULL REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
-        card_number VARCHAR(16) NOT NULL UNIQUE,
-        cvv VARCHAR(3) NOT NULL,
-        expiry_date VARCHAR(5) NOT NULL,
-        is_active BOOLEAN DEFAULT true,
-        is_primary BOOLEAN DEFAULT false,
-        card_name VARCHAR(50) DEFAULT 'Mi Tarjeta',
-        created_at TIMESTAMP DEFAULT NOW()
-      )
-    `).catch(() => console.log('âš ï¸ Tabla ocean_pay_cards ya existe'));
-
-    // 9. Agregar columna balances (JSONB) a ocean_pay_cards para multisaldo flexible
-    await pool.query(`
-      ALTER TABLE ocean_pay_cards 
-      ADD COLUMN IF NOT EXISTS balances JSONB DEFAULT '{}'
-    `).catch(() => console.log('âš ï¸ Columna balances ya existe en ocean_pay_cards'));
-
-    // --- MIGRACIÃ“N DE DATOS REFORZADA (Legacy Metadata + Users Column -> Card Balances) ---
-    console.log('ðŸ”„ Ejecutando migraciÃ³n de saldos Ecoxionums (Fondo de Rescate)...');
-    try {
-      // 1. Migrar desde Metadata
-      await pool.query(`
-        UPDATE ocean_pay_cards opc
-        SET balances = jsonb_set(COALESCE(opc.balances, '{}'::jsonb), '{ecoxionums}', to_jsonb((m.value)::numeric))
-        FROM ocean_pay_metadata m
-        WHERE opc.user_id = m.user_id 
-        AND m.key = 'ecoxionums' 
-        AND opc.is_primary = true
-        AND (opc.balances->>'ecoxionums' IS NULL OR (opc.balances->>'ecoxionums')::numeric = 0)
-        AND m.value ~ '^[0-9.]+$'
-      `);
-
-      // 2. Migrar desde Columna ocean_pay_users (muy importante ya que algunos se guardaban ahÃ­)
-      await pool.query(`
-        UPDATE ocean_pay_cards opc
-        SET balances = jsonb_set(COALESCE(opc.balances, '{}'::jsonb), '{ecoxionums}', to_jsonb(u.ecoxionums))
-        FROM ocean_pay_users u
-        WHERE opc.user_id = u.id 
-        AND opc.is_primary = true
-        AND (opc.balances->>'ecoxionums' IS NULL OR (opc.balances->>'ecoxionums')::numeric = 0)
-        AND u.ecoxionums > 0
-      `);
-      console.log('âœ… MigraciÃ³n de saldos completada.');
-    } catch (migErr) {
-      console.log('âš ï¸ Aviso: Error en migraciÃ³n balance:', migErr.message);
-    }
-
-    // 2.5. Asegurar 500 VoltBits de cortesÃ­a para Velocity Surge
-    try {
-      await pool.query(`
-        UPDATE ocean_pay_cards 
-        SET balances = jsonb_set(COALESCE(balances, '{}'::jsonb), '{voltbit}', '500'::jsonb)
-        WHERE is_primary = true 
-        AND (balances->>'voltbit' IS NULL OR (balances->>'voltbit')::numeric = 0)
-      `);
-      console.log('âœ… Balance de VoltBits (500) inicializado para usuarios existentes');
-    } catch (voltErr) {
-      console.log('âš ï¸ Aviso: Error en inicializaciÃ³n VoltBits:', voltErr.message);
-    }
-
-    // 2.6. Asegurar MayhemCoins para WildWeapon Mayhem (inicializar en 0 para usuarios existentes)
-    try {
-      await pool.query(`
-        INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
-        SELECT c.id, 'mayhemcoins', 0
-        FROM ocean_pay_cards c
-        WHERE c.is_primary = true
-        AND NOT EXISTS (
-          SELECT 1 FROM ocean_pay_card_balances 
-          WHERE card_id = c.id AND currency_type = 'mayhemcoins'
-        )
-        ON CONFLICT (card_id, currency_type) DO NOTHING
-      `);
-      console.log('âœ… MayhemCoins inicializados para usuarios existentes');
-    } catch (mcErr) {
-      console.log('âš ï¸ Aviso: Error en inicializaciÃ³n MayhemCoins:', mcErr.message);
-    }
-
-    // 2.7. FUSIÃ“N: Migrar saldos de ocean_pay_metadata â†’ ocean_pay_card_balances (Fuente Ãºnica de verdad)
-    console.log('ðŸ”„ Sincronizando saldos de metadata â†’ card_balances...');
-    try {
-      const metaKeys = ['wildcredits', 'wildgems', 'ecobooks', 'amber', 'nxb', 'voltbit', 'appbux', 'ecotokens', 'ecobits'];
-      for (const key of metaKeys) {
-        await pool.query(`
-          INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
-          SELECT c.id, '${key}', GREATEST(
-            COALESCE((m.value)::numeric, 0),
-            COALESCE((SELECT amount FROM ocean_pay_card_balances WHERE card_id = c.id AND currency_type = '${key}'), 0)
-          )
-          FROM ocean_pay_cards c
-          JOIN ocean_pay_metadata m ON m.user_id = c.user_id AND m.key = '${key}'
-          WHERE c.is_primary = true
-          AND m.value ~ '^[0-9.]+$'
-          ON CONFLICT (card_id, currency_type)
-          DO UPDATE SET amount = GREATEST(ocean_pay_card_balances.amount, EXCLUDED.amount)
-        `).catch(e => console.log(`âš ï¸ MigraciÃ³n ${key}:`, e.message));
-      }
-
-      // Sincronizar card_balances â†’ JSONB balances en ocean_pay_cards
-      await pool.query(`
-        UPDATE ocean_pay_cards opc
-        SET balances = COALESCE(opc.balances, '{}'::jsonb) || (
-          SELECT jsonb_object_agg(cb.currency_type, cb.amount)
-          FROM ocean_pay_card_balances cb
-          WHERE cb.card_id = opc.id
-        )
-        WHERE opc.is_primary = true
-        AND EXISTS (SELECT 1 FROM ocean_pay_card_balances WHERE card_id = opc.id)
-      `).catch(e => console.log('âš ï¸ Sync JSONB:', e.message));
-
-      console.log('âœ… FusiÃ³n de saldos metadata â†’ card_balances completada');
-    } catch (fusionErr) {
-      console.log('âš ï¸ Aviso: Error en fusiÃ³n de saldos:', fusionErr.message);
-    }
-
-    // 2.8. UNIFICACIÃ“N DE SUSCRIPCIONES: Migrar DinoPass, NaturePass y WildShorts a ocean_pay_subscriptions
-    console.log('ðŸ”„ Unificando suscripciones en ocean_pay_subscriptions...');
-    try {
-      // 1. Nature-Pass desde metadata
-      await pool.query(`
-        INSERT INTO ocean_pay_subscriptions (user_id, project_id, plan_name, sub_name, price, currency, status, start_date)
-        SELECT m.user_id, 'Naturepedia', 'Nature-Pass', 'Nature-Pass', 0, 'wildgems', 'active', m.created_at
-        FROM ocean_pay_metadata m
-        WHERE m.key = 'nature_pass' AND m.value = 'true'
-        AND NOT EXISTS (
-          SELECT 1 FROM ocean_pay_subscriptions s 
-          WHERE s.user_id = m.user_id AND s.project_id = 'Naturepedia' AND s.plan_name = 'Nature-Pass'
-        )
-      `).catch(e => console.log('âš ï¸ MigraciÃ³n Nature-Pass:', e.message));
-
-      // 2. DinoPass desde metadata
-      await pool.query(`
-        INSERT INTO ocean_pay_subscriptions (user_id, project_id, plan_name, sub_name, price, currency, status, start_date)
-        SELECT m.user_id, 'DinoBox', 
-               CASE WHEN m.value = 'elite' THEN 'DinoPass Elite' ELSE 'DinoPass Premium' END,
-               CASE WHEN m.value = 'elite' THEN 'DinoPass Elite' ELSE 'DinoPass Premium' END,
-               0, 'wildgems', 'active', m.created_at
-        FROM ocean_pay_metadata m
-        WHERE m.key = 'dinopass_type'
-        AND NOT EXISTS (
-          SELECT 1 FROM ocean_pay_subscriptions s 
-          WHERE s.user_id = m.user_id AND s.project_id = 'DinoBox' 
-          AND s.plan_name IN ('DinoPass Elite', 'DinoPass Premium')
-        )
-      `).catch(e => console.log('âš ï¸ MigraciÃ³n DinoPass:', e.message));
-
-      // 3. WildShorts Premium (desde wildshorts_subs)
-      await pool.query(`
-        INSERT INTO ocean_pay_subscriptions (user_id, project_id, plan_name, sub_name, price, currency, status, start_date, end_date)
-        SELECT ws.user_id, 'WildShorts', ws.plan_id, ws.plan_id, 0, 'wildgems', 
-               CASE WHEN ws.active = true THEN 'active' ELSE 'cancelled' END,
-               ws.starts_at, ws.ends_at
-        FROM wildshorts_subs ws
-        WHERE NOT EXISTS (
-          SELECT 1 FROM ocean_pay_subscriptions s 
-          WHERE s.user_id = ws.user_id AND s.project_id = 'WildShorts' AND s.plan_name = ws.plan_id
-        )
-      `).catch(e => console.log('âš ï¸ MigraciÃ³n WildShorts:', e.message));
-
-      console.log('âœ… UnificaciÃ³n de suscripciones completada');
-
-      // Parche: Reparar registros con nulos (evitar "null" en la UI)
-      await pool.query(`
-        UPDATE ocean_pay_subscriptions 
-        SET plan_name = COALESCE(plan_name, sub_name, 'SuscripciÃ³n'),
-            sub_name = COALESCE(sub_name, plan_name, 'SuscripciÃ³n'),
-            project_id = COALESCE(project_id, 'Ocean Pay'),
-            currency = COALESCE(currency, 'wildgems')
-        WHERE plan_name IS NULL OR sub_name IS NULL OR project_id IS NULL OR currency IS NULL
-      `).catch(e => console.log('âš ï¸ Error reparando nulos en subs:', e.message));
-
-    } catch (subErr) {
-      console.log('âš ï¸ Aviso: Error en unificaciÃ³n de suscripciones:', subErr.message);
-    }
-
-    // 10. Crear tabla ocean_pay_card_balances para saldos por tarjeta (Legado/Compatibilidad)
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS ocean_pay_card_balances (
-        id SERIAL PRIMARY KEY,
-        card_id INTEGER NOT NULL REFERENCES ocean_pay_cards(id) ON DELETE CASCADE,
-        currency_type VARCHAR(50) NOT NULL,
-        amount DECIMAL(20, 2) DEFAULT 0,
-        UNIQUE(card_id, currency_type)
-      )
-    `).catch(() => console.log('âš ï¸ Tabla ocean_pay_card_balances ya existe'));
-
-    // 10.1 Unificacion de saldos en sistema por tarjeta
-    try {
-      // JSONB balances -> ocean_pay_card_balances
-      await pool.query(`
-        WITH parsed AS (
-          SELECT
-            c.id AS card_id,
-            LOWER(e.key) AS currency_type,
-            CASE
-              WHEN e.value ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN GREATEST((e.value)::numeric, 0)
-              ELSE NULL
-            END AS amount
-          FROM ocean_pay_cards c
-          CROSS JOIN LATERAL jsonb_each_text(COALESCE(c.balances, '{}'::jsonb)) e
-          WHERE c.is_primary = true
-        ),
-        expanded AS (
-          SELECT
-            card_id,
-            currency_type,
-            MAX(amount) AS amount
-          FROM parsed
-          WHERE amount IS NOT NULL
-          GROUP BY card_id, currency_type
-        )
-        INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
-        SELECT card_id, currency_type, amount
-        FROM expanded
-        ON CONFLICT (card_id, currency_type)
-        DO UPDATE SET amount = GREATEST(ocean_pay_card_balances.amount, EXCLUDED.amount)
-      `);
-
-      // metadata -> ocean_pay_card_balances (deduplicado por card_id/currency_type)
-      await pool.query(`
-        WITH parsed AS (
-          SELECT
-            c.id AS card_id,
-            LOWER(m.key) AS currency_type,
-            GREATEST((m.value)::numeric, 0) AS amount
-          FROM ocean_pay_cards c
-          JOIN ocean_pay_metadata m ON m.user_id = c.user_id
-          WHERE c.is_primary = true
-            AND m.value ~ '^-?[0-9]+(\\.[0-9]+)?$'
-        ),
-        dedup AS (
-          SELECT
-            card_id,
-            currency_type,
-            MAX(amount) AS amount
-          FROM parsed
-          GROUP BY card_id, currency_type
-        )
-        INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
-        SELECT card_id, currency_type, amount
-        FROM dedup
-        ON CONFLICT (card_id, currency_type)
-        DO UPDATE SET amount = GREATEST(ocean_pay_card_balances.amount, EXCLUDED.amount)
-      `);
-
-      // columnas legacy de usuario -> ocean_pay_card_balances
-      await pool.query(`
-        INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
-        SELECT c.id, 'aquabux', GREATEST(COALESCE(u.aquabux, 0), 0)::numeric
-        FROM ocean_pay_cards c
-        JOIN ocean_pay_users u ON u.id = c.user_id
-        WHERE c.is_primary = true
-        ON CONFLICT (card_id, currency_type)
-        DO UPDATE SET amount = GREATEST(ocean_pay_card_balances.amount, EXCLUDED.amount)
-      `);
-      await pool.query(`
-        INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
-        SELECT c.id, 'appbux', GREATEST(COALESCE(u.appbux, 0), 0)::numeric
-        FROM ocean_pay_cards c
-        JOIN ocean_pay_users u ON u.id = c.user_id
-        WHERE c.is_primary = true
-        ON CONFLICT (card_id, currency_type)
-        DO UPDATE SET amount = GREATEST(ocean_pay_card_balances.amount, EXCLUDED.amount)
-      `);
-      await pool.query(`
-        INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
-        SELECT c.id, 'ecoxionums', GREATEST(COALESCE(u.ecoxionums, 0), 0)::numeric
-        FROM ocean_pay_cards c
-        JOIN ocean_pay_users u ON u.id = c.user_id
-        WHERE c.is_primary = true
-        ON CONFLICT (card_id, currency_type)
-        DO UPDATE SET amount = GREATEST(ocean_pay_card_balances.amount, EXCLUDED.amount)
-      `);
-
-      // Fuente unificada -> JSONB balances de tarjeta
-      await pool.query(`
-        UPDATE ocean_pay_cards c
-        SET balances = COALESCE(c.balances, '{}'::jsonb) || COALESCE(src.payload, '{}'::jsonb)
-        FROM (
-          SELECT card_id, jsonb_object_agg(currency_type, amount) AS payload
-          FROM ocean_pay_card_balances
-          GROUP BY card_id
-        ) src
-        WHERE src.card_id = c.id
-      `);
-
-      // Fuente unificada -> metadata (compatibilidad de lectura para servicios legacy)
-      await pool.query(`
-        UPDATE ocean_pay_metadata m
-        SET value = src.amount::text
-        FROM (
-          SELECT c.user_id, cb.currency_type, cb.amount
-          FROM ocean_pay_cards c
-          JOIN ocean_pay_card_balances cb ON cb.card_id = c.id
-          WHERE c.is_primary = true
-        ) src
-        WHERE m.user_id = src.user_id
-          AND LOWER(m.key) = src.currency_type
-      `);
-      await pool.query(`
-        INSERT INTO ocean_pay_metadata (user_id, key, value)
-        SELECT src.user_id, src.currency_type, src.amount::text
-        FROM (
-          SELECT c.user_id, cb.currency_type, cb.amount
-          FROM ocean_pay_cards c
-          JOIN ocean_pay_card_balances cb ON cb.card_id = c.id
-          WHERE c.is_primary = true
-        ) src
-        WHERE NOT EXISTS (
-          SELECT 1 FROM ocean_pay_metadata m
-          WHERE m.user_id = src.user_id
-            AND LOWER(m.key) = src.currency_type
-        )
-      `).catch(() => {});
-
-      // Mantener columnas legacy sincronizadas (solo compatibilidad)
-      await pool.query(`
-        UPDATE ocean_pay_users u
-        SET
-          aquabux = COALESCE(src.aquabux, u.aquabux),
-          appbux = COALESCE(src.appbux, u.appbux),
-          ecoxionums = COALESCE(src.ecoxionums, u.ecoxionums)
-        FROM (
-          SELECT
-            c.user_id,
-            MAX(CASE WHEN cb.currency_type = 'aquabux' THEN cb.amount END)::int AS aquabux,
-            MAX(CASE WHEN cb.currency_type = 'appbux' THEN cb.amount END)::int AS appbux,
-            MAX(CASE WHEN cb.currency_type = 'ecoxionums' THEN cb.amount END)::int AS ecoxionums
-          FROM ocean_pay_cards c
-          LEFT JOIN ocean_pay_card_balances cb ON cb.card_id = c.id
-          WHERE c.is_primary = true
-          GROUP BY c.user_id
-        ) src
-        WHERE src.user_id = u.id
-      `);
-      console.log('âœ… Unificacion de saldos completada (fuente por tarjeta activa).');
-    } catch (balanceUnifyErr) {
-      console.log('âš ï¸ Aviso: Error en unificacion de saldos:', balanceUnifyErr.message);
-    }
-
-    // 10.2 Sincronizacion bidireccional por compatibilidad (fuente principal: ocean_pay_cards.balances)
-    try {
-      await pool.query(`
-        CREATE OR REPLACE FUNCTION sync_card_balances_from_cards_fn()
-        RETURNS trigger AS $$
-        BEGIN
-          IF pg_trigger_depth() > 1 THEN
-            RETURN NEW;
-          END IF;
-
-          DELETE FROM ocean_pay_card_balances WHERE card_id = NEW.id;
-
-          INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
-          SELECT
-            NEW.id,
-            src.currency_type,
-            MAX(src.amount) AS amount
-          FROM (
-            SELECT
-              LOWER(kv.key) AS currency_type,
-              GREATEST((kv.value)::numeric, 0) AS amount
-            FROM jsonb_each_text(COALESCE(NEW.balances, '{}'::jsonb)) kv
-            WHERE kv.value ~ '^-?[0-9]+(\\.[0-9]+)?$'
-          ) src
-          GROUP BY src.currency_type
-          ON CONFLICT (card_id, currency_type) DO UPDATE SET amount = EXCLUDED.amount;
-
-          RETURN NEW;
-        END;
-        $$ LANGUAGE plpgsql;
-      `);
-
-      await pool.query(`
-        DROP TRIGGER IF EXISTS trg_sync_card_balances_from_cards ON ocean_pay_cards;
-        CREATE TRIGGER trg_sync_card_balances_from_cards
-        AFTER INSERT OR UPDATE OF balances
-        ON ocean_pay_cards
-        FOR EACH ROW
-        EXECUTE FUNCTION sync_card_balances_from_cards_fn();
-      `);
-
-      await pool.query(`
-        CREATE OR REPLACE FUNCTION sync_cards_from_card_balances_fn()
-        RETURNS trigger AS $$
-        BEGIN
-          IF pg_trigger_depth() > 1 THEN
-            RETURN NEW;
-          END IF;
-
-          UPDATE ocean_pay_cards
-          SET balances = jsonb_set(
-            COALESCE(balances, '{}'::jsonb),
-            ARRAY[LOWER(NEW.currency_type)]::text[],
-            to_jsonb(GREATEST(COALESCE(NEW.amount, 0), 0)::numeric),
-            true
-          )
-          WHERE id = NEW.card_id;
-
-          RETURN NEW;
-        END;
-        $$ LANGUAGE plpgsql;
-      `);
-
-      await pool.query(`
-        DROP TRIGGER IF EXISTS trg_sync_cards_from_card_balances ON ocean_pay_card_balances;
-        CREATE TRIGGER trg_sync_cards_from_card_balances
-        AFTER INSERT OR UPDATE OF amount
-        ON ocean_pay_card_balances
-        FOR EACH ROW
-        EXECUTE FUNCTION sync_cards_from_card_balances_fn();
-      `);
-
-      await pool.query(`
-        CREATE OR REPLACE FUNCTION sync_cards_from_metadata_fn()
-        RETURNS trigger AS $$
-        DECLARE
-          v_card_id INTEGER;
-        BEGIN
-          IF pg_trigger_depth() > 1 THEN
-            RETURN NEW;
-          END IF;
-
-          IF NEW.value !~ '^-?[0-9]+(\\.[0-9]+)?$' THEN
-            RETURN NEW;
-          END IF;
-
-          SELECT id INTO v_card_id
-          FROM ocean_pay_cards
-          WHERE user_id = NEW.user_id
-          ORDER BY is_primary DESC, id ASC
-          LIMIT 1;
-
-          IF v_card_id IS NULL THEN
-            RETURN NEW;
-          END IF;
-
-          UPDATE ocean_pay_cards
-          SET balances = jsonb_set(
-            COALESCE(balances, '{}'::jsonb),
-            ARRAY[LOWER(NEW.key)]::text[],
-            to_jsonb(GREATEST((NEW.value)::numeric, 0)),
-            true
-          )
-          WHERE id = v_card_id;
-
-          RETURN NEW;
-        END;
-        $$ LANGUAGE plpgsql;
-      `);
-
-      await pool.query(`
-        DROP TRIGGER IF EXISTS trg_sync_cards_from_metadata ON ocean_pay_metadata;
-        CREATE TRIGGER trg_sync_cards_from_metadata
-        AFTER INSERT OR UPDATE OF value
-        ON ocean_pay_metadata
-        FOR EACH ROW
-        EXECUTE FUNCTION sync_cards_from_metadata_fn();
-      `).catch(() => {});
-      console.log('âœ… Sincronizacion de compatibilidad activada (fuente principal: ocean_pay_cards).');
-    } catch (syncErr) {
-      console.log('âš ï¸ Aviso: Error habilitando sincronizacion de compatibilidad:', syncErr.message);
-    }
-
-    // 10. AÃ±adir columnas faltantes a ocean_pay_cards
-    await pool.query(`
-      ALTER TABLE ocean_pay_cards 
-      ADD COLUMN IF NOT EXISTS is_primary BOOLEAN DEFAULT false,
-      ADD COLUMN IF NOT EXISTS card_name VARCHAR(50) DEFAULT 'Mi Tarjeta'
-        `).catch(() => { });
-
-    // 11. Asegurar columna moneda en ocean_pay_txs
-    await pool.query(`
-      ALTER TABLE ocean_pay_txs 
-      ADD COLUMN IF NOT EXISTS moneda VARCHAR(50) DEFAULT 'ecoxionums'
-    `).catch(() => { });
-
-    // 12. Crear tabla ocean_pay_pos si no existe (POS Virtual)
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS ocean_pay_pos(
-          id SERIAL PRIMARY KEY,
-          code VARCHAR(10) UNIQUE NOT NULL,
-          sender_id INTEGER NOT NULL REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
-          sender_card_id INTEGER REFERENCES ocean_pay_cards(id) ON DELETE CASCADE,
-          receiver_id INTEGER REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
-          receiver_card_id INTEGER REFERENCES ocean_pay_cards(id) ON DELETE CASCADE,
-          amount DECIMAL(20, 2) NOT NULL,
-          currency VARCHAR(50) NOT NULL,
-          target_currency VARCHAR(50),
-          is_exchange BOOLEAN DEFAULT FALSE,
-          status VARCHAR(20) DEFAULT 'pending',
-          created_at TIMESTAMP DEFAULT NOW(),
-          completed_at TIMESTAMP
-      );
-    `).catch(err => console.log('âš ï¸ Error creando ocean_pay_pos:', err.message));
-
-    // 13. Crear tabla ocean_pay_subscriptions (VIP System)
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS ocean_pay_subscriptions(
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER NOT NULL REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
-        plan_name VARCHAR(50) NOT NULL,
-        price DECIMAL(20, 2) NOT NULL,
-        currency VARCHAR(20) DEFAULT 'wildgems',
-        status VARCHAR(20) DEFAULT 'active',
-        start_date TIMESTAMP DEFAULT NOW(),
-        end_date TIMESTAMP NOT NULL,
-        auto_renew BOOLEAN DEFAULT TRUE,
-        created_at TIMESTAMP DEFAULT NOW()
-      );
-    `).catch(err => console.log('âš ï¸ Error creando ocean_pay_subscriptions:', err.message));
-
-    // 14. Crear tabla ocean_pay_notifications
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS ocean_pay_notifications(
-        id SERIAL PRIMARY KEY,
-        user_id INTEGER NOT NULL REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
-        title VARCHAR(100) NOT NULL,
-        message TEXT NOT NULL,
-        type VARCHAR(20) DEFAULT 'info',
-        is_read BOOLEAN DEFAULT FALSE,
-        created_at TIMESTAMP DEFAULT NOW()
-      );
-    `).catch(err => console.log('âš ï¸ Error creando ocean_pay_notifications:', err.message));
-
-    // 15. Crear tabla ocean_pass
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS ocean_pass(
-        user_id INTEGER PRIMARY KEY REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
-        is_active BOOLEAN DEFAULT FALSE,
-        expiry TIMESTAMP,
-        has_debt BOOLEAN DEFAULT FALSE,
-        debt_amount DECIMAL(20, 2) DEFAULT 0,
-        missions JSONB DEFAULT '[]',
-        last_reward_claim TIMESTAMP,
-        minutes_tracked INTEGER DEFAULT 0,
-        plan_id VARCHAR(40) DEFAULT 'ocean-pass-standard',
-        billing_currency VARCHAR(40) DEFAULT 'aquabux',
-        billing_amount NUMERIC(20,2) DEFAULT 0,
-        next_renew_at TIMESTAMP,
-        created_at TIMESTAMP DEFAULT NOW()
-      );
-    `).catch(err => console.log('âš ï¸ Error creando ocean_pass:', err.message));
-    await pool.query(`
-      ALTER TABLE ocean_pass
-      ADD COLUMN IF NOT EXISTS plan_id VARCHAR(40) DEFAULT 'ocean-pass-standard',
-      ADD COLUMN IF NOT EXISTS billing_currency VARCHAR(40) DEFAULT 'aquabux',
-      ADD COLUMN IF NOT EXISTS billing_amount NUMERIC(20,2) DEFAULT 0,
-      ADD COLUMN IF NOT EXISTS next_renew_at TIMESTAMP
-    `).catch(err => console.log('âš ï¸ Error alter ocean_pass:', err.message));
-    // 16. Crear tabla ows_news_updates para automatizaciÃ³n de News
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS ows_news_updates (
-        id SERIAL PRIMARY KEY,
-        project_names TEXT[] DEFAULT '{}',
-        title VARCHAR(150) NOT NULL,
-        description TEXT,
-        changes TEXT,
-        update_date TIMESTAMP DEFAULT NOW(),
-        created_at TIMESTAMP DEFAULT NOW()
-      );
-    `).catch(err => console.log('âš ï¸ Error creando ows_news_updates:', err.message));
-
-    await pool.query(`
-      ALTER TABLE ows_news_updates
-      ADD COLUMN IF NOT EXISTS entry_type VARCHAR(20) DEFAULT 'changelog',
-      ADD COLUMN IF NOT EXISTS platforms TEXT[] DEFAULT '{}',
-      ADD COLUMN IF NOT EXISTS model_2d_key TEXT,
-      ADD COLUMN IF NOT EXISTS model_2d_payload JSONB DEFAULT '{}'::jsonb,
-      ADD COLUMN IF NOT EXISTS banner_meta JSONB DEFAULT '{}'::jsonb,
-      ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE,
-      ADD COLUMN IF NOT EXISTS priority INTEGER DEFAULT 0,
-      ADD COLUMN IF NOT EXISTS event_start TIMESTAMP,
-      ADD COLUMN IF NOT EXISTS event_end TIMESTAMP
-    `).catch(err => console.log('âš ï¸ Error migrando ows_news_updates:', err.message));
-    await pool.query(`
-      CREATE INDEX IF NOT EXISTS idx_ows_news_updates_entry_type
-      ON ows_news_updates(entry_type)
-    `).catch(() => {});
-    await pool.query(`
-      CREATE INDEX IF NOT EXISTS idx_ows_news_updates_update_date
-      ON ows_news_updates(update_date DESC)
-    `).catch(() => {});
-
-    if (typeof ensureOwsStoreNewsSeedData === 'function') {
-      await ensureOwsStoreNewsSeedData().catch(err => console.log('[OWS] Error seeding ows_news_updates:', err.message));
-    } else {
-      console.warn('[OWS] ensureOwsStoreNewsSeedData no definida, se omite seed de ows_news_updates.');
-    }
-
-    // 17. Crear tabla ows_projects para el Sistema OWS Store
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS ows_projects(
-      id SERIAL PRIMARY KEY,
-      slug VARCHAR(50) UNIQUE NOT NULL,
-      name VARCHAR(100) NOT NULL,
-      description TEXT,
-      icon_url TEXT,
-      banner_url TEXT,
-      url TEXT NOT NULL,
-      version VARCHAR(20) DEFAULT '1.0.0',
-      status VARCHAR(20) DEFAULT 'launched', -- 'launched', 'unavailable', 'coming_soon'
-        release_date TIMESTAMP, --Para countdown en 'coming_soon'
-        last_update TIMESTAMP DEFAULT NOW(),
-      created_at TIMESTAMP DEFAULT NOW(),
-      metadata JSONB DEFAULT '{}' -- Para capturas, requisitos, tags, etc.
-      );
-    `).catch(err => console.log('âš ï¸ Error creando ows_projects:', err.message));
-
-    // MigraciÃ³n: installer_url para descarga de .exe en OWS Store
-    await pool.query(`
-      ALTER TABLE ows_projects
-      ADD COLUMN IF NOT EXISTS installer_url TEXT
-    `).catch(() => console.log('âš ï¸ Columna installer_url ya existe en ows_projects'));
-
-    if (typeof ensureOwsStoreProjectsSeedData === 'function') {
-      await ensureOwsStoreProjectsSeedData().catch(err => console.log('[OWS] Error seeding ows_projects:', err.message));
-    } else {
-      console.warn('[OWS] ensureOwsStoreProjectsSeedData no definida, se omite seed de ows_projects.');
-    }
-
-    if (typeof ensureProjectChangelogSync === 'function') {
-      await ensureProjectChangelogSync({ force: true }).catch(err => console.log('[OWS] Error syncing project changelogs:', err.message));
-    } else {
-      console.warn('[OWS] ensureProjectChangelogSync no definida, se omite sync de changelogs.');
-    }
-
-    // Tabla de releases Android para updater asistido (OWS Store Launcher)
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS ows_android_releases (
-        id SERIAL PRIMARY KEY,
-        project_slug VARCHAR(50) NOT NULL REFERENCES ows_projects(slug) ON DELETE CASCADE,
-        package_id VARCHAR(120) NOT NULL,
-        version_name VARCHAR(60) NOT NULL,
-        version_code INTEGER NOT NULL,
-        apk_url TEXT NOT NULL,
-        sha256 VARCHAR(128),
-        size_bytes BIGINT DEFAULT 0,
-        min_store_version VARCHAR(40),
-        release_notes TEXT,
-        status VARCHAR(20) DEFAULT 'published',
-        is_mandatory BOOLEAN DEFAULT FALSE,
-        published_at TIMESTAMP DEFAULT NOW(),
-        created_at TIMESTAMP DEFAULT NOW(),
-        UNIQUE(project_slug, version_code)
-      );
-    `).catch(err => console.log('âš ï¸ Error creando ows_android_releases:', err.message));
-
-    // MigraciÃ³n: Asegurar columnas para Intercambio (Swap)
-    await pool.query(`
-      ALTER TABLE ocean_pay_pos
-      ADD COLUMN IF NOT EXISTS target_currency VARCHAR(50),
-      ADD COLUMN IF NOT EXISTS is_exchange BOOLEAN DEFAULT FALSE
-        `).catch(() => { });
-
-    // --- CRITICAL FIX: Add Password Column to Ocean Pay Users ---
-    // User requested that ocean_pay_users be the authority.
-    await pool.query(`
-      ALTER TABLE ocean_pay_users
-      ADD COLUMN IF NOT EXISTS password VARCHAR(255)
-      `).catch(() => console.log('âš ï¸ Columna password ya existe en ocean_pay_users'));
-
-    // 12. Generar tarjetas para usuarios existentes que no tengan una
-    const usersWithoutCard = await pool.query(`
-      SELECT id FROM ocean_pay_users 
-      WHERE id NOT IN(SELECT user_id FROM ocean_pay_cards)
-      `);
-
-    for (const user of usersWithoutCard.rows) {
-      const { cardNumber, cvv, expiryDate } = generateCardDetails();
-      const cardResult = await pool.query(
-        'INSERT INTO ocean_pay_cards (user_id, card_number, cvv, expiry_date, is_primary, card_name) VALUES ($1, $2, $3, $4, true, $5) RETURNING id',
-        [user.id, cardNumber, cvv, expiryDate, 'Tarjeta Principal']
-      ).catch(e => { console.error('Error generando tarjeta para usuario:', user.id, e.message); return null; });
-
-      if (cardResult && cardResult.rows[0]) {
-        // Inicializar saldos para la nueva tarjeta
-        const currencies = ['aquabux', 'ecoxionums', 'ecorebits', 'wildcredits', 'wildgems', 'appbux', 'ecobooks', 'ecotokens', 'ecopower', 'amber', 'nxb', 'voltbit', 'mayhemcoins', 'cosmicdust', 'wildwavetokens'];
-        for (const curr of currencies) {
-          const initialBalance = (curr === 'voltbit') ? 500 : (curr === 'ecopower' ? 100 : 0);
-          await pool.query(
-            'INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING',
-            [cardResult.rows[0].id, curr, initialBalance]
-          );
-        }
-      }
-    }
-
-    // Asegurar WildWave Tokens en todas las tarjetas existentes
-    await pool.query(`
-      INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
-      SELECT c.id, 'wildwavetokens', 0
-      FROM ocean_pay_cards c
-      ON CONFLICT (card_id, currency_type) DO NOTHING
-    `).catch((e) => {
-      console.warn('No se pudo asegurar wildwavetokens en tarjetas existentes:', e.message);
-    });
-
-    // 11. Establecer tarjeta principal para usuarios que no tengan una (CRÃTICO: Hacer esto ANTES de migrar saldos)
-    await pool.query(`
-      UPDATE ocean_pay_cards c SET is_primary = true
-      WHERE c.id = (
-      SELECT MIN(id) FROM ocean_pay_cards WHERE user_id = c.user_id
-      ) AND NOT EXISTS(
-        SELECT 1 FROM ocean_pay_cards WHERE user_id = c.user_id AND is_primary = true
-      )
-      `);
-
-    // 12. Migrar saldos existentes (AquaBux, Ecoxionums, AppBux, EcoCoreBits) a la tarjeta principal
-    console.log('ðŸ”„ Sincronizando saldos histÃ³ricos con el sistema de tarjetas...');
-
-    await pool.query(`
-      INSERT INTO ocean_pay_card_balances(card_id, currency_type, amount)
-      SELECT c.id, 'aquabux', u.aquabux
-      FROM ocean_pay_cards c JOIN ocean_pay_users u ON c.user_id = u.id WHERE c.is_primary = true
-      ON CONFLICT(card_id, currency_type) DO UPDATE SET amount = EXCLUDED.amount WHERE ocean_pay_card_balances.amount = 0;
-
-      INSERT INTO ocean_pay_card_balances(card_id, currency_type, amount)
-      SELECT c.id, 'appbux', u.appbux
-      FROM ocean_pay_cards c JOIN ocean_pay_users u ON c.user_id = u.id WHERE c.is_primary = true
-      ON CONFLICT(card_id, currency_type) DO UPDATE SET amount = EXCLUDED.amount WHERE ocean_pay_card_balances.amount = 0;
-
-      INSERT INTO ocean_pay_card_balances(card_id, currency_type, amount)
-      SELECT c.id, 'ecorebits', COALESCE(MAX(uc.amount), 0)
-      FROM ocean_pay_cards c
-      JOIN ocean_pay_users u ON c.user_id = u.id
-      LEFT JOIN user_currency uc ON u.id = uc.user_id AND uc.currency_type = 'ecocorebits'
-      WHERE c.is_primary = true
-      GROUP BY c.id
-      ON CONFLICT(card_id, currency_type) DO UPDATE SET amount = EXCLUDED.amount WHERE ocean_pay_card_balances.amount = 0;
-
-      INSERT INTO ocean_pay_card_balances(card_id, currency_type, amount)
-      SELECT c.id, 'ecopower', 100
-      FROM ocean_pay_cards c WHERE c.is_primary = true
-      ON CONFLICT(card_id, currency_type) DO NOTHING;
-    `);
-
-    /* 
-    // 13. LIMPIEZA DE SALDOS - Resetear todos a 0 (excepto ecopower = 100)
-    // Se limpian tanto los nuevos saldos por tarjeta como los antiguos saldos globales
-    console.log('ðŸ§¹ Iniciando limpieza profunda de saldos...');
-
-    // Resetear saldos por tarjeta
-    await pool.query(`
-      UPDATE ocean_pay_card_balances 
-      SET amount = CASE 
-        WHEN currency_type = 'ecopower' THEN 100 
-        ELSE 0
-    END
-    `);
-
-    // Resetear saldos globales antiguos en ocean_pay_users
-    await pool.query(`UPDATE ocean_pay_users SET aquabux = 0, appbux = 0`);
-
-    // Resetear saldos en user_currency (usado para ecorebits)
-    await pool.query(`UPDATE user_currency SET amount = 0`);
-
-    // Resetear metadatos (wildcredits, ecoxionums, ecobooks)
-    await pool.query(`
-      UPDATE ocean_pay_metadata 
-      SET value = '0' 
-      WHERE key IN('wildcredits', 'ecoxionums', 'ecobooks')
-    `);
-
-    console.log('âœ… Limpieza de saldos completada. Todos los sistemas en cero.');
-    */
-    console.log('âœ… Sistema de persistencia de saldos activo.');
-
-    console.log('âœ… Migraciones completadas exitosamente!');
-
-  } catch (err) {
-    console.error('âŒ Error en migraciones:', err.message);
-  }
-}
-
-// Ejecutar migraciones al iniciar el servidor
-runDatabaseMigrations();
-let migrationExecuted = false;
-
-/* ===== HEALTH CHECK / STATUS ENDPOINT ===== */
-// Este endpoint se usa para verificar que el servidor estÃ© funcionando
-// y proporciona el estado de los servicios principales.
-app.get('/status', async (_req, res) => {
-  const services = {
-    server: { status: 'up', name: 'OWS Database Server' },
-    ecoconsole: { status: 'up', name: 'EcoConsole' },
-    ecoxion: { status: 'up', name: 'Ecoxion' },
-    natmarket: { status: 'up', name: 'NatMarket' },
-    naturepedia: { status: 'up', name: 'Naturepedia' }
-  };
-
-  // Verificar conexiÃ³n a base de datos
-  try {
-    await pool.query('SELECT 1');
-    services.database = { status: 'up', name: 'PostgreSQL Database' };
-  } catch (e) {
-    services.database = { status: 'down', name: 'PostgreSQL Database', error: e.message };
-  }
-
-  res.json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    services
-  });
-});
-
-// Endpoints individuales para cada servicio (health checks simples)
-app.get('/ecoconsole/health', (_req, res) => res.json({ status: 'up', service: 'EcoConsole' }));
-
-/* =========================================
-   ECOCONSOLE REWORK ENDPOINTS (SKELETON)
-   ========================================= */
-
-// AutenticaciÃ³n directa con Ocean Pay
-app.post('/ecoconsole/auth', async (req, res) => {
-  const { token } = req.body;
-  // TODO: Validar token con Ocean Pay system
-  res.json({ success: true, message: "Placeholder: AutenticaciÃ³n exitosa" });
-});
-
-// Obtener cuota de comandos
-app.get('/ecoconsole/command-quota', async (req, res) => {
-  res.json({
-    success: true,
-    dailyLimit: 50,
-    remaining: 50,
-    resetAt: new Date(new Date().setHours(24, 0, 0, 0)).toISOString()
-  });
-});
-
-// Ejecutar comando de pago
-app.post('/ecoconsole/paid-command', async (req, res) => {
-  const { commandName, cost } = req.body;
-  // TODO: Descontar EcoCoreBits del usuario
-  res.json({
-    success: true,
-    newBalance: 1000, // Placeholder
-    message: `Comando ${commandName} ejecutado correctamente`
-  });
-});
-
-// EstadÃ­sticas del usuario
-app.get('/ecoconsole/user-stats', async (req, res) => {
-  res.json({
-    success: true,
-    stats: {
-      totalCommands: 0,
-      favoriteCommand: 'none',
-      joinDate: new Date().toISOString()
-    }
-  });
-});
-
-app.get('/ecoxion/health', (_req, res) => res.json({ status: 'up', service: 'Ecoxion' }));
-app.get('/natmarket/health', (_req, res) => res.json({ status: 'up', service: 'NatMarket' }));
-app.get('/naturepedia/health', (_req, res) => res.json({ status: 'up', service: 'Naturepedia' }));
-app.get('/floret/health', (_req, res) => res.json({ status: 'up', service: 'Floret Shop' }));
-
-// ========== FLORET SHOP ENDPOINTS ==========
-const FLORET_MAIN_SELLER_EMAIL = 'karatedojor@gmail.com';
-
-function normalizeFloretEmail(email) {
-  return String(email || '').trim().toLowerCase();
-}
-
-async function getFloretMalevoRecipient() {
-  const safeEmail = normalizeFloretEmail(FLORET_MAIN_SELLER_EMAIL);
-  const { rows } = await pool.query(
-    `SELECT id, username, email, power_level
-     FROM floret_users
-     WHERE LOWER(COALESCE(email, '')) = $1
-        OR LOWER(COALESCE(username, '')) = 'malevo'
-     ORDER BY power_level DESC, id ASC
-     LIMIT 1`,
-    [safeEmail]
-  );
-  const user = rows[0] || null;
-  return {
-    userId: user?.id || null,
-    email: user?.email || FLORET_MAIN_SELLER_EMAIL
-  };
-}
-
-async function resolveFloretReviewerName(userId, fallbackName = '') {
-  const safeName = String(fallbackName || '').trim();
-  if (!userId) return safeName || 'Cliente Floret';
-
-  try {
-    const { rows } = await pool.query(
-      'SELECT username FROM floret_users WHERE id = $1 LIMIT 1',
-      [userId]
-    );
-    if (rows[0]?.username) return rows[0].username;
-  } catch (_err) {
-    // Keep fallback name when DB lookup fails
-  }
-  return safeName || 'Cliente Floret';
-}
-
-async function createFloretReviewNotification({
-  type,
-  title,
-  message,
-  productId = null,
-  reviewId,
-  reviewScope
-}) {
-  const recipient = await getFloretMalevoRecipient();
-  await pool.query(
-    `INSERT INTO floret_notifications
-      (target_user_id, target_email, type, title, message, product_id, review_id, review_scope)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-    [
-      recipient.userId,
-      recipient.email,
-      String(type || 'product_review'),
-      String(title || 'Nueva reseÃ±a'),
-      String(message || ''),
-      productId || null,
-      reviewId,
-      String(reviewScope || 'product')
-    ]
-  );
-}
-
-async function assertFloretMalevoAccess({ userId, email }) {
-  const normalizedEmail = normalizeFloretEmail(email);
-  const requiredEmail = normalizeFloretEmail(FLORET_MAIN_SELLER_EMAIL);
-
-  if (normalizedEmail && normalizedEmail === requiredEmail) {
-    return { allowed: true };
-  }
-
-  if (!userId) return { allowed: false, reason: 'Acceso restringido a Malevo' };
-
-  const { rows } = await pool.query(
-    `SELECT id, email, username, power_level, is_admin
-     FROM floret_users
-     WHERE id = $1
-     LIMIT 1`,
-    [userId]
-  );
-  const actor = rows[0];
-  if (!actor) return { allowed: false, reason: 'Usuario no encontrado' };
-
-  const actorEmail = normalizeFloretEmail(actor.email);
-  const actorUser = String(actor.username || '').trim().toLowerCase();
-  const isMalevo = actorEmail === requiredEmail || actorUser === 'malevo';
-  const hasPrivileges = Number(actor.power_level || 0) >= 1 || actor.is_admin === true;
-  if (!isMalevo && !hasPrivileges) {
-    return { allowed: false, reason: 'Acceso restringido a Malevo' };
-  }
-  return { allowed: true, actor };
-}
-
-// Registro
-app.post('/floret/register', async (req, res) => {
-  const { username, email, password } = req.body;
-  if (!username || !password) {
-    return res.status(400).json({ error: 'Usuario y contraseÃ±a son requeridos' });
-  }
-  try {
-    const hashed = await bcrypt.hash(password, 10);
-    const { rows } = await pool.query(
-      `INSERT INTO floret_users(username, email, password) VALUES($1, $2, $3) RETURNING id, username, email, created_at`,
-      [username, email || null, hashed]
-    );
-    res.json({ success: true, user: rows[0] });
-  } catch (e) {
-    if (e.code === '23505') {
-      return res.status(400).json({ error: 'El usuario ya existe' });
-    }
-    console.error('Error en registro Floret:', e);
-    res.status(500).json({ error: 'Error interno' });
-  }
-});
-
-// Login
-// Helper for Floret Quota
-async function getFloretQuota(userId) {
-  const { rows } = await pool.query('SELECT * FROM floret_admin_quotas WHERE user_id = $1', [userId]);
-  let quota = rows[0];
-
-  if (!quota) {
-    const res = await pool.query('INSERT INTO floret_admin_quotas(user_id) VALUES($1) RETURNING *', [userId]);
-    quota = res.rows[0];
-  }
-
-  // Check reset logic (24h cooldown)
-  if (quota.last_upload_time) {
-    const last = new Date(quota.last_upload_time);
-    const now = new Date();
-    const diffHrs = (now - last) / (1000 * 60 * 60);
-
-    if (diffHrs >= 24) {
-      await pool.query('UPDATE floret_admin_quotas SET uploads_today = 0, last_upload_time = NULL WHERE user_id = $1', [userId]);
-      quota.uploads_today = 0;
-      quota.last_upload_time = null;
-    }
-  }
-
-  return quota;
-}
-
-// Login
-app.post('/floret/login', async (req, res) => {
-  const { username, password, identifier, email } = req.body;
-  const loginId = String(identifier || username || email || '').trim();
-  if (!loginId || !password) {
-    return res.status(400).json({ error: 'Usuario/email y contrase\u00f1a son requeridos' });
-  }
-  try {
-    const { rows } = await pool.query(
-      "SELECT * FROM floret_users WHERE LOWER(username) = LOWER($1) OR LOWER(COALESCE(email, '')) = LOWER($1) LIMIT 1",
-      [loginId]
-    );
-    if (rows.length === 0) {
-      return res.status(401).json({ error: 'Usuario o email no encontrado' });
-    }
-    const valid = await bcrypt.compare(password, rows[0].password);
-    if (!valid) {
-      return res.status(401).json({ error: 'Contrase\u00f1a incorrecta' });
-    }
-    const { id, email: accountEmail, created_at, is_admin, power_level } = rows[0];
-    res.json({ success: true, user: { id, username: rows[0].username, email: accountEmail, created_at, is_admin, power_level } });
-  } catch (e) {
-    console.error('Error en login Floret:', e);
-    res.status(500).json({ error: 'Error interno' });
-  }
-});
-
-app.post('/floret/reset-password', async (req, res) => {
-  const { identifier, email, newPassword } = req.body || {};
-  const loginId = String(identifier || '').trim();
-  const safeEmail = String(email || '').trim();
-  const safePass = String(newPassword || '');
-
-  if (!loginId || !safeEmail || !safePass) {
-    return res.status(400).json({ error: 'Completa usuario/email, email y nueva contrase\u00f1a' });
-  }
-  if (safePass.length < 8) {
-    return res.status(400).json({ error: 'La nueva contrase\u00f1a debe tener al menos 8 caracteres' });
-  }
-
-  try {
-    const { rows } = await pool.query(
-      "SELECT id FROM floret_users WHERE (LOWER(username) = LOWER($1) OR LOWER(COALESCE(email, '')) = LOWER($1)) AND LOWER(COALESCE(email, '')) = LOWER($2) LIMIT 1",
-      [loginId, safeEmail]
-    );
-    if (!rows.length) {
-      return res.status(404).json({ error: 'No se encontro una cuenta que coincida con esos datos' });
-    }
-
-    const hashed = await bcrypt.hash(safePass, 10);
-    await pool.query('UPDATE floret_users SET password = $1 WHERE id = $2', [hashed, rows[0].id]);
-    res.json({ success: true, message: 'Contrasena actualizada' });
-  } catch (e) {
-    console.error('Error en reset de contrasena Floret:', e);
-    res.status(500).json({ error: 'Error interno' });
-  }
-});
-// Endpoint para crear preferencia de MercadoPago
-app.post('/floret/create_preference', async (req, res) => {
-  try {
-    const { items, back_url } = req.body;
-
-    // âš ï¸ FIX CRÃTICO: MercadoPago rechaza localhost/http en auto_return.
-    // Forzamos SIEMPRE la URL de producciÃ³n (HTTPS) para evitar el error 400.
-    const returnUrl = 'https://floretshop.netlify.app';
-
-    console.log(`[MP Preference] Creando preferencia.Return URL forzada: ${returnUrl} `);
-
-    // Transformar items al formato de MP
-    const body = {
-      items: items.map(item => ({
-        title: item.name,
-        quantity: Number(item.quantity) || 1,
-        unit_price: Number(item.price),
-        currency_id: 'UYU',
-      })),
-      back_urls: {
-        success: returnUrl,
-        failure: returnUrl,
-        pending: returnUrl
-      },
-      auto_return: 'approved',
-    };
-
-    const preference = new Preference(mpClient);
-    const result = await preference.create({ body });
-
-    res.json({ id: result.id });
-  } catch (error) {
-    console.error('Error creando preferencia MP:', error);
-    // Devolvemos el mensaje de error real para depurar
-    res.status(500).json({
-      error: 'Error al crear la preferencia de pago',
-      details: error.message,
-      mp_error: error.cause || error
-    });
-  }
-});
-
-// Obtener cuota
-app.get('/floret/quota/:userId', async (req, res) => {
-  try {
-    const quota = await getFloretQuota(req.params.userId);
-    res.json(quota);
-  } catch (e) {
-    res.status(500).json({ error: 'Error obteniendo cuota' });
-  }
-});
-
-// Otorgar cuota (Solo Super-Admin PowerLevel 2)
-app.post('/floret/grant-quota', async (req, res) => {
-  const { adminId, targetUserId, amount } = req.body;
-  try {
-    const admin = await pool.query('SELECT power_level FROM floret_users WHERE id = $1', [adminId]);
-    if (!admin.rows[0] || admin.rows[0].power_level < 2) {
-      return res.status(403).json({ error: 'No tienes permiso para otorgar cuota' });
-    }
-    await pool.query('UPDATE floret_admin_quotas SET uploads_today = uploads_today - $1 WHERE user_id = $2', [amount || 1, targetUserId]);
-    res.json({ success: true });
-  } catch (e) {
-    res.status(500).json({ error: 'Error otorgando cuota' });
-  }
-});
-
-// Obtener productos
-app.get('/floret/products', async (_req, res) => {
-  try {
-    const { rows } = await pool.query(`
-      SELECT
-        p.id,
-        p.name,
-        p.description,
-        p.price,
-        p.stock,
-        p.condition,
-        p.images,
-        p.requires_size,
-        p.sizes,
-        p.measurements,
-        p.created_at,
-        p.seller_email,
-        COALESCE(rs.review_count, 0)::int AS review_count,
-        COALESCE(rs.avg_rating, 0)::numeric AS avg_rating
-      FROM floret_products p
-      LEFT JOIN LATERAL (
-        SELECT
-          COUNT(*) AS review_count,
-          ROUND(AVG(rating)::numeric, 1) AS avg_rating
-        FROM floret_product_reviews
-        WHERE product_id = p.id
-      ) rs ON TRUE
-      ORDER BY p.created_at DESC
-      `);
-    const products = rows.map(r => ({
-      id: r.id,
-      name: r.name,
-      description: r.description,
-      price: parseFloat(r.price),
-      stock: parseInt(r.stock) || 0,
-      condition: r.condition,
-      images: r.images || [],
-      requiresSize: r.requires_size,
-      sizes: r.sizes || [],
-      measurements: r.measurements,
-      sellerEmail: r.seller_email || FLORET_MAIN_SELLER_EMAIL,
-      reviewSummary: {
-        count: parseInt(r.review_count, 10) || 0,
-        avgRating: parseFloat(r.avg_rating) || 0
-      }
-    }));
-    res.json(products);
-  } catch (e) {
-    console.error('Error obteniendo productos Floret:', e);
-    res.status(500).json({ error: 'Error interno' });
-  }
-});
-
-// Obtener reviews/comentarios de un producto
-app.get('/floret/reviews/product/:productId', async (req, res) => {
-  try {
-    const productId = Number(req.params.productId);
-    if (!productId) return res.status(400).json({ error: 'productId invalido' });
-
-    const [reviewsRes, summaryRes] = await Promise.all([
-      pool.query(
-        `SELECT
-          r.id,
-          r.product_id,
-          r.reviewer_user_id,
-          COALESCE(u.username, r.reviewer_name, 'Cliente Floret') AS reviewer_name,
-          r.rating,
-          r.comment,
-          r.created_at
-        FROM floret_product_reviews r
-        LEFT JOIN floret_users u ON u.id = r.reviewer_user_id
-        WHERE r.product_id = $1
-        ORDER BY r.created_at DESC`,
-        [productId]
-      ),
-      pool.query(
-        `SELECT
-          COUNT(*)::int AS review_count,
-          COALESCE(ROUND(AVG(rating)::numeric, 1), 0) AS avg_rating
-        FROM floret_product_reviews
-        WHERE product_id = $1`,
-        [productId]
-      )
-    ]);
-
-    res.json({
-      productId,
-      summary: {
-        count: Number(summaryRes.rows[0]?.review_count || 0),
-        avgRating: Number(summaryRes.rows[0]?.avg_rating || 0)
-      },
-      reviews: reviewsRes.rows
-    });
-  } catch (e) {
-    console.error('Error obteniendo reviews de producto Floret:', e);
-    res.status(500).json({ error: 'Error interno' });
-  }
-});
-
-// Crear review/comentario de producto
-app.post('/floret/reviews/product', async (req, res) => {
-  try {
-    const {
-      productId,
-      rating,
-      comment,
-      reviewerUserId = null,
-      reviewerName = ''
-    } = req.body || {};
-
-    const safeProductId = Number(productId);
-    const safeRating = Number(rating);
-    const safeComment = String(comment || '').trim();
-
-    if (!safeProductId) return res.status(400).json({ error: 'productId requerido' });
-    if (!Number.isInteger(safeRating) || safeRating < 1 || safeRating > 5) {
-      return res.status(400).json({ error: 'rating debe estar entre 1 y 5' });
-    }
-    if (!safeComment) return res.status(400).json({ error: 'comment es requerido' });
-
-    const productRes = await pool.query(
-      'SELECT id, name, seller_email FROM floret_products WHERE id = $1 LIMIT 1',
-      [safeProductId]
-    );
-    if (!productRes.rows.length) {
-      return res.status(404).json({ error: 'Producto no encontrado' });
-    }
-    const product = productRes.rows[0];
-    const reviewerDisplayName = await resolveFloretReviewerName(reviewerUserId, reviewerName);
-
-    const { rows } = await pool.query(
-      `INSERT INTO floret_product_reviews
-        (product_id, reviewer_user_id, reviewer_name, rating, comment)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING *`,
-      [safeProductId, reviewerUserId || null, reviewerDisplayName, safeRating, safeComment]
-    );
-    const review = rows[0];
-
-    await createFloretReviewNotification({
-      type: 'product_review',
-      title: `Nueva review en "${product.name}"`,
-      message: `${reviewerDisplayName} dejo ${safeRating} estrellas en ${product.name}.`,
-      productId: safeProductId,
-      reviewId: review.id,
-      reviewScope: 'product'
-    });
-
-    res.json({ success: true, review });
-  } catch (e) {
-    console.error('Error creando review de producto Floret:', e);
-    res.status(500).json({ error: 'Error interno' });
-  }
-});
-
-// Crear review/comentario al vendedor Malevo
-app.post('/floret/reviews/seller', async (req, res) => {
-  try {
-    const {
-      rating,
-      comment,
-      reviewerUserId = null,
-      reviewerName = '',
-      sellerEmail = FLORET_MAIN_SELLER_EMAIL
-    } = req.body || {};
-
-    const safeRating = Number(rating);
-    const safeComment = String(comment || '').trim();
-    const safeSellerEmail = normalizeFloretEmail(sellerEmail) || FLORET_MAIN_SELLER_EMAIL;
-
-    if (!Number.isInteger(safeRating) || safeRating < 1 || safeRating > 5) {
-      return res.status(400).json({ error: 'rating debe estar entre 1 y 5' });
-    }
-    if (!safeComment) return res.status(400).json({ error: 'comment es requerido' });
-
-    const reviewerDisplayName = await resolveFloretReviewerName(reviewerUserId, reviewerName);
-    const { rows } = await pool.query(
-      `INSERT INTO floret_seller_reviews
-        (seller_email, reviewer_user_id, reviewer_name, rating, comment)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING *`,
-      [safeSellerEmail, reviewerUserId || null, reviewerDisplayName, safeRating, safeComment]
-    );
-    const review = rows[0];
-
-    await createFloretReviewNotification({
-      type: 'seller_review',
-      title: 'Nueva review para Malevo',
-      message: `${reviewerDisplayName} califico a Malevo con ${safeRating} estrellas.`,
-      reviewId: review.id,
-      reviewScope: 'seller'
-    });
-
-    res.json({ success: true, review });
-  } catch (e) {
-    console.error('Error creando review de seller Floret:', e);
-    res.status(500).json({ error: 'Error interno' });
-  }
-});
-
-// Obtener reviews de Malevo
-app.get('/floret/reviews/seller', async (req, res) => {
-  try {
-    const sellerEmail = normalizeFloretEmail(req.query.sellerEmail) || FLORET_MAIN_SELLER_EMAIL;
-    const { rows } = await pool.query(
-      `SELECT
-        r.id,
-        r.seller_email,
-        r.reviewer_user_id,
-        COALESCE(u.username, r.reviewer_name, 'Cliente Floret') AS reviewer_name,
-        r.rating,
-        r.comment,
-        r.created_at
-      FROM floret_seller_reviews r
-      LEFT JOIN floret_users u ON u.id = r.reviewer_user_id
-      WHERE LOWER(r.seller_email) = LOWER($1)
-      ORDER BY r.created_at DESC`,
-      [sellerEmail]
-    );
-    const summaryRes = await pool.query(
-      `SELECT
-        COUNT(*)::int AS review_count,
-        COALESCE(ROUND(AVG(rating)::numeric, 1), 0) AS avg_rating
-      FROM floret_seller_reviews
-      WHERE LOWER(seller_email) = LOWER($1)`,
-      [sellerEmail]
-    );
-
-    res.json({
-      sellerEmail,
-      summary: {
-        count: Number(summaryRes.rows[0]?.review_count || 0),
-        avgRating: Number(summaryRes.rows[0]?.avg_rating || 0)
-      },
-      reviews: rows
-    });
-  } catch (e) {
-    console.error('Error obteniendo reviews del seller Floret:', e);
-    res.status(500).json({ error: 'Error interno' });
-  }
-});
-
-// Obtener una review puntual de producto (para modal de notificacion)
-app.get('/floret/reviews/product-detail/:reviewId', async (req, res) => {
-  try {
-    const reviewId = Number(req.params.reviewId);
-    if (!reviewId) return res.status(400).json({ error: 'reviewId invalido' });
-
-    const access = await assertFloretMalevoAccess({
-      userId: Number(req.query.userId || 0) || null,
-      email: req.query.email || ''
-    });
-    if (!access.allowed) return res.status(403).json({ error: access.reason || 'No autorizado' });
-
-    const { rows } = await pool.query(
-      `SELECT
-        r.id,
-        r.product_id,
-        p.name AS product_name,
-        COALESCE(u.username, r.reviewer_name, 'Cliente Floret') AS reviewer_name,
-        r.rating,
-        r.comment,
-        r.created_at
-      FROM floret_product_reviews r
-      LEFT JOIN floret_products p ON p.id = r.product_id
-      LEFT JOIN floret_users u ON u.id = r.reviewer_user_id
-      WHERE r.id = $1
-      LIMIT 1`,
-      [reviewId]
-    );
-
-    if (!rows.length) return res.status(404).json({ error: 'Review no encontrada' });
-    res.json(rows[0]);
-  } catch (e) {
-    console.error('Error obteniendo detalle review producto Floret:', e);
-    res.status(500).json({ error: 'Error interno' });
-  }
-});
 
 // Notificaciones de Malevo para reviews
 app.get('/floret/notifications', async (req, res) => {
@@ -12626,6 +10667,27 @@ async function ensureWildXTables() {
   await pool.query('ALTER TABLE wildx_posts ADD COLUMN IF NOT EXISTS parent_id INTEGER REFERENCES wildx_posts(id) ON DELETE CASCADE');
   await pool.query("ALTER TABLE wildx_posts ADD COLUMN IF NOT EXISTS likes_count INTEGER NOT NULL DEFAULT 0");
 
+  // Colaboradores por post
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS wildx_post_collaborators (
+      id SERIAL PRIMARY KEY,
+      post_id INTEGER NOT NULL REFERENCES wildx_posts(id) ON DELETE CASCADE,
+      collaborator_id INTEGER NOT NULL REFERENCES wildx_users(id) ON DELETE CASCADE,
+      requested_by INTEGER NOT NULL REFERENCES wildx_users(id) ON DELETE CASCADE,
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at TIMESTAMP DEFAULT NOW(),
+      responded_at TIMESTAMP
+    )
+  `);
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_wildx_post_collaborators_unique
+      ON wildx_post_collaborators(post_id, collaborator_id)
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_wildx_post_collaborators_collab
+      ON wildx_post_collaborators(collaborator_id, status)
+  `);
+
   // Tabla de likes por usuario/post
   await pool.query(`
     CREATE TABLE IF NOT EXISTS wildx_likes (
@@ -13334,7 +11396,8 @@ async function selectPromotedPost() {
               WHEN LOWER(REGEXP_REPLACE(COALESCE(u.display_name, ''), '\\s+', '', 'g')) = $2 THEN 'crimson'
               WHEN LOWER(COALESCE(op.username, '')) = $4 THEN 'crimson'
               ELSE v.badge_color
-            END AS verify_badge_color
+            END AS verify_badge_color,
+            collab.collaborators AS collaborators
        FROM wildx_posts p
        LEFT JOIN wildx_users u ON u.id = p.user_id
        LEFT JOIN wildx_oceanpay_links wol ON wol.wildx_user_id = p.user_id
@@ -13347,6 +11410,23 @@ async function selectPromotedPost() {
           ORDER BY started_at ASC
           LIMIT 1
        ) v ON TRUE
+       LEFT JOIN LATERAL (
+         SELECT COALESCE(
+           json_agg(
+             json_build_object(
+               'id', cu.id,
+               'username', cu.username,
+               'display_name', COALESCE(cu.display_name, cu.username),
+               'avatar_url', cu.avatar_url
+             ) ORDER BY cu.username
+           ),
+           '[]'::json
+         ) AS collaborators
+           FROM wildx_post_collaborators pc
+           JOIN wildx_users cu ON cu.id = pc.collaborator_id
+          WHERE pc.post_id = p.id
+            AND pc.status = 'accepted'
+       ) collab ON TRUE
       WHERE p.id = $1`,
     [chosen.post_id, WILDWAVE_ADMIN_USERNAME, WILDWAVE_ADMIN_DISPLAY_NAME, WILDWAVE_ADMIN_OCEANPAY_USERNAME]
   );
@@ -13390,7 +11470,8 @@ app.get('/wildwave/api/posts', async (req, res) => {
               WHEN LOWER(REGEXP_REPLACE(COALESCE(u.display_name, ''), '\\s+', '', 'g')) = $2 THEN 'crimson'
                 WHEN LOWER(COALESCE(op.username, '')) = $4 THEN 'crimson'
                 ELSE v.badge_color
-              END AS verify_badge_color
+              END AS verify_badge_color,
+            collab.collaborators AS collaborators
          FROM wildx_posts p
          LEFT JOIN wildx_users u ON u.id = p.user_id
          LEFT JOIN wildx_oceanpay_links wol ON wol.wildx_user_id = p.user_id
@@ -13405,6 +11486,23 @@ app.get('/wildwave/api/posts', async (req, res) => {
             ORDER BY started_at ASC
             LIMIT 1
          ) v ON TRUE
+       LEFT JOIN LATERAL (
+         SELECT COALESCE(
+           json_agg(
+             json_build_object(
+               'id', cu.id,
+               'username', cu.username,
+               'display_name', COALESCE(cu.display_name, cu.username),
+               'avatar_url', cu.avatar_url
+             ) ORDER BY cu.username
+           ),
+           '[]'::json
+         ) AS collaborators
+           FROM wildx_post_collaborators pc
+           JOIN wildx_users cu ON cu.id = pc.collaborator_id
+          WHERE pc.post_id = p.id
+            AND pc.status = 'accepted'
+       ) collab ON TRUE
         WHERE p.status = 'published' AND p.deleted_at IS NULL
         ORDER BY p.created_at DESC
         LIMIT 100`,
@@ -13457,7 +11555,8 @@ app.get('/wildwave/api/my-posts', async (req, res) => {
               WHEN LOWER(REGEXP_REPLACE(COALESCE(u.display_name, ''), '\\s+', '', 'g')) = $2 THEN 'crimson'
                 WHEN LOWER(COALESCE(op.username, '')) = $4 THEN 'crimson'
                 ELSE v.badge_color
-              END AS verify_badge_color
+              END AS verify_badge_color,
+            collab.collaborators AS collaborators
          FROM wildx_posts p
          LEFT JOIN wildx_users u ON u.id = p.user_id
          LEFT JOIN wildx_oceanpay_links wol ON wol.wildx_user_id = p.user_id
@@ -13472,6 +11571,23 @@ app.get('/wildwave/api/my-posts', async (req, res) => {
             ORDER BY started_at ASC
             LIMIT 1
          ) v ON TRUE
+         LEFT JOIN LATERAL (
+           SELECT COALESCE(
+             json_agg(
+               json_build_object(
+                 'id', cu.id,
+                 'username', cu.username,
+                 'display_name', COALESCE(cu.display_name, cu.username),
+                 'avatar_url', cu.avatar_url
+               ) ORDER BY cu.username
+             ),
+             '[]'::json
+           ) AS collaborators
+             FROM wildx_post_collaborators pc
+             JOIN wildx_users cu ON cu.id = pc.collaborator_id
+            WHERE pc.post_id = p.id
+              AND pc.status = 'accepted'
+         ) collab ON TRUE
         WHERE p.user_id = $1 AND p.status = 'published' AND p.deleted_at IS NULL
         ORDER BY p.created_at DESC
         LIMIT 100`,
@@ -14602,6 +12718,15 @@ app.post('/wildwave/api/posts', async (req, res) => {
     const parentIdRaw = req.body?.parentId;
     const parentId = parentIdRaw ? parseInt(parentIdRaw, 10) : null;
     const scheduledAtRaw = req.body?.scheduledAt;
+    const collaboratorsRaw = req.body?.collaborators;
+    const collabCandidates = Array.isArray(collaboratorsRaw)
+      ? collaboratorsRaw
+      : (typeof collaboratorsRaw === 'string' ? collaboratorsRaw.split(',') : []);
+    const collaborators = Array.from(new Set(
+      collabCandidates
+        .map((c) => normalizeWildWaveUsername(String(c || '').trim().replace(/^@/, '')))
+        .filter(Boolean)
+    ));
 
     if (!content) return res.status(400).json({ error: 'Contenido requerido' });
 
@@ -14650,9 +12775,40 @@ app.post('/wildwave/api/posts', async (req, res) => {
       }
     }
 
+    let collabUsers = [];
+
     const { rows: users } = await pool.query('SELECT username FROM wildx_users WHERE id=$1', [wid]);
     if (!users.length) return res.status(404).json({ error: 'Usuario no encontrado' });
     const uname = users[0].username;
+
+    if (collaborators.length > 5) {
+      return res.status(400).json({ error: 'Máximo 5 colaboradores por post.' });
+    }
+
+    if (collaborators.length) {
+      if (parentId) {
+        return res.status(400).json({ error: 'No puedes agregar colaboradores en respuestas.' });
+      }
+      if (scheduledAt) {
+        return res.status(400).json({ error: 'No puedes programar posts con colaboraciones.' });
+      }
+      const normalized = collaborators.map(c => c.toLowerCase());
+      const { rows: cRows } = await pool.query(
+        'SELECT id, username, display_name, avatar_url FROM wildx_users WHERE LOWER(username) = ANY($1)',
+        [normalized]
+      );
+      const found = new Set(cRows.map(r => (r.username || '').toLowerCase()));
+      const missing = normalized.filter(u => !found.has(u));
+      if (missing.length) {
+        const labels = missing.map(u => '@' + u).join(', ');
+        return res.status(404).json({ error: 'No se encontraron: ' + labels });
+      }
+      collabUsers = cRows.filter(r => Number(r.id) !== Number(wid));
+      if (!collabUsers.length) {
+        return res.status(400).json({ error: 'No puedes colaborar contigo mismo.' });
+      }
+      status = 'pending_collab';
+    }
 
     // Si es respuesta, no permitir responder solo al post inicial propio
     if (parentId) {
@@ -14673,13 +12829,287 @@ app.post('/wildwave/api/posts', async (req, res) => {
       'INSERT INTO wildx_posts (user_id, username, content, parent_id, scheduled_at, status) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id, user_id, username, content, created_at, parent_id, likes_count, scheduled_at, status',
       [wid, uname, content, parentId, scheduledAt, status]
     );
-    res.json(rows[0]);
+    const post = rows[0];
+    if (collabUsers.length) {
+      for (const collab of collabUsers) {
+        await pool.query(
+          'INSERT INTO wildx_post_collaborators (post_id, collaborator_id, requested_by, status) VALUES ($1,$2,$3,\'pending\') ON CONFLICT DO NOTHING',
+          [post.id, collab.id, wid]
+        );
+        createWildXNotification(collab.id, 'collab_request', {
+          post_id: post.id,
+          from_username: uname,
+          preview: (content || '').slice(0, 140)
+        }).catch(() => {});
+      }
+      return res.json({
+        ...post,
+        status: 'pending_collab',
+        collaborators: [],
+        pending_collaborators: collabUsers.map(c => ({
+          id: c.id,
+          username: c.username,
+          display_name: c.display_name || c.username,
+          avatar_url: c.avatar_url || null
+        }))
+      });
+    }
+    res.json(post);
   } catch (err) {
     console.error('Error en POST /wildwave/api/posts:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
 
+// Colaboraciones - solicitudes
+app.get('/wildwave/api/collabs/requests', async (req, res) => {
+  try {
+    await ensureWildXTables();
+    await ensureWildXExtraColumns();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Inicia sesi�n en WildWave' });
+
+    const { rows } = await pool.query(
+      `SELECT pc.id,
+              pc.post_id,
+              pc.created_at,
+              p.content,
+              p.created_at AS post_created_at,
+              u.username AS author_username,
+              COALESCE(u.display_name, u.username) AS author_display_name,
+              u.avatar_url AS author_avatar
+         FROM wildx_post_collaborators pc
+         JOIN wildx_posts p ON p.id = pc.post_id
+         JOIN wildx_users u ON u.id = pc.requested_by
+        WHERE pc.collaborator_id = $1
+          AND pc.status = 'pending'
+          AND p.deleted_at IS NULL
+        ORDER BY pc.created_at DESC`,
+      [wid]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('Error en GET /wildwave/api/collabs/requests:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+app.post('/wildwave/api/collabs/requests/:id/accept', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await ensureWildXTables();
+    await ensureWildXExtraColumns();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Inicia sesi�n en WildWave' });
+
+    const collabId = parseInt(req.params.id, 10);
+    if (!collabId) return res.status(400).json({ error: 'Solicitud inv�lida' });
+
+    await client.query('BEGIN');
+    const { rows: collabRows } = await client.query(
+      'SELECT id, post_id, collaborator_id, status, requested_by FROM wildx_post_collaborators WHERE id=$1 FOR UPDATE',
+      [collabId]
+    );
+    if (!collabRows.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Solicitud no encontrada' });
+    }
+    const collab = collabRows[0];
+    if (Number(collab.collaborator_id) !== Number(wid)) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+    if (collab.status !== 'pending') {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'Solicitud ya resuelta' });
+    }
+
+    await client.query(
+      "UPDATE wildx_post_collaborators SET status = 'accepted', responded_at = NOW() WHERE id = $1",
+      [collabId]
+    );
+
+    const { rows: countRows } = await client.query(
+      "SELECT COUNT(*) FILTER (WHERE status = 'pending')::int AS pending_count, COUNT(*) FILTER (WHERE status = 'accepted')::int AS accepted_count FROM wildx_post_collaborators WHERE post_id = $1",
+      [collab.post_id]
+    );
+    const pendingCount = countRows[0]?.pending_count || 0;
+    const acceptedCount = countRows[0]?.accepted_count || 0;
+    let postStatus = 'pending_collab';
+    if (pendingCount === 0) {
+      if (acceptedCount > 0) {
+        await client.query("UPDATE wildx_posts SET status = 'published' WHERE id = $1", [collab.post_id]);
+        postStatus = 'published';
+      } else {
+        await client.query("UPDATE wildx_posts SET status = 'pending_author' WHERE id = $1", [collab.post_id]);
+        postStatus = 'pending_author';
+      }
+    }
+
+    await client.query('COMMIT');
+
+    const { rows: meRows } = await pool.query('SELECT username FROM wildx_users WHERE id=$1', [wid]);
+    const byUsername = meRows[0]?.username || null;
+    if (collab.requested_by) {
+      createWildXNotification(collab.requested_by, 'collab_accepted', {
+        post_id: collab.post_id,
+        by_username: byUsername
+      }).catch(() => {});
+    }
+
+    res.json({ success: true, post_id: collab.post_id, post_status: postStatus });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error en POST /wildwave/api/collabs/requests/:id/accept:', err);
+    res.status(500).json({ error: 'Error interno' });
+  } finally {
+    client.release();
+  }
+});
+
+app.post('/wildwave/api/collabs/requests/:id/decline', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await ensureWildXTables();
+    await ensureWildXExtraColumns();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Inicia sesi�n en WildWave' });
+
+    const collabId = parseInt(req.params.id, 10);
+    if (!collabId) return res.status(400).json({ error: 'Solicitud inv�lida' });
+
+    await client.query('BEGIN');
+    const { rows: collabRows } = await client.query(
+      'SELECT id, post_id, collaborator_id, status, requested_by FROM wildx_post_collaborators WHERE id=$1 FOR UPDATE',
+      [collabId]
+    );
+    if (!collabRows.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Solicitud no encontrada' });
+    }
+    const collab = collabRows[0];
+    if (Number(collab.collaborator_id) !== Number(wid)) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+    if (collab.status !== 'pending') {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'Solicitud ya resuelta' });
+    }
+
+    await client.query(
+      "UPDATE wildx_post_collaborators SET status = 'declined', responded_at = NOW() WHERE id = $1",
+      [collabId]
+    );
+
+    const { rows: countRows } = await client.query(
+      "SELECT COUNT(*) FILTER (WHERE status = 'pending')::int AS pending_count, COUNT(*) FILTER (WHERE status = 'accepted')::int AS accepted_count FROM wildx_post_collaborators WHERE post_id = $1",
+      [collab.post_id]
+    );
+    const pendingCount = countRows[0]?.pending_count || 0;
+    const acceptedCount = countRows[0]?.accepted_count || 0;
+    let postStatus = 'pending_collab';
+    let needsDecision = false;
+    if (pendingCount === 0 && acceptedCount === 0) {
+      await client.query("UPDATE wildx_posts SET status = 'pending_author' WHERE id = $1", [collab.post_id]);
+      postStatus = 'pending_author';
+      needsDecision = true;
+    }
+
+    await client.query('COMMIT');
+
+    if (needsDecision && collab.requested_by) {
+      createWildXNotification(collab.requested_by, 'collab_declined_final', {
+        post_id: collab.post_id
+      }).catch(() => {});
+    }
+
+    res.json({ success: true, post_id: collab.post_id, post_status: postStatus, needs_decision: needsDecision });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error en POST /wildwave/api/collabs/requests/:id/decline:', err);
+    res.status(500).json({ error: 'Error interno' });
+  } finally {
+    client.release();
+  }
+});
+
+app.get('/wildwave/api/collabs/outgoing', async (req, res) => {
+  try {
+    await ensureWildXTables();
+    await ensureWildXExtraColumns();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Inicia sesi�n en WildWave' });
+
+    const { rows } = await pool.query(
+      `SELECT p.id,
+              p.content,
+              p.created_at,
+              p.status,
+              COALESCE(
+                json_agg(
+                  json_build_object(
+                    'id', pc.id,
+                    'username', u.username,
+                    'display_name', COALESCE(u.display_name, u.username),
+                    'avatar_url', u.avatar_url,
+                    'status', pc.status
+                  ) ORDER BY u.username
+                ) FILTER (WHERE pc.id IS NOT NULL),
+                '[]'::json
+              ) AS collaborators,
+              COUNT(*) FILTER (WHERE pc.status = 'pending')::int AS pending_count,
+              COUNT(*) FILTER (WHERE pc.status = 'accepted')::int AS accepted_count,
+              COUNT(*) FILTER (WHERE pc.status = 'declined')::int AS declined_count
+         FROM wildx_posts p
+         LEFT JOIN wildx_post_collaborators pc ON pc.post_id = p.id
+         LEFT JOIN wildx_users u ON u.id = pc.collaborator_id
+        WHERE p.user_id = $1
+          AND p.status IN ('pending_collab', 'pending_author')
+          AND p.deleted_at IS NULL
+        GROUP BY p.id
+        ORDER BY p.created_at DESC`,
+      [wid]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('Error en GET /wildwave/api/collabs/outgoing:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+app.post('/wildwave/api/collabs/posts/:id/publish', async (req, res) => {
+  try {
+    await ensureWildXTables();
+    await ensureWildXExtraColumns();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Inicia sesi�n en WildWave' });
+
+    const postId = parseInt(req.params.id, 10);
+    if (!postId) return res.status(400).json({ error: 'Post inv�lido' });
+
+    const { rows: postRows } = await pool.query('SELECT user_id, status FROM wildx_posts WHERE id=$1', [postId]);
+    if (!postRows.length) return res.status(404).json({ error: 'Post no encontrado' });
+    if (Number(postRows[0].user_id) !== Number(wid)) {
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+
+    const { rows: countRows } = await pool.query(
+      "SELECT COUNT(*) FILTER (WHERE status = 'pending')::int AS pending_count FROM wildx_post_collaborators WHERE post_id = $1",
+      [postId]
+    );
+    const pendingCount = countRows[0]?.pending_count || 0;
+    if (pendingCount > 0) {
+      return res.status(409).json({ error: 'A�n hay colaboradores pendientes' });
+    }
+
+    await pool.query("UPDATE wildx_posts SET status = 'published' WHERE id = $1", [postId]);
+    res.json({ success: true, post_id: postId });
+  } catch (err) {
+    console.error('Error en POST /wildwave/api/collabs/posts/:id/publish:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
 // Toggle like en un post WildX
 app.post('/wildwave/api/posts/:id/like', async (req, res) => {
   try {
@@ -14854,7 +13284,8 @@ app.get('/wildwave/api/posts/:id/thread', async (req, res) => {
                 WHEN LOWER(REGEXP_REPLACE(COALESCE(u.display_name, ''), '\\s+', '', 'g')) = $3 THEN 'crimson'
                 WHEN LOWER(COALESCE(op.username, '')) = $5 THEN 'crimson'
                 ELSE v.badge_color
-              END AS verify_badge_color
+              END AS verify_badge_color,
+            collab.collaborators AS collaborators
          FROM thread t
          LEFT JOIN wildx_users u ON u.id = t.user_id
          LEFT JOIN wildx_oceanpay_links wol ON wol.wildx_user_id = t.user_id
@@ -14869,6 +13300,23 @@ app.get('/wildwave/api/posts/:id/thread', async (req, res) => {
             ORDER BY started_at ASC
             LIMIT 1
         ) v ON TRUE
+        LEFT JOIN LATERAL (
+          SELECT COALESCE(
+            json_agg(
+              json_build_object(
+                'id', cu.id,
+                'username', cu.username,
+                'display_name', COALESCE(cu.display_name, cu.username),
+                'avatar_url', cu.avatar_url
+              ) ORDER BY cu.username
+            ),
+            '[]'::json
+          ) AS collaborators
+            FROM wildx_post_collaborators pc
+            JOIN wildx_users cu ON cu.id = pc.collaborator_id
+           WHERE pc.post_id = t.id
+             AND pc.status = 'accepted'
+        ) collab ON TRUE
         ORDER BY t.created_at ASC`,
       [postId, wid, WILDWAVE_ADMIN_USERNAME, WILDWAVE_ADMIN_DISPLAY_NAME, WILDWAVE_ADMIN_OCEANPAY_USERNAME]
     );
@@ -17041,6 +15489,14 @@ httpServer.listen(PORT, '0.0.0.0', () => {
     }, 5000); // Esperar 5 segundos despuÃ©s del inicio
   }
 });
+
+
+
+
+
+
+
+
 
 
 

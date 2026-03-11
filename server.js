@@ -64,6 +64,17 @@ const wildwaveAvatarStorage = new CloudinaryStorage({
 });
 const wildwaveAvatarUpload = multer({ storage: wildwaveAvatarStorage });
 
+// WildWave post media uploads (Cloudinary)
+const wildwavePostStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'wildwave/posts',
+    allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
+    transformation: [{ width: 1600, crop: 'limit' }]
+  },
+});
+const wildwavePostUpload = multer({ storage: wildwavePostStorage });
+
 // FunciÃ³n para generar ID Ãºnico de usuario (100 caracteres)
 function generateUserUniqueId() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -12616,6 +12627,7 @@ async function ensureWildXTables() {
       user_id INTEGER REFERENCES wildx_users(id) ON DELETE SET NULL,
       username TEXT,
       content TEXT NOT NULL,
+      images JSONB NOT NULL DEFAULT '[]'::jsonb,
       created_at TIMESTAMP DEFAULT NOW(),
       parent_id INTEGER REFERENCES wildx_posts(id) ON DELETE CASCADE,
       likes_count INTEGER NOT NULL DEFAULT 0
@@ -12964,6 +12976,7 @@ async function ensureWildXExtraColumns() {
       ALTER TABLE wildx_posts
       ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'published',
       ADD COLUMN IF NOT EXISTS scheduled_at TIMESTAMP NULL,
+      ADD COLUMN IF NOT EXISTS images JSONB NOT NULL DEFAULT '[]'::jsonb,
       ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP NULL
     `);
   } catch (err) {
@@ -13172,6 +13185,23 @@ app.delete('/wildwave/api/profile/avatar', async (req, res) => {
   }
 });
 
+// Subir media de post WildWave
+app.post('/wildwave/api/posts/media', wildwavePostUpload.array('images', 6), async (req, res) => {
+  try {
+    await ensureWildXTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Inicia sesión en WildWave' });
+    const files = Array.isArray(req.files) ? req.files : (req.file ? [req.file] : []);
+    if (!files.length) return res.status(400).json({ error: 'Imagen requerida' });
+    const urls = files.map((file) => file.path || file.secure_url || file.url).filter(Boolean);
+    if (!urls.length) return res.status(500).json({ error: 'No se pudo guardar la imagen' });
+    res.json({ success: true, urls });
+  } catch (err) {
+    console.error('Error en POST /wildwave/api/posts/media:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 // Actualizar nombre de visualizador
 app.patch('/wildwave/api/profile/display-name', async (req, res) => {
   try {
@@ -13346,6 +13376,7 @@ async function selectPromotedPost() {
             COALESCE(u.username, p.username) AS username,
             COALESCE(u.display_name, u.username, p.username) AS display_name,
             p.content,
+            p.images,
             p.created_at,
             p.parent_id,
             p.likes_count,
@@ -13419,6 +13450,7 @@ app.get('/wildwave/api/posts', async (req, res) => {
               COALESCE(u.username, p.username) AS username,
               COALESCE(u.display_name, u.username, p.username) AS display_name,
               p.content,
+              p.images,
               p.created_at,
               p.parent_id,
               p.likes_count,
@@ -13504,6 +13536,7 @@ app.get('/wildwave/api/my-posts', async (req, res) => {
               COALESCE(u.username, p.username) AS username,
               COALESCE(u.display_name, u.username, p.username) AS display_name,
               p.content,
+              p.images,
               p.created_at,
               p.parent_id,
               p.likes_count,
@@ -14701,7 +14734,29 @@ app.post('/wildwave/api/posts', async (req, res) => {
         .filter(Boolean)
     ));
 
-    if (!content) return res.status(400).json({ error: 'Contenido requerido' });
+    const imagesRaw = req.body?.images;
+    let images = [];
+    if (Array.isArray(imagesRaw)) {
+      images = imagesRaw;
+    } else if (typeof imagesRaw === 'string') {
+      try {
+        const parsed = JSON.parse(imagesRaw);
+        if (Array.isArray(parsed)) images = parsed;
+        else if (typeof parsed === 'string') images = [parsed];
+      } catch (_) {
+        if (imagesRaw.trim().length) images = [imagesRaw];
+      }
+    }
+    images = images
+      .map((img) => String(img || '').trim())
+      .filter(Boolean);
+
+    if (images.length > 6) {
+      return res.status(400).json({ error: 'Máximo 6 imágenes por post.' });
+    }
+    images = images.slice(0, 6);
+
+    if (!content && !images.length) return res.status(400).json({ error: 'Contenido o imagen requerida' });
 
     // LÃ­mite de caracteres segÃºn verificaciÃ³n: base 280, +150% (700) si tiene verificaciÃ³n azul activa.
     // Los administradores de WildX no tienen lÃ­mite de caracteres.
@@ -14799,8 +14854,8 @@ app.post('/wildwave/api/posts', async (req, res) => {
     }
 
     const { rows } = await pool.query(
-      'INSERT INTO wildx_posts (user_id, username, content, parent_id, scheduled_at, status) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id, user_id, username, content, created_at, parent_id, likes_count, scheduled_at, status',
-      [wid, uname, content, parentId, scheduledAt, status]
+      'INSERT INTO wildx_posts (user_id, username, content, images, parent_id, scheduled_at, status) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id, user_id, username, content, images, created_at, parent_id, likes_count, scheduled_at, status',
+      [wid, uname, content, images, parentId, scheduledAt, status]
     );
     const post = rows[0];
     if (collabUsers.length) {
@@ -14847,6 +14902,7 @@ app.get('/wildwave/api/collabs/requests', async (req, res) => {
               pc.post_id,
               pc.created_at,
               p.content,
+              p.images,
               p.created_at AS post_created_at,
               u.username AS author_username,
               COALESCE(u.display_name, u.username) AS author_display_name,
@@ -15017,6 +15073,7 @@ app.get('/wildwave/api/collabs/outgoing', async (req, res) => {
     const { rows } = await pool.query(
       `SELECT p.id,
               p.content,
+              p.images,
               p.created_at,
               p.status,
               COALESCE(
@@ -15239,6 +15296,7 @@ app.get('/wildwave/api/posts/:id/thread', async (req, res) => {
               COALESCE(u.username, t.username) AS username,
               COALESCE(u.display_name, u.username, t.username) AS display_name,
               t.content,
+              t.images,
               t.created_at,
               t.parent_id,
               t.likes_count,
@@ -15311,7 +15369,7 @@ app.get('/wildwave/api/scheduled', async (req, res) => {
     const wid = getWildXUserId(req);
     if (!wid) return res.status(401).json({ error: 'Inicia sesiÃ³n en WildX' });
     const { rows } = await pool.query(
-      `SELECT id, user_id, username, content, created_at, parent_id, likes_count, scheduled_at, status
+      `SELECT id, user_id, username, content, images, created_at, parent_id, likes_count, scheduled_at, status
          FROM wildx_posts
         WHERE user_id = $1 AND status = 'scheduled' AND deleted_at IS NULL
         ORDER BY scheduled_at ASC NULLS LAST, created_at DESC
@@ -17462,18 +17520,4 @@ httpServer.listen(PORT, '0.0.0.0', () => {
     }, 5000); // Esperar 5 segundos despuÃ©s del inicio
   }
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

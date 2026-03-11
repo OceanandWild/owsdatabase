@@ -238,6 +238,207 @@
         color: var(--text-soft);
       }
 
+      .wx-media-input {
+        margin-top: 8px;
+        display: grid;
+        gap: 8px;
+      }
+
+      .wx-media-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 0.82rem;
+        color: var(--text-soft);
+      }
+
+      .wx-media-actions {
+        display: flex;
+        gap: 6px;
+      }
+
+      .wx-btn--tiny {
+        padding: 4px 10px;
+        font-size: 0.76rem;
+      }
+
+      .wx-media-drop {
+        border: 1px dashed rgba(148, 163, 184, 0.45);
+        border-radius: 14px;
+        padding: 10px;
+        text-align: center;
+        font-size: 0.78rem;
+        color: var(--text-faint);
+        background: rgba(7, 14, 30, 0.7);
+        transition: border-color 0.2s ease, background 0.2s ease;
+      }
+
+      .wx-media-drop.is-drag {
+        border-color: rgba(34, 211, 238, 0.7);
+        background: rgba(34, 211, 238, 0.12);
+        color: var(--text);
+      }
+
+      .wx-media-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(86px, 1fr));
+        gap: 8px;
+      }
+
+      .wx-media-item {
+        position: relative;
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        background: rgba(12, 20, 40, 0.8);
+        min-height: 74px;
+      }
+
+      .wx-media-item img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+
+      .wx-media-remove {
+        position: absolute;
+        top: 6px;
+        right: 6px;
+        width: 24px;
+        height: 24px;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.6);
+        background: rgba(15, 23, 42, 0.85);
+        color: var(--text);
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8rem;
+      }
+
+      .wx-media-meta {
+        display: flex;
+        justify-content: flex-end;
+        font-size: 0.72rem;
+        color: var(--text-faint);
+      }
+
+      .wx-media-status {
+        margin-left: 8px;
+        font-size: 0.74rem;
+        color: var(--text-faint);
+      }
+
+      .wx-schedule {
+        display: grid;
+        gap: 8px;
+        margin-top: 8px;
+      }
+
+      .wx-schedule-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        background: rgba(15, 23, 42, 0.85);
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        border-radius: 14px;
+        padding: 8px 12px;
+        color: var(--text);
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      .wx-schedule-toggle.is-active {
+        border-color: rgba(34, 211, 238, 0.7);
+        box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.14);
+      }
+
+      .wx-schedule-pill {
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 0.72rem;
+        background: rgba(34, 211, 238, 0.15);
+        color: var(--accent);
+        font-weight: 600;
+      }
+
+      .wx-schedule-panel {
+        background: rgba(6, 12, 28, 0.78);
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        border-radius: 14px;
+        padding: 10px;
+        display: grid;
+        gap: 8px;
+      }
+
+      .wx-schedule-row {
+        display: grid;
+        grid-template-columns: auto 1fr auto 1fr;
+        gap: 6px;
+        align-items: center;
+        font-size: 0.78rem;
+        color: var(--text-soft);
+      }
+
+      .wx-schedule-row input {
+        background: rgba(15, 23, 42, 0.85);
+        border: 1px solid rgba(148, 163, 184, 0.4);
+        color: var(--text);
+        border-radius: 10px;
+        padding: 6px 8px;
+        font-size: 0.78rem;
+      }
+
+      .wx-schedule-quick {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .wx-schedule-quick button {
+        background: rgba(15, 23, 42, 0.85);
+        border: 1px solid rgba(148, 163, 184, 0.4);
+        color: var(--text);
+        border-radius: 999px;
+        padding: 4px 10px;
+        font-size: 0.72rem;
+        cursor: pointer;
+      }
+
+      .wx-schedule-quick button:hover {
+        border-color: rgba(34, 211, 238, 0.6);
+        color: var(--accent);
+      }
+
+      .wx-schedule-meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.72rem;
+        color: var(--text-faint);
+      }
+
+      .wx-schedule-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 6px;
+      }
+
+      .wx-composer-actions {
+        margin-top: 4px;
+        align-items: flex-end;
+      }
+
+      .wx-composer-meta {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        align-items: flex-start;
+      }
+
       .wx-row {
         display: flex;
         align-items: center;
@@ -569,6 +770,26 @@
         font-size: 0.92rem;
         white-space: pre-wrap;
         word-wrap: break-word;
+      }
+
+      .wx-post-media {
+        margin-top: 8px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 8px;
+      }
+
+      .wx-post-media--single {
+        grid-template-columns: 1fr;
+      }
+
+      .wx-post-media img {
+        width: 100%;
+        aspect-ratio: 4 / 3;
+        object-fit: cover;
+        border-radius: 12px;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        background: rgba(12, 20, 40, 0.8);
       }
 
       .wx-pill {
@@ -2188,6 +2409,12 @@
           width: 100%;
           justify-content: space-between;
         }
+        .wx-schedule-row {
+          grid-template-columns: 1fr;
+        }
+        .wx-post-media {
+          grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        }
       }
     </style>
   </head>
@@ -2548,18 +2775,59 @@
               <input id="wx-collab-input" type="text" placeholder="@usuario1, @usuario2" />
               <small>Se envía solicitud. El post se publica cuando acepten.</small>
             </div>
-            <div class="wx-row" style="margin-top:4px; align-items:flex-end;">
-              <div style="display:flex; flex-direction:column; gap:4px; align-items:flex-start;">
+            <div class="wx-media-input">
+              <div class="wx-media-header">
+                <span>Imágenes</span>
+                <div class="wx-media-actions">
+                  <button type="button" class="wx-btn wx-btn--outline wx-btn--tiny" id="wx-media-add">Subir</button>
+                  <button type="button" class="wx-btn wx-btn--outline wx-btn--tiny" id="wx-media-clear" disabled>Quitar todo</button>
+                </div>
+              </div>
+              <input type="file" id="wx-media-file" accept="image/*" multiple hidden />
+              <div class="wx-media-drop" id="wx-media-drop">
+                <span>Pega desde el portapapeles o arrastra aquí (máx. 6)</span>
+              </div>
+              <div class="wx-media-grid" id="wx-media-grid"></div>
+              <div class="wx-media-meta">
+                <span id="wx-media-count">0 / 6</span>
+              </div>
+            </div>
+
+            <div class="wx-schedule">
+              <button type="button" class="wx-schedule-toggle" id="wx-schedule-toggle">
+                <span>Programar</span>
+                <span class="wx-schedule-pill" id="wx-schedule-pill">No programado</span>
+              </button>
+              <div class="wx-schedule-panel" id="wx-schedule-panel" hidden>
+                <div class="wx-schedule-row">
+                  <label for="wx-schedule-date">Fecha</label>
+                  <input type="date" id="wx-schedule-date" />
+                  <label for="wx-schedule-time">Hora</label>
+                  <input type="time" id="wx-schedule-time" />
+                </div>
+                <div class="wx-schedule-quick" id="wx-schedule-quick">
+                  <button type="button" data-quick="in-60">+1h</button>
+                  <button type="button" data-quick="in-180">+3h</button>
+                  <button type="button" data-quick="today-20">Hoy 20:00</button>
+                  <button type="button" data-quick="tomorrow-9">Mañana 09:00</button>
+                </div>
+                <div class="wx-schedule-meta">
+                  <span id="wx-schedule-preview">Selecciona fecha y hora</span>
+                  <span class="wx-schedule-tz" id="wx-schedule-tz"></span>
+                </div>
+                <div class="wx-schedule-actions">
+                  <button type="button" class="wx-btn wx-btn--outline wx-btn--tiny" id="wx-schedule-apply">Guardar</button>
+                  <button type="button" class="wx-btn wx-btn--outline wx-btn--tiny" id="wx-schedule-clear">Quitar</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="wx-row wx-composer-actions">
+              <div class="wx-composer-meta">
                 <div>
                   <span id="wx-count" class="wx-count">0 / 280</span>
                   <span id="wx-status" class="wx-status"></span>
-                </div>
-                <div style="display:flex; gap:6px; align-items:center; font-size:0.78rem; color:var(--text-soft);">
-                  <label style="display:flex; align-items:center; gap:4px;">
-                    <input type="checkbox" id="wx-schedule-toggle" style="accent-color:#38bdf8;" />
-                    Programar
-                  </label>
-                  <input type="datetime-local" id="wx-schedule-at" style="background:rgba(15,23,42,0.95);border-radius:999px;border:1px solid rgba(148,163,184,0.5);color:var(--text);font-size:0.78rem;padding:4px 8px;" />
+                  <span id="wx-media-status" class="wx-media-status"></span>
                 </div>
               </div>
               <button id="wx-send" class="wx-btn" disabled>
@@ -2699,11 +2967,13 @@
 
     <script>
       const API_BASE = 'https://owsdatabase.onrender.com/wildwave/api/posts';
+      const API_MEDIA = 'https://owsdatabase.onrender.com/wildwave/api/posts/media';
       const API_ME = 'https://owsdatabase.onrender.com/wildwave/api/me';
       const API_LOGIN = 'https://owsdatabase.onrender.com/wildwave/api/login';
       const API_REGISTER = 'https://owsdatabase.onrender.com/wildwave/api/register';
       const API_MY_POSTS = 'https://owsdatabase.onrender.com/wildwave/api/my-posts';
       const API_SCHEDULED = 'https://owsdatabase.onrender.com/wildwave/api/scheduled';
+      const MAX_POST_IMAGES = 6;
       const API_AVATAR = 'https://owsdatabase.onrender.com/wildwave/api/profile/avatar';
       const API_COLLAB_REQUESTS = 'https://owsdatabase.onrender.com/wildwave/api/collabs/requests';
       const API_COLLAB_OUTGOING = 'https://owsdatabase.onrender.com/wildwave/api/collabs/outgoing';
@@ -2721,6 +2991,22 @@
       const $scheduledList = document.getElementById('wx-scheduled-list');
       const $scheduledRefresh = document.getElementById('wx-refresh-scheduled');
       const $collabInput = document.getElementById('wx-collab-input');
+      const $mediaAdd = document.getElementById('wx-media-add');
+      const $mediaClear = document.getElementById('wx-media-clear');
+      const $mediaFile = document.getElementById('wx-media-file');
+      const $mediaDrop = document.getElementById('wx-media-drop');
+      const $mediaGrid = document.getElementById('wx-media-grid');
+      const $mediaCount = document.getElementById('wx-media-count');
+      const $mediaStatus = document.getElementById('wx-media-status');
+      const $schedulePanel = document.getElementById('wx-schedule-panel');
+      const $scheduleDate = document.getElementById('wx-schedule-date');
+      const $scheduleTime = document.getElementById('wx-schedule-time');
+      const $schedulePreview = document.getElementById('wx-schedule-preview');
+      const $scheduleTz = document.getElementById('wx-schedule-tz');
+      const $scheduleApply = document.getElementById('wx-schedule-apply');
+      const $scheduleClear = document.getElementById('wx-schedule-clear');
+      const $schedulePill = document.getElementById('wx-schedule-pill');
+      const $scheduleQuick = document.getElementById('wx-schedule-quick');
       const $collabRequests = document.getElementById('wx-collab-requests');
       const $collabOutgoing = document.getElementById('wx-collab-outgoing');
       const $collabModal = document.getElementById('wx-collab-modal');
@@ -2851,6 +3137,9 @@
       let currentReplyToId = null;
       let accountAddMode = false;
       let currentReplyToUsername = null;
+      let attachedImages = [];
+      let mediaUploading = false;
+      let scheduledState = { active: false, value: '' };
       let opModalMode = 'connect';
       let verifyPlans = [];
       let verifyBadgeColors = [];
@@ -3529,9 +3818,169 @@ function getMaxChars() {
         const displayMax = isAdmin ? '∞' : max;
         $count.textContent = `${len} / ${displayMax}`;
         const tooLong = !isAdmin && len > max;
-        const empty = len === 0;
+        const hasMedia = attachedImages.length > 0;
+        const empty = len === 0 && !hasMedia;
         $count.classList.toggle('wx-count--danger', tooLong);
-        $send.disabled = empty || tooLong || !currentUser;
+        if ($mediaCount) $mediaCount.textContent = `${attachedImages.length} / ${MAX_POST_IMAGES}`;
+        if ($mediaClear) $mediaClear.disabled = attachedImages.length === 0;
+        if ($mediaAdd) $mediaAdd.disabled = !currentUser || attachedImages.length >= MAX_POST_IMAGES || mediaUploading;
+        if ($mediaStatus) $mediaStatus.textContent = mediaUploading ? 'Subiendo imágenes...' : '';
+        $send.disabled = empty || tooLong || !currentUser || mediaUploading;
+      }
+
+      function setMediaUploading(state) {
+        mediaUploading = state;
+        updateCounter();
+      }
+
+      function renderMediaGrid() {
+        if (!$mediaGrid) return;
+        $mediaGrid.innerHTML = '';
+        attachedImages.forEach((url, index) => {
+          const item = document.createElement('div');
+          item.className = 'wx-media-item';
+          const img = document.createElement('img');
+          img.src = url;
+          img.alt = 'Imagen adjunta';
+          const remove = document.createElement('button');
+          remove.type = 'button';
+          remove.className = 'wx-media-remove';
+          remove.textContent = '×';
+          remove.dataset.index = String(index);
+          item.append(img, remove);
+          $mediaGrid.appendChild(item);
+        });
+        updateCounter();
+      }
+
+      function clearComposerMedia() {
+        attachedImages = [];
+        mediaUploading = false;
+        renderMediaGrid();
+      }
+
+      async function uploadPostImages(files) {
+        if (!files || !files.length) return;
+        if (!currentUser || !currentToken) {
+          setStatus('Inicia sesión para subir imágenes.', 'error');
+          return;
+        }
+        if (mediaUploading) return;
+        const list = Array.from(files).filter(file => file && file.type && file.type.startsWith('image/'));
+        if (!list.length) {
+          setStatus('Solo se aceptan imágenes.', 'error');
+          return;
+        }
+        const remaining = MAX_POST_IMAGES - attachedImages.length;
+        if (remaining <= 0) {
+          setStatus('Límite de imágenes alcanzado.', 'error');
+          return;
+        }
+        const selected = list.slice(0, remaining);
+        if (list.length > remaining) {
+          setStatus(`Solo puedes subir ${remaining} imagen(es) más.`, 'info');
+        }
+        const form = new FormData();
+        selected.forEach(file => form.append('images', file));
+        setMediaUploading(true);
+        try {
+          const res = await fetch(API_MEDIA, {
+            method: 'POST',
+            headers: { ...authHeaders() },
+            body: form
+          });
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(body.error || 'No se pudo subir la imagen');
+          const urls = Array.isArray(body.urls) ? body.urls : (body.url ? [body.url] : []);
+          if (!urls.length) throw new Error('No se obtuvo la imagen');
+          attachedImages = attachedImages.concat(urls).slice(0, MAX_POST_IMAGES);
+          renderMediaGrid();
+        } catch (e) {
+          console.error(e);
+          setStatus(e.message || 'Error al subir imágenes.', 'error');
+        } finally {
+          setMediaUploading(false);
+        }
+      }
+
+      function formatDateInput(value) {
+        const date = value instanceof Date ? value : new Date(value);
+        if (Number.isNaN(date.getTime())) return '';
+        const pad = (n) => String(n).padStart(2, '0');
+        return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+      }
+
+      function formatTimeInput(value) {
+        const date = value instanceof Date ? value : new Date(value);
+        if (Number.isNaN(date.getTime())) return '';
+        const pad = (n) => String(n).padStart(2, '0');
+        return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+      }
+
+      function formatScheduleLabel(value) {
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return 'Programado';
+        return date.toLocaleString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+      }
+
+      function updateSchedulePreview() {
+        if (!$schedulePreview) return;
+        const date = $scheduleDate?.value;
+        const time = $scheduleTime?.value;
+        if (date && time) {
+          const value = `${date}T${time}`;
+          const label = formatScheduleLabel(value);
+          $schedulePreview.textContent = label;
+          return;
+        }
+        $schedulePreview.textContent = 'Selecciona fecha y hora';
+      }
+
+      function updateSchedulePill() {
+        if (!$schedulePill || !$scheduleToggle) return;
+        if (scheduledState.active && scheduledState.value) {
+          $schedulePill.textContent = formatScheduleLabel(scheduledState.value);
+          $scheduleToggle.classList.add('is-active');
+        } else {
+          $schedulePill.textContent = 'No programado';
+          $scheduleToggle.classList.remove('is-active');
+        }
+      }
+
+      function setScheduleFromDate(date) {
+        if (!$scheduleDate || !$scheduleTime) return;
+        $scheduleDate.value = formatDateInput(date);
+        $scheduleTime.value = formatTimeInput(date);
+        updateSchedulePreview();
+      }
+
+      function applyScheduleFromInputs() {
+        if (!$scheduleDate || !$scheduleTime) return;
+        const date = $scheduleDate.value;
+        const time = $scheduleTime.value;
+        if (!date || !time) {
+          setStatus('Selecciona fecha y hora.', 'error');
+          return;
+        }
+        const value = `${date}T${time}`;
+        const parsed = new Date(value);
+        if (Number.isNaN(parsed.getTime())) {
+          setStatus('Fecha inválida.', 'error');
+          return;
+        }
+        scheduledState = { active: true, value };
+        updateSchedulePill();
+        updateSchedulePreview();
+        if ($schedulePanel) $schedulePanel.hidden = true;
+      }
+
+      function clearScheduleState() {
+        scheduledState = { active: false, value: '' };
+        if ($scheduleDate) $scheduleDate.value = '';
+        if ($scheduleTime) $scheduleTime.value = '';
+        if ($schedulePanel) $schedulePanel.hidden = true;
+        updateSchedulePill();
+        updateSchedulePreview();
       }
 
       function updateCommunitySideStats(postCount = null, trendCount = null) {
@@ -3572,6 +4021,43 @@ function getMaxChars() {
             container.appendChild(document.createTextNode(part));
           }
         }
+      }
+
+      function normalizePostImages(images) {
+        if (!images) return [];
+        if (Array.isArray(images)) {
+          return images.map(img => String(img || '').trim()).filter(Boolean);
+        }
+        if (typeof images === 'string') {
+          const trimmed = images.trim();
+          if (!trimmed) return [];
+          try {
+            const parsed = JSON.parse(trimmed);
+            if (Array.isArray(parsed)) {
+              return parsed.map(img => String(img || '').trim()).filter(Boolean);
+            }
+          } catch (_) {
+            // Si no es JSON, asumimos que es una URL directa
+          }
+          return [trimmed];
+        }
+        return [];
+      }
+
+      function buildPostMedia(post) {
+        const images = normalizePostImages(post?.images).slice(0, MAX_POST_IMAGES);
+        if (!images.length) return null;
+        const media = document.createElement('div');
+        media.className = 'wx-post-media';
+        if (images.length === 1) media.classList.add('wx-post-media--single');
+        images.forEach((src) => {
+          const img = document.createElement('img');
+          img.src = src;
+          img.alt = 'Imagen del post';
+          img.loading = 'lazy';
+          media.appendChild(img);
+        });
+        return media;
       }
 
       function applyAvatarImage(el, url) {
@@ -3886,6 +4372,11 @@ function getMaxChars() {
         const text = document.createElement('div');
         text.className = 'wx-text';
         renderTextWithHashtags(text, post.content || '');
+        if (!(post.content || '').trim()) {
+          text.style.display = 'none';
+        }
+
+        const media = buildPostMedia(post);
 
         const actions = document.createElement('div');
         actions.className = 'wx-post-actions';
@@ -3957,9 +4448,11 @@ function getMaxChars() {
 
         const collabRow = buildCollabRow(collabList, avatarUrl, uname, post.user_id);
         if (collabRow) {
-          body.append(meta, collabRow, text, actions);
+          if (media) body.append(meta, collabRow, text, media, actions);
+          else body.append(meta, collabRow, text, actions);
         } else {
-          body.append(meta, text, actions);
+          if (media) body.append(meta, text, media, actions);
+          else body.append(meta, text, actions);
         }
         li.append(avatar, body);
 
@@ -4564,16 +5057,22 @@ function getMaxChars() {
         const text = ($text.value || '').trim();
         const isAdmin = !!(currentUser && currentUser.verify_tier === 'admin');
         const max = isAdmin ? Infinity : getMaxChars();
-        if (!text || (!isAdmin && text.length > max)) return;
+        const hasMedia = attachedImages.length > 0;
+        if ((!text && !hasMedia) || (!isAdmin && text.length > max)) return;
+        if (mediaUploading) {
+          setStatus('Espera a que terminen de subir las imágenes.', 'info');
+          return;
+        }
         $send.disabled = true;
         setStatus('Publicando...');
 
         try {
           const payload = { content: text };
           if (currentReplyToId) payload.parentId = currentReplyToId;
-          if ($scheduleToggle && $scheduleToggle.checked && $scheduleAt && $scheduleAt.value) {
-            payload.scheduledAt = $scheduleAt.value;
+          if (scheduledState.active && scheduledState.value) {
+            payload.scheduledAt = scheduledState.value;
           }
+          if (hasMedia) payload.images = attachedImages.slice(0, MAX_POST_IMAGES);
           const collaborators = parseCollaboratorsInput();
           if (collaborators.length) payload.collaborators = collaborators;
 
@@ -4587,8 +5086,8 @@ function getMaxChars() {
             throw new Error(body.error || 'Error al publicar');
           }
           $text.value = '';
-          if ($scheduleAt) $scheduleAt.value = '';
-          if ($scheduleToggle) $scheduleToggle.checked = false;
+          clearScheduleState();
+          clearComposerMedia();
           if ($collabInput) $collabInput.value = '';
           currentReplyToId = null;
           currentReplyToUsername = null;
@@ -4845,6 +5344,8 @@ function getMaxChars() {
         }
         currentUser = user;
         currentToken = token;
+        clearComposerMedia();
+        clearScheduleState();
         if (user) {
           localStorage.setItem('wildwave_token', token);
           localStorage.setItem('wildwave_user', JSON.stringify(user));
@@ -5084,8 +5585,130 @@ function getMaxChars() {
         });
       }
 
-      const $scheduleToggle = document.getElementById('wx-schedule-toggle');
-      const $scheduleAt = document.getElementById('wx-schedule-at');
+      if ($mediaAdd && $mediaFile) {
+        $mediaAdd.addEventListener('click', () => {
+          $mediaFile.click();
+        });
+      }
+
+      if ($mediaFile) {
+        $mediaFile.addEventListener('change', async () => {
+          await uploadPostImages($mediaFile.files);
+          $mediaFile.value = '';
+        });
+      }
+
+      if ($mediaClear) {
+        $mediaClear.addEventListener('click', () => {
+          clearComposerMedia();
+        });
+      }
+
+      if ($mediaGrid) {
+        $mediaGrid.addEventListener('click', (ev) => {
+          const btn = ev.target.closest('.wx-media-remove');
+          if (!btn) return;
+          const idx = parseInt(btn.dataset.index || '', 10);
+          if (Number.isNaN(idx)) return;
+          attachedImages.splice(idx, 1);
+          renderMediaGrid();
+        });
+      }
+
+      if ($mediaDrop) {
+        $mediaDrop.addEventListener('dragover', (ev) => {
+          ev.preventDefault();
+          $mediaDrop.classList.add('is-drag');
+        });
+        $mediaDrop.addEventListener('dragleave', () => {
+          $mediaDrop.classList.remove('is-drag');
+        });
+        $mediaDrop.addEventListener('drop', (ev) => {
+          ev.preventDefault();
+          $mediaDrop.classList.remove('is-drag');
+          const files = ev.dataTransfer?.files;
+          if (files && files.length) uploadPostImages(files);
+        });
+      }
+
+      if ($text) {
+        $text.addEventListener('paste', (ev) => {
+          const items = ev.clipboardData?.items;
+          if (!items || !items.length) return;
+          const files = [];
+          for (const item of items) {
+            if (item.kind === 'file' && item.type.startsWith('image/')) {
+              const file = item.getAsFile();
+              if (file) files.push(file);
+            }
+          }
+          if (files.length) {
+            ev.preventDefault();
+            uploadPostImages(files);
+          }
+        });
+      }
+
+      if ($scheduleTz) {
+        try {
+          $scheduleTz.textContent = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Local';
+        } catch {
+          $scheduleTz.textContent = 'Local';
+        }
+      }
+
+      if ($scheduleToggle && $schedulePanel) {
+        $scheduleToggle.addEventListener('click', () => {
+          $schedulePanel.hidden = !$schedulePanel.hidden;
+          if (!$schedulePanel.hidden && scheduledState.active && scheduledState.value) {
+            setScheduleFromDate(new Date(scheduledState.value));
+          }
+          updateSchedulePreview();
+        });
+      }
+
+      if ($scheduleDate) $scheduleDate.addEventListener('change', updateSchedulePreview);
+      if ($scheduleTime) $scheduleTime.addEventListener('change', updateSchedulePreview);
+
+      if ($scheduleApply) {
+        $scheduleApply.addEventListener('click', () => applyScheduleFromInputs());
+      }
+
+      if ($scheduleClear) {
+        $scheduleClear.addEventListener('click', () => clearScheduleState());
+      }
+
+      if ($scheduleQuick) {
+        $scheduleQuick.addEventListener('click', (ev) => {
+          const btn = ev.target.closest('button');
+          if (!btn) return;
+          const key = btn.dataset.quick || '';
+          const now = new Date();
+          let target = null;
+          if (key === 'in-60') {
+            target = new Date(now.getTime() + 60 * 60 * 1000);
+          } else if (key === 'in-180') {
+            target = new Date(now.getTime() + 3 * 60 * 60 * 1000);
+          } else if (key === 'today-20') {
+            target = new Date(now);
+            target.setHours(20, 0, 0, 0);
+            if (target < now) target.setDate(target.getDate() + 1);
+          } else if (key === 'tomorrow-9') {
+            target = new Date(now);
+            target.setDate(target.getDate() + 1);
+            target.setHours(9, 0, 0, 0);
+          }
+          if (!target) return;
+          setScheduleFromDate(target);
+          scheduledState = { active: true, value: `${formatDateInput(target)}T${formatTimeInput(target)}` };
+          updateSchedulePill();
+          updateSchedulePreview();
+        });
+      }
+
+      renderMediaGrid();
+      updateSchedulePill();
+      updateSchedulePreview();
 
       $text.addEventListener('input', updateCounter);
       $send.addEventListener('click', () => createPost());
@@ -5922,6 +6545,11 @@ function getMaxChars() {
           const text = document.createElement('div');
           text.className = 'wx-text';
           renderTextWithHashtags(text, node.content || '');
+          if (!(node.content || '').trim()) {
+            text.style.display = 'none';
+          }
+
+          const media = buildPostMedia(node);
 
           const actions = document.createElement('div');
           actions.className = 'wx-post-actions';
@@ -5953,9 +6581,11 @@ function getMaxChars() {
 
           const collabRow = buildCollabRow(collabList, node.avatar_url || null, nodeUsername, node.user_id);
           if (collabRow) {
-            li.append(meta, collabRow, text, actions);
+            if (media) li.append(meta, collabRow, text, media, actions);
+            else li.append(meta, collabRow, text, actions);
           } else {
-            li.append(meta, text, actions);
+            if (media) li.append(meta, text, media, actions);
+            else li.append(meta, text, actions);
           }
           $threadList.appendChild(li);
 

@@ -14837,7 +14837,6 @@ app.post('/wildwave/api/posts', async (req, res) => {
       status = 'pending_collab';
     }
 
-    // Si es respuesta, no permitir responder solo al post inicial propio
     if (parentId) {
       const { rows: parentRows } = await pool.query(
         'SELECT user_id, parent_id FROM wildx_posts WHERE id=$1',
@@ -14845,10 +14844,6 @@ app.post('/wildwave/api/posts', async (req, res) => {
       );
       if (!parentRows.length) {
         return res.status(404).json({ error: 'Post padre no encontrado' });
-      }
-      // Bloquear solo si el padre es un post inicial propio (sin parent_id)
-      if (parentRows[0].parent_id == null && Number(parentRows[0].user_id) === Number(wid)) {
-        return res.status(400).json({ error: 'No puedes responder al post inicial propio' });
       }
     }
 
@@ -17520,4 +17515,3 @@ httpServer.listen(PORT, '0.0.0.0', () => {
     }, 5000); // Esperar 5 segundos despuÃƒÂ©s del inicio
   }
 });
-

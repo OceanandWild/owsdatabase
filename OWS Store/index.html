@@ -4419,6 +4419,7 @@
         const AWQG_LOCAL_ICON = './build/awqg.ico?v=20260304-awqg';
         const WILDDESTINY_LOCAL_ICON = './build/wilddestiny.ico?v=20260227-1935';
         const ECOXION_LOCAL_ICON = './build/ecoxion.ico?v=20260303-ecxico';
+        const ECOXION_LOCAL_ICON_PNG = './build/ecoxion.png?v=20260303-ecxico';
         const VELOCITY_SURGE_LOCAL_ICON = './build/velocitysurge.ico?v=20260227-2415';
         const WILDWAVE_LOCAL_ICON = './build/wildwave.ico?v=20260301-0010';
         const OWSNEWS_LOCAL_ICON = './build/owsnews.ico?v=20260225-2248';
@@ -10362,6 +10363,16 @@
             return d.toLocaleString();
         }
 
+        function getEcoxionIconSource(project, size = 64) {
+            const fallback = `https://placehold.co/${size}/07121f/26e0ff?text=ECX`;
+            const projectIcon = String(project?.icon_url || '').trim();
+            const localPreferred = isNativeAndroidRuntime() ? ECOXION_LOCAL_ICON_PNG : ECOXION_LOCAL_ICON;
+            if (isNativeAndroidRuntime() && projectIcon && /\.ico(\?|$)/i.test(projectIcon)) {
+                return localPreferred || fallback;
+            }
+            return projectIcon || localPreferred || fallback;
+        }
+
         function getProjectIcon(project, size = 64) {
             if (isWildWeaponProject(project)) return WILDWEAPON_LOCAL_ICON;
             if (isSSAProject(project)) return project?.icon_url || `https://placehold.co/${size}/0f172a/00f3ff?text=SSA`;
@@ -10369,7 +10380,7 @@
             if (isFloretProject(project)) return project?.icon_url || FLORET_LOCAL_ICON || `https://placehold.co/${size}/2b0a45/f2a3ff?text=FLR`;
             if (isWildTransferProject(project)) return project?.icon_url || WILDTRANSFER_LOCAL_ICON || `https://placehold.co/${size}/0a1120/35d7ff?text=WTR`;
             if (isWildDestinyProject(project)) return project?.icon_url || WILDDESTINY_LOCAL_ICON || `https://placehold.co/${size}/111827/67e8f9?text=WD`;
-            if (isEcoxionProject(project)) return project?.icon_url || ECOXION_LOCAL_ICON || `https://placehold.co/${size}/07121f/26e0ff?text=ECX`;
+            if (isEcoxionProject(project)) return getEcoxionIconSource(project, size);
             if (isNaturepediaProject(project)) return project?.icon_url || `https://placehold.co/${size}/0b1420/8ee5a1?text=NTP`;
             if (isWildShortsProject(project)) return project?.icon_url || `https://placehold.co/${size}/12131f/ffb96a?text=WSH`;
             if (isVelocitySurgeProject(project)) return project?.icon_url || VELOCITY_SURGE_LOCAL_ICON || `https://placehold.co/${size}/0a0f1e/26e0ff?text=VSG`;

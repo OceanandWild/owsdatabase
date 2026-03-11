@@ -2882,6 +2882,7 @@
           } else if (exploreProfileUser && exploreProfileUser.toLowerCase() !== exploreSearchTerm.toLowerCase()) {
             exploreProfileUser = null;
           }
+          updateExploreProfileMode();
           if (currentTab === 'explore') {
             renderExplorePosts();
           }
@@ -2895,6 +2896,7 @@
           exploreProfileUser = null;
           if ($exploreSearch) $exploreSearch.value = '';
           if ($feedTitle) $feedTitle.textContent = 'Explorar';
+          updateExploreProfileMode();
           renderExplorePosts();
         });
       }
@@ -3775,6 +3777,7 @@ function getMaxChars() {
         exploreProfileUser = uname;
         if ($exploreSearch) $exploreSearch.value = uname;
         if ($feedTitle) $feedTitle.textContent = '@' + uname;
+        updateExploreProfileMode();
         if (!Array.isArray(explorePosts) || !explorePosts.length) {
           fetchExplore();
         } else {
@@ -6040,10 +6043,24 @@ function getMaxChars() {
         }
       }
 
+      function updateExploreProfileMode() {
+        if (currentTab !== 'explore') return;
+        const active = !!exploreProfileUser;
+        if ($exploreCard) {
+          $exploreCard.hidden = active;
+          $exploreCard.style.display = active ? 'none' : '';
+        }
+        if ($newCard) {
+          $newCard.hidden = active;
+          $newCard.style.display = active ? 'none' : '';
+        }
+      }
+
       function renderExplorePosts() {
         const filtered = filterExplorePosts(explorePosts);
         renderPosts(filtered);
         updateExploreLabels(filtered.length, explorePosts.length);
+        updateExploreProfileMode();
       }
 
       function applyHashtagFilter(tag) {

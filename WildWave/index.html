@@ -6013,7 +6013,16 @@ function getMaxChars() {
         if (currentHashtagFilter) {
           filtered = filterPostsByHashtag(filtered, currentHashtagFilter);
         }
-        if (exploreSearchTerm) {
+        if (exploreProfileUser) {
+          const needle = exploreProfileUser.toLowerCase();
+          filtered = filtered.filter((p) => {
+            const uname = (p.username || '').toLowerCase();
+            const dname = (p.display_name || '').toLowerCase();
+            if (uname === needle || dname === needle) return true;
+            const collabs = readPostCollaborators(p);
+            return collabs.some(c => (c?.username || '').toLowerCase() === needle);
+          });
+        } else if (exploreSearchTerm) {
           const needle = exploreSearchTerm.toLowerCase();
           filtered = filtered.filter((p) => {
             const content = (p.content || '').toLowerCase();

@@ -13547,7 +13547,13 @@ app.get('/wildwave/api/my-posts', async (req, res) => {
             WHERE pc.post_id = p.id
               AND pc.status = 'accepted'
          ) collab ON TRUE
-        WHERE p.user_id = $1 AND p.status = 'published' AND p.deleted_at IS NULL
+        WHERE p.status = 'published' AND p.deleted_at IS NULL
+          AND (p.user_id = $1 OR EXISTS (
+            SELECT 1 FROM wildx_post_collaborators pc2
+             WHERE pc2.post_id = p.id
+               AND pc2.collaborator_id = $1
+               AND pc2.status = 'accepted'
+          ))
         ORDER BY p.created_at DESC
         LIMIT 100`,
       [wid, WILDWAVE_ADMIN_USERNAME, WILDWAVE_ADMIN_DISPLAY_NAME, WILDWAVE_ADMIN_OCEANPAY_USERNAME]

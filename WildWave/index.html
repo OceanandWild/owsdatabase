@@ -754,6 +754,10 @@
         color: var(--text);
       }
 
+      .wx-name-line {
+        display: inline;
+      }
+
       .wx-open-profile {
         cursor: pointer;
       }
@@ -1981,6 +1985,12 @@
         font-weight: 500;
       }
 
+      .wx-collab-more {
+        color: var(--text-soft);
+        font-weight: 500;
+        font-size: 0.72rem;
+      }
+
       .wx-collab-name {
         background: transparent;
         border: none;
@@ -3006,6 +3016,7 @@
       const $scheduleApply = document.getElementById('wx-schedule-apply');
       const $scheduleClear = document.getElementById('wx-schedule-clear');
       const $schedulePill = document.getElementById('wx-schedule-pill');
+      const $scheduleToggle = document.getElementById('wx-schedule-toggle');
       const $scheduleQuick = document.getElementById('wx-schedule-quick');
       const $collabRequests = document.getElementById('wx-collab-requests');
       const $collabOutgoing = document.getElementById('wx-collab-outgoing');
@@ -4154,12 +4165,16 @@ function getMaxChars() {
 
         const label = document.createElement('span');
         label.className = 'wx-collab-label';
-        label.textContent = 'Colabora';
+        label.textContent = list.length > 1 ? 'Colaboran' : 'Colabora con';
 
         const avatars = document.createElement('button');
         avatars.type = 'button';
         avatars.className = 'wx-collab-avatars';
         avatars.dataset.collabs = encodeURIComponent(JSON.stringify(list));
+        const names = []
+          .concat(authorUsername ? [authorUsername] : [])
+          .concat(list.map(c => c?.display_name || c?.username || 'colaborador'));
+        if (names.length) avatars.title = names.join(', ');
 
         const stack = document.createElement('span');
         stack.className = 'wx-collab-stack';
@@ -4290,42 +4305,54 @@ function getMaxChars() {
         const meta = document.createElement('div');
         meta.className = 'wx-meta';
 
-        const handle = document.createElement('span');
-        handle.className = 'wx-handle';
         const uname = post.username || 'wildwave-user';
         const displayName = post.display_name || uname;
         const showDisplay = displayName && displayName.toLowerCase() !== uname.toLowerCase();
         const collabList = readPostCollaborators(post);
         const primaryCollab = getPrimaryCollaborator(collabList);
-        const hasCollab = !!primaryCollab;
-        const showName = showDisplay || hasCollab;
-        handle.textContent = '@' + uname;
-        handle.dataset.action = 'open-profile';
-        handle.dataset.username = uname;
-        handle.classList.add('wx-open-profile');
+        const extraCollabs = Math.max(collabList.length - 1, 0);
 
-        const display = document.createElement('span');
-        display.className = 'wx-display-name';
-        display.textContent = displayName;
-        display.dataset.action = 'open-profile';
-        display.dataset.username = uname;
-        display.classList.add('wx-open-profile');
+        const nameLine = document.createElement('span');
+        nameLine.className = 'wx-name-line';
 
-        let collabJoin = null;
-        let collabNameBtn = null;
+        const authorName = document.createElement('span');
+        authorName.className = 'wx-display-name';
+        authorName.textContent = showDisplay ? displayName : '@' + uname;
+        authorName.dataset.action = 'open-profile';
+        authorName.dataset.username = uname;
+        authorName.classList.add('wx-open-profile');
+        nameLine.appendChild(authorName);
+
         if (primaryCollab) {
           const collabName = primaryCollab.display_name || primaryCollab.username || 'colaborador';
           const collabUsername = primaryCollab.username || '';
-          collabJoin = document.createElement('span');
-          collabJoin.className = 'wx-collab-join';
-          collabJoin.textContent = 'y';
 
-          collabNameBtn = document.createElement('button');
+          if (extraCollabs > 0) {
+            nameLine.appendChild(document.createTextNode(', '));
+          } else {
+            nameLine.appendChild(document.createTextNode(' y '));
+          }
+
+          const collabNameBtn = document.createElement('button');
           collabNameBtn.type = 'button';
           collabNameBtn.className = 'wx-collab-name';
           collabNameBtn.textContent = collabName;
           collabNameBtn.dataset.action = 'open-profile';
           collabNameBtn.dataset.username = collabUsername;
+          nameLine.appendChild(collabNameBtn);
+
+          if (extraCollabs > 0) {
+            nameLine.appendChild(document.createTextNode(' y '));
+            const collabMore = document.createElement('span');
+            collabMore.className = 'wx-collab-more';
+            collabMore.textContent = `${extraCollabs} más`;
+            const extraNames = collabList
+              .slice(1)
+              .map(c => c?.display_name || c?.username || 'colaborador')
+              .filter(Boolean);
+            if (extraNames.length) collabMore.title = extraNames.join(', ');
+            nameLine.appendChild(collabMore);
+          }
         }
 
         let verifyIcon = null;
@@ -4357,16 +4384,10 @@ function getMaxChars() {
         else if (options.scheduled) pillLabel = 'programado';
         pill.innerHTML = `<span>WildWave</span> · ${pillLabel}`;
 
-        const nameParts = [];
-        if (showName) nameParts.push(display);
-        if (collabJoin && collabNameBtn) nameParts.push(collabJoin, collabNameBtn);
-        if (showName) nameParts.push(handle);
-        else nameParts.push(handle);
-
         if (verifyIcon) {
-          meta.append(...nameParts, verifyIcon, dot, time, pill);
+          meta.append(nameLine, verifyIcon, dot, time, pill);
         } else {
-          meta.append(...nameParts, dot, time, pill);
+          meta.append(nameLine, dot, time, pill);
         }
 
         const text = document.createElement('div');
@@ -4462,6 +4483,7 @@ function getMaxChars() {
 
         return li;
       }
+
 
       function renderPosts(posts) {
         $feed.innerHTML = '';
@@ -6480,42 +6502,54 @@ function getMaxChars() {
 
           const meta = document.createElement('div');
           meta.className = 'wx-meta';
-          const h = document.createElement('span');
-          h.className = 'wx-handle';
           const nodeUsername = node.username || 'usuario';
           const nodeDisplay = node.display_name || nodeUsername;
           const showDisplay = nodeDisplay && nodeDisplay.toLowerCase() !== nodeUsername.toLowerCase();
           const collabList = readPostCollaborators(node);
           const primaryCollab = getPrimaryCollaborator(collabList);
-          const hasCollab = !!primaryCollab;
-          const showName = showDisplay || hasCollab;
-          h.textContent = '@' + nodeUsername;
-          h.dataset.action = 'open-profile';
-          h.dataset.username = nodeUsername;
-          h.classList.add('wx-open-profile');
+          const extraCollabs = Math.max(collabList.length - 1, 0);
 
-          const display = document.createElement('span');
-          display.className = 'wx-display-name';
-          display.textContent = nodeDisplay;
-          display.dataset.action = 'open-profile';
-          display.dataset.username = nodeUsername;
-          display.classList.add('wx-open-profile');
+          const nameLine = document.createElement('span');
+          nameLine.className = 'wx-name-line';
 
-          let collabJoin = null;
-          let collabNameBtn = null;
+          const authorName = document.createElement('span');
+          authorName.className = 'wx-display-name';
+          authorName.textContent = showDisplay ? nodeDisplay : '@' + nodeUsername;
+          authorName.dataset.action = 'open-profile';
+          authorName.dataset.username = nodeUsername;
+          authorName.classList.add('wx-open-profile');
+          nameLine.appendChild(authorName);
+
           if (primaryCollab) {
             const collabName = primaryCollab.display_name || primaryCollab.username || 'colaborador';
             const collabUsername = primaryCollab.username || '';
-            collabJoin = document.createElement('span');
-            collabJoin.className = 'wx-collab-join';
-            collabJoin.textContent = 'y';
 
-            collabNameBtn = document.createElement('button');
+            if (extraCollabs > 0) {
+              nameLine.appendChild(document.createTextNode(', '));
+            } else {
+              nameLine.appendChild(document.createTextNode(' y '));
+            }
+
+            const collabNameBtn = document.createElement('button');
             collabNameBtn.type = 'button';
             collabNameBtn.className = 'wx-collab-name';
             collabNameBtn.textContent = collabName;
             collabNameBtn.dataset.action = 'open-profile';
             collabNameBtn.dataset.username = collabUsername;
+            nameLine.appendChild(collabNameBtn);
+
+            if (extraCollabs > 0) {
+              nameLine.appendChild(document.createTextNode(' y '));
+              const collabMore = document.createElement('span');
+              collabMore.className = 'wx-collab-more';
+              collabMore.textContent = `${extraCollabs} más`;
+              const extraNames = collabList
+                .slice(1)
+                .map(c => c?.display_name || c?.username || 'colaborador')
+                .filter(Boolean);
+              if (extraNames.length) collabMore.title = extraNames.join(', ');
+              nameLine.appendChild(collabMore);
+            }
           }
 
           let verifyIcon = null;
@@ -6530,16 +6564,10 @@ function getMaxChars() {
           const t = document.createElement('span');
           t.className = 'wx-time';
           t.textContent = formatTime(node.created_at);
-          const nameParts = [];
-          if (showName) nameParts.push(display);
-          if (collabJoin && collabNameBtn) nameParts.push(collabJoin, collabNameBtn);
-          if (showName) nameParts.push(h);
-          else nameParts.push(h);
-
           if (verifyIcon) {
-            meta.append(...nameParts, verifyIcon, dot, t);
+            meta.append(nameLine, verifyIcon, dot, t);
           } else {
-            meta.append(...nameParts, dot, t);
+            meta.append(nameLine, dot, t);
           }
 
           const text = document.createElement('div');

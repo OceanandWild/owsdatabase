@@ -787,13 +787,65 @@
         grid-template-columns: 1fr;
       }
 
-      .wx-post-media img {
+      .wx-post-media-item {
+        position: relative;
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        background: rgba(12, 20, 40, 0.8);
+      }
+
+      .wx-post-media-img {
         width: 100%;
         aspect-ratio: 4 / 3;
         object-fit: cover;
-        border-radius: 12px;
-        border: 1px solid rgba(148, 163, 184, 0.25);
-        background: rgba(12, 20, 40, 0.8);
+        display: block;
+        cursor: zoom-in;
+      }
+
+      .wx-post-media-item.is-expanded {
+        grid-column: 1 / -1;
+        padding: 6px;
+        background: rgba(8, 16, 34, 0.92);
+        box-shadow: 0 10px 28px rgba(2, 6, 23, 0.55);
+      }
+
+      .wx-post-media-item.is-expanded .wx-post-media-img {
+        aspect-ratio: auto;
+        max-height: 72vh;
+        object-fit: contain;
+        border-radius: 10px;
+        background: rgba(2, 6, 23, 0.8);
+      }
+
+      .wx-post-media-full {
+        position: absolute;
+        right: 8px;
+        bottom: 8px;
+        padding: 3px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.5);
+        background: rgba(10, 18, 35, 0.88);
+        color: var(--text);
+        font-size: 0.72rem;
+        cursor: pointer;
+        opacity: 0;
+        transform: translateY(4px);
+        transition: opacity 0.2s ease, transform 0.2s ease;
+      }
+
+      .wx-post-media-item:hover .wx-post-media-full,
+      .wx-post-media-item.is-expanded .wx-post-media-full,
+      .wx-post-media-item:focus-within .wx-post-media-full {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      @media (hover: none) {
+        .wx-post-media-full {
+          opacity: 1;
+          transform: translateY(0);
+        }
       }
 
       .wx-pill {
@@ -1511,6 +1563,29 @@
         font-size: 0.8rem;
         padding: 2px 8px;
         cursor: pointer;
+      }
+
+      .wx-modal--image {
+        max-width: min(96vw, 980px);
+      }
+
+      .wx-image-modal-card {
+        padding: 10px;
+      }
+
+      .wx-image-modal-media {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .wx-image-modal-media img {
+        width: 100%;
+        max-height: 80vh;
+        object-fit: contain;
+        border-radius: 12px;
+        background: rgba(8, 16, 34, 0.9);
+        cursor: zoom-out;
       }
 
       /* WildWave visual refresh */
@@ -2975,6 +3050,21 @@
       </div>
     </div>
 
+    <!-- Modal de imagen -->
+    <div class="wx-modal-backdrop" id="wx-image-modal" hidden>
+      <div class="wx-modal wx-modal--image">
+        <div class="wx-card wx-image-modal-card">
+          <div class="wx-modal-header">
+            <h2 class="wx-auth-title">Imagen del post</h2>
+            <button type="button" class="wx-modal-close" id="wx-image-modal-close">Cerrar</button>
+          </div>
+          <div class="wx-image-modal-media">
+            <img id="wx-image-modal-img" alt="Imagen del post" />
+          </div>
+        </div>
+      </div>
+    </div>
+
     <script>
       const API_BASE = 'https://owsdatabase.onrender.com/wildwave/api/posts';
       const API_MEDIA = 'https://owsdatabase.onrender.com/wildwave/api/posts/media';
@@ -3023,6 +3113,9 @@
       const $collabModal = document.getElementById('wx-collab-modal');
       const $collabModalList = document.getElementById('wx-collab-list');
       const $collabClose = document.getElementById('wx-collab-close');
+      const $imageModal = document.getElementById('wx-image-modal');
+      const $imageModalImg = document.getElementById('wx-image-modal-img');
+      const $imageModalClose = document.getElementById('wx-image-modal-close');
       const $feedTitle = document.getElementById('wx-feed-title');
       const $trends = document.getElementById('wx-trends');
       const $trendsList = document.getElementById('wx-trends-list');
@@ -4055,20 +4148,62 @@ function getMaxChars() {
         return [];
       }
 
+      function setMediaItemExpanded(item, toggleBtn, expanded) {
+        if (!item) return;
+        const shouldExpand = !!expanded;
+        item.classList.toggle('is-expanded', shouldExpand);
+        if (toggleBtn) {
+          toggleBtn.textContent = shouldExpand ? 'Reducir' : 'Pantalla completa';
+          toggleBtn.setAttribute('aria-pressed', shouldExpand ? 'true' : 'false');
+        }
+      }
+
       function buildPostMedia(post) {
         const images = normalizePostImages(post?.images).slice(0, MAX_POST_IMAGES);
         if (!images.length) return null;
         const media = document.createElement('div');
         media.className = 'wx-post-media';
-        if (images.length === 1) media.classList.add('wx-post-media--single');
+        const single = images.length === 1;
+        if (single) media.classList.add('wx-post-media--single');
         images.forEach((src) => {
+          const item = document.createElement('div');
+          item.className = 'wx-post-media-item';
+
           const img = document.createElement('img');
+          img.className = 'wx-post-media-img';
           img.src = src;
           img.alt = 'Imagen del post';
           img.loading = 'lazy';
-          media.appendChild(img);
+          img.dataset.full = src;
+
+          const fullBtn = document.createElement('button');
+          fullBtn.type = 'button';
+          fullBtn.className = 'wx-post-media-full';
+          fullBtn.dataset.action = 'media-full';
+          fullBtn.dataset.src = src;
+
+          const expandedByDefault = single;
+          setMediaItemExpanded(item, fullBtn, expandedByDefault);
+
+          item.append(img, fullBtn);
+          media.appendChild(item);
         });
         return media;
+      }
+
+      function openImageModal(src, altText = '') {
+        if (!$imageModal || !$imageModalImg || !src) return;
+        $imageModalImg.src = src;
+        $imageModalImg.alt = altText || 'Imagen del post';
+        $imageModal.hidden = false;
+      }
+
+      function closeImageModal() {
+        if (!$imageModal) return;
+        $imageModal.hidden = true;
+        if ($imageModalImg) {
+          $imageModalImg.src = '';
+        }
       }
 
       function applyAvatarImage(el, url) {
@@ -5825,6 +5960,23 @@ function getMaxChars() {
         });
       }
 
+      if ($imageModalClose) {
+        $imageModalClose.addEventListener('click', () => closeImageModal());
+      }
+      if ($imageModal) {
+        $imageModal.addEventListener('click', (ev) => {
+          if (ev.target === $imageModal) closeImageModal();
+        });
+      }
+      if ($imageModalImg) {
+        $imageModalImg.addEventListener('click', () => closeImageModal());
+      }
+      document.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Escape' && $imageModal && !$imageModal.hidden) {
+          closeImageModal();
+        }
+      });
+
       if ($logout) {
         $logout.addEventListener('click', () => {
           setLoggedIn(null, null);
@@ -6246,6 +6398,20 @@ function getMaxChars() {
           return;
         }
 
+        const mediaToggle = ev.target.closest('.wx-post-media-full');
+        if (mediaToggle) {
+          const item = mediaToggle.closest('.wx-post-media-item');
+          const expanded = item ? !item.classList.contains('is-expanded') : false;
+          setMediaItemExpanded(item, mediaToggle, expanded);
+          return;
+        }
+
+        const mediaImg = ev.target.closest('.wx-post-media-img');
+        if (mediaImg) {
+          openImageModal(mediaImg.dataset.full || mediaImg.src, mediaImg.alt || '');
+          return;
+        }
+
         const btn = ev.target.closest('.wx-post-btn');
         if (!btn) return;
         const id = btn.dataset.id;
@@ -6398,6 +6564,20 @@ function getMaxChars() {
           } else if (collabs.length === 1) {
             openUserProfile(collabs[0]?.username || '');
           }
+          return;
+        }
+
+        const mediaToggle = ev.target.closest('.wx-post-media-full');
+        if (mediaToggle) {
+          const item = mediaToggle.closest('.wx-post-media-item');
+          const expanded = item ? !item.classList.contains('is-expanded') : false;
+          setMediaItemExpanded(item, mediaToggle, expanded);
+          return;
+        }
+
+        const mediaImg = ev.target.closest('.wx-post-media-img');
+        if (mediaImg) {
+          openImageModal(mediaImg.dataset.full || mediaImg.src, mediaImg.alt || '');
           return;
         }
 

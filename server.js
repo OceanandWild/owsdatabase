@@ -5240,7 +5240,8 @@ app.get('/ssa/cosmicdust/balance', async (req, res) => {
 
 // Sincronizar MayhemCoins desde WildWeapon Mayhem
 app.post('/wildweapon/mayhemcoins/sync', async (req, res) => {
-  const authHeader = req.headers.authorization;
+  const authHeader = req.headers.authorization
+    || (req.headers['x-ocean-pay-token'] ? `Bearer ${req.headers['x-ocean-pay-token']}` : null);
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Token requerido' });
   }
@@ -5305,7 +5306,8 @@ app.post('/wildweapon/mayhemcoins/sync', async (req, res) => {
 
 // Obtener balance de MayhemCoins
 app.get('/wildweapon/mayhemcoins/balance', async (req, res) => {
-  const authHeader = req.headers.authorization;
+  const authHeader = req.headers.authorization
+    || (req.headers['x-ocean-pay-token'] ? `Bearer ${req.headers['x-ocean-pay-token']}` : null);
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Token requerido' });
   }
@@ -5337,7 +5339,8 @@ app.get('/wildweapon/mayhemcoins/balance', async (req, res) => {
 
 // Cambiar MayhemCoins (ganar/gastar)
 app.post('/wildweapon/mayhemcoins/change', async (req, res) => {
-  const authHeader = req.headers.authorization;
+  const authHeader = req.headers.authorization
+    || (req.headers['x-ocean-pay-token'] ? `Bearer ${req.headers['x-ocean-pay-token']}` : null);
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Token requerido' });
   }

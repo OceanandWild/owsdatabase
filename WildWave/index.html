@@ -4106,7 +4106,33 @@ function getMaxChars() {
         if (!iso) return '';
         const d = new Date(iso);
         if (Number.isNaN(d.getTime())) return '';
-        return d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+        const now = new Date();
+        const diffMs = now.getTime() - d.getTime();
+        const timeLabel = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+
+        if (diffMs < 0) {
+          return `${timeLabel} · ahora`;
+        }
+
+        const diffMinutes = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
+
+        if (diffDays > 7) {
+          const dateLabel = d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
+          return `${dateLabel} · ${timeLabel}`;
+        }
+
+        if (diffMinutes < 1) {
+          return `${timeLabel} · ahora`;
+        }
+        if (diffHours < 1) {
+          return `${timeLabel} · hace ${diffMinutes}m`;
+        }
+        if (diffDays < 1) {
+          return `${timeLabel} · hace ${diffHours}h`;
+        }
+        return `${timeLabel} · hace ${diffDays}d`;
       }
 
       function renderTextWithHashtags(container, content) {

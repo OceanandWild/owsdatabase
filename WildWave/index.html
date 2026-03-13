@@ -2501,6 +2501,272 @@
           grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
         }
       }
+
+      /* Composer modal */
+      .wx-modal--composer {
+        max-width: min(96vw, 860px);
+      }
+
+      .wx-composer-card {
+        padding: 12px;
+      }
+
+      .wx-composer-launch {
+        width: 100%;
+        margin-top: 12px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        font-weight: 600;
+      }
+
+      .wx-composer-tabs {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 8px;
+        margin: 10px 0 12px;
+      }
+
+      .wx-composer-tab {
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        background: rgba(10, 18, 35, 0.9);
+        color: var(--text-soft);
+        padding: 6px 12px;
+        font-size: 0.78rem;
+        cursor: pointer;
+      }
+
+      .wx-composer-tab.is-active {
+        color: var(--text);
+        border-color: rgba(34, 211, 238, 0.6);
+        background: radial-gradient(circle at 30% 0%, rgba(56,189,248,0.25), rgba(15,23,42,0.9));
+      }
+
+      .wx-composer-panel {
+        display: none;
+        animation: wxComposerFade 0.2s ease;
+      }
+
+      .wx-composer-panel.is-active {
+        display: block;
+      }
+
+      .wx-composer-panel textarea {
+        width: 100%;
+        min-height: 140px;
+        background: rgba(10, 18, 35, 0.9);
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        border-radius: 16px;
+        padding: 12px;
+        color: var(--text);
+        font-size: 0.95rem;
+        line-height: 1.4;
+        outline: none;
+        resize: vertical;
+      }
+
+      .wx-composer-panel textarea::placeholder {
+        color: var(--text-soft);
+      }
+
+      @keyframes wxComposerFade {
+        from { opacity: 0; transform: translateY(6px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      .wx-composer-footer {
+        margin-top: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .wx-char-ring {
+        position: relative;
+        width: 62px;
+        height: 62px;
+        display: grid;
+        place-items: center;
+        cursor: default;
+      }
+
+      .wx-char-ring svg {
+        width: 62px;
+        height: 62px;
+        transform: rotate(-90deg);
+      }
+
+      .wx-char-ring-bg {
+        fill: none;
+        stroke: rgba(148, 163, 184, 0.25);
+        stroke-width: 4;
+      }
+
+      .wx-char-ring-progress {
+        fill: none;
+        stroke: rgba(34, 211, 238, 0.9);
+        stroke-width: 4;
+        stroke-linecap: round;
+        transition: stroke-dasharray 0.25s ease;
+      }
+
+      .wx-char-ring-label {
+        position: absolute;
+        font-size: 0.86rem;
+        font-weight: 700;
+        color: var(--text);
+      }
+
+      .wx-char-ring-sub {
+        position: absolute;
+        bottom: -4px;
+        font-size: 0.6rem;
+        color: var(--text-faint);
+        opacity: 0;
+        transform: translateY(2px);
+        transition: opacity 0.2s ease, transform 0.2s ease;
+      }
+
+      .wx-char-ring:hover .wx-char-ring-sub {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      .wx-char-ring.is-admin .wx-char-ring-progress {
+        stroke: rgba(148, 163, 184, 0.2);
+      }
+
+      .wx-char-ring-infinity {
+        position: absolute;
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--accent);
+        opacity: 0;
+      }
+
+      .wx-char-ring.is-admin .wx-char-ring-label,
+      .wx-char-ring.is-admin .wx-char-ring-sub {
+        opacity: 0;
+      }
+
+      .wx-char-ring.is-admin .wx-char-ring-infinity {
+        opacity: 1;
+      }
+
+      .wx-char-ring--warn .wx-char-ring-progress {
+        stroke: #facc15;
+      }
+
+      .wx-char-ring--danger .wx-char-ring-progress {
+        stroke: #ef4444;
+      }
+
+      /* Profile extras */
+      .wx-profile-bio {
+        margin-top: 6px;
+        color: var(--text-soft);
+        font-size: 0.85rem;
+      }
+
+      .wx-follow-btn {
+        border-color: rgba(34, 211, 238, 0.6);
+        color: var(--text);
+      }
+
+      .wx-affiliation-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-left: 6px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.4);
+        background: rgba(12, 20, 40, 0.85);
+        color: var(--text);
+        font-size: 0.72rem;
+        cursor: pointer;
+        position: relative;
+      }
+
+      .wx-affiliation-stack {
+        display: flex;
+        align-items: center;
+      }
+
+      .wx-affiliation-avatar {
+        width: 20px;
+        height: 20px;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.4);
+        background: rgba(15, 23, 42, 0.9);
+        background-image: var(--wx-avatar-image);
+        background-size: cover;
+        background-position: center;
+        margin-left: -6px;
+        overflow: hidden;
+      }
+
+      .wx-affiliation-avatar:first-child {
+        margin-left: 0;
+      }
+
+      .wx-affiliation-tooltip {
+        position: absolute;
+        top: calc(100% + 6px);
+        left: 0;
+        padding: 8px;
+        background: rgba(6, 12, 24, 0.95);
+        border: 1px solid rgba(148, 163, 184, 0.45);
+        border-radius: 12px;
+        min-width: 200px;
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(6px);
+        transition: opacity 0.2s ease, transform 0.2s ease;
+        z-index: 20;
+      }
+
+      .wx-affiliation-badge:hover .wx-affiliation-tooltip,
+      .wx-affiliation-badge:focus-within .wx-affiliation-tooltip {
+        opacity: 1;
+        pointer-events: auto;
+        transform: translateY(0);
+      }
+
+      .wx-affiliation-tooltip h4 {
+        margin: 0 0 6px;
+        font-size: 0.78rem;
+        color: var(--text);
+      }
+
+      .wx-affiliation-tooltip button {
+        display: block;
+        width: 100%;
+        text-align: left;
+        background: transparent;
+        border: none;
+        color: var(--text-soft);
+        font-size: 0.75rem;
+        padding: 2px 0;
+        cursor: pointer;
+      }
+
+      .wx-profile--readonly .wx-avatar-edit,
+      .wx-profile--readonly .wx-profile-upload,
+      .wx-profile--readonly .wx-profile-identity,
+      .wx-profile--readonly .wx-profile-actions .wx-btn--outline,
+      .wx-profile--readonly .wx-account-switcher,
+      .wx-profile--readonly .wx-collab-section {
+        display: none !important;
+      }
+
+      .wx-profile--readonly .wx-follow-btn {
+        display: inline-flex;
+      }
     </style>
   </head>
   <body>
@@ -2596,9 +2862,16 @@
                       </div>
                     </div>
                   </div>
+                  <div class="wx-affiliation-badge" id="wx-affiliation-badge" role="button" tabindex="0" hidden>
+                    <span>Afiliado</span>
+                    <span class="wx-affiliation-stack" id="wx-affiliation-stack"></span>
+                    <div class="wx-affiliation-tooltip" id="wx-affiliation-tooltip"></div>
+                  </div>
                 </div>
                 <p class="wx-profile-subtitle">Miembro desde <span id="wx-user-since">—</span></p>
+                <p class="wx-profile-bio" id="wx-user-bio">Sin descripción.</p>
                 <div class="wx-profile-actions">
+                  <button type="button" class="wx-btn wx-follow-btn" id="wx-follow-btn" hidden>Seguir</button>
                   <button type="button" class="wx-btn wx-btn--outline" id="wx-open-verify-plans-btn">Planes de verificación</button>
                   <button type="button" class="wx-btn wx-btn--outline" id="wx-connect-op-btn">Conectar Ocean Pay</button>
                   <button type="button" class="wx-btn wx-btn--outline" id="wx-logout">Cerrar sesión</button>
@@ -2615,6 +2888,14 @@
                 <div class="wx-profile-chip">
                   <span>Posts</span>
                   <strong id="wx-user-posts-count">0</strong>
+                </div>
+                <div class="wx-profile-chip">
+                  <span>Seguidores</span>
+                  <strong id="wx-user-followers">0</strong>
+                </div>
+                <div class="wx-profile-chip">
+                  <span>Siguiendo</span>
+                  <strong id="wx-user-following">0</strong>
                 </div>
                 <div class="wx-profile-chip">
                   <span>Likes recibidos</span>
@@ -2657,7 +2938,17 @@
                     <button type="button" class="wx-btn wx-btn--outline" id="wx-save-username">Cambiar usuario</button>
                   </div>
                 </div>
-                <p id="wx-profile-name-status" class="wx-profile-upload-status">â€”</p>
+                <p id="wx-profile-name-status" class="wx-profile-upload-status">&mdash;</p>
+              </div>
+              <div class="wx-profile-group wx-profile-group--full">
+                <h3>Descripci?n</h3>
+                <div class="wx-profile-field">
+                  <label for="wx-bio-input">Descripci?n</label>
+                  <textarea id="wx-bio-input" rows="3" maxlength="160" placeholder="Describe tu perfil en pocas l?neas."></textarea>
+                  <small>Hasta 160 caracteres.</small>
+                  <button type="button" class="wx-btn wx-btn--outline" id="wx-save-bio">Guardar descripci?n</button>
+                </div>
+                <p id="wx-bio-status" class="wx-profile-upload-status">&mdash;</p>
               </div>
               <div class="wx-profile-group wx-profile-group--full">
                 <h3>Colaboraciones</h3>
@@ -2668,6 +2959,13 @@
                 <div class="wx-collab-section">
                   <p class="wx-collab-section-title">Tus posts en colaboración</p>
                   <div id="wx-collab-outgoing" class="wx-collab-list"></div>
+                </div>
+              </div>
+              <div class="wx-profile-group wx-profile-group--full">
+                <h3>Afiliaciones</h3>
+                <div id="wx-affiliations-summary" class="wx-collab-list"></div>
+                <div class="wx-profile-actions">
+                  <button type="button" class="wx-btn wx-btn--outline" id="wx-manage-affiliations">Gestionar afiliaciones</button>
                 </div>
               </div>
               <div class="wx-profile-group">
@@ -2854,71 +3152,7 @@
                 <p class="wx-new-subtitle">Comparte novedades, responde a la comunidad o publica un devlog.</p>
               </div>
             </div>
-            <textarea id="wx-text" maxlength="280" placeholder="Inicia sesión para publicar"></textarea>
-            <div class="wx-collab-input">
-              <label for="wx-collab-input">Colaboradores</label>
-              <input id="wx-collab-input" type="text" placeholder="@usuario1, @usuario2" />
-              <small>Se envía solicitud. El post se publica cuando acepten.</small>
-            </div>
-            <div class="wx-media-input">
-              <div class="wx-media-header">
-                <span>Imágenes</span>
-                <div class="wx-media-actions">
-                  <button type="button" class="wx-btn wx-btn--outline wx-btn--tiny" id="wx-media-add">Subir</button>
-                  <button type="button" class="wx-btn wx-btn--outline wx-btn--tiny" id="wx-media-clear" disabled>Quitar todo</button>
-                </div>
-              </div>
-              <input type="file" id="wx-media-file" accept="image/*" multiple hidden />
-              <div class="wx-media-drop" id="wx-media-drop">
-                <span>Pega desde el portapapeles o arrastra aquí (máx. 6)</span>
-              </div>
-              <div class="wx-media-grid" id="wx-media-grid"></div>
-              <div class="wx-media-meta">
-                <span id="wx-media-count">0 / 6</span>
-              </div>
-            </div>
-
-            <div class="wx-schedule">
-              <button type="button" class="wx-schedule-toggle" id="wx-schedule-toggle">
-                <span>Programar</span>
-                <span class="wx-schedule-pill" id="wx-schedule-pill">No programado</span>
-              </button>
-              <div class="wx-schedule-panel" id="wx-schedule-panel" hidden>
-                <div class="wx-schedule-row">
-                  <label for="wx-schedule-date">Fecha</label>
-                  <input type="date" id="wx-schedule-date" />
-                  <label for="wx-schedule-time">Hora</label>
-                  <input type="time" id="wx-schedule-time" />
-                </div>
-                <div class="wx-schedule-quick" id="wx-schedule-quick">
-                  <button type="button" data-quick="in-60">+1h</button>
-                  <button type="button" data-quick="in-180">+3h</button>
-                  <button type="button" data-quick="today-20">Hoy 20:00</button>
-                  <button type="button" data-quick="tomorrow-9">Mañana 09:00</button>
-                </div>
-                <div class="wx-schedule-meta">
-                  <span id="wx-schedule-preview">Selecciona fecha y hora</span>
-                  <span class="wx-schedule-tz" id="wx-schedule-tz"></span>
-                </div>
-                <div class="wx-schedule-actions">
-                  <button type="button" class="wx-btn wx-btn--outline wx-btn--tiny" id="wx-schedule-apply">Guardar</button>
-                  <button type="button" class="wx-btn wx-btn--outline wx-btn--tiny" id="wx-schedule-clear">Quitar</button>
-                </div>
-              </div>
-            </div>
-
-            <div class="wx-row wx-composer-actions">
-              <div class="wx-composer-meta">
-                <div>
-                  <span id="wx-count" class="wx-count">0 / 280</span>
-                  <span id="wx-status" class="wx-status"></span>
-                  <span id="wx-media-status" class="wx-media-status"></span>
-                </div>
-              </div>
-              <button id="wx-send" class="wx-btn" disabled>
-                <span>Publicar</span>
-              </button>
-            </div>
+            <button type="button" class="wx-btn wx-composer-launch" id="wx-open-composer">Crear ola</button>
           </section>
 
           <section class="wx-card wx-feed" id="wx-main-feed-card">
@@ -3050,6 +3284,123 @@
       </div>
     </div>
 
+        <!-- Modal de crear ola -->
+    <div class="wx-modal-backdrop" id="wx-composer-modal" hidden>
+      <div class="wx-modal wx-modal--composer">
+        <div class="wx-card wx-composer-card" id="wx-composer-card">
+          <div class="wx-modal-header">
+            <h2 class="wx-auth-title">Crear ola</h2>
+            <button type="button" class="wx-modal-close" id="wx-composer-close">Cerrar</button>
+          </div>
+          <div class="wx-composer-tabs" id="wx-composer-tabs">
+            <button type="button" class="wx-composer-tab is-active" data-panel="content">Contenido</button>
+            <button type="button" class="wx-composer-tab" data-panel="collab">Colaboradores</button>
+            <button type="button" class="wx-composer-tab" data-panel="media">Im?genes</button>
+            <button type="button" class="wx-composer-tab" data-panel="schedule">Programar</button>
+          </div>
+          <div class="wx-composer-panel is-active" data-panel="content">
+            <textarea id="wx-text" maxlength="280" placeholder="Inicia sesi?n para publicar"></textarea>
+          </div>
+          <div class="wx-composer-panel" data-panel="collab">
+            <div class="wx-collab-input">
+              <label for="wx-collab-input">Colaboradores</label>
+              <input id="wx-collab-input" type="text" placeholder="@usuario1, @usuario2" />
+              <small>Se env?a solicitud. El post se publica cuando acepten.</small>
+            </div>
+          </div>
+          <div class="wx-composer-panel" data-panel="media">
+            <div class="wx-media-input">
+              <div class="wx-media-header">
+                <span>Im?genes</span>
+                <div class="wx-media-actions">
+                  <button type="button" class="wx-btn wx-btn--outline wx-btn--tiny" id="wx-media-add">Subir</button>
+                  <button type="button" class="wx-btn wx-btn--outline wx-btn--tiny" id="wx-media-clear" disabled>Quitar todo</button>
+                </div>
+              </div>
+              <input type="file" id="wx-media-file" accept="image/*" multiple hidden />
+              <div class="wx-media-drop" id="wx-media-drop">
+                <span>Pega desde el portapapeles o arrastra aqu? (m?x. 6)</span>
+              </div>
+              <div class="wx-media-grid" id="wx-media-grid"></div>
+              <div class="wx-media-meta">
+                <span id="wx-media-count">0 / 6</span>
+              </div>
+            </div>
+          </div>
+          <div class="wx-composer-panel" data-panel="schedule">
+            <div class="wx-schedule">
+              <button type="button" class="wx-schedule-toggle" id="wx-schedule-toggle">
+                <span>Programar</span>
+                <span class="wx-schedule-pill" id="wx-schedule-pill">No programado</span>
+              </button>
+              <div class="wx-schedule-panel" id="wx-schedule-panel" hidden>
+                <div class="wx-schedule-row">
+                  <label for="wx-schedule-date">Fecha</label>
+                  <input type="date" id="wx-schedule-date" />
+                  <label for="wx-schedule-time">Hora</label>
+                  <input type="time" id="wx-schedule-time" />
+                </div>
+                <div class="wx-schedule-quick" id="wx-schedule-quick">
+                  <button type="button" data-quick="in-60">+1h</button>
+                  <button type="button" data-quick="in-180">+3h</button>
+                  <button type="button" data-quick="today-20">Hoy 20:00</button>
+                  <button type="button" data-quick="tomorrow-9">Ma?ana 09:00</button>
+                </div>
+                <div class="wx-schedule-meta">
+                  <span id="wx-schedule-preview">Selecciona fecha y hora</span>
+                  <span class="wx-schedule-tz" id="wx-schedule-tz"></span>
+                </div>
+                <div class="wx-schedule-actions">
+                  <button type="button" class="wx-btn wx-btn--outline wx-btn--tiny" id="wx-schedule-apply">Guardar</button>
+                  <button type="button" class="wx-btn wx-btn--outline wx-btn--tiny" id="wx-schedule-clear">Quitar</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="wx-composer-footer">
+            <div class="wx-char-ring" id="wx-char-ring">
+              <svg viewBox="0 0 64 64" aria-hidden="true">
+                <circle class="wx-char-ring-bg" cx="32" cy="32" r="26"></circle>
+                <circle class="wx-char-ring-progress" id="wx-char-ring-progress" cx="32" cy="32" r="26" stroke-dasharray="0 163"></circle>
+              </svg>
+              <span class="wx-char-ring-label" id="wx-char-ring-label">0</span>
+              <span class="wx-char-ring-infinity" id="wx-char-ring-infinity">&#8734;</span>
+              <span id="wx-count" class="wx-char-ring-sub wx-count">0 / 280</span>
+            </div>
+            <div class="wx-composer-meta">
+              <span id="wx-status" class="wx-status"></span>
+              <span id="wx-media-status" class="wx-media-status"></span>
+            </div>
+            <button id="wx-send" class="wx-btn" disabled>
+              <span>Publicar</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal de afiliaciones -->
+    <div class="wx-modal-backdrop" id="wx-affiliations-modal" hidden>
+      <div class="wx-modal">
+        <div class="wx-card wx-auth" id="wx-affiliations-card">
+          <div class="wx-modal-header">
+            <h2 class="wx-auth-title">Afiliaciones</h2>
+            <button type="button" class="wx-modal-close" id="wx-affiliations-close">Cerrar</button>
+          </div>
+          <div class="wx-profile-field" id="wx-affiliations-form">
+            <label for="wx-affiliations-input">Cuentas afiliadas</label>
+            <input id="wx-affiliations-input" type="text" placeholder="@usuario1, @usuario2" />
+            <small>Se muestran en tu perfil como afiliaciones.</small>
+          </div>
+          <div class="wx-profile-actions" id="wx-affiliations-actions">
+            <button type="button" class="wx-btn wx-btn--outline" id="wx-affiliations-save">Guardar afiliaciones</button>
+          </div>
+          <p id="wx-affiliations-status" class="wx-profile-upload-status">&mdash;</p>
+          <div id="wx-affiliations-list" class="wx-collab-modal-list"></div>
+        </div>
+      </div>
+    </div>
+
     <!-- Modal de imagen -->
     <div class="wx-modal-backdrop" id="wx-image-modal" hidden>
       <div class="wx-modal wx-modal--image">
@@ -3071,6 +3422,10 @@
       const API_ME = 'https://owsdatabase.onrender.com/wildwave/api/me';
       const API_LOGIN = 'https://owsdatabase.onrender.com/wildwave/api/login';
       const API_REGISTER = 'https://owsdatabase.onrender.com/wildwave/api/register';
+      const API_PROFILE = 'https://owsdatabase.onrender.com/wildwave/api/profile';
+      const API_PROFILE_BIO = 'https://owsdatabase.onrender.com/wildwave/api/profile/bio';
+      const API_FOLLOW = 'https://owsdatabase.onrender.com/wildwave/api/follow';
+      const API_AFFILIATIONS = 'https://owsdatabase.onrender.com/wildwave/api/affiliations';
       const API_MY_POSTS = 'https://owsdatabase.onrender.com/wildwave/api/my-posts';
       const API_SCHEDULED = 'https://owsdatabase.onrender.com/wildwave/api/scheduled';
       const MAX_POST_IMAGES = 6;
@@ -3083,8 +3438,17 @@
       const $text = document.getElementById('wx-text');
       const $count = document.getElementById('wx-count');
       const $status = document.getElementById('wx-status');
+      const $charRing = document.getElementById('wx-char-ring');
+      const $charRingProgress = document.getElementById('wx-char-ring-progress');
+      const $charRingLabel = document.getElementById('wx-char-ring-label');
+      const $charRingInfinity = document.getElementById('wx-char-ring-infinity');
       const $toastContainer = document.getElementById('wx-toast-container');
       const $send = document.getElementById('wx-send');
+      const $openComposer = document.getElementById('wx-open-composer');
+      const $composerModal = document.getElementById('wx-composer-modal');
+      const $composerClose = document.getElementById('wx-composer-close');
+      const $composerTabs = document.getElementById('wx-composer-tabs');
+      const $composerPanels = Array.from(document.querySelectorAll('.wx-composer-panel'));
       const $feed = document.getElementById('wx-feed');
       const $refresh = document.getElementById('wx-refresh');
       const $scheduledCard = document.getElementById('wx-scheduled-card');
@@ -3113,6 +3477,14 @@
       const $collabModal = document.getElementById('wx-collab-modal');
       const $collabModalList = document.getElementById('wx-collab-list');
       const $collabClose = document.getElementById('wx-collab-close');
+      const $affiliationsModal = document.getElementById('wx-affiliations-modal');
+      const $affiliationsClose = document.getElementById('wx-affiliations-close');
+      const $affiliationsList = document.getElementById('wx-affiliations-list');
+      const $affiliationsInput = document.getElementById('wx-affiliations-input');
+      const $affiliationsSave = document.getElementById('wx-affiliations-save');
+      const $affiliationsStatus = document.getElementById('wx-affiliations-status');
+      const $affiliationsForm = document.getElementById('wx-affiliations-form');
+      const $affiliationsActions = document.getElementById('wx-affiliations-actions');
       const $imageModal = document.getElementById('wx-image-modal');
       const $imageModalImg = document.getElementById('wx-image-modal-img');
       const $imageModalClose = document.getElementById('wx-image-modal-close');
@@ -3179,10 +3551,22 @@
       const $avatarRemove = document.getElementById('wx-avatar-remove');
       const $avatarStatus = document.getElementById('wx-avatar-status');
       const $userPostsCount = document.getElementById('wx-user-posts-count');
+      const $userFollowers = document.getElementById('wx-user-followers');
+      const $userFollowing = document.getElementById('wx-user-following');
       const $userOriginalCount = document.getElementById('wx-user-original-count');
       const $userRepliesCount = document.getElementById('wx-user-replies-count');
       const $userLikesReceived = document.getElementById('wx-user-likes-received');
       const $userSince = document.getElementById('wx-user-since');
+      const $userBio = document.getElementById('wx-user-bio');
+      const $followBtn = document.getElementById('wx-follow-btn');
+      const $bioInput = document.getElementById('wx-bio-input');
+      const $saveBio = document.getElementById('wx-save-bio');
+      const $bioStatus = document.getElementById('wx-bio-status');
+      const $affiliationBadge = document.getElementById('wx-affiliation-badge');
+      const $affiliationStack = document.getElementById('wx-affiliation-stack');
+      const $affiliationTooltip = document.getElementById('wx-affiliation-tooltip');
+      const $affiliationsSummary = document.getElementById('wx-affiliations-summary');
+      const $manageAffiliations = document.getElementById('wx-manage-affiliations');
       const $userWxt = document.getElementById('wx-user-wxt');
       const $userTipsWxt = document.getElementById('wx-user-tips-wxt');
       const $userTipsWc = document.getElementById('wx-user-tips-wc');
@@ -3255,10 +3639,13 @@
       let exploreProfileUser = null;
       let lastNotifications = [];
       let currentPromoted = null;
+      let currentProfileView = null;
+      let currentAffiliations = [];
 
       $ideaButtons.forEach((btn) => {
         btn.addEventListener('click', () => {
           const template = btn.dataset.wxTemplate || '';
+          openComposerModal();
           if (!$text) return;
           $text.value = template;
           $text.focus();
@@ -3921,6 +4308,18 @@ function getMaxChars() {
         const len = ($text.value || '').trim().length;
         const displayMax = isAdmin ? '∞' : max;
         $count.textContent = `${len} / ${displayMax}`;
+        if ($charRingLabel) $charRingLabel.textContent = String(len);
+        if ($charRing) {
+          $charRing.classList.toggle('is-admin', isAdmin);
+          const ratio = !isAdmin && Number.isFinite(max) && max > 0 ? len / max : 0;
+          $charRing.classList.toggle('wx-char-ring--warn', !isAdmin && ratio >= 0.75 && ratio < 0.9);
+          $charRing.classList.toggle('wx-char-ring--danger', !isAdmin && ratio >= 0.9);
+          if ($charRingProgress) {
+            const circumference = Math.PI * 2 * 26;
+            const progress = Math.min(Math.max(ratio, 0), 1) * circumference;
+            $charRingProgress.style.strokeDasharray = `${progress} ${circumference}`;
+          }
+        }
         const tooLong = !isAdmin && len > max;
         const hasMedia = attachedImages.length > 0;
         const empty = len === 0 && !hasMedia;
@@ -4123,11 +4522,9 @@ function getMaxChars() {
           return `${dateLabel} · ${timeLabel}`;
         }
 
-        if (diffMinutes < 1) {
-          return `${timeLabel} · ahora`;
-        }
         if (diffHours < 1) {
-          return `${timeLabel} · hace ${diffMinutes}m`;
+          const safeMinutes = Math.max(1, diffMinutes);
+          return `${timeLabel} · hace ${safeMinutes}m`;
         }
         if (diffDays < 1) {
           return `${timeLabel} · hace ${diffHours}h`;
@@ -4264,6 +4661,18 @@ function getMaxChars() {
           $profileNameStatus.style.color = 'var(--success)';
         } else {
           $profileNameStatus.style.color = 'var(--text-faint)';
+        }
+      }
+
+      function updateBioStatus(message, tone = 'info') {
+        if (!$bioStatus) return;
+        $bioStatus.textContent = message || '';
+        if (tone === 'error') {
+          $bioStatus.style.color = 'var(--danger)';
+        } else if (tone === 'success') {
+          $bioStatus.style.color = 'var(--success)';
+        } else {
+          $bioStatus.style.color = 'var(--text-faint)';
         }
       }
 
@@ -4432,6 +4841,336 @@ function getMaxChars() {
         if ($collabModal) $collabModal.hidden = true;
       }
 
+      function setComposerPanel(panel) {
+        if (!$composerTabs || !$composerPanels.length) return;
+        const target = String(panel || 'content');
+        $composerPanels.forEach((el) => {
+          el.classList.toggle('is-active', el.dataset.panel === target);
+        });
+        const tabs = Array.from($composerTabs.querySelectorAll('[data-panel]'));
+        tabs.forEach((tab) => {
+          tab.classList.toggle('is-active', tab.dataset.panel === target);
+        });
+      }
+
+      function openComposerModal() {
+        if ($composerModal) $composerModal.hidden = false;
+        setComposerPanel('content');
+        if ($text) $text.focus();
+        updateCounter();
+      }
+
+      function closeComposerModal() {
+        if ($composerModal) $composerModal.hidden = true;
+      }
+
+      function normalizeAffiliations(list) {
+        if (!Array.isArray(list)) return [];
+        const seen = new Set();
+        return list
+          .map((item) => ({
+            id: item?.id ?? item?.user_id ?? null,
+            username: (item?.username || '').toString(),
+            display_name: item?.display_name || item?.displayName || item?.name || '',
+            avatar_url: item?.avatar_url || item?.avatar || null
+          }))
+          .filter((item) => {
+            const key = item.username.toLowerCase();
+            if (!item.username || seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+      }
+
+      function renderAffiliationsBadge(list) {
+        if (!$affiliationBadge || !$affiliationStack || !$affiliationTooltip) return;
+        if (!list.length) {
+          $affiliationBadge.hidden = true;
+          $affiliationStack.innerHTML = '';
+          $affiliationTooltip.innerHTML = '';
+          return;
+        }
+        $affiliationBadge.hidden = false;
+        $affiliationStack.innerHTML = '';
+        $affiliationTooltip.innerHTML = '';
+
+        const title = document.createElement('h4');
+        title.textContent = 'Afiliado con...';
+        $affiliationTooltip.appendChild(title);
+
+        const maxShow = 4;
+        list.slice(0, maxShow).forEach((aff) => {
+          const avatar = document.createElement('span');
+          avatar.className = 'wx-affiliation-avatar';
+          applyAvatarImage(avatar, aff.avatar_url || null);
+          $affiliationStack.appendChild(avatar);
+
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.dataset.action = 'open-affiliate-profile';
+          btn.dataset.username = aff.username;
+          const label = aff.display_name ? `${aff.display_name} (@${aff.username})` : `@${aff.username}`;
+          btn.textContent = label;
+          $affiliationTooltip.appendChild(btn);
+        });
+
+        if (list.length > maxShow) {
+          const more = document.createElement('div');
+          more.style.fontSize = '0.7rem';
+          more.style.color = 'var(--text-faint)';
+          more.textContent = `+${list.length - maxShow} afiliaciones más`;
+          $affiliationTooltip.appendChild(more);
+        }
+      }
+
+      function renderAffiliationsSummary(list) {
+        if (!$affiliationsSummary) return;
+        $affiliationsSummary.innerHTML = '';
+        if (!list.length) {
+          const empty = document.createElement('div');
+          empty.className = 'wx-collab-empty';
+          empty.textContent = 'Sin afiliaciones todavía.';
+          $affiliationsSummary.appendChild(empty);
+          return;
+        }
+        list.forEach((aff) => {
+          const item = document.createElement('div');
+          item.className = 'wx-collab-item';
+
+          const main = document.createElement('div');
+          main.className = 'wx-collab-item-main';
+          const avatar = document.createElement('div');
+          avatar.className = 'wx-avatar wx-collab-avatar';
+          applyAvatarImage(avatar, aff.avatar_url || null);
+
+          const text = document.createElement('div');
+          text.className = 'wx-collab-item-text';
+          const name = document.createElement('strong');
+          name.textContent = aff.display_name || `@${aff.username}`;
+          const handle = document.createElement('span');
+          handle.textContent = `@${aff.username}`;
+          text.append(name, handle);
+
+          main.append(avatar, text);
+
+          const actions = document.createElement('div');
+          actions.className = 'wx-collab-actions';
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'wx-btn wx-btn--outline';
+          btn.textContent = 'Ver perfil';
+          btn.dataset.action = 'open-affiliate-profile';
+          btn.dataset.username = aff.username;
+          actions.appendChild(btn);
+
+          item.append(main, actions);
+          $affiliationsSummary.appendChild(item);
+        });
+      }
+
+      function renderAffiliationsList(list) {
+        if (!$affiliationsList) return;
+        $affiliationsList.innerHTML = '';
+        if (!list.length) {
+          const empty = document.createElement('div');
+          empty.className = 'wx-collab-empty';
+          empty.textContent = 'Sin afiliaciones todavía.';
+          $affiliationsList.appendChild(empty);
+          return;
+        }
+        list.forEach((aff) => {
+          const item = document.createElement('div');
+          item.className = 'wx-collab-item';
+
+          const main = document.createElement('div');
+          main.className = 'wx-collab-item-main';
+          const avatar = document.createElement('div');
+          avatar.className = 'wx-avatar wx-collab-avatar';
+          applyAvatarImage(avatar, aff.avatar_url || null);
+
+          const text = document.createElement('div');
+          text.className = 'wx-collab-item-text';
+          const name = document.createElement('strong');
+          name.textContent = aff.display_name || `@${aff.username}`;
+          const handle = document.createElement('span');
+          handle.textContent = `@${aff.username}`;
+          text.append(name, handle);
+
+          main.append(avatar, text);
+
+          const actions = document.createElement('div');
+          actions.className = 'wx-collab-actions';
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'wx-btn wx-btn--outline';
+          btn.textContent = 'Ver perfil';
+          btn.dataset.action = 'open-affiliate-profile';
+          btn.dataset.username = aff.username;
+          actions.appendChild(btn);
+
+          item.append(main, actions);
+          $affiliationsList.appendChild(item);
+        });
+      }
+
+      function renderAffiliations(list) {
+        const normalized = normalizeAffiliations(list);
+        currentAffiliations = normalized;
+        renderAffiliationsBadge(normalized);
+        renderAffiliationsSummary(normalized);
+        renderAffiliationsList(normalized);
+      }
+
+      function openAffiliationsModal(options = {}) {
+        if (!$affiliationsModal) return;
+        const editable = !!options.editable;
+        if ($affiliationsForm) $affiliationsForm.hidden = !editable;
+        if ($affiliationsActions) $affiliationsActions.hidden = !editable;
+        if ($affiliationsInput) {
+          $affiliationsInput.value = editable
+            ? currentAffiliations.map(a => `@${a.username}`).join(', ')
+            : '';
+        }
+        if ($affiliationsStatus) {
+          $affiliationsStatus.textContent = editable ? '—' : '';
+        }
+        renderAffiliationsList(currentAffiliations);
+        $affiliationsModal.hidden = false;
+      }
+
+      function closeAffiliationsModal() {
+        if ($affiliationsModal) $affiliationsModal.hidden = true;
+      }
+
+      function applyProfileView(profile, options = {}) {
+        if (!profile) return;
+        currentProfileView = profile;
+        const profileUsername = String(profile.username || '');
+        const isSelf = currentUser && profileUsername && profileUsername.toLowerCase() === String(currentUser.username || '').toLowerCase();
+        const readonly = options.readonly ?? !isSelf;
+
+        if ($userCard) {
+          $userCard.hidden = false;
+          $userCard.style.display = '';
+          $userCard.classList.toggle('wx-profile--readonly', readonly);
+        }
+
+        if ($userDisplay) $userDisplay.textContent = profile.display_name || profile.username || '—';
+        if ($userName) $userName.textContent = '@' + (profile.username || 'usuario');
+        if ($userBio) $userBio.textContent = profile.bio ? profile.bio : 'Sin descripción.';
+
+        const created = profile.created_at ? new Date(profile.created_at) : null;
+        if ($userSince) {
+          $userSince.textContent = created ? created.toLocaleDateString('es-ES') : '—';
+        }
+
+        applyAvatarImage($profileAvatar, profile.avatar_url || null);
+
+        if ($userPostsCount) $userPostsCount.textContent = String(profile.posts_count ?? 0);
+        if ($userOriginalCount) $userOriginalCount.textContent = String(profile.original_count ?? profile.posts_count ?? 0);
+        if ($userRepliesCount) $userRepliesCount.textContent = String(profile.replies_count ?? 0);
+        if ($userLikesReceived) $userLikesReceived.textContent = String(profile.likes_received ?? 0);
+        if ($userLastPost) {
+          if (profile.last_post) {
+            const d = new Date(profile.last_post);
+            $userLastPost.textContent = d.toLocaleDateString('es-ES') + ' ' + d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+          } else {
+            $userLastPost.textContent = '—';
+          }
+        }
+
+        if ($userFollowers) $userFollowers.textContent = String(profile.followers_count ?? 0);
+        if ($userFollowing) $userFollowing.textContent = String(profile.following_count ?? 0);
+        if ($userId) $userId.textContent = String(profile.id ?? '—');
+
+        if (!isSelf) {
+          if ($userWxt) $userWxt.textContent = profile.wxt_balance != null ? String(profile.wxt_balance) : '—';
+          if ($userTipsWxt) $userTipsWxt.textContent = profile.tips_month_wxt != null ? String(profile.tips_month_wxt) : '—';
+          if ($userTipsWc) $userTipsWc.textContent = profile.tips_month_wc != null ? String(profile.tips_month_wc) : '—';
+          if ($opStatus) $opStatus.textContent = 'Perfil público';
+        }
+
+        updateVerifyBadge(profile);
+        renderAffiliations(profile.affiliations || []);
+
+        if ($bioInput) {
+          $bioInput.value = profile.bio || '';
+          $bioInput.disabled = readonly;
+        }
+        if ($saveBio) $saveBio.hidden = readonly;
+        if ($manageAffiliations) $manageAffiliations.hidden = readonly;
+
+        if ($followBtn) {
+          const following = !!profile.is_following;
+          $followBtn.dataset.following = following ? '1' : '0';
+          $followBtn.textContent = following ? 'Dejar de seguir' : 'Seguir';
+          $followBtn.disabled = !currentUser;
+          $followBtn.hidden = isSelf ? true : false;
+        }
+      }
+
+      function isViewingOwnProfile() {
+        if (!currentUser || !currentProfileView) return false;
+        return String(currentProfileView.username || '').toLowerCase() === String(currentUser.username || '').toLowerCase();
+      }
+
+      async function fetchProfileView(username) {
+        if (!username) return;
+        try {
+          const res = await fetch(`${API_PROFILE}/${encodeURIComponent(username)}`, {
+            headers: { ...authHeaders() }
+          });
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(body.error || 'No se pudo cargar el perfil');
+          const isSelf = currentUser && String(body.username || '').toLowerCase() === String(currentUser.username || '').toLowerCase();
+          applyProfileView(body, { readonly: !isSelf });
+          return body;
+        } catch (e) {
+          console.error(e);
+          setStatus(e.message || 'No se pudo cargar el perfil.', 'error');
+        }
+      }
+
+      async function toggleFollow() {
+        if (!$followBtn || !currentProfileView) return;
+        if (!currentUser || !currentToken) {
+          openAuthModal('login');
+          return;
+        }
+        const uname = currentProfileView.username;
+        if (!uname) return;
+        const isFollowing = $followBtn.dataset.following === '1';
+        $followBtn.disabled = true;
+        try {
+          const res = await fetch(`${API_FOLLOW}/${encodeURIComponent(uname)}`, {
+            method: isFollowing ? 'DELETE' : 'POST',
+            headers: { ...authHeaders() }
+          });
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(body.error || 'No se pudo actualizar.');
+          const nextFollowing = body.following ?? !isFollowing;
+          $followBtn.dataset.following = nextFollowing ? '1' : '0';
+          $followBtn.textContent = nextFollowing ? 'Dejar de seguir' : 'Seguir';
+          if (typeof body.followers_count === 'number' && $userFollowers) {
+            $userFollowers.textContent = String(body.followers_count);
+          }
+          if (typeof body.following_count === 'number' && $userFollowing) {
+            $userFollowing.textContent = String(body.following_count);
+          }
+          currentProfileView = {
+            ...currentProfileView,
+            is_following: nextFollowing,
+            followers_count: typeof body.followers_count === 'number' ? body.followers_count : currentProfileView.followers_count,
+            following_count: typeof body.following_count === 'number' ? body.following_count : currentProfileView.following_count
+          };
+        } catch (e) {
+          console.error(e);
+          setStatus(e.message || 'No se pudo actualizar.', 'error');
+        } finally {
+          $followBtn.disabled = false;
+        }
+      }
+
       function openUserProfile(username) {
         const uname = String(username || '').trim().replace(/^@/, '');
         if (!uname) return;
@@ -4446,6 +5185,7 @@ function getMaxChars() {
         if ($exploreSearch) $exploreSearch.value = uname;
         if ($feedTitle) $feedTitle.textContent = '@' + uname;
         updateExploreProfileMode();
+        fetchProfileView(uname);
         if (!Array.isArray(explorePosts) || !explorePosts.length) {
           fetchExplore();
         } else {
@@ -4696,9 +5436,14 @@ function getMaxChars() {
           renderExplorePosts();
           updateTrends(explorePosts);
 
-          // En Explorar nunca se muestran los datos de perfil
-          if ($userCard) $userCard.hidden = true;
-          if ($profileEmpty) $profileEmpty.hidden = true;
+          if ($userCard) {
+            $userCard.hidden = !exploreProfileUser;
+            $userCard.style.display = exploreProfileUser ? '' : 'none';
+          }
+          if ($profileEmpty) {
+            $profileEmpty.hidden = true;
+            $profileEmpty.style.display = 'none';
+          }
 
           setStatus('Explorar actualizado.');
         } catch (e) {
@@ -4958,9 +5703,9 @@ function getMaxChars() {
           });
           const body = await res.json().catch(() => ({}));
           if (!res.ok) return;
-          if ($userWxt) $userWxt.textContent = String(body.wxt ?? 0);
+          if ($userWxt && isViewingOwnProfile()) $userWxt.textContent = String(body.wxt ?? 0);
           if ($subscriptionWxt) $subscriptionWxt.textContent = String(body.wxt ?? 0);
-          if ($opStatus && body.linkedOceanPay) {
+          if ($opStatus && body.linkedOceanPay && isViewingOwnProfile()) {
             $opStatus.textContent = 'Conectado a Ocean Pay (sincronizado)';
           }
         } catch (e) {
@@ -5009,8 +5754,10 @@ function getMaxChars() {
           if (!res.ok) return;
           const monthWxt = Number(body.monthWxt ?? 0);
           const monthWc = Number(body.monthWc ?? 0);
-          if ($userTipsWxt) $userTipsWxt.textContent = String(monthWxt.toFixed(1).replace(/\.0$/, ''));
-          if ($userTipsWc) $userTipsWc.textContent = String(Math.round(monthWc));
+          if (isViewingOwnProfile()) {
+            if ($userTipsWxt) $userTipsWxt.textContent = String(monthWxt.toFixed(1).replace(/\\.0$/, ''));
+            if ($userTipsWc) $userTipsWc.textContent = String(Math.round(monthWc));
+          }
         } catch (e) {
           console.error(e);
         }
@@ -5236,6 +5983,47 @@ function getMaxChars() {
           updateProfileNameStatus('Error al actualizar el usuario.', 'error');
         }
       }
+
+      async function saveBio() {
+        if (!currentUser || !currentToken) {
+          setStatus('Inicia sesion para actualizar tu perfil.', 'error');
+          openAuthModal('login');
+          return;
+        }
+        const raw = ($bioInput?.value || '').trim();
+        if (raw.length > 160) {
+          updateBioStatus('La descripción no puede superar 160 caracteres.', 'error');
+          return;
+        }
+        updateBioStatus('Guardando descripción...', 'info');
+        try {
+          const res = await fetch(API_PROFILE_BIO, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', ...authHeaders() },
+            body: JSON.stringify({ bio: raw })
+          });
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            updateBioStatus(body.error || 'No se pudo actualizar la descripción.', 'error');
+            return;
+          }
+          const updatedBio = body.bio ?? raw;
+          if (currentUser) {
+            currentUser.bio = updatedBio;
+            localStorage.setItem('wildwave_user', JSON.stringify(currentUser));
+          }
+          if (currentProfileView && currentUser
+            && String(currentProfileView.username || '').toLowerCase() === String(currentUser.username || '').toLowerCase()) {
+            currentProfileView.bio = updatedBio;
+          }
+          if ($userBio) $userBio.textContent = updatedBio || 'Sin descripción.';
+          updateBioStatus('Descripción actualizada.', 'success');
+          renderAffiliations(currentAffiliations);
+        } catch (e) {
+          console.error(e);
+          updateBioStatus('Error al actualizar la descripción.', 'error');
+        }
+      }
       async function createPost() {
         const text = ($text.value || '').trim();
         const isAdmin = !!(currentUser && currentUser.verify_tier === 'admin');
@@ -5292,6 +6080,7 @@ function getMaxChars() {
             setStatus('Publicado.');
           }
           fetchBalance().catch(() => {});
+          closeComposerModal();
         } catch (e) {
           console.error(e);
           setStatus(e.message || 'Error al publicar', 'error');
@@ -5393,6 +6182,7 @@ function getMaxChars() {
           if (currentUser && $userCard) {
             $userCard.hidden = false;
             $userCard.style.display = '';
+            applyProfileView(currentUser, { readonly: false });
             if ($profileEmpty) {
               $profileEmpty.hidden = true;
               $profileEmpty.style.display = 'none';
@@ -5560,6 +6350,19 @@ function getMaxChars() {
               ? created.toLocaleDateString('es-ES')
               : '—';
           }
+          if ($userBio) $userBio.textContent = user.bio ? user.bio : 'Sin descripción.';
+          if ($bioInput) {
+            $bioInput.value = user.bio || '';
+            $bioInput.disabled = false;
+          }
+          if ($saveBio) $saveBio.hidden = false;
+          if ($manageAffiliations) $manageAffiliations.hidden = false;
+          if ($userFollowers) $userFollowers.textContent = String(user.followers_count ?? 0);
+          if ($userFollowing) $userFollowing.textContent = String(user.following_count ?? 0);
+          if ($followBtn) {
+            $followBtn.hidden = true;
+            $followBtn.dataset.following = '0';
+          }
           const postsCount = typeof user.posts_count === 'number' ? user.posts_count : 0;
           if ($userPostsCount) {
             $userPostsCount.textContent = postsCount.toString();
@@ -5585,6 +6388,9 @@ function getMaxChars() {
           loadVerifyPlans().catch(() => {});
           fetchNotificationsBadge().catch(() => {});
           fetchTipsSummary().catch(() => {});
+          currentProfileView = user;
+          if ($userCard) $userCard.classList.remove('wx-profile--readonly');
+          renderAffiliations(user.affiliations || []);
         } else {
           localStorage.removeItem('wildwave_token');
           localStorage.removeItem('wildwave_user');
@@ -5606,6 +6412,16 @@ function getMaxChars() {
           if ($userDisplay) $userDisplay.textContent = '—';
           if ($userName) $userName.textContent = '@usuario';
           if ($userSince) $userSince.textContent = '—';
+          if ($userBio) $userBio.textContent = 'Sin descripción.';
+          if ($bioInput) {
+            $bioInput.value = '';
+            $bioInput.disabled = true;
+          }
+          if ($saveBio) $saveBio.hidden = true;
+          if ($manageAffiliations) $manageAffiliations.hidden = true;
+          if ($userFollowers) $userFollowers.textContent = '0';
+          if ($userFollowing) $userFollowing.textContent = '0';
+          if ($followBtn) $followBtn.hidden = true;
           if ($userPostsCount) $userPostsCount.textContent = '0';
           if ($userOriginalCount) $userOriginalCount.textContent = '0';
           if ($userRepliesCount) $userRepliesCount.textContent = '0';
@@ -5625,6 +6441,9 @@ function getMaxChars() {
           if ($verifyBadge) $verifyBadge.hidden = true;
           renderCollabEmpty($collabRequests, 'Inicia sesión para ver solicitudes.');
           renderCollabEmpty($collabOutgoing, 'Inicia sesión para ver tus colaboraciones.');
+          currentProfileView = null;
+          currentAffiliations = [];
+          renderAffiliations([]);
         }
         renderAccountSelect();
         updateCounter();
@@ -5986,6 +6805,111 @@ function getMaxChars() {
         });
       }
 
+
+      if ($openComposer) {
+        $openComposer.addEventListener('click', () => openComposerModal());
+      }
+      if ($composerClose) {
+        $composerClose.addEventListener('click', () => closeComposerModal());
+      }
+      if ($composerModal) {
+        $composerModal.addEventListener('click', (ev) => {
+          if (ev.target === $composerModal) closeComposerModal();
+        });
+      }
+      if ($composerTabs) {
+        $composerTabs.addEventListener('click', (ev) => {
+          const btn = ev.target.closest('[data-panel]');
+          if (!btn) return;
+          setComposerPanel(btn.dataset.panel);
+        });
+      }
+
+      if ($affiliationBadge) {
+        $affiliationBadge.addEventListener('click', (ev) => {
+          if (ev.target.closest('[data-action="open-affiliate-profile"]')) return;
+          const isSelf = currentProfileView && currentUser
+            && String(currentProfileView.username || '').toLowerCase() === String(currentUser.username || '').toLowerCase();
+          openAffiliationsModal({ editable: !!isSelf });
+        });
+      }
+      if ($manageAffiliations) {
+        $manageAffiliations.addEventListener('click', () => openAffiliationsModal({ editable: true }));
+      }
+      if ($affiliationsClose) {
+        $affiliationsClose.addEventListener('click', () => closeAffiliationsModal());
+      }
+      if ($affiliationsModal) {
+        $affiliationsModal.addEventListener('click', (ev) => {
+          if (ev.target === $affiliationsModal) closeAffiliationsModal();
+        });
+      }
+      if ($affiliationsSave) {
+        $affiliationsSave.addEventListener('click', async () => {
+          if (!currentUser || !currentToken) {
+            openAuthModal('login');
+            return;
+          }
+          const raw = ($affiliationsInput?.value || '').trim();
+          const list = raw
+            ? raw.split(',').map(v => v.trim().replace(/^@/, '')).filter(Boolean)
+            : [];
+          if ($affiliationsStatus) $affiliationsStatus.textContent = 'Guardando afiliaciones...';
+          try {
+            const res = await fetch(API_AFFILIATIONS, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', ...authHeaders() },
+              body: JSON.stringify({ usernames: list })
+            });
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(body.error || 'No se pudo guardar.');
+            const affs = Array.isArray(body.affiliations) ? body.affiliations : [];
+            if (currentUser) {
+              currentUser.affiliations = affs;
+              localStorage.setItem('wildwave_user', JSON.stringify(currentUser));
+            }
+            if (currentProfileView && currentUser
+              && String(currentProfileView.username || '').toLowerCase() === String(currentUser.username || '').toLowerCase()) {
+              currentProfileView.affiliations = affs;
+            }
+            renderAffiliations(affs);
+            if ($affiliationsStatus) $affiliationsStatus.textContent = 'Afiliaciones actualizadas.';
+          } catch (e) {
+            console.error(e);
+            if ($affiliationsStatus) $affiliationsStatus.textContent = e.message || 'Error al guardar.';
+          }
+        });
+      }
+      if ($affiliationsList) {
+        $affiliationsList.addEventListener('click', (ev) => {
+          const btn = ev.target.closest('[data-action="open-affiliate-profile"]');
+          if (!btn) return;
+          const uname = btn.dataset.username || '';
+          closeAffiliationsModal();
+          openUserProfile(uname);
+        });
+      }
+      if ($affiliationsSummary) {
+        $affiliationsSummary.addEventListener('click', (ev) => {
+          const btn = ev.target.closest('[data-action="open-affiliate-profile"]');
+          if (!btn) return;
+          const uname = btn.dataset.username || '';
+          openUserProfile(uname);
+        });
+      }
+      if ($affiliationTooltip) {
+        $affiliationTooltip.addEventListener('click', (ev) => {
+          const btn = ev.target.closest('[data-action="open-affiliate-profile"]');
+          if (!btn) return;
+          const uname = btn.dataset.username || '';
+          openUserProfile(uname);
+        });
+      }
+
+      if ($followBtn) {
+        $followBtn.addEventListener('click', () => toggleFollow());
+      }
+
       if ($imageModalClose) {
         $imageModalClose.addEventListener('click', () => closeImageModal());
       }
@@ -5998,9 +6922,11 @@ function getMaxChars() {
         $imageModalImg.addEventListener('click', () => closeImageModal());
       }
       document.addEventListener('keydown', (ev) => {
-        if (ev.key === 'Escape' && $imageModal && !$imageModal.hidden) {
-          closeImageModal();
-        }
+        if (ev.key !== 'Escape') return;
+        if ($imageModal && !$imageModal.hidden) closeImageModal();
+        if ($composerModal && !$composerModal.hidden) closeComposerModal();
+        if ($affiliationsModal && !$affiliationsModal.hidden) closeAffiliationsModal();
+        if ($collabModal && !$collabModal.hidden) closeCollabModal();
       });
 
       if ($logout) {
@@ -6187,6 +7113,12 @@ function getMaxChars() {
       if ($saveUsername) {
         $saveUsername.addEventListener('click', () => {
           saveUsername();
+        });
+      }
+
+      if ($saveBio) {
+        $saveBio.addEventListener('click', () => {
+          saveBio();
         });
       }
 
@@ -6932,6 +7864,20 @@ function getMaxChars() {
         if ($newCard) {
           $newCard.hidden = active;
           $newCard.style.display = active ? 'none' : '';
+        }
+        if ($userCard) {
+          $userCard.hidden = !active;
+          $userCard.style.display = active ? '' : 'none';
+        }
+        if ($profileEmpty) {
+          $profileEmpty.hidden = true;
+          $profileEmpty.style.display = 'none';
+        }
+        if (active && exploreProfileUser) {
+          const currentName = String(currentProfileView?.username || '').toLowerCase();
+          if (!currentName || currentName !== exploreProfileUser.toLowerCase()) {
+            fetchProfileView(exploreProfileUser);
+          }
         }
       }
 

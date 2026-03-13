@@ -12622,6 +12622,7 @@ async function ensureWildXTables() {
   await pool.query('ALTER TABLE wildx_users ADD COLUMN IF NOT EXISTS avatar_url TEXT');
   await pool.query('ALTER TABLE wildx_users ADD COLUMN IF NOT EXISTS display_name TEXT');
   await pool.query('ALTER TABLE wildx_users ADD COLUMN IF NOT EXISTS username_changed_at TIMESTAMP');
+  await pool.query('ALTER TABLE wildx_users ADD COLUMN IF NOT EXISTS bio TEXT');
 
   // Tabla principal de posts (con soporte para respuestas y likes)
   await pool.query(`
@@ -12768,6 +12769,40 @@ async function ensureWildXTables() {
   await pool.query(`
     CREATE INDEX IF NOT EXISTS idx_wildx_notifications_unread
       ON wildx_notifications(user_id, read_at)
+  `);
+
+  // Seguidores / seguidos
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS wildx_follows (
+      follower_id INTEGER NOT NULL REFERENCES wildx_users(id) ON DELETE CASCADE,
+      following_id INTEGER NOT NULL REFERENCES wildx_users(id) ON DELETE CASCADE,
+      created_at TIMESTAMP DEFAULT NOW(),
+      PRIMARY KEY (follower_id, following_id),
+      CHECK (follower_id <> following_id)
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_wildx_follows_following
+      ON wildx_follows(following_id, created_at DESC)
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_wildx_follows_follower
+      ON wildx_follows(follower_id, created_at DESC)
+  `);
+
+  // Afiliaciones entre cuentas
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS wildx_affiliations (
+      user_id INTEGER NOT NULL REFERENCES wildx_users(id) ON DELETE CASCADE,
+      affiliate_id INTEGER NOT NULL REFERENCES wildx_users(id) ON DELETE CASCADE,
+      created_at TIMESTAMP DEFAULT NOW(),
+      PRIMARY KEY (user_id, affiliate_id),
+      CHECK (user_id <> affiliate_id)
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_wildx_affiliations_user
+      ON wildx_affiliations(user_id, created_at DESC)
   `);
 }
 
@@ -13039,13 +13074,13 @@ app.post('/wildwave/api/register', async (req, res) => {
     const hash = await bcrypt.hash(pwd, 10);
     const finalDisplayName = dname || uname;
     const { rows } = await pool.query(
-      'INSERT INTO wildx_users (username, display_name, pwd_hash) VALUES ($1,$2,$3) RETURNING id, username, display_name, avatar_url, created_at',
+      'INSERT INTO wildx_users (username, display_name, pwd_hash) VALUES ($1,$2,$3) RETURNING id, username, display_name, avatar_url, created_at, bio',
       [uname, finalDisplayName, hash]
     );
     const userRow = rows[0];
 
     const token = jwt.sign({ wid: userRow.id, un: userRow.username }, process.env.STUDIO_SECRET, { expiresIn: '7d' });
-    const user = { id: userRow.id, username: userRow.username, display_name: userRow.display_name || userRow.username, avatar_url: userRow.avatar_url || null, created_at: userRow.created_at, posts_count: 0 };
+    const user = { id: userRow.id, username: userRow.username, display_name: userRow.display_name || userRow.username, avatar_url: userRow.avatar_url || null, created_at: userRow.created_at, bio: userRow.bio || null, posts_count: 0 };
     res.json({ token, user });
   } catch (err) {
     if (err.code === '23505') {
@@ -13065,7 +13100,7 @@ app.post('/wildwave/api/login', async (req, res) => {
     const pwd = (password || '').toString();
     if (!uname || !pwd) return res.status(400).json({ error: 'Usuario y contraseÃƒÂ±a requeridos' });
 
-    const { rows } = await pool.query('SELECT id, username, display_name, pwd_hash, avatar_url, created_at FROM wildx_users WHERE username=$1', [uname]);
+    const { rows } = await pool.query('SELECT id, username, display_name, pwd_hash, avatar_url, created_at, bio FROM wildx_users WHERE username=$1', [uname]);
     if (!rows.length) return res.status(401).json({ error: 'Credenciales incorrectas' });
     const ok = await bcrypt.compare(pwd, rows[0].pwd_hash);
     if (!ok) return res.status(401).json({ error: 'Credenciales incorrectas' });
@@ -13083,6 +13118,7 @@ app.post('/wildwave/api/login', async (req, res) => {
       display_name: rows[0].display_name || rows[0].username,
       avatar_url: rows[0].avatar_url || null,
       created_at: rows[0].created_at,
+      bio: rows[0].bio || null,
       posts_count: postsCount
     };
     res.json({ token, user });
@@ -13104,8 +13140,11 @@ app.get('/wildwave/api/me', async (req, res) => {
               u.display_name,
               u.username_changed_at,
               u.avatar_url,
+              u.bio,
               u.created_at,
               COALESCE(p.posts_count, 0) AS posts_count,
+              COALESCE(f.followers_count, 0) AS followers_count,
+              COALESCE(fg.following_count, 0) AS following_count,
               v.tier          AS verify_tier,
               v.plan_id       AS verify_plan_id,
               v.badge_color   AS verify_badge_color,
@@ -13118,6 +13157,16 @@ app.get('/wildwave/api/me', async (req, res) => {
              FROM wildx_posts
             GROUP BY user_id
          ) p ON p.user_id = u.id
+         LEFT JOIN (
+           SELECT following_id, COUNT(*)::int AS followers_count
+             FROM wildx_follows
+            GROUP BY following_id
+         ) f ON f.following_id = u.id
+         LEFT JOIN (
+           SELECT follower_id, COUNT(*)::int AS following_count
+             FROM wildx_follows
+            GROUP BY follower_id
+         ) fg ON fg.follower_id = u.id
          LEFT JOIN LATERAL (
            SELECT tier, plan_id, badge_color, reason, started_at, valid_until
              FROM wildx_verifications
@@ -13134,6 +13183,16 @@ app.get('/wildwave/api/me', async (req, res) => {
     const user = rows[0];
     user.display_name = user.display_name || user.username;
     user.max_post_chars = getWildWaveMaxCharsForTier(user.verify_tier, user.verify_plan_id);
+
+    const { rows: affRows } = await pool.query(
+      `SELECT a.affiliate_id AS id, u.username, u.display_name, u.avatar_url
+         FROM wildx_affiliations a
+         JOIN wildx_users u ON u.id = a.affiliate_id
+        WHERE a.user_id = $1
+        ORDER BY a.created_at DESC`,
+      [wid]
+    );
+    user.affiliations = affRows || [];
 
     if (await isWildXAdmin(wid)) {
       // Cuenta admin con verificaciÃƒÂ³n especial dorada+roja
@@ -13322,6 +13381,258 @@ app.patch('/wildwave/api/profile/username', async (req, res) => {
   } catch (err) {
     console.error('Error en PATCH /wildwave/api/profile/username:', err);
     res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Actualizar descripción (bio)
+app.patch('/wildwave/api/profile/bio', async (req, res) => {
+  try {
+    await ensureWildXTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Token requerido' });
+    const raw = String(req.body?.bio || '').trim();
+    if (raw.length > 160) return res.status(400).json({ error: 'La descripción no puede superar 160 caracteres.' });
+    if (/[<>]/.test(raw)) return res.status(400).json({ error: 'La descripción contiene caracteres inválidos.' });
+    await pool.query('UPDATE wildx_users SET bio = $1 WHERE id = $2', [raw, wid]);
+    res.json({ success: true, bio: raw });
+  } catch (err) {
+    console.error('Error en PATCH /wildwave/api/profile/bio:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Obtener perfil público
+app.get('/wildwave/api/profile/:username([a-zA-Z0-9._]+)', async (req, res) => {
+  try {
+    await ensureWildXTables();
+    await ensureWildXExtraColumns();
+    const uname = normalizeWildWaveUsername(req.params.username);
+    if (!uname) return res.status(400).json({ error: 'Usuario requerido' });
+    const viewerId = getWildXUserId(req);
+
+    const { rows } = await pool.query(
+      `SELECT u.id,
+              u.username,
+              u.display_name,
+              u.avatar_url,
+              u.created_at,
+              u.bio,
+              COALESCE(p.posts_count, 0) AS posts_count,
+              COALESCE(p.original_count, 0) AS original_count,
+              COALESCE(p.replies_count, 0) AS replies_count,
+              COALESCE(p.likes_received, 0) AS likes_received,
+              p.last_post AS last_post,
+              COALESCE(f.followers_count, 0) AS followers_count,
+              COALESCE(fg.following_count, 0) AS following_count,
+              v.tier        AS verify_tier,
+              v.plan_id     AS verify_plan_id,
+              v.badge_color AS verify_badge_color,
+              v.reason      AS verify_reason,
+              v.started_at  AS verify_started_at,
+              v.valid_until AS verify_valid_until,
+              bal.wxt_balance AS wxt_balance,
+              CASE
+                WHEN $2::int IS NULL THEN FALSE
+                WHEN EXISTS (
+                  SELECT 1 FROM wildx_follows wf WHERE wf.follower_id = $2 AND wf.following_id = u.id
+                ) THEN TRUE
+                ELSE FALSE
+              END AS is_following
+         FROM wildx_users u
+         LEFT JOIN LATERAL (
+           SELECT COUNT(*)::int AS posts_count,
+                  COUNT(*) FILTER (WHERE parent_id IS NULL)::int AS original_count,
+                  COUNT(*) FILTER (WHERE parent_id IS NOT NULL)::int AS replies_count,
+                  COALESCE(SUM(likes_count), 0)::int AS likes_received,
+                  MAX(created_at) AS last_post
+             FROM wildx_posts
+            WHERE user_id = u.id AND deleted_at IS NULL
+         ) p ON TRUE
+         LEFT JOIN (
+           SELECT following_id, COUNT(*)::int AS followers_count
+             FROM wildx_follows
+            GROUP BY following_id
+         ) f ON f.following_id = u.id
+         LEFT JOIN (
+           SELECT follower_id, COUNT(*)::int AS following_count
+             FROM wildx_follows
+            GROUP BY follower_id
+         ) fg ON fg.follower_id = u.id
+         LEFT JOIN LATERAL (
+           SELECT tier, plan_id, badge_color, reason, started_at, valid_until
+             FROM wildx_verifications
+            WHERE user_id = u.id
+              AND valid_until > NOW()
+            ORDER BY started_at ASC
+            LIMIT 1
+         ) v ON TRUE
+         LEFT JOIN wildx_balances bal ON bal.user_id = u.id
+        WHERE LOWER(u.username) = LOWER($1)
+        LIMIT 1`,
+      [uname, viewerId || null]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Usuario no encontrado' });
+    const user = rows[0];
+    user.display_name = user.display_name || user.username;
+
+    if (await isWildXAdmin(user.id)) {
+      user.verify_tier = 'admin';
+      user.verify_plan_id = 'admin_studio';
+      user.verify_badge_color = 'crimson';
+      user.verify_reason = user.verify_reason || 'Desarrollador de Juegos - +50 Proyectos aumentando en cantidad poco a poco.';
+      user.verify_started_at = user.verify_started_at || user.created_at;
+      const far = new Date();
+      far.setFullYear(far.getFullYear() + 100);
+      user.verify_valid_until = far;
+    }
+
+    user.max_post_chars = getWildWaveMaxCharsForTier(user.verify_tier, user.verify_plan_id);
+
+    const { rows: affRows } = await pool.query(
+      `SELECT a.affiliate_id AS id, u.username, u.display_name, u.avatar_url
+         FROM wildx_affiliations a
+         JOIN wildx_users u ON u.id = a.affiliate_id
+        WHERE a.user_id = $1
+        ORDER BY a.created_at DESC`,
+      [user.id]
+    );
+    user.affiliations = affRows || [];
+
+    res.json(user);
+  } catch (err) {
+    console.error('Error en GET /wildwave/api/profile/:username:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Seguir / dejar de seguir
+app.post('/wildwave/api/follow/:username', async (req, res) => {
+  try {
+    await ensureWildXTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Token requerido' });
+    const uname = normalizeWildWaveUsername(req.params.username);
+    if (!uname) return res.status(400).json({ error: 'Usuario requerido' });
+
+    const { rows: targetRows } = await pool.query(
+      'SELECT id FROM wildx_users WHERE LOWER(username) = LOWER($1) LIMIT 1',
+      [uname]
+    );
+    if (!targetRows.length) return res.status(404).json({ error: 'Usuario no encontrado' });
+    const targetId = targetRows[0].id;
+    if (Number(targetId) === Number(wid)) return res.status(400).json({ error: 'No puedes seguirte a ti mismo.' });
+
+    await pool.query(
+      'INSERT INTO wildx_follows (follower_id, following_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+      [wid, targetId]
+    );
+    const { rows: countRows } = await pool.query(
+      `SELECT
+         (SELECT COUNT(*)::int FROM wildx_follows WHERE following_id = $1) AS followers_count,
+         (SELECT COUNT(*)::int FROM wildx_follows WHERE follower_id = $1) AS following_count`,
+      [targetId]
+    );
+    res.json({
+      success: true,
+      following: true,
+      followers_count: countRows[0]?.followers_count || 0,
+      following_count: countRows[0]?.following_count || 0
+    });
+  } catch (err) {
+    console.error('Error en POST /wildwave/api/follow/:username:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+app.delete('/wildwave/api/follow/:username', async (req, res) => {
+  try {
+    await ensureWildXTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Token requerido' });
+    const uname = normalizeWildWaveUsername(req.params.username);
+    if (!uname) return res.status(400).json({ error: 'Usuario requerido' });
+
+    const { rows: targetRows } = await pool.query(
+      'SELECT id FROM wildx_users WHERE LOWER(username) = LOWER($1) LIMIT 1',
+      [uname]
+    );
+    if (!targetRows.length) return res.status(404).json({ error: 'Usuario no encontrado' });
+    const targetId = targetRows[0].id;
+    if (Number(targetId) === Number(wid)) return res.status(400).json({ error: 'No puedes dejar de seguirte a ti mismo.' });
+
+    await pool.query('DELETE FROM wildx_follows WHERE follower_id = $1 AND following_id = $2', [wid, targetId]);
+    const { rows: countRows } = await pool.query(
+      `SELECT
+         (SELECT COUNT(*)::int FROM wildx_follows WHERE following_id = $1) AS followers_count,
+         (SELECT COUNT(*)::int FROM wildx_follows WHERE follower_id = $1) AS following_count`,
+      [targetId]
+    );
+    res.json({
+      success: true,
+      following: false,
+      followers_count: countRows[0]?.followers_count || 0,
+      following_count: countRows[0]?.following_count || 0
+    });
+  } catch (err) {
+    console.error('Error en DELETE /wildwave/api/follow/:username:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Guardar afiliaciones del usuario actual
+app.post('/wildwave/api/affiliations', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await ensureWildXTables();
+    const wid = getWildXUserId(req);
+    if (!wid) {
+      client.release();
+      return res.status(401).json({ error: 'Token requerido' });
+    }
+    const rawList = req.body?.usernames || req.body?.affiliations || [];
+    const list = Array.isArray(rawList)
+      ? rawList.map((val) => normalizeWildWaveUsername(val)).filter(Boolean)
+      : [];
+    const unique = Array.from(new Set(list.map((u) => u.toLowerCase())));
+    if (!unique.length) {
+      await client.query('BEGIN');
+      await client.query('DELETE FROM wildx_affiliations WHERE user_id = $1', [wid]);
+      await client.query('COMMIT');
+      return res.json({ success: true, affiliations: [] });
+    }
+
+    const { rows: targetRows } = await client.query(
+      'SELECT id, username, display_name, avatar_url FROM wildx_users WHERE LOWER(username) = ANY($1)',
+      [unique]
+    );
+
+    await client.query('BEGIN');
+    await client.query('DELETE FROM wildx_affiliations WHERE user_id = $1', [wid]);
+    for (const row of targetRows) {
+      if (Number(row.id) === Number(wid)) continue;
+      await client.query(
+        'INSERT INTO wildx_affiliations (user_id, affiliate_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+        [wid, row.id]
+      );
+    }
+    await client.query('COMMIT');
+
+    const affiliations = targetRows
+      .filter((row) => Number(row.id) !== Number(wid))
+      .map((row) => ({
+        id: row.id,
+        username: row.username,
+        display_name: row.display_name,
+        avatar_url: row.avatar_url
+      }));
+
+    res.json({ success: true, affiliations });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error en POST /wildwave/api/affiliations:', err);
+    res.status(500).json({ error: 'Error interno' });
+  } finally {
+    client.release();
   }
 });
 

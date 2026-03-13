@@ -992,6 +992,37 @@
         display: flex;
         flex-direction: column;
         gap: 12px;
+        position: relative;
+        transition: opacity 0.25s ease, filter 0.25s ease;
+      }
+
+      .wx-profile.wx-profile-loading {
+        opacity: 0.6;
+        filter: saturate(0.7);
+        pointer-events: none;
+      }
+
+      .wx-profile.wx-profile-loading::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: 16px;
+        background: linear-gradient(110deg, rgba(10, 18, 35, 0.35), rgba(56, 189, 248, 0.25), rgba(10, 18, 35, 0.35));
+        opacity: 0.55;
+        animation: wx-profile-shimmer 1.3s ease-in-out infinite;
+        pointer-events: none;
+      }
+
+      @keyframes wx-profile-shimmer {
+        0% {
+          transform: translateX(-6%);
+        }
+        50% {
+          transform: translateX(6%);
+        }
+        100% {
+          transform: translateX(-6%);
+        }
       }
 
       .wx-profile-header {
@@ -3433,6 +3464,7 @@
       const API_COLLAB_REQUESTS = 'https://owsdatabase.onrender.com/wildwave/api/collabs/requests';
       const API_COLLAB_OUTGOING = 'https://owsdatabase.onrender.com/wildwave/api/collabs/outgoing';
       const ACCOUNTS_STORAGE_KEY = 'wildwave_accounts';
+      const OP_TOKEN_STORAGE_KEY = 'wildwave_op_tokens';
       const USERNAME_COOLDOWN_DAYS = 14;
 
       const $text = document.getElementById('wx-text');
@@ -3734,6 +3766,50 @@
         return String(account.id || account.username || '').toLowerCase();
       }
 
+      function readOpTokenMap() {
+        try {
+          const raw = localStorage.getItem(OP_TOKEN_STORAGE_KEY);
+          const parsed = raw ? JSON.parse(raw) : {};
+          return parsed && typeof parsed === 'object' ? parsed : {};
+        } catch {
+          return {};
+        }
+      }
+
+      function saveOpTokenMap(map) {
+        if (!map || typeof map !== 'object') return;
+        localStorage.setItem(OP_TOKEN_STORAGE_KEY, JSON.stringify(map));
+      }
+
+      function getOpTokenForUser(user) {
+        const key = accountKey(user);
+        if (!key) return null;
+        const map = readOpTokenMap();
+        return map[key] || null;
+      }
+
+      function setOpTokenForUser(user, token) {
+        const key = accountKey(user);
+        if (!key || !token) return;
+        const map = readOpTokenMap();
+        map[key] = token;
+        saveOpTokenMap(map);
+      }
+
+      function clearOpTokenForUser(user) {
+        const key = accountKey(user);
+        if (!key) return;
+        const map = readOpTokenMap();
+        if (map[key]) {
+          delete map[key];
+          saveOpTokenMap(map);
+        }
+      }
+
+      function getCurrentOpToken() {
+        return getOpTokenForUser(currentUser);
+      }
+
       function upsertAccount(user, token) {
         if (!user || !token) return readAccounts();
         const list = readAccounts();
@@ -3792,28 +3868,46 @@
         const accounts = readAccounts();
         const chosen = accounts.find(acc => accountKey(acc) === String(key || '').toLowerCase());
         if (!chosen) return;
-        const user = {
-          id: chosen.id,
-          username: chosen.username,
-          display_name: chosen.display_name,
-          avatar_url: chosen.avatar_url,
-          verify_tier: chosen.verify_tier,
-          verify_badge_color: chosen.verify_badge_color,
-          created_at: chosen.created_at,
-          posts_count: chosen.posts_count
-        };
-        setLoggedIn(user, chosen.token);
-        setStatus('Cambiando a @' + (chosen.username || 'usuario') + '...', 'info');
-        const opToken = localStorage.getItem('opToken');
-        if (opToken) {
-          await linkOceanPayToWildWave(opToken);
+        if (!chosen.token) {
+          setStatus('Esta cuenta no tiene sesión guardada. Inicia sesión nuevamente.', 'error');
+          return;
         }
-        await reloadMe();
-        setStatus('Cuenta activa: @' + (chosen.username || 'usuario'), 'info');
-        fetchExplore();
-        if (currentTab === 'profile') {
-          fetchMyPosts();
-          fetchScheduledPosts();
+        setProfileLoading(true);
+        if ($accountSelect) $accountSelect.disabled = true;
+        if ($accountAdd) $accountAdd.disabled = true;
+        setStatus('Cambiando a @' + (chosen.username || 'usuario') + '...', 'info');
+        try {
+          const res = await fetch(API_ME, {
+            headers: { Authorization: 'Bearer ' + chosen.token }
+          });
+          if (!res.ok) {
+            throw new Error('Sesión expirada en esta cuenta. Inicia sesión nuevamente.');
+          }
+          const user = await res.json();
+          setLoggedIn(user, chosen.token);
+          const opToken = getOpTokenForUser(user);
+          if (opToken) {
+            await linkOceanPayToWildWave(opToken);
+          } else {
+            updateOceanPayConnectionUI();
+          }
+          setStatus('Cuenta activa: @' + (user.username || 'usuario'), 'info');
+          fetchExplore();
+          if (currentTab === 'profile') {
+            fetchMyPosts();
+            fetchScheduledPosts();
+          }
+        } catch (e) {
+          console.error(e);
+          setStatus(e.message || 'No se pudo cambiar de cuenta.', 'error');
+          if ($accountSelect) {
+            const currentKey = accountKey(currentUser || {});
+            $accountSelect.value = currentKey || '';
+          }
+        } finally {
+          setProfileLoading(false);
+          if ($accountSelect) $accountSelect.disabled = false;
+          if ($accountAdd) $accountAdd.disabled = false;
         }
       }
 
@@ -4243,7 +4337,7 @@
         });
         if (!reason || !reason.trim()) return;
 
-        const oceanPayToken = localStorage.getItem('opToken');
+        const oceanPayToken = getCurrentOpToken();
         if (!oceanPayToken) {
           setStatus('Conecta Ocean Pay antes de activar un plan.', 'error');
           openOpModal('connect');
@@ -4638,6 +4732,12 @@ function getMaxChars() {
           el.style.removeProperty('--wx-avatar-image');
           el.classList.remove('wx-avatar--custom');
         }
+      }
+
+      function setProfileLoading(loading) {
+        if (!$userCard) return;
+        $userCard.classList.toggle('wx-profile-loading', !!loading);
+        $userCard.setAttribute('aria-busy', loading ? 'true' : 'false');
       }
 
       function updateAvatarStatus(message, tone = 'info') {
@@ -5117,12 +5217,20 @@ function getMaxChars() {
       async function fetchProfileView(username) {
         if (!username) return;
         try {
+          const requested = String(username || '').toLowerCase();
           const res = await fetch(`${API_PROFILE}/${encodeURIComponent(username)}`, {
             headers: { ...authHeaders() }
           });
           const body = await res.json().catch(() => ({}));
           if (!res.ok) throw new Error(body.error || 'No se pudo cargar el perfil');
           const isSelf = currentUser && String(body.username || '').toLowerCase() === String(currentUser.username || '').toLowerCase();
+          const exploreTarget = String(exploreProfileUser || '').toLowerCase();
+          if (currentTab === 'explore' && exploreTarget && exploreTarget !== requested) {
+            return body;
+          }
+          if (currentTab === 'profile' && !isSelf) {
+            return body;
+          }
           applyProfileView(body, { readonly: !isSelf });
           return body;
         } catch (e) {
@@ -5329,7 +5437,7 @@ function getMaxChars() {
           promoteBtn.title = 'Solo puedes promocionar tus propios posts';
         }
 
-        const hasOceanPayToken = !!localStorage.getItem('opToken');
+        const hasOceanPayToken = !!getCurrentOpToken();
         let tipBtn = null;
         if (currentUser && hasOceanPayToken && !isOwn) {
           tipBtn = document.createElement('button');
@@ -5723,6 +5831,10 @@ function getMaxChars() {
           });
           const body = await res.json().catch(() => ({}));
           if (!res.ok) {
+            if (res.status === 401 || (body?.error && body.error.toLowerCase().includes('token'))) {
+              clearOpTokenForUser(currentUser);
+              updateOceanPayConnectionUI();
+            }
             if (body?.error) setStatus(body.error, 'error');
             return false;
           }
@@ -5764,7 +5876,7 @@ function getMaxChars() {
       }
 
       function updateOceanPayConnectionUI() {
-        const opToken = localStorage.getItem('opToken');
+        const opToken = getCurrentOpToken();
         if (!currentUser) {
           if ($opStatus) $opStatus.textContent = 'Inicia sesión para conectar Ocean Pay';
           if ($connectOpBtn) {
@@ -5794,7 +5906,7 @@ function getMaxChars() {
           openAuthModal('login');
           return;
         }
-        const existing = localStorage.getItem('opToken');
+        const existing = getCurrentOpToken();
         if (existing) {
           setStatus('Ya estás conectado a Ocean Pay en este dispositivo.', 'info');
           updateOceanPayConnectionUI();
@@ -6391,6 +6503,7 @@ function getMaxChars() {
           currentProfileView = user;
           if ($userCard) $userCard.classList.remove('wx-profile--readonly');
           renderAffiliations(user.affiliations || []);
+          setProfileLoading(false);
         } else {
           localStorage.removeItem('wildwave_token');
           localStorage.removeItem('wildwave_user');
@@ -6444,6 +6557,7 @@ function getMaxChars() {
           currentProfileView = null;
           currentAffiliations = [];
           renderAffiliations([]);
+          setProfileLoading(false);
         }
         renderAccountSelect();
         updateCounter();
@@ -7079,6 +7193,7 @@ function getMaxChars() {
             }
             if (body.token) {
               localStorage.setItem('opToken', body.token);
+              setOpTokenForUser(currentUser, body.token);
               await linkOceanPayToWildWave(body.token);
             }
             if (body.user && typeof body.user.wildcredits === 'number') {
@@ -7584,6 +7699,42 @@ function getMaxChars() {
           $text.focus();
           setStatus(`Respondiendo a @${uname}`, 'info');
           await openThread(parseInt(id, 10));
+        } else if (action === 'delete') {
+          const postId = parseInt(id, 10);
+          if (!Number.isFinite(postId)) return;
+          if (!currentUser) {
+            setStatus('Inicia sesión para eliminar posts.', 'error');
+            openAuthModal('login');
+            return;
+          }
+          const confirmed = await openConfirmDialog({
+            title: 'Eliminar post',
+            message: '¿Seguro que quieres eliminar este post?',
+            confirmLabel: 'Eliminar'
+          });
+          if (!confirmed) return;
+          try {
+            const res = await fetch(`${API_BASE}/${postId}`, {
+              method: 'DELETE',
+              headers: { ...authHeaders() }
+            });
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              setStatus(body.error || 'No se pudo eliminar el post.', 'error');
+              return;
+            }
+            setStatus('Post eliminado.', 'info');
+            if (currentThreadPostId) {
+              openThread(currentThreadPostId).catch(() => {});
+            } else if (currentTab === 'profile') {
+              fetchMyPosts().catch(() => {});
+            } else {
+              fetchExplore().catch(() => {});
+            }
+          } catch (e) {
+            console.error(e);
+            setStatus('Error al eliminar el post.', 'error');
+          }
         }
       });
 
@@ -7738,12 +7889,19 @@ function getMaxChars() {
 
           // No permitir like a uno mismo también en el hilo
           const isOwnNode = currentUser && String(node.user_id) === String(currentUser.id);
+          let deleteBtn = null;
           if (isOwnNode) {
             likeBtn.disabled = true;
             likeBtn.title = 'No puedes dar like a tus propios posts';
+            deleteBtn = document.createElement('button');
+            deleteBtn.className = 'wx-post-btn';
+            deleteBtn.dataset.action = 'delete';
+            deleteBtn.dataset.id = node.id;
+            deleteBtn.textContent = 'Eliminar';
           }
 
           actions.append(likeBtn, replyBtn);
+          if (deleteBtn) actions.append(deleteBtn);
 
           const collabRow = buildCollabRow(collabList, node.avatar_url || null, nodeUsername, node.user_id);
           if (collabRow) {
@@ -8018,7 +8176,7 @@ function getMaxChars() {
           openAuthModal('login');
           return;
         }
-        const opToken = localStorage.getItem('opToken');
+        const opToken = getCurrentOpToken();
         if (!opToken) {
           setStatus('Conecta Ocean Pay para usar tus WildCredits (desde la app de Ocean Pay).', 'error');
           return;

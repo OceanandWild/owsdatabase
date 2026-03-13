@@ -3884,6 +3884,21 @@
             throw new Error('Sesión expirada en esta cuenta. Inicia sesión nuevamente.');
           }
           const user = await res.json();
+          const chosenUsername = String(chosen.username || '').toLowerCase();
+          const chosenId = String(chosen.id || '');
+          const fetchedUsername = String(user.username || '').toLowerCase();
+          const fetchedId = String(user.id || '');
+          if ((chosenUsername && fetchedUsername && chosenUsername !== fetchedUsername)
+            || (chosenId && fetchedId && chosenId !== fetchedId)) {
+            upsertAccount(user, chosen.token);
+            renderAccountSelect();
+            if ($accountSelect) {
+              const currentKey = accountKey(currentUser || {});
+              $accountSelect.value = currentKey || '';
+            }
+            setStatus(`La sesión guardada para @${chosen.username || 'esta cuenta'} pertenece a @${user.username || 'otra cuenta'}. Inicia sesión nuevamente.`, 'error');
+            return;
+          }
           setLoggedIn(user, chosen.token);
           const opToken = getOpTokenForUser(user);
           if (opToken) {

@@ -1,6 +1,6 @@
 {
     "name": "ows-store",
-    "version": "2026.3.11-t2234",
+    "version": "2026.3.15-t1500",
     "description": "OWS Store - Central Studio Hub",
     "main": "main.js",
     "author": "Ocean and Wild Studios",
@@ -85,5 +85,3 @@
         }
     }
 }
-
-

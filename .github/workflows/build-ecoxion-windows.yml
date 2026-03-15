@@ -49,12 +49,12 @@ jobs:
           Write-Host "Version seteada a $VERSION"
 
       # --------------------------------------------------------
-      # 5. npm ci en carpeta Ecoxion
+      # 5. npm install en carpeta Ecoxion
       # --------------------------------------------------------
       - name: Install dependencies
         shell: pwsh
         working-directory: owsdatabase/Ecoxion
-        run: npm ci
+        run: npm install
 
       # --------------------------------------------------------
       # 6. Build Windows NSIS

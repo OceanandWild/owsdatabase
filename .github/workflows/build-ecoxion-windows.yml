@@ -1,0 +1,214 @@
+name: Build Ecoxion Windows + Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (formato: YYYY.M.D-tHHMM, ej: 2026.3.15-t1500)'
+        required: true
+        default: '2026.3.15-t1500'
+      release_notes:
+        description: 'Notas del release'
+        required: false
+        default: '- Primera release oficial de Ecoxion para Windows'
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+
+    steps:
+      # --------------------------------------------------------
+      # 1. Checkout owsdatabase (donde vive la carpeta Ecoxion/)
+      # --------------------------------------------------------
+      - name: Checkout owsdatabase
+        uses: actions/checkout@v4
+        with:
+          repository: OceanandWild/owsdatabase
+          token: ${{ secrets.GITHUB_TOKEN }}
+          path: owsdatabase
+
+      # --------------------------------------------------------
+      # 2. Setup Node.js
+      # --------------------------------------------------------
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # --------------------------------------------------------
+      # 3. Bump version en package.json de Ecoxion
+      # --------------------------------------------------------
+      - name: Bump version en package.json
+        shell: pwsh
+        run: |
+          $VERSION = "${{ github.event.inputs.version }}"
+          $pkgPath = "owsdatabase\Ecoxion\package.json"
+          $pkg = Get-Content $pkgPath -Raw | ConvertFrom-Json
+          $pkg.version = $VERSION
+          $pkg | ConvertTo-Json -Depth 10 | Set-Content $pkgPath -Encoding UTF8
+          Write-Host "Version seteada a $VERSION"
+
+      # --------------------------------------------------------
+      # 5. npm ci en carpeta Ecoxion
+      # --------------------------------------------------------
+      - name: Install dependencies
+        shell: pwsh
+        working-directory: owsdatabase/Ecoxion
+        run: npm ci
+
+      # --------------------------------------------------------
+      # 6. Build Windows NSIS
+      # --------------------------------------------------------
+      - name: Build Ecoxion Windows
+        shell: pwsh
+        working-directory: owsdatabase/Ecoxion
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          npm run dist
+          Write-Host "Build completado."
+
+      # --------------------------------------------------------
+      # 7. Verificar artefactos generados
+      # --------------------------------------------------------
+      - name: Verificar artefactos
+        shell: pwsh
+        run: |
+          $VERSION = "${{ github.event.inputs.version }}"
+          $BUILD_DIR = "C:\builds\ecoxion"
+
+          # electron-builder puede generar en dist/ si no existe C:\builds
+          # Buscamos en ambos lugares
+          $possibleDirs = @($BUILD_DIR, "owsdatabase\Ecoxion\dist", "owsdatabase\Ecoxion\release")
+          $exePath = $null
+          $ymlPath = $null
+
+          foreach ($dir in $possibleDirs) {
+            if (Test-Path $dir) {
+              $exe = Get-ChildItem $dir -Filter "*.exe" -Recurse | Where-Object { $_.Name -notlike "*unpacked*" } | Select-Object -First 1
+              $yml = Get-ChildItem $dir -Filter "latest.yml" -Recurse | Select-Object -First 1
+              if ($exe) { $exePath = $exe.FullName }
+              if ($yml) { $ymlPath = $yml.FullName }
+            }
+          }
+
+          if (-not $exePath) {
+            Write-Host "ERROR: No se encontro el .exe. Listando directorios:"
+            Get-ChildItem "owsdatabase\Ecoxion" -Recurse -Filter "*.exe" | Select-Object FullName
+            exit 1
+          }
+
+          Write-Host "EXE: $exePath"
+          Write-Host "YML: $ymlPath"
+
+          # Exportar como env vars para el siguiente step
+          echo "EXE_PATH=$exePath" >> $env:GITHUB_ENV
+          echo "YML_PATH=$ymlPath" >> $env:GITHUB_ENV
+
+      # --------------------------------------------------------
+      # 8. Upload artefactos (por si el release falla, quedan guardados)
+      # --------------------------------------------------------
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ecoxion-windows-${{ github.event.inputs.version }}
+          path: |
+            ${{ env.EXE_PATH }}
+            ${{ env.YML_PATH }}
+          retention-days: 30
+
+      # --------------------------------------------------------
+      # 9. Publicar release en OceanandWild/ecoxion
+      # NOTA: Requiere secreto GH_PAT con scope "repo" en owsdatabase
+      # Settings -> Secrets -> Actions -> New: GH_PAT = tu Personal Access Token
+      # --------------------------------------------------------
+      - name: Publicar release en OceanandWild/ecoxion
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        shell: pwsh
+        run: |
+          $VERSION = "${{ github.event.inputs.version }}"
+          $TAG = "v$VERSION"
+          $NOTES = "${{ github.event.inputs.release_notes }}"
+          $EXE = $env:EXE_PATH
+          $YML = $env:YML_PATH
+
+          Write-Host "Publicando release $TAG en OceanandWild/ecoxion..."
+
+          if ($YML) {
+            gh release create $TAG $EXE $YML `
+              --repo OceanandWild/ecoxion `
+              --title "Ecoxion $VERSION" `
+              --notes $NOTES `
+              --latest
+          } else {
+            Write-Host "ADVERTENCIA: latest.yml no encontrado, publicando solo el .exe"
+            gh release create $TAG $EXE `
+              --repo OceanandWild/ecoxion `
+              --title "Ecoxion $VERSION" `
+              --notes $NOTES `
+              --latest
+          }
+
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "ERROR publicando release."
+            exit 1
+          }
+
+          Write-Host "Release publicada: https://github.com/OceanandWild/ecoxion/releases/tag/$TAG"
+
+      # --------------------------------------------------------
+      # 10. Verificar latest.yml accesible
+      # --------------------------------------------------------
+      - name: Verificar latest.yml accesible
+        shell: pwsh
+        run: |
+          $VERSION = "${{ github.event.inputs.version }}"
+          Start-Sleep -Seconds 10
+          $url = "https://github.com/OceanandWild/ecoxion/releases/latest/download/latest.yml"
+          try {
+            $r = Invoke-WebRequest -Uri $url -Method Head -ErrorAction Stop
+            Write-Host "latest.yml OK - HTTP $($r.StatusCode)"
+          } catch {
+            Write-Host "ADVERTENCIA: latest.yml puede no estar accesible aun: $_"
+          }
+
+      # --------------------------------------------------------
+      # 11. Registrar en OWS Store DB via API
+      # --------------------------------------------------------
+      - name: Registrar version en OWS Store DB
+        shell: pwsh
+        run: |
+          $VERSION = "${{ github.event.inputs.version }}"
+          $API = "https://owsdatabase.onrender.com"
+          $TOKEN = "${{ secrets.OWS_ADMIN_SECRET }}"
+
+          # Bump version de ecoxion en ows_projects
+          try {
+            $body = @{ version = $VERSION } | ConvertTo-Json
+            $r = Invoke-RestMethod -Uri "$API/ows-store/projects/ecoxion/version" `
+              -Method PATCH `
+              -Headers @{ "Content-Type" = "application/json"; "x-ows-admin-token" = $TOKEN } `
+              -Body $body
+            Write-Host "Version ecoxion actualizada en DB: $($r | ConvertTo-Json)"
+          } catch {
+            Write-Host "ADVERTENCIA: No se pudo actualizar version en DB: $_"
+          }
+
+          # OWS News update
+          try {
+            $news = @{
+              title         = "Ecoxion $VERSION disponible para Windows"
+              description   = "Primera release de Ecoxion publicada en GitHub."
+              project_names = @("Ecoxion")
+              changes       = "${{ github.event.inputs.release_notes }}"
+              update_date   = (Get-Date -Format "yyyy-MM-dd")
+            } | ConvertTo-Json -Depth 3
+            $r2 = Invoke-RestMethod -Uri "$API/ows-news/updates" `
+              -Method POST `
+              -Headers @{ "Content-Type" = "application/json"; "x-ows-admin-token" = $TOKEN } `
+              -Body $news
+            Write-Host "OWS News publicado."
+          } catch {
+            Write-Host "ADVERTENCIA: No se pudo publicar OWS News: $_"
+          }

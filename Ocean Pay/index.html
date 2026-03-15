@@ -2785,7 +2785,14 @@
     // Obtener saldo de la tarjeta activa
     function getActiveCardBalance(currencyType) {
       if (!userCards[activeCardIndex]) return 0;
-      return userCards[activeCardIndex].balances?.[currencyType] || 0;
+      const card = userCards[activeCardIndex];
+      if (currencyType === 'mayhemcoins') {
+        const tableVal = card.balance_map && typeof card.balance_map === 'object'
+          ? parseFloat(card.balance_map.mayhemcoins || 0)
+          : NaN;
+        if (Number.isFinite(tableVal)) return tableVal;
+      }
+      return card.balances?.[currencyType] || 0;
     }
 
     /* ---------- CURRENCY ANIMATION SYSTEM ---------- */
@@ -3287,7 +3294,11 @@
     function updateBalanceDisplays() {
       if (!userCards[activeCardIndex]) return;
 
-      const balances = userCards[activeCardIndex].balances || {};
+      const activeCard = userCards[activeCardIndex] || {};
+      const balances = activeCard.balances || {};
+      const tableBalances = activeCard.balance_map && typeof activeCard.balance_map === 'object'
+        ? activeCard.balance_map
+        : null;
 
       qs('#bux').textContent = Math.round(balances.aquabux || 0).toLocaleString();
       qs('#ecoxionums').textContent = Math.round(balances.ecoxionums || 0).toLocaleString();
@@ -3326,7 +3337,12 @@
       const wwtEl = qs('#wildwavetokens');
       if (wwtEl) wwtEl.textContent = Math.round(balances.wildwavetokens || 0).toLocaleString();
       const mcEl = qs('#mayhemcoins');
-      if (mcEl) mcEl.textContent = Math.round(balances.mayhemcoins || 0).toLocaleString();
+      if (mcEl) {
+        const tableMc = tableBalances ? parseFloat(tableBalances.mayhemcoins || 0) : NaN;
+        const mergedMc = parseFloat(balances.mayhemcoins || 0);
+        const mcValue = Number.isFinite(tableMc) ? tableMc : mergedMc;
+        mcEl.textContent = Math.round(mcValue || 0).toLocaleString();
+      }
       const cdEl = qs('#cosmicdust');
       if (cdEl) cdEl.textContent = Math.round(balances.cosmicdust || 0).toLocaleString();
       const coralEl = qs('#coralbits');

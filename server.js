@@ -14,7 +14,7 @@ import { Server } from 'socket.io';
 import { createServer } from 'http';
 
 // URL FOR THIS DATABASE: https://owsdatabase.onrender.com
-// Last deployment trigger: 2026-01-22T22:17 - Ecoxion Auth Headers Fix
+// Last deployment trigger: 2026-03-15T15:00 - Ecoxion repo integrado en OWS Store (OWS_PROJECT_RELEASE_SOURCES)
 
 /* ===== NAT-MARKET VARS ===== */
 import { v2 as cloudinary } from 'cloudinary';
@@ -540,7 +540,8 @@ const OWS_PROJECT_RELEASE_SOURCES = [
   { slug: 'floretshop', name: 'Floret Shop', repo: 'OceanandWild/floretshop', defaultPlatforms: ['windows', 'android'] },
   { slug: 'wildtransfer', name: 'WildTransfer', repo: 'OceanandWild/wildtransfer', defaultPlatforms: ['windows', 'android'] },
   { slug: 'velocity-surge', name: 'Velocity Surge', repo: 'OceanandWild/velocity-surge', defaultPlatforms: ['windows'] },
-  { slug: 'wildwave', name: 'WildWave', repo: 'OceanandWild/wildwave', defaultPlatforms: ['windows'] }
+  { slug: 'wildwave', name: 'WildWave', repo: 'OceanandWild/wildwave', defaultPlatforms: ['windows'] },
+  { slug: 'ecoxion', name: 'Ecoxion', repo: 'OceanandWild/ecoxion', defaultPlatforms: ['windows'] }
 ];
 
 function normalizeNewsBoolean(value, fallback = false) {

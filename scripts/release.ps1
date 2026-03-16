@@ -209,17 +209,15 @@ if ($platforms -contains "windows" -and ($platform -eq "windows" -or $platform -
     $triggered = Trigger-Workflow -Slug $project -Workflow "release-windows-universal.yml" -Ver $version
 
     if ($triggered) {
-        Write-Host ""
 
-        # Esperar a que el run aparezca y obtener su ID
+        # Obtener el run ID
         Start-Sleep -Seconds 10
         $runId = $null
         for ($i = 0; $i -lt 5; $i++) {
-            $runJson = & $GH run list --repo "$ORG/owsdatabase" --workflow "release-windows-universal.yml" --limit 1 --json databaseId,status,createdAt 2>&1
-            if ($runJson -match '"databaseId"') {
+            $runJson = & $GH run list --repo "$ORG/owsdatabase" --workflow "release-windows-universal.yml" --limit 1 --json databaseId,status 2>&1
+            if ($runJson -match "databaseId") {
                 try {
-                    $run = $runJson | ConvertFrom-Json
-                    $runId = $run[0].databaseId
+                    $runId = ($runJson | ConvertFrom-Json)[0].databaseId
                     break
                 } catch {}
             }
@@ -227,72 +225,60 @@ if ($platforms -contains "windows" -and ($platform -eq "windows" -or $platform -
         }
 
         if (-not $runId) {
-            Write-Err "No se pudo obtener el ID del run. Revisa manualmente:"
-            Write-Host "  https://github.com/$ORG/owsdatabase/actions" -ForegroundColor Cyan
+            Write-Err "No se pudo obtener el run ID."
+            Write-Host "  Revisa: https://github.com/$ORG/owsdatabase/actions" -ForegroundColor Cyan
         } else {
-            Write-Info "Run ID: $runId — monitoreando progreso..."
+            Write-Info ("Run ID: " + $runId + " - monitoreando...")
             Write-Host ""
 
-            $maxWait = 25  # maximo 25 intentos x 20s = ~8 min
+            $maxWait = 25
             $attempt = 0
-            $done = $false
+            $done    = $false
 
             while (-not $done -and $attempt -lt $maxWait) {
                 $attempt++
                 Start-Sleep -Seconds 20
 
-                $statusJson = & $GH run view $runId --repo "$ORG/owsdatabase" --json status,conclusion,jobs 2>&1
-                if ($statusJson -notmatch '"status"') {
-                    Write-Info "[$attempt] Esperando datos del run..."
-                    continue
-                }
+                $sv = & $GH run view $runId --repo "$ORG/owsdatabase" --json status,conclusion,jobs 2>&1
+                if ($sv -notmatch '"status"') { Write-Info ("  [" + ($attempt * 20) + "s] Esperando..."); continue }
 
                 try {
-                    $runData   = $statusJson | ConvertFrom-Json
-                    $status    = $runData.status
-                    $conclusion = $runData.conclusion
+                    $rd         = $sv | ConvertFrom-Json
+                    $status     = $rd.status
+                    $conclusion = $rd.conclusion
+                    $extra      = ""
 
-                    # Mostrar jobs individuales
-                    $jobLine = ""
-                    if ($runData.jobs -and $runData.jobs.Count -gt 0) {
-                        $job = $runData.jobs[0]
-                        $jobLine = " | $($job.name): $($job.status)"
-                        if ($job.steps -and $job.steps.Count -gt 0) {
-                            $activeStep = $job.steps | Where-Object { $_.status -eq "in_progress" } | Select-Object -Last 1
-                            if ($activeStep) { $jobLine += " > $($activeStep.name)" }
-                        }
+                    if ($rd.jobs -and $rd.jobs.Count -gt 0) {
+                        $job   = $rd.jobs[0]
+                        $extra = " | " + $job.name + " (" + $job.status + ")"
+                        $step  = $job.steps | Where-Object { $_.status -eq "in_progress" } | Select-Object -Last 1
+                        if ($step) { $extra += " > " + $step.name }
                     }
 
                     if ($status -eq "completed") {
                         $done = $true
+                        Write-Host ""
                         if ($conclusion -eq "success") {
-                            Write-Host ""
-                            Write-Host "  ============================================" -ForegroundColor Green
-                            Write-Host "  BUILD COMPLETADO EXITOSAMENTE" -ForegroundColor Green
-                            Write-Host "  Release: https://github.com/$ORG/$repo/releases/tag/$tag" -ForegroundColor Green
-                            Write-Host "  Ya podes instalar y probar la nueva version." -ForegroundColor Green
-                            Write-Host "  ============================================" -ForegroundColor Green
-                            Write-Host ""
+                            Write-Host "  ==========================================" -ForegroundColor Green
+                            Write-Host "  BUILD COMPLETADO - LISTO PARA PROBAR" -ForegroundColor Green
+                            Write-Host ("  Release: https://github.com/$ORG/" + $repo + "/releases/tag/" + $tag) -ForegroundColor Green
+                            Write-Host "  ==========================================" -ForegroundColor Green
                         } else {
-                            Write-Host ""
-                            Write-Err "Build terminado con fallo (conclusion: $conclusion)"
-                            Write-Host "  Detalles: https://github.com/$ORG/owsdatabase/actions/runs/$runId" -ForegroundColor Yellow
-                            Write-Host ""
+                            Write-Err ("Build fallo (conclusion: " + $conclusion + ")")
+                            Write-Host ("  Detalles: https://github.com/$ORG/owsdatabase/actions/runs/" + $runId) -ForegroundColor Yellow
                         }
+                        Write-Host ""
                     } else {
-                        $elapsed = $attempt * 20
-                        Write-Host "  [$($elapsed)s] Status: $status$jobLine" -ForegroundColor Yellow
+                        Write-Host ("  [" + ($attempt * 20) + "s] " + $status + $extra) -ForegroundColor Yellow
                     }
                 } catch {
-                    Write-Info "[$attempt] Procesando respuesta..."
+                    Write-Info ("  [" + ($attempt * 20) + "s] Procesando...")
                 }
             }
 
             if (-not $done) {
-                Write-Host ""
-                Write-Info "Timeout de monitoreo. El build puede seguir corriendo."
-                Write-Host "  Seguimiento: https://github.com/$ORG/owsdatabase/actions/runs/$runId" -ForegroundColor Cyan
-                Write-Host ""
+                Write-Info "Timeout. El build puede seguir corriendo."
+                Write-Host ("  Seguimiento: https://github.com/$ORG/owsdatabase/actions/runs/" + $runId) -ForegroundColor Cyan
             }
         }
     }

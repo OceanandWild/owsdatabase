@@ -203,21 +203,101 @@ try {
 }
 Pop-Location
 
-# ── Trigger Windows build ─────────────────────────────────────────────
+# ── Trigger Windows build ───────────────────────────────────────
 if ($platforms -contains "windows" -and ($platform -eq "windows" -or $platform -eq "both")) {
     Write-Step "Disparando build Windows..."
     $triggered = Trigger-Workflow -Slug $project -Workflow "release-windows-universal.yml" -Ver $version
 
     if ($triggered) {
         Write-Host ""
-        Write-Host "  El workflow se encarga del resto:" -ForegroundColor Cyan
-        Write-Host "    - Build del instalador .exe" -ForegroundColor Gray
-        Write-Host "    - Publicar release en GitHub" -ForegroundColor Gray
-        Write-Host "    - Actualizar version en DB" -ForegroundColor Gray
-        Write-Host ""
-        Write-Host "  Seguimiento: https://github.com/$ORG/owsdatabase/actions" -ForegroundColor Cyan
+
+        # Esperar a que el run aparezca y obtener su ID
+        Start-Sleep -Seconds 10
+        $runId = $null
+        for ($i = 0; $i -lt 5; $i++) {
+            $runJson = & $GH run list --repo "$ORG/owsdatabase" --workflow "release-windows-universal.yml" --limit 1 --json databaseId,status,createdAt 2>&1
+            if ($runJson -match '"databaseId"') {
+                try {
+                    $run = $runJson | ConvertFrom-Json
+                    $runId = $run[0].databaseId
+                    break
+                } catch {}
+            }
+            Start-Sleep -Seconds 5
+        }
+
+        if (-not $runId) {
+            Write-Err "No se pudo obtener el ID del run. Revisa manualmente:"
+            Write-Host "  https://github.com/$ORG/owsdatabase/actions" -ForegroundColor Cyan
+        } else {
+            Write-Info "Run ID: $runId — monitoreando progreso..."
+            Write-Host ""
+
+            $maxWait = 25  # maximo 25 intentos x 20s = ~8 min
+            $attempt = 0
+            $done = $false
+
+            while (-not $done -and $attempt -lt $maxWait) {
+                $attempt++
+                Start-Sleep -Seconds 20
+
+                $statusJson = & $GH run view $runId --repo "$ORG/owsdatabase" --json status,conclusion,jobs 2>&1
+                if ($statusJson -notmatch '"status"') {
+                    Write-Info "[$attempt] Esperando datos del run..."
+                    continue
+                }
+
+                try {
+                    $runData   = $statusJson | ConvertFrom-Json
+                    $status    = $runData.status
+                    $conclusion = $runData.conclusion
+
+                    # Mostrar jobs individuales
+                    $jobLine = ""
+                    if ($runData.jobs -and $runData.jobs.Count -gt 0) {
+                        $job = $runData.jobs[0]
+                        $jobLine = " | $($job.name): $($job.status)"
+                        if ($job.steps -and $job.steps.Count -gt 0) {
+                            $activeStep = $job.steps | Where-Object { $_.status -eq "in_progress" } | Select-Object -Last 1
+                            if ($activeStep) { $jobLine += " > $($activeStep.name)" }
+                        }
+                    }
+
+                    if ($status -eq "completed") {
+                        $done = $true
+                        if ($conclusion -eq "success") {
+                            Write-Host ""
+                            Write-Host "  ============================================" -ForegroundColor Green
+                            Write-Host "  BUILD COMPLETADO EXITOSAMENTE" -ForegroundColor Green
+                            Write-Host "  Release: https://github.com/$ORG/$repo/releases/tag/$tag" -ForegroundColor Green
+                            Write-Host "  Ya podes instalar y probar la nueva version." -ForegroundColor Green
+                            Write-Host "  ============================================" -ForegroundColor Green
+                            Write-Host ""
+                        } else {
+                            Write-Host ""
+                            Write-Err "Build terminado con fallo (conclusion: $conclusion)"
+                            Write-Host "  Detalles: https://github.com/$ORG/owsdatabase/actions/runs/$runId" -ForegroundColor Yellow
+                            Write-Host ""
+                        }
+                    } else {
+                        $elapsed = $attempt * 20
+                        Write-Host "  [$($elapsed)s] Status: $status$jobLine" -ForegroundColor Yellow
+                    }
+                } catch {
+                    Write-Info "[$attempt] Procesando respuesta..."
+                }
+            }
+
+            if (-not $done) {
+                Write-Host ""
+                Write-Info "Timeout de monitoreo. El build puede seguir corriendo."
+                Write-Host "  Seguimiento: https://github.com/$ORG/owsdatabase/actions/runs/$runId" -ForegroundColor Cyan
+                Write-Host ""
+            }
+        }
     }
 }
+
 
 # ── Trigger Android build ──────────────────────────────────────────────────────
 if ($platforms -contains "android" -and ($platform -eq "android" -or $platform -eq "both")) {

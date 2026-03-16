@@ -1,0 +1,195 @@
+name: Build Windows Universal
+
+on:
+  workflow_dispatch:
+    inputs:
+      project:
+        description: 'Slug del proyecto'
+        required: true
+        type: choice
+        options:
+          - ows-store
+          - wildweapon-mayhem
+          - savagespaceanimals
+          - oceanpay
+          - floretshop
+          - wildtransfer
+          - a-wild-question-game
+          - velocity-surge
+          - wildwave
+          - ecoxion
+          - dinobox
+      version:
+        description: 'Version (formato: YYYY.M.D-tHHMM)'
+        required: true
+        default: '2026.3.20-t1400'
+      release_notes:
+        description: 'Notas del release'
+        required: false
+        default: 'Nueva version disponible para Windows'
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      # ─── CONFIGURACION DEL PROYECTO ───────────────────────────────────────
+      - name: Configurar proyecto
+        id: config
+        shell: pwsh
+        run: |
+          $PROJECT = "${{ github.event.inputs.project }}"
+          $configs = @{
+            "ows-store"            = @{ repo = "owsdatabase";         dir = "OWS Store Electron";   buildOut = "C:\builds\ows-store" }
+            "wildweapon-mayhem"    = @{ repo = "wildweapon-mayhem";   dir = "WildWeapon Mayhem";    buildOut = "C:\builds\wildweapon" }
+            "savagespaceanimals"   = @{ repo = "savagespaceanimals";  dir = "Savage Space Animals"; buildOut = "C:\builds\ssa" }
+            "oceanpay"             = @{ repo = "oceanpay";            dir = "Ocean Pay Electron";   buildOut = "C:\builds\oceanpay" }
+            "floretshop"           = @{ repo = "floretshop";          dir = "Floret Shop";          buildOut = "C:\builds\floretshop" }
+            "wildtransfer"         = @{ repo = "wildtransfer";        dir = "WildTransfer";         buildOut = "C:\builds\wildtransfer" }
+            "a-wild-question-game" = @{ repo = "a-wild-question-game";dir = "A Wild Question Game"; buildOut = "C:\builds\awqg" }
+            "velocity-surge"       = @{ repo = "velocity-surge";      dir = "Velocity Surge";       buildOut = "C:\builds\velocity-surge" }
+            "wildwave"             = @{ repo = "wildwave";            dir = "WildWave";             buildOut = "C:\builds\wildwave" }
+            "ecoxion"              = @{ repo = "ecoxion";             dir = "Ecoxion";              buildOut = "C:\builds\ecoxion" }
+            "dinobox"              = @{ repo = "owsdatabase";         dir = "DinoBox";              buildOut = "C:\builds\dinobox" }
+          }
+          $cfg = $configs[$PROJECT]
+          if (-not $cfg) { Write-Error "Proyecto desconocido: $PROJECT"; exit 1 }
+
+          echo "repo=$($cfg.repo)" >> $env:GITHUB_OUTPUT
+          echo "dir=$($cfg.dir)" >> $env:GITHUB_OUTPUT
+          echo "buildOut=$($cfg.buildOut)" >> $env:GITHUB_OUTPUT
+          echo "tag=v${{ github.event.inputs.version }}" >> $env:GITHUB_OUTPUT
+
+      # ─── CHECKOUT ─────────────────────────────────────────────────────────
+      - name: Checkout owsdatabase
+        uses: actions/checkout@v4
+        with:
+          path: owsdatabase
+
+      # ─── NODE ─────────────────────────────────────────────────────────────
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # ─── BUMP VERSION ─────────────────────────────────────────────────────
+      - name: Bump version en package.json
+        shell: pwsh
+        run: |
+          $pkgPath = "owsdatabase\${{ steps.config.outputs.dir }}\package.json"
+          if (Test-Path $pkgPath) {
+            $pkg = Get-Content $pkgPath -Raw | ConvertFrom-Json
+            $pkg.version = "${{ github.event.inputs.version }}"
+            $pkg | ConvertTo-Json -Depth 10 | Set-Content $pkgPath -Encoding UTF8
+            Write-Host "Version bumpeada a ${{ github.event.inputs.version }}"
+          }
+
+      # ─── BUILD ────────────────────────────────────────────────────────────
+      - name: Install dependencies
+        shell: pwsh
+        working-directory: owsdatabase/${{ steps.config.outputs.dir }}
+        run: npm install
+
+      - name: Build Windows
+        shell: pwsh
+        working-directory: owsdatabase/${{ steps.config.outputs.dir }}
+        run: npm run dist
+
+      # ─── BUSCAR ARTEFACTOS ────────────────────────────────────────────────
+      - name: Buscar artefactos generados
+        id: artifacts
+        shell: pwsh
+        run: |
+          $dirs = @(
+            "${{ steps.config.outputs.buildOut }}",
+            "owsdatabase\${{ steps.config.outputs.dir }}\dist",
+            "owsdatabase\${{ steps.config.outputs.dir }}\release"
+          )
+          $exePath = $null
+          $ymlPath = $null
+          foreach ($dir in $dirs) {
+            if (Test-Path $dir) {
+              $exe = Get-ChildItem $dir -Filter "*.exe" -Recurse |
+                     Where-Object { $_.Name -notlike "*unpacked*" -and $_.Name -notlike "*Helper*" } |
+                     Select-Object -First 1
+              $yml = Get-ChildItem $dir -Filter "latest.yml" -Recurse | Select-Object -First 1
+              if ($exe -and -not $exePath) { $exePath = $exe.FullName }
+              if ($yml -and -not $ymlPath) { $ymlPath = $yml.FullName }
+            }
+          }
+          if (-not $exePath) { Write-Error "No se encontro el .exe"; exit 1 }
+          echo "exe=$exePath" >> $env:GITHUB_OUTPUT
+          echo "yml=$ymlPath" >> $env:GITHUB_OUTPUT
+          Write-Host "EXE: $exePath"
+          Write-Host "YML: $ymlPath"
+
+      # ─── UPLOAD ARTIFACT ──────────────────────────────────────────────────
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.event.inputs.project }}-windows-${{ github.event.inputs.version }}
+          path: |
+            ${{ steps.artifacts.outputs.exe }}
+            ${{ steps.artifacts.outputs.yml }}
+          retention-days: 30
+
+      # ─── RELEASE EN GITHUB ────────────────────────────────────────────────
+      - name: Publicar release en GitHub
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        shell: pwsh
+        run: |
+          $TAG  = "${{ steps.config.outputs.tag }}"
+          $REPO = "OceanandWild/${{ steps.config.outputs.repo }}"
+          $EXE  = "${{ steps.artifacts.outputs.exe }}"
+          $YML  = "${{ steps.artifacts.outputs.yml }}"
+          $args = @("release","create",$TAG,"--repo",$REPO,"--title","${{ github.event.inputs.project }} ${{ github.event.inputs.version }}","--notes","${{ github.event.inputs.release_notes }}","--latest")
+          if ($EXE) { $args += $EXE }
+          if ($YML) { $args += $YML }
+          gh @args
+
+      # ─── ACTUALIZAR DB ────────────────────────────────────────────────────
+      - name: Actualizar OWS Store DB
+        shell: pwsh
+        run: |
+          $API     = "https://owsdatabase.onrender.com"
+          $TOKEN   = "${{ secrets.OWS_ADMIN_SECRET }}"
+          $PROJECT = "${{ github.event.inputs.project }}"
+          $VERSION = "${{ github.event.inputs.version }}"
+          $NOTES   = "${{ github.event.inputs.release_notes }}"
+
+          # Bump version
+          try {
+            Invoke-RestMethod -Uri "$API/ows-store/projects/$PROJECT/version" `
+              -Method PATCH `
+              -Headers @{ "Content-Type"="application/json"; "x-ows-admin-token"=$TOKEN } `
+              -Body "{`"version`":`"$VERSION`"}"
+            Write-Host "Version actualizada en DB"
+          } catch { Write-Warning "No se pudo actualizar version: $_" }
+
+          # OWS News
+          try {
+            $news = @{
+              title         = "$PROJECT $VERSION disponible para Windows"
+              description   = "Nueva version Windows de $PROJECT publicada."
+              project_names = @($PROJECT)
+              changes       = $NOTES
+              update_date   = (Get-Date -Format "yyyy-MM-dd")
+            } | ConvertTo-Json -Depth 3
+            Invoke-RestMethod -Uri "$API/ows-news/updates" `
+              -Method POST `
+              -Headers @{ "Content-Type"="application/json"; "x-ows-admin-token"=$TOKEN } `
+              -Body $news
+            Write-Host "OWS News publicado"
+          } catch { Write-Warning "No se pudo publicar OWS News: $_" }
+
+      # ─── RESUMEN ──────────────────────────────────────────────────────────
+      - name: Resumen
+        shell: pwsh
+        run: |
+          Write-Host "============================================================" -ForegroundColor Green
+          Write-Host "WINDOWS RELEASE COMPLETADO" -ForegroundColor Green
+          Write-Host "Proyecto:  ${{ github.event.inputs.project }}"
+          Write-Host "Version:   ${{ github.event.inputs.version }}"
+          Write-Host "Release:   https://github.com/OceanandWild/${{ steps.config.outputs.repo }}/releases/tag/${{ steps.config.outputs.tag }}"
+          Write-Host "============================================================" -ForegroundColor Green

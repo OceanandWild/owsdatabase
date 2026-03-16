@@ -90,6 +90,49 @@ Se incluiran mas cosas luego, pero esto te ayuda a entender como realizar la may
     - POST /ows-store/projects
     - PATCH /ows-store/projects/:slug/version
 
+
+--- SCRIPT DE RELEASE UNIVERSAL (IMPORTANTE) ---
+
+EXISTE UN SCRIPT en scripts/release.ps1 que automatiza TODO el proceso de release
+para cualquier proyecto del ecosistema OWS. Este script:
+- Hace el build de Windows (npm run dist)
+- Publica el release en GitHub
+- Actualiza la DB via API
+- Publica OWS News
+- Hace git push si el proyecto vive en owsdatabase
+
+USO:
+  $env:OWS_ADMIN_SECRET = 'tu-secret'
+  Unblock-File -Path '.\scripts\release.ps1'   # solo la primera vez
+  .\scripts\release.ps1 -project <slug> -version 2026.X.X-tHHMM
+  .\scripts\release.ps1 -project <slug> -version 2026.X.X-tHHMM -platform both  # Windows + Android
+
+EJECUTAR ESTE SCRIPT SOLO SI EL USUARIO INDICA EXPLICITAMENTE QUE SE DEBE HACER BUILD/RELEASE.
+No ejecutarlo automaticamente al terminar cambios de codigo -- solo cuando el usuario lo pida.
+
+AVISO CRITICO -- DIRECTORIOS DE PROYECTOS:
+- OWS Store Electron/ --> IGNORAR, es una carpeta antigua y en desuso, NO usar para builds
+- OWS Store/ ----------> Esta es la carpeta correcta del OWS Store (frontend + Electron)
+- Cualquier referencia a 'OWS Store Electron' en scripts o configs debe corregirse a 'OWS Store'
+
+PROYECTOS Y SUS DIRECTORIOS CORRECTOS:
+  slug                    directorio local
+  ows-store            -> OWS Store/
+  wildweapon-mayhem    -> WildWeapon Mayhem/
+  savagespaceanimals   -> Savage Space Animals/
+  oceanpay             -> Ocean Pay Electron/
+  floretshop           -> Floret Shop/
+  wildtransfer         -> WildTransfer/
+  a-wild-question-game -> A Wild Question Game/
+  velocity-surge       -> Velocity Surge/
+  wildwave             -> WildWave/
+  ecoxion              -> Ecoxion/
+  dinobox              -> DinoBox/
+
+PLATAFORMAS POR PROYECTO:
+  Windows + Android: floretshop, wildtransfer, a-wild-question-game
+  Solo Windows:      todos los demas proyectos lanzados actualmente
+
 --- PLAYBOOK BUILDS/RELEASES (PARA OTROS AGENTES CODEX) ---
 
 Objetivo: estandarizar Build Android + Promote, Build Windows y Release Windows sin romper updater.
@@ -247,6 +290,12 @@ CHECK BLOQUEANTE WINDOWS (UPDATER ELECTRON):
 - Icono Android recomendado: colocar `.jpg` (o `.png`) en `build/` para uso en ficha/publicacion Android.
 - Al publicar el proyecto en OWS Store, referenciar primero el icono local de `build/` y dejar fallback remoto/placeholder solo como respaldo.
 - No cerrar la tarea sin verificar que `build/` contiene los assets de icono esperados para la plataforma publicada.
+
+12) REGLA ESTRICTA DE CHANGELOGS EN OWS STORE
+- Siempre que un agente modifique OWS Store o cualquier otro proyecto, se debe llamar via API del servidor (server.js) para crear un changelog.
+- El changelog debe incluir: version, fecha, cambios clave, plataforma afectada (Windows/Android/Ambas). (Si la tabla de la API de los changelogs permite esto ultimo. Si no, solo version, fecha y cambios clave.)
+- Siempre que se cree un changelog de OWS Store, se debe documentar en "OWS Store Changelog y Eventos", tambien mediante la API del servidor (server.js).
+- Siempre que se cree un changelog de un proyecto, se debe documentar en la ficha de ese proyecto en cuestion, nuevamente mediante la API del servidor (server.js).
 
 Prompt base recomendado (Wild Destiny):
 "App icon for 'Wild Destiny'. Epic fantasy-action RPG identity. Central symbol: a luminous crossed blade and arcane sigil fused in one emblem. Style: modern, premium, minimal but powerful, rounded-square icon suitable for Windows and Android launchers. Palette: deep midnight navy (#070b14), electric cyan (#26e0ff), royal violet (#7c3aed), subtle gold accents (#f5c542). High contrast, crisp silhouette, recognizable at 16x16 and detailed at 256x256. No text, no letters, no watermark. Fill full canvas. No white corners, no empty borders. Soft atmospheric glow and controlled depth, avoid clutter."

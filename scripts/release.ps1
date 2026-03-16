@@ -18,7 +18,7 @@ $ADMIN_TOKEN = $env:OWS_ADMIN_SECRET
 $GH_ORG      = "OceanandWild"
 
 $PROJECTS = @{
-    "ows-store"            = @{ repo="owsdatabase";          dir="OWS Store Electron";   buildOut="C:\builds\ows-store";       platforms=@("windows"); androidWorkflow=""; packageId="" }
+    "ows-store"            = @{ repo="owsdatabase";          dir="OWS Store";            buildOut="C:\builds\ows-store";       platforms=@("windows"); androidWorkflow=""; packageId="" }
     "wildweapon-mayhem"    = @{ repo="wildweapon-mayhem";    dir="WildWeapon Mayhem";    buildOut="C:\builds\wildweapon";      platforms=@("windows"); androidWorkflow=""; packageId="" }
     "savagespaceanimals"   = @{ repo="savagespaceanimals";   dir="Savage Space Animals"; buildOut="C:\builds\ssa";             platforms=@("windows"); androidWorkflow=""; packageId="" }
     "oceanpay"             = @{ repo="oceanpay";             dir="Ocean Pay Electron";   buildOut="C:\builds\oceanpay";        platforms=@("windows"); androidWorkflow=""; packageId="" }
@@ -92,7 +92,7 @@ if ($doBuildWindows -and -not $skipBuild) {
     if (Test-Path $pkgPath) {
         $pkg = Get-Content $pkgPath -Raw | ConvertFrom-Json
         $pkg.version = $version
-        $pkg | ConvertTo-Json -Depth 10 | Set-Content $pkgPath -Encoding UTF8
+        $pkg | ConvertTo-Json -Depth 10 | Set-Content $pkgPath -Encoding ASCII
         Log-OK "Version bumpeada a $version"
     }
     Push-Location $electronDir

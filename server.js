@@ -14,7 +14,7 @@ import { Server } from 'socket.io';
 import { createServer } from 'http';
 
 // URL FOR THIS DATABASE: https://owsdatabase.onrender.com
-// Last deployment trigger: 2026-03-15T15:00 - Ecoxion repo integrado en OWS Store (OWS_PROJECT_RELEASE_SOURCES)
+// Last deployment trigger: 2026-03-16T00:00 - ensureProjectChangelogSync lee de DB en vez de OWS_PROJECT_RELEASE_SOURCES
 
 /* ===== NAT-MARKET VARS ===== */
 import { v2 as cloudinary } from 'cloudinary';
@@ -937,7 +937,46 @@ async function ensureOwsStoreNewsSeedData() {
 
 async function ensureProjectChangelogSync({ force = false, projectSlug = '' } = {}) {
   const slugFilter = String(projectSlug || '').trim().toLowerCase();
-  const sources = OWS_PROJECT_RELEASE_SOURCES.filter((s) => !slugFilter || s.slug === slugFilter || s.name.toLowerCase() === slugFilter);
+
+  // Lee proyectos desde la DB en vez del array hardcodeado OWS_PROJECT_RELEASE_SOURCES.
+  // Asi cualquier proyecto registrado via POST /ows-store/projects queda automaticamente
+  // sincronizado sin necesidad de modificar el codigo.
+  let dbRows = [];
+  try {
+    const { rows } = await pool.query(
+      `SELECT slug, name, metadata FROM ows_projects WHERE status != 'unavailable' ORDER BY slug`
+    );
+    dbRows = rows;
+  } catch (err) {
+    console.warn('[changelog-sync] No se pudo leer ows_projects, usando OWS_PROJECT_RELEASE_SOURCES como fallback:', err?.message);
+    dbRows = OWS_PROJECT_RELEASE_SOURCES.map((s) => ({
+      slug: s.slug,
+      name: s.name,
+      metadata: { repo: s.repo, platforms: s.defaultPlatforms || ['windows'] }
+    }));
+  }
+
+  // Filtrar por slug si se pidio uno especifico
+  const sources = dbRows
+    .filter((row) => {
+      if (!slugFilter) return true;
+      return String(row.slug || '').toLowerCase() === slugFilter ||
+             String(row.name || '').toLowerCase() === slugFilter;
+    })
+    .map((row) => {
+      const meta = (row.metadata && typeof row.metadata === 'object') ? row.metadata : {};
+      const repoRaw = String(meta.repo || '').trim();
+      // Normalizar: si viene como "OceanandWild/slug" usar tal cual, si es solo "slug" agregar org
+      const repo = repoRaw.includes('/') ? repoRaw : (repoRaw ? `OceanandWild/${repoRaw}` : '');
+      return {
+        slug: String(row.slug || '').trim(),
+        name: String(row.name || '').trim(),
+        repo,
+        defaultPlatforms: Array.isArray(meta.platforms) ? meta.platforms : ['windows']
+      };
+    })
+    .filter((s) => s.slug && s.repo); // Solo proyectos con repo configurado
+
   const summary = { scanned: sources.length, updated: 0, skipped: 0, errors: [] };
 
   for (const source of sources) {

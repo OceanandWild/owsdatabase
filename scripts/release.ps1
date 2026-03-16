@@ -100,6 +100,7 @@ if ($newProject) {
         url         = "https://github.com/$GH_ORG/$projectRepo/releases/latest"
         version     = $version
         status      = "launched"
+        installer_url = "https://github.com/$GH_ORG/$projectRepo/releases/latest"
         metadata    = @{ platforms = $dbPlatforms; repo = "$GH_ORG/$projectRepo" }
     }
     $r = Invoke-API "POST" "/ows-store/projects" $newProjectBody

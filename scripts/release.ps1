@@ -146,22 +146,33 @@ function Register-NewProject {
 
 # ── Trigger GitHub Actions workflow ──────────────────────────────────────────
 function Trigger-Workflow {
-    param([string]$Repo, [string]$Workflow, [string]$Ver, [string]$TargetRepo)
-
-    $fields = @("version=$Ver")
-    if ($TargetRepo) { $fields += "target_repo=$TargetRepo" }
-
-    $fieldArgs = $fields | ForEach-Object { "-f", $_ }
+    param([string]$Slug, [string]$Workflow, [string]$Ver)
 
     try {
-        & $GH workflow run $Workflow `
+        # Inputs correctos segun release-windows-universal.yml: project (choice) + version
+        $output = & $GH workflow run $Workflow `
             --repo "$ORG/owsdatabase" `
-            @fieldArgs 2>&1
-        Write-OK "Workflow $Workflow disparado (version: $Ver)"
-        Start-Sleep -Seconds 5
+            -f "project=$Slug" `
+            -f "version=$Ver" 2>&1
+
+        $exitCode = $LASTEXITCODE
+        if ($exitCode -ne 0) {
+            Write-Err "gh workflow run fallo (exit $exitCode): $output"
+            return $false
+        }
+        Write-OK "Workflow $Workflow disparado  project=$Slug  version=$Ver"
+
+        # Confirmar que el run aparecio en GitHub
+        Start-Sleep -Seconds 8
+        $check = & $GH run list --repo "$ORG/owsdatabase" --workflow $Workflow --limit 1 2>&1
+        if ($check -match $Ver) {
+            Write-OK "Run confirmado en GitHub Actions"
+        } else {
+            Write-Info "Run iniciado (no se pudo confirmar por nombre). Revisa: https://github.com/$ORG/owsdatabase/actions"
+        }
         return $true
     } catch {
-        Write-Err "No se pudo disparar workflow: $_"
+        Write-Err "Error disparando workflow: $_"
         return $false
     }
 }
@@ -237,8 +248,7 @@ Pop-Location
 if ($platforms -contains "windows" -and ($platform -eq "windows" -or $platform -eq "both")) {
     Write-Step "Disparando build Windows..."
 
-    $targetRepo = if ($repo -ne "owsdatabase") { $repo } else { $null }
-    $triggered  = Trigger-Workflow -Repo $repo -Workflow "release-windows-universal.yml" -Ver $version -TargetRepo $targetRepo
+    $triggered = Trigger-Workflow -Slug $project -Workflow "release-windows-universal.yml" -Ver $version
 
     if ($triggered) {
         # Determinar nombre del asset esperado
@@ -260,7 +270,7 @@ if ($platforms -contains "windows" -and ($platform -eq "windows" -or $platform -
 # ── Trigger Android build ──────────────────────────────────────────────────────
 if ($platforms -contains "android" -and ($platform -eq "android" -or $platform -eq "both")) {
     Write-Step "Disparando build Android..."
-    Trigger-Workflow -Repo $repo -Workflow "release-android-universal.yml" -Ver $version -TargetRepo $repo
+    Trigger-Workflow -Slug $project -Workflow "release-android-universal.yml" -Ver $version
     # Android no necesita wait de asset (APK se sube separado)
     Register-Version -Slug $project -Ver $version -Plat "android"
 }

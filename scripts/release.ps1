@@ -53,47 +53,6 @@ function Require-Token {
 }
 
 # ── Wait for GitHub asset to exist (prevents 404 on updater) ─────────────────
-function Wait-GithubAsset {
-    param([string]$Repo, [string]$Tag, [string]$AssetPattern, [int]$MaxMinutes = 15)
-
-    $url      = "https://api.github.com/repos/$ORG/$Repo/releases/tags/$Tag"
-    $deadline = (Get-Date).AddMinutes($MaxMinutes)
-    $attempt  = 0
-
-    Write-Step "Esperando asset en GitHub ($Repo @ $Tag)..."
-    Write-Info  "Patron buscado: $AssetPattern"
-    Write-Info  "Timeout: $MaxMinutes minutos"
-
-    while ((Get-Date) -lt $deadline) {
-        $attempt++
-        try {
-            $headers  = @{ "Accept" = "application/vnd.github+json"; "User-Agent" = "OWSReleaseScript/1.0" }
-            $response = Invoke-RestMethod -Uri $url -Headers $headers -ErrorAction Stop
-            $assets   = $response.assets | Where-Object { $_.name -like $AssetPattern }
-
-            if ($assets -and $assets.Count -gt 0) {
-                $asset = $assets[0]
-                # Esperar a que el upload este completo (state = uploaded)
-                if ($asset.state -eq "uploaded") {
-                    Write-OK "Asset listo: $($asset.name) ($([math]::Round($asset.size/1MB, 1)) MB)"
-                    return $true
-                } else {
-                    Write-Info "[$attempt] Asset encontrado pero aun subiendo (state: $($asset.state))..."
-                }
-            } else {
-                Write-Info "[$attempt] Asset no disponible aun (release existe: $($response.id -ne $null))..."
-            }
-        } catch {
-            Write-Info "[$attempt] Release no existe aun en GitHub..."
-        }
-
-        Start-Sleep -Seconds 20
-    }
-
-    Write-Err "Timeout esperando asset ($MaxMinutes min). El workflow puede aun estar corriendo."
-    Write-Info "Revisa: https://github.com/$ORG/$Repo/actions"
-    return $false
-}
 
 # ── Register version in DB ────────────────────────────────────────────────────
 function Register-Version {
@@ -244,26 +203,19 @@ try {
 }
 Pop-Location
 
-# ── Trigger Windows build ─────────────────────────────────────────────────────
+# ── Trigger Windows build ─────────────────────────────────────────────
 if ($platforms -contains "windows" -and ($platform -eq "windows" -or $platform -eq "both")) {
     Write-Step "Disparando build Windows..."
-
     $triggered = Trigger-Workflow -Slug $project -Workflow "release-windows-universal.yml" -Ver $version
 
     if ($triggered) {
-        # Determinar nombre del asset esperado
-        $assetSlug    = $project.Replace("-", ".")
-        $assetPattern = "*$version*.exe"
-
-        # Esperar a que el asset exista ANTES de registrar en DB
-        $assetReady = Wait-GithubAsset -Repo $repo -Tag $tag -AssetPattern $assetPattern -MaxMinutes 15
-
-        if ($assetReady) {
-            Register-Version -Slug $project -Ver $version -Plat "windows"
-        } else {
-            Write-Err "Asset no encontrado a tiempo. Registra manualmente cuando el build termine:"
-            Write-Info "Invoke-RestMethod -Uri `"$API/ows-store/projects/$project/version`" -Method PATCH -Headers @{`"Content-Type`"=`"application/json`";`"x-ows-admin-token`"=`"$TOKEN`"} -Body '{`"version`":`"$version`"}'"
-        }
+        Write-Host ""
+        Write-Host "  El workflow se encarga del resto:" -ForegroundColor Cyan
+        Write-Host "    - Build del instalador .exe" -ForegroundColor Gray
+        Write-Host "    - Publicar release en GitHub" -ForegroundColor Gray
+        Write-Host "    - Actualizar version en DB" -ForegroundColor Gray
+        Write-Host ""
+        Write-Host "  Seguimiento: https://github.com/$ORG/owsdatabase/actions" -ForegroundColor Cyan
     }
 }
 

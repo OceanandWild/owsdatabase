@@ -7374,6 +7374,33 @@ app.patch('/ows-store/projects/:slug/version', async (req, res) => {
 });
 
 // Obtener ÃƒÂºltimo release Android publicado por slug
+// Actualizar metadata de un proyecto (description, name, etc.)
+app.patch('/ows-store/projects/:slug', requireAdminToken, async (req, res) => {
+  const { slug } = req.params;
+  const allowed = ['description', 'name', 'status', 'platform', 'banner_url', 'icon_url'];
+  const updates = {};
+  for (const key of allowed) {
+    if (req.body[key] !== undefined) updates[key] = req.body[key];
+  }
+  if (Object.keys(updates).length === 0) {
+    return res.status(400).json({ error: 'No hay campos validos para actualizar' });
+  }
+  try {
+    const setClauses = Object.keys(updates).map((k, i) => `${k} = $${i + 1}`).join(', ');
+    const values = [...Object.values(updates), slug];
+    const { rows } = await pool.query(
+      `UPDATE ows_projects SET ${setClauses}, last_update = NOW() WHERE slug = $${values.length} RETURNING *`,
+      values
+    );
+    if (rows.length === 0) return res.status(404).json({ error: 'Proyecto no encontrado' });
+    res.json({ success: true, project: rows[0] });
+  } catch (err) {
+    console.error('Error en PATCH /ows-store/projects/:slug:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+
 app.get('/ows-store/android/releases/:slug/latest', async (req, res) => {
   const { slug } = req.params;
   const includeDraft = String(req.query.include_draft || '').toLowerCase() === 'true';

@@ -40,7 +40,7 @@ jobs:
         run: |
           $PROJECT = "${{ github.event.inputs.project }}"
           $configs = @{
-            "ows-store"            = @{ repo = "owsdatabase";         dir = "OWS Store Electron";   buildOut = "C:\builds\ows-store" }
+            "ows-store"            = @{ repo = "owsdatabase";         dir = "OWS Store";            buildOut = "C:\builds\ows-store" }
             "wildweapon-mayhem"    = @{ repo = "wildweapon-mayhem";   dir = "WildWeapon Mayhem";    buildOut = "C:\builds\wildweapon" }
             "savagespaceanimals"   = @{ repo = "savagespaceanimals";  dir = "Savage Space Animals"; buildOut = "C:\builds\ssa" }
             "oceanpay"             = @{ repo = "oceanpay";            dir = "Ocean Pay Electron";   buildOut = "C:\builds\oceanpay" }

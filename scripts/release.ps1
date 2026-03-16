@@ -100,14 +100,14 @@ function Register-Version {
     param([string]$Slug, [string]$Ver, [string]$Plat = "windows")
     Require-Token
 
-    $body = @{ version = $Ver; platform = $Plat } | ConvertTo-Json
+    $body = @{ version = $Ver } | ConvertTo-Json
     try {
-        $r = Invoke-RestMethod -Uri "$API/ows-store/projects/$Slug/release" `
-            -Method POST `
+        $r = Invoke-RestMethod -Uri "$API/ows-store/projects/$Slug/version" `
+            -Method PATCH `
             -Headers @{ "Content-Type"="application/json"; "x-ows-admin-token"=$TOKEN } `
             -Body $body `
             -ErrorAction Stop
-        Write-OK "Version $Ver ($Plat) registrada en DB para $Slug"
+        Write-OK "Version $Ver registrada en DB para $Slug"
         return $true
     } catch {
         Write-Err "No se pudo registrar version en DB: $_"
@@ -252,7 +252,7 @@ if ($platforms -contains "windows" -and ($platform -eq "windows" -or $platform -
             Register-Version -Slug $project -Ver $version -Plat "windows"
         } else {
             Write-Err "Asset no encontrado a tiempo. Registra manualmente cuando el build termine:"
-            Write-Info "Invoke-RestMethod -Uri `"$API/ows-store/projects/$project/release`" -Method POST -Headers @{`"x-ows-admin-token`"=`"$TOKEN`"} -Body '{`"version`":`"$version`",`"platform`":`"windows`"}' -ContentType `"application/json`""
+            Write-Info "Invoke-RestMethod -Uri `"$API/ows-store/projects/$project/version`" -Method PATCH -Headers @{`"Content-Type`"=`"application/json`";`"x-ows-admin-token`"=`"$TOKEN`"} -Body '{`"version`":`"$version`"}'"
         }
     }
 }

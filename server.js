@@ -7375,7 +7375,8 @@ app.patch('/ows-store/projects/:slug/version', async (req, res) => {
 
 // Obtener ÃƒÂºltimo release Android publicado por slug
 // Actualizar metadata de un proyecto (description, name, etc.)
-app.patch('/ows-store/projects/:slug', requireAdminToken, async (req, res) => {
+app.patch('/ows-store/projects/:slug', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
   const { slug } = req.params;
   const allowed = ['description', 'name', 'status', 'platform', 'banner_url', 'icon_url'];
   const updates = {};

@@ -1,14 +1,30 @@
 # OWS Release Script - Script universal de release
-# Uso: .\scripts\release.ps1 -project <slug> -version <version> [-platform windows|android|both]
+# Uso normal:
+#   .\scripts\release.ps1 -project <slug> -version 2026.X.X-tHHMM
+#   .\scripts\release.ps1 -project <slug> -version 2026.X.X-tHHMM -platform both
+#
+# Modo nuevo proyecto (registra en DB + script, no hace build):
+#   .\scripts\release.ps1 -newProject -project <slug> -version 2026.X.X-tHHMM
+#     -projectName "Nombre Visible" -projectDir "Nombre Carpeta Local"
+#     -projectRepo "nombre-repo-github" [-platform both] [-packageId "com.x.y"]
+#
+# NOTA: Ejecutar solo cuando el usuario pida explicitamente hacer build/release.
 
 param(
     [Parameter(Mandatory=$true)]  [string]$project,
     [Parameter(Mandatory=$true)]  [string]$version,
-    [string]$platform = "windows",
-    [string]$notes = "",
+    [string]$platform       = "windows",
+    [string]$notes          = "",
     [switch]$skipBuild,
     [switch]$skipRelease,
-    [switch]$skipApi
+    [switch]$skipApi,
+
+    # Modo nuevo proyecto
+    [switch]$newProject,
+    [string]$projectName    = "",
+    [string]$projectDir     = "",
+    [string]$projectRepo    = "",
+    [string]$packageId      = ""
 )
 
 $GH          = "C:\Program Files\GitHub CLI\gh.exe"
@@ -16,19 +32,20 @@ $WORKSPACE   = "C:\Users\hachi\OneDrive\Escritorio\Ocean and Wild Studios"
 $API         = "https://owsdatabase.onrender.com"
 $ADMIN_TOKEN = $env:OWS_ADMIN_SECRET
 $GH_ORG      = "OceanandWild"
+$SCRIPT_PATH = $PSCommandPath
 
 $PROJECTS = @{
-    "ows-store"            = @{ repo="owsdatabase";          dir="OWS Store";            buildOut="C:\builds\ows-store";       platforms=@("windows"); androidWorkflow=""; packageId="" }
-    "wildweapon-mayhem"    = @{ repo="wildweapon-mayhem";    dir="WildWeapon Mayhem";    buildOut="C:\builds\wildweapon";      platforms=@("windows"); androidWorkflow=""; packageId="" }
-    "savagespaceanimals"   = @{ repo="savagespaceanimals";   dir="Savage Space Animals"; buildOut="C:\builds\ssa";             platforms=@("windows"); androidWorkflow=""; packageId="" }
-    "oceanpay"             = @{ repo="oceanpay";             dir="Ocean Pay Electron";   buildOut="C:\builds\oceanpay";        platforms=@("windows"); androidWorkflow=""; packageId="" }
+    "ows-store"            = @{ repo="owsdatabase";          dir="OWS Store";            buildOut="C:\builds\ows-store";       platforms=@("windows");           androidWorkflow=""; packageId="" }
+    "wildweapon-mayhem"    = @{ repo="wildweapon-mayhem";    dir="WildWeapon Mayhem";    buildOut="C:\builds\wildweapon";      platforms=@("windows");           androidWorkflow=""; packageId="" }
+    "savagespaceanimals"   = @{ repo="savagespaceanimals";   dir="Savage Space Animals"; buildOut="C:\builds\ssa";             platforms=@("windows");           androidWorkflow=""; packageId="" }
+    "oceanpay"             = @{ repo="oceanpay";             dir="Ocean Pay Electron";   buildOut="C:\builds\oceanpay";        platforms=@("windows");           androidWorkflow=""; packageId="" }
     "floretshop"           = @{ repo="floretshop";           dir="Floret Shop";          buildOut="C:\builds\floretshop";      platforms=@("windows","android"); androidWorkflow="release-android-universal.yml"; packageId="com.oceanandwild.floretshop" }
     "wildtransfer"         = @{ repo="wildtransfer";         dir="WildTransfer";         buildOut="C:\builds\wildtransfer";    platforms=@("windows","android"); androidWorkflow="release-android-universal.yml"; packageId="com.oceanandwild.wildtransfer" }
     "a-wild-question-game" = @{ repo="a-wild-question-game"; dir="A Wild Question Game"; buildOut="C:\builds\awqg";            platforms=@("windows","android"); androidWorkflow="release-android-universal.yml"; packageId="com.oceanandwild.awqg" }
-    "velocity-surge"       = @{ repo="velocity-surge";       dir="Velocity Surge";       buildOut="C:\builds\velocity-surge";  platforms=@("windows"); androidWorkflow=""; packageId="" }
-    "wildwave"             = @{ repo="wildwave";             dir="WildWave";             buildOut="C:\builds\wildwave";        platforms=@("windows"); androidWorkflow=""; packageId="" }
-    "ecoxion"              = @{ repo="ecoxion";              dir="Ecoxion";              buildOut="C:\builds\ecoxion";         platforms=@("windows"); androidWorkflow=""; packageId="" }
-    "dinobox"              = @{ repo="owsdatabase";          dir="DinoBox";              buildOut="C:\builds\dinobox";         platforms=@("windows"); androidWorkflow=""; packageId="" }
+    "velocity-surge"       = @{ repo="velocity-surge";       dir="Velocity Surge";       buildOut="C:\builds\velocity-surge";  platforms=@("windows");           androidWorkflow=""; packageId="" }
+    "wildwave"             = @{ repo="wildwave";             dir="WildWave";             buildOut="C:\builds\wildwave";        platforms=@("windows");           androidWorkflow=""; packageId="" }
+    "ecoxion"              = @{ repo="ecoxion";              dir="Ecoxion";              buildOut="C:\builds\ecoxion";         platforms=@("windows");           androidWorkflow=""; packageId="" }
+    "dinobox"              = @{ repo="owsdatabase";          dir="DinoBox";              buildOut="C:\builds\dinobox";         platforms=@("windows");           androidWorkflow=""; packageId="" }
 }
 
 function Log-Step { param($msg) Write-Host "`n>> $msg" -ForegroundColor Cyan }
@@ -52,6 +69,75 @@ function Invoke-API {
     }
 }
 
+# ============================================================
+# MODO NUEVO PROYECTO
+# ============================================================
+if ($newProject) {
+    Write-Host "`n============================================================" -ForegroundColor Magenta
+    Write-Host "  OWS Nuevo Proyecto -- $project" -ForegroundColor Magenta
+    Write-Host "============================================================" -ForegroundColor Magenta
+
+    if (-not $projectName -or -not $projectDir -or -not $projectRepo) {
+        Log-Fail "Para -newProject se requiere: -projectName, -projectDir, -projectRepo"
+        Write-Host "  Ejemplo:" -ForegroundColor Gray
+        Write-Host "  .\scripts\release.ps1 -newProject -project mi-juego -version 2026.3.20-t1400 -projectName 'Mi Juego' -projectDir 'Mi Juego' -projectRepo 'mi-juego'" -ForegroundColor Gray
+        exit 1
+    }
+
+    $isAndroid  = ($platform -eq "android" -or $platform -eq "both")
+    $platforms  = if ($isAndroid) { "@(`"windows`",`"android`")" } else { "@(`"windows`")" }
+    $pkgIdLine  = if ($isAndroid -and $packageId) { $packageId } else { "" }
+    $workflow   = if ($isAndroid) { "release-android-universal.yml" } else { "" }
+    $buildOutPath = "C:\builds\$project"
+
+    # 1. Registrar en OWS Store DB
+    Log-Step "Registrando proyecto en OWS Store DB"
+    $dbPlatforms = if ($isAndroid) { @("windows","android") } else { @("windows") }
+    $newProjectBody = @{
+        slug        = $project
+        name        = $projectName
+        description = "$projectName disponible en OWS Store."
+        url         = "https://github.com/$GH_ORG/$projectRepo/releases/latest"
+        version     = $version
+        status      = "launched"
+        metadata    = @{ platforms = $dbPlatforms; repo = "$GH_ORG/$projectRepo" }
+    }
+    $r = Invoke-API "POST" "/ows-store/projects" $newProjectBody
+    if ($r) { Log-OK "Proyecto registrado en DB" }
+
+    # 2. Agregar al script release.ps1
+    Log-Step "Agregando proyecto al script release.ps1"
+    $scriptContent = Get-Content $SCRIPT_PATH -Raw
+
+    $newLine = "    `"$project`"$(' ' * [Math]::Max(1, 25 - $project.Length))= @{ repo=`"$projectRepo`"; dir=`"$projectDir`"; buildOut=`"$buildOutPath`"; platforms=$platforms; androidWorkflow=`"$workflow`"; packageId=`"$pkgIdLine`" }"
+    $insertAfter = '"dinobox"'
+    $scriptContent = $scriptContent -replace '("dinobox"[^\n]+\n)', "`$1    $newLine`n"
+    Set-Content $SCRIPT_PATH $scriptContent -Encoding ASCII
+    Log-OK "Proyecto agregado al script. Recorda hacer push de scripts/release.ps1"
+
+    # 3. OWS News
+    Log-Step "Publicando en OWS News"
+    $newsBody = @{
+        title         = "$projectName $version disponible"
+        description   = "Nuevo proyecto $projectName agregado al ecosistema OWS."
+        project_names = @($project)
+        changes       = "- Primer release oficial de $projectName"
+        update_date   = (Get-Date -Format "yyyy-MM-dd")
+    }
+    $r2 = Invoke-API "POST" "/ows-news/updates" $newsBody
+    if ($r2) { Log-OK "OWS News publicado" }
+
+    Write-Host "`n============================================================" -ForegroundColor Magenta
+    Write-Host "  NUEVO PROYECTO REGISTRADO: $project" -ForegroundColor Magenta
+    Write-Host "  Siguiente paso: hacer el release con:" -ForegroundColor White
+    Write-Host "  .\scripts\release.ps1 -project $project -version $version$(if ($isAndroid) { ' -platform both' })" -ForegroundColor Cyan
+    Write-Host "============================================================" -ForegroundColor Magenta
+    exit 0
+}
+
+# ============================================================
+# MODO RELEASE NORMAL
+# ============================================================
 Write-Host "`n============================================================" -ForegroundColor Cyan
 Write-Host "  OWS Release -- $project v$version [$platform]" -ForegroundColor Cyan
 Write-Host "============================================================" -ForegroundColor Cyan

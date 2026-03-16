@@ -93,6 +93,63 @@ Se incluiran mas cosas luego, pero esto te ayuda a entender como realizar la may
 
 --- SCRIPT DE RELEASE UNIVERSAL (IMPORTANTE) ---
 
+EXISTE UN SCRIPT en scripts/release.ps1 que automatiza TODO el proceso de release.
+EJECUTAR ESTE SCRIPT SOLO SI EL USUARIO INDICA EXPLICITAMENTE QUE SE DEBE HACER BUILD/RELEASE.
+
+SETUP INICIAL (solo una vez):
+  Unblock-File -Path ".\scripts\release.ps1"
+  $env:OWS_ADMIN_SECRET = "tu-secret"
+
+--- MODO 1: RELEASE NORMAL ---
+Release solo Windows:
+  .\scripts\release.ps1 -project <slug> -version 2026.X.X-tHHMM
+
+Release Windows + Android (solo para: floretshop, wildtransfer, a-wild-question-game):
+  .\scripts\release.ps1 -project <slug> -version 2026.X.X-tHHMM -platform both
+
+Release solo Android:
+  .\scripts\release.ps1 -project <slug> -version 2026.X.X-tHHMM -platform android
+
+--- MODO 2: NUEVO PROYECTO ---
+Cuando se agrega un proyecto nuevo al ecosistema, usar este modo PRIMERO.
+Registra en DB, agrega al script y publica en OWS News. No hace build.
+
+Solo Windows:
+  .\scripts\release.ps1 -newProject -project <slug> -version 2026.X.X-tHHMM -projectName "Nombre Visible" -projectDir "Nombre Carpeta Local" -projectRepo "nombre-repo-github"
+
+Windows + Android:
+  .\scripts\release.ps1 -newProject -project <slug> -version 2026.X.X-tHHMM -projectName "Nombre Visible" -projectDir "Nombre Carpeta Local" -projectRepo "nombre-repo-github" -platform both -packageId "com.oceanandwild.slug"
+
+Despues del -newProject, hacer el release normal:
+  .\scripts\release.ps1 -project <slug> -version 2026.X.X-tHHMM [-platform both]
+
+Tambien hay que agregar el slug en server.js (OWS_PROJECT_RELEASE_SOURCES). Subime el server.js y lo hago yo.
+
+--- ANDROID ---
+Los builds Android se hacen via GitHub Actions (workflow: release-android-universal.yml).
+Requiere secretos configurados en owsdatabase Actions:
+  ANDROID_KEYSTORE_BASE64, ANDROID_KEY_ALIAS, ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_PASSWORD
+Proyectos con Android: floretshop, wildtransfer, a-wild-question-game
+Si se agrega un proyecto nuevo con Android: agregar al workflow release-android-universal.yml
+
+AVISO CRITICO -- DIRECTORIOS DE PROYECTOS:
+- OWS Store Electron/ --> IGNORAR, carpeta antigua en desuso, NO usar para builds
+- OWS Store/ ----------> Carpeta correcta del OWS Store
+
+PROYECTOS Y SUS DIRECTORIOS CORRECTOS:
+  ows-store            -> OWS Store/
+  wildweapon-mayhem    -> WildWeapon Mayhem/
+  savagespaceanimals   -> Savage Space Animals/
+  oceanpay             -> Ocean Pay Electron/
+  floretshop           -> Floret Shop/
+  wildtransfer         -> WildTransfer/
+  a-wild-question-game -> A Wild Question Game/
+  velocity-surge       -> Velocity Surge/
+  wildwave             -> WildWave/
+  ecoxion              -> Ecoxion/
+  dinobox              -> DinoBox/
+
+
 EXISTE UN SCRIPT en scripts/release.ps1 que automatiza TODO el proceso de release
 para cualquier proyecto del ecosistema OWS. Este script:
 - Hace el build de Windows (npm run dist)

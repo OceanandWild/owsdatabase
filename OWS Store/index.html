@@ -2752,6 +2752,7 @@
             status: 'coming_soon',
             version: '1.0.0',
             platform: 'windows',
+            description: 'Explora un mundo de criaturas y ecosistemas digitales. Descubre, colecciona y da vida a tu propio entorno en constante evolucion.',
             install_type: 'external',
             installer_url: ECOXION_RELEASES_URL,
             installer_available: false,
@@ -6269,6 +6270,9 @@
                     slug: 'ecoxion',
                     name: 'Ecoxion',
                     short: 'ECX',
+                    description: (list[idx].description && !list[idx].description.toLowerCase().includes('disponible en ows store'))
+                        ? list[idx].description
+                        : ECOXION_PROJECT.description,
                     // status, installer_available y pending_release los resuelve applyLatestInstallerData
                     // via fetchLatestEcoxionRelease segun el repo real de GitHub.
                     status: list[idx].status || 'coming_soon',
@@ -8703,11 +8707,11 @@
         function getEcoxionIconSource(project, size = 64) {
             const fallback = `https://placehold.co/${size}/07121f/26e0ff?text=ECX`;
             const projectIcon = String(project?.icon_url || '').trim();
-            const localPreferred = isNativeAndroidRuntime() ? ECOXION_LOCAL_ICON_PNG : ECOXION_LOCAL_ICON;
-            if (isNativeAndroidRuntime() && projectIcon && /\.ico(\?|$)/i.test(projectIcon)) {
-                return localPreferred || fallback;
-            }
-            return projectIcon || localPreferred || fallback;
+            // Prefer PNG — .ico files don't render reliably as <img> in Chromium
+            // Skip any .ico icon_url from the server, use local PNG instead
+            const iconIsIco = /\.ico(\?|$)/i.test(projectIcon);
+            if (projectIcon && !iconIsIco) return projectIcon;
+            return ECOXION_LOCAL_ICON_PNG || fallback;
         }
 
         function getProjectIcon(project, size = 64) {

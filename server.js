@@ -17879,6 +17879,240 @@ app.post('/ocean-pay/notifications/read/:id', async (req, res) => {
   res.json({ success: true });
 });
 
+// ══════════════════════════════════════════════════════════════════════════════
+// OCEAN PAY — UNIFIED CURRENCY MIGRATION
+// Consolida TODOS los saldos en user_currency (una fila por usuario+moneda).
+// Fuentes migradas:
+//   1. ocean_pay_users.aquabux / appbux / ecoxionums  (columnas directas)
+//   2. ocean_pay_card_balances (por tarjeta -> suma por usuario)
+// La tabla user_currency ya existia para ecocorebits; la extendemos para todo.
+// ══════════════════════════════════════════════════════════════════════════════
+
+const OP_ALL_CURRENCIES = ['aquabux', 'appbux', 'ecoxionums', 'wildcredits', 'wildgems', 'ecobooks', 'amber', 'nxb', 'voltbit', 'ecotokens', 'ecobits', 'mayhemcoins', 'cosmicdust', 'ecopower', 'coralbits', 'tigrys', 'wildwavetokens', 'relayshards', 'ecocorebits'];
+
+// Leer saldo unificado de un usuario para una moneda
+async function getUnifiedBalance(client, userId, currency) {
+  const { rows } = await client.query(
+    `SELECT amount FROM user_currency WHERE user_id = $1 AND currency_type = $2`,
+    [userId, currency]
+  );
+  return rows.length ? Number(rows[0].amount) : 0;
+}
+
+// Escribir saldo unificado (upsert)
+async function setUnifiedBalance(client, userId, currency, amount) {
+  await client.query(
+    `INSERT INTO user_currency (user_id, currency_type, amount)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (user_id, currency_type)
+     DO UPDATE SET amount = $3, updated_at = NOW()`,
+    [userId, currency, Math.max(0, Number(amount) || 0)]
+  );
+}
+
+// Leer TODOS los saldos de un usuario como objeto { currency: amount }
+async function getAllUnifiedBalances(client, userId) {
+  const { rows } = await client.query(
+    `SELECT currency_type, amount FROM user_currency WHERE user_id = $1`,
+    [userId]
+  );
+  const result = {};
+  for (const c of OP_ALL_CURRENCIES) result[c] = 0;
+  for (const row of rows) result[row.currency_type] = Number(row.amount);
+  return result;
+}
+
+// ── Admin: ejecutar migracion completa ────────────────────────────────────────
+app.post('/ocean-pay/admin/migrate-currencies', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // 1. Asegurar columna updated_at en user_currency (puede no existir en versiones viejas)
+    await client.query(`
+      ALTER TABLE user_currency
+      ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    `).catch(() => {});
+
+    // 2. Obtener todos los usuarios de Ocean Pay
+    const { rows: users } = await client.query(
+      'SELECT id, aquabux, appbux, ecoxionums FROM ocean_pay_users'
+    );
+
+    let migratedUsers = 0;
+    let totalRows = 0;
+    const log = [];
+
+    for (const user of users) {
+      const uid = user.id;
+
+      // Recopilar saldos de TODAS las fuentes para este usuario
+
+      // Fuente A: columnas directas en ocean_pay_users
+      const directBalances = {
+        aquabux:    Number(user.aquabux    || 0),
+        appbux:     Number(user.appbux     || 0),
+        ecoxionums: Number(user.ecoxionums || 0),
+      };
+
+      // Fuente B: ocean_pay_card_balances (suma de todas las tarjetas del usuario)
+      const { rows: cardRows } = await client.query(
+        `SELECT b.currency_type, SUM(b.amount) AS total
+         FROM ocean_pay_card_balances b
+         JOIN ocean_pay_cards c ON c.id = b.card_id
+         WHERE c.user_id = $1
+         GROUP BY b.currency_type`,
+        [uid]
+      );
+      const cardBalances = {};
+      for (const row of cardRows) {
+        cardBalances[row.currency_type] = Number(row.total || 0);
+      }
+
+      // Fuente C: user_currency existente (puede tener ecocorebits u otras)
+      const { rows: ucRows } = await client.query(
+        'SELECT currency_type, amount FROM user_currency WHERE user_id = $1',
+        [uid]
+      );
+      const existingUC = {};
+      for (const row of ucRows) {
+        existingUC[row.currency_type] = Number(row.amount || 0);
+      }
+
+      // Consolidar: tomar el MAYOR valor entre todas las fuentes (nunca perder saldo)
+      const consolidated = {};
+      for (const currency of OP_ALL_CURRENCIES) {
+        const a = directBalances[currency]  || 0;
+        const b = cardBalances[currency]    || 0;
+        const c = existingUC[currency]      || 0;
+        consolidated[currency] = Math.max(a, b, c);
+      }
+      // Incluir cualquier moneda extra que exista en card_balances pero no en la lista
+      for (const [currency, amount] of Object.entries(cardBalances)) {
+        if (!(currency in consolidated)) {
+          consolidated[currency] = Math.max(amount, existingUC[currency] || 0);
+        }
+      }
+
+      // Escribir todo en user_currency
+      for (const [currency, amount] of Object.entries(consolidated)) {
+        await client.query(
+          `INSERT INTO user_currency (user_id, currency_type, amount)
+           VALUES ($1, $2, $3)
+           ON CONFLICT (user_id, currency_type)
+           DO UPDATE SET amount = GREATEST(user_currency.amount, EXCLUDED.amount),
+                         updated_at = NOW()`,
+          [uid, currency, amount]
+        );
+        totalRows++;
+      }
+
+      log.push({ userId: uid, currencies: Object.keys(consolidated).length });
+      migratedUsers++;
+    }
+
+    await client.query('COMMIT');
+
+    console.log('[Migration] Currencies migradas:', migratedUsers, 'usuarios,', totalRows, 'filas');
+    res.json({
+      success: true,
+      migratedUsers,
+      totalRows,
+      message: `Migracion completada: ${migratedUsers} usuarios, ${totalRows} filas en user_currency.`,
+      log
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('[Migration] Error:', err);
+    res.status(500).json({ error: 'Error en migracion: ' + (err.message || err) });
+  } finally {
+    client.release();
+  }
+});
+
+// ── Admin: consultar saldos unificados de un usuario ─────────────────────────
+app.get('/ocean-pay/admin/balances/:userId', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const userId = Number(req.params.userId);
+  if (!userId) return res.status(400).json({ error: 'userId invalido' });
+
+  const client = await pool.connect();
+  try {
+    const balances = await getAllUnifiedBalances(client, userId);
+
+    // Comparar con fuentes originales para auditoria
+    const { rows: userRows } = await client.query(
+      'SELECT aquabux, appbux, ecoxionums FROM ocean_pay_users WHERE id = $1',
+      [userId]
+    );
+    const { rows: cardRows } = await client.query(
+      `SELECT b.currency_type, SUM(b.amount) AS total
+       FROM ocean_pay_card_balances b
+       JOIN ocean_pay_cards c ON c.id = b.card_id
+       WHERE c.user_id = $1
+       GROUP BY b.currency_type`,
+      [userId]
+    );
+
+    const cardMap = {};
+    for (const r of cardRows) cardMap[r.currency_type] = Number(r.total);
+
+    res.json({
+      success: true,
+      userId,
+      unified: balances,
+      sources: {
+        ocean_pay_users: userRows[0] || {},
+        ocean_pay_card_balances: cardMap,
+      }
+    });
+  } finally {
+    client.release();
+  }
+});
+
+// ── Admin: ajustar saldo unificado de un usuario ──────────────────────────────
+app.patch('/ocean-pay/admin/balances/:userId', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const userId = Number(req.params.userId);
+  if (!userId) return res.status(400).json({ error: 'userId invalido' });
+
+  const { currency, amount, mode } = req.body;
+  if (!currency || amount === undefined) {
+    return res.status(400).json({ error: 'currency y amount requeridos' });
+  }
+  if (!OP_ALL_CURRENCIES.includes(currency) && !/^[a-z_]+$/.test(currency)) {
+    return res.status(400).json({ error: 'currency invalida' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const current = await getUnifiedBalance(client, userId, currency);
+    let newAmount;
+    if (mode === 'add') {
+      newAmount = current + Number(amount);
+    } else if (mode === 'subtract') {
+      newAmount = Math.max(0, current - Number(amount));
+    } else {
+      // set (default)
+      newAmount = Number(amount);
+    }
+    await setUnifiedBalance(client, userId, currency, newAmount);
+    await client.query('COMMIT');
+
+    res.json({ success: true, userId, currency, previous: current, current: newAmount, mode: mode || 'set' });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  } finally {
+    client.release();
+  }
+});
+
+
 const PORT = process.env.PORT || 3000;
 httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`Ã°Å¸Å¡â‚¬ API corriendo en https://owsdatabase.onrender.com/`);

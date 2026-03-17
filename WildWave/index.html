@@ -2798,6 +2798,614 @@
       .wx-profile--readonly .wx-follow-btn {
         display: inline-flex;
       }
+
+
+
+
+      /* ── Profile hero banner ── */
+      .wx-profile-hero {
+        position: relative;
+        border-radius: 20px 20px 0 0;
+        overflow: hidden;
+        background: linear-gradient(135deg, rgba(34,211,238,0.12) 0%, rgba(14,165,233,0.08) 50%, rgba(99,102,241,0.1) 100%);
+        padding: 1.6rem 1.4rem 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.9rem;
+        border-bottom: 1px solid rgba(255,255,255,0.07);
+      }
+      .wx-profile-hero::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: radial-gradient(ellipse 80% 60% at 20% 30%, rgba(34,211,238,0.08), transparent 70%),
+                    radial-gradient(ellipse 60% 50% at 80% 70%, rgba(99,102,241,0.07), transparent 70%);
+        pointer-events: none;
+      }
+      .wx-profile-hero-main {
+        display: flex;
+        align-items: flex-start;
+        gap: 1rem;
+        position: relative;
+      }
+      .wx-profile-avatar-wrap {
+        position: relative;
+        flex-shrink: 0;
+      }
+      .wx-avatar--profile {
+        width: 72px !important;
+        height: 72px !important;
+        border-radius: 50% !important;
+        border: 2.5px solid rgba(34,211,238,0.45) !important;
+        box-shadow: 0 0 0 4px rgba(34,211,238,0.08), 0 4px 16px rgba(0,0,0,0.35) !important;
+      }
+      .wx-profile-identity {
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+        flex: 1;
+        min-width: 0;
+      }
+      .wx-profile-name {
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+        flex-wrap: wrap;
+      }
+      .wx-profile-name h2 {
+        margin: 0;
+        font-family: var(--font-display);
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: var(--text);
+        letter-spacing: -0.01em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 200px;
+      }
+      .wx-profile-name-stack { display: flex; flex-direction: column; gap: 0.05rem; }
+      .wx-profile-display { font-size: 1.1rem !important; }
+      .wx-profile-handle {
+        font-family: var(--font-body) !important;
+        font-size: 0.82rem !important;
+        font-weight: 400 !important;
+        color: var(--text-faint) !important;
+      }
+      .wx-profile-subtitle {
+        font-size: 0.75rem;
+        color: var(--text-faint);
+        margin: 0.1rem 0 0;
+      }
+      .wx-profile-bio {
+        font-size: 0.88rem;
+        color: var(--text-soft);
+        line-height: 1.5;
+        margin: 0.35rem 0 0;
+        max-width: 480px;
+      }
+      /* Hero stats chips row */
+      .wx-profile-hero-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        position: relative;
+      }
+      .wx-profile-chip {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 0.4rem 0.75rem;
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 10px;
+        min-width: 72px;
+        transition: border-color 0.18s, background 0.18s;
+      }
+      .wx-profile-chip:hover { border-color: rgba(34,211,238,0.3); background: rgba(34,211,238,0.06); }
+      .wx-profile-chip span { font-size: 0.65rem; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.04em; }
+      .wx-profile-chip strong { font-family: var(--font-display); font-size: 1rem; color: var(--text); font-weight: 700; }
+      /* Hero actions */
+      .wx-profile-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.45rem;
+        margin-top: 0.1rem;
+      }
+      /* Avatar upload row */
+      .wx-profile-upload {
+        background: rgba(255,255,255,0.025);
+        border: 1px solid rgba(255,255,255,0.07);
+        border-radius: 14px;
+        padding: 0.9rem 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+      .wx-profile-upload-title { font-weight: 600; font-size: 0.88rem; color: var(--text); margin: 0; }
+      .wx-profile-upload-sub { font-size: 0.75rem; color: var(--text-faint); margin: 0; }
+      .wx-profile-upload-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+      .wx-profile-upload-status { font-size: 0.78rem; color: var(--text-faint); margin: 0; }
+      /* Account switcher */
+      .wx-account-switcher {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        flex-wrap: wrap;
+        font-size: 0.8rem;
+        color: var(--text-faint);
+        padding: 0.55rem 0.75rem;
+        background: rgba(255,255,255,0.03);
+        border: 1px solid rgba(255,255,255,0.07);
+        border-radius: 10px;
+      }
+      .wx-account-controls { display: flex; gap: 0.4rem; align-items: center; flex: 1; flex-wrap: wrap; }
+      .wx-account-select {
+        flex: 1;
+        min-width: 120px;
+        background: rgba(255,255,255,0.06);
+        border: 1px solid var(--stroke);
+        border-radius: 7px;
+        color: var(--text);
+        font-size: 0.8rem;
+        padding: 0.3rem 0.5rem;
+        outline: none;
+      }
+      /* Section h3 headers */
+      .wx-profile-group h3 {
+        font-family: var(--font-display);
+        font-size: 0.7rem;
+        font-weight: 600;
+        letter-spacing: 0.12rem;
+        text-transform: uppercase;
+        color: var(--accent);
+        margin: 0 0 0.1rem;
+        opacity: 0.85;
+      }
+      /* Stats vertical grid */
+      .wx-profile-meta-vertical {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.5rem;
+      }
+      .wx-profile-stat-vertical {
+        display: flex;
+        flex-direction: column;
+        gap: 0.1rem;
+        padding: 0.5rem 0.65rem;
+        background: rgba(255,255,255,0.03);
+        border-radius: 10px;
+        border: 1px solid rgba(255,255,255,0.05);
+      }
+      .wx-profile-stat-value {
+        font-family: var(--font-display);
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--text);
+      }
+      .wx-profile-stat-label {
+        font-size: 0.68rem;
+        color: var(--text-faint);
+        line-height: 1.3;
+      }
+      /* Profile fields */
+      .wx-profile-field {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+      }
+      .wx-profile-field label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: var(--text-soft);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+      .wx-profile-field input,
+      .wx-profile-field textarea {
+        background: rgba(255,255,255,0.05);
+        border: 1px solid var(--stroke);
+        border-radius: 9px;
+        color: var(--text);
+        font-family: var(--font-body);
+        font-size: 0.88rem;
+        padding: 0.55rem 0.75rem;
+        outline: none;
+        transition: border-color 0.18s;
+        resize: vertical;
+      }
+      .wx-profile-field input:focus,
+      .wx-profile-field textarea:focus { border-color: var(--accent); }
+      .wx-profile-field input:disabled,
+      .wx-profile-field textarea:disabled { opacity: 0.5; cursor: not-allowed; }
+      .wx-profile-field small { font-size: 0.72rem; color: var(--text-faint); }
+      /* Handle input */
+      .wx-handle-input {
+        display: flex;
+        align-items: center;
+        background: rgba(255,255,255,0.05);
+        border: 1px solid var(--stroke);
+        border-radius: 9px;
+        overflow: hidden;
+        transition: border-color 0.18s;
+      }
+      .wx-handle-input:focus-within { border-color: var(--accent); }
+      .wx-handle-input span {
+        padding: 0 0.55rem;
+        color: var(--accent);
+        font-weight: 600;
+        font-size: 0.9rem;
+        border-right: 1px solid var(--stroke);
+        background: rgba(34,211,238,0.06);
+        align-self: stretch;
+        display: flex;
+        align-items: center;
+      }
+      .wx-handle-input input {
+        border: none !important;
+        border-radius: 0 !important;
+        background: transparent !important;
+        flex: 1;
+      }
+      /* Readonly overlay */
+      .wx-profile--readonly .wx-profile-upload,
+      .wx-profile--readonly .wx-profile-group h3 + .wx-profile-identity,
+      .wx-profile--readonly #wx-proc-new { display: none; }
+      .wx-profile--readonly .wx-follow-btn { display: inline-flex; }
+      @media (max-width: 640px) {
+        .wx-profile-layout { grid-template-columns: 1fr; }
+        .wx-profile-hero-meta { gap: 0.35rem; }
+        .wx-profile-chip { min-width: 60px; }
+        .wx-profile-meta-vertical { grid-template-columns: 1fr; }
+        .wx-profile-avatar-wrap .wx-avatar--profile { width: 60px !important; height: 60px !important; }
+      }
+
+      /* ══════════════════════════════════════════
+         PROCESOS — panel & cards
+      ══════════════════════════════════════════ */
+      .wx-proc-panel {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
+      .wx-proc-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+      }
+      .wx-proc-title {
+        font-family: var(--font-display);
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: var(--text);
+      }
+      .wx-proc-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+      .wx-proc-card {
+        background: rgba(255,255,255,0.04);
+        border: 1px solid var(--stroke);
+        border-radius: 14px;
+        overflow: hidden;
+        transition: border-color 0.18s;
+      }
+      .wx-proc-card:hover { border-color: rgba(34,211,238,0.3); }
+      .wx-proc-card-head {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        padding: 0.7rem 0.9rem;
+        cursor: pointer;
+        user-select: none;
+      }
+      .wx-proc-card-title {
+        flex: 1;
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: var(--text);
+      }
+      .wx-proc-counter {
+        font-size: 0.75rem;
+        color: var(--accent);
+        font-family: var(--font-display);
+        background: var(--accent-soft);
+        border-radius: 999px;
+        padding: 0.1rem 0.55rem;
+        white-space: nowrap;
+      }
+      .wx-proc-chevron {
+        color: var(--text-faint);
+        font-size: 0.75rem;
+        transition: transform 0.2s;
+      }
+      .wx-proc-card.is-open .wx-proc-chevron { transform: rotate(180deg); }
+      .wx-proc-card-body {
+        display: none;
+        flex-direction: column;
+        gap: 0;
+        padding: 0 0.9rem 0.75rem;
+        border-top: 1px solid var(--stroke);
+      }
+      .wx-proc-card.is-open .wx-proc-card-body { display: flex; }
+      .wx-proc-description {
+        font-size: 0.8rem;
+        color: var(--text-soft);
+        padding: 0.5rem 0 0.35rem;
+      }
+      /* Steps */
+      .wx-proc-steps { display: flex; flex-direction: column; gap: 0.1rem; margin: 0.35rem 0; }
+      .wx-proc-step {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.35rem 0.25rem;
+        border-radius: 7px;
+        transition: background 0.15s;
+      }
+      .wx-proc-step:hover { background: rgba(255,255,255,0.04); }
+      .wx-proc-step--sub { padding-left: 1.6rem; }
+      .wx-proc-step-check {
+        width: 16px; height: 16px;
+        border-radius: 4px;
+        border: 1.5px solid var(--stroke);
+        flex-shrink: 0;
+        cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 0.65rem;
+        transition: border-color 0.15s, background 0.15s;
+        background: transparent;
+      }
+      .wx-proc-step.is-done .wx-proc-step-check {
+        border-color: var(--accent);
+        background: var(--accent);
+        color: #000;
+      }
+      .wx-proc-step-label {
+        flex: 1;
+        font-size: 0.83rem;
+        color: var(--text);
+        cursor: pointer;
+      }
+      .wx-proc-step.is-done .wx-proc-step-label {
+        text-decoration: line-through;
+        color: var(--text-faint);
+      }
+      .wx-proc-step-del {
+        opacity: 0;
+        background: none;
+        border: none;
+        color: var(--text-faint);
+        cursor: pointer;
+        font-size: 0.85rem;
+        padding: 0 0.2rem;
+        border-radius: 4px;
+        line-height: 1;
+        transition: opacity 0.15s, color 0.15s;
+      }
+      .wx-proc-step:hover .wx-proc-step-del { opacity: 1; }
+      .wx-proc-step-del:hover { color: var(--danger); }
+      /* Add step inline */
+      .wx-proc-add-step {
+        display: flex;
+        gap: 0.4rem;
+        margin-top: 0.4rem;
+        align-items: center;
+      }
+      .wx-proc-add-step input {
+        flex: 1;
+        background: rgba(255,255,255,0.05);
+        border: 1px solid var(--stroke);
+        border-radius: 7px;
+        color: var(--text);
+        font-family: var(--font-body);
+        font-size: 0.82rem;
+        padding: 0.4rem 0.6rem;
+        outline: none;
+      }
+      .wx-proc-add-step input:focus { border-color: var(--accent); }
+      /* Card actions */
+      .wx-proc-card-actions {
+        display: flex;
+        gap: 0.4rem;
+        margin-top: 0.5rem;
+        flex-wrap: wrap;
+      }
+      /* Progress bar */
+      .wx-proc-progress {
+        height: 3px;
+        background: rgba(255,255,255,0.08);
+        border-radius: 999px;
+        overflow: hidden;
+        margin: 0.1rem 0 0.4rem;
+      }
+      .wx-proc-progress-fill {
+        height: 100%;
+        background: var(--accent);
+        border-radius: 999px;
+        transition: width 0.4s ease;
+      }
+      /* Empty state */
+      .wx-proc-empty {
+        text-align: center;
+        color: var(--text-faint);
+        font-size: 0.85rem;
+        padding: 1.5rem 0;
+      }
+      /* Readonly (on other profiles) */
+      .wx-proc-readonly .wx-proc-add-step,
+      .wx-proc-readonly .wx-proc-card-actions,
+      .wx-proc-readonly .wx-proc-step-del,
+      .wx-proc-readonly .wx-proc-step-check { pointer-events: none; opacity: 0.6; }
+
+      /* ── Poll builder (composer) ── */
+      .wx-poll-builder { display: flex; flex-direction: column; gap: 0.6rem; }
+      .wx-poll-input {
+        width: 100%;
+        background: rgba(255,255,255,0.05);
+        border: 1px solid var(--stroke);
+        border-radius: 8px;
+        color: var(--text);
+        font-family: var(--font-body);
+        font-size: 0.88rem;
+        padding: 0.55rem 0.75rem;
+        outline: none;
+        transition: border-color 0.18s;
+      }
+      .wx-poll-input:focus { border-color: var(--accent); }
+      .wx-poll-input--question { font-weight: 600; }
+      .wx-poll-options-list { display: flex; flex-direction: column; gap: 0.4rem; }
+      .wx-poll-option-row {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+      }
+      .wx-poll-option-row input { flex: 1; }
+      .wx-poll-option-remove {
+        background: none;
+        border: none;
+        color: var(--text-faint);
+        cursor: pointer;
+        font-size: 1rem;
+        line-height: 1;
+        padding: 0.25rem;
+        border-radius: 4px;
+        transition: color 0.15s;
+      }
+      .wx-poll-option-remove:hover { color: var(--danger); }
+      .wx-poll-duration {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        font-size: 0.82rem;
+        color: var(--text-soft);
+      }
+      .wx-poll-select {
+        background: rgba(255,255,255,0.05);
+        border: 1px solid var(--stroke);
+        border-radius: 6px;
+        color: var(--text);
+        font-size: 0.82rem;
+        padding: 0.3rem 0.5rem;
+      }
+
+      /* ── Poll in feed ── */
+      .wx-post-poll {
+        margin: 0.6rem 0 0.2rem;
+        background: rgba(34,211,238,0.05);
+        border: 1px solid rgba(34,211,238,0.18);
+        border-radius: 14px;
+        padding: 0.85rem 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+      .wx-poll-question {
+        font-weight: 600;
+        font-size: 0.9rem;
+        color: var(--text);
+        margin-bottom: 0.25rem;
+      }
+      .wx-poll-option-btn {
+        width: 100%;
+        text-align: left;
+        background: rgba(255,255,255,0.04);
+        border: 1.5px solid var(--stroke);
+        border-radius: 8px;
+        color: var(--text);
+        font-family: var(--font-body);
+        font-size: 0.85rem;
+        padding: 0.5rem 0.75rem;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+        transition: border-color 0.18s, background 0.18s;
+      }
+      .wx-poll-option-btn:hover:not(:disabled) {
+        border-color: var(--accent);
+        background: var(--accent-soft);
+      }
+      .wx-poll-option-btn.is-voted {
+        border-color: var(--accent);
+        background: rgba(34,211,238,0.12);
+      }
+      .wx-poll-option-bar {
+        position: absolute;
+        left: 0; top: 0; bottom: 0;
+        background: rgba(34,211,238,0.15);
+        border-radius: 8px 0 0 8px;
+        transition: width 0.45s ease;
+        pointer-events: none;
+      }
+      .wx-poll-option-label {
+        position: relative;
+        z-index: 1;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      .wx-poll-option-pct {
+        font-size: 0.75rem;
+        color: var(--accent);
+        font-weight: 600;
+        flex-shrink: 0;
+      }
+      .wx-poll-meta {
+        font-size: 0.72rem;
+        color: var(--text-faint);
+        display: flex;
+        gap: 0.75rem;
+        margin-top: 0.1rem;
+      }
+      .wx-poll-ended { color: var(--danger); }
+
+      /* ── Video composer & feed ── */
+      .wx-video-drop {
+        border: 1.5px dashed var(--stroke);
+        border-radius: 10px;
+        padding: 1.5rem 1rem;
+        text-align: center;
+        font-size: 0.82rem;
+        color: var(--text-soft);
+        margin: 0.5rem 0;
+        cursor: pointer;
+        transition: border-color 0.2s, background 0.2s;
+      }
+      .wx-video-drop:hover,
+      .wx-video-drop.is-active {
+        border-color: var(--accent);
+        background: var(--accent-soft);
+      }
+      .wx-video-preview {
+        border-radius: 10px;
+        overflow: hidden;
+        margin: 0.5rem 0;
+        background: #000;
+      }
+      .wx-video-preview video {
+        width: 100%;
+        max-height: 280px;
+        display: block;
+        border-radius: 10px;
+      }
+      .wx-post-video {
+        margin: 0.5rem 0;
+        border-radius: 12px;
+        overflow: hidden;
+        background: #000;
+        max-width: 100%;
+      }
+      .wx-post-video video {
+        width: 100%;
+        max-height: 420px;
+        display: block;
+        border-radius: 12px;
+        outline: none;
+      }
     </style>
   </head>
   <body>
@@ -2873,79 +3481,90 @@
         <main class="wx-main">
           <section class="wx-card wx-profile" id="wx-user-card" hidden>
             <input type="file" id="wx-avatar-input" accept="image/*" hidden />
+
+            <!-- ── Hero banner ── -->
             <div class="wx-profile-hero">
-              <div class="wx-profile-avatar-wrap">
-                <div class="wx-avatar wx-avatar--profile" id="wx-profile-avatar" aria-label="Foto de perfil"></div>
-                <label class="wx-avatar-edit" for="wx-avatar-input">Editar</label>
-              </div>
               <div class="wx-profile-hero-main">
-                <div class="wx-profile-name">
-                  <div class="wx-profile-name-stack">
-                    <h2 class="wx-profile-display" id="wx-user-display">Nombre visible</h2>
-                    <h2 class="wx-profile-handle" id="wx-user-name">@usuario</h2>
-                  </div>
-                  <div class="wx-verify-badge wx-verify-badge--blue" id="wx-verify-badge" hidden>
-                    <span class="wx-verify-icon" id="wx-verify-icon-main">✓</span>
-                    <div class="wx-verify-tooltip">
-                      <div class="wx-verify-tooltip-title" id="wx-verify-tooltip-title">Verificación azul</div>
-                      <div class="wx-verify-tooltip-body" id="wx-verify-tooltip-text">
-                        Usa WildCredits desde Ocean Pay para verificar tu cuenta. Se descuenta 25 WildCredits por día de tu saldo para mantener la verificación activa.
+                <div class="wx-profile-avatar-wrap">
+                  <div class="wx-avatar wx-avatar--profile" id="wx-profile-avatar" aria-label="Foto de perfil"></div>
+                </div>
+                <div class="wx-profile-identity">
+                  <div class="wx-profile-name">
+                    <div class="wx-profile-name-stack">
+                      <h2 class="wx-profile-display" id="wx-user-display">Nombre visible</h2>
+                      <h2 class="wx-profile-handle" id="wx-user-name">@usuario</h2>
+                    </div>
+                    <div class="wx-verify-badge wx-verify-badge--blue" id="wx-verify-badge" hidden>
+                      <span class="wx-verify-icon" id="wx-verify-icon-main">✓</span>
+                      <div class="wx-verify-tooltip">
+                        <div class="wx-verify-tooltip-title" id="wx-verify-tooltip-title">Verificación azul</div>
+                        <div class="wx-verify-tooltip-body" id="wx-verify-tooltip-text">
+                          Usa WildCredits desde Ocean Pay para verificar tu cuenta.
+                        </div>
                       </div>
                     </div>
+                    <div class="wx-affiliation-badge" id="wx-affiliation-badge" role="button" tabindex="0" hidden>
+                      <span>Afiliado</span>
+                      <span class="wx-affiliation-stack" id="wx-affiliation-stack"></span>
+                      <div class="wx-affiliation-tooltip" id="wx-affiliation-tooltip"></div>
+                    </div>
                   </div>
-                  <div class="wx-affiliation-badge" id="wx-affiliation-badge" role="button" tabindex="0" hidden>
-                    <span>Afiliado</span>
-                    <span class="wx-affiliation-stack" id="wx-affiliation-stack"></span>
-                    <div class="wx-affiliation-tooltip" id="wx-affiliation-tooltip"></div>
-                  </div>
-                </div>
-                <p class="wx-profile-subtitle">Miembro desde <span id="wx-user-since">—</span></p>
-                <p class="wx-profile-bio" id="wx-user-bio">Sin descripción.</p>
-                <div class="wx-profile-actions">
-                  <button type="button" class="wx-btn wx-follow-btn" id="wx-follow-btn" hidden>Seguir</button>
-                  <button type="button" class="wx-btn wx-btn--outline" id="wx-open-verify-plans-btn">Planes de verificación</button>
-                  <button type="button" class="wx-btn wx-btn--outline" id="wx-connect-op-btn">Conectar Ocean Pay</button>
-                  <button type="button" class="wx-btn wx-btn--outline" id="wx-logout">Cerrar sesión</button>
-                </div>
-                <div class="wx-account-switcher" id="wx-account-switcher">
-                  <span>Cuenta activa</span>
-                  <div class="wx-account-controls">
-                    <select id="wx-account-select" class="wx-account-select"></select>
-                    <button type="button" class="wx-btn wx-btn--outline" id="wx-account-add">Agregar cuenta</button>
-                  </div>
+                  <p class="wx-profile-subtitle">Miembro desde <span id="wx-user-since">—</span></p>
+                  <p class="wx-profile-bio" id="wx-user-bio">Sin descripción.</p>
                 </div>
               </div>
+
+              <!-- Stats chips -->
               <div class="wx-profile-hero-meta">
                 <div class="wx-profile-chip">
-                  <span>Posts</span>
                   <strong id="wx-user-posts-count">0</strong>
+                  <span>Posts</span>
                 </div>
                 <div class="wx-profile-chip">
-                  <span>Seguidores</span>
                   <strong id="wx-user-followers">0</strong>
+                  <span>Seguidores</span>
                 </div>
                 <div class="wx-profile-chip">
-                  <span>Siguiendo</span>
                   <strong id="wx-user-following">0</strong>
+                  <span>Siguiendo</span>
                 </div>
                 <div class="wx-profile-chip">
-                  <span>Likes recibidos</span>
                   <strong id="wx-user-likes-received">0</strong>
+                  <span>Likes</span>
                 </div>
                 <div class="wx-profile-chip">
-                  <span>Saldo WXT</span>
                   <strong id="wx-user-wxt">0</strong>
+                  <span>WXT</span>
+                </div>
+              </div>
+
+              <!-- Actions -->
+              <div class="wx-profile-actions">
+                <button type="button" class="wx-btn wx-follow-btn" id="wx-follow-btn" hidden>Seguir</button>
+                <button type="button" class="wx-btn wx-btn--outline wx-btn--tiny" id="wx-open-verify-plans-btn">Verificación</button>
+                <button type="button" class="wx-btn wx-btn--outline wx-btn--tiny" id="wx-connect-op-btn">Ocean Pay</button>
+                <button type="button" class="wx-btn wx-btn--outline wx-btn--tiny" id="wx-logout">Salir</button>
+              </div>
+
+              <!-- Account switcher -->
+              <div class="wx-account-switcher" id="wx-account-switcher">
+                <span>Cuenta activa</span>
+                <div class="wx-account-controls">
+                  <select id="wx-account-select" class="wx-account-select"></select>
+                  <button type="button" class="wx-btn wx-btn--outline wx-btn--tiny" id="wx-account-add">+ Cuenta</button>
                 </div>
               </div>
             </div>
+
+            <!-- ── Avatar upload ── -->
             <div class="wx-profile-upload">
               <div>
                 <p class="wx-profile-upload-title">Foto de perfil</p>
-                <p class="wx-profile-upload-sub">Formatos JPG, PNG o WEBP · Máx 2MB.</p>
+                <p class="wx-profile-upload-sub">JPG, PNG o WEBP · Máx 2 MB.</p>
               </div>
               <div class="wx-profile-upload-actions">
-                <button type="button" class="wx-btn wx-btn--outline" id="wx-avatar-trigger">Subir foto</button>
-                <button type="button" class="wx-btn wx-btn--outline" id="wx-avatar-remove">Quitar</button>
+                <button type="button" class="wx-btn wx-btn--outline wx-btn--tiny" id="wx-avatar-trigger">Subir foto</button>
+                <button type="button" class="wx-btn wx-btn--outline wx-btn--tiny" id="wx-avatar-remove">Quitar</button>
               </div>
               <p id="wx-avatar-status" class="wx-profile-upload-status">Sin foto personalizada.</p>
             </div>
@@ -2990,6 +3609,19 @@
                 <div class="wx-collab-section">
                   <p class="wx-collab-section-title">Tus posts en colaboración</p>
                   <div id="wx-collab-outgoing" class="wx-collab-list"></div>
+
+              <!-- Procesos -->
+              <div class="wx-profile-group wx-profile-group--full">
+                <div class="wx-proc-panel" id="wx-proc-panel">
+                  <div class="wx-proc-header">
+                    <span class="wx-proc-title">Procesos activos</span>
+                    <button type="button" class="wx-btn wx-btn--outline wx-btn--tiny" id="wx-proc-new">+ Nuevo proceso</button>
+                  </div>
+                  <div class="wx-proc-list" id="wx-proc-list">
+                    <p class="wx-proc-empty">Sin procesos activos.</p>
+                  </div>
+                </div>
+              </div>
                 </div>
               </div>
               <div class="wx-profile-group wx-profile-group--full">
@@ -3326,7 +3958,9 @@
           <div class="wx-composer-tabs" id="wx-composer-tabs">
             <button type="button" class="wx-composer-tab is-active" data-panel="content">Contenido</button>
             <button type="button" class="wx-composer-tab" data-panel="collab">Colaboradores</button>
-            <button type="button" class="wx-composer-tab" data-panel="media">Im?genes</button>
+            <button type="button" class="wx-composer-tab" data-panel="media">Imágenes</button>
+            <button type="button" class="wx-composer-tab" data-panel="poll">Encuesta</button>
+            <button type="button" class="wx-composer-tab" data-panel="video">Video</button>
             <button type="button" class="wx-composer-tab" data-panel="schedule">Programar</button>
           </div>
           <div class="wx-composer-panel is-active" data-panel="content">
@@ -3356,6 +3990,47 @@
               <div class="wx-media-meta">
                 <span id="wx-media-count">0 / 6</span>
               </div>
+            </div>
+          </div>
+          <div class="wx-composer-panel" data-panel="poll">
+            <div class="wx-poll-builder" id="wx-poll-builder">
+              <div class="wx-media-header">
+                <span>Encuesta</span>
+                <button type="button" class="wx-btn wx-btn--outline wx-btn--tiny" id="wx-poll-clear">Quitar encuesta</button>
+              </div>
+              <div class="wx-poll-question-wrap">
+                <input type="text" id="wx-poll-question" maxlength="120"
+                  placeholder="Pregunta de la encuesta…" class="wx-poll-input wx-poll-input--question" />
+              </div>
+              <div id="wx-poll-options-list" class="wx-poll-options-list"></div>
+              <button type="button" class="wx-btn wx-btn--outline wx-btn--tiny" id="wx-poll-add-option">+ Opción</button>
+              <div class="wx-poll-duration">
+                <label for="wx-poll-duration-select">Duración</label>
+                <select id="wx-poll-duration-select" class="wx-poll-select">
+                  <option value="">Sin límite</option>
+                  <option value="1">1 día</option>
+                  <option value="3">3 días</option>
+                  <option value="7">7 días</option>
+                </select>
+              </div>
+              <p id="wx-poll-status" class="wx-media-status"></p>
+            </div>
+          </div>
+          <div class="wx-composer-panel" data-panel="video">
+            <div class="wx-media-input">
+              <div class="wx-media-header">
+                <span>Video del post</span>
+                <div class="wx-media-actions">
+                  <button type="button" class="wx-btn wx-btn--outline wx-btn--tiny" id="wx-video-add">Subir video</button>
+                  <button type="button" class="wx-btn wx-btn--outline wx-btn--tiny" id="wx-video-clear" disabled>Quitar</button>
+                </div>
+              </div>
+              <input type="file" id="wx-video-file" accept="video/mp4,video/webm,video/quicktime" hidden />
+              <div class="wx-video-drop" id="wx-video-drop">
+                <span>MP4, WebM o MOV · máx. 100 MB</span>
+              </div>
+              <div id="wx-video-preview" class="wx-video-preview" hidden></div>
+              <p id="wx-video-status" class="wx-media-status"></p>
             </div>
           </div>
           <div class="wx-composer-panel" data-panel="schedule">
@@ -3410,6 +4085,30 @@
       </div>
     </div>
 
+
+    <!-- Modal: Nuevo proceso -->
+    <div class="wx-modal-backdrop" id="wx-proc-modal" hidden>
+      <div class="wx-modal">
+        <div class="wx-card wx-auth">
+          <div class="wx-modal-header">
+            <h2 class="wx-auth-title" id="wx-proc-modal-title">Nuevo proceso</h2>
+            <button type="button" class="wx-modal-close" id="wx-proc-modal-close">Cerrar</button>
+          </div>
+          <div class="wx-profile-field">
+            <label for="wx-proc-input-title">Título</label>
+            <input type="text" id="wx-proc-input-title" maxlength="120" placeholder="Ej: Creando nuevo proyecto..." />
+          </div>
+          <div class="wx-profile-field">
+            <label for="wx-proc-input-desc">Descripción (opcional)</label>
+            <textarea id="wx-proc-input-desc" rows="2" maxlength="280" placeholder="Breve descripción del proceso..."></textarea>
+          </div>
+          <div class="wx-profile-actions">
+            <button type="button" class="wx-btn" id="wx-proc-modal-save">Guardar</button>
+          </div>
+          <p id="wx-proc-modal-status" class="wx-profile-upload-status">&mdash;</p>
+        </div>
+      </div>
+    </div>
     <!-- Modal de afiliaciones -->
     <div class="wx-modal-backdrop" id="wx-affiliations-modal" hidden>
       <div class="wx-modal">
@@ -3447,9 +4146,14 @@
       </div>
     </div>
 
+    <script src="https://owsdatabase.onrender.com/socket.io/socket.io.js"></script>
     <script>
       const API_BASE = 'https://owsdatabase.onrender.com/wildwave/api/posts';
       const API_MEDIA = 'https://owsdatabase.onrender.com/wildwave/api/posts/media';
+      const API_VIDEO = 'https://owsdatabase.onrender.com/wildwave/api/posts/video';
+      const API_POLLS = 'https://owsdatabase.onrender.com/wildwave/api/polls';
+      const API_PROCESSES = 'https://owsdatabase.onrender.com/wildwave/api/processes';
+      const WS_BASE = 'https://owsdatabase.onrender.com';
       const API_ME = 'https://owsdatabase.onrender.com/wildwave/api/me';
       const API_LOGIN = 'https://owsdatabase.onrender.com/wildwave/api/login';
       const API_REGISTER = 'https://owsdatabase.onrender.com/wildwave/api/register';
@@ -3489,7 +4193,77 @@
       const $collabInput = document.getElementById('wx-collab-input');
       const $mediaAdd = document.getElementById('wx-media-add');
       const $mediaClear = document.getElementById('wx-media-clear');
-      const $mediaFile = document.getElementById('wx-media-file');
+      const $mediaFile  = document.getElementById('wx-media-file');
+      const $videoFile  = document.getElementById('wx-video-file');
+      const $videoAdd   = document.getElementById('wx-video-add');
+      const $videoClear = document.getElementById('wx-video-clear');
+      const $videoDrop  = document.getElementById('wx-video-drop');
+      if ($videoAdd) {
+        $videoAdd.addEventListener('click', () => {
+          if (!currentUser) { setStatus('Inicia sesión para subir videos.', 'error'); return; }
+          if ($videoFile) $videoFile.click();
+        });
+      }
+      if ($videoFile) {
+        $videoFile.addEventListener('change', () => {
+          const file = $videoFile.files && $videoFile.files[0];
+          if (file) uploadPostVideo(file);
+        });
+      }
+      if ($videoClear) {
+        $videoClear.addEventListener('click', () => clearComposerVideo());
+      }
+      if ($videoDrop) {
+        $videoDrop.addEventListener('click', () => {
+          if (!currentUser) { setStatus('Inicia sesión para subir videos.', 'error'); return; }
+          if ($videoFile) $videoFile.click();
+        });
+        $videoDrop.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          $videoDrop.classList.add('is-active');
+        });
+        $videoDrop.addEventListener('dragleave', () => $videoDrop.classList.remove('is-active'));
+        $videoDrop.addEventListener('drop', (e) => {
+          e.preventDefault();
+          $videoDrop.classList.remove('is-active');
+          const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+          if (file && file.type.startsWith('video/')) uploadPostVideo(file);
+        });
+      }
+      // Processes modal wiring
+      const $procNew = document.getElementById('wx-proc-new');
+      const $procModalClose = document.getElementById('wx-proc-modal-close');
+      const $procModalSave  = document.getElementById('wx-proc-modal-save');
+      const $procModal = document.getElementById('wx-proc-modal');
+      if ($procNew)        $procNew.addEventListener('click', () => openNewProcess());
+      if ($procModalClose) $procModalClose.addEventListener('click', () => { if ($procModal) $procModal.hidden = true; });
+      if ($procModalSave)  $procModalSave.addEventListener('click', () => saveProcessModal());
+      if ($procModal) {
+        $procModal.addEventListener('click', (e) => {
+          if (e.target === $procModal) $procModal.hidden = true;
+        });
+      }
+
+      // Poll builder wiring
+      const $pollClear = document.getElementById('wx-poll-clear');
+      const $pollAddOpt = document.getElementById('wx-poll-add-option');
+      if ($pollClear) {
+        $pollClear.addEventListener('click', () => {
+          clearPollState();
+          // Switch back to content tab
+          const firstTab = document.querySelector('.wx-composer-tab[data-panel="content"]');
+          if (firstTab) firstTab.click();
+        });
+      }
+      if ($pollAddOpt) {
+        $pollAddOpt.addEventListener('click', () => {
+          if (!pollState) pollState = { question: '', options: ['', ''], ends_at: null };
+          if (pollState.options.length < 6) {
+            pollState.options.push('');
+            renderPollOptionRows();
+          }
+        });
+      }
       const $mediaDrop = document.getElementById('wx-media-drop');
       const $mediaGrid = document.getElementById('wx-media-grid');
       const $mediaCount = document.getElementById('wx-media-count');
@@ -3658,6 +4432,10 @@
       let accountAddMode = false;
       let currentReplyToUsername = null;
       let attachedImages = [];
+      let attachedVideo = null;   // { url, name, previewObjectUrl }
+      let pollState = null;          // { question, options:[], ends_at } or null
+      let myProcesses = [];           // cached process list
+      let wwSocket = null;            // socket.io for real-time updates
       let mediaUploading = false;
       let scheduledState = { active: false, value: '' };
       let opModalMode = 'connect';
@@ -3908,9 +4686,16 @@
           }
           setStatus('Cuenta activa: @' + (user.username || 'usuario'), 'info');
           fetchExplore();
+          fetchBalance().catch(() => {});
+          fetchTipsSummary().catch(() => {});
+          fetchNotificationsBadge().catch(() => {});
+          loadMyProcesses().catch(() => {});
           if (currentTab === 'profile') {
             fetchMyPosts();
             fetchScheduledPosts();
+            fetchCollabRequests().catch(() => {});
+            fetchCollabOutgoing().catch(() => {});
+            applyProfileView(user, { readonly: false });
           }
         } catch (e) {
           console.error(e);
@@ -4471,6 +5256,666 @@ function getMaxChars() {
         renderMediaGrid();
       }
 
+
+
+
+      // ══════════════════════════════════════════════════════════════════
+      // PROCESOS
+      // ══════════════════════════════════════════════════════════════════
+
+      function buildProcessCard(proc, readonly) {
+        const card = document.createElement('div');
+        card.className = 'wx-proc-card';
+        card.dataset.procId = proc.id;
+
+        const total = proc.total_steps || 0;
+        const done  = proc.completed_steps || 0;
+        const pct   = total > 0 ? Math.round((done / total) * 100) : 0;
+
+        // Head
+        const head = document.createElement('div');
+        head.className = 'wx-proc-card-head';
+        head.innerHTML = `
+          <span class="wx-proc-card-title">${escHtml(proc.title)}</span>
+          <span class="wx-proc-counter">${done}/${total}</span>
+          <span class="wx-proc-chevron">&#9660;</span>
+        `;
+        head.addEventListener('click', () => card.classList.toggle('is-open'));
+        card.appendChild(head);
+
+        // Body
+        const body = document.createElement('div');
+        body.className = 'wx-proc-card-body';
+
+        if (proc.description) {
+          const desc = document.createElement('p');
+          desc.className = 'wx-proc-description';
+          desc.textContent = proc.description;
+          body.appendChild(desc);
+        }
+
+        // Progress bar
+        const progWrap = document.createElement('div');
+        progWrap.className = 'wx-proc-progress';
+        const progFill = document.createElement('div');
+        progFill.className = 'wx-proc-progress-fill';
+        progFill.style.width = pct + '%';
+        progWrap.appendChild(progFill);
+        body.appendChild(progWrap);
+
+        // Steps list
+        const stepsEl = document.createElement('div');
+        stepsEl.className = 'wx-proc-steps';
+
+        const steps = proc.steps || [];
+        const topSteps = steps.filter(s => !s.parent_id);
+        const subMap = {};
+        steps.filter(s => s.parent_id).forEach(s => {
+          if (!subMap[s.parent_id]) subMap[s.parent_id] = [];
+          subMap[s.parent_id].push(s);
+        });
+
+        function renderStep(step, isSub) {
+          const row = document.createElement('div');
+          row.className = 'wx-proc-step' + (step.done ? ' is-done' : '') + (isSub ? ' wx-proc-step--sub' : '');
+          row.dataset.stepId = step.id;
+
+          const check = document.createElement('div');
+          check.className = 'wx-proc-step-check';
+          check.textContent = step.done ? '✓' : '';
+          if (!readonly) {
+            check.addEventListener('click', (e) => {
+              e.stopPropagation();
+              toggleStep(proc.id, step.id, !step.done);
+            });
+          }
+
+          const label = document.createElement('span');
+          label.className = 'wx-proc-step-label';
+          label.textContent = step.title;
+
+          const del = document.createElement('button');
+          del.type = 'button';
+          del.className = 'wx-proc-step-del';
+          del.textContent = '×';
+          del.title = 'Eliminar paso';
+          del.addEventListener('click', (e) => {
+            e.stopPropagation();
+            deleteStep(proc.id, step.id);
+          });
+
+          row.append(check, label);
+          if (!readonly) row.append(del);
+          stepsEl.appendChild(row);
+
+          // Sub-steps
+          if (subMap[step.id]) {
+            subMap[step.id].forEach(sub => renderStep(sub, true));
+          }
+
+          // Add sub-step input
+          if (!readonly) {
+            const addSub = document.createElement('div');
+            addSub.className = 'wx-proc-add-step wx-proc-step--sub';
+            const inp = document.createElement('input');
+            inp.type = 'text';
+            inp.placeholder = 'Sub-proceso...';
+            inp.maxLength = 160;
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'wx-btn wx-btn--outline wx-btn--tiny';
+            btn.textContent = '+';
+            btn.title = 'Añadir sub-proceso';
+            btn.addEventListener('click', () => {
+              const t = inp.value.trim();
+              if (t) { addStep(proc.id, t, step.id); inp.value = ''; }
+            });
+            inp.addEventListener('keydown', (e) => {
+              if (e.key === 'Enter') { e.preventDefault(); btn.click(); }
+            });
+            addSub.append(inp, btn);
+            stepsEl.appendChild(addSub);
+          }
+        }
+
+        topSteps.forEach(s => renderStep(s, false));
+        body.appendChild(stepsEl);
+
+        // Add top-level step
+        if (!readonly) {
+          const addRow = document.createElement('div');
+          addRow.className = 'wx-proc-add-step';
+          const addInp = document.createElement('input');
+          addInp.type = 'text';
+          addInp.placeholder = 'Nuevo proceso...';
+          addInp.maxLength = 160;
+          const addBtn = document.createElement('button');
+          addBtn.type = 'button';
+          addBtn.className = 'wx-btn wx-btn--outline wx-btn--tiny';
+          addBtn.textContent = '+ Proceso';
+          addBtn.addEventListener('click', () => {
+            const t = addInp.value.trim();
+            if (t) { addStep(proc.id, t, null); addInp.value = ''; }
+          });
+          addInp.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); addBtn.click(); }
+          });
+          addRow.append(addInp, addBtn);
+          body.appendChild(addRow);
+
+          // Card actions
+          const acts = document.createElement('div');
+          acts.className = 'wx-proc-card-actions';
+
+          const editBtn = document.createElement('button');
+          editBtn.type = 'button';
+          editBtn.className = 'wx-btn wx-btn--outline wx-btn--tiny';
+          editBtn.textContent = 'Editar';
+          editBtn.addEventListener('click', () => openEditProcess(proc));
+
+          const archBtn = document.createElement('button');
+          archBtn.type = 'button';
+          archBtn.className = 'wx-btn wx-btn--outline wx-btn--tiny';
+          archBtn.textContent = proc.status === 'active' ? 'Archivar' : 'Reactivar';
+          archBtn.addEventListener('click', () => toggleProcessStatus(proc.id, proc.status));
+
+          const delBtn = document.createElement('button');
+          delBtn.type = 'button';
+          delBtn.className = 'wx-btn wx-btn--outline wx-btn--tiny';
+          delBtn.textContent = 'Eliminar';
+          delBtn.style.color = 'var(--danger)';
+          delBtn.addEventListener('click', () => deleteProcess(proc.id));
+
+          acts.append(editBtn, archBtn, delBtn);
+          body.appendChild(acts);
+        }
+
+        card.appendChild(body);
+        if (readonly) card.classList.add('wx-proc-readonly');
+        return card;
+      }
+
+      function escHtml(str) {
+        const d = document.createElement('div');
+        d.textContent = str || '';
+        return d.innerHTML;
+      }
+
+      function renderProcessList(processes, readonly) {
+        const list = document.getElementById('wx-proc-list');
+        if (!list) return;
+        list.innerHTML = '';
+        if (!processes || !processes.length) {
+          list.innerHTML = '<p class="wx-proc-empty">Sin procesos activos.</p>';
+          return;
+        }
+        processes.forEach(proc => {
+          const card = buildProcessCard(proc, readonly);
+          list.appendChild(card);
+        });
+      }
+
+      async function loadMyProcesses() {
+        if (!currentUser || !currentToken) return;
+        try {
+          const res = await fetch(API_PROCESSES, { headers: { ...authHeaders() } });
+          if (!res.ok) return;
+          myProcesses = await res.json();
+          renderProcessList(myProcesses, false);
+        } catch (_) {}
+      }
+
+      async function loadUserProcesses(username) {
+        try {
+          const res = await fetch(API_PROCESSES + '/user/' + encodeURIComponent(username), {
+            headers: { ...authHeaders() }
+          });
+          if (!res.ok) return;
+          const procs = await res.json();
+          renderProcessList(procs, true);
+        } catch (_) {}
+      }
+
+      async function toggleStep(procId, stepId, done) {
+        try {
+          const res = await fetch(API_PROCESSES + '/' + procId + '/steps/' + stepId, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', ...authHeaders() },
+            body: JSON.stringify({ done })
+          });
+          if (!res.ok) return;
+          const body = await res.json();
+          if (body.process) updateProcessCard(body.process);
+        } catch (_) {}
+      }
+
+      async function addStep(procId, title, parentId) {
+        try {
+          const res = await fetch(API_PROCESSES + '/' + procId + '/steps', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...authHeaders() },
+            body: JSON.stringify({ title, parent_id: parentId || undefined })
+          });
+          if (!res.ok) { const b = await res.json().catch(()=>({})); setStatus(b.error||'Error', 'error'); return; }
+          const step = await res.json();
+          // Reload process card
+          const proc = await fetchProcess(procId);
+          if (proc) updateProcessCard(proc);
+        } catch (_) {}
+      }
+
+      async function deleteStep(procId, stepId) {
+        if (!confirm('¿Eliminar este paso?')) return;
+        try {
+          const res = await fetch(API_PROCESSES + '/' + procId + '/steps/' + stepId, {
+            method: 'DELETE',
+            headers: { ...authHeaders() }
+          });
+          if (!res.ok) return;
+          const body = await res.json();
+          if (body.process) updateProcessCard(body.process);
+        } catch (_) {}
+      }
+
+      async function fetchProcess(procId) {
+        const res = await fetch(API_PROCESSES, { headers: { ...authHeaders() } });
+        if (!res.ok) return null;
+        const procs = await res.json();
+        return procs.find(p => p.id === procId) || null;
+      }
+
+      function updateProcessCard(proc) {
+        // Update in myProcesses cache
+        const idx = myProcesses.findIndex(p => p.id === proc.id);
+        if (idx !== -1) myProcesses[idx] = proc;
+        // Re-render just this card
+        const existing = document.querySelector(`.wx-proc-card[data-proc-id="${proc.id}"]`);
+        if (existing) {
+          const isOpen = existing.classList.contains('is-open');
+          const newCard = buildProcessCard(proc, existing.classList.contains('wx-proc-readonly'));
+          if (isOpen) newCard.classList.add('is-open');
+          existing.replaceWith(newCard);
+        }
+      }
+
+      async function deleteProcess(procId) {
+        if (!confirm('¿Eliminar este proceso y todos sus pasos?')) return;
+        try {
+          const res = await fetch(API_PROCESSES + '/' + procId, {
+            method: 'DELETE',
+            headers: { ...authHeaders() }
+          });
+          if (!res.ok) return;
+          myProcesses = myProcesses.filter(p => p.id !== procId);
+          renderProcessList(myProcesses, false);
+        } catch (_) {}
+      }
+
+      async function toggleProcessStatus(procId, currentStatus) {
+        const newStatus = currentStatus === 'active' ? 'archived' : 'active';
+        try {
+          const res = await fetch(API_PROCESSES + '/' + procId, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', ...authHeaders() },
+            body: JSON.stringify({ status: newStatus })
+          });
+          if (!res.ok) return;
+          const proc = await res.json();
+          const idx = myProcesses.findIndex(p => p.id === procId);
+          if (idx !== -1) myProcesses[idx] = proc;
+          renderProcessList(myProcesses.filter(p => p.status === 'active'), false);
+        } catch (_) {}
+      }
+
+      // Process modal
+      let editingProcessId = null;
+      function openNewProcess() {
+        editingProcessId = null;
+        const modal = document.getElementById('wx-proc-modal');
+        const titleInput = document.getElementById('wx-proc-input-title');
+        const descInput  = document.getElementById('wx-proc-input-desc');
+        const modalTitle = document.getElementById('wx-proc-modal-title');
+        const status     = document.getElementById('wx-proc-modal-status');
+        if (!modal) return;
+        if (modalTitle) modalTitle.textContent = 'Nuevo proceso';
+        if (titleInput) titleInput.value = '';
+        if (descInput)  descInput.value  = '';
+        if (status)     status.textContent = '—';
+        modal.hidden = false;
+      }
+
+      function openEditProcess(proc) {
+        editingProcessId = proc.id;
+        const modal = document.getElementById('wx-proc-modal');
+        const titleInput = document.getElementById('wx-proc-input-title');
+        const descInput  = document.getElementById('wx-proc-input-desc');
+        const modalTitle = document.getElementById('wx-proc-modal-title');
+        const status     = document.getElementById('wx-proc-modal-status');
+        if (!modal) return;
+        if (modalTitle) modalTitle.textContent = 'Editar proceso';
+        if (titleInput) titleInput.value = proc.title || '';
+        if (descInput)  descInput.value  = proc.description || '';
+        if (status)     status.textContent = '—';
+        modal.hidden = false;
+      }
+
+      async function saveProcessModal() {
+        const titleInput = document.getElementById('wx-proc-input-title');
+        const descInput  = document.getElementById('wx-proc-input-desc');
+        const statusEl   = document.getElementById('wx-proc-modal-status');
+        const title = (titleInput?.value || '').trim();
+        const desc  = (descInput?.value  || '').trim();
+        if (!title) { if (statusEl) statusEl.textContent = 'El título es obligatorio.'; return; }
+        if (statusEl) statusEl.textContent = 'Guardando...';
+        try {
+          const url    = editingProcessId ? API_PROCESSES + '/' + editingProcessId : API_PROCESSES;
+          const method = editingProcessId ? 'PATCH' : 'POST';
+          const res = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json', ...authHeaders() },
+            body: JSON.stringify({ title, description: desc })
+          });
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok) { if (statusEl) statusEl.textContent = body.error || 'Error'; return; }
+          if (editingProcessId) {
+            const idx = myProcesses.findIndex(p => p.id === editingProcessId);
+            if (idx !== -1) myProcesses[idx] = body;
+          } else {
+            myProcesses.unshift(body);
+          }
+          renderProcessList(myProcesses.filter(p => p.status === 'active'), false);
+          document.getElementById('wx-proc-modal').hidden = true;
+        } catch (e) {
+          if (statusEl) statusEl.textContent = 'Error de red.';
+        }
+      }
+
+      // Socket.io real-time updates
+      function connectWildWaveSocket(userId) {
+        if (typeof io === 'undefined') return;
+        if (wwSocket) { wwSocket.disconnect(); wwSocket = null; }
+        wwSocket = io(WS_BASE, { transports: ['websocket', 'polling'] });
+        wwSocket.on('connect', () => {
+          wwSocket.emit('ww:join', { userId });
+        });
+        wwSocket.on('ww:process-update', (data) => {
+          if (!data || !data.type) return;
+          if (data.type === 'process:created') {
+            if (data.process && !myProcesses.find(p => p.id === data.process.id)) {
+              myProcesses.unshift(data.process);
+            }
+            renderProcessList(myProcesses.filter(p => p.status === 'active'), false);
+          } else if (data.type === 'process:updated' && data.process) {
+            const idx = myProcesses.findIndex(p => p.id === data.process.id);
+            if (idx !== -1) myProcesses[idx] = data.process;
+            else myProcesses.unshift(data.process);
+            renderProcessList(myProcesses.filter(p => p.status === 'active'), false);
+          } else if (data.type === 'process:deleted') {
+            myProcesses = myProcesses.filter(p => p.id !== data.processId);
+            renderProcessList(myProcesses.filter(p => p.status === 'active'), false);
+          }
+        });
+        wwSocket.on('disconnect', () => { wwSocket = null; });
+      }
+
+      // ── Poll builder ─────────────────────────────────────────────────────
+      function renderPollOptionRows() {
+        const list = document.getElementById('wx-poll-options-list');
+        if (!list || !pollState) return;
+        list.innerHTML = '';
+        pollState.options.forEach((opt, idx) => {
+          const row = document.createElement('div');
+          row.className = 'wx-poll-option-row';
+          const inp = document.createElement('input');
+          inp.type = 'text';
+          inp.className = 'wx-poll-input';
+          inp.maxLength = 60;
+          inp.placeholder = 'Opci\u00f3n ' + (idx + 1);
+          inp.value = opt;
+          inp.addEventListener('input', () => { pollState.options[idx] = inp.value; });
+          const del = document.createElement('button');
+          del.type = 'button';
+          del.className = 'wx-poll-option-remove';
+          del.textContent = '\u00d7';
+          del.title = 'Quitar opci\u00f3n';
+          del.disabled = pollState.options.length <= 2;
+          del.addEventListener('click', () => {
+            pollState.options.splice(idx, 1);
+            renderPollOptionRows();
+          });
+          row.append(inp, del);
+          list.appendChild(row);
+        });
+        const $addOpt = document.getElementById('wx-poll-add-option');
+        if ($addOpt) $addOpt.disabled = pollState.options.length >= 6;
+      }
+
+      function initPollBuilder() {
+        if (!pollState) {
+          pollState = { question: '', options: ['', ''], ends_at: null };
+        }
+        const $q = document.getElementById('wx-poll-question');
+        if ($q) { $q.value = pollState.question; $q.oninput = () => { pollState.question = $q.value; }; }
+        const $dur = document.getElementById('wx-poll-duration-select');
+        if ($dur) {
+          $dur.value = '';
+          $dur.onchange = () => {
+            const days = parseInt($dur.value, 10);
+            if (!isNaN(days) && days > 0) {
+              const d = new Date();
+              d.setDate(d.getDate() + days);
+              pollState.ends_at = d.toISOString();
+            } else {
+              pollState.ends_at = null;
+            }
+          };
+        }
+        renderPollOptionRows();
+        const $ps = document.getElementById('wx-poll-status');
+        if ($ps) $ps.textContent = '';
+      }
+
+      function clearPollState() {
+        pollState = null;
+        const $q = document.getElementById('wx-poll-question');
+        const $list = document.getElementById('wx-poll-options-list');
+        const $ps = document.getElementById('wx-poll-status');
+        const $dur = document.getElementById('wx-poll-duration-select');
+        if ($q) $q.value = '';
+        if ($list) $list.innerHTML = '';
+        if ($ps) $ps.textContent = '';
+        if ($dur) $dur.value = '';
+      }
+
+      function getPollPayload() {
+        if (!pollState) return null;
+        const question = (pollState.question || '').trim();
+        const options = pollState.options.map(o => o.trim()).filter(Boolean);
+        if (!question || options.length < 2) return null;
+        return { question, options, ends_at: pollState.ends_at || undefined };
+      }
+
+      // ── Poll in feed ─────────────────────────────────────────────────────
+      async function voteOnPoll(pollId, optionIdx, postEl) {
+        if (!currentUser) { setStatus('Inicia sesi\u00f3n para votar.', 'error'); return; }
+        try {
+          const res = await fetch(API_POLLS + '/' + pollId + '/vote', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...authHeaders() },
+            body: JSON.stringify({ option_idx: optionIdx })
+          });
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok) { setStatus(body.error || 'Error al votar', 'error'); return; }
+          // Update the poll UI in place
+          updatePollUI(postEl, body);
+        } catch (e) {
+          setStatus('Error de red al votar.', 'error');
+        }
+      }
+
+      function updatePollUI(postEl, data) {
+        if (!postEl) return;
+        const pollEl = postEl.querySelector('.wx-post-poll');
+        if (!pollEl) return;
+        const buttons = pollEl.querySelectorAll('.wx-poll-option-btn');
+        const total = data.total_votes || 0;
+        buttons.forEach((btn, idx) => {
+          const opt = (data.options || []).find(o => o.idx === idx) || {};
+          const votes = opt.votes || 0;
+          const pct = total > 0 ? Math.round((votes / total) * 100) : 0;
+          const bar = btn.querySelector('.wx-poll-option-bar');
+          const pctEl = btn.querySelector('.wx-poll-option-pct');
+          if (bar) bar.style.width = pct + '%';
+          if (pctEl) pctEl.textContent = pct + '%';
+          btn.classList.toggle('is-voted', data.my_vote === idx);
+          btn.disabled = true; // show results after voting
+        });
+        const metaEl = pollEl.querySelector('.wx-poll-meta');
+        if (metaEl) metaEl.querySelector('.wx-poll-total').textContent = total + ' voto' + (total !== 1 ? 's' : '');
+      }
+
+      function buildPollElement(post) {
+        const poll = post.poll;
+        if (!poll) return null;
+        const wrap = document.createElement('div');
+        wrap.className = 'wx-post-poll';
+
+        const q = document.createElement('div');
+        q.className = 'wx-poll-question';
+        q.textContent = poll.question;
+        wrap.appendChild(q);
+
+        const hasVoted = poll.my_vote != null;
+        const isEnded = poll.ends_at && new Date(poll.ends_at) < new Date();
+        const showResults = hasVoted || isEnded || !currentUser;
+        const total = poll.total_votes || 0;
+
+        (poll.options || []).forEach((opt) => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'wx-poll-option-btn';
+          if (opt.idx === poll.my_vote) btn.classList.add('is-voted');
+          btn.disabled = showResults;
+
+          const bar = document.createElement('div');
+          bar.className = 'wx-poll-option-bar';
+          const pct = showResults && total > 0 ? Math.round((opt.votes / total) * 100) : 0;
+          bar.style.width = pct + '%';
+
+          const label = document.createElement('div');
+          label.className = 'wx-poll-option-label';
+
+          const text = document.createElement('span');
+          text.textContent = opt.text;
+
+          const pctEl = document.createElement('span');
+          pctEl.className = 'wx-poll-option-pct';
+          pctEl.textContent = showResults ? pct + '%' : '';
+
+          label.append(text, pctEl);
+          btn.append(bar, label);
+
+          if (!showResults) {
+            btn.addEventListener('click', (e) => {
+              const postEl = e.target.closest('[data-post-id]');
+              voteOnPoll(poll.id, opt.idx, postEl);
+            });
+          }
+          wrap.appendChild(btn);
+        });
+
+        // Meta row
+        const meta = document.createElement('div');
+        meta.className = 'wx-poll-meta';
+        const totalSpan = document.createElement('span');
+        totalSpan.className = 'wx-poll-total';
+        totalSpan.textContent = total + ' voto' + (total !== 1 ? 's' : '');
+        meta.appendChild(totalSpan);
+        if (poll.ends_at) {
+          const endSpan = document.createElement('span');
+          const endDate = new Date(poll.ends_at);
+          if (isEnded) {
+            endSpan.className = 'wx-poll-ended';
+            endSpan.textContent = 'Cerrada';
+          } else {
+            endSpan.textContent = 'Cierra: ' + endDate.toLocaleDateString('es-ES', { day:'2-digit', month:'short' });
+          }
+          meta.appendChild(endSpan);
+        }
+        wrap.appendChild(meta);
+        return wrap;
+      }
+
+      async function uploadPostVideo(file) {
+        if (!file) return;
+        if (!currentUser || !currentToken) {
+          const $vs = document.getElementById('wx-video-status');
+          if ($vs) $vs.textContent = 'Inicia sesi\u00f3n para subir videos.';
+          return;
+        }
+        const $vs  = document.getElementById('wx-video-status');
+        const $vp  = document.getElementById('wx-video-preview');
+        const $vd  = document.getElementById('wx-video-drop');
+        const $vc  = document.getElementById('wx-video-clear');
+        if (file.size > 100 * 1024 * 1024) {
+          if ($vs) $vs.textContent = 'El video supera el l\u00edmite de 100 MB.';
+          return;
+        }
+        if ($vs) $vs.textContent = 'Subiendo video\u2026';
+        if ($vd) $vd.classList.add('is-active');
+        setMediaUploading(true);
+        try {
+          const form = new FormData();
+          form.append('video', file);
+          const res = await fetch(API_VIDEO, {
+            method: 'POST',
+            headers: { ...authHeaders() },
+            body: form
+          });
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(body.error || 'No se pudo subir el video');
+          const url = body.url;
+          if (!url) throw new Error('Sin URL de video');
+          const objectUrl = URL.createObjectURL(file);
+          attachedVideo = { url, name: file.name, previewObjectUrl: objectUrl };
+          if ($vp) {
+            $vp.hidden = false;
+            $vp.innerHTML = '';
+            const vid = document.createElement('video');
+            vid.src = objectUrl;
+            vid.controls = true;
+            vid.preload = 'metadata';
+            $vp.appendChild(vid);
+          }
+          if ($vd) $vd.hidden = true;
+          if ($vc) $vc.disabled = false;
+          if ($vs) $vs.textContent = '\u2713 Video listo: ' + file.name;
+        } catch (e) {
+          console.error(e);
+          if ($vs) $vs.textContent = e.message || 'Error al subir video.';
+          if ($vd) { $vd.hidden = false; $vd.classList.remove('is-active'); }
+        } finally {
+          setMediaUploading(false);
+        }
+      }
+
+      function clearComposerVideo() {
+        if (attachedVideo && attachedVideo.previewObjectUrl) {
+          URL.revokeObjectURL(attachedVideo.previewObjectUrl);
+        }
+        attachedVideo = null;
+        const $vp = document.getElementById('wx-video-preview');
+        const $vd = document.getElementById('wx-video-drop');
+        const $vc = document.getElementById('wx-video-clear');
+        const $vs = document.getElementById('wx-video-status');
+        const $vf = document.getElementById('wx-video-file');
+        if ($vp) { $vp.hidden = true; $vp.innerHTML = ''; }
+        if ($vd) { $vd.hidden = false; $vd.classList.remove('is-active'); }
+        if ($vc) $vc.disabled = true;
+        if ($vs) $vs.textContent = '';
+        if ($vf) $vf.value = '';
+      }
+
       async function uploadPostImages(files) {
         if (!files || !files.length) return;
         if (!currentUser || !currentToken) {
@@ -4692,35 +6137,52 @@ function getMaxChars() {
 
       function buildPostMedia(post) {
         const images = normalizePostImages(post?.images).slice(0, MAX_POST_IMAGES);
-        if (!images.length) return null;
-        const media = document.createElement('div');
-        media.className = 'wx-post-media';
-        const single = images.length === 1;
-        if (single) media.classList.add('wx-post-media--single');
-        images.forEach((src) => {
-          const item = document.createElement('div');
-          item.className = 'wx-post-media-item';
+        const videoUrl = typeof post?.video_url === 'string' ? post.video_url.trim() : '';
+        if (!images.length && !videoUrl) return null;
 
-          const img = document.createElement('img');
-          img.className = 'wx-post-media-img';
-          img.src = src;
-          img.alt = 'Imagen del post';
-          img.loading = 'lazy';
-          img.dataset.full = src;
+        const container = document.createElement('div');
 
-          const fullBtn = document.createElement('button');
-          fullBtn.type = 'button';
-          fullBtn.className = 'wx-post-media-full';
-          fullBtn.dataset.action = 'media-full';
-          fullBtn.dataset.src = src;
+        // Video player
+        if (videoUrl) {
+          const videoWrap = document.createElement('div');
+          videoWrap.className = 'wx-post-video';
+          const vid = document.createElement('video');
+          vid.src = videoUrl;
+          vid.controls = true;
+          vid.preload = 'metadata';
+          vid.setAttribute('playsinline', '');
+          videoWrap.appendChild(vid);
+          container.appendChild(videoWrap);
+        }
 
-          const expandedByDefault = single;
-          setMediaItemExpanded(item, fullBtn, expandedByDefault);
+        // Images
+        if (images.length) {
+          const media = document.createElement('div');
+          media.className = 'wx-post-media';
+          const single = images.length === 1;
+          if (single) media.classList.add('wx-post-media--single');
+          images.forEach((src) => {
+            const item = document.createElement('div');
+            item.className = 'wx-post-media-item';
+            const img = document.createElement('img');
+            img.className = 'wx-post-media-img';
+            img.src = src;
+            img.alt = 'Imagen del post';
+            img.loading = 'lazy';
+            img.dataset.full = src;
+            const fullBtn = document.createElement('button');
+            fullBtn.type = 'button';
+            fullBtn.className = 'wx-post-media-full';
+            fullBtn.dataset.action = 'media-full';
+            fullBtn.dataset.src = src;
+            setMediaItemExpanded(item, fullBtn, images.length === 1);
+            item.append(img, fullBtn);
+            media.appendChild(item);
+          });
+          container.appendChild(media);
+        }
 
-          item.append(img, fullBtn);
-          media.appendChild(item);
-        });
-        return media;
+        return container;
       }
 
       function openImageModal(src, altText = '') {
@@ -4966,6 +6428,11 @@ function getMaxChars() {
         tabs.forEach((tab) => {
           tab.classList.toggle('is-active', tab.dataset.panel === target);
         });
+        // Init poll builder when switching to poll panel
+        if (target === 'poll') {
+          if (!pollState) pollState = { question: '', options: ['', ''], ends_at: null };
+          initPollBuilder();
+        }
       }
 
       function openComposerModal() {
@@ -5207,6 +6674,12 @@ function getMaxChars() {
 
         updateVerifyBadge(profile);
         renderAffiliations(profile.affiliations || []);
+        // Load processes for this profile
+        if (isSelf) {
+          loadMyProcesses().catch(() => {});
+        } else {
+          loadUserProcesses(profile.username).catch(() => {});
+        }
 
         if ($bioInput) {
           $bioInput.value = profile.bio || '';
@@ -5221,6 +6694,12 @@ function getMaxChars() {
           $followBtn.textContent = following ? 'Dejar de seguir' : 'Seguir';
           $followBtn.disabled = !currentUser;
           $followBtn.hidden = isSelf ? true : false;
+        }
+
+        // Always refresh collabs when showing own profile
+        if (isSelf) {
+          fetchCollabRequests().catch(() => {});
+          fetchCollabOutgoing().catch(() => {});
         }
       }
 
@@ -5491,13 +6970,13 @@ function getMaxChars() {
         if (deleteBtn) actions.append(deleteBtn);
         if (reportBtn) actions.append(reportBtn);
 
+        const pollEl  = buildPollElement(post);
         const collabRow = buildCollabRow(collabList, avatarUrl, uname, post.user_id);
+        const extras = [pollEl, media].filter(Boolean);
         if (collabRow) {
-          if (media) body.append(meta, collabRow, text, media, actions);
-          else body.append(meta, collabRow, text, actions);
+          body.append(meta, collabRow, text, ...extras, actions);
         } else {
-          if (media) body.append(meta, text, media, actions);
-          else body.append(meta, text, actions);
+          body.append(meta, text, ...extras, actions);
         }
         li.append(avatar, body);
 
@@ -6167,6 +7646,9 @@ function getMaxChars() {
         try {
           const payload = { content: text };
           if (currentReplyToId) payload.parentId = currentReplyToId;
+          if (attachedVideo && attachedVideo.url) payload.video_url = attachedVideo.url;
+          const pollPayload = getPollPayload();
+          if (pollPayload) payload.poll = pollPayload;
           if (scheduledState.active && scheduledState.value) {
             payload.scheduledAt = scheduledState.value;
           }
@@ -6514,6 +7996,8 @@ function getMaxChars() {
           updateOceanPayConnectionUI();
           loadVerifyPlans().catch(() => {});
           fetchNotificationsBadge().catch(() => {});
+          loadMyProcesses().catch(() => {});
+          if (user && user.id) connectWildWaveSocket(user.id);
           fetchTipsSummary().catch(() => {});
           currentProfileView = user;
           if ($userCard) $userCard.classList.remove('wx-profile--readonly');
@@ -6567,6 +8051,9 @@ function getMaxChars() {
           updateAvatarStatus('Sin foto personalizada.');
           $text.placeholder = 'Inicia sesión para publicar';
           if ($verifyBadge) $verifyBadge.hidden = true;
+          if (wwSocket) { wwSocket.disconnect(); wwSocket = null; }
+          myProcesses = [];
+          renderProcessList([], false);
           renderCollabEmpty($collabRequests, 'Inicia sesión para ver solicitudes.');
           renderCollabEmpty($collabOutgoing, 'Inicia sesión para ver tus colaboraciones.');
           currentProfileView = null;

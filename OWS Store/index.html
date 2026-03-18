@@ -8802,12 +8802,8 @@
 
         function getEcoxionIconSource(project, size = 64) {
             const fallback = `https://placehold.co/${size}/07121f/26e0ff?text=ECX`;
-            const projectIcon = String(project?.icon_url || '').trim();
-            // Prefer PNG — .ico files don't render reliably as <img> in Chromium
-            // Skip any .ico icon_url from the server, use local PNG instead
-            const iconIsIco = /\.ico(\?|$)/i.test(projectIcon);
-            if (projectIcon && !iconIsIco) return projectIcon;
-            return ECOXION_LOCAL_ICON_PNG || fallback;
+            // Use .ico directly — PNG was horizontal and looked unprofessional
+            return ECOXION_LOCAL_ICON || fallback;
         }
 
         function getProjectIcon(project, size = 64) {
@@ -8819,11 +8815,12 @@
             if (isWildDestinyProject(project)) return project?.icon_url || WILDDESTINY_LOCAL_ICON || `https://placehold.co/${size}/111827/67e8f9?text=WD`;
             if (isEcoxionProject(project)) return getEcoxionIconSource(project, size);
             if (isNaturepediaProject(project)) return project?.icon_url || `https://placehold.co/${size}/0b1420/8ee5a1?text=NTP`;
-            if (isWildShortsProject(project)) return project?.icon_url || `https://placehold.co/${size}/12131f/ffb96a?text=WSH`;
+            if (isWildShortsProject(project)) return WILDSHORTS_LOCAL_ICON || project?.icon_url || `https://placehold.co/${size}/12131f/ffb96a?text=WSH`;
             if (isVelocitySurgeProject(project)) return project?.icon_url || VELOCITY_SURGE_LOCAL_ICON || `https://placehold.co/${size}/0a0f1e/26e0ff?text=VSG`;
             if (isAWQGProject(project)) return project?.icon_url || AWQG_LOCAL_ICON || `https://placehold.co/${size}/0f1527/6ff3ff?text=AWQ`;
             if (isWildWaveProject(project)) return project?.icon_url || WILDWAVE_LOCAL_ICON || `https://placehold.co/${size}/151029/c493ff?text=WWV`;
             if (isDinoBoxProject(project)) return project?.icon_url || DINOBOX_LOCAL_ICON || `https://placehold.co/${size}/0f172a/00f3ff?text=DNB`;
+            if (isOceanCinemasProject(project)) return OCEAN_CINEMAS_LOCAL_ICON || project?.icon_url || `https://placehold.co/${size}/04080f/0d7c8c?text=OCN`;
             return project?.icon_url || `https://placehold.co/${size}/0f172a/00f3ff?text=OWS`;
         }
 

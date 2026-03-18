@@ -1042,18 +1042,19 @@
       dolphin11:   { id: 'dolphin11',   name: 'Delfin 1.1',     series: 'dolphin', emoji: '🐬', desc: 'Mejorado · Generador de divisas',   tier: 2, subOf: 'dolphin', free: false },
       dolphin11m:  { id: 'dolphin11m',  name: 'Delfin 1.1 Mini', series: 'dolphin', emoji: '🐬', desc: 'Nuevo · Compacto y eficiente',      tier: 3, subOf: 'dolphin', free: false, nuevo: true },
       dolphin11max:{ id: 'dolphin11max',name: 'Delfin 1.1 Max',  series: 'dolphin', emoji: '🐬', desc: 'Nuevo · Máxima capacidad Delfin',   tier: 4, subOf: 'dolphin', free: false, nuevo: true },
-      whale:       { id: 'whale',       name: 'Ballena',          series: 'whale',   emoji: '🐋', desc: 'Decente y balanceado',             tier: 5, free: false },
-      shark:       { id: 'shark',       name: 'Tiburon',          series: 'shark',   emoji: '🦈', desc: 'El más potente',                   tier: 6, free: false },
+      dolphin12:   { id: 'dolphin12',   name: 'Delfin 1.2',       series: 'dolphin', emoji: '🐬', desc: 'Nuevo · Generación siguiente',      tier: 5, subOf: 'dolphin', free: false, nuevo: true },
+      whale:       { id: 'whale',       name: 'Ballena',           series: 'whale',   emoji: '🐋', desc: 'Decente y balanceado',             tier: 6, free: false },
+      shark:       { id: 'shark',       name: 'Tiburon',           series: 'shark',   emoji: '🦈', desc: 'El más potente',                   tier: 7, free: false },
     };
     // Dolphin series parent for UI grouping
-    const DOLPHIN_VERSIONS = ['dolphin10', 'dolphin11', 'dolphin11m', 'dolphin11max'];
+    const DOLPHIN_VERSIONS = ['dolphin10', 'dolphin11', 'dolphin11m', 'dolphin11max', 'dolphin12'];
 
     const PLAN_MODELS = {
       free:      ['dolphin10'],
-      tide:      ['dolphin10', 'dolphin11', 'dolphin11m', 'dolphin11max'],
-      coral:     ['dolphin10', 'dolphin11', 'dolphin11m', 'dolphin11max', 'whale'],
-      abyss:     ['dolphin10', 'dolphin11', 'dolphin11m', 'dolphin11max', 'whale'],
-      leviathan: ['dolphin10', 'dolphin11', 'dolphin11m', 'dolphin11max', 'whale', 'shark'],
+      tide:      ['dolphin10', 'dolphin11', 'dolphin11m', 'dolphin11max', 'dolphin12'],
+      coral:     ['dolphin10', 'dolphin11', 'dolphin11m', 'dolphin11max', 'dolphin12', 'whale'],
+      abyss:     ['dolphin10', 'dolphin11', 'dolphin11m', 'dolphin11max', 'dolphin12', 'whale'],
+      leviathan: ['dolphin10', 'dolphin11', 'dolphin11m', 'dolphin11max', 'dolphin12', 'whale', 'shark'],
     };
 
     const PLAN_DEFS = [
@@ -1943,10 +1944,12 @@
     // ════════════════════════════════════════════════════════════
     const TOOLS = {
       // minTier: minimum model tier required (MODELS[id].tier)
-      '/generardivisas':  { name: 'Generador de Divisas',  fn: renderToolGenerarDivisas,   minTier: 2, nuevo: false }, // Delfin 1.1+
-      '/boostreputacion': { name: 'Boost de Reputación',   fn: renderToolBoostReputacion,  minTier: 1, nuevo: false }, // Delfin 1.0+
-      '/transferirdivisas':{ name: 'Transferir Divisas',   fn: renderToolTransferirDivisas, minTier: 3, nuevo: true  }, // Delfin 1.1 Mini+
-      '/consultarsaldo':  { name: 'Consultar Saldo',       fn: renderToolConsultarSaldo,    minTier: 3, nuevo: true  }, // Delfin 1.1 Mini+
+      '/generardivisas':    { name: 'Generador de Divisas',    fn: renderToolGenerarDivisas,    minTier: 2, nuevo: false }, // Delfin 1.1+
+      '/boostreputacion':   { name: 'Boost de Reputación',     fn: renderToolBoostReputacion,   minTier: 1, nuevo: false }, // Delfin 1.0+
+      '/transferirdivisas': { name: 'Transferir Divisas',      fn: renderToolTransferirDivisas, minTier: 3, nuevo: false }, // Delfin 1.1 Mini+
+      '/consultarsaldo':    { name: 'Consultar Saldo',         fn: renderToolConsultarSaldo,    minTier: 3, nuevo: false }, // Delfin 1.1 Mini+
+      '/historialops':      { name: 'Historial de Operaciones',fn: renderToolHistorialOps,      minTier: 5, nuevo: true  }, // Delfin 1.2+
+      '/intercambiardivisas':{ name: 'Intercambiar Divisas',   fn: renderToolIntercambiarDivisas,minTier: 5, nuevo: true  }, // Delfin 1.2+
     };
 
     // Cost formulas
@@ -2363,6 +2366,224 @@
       } catch(err) {
         showToolStatus(uid, 'sl', 'error', err.message || 'Error al procesar.');
         btn.textContent = '🔍 Reintentar'; btn.disabled = false; btn.classList.remove('loading');
+      }
+    }
+
+    // ── Tool: Historial de Operaciones (Delfin 1.2+) ─────────────────────────
+    let _toolHistCounter = 0;
+    function renderToolHistorialOps(containerEl) {
+      const uid = ++_toolHistCounter;
+      containerEl.innerHTML = `
+        <div class="tool-panel" id="tool-hist-${uid}">
+          <div class="tool-panel-header">
+            <span class="tool-panel-icon">📋</span>
+            <div>
+              <div class="tool-panel-title">Historial de Operaciones <span class="nuevo-badge" style="font-size:0.65rem">NUEVO!</span></div>
+              <div class="tool-panel-subtitle">Consultá tus últimas transacciones en Ocean Pay</div>
+            </div>
+          </div>
+          <hr class="tool-divider">
+          <div class="tool-panel-row">
+            <div class="tool-field">
+              <label>Cantidad de registros</label>
+              <select class="tool-select" id="tool-hist-limit-${uid}">
+                <option value="5">Últimas 5</option>
+                <option value="10" selected>Últimas 10</option>
+                <option value="20">Últimas 20</option>
+              </select>
+            </div>
+          </div>
+          <div class="tool-cost-row">
+            <span>Costo:</span>
+            <span class="tool-cost-val">8 Coral Bits</span>
+          </div>
+          <div class="tool-status-msg" id="tool-hist-status-${uid}"></div>
+          <div id="tool-hist-result-${uid}" style="display:none;margin-top:4px;"></div>
+          <button class="tool-execute-btn" id="tool-hist-btn-${uid}" onclick="executeHistorial(${uid})">
+            📋 Ver historial
+          </button>
+        </div>
+      `;
+    }
+
+    async function executeHistorial(uid) {
+      if (!oceanPayAuth?.username || !oceanPayAuth?.password) {
+        showToolStatus(uid, 'hist', 'error', 'Conectá tu cuenta Ocean Pay primero.');
+        return;
+      }
+      const limit = parseInt(document.getElementById('tool-hist-limit-' + uid)?.value || '10');
+      const btn   = document.getElementById('tool-hist-btn-' + uid);
+      btn.textContent = 'Consultando…'; btn.disabled = true; btn.classList.add('loading');
+
+      await addToolThinkingMessage([
+        'Accediendo a tu historial en Ocean Pay…',
+        `Recuperando últimas ${limit} operaciones…`,
+      ]);
+
+      try {
+        const res  = await fetch(`${API}/ocean-ai/tools/transaction-history`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: oceanPayAuth.username, password: oceanPayAuth.password, limit })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al consultar historial');
+
+        coralBits = Math.max(0, coralBits - (data.coralBitsCost || 8));
+        updateCurrencyUI();
+
+        // Render transaction table
+        const resultEl = document.getElementById('tool-hist-result-' + uid);
+        if (resultEl) {
+          const txs = data.transactions || [];
+          if (!txs.length) {
+            resultEl.innerHTML = '<div style="color:var(--text-muted);font-size:0.82rem;padding:8px">Sin transacciones registradas.</div>';
+          } else {
+            resultEl.innerHTML = `
+              <div style="overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;font-size:0.8rem;">
+                  <thead>
+                    <tr style="border-bottom:1px solid var(--border);color:var(--text-muted);">
+                      <th style="padding:6px 8px;text-align:left">Concepto</th>
+                      <th style="padding:6px 8px;text-align:right">Monto</th>
+                      <th style="padding:6px 8px;text-align:left">Moneda</th>
+                      <th style="padding:6px 8px;text-align:left">Fecha</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${txs.map(tx => `
+                      <tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
+                        <td style="padding:6px 8px;color:var(--text-muted)">${tx.concepto || '—'}</td>
+                        <td style="padding:6px 8px;text-align:right;color:${tx.monto >= 0 ? '#34d399' : '#f87171'};font-weight:600">${tx.monto >= 0 ? '+' : ''}${tx.monto}</td>
+                        <td style="padding:6px 8px;color:var(--text-muted)">${tx.moneda || '—'}</td>
+                        <td style="padding:6px 8px;color:var(--text-muted)">${tx.created_at ? new Date(tx.created_at).toLocaleString('es-ES',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}) : '—'}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            `;
+          }
+          resultEl.style.display = 'block';
+        }
+        showToolStatus(uid, 'hist', 'success', `${txs.length} transacciones cargadas. Costo: ${data.coralBitsCost || 8} CB.`);
+        btn.textContent = '📋 Actualizar'; btn.disabled = false; btn.classList.remove('loading');
+      } catch(err) {
+        showToolStatus(uid, 'hist', 'error', err.message || 'Error al procesar.');
+        btn.textContent = '📋 Reintentar'; btn.disabled = false; btn.classList.remove('loading');
+      }
+    }
+
+    // ── Tool: Intercambiar Divisas (Delfin 1.2+) ─────────────────────────────
+    let _toolIntCounter = 0;
+    const EXCHANGE_RATES = {
+      'aquabux→wildcredits': 0.5,
+      'wildcredits→aquabux': 1.8,
+      'aquabux→appbux':      0.8,
+      'appbux→aquabux':      1.1,
+    };
+    function renderToolIntercambiarDivisas(containerEl) {
+      const uid = ++_toolIntCounter;
+      containerEl.innerHTML = `
+        <div class="tool-panel" id="tool-int-${uid}">
+          <div class="tool-panel-header">
+            <span class="tool-panel-icon">🔄</span>
+            <div>
+              <div class="tool-panel-title">Intercambiar Divisas <span class="nuevo-badge" style="font-size:0.65rem">NUEVO!</span></div>
+              <div class="tool-panel-subtitle">Convertí entre divisas del ecosistema OWS</div>
+            </div>
+          </div>
+          <hr class="tool-divider">
+          <div class="tool-panel-row">
+            <div class="tool-field">
+              <label>De</label>
+              <select class="tool-select" id="tool-int-from-${uid}" onchange="updateExchangePreview(${uid})">
+                <option value="aquabux">AquaBux</option>
+                <option value="wildcredits">WildCredits</option>
+                <option value="appbux">AppBux</option>
+              </select>
+            </div>
+            <div style="display:flex;align-items:center;padding-top:18px;font-size:1.2rem;color:var(--accent)">→</div>
+            <div class="tool-field">
+              <label>A</label>
+              <select class="tool-select" id="tool-int-to-${uid}" onchange="updateExchangePreview(${uid})">
+                <option value="wildcredits">WildCredits</option>
+                <option value="aquabux">AquaBux</option>
+                <option value="appbux">AppBux</option>
+              </select>
+            </div>
+            <div class="tool-field">
+              <label>Cantidad</label>
+              <input type="number" class="tool-input" id="tool-int-amount-${uid}" min="1" max="500" value="100" oninput="updateExchangePreview(${uid})">
+            </div>
+          </div>
+          <div class="tool-cost-row" id="tool-int-preview-${uid}">
+            <span>Recibirás:</span>
+            <span class="tool-cost-val" id="tool-int-receive-${uid}">50 WildCredits</span>
+          </div>
+          <div class="tool-cost-row">
+            <span>Comisión:</span>
+            <span class="tool-cost-val">10 Coral Bits</span>
+          </div>
+          <div class="tool-status-msg" id="tool-int-status-${uid}"></div>
+          <button class="tool-execute-btn" id="tool-int-btn-${uid}" onclick="executeIntercambio(${uid})">
+            🔄 Intercambiar
+          </button>
+        </div>
+      `;
+      updateExchangePreview(uid);
+    }
+
+    function updateExchangePreview(uid) {
+      const from   = document.getElementById('tool-int-from-' + uid)?.value || 'aquabux';
+      const to     = document.getElementById('tool-int-to-' + uid)?.value   || 'wildcredits';
+      const amount = Math.min(500, Math.max(1, parseInt(document.getElementById('tool-int-amount-' + uid)?.value || '100') || 100));
+      const key    = from + '→' + to;
+      const rate   = EXCHANGE_RATES[key] ?? null;
+      const receiveEl = document.getElementById('tool-int-receive-' + uid);
+      if (!receiveEl) return;
+      if (from === to) { receiveEl.textContent = 'Seleccioná divisas distintas'; return; }
+      if (!rate) { receiveEl.textContent = 'Par no disponible'; return; }
+      receiveEl.textContent = `${(amount * rate).toFixed(0)} ${to.charAt(0).toUpperCase() + to.slice(1)}`;
+    }
+
+    async function executeIntercambio(uid) {
+      if (!oceanPayAuth?.username || !oceanPayAuth?.password) {
+        showToolStatus(uid, 'int', 'error', 'Conectá tu cuenta Ocean Pay primero.');
+        return;
+      }
+      const from   = document.getElementById('tool-int-from-' + uid)?.value || 'aquabux';
+      const to     = document.getElementById('tool-int-to-' + uid)?.value   || 'wildcredits';
+      const amount = Math.min(500, Math.max(1, parseInt(document.getElementById('tool-int-amount-' + uid)?.value || '0') || 0));
+      const btn    = document.getElementById('tool-int-btn-' + uid);
+      if (from === to) { showToolStatus(uid, 'int', 'error', 'Seleccioná divisas distintas.'); return; }
+      if (!amount)     { showToolStatus(uid, 'int', 'error', 'Cantidad inválida.'); return; }
+
+      btn.textContent = 'Procesando…'; btn.disabled = true; btn.classList.add('loading');
+      await addToolThinkingMessage([
+        `Verificando saldo de ${from}…`,
+        `Calculando tasa de cambio ${from} → ${to}…`,
+        `Ejecutando intercambio…`,
+      ]);
+
+      try {
+        const res  = await fetch(`${API}/ocean-ai/tools/exchange-currency`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: oceanPayAuth.username, password: oceanPayAuth.password, fromCurrency: from, toCurrency: to, amount })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al intercambiar');
+
+        coralBits = Math.max(0, coralBits - (data.coralBitsCost || 10));
+        updateCurrencyUI();
+        showToolStatus(uid, 'int', 'success',
+          `✓ ${amount} ${from} → ${data.received} ${to}. Tasa: ${data.rate}. Costo: ${data.coralBitsCost || 10} CB.`
+        );
+        btn.textContent = '✓ Intercambiado'; btn.disabled = true; btn.classList.remove('loading');
+      } catch(err) {
+        showToolStatus(uid, 'int', 'error', err.message || 'Error al procesar.');
+        btn.textContent = '🔄 Reintentar'; btn.disabled = false; btn.classList.remove('loading');
       }
     }
 

@@ -1491,7 +1491,7 @@ async function runDatabaseMigrations() {
         SELECT card_id, currency_type, amount
         FROM expanded
         ON CONFLICT (card_id, currency_type)
-        DO UPDATE SET amount = GREATEST(ocean_pay_card_balances.amount, EXCLUDED.amount)
+        DO UPDATE SET amount = EXCLUDED.amount  -- cards.balances is source of truth, no GREATEST
       `);
 
       // metadata -> ocean_pay_card_balances (deduplicado por card_id/currency_type)
@@ -1521,36 +1521,16 @@ async function runDatabaseMigrations() {
         DO UPDATE SET amount = GREATEST(ocean_pay_card_balances.amount, EXCLUDED.amount)
       `);
 
-      // columnas legacy de usuario -> ocean_pay_card_balances
-      await pool.query(`
-        INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
-        SELECT c.id, 'aquabux', GREATEST(COALESCE(u.aquabux, 0), 0)::numeric
-        FROM ocean_pay_cards c
-        JOIN ocean_pay_users u ON u.id = c.user_id
-        WHERE c.is_primary = true
-        ON CONFLICT (card_id, currency_type)
-        DO UPDATE SET amount = GREATEST(ocean_pay_card_balances.amount, EXCLUDED.amount)
-      `);
-      await pool.query(`
-        INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
-        SELECT c.id, 'appbux', GREATEST(COALESCE(u.appbux, 0), 0)::numeric
-        FROM ocean_pay_cards c
-        JOIN ocean_pay_users u ON u.id = c.user_id
-        WHERE c.is_primary = true
-        ON CONFLICT (card_id, currency_type)
-        DO UPDATE SET amount = GREATEST(ocean_pay_card_balances.amount, EXCLUDED.amount)
-      `);
-      await pool.query(`
-        INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
-        SELECT c.id, 'ecoxionums', GREATEST(COALESCE(u.ecoxionums, 0), 0)::numeric
-        FROM ocean_pay_cards c
-        JOIN ocean_pay_users u ON u.id = c.user_id
-        WHERE c.is_primary = true
-        ON CONFLICT (card_id, currency_type)
-        DO UPDATE SET amount = GREATEST(ocean_pay_card_balances.amount, EXCLUDED.amount)
-      `);
+      // columnas legacy de usuario -> ocean_pay_card_balances: SKIPPED at startup.
+      // Reason: ocean_pay_users.aquabux/.appbux/.ecoxionums are legacy columns that may hold
+      // stale high values from before the unified balance system. Writing them back with
+      // GREATEST() would restore balances that were legitimately spent.
+      // These columns are updated by setUnifiedCardCurrencyBalance for compatibility only.
 
       // Fuente unificada -> JSONB balances de tarjeta
+      // Note: card_balances was just populated FROM cards.balances above,
+      // so this is effectively a no-op. Still useful to keep card_balances
+      // in sync as a secondary store.
       await pool.query(`
         UPDATE ocean_pay_cards c
         SET balances = COALESCE(c.balances, '{}'::jsonb) || COALESCE(src.payload, '{}'::jsonb)
@@ -1669,7 +1649,7 @@ async function runDatabaseMigrations() {
           SET balances = jsonb_set(
             COALESCE(balances, '{}'::jsonb),
             ARRAY[LOWER(NEW.currency_type)]::text[],
-            to_jsonb(GREATEST(COALESCE(NEW.amount, 0), 0)::numeric),
+            to_jsonb(COALESCE(NEW.amount, 0)::numeric),
             true
           )
           WHERE id = NEW.card_id;
@@ -1712,11 +1692,15 @@ async function runDatabaseMigrations() {
             RETURN NEW;
           END IF;
 
-          UPDATE ocean_pay_cards
+          -- metadata trigger: do NOT update cards.balances from metadata.
+          -- metadata is a legacy compat layer. cards.balances is the source of truth.
+          -- Updating cards from metadata would restore spent balances.
+          RETURN NEW;
+          UPDATE ocean_pay_cards  -- unreachable, kept for schema reference
           SET balances = jsonb_set(
             COALESCE(balances, '{}'::jsonb),
             ARRAY[LOWER(NEW.key)]::text[],
-            to_jsonb(GREATEST((NEW.value)::numeric, 0)),
+            to_jsonb(COALESCE((NEW.value)::numeric, 0)),
             true
           )
           WHERE id = v_card_id;
@@ -10521,13 +10505,29 @@ async function getUnifiedCardCurrencyBalance(client, cardId, currency, forUpdate
   const curr = String(currency || '').trim().toLowerCase();
   const lockSql = forUpdate ? 'FOR UPDATE' : '';
 
+  // Source of truth: ocean_pay_cards.balances JSONB
   const { rows: cardRows } = await client.query(
     `SELECT balances FROM ocean_pay_cards WHERE id = $1 ${lockSql}`,
     [cardId]
   );
   const balances = cardRows[0]?.balances || {};
-  const jsonBalance = Number(balances[curr] || 0);
-  return Number.isFinite(jsonBalance) ? jsonBalance : 0;
+
+  if (balances[curr] !== undefined) {
+    const jsonBalance = Number(balances[curr]);
+    return Number.isFinite(jsonBalance) ? jsonBalance : 0;
+  }
+
+  // Fallback: ocean_pay_card_balances table (secondary store, kept in sync by trigger)
+  const { rows: cbRows } = await client.query(
+    `SELECT amount FROM ocean_pay_card_balances WHERE card_id = $1 AND currency_type = $2 LIMIT 1`,
+    [cardId, curr]
+  );
+  if (cbRows.length) {
+    const cbBalance = Number(cbRows[0].amount);
+    return Number.isFinite(cbBalance) ? cbBalance : 0;
+  }
+
+  return 0;
 }
 
 async function setUnifiedCardCurrencyBalance(client, { userId, cardId, currency, newBalance }) {
@@ -15769,6 +15769,90 @@ app.post('/ocean-ai/tools/check-balance', async (req, res) => {
   } catch(err) {
     await client.query('ROLLBACK');
     console.error('Error en /ocean-ai/tools/check-balance:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  } finally { client.release(); }
+});
+
+// ── Ocean AI Tool: Transaction History (Delfin 1.2+) ────────────────────
+app.post('/ocean-ai/tools/transaction-history', async (req, res) => {
+  const username = String(req.body?.username || '').trim();
+  const password = String(req.body?.password || '').trim();
+  const limit    = Math.min(20, Math.max(1, parseInt(req.body?.limit) || 10));
+  if (!username || !password) return res.status(400).json({ error: 'Credenciales requeridas' });
+  const coralBitsCost = 8;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const user = await resolveOceanPayUserByCredentials(client, username, password);
+    if (!user) { await client.query('ROLLBACK'); return res.status(401).json({ error: 'Credenciales inválidas' }); }
+    const card = await ensurePrimaryCardForUser(client, user.id, true);
+    if (!card) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Sin tarjeta activa' }); }
+    const currentCoral = await getUnifiedCardCurrencyBalance(client, Number(card.id), 'coralbits', true);
+    if (currentCoral < coralBitsCost) { await client.query('ROLLBACK'); return res.status(400).json({ error: `Coral Bits insuficientes. Necesitás ${coralBitsCost}.` }); }
+    await setUnifiedCardCurrencyBalance(client, { userId: user.id, cardId: Number(card.id), currency: 'coralbits', newBalance: currentCoral - coralBitsCost });
+    // Fetch transactions
+    const { rows: txRows } = await client.query(
+      `SELECT concepto, monto, origen, moneda, created_at
+         FROM ocean_pay_txs
+        WHERE user_id = $1
+        ORDER BY created_at DESC
+        LIMIT $2`,
+      [user.id, limit]
+    );
+    await client.query('COMMIT');
+    return res.json({ success: true, transactions: txRows, coralBitsCost });
+  } catch(err) {
+    await client.query('ROLLBACK');
+    console.error('Error en /ocean-ai/tools/transaction-history:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  } finally { client.release(); }
+});
+
+// ── Ocean AI Tool: Exchange Currency (Delfin 1.2+) ────────────────────────
+app.post('/ocean-ai/tools/exchange-currency', async (req, res) => {
+  const username     = String(req.body?.username || '').trim();
+  const password     = String(req.body?.password || '').trim();
+  const fromCurrency = String(req.body?.fromCurrency || '').trim().toLowerCase();
+  const toCurrency   = String(req.body?.toCurrency   || '').trim().toLowerCase();
+  const amount       = Math.min(500, Math.max(1, parseInt(req.body?.amount) || 0));
+  if (!username || !password) return res.status(400).json({ error: 'Credenciales requeridas' });
+  if (!amount) return res.status(400).json({ error: 'Cantidad inválida' });
+  if (fromCurrency === toCurrency) return res.status(400).json({ error: 'Seleccioná divisas distintas' });
+  const EXCHANGE_RATES = {
+    'aquabux→wildcredits': 0.5,
+    'wildcredits→aquabux': 1.8,
+    'aquabux→appbux':      0.8,
+    'appbux→aquabux':      1.1,
+  };
+  const rateKey = `${fromCurrency}→${toCurrency}`;
+  const rate    = EXCHANGE_RATES[rateKey];
+  if (!rate) return res.status(400).json({ error: `Par de intercambio no disponible: ${fromCurrency} → ${toCurrency}` });
+  const received     = Math.floor(amount * rate);
+  const coralBitsCost= 10;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const user = await resolveOceanPayUserByCredentials(client, username, password);
+    if (!user) { await client.query('ROLLBACK'); return res.status(401).json({ error: 'Credenciales inválidas' }); }
+    const card = await ensurePrimaryCardForUser(client, user.id, true);
+    if (!card) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Sin tarjeta activa' }); }
+    const currentCoral = await getUnifiedCardCurrencyBalance(client, Number(card.id), 'coralbits', true);
+    if (currentCoral < coralBitsCost) { await client.query('ROLLBACK'); return res.status(400).json({ error: `Coral Bits insuficientes. Necesitás ${coralBitsCost}.` }); }
+    const fromBal = await getUnifiedCardCurrencyBalance(client, Number(card.id), fromCurrency, true);
+    if (fromBal < amount) { await client.query('ROLLBACK'); return res.status(400).json({ error: `Saldo insuficiente de ${fromCurrency}. Tenés ${fromBal}.` }); }
+    // Deduct coral bits + from currency, add to currency
+    await setUnifiedCardCurrencyBalance(client, { userId: user.id, cardId: Number(card.id), currency: 'coralbits',   newBalance: currentCoral - coralBitsCost });
+    await setUnifiedCardCurrencyBalance(client, { userId: user.id, cardId: Number(card.id), currency: fromCurrency, newBalance: fromBal - amount });
+    const toBal = await getUnifiedCardCurrencyBalance(client, Number(card.id), toCurrency, false);
+    await setUnifiedCardCurrencyBalance(client, { userId: user.id, cardId: Number(card.id), currency: toCurrency,   newBalance: toBal + received });
+    // Log
+    await client.query(`INSERT INTO ocean_pay_txs (user_id,concepto,monto,origen,moneda) VALUES ($1,$2,$3,$4,$5)`,
+      [user.id, `Ocean AI - Intercambio ${fromCurrency}→${toCurrency}`, -amount, 'Ocean AI Tools', fromCurrency.slice(0,10).toUpperCase()]).catch(()=>{});
+    await client.query('COMMIT');
+    return res.json({ success: true, fromCurrency, toCurrency, amount, received, rate, coralBitsCost });
+  } catch(err) {
+    await client.query('ROLLBACK');
+    console.error('Error en /ocean-ai/tools/exchange-currency:', err);
     return res.status(500).json({ error: 'Error interno' });
   } finally { client.release(); }
 });

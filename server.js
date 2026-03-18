@@ -5806,33 +5806,29 @@ const OCEAN_AI_CURRENCY = 'coralbits';
 const OCEAN_AI_PROJECT_ID = 'Ocean AI';
 const OCEAN_AI_PLAN_INTERVAL_DAYS = 7;
 const OCEAN_AI_PLANS = Object.freeze({
+  // Serie Delfin — ligero y rápido
   tide: {
     id: 'tide',
-    name: 'Tide Starter',
+    name: 'Delfin',
     weeklyCost: 120,
-    models: ['ocean51', 'ocean52'],
-    benefits: ['Respuestas mejoradas', 'Velocidad estable']
+    models: ['free', 'dolphin'],
+    benefits: ['Modelo Delfin completo', 'Velocidad mejorada', 'Sin límite de Coral Bits', 'Historial extendido']
   },
+  // Serie Ballena — balanceado
   coral: {
     id: 'coral',
-    name: 'Coral Pro',
+    name: 'Ballena',
     weeklyCost: 280,
-    models: ['ocean51', 'ocean52', 'ocean53'],
-    benefits: ['Analisis avanzado', 'Mayor contexto']
+    models: ['free', 'dolphin', 'whale'],
+    benefits: ['Modelos Delfin + Ballena', 'Análisis más profundo', 'Respuestas más extensas', 'Mayor contexto']
   },
-  abyss: {
-    id: 'abyss',
-    name: 'Abyss Creative',
-    weeklyCost: 520,
-    models: ['ocean51', 'ocean52', 'ocean53', 'ocean54'],
-    benefits: ['Modo creativo premium', 'Respuestas extendidas']
-  },
+  // Serie Tiburon — el más potente (reemplaza abyss y leviathan)
   leviathan: {
     id: 'leviathan',
-    name: 'Leviathan Elite',
+    name: 'Tiburon',
     weeklyCost: 900,
-    models: ['ocean51', 'ocean52', 'ocean53', 'ocean54', 'ocean55'],
-    benefits: ['Todos los modelos', 'Maxima prioridad de calculo']
+    models: ['free', 'dolphin', 'whale', 'shark'],
+    benefits: ['Todos los modelos', 'Tiburon: el más potente', 'Máxima prioridad de cálculo', 'Sin restricciones']
   }
 });
 

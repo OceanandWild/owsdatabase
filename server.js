@@ -15539,6 +15539,157 @@ app.post('/wildwave/api/posts', async (req, res) => {
   }
 });
 
+// ════════════════════════════════════════════════════════════════
+// OCEAN AI TOOLS
+// ════════════════════════════════════════════════════════════════
+
+// Tool: Generate Currency (AquaBux etc.)
+// Cost: 2 Coral Bits per AquaBux unit (max 500)
+app.post('/ocean-ai/tools/generate-currency', async (req, res) => {
+  const username = String(req.body?.username || '').trim();
+  const password = String(req.body?.password || '').trim();
+  const currency = String(req.body?.currency || 'aquabux').trim().toLowerCase();
+  const amount   = Math.min(500, Math.max(1, parseInt(req.body?.amount) || 0));
+
+  if (!username || !password) return res.status(400).json({ error: 'Credenciales requeridas' });
+  if (!amount) return res.status(400).json({ error: 'Cantidad inválida (1-500)' });
+
+  const ALLOWED_CURRENCIES = { aquabux: { label: 'AquaBux', coralBitsPerUnit: 2 } };
+  const currDef = ALLOWED_CURRENCIES[currency];
+  if (!currDef) return res.status(400).json({ error: `Divisa no soportada: ${currency}` });
+
+  const coralBitsCost = Math.ceil(currDef.coralBitsPerUnit * amount);
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Validate user
+    const user = await resolveOceanPayUserByCredentials(client, username, password);
+    if (!user) { await client.query('ROLLBACK'); return res.status(401).json({ error: 'Credenciales inválidas' }); }
+
+    // Check + deduct Coral Bits from user's card
+    const primaryCard = await ensurePrimaryCardForUser(client, user.id, true);
+    if (!primaryCard) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Sin tarjeta Ocean Pay activa' }); }
+
+    const currentCoral = await getUnifiedCardCurrencyBalance(client, Number(primaryCard.id), 'coralbits', true);
+    if (currentCoral < coralBitsCost) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: `Coral Bits insuficientes. Tenés ${currentCoral}, necesitás ${coralBitsCost}.`, currentCoral, coralBitsCost });
+    }
+
+    // Deduct Coral Bits
+    await setUnifiedCardCurrencyBalance(client, {
+      userId: user.id, cardId: Number(primaryCard.id),
+      currency: 'coralbits', newBalance: currentCoral - coralBitsCost
+    });
+
+    // Add requested currency
+    const currentCurrencyBal = await getUnifiedCardCurrencyBalance(client, Number(primaryCard.id), currency, true);
+    await setUnifiedCardCurrencyBalance(client, {
+      userId: user.id, cardId: Number(primaryCard.id),
+      currency, newBalance: currentCurrencyBal + amount
+    });
+
+    // Log transactions
+    await client.query(
+      `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)`,
+      [user.id, `Ocean AI - Generación de ${currDef.label}`, amount, 'Ocean AI Tools', currDef.label.slice(0,10)]
+    ).catch(() => {});
+    await client.query(
+      `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)`,
+      [user.id, `Ocean AI - Costo herramienta Generador de Divisas`, -coralBitsCost, 'Ocean AI Tools', 'CB']
+    ).catch(() => {});
+
+    await client.query('COMMIT');
+    return res.json({
+      success: true,
+      currency,
+      currencyLabel: currDef.label,
+      amount,
+      coralBitsCost,
+      newCurrencyBalance: currentCurrencyBal + amount,
+      newCoralBitsBalance: currentCoral - coralBitsCost,
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error en /ocean-ai/tools/generate-currency:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  } finally {
+    client.release();
+  }
+});
+
+// Tool: Boost Reputation
+// Adds reputation points to user, costs Coral Bits
+app.post('/ocean-ai/tools/boost-reputation', async (req, res) => {
+  const username = String(req.body?.username || '').trim();
+  const password = String(req.body?.password || '').trim();
+  const level    = String(req.body?.level || 'basico').trim().toLowerCase();
+
+  if (!username || !password) return res.status(400).json({ error: 'Credenciales requeridas' });
+
+  const LEVELS = {
+    basico:   { pts: 10,  coralBitsCost: 50  },
+    medio:    { pts: 25,  coralBitsCost: 120 },
+    avanzado: { pts: 60,  coralBitsCost: 300 },
+  };
+  const levelDef = LEVELS[level];
+  if (!levelDef) return res.status(400).json({ error: `Nivel inválido: ${level}` });
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const user = await resolveOceanPayUserByCredentials(client, username, password);
+    if (!user) { await client.query('ROLLBACK'); return res.status(401).json({ error: 'Credenciales inválidas' }); }
+
+    const primaryCard = await ensurePrimaryCardForUser(client, user.id, true);
+    if (!primaryCard) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Sin tarjeta Ocean Pay activa' }); }
+
+    // Check + deduct Coral Bits
+    const currentCoral = await getUnifiedCardCurrencyBalance(client, Number(primaryCard.id), 'coralbits', true);
+    if (currentCoral < levelDef.coralBitsCost) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: `Coral Bits insuficientes. Tenés ${currentCoral}, necesitás ${levelDef.coralBitsCost}.`, currentCoral, required: levelDef.coralBitsCost });
+    }
+
+    await setUnifiedCardCurrencyBalance(client, {
+      userId: user.id, cardId: Number(primaryCard.id),
+      currency: 'coralbits', newBalance: currentCoral - levelDef.coralBitsCost
+    });
+
+    // Add reputation pts — stored as wildcredits (reputación proxy)
+    // Using a dedicated reputation system if available, otherwise wildcredits as proxy
+    const currentRep = await getUnifiedCardCurrencyBalance(client, Number(primaryCard.id), 'wildcredits', true);
+    await setUnifiedCardCurrencyBalance(client, {
+      userId: user.id, cardId: Number(primaryCard.id),
+      currency: 'wildcredits', newBalance: currentRep + levelDef.pts
+    });
+
+    await client.query(
+      `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)`,
+      [user.id, `Ocean AI - Boost reputación (${level})`, levelDef.pts, 'Ocean AI Tools', 'WC']
+    ).catch(() => {});
+
+    await client.query('COMMIT');
+    return res.json({
+      success: true,
+      level,
+      pointsAdded: levelDef.pts,
+      coralBitsCost: levelDef.coralBitsCost,
+      newCoralBitsBalance: currentCoral - levelDef.coralBitsCost,
+      newReputationBalance: currentRep + levelDef.pts,
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error en /ocean-ai/tools/boost-reputation:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  } finally {
+    client.release();
+  }
+});
+
 // Colaboraciones - solicitudes
 app.get('/wildwave/api/collabs/requests', async (req, res) => {
   try {

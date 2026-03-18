@@ -75,6 +75,21 @@ const wildwavePostStorage = new CloudinaryStorage({
 });
 const wildwavePostUpload = multer({ storage: wildwavePostStorage });
 
+// WildWave video uploads (Cloudinary) — resource_type auto detecta video
+const wildwaveVideoStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'wildwave/videos',
+    resource_type: 'video',
+    allowed_formats: ['mp4', 'mov', 'webm'],
+    transformation: [{ width: 1280, crop: 'limit', quality: 'auto' }]
+  },
+});
+const wildwaveVideoUpload = multer({
+  storage: wildwaveVideoStorage,
+  limits: { fileSize: 100 * 1024 * 1024 } // 100 MB máximo
+});
+
 // FunciÃƒÂ³n para generar ID ÃƒÂºnico de usuario (100 caracteres)
 function generateUserUniqueId() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -7402,6 +7417,23 @@ app.patch('/ows-store/projects/:slug', async (req, res) => {
 });
 
 
+// Eliminar proyecto de OWS Store
+app.delete('/ows-store/projects/:slug', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const { slug } = req.params;
+  try {
+    const { rows } = await pool.query(
+      'DELETE FROM ows_projects WHERE slug = $1 RETURNING slug',
+      [slug]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Proyecto no encontrado' });
+    res.json({ success: true, deleted: rows[0].slug });
+  } catch (err) {
+    console.error('Error en DELETE /ows-store/projects/:slug:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 app.get('/ows-store/android/releases/:slug/latest', async (req, res) => {
   const { slug } = req.params;
   const includeDraft = String(req.query.include_draft || '').toLowerCase() === 'true';
@@ -12203,6 +12235,14 @@ io.on('connection', (socket) => {
       awqgSocketToRoom.delete(socket.id);
     }
   });
+
+  // WildWave: join user room for process updates
+  socket.on('ww:join', ({ userId }) => {
+    if (userId) socket.join(`ww-user-${userId}`);
+  });
+  socket.on('ww:leave', ({ userId }) => {
+    if (userId) socket.leave(`ww-user-${userId}`);
+  });
 });
 
 // Servir archivo HTML del quiz
@@ -12872,6 +12912,69 @@ async function ensureWildXTables() {
     CREATE INDEX IF NOT EXISTS idx_wildx_affiliations_user
       ON wildx_affiliations(user_id, created_at DESC)
   `);
+
+  // ── Polls ──────────────────────────────────────────────────────────────
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS wildx_polls (
+      id          SERIAL PRIMARY KEY,
+      post_id     INTEGER NOT NULL REFERENCES wildx_posts(id) ON DELETE CASCADE,
+      question    TEXT NOT NULL,
+      options     JSONB NOT NULL DEFAULT '[]'::jsonb,
+      ends_at     TIMESTAMP NULL,
+      created_at  TIMESTAMP DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_wildx_polls_post
+      ON wildx_polls(post_id)
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS wildx_poll_votes (
+      id        SERIAL PRIMARY KEY,
+      poll_id   INTEGER NOT NULL REFERENCES wildx_polls(id) ON DELETE CASCADE,
+      user_id   INTEGER NOT NULL REFERENCES wildx_users(id) ON DELETE CASCADE,
+      option_idx INTEGER NOT NULL,
+      voted_at  TIMESTAMP DEFAULT NOW(),
+      UNIQUE(poll_id, user_id)
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_wildx_poll_votes_poll
+      ON wildx_poll_votes(poll_id)
+  `);
+
+  // ── Processes ─────────────────────────────────────────────────────────
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS wildx_processes (
+      id          SERIAL PRIMARY KEY,
+      user_id     INTEGER NOT NULL REFERENCES wildx_users(id) ON DELETE CASCADE,
+      title       TEXT NOT NULL,
+      description TEXT,
+      status      TEXT NOT NULL DEFAULT 'active',
+      created_at  TIMESTAMP DEFAULT NOW(),
+      updated_at  TIMESTAMP DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_wildx_processes_user
+      ON wildx_processes(user_id, created_at DESC)
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS wildx_process_steps (
+      id          SERIAL PRIMARY KEY,
+      process_id  INTEGER NOT NULL REFERENCES wildx_processes(id) ON DELETE CASCADE,
+      parent_id   INTEGER REFERENCES wildx_process_steps(id) ON DELETE CASCADE,
+      title       TEXT NOT NULL,
+      done        BOOLEAN NOT NULL DEFAULT FALSE,
+      position    INTEGER NOT NULL DEFAULT 0,
+      created_at  TIMESTAMP DEFAULT NOW(),
+      updated_at  TIMESTAMP DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_wildx_process_steps_process
+      ON wildx_process_steps(process_id, position ASC)
+  `);
 }
 
 function getWildXUserId(req) {
@@ -13082,7 +13185,8 @@ async function ensureWildXExtraColumns() {
       ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'published',
       ADD COLUMN IF NOT EXISTS scheduled_at TIMESTAMP NULL,
       ADD COLUMN IF NOT EXISTS images JSONB NOT NULL DEFAULT '[]'::jsonb,
-      ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP NULL
+      ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP NULL,
+      ADD COLUMN IF NOT EXISTS video_url TEXT NULL
     `);
   } catch (err) {
     // Si la tabla aÃƒÂºn no existe, se crearÃƒÂ¡ en ensureWildXTables
@@ -13328,6 +13432,23 @@ app.post('/wildwave/api/posts/media', wildwavePostUpload.array('images', 6), asy
   } catch (err) {
     console.error('Error en POST /wildwave/api/posts/media:', err);
     res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// WildWave — subir video de post (Cloudinary)
+app.post('/wildwave/api/posts/video', wildwaveVideoUpload.single('video'), async (req, res) => {
+  try {
+    await ensureWildXTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Inicia sesión en WildWave' });
+    const file = req.file;
+    if (!file) return res.status(400).json({ error: 'Video requerido' });
+    const url = file.path || file.secure_url || file.url;
+    if (!url) return res.status(500).json({ error: 'No se pudo guardar el video' });
+    res.json({ success: true, url });
+  } catch (err) {
+    console.error('Error en POST /wildwave/api/posts/video:', err);
+    res.status(500).json({ error: 'Error interno al subir video' });
   }
 });
 
@@ -13758,6 +13879,7 @@ async function selectPromotedPost() {
             COALESCE(u.display_name, u.username, p.username) AS display_name,
             p.content,
             p.images,
+            p.video_url,
             p.created_at,
             p.parent_id,
             p.likes_count,
@@ -13817,6 +13939,96 @@ async function selectPromotedPost() {
     amount_wxt: Number(chosen.amount_wxt),
     post: posts[0]
   };
+}
+
+
+// ── Poll helper: enrich posts with poll data ─────────────────────────────
+async function enrichPostsWithPolls(posts, currentUserId) {
+  if (!posts || !posts.length) return posts;
+  const postIds = posts.map(p => p.id).filter(Boolean);
+  if (!postIds.length) return posts;
+  try {
+    // Get polls for these posts
+    const { rows: polls } = await pool.query(
+      `SELECT pl.id, pl.post_id, pl.question, pl.options, pl.ends_at,
+              pv.option_idx AS my_vote,
+              (SELECT json_agg(json_build_object('option_idx', v.option_idx, 'count', v.cnt))
+                 FROM (SELECT option_idx, COUNT(*)::int AS cnt
+                         FROM wildx_poll_votes WHERE poll_id = pl.id
+                        GROUP BY option_idx) v) AS vote_counts,
+              (SELECT COUNT(*)::int FROM wildx_poll_votes WHERE poll_id = pl.id) AS total_votes
+         FROM wildx_polls pl
+         LEFT JOIN wildx_poll_votes pv
+           ON pv.poll_id = pl.id AND pv.user_id = $2
+        WHERE pl.post_id = ANY($1)`,
+      [postIds, currentUserId || 0]
+    );
+    const pollMap = {};
+    for (const p of polls) pollMap[p.post_id] = p;
+    return posts.map(post => {
+      const poll = pollMap[post.id];
+      if (!poll) return post;
+      const voteCounts = poll.vote_counts || [];
+      const options = (Array.isArray(poll.options) ? poll.options : []).map((opt, idx) => ({
+        idx,
+        text: opt,
+        votes: (voteCounts.find(v => v.option_idx === idx) || {}).count || 0
+      }));
+      return {
+        ...post,
+        poll: {
+          id: poll.id,
+          question: poll.question,
+          options,
+          ends_at: poll.ends_at,
+          total_votes: poll.total_votes || 0,
+          my_vote: poll.my_vote != null ? poll.my_vote : null
+        }
+      };
+    });
+  } catch (e) {
+    console.error('enrichPostsWithPolls error:', e.message);
+    return posts; // fail gracefully
+  }
+}
+
+
+// ── Processes helper ─────────────────────────────────────────────────────
+async function emitProcessUpdate(userId, eventType, payload) {
+  // Notify the owner
+  io.to(`ww-user-${userId}`).emit('ww:process-update', { type: eventType, ...payload });
+  // Notify followers so they see live updates on the owner's profile
+  try {
+    const { rows } = await pool.query(
+      'SELECT follower_id FROM wildx_follows WHERE following_id = $1',
+      [userId]
+    );
+    for (const r of rows) {
+      io.to(`ww-user-${r.follower_id}`).emit('ww:process-update', { type: eventType, userId, ...payload });
+    }
+  } catch (_) {}
+}
+
+async function getProcessWithSteps(processId) {
+  const { rows: procs } = await pool.query(
+    'SELECT id, user_id, title, description, status, created_at, updated_at FROM wildx_processes WHERE id = $1',
+    [processId]
+  );
+  if (!procs.length) return null;
+  const proc = procs[0];
+  const { rows: steps } = await pool.query(
+    `SELECT id, parent_id, title, done, position, created_at, updated_at
+       FROM wildx_process_steps
+      WHERE process_id = $1
+      ORDER BY position ASC, id ASC`,
+    [processId]
+  );
+  proc.steps = steps;
+  // Counts: total steps (no parent), completed
+  const topLevel = steps.filter(s => !s.parent_id);
+  proc.total_steps     = topLevel.length;
+  proc.completed_steps = topLevel.filter(s => s.done).length;
+  return proc;
 }
 
 // API de posts WildX (Explorar = todos los posts publicados)
@@ -13894,8 +14106,9 @@ app.get('/wildwave/api/posts', async (req, res) => {
       selectPromotedPost().catch(() => null)
     ]);
 
+    const enrichedPosts = await enrichPostsWithPolls(postsResult.rows, wid);
     res.json({
-      posts: postsResult.rows,
+      posts: enrichedPosts,
       promoted
     });
   } catch (err) {
@@ -13980,7 +14193,8 @@ app.get('/wildwave/api/my-posts', async (req, res) => {
         LIMIT 100`,
       [wid, WILDWAVE_ADMIN_USERNAME, WILDWAVE_ADMIN_DISPLAY_NAME, WILDWAVE_ADMIN_OCEANPAY_USERNAME]
     );
-    res.json(rows);
+    const enrichedMyPosts = await enrichPostsWithPolls(rows, wid);
+    res.json(enrichedMyPosts);
   } catch (err) {
     console.error('Error en GET /wildwave/api/my-posts:', err);
     res.status(500).json({ error: 'Error interno' });
@@ -15116,6 +15330,20 @@ app.post('/wildwave/api/posts', async (req, res) => {
     ));
 
     const imagesRaw = req.body?.images;
+    // Poll data (optional)
+    const pollRaw = req.body?.poll;
+    let pollData = null;
+    if (pollRaw) {
+      try {
+        const p = typeof pollRaw === 'string' ? JSON.parse(pollRaw) : pollRaw;
+        const question = (p.question || '').toString().trim();
+        const options = Array.isArray(p.options) ? p.options.map(o => String(o || '').trim()).filter(Boolean) : [];
+        const ends_at = p.ends_at ? new Date(p.ends_at) : null;
+        if (question && options.length >= 2 && options.length <= 6) {
+          pollData = { question, options, ends_at: (ends_at && !isNaN(ends_at)) ? ends_at : null };
+        }
+      } catch (_) { /* ignore malformed poll */ }
+    }
     let images = [];
     if (Array.isArray(imagesRaw)) {
       images = imagesRaw;
@@ -15137,7 +15365,12 @@ app.post('/wildwave/api/posts', async (req, res) => {
     }
     images = images.slice(0, 6);
 
-    if (!content && !images.length) return res.status(400).json({ error: 'Contenido o imagen requerida' });
+    // Video URL (ya subido por /posts/video)
+    const videoUrl = typeof req.body?.video_url === 'string' && req.body.video_url.trim()
+      ? req.body.video_url.trim()
+      : null;
+
+    if (!content && !images.length && !videoUrl) return res.status(400).json({ error: 'Contenido, imagen o video requerido' });
 
     // LÃƒÂ­mite de caracteres segÃƒÂºn verificaciÃƒÂ³n: base 280, +150% (700) si tiene verificaciÃƒÂ³n azul activa.
     // Los administradores de WildX no tienen lÃƒÂ­mite de caracteres.
@@ -15231,10 +15464,24 @@ app.post('/wildwave/api/posts', async (req, res) => {
 
     const imagesJson = JSON.stringify(images);
     const { rows } = await pool.query(
-      'INSERT INTO wildx_posts (user_id, username, content, images, parent_id, scheduled_at, status) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id, user_id, username, content, images, created_at, parent_id, likes_count, scheduled_at, status',
-      [wid, uname, content, imagesJson, parentId, scheduledAt, status]
+      'INSERT INTO wildx_posts (user_id, username, content, images, video_url, parent_id, scheduled_at, status) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id, user_id, username, content, images, video_url, created_at, parent_id, likes_count, scheduled_at, status',
+      [wid, uname, content, imagesJson, videoUrl, parentId, scheduledAt, status]
     );
     const post = rows[0];
+
+    // Insert poll if provided
+    if (pollData && !parentId) {
+      try {
+        await pool.query(
+          `INSERT INTO wildx_polls (post_id, question, options, ends_at)
+           VALUES ($1, $2, $3, $4)`,
+          [post.id, pollData.question, JSON.stringify(pollData.options), pollData.ends_at]
+        );
+      } catch (pollErr) {
+        console.error('Error guardando poll:', pollErr.message);
+      }
+    }
+
     if (collabUsers.length) {
       for (const collab of collabUsers) {
         await pool.query(
@@ -15518,6 +15765,314 @@ app.post('/wildwave/api/collabs/posts/:id/publish', async (req, res) => {
   }
 });
 // Toggle like en un post WildX
+
+
+// ══════════════════════════════════════════════════════════════════════════
+// WildWave — PROCESOS
+// ══════════════════════════════════════════════════════════════════════════
+
+// GET mis procesos
+app.get('/wildwave/api/processes', async (req, res) => {
+  try {
+    await ensureWildXTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Token requerido' });
+    const { rows: procs } = await pool.query(
+      `SELECT id, title, description, status, created_at, updated_at
+         FROM wildx_processes WHERE user_id = $1
+        ORDER BY created_at DESC`,
+      [wid]
+    );
+    const result = await Promise.all(procs.map(p => getProcessWithSteps(p.id)));
+    res.json(result.filter(Boolean));
+  } catch (err) {
+    console.error('GET /wildwave/api/processes:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// GET procesos de un usuario (para perfil público)
+app.get('/wildwave/api/processes/user/:username', async (req, res) => {
+  try {
+    await ensureWildXTables();
+    const { username } = req.params;
+    const { rows: users } = await pool.query(
+      'SELECT id FROM wildx_users WHERE LOWER(username) = LOWER($1)',
+      [username]
+    );
+    if (!users.length) return res.status(404).json({ error: 'Usuario no encontrado' });
+    const uid = users[0].id;
+    const { rows: procs } = await pool.query(
+      `SELECT id FROM wildx_processes WHERE user_id = $1 AND status = 'active'
+        ORDER BY created_at DESC`,
+      [uid]
+    );
+    const result = await Promise.all(procs.map(p => getProcessWithSteps(p.id)));
+    res.json(result.filter(Boolean));
+  } catch (err) {
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// POST crear proceso
+app.post('/wildwave/api/processes', async (req, res) => {
+  try {
+    await ensureWildXTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Token requerido' });
+    const title = (req.body?.title || '').toString().trim();
+    const description = (req.body?.description || '').toString().trim();
+    if (!title) return res.status(400).json({ error: 'Título requerido' });
+    if (title.length > 120) return res.status(400).json({ error: 'Título máximo 120 caracteres' });
+    const { rows } = await pool.query(
+      `INSERT INTO wildx_processes (user_id, title, description)
+       VALUES ($1, $2, $3)
+       RETURNING id, user_id, title, description, status, created_at, updated_at`,
+      [wid, title, description || null]
+    );
+    const proc = { ...rows[0], steps: [], total_steps: 0, completed_steps: 0 };
+    await emitProcessUpdate(wid, 'process:created', { process: proc });
+    res.json(proc);
+  } catch (err) {
+    console.error('POST /wildwave/api/processes:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// PATCH editar proceso
+app.patch('/wildwave/api/processes/:id', async (req, res) => {
+  try {
+    await ensureWildXTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Token requerido' });
+    const procId = parseInt(req.params.id, 10);
+    const { rows: own } = await pool.query(
+      'SELECT id FROM wildx_processes WHERE id = $1 AND user_id = $2',
+      [procId, wid]
+    );
+    if (!own.length) return res.status(404).json({ error: 'Proceso no encontrado' });
+    const title       = req.body?.title !== undefined ? (req.body.title || '').toString().trim() : undefined;
+    const description = req.body?.description !== undefined ? (req.body.description || '').toString().trim() : undefined;
+    const status      = req.body?.status !== undefined ? req.body.status : undefined;
+    if (title !== undefined && !title) return res.status(400).json({ error: 'Título requerido' });
+    const setParts = ['updated_at = NOW()'];
+    const vals = [];
+    let idx = 1;
+    if (title !== undefined)       { setParts.push(`title = $${idx++}`);       vals.push(title); }
+    if (description !== undefined) { setParts.push(`description = $${idx++}`); vals.push(description || null); }
+    if (status !== undefined)      { setParts.push(`status = $${idx++}`);      vals.push(status); }
+    vals.push(procId);
+    await pool.query(`UPDATE wildx_processes SET ${setParts.join(', ')} WHERE id = $${idx}`, vals);
+    const proc = await getProcessWithSteps(procId);
+    await emitProcessUpdate(wid, 'process:updated', { process: proc });
+    res.json(proc);
+  } catch (err) {
+    console.error('PATCH /wildwave/api/processes/:id:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// DELETE proceso
+app.delete('/wildwave/api/processes/:id', async (req, res) => {
+  try {
+    await ensureWildXTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Token requerido' });
+    const procId = parseInt(req.params.id, 10);
+    const { rows } = await pool.query(
+      'DELETE FROM wildx_processes WHERE id = $1 AND user_id = $2 RETURNING id',
+      [procId, wid]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Proceso no encontrado' });
+    await emitProcessUpdate(wid, 'process:deleted', { processId: procId });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// POST añadir paso
+app.post('/wildwave/api/processes/:id/steps', async (req, res) => {
+  try {
+    await ensureWildXTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Token requerido' });
+    const procId = parseInt(req.params.id, 10);
+    const { rows: own } = await pool.query(
+      'SELECT id FROM wildx_processes WHERE id = $1 AND user_id = $2',
+      [procId, wid]
+    );
+    if (!own.length) return res.status(404).json({ error: 'Proceso no encontrado' });
+    const title    = (req.body?.title || '').toString().trim();
+    const parentId = req.body?.parent_id ? parseInt(req.body.parent_id, 10) : null;
+    if (!title) return res.status(400).json({ error: 'Título del paso requerido' });
+    if (title.length > 160) return res.status(400).json({ error: 'Título máximo 160 caracteres' });
+    // Calculate position
+    const { rows: posRows } = await pool.query(
+      'SELECT COALESCE(MAX(position), -1) + 1 AS next_pos FROM wildx_process_steps WHERE process_id = $1 AND parent_id IS NOT DISTINCT FROM $2',
+      [procId, parentId]
+    );
+    const position = posRows[0]?.next_pos ?? 0;
+    const { rows } = await pool.query(
+      `INSERT INTO wildx_process_steps (process_id, parent_id, title, position)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, process_id, parent_id, title, done, position, created_at, updated_at`,
+      [procId, parentId, title, position]
+    );
+    const proc = await getProcessWithSteps(procId);
+    await emitProcessUpdate(wid, 'process:updated', { process: proc });
+    res.json(rows[0]);
+  } catch (err) {
+    console.error('POST /wildwave/api/processes/:id/steps:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// PATCH editar paso (título o done)
+app.patch('/wildwave/api/processes/:id/steps/:stepId', async (req, res) => {
+  try {
+    await ensureWildXTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Token requerido' });
+    const procId  = parseInt(req.params.id, 10);
+    const stepId  = parseInt(req.params.stepId, 10);
+    const { rows: own } = await pool.query(
+      'SELECT id FROM wildx_processes WHERE id = $1 AND user_id = $2',
+      [procId, wid]
+    );
+    if (!own.length) return res.status(404).json({ error: 'Proceso no encontrado' });
+    const setParts = ['updated_at = NOW()'];
+    const vals = [];
+    let idx = 1;
+    if (req.body?.title !== undefined) {
+      const t = (req.body.title || '').toString().trim();
+      if (!t) return res.status(400).json({ error: 'Título requerido' });
+      setParts.push(`title = $${idx++}`); vals.push(t);
+    }
+    if (req.body?.done !== undefined) {
+      setParts.push(`done = $${idx++}`); vals.push(!!req.body.done);
+    }
+    if (vals.length === 0) return res.status(400).json({ error: 'Nada que actualizar' });
+    vals.push(stepId, procId);
+    await pool.query(
+      `UPDATE wildx_process_steps SET ${setParts.join(', ')} WHERE id = $${idx} AND process_id = $${idx+1}`,
+      vals
+    );
+    // Update process updated_at
+    await pool.query('UPDATE wildx_processes SET updated_at = NOW() WHERE id = $1', [procId]);
+    const proc = await getProcessWithSteps(procId);
+    await emitProcessUpdate(wid, 'process:updated', { process: proc });
+    res.json({ success: true, process: proc });
+  } catch (err) {
+    console.error('PATCH .../steps/:stepId:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// DELETE paso
+app.delete('/wildwave/api/processes/:id/steps/:stepId', async (req, res) => {
+  try {
+    await ensureWildXTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Token requerido' });
+    const procId = parseInt(req.params.id, 10);
+    const stepId = parseInt(req.params.stepId, 10);
+    const { rows: own } = await pool.query(
+      'SELECT id FROM wildx_processes WHERE id = $1 AND user_id = $2',
+      [procId, wid]
+    );
+    if (!own.length) return res.status(404).json({ error: 'Proceso no encontrado' });
+    await pool.query(
+      'DELETE FROM wildx_process_steps WHERE id = $1 AND process_id = $2',
+      [stepId, procId]
+    );
+    await pool.query('UPDATE wildx_processes SET updated_at = NOW() WHERE id = $1', [procId]);
+    const proc = await getProcessWithSteps(procId);
+    await emitProcessUpdate(wid, 'process:updated', { process: proc });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// ── Votar en una encuesta ─────────────────────────────────────────────────
+app.post('/wildwave/api/polls/:id/vote', async (req, res) => {
+  try {
+    await ensureWildXTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Inicia sesión para votar' });
+    const pollId = parseInt(req.params.id, 10);
+    const optionIdx = parseInt(req.body?.option_idx, 10);
+    if (isNaN(pollId) || isNaN(optionIdx) || optionIdx < 0) {
+      return res.status(400).json({ error: 'Datos de voto inválidos' });
+    }
+    // Get poll
+    const { rows: pollRows } = await pool.query(
+      'SELECT id, options, ends_at FROM wildx_polls WHERE id = $1',
+      [pollId]
+    );
+    if (!pollRows.length) return res.status(404).json({ error: 'Encuesta no encontrada' });
+    const poll = pollRows[0];
+    const options = Array.isArray(poll.options) ? poll.options : [];
+    if (optionIdx >= options.length) {
+      return res.status(400).json({ error: 'Opción inválida' });
+    }
+    if (poll.ends_at && new Date(poll.ends_at) < new Date()) {
+      return res.status(400).json({ error: 'La encuesta ha cerrado' });
+    }
+    // Upsert vote (allow changing vote)
+    await pool.query(
+      `INSERT INTO wildx_poll_votes (poll_id, user_id, option_idx)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (poll_id, user_id) DO UPDATE SET option_idx = $3, voted_at = NOW()`,
+      [pollId, wid, optionIdx]
+    );
+    // Return updated counts
+    const { rows: countRows } = await pool.query(
+      `SELECT option_idx, COUNT(*)::int AS cnt
+         FROM wildx_poll_votes WHERE poll_id = $1
+        GROUP BY option_idx`,
+      [pollId]
+    );
+    const { rows: totalRows } = await pool.query(
+      'SELECT COUNT(*)::int AS total FROM wildx_poll_votes WHERE poll_id = $1',
+      [pollId]
+    );
+    const voteCounts = options.map((text, idx) => ({
+      idx,
+      text,
+      votes: (countRows.find(r => r.option_idx === idx) || {}).cnt || 0
+    }));
+    res.json({
+      success: true,
+      my_vote: optionIdx,
+      options: voteCounts,
+      total_votes: totalRows[0]?.total || 0
+    });
+  } catch (err) {
+    console.error('Error en POST /wildwave/api/polls/:id/vote:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// ── Quitar voto de una encuesta ───────────────────────────────────────────
+app.delete('/wildwave/api/polls/:id/vote', async (req, res) => {
+  try {
+    await ensureWildXTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Inicia sesión para votar' });
+    const pollId = parseInt(req.params.id, 10);
+    if (isNaN(pollId)) return res.status(400).json({ error: 'ID inválido' });
+    await pool.query(
+      'DELETE FROM wildx_poll_votes WHERE poll_id = $1 AND user_id = $2',
+      [pollId, wid]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 app.post('/wildwave/api/posts/:id/like', async (req, res) => {
   try {
     await ensureWildXTables();
@@ -15729,9 +16284,9 @@ app.get('/wildwave/api/posts/:id/thread', async (req, res) => {
       [postId, wid, WILDWAVE_ADMIN_USERNAME, WILDWAVE_ADMIN_DISPLAY_NAME, WILDWAVE_ADMIN_OCEANPAY_USERNAME]
     );
 
-    // No devolver posts eliminados
     const filtered = rows.filter(r => !r.deleted_at);
-    res.json(filtered);
+    const enrichedThread = await enrichPostsWithPolls(filtered, wid);
+    res.json(enrichedThread);
   } catch (err) {
     console.error('Error en GET /wildwave/api/posts/:id/thread:', err);
     res.status(500).json({ error: 'Error interno' });

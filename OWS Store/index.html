@@ -923,6 +923,31 @@
             padding: 4px;
         }
 
+        /* icon-bg: div with background-image — renders .ico/.jpg/.png reliably in Electron/Chromium */
+        .icon-bg {
+            width: 48px;
+            height: 48px;
+            border-radius: var(--r-sm);
+            flex-shrink: 0;
+            background-color: var(--surface-3);
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            border: 1px solid var(--border);
+            transition: box-shadow 0.18s;
+        }
+        .icon-bg.icon-bg--contain {
+            background-size: contain;
+            padding: 4px;
+        }
+        .app-card.ecosystem-row:hover .icon-bg {
+            box-shadow: 0 4px 16px rgba(38,212,232,0.2);
+        }
+        .library-card-icon.icon-bg {
+            width: 40px;
+            height: 40px;
+        }
+
         .ecosystem-main {
             flex: 1;
             min-width: 0;
@@ -8828,6 +8853,19 @@
             return isEcoxionProject(project) ? 'icon-fit-ecoxion' : '';
         }
 
+        // buildIconEl: returns a div with background-image instead of <img>.
+        // This is required because .ico files don't render as <img> in Chromium/Electron.
+        // Always use this instead of <img class="app-icon"> for project icons.
+        function buildIconEl(project, size, extraClass) {
+            const src = getProjectIcon(project, size || 64);
+            const el = document.createElement('div');
+            el.className = ['icon-bg', extraClass || ''].filter(Boolean).join(' ');
+            el.style.backgroundImage = src ? `url('${src.replace(/'/g, "\'")}')` : '';
+            el.setAttribute('role', 'img');
+            el.setAttribute('aria-label', String(project?.name || 'Icon'));
+            return el;
+        }
+
         function isWildWeaponProject(project) {
             if (!project) return false;
             const slug = String(project.slug || '').toLowerCase();
@@ -10204,7 +10242,7 @@
                         <div style="font-weight: 800; font-size: 0.8rem;">INSTALANDO...</div>
                         <div class="progress-bar-container"><div class="progress-fill" id="fill-${p.slug}"></div></div>
                     </div>
-                    <img src="${getProjectIcon(p, 64)}" class="app-icon ${getProjectIconClass(p)}" alt="Icon">
+                    <div class="icon-bg" style="background-image:url('${getProjectIcon(p, 64).replace(/'/g, '%27')}')" role="img" aria-label="${p.name || 'Icon'}"></div>
                     <div class="ecosystem-main">
                         <div class="ecosystem-topline">
                             <div class="app-name"><span class="ecosystem-title-wrap">${p.name}${short ? ` <span style="font-size:0.72rem;color:var(--brand-2);">(${short})</span>` : ''}${newBadgeHtml}</span></div>
@@ -10347,7 +10385,7 @@
                     : ((isDownloading || isQueued || isPreparing) ? statusLabel : 'GUARDADO');
                 card.innerHTML = `
                     <div class="library-card-head">
-                        <img src="${getProjectIcon(p, 64)}" class="library-card-icon ${getProjectIconClass(p)}" alt="Icon">
+                        <div class="icon-bg library-card-icon" style="background-image:url('${getProjectIcon(p, 64).replace(/'/g, '%27')}')" role="img" aria-label="${p.name || 'Icon'}"></div>
                         <div>
                             <div class="library-card-title">${p.name}</div>
                             <div class="library-card-sub">${p.description || 'Proyecto disponible en OWS Store.'}</div>
@@ -10399,7 +10437,22 @@
                 ? (p.pending_release ? 'PENDING RELEASE' : 'READY TO INSTALL')
                 : (p.status || 'launched').toUpperCase());
             const modalIconEl = document.getElementById('m-icon');
-            modalIconEl.src = getProjectIcon(p, 140);
+            const _mSrc = getProjectIcon(p, 140);
+            if (modalIconEl.tagName === 'IMG') {
+                // Convert to div on first use to support .ico in Chromium
+                const _mDiv = document.createElement('div');
+                _mDiv.id = modalIconEl.id;
+                _mDiv.className = modalIconEl.className.replace('app-icon', 'icon-bg');
+                _mDiv.style.width = '80px';
+                _mDiv.style.height = '80px';
+                _mDiv.style.backgroundImage = `url('${_mSrc.replace(/'/g, "%27")}')`;
+                _mDiv.setAttribute('role', 'img');
+                _mDiv.setAttribute('aria-label', String(p?.name || 'Icon'));
+                modalIconEl.replaceWith(_mDiv);
+                modalIconEl = _mDiv;
+            } else {
+                modalIconEl.style.backgroundImage = `url('${_mSrc.replace(/'/g, "%27")}')`;
+            }
             modalIconEl.classList.remove('icon-fit-contain');
             modalIconEl.classList.toggle('icon-fit-ecoxion', isEcoxionProject(p));
             document.getElementById('m-banner').style.backgroundImage = `url(${p.banner_url || 'https://images.unsplash.com/photo-1614850523296-d8c1af93d400?auto=format&fit=crop&q=80&w=800'})`;

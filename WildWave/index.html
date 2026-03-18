@@ -3363,6 +3363,98 @@
       }
       .wx-poll-ended { color: var(--danger); }
 
+
+      /* ── Reply connector lines ── */
+      .wx-thread-item {
+        position: relative;
+      }
+      /* Vertical line along the left of each reply */
+      .wx-thread-item:not(.wx-thread-item-root)::before {
+        content: '';
+        position: absolute;
+        left: -13px;
+        top: 0;
+        bottom: 50%;
+        width: 2px;
+        background: rgba(34,211,238,0.25);
+        border-radius: 2px 2px 0 0;
+      }
+      /* Horizontal connector from vertical line to post */
+      .wx-thread-item:not(.wx-thread-item-root)::after {
+        content: '';
+        position: absolute;
+        left: -13px;
+        top: 50%;
+        width: 13px;
+        height: 12px;
+        border-left: 2px solid rgba(34,211,238,0.25);
+        border-bottom: 2px solid rgba(34,211,238,0.25);
+        border-radius: 0 0 0 8px;
+      }
+      /* Reply count chip on posts in the feed */
+      .wx-reply-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        background: transparent;
+        border: none;
+        color: var(--text-faint);
+        font-family: var(--font-body);
+        font-size: 0.82rem;
+        cursor: pointer;
+        padding: 0.2rem 0.4rem;
+        border-radius: 6px;
+        transition: color 0.15s, background 0.15s;
+      }
+      .wx-reply-chip:hover {
+        color: var(--accent);
+        background: var(--accent-soft);
+      }
+      .wx-reply-chip.has-replies {
+        color: var(--accent);
+      }
+      /* Thread loader overlay */
+      .wx-thread-loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+        color: var(--text-faint);
+        font-size: 0.85rem;
+        gap: 0.5rem;
+      }
+      .wx-thread-loading::before {
+        content: '';
+        width: 16px;
+        height: 16px;
+        border: 2px solid var(--stroke);
+        border-top-color: var(--accent);
+        border-radius: 50%;
+        animation: wx-spin 0.7s linear infinite;
+        flex-shrink: 0;
+      }
+      @keyframes wx-spin { to { transform: rotate(360deg); } }
+      /* "Ver N respuestas" button inside thread */
+      .wx-view-replies-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        background: none;
+        border: 1px solid rgba(34,211,238,0.2);
+        color: var(--accent);
+        font-family: var(--font-body);
+        font-size: 0.78rem;
+        cursor: pointer;
+        padding: 0.25rem 0.65rem;
+        border-radius: 999px;
+        margin-top: 0.3rem;
+        transition: background 0.15s, border-color 0.15s;
+      }
+      .wx-view-replies-btn:hover {
+        background: var(--accent-soft);
+        border-color: var(--accent);
+      }
+
       /* ── Video composer & feed ── */
       .wx-video-drop {
         border: 1.5px dashed var(--stroke);
@@ -4690,12 +4782,20 @@
           fetchTipsSummary().catch(() => {});
           fetchNotificationsBadge().catch(() => {});
           loadMyProcesses().catch(() => {});
+          // Always fully re-render profile state regardless of active tab.
+          // Without this, switching accounts while on a non-profile tab leaves
+          // the profile partially loaded until the user manually clicks Perfil.
+          applyProfileView(user, { readonly: false });
+          fetchMyPosts();
+          fetchScheduledPosts();
+          fetchCollabRequests().catch(() => {});
+          fetchCollabOutgoing().catch(() => {});
           if (currentTab === 'profile') {
-            fetchMyPosts();
-            fetchScheduledPosts();
-            fetchCollabRequests().catch(() => {});
-            fetchCollabOutgoing().catch(() => {});
-            applyProfileView(user, { readonly: false });
+            // Already on profile — show scheduled card if hidden
+            if ($scheduledCard) {
+              $scheduledCard.hidden = false;
+              $scheduledCard.style.display = '';
+            }
           }
         } catch (e) {
           console.error(e);
@@ -6914,12 +7014,17 @@ function getMaxChars() {
         const likes = typeof post.likes_count === 'number' ? post.likes_count : 0;
         likeBtn.textContent = `❤ ${likes}`;
 
+        // Reply chip: shows reply count, opens thread on click
         const replyBtn = document.createElement('button');
-        replyBtn.className = 'wx-post-btn wx-post-btn--reply';
-        replyBtn.dataset.action = 'reply';
+        replyBtn.type = 'button';
+        replyBtn.className = 'wx-reply-chip';
+        replyBtn.dataset.action = 'open-thread';
         replyBtn.dataset.id = post.id;
         replyBtn.dataset.username = uname;
-        replyBtn.textContent = 'Responder';
+        const replyCount = typeof post.replies_count === 'number' ? post.replies_count : 0;
+        replyBtn.innerHTML = '&#128172; ' + (replyCount > 0 ? replyCount : '');
+        if (replyCount > 0) replyBtn.classList.add('has-replies');
+        replyBtn.title = replyCount > 0 ? `Ver ${replyCount} respuesta${replyCount !== 1 ? 's' : ''}` : 'Responder';
 
         const promoteBtn = document.createElement('button');
         promoteBtn.className = 'wx-post-btn';
@@ -8987,11 +9092,13 @@ function getMaxChars() {
           return;
         }
 
-        const btn = ev.target.closest('.wx-post-btn');
+        const btn = ev.target.closest('.wx-post-btn, .wx-reply-chip');
         if (!btn) return;
         const id = btn.dataset.id;
         const action = btn.dataset.action;
         if (!id || !action) return;
+
+        if (action === 'open-thread') { openThread(parseInt(id, 10)); return; }
 
         if (action === 'like') {
           if (!currentUser) {
@@ -9156,11 +9263,13 @@ function getMaxChars() {
           return;
         }
 
-        const btn = ev.target.closest('.wx-post-btn');
+        const btn = ev.target.closest('.wx-post-btn, .wx-reply-chip');
         if (!btn) return;
         const id = btn.dataset.id;
         const action = btn.dataset.action;
         if (!id || !action) return;
+
+        if (action === 'open-thread') { openThread(parseInt(id, 10)); return; }
 
         if (action === 'like') {
           if (!currentUser) {
@@ -9243,7 +9352,15 @@ function getMaxChars() {
       async function openThread(postId) {
         if (!postId) return;
         try {
-          setStatus('Cargando hilo...');
+          // Show loader immediately
+          $threadView.hidden = false;
+          $threadList.innerHTML = '<div class="wx-thread-loading">Cargando respuestas…</div>';
+          $threadTitle.textContent = 'Respuestas';
+          currentThreadPostId = postId;
+          if ($threadView && typeof $threadView.scrollIntoView === 'function') {
+            $threadView.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+
           const res = await fetch(`${API_BASE}/${postId}/thread`, {
             headers: { ...authHeaders() }
           });
@@ -9252,14 +9369,9 @@ function getMaxChars() {
 
           renderThread(data, postId);
           currentThreadPostId = postId;
-          $threadView.hidden = false;
-          // llevar el hilo a la vista para que el usuario vea que se abrió
-          if ($threadView && typeof $threadView.scrollIntoView === 'function') {
-            $threadView.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }
-          setStatus('Hilo cargado.');
         } catch (e) {
           console.error(e);
+          $threadList.innerHTML = '';
           setStatus(e.message || 'Error al cargar hilo', 'error');
         }
       }
@@ -9387,7 +9499,7 @@ function getMaxChars() {
           replyBtn.dataset.action = 'reply';
           replyBtn.dataset.id = node.id;
           replyBtn.dataset.username = node.username || 'usuario';
-          replyBtn.textContent = 'Responder';
+          replyBtn.textContent = '↩ Responder';
 
           // No permitir like a uno mismo también en el hilo
           const isOwnNode = currentUser && String(node.user_id) === String(currentUser.id);
@@ -9405,6 +9517,25 @@ function getMaxChars() {
           actions.append(likeBtn, replyBtn);
           if (deleteBtn) actions.append(deleteBtn);
 
+          // "Ver N respuestas" button for nodes that have child replies
+          if (node.children && node.children.length > 0) {
+            const viewRepliesBtn = document.createElement('button');
+            viewRepliesBtn.type = 'button';
+            viewRepliesBtn.className = 'wx-view-replies-btn';
+            viewRepliesBtn.textContent = `Ver ${node.children.length} respuesta${node.children.length !== 1 ? 's' : ''}`;
+            viewRepliesBtn.dataset.expanded = '1'; // start expanded
+            viewRepliesBtn.addEventListener('click', () => {
+              const expanded = viewRepliesBtn.dataset.expanded === '1';
+              const childEls = $threadList.querySelectorAll(`[data-parent="${node.id}"]`);
+              childEls.forEach(el => { el.hidden = expanded; });
+              viewRepliesBtn.dataset.expanded = expanded ? '0' : '1';
+              viewRepliesBtn.textContent = expanded
+                ? `Ver ${node.children.length} respuesta${node.children.length !== 1 ? 's' : ''}`
+                : `Ocultar respuestas`;
+            });
+            actions.append(viewRepliesBtn);
+          }
+
           const collabRow = buildCollabRow(collabList, node.avatar_url || null, nodeUsername, node.user_id);
           if (collabRow) {
             if (media) li.append(meta, collabRow, text, media, actions);
@@ -9413,6 +9544,7 @@ function getMaxChars() {
             if (media) li.append(meta, text, media, actions);
             else li.append(meta, text, actions);
           }
+          li.dataset.parent = node.parent_id || '';
           $threadList.appendChild(li);
 
           node.children.forEach(child => renderNode(child, depth + 1));

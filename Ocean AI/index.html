@@ -1,0 +1,2447 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ocean AI - Ocean and Wild Studios</title>
+  <style>
+    :root {
+      --bg-sidebar: #020617;
+      --bg-main: #0f172a;
+      --bg-input: #1e293b;
+      --accent: #00b4ff;
+      --accent2: #0ea5e9;
+      --text-main: #e2e8f0;
+      --text-muted: #94a3b8;
+      --border: rgba(255,255,255,0.1);
+      --sidebar-w: 260px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg-main);
+      color: var(--text-main);
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ═══════════════════════════════════════════
+       SIDEBAR REWORK
+    ═══════════════════════════════════════════ */
+    .sidebar {
+      width: var(--sidebar-w);
+      background: var(--bg-sidebar);
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--border);
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+
+    /* Top section: logo + new chat */
+    .sidebar-top {
+      padding: 14px 12px 10px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .sidebar-brand {
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .sidebar-brand-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 6px var(--accent);
+    }
+    .new-chat-icon-btn {
+      background: rgba(0,180,255,0.1);
+      border: 1px solid rgba(0,180,255,0.3);
+      border-radius: 7px;
+      color: var(--accent);
+      width: 30px; height: 30px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 1.1rem;
+      transition: background 0.2s;
+      flex-shrink: 0;
+    }
+    .new-chat-icon-btn:hover { background: rgba(0,180,255,0.2); }
+
+    /* Search */
+    .sidebar-search {
+      padding: 8px 12px;
+      flex-shrink: 0;
+    }
+    .sidebar-search input {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      color: var(--text-main);
+      font-size: 0.8rem;
+      padding: 6px 10px;
+      outline: none;
+    }
+    .sidebar-search input:focus { border-color: var(--accent); }
+    .sidebar-search input::placeholder { color: var(--text-muted); }
+
+    /* Chat history */
+    .history-section {
+      flex: 1;
+      overflow-y: auto;
+      padding: 4px 8px;
+    }
+    .history-section-label {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 8px 4px 4px;
+    }
+    .history-item {
+      padding: 8px 10px;
+      border-radius: 7px;
+      cursor: pointer;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      position: relative;
+      group: true;
+    }
+    .history-item:hover { background: rgba(255,255,255,0.05); color: var(--text-main); }
+    .history-item.active {
+      background: rgba(0,180,255,0.12);
+      border: 1px solid rgba(0,180,255,0.25);
+      color: var(--text-main);
+    }
+    .history-item-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .history-item-actions {
+      display: none;
+      gap: 2px;
+      flex-shrink: 0;
+    }
+    .history-item:hover .history-item-actions,
+    .history-item.active .history-item-actions { display: flex; }
+    .history-action-btn {
+      background: none; border: none;
+      color: var(--text-muted); cursor: pointer;
+      font-size: 0.72rem; padding: 2px 4px;
+      border-radius: 4px;
+      transition: all 0.15s;
+    }
+    .history-action-btn:hover { color: var(--text-main); background: rgba(255,255,255,0.08); }
+
+    /* Rename input */
+    .history-rename-input {
+      background: var(--bg-input);
+      border: 1px solid var(--accent);
+      border-radius: 5px;
+      color: var(--text-main);
+      font-size: 0.82rem;
+      padding: 2px 6px;
+      width: 100%;
+      outline: none;
+    }
+
+    /* ── Sidebar Footer ── */
+    .sidebar-footer {
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    /* Ocean Pay connect (collapsible) */
+    .sidebar-op-section {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .sidebar-op-toggle {
+      display: flex; align-items: center; justify-content: space-between;
+      cursor: pointer; font-size: 0.8rem; color: var(--text-muted);
+      padding: 2px 0;
+    }
+    .sidebar-op-toggle:hover { color: var(--text-main); }
+    .sidebar-op-body {
+      display: none;
+      padding-top: 8px;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .sidebar-op-body.open { display: flex; }
+    .link-input {
+      width: 100%; background: var(--bg-input);
+      border: 1px solid var(--border); border-radius: 7px;
+      color: var(--text-main); padding: 7px 10px;
+      font-size: 0.8rem; outline: none;
+    }
+    .link-input:focus { border-color: var(--accent); }
+    .link-btn {
+      width: 100%; border: 1px solid var(--border);
+      background: transparent; color: var(--text-main);
+      border-radius: 7px; padding: 7px 10px;
+      cursor: pointer; font-size: 0.78rem;
+      transition: all 0.2s;
+    }
+    .link-btn:hover { border-color: var(--accent); background: rgba(0,180,255,0.06); }
+    .link-btn.primary {
+      background: rgba(0,180,255,0.15); border-color: rgba(0,180,255,0.5);
+    }
+    .link-status { font-size: 0.72rem; color: var(--text-muted); }
+    .link-status.connected { color: #34d399; }
+
+    /* Profile + quota button at bottom */
+    .sidebar-profile-row {
+      display: flex; align-items: center;
+      padding: 10px 12px; gap: 8px;
+      position: relative;
+    }
+    .sidebar-avatar {
+      width: 28px; height: 28px; border-radius: 6px;
+      background: #3b82f6; display: flex;
+      align-items: center; justify-content: center;
+      font-size: 0.78rem; font-weight: 700;
+      flex-shrink: 0;
+    }
+    .sidebar-username {
+      flex: 1; font-size: 0.82rem;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .sidebar-quota-btn {
+      background: none; border: 1px solid var(--border);
+      border-radius: 7px; color: var(--text-muted);
+      font-size: 0.72rem; cursor: pointer;
+      padding: 3px 8px; transition: all 0.2s;
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .sidebar-quota-btn:hover {
+      border-color: var(--accent); color: var(--text-main);
+      background: rgba(0,180,255,0.08);
+    }
+
+    /* Quota popup (expands upward) */
+    .sidebar-quota-popup {
+      display: none;
+      position: absolute;
+      bottom: calc(100% + 6px);
+      left: 8px; right: 8px;
+      background: #0f172a;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+      z-index: 50;
+      box-shadow: 0 -8px 24px rgba(0,0,0,0.5);
+      animation: slideUp 0.18s ease;
+    }
+    .sidebar-quota-popup.open { display: block; }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: none; }
+    }
+    .quota-popup-title {
+      font-size: 0.78rem; font-weight: 700;
+      color: var(--text-main); margin-bottom: 8px;
+    }
+    .quota-popup-usage-btn {
+      width: 100%; background: rgba(0,180,255,0.1);
+      border: 1px solid rgba(0,180,255,0.3);
+      border-radius: 7px; color: var(--accent);
+      padding: 7px; font-size: 0.8rem; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .quota-popup-usage-btn:hover { background: rgba(0,180,255,0.18); }
+    .quota-popup-plan {
+      font-size: 0.72rem; color: var(--text-muted);
+      margin-top: 6px; text-align: center;
+    }
+    .wallet-main {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 0.82rem; color: var(--text-main);
+      margin-top: 6px;
+    }
+    .coin-2d {
+      width: 22px; height: 22px; border-radius: 50%;
+      border: 2px solid #facc15;
+      background: radial-gradient(circle at 30% 30%,#fde68a 0%,#fbbf24 45%,#d97706 100%);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 0.65rem; color: rgba(15,23,42,0.9);
+      flex-shrink: 0;
+    }
+
+    /* ═══════════════════════════════════════════
+       MAIN CHAT
+    ═══════════════════════════════════════════ */
+    .main-chat {
+      flex: 1; display: flex; flex-direction: column;
+      position: relative; overflow: hidden;
+      background: radial-gradient(circle at 50% 0%, rgba(0,180,255,0.04), transparent 60%);
+    }
+
+    /* Quota banner */
+    .quota-banner {
+      display: none;
+      align-items: center; justify-content: space-between;
+      background: rgba(239,68,68,0.1);
+      border-bottom: 1px solid rgba(239,68,68,0.3);
+      padding: 8px 20px;
+      font-size: 0.82rem;
+      color: #fca5a5;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+    .quota-banner.visible { display: flex; }
+    .quota-banner-actions { display: flex; gap: 8px; }
+    .quota-banner-btn {
+      background: rgba(239,68,68,0.2); border: 1px solid rgba(239,68,68,0.4);
+      color: #fca5a5; border-radius: 6px; padding: 3px 10px;
+      font-size: 0.78rem; cursor: pointer;
+    }
+    .quota-banner-btn:hover { background: rgba(239,68,68,0.3); }
+
+    /* Coral Bits status banner */
+    .cb-banner {
+      display: none;
+      align-items: center; justify-content: space-between;
+      padding: 7px 20px;
+      font-size: 0.8rem;
+      gap: 12px;
+      flex-shrink: 0;
+      border-bottom: 1px solid;
+      animation: fadeIn 0.3s ease;
+    }
+    .cb-banner.visible { display: flex; }
+    .cb-banner.cb-empty {
+      background: rgba(239,68,68,0.08);
+      border-color: rgba(239,68,68,0.25);
+      color: #fca5a5;
+    }
+    .cb-banner.cb-low {
+      background: rgba(251,191,36,0.07);
+      border-color: rgba(251,191,36,0.22);
+      color: #fde68a;
+    }
+    .cb-banner-left { display: flex; align-items: center; gap: 7px; }
+    .cb-banner-icon { font-size: 0.9rem; flex-shrink: 0; }
+    .cb-banner-close {
+      background: none; border: none; cursor: pointer;
+      color: inherit; opacity: 0.6; font-size: 0.78rem; padding: 0 2px;
+      flex-shrink: 0;
+    }
+    .cb-banner-close:hover { opacity: 1; }
+
+    /* Header */
+    .chat-header {
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center;
+      background: rgba(15,23,42,0.9);
+      backdrop-filter: blur(10px);
+      z-index: 10; flex-shrink: 0;
+    }
+    .chat-header-title {
+      font-size: 0.9rem; font-weight: 600; color: var(--text-main);
+    }
+    .chat-header-right { display: flex; align-items: center; gap: 8px; }
+    .header-btn {
+      background: transparent; border: 1px solid var(--border);
+      border-radius: 7px; color: var(--text-muted);
+      padding: 5px 10px; font-size: 0.78rem; cursor: pointer;
+      transition: all 0.2s;
+    }
+    .header-btn:hover { border-color: var(--accent); color: var(--text-main); }
+
+    /* Chat area */
+    .chat-container {
+      flex: 1; overflow-y: auto;
+      padding: 2rem 1rem 1rem;
+      display: flex; flex-direction: column; align-items: center;
+      scroll-behavior: smooth;
+    }
+    .chat-content {
+      width: 100%; max-width: 800px;
+      display: flex; flex-direction: column; gap: 20px;
+    }
+
+    /* Welcome */
+    .welcome-screen {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      height: 100%; text-align: center;
+      margin-top: 6vh;
+    }
+    .welcome-logo {
+      font-size: 3.5rem; margin-bottom: 1rem;
+      animation: float 6s ease-in-out infinite;
+    }
+    @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+    .welcome-title {
+      font-size: 1.8rem; font-weight: 700; margin-bottom: 1.5rem;
+    }
+    .welcome-typing-wrap {
+      margin-top: 0.5rem; font-size: 1.05rem; color: var(--text-muted);
+      min-height: 1.6em;
+    }
+    .welcome-typing { color: var(--accent); }
+    .welcome-cursor {
+      color: var(--accent); animation: blink 0.9s step-end infinite;
+      font-weight: 300; margin-left: 1px;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+    /* Messages */
+    .message-row {
+      display: flex; gap: 14px;
+      padding: 16px 20px; border-radius: 10px; width: 100%;
+    }
+    .message-row.user { background: transparent; }
+    .message-row.bot {
+      background: rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+    .avatar {
+      width: 34px; height: 34px; border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem; flex-shrink: 0;
+    }
+    .avatar.user-avatar { background: #3b82f6; font-size: 0.85rem; font-weight: 700; }
+    .avatar.bot-avatar { background: #0ea5e9; }
+    .message-content {
+      flex: 1; line-height: 1.65; font-size: 0.97rem; white-space: pre-wrap;
+    }
+    .message-content strong { color: var(--accent); }
+    .reward-footer {
+      margin-top: 12px; font-size: 0.8rem; color: var(--text-muted);
+    }
+    .reward-footer hr { border: none; border-top: 1px solid var(--border); margin: 0 0 6px; }
+    .reward-line { display: flex; align-items: center; gap: 6px; }
+    .reward-amount { color: #7dd3fc; font-weight: 700; }
+
+    /* Thinking process — shimmer instead of list */
+    .thought-process {
+      background: rgba(0,0,0,0.18);
+      border-radius: 8px; padding: 10px 14px;
+      margin-bottom: 10px;
+      border-left: 3px solid var(--accent);
+      display: none;
+    }
+    .thought-process.visible { display: block; }
+    .thought-status {
+      font-size: 0.85rem; font-weight: 600;
+      color: #64748b;
+      background: linear-gradient(90deg, #64748b 0%, #e2e8f0 40%, #64748b 60%);
+      background-size: 200% auto;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: shimmer 1.4s linear infinite;
+    }
+    @keyframes shimmer {
+      0%   { background-position: 200% center; }
+      100% { background-position: 0%   center; }
+    }
+
+    /* Message actions */
+    .message-actions {
+      display: flex; gap: 10px; margin-top: 8px;
+      opacity: 0; transition: opacity 0.2s; justify-content: flex-end;
+    }
+    .message-row:hover .message-actions { opacity: 1; }
+    .action-btn {
+      background: transparent; border: 1px solid var(--border);
+      border-radius: 5px; color: var(--text-muted);
+      cursor: pointer; font-size: 0.73rem;
+      padding: 3px 8px; display: flex; align-items: center; gap: 4px;
+      transition: all 0.2s;
+    }
+    .action-btn:hover {
+      background: rgba(255,255,255,0.05);
+      color: var(--text-main); border-color: var(--accent);
+    }
+
+    /* ═══════════════════════════════════════════
+       INPUT AREA — reworked
+    ═══════════════════════════════════════════ */
+    .input-area {
+      padding: 0 1rem 1.2rem;
+      display: flex; justify-content: center;
+      flex-shrink: 0;
+    }
+    .input-wrapper {
+      width: 100%; max-width: 800px;
+    }
+    /* Model selector row above input */
+    /* ── Inline model selector inside input-box ── */
+    .model-inline-selector {
+      position: static; /* dropdown positioned relative to input-wrapper */
+      display: flex;
+      align-items: center;
+      flex-shrink: 0;
+      border-right: 1px solid var(--border);
+      padding: 0 12px;
+      align-self: center;
+    }
+    .model-inline-btn {
+      background: none; border: none;
+      color: var(--text-muted); font-size: 0.8rem;
+      cursor: pointer; display: flex; align-items: center;
+      gap: 5px; padding: 0; white-space: nowrap;
+      transition: color 0.15s;
+    }
+    .model-inline-btn:hover { color: var(--text-main); }
+    .model-inline-btn .model-inline-emoji { font-size: 0.95rem; }
+    .model-inline-btn .model-inline-chevron {
+      font-size: 0.6rem; color: var(--text-muted); margin-left: 1px;
+    }
+    /* Input box — no overflow:hidden so dropdown can escape */
+    .input-box {
+      display: flex; align-items: center;
+      background: var(--bg-input); border: 1px solid var(--border);
+      border-radius: 12px;
+      transition: border-color 0.2s;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+      position: relative;
+    }
+    .input-box:focus-within { border-color: var(--accent); }
+    .chat-input {
+      flex: 1; background: transparent; border: none;
+      color: var(--text-main); font-size: 0.97rem; font-family: inherit;
+      padding: 14px 16px; outline: none; resize: none;
+      height: 52px; overflow: hidden; line-height: 1.4;
+      min-width: 0;
+    }
+    .chat-input::placeholder { color: var(--text-muted); }
+    .send-btn {
+      background: var(--accent); border: none;
+      width: 36px; height: 36px; border-radius: 8px; margin-right: 8px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: #000; flex-shrink: 0;
+      transition: opacity 0.2s;
+    }
+    .send-btn:disabled { background: #334155; color: var(--text-muted); cursor: not-allowed; }
+    .send-btn svg { width: 16px; height: 16px; fill: currentColor; }
+    .disclaimer {
+      text-align: center; font-size: 0.72rem;
+      color: var(--text-muted); margin-top: 7px;
+    }
+
+    /* ═══════════════════════════════════════════
+       MODEL DROPDOWN (from chip click)
+    ═══════════════════════════════════════════ */
+    .model-dropdown-popup {
+      display: none; position: absolute;
+      bottom: calc(100% + 6px);
+      left: 0; min-width: 220px;
+      background: #0f172a; border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 12px; padding: 6px;
+      box-shadow: 0 -8px 28px rgba(0,0,0,0.65);
+      z-index: 100;
+    }
+    .model-dropdown-popup.show { display: flex; flex-direction: column; gap: 3px; animation: slideUp 0.16s ease; }
+    .model-option {
+      padding: 9px 12px; border-radius: 8px;
+      cursor: pointer; display: flex; align-items: center;
+      gap: 10px; color: var(--text-muted); transition: all 0.18s;
+    }
+    .model-option:hover { background: rgba(255,255,255,0.05); color: var(--text-main); }
+    .model-option.active { background: rgba(0,180,255,0.1); color: var(--accent); }
+    .model-option.locked { opacity: 0.45; cursor: not-allowed; }
+    .model-option-info { flex: 1; }
+    .model-option-name { font-weight: 600; font-size: 0.88rem; }
+    .model-option-desc { font-size: 0.73rem; color: var(--text-muted); margin-top: 1px; }
+    .lock-badge {
+      font-size: 0.65rem; background: rgba(251,191,36,0.15);
+      border: 1px solid rgba(251,191,36,0.4); color: #fbbf24;
+      border-radius: 999px; padding: 1px 6px;
+    }
+    .nuevo-badge {
+      font-size: 0.6rem; font-weight: 800; letter-spacing: 0.04em;
+      background: linear-gradient(135deg, rgba(34,211,238,0.2), rgba(99,102,241,0.2));
+      border: 1px solid rgba(34,211,238,0.45);
+      color: #67e8f9; border-radius: 999px;
+      padding: 1px 7px; white-space: nowrap; flex-shrink: 0;
+      animation: nuevo-pulse 2.5s ease-in-out infinite;
+    }
+    @keyframes nuevo-pulse {
+      0%,100% { box-shadow: 0 0 0 0 rgba(34,211,238,0.3); }
+      50%      { box-shadow: 0 0 0 4px rgba(34,211,238,0); }
+    }
+    /* Delfin group */
+    .model-group { margin-bottom: 2px; }
+    .model-group-header {
+      padding: 9px 12px; border-radius: 8px;
+      cursor: pointer; display: flex; align-items: center;
+      gap: 10px; color: var(--text-muted); transition: all 0.18s;
+    }
+    .model-group-header:hover { background: rgba(255,255,255,0.05); color: var(--text-main); }
+    .model-group-header.active { color: var(--accent); }
+    .model-group-arrow { font-size: 0.7rem; color: var(--text-muted); margin-left: auto; }
+    .model-sub-list {
+      display: none; flex-direction: column; gap: 2px;
+      margin: 2px 0 2px 14px;
+      border-left: 2px solid rgba(0,180,255,0.2);
+      padding-left: 8px;
+    }
+    .model-sub-list.open { display: flex; }
+    .model-sub-option {
+      padding: 7px 10px; border-radius: 6px;
+      cursor: pointer; display: flex; align-items: center;
+      gap: 8px; color: var(--text-muted); transition: all 0.15s;
+      font-size: 0.85rem;
+    }
+    .model-sub-option:hover { background: rgba(255,255,255,0.05); color: var(--text-main); }
+    .model-sub-option.active { background: rgba(0,180,255,0.1); color: var(--accent); }
+    .model-sub-option.locked { opacity: 0.45; cursor: not-allowed; }
+    .model-sub-version { font-weight: 600; }
+    .model-sub-desc { font-size: 0.72rem; color: var(--text-muted); flex: 1; }
+
+    /* ═══════════════════════════════════════════
+       PLANS MODAL — reworked
+    ═══════════════════════════════════════════ */
+    .plans-modal {
+      position: fixed; inset: 0;
+      background: rgba(2,6,23,0.92);
+      z-index: 1000; display: none;
+      align-items: flex-start; justify-content: center;
+      padding: 2rem 1rem;
+      overflow-y: auto;
+      backdrop-filter: blur(4px);
+    }
+    .plans-modal.open { display: flex; }
+    .plans-shell {
+      width: min(900px, 100%);
+      display: flex; flex-direction: column; gap: 20px;
+    }
+    .plans-top {
+      display: flex; justify-content: space-between; align-items: center;
+      position: sticky; top: 0;
+      background: rgba(2,6,23,0.95); border: 1px solid var(--border);
+      border-radius: 12px; padding: 14px 18px; z-index: 5;
+      backdrop-filter: blur(10px);
+    }
+    .plans-title { font-size: 1.3rem; font-weight: 800; }
+    .plans-subtitle { font-size: 0.82rem; color: var(--text-muted); margin-top: 2px; }
+    .plans-close-btn {
+      background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text-muted);
+      padding: 7px 14px; cursor: pointer; font-size: 0.82rem;
+    }
+    .plans-close-btn:hover { border-color: var(--accent); color: var(--text-main); }
+
+    /* Free tier info bar */
+    .plans-free-bar {
+      background: rgba(0,180,255,0.06); border: 1px solid rgba(0,180,255,0.2);
+      border-radius: 12px; padding: 14px 18px;
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    }
+    .plans-free-bar-text { font-size: 0.85rem; color: var(--text-muted); }
+    .plans-free-bar-text strong { color: var(--text-main); }
+
+    /* Plan cards grid — 3 models */
+    .plans-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0,1fr));
+      gap: 16px;
+    }
+    @media (max-width: 700px) { .plans-grid { grid-template-columns: 1fr; } }
+    .plan-card {
+      border: 1px solid var(--border);
+      border-radius: 14px; padding: 20px;
+      background: rgba(15,23,42,0.8);
+      backdrop-filter: blur(10px);
+      display: flex; flex-direction: column; gap: 12px;
+      transition: border-color 0.2s;
+    }
+    .plan-card:hover { border-color: rgba(0,180,255,0.35); }
+    .plan-card.featured {
+      border-color: rgba(0,180,255,0.4);
+      background: rgba(0,180,255,0.04);
+    }
+    .plan-card-header { display: flex; align-items: center; gap: 10px; }
+    .plan-model-icon {
+      width: 38px; height: 38px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.3rem; flex-shrink: 0;
+    }
+    .plan-name { font-weight: 800; font-size: 1rem; }
+    .plan-model-label { font-size: 0.72rem; color: var(--text-muted); margin-top: 1px; }
+    .plan-cost {
+      font-size: 1.25rem; font-weight: 800; color: #67e8f9;
+    }
+    .plan-cost span { font-size: 0.78rem; font-weight: 400; color: var(--text-muted); }
+    .plan-list {
+      list-style: none; display: flex; flex-direction: column; gap: 6px;
+      flex: 1;
+    }
+    .plan-list li {
+      font-size: 0.83rem; color: var(--text-muted);
+      display: flex; align-items: flex-start; gap: 6px;
+    }
+    .plan-list li::before { content: "✓"; color: var(--accent); flex-shrink: 0; }
+    .plan-btn {
+      width: 100%; border: 1px solid rgba(0,180,255,0.4);
+      border-radius: 10px; padding: 11px;
+      font-weight: 700; font-size: 0.88rem; cursor: pointer;
+      background: rgba(0,180,255,0.12); color: var(--text-main);
+      transition: all 0.2s;
+    }
+    .plan-btn:hover { background: rgba(0,180,255,0.22); }
+    .plan-btn.active-plan {
+      background: rgba(52,211,153,0.12);
+      border-color: rgba(52,211,153,0.4); color: #34d399;
+    }
+    .plan-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ═══════════════════════════════════════════
+       QUOTA MODAL
+    ═══════════════════════════════════════════ */
+    .quota-modal {
+      position: fixed; inset: 0;
+      background: rgba(2,6,23,0.94);
+      z-index: 1001; display: none;
+      align-items: center; justify-content: center;
+      backdrop-filter: blur(6px);
+    }
+    .quota-modal.open { display: flex; }
+    .quota-shell {
+      width: min(560px, 96vw);
+      background: #0f172a;
+      border: 1px solid var(--border);
+      border-radius: 18px; padding: 28px;
+      display: flex; flex-direction: column; gap: 20px;
+    }
+    .quota-modal-header {
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .quota-modal-title { font-size: 1.1rem; font-weight: 800; }
+    .quota-bar-wrap {
+      background: rgba(255,255,255,0.06);
+      border-radius: 999px; height: 10px; overflow: hidden;
+    }
+    .quota-bar-fill {
+      height: 100%; border-radius: 999px;
+      background: linear-gradient(90deg, #00b4ff, #6366f1);
+      transition: width 0.6s ease;
+    }
+    .quota-bar-fill.danger { background: linear-gradient(90deg, #f97316, #ef4444); }
+    .quota-stats {
+      display: flex; justify-content: space-between;
+      font-size: 0.8rem; color: var(--text-muted);
+    }
+    .quota-stat-val { font-weight: 700; color: var(--text-main); }
+    .quota-reset-info {
+      font-size: 0.8rem; color: var(--text-muted); text-align: center;
+    }
+    .quota-upgrade-banner {
+      background: rgba(99,102,241,0.1);
+      border: 1px solid rgba(99,102,241,0.3);
+      border-radius: 10px; padding: 12px 16px;
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    }
+    .quota-upgrade-text { font-size: 0.83rem; color: var(--text-muted); }
+    .quota-upgrade-btn {
+      background: rgba(99,102,241,0.2); border: 1px solid rgba(99,102,241,0.5);
+      border-radius: 8px; color: #a5b4fc;
+      padding: 6px 14px; font-size: 0.8rem; cursor: pointer; white-space: nowrap;
+    }
+    .quota-upgrade-btn:hover { background: rgba(99,102,241,0.3); }
+
+    /* Misc */
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to   { opacity: 1; transform: none; }
+    }
+    @keyframes bounce {
+      0%,80%,100% { transform: scale(0); }
+      40% { transform: scale(1); }
+    }
+    @media (max-width: 768px) {
+      .sidebar { position: fixed; left: -260px; height: 100%; z-index: 100; transition: transform 0.3s; }
+      .sidebar.open { transform: translateX(260px); }
+      .suggestions-grid { grid-template-columns: 1fr; }
+    }
+
+    /* ═══════════════════════════════════════════
+       TOOL PANELS (rendered inside bot messages)
+    ═══════════════════════════════════════════ */
+    .tool-panel {
+      background: rgba(0,180,255,0.04);
+      border: 1px solid rgba(0,180,255,0.2);
+      border-radius: 14px; padding: 20px;
+      margin-top: 8px; display: flex; flex-direction: column; gap: 14px;
+    }
+    .tool-panel-header {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .tool-panel-icon { font-size: 1.5rem; }
+    .tool-panel-title { font-size: 1rem; font-weight: 700; color: var(--text-main); }
+    .tool-panel-subtitle { font-size: 0.78rem; color: var(--text-muted); margin-top: 1px; }
+    .tool-panel-row {
+      display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end;
+    }
+    .tool-field { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 120px; }
+    .tool-field label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+    .tool-input {
+      background: var(--bg-input); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text-main); padding: 8px 12px;
+      font-size: 0.88rem; font-family: inherit; outline: none;
+      transition: border-color 0.18s;
+    }
+    .tool-input:focus { border-color: var(--accent); }
+    .tool-select {
+      background: var(--bg-input); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text-main); padding: 8px 12px;
+      font-size: 0.88rem; font-family: inherit; outline: none;
+      cursor: pointer;
+    }
+    .tool-cost-row {
+      background: rgba(255,255,255,0.03); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 14px;
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 0.85rem; color: var(--text-muted);
+    }
+    .tool-cost-val { color: #fbbf24; font-weight: 700; }
+    .tool-execute-btn {
+      background: var(--accent); border: none; border-radius: 10px;
+      color: #000; font-weight: 700; font-size: 0.9rem;
+      padding: 10px 20px; cursor: pointer; transition: opacity 0.2s;
+      width: 100%;
+    }
+    .tool-execute-btn:hover { opacity: 0.88; }
+    .tool-execute-btn:disabled { background: #334155; color: var(--text-muted); cursor: not-allowed; }
+    .tool-execute-btn.loading {
+      background: #1e293b; color: var(--text-muted); cursor: not-allowed;
+      position: relative; overflow: hidden;
+    }
+    .tool-execute-btn.loading::after {
+      content: '';
+      position: absolute; left: -100%; top: 0; width: 60%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+      animation: tool-shimmer 1.2s linear infinite;
+    }
+    @keyframes tool-shimmer { to { left: 200%; } }
+    .tool-status-msg {
+      font-size: 0.82rem; padding: 8px 12px;
+      border-radius: 8px; display: none;
+    }
+    .tool-status-msg.success { background: rgba(52,211,153,0.1); border: 1px solid rgba(52,211,153,0.3); color: #34d399; display: block; }
+    .tool-status-msg.error   { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: #f87171; display: block; }
+    .tool-divider { border: none; border-top: 1px solid var(--border); margin: 0; }
+    /* Command hint in input */
+    .tool-hint {
+      font-size: 0.72rem; color: var(--text-muted);
+      margin-top: 5px; margin-left: 2px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ══ SIDEBAR ══ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-top">
+      <div class="sidebar-brand">
+        <div class="sidebar-brand-dot"></div>
+        Ocean AI
+      </div>
+      <button class="new-chat-icon-btn" onclick="createNewChat()" title="Nuevo chat">+</button>
+    </div>
+
+    <div class="sidebar-search">
+      <input type="text" id="chatSearch" placeholder="Buscar chats..." oninput="filterChats(this.value)">
+    </div>
+
+    <div class="history-section" id="chatHistoryList"></div>
+
+    <!-- Footer -->
+    <div class="sidebar-footer">
+      <!-- Ocean Pay connect (collapsible) -->
+      <div class="sidebar-op-section">
+        <div class="sidebar-op-toggle" onclick="toggleOpSection()">
+          <span>⚡ Ocean Pay</span>
+          <span id="opToggleArrow">▸</span>
+        </div>
+        <div class="sidebar-op-body" id="opBody">
+          <div id="oceanPayStatus" class="link-status">Estado: No conectado</div>
+          <input id="opUsername" class="link-input" type="text" placeholder="Usuario Ocean Pay">
+          <input id="opPassword" class="link-input" type="password" placeholder="Contraseña Ocean Pay">
+          <button class="link-btn primary" onclick="connectOceanPay()">Conectar cuenta</button>
+          <button class="link-btn" onclick="syncCoralBitsToOceanPay()">Sincronizar Coral Bits</button>
+          <div class="wallet-main">
+            <div class="coin-2d">C</div>
+            <span id="currencyBalance">0 Coral Bits</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Profile + quota -->
+      <div class="sidebar-profile-row" id="sidebarProfileRow">
+        <div class="sidebar-avatar" id="sidebarAvatar">U</div>
+        <span class="sidebar-username" id="sidebarUserName">Usuario</span>
+        <button class="sidebar-quota-btn" onclick="toggleQuotaPopup(event)">Uso ▴</button>
+
+        <!-- Quota popup (expands upward) -->
+        <div class="sidebar-quota-popup" id="quotaPopup">
+          <div class="quota-popup-title">Estado de cuenta</div>
+          <button class="quota-popup-usage-btn" onclick="openQuotaModal()">
+            📊 Ver uso y cuota
+          </button>
+          <div class="quota-popup-plan" id="quotaPopupPlan">Plan: Free</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ══ MAIN CHAT ══ -->
+  <main class="main-chat">
+
+    <!-- Quota exceeded banner -->
+    <div class="quota-banner" id="quotaBanner">
+      <span>⚠️ Alcanzaste tu cuota semanal de mensajes. Podés actualizar tu plan para continuar.</span>
+      <div class="quota-banner-actions">
+        <button class="quota-banner-btn" onclick="openPlansModal()">Ver planes</button>
+        <button class="quota-banner-btn" onclick="document.getElementById('quotaBanner').classList.remove('visible')" style="background:transparent;border-color:rgba(239,68,68,0.2)">✕</button>
+      </div>
+    </div>
+
+    <!-- Coral Bits status banner -->
+    <div class="cb-banner" id="cbBanner">
+      <div class="cb-banner-left">
+        <span class="cb-banner-icon" id="cbBannerIcon">🪙</span>
+        <span id="cbBannerText"></span>
+      </div>
+      <button class="cb-banner-close" onclick="document.getElementById('cbBanner').classList.remove('visible')" title="Cerrar">✕</button>
+    </div>
+
+    <!-- Header -->
+    <header class="chat-header">
+      <span class="chat-header-title" id="chatHeaderTitle">Nuevo chat</span>
+      <div class="chat-header-right">
+        <button class="header-btn" onclick="exportChat()">📥 Exportar</button>
+        <button class="header-btn" onclick="openPlansModal()">Planes</button>
+        <div style="font-size:0.75rem;color:var(--text-muted)">v3.0.0</div>
+      </div>
+    </header>
+
+    <!-- Messages -->
+    <div class="chat-container">
+      <div id="welcome-screen" class="welcome-screen">
+        <div class="welcome-logo">🌊</div>
+        <h1 id="welcomeTitle" class="welcome-title">Hola, Usuario</h1>
+        <p class="welcome-typing-wrap">
+          <span id="welcomeTypingText" class="welcome-typing"></span><span class="welcome-cursor">|</span>
+        </p>
+      </div>
+      <div id="chat-content" class="chat-content" style="display:none;"></div>
+    </div>
+
+    <!-- Input area -->
+    <div class="input-area">
+      <div class="input-wrapper" style="position:relative;">
+
+        <!-- Dropdown lives here, outside input-box, so overflow doesn't clip it -->
+        <div class="model-dropdown-popup" id="modelDropdownPopup"></div>
+
+        <!-- Input box with inline model selector -->
+        <div class="input-box">
+          <!-- Inline model selector (left side, inside the box) -->
+          <div class="model-inline-selector" id="modelInlineSelector">
+            <button class="model-inline-btn" id="modelInlineBtn" onclick="toggleModelDropdown(event)" title="Cambiar modelo">
+              <span class="model-inline-emoji" id="modelInlineEmoji">🐬</span>
+              <span id="modelInlineName">Delfin 1.0</span>
+              <span class="model-inline-chevron">▲</span>
+            </button>
+          </div>
+
+          <textarea id="userInput" class="chat-input"
+            placeholder="Envía un mensaje a Ocean AI..."
+            rows="1"
+            onkeydown="handleInputKey(event)"
+            oninput="autoResizeInput(this)"></textarea>
+          <button id="sendBtn" class="send-btn" onclick="enviar()">
+            <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+          </button>
+        </div>
+        <div class="disclaimer">Ocean AI puede cometer errores. Considera verificar la información importante.</div>
+        <div class="tool-hint">💡 Usa <strong>/generardivisas</strong> o <strong>/boostreputacion</strong> para ejecutar herramientas de IA</div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ══ PLANS MODAL ══ -->
+  <div id="plansModal" class="plans-modal">
+    <div class="plans-shell">
+      <div class="plans-top">
+        <div>
+          <div class="plans-title">Planes Ocean AI</div>
+          <div class="plans-subtitle" id="planStatusText">Cargando estado del plan...</div>
+        </div>
+        <button class="plans-close-btn" onclick="closePlansModal()">✕ Cerrar</button>
+      </div>
+
+      <!-- Free tier -->
+      <div class="plans-free-bar">
+        <div class="plans-free-bar-text">
+          <strong>Plan Gratuito</strong> — Acceso al modelo Delfin 1.0 con herramientas de IA básicas.
+          Limitado a 30 mensajes por semana.
+        </div>
+        <div style="font-size:0.8rem;color:var(--accent)">Siempre disponible</div>
+      </div>
+
+      <!-- 3 model plan cards -->
+      <div class="plans-grid" id="plansGrid">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ QUOTA MODAL ══ -->
+  <div id="quotaModal" class="quota-modal">
+    <div class="quota-shell">
+      <div class="quota-modal-header">
+        <div class="quota-modal-title">📊 Tu uso semanal</div>
+        <button class="plans-close-btn" onclick="closeQuotaModal()">✕</button>
+      </div>
+      <div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+          <span style="font-size:0.82rem;color:var(--text-muted)">Mensajes usados</span>
+          <span style="font-size:0.82rem;font-weight:700;" id="quotaUsedLabel">0 / ∞</span>
+        </div>
+        <div class="quota-bar-wrap"><div class="quota-bar-fill" id="quotaBarFill" style="width:0%"></div></div>
+      </div>
+      <div class="quota-stats">
+        <span>Plan: <span class="quota-stat-val" id="quotaModalPlan">Free</span></span>
+        <span>Cuota: <span class="quota-stat-val" id="quotaModalLimit">Ilimitado</span></span>
+      </div>
+      <div class="quota-reset-info" id="quotaResetInfo">Se reinicia semanalmente (cada lunes)</div>
+      <div class="quota-upgrade-banner" id="quotaUpgradeBanner" style="display:none;">
+        <div class="quota-upgrade-text">
+          ¿Querés más mensajes o acceso a modelos más potentes?
+        </div>
+        <button class="quota-upgrade-btn" onclick="closeQuotaModal(); openPlansModal();">Ver planes</button>
+      </div>
+    </div>
+  </div>
+
+  <script>    // ═══════════════════════════════════════════════
+    // MODELS — 3 series: Dolphin, Whale, Shark
+    // ═══════════════════════════════════════════════
+    // Model series — Delfin has sub-versions (1.0 free, 1.1 paid)
+    const MODELS = {
+      dolphin10:   { id: 'dolphin10',   name: 'Delfin 1.0',     series: 'dolphin', emoji: '🐬', desc: 'Ligero · Herramientas básicas',    tier: 1, subOf: 'dolphin', free: true  },
+      dolphin11:   { id: 'dolphin11',   name: 'Delfin 1.1',     series: 'dolphin', emoji: '🐬', desc: 'Mejorado · Generador de divisas',   tier: 2, subOf: 'dolphin', free: false },
+      dolphin11m:  { id: 'dolphin11m',  name: 'Delfin 1.1 Mini', series: 'dolphin', emoji: '🐬', desc: 'Nuevo · Compacto y eficiente',      tier: 3, subOf: 'dolphin', free: false, nuevo: true },
+      dolphin11max:{ id: 'dolphin11max',name: 'Delfin 1.1 Max',  series: 'dolphin', emoji: '🐬', desc: 'Nuevo · Máxima capacidad Delfin',   tier: 4, subOf: 'dolphin', free: false, nuevo: true },
+      whale:       { id: 'whale',       name: 'Ballena',          series: 'whale',   emoji: '🐋', desc: 'Decente y balanceado',             tier: 5, free: false },
+      shark:       { id: 'shark',       name: 'Tiburon',          series: 'shark',   emoji: '🦈', desc: 'El más potente',                   tier: 6, free: false },
+    };
+    // Dolphin series parent for UI grouping
+    const DOLPHIN_VERSIONS = ['dolphin10', 'dolphin11', 'dolphin11m', 'dolphin11max'];
+
+    const PLAN_MODELS = {
+      free:      ['dolphin10'],
+      tide:      ['dolphin10', 'dolphin11', 'dolphin11m', 'dolphin11max'],
+      coral:     ['dolphin10', 'dolphin11', 'dolphin11m', 'dolphin11max', 'whale'],
+      abyss:     ['dolphin10', 'dolphin11', 'dolphin11m', 'dolphin11max', 'whale'],
+      leviathan: ['dolphin10', 'dolphin11', 'dolphin11m', 'dolphin11max', 'whale', 'shark'],
+    };
+
+    const PLAN_DEFS = [
+      {
+        id: 'tide',
+        name: 'Delfin Plus',
+        modelKey: 'dolphin11',
+        emoji: '🐬',
+        cost: 120,
+        features: ['Delfin 1.0 y 1.1', 'Delfin 1.1 mejorado', 'Herramientas IA avanzadas', 'Historial extendido'],
+      },
+      {
+        id: 'coral',
+        name: 'Ballena',
+        modelKey: 'whale',
+        emoji: '🐋',
+        cost: 280,
+        features: ['Delfin 1.0, 1.1 + Ballena', 'Análisis más profundo', 'Respuestas más extensas', 'Mayor contexto'],
+        featured: true,
+      },
+      {
+        id: 'leviathan',
+        name: 'Tiburon',
+        modelKey: 'shark',
+        emoji: '🦈',
+        cost: 900,
+        features: ['Todos los modelos', 'Tiburon: el más potente', 'Máxima prioridad', 'Sin restricciones'],
+      },
+    ];
+
+    // ── State ─────────────────────────────────────────────────────────────────
+    let isResponding = false;
+    let currentModel = 'dolphin10';
+    let coralBits = 0;
+    const FREE_MODEL_ID = 'dolphin10';
+    const CURRENCY_NAME = 'Coral Bits';
+    const API = 'https://owsdatabase.onrender.com';
+    const OCEAN_PAY_AUTH_KEY = 'oceanAiOceanPayAuth';
+    let oceanPayAuth = null;
+    let activePlanId = 'free';
+    let activePlanName = 'Free';
+    let owsStoreContextCache = null;
+    let owsInstallConsentPending = false;
+    const CHAT_STORAGE_KEY = 'oceanAiChatSessionsV2';
+    const CHAT_MAX_ITEMS = 40;
+    let chats = [];
+    let activeChatId = null;
+
+    // Quota (local count, weekly)
+    const QUOTA_KEY = 'oceanAiQuotaV1';
+    const QUOTA_LIMITS = { free: 30, tide: null, coral: null, abyss: null, leviathan: null }; // null = unlimited
+    let quotaData = { count: 0, weekStart: null };
+
+    // ── DOM refs ──────────────────────────────────────────────────────────────
+    const chatContent       = document.getElementById('chat-content');
+    const welcomeScreen     = document.getElementById('welcome-screen');
+    const welcomeTitle      = document.getElementById('welcomeTitle');
+    const chatHistoryList   = document.getElementById('chatHistoryList');
+    const sidebarUserName   = document.getElementById('sidebarUserName');
+    const sidebarAvatar     = document.getElementById('sidebarAvatar');
+    const userInput         = document.getElementById('userInput');
+    const currencyBalance   = document.getElementById('currencyBalance');
+    const oceanPayStatus    = document.getElementById('oceanPayStatus');
+    const opUsernameInput   = document.getElementById('opUsername');
+    const opPasswordInput   = document.getElementById('opPassword');
+    const plansModal        = document.getElementById('plansModal');
+    const planStatusText    = document.getElementById('planStatusText');
+    const quotaModal        = document.getElementById('quotaModal');
+    const quotaBanner       = document.getElementById('quotaBanner');
+    const chatHeaderTitle   = document.getElementById('chatHeaderTitle');
+    const modelDropdownPopup= document.getElementById('modelDropdownPopup');
+
+    // ── Quota ─────────────────────────────────────────────────────────────────
+    function loadQuota() {
+      try {
+        const raw = localStorage.getItem(QUOTA_KEY);
+        if (raw) quotaData = JSON.parse(raw);
+      } catch(_) {}
+      // Reset if new week
+      const now = new Date();
+      const mon = new Date(now); mon.setDate(now.getDate() - now.getDay() + 1); mon.setHours(0,0,0,0);
+      if (!quotaData.weekStart || new Date(quotaData.weekStart) < mon) {
+        quotaData = { count: 0, weekStart: mon.toISOString() };
+        saveQuota();
+      }
+    }
+    function saveQuota() {
+      localStorage.setItem(QUOTA_KEY, JSON.stringify(quotaData));
+    }
+    function incrementQuota() {
+      quotaData.count++;
+      saveQuota();
+    }
+    function getQuotaLimit() {
+      return QUOTA_LIMITS[activePlanId] ?? null;
+    }
+    function isQuotaExceeded() {
+      const limit = getQuotaLimit();
+      if (limit === null) return false;
+      return quotaData.count >= limit;
+    }
+    function checkQuotaBanner() {
+      if (isQuotaExceeded() && activePlanId === 'free') {
+        quotaBanner.classList.add('visible');
+      } else {
+        quotaBanner.classList.remove('visible');
+      }
+    }
+
+    // ── Quota popup & modal ───────────────────────────────────────────────────
+    function toggleQuotaPopup(e) {
+      e.stopPropagation();
+      document.getElementById('quotaPopup').classList.toggle('open');
+    }
+    document.addEventListener('click', () => {
+      document.getElementById('quotaPopup').classList.remove('open');
+    });
+    function openQuotaModal() {
+      document.getElementById('quotaPopup').classList.remove('open');
+      const limit = getQuotaLimit();
+      const used  = quotaData.count;
+      const pct   = limit ? Math.min(100, Math.round(used / limit * 100)) : 0;
+      document.getElementById('quotaUsedLabel').textContent  = limit ? `${used} / ${limit}` : `${used} / ∞`;
+      document.getElementById('quotaModalPlan').textContent  = activePlanName;
+      document.getElementById('quotaModalLimit').textContent = limit ? `${limit} mensajes/semana` : 'Ilimitado';
+      document.getElementById('quotaPopupPlan').textContent  = `Plan: ${activePlanName}`;
+      const fill = document.getElementById('quotaBarFill');
+      fill.style.width = limit ? `${pct}%` : '0%';
+      fill.className = 'quota-bar-fill' + (pct >= 80 ? ' danger' : '');
+      // Reset date
+      const resetDate = quotaData.weekStart ? new Date(new Date(quotaData.weekStart).getTime() + 7*24*60*60*1000) : null;
+      document.getElementById('quotaResetInfo').textContent = resetDate
+        ? `Se reinicia el ${resetDate.toLocaleDateString('es-ES', {weekday:'long', day:'numeric', month:'long'})}`
+        : 'Se reinicia semanalmente (cada lunes)';
+      // Upgrade banner — show only if free or not top plan
+      const upg = document.getElementById('quotaUpgradeBanner');
+      upg.style.display = (activePlanId !== 'leviathan') ? 'flex' : 'none';
+      quotaModal.classList.add('open');
+    }
+    function closeQuotaModal() { quotaModal.classList.remove('open'); }
+
+    // ── Ocean Pay section toggle ──────────────────────────────────────────────
+    function toggleOpSection() {
+      const body  = document.getElementById('opBody');
+      const arrow = document.getElementById('opToggleArrow');
+      body.classList.toggle('open');
+      arrow.textContent = body.classList.contains('open') ? '▾' : '▸';
+    }
+
+    // ── Model UI ──────────────────────────────────────────────────────────────
+    function buildModelUI() {
+      const popup = document.getElementById('modelDropdownPopup');
+      const inlineEmoji = document.getElementById('modelInlineEmoji');
+      const inlineName  = document.getElementById('modelInlineName');
+      if (!popup) return;
+
+      popup.innerHTML = '';
+
+      // ── Delfin group (with sub-versions dropdown) ──
+      const dolphinGroup = document.createElement('div');
+      dolphinGroup.className = 'model-group';
+      const dolphinHeader = document.createElement('div');
+      dolphinHeader.className = 'model-group-header';
+      const isDolphinActive = DOLPHIN_VERSIONS.includes(currentModel);
+      dolphinHeader.innerHTML = `
+        <span style="font-size:1.1rem">🐬</span>
+        <div class="model-option-info">
+          <div class="model-option-name">Delfin${isDolphinActive ? ' · ' + (MODELS[currentModel]?.name || '') : ''}</div>
+          <div class="model-option-desc">Serie ligera · versiones 1.0 y 1.1</div>
+        </div>
+        <span class="model-group-arrow">▸</span>
+      `;
+      if (isDolphinActive) dolphinHeader.classList.add('active');
+
+      const dolphinSubs = document.createElement('div');
+      dolphinSubs.className = 'model-sub-list';
+      DOLPHIN_VERSIONS.forEach(vid => {
+        const m = MODELS[vid];
+        const locked = !canAccessModel(vid);
+        const sub = document.createElement('div');
+        sub.className = 'model-sub-option' + (vid === currentModel ? ' active' : '') + (locked ? ' locked' : '');
+        sub.innerHTML = `
+          <span class="model-sub-version">${m.name}</span>
+          <span class="model-sub-desc">${m.desc}</span>
+          ${m.nuevo ? '<span class="nuevo-badge">NUEVO!</span>' : ''}
+          ${locked ? '<span class="lock-badge">🔒</span>' : ''}
+        `;
+        sub.onclick = (e) => {
+          e.stopPropagation();
+          if (locked) { closeModelDropdown(); openPlansModal(); return; }
+          selectModel(vid); closeModelDropdown();
+        };
+        dolphinSubs.appendChild(sub);
+      });
+
+      // Toggle sub-list on header click
+      dolphinHeader.onclick = () => {
+        dolphinSubs.classList.toggle('open');
+        dolphinHeader.querySelector('.model-group-arrow').textContent =
+          dolphinSubs.classList.contains('open') ? '▾' : '▸';
+      };
+      // Auto-open if a dolphin version is active
+      if (isDolphinActive) {
+        dolphinSubs.classList.add('open');
+        dolphinHeader.querySelector('.model-group-arrow').textContent = '▾';
+      }
+
+      dolphinGroup.append(dolphinHeader, dolphinSubs);
+      popup.appendChild(dolphinGroup);
+
+      // ── Other models (Ballena, Tiburon) ──
+      ['whale', 'shark'].forEach(mid => {
+        const m = MODELS[mid];
+        const locked = !canAccessModel(mid);
+        const opt = document.createElement('div');
+        opt.className = 'model-option' + (mid === currentModel ? ' active' : '') + (locked ? ' locked' : '');
+        opt.innerHTML = `
+          <span style="font-size:1.1rem">${m.emoji}</span>
+          <div class="model-option-info">
+            <div class="model-option-name">${m.name}</div>
+            <div class="model-option-desc">${m.desc}</div>
+          </div>
+          ${locked ? '<span class="lock-badge">🔒 Plan</span>' : ''}
+        `;
+        opt.onclick = () => {
+          if (locked) { closeModelDropdown(); openPlansModal(); return; }
+          selectModel(mid); closeModelDropdown();
+        };
+        popup.appendChild(opt);
+      });
+
+      // Update inline button
+      const active = MODELS[currentModel];
+      if (active) {
+        if (inlineEmoji) inlineEmoji.textContent = active.emoji;
+        if (inlineName)  inlineName.textContent  = active.name;
+      }
+      if (chatHeaderTitle) {
+        const chat = getActiveChat();
+        chatHeaderTitle.textContent = chat?.title || 'Nuevo chat';
+      }
+    }
+
+    function toggleModelDropdown(e) {
+      if (e) e.stopPropagation();
+      const popup = document.getElementById('modelDropdownPopup');
+      if (!popup) return;
+      popup.classList.toggle('show');
+    }
+
+    function closeModelDropdown() {
+      const popup = document.getElementById('modelDropdownPopup');
+      if (popup) popup.classList.remove('show');
+    }
+
+    // Close dropdown on outside click
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('#modelInlineBtn') && !e.target.closest('#modelDropdownPopup')) closeModelDropdown();
+    });
+
+    function selectModel(modelId) {
+      if (!canAccessModel(modelId)) { openPlansModal(); return; }
+      currentModel = modelId;
+      buildModelUI();
+    }
+
+    function canAccessModel(modelId) {
+      if (modelId === FREE_MODEL_ID) return true;
+      const allowed = PLAN_MODELS[activePlanId] || ['free'];
+      return allowed.includes(modelId);
+    }
+
+    // ── Plans Modal ───────────────────────────────────────────────────────────
+    function buildPlansGrid() {
+      const grid = document.getElementById('plansGrid');
+      if (!grid) return;
+      grid.innerHTML = '';
+      PLAN_DEFS.forEach(plan => {
+        const isActive = activePlanId === plan.id;
+        const card = document.createElement('div');
+        card.className = 'plan-card' + (plan.featured ? ' featured' : '');
+        card.innerHTML = `
+          <div class="plan-card-header">
+            <div class="plan-model-icon" style="background:rgba(0,180,255,0.1)">${plan.emoji}</div>
+            <div>
+              <div class="plan-name">${plan.name}</div>
+              <div class="plan-model-label">Serie ${plan.name}</div>
+            </div>
+          </div>
+          <div class="plan-cost">${plan.cost} <span>Coral Bits / semana</span></div>
+          <ul class="plan-list">
+            ${plan.features.map(f => `<li>${f}</li>`).join('')}
+          </ul>
+          <button class="plan-btn${isActive ? ' active-plan' : ''}"
+            onclick="subscribeOceanAiPlan('${plan.id}')"
+            ${isActive ? 'disabled' : ''}>
+            ${isActive ? '✓ Plan activo' : `Activar ${plan.name}`}
+          </button>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    function openPlansModal()  { buildPlansGrid(); plansModal.classList.add('open'); }
+    function closePlansModal() { plansModal.classList.remove('open'); }
+
+    window.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { closePlansModal(); closeQuotaModal(); }
+    });
+    plansModal.addEventListener('click', e => { if (e.target === plansModal) closePlansModal(); });
+    quotaModal.addEventListener('click', e => { if (e.target === quotaModal) closeQuotaModal(); });
+
+    // ── Chat history ──────────────────────────────────────────────────────────
+    function getDisplayUserName() {
+      return String(oceanPayAuth?.username || '').trim() || 'Usuario';
+    }
+    function updateWelcomeGreeting() {
+      const name = getDisplayUserName();
+      if (welcomeTitle) welcomeTitle.textContent = `Hola, ${name}`;
+      if (sidebarUserName) sidebarUserName.textContent = name;
+      if (sidebarAvatar) sidebarAvatar.textContent = (name[0] || 'U').toUpperCase();
+    }
+    function buildChatTitleFromFirstPrompt(text) {
+      const clean = String(text || '').replace(/\s+/g, ' ').trim();
+      if (!clean) return 'Nuevo chat';
+      const words = clean.replace(/^[\?\!.,:;\-_\s]+/, '').split(' ').filter(Boolean).slice(0, 5);
+      let title = words.join(' ');
+      if (title.length > 42) title = title.slice(0, 42) + '…';
+      return title || 'Nuevo chat';
+    }
+    function makeChatId() { return `chat_${Date.now()}_${Math.floor(Math.random()*10000)}`; }
+    function getActiveChat() { return chats.find(c => c.id === activeChatId) || null; }
+    function saveChats() {
+      try { localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(chats.slice(0, CHAT_MAX_ITEMS))); } catch(_) {}
+    }
+
+    let _searchTerm = '';
+    function filterChats(term) {
+      _searchTerm = (term || '').toLowerCase().trim();
+      renderHistory();
+    }
+
+    function renderHistory() {
+      if (!chatHistoryList) return;
+      const ordered = chats.slice().sort((a, b) => {
+        return (Date.parse(b.updatedAt || '') || 0) - (Date.parse(a.updatedAt || '') || 0);
+      });
+      const filtered = _searchTerm ? ordered.filter(c => (c.title || '').toLowerCase().includes(_searchTerm)) : ordered;
+      chatHistoryList.innerHTML = '';
+
+      if (filtered.length === 0) {
+        const empty = document.createElement('div');
+        empty.style.cssText = 'padding:16px;text-align:center;color:var(--text-muted);font-size:0.82rem;';
+        empty.textContent = _searchTerm ? 'Sin resultados.' : 'Sin chats guardados.';
+        chatHistoryList.appendChild(empty);
+        return;
+      }
+
+      // Group by date
+      const today = new Date(); today.setHours(0,0,0,0);
+      const yesterday = new Date(today); yesterday.setDate(today.getDate()-1);
+      const groups = { 'Hoy': [], 'Ayer': [], 'Anteriores': [] };
+      filtered.forEach(chat => {
+        const d = new Date(chat.updatedAt || chat.createdAt || 0);
+        d.setHours(0,0,0,0);
+        if (d >= today) groups['Hoy'].push(chat);
+        else if (d >= yesterday) groups['Ayer'].push(chat);
+        else groups['Anteriores'].push(chat);
+      });
+
+      Object.entries(groups).forEach(([label, items]) => {
+        if (!items.length) return;
+        const lbl = document.createElement('div');
+        lbl.className = 'history-section-label';
+        lbl.textContent = label;
+        chatHistoryList.appendChild(lbl);
+        items.forEach(chat => {
+          const item = document.createElement('div');
+          item.className = 'history-item' + (chat.id === activeChatId ? ' active' : '');
+
+          const titleSpan = document.createElement('span');
+          titleSpan.className = 'history-item-title';
+          titleSpan.textContent = chat.title || 'Nuevo chat';
+          titleSpan.title = chat.title || 'Nuevo chat';
+
+          const actions = document.createElement('div');
+          actions.className = 'history-item-actions';
+
+          const renameBtn = document.createElement('button');
+          renameBtn.className = 'history-action-btn';
+          renameBtn.textContent = '✏️';
+          renameBtn.title = 'Renombrar';
+          renameBtn.onclick = e => { e.stopPropagation(); startRename(chat.id, item, titleSpan); };
+
+          const delBtn = document.createElement('button');
+          delBtn.className = 'history-action-btn';
+          delBtn.textContent = '🗑️';
+          delBtn.title = 'Eliminar';
+          delBtn.style.color = '#f87171';
+          delBtn.onclick = e => { e.stopPropagation(); deleteChat(chat.id); };
+
+          actions.append(renameBtn, delBtn);
+          item.append(titleSpan, actions);
+          item.addEventListener('click', () => setActiveChat(chat.id));
+          chatHistoryList.appendChild(item);
+        });
+      });
+    }
+
+    function startRename(chatId, itemEl, titleSpan) {
+      const chat = chats.find(c => c.id === chatId);
+      if (!chat) return;
+      const input = document.createElement('input');
+      input.className = 'history-rename-input';
+      input.value = chat.title || '';
+      titleSpan.replaceWith(input);
+      input.focus(); input.select();
+      const finish = () => {
+        const val = input.value.trim();
+        if (val) chat.title = val;
+        saveChats();
+        renderHistory();
+        if (chatId === activeChatId && chatHeaderTitle) chatHeaderTitle.textContent = chat.title || 'Nuevo chat';
+      };
+      input.addEventListener('blur', finish);
+      input.addEventListener('keydown', e => { if (e.key === 'Enter') input.blur(); if (e.key === 'Escape') { input.value = chat.title || ''; input.blur(); }});
+    }
+
+    function deleteChat(chatId) {
+      chats = chats.filter(c => c.id !== chatId);
+      saveChats();
+      if (activeChatId === chatId) {
+        if (chats.length) setActiveChat(chats[0].id);
+        else createNewChat();
+        return;
+      }
+      renderHistory();
+    }
+
+    function persistActiveChat() {
+      const a = getActiveChat();
+      if (!a) return;
+      a.updatedAt = new Date().toISOString();
+      saveChats(); renderHistory();
+    }
+
+    function renderStoredMessage(msg) {
+      if (!msg || !msg.sender || !msg.text) return;
+      addMessage(msg.text, msg.sender);
+      // No reward footer
+    }
+
+    function setActiveChat(chatId) {
+      const target = chats.find(c => c.id === chatId);
+      if (!target) return;
+      activeChatId = target.id;
+      owsInstallConsentPending = false;
+      chatContent.innerHTML = '';
+      if (!Array.isArray(target.messages) || !target.messages.length) {
+        chatContent.style.display = 'none';
+        welcomeScreen.style.display = 'flex';
+      } else {
+        welcomeScreen.style.display = 'none';
+        chatContent.style.display = 'flex';
+        target.messages.forEach(renderStoredMessage);
+      }
+      if (chatHeaderTitle) chatHeaderTitle.textContent = target.title || 'Nuevo chat';
+      renderHistory(); buildModelUI();
+      userInput.focus();
+    }
+
+    function createNewChat() {
+      const now = new Date().toISOString();
+      const chat = { id: makeChatId(), title: 'Nuevo chat', createdAt: now, updatedAt: now, messages: [] };
+      chats.unshift(chat);
+      if (chats.length > CHAT_MAX_ITEMS) chats = chats.slice(0, CHAT_MAX_ITEMS);
+      activeChatId = chat.id;
+      saveChats(); setActiveChat(chat.id);
+    }
+
+    function loadChats() {
+      try {
+        const raw = localStorage.getItem(CHAT_STORAGE_KEY);
+        const parsed = raw ? JSON.parse(raw) : [];
+        chats = Array.isArray(parsed) ? parsed.filter(c => c && c.id) : [];
+      } catch(_) { chats = []; }
+      if (!chats.length) { createNewChat(); return; }
+      setActiveChat(chats[0].id);
+    }
+
+    // ── Input helpers ─────────────────────────────────────────────────────────
+    function handleInputKey(e) {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviar(); }
+    }
+    function autoResizeInput(el) {
+      el.style.height = 'auto';
+      el.style.height = Math.min(el.scrollHeight, 180) + 'px';
+    }
+
+    // ── Ocean Pay ─────────────────────────────────────────────────────────────
+    function updateOceanPayStatus(text, connected = false) {
+      if (!oceanPayStatus) return;
+      oceanPayStatus.textContent = text;
+      oceanPayStatus.className = 'link-status' + (connected ? ' connected' : '');
+    }
+    function loadStoredOceanPayAuth() {
+      try {
+        const raw = localStorage.getItem(OCEAN_PAY_AUTH_KEY);
+        if (!raw) return null;
+        const p = JSON.parse(raw);
+        return (p?.username && p?.password) ? p : null;
+      } catch(_) { return null; }
+    }
+    function saveOceanPayAuth(auth) {
+      oceanPayAuth = auth;
+      localStorage.setItem(OCEAN_PAY_AUTH_KEY, JSON.stringify(auth));
+    }
+
+    async function connectOceanPay() {
+      const username = (opUsernameInput?.value || '').trim();
+      const password = (opPasswordInput?.value || '').trim();
+      if (!username || !password) { updateOceanPayStatus('Estado: Faltan usuario/contraseña', false); return; }
+      try {
+        const res  = await fetch(`${API}/ocean-ai/connect-ocean-pay`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username, password}) });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'No se pudo conectar');
+        saveOceanPayAuth({username, password});
+        coralBits = Number(data.coralBits || 0);
+        updateCurrencyUI();
+        updateOceanPayStatus(`Estado: Conectado como ${data.username}`, true);
+        updateWelcomeGreeting();
+        await refreshOceanAiSubscriptionStatus();
+      } catch(err) { updateOceanPayStatus(`Estado: ${err.message}`, false); }
+    }
+
+    async function syncCoralBitsToOceanPay() {
+      if (!oceanPayAuth?.username) { updateOceanPayStatus('Estado: Conecta primero Ocean Pay', false); return; }
+      try {
+        const res  = await fetch(`${API}/ocean-ai/coralbits/sync`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username:oceanPayAuth.username, password:oceanPayAuth.password, coralBits}) });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'No se pudo sincronizar');
+        updateOceanPayStatus(`Estado: Sincronizado (${data.coralBits} CB)`, true);
+      } catch(err) { updateOceanPayStatus(`Estado: ${err.message}`, false); }
+    }
+
+    async function loadCoralBitsFromOceanPay() {
+      if (!oceanPayAuth?.username) { updateOceanPayStatus('Estado: Conecta primero Ocean Pay', false); return; }
+      try {
+        const res  = await fetch(`${API}/ocean-ai/coralbits/balance`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username:oceanPayAuth.username, password:oceanPayAuth.password}) });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'No se pudo cargar saldo');
+        coralBits = Number(data.coralBits || 0);
+        updateCurrencyUI();
+        updateOceanPayStatus(`Estado: Conectado (${data.username})`, true);
+        updateWelcomeGreeting();
+        await refreshOceanAiSubscriptionStatus();
+      } catch(err) { updateOceanPayStatus(`Estado: ${err.message}`, false); }
+    }
+
+    async function refreshOceanAiSubscriptionStatus() {
+      if (!oceanPayAuth?.username) {
+        activePlanId = 'free'; activePlanName = 'Free';
+        if (planStatusText) planStatusText.textContent = 'Sin plan activo';
+        buildModelUI(); checkQuotaBanner(); return;
+      }
+      try {
+        const res  = await fetch(`${API}/ocean-ai/subscriptions/status`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username:oceanPayAuth.username, password:oceanPayAuth.password}) });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'No se pudo consultar suscripción');
+        activePlanId   = data.active ? (data.planId   || 'free') : 'free';
+        activePlanName = data.active ? (data.planName || 'Free') : 'Free';
+        if (planStatusText) {
+          if (data.active) {
+            const renew = data.renewalAt ? new Date(data.renewalAt).toLocaleString('es-ES') : 'N/A';
+            planStatusText.textContent = `Plan activo: ${activePlanName} | Renovación: ${renew} | Costo: ${data.weeklyCost} CB/sem`;
+          } else {
+            planStatusText.textContent = 'Sin plan activo';
+          }
+        }
+      } catch(err) {
+        activePlanId = 'free'; activePlanName = 'Free';
+        if (planStatusText) planStatusText.textContent = `Error: ${err.message}`;
+      }
+      document.getElementById('quotaPopupPlan').textContent = `Plan: ${activePlanName}`;
+      buildModelUI(); checkQuotaBanner();
+      if (!canAccessModel(currentModel)) { currentModel = FREE_MODEL_ID; buildModelUI(); }
+    }
+
+    async function subscribeOceanAiPlan(planId) {
+      if (!oceanPayAuth?.username) { updateOceanPayStatus('Estado: Conecta primero Ocean Pay', false); return; }
+      try {
+        const res  = await fetch(`${API}/ocean-ai/subscriptions/subscribe`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username:oceanPayAuth.username, password:oceanPayAuth.password, planId}) });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'No se pudo activar el plan');
+        coralBits = Number(data.coralBitsBalance || coralBits);
+        updateCurrencyUI();
+        await refreshOceanAiSubscriptionStatus();
+        buildPlansGrid();
+      } catch(err) { if (planStatusText) planStatusText.textContent = `Error: ${err.message}`; }
+    }
+
+    function updateCurrencyUI() {
+      if (currencyBalance) currencyBalance.textContent = `${coralBits} ${CURRENCY_NAME}`;
+      checkCoralBitsBanner();
+    }
+
+    function checkCoralBitsBanner() {
+      const banner   = document.getElementById('cbBanner');
+      const textEl   = document.getElementById('cbBannerText');
+      const iconEl   = document.getElementById('cbBannerIcon');
+      if (!banner || !textEl) return;
+
+      // Minimum costs: generardivisas(1 ABX) = 2 CB, boostreputacion(basico) = 50 CB
+      const MIN_ANY_TOOL  = 2;   // minimum to run ANY tool (1 AquaBux)
+      const MIN_ALL_TOOLS = 50;  // minimum to run all tools (boost basico)
+      const WARN_THRESH   = 200; // "se está acabando" threshold
+
+      // Only show banner if Ocean Pay is connected (tools require it)
+      if (!oceanPayAuth?.username) {
+        banner.classList.remove('visible');
+        return;
+      }
+
+      if (coralBits < MIN_ANY_TOOL) {
+        // Empty — can't run any tool
+        banner.className = 'cb-banner visible cb-empty';
+        iconEl.textContent = '🪙';
+        textEl.textContent = 'Sin Coral Bits — no podés ejecutar ninguna herramienta de IA. Recargá tu saldo en Ocean Pay.';
+      } else if (coralBits < MIN_ALL_TOOLS) {
+        // Can run generardivisas (2 CB min) but not boostreputacion (50 CB min)
+        banner.className = 'cb-banner visible cb-low';
+        iconEl.textContent = '⚠️';
+        textEl.textContent = `Coral Bits bajos (${coralBits} CB) — solo podés usar el Generador de Divisas. El Boost de Reputación requiere al menos 50 CB.`;
+      } else if (coralBits < WARN_THRESH) {
+        // Low — approaching empty
+        banner.className = 'cb-banner visible cb-low';
+        iconEl.textContent = '⚠️';
+        textEl.textContent = `Coral Bits bajos (${coralBits} CB) — se te están acabando. Considerá recargar pronto.`;
+      } else {
+        // Enough — hide banner
+        banner.classList.remove('visible');
+      }
+    }
+
+    // ── Thinking simulation — shimmer text, cycling messages ──────────────────
+    async function runThinkingSimulation(thoughtsDiv, query) {
+      const statusEl = thoughtsDiv.querySelector('.thought-status');
+      const modelSteps = {
+        free:    ["Ejecutando modo gratuito…", "Generando respuesta optimizada…", "Midiendo caracteres de salida…", "Calculando Coral Bits obtenidos…"],
+        dolphin: [`Analizando consulta: "${query.substring(0,24)}${query.length>24?'…':''}"`, "Buscando en base de conocimientos…", "Identificando palabras clave…", "Seleccionando la mejor respuesta…"],
+        whale:   ["Interpretando intención…", "Buscando contexto útil…", "Balanceando claridad y detalle…", "Redactando respuesta final…"],
+        shark:   ["Descomponiendo consulta en partes…", "Relacionando contexto y palabras clave…", "Evaluando alternativas de respuesta…", "Priorizando precisión y coherencia…"],
+      };
+      const steps = modelSteps[currentModel] || modelSteps.free;
+      for (const step of steps) {
+        if (statusEl) statusEl.textContent = step;
+        await new Promise(r => setTimeout(r, 450 + Math.random() * 350));
+      }
+    }
+
+    // ── Response logic (local KB + Anthropic API) ─────────────────────────────
+    const knowledgeBase = [
+      { keywords:["hola","buenos dias","buenas","que tal","hi","hello","saludos"],
+        responses:["¡Hola! 👋 Soy Ocean AI. Estoy aquí para ayudarte con todo lo relacionado a Ocean and Wild Studios.", "¡Buenas! 🤖 ¿En qué aventura puedo asistirte hoy?"] },
+      { keywords:["ocean cinemas","cinemas","cine","pelicula"],
+        responses:["🎬 **Ocean Cinemas** es nuestra próxima gran aplicación de entretenimiento.\n\n📅 **Lanzamiento:** Aún no hay fecha confirmada.\n\nOfrecerá una experiencia de gestión de cine única y moderna."] },
+      { keywords:["ocean flow","flow"],
+        responses:["🌊 **Ocean Flow** sigue en evolución constante con mejoras de navegación y organización visual."] },
+      { keywords:["infinite world","infinite","iw"],
+        responses:["🌍 **Infinite World** es un universo de aventuras sin fin. En el Hub encontrarás herramientas útiles como temporizador, calculadora y minijuegos."] },
+      { keywords:["hub","panel","central","inicio"],
+        responses:["🏠 **Ocean and Wild Studios Hub** es tu centro de mando. Aquí convergen noticias, accesos a juegos y herramientas de IA."] },
+      { keywords:["ocean ai","que eres","quien eres","bot"],
+        responses:["🤖 **Soy Ocean AI**, tu asistente inteligente integrado, equipado con modelos Delfin, Ballena y Tiburon."] },
+      { keywords:["creador","dueño","hachi","admin","contacto"],
+        responses:["👨‍💻 Administración: 📧 hachiyt001@gmail.com | 📱 099 685 536"] },
+    ];
+
+    function getLocalResponse(text) {
+      const lower = text.toLowerCase();
+      for (const entry of knowledgeBase) {
+        if (entry.keywords.some(k => lower.includes(k))) {
+          return entry.responses[Math.floor(Math.random() * entry.responses.length)];
+        }
+      }
+      return "🤔 No tengo información específica sobre eso. ¿Podrías preguntarme sobre Ocean Cinemas, Ocean Flow o Infinite World?";
+    }
+
+    // isOwsStoreIntent, fetchOwsStoreContext, buildOwsStoreSummaryReply — preserved
+    function normalizeTextForIntent(text) { return String(text||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,''); }
+    function isYesIntent(t) { const n=normalizeTextForIntent(t); return /^(si|s|yes|ok|dale|claro|acepto|autorizo)\b/.test(n)||/\b(si|yes|acepto|autorizo|confirmo)\b/.test(n); }
+    function isNoIntent(t)  { const n=normalizeTextForIntent(t); return /^(no|cancelar|cancela|n)\b/.test(n)||/\b(no|cancelar|detener)\b/.test(n); }
+    function isOwsStoreIntent(t) { const n=normalizeTextForIntent(t); return n.includes('ows store')||n.includes('owsstore')||(n.includes('instal')&&n.includes('store'))||((n.includes('proyecto')||n.includes('catalogo'))&&n.includes('ows')); }
+    async function fetchOwsStoreContext() {
+      const res=await fetch(`${API}/ocean-ai/ows-store/context`);
+      const data=await res.json();
+      if(!res.ok) throw new Error(data.error||'No se pudo consultar OWS Store');
+      owsStoreContextCache=data; return data;
+    }
+    function buildProjectList(items) {
+      if(!Array.isArray(items)||!items.length) return '- Sin proyectos.';
+      return items.map(p=>`- ${p.name}${p.version?` v${p.version}`:''}${p.releaseDate?` | ${new Date(p.releaseDate).toLocaleDateString()}`:''}`.trim()).join('\n');
+    }
+    function detectPreferredStorePlatform() { return navigator.userAgent.toLowerCase().includes('android')?'android':'windows'; }
+    function attemptStoreDownload(ctx) {
+      const pref=detectPreferredStorePlatform();
+      const url=pref==='android'?ctx?.store?.android?.downloadUrl||'https://owsdatabase.onrender.com/ows-store/android/releases/ows-store/latest/download':ctx?.store?.windows?.downloadUrl||'https://github.com/OceanandWild/owsdatabase/releases/latest';
+      try { const a=document.createElement('a');a.href=url;a.target='_blank';a.rel='noopener noreferrer';document.body.appendChild(a);a.click();a.remove();return `Descarga iniciada (${pref}): ${url}`; } catch(_){ return `Enlace: ${url}`; }
+    }
+    function buildOwsStoreSummaryReply(ctx) {
+      const win=ctx?.store?.windows||{},andr=ctx?.store?.android||{},avail=ctx?.projects?.available||[],up=ctx?.projects?.upcoming||[];
+      return [attemptStoreDownload(ctx),``,`OWS Store Windows: ${win.version||'Sin dato'}`,`OWS Store Android: ${andr.versionName||'Sin dato'}`,``,`Proyectos disponibles:`,buildProjectList(avail),``,`Próximamente:`,buildProjectList(up),``,`Para instalar, usá directamente OWS Store.`].join('\n');
+    }
+    async function tryResolveOwsStoreAssistant(text) {
+      if(owsInstallConsentPending){ if(isYesIntent(text)){owsInstallConsentPending=false;const ctx=await fetchOwsStoreContext();return buildOwsStoreSummaryReply(ctx);} if(isNoIntent(text)){owsInstallConsentPending=false;return 'Instalación cancelada.';} }
+      if(!isOwsStoreIntent(text)) return null;
+      const ctx=await fetchOwsStoreContext();const win=ctx?.store?.windows||{},andr=ctx?.store?.android||{};
+      owsInstallConsentPending=true;
+      return [`OWS Store detectado.`,`Windows: ${win.version||'Sin dato'} | Android: ${andr.versionName||'Sin dato'}`,``,`¿Inicio la descarga y muestro el catálogo completo? Responde "si" o "no".`].join('\n');
+    }
+    async function getAssistantResponse(text) {
+      const ows=await tryResolveOwsStoreAssistant(text);
+      if(ows) return ows;
+      return getLocalResponse(text);
+    }
+
+    // ── Message rendering ─────────────────────────────────────────────────────
+    function calculateCoralBits(text) { return Math.max(1, Math.floor(text.replace(/\s+/g,' ').trim().length/4)); }
+    function appendRewardFooter(container, reward) {
+      const f=document.createElement('div'); f.className='reward-footer';
+      f.innerHTML=`<hr><div class="reward-line"><div class="coin-2d">C</div><span>Recompensa:</span><span class="reward-amount">+${reward} ${CURRENCY_NAME}</span></div>`;
+      container.appendChild(f); scrollToBottom();
+    }
+
+    function addMessage(text, sender) {
+      const row=document.createElement('div'); row.className=`message-row ${sender}`;
+      const av=document.createElement('div'); av.className=`avatar ${sender}-avatar`;
+      av.textContent = sender==='user' ? (getDisplayUserName()[0]||'U').toUpperCase() : '🌊';
+      const content=document.createElement('div'); content.className='message-content'; content.textContent=text;
+      row.append(av, content); chatContent.appendChild(row); scrollToBottom();
+    }
+
+    function addBotMessageStructure(id) {
+      const row=document.createElement('div'); row.id=id; row.className='message-row bot';
+      const av=document.createElement('div'); av.className='avatar bot-avatar'; av.textContent='🌊';
+      const container=document.createElement('div'); container.style.flex='1';
+      const thoughtsDiv=document.createElement('div'); thoughtsDiv.className='thought-process';
+      thoughtsDiv.innerHTML='<div class="thought-status">Pensando…</div>';
+      const contentDiv=document.createElement('div'); contentDiv.className='message-content';
+      container.append(thoughtsDiv, contentDiv);
+      row.append(av, container); chatContent.appendChild(row);
+      return {contentDiv, thoughtsDiv};
+    }
+
+    async function streamResponse(element, text) {
+      const formatted = text.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>');
+      for (let i=0; i<text.length; i++) {
+        element.innerHTML = text.substring(0,i+1).replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>');
+        scrollToBottom();
+        await new Promise(r=>setTimeout(r, text[i]==='.'||text[i]==='\n' ? 18 : 8));
+      }
+      element.innerHTML = formatted.replace(/\n/g,'<br>');
+      scrollToBottom();
+    }
+
+    function addMessageActions(row, query) {
+      const div=document.createElement('div'); div.className='message-actions';
+      const copy=document.createElement('button'); copy.className='action-btn'; copy.innerHTML='📋 Copiar';
+      copy.onclick=()=>{ navigator.clipboard.writeText(row.querySelector('.message-content').innerText); copy.innerHTML='✅ Copiado'; setTimeout(()=>copy.innerHTML='📋 Copiar',2000); };
+      const regen=document.createElement('button'); regen.className='action-btn'; regen.innerHTML='🔄 Regenerar';
+      regen.onclick=()=>enviar(query);
+      div.append(copy, regen); row.children[1].appendChild(div); scrollToBottom();
+    }
+
+    function scrollToBottom() {
+      const c=document.querySelector('.chat-container');
+      if(c) c.scrollTop=c.scrollHeight;
+    }
+
+    // ── Enviar ────────────────────────────────────────────────────────────────
+    async function enviar(overrideText=null) {
+      if (isResponding && !overrideText) return;
+      const text = overrideText || userInput.value.trim();
+      if (!text) return;
+      if (!getActiveChat()) createNewChat();
+
+      // Tool command intercept
+      if (!overrideText && tryHandleTool(text)) return;
+
+      // Quota check
+      if (isQuotaExceeded()) { checkQuotaBanner(); return; }
+
+      if (welcomeScreen.style.display !== 'none') {
+        welcomeScreen.style.display = 'none';
+        chatContent.style.display = 'flex';
+      }
+
+      if (!overrideText) {
+        addMessage(text, 'user');
+        const ac=getActiveChat();
+        if(ac){ ac.messages=Array.isArray(ac.messages)?ac.messages:[]; ac.messages.push({sender:'user',text,at:new Date().toISOString()}); persistActiveChat(); }
+        userInput.value=''; userInput.style.height='52px';
+        incrementQuota(); checkQuotaBanner();
+      }
+
+      isResponding=true;
+      const id='bot-'+Date.now();
+      const {contentDiv, thoughtsDiv}=addBotMessageStructure(id);
+      scrollToBottom();
+
+      thoughtsDiv.classList.add('visible');
+      await runThinkingSimulation(thoughtsDiv, text);
+      thoughtsDiv.classList.remove('visible');
+
+      const response=await getAssistantResponse(text);
+      await streamResponse(contentDiv, response);
+
+      // No coral bits rewards — removed
+      const ac=getActiveChat();
+      if(ac){
+        ac.messages=Array.isArray(ac.messages)?ac.messages:[];
+        ac.messages.push({sender:'bot',text:response,reward,at:new Date().toISOString()});
+        if(ac.title==='Nuevo chat'){ const fu=ac.messages.find(m=>m.sender==='user'); if(fu?.text) ac.title=buildChatTitleFromFirstPrompt(fu.text); if(chatHeaderTitle) chatHeaderTitle.textContent=ac.title; }
+        persistActiveChat();
+      }
+
+      addMessageActions(contentDiv.parentElement, text);
+      isResponding=false; userInput.focus();
+    }
+
+    // ── Export ────────────────────────────────────────────────────────────────
+    function exportChat() {
+      const msgs=[]; document.querySelectorAll('.message-row').forEach(r=>{ const s=r.classList.contains('user')?'Usuario':'Ocean AI'; msgs.push(`[${s}]: ${r.querySelector('.message-content').innerText}`); });
+      const b=new Blob([msgs.join('\n\n')],{type:'text/plain'}); const u=URL.createObjectURL(b); const a=document.createElement('a'); a.href=u; a.download='ocean-ai-chat.txt'; a.click();
+    }
+
+    function usarSugerencia(texto) { userInput.value=texto; enviar(); }
+
+    // ── Init ──────────────────────────────────────────────────────────────────
+    loadQuota();
+    oceanPayAuth=loadStoredOceanPayAuth();
+    updateWelcomeGreeting();
+    loadChats();
+    buildModelUI();
+    startWelcomeTyping();
+
+    // Auto-refresh balance every 30s when Ocean Pay is connected
+    setInterval(() => {
+      if (oceanPayAuth?.username && oceanPayAuth?.password) {
+        loadCoralBitsFromOceanPay().catch(() => {});
+      }
+    }, 30000);
+
+    // ── Welcome typing animation ──────────────────────────────────────────────
+    function startWelcomeTyping() {
+      const el = document.getElementById('welcomeTypingText');
+      if (!el) return;
+      const text = 'Usa las Herramientas de IA para empezar';
+      let i = 0;
+      el.textContent = '';
+      const iv = setInterval(() => {
+        if (i < text.length) {
+          el.textContent += text[i++];
+        } else {
+          clearInterval(iv);
+        }
+      }, 40);
+    }
+
+    if (oceanPayAuth) {
+      if(opUsernameInput) opUsernameInput.value=oceanPayAuth.username||'';
+      if(opPasswordInput) opPasswordInput.value=oceanPayAuth.password||'';
+      updateOceanPayStatus(`Estado: Credenciales guardadas (${oceanPayAuth.username})`, true);
+      loadCoralBitsFromOceanPay();
+      refreshOceanAiSubscriptionStatus();
+    } else {
+      updateOceanPayStatus('Estado: No conectado', false);
+      buildModelUI();
+    }
+    updateCurrencyUI();
+    checkQuotaBanner();
+
+
+    // ════════════════════════════════════════════════════════════
+    // TOOL SYSTEM
+    // Commands: /generardivisas, /boostreputacion
+    // ════════════════════════════════════════════════════════════
+    const TOOLS = {
+      // minTier: minimum model tier required (MODELS[id].tier)
+      '/generardivisas':  { name: 'Generador de Divisas',  fn: renderToolGenerarDivisas,   minTier: 2, nuevo: false }, // Delfin 1.1+
+      '/boostreputacion': { name: 'Boost de Reputación',   fn: renderToolBoostReputacion,  minTier: 1, nuevo: false }, // Delfin 1.0+
+      '/transferirdivisas':{ name: 'Transferir Divisas',   fn: renderToolTransferirDivisas, minTier: 3, nuevo: true  }, // Delfin 1.1 Mini+
+      '/consultarsaldo':  { name: 'Consultar Saldo',       fn: renderToolConsultarSaldo,    minTier: 3, nuevo: true  }, // Delfin 1.1 Mini+
+    };
+
+    // Cost formulas
+    function calcGenerarDivisasCost(currency, amount) {
+      // AquaBux: 2 Coral Bits per unit (max 500)
+      const rates = { aquabux: 2 };
+      return Math.ceil((rates[currency] || 2) * amount);
+    }
+    function calcBoostReputacionCost(level) {
+      const costs = { basico: 50, medio: 120, avanzado: 300 };
+      return costs[level] || 50;
+    }
+
+    function isToolCommand(text) {
+      const cmd = text.trim().split(' ')[0].toLowerCase();
+      return TOOLS[cmd] ? cmd : null;
+    }
+
+    // ── Tool: Generador de Divisas ────────────────────────────────────────────
+    let _toolDivisasCounter = 0;
+    function renderToolGenerarDivisas(containerEl) {
+      const uid = ++_toolDivisasCounter;
+      containerEl.innerHTML = `
+        <div class="tool-panel" id="tool-divisas-${uid}">
+          <div class="tool-panel-header">
+            <span class="tool-panel-icon">💰</span>
+            <div>
+              <div class="tool-panel-title">Generador de Divisas</div>
+              <div class="tool-panel-subtitle">Transfiere divisas del ecosistema OWS a tu cuenta Ocean Pay</div>
+            </div>
+          </div>
+          <hr class="tool-divider">
+          <div class="tool-panel-row">
+            <div class="tool-field">
+              <label>Divisa</label>
+              <select class="tool-select" id="tool-d-currency-${uid}" onchange="updateDivisasCost(${uid})">
+                <option value="aquabux">AquaBux (ABX)</option>
+              </select>
+            </div>
+            <div class="tool-field">
+              <label>Cantidad (máx. 500)</label>
+              <input type="number" class="tool-input" id="tool-d-amount-${uid}"
+                min="1" max="500" value="100"
+                oninput="updateDivisasCost(${uid})">
+            </div>
+          </div>
+          <div class="tool-cost-row">
+            <span>Costo de generación:</span>
+            <span class="tool-cost-val" id="tool-d-cost-${uid}">200 Coral Bits</span>
+          </div>
+          <div class="tool-status-msg" id="tool-d-status-${uid}"></div>
+          <button class="tool-execute-btn" id="tool-d-btn-${uid}" onclick="executeDivisas(${uid})">
+            ⚡ Generar divisas
+          </button>
+        </div>
+      `;
+    }
+
+    function updateDivisasCost(uid) {
+      const amountEl = document.getElementById('tool-d-amount-' + uid);
+      const costEl   = document.getElementById('tool-d-cost-' + uid);
+      const curr     = document.getElementById('tool-d-currency-' + uid)?.value || 'aquabux';
+      const amount   = Math.min(500, Math.max(1, parseInt(amountEl?.value || '100') || 100));
+      const cost     = calcGenerarDivisasCost(curr, amount);
+      if (costEl) costEl.textContent = cost + ' Coral Bits';
+    }
+
+    async function executeDivisas(uid) {
+      if (!oceanPayAuth?.username || !oceanPayAuth?.password) {
+        showToolStatus(uid, 'd', 'error', 'Conectá tu cuenta Ocean Pay primero.');
+        return;
+      }
+      const amountEl  = document.getElementById('tool-d-amount-' + uid);
+      const currEl    = document.getElementById('tool-d-currency-' + uid);
+      const btn       = document.getElementById('tool-d-btn-' + uid);
+      const currency  = currEl?.value || 'aquabux';
+      const amount    = Math.min(500, Math.max(1, parseInt(amountEl?.value || '0') || 0));
+      if (!amount) { showToolStatus(uid, 'd', 'error', 'Cantidad inválida.'); return; }
+      const cost = calcGenerarDivisasCost(currency, amount);
+
+      // Disable + loader
+      btn.textContent = 'Procesando…'; btn.disabled = true; btn.classList.add('loading');
+      showToolStatus(uid, 'd', '', '');
+
+      // Simulate tool thinking
+      await addToolThinkingMessage([
+        `Transfiriendo ${amount} ${currency === 'aquabux' ? 'AquaBux' : currency} a tu cuenta...`,
+        `(${oceanPayAuth.username})`,
+      ]);
+
+      try {
+        // Call server to add balance
+        const res = await fetch(`${API}/ocean-ai/tools/generate-currency`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: oceanPayAuth.username,
+            password: oceanPayAuth.password,
+            currency,
+            amount,
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al generar divisas');
+
+        // Deduct coral bits locally
+        const costActual = data.coralBitsCost || cost;
+        coralBits = Math.max(0, coralBits - costActual);
+        updateCurrencyUI();
+
+        showToolStatus(uid, 'd', 'success',
+          `✓ ${amount} ${data.currencyLabel || currency.toUpperCase()} transferidos a tu cuenta. Costo: ${costActual} Coral Bits.`
+        );
+        btn.textContent = '✓ Generado'; btn.classList.remove('loading');
+        // Disable after success to prevent double use
+        btn.disabled = true;
+      } catch(err) {
+        showToolStatus(uid, 'd', 'error', err.message || 'Error al procesar.');
+        btn.textContent = '⚡ Reintentar'; btn.disabled = false; btn.classList.remove('loading');
+      }
+    }
+
+    // ── Tool: Boost de Reputación ─────────────────────────────────────────────
+    let _toolBoostCounter = 0;
+    function renderToolBoostReputacion(containerEl) {
+      const uid = ++_toolBoostCounter;
+      containerEl.innerHTML = `
+        <div class="tool-panel" id="tool-boost-${uid}">
+          <div class="tool-panel-header">
+            <span class="tool-panel-icon">⭐</span>
+            <div>
+              <div class="tool-panel-title">Boost de Reputación</div>
+              <div class="tool-panel-subtitle">Aumenta tu reputación en el ecosistema OWS</div>
+            </div>
+          </div>
+          <hr class="tool-divider">
+          <div class="tool-panel-row">
+            <div class="tool-field">
+              <label>Nivel de boost</label>
+              <select class="tool-select" id="tool-b-level-${uid}" onchange="updateBoostCost(${uid})">
+                <option value="basico">Básico (+10 pts)</option>
+                <option value="medio">Medio (+25 pts)</option>
+                <option value="avanzado">Avanzado (+60 pts)</option>
+              </select>
+            </div>
+          </div>
+          <div class="tool-cost-row">
+            <span>Costo:</span>
+            <span class="tool-cost-val" id="tool-b-cost-${uid}">50 Coral Bits</span>
+          </div>
+          <div style="font-size:0.78rem;color:var(--text-muted);padding:4px 2px;">
+            La reputación afecta tu visibilidad en la comunidad OWS y desbloquea beneficios exclusivos.
+          </div>
+          <div class="tool-status-msg" id="tool-b-status-${uid}"></div>
+          <button class="tool-execute-btn" id="tool-b-btn-${uid}" onclick="executeBoost(${uid})">
+            ⭐ Aplicar boost
+          </button>
+        </div>
+      `;
+    }
+
+    function updateBoostCost(uid) {
+      const level = document.getElementById('tool-b-level-' + uid)?.value || 'basico';
+      const cost  = calcBoostReputacionCost(level);
+      const costEl = document.getElementById('tool-b-cost-' + uid);
+      if (costEl) costEl.textContent = cost + ' Coral Bits';
+    }
+
+    async function executeBoost(uid) {
+      if (!oceanPayAuth?.username || !oceanPayAuth?.password) {
+        showToolStatus(uid, 'b', 'error', 'Conectá tu cuenta Ocean Pay primero.');
+        return;
+      }
+      const levelEl = document.getElementById('tool-b-level-' + uid);
+      const btn     = document.getElementById('tool-b-btn-' + uid);
+      const level   = levelEl?.value || 'basico';
+      const cost    = calcBoostReputacionCost(level);
+      const pts     = { basico: 10, medio: 25, avanzado: 60 }[level] || 10;
+
+      btn.textContent = 'Procesando…'; btn.disabled = true; btn.classList.add('loading');
+
+      await addToolThinkingMessage([
+        `Aplicando boost de reputación nivel ${level}…`,
+        `Actualizando perfil de ${oceanPayAuth.username}…`,
+      ]);
+
+      try {
+        const res = await fetch(`${API}/ocean-ai/tools/boost-reputation`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: oceanPayAuth.username,
+            password: oceanPayAuth.password,
+            level,
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al aplicar boost');
+
+        coralBits = Math.max(0, coralBits - (data.coralBitsCost || cost));
+        updateCurrencyUI();
+
+        showToolStatus(uid, 'b', 'success',
+          `✓ +${pts} puntos de reputación aplicados. Costo: ${data.coralBitsCost || cost} Coral Bits.`
+        );
+        btn.textContent = '✓ Boost aplicado'; btn.disabled = true; btn.classList.remove('loading');
+      } catch(err) {
+        showToolStatus(uid, 'b', 'error', err.message || 'Error al procesar.');
+        btn.textContent = '⭐ Reintentar'; btn.disabled = false; btn.classList.remove('loading');
+      }
+    }
+
+    function showToolStatus(uid, prefix, type, msg) {
+      const el = document.getElementById(`tool-${prefix}-status-${uid}`);
+      if (!el) return;
+      el.className = 'tool-status-msg' + (type ? ' ' + type : '');
+      el.textContent = msg;
+    }
+
+    // ── Tool thinking message (like model thinking but for tool execution) ────
+    async function addToolThinkingMessage(steps) {
+      const row = document.createElement('div');
+      row.className = 'message-row bot';
+      const av = document.createElement('div');
+      av.className = 'avatar bot-avatar'; av.textContent = '🌊';
+      const container = document.createElement('div'); container.style.flex = '1';
+      const thoughtsDiv = document.createElement('div');
+      thoughtsDiv.className = 'thought-process visible';
+      const statusEl = document.createElement('div');
+      statusEl.className = 'thought-status';
+      thoughtsDiv.appendChild(statusEl);
+      container.appendChild(thoughtsDiv);
+      row.append(av, container);
+      chatContent.appendChild(row);
+      scrollToBottom();
+
+      for (const step of steps) {
+        statusEl.textContent = step;
+        await new Promise(r => setTimeout(r, 700 + Math.random() * 400));
+      }
+      thoughtsDiv.classList.remove('visible');
+      row.remove();
+    }
+
+    // ── Intercept tool commands in enviar ─────────────────────────────────────
+    // Called before normal enviar flow
+    // ── Tool: Transferir Divisas (Delfin 1.1 Mini+) ─────────────────────────
+    let _toolTransCounter = 0;
+    function renderToolTransferirDivisas(containerEl) {
+      const uid = ++_toolTransCounter;
+      containerEl.innerHTML = `
+        <div class="tool-panel" id="tool-trans-${uid}">
+          <div class="tool-panel-header">
+            <span class="tool-panel-icon">↔️</span>
+            <div>
+              <div class="tool-panel-title">Transferir Divisas <span class="nuevo-badge" style="font-size:0.65rem">NUEVO!</span></div>
+              <div class="tool-panel-subtitle">Transfiere divisas entre cuentas del ecosistema OWS</div>
+            </div>
+          </div>
+          <hr class="tool-divider">
+          <div class="tool-panel-row">
+            <div class="tool-field">
+              <label>Divisa</label>
+              <select class="tool-select" id="tool-tr-currency-${uid}" onchange="updateTransCost(${uid})">
+                <option value="aquabux">AquaBux (ABX)</option>
+                <option value="wildcredits">WildCredits (WC)</option>
+              </select>
+            </div>
+            <div class="tool-field">
+              <label>Cantidad (máx. 500)</label>
+              <input type="number" class="tool-input" id="tool-tr-amount-${uid}" min="1" max="500" value="50" oninput="updateTransCost(${uid})">
+            </div>
+            <div class="tool-field">
+              <label>Destinatario (usuario)</label>
+              <input type="text" class="tool-input" id="tool-tr-dest-${uid}" placeholder="@usuario">
+            </div>
+          </div>
+          <div class="tool-cost-row">
+            <span>Costo de transferencia:</span>
+            <span class="tool-cost-val" id="tool-tr-cost-${uid}">15 Coral Bits</span>
+          </div>
+          <div class="tool-status-msg" id="tool-tr-status-${uid}"></div>
+          <button class="tool-execute-btn" id="tool-tr-btn-${uid}" onclick="executeTransferir(${uid})">
+            ↔️ Transferir
+          </button>
+        </div>
+      `;
+    }
+
+    function updateTransCost(uid) {
+      const amount = Math.min(500, Math.max(1, parseInt(document.getElementById('tool-tr-amount-' + uid)?.value || '50') || 50));
+      // 0.3 CB per unit, min 5
+      const cost = Math.max(5, Math.ceil(amount * 0.3));
+      const costEl = document.getElementById('tool-tr-cost-' + uid);
+      if (costEl) costEl.textContent = cost + ' Coral Bits';
+    }
+
+    async function executeTransferir(uid) {
+      if (!oceanPayAuth?.username || !oceanPayAuth?.password) {
+        showToolStatus(uid, 'tr', 'error', 'Conectá tu cuenta Ocean Pay primero.');
+        return;
+      }
+      const currency = document.getElementById('tool-tr-currency-' + uid)?.value || 'aquabux';
+      const amount   = Math.min(500, Math.max(1, parseInt(document.getElementById('tool-tr-amount-' + uid)?.value || '0') || 0));
+      const dest     = (document.getElementById('tool-tr-dest-' + uid)?.value || '').trim().replace(/^@/, '');
+      const btn      = document.getElementById('tool-tr-btn-' + uid);
+      if (!amount) { showToolStatus(uid, 'tr', 'error', 'Cantidad inválida.'); return; }
+      if (!dest)   { showToolStatus(uid, 'tr', 'error', 'Ingresá el usuario destinatario.'); return; }
+      const cost = Math.max(5, Math.ceil(amount * 0.3));
+
+      btn.textContent = 'Procesando…'; btn.disabled = true; btn.classList.add('loading');
+
+      await addToolThinkingMessage([
+        `Verificando cuenta de @${dest}…`,
+        `Transfiriendo ${amount} ${currency === 'aquabux' ? 'AquaBux' : 'WildCredits'} a @${dest}…`,
+        `Registrando transacción…`,
+      ]);
+
+      try {
+        const res  = await fetch(`${API}/ocean-ai/tools/transfer-currency`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: oceanPayAuth.username, password: oceanPayAuth.password, currency, amount, destUsername: dest })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al transferir');
+        coralBits = Math.max(0, coralBits - (data.coralBitsCost || cost));
+        updateCurrencyUI();
+        showToolStatus(uid, 'tr', 'success', `✓ ${amount} ${currency === 'aquabux' ? 'AquaBux' : 'WildCredits'} transferidos a @${dest}. Costo: ${data.coralBitsCost || cost} CB.`);
+        btn.textContent = '✓ Transferido'; btn.disabled = true; btn.classList.remove('loading');
+      } catch(err) {
+        showToolStatus(uid, 'tr', 'error', err.message || 'Error al procesar.');
+        btn.textContent = '↔️ Reintentar'; btn.disabled = false; btn.classList.remove('loading');
+      }
+    }
+
+    // ── Tool: Consultar Saldo (Delfin 1.1 Mini+) ─────────────────────────────
+    let _toolSaldoCounter = 0;
+    function renderToolConsultarSaldo(containerEl) {
+      const uid = ++_toolSaldoCounter;
+      containerEl.innerHTML = `
+        <div class="tool-panel" id="tool-saldo-${uid}">
+          <div class="tool-panel-header">
+            <span class="tool-panel-icon">🔍</span>
+            <div>
+              <div class="tool-panel-title">Consultar Saldo <span class="nuevo-badge" style="font-size:0.65rem">NUEVO!</span></div>
+              <div class="tool-panel-subtitle">Consultá el saldo de cualquier divisa en tu cuenta Ocean Pay</div>
+            </div>
+          </div>
+          <hr class="tool-divider">
+          <div class="tool-panel-row">
+            <div class="tool-field">
+              <label>Divisa a consultar</label>
+              <select class="tool-select" id="tool-sl-currency-${uid}">
+                <option value="aquabux">AquaBux (ABX)</option>
+                <option value="wildcredits">WildCredits (WC)</option>
+                <option value="coralbits">Coral Bits (CB)</option>
+                <option value="wildgems">WildGems (WG)</option>
+                <option value="appbux">AppBux (ABX)</option>
+              </select>
+            </div>
+          </div>
+          <div class="tool-cost-row">
+            <span>Costo de consulta:</span>
+            <span class="tool-cost-val">5 Coral Bits</span>
+          </div>
+          <div class="tool-status-msg" id="tool-sl-status-${uid}"></div>
+          <div id="tool-sl-result-${uid}" style="display:none; background:rgba(0,180,255,0.06); border:1px solid rgba(0,180,255,0.2); border-radius:10px; padding:14px; text-align:center;">
+            <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:4px;" id="tool-sl-label-${uid}">Saldo</div>
+            <div style="font-size:1.8rem;font-weight:800;color:var(--accent);" id="tool-sl-val-${uid}">0</div>
+          </div>
+          <button class="tool-execute-btn" id="tool-sl-btn-${uid}" onclick="executeConsultarSaldo(${uid})">
+            🔍 Consultar
+          </button>
+        </div>
+      `;
+    }
+
+    async function executeConsultarSaldo(uid) {
+      if (!oceanPayAuth?.username || !oceanPayAuth?.password) {
+        showToolStatus(uid, 'sl', 'error', 'Conectá tu cuenta Ocean Pay primero.');
+        return;
+      }
+      const currency = document.getElementById('tool-sl-currency-' + uid)?.value || 'aquabux';
+      const btn = document.getElementById('tool-sl-btn-' + uid);
+      btn.textContent = 'Consultando…'; btn.disabled = true; btn.classList.add('loading');
+
+      await addToolThinkingMessage([
+        `Accediendo a tu cuenta Ocean Pay…`,
+        `Consultando saldo de ${currency}…`,
+      ]);
+
+      try {
+        const res  = await fetch(`${API}/ocean-ai/tools/check-balance`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: oceanPayAuth.username, password: oceanPayAuth.password, currency })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al consultar');
+        coralBits = Math.max(0, coralBits - (data.coralBitsCost || 5));
+        updateCurrencyUI();
+        // Show result panel
+        const resultEl = document.getElementById('tool-sl-result-' + uid);
+        const valEl    = document.getElementById('tool-sl-val-' + uid);
+        const labelEl  = document.getElementById('tool-sl-label-' + uid);
+        if (resultEl && valEl) {
+          labelEl.textContent = currency.charAt(0).toUpperCase() + currency.slice(1);
+          valEl.textContent   = (data.balance ?? 0).toLocaleString();
+          resultEl.style.display = 'block';
+        }
+        showToolStatus(uid, 'sl', 'success', `Saldo consultado. Costo: ${data.coralBitsCost || 5} CB.`);
+        btn.textContent = '🔍 Consultar de nuevo'; btn.disabled = false; btn.classList.remove('loading');
+      } catch(err) {
+        showToolStatus(uid, 'sl', 'error', err.message || 'Error al procesar.');
+        btn.textContent = '🔍 Reintentar'; btn.disabled = false; btn.classList.remove('loading');
+      }
+    }
+
+    function tryHandleTool(text) {
+      const cmd = isToolCommand(text);
+      if (!cmd) return false;
+
+      const toolDef   = TOOLS[cmd];
+      const modelDef  = MODELS[currentModel];
+      const modelTier = modelDef?.tier ?? 0;
+      const minTier   = toolDef?.minTier ?? 1;
+
+      if (modelTier < minTier) {
+        // Find the minimum model name that unlocks this tool
+        const minModel = Object.values(MODELS).find(m => m.tier === minTier);
+        const minName  = minModel ? minModel.name : 'un plan superior';
+        showSystemMessage(
+          `La herramienta "${toolDef.name}" requiere ${minName} o superior. ` +
+          `Tu modelo actual (${modelDef?.name || currentModel}) no tiene acceso.`
+        );
+        return true;
+      }
+
+      // Hide welcome, show chat
+      if (welcomeScreen.style.display !== 'none') {
+        welcomeScreen.style.display = 'none';
+        chatContent.style.display = 'flex';
+      }
+
+      // Add user command message
+      addMessage(text, 'user');
+      const ac = getActiveChat();
+      if (ac) {
+        ac.messages = Array.isArray(ac.messages) ? ac.messages : [];
+        ac.messages.push({ sender: 'user', text, at: new Date().toISOString() });
+        persistActiveChat();
+      }
+      userInput.value = ''; userInput.style.height = '52px';
+
+      // Render tool panel in a bot message
+      const row = document.createElement('div');
+      row.className = 'message-row bot';
+      const av = document.createElement('div');
+      av.className = 'avatar bot-avatar'; av.textContent = '🌊';
+      const contentDiv = document.createElement('div');
+      contentDiv.className = 'message-content'; contentDiv.style.flex = '1';
+      // Brief intro text
+      const intro = document.createElement('div');
+      intro.style.marginBottom = '8px';
+      intro.style.fontSize = '0.9rem';
+      intro.textContent = `Abriendo herramienta: ${TOOLS[cmd].name}`;
+      contentDiv.appendChild(intro);
+      // Tool panel container
+      const toolContainer = document.createElement('div');
+      contentDiv.appendChild(toolContainer);
+      row.append(av, contentDiv);
+      chatContent.appendChild(row);
+      scrollToBottom();
+
+      // Render the tool
+      TOOLS[cmd].fn(toolContainer);
+      scrollToBottom();
+      return true;
+    }
+
+    function showSystemMessage(text) {
+      const row = document.createElement('div');
+      row.className = 'message-row bot';
+      const av = document.createElement('div');
+      av.className = 'avatar bot-avatar'; av.textContent = '🌊';
+      const content = document.createElement('div');
+      content.className = 'message-content';
+      content.style.color = '#fbbf24';
+      content.textContent = '⚠️ ' + text;
+      row.append(av, content);
+      chatContent.appendChild(row);
+      scrollToBottom();
+    }
+
+  </script>
+</body>
+</html>

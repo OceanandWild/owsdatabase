@@ -15690,6 +15690,89 @@ app.post('/ocean-ai/tools/boost-reputation', async (req, res) => {
   }
 });
 
+// ── Ocean AI Tool: Transfer Currency ─────────────────────────────────────
+app.post('/ocean-ai/tools/transfer-currency', async (req, res) => {
+  const username    = String(req.body?.username || '').trim();
+  const password    = String(req.body?.password || '').trim();
+  const currency    = String(req.body?.currency || 'aquabux').trim().toLowerCase();
+  const amount      = Math.min(500, Math.max(1, parseInt(req.body?.amount) || 0));
+  const destUsername= String(req.body?.destUsername || '').trim();
+  if (!username || !password) return res.status(400).json({ error: 'Credenciales requeridas' });
+  if (!amount)      return res.status(400).json({ error: 'Cantidad inválida (1-500)' });
+  if (!destUsername)return res.status(400).json({ error: 'Usuario destinatario requerido' });
+  const ALLOWED = ['aquabux', 'wildcredits'];
+  if (!ALLOWED.includes(currency)) return res.status(400).json({ error: `Divisa no soportada: ${currency}` });
+  const coralBitsCost = Math.max(5, Math.ceil(amount * 0.3));
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const user = await resolveOceanPayUserByCredentials(client, username, password);
+    if (!user) { await client.query('ROLLBACK'); return res.status(401).json({ error: 'Credenciales inválidas' }); }
+    // Find dest user
+    const { rows: destRows } = await client.query(
+      'SELECT id, username FROM ocean_pay_users WHERE LOWER(username)=LOWER($1) LIMIT 1', [destUsername]
+    );
+    if (!destRows.length) { await client.query('ROLLBACK'); return res.status(404).json({ error: `Usuario @${destUsername} no encontrado` }); }
+    const destUser = destRows[0];
+    if (destUser.id === user.id) { await client.query('ROLLBACK'); return res.status(400).json({ error: 'No podés transferirte a vos mismo' }); }
+    const srcCard  = await ensurePrimaryCardForUser(client, user.id, true);
+    const dstCard  = await ensurePrimaryCardForUser(client, destUser.id, true);
+    if (!srcCard || !dstCard) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Tarjeta no encontrada' }); }
+    // Check coral bits
+    const srcCoral = await getUnifiedCardCurrencyBalance(client, Number(srcCard.id), 'coralbits', true);
+    if (srcCoral < coralBitsCost) { await client.query('ROLLBACK'); return res.status(400).json({ error: `Coral Bits insuficientes. Tenés ${srcCoral}, necesitás ${coralBitsCost}.` }); }
+    // Check source currency
+    const srcBal = await getUnifiedCardCurrencyBalance(client, Number(srcCard.id), currency, true);
+    if (srcBal < amount) { await client.query('ROLLBACK'); return res.status(400).json({ error: `Saldo insuficiente de ${currency}. Tenés ${srcBal}.` }); }
+    // Deduct coral bits + currency from source
+    await setUnifiedCardCurrencyBalance(client, { userId: user.id, cardId: Number(srcCard.id), currency: 'coralbits', newBalance: srcCoral - coralBitsCost });
+    await setUnifiedCardCurrencyBalance(client, { userId: user.id, cardId: Number(srcCard.id), currency, newBalance: srcBal - amount });
+    // Add currency to dest
+    const dstBal = await getUnifiedCardCurrencyBalance(client, Number(dstCard.id), currency, false);
+    await setUnifiedCardCurrencyBalance(client, { userId: destUser.id, cardId: Number(dstCard.id), currency, newBalance: dstBal + amount });
+    // Log
+    await client.query(`INSERT INTO ocean_pay_txs (user_id,concepto,monto,origen,moneda) VALUES ($1,$2,$3,$4,$5)`,
+      [user.id, `Ocean AI - Transferencia a @${destUser.username}`, -amount, 'Ocean AI Tools', currency.slice(0,10).toUpperCase()]).catch(()=>{});
+    await client.query(`INSERT INTO ocean_pay_txs (user_id,concepto,monto,origen,moneda) VALUES ($1,$2,$3,$4,$5)`,
+      [destUser.id, `Ocean AI - Recibido de @${user.username}`, amount, 'Ocean AI Tools', currency.slice(0,10).toUpperCase()]).catch(()=>{});
+    await client.query('COMMIT');
+    return res.json({ success: true, currency, amount, destUsername: destUser.username, coralBitsCost, newSourceBalance: srcBal - amount });
+  } catch(err) {
+    await client.query('ROLLBACK');
+    console.error('Error en /ocean-ai/tools/transfer-currency:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  } finally { client.release(); }
+});
+
+// ── Ocean AI Tool: Check Balance ──────────────────────────────────────────
+app.post('/ocean-ai/tools/check-balance', async (req, res) => {
+  const username = String(req.body?.username || '').trim();
+  const password = String(req.body?.password || '').trim();
+  const currency = String(req.body?.currency || 'aquabux').trim().toLowerCase();
+  if (!username || !password) return res.status(400).json({ error: 'Credenciales requeridas' });
+  const coralBitsCost = 5;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const user = await resolveOceanPayUserByCredentials(client, username, password);
+    if (!user) { await client.query('ROLLBACK'); return res.status(401).json({ error: 'Credenciales inválidas' }); }
+    const card = await ensurePrimaryCardForUser(client, user.id, true);
+    if (!card) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Sin tarjeta activa' }); }
+    // Deduct coral bits for query cost
+    const currentCoral = await getUnifiedCardCurrencyBalance(client, Number(card.id), 'coralbits', true);
+    if (currentCoral < coralBitsCost) { await client.query('ROLLBACK'); return res.status(400).json({ error: `Coral Bits insuficientes. Necesitás ${coralBitsCost}.` }); }
+    await setUnifiedCardCurrencyBalance(client, { userId: user.id, cardId: Number(card.id), currency: 'coralbits', newBalance: currentCoral - coralBitsCost });
+    // Read requested balance
+    const balance = await getUnifiedCardCurrencyBalance(client, Number(card.id), currency, false);
+    await client.query('COMMIT');
+    return res.json({ success: true, currency, balance, coralBitsCost });
+  } catch(err) {
+    await client.query('ROLLBACK');
+    console.error('Error en /ocean-ai/tools/check-balance:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  } finally { client.release(); }
+});
+
 // Colaboraciones - solicitudes
 app.get('/wildwave/api/collabs/requests', async (req, res) => {
   try {

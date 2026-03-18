@@ -1669,14 +1669,13 @@
 
       .wx-layout {
         display: grid;
-        grid-template-columns: minmax(0, 280px) minmax(0, 1fr);
+        grid-template-columns: minmax(0, 1fr);
         gap: 18px;
         align-items: start;
       }
 
       .wx-side {
-        position: sticky;
-        top: 92px;
+        display: none !important;
       }
 
       .wx-side-card {
@@ -1821,7 +1820,7 @@
 
       .wx-layout {
         display: grid;
-        grid-template-columns: minmax(0, 280px) minmax(0, 1fr);
+        grid-template-columns: minmax(0, 1fr);
         gap: 18px;
         align-items: start;
         min-width: 0;
@@ -1841,13 +1840,17 @@
       }
 
       .wx-layout--focus .wx-side {
-        display: none;
+        display: none !important;
+      }
+
+      .wx-main {
+        width: 100%;
+        max-width: 860px;
+        margin: 0 auto;
       }
 
       .wx-layout--focus .wx-main {
-        width: 100%;
-        max-width: 980px;
-        margin: 0 auto;
+        max-width: 860px;
       }
 
       .wx-side-card h3 {
@@ -3725,6 +3728,40 @@
       @media (max-width:600px) {
         .wx-header { grid-template-columns:auto 1fr auto auto; top:0; border-radius:0 0 18px 18px; margin-bottom:12px; }
         .wx-header-search { display:none; }
+      }
+
+
+      /* ══ LAYOUT OVERRIDE — sidebar permanently removed ══ */
+      .wx-layout,
+      .wx-layout--focus {
+        display: flex !important;
+        flex-direction: column !important;
+        grid-template-columns: none !important;
+        gap: 14px !important;
+        width: 100% !important;
+      }
+      .wx-side,
+      .wx-layout .wx-side,
+      .wx-layout--focus .wx-side {
+        display: none !important;
+        width: 0 !important;
+        min-width: 0 !important;
+        max-width: 0 !important;
+        overflow: hidden !important;
+        padding: 0 !important;
+        margin: 0 !important;
+      }
+      .wx-main,
+      .wx-layout .wx-main,
+      .wx-layout--focus .wx-main {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 12px !important;
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        box-sizing: border-box !important;
       }
 
     </style>

@@ -5790,29 +5790,37 @@ const OCEAN_AI_CURRENCY = 'coralbits';
 const OCEAN_AI_PROJECT_ID = 'Ocean AI';
 const OCEAN_AI_PLAN_INTERVAL_DAYS = 7;
 const OCEAN_AI_PLANS = Object.freeze({
-  // Serie Delfin — ligero y rápido
+  // Plan Delfin — acceso serie completa Delfin
   tide: {
     id: 'tide',
     name: 'Delfin',
     weeklyCost: 120,
-    models: ['free', 'dolphin'],
-    benefits: ['Modelo Delfin completo', 'Velocidad mejorada', 'Sin límite de Coral Bits', 'Historial extendido']
+    models: ['dolphin10', 'dolphin11', 'dolphin11m', 'dolphin11max', 'dolphin12'],
+    benefits: ['Serie Delfin completa (1 a 1.2)', 'Herramientas Delfin', 'Velocidad mejorada', 'Historial extendido']
   },
-  // Serie Ballena — balanceado
+  // Plan Ballena Starter — Ballena 1 y Mini
   coral: {
     id: 'coral',
     name: 'Ballena',
     weeklyCost: 280,
-    models: ['free', 'dolphin', 'whale'],
-    benefits: ['Modelos Delfin + Ballena', 'Análisis más profundo', 'Respuestas más extensas', 'Mayor contexto']
+    models: ['dolphin10', 'dolphin11', 'dolphin11m', 'dolphin11max', 'dolphin12', 'whale1', 'whale1m'],
+    benefits: ['Serie Delfin completa', 'Ballena 1 y Ballena 1 Mini', 'Herramientas Ballena', 'Mayor contexto']
   },
-  // Serie Tiburon — el más potente (reemplaza abyss y leviathan)
+  // Plan Ballena Max — incluye Ballena 1 Max
+  abyss: {
+    id: 'abyss',
+    name: 'Ballena Max',
+    weeklyCost: 520,
+    models: ['dolphin10', 'dolphin11', 'dolphin11m', 'dolphin11max', 'dolphin12', 'whale1', 'whale1m', 'whale1max'],
+    benefits: ['Serie Delfin completa', 'Ballena 1, Mini y Max', 'Herramientas Ballena Max', 'Prioridad de respuesta']
+  },
+  // Plan Leviathan — todos los modelos incluyendo Ballena Blue Max y Tiburon
   leviathan: {
     id: 'leviathan',
-    name: 'Tiburon',
+    name: 'Leviathan',
     weeklyCost: 900,
-    models: ['free', 'dolphin', 'whale', 'shark'],
-    benefits: ['Todos los modelos', 'Tiburon: el más potente', 'Máxima prioridad de cálculo', 'Sin restricciones']
+    models: ['dolphin10', 'dolphin11', 'dolphin11m', 'dolphin11max', 'dolphin12', 'whale1', 'whale1m', 'whale1max', 'whale1bmax', 'shark'],
+    benefits: ['Todos los modelos', 'Ballena 1 Blue Max + Tiburon', 'Máxima prioridad', 'Sin restricciones']
   }
 });
 
@@ -15853,6 +15861,128 @@ app.post('/ocean-ai/tools/exchange-currency', async (req, res) => {
   } catch(err) {
     await client.query('ROLLBACK');
     console.error('Error en /ocean-ai/tools/exchange-currency:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  } finally { client.release(); }
+});
+
+// ── Ocean AI: Recharge Coral Bits (exchange other currencies) ────────────
+app.post('/ocean-ai/recharge-coral-bits', async (req, res) => {
+  const username        = String(req.body?.username || '').trim();
+  const password        = String(req.body?.password || '').trim();
+  const coralBitsAmount = parseInt(req.body?.coralBitsAmount) || 0;
+  const currency        = String(req.body?.currency || 'aquabux').trim().toLowerCase();
+  const currencyCost    = parseInt(req.body?.currencyCost) || 0;
+
+  if (!username || !password) return res.status(400).json({ error: 'Credenciales requeridas' });
+  if (coralBitsAmount <= 0) return res.status(400).json({ error: 'Cantidad de Coral Bits inválida' });
+  if (currencyCost <= 0)    return res.status(400).json({ error: 'Costo de divisa inválido' });
+
+  // Server-side rate validation — client cannot set arbitrary rates
+  const CB_RECHARGE_RATES = {
+    aquabux:     2,    // 1 ABX = 2 CB
+    wildcredits: 1.5,  // 1 WC  = 1.5 CB
+    wildgems:    5,    // 1 WG  = 5 CB
+  };
+  const cbPerUnit = CB_RECHARGE_RATES[currency];
+  if (!cbPerUnit) return res.status(400).json({ error: `Divisa no soportada para recarga: ${currency}` });
+
+  // Recalculate cost server-side (ignore client-provided cost to prevent manipulation)
+  const expectedCost = Math.ceil(coralBitsAmount / cbPerUnit);
+  // Allow ±1 unit tolerance for rounding differences
+  if (Math.abs(currencyCost - expectedCost) > 1) {
+    return res.status(400).json({ error: `Costo incorrecto. Esperado: ${expectedCost} ${currency}.` });
+  }
+  const actualCost = expectedCost;
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const user = await resolveOceanPayUserByCredentials(client, username, password);
+    if (!user) { await client.query('ROLLBACK'); return res.status(401).json({ error: 'Credenciales inválidas' }); }
+
+    const card = await ensurePrimaryCardForUser(client, user.id, true);
+    if (!card) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Sin tarjeta Ocean Pay activa' }); }
+
+    // Check source currency balance
+    const sourceBal = await getUnifiedCardCurrencyBalance(client, Number(card.id), currency, true);
+    if (sourceBal < actualCost) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        error: `Saldo insuficiente de ${currency}. Tenés ${sourceBal}, necesitás ${actualCost}.`,
+        currentBalance: sourceBal,
+        required: actualCost,
+      });
+    }
+
+    // Deduct source currency
+    await setUnifiedCardCurrencyBalance(client, {
+      userId: user.id, cardId: Number(card.id),
+      currency, newBalance: sourceBal - actualCost
+    });
+
+    // Add Coral Bits
+    const currentCoral = await getUnifiedCardCurrencyBalance(client, Number(card.id), 'coralbits', true);
+    const newCoralBal  = currentCoral + coralBitsAmount;
+    await setUnifiedCardCurrencyBalance(client, {
+      userId: user.id, cardId: Number(card.id),
+      currency: 'coralbits', newBalance: newCoralBal
+    });
+
+    // Log transactions
+    const currLabel = { aquabux: 'ABX', wildcredits: 'WC', wildgems: 'WG' }[currency] || currency.toUpperCase().slice(0, 5);
+    await client.query(
+      `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)`,
+      [user.id, `Ocean AI - Recarga ${coralBitsAmount} Coral Bits`, -actualCost, 'Ocean AI Recharge', currLabel]
+    ).catch(() => {});
+    await client.query(
+      `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)`,
+      [user.id, `Ocean AI - Coral Bits recargados (+${coralBitsAmount})`, coralBitsAmount, 'Ocean AI Recharge', 'CB']
+    ).catch(() => {});
+
+    await client.query('COMMIT');
+    return res.json({
+      success: true,
+      coralBitsAdded:       coralBitsAmount,
+      currencySpent:        actualCost,
+      currency,
+      newCoralBitsBalance:  newCoralBal,
+      newCurrencyBalance:   sourceBal - actualCost,
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error en /ocean-ai/recharge-coral-bits:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  } finally {
+    client.release();
+  }
+});
+
+// ── Ocean AI Tool: Account Stats (Ballena 1 Max) ─────────────────────────
+app.post('/ocean-ai/tools/account-stats', async (req, res) => {
+  const username = String(req.body?.username || '').trim();
+  const password = String(req.body?.password || '').trim();
+  if (!username || !password) return res.status(400).json({ error: 'Credenciales requeridas' });
+  const coralBitsCost = 15;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const user = await resolveOceanPayUserByCredentials(client, username, password);
+    if (!user) { await client.query('ROLLBACK'); return res.status(401).json({ error: 'Credenciales inválidas' }); }
+    const card = await ensurePrimaryCardForUser(client, user.id, true);
+    if (!card) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Sin tarjeta activa' }); }
+    const currentCoral = await getUnifiedCardCurrencyBalance(client, Number(card.id), 'coralbits', true);
+    if (currentCoral < coralBitsCost) { await client.query('ROLLBACK'); return res.status(400).json({ error: `Coral Bits insuficientes. Necesitás ${coralBitsCost}.` }); }
+    await setUnifiedCardCurrencyBalance(client, { userId: user.id, cardId: Number(card.id), currency: 'coralbits', newBalance: currentCoral - coralBitsCost });
+    const { rows } = await client.query(
+      `SELECT COUNT(*) AS total, COALESCE(SUM(CASE WHEN monto > 0 THEN monto ELSE 0 END),0) AS total_in, COALESCE(SUM(CASE WHEN monto < 0 THEN ABS(monto) ELSE 0 END),0) AS total_out FROM ocean_pay_txs WHERE user_id = $1`,
+      [user.id]
+    );
+    await client.query('COMMIT');
+    return res.json({ success: true, coralBitsCost, stats: { totalTx: parseInt(rows[0].total||0), totalIn: parseFloat(rows[0].total_in||0), totalOut: parseFloat(rows[0].total_out||0) } });
+  } catch(err) {
+    await client.query('ROLLBACK');
+    console.error('Error en /ocean-ai/tools/account-stats:', err);
     return res.status(500).json({ error: 'Error interno' });
   } finally { client.release(); }
 });

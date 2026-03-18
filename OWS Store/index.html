@@ -2670,8 +2670,11 @@
         const OWSNEWS_LOCAL_ICON = './build/owsnews.ico?v=20260225-2248';
         const DINOBOX_LOCAL_ICON = './build/dinobox.ico?v=20260308-0553';
         const STORE_LOCAL_ICON = './build/icon.ico?v=20260223-0452';
-        const OCEAN_CINEMAS_LOCAL_ICON = './build/oceancinemas.jpg';
-        const WILDSHORTS_LOCAL_ICON = './build/wildshorts.jpg';
+        // .jpg icons: use GitHub raw URL (same approach as Floret) to avoid
+        // Electron .asar path resolution issues with non-.ico assets.
+        // Falls back to local path if remote fails (CSS background-image handles silently).
+        const OCEAN_CINEMAS_LOCAL_ICON = 'https://raw.githubusercontent.com/OceanandWild/owsdatabase/main/OWS%20Store/build/oceancinemas.jpg';
+        const WILDSHORTS_LOCAL_ICON = 'https://raw.githubusercontent.com/OceanandWild/owsdatabase/main/OWS%20Store/build/wildshorts.jpg';
         const STORE_DOWNLOAD_KEY = '__ows_store_update__';
         const STORE_THEME_KEY = 'ows_store_theme';
         const PROJECT_LIBRARY_KEY = 'ows_store_library_owned_slugs_v1';

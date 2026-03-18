@@ -5814,12 +5814,20 @@ const OCEAN_AI_PLANS = Object.freeze({
     models: ['dolphin10', 'dolphin11', 'dolphin11m', 'dolphin11max', 'dolphin12', 'whale1', 'whale1m', 'whale1max'],
     benefits: ['Serie Delfin completa', 'Ballena 1, Mini y Max', 'Herramientas Ballena Max', 'Prioridad de respuesta']
   },
+  // Plan Cobalt — Ballena completa incluyendo Blue Max
+  cobalt: {
+    id: 'cobalt',
+    name: 'Ballena Blue',
+    weeklyCost: 550,
+    models: ['dolphin10', 'dolphin11', 'dolphin11m', 'dolphin11max', 'dolphin12', 'whale1', 'whale1m', 'whale1max', 'whale1bm'],
+    benefits: ['Serie Delfin completa', 'Ballena 1 completa + Blue Max', 'Herramientas avanzadas', 'Prioridad alta']
+  },
   // Plan Leviathan — todos los modelos incluyendo Ballena Blue Max y Tiburon
   leviathan: {
     id: 'leviathan',
     name: 'Leviathan',
     weeklyCost: 900,
-    models: ['dolphin10', 'dolphin11', 'dolphin11m', 'dolphin11max', 'dolphin12', 'whale1', 'whale1m', 'whale1max', 'whale1bmax', 'shark'],
+    models: ['dolphin10', 'dolphin11', 'dolphin11m', 'dolphin11max', 'dolphin12', 'whale1', 'whale1m', 'whale1max', 'whale1bm', 'shark'],
     benefits: ['Todos los modelos', 'Ballena 1 Blue Max + Tiburon', 'Máxima prioridad', 'Sin restricciones']
   }
 });
@@ -5918,7 +5926,20 @@ async function getOceanAiActiveSubscription(client, userId) {
 
 function getOceanAiPlanByName(name) {
   const target = String(name || '').trim().toLowerCase();
-  return Object.values(OCEAN_AI_PLANS).find((p) => p.name.toLowerCase() === target) || null;
+  // Direct name match
+  const direct = Object.values(OCEAN_AI_PLANS).find((p) => p.name.toLowerCase() === target);
+  if (direct) return direct;
+  // Legacy name aliases (old subscriptions stored with different names)
+  const ALIASES = {
+    'tiburon': 'leviathan',
+    'ballena blue': 'cobalt',
+    'ballena max': 'abyss',
+    'ballena': 'coral',
+    'delfin': 'tide',
+    'delfin plus': 'tide',
+  };
+  const aliasKey = ALIASES[target];
+  return aliasKey ? (OCEAN_AI_PLANS[aliasKey] || null) : null;
 }
 
 async function fetchGithubLatestReleaseLite(owner, repo) {

@@ -2645,6 +2645,8 @@
         const OWSNEWS_LOCAL_ICON = './build/owsnews.ico?v=20260225-2248';
         const DINOBOX_LOCAL_ICON = './build/dinobox.ico?v=20260308-0553';
         const STORE_LOCAL_ICON = './build/icon.ico?v=20260223-0452';
+        const OCEAN_CINEMAS_LOCAL_ICON = './build/oceancinemas.jpg';
+        const WILDSHORTS_LOCAL_ICON = './build/wildshorts.jpg';
         const STORE_DOWNLOAD_KEY = '__ows_store_update__';
         const STORE_THEME_KEY = 'ows_store_theme';
         const PROJECT_LIBRARY_KEY = 'ows_store_library_owned_slugs_v1';
@@ -2666,7 +2668,9 @@
         // Uruguay (UYT, UTC-3): 11/03/2026 10:00 -> 2026-03-11T13:00:00Z
         const DINOBOX_RELEASE_DATE_ISO = '2026-03-11T13:00:00Z';
         const NATUREPEDIA_PLACEHOLDER_DATE_ISO = '';
-        const WILDSHORTS_PLACEHOLDER_DATE_ISO = '';
+        const WILDSHORTS_PLACEHOLDER_DATE_ISO = '2026-03-28T18:00:00Z';
+        const OCEAN_CINEMAS_RELEASE_DATE_ISO = '2026-04-03T18:00:00Z';
+        const MYSTERY_PROJECT_RELEASE_DATE_ISO = '';  // Fecha por decidir
         const SSA_PROJECT = {
             slug: 'savagespaceanimals',
             name: 'Savage Space Animals',
@@ -2788,7 +2792,37 @@
             installer_available: false,
             pending_release: true,
             release_date: WILDSHORTS_PLACEHOLDER_DATE_ISO,
-            description: 'Contenido corto del universo OWS. Proximamente (fecha por decidir).',
+            description: 'Contenido corto del universo OWS. Proximamente.',
+            icon_url: WILDSHORTS_LOCAL_ICON
+        };
+        const OCEAN_CINEMAS_PROJECT = {
+            slug: 'ocean-cinemas',
+            name: 'Ocean Cinemas',
+            short: 'OCN',
+            status: 'coming_soon',
+            version: '1.0.0',
+            platform: 'windows',
+            install_type: 'external',
+            installer_url: '',
+            installer_available: false,
+            pending_release: true,
+            release_date: OCEAN_CINEMAS_RELEASE_DATE_ISO,
+            description: 'Plataforma de cine del ecosistema OWS. Proximamente.',
+            icon_url: OCEAN_CINEMAS_LOCAL_ICON
+        };
+        const MYSTERY_PROJECT = {
+            slug: 'mystery-project',
+            name: '?????',
+            short: '???',
+            status: 'coming_soon',
+            version: '1.0.0',
+            platform: 'windows',
+            install_type: 'external',
+            installer_url: '',
+            installer_available: false,
+            pending_release: true,
+            release_date: MYSTERY_PROJECT_RELEASE_DATE_ISO,
+            description: 'Algo nuevo se acerca al ecosistema OWS. Mas informacion muy pronto.',
             icon_url: ''
         };
         const VELOCITY_SURGE_PROJECT = {
@@ -6058,6 +6092,20 @@
                 || name.includes('wild question game');
         }
 
+        function isOceanCinemasProject(project) {
+            if (!project) return false;
+            const slug = String(project.slug || '').toLowerCase();
+            const name = String(project.name || '').toLowerCase();
+            return slug.includes('ocean-cinemas') || slug.includes('oceancinemas') || name.includes('ocean cinemas');
+        }
+
+        function isMysteryProject(project) {
+            if (!project) return false;
+            const slug = String(project.slug || '').toLowerCase();
+            const name = String(project.name || '').toLowerCase();
+            return slug.includes('mystery-project') || name === '?????';
+        }
+
         function isWildWaveProject(project) {
             if (!project) return false;
             const slug = String(project.slug || '').toLowerCase();
@@ -6320,6 +6368,50 @@
                     slug: 'wildshorts',
                     name: 'WildShorts',
                     short: 'WSH',
+                    status: 'coming_soon',
+                    pending_release: true,
+                    installer_available: false,
+                    release_date: list[idx].release_date || WILDSHORTS_PLACEHOLDER_DATE_ISO
+                };
+            }
+            return list;
+        }
+
+        function ensureOceanCinemasProject(projects) {
+            if (!Array.isArray(projects)) return [];
+            const list = [...projects];
+            const idx = list.findIndex(isOceanCinemasProject);
+            if (idx === -1) {
+                list.unshift({ ...OCEAN_CINEMAS_PROJECT });
+            } else {
+                list[idx] = {
+                    ...OCEAN_CINEMAS_PROJECT,
+                    ...list[idx],
+                    slug: 'ocean-cinemas',
+                    name: 'Ocean Cinemas',
+                    short: 'OCN',
+                    status: 'coming_soon',
+                    pending_release: true,
+                    installer_available: false,
+                    release_date: OCEAN_CINEMAS_RELEASE_DATE_ISO
+                };
+            }
+            return list;
+        }
+
+        function ensureMysteryProject(projects) {
+            if (!Array.isArray(projects)) return [];
+            const list = [...projects];
+            const idx = list.findIndex(isMysteryProject);
+            if (idx === -1) {
+                list.unshift({ ...MYSTERY_PROJECT });
+            } else {
+                list[idx] = {
+                    ...MYSTERY_PROJECT,
+                    ...list[idx],
+                    slug: 'mystery-project',
+                    name: '?????',
+                    short: '???',
                     status: 'coming_soon',
                     pending_release: true,
                     installer_available: false,
@@ -7269,15 +7361,19 @@
             allProjects = allProjects.filter((p) => !isOWSNewsProject(p) && canonicalProjectSlug(p) !== 'ows-store');
             allProjects = ensureDinoBoxProject(
                 ensureWildWaveProject(
-                    ensureVelocitySurgeProject(
-                        ensureWildShortsProject(
-                            ensureNaturepediaProject(
-                                ensureEcoxionProject(
-                                    ensureWildDestinyProject(
-                                        ensureWildTransferProject(
-                                            ensureAWQGProject(
-                                                ensureFloretProject(
-                                                    ensureSSAProject(allProjects)
+                    ensureOceanCinemasProject(
+                        ensureMysteryProject(
+                            ensureVelocitySurgeProject(
+                                ensureWildShortsProject(
+                                    ensureNaturepediaProject(
+                                        ensureEcoxionProject(
+                                            ensureWildDestinyProject(
+                                                ensureWildTransferProject(
+                                                    ensureAWQGProject(
+                                                        ensureFloretProject(
+                                                            ensureSSAProject(allProjects)
+                                                        )
+                                                    )
                                                 )
                                             )
                                         )

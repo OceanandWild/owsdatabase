@@ -939,28 +939,45 @@
       }
 
       .wx-thread-view {
-        margin-top: 12px;
-        padding: 10px 12px 12px;
-        border-top: 1px solid rgba(30,64,175,0.6);
+        display: flex;
+        flex-direction: column;
+      }
+      /* Ensure [hidden] always wins over display:flex */
+      .wx-thread-view[hidden],
+      #wx-feed-wrap[hidden] {
+        display: none !important;
       }
 
       .wx-thread-header {
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        margin-bottom: 6px;
-        font-size: 0.8rem;
-        color: var(--text-soft);
+        gap: 0.75rem;
+        padding: 0.5rem 0 0.75rem;
+        border-bottom: 1px solid var(--stroke);
+        margin-bottom: 0.5rem;
       }
 
       .wx-thread-close {
         background: transparent;
         border-radius: 999px;
         border: 1px solid rgba(148,163,184,0.35);
-        color: var(--text-soft);
-        font-size: 0.75rem;
-        padding: 2px 8px;
+        color: var(--accent);
+        font-size: 0.82rem;
+        padding: 4px 12px;
         cursor: pointer;
+        font-family: var(--font-body);
+        transition: background 0.15s, color 0.15s;
+        flex-shrink: 0;
+      }
+      .wx-thread-close:hover {
+        background: var(--accent-soft);
+        border-color: var(--accent);
+      }
+
+      #wx-thread-title {
+        font-size: 0.88rem;
+        font-weight: 600;
+        color: var(--text-soft);
       }
 
       .wx-thread-list {
@@ -3498,76 +3515,282 @@
         border-radius: 12px;
         outline: none;
       }
+
+      /* ══════════════════════════════════════════
+         SPLASH SCREEN
+      ══════════════════════════════════════════ */
+      /* ══════════════════════════════════════════
+         SPLASH SCREEN — WildWave animation
+         Story: A tiny wave appears from the left.
+         It grows, crashes into the logo, launches
+         it up. Logo falls. On impact: title reveals.
+         Plot twist: the wave swallows the whole screen
+         then retreats — revealing the app.
+      ══════════════════════════════════════════ */
+      #wx-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        background: #02040f;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        transition: opacity 0.6s ease 0.1s, visibility 0.6s ease 0.1s;
+      }
+      #wx-splash.is-hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+
+      /* ── Canvas for the wave animation ── */
+      #wx-splash-canvas {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+      }
+
+      /* ── Logo ── */
+      #wx-splash-logo {
+        position: relative;
+        z-index: 2;
+        width: 72px;
+        height: 72px;
+        border-radius: 50%;
+        background: radial-gradient(circle at 35% 35%, #22d3ee, #0ea5e9 55%, #6366f1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 0 32px rgba(34,211,238,0.5), 0 0 80px rgba(34,211,238,0.2);
+        /* JS will animate transform */
+      }
+      #wx-splash-logo svg { width: 40px; height: 40px; }
+
+      /* ── Title (hidden initially, revealed on impact) ── */
+      #wx-splash-title {
+        position: relative;
+        z-index: 2;
+        margin-top: 1.4rem;
+        font-family: var(--font-display);
+        font-size: 2.2rem;
+        font-weight: 800;
+        letter-spacing: -0.04em;
+        color: #fff;
+        opacity: 0;
+        transform: translateY(12px);
+        transition: opacity 0.4s ease, transform 0.4s ease;
+      }
+      #wx-splash-title.visible { opacity: 1; transform: none; }
+      #wx-splash-title span { color: #22d3ee; }
+
+      #wx-splash-sub {
+        position: relative;
+        z-index: 2;
+        font-size: 0.75rem;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: rgba(255,255,255,0.35);
+        margin-top: 0.4rem;
+        opacity: 0;
+        transition: opacity 0.4s ease 0.2s;
+      }
+      #wx-splash-sub.visible { opacity: 1; }
+
+      /* ══════════════════════════════════════════
+         HEADER REWORK
+      ══════════════════════════════════════════ */
+      .wx-header {
+        display: grid;
+        grid-template-columns: auto 1fr auto auto auto;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 18px;
+        padding: 8px 14px;
+        border-radius: 18px;
+        background: radial-gradient(circle at 0% 0%, rgba(56,189,248,0.22), rgba(10,15,30,0.97));
+        border: 1px solid rgba(148,163,184,0.25);
+        box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+        position: sticky; top: 12px; z-index: 100;
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+      }
+      .wx-header-brand { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+      .wx-header-search { position:relative; max-width:280px; }
+      .wx-header-search input {
+        width:100%; background:rgba(255,255,255,0.05); border:1px solid rgba(148,163,184,0.18);
+        border-radius:999px; color:var(--text); font-family:var(--font-body); font-size:0.82rem;
+        padding:6px 14px 6px 34px; outline:none;
+        transition:border-color 0.18s, background 0.18s;
+      }
+      .wx-header-search input:focus { border-color:var(--accent); background:rgba(34,211,238,0.05); }
+      .wx-header-search input::placeholder { color:var(--text-faint); }
+      .wx-header-search-icon { position:absolute; left:11px; top:50%; transform:translateY(-50%); color:var(--text-faint); font-size:0.78rem; pointer-events:none; }
+      .wx-create-btn {
+        display:flex; align-items:center; gap:0;
+        background:var(--accent); border:none; border-radius:999px;
+        color:#000; font-family:var(--font-body); font-size:0.82rem; font-weight:700;
+        padding:6px 10px; cursor:pointer; overflow:hidden;
+        max-width:34px; transition:max-width 0.28s ease, padding 0.2s ease, gap 0.2s ease;
+        white-space:nowrap; flex-shrink:0;
+      }
+      .wx-create-btn:hover { max-width:140px; padding:6px 14px; gap:6px; }
+      .wx-create-btn-icon { font-size:1.1rem; line-height:1; flex-shrink:0; }
+      .wx-create-btn-label { opacity:0; transition:opacity 0.18s 0.08s; pointer-events:none; }
+      .wx-create-btn:hover .wx-create-btn-label { opacity:1; }
+
+      /* ══════════════════════════════════════════
+         SIDEBAR REMOVED + LAYOUT
+      ══════════════════════════════════════════ */
+      .wx-side { display: none !important; }
+
+      /* Feed header & filter bar */
+      .wx-feed-header-bar {
+        display:flex; align-items:center; justify-content:space-between; gap:0.75rem;
+        padding:0.7rem 1rem; border-bottom:1px solid var(--stroke); flex-wrap:wrap;
+      }
+      .wx-feed-header-title { font-family:var(--font-display); font-size:1rem; font-weight:700; color:var(--text); }
+      .wx-feed-header-sub { font-size:0.75rem; color:var(--text-faint); }
+      .wx-feed-filter-bar {
+        display:flex; align-items:center; gap:0.45rem; flex-wrap:wrap;
+        padding:0.5rem 1rem; border-bottom:1px solid var(--stroke);
+      }
+      .wx-feed-filter-bar .wx-chip { font-size:0.75rem; padding:3px 10px; }
+
+      /* ══════════════════════════════════════════
+         NOTIFICATION PANEL
+      ══════════════════════════════════════════ */
+      .wx-notif-wrap { position:relative; flex-shrink:0; }
+      .wx-notif-panel {
+        position:absolute; top:calc(100% + 8px); right:0;
+        width:320px; max-height:420px; overflow-y:auto;
+        background:rgba(10,18,35,0.98); border:1px solid rgba(148,163,184,0.2);
+        border-radius:14px; box-shadow:0 16px 48px rgba(0,0,0,0.7);
+        z-index:200; display:flex; flex-direction:column;
+        backdrop-filter:blur(12px);
+      }
+      .wx-notif-panel[hidden] { display:none !important; }
+      .wx-notif-panel-header {
+        display:flex; align-items:center; justify-content:space-between;
+        padding:0.75rem 1rem 0.5rem; border-bottom:1px solid var(--stroke);
+        font-size:0.82rem; font-weight:600; color:var(--text); flex-shrink:0;
+      }
+      .wx-notif-panel-mark { background:none; border:none; color:var(--accent); font-size:0.75rem; cursor:pointer; }
+      .wx-notif-item {
+        display:flex; gap:0.5rem; align-items:flex-start;
+        padding:0.6rem 1rem; border-bottom:1px solid rgba(255,255,255,0.04);
+        transition:background 0.12s; cursor:pointer;
+      }
+      .wx-notif-item:hover { background:rgba(255,255,255,0.03); }
+      .wx-notif-item.is-unread { background:rgba(34,211,238,0.05); }
+      .wx-notif-dot { width:6px; height:6px; border-radius:50%; background:var(--accent); flex-shrink:0; margin-top:6px; }
+      .wx-notif-item-body { flex:1; min-width:0; }
+      .wx-notif-item-msg { font-size:0.82rem; color:var(--text); line-height:1.4; }
+      .wx-notif-item-time { font-size:0.7rem; color:var(--text-faint); margin-top:2px; }
+
+      /* ══════════════════════════════════════════
+         RICH TEXT EDITOR
+      ══════════════════════════════════════════ */
+      .wx-editor-toolbar {
+        display:flex; align-items:center; gap:2px; padding:4px 6px;
+        background:rgba(255,255,255,0.03);
+        border-top:1px solid var(--stroke); border-bottom:1px solid var(--stroke); flex-wrap:wrap;
+      }
+      .wx-editor-btn {
+        background:none; border:none; color:var(--text-faint);
+        font-size:0.8rem; font-family:var(--font-body); cursor:pointer;
+        padding:3px 7px; border-radius:5px; font-weight:600;
+        transition:color 0.12s, background 0.12s;
+      }
+      .wx-editor-btn:hover { color:var(--accent); background:var(--accent-soft); }
+      .wx-editor-sep { width:1px; height:14px; background:var(--stroke); margin:0 3px; flex-shrink:0; }
+      /* Rendered post formatting */
+      .wx-post-content { line-height:1.6; }
+      .wx-post-content strong { font-weight:700; }
+      .wx-post-content em { font-style:italic; color:var(--text-soft); }
+      .wx-post-content ul,.wx-post-content ol { margin:0.4em 0; padding-left:1.4em; }
+      .wx-post-content li { margin:0.15em 0; }
+      .wx-post-content .wx-spoiler {
+        background:rgba(255,255,255,0.12); border-radius:4px; padding:1px 6px;
+        cursor:pointer; user-select:none; color:transparent;
+        transition:color 0.2s, background 0.2s; display:inline;
+      }
+      .wx-post-content .wx-spoiler.is-revealed { color:var(--text); background:rgba(34,211,238,0.1); }
+      .wx-post-content .wx-heading {
+        font-family:var(--font-display); font-size:1.05rem; font-weight:700;
+        color:var(--text); margin:0.3em 0 0.15em; display:block;
+      }
+      .wx-post-content .wx-highlight { background:rgba(34,211,238,0.18); border-radius:3px; padding:1px 4px; color:var(--accent); }
+      .wx-post-content code { background:rgba(255,255,255,0.08); border-radius:4px; padding:1px 6px; font-family:monospace; font-size:0.85em; color:#f8b4d9; }
+      .wx-post-content blockquote { border-left:3px solid var(--accent); padding-left:0.75rem; color:var(--text-soft); margin:0.4em 0; font-style:italic; }
+
+      @media (max-width:600px) {
+        .wx-header { grid-template-columns:auto 1fr auto auto; top:0; border-radius:0 0 18px 18px; margin-bottom:12px; }
+        .wx-header-search { display:none; }
+      }
+
     </style>
   </head>
   <body>
+    <div id="wx-splash">
+      <canvas id="wx-splash-canvas"></canvas>
+      <div id="wx-splash-logo">
+        <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M5 28 Q12 8 20 20 Q28 32 35 12" stroke="rgba(0,0,0,0.7)" stroke-width="3" stroke-linecap="round" fill="none"/>
+          <circle cx="20" cy="20" r="3.5" fill="rgba(0,0,0,0.7)"/>
+        </svg>
+      </div>
+      <div id="wx-splash-title">Wild<span>Wave</span></div>
+      <div id="wx-splash-sub">Red social OWS</div>
+    </div>
     <div class="wx-toast-container" id="wx-toast-container"></div>
     <div class="wx-shell">
       <header class="wx-header">
-        <div class="wx-header-left">
+        <!-- Brand -->
+        <div class="wx-header-brand">
           <div class="wx-logo" aria-label="WildWave"></div>
-          <div class="wx-brand">
-            <h1>WildWave</h1>
-            <span class="wx-header-tag">Red social creativa del ecosistema OWS</span>
-          </div>
-          <button type="button" class="wx-notif-icon" id="wx-notif-icon" aria-label="Notificaciones">
-            &#128276;
-            <span class="wx-notif-badge" id="wx-notif-badge" hidden>0</span>
-          </button>
+          <div class="wx-brand"><h1>WildWave</h1></div>
         </div>
+
+        <!-- Search -->
+        <div class="wx-header-search">
+          <span class="wx-header-search-icon">&#128269;</span>
+          <input type="text" id="wx-header-search" placeholder="Buscar posts, usuarios..." autocomplete="off" />
+        </div>
+
+        <!-- Nav tabs -->
         <nav class="wx-nav">
           <button class="wx-tab wx-tab--active" data-tab="explore" id="wx-tab-explore">Explorar</button>
           <button class="wx-tab" data-tab="profile" id="wx-tab-profile">Perfil</button>
           <button class="wx-tab" data-tab="subscription" id="wx-tab-subscription">Suscripción</button>
           <button class="wx-tab" data-tab="admin" id="wx-tab-admin" hidden>Admin</button>
         </nav>
+
+        <!-- Notifications -->
+        <div class="wx-notif-wrap">
+          <button type="button" class="wx-notif-icon" id="wx-notif-icon" aria-label="Notificaciones">
+            &#128276;
+            <span class="wx-notif-badge" id="wx-notif-badge" hidden>0</span>
+          </button>
+          <div class="wx-notif-panel" id="wx-notif-panel" hidden>
+            <div class="wx-notif-panel-header">
+              <span>Notificaciones</span>
+              <button type="button" class="wx-notif-panel-mark" id="wx-notif-mark-read-panel">Todo leído</button>
+            </div>
+            <div id="wx-notif-panel-list"></div>
+          </div>
+        </div>
+
+        <!-- Create button (expandable) -->
+        <button type="button" class="wx-create-btn" id="wx-create-btn" title="Crear ola">
+          <span class="wx-create-btn-icon">＋</span>
+          <span class="wx-create-btn-label">Crear ola</span>
+        </button>
       </header>
 
       <section class="wx-layout">
-        <aside class="wx-side">
-          <section class="wx-card wx-side-card">
-            <h3>Centro de comunidad</h3>
-            <p>Publica, responde, descubre tendencias y escala tu perfil con un feed más limpio y directo.</p>
-            <div class="wx-side-grid">
-              <div class="wx-side-metric">
-                <strong id="wx-stat-feed-count">0</strong>
-                <span>posts cargados</span>
-              </div>
-              <div class="wx-side-metric">
-                <strong id="wx-stat-trend-count">0</strong>
-                <span>tendencias activas</span>
-              </div>
-              <div class="wx-side-metric">
-                <strong>280</strong>
-                <span>base por post</span>
-              </div>
-              <div class="wx-side-metric">
-                <strong>WXT</strong>
-                <span>economía interna</span>
-              </div>
-            </div>
-          </section>
-
-          <section class="wx-card wx-side-card">
-            <h3>Temas activos</h3>
-            <div class="wx-topic-list">
-              <span class="wx-topic-chip">#OWS</span>
-              <span class="wx-topic-chip">#Gaming</span>
-              <span class="wx-topic-chip">#DevLogs</span>
-              <span class="wx-topic-chip">#OceanPay</span>
-              <span class="wx-topic-chip">#Comunidad</span>
-            </div>
-          </section>
-
-          <section class="wx-card wx-side-card">
-            <h3>Ideas rápidas</h3>
-            <p>Inserta un borrador al editor con un click.</p>
-            <div class="wx-idea-list">
-              <button type="button" class="wx-idea-btn" data-wx-template="Estoy probando la nueva experiencia de WildWave. ¿Qué te parece el rediseño?">Publicar feedback</button>
-              <button type="button" class="wx-idea-btn" data-wx-template="Busco colaboración para un proyecto del ecosistema OWS.">Buscar colaboración</button>
-              <button type="button" class="wx-idea-btn" data-wx-template="Mini devlog: hoy avancé en mi proyecto.">Publicar devlog</button>
-            </div>
-          </section>
+        <!-- Sidebar removed — stats kept as hidden elements for JS compatibility -->
+        <aside class="wx-side" style="display:none">
+          <strong id="wx-stat-feed-count" hidden>0</strong>
+          <strong id="wx-stat-trend-count" hidden>0</strong>
         </aside>
 
         <main class="wx-main">
@@ -3859,82 +4082,60 @@
             <ul id="wx-scheduled-list" class="wx-feed-list"></ul>
           </section>
 
-          <section class="wx-card wx-explore" id="wx-explore-card">
-            <div class="wx-explore-hero">
-              <div>
-                <p class="wx-explore-kicker">Explorar</p>
-                <h2 class="wx-explore-title">Oleadas creativas</h2>
-                <p class="wx-explore-subtitle">Descubre, filtra y conecta con los creadores más activos del ecosistema OWS.</p>
-              </div>
-              <div class="wx-explore-metrics">
-                <div class="wx-explore-metric">
-                  <span>Posts en vivo</span>
-                  <strong id="wx-explore-post-count">0</strong>
-                </div>
-                <div class="wx-explore-metric">
-                  <span>Tendencias activas</span>
-                  <strong id="wx-explore-trend-count">0</strong>
-                </div>
-              </div>
+          <!-- Explore card and wx-new removed — search moved to header, create to header button -->
+          <!-- Hidden elements preserved for JS compatibility -->
+          <div hidden>
+            <div id="wx-composer-avatar" class="wx-avatar wx-avatar--composer"></div>
+            <strong id="wx-explore-post-count">0</strong>
+            <strong id="wx-explore-trend-count">0</strong>
+            <input id="wx-explore-search" type="text" />
+            <div id="wx-explore-chips">
+              <button type="button" class="wx-chip" data-hashtag="OWS">#OWS</button>
+              <button type="button" class="wx-chip" data-hashtag="Gaming">#Gaming</button>
+              <button type="button" class="wx-chip" data-hashtag="DevLogs">#DevLogs</button>
+              <button type="button" class="wx-chip" data-hashtag="OceanPay">#OceanPay</button>
+              <button type="button" class="wx-chip" data-hashtag="Comunidad">#Comunidad</button>
             </div>
-            <div class="wx-explore-toolbar">
-              <div class="wx-explore-search">
-                <label for="wx-explore-search">Buscar</label>
-                <input id="wx-explore-search" type="text" placeholder="Hashtags, usuarios o palabras clave" />
-              </div>
-              <div class="wx-explore-chips" id="wx-explore-chips">
-                <button type="button" class="wx-chip" data-hashtag="OWS">#OWS</button>
-                <button type="button" class="wx-chip" data-hashtag="Gaming">#Gaming</button>
-                <button type="button" class="wx-chip" data-hashtag="DevLogs">#DevLogs</button>
-                <button type="button" class="wx-chip" data-hashtag="OceanPay">#OceanPay</button>
-                <button type="button" class="wx-chip" data-hashtag="Comunidad">#Comunidad</button>
-              </div>
-              <div class="wx-explore-actions">
-                <button type="button" class="wx-btn wx-btn--outline" id="wx-explore-clear">Limpiar filtros</button>
-              </div>
-            </div>
-            <div class="wx-explore-active">
-              <span>Filtro activo:</span>
-              <strong id="wx-explore-active-label">Todas las olas</strong>
-            </div>
-          </section>
-
-          <section class="wx-card wx-new">
-            <div class="wx-new-header">
-              <div class="wx-avatar wx-avatar--composer" id="wx-composer-avatar"></div>
-              <div>
-                <p class="wx-new-title">Crear ola</p>
-                <p class="wx-new-subtitle">Comparte novedades, responde a la comunidad o publica un devlog.</p>
-              </div>
-            </div>
-            <button type="button" class="wx-btn wx-composer-launch" id="wx-open-composer">Crear ola</button>
-          </section>
+            <button id="wx-explore-clear" type="button"></button>
+            <strong id="wx-explore-active-label">Todas las olas</strong>
+          </div>
 
           <section class="wx-card wx-feed" id="wx-main-feed-card">
-            <div class="wx-feed-title">
+            <div class="wx-feed-header-bar">
               <div>
-                <h2 id="wx-feed-title">Explorar</h2>
-                <p class="wx-feed-subtitle" id="wx-feed-subtitle">Conecta con las publicaciones más recientes.</p>
+                <div class="wx-feed-header-title" id="wx-feed-title">Explorar</div>
+                <div class="wx-feed-header-sub" id="wx-feed-subtitle">Conecta con las publicaciones más recientes.</div>
               </div>
-              <div class="wx-feed-actions">
-                <button type="button" id="wx-refresh">Actualizar</button>
-              </div>
+              <button type="button" class="wx-btn wx-btn--outline wx-btn--tiny" id="wx-refresh">Actualizar</button>
+            </div>
+            <div class="wx-feed-filter-bar" id="wx-feed-filter-bar">
+              <button type="button" class="wx-chip is-active" data-hashtag="">Todo</button>
+              <button type="button" class="wx-chip" data-hashtag="OWS">#OWS</button>
+              <button type="button" class="wx-chip" data-hashtag="Gaming">#Gaming</button>
+              <button type="button" class="wx-chip" data-hashtag="DevLogs">#DevLogs</button>
+              <button type="button" class="wx-chip" data-hashtag="OceanPay">#OceanPay</button>
+              <button type="button" class="wx-chip" data-hashtag="Comunidad">#Comunidad</button>
             </div>
             <div class="wx-promoted" id="wx-promoted" hidden>
               <div class="wx-promoted-label">Promocionado</div>
               <div id="wx-promoted-content"></div>
             </div>
-            <ul id="wx-feed" class="wx-feed-list"></ul>
-
-            <div class="wx-trends" id="wx-trends" hidden>
-              <h3 class="wx-trends-title">Tendencias</h3>
-              <div class="wx-trends-list" id="wx-trends-list"></div>
+            <!-- Feed list (hidden when thread is open) -->
+            <div id="wx-feed-wrap">
+              <ul id="wx-feed" class="wx-feed-list"></ul>
+              <div class="wx-trends" id="wx-trends" hidden>
+                <h3 class="wx-trends-title">Tendencias</h3>
+                <div class="wx-trends-list" id="wx-trends-list"></div>
+              </div>
             </div>
 
+            <!-- Thread view (replaces feed when open) -->
             <div class="wx-thread-view" id="wx-thread-view" hidden>
               <div class="wx-thread-header">
+                <button type="button" class="wx-thread-close" id="wx-thread-close">
+                  &#8592; Volver
+                </button>
                 <span id="wx-thread-title">Respuestas</span>
-                <button type="button" class="wx-thread-close" id="wx-thread-close">Cerrar hilo</button>
               </div>
               <ul id="wx-thread-list" class="wx-thread-list"></ul>
             </div>
@@ -4056,7 +4257,20 @@
             <button type="button" class="wx-composer-tab" data-panel="schedule">Programar</button>
           </div>
           <div class="wx-composer-panel is-active" data-panel="content">
-            <textarea id="wx-text" maxlength="280" placeholder="Inicia sesi?n para publicar"></textarea>
+            <div class="wx-editor-toolbar">
+              <button type="button" class="wx-editor-btn" data-fmt="bold" title="Negrita"><b>B</b></button>
+              <button type="button" class="wx-editor-btn" data-fmt="italic" title="Cursiva"><i>I</i></button>
+              <div class="wx-editor-sep"></div>
+              <button type="button" class="wx-editor-btn" data-fmt="heading" title="Encabezado">H</button>
+              <button type="button" class="wx-editor-btn" data-fmt="highlight" title="Resaltar">✦</button>
+              <button type="button" class="wx-editor-btn" data-fmt="code" title="Código">⌥</button>
+              <div class="wx-editor-sep"></div>
+              <button type="button" class="wx-editor-btn" data-fmt="list" title="Lista">• —</button>
+              <button type="button" class="wx-editor-btn" data-fmt="quote" title="Cita">&ldquo;</button>
+              <div class="wx-editor-sep"></div>
+              <button type="button" class="wx-editor-btn" data-fmt="spoiler" title="Spoiler">👁</button>
+            </div>
+            <textarea id="wx-text" maxlength="1800" placeholder="Inicia sesión para publicar"></textarea>
           </div>
           <div class="wx-composer-panel" data-panel="collab">
             <div class="wx-collab-input">
@@ -4240,6 +4454,331 @@
 
     <script src="https://owsdatabase.onrender.com/socket.io/socket.io.js"></script>
     <script>
+
+      // ── Splash screen — WildWave story animation ─────────────────────────
+      (function() {
+        const splash  = document.getElementById('wx-splash');
+        const canvas  = document.getElementById('wx-splash-canvas');
+        const logoEl  = document.getElementById('wx-splash-logo');
+        const titleEl = document.getElementById('wx-splash-title');
+        const subEl   = document.getElementById('wx-splash-sub');
+        if (!splash || !canvas || !logoEl) return;
+
+        const ctx = canvas.getContext('2d');
+        let W, H, cx, cy;
+        let startTs = 0;
+
+        function resize() {
+          W = canvas.width  = splash.offsetWidth  || window.innerWidth;
+          H = canvas.height = splash.offsetHeight || window.innerHeight;
+          cx = W / 2; cy = H / 2;
+        }
+        resize();
+        window.addEventListener('resize', resize);
+
+        // ── Particles ─────────────────────────────────────────────────────
+        const particles = [];
+        function spawnParticles(x, y, count, speed, hues, size) {
+          for (let i = 0; i < count; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const v = (0.4 + Math.random() * 0.6) * speed;
+            particles.push({
+              x, y,
+              vx: Math.cos(angle) * v,
+              vy: Math.sin(angle) * v - Math.random() * speed * 0.3,
+              life: 1, decay: 0.02 + Math.random() * 0.02,
+              r: (0.5 + Math.random()) * size,
+              hue: hues[Math.floor(Math.random() * hues.length)],
+            });
+          }
+        }
+        function updateParticles() {
+          for (let i = particles.length - 1; i >= 0; i--) {
+            const p = particles[i];
+            p.x += p.vx; p.y += p.vy;
+            p.vy += 0.2; p.vx *= 0.98;
+            p.life -= p.decay;
+            if (p.life <= 0) particles.splice(i, 1);
+          }
+        }
+        function drawParticles() {
+          particles.forEach(p => {
+            ctx.save();
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = `hsl(${p.hue},100%,70%)`;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.r * p.life, 0, Math.PI * 2);
+            ctx.fillStyle = `hsla(${p.hue},100%,70%,${p.life})`;
+            ctx.fill();
+            ctx.restore();
+          });
+        }
+
+        // ── Lightning bolts ───────────────────────────────────────────────
+        const bolts = [];
+        function spawnBolt(x1, y1, x2, y2) {
+          const pts = [{ x: x1, y: y1 }];
+          const segs = 8 + Math.floor(Math.random() * 6);
+          for (let i = 1; i < segs; i++) {
+            const t = i / segs;
+            pts.push({
+              x: x1 + (x2 - x1) * t + (Math.random() - 0.5) * 36,
+              y: y1 + (y2 - y1) * t + (Math.random() - 0.5) * 36,
+            });
+          }
+          pts.push({ x: x2, y: y2 });
+          bolts.push({ pts, life: 1 });
+        }
+        function drawBolts() {
+          for (let i = bolts.length - 1; i >= 0; i--) {
+            const b = bolts[i];
+            b.life -= 0.08;
+            if (b.life <= 0) { bolts.splice(i, 1); continue; }
+            ctx.save();
+            ctx.shadowBlur = 16;
+            ctx.shadowColor = '#22d3ee';
+            ctx.beginPath();
+            ctx.moveTo(b.pts[0].x, b.pts[0].y);
+            b.pts.slice(1).forEach(p => ctx.lineTo(p.x, p.y));
+            ctx.strokeStyle = `rgba(255,255,255,${b.life * 0.9})`;
+            ctx.lineWidth = 1.5 * b.life;
+            ctx.stroke();
+            // Outer glow
+            ctx.strokeStyle = `rgba(34,211,238,${b.life * 0.4})`;
+            ctx.lineWidth = 4 * b.life;
+            ctx.stroke();
+            ctx.restore();
+          }
+        }
+
+        // ── Shockwave rings ───────────────────────────────────────────────
+        const rings = [];
+        function spawnRing(x, y, maxR, color, thick) {
+          rings.push({ x, y, r: 0, maxR, life: 1, color, thick });
+        }
+        function drawRings() {
+          for (let i = rings.length - 1; i >= 0; i--) {
+            const r = rings[i];
+            r.r += (r.maxR - r.r) * 0.1 + 2;
+            r.life -= 0.03;
+            if (r.life <= 0 || r.r >= r.maxR) { rings.splice(i, 1); continue; }
+            ctx.save();
+            ctx.shadowBlur = 18;
+            ctx.shadowColor = r.color;
+            ctx.beginPath();
+            ctx.arc(r.x, r.y, r.r, 0, Math.PI * 2);
+            ctx.strokeStyle = r.color;
+            ctx.globalAlpha = r.life * 0.8;
+            ctx.lineWidth = r.thick * r.life;
+            ctx.stroke();
+            ctx.restore();
+          }
+        }
+
+        // ── Wave ──────────────────────────────────────────────────────────
+        function drawWave(yBase, amp, freq, phase, color, alpha) {
+          ctx.save();
+          ctx.globalAlpha = alpha;
+          ctx.shadowBlur = 12;
+          ctx.shadowColor = color;
+          ctx.beginPath();
+          for (let x = 0; x <= W; x += 2) {
+            const y = yBase
+              + Math.sin(x * freq + phase) * amp
+              + Math.sin(x * freq * 1.6 + phase * 1.3) * amp * 0.45
+              + Math.sin(x * freq * 0.5 + phase * 0.7) * amp * 0.3;
+            x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+          }
+          ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath();
+          ctx.fillStyle = color;
+          ctx.fill();
+          ctx.restore();
+        }
+
+        // ── State ─────────────────────────────────────────────────────────
+        let logoY = 0, logoVY = 0, logoScale = 1, logoShake = 0;
+        let impactDone = false;
+        let floodLevel = H + 40, flooding = false, retreating = false;
+
+        function frame(ts) {
+          if (!startTs) startTs = ts;
+          const dt = (ts - startTs) / 1000;
+          requestAnimationFrame(frame);
+
+          // Dark base
+          ctx.fillStyle = '#02040f';
+          ctx.fillRect(0, 0, W, H);
+
+          // ── Wave approach (0.1 → 1.4s) ────────────────────────────────
+          if (dt >= 0.1 && dt < 1.45) {
+            const p = Math.min((dt - 0.1) / 1.3, 1);
+            const frontX = Math.pow(p, 2) * (W * 0.65);
+            const amp    = 6 + p * 28;
+            const speed  = dt * 3.5;
+            const yBase  = H * 0.75 - p * H * 0.22;
+            const alpha  = 0.18 + p * 0.6;
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(0, 0, frontX + amp * 2.5, H);
+            ctx.clip();
+            drawWave(yBase,      amp,       0.016, speed,       '#22d3ee', alpha);
+            drawWave(yBase + 16, amp * 0.6, 0.022, speed * 1.4, '#0ea5e9', alpha * 0.65);
+            drawWave(yBase + 30, amp * 0.4, 0.028, speed * 0.8, '#6366f1', alpha * 0.4);
+            ctx.restore();
+
+            // Wave-front glow
+            ctx.save();
+            ctx.shadowBlur = 30;
+            ctx.shadowColor = '#22d3ee';
+            ctx.beginPath();
+            ctx.arc(frontX, yBase, amp * 0.6, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(34,211,238,${alpha * 0.35})`;
+            ctx.fill();
+            ctx.restore();
+
+            // Spray droplets at front
+            if (p > 0.45) {
+              for (let i = 0; i < 4; i++) {
+                ctx.save();
+                ctx.shadowBlur = 6;
+                ctx.shadowColor = '#22d3ee';
+                ctx.beginPath();
+                ctx.arc(
+                  frontX + (Math.random() - 0.5) * 40,
+                  yBase - Math.random() * 32,
+                  Math.random() * 2.5 + 0.5, 0, Math.PI * 2
+                );
+                ctx.fillStyle = `rgba(34,211,238,${0.4 + Math.random() * 0.5})`;
+                ctx.fill();
+                ctx.restore();
+              }
+            }
+
+            // Pre-crash lightning (when wave is close)
+            if (p > 0.75 && Math.random() < 0.1) {
+              spawnBolt(frontX, yBase - 8, frontX + (Math.random()-0.5)*70, yBase - 35 - Math.random()*50);
+            }
+          }
+
+          // ── CRASH (1.4s) ───────────────────────────────────────────────
+          if (dt >= 1.4 && dt < 1.42 && logoVY === 0) {
+            logoVY = -580;
+            logoShake = 1.4;
+            spawnParticles(cx, cy, 60, 11, [186, 196, 260, 220], 3);
+            spawnRing(cx, cy, 280, '#22d3ee', 5);
+            spawnRing(cx, cy, 200, 'rgba(99,102,241,0.8)', 3);
+            for (let i = 0; i < 5; i++) {
+              spawnBolt(cx, cy, cx+(Math.random()-0.5)*260, cy+(Math.random()-0.5)*260);
+            }
+            // Flash
+            ctx.fillStyle = 'rgba(34,211,238,0.35)';
+            ctx.fillRect(0, 0, W, H);
+          }
+
+          // ── Logo physics ───────────────────────────────────────────────
+          if (dt >= 1.4 && dt < 2.25) {
+            const fd = 1 / 60;
+            logoVY   += 780 * fd;
+            logoY    += logoVY * fd;
+            logoShake *= 0.88;
+            logoScale = 1 + Math.max(0, -logoY / 160) * 0.4;
+            // Rising sparks
+            if (logoVY < -80 && Math.random() < 0.6) {
+              spawnParticles(cx + (Math.random()-0.5)*28, cy + logoY + 34, 2, 2.5, [186, 196, 260], 1.2);
+            }
+          }
+
+          // ── IMPACT ────────────────────────────────────────────────────
+          if (dt >= 2.15 && !impactDone) {
+            impactDone = true;
+            logoY = 0; logoVY = 0; logoScale = 1.15; logoShake = 0.5;
+            spawnParticles(cx, cy + 36, 80, 13, [186, 196, 260, 48], 2.8);
+            spawnRing(cx, cy + 36, 380, '#22d3ee', 6);
+            spawnRing(cx, cy + 36, 260, 'rgba(255,255,255,0.7)', 4);
+            spawnRing(cx, cy + 36, 180, 'rgba(99,102,241,0.9)', 3);
+            for (let i = 0; i < 8; i++) {
+              spawnBolt(cx, cy+36, cx+(Math.random()-0.5)*W*0.7, cy+36+(Math.random()-0.5)*H*0.5);
+            }
+            ctx.fillStyle = 'rgba(255,255,255,0.25)';
+            ctx.fillRect(0, 0, W, H);
+            titleEl && titleEl.classList.add('visible');
+            subEl   && subEl.classList.add('visible');
+            setTimeout(() => { flooding = true; }, 480);
+          }
+
+          // Post-impact logo settle
+          if (dt >= 2.15) {
+            logoScale = Math.max(1, logoScale - 0.012);
+            logoShake = Math.max(0, logoShake - 0.025);
+          }
+
+          // Logo glow ring
+          if (dt >= 1.4 && !flooding) {
+            const glowA = 0.3 + Math.max(0, -logoY / 200) * 0.4 + Math.sin(dt * 8) * 0.08;
+            ctx.save();
+            ctx.shadowBlur = 32 + Math.max(0, -logoY / 200) * 24;
+            ctx.shadowColor = '#22d3ee';
+            ctx.beginPath();
+            ctx.arc(cx, cy + logoY, 38 * logoScale + 4, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(34,211,238,${glowA * 0.55})`;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.restore();
+          }
+
+          // Update + draw
+          updateParticles(); drawParticles();
+          drawBolts(); drawRings();
+
+          // ── FLOOD ──────────────────────────────────────────────────────
+          if (flooding && !retreating) {
+            floodLevel -= 18;
+            if (Math.random() < 0.25) {
+              spawnParticles(Math.random()*W, floodLevel, 1, 3, [186, 196, 260], 1.2);
+            }
+            if (!retreating && Math.random() < 0.06) {
+              spawnBolt(Math.random()*W, floodLevel, Math.random()*W, floodLevel - 50 - Math.random()*60);
+            }
+            if (floodLevel <= -40) {
+              retreating = true;
+              setTimeout(() => {
+                const iv = setInterval(() => {
+                  floodLevel += 22;
+                  if (floodLevel >= H + 40) {
+                    clearInterval(iv);
+                    splash.classList.add('is-hidden');
+                    setTimeout(() => { if (splash.parentNode) splash.parentNode.removeChild(splash); }, 700);
+                  }
+                }, 16);
+              }, 160);
+            }
+          }
+
+          if (flooding) {
+            const wa = retreating ? 20 : 28;
+            const ws = dt * 4.5;
+            drawWave(floodLevel,      wa,       0.013, ws,       '#0ea5e9', 1);
+            drawWave(floodLevel + 20, wa * 0.7, 0.02,  ws * 1.4, '#22d3ee', 0.7);
+            drawWave(floodLevel + 38, wa * 0.5, 0.027, ws * 0.7, '#6366f1', 0.5);
+            const grad = ctx.createLinearGradient(0, floodLevel + wa + 36, 0, H);
+            grad.addColorStop(0, '#0ea5e9');
+            grad.addColorStop(1, '#6366f1');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, floodLevel + wa + 36, W, H);
+          }
+
+          // Apply logo transform
+          const shakeX = logoShake * (Math.random() - 0.5) * 9;
+          logoEl.style.transform = `translateY(${logoY}px) translateX(${shakeX}px) scale(${logoScale})`;
+          logoEl.style.boxShadow = impactDone
+            ? '0 0 40px rgba(34,211,238,0.7), 0 0 80px rgba(34,211,238,0.3)'
+            : `0 0 ${20 + Math.max(0,-logoY/200)*40}px rgba(34,211,238,${0.5 + Math.max(0,-logoY/200)*0.3})`;
+        }
+
+        requestAnimationFrame(frame);
+      })();
+
       const API_BASE = 'https://owsdatabase.onrender.com/wildwave/api/posts';
       const API_MEDIA = 'https://owsdatabase.onrender.com/wildwave/api/posts/media';
       const API_VIDEO = 'https://owsdatabase.onrender.com/wildwave/api/posts/video';
@@ -4513,6 +5052,7 @@
       const $threadList = document.getElementById('wx-thread-list');
       const $threadClose = document.getElementById('wx-thread-close');
       const $threadTitle = document.getElementById('wx-thread-title');
+      const $feedWrap = document.getElementById('wx-feed-wrap');
       const $feedSubtitle = document.getElementById('wx-feed-subtitle');
       const $composerAvatar = document.getElementById('wx-composer-avatar');
 
@@ -4555,6 +5095,17 @@
           setStatus('Borrador insertado en el editor.');
         });
       });
+
+      // Wire header search to explore search
+      const $headerSearch = document.getElementById('wx-header-search');
+      if ($headerSearch) {
+        $headerSearch.addEventListener('input', () => {
+          if ($exploreSearch) $exploreSearch.value = $headerSearch.value;
+          exploreSearchTerm = $headerSearch.value.trim();
+          exploreProfileUser = null;
+          renderExplorePosts();
+        });
+      }
 
       if ($exploreSearch) {
         $exploreSearch.addEventListener('input', () => {
@@ -4777,25 +5328,23 @@
             updateOceanPayConnectionUI();
           }
           setStatus('Cuenta activa: @' + (user.username || 'usuario'), 'info');
-          fetchExplore();
           fetchBalance().catch(() => {});
           fetchTipsSummary().catch(() => {});
           fetchNotificationsBadge().catch(() => {});
           loadMyProcesses().catch(() => {});
-          // Always fully re-render profile state regardless of active tab.
-          // Without this, switching accounts while on a non-profile tab leaves
-          // the profile partially loaded until the user manually clicks Perfil.
-          applyProfileView(user, { readonly: false });
-          fetchMyPosts();
-          fetchScheduledPosts();
-          fetchCollabRequests().catch(() => {});
-          fetchCollabOutgoing().catch(() => {});
           if (currentTab === 'profile') {
-            // Already on profile — show scheduled card if hidden
-            if ($scheduledCard) {
-              $scheduledCard.hidden = false;
-              $scheduledCard.style.display = '';
-            }
+            // On profile tab: restore profile DOM directly without calling
+            // fetchExplore (which would trigger updateExploreProfileMode and
+            // hide $userCard again). setTab handles all DOM visibility correctly.
+            setTab('profile');
+            applyProfileView(user, { readonly: false });
+            fetchMyPosts();
+            fetchScheduledPosts();
+            fetchCollabRequests().catch(() => {});
+            fetchCollabOutgoing().catch(() => {});
+          } else {
+            // On any other tab: refresh explore feed for new account
+            fetchExplore();
           }
         } catch (e) {
           console.error(e);
@@ -6186,9 +6735,80 @@ function getMaxChars() {
         return `${timeLabel} · hace ${diffDays}d`;
       }
 
+
+      // ── Rich text editor toolbar ──────────────────────────────────────────
+      const $editorToolbar = document.querySelector('.wx-editor-toolbar');
+      if ($editorToolbar) {
+        $editorToolbar.addEventListener('click', (e) => {
+          const btn = e.target.closest('[data-fmt]');
+          if (!btn || !$text) return;
+          const fmt = btn.dataset.fmt;
+          const start = $text.selectionStart;
+          const end   = $text.selectionEnd;
+          const sel   = $text.value.slice(start, end);
+          const before = $text.value.slice(0, start);
+          const after  = $text.value.slice(end);
+          let insert = '';
+          let cursorOffset = 0;
+          switch (fmt) {
+            case 'bold':    insert = `**${sel || 'texto'}**`;    cursorOffset = sel ? 0 : -2; break;
+            case 'italic':  insert = `_${sel || 'texto'}_`;      cursorOffset = sel ? 0 : -1; break;
+            case 'heading': insert = `## ${sel || 'Título'}`;    cursorOffset = 0; break;
+            case 'highlight': insert = `==${sel || 'texto'}==`;  cursorOffset = sel ? 0 : -2; break;
+            case 'code':    insert = `\`${sel || 'código'}\``;   cursorOffset = sel ? 0 : -1; break;
+            case 'list':    insert = `\n- ${sel || 'elemento'}`; cursorOffset = 0; break;
+            case 'quote':   insert = `> ${sel || 'cita'}`;       cursorOffset = 0; break;
+            case 'spoiler': insert = `||${sel || 'spoiler'}||`;  cursorOffset = sel ? 0 : -2; break;
+          }
+          $text.value = before + insert + after;
+          const newPos = start + insert.length + cursorOffset;
+          $text.setSelectionRange(newPos, newPos);
+          $text.focus();
+          updateCounter();
+        });
+      }
+
+      // ── Render rich text in posts ─────────────────────────────────────────
+      function parsePostContent(text) {
+        if (!text) return '';
+        let t = text
+          .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+          // Heading
+          .replace(/^## (.+)$/gm, '<span class="wx-heading">$1</span>')
+          // Bold / italic
+          .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+          .replace(/_(.+?)_/g, '<em>$1</em>')
+          // Highlight
+          .replace(/==(.+?)==/g, '<span class="wx-highlight">$1</span>')
+          // Code
+          .replace(/`(.+?)`/g, '<code>$1</code>')
+          // Spoiler — revealed on click
+          .replace(/\|\|(.+?)\|\|/g, '<span class="wx-spoiler" title="Clic para revelar">$1</span>')
+          // Quote
+          .replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>')
+          // List items
+          .replace(/^- (.+)$/gm, '<li>$1</li>')
+          // Newlines
+          .replace(/\n/g, '<br>');
+        // Wrap li in ul
+        t = t.replace(/(<li>.*?<\/li>)+/gs, (m) => `<ul>${m}</ul>`);
+        return t;
+      }
+
       function renderTextWithHashtags(container, content) {
+        if (!container) return;
+        const text = String(content || '');
+        // Detect rich formatting markers
+        const hasRich = /\*\*|_[^_]+_|==|`|\|\||^## |^> |^- /m.test(text);
+        if (hasRich) {
+          container.classList.add('wx-post-content');
+          container.innerHTML = parsePostContent(text);
+          container.querySelectorAll('.wx-spoiler').forEach(el => {
+            el.addEventListener('click', () => el.classList.toggle('is-revealed'));
+          });
+          return;
+        }
         container.innerHTML = '';
-        const text = content || '';
         const parts = text.split(/(#[\p{L}0-9_]+)/u);
         for (const part of parts) {
           if (part && part.startsWith('#') && part.length > 1) {
@@ -6793,8 +7413,21 @@ function getMaxChars() {
           $followBtn.dataset.following = following ? '1' : '0';
           $followBtn.textContent = following ? 'Dejar de seguir' : 'Seguir';
           $followBtn.disabled = !currentUser;
-          $followBtn.hidden = isSelf ? true : false;
+          $followBtn.hidden = isSelf;
         }
+        // Hide self-only or other-only elements based on context
+        const $connectOpBtn = document.getElementById('wx-connect-op-btn');
+        const $verifyPlansBtn = document.getElementById('wx-open-verify-plans-btn');
+        const $avatarSection = document.querySelector('.wx-profile-upload');
+        const $logoutBtn = document.getElementById('wx-logout');
+        const $accountSwitcher = document.getElementById('wx-account-switcher');
+        const $procNew = document.getElementById('wx-proc-new');
+        if ($connectOpBtn)  $connectOpBtn.hidden  = !isSelf;
+        if ($verifyPlansBtn) $verifyPlansBtn.hidden = !isSelf;
+        if ($avatarSection)  $avatarSection.hidden  = !isSelf;
+        if ($logoutBtn)      $logoutBtn.hidden      = !isSelf;
+        if ($accountSwitcher) $accountSwitcher.hidden = !isSelf;
+        if ($procNew) $procNew.hidden = !isSelf;
 
         // Always refresh collabs when showing own profile
         if (isSelf) {
@@ -7095,8 +7728,7 @@ function getMaxChars() {
 
       function renderPosts(posts) {
         $feed.innerHTML = '';
-        $threadView.hidden = true;
-        currentThreadPostId = null;
+        showFeedView();
         updateCommunitySideStats(Array.isArray(posts) ? posts.length : 0, null);
         if (!posts || posts.length === 0) {
           const li = document.createElement('li');
@@ -7804,6 +8436,18 @@ function getMaxChars() {
       }
 
       const $feedCard = document.getElementById('wx-main-feed-card');
+      const $feedFilterBar = document.getElementById('wx-feed-filter-bar');
+      if ($feedFilterBar) {
+        $feedFilterBar.addEventListener('click', (e) => {
+          const chip = e.target.closest('.wx-chip[data-hashtag]');
+          if (!chip) return;
+          // Update active state
+          $feedFilterBar.querySelectorAll('.wx-chip').forEach(c => c.classList.remove('is-active'));
+          chip.classList.add('is-active');
+          const tag = chip.dataset.hashtag || '';
+          applyHashtagFilter(tag);
+        });
+      }
       const $newCard = document.querySelector('.wx-card.wx-new');
 
       function updateLayoutMode(tab) {
@@ -8675,9 +9319,73 @@ function getMaxChars() {
       }
 
       $threadClose.addEventListener('click', () => {
-        $threadView.hidden = true;
-        currentThreadPostId = null;
+        showFeedView();
       });
+
+      // ── Notification panel ────────────────────────────────────────────────
+      const $notifPanel = document.getElementById('wx-notif-panel');
+      const $notifPanelList = document.getElementById('wx-notif-panel-list');
+      const $notifMarkReadPanel = document.getElementById('wx-notif-mark-read-panel');
+      if ($notifIcon) {
+        $notifIcon.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (!currentUser) { openAuthModal('login'); return; }
+          if ($notifPanel) {
+            $notifPanel.hidden = !$notifPanel.hidden;
+            if (!$notifPanel.hidden) renderNotificationsPanel();
+          }
+        });
+      }
+      document.addEventListener('click', (e) => {
+        if ($notifPanel && !$notifPanel.hidden) {
+          const wrap = $notifIcon ? $notifIcon.closest('.wx-notif-wrap') : null;
+          if (wrap && !wrap.contains(e.target)) $notifPanel.hidden = true;
+        }
+      });
+      if ($notifMarkReadPanel) {
+        $notifMarkReadPanel.addEventListener('click', () => markAllNotificationsRead());
+      }
+      function renderNotificationsPanel() {
+        if (!$notifPanelList) return;
+        $notifPanelList.innerHTML = '';
+        if (!lastNotifications.length) {
+          const empty = document.createElement('div');
+          empty.style.cssText = 'padding:1.2rem 1rem;text-align:center;color:var(--text-faint);font-size:0.82rem;';
+          empty.textContent = 'Sin notificaciones.';
+          $notifPanelList.appendChild(empty);
+          return;
+        }
+        lastNotifications.forEach(n => {
+          const item = document.createElement('div');
+          item.className = 'wx-notif-item' + (!n.read_at ? ' is-unread' : '');
+          if (!n.read_at) {
+            const dot = document.createElement('div');
+            dot.className = 'wx-notif-dot';
+            item.appendChild(dot);
+          }
+          const body = document.createElement('div');
+          body.className = 'wx-notif-item-body';
+          const msg = document.createElement('div');
+          msg.className = 'wx-notif-item-msg';
+          msg.textContent = formatNotification(n);
+          const time = document.createElement('div');
+          time.className = 'wx-notif-item-time';
+          const d = n.created_at ? new Date(n.created_at) : null;
+          time.textContent = d ? d.toLocaleString('es-ES', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' }) : '';
+          body.append(msg, time);
+          item.appendChild(body);
+          $notifPanelList.appendChild(item);
+        });
+      }
+
+      // ── Create btn ────────────────────────────────────────────────────────
+      const $createBtn = document.getElementById('wx-create-btn');
+      if ($createBtn) {
+        $createBtn.addEventListener('click', () => {
+          if (!currentUser) { openAuthModal('login'); return; }
+          openComposerModal();
+        });
+      }
 
       function openAuthModal(mode = 'login', allowWhenLoggedIn = false) {
         if (currentUser && !allowWhenLoggedIn) return;
@@ -9349,17 +10057,30 @@ function getMaxChars() {
         }
       });
 
+      function showFeedView() {
+        if ($feedWrap) { $feedWrap.hidden = false; $feedWrap.style.display = ''; }
+        if ($threadView) { $threadView.hidden = true; }
+        currentThreadPostId = null;
+      }
+
+      function showThreadView() {
+        if ($feedWrap) { $feedWrap.hidden = true; $feedWrap.style.display = 'none'; }
+        if ($threadView) { $threadView.hidden = false; }
+        // Scroll feed card to top
+        const feedCard = document.getElementById('wx-main-feed-card');
+        if (feedCard && typeof feedCard.scrollIntoView === 'function') {
+          feedCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+
       async function openThread(postId) {
         if (!postId) return;
         try {
-          // Show loader immediately
-          $threadView.hidden = false;
+          // Immediately swap to thread view with loader
           $threadList.innerHTML = '<div class="wx-thread-loading">Cargando respuestas…</div>';
           $threadTitle.textContent = 'Respuestas';
           currentThreadPostId = postId;
-          if ($threadView && typeof $threadView.scrollIntoView === 'function') {
-            $threadView.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }
+          showThreadView();
 
           const res = await fetch(`${API_BASE}/${postId}/thread`, {
             headers: { ...authHeaders() }
@@ -9372,6 +10093,7 @@ function getMaxChars() {
         } catch (e) {
           console.error(e);
           $threadList.innerHTML = '';
+          showFeedView();
           setStatus(e.message || 'Error al cargar hilo', 'error');
         }
       }
@@ -9604,6 +10326,8 @@ function getMaxChars() {
 
       function filterExplorePosts(posts) {
         let filtered = Array.isArray(posts) ? posts.slice() : [];
+        // Never show replies in the main feed — they belong inside thread views
+        filtered = filtered.filter(p => !p.parent_id);
         if (currentHashtagFilter) {
           filtered = filterPostsByHashtag(filtered, currentHashtagFilter);
         }
@@ -9737,7 +10461,23 @@ function getMaxChars() {
           return 'Alguien respondió a uno de tus posts.';
         }
         if (t === 'like') {
-          return 'Recibiste un nuevo like en uno de tus posts.';
+          const who = p.from_username ? `@${p.from_username}` : 'Alguien';
+          return `${who} le dio like a tu post.`;
+        }
+        if (t === 'new_post') {
+          const who = p.from_username ? `@${p.from_username}` : 'Alguien que sigues';
+          return `${who} publicó un nuevo post.`;
+        }
+        if (t === 'profile_visit') {
+          const who = p.from_username ? `@${p.from_username}` : 'Alguien';
+          return `${who} visitó tu perfil.`;
+        }
+        if (t === 'collab_request') {
+          const who = p.from_username ? `@${p.from_username}` : 'Alguien';
+          return `${who} te invitó a colaborar en un post.`;
+        }
+        if (t === 'collab_accepted') {
+          return 'Tu colaboración fue aceptada. El post está publicado.';
         }
         if (typeof p.message === 'string' && p.message) return p.message;
         return 'Notificación';

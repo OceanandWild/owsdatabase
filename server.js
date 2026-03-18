@@ -13687,6 +13687,20 @@ app.get('/wildwave/api/profile/:username([a-zA-Z0-9._]+)', async (req, res) => {
     );
     user.affiliations = affRows || [];
 
+    // Notify profile owner of visit (only if viewer is different user)
+    if (viewerId && viewerId !== user.id) {
+      try {
+        const { rows: viewerRows } = await pool.query(
+          'SELECT username FROM wildx_users WHERE id = $1',
+          [viewerId]
+        );
+        if (viewerRows.length) {
+          createWildXNotification(user.id, 'profile_visit', {
+            from_username: viewerRows[0].username
+          }).catch(() => {});
+        }
+      } catch (_) {}
+    }
     res.json(user);
   } catch (err) {
     console.error('Error en GET /wildwave/api/profile/:username:', err);
@@ -15505,6 +15519,22 @@ app.post('/wildwave/api/posts', async (req, res) => {
           avatar_url: c.avatar_url || null
         }))
       });
+    }
+    // Notify followers of new post (only top-level posts, not replies)
+    if (!parentId && status === 'published') {
+      try {
+        const { rows: followers } = await pool.query(
+          'SELECT follower_id FROM wildx_follows WHERE following_id = $1',
+          [wid]
+        );
+        for (const f of followers) {
+          createWildXNotification(f.follower_id, 'new_post', {
+            from_username: uname,
+            post_id: post.id,
+            preview: (content || '').slice(0, 100)
+          }).catch(() => {});
+        }
+      } catch (_) {}
     }
     res.json(post);
   } catch (err) {

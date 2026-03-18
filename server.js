@@ -16023,18 +16023,18 @@ app.post('/ocean-ai/chat', async (req, res) => {
   // whale   (tier 6-9) → gemini-2.5-flash      (más capaz)
   // shark   (tier 10)  → gemini-2.5-pro         (el más potente)
   const GEMINI_MODEL_MAP = {
-    dolphin10:   'gemini-2.5-flash-lite-preview-06-17',
-    dolphin11:   'gemini-2.5-flash-lite-preview-06-17',
-    dolphin11m:  'gemini-2.5-flash-lite-preview-06-17',
-    dolphin11max:'gemini-2.5-flash-lite-preview-06-17',
-    dolphin12:   'gemini-2.5-flash-preview-05-20',
-    whale1:      'gemini-2.5-flash-preview-05-20',
-    whale1m:     'gemini-2.5-flash-preview-05-20',
-    whale1max:   'gemini-2.5-flash-preview-05-20',
-    whale1bm:    'gemini-2.5-flash-preview-05-20',
-    shark:       'gemini-2.5-flash-preview-05-20',
+    dolphin10:   'gemini-2.5-flash-lite',
+    dolphin11:   'gemini-2.5-flash-lite',
+    dolphin11m:  'gemini-2.5-flash-lite',
+    dolphin11max:'gemini-2.5-flash-lite',
+    dolphin12:   'gemini-2.5-flash',
+    whale1:      'gemini-2.5-flash',
+    whale1m:     'gemini-2.5-flash',
+    whale1max:   'gemini-2.5-flash',
+    whale1bm:    'gemini-2.5-flash',
+    shark:       'gemini-2.5-flash',
   };
-  const geminiModel = GEMINI_MODEL_MAP[modelId] || 'gemini-2.5-flash-lite-preview-06-17';
+  const geminiModel = GEMINI_MODEL_MAP[modelId] || 'gemini-2.5-flash-lite';
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return res.status(500).json({ error: 'Gemini API key no configurada en el servidor' });

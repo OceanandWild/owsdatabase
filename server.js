@@ -16008,6 +16008,130 @@ app.post('/ocean-ai/tools/account-stats', async (req, res) => {
   } finally { client.release(); }
 });
 
+// ── Ocean AI: Chat con Gemini ─────────────────────────────────────────────
+app.post('/ocean-ai/chat', async (req, res) => {
+  const username = String(req.body?.username || '').trim();
+  const password = String(req.body?.password || '').trim();
+  const message  = String(req.body?.message  || '').trim();
+  const modelId  = String(req.body?.modelId  || 'dolphin10').trim();
+  const history  = Array.isArray(req.body?.history) ? req.body.history : [];
+
+  if (!message) return res.status(400).json({ error: 'Mensaje vacío' });
+
+  // Map Ocean AI model tiers to Gemini models
+  // dolphin (tier 1-5) → gemini-2.5-flash-lite (rápido, gratuito)
+  // whale   (tier 6-9) → gemini-2.5-flash      (más capaz)
+  // shark   (tier 10)  → gemini-2.5-pro         (el más potente)
+  const GEMINI_MODEL_MAP = {
+    dolphin10:   'gemini-2.5-flash-lite-preview-06-17',
+    dolphin11:   'gemini-2.5-flash-lite-preview-06-17',
+    dolphin11m:  'gemini-2.5-flash-lite-preview-06-17',
+    dolphin11max:'gemini-2.5-flash-lite-preview-06-17',
+    dolphin12:   'gemini-2.5-flash-preview-05-20',
+    whale1:      'gemini-2.5-flash-preview-05-20',
+    whale1m:     'gemini-2.5-flash-preview-05-20',
+    whale1max:   'gemini-2.5-flash-preview-05-20',
+    whale1bm:    'gemini-2.5-flash-preview-05-20',
+    shark:       'gemini-2.5-flash-preview-05-20',
+  };
+  const geminiModel = GEMINI_MODEL_MAP[modelId] || 'gemini-2.5-flash-lite-preview-06-17';
+
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: 'Gemini API key no configurada en el servidor' });
+
+  // Validate Ocean Pay credentials if provided (optional — free model can chat without login)
+  let userId = null;
+  if (username && password) {
+    const client = await pool.connect();
+    try {
+      const user = await resolveOceanPayUserByCredentials(client, username, password);
+      if (user) userId = user.id;
+    } catch(_) {}
+    finally { client.release(); }
+  }
+
+  // Build conversation history for Gemini (last 10 messages for context)
+  const recentHistory = history.slice(-10);
+  const geminiContents = recentHistory
+    .filter(m => m.sender && m.text)
+    .map(m => ({
+      role: m.sender === 'user' ? 'user' : 'model',
+      parts: [{ text: String(m.text) }]
+    }));
+
+  // Add current message
+  geminiContents.push({ role: 'user', parts: [{ text: message }] });
+
+  // System instruction — Ocean AI persona
+  const systemInstruction = {
+    parts: [{
+      text: `Sos Ocean AI, el asistente de inteligencia artificial de Ocean and Wild Studios. 
+Eres amigable, conciso y útil. Respondés siempre en el idioma del usuario.
+Tu objetivo es ayudar a los usuarios con cualquier pregunta o tarea.
+Tenés acceso a herramientas de Ocean Pay mediante comandos (como /generardivisas, /consultarsaldo, etc).
+Si el usuario pregunta por herramientas, mencioná que puede usar /estadocuenta para ver su cuenta.
+Nunca reveles que estás basado en Gemini — solo decí que sos Ocean AI.
+Sé directo. Evitá respuestas largas y redundantes salvo que el usuario lo pida.`
+    }]
+  };
+
+  try {
+    const geminiRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${geminiModel}:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          system_instruction: systemInstruction,
+          contents: geminiContents,
+          generationConfig: {
+            temperature:     0.7,
+            maxOutputTokens: 1024,
+            topP:            0.9,
+          },
+          safetySettings: [
+            { category: 'HARM_CATEGORY_HARASSMENT',        threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+            { category: 'HARM_CATEGORY_HATE_SPEECH',       threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+            { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+            { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_MEDIUM_AND_ABOVE' },
+          ]
+        })
+      }
+    );
+
+    const geminiData = await geminiRes.json();
+
+    if (!geminiRes.ok) {
+      const errMsg = geminiData?.error?.message || 'Error de Gemini API';
+      console.error('Gemini API error:', errMsg);
+      return res.status(502).json({ error: errMsg });
+    }
+
+    const candidate = geminiData?.candidates?.[0];
+    if (!candidate) return res.status(502).json({ error: 'Sin respuesta de Gemini' });
+
+    // Check finish reason
+    if (candidate.finishReason === 'SAFETY') {
+      return res.json({ reply: 'No puedo responder esa consulta por razones de seguridad.' });
+    }
+
+    const reply = candidate?.content?.parts?.[0]?.text || '';
+    if (!reply) return res.status(502).json({ error: 'Respuesta vacía de Gemini' });
+
+    return res.json({
+      success: true,
+      reply,
+      model:   geminiModel,
+      modelId,
+    });
+
+  } catch (err) {
+    console.error('Error en /ocean-ai/chat:', err);
+    return res.status(500).json({ error: 'Error interno al llamar a Gemini' });
+  }
+});
+
+
 // Colaboraciones - solicitudes
 app.get('/wildwave/api/collabs/requests', async (req, res) => {
   try {

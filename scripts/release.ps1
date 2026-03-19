@@ -338,7 +338,8 @@ if ($newProject) {
         $statusInfra = git status --porcelain 2>&1
         if ($statusInfra) {
             git commit -m "chore(release): bootstrap universal para $project" 2>&1
-            git push origin main 2>&1
+            git push origin main *> $null
+            if ($LASTEXITCODE -ne 0) { throw "git push fallo al subir cambios de infraestructura" }
             Write-OK "Cambios de infraestructura subidos"
         } else {
             Write-Info "Sin cambios de infraestructura para commitear"
@@ -417,7 +418,8 @@ try {
     $status = git status --porcelain 2>&1
     if ($status) {
         git commit -m "release: $project $version" 2>&1
-        git push origin main 2>&1
+        git push origin main *> $null
+        if ($LASTEXITCODE -ne 0) { throw "git push fallo para release $project $version" }
         Write-OK "Push completado"
     } else {
         Write-Info "Sin cambios que commitear"

@@ -135,6 +135,53 @@ function Update-WindowsWorkflowMapAndOptions {
     return $true
 }
 
+function Publish-ProjectToExternalRepo {
+    param([string]$RepoName, [string]$LocalProjectDir)
+    if (-not (Test-Path $LocalProjectDir)) {
+        Write-Err "No existe carpeta local del proyecto: $LocalProjectDir"
+        return $false
+    }
+    if (-not (Ensure-GhAuth)) { return $false }
+
+    $tempClone = Join-Path $env:TEMP ("ows_release_" + $RepoName + "_" + [DateTimeOffset]::UtcNow.ToUnixTimeSeconds())
+    try {
+        & $GH repo clone "$ORG/$RepoName" $tempClone 2>&1 | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "gh repo clone fallo para $RepoName" }
+
+        # Mirror local project -> external repo root (excluding heavy/generated dirs)
+        robocopy $LocalProjectDir $tempClone /E /XD "node_modules" "dist" "release" ".git" /NFL /NDL /NJH /NJS /NC /NS | Out-Null
+
+        $gitignorePath = Join-Path $tempClone ".gitignore"
+        if (-not (Test-Path $gitignorePath)) {
+            @("node_modules/","dist/","release/","*.log") | Set-Content -Path $gitignorePath -Encoding UTF8
+        }
+
+        Push-Location $tempClone
+        git add . 2>&1 | Out-Null
+        $st = git status --porcelain 2>&1
+        if ($st) {
+            git commit -m "release: sync project files from owsdatabase workspace" 2>&1 | Out-Null
+            git push origin main 2>&1 | Out-Null
+            if ($LASTEXITCODE -ne 0) { throw "git push fallo en repo externo $RepoName" }
+            Write-OK "Repo externo actualizado: $ORG/$RepoName"
+        } else {
+            Write-Info "Repo externo sin cambios: $ORG/$RepoName"
+        }
+        Pop-Location
+        return $true
+    } catch {
+        try { Pop-Location } catch {}
+        Write-Err "No se pudo publicar en repo externo $ORG/$RepoName : $_"
+        return $false
+    }
+}
+
+function Resolve-IconUrl {
+    param([string]$Repo, [string]$Slug)
+    $path = ("build/{0}.png" -f $Slug) -replace " ", "%20"
+    return "https://raw.githubusercontent.com/$ORG/$Repo/main/$path"
+}
+
 # ── Wait for GitHub asset to exist (prevents 404 on updater) ─────────────────
 
 # ── Register version in DB ────────────────────────────────────────────────────
@@ -164,13 +211,14 @@ function Register-NewProject {
 
     $meta = @{ repo = "$ORG/$Repo" }
     if ($PkgId) { $meta.packageId = $PkgId }
+    $iconUrl = Resolve-IconUrl -Repo $Repo -Slug $Slug
 
     $body = @{
         slug     = $Slug
         name     = $Name
         description = "$Name en OWS Store"
         url = "https://github.com/$ORG/$Repo/releases/latest"
-        icon_url = "https://raw.githubusercontent.com/$ORG/$Repo/main/build/icon.png"
+        icon_url = $iconUrl
         banner_url = ""
         version = "1.0.0"
         platform = $Plat
@@ -252,6 +300,17 @@ if ($newProject) {
         Write-Step "Verificando/creando repo remoto"
         if (Ensure-GhAuth) {
             Ensure-GhRepo -RepoName $projectRepo | Out-Null
+        }
+    }
+
+    # Sync local project files to external repo if applicable.
+    if ($projectRepo -ne "owsdatabase") {
+        $localProjectPath = Join-Path $ROOT $projectDir
+        if (Test-Path $localProjectPath) {
+            Write-Step "Sincronizando archivos locales de $projectDir hacia $projectRepo"
+            Publish-ProjectToExternalRepo -RepoName $projectRepo -LocalProjectDir $localProjectPath | Out-Null
+        } else {
+            Write-Info "No se encontro carpeta local '$projectDir'. Se omite sync inicial al repo externo."
         }
     }
 
@@ -338,13 +397,20 @@ Write-Host "========================================`n" -ForegroundColor Magenta
 Write-Step "Git: commit y push"
 Push-Location $ROOT
 try {
-    if ($project -eq "ows-store") {
-        git add "OWS Store/index.html" 2>&1
-    } elseif ($project -eq "dinobox") {
-        git add "DinoBox/" 2>&1
-    } else {
+    if ($repo -ne "owsdatabase") {
+        # For external repos, sync/push project files to the target repo first.
         $dirPath = $cfg.dir
-        if (Test-Path $dirPath) { git add "$dirPath/" 2>&1 }
+        $published = Publish-ProjectToExternalRepo -RepoName $repo -LocalProjectDir $dirPath
+        if (-not $published) { Write-Err "Continuando sin sincronizar repo externo (puede fallar release)." }
+    } else {
+        if ($project -eq "ows-store") {
+            git add "OWS Store/index.html" 2>&1
+        } elseif ($project -eq "dinobox") {
+            git add "DinoBox/" 2>&1
+        } else {
+            $dirPath = $cfg.dir
+            if (Test-Path $dirPath) { git add "$dirPath/" 2>&1 }
+        }
     }
 
     git add "scripts/release.ps1" 2>&1

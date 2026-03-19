@@ -171,30 +171,30 @@ jobs:
           $VERSION = "${{ github.event.inputs.version }}"
           $NOTES   = "${{ github.event.inputs.release_notes }}"
 
-          # Bump version
+          # Paso 1: bump de version + changelog
           try {
+            $body = @{
+              version   = $VERSION
+              changelog = $NOTES
+            } | ConvertTo-Json
             Invoke-RestMethod -Uri "$API/ows-store/projects/$PROJECT/version" `
               -Method PATCH `
               -Headers @{ "Content-Type"="application/json"; "x-ows-admin-token"=$TOKEN } `
-              -Body "{`"version`":`"$VERSION`"}"
+              -Body $body
             Write-Host "Version actualizada en DB"
           } catch { Write-Warning "No se pudo actualizar version: $_" }
 
-          # OWS News
+          # Paso 2: forzar sync del changelog
           try {
-            $news = @{
-              title         = "$PROJECT $VERSION disponible para Windows"
-              description   = "Nueva version Windows de $PROJECT publicada."
-              project_names = @($PROJECT)
-              changes       = $NOTES
-              update_date   = (Get-Date -Format "yyyy-MM-dd")
-            } | ConvertTo-Json -Depth 3
-            Invoke-RestMethod -Uri "$API/ows-news/updates" `
+            $syncBody = @{
+              project_slug = $PROJECT
+            } | ConvertTo-Json
+            Invoke-RestMethod -Uri "$API/ows-store/changelogs/sync" `
               -Method POST `
               -Headers @{ "Content-Type"="application/json"; "x-ows-admin-token"=$TOKEN } `
-              -Body $news
-            Write-Host "OWS News publicado"
-          } catch { Write-Warning "No se pudo publicar OWS News: $_" }
+              -Body $syncBody
+            Write-Host "Changelog sincronizado"
+          } catch { Write-Warning "No se pudo sincronizar changelog: $_" }
 
       # ─── RESUMEN ──────────────────────────────────────────────────────────
       - name: Resumen

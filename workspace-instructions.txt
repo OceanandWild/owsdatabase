@@ -214,6 +214,7 @@ PROYECTOS Y SUS DIRECTORIOS CORRECTOS:
   wildwave             -> WildWave/
   ecoxion              -> Ecoxion/
   dinobox              -> DinoBox/
+  ocean-ai             -> Ocean AI/
 
 
 EXISTE UN SCRIPT en scripts/release.ps1 que automatiza TODO el proceso de release
@@ -251,6 +252,7 @@ PROYECTOS Y SUS DIRECTORIOS CORRECTOS:
   wildwave             -> WildWave/
   ecoxion              -> Ecoxion/
   dinobox              -> DinoBox/
+  ocean-ai             -> Ocean AI/
 
 PLATAFORMAS POR PROYECTO:
   Windows + Android: floretshop, wildtransfer, a-wild-question-game

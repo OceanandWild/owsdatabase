@@ -16074,18 +16074,28 @@ Si el usuario pregunta por herramientas, mencioná que puede usar /estadocuenta 
 Nunca reveles que estás basado en Gemini — solo decí que sos Ocean AI.
 Sé directo. Evitá respuestas largas y redundantes salvo que el usuario lo pida.
 
-HERRAMIENTA ESPECIAL — SOPA DE LETRAS (Tiburon 1):
-Cuando el usuario pida crear, generar o hacer una sopa de letras (con o sin especificar tema, nombre o diseño), debés invocar la herramienta sopaldeletras.
-Para invocarla, respondé ÚNICAMENTE con este JSON exacto, sin texto adicional antes ni después:
-{"tool":"sopaldeletras","params":{"tema":"<tema detectado o genérico>","nombre":"<nombre si lo mencionó, sino vacío>","diseno":"<clasico|oceano|neon|fuego, según lo que pida>","tamanio":<número entre 10 y 20, por defecto 15>}}
-Si el usuario no especificó algún parámetro, usá valores por defecto razonables.
-Ejemplos de frases que deben activar la herramienta:
-- "haceme una sopa de letras de animales"
-- "quiero una sopa de letras"
-- "generá una sopa de letras sobre deportes"
-- "podés hacer una sopa de letras?"
-- "sopa de letras de videojuegos con diseño neón"
-IMPORTANTE: Si el mensaje menciona sopa de letras de cualquier forma, usá el JSON de herramienta. No des explicaciones ni texto fuera del JSON.`
+═══ SISTEMA DE HERRAMIENTAS ═══
+
+REGLAS GLOBALES:
+- Cuando invoques UNA herramienta, respondé SOLO con el JSON de herramienta. Sin texto antes ni después.
+- Cuando el usuario no dio suficiente info para invocar una herramienta, preguntale lo que falta de forma corta.
+- Nunca muestres el JSON al usuario ni lo expliques. El sistema lo procesa internamente.
+- El parámetro "checkout" indica si el resultado requiere pago para desbloquearse. Si es true, el resultado aparecerá con desenfoque hasta completar el pago.
+
+HERRAMIENTA: SOPA DE LETRAS (Exclusiva Tiburon 1)
+- Se activa cuando el usuario pide crear, generar o hacer una sopa de letras.
+- Si el usuario NO especificó el tema, preguntale: "¿Sobre qué tema querés la sopa de letras? También podés indicar un nombre y diseño (clásico, océano, neón o fuego)."
+- Si el usuario YA especificó el tema (o responde tras tu pregunta), invocar con:
+{"tool":"sopaldeletras","params":{"tema":"<tema>","nombre":"<nombre o vacío>","diseno":"<clasico|oceano|neon|fuego>","tamanio":<10-20>,"checkout":false}}
+- checkout: siempre false para sopa de letras (se paga con Coral Bits directamente).
+- Frases que activan la herramienta (solo si hay tema o el usuario ya lo confirmó):
+  "sopa de letras de animales", "una sopa de letras de videojuegos", "generá una sopa sobre deportes"
+- Frases que deben hacer PREGUNTAR primero (no invocar):
+  "quiero una sopa de letras", "haceme una sopa", "podés hacer una sopa de letras?"
+
+HERRAMIENTA: CHECKOUT (interna, nunca invocar manualmente)
+- Esta herramienta es invocada automáticamente por el sistema cuando una herramienta tiene checkout:true.
+- Nunca invoques checkout directamente. El sistema lo maneja.`
     }]
   };
 
@@ -16132,13 +16142,24 @@ IMPORTANTE: Si el mensaje menciona sopa de letras de cualquier forma, usá el JS
     let reply = candidate?.content?.parts?.[0]?.text || '';
     if (!reply) return res.status(502).json({ error: 'Respuesta vacía de Gemini' });
 
-    // Detect tool call JSON embedded in reply
+    // Detect tool call JSON: match outermost {...} that contains "tool":
     let toolCall = null;
-    const toolMatch = reply.match(/\{"tool"\s*:\s*"sopaldeletras"[\s\S]*?\}/);
-    if (toolMatch) {
+    // Strip markdown fences first
+    const cleanReply = reply.replace(/```json|```/g, '').trim();
+    // Find JSON blob with "tool" key
+    const toolJsonMatch = cleanReply.match(/\{\s*"tool"\s*:/);
+    if (toolJsonMatch) {
+      // Extract full balanced JSON
+      const start = cleanReply.indexOf(toolJsonMatch[0]);
+      let depth = 0, end = start;
+      for (let i = start; i < cleanReply.length; i++) {
+        if (cleanReply[i] === '{') depth++;
+        else if (cleanReply[i] === '}') { depth--; if (depth === 0) { end = i; break; } }
+      }
+      const jsonStr = cleanReply.substring(start, end + 1);
       try {
-        toolCall = JSON.parse(toolMatch[0]);
-        reply = ''; // suppress text when invoking tool
+        toolCall = JSON.parse(jsonStr);
+        reply = ''; // suppress raw JSON from showing in chat
       } catch(_) { toolCall = null; }
     }
 

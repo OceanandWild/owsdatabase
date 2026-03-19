@@ -16281,35 +16281,135 @@ Reglas:
     return d?.candidates?.[0]?.content?.parts?.[0]?.text || '';
   }
 
+  // ── Design generation prompt ──────────────────────────────────────────────
+  const buildDesignPrompt = () => `Sos un diseñador gráfico experto en carteles impresos y pósters educativos decorativos.
+Tu tarea es generar un objeto de configuración de diseño visual para una sopa de letras con el siguiente tema: "${tema}".
+
+El diseño debe ser COMPLETAMENTE ADAPTADO AL TEMA. No generes un diseño genérico.
+Pensá en: ¿Qué colores evocan este tema? ¿Qué textura de fondo tiene sentido (madera, papel, espacio, agua, fuego, tecnología, etc.)? ¿Qué símbolos decorativos son icónicos de este tema?
+
+Devuelve SOLO JSON puro válido, sin backticks, sin texto adicional, con EXACTAMENTE estas claves:
+
+{
+  "bgType": "gradient" o "paper" o "wood" o "space" o "water",
+  "bgTop": "#hex — color superior del fondo",
+  "bgMid": "#hex — color central del fondo",
+  "bgBottom": "#hex — color inferior del fondo",
+  "framePrimary": "#hex — color principal del marco decorativo exterior",
+  "frameSecondary": "#hex — color dorado/acento del marco (contrastes con framePrimary)",
+  "titleBigColor": "#hex — color del texto pequeño 'SOPA DE LETRAS:' en el badge",
+  "titleMainColor": "#hex — color principal del título grande",
+  "titleShadow": "#hex — color de sombra 3D del título (más oscuro que titleMainColor)",
+  "titleFont": "serif o sans-serif o monospace — tipografía del título",
+  "subtitleColor": "#hex — color del subtítulo 'Encontrá las N palabras'",
+  "decoEmojis": ["emoji1","emoji2","emoji3","emoji4"] — 4 emojis icónicos del tema (sin banderas ni personas)",
+  "decoChar": "un símbolo Unicode decorativo único del tema (★ ♦ ◈ ♩ ~ ✦ etc.)",
+  "cornerDeco": ["sym1","sym2","sym3","sym4"] — 4 símbolos para las líneas ornamentales",
+  "decoColor": "#hex — color de los elementos decorativos y ornamentos",
+  "gridPaper": true o false — ¿el área de la grilla tiene textura de papel?",
+  "gridBg": "#hex — color de fondo del área de la grilla",
+  "gridLine": "#hex — color de las líneas internas de la grilla (sutil)",
+  "gridBorder": "#hex — color del borde exterior de la grilla",
+  "cellNormal": "#hex — color de las letras normales (buen contraste con gridBg)",
+  "cellFoundBg": "#hex — color de fondo de celdas encontradas (llamativo)",
+  "cellFoundTxt": "#hex — color de letra en celdas encontradas",
+  "cellFoundGlow": "#hex — color del brillo/glow alrededor de celdas encontradas",
+  "wordBg1": "#hex — color superior de la banda de palabras",
+  "wordBg2": "#hex — color inferior de la banda de palabras",
+  "wordBorder": "#hex — color del borde de los chips de palabras",
+  "wordText": "#hex — color del texto de las palabras no encontradas",
+  "wordFoundText": "#hex — color del texto de las palabras encontradas (tachadas)",
+  "footerBg": "#hex — color de fondo del footer",
+  "footerText": "#hex — color del texto del footer",
+  "footerAccent": "#hex — color del acento/branding del footer",
+  "patternType": "lines o waves o scan o diagonal o dots o none — patrón decorativo del header",
+  "patternColor": "rgba(r,g,b,a) — color con transparencia del patrón",
+  "bgWood": true o false — ¿usar textura de madera en el fondo?"
+}
+
+REGLAS ESTRICTAS:
+- Todos los colores hexadecimales deben ser distintos entre sí y apropiados para el tema.
+- Contraste mínimo garantizado: cellNormal vs gridBg, wordText vs wordBg1, titleMainColor vs bgMid.
+- decoEmojis debe tener EXACTAMENTE 4 emojis directamente relacionados al tema (no genéricos).
+- El diseño debe ser SORPRENDENTE, no básico. Elegí colores, texturas y símbolos que nadie esperaría.
+- Devuelve SOLO el JSON.`;
+
+  async function callGeminiForDesign(prompt) {
+    const r = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.85, maxOutputTokens: 2048, topP: 0.95, responseMimeType: 'application/json' }
+        })
+      }
+    );
+    const d = await r.json();
+    if (!r.ok) throw new Error(d?.error?.message || 'Gemini design error');
+    return d?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  }
+
+  // ── Default design fallback ────────────────────────────────────────────────
+  function buildDefaultDesign(tema) {
+    // Smart fallback based on keyword detection
+    const t = tema.toLowerCase();
+    if (t.match(/mar|ocean|agua|pez|peces|coral|buzo|barco|piraña|delfin|ballena|tiburon/))
+      return { bgType:'gradient', bgTop:'#001e3c', bgMid:'#003366', bgBottom:'#001e3c', framePrimary:'#00b4d8', frameSecondary:'#90e0ef', titleBigColor:'#90e0ef', titleMainColor:'#caf0f8', titleShadow:'#000d1a', titleFont:'serif', subtitleColor:'#90e0ef', decoEmojis:['🌊','🐠','🐋','🦈'], decoChar:'〰', cornerDeco:['~','〜','~','〜'], decoColor:'#90e0ef', gridPaper:false, gridBg:'#011627', gridLine:'#0e3d5c', gridBorder:'#00b4d8', cellNormal:'#caf0f8', cellFoundBg:'#00b4d8', cellFoundTxt:'#001e3c', cellFoundGlow:'#48cae4', wordBg1:'#012233', wordBg2:'#011627', wordBorder:'#00b4d8', wordText:'#caf0f8', wordFoundText:'#48cae4', footerBg:'#010e1a', footerText:'#90e0ef', footerAccent:'#00b4d8', patternType:'waves', patternColor:'rgba(0,180,216,0.06)', bgWood:false };
+    if (t.match(/fuego|fuego|dragon|lava|volcan|explosion|guerra|combate|batalla|deporte|futbol|basket|tenis/))
+      return { bgType:'gradient', bgTop:'#3d0c00', bgMid:'#5c1500', bgBottom:'#3d0c00', framePrimary:'#f97316', frameSecondary:'#fbbf24', titleBigColor:'#fbbf24', titleMainColor:'#fed7aa', titleShadow:'#1a0400', titleFont:'serif', subtitleColor:'#fb923c', decoEmojis:['🔥','⚡','🏆','⭐'], decoChar:'★', cornerDeco:['★','✦','★','✦'], decoColor:'#fbbf24', gridPaper:true, gridBg:'#fffaf5', gridLine:'#f0d4b0', gridBorder:'#f97316', cellNormal:'#431407', cellFoundBg:'#f97316', cellFoundTxt:'#ffffff', cellFoundGlow:'#fbbf24', wordBg1:'#7c2d12', wordBg2:'#431407', wordBorder:'#f97316', wordText:'#fed7aa', wordFoundText:'#fbbf24', footerBg:'#200500', footerText:'#c2410c', footerAccent:'#fbbf24', patternType:'diagonal', patternColor:'rgba(249,115,22,0.06)', bgWood:true };
+    if (t.match(/tecnolog|comput|robot|intelig|artific|programar|codigo|internet|red|digital|cyber|hack/))
+      return { bgType:'gradient', bgTop:'#020206', bgMid:'#040410', bgBottom:'#020206', framePrimary:'#00ff88', frameSecondary:'#00cc66', titleBigColor:'#00ff88', titleMainColor:'#00ff88', titleShadow:'#001a0a', titleFont:'monospace', subtitleColor:'#00cc66', decoEmojis:['💻','🤖','⚡','🔐'], decoChar:'◈', cornerDeco:['◇','◈','◇','◈'], decoColor:'#00ff88', gridPaper:false, gridBg:'#030308', gridLine:'#00ff8820', gridBorder:'#00ff88', cellNormal:'#aaffcc', cellFoundBg:'#00ff88', cellFoundTxt:'#020206', cellFoundGlow:'#00ff88', wordBg1:'#030308', wordBg2:'#020206', wordBorder:'#00ff88', wordText:'#aaffcc', wordFoundText:'#00ff88', footerBg:'#010103', footerText:'#00cc66', footerAccent:'#00ff88', patternType:'scan', patternColor:'rgba(0,255,136,0.04)', bgWood:false };
+    // Default classic
+    return { bgType:'gradient', bgTop:'#1e3a6e', bgMid:'#2c5282', bgBottom:'#1e3a6e', framePrimary:'#1e3a6e', frameSecondary:'#c8a84b', titleBigColor:'#c8a84b', titleMainColor:'#ffffff', titleShadow:'#0a1d40', titleFont:'serif', subtitleColor:'#93c5fd', decoEmojis:['📚','✏️','📖','🔤'], decoChar:'♦', cornerDeco:['♦','◆','♦','◆'], decoColor:'#c8a84b', gridPaper:true, gridBg:'#fdfbf4', gridLine:'#d4c9a8', gridBorder:'#1e3a6e', cellNormal:'#1a202c', cellFoundBg:'#1e3a6e', cellFoundTxt:'#ffffff', cellFoundGlow:'#3b82f6', wordBg1:'#1e3a6e', wordBg2:'#162d56', wordBorder:'#c8a84b', wordText:'#ffffff', wordFoundText:'#93c5fd', footerBg:'#0f1f40', footerText:'#93c5fd', footerAccent:'#c8a84b', patternType:'lines', patternColor:'rgba(255,255,255,0.04)', bgWood:false };
+  }
+
   try {
     let sopaData = null;
+    let designData = null;
     let lastErr = '';
 
-    // Attempt 1: with responseMimeType json
-    try {
-      const raw1 = await callGeminiForSopa(buildPrompt(gridSize));
-      sopaData = extractBalancedJson(raw1);
-      if (sopaData && sopaData.grilla && sopaData.palabras) { /* ok */ }
-      else { sopaData = null; lastErr = 'Estructura incompleta en intento 1'; }
-    } catch(e1) { lastErr = e1.message; sopaData = null; }
+    // Run sopa and design generation in parallel
+    const [sopaResult, designResult] = await Promise.allSettled([
+      // ── Sopa generation ──
+      (async () => {
+        let data = null;
+        try {
+          const raw1 = await callGeminiForSopa(buildPrompt(gridSize));
+          data = extractBalancedJson(raw1);
+          if (!data?.grilla || !data?.palabras) { data = null; }
+        } catch(_) { data = null; }
+        if (!data) {
+          try {
+            const raw2 = await callGeminiForSopa(buildPrompt(10));
+            data = extractBalancedJson(raw2);
+            if (!data?.grilla || !data?.palabras) data = null;
+          } catch(_) { data = null; }
+        }
+        return data || buildFallbackSopa(tema, nombre, 10);
+      })(),
+      // ── Design generation ──
+      (async () => {
+        try {
+          const rawD = await callGeminiForDesign(buildDesignPrompt());
+          const d = extractBalancedJson(rawD);
+          if (d && d.bgTop && d.framePrimary && d.cellNormal) return d;
+        } catch(_) {}
+        return buildDefaultDesign(tema);
+      })()
+    ]);
 
-    // Attempt 2: simpler grid if first failed
-    if (!sopaData) {
-      try {
-        const raw2 = await callGeminiForSopa(buildPrompt(10));
-        sopaData = extractBalancedJson(raw2);
-        if (sopaData && sopaData.grilla && sopaData.palabras) { /* ok */ }
-        else { sopaData = null; lastErr = 'Estructura incompleta en intento 2'; }
-      } catch(e2) { lastErr = e2.message; sopaData = null; }
-    }
+    sopaData  = sopaResult.status === 'fulfilled'  ? sopaResult.value  : buildFallbackSopa(tema, nombre, 10);
+    designData = designResult.status === 'fulfilled' ? designResult.value : buildDefaultDesign(tema);
 
-    // Fallback: local generation so the user always gets something
-    if (!sopaData) {
-      console.warn('Sopa fallback usado:', lastErr);
-      sopaData = buildFallbackSopa(tema, nombre, 10);
-    }
+    // Validate design has required fields
+    const requiredDesignFields = ['bgTop','framePrimary','frameSecondary','titleMainColor','titleShadow',
+      'gridBg','cellNormal','cellFoundBg','wordBg1','wordText','footerBg'];
+    const designValid = requiredDesignFields.every(f => designData && designData[f]);
+    if (!designValid) designData = buildDefaultDesign(tema);
 
-    return res.json({ success: true, sopa: sopaData, coralBitsCost: SOPA_COST });
+    return res.json({ success: true, sopa: sopaData, design: designData, coralBitsCost: SOPA_COST });
   } catch(err) {
     console.error('Error en /ocean-ai/tools/sopa-letras:', err);
     return res.status(500).json({ error: 'Error interno al generar la sopa de letras' });

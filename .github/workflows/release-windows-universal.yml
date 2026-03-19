@@ -57,9 +57,12 @@ jobs:
           $cfg = $configs[$PROJECT]
           if (-not $cfg) { Write-Error "Proyecto desconocido: $PROJECT"; exit 1 }
 
+          $workDir = if ($cfg.repo -eq "owsdatabase") { "owsdatabase\$($cfg.dir)" } else { "project-src" }
+
           echo "repo=$($cfg.repo)" >> $env:GITHUB_OUTPUT
           echo "dir=$($cfg.dir)" >> $env:GITHUB_OUTPUT
           echo "buildOut=$($cfg.buildOut)" >> $env:GITHUB_OUTPUT
+          echo "workDir=$workDir" >> $env:GITHUB_OUTPUT
           echo "tag=v${{ github.event.inputs.version }}" >> $env:GITHUB_OUTPUT
 
       # ─── CHECKOUT ─────────────────────────────────────────────────────────
@@ -67,6 +70,14 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: owsdatabase
+
+      - name: Checkout project repo (externo)
+        if: ${{ steps.config.outputs.repo != 'owsdatabase' }}
+        uses: actions/checkout@v4
+        with:
+          repository: OceanandWild/${{ steps.config.outputs.repo }}
+          token: ${{ secrets.GH_PAT }}
+          path: project-src
 
       # ─── NODE ─────────────────────────────────────────────────────────────
       - name: Setup Node.js
@@ -78,7 +89,7 @@ jobs:
       - name: Bump version en package.json
         shell: pwsh
         run: |
-          $pkgPath = "owsdatabase\${{ steps.config.outputs.dir }}\package.json"
+          $pkgPath = "${{ steps.config.outputs.workDir }}\package.json"
           if (Test-Path $pkgPath) {
             $pkg = Get-Content $pkgPath -Raw | ConvertFrom-Json
             $pkg.version = "${{ github.event.inputs.version }}"
@@ -89,12 +100,12 @@ jobs:
       # ─── BUILD ────────────────────────────────────────────────────────────
       - name: Install dependencies
         shell: pwsh
-        working-directory: owsdatabase/${{ steps.config.outputs.dir }}
+        working-directory: ${{ steps.config.outputs.workDir }}
         run: npm install
 
       - name: Build Windows
         shell: pwsh
-        working-directory: owsdatabase/${{ steps.config.outputs.dir }}
+        working-directory: ${{ steps.config.outputs.workDir }}
         run: npm run dist
 
       # ─── BUSCAR ARTEFACTOS ────────────────────────────────────────────────
@@ -104,8 +115,8 @@ jobs:
         run: |
           $dirs = @(
             "${{ steps.config.outputs.buildOut }}",
-            "owsdatabase\${{ steps.config.outputs.dir }}\dist",
-            "owsdatabase\${{ steps.config.outputs.dir }}\release"
+            "${{ steps.config.outputs.workDir }}\dist",
+            "${{ steps.config.outputs.workDir }}\release"
           )
           $exePath = $null
           $ymlPath = $null

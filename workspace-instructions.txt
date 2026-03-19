@@ -41,6 +41,33 @@ Se incluiran mas cosas luego, pero esto te ayuda a entender como realizar la may
   - Endpoint de cambio: POST /ocean-pay/ecoxionums/change.
   - Endpoint de sync: POST /ocean-pay/sync-ecoxionums (migracion inicial).
 
+
+- MIGRACION DE MONEDAS OCEAN PAY (EJECUTAR SOLO UNA VEZ):
+  El saldo unificado de todas las divisas de Ocean Pay fue migrado a la tabla `user_currency`
+  (una fila por usuario+moneda) mediante el endpoint POST /ocean-pay/admin/migrate-currencies.
+  
+  Esta migracion SE EJECUTA UNA SOLA VEZ. No hace falta repetirla en futuros deploys.
+  El upsert usa GREATEST() para garantizar que ningun saldo sea reducido.
+  
+  Divisas migradas (19 total):
+    aquabux, appbux, ecoxionums, wildcredits, wildgems, ecobooks, amber,
+    nxb, voltbit, ecotokens, ecobits, mayhemcoins, cosmicdust, ecopower,
+    coralbits, tigrys, wildwavetokens, relayshards, ecocorebits
+
+  Para consultar saldos de un usuario (auditoria):
+    GET /ocean-pay/admin/balances/:userId  (header: x-ows-admin-token)
+
+  Para ajustar saldo manualmente:
+    PATCH /ocean-pay/admin/balances/:userId
+    Body: { "currency": "wildcredits", "amount": 500, "mode": "set" | "add" | "subtract" }
+
+  Para nuevas funcionalidades que manejen monedas:
+    - Usar helpers: getUnifiedBalance(client, userId, currency)
+                    setUnifiedBalance(client, userId, currency, amount)
+                    getAllUnifiedBalances(client, userId)
+    - Las tablas viejas (ocean_pay_users columnas, ocean_pay_card_balances) siguen
+      funcionando para los endpoints existentes. No modificarlas sin analisis previo.
+
 - DEPLOY SELECTIVO:
   Para evitar subir el escritorio completo, usar estrictamente:
   - git add server.js "Ocean Pay/" .gitignore package.json
@@ -53,18 +80,31 @@ Se incluiran mas cosas luego, pero esto te ayuda a entender como realizar la may
   Motivo: si se ignoran en `.gitignore`, luego no se pueden referenciar bien desde el entorno/IDE (por ejemplo con `@archivo`).
   Aplicacion: Ecoxion y cualquier otro proyecto temporalmente fuera de deploy se manejan igual (exclusion por `git add` selectivo, no por ignore global).
 
-- AUTOMATIZACION DE UPDATE LOGS (OWS News):
-  Para anadir un log que aparezca automaticamente en OWS News sin editar el HTML:
-  - Endpoint: POST /ows-news/updates.
-  - JSON requerido:
-    {
-      "title": "Titulo del Update",
-      "description": "Descripcion general breve",
-      "project_names": ["Nombre Proyecto 1", "Proyecto 2"],
-      "changes": "- Mejora A\n- Fix B",
-      "update_date": "YYYY-MM-DD" (opcional, por defecto hoy)
-    }
-  - El campo changes soporta listas con -, * o bullet.
+- AUTOMATIZACION DE UPDATE LOGS (OWS News) -- OBSOLETO, NO USAR:
+  El sistema OWS News para changelogs esta obsoleto y reemplazado por OWS Store.
+  El endpoint POST /ows-news/updates sigue existiendo en el servidor pero NO debe llamarse.
+  No incluirlo en ningun flujo de release ni tarea. Ver "CHANGELOGS -- FLUJO OBLIGATORIO" abajo.
+
+- CHANGELOGS -- FLUJO OBLIGATORIO (2 pasos, siempre que haya release):
+  Al terminar cualquier tarea con release de un proyecto, ejecutar AMBOS pasos en orden.
+  Omitir uno es un error. OWS News NO forma parte de este flujo (obsoleto).
+
+  Paso 1 -- Bump de version en OWS Store:
+    PATCH https://owsdatabase.onrender.com/ows-store/projects/<slug>/version
+    Header: x-ows-admin-token: <OWS_ADMIN_SECRET>
+    Body:   { "version": "2026.X.X-tHHMM", "changelog": "Resumen breve." }
+
+  Paso 2 -- Forzar sync del changelog en OWS Store:
+    POST https://owsdatabase.onrender.com/ows-store/changelogs/sync
+    Header: x-ows-admin-token: <OWS_ADMIN_SECRET>
+    Body:   { "project_slug": "<slug>" }
+
+    IMPORTANTE: NO existe un endpoint POST /ows-store/projects/<slug>/changelog.
+    Los changelogs se sincronizan automaticamente desde GitHub Releases hacia la tabla ows_news_updates.
+    El script release.ps1 crea el GitHub Release con --notes como changelog.
+    El sync manual solo es necesario para forzar la aparicion inmediata sin esperar al autosync.
+
+  Ambos pasos requieren x-ows-admin-token. Error 401 = token ausente o incorrecto, verificar $env:OWS_ADMIN_SECRET.
 
 - Sobre Ocean Pay:
   Ocean Pay funciona sobre server.js, no local. Tratarlo como pasarela/identidad central cuando se pida checkout o integracion.
@@ -112,7 +152,8 @@ Release solo Android:
 
 --- MODO 2: NUEVO PROYECTO ---
 Cuando se agrega un proyecto nuevo al ecosistema, usar este modo PRIMERO.
-Registra en DB, agrega al script y publica en OWS News. No hace build.
+Registra en DB y agrega al script. No hace build.
+(Nota: el script menciona OWS News internamente pero ese sistema esta obsoleto; ignorar esa parte.)
 
 Solo Windows:
   .\scripts\release.ps1 -newProject -project <slug> -version 2026.X.X-tHHMM -projectName "Nombre Visible" -projectDir "Nombre Carpeta Local" -projectRepo "nombre-repo-github"
@@ -124,6 +165,31 @@ Despues del -newProject, hacer el release normal:
   .\scripts\release.ps1 -project <slug> -version 2026.X.X-tHHMM [-platform both]
 
 Tambien hay que agregar el slug en server.js (OWS_PROJECT_RELEASE_SOURCES). Subime el server.js y lo hago yo.
+
+--- FLUJO UNIVERSAL PARA NUEVO "(Proyecto)" (OBLIGATORIO) ---
+Objetivo: dejar un (Proyecto) listo para release sin pasos manuales sueltos.
+
+1) Bootstrap del nuevo (Proyecto):
+   - Ejecutar `scripts/release.ps1` en modo `-newProject`.
+   - El script debe intentar automaticamente:
+     - Crear/verificar repo GitHub de `(Proyecto)` con `gh`.
+     - Registrar `(Proyecto)` en OWS Store DB.
+     - Agregar slug de `(Proyecto)` al workflow universal Windows.
+     - Guardar y subir (commit/push) cambios de script/workflow.
+
+2) Release encadenada obligatoria:
+   - Primero build/release de `ows-store` (Windows) para que la Store detecte el nuevo proyecto.
+   - Luego build/release del `(Proyecto)` (Windows por defecto; Android solo si aplica).
+   - Si falla alguna parte automatica en el script, hacer fallback manual inmediato con `gh` y dejar trazabilidad.
+
+3) Comando recomendado (una sola pasada):
+   - `.\scripts\release.ps1 -newProject -project <slug> -version 2026.X.X-tHHMM -projectName "(Proyecto)" -projectDir "(Carpeta Local)" -projectRepo "<repo-github>" -releaseAfterSetup`
+
+4) Requisitos minimos de un nuevo (Proyecto):
+   - Tener carpeta `build/`.
+   - Icono `.ico` en `build/` para Windows.
+   - `package.json` + `main.js` + `preload.js` si es app Electron.
+   - Versionado en formato `YYYY.M.D-tHHMM`.
 
 --- ANDROID ---
 Los builds Android se hacen via GitHub Actions (workflow: release-android-universal.yml).
@@ -155,7 +221,7 @@ para cualquier proyecto del ecosistema OWS. Este script:
 - Hace el build de Windows (npm run dist)
 - Publica el release en GitHub
 - Actualiza la DB via API
-- Publica OWS News
+- Publica OWS News  [OBSOLETO -- ignorar este paso del script]
 - Hace git push si el proyecto vive en owsdatabase
 
 USO:
@@ -334,6 +400,7 @@ CHECK BLOQUEANTE WINDOWS (UPDATER ELECTRON):
   - Actualizar "OWS Store Changelog y Eventos" cuando cambie OWS Store.
   - Si se modifica una app listada en OWS Store, reflejar changelog/evento en su ficha dentro de OWS Store.
 - No cerrar una tarea sin trazabilidad minima: version, fecha, cambios clave, plataforma afectada (Windows/Android/Ambas).
+- Flujo correcto: ver "CHANGELOGS -- FLUJO OBLIGATORIO" (2 pasos via OWS Store). OWS News esta obsoleto y NO debe usarse.
 
 10) REGLA DE ICONO PARA NUEVOS PROYECTOS EN OWS STORE (CONDICIONAL)
 - Esta regla aplica SOLO cuando se agrega un proyecto nuevo a OWS Store.
@@ -353,6 +420,7 @@ CHECK BLOQUEANTE WINDOWS (UPDATER ELECTRON):
 - El changelog debe incluir: version, fecha, cambios clave, plataforma afectada (Windows/Android/Ambas). (Si la tabla de la API de los changelogs permite esto ultimo. Si no, solo version, fecha y cambios clave.)
 - Siempre que se cree un changelog de OWS Store, se debe documentar en "OWS Store Changelog y Eventos", tambien mediante la API del servidor (server.js).
 - Siempre que se cree un changelog de un proyecto, se debe documentar en la ficha de ese proyecto en cuestion, nuevamente mediante la API del servidor (server.js).
+- RECORDATORIO: usar exclusivamente el flujo de 2 pasos de OWS Store (ver "CHANGELOGS -- FLUJO OBLIGATORIO"). OWS News esta obsoleto.
 
 Prompt base recomendado (Wild Destiny):
 "App icon for 'Wild Destiny'. Epic fantasy-action RPG identity. Central symbol: a luminous crossed blade and arcane sigil fused in one emblem. Style: modern, premium, minimal but powerful, rounded-square icon suitable for Windows and Android launchers. Palette: deep midnight navy (#070b14), electric cyan (#26e0ff), royal violet (#7c3aed), subtle gold accents (#f5c542). High contrast, crisp silhouette, recognizable at 16x16 and detailed at 256x256. No text, no letters, no watermark. Fill full canvas. No white corners, no empty borders. Soft atmospheric glow and controlled depth, avoid clutter."

@@ -16066,13 +16066,26 @@ app.post('/ocean-ai/chat', async (req, res) => {
   // System instruction — Ocean AI persona
   const systemInstruction = {
     parts: [{
-      text: `Sos Ocean AI, el asistente de inteligencia artificial de Ocean and Wild Studios. 
+      text: `Sos Ocean AI, el asistente de inteligencia artificial de Ocean and Wild Studios.
 Eres amigable, conciso y útil. Respondés siempre en el idioma del usuario.
 Tu objetivo es ayudar a los usuarios con cualquier pregunta o tarea.
 Tenés acceso a herramientas de Ocean Pay mediante comandos (como /generardivisas, /consultarsaldo, etc).
 Si el usuario pregunta por herramientas, mencioná que puede usar /estadocuenta para ver su cuenta.
 Nunca reveles que estás basado en Gemini — solo decí que sos Ocean AI.
-Sé directo. Evitá respuestas largas y redundantes salvo que el usuario lo pida.`
+Sé directo. Evitá respuestas largas y redundantes salvo que el usuario lo pida.
+
+HERRAMIENTA ESPECIAL — SOPA DE LETRAS (Tiburon 1):
+Cuando el usuario pida crear, generar o hacer una sopa de letras (con o sin especificar tema, nombre o diseño), debés invocar la herramienta sopaldeletras.
+Para invocarla, respondé ÚNICAMENTE con este JSON exacto, sin texto adicional antes ni después:
+{"tool":"sopaldeletras","params":{"tema":"<tema detectado o genérico>","nombre":"<nombre si lo mencionó, sino vacío>","diseno":"<clasico|oceano|neon|fuego, según lo que pida>","tamanio":<número entre 10 y 20, por defecto 15>}}
+Si el usuario no especificó algún parámetro, usá valores por defecto razonables.
+Ejemplos de frases que deben activar la herramienta:
+- "haceme una sopa de letras de animales"
+- "quiero una sopa de letras"
+- "generá una sopa de letras sobre deportes"
+- "podés hacer una sopa de letras?"
+- "sopa de letras de videojuegos con diseño neón"
+IMPORTANTE: Si el mensaje menciona sopa de letras de cualquier forma, usá el JSON de herramienta. No des explicaciones ni texto fuera del JSON.`
     }]
   };
 
@@ -16116,14 +16129,25 @@ Sé directo. Evitá respuestas largas y redundantes salvo que el usuario lo pida
       return res.json({ reply: 'No puedo responder esa consulta por razones de seguridad.' });
     }
 
-    const reply = candidate?.content?.parts?.[0]?.text || '';
+    let reply = candidate?.content?.parts?.[0]?.text || '';
     if (!reply) return res.status(502).json({ error: 'Respuesta vacía de Gemini' });
+
+    // Detect tool call JSON embedded in reply
+    let toolCall = null;
+    const toolMatch = reply.match(/\{"tool"\s*:\s*"sopaldeletras"[\s\S]*?\}/);
+    if (toolMatch) {
+      try {
+        toolCall = JSON.parse(toolMatch[0]);
+        reply = ''; // suppress text when invoking tool
+      } catch(_) { toolCall = null; }
+    }
 
     return res.json({
       success: true,
       reply,
       model:   geminiModel,
       modelId,
+      toolCall,
     });
 
   } catch (err) {

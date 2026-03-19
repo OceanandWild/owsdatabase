@@ -166,26 +166,27 @@ Despues del -newProject, hacer el release normal:
 
 Tambien hay que agregar el slug en server.js (OWS_PROJECT_RELEASE_SOURCES). Subime el server.js y lo hago yo.
 
---- FLUJO UNIVERSAL PARA NUEVO "(Proyecto)" (OBLIGATORIO) ---
-Objetivo: dejar un (Proyecto) listo para release sin pasos manuales sueltos.
+--- FLUJO UNIVERSAL PARA NUEVO PROYECTO (OBLIGATORIO) ---
+Objetivo: dejar el proyecto que se este trabajando en ese momento listo para release sin pasos manuales sueltos.
+Nota: "(Proyecto)" es un placeholder conceptual, NO literal. Reemplazar siempre por el nombre/slug real del proyecto activo.
 
-1) Bootstrap del nuevo (Proyecto):
+1) Bootstrap del nuevo proyecto activo:
    - Ejecutar `scripts/release.ps1` en modo `-newProject`.
    - El script debe intentar automaticamente:
-     - Crear/verificar repo GitHub de `(Proyecto)` con `gh`.
-     - Registrar `(Proyecto)` en OWS Store DB.
-     - Agregar slug de `(Proyecto)` al workflow universal Windows.
-     - Guardar y subir (commit/push) cambios de script/workflow.
+    - Crear/verificar repo GitHub del proyecto activo con `gh`.
+    - Registrar el proyecto activo en OWS Store DB.
+    - Agregar slug del proyecto activo al workflow universal Windows.
+    - Guardar y subir (commit/push) cambios de script/workflow.
 
 2) Release encadenada obligatoria:
    - Primero build/release de `ows-store` (Windows) para que la Store detecte el nuevo proyecto.
-   - Luego build/release del `(Proyecto)` (Windows por defecto; Android solo si aplica).
+   - Luego build/release del proyecto activo (Windows por defecto; Android solo si aplica).
    - Si falla alguna parte automatica en el script, hacer fallback manual inmediato con `gh` y dejar trazabilidad.
 
 3) Comando recomendado (una sola pasada):
-   - `.\scripts\release.ps1 -newProject -project <slug> -version 2026.X.X-tHHMM -projectName "(Proyecto)" -projectDir "(Carpeta Local)" -projectRepo "<repo-github>" -releaseAfterSetup`
+  - `.\scripts\release.ps1 -newProject -project <slug> -version 2026.X.X-tHHMM -projectName "<Nombre del proyecto activo>" -projectDir "<Carpeta Local>" -projectRepo "<repo-github>" -releaseAfterSetup`
 
-4) Requisitos minimos de un nuevo (Proyecto):
+4) Requisitos minimos de un nuevo proyecto:
    - Tener carpeta `build/`.
    - Icono `.ico` en `build/` para Windows.
    - `package.json` + `main.js` + `preload.js` si es app Electron.

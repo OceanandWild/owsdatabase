@@ -1223,6 +1223,220 @@
     }
     .cb-banner-recharge:hover { background: rgba(255,255,255,0.18); }
 
+
+    /* ══ EDITOR FULLSCREEN MODE ══ */
+    body.editor-open .sidebar,
+    body.editor-open .main-chat { display: none !important; }
+    body.editor-open { overflow: hidden; }
+
+    .sopa-editor-panel {
+      position: fixed; inset: 0; z-index: 900;
+      display: flex; flex-direction: column;
+      background: #060d1a;
+      transform: translateY(100%);
+      transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+    }
+    .sopa-editor-panel.open { transform: translateY(0); }
+
+    .editor-topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 16px; height: 48px; background: #080e1e;
+      border-bottom: 1px solid rgba(255,255,255,0.08); flex-shrink: 0; gap: 12px;
+    }
+    .editor-topbar-left { display: flex; align-items: center; gap: 10px; }
+    .editor-topbar-title { font-size: 0.9rem; font-weight: 800; }
+    .editor-topbar-right { display: flex; align-items: center; gap: 8px; }
+    .editor-close-btn {
+      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+      color: var(--text-muted); border-radius: 7px; padding: 5px 12px;
+      cursor: pointer; font-size: 0.8rem; font-weight: 600; font-family: inherit; transition: all 0.15s;
+    }
+    .editor-close-btn:hover { background: rgba(239,68,68,0.2); color: #f87171; }
+    .editor-save-btn {
+      background: linear-gradient(135deg,#f97316,#fb923c); border: none; color: #000;
+      border-radius: 8px; padding: 6px 18px; font-size: 0.82rem; font-weight: 800;
+      cursor: pointer; font-family: inherit;
+    }
+    .editor-dl-btn {
+      background: rgba(0,180,255,0.1); border: 1px solid rgba(0,180,255,0.3);
+      color: var(--accent); border-radius: 8px; padding: 5px 14px;
+      font-size: 0.8rem; font-weight: 600; cursor: pointer; font-family: inherit;
+    }
+    .editor-tabs {
+      display: flex; background: #0b1225; border-bottom: 1px solid rgba(255,255,255,0.07);
+      flex-shrink: 0; overflow-x: auto;
+    }
+    .editor-tab {
+      padding: 9px 18px; font-size: 0.78rem; font-weight: 600; cursor: pointer;
+      color: var(--text-muted); border-bottom: 2px solid transparent; white-space: nowrap;
+      transition: all 0.15s; user-select: none;
+    }
+    .editor-tab:hover { color: var(--text-main); }
+    .editor-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .editor-controls {
+      background: #0b1225; border-bottom: 1px solid rgba(255,255,255,0.06);
+      flex-shrink: 0; overflow-x: auto;
+    }
+    .editor-ctrl-panel {
+      display: none; padding: 10px 16px; gap: 10px; align-items: center;
+      flex-wrap: wrap; min-height: 52px;
+    }
+    .editor-ctrl-panel.active { display: flex; }
+    .editor-ctrl-group { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+    .editor-ctrl-label { font-size: 0.7rem; color: var(--text-muted); white-space: nowrap; }
+    .editor-color {
+      width: 28px; height: 22px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.15);
+      cursor: pointer; padding: 0; flex-shrink: 0;
+    }
+    .editor-select {
+      background: #1e293b; border: 1px solid rgba(255,255,255,0.12); border-radius: 6px;
+      color: var(--text-main); padding: 4px 8px; font-size: 0.75rem; font-family: inherit;
+    }
+    .editor-input-sm {
+      background: #1e293b; border: 1px solid rgba(255,255,255,0.12); border-radius: 6px;
+      color: var(--text-main); padding: 4px 8px; font-size: 0.75rem; font-family: inherit;
+      width: 140px; outline: none;
+    }
+    .editor-input-sm:focus { border-color: var(--accent); }
+    .editor-range-sm { width: 80px; accent-color: var(--accent); cursor: pointer; }
+    .editor-range-val { font-size: 0.7rem; color: var(--text-muted); min-width: 30px; }
+    .editor-ctrl-sep { width: 1px; height: 24px; background: rgba(255,255,255,0.08); flex-shrink: 0; }
+    .editor-deco-row {
+      display: flex; gap: 5px; flex-wrap: wrap; padding: 8px 16px;
+      background: #0b1225; border-bottom: 1px solid rgba(255,255,255,0.06); flex-shrink: 0;
+    }
+    .editor-deco-item {
+      width: 34px; height: 30px; border-radius: 6px; background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.1); cursor: pointer;
+      display: flex; align-items: center; justify-content: center; font-size: 1rem;
+      transition: all 0.14s; flex-shrink: 0;
+    }
+    .editor-deco-item:hover { border-color: var(--accent); background: rgba(0,180,255,0.1); }
+    .editor-deco-item.active { border-color: var(--accent); background: rgba(0,180,255,0.2); }
+    .editor-canvas-area {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      overflow: auto; padding: 16px; background: #04080f; min-height: 0;
+    }
+    .editor-canvas-wrap {
+      border-radius: 12px; overflow: hidden; box-shadow: 0 12px 48px rgba(0,0,0,0.7);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .editor-canvas-wrap canvas {
+      display: block;
+      /* Scale canvas to fit available space while maintaining aspect ratio */
+      max-height: calc(100vh - 200px);
+      max-width: calc(100vw - 40px);
+      width: auto; height: auto;
+    }
+    .editor-template-strip {
+      display: none; padding: 10px 16px; gap: 10px; overflow-x: auto; flex-shrink: 0;
+      background: #0b1225; border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .editor-template-strip.active { display: flex; }
+    .editor-tcard {
+      flex-shrink: 0; width: 90px; cursor: pointer; border-radius: 8px;
+      border: 2px solid rgba(255,255,255,0.1); overflow: hidden; transition: all 0.18s;
+    }
+    .editor-tcard:hover { border-color: var(--accent); transform: translateY(-2px); }
+    .editor-tcard.selected { border-color: var(--accent); }
+    .editor-tcard canvas { display: block; width: 90px; height: 120px; }
+    .editor-tcard-lbl {
+      font-size: 0.65rem; font-weight: 700; text-align: center; padding: 4px 2px;
+      background: rgba(0,0,0,0.4); color: var(--text-muted);
+    }
+    .editor-tcard.selected .editor-tcard-lbl { color: var(--accent); }
+    .editor-img-zone {
+      flex-shrink: 0; width: 90px; height: 152px; border: 2px dashed rgba(0,180,255,0.25);
+      border-radius: 8px; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 4px; cursor: pointer; color: var(--text-muted);
+      font-size: 0.65rem; text-align: center; padding: 8px; transition: all 0.15s;
+    }
+    .editor-img-zone:hover { border-color: rgba(0,180,255,0.5); color: var(--accent); }
+    .editor-palette-strip {
+      display: none; padding: 8px 16px; gap: 6px; overflow-x: auto;
+      background: #0b1225; border-bottom: 1px solid rgba(255,255,255,0.06); flex-shrink: 0;
+    }
+    .editor-palette-strip.visible { display: flex; }
+    .editor-swatch {
+      width: 28px; height: 28px; border-radius: 6px; flex-shrink: 0; cursor: pointer;
+      border: 2px solid rgba(255,255,255,0.1); transition: transform 0.14s;
+    }
+    .editor-swatch:hover { transform: scale(1.15); }
+    /* ══ DESIGN OPTIONS PANEL (shown after quota error) ══ */
+    .sopa-design-options {
+      background: rgba(15,23,42,0.95); border: 1px solid rgba(0,180,255,0.2);
+      border-radius: 14px; padding: 18px; margin-top: 8px;
+      display: flex; flex-direction: column; gap: 14px;
+    }
+    .sopa-design-options-title {
+      font-size: 0.88rem; font-weight: 700; color: var(--text-main);
+      display: flex; align-items: center; gap: 7px;
+    }
+    .sopa-design-options-desc { font-size: 0.8rem; color: var(--text-muted); line-height: 1.5; }
+    .sopa-design-options-btns { display: flex; gap: 10px; flex-wrap: wrap; }
+    .sopa-option-btn {
+      flex: 1; min-width: 140px; padding: 12px 16px; border-radius: 10px;
+      border: 1px solid rgba(0,180,255,0.3); background: rgba(0,180,255,0.06);
+      color: var(--text-main); cursor: pointer; font-family: inherit;
+      display: flex; flex-direction: column; gap: 4px; text-align: left;
+      transition: all 0.18s;
+    }
+    .sopa-option-btn:hover { border-color: var(--accent); background: rgba(0,180,255,0.12); }
+    .sopa-option-btn-icon { font-size: 1.3rem; }
+    .sopa-option-btn-label { font-size: 0.85rem; font-weight: 700; }
+    .sopa-option-btn-desc { font-size: 0.72rem; color: var(--text-muted); }
+
+    /* ══ TEMPLATES MODAL ══ */
+    .templates-modal {
+      position: fixed; inset: 0; background: rgba(2,6,23,0.92); z-index: 1200;
+      display: none; align-items: center; justify-content: center; backdrop-filter: blur(6px);
+    }
+    .templates-modal.open { display: flex; }
+    .templates-shell {
+      width: min(780px, 96vw); background: #0f172a; border-radius: 18px;
+      border: 1px solid rgba(0,180,255,0.2); display: flex; flex-direction: column; gap: 0;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.8); max-height: 86vh; overflow: hidden;
+    }
+    .templates-header {
+      padding: 18px 22px; border-bottom: 1px solid rgba(255,255,255,0.07);
+      display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+    }
+    .templates-title { font-size: 1.05rem; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+    .templates-close { background: none; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer; }
+    .templates-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 14px; padding: 18px; overflow-y: auto;
+    }
+    .template-card {
+      border-radius: 12px; overflow: hidden; cursor: pointer;
+      border: 2px solid var(--border); transition: all 0.2s; position: relative;
+    }
+    .template-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,180,255,0.2); }
+    .template-card canvas { display: block; width: 100%; }
+    .template-card-label {
+      padding: 10px 12px; font-size: 0.82rem; font-weight: 700;
+      border-top: 1px solid rgba(255,255,255,0.06); background: rgba(0,0,0,0.3);
+      display: flex; align-items: center; gap: 6px;
+    }
+    .template-card-badge {
+      font-size: 0.62rem; background: rgba(0,180,255,0.2); color: var(--accent);
+      border-radius: 999px; padding: 1px 7px; font-weight: 600;
+    }
+    .templates-footer {
+      padding: 14px 22px; border-top: 1px solid rgba(255,255,255,0.07);
+      display: flex; gap: 10px; flex-shrink: 0;
+    }
+    .templates-apply-btn {
+      background: var(--accent); border: none; color: #000; border-radius: 10px;
+      padding: 10px 22px; font-size: 0.88rem; font-weight: 800; cursor: pointer;
+      font-family: inherit;
+    }
+    .templates-cancel-btn {
+      background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+      color: var(--text-muted); border-radius: 10px; padding: 10px 16px;
+      font-size: 0.85rem; cursor: pointer; font-family: inherit;
+    }
+
   </style>
 </head>
 <body>
@@ -1235,6 +1449,24 @@
         Ocean AI
       </div>
       <button class="new-chat-icon-btn" onclick="createNewChat()" title="Nuevo chat">+</button>
+    </div>
+    <!-- Icon nav (compact mode) -->
+    <div class="sidebar-icon-nav" id="sidebarIconNav">
+      <button class="sidebar-icon-btn" onclick="createNewChat()" title="Nuevo chat">
+        ➕<span class="sidebar-icon-tooltip">Nuevo chat</span>
+      </button>
+      <button class="sidebar-icon-btn" onclick="openEditor()" title="Editor">
+        ✏️<span class="sidebar-icon-tooltip">Editor</span>
+      </button>
+      <button class="sidebar-icon-btn" onclick="openTemplatesModal()" title="Plantillas">
+        🎨<span class="sidebar-icon-tooltip">Plantillas</span>
+      </button>
+      <button class="sidebar-icon-btn" onclick="openPendingModal()" title="Pagos Pendientes">
+        ⏳<span class="sidebar-icon-tooltip">Pendientes</span>
+      </button>
+      <button class="sidebar-icon-btn" onclick="openRechargeModal()" title="Recargar CB">
+        🪙<span class="sidebar-icon-tooltip">Recargar</span>
+      </button>
     </div>
 
     <div class="sidebar-search">
@@ -1284,6 +1516,282 @@
       </div>
     </div>
   </aside>
+
+  <!-- ══ SIDEBAR ICON NAV (compact mode) ══ -->
+
+  <!-- ══ SOPA EDITOR PANEL (fullscreen) ══ -->
+  <div class="sopa-editor-panel" id="sopaEditorPanel">
+
+    <!-- Top bar -->
+    <div class="editor-topbar">
+      <div class="editor-topbar-left">
+        <span style="font-size:1.1rem;">✏️</span>
+        <span class="editor-topbar-title">Editor de Sopa de Letras</span>
+        <span id="editorSopaTitle" style="font-size:0.78rem;color:var(--text-muted);font-weight:400;"></span>
+      </div>
+      <div class="editor-topbar-right">
+        <button class="editor-dl-btn" onclick="editorDownload()">⬇ Descargar PNG</button>
+        <button class="editor-save-btn" onclick="editorSaveAndPay()">💳 Guardar — 75 CB</button>
+        <button class="editor-close-btn" onclick="closeEditor()">✕ Cerrar editor</button>
+      </div>
+    </div>
+
+    <!-- Tab bar -->
+    <div class="editor-tabs" id="editorTabs">
+      <div class="editor-tab active" data-tab="fondo"    onclick="edSwitchTab('fondo')">🎨 Fondo</div>
+      <div class="editor-tab"        data-tab="marco"    onclick="edSwitchTab('marco')">🖼 Marco</div>
+      <div class="editor-tab"        data-tab="titulo"   onclick="edSwitchTab('titulo')">✍️ Título</div>
+      <div class="editor-tab"        data-tab="grilla"   onclick="edSwitchTab('grilla')">📋 Grilla</div>
+      <div class="editor-tab"        data-tab="palabras" onclick="edSwitchTab('palabras')">💬 Palabras</div>
+      <div class="editor-tab"        data-tab="deco"     onclick="edSwitchTab('deco')">🎭 Decoraciones</div>
+      <div class="editor-tab"        data-tab="palabras-edit" onclick="edSwitchTab('palabras-edit')">📝 Editar palabras</div>
+      <div class="editor-tab"        data-tab="plantillas" onclick="edSwitchTab('plantillas')">🗂 Plantillas</div>
+      <div class="editor-tab"        data-tab="imagen"   onclick="edSwitchTab('imagen')">🖼 Ref. imagen</div>
+    </div>
+
+    <!-- Controls (changes per tab) -->
+    <div class="editor-controls" id="editorControls">
+
+      <!-- FONDO -->
+      <div class="editor-ctrl-panel active" id="edpanel-fondo">
+        <div class="editor-ctrl-group">
+          <span class="editor-ctrl-label">Tipo</span>
+          <select class="editor-select" id="edBgType" onchange="editorRedraw()">
+            <option value="gradient">Degradado</option>
+            <option value="paper">Papel</option>
+            <option value="wood">Madera</option>
+            <option value="space">Espacio</option>
+            <option value="water">Agua</option>
+            <option value="chalkboard">Pizarrón</option>
+          </select>
+        </div>
+        <div class="editor-ctrl-sep"></div>
+        <div class="editor-ctrl-group">
+          <span class="editor-ctrl-label">Color 1</span>
+          <input type="color" class="editor-color" id="edBgColor1" value="#1e3a6e" oninput="editorRedraw()">
+        </div>
+        <div class="editor-ctrl-group">
+          <span class="editor-ctrl-label">Color 2</span>
+          <input type="color" class="editor-color" id="edBgColor2" value="#2c5282" oninput="editorRedraw()">
+        </div>
+        <div class="editor-ctrl-group">
+          <span class="editor-ctrl-label">Color 3</span>
+          <input type="color" class="editor-color" id="edBgColor3" value="#1e3a6e" oninput="editorRedraw()">
+        </div>
+        <div class="editor-ctrl-sep"></div>
+        <div class="editor-ctrl-group">
+          <span class="editor-ctrl-label">Patrón</span>
+          <select class="editor-select" id="edPattern" onchange="editorRedraw()">
+            <option value="none">Ninguno</option>
+            <option value="dots">Puntos</option>
+            <option value="lines">Líneas</option>
+            <option value="diagonal">Diagonal</option>
+            <option value="waves">Ondas</option>
+            <option value="stars">Estrellas</option>
+            <option value="music">Notas ♪</option>
+            <option value="bubbles">Burbujas</option>
+          </select>
+        </div>
+        <div class="editor-ctrl-group">
+          <span class="editor-ctrl-label">Color patrón</span>
+          <input type="color" class="editor-color" id="edPatternColor" value="#c8a84b" oninput="editorRedraw()">
+        </div>
+        <div class="editor-ctrl-group">
+          <span class="editor-ctrl-label">Opacidad</span>
+          <input type="range" class="editor-range-sm" id="edPatternOpacity" min="1" max="30" value="8" oninput="this.nextElementSibling.textContent=this.value+'%';editorRedraw()">
+          <span class="editor-range-val">8%</span>
+        </div>
+      </div>
+
+      <!-- MARCO -->
+      <div class="editor-ctrl-panel" id="edpanel-marco">
+        <div class="editor-ctrl-group">
+          <span class="editor-ctrl-label">Estilo</span>
+          <select class="editor-select" id="edFrameStyle" onchange="editorRedraw()">
+            <option value="classic">Clásico</option>
+            <option value="ornate">Ornamentado</option>
+            <option value="modern">Moderno</option>
+            <option value="rustic">Rústico</option>
+            <option value="none">Sin marco</option>
+          </select>
+        </div>
+        <div class="editor-ctrl-sep"></div>
+        <div class="editor-ctrl-group">
+          <span class="editor-ctrl-label">Principal</span>
+          <input type="color" class="editor-color" id="edFrameColor1" value="#c8a84b" oninput="editorRedraw()">
+        </div>
+        <div class="editor-ctrl-group">
+          <span class="editor-ctrl-label">Acento</span>
+          <input type="color" class="editor-color" id="edFrameColor2" value="#1e3a6e" oninput="editorRedraw()">
+        </div>
+        <div class="editor-ctrl-sep"></div>
+        <div class="editor-ctrl-group">
+          <span class="editor-ctrl-label">Grosor</span>
+          <input type="range" class="editor-range-sm" id="edFrameWidth" min="4" max="28" value="14" oninput="this.nextElementSibling.textContent=this.value+'px';editorRedraw()">
+          <span class="editor-range-val">14px</span>
+        </div>
+      </div>
+
+      <!-- TÍTULO -->
+      <div class="editor-ctrl-panel" id="edpanel-titulo">
+        <div class="editor-ctrl-group">
+          <span class="editor-ctrl-label">Texto</span>
+          <input type="text" class="editor-input-sm" id="edTitle" placeholder="Título…" oninput="editorRedraw()">
+        </div>
+        <div class="editor-ctrl-sep"></div>
+        <div class="editor-ctrl-group">
+          <span class="editor-ctrl-label">Fuente</span>
+          <select class="editor-select" id="edTitleFont" onchange="editorRedraw()">
+            <option value="Georgia,serif">Georgia</option>
+            <option value='"Times New Roman",serif'>Times New Roman</option>
+            <option value='"Segoe UI",sans-serif'>Segoe UI</option>
+            <option value='"Courier New",monospace'>Courier</option>
+            <option value="Impact,sans-serif">Impact</option>
+          </select>
+        </div>
+        <div class="editor-ctrl-sep"></div>
+        <div class="editor-ctrl-group">
+          <span class="editor-ctrl-label">Color</span>
+          <input type="color" class="editor-color" id="edTitleColor" value="#ffffff" oninput="editorRedraw()">
+        </div>
+        <div class="editor-ctrl-group">
+          <span class="editor-ctrl-label">Sombra</span>
+          <input type="color" class="editor-color" id="edTitleShadow" value="#0a1d40" oninput="editorRedraw()">
+        </div>
+        <div class="editor-ctrl-sep"></div>
+        <div class="editor-ctrl-group">
+          <span class="editor-ctrl-label">3D</span>
+          <input type="range" class="editor-range-sm" id="edTitleDepth" min="0" max="10" value="4" oninput="this.nextElementSibling.textContent=this.value;editorRedraw()">
+          <span class="editor-range-val">4</span>
+        </div>
+      </div>
+
+      <!-- GRILLA -->
+      <div class="editor-ctrl-panel" id="edpanel-grilla">
+        <div class="editor-ctrl-group">
+          <span class="editor-ctrl-label">Fondo</span>
+          <select class="editor-select" id="edGridBgType" onchange="editorRedraw()">
+            <option value="paper">Papel</option>
+            <option value="dark">Oscuro</option>
+            <option value="transparent">Transparente</option>
+          </select>
+        </div>
+        <div class="editor-ctrl-group">
+          <input type="color" class="editor-color" id="edGridBg" value="#fdfbf4" oninput="editorRedraw()">
+        </div>
+        <div class="editor-ctrl-sep"></div>
+        <div class="editor-ctrl-group">
+          <span class="editor-ctrl-label">Líneas</span>
+          <input type="color" class="editor-color" id="edGridLine" value="#d4c9a8" oninput="editorRedraw()">
+        </div>
+        <div class="editor-ctrl-group">
+          <span class="editor-ctrl-label">Borde</span>
+          <input type="color" class="editor-color" id="edGridBorder" value="#1e3a6e" oninput="editorRedraw()">
+        </div>
+        <div class="editor-ctrl-sep"></div>
+        <div class="editor-ctrl-group">
+          <span class="editor-ctrl-label">Letra</span>
+          <input type="color" class="editor-color" id="edCellColor" value="#1a202c" oninput="editorRedraw()">
+        </div>
+        <div class="editor-ctrl-group">
+          <span class="editor-ctrl-label">Encontrada</span>
+          <input type="color" class="editor-color" id="edFoundBg" value="#1e3a6e" oninput="editorRedraw()">
+        </div>
+        <div class="editor-ctrl-group">
+          <span class="editor-ctrl-label">Txt enc.</span>
+          <input type="color" class="editor-color" id="edFoundTxt" value="#ffffff" oninput="editorRedraw()">
+        </div>
+      </div>
+
+      <!-- PALABRAS -->
+      <div class="editor-ctrl-panel" id="edpanel-palabras">
+        <div class="editor-ctrl-group">
+          <span class="editor-ctrl-label">Fondo 1</span>
+          <input type="color" class="editor-color" id="edWordBg1" value="#1e3a6e" oninput="editorRedraw()">
+        </div>
+        <div class="editor-ctrl-group">
+          <span class="editor-ctrl-label">Fondo 2</span>
+          <input type="color" class="editor-color" id="edWordBg2" value="#162d56" oninput="editorRedraw()">
+        </div>
+        <div class="editor-ctrl-sep"></div>
+        <div class="editor-ctrl-group">
+          <span class="editor-ctrl-label">Texto</span>
+          <input type="color" class="editor-color" id="edWordText" value="#ffffff" oninput="editorRedraw()">
+        </div>
+        <div class="editor-ctrl-group">
+          <span class="editor-ctrl-label">Borde chip</span>
+          <input type="color" class="editor-color" id="edWordBorder" value="#c8a84b" oninput="editorRedraw()">
+        </div>
+      </div>
+
+      <!-- DECORACIONES (shows deco row below) -->
+      <div class="editor-ctrl-panel" id="edpanel-deco">
+        <span style="font-size:0.75rem;color:var(--text-muted);">Clic para activar/desactivar elementos decorativos en los laterales del diseño:</span>
+      </div>
+
+      <!-- PLANTILLAS (shows template strip below) -->
+      <div class="editor-ctrl-panel" id="edpanel-plantillas">
+        <span style="font-size:0.75rem;color:var(--text-muted);">Seleccioná una plantilla y hacé clic en <strong style="color:var(--text-main)">Aplicar</strong>:</span>
+        <button class="editor-dl-btn" onclick="applySelectedTemplate()" style="margin-left:auto;">✅ Aplicar plantilla</button>
+      </div>
+
+      <!-- PALABRAS EDIT -->
+      <div class="editor-ctrl-panel" id="edpanel-palabras-edit">
+        <span style="font-size:0.75rem;color:var(--text-muted);">Editá las palabras y regenerá la sopa:</span>
+        <div class="editor-ctrl-sep"></div>
+        <div id="edPalabrasInputs" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;"></div>
+        <div class="editor-ctrl-sep"></div>
+        <button class="editor-dl-btn" onclick="edAddPalabra()" style="white-space:nowrap;">+ Agregar</button>
+        <button class="editor-save-btn" onclick="edRegenSopa()" style="white-space:nowrap;">🔄 Regenerar sopa — 25 CB</button>
+        <span id="edRegenStatus" style="font-size:0.72rem;color:var(--text-muted);"></span>
+      </div>
+
+      <!-- IMAGEN -->
+      <div class="editor-ctrl-panel" id="edpanel-imagen">
+        <span style="font-size:0.75rem;color:var(--text-muted);">Subí una imagen de referencia para extraer su paleta de colores:</span>
+        <button class="editor-dl-btn" onclick="document.getElementById('edImgInput').click()">📸 Subir imagen</button>
+        <input type="file" id="edImgInput" accept="image/*" style="display:none" onchange="editorLoadRefImage(this)">
+      </div>
+
+    </div><!-- /editor-controls -->
+
+    <!-- Deco element row (visible when deco tab active) -->
+    <div class="editor-deco-row" id="edDecoRow" style="display:none;"></div>
+
+    <!-- Template strip (visible when plantillas tab active) -->
+    <div class="editor-template-strip" id="edTemplateStrip">
+      <!-- Populated by JS -->
+    </div>
+
+    <!-- Palette strip (visible after image uploaded) -->
+    <div class="editor-palette-strip" id="edPaletteStrip"></div>
+
+    <!-- Canvas area (center, fills remaining space) -->
+    <div class="editor-canvas-area">
+      <div class="editor-canvas-wrap" id="editorCanvasWrap">
+        <canvas id="editorCanvas"></canvas>
+      </div>
+    </div>
+
+  </div><!-- /sopaEditorPanel -->
+
+  <!-- ══ TEMPLATES MODAL ══ -->
+  <!-- ══ TEMPLATES MODAL ══ -->
+  <div class="templates-modal" id="templatesModal">
+    <div class="templates-shell">
+      <div class="templates-header">
+        <div class="templates-title">🎨 Plantillas de diseño</div>
+        <button class="templates-close" onclick="closeTemplatesModal()">✕</button>
+      </div>
+      <div class="templates-grid" id="templatesGrid">
+        <!-- Populated by JS -->
+      </div>
+      <div class="templates-footer">
+        <button class="templates-apply-btn" id="templatesApplyBtn" onclick="applySelectedTemplate()">✅ Aplicar plantilla</button>
+        <button class="templates-cancel-btn" onclick="closeTemplatesModal()">Cancelar</button>
+      </div>
+    </div>
+  </div>
 
   <!-- ══ MAIN CHAT ══ -->
   <main class="main-chat">
@@ -2600,7 +3108,13 @@
       // 2. Gemini via server
       try {
         const ac      = getActiveChat();
-        const history = (ac && Array.isArray(ac.messages)) ? ac.messages : [];
+        const rawHistory = (ac && Array.isArray(ac.messages)) ? ac.messages : [];
+        // Filter out error messages so they don't get sent to Gemini as context
+        const history = rawHistory.filter(m => {
+          if (m.sender !== 'bot') return true;
+          const t = String(m.text || '');
+          return !t.startsWith('⚠️') && !t.includes('Error del servidor') && !t.includes('502') && !t.includes('quota') && !t.includes('exceeded');
+        });
         const creds   = oceanPayAuth || {};
         const body    = {
           message:  text,
@@ -2626,9 +3140,12 @@
         }
 
         if (res.ok && data.reply) return data.reply;
-        return `⚠️ Error del servidor (${res.status}): ${(data.error || '').slice(0, 120)}`;
+        // Any non-ok response from AI chat → silently show design options
+        if (!res.ok) return { __quotaError: true };
+        return '⚠️ Sin respuesta.';
       } catch(err) {
-        return `⚠️ Error de red: ${err.message}`;
+        // Network error → also silently show options
+        return { __quotaError: true };
       }
     }
 
@@ -2737,6 +3254,9 @@
       const instrucciones = instruccionesEl ? instruccionesEl.value.trim() : (params.instrucciones || '');
       const toolName = 'Generador de Sopa de Letras';
 
+      // Store params globally for quota error recovery
+      window.__lastSopaParams = { tema, nombre, diseno, tamanio, instrucciones };
+
       if (btn) { btn.textContent = 'Generando…'; btn.disabled = true; }
 
       // Update indicator detail row to show progress steps
@@ -2791,10 +3311,25 @@
         if (data.design) window['_sopaDesign_' + uid] = data.design;
         renderSopaResult(data.sopa, diseno, uid, resultWrapper);
 
-        // Final AI message with design mention
-        const designDesc = data.design ? ' El diseño fue creado especialmente para este tema.' : '';
+        // Auto-open editor with the generated sopa
+        _editorSopaData = { sopa: data.sopa, diseno };
+        _editorUid = uid;
+        // If design had colors, pre-apply them
+        if (data.design) {
+          const D = data.design;
+          const sg = (id,v)=>{ const el=document.getElementById(id); if(el&&v) el.value=v; };
+          sg('edBgColor1', D.bgTop||D.bgColor1); sg('edBgColor2', D.bgMid||D.bgColor2); sg('edBgColor3', D.bgBottom||D.bgColor3);
+          sg('edFrameColor1', D.frameSecondary); sg('edFrameColor2', D.framePrimary);
+          sg('edTitleColor', D.titleMainColor); sg('edTitleShadow', D.titleShadow);
+          sg('edGridBg', D.gridBg); sg('edGridLine', D.gridLine); sg('edGridBorder', D.gridBorder);
+          sg('edCellColor', D.cellNormal); sg('edFoundBg', D.cellFoundBg); sg('edFoundTxt', D.cellFoundTxt);
+          sg('edWordBg1', D.wordBg1||D.wordsBg); sg('edWordBg2', D.wordBg2||D.wordsBg2);
+          sg('edWordText', D.wordText); sg('edWordBorder', D.wordBorder||D.wordsBorder);
+        }
+        setTimeout(() => openEditor(null, null), 400);
+
         setTimeout(() => {
-          addBotMessage('✅ ¡Sopa de letras sobre **' + tema + '** lista! Encontrá las ' + (data.sopa?.palabras?.length || 10) + ' palabras. Hacé clic en la primera y última letra de cada palabra para marcarla.' + designDesc + ' ¡Buena suerte! 🎯');
+          addBotMessage('✅ ¡Sopa de letras sobre **' + tema + '** generada! Se abrió el **Editor de diseño** donde podés personalizar colores, marco, fondo y decoraciones. Hacé clic en ✕ Cerrar editor para volver al chat.');
         }, 350);
 
         // Remove from pending if it was a retry
@@ -2808,23 +3343,29 @@
         clearInterval(stepInterval);
         const errMsg = err.message || 'Error desconocido';
         if (iid !== undefined) setToolIndicatorDone(iid, toolName, false);
-        if (statusEl) { statusEl.className = 'tool-status-msg error'; statusEl.textContent = errMsg; }
         if (btn) { btn.textContent = '🦈 Reintentar'; btn.disabled = false; }
 
+        // Check if it's a quota/server error → show options panel silently
+        const isServerErr = errMsg.includes('502') || errMsg.includes('quota') || errMsg.includes('429') || errMsg.includes('500') || errMsg.includes('Error de Gemini') || errMsg.includes('exceeded');
+        if (isServerErr && !fromPending) {
+          // Show options panel under the confirm panel
+          const confirmPanel = document.getElementById('tool-sopa-ai-' + uid);
+          const container = confirmPanel?.parentElement || contentDiv?.parentElement;
+          if (container) showSopaDesignOptions(container, params);
+          return;
+        }
+
+        if (statusEl) { statusEl.className = 'tool-status-msg error'; statusEl.textContent = errMsg; }
+
         if (!fromPending) {
-          // Only add to pending on first failure, not on retry failures
           const pid = 'sopa_' + Date.now();
           addPendingPayment({
-            id: pid,
-            toolName,
+            id: pid, toolName,
             description: `Tema: ${tema}${nombre ? ' · Nombre: ' + nombre : ''}`,
-            amount: 75,
-            currency: 'Coral Bits',
-            reason: errMsg,
-            sopaUid: uid,
-            sopaData: params,
+            amount: 75, currency: 'Coral Bits', reason: errMsg,
+            sopaUid: uid, sopaData: params,
           });
-          addBotMessage('⚠️ No se pudo completar la generación. El intento fue guardado en **Pagos Pendientes de Herramientas** (botón Ocean Pay). Podés reintentarlo desde ahí.');
+          addBotMessage('⚠️ No se pudo completar la generación. El intento fue guardado en **Pagos Pendientes de Herramientas**.');
         } else {
           addBotMessage('⚠️ El reintento también falló: ' + errMsg + '. El pago sigue en Pendientes.');
         }
@@ -2985,13 +3526,28 @@
         return;
       }
 
+      // Handle quota/server error — show options panel, keep indicator
+      if (response && typeof response === 'object' && response.__quotaError) {
+        thoughtsDiv.classList.remove('visible'); thoughtsDiv.style.display = 'none';
+        // Show "calling tool" indicator that resolves to error state
+        const iidQ = createToolCallIndicator(contentDiv.parentElement, 'Generador de diseño');
+        setToolIndicatorDone(iidQ, 'Generador de diseño', false);
+        showSopaDesignOptions(contentDiv.parentElement, window.__lastSopaParams || {});
+        isResponding = false; userInput.focus();
+        return;
+      }
+
       await streamResponse(contentDiv, response);
 
       // No coral bits rewards — removed
       const ac=getActiveChat();
       if(ac){
         ac.messages=Array.isArray(ac.messages)?ac.messages:[];
-        ac.messages.push({sender:'bot',text:response,at:new Date().toISOString()});
+        // Don't save error messages or quota errors to history
+        const isBotError = typeof response === 'string' && (response.startsWith('⚠️') || response.includes('502') || response.includes('quota'));
+        if (!isBotError) {
+          ac.messages.push({sender:'bot',text:response,at:new Date().toISOString()});
+        }
         if(ac.title==='Nuevo chat'){ const fu=ac.messages.find(m=>m.sender==='user'); if((fu && fu.text)) ac.title=buildChatTitleFromFirstPrompt(fu.text); if(chatHeaderTitle) chatHeaderTitle.textContent=ac.title; }
         persistActiveChat();
       }
@@ -3009,6 +3565,26 @@
     function usarSugerencia(texto) { userInput.value=texto; enviar(); }
 
     // ── Init ──────────────────────────────────────────────────────────────────
+    // Clean error messages from stored chat history on startup
+    (function cleanStoredErrors() {
+      try {
+        const keys = Object.keys(localStorage).filter(k => k.startsWith('oceanai_chat_'));
+        keys.forEach(k => {
+          try {
+            const chat = JSON.parse(localStorage.getItem(k));
+            if (chat && Array.isArray(chat.messages)) {
+              chat.messages = chat.messages.filter(m => {
+                if (m.sender !== 'bot') return true;
+                const t = String(m.text || '');
+                return !t.startsWith('⚠️') && !t.includes('Error del servidor') && !t.includes('502') && !t.includes('quota') && !t.includes('exceeded');
+              });
+              localStorage.setItem(k, JSON.stringify(chat));
+            }
+          } catch(_) {}
+        });
+      } catch(_) {}
+    })();
+
     loadQuota();
     oceanPayAuth=loadStoredOceanPayAuth();
     updateWelcomeGreeting();
@@ -4932,6 +5508,7 @@
 
       // Store sopa data for modification
       window['_sopaData_' + uid] = { sopa, diseno, design: window['_sopaDesign_' + uid] || null };
+      window.__lastRenderedSopaUid = uid; // track for editor
     }
 
     function revealAllSopa(uid) {
@@ -5396,6 +5973,1031 @@
 
 
 
+
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // SOPA EDITOR + TEMPLATES + DESIGN OPTIONS
+    // ══════════════════════════════════════════════════════════════════════════
+
+    // ── State ────────────────────────────────────────────────────────────────
+    let _editorSopaData = null;      // { sopa, palabras }
+    let _editorUid      = null;
+    let _selectedTemplate = null;
+    let _edDecoActive   = new Set(); // active deco elements
+
+    // ── Decorative elements library ───────────────────────────────────────────
+    const DECO_LIBRARY = [
+      { id:'note1',  label:'♩',  cat:'music',   draw: (ctx,x,y,s,c) => { ctx.fillStyle=c; ctx.font=`bold ${s}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('♩',x,y); }},
+      { id:'note2',  label:'♪',  cat:'music',   draw: (ctx,x,y,s,c) => { ctx.fillStyle=c; ctx.font=`bold ${s}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('♪',x,y); }},
+      { id:'note3',  label:'♫',  cat:'music',   draw: (ctx,x,y,s,c) => { ctx.fillStyle=c; ctx.font=`bold ${s}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('♫',x,y); }},
+      { id:'note4',  label:'♬',  cat:'music',   draw: (ctx,x,y,s,c) => { ctx.fillStyle=c; ctx.font=`bold ${s}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('♬',x,y); }},
+      { id:'star5',  label:'★',  cat:'general', draw: (ctx,x,y,s,c) => { drawPolyStar(ctx,x,y,s/2,s/4,5,c); }},
+      { id:'diamond',label:'◆',  cat:'general', draw: (ctx,x,y,s,c) => { ctx.save();ctx.translate(x,y);ctx.rotate(Math.PI/4);ctx.fillStyle=c;ctx.fillRect(-s/3,-s/3,s*0.67,s*0.67);ctx.restore(); }},
+      { id:'wave',   label:'〰', cat:'ocean',   draw: (ctx,x,y,s,c) => { drawWaveEl(ctx,x,y,s,c); }},
+      { id:'bubble', label:'○',  cat:'ocean',   draw: (ctx,x,y,s,c) => { ctx.strokeStyle=c; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(x,y,s/2.5,0,Math.PI*2); ctx.stroke(); }},
+      { id:'staff',  label:'♭',  cat:'music',   draw: (ctx,x,y,s,c) => { drawStaffEl(ctx,x,y,s,c); }},
+      { id:'guitar', label:'🎸', cat:'music',   draw: (ctx,x,y,s,c) => { ctx.font=`${s}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('🎸',x,y); }},
+      { id:'violin', label:'🎻', cat:'music',   draw: (ctx,x,y,s,c) => { ctx.font=`${s}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('🎻',x,y); }},
+      { id:'planet', label:'🪐', cat:'space',   draw: (ctx,x,y,s,c) => { ctx.font=`${s}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('🪐',x,y); }},
+      { id:'leaf',   label:'🍃', cat:'nature',  draw: (ctx,x,y,s,c) => { ctx.font=`${s}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('🍃',x,y); }},
+      { id:'fire',   label:'🔥', cat:'fire',    draw: (ctx,x,y,s,c) => { ctx.font=`${s}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('🔥',x,y); }},
+      { id:'cross4', label:'✦',  cat:'general', draw: (ctx,x,y,s,c) => { ctx.fillStyle=c; ctx.font=`${s}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('✦',x,y); }},
+      { id:'fleur',  label:'❧',  cat:'general', draw: (ctx,x,y,s,c) => { ctx.fillStyle=c; ctx.font=`${s}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('❧',x,y); }},
+    ];
+
+    function drawPolyStar(ctx, cx, cy, outerR, innerR, points, color) {
+      ctx.beginPath(); ctx.fillStyle = color;
+      for (let i = 0; i < points*2; i++) {
+        const r = i%2===0 ? outerR : innerR;
+        const a = (i*Math.PI/points) - Math.PI/2;
+        i===0 ? ctx.moveTo(cx+r*Math.cos(a),cy+r*Math.sin(a)) : ctx.lineTo(cx+r*Math.cos(a),cy+r*Math.sin(a));
+      }
+      ctx.closePath(); ctx.fill();
+    }
+    function drawWaveEl(ctx, x, y, s, c) {
+      ctx.strokeStyle=c; ctx.lineWidth=2; ctx.beginPath();
+      for (let i=-s/2;i<=s/2;i+=2) {
+        const wy = y + Math.sin(i*0.2)*s*0.15;
+        i===-s/2 ? ctx.moveTo(x+i,wy) : ctx.lineTo(x+i,wy);
+      }
+      ctx.stroke();
+    }
+    function drawStaffEl(ctx, x, y, s, c) {
+      ctx.strokeStyle=c; ctx.lineWidth=1;
+      for (let i=-2;i<=2;i++) {
+        ctx.beginPath(); ctx.moveTo(x-s/2,y+i*s*0.08); ctx.lineTo(x+s/2,y+i*s*0.08); ctx.stroke();
+      }
+      // note
+      ctx.fillStyle=c; ctx.beginPath(); ctx.ellipse(x+s*0.15,y+s*0.04,s*0.07,s*0.05,0,0,Math.PI*2); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(x+s*0.22,y+s*0.04); ctx.lineTo(x+s*0.22,y-s*0.22); ctx.lineWidth=1.5; ctx.stroke();
+    }
+
+    // ── Build deco grid in editor ─────────────────────────────────────────────
+    function buildEdDecoGrid() {
+      const row = document.getElementById('edDecoRow');
+      if (!row || row.dataset.built) return;
+      row.dataset.built = '1';
+      row.innerHTML = DECO_LIBRARY.map(d => `
+        <div class="editor-deco-item" id="deco-${d.id}" onclick="toggleDeco('${d.id}')" title="${d.cat}">
+          ${d.label}
+        </div>
+      `).join('');
+    }
+
+    function toggleDeco(id) {
+      const el = document.getElementById('deco-' + id);
+      if (_edDecoActive.has(id)) {
+        _edDecoActive.delete(id);
+        el?.classList.remove('active');
+      } else {
+        _edDecoActive.add(id);
+        el?.classList.add('active');
+      }
+      editorRedraw();
+    }
+
+    // ── Get editor config from controls ──────────────────────────────────────
+    function getEdConfig() {
+      const g = id => document.getElementById(id);
+      return {
+        bgType:       g('edBgType')?.value       || 'gradient',
+        bgColor1:     g('edBgColor1')?.value     || '#1e3a6e',
+        bgColor2:     g('edBgColor2')?.value     || '#2c5282',
+        bgColor3:     g('edBgColor3')?.value     || '#1e3a6e',
+        frameStyle:   g('edFrameStyle')?.value   || 'classic',
+        frameColor1:  g('edFrameColor1')?.value  || '#c8a84b',
+        frameColor2:  g('edFrameColor2')?.value  || '#1e3a6e',
+        frameWidth:   parseInt(g('edFrameWidth')?.value || 14),
+        title:        g('edTitle')?.value        || (_editorSopaData?.sopa?.titulo || ''),
+        titleFont:    g('edTitleFont')?.value    || 'Georgia,serif',
+        titleColor:   g('edTitleColor')?.value   || '#ffffff',
+        titleShadow:  g('edTitleShadow')?.value  || '#0a1d40',
+        titleDepth:   parseInt(g('edTitleDepth')?.value || 4),
+        gridBgType:   g('edGridBgType')?.value   || 'paper',
+        gridBg:       g('edGridBg')?.value       || '#fdfbf4',
+        gridLine:     g('edGridLine')?.value     || '#d4c9a8',
+        gridBorder:   g('edGridBorder')?.value   || '#1e3a6e',
+        cellColor:    g('edCellColor')?.value    || '#1a202c',
+        foundBg:      g('edFoundBg')?.value      || '#1e3a6e',
+        foundTxt:     g('edFoundTxt')?.value     || '#ffffff',
+        pattern:      g('edPattern')?.value      || 'none',
+        patternColor: g('edPatternColor')?.value || '#c8a84b',
+        patternOpacity: parseInt(g('edPatternOpacity')?.value || 8) / 100,
+        wordBg1:      g('edWordBg1')?.value      || '#1e3a6e',
+        wordBg2:      g('edWordBg2')?.value      || '#162d56',
+        wordText:     g('edWordText')?.value     || '#ffffff',
+        wordBorder:   g('edWordBorder')?.value   || '#c8a84b',
+        decoActive:   [..._edDecoActive],
+      };
+    }
+
+    // ── Main editor canvas renderer ───────────────────────────────────────────
+    function editorRedraw() {
+      const canvas = document.getElementById('editorCanvas');
+      if (!canvas) return;
+      const sopa = _editorSopaData?.sopa;
+      if (!sopa) return;
+      const cfg = getEdConfig();
+
+      // Compute available space
+      const area = document.querySelector('.editor-canvas-area');
+      const availW = area ? Math.max(300, area.clientWidth  - 32) : 460;
+      const availH = area ? Math.max(400, area.clientHeight - 32) : 700;
+
+      // Canvas logical size: target aspect ~9:14 (portrait poster)
+      // Fill available space maintaining aspect ratio
+      const TARGET_RATIO = 9/14;
+      let W, H;
+      if (availW / availH < TARGET_RATIO) {
+        W = Math.floor(availW);
+        H = Math.floor(W / TARGET_RATIO);
+      } else {
+        H = Math.floor(availH);
+        W = Math.floor(H * TARGET_RATIO);
+      }
+      // Clamp to reasonable range
+      W = Math.max(320, Math.min(W, 600));
+      H = Math.max(450, Math.min(H, 900));
+
+      const SCALE = window.devicePixelRatio || 2;
+      canvas.width  = W * SCALE;
+      canvas.height = H * SCALE;
+      canvas.style.width  = W + 'px';
+      canvas.style.height = H + 'px';
+      const ctx = canvas.getContext('2d');
+      ctx.scale(SCALE, SCALE);
+
+      const ROWS = sopa.grilla.length;
+      const COLS = sopa.grilla[0]?.length || ROWS;
+      // Cell size fits grid into ~60% of height
+      const GRID_AREA_H = H * 0.52;
+      const GRID_AREA_W = W - 60;
+      const CELL = Math.max(14, Math.min(32, Math.floor(GRID_AREA_W/COLS), Math.floor(GRID_AREA_H/ROWS)));
+      const palabras = sopa.palabras.map(p => String(p).toUpperCase());
+      const CPR = Math.min(4, Math.ceil(palabras.length/2));
+      const CHIP_H = 28, CHIP_GAP = 5;
+      const CHIP_ROWS = Math.ceil(palabras.length/CPR);
+
+      // ── A. Background ──
+      edDrawBackground(ctx, W, H, cfg);
+
+      // ── B. Pattern ──
+      edDrawPattern(ctx, W, H, cfg);
+
+      // ── C. Frame ──
+      edDrawFrame(ctx, W, H, cfg);
+
+      // ── D. Header ──
+      const FW = cfg.frameWidth;
+      const HEADER_H = Math.round(H * 0.23);  // ~23% of height
+      // Header band
+      const hg = ctx.createLinearGradient(FW, FW, W-FW, FW+HEADER_H);
+      hg.addColorStop(0, cfg.bgColor1+'dd'); hg.addColorStop(1, cfg.bgColor2+'aa');
+      ctx.fillStyle = hg; ctx.fillRect(FW, FW, W-FW*2, HEADER_H);
+
+      // Badge
+      ctx.font = 'bold 11px "Segoe UI",sans-serif';
+      const badge = 'SOPA DE LETRAS:';
+      const bw = ctx.measureText(badge).width + 22, bh = 20;
+      const bx = (W-bw)/2, by = FW+10;
+      edRRect(ctx, bx, by, bw, bh, 4);
+      ctx.fillStyle=cfg.frameColor2; ctx.fill();
+      ctx.strokeStyle=cfg.frameColor1; ctx.lineWidth=1.2; ctx.stroke();
+      ctx.fillStyle=cfg.frameColor1; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(badge, W/2, by+bh/2);
+
+      // Title
+      const title = cfg.title || (sopa.titulo || sopa.tema || 'SOPA DE LETRAS');
+      const tlen = title.length;
+      const baseFS = Math.round(W * 0.105);
+      let tfs = tlen<=12 ? baseFS : tlen<=18 ? Math.round(baseFS*0.82) : tlen<=24 ? Math.round(baseFS*0.65) : tlen<=30 ? Math.round(baseFS*0.52) : Math.round(baseFS*0.42);
+      tfs = Math.max(14, Math.min(tfs, Math.round(W*0.12)));
+      ctx.font = `900 ${tfs}px ${cfg.titleFont}`;
+      while (ctx.measureText(title.toUpperCase()).width > W-FW*2-16 && tfs>12) {
+        tfs-=2; ctx.font=`900 ${tfs}px ${cfg.titleFont}`;
+      }
+      const titleY = FW + HEADER_H*0.52;
+      for (let d=cfg.titleDepth;d>=1;d--) { ctx.fillStyle=cfg.titleShadow; ctx.fillText(title.toUpperCase(),W/2+d,titleY+d); }
+      ctx.fillStyle=cfg.titleColor; ctx.fillText(title.toUpperCase(),W/2,titleY);
+
+      // Deco line + subtitle
+      const decoY = FW + HEADER_H - 28;
+      ctx.strokeStyle=cfg.frameColor1+'99'; ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.moveTo(FW+16,decoY); ctx.lineTo(W-FW-16,decoY); ctx.stroke();
+      ctx.strokeStyle=cfg.frameColor1+'44'; ctx.lineWidth=0.8;
+      ctx.beginPath(); ctx.moveTo(FW+16,decoY+4); ctx.lineTo(W-FW-16,decoY+4); ctx.stroke();
+      ctx.font='12px "Segoe UI",sans-serif'; ctx.fillStyle=cfg.frameColor1+'cc';
+      ctx.fillText(`Encontrá las ${palabras.length} palabras ocultas`, W/2, FW+HEADER_H-10);
+
+      // ── E. Grid area ──
+      const GRID_Y = FW + HEADER_H + Math.round(H*0.018);
+      const gridW = COLS*CELL, gridH = ROWS*CELL;
+      const gx = (W-gridW)/2, gy = GRID_Y+8;
+
+      // Paper box
+      edRRect(ctx, gx-10, GRID_Y, gridW+20, gridH+16, 8);
+      if (cfg.gridBgType==='paper') {
+        const pg = ctx.createRadialGradient(gx+gridW*0.4,GRID_Y+gridH*0.3,0,gx+gridW*0.5,GRID_Y+gridH*0.5,Math.max(gridW,gridH)*0.7);
+        pg.addColorStop(0,'#ffffff'); pg.addColorStop(1,cfg.gridBg);
+        ctx.fillStyle=pg;
+      } else if (cfg.gridBgType==='transparent') {
+        ctx.fillStyle='rgba(0,0,0,0.2)';
+      } else {
+        ctx.fillStyle=cfg.gridBg;
+      }
+      ctx.fill();
+      ctx.save(); ctx.shadowColor='rgba(0,0,0,0.4)'; ctx.shadowBlur=10; ctx.shadowOffsetY=3;
+      edRRect(ctx, gx-10, GRID_Y, gridW+20, gridH+16, 8);
+      ctx.strokeStyle=cfg.gridBorder; ctx.lineWidth=2; ctx.stroke();
+      ctx.restore();
+
+      // Grid lines
+      ctx.strokeStyle=cfg.gridLine; ctx.lineWidth=0.5;
+      for (let r=0;r<=ROWS;r++) { ctx.beginPath(); ctx.moveTo(gx,gy+r*CELL); ctx.lineTo(gx+gridW,gy+r*CELL); ctx.stroke(); }
+      for (let c=0;c<=COLS;c++) { ctx.beginPath(); ctx.moveTo(gx+c*CELL,gy); ctx.lineTo(gx+c*CELL,gy+gridH); ctx.stroke(); }
+      ctx.strokeStyle=cfg.gridBorder+'aa'; ctx.lineWidth=1.5; ctx.strokeRect(gx,gy,gridW,gridH);
+
+      // Cells
+      for (let r=0;r<ROWS;r++) {
+        for (let c=0;c<COLS;c++) {
+          const letter = String(sopa.grilla[r][c]||'?').toUpperCase();
+          const cx2=gx+c*CELL, cy2=gy+r*CELL;
+          ctx.font=`${Math.max(8,CELL-10)}px "Courier New",monospace`;
+          ctx.fillStyle=cfg.cellColor; ctx.textAlign='center'; ctx.textBaseline='middle';
+          ctx.fillText(letter, cx2+CELL/2, cy2+CELL/2);
+        }
+      }
+
+      // ── F. Deco elements (sides) ──
+      cfg.decoActive.forEach((id,i) => {
+        const deco = DECO_LIBRARY.find(d=>d.id===id);
+        if (!deco) return;
+        const side = i%2===0 ? FW/2+6 : W-FW/2-6;
+        const y2 = GRID_Y + 30 + (i*45)%(gridH-30);
+        deco.draw(ctx, side, y2, 22, cfg.frameColor1);
+      });
+
+      // ── G. Words band ──
+      const WORDS_Y = gy + gridH + Math.round(H*0.03);
+      const wg = ctx.createLinearGradient(0,WORDS_Y,0,WORDS_Y+CHIP_ROWS*(CHIP_H+CHIP_GAP)+20);
+      wg.addColorStop(0,cfg.wordBg1); wg.addColorStop(1,cfg.wordBg2);
+      ctx.fillStyle=wg; ctx.fillRect(FW, WORDS_Y, W-FW*2, CHIP_ROWS*(CHIP_H+CHIP_GAP)+24);
+      ctx.strokeStyle=cfg.wordBorder+'88'; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(FW+12,WORDS_Y+1); ctx.lineTo(W-FW-12,WORDS_Y+1); ctx.stroke();
+
+      const chipW2 = (W-FW*2-24-(CPR-1)*CHIP_GAP)/CPR;
+      const csx2 = FW+12, csy2 = WORDS_Y+10;
+      palabras.forEach((word,i) => {
+        const col2=i%CPR, row2=Math.floor(i/CPR);
+        const cx2=csx2+col2*(chipW2+CHIP_GAP), cy2=csy2+row2*(CHIP_H+CHIP_GAP);
+        edRRect(ctx,cx2,cy2,chipW2,CHIP_H,6);
+        ctx.fillStyle='rgba(255,255,255,0.08)'; ctx.fill();
+        ctx.strokeStyle=cfg.wordBorder; ctx.lineWidth=1.2; ctx.stroke();
+        let fs2=11; ctx.font=`bold ${fs2}px "Segoe UI",sans-serif`;
+        while(ctx.measureText(word).width>chipW2-10&&fs2>7){fs2--;ctx.font=`bold ${fs2}px "Segoe UI",sans-serif`;}
+        ctx.fillStyle=cfg.wordText; ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText(word,cx2+chipW2/2,cy2+CHIP_H/2);
+      });
+
+      // ── H. Footer ──
+      const footerY = WORDS_Y + CHIP_ROWS*(CHIP_H+CHIP_GAP) + Math.round(H*0.02);
+      const fg2 = ctx.createLinearGradient(0,footerY,0,footerY+28);
+      fg2.addColorStop(0,cfg.bgColor1+'dd'); fg2.addColorStop(1,cfg.bgColor2+'aa');
+      ctx.fillStyle=fg2; ctx.fillRect(FW,footerY,W-FW*2,28);
+      ctx.font='10px "Segoe UI",sans-serif'; ctx.fillStyle=cfg.frameColor1+'aa';
+      ctx.textAlign='left'; ctx.textBaseline='middle';
+      ctx.fillText('🌊 Ocean AI · Ocean and Wild Studios', FW+12, footerY+14);
+      ctx.textAlign='right';
+      ctx.fillText('0/'+palabras.length+' encontradas', W-FW-12, footerY+14);
+    }
+
+    // ── Background drawer ─────────────────────────────────────────────────────
+    function edDrawBackground(ctx, W, H, cfg) {
+      if (cfg.bgType==='paper') {
+        const g=ctx.createRadialGradient(W*0.4,H*0.3,0,W*0.5,H*0.5,Math.max(W,H)*0.8);
+        g.addColorStop(0,'#ffffff'); g.addColorStop(0.5,cfg.bgColor1); g.addColorStop(1,cfg.bgColor2);
+        ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+        for(let i=0;i<W*H*0.003;i++){ctx.fillStyle=`rgba(100,80,40,${Math.random()*0.04})`;ctx.fillRect(Math.random()*W,Math.random()*H,1,1);}
+      } else if (cfg.bgType==='wood') {
+        const g=ctx.createLinearGradient(0,0,0,H);
+        g.addColorStop(0,cfg.bgColor1); g.addColorStop(0.5,cfg.bgColor2); g.addColorStop(1,cfg.bgColor3);
+        ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+        for(let i=0;i<60;i++){const a=0.02+Math.random()*0.05;ctx.strokeStyle=`rgba(0,0,0,${a})`;ctx.lineWidth=0.5+Math.random()*2;ctx.beginPath();const y2=Math.random()*H;ctx.moveTo(0,y2);ctx.lineTo(W,y2+(Math.random()-0.5)*6);ctx.stroke();}
+      } else if (cfg.bgType==='space') {
+        const g=ctx.createRadialGradient(W/2,H*0.3,0,W/2,H*0.5,Math.max(W,H));
+        g.addColorStop(0,cfg.bgColor2); g.addColorStop(1,cfg.bgColor1);
+        ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+        for(let i=0;i<150;i++){ctx.fillStyle=`rgba(255,255,255,${0.4+Math.random()*0.6})`;ctx.beginPath();ctx.arc(Math.random()*W,Math.random()*H,Math.random()*1.5,0,Math.PI*2);ctx.fill();}
+      } else if (cfg.bgType==='water') {
+        const g=ctx.createLinearGradient(0,0,0,H);
+        g.addColorStop(0,cfg.bgColor1); g.addColorStop(0.5,cfg.bgColor2); g.addColorStop(1,cfg.bgColor3);
+        ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+        ctx.strokeStyle='rgba(255,255,255,0.06)'; ctx.lineWidth=1;
+        for(let y2=16;y2<H;y2+=20){ctx.beginPath();for(let x2=0;x2<=W;x2+=3){const wy=y2+Math.sin((x2+y2*0.5)*0.04)*6;x2===0?ctx.moveTo(x2,wy):ctx.lineTo(x2,wy);}ctx.stroke();}
+      } else if (cfg.bgType==='chalkboard') {
+        ctx.fillStyle='#1a2e1a'; ctx.fillRect(0,0,W,H);
+        for(let i=0;i<W*H*0.005;i++){ctx.fillStyle=`rgba(255,255,255,${Math.random()*0.015})`;ctx.fillRect(Math.random()*W,Math.random()*H,1,1);}
+      } else {
+        const g=ctx.createLinearGradient(0,0,0,H);
+        g.addColorStop(0,cfg.bgColor1); g.addColorStop(0.5,cfg.bgColor2); g.addColorStop(1,cfg.bgColor3);
+        ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+      }
+    }
+
+    // ── Pattern drawer ────────────────────────────────────────────────────────
+    function edDrawPattern(ctx, W, H, cfg) {
+      if (cfg.pattern==='none') return;
+      ctx.save();
+      const hex = cfg.patternColor;
+      const r2=parseInt(hex.slice(1,3),16), g2=parseInt(hex.slice(3,5),16), b2=parseInt(hex.slice(5,7),16);
+      const rgba = `rgba(${r2},${g2},${b2},${cfg.patternOpacity})`;
+      ctx.fillStyle=rgba; ctx.strokeStyle=rgba;
+      if (cfg.pattern==='dots') {
+        for(let x2=14;x2<W;x2+=18)for(let y2=14;y2<H;y2+=18){ctx.beginPath();ctx.arc(x2,y2,1.5,0,Math.PI*2);ctx.fill();}
+      } else if (cfg.pattern==='lines') {
+        ctx.lineWidth=1;
+        for(let y2=0;y2<H;y2+=16){ctx.beginPath();ctx.moveTo(0,y2);ctx.lineTo(W,y2);ctx.stroke();}
+      } else if (cfg.pattern==='diagonal') {
+        ctx.lineWidth=1;
+        for(let i=-H;i<W+H;i+=18){ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i+H,H);ctx.stroke();}
+      } else if (cfg.pattern==='waves') {
+        ctx.lineWidth=1.2;
+        for(let y2=0;y2<H;y2+=22){ctx.beginPath();for(let x2=0;x2<=W;x2+=3){const wy=y2+Math.sin(x2*0.04)*6;x2===0?ctx.moveTo(x2,wy):ctx.lineTo(x2,wy);}ctx.stroke();}
+      } else if (cfg.pattern==='stars') {
+        for(let x2=22;x2<W;x2+=36)for(let y2=22;y2<H;y2+=36)drawPolyStar(ctx,x2,y2,7,3,5,rgba);
+      } else if (cfg.pattern==='music') {
+        ctx.font=`18px serif`;
+        for(let x2=20;x2<W;x2+=50)for(let y2=30;y2<H;y2+=50){ctx.fillText('♩',x2,y2);ctx.fillText('♪',x2+24,y2+20);}
+      } else if (cfg.pattern==='bubbles') {
+        ctx.lineWidth=1;
+        for(let x2=20;x2<W;x2+=40)for(let y2=20;y2<H;y2+=40){const r2=6+Math.random()*8;ctx.beginPath();ctx.arc(x2,y2,r2,0,Math.PI*2);ctx.stroke();}
+      }
+      ctx.restore();
+    }
+
+    // ── Frame drawer ──────────────────────────────────────────────────────────
+    function edDrawFrame(ctx, W, H, cfg) {
+      if (cfg.frameStyle==='none') return;
+      const FW = cfg.frameWidth;
+      const c1 = cfg.frameColor1, c2 = cfg.frameColor2;
+      const fg = ctx.createLinearGradient(0,0,W,0);
+      fg.addColorStop(0,c1); fg.addColorStop(0.5,c2); fg.addColorStop(1,c1);
+      ctx.fillStyle=fg;
+      ctx.fillRect(0,0,W,FW); ctx.fillRect(0,H-FW,W,FW);
+      ctx.fillRect(0,FW,FW,H-FW*2); ctx.fillRect(W-FW,FW,FW,H-FW*2);
+      ctx.strokeStyle=c1; ctx.lineWidth=1.5;
+      ctx.strokeRect(FW+4,FW+4,W-FW*2-8,H-FW*2-8);
+      if (cfg.frameStyle==='ornate') {
+        // Corner ornaments
+        [[FW+4,FW+4],[W-FW-4,FW+4],[FW+4,H-FW-4],[W-FW-4,H-FW-4]].forEach(([cx2,cy2])=>{
+          ctx.save(); ctx.translate(cx2,cy2); ctx.rotate(Math.PI/4);
+          ctx.fillStyle=c1; ctx.fillRect(-5,-5,10,10);
+          ctx.fillStyle=c2; ctx.fillRect(-2.5,-2.5,5,5);
+          ctx.restore();
+        });
+      } else if (cfg.frameStyle==='rustic') {
+        ctx.strokeStyle=c1+'66'; ctx.lineWidth=1;
+        ctx.setLineDash([4,4]);
+        ctx.strokeRect(FW+8,FW+8,W-FW*2-16,H-FW*2-16);
+        ctx.setLineDash([]);
+      } else if (cfg.frameStyle==='modern') {
+        // Thin accent line only
+        ctx.strokeStyle=c1; ctx.lineWidth=2;
+        ctx.strokeRect(FW+2,FW+2,W-FW*2-4,H-FW*2-4);
+      }
+    }
+
+    function edRRect(ctx, x, y, w, h, r) {
+      const R = Math.min(r,w/2,h/2);
+      if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y,w,h,R);return;}
+      ctx.beginPath();
+      ctx.moveTo(x+R,y);ctx.lineTo(x+w-R,y);ctx.quadraticCurveTo(x+w,y,x+w,y+R);
+      ctx.lineTo(x+w,y+h-R);ctx.quadraticCurveTo(x+w,y+h,x+w-R,y+h);
+      ctx.lineTo(x+R,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-R);
+      ctx.lineTo(x,y+R);ctx.quadraticCurveTo(x,y,x+R,y);
+      ctx.closePath();
+    }
+
+    // ── Tab switching ──────────────────────────────────────────────────────────
+    function edSwitchTab(tab) {
+      document.querySelectorAll('.editor-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+      document.querySelectorAll('.editor-ctrl-panel').forEach(p => p.classList.remove('active'));
+      const panel = document.getElementById('edpanel-' + tab);
+      if (panel) panel.classList.add('active');
+      // Show/hide special rows
+      const decoRow = document.getElementById('edDecoRow');
+      const tmplStrip = document.getElementById('edTemplateStrip');
+      if (decoRow) decoRow.style.display = tab === 'deco' ? 'flex' : 'none';
+      if (tmplStrip) tmplStrip.classList.toggle('active', tab === 'plantillas');
+    }
+
+    // ── Open editor ───────────────────────────────────────────────────────────
+    function openEditor(sopaData, uid) {
+      if (sopaData) { _editorSopaData = sopaData; _editorUid = uid; }
+      if (!_editorSopaData) { addBotMessage('⚠️ No hay sopa activa para editar.'); return; }
+      document.body.classList.add('editor-open');
+      document.getElementById('sopaEditorPanel')?.classList.add('open');
+      buildEdDecoGrid();
+      buildEdTemplateStrip();
+      // Set title
+      const sopa = _editorSopaData.sopa;
+      const titleEl = document.getElementById('edTitle');
+      if (titleEl) titleEl.value = titleEl.value || sopa?.titulo || sopa?.tema || '';
+      const sopaTitle = document.getElementById('editorSopaTitle');
+      if (sopaTitle) sopaTitle.textContent = '— ' + (sopa?.titulo || sopa?.tema || '');
+      setTimeout(() => editorRedraw(), 80);
+    }
+
+    function closeEditor() {
+      document.body.classList.remove('editor-open');
+      document.getElementById('sopaEditorPanel')?.classList.remove('open');
+    }
+
+    // ── Build template strip inside editor ────────────────────────────────────
+    function buildEdTemplateStrip() {
+      const strip = document.getElementById('edTemplateStrip');
+      if (!strip || strip.dataset.built) return;
+      strip.dataset.built = '1';
+      // Image upload zone
+      const imgZone = document.createElement('div');
+      imgZone.className = 'editor-img-zone';
+      imgZone.innerHTML = '<span style="font-size:1.4rem;">📸</span><span>Subir imagen de referencia</span><input type="file" accept="image/*" style="display:none" onchange="editorLoadRefImage(this)">';
+      imgZone.onclick = () => imgZone.querySelector('input[type=file]').click();
+      strip.appendChild(imgZone);
+      // Template cards
+      TEMPLATES.forEach(t => {
+        const card = document.createElement('div');
+        card.className = 'editor-tcard';
+        card.id = 'etcard-' + t.id;
+        card.onclick = () => { selectTemplate(t.id); document.querySelectorAll('.editor-tcard').forEach(c=>c.classList.remove('selected')); card.classList.add('selected'); };
+        const cv = document.createElement('canvas'); cv.width=90; cv.height=120;
+        const lbl = document.createElement('div'); lbl.className='editor-tcard-lbl'; lbl.textContent=t.emoji+' '+t.name;
+        card.append(cv, lbl);
+        strip.appendChild(card);
+        setTimeout(() => drawTemplatePreviewSmall(t, cv), 60);
+      });
+    }
+
+    function drawTemplatePreviewSmall(template, canvas) {
+      const W=90, H=120; canvas.width=W; canvas.height=H;
+      const ctx=canvas.getContext('2d'); const cfg=template.config;
+      edDrawBackground(ctx,W,H,cfg); edDrawFrame(ctx,W,H,cfg);
+      const FW=Math.min(cfg.frameWidth,8);
+      const hg=ctx.createLinearGradient(FW,FW,W-FW,FW+40);
+      hg.addColorStop(0,cfg.bgColor1+'cc'); hg.addColorStop(1,cfg.bgColor2+'88');
+      ctx.fillStyle=hg; ctx.fillRect(FW,FW,W-FW*2,40);
+      ctx.font=`bold 9px ${cfg.titleFont||'Georgia,serif'}`; ctx.fillStyle=cfg.titleColor||'#fff';
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(template.name.toUpperCase(),W/2,FW+22);
+      edRRect(ctx,FW+4,FW+44,W-FW*2-8,H-FW*2-48,4);
+      ctx.fillStyle=cfg.gridBg||'#fdfbf4'; ctx.fill();
+      ctx.strokeStyle=cfg.gridBorder||'#1e3a6e'; ctx.lineWidth=1.2; ctx.stroke();
+      const wg=ctx.createLinearGradient(0,H-FW-22,0,H-FW);
+      wg.addColorStop(0,cfg.wordBg1||'#1e3a6e'); wg.addColorStop(1,cfg.wordBg2||'#162d56');
+      ctx.fillStyle=wg; ctx.fillRect(FW,H-FW-20,W-FW*2,20);
+    }
+
+    function editorDownload() {
+      editorRedraw();
+      const canvas = document.getElementById('editorCanvas');
+      if (!canvas) return;
+      const sopa = _editorSopaData?.sopa;
+      const titulo = (sopa?.titulo||sopa?.tema||'sopa').toLowerCase().replace(/[^a-z0-9]/g,'-').replace(/-+/g,'-').slice(0,40);
+      canvas.toBlob(blob=>{
+        const url=URL.createObjectURL(blob);
+        const a=document.createElement('a'); a.href=url; a.download='sopa-editor-'+titulo+'.png';
+        document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+      },'image/png');
+    }
+
+    async function editorSaveAndPay() {
+      if (!oceanPayAuth?.username) { addBotMessage('⚠️ Conectá tu cuenta Ocean Pay para guardar.'); return; }
+      const btn = document.querySelector('.editor-save-btn');
+      if (btn) { btn.textContent = '⏳ Procesando…'; btn.disabled = true; }
+      // Re-use existing sopa data or generate from stored params
+      const params = window.__lastSopaParams || {};
+      if (_editorSopaData) {
+        // Already have sopa — just apply design and download
+        editorDownload();
+        closeEditor();
+        addBotMessage('✅ Sopa guardada con tu diseño personalizado. ¡La podés descargar desde el panel de resultado!');
+        if (btn) { btn.textContent = '💳 Guardar y pagar — 75 CB'; btn.disabled = false; }
+      } else {
+        if (btn) { btn.textContent = '💳 Guardar y pagar — 75 CB'; btn.disabled = false; }
+      }
+    }
+
+    // ── Image reference color extraction ─────────────────────────────────────
+    function editorLoadRefImage(input) {
+      const file = input.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = e => {
+        const img = new Image();
+        img.onload = () => {
+          // Show preview
+          const preview = document.getElementById('edImgPreview');
+          if (preview) { preview.src = e.target.result; preview.style.display='block'; }
+          // Extract dominant colors via canvas sampling
+          const tc = document.createElement('canvas');
+          tc.width=50; tc.height=50;
+          const tctx = tc.getContext('2d');
+          tctx.drawImage(img,0,0,50,50);
+          const pixels = tctx.getImageData(0,0,50,50).data;
+          const palette = extractDominantColors(pixels, 6);
+          showExtractedPalette(palette);
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function extractDominantColors(pixels, count) {
+      // Simple k-means-like color quantization
+      const colors = [];
+      const step = Math.floor(pixels.length/4 / 80);
+      for (let i=0;i<pixels.length;i+=step*4) {
+        const r=pixels[i], g=pixels[i+1], b=pixels[i+2], a=pixels[i+3];
+        if (a<128) continue;
+        // Quantize to reduce similar colors
+        const rq=Math.round(r/32)*32, gq=Math.round(g/32)*32, bq=Math.round(b/32)*32;
+        const hex='#'+[rq,gq,bq].map(v=>Math.min(255,v).toString(16).padStart(2,'0')).join('');
+        colors.push(hex);
+      }
+      // Deduplicate and take most frequent
+      const freq = {};
+      colors.forEach(c=>{freq[c]=(freq[c]||0)+1;});
+      return Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,count).map(e=>e[0]);
+    }
+
+    function showExtractedPalette(colors) {
+      const strip = document.getElementById('edPaletteStrip');
+      if (!strip) return;
+      strip.innerHTML = '<span style="font-size:0.7rem;color:var(--text-muted);white-space:nowrap;align-self:center;">Paleta extraída:</span>' +
+        colors.map(c=>`<div class="editor-swatch" style="background:${c}" title="${c}" onclick="applyColorPalette('${c}')"></div>`).join('');
+      strip.classList.add('visible');
+    }
+
+    function applyColorPalette(mainColor) {
+      // Apply extracted color to multiple fields intelligently
+      document.getElementById('edBgColor1')?.setAttribute('value', mainColor);
+      document.getElementById('edBgColor1').value = mainColor;
+      document.getElementById('edFrameColor2')?.setAttribute('value', mainColor);
+      document.getElementById('edFrameColor2').value = mainColor;
+      document.getElementById('edGridBorder')?.setAttribute('value', mainColor);
+      document.getElementById('edGridBorder').value = mainColor;
+      editorRedraw();
+    }
+
+    // ══ DESIGN OPTIONS (shown after quota error) ══════════════════════════════
+    // Opens editor directly — sopa may already be generated in another uid
+    function showSopaDesignOptions(container, params) {
+      const uid = window.__lastRenderedSopaUid;
+      const stored = uid ? window['_sopaData_'+uid] : null;
+      if (stored?.sopa) {
+        // Sopa already exists — just open editor
+        setTimeout(() => openEditor(stored, uid), 200);
+        const note = document.createElement('div');
+        note.className = 'message-content';
+        note.innerHTML = '🎨 El diseño automático no está disponible ahora. <strong>Se abrió el Editor</strong> para que puedas personalizar tu sopa.';
+        container.appendChild(note);
+      } else {
+        // No sopa yet — show options
+        const div = document.createElement('div');
+        div.className = 'sopa-design-options';
+        div.innerHTML = `
+          <div class="sopa-design-options-title">🎨 Diseño automático no disponible en este momento</div>
+          <div class="sopa-design-options-desc">Podés personalizar el diseño de tu sopa o elegir una plantilla.</div>
+          <div class="sopa-design-options-btns">
+            <button class="sopa-option-btn" onclick="openEditorFromOptions()">
+              <span class="sopa-option-btn-icon">✏️</span>
+              <span class="sopa-option-btn-label">Editor de diseño</span>
+              <span class="sopa-option-btn-desc">Control total sobre el diseño</span>
+            </button>
+            <button class="sopa-option-btn" onclick="edSwitchTab('plantillas');openEditorFromOptions()">
+              <span class="sopa-option-btn-icon">🗂</span>
+              <span class="sopa-option-btn-label">Usar plantilla</span>
+              <span class="sopa-option-btn-desc">8 plantillas diseñadas a mano</span>
+            </button>
+          </div>
+        `;
+        container.appendChild(div);
+        scrollToBottom();
+      }
+    }
+
+    function openEditorFromOptions() {
+      const uid = window.__lastRenderedSopaUid;
+      const sopaData = uid ? window['_sopaData_'+uid] : null;
+      openEditor(sopaData, uid);
+    }
+
+    // ══ TEMPLATES SYSTEM ═════════════════════════════════════════════════════
+    const TEMPLATES = [
+      {
+        id: 'musical',
+        name: 'Musical',
+        emoji: '🎵',
+        config: {
+          bgType:'paper', bgColor1:'#f5e6c8', bgColor2:'#edd9a3', bgColor3:'#e8d090',
+          frameStyle:'ornate', frameColor1:'#8B4513', frameColor2:'#D4A853', frameWidth:16,
+          titleFont:'Georgia,serif', titleColor:'#4a2000', titleShadow:'#8B4513', titleDepth:5,
+          gridBgType:'paper', gridBg:'#fdf8ee', gridLine:'#c8b070', gridBorder:'#8B4513',
+          cellColor:'#3d1a00', foundBg:'#8B4513', foundTxt:'#fff8ee',
+          pattern:'music', patternColor:'#8B4513', patternOpacity:0.06,
+          wordBg1:'#5c2d00', wordBg2:'#3d1a00', wordText:'#f5e6c8', wordBorder:'#D4A853',
+          decoActive:['note1','note2','note3','staff'],
+        }
+      },
+      {
+        id: 'espacial',
+        name: 'Espacial',
+        emoji: '🚀',
+        config: {
+          bgType:'space', bgColor1:'#000010', bgColor2:'#080830', bgColor3:'#0a0a40',
+          frameStyle:'modern', frameColor1:'#00ffff', frameColor2:'#4040ff', frameWidth:10,
+          titleFont:'"Segoe UI",sans-serif', titleColor:'#00ffff', titleShadow:'#000030', titleDepth:3,
+          gridBgType:'dark', gridBg:'#050520', gridLine:'#00ffff20', gridBorder:'#00ffff',
+          cellColor:'#ccffff', foundBg:'#00ffff', foundTxt:'#000020',
+          pattern:'stars', patternColor:'#ffffff', patternOpacity:0.06,
+          wordBg1:'#060620', wordBg2:'#040418', wordText:'#ccffff', wordBorder:'#00ffff',
+          decoActive:['star5','planet'],
+        }
+      },
+      {
+        id: 'oceano',
+        name: 'Océano',
+        emoji: '🌊',
+        config: {
+          bgType:'water', bgColor1:'#001e3c', bgColor2:'#023e8a', bgColor3:'#0077b6',
+          frameStyle:'ornate', frameColor1:'#90e0ef', frameColor2:'#00b4d8', frameWidth:12,
+          titleFont:'Georgia,serif', titleColor:'#caf0f8', titleShadow:'#000d20', titleDepth:4,
+          gridBgType:'paper', gridBg:'#e8f4fd', gridLine:'#7bb8d4', gridBorder:'#00b4d8',
+          cellColor:'#001e3c', foundBg:'#00b4d8', foundTxt:'#001e3c',
+          pattern:'waves', patternColor:'#90e0ef', patternOpacity:0.08,
+          wordBg1:'#012233', wordBg2:'#011627', wordText:'#caf0f8', wordBorder:'#00b4d8',
+          decoActive:['wave','bubble'],
+        }
+      },
+      {
+        id: 'fuego',
+        name: 'Fuego',
+        emoji: '🔥',
+        config: {
+          bgType:'gradient', bgColor1:'#3d0c00', bgColor2:'#7c2d12', bgColor3:'#3d0c00',
+          frameStyle:'ornate', frameColor1:'#fbbf24', frameColor2:'#f97316', frameWidth:14,
+          titleFont:'Georgia,serif', titleColor:'#fed7aa', titleShadow:'#1a0400', titleDepth:5,
+          gridBgType:'paper', gridBg:'#fffaf5', gridLine:'#f0d4b0', gridBorder:'#f97316',
+          cellColor:'#431407', foundBg:'#f97316', foundTxt:'#ffffff',
+          pattern:'diagonal', patternColor:'#f97316', patternOpacity:0.07,
+          wordBg1:'#7c2d12', wordBg2:'#431407', wordText:'#fed7aa', wordBorder:'#fbbf24',
+          decoActive:['fire','star5'],
+        }
+      },
+      {
+        id: 'naturaleza',
+        name: 'Naturaleza',
+        emoji: '🌿',
+        config: {
+          bgType:'gradient', bgColor1:'#1a4a2e', bgColor2:'#2d6a4f', bgColor3:'#1a4a2e',
+          frameStyle:'rustic', frameColor1:'#95d5b2', frameColor2:'#52b788', frameWidth:12,
+          titleFont:'Georgia,serif', titleColor:'#d8f3dc', titleShadow:'#0a2212', titleDepth:4,
+          gridBgType:'paper', gridBg:'#f0faf0', gridLine:'#a8d5b5', gridBorder:'#52b788',
+          cellColor:'#1b4332', foundBg:'#52b788', foundTxt:'#d8f3dc',
+          pattern:'dots', patternColor:'#95d5b2', patternOpacity:0.08,
+          wordBg1:'#1a4a2e', wordBg2:'#0a2212', wordText:'#d8f3dc', wordBorder:'#95d5b2',
+          decoActive:['leaf'],
+        }
+      },
+      {
+        id: 'retro',
+        name: 'Retro',
+        emoji: '📺',
+        config: {
+          bgType:'gradient', bgColor1:'#2d1b69', bgColor2:'#11998e', bgColor3:'#2d1b69',
+          frameStyle:'classic', frameColor1:'#f8f32b', frameColor2:'#ff6b6b', frameWidth:14,
+          titleFont:'Impact,sans-serif', titleColor:'#f8f32b', titleShadow:'#1a0d40', titleDepth:4,
+          gridBgType:'paper', gridBg:'#fef3c7', gridLine:'#fbbf24', gridBorder:'#f8f32b',
+          cellColor:'#1a0d40', foundBg:'#f8f32b', foundTxt:'#1a0d40',
+          pattern:'diagonal', patternColor:'#f8f32b', patternOpacity:0.05,
+          wordBg1:'#1a0d40', wordBg2:'#0d0620', wordText:'#fef3c7', wordBorder:'#f8f32b',
+          decoActive:['star5','cross4'],
+        }
+      },
+      {
+        id: 'pizarron',
+        name: 'Pizarrón',
+        emoji: '📝',
+        config: {
+          bgType:'chalkboard', bgColor1:'#1a2e1a', bgColor2:'#1a2e1a', bgColor3:'#1a2e1a',
+          frameStyle:'rustic', frameColor1:'#ffffff', frameColor2:'#aaaaaa', frameWidth:12,
+          titleFont:'"Segoe UI",sans-serif', titleColor:'#ffffff', titleShadow:'#000000', titleDepth:2,
+          gridBgType:'transparent', gridBg:'rgba(255,255,255,0.08)', gridLine:'rgba(255,255,255,0.15)', gridBorder:'#ffffff',
+          cellColor:'#ffffff', foundBg:'rgba(255,255,100,0.3)', foundTxt:'#ffffff',
+          pattern:'none', patternColor:'#ffffff', patternOpacity:0.04,
+          wordBg1:'rgba(0,0,0,0.4)', wordBg2:'rgba(0,0,0,0.5)', wordText:'#ffffff', wordBorder:'rgba(255,255,255,0.4)',
+          decoActive:[],
+        }
+      },
+      {
+        id: 'clasico',
+        name: 'Clásico',
+        emoji: '📚',
+        config: {
+          bgType:'gradient', bgColor1:'#1e3a6e', bgColor2:'#2c5282', bgColor3:'#1e3a6e',
+          frameStyle:'ornate', frameColor1:'#c8a84b', frameColor2:'#1e3a6e', frameWidth:14,
+          titleFont:'Georgia,serif', titleColor:'#ffffff', titleShadow:'#0a1d40', titleDepth:5,
+          gridBgType:'paper', gridBg:'#fdfbf4', gridLine:'#d4c9a8', gridBorder:'#1e3a6e',
+          cellColor:'#1a202c', foundBg:'#1e3a6e', foundTxt:'#ffffff',
+          pattern:'dots', patternColor:'#c8a84b', patternOpacity:0.06,
+          wordBg1:'#1e3a6e', wordBg2:'#162d56', wordText:'#ffffff', wordBorder:'#c8a84b',
+          decoActive:['cross4','fleur'],
+        }
+      },
+    ];
+
+    let _selectedTemplateId = null;
+    let _templatePreviews = {};
+
+    function openTemplatesModal() {
+      const modal = document.getElementById('templatesModal');
+      if (!modal) return;
+      renderTemplatesGrid();
+      modal.classList.add('open');
+    }
+    function closeTemplatesModal() {
+      document.getElementById('templatesModal')?.classList.remove('open');
+    }
+
+    function renderTemplatesGrid() {
+      const grid = document.getElementById('templatesGrid');
+      if (!grid) return;
+      grid.innerHTML = TEMPLATES.map(t => `
+        <div class="template-card" id="tcard-${t.id}" onclick="selectTemplate('${t.id}')">
+          <canvas id="tcanvas-${t.id}" width="200" height="280"></canvas>
+          <div class="template-card-label">
+            <span>${t.emoji}</span>
+            <span>${t.name}</span>
+          </div>
+        </div>
+      `).join('');
+      // Draw previews
+      TEMPLATES.forEach(t => {
+        setTimeout(() => drawTemplatePreview(t), 50);
+      });
+    }
+
+    function drawTemplatePreview(template) {
+      const canvas = document.getElementById('tcanvas-' + template.id);
+      if (!canvas) return;
+      const W=200, H=280, SCALE=1;
+      canvas.width=W; canvas.height=H;
+      const ctx = canvas.getContext('2d');
+      const cfg = { ...template.config };
+      // Mini version — just draw bg + frame + title
+      edDrawBackground(ctx, W, H, cfg);
+      edDrawPattern(ctx, W, H, cfg);
+      edDrawFrame(ctx, W, H, cfg);
+      const FW=cfg.frameWidth;
+      // Mini header
+      const hg=ctx.createLinearGradient(FW,FW,W-FW,FW+80);
+      hg.addColorStop(0,cfg.bgColor1+'dd'); hg.addColorStop(1,cfg.bgColor2+'aa');
+      ctx.fillStyle=hg; ctx.fillRect(FW,FW,W-FW*2,80);
+      // Badge
+      ctx.font='bold 7px "Segoe UI",sans-serif'; ctx.textAlign='center';
+      const bw2=ctx.measureText('SOPA DE LETRAS:').width+12, bh2=14;
+      edRRect(ctx,(W-bw2)/2,FW+4,bw2,bh2,2); ctx.fillStyle=cfg.frameColor2; ctx.fill();
+      ctx.fillStyle=cfg.frameColor1; ctx.textBaseline='middle'; ctx.fillText('SOPA DE LETRAS:',W/2,FW+11);
+      // Title
+      ctx.font=`bold 14px ${cfg.titleFont}`; ctx.fillStyle=cfg.titleColor;
+      ctx.textBaseline='middle'; ctx.fillText(template.name.toUpperCase(),W/2,FW+50);
+      // Mini grid placeholder
+      edRRect(ctx,FW+8,FW+85,W-FW*2-16,120,6);
+      ctx.fillStyle=cfg.gridBg; ctx.fill();
+      ctx.strokeStyle=cfg.gridBorder; ctx.lineWidth=1.5; ctx.stroke();
+      // Grid lines
+      const cells=8, cz=(W-FW*2-16)/cells;
+      ctx.strokeStyle=cfg.gridLine; ctx.lineWidth=0.4;
+      for(let i=0;i<=cells;i++){
+        ctx.beginPath(); ctx.moveTo(FW+8+i*cz,FW+85); ctx.lineTo(FW+8+i*cz,FW+205); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(FW+8,FW+85+i*cz*1.3); ctx.lineTo(W-FW-8,FW+85+i*cz*1.3); ctx.stroke();
+      }
+      // Word band
+      const wg2=ctx.createLinearGradient(0,FW+210,0,H-FW-4);
+      wg2.addColorStop(0,cfg.wordBg1); wg2.addColorStop(1,cfg.wordBg2);
+      ctx.fillStyle=wg2; ctx.fillRect(FW,FW+210,W-FW*2,H-FW*2-210-4);
+    }
+
+    function selectTemplate(id) {
+      _selectedTemplateId = id;
+      document.querySelectorAll('.template-card').forEach(c=>c.style.borderColor='var(--border)');
+      const card = document.getElementById('tcard-'+id);
+      if (card) card.style.borderColor='var(--accent)';
+    }
+
+    function applySelectedTemplate() {
+      if (!_selectedTemplateId) { addBotMessage('⚠️ Seleccioná una plantilla primero.'); return; }
+      const tmpl = TEMPLATES.find(t=>t.id===_selectedTemplateId);
+      if (!tmpl) return;
+      closeTemplatesModal();
+      // Apply to editor
+      applyTemplateToEditor(tmpl);
+      openEditor(_editorSopaData || { sopa: window['_sopaData_'+window.__lastRenderedSopaUid]?.sopa }, window.__lastRenderedSopaUid);
+      addBotMessage(`✅ Plantilla **${tmpl.emoji} ${tmpl.name}** aplicada. Podés ajustar los detalles en el editor.`);
+    }
+
+    function applyTemplateToEditor(tmpl) {
+      const cfg = tmpl.config;
+      const set = (id,v)=>{ const el=document.getElementById(id); if(el)el.value=v; };
+      set('edBgType',     cfg.bgType);
+      set('edBgColor1',   cfg.bgColor1);
+      set('edBgColor2',   cfg.bgColor2);
+      set('edBgColor3',   cfg.bgColor3);
+      set('edFrameStyle', cfg.frameStyle);
+      set('edFrameColor1',cfg.frameColor1);
+      set('edFrameColor2',cfg.frameColor2);
+      set('edFrameWidth', cfg.frameWidth);
+      const fwLbl = document.getElementById('edFrameWidth')?.nextElementSibling;
+      if (fwLbl) fwLbl.textContent = cfg.frameWidth+'px';
+      set('edTitleFont',  cfg.titleFont);
+      set('edTitleColor', cfg.titleColor);
+      set('edTitleShadow',cfg.titleShadow);
+      set('edTitleDepth', cfg.titleDepth);
+      const tdLbl = document.getElementById('edTitleDepth')?.nextElementSibling;
+      if (tdLbl) tdLbl.textContent = cfg.titleDepth;
+      set('edGridBgType', cfg.gridBgType);
+      set('edGridBg',     cfg.gridBg);
+      set('edGridLine',   cfg.gridLine);
+      set('edGridBorder', cfg.gridBorder);
+      set('edCellColor',  cfg.cellColor);
+      set('edFoundBg',    cfg.foundBg);
+      set('edFoundTxt',   cfg.foundTxt);
+      set('edPattern',    cfg.pattern);
+      set('edPatternColor',cfg.patternColor);
+      set('edPatternOpacity', Math.round(cfg.patternOpacity*100));
+      const popLbl = document.getElementById('edPatternOpacity')?.nextElementSibling;
+      if (popLbl) popLbl.textContent = Math.round(cfg.patternOpacity*100)+'%';
+      set('edWordBg1',    cfg.wordBg1);
+      set('edWordBg2',    cfg.wordBg2);
+      set('edWordText',   cfg.wordText);
+      set('edWordBorder', cfg.wordBorder);
+      // Deco
+      _edDecoActive = new Set(cfg.decoActive || []);
+      document.querySelectorAll('.editor-deco-item').forEach(el=>{
+        const id=el.id.replace('deco-','');
+        el.classList.toggle('active', _edDecoActive.has(id));
+      });
+    }
+
+    // Track last rendered sopa uid
+    const _origRenderSopaResult = typeof renderSopaResult === 'function' ? renderSopaResult : null;
+
+
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // EDITOR — PALABRAS EDITING + REGENERATION
+    // ══════════════════════════════════════════════════════════════════════════
+
+    const ED_REGEN_COST = 25; // CB to regenerate
+
+    // Build the words input fields when switching to the tab
+    function edBuildPalabrasInputs() {
+      const container = document.getElementById('edPalabrasInputs');
+      if (!container) return;
+      container.innerHTML = '';
+      const sopa = _editorSopaData?.sopa;
+      const palabras = sopa?.palabras?.map(p => String(p).toUpperCase()) || [];
+      palabras.forEach((p, i) => {
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'display:flex;align-items:center;gap:3px;';
+        const inp = document.createElement('input');
+        inp.type = 'text'; inp.value = p;
+        inp.id = 'ed-palabra-' + i;
+        inp.maxLength = 20;
+        inp.style.cssText = 'background:#1e293b;border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:var(--text-main);padding:4px 7px;font-size:0.75rem;font-family:inherit;width:110px;outline:none;text-transform:uppercase;';
+        inp.oninput = () => { inp.value = inp.value.toUpperCase(); };
+        inp.onfocus = () => inp.style.borderColor = 'var(--accent)';
+        inp.onblur  = () => inp.style.borderColor = 'rgba(255,255,255,0.15)';
+        const del = document.createElement('button');
+        del.textContent = '✕'; del.title = 'Eliminar';
+        del.style.cssText = 'background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);color:#f87171;border-radius:5px;width:22px;height:22px;cursor:pointer;font-size:0.7rem;padding:0;font-family:inherit;';
+        del.onclick = () => { wrap.remove(); };
+        wrap.append(inp, del);
+        container.appendChild(wrap);
+      });
+    }
+
+    function edAddPalabra() {
+      const container = document.getElementById('edPalabrasInputs');
+      if (!container) return;
+      const count = container.querySelectorAll('input').length;
+      if (count >= 15) { edSetRegenStatus('Máximo 15 palabras.', 'warn'); return; }
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'display:flex;align-items:center;gap:3px;';
+      const inp = document.createElement('input');
+      inp.type = 'text'; inp.placeholder = 'NUEVA PALABRA';
+      inp.id = 'ed-palabra-' + Date.now();
+      inp.maxLength = 20;
+      inp.style.cssText = 'background:#1e293b;border:1px solid var(--accent);border-radius:6px;color:var(--text-main);padding:4px 7px;font-size:0.75rem;font-family:inherit;width:110px;outline:none;text-transform:uppercase;';
+      inp.oninput = () => { inp.value = inp.value.toUpperCase(); };
+      inp.onfocus = () => inp.style.borderColor = 'var(--accent)';
+      inp.onblur  = () => inp.style.borderColor = 'rgba(255,255,255,0.15)';
+      const del = document.createElement('button');
+      del.textContent = '✕';
+      del.style.cssText = 'background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);color:#f87171;border-radius:5px;width:22px;height:22px;cursor:pointer;font-size:0.7rem;padding:0;font-family:inherit;';
+      del.onclick = () => wrap.remove();
+      wrap.append(inp, del);
+      container.appendChild(wrap);
+      inp.focus();
+    }
+
+    function edSetRegenStatus(msg, type) {
+      const el = document.getElementById('edRegenStatus');
+      if (!el) return;
+      el.textContent = msg;
+      el.style.color = type === 'error' ? '#f87171' : type === 'ok' ? '#34d399' : type === 'warn' ? '#fbbf24' : 'var(--text-muted)';
+    }
+
+    async function edRegenSopa() {
+      if (!oceanPayAuth?.username) { edSetRegenStatus('Conectá Ocean Pay primero.', 'error'); return; }
+      if (coralBits < ED_REGEN_COST) { edSetRegenStatus(`Saldo insuficiente. Necesitás ${ED_REGEN_COST} CB.`, 'error'); return; }
+
+      // Collect palabras from inputs
+      const inputs = document.querySelectorAll('#edPalabrasInputs input[type=text]');
+      const nuevasPalabras = [...inputs].map(i => i.value.trim().toUpperCase()).filter(p => p.length >= 2);
+      if (nuevasPalabras.length < 3) { edSetRegenStatus('Ingresá al menos 3 palabras.', 'warn'); return; }
+
+      edSetRegenStatus('⏳ Regenerando sopa…', '');
+      const regenBtn = document.querySelector('[onclick="edRegenSopa()"]');
+      if (regenBtn) { regenBtn.disabled = true; regenBtn.textContent = '⏳ Generando…'; }
+
+      const sopa = _editorSopaData?.sopa;
+      const tema = sopa?.tema || document.getElementById('edTitle')?.value || 'General';
+      const tamanio = sopa?.grilla?.length || 15;
+
+      try {
+        const res = await fetch(`${API}/ocean-ai/tools/sopa-letras`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: oceanPayAuth.username,
+            password: oceanPayAuth.password,
+            tema,
+            nombre: document.getElementById('edTitle')?.value || tema,
+            diseno: 'clasico',
+            tamanio,
+            instrucciones: `Usá EXACTAMENTE estas palabras (todas deben aparecer): ${nuevasPalabras.join(', ')}. No agregues ni quites palabras.`,
+            coralBitsCost: ED_REGEN_COST  // signal server to charge reduced cost
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al regenerar');
+
+        // Deduct locally
+        coralBits = Math.max(0, coralBits - ED_REGEN_COST);
+        updateCurrencyUI();
+
+        // Update stored sopa data
+        _editorSopaData = { ..._editorSopaData, sopa: data.sopa };
+        if (_editorUid !== null) {
+          const stored = window['_sopaData_' + _editorUid] || {};
+          window['_sopaData_' + _editorUid] = { ...stored, sopa: data.sopa };
+        }
+
+        edSetRegenStatus('✅ Sopa regenerada con las nuevas palabras.', 'ok');
+        editorRedraw();
+        // Re-build inputs with confirmed palabras
+        setTimeout(() => edBuildPalabrasInputs(), 300);
+      } catch(err) {
+        edSetRegenStatus('⚠️ ' + (err.message || 'Error').slice(0, 80), 'error');
+      } finally {
+        if (regenBtn) { regenBtn.disabled = false; regenBtn.textContent = `🔄 Regenerar sopa — ${ED_REGEN_COST} CB`; }
+      }
+    }
+
+    // Hook into edSwitchTab to build palabras inputs on demand
+    const _origEdSwitchTab = edSwitchTab;
+    // Override edSwitchTab to also build inputs
+    function edSwitchTab(tab) {
+      document.querySelectorAll('.editor-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+      document.querySelectorAll('.editor-ctrl-panel').forEach(p => p.classList.remove('active'));
+      const panel = document.getElementById('edpanel-' + tab);
+      if (panel) panel.classList.add('active');
+      const decoRow = document.getElementById('edDecoRow');
+      const tmplStrip = document.getElementById('edTemplateStrip');
+      if (decoRow) decoRow.style.display = tab === 'deco' ? 'flex' : 'none';
+      if (tmplStrip) tmplStrip.classList.toggle('active', tab === 'plantillas');
+      // Build palabras inputs when switching to that tab
+      if (tab === 'palabras-edit') edBuildPalabrasInputs();
+    }
+
+    // Trigger resize-based redraw when editor opens or window resizes
+    let _edResizeTimer = null;
+    window.addEventListener('resize', () => {
+      if (!document.body.classList.contains('editor-open')) return;
+      clearTimeout(_edResizeTimer);
+      _edResizeTimer = setTimeout(() => editorRedraw(), 120);
+    });
 
 </script>
 </body>

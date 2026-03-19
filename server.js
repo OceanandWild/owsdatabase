@@ -16196,7 +16196,9 @@ app.post('/ocean-ai/tools/sopa-letras', async (req, res) => {
   const diseno        = String(req.body?.diseno        || 'clasico').trim();
   const tamanio       = parseInt(req.body?.tamanio || 15);
   const instrucciones = String(req.body?.instrucciones || '').trim(); // User design instructions
-  const SOPA_COST = 75;
+  // Allow reduced cost for regeneration (editor regen = 25 CB)
+  const clientCost = parseInt(req.body?.coralBitsCost || 0);
+  const SOPA_COST = (clientCost >= 10 && clientCost <= 75) ? clientCost : 75;
 
   if (!tema) return res.status(400).json({ error: 'Tema requerido' });
 

@@ -168,6 +168,11 @@ function Register-NewProject {
     $body = @{
         slug     = $Slug
         name     = $Name
+        description = "$Name en OWS Store"
+        url = "https://github.com/$ORG/$Repo/releases/latest"
+        icon_url = "https://raw.githubusercontent.com/$ORG/$Repo/main/build/icon.png"
+        banner_url = ""
+        version = "1.0.0"
         platform = $Plat
         metadata = $meta
         status   = "coming_soon"

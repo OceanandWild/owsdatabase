@@ -785,6 +785,44 @@
       display: flex; align-items: center; gap: 10px;
     }
     .tool-panel-icon { font-size: 1.5rem; }
+    .tool-btn {
+      background: linear-gradient(135deg, rgba(0,180,255,0.18), rgba(0,180,255,0.08));
+      border: 1px solid rgba(0,180,255,0.35);
+      color: var(--accent);
+      border-radius: 9px;
+      padding: 9px 18px;
+      font-size: 0.84rem;
+      font-family: inherit;
+      font-weight: 600;
+      cursor: pointer;
+      letter-spacing: 0.03em;
+      transition: background 0.18s, border-color 0.18s, opacity 0.18s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .tool-btn:hover:not(:disabled) {
+      background: rgba(0,180,255,0.25);
+      border-color: rgba(0,180,255,0.55);
+    }
+    .tool-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .tool-btn.loading {
+      opacity: 0.7;
+      cursor: wait;
+    }
+    .tool-sub {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    .tool-panel-sub {
+      font-size: 0.76rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
     .tool-panel-title { font-size: 1rem; font-weight: 700; color: var(--text-main); }
     .tool-panel-subtitle { font-size: 0.78rem; color: var(--text-muted); margin-top: 1px; }
     .tool-panel-row {
@@ -843,6 +881,348 @@
       font-size: 0.72rem; color: var(--text-muted);
       margin-top: 5px; margin-left: 2px;
     }
+
+
+    /* ══ SOPA DE LETRAS ══ */
+    .sopa-confirm-overlay {
+      position: fixed; inset: 0; background: rgba(2,6,23,0.92);
+      z-index: 1100; display: flex; align-items: center; justify-content: center;
+      backdrop-filter: blur(6px);
+    }
+    .sopa-confirm-box {
+      width: min(400px, 94vw); background: #0f172a;
+      border: 1px solid rgba(249,115,22,0.35); border-radius: 18px; padding: 24px;
+      display: flex; flex-direction: column; gap: 16px;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.8);
+    }
+    .sopa-confirm-title { font-size: 1.05rem; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+    .sopa-confirm-desc { font-size: 0.85rem; color: var(--text-muted); line-height: 1.5; }
+    .sopa-confirm-cost {
+      background: rgba(249,115,22,0.08); border: 1px solid rgba(249,115,22,0.25);
+      border-radius: 10px; padding: 12px 16px;
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 0.85rem; color: var(--text-muted);
+    }
+    .sopa-confirm-cost-val { color: #fb923c; font-weight: 800; font-size: 1rem; }
+    .sopa-confirm-btns { display: flex; gap: 10px; }
+    .sopa-confirm-btn-cancel {
+      flex: 1; background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+      color: var(--text-muted); border-radius: 10px; padding: 10px; font-size: 0.88rem;
+      font-weight: 600; cursor: pointer; transition: background 0.18s; font-family: inherit;
+    }
+    .sopa-confirm-btn-cancel:hover { background: rgba(255,255,255,0.1); }
+    .sopa-confirm-btn-ok {
+      flex: 2; background: linear-gradient(135deg, #f97316, #fb923c);
+      border: none; color: #000; border-radius: 10px; padding: 10px;
+      font-size: 0.9rem; font-weight: 800; cursor: pointer; font-family: inherit;
+      transition: opacity 0.18s;
+    }
+    .sopa-confirm-btn-ok:hover { opacity: 0.88; }
+    .sopa-confirm-btn-ok:disabled { opacity: 0.5; cursor: not-allowed; }
+    /* Sopa de letras result panel */
+    .sopa-result-panel {
+      background: rgba(249,115,22,0.04); border: 1px solid rgba(249,115,22,0.2);
+      border-radius: 14px; padding: 20px;
+      display: flex; flex-direction: column; gap: 14px;
+    }
+    .sopa-result-header { display: flex; align-items: center; gap: 10px; }
+    .sopa-result-title { font-size: 1rem; font-weight: 700; }
+    .sopa-result-subtitle { font-size: 0.78rem; color: var(--text-muted); margin-top: 1px; }
+    .sopa-grid-wrap { overflow-x: auto; }
+    .sopa-grid {
+      display: inline-grid; gap: 3px; border: 1px solid rgba(249,115,22,0.2);
+      border-radius: 10px; padding: 10px; background: rgba(0,0,0,0.2);
+    }
+    .sopa-cell {
+      width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+      font-size: 0.78rem; font-weight: 700; font-family: 'Courier New', monospace;
+      border-radius: 5px; cursor: pointer; transition: background 0.15s, color 0.15s;
+      background: rgba(255,255,255,0.04); color: var(--text-main);
+      user-select: none;
+    }
+    .sopa-cell:hover { background: rgba(249,115,22,0.15); }
+    .sopa-cell.found { background: rgba(249,115,22,0.28); color: #fb923c; font-weight: 900; }
+    .sopa-cell.selecting { background: rgba(0,180,255,0.25); color: var(--accent); }
+    .sopa-words-list {
+      display: flex; flex-wrap: wrap; gap: 8px;
+    }
+    .sopa-word-chip {
+      background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+      border-radius: 999px; padding: 4px 12px; font-size: 0.78rem;
+      font-weight: 600; color: var(--text-muted); transition: all 0.2s;
+    }
+    .sopa-word-chip.found {
+      background: rgba(52,211,153,0.12); border-color: rgba(52,211,153,0.4);
+      color: #34d399; text-decoration: line-through;
+    }
+    .sopa-footer {
+      font-size: 0.78rem; color: var(--text-muted);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .sopa-found-count { font-weight: 700; color: #fb923c; }
+    .sopa-hint { font-size: 0.72rem; color: var(--text-muted); font-style: italic; }
+    .sopa-modify-btn {
+      background: rgba(249,115,22,0.1); border: 1px solid rgba(249,115,22,0.3);
+      color: #fb923c; border-radius: 8px; padding: 7px 16px;
+      font-size: 0.8rem; font-weight: 700; cursor: pointer; font-family: inherit;
+      transition: background 0.18s;
+    }
+    .sopa-modify-btn:hover { background: rgba(249,115,22,0.2); }
+    .sopa-modify-cost { font-size: 0.7rem; color: var(--text-muted); margin-left: 4px; }
+    /* Design themes */
+    .sopa-tema-oceano .sopa-cell { background: rgba(0,100,180,0.08); }
+    .sopa-tema-oceano .sopa-cell.found { background: rgba(0,180,255,0.3); color: var(--accent); }
+    .sopa-tema-neon .sopa-cell { border: 1px solid rgba(0,255,100,0.08); }
+    .sopa-tema-neon .sopa-cell.found { background: rgba(0,255,100,0.2); color: #00ff64; }
+    .sopa-tema-fuego .sopa-cell.found { background: rgba(249,115,22,0.35); color: #fb923c; }
+
+
+    /* ══ TOOL CALL INDICATOR (dropdown in bot message) ══ */
+    .tool-call-indicator {
+      display: flex; align-items: center; gap: 6px;
+      color: #64748b; font-size: 0.75rem; cursor: pointer;
+      padding: 4px 0; user-select: none; width: fit-content;
+      margin-bottom: 6px;
+    }
+    .tool-call-indicator:hover { color: #94a3b8; }
+    .tool-call-indicator-arrow {
+      font-size: 0.6rem; transition: transform 0.2s;
+    }
+    .tool-call-indicator.open .tool-call-indicator-arrow { transform: rotate(90deg); }
+    .tool-call-indicator-count { font-weight: 600; }
+    .tool-call-indicator-spinner {
+      width: 10px; height: 10px; border-radius: 50%;
+      border: 2px solid rgba(100,116,139,0.3);
+      border-top-color: #64748b;
+      animation: tci-spin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+    @keyframes tci-spin { to { transform: rotate(360deg); } }
+    .tool-call-indicator-spinner.done { display: none; }
+    .tool-call-details {
+      display: none; background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.07); border-radius: 8px;
+      padding: 8px 12px; margin-bottom: 8px; font-size: 0.72rem;
+      color: #64748b; line-height: 1.7;
+    }
+    .tool-call-details.open { display: block; }
+    .tool-call-detail-row { display: flex; align-items: center; gap: 6px; }
+    .tool-call-detail-row.running { color: #94a3b8; }
+    .tool-call-detail-row.error { color: #f87171; }
+    .tool-call-detail-row.success { color: #34d399; }
+
+
+    /* ══ SOPA DOWNLOAD / CANVAS ══ */
+    .sopa-download-bar {
+      display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+      padding: 10px 0 0;
+    }
+    .sopa-download-btn {
+      background: linear-gradient(135deg,#6366f1,#818cf8);
+      border: none; color: #fff; border-radius: 10px;
+      padding: 9px 20px; font-size: 0.85rem; font-weight: 700;
+      cursor: pointer; font-family: inherit; display: flex;
+      align-items: center; gap: 7px; transition: opacity 0.18s;
+    }
+    .sopa-download-btn:hover { opacity: 0.88; }
+    .sopa-download-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .sopa-download-btn.loading { opacity: 0.7; cursor: wait; }
+    .sopa-preview-toggle {
+      background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+      color: var(--text-muted); border-radius: 10px;
+      padding: 9px 16px; font-size: 0.82rem; font-weight: 600;
+      cursor: pointer; font-family: inherit; transition: background 0.18s;
+    }
+    .sopa-preview-toggle:hover { background: rgba(255,255,255,0.1); color: var(--text-main); }
+    .sopa-canvas-preview {
+      margin-top: 10px; display: none;
+      border-radius: 12px; overflow: hidden;
+      border: 1px solid var(--border); max-width: 100%;
+    }
+    .sopa-canvas-preview.visible { display: block; }
+    .sopa-canvas-preview canvas { display: block; max-width: 100%; height: auto; border-radius: 12px; }
+
+    /* ══ SOPA LOCKED (blur + lock overlay) ══ */
+    .sopa-locked-wrap { position: relative; }
+    .sopa-locked-blur { filter: blur(5px); pointer-events: none; user-select: none; }
+    .sopa-lock-overlay {
+      position: absolute; inset: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 10px;
+      background: rgba(2,6,23,0.55); border-radius: 10px; z-index: 2;
+    }
+    .sopa-lock-icon { font-size: 2rem; }
+    .sopa-lock-label {
+      font-size: 0.82rem; font-weight: 700; color: var(--text-main);
+      background: rgba(2,6,23,0.8); border-radius: 8px; padding: 4px 12px;
+    }
+    .sopa-unlocked { filter: none !important; pointer-events: auto !important; animation: sopa-unlock 0.5s ease; }
+    @keyframes sopa-unlock {
+      from { filter: blur(5px); opacity: 0.6; }
+      to   { filter: none;      opacity: 1; }
+    }
+
+    /* ══ PENDING PAYMENTS MODAL ══ */
+    .pending-modal {
+      position: fixed; inset: 0; background: rgba(2,6,23,0.92);
+      z-index: 1200; display: none; align-items: center; justify-content: center;
+      backdrop-filter: blur(6px);
+    }
+    .pending-modal.open { display: flex; }
+    .pending-shell {
+      width: min(500px, 96vw); background: #0f172a;
+      border: 1px solid rgba(239,68,68,0.3); border-radius: 18px; padding: 24px;
+      display: flex; flex-direction: column; gap: 16px;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.8); max-height: 80vh; overflow-y: auto;
+    }
+    .pending-header { display: flex; align-items: center; justify-content: space-between; }
+    .pending-title { font-size: 1.05rem; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+    .pending-close {
+      background: none; border: none; color: var(--text-muted); font-size: 1.2rem;
+      cursor: pointer; padding: 4px; transition: color 0.18s;
+    }
+    .pending-close:hover { color: var(--text-main); }
+    .pending-empty { font-size: 0.85rem; color: var(--text-muted); text-align: center; padding: 12px 0; }
+    .pending-item {
+      background: rgba(239,68,68,0.05); border: 1px solid rgba(239,68,68,0.2);
+      border-radius: 12px; padding: 14px 16px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .pending-item-title { font-size: 0.9rem; font-weight: 700; }
+    .pending-item-reason { font-size: 0.78rem; color: #f87171; }
+    .pending-item-meta { font-size: 0.75rem; color: var(--text-muted); }
+    .pending-item-pay {
+      background: linear-gradient(135deg, #ef4444, #f87171);
+      border: none; color: #fff; border-radius: 8px; padding: 8px 16px;
+      font-size: 0.82rem; font-weight: 700; cursor: pointer; font-family: inherit;
+      align-self: flex-end; transition: opacity 0.18s;
+    }
+    .pending-item-pay:hover { opacity: 0.85; }
+
+    /* Pending nav button (in sidebar or header) */
+    .pending-nav-btn {
+      position: relative; background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.25); border-radius: 8px;
+      color: #f87171; font-size: 0.78rem; font-weight: 700;
+      padding: 5px 12px; cursor: pointer; font-family: inherit;
+      display: none; align-items: center; gap: 5px;
+      transition: background 0.18s;
+    }
+    .pending-nav-btn.has-items { display: flex; }
+    .pending-nav-btn:hover { background: rgba(239,68,68,0.18); }
+    .pending-nav-badge {
+      background: #ef4444; color: #fff; border-radius: 999px;
+      font-size: 0.65rem; font-weight: 800; padding: 1px 6px; min-width: 18px;
+      text-align: center;
+    }
+
+    /* ── Recharge Modal ── */
+    .recharge-modal {
+      position: fixed; inset: 0;
+      background: rgba(2,6,23,0.92);
+      z-index: 1002; display: none;
+      align-items: center; justify-content: center;
+      backdrop-filter: blur(6px);
+    }
+    .recharge-modal.open { display: flex; }
+    .recharge-shell {
+      width: min(480px, 96vw);
+      background: #0f172a;
+      border: 1px solid rgba(0,180,255,0.2);
+      border-radius: 18px; padding: 24px;
+      display: flex; flex-direction: column; gap: 18px;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.8);
+    }
+    .recharge-header {
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .recharge-title {
+      font-size: 1.1rem; font-weight: 800; display: flex; align-items: center; gap: 8px;
+    }
+    .recharge-subtitle { font-size: 0.8rem; color: var(--text-muted); margin-top: 3px; }
+    .recharge-balance-row {
+      background: rgba(0,180,255,0.06); border: 1px solid rgba(0,180,255,0.15);
+      border-radius: 10px; padding: 12px 16px;
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 0.85rem;
+    }
+    .recharge-balance-val { font-weight: 700; color: var(--accent); font-size: 1rem; }
+    .recharge-packages {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+    }
+    .recharge-pkg {
+      background: rgba(255,255,255,0.03); border: 1px solid var(--border);
+      border-radius: 12px; padding: 14px 10px; text-align: center;
+      cursor: pointer; transition: all 0.18s; position: relative;
+    }
+    .recharge-pkg:hover { border-color: rgba(0,180,255,0.4); background: rgba(0,180,255,0.05); }
+    .recharge-pkg.selected {
+      border-color: var(--accent); background: rgba(0,180,255,0.1);
+      box-shadow: 0 0 0 1px var(--accent);
+    }
+    .recharge-pkg-popular {
+      position: absolute; top: -9px; left: 50%; transform: translateX(-50%);
+      background: var(--accent); color: #000; font-size: 0.58rem; font-weight: 800;
+      padding: 2px 8px; border-radius: 999px; white-space: nowrap;
+    }
+    .recharge-pkg-cb { font-size: 1.3rem; font-weight: 800; color: var(--text-main); }
+    .recharge-pkg-label { font-size: 0.7rem; color: var(--text-muted); margin-top: 2px; }
+    .recharge-pkg-cost {
+      margin-top: 8px; font-size: 0.75rem; font-weight: 600;
+      color: #fbbf24; display: flex; align-items: center; justify-content: center; gap: 4px;
+    }
+    .recharge-divider { border: none; border-top: 1px solid var(--border); }
+    .recharge-currency-row {
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .recharge-currency-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+    .recharge-currency-opts {
+      display: flex; flex-wrap: wrap; gap: 6px;
+    }
+    .recharge-currency-opt {
+      background: var(--bg-input); border: 1px solid var(--border);
+      border-radius: 8px; padding: 6px 12px; font-size: 0.8rem;
+      cursor: pointer; transition: all 0.15s; color: var(--text-muted);
+    }
+    .recharge-currency-opt:hover { border-color: rgba(0,180,255,0.4); color: var(--text-main); }
+    .recharge-currency-opt.selected {
+      border-color: var(--accent); color: var(--accent); background: rgba(0,180,255,0.08);
+    }
+    .recharge-summary {
+      background: rgba(255,255,255,0.03); border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px 16px; font-size: 0.83rem;
+      display: flex; align-items: center; justify-content: space-between;
+      color: var(--text-muted); gap: 8px;
+    }
+    .recharge-summary-val { font-weight: 700; color: var(--text-main); }
+    .recharge-confirm-btn {
+      background: var(--accent); border: none; border-radius: 12px;
+      color: #000; font-weight: 800; font-size: 0.95rem;
+      padding: 13px; cursor: pointer; width: 100%;
+      transition: opacity 0.2s;
+    }
+    .recharge-confirm-btn:hover { opacity: 0.88; }
+    .recharge-confirm-btn:disabled { background: #334155; color: var(--text-muted); cursor: not-allowed; }
+    .recharge-confirm-btn.loading {
+      background: #1e293b; color: var(--text-muted); cursor: not-allowed;
+      position: relative; overflow: hidden;
+    }
+    .recharge-confirm-btn.loading::after {
+      content: ''; position: absolute; left: -100%; top: 0; width: 60%; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.07), transparent);
+      animation: tool-shimmer 1.2s linear infinite;
+    }
+    .recharge-status { font-size: 0.82rem; text-align: center; min-height: 1.2em; }
+    .recharge-status.success { color: #34d399; }
+    .recharge-status.error   { color: #f87171; }
+    /* Banner recharge button */
+    .cb-banner-recharge {
+      background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 6px; color: inherit; font-size: 0.78rem; font-weight: 600;
+      padding: 3px 10px; cursor: pointer; white-space: nowrap; flex-shrink: 0;
+      transition: background 0.15s;
+    }
+    .cb-banner-recharge:hover { background: rgba(255,255,255,0.18); }
+
   </style>
 </head>
 <body>
@@ -881,6 +1261,9 @@
             <div class="coin-2d">C</div>
             <span id="currencyBalance">0 Coral Bits</span>
           </div>
+          <button class="pending-nav-btn" id="pendingNavBtn" onclick="openPendingModal()" style="width:100%;justify-content:center;">
+            ⏳ Pagos Pendientes <span class="pending-nav-badge" id="pendingNavBadge">0</span>
+          </button>
         </div>
       </div>
 
@@ -920,7 +1303,10 @@
         <span class="cb-banner-icon" id="cbBannerIcon">🪙</span>
         <span id="cbBannerText"></span>
       </div>
-      <button class="cb-banner-close" onclick="document.getElementById('cbBanner').classList.remove('visible')" title="Cerrar">✕</button>
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+        <button class="cb-banner-recharge" id="cbBannerRechargeBtn" onclick="openRechargeModal()" style="display:none">🪙 Recargar</button>
+        <button class="cb-banner-close" onclick="document.getElementById('cbBanner').classList.remove('visible')" title="Cerrar">✕</button>
+      </div>
     </div>
 
     <!-- Header -->
@@ -973,10 +1359,113 @@
           </button>
         </div>
         <div class="disclaimer">Ocean AI puede cometer errores. Considera verificar la información importante.</div>
-        <div class="tool-hint">💡 Usa <strong>/generardivisas</strong> o <strong>/boostreputacion</strong> para ejecutar herramientas de IA</div>
+        <div class="tool-hint">
+        <button onclick="openToolsModal()" style="background:rgba(0,180,255,0.12);border:1px solid rgba(0,180,255,0.3);color:var(--accent);border-radius:8px;padding:5px 12px;font-size:0.72rem;cursor:pointer;letter-spacing:0.04em;">
+          ⚡ Ver herramientas de IA disponibles
+        </button>
+      </div>
       </div>
     </div>
   </main>
+
+
+
+  <!-- ══ PENDING PAYMENTS MODAL ══ -->
+  <div class="pending-modal" id="pendingModal">
+    <div class="pending-shell">
+      <div class="pending-header">
+        <div class="pending-title">⏳ Pagos Pendientes de Herramientas</div>
+        <button class="pending-close" onclick="closePendingModal()">✕</button>
+      </div>
+      <div style="font-size:0.8rem;color:var(--text-muted);">
+        Estos pagos no pudieron completarse. Podés intentarlo nuevamente desde aquí.
+      </div>
+      <div id="pendingItemsList">
+        <div class="pending-empty">No hay pagos pendientes.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ TOOLS MODAL ══ -->
+  <div id="toolsModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;align-items:center;justify-content:center;">
+    <div style="background:#0f172a;border:1px solid rgba(0,180,255,0.2);border-radius:16px;width:min(700px,95vw);max-height:85vh;overflow-y:auto;padding:0;">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:1.2rem 1.5rem;border-bottom:1px solid rgba(255,255,255,0.07);">
+        <div style="font-size:1rem;font-weight:600;color:var(--text-main);">⚡ Herramientas de IA</div>
+        <button onclick="closeToolsModal()" style="background:none;border:none;color:var(--text-muted);font-size:1.2rem;cursor:pointer;padding:4px 8px;">✕</button>
+      </div>
+      <div style="padding:1rem 1.5rem 0.5rem;font-size:0.75rem;color:var(--text-muted);">
+        Escribe el comando en el chat para ejecutar la herramienta. Las herramientas marcadas con 🔒 requieren un plan superior.
+      </div>
+      <div id="toolsModalGrid" style="padding:0.75rem 1.5rem 1.5rem;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:0.75rem;">
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ RECHARGE MODAL ══ -->
+  <div id="rechargeModal" class="recharge-modal">
+    <div class="recharge-shell">
+      <div class="recharge-header">
+        <div>
+          <div class="recharge-title">🪙 Recargar Coral Bits</div>
+          <div class="recharge-subtitle">Canjeá divisas de tu cuenta Ocean Pay por Coral Bits</div>
+        </div>
+        <button class="plans-close-btn" onclick="closeRechargeModal()">✕</button>
+      </div>
+
+      <!-- Current CB balance -->
+      <div class="recharge-balance-row">
+        <span>Coral Bits actuales</span>
+        <span class="recharge-balance-val" id="rechargeCurrentCB">0 CB</span>
+      </div>
+
+      <!-- Package selector -->
+      <div>
+        <div class="recharge-currency-label" style="margin-bottom:10px">Elegí un paquete</div>
+        <div class="recharge-packages" id="rechargePackages">
+          <div class="recharge-pkg" data-pkg="100" data-cost-abx="50" onclick="selectRechargePkg(this)">
+            <div class="recharge-pkg-cb">100</div>
+            <div class="recharge-pkg-label">Coral Bits</div>
+            <div class="recharge-pkg-cost">50 ABX</div>
+          </div>
+          <div class="recharge-pkg selected" data-pkg="300" data-cost-abx="130" onclick="selectRechargePkg(this)">
+            <div class="recharge-pkg-popular">POPULAR</div>
+            <div class="recharge-pkg-cb">300</div>
+            <div class="recharge-pkg-label">Coral Bits</div>
+            <div class="recharge-pkg-cost">130 ABX</div>
+          </div>
+          <div class="recharge-pkg" data-pkg="750" data-cost-abx="300" onclick="selectRechargePkg(this)">
+            <div class="recharge-pkg-cb">750</div>
+            <div class="recharge-pkg-label">Coral Bits</div>
+            <div class="recharge-pkg-cost">300 ABX</div>
+          </div>
+        </div>
+      </div>
+
+      <hr class="recharge-divider">
+
+      <!-- Currency selector -->
+      <div class="recharge-currency-row">
+        <div class="recharge-currency-label">Pagá con</div>
+        <div class="recharge-currency-opts">
+          <div class="recharge-currency-opt selected" data-currency="aquabux" onclick="selectRechargeCurrency(this)">AquaBux</div>
+          <div class="recharge-currency-opt" data-currency="wildcredits" onclick="selectRechargeCurrency(this)">WildCredits</div>
+          <div class="recharge-currency-opt" data-currency="wildgems" onclick="selectRechargeCurrency(this)">WildGems</div>
+        </div>
+      </div>
+
+      <!-- Summary -->
+      <div class="recharge-summary">
+        <span>Vas a recibir</span>
+        <span class="recharge-summary-val" id="rechargeSummaryVal">300 Coral Bits por 130 AquaBux</span>
+      </div>
+
+      <div class="recharge-status" id="rechargeStatus"></div>
+
+      <button class="recharge-confirm-btn" id="rechargeConfirmBtn" onclick="executeRecharge()">
+        🪙 Confirmar recarga
+      </button>
+    </div>
+  </div>
 
   <!-- ══ PLANS MODAL ══ -->
   <div id="plansModal" class="plans-modal">
@@ -1033,28 +1522,46 @@
     </div>
   </div>
 
-  <script>    // ═══════════════════════════════════════════════
+  <script>
+    // Compatibility helpers
+    function _oc(obj) {
+      var v = obj; 
+      for (var i = 1; i < arguments.length; i++) { 
+        if (v == null) return undefined; 
+        v = v[arguments[i]]; 
+      } 
+      return v; 
+    }
+
+
+// ═══════════════════════════════════════════════
     // MODELS — 3 series: Dolphin, Whale, Shark
     // ═══════════════════════════════════════════════
     // Model series — Delfin has sub-versions (1.0 free, 1.1 paid)
     const MODELS = {
-      dolphin10:   { id: 'dolphin10',   name: 'Delfin 1.0',     series: 'dolphin', emoji: '🐬', desc: 'Ligero · Herramientas básicas',    tier: 1, subOf: 'dolphin', free: true  },
-      dolphin11:   { id: 'dolphin11',   name: 'Delfin 1.1',     series: 'dolphin', emoji: '🐬', desc: 'Mejorado · Generador de divisas',   tier: 2, subOf: 'dolphin', free: false },
-      dolphin11m:  { id: 'dolphin11m',  name: 'Delfin 1.1 Mini', series: 'dolphin', emoji: '🐬', desc: 'Nuevo · Compacto y eficiente',      tier: 3, subOf: 'dolphin', free: false, nuevo: true },
-      dolphin11max:{ id: 'dolphin11max',name: 'Delfin 1.1 Max',  series: 'dolphin', emoji: '🐬', desc: 'Nuevo · Máxima capacidad Delfin',   tier: 4, subOf: 'dolphin', free: false, nuevo: true },
-      dolphin12:   { id: 'dolphin12',   name: 'Delfin 1.2',       series: 'dolphin', emoji: '🐬', desc: 'Nuevo · Generación siguiente',      tier: 5, subOf: 'dolphin', free: false, nuevo: true },
-      whale:       { id: 'whale',       name: 'Ballena',           series: 'whale',   emoji: '🐋', desc: 'Decente y balanceado',             tier: 6, free: false },
-      shark:       { id: 'shark',       name: 'Tiburon',           series: 'shark',   emoji: '🦈', desc: 'El más potente',                   tier: 7, free: false },
+      dolphin10:   { id: 'dolphin10',    name: 'Delfin 1',         series: 'dolphin', emoji: '🐬', desc: 'Ligero · Herramientas esenciales',       tier: 1, subOf: 'dolphin', free: true  },
+      dolphin11:   { id: 'dolphin11',    name: 'Delfin 1.1',       series: 'dolphin', emoji: '🐬', desc: 'Mejorado · Generador de divisas',        tier: 2, subOf: 'dolphin', free: false },
+      dolphin11m:  { id: 'dolphin11m',   name: 'Delfin 1.1 Mini',  series: 'dolphin', emoji: '🐬', desc: 'Compacto y eficiente',                   tier: 3, subOf: 'dolphin', free: false, nuevo: true },
+      dolphin11max:{ id: 'dolphin11max', name: 'Delfin 1.1 Max',   series: 'dolphin', emoji: '🐬', desc: 'Máxima capacidad Delfin',                tier: 4, subOf: 'dolphin', free: false, nuevo: true },
+      dolphin12:   { id: 'dolphin12',    name: 'Delfin 1.2',       series: 'dolphin', emoji: '🐬', desc: 'Generación siguiente',                   tier: 5, subOf: 'dolphin', free: false, nuevo: true },
+      whale1:      { id: 'whale1',       name: 'Ballena 1',         series: 'whale',   emoji: '🐋', desc: 'Potente · Análisis profundo',            tier: 6, subOf: 'whale',   free: false, nuevo: true },
+      whale1m:     { id: 'whale1m',      name: 'Ballena 1 Mini',    series: 'whale',   emoji: '🐋', desc: 'Ballena compacta · Respuestas rápidas',  tier: 7, subOf: 'whale',   free: false, nuevo: true },
+      whale1max:   { id: 'whale1max',    name: 'Ballena 1 Max',     series: 'whale',   emoji: '🐋', desc: 'Máxima capacidad Ballena',               tier: 8, subOf: 'whale',   free: false, nuevo: true },
+      whale1bm:    { id: 'whale1bm',     name: 'Ballena 1 Blue Max',series: 'whale',   emoji: '🐋', desc: 'Edición azul · El más avanzado',         tier: 9, subOf: 'whale',   free: false, nuevo: true },
+      shark:       { id: 'shark',        name: 'Tiburon',            series: 'shark',   emoji: '🦈', desc: 'El más potente de todos',                tier: 10, free: false },
+      tiburon1:    { id: 'tiburon1',     name: 'Tiburon 1',          series: 'shark',   emoji: '🦈', desc: 'Sopa de Letras · Exclusivo Leviathan',   tier: 11, free: false, nuevo: true },
     };
     // Dolphin series parent for UI grouping
     const DOLPHIN_VERSIONS = ['dolphin10', 'dolphin11', 'dolphin11m', 'dolphin11max', 'dolphin12'];
+    const WHALE_VERSIONS   = ['whale1', 'whale1m', 'whale1max', 'whale1bm'];
 
     const PLAN_MODELS = {
       free:      ['dolphin10'],
       tide:      ['dolphin10', 'dolphin11', 'dolphin11m', 'dolphin11max', 'dolphin12'],
-      coral:     ['dolphin10', 'dolphin11', 'dolphin11m', 'dolphin11max', 'dolphin12', 'whale'],
-      abyss:     ['dolphin10', 'dolphin11', 'dolphin11m', 'dolphin11max', 'dolphin12', 'whale'],
-      leviathan: ['dolphin10', 'dolphin11', 'dolphin11m', 'dolphin11max', 'dolphin12', 'whale', 'shark'],
+      coral:     ['dolphin10', 'dolphin11', 'dolphin11m', 'dolphin11max', 'dolphin12', 'whale1', 'whale1m'],
+      abyss:     ['dolphin10', 'dolphin11', 'dolphin11m', 'dolphin11max', 'dolphin12', 'whale1', 'whale1m', 'whale1max'],
+      cobalt:    ['dolphin10', 'dolphin11', 'dolphin11m', 'dolphin11max', 'dolphin12', 'whale1', 'whale1m', 'whale1max', 'whale1bm'],
+      leviathan: ['dolphin10', 'dolphin11', 'dolphin11m', 'dolphin11max', 'dolphin12', 'whale1', 'whale1m', 'whale1max', 'whale1bm', 'shark', 'tiburon1'],
     };
 
     const PLAN_DEFS = [
@@ -1064,16 +1571,25 @@
         modelKey: 'dolphin11',
         emoji: '🐬',
         cost: 120,
-        features: ['Delfin 1.0 y 1.1', 'Delfin 1.1 mejorado', 'Herramientas IA avanzadas', 'Historial extendido'],
+        features: ['Delfin 1 y 1.1', 'Delfin 1.1 mejorado', 'Herramientas IA avanzadas', 'Historial extendido'],
       },
       {
         id: 'coral',
         name: 'Ballena',
-        modelKey: 'whale',
+        modelKey: 'whale1',
         emoji: '🐋',
         cost: 280,
-        features: ['Delfin 1.0, 1.1 + Ballena', 'Análisis más profundo', 'Respuestas más extensas', 'Mayor contexto'],
+        features: ['Delfin completo + Ballena 1', 'Ballena 1 Mini y Max', 'Análisis profundo', 'Mayor contexto'],
         featured: true,
+      },
+      {
+        id: 'cobalt',
+        name: 'Ballena Blue',
+        modelKey: 'whale1bm',
+        emoji: '🐋',
+        cost: 550,
+        features: ['Todos los modelos Ballena', 'Ballena 1 Blue Max', 'Herramientas avanzadas', 'Prioridad alta'],
+        nuevo: true,
       },
       {
         id: 'leviathan',
@@ -1128,6 +1644,64 @@
     const modelDropdownPopup= document.getElementById('modelDropdownPopup');
 
     // ── Quota ─────────────────────────────────────────────────────────────────
+    function openToolsModal() {
+      const modal = document.getElementById('toolsModal');
+      if (!modal) return;
+      renderToolsModalGrid();
+      modal.style.display = 'flex';
+    }
+    function closeToolsModal() {
+      const modal = document.getElementById('toolsModal');
+      if (modal) modal.style.display = 'none';
+    }
+    function renderToolsModalGrid() {
+      const grid = document.getElementById('toolsModalGrid');
+      if (!grid) return;
+      const modelDef = MODELS[currentModel] || MODELS['dolphin10'];
+      const currentTier = modelDef.tier || 1;
+      grid.innerHTML = '';
+      // Group by tier
+      const tierLabels = {
+        1:'Delfin 1', 2:'Delfin 1.1', 3:'Delfin 1.1 Mini',
+        4:'Delfin 1.1 Max', 5:'Delfin 1.2',
+        6:'Ballena 1', 7:'Ballena 1 Mini', 8:'Ballena 1 Max', 9:'Ballena 1 Blue Max'
+      };
+      const grouped = {};
+      Object.entries(TOOLS).forEach(([cmd, tool]) => {
+        const t = tool.minTier;
+        if (!grouped[t]) grouped[t] = [];
+        grouped[t].push({ cmd, ...tool });
+      });
+      Object.keys(grouped).sort((a,b)=>a-b).forEach(tier => {
+        const tierNum = parseInt(tier);
+        const label = tierLabels[tierNum] || ('Nivel '+tierNum);
+        const header = document.createElement('div');
+        header.style.cssText = 'grid-column:1/-1;font-size:0.7rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.1em;margin-top:0.5rem;padding-top:0.5rem;border-top:1px solid rgba(255,255,255,0.06);';
+        header.textContent = label;
+        grid.appendChild(header);
+        grouped[tier].forEach(tool => {
+          const unlocked = currentTier >= tierNum;
+          const card = document.createElement('div');
+          card.style.cssText = `background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,${unlocked?'0.1':'0.04'});border-radius:10px;padding:0.8rem;cursor:${unlocked?'pointer':'default'};opacity:${unlocked?'1':'0.5'};transition:background 0.15s;`;
+          if (unlocked) {
+            card.onmouseenter = () => card.style.background = 'rgba(0,180,255,0.08)';
+            card.onmouseleave = () => card.style.background = 'rgba(255,255,255,0.04)';
+            card.onclick = () => {
+              closeToolsModal();
+              const inp = document.getElementById('userInput');
+              if (inp) { inp.value = tool.cmd; autoResizeInput(inp); inp.focus(); }
+            };
+          }
+          card.innerHTML = '<div style="font-size:0.82rem;font-weight:600;color:var(--text-main);margin-bottom:3px;">' +
+            (unlocked ? '' : '🔒 ') + tool.name + (tool.nuevo ? ' <span style="font-size:0.6rem;background:rgba(0,180,255,0.2);color:var(--accent);border-radius:4px;padding:1px 5px;">NUEVO</span>' : '') +
+            '</div>' +
+            '<div style="font-size:0.7rem;color:var(--text-muted);line-height:1.4;">' + (tool.desc || '') + '</div>' +
+            '<div style="font-size:0.65rem;color:rgba(0,180,255,0.7);margin-top:5px;font-family:monospace;">' + tool.cmd + '</div>';
+          grid.appendChild(card);
+        });
+      });
+    }
+
     function loadQuota() {
       try {
         const raw = localStorage.getItem(QUOTA_KEY);
@@ -1149,7 +1723,7 @@
       saveQuota();
     }
     function getQuotaLimit() {
-      return QUOTA_LIMITS[activePlanId] ?? null;
+      return (QUOTA_LIMITS[activePlanId] != null ? QUOTA_LIMITS[activePlanId] : null);
     }
     function isQuotaExceeded() {
       const limit = getQuotaLimit();
@@ -1222,7 +1796,7 @@
       dolphinHeader.innerHTML = `
         <span style="font-size:1.1rem">🐬</span>
         <div class="model-option-info">
-          <div class="model-option-name">Delfin${isDolphinActive ? ' · ' + (MODELS[currentModel]?.name || '') : ''}</div>
+          <div class="model-option-name">Delfin${isDolphinActive ? ' · ' + ((MODELS[currentModel] && MODELS[currentModel].name) || '') : ''}</div>
           <div class="model-option-desc">Serie ligera · versiones 1.0 y 1.1</div>
         </div>
         <span class="model-group-arrow">▸</span>
@@ -1265,9 +1839,54 @@
       dolphinGroup.append(dolphinHeader, dolphinSubs);
       popup.appendChild(dolphinGroup);
 
-      // ── Other models (Ballena, Tiburon) ──
-      ['whale', 'shark'].forEach(mid => {
-        const m = MODELS[mid];
+      // ── Whale subgroup ──
+      const WHALE_VERS = ['whale1','whale1m','whale1max','whale1bm'];
+      const whaleGroup = document.createElement('div');
+      whaleGroup.className = 'model-group';
+      const isWhaleActive = WHALE_VERS.includes(currentModel);
+      const whaleArrowId = 'whale-group-arrow-' + Date.now();
+      const whaleSubId   = 'whale-subs-' + Date.now();
+      whaleGroup.innerHTML = `
+        <div class="model-group-header" style="cursor:pointer;" onclick="
+          var s=document.getElementById('${whaleSubId}');
+          var a=document.getElementById('${whaleArrowId}');
+          var open=s.style.display!=='none';
+          s.style.display=open?'none':'block';
+          a.textContent=open?'▸':'▾';
+        ">
+          <span style="font-size:1.1rem">🐋</span>
+          <div class="model-group-info">
+            <div class="model-group-name">Ballena</div>
+          </div>
+          <span class="model-group-arrow" id="${whaleArrowId}">${isWhaleActive ? '▾' : '▸'}</span>
+        </div>
+        <div id="${whaleSubId}" style="display:${isWhaleActive ? 'block' : 'none'}"></div>
+      `;
+      popup.appendChild(whaleGroup);
+      const whaleSubs = document.getElementById(whaleSubId);
+      WHALE_VERS.forEach(mid => {
+        const m = MODELS[mid]; if (!m) return;
+        const locked = !canAccessModel(mid);
+        const opt = document.createElement('div');
+        opt.className = 'model-option sub' + (mid === currentModel ? ' active' : '') + (locked ? ' locked' : '');
+        opt.innerHTML = `
+          <span style="font-size:1rem">${m.emoji}</span>
+          <div class="model-option-info">
+            <div class="model-option-name">${m.name}${m.nuevo ? ' <span style="font-size:0.6rem;background:rgba(0,180,255,0.2);color:#00b4ff;border-radius:3px;padding:1px 4px;margin-left:4px;">NUEVO</span>' : ''}</div>
+            <div class="model-option-desc">${m.desc}</div>
+          </div>
+          ${locked ? '<span class="lock-badge">🔒 Plan</span>' : ''}
+        `;
+        opt.onclick = () => {
+          if (locked) { closeModelDropdown(); openPlansModal(); return; }
+          selectModel(mid); closeModelDropdown();
+        };
+        whaleSubs.appendChild(opt);
+      });
+
+      // ── Shark ──
+      ['shark'].forEach(mid => {
+        const m = MODELS[mid]; if (!m) return;
         const locked = !canAccessModel(mid);
         const opt = document.createElement('div');
         opt.className = 'model-option' + (mid === currentModel ? ' active' : '') + (locked ? ' locked' : '');
@@ -1294,7 +1913,7 @@
       }
       if (chatHeaderTitle) {
         const chat = getActiveChat();
-        chatHeaderTitle.textContent = chat?.title || 'Nuevo chat';
+        chatHeaderTitle.textContent = (chat && chat.title) || 'Nuevo chat';
       }
     }
 
@@ -1323,7 +1942,7 @@
 
     function canAccessModel(modelId) {
       if (modelId === FREE_MODEL_ID) return true;
-      const allowed = PLAN_MODELS[activePlanId] || ['free'];
+      const allowed = PLAN_MODELS[activePlanId] || PLAN_MODELS['free'] || ['dolphin10'];
       return allowed.includes(modelId);
     }
 
@@ -1369,7 +1988,7 @@
 
     // ── Chat history ──────────────────────────────────────────────────────────
     function getDisplayUserName() {
-      return String(oceanPayAuth?.username || '').trim() || 'Usuario';
+      return String((oceanPayAuth && oceanPayAuth.username) || '').trim() || 'Usuario';
     }
     function updateWelcomeGreeting() {
       const name = getDisplayUserName();
@@ -1565,7 +2184,7 @@
         const raw = localStorage.getItem(OCEAN_PAY_AUTH_KEY);
         if (!raw) return null;
         const p = JSON.parse(raw);
-        return (p?.username && p?.password) ? p : null;
+        return ((p && p.username) && (p && p.password)) ? p : null;
       } catch(_) { return null; }
     }
     function saveOceanPayAuth(auth) {
@@ -1574,8 +2193,8 @@
     }
 
     async function connectOceanPay() {
-      const username = (opUsernameInput?.value || '').trim();
-      const password = (opPasswordInput?.value || '').trim();
+      const username = ((opUsernameInput && opUsernameInput.value) || '').trim();
+      const password = ((opPasswordInput && opPasswordInput.value) || '').trim();
       if (!username || !password) { updateOceanPayStatus('Estado: Faltan usuario/contraseña', false); return; }
       try {
         const res  = await fetch(`${API}/ocean-ai/connect-ocean-pay`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username, password}) });
@@ -1591,7 +2210,7 @@
     }
 
     async function syncCoralBitsToOceanPay() {
-      if (!oceanPayAuth?.username) { updateOceanPayStatus('Estado: Conecta primero Ocean Pay', false); return; }
+      if (!(oceanPayAuth && oceanPayAuth.username)) { updateOceanPayStatus('Estado: Conecta primero Ocean Pay', false); return; }
       try {
         const res  = await fetch(`${API}/ocean-ai/coralbits/sync`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username:oceanPayAuth.username, password:oceanPayAuth.password, coralBits}) });
         const data = await res.json();
@@ -1601,7 +2220,7 @@
     }
 
     async function loadCoralBitsFromOceanPay() {
-      if (!oceanPayAuth?.username) { updateOceanPayStatus('Estado: Conecta primero Ocean Pay', false); return; }
+      if (!(oceanPayAuth && oceanPayAuth.username)) { updateOceanPayStatus('Estado: Conecta primero Ocean Pay', false); return; }
       try {
         const res  = await fetch(`${API}/ocean-ai/coralbits/balance`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username:oceanPayAuth.username, password:oceanPayAuth.password}) });
         const data = await res.json();
@@ -1615,7 +2234,7 @@
     }
 
     async function refreshOceanAiSubscriptionStatus() {
-      if (!oceanPayAuth?.username) {
+      if (!(oceanPayAuth && oceanPayAuth.username)) {
         activePlanId = 'free'; activePlanName = 'Free';
         if (planStatusText) planStatusText.textContent = 'Sin plan activo';
         buildModelUI(); checkQuotaBanner(); return;
@@ -1644,7 +2263,7 @@
     }
 
     async function subscribeOceanAiPlan(planId) {
-      if (!oceanPayAuth?.username) { updateOceanPayStatus('Estado: Conecta primero Ocean Pay', false); return; }
+      if (!(oceanPayAuth && oceanPayAuth.username)) { updateOceanPayStatus('Estado: Conecta primero Ocean Pay', false); return; }
       try {
         const res  = await fetch(`${API}/ocean-ai/subscriptions/subscribe`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({username:oceanPayAuth.username, password:oceanPayAuth.password, planId}) });
         const data = await res.json();
@@ -1662,40 +2281,44 @@
     }
 
     function checkCoralBitsBanner() {
-      const banner   = document.getElementById('cbBanner');
-      const textEl   = document.getElementById('cbBannerText');
-      const iconEl   = document.getElementById('cbBannerIcon');
+      const banner      = document.getElementById('cbBanner');
+      const textEl      = document.getElementById('cbBannerText');
+      const iconEl      = document.getElementById('cbBannerIcon');
+      const rechargeBtn = document.getElementById('cbBannerRechargeBtn');
       if (!banner || !textEl) return;
 
-      // Minimum costs: generardivisas(1 ABX) = 2 CB, boostreputacion(basico) = 50 CB
-      const MIN_ANY_TOOL  = 2;   // minimum to run ANY tool (1 AquaBux)
-      const MIN_ALL_TOOLS = 50;  // minimum to run all tools (boost basico)
-      const WARN_THRESH   = 200; // "se está acabando" threshold
+      const MIN_ANY_TOOL  = 2;
+      const MIN_ALL_TOOLS = 50;
+      const WARN_THRESH   = 200;
 
-      // Only show banner if Ocean Pay is connected (tools require it)
-      if (!oceanPayAuth?.username) {
+      const showRecharge = (show) => {
+        if (rechargeBtn) rechargeBtn.style.display = show ? '' : 'none';
+      };
+
+      if (!(oceanPayAuth && oceanPayAuth.username)) {
         banner.classList.remove('visible');
+        showRecharge(false);
         return;
       }
 
       if (coralBits < MIN_ANY_TOOL) {
-        // Empty — can't run any tool
         banner.className = 'cb-banner visible cb-empty';
         iconEl.textContent = '🪙';
-        textEl.textContent = 'Sin Coral Bits — no podés ejecutar ninguna herramienta de IA. Recargá tu saldo en Ocean Pay.';
+        textEl.textContent = 'Sin Coral Bits — no podés ejecutar ninguna herramienta de IA.';
+        showRecharge(true);
       } else if (coralBits < MIN_ALL_TOOLS) {
-        // Can run generardivisas (2 CB min) but not boostreputacion (50 CB min)
         banner.className = 'cb-banner visible cb-low';
         iconEl.textContent = '⚠️';
-        textEl.textContent = `Coral Bits bajos (${coralBits} CB) — solo podés usar el Generador de Divisas. El Boost de Reputación requiere al menos 50 CB.`;
+        textEl.textContent = `Coral Bits bajos (${coralBits} CB) — solo podés usar el Generador de Divisas.`;
+        showRecharge(true);
       } else if (coralBits < WARN_THRESH) {
-        // Low — approaching empty
         banner.className = 'cb-banner visible cb-low';
         iconEl.textContent = '⚠️';
-        textEl.textContent = `Coral Bits bajos (${coralBits} CB) — se te están acabando. Considerá recargar pronto.`;
+        textEl.textContent = `Coral Bits bajos (${coralBits} CB) — se te están acabando.`;
+        showRecharge(true);
       } else {
-        // Enough — hide banner
         banner.classList.remove('visible');
+        showRecharge(false);
       }
     }
 
@@ -1761,24 +2384,438 @@
     function detectPreferredStorePlatform() { return navigator.userAgent.toLowerCase().includes('android')?'android':'windows'; }
     function attemptStoreDownload(ctx) {
       const pref=detectPreferredStorePlatform();
-      const url=pref==='android'?ctx?.store?.android?.downloadUrl||'https://owsdatabase.onrender.com/ows-store/android/releases/ows-store/latest/download':ctx?.store?.windows?.downloadUrl||'https://github.com/OceanandWild/owsdatabase/releases/latest';
+      const url=pref==='android'?(ctx && ctx.store && ctx.store.android && ctx.store.android.downloadUrl)||'https://owsdatabase.onrender.com/ows-store/android/releases/ows-store/latest/download':(ctx && ctx.store && ctx.store.windows && ctx.store.windows.downloadUrl)||'https://github.com/OceanandWild/owsdatabase/releases/latest';
       try { const a=document.createElement('a');a.href=url;a.target='_blank';a.rel='noopener noreferrer';document.body.appendChild(a);a.click();a.remove();return `Descarga iniciada (${pref}): ${url}`; } catch(_){ return `Enlace: ${url}`; }
     }
     function buildOwsStoreSummaryReply(ctx) {
-      const win=ctx?.store?.windows||{},andr=ctx?.store?.android||{},avail=ctx?.projects?.available||[],up=ctx?.projects?.upcoming||[];
+      const win=(ctx && ctx.store && ctx.store.windows)||{},andr=(ctx && ctx.store && ctx.store.android)||{},avail=(ctx && ctx.projects && ctx.projects.available)||[],up=(ctx && ctx.projects && ctx.projects.upcoming)||[];
       return [attemptStoreDownload(ctx),``,`OWS Store Windows: ${win.version||'Sin dato'}`,`OWS Store Android: ${andr.versionName||'Sin dato'}`,``,`Proyectos disponibles:`,buildProjectList(avail),``,`Próximamente:`,buildProjectList(up),``,`Para instalar, usá directamente OWS Store.`].join('\n');
     }
     async function tryResolveOwsStoreAssistant(text) {
       if(owsInstallConsentPending){ if(isYesIntent(text)){owsInstallConsentPending=false;const ctx=await fetchOwsStoreContext();return buildOwsStoreSummaryReply(ctx);} if(isNoIntent(text)){owsInstallConsentPending=false;return 'Instalación cancelada.';} }
       if(!isOwsStoreIntent(text)) return null;
-      const ctx=await fetchOwsStoreContext();const win=ctx?.store?.windows||{},andr=ctx?.store?.android||{};
+      const ctx=await fetchOwsStoreContext();const win=(ctx && ctx.store && ctx.store.windows)||{},andr=(ctx && ctx.store && ctx.store.android)||{};
       owsInstallConsentPending=true;
       return [`OWS Store detectado.`,`Windows: ${win.version||'Sin dato'} | Android: ${andr.versionName||'Sin dato'}`,``,`¿Inicio la descarga y muestro el catálogo completo? Responde "si" o "no".`].join('\n');
     }
+    // ══ PENDING PAYMENTS SYSTEM ══════════════════════════════════════════════
+    let pendingPayments = JSON.parse(localStorage.getItem('oceanai_pending_payments') || '[]');
+
+    function savePendingPayments() {
+      localStorage.setItem('oceanai_pending_payments', JSON.stringify(pendingPayments));
+      updatePendingBadge();
+    }
+
+    function addPendingPayment(item) {
+      // item: { id, toolName, description, amount, currency, reason, sopaUid, sopaDiseno, sopaData }
+      pendingPayments.push({ ...item, addedAt: new Date().toISOString() });
+      savePendingPayments();
+    }
+
+    function removePendingPayment(id) {
+      pendingPayments = pendingPayments.filter(p => p.id !== id);
+      savePendingPayments();
+    }
+
+    function updatePendingBadge() {
+      const btn   = document.getElementById('pendingNavBtn');
+      const badge = document.getElementById('pendingNavBadge');
+      if (!btn || !badge) return;
+      if (pendingPayments.length > 0) {
+        btn.classList.add('has-items');
+        badge.textContent = pendingPayments.length;
+      } else {
+        btn.classList.remove('has-items');
+        badge.textContent = '0';
+      }
+    }
+
+    function openPendingModal() {
+      const modal = document.getElementById('pendingModal');
+      if (!modal) return;
+      renderPendingList();
+      modal.classList.add('open');
+    }
+    function closePendingModal() {
+      const modal = document.getElementById('pendingModal');
+      if (modal) modal.classList.remove('open');
+    }
+
+    function renderPendingList() {
+      const list = document.getElementById('pendingItemsList');
+      if (!list) return;
+      if (!pendingPayments.length) {
+        list.innerHTML = '<div class="pending-empty">✅ No hay pagos pendientes.</div>';
+        return;
+      }
+      list.innerHTML = pendingPayments.map(p => `
+        <div class="pending-item" id="pending-item-${p.id}">
+          <div class="pending-item-title">🦈 ${p.toolName}</div>
+          <div class="pending-item-meta">${p.description}</div>
+          <div class="pending-item-reason">⚠️ Razón del fallo: ${p.reason}</div>
+          <div class="pending-item-meta">Monto: <strong style="color:var(--text-main)">${p.amount} ${p.currency || 'Coral Bits'}</strong></div>
+          <button class="pending-item-pay" onclick="payPendingItem('${p.id}')">
+            💳 Pagar ahora
+          </button>
+        </div>
+      `).join('');
+    }
+
+    async function payPendingItem(id) {
+      const item = pendingPayments.find(p => p.id === id);
+      if (!item) return;
+      closePendingModal();
+
+      // Show user message in chat
+      const chatMsg = `Quiero pagar el pendiente: "${item.toolName}" — ${item.description}`;
+      addMessage(chatMsg, 'user');
+      if (userInput) userInput.value = '';
+
+      if (!item.sopaData) {
+        addBotMessage('⚠️ No se pudieron recuperar los datos del pago pendiente.');
+        return;
+      }
+
+      // Create a fresh bot row with tool indicator + new confirm panel
+      const row = document.createElement('div');
+      row.className = 'message-row bot';
+      const av = document.createElement('div');
+      av.className = 'avatar bot-avatar'; av.textContent = '🌊';
+      const bubbleContainer = document.createElement('div');
+      bubbleContainer.style.flex = '1';
+      row.append(av, bubbleContainer);
+      chatContent.appendChild(row);
+      scrollToBottom();
+
+      const toolName = 'Generador de Sopa de Letras';
+      const iid = createToolCallIndicator(bubbleContainer, toolName);
+      // Assign a fresh uid
+      const newUid = ++_toolSopaCounter;
+      window['_sopaAIParams_' + newUid] = item.sopaData;
+      window['_sopaIndicator_' + newUid] = iid;
+
+      // Render confirm panel with the fresh uid
+      const panel = document.createElement('div');
+      const { tema, nombre, diseno, tamanio } = item.sopaData;
+      panel.innerHTML = `
+        <div class="tool-panel" id="tool-sopa-ai-${newUid}">
+          <div class="tool-panel-header">
+            <span class="tool-panel-icon">🦈</span>
+            <div>
+              <div class="tool-panel-title">Reintento — Generador de Sopa de Letras</div>
+              <div class="tool-panel-subtitle">Tema: ${tema}</div>
+            </div>
+          </div>
+          <div class="tool-cost-row">
+            <span>Costo:</span>
+            <span class="tool-cost-val" style="color:#fb923c;">75 Coral Bits</span>
+          </div>
+          <div style="font-size:0.78rem;color:var(--text-muted);">
+            Saldo actual: <strong style="color:var(--text-main);">${coralBits} CB</strong>
+            ${coralBits < 75 ? ' <span style="color:#f87171;">— Saldo insuficiente</span>' : ''}
+          </div>
+          <div class="tool-status-msg" id="tool-sopa-ai-status-${newUid}"></div>
+          <div style="display:flex;gap:10px;">
+            <button class="sopa-confirm-btn-cancel" style="flex:1;padding:10px;font-family:inherit;"
+              onclick="sopaCancel(${newUid})">✗ Cancelar</button>
+            <button class="tool-execute-btn" id="tool-sopa-ai-btn-${newUid}"
+              style="flex:2;background:linear-gradient(135deg,#f97316,#fb923c);color:#000;"
+              ${coralBits < 75 ? 'disabled' : ''}
+              onclick="executeSopaFromAI(${newUid}, true)">
+              ✅ Confirmar y gastar 75 CB
+            </button>
+          </div>
+        </div>`;
+      bubbleContainer.appendChild(panel);
+      // Remove old pending entry
+      removePendingPayment(id);
+      scrollToBottom();
+    }
+
+    // ══ TOOL CALL INDICATOR ══════════════════════════════════════════════════
+    let _toolIndicatorCounter = 0;
+
+    function createToolCallIndicator(container, toolName) {
+      const iid = ++_toolIndicatorCounter;
+      const wrap = document.createElement('div');
+      wrap.id = 'tci-' + iid;
+      wrap.innerHTML = `
+        <div class="tool-call-indicator" id="tci-btn-${iid}" onclick="toggleToolIndicator('${iid}')">
+          <span class="tool-call-indicator-spinner" id="tci-spinner-${iid}"></span>
+          <span class="tool-call-indicator-arrow" id="tci-arrow-${iid}" style="display:none;">▶</span>
+          <span class="tool-call-indicator-count" id="tci-label-${iid}">Ejecutando herramienta…</span>
+        </div>
+        <div class="tool-call-details" id="tci-details-${iid}">
+          <div class="tool-call-detail-row running" id="tci-row-${iid}">
+            ⏳ ${toolName || 'Herramienta'} — ejecutando…
+          </div>
+        </div>
+      `;
+      container.appendChild(wrap);
+      // Auto-open details while running
+      const details = wrap.querySelector('.tool-call-details');
+      if (details) details.classList.add('open');
+      return iid;
+    }
+
+    function toggleToolIndicator(iid) {
+      const btn     = document.getElementById('tci-btn-' + iid);
+      const details = document.getElementById('tci-details-' + iid);
+      if (!btn || !details) return;
+      btn.classList.toggle('open');
+      details.classList.toggle('open');
+    }
+
+    function setToolIndicatorDone(iid, toolName, succeeded) {
+      const label   = document.getElementById('tci-label-' + iid);
+      const details = document.getElementById('tci-details-' + iid);
+      const spinner = document.getElementById('tci-spinner-' + iid);
+      const arrow   = document.getElementById('tci-arrow-' + iid);
+      const row     = document.getElementById('tci-row-' + iid);
+      if (spinner) spinner.classList.add('done');
+      if (arrow)   arrow.style.display = '';
+      if (label) {
+        label.textContent = succeeded
+          ? '1 Herramienta(s) llamada(s)'
+          : 'Error al llamar 1 herramienta(s)';
+      }
+      if (row) {
+        row.className = 'tool-call-detail-row ' + (succeeded ? 'success' : 'error');
+        row.textContent = succeeded
+          ? '✓ ' + toolName + ' — ejecutada correctamente'
+          : '✗ ' + toolName + ' — falló la ejecución';
+      }
+      // Auto-close details after success
+      if (succeeded && details) {
+        setTimeout(() => details.classList.remove('open'), 1500);
+      }
+    }
+
+    // ══ ASSISTANT RESPONSE (with tool call handling) ══════════════════════════
     async function getAssistantResponse(text) {
-      const ows=await tryResolveOwsStoreAssistant(text);
-      if(ows) return ows;
-      return getLocalResponse(text);
+      // 1. OWS Store assistant (local — no API needed)
+      const ows = await tryResolveOwsStoreAssistant(text);
+      if (ows) return ows;
+
+      // 2. Gemini via server
+      try {
+        const ac      = getActiveChat();
+        const history = (ac && Array.isArray(ac.messages)) ? ac.messages : [];
+        const creds   = oceanPayAuth || {};
+        const body    = {
+          message:  text,
+          modelId:  currentModel,
+          history:  history.slice(-10),
+          username: creds.username || '',
+          password: creds.password || '',
+        };
+        const res  = await fetch(`${API}/ocean-ai/chat`, {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify(body),
+        });
+        const data = await res.json();
+
+        // ── Tool call intercepted by server ──────────────────────────────
+        if (res.ok && data.toolCall) {
+          const tc = data.toolCall;
+          if (tc.tool === 'sopaldeletras') {
+            // Return special sentinel so enviar() knows to render tool indicator inline
+            return { __toolCall: true, tool: 'sopaldeletras', params: tc.params || {} };
+          }
+        }
+
+        if (res.ok && data.reply) return data.reply;
+        return `⚠️ Error del servidor (${res.status}): ${(data.error || '').slice(0, 120)}`;
+      } catch(err) {
+        return `⚠️ Error de red: ${err.message}`;
+      }
+    }
+
+    // ══ TRIGGER SOPA FROM AI ══════════════════════════════════════════════════
+    function triggerSopaFromAI(params, inlineContainer, indicatorIid) {
+      const tema    = String(params.tema    || 'General').trim();
+      const nombre  = String(params.nombre  || '').trim();
+      const diseno  = String(params.diseno  || 'clasico').trim();
+      const tamanio = parseInt(params.tamanio || 15);
+
+      // Check model tier
+      const modelTier = (MODELS[currentModel] && MODELS[currentModel].tier) || 1;
+      if (modelTier < 10) {
+        if (indicatorIid) setToolIndicatorDone(indicatorIid, 'Generador de Sopa de Letras', false);
+        const err = document.createElement('div');
+        err.className = 'message-content';
+        err.innerHTML = '🦈 <strong>Sopa de Letras</strong> es exclusiva del modelo <strong>Tiburon 1</strong> (Plan Leviathan).';
+        inlineContainer.appendChild(err);
+        return;
+      }
+      if (!(oceanPayAuth && oceanPayAuth.username)) {
+        if (indicatorIid) setToolIndicatorDone(indicatorIid, 'Generador de Sopa de Letras', false);
+        const err = document.createElement('div');
+        err.className = 'message-content';
+        err.innerHTML = '⚠️ Conectá tu cuenta <strong>Ocean Pay</strong> para usar esta herramienta.';
+        inlineContainer.appendChild(err);
+        return;
+      }
+
+      const uid = ++_toolSopaCounter;
+      window['_sopaAIParams_' + uid] = { tema, nombre, diseno, tamanio };
+      // Store indicator id so executeSopaFromAI can update it
+      if (indicatorIid !== undefined) window['_sopaIndicator_' + uid] = indicatorIid;
+
+      const panel = document.createElement('div');
+      panel.innerHTML = `
+        <div class="tool-panel" id="tool-sopa-ai-${uid}">
+          <div class="tool-panel-header">
+            <span class="tool-panel-icon">🦈</span>
+            <div>
+              <div class="tool-panel-title">Generador de Sopa de Letras
+                <span class="nuevo-badge" style="font-size:0.65rem;background:linear-gradient(135deg,#f97316,#fb923c);color:#000;">TIBURON 1</span>
+              </div>
+              <div class="tool-panel-subtitle">La IA preparó los parámetros para tu sopa</div>
+            </div>
+          </div>
+          <hr class="tool-divider">
+          <div style="display:flex;flex-direction:column;gap:6px;font-size:0.85rem;color:var(--text-muted);">
+            <div>📌 <strong style="color:var(--text-main);">Tema:</strong> ${tema}</div>
+            ${nombre ? `<div>🏷️ <strong style="color:var(--text-main);">Nombre:</strong> ${nombre}</div>` : ''}
+            <div>🎨 <strong style="color:var(--text-main);">Diseño:</strong> ${diseno}</div>
+            <div>📐 <strong style="color:var(--text-main);">Tamaño:</strong> ${tamanio}×${tamanio}</div>
+          </div>
+          <div class="tool-cost-row">
+            <span>Costo:</span>
+            <span class="tool-cost-val" style="color:#fb923c;">75 Coral Bits</span>
+          </div>
+          <div style="font-size:0.78rem;color:var(--text-muted);">
+            Saldo actual: <strong style="color:var(--text-main);">${coralBits} CB</strong>
+            ${coralBits < 75 ? ' <span style="color:#f87171;">— Saldo insuficiente</span>' : ''}
+          </div>
+          <div class="tool-status-msg" id="tool-sopa-ai-status-${uid}"></div>
+          <div style="display:flex;gap:10px;">
+            <button class="sopa-confirm-btn-cancel" style="flex:1;padding:10px;font-family:inherit;"
+              onclick="sopaCancel(${uid})">
+              ✗ Cancelar
+            </button>
+            <button class="tool-execute-btn" id="tool-sopa-ai-btn-${uid}"
+              style="flex:2;background:linear-gradient(135deg,#f97316,#fb923c);color:#000;"
+              ${coralBits < 75 ? 'disabled' : ''}
+              onclick="executeSopaFromAI(${uid}, false)">
+              ✅ Confirmar y gastar 75 CB
+            </button>
+          </div>
+        </div>
+      `;
+      inlineContainer.appendChild(panel);
+      scrollToBottom();
+    }
+
+    function sopaCancel(uid) {
+      const iid = window['_sopaIndicator_' + uid];
+      if (iid !== undefined) setToolIndicatorDone(iid, 'Generador de Sopa de Letras', false);
+      const panel = document.getElementById('tool-sopa-ai-' + uid);
+      if (panel) panel.closest('.message-row')?.remove();
+    }
+
+    async function executeSopaFromAI(uid, fromPending) {
+      const params   = window['_sopaAIParams_' + uid] || {};
+      const iid      = window['_sopaIndicator_' + uid];
+      const btn      = document.getElementById('tool-sopa-ai-btn-' + uid);
+      const statusEl = document.getElementById('tool-sopa-ai-status-' + uid);
+      const { tema, nombre, diseno, tamanio } = params;
+      const toolName = 'Generador de Sopa de Letras';
+
+      if (btn) { btn.textContent = 'Generando…'; btn.disabled = true; }
+
+      // Update indicator detail row to show progress steps
+      function setIndicatorStep(msg) {
+        const row = document.getElementById('tci-row-' + iid);
+        if (row) row.textContent = '⏳ ' + msg;
+      }
+
+      const steps = [
+        '🦈 Tiburon 1 activado…',
+        `Construyendo grilla ${tamanio}×${tamanio}…`,
+        `Insertando palabras sobre "${tema}"…`,
+        'Relleno de letras aleatorias…',
+        'Finalizando panel…',
+      ];
+      let stepIdx = 0;
+      const stepInterval = setInterval(() => {
+        if (stepIdx < steps.length) { setIndicatorStep(steps[stepIdx++]); }
+      }, 900);
+
+      try {
+        const res = await fetch(`${API}/ocean-ai/tools/sopa-letras`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: oceanPayAuth.username,
+            password: oceanPayAuth.password,
+            tema, nombre, diseno, tamanio
+          })
+        });
+        clearInterval(stepInterval);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al generar la sopa');
+
+        coralBits = Math.max(0, coralBits - (data.coralBitsCost || 75));
+        updateCurrencyUI();
+
+        if (btn) { btn.textContent = '✓ Generada'; btn.disabled = true; }
+        if (iid !== undefined) setToolIndicatorDone(iid, toolName, true);
+
+        // Insert result panel right after the confirm panel
+        const confirmPanel = document.getElementById('tool-sopa-ai-' + uid);
+        const resultWrapper = document.createElement('div');
+        if (confirmPanel) {
+          confirmPanel.insertAdjacentElement('afterend', resultWrapper);
+        } else {
+          const msgContainer = btn?.closest('.message-row')?.children[1];
+          if (msgContainer) msgContainer.appendChild(resultWrapper);
+          else document.getElementById('chatContent')?.appendChild(resultWrapper);
+        }
+        // Store AI-generated design for canvas rendering
+        if (data.design) window['_sopaDesign_' + uid] = data.design;
+        renderSopaResult(data.sopa, diseno, uid, resultWrapper);
+
+        // Final AI message with design mention
+        const designDesc = data.design ? ' El diseño fue creado especialmente para este tema.' : '';
+        setTimeout(() => {
+          addBotMessage('✅ ¡Sopa de letras sobre **' + tema + '** lista! Encontrá las ' + (data.sopa?.palabras?.length || 10) + ' palabras. Hacé clic en la primera y última letra de cada palabra para marcarla.' + designDesc + ' ¡Buena suerte! 🎯');
+        }, 350);
+
+        // Remove from pending if it was a retry
+        if (fromPending) {
+          pendingPayments = pendingPayments.filter(p => p.sopaUid !== uid);
+          savePendingPayments();
+          renderPendingList();
+        }
+
+      } catch(err) {
+        clearInterval(stepInterval);
+        const errMsg = err.message || 'Error desconocido';
+        if (iid !== undefined) setToolIndicatorDone(iid, toolName, false);
+        if (statusEl) { statusEl.className = 'tool-status-msg error'; statusEl.textContent = errMsg; }
+        if (btn) { btn.textContent = '🦈 Reintentar'; btn.disabled = false; }
+
+        if (!fromPending) {
+          // Only add to pending on first failure, not on retry failures
+          const pid = 'sopa_' + Date.now();
+          addPendingPayment({
+            id: pid,
+            toolName,
+            description: `Tema: ${tema}${nombre ? ' · Nombre: ' + nombre : ''}`,
+            amount: 75,
+            currency: 'Coral Bits',
+            reason: errMsg,
+            sopaUid: uid,
+            sopaData: params,
+          });
+          addBotMessage('⚠️ No se pudo completar la generación. El intento fue guardado en **Pagos Pendientes de Herramientas** (botón Ocean Pay). Podés reintentarlo desde ahí.');
+        } else {
+          addBotMessage('⚠️ El reintento también falló: ' + errMsg + '. El pago sigue en Pendientes.');
+        }
+      }
     }
 
     // ── Message rendering ─────────────────────────────────────────────────────
@@ -1817,6 +2854,42 @@
         await new Promise(r=>setTimeout(r, text[i]==='.'||text[i]==='\n' ? 18 : 8));
       }
       element.innerHTML = formatted.replace(/\n/g,'<br>');
+      scrollToBottom();
+    }
+
+    // ── Helpers for tool output ───────────────────────────────────────────────
+    function addBotMessage(text) {
+      const row = document.createElement('div');
+      row.className = 'message-row bot';
+      const av = document.createElement('div');
+      av.className = 'avatar bot-avatar';
+      av.textContent = '🌊';
+      const contentDiv = document.createElement('div');
+      contentDiv.className = 'message-content';
+      // Simple markdown formatting
+      const formatted = text
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/`([^`]+)`/g, '<code style="background:rgba(255,255,255,0.1);padding:1px 5px;border-radius:4px;font-family:monospace;font-size:0.85em;">$1</code>')
+        .replace(/_(.+?)_/g, '<em>$1</em>')
+        .replace(/\n/g, '<br>');
+      contentDiv.innerHTML = formatted;
+      row.append(av, contentDiv);
+      chatContent.appendChild(row);
+      scrollToBottom();
+    }
+
+    function addErrorMessage(text) {
+      const row = document.createElement('div');
+      row.className = 'message-row bot';
+      const av = document.createElement('div');
+      av.className = 'avatar bot-avatar';
+      av.textContent = '🌊';
+      const contentDiv = document.createElement('div');
+      contentDiv.className = 'message-content';
+      contentDiv.innerHTML = '<span style="color:#f87171;">⚠️ ' + text.replace(/</g,'&lt;') + '</span>';
+      row.append(av, contentDiv);
+      chatContent.appendChild(row);
       scrollToBottom();
     }
 
@@ -1869,15 +2942,44 @@
       await runThinkingSimulation(thoughtsDiv, text);
       thoughtsDiv.classList.remove('visible');
 
-      const response=await getAssistantResponse(text);
+      const response = await getAssistantResponse(text);
+
+      // ── Tool call response: hide thinking, show indicator, render panel ────
+      if (response && typeof response === 'object' && response.__toolCall) {
+        // Immediately hide thinking animation
+        thoughtsDiv.classList.remove('visible');
+        thoughtsDiv.style.display = 'none';
+
+        const toolName = 'Generador de Sopa de Letras';
+        const bubbleContainer = contentDiv.parentElement;
+        // Create indicator with spinner (shows while tool executes)
+        const iid = createToolCallIndicator(bubbleContainer, toolName);
+        scrollToBottom();
+
+        // Trigger the tool panel (shows confirm panel, user clicks execute)
+        try {
+          triggerSopaFromAI(response.params, bubbleContainer, iid);
+          // Indicator stays "executing" until user confirms & tool resolves
+          // setToolIndicatorDone is called from inside executeSopaFromAI
+        } catch(e) {
+          setToolIndicatorDone(iid, toolName, false);
+          const errDiv = document.createElement('div');
+          errDiv.className = 'message-content';
+          errDiv.innerHTML = '<span style="color:#f87171;">⚠️ Error al iniciar herramienta: ' + e.message + '</span>';
+          bubbleContainer.appendChild(errDiv);
+        }
+        isResponding = false; userInput.focus();
+        return;
+      }
+
       await streamResponse(contentDiv, response);
 
       // No coral bits rewards — removed
       const ac=getActiveChat();
       if(ac){
         ac.messages=Array.isArray(ac.messages)?ac.messages:[];
-        ac.messages.push({sender:'bot',text:response,reward,at:new Date().toISOString()});
-        if(ac.title==='Nuevo chat'){ const fu=ac.messages.find(m=>m.sender==='user'); if(fu?.text) ac.title=buildChatTitleFromFirstPrompt(fu.text); if(chatHeaderTitle) chatHeaderTitle.textContent=ac.title; }
+        ac.messages.push({sender:'bot',text:response,at:new Date().toISOString()});
+        if(ac.title==='Nuevo chat'){ const fu=ac.messages.find(m=>m.sender==='user'); if((fu && fu.text)) ac.title=buildChatTitleFromFirstPrompt(fu.text); if(chatHeaderTitle) chatHeaderTitle.textContent=ac.title; }
         persistActiveChat();
       }
 
@@ -1903,7 +3005,7 @@
 
     // Auto-refresh balance every 30s when Ocean Pay is connected
     setInterval(() => {
-      if (oceanPayAuth?.username && oceanPayAuth?.password) {
+      if ((oceanPayAuth && oceanPayAuth.username) && (oceanPayAuth && oceanPayAuth.password)) {
         loadCoralBitsFromOceanPay().catch(() => {});
       }
     }, 30000);
@@ -1936,6 +3038,7 @@
     }
     updateCurrencyUI();
     checkQuotaBanner();
+    updatePendingBadge();
 
 
     // ════════════════════════════════════════════════════════════
@@ -1944,12 +3047,35 @@
     // ════════════════════════════════════════════════════════════
     const TOOLS = {
       // minTier: minimum model tier required (MODELS[id].tier)
-      '/generardivisas':    { name: 'Generador de Divisas',    fn: renderToolGenerarDivisas,    minTier: 2, nuevo: false }, // Delfin 1.1+
-      '/boostreputacion':   { name: 'Boost de Reputación',     fn: renderToolBoostReputacion,   minTier: 1, nuevo: false }, // Delfin 1.0+
-      '/transferirdivisas': { name: 'Transferir Divisas',      fn: renderToolTransferirDivisas, minTier: 3, nuevo: false }, // Delfin 1.1 Mini+
-      '/consultarsaldo':    { name: 'Consultar Saldo',         fn: renderToolConsultarSaldo,    minTier: 3, nuevo: false }, // Delfin 1.1 Mini+
-      '/historialops':      { name: 'Historial de Operaciones',fn: renderToolHistorialOps,      minTier: 5, nuevo: true  }, // Delfin 1.2+
-      '/intercambiardivisas':{ name: 'Intercambiar Divisas',   fn: renderToolIntercambiarDivisas,minTier: 5, nuevo: true  }, // Delfin 1.2+
+      // Delfin 1 (tier 1)
+      '/boostreputacion':   { name: 'Boost de Reputación',       fn: renderToolBoostReputacion,     minTier: 1, nuevo: false, desc: 'Suma puntos de reputación a tu cuenta Ocean Pay' },
+      '/estadocuenta':      { name: 'Estado de Cuenta',          fn: renderToolEstadoCuenta,        minTier: 1, nuevo: false, desc: 'Muestra estadísticas generales de tu cuenta' },
+      // Delfin 1.1 (tier 2)
+      '/generardivisas':    { name: 'Generador de Divisas',      fn: renderToolGenerarDivisas,      minTier: 2, nuevo: false, desc: 'Genera divisas Ocean Pay en tu cuenta' },
+      '/conversortiempo':   { name: 'Conversor de Tiempo',       fn: renderToolConversorTiempo,     minTier: 2, nuevo: false, desc: 'Convierte entre zonas horarias y formatos de tiempo' },
+      // Delfin 1.1 Mini (tier 3)
+      '/transferirdivisas': { name: 'Transferir Divisas',        fn: renderToolTransferirDivisas,   minTier: 3, nuevo: false, desc: 'Envía divisas a otro usuario Ocean Pay' },
+      '/consultarsaldo':    { name: 'Consultar Saldo',           fn: renderToolConsultarSaldo,      minTier: 3, nuevo: false, desc: 'Consulta el saldo de una divisa en tu cuenta' },
+      // Delfin 1.1 Max (tier 4)
+      '/calculadorafinanciera': { name: 'Calculadora Financiera', fn: renderToolCalculadoraFinanciera, minTier: 4, nuevo: true, desc: 'Calcula interés, cuotas y porcentajes' },
+      '/generadorpassword': { name: 'Generador de Contraseñas',  fn: renderToolGeneradorPassword,   minTier: 4, nuevo: true,  desc: 'Crea contraseñas seguras con parámetros personalizados' },
+      // Delfin 1.2 (tier 5)
+      '/historialops':      { name: 'Historial de Operaciones',  fn: renderToolHistorialOps,        minTier: 5, nuevo: true,  desc: 'Ve las últimas operaciones de tu cuenta Ocean Pay' },
+      '/intercambiardivisas':{ name: 'Intercambiar Divisas',     fn: renderToolIntercambiarDivisas, minTier: 5, nuevo: true,  desc: 'Intercambia divisas entre tipos disponibles' },
+      // Ballena 1 (tier 6)
+      '/generadornombres':  { name: 'Generador de Nombres',      fn: renderToolGeneradorNombres,    minTier: 6, nuevo: true,  desc: 'Genera nombres únicos para proyectos, empresas o personajes' },
+      '/analizadortexto':   { name: 'Analizador de Texto',       fn: renderToolAnalizadorTexto,     minTier: 6, nuevo: true,  desc: 'Cuenta palabras, oraciones y calcula legibilidad' },
+      // Ballena 1 Mini (tier 7)
+      '/generadorcolor':    { name: 'Generador de Paleta',       fn: renderToolGeneradorColor,      minTier: 7, nuevo: true,  desc: 'Genera paletas de colores armónicas a partir de un color base' },
+      '/formateadorjson':   { name: 'Formateador JSON',          fn: renderToolFormateadorJson,     minTier: 7, nuevo: true,  desc: 'Formatea y valida JSON con indentación limpia' },
+      // Ballena 1 Max (tier 8)
+      '/calculadorafecha':  { name: 'Calculadora de Fechas',     fn: renderToolCalculadoraFecha,    minTier: 8, nuevo: true,  desc: 'Calcula diferencias entre fechas y días hábiles' },
+      '/generadorcita':     { name: 'Generador de Citas',        fn: renderToolGeneradorCita,       minTier: 8, nuevo: true,  desc: 'Genera citas motivacionales o filosóficas temáticas' },
+      // Ballena 1 Blue Max (tier 9)
+      '/analizadorurl':     { name: 'Analizador de URL',         fn: renderToolAnalizadorUrl,       minTier: 9, nuevo: true,  desc: 'Desglosa y analiza componentes de una URL' },
+      '/conversorbase':     { name: 'Conversor de Bases',        fn: renderToolConversorBase,       minTier: 9, nuevo: true,  desc: 'Convierte números entre base 2, 8, 10 y 16' },
+      // Tiburon 1 (tier 10)
+      '/sopaldeletras':     { name: 'Generador de Sopa de Letras', fn: renderToolSopaLetras,          minTier: 10, nuevo: true, desc: 'Crea una sopa de letras personalizada con IA · Exclusivo Tiburon 1' },
     };
 
     // Cost formulas
@@ -2011,22 +3137,22 @@
     function updateDivisasCost(uid) {
       const amountEl = document.getElementById('tool-d-amount-' + uid);
       const costEl   = document.getElementById('tool-d-cost-' + uid);
-      const curr     = document.getElementById('tool-d-currency-' + uid)?.value || 'aquabux';
-      const amount   = Math.min(500, Math.max(1, parseInt(amountEl?.value || '100') || 100));
+      const curr     = (document.getElementById('tool-d-currency-' + uid) && document.getElementById('tool-d-currency-' + uid).value) || 'aquabux';
+      const amount   = Math.min(500, Math.max(1, parseInt((amountEl && amountEl.value) || '100') || 100));
       const cost     = calcGenerarDivisasCost(curr, amount);
       if (costEl) costEl.textContent = cost + ' Coral Bits';
     }
 
     async function executeDivisas(uid) {
-      if (!oceanPayAuth?.username || !oceanPayAuth?.password) {
+      if (!(oceanPayAuth && oceanPayAuth.username) || !(oceanPayAuth && oceanPayAuth.password)) {
         showToolStatus(uid, 'd', 'error', 'Conectá tu cuenta Ocean Pay primero.');
         return;
       }
       const amountEl  = document.getElementById('tool-d-amount-' + uid);
       const currEl    = document.getElementById('tool-d-currency-' + uid);
       const btn       = document.getElementById('tool-d-btn-' + uid);
-      const currency  = currEl?.value || 'aquabux';
-      const amount    = Math.min(500, Math.max(1, parseInt(amountEl?.value || '0') || 0));
+      const currency  = (currEl && currEl.value) || 'aquabux';
+      const amount    = Math.min(500, Math.max(1, parseInt((amountEl && amountEl.value) || '0') || 0));
       if (!amount) { showToolStatus(uid, 'd', 'error', 'Cantidad inválida.'); return; }
       const cost = calcGenerarDivisasCost(currency, amount);
 
@@ -2112,20 +3238,20 @@
     }
 
     function updateBoostCost(uid) {
-      const level = document.getElementById('tool-b-level-' + uid)?.value || 'basico';
+      const level = (document.getElementById('tool-b-level-' + uid) && document.getElementById('tool-b-level-' + uid).value) || 'basico';
       const cost  = calcBoostReputacionCost(level);
       const costEl = document.getElementById('tool-b-cost-' + uid);
       if (costEl) costEl.textContent = cost + ' Coral Bits';
     }
 
     async function executeBoost(uid) {
-      if (!oceanPayAuth?.username || !oceanPayAuth?.password) {
+      if (!(oceanPayAuth && oceanPayAuth.username) || !(oceanPayAuth && oceanPayAuth.password)) {
         showToolStatus(uid, 'b', 'error', 'Conectá tu cuenta Ocean Pay primero.');
         return;
       }
       const levelEl = document.getElementById('tool-b-level-' + uid);
       const btn     = document.getElementById('tool-b-btn-' + uid);
-      const level   = levelEl?.value || 'basico';
+      const level   = (levelEl && levelEl.value) || 'basico';
       const cost    = calcBoostReputacionCost(level);
       const pts     = { basico: 10, medio: 25, avanzado: 60 }[level] || 10;
 
@@ -2240,7 +3366,7 @@
     }
 
     function updateTransCost(uid) {
-      const amount = Math.min(500, Math.max(1, parseInt(document.getElementById('tool-tr-amount-' + uid)?.value || '50') || 50));
+      const amount = Math.min(500, Math.max(1, parseInt((document.getElementById('tool-tr-amount-' + uid) && document.getElementById('tool-tr-amount-' + uid).value) || '50') || 50));
       // 0.3 CB per unit, min 5
       const cost = Math.max(5, Math.ceil(amount * 0.3));
       const costEl = document.getElementById('tool-tr-cost-' + uid);
@@ -2248,13 +3374,13 @@
     }
 
     async function executeTransferir(uid) {
-      if (!oceanPayAuth?.username || !oceanPayAuth?.password) {
+      if (!(oceanPayAuth && oceanPayAuth.username) || !(oceanPayAuth && oceanPayAuth.password)) {
         showToolStatus(uid, 'tr', 'error', 'Conectá tu cuenta Ocean Pay primero.');
         return;
       }
-      const currency = document.getElementById('tool-tr-currency-' + uid)?.value || 'aquabux';
-      const amount   = Math.min(500, Math.max(1, parseInt(document.getElementById('tool-tr-amount-' + uid)?.value || '0') || 0));
-      const dest     = (document.getElementById('tool-tr-dest-' + uid)?.value || '').trim().replace(/^@/, '');
+      const currency = (document.getElementById('tool-tr-currency-' + uid) && document.getElementById('tool-tr-currency-' + uid).value) || 'aquabux';
+      const amount   = Math.min(500, Math.max(1, parseInt((document.getElementById('tool-tr-amount-' + uid) && document.getElementById('tool-tr-amount-' + uid).value) || '0') || 0));
+      const dest     = ((document.getElementById('tool-tr-dest-' + uid) && document.getElementById('tool-tr-dest-' + uid).value) || '').trim().replace(/^@/, '');
       const btn      = document.getElementById('tool-tr-btn-' + uid);
       if (!amount) { showToolStatus(uid, 'tr', 'error', 'Cantidad inválida.'); return; }
       if (!dest)   { showToolStatus(uid, 'tr', 'error', 'Ingresá el usuario destinatario.'); return; }
@@ -2329,11 +3455,11 @@
     }
 
     async function executeConsultarSaldo(uid) {
-      if (!oceanPayAuth?.username || !oceanPayAuth?.password) {
+      if (!(oceanPayAuth && oceanPayAuth.username) || !(oceanPayAuth && oceanPayAuth.password)) {
         showToolStatus(uid, 'sl', 'error', 'Conectá tu cuenta Ocean Pay primero.');
         return;
       }
-      const currency = document.getElementById('tool-sl-currency-' + uid)?.value || 'aquabux';
+      const currency = (document.getElementById('tool-sl-currency-' + uid) && document.getElementById('tool-sl-currency-' + uid).value) || 'aquabux';
       const btn = document.getElementById('tool-sl-btn-' + uid);
       btn.textContent = 'Consultando…'; btn.disabled = true; btn.classList.add('loading');
 
@@ -2358,7 +3484,7 @@
         const labelEl  = document.getElementById('tool-sl-label-' + uid);
         if (resultEl && valEl) {
           labelEl.textContent = currency.charAt(0).toUpperCase() + currency.slice(1);
-          valEl.textContent   = (data.balance ?? 0).toLocaleString();
+          valEl.textContent   = ((data.balance != null ? data.balance : 0)).toLocaleString();
           resultEl.style.display = 'block';
         }
         showToolStatus(uid, 'sl', 'success', `Saldo consultado. Costo: ${data.coralBitsCost || 5} CB.`);
@@ -2407,11 +3533,11 @@
     }
 
     async function executeHistorial(uid) {
-      if (!oceanPayAuth?.username || !oceanPayAuth?.password) {
+      if (!(oceanPayAuth && oceanPayAuth.username) || !(oceanPayAuth && oceanPayAuth.password)) {
         showToolStatus(uid, 'hist', 'error', 'Conectá tu cuenta Ocean Pay primero.');
         return;
       }
-      const limit = parseInt(document.getElementById('tool-hist-limit-' + uid)?.value || '10');
+      const limit = parseInt((document.getElementById('tool-hist-limit-' + uid) && document.getElementById('tool-hist-limit-' + uid).value) || '10');
       const btn   = document.getElementById('tool-hist-btn-' + uid);
       btn.textContent = 'Consultando…'; btn.disabled = true; btn.classList.add('loading');
 
@@ -2535,11 +3661,11 @@
     }
 
     function updateExchangePreview(uid) {
-      const from   = document.getElementById('tool-int-from-' + uid)?.value || 'aquabux';
-      const to     = document.getElementById('tool-int-to-' + uid)?.value   || 'wildcredits';
-      const amount = Math.min(500, Math.max(1, parseInt(document.getElementById('tool-int-amount-' + uid)?.value || '100') || 100));
+      const from   = (document.getElementById('tool-int-from-' + uid) && document.getElementById('tool-int-from-' + uid).value) || 'aquabux';
+      const to     = (document.getElementById('tool-int-to-' + uid) && document.getElementById('tool-int-to-' + uid).value)   || 'wildcredits';
+      const amount = Math.min(500, Math.max(1, parseInt((document.getElementById('tool-int-amount-' + uid) && document.getElementById('tool-int-amount-' + uid).value) || '100') || 100));
       const key    = from + '→' + to;
-      const rate   = EXCHANGE_RATES[key] ?? null;
+      const rate   = (EXCHANGE_RATES[key] != null ? EXCHANGE_RATES[key] : null);
       const receiveEl = document.getElementById('tool-int-receive-' + uid);
       if (!receiveEl) return;
       if (from === to) { receiveEl.textContent = 'Seleccioná divisas distintas'; return; }
@@ -2548,13 +3674,13 @@
     }
 
     async function executeIntercambio(uid) {
-      if (!oceanPayAuth?.username || !oceanPayAuth?.password) {
+      if (!(oceanPayAuth && oceanPayAuth.username) || !(oceanPayAuth && oceanPayAuth.password)) {
         showToolStatus(uid, 'int', 'error', 'Conectá tu cuenta Ocean Pay primero.');
         return;
       }
-      const from   = document.getElementById('tool-int-from-' + uid)?.value || 'aquabux';
-      const to     = document.getElementById('tool-int-to-' + uid)?.value   || 'wildcredits';
-      const amount = Math.min(500, Math.max(1, parseInt(document.getElementById('tool-int-amount-' + uid)?.value || '0') || 0));
+      const from   = (document.getElementById('tool-int-from-' + uid) && document.getElementById('tool-int-from-' + uid).value) || 'aquabux';
+      const to     = (document.getElementById('tool-int-to-' + uid) && document.getElementById('tool-int-to-' + uid).value)   || 'wildcredits';
+      const amount = Math.min(500, Math.max(1, parseInt((document.getElementById('tool-int-amount-' + uid) && document.getElementById('tool-int-amount-' + uid).value) || '0') || 0));
       const btn    = document.getElementById('tool-int-btn-' + uid);
       if (from === to) { showToolStatus(uid, 'int', 'error', 'Seleccioná divisas distintas.'); return; }
       if (!amount)     { showToolStatus(uid, 'int', 'error', 'Cantidad inválida.'); return; }
@@ -2593,8 +3719,8 @@
 
       const toolDef   = TOOLS[cmd];
       const modelDef  = MODELS[currentModel];
-      const modelTier = modelDef?.tier ?? 0;
-      const minTier   = toolDef?.minTier ?? 1;
+      const modelTier = ((modelDef && modelDef.tier) != null ? (modelDef && modelDef.tier) : 0);
+      const minTier   = ((toolDef && toolDef.minTier) != null ? (toolDef && toolDef.minTier) : 1);
 
       if (modelTier < minTier) {
         // Find the minimum model name that unlocks this tool
@@ -2602,7 +3728,7 @@
         const minName  = minModel ? minModel.name : 'un plan superior';
         showSystemMessage(
           `La herramienta "${toolDef.name}" requiere ${minName} o superior. ` +
-          `Tu modelo actual (${modelDef?.name || currentModel}) no tiene acceso.`
+          `Tu modelo actual (${(modelDef && modelDef.name) || currentModel}) no tiene acceso.`
         );
         return true;
       }
@@ -2663,6 +3789,1589 @@
       scrollToBottom();
     }
 
-  </script>
+
+    // ════════════════════════════════════════════════════════════
+    // RECHARGE MODAL
+    // ════════════════════════════════════════════════════════════
+    // Exchange rates: how many units of currency = 1 CB
+    const CB_RECHARGE_RATES = {
+      aquabux:    { label: 'AquaBux',     cbPerUnit: 2    }, // 1 ABX = 2 CB
+      wildcredits:{ label: 'WildCredits', cbPerUnit: 1.5  }, // 1 WC  = 1.5 CB
+      wildgems:   { label: 'WildGems',    cbPerUnit: 5    }, // 1 WG  = 5 CB
+    };
+    // Package definitions: [coral bits, base cost in AquaBux]
+    const CB_PACKAGES = {
+      100:  { cb: 100,  costAbx: 50  },
+      300:  { cb: 300,  costAbx: 130 },
+      750:  { cb: 750,  costAbx: 300 },
+    };
+
+    let _rechargePkg      = 300;   // selected package (CB amount)
+    let _rechargeCurrency = 'aquabux';
+
+    function openRechargeModal() {
+      if (!(oceanPayAuth && oceanPayAuth.username)) {
+        showSystemMessage('Conectá tu cuenta Ocean Pay primero para recargar.');
+        return;
+      }
+      // Update current CB display
+      const cbEl = document.getElementById('rechargeCurrentCB');
+      if (cbEl) cbEl.textContent = coralBits + ' CB';
+      // Reset status
+      const statusEl = document.getElementById('rechargeStatus');
+      if (statusEl) { statusEl.textContent = ''; statusEl.className = 'recharge-status'; }
+      const btn = document.getElementById('rechargeConfirmBtn');
+      if (btn) { btn.disabled = false; btn.classList.remove('loading'); btn.textContent = '🪙 Confirmar recarga'; }
+      updateRechargeSummary();
+      document.getElementById('rechargeModal').classList.add('open');
+    }
+
+    function closeRechargeModal() {
+      document.getElementById('rechargeModal').classList.remove('open');
+    }
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') closeRechargeModal();
+    });
+    document.getElementById('rechargeModal') && document.getElementById('rechargeModal').addEventListener('click', e => {
+      if (e.target === document.getElementById('rechargeModal')) closeRechargeModal();
+    });
+
+    function selectRechargePkg(el) {
+      document.querySelectorAll('.recharge-pkg').forEach(p => p.classList.remove('selected'));
+      el.classList.add('selected');
+      _rechargePkg = parseInt(el.dataset.pkg);
+      updateRechargeSummary();
+    }
+
+    function selectRechargeCurrency(el) {
+      document.querySelectorAll('.recharge-currency-opt').forEach(o => o.classList.remove('selected'));
+      el.classList.add('selected');
+      _rechargeCurrency = el.dataset.currency;
+      // Update package costs display
+      updatePackageCostDisplay();
+      updateRechargeSummary();
+    }
+
+    function updatePackageCostDisplay() {
+      const rate = CB_RECHARGE_RATES[_rechargeCurrency];
+      if (!rate) return;
+      document.querySelectorAll('.recharge-pkg').forEach(pkgEl => {
+        const cb      = parseInt(pkgEl.dataset.pkg);
+        // Cost = CB / cbPerUnit, rounded up
+        const cost    = Math.ceil(cb / rate.cbPerUnit);
+        const costEl  = pkgEl.querySelector('.recharge-pkg-cost');
+        if (costEl) costEl.textContent = `${cost} ${rate.label.slice(0,3).toUpperCase()}`;
+        // Store cost in dataset
+        pkgEl.dataset['cost' + _rechargeCurrency] = cost;
+      });
+    }
+
+    function getRechargeCost() {
+      const rate = CB_RECHARGE_RATES[_rechargeCurrency];
+      if (!rate) return 0;
+      return Math.ceil(_rechargePkg / rate.cbPerUnit);
+    }
+
+    function updateRechargeSummary() {
+      const summaryEl = document.getElementById('rechargeSummaryVal');
+      if (!summaryEl) return;
+      const rate  = CB_RECHARGE_RATES[_rechargeCurrency];
+      const cost  = getRechargeCost();
+      summaryEl.textContent = `${_rechargePkg} Coral Bits por ${cost} ${(rate && rate.label) || _rechargeCurrency}`;
+    }
+
+    async function executeRecharge() {
+      if (!(oceanPayAuth && oceanPayAuth.username) || !(oceanPayAuth && oceanPayAuth.password)) {
+        const s = document.getElementById('rechargeStatus');
+        if (s) { s.textContent = 'Conectá tu cuenta Ocean Pay primero.'; s.className = 'recharge-status error'; }
+        return;
+      }
+      const btn      = document.getElementById('rechargeConfirmBtn');
+      const statusEl = document.getElementById('rechargeStatus');
+      const cost     = getRechargeCost();
+
+      btn.textContent = 'Procesando…'; btn.disabled = true; btn.classList.add('loading');
+      if (statusEl) { statusEl.textContent = ''; statusEl.className = 'recharge-status'; }
+
+      try {
+        const res  = await fetch(`${API}/ocean-ai/recharge-coral-bits`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username:       oceanPayAuth.username,
+            password:       oceanPayAuth.password,
+            coralBitsAmount:_rechargePkg,
+            currency:       _rechargeCurrency,
+            currencyCost:   cost,
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al recargar');
+
+        coralBits = Number((data.newCoralBitsBalance != null ? data.newCoralBitsBalance : (coralBits + _rechargePkg)));
+        updateCurrencyUI();
+
+        // Update current CB display in modal
+        const cbEl = document.getElementById('rechargeCurrentCB');
+        if (cbEl) cbEl.textContent = coralBits + ' CB';
+
+        if (statusEl) {
+          statusEl.textContent = `✓ +${_rechargePkg} Coral Bits recargados. Nuevo saldo: ${coralBits} CB.`;
+          statusEl.className = 'recharge-status success';
+        }
+        btn.textContent = '✓ Recargado'; btn.classList.remove('loading');
+        // Auto-close after 2s
+        setTimeout(() => closeRechargeModal(), 2000);
+      } catch(err) {
+        if (statusEl) {
+          statusEl.textContent = err.message || 'Error al procesar la recarga.';
+          statusEl.className = 'recharge-status error';
+        }
+        btn.textContent = '🪙 Reintentar'; btn.disabled = false; btn.classList.remove('loading');
+      }
+    }
+
+  
+
+
+    // ── New tool renderers ────────────────────────────────────────
+
+    let _toolEcCounter = 0;
+    let _toolCtCounter = 0;
+    let _toolCfCounter = 0;
+    let _toolGpCounter = 0;
+    let _toolGnCounter = 0;
+    let _toolAtCounter = 0;
+    let _toolGcCounter = 0;
+    let _toolFjCounter = 0;
+    let _toolCdfCounter = 0;
+    let _toolCitaCounter = 0;
+    let _toolAuCounter = 0;
+    let _toolCbCounter = 0;
+
+    function renderToolEstadoCuenta(containerEl) {
+      const uid = ++_toolEcCounter;
+      const panel = document.createElement('div');
+      panel.className = 'tool-panel';
+      panel.id = 'tool-panel-' + uid;
+      panel.innerHTML = `
+        <div class="tool-panel-header">
+          <span class="tool-panel-icon">📊</span>
+          <div>
+            <div class="tool-panel-title">Estado de Cuenta</div>
+            <div class="tool-panel-sub">Estadísticas de tu cuenta Ocean Pay</div>
+          </div>
+        </div>
+        <div id="tool-ec-status-${uid}" class="tool-status"></div>
+        <button class="tool-btn" onclick="executeEstadoCuenta('${uid}')">📊 Ver estadísticas</button>
+      `;
+      containerEl.appendChild(panel);
+    }
+
+    async function executeEstadoCuenta(uid) {
+      if (!(oceanPayAuth && oceanPayAuth.username) || !(oceanPayAuth && oceanPayAuth.password)) {
+        showToolStatus(uid, 'ec', 'error', 'Conectá tu cuenta Ocean Pay primero.');
+        return;
+      }
+      const btn = document.querySelector('#tool-panel-' + uid + ' .tool-btn');
+      btn.textContent = 'Consultando…'; btn.disabled = true;
+      await addToolThinkingMessage([
+        'Accediendo a Ocean Pay…',
+        'Consultando saldos de divisas…',
+        'Recopilando estadísticas…',
+      ]);
+      try {
+        const creds = { username: oceanPayAuth.username, password: oceanPayAuth.password };
+
+        // Fetch all balances via check-balance (known working endpoint)
+        const currencies = ['aquabux', 'wildcredits', 'coralbits', 'appbux', 'wildgems'];
+        const currencyLabels = {
+          aquabux: '🪙 AquaBux', wildcredits: '💎 WildCredits',
+          coralbits: '🪸 Coral Bits', appbux: '📱 AppBux', wildgems: '💠 WildGems',
+        };
+        const balances = {};
+        await Promise.all(currencies.map(async (cur) => {
+          try {
+            const r = await fetch(API + '/ocean-ai/tools/check-balance', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ...creds, currency: cur }),
+            });
+            const d = await r.json();
+            balances[cur] = r.ok ? (d.balance != null ? d.balance : 0) : 0;
+          } catch(_) { balances[cur] = 0; }
+        }));
+
+        // Fetch account stats (use defensively — normalize any field variation)
+        let stats = {};
+        try {
+          const sr = await fetch(API + '/ocean-ai/tools/account-stats', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(creds),
+          });
+          const sd = await sr.json();
+          if (sr.ok) {
+            // Normalize — server may use different field names
+            stats.txCount   = sd.totalTransactions ?? sd.txCount ?? sd.total_transactions ?? sd.transactions ?? 0;
+            stats.reputation= sd.reputation ?? sd.rep ?? sd.reputation_points ?? 0;
+            stats.createdAt = sd.createdAt ?? sd.created_at ?? sd.accountCreatedAt ?? null;
+            stats.username  = sd.username ?? creds.username;
+            // Some servers return balances here too — use as fallback
+            if (sd.aquabux   != null) balances.aquabux    = balances.aquabux   || sd.aquabux;
+            if (sd.wildcredits!=null) balances.wildcredits= balances.wildcredits|| sd.wildcredits;
+            if (sd.coralbits != null) balances.coralbits  = balances.coralbits  || sd.coralbits;
+          }
+        } catch(_) {}
+
+        // Deduct CB cost once (account-stats costs ~15 CB)
+        coralBits = Math.max(0, coralBits - 15);
+        updateCurrencyUI();
+
+        // Build message
+        const balanceLines = currencies
+          .map(cur => `${currencyLabels[cur]}: **${Number(balances[cur] || 0).toLocaleString('es')}**`)
+          .join('\n');
+
+        const createdStr = stats.createdAt
+          ? new Date(stats.createdAt).toLocaleDateString('es', { day:'2-digit', month:'long', year:'numeric' })
+          : 'N/D';
+
+        const msg = [
+          '**📊 Estado de tu cuenta Ocean Pay**',
+          '**@' + (stats.username || creds.username) + '**',
+          '',
+          '**— Saldos —**',
+          balanceLines,
+          '',
+          '**— Actividad —**',
+          '📈 Transacciones: **' + Number(stats.txCount || 0).toLocaleString('es') + '**',
+          '⭐ Reputación: **' + Number(stats.reputation || 0).toLocaleString('es') + ' pts**',
+          '🗓️ Cuenta creada: ' + createdStr,
+        ].join('\n');
+
+        addBotMessage(msg);
+        showToolStatus(uid, 'ec', 'success', '✓ Estadísticas obtenidas · Costo: 15 CB');
+        btn.textContent = '📊 Actualizar';
+      } catch(e) {
+        showToolStatus(uid, 'ec', 'error', e.message || 'Error al consultar');
+        btn.textContent = '📊 Reintentar';
+      } finally { btn.disabled = false; }
+    }
+
+    function renderToolConversorTiempo(containerEl) {
+      const uid = ++_toolCtCounter;
+      const zones = ['UTC', 'America/New_York', 'America/Argentina/Buenos_Aires', 'Europe/Madrid', 'America/Mexico_City', 'Asia/Tokyo'];
+      const panel = document.createElement('div');
+      panel.className = 'tool-panel';
+      panel.id = 'tool-panel-' + uid;
+      panel.innerHTML = `
+        <div class="tool-panel-header">
+          <span class="tool-panel-icon">🕐</span>
+          <div>
+            <div class="tool-panel-title">Conversor de Tiempo</div>
+            <div class="tool-panel-sub">Convierte entre zonas horarias</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin:0.5rem 0;">
+          <div>
+            <label style="font-size:0.7rem;color:var(--text-muted);">Zona origen</label>
+            <select id="tool-ct-from-${uid}" style="width:100%;background:#0f172a;border:1px solid rgba(255,255,255,0.1);color:var(--text-main);border-radius:6px;padding:6px;font-size:0.78rem;">
+              ${zones.map(z => '<option value="'+z+'">'+z+'</option>').join('')}
+            </select>
+          </div>
+          <div>
+            <label style="font-size:0.7rem;color:var(--text-muted);">Zona destino</label>
+            <select id="tool-ct-to-${uid}" style="width:100%;background:#0f172a;border:1px solid rgba(255,255,255,0.1);color:var(--text-main);border-radius:6px;padding:6px;font-size:0.78rem;">
+              ${zones.map((z,i) => '<option value="'+z+'"'+(i===2?' selected':'')+'>'+z+'</option>').join('')}
+            </select>
+          </div>
+        </div>
+        <input type="datetime-local" id="tool-ct-time-${uid}" style="width:100%;background:#0f172a;border:1px solid rgba(255,255,255,0.1);color:var(--text-main);border-radius:6px;padding:6px;font-size:0.78rem;margin-bottom:0.5rem;" />
+        <button class="tool-btn" onclick="executeConversorTiempo('${uid}')">🕐 Convertir</button>
+      `;
+      // Set current time
+      setTimeout(() => {
+        const inp = document.getElementById('tool-ct-time-'+uid);
+        if (inp) { const n = new Date(); inp.value = n.toISOString().slice(0,16); }
+      }, 0);
+      containerEl.appendChild(panel);
+    }
+
+    function executeConversorTiempo(uid) {
+      const fromZone = (document.getElementById('tool-ct-from-' + uid) && document.getElementById('tool-ct-from-' + uid).value) || 'UTC';
+      const toZone   = (document.getElementById('tool-ct-to-'   + uid) && document.getElementById('tool-ct-to-'   + uid).value) || 'UTC';
+      const timeVal  = (document.getElementById('tool-ct-time-' + uid) && document.getElementById('tool-ct-time-' + uid).value) || '';
+      if (!timeVal) { addErrorMessage('Ingresá una fecha y hora.'); return; }
+      try {
+        const date = new Date(timeVal);
+        const fromStr = date.toLocaleString('es', { timeZone: fromZone, weekday:'long', year:'numeric', month:'long', day:'numeric', hour:'2-digit', minute:'2-digit' });
+        const toStr   = date.toLocaleString('es', { timeZone: toZone,   weekday:'long', year:'numeric', month:'long', day:'numeric', hour:'2-digit', minute:'2-digit' });
+        addBotMessage('**Conversión de tiempo**\n\n🕐 **' + fromZone + ':** ' + fromStr + '\n\n➡️ **' + toZone + ':** ' + toStr);
+      } catch(e) { addErrorMessage('Error al convertir: ' + e.message); }
+    }
+
+    function renderToolCalculadoraFinanciera(containerEl) {
+      const uid = ++_toolCfCounter;
+      const panel = document.createElement('div');
+      panel.className = 'tool-panel';
+      panel.id = 'tool-panel-' + uid;
+      panel.innerHTML = `
+        <div class="tool-panel-header">
+          <span class="tool-panel-icon">🧮</span>
+          <div>
+            <div class="tool-panel-title">Calculadora Financiera</div>
+            <div class="tool-panel-sub">Interés, cuotas y porcentajes</div>
+          </div>
+        </div>
+        <select id="tool-cf-mode-${uid}" style="width:100%;background:#0f172a;border:1px solid rgba(255,255,255,0.1);color:var(--text-main);border-radius:6px;padding:6px;font-size:0.78rem;margin-bottom:0.5rem;" onchange="updateCalcFinMode('${uid}')">
+          <option value="interes">Interés simple / compuesto</option>
+          <option value="cuotas">Cuotas de préstamo</option>
+          <option value="porcentaje">Calcular porcentaje</option>
+        </select>
+        <div id="tool-cf-fields-${uid}"></div>
+        <button class="tool-btn" onclick="executeCalculadoraFinanciera('${uid}')">🧮 Calcular</button>
+      `;
+      setTimeout(() => updateCalcFinMode(uid), 0);
+      containerEl.appendChild(panel);
+    }
+
+    function updateCalcFinMode(uid) {
+      const mode = (document.getElementById('tool-cf-mode-' + uid) && document.getElementById('tool-cf-mode-' + uid).value) || 'interes';
+      const fields = document.getElementById('tool-cf-fields-' + uid);
+      if (!fields) return;
+      const inp = (id, label, placeholder, type='number') =>
+        '<div style="margin-bottom:0.4rem;"><label style="font-size:0.7rem;color:var(--text-muted);">'+label+'</label>' +
+        '<input type="'+type+'" id="'+id+'" placeholder="'+placeholder+'" style="width:100%;background:#0f172a;border:1px solid rgba(255,255,255,0.1);color:var(--text-main);border-radius:6px;padding:6px;font-size:0.78rem;"/></div>';
+      if (mode === 'interes') {
+        fields.innerHTML = inp('tool-cf-capital-'+uid,'Capital','10000') + inp('tool-cf-tasa-'+uid,'Tasa anual (%)','5') + inp('tool-cf-años-'+uid,'Años','3') +
+          '<select id="tool-cf-tipo-'+uid+'" style="width:100%;background:#0f172a;border:1px solid rgba(255,255,255,0.1);color:var(--text-main);border-radius:6px;padding:6px;font-size:0.78rem;"><option value="simple">Simple</option><option value="compuesto">Compuesto</option></select>';
+      } else if (mode === 'cuotas') {
+        fields.innerHTML = inp('tool-cf-monto-'+uid,'Monto del préstamo','50000') + inp('tool-cf-tasam-'+uid,'Tasa mensual (%)','1.5') + inp('tool-cf-cuotas-'+uid,'Número de cuotas','24');
+      } else {
+        fields.innerHTML = inp('tool-cf-valor-'+uid,'Valor base','1000') + inp('tool-cf-pct-'+uid,'Porcentaje (%)','15');
+      }
+    }
+
+    function executeCalculadoraFinanciera(uid) {
+      const mode = (document.getElementById('tool-cf-mode-' + uid) && document.getElementById('tool-cf-mode-' + uid).value) || 'interes';
+      let result = '';
+      if (mode === 'interes') {
+        const C = parseFloat((document.getElementById('tool-cf-capital-'+uid) && document.getElementById('tool-cf-capital-'+uid).value) || 0);
+        const r = parseFloat((document.getElementById('tool-cf-tasa-'+uid) && document.getElementById('tool-cf-tasa-'+uid).value) || 0) / 100;
+        const t = parseFloat((document.getElementById('tool-cf-años-'+uid) && document.getElementById('tool-cf-años-'+uid).value) || 0);
+        const tipo = (document.getElementById('tool-cf-tipo-'+uid) && document.getElementById('tool-cf-tipo-'+uid).value) || 'simple';
+        const interesTotal = tipo === 'simple' ? C*r*t : C*(Math.pow(1+r,t)-1);
+        const total = C + interesTotal;
+        result = '**Cálculo de Interés**\n\nCapital: $' + C.toLocaleString() + '\nTasa: ' + (r*100) + '% anual (' + tipo + ')\nPlazo: ' + t + ' años\n\n💰 Interés total: $' + interesTotal.toFixed(2) + '\n📊 Monto final: $' + total.toFixed(2);
+      } else if (mode === 'cuotas') {
+        const P = parseFloat((document.getElementById('tool-cf-monto-'+uid) && document.getElementById('tool-cf-monto-'+uid).value) || 0);
+        const i = parseFloat((document.getElementById('tool-cf-tasam-'+uid) && document.getElementById('tool-cf-tasam-'+uid).value) || 0) / 100;
+        const n = parseInt((document.getElementById('tool-cf-cuotas-'+uid) && document.getElementById('tool-cf-cuotas-'+uid).value) || 0);
+        const cuota = i === 0 ? P/n : P * i * Math.pow(1+i,n) / (Math.pow(1+i,n)-1);
+        result = '**Cuotas del Préstamo**\n\nMonto: $' + P.toLocaleString() + '\nTasa mensual: ' + (i*100) + '%\nCuotas: ' + n + '\n\n💳 Cuota mensual: $' + cuota.toFixed(2) + '\n📊 Total a pagar: $' + (cuota*n).toFixed(2);
+      } else {
+        const V = parseFloat((document.getElementById('tool-cf-valor-'+uid) && document.getElementById('tool-cf-valor-'+uid).value) || 0);
+        const P = parseFloat((document.getElementById('tool-cf-pct-'+uid) && document.getElementById('tool-cf-pct-'+uid).value) || 0);
+        result = '**Cálculo de Porcentaje**\n\nValor: ' + V + '\nPorcentaje: ' + P + '%\n\n➕ Resultado: ' + (V*P/100).toFixed(2) + '\n📊 Valor + %: ' + (V*(1+P/100)).toFixed(2) + '\n📉 Valor - %: ' + (V*(1-P/100)).toFixed(2);
+      }
+      addBotMessage(result);
+    }
+
+    function renderToolGeneradorPassword(containerEl) {
+      const uid = ++_toolGpCounter;
+      const panel = document.createElement('div');
+      panel.className = 'tool-panel';
+      panel.id = 'tool-panel-' + uid;
+      panel.innerHTML = `
+        <div class="tool-panel-header">
+          <span class="tool-panel-icon">🔐</span>
+          <div>
+            <div class="tool-panel-title">Generador de Contraseñas</div>
+            <div class="tool-panel-sub">Crea contraseñas seguras</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.4rem;margin-bottom:0.5rem;font-size:0.75rem;">
+          <label><input type="checkbox" id="tool-gp-upper-${uid}" checked> Mayúsculas</label>
+          <label><input type="checkbox" id="tool-gp-lower-${uid}" checked> Minúsculas</label>
+          <label><input type="checkbox" id="tool-gp-nums-${uid}" checked> Números</label>
+          <label><input type="checkbox" id="tool-gp-sym-${uid}"> Símbolos</label>
+        </div>
+        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem;">
+          <label style="font-size:0.7rem;color:var(--text-muted);white-space:nowrap;">Longitud:</label>
+          <input type="range" id="tool-gp-len-${uid}" min="8" max="64" value="16" style="flex:1;" oninput="document.getElementById('tool-gp-lenval-${uid}').textContent=this.value"/>
+          <span id="tool-gp-lenval-${uid}" style="font-size:0.75rem;min-width:20px;">16</span>
+        </div>
+        <div style="margin-bottom:0.5rem;">
+          <label style="font-size:0.7rem;color:var(--text-muted);">Cantidad a generar:</label>
+          <input type="number" id="tool-gp-count-${uid}" value="3" min="1" max="10" style="width:60px;background:#0f172a;border:1px solid rgba(255,255,255,0.1);color:var(--text-main);border-radius:6px;padding:4px 6px;font-size:0.78rem;margin-left:6px;"/>
+        </div>
+        <button class="tool-btn" onclick="executeGeneradorPassword('${uid}')">🔐 Generar</button>
+      `;
+      containerEl.appendChild(panel);
+    }
+
+    function executeGeneradorPassword(uid) {
+      const upper = document.getElementById('tool-gp-upper-'+uid) && document.getElementById('tool-gp-upper-'+uid).checked;
+      const lower = document.getElementById('tool-gp-lower-'+uid) && document.getElementById('tool-gp-lower-'+uid).checked;
+      const nums  = document.getElementById('tool-gp-nums-'+uid)  && document.getElementById('tool-gp-nums-'+uid).checked;
+      const syms  = document.getElementById('tool-gp-sym-'+uid)   && document.getElementById('tool-gp-sym-'+uid).checked;
+      const len   = parseInt((document.getElementById('tool-gp-len-'+uid) && document.getElementById('tool-gp-len-'+uid).value) || 16);
+      const count = parseInt((document.getElementById('tool-gp-count-'+uid) && document.getElementById('tool-gp-count-'+uid).value) || 3);
+      let chars = '';
+      if (upper) chars += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+      if (lower) chars += 'abcdefghijklmnopqrstuvwxyz';
+      if (nums)  chars += '0123456789';
+      if (syms)  chars += '!@#$%^&*()-_=+[]{}|;:,.<>?';
+      if (!chars) { addErrorMessage('Seleccioná al menos un tipo de caracter.'); return; }
+      const passwords = [];
+      for (let i = 0; i < count; i++) {
+        let pw = '';
+        for (let j = 0; j < len; j++) pw += chars[Math.floor(Math.random() * chars.length)];
+        passwords.push(pw);
+      }
+      addBotMessage('**Contraseñas generadas (longitud ' + len + '):**\n\n' + passwords.map((p,i) => (i+1) + '. `' + p + '`').join('\n'));
+    }
+
+    function renderToolGeneradorNombres(containerEl) {
+      const uid = ++_toolGnCounter;
+      const panel = document.createElement('div');
+      panel.className = 'tool-panel';
+      panel.id = 'tool-panel-' + uid;
+      panel.innerHTML = `
+        <div class="tool-panel-header">
+          <span class="tool-panel-icon">✨</span>
+          <div>
+            <div class="tool-panel-title">Generador de Nombres</div>
+            <div class="tool-panel-sub">Para proyectos, empresas o personajes</div>
+          </div>
+        </div>
+        <select id="tool-gn-tipo-${uid}" style="width:100%;background:#0f172a;border:1px solid rgba(255,255,255,0.1);color:var(--text-main);border-radius:6px;padding:6px;font-size:0.78rem;margin-bottom:0.5rem;">
+          <option value="empresa">Empresa / Startup</option>
+          <option value="proyecto">Proyecto de software</option>
+          <option value="personaje">Personaje de ficción</option>
+          <option value="marca">Marca / Producto</option>
+        </select>
+        <input type="text" id="tool-gn-tema-${uid}" placeholder="Tema o palabras clave (ej: agua, tecnología)" style="width:100%;background:#0f172a;border:1px solid rgba(255,255,255,0.1);color:var(--text-main);border-radius:6px;padding:6px;font-size:0.78rem;margin-bottom:0.5rem;"/>
+        <button class="tool-btn" onclick="executeGeneradorNombres('${uid}')">✨ Generar nombres</button>
+      `;
+      containerEl.appendChild(panel);
+    }
+
+    function executeGeneradorNombres(uid) {
+      const tipo  = (document.getElementById('tool-gn-tipo-'+uid) && document.getElementById('tool-gn-tipo-'+uid).value) || 'empresa';
+      const tema  = (document.getElementById('tool-gn-tema-'+uid) && document.getElementById('tool-gn-tema-'+uid).value) || '';
+      const prefixes = { empresa:['Nova','Nexus','Apex','Core','Vibe','Flux','Arc','Zeta','Ori','Lumis'], proyecto:['Open','Swift','Lite','Edge','Hyper','Nano','Ultra','Pixel','Data','Net'], personaje:['Ael','Zar','Mira','Kai','Theon','Lyra','Soren','Ven','Dax','Nyx'], marca:['Velo','Zeno','Airo','Lumo','Kira','Nex','Pura','Solo','Vivo','Aero'] };
+      const suffixes = { empresa:['Tech','Labs','Hub','Works','Forge','Mind','Sync','AI','IO','Co'], proyecto:['Flow','Kit','Stack','Core','Base','Engine','Script','API','CLI','Lib'], personaje:['os','ara','an','iel','eth','or','is','en','ux','ax'], marca:['ix','oz','ux','ara','ite','one','ive','air','pure','pro'] };
+      const pre = prefixes[tipo] || prefixes.empresa;
+      const suf = suffixes[tipo] || suffixes.empresa;
+      const keywords = tema ? tema.split(/[,\s]+/).filter(Boolean).map(w => w.charAt(0).toUpperCase()+w.slice(1,4)) : [];
+      const names = [];
+      for (let i = 0; i < 8; i++) {
+        const p = pre[Math.floor(Math.random()*pre.length)];
+        const s = suf[Math.floor(Math.random()*suf.length)];
+        const kw = keywords.length ? keywords[Math.floor(Math.random()*keywords.length)] : '';
+        const variants = [p+s, kw+s, p+kw].filter(n=>n.length>2);
+        names.push(variants[Math.floor(Math.random()*variants.length)]);
+      }
+      const unique = [...new Set(names)].slice(0,6);
+      addBotMessage('**Nombres generados para ' + tipo + ':**\n\n' + unique.map((n,i)=>(i+1)+'. **'+n+'**').join('\n'));
+    }
+
+    function renderToolAnalizadorTexto(containerEl) {
+      const uid = ++_toolAtCounter;
+      const panel = document.createElement('div');
+      panel.className = 'tool-panel';
+      panel.id = 'tool-panel-' + uid;
+      panel.innerHTML = `
+        <div class="tool-panel-header">
+          <span class="tool-panel-icon">📝</span>
+          <div>
+            <div class="tool-panel-title">Analizador de Texto</div>
+            <div class="tool-panel-sub">Estadísticas y métricas de texto</div>
+          </div>
+        </div>
+        <textarea id="tool-at-texto-${uid}" rows="4" placeholder="Pegá tu texto aquí…" style="width:100%;background:#0f172a;border:1px solid rgba(255,255,255,0.1);color:var(--text-main);border-radius:6px;padding:8px;font-size:0.78rem;resize:vertical;margin-bottom:0.5rem;"></textarea>
+        <button class="tool-btn" onclick="executeAnalizadorTexto('${uid}')">📝 Analizar</button>
+      `;
+      containerEl.appendChild(panel);
+    }
+
+    function executeAnalizadorTexto(uid) {
+      const texto = (document.getElementById('tool-at-texto-'+uid) && document.getElementById('tool-at-texto-'+uid).value) || '';
+      if (!texto.trim()) { addErrorMessage('Pegá un texto para analizar.'); return; }
+      const chars  = texto.length;
+      const charsNoSpace = texto.replace(/\s/g,'').length;
+      const words  = texto.trim().split(/\s+/).filter(Boolean).length;
+      const sentences = texto.split(/[.!?]+/).filter(s=>s.trim().length>0).length;
+      const paragraphs = texto.split('\n\n').filter(p=>p.trim().length>0).length;
+      const avgWordLen = charsNoSpace / words;
+      const readTime = Math.ceil(words / 200);
+      addBotMessage('**Análisis de texto:**\n\n' +
+        '📊 **Caracteres:** ' + chars + ' (sin espacios: ' + charsNoSpace + ')\n' +
+        '📝 **Palabras:** ' + words + '\n' +
+        '📖 **Oraciones:** ' + sentences + '\n' +
+        '📄 **Párrafos:** ' + paragraphs + '\n' +
+        '📏 **Longitud promedio de palabra:** ' + avgWordLen.toFixed(1) + ' letras\n' +
+        '⏱️ **Tiempo de lectura estimado:** ' + readTime + ' min'
+      );
+    }
+
+    function renderToolGeneradorColor(containerEl) {
+      const uid = ++_toolGcCounter;
+      const panel = document.createElement('div');
+      panel.className = 'tool-panel';
+      panel.id = 'tool-panel-' + uid;
+      panel.innerHTML = `
+        <div class="tool-panel-header">
+          <span class="tool-panel-icon">🎨</span>
+          <div>
+            <div class="tool-panel-title">Generador de Paleta</div>
+            <div class="tool-panel-sub">Paletas de colores armónicas</div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.5rem;">
+          <input type="color" id="tool-gc-base-${uid}" value="#00b4ff" style="width:40px;height:32px;border:none;border-radius:6px;cursor:pointer;padding:0;"/>
+          <span style="font-size:0.78rem;color:var(--text-muted);">Color base</span>
+          <select id="tool-gc-modo-${uid}" style="flex:1;background:#0f172a;border:1px solid rgba(255,255,255,0.1);color:var(--text-main);border-radius:6px;padding:6px;font-size:0.78rem;">
+            <option value="analogica">Análoga</option>
+            <option value="complementaria">Complementaria</option>
+            <option value="triadica">Triádica</option>
+            <option value="monocromatica">Monocromática</option>
+          </select>
+        </div>
+        <button class="tool-btn" onclick="executeGeneradorColor('${uid}')">🎨 Generar paleta</button>
+      `;
+      containerEl.appendChild(panel);
+    }
+
+    function hexToHsl(hex) {
+      let r=parseInt(hex.slice(1,3),16)/255, g=parseInt(hex.slice(3,5),16)/255, b=parseInt(hex.slice(5,7),16)/255;
+      const max=Math.max(r,g,b), min=Math.min(r,g,b); let h,s,l=(max+min)/2;
+      if(max===min){h=s=0;}else{const d=max-min;s=l>0.5?d/(2-max-min):d/(max+min);
+      switch(max){case r:h=(g-b)/d+(g<b?6:0);break;case g:h=(b-r)/d+2;break;case b:h=(r-g)/d+4;}h/=6;}
+      return [Math.round(h*360),Math.round(s*100),Math.round(l*100)];
+    }
+    function hslToHex(h,s,l) {
+      s/=100;l/=100;const k=n=>(n+h/30)%12, a=s*Math.min(l,1-l);
+      const f=n=>Math.round(255*(l-a*Math.max(-1,Math.min(k(n)-3,Math.min(9-k(n),1)))));
+      return '#'+[f(0),f(8),f(4)].map(x=>x.toString(16).padStart(2,'0')).join('');
+    }
+
+    function executeGeneradorColor(uid) {
+      const base = (document.getElementById('tool-gc-base-'+uid) && document.getElementById('tool-gc-base-'+uid).value) || '#00b4ff';
+      const modo = (document.getElementById('tool-gc-modo-'+uid) && document.getElementById('tool-gc-modo-'+uid).value) || 'analogica';
+      const [h,s,l] = hexToHsl(base);
+      let palette = [];
+      if (modo==='analogica')       palette = [[h,s,l],[h+30,s,l],[h-30,s,l],[h+15,s,Math.min(85,l+15)],[h-15,s,Math.max(15,l-15)]];
+      else if (modo==='complementaria') palette = [[h,s,l],[h+180,s,l],[h+180,s,Math.min(85,l+15)],[h,s,Math.max(15,l-15)],[h+180,s,Math.max(15,l-20)]];
+      else if (modo==='triadica')   palette = [[h,s,l],[h+120,s,l],[h+240,s,l],[h+120,s,Math.min(85,l+10)],[h+240,s,Math.max(15,l-10)]];
+      else palette = [[h,s,l],[h,s,Math.min(90,l+20)],[h,s,Math.max(10,l-20)],[h,Math.max(20,s-20),l],[h,Math.min(100,s+20),l]];
+      const colors = palette.map(([ph,ps,pl]) => hslToHex(((ph%360)+360)%360, Math.min(100,Math.max(0,ps)), Math.min(95,Math.max(5,pl))));
+      addBotMessage('**Paleta ' + modo + ':**\n\n' + colors.map((c,i)=> (i+1) + '. `' + c.toUpperCase() + '`').join('\n') + '\n\n_Usá estos colores en tu diseño._');
+    }
+
+    function renderToolFormateadorJson(containerEl) {
+      const uid = ++_toolFjCounter;
+      const panel = document.createElement('div');
+      panel.className = 'tool-panel';
+      panel.id = 'tool-panel-' + uid;
+      panel.innerHTML = `
+        <div class="tool-panel-header">
+          <span class="tool-panel-icon">{ }</span>
+          <div>
+            <div class="tool-panel-title">Formateador JSON</div>
+            <div class="tool-panel-sub">Formatea y valida JSON</div>
+          </div>
+        </div>
+        <textarea id="tool-fj-input-${uid}" rows="4" placeholder='{"key":"value","arr":[1,2,3]}' style="width:100%;background:#0f172a;border:1px solid rgba(255,255,255,0.1);color:var(--text-main);border-radius:6px;padding:8px;font-size:0.75rem;font-family:monospace;resize:vertical;margin-bottom:0.5rem;"></textarea>
+        <div style="display:flex;gap:0.5rem;">
+          <button class="tool-btn" style="flex:1;" onclick="executeFormateadorJson('${uid}','format')">✅ Formatear</button>
+          <button class="tool-btn" style="flex:1;background:rgba(255,255,255,0.05);" onclick="executeFormateadorJson('${uid}','minify')">📦 Minificar</button>
+        </div>
+      `;
+      containerEl.appendChild(panel);
+    }
+
+    function executeFormateadorJson(uid, action) {
+      const raw = (document.getElementById('tool-fj-input-'+uid) && document.getElementById('tool-fj-input-'+uid).value) || '';
+      if (!raw.trim()) { addErrorMessage('Pegá un JSON para procesar.'); return; }
+      try {
+        const parsed = JSON.parse(raw);
+        const result = action === 'format' ? JSON.stringify(parsed, null, 2) : JSON.stringify(parsed);
+        const keys   = Object.keys(typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {}).length;
+        const info   = Array.isArray(parsed) ? 'Array de ' + parsed.length + ' elementos' : 'Objeto con ' + keys + ' claves';
+        addBotMessage('**JSON ' + (action==='format'?'formateado':'minificado') + '** · ' + info + ':\n\n```json\n' + result.slice(0, 1500) + (result.length>1500?'\n…':'') + '\n```');
+      } catch(e) {
+        addBotMessage('❌ **JSON inválido:** ' + e.message);
+      }
+    }
+
+    function renderToolCalculadoraFecha(containerEl) {
+      const uid = ++_toolCdfCounter;
+      const panel = document.createElement('div');
+      panel.className = 'tool-panel';
+      panel.id = 'tool-panel-' + uid;
+      panel.innerHTML = `
+        <div class="tool-panel-header">
+          <span class="tool-panel-icon">📅</span>
+          <div>
+            <div class="tool-panel-title">Calculadora de Fechas</div>
+            <div class="tool-panel-sub">Diferencias y días hábiles</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;margin-bottom:0.5rem;">
+          <div><label style="font-size:0.7rem;color:var(--text-muted);">Fecha inicio</label>
+            <input type="date" id="tool-cdf-from-${uid}" style="width:100%;background:#0f172a;border:1px solid rgba(255,255,255,0.1);color:var(--text-main);border-radius:6px;padding:6px;font-size:0.78rem;"/></div>
+          <div><label style="font-size:0.7rem;color:var(--text-muted);">Fecha fin</label>
+            <input type="date" id="tool-cdf-to-${uid}" style="width:100%;background:#0f172a;border:1px solid rgba(255,255,255,0.1);color:var(--text-main);border-radius:6px;padding:6px;font-size:0.78rem;"/></div>
+        </div>
+        <button class="tool-btn" onclick="executeCalculadoraFecha('${uid}')">📅 Calcular</button>
+      `;
+      setTimeout(()=>{
+        const now = new Date().toISOString().split('T')[0];
+        const el1 = document.getElementById('tool-cdf-from-'+uid);
+        const el2 = document.getElementById('tool-cdf-to-'+uid);
+        if(el1) el1.value = now;
+        if(el2) el2.value = now;
+      },0);
+      containerEl.appendChild(panel);
+    }
+
+    function executeCalculadoraFecha(uid) {
+      const from = (document.getElementById('tool-cdf-from-'+uid) && document.getElementById('tool-cdf-from-'+uid).value) || '';
+      const to   = (document.getElementById('tool-cdf-to-'+uid)   && document.getElementById('tool-cdf-to-'+uid).value)   || '';
+      if (!from || !to) { addErrorMessage('Seleccioná ambas fechas.'); return; }
+      const d1 = new Date(from), d2 = new Date(to);
+      const diff = Math.abs(d2 - d1);
+      const days = Math.round(diff / 86400000);
+      const weeks = Math.floor(days / 7);
+      const months = Math.abs((d2.getFullYear()-d1.getFullYear())*12 + (d2.getMonth()-d1.getMonth()));
+      // Count business days
+      let biz = 0, cur = new Date(Math.min(d1,d2));
+      const end = new Date(Math.max(d1,d2));
+      while (cur <= end) { const dow = cur.getDay(); if(dow!==0&&dow!==6) biz++; cur.setDate(cur.getDate()+1); }
+      addBotMessage('**Diferencia de fechas:**\n\n' +
+        '📅 De: ' + d1.toLocaleDateString('es') + ' → ' + d2.toLocaleDateString('es') + '\n\n' +
+        '📊 **Días totales:** ' + days + '\n' +
+        '🗓️ **Semanas:** ' + weeks + ' semanas y ' + (days%7) + ' días\n' +
+        '📆 **Meses aproximados:** ' + months + '\n' +
+        '💼 **Días hábiles:** ' + biz);
+    }
+
+    function renderToolGeneradorCita(containerEl) {
+      const uid = ++_toolCitaCounter;
+      const panel = document.createElement('div');
+      panel.className = 'tool-panel';
+      panel.id = 'tool-panel-' + uid;
+      panel.innerHTML = `
+        <div class="tool-panel-header">
+          <span class="tool-panel-icon">💬</span>
+          <div>
+            <div class="tool-panel-title">Generador de Citas</div>
+            <div class="tool-panel-sub">Motivacionales y filosóficas</div>
+          </div>
+        </div>
+        <select id="tool-gcita-tema-${uid}" style="width:100%;background:#0f172a;border:1px solid rgba(255,255,255,0.1);color:var(--text-main);border-radius:6px;padding:6px;font-size:0.78rem;margin-bottom:0.5rem;">
+          <option value="motivacion">Motivación</option>
+          <option value="filosofia">Filosofía</option>
+          <option value="tecnologia">Tecnología</option>
+          <option value="creatividad">Creatividad</option>
+          <option value="liderazgo">Liderazgo</option>
+        </select>
+        <button class="tool-btn" onclick="executeGeneradorCita('${uid}')">💬 Generar cita</button>
+      `;
+      containerEl.appendChild(panel);
+    }
+
+    function executeGeneradorCita(uid) {
+      const tema = (document.getElementById('tool-gcita-tema-'+uid) && document.getElementById('tool-gcita-tema-'+uid).value) || 'motivacion';
+      const citas = {
+        motivacion:[
+          ['El único modo de hacer un gran trabajo es amar lo que haces.','Steve Jobs'],
+          ['El éxito es la suma de pequeños esfuerzos repetidos día tras día.','Robert Collier'],
+          ['No cuentes los días, haz que los días cuenten.','Muhammad Ali'],
+          ['La disciplina es el puente entre metas y logros.','Jim Rohn'],
+          ['Haz hoy lo que otros no harán, vive mañana lo que otros no pueden.','Jerry Rice'],
+        ],
+        filosofia:[
+          ['Sólo sé que no sé nada.','Sócrates'],
+          ['El hombre está condenado a ser libre.','Jean-Paul Sartre'],
+          ['Lo que no te mata te hace más fuerte.','Friedrich Nietzsche'],
+          ['Cogito, ergo sum — Pienso, luego existo.','René Descartes'],
+          ['La vida no examinada no vale la pena vivirla.','Sócrates'],
+        ],
+        tecnologia:[
+          ['La tecnología es mejor cuando une a las personas.','Matt Mullenweg'],
+          ['Cualquier tecnología suficientemente avanzada es indistinguible de la magia.','Arthur C. Clarke'],
+          ['La innovación distingue a los líderes de los seguidores.','Steve Jobs'],
+          ['El software es la gran artesanía de nuestro tiempo.','Paul Ford'],
+          ['Programar es como escribir poesía, pero con consecuencias.','Desconocido'],
+        ],
+        creatividad:[
+          ['La creatividad es la inteligencia divirtiéndose.','Albert Einstein'],
+          ['Toda la creatividad es una función de la libertad.','Hannah Arendt'],
+          ['Para tener una buena idea, hay que tener muchas ideas.','Linus Pauling'],
+          ['La creatividad requiere el coraje de abandonar la certeza.','Erich Fromm'],
+          ['Imaginar es todo. Es la vista previa de las atracciones de la vida.','Albert Einstein'],
+        ],
+        liderazgo:[
+          ['Un líder es quien sabe el camino, lo recorre y lo muestra.','John C. Maxwell'],
+          ['La función del liderazgo es producir más líderes, no más seguidores.','Ralph Nader'],
+          ['Los mejores líderes son aquellos que saben cuándo seguir.','Desconocido'],
+          ['Gestiona tu mente, no solo tu agenda.','David Allen'],
+          ['El carácter es la esencia del liderazgo.','James Mattis'],
+        ],
+      };
+      const lista = citas[tema] || citas.motivacion;
+      const [texto, autor] = lista[Math.floor(Math.random()*lista.length)];
+      addBotMessage('💬 _"' + texto + '"_\n\n— **' + autor + '**');
+    }
+
+    function renderToolAnalizadorUrl(containerEl) {
+      const uid = ++_toolAuCounter;
+      const panel = document.createElement('div');
+      panel.className = 'tool-panel';
+      panel.id = 'tool-panel-' + uid;
+      panel.innerHTML = `
+        <div class="tool-panel-header">
+          <span class="tool-panel-icon">🔗</span>
+          <div>
+            <div class="tool-panel-title">Analizador de URL</div>
+            <div class="tool-panel-sub">Desglosa componentes de una URL</div>
+          </div>
+        </div>
+        <input type="url" id="tool-au-url-${uid}" placeholder="https://ejemplo.com/ruta?param=valor#ancla" style="width:100%;background:#0f172a;border:1px solid rgba(255,255,255,0.1);color:var(--text-main);border-radius:6px;padding:8px;font-size:0.78rem;margin-bottom:0.5rem;"/>
+        <button class="tool-btn" onclick="executeAnalizadorUrl('${uid}')">🔗 Analizar</button>
+      `;
+      containerEl.appendChild(panel);
+    }
+
+    function executeAnalizadorUrl(uid) {
+      const raw = (document.getElementById('tool-au-url-'+uid) && document.getElementById('tool-au-url-'+uid).value) || '';
+      if (!raw.trim()) { addErrorMessage('Ingresá una URL.'); return; }
+      try {
+        const url = new URL(raw);
+        const params = [];
+        url.searchParams.forEach((v,k) => params.push('  • ' + k + ' = ' + v));
+        addBotMessage('**Análisis de URL:**\n\n' +
+          '🔒 **Protocolo:** ' + url.protocol + '\n' +
+          '🌐 **Host:** ' + url.hostname + (url.port ? ':'+url.port : '') + '\n' +
+          '📁 **Ruta:** ' + (url.pathname || '/') + '\n' +
+          (params.length ? '🔍 **Parámetros:**\n' + params.join('\n') + '\n' : '') +
+          (url.hash ? '⚓ **Ancla:** ' + url.hash + '\n' : '') +
+          '\n📊 URL ' + (url.protocol==='https:'?'✅ segura (HTTPS)':'⚠️ no cifrada (HTTP)'));
+      } catch(e) { addErrorMessage('URL inválida: ' + e.message); }
+    }
+
+    function renderToolConversorBase(containerEl) {
+      const uid = ++_toolCbCounter;
+      const panel = document.createElement('div');
+      panel.className = 'tool-panel';
+      panel.id = 'tool-panel-' + uid;
+      panel.innerHTML = `
+        <div class="tool-panel-header">
+          <span class="tool-panel-icon">🔢</span>
+          <div>
+            <div class="tool-panel-title">Conversor de Bases</div>
+            <div class="tool-panel-sub">Base 2, 8, 10 y 16</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:0.5rem;margin-bottom:0.5rem;align-items:flex-end;">
+          <div style="flex:1;">
+            <label style="font-size:0.7rem;color:var(--text-muted);">Valor</label>
+            <input type="text" id="tool-cb-val-${uid}" placeholder="255" style="width:100%;background:#0f172a;border:1px solid rgba(255,255,255,0.1);color:var(--text-main);border-radius:6px;padding:6px;font-size:0.78rem;"/>
+          </div>
+          <div>
+            <label style="font-size:0.7rem;color:var(--text-muted);">Desde base</label>
+            <select id="tool-cb-from-${uid}" style="background:#0f172a;border:1px solid rgba(255,255,255,0.1);color:var(--text-main);border-radius:6px;padding:6px;font-size:0.78rem;">
+              <option value="10">Base 10</option>
+              <option value="2">Base 2</option>
+              <option value="8">Base 8</option>
+              <option value="16">Base 16</option>
+            </select>
+          </div>
+        </div>
+        <button class="tool-btn" onclick="executeConversorBase('${uid}')">🔢 Convertir a todas</button>
+      `;
+      containerEl.appendChild(panel);
+    }
+
+    function executeConversorBase(uid) {
+      const val  = (document.getElementById('tool-cb-val-'+uid)  && document.getElementById('tool-cb-val-'+uid).value.trim())  || '';
+      const from = parseInt((document.getElementById('tool-cb-from-'+uid) && document.getElementById('tool-cb-from-'+uid).value) || 10);
+      if (!val) { addErrorMessage('Ingresá un valor.'); return; }
+      try {
+        const num = parseInt(val, from);
+        if (isNaN(num)) throw new Error('Valor inválido para base ' + from);
+        addBotMessage('**Conversión de bases para `' + val + '` (base ' + from + '):**\n\n' +
+          '🔟 **Base 10 (Decimal):** ' + num + '\n' +
+          '2️⃣ **Base 2  (Binario):** ' + num.toString(2) + '\n' +
+          '8️⃣ **Base 8  (Octal):**   ' + num.toString(8) + '\n' +
+          '🔡 **Base 16 (Hex):**     ' + num.toString(16).toUpperCase());
+      } catch(e) { addErrorMessage('Error: ' + e.message); }
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // HERRAMIENTA TIBURON 1: Generador de Sopa de Letras
+    // ══════════════════════════════════════════════════════════════════════════
+    let _toolSopaCounter = 0;
+
+    function renderToolSopaLetras(containerEl) {
+      const uid = ++_toolSopaCounter;
+      const panel = document.createElement('div');
+      panel.className = 'tool-panel';
+      panel.id = 'tool-sopa-' + uid;
+      panel.innerHTML = `
+        <div class="tool-panel-header">
+          <span class="tool-panel-icon">🦈</span>
+          <div>
+            <div class="tool-panel-title">Generador de Sopa de Letras <span class="nuevo-badge" style="font-size:0.65rem;background:linear-gradient(135deg,#f97316,#fb923c);color:#000;">TIBURON 1</span></div>
+            <div class="tool-panel-subtitle">Creá una sopa de letras personalizada con IA · Exclusivo modelo Tiburon 1</div>
+          </div>
+        </div>
+        <hr class="tool-divider">
+        <div class="tool-panel-row">
+          <div class="tool-field" style="flex:2;min-width:160px;">
+            <label>Tema de la sopa</label>
+            <input type="text" class="tool-input" id="tool-sopa-tema-${uid}" placeholder="ej: Animales del océano" maxlength="60">
+          </div>
+          <div class="tool-field" style="flex:2;min-width:160px;">
+            <label>Nombre del juego (opcional)</label>
+            <input type="text" class="tool-input" id="tool-sopa-nombre-${uid}" placeholder="ej: Mundo marino" maxlength="50">
+          </div>
+        </div>
+        <div class="tool-panel-row">
+          <div class="tool-field" style="flex:2;">
+            <label>Diseño visual</label>
+            <select class="tool-select" id="tool-sopa-diseno-${uid}">
+              <option value="clasico">Clásico</option>
+              <option value="oceano">🌊 Océano</option>
+              <option value="neon">💚 Neón</option>
+              <option value="fuego">🔥 Fuego</option>
+            </select>
+          </div>
+          <div class="tool-field" style="flex:1;min-width:100px;">
+            <label>Tamaño (10–20)</label>
+            <input type="number" class="tool-input" id="tool-sopa-tamanio-${uid}" min="10" max="20" value="15">
+          </div>
+        </div>
+        <div class="tool-cost-row">
+          <span>Costo de generación:</span>
+          <span class="tool-cost-val" style="color:#fb923c;">75 Coral Bits</span>
+        </div>
+        <div class="tool-status-msg" id="tool-sopa-status-${uid}"></div>
+        <button class="tool-execute-btn" id="tool-sopa-btn-${uid}"
+          style="background:linear-gradient(135deg,#f97316,#fb923c);color:#000;"
+          onclick="confirmSopaLetras(${uid})">
+          🦈 Generar Sopa de Letras
+        </button>
+      `;
+      containerEl.appendChild(panel);
+    }
+
+    function confirmSopaLetras(uid) {
+      if (!(oceanPayAuth && oceanPayAuth.username)) {
+        const el = document.getElementById('tool-sopa-status-' + uid);
+        if (el) { el.className = 'tool-status-msg error'; el.textContent = 'Conectá tu cuenta Ocean Pay primero.'; }
+        return;
+      }
+      const tema   = (document.getElementById('tool-sopa-tema-' + uid)?.value || '').trim();
+      const nombre = (document.getElementById('tool-sopa-nombre-' + uid)?.value || '').trim();
+      const diseno = document.getElementById('tool-sopa-diseno-' + uid)?.value || 'clasico';
+      const tamanio = parseInt(document.getElementById('tool-sopa-tamanio-' + uid)?.value || 15);
+      if (!tema) {
+        const el = document.getElementById('tool-sopa-status-' + uid);
+        if (el) { el.className = 'tool-status-msg error'; el.textContent = 'Ingresá un tema para la sopa.'; }
+        return;
+      }
+
+      // Show confirmation modal
+      const overlay = document.createElement('div');
+      overlay.className = 'sopa-confirm-overlay';
+      overlay.id = 'sopa-confirm-overlay-' + uid;
+      overlay.innerHTML = `
+        <div class="sopa-confirm-box">
+          <div class="sopa-confirm-title">🦈 Confirmar Generación</div>
+          <div class="sopa-confirm-desc">
+            Estás por generar una sopa de letras con IA.<br>
+            <strong>Tema:</strong> ${tema}<br>
+            ${nombre ? '<strong>Nombre:</strong> ' + nombre + '<br>' : ''}
+            <strong>Diseño:</strong> ${diseno} · <strong>Tamaño:</strong> ${tamanio}×${tamanio}
+          </div>
+          <div class="sopa-confirm-cost">
+            <span>Costo de la herramienta:</span>
+            <span class="sopa-confirm-cost-val">75 Coral Bits</span>
+          </div>
+          <div style="font-size:0.78rem;color:var(--text-muted);">
+            Saldo actual: <strong style="color:var(--text-main);">${coralBits} CB</strong>
+            ${coralBits < 75 ? ' <span style="color:#f87171;">— Saldo insuficiente</span>' : ''}
+          </div>
+          <div class="sopa-confirm-btns">
+            <button class="sopa-confirm-btn-cancel" onclick="document.getElementById('sopa-confirm-overlay-${uid}').remove()">Cancelar</button>
+            <button class="sopa-confirm-btn-ok" id="sopa-confirm-ok-${uid}"
+              onclick="executeSopaLetras(${uid},'${tema.replace(/'/g,"\'")}','${nombre.replace(/'/g,"\'")}','${diseno}',${tamanio})"
+              ${coralBits < 75 ? 'disabled' : ''}>
+              ✅ Confirmar y gastar 75 CB
+            </button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+    }
+
+    async function executeSopaLetras(uid, tema, nombre, diseno, tamanio) {
+      // Close confirm overlay
+      const overlay = document.getElementById('sopa-confirm-overlay-' + uid);
+      if (overlay) overlay.remove();
+
+      const btn    = document.getElementById('tool-sopa-btn-' + uid);
+      const statusEl = document.getElementById('tool-sopa-status-' + uid);
+      if (btn) { btn.textContent = 'Generando…'; btn.disabled = true; }
+      if (statusEl) { statusEl.className = 'tool-status-msg'; statusEl.textContent = ''; }
+
+      await addToolThinkingMessage([
+        '🦈 Tiburon 1 activado…',
+        `Construyendo grilla ${tamanio}×${tamanio}…`,
+        `Insertando palabras sobre "${tema}"…`,
+        'Rellenando letras aleatorias…',
+        'Preparando el panel…',
+      ]);
+
+      try {
+        const res = await fetch(`${API}/ocean-ai/tools/sopa-letras`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: oceanPayAuth.username,
+            password: oceanPayAuth.password,
+            tema, nombre, diseno, tamanio
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al generar la sopa');
+
+        // Deduct locally
+        coralBits = Math.max(0, coralBits - (data.coralBitsCost || 75));
+        updateCurrencyUI();
+
+        if (btn) { btn.textContent = '✓ Generada'; btn.disabled = true; }
+
+        // Render result panel
+        renderSopaResult(data.sopa, diseno, uid);
+
+      } catch(err) {
+        if (statusEl) { statusEl.className = 'tool-status-msg error'; statusEl.textContent = err.message || 'Error al generar.'; }
+        if (btn) { btn.textContent = '🦈 Reintentar'; btn.disabled = false; }
+      }
+    }
+
+    function renderSopaResult(sopa, diseno, uid, containerEl) {
+      if (!sopa || !sopa.grilla || !sopa.palabras) {
+        addBotMessage('❌ La IA generó datos incompletos. Intentá nuevamente.');
+        return;
+      }
+
+      const temaClass = {
+        oceano: 'sopa-tema-oceano',
+        neon:   'sopa-tema-neon',
+        fuego:  'sopa-tema-fuego',
+        clasico: ''
+      }[diseno] || '';
+
+      const palabras   = sopa.palabras.map(p => String(p).toUpperCase());
+      const posiciones = sopa.posiciones || {};
+      const gridSize   = sopa.grilla.length;
+      const foundSet   = new Set();
+
+      // Build found cells set from posiciones
+      function calcFoundCells(word) {
+        const pos = posiciones[word];
+        if (!pos) return [];
+        const cells = [];
+        const len = word.length;
+        const { fila, col, dir } = pos;
+        for (let i = 0; i < len; i++) {
+          let r = fila, c = col;
+          if (dir === 'H') c = col + i;
+          else if (dir === 'V') r = fila + i;
+          else if (dir === 'D') { r = fila + i; c = col + i; }
+          cells.push(r + ',' + c);
+        }
+        return cells;
+      }
+
+      // Pre-build found cell map for all words (mark initially as hidden)
+      const wordCells = {};
+      palabras.forEach(p => { wordCells[p] = calcFoundCells(p); });
+
+      // Inject result after the config panel
+      // Support both AI-triggered (containerEl) and manual panel modes
+      const configPanel = containerEl || document.getElementById('tool-sopa-' + uid);
+      if (!configPanel) return;
+
+      const resultDiv = document.createElement('div');
+      resultDiv.id = 'sopa-result-' + uid;
+      resultDiv.className = 'sopa-result-panel ' + temaClass;
+
+      // Build grid HTML
+      const cols = sopa.grilla[0]?.length || gridSize;
+      let gridHTML = `<div class="sopa-grid" id="sopa-grid-${uid}" style="grid-template-columns:repeat(${cols},28px);">`;
+      sopa.grilla.forEach((row, r) => {
+        row.forEach((cell, c) => {
+          gridHTML += `<div class="sopa-cell" id="sc-${uid}-${r}-${c}" data-r="${r}" data-c="${c}">${String(cell || '?').toUpperCase()}</div>`;
+        });
+      });
+      gridHTML += '</div>';
+
+      // Word chips
+      let chipsHTML = palabras.map(p =>
+        `<span class="sopa-word-chip" id="sopa-chip-${uid}-${p}">${p}</span>`
+      ).join('');
+
+      resultDiv.innerHTML = `
+        <div class="sopa-result-header">
+          <span style="font-size:1.5rem;">🔤</span>
+          <div>
+            <div class="sopa-result-title">${sopa.titulo || sopa.tema}</div>
+            <div class="sopa-result-subtitle">Encontrá las ${palabras.length} palabras · Hacé clic en las letras para marcarlas</div>
+          </div>
+        </div>
+        <div class="sopa-words-list">${chipsHTML}</div>
+        <div class="sopa-grid-wrap">${gridHTML}</div>
+        <div class="sopa-footer">
+          <span>Encontradas: <span class="sopa-found-count" id="sopa-found-${uid}">0</span> / ${palabras.length}</span>
+          <span class="sopa-hint">Clic en primera y última letra de la palabra</span>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+          <button class="sopa-modify-btn" onclick="showSopaModifyConfirm(${uid})">
+            ✏️ Modificar sopa <span class="sopa-modify-cost">(+40 CB)</span>
+          </button>
+          <button class="sopa-modify-btn" style="background:rgba(0,180,255,0.1);border-color:rgba(0,180,255,0.3);color:var(--accent);" onclick="revealAllSopa(${uid})">
+            💡 Revelar todas
+          </button>
+        </div>
+        <div class="sopa-download-bar">
+          <button class="sopa-download-btn" id="sopa-dl-btn-${uid}" onclick="downloadSopaImage(${uid})">
+            ⬇ Descargar imagen
+          </button>
+          <button class="sopa-preview-toggle" onclick="toggleSopaPreview(${uid})">
+            👁 Ver diseño
+          </button>
+        </div>
+        <div class="sopa-canvas-preview" id="sopa-canvas-wrap-${uid}">
+          <canvas id="sopa-canvas-${uid}"></canvas>
+        </div>
+      `;
+
+      if (containerEl) {
+        containerEl.appendChild(resultDiv);
+      } else {
+        configPanel.insertAdjacentElement('afterend', resultDiv);
+      }
+
+      // Interaction: click-to-select two cells and check if they match a word
+      let selecting = null;
+      document.getElementById('sopa-grid-' + uid)?.addEventListener('click', (e) => {
+        const cell = e.target.closest('.sopa-cell');
+        if (!cell || cell.classList.contains('found')) return;
+        const r = parseInt(cell.dataset.r), c = parseInt(cell.dataset.c);
+        if (!selecting) {
+          // First click — start selection
+          selecting = { r, c, el: cell };
+          cell.classList.add('selecting');
+        } else {
+          // Second click — try to match word
+          cell.classList.add('selecting');
+          const r2 = r, c2 = c;
+          const r1 = selecting.r, c1 = selecting.c;
+          selecting.el.classList.remove('selecting');
+          cell.classList.remove('selecting');
+          selecting = null;
+
+          // Check all words for match with these two endpoints
+          let matched = false;
+          palabras.forEach(word => {
+            if (foundSet.has(word)) return;
+            const cells = wordCells[word];
+            if (!cells || cells.length < 2) return;
+            const first = cells[0], last = cells[cells.length - 1];
+            const key1 = r1 + ',' + c1, key2 = r2 + ',' + c2;
+            if ((key1 === first && key2 === last) || (key2 === first && key1 === last)) {
+              // Found!
+              matched = true;
+              foundSet.add(word);
+              cells.forEach(ck => {
+                const [fr, fc] = ck.split(',').map(Number);
+                const cellEl = document.getElementById('sc-' + uid + '-' + fr + '-' + fc);
+                if (cellEl) cellEl.classList.add('found');
+              });
+              const chip = document.getElementById('sopa-chip-' + uid + '-' + word);
+              if (chip) chip.classList.add('found');
+              const countEl = document.getElementById('sopa-found-' + uid);
+              if (countEl) countEl.textContent = foundSet.size;
+              if (foundSet.size === palabras.length) {
+                setTimeout(() => addBotMessage('🎉 ¡Felicitaciones! Encontraste todas las palabras de la sopa **' + (sopa.titulo || sopa.tema) + '**. ¡Excelente!'), 300);
+              }
+            }
+          });
+        }
+      });
+
+      // Store sopa data for modification
+      window['_sopaData_' + uid] = { sopa, diseno, design: window['_sopaDesign_' + uid] || null };
+    }
+
+    function revealAllSopa(uid) {
+      const data = window['_sopaData_' + uid];
+      if (!data) return;
+      const { sopa } = data;
+      const palabras = sopa.palabras.map(p => String(p).toUpperCase());
+      const posiciones = sopa.posiciones || {};
+      palabras.forEach(word => {
+        const pos = posiciones[word];
+        if (!pos) return;
+        const len = word.length;
+        for (let i = 0; i < len; i++) {
+          let r = pos.fila, c = pos.col;
+          if (pos.dir === 'H') c = pos.col + i;
+          else if (pos.dir === 'V') r = pos.fila + i;
+          else if (pos.dir === 'D') { r = pos.fila + i; c = pos.col + i; }
+          const cellEl = document.getElementById('sc-' + uid + '-' + r + '-' + c);
+          if (cellEl) cellEl.classList.add('found');
+        }
+        const chip = document.getElementById('sopa-chip-' + uid + '-' + word);
+        if (chip) chip.classList.add('found');
+      });
+      const countEl = document.getElementById('sopa-found-' + uid);
+      if (countEl) countEl.textContent = palabras.length;
+    }
+
+    function showSopaModifyConfirm(uid) {
+      if (!(oceanPayAuth && oceanPayAuth.username)) {
+        addBotMessage('⚠️ Necesitás conectar tu cuenta Ocean Pay para modificar la sopa.');
+        return;
+      }
+      const MODIFY_COST = 40;
+      const overlay = document.createElement('div');
+      overlay.className = 'sopa-confirm-overlay';
+      overlay.id = 'sopa-mod-overlay-' + uid;
+      overlay.innerHTML = `
+        <div class="sopa-confirm-box">
+          <div class="sopa-confirm-title">✏️ Modificar Sopa</div>
+          <div class="sopa-confirm-desc">
+            Podés cambiar el tema, nombre o diseño de tu sopa. La IA generará una nueva versión.<br><br>
+            <strong>Nuevo tema:</strong><br>
+            <input type="text" id="sopa-mod-tema-${uid}" placeholder="Ej: Deportes acuáticos" maxlength="60"
+              style="width:100%;background:#1e293b;border:1px solid rgba(255,255,255,0.15);color:var(--text-main);border-radius:8px;padding:8px;font-size:0.85rem;margin-top:4px;font-family:inherit;outline:none;">
+          </div>
+          <div class="sopa-confirm-cost">
+            <span>Costo de modificación:</span>
+            <span class="sopa-confirm-cost-val">${MODIFY_COST} Coral Bits</span>
+          </div>
+          <div style="font-size:0.78rem;color:var(--text-muted);">
+            Saldo actual: <strong style="color:var(--text-main);">${coralBits} CB</strong>
+            ${coralBits < MODIFY_COST ? ' <span style="color:#f87171;">— Saldo insuficiente</span>' : ''}
+          </div>
+          <div class="sopa-confirm-btns">
+            <button class="sopa-confirm-btn-cancel" onclick="document.getElementById('sopa-mod-overlay-${uid}').remove()">Cancelar</button>
+            <button class="sopa-confirm-btn-ok" id="sopa-mod-ok-${uid}"
+              onclick="executeSopaModify(${uid})"
+              ${coralBits < MODIFY_COST ? 'disabled' : ''}>
+              ✅ Confirmar y gastar ${MODIFY_COST} CB
+            </button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+    }
+
+    async function executeSopaModify(uid) {
+      const data    = window['_sopaData_' + uid];
+      const overlay = document.getElementById('sopa-mod-overlay-' + uid);
+      const newTema = (document.getElementById('sopa-mod-tema-' + uid)?.value || '').trim();
+      if (overlay) overlay.remove();
+      if (!newTema) { addBotMessage('⚠️ Ingresá un nuevo tema para modificar la sopa.'); return; }
+
+      const diseno  = data?.diseno || 'clasico';
+      const tamanio = data?.sopa?.grilla?.length || 15;
+
+      await addToolThinkingMessage([
+        '✏️ Aplicando modificación…',
+        `Regenerando sopa sobre "${newTema}"…`,
+        'Construyendo nueva grilla…',
+      ]);
+
+      try {
+        const res = await fetch(`${API}/ocean-ai/tools/sopa-letras`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: oceanPayAuth.username,
+            password: oceanPayAuth.password,
+            tema: newTema, nombre: '', diseno, tamanio,
+            modifyCost: 40
+          })
+        });
+        const respData = await res.json();
+        if (!res.ok) throw new Error(respData.error || 'Error al modificar');
+
+        coralBits = Math.max(0, coralBits - (respData.coralBitsCost || 40));
+        updateCurrencyUI();
+
+        // Remove old result and re-render
+        const oldResult = document.getElementById('sopa-result-' + uid);
+        if (oldResult) oldResult.remove();
+        renderSopaResult(respData.sopa, diseno, uid);
+
+      } catch(err) {
+        addBotMessage('❌ Error al modificar la sopa: ' + (err.message || 'Error desconocido'));
+      }
+    }
+
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // SOPA DE LETRAS — CANVAS RENDERER (diseño descargable)
+    // ══════════════════════════════════════════════════════════════════════════
+
+    // Design themes: each has bg gradient, accent, cell bg, found cell, text, pattern
+    // ══════════════════════════════════════════════════════════════════════════
+    // SOPA DE LETRAS — CANVAS RENDERER v2 (cartel imprimible estilo editorial)
+    // ══════════════════════════════════════════════════════════════════════════
+
+    // ── Theme definitions ─────────────────────────────────────────────────────
+
+
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // SOPA DE LETRAS — CANVAS v5
+    // SVG design layer (AI-generated) + Canvas grid + Canvas chips overlay
+    // ══════════════════════════════════════════════════════════════════════════
+
+    // ── Layout constants (must match server CANVAS_W / prompt zones) ──────────
+    const SOPA_W        = 560;
+    const SOPA_CELL     = 36;
+    const SOPA_GRID_PAD = 18;   // padding inside white paper box
+    const SOPA_GRID_Y   = 265;  // where grid paper starts (matches SVG prompt zone C)
+    const SOPA_GRID_BOX_H = 400; // height of the white grid area (matches SVG zone C)
+    const SOPA_WORDS_Y  = 680;  // words band start (matches SVG zone D)
+    const SOPA_WORDS_H  = 220;  // height of words band
+    const SOPA_FOOTER_Y = 900;  // footer start (matches SVG zone E)
+    const SOPA_FOOTER_H = 80;
+    const SOPA_H        = 980;
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    function sopaRRect(ctx, x, y, w, h, r) {
+      const R = Math.min(Math.abs(r), Math.abs(w/2), Math.abs(h/2));
+      if (ctx.roundRect) { ctx.beginPath(); ctx.roundRect(x,y,w,h,R); return; }
+      ctx.beginPath();
+      ctx.moveTo(x+R,y); ctx.lineTo(x+w-R,y); ctx.quadraticCurveTo(x+w,y,x+w,y+R);
+      ctx.lineTo(x+w,y+h-R); ctx.quadraticCurveTo(x+w,y+h,x+w-R,y+h);
+      ctx.lineTo(x+R,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-R);
+      ctx.lineTo(x,y+R); ctx.quadraticCurveTo(x,y,x+R,y);
+      ctx.closePath();
+    }
+
+    // Convert SVG string → HTMLImageElement, resolved as Promise
+    function svgToImage(svgString, w, h) {
+      return new Promise((resolve, reject) => {
+        const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+        const url  = URL.createObjectURL(blob);
+        const img  = new Image();
+        img.onload  = () => { URL.revokeObjectURL(url); resolve(img); };
+        img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('SVG load failed')); };
+        img.width = w; img.height = h;
+        img.src = url;
+      });
+    }
+
+    // Compute grid layout given ROWS x COLS
+    function computeGridLayout(ROWS, COLS) {
+      const cell = Math.min(SOPA_CELL, Math.floor((SOPA_W - 80) / COLS));
+      const totalW = COLS * cell;
+      const totalH = ROWS * cell;
+      const gx = (SOPA_W - totalW) / 2;
+      // Center vertically in the white box
+      const boxMidY = SOPA_GRID_Y + SOPA_GRID_BOX_H / 2;
+      const gy = boxMidY - totalH / 2;
+      return { cell, totalW, totalH, gx, gy };
+    }
+
+    // Compute words layout
+    function computeWordsLayout(palabras) {
+      const CPR = Math.min(4, Math.ceil(palabras.length / 2));
+      const CHIP_H = 38, CHIP_GAP = 8;
+      const CHIP_ROWS = Math.ceil(palabras.length / CPR);
+      const PAD = 22;
+      const chipW = (SOPA_W - PAD * 2 - (CPR - 1) * CHIP_GAP) / CPR;
+      const totalChipsH = CHIP_ROWS * (CHIP_H + CHIP_GAP);
+      const startY = SOPA_WORDS_Y + (SOPA_WORDS_H - totalChipsH) / 2;
+      return { CPR, CHIP_H, CHIP_GAP, CHIP_ROWS, chipW, startY, PAD };
+    }
+
+    // ── Fallback canvas background (no SVG) ───────────────────────────────────
+    function drawFallbackBg(ctx, W, H, design) {
+      const g = ctx.createLinearGradient(0,0,0,H);
+      g.addColorStop(0, design.bgTop||'#1e3a6e');
+      g.addColorStop(0.5, design.bgMid||'#2c5282');
+      g.addColorStop(1, design.bgBottom||'#1e3a6e');
+      ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+      // Frame
+      const fp = design.framePrimary||'#1e3a6e';
+      const fs = design.frameSecondary||'#c8a84b';
+      const fg = ctx.createLinearGradient(0,0,W,0);
+      fg.addColorStop(0,fs); fg.addColorStop(0.5,fp); fg.addColorStop(1,fs);
+      ctx.fillStyle=fg;
+      ctx.fillRect(0,0,W,16); ctx.fillRect(0,H-16,W,16);
+      ctx.fillRect(0,16,12,H-32); ctx.fillRect(W-12,16,12,H-32);
+      ctx.strokeStyle=fs; ctx.lineWidth=1.5;
+      ctx.strokeRect(16,20,W-32,H-40);
+      // Header title band
+      ctx.fillStyle = fp+'dd'; ctx.fillRect(12,16,W-24,220);
+      // Title
+      const title = (window['_sopaData_'+_currentDrawUid]?.sopa?.titulo||'SOPA').toUpperCase();
+      ctx.font='bold 42px Georgia,serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillStyle=design.titleMainColor||'#ffffff';
+      ctx.shadowColor=design.titleShadow||'#000'; ctx.shadowBlur=8; ctx.shadowOffsetY=3;
+      ctx.fillText(title, W/2, 130);
+      ctx.shadowBlur=0; ctx.shadowOffsetY=0;
+      // Subtitle
+      ctx.font='14px "Segoe UI",sans-serif'; ctx.fillStyle=design.subtitleColor||'#93c5fd';
+      ctx.fillText('Encontrá las palabras ocultas', W/2, 195);
+      // Badge
+      ctx.font='bold 12px "Segoe UI",sans-serif';
+      const bl='SOPA DE LETRAS:'; const bw=ctx.measureText(bl).width+24, bh=22;
+      sopaRRect(ctx,(W-bw)/2,26,bw,bh,4);
+      ctx.fillStyle=fp; ctx.fill();
+      ctx.strokeStyle=fs; ctx.lineWidth=1; ctx.stroke();
+      ctx.fillStyle=design.titleBigColor||fs; ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(bl, W/2, 37);
+    }
+
+    // ── Grid overlay (canvas) ─────────────────────────────────────────────────
+    function drawGridOverlay(ctx, sopa, design, uid, layout) {
+      const { cell, totalW, totalH, gx, gy } = layout;
+      const grilla = sopa.grilla;
+      const ROWS = grilla.length;
+      const COLS = grilla[0]?.length || ROWS;
+
+      // White paper background for grid area
+      const px = 30, py = SOPA_GRID_Y;
+      const pw = SOPA_W - 60, ph = SOPA_GRID_BOX_H;
+      ctx.save();
+      // Paper fill
+      const paperG = ctx.createRadialGradient(px+pw*0.4,py+ph*0.35,0,px+pw*0.5,py+ph*0.5,Math.max(pw,ph)*0.7);
+      paperG.addColorStop(0,'#ffffff'); paperG.addColorStop(1,design.gridBg||'#f5f0e4');
+      sopaRRect(ctx,px,py,pw,ph,10);
+      ctx.fillStyle=paperG; ctx.fill();
+      // Paper grain
+      for (let i=0;i<pw*ph*0.003;i++) {
+        ctx.fillStyle=`rgba(120,90,50,${Math.random()*0.04})`;
+        ctx.fillRect(px+Math.random()*pw, py+Math.random()*ph, 1, 1);
+      }
+      // Border
+      ctx.shadowColor='rgba(0,0,0,0.35)'; ctx.shadowBlur=14; ctx.shadowOffsetY=4;
+      sopaRRect(ctx,px,py,pw,ph,10);
+      ctx.strokeStyle=design.gridBorder||'#1e3a6e'; ctx.lineWidth=2.5; ctx.stroke();
+      ctx.shadowBlur=0; ctx.shadowOffsetY=0;
+      ctx.restore();
+
+      // Grid lines
+      ctx.strokeStyle=design.gridLine||'#d4c9a8'; ctx.lineWidth=0.5;
+      for (let r=0;r<=ROWS;r++) {
+        ctx.beginPath(); ctx.moveTo(gx,gy+r*cell); ctx.lineTo(gx+totalW,gy+r*cell); ctx.stroke();
+      }
+      for (let c=0;c<=COLS;c++) {
+        ctx.beginPath(); ctx.moveTo(gx+c*cell,gy); ctx.lineTo(gx+c*cell,gy+totalH); ctx.stroke();
+      }
+      ctx.strokeStyle=(design.gridBorder||'#1e3a6e')+'aa'; ctx.lineWidth=2;
+      ctx.strokeRect(gx,gy,totalW,totalH);
+
+      // Cells
+      const palabras = sopa.palabras.map(p=>String(p).toUpperCase());
+      const posiciones = sopa.posiciones||{};
+      const foundSet = new Set();
+      palabras.forEach(w=>{
+        const chip=document.getElementById('sopa-chip-'+uid+'-'+w);
+        if(chip&&chip.classList.contains('found')) foundSet.add(w);
+      });
+      const foundCells = new Set();
+      palabras.forEach(word=>{
+        if(!foundSet.has(word)) return;
+        const pos=posiciones[word]; if(!pos) return;
+        for(let i=0;i<word.length;i++){
+          let r=pos.fila,c=pos.col;
+          if(pos.dir==='H') c=pos.col+i;
+          else if(pos.dir==='V') r=pos.fila+i;
+          else if(pos.dir==='D'){r=pos.fila+i;c=pos.col+i;}
+          foundCells.add(r+','+c);
+        }
+      });
+
+      for(let r=0;r<ROWS;r++){
+        for(let c=0;c<COLS;c++){
+          const cx=gx+c*cell, cy=gy+r*cell;
+          const found=foundCells.has(r+','+c);
+          if(found){
+            ctx.save();
+            ctx.shadowColor=design.cellFoundGlow||'#3b82f6'; ctx.shadowBlur=6;
+            sopaRRect(ctx,cx+1,cy+1,cell-2,cell-2,5);
+            ctx.fillStyle=design.cellFoundBg||'#1e3a6e'; ctx.fill();
+            ctx.restore();
+          }
+          const letter=String(grilla[r][c]||'?').toUpperCase();
+          ctx.font=found?`bold ${Math.max(12,cell-22)}px "Courier New",monospace`:`${Math.max(11,cell-23)}px "Courier New",monospace`;
+          ctx.textAlign='center'; ctx.textBaseline='middle';
+          ctx.fillStyle=found?(design.cellFoundTxt||'#fff'):(design.cellNormal||'#1a202c');
+          ctx.fillText(letter,cx+cell/2,cy+cell/2);
+        }
+      }
+    }
+
+    // ── Words band overlay ────────────────────────────────────────────────────
+    function drawWordsOverlay(ctx, palabras, design, uid, wl) {
+      const { CPR, CHIP_H, CHIP_GAP, chipW, startY, PAD } = wl;
+      const foundSet=new Set();
+      palabras.forEach(w=>{
+        const chip=document.getElementById('sopa-chip-'+uid+'-'+w);
+        if(chip&&chip.classList.contains('found')) foundSet.add(w);
+      });
+      palabras.forEach((word,i)=>{
+        const col=i%CPR, row=Math.floor(i/CPR);
+        const cx=PAD+col*(chipW+CHIP_GAP), cy=startY+row*(CHIP_H+CHIP_GAP);
+        const found=foundSet.has(word);
+        sopaRRect(ctx,cx,cy,chipW,CHIP_H,8);
+        ctx.fillStyle=found?'rgba(255,255,255,0.05)':'rgba(255,255,255,0.1)'; ctx.fill();
+        ctx.strokeStyle=(design.wordBorder||design.framePrimary||'#c8a84b')+(found?'66':'');
+        ctx.lineWidth=1.5; ctx.stroke();
+        let fs=13; ctx.font=`bold ${fs}px "Segoe UI",Arial,sans-serif`;
+        while(ctx.measureText(word).width>chipW-14&&fs>8){fs--;ctx.font=`bold ${fs}px "Segoe UI",Arial,sans-serif`;}
+        ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.globalAlpha=found?0.5:1;
+        ctx.fillStyle=found?(design.wordFoundText||'#93c5fd'):(design.wordText||'#ffffff');
+        ctx.fillText(word,cx+chipW/2,cy+CHIP_H/2);
+        ctx.globalAlpha=1;
+        if(found){
+          const tw=ctx.measureText(word).width;
+          ctx.strokeStyle=design.wordFoundText||'#93c5fd'; ctx.lineWidth=1.8;
+          ctx.beginPath(); ctx.moveTo(cx+chipW/2-tw/2,cy+CHIP_H/2); ctx.lineTo(cx+chipW/2+tw/2,cy+CHIP_H/2); ctx.stroke();
+        }
+      });
+    }
+
+    // ── Footer overlay ────────────────────────────────────────────────────────
+    function drawFooterOverlay(ctx, palabras, design, uid) {
+      const foundCount = palabras.filter(w=>{
+        const chip=document.getElementById('sopa-chip-'+uid+'-'+w);
+        return chip&&chip.classList.contains('found');
+      }).length;
+      const fMid = SOPA_FOOTER_Y + SOPA_FOOTER_H/2;
+      ctx.font='12px "Segoe UI",Arial,sans-serif'; ctx.textBaseline='middle';
+      ctx.textAlign='left'; ctx.fillStyle=design.footerText||'#93c5fd';
+      ctx.fillText('🌊 Ocean AI · Ocean and Wild Studios', 20, fMid);
+      ctx.textAlign='right';
+      ctx.fillStyle=foundCount===palabras.length?(design.footerAccent||'#c8a84b'):(design.footerText||'#93c5fd');
+      ctx.fillText(foundCount+'/'+palabras.length+' encontradas', SOPA_W-20, fMid);
+    }
+
+    // ── Main draw function (async because SVG→Image is async) ─────────────────
+    let _currentDrawUid = null;
+    async function drawSopaCanvasAsync(uid) {
+      _currentDrawUid = uid;
+      const stored = window['_sopaData_'+uid];
+      if(!stored) return null;
+      const { sopa } = stored;
+      if(!sopa||!sopa.grilla) return null;
+      const design = window['_sopaDesign_'+uid] || stored.design || {};
+      const svgStr = design.svg || null;
+      const palabras = sopa.palabras.map(p=>String(p).toUpperCase());
+      const ROWS = sopa.grilla.length;
+      const COLS = sopa.grilla[0]?.length || ROWS;
+      const SCALE = 2;
+
+      const canvas = document.getElementById('sopa-canvas-'+uid);
+      if(!canvas) return null;
+      canvas.width  = SOPA_W * SCALE;
+      canvas.height = SOPA_H * SCALE;
+      canvas.style.width  = SOPA_W+'px';
+      canvas.style.height = SOPA_H+'px';
+      const ctx = canvas.getContext('2d');
+      ctx.scale(SCALE, SCALE);
+
+      // ── Layer 1: SVG background ──
+      if(svgStr && svgStr.includes('<svg')) {
+        try {
+          const img = await svgToImage(svgStr, SOPA_W, SOPA_H);
+          ctx.drawImage(img, 0, 0, SOPA_W, SOPA_H);
+        } catch(e) {
+          console.warn('SVG render failed, using fallback:', e.message);
+          drawFallbackBg(ctx, SOPA_W, SOPA_H, design);
+        }
+      } else {
+        drawFallbackBg(ctx, SOPA_W, SOPA_H, design);
+      }
+
+      // ── Layer 2: Grid ──
+      const layout = computeGridLayout(ROWS, COLS);
+      drawGridOverlay(ctx, sopa, design, uid, layout);
+
+      // ── Layer 3: Words ──
+      const wl = computeWordsLayout(palabras);
+      drawWordsOverlay(ctx, palabras, design, uid, wl);
+
+      // ── Layer 4: Footer text ──
+      drawFooterOverlay(ctx, palabras, design, uid);
+
+      return canvas;
+    }
+
+    // Sync wrapper for callers that don't await (preview toggle redraws)
+    function drawSopaCanvas(uid) {
+      // Return the canvas synchronously (may not have SVG yet on first call)
+      // Actual async draw is triggered separately
+      return document.getElementById('sopa-canvas-'+uid);
+    }
+
+    // ── Toggle preview ────────────────────────────────────────────────────────
+    async function toggleSopaPreview(uid) {
+      const wrap = document.getElementById('sopa-canvas-wrap-'+uid);
+      if(!wrap) return;
+      if(!wrap.classList.contains('visible')) {
+        wrap.classList.add('visible');
+        await drawSopaCanvasAsync(uid);
+      } else {
+        wrap.classList.remove('visible');
+      }
+    }
+
+    // ── Download ──────────────────────────────────────────────────────────────
+    async function downloadSopaImage(uid) {
+      const btn = document.getElementById('sopa-dl-btn-'+uid);
+      if(btn){ btn.textContent='⏳ Generando…'; btn.disabled=true; btn.classList.add('loading'); }
+      await new Promise(r=>setTimeout(r,60));
+      const canvas = await drawSopaCanvasAsync(uid);
+      if(!canvas){
+        if(btn){ btn.textContent='⬇ Descargar imagen'; btn.disabled=false; btn.classList.remove('loading'); }
+        return;
+      }
+      const wrap=document.getElementById('sopa-canvas-wrap-'+uid);
+      if(wrap) wrap.classList.add('visible');
+      const data=window['_sopaData_'+uid];
+      const titulo=(data?.sopa?.titulo||data?.sopa?.tema||'sopa')
+        .toLowerCase().replace(/[^a-z0-9]/g,'-').replace(/-+/g,'-').slice(0,40);
+      canvas.toBlob(blob=>{
+        const url=URL.createObjectURL(blob);
+        const a=document.createElement('a'); a.href=url; a.download='sopa-'+titulo+'.png';
+        document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+        if(btn){
+          btn.textContent='✅ Descargado'; btn.disabled=false; btn.classList.remove('loading');
+          setTimeout(()=>{if(btn)btn.textContent='⬇ Descargar imagen';},2500);
+        }
+      },'image/png');
+    }
+
+
+
+
+</script>
 </body>
 </html>

@@ -16281,60 +16281,71 @@ Reglas:
     return d?.candidates?.[0]?.content?.parts?.[0]?.text || '';
   }
 
-  // ── Design generation prompt ──────────────────────────────────────────────
-  const buildDesignPrompt = () => `Sos un diseñador gráfico experto en carteles impresos y pósters educativos decorativos.
-Tu tarea es generar un objeto de configuración de diseño visual para una sopa de letras con el siguiente tema: "${tema}".
+  // ── SVG Design generation ──────────────────────────────────────────────────
+  // Gemini generates: (1) A complete SVG decoration layer for fondo+marco+header+wordband+footer
+  // (2) A compact JSON config for grid cell colors (not drawable in SVG easily)
+  const CANVAS_W = 560; // must match frontend layout
+  const CANVAS_H_ESTIMATE = 980;
 
-El diseño debe ser COMPLETAMENTE ADAPTADO AL TEMA. No generes un diseño genérico.
-Pensá en: ¿Qué colores evocan este tema? ¿Qué textura de fondo tiene sentido (madera, papel, espacio, agua, fuego, tecnología, etc.)? ¿Qué símbolos decorativos son icónicos de este tema?
+  const buildSvgDesignPrompt = (W, H) => `Sos un diseñador gráfico SVG experto en pósters decorativos impresos.
+Tema de la sopa de letras: "${tema}"
+Título: "${nombre || tema}"
 
-Devuelve SOLO JSON puro válido, sin backticks, sin texto adicional, con EXACTAMENTE estas claves:
+Tu tarea es generar UN OBJETO JSON con dos partes:
+1. "svg": el código SVG COMPLETO del póster decorativo
+2. "grid": configuración de colores para la grilla de letras
 
+El póster SVG tiene dimensiones ${W}x${H}px y es un póster vertical tipo cartel imprimible de alta calidad.
+
+ZONAS DEL SVG (dibujá cada una con detalle):
+- ZONA A (y:0 a y:220): Fondo completo + Marco decorativo exterior + Encabezado con título
+- ZONA B (y:220 a y:260): Banda decorativa de transición
+- ZONA C (y:260 a y:680): Área de la grilla — dejá un rectángulo BLANCO o papel en x:30,y:265,w:${W-60},h:400 con bordes decorativos. NO dibujes letras aquí.
+- ZONA D (y:680 a y:900): Banda inferior con los chips/palabras — fondo oscuro temático, sin texto (el JS lo renderiza)
+- ZONA E (y:900 a y:${H}): Footer — franja de color con logo "🌊 Ocean AI"
+
+INSTRUCCIONES SVG OBLIGATORIAS:
+- Fondo completo con degradado o textura SVG (defs > linearGradient o pattern) COMPLETAMENTE adaptado al tema
+- Marco decorativo exterior: usa rectángulos, paths con esquinas ornamentadas, o elementos SVG decorativos (strokeWidth al menos 8px)
+- Título principal: texto SVG grande (font-size 38-48px, font-weight bold, font-family serif o decorativa) con drop-shadow o stroke de contraste. Debe ser LEGIBLE sobre el fondo.
+- Elementos decorativos TEMÁTICOS: dibujá 4-8 elementos SVG icónicos del tema usando <path>, <circle>, <polygon>, <text> con símbolos Unicode o formas que representen el tema. 
+  - Ejemplo para música: notas musicales en SVG (♩♪♫), siluetas de instrumentos con paths
+  - Ejemplo para océano: olas SVG, peces con paths, burbujas
+  - Ejemplo para espacio: estrellas, planetas, cohetes con paths SVG
+  - Los elementos decorativos deben estar en el encabezado, los costados del área de grilla, y la banda inferior
+- Ornamentos en las esquinas: usa paths SVG o formas geométricas decorativas, NO simples rectángulos
+- Líneas decorativas: usa <line> o <path> con strokeDasharray para crear efectos de línea ornamentada
+- Usa <defs> con gradientes, filters (feDropShadow, feGaussianBlur) y patterns para riqueza visual
+- Los colores deben ser RICOS y adaptados al tema, no genéricos
+
+RESTRICCIONES:
+- NO uses imágenes externas (sin <image href>)
+- NO uses fuentes externas (sin @import ni Google Fonts)
+- El SVG debe ser válido y renderizable en un navegador sin dependencias
+- viewBox="0 0 ${W} ${H}" y width="${W}" height="${H}"
+- El rectángulo de la grilla (x:30,y:265,w:${W-60},h:400) debe tener fill blanco/papel y borde decorativo pero SIN contenido interno
+
+La clave "grid" debe tener:
 {
-  "bgType": "gradient" o "paper" o "wood" o "space" o "water",
-  "bgTop": "#hex — color superior del fondo",
-  "bgMid": "#hex — color central del fondo",
-  "bgBottom": "#hex — color inferior del fondo",
-  "framePrimary": "#hex — color principal del marco decorativo exterior",
-  "frameSecondary": "#hex — color dorado/acento del marco (contrastes con framePrimary)",
-  "titleBigColor": "#hex — color del texto pequeño 'SOPA DE LETRAS:' en el badge",
-  "titleMainColor": "#hex — color principal del título grande",
-  "titleShadow": "#hex — color de sombra 3D del título (más oscuro que titleMainColor)",
-  "titleFont": "serif o sans-serif o monospace — tipografía del título",
-  "subtitleColor": "#hex — color del subtítulo 'Encontrá las N palabras'",
-  "decoEmojis": ["emoji1","emoji2","emoji3","emoji4"] — 4 emojis icónicos del tema (sin banderas ni personas)",
-  "decoChar": "un símbolo Unicode decorativo único del tema (★ ♦ ◈ ♩ ~ ✦ etc.)",
-  "cornerDeco": ["sym1","sym2","sym3","sym4"] — 4 símbolos para las líneas ornamentales",
-  "decoColor": "#hex — color de los elementos decorativos y ornamentos",
-  "gridPaper": true o false — ¿el área de la grilla tiene textura de papel?",
-  "gridBg": "#hex — color de fondo del área de la grilla",
-  "gridLine": "#hex — color de las líneas internas de la grilla (sutil)",
-  "gridBorder": "#hex — color del borde exterior de la grilla",
-  "cellNormal": "#hex — color de las letras normales (buen contraste con gridBg)",
-  "cellFoundBg": "#hex — color de fondo de celdas encontradas (llamativo)",
-  "cellFoundTxt": "#hex — color de letra en celdas encontradas",
-  "cellFoundGlow": "#hex — color del brillo/glow alrededor de celdas encontradas",
-  "wordBg1": "#hex — color superior de la banda de palabras",
-  "wordBg2": "#hex — color inferior de la banda de palabras",
-  "wordBorder": "#hex — color del borde de los chips de palabras",
-  "wordText": "#hex — color del texto de las palabras no encontradas",
-  "wordFoundText": "#hex — color del texto de las palabras encontradas (tachadas)",
-  "footerBg": "#hex — color de fondo del footer",
-  "footerText": "#hex — color del texto del footer",
-  "footerAccent": "#hex — color del acento/branding del footer",
-  "patternType": "lines o waves o scan o diagonal o dots o none — patrón decorativo del header",
-  "patternColor": "rgba(r,g,b,a) — color con transparencia del patrón",
-  "bgWood": true o false — ¿usar textura de madera en el fondo?"
+  "gridBg": "#hex",
+  "gridLine": "#hex",  
+  "gridBorder": "#hex",
+  "cellNormal": "#hex",
+  "cellFoundBg": "#hex",
+  "cellFoundTxt": "#hex",
+  "cellFoundGlow": "#hex",
+  "wordText": "#hex",
+  "wordFoundText": "#hex",
+  "footerText": "#hex",
+  "footerAccent": "#hex"
 }
 
-REGLAS ESTRICTAS:
-- Todos los colores hexadecimales deben ser distintos entre sí y apropiados para el tema.
-- Contraste mínimo garantizado: cellNormal vs gridBg, wordText vs wordBg1, titleMainColor vs bgMid.
-- decoEmojis debe tener EXACTAMENTE 4 emojis directamente relacionados al tema (no genéricos).
-- El diseño debe ser SORPRENDENTE, no básico. Elegí colores, texturas y símbolos que nadie esperaría.
-- Devuelve SOLO el JSON.`;
+Devuelve SOLO JSON puro, sin backticks, sin texto adicional:
+{"svg":"<svg ...>...</svg>","grid":{...}}
 
-  async function callGeminiForDesign(prompt) {
+Tomá el tiempo necesario para hacer un diseño EXCEPCIONAL, detallado, con personalidad propia del tema. No hagas nada básico o genérico.`;
+
+  async function callGeminiForSvgDesign(prompt) {
     const r = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
       {
@@ -16342,27 +16353,25 @@ REGLAS ESTRICTAS:
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.85, maxOutputTokens: 2048, topP: 0.95, responseMimeType: 'application/json' }
+          generationConfig: { temperature: 0.9, maxOutputTokens: 8192, topP: 0.95 }
         })
       }
     );
     const d = await r.json();
-    if (!r.ok) throw new Error(d?.error?.message || 'Gemini design error');
+    if (!r.ok) throw new Error(d?.error?.message || 'Gemini SVG design error');
     return d?.candidates?.[0]?.content?.parts?.[0]?.text || '';
   }
 
-  // ── Default design fallback ────────────────────────────────────────────────
+  // ── Default design fallback (config-only, no SVG) ─────────────────────────
   function buildDefaultDesign(tema) {
-    // Smart fallback based on keyword detection
     const t = tema.toLowerCase();
-    if (t.match(/mar|ocean|agua|pez|peces|coral|buzo|barco|piraña|delfin|ballena|tiburon/))
-      return { bgType:'gradient', bgTop:'#001e3c', bgMid:'#003366', bgBottom:'#001e3c', framePrimary:'#00b4d8', frameSecondary:'#90e0ef', titleBigColor:'#90e0ef', titleMainColor:'#caf0f8', titleShadow:'#000d1a', titleFont:'serif', subtitleColor:'#90e0ef', decoEmojis:['🌊','🐠','🐋','🦈'], decoChar:'〰', cornerDeco:['~','〜','~','〜'], decoColor:'#90e0ef', gridPaper:false, gridBg:'#011627', gridLine:'#0e3d5c', gridBorder:'#00b4d8', cellNormal:'#caf0f8', cellFoundBg:'#00b4d8', cellFoundTxt:'#001e3c', cellFoundGlow:'#48cae4', wordBg1:'#012233', wordBg2:'#011627', wordBorder:'#00b4d8', wordText:'#caf0f8', wordFoundText:'#48cae4', footerBg:'#010e1a', footerText:'#90e0ef', footerAccent:'#00b4d8', patternType:'waves', patternColor:'rgba(0,180,216,0.06)', bgWood:false };
-    if (t.match(/fuego|fuego|dragon|lava|volcan|explosion|guerra|combate|batalla|deporte|futbol|basket|tenis/))
-      return { bgType:'gradient', bgTop:'#3d0c00', bgMid:'#5c1500', bgBottom:'#3d0c00', framePrimary:'#f97316', frameSecondary:'#fbbf24', titleBigColor:'#fbbf24', titleMainColor:'#fed7aa', titleShadow:'#1a0400', titleFont:'serif', subtitleColor:'#fb923c', decoEmojis:['🔥','⚡','🏆','⭐'], decoChar:'★', cornerDeco:['★','✦','★','✦'], decoColor:'#fbbf24', gridPaper:true, gridBg:'#fffaf5', gridLine:'#f0d4b0', gridBorder:'#f97316', cellNormal:'#431407', cellFoundBg:'#f97316', cellFoundTxt:'#ffffff', cellFoundGlow:'#fbbf24', wordBg1:'#7c2d12', wordBg2:'#431407', wordBorder:'#f97316', wordText:'#fed7aa', wordFoundText:'#fbbf24', footerBg:'#200500', footerText:'#c2410c', footerAccent:'#fbbf24', patternType:'diagonal', patternColor:'rgba(249,115,22,0.06)', bgWood:true };
-    if (t.match(/tecnolog|comput|robot|intelig|artific|programar|codigo|internet|red|digital|cyber|hack/))
-      return { bgType:'gradient', bgTop:'#020206', bgMid:'#040410', bgBottom:'#020206', framePrimary:'#00ff88', frameSecondary:'#00cc66', titleBigColor:'#00ff88', titleMainColor:'#00ff88', titleShadow:'#001a0a', titleFont:'monospace', subtitleColor:'#00cc66', decoEmojis:['💻','🤖','⚡','🔐'], decoChar:'◈', cornerDeco:['◇','◈','◇','◈'], decoColor:'#00ff88', gridPaper:false, gridBg:'#030308', gridLine:'#00ff8820', gridBorder:'#00ff88', cellNormal:'#aaffcc', cellFoundBg:'#00ff88', cellFoundTxt:'#020206', cellFoundGlow:'#00ff88', wordBg1:'#030308', wordBg2:'#020206', wordBorder:'#00ff88', wordText:'#aaffcc', wordFoundText:'#00ff88', footerBg:'#010103', footerText:'#00cc66', footerAccent:'#00ff88', patternType:'scan', patternColor:'rgba(0,255,136,0.04)', bgWood:false };
-    // Default classic
-    return { bgType:'gradient', bgTop:'#1e3a6e', bgMid:'#2c5282', bgBottom:'#1e3a6e', framePrimary:'#1e3a6e', frameSecondary:'#c8a84b', titleBigColor:'#c8a84b', titleMainColor:'#ffffff', titleShadow:'#0a1d40', titleFont:'serif', subtitleColor:'#93c5fd', decoEmojis:['📚','✏️','📖','🔤'], decoChar:'♦', cornerDeco:['♦','◆','♦','◆'], decoColor:'#c8a84b', gridPaper:true, gridBg:'#fdfbf4', gridLine:'#d4c9a8', gridBorder:'#1e3a6e', cellNormal:'#1a202c', cellFoundBg:'#1e3a6e', cellFoundTxt:'#ffffff', cellFoundGlow:'#3b82f6', wordBg1:'#1e3a6e', wordBg2:'#162d56', wordBorder:'#c8a84b', wordText:'#ffffff', wordFoundText:'#93c5fd', footerBg:'#0f1f40', footerText:'#93c5fd', footerAccent:'#c8a84b', patternType:'lines', patternColor:'rgba(255,255,255,0.04)', bgWood:false };
+    if (t.match(/mar|ocean|agua|pez|coral|buzo|barco|ballena|tiburon/))
+      return { svg:null, grid:{ gridBg:'#011627', gridLine:'#0e3d5c', gridBorder:'#00b4d8', cellNormal:'#caf0f8', cellFoundBg:'#00b4d8', cellFoundTxt:'#001e3c', cellFoundGlow:'#48cae4', wordText:'#caf0f8', wordFoundText:'#48cae4', footerText:'#90e0ef', footerAccent:'#00b4d8' }, bgTop:'#001e3c', bgMid:'#003366', bgBottom:'#001e3c', framePrimary:'#00b4d8', frameSecondary:'#90e0ef', titleMainColor:'#caf0f8', titleShadow:'#000d1a', subtitleColor:'#90e0ef', decoEmojis:['🌊','🐠','🐋','🦈'], wordBg1:'#012233', wordBg2:'#011627', wordBorder:'#00b4d8', footerBg:'#010e1a' };
+    if (t.match(/fuego|dragon|lava|volcan|deporte|futbol|basket|tenis|combate/))
+      return { svg:null, grid:{ gridBg:'#fffaf5', gridLine:'#f0d4b0', gridBorder:'#f97316', cellNormal:'#431407', cellFoundBg:'#f97316', cellFoundTxt:'#ffffff', cellFoundGlow:'#fbbf24', wordText:'#fed7aa', wordFoundText:'#fbbf24', footerText:'#c2410c', footerAccent:'#fbbf24' }, bgTop:'#3d0c00', bgMid:'#5c1500', bgBottom:'#3d0c00', framePrimary:'#f97316', frameSecondary:'#fbbf24', titleMainColor:'#fed7aa', titleShadow:'#1a0400', subtitleColor:'#fb923c', decoEmojis:['🔥','⚡','🏆','⭐'], wordBg1:'#7c2d12', wordBg2:'#431407', wordBorder:'#f97316', footerBg:'#200500' };
+    if (t.match(/tecnolog|comput|robot|digital|cyber|hack/))
+      return { svg:null, grid:{ gridBg:'#030308', gridLine:'#00ff8820', gridBorder:'#00ff88', cellNormal:'#aaffcc', cellFoundBg:'#00ff88', cellFoundTxt:'#020206', cellFoundGlow:'#00ff88', wordText:'#aaffcc', wordFoundText:'#00ff88', footerText:'#00cc66', footerAccent:'#00ff88' }, bgTop:'#020206', bgMid:'#040410', bgBottom:'#020206', framePrimary:'#00ff88', frameSecondary:'#00cc66', titleMainColor:'#00ff88', titleShadow:'#001a0a', subtitleColor:'#00cc66', decoEmojis:['💻','🤖','⚡','🔐'], wordBg1:'#030308', wordBg2:'#020206', wordBorder:'#00ff88', footerBg:'#010103' };
+    return { svg:null, grid:{ gridBg:'#fdfbf4', gridLine:'#d4c9a8', gridBorder:'#1e3a6e', cellNormal:'#1a202c', cellFoundBg:'#1e3a6e', cellFoundTxt:'#ffffff', cellFoundGlow:'#3b82f6', wordText:'#ffffff', wordFoundText:'#93c5fd', footerText:'#93c5fd', footerAccent:'#c8a84b' }, bgTop:'#1e3a6e', bgMid:'#2c5282', bgBottom:'#1e3a6e', framePrimary:'#1e3a6e', frameSecondary:'#c8a84b', titleMainColor:'#ffffff', titleShadow:'#0a1d40', subtitleColor:'#93c5fd', decoEmojis:['📚','✏️','📖','🔤'], wordBg1:'#1e3a6e', wordBg2:'#162d56', wordBorder:'#c8a84b', footerBg:'#0f1f40' };
   }
 
   try {
@@ -16389,13 +16398,26 @@ REGLAS ESTRICTAS:
         }
         return data || buildFallbackSopa(tema, nombre, 10);
       })(),
-      // ── Design generation ──
+      // ── SVG Design generation ──
       (async () => {
         try {
-          const rawD = await callGeminiForDesign(buildDesignPrompt());
-          const d = extractBalancedJson(rawD);
-          if (d && d.bgTop && d.framePrimary && d.cellNormal) return d;
-        } catch(_) {}
+          const rawD = await callGeminiForSvgDesign(buildSvgDesignPrompt(CANVAS_W, CANVAS_H_ESTIMATE));
+          // Extract JSON — may be wrapped in backticks
+          const clean = rawD.replace(/```json|```/g,'').trim();
+          // Find outermost { }
+          const si = clean.indexOf('{'), ei = clean.lastIndexOf('}');
+          if (si === -1 || ei === -1) throw new Error('No JSON found');
+          const parsed = JSON.parse(clean.substring(si, ei+1));
+          // Validate SVG
+          if (parsed.svg && parsed.svg.includes('<svg') && parsed.grid && parsed.grid.gridBg) {
+            // Sanitize SVG: remove any script tags for safety
+            parsed.svg = parsed.svg.replace(/<script[\s\S]*?<\/script>/gi,'').replace(/on\w+="[^"]*"/gi,'');
+            return parsed;
+          }
+          throw new Error('Invalid SVG design response');
+        } catch(e) {
+          console.warn('SVG design fallback:', e.message);
+        }
         return buildDefaultDesign(tema);
       })()
     ]);
@@ -16403,11 +16425,12 @@ REGLAS ESTRICTAS:
     sopaData  = sopaResult.status === 'fulfilled'  ? sopaResult.value  : buildFallbackSopa(tema, nombre, 10);
     designData = designResult.status === 'fulfilled' ? designResult.value : buildDefaultDesign(tema);
 
-    // Validate design has required fields
-    const requiredDesignFields = ['bgTop','framePrimary','frameSecondary','titleMainColor','titleShadow',
-      'gridBg','cellNormal','cellFoundBg','wordBg1','wordText','footerBg'];
-    const designValid = requiredDesignFields.every(f => designData && designData[f]);
-    if (!designValid) designData = buildDefaultDesign(tema);
+    // Ensure design has grid config at minimum
+    if (!designData || (!designData.grid && !designData.gridBg)) designData = buildDefaultDesign(tema);
+    // Normalize: if grid sub-object exists, also promote keys to top level for canvas compat
+    if (designData.grid) {
+      Object.assign(designData, designData.grid);
+    }
 
     return res.json({ success: true, sopa: sopaData, design: designData, coralBitsCost: SOPA_COST });
   } catch(err) {

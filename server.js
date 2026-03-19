@@ -5828,7 +5828,7 @@ const OCEAN_AI_PLANS = Object.freeze({
     name: 'Leviathan',
     weeklyCost: 900,
     models: ['dolphin10', 'dolphin11', 'dolphin11m', 'dolphin11max', 'dolphin12', 'whale1', 'whale1m', 'whale1max', 'whale1bm', 'shark'],
-    benefits: ['Todos los modelos', 'Ballena 1 Blue Max + Tiburon', 'Máxima prioridad', 'Sin restricciones']
+    benefits: ['Todos los modelos', 'Ballena 1 Blue Max + Tiburon 1', 'Máxima prioridad', 'Sin restricciones']
   }
 });
 
@@ -16033,6 +16033,7 @@ app.post('/ocean-ai/chat', async (req, res) => {
     whale1max:   'gemini-2.5-flash',
     whale1bm:    'gemini-2.5-flash',
     shark:       'gemini-2.5-flash',
+    tiburon1:    'gemini-2.5-flash',
   };
   const geminiModel = GEMINI_MODEL_MAP[modelId] || 'gemini-2.5-flash-lite';
 
@@ -16130,6 +16131,82 @@ Sé directo. Evitá respuestas largas y redundantes salvo que el usuario lo pida
     return res.status(500).json({ error: 'Error interno al llamar a Gemini' });
   }
 });
+
+
+// ── Ocean AI: Herramienta Tiburon 1 — Generador de Sopa de Letras ────────────
+app.post('/ocean-ai/tools/sopa-letras', async (req, res) => {
+  const username = String(req.body?.username || '').trim();
+  const password = String(req.body?.password || '').trim();
+  const tema     = String(req.body?.tema     || '').trim();
+  const nombre   = String(req.body?.nombre   || '').trim();
+  const diseno   = String(req.body?.diseno   || 'clasico').trim();
+  const tamanio  = parseInt(req.body?.tamanio || 15);
+  const SOPA_COST = 75;
+
+  if (!tema) return res.status(400).json({ error: 'Tema requerido' });
+
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: 'Gemini API key no configurada' });
+
+  if (username && password) {
+    const client = await pool.connect();
+    try {
+      const user = await resolveOceanPayUserByCredentials(client, username, password);
+      if (!user) return res.status(401).json({ error: 'Credenciales inválidas' });
+      const card = await getPrimaryCardWithBalances(client, user.id);
+      if (!card) return res.status(400).json({ error: 'Sin tarjeta Ocean Pay activa' });
+      const currentCoral = await getUnifiedCardCurrencyBalance(client, Number(card.id), 'coralbits', true);
+      if (currentCoral < SOPA_COST) {
+        return res.status(402).json({ error: `Coral Bits insuficientes. Necesitás ${SOPA_COST} CB, tenés ${currentCoral} CB.`, required: SOPA_COST, balance: currentCoral });
+      }
+      await setUnifiedCardCurrencyBalance(client, { userId: user.id, cardId: Number(card.id), currency: 'coralbits', newBalance: currentCoral - SOPA_COST });
+    } finally { client.release(); }
+  }
+
+  const gridSize = Math.min(20, Math.max(10, isNaN(tamanio) ? 15 : tamanio));
+  const prompt = `Eres un generador de sopas de letras experto. Genera una sopa de letras temática.
+Tema: "${tema}"
+Título: "${nombre || tema}"
+Estilo visual: "${diseno}"
+Tamaño de grilla: ${gridSize}x${gridSize}
+Idioma: español. Exactamente 10 palabras del tema, en MAYÚSCULAS sin tildes.
+Las palabras deben estar colocadas en la grilla (horizontal, vertical o diagonal).
+Rellena el resto con letras mayúsculas aleatorias.
+Devuelve ÚNICAMENTE un JSON válido, sin backticks, sin texto adicional, con este formato:
+{"titulo":"...","tema":"...","palabras":["P1","P2","P3","P4","P5","P6","P7","P8","P9","P10"],"grilla":[["A","B",...],...],"posiciones":{"P1":{"fila":0,"col":0,"dir":"H"},...}}
+Direcciones: H=horizontal, V=vertical, D=diagonal descendente izquierda-derecha.`;
+
+  try {
+    const geminiRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.3, maxOutputTokens: 4096, topP: 0.9 }
+        })
+      }
+    );
+    const geminiData = await geminiRes.json();
+    if (!geminiRes.ok) {
+      return res.status(502).json({ error: geminiData?.error?.message || 'Error de Gemini' });
+    }
+    let raw = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    raw = raw.replace(/```json|```/g, '').trim();
+    // Extract JSON if wrapped in extra text
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return res.status(502).json({ error: 'La IA no devolvió un JSON válido' });
+    let sopaData;
+    try { sopaData = JSON.parse(jsonMatch[0]); }
+    catch(e) { return res.status(502).json({ error: 'JSON inválido de la IA: ' + e.message }); }
+    return res.json({ success: true, sopa: sopaData, coralBitsCost: SOPA_COST });
+  } catch(err) {
+    console.error('Error en /ocean-ai/tools/sopa-letras:', err);
+    return res.status(500).json({ error: 'Error interno al generar la sopa de letras' });
+  }
+});
+
 
 
 // Colaboraciones - solicitudes

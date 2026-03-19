@@ -16084,8 +16084,13 @@ REGLAS GLOBALES:
 
 HERRAMIENTA: SOPA DE LETRAS (Exclusiva Tiburon 1)
 - Se activa cuando el usuario pide crear, generar o hacer una sopa de letras.
-- Si el usuario NO especificó el tema, preguntale: "¿Sobre qué tema querés la sopa de letras? También podés indicar un nombre y diseño (clásico, océano, neón o fuego)."
-- Si el usuario YA especificó el tema (o responde tras tu pregunta), invocar con:
+- Si el usuario NO especificó el tema, preguntale: "¿Sobre qué tema querés la sopa de letras? También podés indicar un nombre y diseño (clásico, océano, neón o fuego). La sopa se puede descargar como imagen con diseño."
+- Si el usuario YA especificó el tema (o responde tras tu pregunta), elegí el diseño más apropiado para el tema:
+  * oceano → temas de mar, agua, naturaleza, animales marinos
+  * neon → temas de tecnología, videojuegos, ciencia, espacio
+  * fuego → temas de deportes, acción, historia, mitología
+  * clasico → cualquier otro tema o cuando el usuario prefiera estilo clásico
+- Invocar con:
 {"tool":"sopaldeletras","params":{"tema":"<tema>","nombre":"<nombre o vacío>","diseno":"<clasico|oceano|neon|fuego>","tamanio":<10-20>,"checkout":false}}
 - checkout: siempre false para sopa de letras (se paga con Coral Bits directamente).
 - Frases que activan la herramienta (solo si hay tema o el usuario ya lo confirmó):

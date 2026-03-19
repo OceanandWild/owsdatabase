@@ -16083,20 +16083,24 @@ REGLAS GLOBALES:
 - El parámetro "checkout" indica si el resultado requiere pago para desbloquearse. Si es true, el resultado aparecerá con desenfoque hasta completar el pago.
 
 HERRAMIENTA: SOPA DE LETRAS (Exclusiva Tiburon 1)
-- Se activa cuando el usuario pide crear, generar o hacer una sopa de letras.
-- Si el usuario NO especificó el tema, preguntale: "¿Sobre qué tema querés la sopa de letras? También podés indicar un nombre y diseño (clásico, océano, neón o fuego). La sopa se puede descargar como imagen con diseño."
-- Si el usuario YA especificó el tema (o responde tras tu pregunta), elegí el diseño más apropiado para el tema:
-  * oceano → temas de mar, agua, naturaleza, animales marinos
-  * neon → temas de tecnología, videojuegos, ciencia, espacio
-  * fuego → temas de deportes, acción, historia, mitología
-  * clasico → cualquier otro tema o cuando el usuario prefiera estilo clásico
-- Invocar con:
-{"tool":"sopaldeletras","params":{"tema":"<tema>","nombre":"<nombre o vacío>","diseno":"<clasico|oceano|neon|fuego>","tamanio":<10-20>,"checkout":false}}
-- checkout: siempre false para sopa de letras (se paga con Coral Bits directamente).
-- Frases que activan la herramienta (solo si hay tema o el usuario ya lo confirmó):
-  "sopa de letras de animales", "una sopa de letras de videojuegos", "generá una sopa sobre deportes"
-- Frases que deben hacer PREGUNTAR primero (no invocar):
-  "quiero una sopa de letras", "haceme una sopa", "podés hacer una sopa de letras?"
+Flujo OBLIGATORIO en 2 pasos:
+
+PASO 1 — Recolección de datos (SIEMPRE preguntá esto, incluso si el usuario ya dijo el tema):
+Si el usuario pide una sopa de letras, respondé con UNA sola pregunta que reúna TODA la info necesaria:
+"¡Perfecto! Para crear tu sopa de letras necesito un par de datos:
+1. **Tema**: ¿Sobre qué querés la sopa? (ej: animales, música, videojuegos)
+2. **Instrucciones de diseño** (opcional): ¿Cómo querés que se vea? Podés pedir colores específicos, estilo visual, elementos decorativos, ambiente, textura de fondo, etc. Si no das instrucciones, el diseño se basará en el tema. Cuanto más detallado, mejor quedará."
+
+EXCEPCIONES al paso 1 — Invocar directo sin preguntar si el usuario ya dio AMBAS cosas en un solo mensaje (ej: "sopa de letras de animales con diseño selvático con colores verdes y hojas").
+
+PASO 2 — Invocar herramienta cuando tengas tema + (instrucciones o confirmación):
+{"tool":"sopaldeletras","params":{"tema":"<tema>","nombre":"<nombre o vacío>","diseno":"<clasico|oceano|neon|fuego, el más apropiado>","tamanio":<10-20, default 15>,"instrucciones":"<instrucciones de diseño del usuario, o vacío si no dio>","checkout":false}}
+
+REGLAS:
+- Si el usuario NO dio instrucciones de diseño, invocá igual con instrucciones vacío — el sistema se basará en el tema.
+- Si el usuario responde solo el tema sin instrucciones, es válido — invocá con instrucciones vacío.
+- NO inventes instrucciones si el usuario no las dio. Solo transcribí textualmente lo que el usuario pidió.
+- "diseno" es un hint auxiliar; las instrucciones tienen prioridad total para el diseño visual.
 
 HERRAMIENTA: CHECKOUT (interna, nunca invocar manualmente)
 - Esta herramienta es invocada automáticamente por el sistema cuando una herramienta tiene checkout:true.
@@ -16185,12 +16189,13 @@ HERRAMIENTA: CHECKOUT (interna, nunca invocar manualmente)
 
 // ── Ocean AI: Herramienta Tiburon 1 — Generador de Sopa de Letras ────────────
 app.post('/ocean-ai/tools/sopa-letras', async (req, res) => {
-  const username = String(req.body?.username || '').trim();
-  const password = String(req.body?.password || '').trim();
-  const tema     = String(req.body?.tema     || '').trim();
-  const nombre   = String(req.body?.nombre   || '').trim();
-  const diseno   = String(req.body?.diseno   || 'clasico').trim();
-  const tamanio  = parseInt(req.body?.tamanio || 15);
+  const username      = String(req.body?.username      || '').trim();
+  const password      = String(req.body?.password      || '').trim();
+  const tema          = String(req.body?.tema          || '').trim();
+  const nombre        = String(req.body?.nombre        || '').trim();
+  const diseno        = String(req.body?.diseno        || 'clasico').trim();
+  const tamanio       = parseInt(req.body?.tamanio || 15);
+  const instrucciones = String(req.body?.instrucciones || '').trim(); // User design instructions
   const SOPA_COST = 75;
 
   if (!tema) return res.status(400).json({ error: 'Tema requerido' });
@@ -16287,63 +16292,68 @@ Reglas:
   const CANVAS_W = 560; // must match frontend layout
   const CANVAS_H_ESTIMATE = 980;
 
-  const buildSvgDesignPrompt = (W, H) => `Sos un diseñador gráfico SVG experto en pósters decorativos impresos.
-Tema de la sopa de letras: "${tema}"
-Título: "${nombre || tema}"
+  const buildSvgDesignPrompt = (W, H) => {
+    const hasInstrucciones = instrucciones.length > 0;
+    const designDirective = hasInstrucciones
+      ? `INSTRUCCIONES DE DISEÑO DEL USUARIO (PRIORIDAD MÁXIMA, seguir al pie de la letra):
+"${instrucciones}"
+Cada detalle de estas instrucciones debe reflejarse fielmente en el SVG.`
+      : `Sin instrucciones específicas del usuario. Creá un diseño ORIGINAL basado en el tema: "${tema}".
+Analizá el tema profundamente:
+- ¿Qué paleta de colores lo evoca?
+- ¿Qué textura de fondo encaja (madera, pergamino, pizarrón, agua, espacio, fuego)?
+- ¿Qué paths SVG representan elementos ICÓNICOS del tema?
+EJEMPLOS ESPERADOS POR TEMA:
+  • Música/Instrumentos: pentagramas, notas con paths detallados, siluetas de instrumentos, colores madera/pergamino
+  • Océano: olas curvas, peces con paths, burbujas, degradados azul profundo
+  • Videojuegos: píxeles, controladores con paths, neón, scanlines
+  • Naturaleza: hojas curvas, flores, verdes vibrantes
+  • Espacio: estrellas, planetas con gradientes radiales, cohetes, negro profundo`;
 
-Tu tarea es generar UN OBJETO JSON con dos partes:
-1. "svg": el código SVG COMPLETO del póster decorativo
-2. "grid": configuración de colores para la grilla de letras
+    return `Sos un diseñador gráfico SVG senior especializado en carteles ilustrados y pósters impresos de alta calidad. Tu trabajo se diferencia por la RIQUEZA DE DETALLE y la COHERENCIA TEMÁTICA.
 
-El póster SVG tiene dimensiones ${W}x${H}px y es un póster vertical tipo cartel imprimible de alta calidad.
+TEMA: "${tema}"
+TÍTULO DEL PÓSTER: "${nombre || tema}"
 
-ZONAS DEL SVG (dibujá cada una con detalle):
-- ZONA A (y:0 a y:220): Fondo completo + Marco decorativo exterior + Encabezado con título
-- ZONA B (y:220 a y:260): Banda decorativa de transición
-- ZONA C (y:260 a y:680): Área de la grilla — dejá un rectángulo BLANCO o papel en x:30,y:265,w:${W-60},h:400 con bordes decorativos. NO dibujes letras aquí.
-- ZONA D (y:680 a y:900): Banda inferior con los chips/palabras — fondo oscuro temático, sin texto (el JS lo renderiza)
-- ZONA E (y:900 a y:${H}): Footer — franja de color con logo "🌊 Ocean AI"
+${designDirective}
 
-INSTRUCCIONES SVG OBLIGATORIAS:
-- Fondo completo con degradado o textura SVG (defs > linearGradient o pattern) COMPLETAMENTE adaptado al tema
-- Marco decorativo exterior: usa rectángulos, paths con esquinas ornamentadas, o elementos SVG decorativos (strokeWidth al menos 8px)
-- Título principal: texto SVG grande (font-size 38-48px, font-weight bold, font-family serif o decorativa) con drop-shadow o stroke de contraste. Debe ser LEGIBLE sobre el fondo.
-- Elementos decorativos TEMÁTICOS: dibujá 4-8 elementos SVG icónicos del tema usando <path>, <circle>, <polygon>, <text> con símbolos Unicode o formas que representen el tema. 
-  - Ejemplo para música: notas musicales en SVG (♩♪♫), siluetas de instrumentos con paths
-  - Ejemplo para océano: olas SVG, peces con paths, burbujas
-  - Ejemplo para espacio: estrellas, planetas, cohetes con paths SVG
-  - Los elementos decorativos deben estar en el encabezado, los costados del área de grilla, y la banda inferior
-- Ornamentos en las esquinas: usa paths SVG o formas geométricas decorativas, NO simples rectángulos
-- Líneas decorativas: usa <line> o <path> con strokeDasharray para crear efectos de línea ornamentada
-- Usa <defs> con gradientes, filters (feDropShadow, feGaussianBlur) y patterns para riqueza visual
-- Los colores deben ser RICOS y adaptados al tema, no genéricos
+ESPECIFICACIONES TÉCNICAS:
+- viewBox="0 0 ${W} ${H}" width="${W}" height="${H}"
+- SVG autocontenido: sin <image>, sin @font-face, sin dependencias externas
+- Usá <defs> con múltiples gradientes, filters y patterns
 
-RESTRICCIONES:
-- NO uses imágenes externas (sin <image href>)
-- NO uses fuentes externas (sin @import ni Google Fonts)
-- El SVG debe ser válido y renderizable en un navegador sin dependencias
-- viewBox="0 0 ${W} ${H}" y width="${W}" height="${H}"
-- El rectángulo de la grilla (x:30,y:265,w:${W-60},h:400) debe tener fill blanco/papel y borde decorativo pero SIN contenido interno
+ZONAS DEL PÓSTER (obligatorias):
+A (y 0-220): Fondo + Marco + Header con título y decoraciones
+B (y 220-265): Banda ornamental de transición
+C (y 265-670): Área de grilla — dibujá SOLO el contenedor de papel: rect x="28" y="268" width="${W-56}" height="400" con fill tipo papel y borde decorativo. SIN texto ni letras adentro.
+D (y 670-900): Banda inferior temática para palabras (fondo oscuro, sin texto)
+E (y 900-${H}): Footer — franja sólida de color
 
-La clave "grid" debe tener:
-{
-  "gridBg": "#hex",
-  "gridLine": "#hex",  
-  "gridBorder": "#hex",
-  "cellNormal": "#hex",
-  "cellFoundBg": "#hex",
-  "cellFoundTxt": "#hex",
-  "cellFoundGlow": "#hex",
-  "wordText": "#hex",
-  "wordFoundText": "#hex",
-  "footerText": "#hex",
-  "footerAccent": "#hex"
-}
+ELEMENTOS OBLIGATORIOS:
+1. FONDO: gradiente completo o pattern de textura que cubra todo el SVG
+2. MARCO: rect exterior stroke + esquinas ornamentadas con paths (NO simples cuadrados), strokeWidth mínimo 10
+3. TÍTULO: text SVG centrado en Zona A, font-weight="bold".
+   REGLA DE TAMAÑO: título corto (hasta 15 chars) → font-size="48". Medio (16-22) → font-size="36". Largo (23+) → font-size="28". NUNCA omitir este ajuste.
+   Aplicá filter drop-shadow. El texto DEBE caber dentro de x=30 a x=${W-30}.
+4. BADGE "SOPA DE LETRAS:" sobre el título: rect redondeado rx="5" + text font-size="13"
+5. ELEMENTOS DECORATIVOS TEMÁTICOS (mínimo 8 elementos en total):
+   - Header (Zona A): al menos 3 elementos (ej: 2 decorativos a los lados del título + 1 patrón de fondo)
+   - Lados Zona C: al menos 2 elementos verticales flanqueando el área de grilla
+   - Zona D: al menos 2 elementos en esquinas inferiores
+   - Footer: al menos 1 elemento decorativo
+   CALIDAD MÍNIMA: cada elemento debe tener al menos 1 atributo de estilo (fill, stroke, opacity, transform)
+6. LÍNEAS ORNAMENTALES en Zona B: múltiples <line> con strokeDasharray distintos
+7. El rect de grilla (Zona C) debe tener fill="#fdf8ee" o color papel similar, stroke temático, rx="8"
 
-Devuelve SOLO JSON puro, sin backticks, sin texto adicional:
-{"svg":"<svg ...>...</svg>","grid":{...}}
+CALIDAD EXIGIDA:
+- Paleta coherente de 4-6 colores que reflejen el tema
+- Elementos decorativos con DETALLE real (paths curvos, formas complejas, no solo rectángulos)
+- Uso de opacity para capas de profundidad
+- Diseño que se vea PROFESIONAL, publicable
 
-Tomá el tiempo necesario para hacer un diseño EXCEPCIONAL, detallado, con personalidad propia del tema. No hagas nada básico o genérico.`;
+RESPUESTA: SOLO JSON sin backticks:
+{"svg":"<svg ...>...</svg>","grid":{"gridBg":"#hex","gridLine":"#hex","gridBorder":"#hex","cellNormal":"#hex","cellFoundBg":"#hex","cellFoundTxt":"#hex","cellFoundGlow":"#hex","wordText":"#hex","wordFoundText":"#hex","footerText":"#hex","footerAccent":"#hex"}}`;
+  };
 
   async function callGeminiForSvgDesign(prompt) {
     const r = await fetch(

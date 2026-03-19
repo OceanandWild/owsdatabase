@@ -2659,7 +2659,8 @@
       }
 
       const uid = ++_toolSopaCounter;
-      window['_sopaAIParams_' + uid] = { tema, nombre, diseno, tamanio };
+      const instrucciones = String(params.instrucciones || '').trim();
+      window['_sopaAIParams_' + uid] = { tema, nombre, diseno, tamanio, instrucciones };
       // Store indicator id so executeSopaFromAI can update it
       if (indicatorIid !== undefined) window['_sopaIndicator_' + uid] = indicatorIid;
 
@@ -2679,8 +2680,17 @@
           <div style="display:flex;flex-direction:column;gap:6px;font-size:0.85rem;color:var(--text-muted);">
             <div>📌 <strong style="color:var(--text-main);">Tema:</strong> ${tema}</div>
             ${nombre ? `<div>🏷️ <strong style="color:var(--text-main);">Nombre:</strong> ${nombre}</div>` : ''}
-            <div>🎨 <strong style="color:var(--text-main);">Diseño:</strong> ${diseno}</div>
             <div>📐 <strong style="color:var(--text-main);">Tamaño:</strong> ${tamanio}×${tamanio}</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:5px;">
+            <label style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">
+              🎨 Instrucciones de diseño <span style="opacity:.6;text-transform:none;">(opcional — cuanto más detallado, mejor)</span>
+            </label>
+            <textarea id="tool-sopa-instrucciones-${uid}" rows="3"
+              placeholder="Ej: fondo tipo pergamino antiguo, notas musicales doradas flotando, instrumentos de madera en los bordes, colores cálidos tierra y dorado..."
+              style="width:100%;background:#1e293b;border:1px solid rgba(249,115,22,0.3);color:var(--text-main);border-radius:8px;padding:8px 10px;font-size:0.82rem;font-family:inherit;resize:vertical;outline:none;line-height:1.4;"
+              onfocus="this.style.borderColor='rgba(249,115,22,0.7)'" onfocusout="this.style.borderColor='rgba(249,115,22,0.3)'"></textarea>
+            <div style="font-size:0.7rem;color:var(--text-muted);">💡 Si no das instrucciones, la IA diseñará basándose en el tema "${tema}"</div>
           </div>
           <div class="tool-cost-row">
             <span>Costo:</span>
@@ -2722,6 +2732,9 @@
       const btn      = document.getElementById('tool-sopa-ai-btn-' + uid);
       const statusEl = document.getElementById('tool-sopa-ai-status-' + uid);
       const { tema, nombre, diseno, tamanio } = params;
+      // Read instrucciones from textarea if present, else use stored value
+      const instruccionesEl = document.getElementById('tool-sopa-instrucciones-' + uid);
+      const instrucciones = instruccionesEl ? instruccionesEl.value.trim() : (params.instrucciones || '');
       const toolName = 'Generador de Sopa de Letras';
 
       if (btn) { btn.textContent = 'Generando…'; btn.disabled = true; }
@@ -2751,7 +2764,7 @@
           body: JSON.stringify({
             username: oceanPayAuth.username,
             password: oceanPayAuth.password,
-            tema, nombre, diseno, tamanio
+            tema, nombre, diseno, tamanio, instrucciones
           })
         });
         clearInterval(stepInterval);
@@ -5049,15 +5062,34 @@
 
     // ── Layout constants (must match server CANVAS_W / prompt zones) ──────────
     const SOPA_W        = 560;
-    const SOPA_CELL     = 36;
-    const SOPA_GRID_PAD = 18;   // padding inside white paper box
-    const SOPA_GRID_Y   = 265;  // where grid paper starts (matches SVG prompt zone C)
-    const SOPA_GRID_BOX_H = 400; // height of the white grid area (matches SVG zone C)
+    const SOPA_CELL     = 34;
+    const SOPA_GRID_PAD = 16;   // padding inside white paper box
+    const SOPA_GRID_Y   = 268;  // where grid paper starts (matches SVG prompt zone C)
+    const SOPA_GRID_BOX_H = 402; // height of the white grid area (matches SVG zone C)
     const SOPA_WORDS_Y  = 680;  // words band start (matches SVG zone D)
     const SOPA_WORDS_H  = 220;  // height of words band
     const SOPA_FOOTER_Y = 900;  // footer start (matches SVG zone E)
     const SOPA_FOOTER_H = 80;
     const SOPA_H        = 980;
+
+    // Dynamic canvas sizing: if grid is too big for default zones, expand
+    function computeSopaLayout(ROWS, COLS, palabras) {
+      const cell = Math.min(SOPA_CELL, Math.floor((SOPA_W - 70) / COLS), Math.floor(SOPA_GRID_BOX_H / ROWS));
+      const gridW = COLS * cell;
+      const gridH = ROWS * cell;
+      const gx = (SOPA_W - gridW) / 2;
+      const gridBoxCenterY = SOPA_GRID_Y + SOPA_GRID_BOX_H / 2;
+      const gy = gridBoxCenterY - gridH / 2;
+      // Words layout
+      const CPR = Math.min(4, Math.ceil(palabras.length / 2));
+      const CHIP_H = 38, CHIP_GAP = 8;
+      const CHIP_ROWS = Math.ceil(palabras.length / CPR);
+      const PAD = 22;
+      const chipW = (SOPA_W - PAD * 2 - (CPR - 1) * CHIP_GAP) / CPR;
+      const totalChipsH = CHIP_ROWS * (CHIP_H + CHIP_GAP);
+      const wStartY = SOPA_WORDS_Y + (SOPA_WORDS_H - totalChipsH) / 2;
+      return { cell, gridW, gridH, gx, gy, CPR, CHIP_H, CHIP_GAP, chipW, wStartY, PAD };
+    }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
     function sopaRRect(ctx, x, y, w, h, r) {
@@ -5084,28 +5116,21 @@
       });
     }
 
-    // Compute grid layout given ROWS x COLS
+    // Legacy wrappers (kept for any remaining calls)
     function computeGridLayout(ROWS, COLS) {
-      const cell = Math.min(SOPA_CELL, Math.floor((SOPA_W - 80) / COLS));
-      const totalW = COLS * cell;
-      const totalH = ROWS * cell;
+      const cell = Math.min(SOPA_CELL, Math.floor((SOPA_W - 70) / COLS), Math.floor(SOPA_GRID_BOX_H / ROWS));
+      const totalW = COLS * cell, totalH = ROWS * cell;
       const gx = (SOPA_W - totalW) / 2;
-      // Center vertically in the white box
-      const boxMidY = SOPA_GRID_Y + SOPA_GRID_BOX_H / 2;
-      const gy = boxMidY - totalH / 2;
+      const gy = SOPA_GRID_Y + SOPA_GRID_BOX_H/2 - totalH/2;
       return { cell, totalW, totalH, gx, gy };
     }
-
-    // Compute words layout
     function computeWordsLayout(palabras) {
-      const CPR = Math.min(4, Math.ceil(palabras.length / 2));
-      const CHIP_H = 38, CHIP_GAP = 8;
-      const CHIP_ROWS = Math.ceil(palabras.length / CPR);
-      const PAD = 22;
-      const chipW = (SOPA_W - PAD * 2 - (CPR - 1) * CHIP_GAP) / CPR;
-      const totalChipsH = CHIP_ROWS * (CHIP_H + CHIP_GAP);
-      const startY = SOPA_WORDS_Y + (SOPA_WORDS_H - totalChipsH) / 2;
-      return { CPR, CHIP_H, CHIP_GAP, CHIP_ROWS, chipW, startY, PAD };
+      const CPR = Math.min(4, Math.ceil(palabras.length/2));
+      const CHIP_H=38, CHIP_GAP=8, PAD=22;
+      const chipW = (SOPA_W-PAD*2-(CPR-1)*CHIP_GAP)/CPR;
+      const totalChipsH = Math.ceil(palabras.length/CPR)*(CHIP_H+CHIP_GAP);
+      const startY = SOPA_WORDS_Y+(SOPA_WORDS_H-totalChipsH)/2;
+      return { CPR, CHIP_H, CHIP_GAP, chipW, startY, PAD };
     }
 
     // ── Fallback canvas background (no SVG) ───────────────────────────────────

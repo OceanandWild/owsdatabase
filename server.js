@@ -16209,42 +16209,101 @@ app.post('/ocean-ai/tools/sopa-letras', async (req, res) => {
   }
 
   const gridSize = Math.min(20, Math.max(10, isNaN(tamanio) ? 15 : tamanio));
-  const prompt = `Eres un generador de sopas de letras experto. Genera una sopa de letras temática.
-Tema: "${tema}"
-Título: "${nombre || tema}"
-Estilo visual: "${diseno}"
-Tamaño de grilla: ${gridSize}x${gridSize}
-Idioma: español. Exactamente 10 palabras del tema, en MAYÚSCULAS sin tildes.
-Las palabras deben estar colocadas en la grilla (horizontal, vertical o diagonal).
-Rellena el resto con letras mayúsculas aleatorias.
-Devuelve ÚNICAMENTE un JSON válido, sin backticks, sin texto adicional, con este formato:
-{"titulo":"...","tema":"...","palabras":["P1","P2","P3","P4","P5","P6","P7","P8","P9","P10"],"grilla":[["A","B",...],...],"posiciones":{"P1":{"fila":0,"col":0,"dir":"H"},...}}
-Direcciones: H=horizontal, V=vertical, D=diagonal descendente izquierda-derecha.`;
 
-  try {
-    const geminiRes = await fetch(
+  // Helper: build balanced JSON extractor
+  function extractBalancedJson(text) {
+    const clean = text.replace(/```json|```/g, '').trim();
+    const start = clean.search(/\{/);
+    if (start === -1) return null;
+    let depth = 0, end = start;
+    for (let i = start; i < clean.length; i++) {
+      if (clean[i] === '{') depth++;
+      else if (clean[i] === '}') { depth--; if (depth === 0) { end = i; break; } }
+    }
+    if (depth !== 0) return null;
+    try { return JSON.parse(clean.substring(start, end + 1)); }
+    catch(_) { return null; }
+  }
+
+  // Helper: build fallback sopa locally if AI fails
+  function buildFallbackSopa(tema, nombre, gridSz) {
+    const defaultWords = ['LETRA','GRILLA','JUEGO','BUSCAR','PALABRA','TEMA','OCEAN','WILD','SOPA','TEXTO'];
+    const sz = gridSz;
+    // Simple grid filled with random letters + words placed horizontally
+    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const grilla = Array.from({length: sz}, () =>
+      Array.from({length: sz}, () => letters[Math.floor(Math.random() * letters.length)])
+    );
+    const posiciones = {};
+    defaultWords.slice(0, Math.min(defaultWords.length, sz)).forEach((w, i) => {
+      const row = i;
+      for (let c = 0; c < w.length && c < sz; c++) {
+        grilla[row][c] = w[c];
+      }
+      posiciones[w] = { fila: row, col: 0, dir: 'H' };
+    });
+    return { titulo: nombre || tema, tema, palabras: defaultWords, grilla, posiciones };
+  }
+
+  const buildPrompt = (sz) => `Genera una sopa de letras en JSON. Responde SOLO con JSON puro, sin ningún texto antes ni después, sin backticks, sin explicaciones.
+
+Tema: ${tema}
+Palabras: elige exactamente 8 palabras en MAYUSCULAS sin tildes relacionadas al tema.
+Grilla: ${sz}x${sz} letras mayusculas. Coloca las palabras en la grilla (H=horizontal, V=vertical, D=diagonal). Rellena el resto con letras aleatorias.
+
+Formato EXACTO (no cambies los nombres de las claves):
+{"titulo":"${nombre||tema}","tema":"${tema}","palabras":["P1","P2","P3","P4","P5","P6","P7","P8"],"grilla":[["A","B","C","D","E","F","G","H","I","J"],["K","L","M","N","O","P","Q","R","S","T"],...],"posiciones":{"P1":{"fila":0,"col":0,"dir":"H"},"P2":{"fila":1,"col":0,"dir":"H"}}}
+
+Reglas:
+- "grilla" es un array de ${sz} arrays, cada uno con ${sz} strings de 1 letra mayuscula.
+- "posiciones" tiene una clave por cada palabra con fila, col (inicio) y dir (H/V/D).
+- Devuelve SOLO el JSON, comenzando con { y terminando con }.`;
+
+  async function callGeminiForSopa(prompt) {
+    const r = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.3, maxOutputTokens: 4096, topP: 0.9 }
+          generationConfig: { temperature: 0.2, maxOutputTokens: 8192, topP: 0.8, responseMimeType: 'application/json' }
         })
       }
     );
-    const geminiData = await geminiRes.json();
-    if (!geminiRes.ok) {
-      return res.status(502).json({ error: geminiData?.error?.message || 'Error de Gemini' });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d?.error?.message || 'Gemini error');
+    return d?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  }
+
+  try {
+    let sopaData = null;
+    let lastErr = '';
+
+    // Attempt 1: with responseMimeType json
+    try {
+      const raw1 = await callGeminiForSopa(buildPrompt(gridSize));
+      sopaData = extractBalancedJson(raw1);
+      if (sopaData && sopaData.grilla && sopaData.palabras) { /* ok */ }
+      else { sopaData = null; lastErr = 'Estructura incompleta en intento 1'; }
+    } catch(e1) { lastErr = e1.message; sopaData = null; }
+
+    // Attempt 2: simpler grid if first failed
+    if (!sopaData) {
+      try {
+        const raw2 = await callGeminiForSopa(buildPrompt(10));
+        sopaData = extractBalancedJson(raw2);
+        if (sopaData && sopaData.grilla && sopaData.palabras) { /* ok */ }
+        else { sopaData = null; lastErr = 'Estructura incompleta en intento 2'; }
+      } catch(e2) { lastErr = e2.message; sopaData = null; }
     }
-    let raw = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    raw = raw.replace(/```json|```/g, '').trim();
-    // Extract JSON if wrapped in extra text
-    const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) return res.status(502).json({ error: 'La IA no devolvió un JSON válido' });
-    let sopaData;
-    try { sopaData = JSON.parse(jsonMatch[0]); }
-    catch(e) { return res.status(502).json({ error: 'JSON inválido de la IA: ' + e.message }); }
+
+    // Fallback: local generation so the user always gets something
+    if (!sopaData) {
+      console.warn('Sopa fallback usado:', lastErr);
+      sopaData = buildFallbackSopa(tema, nombre, 10);
+    }
+
     return res.json({ success: true, sopa: sopaData, coralBitsCost: SOPA_COST });
   } catch(err) {
     console.error('Error en /ocean-ai/tools/sopa-letras:', err);

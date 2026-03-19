@@ -19,6 +19,7 @@ on:
           - wildwave
           - ecoxion
           - dinobox
+          - ocean-ai
       version:
         description: 'Version (formato: YYYY.M.D-tHHMM)'
         required: true
@@ -51,6 +52,7 @@ jobs:
             "wildwave"             = @{ repo = "wildwave";            dir = "WildWave";             buildOut = "C:\builds\wildwave" }
             "ecoxion"              = @{ repo = "ecoxion";             dir = "Ecoxion";              buildOut = "C:\builds\ecoxion" }
             "dinobox"              = @{ repo = "owsdatabase";         dir = "DinoBox";              buildOut = "C:\builds\dinobox" }
+            "ocean-ai"             = @{ repo = "ocean-ai";            dir = "Ocean AI";             buildOut = "C:\builds\ocean-ai" }
           }
           $cfg = $configs[$PROJECT]
           if (-not $cfg) { Write-Error "Proyecto desconocido: $PROJECT"; exit 1 }

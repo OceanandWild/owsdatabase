@@ -10,6 +10,11 @@ param(
     [string]$version,
     [string]$platform = "windows",
     [switch]$newProject,
+    [switch]$createRepo,
+    [switch]$wireWindowsWorkflow,
+    [switch]$releaseAfterSetup,
+    [string]$storeVersion,
+    [string]$releaseDate,
     [string]$projectName,
     [string]$projectDir,
     [string]$projectRepo,
@@ -37,6 +42,7 @@ $PROJECTS = @{
     "ecoxion"              = @{ repo = "ecoxion";                dir = "Ecoxion";                 platforms = @("windows") }
     "dinobox"              = @{ repo = "owsdatabase";            dir = "DinoBox";                 platforms = @("windows") }
     "wilddestiny"          = @{ repo = "wilddestiny";            dir = "Wild Destiny";            platforms = @("windows") }
+    "ocean-ai"             = @{ repo = "ocean-ai";               dir = "Ocean AI";                platforms = @("windows") }
 }
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -50,6 +56,83 @@ function Require-Token {
         Write-Err "OWS_ADMIN_SECRET no definido. Ejecuta: `$env:OWS_ADMIN_SECRET = 'MUFASA1939'"
         exit 1
     }
+}
+
+function Ensure-GhAuth {
+    try {
+        & $GH auth status 2>&1 | Out-Null
+        if ($LASTEXITCODE -eq 0) {
+            Write-OK "GitHub CLI autenticado"
+            return $true
+        }
+    } catch {}
+    Write-Err "GitHub CLI sin auth. Ejecuta: & `"$GH`" auth login"
+    return $false
+}
+
+function Ensure-GhRepo {
+    param([string]$RepoName)
+    $full = "$ORG/$RepoName"
+    try {
+        & $GH repo view $full 2>&1 | Out-Null
+        if ($LASTEXITCODE -eq 0) {
+            Write-OK "Repo ya existe: $full"
+            return $true
+        }
+    } catch {}
+    try {
+        & $GH repo create $full --public --confirm 2>&1 | Out-Null
+        if ($LASTEXITCODE -eq 0) {
+            Write-OK "Repo creado: $full"
+            return $true
+        }
+    } catch {}
+    Write-Err "No se pudo crear/verificar repo $full con gh."
+    return $false
+}
+
+function Update-WindowsWorkflowMapAndOptions {
+    param([string]$Slug, [string]$Repo, [string]$Dir)
+
+    $wfPath = Join-Path $ROOT ".github\workflows\release-windows-universal.yml"
+    if (-not (Test-Path $wfPath)) {
+        Write-Err "No se encontro workflow Windows universal: $wfPath"
+        return $false
+    }
+
+    $raw = Get-Content -Raw $wfPath
+    $changed = $false
+
+    # options list (workflow_dispatch.inputs.project.options)
+    if ($raw -notmatch "(?m)^\s*-\s*$([regex]::Escape($Slug))\s*$") {
+        if ($raw -match "(?m)^(\s*-\s*dinobox\s*)$") {
+            $raw = $raw -replace "(?m)^(\s*-\s*dinobox\s*)$", "`$1`r`n          - $Slug"
+            $changed = $true
+        } else {
+            Write-Err "No se pudo inyectar option en workflow (no se encontro ancla dinobox)."
+            return $false
+        }
+    }
+
+    # project config map
+    if ($raw -notmatch [regex]::Escape("`"$Slug`"")) {
+        $entry = "            `"$Slug`"             = @{ repo = `"$Repo`";            dir = `"$Dir`";             buildOut = `"C:\builds\$Slug`" }"
+        if ($raw -match "(?m)^(\s*`"dinobox`".*)$") {
+            $raw = $raw -replace "(?m)^(\s*`"dinobox`".*)$", "`$1`r`n$entry"
+            $changed = $true
+        } else {
+            Write-Err "No se pudo inyectar config del proyecto en workflow."
+            return $false
+        }
+    }
+
+    if ($changed) {
+        [System.IO.File]::WriteAllText($wfPath, $raw, (New-Object System.Text.UTF8Encoding($false)))
+        Write-OK "Workflow Windows universal actualizado para $Slug"
+    } else {
+        Write-Info "Workflow Windows universal ya estaba listo para $Slug"
+    }
+    return $true
 }
 
 # ── Wait for GitHub asset to exist (prevents 404 on updater) ─────────────────
@@ -76,7 +159,7 @@ function Register-Version {
 
 # ── Register new project in DB ────────────────────────────────────────────────
 function Register-NewProject {
-    param([string]$Slug, [string]$Name, [string]$Repo, [string]$Plat, [string]$PkgId)
+    param([string]$Slug, [string]$Name, [string]$Repo, [string]$Plat, [string]$PkgId, [string]$ReleaseDate)
     Require-Token
 
     $meta = @{ repo = "$ORG/$Repo" }
@@ -87,6 +170,8 @@ function Register-NewProject {
         name     = $Name
         platform = $Plat
         metadata = $meta
+        status   = "coming_soon"
+        release_date = $ReleaseDate
     } | ConvertTo-Json
 
     try {
@@ -145,11 +230,79 @@ if ($newProject) {
         exit 1
     }
 
+    if (-not $projectDir) { $projectDir = $projectName }
+    if (-not $storeVersion) { $storeVersion = $version }
+    if (-not $releaseDate) {
+        $releaseDate = (Get-Date).AddDays(28).ToString("yyyy-MM-ddTHH:mm:ssZ")
+    }
+    if (-not $PSBoundParameters.ContainsKey('createRepo')) { $createRepo = $true }
+    if (-not $PSBoundParameters.ContainsKey('wireWindowsWorkflow')) { $wireWindowsWorkflow = $true }
+
     Write-Step "Registrando nuevo proyecto: $projectName ($project)"
     $platStr = if ($platform -eq "both") { "windows,android" } else { $platform }
-    Register-NewProject -Slug $project -Name $projectName -Repo $projectRepo -Plat $platStr -PkgId $packageId
+    Register-NewProject -Slug $project -Name $projectName -Repo $projectRepo -Plat $platStr -PkgId $packageId -ReleaseDate $releaseDate | Out-Null
 
-    Write-Info "Proyecto registrado. Ahora agrega '$project' al mapa PROJECTS en este script y corre el release normal."
+    # Repo bootstrap (gh)
+    if ($createRepo) {
+        Write-Step "Verificando/creando repo remoto"
+        if (Ensure-GhAuth) {
+            Ensure-GhRepo -RepoName $projectRepo | Out-Null
+        }
+    }
+
+    # Wire workflow so the universal Windows pipeline can build the new slug
+    if ($wireWindowsWorkflow) {
+        Write-Step "Actualizando workflow universal de Windows para $project"
+        Update-WindowsWorkflowMapAndOptions -Slug $project -Repo $projectRepo -Dir $projectDir | Out-Null
+    }
+
+    # Persist in release map for future normal releases
+    if (-not $PROJECTS.ContainsKey($project)) {
+        $PROJECTS[$project] = @{
+            repo = $projectRepo
+            dir = $projectDir
+            platforms = @("windows")
+        }
+        Write-OK "Mapa de release actualizado en runtime para $project"
+    }
+
+    # Commit/push infrastructure changes
+    Write-Step "Guardando cambios de infraestructura (script/workflow)"
+    Push-Location $ROOT
+    try {
+        git add "scripts/release.ps1" ".github/workflows/release-windows-universal.yml" 2>&1
+        $statusInfra = git status --porcelain 2>&1
+        if ($statusInfra) {
+            git commit -m "chore(release): bootstrap universal para $project" 2>&1
+            git push origin main 2>&1
+            Write-OK "Cambios de infraestructura subidos"
+        } else {
+            Write-Info "Sin cambios de infraestructura para commitear"
+        }
+    } catch {
+        Write-Err "No se pudieron subir cambios de infraestructura: $_"
+    }
+    Pop-Location
+
+    if ($releaseAfterSetup) {
+        Write-Step "Secuencia release encadenada (OWS Store -> $project)"
+        $storeOk = Trigger-Workflow -Slug "ows-store" -Workflow "release-windows-universal.yml" -Ver $storeVersion
+        if ($storeOk) {
+            Register-Version -Slug "ows-store" -Ver $storeVersion -Plat "windows" | Out-Null
+        } else {
+            Write-Err "No se pudo disparar build de OWS Store."
+        }
+
+        $projectOk = Trigger-Workflow -Slug $project -Workflow "release-windows-universal.yml" -Ver $version
+        if ($projectOk) {
+            Register-Version -Slug $project -Ver $version -Plat "windows" | Out-Null
+        } else {
+            Write-Err "No se pudo disparar build de $project."
+        }
+    } else {
+        Write-Info "Proyecto bootstrap listo. Puedes correr release normal con el mismo script."
+    }
+
     exit 0
 }
 

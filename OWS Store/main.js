@@ -1,4 +1,4 @@
-﻿const { app, BrowserWindow, ipcMain, nativeImage, shell, Notification } = require('electron');
+const { app, BrowserWindow, ipcMain, nativeImage, shell, Notification } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
@@ -15,11 +15,11 @@ const INSTALLER_CACHE_DIR = path.join(os.tmpdir(), 'ows-store-installers');
 let updaterReady = false;
 let windowsUpdateDownloaded = false;
 const externalInstallTasks = new Map();
-const httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 8 });
+const httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 32, keepAliveMsecs: 3000, scheduling: 'fifo' });
 const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 8 });
-const DOWNLOAD_PROGRESS_EMIT_MS = 900;
-const DOWNLOAD_PROGRESS_EMIT_BYTES = 2 * 1024 * 1024;
-const DOWNLOAD_PROGRESS_EMIT_STEP = 2;
+const DOWNLOAD_PROGRESS_EMIT_MS = 750;        // reduce IPC chatter, keep UI responsive
+const DOWNLOAD_PROGRESS_EMIT_BYTES = 1024 * 1024; // emit each 1MB downloaded
+const DOWNLOAD_PROGRESS_EMIT_STEP = 2;            // emit each 2%
 
 app.setAppUserModelId(APP_ID);
 app.setName(APP_DISPLAY_NAME);
@@ -105,15 +105,23 @@ function getInstallerCachePath(installerName) {
 
 function buildRequestOptions(url, method = 'GET') {
   const parsed = new URL(url);
+  // Use browser-like headers for GitHub releases to avoid throttling
+  const isGitHub = parsed.hostname.includes('github.com') || parsed.hostname.includes('objects.githubusercontent.com');
   return {
     protocol: parsed.protocol,
     hostname: parsed.hostname,
     port: parsed.port || undefined,
     path: `${parsed.pathname}${parsed.search}`,
     method,
-    headers: {
+    headers: isGitHub ? {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      'Accept': 'application/octet-stream',
+      'Accept-Encoding': 'identity',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    } : {
       'User-Agent': 'OWS-Store-Installer/1.0',
-      Accept: '*/*',
+      'Accept': '*/*',
     },
     agent: parsed.protocol === 'https:' ? httpsAgent : httpAgent,
   };
@@ -304,7 +312,10 @@ function downloadWithRedirects(url, destinationPath, taskRef, onProgress, redire
       let lastEmitBytes = 0;
       let lastEmitPercent = -1;
       let settled = false;
-      const file = fs.createWriteStream(destinationPath);
+      // 64KB write buffer — avoids backpressure stalls that throttle the TCP receive window.
+      // With a 4MB buffer (old value), Node accumulates data before flushing to disk,
+      // which causes the stream to pause the download while waiting for the OS to drain.
+      const file = fs.createWriteStream(destinationPath, { highWaterMark: 64 * 1024 });
       if (taskRef) taskRef.file = file;
 
       const fail = (err) => {
@@ -315,12 +326,7 @@ function downloadWithRedirects(url, destinationPath, taskRef, onProgress, redire
         fs.unlink(destinationPath, () => reject(err));
       };
 
-      response.on('data', (chunk) => {
-        if (taskRef?.cancelled) {
-          return fail(new Error('Descarga cancelada por el usuario.'));
-        }
-
-        downloadedBytes += chunk.length;
+      const emitProgress = () => {
         if (!onProgress) return;
         const now = Date.now();
         const elapsedSec = Math.max((now - startedAt) / 1000, 0.001);
@@ -336,14 +342,30 @@ function downloadWithRedirects(url, destinationPath, taskRef, onProgress, redire
         lastEmitBytes = downloadedBytes;
         if (percentInt >= 0) lastEmitPercent = percentInt;
         onProgress({ downloadedBytes, totalBytes, bytesPerSecond, percent });
+      };
+
+      // Manual backpressure handling: pause response when write buffer is full,
+      // resume on 'drain'. This prevents TCP window shrinkage that stalls downloads.
+      response.on('data', (chunk) => {
+        if (taskRef?.cancelled) return fail(new Error('Descarga cancelada por el usuario.'));
+        downloadedBytes += chunk.length;
+        emitProgress();
+        const canContinue = file.write(chunk);
+        if (!canContinue) {
+          response.pause();
+          file.once('drain', () => {
+            if (!taskRef?.cancelled) response.resume();
+          });
+        }
       });
 
       response.on('error', (err) => fail(err));
-      response.pipe(file);
+      response.on('end', () => {
+        if (!settled) file.end();
+      });
       file.on('finish', () => {
         if (settled) return;
         if (taskRef?.cancelled) return fail(new Error('Descarga cancelada por el usuario.'));
-
         settled = true;
         if (onProgress) {
           const elapsedSec = Math.max((Date.now() - startedAt) / 1000, 0.001);
@@ -356,7 +378,7 @@ function downloadWithRedirects(url, destinationPath, taskRef, onProgress, redire
       file.on('error', (err) => fail(err));
     });
 
-    request.setTimeout(45000, () => {
+    request.setTimeout(120000, () => {
       request.destroy(new Error('Tiempo de espera agotado descargando instalador.'));
     });
     request.on('error', (err) => reject(err));
@@ -373,6 +395,15 @@ function initAutoUpdater() {
     autoUpdater.autoInstallOnAppQuit = false;
     autoUpdater.allowPrerelease = false;
     autoUpdater.channel = 'latest';
+
+    // Headers para evitar throttling de GitHub en descargas directas
+    autoUpdater.requestHeaders = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      'Accept': 'application/octet-stream',
+      'Accept-Encoding': 'identity',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    };
     autoUpdater.on('update-available', (info) => {
       windowsUpdateDownloaded = false;
       sendToRenderer('update-available', info);

@@ -390,6 +390,177 @@ if ($newProject) {
     exit 0
 }
 
+function Get-LatestWorkflowRunId {
+    param([string]$Workflow)
+    try {
+        $json = & $GH run list --repo "$ORG/owsdatabase" --workflow $Workflow --limit 1 --json databaseId,status,conclusion,createdAt 2>$null
+        if ($LASTEXITCODE -ne 0 -or -not $json) { return $null }
+        $arr = $json | ConvertFrom-Json
+        if (-not $arr -or $arr.Count -eq 0) { return $null }
+        return [string]$arr[0].databaseId
+    } catch {
+        return $null
+    }
+}
+
+function Wait-WorkflowRunCompletion {
+    param(
+        [string]$RunId,
+        [int]$MaxAttempts = 90,
+        [int]$SleepSeconds = 10
+    )
+    if (-not $RunId) { return @{ ok = $false; status = "unknown"; conclusion = "" } }
+    for ($i=1; $i -le $MaxAttempts; $i++) {
+        try {
+            $json = & $GH run view $RunId --repo "$ORG/owsdatabase" --json status,conclusion 2>$null
+            if ($LASTEXITCODE -ne 0 -or -not $json) {
+                Start-Sleep -Seconds $SleepSeconds
+                continue
+            }
+            $obj = $json | ConvertFrom-Json
+            $status = [string]$obj.status
+            $conclusion = [string]$obj.conclusion
+            if ($status -eq "completed") {
+                return @{ ok = ($conclusion -eq "success"); status = $status; conclusion = $conclusion }
+            }
+        } catch {}
+        Start-Sleep -Seconds $SleepSeconds
+    }
+    return @{ ok = $false; status = "timeout"; conclusion = "" }
+}
+
+function Get-AndroidArtifactNameForProject {
+    param([string]$Slug)
+    switch ($Slug) {
+        "ows-store" { return "ows-store-apk-release-signed" }
+        "floretshop" { return "floretshop-apk-release-signed" }
+        "wildtransfer" { return "wildtransfer-apk-release-signed" }
+        "a-wild-question-game" { return "a-wild-question-game-apk-release-signed" }
+        default { return "$Slug-apk-release-signed" }
+    }
+}
+
+function Promote-AndroidArtifactToRelease {
+    param(
+        [string]$Slug,
+        [string]$RepoName,
+        [string]$Ver,
+        [string]$SourceRunId
+    )
+    if (-not $SourceRunId) {
+        Write-Err "No hay run id de origen para promote Android."
+        return $false
+    }
+
+    $artifactName = Get-AndroidArtifactNameForProject -Slug $Slug
+    $releaseTag = "v$Ver"
+    $releaseName = "$Slug $Ver (Android)"
+    $releaseNotes = "Android build for $Slug $Ver"
+    $targetRepo = "$ORG/$RepoName"
+
+    Write-Step "Promoviendo artifact Android a release (sin latest)..."
+    $ok = Trigger-Workflow -Slug $Slug -Workflow "promote-artifact-to-release.yml" -Ver "" -Inputs @{
+        source_run_id = $SourceRunId
+        artifact_name = $artifactName
+        release_tag = $releaseTag
+        release_name = $releaseName
+        release_notes = $releaseNotes
+        mark_latest = "false"
+        prerelease = "false"
+        target_repository = $targetRepo
+    }
+    if (-not $ok) { return $false }
+
+    $promoteRunId = Get-LatestWorkflowRunId -Workflow "promote-artifact-to-release.yml"
+    if (-not $promoteRunId) {
+        Write-Info "Promote disparado. No se pudo resolver run id para monitoreo."
+        return $true
+    }
+    Write-Info "Promote run id: $promoteRunId - monitoreando..."
+    $wait = Wait-WorkflowRunCompletion -RunId $promoteRunId -MaxAttempts 90 -SleepSeconds 10
+    if (-not $wait.ok) {
+        Write-Err "Promote Android no finalizo OK (status=$($wait.status), conclusion=$($wait.conclusion))."
+        return $false
+    }
+    Write-OK "Promote Android completado."
+    return $true
+}
+
+function Register-AndroidReleaseFromGitHub {
+    param(
+        [string]$Slug,
+        [string]$RepoName,
+        [string]$Ver
+    )
+    Require-Token
+    $tag = "v$Ver"
+    $releaseApiPath = "repos/$ORG/$RepoName/releases/tags/$tag"
+    try {
+        $releaseJson = & $GH api $releaseApiPath 2>$null
+        if ($LASTEXITCODE -ne 0 -or -not $releaseJson) {
+            Write-Err "No se pudo leer release $tag para registrar Android."
+            return $false
+        }
+        $release = $releaseJson | ConvertFrom-Json
+        $assets = @($release.assets)
+        $apkAsset = $assets | Where-Object { $_.name -match '\.apk$' } | Select-Object -First 1
+        if (-not $apkAsset) {
+            Write-Err "No se encontro asset APK en release $tag."
+            return $false
+        }
+
+        $metaAsset = $assets | Where-Object { $_.name -eq 'android-release-metadata.json' } | Select-Object -First 1
+        if (-not $metaAsset) {
+            Write-Err "No se encontro android-release-metadata.json en release $tag."
+            return $false
+        }
+
+        $tmpMeta = Join-Path $env:TEMP ("android-release-metadata-{0}-{1}.json" -f $Slug, ([Guid]::NewGuid().ToString("N")))
+        & $GH api ("repos/$ORG/$RepoName/releases/assets/" + $metaAsset.id) -H "Accept: application/octet-stream" --output $tmpMeta 2>$null
+        if ($LASTEXITCODE -ne 0 -or -not (Test-Path $tmpMeta)) {
+            Write-Err "No se pudo descargar android-release-metadata.json para registro."
+            return $false
+        }
+        $meta = Get-Content -Raw $tmpMeta | ConvertFrom-Json
+        Remove-Item $tmpMeta -Force -ErrorAction SilentlyContinue
+
+        $packageId = [string]$meta.package_id
+        $versionName = [string]$meta.version_name
+        $versionCode = [int]$meta.version_code
+        if (-not $packageId -or -not $versionName -or $versionCode -le 0) {
+            Write-Err "Metadata Android invalida para registro."
+            return $false
+        }
+
+        $apkUrl = [string]$apkAsset.browser_download_url
+        $sizeBytes = [int64]$apkAsset.size
+
+        $bodyObj = @{
+            project_slug = $Slug
+            package_id = $packageId
+            version_name = $versionName
+            version_code = $versionCode
+            apk_url = $apkUrl
+            size_bytes = $sizeBytes
+            release_notes = "Android build for $Slug $Ver"
+            status = "published"
+            is_mandatory = $false
+            published_at = [string]$release.published_at
+        }
+        $body = $bodyObj | ConvertTo-Json
+        $r = Invoke-RestMethod -Uri "$API/ows-store/android/releases" `
+            -Method POST `
+            -Headers @{ "Content-Type"="application/json"; "x-ows-admin-token"=$TOKEN } `
+            -Body $body `
+            -ErrorAction Stop
+        Write-OK "Registro Android en API completado para $Slug ($versionName / $versionCode)."
+        return $true
+    } catch {
+        Write-Err "No se pudo registrar release Android en API: $_"
+        return $false
+    }
+}
+
 # ─────────────────────────────────────────────────────────────────────────────
 # MODO: Release normal
 # ─────────────────────────────────────────────────────────────────────────────
@@ -533,12 +704,29 @@ if ($platforms -contains "windows" -and ($platform -eq "windows" -or $platform -
 # ── Trigger Android build ──────────────────────────────────────────────────────
 if ($platforms -contains "android" -and ($platform -eq "android" -or $platform -eq "both")) {
     Write-Step "Disparando build Android..."
+    $androidWorkflow = "release-android-universal.yml"
     if ($project -eq "ows-store") {
-        Trigger-Workflow -Slug $project -Workflow "ows-store-android.yml" -Ver $version -Inputs @{ build_profile = "full" } | Out-Null
+        $androidWorkflow = "ows-store-android.yml"
+        Trigger-Workflow -Slug $project -Workflow $androidWorkflow -Ver $version -Inputs @{ build_profile = "full" } | Out-Null
     } else {
-        Trigger-Workflow -Slug $project -Workflow "release-android-universal.yml" -Ver $version | Out-Null
+        Trigger-Workflow -Slug $project -Workflow $androidWorkflow -Ver $version | Out-Null
     }
-    # Android no necesita wait de asset (APK se sube separado)
+    $androidRunId = Get-LatestWorkflowRunId -Workflow $androidWorkflow
+    if ($androidRunId) {
+        Write-Info "Android run id: $androidRunId - monitoreando..."
+        $androidWait = Wait-WorkflowRunCompletion -RunId $androidRunId -MaxAttempts 120 -SleepSeconds 10
+        if (-not $androidWait.ok) {
+            Write-Err "Build Android no finalizo OK (status=$($androidWait.status), conclusion=$($androidWait.conclusion))."
+        } else {
+            Write-OK "Build Android completado."
+            $promoted = Promote-AndroidArtifactToRelease -Slug $project -RepoName $repo -Ver $version -SourceRunId $androidRunId
+            if ($promoted) {
+                Register-AndroidReleaseFromGitHub -Slug $project -RepoName $repo -Ver $version | Out-Null
+            }
+        }
+    } else {
+        Write-Info "No se pudo resolver run id Android para monitoreo/promote automatico."
+    }
     Register-Version -Slug $project -Ver $version -Plat "android"
 }
 

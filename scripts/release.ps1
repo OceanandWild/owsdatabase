@@ -515,14 +515,12 @@ function Register-AndroidReleaseFromGitHub {
             return $false
         }
 
-        $tmpMeta = Join-Path $env:TEMP ("android-release-metadata-{0}-{1}.json" -f $Slug, ([Guid]::NewGuid().ToString("N")))
-        & $GH api ("repos/$ORG/$RepoName/releases/assets/" + $metaAsset.id) -H "Accept: application/octet-stream" --output $tmpMeta 2>$null
-        if ($LASTEXITCODE -ne 0 -or -not (Test-Path $tmpMeta)) {
-            Write-Err "No se pudo descargar android-release-metadata.json para registro."
+        $metaUrl = [string]$metaAsset.url
+        if (-not $metaUrl) {
+            Write-Err "Asset android-release-metadata.json sin URL de descarga."
             return $false
         }
-        $meta = Get-Content -Raw $tmpMeta | ConvertFrom-Json
-        Remove-Item $tmpMeta -Force -ErrorAction SilentlyContinue
+        $meta = Invoke-RestMethod -Uri $metaUrl -Method GET -Headers @{ "User-Agent" = "OWS-Release-Script" } -ErrorAction Stop
 
         $packageId = [string]$meta.package_id
         $versionName = [string]$meta.version_name

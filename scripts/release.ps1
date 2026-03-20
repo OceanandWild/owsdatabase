@@ -30,7 +30,7 @@ $ROOT     = $PSScriptRoot | Split-Path -Parent
 
 # ── Project map ──────────────────────────────────────────────────────────────
 $PROJECTS = @{
-    "ows-store"            = @{ repo = "owsdatabase";            dir = "OWS Store";              platforms = @("windows") }
+    "ows-store"            = @{ repo = "owsdatabase";            dir = "OWS Store";              platforms = @("windows","android") }
     "wildweapon-mayhem"    = @{ repo = "wildweapon-mayhem";      dir = "WildWeapon Mayhem";       platforms = @("windows") }
     "savagespaceanimals"   = @{ repo = "savagespaceanimals";     dir = "Savage Space Animals";    platforms = @("windows") }
     "oceanpay"             = @{ repo = "oceanpay";               dir = "Ocean Pay Electron";      platforms = @("windows") }
@@ -243,26 +243,45 @@ function Register-NewProject {
 
 # ── Trigger GitHub Actions workflow ──────────────────────────────────────────
 function Trigger-Workflow {
-    param([string]$Slug, [string]$Workflow, [string]$Ver)
+    param(
+        [string]$Slug,
+        [string]$Workflow,
+        [string]$Ver,
+        [hashtable]$Inputs = $null
+    )
 
     try {
-        # Inputs correctos segun release-windows-universal.yml: project (choice) + version
-        $output = & $GH workflow run $Workflow `
-            --repo "$ORG/owsdatabase" `
-            -f "project=$Slug" `
-            -f "version=$Ver" 2>&1
+        $args = @("workflow", "run", $Workflow, "--repo", "$ORG/owsdatabase")
+        if ($Inputs -and $Inputs.Count -gt 0) {
+            foreach ($key in $Inputs.Keys) {
+                $args += "-f"
+                $args += ("{0}={1}" -f $key, [string]$Inputs[$key])
+            }
+        } else {
+            # Inputs por defecto (release-windows-universal.yml / release-android-universal.yml)
+            $args += "-f"
+            $args += "project=$Slug"
+            $args += "-f"
+            $args += "version=$Ver"
+        }
+
+        $output = & $GH @args 2>&1
 
         $exitCode = $LASTEXITCODE
         if ($exitCode -ne 0) {
             Write-Err "gh workflow run fallo (exit $exitCode): $output"
             return $false
         }
-        Write-OK "Workflow $Workflow disparado  project=$Slug  version=$Ver"
+        if ($Inputs -and $Inputs.Count -gt 0) {
+            Write-OK "Workflow $Workflow disparado (inputs custom)"
+        } else {
+            Write-OK "Workflow $Workflow disparado  project=$Slug  version=$Ver"
+        }
 
         # Confirmar que el run aparecio en GitHub
         Start-Sleep -Seconds 8
         $check = & $GH run list --repo "$ORG/owsdatabase" --workflow $Workflow --limit 1 2>&1
-        if ($check -match $Ver) {
+        if ($Ver -and ($check -match $Ver)) {
             Write-OK "Run confirmado en GitHub Actions"
         } else {
             Write-Info "Run iniciado (no se pudo confirmar por nombre). Revisa: https://github.com/$ORG/owsdatabase/actions"
@@ -514,7 +533,11 @@ if ($platforms -contains "windows" -and ($platform -eq "windows" -or $platform -
 # ── Trigger Android build ──────────────────────────────────────────────────────
 if ($platforms -contains "android" -and ($platform -eq "android" -or $platform -eq "both")) {
     Write-Step "Disparando build Android..."
-    Trigger-Workflow -Slug $project -Workflow "release-android-universal.yml" -Ver $version
+    if ($project -eq "ows-store") {
+        Trigger-Workflow -Slug $project -Workflow "ows-store-android.yml" -Ver $version -Inputs @{ build_profile = "full" } | Out-Null
+    } else {
+        Trigger-Workflow -Slug $project -Workflow "release-android-universal.yml" -Ver $version | Out-Null
+    }
     # Android no necesita wait de asset (APK se sube separado)
     Register-Version -Slug $project -Ver $version -Plat "android"
 }

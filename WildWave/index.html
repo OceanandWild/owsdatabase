@@ -6892,9 +6892,16 @@ function getMaxChars() {
       function extractVideoUrlFromText(content) {
         const text = String(content || '');
         if (!text) return null;
-        const match = text.match(/(https?:\/\/[^\s<>"'`]+?\.(?:mp4|webm|mov)(?:\?[^\s<>"'`]*)?)/i);
-        if (!match || !match[1]) return null;
-        return match[1].replace(/[),.;!?]+$/, '');
+        const urls = text.match(/https?:\/\/[^\s<>"']+/gi) || [];
+        for (const rawUrl of urls) {
+          const clean = String(rawUrl || '').replace(/[)\],.;!?]+$/, '');
+          const lower = clean.toLowerCase();
+          if (!clean) continue;
+          if (/\.(mp4|webm|mov)(?:$|[?#])/i.test(clean)) return clean;
+          if (lower.includes('archive.org/download/') && /\.(mp4|webm|mov)/i.test(lower)) return clean;
+          if (lower.includes('res.cloudinary.com') && lower.includes('/video/upload/')) return clean;
+        }
+        return null;
       }
 
       function setMediaItemExpanded(item, toggleBtn, expanded) {

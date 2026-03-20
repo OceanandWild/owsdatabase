@@ -6792,7 +6792,14 @@ function getMaxChars() {
             case 'italic':  insert = `_${sel || 'texto'}_`;      cursorOffset = sel ? 0 : -1; break;
             case 'heading': insert = `## ${sel || 'Título'}`;    cursorOffset = 0; break;
             case 'highlight': insert = `==${sel || 'texto'}==`;  cursorOffset = sel ? 0 : -2; break;
-            case 'code':    insert = `\`${sel || 'código'}\``;   cursorOffset = sel ? 0 : -1; break;
+            case 'code':
+              if (!sel) {
+                setStatus('Selecciona texto para marcar como código.', 'info');
+                return;
+              }
+              insert = `\`${sel}\``;
+              cursorOffset = 0;
+              break;
             case 'list':    insert = `\n- ${sel || 'elemento'}`; cursorOffset = 0; break;
             case 'quote':   insert = `> ${sel || 'cita'}`;       cursorOffset = 0; break;
             case 'spoiler': insert = `||${sel || 'spoiler'}||`;  cursorOffset = sel ? 0 : -2; break;
@@ -6882,6 +6889,14 @@ function getMaxChars() {
         return [];
       }
 
+      function extractVideoUrlFromText(content) {
+        const text = String(content || '');
+        if (!text) return null;
+        const match = text.match(/(https?:\/\/[^\s<>"'`]+?\.(?:mp4|webm|mov)(?:\?[^\s<>"'`]*)?)/i);
+        if (!match || !match[1]) return null;
+        return match[1].replace(/[),.;!?]+$/, '');
+      }
+
       function setMediaItemExpanded(item, toggleBtn, expanded) {
         if (!item) return;
         const shouldExpand = !!expanded;
@@ -6894,7 +6909,8 @@ function getMaxChars() {
 
       function buildPostMedia(post) {
         const images = normalizePostImages(post?.images).slice(0, MAX_POST_IMAGES);
-        const videoUrl = typeof post?.video_url === 'string' ? post.video_url.trim() : '';
+        const explicitVideoUrl = typeof post?.video_url === 'string' ? post.video_url.trim() : '';
+        const videoUrl = explicitVideoUrl || extractVideoUrlFromText(post?.content);
         if (!images.length && !videoUrl) return null;
 
         const container = document.createElement('div');
@@ -8405,13 +8421,16 @@ function getMaxChars() {
         }
       }
       async function createPost() {
-        const text = ($text.value || '').trim();
+        const rawText = String($text.value || '');
+        const text = rawText.trim();
         const isAdmin = !!(currentUser && currentUser.verify_tier === 'admin');
         const max = isAdmin ? Infinity : getMaxChars();
         const hasMedia = attachedImages.length > 0;
-        if ((!text && !hasMedia) || (!isAdmin && text.length > max)) return;
+        const hasUploadedVideo = !!(attachedVideo && attachedVideo.url);
+        const inferredVideoUrl = hasUploadedVideo ? null : extractVideoUrlFromText(rawText);
+        if ((!text && !hasMedia && !hasUploadedVideo && !inferredVideoUrl) || (!isAdmin && text.length > max)) return;
         if (mediaUploading) {
-          setStatus('Espera a que terminen de subir las imágenes.', 'info');
+          setStatus('Espera a que termine la subida de media.', 'info');
           return;
         }
         $send.disabled = true;
@@ -8420,7 +8439,8 @@ function getMaxChars() {
         try {
           const payload = { content: text };
           if (currentReplyToId) payload.parentId = currentReplyToId;
-          if (attachedVideo && attachedVideo.url) payload.video_url = attachedVideo.url;
+          if (hasUploadedVideo) payload.video_url = attachedVideo.url;
+          else if (inferredVideoUrl) payload.video_url = inferredVideoUrl;
           const pollPayload = getPollPayload();
           if (pollPayload) payload.poll = pollPayload;
           if (scheduledState.active && scheduledState.value) {
@@ -10640,6 +10660,3 @@ function getMaxChars() {
     </script>
   </body>
 </html>
-
-
-

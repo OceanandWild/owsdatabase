@@ -13071,6 +13071,14 @@ function normalizeWildWaveUsername(value) {
   return String(value || '').trim();
 }
 
+function extractWildWaveVideoUrl(value) {
+  const text = String(value || '');
+  if (!text) return null;
+  const match = text.match(/(https?:\/\/[^\s<>"'`]+?\.(?:mp4|webm|mov)(?:\?[^\s<>"'`]*)?)/i);
+  if (!match || !match[1]) return null;
+  return match[1].replace(/[),.;!?]+$/, '');
+}
+
 function validateWildWaveUsername(username) {
   if (!username) return 'Usuario requerido';
   if (username.length < WILDWAVE_USERNAME_MIN || username.length > WILDWAVE_USERNAME_MAX) {
@@ -15405,9 +15413,11 @@ app.post('/wildwave/api/posts', async (req, res) => {
     images = images.slice(0, 6);
 
     // Video URL (ya subido por /posts/video)
-    const videoUrl = typeof req.body?.video_url === 'string' && req.body.video_url.trim()
+    const explicitVideoUrl = typeof req.body?.video_url === 'string' && req.body.video_url.trim()
       ? req.body.video_url.trim()
       : null;
+    const inferredVideoUrl = extractWildWaveVideoUrl(content);
+    const videoUrl = explicitVideoUrl || inferredVideoUrl || null;
 
     if (!content && !images.length && !videoUrl) return res.status(400).json({ error: 'Contenido, imagen o video requerido' });
 

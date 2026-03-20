@@ -2,7 +2,10 @@ Lee esto al final de realizar una tarea si es posible.
 
 Aqui hay una serie de cosas que debes hacer. Es opcional, pero te servira durante tus tareas:
 
-- Cuando finalices de hacer algo, siempre haz un git push, ya que server.js y Ocean Pay/index.html se manejan por Render, y Render depende de GitHub.
+- Cuando finalices una tarea, haz git push SOLO de los archivos del proyecto trabajado en esa tarea.
+- Si la tarea toca backend/API compartida, incluir `server.js` en ese push.
+- Si la tarea NO toca `Ocean Pay/index.html`, NO actualizarlo ni incluirlo en el push.
+- Si la tarea NO toca `server.js`, NO incluirlo en el push.
 - Es posible que grep no encuentre algunas cosas. Si el usuario te dice que algo existe, buscalo a fondo antes de descartarlo.
 - Debido al uso de .gitignore, evita git add . si no hace falta.
 - NUNCA subir `.env` al repo. Variables/secretos se gestionan en Render (Environment).
@@ -79,6 +82,15 @@ Se incluiran mas cosas luego, pero esto te ayuda a entender como realizar la may
   Regla obligatoria: proyectos "excluidos de deploy" se excluyen por seleccion de `git add` (allowlist), NUNCA agregandolos al `.gitignore`.
   Motivo: si se ignoran en `.gitignore`, luego no se pueden referenciar bien desde el entorno/IDE (por ejemplo con `@archivo`).
   Aplicacion: Ecoxion y cualquier otro proyecto temporalmente fuera de deploy se manejan igual (exclusion por `git add` selectivo, no por ignore global).
+  - Regla universal: reemplazar el ejemplo anterior por una allowlist basada en el proyecto activo.
+    Ejemplo WildWave + backend:
+    - git add server.js "WildWave/"
+    - git commit -m "fix: ... "
+    - git push origin main
+    Ejemplo WildWave sin backend:
+    - git add "WildWave/"
+    - git commit -m "feat: ... "
+    - git push origin main
 
 - AUTOMATIZACION DE UPDATE LOGS (OWS News) -- OBSOLETO, NO USAR:
   El sistema OWS News para changelogs esta obsoleto y reemplazado por OWS Store.

@@ -6047,24 +6047,29 @@
             return Math.max(0, Number(oceanPayState?.balances?.[curr] || 0));
         }
 
-        async function fetchProjectCommerceOffers(projectSlug, surface = 'ows-store', force = false) {
-            const slug = String(projectSlug || '').trim().toLowerCase();
-            if (!slug) return [];
-            const cacheKey = `${slug}|${surface}`;
+        async function fetchProjectCommerceCatalog(surface = 'ows-store', force = false) {
+            const cacheKey = `catalog|${surface}`;
             const cached = projectCommerceOfferCache.get(cacheKey);
             const now = Date.now();
             if (!force && cached && (now - cached.ts) < 45000) return cached.offers;
 
             const token = getOceanPayToken();
-            const url = `${API_URL}/project-commerce/${encodeURIComponent(slug)}/offers?surface=${encodeURIComponent(surface)}&hide_purchased=1`;
             const headers = {};
             if (token) headers.Authorization = `Bearer ${token}`;
+            const url = `${API_URL}/project-commerce/offers/catalog?surface=${encodeURIComponent(surface)}&hide_purchased=1`;
             const res = await fetch(url, { cache: 'no-store', headers });
-            if (!res.ok) throw new Error(`Offers HTTP ${res.status}`);
+            if (!res.ok) throw new Error(`Offers catalog HTTP ${res.status}`);
             const data = await res.json().catch(() => ({}));
             const offers = Array.isArray(data?.offers) ? data.offers : [];
             projectCommerceOfferCache.set(cacheKey, { ts: now, offers });
             return offers;
+        }
+
+        async function fetchProjectCommerceOffers(projectSlug, surface = 'ows-store', force = false) {
+            const slug = String(projectSlug || '').trim().toLowerCase();
+            if (!slug) return [];
+            const catalog = await fetchProjectCommerceCatalog(surface, force);
+            return catalog.filter((offer) => String(offer?.projectSlug || '').toLowerCase() === slug);
         }
 
         async function purchaseProjectCommerceOffer(projectSlug, offerCode, surface = 'ows-store') {
@@ -6192,6 +6197,9 @@
         }
 
         function getOfferVisualKey(projectSlug = '', offer = null) {
+            const illustration = (offer?.illustration && typeof offer.illustration === 'object') ? offer.illustration : {};
+            const keyFromPayload = String(illustration?.key || '').trim();
+            if (keyFromPayload) return keyFromPayload;
             const slug = String(projectSlug || '').toLowerCase();
             if (slug.includes('velocity')) return 'velocity_racers';
             if (slug.includes('wildwave')) return 'signal_flow';
@@ -6203,15 +6211,17 @@
         }
 
         function collectMarketplaceOffersFromCache() {
-            const offers = [];
-            for (const [cacheKey, entry] of projectCommerceOfferCache.entries()) {
-                const [slug] = String(cacheKey || '').split('|');
-                const project = allProjects.find((p) => String(p.slug || '').toLowerCase() === String(slug || '').toLowerCase());
-                const projectName = project?.name || slug || 'Proyecto';
-                const list = Array.isArray(entry?.offers) ? entry.offers : [];
-                list.forEach((offer) => offers.push({ ...offer, projectName, projectSlug: slug }));
-            }
-            return offers;
+            const entry = projectCommerceOfferCache.get('catalog|ows-store');
+            const list = Array.isArray(entry?.offers) ? entry.offers : [];
+            return list.map((offer) => {
+                const slug = String(offer?.projectSlug || '').toLowerCase();
+                const project = allProjects.find((p) => String(p.slug || '').toLowerCase() === slug);
+                return {
+                    ...offer,
+                    projectSlug: slug,
+                    projectName: offer?.projectName || project?.name || slug || 'Proyecto'
+                };
+            });
         }
 
         async function renderOffersMarketplace(forceRefresh = false) {
@@ -6222,14 +6232,7 @@
             status.textContent = 'Cargando ofertas sincronizadas...';
             host.innerHTML = '';
 
-            const targets = (Array.isArray(allProjects) ? allProjects : [])
-                .filter((p) => Boolean(p?.slug))
-                .filter((p) => !isOWSNewsProject(p))
-                .slice(0, 40);
-
-            await Promise.allSettled(targets.map((project) =>
-                fetchProjectCommerceOffers(project.slug, 'ows-store', forceRefresh).catch(() => [])
-            ));
+            await fetchProjectCommerceCatalog('ows-store', forceRefresh);
 
             const items = collectMarketplaceOffersFromCache()
                 .sort((a, b) => {

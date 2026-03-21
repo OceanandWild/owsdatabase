@@ -917,6 +917,118 @@ async function ensureOwsStoreProjectOffersSeedData() {
         source: 'ows_store_sync',
         visible_in_project: true
       }
+    },
+    {
+      project_slug: 'velocity-surge',
+      offer_code: 'vs_elemental_last_current',
+      title: 'Velocity Surge - Ultima Corriente',
+      description: 'Oferta de cierre elemental con cofre premium y cards del objetivo del evento.',
+      currency: 'voltbit',
+      base_price: 9800,
+      ows_store_price: 9200,
+      reward_payload: {
+        event_offer: {
+          id: 'sync_vs_elemental_last_current',
+          eventId: 'elemental_convergence',
+          name: 'ULTIMA CORRIENTE SINCRONIZADA',
+          desc: 'Cofre elemental premium + 45 tarjetas del corredor objetivo.',
+          type: 'lastchance',
+          lastChanceDays: 1,
+          gives: { character: 'elemental_aqua', cards: 45, bits: 300 },
+          pool: ['elemental_aqua', 'elemental_pyre', 'elemental_gale', 'elemental_terra', 'elemental_plasma', 'elemental_crystal', 'elemental_thunder'],
+          badgeText: '-OWS',
+          badgeColor: '#ffd166',
+          chestType: 'event_chest_elemental_aqua'
+        }
+      },
+      metadata: {
+        one_time_per_user: true,
+        source: 'ows_store_sync',
+        visible_in_project: true
+      }
+    },
+    {
+      project_slug: 'velocity-surge',
+      offer_code: 'vs_planetary_inner_pack',
+      title: 'Velocity Surge - Sistema Interno',
+      description: 'Pack planetario de entrada para desbloqueo y progresión rápida.',
+      currency: 'voltbit',
+      base_price: 7600,
+      ows_store_price: 6990,
+      reward_payload: {
+        event_offer: {
+          id: 'sync_vs_planetary_inner_pack',
+          eventId: 'planetary_rush',
+          name: 'PACK SISTEMA INTERNO SINCRONIZADO',
+          desc: 'Elige entre MERCURY, VENUS o EARTH y recibe 24 tarjetas.',
+          type: 'early',
+          gives: { character: 'planet_mercury', cards: 24, bits: 120 },
+          pool: ['planet_mercury', 'planet_venus', 'planet_terra'],
+          badgeText: 'OWS',
+          badgeColor: '#7dd3fc',
+          chestType: null
+        }
+      },
+      metadata: {
+        one_time_per_user: true,
+        source: 'ows_store_sync',
+        visible_in_project: true
+      }
+    },
+    {
+      project_slug: 'velocity-surge',
+      offer_code: 'vs_cloudwing_storm_birth',
+      title: 'Velocity Surge - Nacimiento de Tormenta',
+      description: 'Debut de CLOUDWING con tarjetas del evento y bonus de VoltBits.',
+      currency: 'voltbit',
+      base_price: 6200,
+      ows_store_price: 5600,
+      reward_payload: {
+        event_offer: {
+          id: 'sync_vs_cloudwing_storm_birth',
+          eventId: 'aether_wing_storm',
+          name: 'PACK TORMENTA ALADA SINCRONIZADO',
+          desc: 'Desbloquea CLOUDWING y recibe 30 tarjetas del evento.',
+          type: 'early',
+          gives: { character: 'cloudwing', cards: 30, bits: 260 },
+          badgeText: 'OWS',
+          badgeColor: '#b7e7ff',
+          chestType: null
+        }
+      },
+      metadata: {
+        one_time_per_user: true,
+        source: 'ows_store_sync',
+        visible_in_project: true
+      }
+    },
+    {
+      project_slug: 'velocity-surge',
+      offer_code: 'vs_core_vault_weekly',
+      title: 'Velocity Surge - Core Vault Weekly',
+      description: 'Oferta recurrente de recursos para acelerar mejoras en carrera.',
+      currency: 'voltbit',
+      base_price: 3400,
+      ows_store_price: 3200,
+      reward_payload: {
+        event_offer: {
+          id: 'sync_vs_core_vault_weekly',
+          eventId: 'elemental_convergence',
+          name: 'CORE VAULT',
+          desc: 'Pack de apoyo con cards y VoltBits para progresión rápida.',
+          type: 'early',
+          gives: { character: 'storm', cards: 12, bits: 220 },
+          pool: ['storm', 'elemental_thunder', 'elemental_aqua'],
+          badgeText: 'WEEKLY',
+          badgeColor: '#52d9df',
+          chestType: null
+        }
+      },
+      metadata: {
+        one_time_per_user: false,
+        source: 'ows_store_sync',
+        visible_in_project: true
+      }
     }
   ];
 
@@ -6361,6 +6473,23 @@ function toOfferPrice(value, fallback = 0) {
   return Math.max(0, Number(n.toFixed(2)));
 }
 
+function getOfferDefaultVisualKey(projectSlug = '', offerCode = '', metadata = {}) {
+  const slug = String(projectSlug || '').toLowerCase();
+  const code = String(offerCode || '').toLowerCase();
+  const explicit = String(metadata?.visual_key || metadata?.illustration_key || '').trim();
+  if (explicit) return explicit;
+  if (slug.includes('velocity')) {
+    if (code.includes('planet')) return 'galaxy_core';
+    if (code.includes('cloudwing')) return 'signal_flow';
+    return 'velocity_racers';
+  }
+  if (slug.includes('wildwave')) return 'signal_flow';
+  if (slug.includes('wildtransfer')) return 'signal_flow';
+  if (slug.includes('floret')) return 'forest_grid';
+  if (slug.includes('wilddestiny')) return 'galaxy_core';
+  return 'launch_orbit';
+}
+
 function mapProjectOfferRow(row, { surface = 'project' } = {}) {
   const normalizedSurface = normalizeOfferSurface(surface);
   const basePrice = toOfferPrice(row?.base_price, 0);
@@ -6377,11 +6506,24 @@ function mapProjectOfferRow(row, { surface = 'project' } = {}) {
     : 0;
   const metadata = (row?.metadata && typeof row.metadata === 'object') ? row.metadata : {};
   const rewardPayload = (row?.reward_payload && typeof row.reward_payload === 'object') ? row.reward_payload : {};
+  const projectSlug = String(row?.project_slug || '');
+  const offerCode = String(row?.offer_code || '');
+  const illustration = {
+    type: 'model2d',
+    key: getOfferDefaultVisualKey(projectSlug, offerCode, metadata),
+    primaryColor: String(metadata?.illustration_primary || metadata?.primary_color || ''),
+    secondaryColor: String(metadata?.illustration_secondary || metadata?.secondary_color || ''),
+    imageUrl: String(metadata?.illustration_image_url || ''),
+    projectIconUrl: String(row?.project_icon_url || ''),
+  };
 
   return {
     id: Number(row?.id || 0),
-    projectSlug: String(row?.project_slug || ''),
-    offerCode: String(row?.offer_code || ''),
+    projectSlug,
+    projectName: String(row?.project_name || ''),
+    projectDescription: String(row?.project_description || ''),
+    projectIconUrl: String(row?.project_icon_url || ''),
+    offerCode,
     title: String(row?.title || ''),
     description: String(row?.description || ''),
     currency: String(row?.currency || 'voltbit').toLowerCase(),
@@ -6393,6 +6535,7 @@ function mapProjectOfferRow(row, { surface = 'project' } = {}) {
     isActive: Boolean(row?.is_active),
     startsAt: row?.starts_at || null,
     endsAt: row?.ends_at || null,
+    illustration,
     rewardPayload,
     metadata,
     createdAt: row?.created_at || null,
@@ -6418,18 +6561,22 @@ app.get('/project-commerce/:slug/offers', async (req, res) => {
   try {
     const values = [projectSlug, nowIso];
     let sql = `
-      SELECT *
-      FROM ows_project_offers
-      WHERE project_slug = $1
+      SELECT o.*,
+             p.name AS project_name,
+             p.description AS project_description,
+             p.icon_url AS project_icon_url
+      FROM ows_project_offers o
+      JOIN ows_projects p ON p.slug = o.project_slug
+      WHERE o.project_slug = $1
     `;
     if (!includeInactive) {
       sql += `
-        AND is_active = TRUE
-        AND (starts_at IS NULL OR starts_at <= $2::timestamp)
-        AND (ends_at IS NULL OR ends_at >= $2::timestamp)
+        AND o.is_active = TRUE
+        AND (o.starts_at IS NULL OR o.starts_at <= $2::timestamp)
+        AND (o.ends_at IS NULL OR o.ends_at >= $2::timestamp)
       `;
     }
-    sql += ' ORDER BY created_at DESC, id DESC';
+    sql += ' ORDER BY o.created_at DESC, o.id DESC';
 
     const { rows } = await pool.query(sql, values);
     let mappedOffers = rows.map((row) => mapProjectOfferRow(row, { surface }));
@@ -6463,6 +6610,68 @@ app.get('/project-commerce/:slug/offers', async (req, res) => {
     });
   } catch (err) {
     console.error('Error en GET /project-commerce/:slug/offers:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+app.get('/project-commerce/offers/catalog', async (req, res) => {
+  const surface = normalizeOfferSurface(req.query.surface);
+  const includeInactive = parseOfferBoolean(req.query.include_inactive, false);
+  const hidePurchased = parseOfferBoolean(req.query.hide_purchased, true);
+  const nowIso = new Date().toISOString();
+  const userId = getAuthenticatedOceanPayUserId(req);
+
+  try {
+    const values = [nowIso];
+    let sql = `
+      SELECT o.*,
+             p.name AS project_name,
+             p.description AS project_description,
+             p.icon_url AS project_icon_url
+      FROM ows_project_offers o
+      JOIN ows_projects p ON p.slug = o.project_slug
+      WHERE 1=1
+    `;
+    if (!includeInactive) {
+      sql += `
+        AND o.is_active = TRUE
+        AND (o.starts_at IS NULL OR o.starts_at <= $1::timestamp)
+        AND (o.ends_at IS NULL OR o.ends_at >= $1::timestamp)
+      `;
+    }
+    sql += ' ORDER BY p.name ASC, o.created_at DESC, o.id DESC';
+
+    const { rows } = await pool.query(sql, values);
+    let mappedOffers = rows.map((row) => mapProjectOfferRow(row, { surface }));
+
+    if (hidePurchased && userId > 0) {
+      const { rows: purchasedRows } = await pool.query(
+        `SELECT project_slug, offer_code
+         FROM ows_project_offer_purchases
+         WHERE user_id = $1
+           AND status = 'completed'`,
+        [userId]
+      );
+      const purchasedKeys = new Set(
+        purchasedRows
+          .map((r) => `${String(r.project_slug || '').trim().toLowerCase()}::${String(r.offer_code || '').trim().toLowerCase()}`)
+          .filter(Boolean)
+      );
+      mappedOffers = mappedOffers.filter((offer) => {
+        const oneTime = parseOfferBoolean(offer?.metadata?.one_time_per_user, false);
+        if (!oneTime) return true;
+        const key = `${String(offer.projectSlug || '').trim().toLowerCase()}::${String(offer.offerCode || '').trim().toLowerCase()}`;
+        return !purchasedKeys.has(key);
+      });
+    }
+
+    return res.json({
+      success: true,
+      surface,
+      offers: mappedOffers
+    });
+  } catch (err) {
+    console.error('Error en GET /project-commerce/offers/catalog:', err);
     return res.status(500).json({ error: 'Error interno' });
   }
 });

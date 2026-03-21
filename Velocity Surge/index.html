@@ -4362,7 +4362,28 @@
                     }
                     const newBalance = Math.max(0, Math.floor(Number(data?.balance?.amount || 0)));
                     GameData.voltBits = newBalance;
-                    applyOfferRewardsToGame(offer);
+                    const purchaseId = Number(data?.purchase?.id || 0);
+                    const rewardPayload = (data?.rewardPayload && typeof data.rewardPayload === 'object') ? data.rewardPayload : {};
+                    const payloadEvtOffer = (rewardPayload?.event_offer && typeof rewardPayload.event_offer === 'object')
+                        ? rewardPayload.event_offer
+                        : null;
+                    const rewardOffer = payloadEvtOffer
+                        ? {
+                            ...offer,
+                            ...payloadEvtOffer,
+                            id: String(payloadEvtOffer.id || offer.id || `remote_offer_${Date.now()}`),
+                            remoteOffer: true,
+                            remoteOfferCode: String(offer?.remoteOfferCode || ''),
+                            remoteOfferProject: String(offer?.remoteOfferProject || VS_PROJECT_SLUG),
+                            remoteOfferCurrency: String(offer?.remoteOfferCurrency || 'voltbit').toLowerCase()
+                        }
+                        : offer;
+                    applyOfferRewardsToGame(rewardOffer);
+                    if (purchaseId > 0) {
+                        markRemotePurchaseConsumed(purchaseId);
+                        markProjectCommercePurchaseClaimed(purchaseId).catch(() => { });
+                    }
+                    saveGame();
                     showNotification('Oferta sincronizada comprada correctamente.');
                 } catch (_) {
                     alert(navigator.onLine ? 'Error de conexion al comprar la oferta sincronizada.' : 'Sin conexion a internet.');
@@ -12342,6 +12363,9 @@
             data.completedMissions = ensureArray(data.completedMissions);
             data.purchasedOffers = ensureArray(data.purchasedOffers);
             data.offerPurchaseCounts = (data.offerPurchaseCounts && typeof data.offerPurchaseCounts === 'object') ? data.offerPurchaseCounts : {};
+            data.consumedRemotePurchaseIds = ensureArray(data.consumedRemotePurchaseIds)
+                .map((v) => Number(v))
+                .filter((n) => Number.isFinite(n) && n > 0);
             data.characterLevels = (data.characterLevels && typeof data.characterLevels === 'object') ? data.characterLevels : { blaze: 1 };
             data.characterCards = (data.characterCards && typeof data.characterCards === 'object') ? data.characterCards : {};
             data.selectedMode = String(data.selectedMode || 'CLASSIC').toUpperCase();
@@ -12631,8 +12655,18 @@
                 const rewardEl = document.getElementById('chestReward');
                 const mission = currentChestData.missionReward || {};
                 const racerId = String(currentChestData.type).replace('event_chest_', '');
-                const racer = CHARACTERS[racerId] || CHARACTERS[GameData.eventTargetRacer];
-                const cards = Math.max(4, Number(mission.rewardCards || 8));
+                const missionRacerId = String(mission.rewardRacer || mission.character || '').trim();
+                const fallbackByName = (() => {
+                    const txt = String(mission.txt || '').toLowerCase();
+                    if (txt.includes('replica')) return 'replica';
+                    if (txt.includes('umbra')) return 'umbra_reaper';
+                    return '';
+                })();
+                const resolvedRacerId = CHARACTERS[racerId]
+                    ? racerId
+                    : (CHARACTERS[missionRacerId] ? missionRacerId : (CHARACTERS[fallbackByName] ? fallbackByName : GameData.eventTargetRacer));
+                const racer = CHARACTERS[resolvedRacerId] || CHARACTERS[GameData.eventTargetRacer];
+                const cards = Math.max(4, Number(mission.rewardCards || mission.cards || 8));
                 const bits = Math.floor(80 + Math.random() * 170);
                 const bitsGranted = grantVoltBits(bits, true, `Cofre de evento: ${racer?.name || 'Evento'}`) ? bits : 0;
 
@@ -12653,10 +12687,10 @@
                         if (icon) renderRacerModel(icon.getContext('2d'), 'currency_voltbit', 10, 10, 0.8, { color: '#00e5ff', secondaryColor: '#8effff' });
                     }, 0);
                 }
-                if (racerId && CHARACTERS[racerId] && typeof animateCardRewardProgress === 'function') {
+                if (resolvedRacerId && CHARACTERS[resolvedRacerId] && typeof animateCardRewardProgress === 'function') {
                     const closeBtn = document.getElementById('chestCloseBtn');
                     closeBtn.style.display = 'none';
-                    animateCardRewardProgress([{ id: racerId, count: cards }], rewardEl).finally(() => {
+                    animateCardRewardProgress([{ id: resolvedRacerId, count: cards }], rewardEl).finally(() => {
                         closeBtn.style.display = 'inline-block';
                         if (typeof updateChestContinueLabel === 'function') updateChestContinueLabel();
                     });
@@ -12794,6 +12828,55 @@
             return Math.max(0, Math.floor(Number(gives.cards || 0)));
         }
 
+        function ensureConsumedRemotePurchasesState() {
+            if (!GameData.consumedRemotePurchaseIds || !Array.isArray(GameData.consumedRemotePurchaseIds)) {
+                GameData.consumedRemotePurchaseIds = [];
+            }
+            return GameData.consumedRemotePurchaseIds;
+        }
+
+        function hasConsumedRemotePurchase(purchaseId) {
+            const id = Number(purchaseId || 0);
+            if (!id) return false;
+            return ensureConsumedRemotePurchasesState().includes(id);
+        }
+
+        function markRemotePurchaseConsumed(purchaseId) {
+            const id = Number(purchaseId || 0);
+            if (!id) return;
+            const list = ensureConsumedRemotePurchasesState();
+            if (!list.includes(id)) list.push(id);
+        }
+
+        async function markProjectCommercePurchaseClaimed(purchaseId) {
+            const id = Number(purchaseId || 0);
+            if (!id || !oceanPayState?.token || oceanPayState?.linked !== true) return false;
+            try {
+                const res = await fetchWithTimeoutAndRetry(
+                    `https://owsdatabase.onrender.com/project-commerce/${encodeURIComponent(VS_PROJECT_SLUG)}/purchases/claim`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${oceanPayState.token}`
+                        },
+                        body: JSON.stringify({ purchase_ids: [id] })
+                    },
+                    1,
+                    12000
+                );
+                if (res.status === 401 || res.status === 403) {
+                    clearOceanPaySession(true);
+                    updateOceanPayUI();
+                    return false;
+                }
+                const data = await res.json().catch(() => ({}));
+                return Boolean(res.ok && data?.success);
+            } catch (_) {
+                return false;
+            }
+        }
+
         function mapRemoteOfferToEventOffer(remote) {
             const reward = (remote?.rewardPayload && typeof remote.rewardPayload === 'object')
                 ? remote.rewardPayload
@@ -12883,6 +12966,8 @@
                 if (!GameData.purchasedOffers) GameData.purchasedOffers = [];
                 let applied = 0;
                 claimed.forEach((entry) => {
+                    const purchaseId = Number(entry?.id || 0);
+                    if (purchaseId > 0 && hasConsumedRemotePurchase(purchaseId)) return;
                     const reward = (entry?.rewardPayload && typeof entry.rewardPayload === 'object') ? entry.rewardPayload : {};
                     const evtOffer = (reward?.event_offer && typeof reward.event_offer === 'object') ? reward.event_offer : null;
                     if (!evtOffer || !evtOffer.id) return;
@@ -12895,6 +12980,7 @@
                         remoteOfferCurrency: String(entry?.currency || 'voltbit').toLowerCase()
                     };
                     applyOfferRewardsToGame(offer);
+                    if (purchaseId > 0) markRemotePurchaseConsumed(purchaseId);
                     applied += 1;
                 });
                 if (applied > 0) {
@@ -12934,7 +13020,14 @@
             updateVoltBitsDisplay();
             saveGame();
             if (offer.chestType) {
-                awardChest(offer.chestType, false, { txt: offer.name, rewardCards: cardsAwarded || offer.gives.cards, rarity: 'legendary' });
+                awardChest(offer.chestType, false, {
+                    txt: offer.name,
+                    rewardCards: cardsAwarded || offer.gives.cards,
+                    cards: cardsAwarded || offer.gives.cards,
+                    rewardRacer: selectedCharId,
+                    character: selectedCharId,
+                    rarity: 'legendary'
+                });
             } else {
                 showNotification((CHARACTERS[selectedCharId]?.name || 'CORREDOR') + ' DESBLOQUEADO! +' + (cardsAwarded || 0) + ' tarjetas');
             }

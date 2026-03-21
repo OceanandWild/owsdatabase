@@ -1025,7 +1025,7 @@ async function ensureOwsStoreProjectOffersSeedData() {
           },
           badgeText: 'CHEST',
           badgeColor: '#ff5a96',
-          chestType: 'event_chest_replica_shadow'
+          chestType: 'event_chest_replica'
         }
       },
       metadata: {

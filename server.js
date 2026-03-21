@@ -6411,7 +6411,9 @@ app.get('/project-commerce/:slug/offers', async (req, res) => {
   if (!projectSlug) return res.status(400).json({ error: 'slug requerido' });
   const surface = normalizeOfferSurface(req.query.surface);
   const includeInactive = parseOfferBoolean(req.query.include_inactive, false);
+  const hidePurchased = parseOfferBoolean(req.query.hide_purchased, false);
   const nowIso = new Date().toISOString();
+  const userId = getAuthenticatedOceanPayUserId(req);
 
   try {
     const values = [projectSlug, nowIso];
@@ -6430,11 +6432,34 @@ app.get('/project-commerce/:slug/offers', async (req, res) => {
     sql += ' ORDER BY created_at DESC, id DESC';
 
     const { rows } = await pool.query(sql, values);
+    let mappedOffers = rows.map((row) => mapProjectOfferRow(row, { surface }));
+
+    if (hidePurchased && userId > 0) {
+      const { rows: purchasedRows } = await pool.query(
+        `SELECT offer_code
+         FROM ows_project_offer_purchases
+         WHERE user_id = $1
+           AND project_slug = $2
+           AND status = 'completed'`,
+        [userId, projectSlug]
+      );
+      const purchasedCodes = new Set(
+        purchasedRows
+          .map((r) => String(r.offer_code || '').trim().toLowerCase())
+          .filter(Boolean)
+      );
+      mappedOffers = mappedOffers.filter((offer) => {
+        const oneTime = parseOfferBoolean(offer?.metadata?.one_time_per_user, false);
+        if (!oneTime) return true;
+        return !purchasedCodes.has(String(offer.offerCode || '').trim().toLowerCase());
+      });
+    }
+
     return res.json({
       success: true,
       projectSlug,
       surface,
-      offers: rows.map((row) => mapProjectOfferRow(row, { surface }))
+      offers: mappedOffers
     });
   } catch (err) {
     console.error('Error en GET /project-commerce/:slug/offers:', err);

@@ -729,6 +729,20 @@
         .modal-news-list { display:flex; flex-direction:column; gap:0.4rem; max-height:200px; overflow-y:auto; }
         .modal-news-empty { font-size:0.72rem; color:var(--ink-2); text-align:center; padding:0.75rem; }
         .modal-actions { display:flex; gap:0.5rem; flex-wrap:wrap; }
+        .offers-market-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:0.85rem; }
+        .offers-market-card { background:var(--surface-1); border:1px solid var(--border); border-radius:var(--r-md); padding:0.8rem; box-shadow:var(--shadow-sm); display:flex; flex-direction:column; gap:0.55rem; }
+        .offers-market-visual { width:100%; height:120px; border-radius:10px; border:1px solid var(--border-mid); background:linear-gradient(135deg, rgba(82,217,223,0.12), rgba(242,104,48,0.08)); overflow:hidden; }
+        .offers-market-visual canvas { width:100%; height:100%; display:block; }
+        .offers-market-top { display:flex; justify-content:space-between; align-items:flex-start; gap:0.6rem; }
+        .offers-market-project { font-size:0.62rem; font-family:var(--font-mono); color:var(--ink-2); letter-spacing:0.6px; text-transform:uppercase; }
+        .offers-market-title { font-size:0.9rem; font-weight:800; color:var(--ink-0); line-height:1.2; margin-top:0.1rem; }
+        .offers-market-price { font-size:0.75rem; font-family:var(--font-mono); color:var(--cyan); white-space:nowrap; font-weight:700; }
+        .offers-market-price .old { color:var(--ink-2); text-decoration:line-through; margin-right:0.3rem; }
+        .offers-market-desc { font-size:0.75rem; color:var(--ink-1); line-height:1.35; min-height:2.05rem; }
+        .offers-market-meta { display:flex; justify-content:space-between; align-items:center; gap:0.45rem; margin-top:auto; }
+        .offers-market-badge { font-size:0.6rem; font-family:var(--font-mono); padding:2px 6px; border-radius:999px; border:1px solid rgba(38,212,232,0.35); color:var(--cyan); background:rgba(38,212,232,0.1); }
+        .offers-market-btn { border:1px solid rgba(38,212,232,0.32); background:var(--cyan-dim); color:var(--cyan); border-radius:8px; padding:0.36rem 0.6rem; font-size:0.72rem; font-weight:700; cursor:pointer; }
+        .offers-market-btn:disabled { opacity:0.45; cursor:not-allowed; }
 
         /* ── CHANGELOG MODAL (panel lateral) ── */
         #store-news-modal {
@@ -2417,6 +2431,9 @@
                 <i class="fas fa-arrow-up-from-bracket"></i> Actualizaciones
                 <span id="update-badge" class="nav-badge" style="display:none;">!</span>
             </li>
+            <li class="nav-item" onclick="showSection('offers', this)">
+                <i class="fas fa-bag-shopping"></i> Store Offers
+            </li>
         </nav>
 
         <div class="sidebar-section" style="margin-top:auto;">
@@ -2683,6 +2700,23 @@
         </section>
 
         <!-- ══ LIBRARY ══ -->
+        <section id="offers-view" class="section" style="display:none;">
+            <div class="library-shell">
+                <div class="library-hero">
+                    <div>
+                        <div class="library-hero-kicker">OWS Commerce</div>
+                        <div class="library-hero-title">Store Offers</div>
+                        <div class="library-hero-sub">Ofertas sincronizadas entre OWS Store y los proyectos. Las promociones exclusivas de OWS Store se aplican aqui.</div>
+                    </div>
+                    <div class="library-hero-actions">
+                        <button class="library-btn" onclick="renderOffersMarketplace(true)"><i class="fas fa-rotate"></i> Refrescar</button>
+                    </div>
+                </div>
+                <div id="offers-market-status" class="info-note-card">Cargando ofertas...</div>
+                <div id="offers-market-grid" class="offers-market-grid"></div>
+            </div>
+        </section>
+
         <section id="library-view" class="section" style="display:none;">
             <div class="library-shell">
                 <div class="library-hero">
@@ -6021,8 +6055,11 @@
             const now = Date.now();
             if (!force && cached && (now - cached.ts) < 45000) return cached.offers;
 
-            const url = `${API_URL}/project-commerce/${encodeURIComponent(slug)}/offers?surface=${encodeURIComponent(surface)}`;
-            const res = await fetch(url, { cache: 'no-store' });
+            const token = getOceanPayToken();
+            const url = `${API_URL}/project-commerce/${encodeURIComponent(slug)}/offers?surface=${encodeURIComponent(surface)}&hide_purchased=1`;
+            const headers = {};
+            if (token) headers.Authorization = `Bearer ${token}`;
+            const res = await fetch(url, { cache: 'no-store', headers });
             if (!res.ok) throw new Error(`Offers HTTP ${res.status}`);
             const data = await res.json().catch(() => ({}));
             const offers = Array.isArray(data?.offers) ? data.offers : [];
@@ -6046,6 +6083,9 @@
             });
             const data = await res.json().catch(() => ({}));
             if (!res.ok || !data?.success) {
+                if (res.status === 409) {
+                    throw new Error('Ya compraste esta oferta. Se ocultara al refrescar.');
+                }
                 throw new Error(data?.error || `Compra rechazada (${res.status})`);
             }
 
@@ -6149,6 +6189,124 @@
                 offersList.innerHTML = '<div class="modal-news-empty">No se pudieron cargar ofertas de este proyecto.</div>';
                 offersCount.textContent = '0 ofertas';
             }
+        }
+
+        function getOfferVisualKey(projectSlug = '', offer = null) {
+            const slug = String(projectSlug || '').toLowerCase();
+            if (slug.includes('velocity')) return 'velocity_racers';
+            if (slug.includes('wildwave')) return 'signal_flow';
+            if (slug.includes('wildtransfer')) return 'signal_flow';
+            if (slug.includes('wilddestiny')) return 'galaxy_core';
+            if (slug.includes('floret')) return 'forest_grid';
+            const meta = (offer?.metadata && typeof offer.metadata === 'object') ? offer.metadata : {};
+            return String(meta.visual_key || 'launch_orbit');
+        }
+
+        function collectMarketplaceOffersFromCache() {
+            const offers = [];
+            for (const [cacheKey, entry] of projectCommerceOfferCache.entries()) {
+                const [slug] = String(cacheKey || '').split('|');
+                const project = allProjects.find((p) => String(p.slug || '').toLowerCase() === String(slug || '').toLowerCase());
+                const projectName = project?.name || slug || 'Proyecto';
+                const list = Array.isArray(entry?.offers) ? entry.offers : [];
+                list.forEach((offer) => offers.push({ ...offer, projectName, projectSlug: slug }));
+            }
+            return offers;
+        }
+
+        async function renderOffersMarketplace(forceRefresh = false) {
+            const host = document.getElementById('offers-market-grid');
+            const status = document.getElementById('offers-market-status');
+            if (!host || !status) return;
+            status.style.display = 'block';
+            status.textContent = 'Cargando ofertas sincronizadas...';
+            host.innerHTML = '';
+
+            const targets = (Array.isArray(allProjects) ? allProjects : [])
+                .filter((p) => Boolean(p?.slug))
+                .filter((p) => !isOWSNewsProject(p))
+                .slice(0, 40);
+
+            await Promise.allSettled(targets.map((project) =>
+                fetchProjectCommerceOffers(project.slug, 'ows-store', forceRefresh).catch(() => [])
+            ));
+
+            const items = collectMarketplaceOffersFromCache()
+                .sort((a, b) => {
+                    const ap = Number(a?.discountPercent || 0);
+                    const bp = Number(b?.discountPercent || 0);
+                    if (ap !== bp) return bp - ap;
+                    return String(a?.projectName || '').localeCompare(String(b?.projectName || ''));
+                });
+
+            if (!items.length) {
+                status.textContent = 'Sin ofertas disponibles ahora.';
+                host.innerHTML = '';
+                return;
+            }
+            status.style.display = 'none';
+
+            host.innerHTML = items.map((offer) => {
+                const base = Number(offer?.basePrice || 0);
+                const surfacePrice = Number(offer?.surfacePrice || base || 0);
+                const discount = Boolean(offer?.hasStoreExclusiveDiscount);
+                const oneTime = Boolean(offer?.metadata?.one_time_per_user);
+                const balance = getOceanPayBalanceForCurrency(offer.currency);
+                const canBuy = balance >= surfacePrice;
+                const key = getOfferVisualKey(offer.projectSlug, offer);
+                return `
+                    <article class="offers-market-card" data-project-slug="${String(offer.projectSlug || '').replace(/"/g, '&quot;')}" data-offer-code="${String(offer.offerCode || '').replace(/"/g, '&quot;')}">
+                        <div class="offers-market-visual"><canvas class="offers-market-canvas" width="360" height="120" data-visual-key="${String(key).replace(/"/g, '&quot;')}"></canvas></div>
+                        <div class="offers-market-top">
+                            <div>
+                                <div class="offers-market-project">${offer.projectName || 'Proyecto'}</div>
+                                <div class="offers-market-title">${offer.title || 'Oferta'}</div>
+                            </div>
+                            <div class="offers-market-price">${discount ? `<span class="old">${formatOfferCurrencyPrice(base, offer.currency)}</span>` : ''}${formatOfferCurrencyPrice(surfacePrice, offer.currency)}</div>
+                        </div>
+                        <div class="offers-market-desc">${offer.description || 'Oferta sincronizada de proyecto.'}</div>
+                        <div class="offers-market-meta">
+                            <span class="offers-market-badge">${discount ? `OWS -${Math.max(1, Number(offer.discountPercent || 0))}%` : 'SYNC'}${oneTime ? ' | 1x' : ''}</span>
+                            <button class="offers-market-btn js-market-buy" ${canBuy ? '' : 'disabled'}>${canBuy ? 'Comprar' : 'Saldo insuficiente'}</button>
+                        </div>
+                    </article>
+                `;
+            }).join('');
+
+            host.querySelectorAll('.offers-market-canvas').forEach((canvas) => {
+                const key = String(canvas.getAttribute('data-visual-key') || 'launch_orbit');
+                drawSpotlightVisual(canvas, key);
+            });
+
+            host.querySelectorAll('.js-market-buy').forEach((btn) => {
+                btn.addEventListener('click', async (event) => {
+                    event.preventDefault();
+                    const actionBtn = event.currentTarget;
+                    const card = actionBtn ? actionBtn.closest('.offers-market-card') : null;
+                    if (!card) return;
+                    const slug = String(card.getAttribute('data-project-slug') || '').toLowerCase();
+                    const code = String(card.getAttribute('data-offer-code') || '').toLowerCase();
+                    if (!slug || !code) return;
+                    if (!confirm('Confirmar compra de esta oferta con Ocean Pay?')) return;
+                    actionBtn.disabled = true;
+                    actionBtn.textContent = 'Procesando...';
+                    try {
+                        await purchaseProjectCommerceOffer(slug, code, 'ows-store');
+                        addNotification('Compra completada. Oferta removida de la tienda si era one-time.', 'success');
+                        await renderOffersMarketplace(true);
+                        if (activeDetailsProjectSlug && activeDetailsProjectSlug === slug) {
+                            const p = allProjects.find((x) => String(x.slug || '').toLowerCase() === slug);
+                            if (p) await renderProjectOffersInModal(p);
+                        }
+                    } catch (err) {
+                        addNotification(err?.message || 'No se pudo completar la compra.', 'error');
+                        if (actionBtn && actionBtn.isConnected) {
+                            actionBtn.disabled = false;
+                            actionBtn.textContent = 'Comprar';
+                        }
+                    }
+                });
+            });
         }
 
         function renderProjectNewsInModal(project) {
@@ -7718,6 +7876,7 @@
         function renderIfVisible(target) {
             if (target === 'projects' && activeSection === 'home') renderVisibleProjects();
             if (target === 'library' && activeSection === 'library') renderLibrary();
+            if (target === 'offers' && activeSection === 'offers') renderOffersMarketplace(false);
             if (target === 'updates' && activeSection === 'updates') {
                 renderProjectUpdatesList();
                 renderStoreNewsTimeline();
@@ -11442,6 +11601,8 @@
             } else if (id === 'home') {
                 renderNewsHub();
                 renderStoreNewsTimeline();
+            } else if (id === 'offers') {
+                renderOffersMarketplace(false);
             }
         }
 

@@ -1004,6 +1004,78 @@ async function ensureOwsStoreProjectOffersSeedData() {
     },
     {
       project_slug: 'velocity-surge',
+      offer_code: 'vs_replica_crimson_cache',
+      title: 'Velocity Surge - Replica Crimson Cache',
+      description: 'Cofre oscuro del corredor Replica con rango variable de tarjetas y precio exclusivo en OWS Store.',
+      currency: 'voltbit',
+      base_price: 8900,
+      ows_store_price: 7800,
+      reward_payload: {
+        event_offer: {
+          id: 'sync_vs_replica_crimson_cache',
+          eventId: 'elemental_convergence',
+          name: 'REPLICA CRIMSON CACHE',
+          desc: 'Cofre de Replica con entre 25 y 50 tarjetas por compra.',
+          type: 'early',
+          gives: {
+            character: 'replica',
+            cards: 25,
+            cardsRange: { min: 25, max: 50 },
+            bits: 0
+          },
+          badgeText: 'CHEST',
+          badgeColor: '#ff5a96',
+          chestType: 'event_chest_replica_shadow'
+        }
+      },
+      metadata: {
+        one_time_per_user: false,
+        max_purchases_per_user: 3,
+        source: 'ows_store_sync',
+        visible_in_project: true,
+        visual_key: 'chest_replica',
+        illustration_primary: '#ff5a96',
+        illustration_secondary: '#7a244e'
+      }
+    },
+    {
+      project_slug: 'velocity-surge',
+      offer_code: 'vs_umbra_abyss_cache',
+      title: 'Velocity Surge - Umbra Abyss Cache',
+      description: 'Cofre elite de Umbra Reaper con recompensa variable de tarjetas por compra.',
+      currency: 'voltbit',
+      base_price: 9400,
+      ows_store_price: 8200,
+      reward_payload: {
+        event_offer: {
+          id: 'sync_vs_umbra_abyss_cache',
+          eventId: 'elemental_convergence',
+          name: 'UMBRA ABYSS CACHE',
+          desc: 'Cofre de Umbra Reaper con entre 25 y 50 tarjetas por compra.',
+          type: 'lastchance',
+          gives: {
+            character: 'umbra_reaper',
+            cards: 25,
+            cardsRange: { min: 25, max: 50 },
+            bits: 0
+          },
+          badgeText: 'CHEST',
+          badgeColor: '#9a6bff',
+          chestType: 'event_chest_umbra_reaper'
+        }
+      },
+      metadata: {
+        one_time_per_user: false,
+        max_purchases_per_user: 3,
+        source: 'ows_store_sync',
+        visible_in_project: true,
+        visual_key: 'chest_umbra',
+        illustration_primary: '#9a6bff',
+        illustration_secondary: '#2f2352'
+      }
+    },
+    {
+      project_slug: 'velocity-surge',
       offer_code: 'vs_core_vault_weekly',
       title: 'Velocity Surge - Core Vault Weekly',
       description: 'Oferta recurrente de recursos para acelerar mejoras en carrera.',
@@ -6473,6 +6545,23 @@ function toOfferPrice(value, fallback = 0) {
   return Math.max(0, Number(n.toFixed(2)));
 }
 
+function getOfferPurchaseLimitFromMetadata(metadata = {}) {
+  const meta = (metadata && typeof metadata === 'object') ? metadata : {};
+  const rawLimit = Number(
+    meta.max_purchases_per_user
+    ?? meta.purchase_limit_per_user
+    ?? meta.user_limit
+    ?? 0
+  );
+  const normalizedLimit = Number.isFinite(rawLimit) ? Math.max(0, Math.floor(rawLimit)) : 0;
+  if (normalizedLimit > 0) return normalizedLimit;
+  return parseOfferBoolean(meta.one_time_per_user, false) ? 1 : 0;
+}
+
+function getOfferCounterKey(projectSlug = '', offerCode = '') {
+  return `${String(projectSlug || '').trim().toLowerCase()}::${String(offerCode || '').trim().toLowerCase()}`;
+}
+
 function getOfferDefaultVisualKey(projectSlug = '', offerCode = '', metadata = {}) {
   const slug = String(projectSlug || '').toLowerCase();
   const code = String(offerCode || '').toLowerCase();
@@ -6532,6 +6621,7 @@ function mapProjectOfferRow(row, { surface = 'project' } = {}) {
     storePrice: hasStoreOverride ? storePriceRaw : null,
     hasStoreExclusiveDiscount: hasExclusiveDiscount,
     discountPercent,
+    purchaseLimit: getOfferPurchaseLimitFromMetadata(metadata),
     isActive: Boolean(row?.is_active),
     startsAt: row?.starts_at || null,
     endsAt: row?.ends_at || null,
@@ -6581,25 +6671,45 @@ app.get('/project-commerce/:slug/offers', async (req, res) => {
     const { rows } = await pool.query(sql, values);
     let mappedOffers = rows.map((row) => mapProjectOfferRow(row, { surface }));
 
-    if (hidePurchased && userId > 0) {
+    if (userId > 0 && mappedOffers.length > 0) {
       const { rows: purchasedRows } = await pool.query(
-        `SELECT offer_code
+        `SELECT offer_code, COUNT(*)::int AS total
          FROM ows_project_offer_purchases
          WHERE user_id = $1
            AND project_slug = $2
-           AND status = 'completed'`,
+           AND status = 'completed'
+         GROUP BY offer_code`,
         [userId, projectSlug]
       );
-      const purchasedCodes = new Set(
-        purchasedRows
-          .map((r) => String(r.offer_code || '').trim().toLowerCase())
-          .filter(Boolean)
+      const purchasesMap = new Map(
+        purchasedRows.map((r) => [String(r.offer_code || '').trim().toLowerCase(), Number(r.total || 0)])
       );
-      mappedOffers = mappedOffers.filter((offer) => {
-        const oneTime = parseOfferBoolean(offer?.metadata?.one_time_per_user, false);
-        if (!oneTime) return true;
-        return !purchasedCodes.has(String(offer.offerCode || '').trim().toLowerCase());
+
+      mappedOffers = mappedOffers.map((offer) => {
+        const purchaseLimit = Math.max(0, Number(offer?.purchaseLimit || 0));
+        const userPurchaseCount = Number(purchasesMap.get(String(offer?.offerCode || '').trim().toLowerCase()) || 0);
+        const remainingStockPerUser = purchaseLimit > 0
+          ? Math.max(0, purchaseLimit - userPurchaseCount)
+          : null;
+        const soldOut = purchaseLimit > 0 && remainingStockPerUser <= 0;
+        return {
+          ...offer,
+          userPurchaseCount,
+          remainingStockPerUser,
+          soldOut
+        };
       });
+    } else {
+      mappedOffers = mappedOffers.map((offer) => ({
+        ...offer,
+        userPurchaseCount: 0,
+        remainingStockPerUser: Number(offer?.purchaseLimit || 0) > 0 ? Number(offer.purchaseLimit) : null,
+        soldOut: false
+      }));
+    }
+
+    if (hidePurchased) {
+      mappedOffers = mappedOffers.filter((offer) => !(offer?.soldOut === true));
     }
 
     return res.json({
@@ -6644,25 +6754,48 @@ app.get('/project-commerce/offers/catalog', async (req, res) => {
     const { rows } = await pool.query(sql, values);
     let mappedOffers = rows.map((row) => mapProjectOfferRow(row, { surface }));
 
-    if (hidePurchased && userId > 0) {
+    if (userId > 0 && mappedOffers.length > 0) {
       const { rows: purchasedRows } = await pool.query(
-        `SELECT project_slug, offer_code
+        `SELECT project_slug, offer_code, COUNT(*)::int AS total
          FROM ows_project_offer_purchases
          WHERE user_id = $1
-           AND status = 'completed'`,
+           AND status = 'completed'
+         GROUP BY project_slug, offer_code`,
         [userId]
       );
-      const purchasedKeys = new Set(
-        purchasedRows
-          .map((r) => `${String(r.project_slug || '').trim().toLowerCase()}::${String(r.offer_code || '').trim().toLowerCase()}`)
-          .filter(Boolean)
+      const purchasesMap = new Map(
+        purchasedRows.map((r) => [
+          getOfferCounterKey(r.project_slug, r.offer_code),
+          Number(r.total || 0)
+        ])
       );
-      mappedOffers = mappedOffers.filter((offer) => {
-        const oneTime = parseOfferBoolean(offer?.metadata?.one_time_per_user, false);
-        if (!oneTime) return true;
-        const key = `${String(offer.projectSlug || '').trim().toLowerCase()}::${String(offer.offerCode || '').trim().toLowerCase()}`;
-        return !purchasedKeys.has(key);
+
+      mappedOffers = mappedOffers.map((offer) => {
+        const purchaseLimit = Math.max(0, Number(offer?.purchaseLimit || 0));
+        const key = getOfferCounterKey(offer?.projectSlug, offer?.offerCode);
+        const userPurchaseCount = Number(purchasesMap.get(key) || 0);
+        const remainingStockPerUser = purchaseLimit > 0
+          ? Math.max(0, purchaseLimit - userPurchaseCount)
+          : null;
+        const soldOut = purchaseLimit > 0 && remainingStockPerUser <= 0;
+        return {
+          ...offer,
+          userPurchaseCount,
+          remainingStockPerUser,
+          soldOut
+        };
       });
+    } else {
+      mappedOffers = mappedOffers.map((offer) => ({
+        ...offer,
+        userPurchaseCount: 0,
+        remainingStockPerUser: Number(offer?.purchaseLimit || 0) > 0 ? Number(offer.purchaseLimit) : null,
+        soldOut: false
+      }));
+    }
+
+    if (hidePurchased) {
+      mappedOffers = mappedOffers.filter((offer) => !(offer?.soldOut === true));
     }
 
     return res.json({
@@ -6781,23 +6914,25 @@ app.post('/project-commerce/:slug/offers/:offerCode/purchase', async (req, res) 
 
     const offerRow = offerRows[0];
     const mapped = mapProjectOfferRow(offerRow, { surface });
-    const oneTime = parseOfferBoolean(offerRow?.metadata?.one_time_per_user, false);
-
-    if (oneTime) {
-      const existing = await client.query(
-        `SELECT id
-         FROM ows_project_offer_purchases
-         WHERE project_slug = $1
-           AND offer_code = $2
-           AND user_id = $3
-           AND status = 'completed'
-         LIMIT 1`,
-        [projectSlug, offerCode, userId]
-      );
-      if (existing.rowCount > 0) {
-        await client.query('ROLLBACK');
-        return res.status(409).json({ error: 'Oferta ya comprada para este usuario' });
-      }
+    const purchaseLimit = getOfferPurchaseLimitFromMetadata(offerRow?.metadata || {});
+    const existingCountRes = await client.query(
+      `SELECT COUNT(*)::int AS total
+       FROM ows_project_offer_purchases
+       WHERE project_slug = $1
+         AND offer_code = $2
+         AND user_id = $3
+         AND status = 'completed'`,
+      [projectSlug, offerCode, userId]
+    );
+    const existingCount = Number(existingCountRes.rows?.[0]?.total || 0);
+    if (purchaseLimit > 0 && existingCount >= purchaseLimit) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({
+        error: 'Stock agotado para esta oferta en tu cuenta',
+        purchaseLimit,
+        userPurchaseCount: existingCount,
+        remainingStockPerUser: 0
+      });
     }
 
     const currency = String(mapped.currency || 'voltbit').toLowerCase();
@@ -6867,7 +7002,15 @@ app.post('/project-commerce/:slug/offers/:offerCode/purchase', async (req, res) 
         amount: newBalance,
         balances: getOfferBalanceMapAndAmount(newBalance, currency)
       },
-      rewardPayload: (offerRow?.reward_payload && typeof offerRow.reward_payload === 'object') ? offerRow.reward_payload : {}
+      rewardPayload: (offerRow?.reward_payload && typeof offerRow.reward_payload === 'object') ? offerRow.reward_payload : {},
+      stock: {
+        purchaseLimit,
+        userPurchaseCount: existingCount + 1,
+        remainingStockPerUser: purchaseLimit > 0
+          ? Math.max(0, purchaseLimit - (existingCount + 1))
+          : null,
+        soldOut: purchaseLimit > 0 && (existingCount + 1) >= purchaseLimit
+      }
     });
   } catch (err) {
     await client.query('ROLLBACK');

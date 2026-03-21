@@ -4289,7 +4289,9 @@
             const daysLeft = Math.ceil((evt.endDate.getTime() - now.getTime()) / 86400000);
             offers.forEach(offer => {
                 if (offer.type === 'lastchance' && daysLeft > (offer.lastChanceDays || 3)) return;
-                const bought = GameData.purchasedOffers && GameData.purchasedOffers.includes(offer.id);
+                const maxPurchases = getOfferMaxPurchases(offer);
+                const purchaseCount = getOfferPurchaseCount(offer.id);
+                const bought = maxPurchases > 0 ? purchaseCount >= maxPurchases : false;
                 const poolChars = Array.isArray(offer.pool) ? offer.pool.filter(id => CHARACTERS[id]) : [];
                 const card = document.createElement('div');
                 card.className = 'evt-offer';
@@ -4298,9 +4300,10 @@
                     '<div style="font-family:Orbitron;font-size:1.05rem;margin:10px 0 6px;position:relative;z-index:1;">' + offer.name + '</div>' +
                     '<div style="font-size:0.85rem;color:rgba(255,255,255,0.6);margin-bottom:15px;position:relative;z-index:1;">' + offer.desc + '</div>' +
                     (poolChars.length ? '<div style="font-size:0.7rem;opacity:0.8;letter-spacing:1px;margin-bottom:6px;">PUEDE INCLUIR</div><div class="offer-pool" style="display:flex;justify-content:center;gap:6px;flex-wrap:wrap;margin:0 0 10px;">' + poolChars.map(id => '<canvas data-offer-char="' + id + '" width="42" height="42" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;"></canvas>').join('') + '</div>' : '') +
-                    (bought ? '<div style="font-family:Orbitron;color:#00ff88;font-size:1rem;">COMPRADO</div>' :
+                    (bought ? `<div style="font-family:Orbitron;color:#ff8fb2;font-size:0.95rem;">STOCK AGOTADO (${purchaseCount}/${maxPurchases})</div>` :
                         '<div style="font-family:Orbitron;font-size:1.3rem;font-weight:900;color:var(--accent-gold);position:relative;z-index:1;">' +
-                        (offer.originalPrice ? '<span style="text-decoration:line-through;opacity:0.5;font-size:0.9rem;">' + offer.originalPrice + '</span> ' : '') + offer.price + ' VB</div>');
+                        (offer.originalPrice ? '<span style="text-decoration:line-through;opacity:0.5;font-size:0.9rem;">' + offer.originalPrice + '</span> ' : '') + offer.price + ' VB</div>') +
+                    (maxPurchases > 0 ? `<div style="font-size:0.7rem;opacity:0.8;margin-top:6px;">Compras: ${purchaseCount}/${maxPurchases}</div>` : '');
                 if (!bought) card.onclick = () => purchaseEventOffer(offer);
                 list.appendChild(card);
                 setTimeout(() => {
@@ -4319,7 +4322,13 @@
 
         async function purchaseEventOffer(offer) {
             if (!GameData.purchasedOffers) GameData.purchasedOffers = [];
-            if (GameData.purchasedOffers.includes(offer.id)) { alert('Ya compraste esta oferta.'); return; }
+            if (!GameData.offerPurchaseCounts || typeof GameData.offerPurchaseCounts !== 'object') GameData.offerPurchaseCounts = {};
+            const maxPurchases = getOfferMaxPurchases(offer);
+            const purchaseCount = getOfferPurchaseCount(offer.id);
+            if (maxPurchases > 0 && purchaseCount >= maxPurchases) {
+                alert('Ya compraste todo el stock disponible para esta oferta.');
+                return;
+            }
 
             if (offer?.remoteOffer) {
                 if (!oceanPayState?.token || oceanPayState?.linked !== true) {
@@ -4410,7 +4419,9 @@
                 if (msLeftEvt <= 0) return;
                 const daysLeft = Math.ceil(msLeftEvt / 86400000);
                 if (offer.type === 'lastchance' && daysLeft > (offer.lastChanceDays || 3)) return;
-                const bought = GameData.purchasedOffers && GameData.purchasedOffers.includes(offer.id);
+                const maxPurchases = getOfferMaxPurchases(offer);
+                const purchaseCount = getOfferPurchaseCount(offer.id);
+                const bought = maxPurchases > 0 ? purchaseCount >= maxPurchases : false;
                 const poolChars = Array.isArray(offer.pool) ? offer.pool.filter(id => CHARACTERS[id]) : [];
                 const card = document.createElement('div');
                 card.className = 'shop-offer-card';
@@ -4418,7 +4429,7 @@
                     '<canvas width="120" height="120" style="margin:0 auto;display:block;"></canvas>' +
                     '<h3>' + offer.name + '</h3><p>' + offer.desc + '</p>' +
                     (poolChars.length ? '<div style="font-size:0.68rem;opacity:0.8;letter-spacing:1px;margin:2px 0 8px;">PUEDE INCLUIR</div><div class="offer-pool" style="display:flex;justify-content:center;gap:6px;flex-wrap:wrap;margin:0 0 10px;">' + poolChars.map(id => '<canvas data-offer-char="' + id + '" width="40" height="40" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;"></canvas>').join('') + '</div>' : '') +
-                    (bought ? '<div style="font-family:Orbitron;color:#00ff88;font-size:1.2rem;">COMPRADO</div>' :
+                    (bought ? `<div style="font-family:Orbitron;color:#ff8fb2;font-size:0.95rem;">STOCK AGOTADO (${purchaseCount}/${maxPurchases})</div>` :
                         '<div class="shop-price" style="color:var(--accent-gold);">' + (offer.originalPrice ? '<span style="text-decoration:line-through;opacity:0.5;">' + offer.originalPrice + '</span> ' : '') + offer.price + ' VB</div>');
                 if (!bought) card.onclick = function () { purchaseEventOffer(offer); };
                 grid.appendChild(card);
@@ -12330,6 +12341,7 @@
             data.unlockedCharacters = ensureArray(data.unlockedCharacters);
             data.completedMissions = ensureArray(data.completedMissions);
             data.purchasedOffers = ensureArray(data.purchasedOffers);
+            data.offerPurchaseCounts = (data.offerPurchaseCounts && typeof data.offerPurchaseCounts === 'object') ? data.offerPurchaseCounts : {};
             data.characterLevels = (data.characterLevels && typeof data.characterLevels === 'object') ? data.characterLevels : { blaze: 1 };
             data.characterCards = (data.characterCards && typeof data.characterCards === 'object') ? data.characterCards : {};
             data.selectedMode = String(data.selectedMode || 'CLASSIC').toUpperCase();
@@ -12745,6 +12757,43 @@
             loading: false
         };
 
+        function getOfferMaxPurchases(offer) {
+            const meta = (offer?.metadata && typeof offer.metadata === 'object') ? offer.metadata : {};
+            const hasExplicitLimit = offer?.purchaseLimit !== undefined
+                || meta.max_purchases_per_user !== undefined
+                || meta.purchase_limit_per_user !== undefined
+                || meta.one_time_per_user !== undefined;
+            const raw = Number(offer?.purchaseLimit ?? meta.max_purchases_per_user ?? meta.purchase_limit_per_user ?? 0);
+            const limit = Number.isFinite(raw) ? Math.max(0, Math.floor(raw)) : 0;
+            if (limit > 0) return limit;
+            if (meta.one_time_per_user === true) return 1;
+            if (meta.one_time_per_user === false) return 0;
+            return hasExplicitLimit ? 0 : 1;
+        }
+
+        function getOfferPurchaseCount(offerId) {
+            const key = String(offerId || '').trim();
+            if (!key) return 0;
+            const map = (GameData.offerPurchaseCounts && typeof GameData.offerPurchaseCounts === 'object')
+                ? GameData.offerPurchaseCounts
+                : {};
+            const counted = Number(map[key] || 0);
+            if (Number.isFinite(counted) && counted > 0) return Math.floor(counted);
+            if (Array.isArray(GameData.purchasedOffers) && GameData.purchasedOffers.includes(key)) return 1;
+            return 0;
+        }
+
+        function getOfferCardsRewardAmount(offer) {
+            const gives = (offer?.gives && typeof offer.gives === 'object') ? offer.gives : {};
+            const range = (gives.cardsRange && typeof gives.cardsRange === 'object') ? gives.cardsRange : null;
+            if (range) {
+                const min = Math.max(0, Math.floor(Number(range.min ?? range.from ?? gives.cards ?? 0) || 0));
+                const max = Math.max(min, Math.floor(Number(range.max ?? range.to ?? min) || min));
+                return min + Math.floor(Math.random() * (max - min + 1));
+            }
+            return Math.max(0, Math.floor(Number(gives.cards || 0)));
+        }
+
         function mapRemoteOfferToEventOffer(remote) {
             const reward = (remote?.rewardPayload && typeof remote.rewardPayload === 'object')
                 ? remote.rewardPayload
@@ -12759,6 +12808,11 @@
                 originalPrice: Number(remote?.hasStoreExclusiveDiscount)
                     ? Math.max(0, Math.floor(Number(remote?.basePrice || 0)))
                     : 0,
+                purchaseLimit: Number(remote?.purchaseLimit || 0),
+                userPurchaseCount: Number(remote?.userPurchaseCount || 0),
+                remainingStockPerUser: remote?.remainingStockPerUser,
+                soldOut: Boolean(remote?.soldOut),
+                metadata: (remote?.metadata && typeof remote.metadata === 'object') ? remote.metadata : {},
                 remoteOffer: true,
                 remoteOfferCode: String(remote?.offerCode || ''),
                 remoteOfferProject: String(remote?.projectSlug || VS_PROJECT_SLUG),
@@ -12786,7 +12840,8 @@
             VS_REMOTE_SYNC_CACHE.loading = true;
             try {
                 const res = await fetchWithTimeoutAndRetry(`https://owsdatabase.onrender.com/project-commerce/${encodeURIComponent(VS_PROJECT_SLUG)}/offers?surface=project`, {
-                    method: 'GET'
+                    method: 'GET',
+                    headers: oceanPayState?.token ? { Authorization: `Bearer ${oceanPayState.token}` } : {}
                 }, 1, 12000);
                 const data = await res.json().catch(() => ({}));
                 if (!res.ok || !data?.success || !Array.isArray(data?.offers)) return;
@@ -12831,7 +12886,6 @@
                     const reward = (entry?.rewardPayload && typeof entry.rewardPayload === 'object') ? entry.rewardPayload : {};
                     const evtOffer = (reward?.event_offer && typeof reward.event_offer === 'object') ? reward.event_offer : null;
                     if (!evtOffer || !evtOffer.id) return;
-                    if (GameData.purchasedOffers.includes(evtOffer.id)) return;
                     const offer = {
                         ...evtOffer,
                         price: 0,
@@ -12862,16 +12916,27 @@
             }
 
             if (!GameData.purchasedOffers) GameData.purchasedOffers = [];
-            GameData.purchasedOffers.push(offer.id);
+            if (!GameData.offerPurchaseCounts || typeof GameData.offerPurchaseCounts !== 'object') GameData.offerPurchaseCounts = {};
+            const purchaseKey = String(offer.id || '').trim();
+            if (purchaseKey) {
+                GameData.offerPurchaseCounts[purchaseKey] = Math.max(0, Number(GameData.offerPurchaseCounts[purchaseKey] || 0)) + 1;
+                const maxPurchases = getOfferMaxPurchases(offer);
+                if (maxPurchases <= 1 && !GameData.purchasedOffers.includes(purchaseKey)) {
+                    GameData.purchasedOffers.push(purchaseKey);
+                }
+            }
             if (selectedCharId && !GameData.unlockedCharacters.includes(selectedCharId)) GameData.unlockedCharacters.push(selectedCharId);
-            if (offer.gives.cards && selectedCharId) GameData.characterCards[selectedCharId] = (GameData.characterCards[selectedCharId] || 0) + offer.gives.cards;
+            const cardsAwarded = getOfferCardsRewardAmount(offer);
+            if (cardsAwarded > 0 && selectedCharId) {
+                GameData.characterCards[selectedCharId] = (GameData.characterCards[selectedCharId] || 0) + cardsAwarded;
+            }
             if (offer.gives.bits) grantVoltBits(offer.gives.bits, false, `Oferta: ${offer.name}`);
             updateVoltBitsDisplay();
             saveGame();
             if (offer.chestType) {
-                awardChest(offer.chestType, false, { txt: offer.name, rewardCards: offer.gives.cards, rarity: 'legendary' });
+                awardChest(offer.chestType, false, { txt: offer.name, rewardCards: cardsAwarded || offer.gives.cards, rarity: 'legendary' });
             } else {
-                showNotification((CHARACTERS[selectedCharId]?.name || 'CORREDOR') + ' DESBLOQUEADO! +' + (offer.gives.cards || 0) + ' tarjetas');
+                showNotification((CHARACTERS[selectedCharId]?.name || 'CORREDOR') + ' DESBLOQUEADO! +' + (cardsAwarded || 0) + ' tarjetas');
             }
             const curEvt = EVENTS_CALENDAR.find(e => { const n = new Date(); return n >= e.startDate && n <= e.endDate; });
             if (curEvt) _renderEventOffers(curEvt, new Date());

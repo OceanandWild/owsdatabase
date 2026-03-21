@@ -528,7 +528,16 @@
         .btn-install.full { width:100%; justify-content:center; }
 
         /* ── LIBRARY ── */
-        .library-shell { display:flex; flex-direction:column; gap:1.25rem; }
+        .library-shell {
+            display:flex;
+            flex-direction:column;
+            gap:1.25rem;
+            background: linear-gradient(165deg, rgba(82,217,223,0.08), rgba(8,16,28,0.55) 36%, rgba(242,104,48,0.05));
+            border: 1px solid rgba(82,217,223,0.18);
+            border-radius: var(--r-lg);
+            padding: 1rem;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
+        }
         .library-hero { display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; flex-wrap:wrap; }
         .library-hero-kicker { font-size:0.68rem; font-family:var(--font-mono); text-transform:uppercase; letter-spacing:1px; color:var(--cyan); margin-bottom:0.3rem; }
         .library-hero-title { font-family:var(--font-display); font-size:1.8rem; font-weight:900; line-height:1.1; }
@@ -538,7 +547,14 @@
         .library-btn:hover { background:var(--surface-3); }
 
         .library-metrics { display:grid; grid-template-columns:repeat(auto-fit, minmax(120px,1fr)); gap:0.5rem; }
-        .library-metric { background:var(--surface-1); border:1px solid var(--border); border-radius:var(--r-md); padding:0.75rem 1rem; text-align:center; }
+        .library-metric {
+            background:linear-gradient(145deg, rgba(21,34,52,0.9), rgba(13,22,36,0.94));
+            border:1px solid rgba(82,217,223,0.2);
+            border-radius:var(--r-md);
+            padding:0.75rem 1rem;
+            text-align:center;
+            box-shadow:0 8px 20px rgba(0,0,0,0.2);
+        }
         .library-metric-value { font-family:var(--font-display); font-size:1.6rem; font-weight:900; color:var(--cyan); line-height:1; }
         .library-metric-label { font-size:0.68rem; color:var(--ink-2); margin-top:0.2rem; text-transform:uppercase; letter-spacing:0.3px; }
 
@@ -554,14 +570,18 @@
         .library-empty { text-align:center; color:var(--ink-2); padding:3rem; font-size:0.85rem; }
 
         .library-card {
-            background: var(--surface-1);
-            border: 1px solid var(--border);
+            background: linear-gradient(145deg, rgba(19,31,48,0.96), rgba(11,20,33,0.96));
+            border: 1px solid rgba(82,217,223,0.16);
             border-radius: var(--r-md);
             padding: 0.85rem 1rem;
             display: flex; align-items:center; gap:0.85rem;
-            transition: border-color 0.15s;
+            transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
         }
-        .library-card:hover { border-color:var(--border-mid); }
+        .library-card:hover {
+            border-color:rgba(82,217,223,0.38);
+            box-shadow:0 10px 24px rgba(0,0,0,0.28);
+            transform:translateY(-1px);
+        }
         .library-card-icon { width:40px; height:40px; border-radius:var(--r-sm); object-fit:cover; flex-shrink:0; background:var(--surface-2); }
         .library-card-info { flex:1; min-width:0; }
         .library-card-name { font-weight:700; font-size:0.85rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -569,13 +589,27 @@
         .library-card-actions { display:flex; gap:0.4rem; flex-shrink:0; }
 
         /* ── UPDATES / CENTRO ── */
-        .updates-shell { display:flex; flex-direction:column; gap:1.5rem; }
+        .updates-shell {
+            display:flex;
+            flex-direction:column;
+            gap:1.5rem;
+            background: radial-gradient(120% 120% at 0% 0%, rgba(82,217,223,0.08), transparent 45%), linear-gradient(170deg, rgba(14,24,39,0.9), rgba(9,15,26,0.96));
+            border:1px solid rgba(82,217,223,0.16);
+            border-radius:var(--r-lg);
+            padding:1rem;
+        }
         .updates-title-area { margin-bottom:0.25rem; }
         .updates-kicker { font-size:0.68rem; font-family:var(--font-mono); text-transform:uppercase; letter-spacing:1px; color:var(--cyan); margin-bottom:0.3rem; }
         .updates-title { font-family:var(--font-display); font-size:1.6rem; font-weight:900; }
 
         .stat-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px,1fr)); gap:0.6rem; }
-        .stat-box { background:var(--surface-1); border:1px solid var(--border); border-radius:var(--r-md); padding:0.85rem 1rem; }
+        .stat-box {
+            background:linear-gradient(145deg, rgba(21,35,53,0.96), rgba(10,18,31,0.96));
+            border:1px solid rgba(82,217,223,0.16);
+            border-radius:var(--r-md);
+            padding:0.85rem 1rem;
+            box-shadow:0 8px 18px rgba(0,0,0,0.2);
+        }
         .stat-label { font-size:0.65rem; font-family:var(--font-mono); text-transform:uppercase; letter-spacing:0.5px; color:var(--ink-2); margin-bottom:0.35rem; }
         .stat-value { font-size:0.85rem; font-weight:600; color:var(--ink-0); }
 
@@ -591,7 +625,13 @@
         .download-item-progress { height:100%; background:var(--cyan); border-radius:99px; width:0%; transition:width 0.3s; }
 
         /* Project updates panel */
-        .project-updates-shell { background:var(--surface-1); border:1px solid var(--border); border-radius:var(--r-lg); overflow:hidden; }
+        .project-updates-shell {
+            background:linear-gradient(160deg, rgba(17,28,44,0.96), rgba(10,18,30,0.96));
+            border:1px solid rgba(82,217,223,0.22);
+            border-radius:var(--r-lg);
+            overflow:hidden;
+            box-shadow:0 12px 26px rgba(0,0,0,0.28);
+        }
         .project-updates-head { padding:1.25rem; border-bottom:1px solid var(--border); display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; }
         .project-updates-kicker { display:flex; align-items:center; gap:0.5rem; font-size:0.68rem; font-family:var(--font-mono); text-transform:uppercase; letter-spacing:0.5px; color:var(--cyan); margin-bottom:0.3rem; }
         .pulse-dot { width:7px; height:7px; background:var(--green); border-radius:50%; box-shadow:0 0 0 0 rgba(40,217,138,0.4); animation:pulse 2s infinite; }
@@ -714,15 +754,19 @@
         .modal-offers-title { font-size:0.8rem; text-transform:uppercase; letter-spacing:0.8px; color:var(--ink-1); font-family:var(--font-mono); }
         .modal-offers-list { display:flex; flex-direction:column; gap:0.5rem; }
         .modal-offer-item { border:1px solid var(--border); border-radius:10px; padding:0.62rem; background:var(--surface-1); }
+        .modal-offer-visual { margin-bottom:0.45rem; width:100%; height:92px; border-radius:8px; border:1px solid var(--border-mid); background:linear-gradient(135deg, rgba(82,217,223,0.1), rgba(242,104,48,0.08)); overflow:hidden; }
+        .modal-offer-visual canvas { width:100%; height:100%; display:block; }
         .modal-offer-top { display:flex; justify-content:space-between; align-items:center; gap:0.55rem; margin-bottom:0.28rem; }
         .modal-offer-name { font-weight:700; font-size:0.8rem; color:var(--ink-0); }
         .modal-offer-price { font-family:var(--font-mono); font-size:0.72rem; color:var(--cyan); font-weight:700; white-space:nowrap; }
         .modal-offer-price .old { color:var(--ink-2); text-decoration:line-through; margin-right:0.35rem; }
         .modal-offer-desc { font-size:0.72rem; color:var(--ink-1); line-height:1.35; }
         .modal-offer-meta { margin-top:0.38rem; display:flex; justify-content:space-between; align-items:center; gap:0.5rem; }
+        .modal-offer-stock { font-size:0.62rem; color:var(--ink-2); margin-top:0.32rem; font-family:var(--font-mono); }
         .modal-offer-badge { font-size:0.62rem; padding:2px 7px; border-radius:999px; font-family:var(--font-mono); border:1px solid rgba(38,212,232,0.35); color:var(--cyan); background:rgba(38,212,232,0.1); }
         .modal-offer-btn { border:1px solid rgba(38,212,232,0.3); background:var(--cyan-dim); color:var(--cyan); border-radius:8px; padding:0.34rem 0.58rem; font-size:0.7rem; font-weight:700; cursor:pointer; font-family:inherit; }
         .modal-offer-btn:disabled { opacity:0.45; cursor:not-allowed; }
+        .offer-stock-soldout { color:#ff8fa8; border-color:rgba(255,110,143,0.35); background:rgba(255,110,143,0.12); }
         .modal-news-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:0.5rem; }
         .modal-news-title { font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.3px; }
         .modal-news-counter { font-size:0.62rem; font-family:var(--font-mono); color:var(--cyan); }
@@ -739,10 +783,60 @@
         .offers-market-price { font-size:0.75rem; font-family:var(--font-mono); color:var(--cyan); white-space:nowrap; font-weight:700; }
         .offers-market-price .old { color:var(--ink-2); text-decoration:line-through; margin-right:0.3rem; }
         .offers-market-desc { font-size:0.75rem; color:var(--ink-1); line-height:1.35; min-height:2.05rem; }
+        .offers-market-stock { font-size:0.62rem; color:var(--ink-2); font-family:var(--font-mono); margin-top:-0.2rem; }
         .offers-market-meta { display:flex; justify-content:space-between; align-items:center; gap:0.45rem; margin-top:auto; }
         .offers-market-badge { font-size:0.6rem; font-family:var(--font-mono); padding:2px 6px; border-radius:999px; border:1px solid rgba(38,212,232,0.35); color:var(--cyan); background:rgba(38,212,232,0.1); }
         .offers-market-btn { border:1px solid rgba(38,212,232,0.32); background:var(--cyan-dim); color:var(--cyan); border-radius:8px; padding:0.36rem 0.6rem; font-size:0.72rem; font-weight:700; cursor:pointer; }
         .offers-market-btn:disabled { opacity:0.45; cursor:not-allowed; }
+        .offers-market-card.soldout { border-color:rgba(255,110,143,0.32); box-shadow:0 0 0 1px rgba(255,110,143,0.12) inset; }
+
+        #store-offer-checkout-modal {
+            display:none;
+            position:fixed;
+            inset:0;
+            z-index:5600;
+            background:rgba(4,10,18,0.74);
+            backdrop-filter:blur(8px);
+            align-items:center;
+            justify-content:center;
+            padding:1rem;
+        }
+        #store-offer-checkout-modal.active { display:flex; }
+        .offer-checkout-shell {
+            width:min(520px, 100%);
+            background:linear-gradient(155deg, rgba(21,35,53,0.98), rgba(10,18,30,0.98));
+            border:1px solid rgba(82,217,223,0.28);
+            border-radius:var(--r-lg);
+            box-shadow:0 20px 40px rgba(0,0,0,0.35);
+            padding:1rem;
+            display:flex;
+            flex-direction:column;
+            gap:0.75rem;
+        }
+        .offer-checkout-head { display:flex; align-items:flex-start; justify-content:space-between; gap:0.75rem; }
+        .offer-checkout-title { font-family:var(--font-display); font-size:1.05rem; font-weight:800; }
+        .offer-checkout-sub { font-size:0.7rem; color:var(--ink-2); margin-top:0.2rem; font-family:var(--font-mono); text-transform:uppercase; letter-spacing:0.5px; }
+        .offer-checkout-grid { display:grid; grid-template-columns:1fr auto; gap:0.45rem 0.8rem; background:rgba(8,16,28,0.7); border:1px solid rgba(82,217,223,0.18); border-radius:10px; padding:0.75rem; }
+        .offer-checkout-k { font-size:0.68rem; color:var(--ink-2); font-family:var(--font-mono); text-transform:uppercase; letter-spacing:0.4px; }
+        .offer-checkout-v { font-size:0.78rem; color:var(--ink-0); font-weight:700; text-align:right; }
+        .offer-checkout-actions { display:flex; justify-content:flex-end; gap:0.5rem; }
+        .offer-checkout-btn {
+            border:1px solid var(--border-mid);
+            background:var(--surface-2);
+            color:var(--ink-0);
+            border-radius:8px;
+            padding:0.46rem 0.8rem;
+            font-size:0.75rem;
+            font-weight:700;
+            cursor:pointer;
+            font-family:inherit;
+        }
+        .offer-checkout-btn.primary {
+            border-color:rgba(38,212,232,0.36);
+            background:var(--cyan-dim);
+            color:var(--cyan);
+        }
+        .offer-checkout-btn:disabled { opacity:0.45; cursor:not-allowed; }
 
         /* ── CHANGELOG MODAL (panel lateral) ── */
         #store-news-modal {
@@ -2889,6 +2983,37 @@
     </div>
 </div>
 
+<div id="store-offer-checkout-modal" aria-hidden="true" onclick="if(event.target===this)closeStoreOfferCheckoutModal()">
+    <div class="offer-checkout-shell">
+        <div class="offer-checkout-head">
+            <div>
+                <div class="offer-checkout-title">Confirmar compra</div>
+                <div id="offer-checkout-sub" class="offer-checkout-sub">OWS Commerce Checkout</div>
+            </div>
+            <button type="button" class="btn-close-modal" style="position:static;" onclick="closeStoreOfferCheckoutModal()" aria-label="Cerrar">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="offer-checkout-grid">
+            <div class="offer-checkout-k">Oferta</div>
+            <div id="offer-checkout-name" class="offer-checkout-v">-</div>
+            <div class="offer-checkout-k">Precio</div>
+            <div id="offer-checkout-price" class="offer-checkout-v">-</div>
+            <div class="offer-checkout-k">Saldo actual</div>
+            <div id="offer-checkout-balance" class="offer-checkout-v">-</div>
+            <div class="offer-checkout-k">Saldo tras compra</div>
+            <div id="offer-checkout-after" class="offer-checkout-v">-</div>
+            <div class="offer-checkout-k">Stock personal</div>
+            <div id="offer-checkout-stock" class="offer-checkout-v">-</div>
+        </div>
+        <div id="offer-checkout-warning" class="info-note-card" style="display:none;margin:0;padding:0.6rem 0.75rem;"></div>
+        <div class="offer-checkout-actions">
+            <button type="button" class="offer-checkout-btn" onclick="closeStoreOfferCheckoutModal()">Cancelar</button>
+            <button type="button" id="offer-checkout-confirm-btn" class="offer-checkout-btn primary">Confirmar compra</button>
+        </div>
+    </div>
+</div>
+
 <script>
         let opSidebarOpen = false;
         function toggleOceanPaySidebar() {
@@ -3346,6 +3471,11 @@
             connected: false
         };
         const projectCommerceOfferCache = new Map();
+        let storeOfferCheckoutState = {
+            open: false,
+            offer: null,
+            source: ''
+        };
         let activeDetailsProjectSlug = '';
         const projectInstallQueue = [];
         const downloadSessions = {};
@@ -4162,7 +4292,39 @@
             ctx.fillStyle = bg;
             ctx.fillRect(0, 0, w, h);
 
-            if (key.includes('velocity') || key.includes('surge') || key.includes('race') || key.includes('transfer')) {
+            if (key.includes('chest') || key.includes('cache') || key.includes('cofre')) {
+                const isReplica = key.includes('replica');
+                const isUmbra = key.includes('umbra');
+                const lidColor = isReplica ? '#8f1f4b' : (isUmbra ? '#50338e' : '#365078');
+                const bodyColor = isReplica ? '#c03c6f' : (isUmbra ? '#7e5ad3' : '#4f84cf');
+                const accent = isReplica ? '#ff7ea8' : (isUmbra ? '#c7a1ff' : '#8be0ff');
+                const cx = w * 0.5;
+                const chestW = Math.min(132, w * 0.56);
+                const chestH = Math.min(58, h * 0.48);
+                const x = cx - chestW * 0.5;
+                const y = h * 0.33;
+                ctx.fillStyle = 'rgba(0,0,0,0.22)';
+                ctx.beginPath();
+                ctx.ellipse(cx, y + chestH + 13, chestW * 0.42, 10, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = lidColor;
+                ctx.fillRect(x, y - 12, chestW, 20);
+                ctx.fillStyle = bodyColor;
+                ctx.fillRect(x, y + 4, chestW, chestH);
+                ctx.strokeStyle = 'rgba(0,0,0,0.32)';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(x, y + 4, chestW, chestH);
+                ctx.fillStyle = accent;
+                ctx.fillRect(cx - 7, y + 4, 14, chestH);
+                ctx.fillRect(x + chestW * 0.14, y + 20, chestW * 0.72, 4);
+                ctx.fillStyle = '#091221';
+                ctx.fillRect(cx - 5, y + 27, 10, 12);
+                for (let i = 0; i < 7; i++) {
+                    const px = x + 8 + i * ((chestW - 16) / 6);
+                    ctx.fillStyle = 'rgba(255,255,255,0.12)';
+                    ctx.fillRect(px, y + 8, 2, chestH - 8);
+                }
+            } else if (key.includes('velocity') || key.includes('surge') || key.includes('race') || key.includes('transfer')) {
                 ctx.strokeStyle = baseA;
                 ctx.lineWidth = 2.6;
                 ctx.beginPath();
@@ -6041,6 +6203,50 @@
             return `${Math.floor(safeAmount).toLocaleString()} ${label}`;
         }
 
+        function htmlEncode(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function getOfferPurchaseLimit(offer) {
+            const limit = Number(offer?.purchaseLimit ?? offer?.metadata?.max_purchases_per_user ?? 0);
+            return Number.isFinite(limit) ? Math.max(0, Math.floor(limit)) : 0;
+        }
+
+        function getOfferUserPurchaseCount(offer) {
+            const count = Number(offer?.userPurchaseCount ?? 0);
+            return Number.isFinite(count) ? Math.max(0, Math.floor(count)) : 0;
+        }
+
+        function getOfferRemainingStock(offer) {
+            const explicit = Number(offer?.remainingStockPerUser);
+            if (Number.isFinite(explicit) && explicit >= 0) return Math.floor(explicit);
+            const limit = getOfferPurchaseLimit(offer);
+            if (limit <= 0) return null;
+            return Math.max(0, limit - getOfferUserPurchaseCount(offer));
+        }
+
+        function isOfferSoldOutForUser(offer) {
+            if (offer?.soldOut === true) return true;
+            const limit = getOfferPurchaseLimit(offer);
+            if (limit <= 0) return false;
+            const remaining = getOfferRemainingStock(offer);
+            return Number(remaining) <= 0;
+        }
+
+        function getOfferStockLabel(offer) {
+            const limit = getOfferPurchaseLimit(offer);
+            const purchased = getOfferUserPurchaseCount(offer);
+            const remaining = getOfferRemainingStock(offer);
+            if (limit <= 0) return 'Sin limite por cuenta';
+            if (Number(remaining) <= 0) return `Stock agotado (${purchased}/${limit})`;
+            return `Stock disponible (${remaining} restante${remaining === 1 ? '' : 's'} de ${limit})`;
+        }
+
         function getOceanPayBalanceForCurrency(currency) {
             const curr = String(currency || '').toLowerCase();
             if (!curr) return 0;
@@ -6056,13 +6262,92 @@
             const token = getOceanPayToken();
             const headers = {};
             if (token) headers.Authorization = `Bearer ${token}`;
-            const url = `${API_URL}/project-commerce/offers/catalog?surface=${encodeURIComponent(surface)}&hide_purchased=1`;
+            const url = `${API_URL}/project-commerce/offers/catalog?surface=${encodeURIComponent(surface)}&hide_purchased=0`;
             const res = await fetch(url, { cache: 'no-store', headers });
             if (!res.ok) throw new Error(`Offers catalog HTTP ${res.status}`);
             const data = await res.json().catch(() => ({}));
             const offers = Array.isArray(data?.offers) ? data.offers : [];
             projectCommerceOfferCache.set(cacheKey, { ts: now, offers });
             return offers;
+        }
+
+        function closeStoreOfferCheckoutModal() {
+            const modal = document.getElementById('store-offer-checkout-modal');
+            const confirmBtn = document.getElementById('offer-checkout-confirm-btn');
+            if (confirmBtn) {
+                confirmBtn.disabled = false;
+                confirmBtn.textContent = 'Confirmar compra';
+                confirmBtn.onclick = null;
+            }
+            if (modal) {
+                modal.classList.remove('active');
+                modal.setAttribute('aria-hidden', 'true');
+            }
+            storeOfferCheckoutState = { open: false, offer: null, source: '' };
+        }
+
+        function openStoreOfferCheckoutModal(offer, source = 'offers') {
+            const modal = document.getElementById('store-offer-checkout-modal');
+            const sub = document.getElementById('offer-checkout-sub');
+            const name = document.getElementById('offer-checkout-name');
+            const price = document.getElementById('offer-checkout-price');
+            const balanceEl = document.getElementById('offer-checkout-balance');
+            const afterEl = document.getElementById('offer-checkout-after');
+            const stockEl = document.getElementById('offer-checkout-stock');
+            const warning = document.getElementById('offer-checkout-warning');
+            const confirmBtn = document.getElementById('offer-checkout-confirm-btn');
+            if (!modal || !confirmBtn || !offer) return;
+
+            const projectName = String(offer?.projectName || offer?.projectSlug || 'Proyecto');
+            const title = String(offer?.title || 'Oferta');
+            const curr = String(offer?.currency || 'voltbit').toLowerCase();
+            const currentBalance = getOceanPayBalanceForCurrency(curr);
+            const finalPrice = Number(offer?.surfacePrice || offer?.basePrice || 0);
+            const nextBalance = Math.max(0, Number(currentBalance || 0) - Number(finalPrice || 0));
+            const soldOut = isOfferSoldOutForUser(offer);
+            const insufficient = currentBalance < finalPrice;
+            const canConfirm = !soldOut && !insufficient;
+
+            if (sub) sub.textContent = `${projectName} - OWS Commerce Checkout`;
+            if (name) name.textContent = title;
+            if (price) price.textContent = formatOfferCurrencyPrice(finalPrice, curr);
+            if (balanceEl) balanceEl.textContent = formatOfferCurrencyPrice(currentBalance, curr);
+            if (afterEl) afterEl.textContent = formatOfferCurrencyPrice(nextBalance, curr);
+            if (stockEl) stockEl.textContent = getOfferStockLabel(offer);
+            if (warning) {
+                warning.style.display = (soldOut || insufficient) ? 'block' : 'none';
+                warning.textContent = soldOut
+                    ? 'Compraste todo el stock disponible para esta oferta en tu cuenta.'
+                    : (insufficient ? 'Saldo insuficiente para completar esta compra.' : '');
+            }
+
+            confirmBtn.disabled = !canConfirm;
+            confirmBtn.textContent = canConfirm ? 'Confirmar compra' : (soldOut ? 'Sin stock' : 'Saldo insuficiente');
+            confirmBtn.onclick = async () => {
+                const slug = String(offer?.projectSlug || '').trim().toLowerCase();
+                const code = String(offer?.offerCode || '').trim().toLowerCase();
+                if (!slug || !code) return;
+                confirmBtn.disabled = true;
+                confirmBtn.textContent = 'Procesando...';
+                try {
+                    await purchaseProjectCommerceOffer(slug, code, 'ows-store');
+                    addNotification('Compra completada. Puedes reclamarla dentro del proyecto.', 'success');
+                    closeStoreOfferCheckoutModal();
+                    await renderOffersMarketplace(true);
+                    if (activeDetailsProjectSlug && activeDetailsProjectSlug === slug) {
+                        const p = allProjects.find((x) => String(x.slug || '').toLowerCase() === slug);
+                        if (p) await renderProjectOffersInModal(p);
+                    }
+                } catch (err) {
+                    addNotification(err?.message || 'No se pudo completar la compra.', 'error');
+                    confirmBtn.disabled = false;
+                    confirmBtn.textContent = 'Confirmar compra';
+                }
+            };
+
+            storeOfferCheckoutState = { open: true, offer: { ...offer }, source };
+            modal.classList.add('active');
+            modal.setAttribute('aria-hidden', 'false');
         }
 
         async function fetchProjectCommerceOffers(projectSlug, surface = 'ows-store', force = false) {
@@ -6089,7 +6374,7 @@
             const data = await res.json().catch(() => ({}));
             if (!res.ok || !data?.success) {
                 if (res.status === 409) {
-                    throw new Error('Ya compraste esta oferta. Se ocultara al refrescar.');
+                    throw new Error(data?.error || 'Alcanzaste el stock maximo de esta oferta en tu cuenta.');
                 }
                 throw new Error(data?.error || `Compra rechazada (${res.status})`);
             }
@@ -6141,11 +6426,15 @@
                     const surfacePrice = Number(offer?.surfacePrice || base || 0);
                     const discount = Boolean(offer?.hasStoreExclusiveDiscount);
                     const meta = (offer?.metadata && typeof offer.metadata === 'object') ? offer.metadata : {};
-                    const oneTime = Boolean(meta.one_time_per_user);
+                    const purchaseLimit = getOfferPurchaseLimit(offer);
+                    const soldOut = isOfferSoldOutForUser(offer);
+                    const stockLabel = getOfferStockLabel(offer);
                     const balance = getOceanPayBalanceForCurrency(offer.currency);
-                    const canBuy = balance >= surfacePrice;
+                    const canBuy = balance >= surfacePrice && !soldOut;
+                    const key = getOfferVisualKey(slug, offer);
                     return `
-                        <div class="modal-offer-item" data-offer-code="${String(offer.offerCode || '').replace(/"/g, '&quot;')}">
+                        <div class="modal-offer-item ${soldOut ? 'soldout' : ''}" data-offer-code="${String(offer.offerCode || '').replace(/"/g, '&quot;')}">
+                            <div class="modal-offer-visual"><canvas class="modal-offer-canvas" width="360" height="92" data-visual-key="${htmlEncode(key)}"></canvas></div>
                             <div class="modal-offer-top">
                                 <div class="modal-offer-name">${offer.title || 'Oferta'}</div>
                                 <div class="modal-offer-price">
@@ -6154,19 +6443,25 @@
                                 </div>
                             </div>
                             <div class="modal-offer-desc">${offer.description || 'Oferta sincronizada entre OWS Store y el proyecto.'}</div>
+                            <div class="modal-offer-stock">${stockLabel}</div>
                             <div class="modal-offer-meta">
-                                <span class="modal-offer-badge">${discount ? `OWS EXCLUSIVE -${Math.max(1, Number(offer.discountPercent || 0))}%` : 'SYNCED OFFER'}${oneTime ? ' | 1x' : ''}</span>
+                                <span class="modal-offer-badge ${soldOut ? 'offer-stock-soldout' : ''}">${discount ? `OWS EXCLUSIVE -${Math.max(1, Number(offer.discountPercent || 0))}%` : 'SYNCED OFFER'}${purchaseLimit > 0 ? ` | ${purchaseLimit}x` : ''}</span>
                                 <button class="modal-offer-btn js-buy-store-offer"
                                         data-project-slug="${slug}"
                                         data-offer-code="${String(offer.offerCode || '').replace(/"/g, '&quot;')}"
                                         ${canBuy ? '' : 'disabled'}
-                                        title="${canBuy ? '' : 'Saldo insuficiente'}">
-                                    ${canBuy ? 'Comprar' : 'Saldo insuficiente'}
+                                        title="${canBuy ? '' : (soldOut ? 'Stock agotado' : 'Saldo insuficiente')}">
+                                    ${canBuy ? 'Checkout' : (soldOut ? 'Sin stock' : 'Saldo insuficiente')}
                                 </button>
                             </div>
                         </div>
                     `;
                 }).join('');
+
+                offersList.querySelectorAll('.modal-offer-canvas').forEach((canvas) => {
+                    const key = String(canvas.getAttribute('data-visual-key') || 'launch_orbit');
+                    drawSpotlightVisual(canvas, key);
+                });
 
                 offersList.querySelectorAll('.js-buy-store-offer').forEach((btn) => {
                     btn.addEventListener('click', async (event) => {
@@ -6176,18 +6471,9 @@
                         const projectSlug = String(target?.dataset?.projectSlug || '').trim().toLowerCase();
                         const offerCode = String(target?.dataset?.offerCode || '').trim().toLowerCase();
                         if (!projectSlug || !offerCode) return;
-                        if (!confirm('Confirmar compra de esta oferta con Ocean Pay?')) return;
-                        target.disabled = true;
-                        target.textContent = 'Procesando...';
-                        try {
-                            await purchaseProjectCommerceOffer(projectSlug, offerCode, 'ows-store');
-                            addNotification('Compra completada. La oferta quedo disponible para sincronizar en el proyecto.', 'success');
-                            await renderProjectOffersInModal(project);
-                        } catch (err) {
-                            addNotification(err?.message || 'No se pudo completar la compra.', 'error');
-                            target.disabled = false;
-                            target.textContent = 'Comprar';
-                        }
+                        const selectedOffer = offers.find((entry) => String(entry?.offerCode || '').trim().toLowerCase() === offerCode);
+                        if (!selectedOffer) return;
+                        openStoreOfferCheckoutModal(selectedOffer, 'project-modal');
                     });
                 });
             } catch (_err) {
@@ -6236,6 +6522,9 @@
 
             const items = collectMarketplaceOffersFromCache()
                 .sort((a, b) => {
+                    const aSold = isOfferSoldOutForUser(a) ? 1 : 0;
+                    const bSold = isOfferSoldOutForUser(b) ? 1 : 0;
+                    if (aSold !== bSold) return aSold - bSold;
                     const ap = Number(a?.discountPercent || 0);
                     const bp = Number(b?.discountPercent || 0);
                     if (ap !== bp) return bp - ap;
@@ -6253,12 +6542,14 @@
                 const base = Number(offer?.basePrice || 0);
                 const surfacePrice = Number(offer?.surfacePrice || base || 0);
                 const discount = Boolean(offer?.hasStoreExclusiveDiscount);
-                const oneTime = Boolean(offer?.metadata?.one_time_per_user);
+                const purchaseLimit = getOfferPurchaseLimit(offer);
+                const soldOut = isOfferSoldOutForUser(offer);
+                const stockLabel = getOfferStockLabel(offer);
                 const balance = getOceanPayBalanceForCurrency(offer.currency);
-                const canBuy = balance >= surfacePrice;
+                const canBuy = balance >= surfacePrice && !soldOut;
                 const key = getOfferVisualKey(offer.projectSlug, offer);
                 return `
-                    <article class="offers-market-card" data-project-slug="${String(offer.projectSlug || '').replace(/"/g, '&quot;')}" data-offer-code="${String(offer.offerCode || '').replace(/"/g, '&quot;')}">
+                    <article class="offers-market-card ${soldOut ? 'soldout' : ''}" data-project-slug="${String(offer.projectSlug || '').replace(/"/g, '&quot;')}" data-offer-code="${String(offer.offerCode || '').replace(/"/g, '&quot;')}">
                         <div class="offers-market-visual"><canvas class="offers-market-canvas" width="360" height="120" data-visual-key="${String(key).replace(/"/g, '&quot;')}"></canvas></div>
                         <div class="offers-market-top">
                             <div>
@@ -6268,9 +6559,10 @@
                             <div class="offers-market-price">${discount ? `<span class="old">${formatOfferCurrencyPrice(base, offer.currency)}</span>` : ''}${formatOfferCurrencyPrice(surfacePrice, offer.currency)}</div>
                         </div>
                         <div class="offers-market-desc">${offer.description || 'Oferta sincronizada de proyecto.'}</div>
+                        <div class="offers-market-stock">${stockLabel}</div>
                         <div class="offers-market-meta">
-                            <span class="offers-market-badge">${discount ? `OWS -${Math.max(1, Number(offer.discountPercent || 0))}%` : 'SYNC'}${oneTime ? ' | 1x' : ''}</span>
-                            <button class="offers-market-btn js-market-buy" ${canBuy ? '' : 'disabled'}>${canBuy ? 'Comprar' : 'Saldo insuficiente'}</button>
+                            <span class="offers-market-badge ${soldOut ? 'offer-stock-soldout' : ''}">${discount ? `OWS -${Math.max(1, Number(offer.discountPercent || 0))}%` : 'SYNC'}${purchaseLimit > 0 ? ` | ${purchaseLimit}x` : ''}</span>
+                            <button class="offers-market-btn js-market-buy" ${canBuy ? '' : 'disabled'}>${canBuy ? 'Checkout' : (soldOut ? 'Sin stock' : 'Saldo insuficiente')}</button>
                         </div>
                     </article>
                 `;
@@ -6290,24 +6582,12 @@
                     const slug = String(card.getAttribute('data-project-slug') || '').toLowerCase();
                     const code = String(card.getAttribute('data-offer-code') || '').toLowerCase();
                     if (!slug || !code) return;
-                    if (!confirm('Confirmar compra de esta oferta con Ocean Pay?')) return;
-                    actionBtn.disabled = true;
-                    actionBtn.textContent = 'Procesando...';
-                    try {
-                        await purchaseProjectCommerceOffer(slug, code, 'ows-store');
-                        addNotification('Compra completada. Oferta removida de la tienda si era one-time.', 'success');
-                        await renderOffersMarketplace(true);
-                        if (activeDetailsProjectSlug && activeDetailsProjectSlug === slug) {
-                            const p = allProjects.find((x) => String(x.slug || '').toLowerCase() === slug);
-                            if (p) await renderProjectOffersInModal(p);
-                        }
-                    } catch (err) {
-                        addNotification(err?.message || 'No se pudo completar la compra.', 'error');
-                        if (actionBtn && actionBtn.isConnected) {
-                            actionBtn.disabled = false;
-                            actionBtn.textContent = 'Comprar';
-                        }
-                    }
+                    const selectedOffer = items.find((entry) =>
+                        String(entry?.projectSlug || '').toLowerCase() === slug
+                        && String(entry?.offerCode || '').toLowerCase() === code
+                    );
+                    if (!selectedOffer) return;
+                    openStoreOfferCheckoutModal(selectedOffer, 'marketplace');
                 });
             });
         }

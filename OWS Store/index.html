@@ -708,6 +708,21 @@
         .modal-news-wrap { display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; margin-bottom:1.25rem; }
         @media (max-width:560px) { .modal-news-wrap { grid-template-columns:1fr; } }
         .modal-news-card { background:var(--surface-2); border:1px solid var(--border); border-radius:var(--r-md); padding:0.85rem; }
+        .modal-offers-wrap { margin-bottom:1.05rem; }
+        .modal-offers-card { background:var(--surface-2); border:1px solid var(--border); border-radius:var(--r-md); padding:0.85rem; }
+        .modal-offers-head { display:flex; justify-content:space-between; align-items:center; gap:0.5rem; margin-bottom:0.55rem; }
+        .modal-offers-title { font-size:0.8rem; text-transform:uppercase; letter-spacing:0.8px; color:var(--ink-1); font-family:var(--font-mono); }
+        .modal-offers-list { display:flex; flex-direction:column; gap:0.5rem; }
+        .modal-offer-item { border:1px solid var(--border); border-radius:10px; padding:0.62rem; background:var(--surface-1); }
+        .modal-offer-top { display:flex; justify-content:space-between; align-items:center; gap:0.55rem; margin-bottom:0.28rem; }
+        .modal-offer-name { font-weight:700; font-size:0.8rem; color:var(--ink-0); }
+        .modal-offer-price { font-family:var(--font-mono); font-size:0.72rem; color:var(--cyan); font-weight:700; white-space:nowrap; }
+        .modal-offer-price .old { color:var(--ink-2); text-decoration:line-through; margin-right:0.35rem; }
+        .modal-offer-desc { font-size:0.72rem; color:var(--ink-1); line-height:1.35; }
+        .modal-offer-meta { margin-top:0.38rem; display:flex; justify-content:space-between; align-items:center; gap:0.5rem; }
+        .modal-offer-badge { font-size:0.62rem; padding:2px 7px; border-radius:999px; font-family:var(--font-mono); border:1px solid rgba(38,212,232,0.35); color:var(--cyan); background:rgba(38,212,232,0.1); }
+        .modal-offer-btn { border:1px solid rgba(38,212,232,0.3); background:var(--cyan-dim); color:var(--cyan); border-radius:8px; padding:0.34rem 0.58rem; font-size:0.7rem; font-weight:700; cursor:pointer; font-family:inherit; }
+        .modal-offer-btn:disabled { opacity:0.45; cursor:not-allowed; }
         .modal-news-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:0.5rem; }
         .modal-news-title { font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.3px; }
         .modal-news-counter { font-size:0.62rem; font-family:var(--font-mono); color:var(--cyan); }
@@ -2345,6 +2360,15 @@
                 <div id="m-platform-options" class="modal-platform-options"></div>
                 <div id="m-platform-meta" class="modal-platform-meta"></div>
             </div>
+            <div id="m-offers-wrap" class="modal-offers-wrap" style="display:none;">
+                <div class="modal-offers-card">
+                    <div class="modal-offers-head">
+                        <div class="modal-offers-title">Ofertas OWS Store</div>
+                        <span id="m-offers-count" class="modal-news-counter">0 ofertas</span>
+                    </div>
+                    <div id="m-offers-list" class="modal-offers-list"></div>
+                </div>
+            </div>
             <div id="m-news-wrap" class="modal-news-wrap">
                 <div class="modal-news-card">
                     <div class="modal-news-head">
@@ -3287,6 +3311,8 @@
             loading: false,
             connected: false
         };
+        const projectCommerceOfferCache = new Map();
+        let activeDetailsProjectSlug = '';
         const projectInstallQueue = [];
         const downloadSessions = {};
         const UPDATE_BANNER_STATES = ['checking', 'available', 'downloading', 'ready', 'success', 'error', 'info'];
@@ -5966,6 +5992,163 @@
                 ? featuredEvents.map(buildNewsHubEventCard).join('')
                 : '<div class="news-hub-event-card empty"><div class="news-hub-event-copy"><div class="news-hub-item-title">Sin eventos activos</div><div class="news-hub-item-meta">Se mostraran aqui los lanzamientos y updates destacados del ecosistema.</div></div></div>';
             renderNewsHubEventVisuals();
+        }
+
+        function formatOfferCurrencyPrice(amount, currency) {
+            const safeAmount = Number.isFinite(Number(amount)) ? Number(amount) : 0;
+            const curr = String(currency || 'voltbit').toLowerCase();
+            const labelMap = {
+                voltbit: 'VB',
+                aquabux: 'AquaBux',
+                wildcredits: 'WC',
+                ecoxionums: 'EX'
+            };
+            const label = labelMap[curr] || curr.toUpperCase();
+            return `${Math.floor(safeAmount).toLocaleString()} ${label}`;
+        }
+
+        function getOceanPayBalanceForCurrency(currency) {
+            const curr = String(currency || '').toLowerCase();
+            if (!curr) return 0;
+            return Math.max(0, Number(oceanPayState?.balances?.[curr] || 0));
+        }
+
+        async function fetchProjectCommerceOffers(projectSlug, surface = 'ows-store', force = false) {
+            const slug = String(projectSlug || '').trim().toLowerCase();
+            if (!slug) return [];
+            const cacheKey = `${slug}|${surface}`;
+            const cached = projectCommerceOfferCache.get(cacheKey);
+            const now = Date.now();
+            if (!force && cached && (now - cached.ts) < 45000) return cached.offers;
+
+            const url = `${API_URL}/project-commerce/${encodeURIComponent(slug)}/offers?surface=${encodeURIComponent(surface)}`;
+            const res = await fetch(url, { cache: 'no-store' });
+            if (!res.ok) throw new Error(`Offers HTTP ${res.status}`);
+            const data = await res.json().catch(() => ({}));
+            const offers = Array.isArray(data?.offers) ? data.offers : [];
+            projectCommerceOfferCache.set(cacheKey, { ts: now, offers });
+            return offers;
+        }
+
+        async function purchaseProjectCommerceOffer(projectSlug, offerCode, surface = 'ows-store') {
+            if (!oceanPayState?.connected || !getOceanPayToken()) {
+                addNotification('Conecta Ocean Pay para comprar ofertas.', 'warning');
+                return null;
+            }
+            const slug = String(projectSlug || '').trim().toLowerCase();
+            const code = String(offerCode || '').trim().toLowerCase();
+            if (!slug || !code) return null;
+
+            const res = await oceanPayApi(`/project-commerce/${encodeURIComponent(slug)}/offers/${encodeURIComponent(code)}/purchase`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ surface })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data?.success) {
+                throw new Error(data?.error || `Compra rechazada (${res.status})`);
+            }
+
+            const currency = String(data?.balance?.currency || data?.offer?.currency || '').toLowerCase();
+            const amount = Number(data?.balance?.amount || 0);
+            if (currency) {
+                oceanPayState.balances = {
+                    ...(oceanPayState.balances || {}),
+                    [currency]: amount
+                };
+                if (currency === 'aquabux') oceanPayState.balance = amount;
+                renderOceanPayCard();
+            }
+            return data;
+        }
+
+        async function renderProjectOffersInModal(project) {
+            const offersWrap = document.getElementById('m-offers-wrap');
+            const offersList = document.getElementById('m-offers-list');
+            const offersCount = document.getElementById('m-offers-count');
+            if (!offersWrap || !offersList || !offersCount) return;
+
+            if (!project || !project.slug) {
+                offersWrap.style.display = 'none';
+                offersList.innerHTML = '';
+                offersCount.textContent = '0 ofertas';
+                return;
+            }
+
+            const slug = String(project.slug || '').toLowerCase();
+            activeDetailsProjectSlug = slug;
+            offersWrap.style.display = 'block';
+            offersList.innerHTML = '<div class="modal-news-empty">Cargando ofertas...</div>';
+            offersCount.textContent = '...';
+
+            try {
+                const offers = await fetchProjectCommerceOffers(slug, 'ows-store', true);
+                if (activeDetailsProjectSlug !== slug) return;
+                if (!offers.length) {
+                    offersList.innerHTML = '<div class="modal-news-empty">Sin ofertas sincronizadas para este proyecto.</div>';
+                    offersCount.textContent = '0 ofertas';
+                    return;
+                }
+
+                offersCount.textContent = `${offers.length} ${offers.length === 1 ? 'oferta' : 'ofertas'}`;
+                offersList.innerHTML = offers.map((offer) => {
+                    const base = Number(offer?.basePrice || 0);
+                    const surfacePrice = Number(offer?.surfacePrice || base || 0);
+                    const discount = Boolean(offer?.hasStoreExclusiveDiscount);
+                    const meta = (offer?.metadata && typeof offer.metadata === 'object') ? offer.metadata : {};
+                    const oneTime = Boolean(meta.one_time_per_user);
+                    const balance = getOceanPayBalanceForCurrency(offer.currency);
+                    const canBuy = balance >= surfacePrice;
+                    return `
+                        <div class="modal-offer-item" data-offer-code="${String(offer.offerCode || '').replace(/"/g, '&quot;')}">
+                            <div class="modal-offer-top">
+                                <div class="modal-offer-name">${offer.title || 'Oferta'}</div>
+                                <div class="modal-offer-price">
+                                    ${discount ? `<span class="old">${formatOfferCurrencyPrice(base, offer.currency)}</span>` : ''}
+                                    ${formatOfferCurrencyPrice(surfacePrice, offer.currency)}
+                                </div>
+                            </div>
+                            <div class="modal-offer-desc">${offer.description || 'Oferta sincronizada entre OWS Store y el proyecto.'}</div>
+                            <div class="modal-offer-meta">
+                                <span class="modal-offer-badge">${discount ? `OWS EXCLUSIVE -${Math.max(1, Number(offer.discountPercent || 0))}%` : 'SYNCED OFFER'}${oneTime ? ' | 1x' : ''}</span>
+                                <button class="modal-offer-btn js-buy-store-offer"
+                                        data-project-slug="${slug}"
+                                        data-offer-code="${String(offer.offerCode || '').replace(/"/g, '&quot;')}"
+                                        ${canBuy ? '' : 'disabled'}
+                                        title="${canBuy ? '' : 'Saldo insuficiente'}">
+                                    ${canBuy ? 'Comprar' : 'Saldo insuficiente'}
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                offersList.querySelectorAll('.js-buy-store-offer').forEach((btn) => {
+                    btn.addEventListener('click', async (event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        const target = event.currentTarget;
+                        const projectSlug = String(target?.dataset?.projectSlug || '').trim().toLowerCase();
+                        const offerCode = String(target?.dataset?.offerCode || '').trim().toLowerCase();
+                        if (!projectSlug || !offerCode) return;
+                        if (!confirm('Confirmar compra de esta oferta con Ocean Pay?')) return;
+                        target.disabled = true;
+                        target.textContent = 'Procesando...';
+                        try {
+                            await purchaseProjectCommerceOffer(projectSlug, offerCode, 'ows-store');
+                            addNotification('Compra completada. La oferta quedo disponible para sincronizar en el proyecto.', 'success');
+                            await renderProjectOffersInModal(project);
+                        } catch (err) {
+                            addNotification(err?.message || 'No se pudo completar la compra.', 'error');
+                            target.disabled = false;
+                            target.textContent = 'Comprar';
+                        }
+                    });
+                });
+            } catch (_err) {
+                offersList.innerHTML = '<div class="modal-news-empty">No se pudieron cargar ofertas de este proyecto.</div>';
+                offersCount.textContent = '0 ofertas';
+            }
         }
 
         function renderProjectNewsInModal(project) {
@@ -10677,7 +10860,7 @@
                 : (isReleaseTrackedProject(p)
                 ? (p.pending_release ? 'PENDING RELEASE' : 'READY TO INSTALL')
                 : (p.status || 'launched').toUpperCase());
-            const modalIconEl = document.getElementById('m-icon');
+            let modalIconEl = document.getElementById('m-icon');
             const _mSrc = getProjectIcon(p, 140);
             if (modalIconEl.tagName === 'IMG') {
                 // Convert to div on first use to support .ico in Chromium
@@ -10821,11 +11004,15 @@
                 actions.appendChild(cancelBtn);
             }
             renderProjectNewsInModal(p);
+            renderProjectOffersInModal(p);
             maybeShowRecommendBubble(p);
             document.getElementById('details-modal').classList.add('active');
         }
 
-        function closeDetails() { document.getElementById('details-modal').classList.remove('active'); }
+        function closeDetails() {
+            activeDetailsProjectSlug = '';
+            document.getElementById('details-modal').classList.remove('active');
+        }
 
         async function refreshTrackedProjectRelease(project, options = {}) {
             if (!project || !isReleaseTrackedProject(project)) return null;

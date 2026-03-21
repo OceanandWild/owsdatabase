@@ -859,6 +859,102 @@ async function ensureOwsStoreProjectsSeedData() {
   return { seeded: seeds.length };
 }
 
+async function ensureOwsStoreProjectOffersSeedData() {
+  const seeds = [
+    {
+      project_slug: 'velocity-surge',
+      offer_code: 'vs_elemental_starter',
+      title: 'Velocity Surge - Elemental Starter',
+      description: 'Pack sincronizado para evento elemental con descuento exclusivo en OWS Store.',
+      currency: 'voltbit',
+      base_price: 6800,
+      ows_store_price: 6100,
+      reward_payload: {
+        event_offer: {
+          id: 'sync_vs_elemental_starter',
+          eventId: 'elemental_convergence',
+          name: 'PACK ELEMENTAL SINCRONIZADO',
+          desc: 'Desbloquea un corredor elemental elegido + 20 tarjetas.',
+          type: 'early',
+          gives: { character: 'elemental_pyre', cards: 20, bits: 0 },
+          pool: ['elemental_aqua', 'elemental_pyre', 'elemental_gale', 'elemental_terra', 'elemental_plasma', 'elemental_crystal', 'elemental_thunder'],
+          badgeText: 'OWS',
+          badgeColor: '#00f7ff',
+          chestType: null
+        }
+      },
+      metadata: {
+        one_time_per_user: true,
+        source: 'ows_store_sync',
+        visible_in_project: true
+      }
+    },
+    {
+      project_slug: 'velocity-surge',
+      offer_code: 'vs_planetary_crate',
+      title: 'Velocity Surge - Planetary Crate',
+      description: 'Cofre planetario premium. OWS Store aplica precio promocional especial.',
+      currency: 'voltbit',
+      base_price: 11800,
+      ows_store_price: 10400,
+      reward_payload: {
+        event_offer: {
+          id: 'sync_vs_planetary_crate',
+          eventId: 'planetary_rush',
+          name: 'COFRE PLANETARIO SINCRONIZADO',
+          desc: 'Cofre avanzado del corredor planetario elegido + 52 tarjetas.',
+          type: 'lastchance',
+          lastChanceDays: 2,
+          gives: { character: 'planet_terra', cards: 52, bits: 420 },
+          pool: ['planet_mercury', 'planet_venus', 'planet_terra'],
+          badgeText: '-OWS',
+          badgeColor: '#ffd166',
+          chestType: 'event_chest_planet_terra'
+        }
+      },
+      metadata: {
+        one_time_per_user: true,
+        source: 'ows_store_sync',
+        visible_in_project: true
+      }
+    }
+  ];
+
+  let seeded = 0;
+  for (const item of seeds) {
+    await pool.query(
+      `INSERT INTO ows_project_offers (
+         project_slug, offer_code, title, description, currency,
+         base_price, ows_store_price, reward_payload, metadata, is_active
+       )
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,TRUE)
+       ON CONFLICT (project_slug, offer_code) DO UPDATE SET
+         title = EXCLUDED.title,
+         description = EXCLUDED.description,
+         currency = EXCLUDED.currency,
+         base_price = EXCLUDED.base_price,
+         ows_store_price = EXCLUDED.ows_store_price,
+         reward_payload = ows_project_offers.reward_payload || EXCLUDED.reward_payload,
+         metadata = ows_project_offers.metadata || EXCLUDED.metadata,
+         updated_at = NOW()`,
+      [
+        item.project_slug,
+        item.offer_code,
+        item.title,
+        item.description,
+        item.currency,
+        item.base_price,
+        item.ows_store_price,
+        item.reward_payload || {},
+        item.metadata || {}
+      ]
+    );
+    seeded += 1;
+  }
+
+  return { seeded };
+}
+
 async function ensureOwsStoreNewsSeedData() {
   const now = new Date();
   const in14Days = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
@@ -1874,6 +1970,53 @@ async function runDatabaseMigrations() {
       ADD COLUMN IF NOT EXISTS installer_url TEXT
     `).catch(() => console.log('âš ï¸ Columna installer_url ya existe en ows_projects'));
 
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ows_project_offers(
+        id SERIAL PRIMARY KEY,
+        project_slug VARCHAR(50) NOT NULL REFERENCES ows_projects(slug) ON DELETE CASCADE,
+        offer_code VARCHAR(80) NOT NULL,
+        title VARCHAR(160) NOT NULL,
+        description TEXT,
+        currency VARCHAR(40) NOT NULL DEFAULT 'voltbit',
+        base_price NUMERIC(20,2) NOT NULL DEFAULT 0,
+        ows_store_price NUMERIC(20,2),
+        reward_payload JSONB DEFAULT '{}'::jsonb,
+        metadata JSONB DEFAULT '{}'::jsonb,
+        is_active BOOLEAN DEFAULT TRUE,
+        starts_at TIMESTAMP,
+        ends_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(project_slug, offer_code)
+      );
+    `).catch(err => console.log('âš ï¸ Error creando ows_project_offers:', err.message));
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_ows_project_offers_project_active
+      ON ows_project_offers(project_slug, is_active, starts_at, ends_at)
+    `).catch(() => {});
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ows_project_offer_purchases(
+        id SERIAL PRIMARY KEY,
+        project_slug VARCHAR(50) NOT NULL REFERENCES ows_projects(slug) ON DELETE CASCADE,
+        offer_code VARCHAR(80) NOT NULL,
+        user_id BIGINT NOT NULL,
+        surface VARCHAR(30) NOT NULL DEFAULT 'project',
+        currency VARCHAR(40) NOT NULL,
+        paid_amount NUMERIC(20,2) NOT NULL DEFAULT 0,
+        reward_payload JSONB DEFAULT '{}'::jsonb,
+        metadata JSONB DEFAULT '{}'::jsonb,
+        status VARCHAR(20) NOT NULL DEFAULT 'completed',
+        claimed_by_project BOOLEAN NOT NULL DEFAULT FALSE,
+        claimed_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `).catch(err => console.log('âš ï¸ Error creando ows_project_offer_purchases:', err.message));
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_ows_project_offer_purchases_user_pending
+      ON ows_project_offer_purchases(user_id, project_slug, claimed_by_project, status)
+    `).catch(() => {});
+
     if (typeof ensureOwsStoreProjectsSeedData === 'function') {
       await ensureOwsStoreProjectsSeedData().catch(err => console.log('[OWS] Error seeding ows_projects:', err.message));
     } else {
@@ -1884,6 +2027,12 @@ async function runDatabaseMigrations() {
       await ensureProjectChangelogSync({ force: true }).catch(err => console.log('[OWS] Error syncing project changelogs:', err.message));
     } else {
       console.warn('[OWS] ensureProjectChangelogSync no definida, se omite sync de changelogs.');
+    }
+
+    if (typeof ensureOwsStoreProjectOffersSeedData === 'function') {
+      await ensureOwsStoreProjectOffersSeedData().catch(err => console.log('[OWS] Error seeding ows_project_offers:', err.message));
+    } else {
+      console.warn('[OWS] ensureOwsStoreProjectOffersSeedData no definida, se omite seed de ofertas.');
     }
 
     // Tabla de releases Android para updater asistido (OWS Store Launcher)
@@ -6184,6 +6333,419 @@ async function githubProxyHandler(req, res) {
     return res.status(500).json({ error: 'Error en proxy GitHub', details: err?.message || String(err) });
   }
 }
+
+function normalizeOfferSurface(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  if (raw === 'ows-store' || raw === 'ows_store' || raw === 'store') return 'ows-store';
+  return 'project';
+}
+
+function normalizeCommerceProjectSlug(value) {
+  const slug = String(value || '').trim().toLowerCase();
+  if (!slug) return '';
+  if (slug === 'velocitysurge') return 'velocity-surge';
+  return slug;
+}
+
+function parseOfferBoolean(value, fallback = false) {
+  if (value === undefined || value === null || value === '') return Boolean(fallback);
+  const v = String(value).trim().toLowerCase();
+  if (['1', 'true', 'yes', 'y', 'on'].includes(v)) return true;
+  if (['0', 'false', 'no', 'n', 'off'].includes(v)) return false;
+  return Boolean(fallback);
+}
+
+function toOfferPrice(value, fallback = 0) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return Math.max(0, Number(fallback || 0));
+  return Math.max(0, Number(n.toFixed(2)));
+}
+
+function mapProjectOfferRow(row, { surface = 'project' } = {}) {
+  const normalizedSurface = normalizeOfferSurface(surface);
+  const basePrice = toOfferPrice(row?.base_price, 0);
+  const storePriceRaw = toOfferPrice(row?.ows_store_price, 0);
+  const hasStoreOverride = storePriceRaw > 0;
+  const effectivePrice = normalizedSurface === 'ows-store'
+    ? (hasStoreOverride ? storePriceRaw : basePrice)
+    : basePrice;
+  const hasExclusiveDiscount = normalizedSurface === 'ows-store'
+    && hasStoreOverride
+    && storePriceRaw < basePrice;
+  const discountPercent = hasExclusiveDiscount && basePrice > 0
+    ? Math.max(1, Math.round(((basePrice - storePriceRaw) / basePrice) * 100))
+    : 0;
+  const metadata = (row?.metadata && typeof row.metadata === 'object') ? row.metadata : {};
+  const rewardPayload = (row?.reward_payload && typeof row.reward_payload === 'object') ? row.reward_payload : {};
+
+  return {
+    id: Number(row?.id || 0),
+    projectSlug: String(row?.project_slug || ''),
+    offerCode: String(row?.offer_code || ''),
+    title: String(row?.title || ''),
+    description: String(row?.description || ''),
+    currency: String(row?.currency || 'voltbit').toLowerCase(),
+    basePrice,
+    surfacePrice: effectivePrice,
+    storePrice: hasStoreOverride ? storePriceRaw : null,
+    hasStoreExclusiveDiscount: hasExclusiveDiscount,
+    discountPercent,
+    isActive: Boolean(row?.is_active),
+    startsAt: row?.starts_at || null,
+    endsAt: row?.ends_at || null,
+    rewardPayload,
+    metadata,
+    createdAt: row?.created_at || null,
+    updatedAt: row?.updated_at || null
+  };
+}
+
+function getOfferBalanceMapAndAmount(newBalance, currency) {
+  const balances = {};
+  balances[String(currency || 'voltbit').toLowerCase()] = Number(newBalance || 0);
+  return balances;
+}
+
+app.get('/project-commerce/:slug/offers', async (req, res) => {
+  const projectSlug = normalizeCommerceProjectSlug(req.params.slug);
+  if (!projectSlug) return res.status(400).json({ error: 'slug requerido' });
+  const surface = normalizeOfferSurface(req.query.surface);
+  const includeInactive = parseOfferBoolean(req.query.include_inactive, false);
+  const nowIso = new Date().toISOString();
+
+  try {
+    const values = [projectSlug, nowIso];
+    let sql = `
+      SELECT *
+      FROM ows_project_offers
+      WHERE project_slug = $1
+    `;
+    if (!includeInactive) {
+      sql += `
+        AND is_active = TRUE
+        AND (starts_at IS NULL OR starts_at <= $2::timestamp)
+        AND (ends_at IS NULL OR ends_at >= $2::timestamp)
+      `;
+    }
+    sql += ' ORDER BY created_at DESC, id DESC';
+
+    const { rows } = await pool.query(sql, values);
+    return res.json({
+      success: true,
+      projectSlug,
+      surface,
+      offers: rows.map((row) => mapProjectOfferRow(row, { surface }))
+    });
+  } catch (err) {
+    console.error('Error en GET /project-commerce/:slug/offers:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+app.post('/project-commerce/:slug/offers', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const projectSlug = normalizeCommerceProjectSlug(req.params.slug);
+  const payload = req.body || {};
+  const offerCode = String(payload.offer_code || payload.offerCode || '').trim().toLowerCase();
+  const title = String(payload.title || '').trim();
+  const description = String(payload.description || '').trim() || null;
+  const currency = String(payload.currency || 'voltbit').trim().toLowerCase();
+  const basePrice = toOfferPrice(payload.base_price ?? payload.basePrice, 0);
+  const owsStorePrice = payload.ows_store_price !== undefined || payload.owsStorePrice !== undefined
+    ? toOfferPrice(payload.ows_store_price ?? payload.owsStorePrice, 0)
+    : null;
+  const rewardPayload = (payload.reward_payload && typeof payload.reward_payload === 'object')
+    ? payload.reward_payload
+    : ((payload.rewardPayload && typeof payload.rewardPayload === 'object') ? payload.rewardPayload : {});
+  const metadata = (payload.metadata && typeof payload.metadata === 'object') ? payload.metadata : {};
+  const isActive = parseOfferBoolean(payload.is_active ?? payload.isActive, true);
+  const startsAt = payload.starts_at || payload.startsAt || null;
+  const endsAt = payload.ends_at || payload.endsAt || null;
+
+  if (!projectSlug) return res.status(400).json({ error: 'slug requerido' });
+  if (!offerCode) return res.status(400).json({ error: 'offer_code requerido' });
+  if (!title) return res.status(400).json({ error: 'title requerido' });
+  if (basePrice <= 0) return res.status(400).json({ error: 'base_price debe ser mayor a 0' });
+
+  try {
+    const projectExists = await pool.query('SELECT 1 FROM ows_projects WHERE slug = $1 LIMIT 1', [projectSlug]);
+    if (!projectExists.rowCount) return res.status(404).json({ error: 'Proyecto no registrado en ows_projects' });
+
+    const { rows } = await pool.query(
+      `INSERT INTO ows_project_offers (
+         project_slug, offer_code, title, description, currency, base_price, ows_store_price,
+         reward_payload, metadata, is_active, starts_at, ends_at, updated_at
+       )
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,NOW())
+       ON CONFLICT (project_slug, offer_code) DO UPDATE SET
+         title = EXCLUDED.title,
+         description = EXCLUDED.description,
+         currency = EXCLUDED.currency,
+         base_price = EXCLUDED.base_price,
+         ows_store_price = EXCLUDED.ows_store_price,
+         reward_payload = EXCLUDED.reward_payload,
+         metadata = ows_project_offers.metadata || EXCLUDED.metadata,
+         is_active = EXCLUDED.is_active,
+         starts_at = EXCLUDED.starts_at,
+         ends_at = EXCLUDED.ends_at,
+         updated_at = NOW()
+       RETURNING *`,
+      [
+        projectSlug,
+        offerCode,
+        title,
+        description,
+        currency,
+        basePrice,
+        owsStorePrice,
+        rewardPayload || {},
+        metadata || {},
+        isActive,
+        startsAt,
+        endsAt
+      ]
+    );
+
+    return res.json({
+      success: true,
+      offer: mapProjectOfferRow(rows[0], { surface: 'ows-store' })
+    });
+  } catch (err) {
+    console.error('Error en POST /project-commerce/:slug/offers:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+app.post('/project-commerce/:slug/offers/:offerCode/purchase', async (req, res) => {
+  const userId = getAuthenticatedOceanPayUserId(req);
+  if (!userId) return res.status(401).json({ error: 'Token invalido' });
+  const projectSlug = normalizeCommerceProjectSlug(req.params.slug);
+  const offerCode = String(req.params.offerCode || '').trim().toLowerCase();
+  const surface = normalizeOfferSurface(req.body?.surface || req.query?.surface);
+  const nowIso = new Date().toISOString();
+  if (!projectSlug || !offerCode) return res.status(400).json({ error: 'slug y offerCode requeridos' });
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const { rows: offerRows } = await client.query(
+      `SELECT *
+       FROM ows_project_offers
+       WHERE project_slug = $1
+         AND offer_code = $2
+         AND is_active = TRUE
+         AND (starts_at IS NULL OR starts_at <= $3::timestamp)
+         AND (ends_at IS NULL OR ends_at >= $3::timestamp)
+       FOR UPDATE`,
+      [projectSlug, offerCode, nowIso]
+    );
+    if (!offerRows.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Oferta no disponible' });
+    }
+
+    const offerRow = offerRows[0];
+    const mapped = mapProjectOfferRow(offerRow, { surface });
+    const oneTime = parseOfferBoolean(offerRow?.metadata?.one_time_per_user, false);
+
+    if (oneTime) {
+      const existing = await client.query(
+        `SELECT id
+         FROM ows_project_offer_purchases
+         WHERE project_slug = $1
+           AND offer_code = $2
+           AND user_id = $3
+           AND status = 'completed'
+         LIMIT 1`,
+        [projectSlug, offerCode, userId]
+      );
+      if (existing.rowCount > 0) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ error: 'Oferta ya comprada para este usuario' });
+      }
+    }
+
+    const currency = String(mapped.currency || 'voltbit').toLowerCase();
+    const price = toOfferPrice(mapped.surfacePrice, 0);
+    if (price <= 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Precio de oferta invalido' });
+    }
+
+    const currentBalance = await getUnifiedBalance(client, userId, currency);
+    if (currentBalance < price) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        error: 'Saldo insuficiente',
+        currency,
+        currentBalance: Number(currentBalance || 0),
+        required: price
+      });
+    }
+
+    const newBalance = Number((currentBalance - price).toFixed(2));
+    await setUnifiedBalance(client, userId, currency, newBalance);
+
+    await client.query(
+      `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [
+        userId,
+        `Compra oferta ${mapped.title}`,
+        -price,
+        `Project Commerce (${projectSlug})`,
+        String(currency || 'voltbit').toUpperCase()
+      ]
+    );
+
+    const { rows: purchaseRows } = await client.query(
+      `INSERT INTO ows_project_offer_purchases (
+         project_slug, offer_code, user_id, surface, currency, paid_amount,
+         reward_payload, metadata, status, claimed_by_project
+       )
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'completed',FALSE)
+       RETURNING *`,
+      [
+        projectSlug,
+        offerCode,
+        userId,
+        surface,
+        currency,
+        price,
+        offerRow?.reward_payload || {},
+        offerRow?.metadata || {}
+      ]
+    );
+
+    await client.query('COMMIT');
+    return res.json({
+      success: true,
+      projectSlug,
+      surface,
+      offer: mapped,
+      purchase: {
+        id: Number(purchaseRows[0]?.id || 0),
+        createdAt: purchaseRows[0]?.created_at || null
+      },
+      balance: {
+        currency,
+        amount: newBalance,
+        balances: getOfferBalanceMapAndAmount(newBalance, currency)
+      },
+      rewardPayload: (offerRow?.reward_payload && typeof offerRow.reward_payload === 'object') ? offerRow.reward_payload : {}
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error en POST /project-commerce/:slug/offers/:offerCode/purchase:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  } finally {
+    client.release();
+  }
+});
+
+app.get('/project-commerce/:slug/purchases/pending', async (req, res) => {
+  const userId = getAuthenticatedOceanPayUserId(req);
+  if (!userId) return res.status(401).json({ error: 'Token invalido' });
+  const projectSlug = normalizeCommerceProjectSlug(req.params.slug);
+  if (!projectSlug) return res.status(400).json({ error: 'slug requerido' });
+
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, project_slug, offer_code, surface, currency, paid_amount, reward_payload, metadata, created_at
+       FROM ows_project_offer_purchases
+       WHERE user_id = $1
+         AND project_slug = $2
+         AND status = 'completed'
+         AND claimed_by_project = FALSE
+       ORDER BY created_at ASC, id ASC`,
+      [userId, projectSlug]
+    );
+    return res.json({
+      success: true,
+      pending: rows.map((row) => ({
+        id: Number(row.id || 0),
+        projectSlug: String(row.project_slug || ''),
+        offerCode: String(row.offer_code || ''),
+        surface: String(row.surface || ''),
+        currency: String(row.currency || ''),
+        paidAmount: toOfferPrice(row.paid_amount, 0),
+        rewardPayload: (row.reward_payload && typeof row.reward_payload === 'object') ? row.reward_payload : {},
+        metadata: (row.metadata && typeof row.metadata === 'object') ? row.metadata : {},
+        createdAt: row.created_at || null
+      }))
+    });
+  } catch (err) {
+    console.error('Error en GET /project-commerce/:slug/purchases/pending:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+app.post('/project-commerce/:slug/purchases/claim', async (req, res) => {
+  const userId = getAuthenticatedOceanPayUserId(req);
+  if (!userId) return res.status(401).json({ error: 'Token invalido' });
+  const projectSlug = normalizeCommerceProjectSlug(req.params.slug);
+  if (!projectSlug) return res.status(400).json({ error: 'slug requerido' });
+  const requestedIds = Array.isArray(req.body?.purchase_ids)
+    ? req.body.purchase_ids.map((v) => Number(v)).filter((n) => Number.isFinite(n) && n > 0)
+    : [];
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const params = [userId, projectSlug];
+    let idFilterSql = '';
+    if (requestedIds.length > 0) {
+      params.push(requestedIds);
+      idFilterSql = ` AND id = ANY($${params.length}::int[])`;
+    }
+
+    const { rows } = await client.query(
+      `SELECT id, project_slug, offer_code, surface, currency, paid_amount, reward_payload, metadata, created_at
+       FROM ows_project_offer_purchases
+       WHERE user_id = $1
+         AND project_slug = $2
+         AND status = 'completed'
+         AND claimed_by_project = FALSE
+         ${idFilterSql}
+       ORDER BY created_at ASC, id ASC
+       FOR UPDATE`,
+      params
+    );
+
+    const ids = rows.map((r) => Number(r.id || 0)).filter((n) => n > 0);
+    if (ids.length > 0) {
+      await client.query(
+        `UPDATE ows_project_offer_purchases
+         SET claimed_by_project = TRUE, claimed_at = NOW()
+         WHERE id = ANY($1::int[])`,
+        [ids]
+      );
+    }
+
+    await client.query('COMMIT');
+    return res.json({
+      success: true,
+      claimed: rows.map((row) => ({
+        id: Number(row.id || 0),
+        projectSlug: String(row.project_slug || ''),
+        offerCode: String(row.offer_code || ''),
+        surface: String(row.surface || ''),
+        currency: String(row.currency || ''),
+        paidAmount: toOfferPrice(row.paid_amount, 0),
+        rewardPayload: (row.reward_payload && typeof row.reward_payload === 'object') ? row.reward_payload : {},
+        metadata: (row.metadata && typeof row.metadata === 'object') ? row.metadata : {},
+        createdAt: row.created_at || null
+      }))
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error en POST /project-commerce/:slug/purchases/claim:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  } finally {
+    client.release();
+  }
+});
 
 // OWS Store catalog (fuente principal para launcher)
 app.get('/ows-store/projects', async (req, res) => {

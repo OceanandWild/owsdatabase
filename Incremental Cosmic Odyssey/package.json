@@ -1,0 +1,68 @@
+{
+  "name": "incremental-cosmic-odyssey",
+  "version": "2026.3.22-t0000",
+  "description": "Incremental Cosmic Odyssey for Windows (Electron build)",
+  "main": "main.js",
+  "author": "Ocean and Wild Studios",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis --publish never"
+  },
+  "dependencies": {
+    "electron-updater": "^6.1.7"
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.oceanandwild.incrementalcosmicodyssey",
+    "detectUpdateChannel": false,
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "OceanandWild",
+        "repo": "incremental-cosmic-odyssey"
+      }
+    ],
+    "productName": "Incremental Cosmic Odyssey",
+    "directories": {
+      "output": "C:/builds/incremental-cosmic-odyssey",
+      "buildResources": "build"
+    },
+    "files": [
+      "index.html",
+      "main.js",
+      "preload.js",
+      "build/**"
+    ],
+    "extraResources": [
+      {
+        "from": "build",
+        "to": "build"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico",
+      "executableName": "Incremental Cosmic Odyssey",
+      "signAndEditExecutable": true
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "Incremental.Cosmic.Odyssey.Setup.${version}.exe",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Incremental Cosmic Odyssey"
+    }
+  }
+}

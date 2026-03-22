@@ -43,6 +43,7 @@ $PROJECTS = @{
     "dinobox"              = @{ repo = "owsdatabase";            dir = "DinoBox";                 platforms = @("windows") }
     "wilddestiny"          = @{ repo = "wilddestiny";            dir = "Wild Destiny";            platforms = @("windows") }
     "ocean-ai"             = @{ repo = "ocean-ai";               dir = "Ocean AI";                platforms = @("windows") }
+    "incremental-cosmic-odyssey" = @{ repo = "incremental-cosmic-odyssey"; dir = "Incremental Cosmic Odyssey"; platforms = @("windows") }
 }
 
 # ── Helpers ───────────────────────────────────────────────────────────────────

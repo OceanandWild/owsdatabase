@@ -1141,7 +1141,49 @@ async function ensureOwsStoreProjectOffersSeedData() {
 
 async function ensureOwsStoreNewsSeedData() {
   const now = new Date();
-  const in14Days = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+  const oneDayMs = 24 * 60 * 60 * 1000;
+  const toIsoOrNull = (value) => {
+    if (!value) return null;
+    const d = new Date(value);
+    return Number.isFinite(d.getTime()) ? d.toISOString() : null;
+  };
+
+  const releaseDateBySlug = new Map();
+  try {
+    const trackedSlugs = ['ecoxion', 'wild-destiny', 'wildshorts'];
+    const { rows } = await pool.query(
+      `SELECT LOWER(slug) AS slug, release_date
+       FROM ows_projects
+       WHERE LOWER(slug) = ANY($1::text[])`,
+      [trackedSlugs]
+    );
+    rows.forEach((row) => {
+      const slug = String(row?.slug || '').trim().toLowerCase();
+      if (!slug) return;
+      const iso = toIsoOrNull(row?.release_date);
+      if (iso) releaseDateBySlug.set(slug, iso);
+    });
+  } catch (err) {
+    console.log('[OWS] No se pudieron leer release_date de eventos seed:', err?.message || err);
+  }
+
+  const wildShortsReleaseFromDb = releaseDateBySlug.get('wildshorts');
+  if (!wildShortsReleaseFromDb) {
+    try {
+      const wsRelease = await fetchGithubLatestRelease('OceanandWild/wildshorts');
+      const wsReleaseDate = toIsoOrNull(wsRelease?.published_at || wsRelease?.created_at || null);
+      if (wsReleaseDate) releaseDateBySlug.set('wildshorts', wsReleaseDate);
+    } catch (_err) {
+      // fallback silencioso: si no hay release, usamos ventana relativa.
+    }
+  }
+
+  const ecoxionStart = releaseDateBySlug.get('ecoxion') || new Date(now.getTime() - (35 * oneDayMs)).toISOString();
+  const ecoxionEnd = new Date(now.getTime() - (3 * oneDayMs)).toISOString();
+  const wildDestinyStart = releaseDateBySlug.get('wild-destiny') || new Date(now.getTime() - (28 * oneDayMs)).toISOString();
+  const wildDestinyEnd = new Date(now.getTime() - (2 * oneDayMs)).toISOString();
+  const wildShortsStart = releaseDateBySlug.get('wildshorts') || new Date(now.getTime() + (6 * oneDayMs)).toISOString();
+  const wildShortsEnd = new Date((Date.parse(wildShortsStart) || now.getTime()) + (14 * oneDayMs)).toISOString();
 
   const entries = [
     {
@@ -1186,18 +1228,61 @@ async function ensureOwsStoreNewsSeedData() {
       syncKey: 'seed:event:wild-destiny-launch',
       projectNames: ['wild-destiny', 'Wild Destiny'],
       title: 'Wild Destiny - Evento de lanzamiento',
-      description: 'Lanzamiento oficial de Wild Destiny en OWS Store para Windows.',
-      changes: ['Countdown de lanzamiento activo en la ficha del proyecto.'],
-      updateDate: now,
+      description: 'Evento de lanzamiento oficial de Wild Destiny en OWS Store para Windows.',
+      changes: [
+        'Ventana de lanzamiento cerrada y marcada como finalizada.',
+        'Tarjeta de evento con visual renovado para mejor lectura en el hub.'
+      ],
+      updateDate: wildDestinyStart,
       entryType: 'event',
       platforms: ['windows'],
-      model2dKey: 'launch_orbit',
-      model2dPayload: { accent: '#00f3ff' },
-      bannerMeta: { visual: 'launch_orbit', category: 'launch' },
+      model2dKey: 'wild_destiny_event',
+      model2dPayload: { accent: '#00f3ff', secondary: '#7b61ff' },
+      bannerMeta: { visual: 'wild_destiny_event', category: 'launch' },
       isActive: true,
-      priority: 12,
-      eventStart: now,
-      eventEnd: in14Days
+      priority: 14,
+      eventStart: wildDestinyStart,
+      eventEnd: wildDestinyEnd
+    },
+    {
+      syncKey: 'seed:event:ecoxion-launch',
+      projectNames: ['ecoxion', 'Ecoxion'],
+      title: 'Ecoxion: lanzamiento a Windows en OWS Store',
+      description: 'Evento de lanzamiento de Ecoxion en OWS Store.',
+      changes: [
+        'Evento historico marcado como finalizado.',
+        'Se agrega ventana de cierre para estado consistente en el panel de eventos.'
+      ],
+      updateDate: ecoxionStart,
+      entryType: 'event',
+      platforms: ['windows'],
+      model2dKey: 'ecoxion_event',
+      model2dPayload: { accent: '#00c7ff', secondary: '#7fffd4' },
+      bannerMeta: { visual: 'ecoxion_event', category: 'launch' },
+      isActive: true,
+      priority: 15,
+      eventStart: ecoxionStart,
+      eventEnd: ecoxionEnd
+    },
+    {
+      syncKey: 'seed:event:wildshorts-launch-window',
+      projectNames: ['wildshorts', 'WildShorts'],
+      title: 'WildShorts - ventana de lanzamiento',
+      description: 'Lanzamiento confirmado de WildShorts con ventana de evento definida.',
+      changes: [
+        'Fecha de inicio alineada con la fecha de lanzamiento del proyecto.',
+        'Fecha de cierre asignada para seguimiento claro del evento en OWS Store.'
+      ],
+      updateDate: wildShortsStart,
+      entryType: 'event',
+      platforms: ['windows'],
+      model2dKey: 'wildshorts_event',
+      model2dPayload: { accent: '#34d2ff', secondary: '#ffb067' },
+      bannerMeta: { visual: 'wildshorts_event', category: 'launch' },
+      isActive: true,
+      priority: 13,
+      eventStart: wildShortsStart,
+      eventEnd: wildShortsEnd
     },
     {
       syncKey: 'seed:oceanpay:ecoxion-integration-pack',

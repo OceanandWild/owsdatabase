@@ -511,20 +511,57 @@
 
         /* Install button */
         .btn-install {
-            display: inline-flex; align-items:center; gap:0.4rem;
-            padding: 0.4rem 0.85rem;
-            background: var(--surface-3);
-            border: 1px solid var(--border-mid);
-            border-radius: var(--r-sm);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            min-height: 38px;
+            padding: 0.52rem 1rem;
+            background: linear-gradient(160deg, rgba(26,44,66,0.96), rgba(12,24,40,0.96));
+            border: 1px solid rgba(82,217,223,0.34);
+            border-radius: 10px;
             color: var(--ink-0);
-            font-size: 0.72rem; font-weight:600;
-            cursor: pointer; font-family:inherit;
-            transition: all 0.15s;
+            font-size: 0.76rem;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: inherit;
+            letter-spacing: 0.22px;
+            box-shadow: 0 6px 16px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.04);
+            transition: transform 0.15s, background 0.15s, border-color 0.15s, box-shadow 0.15s;
             white-space: nowrap;
         }
-        .btn-install:hover { background:var(--surface-2); border-color:var(--border-hi); }
-        .btn-install.primary { background:var(--cyan-dim); border-color:rgba(38,212,232,0.3); color:var(--cyan); }
-        .btn-install.primary:hover { background:rgba(38,212,232,0.18); }
+        .btn-install:hover {
+            background: linear-gradient(160deg, rgba(32,56,84,0.98), rgba(14,30,48,0.98));
+            border-color: rgba(82,217,223,0.54);
+            transform: translateY(-1px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.28), 0 0 0 1px rgba(82,217,223,0.12) inset;
+        }
+        .btn-install.primary {
+            background: linear-gradient(165deg, rgba(24,105,121,0.98), rgba(11,47,62,0.98));
+            border-color: rgba(82,217,223,0.62);
+            color: #d7fbff;
+            text-shadow: 0 0 10px rgba(82,217,223,0.45);
+        }
+        .btn-install.primary:hover {
+            background: linear-gradient(165deg, rgba(32,127,146,1), rgba(13,58,78,1));
+        }
+        .btn-install.unavailable,
+        .btn-install:disabled,
+        .btn-install.coming-soon {
+            opacity: 0.56;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+            filter: grayscale(0.12);
+        }
+        .btn-install.unavailable:hover,
+        .btn-install:disabled:hover,
+        .btn-install.coming-soon:hover {
+            background: linear-gradient(160deg, rgba(26,44,66,0.96), rgba(12,24,40,0.96));
+            border-color: rgba(82,217,223,0.34);
+            transform: none;
+            box-shadow: none;
+        }
         .btn-install.full { width:100%; justify-content:center; }
 
         /* ── LIBRARY ── */
@@ -695,83 +732,182 @@
         #details-modal {
             display: none;
             position: fixed; inset:0; z-index:5000;
-            background: rgba(0,0,0,0.7);
-            backdrop-filter: blur(8px);
-            align-items: center; justify-content: center;
-            padding: 1rem;
+            background: linear-gradient(160deg, rgba(3,8,16,0.92), rgba(3,12,24,0.95));
+            backdrop-filter: blur(10px);
+            align-items: stretch; justify-content: stretch;
+            padding: 0;
         }
         #details-modal.active { display:flex; }
 
         .details-modal-shell {
-            background: var(--surface-1);
-            border: 1px solid var(--border-mid);
-            border-radius: var(--r-xl);
-            width: min(760px, 100%);
-            max-height: 90vh;
+            background: radial-gradient(120% 180% at 100% 0%, rgba(39,82,117,0.20), transparent 40%), var(--surface-1);
+            border: none;
+            border-radius: 0;
+            width: 100%;
+            height: 100%;
             overflow-y: auto;
             position: relative;
-            box-shadow: var(--shadow-lg);
-            animation: modalIn 0.25s cubic-bezier(0.34,1.56,0.64,1);
+            box-shadow: none;
+            animation: modalIn 0.2s ease-out;
         }
         @keyframes modalIn { from{opacity:0;transform:scale(0.95) translateY(8px)} to{opacity:1;transform:scale(1) translateY(0)} }
 
         .btn-close-modal {
-            position: absolute; top:1rem; right:1rem; z-index:10;
-            width:32px; height:32px;
-            background: var(--surface-3); border: 1px solid var(--border-mid);
-            border-radius: 8px; cursor:pointer;
+            position: fixed; top:1.2rem; right:1.2rem; z-index:20;
+            width:38px; height:38px;
+            background: rgba(8,21,36,0.85); border: 1px solid rgba(130,180,210,0.35);
+            border-radius: 10px; cursor:pointer;
             display: flex; align-items:center; justify-content:center;
-            color: var(--ink-1); font-size:13px; transition:all 0.15s;
+            color: var(--ink-0); font-size:14px; transition:all 0.15s;
         }
-        .btn-close-modal:hover { background:var(--surface-2); color:var(--ink-0); }
+        .btn-close-modal:hover { background:rgba(16,30,48,0.95); }
 
-        .modal-banner { height:180px; border-radius:var(--r-xl) var(--r-xl) 0 0; background:linear-gradient(135deg, var(--surface-2), var(--surface-3)); overflow:hidden; position:relative; }
+        .modal-banner { height:300px; border-radius:0; background:linear-gradient(135deg, var(--surface-2), var(--surface-3)); overflow:hidden; position:relative; }
         .modal-banner img { width:100%; height:100%; object-fit:cover; opacity:0.6; }
         .modal-banner-placeholder { width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:4rem; opacity:0.15; }
 
-        .modal-header { padding:1.5rem 1.5rem 0; display:flex; align-items:flex-start; gap:1rem; }
-        .modal-icon-wrap { width:72px; height:72px; border-radius:var(--r-md); border:2px solid var(--border-mid); overflow:hidden; flex-shrink:0; background:var(--surface-2); margin-top:-36px; position:relative; box-shadow:var(--shadow-md); }
-        .modal-icon-wrap img { width:100%; height:100%; object-fit:cover; }
-        .modal-title-area { flex:1; padding-top:0.25rem; }
+        .modal-header { width:min(1320px, calc(100% - 3rem)); margin:0 auto; padding:1.4rem 0 0; display:flex; align-items:flex-start; gap:1.2rem; }
+        .modal-icon-wrap { width:124px; height:124px; border-radius:22px; border:2px solid rgba(146,198,229,0.5); overflow:hidden; flex-shrink:0; background:linear-gradient(145deg, #0e2033, #07121f); margin-top:-62px; position:relative; box-shadow:0 22px 30px rgba(0,0,0,0.45); display:flex; align-items:center; justify-content:center; }
+        .modal-icon-wrap img { width:100%; height:100%; object-fit:contain; }
+        .modal-icon-wrap .icon-bg {
+            width:100%;
+            height:100%;
+            background-size:contain;
+            background-repeat:no-repeat;
+            background-position:center;
+        }
+        .modal-title-area { flex:1; padding-top:0.4rem; }
         .modal-dev { font-size:0.68rem; font-family:var(--font-mono); text-transform:uppercase; letter-spacing:0.5px; color:var(--cyan); margin-bottom:0.2rem; }
-        .modal-title { font-family:var(--font-display); font-size:1.4rem; font-weight:900; }
+        .modal-title { font-family:var(--font-display); font-size:2rem; font-weight:900; line-height:1.1; }
         .modal-tags { display:flex; gap:0.35rem; flex-wrap:wrap; margin-top:0.4rem; }
         .modal-tag { font-size:0.6rem; font-family:var(--font-mono); padding:2px 8px; border-radius:99px; background:var(--surface-3); border:1px solid var(--border); color:var(--ink-1); }
 
-        .modal-body { padding:1.25rem 1.5rem 1.5rem; }
-        .modal-desc { color:var(--ink-1); font-size:0.82rem; line-height:1.7; margin-bottom:1.25rem; }
-        .modal-stats { display:grid; grid-template-columns:repeat(auto-fit, minmax(130px,1fr)); gap:0.5rem; margin-bottom:1.25rem; }
+        .modal-body { width:min(1320px, calc(100% - 3rem)); margin:0 auto; padding:1.35rem 0 2rem; display:grid; grid-template-columns:minmax(380px, 0.9fr) minmax(520px, 1.2fr); gap:1rem; align-items:start; }
+        .modal-desc { color:var(--ink-1); font-size:0.86rem; line-height:1.7; margin-bottom:1rem; background:var(--surface-2); border:1px solid var(--border); border-radius:12px; padding:0.95rem 1rem; }
+        .modal-stats { display:grid; grid-template-columns:repeat(2, minmax(160px,1fr)); gap:0.55rem; margin-bottom:1rem; }
+        .modal-platforms { margin-bottom:0; }
+        .modal-body-main { min-width:0; }
+        .modal-body-side { min-width:0; }
+        .modal-news-wrap { display:grid; grid-template-columns:1fr; gap:0.75rem; margin-bottom:1.25rem; }
+        .modal-news-list { max-height:260px; }
+        @media (max-width:980px) {
+            .modal-banner { height:240px; }
+            .modal-header { width:calc(100% - 1.4rem); }
+            .modal-body { width:calc(100% - 1.4rem); grid-template-columns:1fr; }
+            .modal-icon-wrap { width:98px; height:98px; margin-top:-48px; border-radius:18px; }
+            .modal-title { font-size:1.45rem; }
+        }
         .modal-platforms { margin-bottom:1.25rem; }
         .modal-platform-options { display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.5rem; }
         .modal-platform-meta { font-size:0.7rem; color:var(--ink-2); margin-top:0.4rem; font-family:var(--font-mono); }
-
-        .modal-news-wrap { display:grid; grid-template-columns:1fr 1fr; gap:0.75rem; margin-bottom:1.25rem; }
-        @media (max-width:560px) { .modal-news-wrap { grid-template-columns:1fr; } }
+        .platform-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            border: 1px solid rgba(82,217,223,0.34);
+            background: linear-gradient(165deg, rgba(21,37,58,0.98), rgba(12,24,40,0.98));
+            color: #c7f8ff;
+            padding: 0.4rem 0.78rem;
+            border-radius: 999px;
+            font-size: 0.68rem;
+            font-family: var(--font-mono);
+            letter-spacing: 0.3px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .platform-pill:hover {
+            border-color: rgba(82,217,223,0.56);
+            background: linear-gradient(165deg, rgba(27,49,77,0.98), rgba(14,29,48,0.98));
+            transform: translateY(-1px);
+        }
+        .platform-pill.active {
+            border-color: rgba(82,217,223,0.85);
+            color: #e3feff;
+            background: linear-gradient(165deg, rgba(30,117,138,0.96), rgba(12,54,72,0.96));
+            box-shadow: 0 0 0 1px rgba(82,217,223,0.28) inset, 0 8px 18px rgba(0,0,0,0.28);
+        }
+        .platform-pill.is-disabled {
+            opacity: 0.48;
+            cursor: default;
+            filter: grayscale(0.18);
+        }
+        .platform-pill.is-disabled:hover {
+            transform: none;
+            border-color: rgba(82,217,223,0.34);
+            background: linear-gradient(165deg, rgba(21,37,58,0.98), rgba(12,24,40,0.98));
+        }
+        .platform-pill.compact {
+            padding: 0.2rem 0.58rem;
+            font-size: 0.62rem;
+            letter-spacing: 0.24px;
+        }
         .modal-news-card { background:var(--surface-2); border:1px solid var(--border); border-radius:var(--r-md); padding:0.85rem; }
-        .modal-offers-wrap { margin-bottom:1.05rem; }
-        .modal-offers-card { background:var(--surface-2); border:1px solid var(--border); border-radius:var(--r-md); padding:0.85rem; }
-        .modal-offers-head { display:flex; justify-content:space-between; align-items:center; gap:0.5rem; margin-bottom:0.55rem; }
-        .modal-offers-title { font-size:0.8rem; text-transform:uppercase; letter-spacing:0.8px; color:var(--ink-1); font-family:var(--font-mono); }
-        .modal-offers-list { display:flex; flex-direction:column; gap:0.5rem; }
-        .modal-offer-item { border:1px solid var(--border); border-radius:10px; padding:0.62rem; background:var(--surface-1); }
-        .modal-offer-visual { margin-bottom:0.45rem; width:100%; height:92px; border-radius:8px; border:1px solid var(--border-mid); background:linear-gradient(135deg, rgba(82,217,223,0.1), rgba(242,104,48,0.08)); overflow:hidden; }
-        .modal-offer-visual canvas { width:100%; height:100%; display:block; }
-        .modal-offer-top { display:flex; justify-content:space-between; align-items:center; gap:0.55rem; margin-bottom:0.28rem; }
-        .modal-offer-name { font-weight:700; font-size:0.8rem; color:var(--ink-0); }
-        .modal-offer-price { font-family:var(--font-mono); font-size:0.72rem; color:var(--cyan); font-weight:700; white-space:nowrap; }
-        .modal-offer-price .old { color:var(--ink-2); text-decoration:line-through; margin-right:0.35rem; }
-        .modal-offer-desc { font-size:0.72rem; color:var(--ink-1); line-height:1.35; }
-        .modal-offer-meta { margin-top:0.38rem; display:flex; justify-content:space-between; align-items:center; gap:0.5rem; }
-        .modal-offer-stock { font-size:0.62rem; color:var(--ink-2); margin-top:0.32rem; font-family:var(--font-mono); }
-        .modal-offer-badge { font-size:0.62rem; padding:2px 7px; border-radius:999px; font-family:var(--font-mono); border:1px solid rgba(38,212,232,0.35); color:var(--cyan); background:rgba(38,212,232,0.1); }
-        .modal-offer-btn { border:1px solid rgba(38,212,232,0.3); background:var(--cyan-dim); color:var(--cyan); border-radius:8px; padding:0.34rem 0.58rem; font-size:0.7rem; font-weight:700; cursor:pointer; font-family:inherit; }
-        .modal-offer-btn:disabled { opacity:0.45; cursor:not-allowed; }
-        .offer-stock-soldout { color:#ff8fa8; border-color:rgba(255,110,143,0.35); background:rgba(255,110,143,0.12); }
         .modal-news-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:0.5rem; }
         .modal-news-title { font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:0.3px; }
         .modal-news-counter { font-size:0.62rem; font-family:var(--font-mono); color:var(--cyan); }
         .modal-news-list { display:flex; flex-direction:column; gap:0.4rem; max-height:200px; overflow-y:auto; }
         .modal-news-empty { font-size:0.72rem; color:var(--ink-2); text-align:center; padding:0.75rem; }
+        .modal-news-item {
+            border: 1px solid rgba(82,217,223,0.14);
+            border-radius: 10px;
+            background: linear-gradient(165deg, rgba(14,27,45,0.94), rgba(10,20,35,0.94));
+            padding: 0.6rem 0.68rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.34rem;
+        }
+        .modal-news-item-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 0.6rem;
+        }
+        .modal-news-item-title {
+            font-size: 0.78rem;
+            color: var(--ink-0);
+            font-weight: 700;
+            line-height: 1.35;
+        }
+        .modal-news-item-sub {
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            flex-wrap: wrap;
+        }
+        .modal-news-meta {
+            font-size: 0.6rem;
+            font-family: var(--font-mono);
+            text-transform: uppercase;
+            letter-spacing: 0.55px;
+            padding: 2px 6px;
+            border-radius: 999px;
+            border: 1px solid rgba(82,217,223,0.32);
+            color: var(--cyan);
+            background: rgba(38,212,232,0.1);
+        }
+        .modal-news-meta.event {
+            border-color: rgba(255,165,96,0.42);
+            color: #ffd0a5;
+            background: rgba(255,165,96,0.12);
+        }
+        .modal-news-platforms { display: inline-flex; align-items: center; gap: 0.3rem; flex-wrap: wrap; }
+        .modal-news-desc { font-size: 0.72rem; color: var(--ink-1); line-height: 1.45; }
+        .modal-news-changes {
+            margin: 0.1rem 0 0;
+            padding-left: 1rem;
+            display: grid;
+            gap: 0.1rem;
+            color: var(--ink-1);
+            font-size: 0.7rem;
+            line-height: 1.35;
+        }
+        .modal-news-time {
+            font-size: 0.62rem;
+            color: var(--ink-2);
+            font-family: var(--font-mono);
+            white-space: nowrap;
+            opacity: 0.95;
+        }
         .modal-actions { display:flex; gap:0.5rem; flex-wrap:wrap; }
         .offers-market-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:0.85rem; }
         .offers-market-card { background:var(--surface-1); border:1px solid var(--border); border-radius:var(--r-md); padding:0.8rem; box-shadow:var(--shadow-sm); display:flex; flex-direction:column; gap:0.55rem; }
@@ -2440,64 +2576,59 @@
             </div>
         </div>
         <div class="modal-body">
-            <div class="modal-desc" id="m-desc"></div>
-            <div class="modal-stats">
-                <div class="stat-box">
-                    <div class="stat-label">Version</div>
-                    <div class="stat-value" id="m-version">1.0.0</div>
+            <div class="modal-body-main">
+                <div class="modal-desc" id="m-desc"></div>
+                <div class="modal-stats">
+                    <div class="stat-box">
+                        <div class="stat-label">Ultima Actualizacion</div>
+                        <div class="stat-value" id="m-last-update">v1.0.0 · Sin datos</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Estado de Proyecto</div>
+                        <div class="stat-value" id="m-phase-state">Estable</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Compatibilidad</div>
+                        <div class="stat-value" id="m-compat">Windows + Android</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Lanzamiento</div>
+                        <div class="stat-value" id="m-launch-date">Proximamente</div>
+                    </div>
+                    <div class="stat-box" style="grid-column: 1 / -1;">
+                        <div class="stat-label">Estado local</div>
+                        <div class="stat-value" id="m-install-state">No instalado</div>
+                    </div>
                 </div>
-                <div class="stat-box">
-                    <div class="stat-label">Estado</div>
-                    <div class="stat-value" id="m-status">Lanzado</div>
+                <div id="m-platforms" class="modal-platforms" style="display:none;">
+                    <div class="stat-label">Plataformas Disponibles / Compatibles</div>
+                    <div id="m-platform-options" class="modal-platform-options"></div>
+                    <div id="m-platform-meta" class="modal-platform-meta"></div>
                 </div>
-                <div class="stat-box">
-                    <div class="stat-label">Compatibilidad</div>
-                    <div class="stat-value" id="m-compat">Windows</div>
-                </div>
-                <div class="stat-box">
-                    <div class="stat-label">Ultima release</div>
-                    <div class="stat-value" id="m-last-release">Sin datos</div>
-                </div>
-                <div class="stat-box" style="grid-column: 1 / -1;">
-                    <div class="stat-label">Estado local</div>
-                    <div class="stat-value" id="m-install-state">No instalado</div>
-                </div>
+                <div class="modal-actions" id="m-actions"></div>
             </div>
-            <div id="m-platforms" class="modal-platforms" style="display:none;">
-                <div class="stat-label">Plataforma de descarga</div>
-                <div id="m-platform-options" class="modal-platform-options"></div>
-                <div id="m-platform-meta" class="modal-platform-meta"></div>
-            </div>
-            <div id="m-offers-wrap" class="modal-offers-wrap" style="display:none;">
-                <div class="modal-offers-card">
-                    <div class="modal-offers-head">
-                        <div class="modal-offers-title">Ofertas OWS Store</div>
-                        <span id="m-offers-count" class="modal-news-counter">0 ofertas</span>
+            <div class="modal-body-side">
+                <div id="m-news-wrap" class="modal-news-wrap">
+                    <div class="modal-news-card">
+                        <div class="modal-news-head">
+                            <div class="modal-news-title">Changelog del Proyecto</div>
+                            <span id="m-changelog-count" class="modal-news-counter">0 entradas</span>
+                        </div>
+                        <div id="m-changelog-list" class="modal-news-list">
+                            <div class="modal-news-empty">Sin datos todavia.</div>
+                        </div>
                     </div>
-                    <div id="m-offers-list" class="modal-offers-list"></div>
-                </div>
-            </div>
-            <div id="m-news-wrap" class="modal-news-wrap">
-                <div class="modal-news-card">
-                    <div class="modal-news-head">
-                        <div class="modal-news-title">Changelog del Proyecto</div>
-                        <span id="m-changelog-count" class="modal-news-counter">0 entradas</span>
-                    </div>
-                    <div id="m-changelog-list" class="modal-news-list">
-                        <div class="modal-news-empty">Sin datos todavia.</div>
-                    </div>
-                </div>
-                <div class="modal-news-card">
-                    <div class="modal-news-head">
-                        <div class="modal-news-title">Eventos del Proyecto</div>
-                        <span id="m-events-count" class="modal-news-counter">0 eventos</span>
-                    </div>
-                    <div id="m-events-list" class="modal-news-list">
-                        <div class="modal-news-empty">Sin eventos cargados.</div>
+                    <div class="modal-news-card">
+                        <div class="modal-news-head">
+                            <div class="modal-news-title">Eventos del Proyecto</div>
+                            <span id="m-events-count" class="modal-news-counter">0 eventos</span>
+                        </div>
+                        <div id="m-events-list" class="modal-news-list">
+                            <div class="modal-news-empty">Sin eventos cargados.</div>
+                        </div>
                     </div>
                 </div>
             </div>
-            <div class="modal-actions" id="m-actions"></div>
         </div>
     </div>
 </div>
@@ -2524,9 +2655,6 @@
             <li class="nav-item" onclick="showSection('updates', this)">
                 <i class="fas fa-arrow-up-from-bracket"></i> Actualizaciones
                 <span id="update-badge" class="nav-badge" style="display:none;">!</span>
-            </li>
-            <li class="nav-item" onclick="showSection('offers', this)">
-                <i class="fas fa-bag-shopping"></i> Store Offers
             </li>
         </nav>
 
@@ -2794,23 +2922,6 @@
         </section>
 
         <!-- ══ LIBRARY ══ -->
-        <section id="offers-view" class="section" style="display:none;">
-            <div class="library-shell">
-                <div class="library-hero">
-                    <div>
-                        <div class="library-hero-kicker">OWS Commerce</div>
-                        <div class="library-hero-title">Store Offers</div>
-                        <div class="library-hero-sub">Ofertas sincronizadas entre OWS Store y los proyectos. Las promociones exclusivas de OWS Store se aplican aqui.</div>
-                    </div>
-                    <div class="library-hero-actions">
-                        <button class="library-btn" onclick="renderOffersMarketplace(true)"><i class="fas fa-rotate"></i> Refrescar</button>
-                    </div>
-                </div>
-                <div id="offers-market-status" class="info-note-card">Cargando ofertas...</div>
-                <div id="offers-market-grid" class="offers-market-grid"></div>
-            </div>
-        </section>
-
         <section id="library-view" class="section" style="display:none;">
             <div class="library-shell">
                 <div class="library-hero">
@@ -2983,37 +3094,6 @@
     </div>
 </div>
 
-<div id="store-offer-checkout-modal" aria-hidden="true" onclick="if(event.target===this)closeStoreOfferCheckoutModal()">
-    <div class="offer-checkout-shell">
-        <div class="offer-checkout-head">
-            <div>
-                <div class="offer-checkout-title">Confirmar compra</div>
-                <div id="offer-checkout-sub" class="offer-checkout-sub">OWS Commerce Checkout</div>
-            </div>
-            <button type="button" class="btn-close-modal" style="position:static;" onclick="closeStoreOfferCheckoutModal()" aria-label="Cerrar">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        <div class="offer-checkout-grid">
-            <div class="offer-checkout-k">Oferta</div>
-            <div id="offer-checkout-name" class="offer-checkout-v">-</div>
-            <div class="offer-checkout-k">Precio</div>
-            <div id="offer-checkout-price" class="offer-checkout-v">-</div>
-            <div class="offer-checkout-k">Saldo actual</div>
-            <div id="offer-checkout-balance" class="offer-checkout-v">-</div>
-            <div class="offer-checkout-k">Saldo tras compra</div>
-            <div id="offer-checkout-after" class="offer-checkout-v">-</div>
-            <div class="offer-checkout-k">Stock personal</div>
-            <div id="offer-checkout-stock" class="offer-checkout-v">-</div>
-        </div>
-        <div id="offer-checkout-warning" class="info-note-card" style="display:none;margin:0;padding:0.6rem 0.75rem;"></div>
-        <div class="offer-checkout-actions">
-            <button type="button" class="offer-checkout-btn" onclick="closeStoreOfferCheckoutModal()">Cancelar</button>
-            <button type="button" id="offer-checkout-confirm-btn" class="offer-checkout-btn primary">Confirmar compra</button>
-        </div>
-    </div>
-</div>
-
 <script>
         let opSidebarOpen = false;
         function toggleOceanPaySidebar() {
@@ -3092,6 +3172,7 @@
         const STORE_THEME_KEY = 'ows_store_theme';
         const PROJECT_LIBRARY_KEY = 'ows_store_library_owned_slugs_v1';
         const PROJECT_UPDATES_DISMISSED_KEY = 'ows_store_updates_dismissed_up_to_date_v1';
+        const OWS_STORE_DEV_PREVIEW_KEY = 'ows_store_dev_preview_mode_v1';
         const SYSTEM_NOTIFICATIONS_PERMISSION_KEY = 'ows_store_system_notifications_permission_v1';
         const SYSTEM_NOTIFICATIONS_DEDUPE_KEY = 'ows_store_system_notifications_seen_v1';
         const OWS_STORE_ANDROID_INSTALLED_VERSION_KEY = 'ows_store_android_installed_version_name';
@@ -3470,6 +3551,7 @@
             loading: false,
             connected: false
         };
+        const STORE_OFFERS_ENABLED = false;
         const projectCommerceOfferCache = new Map();
         let storeOfferCheckoutState = {
             open: false,
@@ -4340,6 +4422,87 @@
                 ctx.beginPath();
                 ctx.moveTo(w - 8, h * 0.7);
                 ctx.lineTo(20, h * 0.7);
+                ctx.stroke();
+            } else if (key.includes('ecoxion_event')) {
+                const cx = w * 0.54;
+                const cy = h * 0.47;
+                for (let i = 0; i < 5; i++) {
+                    ctx.strokeStyle = `rgba(82,217,223,${0.38 - i * 0.06})`;
+                    ctx.lineWidth = 1.6;
+                    ctx.beginPath();
+                    ctx.ellipse(cx, cy, 12 + i * 6, 7 + i * 2.6, i * 0.16, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+                ctx.fillStyle = '#06111c';
+                ctx.beginPath();
+                ctx.arc(cx, cy, 9.4, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#79f4ff';
+                ctx.beginPath();
+                ctx.arc(cx - 2.5, cy - 1.5, 3.1, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#7fffd4';
+                ctx.lineWidth = 2.4;
+                ctx.beginPath();
+                ctx.moveTo(w * 0.18, h * 0.72);
+                ctx.lineTo(w * 0.31, h * 0.82);
+                ctx.lineTo(w * 0.45, h * 0.62);
+                ctx.stroke();
+            } else if (key.includes('wild_destiny_event')) {
+                const cx = w * 0.5;
+                const cy = h * 0.48;
+                ctx.strokeStyle = 'rgba(106,170,255,0.55)';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(cx, cy, 18, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.strokeStyle = 'rgba(123,97,255,0.65)';
+                ctx.beginPath();
+                ctx.arc(cx, cy, 11, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.fillStyle = '#8cc8ff';
+                ctx.fillRect(cx - 3, cy - 18, 6, 28);
+                ctx.beginPath();
+                ctx.moveTo(cx - 8, cy - 6);
+                ctx.lineTo(cx + 8, cy - 6);
+                ctx.lineTo(cx + 5, cy - 1);
+                ctx.lineTo(cx - 5, cy - 1);
+                ctx.closePath();
+                ctx.fill();
+                ctx.fillStyle = '#5f45c9';
+                ctx.fillRect(cx - 9, cy + 10, 18, 4);
+                ctx.strokeStyle = '#00f3ff';
+                ctx.lineWidth = 1.8;
+                ctx.beginPath();
+                ctx.moveTo(cx - 12, cy + 16);
+                ctx.lineTo(cx, cy + 8);
+                ctx.lineTo(cx + 12, cy + 16);
+                ctx.stroke();
+            } else if (key.includes('wildshorts_event')) {
+                const fx = w * 0.19;
+                const fy = h * 0.3;
+                const fw = w * 0.62;
+                const fh = h * 0.44;
+                ctx.fillStyle = 'rgba(13,32,48,0.95)';
+                ctx.fillRect(fx, fy, fw, fh);
+                ctx.strokeStyle = '#34d2ff';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(fx, fy, fw, fh);
+                for (let i = 0; i < 4; i++) {
+                    const yy = fy + 5 + i * ((fh - 10) / 3);
+                    ctx.fillStyle = 'rgba(52,210,255,0.75)';
+                    ctx.fillRect(fx - 4, yy, 3, 4);
+                    ctx.fillRect(fx + fw + 1, yy, 3, 4);
+                }
+                ctx.fillStyle = '#ffb067';
+                ctx.beginPath();
+                ctx.moveTo(w * 0.47, h * 0.39);
+                ctx.lineTo(w * 0.47, h * 0.62);
+                ctx.lineTo(w * 0.64, h * 0.5);
+                ctx.closePath();
+                ctx.fill();
+                ctx.strokeStyle = '#ffd5a2';
+                ctx.lineWidth = 1.2;
                 ctx.stroke();
             } else if (key.includes('galaxy') || key.includes('ecoxion') || key.includes('space')) {
                 const cx = w * 0.68;
@@ -5735,7 +5898,7 @@
 
         function getNewsPlatformsBadgeHtml(platformKinds = []) {
             const label = getPlatformLabelFromKinds(platformKinds);
-            return `<span class="platform-pill is-disabled" style="display:inline-flex; align-items:center; gap:0.35rem; cursor:default; padding:0.22rem 0.58rem; font-size:0.64rem;">${label}</span>`;
+            return `<span class="platform-pill compact is-disabled">${label}</span>`;
         }
 
         function summarizeReleaseNotes(rawText = '', fallback = 'Sin notas detalladas.') {
@@ -5980,8 +6143,13 @@
         }
 
         function getManualStoreEvents() {
-            const ecoWindow = { startAt: ECOXION_RELEASE_DATE_ISO, endAt: '' };
+            const ecoWindow = { startAt: ECOXION_RELEASE_DATE_ISO, endAt: '2026-03-20T18:00:00Z' };
             const ecoPhase = resolveEventPhase(ecoWindow);
+            const wildDestinyWindow = { startAt: WILD_DESTINY_RELEASE_DATE_ISO, endAt: '2026-03-21T18:00:00Z' };
+            const wildShortsWindow = {
+                startAt: WILDSHORTS_PLACEHOLDER_DATE_ISO,
+                endAt: new Date((Date.parse(WILDSHORTS_PLACEHOLDER_DATE_ISO) || Date.now()) + (14 * 24 * 60 * 60 * 1000)).toISOString()
+            };
             return [
                 {
                     id: -1001,
@@ -5995,11 +6163,11 @@
                     entryType: 'event',
                     platforms: ['windows'],
                     isActive: true,
-                    priority: 900,
-                    model2d: { key: 'launch_orbit' },
+                    priority: 5,
+                    model2d: { key: 'wild_destiny_event' },
                     bannerMeta: {},
-                    eventWindow: { startAt: WILD_DESTINY_RELEASE_DATE_ISO, endAt: '' },
-                    eventPhase: resolveEventPhase({ startAt: WILD_DESTINY_RELEASE_DATE_ISO, endAt: '' }),
+                    eventWindow: wildDestinyWindow,
+                    eventPhase: resolveEventPhase(wildDestinyWindow),
                 },
                 {
                     id: -1002,
@@ -6013,12 +6181,11 @@
                     entryType: 'event',
                     platforms: ['windows'],
                     isActive: true,
-                    priority: 950,
-                    model2d: { key: 'galaxy_core' },
+                    priority: 5,
+                    model2d: { key: 'ecoxion_event' },
                     bannerMeta: {},
                     eventWindow: ecoWindow,
-                    // Forzamos "proximo" hasta que llegue la fecha.
-                    eventPhase: ecoPhase === 'active' ? 'upcoming' : ecoPhase,
+                    eventPhase: ecoPhase,
                 },
                 {
                     id: -1003,
@@ -6040,21 +6207,21 @@
                 },
                 {
                     id: -1004,
-                    title: 'WildShorts - lanzamiento proximamente',
-                    description: 'Evento placeholder de lanzamiento. Fecha por decidir.',
-                    changes: ['Fecha por decidir'],
+                    title: 'WildShorts - ventana de lanzamiento',
+                    description: 'Evento de lanzamiento con ventana temporal definida.',
+                    changes: ['Inicio y cierre de evento definidos'],
                     projectNames: ['wildshorts', 'wild shorts'],
-                    updateDate: '2026-03-03T00:00:00Z',
+                    updateDate: WILDSHORTS_PLACEHOLDER_DATE_ISO,
                     isEvent: true,
                     isBanner: false,
                     entryType: 'event',
                     platforms: ['windows'],
                     isActive: true,
-                    priority: 700,
-                    model2d: { key: 'signal_flow' },
+                    priority: 5,
+                    model2d: { key: 'wildshorts_event' },
                     bannerMeta: {},
-                    eventWindow: { startAt: null, endAt: null },
-                    eventPhase: 'upcoming',
+                    eventWindow: wildShortsWindow,
+                    eventPhase: resolveEventPhase(wildShortsWindow),
                 },
             ];
         }
@@ -6254,6 +6421,7 @@
         }
 
         async function fetchProjectCommerceCatalog(surface = 'ows-store', force = false) {
+            if (!STORE_OFFERS_ENABLED) return [];
             const cacheKey = `catalog|${surface}`;
             const cached = projectCommerceOfferCache.get(cacheKey);
             const now = Date.now();
@@ -6287,6 +6455,7 @@
         }
 
         function openStoreOfferCheckoutModal(offer, source = 'offers') {
+            if (!STORE_OFFERS_ENABLED) return;
             const modal = document.getElementById('store-offer-checkout-modal');
             const sub = document.getElementById('offer-checkout-sub');
             const name = document.getElementById('offer-checkout-name');
@@ -6393,6 +6562,7 @@
         }
 
         async function renderProjectOffersInModal(project) {
+            if (!STORE_OFFERS_ENABLED) return;
             const offersWrap = document.getElementById('m-offers-wrap');
             const offersList = document.getElementById('m-offers-list');
             const offersCount = document.getElementById('m-offers-count');
@@ -6511,6 +6681,7 @@
         }
 
         async function renderOffersMarketplace(forceRefresh = false) {
+            if (!STORE_OFFERS_ENABLED) return;
             const host = document.getElementById('offers-market-grid');
             const status = document.getElementById('offers-market-status');
             if (!host || !status) return;
@@ -6617,7 +6788,13 @@
             ]);
             const releaseEntries = getReleaseDerivedProjectEntries(project);
             const entries = [...releaseEntries, ...owsNewsEntries]
-                .sort((a, b) => (Date.parse(b?.updateDate || '') || 0) - (Date.parse(a?.updateDate || '') || 0))
+                .sort((a, b) => {
+                    const byDate = (Date.parse(b?.updateDate || '') || 0) - (Date.parse(a?.updateDate || '') || 0);
+                    if (byDate !== 0) return byDate;
+                    const byType = Number(Boolean(a?.isEvent)) - Number(Boolean(b?.isEvent));
+                    if (byType !== 0) return byType;
+                    return String(a?.title || '').localeCompare(String(b?.title || ''));
+                })
                 .filter((entry, index, arr) => {
                     const title = String(entry?.title || '').trim().toLowerCase();
                     const date = String(entry?.updateDate || '').slice(0, 10);
@@ -6636,11 +6813,15 @@
                 if (!items.length) return `<div class="modal-news-empty">${emptyText}</div>`;
                 return items.map((item) => `
                     <div class="modal-news-item">
-                        <strong>${item.title}</strong>
-                        <span style="margin-bottom:0.16rem;">${getNewsPlatformsBadgeHtml(item.platforms || ['all'])}</span>
-                        <span class="modal-news-meta">${item.isEvent ? 'Evento' : 'Changelog'}</span>
+                        <div class="modal-news-item-head">
+                            <strong class="modal-news-item-title">${item.title}</strong>
+                            <span class="modal-news-time">${formatDateTime(item.updateDate)}</span>
+                        </div>
+                        <div class="modal-news-item-sub">
+                            <span class="modal-news-meta ${item.isEvent ? 'event' : 'changelog'}">${item.isEvent ? 'Evento' : 'Changelog'}</span>
+                            <span class="modal-news-platforms">${getNewsPlatformsBadgeHtml(item.platforms || ['all'])}</span>
+                        </div>
                         ${buildEntryDetailsHtml(item)}
-                        <span class="modal-news-time">${formatDateTime(item.updateDate)}</span>
                     </div>
                 `).join('');
             };
@@ -8159,7 +8340,6 @@
         function renderIfVisible(target) {
             if (target === 'projects' && activeSection === 'home') renderVisibleProjects();
             if (target === 'library' && activeSection === 'library') renderLibrary();
-            if (target === 'offers' && activeSection === 'offers') renderOffersMarketplace(false);
             if (target === 'updates' && activeSection === 'updates') {
                 renderProjectUpdatesList();
                 renderStoreNewsTimeline();
@@ -10329,6 +10509,30 @@
             return String(cap?.getPlatform?.() || '').toLowerCase() === 'android';
         }
 
+        function isDesktopUpdaterBridgeAvailable() {
+            return Boolean(window?.owsUpdater?.downloadInstaller || window?.owsUpdater?.installExternalInstaller || window?.owsUpdater?.openInstalledApp);
+        }
+
+        function isLocalDevPreviewMode() {
+            try {
+                const params = new URLSearchParams(window.location.search || '');
+                if (params.get('preview') === '1') {
+                    localStorage.setItem(OWS_STORE_DEV_PREVIEW_KEY, '1');
+                    return true;
+                }
+                return localStorage.getItem(OWS_STORE_DEV_PREVIEW_KEY) === '1';
+            } catch (_) {
+                return false;
+            }
+        }
+
+        function setLocalDevPreviewMode(enabled) {
+            try {
+                if (enabled) localStorage.setItem(OWS_STORE_DEV_PREVIEW_KEY, '1');
+                else localStorage.removeItem(OWS_STORE_DEV_PREVIEW_KEY);
+            } catch (_) {}
+        }
+
         function applyRuntimeLayoutProfile() {
             const body = document.body;
             if (!body) return;
@@ -11283,6 +11487,17 @@
         function openDetails(slug) {
             const p = allProjects.find(pro => pro.slug === slug);
             if (!p) return;
+            const phaseRaw = String(p.phase_state || p.dev_state || p.build_state || p.project_state || '').trim().toLowerCase();
+            const PHASE_MAP = {
+                'pre-alpha': 'Pre-Alpha',
+                'pre_alpha': 'Pre-Alpha',
+                'alpha': 'Alpha',
+                'pre-beta': 'Pre-Beta',
+                'pre_beta': 'Pre-Beta',
+                'beta': 'Beta',
+                'stable': 'Estable'
+            };
+            const projectPhase = PHASE_MAP[phaseRaw] || 'Estable';
             const detailNewTag = hasNewBadge(p) ? ' · NUEVO!' : '';
             document.getElementById('m-title').innerText = getProjectShort(p) ? `${p.name} (${getProjectShort(p)})${detailNewTag}` : `${p.name}${detailNewTag}`;
             document.getElementById('m-desc').innerText = p.description || "Explora una nueva dimension de entretenimiento con este proyecto oficial de Ocean and Wild Studios.";
@@ -11297,20 +11512,19 @@
                     : `Ultima actualizacion: ${formatDateTime(p.last_update_at)}`;
                 document.getElementById('m-desc').innerText += `\n\n${statusText}.`;
             }
-            document.getElementById('m-status').innerText = isComingSoon
-                ? 'LANZAMIENTO PROGRAMADO'
-                : (isReleaseTrackedProject(p)
-                ? (p.pending_release ? 'PENDING RELEASE' : 'READY TO INSTALL')
-                : (p.status || 'launched').toUpperCase());
+            const phaseEl = document.getElementById('m-phase-state');
+            if (phaseEl) {
+                phaseEl.innerText = isComingSoon ? 'Proximamente' : projectPhase;
+            }
             let modalIconEl = document.getElementById('m-icon');
             const _mSrc = getProjectIcon(p, 140);
             if (modalIconEl.tagName === 'IMG') {
                 // Convert to div on first use to support .ico in Chromium
                 const _mDiv = document.createElement('div');
                 _mDiv.id = modalIconEl.id;
-                _mDiv.className = modalIconEl.className.replace('app-icon', 'icon-bg');
-                _mDiv.style.width = '80px';
-                _mDiv.style.height = '80px';
+                _mDiv.className = 'icon-bg icon-fit-contain';
+                _mDiv.style.width = '100%';
+                _mDiv.style.height = '100%';
                 _mDiv.style.backgroundImage = `url('${_mSrc.replace(/'/g, "%27")}')`;
                 _mDiv.setAttribute('role', 'img');
                 _mDiv.setAttribute('aria-label', String(p?.name || 'Icon'));
@@ -11319,7 +11533,7 @@
             } else {
                 modalIconEl.style.backgroundImage = `url('${_mSrc.replace(/'/g, "%27")}')`;
             }
-            modalIconEl.classList.remove('icon-fit-contain');
+            modalIconEl.classList.add('icon-bg', 'icon-fit-contain');
             modalIconEl.classList.toggle('icon-fit-ecoxion', isEcoxionProject(p));
             document.getElementById('m-banner').style.backgroundImage = `url(${p.banner_url || 'https://images.unsplash.com/photo-1614850523296-d8c1af93d400?auto=format&fit=crop&q=80&w=800'})`;
 
@@ -11327,16 +11541,19 @@
             const selectedTarget = getSelectedInstallTarget(p);
             if (selectedTarget) selectedInstallTargetBySlug[p.slug] = selectedTarget.id;
             const modalVersion = selectedTarget?.version || getProjectDisplayVersion(p) || p.version || '1.0.0';
-            document.getElementById('m-version').innerText = modalVersion;
+            const releaseDate = selectedTarget?.publishedAt || p.last_update_at || p.windows_last_update_at || p.android_last_update_at || '';
+            const lastUpdateEl = document.getElementById('m-last-update');
+            if (lastUpdateEl) {
+                lastUpdateEl.innerText = `v${modalVersion} · ${releaseDate ? formatDateTime(releaseDate) : 'Sin datos'}`;
+            }
             const compatEl = document.getElementById('m-compat');
             if (compatEl) {
                 const labels = [...new Set(targets.map((t) => t.label).filter(Boolean))];
-                compatEl.innerText = labels.length ? labels.join(' + ') : 'No definida';
+                compatEl.innerText = labels.length ? labels.join(' + ') : 'Windows + Android';
             }
-            const lastReleaseEl = document.getElementById('m-last-release');
-            if (lastReleaseEl) {
-                const releaseDate = selectedTarget?.publishedAt || p.last_update_at || p.windows_last_update_at || p.android_last_update_at || '';
-                lastReleaseEl.innerText = releaseDate ? formatDateTime(releaseDate) : 'Sin datos';
+            const launchEl = document.getElementById('m-launch-date');
+            if (launchEl) {
+                launchEl.innerText = p.release_date ? formatDateTime(p.release_date) : 'Proximamente';
             }
             const platformsWrap = document.getElementById('m-platforms');
             const platformOptions = document.getElementById('m-platform-options');
@@ -11446,7 +11663,6 @@
                 actions.appendChild(cancelBtn);
             }
             renderProjectNewsInModal(p);
-            renderProjectOffersInModal(p);
             maybeShowRecommendBubble(p);
             document.getElementById('details-modal').classList.add('active');
         }
@@ -11535,6 +11751,31 @@
         async function handleProjectAction(e, project) {
             e.stopPropagation();
             if (!project) return;
+            if (!isNativeAndroidRuntime() && !isDesktopUpdaterBridgeAvailable() && isLocalDevPreviewMode()) {
+                rememberProjectInLibrary(project.slug);
+                const runtime = getRuntimeState(project.slug);
+                const currentInstalled = localStorage.getItem(`installed_${project.slug}`);
+                if (currentInstalled) {
+                    addNotification(`[Preview local] ${project.name} abierto en modo simulacion.`, 'warning');
+                    showActionMessage(`Preview local activo: apertura simulada de ${project.name}.`, { state: 'info' });
+                    return;
+                }
+                const previewVersion = getProjectDisplayVersion(project) || project.version || '1.0.0';
+                installStateBySlug[project.slug] = {
+                    ...(installStateBySlug[project.slug] || {}),
+                    installed: true,
+                    version: previewVersion,
+                    platform: 'windows',
+                    updatedAt: new Date().toISOString()
+                };
+                localStorage.setItem(`installed_${project.slug}`, previewVersion);
+                localStorage.setItem(`installed_platform_${project.slug}`, 'windows');
+                setRuntimeState(project.slug, { phase: 'ready', percent: 100, taskId: runtime?.taskId || null });
+                scheduleSectionRender({ projects: true, library: true, immediate: true });
+                addNotification(`[Preview local] ${project.name} marcado como instalado sin build.`, 'warning');
+                showActionMessage('Modo preview local activo: instalacion simulada para pruebas de UI.', { state: 'info' });
+                return;
+            }
             const installedV = localStorage.getItem(`installed_${project.slug}`);
             const isExternalProject = isExternalInstallerProject(project);
             const isPureLaunch = !isExternalProject && installedV === project.version;
@@ -11884,8 +12125,6 @@
             } else if (id === 'home') {
                 renderNewsHub();
                 renderStoreNewsTimeline();
-            } else if (id === 'offers') {
-                renderOffersMarketplace(false);
             }
         }
 
@@ -13351,6 +13590,13 @@
             loadSystemNotificationSeenKeys();
             primeSystemNotifications();
             initTheme();
+            if (!isNativeAndroidRuntime() && !isDesktopUpdaterBridgeAvailable()) {
+                if (isLocalDevPreviewMode()) {
+                    addNotification('[Preview local activo] Instalaciones simuladas sin build.', 'warning');
+                } else {
+                    addNotification('Sin bridge de instalacion local. Usa ?preview=1 para pruebas sin build.', 'neutral');
+                }
+            }
             renderOWSStoreAndroidMeta();
             initOceanPayStore();
             bindStoreTimelineModalEvents();

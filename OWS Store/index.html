@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -9,8 +9,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         /* ================================================
-           OWS STORE — REWORK 2026.3.16
-           Command Center aesthetic — dark glass + neon
+           OWS STORE â€” REWORK 2026.3.16
+           Command Center aesthetic â€” dark glass + neon
         ================================================ */
         :root {
             --bg:          #080c12;
@@ -104,13 +104,13 @@
                 radial-gradient(ellipse 500px 400px at 50% 120%, rgba(40,217,138,0.05) 0%, transparent 60%);
         }
 
-        /* ── SCROLLBAR ── */
+        /* â”€â”€ SCROLLBAR â”€â”€ */
         ::-webkit-scrollbar { width: 4px; height: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 99px; }
         ::-webkit-scrollbar-thumb:hover { background: var(--ink-3); }
 
-        /* ── BOOT OVERLAY ── */
+        /* â”€â”€ BOOT OVERLAY â”€â”€ */
         .boot-overlay {
             position: fixed; inset: 0; z-index: 12000;
             display: none; align-items: center; justify-content: center;
@@ -121,6 +121,110 @@
         .boot-overlay.active { display: flex; }
         .boot-overlay.done { animation: bootFade 0.9s cubic-bezier(0.22,1,0.36,1) forwards; }
         @keyframes bootFade { to { opacity:0; pointer-events:none; } }
+
+        .brand-splash-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 12100;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background:
+                radial-gradient(ellipse 1200px 700px at -10% 0%, rgba(38,212,232,0.14), transparent 58%),
+                radial-gradient(ellipse 860px 520px at 110% 100%, rgba(242,104,48,0.12), transparent 56%),
+                #03070d;
+            overflow: hidden;
+        }
+        .brand-splash-overlay.active { display: flex; }
+        .brand-splash-core {
+            position: relative;
+            width: min(860px, calc(100% - 2rem));
+            min-height: 280px;
+            border: 1px solid rgba(82,217,223,0.22);
+            border-radius: 20px;
+            background: linear-gradient(160deg, rgba(7,15,26,0.94), rgba(4,10,18,0.98));
+            box-shadow: 0 22px 52px rgba(0,0,0,0.52), 0 0 65px rgba(38,212,232,0.14);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            padding: 1.2rem 1rem;
+            gap: 0.75rem;
+        }
+        .brand-splash-title {
+            display: flex;
+            gap: 0.06em;
+            flex-wrap: wrap;
+            justify-content: center;
+            font-family: var(--font-display);
+            font-size: clamp(2rem, 8vw, 4.4rem);
+            font-weight: 900;
+            letter-spacing: 1px;
+            color: #f1f8ff;
+            text-shadow: 0 0 22px rgba(38,212,232,0.22);
+            position: relative;
+            z-index: 2;
+        }
+        .brand-splash-letter {
+            display: inline-block;
+            opacity: 0;
+            transform: translateY(26px) scale(0.86) rotate(-4deg);
+            animation: brandLetterIn 0.72s cubic-bezier(0.16,1,0.3,1) forwards;
+        }
+        @keyframes brandLetterIn {
+            0% { opacity: 0; transform: translateY(26px) scale(0.86) rotate(-4deg); }
+            65% { opacity: 1; transform: translateY(-5px) scale(1.04) rotate(1deg); }
+            100% { opacity: 1; transform: translateY(0) scale(1) rotate(0); }
+        }
+        .brand-splash-sub {
+            font-family: var(--font-mono);
+            font-size: 0.74rem;
+            letter-spacing: 1.2px;
+            text-transform: uppercase;
+            color: var(--ink-1);
+            position: relative;
+            z-index: 2;
+            opacity: 0;
+            animation: brandSubIn 0.6s ease forwards 0.65s;
+        }
+        @keyframes brandSubIn { to { opacity: 1; } }
+        .brand-splash-orbit {
+            position: absolute;
+            width: 180px;
+            height: 180px;
+            border-radius: 50%;
+            border: 1px solid rgba(82,217,223,0.26);
+            box-shadow: 0 0 40px rgba(38,212,232,0.14);
+            animation: brandOrbitSpin 4.2s linear infinite;
+            z-index: 1;
+        }
+        .brand-splash-orbit::before,
+        .brand-splash-orbit::after {
+            content: '';
+            position: absolute;
+            border-radius: 50%;
+        }
+        .brand-splash-orbit::before {
+            width: 12px;
+            height: 12px;
+            background: var(--cyan);
+            top: -6px;
+            left: calc(50% - 6px);
+            box-shadow: 0 0 14px rgba(38,212,232,0.64);
+        }
+        .brand-splash-orbit::after {
+            width: 10px;
+            height: 10px;
+            background: var(--orange);
+            bottom: -5px;
+            left: calc(50% - 5px);
+            box-shadow: 0 0 12px rgba(242,104,48,0.56);
+        }
+        @keyframes brandOrbitSpin { to { transform: rotate(360deg); } }
+        .brand-splash-overlay.exit {
+            animation: brandSplashOut 0.42s ease forwards;
+        }
+        @keyframes brandSplashOut { to { opacity: 0; } }
 
         .boot-card {
             width: min(980px,100%);
@@ -151,16 +255,195 @@
         .boot-showcase { margin-top:0.5rem; flex:1; overflow:hidden; display:flex; flex-direction:column; gap:0.2rem; }
         .boot-scene { font-size:0.68rem; color:var(--ink-2); padding:0.2rem 0; border-bottom:1px solid var(--border); }
 
-        /* ── GAME OVERLAY ── */
+        .startup-loading-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 11850;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(4, 9, 16, 0.58);
+            backdrop-filter: none;
+            padding: 1rem;
+        }
+        .startup-loading-modal.active { display: flex; }
+        .startup-loading-card {
+            width: min(460px, 100%);
+            border: 1px solid rgba(82,217,223,0.34);
+            border-radius: 16px;
+            padding: 1rem 1.05rem;
+            background: linear-gradient(162deg, rgba(9,17,30,0.96), rgba(7,13,22,0.98));
+            box-shadow: 0 20px 45px rgba(0,0,0,0.45);
+            position: relative;
+            overflow: hidden;
+        }
+        .startup-loading-content {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            position: relative;
+            z-index: 4;
+            background: rgba(5, 12, 21, 0.72);
+            border: 1px solid rgba(82,217,223,0.24);
+            border-radius: 12px;
+            padding: 0.62rem 0.72rem;
+        }
+        .startup-door {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 50%;
+            background: linear-gradient(160deg, rgba(5,12,21,0.94), rgba(9,19,32,0.94));
+            border: 1px solid rgba(82,217,223,0.2);
+            z-index: 2;
+            pointer-events: none;
+        }
+        .startup-door.left {
+            left: 0;
+            border-right: 1px solid rgba(82,217,223,0.28);
+            border-radius: 14px 0 0 14px;
+        }
+        .startup-door.right {
+            right: 0;
+            border-left: 1px solid rgba(82,217,223,0.28);
+            border-radius: 0 14px 14px 0;
+        }
+        .startup-loading-card.opening .startup-door.left {
+            animation: startupDoorLeftOpen 0.42s cubic-bezier(0.16,1,0.3,1) forwards;
+        }
+        .startup-loading-card.opening .startup-door.right {
+            animation: startupDoorRightOpen 0.42s cubic-bezier(0.16,1,0.3,1) forwards;
+        }
+        @keyframes startupDoorLeftOpen {
+            to { transform: translateX(-106%); opacity: 0; }
+        }
+        @keyframes startupDoorRightOpen {
+            to { transform: translateX(106%); opacity: 0; }
+        }
+        .startup-loading-spinner {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            border: 3px solid rgba(82,217,223,0.2);
+            border-top-color: var(--cyan);
+            border-right-color: var(--orange);
+            animation: spinFast 0.8s linear infinite;
+            flex-shrink: 0;
+        }
+        .startup-loading-title {
+            font-size: 0.95rem;
+            font-weight: 800;
+            line-height: 1.2;
+            color: #eef7ff;
+            text-shadow: 0 0 8px rgba(82,217,223,0.25);
+        }
+        .startup-loading-text {
+            margin-top: 0.12rem;
+            color: #b8d4eb;
+            font-size: 0.74rem;
+            opacity: 0.96;
+        }
+        @keyframes spinFast { to { transform: rotate(360deg); } }
+
+        .data-refresh-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 11900;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(2, 6, 12, 0.68);
+            backdrop-filter: blur(8px);
+            padding: 1rem;
+        }
+        .data-refresh-modal.active { display: flex; }
+        .data-refresh-card {
+            width: min(520px, 100%);
+            border: 1px solid rgba(82,217,223,0.32);
+            border-radius: 16px;
+            padding: 1rem 1.05rem;
+            background: linear-gradient(165deg, rgba(13,25,41,0.98), rgba(8,15,26,0.98));
+            box-shadow: 0 20px 48px rgba(0,0,0,0.48);
+        }
+        .data-refresh-kicker {
+            font-size: 0.64rem;
+            font-family: var(--font-mono);
+            color: var(--cyan);
+            letter-spacing: 0.7px;
+            text-transform: uppercase;
+            margin-bottom: 0.3rem;
+        }
+        .data-refresh-title { font-size: 1rem; font-weight: 800; line-height: 1.2; }
+        .data-refresh-text { font-size: 0.76rem; color: var(--ink-1); margin-top: 0.35rem; line-height: 1.45; }
+        .data-refresh-countdown { font-size: 0.72rem; color: var(--orange); margin-top: 0.45rem; font-family: var(--font-mono); }
+        .data-refresh-actions { display: flex; gap: 0.55rem; flex-wrap: wrap; margin-top: 0.85rem; }
+
+        /* â”€â”€ GAME OVERLAY â”€â”€ */
         #game-overlay { display:none; position:fixed; inset:0; z-index:9000; background:var(--bg); flex-direction:column; }
         #game-overlay.active { display:flex; }
         #game-frame { flex:1; border:none; }
         .game-controls { display:flex; gap:0.5rem; padding:0.5rem 1rem; background:var(--surface-1); border-bottom:1px solid var(--border); }
 
-        /* ── APP SHELL ── */
+        .ecosystem-trailer-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 9800;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(1, 5, 10, 0.96);
+        }
+        .ecosystem-trailer-overlay.active { display: flex; }
+        #ecosystem-trailer-canvas {
+            width: min(100vw, 1280px);
+            height: min(100vh, 720px);
+            display: block;
+            box-shadow: 0 14px 60px rgba(0,0,0,0.6);
+        }
+        .ecosystem-trailer-top,
+        .ecosystem-trailer-bottom {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            width: min(1120px, calc(100% - 2rem));
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            pointer-events: none;
+            text-shadow: 0 0 10px rgba(0,0,0,0.8);
+        }
+        .ecosystem-trailer-top {
+            top: 1rem;
+            font-family: var(--font-mono);
+            font-size: 0.72rem;
+            color: #bfe5ff;
+        }
+        .ecosystem-trailer-bottom {
+            bottom: 1.2rem;
+            justify-content: center;
+            font-size: clamp(0.9rem, 2.2vw, 1.25rem);
+            font-weight: 800;
+            color: #eaf8ff;
+            text-align: center;
+            letter-spacing: 0.3px;
+        }
+        .ecosystem-trailer-close {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            border: 1px solid rgba(145, 198, 226, 0.4);
+            background: rgba(8,19,31,0.86);
+            color: var(--ink-0);
+            cursor: pointer;
+        }
+
+        /* â”€â”€ APP SHELL â”€â”€ */
         .app-container { position:relative; z-index:1; display:flex; height:100vh; overflow:hidden; }
 
-        /* ── SIDEBAR ── */
+        /* â”€â”€ SIDEBAR â”€â”€ */
         .sidebar {
             width: var(--sidebar-w);
             flex-shrink: 0;
@@ -299,7 +582,7 @@
         @keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.8)} }
         #app-version { font-size:0.6rem; color:var(--ink-3); margin-top:0.3rem; font-family:var(--font-mono); }
 
-        /* ── UPDATE BANNER ── */
+        /* â”€â”€ UPDATE BANNER â”€â”€ */
         .update-banner {
             display: none;
             position: sticky; top: 0; z-index: 100;
@@ -321,7 +604,7 @@
         .btn-update { background:var(--cyan-dim); border-color:rgba(38,212,232,0.3); color:var(--cyan); font-weight:600; }
         .btn-close-update:hover, .btn-update:hover { filter:brightness(1.1); }
 
-        /* ── MAIN CONTENT ── */
+        /* â”€â”€ MAIN CONTENT â”€â”€ */
         .main-content {
             flex: 1;
             overflow-y: auto;
@@ -331,7 +614,7 @@
             min-width: 0;
         }
 
-        /* ── HEADER / TOPBAR ── */
+        /* â”€â”€ HEADER / TOPBAR â”€â”€ */
         .topbar {
             height: var(--header-h);
             background: var(--surface-0);
@@ -382,10 +665,10 @@
         .topbar-btn:hover { background:var(--surface-3); color:var(--ink-0); border-color:var(--border-mid); }
         .topbar-btn i { font-size:12px; }
 
-        /* ── SECTIONS ── */
+        /* â”€â”€ SECTIONS â”€â”€ */
         .section { padding: 1.5rem 1.25rem; flex:1; }
 
-        /* ── HOME / EXPLORE ── */
+        /* â”€â”€ HOME / EXPLORE â”€â”€ */
         .hero-band {
             background: linear-gradient(135deg, rgba(38,212,232,0.06), rgba(242,104,48,0.04));
             border: 1px solid rgba(38,212,232,0.12);
@@ -564,7 +847,7 @@
         }
         .btn-install.full { width:100%; justify-content:center; }
 
-        /* ── LIBRARY ── */
+        /* â”€â”€ LIBRARY â”€â”€ */
         .library-shell {
             display:flex;
             flex-direction:column;
@@ -625,7 +908,7 @@
         .library-card-meta { font-size:0.68rem; color:var(--ink-2); margin-top:1px; }
         .library-card-actions { display:flex; gap:0.4rem; flex-shrink:0; }
 
-        /* ── UPDATES / CENTRO ── */
+        /* â”€â”€ UPDATES / CENTRO â”€â”€ */
         .updates-shell {
             display:flex;
             flex-direction:column;
@@ -728,7 +1011,7 @@
         .notification-time { font-size:0.65rem; color:var(--ink-2); font-family:var(--font-mono); margin-bottom:0.2rem; }
         .notification-text { font-size:0.8rem; font-weight:600; color:var(--ink-0); }
 
-        /* ── DETAILS MODAL ── */
+        /* â”€â”€ DETAILS MODAL â”€â”€ */
         #details-modal {
             display: none;
             position: fixed; inset:0; z-index:5000;
@@ -974,7 +1257,7 @@
         }
         .offer-checkout-btn:disabled { opacity:0.45; cursor:not-allowed; }
 
-        /* ── CHANGELOG MODAL (panel lateral) ── */
+        /* â”€â”€ CHANGELOG MODAL (panel lateral) â”€â”€ */
         #store-news-modal {
             display: none;
             position: fixed; inset:0; z-index:5500;
@@ -1080,18 +1363,18 @@
         .changelog-detail-important-title { font-weight:700; font-size:0.82rem; color:var(--cyan); }
         .changelog-detail-important-text { font-size:0.75rem; color:var(--ink-1); margin-top:0.2rem; line-height:1.5; }
 
-        /* ── ECOSYSTEM LIST (all projects) ── */
+        /* â”€â”€ ECOSYSTEM LIST (all projects) â”€â”€ */
         .ecosystem-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:0.75rem; }
         .ecosystem-pulse { display:flex; align-items:center; gap:0.4rem; font-size:0.68rem; color:var(--ink-2); font-family:var(--font-mono); }
         .dot { width:6px; height:6px; background:var(--green); border-radius:50%; box-shadow:0 0 6px var(--green); animation:pulse 2s infinite; }
 
-        /* ── STORE TIMELINE COMPACT ── */
+        /* â”€â”€ STORE TIMELINE COMPACT â”€â”€ */
         .store-timeline-card { background:var(--surface-1); border:1px solid var(--border); border-radius:var(--r-lg); padding:1rem; margin-bottom:1rem; }
         .store-timeline-preview { display:flex; flex-direction:column; gap:0.4rem; min-height:60px; }
         .store-timeline-actions { margin-top:0.75rem; }
         .info-note-card { font-size:0.78rem; color:var(--ink-2); padding:0.75rem; background:var(--surface-2); border-radius:var(--r-sm); border:1px solid var(--border); }
 
-        /* ── MISC ── */
+        /* â”€â”€ MISC â”€â”€ */
         .mobile-queue-fab { display:none; position:fixed; bottom:1.5rem; right:1.5rem; z-index:3000; width:52px; height:52px; border-radius:50%; background:var(--cyan); border:none; color:#000; font-size:18px; cursor:pointer; box-shadow:0 4px 20px var(--cyan-glow); align-items:center; justify-content:center; }
         #mobile-queue-fab-count { position:absolute; top:-4px; right:-4px; background:var(--orange); color:#fff; border-radius:99px; padding:1px 5px; font-size:10px; font-weight:800; display:none; }
         @media (max-width:768px) {
@@ -1314,7 +1597,7 @@
             }
         }
 
-        /* ── COUNTDOWN ── */
+        /* â”€â”€ COUNTDOWN â”€â”€ */
         .countdown-wrap { font-family:var(--font-mono); font-size:0.7rem; color:var(--yellow); }
         .countdown-badge { display:inline-flex; gap:0.3rem; align-items:center; background:var(--yellow-dim); border:1px solid rgba(245,197,66,0.2); border-radius:99px; padding:2px 8px; }
 
@@ -1330,9 +1613,9 @@
         .install-target-btn.selected { background:var(--cyan-dim); border-color:rgba(38,212,232,0.3); color:var(--cyan); }
 
     
-        /* ═══════════════════════════════════════════════
-           ECOSYSTEM / PROJECT CARDS — EPIC
-        ═══════════════════════════════════════════════ */
+        /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+           ECOSYSTEM / PROJECT CARDS â€” EPIC
+        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
         /* Override project-grid for ecosystem row layout */
         #projects-container.project-grid {
@@ -1395,7 +1678,7 @@
             padding: 4px;
         }
 
-        /* icon-bg: div with background-image — renders .ico/.jpg/.png reliably in Electron/Chromium */
+        /* icon-bg: div with background-image â€” renders .ico/.jpg/.png reliably in Electron/Chromium */
         .icon-bg {
             width: 48px;
             height: 48px;
@@ -1587,9 +1870,9 @@
             transition: width 0.3s ease;
         }
 
-        /* ═══════════════════════════════════════════════
-           LIBRARY CARDS — EPIC
-        ═══════════════════════════════════════════════ */
+        /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+           LIBRARY CARDS â€” EPIC
+        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
         .library-card {
             background: var(--surface-1);
@@ -1724,9 +2007,9 @@
             flex-wrap: wrap;
         }
 
-        /* ═══════════════════════════════════════════════
+        /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
            NEWS HUB ITEMS
-        ═══════════════════════════════════════════════ */
+        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
         .news-hub-item {
             background: var(--surface-1);
@@ -1779,9 +2062,9 @@
 
         .news-hub-event-copy { }
 
-        /* ═══════════════════════════════════════════════
+        /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
            PROJECT UPDATES LIST
-        ═══════════════════════════════════════════════ */
+        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
         .project-updates-toolbar {
             display: flex;
@@ -1923,9 +2206,9 @@
             font-style: italic;
         }
 
-        /* ═══════════════════════════════════════════════
+        /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
            SPOTLIGHT LIST ITEMS
-        ═══════════════════════════════════════════════ */
+        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
         .spotlight-list-item {
             display: flex;
@@ -1944,9 +2227,9 @@
             background: var(--surface-2);
         }
 
-        /* ═══════════════════════════════════════════════
-           MODAL — project detail inner fixes
-        ═══════════════════════════════════════════════ */
+        /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+           MODAL â€” project detail inner fixes
+        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
         .modal-icon-wrap img.icon-fit-ecoxion {
             object-fit: contain;
@@ -1980,9 +2263,9 @@
             color: var(--cyan);
         }
 
-        /* ═══════════════════════════════════════════════
+        /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
            MISC OVERRIDES
-        ═══════════════════════════════════════════════ */
+        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
         /* text-dim compat alias */
         :root { --text-dim: var(--ink-2); --brand-2: var(--cyan); --brand: var(--orange); --accent-primary: var(--cyan); --accent-secondary: var(--orange); --ok: var(--green); --warn: var(--yellow); --bg-card: var(--surface-1); --ink: var(--ink-0); --ink-soft: var(--ink-1); --paper: var(--surface-1); --surface: var(--surface-2); --line: var(--border); --glass-border: var(--border-mid); }
@@ -2015,9 +2298,9 @@
         }
 
 
-        /* ═══════════════════════════════════════════════
-           BOOT OVERLAY REWORK — MODAL CON PASOS
-        ═══════════════════════════════════════════════ */
+        /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+           BOOT OVERLAY REWORK â€” MODAL CON PASOS
+        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
         /* Steps list */
         .boot-steps-list {
@@ -2138,9 +2421,9 @@
         }
         .boot-canvas-wrap { min-height: 120px; }
 
-        /* ═══════════════════════════════════════════════
-           OCEAN PAY SIDEBAR — MINIMIZADO Y COLAPSABLE
-        ═══════════════════════════════════════════════ */
+        /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+           OCEAN PAY SIDEBAR â€” MINIMIZADO Y COLAPSABLE
+        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
         .sidebar-oceanpay {
             margin: 0.5rem 0.75rem 0.75rem;
@@ -2229,9 +2512,9 @@
             font-family: var(--font-mono);
         }
 
-        /* ═══════════════════════════════════════════════
-           EVENTS FIX — news-hub-event-status classes
-        ═══════════════════════════════════════════════ */
+        /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+           EVENTS FIX â€” news-hub-event-status classes
+        â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
         /* Fix for dynamic class names from getEventStatusLabel */
         .news-hub-event-status.status-active,
@@ -2248,7 +2531,7 @@
         .news-hub-event-status[class*="end"] { background: var(--surface-3) !important; color: var(--ink-2) !important; }
 
 
-        /* ═══ NEWS HUB TABS ═══ */
+        /* â•â•â• NEWS HUB TABS â•â•â• */
         .news-hub-tabs-bar {
             display: flex;
             gap: 0.35rem;
@@ -2275,7 +2558,7 @@
         .news-hub-panel { display: none; }
         .news-hub-panel.active { display: block; }
 
-        /* ═══ EVENT STATUS — fix for dynamic klass values ═══ */
+        /* â•â•â• EVENT STATUS â€” fix for dynamic klass values â•â•â• */
         .news-hub-event-status {
             font-size: 0.58rem; font-family: var(--font-mono); font-weight: 700;
             text-transform: uppercase; letter-spacing: 0.3px;
@@ -2301,7 +2584,7 @@
         }
 
 
-        /* ═══ EVENT CARD LAYOUT FIX ═══ */
+        /* â•â•â• EVENT CARD LAYOUT FIX â•â•â• */
         .news-hub-list {
             display: flex;
             flex-direction: column;
@@ -2369,7 +2652,7 @@
         }
 
 
-        /* ═══ SEARCH DROPDOWN ═══ */
+        /* â•â•â• SEARCH DROPDOWN â•â•â• */
         .search-dropdown {
             position: absolute;
             top: calc(100% + 6px);
@@ -2469,7 +2752,7 @@
             text-align: center;
         }
 
-        /* ═══ EVENT CARD FINAL FIX (override everything) ═══ */
+        /* â•â•â• EVENT CARD FINAL FIX (override everything) â•â•â• */
         #news-hub-events .news-hub-event-card,
         #news-hub-events-wrap .news-hub-event-card {
             display: flex !important;
@@ -2490,7 +2773,15 @@
 </head>
 <body>
 
-<!-- ═══ BOOT OVERLAY ═══ -->
+<!-- â•â•â• BOOT OVERLAY â•â•â• -->
+<div id="brand-splash-overlay" class="brand-splash-overlay" aria-hidden="true">
+    <div class="brand-splash-core">
+        <div class="brand-splash-orbit" aria-hidden="true"></div>
+        <div class="brand-splash-title" id="brand-splash-title"></div>
+        <div class="brand-splash-sub">Ocean and Wild Studios Launcher</div>
+    </div>
+</div>
+
 <div id="boot-overlay" class="boot-overlay" aria-live="polite">
     <!-- Checkmark completion overlay (se muestra al terminar) -->
     <div id="boot-check-anim" class="boot-check-anim">
@@ -2546,9 +2837,36 @@
     </div>
 </div>
 
+<div id="startup-loading-modal" class="startup-loading-modal" aria-live="polite" aria-hidden="true">
+    <div class="startup-loading-card">
+        <div class="startup-door left" aria-hidden="true"></div>
+        <div class="startup-door right" aria-hidden="true"></div>
+        <div class="startup-loading-content">
+            <div class="startup-loading-spinner"></div>
+            <div>
+                <div class="startup-loading-title">OWS Store esta cargando</div>
+                <div id="startup-loading-text" class="startup-loading-text">Preparando entorno...</div>
+            </div>
+        </div>
+    </div>
 </div>
 
-<!-- ═══ GAME OVERLAY ═══ -->
+<div id="data-refresh-modal" class="data-refresh-modal" aria-live="polite" aria-hidden="true">
+    <div class="data-refresh-card">
+        <div class="data-refresh-kicker">Actualizacion detectada</div>
+        <div class="data-refresh-title">Hay nuevo contenido en OWS Store</div>
+        <div id="data-refresh-text" class="data-refresh-text">Se detectaron cambios en proyectos, noticias o eventos.</div>
+        <div id="data-refresh-countdown" class="data-refresh-countdown">Aplicando cambios en 5s...</div>
+        <div class="data-refresh-actions">
+            <button class="btn-install primary" onclick="applyDeferredDetectedUpdateNow()"><i class="fas fa-rotate"></i> Actualizar ahora</button>
+            <button class="btn-install" onclick="dismissDeferredDetectedUpdate()"><i class="fas fa-clock"></i> Posponer</button>
+        </div>
+    </div>
+</div>
+
+</div>
+
+<!-- â•â•â• GAME OVERLAY â•â•â• -->
 <div id="game-overlay">
     <div class="game-controls">
         <button class="topbar-btn" onclick="closeGame()"><i class="fas fa-house"></i> Volver</button>
@@ -2558,7 +2876,16 @@
     <iframe id="game-frame" title="OWS Game" allowfullscreen></iframe>
 </div>
 
-<!-- ═══ DETAILS MODAL ═══ -->
+<!-- â•â•â• DETAILS MODAL â•â•â• -->
+<div id="ecosystem-trailer-overlay" class="ecosystem-trailer-overlay" aria-hidden="true">
+    <canvas id="ecosystem-trailer-canvas" width="1280" height="720"></canvas>
+    <div class="ecosystem-trailer-top">
+        <span id="ecosystem-trailer-time">00.0s</span>
+        <span>Ecosystem Update Trailer</span>
+    </div>
+    <div class="ecosystem-trailer-bottom" id="ecosystem-trailer-caption">Preparing sequence...</div>
+    <button class="ecosystem-trailer-close" onclick="stopEcosystemTrailer(true)"><i class="fas fa-times"></i></button>
+</div>
 <div id="details-modal" onclick="if (event.target === this) closeDetails()">
     <div class="details-modal-shell">
         <button class="btn-close-modal" onclick="closeDetails()"><i class="fas fa-times"></i></button>
@@ -2581,7 +2908,7 @@
                 <div class="modal-stats">
                     <div class="stat-box">
                         <div class="stat-label">Ultima Actualizacion</div>
-                        <div class="stat-value" id="m-last-update">v1.0.0 · Sin datos</div>
+                        <div class="stat-value" id="m-last-update">v1.0.0 Â· Sin datos</div>
                     </div>
                     <div class="stat-box">
                         <div class="stat-label">Estado de Proyecto</div>
@@ -2633,7 +2960,7 @@
     </div>
 </div>
 
-<!-- ═══ APP SHELL ═══ -->
+<!-- â•â•â• APP SHELL â•â•â• -->
 <div class="app-container">
 
     <!-- SIDEBAR -->
@@ -2655,6 +2982,9 @@
             <li class="nav-item" onclick="showSection('updates', this)">
                 <i class="fas fa-arrow-up-from-bracket"></i> Actualizaciones
                 <span id="update-badge" class="nav-badge" style="display:none;">!</span>
+            </li>
+            <li class="nav-item" onclick="showSection('settings', this)">
+                <i class="fas fa-sliders"></i> Configuraciones
             </li>
         </nav>
 
@@ -2759,12 +3089,13 @@
                 </div>
             </div>
             <div class="topbar-actions">
+                <button class="topbar-btn" onclick="startEcosystemTrailer()"><i class="fas fa-film"></i> Trailer</button>
                 <button class="topbar-btn" onclick="syncLibraryNow()"><i class="fas fa-rotate"></i> Sync</button>
                 <button class="topbar-btn" onclick="showSection('updates', document.querySelector('.nav-menu .nav-item:nth-child(3)'))"><i class="fas fa-bell"></i> Notificaciones</button>
             </div>
         </header>
 
-        <!-- ══ HOME ══ -->
+        <!-- â•â• HOME â•â• -->
         <section id="home-view" class="section">
 
             <!-- Hero -->
@@ -2886,8 +3217,8 @@
 
             <!-- OWS Store Changelog -->
             <div class="section-header" style="margin-bottom:0.75rem;">
-                <span class="section-label">OWS Store — Historial</span>
-                <span class="section-action" onclick="openStoreTimelineModal('store')">Ver historial completo →</span>
+                <span class="section-label">OWS Store â€” Historial</span>
+                <span class="section-action" onclick="openStoreTimelineModal('store')">Ver historial completo â†’</span>
             </div>
             <div class="changelog-panel" style="margin-bottom:2rem;">
                 <div class="changelog-panel-head">
@@ -2921,7 +3252,7 @@
             </div>
         </section>
 
-        <!-- ══ LIBRARY ══ -->
+        <!-- â•â• LIBRARY â•â• -->
         <section id="library-view" class="section" style="display:none;">
             <div class="library-shell">
                 <div class="library-hero">
@@ -2972,7 +3303,7 @@
             </div>
         </section>
 
-        <!-- ══ UPDATES ══ -->
+        <!-- â•â• UPDATES â•â• -->
         <section id="updates-view" class="section" style="display:none;">
             <div class="updates-shell">
                 <div class="updates-title-area">
@@ -3056,6 +3387,47 @@
             </div>
         </section>
 
+        <section id="settings-view" class="section" style="display:none;">
+            <div class="updates-shell">
+                <div class="updates-title-area">
+                    <div class="updates-kicker">Preferencias de OWS Store</div>
+                    <div class="updates-title">Configuraciones</div>
+                </div>
+
+                <div class="stat-grid">
+                    <div class="stat-box" style="grid-column:1 / -1;">
+                        <div class="stat-label">Modo de arranque silencioso</div>
+                        <div class="stat-value" style="display:flex;align-items:center;justify-content:space-between;gap:0.8rem;flex-wrap:wrap;">
+                            <span id="settings-deferred-status">Desactivado</span>
+                            <button id="settings-deferred-toggle" class="btn-install" onclick="toggleDeferredStartupMode()">
+                                <i class="fas fa-toggle-off"></i> Activar
+                            </button>
+                        </div>
+                        <div style="margin-top:0.55rem;font-size:0.72rem;color:var(--ink-1);line-height:1.45;">
+                            Si lo activas, al reiniciar OWS Store mantiene la vista actual sin recargar todo al inicio. En segundo plano revisa proyectos, noticias y eventos; si detecta cambios, te avisa y aplica la actualizacion.
+                        </div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Ultima revision silenciosa</div>
+                        <div class="stat-value" id="settings-last-silent-check">Sin revisiones</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Estado monitor</div>
+                        <div class="stat-value" id="settings-silent-monitor-state">Inactivo</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-label">Firma local de datos</div>
+                        <div class="stat-value" id="settings-data-signature">-</div>
+                    </div>
+                </div>
+
+                <div style="display:flex;gap:0.6rem;flex-wrap:wrap;">
+                    <button class="btn-install primary" onclick="forceRefreshStoreDataNow()"><i class="fas fa-arrows-rotate"></i> Forzar actualizacion ahora</button>
+                    <button class="btn-install" onclick="runDeferredSilentCheck(true)"><i class="fas fa-wave-pulse"></i> Ejecutar revision silenciosa</button>
+                </div>
+            </div>
+        </section>
+
     </main>
 </div>
 
@@ -3065,13 +3437,13 @@
     <span id="mobile-queue-fab-count">0</span>
 </button>
 
-<!-- ═══ CHANGELOG MODAL (panel lateral) ═══ -->
+<!-- â•â•â• CHANGELOG MODAL (panel lateral) â•â•â• -->
 <div id="store-news-modal" aria-hidden="true" onclick="if(event.target===this)closeStoreTimelineModal()">
     <div class="changelog-modal-shell" id="store-news-modal-card">
         <div class="changelog-modal-header">
             <div class="changelog-modal-icon"><i class="fas fa-book-open"></i></div>
             <div class="changelog-modal-title-wrap">
-                <div class="changelog-modal-title" id="store-news-modal-title">OWS Store — Historial</div>
+                <div class="changelog-modal-title" id="store-news-modal-title">OWS Store â€” Historial</div>
                 <div class="changelog-modal-sub">Selecciona una version en el panel izquierdo para ver sus detalles</div>
             </div>
             <button type="button" class="btn-close-modal" style="position:static;flex-shrink:0;" onclick="closeStoreTimelineModal()" aria-label="Cerrar">
@@ -3171,6 +3543,9 @@
         const STORE_DOWNLOAD_KEY = '__ows_store_update__';
         const STORE_THEME_KEY = 'ows_store_theme';
         const PROJECT_LIBRARY_KEY = 'ows_store_library_owned_slugs_v1';
+        const STORE_DEFERRED_STARTUP_KEY = 'ows_store_deferred_startup_v1';
+        const STORE_DATA_SNAPSHOT_KEY = 'ows_store_data_snapshot_v1';
+        const STORE_DATA_SIGNATURE_KEY = 'ows_store_data_signature_v1';
         const PROJECT_UPDATES_DISMISSED_KEY = 'ows_store_updates_dismissed_up_to_date_v1';
         const OWS_STORE_DEV_PREVIEW_KEY = 'ows_store_dev_preview_mode_v1';
         const SYSTEM_NOTIFICATIONS_PERMISSION_KEY = 'ows_store_system_notifications_permission_v1';
@@ -3193,6 +3568,9 @@
         const WILDSHORTS_PLACEHOLDER_DATE_ISO = '2026-03-28T18:00:00Z';
         const OCEAN_CINEMAS_RELEASE_DATE_ISO = '2026-04-03T18:00:00Z';
         const MYSTERY_PROJECT_RELEASE_DATE_ISO = '';  // Fecha por decidir
+        const ECOXION_EVENT_END_DATE_ISO = '2026-03-20T18:00:00Z';
+        const WILD_DESTINY_EVENT_END_DATE_ISO = '2026-03-21T18:00:00Z';
+        const WILDSHORTS_EVENT_END_DATE_ISO = '2026-04-11T18:00:00Z';
         const SSA_PROJECT = {
             slug: 'savagespaceanimals',
             name: 'Savage Space Animals',
@@ -3481,6 +3859,15 @@
         let owsStoreAndroidReleaseCache = null;
         let owsStoreWindowsReleaseCache = null;
         let allProjects = [];
+        let deferredSilentMonitorTimer = null;
+        let deferredModalCountdownTimer = null;
+        let deferredModalAutoApplyTimer = null;
+        let deferredLastSilentCheckAt = 0;
+        let deferredMonitorState = 'idle';
+        let lastKnownStoreDataSignature = '';
+        let ecosystemTrailerRaf = 0;
+        let ecosystemTrailerStartedAt = 0;
+        let ecosystemTrailerRunning = false;
         let libraryOwnedSlugs = new Set();
         let dismissedUpToDateProjectCards = new Set();
         const notificationLog = [];
@@ -3619,6 +4006,174 @@
         function toggleTheme() {
             const current = document.body.getAttribute('data-theme') || 'light';
             applyTheme(current === 'dark' ? 'light' : 'dark');
+        }
+
+        function showStartupLoadingModal(text = 'Preparando entorno...') {
+            const modal = document.getElementById('startup-loading-modal');
+            const textEl = document.getElementById('startup-loading-text');
+            const card = modal ? modal.querySelector('.startup-loading-card') : null;
+            if (textEl) textEl.textContent = text;
+            if (modal) {
+                if (card) card.classList.remove('opening');
+                modal.classList.add('active');
+                modal.setAttribute('aria-hidden', 'false');
+            }
+        }
+
+        function updateStartupLoadingText(text = '') {
+            const textEl = document.getElementById('startup-loading-text');
+            if (textEl && text) textEl.textContent = text;
+        }
+
+        async function hideStartupLoadingModal() {
+            const modal = document.getElementById('startup-loading-modal');
+            const card = modal ? modal.querySelector('.startup-loading-card') : null;
+            if (!modal) return;
+            if (card) card.classList.add('opening');
+            await new Promise((r) => setTimeout(r, 430));
+            modal.classList.remove('active');
+            modal.setAttribute('aria-hidden', 'true');
+            if (card) card.classList.remove('opening');
+        }
+
+        function renderBrandSplashWord(word = 'OWS STORE') {
+            const title = document.getElementById('brand-splash-title');
+            if (!title) return;
+            const chars = String(word || 'OWS STORE').split('');
+            title.innerHTML = chars.map((ch, index) => {
+                const safe = ch === ' ' ? '&nbsp;' : ch.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                return `<span class="brand-splash-letter" style="animation-delay:${(index * 0.07).toFixed(2)}s;">${safe}</span>`;
+            }).join('');
+        }
+
+        async function playBrandSplashSequence() {
+            const overlay = document.getElementById('brand-splash-overlay');
+            if (!overlay) return;
+            renderBrandSplashWord('OWS STORE');
+            overlay.classList.remove('exit');
+            overlay.classList.add('active');
+            overlay.setAttribute('aria-hidden', 'false');
+            await new Promise((r) => setTimeout(r, 2300));
+            overlay.classList.add('exit');
+            await new Promise((r) => setTimeout(r, 420));
+            overlay.classList.remove('active', 'exit');
+            overlay.setAttribute('aria-hidden', 'true');
+        }
+
+        function isDeferredStartupModeEnabled() {
+            return localStorage.getItem(STORE_DEFERRED_STARTUP_KEY) === '1';
+        }
+
+        function setDeferredStartupModeEnabled(enabled) {
+            localStorage.setItem(STORE_DEFERRED_STARTUP_KEY, enabled ? '1' : '0');
+            renderSettingsState();
+        }
+
+        function toggleDeferredStartupMode() {
+            const next = !isDeferredStartupModeEnabled();
+            setDeferredStartupModeEnabled(next);
+            addNotification(next
+                ? 'Modo de arranque silencioso activado. Se aplicara en el proximo reinicio.'
+                : 'Modo de arranque silencioso desactivado. El proximo reinicio cargara normalmente.',
+                'info');
+        }
+
+        function createStoreDataHash(input = '') {
+            const value = String(input || '');
+            let hash = 2166136261;
+            for (let i = 0; i < value.length; i++) {
+                hash ^= value.charCodeAt(i);
+                hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+            }
+            return `sig_${(hash >>> 0).toString(16)}`;
+        }
+
+        function buildStoreDataSignature(projects = [], news = []) {
+            const projectShape = (Array.isArray(projects) ? projects : []).map((p) => ({
+                slug: String(p?.slug || '').toLowerCase(),
+                version: String(p?.version || ''),
+                status: String(p?.status || ''),
+                release_date: String(p?.release_date || ''),
+                last_update_at: String(p?.last_update_at || ''),
+            })).sort((a, b) => a.slug.localeCompare(b.slug));
+            const newsShape = (Array.isArray(news) ? news : []).map((n) => ({
+                id: Number(n?.id || 0),
+                title: String(n?.title || ''),
+                updateDate: String(n?.updateDate || n?.update_date || ''),
+                eventStart: String(n?.eventStart || n?.event_start || ''),
+                eventEnd: String(n?.eventEnd || n?.event_end || ''),
+                active: n?.isActive !== false,
+                type: String(n?.entryType || n?.entry_type || ''),
+            })).sort((a, b) => `${a.title}|${a.updateDate}`.localeCompare(`${b.title}|${b.updateDate}`));
+            return createStoreDataHash(JSON.stringify({ projectShape, newsShape }));
+        }
+
+        function persistStoreDataSnapshot() {
+            try {
+                const signature = buildStoreDataSignature(allProjects, owsNewsUpdatesCache);
+                const payload = {
+                    savedAt: new Date().toISOString(),
+                    signature,
+                    projects: Array.isArray(allProjects) ? allProjects : [],
+                    news: Array.isArray(owsNewsUpdatesCache) ? owsNewsUpdatesCache : [],
+                };
+                localStorage.setItem(STORE_DATA_SNAPSHOT_KEY, JSON.stringify(payload));
+                localStorage.setItem(STORE_DATA_SIGNATURE_KEY, signature);
+                lastKnownStoreDataSignature = signature;
+            } catch (_) {}
+        }
+
+        function loadStoreDataSnapshot() {
+            try {
+                const raw = localStorage.getItem(STORE_DATA_SNAPSHOT_KEY);
+                if (!raw) return null;
+                const parsed = JSON.parse(raw);
+                if (!parsed || typeof parsed !== 'object') return null;
+                if (!Array.isArray(parsed.projects)) return null;
+                return parsed;
+            } catch (_) {
+                return null;
+            }
+        }
+
+        function renderSettingsState() {
+            const statusEl = document.getElementById('settings-deferred-status');
+            const toggleBtn = document.getElementById('settings-deferred-toggle');
+            const lastCheckEl = document.getElementById('settings-last-silent-check');
+            const monitorEl = document.getElementById('settings-silent-monitor-state');
+            const sigEl = document.getElementById('settings-data-signature');
+            const enabled = isDeferredStartupModeEnabled();
+            if (statusEl) statusEl.textContent = enabled ? 'Activado' : 'Desactivado';
+            if (toggleBtn) {
+                toggleBtn.innerHTML = enabled
+                    ? '<i class="fas fa-toggle-on"></i> Desactivar'
+                    : '<i class="fas fa-toggle-off"></i> Activar';
+            }
+            if (lastCheckEl) {
+                lastCheckEl.textContent = deferredLastSilentCheckAt
+                    ? formatDateTime(new Date(deferredLastSilentCheckAt).toISOString())
+                    : 'Sin revisiones';
+            }
+            if (monitorEl) monitorEl.textContent = deferredMonitorState || 'Inactivo';
+            if (sigEl) sigEl.textContent = lastKnownStoreDataSignature || localStorage.getItem(STORE_DATA_SIGNATURE_KEY) || '-';
+        }
+
+        function applyCachedSnapshotToUi(snapshot = null) {
+            const data = snapshot || loadStoreDataSnapshot();
+            if (!data) return false;
+            allProjects = dedupeProjectCatalog(Array.isArray(data.projects) ? data.projects : []);
+            owsNewsUpdatesCache = Array.isArray(data.news) ? data.news : [];
+            owsNewsUpdatesFetchedAt = Date.now();
+            lastKnownStoreDataSignature = String(data.signature || buildStoreDataSignature(allProjects, owsNewsUpdatesCache));
+            renderVisibleProjects();
+            renderLibrary();
+            renderProjectUpdatesList();
+            renderStoreNewsTimeline();
+            renderNewsHub();
+            requestRenderDownloadSurfaces({ immediate: true });
+            renderExploreInsights();
+            renderSettingsState();
+            return true;
         }
 
         function loadLibraryOwnedSlugs() {
@@ -6143,12 +6698,12 @@
         }
 
         function getManualStoreEvents() {
-            const ecoWindow = { startAt: ECOXION_RELEASE_DATE_ISO, endAt: '2026-03-20T18:00:00Z' };
+            const ecoWindow = { startAt: ECOXION_RELEASE_DATE_ISO, endAt: ECOXION_EVENT_END_DATE_ISO };
             const ecoPhase = resolveEventPhase(ecoWindow);
-            const wildDestinyWindow = { startAt: WILD_DESTINY_RELEASE_DATE_ISO, endAt: '2026-03-21T18:00:00Z' };
+            const wildDestinyWindow = { startAt: WILD_DESTINY_RELEASE_DATE_ISO, endAt: WILD_DESTINY_EVENT_END_DATE_ISO };
             const wildShortsWindow = {
                 startAt: WILDSHORTS_PLACEHOLDER_DATE_ISO,
-                endAt: new Date((Date.parse(WILDSHORTS_PLACEHOLDER_DATE_ISO) || Date.now()) + (14 * 24 * 60 * 60 * 1000)).toISOString()
+                endAt: WILDSHORTS_EVENT_END_DATE_ISO
             };
             return [
                 {
@@ -6163,7 +6718,7 @@
                     entryType: 'event',
                     platforms: ['windows'],
                     isActive: true,
-                    priority: 5,
+                    priority: 995,
                     model2d: { key: 'wild_destiny_event' },
                     bannerMeta: {},
                     eventWindow: wildDestinyWindow,
@@ -6181,7 +6736,7 @@
                     entryType: 'event',
                     platforms: ['windows'],
                     isActive: true,
-                    priority: 5,
+                    priority: 995,
                     model2d: { key: 'ecoxion_event' },
                     bannerMeta: {},
                     eventWindow: ecoWindow,
@@ -6207,9 +6762,9 @@
                 },
                 {
                     id: -1004,
-                    title: 'WildShorts - ventana de lanzamiento',
-                    description: 'Evento de lanzamiento con ventana temporal definida.',
-                    changes: ['Inicio y cierre de evento definidos'],
+                    title: 'WildShorts - Evento de lanzamiento',
+                    description: 'Evento de lanzamiento oficial de WildShorts con ventana definida.',
+                    changes: ['Ventana de inicio y cierre del evento definida'],
                     projectNames: ['wildshorts', 'wild shorts'],
                     updateDate: WILDSHORTS_PLACEHOLDER_DATE_ISO,
                     isEvent: true,
@@ -6217,7 +6772,7 @@
                     entryType: 'event',
                     platforms: ['windows'],
                     isActive: true,
-                    priority: 5,
+                    priority: 995,
                     model2d: { key: 'wildshorts_event' },
                     bannerMeta: {},
                     eventWindow: wildShortsWindow,
@@ -8144,7 +8699,7 @@
             const tone = toneColors[item.tone] || toneColors.neutral;
             return `
                 <div class="notification-card" style="--tone-color:${tone};">
-                    <div class="notification-time">${formatDateTime(item.date)} · ${String(item.type || 'dato').toUpperCase()} · ${getPlatformLabelFromKinds(item.platforms || ['all'])}</div>
+                    <div class="notification-time">${formatDateTime(item.date)} Â· ${String(item.type || 'dato').toUpperCase()} Â· ${getPlatformLabelFromKinds(item.platforms || ['all'])}</div>
                     <div class="notification-text">${item.title}</div>
                     <div class="notification-time" style="margin-top:0.2rem;">${item.text}</div>
                 </div>
@@ -8237,13 +8792,13 @@
                         </div>
                     </div>` : ''}
                     <div class="changelog-detail-version">${escHtml(item.title || 'Sin titulo')}</div>
-                    <div class="changelog-detail-date">${item.date ? formatDateTime(item.date) : 'Fecha desconocida'} · ${String(item.type || 'changelog').toUpperCase()}</div>
+                    <div class="changelog-detail-date">${item.date ? formatDateTime(item.date) : 'Fecha desconocida'} Â· ${String(item.type || 'changelog').toUpperCase()}</div>
                     <div class="changelog-detail-platforms">${platformChips}</div>
                 </div>
                 ${item.text || changes[0] ? `<div class="changelog-detail-desc">${escHtml(item.text || changes[0] || '')}</div>` : ''}
                 ${changes.length > 1 || (changes.length === 1 && item.text !== changes[0]) ? `
                 <div class="changelog-detail-changes">
-                    ${changes.map(c => `<div class="changelog-change-item"><span class="changelog-change-bullet">›</span><span>${escHtml(String(c || ''))}</span></div>`).join('')}
+                    ${changes.map(c => `<div class="changelog-change-item"><span class="changelog-change-bullet">â€º</span><span>${escHtml(String(c || ''))}</span></div>`).join('')}
                 </div>` : ''}
             `;
         }
@@ -8463,6 +9018,8 @@
             renderStoreNewsTimeline();
             requestRenderDownloadSurfaces({ immediate: true });
             await checkProjectUpdatesAndNotify();
+            persistStoreDataSnapshot();
+            renderSettingsState();
         }
 
         async function fetchLatestWildWeaponRelease() {
@@ -9651,11 +10208,11 @@
                 setUpdateBannerVisual({
                     state: 'error',
                     title: 'Error de actualizacion',
-                    message: 'No se pudo verificar updates automÃ¡ticas: ' + msg,
+                    message: 'No se pudo verificar updates automÃƒÂ¡ticas: ' + msg,
                     iconClass: 'fa-triangle-exclamation',
                     iconSpin: false,
                 });
-                if (!silent) addNotification('No se pudo verificar updater automÃ¡tico: ' + msg, 'warning');
+                if (!silent) addNotification('No se pudo verificar updater automÃƒÂ¡tico: ' + msg, 'warning');
                 const currentVersion = String(await window.owsUpdater.getAppVersion?.().catch(() => '') || '').trim();
                 if (currentVersion) currentStoreWindowsVersion = currentVersion;
                 await applyWindowsManualUpdateSignal(currentStoreWindowsVersion, { silent: true }).catch(() => {});
@@ -9707,7 +10264,7 @@
                 setUpdateBannerVisual({
                     state: 'info',
                     title: 'Estado de updates Android no concluyente',
-                    message: 'No se pudo resolver la Ãºltima release Android. Reintenta en unos segundos.',
+                    message: 'No se pudo resolver la ÃƒÂºltima release Android. Reintenta en unos segundos.',
                     iconClass: 'fa-circle-info',
                     iconSpin: false,
                 });
@@ -9718,7 +10275,7 @@
                     isApp: true,
                     phase: 'error',
                     percent: 0,
-                    status: 'No se pudo resolver la metadata Android de la Ãºltima release.',
+                    status: 'No se pudo resolver la metadata Android de la ÃƒÂºltima release.',
                     sizeBytes: 0,
                     downloadedBytes: 0,
                     speedBps: 0,
@@ -9865,7 +10422,7 @@
 
         function getEcoxionIconSource(project, size = 64) {
             const fallback = `https://placehold.co/${size}/07121f/26e0ff?text=ECX`;
-            // Use .ico directly — PNG was horizontal and looked unprofessional
+            // Use .ico directly â€” PNG was horizontal and looked unprofessional
             return ECOXION_LOCAL_ICON || fallback;
         }
 
@@ -11498,7 +12055,7 @@
                 'stable': 'Estable'
             };
             const projectPhase = PHASE_MAP[phaseRaw] || 'Estable';
-            const detailNewTag = hasNewBadge(p) ? ' · NUEVO!' : '';
+            const detailNewTag = hasNewBadge(p) ? ' Â· NUEVO!' : '';
             document.getElementById('m-title').innerText = getProjectShort(p) ? `${p.name} (${getProjectShort(p)})${detailNewTag}` : `${p.name}${detailNewTag}`;
             document.getElementById('m-desc').innerText = p.description || "Explora una nueva dimension de entretenimiento con este proyecto oficial de Ocean and Wild Studios.";
             const isComingSoon = p.status === 'coming_soon';
@@ -11544,7 +12101,7 @@
             const releaseDate = selectedTarget?.publishedAt || p.last_update_at || p.windows_last_update_at || p.android_last_update_at || '';
             const lastUpdateEl = document.getElementById('m-last-update');
             if (lastUpdateEl) {
-                lastUpdateEl.innerText = `v${modalVersion} · ${releaseDate ? formatDateTime(releaseDate) : 'Sin datos'}`;
+                lastUpdateEl.innerText = `v${modalVersion} Â· ${releaseDate ? formatDateTime(releaseDate) : 'Sin datos'}`;
             }
             const compatEl = document.getElementById('m-compat');
             if (compatEl) {
@@ -12070,6 +12627,149 @@
             else if (document.exitFullscreen) document.exitFullscreen();
         }
 
+        function stopEcosystemTrailer(userClosed = false) {
+            if (ecosystemTrailerRaf) cancelAnimationFrame(ecosystemTrailerRaf);
+            ecosystemTrailerRaf = 0;
+            ecosystemTrailerRunning = false;
+            const overlay = document.getElementById('ecosystem-trailer-overlay');
+            if (overlay) {
+                overlay.classList.remove('active');
+                overlay.setAttribute('aria-hidden', 'true');
+            }
+            if (userClosed) addNotification('Trailer cerrado.', 'neutral');
+        }
+
+        function drawEcosystemTrailerFrame(ctx, w, h, tSec) {
+            const bg = ctx.createLinearGradient(0, 0, 0, h);
+            bg.addColorStop(0, '#040915');
+            bg.addColorStop(1, '#070d1a');
+            ctx.fillStyle = bg;
+            ctx.fillRect(0, 0, w, h);
+
+            const pulse = 0.5 + Math.sin(tSec * 2.2) * 0.5;
+            for (let i = 0; i < 120; i++) {
+                const x = (i * 83 + Math.sin(tSec * 0.8 + i) * 26 + w) % w;
+                const y = (i * 47 + Math.cos(tSec * 0.5 + i * 0.4) * 18 + h) % h;
+                ctx.fillStyle = `rgba(150,205,255,${0.08 + (i % 7) * 0.012})`;
+                ctx.fillRect(x, y, 2, 2);
+            }
+
+            ctx.strokeStyle = 'rgba(38,212,232,0.15)';
+            for (let i = 0; i < 7; i++) {
+                const y = h * (0.2 + i * 0.1);
+                ctx.beginPath();
+                ctx.moveTo(0, y + Math.sin(tSec + i) * 4);
+                ctx.lineTo(w, y + Math.cos(tSec * 0.8 + i) * 4);
+                ctx.stroke();
+            }
+
+            let caption = 'OWS Ecosystem Update';
+            if (tSec < 7) {
+                const scale = 1 + pulse * 0.04;
+                ctx.save();
+                ctx.translate(w * 0.5, h * 0.44);
+                ctx.scale(scale, scale);
+                ctx.textAlign = 'center';
+                ctx.fillStyle = '#ecf7ff';
+                ctx.font = '900 84px "Anybody", sans-serif';
+                ctx.fillText('OWS STORE', 0, 0);
+                ctx.font = '700 28px "DM Sans", sans-serif';
+                ctx.fillStyle = '#72dfff';
+                ctx.fillText('Ecosystem Update', 0, 48);
+                ctx.restore();
+                caption = 'A new cycle begins in Ocean and Wild Studios.';
+            } else if (tSec < 16) {
+                const lanes = ['Library', 'Updates', 'Events', 'Projects'];
+                lanes.forEach((lane, idx) => {
+                    const y = h * 0.2 + idx * 92;
+                    ctx.fillStyle = 'rgba(12,26,44,0.82)';
+                    ctx.fillRect(140, y, w - 280, 62);
+                    ctx.strokeStyle = idx % 2 ? 'rgba(38,212,232,0.42)' : 'rgba(242,104,48,0.36)';
+                    ctx.strokeRect(140, y, w - 280, 62);
+                    ctx.fillStyle = '#c8e9ff';
+                    ctx.font = '700 28px "DM Sans", sans-serif';
+                    ctx.fillText(lane, 180, y + 40);
+                });
+                caption = 'One launcher. One ecosystem. One living timeline.';
+            } else if (tSec < 24) {
+                ctx.fillStyle = 'rgba(17,33,54,0.86)';
+                ctx.fillRect(w * 0.12, h * 0.22, w * 0.76, h * 0.56);
+                for (let i = 0; i < 18; i++) {
+                    const px = w * 0.18 + (i % 6) * 140 + Math.sin(tSec + i) * 8;
+                    const py = h * 0.3 + Math.floor(i / 6) * 110;
+                    ctx.fillStyle = i % 2 ? 'rgba(38,212,232,0.5)' : 'rgba(242,104,48,0.45)';
+                    ctx.fillRect(px, py, 95, 66);
+                }
+                caption = 'The archive expands. The horizon shifts.';
+            } else if (tSec < 31) {
+                ctx.fillStyle = '#d6f3ff';
+                ctx.font = '800 52px "Anybody", sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('Some pages are still sealed...', w * 0.5, h * 0.42);
+                ctx.font = '700 28px "DM Sans", sans-serif';
+                ctx.fillStyle = '#9ec8e6';
+                ctx.fillText('Soon, hidden knowledge will bloom.', w * 0.5, h * 0.5);
+                caption = 'A silent archive is waking up.';
+            } else if (tSec < 38) {
+                ctx.fillStyle = '#d6f3ff';
+                ctx.font = '800 52px "Anybody", sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('A distant hum is getting closer...', w * 0.5, h * 0.42);
+                ctx.font = '700 28px "DM Sans", sans-serif';
+                ctx.fillStyle = '#9ec8e6';
+                ctx.fillText('Fields and wings are almost aligned.', w * 0.5, h * 0.5);
+                caption = 'Something small, fast and royal is near.';
+            } else {
+                const glow = 0.35 + pulse * 0.35;
+                ctx.fillStyle = `rgba(38,212,232,${glow})`;
+                ctx.beginPath();
+                ctx.arc(w * 0.5, h * 0.44, 120, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.textAlign = 'center';
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '900 72px "Anybody", sans-serif';
+                ctx.fillText('OWS STORE', w * 0.5, h * 0.46);
+                ctx.font = '700 30px "DM Sans", sans-serif';
+                ctx.fillStyle = '#e6f8ff';
+                ctx.fillText('Update Wave // Out Soon', w * 0.5, h * 0.56);
+                caption = 'Record this signal. The next chapter is almost here.';
+            }
+            return caption;
+        }
+
+        function ecosystemTrailerFrame(ts) {
+            if (!ecosystemTrailerRunning) return;
+            const canvas = document.getElementById('ecosystem-trailer-canvas');
+            const captionEl = document.getElementById('ecosystem-trailer-caption');
+            const timeEl = document.getElementById('ecosystem-trailer-time');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
+            const elapsed = (ts - ecosystemTrailerStartedAt) / 1000;
+            const duration = 46;
+            const caption = drawEcosystemTrailerFrame(ctx, canvas.width, canvas.height, elapsed);
+            if (captionEl) captionEl.textContent = caption;
+            if (timeEl) timeEl.textContent = `${Math.max(0, duration - elapsed).toFixed(1)}s`;
+            if (elapsed >= duration) {
+                stopEcosystemTrailer(false);
+                addNotification('Trailer finalizado. Listo para grabacion/publicacion.', 'success');
+                return;
+            }
+            ecosystemTrailerRaf = requestAnimationFrame(ecosystemTrailerFrame);
+        }
+
+        function startEcosystemTrailer() {
+            const overlay = document.getElementById('ecosystem-trailer-overlay');
+            const canvas = document.getElementById('ecosystem-trailer-canvas');
+            if (!overlay || !canvas) return;
+            stopEcosystemTrailer(false);
+            overlay.classList.add('active');
+            overlay.setAttribute('aria-hidden', 'false');
+            ecosystemTrailerRunning = true;
+            ecosystemTrailerStartedAt = performance.now();
+            ecosystemTrailerRaf = requestAnimationFrame(ecosystemTrailerFrame);
+        }
+
         function simulateInstall(slug, version) {
             const overlay = document.getElementById(`loader-${slug}`);
             const fill = document.getElementById(`fill-${slug}`);
@@ -12125,6 +12825,9 @@
             } else if (id === 'home') {
                 renderNewsHub();
                 renderStoreNewsTimeline();
+            } else if (id === 'settings') {
+                renderStoreAutoCheckMeta();
+                renderSettingsState();
             }
         }
 
@@ -12752,7 +13455,7 @@
             setTimeout(() => buildRecommendations(), 2000);
         }
 
-        // ── Search dropdown ──
+        // â”€â”€ Search dropdown â”€â”€
         let searchDropdownVisible = false;
         let searchHideTimer = null;
         let recommendedProjects = [];
@@ -12840,7 +13543,7 @@
             return `<span class="search-freq-tag ${f.cls}">${f.label}</span>`;
         }
 
-        // ── Recommendation engine ──
+        // â”€â”€ Recommendation engine â”€â”€
         async function buildRecommendations() {
             if (!allProjects.length) return;
             const installed = allProjects.filter(p => {
@@ -12932,7 +13635,7 @@
             };
 
             try {
-                // ── Floret: list of releases ──────────────────────────────
+                // â”€â”€ Floret: list of releases â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                 if (LIST_URLS[slug]) {
                     const res = await fetch(`${LIST_URLS[slug]}&nocache=${Date.now()}`,
                         { cache: 'no-store', headers: { Accept: 'application/vnd.github+json' } });
@@ -12956,20 +13659,20 @@
                     return 'low';
                 }
 
-                // ── All other tracked projects: /releases/latest ──────────
+                // â”€â”€ All other tracked projects: /releases/latest â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                 if (LATEST_URLS[slug]) {
                     const res = await fetch(`${LATEST_URLS[slug]}?nocache=${Date.now()}`,
                         { cache: 'no-store', headers: { Accept: 'application/vnd.github+json' } });
                     if (!res.ok) return 'single';
                     const r = await res.json();
-                    // published_at is null in this proxy — use tag_name
+                    // published_at is null in this proxy â€” use tag_name
                     const ts = Date.parse(r.published_at || r.created_at || '');
                     const ms = (ts && !isNaN(ts)) ? ts : tagToMs(r.tag_name);
                     const result = grade(ms);
                     return result;
                 }
 
-                // ── metadata.repo fallback ────────────────────────────────
+                // â”€â”€ metadata.repo fallback â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                 const repo = String(project?.metadata?.repo || '').replace(/^OceanandWild\//i,'').trim();
                 if (repo) {
                     const res = await fetch(`${GITHUB_RELEASES_PROXY_BASE}/${repo}/releases/latest?nocache=${Date.now()}`,
@@ -13063,6 +13766,117 @@
                 }).catch(() => {});
                 refreshStoreAndroidReleaseLink().catch(() => {});
             }, 120000);
+        }
+
+        function clearDeferredDetectedUpdateTimers() {
+            if (deferredModalCountdownTimer) clearInterval(deferredModalCountdownTimer);
+            if (deferredModalAutoApplyTimer) clearTimeout(deferredModalAutoApplyTimer);
+            deferredModalCountdownTimer = null;
+            deferredModalAutoApplyTimer = null;
+        }
+
+        function dismissDeferredDetectedUpdate() {
+            clearDeferredDetectedUpdateTimers();
+            const modal = document.getElementById('data-refresh-modal');
+            if (!modal) return;
+            modal.classList.remove('active');
+            modal.setAttribute('aria-hidden', 'true');
+        }
+
+        async function applyDeferredDetectedUpdateNow() {
+            dismissDeferredDetectedUpdate();
+            await forceRefreshStoreDataNow();
+        }
+
+        function showDeferredDetectedUpdate(message = 'Se detectaron cambios nuevos en OWS Store.') {
+            clearDeferredDetectedUpdateTimers();
+            const modal = document.getElementById('data-refresh-modal');
+            const text = document.getElementById('data-refresh-text');
+            const countdown = document.getElementById('data-refresh-countdown');
+            if (!modal) return;
+            if (text) text.textContent = message;
+            let seconds = 5;
+            if (countdown) countdown.textContent = `Aplicando cambios en ${seconds}s...`;
+            modal.classList.add('active');
+            modal.setAttribute('aria-hidden', 'false');
+
+            deferredModalCountdownTimer = setInterval(() => {
+                seconds = Math.max(0, seconds - 1);
+                if (countdown) countdown.textContent = seconds > 0
+                    ? `Aplicando cambios en ${seconds}s...`
+                    : 'Aplicando cambios...';
+            }, 1000);
+            deferredModalAutoApplyTimer = setTimeout(() => {
+                applyDeferredDetectedUpdateNow().catch(() => {});
+            }, 5000);
+        }
+
+        async function forceRefreshStoreDataNow() {
+            updateStartupLoadingText('Sincronizando datos de OWS Store...');
+            showStartupLoadingModal('Sincronizando datos de OWS Store...');
+            try {
+                await loadProjects();
+                addNotification('OWS Store actualizada con el contenido mas reciente.', 'success');
+            } catch (err) {
+                addNotification(`No se pudo actualizar OWS Store: ${err?.message || 'error'}`, 'warning');
+            } finally {
+                hideStartupLoadingModal();
+            }
+        }
+
+        async function runDeferredSilentCheck(manual = false) {
+            if (!isDeferredStartupModeEnabled() && !manual) return;
+            deferredMonitorState = 'Revisando';
+            renderSettingsState();
+            try {
+                const [projectsRes, newsRes] = await Promise.all([
+                    fetch(`${API_URL}/ows-store/projects?nocache=${Date.now()}`, { cache: 'no-store' }),
+                    fetch(`${OWS_NEWS_UPDATES_API_URL}?limit=220&include_inactive=0&nocache=${Date.now()}`, { cache: 'no-store' })
+                ]);
+                const remoteProjects = projectsRes.ok ? await projectsRes.json() : [];
+                const remoteNewsRaw = newsRes.ok ? await newsRes.json() : [];
+                const remoteNews = Array.isArray(remoteNewsRaw) ? remoteNewsRaw.map(normalizeNewsUpdateRecord).filter(Boolean) : [];
+                const remoteSignature = buildStoreDataSignature(remoteProjects, remoteNews);
+                const localSignature = lastKnownStoreDataSignature
+                    || localStorage.getItem(STORE_DATA_SIGNATURE_KEY)
+                    || buildStoreDataSignature(allProjects, owsNewsUpdatesCache);
+                deferredLastSilentCheckAt = Date.now();
+                lastKnownStoreDataSignature = localSignature;
+                renderSettingsState();
+                addNotification(`[Modo silencioso] Revision completada ${manual ? '(manual)' : ''}.`, 'neutral');
+
+                if (remoteSignature !== localSignature) {
+                    deferredMonitorState = 'Cambios detectados';
+                    renderSettingsState();
+                    showDeferredDetectedUpdate('Se detectaron cambios en proyectos/noticias/eventos. Se aplicaran automaticamente.');
+                    return;
+                }
+                deferredMonitorState = 'Sin cambios';
+                renderSettingsState();
+                if (manual) addNotification('No se detectaron cambios nuevos en esta revision.', 'success');
+            } catch (err) {
+                deferredMonitorState = 'Error de revision';
+                renderSettingsState();
+                if (manual) addNotification(`Revision silenciosa fallo: ${err?.message || 'error'}`, 'warning');
+            }
+        }
+
+        function stopDeferredSilentMonitor() {
+            if (deferredSilentMonitorTimer) clearInterval(deferredSilentMonitorTimer);
+            deferredSilentMonitorTimer = null;
+            deferredMonitorState = 'Inactivo';
+            renderSettingsState();
+        }
+
+        function startDeferredSilentMonitor() {
+            stopDeferredSilentMonitor();
+            deferredMonitorState = 'Activo';
+            renderSettingsState();
+            setTimeout(() => runDeferredSilentCheck(false).catch(() => {}), 12000);
+            deferredSilentMonitorTimer = setInterval(() => {
+                if (document.hidden) return;
+                runDeferredSilentCheck(false).catch(() => {});
+            }, 90000);
         }
 
         function getBootScenes() {
@@ -13318,6 +14132,7 @@
             const prevLabel = labels[safeIndex - 1] || 'Esperando...';
             const currentLabel = labels[Math.min(safeIndex, safeTotal - 1)] || 'Iniciando...';
             const nextLabel = labels[safeIndex + 1] || 'Finalizando...';
+            updateStartupLoadingText(currentLabel);
             if (prev) prev.textContent = prevLabel;
             if (current) current.textContent = currentLabel;
             if (next) next.textContent = nextLabel;
@@ -13576,39 +14391,67 @@
             bootSequenceInProgress = false;
         }
 
-        window.onload = () => {
+        window.onload = async () => {
             bootSequenceInProgress = false;
             bootDeferredStoreInstall = false;
             bootAutoInstallRequested = false;
             bootAutoInstallInFlight = false;
             stopBootCanvasAnimation();
-            const overlay = document.getElementById('boot-overlay');
-            if (overlay) overlay.classList.remove('active');
+            await playBrandSplashSequence();
             applyRuntimeLayoutProfile();
-            libraryOwnedSlugs = loadLibraryOwnedSlugs();
-            dismissedUpToDateProjectCards = loadDismissedUpToDateProjectCards();
-            loadSystemNotificationSeenKeys();
-            primeSystemNotifications();
-            initTheme();
-            if (!isNativeAndroidRuntime() && !isDesktopUpdaterBridgeAvailable()) {
-                if (isLocalDevPreviewMode()) {
-                    addNotification('[Preview local activo] Instalaciones simuladas sin build.', 'warning');
-                } else {
-                    addNotification('Sin bridge de instalacion local. Usa ?preview=1 para pruebas sin build.', 'neutral');
+            showStartupLoadingModal('Inicializacion de OWS Store...');
+            deferredMonitorState = 'Iniciando';
+
+            try {
+                libraryOwnedSlugs = loadLibraryOwnedSlugs();
+                dismissedUpToDateProjectCards = loadDismissedUpToDateProjectCards();
+                loadSystemNotificationSeenKeys();
+                primeSystemNotifications();
+                initTheme();
+                renderSettingsState();
+
+                if (!isNativeAndroidRuntime() && !isDesktopUpdaterBridgeAvailable()) {
+                    if (isLocalDevPreviewMode()) {
+                        addNotification('[Preview local activo] Instalaciones simuladas sin build.', 'warning');
+                    } else {
+                        addNotification('Sin bridge de instalacion local. Usa ?preview=1 para pruebas sin build.', 'neutral');
+                    }
                 }
+
+                renderOWSStoreAndroidMeta();
+                initOceanPayStore();
+                bindStoreTimelineModalEvents();
+                renderDownloadSurfaces();
+                initBrandCycle();
+                initSpotlightSlider();
+                initUpdater();
+                initSearch();
+                renderStoreAutoCheckMeta();
+                startStoreAutoUpdateHeartbeat();
+
+                if (isDeferredStartupModeEnabled()) {
+                    updateStartupLoadingText('Modo silencioso activo: recuperando snapshot local...');
+                    const restored = applyCachedSnapshotToUi();
+                    if (!restored) {
+                        updateStartupLoadingText('No hay snapshot local. Cargando datos iniciales...');
+                        await loadProjects();
+                    } else {
+                        addNotification('Modo silencioso activo: contenido restaurado desde cache local.', 'info');
+                    }
+                    startDeferredSilentMonitor();
+                } else {
+                    updateStartupLoadingText('Sincronizando contenido de OWS Store...');
+                    await loadProjects();
+                    setupRecurringRefreshLoop();
+                    deferredMonitorState = 'Desactivado';
+                    renderSettingsState();
+                }
+            } catch (err) {
+                console.error('Error durante el arranque:', err);
+                addNotification(`Fallo durante el arranque: ${err?.message || 'error desconocido'}`, 'warning');
+            } finally {
+                await hideStartupLoadingModal();
             }
-            renderOWSStoreAndroidMeta();
-            initOceanPayStore();
-            bindStoreTimelineModalEvents();
-            renderDownloadSurfaces();
-            loadProjects().catch(() => {});
-            initBrandCycle();
-            initSpotlightSlider();
-            initUpdater();
-            initSearch();
-            renderStoreAutoCheckMeta();
-            startStoreAutoUpdateHeartbeat();
-            setupRecurringRefreshLoop();
         };
 
         window.addEventListener('resize', () => {
@@ -13620,8 +14463,12 @@
             if (spotlightSlideTimer) clearInterval(spotlightSlideTimer);
             if (spotlightSlideCleanupTimer) clearTimeout(spotlightSlideCleanupTimer);
             if (storeAutoUpdateTimer) clearInterval(storeAutoUpdateTimer);
+            stopDeferredSilentMonitor();
+            clearDeferredDetectedUpdateTimers();
+            stopEcosystemTrailer(false);
             stopBootCanvasAnimation();
         };
     </script>
 </body>
 </html>
+

@@ -2877,15 +2877,6 @@
 </div>
 
 <!-- â•â•â• DETAILS MODAL â•â•â• -->
-<div id="ecosystem-trailer-overlay" class="ecosystem-trailer-overlay" aria-hidden="true">
-    <canvas id="ecosystem-trailer-canvas" width="1280" height="720"></canvas>
-    <div class="ecosystem-trailer-top">
-        <span id="ecosystem-trailer-time">00.0s</span>
-        <span>Ecosystem Update Trailer</span>
-    </div>
-    <div class="ecosystem-trailer-bottom" id="ecosystem-trailer-caption">Preparing sequence...</div>
-    <button class="ecosystem-trailer-close" onclick="stopEcosystemTrailer(true)"><i class="fas fa-times"></i></button>
-</div>
 <div id="details-modal" onclick="if (event.target === this) closeDetails()">
     <div class="details-modal-shell">
         <button class="btn-close-modal" onclick="closeDetails()"><i class="fas fa-times"></i></button>
@@ -3089,7 +3080,6 @@
                 </div>
             </div>
             <div class="topbar-actions">
-                <button class="topbar-btn" onclick="startEcosystemTrailer()"><i class="fas fa-film"></i> Trailer</button>
                 <button class="topbar-btn" onclick="syncLibraryNow()"><i class="fas fa-rotate"></i> Sync</button>
                 <button class="topbar-btn" onclick="showSection('updates', document.querySelector('.nav-menu .nav-item:nth-child(3)'))"><i class="fas fa-bell"></i> Notificaciones</button>
             </div>
@@ -3154,21 +3144,37 @@
                 </div>
             </div>
 
-            <!-- Teaser spotlight -->
-            <div style="background:linear-gradient(140deg, rgba(17,24,39,0.9), rgba(55,8,26,0.9));border:1px solid rgba(249,115,22,0.28);border-radius:var(--r-lg);padding:1rem;margin-bottom:2rem;box-shadow:0 12px 36px rgba(0,0,0,0.36);">
-                <div style="font-size:0.68rem;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:1px;color:var(--orange);margin-bottom:0.4rem;">
-                    <i class="fas fa-film"></i> Featured Premiere
+            <!-- OWS Store update trailer premiere -->
+            <div id="store-trailer-premiere-card" style="background:linear-gradient(140deg, rgba(9,18,36,0.94), rgba(10,34,49,0.9));border:1px solid rgba(38,212,232,0.32);border-radius:var(--r-lg);padding:1rem;margin-bottom:2rem;box-shadow:0 14px 38px rgba(0,0,0,0.4);">
+                <div style="display:flex;justify-content:space-between;gap:0.8rem;align-items:center;flex-wrap:wrap;margin-bottom:0.4rem;">
+                    <div style="font-size:0.68rem;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:1px;color:var(--cyan);">
+                        <i class="fas fa-satellite-dish"></i> OWS Store - Update Trailer
+                    </div>
+                    <div id="store-trailer-premiere-status" style="font-size:0.66rem;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:0.8px;padding:0.2rem 0.55rem;border-radius:999px;border:1px solid rgba(245,197,66,0.25);background:rgba(245,197,66,0.12);color:var(--yellow);">
+                        Cuenta regresiva
+                    </div>
                 </div>
-                <div style="font-size:1.08rem;font-weight:800;line-height:1.2;color:var(--ink-0);margin-bottom:0.35rem;">
-                    Phobia Doors - Official Teaser OUT NOW
+                <div id="store-trailer-premiere-title" style="font-size:1.08rem;font-weight:800;line-height:1.2;color:var(--ink-0);margin-bottom:0.35rem;">
+                    OWS Store - Ecosystem Update Trailer
                 </div>
-                <div style="font-size:0.78rem;color:var(--ink-1);margin-bottom:0.8rem;">
-                    Mira el avance oficial sin salir de OWS Store.
+                <div id="store-trailer-premiere-desc" style="font-size:0.78rem;color:var(--ink-1);margin-bottom:0.45rem;">
+                    Disponible este martes. El estreno se habilita automaticamente a las 20:00 (Uruguay).
                 </div>
-                <video controls preload="metadata" style="width:100%;display:block;border-radius:12px;border:1px solid rgba(255,255,255,0.18);background:#000;max-height:420px;">
-                    <source src="https://archive.org/download/phobia-doors-official-teaser/Phobia%20Doors%20-%20Official%20Teaser.mp4" type="video/mp4">
+                <div id="store-trailer-premiere-countdown" style="font-size:0.72rem;font-family:var(--font-mono);color:var(--yellow);margin-bottom:0.7rem;">
+                    Cargando cuenta regresiva...
+                </div>
+                <div id="store-trailer-premiere-gate" style="display:block;background:rgba(0,0,0,0.42);border:1px dashed rgba(255,255,255,0.18);border-radius:10px;padding:0.75rem;margin-bottom:0.75rem;color:var(--ink-1);font-size:0.76rem;">
+                    El video se desbloquea en el horario de estreno.
+                </div>
+                <video id="store-trailer-premiere-video" controls preload="metadata" style="width:100%;display:none;border-radius:12px;border:1px solid rgba(255,255,255,0.18);background:#000;max-height:420px;">
+                    <source id="store-trailer-premiere-source" src="" type="video/mp4">
                     Tu navegador no puede reproducir este video.
                 </video>
+                <div style="margin-top:0.7rem;display:flex;justify-content:flex-end;">
+                    <button id="store-trailer-premiere-btn" class="btn-install" type="button" onclick="openStoreTrailerPremiereExternal()" disabled>
+                        <i class="fas fa-circle-play"></i> Ver trailer
+                    </button>
+                </div>
             </div>
 
             <!-- Filter chips -->
@@ -3559,6 +3565,9 @@
         const OCEAN_PAY_STORAGE_TOKEN = 'opToken';
         const OCEAN_PAY_STORAGE_STATE = 'opStoreState';
         const WILD_DESTINY_RELEASE_DATE_ISO = '2026-03-07T18:00:00Z';
+        const STORE_TRAILER_PREMIERE_VIDEO_URL = 'https://archive.org/download/23.03.2026-22.57.46-rec/23.03.2026_22.57.46_REC.mp4';
+        const STORE_TRAILER_PREMIERE_START_ISO = '2026-03-24T23:00:00Z'; // 24/03/2026 20:00 (America/Montevideo, UTC-3)
+        const STORE_TRAILER_PREMIERE_END_ISO = '2026-03-25T02:59:59Z';   // cierre del martes 24/03/2026
         // Ecoxion: repo real en OceanandWild/ecoxion. La fecha se usa solo como fallback de coming_soon.
         // installer_available se determina dinamicamente por fetchLatestEcoxionRelease.
         const ECOXION_RELEASE_DATE_ISO = '2026-03-15T15:00:00Z';
@@ -3868,6 +3877,26 @@
         let ecosystemTrailerRaf = 0;
         let ecosystemTrailerStartedAt = 0;
         let ecosystemTrailerRunning = false;
+        let ecosystemTrailerAudio = null;
+        let ecosystemTrailerLastScene = -1;
+        let ecosystemTrailerLastBeat = -1;
+        let ecosystemTrailerBassAvg = 0.18;
+        let ecosystemTrailerPrevBass = 0;
+        let ecosystemTrailerImpactLevel = 0;
+        let pendingDeferredModalMessage = '';
+        const ECLIPSE_BEAT_PROFILE = {
+            bpm: 129.2,
+            period: 0.4644,
+            offset: 0.0871,
+            sceneBeats: 8,
+            totalBeats: 129
+        };
+        const ECLIPSE_MUSICMAP = {
+            duration: 60,
+            beats: [0.01, 0.42, 0.84, 1.28, 1.68, 2.11, 2.56, 2.97, 3.4, 3.83, 4.26, 4.69, 5.14, 5.55, 6.0, 6.41, 6.86, 7.29, 7.72, 8.14, 8.57, 9.0, 9.43, 9.86, 10.28, 10.72, 11.15, 11.57, 12.0, 12.45, 12.88, 13.29, 13.72, 14.16, 14.58, 15.0, 15.43, 15.86, 16.27, 16.72, 17.14, 17.57, 18.01, 18.43, 18.86, 19.29, 19.71, 20.14, 20.58, 21.01, 21.43, 21.86, 22.28, 22.72, 23.13, 23.56, 24.0, 24.42, 24.86, 25.29, 25.73, 26.15, 26.58, 27.0, 27.44, 27.87, 28.29, 28.72, 29.15, 29.59, 30.0, 30.42, 30.87, 31.28, 31.73, 32.14, 32.59, 33.02, 33.43, 33.87, 34.3, 34.71, 35.15, 35.57, 36.01, 36.44, 36.86, 37.28, 37.72, 38.15, 38.59, 39.0, 39.44, 39.87, 40.29, 40.72, 41.15, 41.58, 42.0, 42.44, 42.87, 43.28, 43.72, 44.15, 44.58, 45.01, 45.44, 45.86, 46.3, 46.72, 47.15, 47.58, 48.0, 48.44, 48.86, 49.29, 49.73, 50.15, 50.58, 51.01, 51.43, 51.87, 52.29, 52.72, 53.15, 53.58, 54.01, 54.43, 54.87, 55.29, 55.72, 56.15, 56.57, 57.0, 57.43, 57.86, 58.29, 58.71, 59.14],
+            beatPositions: [1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3],
+            sceneKeyframes: [0.01, 4.26, 5.14, 8.57, 10.28, 13.72, 17.14, 20.58, 24.0, 27.44, 30.87, 34.3, 39.44, 44.58, 51.43, 56.57]
+        };
         let libraryOwnedSlugs = new Set();
         let dismissedUpToDateProjectCards = new Set();
         const notificationLog = [];
@@ -3907,6 +3936,7 @@
         let spotlightSlideTimer = null;
         let spotlightSlideCleanupTimer = null;
         let spotlightCanvasResizeHandlerBound = false;
+        let storeTrailerPremiereTimer = null;
         let bootAnimationRaf = 0;
         let bootAnimationState = {
             running: false,
@@ -6072,6 +6102,7 @@
             const iconEl = document.getElementById('update-icon-glyph');
             const normalizedState = UPDATE_BANNER_STATES.includes(options.state) ? options.state : 'info';
             if (!banner) return;
+            if (ecosystemTrailerRunning && !options.allowDuringTrailer) return;
 
             UPDATE_BANNER_STATES.forEach((s) => banner.classList.remove(`state-${s}`));
             banner.classList.add(`state-${normalizedState}`);
@@ -6114,6 +6145,7 @@
             const installBtn = document.getElementById('btn-install-update');
             const progressWrap = document.getElementById('update-progress-wrap');
             if (!banner) return;
+            if (ecosystemTrailerRunning && !options.allowDuringTrailer) return;
             const sticky = Boolean(options?.sticky);
             const state = inferActionBannerState(text, options);
             const stateMap = {
@@ -10413,6 +10445,116 @@
             return { needsUpdate, latest, current };
         }
 
+        function formatPremiereCountdownMs(ms = 0) {
+            const total = Math.max(0, Math.floor(ms / 1000));
+            const days = Math.floor(total / 86400);
+            const hours = Math.floor((total % 86400) / 3600);
+            const minutes = Math.floor((total % 3600) / 60);
+            const seconds = total % 60;
+            if (days > 0) return `${days}d ${hours.toString().padStart(2, '0')}h ${minutes.toString().padStart(2, '0')}m`;
+            return `${hours.toString().padStart(2, '0')}h ${minutes.toString().padStart(2, '0')}m ${seconds.toString().padStart(2, '0')}s`;
+        }
+
+        function getStoreTrailerPremiereState(now = new Date()) {
+            const start = new Date(STORE_TRAILER_PREMIERE_START_ISO).getTime();
+            const end = new Date(STORE_TRAILER_PREMIERE_END_ISO).getTime();
+            const nowTs = now.getTime();
+            if (!Number.isFinite(nowTs) || !Number.isFinite(start) || !Number.isFinite(end)) {
+                return { state: 'invalid', remaining: 0 };
+            }
+            if (nowTs < start) return { state: 'countdown', remaining: start - nowTs, start, end };
+            if (nowTs <= end) return { state: 'live', remaining: Math.max(0, end - nowTs), start, end };
+            return { state: 'ended', remaining: 0, start, end };
+        }
+
+        function openStoreTrailerPremiereExternal() {
+            const gate = getStoreTrailerPremiereState(new Date());
+            if (gate.state !== 'live') {
+                addNotification('El trailer todavia no esta disponible en esta ventana.', 'warning');
+                return;
+            }
+            window.open(STORE_TRAILER_PREMIERE_VIDEO_URL, '_blank', 'noopener');
+        }
+
+        function renderStoreTrailerPremiere(now = new Date()) {
+            const card = document.getElementById('store-trailer-premiere-card');
+            if (!card) return;
+            const statusEl = document.getElementById('store-trailer-premiere-status');
+            const descEl = document.getElementById('store-trailer-premiere-desc');
+            const countdownEl = document.getElementById('store-trailer-premiere-countdown');
+            const gateEl = document.getElementById('store-trailer-premiere-gate');
+            const videoEl = document.getElementById('store-trailer-premiere-video');
+            const sourceEl = document.getElementById('store-trailer-premiere-source');
+            const buttonEl = document.getElementById('store-trailer-premiere-btn');
+            const state = getStoreTrailerPremiereState(now);
+            const startLabel = new Date(STORE_TRAILER_PREMIERE_START_ISO).toLocaleString('es-UY', { hour12: false });
+            const endLabel = new Date(STORE_TRAILER_PREMIERE_END_ISO).toLocaleString('es-UY', { hour12: false });
+
+            if (state.state === 'countdown') {
+                if (statusEl) {
+                    statusEl.textContent = 'Cuenta regresiva';
+                    statusEl.style.color = 'var(--yellow)';
+                    statusEl.style.background = 'rgba(245,197,66,0.12)';
+                    statusEl.style.borderColor = 'rgba(245,197,66,0.25)';
+                }
+                if (descEl) descEl.textContent = 'Trailer de actualizacion de OWS Store. Se habilita en horario de estreno.';
+                if (countdownEl) countdownEl.textContent = `Estreno en: ${formatPremiereCountdownMs(state.remaining)} (inicia ${startLabel})`;
+                if (gateEl) {
+                    gateEl.style.display = 'block';
+                    gateEl.textContent = 'Video bloqueado temporalmente hasta el estreno oficial.';
+                }
+                if (videoEl) {
+                    videoEl.pause();
+                    videoEl.style.display = 'none';
+                }
+                if (buttonEl) buttonEl.disabled = true;
+                return;
+            }
+
+            if (state.state === 'live') {
+                if (statusEl) {
+                    statusEl.textContent = 'En vivo';
+                    statusEl.style.color = 'var(--green)';
+                    statusEl.style.background = 'rgba(40,217,138,0.14)';
+                    statusEl.style.borderColor = 'rgba(40,217,138,0.25)';
+                }
+                if (descEl) descEl.textContent = 'Disponible por tiempo limitado durante la ventana de estreno.';
+                if (countdownEl) countdownEl.textContent = `Finaliza en: ${formatPremiereCountdownMs(state.remaining)} (${endLabel})`;
+                if (gateEl) gateEl.style.display = 'none';
+                if (sourceEl && sourceEl.src !== STORE_TRAILER_PREMIERE_VIDEO_URL) {
+                    sourceEl.src = STORE_TRAILER_PREMIERE_VIDEO_URL;
+                    if (videoEl) videoEl.load();
+                }
+                if (videoEl) videoEl.style.display = 'block';
+                if (buttonEl) buttonEl.disabled = false;
+                return;
+            }
+
+            if (statusEl) {
+                statusEl.textContent = 'Finalizado';
+                statusEl.style.color = 'var(--ink-1)';
+                statusEl.style.background = 'rgba(148,163,184,0.16)';
+                statusEl.style.borderColor = 'rgba(148,163,184,0.24)';
+            }
+            if (descEl) descEl.textContent = 'La ventana de estreno del martes finalizo.';
+            if (countdownEl) countdownEl.textContent = `Finalizado el ${endLabel}`;
+            if (gateEl) {
+                gateEl.style.display = 'block';
+                gateEl.textContent = 'Este trailer estuvo disponible solo durante la ventana del martes.';
+            }
+            if (videoEl) {
+                videoEl.pause();
+                videoEl.style.display = 'none';
+            }
+            if (buttonEl) buttonEl.disabled = true;
+        }
+
+        function initStoreTrailerPremiere() {
+            renderStoreTrailerPremiere(new Date());
+            if (storeTrailerPremiereTimer) clearInterval(storeTrailerPremiereTimer);
+            storeTrailerPremiereTimer = setInterval(() => renderStoreTrailerPremiere(new Date()), 1000);
+        }
+
         function formatDateTime(value) {
             if (!value) return 'Sin fecha';
             const d = new Date(value);
@@ -12627,113 +12769,455 @@
             else if (document.exitFullscreen) document.exitFullscreen();
         }
 
+        function getEcosystemBeatIndexFromTime(tSec = 0) {
+            const beats = ECLIPSE_MUSICMAP.beats || [];
+            if (!beats.length) return 0;
+            if (tSec <= beats[0]) return 0;
+            let lo = 0;
+            let hi = beats.length - 1;
+            while (lo <= hi) {
+                const mid = (lo + hi) >> 1;
+                if (beats[mid] <= tSec) lo = mid + 1;
+                else hi = mid - 1;
+            }
+            return Math.max(0, Math.min(beats.length - 1, hi));
+        }
+
+        function getEcosystemTrailerSceneIndexFromTime(tSec = 0) {
+            const keys = ECLIPSE_MUSICMAP.sceneKeyframes || [];
+            if (!keys.length) return 0;
+            if (tSec <= keys[0]) return 0;
+            let idx = 0;
+            for (let i = 0; i < keys.length; i++) {
+                if (tSec >= keys[i]) idx = i;
+                else break;
+            }
+            return Math.max(0, Math.min(15, idx));
+        }
+
+        function initEcosystemTrailerAudio() {
+            try {
+                const Ctx = window.AudioContext || window.webkitAudioContext;
+                if (!Ctx) return null;
+                const audioEl = document.getElementById('ecosystem-trailer-audio');
+                if (!audioEl) return null;
+                const ctx = new Ctx();
+                const source = ctx.createMediaElementSource(audioEl);
+                const compressor = ctx.createDynamicsCompressor();
+                compressor.threshold.value = -22;
+                compressor.knee.value = 12;
+                compressor.ratio.value = 6;
+                compressor.attack.value = 0.003;
+                compressor.release.value = 0.18;
+                const analyser = ctx.createAnalyser();
+                analyser.fftSize = 1024;
+                analyser.smoothingTimeConstant = 0.72;
+                const master = ctx.createGain();
+                master.gain.value = 3.2;
+                master.connect(ctx.destination);
+                source.connect(compressor);
+                compressor.connect(analyser);
+                analyser.connect(master);
+
+                const noiseBuffer = ctx.createBuffer(1, ctx.sampleRate * 0.25, ctx.sampleRate);
+                const noiseData = noiseBuffer.getChannelData(0);
+                for (let i = 0; i < noiseData.length; i++) noiseData[i] = Math.random() * 2 - 1;
+
+                return {
+                    audioEl,
+                    ctx,
+                    source,
+                    compressor,
+                    analyser,
+                    freqData: new Uint8Array(analyser.frequencyBinCount),
+                    master,
+                    noiseBuffer,
+                    flashUntil: 0,
+                };
+            } catch (_) {
+                return null;
+            }
+        }
+
+        function playEcosystemTrailerTransition() {
+            const a = ecosystemTrailerAudio;
+            if (!a || !a.ctx) return;
+            const t = a.ctx.currentTime;
+            const whoosh = a.ctx.createBufferSource();
+            const g = a.ctx.createGain();
+            const hp = a.ctx.createBiquadFilter();
+            hp.type = 'highpass';
+            hp.frequency.value = 1200;
+            const len = Math.floor(a.ctx.sampleRate * 0.18);
+            const b = a.ctx.createBuffer(1, len, a.ctx.sampleRate);
+            const ch = b.getChannelData(0);
+            for (let i = 0; i < len; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / len);
+            whoosh.buffer = b;
+            g.gain.setValueAtTime(0.18, t);
+            g.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+            whoosh.connect(hp);
+            hp.connect(g);
+            g.connect(a.master);
+            whoosh.start(t);
+            whoosh.stop(t + 0.19);
+            a.flashUntil = performance.now() + 140;
+        }
+
         function stopEcosystemTrailer(userClosed = false) {
             if (ecosystemTrailerRaf) cancelAnimationFrame(ecosystemTrailerRaf);
             ecosystemTrailerRaf = 0;
             ecosystemTrailerRunning = false;
+            ecosystemTrailerLastScene = -1;
+            ecosystemTrailerLastBeat = -1;
+            ecosystemTrailerBassAvg = 0.18;
+            ecosystemTrailerPrevBass = 0;
+            ecosystemTrailerImpactLevel = 0;
+            if (ecosystemTrailerAudio?.audioEl) {
+                ecosystemTrailerAudio.audioEl.pause();
+                ecosystemTrailerAudio.audioEl.currentTime = 0;
+            }
+            if (ecosystemTrailerAudio?.ctx) {
+                ecosystemTrailerAudio.ctx.close().catch(() => {});
+            }
+            ecosystemTrailerAudio = null;
             const overlay = document.getElementById('ecosystem-trailer-overlay');
             if (overlay) {
                 overlay.classList.remove('active');
                 overlay.setAttribute('aria-hidden', 'true');
             }
+            if (pendingDeferredModalMessage) {
+                const msg = pendingDeferredModalMessage;
+                pendingDeferredModalMessage = '';
+                setTimeout(() => showDeferredDetectedUpdate(msg), 180);
+            }
             if (userClosed) addNotification('Trailer cerrado.', 'neutral');
         }
 
-        function drawEcosystemTrailerFrame(ctx, w, h, tSec) {
+        function drawEcosystemTrailerFrame(ctx, w, h, tSec, sceneIdx = 0, sync = {}) {
+            ctx.save();
             const bg = ctx.createLinearGradient(0, 0, 0, h);
             bg.addColorStop(0, '#040915');
             bg.addColorStop(1, '#070d1a');
             ctx.fillStyle = bg;
             ctx.fillRect(0, 0, w, h);
 
-            const pulse = 0.5 + Math.sin(tSec * 2.2) * 0.5;
-            for (let i = 0; i < 120; i++) {
-                const x = (i * 83 + Math.sin(tSec * 0.8 + i) * 26 + w) % w;
-                const y = (i * 47 + Math.cos(tSec * 0.5 + i * 0.4) * 18 + h) % h;
-                ctx.fillStyle = `rgba(150,205,255,${0.08 + (i % 7) * 0.012})`;
+            const beatPulse = Number(sync?.beatPulse || 0);
+            const bassEnergy = Number(sync?.bassEnergy || 0);
+            const impact = Number(sync?.impact || 0);
+            const beatFloat = Number(sync?.beatFloat || 0);
+            const sceneBeatLen = Math.max(1, ECLIPSE_BEAT_PROFILE.sceneBeats || 8);
+            const sceneLocalBeat = Number(sync?.sceneLocalBeat ?? Math.max(0, beatFloat - sceneIdx * sceneBeatLen));
+            const sceneProgress = Math.max(0, Math.min(1, Number(sync?.sceneProgress ?? (sceneLocalBeat / sceneBeatLen))));
+            const sceneEase = sceneProgress < 0.5
+                ? 4 * sceneProgress * sceneProgress * sceneProgress
+                : 1 - Math.pow(-2 * sceneProgress + 2, 3) / 2;
+            const shake = (impact ? 2.3 : 0) + Math.max(0, bassEnergy - 0.4) * 1.6;
+            if (shake > 0.01) {
+                const sx = (Math.random() * 2 - 1) * shake;
+                const sy = (Math.random() * 2 - 1) * shake;
+                ctx.translate(sx, sy);
+            }
+            const pulse = Math.min(1, beatPulse * 0.85 + bassEnergy * 0.65 + impact * 0.4);
+            const cameraPanX = Math.sin(tSec * 0.9 + sceneIdx * 0.73) * (10 + pulse * 5) + (sceneEase - 0.5) * 18;
+            const cameraPanY = Math.cos(tSec * 0.66 + sceneIdx * 0.42) * (7 + pulse * 4) + Math.sin(sceneProgress * Math.PI * 2) * 4;
+            const cameraZoom = 1 + pulse * 0.028 + Math.sin(tSec * 0.51 + sceneIdx) * 0.012 + Math.sin(sceneProgress * Math.PI) * 0.02;
+            ctx.translate(w * 0.5, h * 0.5);
+            ctx.scale(cameraZoom, cameraZoom);
+            ctx.translate(-w * 0.5 + cameraPanX, -h * 0.5 + cameraPanY);
+
+            const radial = ctx.createRadialGradient(w * 0.5, h * 0.52, 100, w * 0.5, h * 0.5, Math.max(w, h) * 0.66);
+            radial.addColorStop(0, `rgba(33,130,220,${0.08 + pulse * 0.09})`);
+            radial.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = radial;
+            ctx.fillRect(0, 0, w, h);
+
+            for (let i = 0; i < 140; i++) {
+                const x = (i * 83 + Math.sin(tSec * 1.1 + i) * 32 + w) % w;
+                const y = (i * 47 + Math.cos(tSec * 0.8 + i * 0.4) * 20 + h) % h;
+                ctx.fillStyle = `rgba(150,205,255,${0.05 + (i % 7) * 0.013 + pulse * 0.04})`;
                 ctx.fillRect(x, y, 2, 2);
             }
 
-            ctx.strokeStyle = 'rgba(38,212,232,0.15)';
-            for (let i = 0; i < 7; i++) {
-                const y = h * (0.2 + i * 0.1);
+            ctx.strokeStyle = `rgba(38,212,232,${0.1 + pulse * 0.14})`;
+            for (let i = 0; i < 8; i++) {
+                const y = h * (0.16 + i * 0.1);
                 ctx.beginPath();
-                ctx.moveTo(0, y + Math.sin(tSec + i) * 4);
-                ctx.lineTo(w, y + Math.cos(tSec * 0.8 + i) * 4);
+                ctx.moveTo(0, y + Math.sin(tSec * 1.6 + i) * (4 + pulse * 4));
+                ctx.lineTo(w, y + Math.cos(tSec * 1.15 + i) * (4 + pulse * 4));
                 ctx.stroke();
             }
 
-            let caption = 'OWS Ecosystem Update';
-            if (tSec < 7) {
-                const scale = 1 + pulse * 0.04;
+            let caption = 'Hive calm // protocol armed';
+            ctx.textAlign = 'center';
+            if (sceneIdx === 0) {
+                // Calm hive interior
+                const hiveBg = ctx.createLinearGradient(0, h * 0.2, 0, h);
+                hiveBg.addColorStop(0, 'rgba(44,30,12,0.72)');
+                hiveBg.addColorStop(1, 'rgba(18,10,4,0.9)');
+                ctx.fillStyle = hiveBg;
+                ctx.fillRect(0, h * 0.18, w, h * 0.82);
+                for (let i = 0; i < 42; i++) {
+                    const x = (i * 97 + Math.sin(tSec * 0.4 + i) * 22) % w;
+                    const y = h * 0.24 + ((i * 59) % Math.floor(h * 0.72));
+                    const r = 16 + (i % 3) * 5;
+                    ctx.strokeStyle = 'rgba(245,184,74,0.3)';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    for (let j = 0; j < 6; j++) {
+                        const a = Math.PI / 3 * j + Math.PI / 6;
+                        const px = x + Math.cos(a) * r;
+                        const py = y + Math.sin(a) * r;
+                        if (j === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+                    }
+                    ctx.closePath();
+                    ctx.stroke();
+                }
+                for (let b = 0; b < 14; b++) {
+                    const bx = (b * 131 + Math.sin(tSec * 1.1 + b) * 60 + w) % w;
+                    const by = h * (0.35 + (b % 7) * 0.07) + Math.sin(tSec * 2 + b) * 12;
+                    ctx.fillStyle = 'rgba(251,210,102,0.75)';
+                    ctx.beginPath(); ctx.ellipse(bx - 8, by, 13, 8, -0.1, 0, Math.PI * 2); ctx.fill();
+                    ctx.beginPath(); ctx.ellipse(bx + 8, by, 13, 8, 0.1, 0, Math.PI * 2); ctx.fill();
+                    ctx.fillStyle = '#2a1b08';
+                    ctx.fillRect(bx - 6, by - 8, 12, 16);
+                }
+                caption = 'Silence inside the hive.';
+            } else if (sceneIdx === 1) {
+                // Black + red eyes flash
+                ctx.fillStyle = 'rgba(0,0,0,0.96)';
+                ctx.fillRect(0, 0, w, h);
+                const eyesIn = Math.min(1, sceneProgress * 2.6);
+                const blink = 0.4 + Math.sin(tSec * 12) * 0.3 + pulse * 0.4;
+                const eyeY = h * (0.42 + Math.sin(tSec * 5.5) * 0.01);
+                const eyeDx = 80 + (1 - eyesIn) * 120;
+                const glow = ctx.createRadialGradient(w * 0.5 - eyeDx, eyeY, 6, w * 0.5 - eyeDx, eyeY, 120);
+                glow.addColorStop(0, `rgba(255,90,90,${0.9 * blink})`);
+                glow.addColorStop(1, 'rgba(130,0,0,0)');
+                ctx.fillStyle = glow;
+                ctx.fillRect(0, 0, w, h);
+                const glow2 = ctx.createRadialGradient(w * 0.5 + eyeDx, eyeY, 6, w * 0.5 + eyeDx, eyeY, 120);
+                glow2.addColorStop(0, `rgba(255,90,90,${0.9 * blink})`);
+                glow2.addColorStop(1, 'rgba(130,0,0,0)');
+                ctx.fillStyle = glow2;
+                ctx.fillRect(0, 0, w, h);
+                ctx.fillStyle = '#ff3c3c';
+                ctx.beginPath(); ctx.ellipse(w * 0.5 - eyeDx, eyeY, 20, 12, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.ellipse(w * 0.5 + eyeDx, eyeY, 20, 12, 0, 0, Math.PI * 2); ctx.fill();
+                caption = 'Something woke up.';
+            } else if (sceneIdx === 2) {
+                // Hive panic + attack attempt
+                ctx.fillStyle = 'rgba(18,10,4,0.94)';
+                ctx.fillRect(0, 0, w, h);
+                const targetX = w * 0.5 + Math.sin(tSec * 2.2) * 100;
+                const targetY = h * 0.35 + Math.cos(tSec * 1.7) * 30;
+                ctx.fillStyle = 'rgba(180,18,18,0.7)';
+                ctx.beginPath(); ctx.arc(targetX, targetY, 34 + pulse * 18, 0, Math.PI * 2); ctx.fill();
+                for (let b = 0; b < 24; b++) {
+                    const ring = (b % 8) / 8;
+                    const baseA = (Math.PI * 2 * b) / 24 + tSec * (1.9 + ring * 1.2);
+                    const dist = 120 + ring * 120 + Math.sin(tSec * 5 + b) * 18;
+                    const bx = targetX + Math.cos(baseA) * dist;
+                    const by = targetY + Math.sin(baseA) * dist * 0.65;
+                    const towardX = targetX - bx;
+                    const towardY = targetY - by;
+                    const n = Math.max(1, Math.hypot(towardX, towardY));
+                    ctx.strokeStyle = 'rgba(255,205,110,0.55)';
+                    ctx.beginPath();
+                    ctx.moveTo(bx, by);
+                    ctx.lineTo(bx + towardX / n * 26, by + towardY / n * 26);
+                    ctx.stroke();
+                    ctx.fillStyle = '#f3c55d';
+                    ctx.fillRect(bx - 4, by - 3, 8, 6);
+                }
+                caption = 'Panic breaks formation.';
+            } else if (sceneIdx === 3 || sceneIdx === 11) {
+                // Timed black cuts
+                ctx.fillStyle = 'rgba(0,0,0,0.98)';
+                ctx.fillRect(0, 0, w, h);
+                for (let i = 0; i < 6; i++) {
+                    const a = 0.08 + Math.max(0, Math.sin(tSec * 11 + i * 1.7)) * 0.18;
+                    ctx.fillStyle = `rgba(255,255,255,${a * (0.45 + pulse)})`;
+                    ctx.fillRect(0, h * (i / 6), w, 2 + (i % 2));
+                }
+                caption = 'Signal interruption.';
+            } else if (sceneIdx === 4) {
+                // Jungle + book reveal
+                const jungle = ctx.createLinearGradient(0, 0, 0, h);
+                jungle.addColorStop(0, 'rgba(16,40,22,0.9)');
+                jungle.addColorStop(1, 'rgba(7,16,10,0.95)');
+                ctx.fillStyle = jungle;
+                ctx.fillRect(0, 0, w, h);
+                for (let i = 0; i < 22; i++) {
+                    const x = (i * 63 + Math.sin(tSec * 0.8 + i) * 28 + w) % w;
+                    const hh = h * (0.2 + (i % 6) * 0.1);
+                    ctx.strokeStyle = 'rgba(46,118,68,0.42)';
+                    ctx.lineWidth = 4;
+                    ctx.beginPath(); ctx.moveTo(x, h); ctx.lineTo(x + Math.sin(i) * 24, h - hh); ctx.stroke();
+                }
+                const open = Math.min(1, sceneProgress * 1.4);
+                const bw = w * 0.34;
+                const bh = h * 0.32;
+                const bx = w * 0.5 - bw / 2;
+                const by = h * 0.56 - bh / 2;
+                ctx.fillStyle = '#3e2514';
+                ctx.fillRect(bx - 16, by - 12, bw + 32, bh + 24);
+                ctx.fillStyle = '#d6c59e';
+                ctx.fillRect(bx, by, bw * (0.5 + open * 0.5), bh);
+                ctx.fillStyle = '#cab58d';
+                ctx.fillRect(bx + bw * 0.5, by, bw * 0.5, bh);
+                caption = 'A codex appears in the jungle.';
+            } else if (sceneIdx === 5 || sceneIdx === 6) {
+                // Magical animal info typography
+                const panelY = h * 0.2;
+                ctx.fillStyle = 'rgba(8,17,12,0.84)';
+                ctx.fillRect(w * 0.16, panelY, w * 0.68, h * 0.6);
+                ctx.strokeStyle = 'rgba(104,240,180,0.52)';
+                ctx.strokeRect(w * 0.16, panelY, w * 0.68, h * 0.6);
+                const words = ['FELINOS', 'AVES', 'REPTILES', 'PRIMATES', 'MARINOS'];
+                for (let i = 0; i < words.length; i++) {
+                    const reveal = Math.max(0, Math.min(1, sceneProgress * 1.9 - i * 0.18));
+                    const tx = w * 0.22 + i * 120 + (1 - reveal) * 50;
+                    const ty = h * 0.34 + (i % 2) * 70;
+                    ctx.fillStyle = `rgba(190,255,220,${0.15 + reveal * 0.8})`;
+                    ctx.font = `700 ${Math.round(28 + reveal * 8)}px "DM Sans", sans-serif`;
+                    ctx.fillText(words[i], tx, ty);
+                }
+                for (let i = 0; i < 36; i++) {
+                    const x = w * 0.2 + (i % 9) * 78 + Math.sin(tSec * 2 + i) * 8;
+                    const y = h * 0.48 + Math.floor(i / 9) * 42;
+                    ctx.fillStyle = `rgba(96,235,190,${0.07 + (i % 3) * 0.05})`;
+                    ctx.fillRect(x, y, 46, 14);
+                }
+                caption = 'The codex writes itself.';
+            } else if (sceneIdx === 7 || sceneIdx === 8) {
+                // Transition to studio cards + push down
+                const cardW = 220;
+                const cardH = 130;
+                const topBase = h * 0.2 + Math.sin(tSec * 0.8) * 6;
+                for (let i = 0; i < 6; i++) {
+                    const row = Math.floor(i / 3);
+                    const col = i % 3;
+                    const x = w * 0.2 + col * (cardW + 44);
+                    let y = topBase + row * (cardH + 30);
+                    const pushed = sceneIdx === 8 ? Math.max(0, Math.sin((sceneProgress + col * 0.12) * Math.PI)) * 80 : 0;
+                    y += pushed;
+                    ctx.fillStyle = 'rgba(21,38,59,0.85)';
+                    ctx.fillRect(x, y, cardW, cardH);
+                    ctx.strokeStyle = 'rgba(79,190,255,0.45)';
+                    ctx.strokeRect(x, y, cardW, cardH);
+                }
+                caption = 'The grid shifts under pressure.';
+            } else if (sceneIdx === 9 || sceneIdx === 10) {
+                // Two pop cards with broken titles, then hard interruption before repair
+                const pop = Math.sin(sceneProgress * Math.PI);
+                const c1x = w * 0.26;
+                const c2x = w * 0.58;
+                const cy = h * 0.34 - pop * 26;
+                if (sceneIdx === 10) {
+                    ctx.fillStyle = 'rgba(0,0,0,0.985)';
+                    ctx.fillRect(0, 0, w, h);
+                    for (let i = 0; i < 8; i++) {
+                        const alpha = 0.06 + Math.max(0, Math.sin(tSec * 10 + i * 0.9)) * 0.14;
+                        ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+                        ctx.fillRect(0, h * (i / 8), w, 2);
+                    }
+                } else {
+                    for (let i = 0; i < 2; i++) {
+                        const x = i === 0 ? c1x : c2x;
+                        ctx.fillStyle = 'rgba(22,52,76,0.92)';
+                        ctx.fillRect(x, cy, w * 0.18, h * 0.3);
+                        ctx.strokeStyle = i === 0 ? 'rgba(245,190,88,0.85)' : 'rgba(90,225,190,0.85)';
+                        ctx.lineWidth = 3;
+                        ctx.strokeRect(x, cy, w * 0.18, h * 0.3);
+                        ctx.fillStyle = 'rgba(236,246,255,0.95)';
+                        ctx.font = '800 30px "Anybody", sans-serif';
+                        ctx.fillText(i === 0 ? 'Bee' : 'N/A', x + w * 0.09, cy + h * 0.18);
+                        for (let g = 0; g < 20; g++) {
+                            ctx.strokeStyle = `rgba(255,90,90,${0.22 + (g % 3) * 0.08})`;
+                            const yy = cy + 30 + g * 6;
+                            ctx.beginPath();
+                            ctx.moveTo(x + 14, yy);
+                            ctx.lineTo(x + w * 0.18 - 14, yy + Math.sin(g + tSec * 8) * 6);
+                            ctx.stroke();
+                        }
+                    }
+                }
+                caption = sceneIdx === 9 ? 'Corrupted names detected.' : 'Before repair, the signal collapses.';
+            } else if (sceneIdx === 12 || sceneIdx === 13 || sceneIdx === 14 || sceneIdx === 15) {
+                // Final epic reveal from depth: OWS STORE + 27/03
+                const z = Math.max(0, 1 - sceneProgress);
+                const titleScale = 0.68 + (1 - z) * 0.58 + pulse * 0.05;
+                const dateScale = 0.78 + (1 - z) * 0.45;
+                const aura = ctx.createRadialGradient(w * 0.5, h * 0.46, 60, w * 0.5, h * 0.46, w * 0.6);
+                aura.addColorStop(0, `rgba(86,235,245,${0.24 + pulse * 0.2})`);
+                aura.addColorStop(1, 'rgba(0,0,0,0)');
+                ctx.fillStyle = aura;
+                ctx.fillRect(0, 0, w, h);
+                for (let i = 0; i < 46; i++) {
+                    const a = i * 0.38 + tSec * 0.9;
+                    const d = 90 + (i % 8) * 34 + Math.sin(tSec * 3 + i) * 9;
+                    const x = w * 0.5 + Math.cos(a) * d;
+                    const y = h * 0.46 + Math.sin(a) * d * 0.58;
+                    ctx.fillStyle = `rgba(130,242,255,${0.14 + (i % 4) * 0.08 + pulse * 0.12})`;
+                    ctx.fillRect(x, y, 2 + (i % 2), 2 + (i % 3));
+                }
                 ctx.save();
                 ctx.translate(w * 0.5, h * 0.44);
-                ctx.scale(scale, scale);
-                ctx.textAlign = 'center';
-                ctx.fillStyle = '#ecf7ff';
-                ctx.font = '900 84px "Anybody", sans-serif';
+                ctx.scale(titleScale, titleScale);
+                ctx.fillStyle = '#f3fbff';
+                ctx.font = '900 132px "Anybody", sans-serif';
                 ctx.fillText('OWS STORE', 0, 0);
-                ctx.font = '700 28px "DM Sans", sans-serif';
-                ctx.fillStyle = '#72dfff';
-                ctx.fillText('Ecosystem Update', 0, 48);
                 ctx.restore();
-                caption = 'A new cycle begins in Ocean and Wild Studios.';
-            } else if (tSec < 16) {
-                const lanes = ['Library', 'Updates', 'Events', 'Projects'];
-                lanes.forEach((lane, idx) => {
-                    const y = h * 0.2 + idx * 92;
-                    ctx.fillStyle = 'rgba(12,26,44,0.82)';
-                    ctx.fillRect(140, y, w - 280, 62);
-                    ctx.strokeStyle = idx % 2 ? 'rgba(38,212,232,0.42)' : 'rgba(242,104,48,0.36)';
-                    ctx.strokeRect(140, y, w - 280, 62);
-                    ctx.fillStyle = '#c8e9ff';
-                    ctx.font = '700 28px "DM Sans", sans-serif';
-                    ctx.fillText(lane, 180, y + 40);
-                });
-                caption = 'One launcher. One ecosystem. One living timeline.';
-            } else if (tSec < 24) {
-                ctx.fillStyle = 'rgba(17,33,54,0.86)';
-                ctx.fillRect(w * 0.12, h * 0.22, w * 0.76, h * 0.56);
-                for (let i = 0; i < 18; i++) {
-                    const px = w * 0.18 + (i % 6) * 140 + Math.sin(tSec + i) * 8;
-                    const py = h * 0.3 + Math.floor(i / 6) * 110;
-                    ctx.fillStyle = i % 2 ? 'rgba(38,212,232,0.5)' : 'rgba(242,104,48,0.45)';
-                    ctx.fillRect(px, py, 95, 66);
+                if (sceneIdx >= 13) {
+                    ctx.save();
+                    ctx.translate(w * 0.5, h * 0.61);
+                    ctx.scale(dateScale, dateScale);
+                    ctx.fillStyle = '#8deaff';
+                    ctx.font = '900 80px "Anybody", sans-serif';
+                    ctx.fillText('27/03', 0, 0);
+                    ctx.restore();
                 }
-                caption = 'The archive expands. The horizon shifts.';
-            } else if (tSec < 31) {
-                ctx.fillStyle = '#d6f3ff';
-                ctx.font = '800 52px "Anybody", sans-serif';
-                ctx.textAlign = 'center';
-                ctx.fillText('Some pages are still sealed...', w * 0.5, h * 0.42);
-                ctx.font = '700 28px "DM Sans", sans-serif';
-                ctx.fillStyle = '#9ec8e6';
-                ctx.fillText('Soon, hidden knowledge will bloom.', w * 0.5, h * 0.5);
-                caption = 'A silent archive is waking up.';
-            } else if (tSec < 38) {
-                ctx.fillStyle = '#d6f3ff';
-                ctx.font = '800 52px "Anybody", sans-serif';
-                ctx.textAlign = 'center';
-                ctx.fillText('A distant hum is getting closer...', w * 0.5, h * 0.42);
-                ctx.font = '700 28px "DM Sans", sans-serif';
-                ctx.fillStyle = '#9ec8e6';
-                ctx.fillText('Fields and wings are almost aligned.', w * 0.5, h * 0.5);
-                caption = 'Something small, fast and royal is near.';
+                if (sceneIdx >= 15) {
+                    const finalBurst = Math.sin(sceneProgress * Math.PI);
+                    for (let i = 0; i < 18; i++) {
+                        const a = (Math.PI * 2 * i) / 18 + tSec * 0.5;
+                        const len = 80 + finalBurst * 280;
+                        ctx.strokeStyle = `rgba(164,244,255,${0.16 + finalBurst * 0.24})`;
+                        ctx.beginPath();
+                        ctx.moveTo(w * 0.5 + Math.cos(a) * 40, h * 0.46 + Math.sin(a) * 22);
+                        ctx.lineTo(w * 0.5 + Math.cos(a) * len, h * 0.46 + Math.sin(a) * len * 0.58);
+                        ctx.stroke();
+                    }
+                }
+                caption = 'OWS Store // 27/03';
             } else {
-                const glow = 0.35 + pulse * 0.35;
-                ctx.fillStyle = `rgba(38,212,232,${glow})`;
-                ctx.beginPath();
-                ctx.arc(w * 0.5, h * 0.44, 120, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.textAlign = 'center';
-                ctx.fillStyle = '#ffffff';
-                ctx.font = '900 72px "Anybody", sans-serif';
-                ctx.fillText('OWS STORE', w * 0.5, h * 0.46);
-                ctx.font = '700 30px "DM Sans", sans-serif';
-                ctx.fillStyle = '#e6f8ff';
-                ctx.fillText('Update Wave // Out Soon', w * 0.5, h * 0.56);
-                caption = 'Record this signal. The next chapter is almost here.';
+                ctx.fillStyle = 'rgba(0,0,0,0.95)';
+                ctx.fillRect(0, 0, w, h);
+                caption = 'Signal locked.';
             }
+
+            // cut accents + cinematic bars + transition flash
+            const cutBand = Math.max(0, 1 - Math.min(1, sceneLocalBeat));
+            if (cutBand > 0) {
+                ctx.fillStyle = `rgba(255,255,255,${cutBand * (0.05 + pulse * 0.08)})`;
+                ctx.fillRect(0, 0, w, h);
+            }
+            if (impact > 0.34) {
+                for (let i = 0; i < 3; i++) {
+                    const yy = ((tSec * 340 + i * 120) % (h + 80)) - 40;
+                    ctx.fillStyle = `rgba(90,220,255,${0.07 + impact * 0.14})`;
+                    ctx.fillRect(0, yy, w, 5 + impact * 9);
+                }
+            }
+            ctx.fillStyle = 'rgba(0,0,0,0.36)';
+            ctx.fillRect(0, 0, w, 56);
+            ctx.fillRect(0, h - 56, w, 56);
+            if (ecosystemTrailerAudio?.flashUntil && performance.now() < ecosystemTrailerAudio.flashUntil) {
+                const rem = (ecosystemTrailerAudio.flashUntil - performance.now()) / 140;
+                ctx.fillStyle = `rgba(255,255,255,${Math.max(0, rem) * 0.18})`;
+                ctx.fillRect(0, 0, w, h);
+            }
+            ctx.restore();
             return caption;
         }
 
@@ -12745,9 +13229,61 @@
             if (!canvas) return;
             const ctx = canvas.getContext('2d');
             if (!ctx) return;
-            const elapsed = (ts - ecosystemTrailerStartedAt) / 1000;
-            const duration = 46;
-            const caption = drawEcosystemTrailerFrame(ctx, canvas.width, canvas.height, elapsed);
+            const audioElapsed = Number(ecosystemTrailerAudio?.audioEl?.currentTime || 0);
+            const elapsed = audioElapsed > 0 ? audioElapsed : ((ts - ecosystemTrailerStartedAt) / 1000);
+            const duration = Number(ECLIPSE_MUSICMAP.duration || 60);
+            const beatIdx = getEcosystemBeatIndexFromTime(elapsed);
+            const beats = ECLIPSE_MUSICMAP.beats || [];
+            const prevBeatTime = beats[Math.max(0, beatIdx)] ?? 0;
+            const nextBeatTime = beats[Math.min(beats.length - 1, beatIdx + 1)] ?? (prevBeatTime + 0.42);
+            const beatSpan = Math.max(0.08, nextBeatTime - prevBeatTime);
+            const beatFrac = Math.max(0, Math.min(1, (elapsed - prevBeatTime) / beatSpan));
+            const beatFloat = beatIdx + beatFrac;
+            const beatPulse = Math.exp(-Math.max(0, beatFrac) * 12.5);
+            let bassEnergy = 0;
+            if (ecosystemTrailerAudio?.analyser && ecosystemTrailerAudio?.freqData) {
+                ecosystemTrailerAudio.analyser.getByteFrequencyData(ecosystemTrailerAudio.freqData);
+                let acc = 0;
+                const bins = Math.min(34, ecosystemTrailerAudio.freqData.length);
+                for (let i = 0; i < bins; i++) acc += ecosystemTrailerAudio.freqData[i];
+                bassEnergy = bins ? (acc / bins) / 255 : 0;
+            }
+            ecosystemTrailerBassAvg = ecosystemTrailerBassAvg * 0.92 + bassEnergy * 0.08;
+            const transient = Math.max(0, bassEnergy - ecosystemTrailerPrevBass);
+            const accentScore = Math.max(0, (bassEnergy - ecosystemTrailerBassAvg) * 1.45 + transient * 1.95);
+            ecosystemTrailerPrevBass = bassEnergy;
+            const sceneIdx = getEcosystemTrailerSceneIndexFromTime(elapsed);
+            const sceneKeys = ECLIPSE_MUSICMAP.sceneKeyframes || [];
+            const sceneStart = sceneKeys[sceneIdx] ?? 0;
+            const sceneEnd = (sceneIdx + 1 < sceneKeys.length ? sceneKeys[sceneIdx + 1] : duration);
+            const sceneSpan = Math.max(0.2, sceneEnd - sceneStart);
+            const sceneProgress = Math.max(0, Math.min(1, (elapsed - sceneStart) / sceneSpan));
+            const sceneLocalBeat = Math.max(0, (elapsed - sceneStart) / beatSpan);
+            if (sceneIdx !== ecosystemTrailerLastScene) {
+                ecosystemTrailerLastScene = sceneIdx;
+                playEcosystemTrailerTransition();
+            }
+            if (beatIdx !== ecosystemTrailerLastBeat) {
+                ecosystemTrailerLastBeat = beatIdx;
+                const beatPos = (ECLIPSE_MUSICMAP.beatPositions && ECLIPSE_MUSICMAP.beatPositions[beatIdx]) || 1;
+                const strongBar = beatPos === 1 ? 0.92 : (beatPos === 3 ? 0.52 : 0.24);
+                const audioDrivenImpact = Math.min(1, accentScore * 3.3);
+                ecosystemTrailerImpactLevel = Math.max(ecosystemTrailerImpactLevel * 0.65, Math.max(strongBar, audioDrivenImpact));
+                if (ecosystemTrailerImpactLevel > 0.45 && ecosystemTrailerAudio) {
+                    ecosystemTrailerAudio.flashUntil = performance.now() + Math.round(90 + ecosystemTrailerImpactLevel * 60);
+                }
+            }
+            ecosystemTrailerImpactLevel *= 0.88;
+            const impact = Math.max(0, Math.min(1, ecosystemTrailerImpactLevel));
+
+            const caption = drawEcosystemTrailerFrame(ctx, canvas.width, canvas.height, elapsed, sceneIdx, {
+                beatPulse,
+                bassEnergy,
+                beatFloat,
+                sceneProgress,
+                sceneLocalBeat,
+                impact,
+            });
             if (captionEl) captionEl.textContent = caption;
             if (timeEl) timeEl.textContent = `${Math.max(0, duration - elapsed).toFixed(1)}s`;
             if (elapsed >= duration) {
@@ -12762,9 +13298,39 @@
             const overlay = document.getElementById('ecosystem-trailer-overlay');
             const canvas = document.getElementById('ecosystem-trailer-canvas');
             if (!overlay || !canvas) return;
+            dismissUpdateBanner(true);
+            dismissDeferredDetectedUpdate();
             stopEcosystemTrailer(false);
             overlay.classList.add('active');
             overlay.setAttribute('aria-hidden', 'false');
+            ecosystemTrailerBassAvg = 0.18;
+            ecosystemTrailerPrevBass = 0;
+            ecosystemTrailerImpactLevel = 0;
+            ecosystemTrailerAudio = initEcosystemTrailerAudio();
+            if (ecosystemTrailerAudio?.audioEl) {
+                ecosystemTrailerAudio.audioEl.volume = 1;
+                ecosystemTrailerAudio.audioEl.currentTime = 0;
+                const playPromise = ecosystemTrailerAudio.audioEl.play();
+                if (playPromise && typeof playPromise.then === 'function') {
+                    playPromise.then(() => {
+                        ecosystemTrailerLastScene = -1;
+                        ecosystemTrailerLastBeat = -1;
+                        ecosystemTrailerRunning = true;
+                        ecosystemTrailerStartedAt = performance.now();
+                        ecosystemTrailerRaf = requestAnimationFrame(ecosystemTrailerFrame);
+                    }).catch(() => {
+                        addNotification('No se pudo iniciar audio automaticamente. Haz click otra vez para reproducirlo.', 'warning');
+                        ecosystemTrailerLastScene = -1;
+                        ecosystemTrailerLastBeat = -1;
+                        ecosystemTrailerRunning = true;
+                        ecosystemTrailerStartedAt = performance.now();
+                        ecosystemTrailerRaf = requestAnimationFrame(ecosystemTrailerFrame);
+                    });
+                    return;
+                }
+            }
+            ecosystemTrailerLastScene = -1;
+            ecosystemTrailerLastBeat = -1;
             ecosystemTrailerRunning = true;
             ecosystemTrailerStartedAt = performance.now();
             ecosystemTrailerRaf = requestAnimationFrame(ecosystemTrailerFrame);
@@ -13736,6 +14302,7 @@
         }
 
         async function runStoreAutoUpdateCheck(origin = 'auto-heartbeat') {
+            if (ecosystemTrailerRunning) return;
             const isAndroidStore = isNativeAndroidRuntime() && typeof window.owsUpdater === 'undefined';
             if (isAndroidStore) {
                 await checkOWSStoreAndroidUpdate({ silent: true, origin }).catch(() => {});
@@ -13758,6 +14325,7 @@
         function setupRecurringRefreshLoop() {
             setInterval(() => {
                 if (document.hidden) return;
+                if (ecosystemTrailerRunning) return;
                 checkProjectUpdatesAndNotify().then(() => {
                     scheduleSectionRender({ projects: true, library: true, immediate: false });
                 }).catch(() => {});
@@ -13789,6 +14357,11 @@
         }
 
         function showDeferredDetectedUpdate(message = 'Se detectaron cambios nuevos en OWS Store.') {
+            if (ecosystemTrailerRunning) {
+                pendingDeferredModalMessage = String(message || 'Se detectaron cambios nuevos en OWS Store.');
+                addNotification('Se detectaron cambios de OWS Store. Se mostraran al finalizar el trailer.', 'info');
+                return;
+            }
             clearDeferredDetectedUpdateTimers();
             const modal = document.getElementById('data-refresh-modal');
             const text = document.getElementById('data-refresh-text');
@@ -14424,6 +14997,7 @@
                 renderDownloadSurfaces();
                 initBrandCycle();
                 initSpotlightSlider();
+                initStoreTrailerPremiere();
                 initUpdater();
                 initSearch();
                 renderStoreAutoCheckMeta();
@@ -14462,6 +15036,7 @@
             if (brandCycleTimer) clearInterval(brandCycleTimer);
             if (spotlightSlideTimer) clearInterval(spotlightSlideTimer);
             if (spotlightSlideCleanupTimer) clearTimeout(spotlightSlideCleanupTimer);
+            if (storeTrailerPremiereTimer) clearInterval(storeTrailerPremiereTimer);
             if (storeAutoUpdateTimer) clearInterval(storeAutoUpdateTimer);
             stopDeferredSilentMonitor();
             clearDeferredDetectedUpdateTimers();

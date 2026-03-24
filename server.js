@@ -1184,6 +1184,8 @@ async function ensureOwsStoreNewsSeedData() {
   const wildDestinyEnd = new Date(now.getTime() - (2 * oneDayMs)).toISOString();
   const wildShortsStart = releaseDateBySlug.get('wildshorts') || new Date(now.getTime() + (6 * oneDayMs)).toISOString();
   const wildShortsEnd = new Date((Date.parse(wildShortsStart) || now.getTime()) + (14 * oneDayMs)).toISOString();
+  const owsStoreTrailerStart = '2026-03-24T23:00:00Z'; // 24/03/2026 20:00 UYT
+  const owsStoreTrailerEnd = '2026-03-25T02:59:59Z';   // fin de ventana del martes
 
   const entries = [
     {
@@ -1283,6 +1285,27 @@ async function ensureOwsStoreNewsSeedData() {
       priority: 13,
       eventStart: wildShortsStart,
       eventEnd: wildShortsEnd
+    },
+    {
+      syncKey: 'seed:event:ows-store-update-trailer-20260324',
+      projectNames: ['ows-store', 'OWS Store'],
+      title: 'OWS Store - trailer de actualizacion (estreno programado)',
+      description: 'Estreno del nuevo trailer de actualizacion de OWS Store en ventana limitada del martes.',
+      changes: [
+        'Cuenta regresiva activa hasta el inicio del estreno.',
+        'Reproduccion habilitada solo dentro de la ventana programada.',
+        'Bloqueo automatico fuera de horario para mantener formato de premiere.'
+      ],
+      updateDate: owsStoreTrailerStart,
+      entryType: 'event',
+      platforms: ['windows', 'android'],
+      model2dKey: 'store_hub',
+      model2dPayload: { accent: '#26d4e8', secondary: '#f59e0b' },
+      bannerMeta: { visual: 'store_hub', category: 'premiere', trailer: true },
+      isActive: true,
+      priority: 16,
+      eventStart: owsStoreTrailerStart,
+      eventEnd: owsStoreTrailerEnd
     },
     {
       syncKey: 'seed:oceanpay:ecoxion-integration-pack',

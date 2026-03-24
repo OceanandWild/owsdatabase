@@ -447,13 +447,14 @@
         .sidebar {
             width: var(--sidebar-w);
             flex-shrink: 0;
-            background: var(--surface-0);
-            border-right: 1px solid var(--border);
+            background: linear-gradient(180deg, rgba(6,16,28,0.98), rgba(5,12,22,0.98));
+            border-right: 1px solid rgba(82,217,223,0.18);
             display: flex;
             flex-direction: column;
             padding: 1.25rem 0;
             overflow-y: auto;
             overflow-x: hidden;
+            box-shadow: inset -1px 0 0 rgba(255,255,255,0.03), 8px 0 24px rgba(0,0,0,0.24);
         }
 
         .sidebar-brand {
@@ -461,16 +462,17 @@
             align-items: center;
             gap: 0.75rem;
             padding: 0 1.25rem 1.25rem;
-            border-bottom: 1px solid var(--border);
+            border-bottom: 1px solid rgba(82,217,223,0.16);
             margin-bottom: 0.5rem;
         }
         .sidebar-brand-icon {
             width: 36px; height: 36px;
-            background: linear-gradient(135deg, var(--cyan), var(--orange));
+            background: radial-gradient(circle at 30% 30%, #9af4ff 0%, #27d8ea 58%, #0f6f88 100%);
             border-radius: var(--r-sm);
             display: flex; align-items: center; justify-content: center;
-            font-size: 16px; color: #000; font-weight: 900;
+            font-size: 16px; color: #041021; font-weight: 900;
             flex-shrink: 0;
+            box-shadow: 0 0 0 1px rgba(160,245,255,0.34), 0 8px 18px rgba(0,0,0,0.32);
         }
         .sidebar-brand-name { font-family:var(--font-display); font-size:1.1rem; font-weight:900; letter-spacing:0.5px; line-height:1; }
         .sidebar-brand-sub { font-size:0.65rem; color:var(--ink-2); font-family:var(--font-mono); text-transform:uppercase; letter-spacing:0.5px; margin-top:2px; }
@@ -478,23 +480,35 @@
         .nav-menu { list-style:none; padding:0 0.75rem; flex:1; display:flex; flex-direction:column; gap:2px; }
         .nav-item {
             display: flex; align-items: center; gap: 0.75rem;
-            padding: 0.6rem 0.75rem;
-            border-radius: var(--r-sm);
+            padding: 0.62rem 0.75rem;
+            border-radius: 10px;
             cursor: pointer;
             font-size: 0.85rem; font-weight: 500;
             color: var(--ink-1);
-            transition: all 0.15s;
+            transition: all 0.15s ease;
             position: relative;
             user-select: none;
+            border: 1px solid transparent;
         }
         .nav-item i { width:16px; text-align:center; font-size:13px; }
-        .nav-item:hover { background:var(--surface-2); color:var(--ink-0); }
+        .nav-item:hover { background:rgba(32,48,68,0.72); color:var(--ink-0); border-color:rgba(255,255,255,0.08); }
         .nav-item.active {
-            background: var(--cyan-dim);
-            color: var(--cyan);
+            background: linear-gradient(90deg, rgba(38,212,232,0.18), rgba(38,212,232,0.06));
+            color: #72f0ff;
             font-weight: 600;
+            border-color: rgba(38,212,232,0.38);
         }
         .nav-item.active i { color:var(--cyan); }
+        .nav-item.active::before {
+            content: '';
+            position: absolute;
+            left: 6px;
+            top: 8px;
+            bottom: 8px;
+            width: 3px;
+            border-radius: 3px;
+            background: linear-gradient(180deg, #72f0ff, #28d7e7);
+        }
         .nav-badge {
             margin-left: auto;
             background: var(--cyan);
@@ -907,6 +921,169 @@
         .library-card-name { font-weight:700; font-size:0.85rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .library-card-meta { font-size:0.68rem; color:var(--ink-2); margin-top:1px; }
         .library-card-actions { display:flex; gap:0.4rem; flex-shrink:0; }
+
+        /* Version center (Home) */
+        .version-center-shell {
+            background: linear-gradient(165deg, rgba(10,22,38,0.96), rgba(7,14,27,0.96));
+            border: 1px solid rgba(82,217,223,0.2);
+            border-radius: var(--r-lg);
+            padding: 1rem;
+            margin-bottom: 1.15rem;
+            box-shadow: 0 14px 28px rgba(0,0,0,0.26);
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+        }
+        .version-center-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 0.8rem;
+            flex-wrap: wrap;
+        }
+        .version-center-title { font-family: var(--font-display); font-size: 1.14rem; font-weight: 800; line-height: 1.1; }
+        .version-center-sub { margin-top: 0.22rem; color: var(--ink-1); font-size: 0.75rem; max-width: 600px; }
+        .version-center-highlight {
+            min-width: 210px;
+            background: rgba(22,44,66,0.72);
+            border: 1px solid rgba(82,217,223,0.22);
+            border-radius: var(--r-sm);
+            padding: 0.55rem 0.7rem;
+        }
+        .version-center-highlight-k { font-size: 0.58rem; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.6px; color: var(--ink-2); }
+        .version-center-highlight-v { margin-top: 0.18rem; color: var(--cyan); font-size: 0.78rem; font-weight: 700; }
+        .version-center-upcoming {
+            display: flex;
+            align-items: center;
+            gap: 0.55rem;
+            flex-wrap: wrap;
+            padding: 0.55rem 0.65rem;
+            border: 1px dashed rgba(82,217,223,0.24);
+            border-radius: var(--r-sm);
+            background: rgba(16,30,46,0.6);
+        }
+        .version-center-upcoming-k { font-size: 0.62rem; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.65px; color: var(--ink-2); }
+        .version-center-upcoming-list { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+        .version-center-upcoming-pill {
+            border-radius: 999px;
+            border: 1px solid rgba(245,197,66,0.3);
+            background: rgba(245,197,66,0.12);
+            color: var(--yellow);
+            padding: 0.14rem 0.5rem;
+            font-size: 0.64rem;
+            font-family: var(--font-mono);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .version-center-controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            gap: 0.45rem;
+        }
+        .version-center-control { display: flex; flex-direction: column; gap: 0.2rem; }
+        .version-center-control label { font-size: 0.62rem; color: var(--ink-2); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.6px; }
+        .version-center-control select {
+            background: var(--surface-2);
+            color: var(--ink-0);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.38rem 0.5rem;
+            font-family: inherit;
+            font-size: 0.73rem;
+            outline: none;
+        }
+        .version-center-control select:focus { border-color: var(--border-mid); }
+        .version-center-compare {
+            border: 1px solid rgba(82,217,223,0.18);
+            border-radius: var(--r-sm);
+            background: rgba(11,22,38,0.86);
+            color: var(--ink-1);
+            font-size: 0.74rem;
+            padding: 0.55rem 0.7rem;
+        }
+        .version-center-guide {
+            border: 1px solid rgba(82,217,223,0.15);
+            border-radius: 10px;
+            background: rgba(10,20,34,0.8);
+            padding: 0.55rem 0.65rem;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            gap: 0.45rem;
+        }
+        .version-center-guide-item {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.4rem 0.5rem;
+            background: rgba(16,28,44,0.72);
+        }
+        .version-center-guide-k {
+            font-size: 0.6rem;
+            font-family: var(--font-mono);
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            color: var(--ink-2);
+        }
+        .version-center-guide-v {
+            margin-top: 0.15rem;
+            font-size: 0.7rem;
+            color: var(--ink-0);
+            line-height: 1.35;
+        }
+        .version-center-freq {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.22rem;
+            font-weight: 700;
+        }
+        .version-center-freq-note {
+            display: block;
+            margin-top: 0.15rem;
+            font-size: 0.6rem;
+            color: var(--yellow);
+            font-family: var(--font-mono);
+            letter-spacing: 0.3px;
+        }
+        .version-center-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+            max-height: 320px;
+            overflow-y: auto;
+            padding-right: 0.2rem;
+        }
+        .version-center-row {
+            display: grid;
+            grid-template-columns: 1.7fr 0.9fr 0.9fr 1fr 1fr;
+            gap: 0.5rem;
+            align-items: center;
+            background: rgba(17,31,49,0.84);
+            border: 1px solid rgba(82,217,223,0.14);
+            border-radius: 10px;
+            padding: 0.48rem 0.62rem;
+            font-size: 0.73rem;
+        }
+        .version-center-row.head {
+            background: rgba(12,23,38,0.96);
+            color: var(--ink-2);
+            font-family: var(--font-mono);
+            text-transform: uppercase;
+            letter-spacing: 0.55px;
+            font-size: 0.6rem;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+        .version-center-row .name { color: var(--ink-0); font-weight: 600; }
+        .version-center-row .status { font-size: 0.62rem; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.5px; }
+        .version-center-row .status.live { color: var(--green); }
+        .version-center-row .status.soon { color: var(--yellow); }
+        .version-center-row .status.off { color: var(--ink-2); }
+        @media (max-width: 920px) {
+            .version-center-row {
+                grid-template-columns: 1.2fr 0.9fr 0.9fr;
+            }
+            .version-center-row .hide-sm { display: none; }
+        }
 
         /* â”€â”€ UPDATES / CENTRO â”€â”€ */
         .updates-shell {
@@ -1685,9 +1862,10 @@
             border-radius: var(--r-sm);
             flex-shrink: 0;
             background-color: var(--surface-3);
-            background-size: cover;
+            background-size: contain;
             background-position: center;
             background-repeat: no-repeat;
+            padding: 4px;
             border: 1px solid var(--border);
             transition: box-shadow 0.18s;
         }
@@ -1699,8 +1877,15 @@
             box-shadow: 0 4px 16px rgba(38,212,232,0.2);
         }
         .library-card-icon.icon-bg {
-            width: 40px;
-            height: 40px;
+            width: 52px;
+            height: 52px;
+            border-radius: 10px;
+            background-size: contain;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-color: color-mix(in srgb, var(--surface-3) 80%, #050a12);
+            padding: 4px;
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05);
         }
 
         .ecosystem-main {
@@ -1879,9 +2064,10 @@
             border: 1px solid var(--border);
             border-radius: var(--r-md);
             padding: 1rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
+            display: grid;
+            grid-template-columns: minmax(280px, 2fr) minmax(210px, 1.1fr) minmax(250px, 1.4fr);
+            gap: 0.8rem;
+            align-items: start;
             transition: all 0.18s;
             position: relative;
             overflow: hidden;
@@ -1904,6 +2090,20 @@
             display: flex;
             align-items: center;
             gap: 0.75rem;
+        }
+
+        .library-primary {
+            display: flex;
+            flex-direction: column;
+            gap: 0.55rem;
+            min-width: 0;
+        }
+
+        .library-inline {
+            display: flex;
+            align-items: center;
+            gap: 0.55rem;
+            flex-wrap: wrap;
         }
 
         .library-card-icon {
@@ -1930,7 +2130,6 @@
         }
 
         .library-status-chip {
-            margin-left: auto;
             font-size: 0.58rem;
             font-family: var(--font-mono);
             font-weight: 700;
@@ -2005,6 +2204,27 @@
             display: flex;
             gap: 0.4rem;
             flex-wrap: wrap;
+            justify-content: flex-end;
+            align-self: stretch;
+        }
+
+        @media (max-width: 1200px) {
+            .library-card {
+                grid-template-columns: minmax(240px, 1.7fr) minmax(210px, 1fr);
+            }
+            .library-actions {
+                grid-column: 1 / -1;
+                justify-content: flex-start;
+            }
+        }
+
+        @media (max-width: 860px) {
+            .library-card {
+                grid-template-columns: 1fr;
+            }
+            .library-actions {
+                justify-content: stretch;
+            }
         }
 
         /* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -2825,7 +3045,7 @@
                     <div id="boot-step-prev" class="boot-step boot-step-prev">Verificacion previa</div>
                 </div>
                 <div id="boot-showcase" class="boot-showcase">
-                    <div class="boot-scene">AWQG: sincronizando release Windows y APK.</div>
+                    <div class="boot-scene">AWQG: sincronizando build Windows y APK.</div>
                     <div class="boot-scene">Ecoxion: renderizando horizonte cian activo.</div>
                     <div class="boot-scene">Velocity Surge: telemetria de pistas en vivo.</div>
                     <div class="boot-scene">WildWeapon: estado tactico listo para despliegue.</div>
@@ -3117,20 +3337,53 @@
                 </div>
             </div>
 
-            <!-- Releases feed + Downloads preview -->
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:2rem;">
-                <div>
-                    <div class="section-header">
-                        <span class="section-label">Releases recientes</span>
+            <!-- Version command center -->
+            <div class="version-center-shell">
+                <div class="version-center-head">
+                    <div>
+                        <div class="section-label">Versiones del Ecosistema</div>
+                        <div class="version-center-title">Control de versiones y actividad de proyectos</div>
+                        <div class="version-center-sub">Resumen completo de versiones por proyecto, estado de actualizacion y comparacion rapida.</div>
                     </div>
-                    <div id="explore-release-feed" class="spotlight-list" style="display:flex;flex-direction:column;gap:0.4rem;"></div>
-                </div>
-                <div>
-                    <div class="section-header">
-                        <span class="section-label">En progreso</span>
+                    <div class="version-center-highlight">
+                        <div class="version-center-highlight-k">Ultima vez actualizado</div>
+                        <div id="explore-latest-release" class="version-center-highlight-v">Cargando...</div>
                     </div>
-                    <div id="explore-download-preview" class="spotlight-list" style="display:flex;flex-direction:column;gap:0.4rem;"></div>
                 </div>
+                <div class="version-center-upcoming">
+                    <div class="version-center-upcoming-k">Proximamente</div>
+                    <div id="explore-upcoming-list" class="version-center-upcoming-list">Cargando proyectos proximos...</div>
+                </div>
+                <div class="version-center-controls">
+                    <div class="version-center-control">
+                        <label for="explore-version-sort">Ordenar por</label>
+                        <select id="explore-version-sort" onchange="setExploreVersionSort(this.value)">
+                            <option value="updated">Ultima actualizacion</option>
+                            <option value="frequency">Frecuencia</option>
+                            <option value="status">Estado</option>
+                            <option value="name">Nombre</option>
+                            <option value="version">Version</option>
+                        </select>
+                    </div>
+                    <div class="version-center-control">
+                        <label for="explore-version-order">Orden</label>
+                        <select id="explore-version-order" onchange="setExploreVersionOrder(this.value)">
+                            <option value="desc">Descendente</option>
+                            <option value="asc">Ascendente</option>
+                        </select>
+                    </div>
+                    <div class="version-center-control">
+                        <label for="explore-compare-a">Comparar A</label>
+                        <select id="explore-compare-a" onchange="setExploreCompareA(this.value)"></select>
+                    </div>
+                    <div class="version-center-control">
+                        <label for="explore-compare-b">Comparar B</label>
+                        <select id="explore-compare-b" onchange="setExploreCompareB(this.value)"></select>
+                    </div>
+                </div>
+                <div id="explore-version-compare" class="version-center-compare">Selecciona dos proyectos para comparar versiones y ritmo de actualizacion.</div>
+                <div id="explore-frequency-guide" class="version-center-guide"></div>
+                <div id="explore-version-list" class="version-center-list"></div>
             </div>
 
             <!-- Slider -->
@@ -3361,7 +3614,7 @@
                     <div class="stat-box">
                         <div class="stat-label">OWS Store Android</div>
                         <div class="stat-value" style="display:flex;flex-direction:column;gap:0.5rem;">
-                            <span id="ows-android-release-meta" class="android-release-meta">Buscando release Android...</span>
+                            <span id="ows-android-release-meta" class="android-release-meta">Buscando build Android...</span>
                             <button class="btn-install" style="width:fit-content;" onclick="openStoreAndroidDownload()">
                                 <i class="fas fa-mobile-screen-button"></i> Descargar Android
                             </button>
@@ -3526,6 +3779,8 @@
         const VELOCITY_SURGE_RELEASES_API_URL = `${GITHUB_RELEASES_PROXY_BASE}/velocity-surge/releases/latest`;
         const WILDWAVE_RELEASES_URL = 'https://github.com/OceanandWild/wildwave/releases/latest';
         const WILDWAVE_RELEASES_API_URL = `${GITHUB_RELEASES_PROXY_BASE}/wildwave/releases/latest`;
+        const DINOBOX_RELEASES_URL = 'https://github.com/OceanandWild/dinobox/releases/latest';
+        const DINOBOX_RELEASES_API_URL = `${GITHUB_RELEASES_PROXY_BASE}/dinobox/releases/latest`;
         const OWSNEWS_RELEASES_URL = 'https://github.com/OceanandWild/ocean-and-wild-studios-news/releases/latest';
         const OWSNEWS_RELEASES_API_URL = `${GITHUB_RELEASES_PROXY_BASE}/ocean-and-wild-studios-news/releases/latest`;
         const SSA_LOCAL_ICON = 'https://raw.githubusercontent.com/OceanandWild/owsdatabase/main/OWS%20Store/build/ssa.ico';
@@ -3861,6 +4116,7 @@
         let velocitySurgeReleaseCache = null;
         let wildWaveReleaseCache = null;
         let wildDestinyReleaseCache = null;
+        let dinoBoxReleaseCache = null;
         let owsNewsReleaseCache = null;
         let ecoxionReleaseCache = null;
         let owsNewsUpdatesCache = [];
@@ -3908,6 +4164,12 @@
         let currentProjectFilter = 'all';
         let libraryViewState = { filter: 'all', query: '' };
         let activeSection = 'home';
+        let exploreVersionState = {
+            sortBy: 'updated',
+            order: 'desc',
+            compareA: '',
+            compareB: ''
+        };
         let scheduledRenderTimer = null;
         let actionBannerTimer = null;
         let actionBannerSticky = false;
@@ -5495,12 +5757,114 @@
             }).join('');
         }
 
+        function collectProjectUpdateTimelineMs(project) {
+            const out = [];
+            const seen = new Set();
+            const pushMs = (value) => {
+                const ms = Number(value || 0);
+                if (!Number.isFinite(ms) || ms <= 0) return;
+                if (seen.has(ms)) return;
+                seen.add(ms);
+                out.push(ms);
+            };
+            const pushDate = (value) => {
+                const ms = Date.parse(String(value || '')) || 0;
+                if (ms > 0) pushMs(ms);
+            };
+
+            pushMs(getProjectLastUpdateMs(project));
+
+            const changelog = Array.isArray(project?.changelog) ? project.changelog : [];
+            changelog.forEach((entry) => {
+                pushDate(entry?.updateDate);
+                pushDate(entry?.date);
+                pushDate(entry?.published_at);
+                pushMs(parseDateFromVersionTag(entry?.version || entry?.tag || ''));
+            });
+
+            const news = Array.isArray(owsNewsUpdatesCache) ? owsNewsUpdatesCache : [];
+            news.forEach((entry) => {
+                if (!doesNewsEntryMatchProject(entry, project)) return;
+                if (entry?.isEvent) return;
+                pushDate(entry?.updateDate);
+                pushDate(entry?.date);
+            });
+
+            return out.sort((a, b) => b - a);
+        }
+
+        function getExploreUpdateFrequency(project) {
+            const timeline = collectProjectUpdateTimelineMs(project);
+            const updates = timeline.length;
+            const newest = timeline[0] || 0;
+            const newestDays = newest > 0 ? Math.max(0, (Date.now() - newest) / 86400000) : Infinity;
+
+            // New launches with low history default to Medium to avoid false "High".
+            if (updates > 0 && updates < 3 && newestDays <= 28) {
+                return { label: 'Medium', score: 3, note: 'Reciente (historial corto)', updates };
+            }
+
+            if (updates < 2) {
+                if (!newest) return { label: 'No data', score: 0, note: 'Sin historial suficiente', updates: 0 };
+                return { label: 'Low', score: 2, note: '1 update registrado', updates };
+            }
+
+            const sample = timeline.slice(0, Math.min(6, timeline.length));
+            const gaps = [];
+            for (let i = 0; i < sample.length - 1; i += 1) {
+                const days = Math.max(0, (sample[i] - sample[i + 1]) / 86400000);
+                if (Number.isFinite(days) && days >= 0) gaps.push(days);
+            }
+            const avgGap = gaps.length
+                ? gaps.reduce((acc, val) => acc + val, 0) / gaps.length
+                : newestDays;
+
+            if (avgGap <= 14) return { label: 'High', score: 4, note: `Promedio ${avgGap.toFixed(1)}d`, updates };
+            if (avgGap <= 30) return { label: 'Medium', score: 3, note: `Promedio ${avgGap.toFixed(1)}d`, updates };
+            if (avgGap <= 60) return { label: 'Low', score: 2, note: `Promedio ${avgGap.toFixed(1)}d`, updates };
+            return { label: 'Rare', score: 1, note: `Promedio ${avgGap.toFixed(1)}d`, updates };
+        }
+
+        function getExploreProjectStatus(project) {
+            const raw = String(project?.status || '').toLowerCase();
+            if (raw === 'coming_soon') return { label: 'Coming Soon', klass: 'soon', rank: 2 };
+            if (raw === 'unavailable') return { label: 'Unavailable', klass: 'off', rank: 1 };
+            return { label: 'Live', klass: 'live', rank: 3 };
+        }
+
+        function setExploreVersionSort(value = 'updated') {
+            exploreVersionState.sortBy = String(value || 'updated');
+            renderExploreInsights();
+        }
+
+        function setExploreVersionOrder(value = 'desc') {
+            exploreVersionState.order = String(value || 'desc') === 'asc' ? 'asc' : 'desc';
+            renderExploreInsights();
+        }
+
+        function setExploreCompareA(value = '') {
+            exploreVersionState.compareA = String(value || '');
+            renderExploreInsights();
+        }
+
+        function setExploreCompareB(value = '') {
+            exploreVersionState.compareB = String(value || '');
+            renderExploreInsights();
+        }
+
         function renderExploreInsights() {
             const totalEl = document.getElementById('explore-metric-total');
             const installedEl = document.getElementById('explore-metric-installed');
             const updatesEl = document.getElementById('explore-metric-updates');
-            const releaseFeed = document.getElementById('explore-release-feed');
-            const downloadPreview = document.getElementById('explore-download-preview');
+            const latestEl = document.getElementById('explore-latest-release');
+            const upcomingEl = document.getElementById('explore-upcoming-list');
+            const sortEl = document.getElementById('explore-version-sort');
+            const orderEl = document.getElementById('explore-version-order');
+            const compareAEl = document.getElementById('explore-compare-a');
+            const compareBEl = document.getElementById('explore-compare-b');
+            const compareOut = document.getElementById('explore-version-compare');
+            const guideEl = document.getElementById('explore-frequency-guide');
+            const listEl = document.getElementById('explore-version-list');
 
             if (totalEl) totalEl.textContent = String(allProjects.length || 0);
             if (installedEl) {
@@ -5509,37 +5873,120 @@
             }
             if (updatesEl) updatesEl.textContent = String(getPendingProjectUpdates().length);
 
-            if (releaseFeed) {
-                const top = [...allProjects]
-                    .sort((a, b) => {
-                        const ad = Date.parse(a?.last_update_at || '') || 0;
-                        const bd = Date.parse(b?.last_update_at || '') || 0;
-                        return bd - ad;
-                    })
-                    .slice(0, 4);
-                if (!top.length) {
-                    releaseFeed.innerHTML = `<div class="spotlight-list-item"><span>Sin datos de releases</span><span>--</span></div>`;
+            const latestProject = [...allProjects].sort((a, b) => getProjectLastUpdateMs(b) - getProjectLastUpdateMs(a))[0];
+            if (latestEl) {
+                latestEl.textContent = latestProject
+                    ? `${latestProject.name} · v${getProjectDisplayVersion(latestProject) || '1.0.0'} · ${getProjectLastUpdateLabel(latestProject)}`
+                    : 'Sin datos';
+            }
+
+            if (upcomingEl) {
+                const upcoming = allProjects.filter((p) => String(p?.status || '').toLowerCase() === 'coming_soon');
+                upcomingEl.innerHTML = upcoming.length
+                    ? upcoming.map((p) => `<span class="version-center-upcoming-pill">${p.name}</span>`).join('')
+                    : '<span style="color:var(--ink-2);font-size:0.72rem;">No hay proyectos proximos cargados.</span>';
+            }
+
+            if (sortEl && sortEl.value !== exploreVersionState.sortBy) sortEl.value = exploreVersionState.sortBy;
+            if (orderEl && orderEl.value !== exploreVersionState.order) orderEl.value = exploreVersionState.order;
+
+            const optionsHtml = ['<option value="">- Seleccionar -</option>'].concat(
+                allProjects.map((p) => `<option value="${p.slug}">${p.name}</option>`)
+            ).join('');
+            if (compareAEl) {
+                compareAEl.innerHTML = optionsHtml;
+                compareAEl.value = allProjects.some((p) => p.slug === exploreVersionState.compareA) ? exploreVersionState.compareA : '';
+            }
+            if (compareBEl) {
+                compareBEl.innerHTML = optionsHtml;
+                compareBEl.value = allProjects.some((p) => p.slug === exploreVersionState.compareB) ? exploreVersionState.compareB : '';
+            }
+
+            if (compareOut) {
+                const a = allProjects.find((p) => p.slug === exploreVersionState.compareA);
+                const b = allProjects.find((p) => p.slug === exploreVersionState.compareB);
+                if (!a || !b || a.slug === b.slug) {
+                    compareOut.textContent = 'Selecciona dos proyectos para comparar versiones y ritmo de actualizacion.';
                 } else {
-                    releaseFeed.innerHTML = top.map((p) => `
-                        <div class="spotlight-list-item">
-                            <span>${p.name}</span>
-                            <span>v${p.version || '1.0.0'}</span>
-                        </div>`).join('');
+                    const aTs = getProjectLastUpdateMs(a);
+                    const bTs = getProjectLastUpdateMs(b);
+                    const aFreq = getExploreUpdateFrequency(a);
+                    const bFreq = getExploreUpdateFrequency(b);
+                    const diffDays = Math.abs(aTs - bTs) / 86400000;
+                    const newer = aTs >= bTs ? a.name : b.name;
+                    compareOut.textContent = `${a.name} (${aFreq.label}) vs ${b.name} (${bFreq.label}) · Mas reciente: ${newer} · Diferencia de update: ${diffDays.toFixed(1)} dias.`;
                 }
             }
 
-            if (downloadPreview) {
-                const active = getActiveDownloadSessions().slice(0, 3);
-                if (!active.length) {
-                    downloadPreview.innerHTML = `<div class="spotlight-list-item"><span>Sin descargas activas</span><span>Idle</span></div>`;
-                } else {
-                    downloadPreview.innerHTML = active.map((d) => `
-                        <div class="spotlight-list-item">
-                            <span>${d.name}</span>
-                            <span>${Math.round(d.percent || 0)}%</span>
-                        </div>`).join('');
-                }
+            if (guideEl) {
+                guideEl.innerHTML = `
+                    <div class="version-center-guide-item">
+                        <div class="version-center-guide-k">High</div>
+                        <div class="version-center-guide-v">Promedio de updates <= 14 dias (requiere historial de 3+ updates).</div>
+                    </div>
+                    <div class="version-center-guide-item">
+                        <div class="version-center-guide-k">Medium</div>
+                        <div class="version-center-guide-v">Promedio de 15 a 30 dias, o proyecto recien lanzado con historial corto.</div>
+                    </div>
+                    <div class="version-center-guide-item">
+                        <div class="version-center-guide-k">Low</div>
+                        <div class="version-center-guide-v">Promedio de 31 a 60 dias, o solo 1 update registrado.</div>
+                    </div>
+                    <div class="version-center-guide-item">
+                        <div class="version-center-guide-k">Rare / No data</div>
+                        <div class="version-center-guide-v">Mas de 60 dias de promedio, o historial insuficiente para clasificar.</div>
+                    </div>
+                `;
             }
+
+            if (!listEl) return;
+            const list = [...allProjects];
+            list.sort((a, b) => {
+                const fA = getExploreUpdateFrequency(a);
+                const fB = getExploreUpdateFrequency(b);
+                const sA = getExploreProjectStatus(a);
+                const sB = getExploreProjectStatus(b);
+                const aTs = getProjectLastUpdateMs(a);
+                const bTs = getProjectLastUpdateMs(b);
+                const sortBy = String(exploreVersionState.sortBy || 'updated');
+                let cmp = 0;
+                if (sortBy === 'name') cmp = String(a?.name || '').localeCompare(String(b?.name || ''));
+                else if (sortBy === 'version') cmp = compareVersionLike(getProjectDisplayVersion(a) || '0.0.0', getProjectDisplayVersion(b) || '0.0.0');
+                else if (sortBy === 'frequency') cmp = fA.score - fB.score;
+                else if (sortBy === 'status') cmp = sA.rank - sB.rank;
+                else cmp = aTs - bTs;
+                return exploreVersionState.order === 'asc' ? cmp : -cmp;
+            });
+
+            const rows = list.map((p) => {
+                const freq = getExploreUpdateFrequency(p);
+                const status = getExploreProjectStatus(p);
+                const v = getProjectDisplayVersion(p) || p.version || '1.0.0';
+                const last = getProjectLastUpdateLabel(p);
+                const platform = getProjectPlatformLabel(p);
+                return `
+                    <div class="version-center-row">
+                        <div class="name">${p.name}</div>
+                        <div>v${v}</div>
+                        <div>
+                            <span class="version-center-freq">${freq.label}</span>
+                            ${freq.note ? `<span class="version-center-freq-note">${freq.note}</span>` : ''}
+                        </div>
+                        <div class="hide-sm">${last}</div>
+                        <div><span class="status ${status.klass}">${status.label}</span> · <span class="hide-sm">${platform}</span></div>
+                    </div>`;
+            }).join('');
+
+            listEl.innerHTML = `
+                <div class="version-center-row head">
+                    <div>Proyecto</div>
+                    <div>Version</div>
+                    <div>Frecuencia</div>
+                    <div class="hide-sm">Ultima actualizacion</div>
+                    <div>Estado / Plataforma</div>
+                </div>
+                ${rows}
+            `;
         }
 
         function renderDownloadSurfaces() {
@@ -7779,7 +8226,8 @@
                 || isAWQGProject(project)
                 || isWildDestinyProject(project)
                 || isVelocitySurgeProject(project)
-                || isWildWaveProject(project);
+                || isWildWaveProject(project)
+                || isDinoBoxProject(project);
         }
 
         function canonicalProjectSlug(valueOrProject) {
@@ -8446,7 +8894,7 @@
                     !detail.available ? 'is-unavailable' : '',
                 ].filter(Boolean).join(' ');
 
-                let statusText = 'Sin release publicada';
+                let statusText = 'Sin instalador publicado';
                 if (detail.available) {
                     if (detail.installedOnThisDevice) {
                         if (detail.platform === 'android' && detail.installedVersionCode > 0 && detail.latestVersionCode > 0) {
@@ -8460,7 +8908,7 @@
                                 && compareVersionLike(detail.installedVersion, detail.latestVersion) === 0;
                             statusText = detail.needsUpdate
                                 ? (releaseRefreshOnly
-                                    ? `v${detail.latestVersion || '-'} (release renovada)`
+                                    ? `v${detail.latestVersion || '-'} (metadata renovada)`
                                     : `v${detail.installedVersion || '-'} -> v${detail.latestVersion || '-'}`)
                                 : `v${detail.latestVersion || '-'} (al dia)`;
                         }
@@ -9501,6 +9949,60 @@
                 checkedAt: now,
             };
             wildWaveReleaseCache = payload;
+            return payload;
+        }
+
+        async function fetchLatestDinoBoxRelease() {
+            const now = Date.now();
+            if (dinoBoxReleaseCache && (now - dinoBoxReleaseCache.checkedAt) < 120000) {
+                return dinoBoxReleaseCache;
+            }
+
+            const res = await fetch(`${DINOBOX_RELEASES_API_URL}?nocache=${Date.now()}`, {
+                cache: 'no-store',
+                headers: { 'Accept': 'application/vnd.github+json' }
+            });
+            if (!res.ok) throw new Error(`GitHub API ${res.status}`);
+            const data = await res.json();
+            const assets = Array.isArray(data.assets) ? data.assets : [];
+            const versionFromTag = normalizeReleaseVersion(data.tag_name || '');
+            const exeCandidates = assets.filter(a => typeof a?.name === 'string' && /\.exe$/i.test(a.name));
+            const scoredCandidates = exeCandidates.map((a) => ({
+                asset: a,
+                version: extractVersionFromText(a.name),
+                updatedAtMs: Date.parse(a.updated_at || '') || 0,
+                hasDinoName: /dinobox|dino-box|dino/i.test(String(a.name || '')),
+            }));
+
+            scoredCandidates.sort((x, y) => {
+                if (x.hasDinoName !== y.hasDinoName) return x.hasDinoName ? -1 : 1;
+                const cmp = compareVersionLike(y.version, x.version);
+                if (cmp !== 0) return cmp;
+                return y.updatedAtMs - x.updatedAtMs;
+            });
+
+            let selected = scoredCandidates[0] || null;
+            if (versionFromTag) {
+                const tagMatch = scoredCandidates.find(c => c.version && compareVersionLike(c.version, versionFromTag) === 0);
+                if (tagMatch) selected = tagMatch;
+            }
+
+            const exeAsset = selected?.asset || null;
+            const versionFromAsset = selected?.version || '';
+            const payload = {
+                version: versionFromTag || versionFromAsset || null,
+                tagVersion: versionFromTag || null,
+                assetVersion: versionFromAsset || null,
+                installerUrl: exeAsset?.browser_download_url || '',
+                installerSize: Number(exeAsset?.size || 0),
+                installerAvailable: Boolean(exeAsset?.browser_download_url),
+                windowsReleaseNotes: String(data.body || '').trim(),
+                releaseUrl: data.html_url || DINOBOX_RELEASES_URL,
+                publishedAt: data.published_at || data.created_at || null,
+                warning: '',
+                checkedAt: now,
+            };
+            dinoBoxReleaseCache = payload;
             return payload;
         }
 
@@ -10562,6 +11064,54 @@
             return d.toLocaleString();
         }
 
+        function getProjectLastUpdateAt(project) {
+            if (!project) return '';
+            return project.windows_last_update_at
+                || project.android_last_update_at
+                || project.last_update_at
+                || '';
+        }
+
+        function parseDateFromVersionTag(versionLike = '') {
+            const raw = String(versionLike || '').trim().toLowerCase();
+            if (!raw) return 0;
+            const match = raw.match(/(\d{4})\.(\d{1,2})\.(\d{1,2})(?:-t(\d{2})(\d{2})(\d{2})?)?/);
+            if (!match) return 0;
+            const year = Number(match[1]);
+            const month = Number(match[2]) - 1;
+            const day = Number(match[3]);
+            const hour = Number(match[4] || 0);
+            const minute = Number(match[5] || 0);
+            const second = Number(match[6] || 0);
+            const ms = Date.UTC(year, month, day, hour, minute, second);
+            return Number.isFinite(ms) ? ms : 0;
+        }
+
+        function getProjectLastUpdateMs(project) {
+            const directMs = Date.parse(getProjectLastUpdateAt(project) || '') || 0;
+            if (directMs > 0) return directMs;
+            const candidates = [
+                getProjectDisplayVersion(project),
+                project?.windows_version,
+                project?.android_version,
+                project?.version
+            ];
+            for (const candidate of candidates) {
+                const parsed = parseDateFromVersionTag(candidate);
+                if (parsed > 0) return parsed;
+            }
+            return 0;
+        }
+
+        function getProjectLastUpdateLabel(project) {
+            const direct = getProjectLastUpdateAt(project);
+            const directMs = Date.parse(direct || '') || 0;
+            if (directMs > 0) return formatDateTime(direct);
+            const inferredMs = getProjectLastUpdateMs(project);
+            if (inferredMs > 0) return formatDateTime(new Date(inferredMs).toISOString());
+            return 'Sin datos';
+        }
+
         function getEcoxionIconSource(project, size = 64) {
             const fallback = `https://placehold.co/${size}/07121f/26e0ff?text=ECX`;
             // Use .ico directly â€” PNG was horizontal and looked unprofessional
@@ -10725,7 +11275,7 @@
             const hasWin = targets.some((t) => t.kind === 'windows');
             const hasAndroid = targets.some((t) => t.kind === 'android');
             const anyAvailable = targets.some((t) => t.available);
-            if (!anyAvailable && (project.pending_release || project.installer_available === false)) return 'PENDING RELEASE';
+            if (!anyAvailable && (project.pending_release || project.installer_available === false)) return 'NO DISPONIBLE';
             if (hasWin && hasAndroid) return 'WIN + ANDROID';
             if (hasAndroid) return 'ANDROID';
             if (hasWin) return 'WINDOWS';
@@ -10743,6 +11293,7 @@
             const wildDestiny = projects.find(p => isWildDestinyProject(p));
             const velocitySurge = projects.find(p => isVelocitySurgeProject(p));
             const wildWave = projects.find(p => isWildWaveProject(p));
+            const dinoBox = projects.find(p => isDinoBoxProject(p));
 
             if (wildWeapon) {
                 wildWeapon.platform = 'windows';
@@ -11131,6 +11682,45 @@
                 }
             }
 
+            if (dinoBox) {
+                dinoBox.platform = 'windows';
+                dinoBox.install_type = 'external';
+                if (!dinoBox.installer_url) dinoBox.installer_url = DINOBOX_RELEASES_URL;
+                dinoBox.icon_url = dinoBox.icon_url || DINOBOX_LOCAL_ICON;
+                dinoBox.installer_available = false;
+                dinoBox.last_update_at = null;
+                dinoBox.windows_last_update_at = null;
+                dinoBox.android_last_update_at = null;
+                dinoBox.pending_release = false;
+                dinoBox.short = dinoBox.short || 'DNB';
+                if (!dinoBox.windows_version) dinoBox.windows_version = dinoBox.version || '';
+                dinoBox.installer_size = Number(dinoBox.installer_size || 0);
+                if (!dinoBox.windows_release_notes) dinoBox.windows_release_notes = '';
+
+                try {
+                    const latest = await fetchLatestDinoBoxRelease();
+                    if (latest?.version) dinoBox.version = latest.version;
+                    dinoBox.windows_version = latest?.version || dinoBox.windows_version || dinoBox.version || '';
+                    if (latest?.installerUrl) dinoBox.installer_url = latest.installerUrl;
+                    dinoBox.installer_size = Number(latest?.installerSize || 0);
+                    dinoBox.installer_available = Boolean(latest?.installerAvailable);
+                    dinoBox.windows_release_notes = latest?.windowsReleaseNotes || dinoBox.windows_release_notes || '';
+                    dinoBox.last_update_at = latest?.publishedAt || null;
+                    dinoBox.windows_last_update_at = latest?.publishedAt || null;
+                    dinoBox.pending_release = !dinoBox.installer_available;
+                    if (latest?.warning) {
+                        dinoBox.pending_release = true;
+                        dinoBox.release_warning = latest.warning;
+                    } else {
+                        dinoBox.release_warning = '';
+                    }
+                } catch (err) {
+                    console.log('No se pudo resolver la ultima release de DinoBox:', err?.message || err);
+                    dinoBox.pending_release = true;
+                    dinoBox.release_warning = 'No se pudo validar el instalador de la ultima version.';
+                }
+            }
+
             // Ecoxion - fetch real desde GitHub
             const ecoxion = projects.find(p => isEcoxionProject(p));
             if (ecoxion) {
@@ -11191,6 +11781,7 @@
             if (isEcoxionProject(project)) return ECOXION_RELEASES_URL;
             if (isVelocitySurgeProject(project)) return VELOCITY_SURGE_RELEASES_URL;
             if (isWildWaveProject(project)) return WILDWAVE_RELEASES_URL;
+            if (isDinoBoxProject(project)) return DINOBOX_RELEASES_URL;
             return '';
         }
 
@@ -11983,8 +12574,9 @@
                 const updateInfo = getProjectUpdateInfo(p);
                 const devicePendingUpdate = hasDevicePendingUpdate(updateInfo);
                 const displayVersion = getProjectDisplayVersion(p);
+                const projectLastUpdate = getProjectLastUpdateAt(p);
                 const updateHint = isReleaseTrackedProject(p)
-                    ? (p.last_update_at ? `Ultima actualizacion: ${formatDateTime(p.last_update_at)}` : 'Ultima actualizacion: pendiente')
+                    ? ((projectLastUpdate || getProjectLastUpdateMs(p)) ? `Ultima actualizacion: ${getProjectLastUpdateLabel(p)}` : 'Ultima actualizacion: pendiente')
                     : (p.description || 'Proyecto oficial del ecosistema Ocean and Wild Studios.');
                 const updateInfoHtml = isReleaseTrackedProject(p)
                     ? `<div class="ecosystem-submeta">${updateHint}</div>`
@@ -11995,7 +12587,7 @@
                     : '';
                 const quickTags = [];
                 quickTags.push(`<span class="ecosystem-tag ${isComingSoon ? 'soon' : 'live'}">${isComingSoon ? 'Proximamente' : 'Activo'}</span>`);
-                if (isReleaseTrackedProject(p)) quickTags.push(`<span class="ecosystem-tag">Release</span>`);
+                if (isReleaseTrackedProject(p)) quickTags.push(`<span class="ecosystem-tag">Sincronizado</span>`);
                 if (devicePendingUpdate) quickTags.push(`<span class="ecosystem-tag update">Update ${getPrimaryUpdatePlatformLabel(updateInfo)}</span>`);
                 const tagsHtml = `<div class="ecosystem-tags">${quickTags.join('')}</div>`;
                 const installingHtml = `
@@ -12005,7 +12597,7 @@
                 `;
                 const countdownHtml = (isComingSoon && p.release_date)
                     ? `<span class="countdown" data-date="${p.release_date}">Cargando...</span>`
-                    : `<span>${p.pending_release ? 'Esperando release' : 'Disponible'}</span>`;
+                    : `<span>${p.pending_release ? 'No disponible' : 'Disponible'}</span>`;
                 card.innerHTML = `
                     <div class="progress-overlay" id="loader-${p.slug}">
                         <div style="font-weight: 800; font-size: 0.8rem;">INSTALANDO...</div>
@@ -12041,6 +12633,19 @@
                 const runtime = getRuntimeState(p.slug);
                 const inRuntime = isInstallingPhase(runtime.phase) || runtime.phase === 'queued' || runtime.phase === 'preparing';
                 return Boolean(state.installed) || isProjectInLibrary(p.slug) || inRuntime;
+            }).sort((a, b) => {
+                const aState = installStateBySlug[a.slug] || {};
+                const bState = installStateBySlug[b.slug] || {};
+                const aRuntime = getRuntimeState(a.slug);
+                const bRuntime = getRuntimeState(b.slug);
+                const aBusy = isInstallingPhase(aRuntime.phase) || aRuntime.phase === 'queued' || aRuntime.phase === 'preparing';
+                const bBusy = isInstallingPhase(bRuntime.phase) || bRuntime.phase === 'queued' || bRuntime.phase === 'preparing';
+                if (aBusy !== bBusy) return aBusy ? -1 : 1;
+                if (Boolean(aState.installed) !== Boolean(bState.installed)) return aState.installed ? -1 : 1;
+                const aUpdate = hasDevicePendingUpdate(getProjectUpdateInfo(a));
+                const bUpdate = hasDevicePendingUpdate(getProjectUpdateInfo(b));
+                if (aUpdate !== bUpdate) return aUpdate ? -1 : 1;
+                return String(a?.name || '').localeCompare(String(b?.name || ''));
             });
             const metricTotal = document.getElementById('library-metric-total');
             const metricInstalled = document.getElementById('library-metric-installed');
@@ -12105,10 +12710,15 @@
                 const metaVersion = isInstalled
                     ? (state.version || getInstalledVersion(p.slug) || p.version || '1.0.0')
                     : (getProjectDisplayVersion(p) || p.version || '1.0.0');
-                const installDate = isReleaseTrackedProject(p) && p.last_update_at
-                    ? formatDateTime(p.last_update_at)
+                const installDate = isReleaseTrackedProject(p) && getProjectLastUpdateAt(p)
+                    ? formatDateTime(getProjectLastUpdateAt(p))
                     : 'Sin datos';
                 const installedPlatform = getInstalledPlatform(p.slug);
+                const platformLabel = installedPlatform === 'android'
+                    ? 'Android'
+                    : (supportsAndroidDownloads(p)
+                        ? (supportsWindowsInstaller(p) ? 'Windows + Android' : 'Android')
+                        : 'Windows');
                 const openLabel = installedPlatform === 'android' ? 'Abrir APK' : 'Abrir';
                 const statusLabel = isQueued
                     ? 'EN COLA'
@@ -12153,14 +12763,20 @@
                     ? (isDownloading || isQueued || isPreparing ? statusLabel : 'INSTALADO')
                     : ((isDownloading || isQueued || isPreparing) ? statusLabel : 'GUARDADO');
                 card.innerHTML = `
-                    <div class="library-card-head">
-                        <div class="icon-bg library-card-icon" style="background-image:url('${getProjectIcon(p, 64).replace(/'/g, '%27')}')" role="img" aria-label="${p.name || 'Icon'}"></div>
-                        <div>
-                            <div class="library-card-title">${p.name}</div>
-                            <div class="library-card-sub">${p.description || 'Proyecto disponible en OWS Store.'}</div>
+                    <div class="library-primary">
+                        <div class="library-card-head">
+                            <div class="icon-bg icon-bg--contain library-card-icon" style="background-image:url('${getProjectIcon(p, 64).replace(/'/g, '%27')}')" role="img" aria-label="${p.name || 'Icon'}"></div>
+                            <div style="min-width:0;">
+                                <div class="library-card-title">${p.name}</div>
+                                <div class="library-card-sub">${p.description || 'Proyecto disponible en OWS Store.'}</div>
+                            </div>
                         </div>
+                        <div class="library-inline">
+                            <span class="library-status-chip ${statusClass}" id="lib-status-${p.slug}"><i class="fas ${statusClass === 'installed' ? 'fa-check-circle' : (statusClass === 'pending' ? 'fa-clock' : 'fa-bookmark')}"></i> ${statusText}</span>
+                            ${updateBadgeHtml}
+                        </div>
+                        ${progressHtml}
                     </div>
-                    <span class="library-status-chip ${statusClass}" id="lib-status-${p.slug}"><i class="fas ${statusClass === 'installed' ? 'fa-check-circle' : (statusClass === 'pending' ? 'fa-clock' : 'fa-bookmark')}"></i> ${statusText}</span>
                     <div class="library-meta-grid">
                         <div class="library-meta">
                             <div class="library-meta-k">Version</div>
@@ -12168,15 +12784,13 @@
                         </div>
                         <div class="library-meta">
                             <div class="library-meta-k">Plataforma</div>
-                            <div class="library-meta-v">${installedPlatform === 'android' ? 'Android' : 'Windows'}</div>
+                            <div class="library-meta-v">${platformLabel}</div>
                         </div>
                         <div class="library-meta" style="grid-column:1 / -1;">
-                            <div class="library-meta-k">Ultima release</div>
+                            <div class="library-meta-k">Ultima actualizacion</div>
                             <div class="library-meta-v">${installDate}</div>
                         </div>
                     </div>
-                    ${updateBadgeHtml}
-                    ${progressHtml}
                     ${actionsHtml}
                 `;
                 container.appendChild(card);
@@ -12207,8 +12821,8 @@
             }
             if (isReleaseTrackedProject(p)) {
                 const statusText = p.pending_release
-                    ? (p.release_warning || 'Pendiente de publicacion en Releases')
-                    : `Ultima actualizacion: ${formatDateTime(p.last_update_at)}`;
+                    ? (p.release_warning || 'Instalador aun no disponible')
+                    : `Ultima actualizacion: ${formatDateTime(getProjectLastUpdateAt(p))}`;
                 document.getElementById('m-desc').innerText += `\n\n${statusText}.`;
             }
             const phaseEl = document.getElementById('m-phase-state');
@@ -12240,7 +12854,7 @@
             const selectedTarget = getSelectedInstallTarget(p);
             if (selectedTarget) selectedInstallTargetBySlug[p.slug] = selectedTarget.id;
             const modalVersion = selectedTarget?.version || getProjectDisplayVersion(p) || p.version || '1.0.0';
-            const releaseDate = selectedTarget?.publishedAt || p.last_update_at || p.windows_last_update_at || p.android_last_update_at || '';
+            const releaseDate = selectedTarget?.publishedAt || getProjectLastUpdateAt(p) || '';
             const lastUpdateEl = document.getElementById('m-last-update');
             if (lastUpdateEl) {
                 lastUpdateEl.innerText = `v${modalVersion} Â· ${releaseDate ? formatDateTime(releaseDate) : 'Sin datos'}`;
@@ -12325,7 +12939,7 @@
                     }
                 } else if (selectedIsWindows) {
                     if (p.pending_release || p.installer_available === false) {
-                        btnText = '<i class="fas fa-clock"></i> PENDIENTE DE RELEASE';
+                        btnText = '<i class="fas fa-clock"></i> NO DISPONIBLE';
                         btnClass += ' unavailable';
                     } else if (devicePendingUpdate) btnText = '<i class="fas fa-arrow-up"></i> ACTUALIZAR A v' + (p.version || 'latest');
                     else if (state.installed || installedV) btnText = '<i class="fas fa-rotate"></i> VER ULTIMA VERSION';
@@ -12383,6 +12997,7 @@
                 if (isWildDestinyProject(project)) wildDestinyReleaseCache = null;
                 if (isVelocitySurgeProject(project)) velocitySurgeReleaseCache = null;
                 if (isWildWaveProject(project)) wildWaveReleaseCache = null;
+                if (isDinoBoxProject(project)) dinoBoxReleaseCache = null;
             }
             const latest = isWildWeaponProject(project)
                 ? await fetchLatestWildWeaponRelease()
@@ -12402,7 +13017,9 @@
                                     ? await fetchLatestVelocitySurgeRelease()
                                     : (isWildWaveProject(project)
                                         ? await fetchLatestWildWaveRelease()
-                                        : await fetchLatestOWSNewsRelease()))))))));
+                                        : (isDinoBoxProject(project)
+                                            ? await fetchLatestDinoBoxRelease()
+                                            : await fetchLatestOWSNewsRelease())))))))));
 
             if (isFloretProject(project) || isWildTransferProject(project) || isAWQGProject(project)) {
                 const preferred = isNativeAndroidRuntime()
@@ -12596,7 +13213,7 @@
                 if (!installerUrl) {
                     const updatesStatus = document.getElementById('updates-project-status');
                     if (updatesStatus) updatesStatus.textContent = 'Pendiente: instalador no publicado';
-                    const warningText = project.release_warning || `${project.name} todavia no tiene instalador publicado en Releases.`;
+                    const warningText = project.release_warning || `${project.name} todavia no tiene instalador disponible.`;
                     addNotification(warningText, 'warning');
                     showActionMessage(warningText);
                     return alert(warningText);
@@ -14196,7 +14813,7 @@
                 'wildwave':             `${GITHUB_RELEASES_PROXY_BASE}/wildwave/releases/latest`,
                 'ecoxion':              `${GITHUB_RELEASES_PROXY_BASE}/ecoxion/releases/latest`,
                 'wilddestiny':          `${GITHUB_RELEASES_PROXY_BASE}/wilddestiny/releases/latest`,
-                'dinobox':              `${GITHUB_RELEASES_PROXY_BASE}/owsdatabase/releases/latest`,
+                'dinobox':              `${GITHUB_RELEASES_PROXY_BASE}/dinobox/releases/latest`,
                 'ows-store':            `${GITHUB_RELEASES_PROXY_BASE}/owsdatabase/releases/latest`,
             };
 

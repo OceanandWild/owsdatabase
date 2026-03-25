@@ -7864,38 +7864,19 @@ app.post('/ocean-ai/subscriptions/subscribe', async (req, res) => {
       return res.status(404).json({ error: 'Usuario sin tarjeta principal en Ocean Pay' });
     }
 
-    const { rows: balRows } = await client.query(
-      `SELECT amount
-         FROM ocean_pay_card_balances
-        WHERE card_id = $1 AND currency_type = $2
-        FOR UPDATE`,
-      [card.id, OCEAN_AI_CURRENCY]
-    );
-    const currentBal = toFiniteNumber(balRows[0]?.amount, toFiniteNumber(card.balances?.[OCEAN_AI_CURRENCY], 0));
+    const currentBal = await getUnifiedCardCurrencyBalance(client, Number(card.id), OCEAN_AI_CURRENCY, true);
     if (currentBal < plan.weeklyCost) {
       await client.query('ROLLBACK');
       return res.status(400).json({ error: `Saldo insuficiente de ${OCEAN_AI_CURRENCY.toUpperCase()}` });
     }
 
     const nextBalance = currentBal - plan.weeklyCost;
-    await client.query(
-      `INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
-       VALUES ($1, $2, $3)
-       ON CONFLICT (card_id, currency_type)
-       DO UPDATE SET amount = EXCLUDED.amount`,
-      [card.id, OCEAN_AI_CURRENCY, nextBalance]
-    );
-    await client.query(
-      `UPDATE ocean_pay_cards
-          SET balances = jsonb_set(
-            COALESCE(balances, '{}'::jsonb),
-            $2::text[],
-            to_jsonb($3::numeric),
-            true
-          )
-        WHERE id = $1`,
-      [card.id, [OCEAN_AI_CURRENCY], nextBalance]
-    );
+    await setUnifiedCardCurrencyBalance(client, {
+      userId: Number(user.id),
+      cardId: Number(card.id),
+      currency: OCEAN_AI_CURRENCY,
+      newBalance: nextBalance
+    });
 
     const activeSub = await getOceanAiActiveSubscription(client, user.id);
     const baseDate = activeSub?.isActive && activeSub.expiresAt ? new Date(activeSub.expiresAt) : new Date();
@@ -19921,8 +19902,11 @@ app.post('/ocean-pay/subscriptions/purchase', async (req, res) => {
     const userId = (decoded.id || decoded.uid) || decoded.id;
 
     const { projectId, subName, price, currency, intervalDays, cardId } = req.body;
+    const normalizedCurrency = String(currency || '').toLowerCase();
+    const safePrice = Math.max(0, Number(price || 0));
+    const safeCardId = Number(cardId);
 
-    if (!projectId || !subName || !price || !currency || !cardId) {
+    if (!projectId || !subName || !safePrice || !normalizedCurrency || !safeCardId) {
       return res.status(400).json({ error: 'Datos incompletos' });
     }
 
@@ -19931,43 +19915,49 @@ app.post('/ocean-pay/subscriptions/purchase', async (req, res) => {
       await client.query('BEGIN');
 
       // Check balance and deduct
-      const isMetadataCurrency = ['amber', 'ecotokens'].includes(currency.toLowerCase());
+      const isMetadataCurrency = ['amber', 'ecotokens'].includes(normalizedCurrency);
       let current = 0;
 
       if (isMetadataCurrency) {
         const { rows: metaRows } = await client.query(
           "SELECT value FROM ocean_pay_metadata WHERE user_id = $1 AND key = $2 FOR UPDATE",
-          [userId, currency.toLowerCase()]
+          [userId, normalizedCurrency]
         );
         current = parseInt(metaRows[0]?.value || '0');
-        if (current < price) {
+        if (current < safePrice) {
           await client.query('ROLLBACK');
-          return res.status(400).json({ error: `Saldo insuficiente de ${currency.toUpperCase()}` });
+          return res.status(400).json({ error: `Saldo insuficiente de ${normalizedCurrency.toUpperCase()}` });
         }
         await client.query(
           "UPDATE ocean_pay_metadata SET value = $1 WHERE user_id = $2 AND key = $3",
-          [(current - price).toString(), userId, currency.toLowerCase()]
+          [(current - safePrice).toString(), userId, normalizedCurrency]
         );
       } else {
-        const { rows: balRows } = await client.query(
-          "SELECT amount FROM ocean_pay_card_balances WHERE card_id = $1 AND currency_type = $2 FOR UPDATE",
-          [cardId, currency.toLowerCase()]
+        const { rows: cardRows } = await client.query(
+          'SELECT id FROM ocean_pay_cards WHERE id = $1 AND user_id = $2 LIMIT 1',
+          [safeCardId, userId]
         );
-        current = parseFloat(balRows[0]?.amount || '0');
-        if (current < price) {
+        if (!cardRows.length) {
+          await client.query('ROLLBACK');
+          return res.status(403).json({ error: 'Tarjeta no valida' });
+        }
+        current = await getUnifiedCardCurrencyBalance(client, safeCardId, normalizedCurrency, true);
+        if (current < safePrice) {
           await client.query('ROLLBACK');
           return res.status(400).json({ error: 'Saldo insuficiente en la tarjeta' });
         }
-        await client.query(
-          "UPDATE ocean_pay_card_balances SET amount = amount - $1 WHERE card_id = $2 AND currency_type = $3",
-          [price, cardId, currency.toLowerCase()]
-        );
+        await setUnifiedCardCurrencyBalance(client, {
+          userId: Number(userId),
+          cardId: safeCardId,
+          currency: normalizedCurrency,
+          newBalance: current - safePrice
+        });
       }
 
       // Log TX
       await client.query(
         "INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)",
-        [userId, `SuscripciÃƒÂ³n: ${subName}`, -price, projectId, currency]
+        [userId, `SuscripciÃƒÂ³n: ${subName}`, -safePrice, projectId, normalizedCurrency]
       );
 
       // Save Sub
@@ -19978,7 +19968,7 @@ app.post('/ocean-pay/subscriptions/purchase', async (req, res) => {
         INSERT INTO ocean_pay_subscriptions (user_id, card_id, project_id, sub_name, plan_name, price, currency, interval_days, next_payment)
         VALUES ($1, $2, $3, $4, $4, $5, $6, $7, $8)
         RETURNING *
-      `, [userId, cardId, projectId, subName, price, currency, intervalDays || 7, nextPayment]);
+      `, [userId, safeCardId, projectId, subName, safePrice, normalizedCurrency, intervalDays || 7, nextPayment]);
 
       // If it's nature_pass or dinopass, update metadata for faster access
       if (subName === 'Nature-Pass') {
@@ -20543,6 +20533,8 @@ app.post('/ocean-pay/subscriptions/subscribe', async (req, res) => {
   if (!authHeader) return res.status(401).json({ error: 'No autorizado' });
   const token = authHeader.split(' ')[1];
   const { cardId, plan = 'Premium', durationDays = 7, price = 500, projectId = 'Ocean Pay', subName } = req.body;
+  const safeCardId = Number(cardId);
+  const safePrice = Math.max(0, Number(price || 0));
 
   const client = await pool.connect();
   try {
@@ -20550,38 +20542,21 @@ app.post('/ocean-pay/subscriptions/subscribe', async (req, res) => {
     const userId = decoded.id || (decoded.id || decoded.uid);
     await client.query('BEGIN');
 
-    // 1. Verificar saldo unificado (JSONB + Tabla)
-    const { rows: cardRows } = await client.query('SELECT balances FROM ocean_pay_cards WHERE id = $1 AND user_id = $2', [cardId, userId]);
+    // 1. Verificar tarjeta y saldo unificado
+    const { rows: cardRows } = await client.query('SELECT id FROM ocean_pay_cards WHERE id = $1 AND user_id = $2', [safeCardId, userId]);
     if (cardRows.length === 0) throw new Error('Tarjeta no encontrada');
 
-    // Obtener saldos de la tabla SQL
-    const { rows: balanceRows } = await client.query(
-      'SELECT amount FROM ocean_pay_card_balances WHERE card_id = $1 AND currency_type = $2 FOR UPDATE',
-      [cardId, 'wildgems']
-    );
+    let currentWildgems = await getUnifiedCardCurrencyBalance(client, safeCardId, 'wildgems', true);
+    if (currentWildgems < safePrice) throw new Error('Saldo insuficiente de WildGems');
 
-    let balances = cardRows[0].balances || {};
-    let tableWildgems = parseFloat(balanceRows[0]?.amount || 0);
-    let jsonWildgems = parseFloat(balances.wildgems || 0);
-
-    // El saldo real es el mayor o la uniÃƒÂ³n (siguiendo lÃƒÂ³gica de /ocean-pay/me)
-    let currentWildgems = Math.max(tableWildgems, jsonWildgems);
-
-    if (currentWildgems < price) throw new Error('Saldo insuficiente de WildGems');
-
-    // 2. Descontar saldo y actualizar ambos lugares para consistencia
-    let newWildgems = currentWildgems - price;
-
-    // Actualizar JSONB
-    balances.wildgems = newWildgems;
-    await client.query('UPDATE ocean_pay_cards SET balances = $1 WHERE id = $2', [balances, cardId]);
-
-    // Actualizar Tabla SQL
-    await client.query(`
-      INSERT INTO ocean_pay_card_balances(card_id, currency_type, amount)
-      VALUES($1, 'wildgems', $2)
-      ON CONFLICT(card_id, currency_type) DO UPDATE SET amount = $2
-    `, [cardId, newWildgems]);
+    // 2. Descontar saldo unificado (con espejos de compatibilidad)
+    let newWildgems = currentWildgems - safePrice;
+    await setUnifiedCardCurrencyBalance(client, {
+      userId: Number(userId),
+      cardId: safeCardId,
+      currency: 'wildgems',
+      newBalance: newWildgems
+    });
 
     // 3. Crear suscripciÃƒÂ³n (o extender si ya existe una activa del mismo tipo)
     const endDate = new Date();
@@ -20590,7 +20565,7 @@ app.post('/ocean-pay/subscriptions/subscribe', async (req, res) => {
     const { rows: subRows } = await client.query(
       `INSERT INTO ocean_pay_subscriptions(user_id, plan_name, sub_name, project_id, price, end_date, currency, card_id) 
        VALUES($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
-      [userId, plan, subName || plan, projectId, price, endDate, 'wildgems', cardId]
+      [userId, plan, subName || plan, projectId, safePrice, endDate, 'wildgems', safeCardId]
     );
 
     // 4. Crear notificaciÃƒÂ³n de ÃƒÂ©xito
@@ -20969,3 +20944,4 @@ httpServer.listen(PORT, '0.0.0.0', () => {
     }, 5000); // Esperar 5 segundos despuÃƒÂ©s del inicio
   }
 });
+

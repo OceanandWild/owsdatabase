@@ -4464,64 +4464,176 @@
           alert('Error: ' + data.error);
         }
       } catch (e) { alert(' Error de conexiÃ³n'); }
-    } let chartIncomesInstance = null; let chartExpensesInstance = null;
-    async function loadMiscStats() {
-      try {
-        const res = await
-          fetch(`${API}/ocean-pay/api/stats/transactions`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          }); if (!res.ok) return; const data = await res.json(); updateChart('chartIncomes',
-            data.incomes, 'Ingresos Totales', 'rgba(16, 185, 129, 0.7)'); updateChart('chartExpenses',
-              data.expenses, 'Gastos Totales', 'rgba(239, 68, 68, 0.7)');
-      } catch (e) {
-        console.error('Error stats', e);
-      } if (!ctx) return; if (!data || data.length === 0) return; const
-        labels = data.map(d => d.currency.toUpperCase());
-      const values = data.map(d => parseFloat(d.total));
+    }
+    const miscCharts = {};
 
-      if (canvasId === 'chartIncomes') {
-        if (chartIncomesInstance) chartIncomesInstance.destroy();
-      } else {
-        if (chartExpensesInstance) chartExpensesInstance.destroy();
+    function ensureMiscDashboardLayout() {
+      const section = document.getElementById('misc-section');
+      if (!section || section.dataset.v2Dashboard === '1') return;
+      section.dataset.v2Dashboard = '1';
+      section.innerHTML = `
+        <div class="main-header" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+          <h2 class="page-title">Centro de Analiticas Globales</h2>
+          <button class="secondary" style="width:auto;padding:.55rem 1rem;" onclick="loadMiscStats()">
+            <i class="fas fa-sync-alt"></i> Actualizar
+          </button>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(4,minmax(180px,1fr));gap:12px;margin-bottom:16px;">
+          <div style="background:linear-gradient(160deg,rgba(16,185,129,.12),rgba(7,17,36,.95));border:1px solid rgba(16,185,129,.25);border-radius:14px;padding:12px;">
+            <div style="font-size:.72rem;color:#86efac;text-transform:uppercase;letter-spacing:.08em;">Usuarios activos</div>
+            <div id="misc-kpi-users" style="font-size:1.5rem;font-weight:900;color:#ecfeff;">0</div>
+          </div>
+          <div style="background:linear-gradient(160deg,rgba(56,189,248,.12),rgba(7,17,36,.95));border:1px solid rgba(56,189,248,.25);border-radius:14px;padding:12px;">
+            <div style="font-size:.72rem;color:#7dd3fc;text-transform:uppercase;letter-spacing:.08em;">Movimientos</div>
+            <div id="misc-kpi-tx" style="font-size:1.5rem;font-weight:900;color:#ecfeff;">0</div>
+          </div>
+          <div style="background:linear-gradient(160deg,rgba(244,114,182,.12),rgba(7,17,36,.95));border:1px solid rgba(244,114,182,.25);border-radius:14px;padding:12px;">
+            <div style="font-size:.72rem;color:#f9a8d4;text-transform:uppercase;letter-spacing:.08em;">POS completados</div>
+            <div id="misc-kpi-pos" style="font-size:1.5rem;font-weight:900;color:#ecfeff;">0</div>
+          </div>
+          <div style="background:linear-gradient(160deg,rgba(250,204,21,.12),rgba(7,17,36,.95));border:1px solid rgba(250,204,21,.25);border-radius:14px;padding:12px;">
+            <div style="font-size:.72rem;color:#fde68a;text-transform:uppercase;letter-spacing:.08em;">Volumen total</div>
+            <div id="misc-kpi-volume" style="font-size:1.5rem;font-weight:900;color:#ecfeff;">0</div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+          <div style="background:var(--card);border:1px solid rgba(56,189,248,.2);border-radius:16px;padding:14px;">
+            <h3 style="margin:0 0 10px;color:#67e8f9;">Divisas mas usadas</h3>
+            <div style="position:relative;height:280px;"><canvas id="chartMostUsed"></canvas></div>
+          </div>
+          <div style="background:var(--card);border:1px solid rgba(250,204,21,.2);border-radius:16px;padding:14px;">
+            <h3 style="margin:0 0 10px;color:#fde68a;">Divisas menos usadas</h3>
+            <div style="position:relative;height:280px;"><canvas id="chartLeastUsed"></canvas></div>
+          </div>
+          <div style="background:var(--card);border:1px solid rgba(244,114,182,.2);border-radius:16px;padding:14px;">
+            <h3 style="margin:0 0 10px;color:#f9a8d4;">Flujo por divisa</h3>
+            <div style="position:relative;height:300px;"><canvas id="chartCurrencyFlow"></canvas></div>
+          </div>
+          <div style="background:var(--card);border:1px solid rgba(16,185,129,.2);border-radius:16px;padding:14px;">
+            <h3 style="margin:0 0 10px;color:#86efac;">Actividad global (14 dias)</h3>
+            <div style="position:relative;height:300px;"><canvas id="chartActivityTrend"></canvas></div>
+          </div>
+        </div>
+      `;
+    }
+
+    function miscFmt(n) {
+      const v = Number(n || 0);
+      return Number.isFinite(v) ? v.toLocaleString('es-ES', { maximumFractionDigits: 2 }) : '0';
+    }
+
+    function setMiscValue(id, value) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = miscFmt(value);
+    }
+
+    function destroyMiscChart(id) {
+      if (miscCharts[id]) {
+        miscCharts[id].destroy();
+        delete miscCharts[id];
       }
+    }
 
-      const config = {
-        type: 'bar',
-        data: {
-          labels: labels,
-          datasets: [{
-            label: label,
-            data: values,
-            backgroundColor: color,
-            borderColor: color.replace('0.7', '1'),
-            borderWidth: 1,
-            borderRadius: 8
-          }]
-        },
+    function renderMiscChart(canvasId, type, labels, datasets, extraOptions = {}) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas || !window.Chart) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      destroyMiscChart(canvasId);
+
+      miscCharts[canvasId] = new Chart(ctx, {
+        type,
+        data: { labels, datasets },
         options: {
           responsive: true,
           maintainAspectRatio: false,
           plugins: {
-            legend: { labels: { color: '#cbd5e1', font: { family: 'Inter' } } }
+            legend: { labels: { color: '#cbd5e1' } },
+            tooltip: { mode: 'index', intersect: false }
           },
           scales: {
-            y: {
-              beginAtZero: true,
-              grid: { color: 'rgba(255,255,255,0.05)' },
-              ticks: { color: '#94a3b8' }
-            },
-            x: {
-              grid: { display: false },
-              ticks: { color: '#94a3b8' }
+            y: { beginAtZero: true, grid: { color: 'rgba(148,163,184,.15)' }, ticks: { color: '#94a3b8' } },
+            x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+          },
+          ...extraOptions
+        }
+      });
+    }
+
+    async function loadMiscStats() {
+      ensureMiscDashboardLayout();
+      try {
+        const res = await fetch(`${API}/ocean-pay/api/stats/global-overview`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error('No se pudo cargar analitica global');
+        const payload = await res.json();
+
+        const overview = payload.overview || {};
+        setMiscValue('misc-kpi-users', overview.totalUsers || 0);
+        setMiscValue('misc-kpi-tx', overview.totalTransactions || 0);
+        setMiscValue('misc-kpi-pos', overview.completedPos || 0);
+        setMiscValue('misc-kpi-volume', overview.totalVolume || 0);
+
+        const most = Array.isArray(payload.mostUsed) ? payload.mostUsed : [];
+        const least = Array.isArray(payload.leastUsed) ? payload.leastUsed : [];
+        const flow = Array.isArray(payload.currencyFlow) ? payload.currencyFlow : [];
+        const trend = Array.isArray(payload.activityTrend) ? payload.activityTrend : [];
+
+        renderMiscChart(
+          'chartMostUsed',
+          'bar',
+          most.map((x) => String(x.currency || '').toUpperCase()),
+          [{ label: 'Operaciones', data: most.map((x) => Number(x.operations || 0)), backgroundColor: 'rgba(34,211,238,.7)', borderColor: 'rgba(34,211,238,1)', borderRadius: 8 }]
+        );
+
+        renderMiscChart(
+          'chartLeastUsed',
+          'bar',
+          least.map((x) => String(x.currency || '').toUpperCase()),
+          [{ label: 'Operaciones', data: least.map((x) => Number(x.operations || 0)), backgroundColor: 'rgba(250,204,21,.7)', borderColor: 'rgba(250,204,21,1)', borderRadius: 8 }]
+        );
+
+        const flowTop = flow
+          .slice()
+          .sort((a, b) => Number(b.operations || 0) - Number(a.operations || 0))
+          .slice(0, 8);
+        renderMiscChart(
+          'chartCurrencyFlow',
+          'radar',
+          flowTop.map((x) => String(x.currency || '').toUpperCase()),
+          [
+            { label: 'Entrada', data: flowTop.map((x) => Number(x.incoming || 0)), backgroundColor: 'rgba(16,185,129,.18)', borderColor: 'rgba(16,185,129,1)', pointBackgroundColor: '#10b981' },
+            { label: 'Salida', data: flowTop.map((x) => Number(x.outgoing || 0)), backgroundColor: 'rgba(239,68,68,.16)', borderColor: 'rgba(239,68,68,1)', pointBackgroundColor: '#ef4444' }
+          ],
+          {
+            scales: {
+              r: {
+                beginAtZero: true,
+                grid: { color: 'rgba(148,163,184,.2)' },
+                angleLines: { color: 'rgba(148,163,184,.2)' },
+                pointLabels: { color: '#cbd5e1' },
+                ticks: { backdropColor: 'transparent', color: '#94a3b8' }
+              }
             }
           }
-        }
-      };
+        );
 
-      const newChart = new Chart(ctx, config);
-
-      if (canvasId === 'chartIncomes') chartIncomesInstance = newChart;
-      else chartExpensesInstance = newChart;
+        renderMiscChart(
+          'chartActivityTrend',
+          'line',
+          trend.map((x) => String(x.day || '').slice(5)),
+          [
+            { label: 'Operaciones', data: trend.map((x) => Number(x.operations || 0)), borderColor: 'rgba(34,197,94,1)', backgroundColor: 'rgba(34,197,94,.15)', tension: .35, fill: true, pointRadius: 2 },
+            { label: 'Usuarios activos', data: trend.map((x) => Number(x.activeUsers || 0)), borderColor: 'rgba(59,130,246,1)', backgroundColor: 'rgba(59,130,246,.15)', tension: .35, fill: true, pointRadius: 2 }
+          ]
+        );
+      } catch (e) {
+        console.error('Error stats global', e);
+        if (typeof showToast === 'function') showToast('No se pudieron cargar las analiticas globales.', 'error');
+      }
     }
     let currentCheckout = null;
 
@@ -5765,6 +5877,7 @@
       refreshTopbarData();
       initCurrencyPrismDeck();
       initPosHyperConsole();
+      ensureMiscDashboardLayout();
     }
 
     function activate() {

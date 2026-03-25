@@ -20677,6 +20677,135 @@ app.get('/ocean-pay/api/stats/transactions', async (req, res) => {
   }
 });
 
+// Global analytics for Misc dashboard (all users, all projects)
+app.get('/ocean-pay/api/stats/global-overview', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+
+  try {
+    const token = authHeader.substring(7);
+    jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+
+    const normalizeCurrency = (value) => {
+      const key = String(value || '').toLowerCase().trim();
+      if (!key) return 'unknown';
+      if (key === 'ecorebits' || key === 'ecobits') return 'ecocorebits';
+      if (key === 'voltbit') return 'voltbits';
+      return key;
+    };
+
+    const [usersRes, txsRes, posRes, usageRes, flowRes, trendRes] = await Promise.all([
+      pool.query('SELECT COUNT(*)::int AS total_users FROM ocean_pay_users'),
+      pool.query('SELECT COUNT(*)::int AS total_txs FROM ocean_pay_txs'),
+      pool.query(`
+        SELECT
+          COUNT(*) FILTER (WHERE status = 'completed')::int AS completed_pos,
+          COUNT(*) FILTER (WHERE status = 'pending')::int AS pending_pos,
+          COALESCE(SUM(amount) FILTER (WHERE status = 'completed'), 0)::numeric AS pos_completed_volume
+        FROM ocean_pay_pos
+      `),
+      pool.query(`
+        WITH tx_usage AS (
+          SELECT LOWER(COALESCE(moneda, 'unknown')) AS currency, COUNT(*)::int AS ops
+          FROM ocean_pay_txs
+          GROUP BY 1
+        ),
+        pos_usage AS (
+          SELECT LOWER(COALESCE(currency, 'unknown')) AS currency, COUNT(*)::int AS ops
+          FROM ocean_pay_pos
+          GROUP BY 1
+        ),
+        merged AS (
+          SELECT currency, SUM(ops)::int AS total_ops
+          FROM (
+            SELECT * FROM tx_usage
+            UNION ALL
+            SELECT * FROM pos_usage
+          ) x
+          GROUP BY currency
+        )
+        SELECT currency, total_ops
+        FROM merged
+        ORDER BY total_ops DESC, currency ASC
+      `),
+      pool.query(`
+        SELECT
+          LOWER(COALESCE(moneda, 'unknown')) AS currency,
+          COALESCE(SUM(CASE WHEN monto > 0 THEN monto ELSE 0 END), 0)::numeric AS incoming,
+          COALESCE(SUM(CASE WHEN monto < 0 THEN ABS(monto) ELSE 0 END), 0)::numeric AS outgoing,
+          COUNT(*)::int AS operations
+        FROM ocean_pay_txs
+        GROUP BY 1
+        ORDER BY operations DESC, currency ASC
+      `),
+      pool.query(`
+        WITH timeline AS (
+          SELECT DATE(created_at) AS d, user_id::text AS uid FROM ocean_pay_txs
+          UNION ALL
+          SELECT DATE(created_at) AS d, sender_id::text AS uid FROM ocean_pay_pos
+        )
+        SELECT
+          d::text AS day,
+          COUNT(*)::int AS operations,
+          COUNT(DISTINCT uid)::int AS active_users
+        FROM timeline
+        WHERE d >= CURRENT_DATE - INTERVAL '14 days'
+        GROUP BY d
+        ORDER BY d ASC
+      `)
+    ]);
+
+    const usage = (usageRes.rows || []).map((row) => ({
+      currency: normalizeCurrency(row.currency),
+      operations: Number(row.total_ops || 0)
+    }));
+    const mostUsed = usage.slice(0, 10);
+    const leastUsed = usage
+      .filter((row) => row.operations > 0)
+      .slice()
+      .sort((a, b) => a.operations - b.operations || a.currency.localeCompare(b.currency))
+      .slice(0, 10);
+
+    const flow = (flowRes.rows || []).map((row) => ({
+      currency: normalizeCurrency(row.currency),
+      incoming: Number(row.incoming || 0),
+      outgoing: Number(row.outgoing || 0),
+      operations: Number(row.operations || 0)
+    }));
+
+    const trend = (trendRes.rows || []).map((row) => ({
+      day: row.day,
+      operations: Number(row.operations || 0),
+      activeUsers: Number(row.active_users || 0)
+    }));
+
+    const totalVolumeTx = flow.reduce((acc, row) => acc + Math.abs(row.incoming) + Math.abs(row.outgoing), 0);
+    const totalVolumePos = Number(posRes.rows?.[0]?.pos_completed_volume || 0);
+
+    return res.json({
+      overview: {
+        totalUsers: Number(usersRes.rows?.[0]?.total_users || 0),
+        totalTransactions: Number(txsRes.rows?.[0]?.total_txs || 0),
+        completedPos: Number(posRes.rows?.[0]?.completed_pos || 0),
+        pendingPos: Number(posRes.rows?.[0]?.pending_pos || 0),
+        totalVolume: totalVolumeTx + totalVolumePos
+      },
+      mostUsed,
+      leastUsed,
+      currencyFlow: flow,
+      activityTrend: trend
+    });
+  } catch (err) {
+    if (err?.name === 'TokenExpiredError') {
+      return res.status(401).json({ error: 'Token expirado' });
+    }
+    console.error('Error en GET /ocean-pay/api/stats/global-overview:', err);
+    return res.status(500).json({ error: 'Error obteniendo analiticas globales' });
+  }
+});
+
 app.get('/ocean-pay/user-info', async (req, res) => {
   try {
     const authHeader = req.headers.authorization;

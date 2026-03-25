@@ -6,7 +6,8 @@ param(
   [int]$PollSec = 10,
   [switch]$SkipPush,
   [string]$RenderServiceId = "",
-  [string]$RenderApiKey = ""
+  [string]$RenderApiKey = "",
+  [switch]$RequireRenderSuccess
 )
 
 Set-StrictMode -Version Latest
@@ -22,6 +23,14 @@ function Write-WarnMsg([string]$Message) {
 
 function Write-ErrMsg([string]$Message) {
   Write-Host "[push-monitor] $Message" -ForegroundColor Red
+}
+
+function Load-LocalSecrets() {
+  $localSecretsPath = Join-Path -Path $PSScriptRoot -ChildPath "push-monitor.local.ps1"
+  if (Test-Path $localSecretsPath) {
+    . $localSecretsPath
+    Write-Step "Secrets locales cargados desde scripts/push-monitor.local.ps1"
+  }
 }
 
 function Invoke-Git([string]$GitArgs) {
@@ -128,6 +137,8 @@ function Read-Field($obj, [string]$key, $defaultValue = $null) {
 }
 
 try {
+  Load-LocalSecrets
+
   Write-Step "Validando repositorio git..."
   $inside = Invoke-Git "rev-parse --is-inside-work-tree"
   if ($inside.ExitCode -ne 0) {
@@ -150,8 +161,17 @@ try {
     Write-WarnMsg "SkipPush activo: se omite git push."
   }
 
+  $headCommit = Invoke-Git "rev-parse HEAD"
+  $targetCommit = if ($headCommit.ExitCode -eq 0) { $headCommit.Output.Trim() } else { "" }
+  if ($targetCommit) {
+    Write-Step "Commit objetivo para monitoreo: $targetCommit"
+  }
+
   $svcId = if ($RenderServiceId) { $RenderServiceId } else { $env:RENDER_SERVICE_ID }
   $apiKey = if ($RenderApiKey) { $RenderApiKey } else { $env:RENDER_API_KEY }
+  $renderEnabled = [bool]($svcId -and $apiKey)
+  $mustWaitRender = if ($RequireRenderSuccess.IsPresent) { $true } else { $renderEnabled }
+
   if ($svcId -and $apiKey) {
     Write-Step "Monitoreo Render API habilitado (servicio: $svcId)."
   } else {
@@ -163,20 +183,24 @@ try {
   $stableHits = 0
   $lastRaw = ""
   $lastRenderState = ""
+  $renderSatisfied = -not $mustWaitRender
+  $successStatuses = @("live", "succeeded", "success", "deployed")
+  $failureStatuses = @("failed", "canceled", "cancelled", "build_failed")
 
   while ((Get-Date) -lt $deadline) {
     $statusRes = Try-GetJson -Url $MonitorUrl
     $renderInfo = Get-RenderDeployInfo -ServiceId $svcId -ApiKey $apiKey
 
-    if ($renderInfo -and $renderInfo.Ok -and $renderInfo.Data) {
+    if ($renderEnabled -and $renderInfo -and $renderInfo.Ok -and $renderInfo.Data) {
       $r = $renderInfo.Data
-      $deployStatus = Read-Field $r 'status' 'unknown'
+      $deployStatus = [string](Read-Field $r 'status' 'unknown')
       $commit = Read-Field $r 'commit' $null
-      $commitId = Read-Field $commit 'id' '-'
-      $createdAt = Read-Field $r 'createdAt' '-'
+      $commitId = [string](Read-Field $commit 'id' '-')
+      $createdAt = [string](Read-Field $r 'createdAt' '-')
       $lastRenderState = "status=$deployStatus commit=$commitId createdAt=$createdAt"
       Write-Step ("Render deploy: " + $lastRenderState)
-      if ($deployStatus -match "failed|canceled|cancelled") {
+
+      if ($failureStatuses -contains $deployStatus.ToLowerInvariant()) {
         Write-ErrMsg "Render reporta un deploy fallido/cancelado."
         if ($statusRes.Raw) {
           Write-Host "`n--- Status endpoint response ---"
@@ -184,14 +208,35 @@ try {
         }
         exit 1
       }
-    } elseif ($renderInfo -and -not $renderInfo.Ok) {
+
+      $isTargetCommit = $false
+      if ($targetCommit) {
+        $isTargetCommit = ($commitId -eq $targetCommit)
+      } else {
+        $isTargetCommit = ($commitId -and $commitId -ne '-')
+      }
+
+      if ($isTargetCommit -and ($successStatuses -contains $deployStatus.ToLowerInvariant())) {
+        $renderSatisfied = $true
+      } elseif ($mustWaitRender) {
+        $renderSatisfied = $false
+      }
+    } elseif ($renderEnabled -and $renderInfo -and -not $renderInfo.Ok) {
       Write-WarnMsg "No se pudo leer Render API: $($renderInfo.Error)"
+      if ($mustWaitRender) {
+        $renderSatisfied = $false
+      }
     }
 
     if ($statusRes.Ok -and (Test-StatusHealthy $statusRes.Data)) {
       $stableHits++
-      Write-Step "Health check OK ($stableHits/2)..."
-      if ($stableHits -ge 2) {
+      if ($mustWaitRender) {
+        Write-Step "Health check OK ($stableHits/2) | Render listo: $renderSatisfied"
+      } else {
+        Write-Step "Health check OK ($stableHits/2)..."
+      }
+
+      if ($stableHits -ge 2 -and $renderSatisfied) {
         Write-Host ""
         Write-Host "========================================" -ForegroundColor Green
         Write-Host "Push + monitoreo completados correctamente." -ForegroundColor Green

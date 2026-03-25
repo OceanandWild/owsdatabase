@@ -25,12 +25,20 @@ function Write-ErrMsg([string]$Message) {
 }
 
 function Invoke-Git([string]$GitArgs) {
-  $argv = @()
-  if ($GitArgs) { $argv = $GitArgs -split '\s+' }
-  $output = & git $argv 2>&1
-  $code = $LASTEXITCODE
+  $tmpOut = [System.IO.Path]::GetTempFileName()
+  $tmpErr = [System.IO.Path]::GetTempFileName()
+  try {
+    $p = Start-Process -FilePath "cmd.exe" -ArgumentList "/c git $GitArgs" -NoNewWindow -Wait -PassThru -RedirectStandardOutput $tmpOut -RedirectStandardError $tmpErr
+    $stdout = if (Test-Path $tmpOut) { Get-Content -Path $tmpOut -Raw } else { "" }
+    $stderr = if (Test-Path $tmpErr) { Get-Content -Path $tmpErr -Raw } else { "" }
+    $combined = @($stdout, $stderr) -join ""
+    $code = $p.ExitCode
+  } finally {
+    if (Test-Path $tmpOut) { Remove-Item $tmpOut -Force -ErrorAction SilentlyContinue }
+    if (Test-Path $tmpErr) { Remove-Item $tmpErr -Force -ErrorAction SilentlyContinue }
+  }
   return @{
-    Output = ($output -join [Environment]::NewLine)
+    Output = $combined.Trim()
     ExitCode = $code
   }
 }

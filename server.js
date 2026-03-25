@@ -19716,6 +19716,292 @@ cancelLegacyWildTransferSubscriptions()
     console.error('Ã¢Å¡Â Ã¯Â¸Â WildTransfer migration error:', err.message);
   });
 
+const POS_EXCHANGE_RATES = {
+  wildgems: { aquabux: 10, ecoxionums: 50, ecorebits: 100, ecocorebits: 100, wildcredits: 5, nxb: 2 },
+  nxb: { amber: 25, ecotokens: 5, appbux: 15, wildcredits: 10, aquabux: 5 }
+};
+
+function normalizePosCurrency(value) {
+  const key = String(value || '').trim().toLowerCase();
+  if (!key) return '';
+  if (key === 'ecobits' || key === 'ecorebits') return 'ecocorebits';
+  if (key === 'voltbit') return 'voltbits';
+  return key;
+}
+
+function resolvePosExchangeAmount(amount, fromCurrency, targetCurrency) {
+  const safeAmount = Number(amount || 0);
+  if (!Number.isFinite(safeAmount) || safeAmount <= 0) return 0;
+  const from = normalizePosCurrency(fromCurrency);
+  const target = normalizePosCurrency(targetCurrency);
+  const rate = Number(POS_EXCHANGE_RATES[target]?.[from] || 1);
+  return Math.floor(safeAmount * (Number.isFinite(rate) && rate > 0 ? rate : 1));
+}
+
+// POS Virtual: crear cobro
+app.post('/pos/create', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const userId = Number(req.body?.userId);
+    const cardId = Number(req.body?.cardId);
+    const amount = Number(req.body?.amount);
+    const currency = normalizePosCurrency(req.body?.currency || 'aquabux');
+    const isExchange = Boolean(req.body?.isExchange || false);
+    const targetCurrency = normalizePosCurrency(req.body?.targetCurrency || '');
+
+    if (!Number.isFinite(userId) || userId <= 0) return res.status(400).json({ success: false, error: 'Usuario inválido' });
+    if (!Number.isFinite(cardId) || cardId <= 0) return res.status(400).json({ success: false, error: 'Tarjeta inválida' });
+    if (!Number.isFinite(amount) || amount <= 0) return res.status(400).json({ success: false, error: 'Monto inválido' });
+    if (!currency) return res.status(400).json({ success: false, error: 'Divisa inválida' });
+
+    await client.query('BEGIN');
+
+    const { rows: cardRows } = await client.query(
+      'SELECT id, user_id FROM ocean_pay_cards WHERE id = $1 AND user_id = $2 LIMIT 1',
+      [cardId, userId]
+    );
+    if (!cardRows.length) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ success: false, error: 'Tarjeta no válida para este usuario' });
+    }
+
+    const currentBalance = await getUnifiedCardCurrencyBalance(client, cardId, currency, true);
+    if (currentBalance < amount) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ success: false, error: 'Fondos insuficientes en la tarjeta seleccionada' });
+    }
+
+    const code = Math.random().toString(36).slice(2, 8).toUpperCase();
+    const safeTargetCurrency = isExchange ? (targetCurrency || 'wildgems') : null;
+
+    const { rows: inserted } = await client.query(
+      `INSERT INTO ocean_pay_pos (code, sender_id, sender_card_id, amount, currency, status, is_exchange, target_currency)
+       VALUES ($1, $2, $3, $4, $5, 'pending', $6, $7)
+       RETURNING id, code, sender_id, sender_card_id, amount, currency, status, is_exchange, target_currency, created_at`,
+      [code, userId, cardId, amount, currency, isExchange, safeTargetCurrency]
+    );
+
+    await client.query('COMMIT');
+    return res.json({ success: true, pos: inserted[0] });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error en POST /pos/create:', err);
+    return res.status(500).json({ success: false, error: 'Error interno al crear código POS' });
+  } finally {
+    client.release();
+  }
+});
+
+// POS Virtual: swaps pendientes (compat)
+app.get(['/pos/pending-swaps/:userId', '/ocean-pay/pos/pending-swaps/:userId'], async (req, res) => {
+  try {
+    const userId = Number(req.params.userId);
+    if (!Number.isFinite(userId) || userId <= 0) {
+      return res.status(400).json({ success: false, error: 'Usuario inválido' });
+    }
+
+    const { rows } = await pool.query(
+      `SELECT p.code, p.amount, p.currency, p.target_currency, p.created_at, c.card_name
+         FROM ocean_pay_pos p
+         LEFT JOIN ocean_pay_cards c ON c.id = p.sender_card_id
+        WHERE p.sender_id = $1
+          AND p.status = 'pending'
+          AND COALESCE(p.is_exchange, false) = true
+        ORDER BY p.created_at DESC`,
+      [userId]
+    );
+
+    return res.json({ success: true, swaps: rows });
+  } catch (err) {
+    console.error('Error en GET /pos/pending-swaps/:userId:', err);
+    return res.status(500).json({ success: false, error: 'Error interno al cargar intercambios pendientes' });
+  }
+});
+
+// POS Virtual: consultar código
+app.get('/pos/:code', async (req, res) => {
+  try {
+    const code = String(req.params.code || '').trim().toUpperCase();
+    if (!code) return res.status(400).json({ success: false, error: 'Código inválido' });
+
+    const { rows } = await pool.query(
+      `SELECT p.*, u.username AS sender_name
+         FROM ocean_pay_pos p
+         LEFT JOIN ocean_pay_users u ON u.id = p.sender_id
+        WHERE p.code = $1
+        LIMIT 1`,
+      [code]
+    );
+
+    if (!rows.length) return res.status(404).json({ success: false, error: 'Código no encontrado' });
+    const pos = rows[0];
+    if (String(pos.status || '').toLowerCase() !== 'pending') {
+      return res.status(400).json({ success: false, error: 'Este código ya fue utilizado o cancelado' });
+    }
+
+    return res.json({
+      success: true,
+      pos: {
+        code: pos.code,
+        amount: Number(pos.amount || 0),
+        currency: normalizePosCurrency(pos.currency),
+        sender_name: pos.sender_name || 'Usuario',
+        is_exchange: Boolean(pos.is_exchange),
+        target_currency: normalizePosCurrency(pos.target_currency || '')
+      }
+    });
+  } catch (err) {
+    console.error('Error en GET /pos/:code:', err);
+    return res.status(500).json({ success: false, error: 'Error interno al consultar código POS' });
+  }
+});
+
+// POS Virtual: completar cobro/intercambio
+app.post('/pos/complete', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const code = String(req.body?.code || '').trim().toUpperCase();
+    const receiverId = Number(req.body?.receiverId);
+    const receiverCardId = Number(req.body?.receiverCardId || 0);
+
+    if (!code) return res.status(400).json({ success: false, error: 'Código inválido' });
+    if (!Number.isFinite(receiverId) || receiverId <= 0) {
+      return res.status(400).json({ success: false, error: 'Receptor inválido' });
+    }
+
+    await client.query('BEGIN');
+
+    const { rows } = await client.query(
+      `SELECT *
+         FROM ocean_pay_pos
+        WHERE code = $1
+        LIMIT 1
+        FOR UPDATE`,
+      [code]
+    );
+    if (!rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ success: false, error: 'Código POS no encontrado' });
+    }
+
+    const pos = rows[0];
+    if (String(pos.status || '').toLowerCase() !== 'pending') {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ success: false, error: 'Este código ya no está disponible' });
+    }
+
+    const senderId = Number(pos.sender_id);
+    const senderCardId = Number(pos.sender_card_id);
+    const amount = Number(pos.amount || 0);
+    const currency = normalizePosCurrency(pos.currency);
+    const isExchange = Boolean(pos.is_exchange);
+
+    if (!Number.isFinite(senderId) || !Number.isFinite(senderCardId) || amount <= 0 || !currency) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ success: false, error: 'Transacción POS inválida' });
+    }
+
+    const senderBalance = await getUnifiedCardCurrencyBalance(client, senderCardId, currency, true);
+    if (senderBalance < amount) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ success: false, error: 'Fondos insuficientes en la tarjeta de origen' });
+    }
+
+    if (isExchange) {
+      if (receiverId !== senderId) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({ success: false, error: 'Intercambio no autorizado para este usuario' });
+      }
+
+      const targetCurrency = normalizePosCurrency(pos.target_currency || 'wildgems');
+      const targetAmount = resolvePosExchangeAmount(amount, currency, targetCurrency);
+      const destinationCardId = Number.isFinite(receiverCardId) && receiverCardId > 0 ? receiverCardId : senderCardId;
+
+      const { rows: ownCard } = await client.query(
+        'SELECT id FROM ocean_pay_cards WHERE id = $1 AND user_id = $2 LIMIT 1',
+        [destinationCardId, senderId]
+      );
+      if (!ownCard.length) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({ success: false, error: 'Tarjeta destino inválida para el intercambio' });
+      }
+
+      await setUnifiedCardCurrencyBalance(client, {
+        userId: senderId,
+        cardId: senderCardId,
+        currency,
+        newBalance: senderBalance - amount
+      });
+
+      const currentTargetBalance = await getUnifiedCardCurrencyBalance(client, destinationCardId, targetCurrency, true);
+      await setUnifiedCardCurrencyBalance(client, {
+        userId: senderId,
+        cardId: destinationCardId,
+        currency: targetCurrency,
+        newBalance: currentTargetBalance + targetAmount
+      });
+
+      await client.query(
+        `UPDATE ocean_pay_pos
+            SET status = 'completed',
+                receiver_id = $1,
+                receiver_card_id = $2,
+                completed_at = NOW()
+          WHERE id = $3`,
+        [senderId, destinationCardId, pos.id]
+      );
+    } else {
+      if (!Number.isFinite(receiverCardId) || receiverCardId <= 0) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ success: false, error: 'Selecciona una tarjeta destino válida' });
+      }
+
+      const { rows: receiverCardRows } = await client.query(
+        'SELECT id FROM ocean_pay_cards WHERE id = $1 AND user_id = $2 LIMIT 1',
+        [receiverCardId, receiverId]
+      );
+      if (!receiverCardRows.length) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({ success: false, error: 'La tarjeta destino no pertenece al receptor' });
+      }
+
+      await setUnifiedCardCurrencyBalance(client, {
+        userId: senderId,
+        cardId: senderCardId,
+        currency,
+        newBalance: senderBalance - amount
+      });
+
+      const receiverBalance = await getUnifiedCardCurrencyBalance(client, receiverCardId, currency, true);
+      await setUnifiedCardCurrencyBalance(client, {
+        userId: receiverId,
+        cardId: receiverCardId,
+        currency,
+        newBalance: receiverBalance + amount
+      });
+
+      await client.query(
+        `UPDATE ocean_pay_pos
+            SET status = 'completed',
+                receiver_id = $1,
+                receiver_card_id = $2,
+                completed_at = NOW()
+          WHERE id = $3`,
+        [receiverId, receiverCardId, pos.id]
+      );
+    }
+
+    await client.query('COMMIT');
+    return res.json({ success: true });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error en POST /pos/complete:', err);
+    return res.status(500).json({ success: false, error: 'Error interno al completar transacción POS' });
+  } finally {
+    client.release();
+  }
+});
+
 // Subscriptions Endpoints
 app.get('/ocean-pay/subscriptions/me', async (req, res) => {
   try {

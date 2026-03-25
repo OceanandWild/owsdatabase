@@ -87,6 +87,11 @@ function Get-RenderDeployInfo([string]$ServiceId, [string]$ApiKey) {
   $item = $null
   if ($res.Data -is [System.Array]) {
     if ($res.Data.Count -gt 0) { $item = $res.Data[0] }
+  } elseif ($res.Data -is [System.Collections.IDictionary] -and $res.Data.Contains('deploy')) {
+    $item = $res.Data['deploy']
+  } elseif ($res.Data -is [System.Collections.IDictionary] -and $res.Data.Contains('deploys')) {
+    $deploys = $res.Data['deploys']
+    if ($deploys -and $deploys.Count -gt 0) { $item = $deploys[0] }
   } elseif ($res.Data.deploy) {
     $item = $res.Data.deploy
   } elseif ($res.Data.deploys -and $res.Data.deploys.Count -gt 0) {
@@ -149,9 +154,12 @@ try {
 
     if ($renderInfo -and $renderInfo.Ok -and $renderInfo.Data) {
       $r = $renderInfo.Data
-      $lastRenderState = "status=$($r.status) commit=$($r.commit.id) createdAt=$($r.createdAt)"
+      $deployStatus = if ($r.PSObject.Properties['status']) { $r.status } else { 'unknown' }
+      $commitId = if ($r.PSObject.Properties['commit'] -and $r.commit -and $r.commit.id) { $r.commit.id } else { '-' }
+      $createdAt = if ($r.PSObject.Properties['createdAt']) { $r.createdAt } else { '-' }
+      $lastRenderState = "status=$deployStatus commit=$commitId createdAt=$createdAt"
       Write-Step ("Render deploy: " + $lastRenderState)
-      if ($r.status -match "failed|canceled|cancelled") {
+      if ($deployStatus -match "failed|canceled|cancelled") {
         Write-ErrMsg "Render reporta un deploy fallido/cancelado."
         if ($statusRes.Raw) {
           Write-Host "`n--- Status endpoint response ---"

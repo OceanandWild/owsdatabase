@@ -1026,6 +1026,106 @@
       background: rgba(100, 167, 255, 0.5);
     }
 
+    body.zen-layout .zen-sidebar {
+      overflow: hidden;
+    }
+
+    .zen-shell {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      min-height: 100%;
+    }
+
+    .zen-header {
+      padding: 20px 14px 14px;
+      border-bottom: 1px solid rgba(100, 167, 255, 0.18);
+      background: linear-gradient(180deg, rgba(17, 30, 56, 0.78), rgba(10, 16, 29, 0.48));
+    }
+
+    .zen-brand-block {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .zen-brand-text h1 {
+      margin: 0;
+      font-size: 18px;
+      letter-spacing: 0.08em;
+      color: var(--ink-0);
+    }
+
+    .zen-brand-text .brand-subtitle {
+      margin-top: 4px;
+      font-size: 11px;
+      color: var(--ink-1);
+      opacity: 0.82;
+    }
+
+    .zen-user-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      background: linear-gradient(135deg, rgba(100, 167, 255, 0.16), rgba(100, 167, 255, 0.05));
+      border: 1px solid rgba(100, 167, 255, 0.34);
+      border-radius: 12px;
+    }
+
+    .zen-user-avatar {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font-size: 16px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      box-shadow: 0 4px 10px rgba(100, 167, 255, 0.24);
+    }
+
+    .zen-user-meta {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .zen-user-meta #zen-username {
+      font-size: 13px;
+      color: var(--ink-0);
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .zen-user-role {
+      font-size: 11px;
+      color: var(--ink-1);
+      opacity: 0.76;
+    }
+
+    .zen-nav-scroll {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 10px 12px 10px;
+    }
+
+    .zen-nav-scroll .tabs {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      padding: 0;
+    }
+
+    .zen-footer {
+      border-top: 1px solid rgba(100, 167, 255, 0.2);
+      padding: 14px 12px;
+      background: linear-gradient(180deg, rgba(8, 12, 22, 0.65), rgba(11, 16, 30, 0.92));
+    }
+
     /* ===== TABS NORMALES - REDISEÃ‘O MODERNO ===== */
     body:not(.zen-layout) .tabs {
       display: flex;
@@ -2961,20 +3061,19 @@
        ========================= */
     .package-card {
       position: relative;
-      background: var(--bg-1);
-      border: 1px solid rgba(255, 255, 255, .1);
-      border-radius: 16px;
-      padding: 24px;
-      text-align: center;
-      transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-      cursor: pointer;
+      background: radial-gradient(circle at top right, rgba(124, 155, 255, 0.18), transparent 58%), var(--bg-1);
+      border: 1px solid rgba(255, 255, 255, .12);
+      border-radius: 18px;
+      padding: 20px;
+      text-align: left;
+      transition: all 0.28s ease;
       overflow: hidden;
     }
 
     .package-card:hover {
-      transform: translateY(-8px) scale(1.02);
-      box-shadow: 0 20px 40px rgba(0, 0, 0, .4);
-      border-color: var(--accent);
+      transform: translateY(-4px);
+      box-shadow: 0 16px 38px rgba(0, 0, 0, .35);
+      border-color: rgba(124, 155, 255, 0.56);
     }
 
     .package-card::before {
@@ -2983,37 +3082,117 @@
       top: 0;
       left: 0;
       right: 0;
-      height: 4px;
-      background: linear-gradient(90deg, var(--accent), var(--accent-2));
-      opacity: 0;
-      transition: opacity .3s;
+      height: 3px;
+      background: linear-gradient(90deg, #64a7ff, #9f7bff, #ffd76e);
+      opacity: 0.95;
     }
 
-    .package-card:hover::before {
-      opacity: 1;
+    .package-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 12px;
     }
 
     .package-icon {
-      font-size: 64px;
-      margin-bottom: 16px;
-      filter: drop-shadow(0 4px 12px rgba(0, 0, 0, .3));
-      transition: transform .3s;
+      font-size: 52px;
+      filter: drop-shadow(0 4px 14px rgba(0, 0, 0, .35));
+      transition: transform .3s ease;
     }
 
     .package-card:hover .package-icon {
-      transform: scale(1.1) rotate(5deg);
+      transform: scale(1.06) rotate(3deg);
     }
 
     .package-price {
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      padding: 6px 12px;
-      background: rgba(0, 0, 0, .3);
-      border-radius: 20px;
-      font-weight: 700;
-      color: var(--accent);
-      margin-top: 12px;
+      padding: 7px 12px;
+      background: rgba(4, 10, 24, .7);
+      border-radius: 999px;
+      font-weight: 800;
+      color: #7fd8ff;
+      border: 1px solid rgba(127, 216, 255, 0.35);
+    }
+
+    .pack-showcase {
+      display: grid;
+      gap: 8px;
+      padding: 10px;
+      background: rgba(0, 0, 0, .28);
+      border: 1px solid rgba(255, 255, 255, .12);
+      border-radius: 12px;
+      margin: 12px 0;
+    }
+
+    .pack-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+      font-size: 12px;
+    }
+
+    .pack-row-main {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .pack-row-main span:last-child {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .pack-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      box-shadow: 0 0 10px currentColor;
+      flex-shrink: 0;
+    }
+
+    .pack-pity {
+      padding: 10px;
+      border-radius: 12px;
+      background: rgba(100, 167, 255, .08);
+      border: 1px solid rgba(124, 155, 255, .28);
+      font-size: 12px;
+      margin-bottom: 12px;
+      line-height: 1.45;
+    }
+
+    .package-open-btn {
+      width: 100%;
+      border: 1px solid rgba(124, 155, 255, .42);
+      background: linear-gradient(135deg, rgba(83, 156, 255, .32), rgba(156, 95, 255, .3));
+      color: var(--ink-0);
+      font-weight: 800;
+      letter-spacing: .2px;
+      border-radius: 12px;
+      padding: 11px 14px;
+      cursor: pointer;
+      transition: all .2s ease;
+    }
+
+    .package-open-btn:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.06);
+    }
+
+    .package-open-btn:active {
+      transform: translateY(0);
+    }
+
+    .package-open-btn:disabled {
+      cursor: not-allowed;
+      opacity: .45;
+      filter: grayscale(.3);
+      transform: none;
     }
 
     /* Animación de Apertura */
@@ -3036,10 +3215,106 @@
       pointer-events: all;
     }
 
+    .opening-stage {
+      width: min(820px, 94vw);
+      padding: 22px;
+      border-radius: 20px;
+      border: 1px solid rgba(124, 155, 255, .3);
+      background: linear-gradient(165deg, rgba(3, 8, 20, .95), rgba(11, 18, 38, .9));
+      box-shadow: 0 26px 60px rgba(0, 0, 0, .6);
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .opening-stage::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 50% -10%, rgba(100, 167, 255, .22), transparent 60%);
+      pointer-events: none;
+    }
+
+    .opening-stage::after {
+      content: '';
+      position: absolute;
+      inset: -35%;
+      background: conic-gradient(from 0deg, transparent 0%, rgba(127, 216, 255, .2) 16%, transparent 32%, rgba(179, 136, 255, .2) 48%, transparent 64%, rgba(255, 215, 112, .16) 82%, transparent 100%);
+      animation: openingSpin 9s linear infinite;
+      opacity: .5;
+      pointer-events: none;
+    }
+
+    .opening-ring {
+      position: absolute;
+      width: 220px;
+      height: 220px;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      border: 2px solid rgba(127, 216, 255, .28);
+      box-shadow: 0 0 50px rgba(127, 216, 255, .18), inset 0 0 30px rgba(127, 216, 255, .15);
+      animation: openingPulse 2.6s ease-in-out infinite;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .opening-scanline {
+      position: absolute;
+      left: 10%;
+      right: 10%;
+      height: 2px;
+      top: 20%;
+      background: linear-gradient(90deg, transparent, rgba(127, 216, 255, .78), transparent);
+      filter: blur(.1px);
+      animation: openingScan 2.2s ease-in-out infinite;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    @keyframes openingSpin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @keyframes openingPulse {
+
+      0%,
+      100% {
+        transform: translate(-50%, -50%) scale(.92);
+        opacity: .48;
+      }
+
+      50% {
+        transform: translate(-50%, -50%) scale(1.06);
+        opacity: .9;
+      }
+    }
+
+    @keyframes openingScan {
+      0% {
+        top: 18%;
+        opacity: .18;
+      }
+
+      40% {
+        opacity: .8;
+      }
+
+      100% {
+        top: 83%;
+        opacity: .15;
+      }
+    }
+
     .opening-package {
-      font-size: 120px;
+      font-size: 106px;
       cursor: pointer;
       filter: drop-shadow(0 0 30px rgba(100, 167, 255, .5));
+      transition: transform .3s ease, filter .3s ease;
+      user-select: none;
     }
 
     .opening-package.shaking {
@@ -3075,6 +3350,22 @@
       width: 100%;
       height: 100%;
       pointer-events: none;
+    }
+
+    .opening-reel {
+      margin: 14px auto 0;
+      max-width: 560px;
+      min-height: 40px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, .14);
+      background: rgba(4, 10, 24, .72);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      color: var(--ink-1);
+      letter-spacing: .15px;
     }
 
     .reward-reveal {
@@ -3128,6 +3419,11 @@
     }
 
     .rarity-glow.raro {
+      box-shadow: 0 0 40px rgba(179, 136, 255, .4);
+      border-color: #b388ff;
+    }
+
+    .rarity-glow.rara {
       box-shadow: 0 0 40px rgba(179, 136, 255, .4);
       border-color: #b388ff;
     }
@@ -3569,6 +3865,115 @@
         },
         async onEnable() {
           loadNotes();
+        }
+      },
+      "wordsearch-lab": {
+        id: "wordsearch-lab",
+        name: "Generador de Sopa de Letras",
+        description: "Editor activo para crear sopas de letras con modo automatico o ubicacion manual, decoracion, plantillas e imagenes.",
+        rarity: "epica",
+        type: "active",
+        version: "1.0.0",
+        icon: "WS",
+        price: 420,
+        getPanelHTML() {
+          return `
+        <div id="wordsearch-lab-panel" style="padding:16px;display:grid;gap:14px;">
+          <div style="padding:14px;border-radius:12px;background:linear-gradient(135deg, rgba(100,167,255,.14), rgba(168,85,247,.14));border:1px solid rgba(100,167,255,.35);">
+            <h4 style="margin:0 0 8px;font-size:17px;display:flex;align-items:center;gap:8px;">
+              <span>🧩</span><span>Editor de Sopa de Letras</span>
+            </h4>
+            <p style="margin:0;color:var(--ink-1);font-size:13px;line-height:1.45;">
+              Crea tu propia sopa con plantillas, decoracion e imagen. Puedes generar automatico o ubicar letras manualmente.
+            </p>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;">
+            <label style="display:grid;gap:6px;font-size:12px;color:var(--ink-1);">
+              <span>Modo de armado</span>
+              <select id="ws-mode" onchange="onWordSearchModeChange()" style="padding:9px;border-radius:8px;background:var(--bg-1);border:1px solid rgba(255,255,255,.12);color:var(--ink-0);">
+                <option value="auto">Automatico por palabras</option>
+                <option value="manual">Manual letra por letra</option>
+              </select>
+            </label>
+            <label style="display:grid;gap:6px;font-size:12px;color:var(--ink-1);">
+              <span>Plantilla</span>
+              <select id="ws-template" onchange="refreshWordSearchCost()" style="padding:9px;border-radius:8px;background:var(--bg-1);border:1px solid rgba(255,255,255,.12);color:var(--ink-0);">
+                <option value="dark-hall">Pasillo Oscuro</option>
+                <option value="ice-cave">Cueva Helada</option>
+                <option value="forest-runes">Runas del Bosque</option>
+                <option value="blood-mist">Niebla Carmesi</option>
+              </select>
+            </label>
+            <label style="display:grid;gap:6px;font-size:12px;color:var(--ink-1);">
+              <span>Tamano de grilla</span>
+              <select id="ws-size" onchange="onWordSearchSizeChange()" style="padding:9px;border-radius:8px;background:var(--bg-1);border:1px solid rgba(255,255,255,.12);color:var(--ink-0);">
+                <option value="10">10 x 10</option>
+                <option value="12" selected>12 x 12</option>
+                <option value="14">14 x 14</option>
+                <option value="16">16 x 16</option>
+              </select>
+            </label>
+          </div>
+
+          <label style="display:grid;gap:6px;font-size:12px;color:var(--ink-1);">
+            <span>Palabras objetivo (una por linea)</span>
+            <textarea id="ws-words" oninput="refreshWordSearchCost()" placeholder="OCEANO&#10;BOSQUE&#10;MISTERIO&#10;RUNA" style="min-height:110px;padding:10px;border-radius:8px;background:var(--bg-1);border:1px solid rgba(255,255,255,.12);color:var(--ink-0);"></textarea>
+          </label>
+
+          <div style="padding:12px;background:var(--bg-1);border:1px solid rgba(255,255,255,.1);border-radius:10px;display:grid;gap:8px;">
+            <div style="font-size:12px;color:var(--ink-1);font-weight:600;">Decoracion y recursos</div>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:13px;">
+              <label><input type="checkbox" id="ws-decor-frame" onchange="refreshWordSearchCost()" checked> Marco ilustrado</label>
+              <label><input type="checkbox" id="ws-decor-particles" onchange="refreshWordSearchCost()"> Particulas ambientadas</label>
+              <label><input type="checkbox" id="ws-decor-stickers" onchange="refreshWordSearchCost()"> Stickers tematicos</label>
+            </div>
+            <label style="display:grid;gap:6px;font-size:12px;color:var(--ink-1);">
+              <span>Imagen de portada (opcional)</span>
+              <input id="ws-image" type="file" accept="image/*" onchange="onWordSearchImageChange(event)" style="padding:8px;border-radius:8px;background:var(--bg-2);border:1px dashed rgba(255,255,255,.16);color:var(--ink-0);">
+            </label>
+            <div id="ws-image-preview" style="display:none;align-items:center;gap:8px;">
+              <img id="ws-image-thumb" alt="preview" style="width:52px;height:52px;object-fit:cover;border-radius:8px;border:1px solid rgba(255,255,255,.2);">
+              <small style="color:var(--ink-1);">Imagen lista para incluir en la generacion.</small>
+            </div>
+          </div>
+
+          <div id="ws-manual-wrap" style="display:none;padding:12px;border:1px solid rgba(255,255,255,.1);border-radius:10px;background:var(--bg-1);">
+            <div style="font-size:12px;color:var(--ink-1);margin-bottom:8px;">Modo manual: escribe letras en la grilla (espacios vacios se completan al generar).</div>
+            <div id="ws-manual-grid" style="overflow:auto;max-height:260px;padding:2px;"></div>
+          </div>
+
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <button class="btn primary" onclick="generateWordSearchDraft()" style="min-width:180px;">Generar borrador</button>
+            <button class="btn" onclick="clearWordSearchDraft()" style="min-width:180px;">Limpiar editor</button>
+          </div>
+
+          <div id="ws-preview-wrap" style="display:none;padding:12px;border:1px solid rgba(255,255,255,.1);border-radius:10px;background:rgba(0,0,0,.22);">
+            <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
+              <div style="font-size:13px;font-weight:700;">Vista previa</div>
+              <div id="ws-cost" style="font-size:13px;color:var(--accent);font-weight:700;">Costo: 0 <span class="icon-ecoxionum"></span></div>
+            </div>
+            <div id="ws-preview-grid" style="overflow:auto;"></div>
+            <div id="ws-words-list" style="margin-top:8px;font-size:12px;color:var(--ink-1);"></div>
+          </div>
+
+          <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;padding:12px;border-radius:10px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.3);">
+            <div style="font-size:12px;color:var(--ink-1);">
+              Al finalizar se cobra una cuota segun el contenido agregado y se guarda tu proyecto.
+            </div>
+            <button class="btn primary" onclick="finalizeWordSearchGeneration()" style="min-width:220px;">Finalizar generacion</button>
+          </div>
+
+          <div id="ws-saved-list" style="padding:10px;border-radius:10px;background:var(--bg-1);border:1px solid rgba(255,255,255,.1);font-size:12px;color:var(--ink-1);">
+            Cargando proyectos guardados...
+          </div>
+        </div>
+      `;
+        },
+        async onEnable() {
+          setTimeout(() => {
+            if (typeof initWordSearchLabPanel === 'function') initWordSearchLabPanel();
+          }, 40);
         }
       },
       "dark-mode": {
@@ -8267,42 +8672,40 @@
       const state = loadState().then(s => s).catch(() => ({ username: 'Explorador', oceanPayLinked: false }));
 
       sidebar.innerHTML = `
-    <div style="padding:28px 16px;border-bottom:2px solid rgba(100, 167, 255, 0.2);position:relative;overflow:hidden;background:linear-gradient(180deg, rgba(15,23,42,0.8), rgba(30,41,59,0.6));">
-      <div style="position:absolute;top:0;left:0;right:0;bottom:0;background:linear-gradient(135deg, rgba(100,167,255,.08), rgba(179,136,255,.05));opacity:0.6;pointer-events:none;"></div>
-      <div class="brand" style="flex-direction:column;align-items:center;position:relative;z-index:1;gap:12px;">
-        <div class="logo-container" style="width:72px;height:72px;">
-          <div class="logo-ring" style="width:72px;height:72px;">
-            <img src="assets/ecoxion.png" alt="Ecoxion Logo" class="logo-image" onerror="this.style.display='none';this.nextElementSibling.style.display='block';" style="display: none;">
-            <div class="logo-core" style="display: block;"></div>
+    <div class="zen-shell">
+      <div class="zen-header">
+        <div class="zen-brand-block">
+          <div class="logo-container" style="width:56px;height:56px;">
+            <div class="logo-ring" style="width:56px;height:56px;">
+              <img src="assets/ecoxion.png" alt="Ecoxion Logo" class="logo-image" onerror="this.style.display='none';this.nextElementSibling.style.display='block';" style="display:none;">
+              <div class="logo-core" style="display:block;"></div>
+            </div>
+          </div>
+          <div class="zen-brand-text">
+            <h1>ECOXION</h1>
+            <div class="brand-subtitle" id="zen-brand-subtitle">Conectado</div>
           </div>
         </div>
-        <div style="text-align:center;">
-          <h1 class="brand-title" style="font-size:22px;margin:0 0 8px;letter-spacing:1.5px;">ECOXION</h1>
-          <div class="brand-subtitle" id="zen-brand-subtitle" style="font-size:11px;opacity:0.8;display:flex;align-items:center;justify-content:center;gap:6px;">Conectado</div>
+        <div id="zen-user-info" class="zen-user-card">
+          <div class="zen-user-avatar">👤</div>
+          <div class="zen-user-meta">
+            <div id="zen-username">OceanandWild</div>
+            <div class="zen-user-role">Usuario</div>
+          </div>
         </div>
       </div>
-    </div>
-    
-    <div style="padding:16px 12px 8px;border-bottom:1px solid rgba(255,255,255,.05);">
-      <div id="zen-user-info" style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: rgba(100, 167, 255, 0.1); border-radius: 10px; border: 1px solid rgba(100, 167, 255, 0.3); margin-bottom: 8px;">
-        <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg, var(--accent), var(--accent-2));display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 2px 8px rgba(100,167,255,.3);">ðŸ‘¤</div>
-        <div style="flex:1;min-width:0;">
-          <div id="zen-username" style="font-size:13px;font-weight:600;color:var(--ink-0);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">OceanandWild</div>
-          <div style="font-size:11px;color:var(--ink-1);opacity:0.7;">Usuario</div>
-        </div>
+
+      <div class="zen-nav-scroll">
+        <nav class="tabs" data-role="main-tabs"></nav>
       </div>
-    </div>
-    <nav class="tabs" data-role="main-tabs" style="padding:10px 12px 6px;display:flex;flex-direction:column;gap:6px;"></nav>
-    
-    
-    
-    <div style="padding:16px 12px;border-top:2px solid rgba(100, 167, 255, 0.15);position:relative;overflow:hidden;">
-      <div style="position:absolute;top:0;left:0;right:0;bottom:0;background:linear-gradient(135deg, rgba(100,167,255,.05), rgba(179,136,255,.03));opacity:0.5;pointer-events:none;"></div>
-      <div class="ecoxionums-balance" style="position:relative;z-index:1;">
-        <span><span class="icon-ecoxionum"></span></span>
-        <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
-          <span class="eco-balance-value" data-role="eco-balance" style="font-size:18px;">1733</span>
-          <small style="font-size:11px;color:var(--ink-1);opacity:0.7;">Ecoxionums</small>
+
+      <div class="zen-footer">
+        <div class="ecoxionums-balance">
+          <span><span class="icon-ecoxionum"></span></span>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+            <span class="eco-balance-value" data-role="eco-balance" style="font-size:18px;">1733</span>
+            <small style="font-size:11px;color:var(--ink-1);opacity:0.7;">Ecoxionums</small>
+          </div>
         </div>
       </div>
     </div>
@@ -8937,96 +9340,287 @@
     /* =========================
        SISTEMA DE PAQUETES (GACHA)
        ========================= */
+    const PACKAGE_RARITY_ORDER = ['legendaria', 'epica', 'rara', 'poco_comun', 'comun'];
+    const PACKAGE_RARITY_LABEL = {
+      comun: 'Comun',
+      poco_comun: 'Poco comun',
+      rara: 'Rara',
+      epica: 'Epica',
+      legendaria: 'Legendaria',
+      mitica: 'Mitica'
+    };
+    const PACKAGE_RARITY_COLORS = {
+      comun: '#9ca3af',
+      poco_comun: '#64a7ff',
+      rara: '#60a5fa',
+      epica: '#a855f7',
+      legendaria: '#f59e0b',
+      mitica: '#ef4444'
+    };
+
     const packagesConfig = {
-      'starter': {
-        id: 'starter',
-        name: 'Paquete de Inicio',
-        description: 'Ideal para nuevos exploradores. Contiene extensiones básicas.',
-        price: 100,
-        icon: 'ðŸ“¦',
-        color: 'var(--ok)',
-        probabilities: { comun: 70, poco_comun: 25, rara: 5, epica: 0, legendaria: 0 }
-      },
-      'advanced': {
-        id: 'advanced',
-        name: 'Paquete Avanzado',
-        description: 'Mejora tu arsenal con herramientas más potentes.',
-        price: 250,
-        icon: 'ðŸ’¼',
-        color: 'var(--accent)',
-        probabilities: { comun: 30, poco_comun: 50, rara: 15, epica: 5, legendaria: 0 }
-      },
-      'elite': {
-        id: 'elite',
-        name: 'Paquete de Ã‰lite',
-        description: 'Solo para los más exigentes. Alta probabilidad de rarezas.',
-        price: 600,
-        icon: '<span class="icon-ecoxionum"></span>',
-        color: 'var(--accent-2)',
-        probabilities: { comun: 10, poco_comun: 30, rara: 40, epica: 18, legendaria: 2 }
-      },
-      'developer': {
-        id: 'developer',
-        name: 'Pack Desarrollador',
-        description: 'Herramientas enfocadas en productividad y código.',
-        price: 350,
-        icon: 'ðŸ‘¨â€ðŸ’»',
-        color: '#F59E0B',
-        theme: 'dev',
-        probabilities: { comun: 20, poco_comun: 40, rara: 30, epica: 10, legendaria: 0 }
-      },
-      'gamer': {
-        id: 'gamer',
-        name: 'Pack Gamer',
-        description: 'Juegos y entretenimiento para tus descansos.',
-        price: 350,
-        icon: 'ðŸŽ®',
-        color: '#EF4444',
-        theme: 'game',
-        probabilities: { comun: 20, poco_comun: 40, rara: 30, epica: 10, legendaria: 0 }
+      'nocturnal-armory': {
+        id: 'nocturnal-armory',
+        name: 'Arsenal Nocturno',
+        description: 'Caja premium con loot por rareza (1 extension por rareza en este pack), incluyendo Generador de Sopa de Letras.',
+        price: 520,
+        icon: '🎁',
+        color: '#7c9bff',
+        probabilities: {
+          comun: 48,
+          poco_comun: 28,
+          rara: 16,
+          epica: 7,
+          legendaria: 1
+        },
+        pity: {
+          epicaEvery: 8,
+          legendariaEvery: 24
+        },
+        rewardByRarity: {
+          comun: 'notes',
+          poco_comun: 'clicky-coin',
+          rara: 'eco-luck',
+          epica: 'wordsearch-lab',
+          legendaria: 'eco-generator'
+        }
       }
     };
+
+    function normalizeRarityKey(value) {
+      const raw = String(value || '').toLowerCase().trim();
+      if (!raw) return 'comun';
+      if (raw === 'raro') return 'rara';
+      if (raw === 'poco comun') return 'poco_comun';
+      return raw;
+    }
+
+    function getExtensionRarity(ext) {
+      return normalizeRarityKey(ext?.rarity || 'comun');
+    }
+
+    function getResolvedPackageRewards(pkg) {
+      const resolved = {};
+      const desired = pkg.rewardByRarity || {};
+      const allExtensions = Object.values(defaultExtensions || {});
+      for (const rarity of PACKAGE_RARITY_ORDER) {
+        const configuredId = desired[rarity];
+        const configuredExt = configuredId ? defaultExtensions[configuredId] : null;
+        if (configuredExt && getExtensionRarity(configuredExt) === rarity) {
+          resolved[rarity] = configuredExt;
+          continue;
+        }
+        const fallback = allExtensions
+          .filter((ext) => getExtensionRarity(ext) === rarity)
+          .sort((a, b) => Number(b.price || 0) - Number(a.price || 0))[0];
+        if (fallback) resolved[rarity] = fallback;
+      }
+      return resolved;
+    }
+
+    function getPackOnlyExtensionIds() {
+      const ids = new Set();
+      Object.values(packagesConfig).forEach((pkg) => {
+        const mapping = getResolvedPackageRewards(pkg);
+        Object.values(mapping).forEach((ext) => {
+          if (!ext?.id) return;
+          if (Number(ext.price || 0) <= 0) return;
+          ids.add(ext.id);
+        });
+      });
+      return ids;
+    }
+
+    function isExtensionPackOnly(extId) {
+      return getPackOnlyExtensionIds().has(extId);
+    }
+
+    function ensurePackagePityState(state) {
+      if (!state.packagePity || typeof state.packagePity !== 'object') state.packagePity = {};
+      for (const pkgId of Object.keys(packagesConfig)) {
+        if (!state.packagePity[pkgId] || typeof state.packagePity[pkgId] !== 'object') {
+          state.packagePity[pkgId] = { noEpic: 0, noLegendary: 0, totalOpened: 0 };
+        } else {
+          state.packagePity[pkgId].noEpic = Number(state.packagePity[pkgId].noEpic || 0);
+          state.packagePity[pkgId].noLegendary = Number(state.packagePity[pkgId].noLegendary || 0);
+          state.packagePity[pkgId].totalOpened = Number(state.packagePity[pkgId].totalOpened || 0);
+        }
+      }
+      return state;
+    }
+
+    function getPackageRewardRows(pkg) {
+      const rows = [];
+      const mapping = getResolvedPackageRewards(pkg);
+      const probs = pkg.probabilities || {};
+      for (const rarity of PACKAGE_RARITY_ORDER) {
+        const ext = mapping[rarity];
+        if (!ext) continue;
+        rows.push({
+          rarity,
+          chance: Number(probs[rarity] || 0),
+          ext,
+          color: PACKAGE_RARITY_COLORS[rarity] || '#9ca3af'
+        });
+      }
+      return rows;
+    }
+
+    function getPackageDynamicPool(pkg, state) {
+      const rows = getPackageRewardRows(pkg);
+      const installed = state?.installed || {};
+      const entries = [];
+      rows.forEach((row) => {
+        const alreadyOwned = Boolean(installed[row.ext.id]);
+        if (alreadyOwned) {
+          entries.push({
+            type: 'nothing',
+            rarity: row.rarity,
+            chance: row.chance,
+            color: row.color,
+            sourceExt: row.ext
+          });
+          return;
+        }
+        entries.push({
+          type: 'reward',
+          rarity: row.rarity,
+          chance: row.chance,
+          color: row.color,
+          ext: row.ext
+        });
+      });
+      return entries;
+    }
+
+    function canBuyPackByRarestRule(pkg, state) {
+      const mapping = getResolvedPackageRewards(pkg);
+      const installed = state?.installed || {};
+      const rarestTiers = ['mitica', 'legendaria'].filter((rarity) => mapping[rarity]);
+      if (!rarestTiers.length) return { ok: true, reason: '' };
+      const allRarestOwned = rarestTiers.every((rarity) => mapping[rarity] && installed[mapping[rarity].id]);
+      if (allRarestOwned) {
+        return {
+          ok: false,
+          reason: 'Ya tienes todas las recompensas mas raras de este paquete.'
+        };
+      }
+      return { ok: true, reason: '' };
+    }
+
+    function getPityRemaining(pkg, pityState, dynamicPool = null) {
+      const pityCfg = pkg.pity || {};
+      const epicEvery = Math.max(2, Number(pityCfg.epicaEvery || 8));
+      const legendaryEvery = Math.max(epicEvery + 1, Number(pityCfg.legendariaEvery || 24));
+      const pool = dynamicPool || [];
+      const hasEpicReward = pool.some((entry) => entry.type === 'reward' && entry.rarity === 'epica');
+      const hasLegendaryReward = pool.some((entry) => entry.type === 'reward' && entry.rarity === 'legendaria');
+      return {
+        hasEpicReward,
+        hasLegendaryReward,
+        epicRemaining: Math.max(0, epicEvery - Number(pityState.noEpic || 0)),
+        legendaryRemaining: Math.max(0, legendaryEvery - Number(pityState.noLegendary || 0))
+      };
+    }
+
+    function resolvePackageOutcomeWithPity(pkg, pityState, dynamicPool) {
+      const pool = Array.isArray(dynamicPool) ? dynamicPool.slice() : [];
+      const probsByRarity = pkg.probabilities || {};
+      const epicAvailable = pool.some((entry) => entry.type === 'reward' && entry.rarity === 'epica');
+      const legendaryAvailable = pool.some((entry) => entry.type === 'reward' && entry.rarity === 'legendaria');
+      const pityCfg = pkg.pity || {};
+      const epicEvery = Math.max(2, Number(pityCfg.epicaEvery || 8));
+      const legendaryEvery = Math.max(epicEvery + 1, Number(pityCfg.legendariaEvery || 24));
+
+      if (legendaryAvailable && pityState.noLegendary >= (legendaryEvery - 1)) {
+        return pool.find((entry) => entry.type === 'reward' && entry.rarity === 'legendaria');
+      }
+      if (epicAvailable && pityState.noEpic >= (epicEvery - 1)) {
+        return pool.find((entry) => entry.type === 'reward' && entry.rarity === 'epica');
+      }
+
+      if (!pool.length) {
+        return { type: 'nothing', rarity: 'comun', chance: 100, color: PACKAGE_RARITY_COLORS.comun };
+      }
+      const total = pool.reduce((acc, entry) => acc + Number(entry.chance || probsByRarity[entry.rarity] || 0), 0);
+      if (total <= 0) return pool[pool.length - 1];
+
+      let roll = Math.random() * total;
+      for (const entry of pool) {
+        roll -= Number(entry.chance || probsByRarity[entry.rarity] || 0);
+        if (roll <= 0) return entry;
+      }
+      return pool[pool.length - 1];
+    }
 
     async function renderPackages() {
       const content = document.getElementById('content');
       content.innerHTML = '';
       content.className = '';
 
-      const state = await loadState();
+      const state = ensurePackagePityState(await loadState());
+      await saveState(state);
 
       content.innerHTML = `
-        <div class="card" style="margin-bottom:24px;text-align:center;background:linear-gradient(135deg, rgba(100,167,255,.1), rgba(179,136,255,.1));border:1px solid var(--accent);">
-          <div style="font-size:48px;margin-bottom:16px;">ðŸŽ</div>
-          <h2 style="margin:0 0 8px;font-size:32px;background:linear-gradient(90deg, var(--accent), var(--accent-2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Tienda de Paquetes</h2>
-          <p style="color:var(--ink-1);max-width:600px;margin:0 auto 24px;">
-            Adquiere paquetes sorpresa y obtén extensiones aleatorias. ¡Puedes conseguir extensiones épicas o legendarias!
+        <div class="card" style="margin-bottom:20px;text-align:center;background:linear-gradient(135deg, rgba(100,167,255,.11), rgba(179,136,255,.11));border:1px solid rgba(100,167,255,.35);">
+          <div style="font-size:44px;margin-bottom:14px;">🎁</div>
+          <h2 style="margin:0 0 8px;font-size:31px;background:linear-gradient(90deg, #9fd3ff, #b79bff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Paquetes de Extensiones</h2>
+          <p style="color:var(--ink-1);max-width:720px;margin:0 auto 16px;">
+            Sistema estilo loot-box con animacion de apertura, mostrador de chances y piedad por pack.
           </p>
-          <div style="display:inline-flex;align-items:center;gap:8px;padding:8px 16px;background:rgba(0,0,0,.3);border-radius:20px;border:1px solid rgba(255,255,255,.1);">
-            <span>Tu saldo:</span>
-            <span style="font-weight:700;color:var(--ok);font-size:18px;">${(state.ecoxionums || 0).toLocaleString()} <span class="icon-ecoxionum"></span></span>
+          <div style="display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:rgba(0,0,0,.34);border-radius:999px;border:1px solid rgba(255,255,255,.12);">
+            <span>Saldo actual:</span>
+            <span style="font-weight:800;color:var(--ok);font-size:18px;">${(state.ecoxionums || 0).toLocaleString()} <span class="icon-ecoxionum"></span></span>
           </div>
         </div>
 
-        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:24px;">
-          ${Object.values(packagesConfig).map(pkg => `
-            <div class="package-card" onclick="buyPackage('${pkg.id}')">
-              <div class="package-icon">${pkg.icon}</div>
-              <h3 style="margin:0 0 8px;color:${pkg.color};">${pkg.name}</h3>
-              <p style="margin:0 0 16px;font-size:13px;color:var(--ink-1);min-height:40px;">${pkg.description}</p>
-              
-              <div style="display:flex;justify-content:center;gap:4px;margin-bottom:16px;">
-                ${pkg.probabilities.legendaria > 0 ? `<span title="Legendaria: ${pkg.probabilities.legendaria}%" style="width:8px;height:8px;border-radius:50%;background:#ff5050;"></span>` : ''}
-                ${pkg.probabilities.epica > 0 ? `<span title="Ã‰pica: ${pkg.probabilities.epica}%" style="width:8px;height:8px;border-radius:50%;background:#ffd700;"></span>` : ''}
-                ${pkg.probabilities.rara > 0 ? `<span title="Rara: ${pkg.probabilities.rara}%" style="width:8px;height:8px;border-radius:50%;background:#b388ff;"></span>` : ''}
-                ${pkg.probabilities.poco_comun > 0 ? `<span title="Poco Común: ${pkg.probabilities.poco_comun}%" style="width:8px;height:8px;border-radius:50%;background:#64a7ff;"></span>` : ''}
-                <span title="Común: ${pkg.probabilities.comun}%" style="width:8px;height:8px;border-radius:50%;background:#b4c2df;"></span>
-              </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(340px, 1fr));gap:22px;">
+          ${Object.values(packagesConfig).map(pkg => {
+            const pity = state.packagePity[pkg.id] || { noEpic: 0, noLegendary: 0, totalOpened: 0 };
+            const dynamicPool = getPackageDynamicPool(pkg, state);
+            const pityInfo = getPityRemaining(pkg, pity, dynamicPool);
+            const rows = getPackageRewardRows(pkg);
+            const canBuyRule = canBuyPackByRarestRule(pkg, state);
+            return `
+              <div class="package-card">
+                <div class="package-head">
+                  <div style="display:flex;align-items:center;gap:12px;min-width:0;">
+                    <div class="package-icon">${pkg.icon}</div>
+                    <div style="min-width:0;">
+                      <h3 style="margin:0 0 2px;color:${pkg.color};font-size:21px;line-height:1.15;">${pkg.name}</h3>
+                      <p style="margin:0;color:var(--ink-1);font-size:12px;">${pkg.description}</p>
+                    </div>
+                  </div>
+                  <div class="package-price">${pkg.price} <span class="icon-ecoxionum"></span></div>
+                </div>
 
-              <div class="package-price">
-                ${pkg.price} <span class="icon-ecoxionum"></span>
+                <div class="pack-showcase">
+                  <div style="font-size:11px;letter-spacing:.45px;text-transform:uppercase;color:var(--ink-1);">Mostrador de recompensas</div>
+                  ${rows.map((row) => `
+                    <div class="pack-row">
+                      <div class="pack-row-main">
+                        <span class="pack-dot" style="color:${row.color};background:${row.color};"></span>
+                        <span>${PACKAGE_RARITY_LABEL[row.rarity]} · ${row.ext.name}${state.installed?.[row.ext.id] ? ' (obtenida)' : ''}</span>
+                      </div>
+                      <span style="font-weight:800;color:${row.color};">${state.installed?.[row.ext.id] ? `Nada/${row.chance}%` : `${row.chance}%`}</span>
+                    </div>
+                  `).join('')}
+                </div>
+
+                <div class="pack-pity">
+                  <div style="opacity:.8;margin-bottom:4px;">Piedad del paquete</div>
+                  <div>${pityInfo.hasEpicReward ? `Epica garantizada en <strong>${pityInfo.epicRemaining}</strong> ${pityInfo.epicRemaining === 1 ? 'apertura' : 'aperturas'}.` : 'Sin objetivo epico pendiente en este momento.'}</div>
+                  <div style="opacity:.88;">${pityInfo.hasLegendaryReward ? `Legendaria garantizada en <strong>${pityInfo.legendaryRemaining}</strong> ${pityInfo.legendaryRemaining === 1 ? 'apertura' : 'aperturas'}.` : 'Sin objetivo legendario pendiente en este momento.'}</div>
+                  <div style="margin-top:4px;opacity:.72;">Abiertas en total: ${Number(pity.totalOpened || 0).toLocaleString()}</div>
+                </div>
+
+                <button class="package-open-btn" ${canBuyRule.ok ? `onclick="buyPackage('${pkg.id}')"` : 'disabled'} title="${canBuyRule.reason || ''}">
+                  ${canBuyRule.ok ? 'Abrir caja ahora' : 'Pack completado en rarezas altas'}
+                </button>
+                ${canBuyRule.ok ? '' : `<div style="margin-top:8px;font-size:11px;color:var(--ink-1);">${canBuyRule.reason}</div>`}
               </div>
-            </div>
-          `).join('')}
+            `;
+          }).join('')}
         </div>
       `;
     }
@@ -9036,22 +9630,22 @@
       if (!pkg) return;
 
       const state = await loadState();
-
-      // Verificar saldo
-      if ((state.ecoxionums || 0) < pkg.price) {
-        showAlert('error', 'Saldo insuficiente', `Necesitas ${pkg.price} Ecoxionums para comprar este paquete.`);
+      const canBuyRule = canBuyPackByRarestRule(pkg, state);
+      if (!canBuyRule.ok) {
+        showAlert('warning', 'Paquete bloqueado', canBuyRule.reason);
         return;
       }
 
-      // Confirmar compra
-      const confirmed = confirm(`¿Comprar ${pkg.name} por ${pkg.price} Ecoxionums?`);
+      if ((state.ecoxionums || 0) < pkg.price) {
+        showAlert('error', 'Saldo insuficiente', `Necesitas ${pkg.price} Ecoxionums para abrir este paquete.`);
+        return;
+      }
+
+      const confirmed = confirm(`¿Abrir ${pkg.name} por ${pkg.price} Ecoxionums?`);
       if (!confirmed) return;
 
-      // Descontar saldo
       state.ecoxionums -= pkg.price;
 
-      // Sincronizar con servidor si es necesario
-      // Sincronizar con servidor si es necesario
       if (state.oceanPayLinked && state.userId) {
         try {
           await fetch(`${API_GLOBAL}/ocean-pay/ecoxionums/change`, {
@@ -9063,179 +9657,211 @@
             body: JSON.stringify({
               userId: state.userId,
               amount: -pkg.price,
-              concepto: `Compra: ${pkg.name}`,
+              concepto: `Loot-box: ${pkg.name}`,
               origen: 'Ecoxion'
             })
-          }).catch(console.warn);
-        } catch (e) { }
+          });
+        } catch (e) {
+          console.warn(e);
+        }
       }
 
       await saveState(state);
-      updateBalance(); // Actualizar UI de saldo inmediatamente
-
-      // Iniciar secuencia de apertura
+      updateBalance();
       await openPackage(pkg);
     };
 
     async function openPackage(pkg) {
-      // 1. Determinar rareza basada en probabilidades
-      const roll = Math.random() * 100;
-      let rarity = 'comun';
-      let cumulative = 0;
+      const state = ensurePackagePityState(await loadState());
+      const pity = state.packagePity[pkg.id] || { noEpic: 0, noLegendary: 0, totalOpened: 0 };
+      const dynamicPool = getPackageDynamicPool(pkg, state);
+      const outcome = resolvePackageOutcomeWithPity(pkg, pity, dynamicPool);
+      const rewardExt = outcome?.type === 'reward' ? outcome.ext : null;
+      const rarity = outcome?.rarity || 'comun';
 
-      const probs = pkg.probabilities;
-      if (roll < (cumulative += probs.legendaria)) rarity = 'legendaria';
-      else if (roll < (cumulative += probs.epica)) rarity = 'epica';
-      else if (roll < (cumulative += probs.rara)) rarity = 'rara';
-      else if (roll < (cumulative += probs.poco_comun)) rarity = 'poco_comun';
+      const gotEpicOrBetter = outcome?.type === 'reward' && (rarity === 'epica' || rarity === 'legendaria' || rarity === 'mitica');
+      const gotLegendaryOrBetter = outcome?.type === 'reward' && (rarity === 'legendaria' || rarity === 'mitica');
+      const pityBonus = outcome?.type === 'nothing' ? 2 : 1;
+      pity.noEpic = gotEpicOrBetter ? 0 : (pity.noEpic + pityBonus);
+      pity.noLegendary = gotLegendaryOrBetter ? 0 : (pity.noLegendary + pityBonus);
+      pity.totalOpened = Number(pity.totalOpened || 0) + 1;
+      state.packagePity[pkg.id] = pity;
+      await saveState(state);
 
-      // 2. Seleccionar extensión de esa rareza
-      // Filtrar extensiones disponibles por rareza y tema (si aplica)
-      let availableExts = Object.values(defaultExtensions).filter(e => e.rarity === rarity);
-
-      if (pkg.theme) {
-        // Si el paquete tiene tema, intentar filtrar por tema (esto requeriría que las extensiones tengan tags o categorías)
-        // Por ahora, simularemos preferencia por ciertas extensiones según el ID del paquete
-        if (pkg.id === 'gamer') {
-          const games = availableExts.filter(e => ['mini-games', 'eco-stock', 'clicky-coin', 'trivia-challenge'].includes(e.id));
-          if (games.length > 0) availableExts = games;
-        } else if (pkg.id === 'developer') {
-          const devTools = availableExts.filter(e => ['notes', 'pomodoro', 'calculator', 'password-vault'].includes(e.id));
-          if (devTools.length > 0) availableExts = devTools;
-        }
-      }
-
-      // Si no hay extensiones de esa rareza (ej. legendaria), bajar de categoría
-      if (availableExts.length === 0) {
-        const rarities = ['legendaria', 'epica', 'rara', 'poco_comun', 'comun'];
-        const idx = rarities.indexOf(rarity);
-        for (let i = idx + 1; i < rarities.length; i++) {
-          availableExts = Object.values(defaultExtensions).filter(e => e.rarity === rarities[i]);
-          if (availableExts.length > 0) {
-            rarity = rarities[i];
-            break;
-          }
-        }
-      }
-
-      const rewardExt = availableExts[Math.floor(Math.random() * availableExts.length)];
-
-      // 3. Mostrar animación
-      showOpeningAnimation(pkg, rewardExt);
+      showOpeningAnimation(pkg, rewardExt, rarity, outcome, dynamicPool);
     }
 
-    function showOpeningAnimation(pkg, reward) {
-      // Crear overlay
+    function showOpeningAnimation(pkg, reward, rewardRarity, outcome, dynamicPool) {
+      const pool = Array.isArray(dynamicPool) && dynamicPool.length ? dynamicPool : getPackageDynamicPool(pkg, { installed: {} });
       const overlay = document.createElement('div');
       overlay.className = 'opening-overlay active';
       overlay.innerHTML = `
-        <div class="opening-package" id="pkg-anim-icon">${pkg.icon}</div>
-        <div class="opening-burst" id="pkg-burst"></div>
-        <div class="reward-reveal" id="pkg-reward">
-          <div class="reward-card rarity-glow ${reward.rarity}">
-            <div class="reward-icon">${reward.icon}</div>
-            <h2 style="color:var(--accent);margin-bottom:8px;">${reward.name}</h2>
-            <div style="display:inline-block;padding:4px 12px;border-radius:12px;background:rgba(255,255,255,.1);font-size:12px;margin-bottom:16px;">
-              ${reward.rarity.replace('_', ' ').toUpperCase()}
+        <div class="opening-stage">
+          <div class="opening-ring"></div>
+          <div class="opening-scanline"></div>
+          <div style="font-size:11px;letter-spacing:.6px;text-transform:uppercase;color:var(--ink-1);margin-bottom:8px;">Loot-Box Opening</div>
+          <div class="opening-package shaking" id="pkg-anim-icon">${pkg.icon}</div>
+          <div class="opening-reel" id="pkg-roll">Pulsa la caja para abrir</div>
+          <div style="font-size:11px;color:var(--ink-1);margin-top:8px;">${pkg.name}</div>
+          <div class="opening-burst" id="pkg-burst"></div>
+          <div class="reward-reveal" id="pkg-reward" style="margin-top:18px;">
+            <div class="reward-card rarity-glow ${rewardRarity}">
+              <div class="reward-icon">${reward ? (reward.icon || '⚙️') : 'Ø'}</div>
+              <h2 style="color:var(--accent);margin-bottom:8px;">${reward ? reward.name : 'Nada'}</h2>
+              <div style="display:inline-block;padding:4px 12px;border-radius:12px;background:rgba(255,255,255,.1);font-size:12px;margin-bottom:16px;">
+                ${(PACKAGE_RARITY_LABEL[rewardRarity] || rewardRarity).toUpperCase()}
+              </div>
+              <p style="color:var(--ink-1);font-size:14px;margin-bottom:18px;">${reward ? reward.description : 'Esta tirada no entrego extension. Piedad reforzada aplicada.'}</p>
+              <button class="btn primary" id="pkg-claim-btn">Reclamar</button>
             </div>
-            <p style="color:var(--ink-1);font-size:14px;margin-bottom:24px;">${reward.description}</p>
-            <button class="btn primary" id="pkg-claim-btn">¡Genial!</button>
           </div>
         </div>
       `;
       document.body.appendChild(overlay);
 
-      const icon = document.getElementById('pkg-anim-icon');
-      const rewardEl = document.getElementById('pkg-reward');
-      const btn = document.getElementById('pkg-claim-btn');
+      const icon = overlay.querySelector('#pkg-anim-icon');
+      const rewardEl = overlay.querySelector('#pkg-reward');
+      const btn = overlay.querySelector('#pkg-claim-btn');
+      const rollText = overlay.querySelector('#pkg-roll');
+      const stage = overlay.querySelector('.opening-stage');
+      let opening = false;
 
-      // Secuencia de animación
-      // 1. Shake
-      setTimeout(() => icon.classList.add('shaking'), 500);
+      async function finalizeReward() {
+        if (!reward || !outcome || outcome.type === 'nothing') {
+          showAlert('warning', 'Sin recompensa', 'No cayo extension en esta tirada. La piedad se incremento de forma reforzada.');
+          return;
+        }
+        const state = await loadState();
+        const rewardCard = rewardEl.querySelector('.reward-card');
+        if (!state.installed[reward.id]) {
+          state.installed[reward.id] = {
+            id: reward.id,
+            enabled: true,
+            installedAt: Date.now()
+          };
+          await saveState(state);
+          showAlert('success', 'Nueva extension', `${reward.name} se agrego a tu coleccion.`);
+          return;
+        }
 
-      // 2. Click para abrir (o auto después de unos segundos)
-      icon.onclick = () => triggerOpen();
-
-      function triggerOpen() {
-        icon.classList.remove('shaking');
-
-        // Explosión
-        gsap.to(icon, { scale: 1.5, opacity: 0, duration: 0.3, ease: 'power2.in' });
-
-        // Crear partículas
-        createConfetti(window.innerWidth / 2, window.innerHeight / 2);
-
-        // Mostrar recompensa
-        setTimeout(async () => {
-          icon.style.display = 'none';
-          rewardEl.classList.add('show');
-
-          // Procesar recompensa
-          const state = await loadState();
-          if (!state.installed[reward.id]) {
-            state.installed[reward.id] = {
-              id: reward.id,
-              enabled: true,
-              installedAt: Date.now()
-            };
-            await saveState(state);
-            showAlert('success', '¡Nueva extensión!', `${reward.name} añadida a tu colección.`);
-          } else {
-            // Ya la tiene: dar compensación
-            const compensation = Math.floor(pkg.price * 0.3);
-            state.ecoxionums += compensation;
-
-            // Sincronizar compensación
-            if (state.oceanPayLinked && state.userId) {
-              await fetch(`${API_GLOBAL}/ocean-pay/ecoxionums/change`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${localStorage.getItem('opToken') || ''}`
-                },
-                body: JSON.stringify({
-                  userId: state.userId,
-                  amount: compensation,
-                  concepto: `Compensación repetida: ${reward.name}`,
-                  origen: 'Ecoxion'
-                })
-              }).catch(console.warn);
-            }
-
-            await saveState(state);
-            updateBalance();
-
-            const msg = document.createElement('div');
-            msg.innerHTML = `<p style="color:var(--ok);margin-top:12px;">¡Ya la tenías! Compensación: +${compensation} <span class="icon-ecoxionum"></span></p>`;
-            rewardEl.querySelector('.reward-card').insertBefore(msg, btn);
+        const compensation = Math.floor(pkg.price * 0.3);
+        state.ecoxionums += compensation;
+        if (state.oceanPayLinked && state.userId) {
+          try {
+            await fetch(`${API_GLOBAL}/ocean-pay/ecoxionums/change`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('opToken') || ''}`
+              },
+              body: JSON.stringify({
+                userId: state.userId,
+                amount: compensation,
+                concepto: `Compensacion repetida: ${reward.name}`,
+                origen: 'Ecoxion'
+              })
+            });
+          } catch (e) {
+            console.warn(e);
           }
-        }, 400);
+        }
+        await saveState(state);
+        updateBalance();
+        if (!rewardCard.querySelector('[data-repeat-note="1"]')) {
+          const msg = document.createElement('div');
+          msg.setAttribute('data-repeat-note', '1');
+          msg.innerHTML = `<p style="color:var(--ok);margin-top:10px;">Duplicada: +${compensation} <span class="icon-ecoxionum"></span> de compensacion</p>`;
+          rewardCard.insertBefore(msg, btn);
+        }
       }
 
+      function triggerOpen() {
+        if (opening) return;
+        opening = true;
+        icon.classList.remove('shaking');
+        icon.style.transform = 'scale(1.04)';
+        if (rollText) rollText.textContent = 'Analizando contenido del paquete...';
+
+        let idx = 0;
+        const reelSequence = [];
+        for (let i = 0; i < 24; i++) {
+          const pick = pool[Math.floor(Math.random() * Math.max(pool.length, 1))];
+          if (pick) reelSequence.push(pick);
+        }
+        const forcedRow = outcome || pool.find((r) => reward && r.ext?.id === reward.id) || { type: reward ? 'reward' : 'nothing', rarity: rewardRarity, ext: reward, chance: 0, color: PACKAGE_RARITY_COLORS[rewardRarity] || '#fff' };
+        reelSequence.push(forcedRow);
+
+        const timer = setInterval(() => {
+          const item = reelSequence[Math.min(idx, reelSequence.length - 1)];
+          if (item && rollText) {
+            const rarityLabel = PACKAGE_RARITY_LABEL[item.rarity] || item.rarity;
+            if (item.type === 'nothing') {
+              rollText.innerHTML = `<span style="color:${item.color || '#94a3b8'};">${rarityLabel}</span> · Nada <span style="opacity:.7">(${item.chance}%)</span>`;
+            } else {
+              rollText.innerHTML = `<span style="color:${item.color};">${rarityLabel}</span> · ${item.ext.name} <span style="opacity:.7">(${item.chance}%)</span>`;
+            }
+          }
+          idx += 1;
+          if (idx >= reelSequence.length) {
+            clearInterval(timer);
+            setTimeout(async () => {
+              icon.style.transition = 'transform .3s ease, opacity .3s ease';
+              icon.style.transform = 'scale(1.36)';
+              icon.style.opacity = '0';
+              createConfetti(window.innerWidth / 2, window.innerHeight / 2);
+              setTimeout(async () => {
+                icon.style.display = 'none';
+                if (rollText) rollText.textContent = 'Recompensa encontrada';
+                if (stage) {
+                  const rarityColor = PACKAGE_RARITY_COLORS[rewardRarity] || '#64a7ff';
+                  stage.style.borderColor = `${rarityColor}cc`;
+                  stage.style.boxShadow = `0 26px 60px rgba(0,0,0,.6), 0 0 34px ${rarityColor}66`;
+                }
+                rewardEl.classList.add('show');
+                await finalizeReward();
+              }, 320);
+            }, 200);
+          }
+        }, 95);
+      }
+
+      icon.onclick = triggerOpen;
+      setTimeout(() => {
+        if (!opening) triggerOpen();
+      }, 1750);
+
       btn.onclick = () => {
-        gsap.to(overlay, { opacity: 0, duration: 0.3, onComplete: () => overlay.remove() });
-        renderPackages(); // Recargar para actualizar saldo
+        overlay.style.transition = 'opacity .2s ease';
+        overlay.style.opacity = '0';
+        setTimeout(() => overlay.remove(), 220);
+        renderPackages();
       };
     }
 
     function createConfetti(x, y) {
-      const colors = ['#64a7ff', '#b388ff', '#ffd700', '#ff5050', '#ffffff'];
-      for (let i = 0; i < 50; i++) {
+      const colors = ['#64a7ff', '#b388ff', '#ffd700', '#ff7a7a', '#ffffff'];
+      for (let i = 0; i < 58; i++) {
         const el = document.createElement('div');
-        el.style.cssText = `position:fixed;left:${x}px;top:${y}px;width:8px;height:8px;background:${colors[Math.floor(Math.random() * colors.length)]};border-radius:50%;pointer-events:none;z-index:20001;`;
+        const size = 5 + Math.random() * 6;
+        el.style.cssText = `position:fixed;left:${x}px;top:${y}px;width:${size}px;height:${size}px;background:${colors[Math.floor(Math.random() * colors.length)]};border-radius:${Math.random() > 0.5 ? '50%' : '2px'};pointer-events:none;z-index:20001;`;
         document.body.appendChild(el);
 
         const angle = Math.random() * Math.PI * 2;
         const velocity = 100 + Math.random() * 200;
+        const dx = Math.cos(angle) * velocity;
+        const dy = Math.sin(angle) * velocity;
+        const duration = 700 + Math.random() * 900;
+        const drift = (Math.random() - 0.5) * 80;
 
-        gsap.to(el, {
-          x: Math.cos(angle) * velocity,
-          y: Math.sin(angle) * velocity,
-          opacity: 0,
-          duration: 1 + Math.random(),
-          ease: 'power2.out',
-          onComplete: () => el.remove()
-        });
+        el.animate([
+          { transform: 'translate(0px, 0px) scale(1)', opacity: 1 },
+          { transform: `translate(${dx * 0.58}px, ${dy * 0.58 + drift}px) scale(0.92)`, opacity: 0.85, offset: 0.58 },
+          { transform: `translate(${dx}px, ${dy + drift * 1.35}px) scale(0.58)`, opacity: 0 }
+        ], {
+          duration: duration + 110,
+          easing: 'cubic-bezier(0.22, 1, 0.36, 1)',
+          fill: 'forwards'
+        }).onfinish = () => el.remove();
       }
     }
 
@@ -9470,6 +10096,30 @@
           ctx.fillStyle = '#004'; ctx.fillRect(15, 40, 66, 8); // Strip
           ctx.fillStyle = '#fc0'; ctx.fillRect(20, 55, 12, 8); // Chip
           break;
+        case 'wordsearch-lab': // Word Search Editor
+          ctx.fillStyle = '#0b1220';
+          roundRect(ctx, 14, 14, 68, 68, 10, true, false);
+          ctx.strokeStyle = accentColor;
+          ctx.lineWidth = 2;
+          roundRect(ctx, 14, 14, 68, 68, 10, false, true);
+          ctx.strokeStyle = 'rgba(255,255,255,0.22)';
+          ctx.lineWidth = 1;
+          for (let i = 1; i < 6; i++) {
+            const p = 14 + i * 11.3;
+            ctx.beginPath(); ctx.moveTo(14, p); ctx.lineTo(82, p); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(p, 14); ctx.lineTo(p, 82); ctx.stroke();
+          }
+          ctx.fillStyle = '#22d3ee';
+          ctx.font = 'bold 10px monospace';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          const letters = ['W', 'O', 'R', 'D'];
+          letters.forEach((letter, idx) => {
+            ctx.fillText(letter, 26 + idx * 11.5, 26 + idx * 11.5);
+          });
+          ctx.fillStyle = '#f59e0b';
+          ctx.beginPath(); ctx.arc(74, 24, 4, 0, Math.PI * 2); ctx.fill();
+          break;
         default: // Default Box
           ctx.strokeStyle = accentColor; ctx.lineWidth = 4; ctx.strokeRect(20, 20, 60, 60);
           ctx.fillStyle = accentColor; ctx.globalAlpha = 0.5; ctx.fillRect(20, 20, 60, 60);
@@ -9513,12 +10163,14 @@
         const isInstalled = installedIds.has(ext.id);
         const extInfo = state.installed[ext.id] || {};
         const hasV2Available = ext.hasV2 && isInstalled && !extInfo.awakened;
+        const packOnlyLocked = isExtensionPackOnly(ext.id) && !isInstalled;
 
         // Colores de rareza para bordes/sombras
         const rarityColors = {
           comun: '#94a3b8',
           poco_comun: '#64a7ff',
           rara: '#60a5fa',
+          raro: '#60a5fa',
           epica: '#a855f7',
           legendaria: '#f59e0b'
         };
@@ -9533,7 +10185,9 @@
             ? hasV2Available
               ? `<button class="btn" onclick="showMissionsModal('${ext.id}')" style="background:linear-gradient(135deg, #a855f7, #6366f1); border:none; padding:8px 18px; font-size:13px; font-weight:700;">Despertar âœ¨</button>`
               : `<button class="btn secondary" onclick="uninstallExtension('${ext.id}')" style="font-size:12px; padding:8px 16px;">Desinstalar</button>`
-            : `<button class="btn primary" onclick="installExtension('${ext.id}')" style="padding:10px 24px; font-size:13px; font-weight:700;">${ext.price === 0 ? 'Instalar' : 'Comprar'}</button>`;
+            : packOnlyLocked
+              ? `<button class="btn" disabled style="opacity:.55;cursor:not-allowed;padding:10px 24px; font-size:13px; font-weight:700;">Solo Paquete</button>`
+              : `<button class="btn primary" onclick="installExtension('${ext.id}')" style="padding:10px 24px; font-size:13px; font-weight:700;">${ext.price === 0 ? 'Instalar' : 'Comprar'}</button>`;
 
           item.innerHTML = `
             <div style="position:absolute; top:12px; left:0; z-index:10; display:flex; flex-direction:column; gap:4px; align-items:flex-start; pointer-events:none;">
@@ -9567,10 +10221,10 @@
                 <span class="badge" style="background:${accentColor}15; color:${accentColor}; border: 1px solid ${accentColor}30;">${ext.rarity.replace('_', ' ')}</span>
                 <span style="opacity:0.6; font-size:12px;">v${extInfo.awakened && ext.version2 ? ext.version2 : ext.version}</span>
                 <span style="color:rgba(255,255,255,0.2);">⬢</span>
-                ${ext.price > 0 && !isInstalled ?
+                ${packOnlyLocked ? `<span style="font-weight:700; color:#f59e0b; font-size:13px;">Solo en Paquetes</span>` : (ext.price > 0 && !isInstalled ?
               `<span style="font-weight:700; color:var(--accent); font-size:14px;">${ext.price} <span class="icon-ecoxionum"></span></span>` :
               `<span style="color:var(--ok); font-weight:600; font-size:14px;">${isInstalled ? 'âœ“ Instalada' : 'Gratis'}</span>`
-            }
+            )}
               </div>
             </div>
             <div class="item-actions">
@@ -9643,17 +10297,19 @@
             ` : ''}
             <div style="border-top:1px solid rgba(255,255,255,0.05); padding-top:16px; display:flex; gap:12px; align-items:center;">
                 <div style="flex:1;">
-                   ${ext.price > 0 && !isInstalled ?
+                   ${packOnlyLocked ? `<div style="font-size:13px; font-weight:700; color:#f59e0b;">Solo en Paquetes</div>` : (ext.price > 0 && !isInstalled ?
               `<div style="font-size:18px; font-weight:700; color:var(--ink-0);">${ext.price} <span style="font-size:14px; color:var(--ink-2);"><span class="icon-ecoxionum"></span></span></div>` :
               `<div style="font-size:14px; font-weight:600; color:var(--ok);">Gratis</div>`
-            }
+            )}
                 </div>
                 <div style="flex:0 0 auto;">
                    ${isInstalled && extInfo.enabled
               ? hasV2Available
                 ? `<button class="btn" onclick="showMissionsModal('${ext.id}')" style="background:linear-gradient(135deg, #a855f7, #6366f1); border:none; padding:10px 20px;">Despertar âœ¨</button>`
                 : `<button class="btn secondary" onclick="uninstallExtension('${ext.id}')" style="font-size:13px; padding:8px 16px;">Desinstalar</button>`
-              : `<button class="btn primary" onclick="installExtension('${ext.id}')" style="padding:10px 24px;">${ext.price === 0 ? 'Instalar' : 'Comprar'}</button>`
+              : packOnlyLocked
+                ? `<button class="btn" disabled style="opacity:.55;cursor:not-allowed;padding:10px 24px;">Solo Paquete</button>`
+                : `<button class="btn primary" onclick="installExtension('${ext.id}')" style="padding:10px 24px;">${ext.price === 0 ? 'Instalar' : 'Comprar'}</button>`
             }
                 </div>
             </div>
@@ -9667,7 +10323,7 @@
 
       // Renderizar los iconos Canvas después de insertar en el DOM
       Object.values(defaultExtensions).forEach(ext => {
-        const rarityColors = { comun: '#94a3b8', poco_comun: '#64a7ff', rara: '#60a5fa', epica: '#a855f7', legendaria: '#f59e0b' };
+        const rarityColors = { comun: '#94a3b8', poco_comun: '#64a7ff', rara: '#60a5fa', raro: '#60a5fa', epica: '#a855f7', legendaria: '#f59e0b' };
         const color = rarityColors[ext.rarity] || '#a855f7';
 
         if (isZen) {
@@ -9688,6 +10344,10 @@
       if (!ext) return;
 
       const state = await loadState();
+      if (isExtensionPackOnly(id) && !state.installed?.[id]) {
+        showAlert('warning', 'Solo Paquetes', 'Esta extension solo se obtiene abriendo paquetes.');
+        return;
+      }
 
       // Verificar precio
       if (ext.price > 0) {
@@ -9746,6 +10406,385 @@
 
       if (currentTab === 'marketplace') renderMarketplace();
       else if (currentTab === 'dashboard') renderDashboard();
+    }
+
+    /* =========================
+       WORDSEARCH LAB (EDITOR)
+       ========================= */
+    let wordSearchImageData = '';
+    let wordSearchGeneratedDraft = null;
+
+    function sanitizeWordSearchWord(raw = '') {
+      return String(raw || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9]/g, '')
+        .toUpperCase()
+        .trim();
+    }
+
+    function getWordSearchTemplateFee(template = '') {
+      const map = {
+        'dark-hall': 10,
+        'ice-cave': 14,
+        'forest-runes': 12,
+        'blood-mist': 18
+      };
+      return map[String(template || '').trim()] || 8;
+    }
+
+    function computeWordSearchGenerationFee(config = {}) {
+      const wordsCount = (config.words || []).length;
+      const size = Number(config.size || 12);
+      const decorCost =
+        (config.decorFrame ? 8 : 0) +
+        (config.decorParticles ? 10 : 0) +
+        (config.decorStickers ? 9 : 0);
+      const imageCost = config.hasImage ? 16 : 0;
+      const modeCost = config.mode === 'manual' ? 22 : 8;
+      const densityCost = Math.max(0, size - 10) * 3;
+      const wordsCost = wordsCount * 4;
+      const templateCost = getWordSearchTemplateFee(config.template);
+      return 30 + wordsCost + densityCost + decorCost + imageCost + modeCost + templateCost;
+    }
+
+    function getWordSearchEditorConfig() {
+      const modeEl = document.getElementById('ws-mode');
+      const templateEl = document.getElementById('ws-template');
+      const sizeEl = document.getElementById('ws-size');
+      const wordsEl = document.getElementById('ws-words');
+      const frameEl = document.getElementById('ws-decor-frame');
+      const particlesEl = document.getElementById('ws-decor-particles');
+      const stickersEl = document.getElementById('ws-decor-stickers');
+
+      const words = String(wordsEl?.value || '')
+        .split(/\r?\n/)
+        .map(sanitizeWordSearchWord)
+        .filter((w) => w.length >= 2)
+        .slice(0, 20);
+
+      return {
+        mode: String(modeEl?.value || 'auto'),
+        template: String(templateEl?.value || 'dark-hall'),
+        size: Number(sizeEl?.value || 12),
+        words,
+        decorFrame: Boolean(frameEl?.checked),
+        decorParticles: Boolean(particlesEl?.checked),
+        decorStickers: Boolean(stickersEl?.checked),
+        hasImage: Boolean(wordSearchImageData)
+      };
+    }
+
+    function buildManualWordSearchGrid(size = 12) {
+      const host = document.getElementById('ws-manual-grid');
+      if (!host) return;
+      const s = Math.max(8, Math.min(18, Number(size || 12)));
+      let html = `<div style="display:grid;grid-template-columns:repeat(${s}, 26px);gap:4px;min-width:max-content;">`;
+      for (let row = 0; row < s; row += 1) {
+        for (let col = 0; col < s; col += 1) {
+          html += `<input data-ws-cell="1" data-r="${row}" data-c="${col}" maxlength="1" style="width:26px;height:26px;text-align:center;font-weight:700;background:var(--bg-2);border:1px solid rgba(255,255,255,.18);border-radius:6px;color:var(--ink-0);text-transform:uppercase;">`;
+        }
+      }
+      html += '</div>';
+      host.innerHTML = html;
+    }
+
+    function getManualWordSearchMatrix(size = 12) {
+      const s = Math.max(8, Math.min(18, Number(size || 12)));
+      const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+      const matrix = [];
+      for (let row = 0; row < s; row += 1) {
+        const line = [];
+        for (let col = 0; col < s; col += 1) {
+          const el = document.querySelector(`[data-ws-cell="1"][data-r="${row}"][data-c="${col}"]`);
+          const letter = sanitizeWordSearchWord(el?.value || '').slice(0, 1);
+          if (el && letter) el.value = letter;
+          line.push(letter || alphabet[Math.floor(Math.random() * alphabet.length)]);
+        }
+        matrix.push(line);
+      }
+      return matrix;
+    }
+
+    function canPlaceWord(grid, word, row, col, dr, dc) {
+      const n = grid.length;
+      const endR = row + (word.length - 1) * dr;
+      const endC = col + (word.length - 1) * dc;
+      if (endR < 0 || endR >= n || endC < 0 || endC >= n) return false;
+      for (let i = 0; i < word.length; i += 1) {
+        const r = row + i * dr;
+        const c = col + i * dc;
+        const current = grid[r][c];
+        if (current && current !== word[i]) return false;
+      }
+      return true;
+    }
+
+    function placeWord(grid, word, row, col, dr, dc) {
+      for (let i = 0; i < word.length; i += 1) {
+        const r = row + i * dr;
+        const c = col + i * dc;
+        grid[r][c] = word[i];
+      }
+    }
+
+    function isWordInGrid(grid, word) {
+      if (!Array.isArray(grid) || !grid.length || !word) return false;
+      const n = grid.length;
+      const directions = [
+        [0, 1], [1, 0], [1, 1], [-1, 1],
+        [0, -1], [-1, 0], [-1, -1], [1, -1]
+      ];
+      for (let row = 0; row < n; row += 1) {
+        for (let col = 0; col < n; col += 1) {
+          for (const [dr, dc] of directions) {
+            let ok = true;
+            for (let i = 0; i < word.length; i += 1) {
+              const r = row + i * dr;
+              const c = col + i * dc;
+              if (r < 0 || r >= n || c < 0 || c >= n || String(grid[r][c] || '') !== word[i]) {
+                ok = false;
+                break;
+              }
+            }
+            if (ok) return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    function generateAutomaticWordSearch(size = 12, words = []) {
+      const s = Math.max(8, Math.min(18, Number(size || 12)));
+      const grid = Array.from({ length: s }, () => Array.from({ length: s }, () => ''));
+      const directions = [
+        [0, 1], [1, 0], [1, 1], [-1, 1],
+        [0, -1], [-1, 0], [-1, -1], [1, -1]
+      ];
+
+      const placedWords = [];
+      const sortedWords = [...words].sort((a, b) => b.length - a.length);
+      sortedWords.forEach((word) => {
+        let placed = false;
+        for (let tries = 0; tries < 220 && !placed; tries += 1) {
+          const [dr, dc] = directions[Math.floor(Math.random() * directions.length)];
+          const row = Math.floor(Math.random() * s);
+          const col = Math.floor(Math.random() * s);
+          if (!canPlaceWord(grid, word, row, col, dr, dc)) continue;
+          placeWord(grid, word, row, col, dr, dc);
+          placed = true;
+          placedWords.push(word);
+        }
+      });
+
+      const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+      for (let row = 0; row < s; row += 1) {
+        for (let col = 0; col < s; col += 1) {
+          if (!grid[row][col]) grid[row][col] = alphabet[Math.floor(Math.random() * alphabet.length)];
+        }
+      }
+      return { grid, placedWords };
+    }
+
+    function renderWordSearchPreviewGrid(grid = []) {
+      const host = document.getElementById('ws-preview-grid');
+      if (!host) return;
+      if (!Array.isArray(grid) || !grid.length) {
+        host.innerHTML = '<div style="font-size:12px;color:var(--ink-1);">Sin vista previa por ahora.</div>';
+        return;
+      }
+      const size = grid.length;
+      let html = `<div style="display:grid;grid-template-columns:repeat(${size}, 24px);gap:3px;min-width:max-content;">`;
+      for (let r = 0; r < size; r += 1) {
+        for (let c = 0; c < size; c += 1) {
+          html += `<div style="width:24px;height:24px;border-radius:5px;background:var(--bg-2);border:1px solid rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;">${grid[r][c]}</div>`;
+        }
+      }
+      html += '</div>';
+      host.innerHTML = html;
+    }
+
+    function refreshWordSearchCost() {
+      const config = getWordSearchEditorConfig();
+      const fee = computeWordSearchGenerationFee(config);
+      const costEl = document.getElementById('ws-cost');
+      if (costEl) {
+        costEl.innerHTML = `Costo estimado: ${fee.toLocaleString()} <span class="icon-ecoxionum"></span>`;
+      }
+    }
+
+    function onWordSearchModeChange() {
+      const mode = String(document.getElementById('ws-mode')?.value || 'auto');
+      const wrap = document.getElementById('ws-manual-wrap');
+      if (wrap) wrap.style.display = mode === 'manual' ? 'block' : 'none';
+      if (mode === 'manual') buildManualWordSearchGrid(Number(document.getElementById('ws-size')?.value || 12));
+      refreshWordSearchCost();
+    }
+
+    function onWordSearchSizeChange() {
+      if (String(document.getElementById('ws-mode')?.value || 'auto') === 'manual') {
+        buildManualWordSearchGrid(Number(document.getElementById('ws-size')?.value || 12));
+      }
+      refreshWordSearchCost();
+    }
+
+    function onWordSearchImageChange(event) {
+      const file = event?.target?.files?.[0];
+      if (!file) {
+        wordSearchImageData = '';
+        const wrap = document.getElementById('ws-image-preview');
+        if (wrap) wrap.style.display = 'none';
+        refreshWordSearchCost();
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        wordSearchImageData = String(reader.result || '');
+        const wrap = document.getElementById('ws-image-preview');
+        const thumb = document.getElementById('ws-image-thumb');
+        if (thumb) thumb.src = wordSearchImageData;
+        if (wrap) wrap.style.display = 'flex';
+        refreshWordSearchCost();
+      };
+      reader.readAsDataURL(file);
+    }
+
+    async function initWordSearchLabPanel() {
+      const state = await loadState();
+      if (!state.wordSearchLab) state.wordSearchLab = { projects: [] };
+      await saveState(state);
+      onWordSearchModeChange();
+      refreshWordSearchCost();
+      renderSavedWordSearchProjects();
+    }
+
+    function clearWordSearchDraft() {
+      const words = document.getElementById('ws-words');
+      if (words) words.value = '';
+      wordSearchImageData = '';
+      wordSearchGeneratedDraft = null;
+      const preview = document.getElementById('ws-preview-wrap');
+      if (preview) preview.style.display = 'none';
+      const image = document.getElementById('ws-image');
+      if (image) image.value = '';
+      const imageWrap = document.getElementById('ws-image-preview');
+      if (imageWrap) imageWrap.style.display = 'none';
+      buildManualWordSearchGrid(Number(document.getElementById('ws-size')?.value || 12));
+      refreshWordSearchCost();
+    }
+
+    async function renderSavedWordSearchProjects() {
+      const host = document.getElementById('ws-saved-list');
+      if (!host) return;
+      const state = await loadState();
+      const projects = Array.isArray(state.wordSearchLab?.projects) ? state.wordSearchLab.projects : [];
+      if (!projects.length) {
+        host.innerHTML = 'No tienes sopas guardadas. Finaliza una generacion para verla aqui.';
+        return;
+      }
+      host.innerHTML = `
+        <div style="font-size:12px;color:var(--ink-1);margin-bottom:8px;">Ultimas creaciones</div>
+        <div style="display:grid;gap:6px;">
+          ${projects.slice(0, 5).map((p) => `
+            <div style="display:flex;justify-content:space-between;gap:8px;padding:8px;border-radius:8px;background:var(--bg-2);border:1px solid rgba(255,255,255,.1);">
+              <span style="color:var(--ink-0);font-weight:600;">${p.title}</span>
+              <span style="color:var(--ink-1);font-size:11px;">${new Date(p.createdAt).toLocaleString()}</span>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    async function generateWordSearchDraft() {
+      const config = getWordSearchEditorConfig();
+      const previewWrap = document.getElementById('ws-preview-wrap');
+      const wordsHost = document.getElementById('ws-words-list');
+
+      if (!config.words.length) {
+        showAlert('warning', 'Palabras requeridas', 'Agrega al menos una palabra para generar la sopa.');
+        return;
+      }
+
+      let grid;
+      let placedWords = [...config.words];
+      if (config.mode === 'manual') {
+        grid = getManualWordSearchMatrix(config.size);
+        placedWords = config.words.filter((word) => isWordInGrid(grid, word));
+      } else {
+        const generated = generateAutomaticWordSearch(config.size, config.words);
+        grid = generated.grid;
+        placedWords = generated.placedWords;
+      }
+
+      const fee = computeWordSearchGenerationFee(config);
+      wordSearchGeneratedDraft = {
+        title: `Sopa ${new Date().toLocaleDateString()}`,
+        createdAt: Date.now(),
+        config,
+        fee,
+        words: config.words,
+        placedWords,
+        grid,
+        image: wordSearchImageData || ''
+      };
+
+      renderWordSearchPreviewGrid(grid);
+      if (wordsHost) {
+        wordsHost.innerHTML = `
+          <strong>Palabras objetivo:</strong> ${config.words.join(', ')}<br>
+          <strong>Ubicadas:</strong> ${placedWords.length}/${config.words.length}
+        `;
+      }
+      const costEl = document.getElementById('ws-cost');
+      if (costEl) costEl.innerHTML = `Costo final: ${fee.toLocaleString()} <span class="icon-ecoxionum"></span>`;
+      if (previewWrap) previewWrap.style.display = 'block';
+      showAlert('success', 'Borrador generado', 'Vista previa lista. Puedes finalizar la generacion cuando quieras.');
+    }
+
+    async function finalizeWordSearchGeneration() {
+      if (!wordSearchGeneratedDraft) {
+        showAlert('warning', 'Sin borrador', 'Primero genera un borrador de la sopa de letras.');
+        return;
+      }
+
+      const state = await loadState();
+      const fee = Number(wordSearchGeneratedDraft.fee || 0);
+      if ((state.ecoxionums || 0) < fee) {
+        showAlert('error', 'Saldo insuficiente', `Necesitas ${fee} Ecoxionums para finalizar esta generacion.`);
+        return;
+      }
+
+      state.ecoxionums = Math.max(0, (state.ecoxionums || 0) - fee);
+      if (!state.wordSearchLab) state.wordSearchLab = { projects: [] };
+      if (!Array.isArray(state.wordSearchLab.projects)) state.wordSearchLab.projects = [];
+      state.wordSearchLab.projects.unshift({
+        ...wordSearchGeneratedDraft,
+        id: `ws_${Date.now()}`,
+        title: `Sopa ${wordSearchGeneratedDraft.config.template} (${wordSearchGeneratedDraft.config.size}x${wordSearchGeneratedDraft.config.size})`
+      });
+      state.wordSearchLab.projects = state.wordSearchLab.projects.slice(0, 25);
+      await saveState(state);
+      await updateBalance();
+
+      if (state.oceanPayLinked && state.userId) {
+        fetch(`${API_GLOBAL}/ocean-pay/ecoxionums/change`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('opToken') || ''}`
+          },
+          body: JSON.stringify({
+            userId: state.userId,
+            amount: -fee,
+            concepto: 'Finalizacion de sopa de letras personalizada',
+            origen: 'Ecoxion'
+          })
+        }).catch((e) => console.warn('Error sync WordSearchLab:', e));
+      }
+
+      showAlert('success', 'Generacion finalizada', `Tu sopa de letras fue guardada. Se cobraron ${fee} Ecoxionums.`);
+      await renderSavedWordSearchProjects();
+      refreshWordSearchCost();
     }
 
     /* =========================

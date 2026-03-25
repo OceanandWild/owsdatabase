@@ -155,6 +155,9 @@ app.use(cors(corsOptions));
 app.options(/.*/, cors(corsOptions));
 app.use(express.json());
 
+const ENABLE_LEGACY_BALANCE_RESCUE = process.env.OP_LEGACY_BALANCE_RESCUE === '1';
+const USER_WALLET_TABLE = 'ocean_pay_user_balances';
+
 // --- Ocean Pay Authentication ---
 app.post('/ocean-pay/register', async (req, res) => {
   const { username, password } = req.body;
@@ -1681,105 +1684,107 @@ async function runDatabaseMigrations() {
       ADD COLUMN IF NOT EXISTS balances JSONB DEFAULT '{}'
     `).catch(() => console.log('âš ï¸ Columna balances ya existe en ocean_pay_cards'));
 
-    // --- MIGRACIÃ“N DE DATOS REFORZADA (Legacy Metadata + Users Column -> Card Balances) ---
-    console.log('ðŸ”„ Ejecutando migraciÃ³n de saldos Ecoxionums (Fondo de Rescate)...');
-    try {
-      // 1. Migrar desde Metadata
-      await pool.query(`
-        UPDATE ocean_pay_cards opc
-        SET balances = jsonb_set(COALESCE(opc.balances, '{}'::jsonb), '{ecoxionums}', to_jsonb((m.value)::numeric))
-        FROM ocean_pay_metadata m
-        WHERE opc.user_id = m.user_id 
-        AND m.key = 'ecoxionums' 
-        AND opc.is_primary = true
-        AND (opc.balances->>'ecoxionums' IS NULL OR (opc.balances->>'ecoxionums')::numeric = 0)
-        AND m.value ~ '^[0-9.]+$'
-      `);
+    // 2.4 Migraciones legacy de saldos (solo si se habilita explicitamente por entorno)
+    if (ENABLE_LEGACY_BALANCE_RESCUE) {
+      console.log('Ejecutando migracion legacy de saldos Ecoxionums...');
+      try {
+        await pool.query(`
+          UPDATE ocean_pay_cards opc
+          SET balances = jsonb_set(COALESCE(opc.balances, '{}'::jsonb), '{ecoxionums}', to_jsonb((m.value)::numeric))
+          FROM ocean_pay_metadata m
+          WHERE opc.user_id = m.user_id
+            AND m.key = 'ecoxionums'
+            AND opc.is_primary = true
+            AND (opc.balances->>'ecoxionums' IS NULL OR (opc.balances->>'ecoxionums')::numeric = 0)
+            AND m.value ~ '^[0-9.]+$'
+        `);
 
-      // 2. Migrar desde Columna ocean_pay_users (muy importante ya que algunos se guardaban ahÃ­)
-      await pool.query(`
-        UPDATE ocean_pay_cards opc
-        SET balances = jsonb_set(COALESCE(opc.balances, '{}'::jsonb), '{ecoxionums}', to_jsonb(u.ecoxionums))
-        FROM ocean_pay_users u
-        WHERE opc.user_id = u.id 
-        AND opc.is_primary = true
-        AND (opc.balances->>'ecoxionums' IS NULL OR (opc.balances->>'ecoxionums')::numeric = 0)
-        AND u.ecoxionums > 0
-      `);
-      console.log('âœ… MigraciÃ³n de saldos completada.');
-    } catch (migErr) {
-      console.log('âš ï¸ Aviso: Error en migraciÃ³n balance:', migErr.message);
+        await pool.query(`
+          UPDATE ocean_pay_cards opc
+          SET balances = jsonb_set(COALESCE(opc.balances, '{}'::jsonb), '{ecoxionums}', to_jsonb(u.ecoxionums))
+          FROM ocean_pay_users u
+          WHERE opc.user_id = u.id
+            AND opc.is_primary = true
+            AND (opc.balances->>'ecoxionums' IS NULL OR (opc.balances->>'ecoxionums')::numeric = 0)
+            AND u.ecoxionums > 0
+        `);
+      } catch (migErr) {
+        console.log('Aviso: error en migracion legacy de Ecoxionums:', migErr.message);
+      }
+    } else {
+      console.log('Se omiten migraciones legacy de Ecoxionums en arranque (anti-reset).');
     }
 
-    // 2.5. Asegurar 500 VoltBits de cortesÃ­a para Velocity Surge
+    // 2.5. Asegurar 500 VoltBits de cortesia para Velocity Surge
     try {
       await pool.query(`
-        UPDATE ocean_pay_cards 
+        UPDATE ocean_pay_cards
         SET balances = jsonb_set(COALESCE(balances, '{}'::jsonb), '{voltbit}', '500'::jsonb)
-        WHERE is_primary = true 
-        AND (balances->>'voltbit' IS NULL OR (balances->>'voltbit')::numeric = 0)
+        WHERE is_primary = true
+          AND (balances->>'voltbit' IS NULL OR (balances->>'voltbit')::numeric = 0)
       `);
-      console.log('âœ… Balance de VoltBits (500) inicializado para usuarios existentes');
+      console.log('Balance de VoltBits (500) inicializado para usuarios existentes');
     } catch (voltErr) {
-      console.log('âš ï¸ Aviso: Error en inicializaciÃ³n VoltBits:', voltErr.message);
+      console.log('Aviso: error en inicializacion VoltBits:', voltErr.message);
     }
 
-    // 2.6. Asegurar MayhemCoins para WildWeapon Mayhem (inicializar en 0 para usuarios existentes)
+    // 2.6. Asegurar MayhemCoins para WildWeapon Mayhem
     try {
       await pool.query(`
         INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
         SELECT c.id, 'mayhemcoins', 0
         FROM ocean_pay_cards c
         WHERE c.is_primary = true
-        AND NOT EXISTS (
-          SELECT 1 FROM ocean_pay_card_balances 
-          WHERE card_id = c.id AND currency_type = 'mayhemcoins'
-        )
+          AND NOT EXISTS (
+            SELECT 1 FROM ocean_pay_card_balances
+            WHERE card_id = c.id AND currency_type = 'mayhemcoins'
+          )
         ON CONFLICT (card_id, currency_type) DO NOTHING
       `);
-      console.log('âœ… MayhemCoins inicializados para usuarios existentes');
+      console.log('MayhemCoins inicializados para usuarios existentes');
     } catch (mcErr) {
-      console.log('âš ï¸ Aviso: Error en inicializaciÃ³n MayhemCoins:', mcErr.message);
+      console.log('Aviso: error en inicializacion MayhemCoins:', mcErr.message);
     }
 
-    // 2.7. FUSIÃ“N: Migrar saldos de ocean_pay_metadata â†’ ocean_pay_card_balances (Fuente Ãºnica de verdad)
-    console.log('ðŸ”„ Sincronizando saldos de metadata â†’ card_balances...');
-    try {
-      const metaKeys = ['wildcredits', 'wildgems', 'ecobooks', 'amber', 'nxb', 'voltbit', 'appbux', 'ecotokens', 'ecobits'];
-      for (const key of metaKeys) {
+    // 2.7. Fusion metadata -> card_balances (legacy, desactivada por defecto)
+    if (ENABLE_LEGACY_BALANCE_RESCUE) {
+      console.log('Sincronizando saldos de metadata -> card_balances...');
+      try {
+        const metaKeys = ['wildcredits', 'wildgems', 'ecobooks', 'amber', 'nxb', 'voltbit', 'appbux', 'ecotokens', 'ecobits'];
+        for (const key of metaKeys) {
+          await pool.query(`
+            INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
+            SELECT c.id, '${key}', GREATEST(
+              COALESCE((m.value)::numeric, 0),
+              COALESCE((SELECT amount FROM ocean_pay_card_balances WHERE card_id = c.id AND currency_type = '${key}'), 0)
+            )
+            FROM ocean_pay_cards c
+            JOIN ocean_pay_metadata m ON m.user_id = c.user_id AND m.key = '${key}'
+            WHERE c.is_primary = true
+              AND m.value ~ '^[0-9.]+$'
+            ON CONFLICT (card_id, currency_type)
+            DO UPDATE SET amount = GREATEST(ocean_pay_card_balances.amount, EXCLUDED.amount)
+          `).catch(e => console.log(`Migracion ${key}:`, e.message));
+        }
+
         await pool.query(`
-          INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
-          SELECT c.id, '${key}', GREATEST(
-            COALESCE((m.value)::numeric, 0),
-            COALESCE((SELECT amount FROM ocean_pay_card_balances WHERE card_id = c.id AND currency_type = '${key}'), 0)
+          UPDATE ocean_pay_cards opc
+          SET balances = COALESCE(opc.balances, '{}'::jsonb) || (
+            SELECT jsonb_object_agg(cb.currency_type, cb.amount)
+            FROM ocean_pay_card_balances cb
+            WHERE cb.card_id = opc.id
           )
-          FROM ocean_pay_cards c
-          JOIN ocean_pay_metadata m ON m.user_id = c.user_id AND m.key = '${key}'
-          WHERE c.is_primary = true
-          AND m.value ~ '^[0-9.]+$'
-          ON CONFLICT (card_id, currency_type)
-          DO UPDATE SET amount = GREATEST(ocean_pay_card_balances.amount, EXCLUDED.amount)
-        `).catch(e => console.log(`âš ï¸ MigraciÃ³n ${key}:`, e.message));
+          WHERE opc.is_primary = true
+            AND EXISTS (SELECT 1 FROM ocean_pay_card_balances WHERE card_id = opc.id)
+        `).catch(e => console.log('Sync JSONB:', e.message));
+      } catch (fusionErr) {
+        console.log('Aviso: error en fusion metadata -> card_balances:', fusionErr.message);
       }
-
-      // Sincronizar card_balances â†’ JSONB balances en ocean_pay_cards
-      await pool.query(`
-        UPDATE ocean_pay_cards opc
-        SET balances = COALESCE(opc.balances, '{}'::jsonb) || (
-          SELECT jsonb_object_agg(cb.currency_type, cb.amount)
-          FROM ocean_pay_card_balances cb
-          WHERE cb.card_id = opc.id
-        )
-        WHERE opc.is_primary = true
-        AND EXISTS (SELECT 1 FROM ocean_pay_card_balances WHERE card_id = opc.id)
-      `).catch(e => console.log('âš ï¸ Sync JSONB:', e.message));
-
-      console.log('âœ… FusiÃ³n de saldos metadata â†’ card_balances completada');
-    } catch (fusionErr) {
-      console.log('âš ï¸ Aviso: Error en fusiÃ³n de saldos:', fusionErr.message);
+    } else {
+      console.log('Se omite fusion metadata -> card_balances en arranque (anti-reset).');
     }
 
-    // 2.8. UNIFICACIÃ“N DE SUSCRIPCIONES: Migrar DinoPass, NaturePass y WildShorts a ocean_pay_subscriptions
+    // 2.8. UNIFICACION DE SUSCRIPCIONES: Migrar DinoPass, NaturePass y WildShorts a ocean_pay_subscriptions
     console.log('ðŸ”„ Unificando suscripciones en ocean_pay_subscriptions...');
     try {
       // 1. Nature-Pass desde metadata
@@ -1882,32 +1887,34 @@ async function runDatabaseMigrations() {
         DO UPDATE SET amount = EXCLUDED.amount  -- cards.balances is source of truth, no GREATEST
       `);
 
-      // metadata -> ocean_pay_card_balances (deduplicado por card_id/currency_type)
-      await pool.query(`
-        WITH parsed AS (
-          SELECT
-            c.id AS card_id,
-            LOWER(m.key) AS currency_type,
-            GREATEST((m.value)::numeric, 0) AS amount
-          FROM ocean_pay_cards c
-          JOIN ocean_pay_metadata m ON m.user_id = c.user_id
-          WHERE c.is_primary = true
-            AND m.value ~ '^-?[0-9]+(\\.[0-9]+)?$'
-        ),
-        dedup AS (
-          SELECT
-            card_id,
-            currency_type,
-            MAX(amount) AS amount
-          FROM parsed
-          GROUP BY card_id, currency_type
-        )
-        INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
-        SELECT card_id, currency_type, amount
-        FROM dedup
-        ON CONFLICT (card_id, currency_type)
-        DO UPDATE SET amount = GREATEST(ocean_pay_card_balances.amount, EXCLUDED.amount)
-      `);
+      // metadata -> ocean_pay_card_balances (legacy only, disabled by default)
+      if (ENABLE_LEGACY_BALANCE_RESCUE) {
+        await pool.query(`
+          WITH parsed AS (
+            SELECT
+              c.id AS card_id,
+              LOWER(m.key) AS currency_type,
+              GREATEST((m.value)::numeric, 0) AS amount
+            FROM ocean_pay_cards c
+            JOIN ocean_pay_metadata m ON m.user_id = c.user_id
+            WHERE c.is_primary = true
+              AND m.value ~ '^-?[0-9]+(\\.[0-9]+)?$'
+          ),
+          dedup AS (
+            SELECT
+              card_id,
+              currency_type,
+              MAX(amount) AS amount
+            FROM parsed
+            GROUP BY card_id, currency_type
+          )
+          INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
+          SELECT card_id, currency_type, amount
+          FROM dedup
+          ON CONFLICT (card_id, currency_type)
+          DO UPDATE SET amount = GREATEST(ocean_pay_card_balances.amount, EXCLUDED.amount)
+        `);
+      }
 
       // columnas legacy de usuario -> ocean_pay_card_balances: SKIPPED at startup.
       // Reason: ocean_pay_users.aquabux/.appbux/.ecoxionums are legacy columns that may hold
@@ -2408,10 +2415,10 @@ async function runDatabaseMigrations() {
       )
       `);
 
-    // 12. Migrar saldos existentes (AquaBux, Ecoxionums, AppBux, EcoCoreBits) a la tarjeta principal
-    console.log('ðŸ”„ Sincronizando saldos histÃ³ricos con el sistema de tarjetas...');
-
-    await pool.query(`
+        // 12. Migracion legacy de saldos historicos (desactivada por defecto).
+    if (ENABLE_LEGACY_BALANCE_RESCUE) {
+      console.log('Sincronizando saldos historicos con el sistema de tarjetas (legacy)...');
+      await pool.query(`
       INSERT INTO ocean_pay_card_balances(card_id, currency_type, amount)
       SELECT c.id, 'aquabux', u.aquabux
       FROM ocean_pay_cards c JOIN ocean_pay_users u ON c.user_id = u.id WHERE c.is_primary = true
@@ -2436,6 +2443,9 @@ async function runDatabaseMigrations() {
       FROM ocean_pay_cards c WHERE c.is_primary = true
       ON CONFLICT(card_id, currency_type) DO NOTHING;
     `);
+    } else {
+      console.log('Se omite sincronizacion legacy de saldos historicos en arranque.');
+    }
 
     /* 
     // 13. LIMPIEZA DE SALDOS - Resetear todos a 0 (excepto ecopower = 100)
@@ -11577,39 +11587,58 @@ async function ensurePrimaryCardForUser(client, userId, forUpdate = true) {
   return card;
 }
 
-async function getUnifiedCardCurrencyBalance(client, cardId, currency, forUpdate = true) {
-  const curr = String(currency || '').trim().toLowerCase();
-  const lockSql = forUpdate ? 'FOR UPDATE' : '';
-
-  // Source of truth: ocean_pay_cards.balances JSONB
-  const { rows: cardRows } = await client.query(
-    `SELECT balances FROM ocean_pay_cards WHERE id = $1 ${lockSql}`,
+async function getUserIdByCardId(client, cardId) {
+  const { rows } = await client.query(
+    'SELECT user_id FROM ocean_pay_cards WHERE id = $1 LIMIT 1',
     [cardId]
   );
-  const balances = cardRows[0]?.balances || {};
+  return rows[0]?.user_id ? Number(rows[0].user_id) : 0;
+}
 
-  if (balances[curr] !== undefined) {
-    const jsonBalance = Number(balances[curr]);
-    return Number.isFinite(jsonBalance) ? jsonBalance : 0;
-  }
-
-  // Fallback: ocean_pay_card_balances table (secondary store, kept in sync by trigger)
-  const { rows: cbRows } = await client.query(
-    `SELECT amount FROM ocean_pay_card_balances WHERE card_id = $1 AND currency_type = $2 LIMIT 1`,
-    [cardId, curr]
+async function ensureUserWalletRow(client, userId) {
+  await client.query(
+    `INSERT INTO ${USER_WALLET_TABLE} (user_id, balances)
+     VALUES ($1, '{}'::jsonb)
+     ON CONFLICT (user_id) DO NOTHING`,
+    [userId]
   );
-  if (cbRows.length) {
-    const cbBalance = Number(cbRows[0].amount);
-    return Number.isFinite(cbBalance) ? cbBalance : 0;
-  }
+}
 
-  return 0;
+async function getUserWalletBalances(client, userId, forUpdate = false) {
+  await ensureUserWalletRow(client, userId);
+  const lockSql = forUpdate ? 'FOR UPDATE' : '';
+  const { rows } = await client.query(
+    `SELECT balances FROM ${USER_WALLET_TABLE} WHERE user_id = $1 ${lockSql}`,
+    [userId]
+  );
+  return (rows[0]?.balances && typeof rows[0].balances === 'object') ? rows[0].balances : {};
+}
+
+async function getUnifiedCardCurrencyBalance(client, cardId, currency, forUpdate = true) {
+  const curr = String(currency || '').trim().toLowerCase();
+  const userId = await getUserIdByCardId(client, cardId);
+  if (!userId) return 0;
+  const balances = await getUserWalletBalances(client, userId, forUpdate);
+  const amount = Number(balances[curr] || 0);
+  return Number.isFinite(amount) ? amount : 0;
 }
 
 async function setUnifiedCardCurrencyBalance(client, { userId, cardId, currency, newBalance }) {
   const curr = String(currency || '').trim().toLowerCase();
-  const safeBalance = Number(newBalance || 0);
+  const safeBalance = Math.max(0, Number(newBalance || 0));
+  const resolvedUserId = Number(userId || await getUserIdByCardId(client, cardId) || 0);
+  if (!resolvedUserId) return;
 
+  await ensureUserWalletRow(client, resolvedUserId);
+  await client.query(
+    `UPDATE ${USER_WALLET_TABLE}
+     SET balances = jsonb_set(COALESCE(balances, '{}'::jsonb), ARRAY[$1]::text[], to_jsonb($2::numeric), true),
+         updated_at = NOW()
+     WHERE user_id = $3`,
+    [curr, safeBalance, resolvedUserId]
+  );
+
+  // Mirror de compatibilidad para endpoints legacy que siguen leyendo tarjeta.
   await client.query(
     `UPDATE ocean_pay_cards
      SET balances = jsonb_set(
@@ -11620,12 +11649,31 @@ async function setUnifiedCardCurrencyBalance(client, { userId, cardId, currency,
      )
      WHERE id = $3`,
     [curr, safeBalance, cardId]
-  );
+  ).catch(() => {});
+
+  await client.query(
+    `INSERT INTO ocean_pay_card_balances (card_id, currency_type, amount)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (card_id, currency_type) DO UPDATE SET amount = EXCLUDED.amount`,
+    [cardId, curr, safeBalance]
+  ).catch(() => {});
+
+  await client.query(
+    `INSERT INTO user_currency (user_id, currency_type, amount)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (user_id, currency_type) DO UPDATE SET amount = EXCLUDED.amount, updated_at = NOW()`,
+    [resolvedUserId, curr, safeBalance]
+  ).catch(() => {});
 
   if (curr === ECOXION_CURRENCY) {
     await client.query(
       `UPDATE ocean_pay_users SET ecoxionums = $1 WHERE id = $2`,
-      [safeBalance, userId]
+      [safeBalance, resolvedUserId]
+    ).catch(() => {});
+  } else if (curr === 'aquabux' || curr === 'appbux') {
+    await client.query(
+      `UPDATE ocean_pay_users SET ${curr} = $1 WHERE id = $2`,
+      [safeBalance, resolvedUserId]
     );
   }
 }
@@ -19307,6 +19355,38 @@ async function ensureUserCurrencyTable() {
         UNIQUE(user_id, currency_type) 
       );
     `);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS ocean_pay_user_balances (
+        user_id INT PRIMARY KEY REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
+        balances JSONB NOT NULL DEFAULT '{}'::jsonb,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    await client.query(`
+      INSERT INTO ocean_pay_user_balances (user_id, balances)
+      SELECT uc.user_id, jsonb_object_agg(LOWER(uc.currency_type), GREATEST(COALESCE(uc.amount, 0), 0))
+      FROM user_currency uc
+      GROUP BY uc.user_id
+      ON CONFLICT (user_id) DO NOTHING
+    `).catch(() => {});
+
+    await client.query(`
+      INSERT INTO ocean_pay_user_balances (user_id, balances)
+      SELECT c.user_id,
+             COALESCE(
+               jsonb_object_agg(LOWER(cb.currency_type), GREATEST(COALESCE(cb.amount, 0), 0))
+               FILTER (WHERE cb.currency_type IS NOT NULL),
+               '{}'::jsonb
+             ) AS balances
+      FROM ocean_pay_cards c
+      LEFT JOIN ocean_pay_card_balances cb ON cb.card_id = c.id
+      WHERE c.is_primary = true
+      GROUP BY c.user_id
+      ON CONFLICT (user_id) DO NOTHING
+    `).catch(() => {});
+
     client.release();
     console.log("Tabla 'user_currency' asegurada y lista para nadar.");
 
@@ -20454,26 +20534,79 @@ const OP_ALL_CURRENCIES = ['aquabux', 'appbux', 'ecoxionums', 'wildcredits', 'wi
 
 // Leer saldo unificado de un usuario para una moneda
 async function getUnifiedBalance(client, userId, currency) {
-  const { rows } = await client.query(
-    `SELECT amount FROM user_currency WHERE user_id = $1 AND currency_type = $2`,
-    [userId, currency]
-  );
-  return rows.length ? Number(rows[0].amount) : 0;
+  const curr = String(currency || '').trim().toLowerCase();
+  const balances = await getUserWalletBalances(client, userId, false);
+  const amount = Number(balances[curr] || 0);
+  return Number.isFinite(amount) ? amount : 0;
 }
 
 // Escribir saldo unificado (upsert)
 async function setUnifiedBalance(client, userId, currency, amount) {
+  const curr = String(currency || '').trim().toLowerCase();
+  const safeAmount = Math.max(0, Number(amount) || 0);
+  await ensureUserWalletRow(client, userId);
+  await client.query(
+    `UPDATE ${USER_WALLET_TABLE}
+     SET balances = jsonb_set(COALESCE(balances, '{}'::jsonb), ARRAY[$1]::text[], to_jsonb($2::numeric), true),
+         updated_at = NOW()
+     WHERE user_id = $3`,
+    [curr, safeAmount, userId]
+  );
+
+  // Compatibilidad temporal: mantener user_currency en espejo.
   await client.query(
     `INSERT INTO user_currency (user_id, currency_type, amount)
      VALUES ($1, $2, $3)
-     ON CONFLICT (user_id, currency_type)
-     DO UPDATE SET amount = $3, updated_at = NOW()`,
-    [userId, currency, Math.max(0, Number(amount) || 0)]
-  );
+     ON CONFLICT (user_id, currency_type) DO UPDATE SET amount = EXCLUDED.amount, updated_at = NOW()`,
+    [userId, curr, safeAmount]
+  ).catch(() => {});
+
+  // Reflejar también tarjeta principal para endpoints legacy.
+  const card = await getPrimaryCardForUser(client, userId, true);
+  if (card?.id) {
+    await setUnifiedCardCurrencyBalance(client, {
+      userId,
+      cardId: Number(card.id),
+      currency: curr,
+      newBalance: safeAmount
+    });
+  }
+}
+
+async function getUnifiedBalancesMap(client, userId, forUpdate = false) {
+  const balances = await getUserWalletBalances(client, userId, forUpdate);
+  const normalized = {};
+  for (const c of OP_ALL_CURRENCIES) {
+    normalized[c] = Number(balances[c] || 0);
+  }
+  for (const [key, val] of Object.entries(balances)) {
+    if (!(key in normalized)) normalized[key] = Number(val || 0);
+  }
+  return normalized;
+}
+
+async function ensureWalletBackfillFromUserCurrency(client) {
+  await client.query(`
+    INSERT INTO ${USER_WALLET_TABLE} (user_id, balances)
+    SELECT uc.user_id, jsonb_object_agg(LOWER(uc.currency_type), GREATEST(COALESCE(uc.amount, 0), 0))
+    FROM user_currency uc
+    GROUP BY uc.user_id
+    ON CONFLICT (user_id) DO NOTHING
+  `).catch(() => {});
+}
+
+async function ensureWalletRowForUser(client, userId) {
+  await ensureUserWalletRow(client, userId);
+  await ensureWalletBackfillFromUserCurrency(client);
+}
+
+async function getAllUnifiedBalances(client, userId) {
+  await ensureWalletRowForUser(client, userId);
+  return getUnifiedBalancesMap(client, userId, false);
 }
 
 // Leer TODOS los saldos de un usuario como objeto { currency: amount }
-async function getAllUnifiedBalances(client, userId) {
+async function getAllUnifiedBalancesLegacy(client, userId) {
   const { rows } = await client.query(
     `SELECT currency_type, amount FROM user_currency WHERE user_id = $1`,
     [userId]
@@ -20558,14 +20691,22 @@ app.post('/ocean-pay/admin/migrate-currencies', async (req, res) => {
         }
       }
 
-      // Escribir todo en user_currency
+      // Escribir todo en wallet unificada (una fila por usuario) + espejo legacy.
+      await client.query(
+        `INSERT INTO ${USER_WALLET_TABLE} (user_id, balances, updated_at)
+         VALUES ($1, $2::jsonb, NOW())
+         ON CONFLICT (user_id) DO UPDATE
+         SET balances = EXCLUDED.balances,
+             updated_at = NOW()`,
+        [uid, JSON.stringify(consolidated)]
+      );
+
       for (const [currency, amount] of Object.entries(consolidated)) {
         await client.query(
           `INSERT INTO user_currency (user_id, currency_type, amount)
            VALUES ($1, $2, $3)
            ON CONFLICT (user_id, currency_type)
-           DO UPDATE SET amount = GREATEST(user_currency.amount, EXCLUDED.amount),
-                         updated_at = NOW()`,
+           DO UPDATE SET amount = EXCLUDED.amount, updated_at = NOW()`,
           [uid, currency, amount]
         );
         totalRows++;

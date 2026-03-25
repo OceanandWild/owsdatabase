@@ -111,6 +111,18 @@ function Test-StatusHealthy($statusData) {
   return $true
 }
 
+function Read-Field($obj, [string]$key, $defaultValue = $null) {
+  if (-not $obj) { return $defaultValue }
+  if ($obj -is [System.Collections.IDictionary]) {
+    if ($obj.Contains($key)) { return $obj[$key] }
+    return $defaultValue
+  }
+  if ($obj.PSObject -and $obj.PSObject.Properties[$key]) {
+    return $obj.$key
+  }
+  return $defaultValue
+}
+
 try {
   Write-Step "Validando repositorio git..."
   $inside = Invoke-Git "rev-parse --is-inside-work-tree"
@@ -154,9 +166,10 @@ try {
 
     if ($renderInfo -and $renderInfo.Ok -and $renderInfo.Data) {
       $r = $renderInfo.Data
-      $deployStatus = if ($r.PSObject.Properties['status']) { $r.status } else { 'unknown' }
-      $commitId = if ($r.PSObject.Properties['commit'] -and $r.commit -and $r.commit.id) { $r.commit.id } else { '-' }
-      $createdAt = if ($r.PSObject.Properties['createdAt']) { $r.createdAt } else { '-' }
+      $deployStatus = Read-Field $r 'status' 'unknown'
+      $commit = Read-Field $r 'commit' $null
+      $commitId = Read-Field $commit 'id' '-'
+      $createdAt = Read-Field $r 'createdAt' '-'
       $lastRenderState = "status=$deployStatus commit=$commitId createdAt=$createdAt"
       Write-Step ("Render deploy: " + $lastRenderState)
       if ($deployStatus -match "failed|canceled|cancelled") {

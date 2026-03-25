@@ -157,6 +157,12 @@ app.use(express.json());
 
 const ENABLE_LEGACY_BALANCE_RESCUE = process.env.OP_LEGACY_BALANCE_RESCUE === '1';
 const USER_WALLET_TABLE = 'ocean_pay_user_balances';
+const UNIFIED_WALLET_CURRENCIES = [
+  'aquabux', 'appbux', 'ecoxionums', 'wildcredits', 'wildgems', 'ecobooks',
+  'amber', 'nxb', 'voltbit', 'ecotokens', 'ecobits', 'mayhemcoins',
+  'cosmicdust', 'ecopower', 'coralbits', 'tigrys', 'wildwavetokens',
+  'relayshards', 'ecocorebits'
+];
 
 // --- Ocean Pay Authentication ---
 app.post('/ocean-pay/register', async (req, res) => {
@@ -7724,10 +7730,13 @@ app.get('/ocean-pay/me', async (req, res) => {
       [userId]
     );
 
+    const walletBalances = await getAllUnifiedBalances(pool, userId);
+
     const cards = cardsRes.rows.map((row) => {
       const tableMap = (row.balance_map && typeof row.balance_map === 'object') ? row.balance_map : {};
       const jsonMap = (row.balances && typeof row.balances === 'object') ? row.balances : {};
-      const balances = mergeBalanceMaps(tableMap, jsonMap);
+      // La wallet unificada manda sobre fuentes legacy para evitar lecturas desfasadas.
+      const balances = { ...tableMap, ...jsonMap, ...walletBalances };
       return {
         ...row,
         balances
@@ -7737,11 +7746,10 @@ app.get('/ocean-pay/me', async (req, res) => {
     const primaryCard = cards.find((c) => c.is_primary) || cards[0] || null;
     const primaryBalances = primaryCard?.balances || {};
 
-    const mergedUserBalances = mergeBalanceMaps(primaryBalances, {
-      aquabux: user.aquabux,
-      ecoxionums: user.ecoxionums,
-      appbux: user.appbux
-    });
+    const mergedUserBalances = {
+      ...primaryBalances,
+      ...walletBalances
+    };
 
     return res.json({
       success: true,
@@ -19387,6 +19395,95 @@ async function ensureUserCurrencyTable() {
       ON CONFLICT (user_id) DO NOTHING
     `).catch(() => {});
 
+    // Backfill seguro (solo claves faltantes) para evitar reescrituras que restauren saldos gastados.
+    // Fuente prioritaria final:
+    //   1) wallet actual (si ya existe una clave, NO se toca)
+    //   2) user_currency
+    //   3) suma de ocean_pay_card_balances por usuario
+    //   4) columnas legacy directas (aquabux/appbux/ecoxionums)
+    const { rows: users } = await client.query(
+      'SELECT id, aquabux, appbux, ecoxionums FROM ocean_pay_users'
+    );
+
+    for (const user of users) {
+      const userId = Number(user.id);
+      if (!userId) continue;
+
+      await ensureUserWalletRow(client, userId);
+
+      const { rows: walletRows } = await client.query(
+        `SELECT balances FROM ${USER_WALLET_TABLE} WHERE user_id = $1 LIMIT 1`,
+        [userId]
+      );
+      const currentWallet = (walletRows[0]?.balances && typeof walletRows[0].balances === 'object')
+        ? walletRows[0].balances
+        : {};
+
+      const { rows: ucRows } = await client.query(
+        `SELECT LOWER(currency_type) AS currency, amount
+         FROM user_currency
+         WHERE user_id = $1`,
+        [userId]
+      );
+      const userCurrencyMap = {};
+      for (const row of ucRows) {
+        const key = String(row.currency || '').toLowerCase();
+        if (!key) continue;
+        userCurrencyMap[key] = Math.max(0, Number(row.amount || 0));
+      }
+
+      const { rows: cardRows } = await client.query(
+        `SELECT LOWER(b.currency_type) AS currency, SUM(b.amount) AS total
+         FROM ocean_pay_card_balances b
+         JOIN ocean_pay_cards c ON c.id = b.card_id
+         WHERE c.user_id = $1
+         GROUP BY LOWER(b.currency_type)`,
+        [userId]
+      );
+      const cardMap = {};
+      for (const row of cardRows) {
+        const key = String(row.currency || '').toLowerCase();
+        if (!key) continue;
+        cardMap[key] = Math.max(0, Number(row.total || 0));
+      }
+
+      const directMap = {
+        aquabux: Math.max(0, Number(user.aquabux || 0)),
+        appbux: Math.max(0, Number(user.appbux || 0)),
+        ecoxionums: Math.max(0, Number(user.ecoxionums || 0))
+      };
+
+      const sourceMap = { ...directMap, ...cardMap, ...userCurrencyMap };
+      const nextWallet = { ...(currentWallet || {}) };
+      let changed = false;
+
+      // Backfill de divisas conocidas sin tocar valores ya existentes.
+      for (const currency of UNIFIED_WALLET_CURRENCIES) {
+        if (nextWallet[currency] === undefined || nextWallet[currency] === null) {
+          nextWallet[currency] = Math.max(0, Number(sourceMap[currency] || 0));
+          changed = true;
+        }
+      }
+
+      // Backfill de cualquier divisa extra que exista en tablas legacy.
+      for (const [currency, value] of Object.entries(sourceMap)) {
+        if (nextWallet[currency] === undefined || nextWallet[currency] === null) {
+          nextWallet[currency] = Math.max(0, Number(value || 0));
+          changed = true;
+        }
+      }
+
+      if (changed) {
+        await client.query(
+          `UPDATE ${USER_WALLET_TABLE}
+           SET balances = $1::jsonb,
+               updated_at = NOW()
+           WHERE user_id = $2`,
+          [JSON.stringify(nextWallet), userId]
+        );
+      }
+    }
+
     client.release();
     console.log("Tabla 'user_currency' asegurada y lista para nadar.");
 
@@ -20327,7 +20424,7 @@ app.get('/ocean-pay/user-info', async (req, res) => {
 });
 
 /* =================================
-   NATUREPEDIA: ECOBOOKS API (CARD-BASED)
+   NATUREPEDIA: ECOBOOKS API (UNIFIED WALLET)
    ================================= */
 app.get('/ocean-pay/ecobooks/balance', async (req, res) => {
   try {
@@ -20340,20 +20437,37 @@ app.get('/ocean-pay/ecobooks/balance', async (req, res) => {
     const { cardId } = req.query;
 
     if (cardId) {
-      const { rows } = await pool.query(
-        "SELECT amount FROM ocean_pay_card_balances WHERE card_id = $1 AND currency_type = 'ecobooks'",
-        [cardId]
-      );
-      return res.json({ balance: parseFloat(rows[0]?.amount || '0') });
-    } else {
-      const { rows } = await pool.query(`
-        SELECT c.id, c.card_number, c.card_name, c.is_primary, 
-               COALESCE(b.amount, 0) as balance
+      const client = await pool.connect();
+      try {
+        const { rows: ownershipRows } = await client.query(
+          'SELECT id FROM ocean_pay_cards WHERE id = $1 AND user_id = $2 LIMIT 1',
+          [cardId, userId]
+        );
+        if (!ownershipRows.length) return res.status(403).json({ error: 'Tarjeta no valida' });
+        const balance = await getUnifiedCardCurrencyBalance(client, Number(cardId), 'ecobooks', false);
+        return res.json({ balance });
+      } finally {
+        client.release();
+      }
+    }
+
+    const client = await pool.connect();
+    try {
+      const { rows } = await client.query(`
+        SELECT c.id, c.card_number, c.card_name, c.is_primary
         FROM ocean_pay_cards c
-        LEFT JOIN ocean_pay_card_balances b ON c.id = b.card_id AND b.currency_type = 'ecobooks'
         WHERE c.user_id = $1 AND c.is_active = true
+        ORDER BY c.is_primary DESC, c.id ASC
       `, [userId]);
-      res.json({ cards: rows });
+
+      const unifiedBalance = await getUnifiedBalance(client, Number(userId), 'ecobooks');
+      const cards = rows.map((card) => ({
+        ...card,
+        balance: unifiedBalance
+      }));
+      return res.json({ cards, unified: true });
+    } finally {
+      client.release();
     }
   } catch (e) {
     console.error(e);
@@ -20385,11 +20499,7 @@ app.post(['/ocean-pay/ecobooks/change', '/naturepedia/ecobooks/change'], async (
         return res.status(403).json({ error: 'Tarjeta no vÃƒÂ¡lida' });
       }
 
-      const { rows } = await client.query(
-        "SELECT amount FROM ocean_pay_card_balances WHERE card_id = $1 AND currency_type = 'ecobooks' FOR UPDATE",
-        [cardId]
-      );
-      const current = parseFloat(rows[0]?.amount || '0');
+      const current = await getUnifiedCardCurrencyBalance(client, Number(cardId), 'ecobooks', true);
       const newBal = current + change;
 
       if (newBal < 0) {
@@ -20397,12 +20507,12 @@ app.post(['/ocean-pay/ecobooks/change', '/naturepedia/ecobooks/change'], async (
         return res.status(400).json({ error: 'Saldo insuficiente' });
       }
 
-      await client.query(
-        `INSERT INTO ocean_pay_card_balances(card_id, currency_type, amount)
-         VALUES($1, 'ecobooks', $2)
-         ON CONFLICT(card_id, currency_type) DO UPDATE SET amount = $2`,
-        [cardId, newBal]
-      );
+      await setUnifiedCardCurrencyBalance(client, {
+        userId: Number(userId),
+        cardId: Number(cardId),
+        currency: 'ecobooks',
+        newBalance: newBal
+      });
 
       await client.query(
         `INSERT INTO ocean_pay_txs(user_id, concepto, monto, origen, moneda)
@@ -20530,7 +20640,7 @@ app.post('/ocean-pay/notifications/read/:id', async (req, res) => {
 // La tabla user_currency ya existia para ecocorebits; la extendemos para todo.
 // ══════════════════════════════════════════════════════════════════════════════
 
-const OP_ALL_CURRENCIES = ['aquabux', 'appbux', 'ecoxionums', 'wildcredits', 'wildgems', 'ecobooks', 'amber', 'nxb', 'voltbit', 'ecotokens', 'ecobits', 'mayhemcoins', 'cosmicdust', 'ecopower', 'coralbits', 'tigrys', 'wildwavetokens', 'relayshards', 'ecocorebits'];
+const OP_ALL_CURRENCIES = UNIFIED_WALLET_CURRENCIES;
 
 // Leer saldo unificado de un usuario para una moneda
 async function getUnifiedBalance(client, userId, currency) {
@@ -20673,35 +20783,60 @@ app.post('/ocean-pay/admin/migrate-currencies', async (req, res) => {
       );
       const existingUC = {};
       for (const row of ucRows) {
-        existingUC[row.currency_type] = Number(row.amount || 0);
+        const key = String(row.currency_type || '').toLowerCase();
+        if (!key) continue;
+        existingUC[key] = Number(row.amount || 0);
       }
 
-      // Consolidar: tomar el MAYOR valor entre todas las fuentes (nunca perder saldo)
-      const consolidated = {};
+      // Snapshot wallet actual (fuente unificada principal)
+      const { rows: walletRows } = await client.query(
+        `SELECT balances FROM ${USER_WALLET_TABLE} WHERE user_id = $1 LIMIT 1`,
+        [uid]
+      );
+      const currentWallet = (walletRows[0]?.balances && typeof walletRows[0].balances === 'object')
+        ? walletRows[0].balances
+        : {};
+
+      // Consolidado legacy para completar faltantes, sin pisar wallet existente.
+      const legacyConsolidated = {};
       for (const currency of OP_ALL_CURRENCIES) {
         const a = directBalances[currency]  || 0;
         const b = cardBalances[currency]    || 0;
         const c = existingUC[currency]      || 0;
-        consolidated[currency] = Math.max(a, b, c);
+        legacyConsolidated[currency] = Math.max(a, b, c);
       }
       // Incluir cualquier moneda extra que exista en card_balances pero no en la lista
       for (const [currency, amount] of Object.entries(cardBalances)) {
-        if (!(currency in consolidated)) {
-          consolidated[currency] = Math.max(amount, existingUC[currency] || 0);
+        if (!(currency in legacyConsolidated)) {
+          legacyConsolidated[currency] = Math.max(amount, existingUC[currency] || 0);
         }
       }
 
-      // Escribir todo en wallet unificada (una fila por usuario) + espejo legacy.
+      const nextWallet = { ...currentWallet };
+      for (const [currency, amount] of Object.entries(legacyConsolidated)) {
+        const key = String(currency || '').toLowerCase();
+        if (!key) continue;
+        if (nextWallet[key] === undefined || nextWallet[key] === null) {
+          nextWallet[key] = Math.max(0, Number(amount || 0));
+        }
+      }
+      for (const currency of OP_ALL_CURRENCIES) {
+        if (nextWallet[currency] === undefined || nextWallet[currency] === null) {
+          nextWallet[currency] = 0;
+        }
+      }
+
+      // Escribir wallet unificada (sin rescatar valores legacy sobre claves ya existentes).
       await client.query(
         `INSERT INTO ${USER_WALLET_TABLE} (user_id, balances, updated_at)
          VALUES ($1, $2::jsonb, NOW())
          ON CONFLICT (user_id) DO UPDATE
          SET balances = EXCLUDED.balances,
              updated_at = NOW()`,
-        [uid, JSON.stringify(consolidated)]
+        [uid, JSON.stringify(nextWallet)]
       );
 
-      for (const [currency, amount] of Object.entries(consolidated)) {
+      for (const [currency, amount] of Object.entries(nextWallet)) {
         await client.query(
           `INSERT INTO user_currency (user_id, currency_type, amount)
            VALUES ($1, $2, $3)
@@ -20712,7 +20847,7 @@ app.post('/ocean-pay/admin/migrate-currencies', async (req, res) => {
         totalRows++;
       }
 
-      log.push({ userId: uid, currencies: Object.keys(consolidated).length });
+      log.push({ userId: uid, currencies: Object.keys(nextWallet).length });
       migratedUsers++;
     }
 

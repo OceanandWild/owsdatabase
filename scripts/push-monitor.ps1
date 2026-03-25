@@ -87,6 +87,8 @@ function Get-RenderDeployInfo([string]$ServiceId, [string]$ApiKey) {
   $item = $null
   if ($res.Data -is [System.Array]) {
     if ($res.Data.Count -gt 0) { $item = $res.Data[0] }
+  } elseif ($res.Data.deploy) {
+    $item = $res.Data.deploy
   } elseif ($res.Data.deploys -and $res.Data.deploys.Count -gt 0) {
     $item = $res.Data.deploys[0]
   } else {

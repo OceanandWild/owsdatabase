@@ -4693,93 +4693,290 @@
       return String(rawName || 'Plan');
     }
     async function renderSubscriptions() {
-      const container = qs('#subs-container');
-      const loadingHtml = '<p style="color: #64748b; text-align: center; grid-column: 1/-1;">Cargando...</p>';
-      if (container) container.innerHTML = loadingHtml;
+      const legacyContainer = qs('#subs-container');
+      const walletSection = document.getElementById('wallet-section');
+      let heroMount = document.getElementById('subs-hero-slider');
+      let unavailableMount = document.getElementById('subs-unavailable-panel');
+
+      if (!heroMount && walletSection) {
+        heroMount = document.createElement('div');
+        heroMount.id = 'subs-hero-slider';
+        heroMount.className = 'subs-hero-slider';
+        const hero = walletSection.querySelector('.wallet-hero');
+        if (hero && hero.parentNode) hero.parentNode.insertBefore(heroMount, hero.nextSibling);
+        else walletSection.prepend(heroMount);
+      }
+      if (!unavailableMount && walletSection) {
+        unavailableMount = document.createElement('section');
+        unavailableMount.id = 'subs-unavailable-panel';
+        unavailableMount.className = 'subs-unavailable-panel';
+        if (heroMount && heroMount.parentNode) heroMount.parentNode.insertBefore(unavailableMount, heroMount.nextSibling);
+        else walletSection.appendChild(unavailableMount);
+      }
+
+      if (legacyContainer) {
+        const legacySection =
+          legacyContainer.closest('div[style*="margin-top: 4rem"]') ||
+          legacyContainer.closest('section') ||
+          legacyContainer.parentElement;
+        if (legacySection && legacySection !== walletSection) {
+          legacySection.remove();
+        } else {
+          legacyContainer.style.display = 'none';
+        }
+      }
+      if (heroMount) heroMount.innerHTML = `<div class="subs-carousel-empty">Cargando suscripciones activas...</div>`;
+      if (unavailableMount) unavailableMount.innerHTML = `<div class="subs-unavailable-empty">Analizando historial de suscripciones...</div>`;
+
+      const catalog = [
+        { key: 'nature_pass', name: 'Nature-Pass', pid: 'Naturepedia', icon: 'fas fa-leaf', themeClass: 'sub-nature-pass' },
+        { key: 'dinobox_premium', name: 'DinoPass Premium', pid: 'DinoBox', icon: 'fas fa-dragon', themeClass: 'sub-dinopass-premium' },
+        { key: 'dinobox_elite', name: 'DinoPass Elite', pid: 'DinoBox', icon: 'fas fa-crown', themeClass: 'sub-dinopass-elite' },
+        { key: 'wildshorts_vip', name: 'Premium VIP', pid: 'WildShorts', icon: 'fas fa-crown', themeClass: 'sub-wildshorts-premium' },
+        { key: 'wildtransfer_relay', name: 'Relay', pid: 'WildTransfer', icon: 'fas fa-paper-plane', themeClass: 'sub-wildtransfer-relay' },
+        { key: 'ecoxion_pass', name: 'Ecoxion Pass', pid: 'Ecoxion', icon: 'fas fa-atom', themeClass: 'sub-ecoxion-premium' }
+      ];
+
+      const detectCatalogKey = (s) => {
+        const rawName = String(s.plan_name || s.sub_name || '').toLowerCase();
+        const pid = String(s.project_id || '').toLowerCase();
+        if (rawName.includes('nature-pass') || pid.includes('naturepedia')) return 'nature_pass';
+        if (rawName.includes('dinopass elite')) return 'dinobox_elite';
+        if (rawName.includes('dinopass premium')) return 'dinobox_premium';
+        if (rawName.includes('premium vip') || pid.includes('wildshorts')) return 'wildshorts_vip';
+        if (pid.includes('wildtransfer') || rawName.includes('relay')) return 'wildtransfer_relay';
+        if (pid.includes('ecoxion') || rawName.includes('ecoxion')) return 'ecoxion_pass';
+        return null;
+      };
+
+      const getLatestByDate = (arr) => {
+        if (!Array.isArray(arr) || !arr.length) return null;
+        return [...arr].sort((a, b) => {
+          const da = new Date(a.updated_at || a.end_date || a.next_payment || a.created_at || 0).getTime();
+          const db = new Date(b.updated_at || b.end_date || b.next_payment || b.created_at || 0).getTime();
+          return db - da;
+        })[0];
+      };
+
+      const explainInactive = (sub) => {
+        if (!sub) return { badge: 'Nunca activada', reason: 'Todavia no registras una suscripcion para este plan.' };
+        const status = String(sub.status || '').toLowerCase();
+        const reasonRaw = String(sub.cancel_reason || sub.cancellation_reason || sub.reason || '').toLowerCase();
+        if (status === 'cancelled' || status === 'canceled') {
+          if (reasonRaw.includes('saldo') || reasonRaw.includes('insuf')) {
+            return { badge: 'Cancelada', reason: 'Se cancelo por saldo insuficiente en una renovacion.' };
+          }
+          return { badge: 'Cancelada', reason: 'Se cancelo por decision del sistema o del usuario.' };
+        }
+        if (status === 'expired') return { badge: 'Expirada', reason: 'El periodo termino y requiere una nueva activacion.' };
+        if (status === 'suspended' || status === 'paused') return { badge: 'Pausada', reason: 'Se encuentra pausada hasta regularizar su estado.' };
+        if (sub.is_active === false) return { badge: 'Inactiva', reason: 'Actualmente no esta activa para esta cuenta.' };
+        return { badge: 'Inactiva', reason: 'No esta activa en este momento.' };
+      };
 
       try {
         const res = await apiFetch(`${API}/ocean-pay/subscriptions/me`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (!res.ok) throw new Error('Error HTTP: ' + res.status);
-        const subs = await res.json();
-        const activeSubs = (Array.isArray(subs) ? subs : []).filter((s) => {
-          const status = String(s.status || 'active').toLowerCase();
-          if (status !== 'active') return false;
-          if (s.is_active === false) return false;
-          return true;
-        });
 
-        if (!activeSubs.length) {
-          container.innerHTML = ` <div
-                      style="background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.1); padding: 2rem; border-radius: 1rem; text-align: center; color: #64748b; grid-column: 1/-1;"> No hay suscripciones activas vinculadas </div>`;
-          return;
-        }
+        const subsPayload = await res.json();
+        const normalizedSubs = Array.isArray(subsPayload) ? subsPayload : [];
 
-        container.innerHTML = activeSubs
-          .filter((s, index, self) => {
+        const activeSubs = normalizedSubs
+          .filter((s) => {
+            const status = String(s.status || 'active').toLowerCase();
+            if (status !== 'active') return false;
+            if (s.is_active === false) return false;
+            return true;
+          })
+          .filter((s, _, self) => {
             const name = s.plan_name || s.sub_name || '';
-            // Si es DinoPass Premium, ocultarlo si ya existe DinoPass Elite activado
             if (name.includes('DinoPass Premium')) {
-              const hasElite = self.some(sub => (sub.plan_name || sub.sub_name || '').includes('DinoPass Elite')
-                && sub.project_id === s.project_id);
+              const hasElite = self.some((sub) => (sub.plan_name || sub.sub_name || '').includes('DinoPass Elite') && sub.project_id === s.project_id);
               if (hasElite) return false;
             }
             return true;
-          })
-          .map(s => {
+          });
+
+        const historyByCatalog = {};
+        for (const s of normalizedSubs) {
+          const key = detectCatalogKey(s);
+          if (!key) continue;
+          if (!historyByCatalog[key]) historyByCatalog[key] = [];
+          historyByCatalog[key].push(s);
+        }
+
+        const activeCatalogKeys = new Set(activeSubs.map((s) => detectCatalogKey(s)).filter(Boolean));
+
+        // Reglas por tier: si Elite esta activa, Premium no se muestra como faltante.
+        const hiddenByTier = new Set();
+        if (activeCatalogKeys.has('dinobox_elite')) hiddenByTier.add('dinobox_premium');
+
+        const unavailableItems = catalog
+          .filter((item) => !activeCatalogKeys.has(item.key))
+          .filter((item) => !hiddenByTier.has(item.key))
+          .map((item) => {
+            const latest = getLatestByDate(historyByCatalog[item.key] || []);
+            const info = explainInactive(latest);
+            return {
+              ...item,
+              badge: info.badge,
+              reason: info.reason
+            };
+          });
+
+        if (!activeSubs.length) {
+          if (heroMount) heroMount.innerHTML = `<div class="subs-carousel-empty">No hay suscripciones activas vinculadas.</div>`;
+        } else {
+          const phraseByProject = {
+            ecoxion: 'Energia premium en cada decision de tu ecosistema.',
+            naturepedia: 'Tu acceso total al conocimiento vivo esta activo.',
+            dinobox: 'Potencia prehistorica habilitada para tus expediciones.',
+            wildshorts: 'Tu pase creativo sigue desbloqueando contenido exclusivo.',
+            wildtransfer: 'Relay activo: transferencias sin friccion y con impulso.'
+          };
+
+          const items = activeSubs.map((s) => {
             const rawName = s.plan_name || s.sub_name || 'Plan';
             const rawPlanId = s.plan_id || s.plan || '';
             const expiry = s.end_date || s.next_payment;
-            const pid = s.project_id || (rawName.includes('Nature') ? 'Naturepedia' : (rawName.includes('Dino') ?
-              'DinoBox' : (rawName.includes('VIP') ? 'WildShorts' : 'Desconocido')));
-            const isEcoxionSub = (String(pid || '').toLowerCase().includes('ecoxion')
-              || String(rawName || '').toLowerCase().includes('ecoxion'));
-            const name = isEcoxionSub
-              ? mapEcoxionPlanVisualName(rawName, rawPlanId)
-              : rawName;
-
-            let themeClass = '';
-            let icon = 'fas fa-bolt';
-            if (rawName === 'Nature-Pass') { themeClass = 'sub-nature-pass'; icon = 'fas fa-leaf'; }
-            else if (rawName.includes('DinoPass Premium')) { themeClass = 'sub-dinopass-premium'; icon = 'fas fa-dragon'; }
-            else if (rawName.includes('DinoPass Elite')) { themeClass = 'sub-dinopass-elite'; icon = 'fas fa-crown'; }
-            else if (rawName.includes('Premium VIP')) { themeClass = 'sub-wildshorts-premium'; icon = 'fas fa-crown'; }
-            else if ((rawName || '').toLowerCase().includes('wildtransfer') || (pid || '').toLowerCase().includes('wildtransfer')) {
-              themeClass = 'sub-wildtransfer-relay';
-              icon = 'fas fa-paper-plane';
-            } else if ((pid || '').toLowerCase().includes('ecoxion') || (rawName || '').toLowerCase().includes('ecoxion')) {
-              themeClass = 'sub-ecoxion-premium';
-              icon = 'fas fa-atom';
-            }
-
-            const nextDate = expiry ? new Date(expiry).toLocaleDateString() : 'N/A';
+            const pid = s.project_id || (rawName.includes('Nature') ? 'Naturepedia' : (rawName.includes('Dino') ? 'DinoBox' : (rawName.includes('VIP') ? 'WildShorts' : 'Desconocido')));
+            const pidKey = String(pid || '').toLowerCase();
+            const isEcoxionSub = pidKey.includes('ecoxion') || String(rawName || '').toLowerCase().includes('ecoxion');
+            const name = isEcoxionSub ? mapEcoxionPlanVisualName(rawName, rawPlanId) : rawName;
             const renewAt = s.renew_at || s.next_payment || s.end_date || null;
             const renewDate = renewAt ? new Date(renewAt).toLocaleDateString() : 'N/A';
-            const statusLabel = (String(s.status || 'active').toLowerCase() === 'active' && s.is_active !== false)
-              ? 'Activa'
-              : 'Inactiva';
+            const nextDate = expiry ? new Date(expiry).toLocaleDateString() : 'N/A';
+            const statusLabel = (String(s.status || 'active').toLowerCase() === 'active' && s.is_active !== false) ? 'Activa' : 'Inactiva';
 
-            // Formatear duraci贸n: 30 d铆as -> 1 Mes, o duraci贸n de temporada
-            let durationLabel = `${s.interval_days || 7} d铆as`;
-            if (rawName.includes('DinoPass')) {
-              if (s.interval_days === 30) durationLabel = '1 Mes';
-              else durationLabel = `Temporada (${s.interval_days || 30} d铆as)`;
+            let icon = 'fas fa-bolt';
+            let themeClass = '';
+            if (rawName === 'Nature-Pass') { icon = 'fas fa-leaf'; themeClass = 'sub-nature-pass'; }
+            else if (rawName.includes('DinoPass Premium')) { icon = 'fas fa-dragon'; themeClass = 'sub-dinopass-premium'; }
+            else if (rawName.includes('DinoPass Elite')) { icon = 'fas fa-crown'; themeClass = 'sub-dinopass-elite'; }
+            else if (rawName.includes('Premium VIP')) { icon = 'fas fa-crown'; themeClass = 'sub-wildshorts-premium'; }
+            else if (pidKey.includes('wildtransfer')) { icon = 'fas fa-paper-plane'; themeClass = 'sub-wildtransfer-relay'; }
+            else if (pidKey.includes('ecoxion')) { icon = 'fas fa-atom'; themeClass = 'sub-ecoxion-premium'; }
+
+            const tagline = phraseByProject[pidKey] || `Tu plan ${name} sigue activo y elevando tu experiencia.`;
+
+            return {
+              name,
+              pid,
+              icon,
+              price: s.price || 0,
+              currency: (s.currency || 'wildgems').toUpperCase(),
+              renewDate,
+              nextDate,
+              statusLabel,
+              tagline,
+              themeClass
+            };
+          });
+
+          if (heroMount) {
+            heroMount.innerHTML = `
+              <div class="subs-floating-copy">${items[0].tagline}</div>
+              <button class="subs-nav-btn prev" data-subs-nav="prev" aria-label="Anterior"><i class="fas fa-chevron-left"></i></button>
+              <div class="subs-carousel-window">
+                <div class="subs-carousel-track">
+                  ${items.map((it) => `
+                    <article class="subs-carousel-card ${it.themeClass}">
+                      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;"><div class="sub-icon" style="width:42px;height:42px;border-radius:11px;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#06111f;font-size:1.15rem;"><i class="${it.icon}"></i></div><div class="subs-chip" style="margin:0;"><i class="fas fa-satellite"></i> ${it.pid}</div></div>
+                      <h4>${it.name}</h4>
+                      <p class="subs-money">${it.price} <span>${it.currency}</span></p>
+                      <div class="subs-meta">
+                        <div><small>Renovaci髇</small><strong>${it.renewDate}</strong></div>
+                        <div><small>Vencimiento</small><strong>${it.nextDate}</strong></div>
+                        <div><small>Estado</small><strong class="${it.statusLabel === 'Activa' ? 'ok' : 'off'}">${it.statusLabel}</strong></div>
+                      </div>
+                    </article>
+                  `).join('')}
+                </div>
+              </div>
+              <button class="subs-nav-btn next" data-subs-nav="next" aria-label="Siguiente"><i class="fas fa-chevron-right"></i></button>
+            `;
+          }
+
+          const cards = Array.from(heroMount?.querySelectorAll('.subs-carousel-card') || []);
+          const track = heroMount?.querySelector('.subs-carousel-track');
+          const floating = heroMount?.querySelector('.subs-floating-copy');
+          const prevBtn = heroMount?.querySelector('[data-subs-nav="prev"]');
+          const nextBtn = heroMount?.querySelector('[data-subs-nav="next"]');
+
+          const applyState = () => {
+            cards.forEach((card, i) => {
+              card.classList.remove('is-center', 'is-left', 'is-right');
+              if (i === window.__subsCarouselIndex) card.classList.add('is-center');
+              else if (i === (window.__subsCarouselIndex - 1 + cards.length) % cards.length) card.classList.add('is-left');
+              else if (i === (window.__subsCarouselIndex + 1) % cards.length) card.classList.add('is-right');
+            });
+            if (track) track.style.transform = `translateX(calc(50% - ${(window.__subsCarouselIndex + 0.5) * 360}px))`;
+            if (floating && items[window.__subsCarouselIndex]) floating.textContent = items[window.__subsCarouselIndex].tagline;
+          };
+
+          const moveTo = (idx) => {
+            window.__subsCarouselIndex = (idx + cards.length) % cards.length;
+            applyState();
+          };
+
+          if (window.__subsCarouselTimer) clearInterval(window.__subsCarouselTimer);
+          if (cards.length) {
+            window.__subsCarouselIndex = Number.isFinite(window.__subsCarouselIndex) ? window.__subsCarouselIndex % cards.length : 0;
+            if (prevBtn) prevBtn.onclick = () => moveTo(window.__subsCarouselIndex - 1);
+            if (nextBtn) nextBtn.onclick = () => moveTo(window.__subsCarouselIndex + 1);
+
+            if (heroMount) {
+              heroMount.onmouseenter = () => {
+                if (window.__subsCarouselTimer) clearInterval(window.__subsCarouselTimer);
+              };
+              heroMount.onmouseleave = () => {
+                if (window.__subsCarouselTimer) clearInterval(window.__subsCarouselTimer);
+                window.__subsCarouselTimer = setInterval(() => moveTo(window.__subsCarouselIndex + 1), 4500);
+              };
             }
 
-            return ` <div class="subscription-card ${themeClass}"
-                      style="background: ${themeClass ? '' : 'var(--card)'}; border: 1px solid ${themeClass ? '' : 'var(--border)'}; padding: 1.5rem; border-radius: 1.25rem; position: relative; overflow: hidden; box-shadow: var(--shadow-card);"> ${themeClass ? `<div
-                        style="position:absolute; top:10px; right:10px; background:white; color:black; font-size:0.6rem; font-weight:900; padding:3px 8px; border-radius:10px; text-transform:uppercase;"> ${name.split(' ').pop()}</div>` : ''} <div style="display: flex; gap: 1rem; align-items: center; margin-bottom: 1rem;"> <div class="sub-icon"
-                          style="width: 48px; height: 48px; border-radius: 12px; background: var(--accent); display: flex; align-items: center; justify-content: center; color: black; font-size: 1.5rem;"> <i class="${icon}"></i> </div> <div> <h4 style="color: white; font-weight: 800; font-size: 1.1rem;">${name}</h4> <p style="font-size: 0.8rem; color: #94a3b8;">${pid}</p> </div> </div> <div style="display: flex; justify-content: space-between; align-items: flex-end;"> <div> <p style="font-size: 0.7rem; color: #64748b; text-transform: uppercase; margin-bottom: 4px;"> Renovaci贸n</p> <p style="color: #22d3ee; font-weight: 700; margin-bottom: 8px;">${renewDate}</p> <p style="font-size: 0.7rem; color: #64748b; text-transform: uppercase; margin-bottom: 4px;"> Vencimiento</p> <p style="color: var(--accent); font-weight: 700;">${nextDate}</p> </div> <div style="text-align: right;"> <p style="font-size: 1.2rem; font-weight: 900; color: white;">${s.price || 0} <span
-                              style="font-size:0.7rem; opacity:0.6;">${(s.currency || 'wildgems').toUpperCase()}</span> </p> <p style="font-size: 0.65rem; color: #64748b;">${durationLabel}</p> <p style="font-size: 0.7rem; color: ${statusLabel === 'Activa' ? '#10b981' : '#ef4444'}; font-weight: 700;">${statusLabel}</p> </div> </div> </div> `;
-          }).join('');
+            moveTo(window.__subsCarouselIndex);
+            window.__subsCarouselTimer = setInterval(() => moveTo(window.__subsCarouselIndex + 1), 4500);
+          }
+        }
+
+        if (unavailableMount) {
+          if (!unavailableItems.length) {
+            unavailableMount.innerHTML = `<div class="subs-unavailable-empty">Tenes activadas todas las suscripciones registradas.</div>`;
+          } else {
+            unavailableMount.innerHTML = `
+              <div class="subs-unavailable-head">
+                <h3>Suscripciones no activas</h3>
+                <p>Incluye planes nunca activados o desactivados por saldo u otras razones.</p>
+              </div>
+              <div class="subs-unavailable-grid">
+                ${unavailableItems.map((it) => `
+                  <article class="subs-unavailable-card ${it.themeClass}">
+                    <div class="left">
+                      <span class="sub-icon"><i class="${it.icon}"></i></span>
+                      <div>
+                        <h4>${it.name}</h4>
+                        <small>${it.pid}</small>
+                      </div>
+                    </div>
+                    <div class="right">
+                      <span class="badge">${it.badge}</span>
+                      <p>${it.reason}</p>
+                    </div>
+                  </article>
+                `).join('')}
+              </div>
+            `;
+          }
+        }
       } catch (e) {
         console.error('Error in renderSubscriptions:', e);
-        if (container) container.innerHTML = `<div
-                      style="color:var(--err); text-align:center; padding:1rem;">Error al cargar suscripciones</div>`;
+        if (heroMount) heroMount.innerHTML = `<div class="subs-carousel-empty">Error al cargar suscripciones activas.</div>`;
+        if (unavailableMount) unavailableMount.innerHTML = `<div class="subs-unavailable-empty">No se pudo cargar el historial de suscripciones.</div>`;
       }
     }
-
     /* ---------- INIT ---------- */
     window.addEventListener('DOMContentLoaded', async () => {
       ensureCoralBitsCard();
@@ -4938,4 +5135,840 @@
       window.oceanPayDesktop.onUpdateStatus((status) => {
         window.__oceanPayUpdateStatus = status || {};
       });
-    })(); </script> </body> </html> 
+    })(); </script> <style>
+  /* ===== Ocean Pay Rework V5 (Layout + Visual System) ===== */
+  body.op-v5 {
+    background:
+      radial-gradient(1300px 700px at 85% -10%, rgba(56, 189, 248, 0.18), transparent 60%),
+      radial-gradient(1200px 600px at -10% 110%, rgba(124, 58, 237, 0.16), transparent 58%),
+      linear-gradient(135deg, #040916 0%, #091225 45%, #060d1c 100%);
+    color: #e6f4ff;
+  }
+
+  body.op-v5::before {
+    opacity: 0.8;
+    background:
+      radial-gradient(circle at 18% 22%, rgba(34, 211, 238, 0.14) 0%, transparent 46%),
+      radial-gradient(circle at 80% 88%, rgba(129, 140, 248, 0.14) 0%, transparent 46%);
+  }
+
+  body.op-v5 .sidebar {
+    width: 302px;
+    padding: 1.3rem 1rem 1rem;
+    background: linear-gradient(180deg, rgba(4, 10, 24, 0.96), rgba(4, 9, 20, 0.9));
+    border-right: 1px solid rgba(89, 180, 255, 0.2);
+    box-shadow: 8px 0 26px rgba(0, 0, 0, 0.42);
+  }
+
+  body.op-v5 .brand {
+    margin-bottom: 1.6rem;
+    padding: 0.6rem 0.7rem 0.8rem;
+    border: 1px solid rgba(89, 180, 255, 0.25);
+    border-radius: 14px;
+    background: linear-gradient(135deg, rgba(11, 25, 52, 0.6), rgba(17, 31, 66, 0.28));
+  }
+
+  body.op-v5 .brand h1 {
+    font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+    font-size: 1.24rem;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+  }
+
+  body.op-v5 .nav-menu {
+    gap: 0.3rem;
+    padding: 0.25rem;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  body.op-v5 .nav-item {
+    border-radius: 10px;
+    border: 1px solid transparent;
+    padding: 0.82rem 0.84rem;
+    font-weight: 700;
+    font-size: 0.92rem;
+    color: #9cb4cf;
+  }
+
+  body.op-v5 .nav-item span {
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    display: grid;
+    place-items: center;
+    background: rgba(255, 255, 255, 0.04);
+    color: #68d7ff;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    flex: 0 0 auto;
+  }
+
+  body.op-v5 .nav-item:hover {
+    border-color: rgba(89, 180, 255, 0.38);
+    background: linear-gradient(135deg, rgba(43, 119, 228, 0.14), rgba(18, 30, 64, 0.3));
+    color: #eaf4ff;
+    transform: translateX(2px);
+  }
+
+  body.op-v5 .nav-item.active {
+    border-left: 1px solid rgba(89, 180, 255, 0.6);
+    border-color: rgba(89, 180, 255, 0.42);
+    background: linear-gradient(120deg, rgba(27, 123, 255, 0.22), rgba(43, 67, 161, 0.22));
+    color: #dfffff;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+  }
+
+  body.op-v5 .user-profile-mini {
+    border-radius: 14px;
+    border: 1px solid rgba(89, 180, 255, 0.2);
+    background: linear-gradient(135deg, rgba(15, 30, 58, 0.72), rgba(10, 18, 36, 0.74));
+  }
+
+  body.op-v5 .main-content {
+    padding: 1.2rem 1.4rem 2rem;
+    overflow-x: hidden;
+  }
+
+  body.op-v5 .op-v5-topbar {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, rgba(14, 28, 58, 0.82), rgba(10, 20, 43, 0.65));
+    border: 1px solid rgba(106, 187, 255, 0.2);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.34);
+  }
+
+  body.op-v5 .op-v5-topbar .v5-title {
+    font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: #e4f4ff;
+    letter-spacing: 0.01em;
+  }
+
+  body.op-v5 .op-v5-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    border-radius: 999px;
+    background: rgba(21, 35, 67, 0.8);
+    border: 1px solid rgba(94, 187, 255, 0.24);
+    font-size: 0.76rem;
+    font-weight: 700;
+    color: #9adfff;
+    white-space: nowrap;
+  }
+
+  body.op-v5 .main-header {
+    margin-bottom: 1rem;
+    padding: 0.9rem 1rem;
+    border-radius: 14px;
+    border: 1px solid rgba(120, 189, 255, 0.2);
+    background: linear-gradient(135deg, rgba(10, 24, 50, 0.74), rgba(16, 26, 44, 0.46));
+  }
+
+  body.op-v5 .page-title {
+    font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+    font-size: 1.55rem;
+    letter-spacing: -0.01em;
+    color: #eff7ff;
+  }
+
+  body.op-v5 section[id$='-section'] {
+    border-radius: 16px;
+    border: 1px solid rgba(109, 189, 255, 0.2);
+    background: linear-gradient(180deg, rgba(10, 18, 36, 0.72), rgba(8, 16, 32, 0.66));
+    padding: 1rem;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+  }
+
+  body.op-v5 .wallet-hero {
+    border: 1px solid rgba(122, 194, 255, 0.22);
+    border-radius: 14px;
+    padding: 18px;
+    background: linear-gradient(135deg, rgba(12, 32, 66, 0.62), rgba(17, 34, 66, 0.28));
+    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.35);
+    margin-bottom: 12px;
+  }
+
+  body.op-v5 .hero-amount {
+    font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+    font-size: clamp(1.6rem, 2.8vw, 2.5rem);
+    color: #e9f8ff;
+    letter-spacing: -0.02em;
+  }
+
+  body.op-v5 .wallet-grid {
+    gap: 14px;
+  }
+
+  body.op-v5 .wallet-main-content,
+  body.op-v5 .wallet-side-stack {
+    border-radius: 14px;
+    padding: 12px;
+    border: 1px solid rgba(122, 194, 255, 0.16);
+    background: linear-gradient(180deg, rgba(10, 20, 38, 0.58), rgba(8, 14, 30, 0.52));
+  }
+
+  body.op-v5 .asset-card-modern,
+  body.op-v5 .glass-box,
+  body.op-v5 .subscription-card,
+  body.op-v5 .tx-item,
+  body.op-v5 .pos-card {
+    border-radius: 14px !important;
+    border: 1px solid rgba(134, 198, 255, 0.18) !important;
+    background: linear-gradient(145deg, rgba(12, 24, 46, 0.88), rgba(8, 15, 29, 0.9)) !important;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.33);
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  body.op-v5 .asset-card-modern:hover,
+  body.op-v5 .glass-box:hover,
+  body.op-v5 .subscription-card:hover,
+  body.op-v5 .tx-item:hover,
+  body.op-v5 .pos-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(122, 214, 255, 0.4) !important;
+    box-shadow: 0 16px 34px rgba(0, 0, 0, 0.38), 0 0 18px rgba(34, 211, 238, 0.08);
+  }
+
+  body.op-v5 button,
+  body.op-v5 .action-pill,
+  body.op-v5 .btn,
+  body.op-v5 .view-all {
+    border-radius: 11px !important;
+    border: 1px solid rgba(129, 199, 255, 0.25);
+    background: linear-gradient(135deg, rgba(34, 119, 209, 0.24), rgba(47, 80, 163, 0.18));
+    color: #e6f7ff;
+    font-weight: 700;
+  }
+
+  body.op-v5 .action-pill.primary,
+  body.op-v5 .btn.primary {
+    background: linear-gradient(135deg, #22d3ee, #0ea5e9) !important;
+    color: #001627 !important;
+    border-color: transparent !important;
+    box-shadow: 0 8px 18px rgba(14, 165, 233, 0.34);
+  }
+
+  body.op-v5 input,
+  body.op-v5 select,
+  body.op-v5 textarea,
+  body.op-v5 .checkout-input {
+    border-radius: 11px !important;
+    border: 1px solid rgba(146, 205, 255, 0.24) !important;
+    background: linear-gradient(180deg, rgba(8, 16, 33, 0.92), rgba(8, 16, 32, 0.62)) !important;
+    color: #ebf6ff !important;
+  }
+
+  body.op-v5 .modal-container,
+  body.op-v5 .auth-card,
+  body.op-v5 .checkout-modal {
+    border-radius: 18px !important;
+    border: 1px solid rgba(142, 208, 255, 0.26) !important;
+    background: linear-gradient(180deg, rgba(6, 14, 30, 0.96), rgba(8, 18, 36, 0.92)) !important;
+  }
+
+  @media (max-width: 1180px) {
+    body.op-v5 .sidebar { width: 250px; }
+    body.op-v5 .main-content { padding: 1rem; }
+    body.op-v5 .op-v5-topbar { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 860px) {
+    body.op-v5 .sidebar {
+      width: 100%;
+      height: auto;
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      border-right: none;
+      border-bottom: 1px solid rgba(89, 180, 255, 0.24);
+    }
+    body.op-v5 .app-layout { flex-direction: column; }
+    body.op-v5 .nav-menu { max-height: 44vh; overflow-y: auto; }
+    body.op-v5 .main-content { padding: 0.8rem; }
+  }
+</style>
+<script>
+  (function initOceanPayReworkV5() {
+    function ensureTopbar(mainContent) {
+      if (!mainContent) return;
+      let topbar = document.getElementById('op-v5-topbar');
+      if (!topbar) {
+        topbar = document.createElement('div');
+        topbar.id = 'op-v5-topbar';
+        topbar.className = 'op-v5-topbar';
+        topbar.innerHTML = `
+          <div class="v5-title">Ocean Pay Command Center</div>
+          <div class="op-v5-pill" id="op-v5-user-pill"><i class="fas fa-user-circle"></i><span>Usuario</span></div>
+          <div class="op-v5-pill" id="op-v5-balance-pill"><i class="fas fa-wave-square"></i><span>0 EX</span></div>
+        `;
+        mainContent.prepend(topbar);
+      }
+    }
+
+    function refreshTopbarData() {
+      const user = document.getElementById('userNameDisplay')?.textContent?.trim() || 'Usuario';
+      const total = document.getElementById('total-estimated-value')?.textContent?.trim() || '0';
+      const up = document.getElementById('op-v5-user-pill');
+      const bp = document.getElementById('op-v5-balance-pill');
+      if (up) {
+        const label = up.querySelector('span');
+        if (label) label.textContent = user;
+      }
+      if (bp) {
+        const label = bp.querySelector('span');
+        if (label) label.textContent = `${total} EX`;
+      }
+    }
+    function initCurrencyPrismDeck() {
+      const walletSection = document.getElementById('wallet-section');
+      if (!walletSection) return;
+
+      const assetGroup = walletSection.querySelector('.asset-group');
+      if (!assetGroup) return;
+
+      const titleEl = assetGroup.querySelector('.section-header-modern h3');
+      if (titleEl) titleEl.textContent = 'Divisas';
+
+      const cardsGroup = assetGroup.querySelector('.cards-group');
+      let deck = assetGroup.querySelector('#currency-prism-deck');
+      if (!deck) {
+        deck = document.createElement('div');
+        deck.id = 'currency-prism-deck';
+        deck.className = 'currency-prism-deck';
+        deck.innerHTML = '<div class="currency-prism-stage"></div><div class="currency-prism-pips"></div>';
+      }
+
+      if (cardsGroup) {
+        if (deck.nextElementSibling !== cardsGroup) assetGroup.insertBefore(deck, cardsGroup);
+      } else if (!deck.parentElement) {
+        assetGroup.appendChild(deck);
+      }
+
+      const stage = deck.querySelector('.currency-prism-stage');
+      const pips = deck.querySelector('.currency-prism-pips');
+      if (!stage || !pips) return;
+
+      const collectSourceCards = () => {
+        const fromLegacyBlocks = Array.from(assetGroup.querySelectorAll('.asset-ecosystem-block .asset-card-modern'));
+        if (fromLegacyBlocks.length) return fromLegacyBlocks;
+        return Array.from(assetGroup.querySelectorAll(':scope > .asset-card-modern'));
+      };
+
+      if (!stage.querySelector('.asset-card-modern')) {
+        const sourceCards = collectSourceCards();
+        sourceCards.forEach((card) => {
+          card.classList.add('currency-prism-card');
+          stage.appendChild(card);
+        });
+        assetGroup.querySelectorAll('.asset-ecosystem-block').forEach((b) => b.remove());
+      }
+
+      const cards = Array.from(stage.querySelectorAll('.asset-card-modern'));
+      if (!cards.length) {
+        stage.innerHTML = '<div class="subs-carousel-empty">No hay divisas disponibles.</div>';
+        pips.innerHTML = '';
+        return;
+      }
+
+      // Orden estable y legible por nombre
+      cards.sort((a, b) => {
+        const na = (a.querySelector('.asset-name-modern')?.textContent || '').trim();
+        const nb = (b.querySelector('.asset-name-modern')?.textContent || '').trim();
+        return na.localeCompare(nb, 'es');
+      }).forEach((card) => stage.appendChild(card));
+
+      // Estado visual est醫ico (sin carrusel din醡ico)
+      cards.forEach((card, i) => {
+        card.classList.add('currency-grid-card');
+        card.classList.toggle('is-featured', i === 0);
+        card.style.pointerEvents = 'auto';
+        card.style.opacity = '';
+        card.style.zIndex = '';
+        card.style.transform = '';
+        card.style.filter = '';
+      });
+
+      // Indicadores convertidos en leyenda horizontal limpia
+      pips.innerHTML = cards.map((card) => {
+        const fullName = card.querySelector('.asset-name-modern')?.textContent?.trim() || 'Divisa';
+        return `<span class="currency-chip" title="${fullName}">${fullName}</span>`;
+      }).join('');
+
+      if (window.__currencyPrismTimer) {
+        clearInterval(window.__currencyPrismTimer);
+        window.__currencyPrismTimer = null;
+      }
+    }
+    function applySectionEnhancements() {
+      const mainContent = document.querySelector('.main-content');
+      if (!mainContent) return;
+      ensureTopbar(mainContent);
+      document.querySelectorAll("section[id$='-section']").forEach((section) => {
+        section.classList.add('op-v5-section');
+      });
+      refreshTopbarData();
+      initCurrencyPrismDeck();
+    }
+
+    function activate() {
+      document.body.classList.add('op-v5');
+      applySectionEnhancements();
+
+      document.querySelectorAll('.nav-item').forEach((btn) => {
+        if (btn.dataset.v5Bound === '1') return;
+        btn.dataset.v5Bound = '1';
+        btn.addEventListener('click', () => setTimeout(applySectionEnhancements, 80));
+      });
+
+      let queued = false;
+      const scheduleEnhance = () => {
+        if (queued) return;
+        queued = true;
+        requestAnimationFrame(() => {
+          queued = false;
+          applySectionEnhancements();
+        });
+      };
+
+      const observer = new MutationObserver((mutations) => {
+        // Ignorar mutaciones dentro del topbar para evitar recursi贸n del propio rework.
+        const relevant = mutations.some((m) => {
+          const target = m.target;
+          return !(target && target.closest && target.closest('#op-v5-topbar'));
+        });
+        if (relevant) scheduleEnhance();
+      });
+
+      const mainContent = document.querySelector('.main-content');
+      if (mainContent) {
+        observer.observe(mainContent, { subtree: true, childList: true, attributes: false, characterData: false });
+      }
+      window.__opV5Observer = observer;
+    }
+
+    window.addEventListener('DOMContentLoaded', () => setTimeout(activate, 40));
+  })();
+</script>
+<style>
+  body.op-v5 #wallet-section .wallet-hero { display: none !important; }
+  body.op-v5 #wallet-section .wallet-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  body.op-v5 #wallet-section .wallet-main-content {
+    width: 100%;
+    max-width: none;
+  }
+
+  body.op-v5 #wallet-section .asset-group,
+  body.op-v5 #wallet-section #currency-prism-deck {
+    width: 100%;
+  }
+
+  body.op-v5 #wallet-section .currency-prism-stage {
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  }
+
+  body.op-v5 #wallet-section .wallet-side-stack {
+    margin-top: 14px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  body.op-v5 .subs-hero-slider {
+    position: relative;
+    height: 320px;
+    margin-bottom: 14px;
+    border-radius: 18px;
+    border: 1px solid rgba(129, 204, 255, 0.24);
+    background: radial-gradient(circle at 50% 8%, rgba(84, 208, 255, 0.18), rgba(9, 18, 34, 0.9) 65%);
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  body.op-v5 .subs-carousel-window {
+    width: 100%;
+    overflow: hidden;
+    padding: 0 58px;
+  }
+
+  body.op-v5 .subs-carousel-track {
+    display: flex;
+    gap: 28px;
+    transition: transform 0.65s cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: transform;
+  }
+
+  body.op-v5 .subs-carousel-card {
+    width: 332px;
+    min-height: 212px;
+    flex: 0 0 332px;
+    border-radius: 16px;
+    padding: 16px;
+    border: 1px solid rgba(136, 210, 255, 0.25);
+    background: linear-gradient(155deg, rgba(16, 34, 68, 0.94), rgba(9, 18, 35, 0.94));
+    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.35);
+    opacity: 0.36;
+    transform: scale(0.9);
+    filter: blur(1.7px);
+    transition: opacity 0.45s ease, transform 0.45s ease, filter 0.45s ease;
+  }
+
+  body.op-v5 .subs-carousel-card.is-center {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0);
+    border-color: rgba(130, 226, 255, 0.52);
+    box-shadow: 0 18px 36px rgba(0, 0, 0, 0.4), 0 0 24px rgba(34, 211, 238, 0.16);
+  }
+
+  body.op-v5 .subs-carousel-card.is-left,
+  body.op-v5 .subs-carousel-card.is-right {
+    opacity: 0.52;
+    filter: blur(2.4px);
+  }
+
+  body.op-v5 .subs-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #9de7ff;
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(125, 205, 255, 0.26);
+    background: rgba(13, 34, 62, 0.78);
+    margin-bottom: 12px;
+  }
+
+  body.op-v5 .subs-carousel-card h4 {
+    margin: 0 0 8px;
+    font-size: 1.22rem;
+    color: #f2fbff;
+    font-weight: 800;
+  }
+
+  body.op-v5 .subs-money {
+    margin: 0 0 12px;
+    font-size: 1.35rem;
+    font-weight: 900;
+    color: #8af4ff;
+  }
+
+  body.op-v5 .subs-money span {
+    font-size: 0.72rem;
+    opacity: 0.82;
+    margin-left: 6px;
+    letter-spacing: 0.06em;
+  }
+
+  body.op-v5 .subs-meta {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  body.op-v5 .subs-meta small {
+    display: block;
+    color: #7f9bbc;
+    font-size: 0.64rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+  }
+
+  body.op-v5 .subs-meta strong {
+    color: #d7f5ff;
+    font-size: 0.82rem;
+    font-weight: 700;
+  }
+
+  body.op-v5 .subs-meta strong.ok { color: #34d399; }
+  body.op-v5 .subs-meta strong.off { color: #f87171; }
+
+  body.op-v5 .subs-nav-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(125, 205, 255, 0.32);
+    background: rgba(12, 28, 52, 0.86);
+    color: #c8efff;
+    cursor: pointer;
+    z-index: 4;
+  }
+
+  body.op-v5 .subs-nav-btn.prev { left: 12px; }
+  body.op-v5 .subs-nav-btn.next { right: 12px; }
+
+  body.op-v5 .subs-floating-copy {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 5;
+    max-width: 80%;
+    text-align: center;
+    font-weight: 900;
+    letter-spacing: 0.02em;
+    padding: 7px 14px;
+    border-radius: 999px;
+    background: rgba(8, 16, 32, 0.7);
+    border: 1px solid rgba(130, 208, 255, 0.35);
+    animation: subsRainbowGlow 4.2s linear infinite, subsSparkle 1.2s ease-in-out infinite alternate;
+    background-image: linear-gradient(90deg, #ff4d6d, #ffd166, #80ffdb, #72ddf7, #c77dff, #ff4d6d);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.18), 0 0 22px rgba(114, 221, 247, 0.3);
+  }
+
+  @keyframes subsRainbowGlow {
+    0% { filter: hue-rotate(0deg); }
+    100% { filter: hue-rotate(360deg); }
+  }
+
+  @keyframes subsSparkle {
+    0% { box-shadow: 0 0 0 rgba(255,255,255,0.0), 0 0 20px rgba(34,211,238,0.2); }
+    100% { box-shadow: 0 0 10px rgba(255,255,255,0.35), 0 0 28px rgba(34,211,238,0.45); }
+  }
+
+  body.op-v5 .subs-carousel-empty {
+    color: #9fb8cf;
+    text-align: center;
+    font-weight: 700;
+    padding: 20px;
+  }
+
+
+  body.op-v5 .subs-unavailable-panel {
+    margin-top: 12px;
+    border-radius: 16px;
+    border: 1px solid rgba(120, 196, 255, 0.2);
+    background: linear-gradient(160deg, rgba(8, 18, 34, 0.94), rgba(7, 14, 26, 0.92));
+    padding: 14px;
+  }
+
+  body.op-v5 .subs-unavailable-head h3 {
+    margin: 0;
+    font-size: 1rem;
+    color: #d9f4ff;
+    font-weight: 800;
+  }
+
+  body.op-v5 .subs-unavailable-head p {
+    margin: 5px 0 0;
+    color: #9eb8cf;
+    font-size: 0.82rem;
+  }
+
+  body.op-v5 .subs-unavailable-grid {
+    margin-top: 12px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  body.op-v5 .subs-unavailable-card {
+    border: 1px solid rgba(125, 205, 255, 0.2);
+    background: rgba(10, 22, 40, 0.84);
+    border-radius: 12px;
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  body.op-v5 .subs-unavailable-card .left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+  }
+
+  body.op-v5 .subs-unavailable-card .left h4 {
+    margin: 0;
+    font-size: 0.93rem;
+    color: #e6f8ff;
+  }
+
+  body.op-v5 .subs-unavailable-card .left small {
+    color: #8fa9c1;
+    font-size: 0.72rem;
+  }
+
+  body.op-v5 .subs-unavailable-card .right {
+    text-align: right;
+    max-width: 56%;
+  }
+
+  body.op-v5 .subs-unavailable-card .right .badge {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #ffddb2;
+    border: 1px solid rgba(255, 190, 120, 0.32);
+    background: rgba(71, 33, 10, 0.45);
+    border-radius: 999px;
+    padding: 3px 8px;
+    margin-bottom: 4px;
+  }
+
+  body.op-v5 .subs-unavailable-card .right p {
+    margin: 0;
+    color: #b4c9dd;
+    font-size: 0.74rem;
+    line-height: 1.35;
+  }
+
+  body.op-v5 .subs-unavailable-empty {
+    color: #9fb8cf;
+    text-align: center;
+    font-weight: 700;
+    padding: 8px;
+  }
+
+  body.op-v5 .currency-prism-deck {
+    margin-top: 10px;
+    border: 1px solid rgba(129, 204, 255, 0.24);
+    border-radius: 18px;
+    background: radial-gradient(circle at 50% 0%, rgba(63, 193, 255, 0.16), rgba(8, 17, 34, 0.92) 62%);
+    padding: 14px;
+    overflow: hidden;
+  }
+
+  body.op-v5 .currency-prism-stage {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 12px;
+    align-items: stretch;
+  }
+
+  body.op-v5 .currency-prism-card,
+  body.op-v5 .currency-grid-card {
+    position: relative;
+    top: auto;
+    left: auto;
+    width: 100%;
+    transform: none !important;
+    filter: none !important;
+    opacity: 1 !important;
+    z-index: auto !important;
+    transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.32);
+  }
+
+  body.op-v5 .currency-grid-card:hover {
+    transform: translateY(-2px) !important;
+    border-color: rgba(130, 226, 255, 0.48) !important;
+    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.36), 0 0 20px rgba(34, 211, 238, 0.14);
+  }
+
+  body.op-v5 .currency-prism-stage .asset-footer-modern span:last-child { display: none !important; }
+
+  body.op-v5 .currency-grid-card.is-featured {
+    border-color: rgba(130, 226, 255, 0.62) !important;
+    background: linear-gradient(145deg, rgba(20, 44, 78, 0.94), rgba(8, 18, 35, 0.94));
+    box-shadow: 0 16px 34px rgba(0, 0, 0, 0.4), 0 0 22px rgba(34, 211, 238, 0.18);
+  }
+
+  body.op-v5 .currency-prism-pips {
+    margin-top: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-start;
+  }
+
+  body.op-v5 .currency-prism-pips .currency-chip {
+    border: 1px solid rgba(120, 198, 255, 0.26);
+    background: rgba(10, 22, 40, 0.82);
+    color: #9dc4df;
+    border-radius: 999px;
+    padding: 4px 9px;
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  @media (max-width: 1180px) {
+    body.op-v5 #wallet-section .wallet-side-stack {
+      grid-template-columns: 1fr;
+    }
+
+    body.op-v5 #wallet-section .currency-prism-stage {
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    }
+  }
+
+  @media (max-width: 980px) {
+    body.op-v5 .subs-carousel-window { padding: 0 44px; }
+    body.op-v5 .subs-carousel-card { width: 280px; flex: 0 0 280px; }
+    body.op-v5 .currency-prism-stage { grid-template-columns: 1fr; }
+    body.op-v5 .subs-unavailable-grid { grid-template-columns: 1fr; }
+  }
+</style>
+<style>
+  .sub-nature-pass { border-color: #22c55e !important; background: linear-gradient(145deg, #0f2418, #0c1724) !important; }
+  .sub-nature-pass .sub-icon { background: linear-gradient(135deg, #22c55e, #86efac) !important; color: #04230f !important; box-shadow: 0 0 16px rgba(34, 197, 94, 0.45); }
+
+  body.op-v5 .subs-carousel-card.sub-nature-pass,
+  body.op-v5 .subs-carousel-card.sub-dinopass-premium,
+  body.op-v5 .subs-carousel-card.sub-dinopass-elite,
+  body.op-v5 .subs-carousel-card.sub-wildshorts-premium,
+  body.op-v5 .subs-carousel-card.sub-wildtransfer-relay,
+  body.op-v5 .subs-carousel-card.sub-ecoxion-premium {
+    border-width: 1px !important;
+  }
+</style>
+</body> </html> 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

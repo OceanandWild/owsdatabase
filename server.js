@@ -20600,6 +20600,52 @@ app.get('/ocean-pay/notifications/me', async (req, res) => {
 });
 
 // Marcar notificaciÃƒÂ³n como leÃƒÂ­da
+
+// Historial de transacciones (compatibilidad de cliente)
+app.get('/ocean-pay/txs/:userId', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization || '';
+    if (!authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'No autorizado' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const requesterId = Number(decoded.id || decoded.uid || 0);
+    const targetUserId = Number(req.params.userId || 0);
+
+    if (!requesterId || !targetUserId) {
+      return res.status(400).json({ error: 'Usuario invalido' });
+    }
+
+    const requesterName = String(decoded.username || '').toLowerCase();
+    const isStudioAdmin = requesterName === 'oceanandwild';
+    if (!isStudioAdmin && requesterId !== targetUserId) {
+      return res.status(403).json({ error: 'No autorizado para este historial' });
+    }
+
+    const { rows } = await pool.query(
+      `SELECT
+         id,
+         user_id,
+         concepto,
+         monto,
+         origen,
+         COALESCE(moneda, '') AS moneda,
+         created_at
+       FROM ocean_pay_txs
+       WHERE user_id = $1
+       ORDER BY created_at DESC NULLS LAST, id DESC
+       LIMIT 300`,
+      [targetUserId]
+    );
+
+    return res.json(rows);
+  } catch (err) {
+    console.error('Error en GET /ocean-pay/txs/:userId:', err);
+    return res.status(500).json({ error: 'Error al obtener transacciones' });
+  }
+});
 app.post('/ocean-pay/notifications/read/:id', async (req, res) => {
   const { id } = req.params;
   await pool.query('UPDATE ocean_pay_notifications SET is_read = TRUE WHERE id = $1', [id]);
@@ -20944,4 +20990,5 @@ httpServer.listen(PORT, '0.0.0.0', () => {
     }, 5000); // Esperar 5 segundos despuÃƒÂ©s del inicio
   }
 });
+
 

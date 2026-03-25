@@ -4497,6 +4497,10 @@
             <div id="misc-kpi-volume" style="font-size:1.5rem;font-weight:900;color:#ecfeff;">0</div>
           </div>
         </div>
+        <div id="misc-data-note" style="margin-bottom:12px;padding:10px 12px;border-radius:12px;border:1px solid rgba(148,163,184,.2);background:rgba(15,23,42,.55);color:#94a3b8;font-size:.84rem;line-height:1.45;">
+          Datos reales agregados de toda la plataforma. <b style="color:#e2e8f0;">Volumen total</b> = suma de entradas + salidas registradas en TX y POS completados.
+          <b style="color:#e2e8f0;">Flujo por divisa</b> = comparativa entre monto total de entrada y salida por cada divisa.
+        </div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
           <div style="background:var(--card);border:1px solid rgba(56,189,248,.2);border-radius:16px;padding:14px;">
@@ -4522,6 +4526,38 @@
     function miscFmt(n) {
       const v = Number(n || 0);
       return Number.isFinite(v) ? v.toLocaleString('es-ES', { maximumFractionDigits: 2 }) : '0';
+    }
+
+    function formatCurrencyLabel(rawCurrency) {
+      const key = String(rawCurrency || '').toLowerCase().trim();
+      const labels = {
+        eco: 'Ecoxionums',
+        ecoxionums: 'Ecoxionums',
+        voltbits: 'VoltBits',
+        voltbit: 'VoltBits',
+        nxb: 'Nexus Bits',
+        vb: 'VoltBits',
+        ex: 'Ecoxionums',
+        wg: 'WildGems',
+        mc: 'MayhemCoins',
+        ecobooks: 'EcoBooks',
+        cd: 'Polvora Cosmica',
+        abx: 'AquaBux',
+        aquabux: 'AquaBux',
+        appbux: 'AppBux',
+        ecocorebits: 'EcoCoreBits',
+        ecorebits: 'EcoCoreBits',
+        ecobits: 'EcoCoreBits',
+        amber: 'Amber',
+        wildcredits: 'WildCredits',
+        wildwavetokens: 'WildWave Tokens',
+        ecotokens: 'EcoTokens',
+        coralbits: 'Coral Bits',
+        relayshards: 'RelayShards',
+        cosmicdust: 'Polvora Cosmica',
+        tigrys: 'Tigrys'
+      };
+      return labels[key] || String(rawCurrency || '').toUpperCase();
     }
 
     function setMiscValue(id, value) {
@@ -4555,7 +4591,10 @@
           },
           scales: {
             y: { beginAtZero: true, grid: { color: 'rgba(148,163,184,.15)' }, ticks: { color: '#94a3b8' } },
-            x: { grid: { display: false }, ticks: { color: '#94a3b8' } }
+            x: {
+              grid: { display: false },
+              ticks: { color: '#94a3b8', autoSkip: true, maxRotation: 28, minRotation: 0, font: { size: 11 } }
+            }
           },
           ...extraOptions
         }
@@ -4585,14 +4624,14 @@
         renderMiscChart(
           'chartMostUsed',
           'bar',
-          most.map((x) => String(x.currency || '').toUpperCase()),
+          most.map((x) => formatCurrencyLabel(x.currency)),
           [{ label: 'Operaciones', data: most.map((x) => Number(x.operations || 0)), backgroundColor: 'rgba(34,211,238,.7)', borderColor: 'rgba(34,211,238,1)', borderRadius: 8 }]
         );
 
         renderMiscChart(
           'chartLeastUsed',
           'bar',
-          least.map((x) => String(x.currency || '').toUpperCase()),
+          least.map((x) => formatCurrencyLabel(x.currency)),
           [{ label: 'Operaciones', data: least.map((x) => Number(x.operations || 0)), backgroundColor: 'rgba(250,204,21,.7)', borderColor: 'rgba(250,204,21,1)', borderRadius: 8 }]
         );
 
@@ -4603,7 +4642,7 @@
         renderMiscChart(
           'chartCurrencyFlow',
           'radar',
-          flowTop.map((x) => String(x.currency || '').toUpperCase()),
+          flowTop.map((x) => formatCurrencyLabel(x.currency)),
           [
             { label: 'Entrada', data: flowTop.map((x) => Number(x.incoming || 0)), backgroundColor: 'rgba(16,185,129,.18)', borderColor: 'rgba(16,185,129,1)', pointBackgroundColor: '#10b981' },
             { label: 'Salida', data: flowTop.map((x) => Number(x.outgoing || 0)), backgroundColor: 'rgba(239,68,68,.16)', borderColor: 'rgba(239,68,68,1)', pointBackgroundColor: '#ef4444' }

@@ -86,7 +86,11 @@ function Get-RenderDeployInfo([string]$ServiceId, [string]$ApiKey) {
   }
   $item = $null
   if ($res.Data -is [System.Array]) {
-    if ($res.Data.Count -gt 0) { $item = $res.Data[0] }
+    if ($res.Data.Count -gt 0) {
+      $first = $res.Data[0]
+      $firstDeploy = Read-Field $first 'deploy' $null
+      if ($firstDeploy) { $item = $firstDeploy } else { $item = $first }
+    }
   } elseif ($res.Data -is [System.Collections.IDictionary] -and $res.Data.Contains('deploy')) {
     $item = $res.Data['deploy']
   } elseif ($res.Data -is [System.Collections.IDictionary] -and $res.Data.Contains('deploys')) {

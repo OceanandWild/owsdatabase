@@ -2599,6 +2599,7 @@
     const OCEAN_PASS_PREMIUM_PRICE = 199;
     let aurexPackages = [];
     let isAurexCatalogLoading = false;
+    let aurexChallengeState = null;
     let appSessionStartTime = Date.now();
 
     /* ---------- HELPERS ---------- */
@@ -2678,6 +2679,23 @@
             </div>
             <span style="font-size:0.68rem;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;color:#f8e5a0;">Premium</span>
           </div>
+          <div id="aurex-challenge-panel" style="margin-bottom:12px; border:1px solid rgba(249,214,110,0.24); border-radius:14px; padding:0.8rem; background:rgba(2,6,23,0.52);">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+              <div>
+                <h4 style="margin:0;color:#fde68a;font-size:0.92rem;">Desafio Aurex (Gratis)</h4>
+                <p id="aurex-challenge-status" style="margin:4px 0 0;color:#cbd5e1;font-size:0.8rem;">Cargando estado del desafio...</p>
+              </div>
+              <div style="display:flex;gap:8px;align-items:center;">
+                <button class="secondary" style="width:auto;padding:0.38rem 0.75rem;" onclick="loadAurexChallengeStatus(true)">
+                  <i class="fas fa-sync-alt"></i>
+                </button>
+                <button id="aurex-claim-btn" class="pos-btn-primary" style="width:auto;padding:0.42rem 0.86rem;" onclick="claimAurexChallenge()" disabled>
+                  Reclamar
+                </button>
+              </div>
+            </div>
+            <div id="aurex-challenge-reqs" style="margin-top:8px;color:#94a3b8;font-size:0.78rem;">Sin datos aun.</div>
+          </div>
         `;
         const firstChild = walletMain.firstElementChild;
         if (firstChild) walletMain.insertBefore(showcase, firstChild);
@@ -2704,6 +2722,109 @@
         `;
       }
       showcase.appendChild(card);
+    }
+
+    function formatChallengeRemaining(ms) {
+      const clamped = Math.max(0, Number(ms || 0));
+      const totalSec = Math.floor(clamped / 1000);
+      const d = Math.floor(totalSec / 86400);
+      const h = Math.floor((totalSec % 86400) / 3600);
+      const m = Math.floor((totalSec % 3600) / 60);
+      if (d > 0) return `${d}d ${h}h ${m}m`;
+      if (h > 0) return `${h}h ${m}m`;
+      return `${m}m`;
+    }
+
+    function renderAurexChallengeStatus() {
+      const statusEl = qs('#aurex-challenge-status');
+      const reqsEl = qs('#aurex-challenge-reqs');
+      const claimBtn = qs('#aurex-claim-btn');
+      if (!statusEl || !reqsEl || !claimBtn) return;
+      if (!aurexChallengeState) {
+        statusEl.textContent = 'Cargando estado del desafio...';
+        reqsEl.textContent = 'Sin datos aun.';
+        claimBtn.disabled = true;
+        return;
+      }
+
+      const metrics = aurexChallengeState.metrics || {};
+      const reqs = metrics.requirements || {};
+      const cool = aurexChallengeState.cooldown || {};
+
+      const checks = [
+        { label: `Transacciones (30 dias): ${metrics.txCount || 0}/${reqs.minTxCount || 0}`, ok: (metrics.txCount || 0) >= (reqs.minTxCount || 0) },
+        { label: `Divisas distintas: ${metrics.distinctCurrencies || 0}/${reqs.minDistinctCurrencies || 0}`, ok: (metrics.distinctCurrencies || 0) >= (reqs.minDistinctCurrencies || 0) },
+        { label: `Volumen total: ${Math.round(metrics.txVolume || 0).toLocaleString()}/${Math.round(reqs.minVolume || 0).toLocaleString()}`, ok: (metrics.txVolume || 0) >= (reqs.minVolume || 0) },
+        { label: `Balance global: ${Math.round(metrics.balanceTotal || 0).toLocaleString()}/${Math.round(reqs.minCurrentBalanceTotal || 0).toLocaleString()}`, ok: (metrics.balanceTotal || 0) >= (reqs.minCurrentBalanceTotal || 0) }
+      ];
+
+      reqsEl.innerHTML = checks.map((c) => `<span style="display:inline-block;margin-right:9px;color:${c.ok ? '#34d399' : '#94a3b8'}">${c.ok ? '✓' : '•'} ${c.label}</span>`).join('');
+
+      if (aurexChallengeState.canClaim) {
+        statusEl.textContent = `Listo para reclamar +${Number(aurexChallengeState.reward || 0).toLocaleString()} AUREX.`;
+        statusEl.style.color = '#34d399';
+        claimBtn.disabled = false;
+        claimBtn.textContent = 'Reclamar Aurex';
+      } else if (cool.active) {
+        statusEl.textContent = `En enfriamiento: ${formatChallengeRemaining(cool.remainingMs)} restantes.`;
+        statusEl.style.color = '#fbbf24';
+        claimBtn.disabled = true;
+        claimBtn.textContent = 'En enfriamiento';
+      } else if (metrics.completed) {
+        statusEl.textContent = 'Verificando disponibilidad de reclamo...';
+        statusEl.style.color = '#38bdf8';
+        claimBtn.disabled = true;
+        claimBtn.textContent = 'Procesando';
+      } else {
+        statusEl.textContent = 'Completa los requisitos para habilitar un reclamo gratuito semanal.';
+        statusEl.style.color = '#cbd5e1';
+        claimBtn.disabled = true;
+        claimBtn.textContent = `Recompensa +${Number(aurexChallengeState.reward || 0).toLocaleString()}`;
+      }
+    }
+
+    async function loadAurexChallengeStatus(force = false) {
+      const statusEl = qs('#aurex-challenge-status');
+      if (statusEl && force) statusEl.textContent = 'Actualizando desafio...';
+      try {
+        const res = await apiFetch(`${API}/ocean-pay/aurex/challenge/status`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'No se pudo cargar el desafio');
+        aurexChallengeState = data;
+        renderAurexChallengeStatus();
+      } catch (err) {
+        aurexChallengeState = null;
+        const reqsEl = qs('#aurex-challenge-reqs');
+        if (statusEl) {
+          statusEl.textContent = 'No se pudo cargar el desafio de Aurex.';
+          statusEl.style.color = '#ef4444';
+        }
+        if (reqsEl) reqsEl.textContent = 'Intenta de nuevo en unos segundos.';
+        const claimBtn = qs('#aurex-claim-btn');
+        if (claimBtn) {
+          claimBtn.disabled = true;
+          claimBtn.textContent = 'Reclamar';
+        }
+      }
+    }
+
+    async function claimAurexChallenge() {
+      try {
+        const res = await apiFetch(`${API}/ocean-pay/aurex/challenge/claim`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({})
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'No se pudo reclamar Aurex');
+        showToast(`Desafio completado: +${Number(data.reward || 0).toLocaleString()} AUREX acreditados.`, 'success');
+        await refreshAllBalances();
+        await loadAurexChallengeStatus(true);
+      } catch (err) {
+        showToast(err.message || 'No se pudo reclamar la recompensa gratuita de Aurex', 'error');
+      }
     }
 
 
@@ -4122,7 +4243,9 @@
         updatePassActivationPriceLabel();
         updateOceanPassUI();
         loadAurexPackages();
+        loadAurexChallengeStatus();
       }
+      if (id === 'wallet') loadAurexChallengeStatus();
     }
 
     /* ---------- AUTH TOGGLE ---------- */
@@ -4525,6 +4648,7 @@
       // Cargar tarjetas (incluyen todos los saldos)
       await loadOceanCards();
       await loadAmberBalance();
+      await loadAurexChallengeStatus();
     }
 
     let balanceRefreshInterval = null;
@@ -5435,6 +5559,7 @@
 
         loadOceanPass();
         loadAurexPackages();
+        loadAurexChallengeStatus();
         handleAurexCheckoutReturn();
         setInterval(checkOceanPassStatus, 1000); // UI updates every second if active
         // checkOceanPassStatus(); // initial check is done by interval immediately or by first tick

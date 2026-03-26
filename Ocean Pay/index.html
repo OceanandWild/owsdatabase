@@ -2655,26 +2655,55 @@
     }
 
     function ensureAurexCard() {
-      if (document.getElementById('aurex-card')) return;
-      const oceanRow = document.querySelector('.assets-row-ocean');
-      if (!oceanRow) return;
-      const card = document.createElement('div');
-      card.className = 'asset-card-modern';
-      card.id = 'aurex-card';
-      card.innerHTML = `
-        <div class="asset-icon-container">
-          <canvas class="currency-canvas" data-currency="aurex" width="44" height="44"></canvas>
-        </div>
-        <div class="asset-info-modern">
-          <span class="asset-name-modern">Aurex</span>
-          <span class="asset-balance-modern" id="aurex" style="color:#f9d66e;">0</span>
-        </div>
-        <div class="asset-footer-modern">
-          <span>Ocean Pass</span>
-          <span style="color:#f9d66e">Premium</span>
-        </div>
-      `;
-      oceanRow.appendChild(card);
+      const walletMain = document.querySelector('.wallet-main-content');
+      if (!walletMain) return;
+
+      let showcase = document.getElementById('aurex-showcase');
+      if (!showcase) {
+        showcase = document.createElement('section');
+        showcase.id = 'aurex-showcase';
+        showcase.style.cssText = `
+          margin-bottom: 1.1rem;
+          padding: 1rem;
+          border-radius: 18px;
+          border: 1px solid rgba(249,214,110,0.35);
+          background: linear-gradient(135deg, rgba(35,22,5,0.8), rgba(15,23,42,0.92));
+          box-shadow: 0 0 28px rgba(249,214,110,0.14), inset 0 0 18px rgba(255,210,92,0.08);
+        `;
+        showcase.innerHTML = `
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;">
+            <div>
+              <h3 style="margin:0;color:#fde68a;font-size:1rem;letter-spacing:0.06em;text-transform:uppercase;">Aurex Vault</h3>
+              <p style="margin:4px 0 0;color:#cbd5e1;font-size:0.84rem;">Divisa premium transversal del ecosistema OWS.</p>
+            </div>
+            <span style="font-size:0.68rem;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;color:#f8e5a0;">Premium</span>
+          </div>
+        `;
+        const firstChild = walletMain.firstElementChild;
+        if (firstChild) walletMain.insertBefore(showcase, firstChild);
+        else walletMain.appendChild(showcase);
+      }
+
+      let card = document.getElementById('aurex-card');
+      if (!card) {
+        card = document.createElement('div');
+        card.className = 'asset-card-modern';
+        card.id = 'aurex-card';
+        card.innerHTML = `
+          <div class="asset-icon-container">
+            <canvas class="currency-canvas" data-currency="aurex" width="44" height="44"></canvas>
+          </div>
+          <div class="asset-info-modern">
+            <span class="asset-name-modern">Aurex</span>
+            <span class="asset-balance-modern" id="aurex" style="color:#f9d66e;">0</span>
+          </div>
+          <div class="asset-footer-modern">
+            <span>Ecosistema OWS</span>
+            <span style="color:#f9d66e">Universal</span>
+          </div>
+        `;
+      }
+      showcase.appendChild(card);
     }
 
 
@@ -5461,7 +5490,7 @@
 
       const currencies = [
         { id: 'bux', name: 'AquaBux', desc: 'Moneda oficial de Ocean Cinemas y transacciones generales del ecosistema.', project: 'Ocean Cinemas' },
-        { id: 'aurex', name: 'Aurex', desc: 'Moneda premium de Ocean Pay para compras especiales, pases y contenido exclusivo.', project: 'Ocean Pass' },
+        { id: 'aurex', name: 'Aurex', desc: 'Moneda premium transversal del ecosistema OWS. Actualmente su uso activo esta habilitado en Ocean Pass.', project: 'Ocean Pay' },
         { id: 'coralbits', name: 'Coral Bits', desc: 'Divisa de Ocean AI sincronizada con Ocean Pay.', project: 'Ocean AI' },
         { id: 'wildcredits', name: 'WildCredits', desc: 'CrÃ©ditos de recompensa obtenidos en Wild Explorer y misiones de campo.', project: 'Wild Explorer' },
         { id: 'wildgems', name: 'WildGems', desc: 'Gemas premium utilizadas para acceder a contenido exclusivo en WildShorts.', project: 'WildShorts' },

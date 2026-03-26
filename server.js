@@ -8056,9 +8056,53 @@ const AUREX_PACKAGES = Object.freeze([
   { id: 'aurex-3200', title: 'Aurex 3200', aurexAmount: 3200, priceUyu: 899, bonus: 200 }
 ]);
 
+const AUREX_CHALLENGE = Object.freeze({
+  reward: 45,
+  cooldownHours: 168, // 7 dias
+  requirements: {
+    minTxCount: 28,
+    minDistinctCurrencies: 5,
+    minVolume: 9000,
+    minCurrentBalanceTotal: 3000
+  }
+});
+
 function getAurexPackageById(packageId) {
   const key = String(packageId || '').trim().toLowerCase();
   return AUREX_PACKAGES.find((pkg) => pkg.id === key) || null;
+}
+
+async function getAurexChallengeMetrics(client, userId) {
+  const reqs = AUREX_CHALLENGE.requirements;
+  const { rows: txRows } = await client.query(
+    `SELECT
+       COUNT(*)::int AS tx_count,
+       COUNT(DISTINCT LOWER(COALESCE(moneda, '')))::int AS distinct_currencies,
+       COALESCE(SUM(ABS(COALESCE(monto, 0))), 0)::numeric AS tx_volume
+     FROM ocean_pay_txs
+     WHERE user_id = $1
+       AND created_at >= NOW() - INTERVAL '30 days'`,
+    [userId]
+  );
+  const txCount = Number(txRows[0]?.tx_count || 0);
+  const distinctCurrencies = Number(txRows[0]?.distinct_currencies || 0);
+  const txVolume = Number(txRows[0]?.tx_volume || 0);
+
+  const balances = await getAllUnifiedBalances(client, userId);
+  const balanceTotal = Object.values(balances || {}).reduce((sum, val) => sum + Math.max(0, Number(val) || 0), 0);
+
+  return {
+    txCount,
+    distinctCurrencies,
+    txVolume,
+    balanceTotal,
+    requirements: reqs,
+    completed:
+      txCount >= reqs.minTxCount &&
+      distinctCurrencies >= reqs.minDistinctCurrencies &&
+      txVolume >= reqs.minVolume &&
+      balanceTotal >= reqs.minCurrentBalanceTotal
+  };
 }
 
 function serializeOceanPassRow(row) {
@@ -19956,6 +20000,120 @@ app.post('/ocean-pay/aurex/confirm', async (req, res) => {
   } catch (err) {
     console.error('Error en POST /ocean-pay/aurex/confirm:', err);
     return res.status(500).json({ error: 'Error interno al confirmar compra Aurex' });
+  }
+});
+
+// Estado del desafio gratuito de Aurex (alto requisito)
+app.get('/ocean-pay/aurex/challenge/status', async (req, res) => {
+  const userId = getAuthenticatedOceanPayUserId(req);
+  if (!userId) return res.status(401).json({ error: 'Token invalido' });
+
+  const client = await pool.connect();
+  try {
+    const metrics = await getAurexChallengeMetrics(client, userId);
+    const { rows: metaRows } = await client.query(
+      `SELECT value
+         FROM ocean_pay_metadata
+        WHERE user_id = $1 AND key = 'aurex_last_free_claim'
+        LIMIT 1`,
+      [userId]
+    );
+    const lastClaimMs = Number(metaRows[0]?.value || 0);
+    const cooldownMs = AUREX_CHALLENGE.cooldownHours * 60 * 60 * 1000;
+    const now = Date.now();
+    const remainingMs = lastClaimMs > 0 ? Math.max(0, (lastClaimMs + cooldownMs) - now) : 0;
+
+    return res.json({
+      success: true,
+      reward: AUREX_CHALLENGE.reward,
+      cooldownHours: AUREX_CHALLENGE.cooldownHours,
+      metrics,
+      cooldown: {
+        active: remainingMs > 0,
+        remainingMs,
+        availableAt: remainingMs > 0 ? new Date(now + remainingMs).toISOString() : null
+      },
+      canClaim: metrics.completed && remainingMs <= 0
+    });
+  } catch (err) {
+    console.error('Error en GET /ocean-pay/aurex/challenge/status:', err);
+    return res.status(500).json({ error: 'No se pudo consultar el desafio de Aurex' });
+  } finally {
+    client.release();
+  }
+});
+
+// Reclamar recompensa gratuita de Aurex
+app.post('/ocean-pay/aurex/challenge/claim', async (req, res) => {
+  const userId = getAuthenticatedOceanPayUserId(req);
+  if (!userId) return res.status(401).json({ error: 'Token invalido' });
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const metrics = await getAurexChallengeMetrics(client, userId);
+    if (!metrics.completed) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Requisitos del desafio incompletos', metrics });
+    }
+
+    const { rows: metaRows } = await client.query(
+      `SELECT id, value
+         FROM ocean_pay_metadata
+        WHERE user_id = $1 AND key = 'aurex_last_free_claim'
+        FOR UPDATE`,
+      [userId]
+    );
+
+    const now = Date.now();
+    const cooldownMs = AUREX_CHALLENGE.cooldownHours * 60 * 60 * 1000;
+    const lastClaimMs = Number(metaRows[0]?.value || 0);
+    if (lastClaimMs > 0 && now < (lastClaimMs + cooldownMs)) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        error: 'Desafio en enfriamiento',
+        remainingMs: (lastClaimMs + cooldownMs) - now
+      });
+    }
+
+    const currentAurex = await getUnifiedBalance(client, userId, 'aurex');
+    const newBalance = currentAurex + AUREX_CHALLENGE.reward;
+    await setUnifiedBalance(client, userId, 'aurex', newBalance);
+
+    if (metaRows.length) {
+      await client.query(
+        `UPDATE ocean_pay_metadata
+            SET value = $1
+          WHERE id = $2`,
+        [String(now), Number(metaRows[0].id)]
+      );
+    } else {
+      await client.query(
+        `INSERT INTO ocean_pay_metadata (user_id, key, value)
+         VALUES ($1, 'aurex_last_free_claim', $2)`,
+        [userId, String(now)]
+      );
+    }
+
+    await client.query(
+      `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [userId, 'Aurex - Desafio semanal completado', AUREX_CHALLENGE.reward, 'Aurex Challenge', 'aurex']
+    );
+
+    await client.query('COMMIT');
+    return res.json({
+      success: true,
+      reward: AUREX_CHALLENGE.reward,
+      newBalance
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error en POST /ocean-pay/aurex/challenge/claim:', err);
+    return res.status(500).json({ error: 'No se pudo reclamar la recompensa de Aurex' });
+  } finally {
+    client.release();
   }
 });
 

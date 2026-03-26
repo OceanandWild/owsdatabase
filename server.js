@@ -22,7 +22,8 @@ import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import { MercadoPagoConfig, Preference } from 'mercadopago';
 
 // ConfiguraciÃƒÂ³n de MercadoPago
-const mpClient = new MercadoPagoConfig({ accessToken: 'APP_USR-5761093164230281-020117-8a36b5725093b330c07cf54699b7edb1-3171975745' }); // PRODUCCIÃƒâ€œN
+const MP_ACCESS_TOKEN = process.env.MP_ACCESS_TOKEN || 'APP_USR-5761093164230281-020117-8a36b5725093b330c07cf54699b7edb1-3171975745';
+const mpClient = new MercadoPagoConfig({ accessToken: MP_ACCESS_TOKEN }); // PRODUCCIÃƒâ€œN
 // const mpClient = new MercadoPagoConfig({ accessToken: 'TEST-5761093164230281-020117-88b51453f4f07dd0e52e6ae5bb580609-3171975745' }); // PRUEBA (Comentado)
 
 /* ===== NAT-MARKET VARS ===== */
@@ -161,7 +162,7 @@ const UNIFIED_WALLET_CURRENCIES = [
   'aquabux', 'appbux', 'ecoxionums', 'wildcredits', 'wildgems', 'ecobooks',
   'amber', 'nxb', 'voltbit', 'ecotokens', 'ecobits', 'mayhemcoins',
   'cosmicdust', 'ecopower', 'coralbits', 'tigrys', 'wildwavetokens',
-  'relayshards', 'ecocorebits'
+  'relayshards', 'ecocorebits', 'aurex'
 ];
 
 // --- Ocean Pay Authentication ---
@@ -8027,6 +8028,7 @@ const OCEAN_PASS_PLAN = Object.freeze({
 });
 
 const OCEAN_PASS_CURRENCY_PRICES = Object.freeze({
+  aurex: 199,
   aquabux: 1200,
   ecoxionums: 900,
   wildcredits: 1400,
@@ -8045,6 +8047,18 @@ function getOceanPassPriceForCurrency(currency) {
   const amount = OCEAN_PASS_CURRENCY_PRICES[key];
   if (!Number.isFinite(amount)) return null;
   return { currency: key, amount };
+}
+
+const AUREX_PACKAGES = Object.freeze([
+  { id: 'aurex-200', title: 'Aurex 200', aurexAmount: 200, priceUyu: 99, bonus: 0 },
+  { id: 'aurex-600', title: 'Aurex 600', aurexAmount: 600, priceUyu: 249, bonus: 20 },
+  { id: 'aurex-1500', title: 'Aurex 1500', aurexAmount: 1500, priceUyu: 499, bonus: 80 },
+  { id: 'aurex-3200', title: 'Aurex 3200', aurexAmount: 3200, priceUyu: 899, bonus: 200 }
+]);
+
+function getAurexPackageById(packageId) {
+  const key = String(packageId || '').trim().toLowerCase();
+  return AUREX_PACKAGES.find((pkg) => pkg.id === key) || null;
 }
 
 function serializeOceanPassRow(row) {
@@ -19789,6 +19803,159 @@ app.post('/pos/create', async (req, res) => {
     return res.status(500).json({ success: false, error: 'Error interno al crear código POS' });
   } finally {
     client.release();
+  }
+});
+
+// Catalogo de recargas Aurex (Moneda premium)
+app.get('/ocean-pay/aurex/packages', async (_req, res) => {
+  return res.json({
+    success: true,
+    currency: 'aurex',
+    packages: AUREX_PACKAGES
+  });
+});
+
+// Crear checkout de Mercado Pago para recarga Aurex
+app.post('/ocean-pay/aurex/checkout', async (req, res) => {
+  const userId = getAuthenticatedOceanPayUserId(req);
+  if (!userId) return res.status(401).json({ error: 'Token invalido' });
+
+  const packageId = String(req.body?.packageId || '').trim().toLowerCase();
+  const pkg = getAurexPackageById(packageId);
+  if (!pkg) return res.status(400).json({ error: 'Paquete Aurex invalido' });
+
+  const rawReturnUrl = String(req.body?.returnUrl || '').trim();
+  const safeReturnUrl = /^https?:\/\//i.test(rawReturnUrl)
+    ? rawReturnUrl
+    : 'https://owsdatabase.onrender.com';
+
+  try {
+    const externalReference = `op-aurex:${userId}:${pkg.id}:${Date.now()}`;
+    const preference = new Preference(mpClient);
+    const result = await preference.create({
+      body: {
+        external_reference: externalReference,
+        statement_descriptor: 'OCEANWILD',
+        items: [
+          {
+            title: `Ocean Pay - ${pkg.title}`,
+            quantity: 1,
+            unit_price: Number(pkg.priceUyu),
+            currency_id: 'UYU'
+          }
+        ],
+        back_urls: {
+          success: safeReturnUrl,
+          failure: safeReturnUrl,
+          pending: safeReturnUrl
+        },
+        auto_return: 'approved'
+      }
+    });
+
+    return res.json({
+      success: true,
+      package: pkg,
+      externalReference,
+      preferenceId: result?.id || null,
+      initPoint: result?.init_point || result?.sandbox_init_point || null
+    });
+  } catch (err) {
+    console.error('Error en POST /ocean-pay/aurex/checkout:', err);
+    return res.status(500).json({ error: 'No se pudo iniciar el checkout de Aurex' });
+  }
+});
+
+// Confirmar pago aprobado de Mercado Pago y acreditar Aurex
+app.post('/ocean-pay/aurex/confirm', async (req, res) => {
+  const userId = getAuthenticatedOceanPayUserId(req);
+  if (!userId) return res.status(401).json({ error: 'Token invalido' });
+
+  const paymentId = Number(req.body?.paymentId || 0);
+  const externalReference = String(req.body?.externalReference || '').trim();
+  if (!paymentId || !externalReference) {
+    return res.status(400).json({ error: 'paymentId y externalReference son requeridos' });
+  }
+
+  if (!externalReference.startsWith(`op-aurex:${userId}:`)) {
+    return res.status(403).json({ error: 'externalReference no coincide con el usuario autenticado' });
+  }
+
+  const segments = externalReference.split(':');
+  const packageId = String(segments[2] || '').trim().toLowerCase();
+  const pkg = getAurexPackageById(packageId);
+  if (!pkg) return res.status(400).json({ error: 'Paquete de Aurex no reconocido' });
+
+  try {
+    const mpResp = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${MP_ACCESS_TOKEN}` }
+    });
+    const paymentData = await mpResp.json().catch(() => ({}));
+    if (!mpResp.ok) {
+      return res.status(400).json({ error: 'No se pudo validar el pago en Mercado Pago', details: paymentData?.message || null });
+    }
+    if (String(paymentData?.status || '').toLowerCase() !== 'approved') {
+      return res.status(400).json({ error: 'El pago aun no figura como aprobado', status: paymentData?.status || 'unknown' });
+    }
+    if (String(paymentData?.external_reference || '') !== externalReference) {
+      return res.status(400).json({ error: 'El pago validado no corresponde a esta orden' });
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const creditConcept = `Aurex Pack ${pkg.id} - payment:${paymentId} - ref:${externalReference}`;
+      const { rows: existingTx } = await client.query(
+        `SELECT id FROM ocean_pay_txs
+          WHERE user_id = $1
+            AND origen = 'Mercado Pago Aurex'
+            AND concepto = $2
+          LIMIT 1`,
+        [userId, creditConcept]
+      );
+
+      if (existingTx.length) {
+        const currentBalance = await getUnifiedBalance(client, userId, 'aurex');
+        await client.query('COMMIT');
+        return res.json({
+          success: true,
+          alreadyApplied: true,
+          credited: 0,
+          package: pkg,
+          newBalance: currentBalance
+        });
+      }
+
+      const currentBalance = await getUnifiedBalance(client, userId, 'aurex');
+      const credited = Number(pkg.aurexAmount) + Number(pkg.bonus || 0);
+      const newBalance = currentBalance + credited;
+      await setUnifiedBalance(client, userId, 'aurex', newBalance);
+
+      await client.query(
+        `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [userId, creditConcept, credited, 'Mercado Pago Aurex', 'aurex']
+      );
+
+      await client.query('COMMIT');
+      return res.json({
+        success: true,
+        credited,
+        package: pkg,
+        newBalance
+      });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      console.error('Error interno en confirmacion Aurex:', err);
+      return res.status(500).json({ error: 'No se pudo acreditar Aurex' });
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    console.error('Error en POST /ocean-pay/aurex/confirm:', err);
+    return res.status(500).json({ error: 'Error interno al confirmar compra Aurex' });
   }
 });
 

@@ -2066,7 +2066,7 @@
     } </style> <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"> <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> </head> <body> <!-- Auth Overlay (Login/Register) --> <div id="auth-section" class="auth-overlay"> <div class="auth-card"> <div class="brand" style="justify-content: center; margin-bottom: 2rem;"> <h1><i class="fas fa-wallet" style="margin-right:.5rem;color:var(--accent);"></i>Ocean Pay</h1> </div> <!-- Login Form --> <form id="loginForm" class="form-box"> <h2 style="margin-bottom: 1.5rem;">Iniciar SesiÃ³n</h2> <input type="text" id="logUser" required placeholder="Usuario" /> <input type="password" id="logPass" required placeholder="ContraseÃ±a" /> <button type="submit">Entrar</button> <p id="logMsg" class="msg"></p> <p style="margin-top: 1.5rem; font-size: 0.9rem; color: #94a3b8;"> Â¿No tienes cuenta? <a href="#" id="toRegister" style="color: var(--accent);">RegÃ­strate</a> </p> </form> <!-- Register Form --> <form id="regForm" class="form-box hidden"> <h2 style="margin-bottom: 1.5rem;">Crear Cuenta</h2> <input type="text" id="regUser" required placeholder="Nuevo Usuario" /> <input type="password" id="regPass" required placeholder="ContraseÃ±a" /> <button type="submit">Crear Cuenta</button> <p id="regMsg" class="msg"></p> <p style="margin-top: 1.5rem; font-size: 0.9rem; color: #94a3b8;"> Â¿Ya tienes cuenta? <a href="#" id="toLogin" style="color: var(--accent);">Inicia SesiÃ³n</a> </p> </form> </div> </div> </div> <!-- CHECKOUT MODAL REDESIGN --> <div id="checkout-modal" class="checkout-overlay"> <div class="checkout-card"> <div class="checkout-header"> <i class="fas fa-water" style="color:var(--accent); font-size:1.5rem;"></i> <h2 style="font-weight:900; font-size:1.2rem; letter-spacing:-0.5px;">Ocean Pay Checkout</h2> </div> <div class="checkout-body"> <!-- Order Context --> <div class="product-preview"> <div class="product-img"> <canvas id="checkout-product-canvas" class="currency-canvas" data-currency="wildgems"></canvas> </div> <div class="product-info"> <h3 id="checkout-concept-display">SuscripciÃ³n Premium</h3> <p id="checkout-origin-display">WildShorts VIP</p> </div> </div> <!-- Method Selector --> <div class="payment-tabs"> <button class="payment-tab active" id="tab-ocean" onclick="setPaymentMethod('ocean')">Ocean Card</button> <button class="payment-tab" id="tab-external" onclick="setPaymentMethod('external')">Otra Tarjeta</button> </div> <!-- Method: Ocean Card Selection --> <div id="method-ocean" class="method-section"> <p style="margin-bottom:1rem; font-size:0.85rem; font-weight:700; color:#64748b; text-transform:uppercase;"> Selecciona tu tarjeta Ocean</p> <div id="checkout-card-list" class="card-selector-list"> <!-- Rendered by JS --> </div> </div> <!-- Method: External Card Form --> <div id="method-external" class="method-section hidden"> <div class="card-form"> <div class="input-wrapper"> <label>NÃºmero de Tarjeta</label> <input type="text" id="ext-card-number" class="checkout-input" placeholder="0000 0000 0000 0000"
                 maxlength="19"> </div> <div class="input-wrapper"> <label>Nombre del Titular</label> <input type="text" id="ext-card-name" class="checkout-input" placeholder="JUAN PEREZ"> </div> <div class="form-row"> <div class="input-wrapper"> <label>Vencimiento (MM/AA)</label> <input type="text" id="ext-card-expiry" class="checkout-input" placeholder="MM/AA" maxlength="5"> </div> <div class="input-wrapper"> <label>CVV</label> <input type="password" id="ext-card-cvv" class="checkout-input" placeholder="***" maxlength="3"> </div> </div> </div> </div> </div> <div class="checkout-footer"> <div class="checkout-summary"> <span class="summary-label">Total a pagar:</span> <div class="summary-total"> <span id="checkout-amount-val">0</span> <span class="currency" id="checkout-currency-val">WILDGEMS</span> </div> </div> <button id="checkout-confirm-btn" class="btn-checkout-confirm" onclick="confirmCheckout()"> Confirmar y Pagar </button> <button class="btn-checkout-cancel" onclick="closeCheckout()">Cancelar transacciÃ³n</button> </div> </div> </div> <!-- Main App Layout --> <div id="app-layout" class="app-layout hidden"> <!-- Sidebar --> <aside class="sidebar"> <div class="brand"> <h1><i class="fas fa-wallet" style="margin-right:.5rem;color:var(--accent);"></i>Ocean Pay</h1> </div> <nav class="nav-menu"> <button class="nav-item active" onclick="showSection('wallet')"> <span><i class="fas fa-wallet"></i></span> Billetera </button> <button class="nav-item" onclick="showSection('history')"> <span><i class="fas fa-clock-rotate-left"></i></span> Historial </button> <button class="nav-item" onclick="showSection('pos')"> <span><i class="fas fa-cash-register"></i></span> POS Virtual </button> <button class="nav-item" onclick="showSection('pass')"> <span><i class="fas fa-ticket"></i></span> Ocean Pass </button> <button class="nav-item" onclick="showSection('notifications')"> <span><i class="fas fa-bell"></i></span> Notificaciones </button> <button class="nav-item" onclick="showSection('misc')"> <span><i class="fas fa-chart-line"></i></span> Misc. </button> <button class="nav-item" onclick="showSection('settings')"> <span><i class="fas fa-gear"></i></span> Ajustes </button> </nav> <div class="user-profile-mini"> <div class="user-avatar" id="userAvatar">U</div> <div class="user-info-text"> <span class="user-name" id="userNameDisplay">Usuario</span> <span class="user-id" id="userIdDisplay">ID: 0</span> <div id="user-pass-badge" class="pass-ticket-badge"> <i class="fas fa-water"></i> PASS </div> </div> </div> </aside> <!-- Main Content Area --> <main class="main-content"> <!-- Wallet Section --> <section id="wallet-section" class="wallet-viewport"> <!-- Hero: Resumen real de tu billetera --> <div class="wallet-hero"> <div class="hero-content"> <span class="hero-label">Tu balance total (estimado)</span> <h1 class="hero-amount"><span id="total-estimated-value">0.00</span> <small
                 style="font-size: 1.5rem; opacity: 0.7; vertical-align: middle;">EX</small></h1> <div class="hero-subtitle" id="hero-currencies-breakdown"> <i class="fas fa-wallet"></i> <span id="hero-balances-text">Sincroniza para ver tus saldos reales</span> </div> </div> <div class="hero-actions"> <button class="action-pill primary" onclick="refreshAllBalances()"> <i class="fas fa-sync-alt"></i> Sincronizar </button> <button class="action-pill" onclick="showSection('history')"> <i class="fas fa-list-ul"></i> Actividad </button> </div> </div> <div class="wallet-grid"> <!-- MAIN AREA - Reordenado: Activos primero, Tarjetas despuÃ©s --> <div class="wallet-main-content"> <!-- Assets Section - PRIMERO, agrupados por ecosistema --> <div class="asset-group"> <div class="section-header-modern"> <h3>Activos y Divisas</h3> <span class="view-all" onclick="openAssetsModal()">Ver todos</span> </div> <!-- Grupo: Ecosistema Ocean --> <div class="asset-ecosystem-block"> <h4 class="ecosystem-label"><i class="fas fa-globe" style="margin-right:.35rem;"></i>Ocean</h4> <div class="assets-grid-modern assets-row-ocean"> <div class="asset-card-modern" id="aquabux-card"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="bux" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">AquaBux</span> <span class="asset-balance-modern" id="bux">0</span> </div> <div class="asset-footer-modern"> <span>Ocean Cinemas</span> <span style="color:var(--accent)">Ocean</span> </div> </div> </div> </div> <!-- Grupo: Ecosistema Wild --> <div class="asset-ecosystem-block"> <h4 class="ecosystem-label">xR Wild</h4> <div class="assets-grid-modern assets-row-wild"> <div class="asset-card-modern" id="wildcredits-card"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="wildcredits" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">WildCredits</span> <span class="asset-balance-modern" id="wildcredits">0</span> </div> <div class="asset-footer-modern"> <span>Wild Explorer</span> <span style="color:var(--wild)">Wild</span> </div> </div> <div class="asset-card-modern" id="wildgems-card"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="wildgems" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">WildGems</span> <span class="asset-balance-modern" id="wildgems">0</span> </div> <div class="asset-footer-modern"> <span>WildShorts</span> <span style="color:var(--gold)">Wild</span> </div> </div> <div class="asset-card-modern" id="relayshards-card"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="relayshards" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">RelayShards</span> <span class="asset-balance-modern" id="relayshards">0</span> </div> <div class="asset-footer-modern"> <span>WildTransfer</span> <span style="color:#00f3ff">Wild</span> </div> </div> </div> </div> <!-- Grupo: Core & Knowledge --> <div class="asset-ecosystem-block"> <h4 class="ecosystem-label">a Core & Knowledge</h4> <div class="assets-grid-modern assets-row-core"> <div class="asset-card-modern" id="ecoxionums-card"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="ecoxionums" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">Ecoxionums</span> <span class="asset-balance-modern" id="ecoxionums">0</span> </div> <div class="asset-footer-modern"> <span>Ecoxion</span> <span style="color:var(--ok)">Core</span> </div> </div> <div class="asset-card-modern" id="ecobits-card"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="ecobits" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">EcoCoreBits</span> <span class="asset-balance-modern" id="ecobits">0</span> </div> <div class="asset-footer-modern"> <span>EcoConsole</span> <span style="color:var(--purple)">Core</span> </div> </div> <div class="asset-card-modern" id="ecobooks-card" onclick="loadEcoBooksBalance()"
-                    style="cursor:pointer;"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="ecobooks" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">EcoBooks</span> <span class="asset-balance-modern" id="ecobooks">0</span> </div> <div class="asset-footer-modern"> <span>Naturepedia</span> <span style="color:var(--ok)">Knowledge</span> </div> </div> <div class="asset-card-modern" id="ecotokens-card"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="ecotokens" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">EcoTokens</span> <span class="asset-balance-modern" id="ecotokens">0</span> </div> <div class="asset-footer-modern"> <span>Wild Savage</span> <span style="color:var(--ok)">Survival</span> </div> </div> </div> </div> <!-- Grupo: Gaming & Premium --> <div class="asset-ecosystem-block"> <h4 class="ecosystem-label">x} Gaming & Premium</h4> <div class="assets-grid-modern assets-row-gaming"> <div class="asset-card-modern" id="nxb-card"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="nxb" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">Nexus Bits</span> <span class="asset-balance-modern" id="nxb-balance" style="color: #f08a5d;">0</span> </div> <div class="asset-footer-modern"> <span>PV Nexus</span> <span style="color:#f08a5d">Gaming</span> </div> </div> <div class="asset-card-modern" id="amber-card" onclick="loadAmberBalance()" style="cursor:pointer;"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="amber" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">Ambar</span> <span class="asset-balance-modern" id="amber" style="color: #fbbf24;">0</span> </div> <div class="asset-footer-modern"> <span>DinoBox</span> <span style="color:#fbbf24">Prehistoric Assets</span> </div> </div> <!-- VoltBits --> <div class="asset-card-modern" id="voltbits-card"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="voltbit" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">VoltBits</span> <span class="asset-balance-modern" id="voltbit" style="color: #00e5ff;">0</span> </div> <div class="asset-footer-modern"> <span>Velocity Surge</span> <span style="color:#00e5ff">Volt Network</span> </div> </div> <div class="asset-card-modern" id="wildwavetokens-card"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="wildwavetokens" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">WildWave Tokens</span> <span class="asset-balance-modern" id="wildwavetokens" style="color:#7dd3fc;">0</span> </div> <div class="asset-footer-modern"> <span>WildWave</span> <span style="color:#7dd3fc">Social Network</span> </div> </div> <div class="asset-card-modern" id="appbux-card"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="appbux" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">AppBux</span> <span class="asset-balance-modern" id="appbux">0</span> </div> <div class="asset-footer-modern"> <span>AllApp</span> <span style="color:var(--orange)">Gaming</span> </div> </div> <!-- MayhemCoins --> <div class="asset-card-modern" id="mayhemcoins-card"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="mayhemcoins" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">MayhemCoins</span> <span class="asset-balance-modern" id="mayhemcoins" style="color: #e040fb;">0</span> </div> <div class="asset-footer-modern"> <span>WildWeapon Mayhem</span> <span style="color:#e040fb">Mayhem Network</span> </div> </div> <div class="asset-card-modern" id="cosmicdust-card"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="cosmicdust" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">Polvora Cosmica</span> <span class="asset-balance-modern" id="cosmicdust" style="color:#ffb74d;">0</span> </div> <div class="asset-footer-modern"> <span>Savage Space Animals</span> <span style="color:#ffb74d">SSA</span> </div> </div> </div> </div> <!-- Cards Section - DESPU0S de activos --> <div class="cards-group"> <div class="section-header-modern"> <h3>Tarjetas Ocean Card</h3> <span class="view-all" onclick="showNewCardModal()">+ Nueva Tarjeta</span> </div> <div id="cards-container" class="modern-cards-grid"> <!-- Rendered by JS --> </div> </div> </div> <!-- SIDE AREA --> <div class="wallet-side-stack"> <!-- Stats Box --> <div class="glass-box"> <h4 style="margin-bottom:1.5rem; font-weight:800; font-size:1.1rem; color:#f8fafc;">Resumen de Cuenta </h4> <div class="stat-row"> <span class="stat-label">Tipo de Cuenta</span> <span class="stat-value" style="color:var(--accent)" id="account-type-display">GLOBAL VIP</span> </div> <div class="stat-row"> <span class="stat-label">LÃ­mite Diario</span> <span class="stat-value" id="daily-limit-display">ilimitado</span> </div> <div class="stat-row"> <span class="stat-label">VerificaciÃ³n</span> <span class="stat-value" style="color:var(--ok)" id="verification-level-display"> <i class="fas fa-check-circle"></i> Nivel 3 </span> </div> <div class="stat-row"
+                    style="cursor:pointer;"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="ecobooks" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">EcoBooks</span> <span class="asset-balance-modern" id="ecobooks">0</span> </div> <div class="asset-footer-modern"> <span>Naturepedia</span> <span style="color:var(--ok)">Knowledge</span> </div> </div> <div class="asset-card-modern" id="ecotokens-card"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="ecotokens" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">EcoTokens</span> <span class="asset-balance-modern" id="ecotokens">0</span> </div> <div class="asset-footer-modern"> <span>Wild Savage</span> <span style="color:var(--ok)">Survival</span> </div> </div> </div> </div> <!-- Grupo: Gaming & Premium --> <div class="asset-ecosystem-block"> <h4 class="ecosystem-label">x} Gaming & Premium</h4> <div class="assets-grid-modern assets-row-gaming"> <div class="asset-card-modern" id="nxb-card"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="nxb" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">Nexus Bits</span> <span class="asset-balance-modern" id="nxb-balance" style="color: #f08a5d;">0</span> </div> <div class="asset-footer-modern"> <span>Nexus Dominion Front</span> <span style="color:#f08a5d">Gaming</span> </div> </div> <div class="asset-card-modern" id="amber-card" onclick="loadAmberBalance()" style="cursor:pointer;"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="amber" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">Ambar</span> <span class="asset-balance-modern" id="amber" style="color: #fbbf24;">0</span> </div> <div class="asset-footer-modern"> <span>DinoBox</span> <span style="color:#fbbf24">Prehistoric Assets</span> </div> </div> <!-- VoltBits --> <div class="asset-card-modern" id="voltbits-card"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="voltbit" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">VoltBits</span> <span class="asset-balance-modern" id="voltbit" style="color: #00e5ff;">0</span> </div> <div class="asset-footer-modern"> <span>Velocity Surge</span> <span style="color:#00e5ff">Volt Network</span> </div> </div> <div class="asset-card-modern" id="wildwavetokens-card"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="wildwavetokens" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">WildWave Tokens</span> <span class="asset-balance-modern" id="wildwavetokens" style="color:#7dd3fc;">0</span> </div> <div class="asset-footer-modern"> <span>WildWave</span> <span style="color:#7dd3fc">Social Network</span> </div> </div> <div class="asset-card-modern" id="appbux-card"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="appbux" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">AppBux</span> <span class="asset-balance-modern" id="appbux">0</span> </div> <div class="asset-footer-modern"> <span>AllApp</span> <span style="color:var(--orange)">Gaming</span> </div> </div> <!-- MayhemCoins --> <div class="asset-card-modern" id="mayhemcoins-card"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="mayhemcoins" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">MayhemCoins</span> <span class="asset-balance-modern" id="mayhemcoins" style="color: #e040fb;">0</span> </div> <div class="asset-footer-modern"> <span>WildWeapon Mayhem</span> <span style="color:#e040fb">Mayhem Network</span> </div> </div> <div class="asset-card-modern" id="cosmicdust-card"> <div class="asset-icon-container"> <canvas class="currency-canvas" data-currency="cosmicdust" width="44" height="44"></canvas> </div> <div class="asset-info-modern"> <span class="asset-name-modern">Polvora Cosmica</span> <span class="asset-balance-modern" id="cosmicdust" style="color:#ffb74d;">0</span> </div> <div class="asset-footer-modern"> <span>Savage Space Animals</span> <span style="color:#ffb74d">SSA</span> </div> </div> </div> </div> <!-- Cards Section - DESPU0S de activos --> <div class="cards-group"> <div class="section-header-modern"> <h3>Tarjetas Ocean Card</h3> <span class="view-all" onclick="showNewCardModal()">+ Nueva Tarjeta</span> </div> <div id="cards-container" class="modern-cards-grid"> <!-- Rendered by JS --> </div> </div> </div> <!-- SIDE AREA --> <div class="wallet-side-stack"> <!-- Stats Box --> <div class="glass-box"> <h4 style="margin-bottom:1.5rem; font-weight:800; font-size:1.1rem; color:#f8fafc;">Resumen de Cuenta </h4> <div class="stat-row"> <span class="stat-label">Tipo de Cuenta</span> <span class="stat-value" style="color:var(--accent)" id="account-type-display">GLOBAL VIP</span> </div> <div class="stat-row"> <span class="stat-label">LÃ­mite Diario</span> <span class="stat-value" id="daily-limit-display">ilimitado</span> </div> <div class="stat-row"> <span class="stat-label">VerificaciÃ³n</span> <span class="stat-value" style="color:var(--ok)" id="verification-level-display"> <i class="fas fa-check-circle"></i> Nivel 3 </span> </div> <div class="stat-row"
                   style="margin-top:2rem; padding-top:1rem; border-top:1px solid rgba(255,255,255,0.05);"> <span class="stat-label">EcoPower a</span> <span class="stat-value" style="color:#00ff64" id="ecopower-display">100</span> </div> </div> <!-- Quick Access --> <div class="glass-box"> <h4 style="margin-bottom:1.5rem; font-weight:800; font-size:1.1rem; color:#f8fafc;">Novedades Ecosistema </h4> <div class="card-mini-preview"
                   style="background: linear-gradient(145deg, rgba(30, 58, 138, 0.3) 0%, rgba(15, 23, 42, 0.9) 100%); border: 1px solid rgba(34, 211, 238, 0.15); display: flex; align-items: center; justify-content: center;"> <div style="text-align:center; padding: 1rem;"> <i class="fas fa-newspaper"
                       style="font-size:2.25rem; color:var(--accent); margin-bottom:0.5rem; display:block; opacity:0.9;"></i> <p style="font-size:0.75rem; color:var(--text-dim); line-height: 1.3;"> Consulta los Ãºltimos logs de actualizaciÃ³n del protocolo. </p> </div> </div> <button class="primary"
@@ -2595,6 +2595,10 @@
       rewardEveryHours: 24,
       pricing: {}
     };
+    const PREMIUM_CURRENCY_ID = 'aurex';
+    const OCEAN_PASS_PREMIUM_PRICE = 199;
+    let aurexPackages = [];
+    let isAurexCatalogLoading = false;
     let appSessionStartTime = Date.now();
 
     /* ---------- HELPERS ---------- */
@@ -2648,6 +2652,29 @@
         </div>
       `;
       wildRow.appendChild(card);
+    }
+
+    function ensureAurexCard() {
+      if (document.getElementById('aurex-card')) return;
+      const oceanRow = document.querySelector('.assets-row-ocean');
+      if (!oceanRow) return;
+      const card = document.createElement('div');
+      card.className = 'asset-card-modern';
+      card.id = 'aurex-card';
+      card.innerHTML = `
+        <div class="asset-icon-container">
+          <canvas class="currency-canvas" data-currency="aurex" width="44" height="44"></canvas>
+        </div>
+        <div class="asset-info-modern">
+          <span class="asset-name-modern">Aurex</span>
+          <span class="asset-balance-modern" id="aurex" style="color:#f9d66e;">0</span>
+        </div>
+        <div class="asset-footer-modern">
+          <span>Ocean Pass</span>
+          <span style="color:#f9d66e">Premium</span>
+        </div>
+      `;
+      oceanRow.appendChild(card);
     }
 
 
@@ -3230,7 +3257,53 @@
       ctx.arc(-size * 0.18, -size * 0.2, size * 0.09, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
-    } function
+    }
+
+    function drawAurexIcon(ctx, x, y, size, time) {
+      ctx.save();
+      ctx.translate(x, y);
+      const pulse = 0.92 + Math.sin(time * 2.4) * 0.08;
+      ctx.shadowBlur = size * 0.5 * pulse;
+      ctx.shadowColor = "rgba(255, 213, 92, 0.75)";
+
+      const grad = ctx.createRadialGradient(-size * 0.15, -size * 0.2, 0, 0, 0, size * 0.58);
+      grad.addColorStop(0, "#fff8cf");
+      grad.addColorStop(0.38, "#ffd54f");
+      grad.addColorStop(1, "#b7791f");
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(0, 0, size * 0.45, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = "rgba(255,255,255,0.58)";
+      ctx.lineWidth = size * 0.05;
+      ctx.beginPath();
+      ctx.arc(0, 0, size * 0.34, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.strokeStyle = "rgba(255,255,255,0.36)";
+      ctx.lineWidth = size * 0.03;
+      ctx.beginPath();
+      ctx.moveTo(-size * 0.22, -size * 0.02);
+      ctx.lineTo(size * 0.22, -size * 0.02);
+      ctx.moveTo(-size * 0.15, size * 0.12);
+      ctx.lineTo(size * 0.15, size * 0.12);
+      ctx.stroke();
+
+      ctx.fillStyle = "#3f2b00";
+      ctx.font = `900 ${size * 0.34}px sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("A", 0, 0);
+
+      ctx.fillStyle = "rgba(255,255,255,0.3)";
+      ctx.beginPath();
+      ctx.ellipse(-size * 0.16, -size * 0.16, size * 0.1, size * 0.07, -0.4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function
       animateCurrencies() {
       const canvases = document.querySelectorAll('.currency-canvas'); const time = Date.now() * 0.002;
       canvases.forEach(canvas => {
@@ -3270,6 +3343,7 @@
           case 'cosmicdust': drawCosmicDustIcon(ctx, x, y, size * 0.8); break;
           case 'coralbits': drawCoralBitsIcon(ctx, x, y, size * 0.8); break;
           case 'tigrys': drawTigrysIcon(ctx, x, y, size * 0.8); break;
+          case 'aurex': drawAurexIcon(ctx, x, y, size * 0.8, time); break;
           default:
             ctx.fillStyle = "#fff"; ctx.font = "64px serif"; ctx.textAlign = "center";
             ctx.textBaseline = "middle"; ctx.fillText("x", x, y);
@@ -3347,6 +3421,8 @@
       if (cdEl) cdEl.textContent = Math.round(balances.cosmicdust || 0).toLocaleString();
       const coralEl = qs('#coralbits');
       if (coralEl) coralEl.textContent = Math.round(balances.coralbits || 0).toLocaleString();
+      const aurexEl = qs('#aurex');
+      if (aurexEl) aurexEl.textContent = Math.round(balances.aurex || 0).toLocaleString();
       qs('#ecopower-display').textContent = Math.round(balances.ecopower || 100);
 
       // Actualizar Resumen Lateral con info real del usuario
@@ -3374,17 +3450,17 @@
       const parity = {
         bux: 0.1, wildcredits: 0.5, wildgems: 10.0, ecoxionums: 1.0,
         nxb: 0.25, amber: 0.15, voltbit: 0.1, wildwavetokens: 0.18, appbux: 0.05,
-        ecobooks: 0.5, ecobits: 2.0, ecotokens: 0.3, mayhemcoins: 0.08, cosmicdust: 0.04, relayshards: 0.12, coralbits: 0.22, tigrys: 0.09
+        ecobooks: 0.5, ecobits: 2.0, ecotokens: 0.3, mayhemcoins: 0.08, cosmicdust: 0.04, relayshards: 0.12, coralbits: 0.22, tigrys: 0.09, aurex: 12
       };
 
       const currencyLabels = {
         bux: 'AquaBux', wildcredits: 'WildCredits', wildgems: 'WildGems',
         ecoxionums: 'Ecoxionums', 'nxb-balance': 'Nexus Bits', amber: 'Amber',
         voltbit: 'VoltBits', wildwavetokens: 'WildWave Tokens', appbux: 'AppBux', ecobooks: 'EcoBooks',
-        ecobits: 'EcoCoreBits', ecotokens: 'EcoTokens', mayhemcoins: 'MayhemCoins', cosmicdust: 'Polvora Cosmica', relayshards: 'RelayShards', coralbits: 'Coral Bits', tigrys: 'Tigrys'
+        ecobits: 'EcoCoreBits', ecotokens: 'EcoTokens', mayhemcoins: 'MayhemCoins', cosmicdust: 'Polvora Cosmica', relayshards: 'RelayShards', coralbits: 'Coral Bits', tigrys: 'Tigrys', aurex: 'Aurex'
       };
 
-      const ids = ['bux', 'wildcredits', 'wildgems', 'tigrys', 'relayshards', 'ecoxionums', 'nxb-balance', 'amber', 'voltbit', 'wildwavetokens', 'appbux', 'ecobooks', 'ecobits', 'ecotokens', 'mayhemcoins', 'cosmicdust', 'coralbits'];
+      const ids = ['bux', 'aurex', 'wildcredits', 'wildgems', 'tigrys', 'relayshards', 'ecoxionums', 'nxb-balance', 'amber', 'voltbit', 'wildwavetokens', 'appbux', 'ecobooks', 'ecobits', 'ecotokens', 'mayhemcoins', 'cosmicdust', 'coralbits'];
 
       let totalEX = 0;
       const breakdown = [];
@@ -3633,8 +3709,143 @@
     }
 
     /* ---------- OCEAN PASS LOGIC ---------- */
+    function ensureAurexPassCurrency() {
+      const select = qs('#pass-activation-currency');
+      if (!select) return;
+      select.innerHTML = `<option value="${PREMIUM_CURRENCY_ID}">Aurex</option>`;
+      select.value = PREMIUM_CURRENCY_ID;
+    }
+
+    function ensureAurexMarketSection() {
+      const passSection = qs('#pass-section');
+      if (!passSection) return;
+      if (qs('#aurex-market-panel')) return;
+
+      const market = document.createElement('div');
+      market.id = 'aurex-market-panel';
+      market.style.cssText = `
+        margin-top: 1.5rem;
+        background: rgba(8,14,32,0.72);
+        border: 1px solid rgba(249,214,110,0.26);
+        border-radius: 22px;
+        padding: 1.25rem;
+        box-shadow: inset 0 0 30px rgba(249,214,110,0.08);
+      `;
+      market.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;">
+          <div>
+            <h3 style="margin:0;color:#fde68a;font-size:1.05rem;">Tienda Aurex</h3>
+            <p style="margin:6px 0 0;color:#cbd5e1;font-size:0.9rem;">Compra paquetes premium y usalos para desbloqueos directos del ecosistema.</p>
+          </div>
+          <button class="secondary" style="width:auto;padding:0.45rem 0.9rem;" onclick="loadAurexPackages(true)">
+            <i class="fas fa-sync-alt"></i> Actualizar
+          </button>
+        </div>
+        <div id="aurex-packages-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;">
+          <div style="color:#94a3b8;padding:1rem;text-align:center;">Cargando paquetes...</div>
+        </div>
+      `;
+      passSection.appendChild(market);
+    }
+
+    function renderAurexPackages() {
+      const grid = qs('#aurex-packages-grid');
+      if (!grid) return;
+      if (!aurexPackages.length) {
+        grid.innerHTML = `<div style="color:#94a3b8;padding:1rem;text-align:center;">No hay paquetes disponibles por ahora.</div>`;
+        return;
+      }
+      grid.innerHTML = aurexPackages.map((pkg) => {
+        const totalAurex = Number(pkg.aurexAmount || 0) + Number(pkg.bonus || 0);
+        return `
+          <article style="background:rgba(15,23,42,0.84);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:0.95rem;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+              <canvas class="currency-canvas" data-currency="aurex" width="28" height="28"></canvas>
+              <h4 style="margin:0;color:#fef3c7;font-size:0.97rem;">${pkg.title}</h4>
+            </div>
+            <p style="margin:0;color:#f8fafc;font-weight:800;font-size:1.05rem;">${totalAurex.toLocaleString()} AUREX</p>
+            <p style="margin:4px 0 10px;color:#94a3b8;font-size:0.82rem;">${pkg.bonus > 0 ? `Incluye bono de +${Number(pkg.bonus).toLocaleString()}.` : 'Paquete base de recarga.'}</p>
+            <button class="pos-btn-primary" style="width:100%;" onclick="startAurexCheckout('${pkg.id}')">
+              Comprar por $${Number(pkg.priceUyu || 0).toLocaleString('es-UY')} UYU
+            </button>
+          </article>
+        `;
+      }).join('');
+    }
+
+    async function loadAurexPackages(force = false) {
+      if (isAurexCatalogLoading && !force) return;
+      const grid = qs('#aurex-packages-grid');
+      isAurexCatalogLoading = true;
+      if (grid) grid.innerHTML = `<div style="color:#94a3b8;padding:1rem;text-align:center;">Cargando paquetes...</div>`;
+      try {
+        const res = await apiFetch(`${API}/ocean-pay/aurex/packages`, { headers: { 'Authorization': `Bearer ${token}` } });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'No se pudo cargar el catalogo Aurex');
+        aurexPackages = Array.isArray(data.packages) ? data.packages : [];
+        renderAurexPackages();
+      } catch (err) {
+        if (grid) grid.innerHTML = `<div style="color:#ef4444;padding:1rem;text-align:center;">No se pudo cargar la tienda Aurex.</div>`;
+      } finally {
+        isAurexCatalogLoading = false;
+      }
+    }
+
+    async function startAurexCheckout(packageId) {
+      try {
+        const cleanUrl = window.location.origin + window.location.pathname;
+        const res = await apiFetch(`${API}/ocean-pay/aurex/checkout`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ packageId, returnUrl: cleanUrl })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'No se pudo iniciar el checkout');
+        if (!data.initPoint) throw new Error('Mercado Pago no devolvio un enlace de pago');
+        localStorage.setItem('op_aurex_checkout_ref', String(data.externalReference || ''));
+        window.location.href = data.initPoint;
+      } catch (err) {
+        showToast(err.message || 'No se pudo iniciar la compra de Aurex', 'error');
+      }
+    }
+
+    async function handleAurexCheckoutReturn() {
+      const params = new URLSearchParams(window.location.search);
+      const paymentId = Number(params.get('payment_id') || params.get('collection_id') || 0);
+      const status = String(params.get('status') || params.get('collection_status') || '').toLowerCase();
+      const externalReference = String(params.get('external_reference') || '');
+      const pendingRef = String(localStorage.getItem('op_aurex_checkout_ref') || '');
+      if (!paymentId || status !== 'approved') return;
+      if (!externalReference || (pendingRef && externalReference !== pendingRef)) return;
+
+      try {
+        const res = await apiFetch(`${API}/ocean-pay/aurex/confirm`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ paymentId, externalReference })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'No se pudo confirmar la compra');
+        const credited = Number(data.credited || 0);
+        showToast(
+          data.alreadyApplied
+            ? 'Compra Aurex ya confirmada anteriormente.'
+            : `Compra confirmada. +${credited.toLocaleString()} AUREX acreditados.`,
+          'success',
+          6500
+        );
+        localStorage.removeItem('op_aurex_checkout_ref');
+        await refreshAllBalances();
+      } catch (err) {
+        showToast(err.message || 'No se pudo confirmar la compra de Aurex', 'error');
+      } finally {
+        const cleanUrl = window.location.origin + window.location.pathname;
+        window.history.replaceState({}, document.title, cleanUrl);
+      }
+    }
+
     async function activateOceanPass() {
-      const currency = (qs('#pass-activation-currency')?.value || 'aquabux').toLowerCase();
+      const currency = (qs('#pass-activation-currency')?.value || PREMIUM_CURRENCY_ID).toLowerCase();
       if (!confirm(`Confirmar suscripcion Ocean Pass con ${currency.toUpperCase()}?`)) return;
       try {
         const res = await apiFetch(`${API}/ocean-pay/pass/activate`, {
@@ -3663,12 +3874,15 @@
     function updatePassActivationPriceLabel() {
       const select = qs('#pass-activation-currency');
       if (!select) return;
-      const raw = oceanPass?.pricing?.[String(select.value || '').toLowerCase()];
+      const key = String(select.value || '').toLowerCase();
+      const raw = oceanPass?.pricing?.[key];
       const amount = Number(raw || 0);
       const btn = document.querySelector('#pass-inactive-content .pos-btn-primary');
       if (!btn) return;
       if (amount > 0) {
         btn.textContent = `Activar Ocean Pass (${amount.toLocaleString()} ${String(select.value).toUpperCase()}  30 dias)`;
+      } else if (key === PREMIUM_CURRENCY_ID) {
+        btn.textContent = `Activar Ocean Pass (${OCEAN_PASS_PREMIUM_PRICE.toLocaleString()} ${PREMIUM_CURRENCY_ID.toUpperCase()}  30 dias)`;
       } else {
         btn.textContent = 'Activar Ocean Pass (30 dias)';
       }
@@ -3878,6 +4092,7 @@
       if (id === 'pass') {
         updatePassActivationPriceLabel();
         updateOceanPassUI();
+        loadAurexPackages();
       }
     }
 
@@ -5133,6 +5348,9 @@
     window.addEventListener('DOMContentLoaded', async () => {
       ensureCoralBitsCard();
       ensureTigrysCard();
+      ensureAurexCard();
+      ensureAurexPassCurrency();
+      ensureAurexMarketSection();
       const t = localStorage.getItem('opToken');
       if (t) {
         token = t;
@@ -5187,6 +5405,8 @@
         });
 
         loadOceanPass();
+        loadAurexPackages();
+        handleAurexCheckoutReturn();
         setInterval(checkOceanPassStatus, 1000); // UI updates every second if active
         // checkOceanPassStatus(); // initial check is done by interval immediately or by first tick
 
@@ -5241,13 +5461,14 @@
 
       const currencies = [
         { id: 'bux', name: 'AquaBux', desc: 'Moneda oficial de Ocean Cinemas y transacciones generales del ecosistema.', project: 'Ocean Cinemas' },
+        { id: 'aurex', name: 'Aurex', desc: 'Moneda premium de Ocean Pay para compras especiales, pases y contenido exclusivo.', project: 'Ocean Pass' },
         { id: 'coralbits', name: 'Coral Bits', desc: 'Divisa de Ocean AI sincronizada con Ocean Pay.', project: 'Ocean AI' },
         { id: 'wildcredits', name: 'WildCredits', desc: 'CrÃ©ditos de recompensa obtenidos en Wild Explorer y misiones de campo.', project: 'Wild Explorer' },
         { id: 'wildgems', name: 'WildGems', desc: 'Gemas premium utilizadas para acceder a contenido exclusivo en WildShorts.', project: 'WildShorts' },
         { id: 'tigrys', name: 'Tigrys', desc: 'Divisa semanal de Tiger Tasks para recompensas y Tiger Pass.', project: 'Tiger Tasks' },
         { id: 'relayshards', name: 'RelayShards', desc: 'Divisa nativa de WildTransfer. Se gana al subir y recibir archivos para pagar planes semanales.', project: 'WildTransfer' },
         { id: 'ecoxionums', name: 'Ecoxionums', desc: 'Activo digital de alto valor, base del protocolo de intercambio Ecoxion.', project: 'Ecoxion' },
-        { id: 'nxb-balance', name: 'NXB', desc: 'Divisa de combate y mejoras utilizada en Primal Velocity Nexus.', project: 'Primal Velocity' },
+        { id: 'nxb-balance', name: 'NXB', desc: 'Divisa de combate y mejoras utilizada en Nexus Dominion Front.', project: 'Nexus Dominion Front' },
         { id: 'amber', name: 'Amber', desc: 'Resina fÃ³sil valiosa para la gestiÃ³n de expediciones dinosÃ¡uricas.', project: 'DinoBox' },
         { id: 'voltbit', name: 'VoltBit', desc: 'Unidades de energÃ­a sintÃ©tica necesarias para la aceleraciÃ³n en Velocity Surge.', project: 'Velocity Surge' },
         { id: 'wildwavetokens', name: 'WildWave Tokens', desc: 'Token social de WildWave. Se sincroniza con tu actividad y recompensas de la red.', project: 'WildWave' },
@@ -6422,6 +6643,7 @@
   }
 </style>
 </body> </html> 
+
 
 
 

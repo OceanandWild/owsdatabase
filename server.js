@@ -5918,6 +5918,124 @@ app.post('/wildweapon/mayhemcoins/change', async (req, res) => {
   }
 });
 
+const WILDWEAPON_STORE_PACKS = Object.freeze([
+  {
+    id: 'zeus_axe_founder_pack',
+    name: 'Zeus Axe Founders Pack',
+    rarity: 'mitico',
+    currency: 'tides',
+    price: 12999,
+    weaponId: 'zeus_axe'
+  }
+]);
+
+// Catalogo de tienda WildWeapon (compra con Tides)
+app.get('/wildweapon/store/catalog', async (req, res) => {
+  const userId = getAuthenticatedOceanPayUserId(req);
+  if (!userId) {
+    return res.status(401).json({ error: 'Token requerido' });
+  }
+
+  const client = await pool.connect();
+  try {
+    const tidesBalance = await getUnifiedBalance(client, userId, 'tides');
+    const { rows } = await client.query(
+      `SELECT key, value
+         FROM ocean_pay_metadata
+        WHERE user_id = $1
+          AND key LIKE 'wildweapon_store_pack_%'`,
+      [userId]
+    );
+    const ownedPacks = {};
+    for (const row of rows) {
+      const key = String(row.key || '').replace('wildweapon_store_pack_', '');
+      ownedPacks[key] = String(row.value || '').toLowerCase() === 'true';
+    }
+    return res.json({
+      success: true,
+      tidesBalance: Math.max(0, Math.floor(Number(tidesBalance || 0))),
+      packages: WILDWEAPON_STORE_PACKS,
+      ownedPacks
+    });
+  } catch (e) {
+    console.error('Error en GET /wildweapon/store/catalog:', e);
+    return res.status(500).json({ error: 'No se pudo cargar la tienda de WildWeapon' });
+  } finally {
+    client.release();
+  }
+});
+
+// Comprar paquete de tienda WildWeapon con Tides
+app.post('/wildweapon/store/purchase', async (req, res) => {
+  const userId = getAuthenticatedOceanPayUserId(req);
+  if (!userId) return res.status(401).json({ error: 'Token requerido' });
+
+  const packId = String(req.body?.packId || '').trim();
+  const pack = WILDWEAPON_STORE_PACKS.find((p) => p.id === packId);
+  if (!pack) return res.status(400).json({ error: 'Paquete no válido' });
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const ownedKey = `wildweapon_store_pack_${pack.id}`;
+    const { rows: ownedRows } = await client.query(
+      `SELECT value
+         FROM ocean_pay_metadata
+        WHERE user_id = $1 AND key = $2
+        FOR UPDATE`,
+      [userId, ownedKey]
+    );
+    const alreadyOwned = String(ownedRows[0]?.value || '').toLowerCase() === 'true';
+    if (alreadyOwned) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'Ya posees este paquete' });
+    }
+
+    const currentTides = await getUnifiedBalance(client, userId, 'tides');
+    const newBalance = Number(currentTides) - Number(pack.price || 0);
+    if (newBalance < 0) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Saldo insuficiente de Tides', currentBalance: Math.max(0, Math.floor(Number(currentTides || 0))) });
+    }
+
+    await setUnifiedBalance(client, userId, 'tides', newBalance);
+    await client.query(
+      `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [userId, `WildWeapon Pack: ${pack.name}`, -Number(pack.price || 0), 'WildWeapon Store', 'tides']
+    );
+
+    if (ownedRows.length > 0) {
+      await client.query(
+        `UPDATE ocean_pay_metadata
+            SET value = 'true'
+          WHERE user_id = $1 AND key = $2`,
+        [userId, ownedKey]
+      );
+    } else {
+      await client.query(
+        `INSERT INTO ocean_pay_metadata (user_id, key, value)
+         VALUES ($1, $2, 'true')`,
+        [userId, ownedKey]
+      );
+    }
+
+    await client.query('COMMIT');
+    return res.json({
+      success: true,
+      pack,
+      newTidesBalance: Math.max(0, Math.floor(newBalance))
+    });
+  } catch (e) {
+    await client.query('ROLLBACK');
+    console.error('Error en POST /wildweapon/store/purchase:', e);
+    return res.status(500).json({ error: 'No se pudo completar la compra del paquete' });
+  } finally {
+    client.release();
+  }
+});
+
 /* ===== ECOXION - ECOXIONUMS ===== */
 
 // Cambiar Ecoxionums (ganar/gastar) usando fuente unificada por tarjeta

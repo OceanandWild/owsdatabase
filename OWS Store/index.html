@@ -378,6 +378,204 @@
         .data-refresh-countdown { font-size: 0.72rem; color: var(--orange); margin-top: 0.45rem; font-family: var(--font-mono); }
         .data-refresh-actions { display: flex; gap: 0.55rem; flex-wrap: wrap; margin-top: 0.85rem; }
 
+        .prelogin-gate {
+            position: fixed;
+            inset: 0;
+            z-index: 12350;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background:
+                radial-gradient(ellipse 1200px 680px at -10% 0%, rgba(38,212,232,0.13), transparent 58%),
+                radial-gradient(ellipse 900px 520px at 110% 100%, rgba(242,104,48,0.1), transparent 56%),
+                #040911;
+            padding: 1.1rem;
+        }
+        .prelogin-gate.active { display: flex; }
+        .prelogin-gate-shell {
+            width: min(1080px, 100%);
+            min-height: min(640px, calc(100vh - 2.2rem));
+            border: 1px solid rgba(82,217,223,0.28);
+            border-radius: 20px;
+            background: linear-gradient(165deg, rgba(9,17,30,0.97), rgba(6,12,21,0.98));
+            box-shadow: 0 26px 56px rgba(0,0,0,0.55);
+            overflow: hidden;
+            display: grid;
+            grid-template-columns: minmax(320px, 1fr) minmax(320px, 1fr);
+        }
+        .prelogin-panel {
+            padding: 1.3rem 1.35rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 1rem;
+        }
+        .prelogin-form-panel {
+            border-right: 1px solid rgba(82,217,223,0.16);
+            background: linear-gradient(180deg, rgba(8,17,29,0.75), rgba(8,17,29,0.35));
+        }
+        .prelogin-title {
+            font-family: var(--font-display);
+            font-size: clamp(1.2rem, 2.6vw, 1.9rem);
+            line-height: 1.1;
+            letter-spacing: 0.4px;
+            color: #eef8ff;
+            text-wrap: balance;
+        }
+        .prelogin-sub {
+            color: var(--ink-1);
+            font-size: 0.85rem;
+            max-width: 44ch;
+        }
+        .prelogin-form {
+            display: grid;
+            gap: 0.7rem;
+            max-width: 390px;
+        }
+        .prelogin-field {
+            display: grid;
+            gap: 0.35rem;
+        }
+        .prelogin-label {
+            font-family: var(--font-mono);
+            font-size: 0.65rem;
+            letter-spacing: 0.8px;
+            color: var(--ink-2);
+            text-transform: uppercase;
+        }
+        .prelogin-input {
+            width: 100%;
+            border-radius: 10px;
+            border: 1px solid rgba(82,217,223,0.22);
+            background: rgba(8,17,29,0.8);
+            color: var(--ink-0);
+            font-size: 0.86rem;
+            padding: 0.7rem 0.75rem;
+            font-family: inherit;
+            outline: none;
+            transition: border-color 0.15s ease, box-shadow 0.2s ease;
+        }
+        .prelogin-input:focus {
+            border-color: rgba(82,217,223,0.7);
+            box-shadow: 0 0 0 2px rgba(82,217,223,0.18);
+        }
+        .prelogin-btn {
+            border: 1px solid rgba(82,217,223,0.45);
+            border-radius: 10px;
+            background: linear-gradient(135deg, rgba(12,46,74,0.86), rgba(17,90,124,0.86));
+            color: #dcf6ff;
+            font-weight: 700;
+            font-size: 0.84rem;
+            letter-spacing: 0.3px;
+            padding: 0.72rem 0.8rem;
+            cursor: pointer;
+            transition: transform 0.16s ease, filter 0.16s ease;
+        }
+        .prelogin-btn:hover:not(:disabled) {
+            transform: translateY(-1px);
+            filter: brightness(1.06);
+        }
+        .prelogin-btn:disabled {
+            opacity: 0.55;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .prelogin-status {
+            min-height: 1.2em;
+            color: var(--ink-1);
+            font-size: 0.78rem;
+        }
+        .prelogin-status.error { color: #ff8ca3; }
+        .prelogin-status.success { color: #5ef3b6; }
+        .prelogin-announce-panel {
+            background:
+                linear-gradient(180deg, rgba(8,17,29,0.35), rgba(8,17,29,0.7)),
+                radial-gradient(circle at 100% 0%, rgba(82,217,223,0.12), transparent 45%);
+        }
+        .prelogin-announce-track {
+            flex: 1;
+            width: 100%;
+            border: 1px solid rgba(82,217,223,0.2);
+            border-radius: 14px;
+            padding: 0.75rem;
+            background: rgba(8,17,29,0.64);
+            display: flex;
+            align-items: center;
+        }
+        .prelogin-announce-card {
+            width: 100%;
+            height: 100%;
+            display: grid;
+            grid-template-rows: minmax(180px, 1fr) auto;
+            gap: 0.7rem;
+            opacity: 0;
+            transform: translateY(8px);
+            transition: opacity 0.32s ease, transform 0.32s ease;
+        }
+        .prelogin-announce-card.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .prelogin-announce-image {
+            width: 100%;
+            height: 100%;
+            min-height: 180px;
+            border-radius: 10px;
+            border: 1px solid rgba(82,217,223,0.22);
+            object-fit: cover;
+            background: rgba(0,0,0,0.25);
+        }
+        .prelogin-announce-title {
+            font-size: clamp(1rem, 2.2vw, 1.25rem);
+            font-weight: 800;
+            line-height: 1.2;
+            color: #eaf6ff;
+        }
+        .prelogin-announce-kicker {
+            font-family: var(--font-mono);
+            text-transform: uppercase;
+            letter-spacing: 0.7px;
+            color: var(--cyan);
+            font-size: 0.63rem;
+            margin-bottom: 0.28rem;
+        }
+        .prelogin-announce-meta {
+            color: var(--ink-1);
+            font-size: 0.77rem;
+        }
+        .prelogin-announce-dots {
+            display: flex;
+            gap: 0.35rem;
+            margin-top: 0.45rem;
+        }
+        .prelogin-announce-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: rgba(130,162,188,0.4);
+            transition: transform 0.2s ease, background 0.2s ease;
+        }
+        .prelogin-announce-dot.active {
+            background: var(--cyan);
+            transform: scale(1.18);
+        }
+        @media (max-width: 940px) {
+            .prelogin-gate-shell {
+                min-height: auto;
+                grid-template-columns: 1fr;
+            }
+            .prelogin-form-panel {
+                border-right: none;
+                border-bottom: 1px solid rgba(82,217,223,0.16);
+            }
+            .prelogin-panel {
+                padding: 1rem;
+            }
+            .prelogin-announce-image {
+                min-height: 140px;
+            }
+        }
+
         /* â”€â”€ GAME OVERLAY â”€â”€ */
         #game-overlay { display:none; position:fixed; inset:0; z-index:9000; background:var(--bg); flex-direction:column; }
         #game-overlay.active { display:flex; }
@@ -2993,6 +3191,40 @@
 </head>
 <body>
 
+<div id="prelogin-gate" class="prelogin-gate active" aria-live="polite" aria-hidden="false">
+    <div class="prelogin-gate-shell">
+        <section class="prelogin-panel prelogin-form-panel">
+            <div class="prelogin-title">Iniciar Sesion con Ocean Pay a OWS Store</div>
+            <div class="prelogin-sub">Conecta tu cuenta para continuar al ecosistema y sincronizar tu perfil desde el inicio.</div>
+            <form id="prelogin-form" class="prelogin-form">
+                <label class="prelogin-field" for="prelogin-username">
+                    <span class="prelogin-label">Usuario</span>
+                    <input id="prelogin-username" class="prelogin-input" type="text" autocomplete="username" placeholder="Tu usuario de Ocean Pay" required>
+                </label>
+                <label class="prelogin-field" for="prelogin-password">
+                    <span class="prelogin-label">Contrasena</span>
+                    <input id="prelogin-password" class="prelogin-input" type="password" autocomplete="current-password" placeholder="Tu contrasena" required>
+                </label>
+                <button id="prelogin-submit" class="prelogin-btn" type="submit">Entrar a OWS Store</button>
+                <div id="prelogin-status" class="prelogin-status" aria-live="polite"></div>
+            </form>
+        </section>
+        <section class="prelogin-panel prelogin-announce-panel">
+            <div class="prelogin-announce-track">
+                <article id="prelogin-announce-card" class="prelogin-announce-card">
+                    <img id="prelogin-announce-image" class="prelogin-announce-image" src="" alt="Anuncio de lanzamiento">
+                    <div>
+                        <div class="prelogin-announce-kicker">Proximos lanzamientos</div>
+                        <div id="prelogin-announce-title" class="prelogin-announce-title"></div>
+                        <div id="prelogin-announce-meta" class="prelogin-announce-meta"></div>
+                        <div id="prelogin-announce-dots" class="prelogin-announce-dots"></div>
+                    </div>
+                </article>
+            </div>
+        </section>
+    </div>
+</div>
+
 <!-- â•â•â• BOOT OVERLAY â•â•â• -->
 <div id="brand-splash-overlay" class="brand-splash-overlay" aria-hidden="true">
     <div class="brand-splash-core">
@@ -3796,6 +4028,8 @@
         const OWSNEWS_LOCAL_ICON = 'https://raw.githubusercontent.com/OceanandWild/owsdatabase/main/OWS%20Store/build/owsnews.ico';
         const DINOBOX_LOCAL_ICON = 'https://raw.githubusercontent.com/OceanandWild/owsdatabase/main/OWS%20Store/build/dinobox.ico';
         const STORE_LOCAL_ICON = 'https://raw.githubusercontent.com/OceanandWild/owsdatabase/main/OWS%20Store/build/icon.ico';
+        const NATBEE_ANNOUNCEMENT_RAW = 'https://raw.githubusercontent.com/OceanandWild/owsdatabase/main/OWS%20Store/build/natbeeannouncement.png';
+        const NATUREPEDIA_ANNOUNCEMENT_RAW = 'https://raw.githubusercontent.com/OceanandWild/owsdatabase/main/OWS%20Store/build/naturepediaannouncement.png';
         // .jpg icons: use GitHub raw URL (same approach as Floret) to avoid
         // Electron .asar path resolution issues with non-.ico assets.
         // Falls back to local path if remote fails (CSS background-image handles silently).
@@ -3831,6 +4065,18 @@
         const NATUREPEDIA_PLACEHOLDER_DATE_ISO = '';
         const WILDSHORTS_PLACEHOLDER_DATE_ISO = '2026-03-28T18:00:00Z';
         const OCEAN_CINEMAS_RELEASE_DATE_ISO = '2026-04-03T18:00:00Z';
+        const PRELOGIN_ANNOUNCEMENTS = [
+            {
+                title: 'NatBee se lanza el 17 de Marzo',
+                meta: 'Produccion de miel, estrategia de colmena y expansion por biomas.',
+                image: NATBEE_ANNOUNCEMENT_RAW
+            },
+            {
+                title: 'Naturepedia se lanza el 10 de Marzo',
+                meta: 'Biblioteca interactiva de especies, biomas y colecciones visuales.',
+                image: NATUREPEDIA_ANNOUNCEMENT_RAW
+            }
+        ];
         const MYSTERY_PROJECT_RELEASE_DATE_ISO = '';  // Fecha por decidir
         const ECOXION_EVENT_END_DATE_ISO = '2026-03-20T18:00:00Z';
         const WILD_DESTINY_EVENT_END_DATE_ISO = '2026-03-21T18:00:00Z';
@@ -4230,6 +4476,9 @@
             loading: false,
             connected: false
         };
+        let preloginAnnouncementIndex = 0;
+        let preloginAnnouncementTimer = null;
+        let owsStoreBootstrapStarted = false;
         const STORE_OFFERS_ENABLED = false;
         const projectCommerceOfferCache = new Map();
         let storeOfferCheckoutState = {
@@ -4813,15 +5062,7 @@
             }
         }
 
-        async function connectOceanPayStore() {
-            const userInput = document.getElementById('op-mini-username');
-            const passInput = document.getElementById('op-mini-password');
-            const username = String(userInput?.value || '').trim();
-            const password = String(passInput?.value || '').trim();
-            if (!username || !password) {
-                addNotification('Completa usuario y contrasena de Ocean Pay.', 'warning');
-                return;
-            }
+        async function loginOceanPayStoreWithCredentials(username, password) {
             oceanPayState.loading = true;
             renderOceanPayCard();
             try {
@@ -4844,14 +5085,33 @@
                     balance: toOceanPayNumber(balances.aquabux || data?.user?.aquabux || data?.aquabux || 0),
                     balances
                 });
-                if (userInput) userInput.value = '';
-                if (passInput) passInput.value = '';
-                await refreshOceanPayStore();
+                const refreshed = await refreshOceanPayStore();
+                if (!refreshed) throw new Error('No se pudo sincronizar Ocean Pay luego del login.');
+                return true;
             } catch (err) {
-                addNotification(`Ocean Pay: ${err?.message || 'error de conexion'}`, 'error');
+                throw err;
             } finally {
                 oceanPayState.loading = false;
                 renderOceanPayCard();
+            }
+        }
+
+        async function connectOceanPayStore() {
+            const userInput = document.getElementById('op-mini-username');
+            const passInput = document.getElementById('op-mini-password');
+            const username = String(userInput?.value || '').trim();
+            const password = String(passInput?.value || '').trim();
+            if (!username || !password) {
+                addNotification('Completa usuario y contrasena de Ocean Pay.', 'warning');
+                return;
+            }
+            try {
+                await loginOceanPayStoreWithCredentials(username, password);
+                if (userInput) userInput.value = '';
+                if (passInput) passInput.value = '';
+                addNotification('Ocean Pay conectado correctamente.', 'success');
+            } catch (err) {
+                addNotification(`Ocean Pay: ${err?.message || 'error de conexion'}`, 'error');
             }
         }
 
@@ -4881,6 +5141,104 @@
             } else {
                 renderOceanPayCard();
             }
+        }
+
+        function setPreloginStatus(message, tone = 'neutral') {
+            const status = document.getElementById('prelogin-status');
+            if (!status) return;
+            status.classList.remove('error', 'success');
+            if (tone === 'error') status.classList.add('error');
+            if (tone === 'success') status.classList.add('success');
+            status.textContent = message || '';
+        }
+
+        function renderPreloginAnnouncement(index) {
+            const card = document.getElementById('prelogin-announce-card');
+            const img = document.getElementById('prelogin-announce-image');
+            const title = document.getElementById('prelogin-announce-title');
+            const meta = document.getElementById('prelogin-announce-meta');
+            const dots = document.getElementById('prelogin-announce-dots');
+            if (!card || !img || !title || !meta || !dots) return;
+            const total = PRELOGIN_ANNOUNCEMENTS.length || 1;
+            const safeIndex = ((Number(index) % total) + total) % total;
+            const item = PRELOGIN_ANNOUNCEMENTS[safeIndex] || PRELOGIN_ANNOUNCEMENTS[0];
+            card.classList.remove('show');
+            setTimeout(() => {
+                img.src = item?.image || '';
+                title.textContent = item?.title || '';
+                meta.textContent = item?.meta || '';
+                dots.innerHTML = PRELOGIN_ANNOUNCEMENTS.map((_, i) => `<span class="prelogin-announce-dot${i === safeIndex ? ' active' : ''}"></span>`).join('');
+                card.classList.add('show');
+            }, 120);
+        }
+
+        function startPreloginAnnouncementSlider() {
+            if (preloginAnnouncementTimer) {
+                clearInterval(preloginAnnouncementTimer);
+                preloginAnnouncementTimer = null;
+            }
+            if ((PRELOGIN_ANNOUNCEMENTS?.length || 0) <= 1) return;
+            preloginAnnouncementTimer = setInterval(() => {
+                preloginAnnouncementIndex = (preloginAnnouncementIndex + 1) % PRELOGIN_ANNOUNCEMENTS.length;
+                renderPreloginAnnouncement(preloginAnnouncementIndex);
+            }, 3600);
+        }
+
+        function hidePreloginGate() {
+            const gate = document.getElementById('prelogin-gate');
+            if (!gate) return;
+            gate.classList.remove('active');
+            gate.setAttribute('aria-hidden', 'true');
+            if (preloginAnnouncementTimer) {
+                clearInterval(preloginAnnouncementTimer);
+                preloginAnnouncementTimer = null;
+            }
+        }
+
+        function initPreloginGate() {
+            const gate = document.getElementById('prelogin-gate');
+            const form = document.getElementById('prelogin-form');
+            const submit = document.getElementById('prelogin-submit');
+            const userInput = document.getElementById('prelogin-username');
+            const passInput = document.getElementById('prelogin-password');
+            if (!gate || !form || !submit || !userInput || !passInput) return;
+
+            gate.classList.add('active');
+            gate.setAttribute('aria-hidden', 'false');
+
+            preloginAnnouncementIndex = 0;
+            renderPreloginAnnouncement(preloginAnnouncementIndex);
+            startPreloginAnnouncementSlider();
+
+            try {
+                const cachedUser = JSON.parse(localStorage.getItem(OCEAN_PAY_STORAGE_USER) || 'null');
+                if (cachedUser?.username) userInput.value = String(cachedUser.username);
+            } catch (_) {}
+
+            form.onsubmit = async (event) => {
+                event.preventDefault();
+                const username = String(userInput.value || '').trim();
+                const password = String(passInput.value || '').trim();
+                if (!username || !password) {
+                    setPreloginStatus('Completa usuario y contrasena para continuar.', 'error');
+                    return;
+                }
+                submit.disabled = true;
+                submit.textContent = 'Validando...';
+                setPreloginStatus('Verificando credenciales de Ocean Pay...');
+                try {
+                    await loginOceanPayStoreWithCredentials(username, password);
+                    passInput.value = '';
+                    setPreloginStatus('Sesion iniciada. Preparando OWS Store...', 'success');
+                    hidePreloginGate();
+                    await startOWSStoreBootstrap();
+                } catch (err) {
+                    setPreloginStatus(err?.message || 'No se pudo iniciar sesion.', 'error');
+                } finally {
+                    submit.disabled = false;
+                    submit.textContent = 'Entrar a OWS Store';
+                }
+            };
         }
 
         function formatByteSize(bytes) {
@@ -15581,7 +15939,9 @@
             bootSequenceInProgress = false;
         }
 
-        window.onload = async () => {
+        async function startOWSStoreBootstrap() {
+            if (owsStoreBootstrapStarted) return;
+            owsStoreBootstrapStarted = true;
             bootSequenceInProgress = false;
             bootDeferredStoreInstall = false;
             bootAutoInstallRequested = false;
@@ -15643,6 +16003,11 @@
             } finally {
                 await hideStartupLoadingModal();
             }
+        }
+
+        window.onload = async () => {
+            applyRuntimeLayoutProfile();
+            initPreloginGate();
         };
 
         window.addEventListener('resize', () => {
@@ -15655,6 +16020,7 @@
             if (spotlightSlideCleanupTimer) clearTimeout(spotlightSlideCleanupTimer);
             if (storeTrailerPremiereTimer) clearInterval(storeTrailerPremiereTimer);
             if (storeAutoUpdateTimer) clearInterval(storeAutoUpdateTimer);
+            if (preloginAnnouncementTimer) clearInterval(preloginAnnouncementTimer);
             stopDeferredSilentMonitor();
             clearDeferredDetectedUpdateTimers();
             stopEcosystemTrailer(false);

@@ -4511,18 +4511,19 @@
         const NATUREPEDIA_PLACEHOLDER_DATE_ISO = '';
         const WILDSHORTS_PLACEHOLDER_DATE_ISO = '2026-03-28T18:00:00Z';
         const OCEAN_CINEMAS_RELEASE_DATE_ISO = '2026-04-03T18:00:00Z';
-        const PRELOGIN_ANNOUNCEMENTS = [
+        const PRELOGIN_ANNOUNCEMENTS_FALLBACK = [
             {
-                title: 'NatBee se lanza el 17 de Marzo',
+                title: 'NatBee se lanza el 17 de Abril',
                 meta: 'Produccion de miel, estrategia de colmena y expansion por biomas.',
                 image: NATBEE_ANNOUNCEMENT_RAW
             },
             {
-                title: 'Naturepedia se lanza el 10 de Marzo',
+                title: 'Naturepedia se lanza el 10 de Abril',
                 meta: 'Biblioteca interactiva de especies, biomas y colecciones visuales.',
                 image: NATUREPEDIA_ANNOUNCEMENT_RAW
             }
         ];
+        let preloginAnnouncements = [...PRELOGIN_ANNOUNCEMENTS_FALLBACK];
         const MYSTERY_PROJECT_RELEASE_DATE_ISO = '';  // Fecha por decidir
         const ECOXION_EVENT_END_DATE_ISO = '2026-03-20T18:00:00Z';
         const WILD_DESTINY_EVENT_END_DATE_ISO = '2026-03-21T18:00:00Z';
@@ -5598,6 +5599,59 @@
             status.textContent = message || '';
         }
 
+        function getActivePreloginAnnouncements() {
+            if (Array.isArray(preloginAnnouncements) && preloginAnnouncements.length) return preloginAnnouncements;
+            return PRELOGIN_ANNOUNCEMENTS_FALLBACK;
+        }
+
+        function formatPreloginLaunchDate(dateIso) {
+            if (!dateIso) return '';
+            const dt = new Date(dateIso);
+            if (!Number.isFinite(dt.getTime())) return '';
+            const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+            const day = dt.getDate();
+            const month = months[dt.getMonth()] || '';
+            if (!day || !month) return '';
+            return `${day} de ${month}`;
+        }
+
+        function buildPreloginAnnouncementFromProject(project = {}) {
+            const slug = String(project?.slug || '').trim().toLowerCase();
+            const name = String(project?.name || slug || 'Proximo proyecto').trim();
+            const launchDate = formatPreloginLaunchDate(project?.release_date);
+            const metadata = (project?.metadata && typeof project.metadata === 'object') ? project.metadata : {};
+            const fallbackImageBySlug = {
+                natbee: NATBEE_ANNOUNCEMENT_RAW,
+                naturepedia: NATUREPEDIA_ANNOUNCEMENT_RAW
+            };
+            const image = metadata?.prelogin_banner_url || project?.banner_url || project?.icon_url || fallbackImageBySlug[slug] || NATBEE_ANNOUNCEMENT_RAW;
+            return {
+                title: launchDate ? `${name} se lanza el ${launchDate}` : `${name} llega muy pronto`,
+                meta: String(project?.description || '').trim() || 'Nuevas experiencias llegan muy pronto al ecosistema.',
+                image
+            };
+        }
+
+        async function hydratePreloginAnnouncementsFromApi() {
+            try {
+                const res = await fetch(`${API_URL}/ows-store/projects`, { cache: 'no-store' });
+                if (!res.ok) return;
+                const payload = await res.json();
+                const list = Array.isArray(payload) ? payload : (Array.isArray(payload?.projects) ? payload.projects : []);
+                if (!list.length) return;
+                const desiredOrder = ['natbee', 'naturepedia'];
+                const selected = desiredOrder
+                    .map((slug) => list.find((p) => String(p?.slug || '').trim().toLowerCase() === slug))
+                    .filter(Boolean)
+                    .map((project) => buildPreloginAnnouncementFromProject(project));
+                if (!selected.length) return;
+                preloginAnnouncements = selected;
+                preloginAnnouncementIndex = 0;
+                renderPreloginAnnouncement(preloginAnnouncementIndex);
+                startPreloginAnnouncementSlider();
+            } catch (_) {}
+        }
+
         function renderPreloginAnnouncement(index) {
             const card = document.getElementById('prelogin-announce-card');
             const img = document.getElementById('prelogin-announce-image');
@@ -5605,15 +5659,16 @@
             const meta = document.getElementById('prelogin-announce-meta');
             const dots = document.getElementById('prelogin-announce-dots');
             if (!card || !img || !title || !meta || !dots) return;
-            const total = PRELOGIN_ANNOUNCEMENTS.length || 1;
+            const activeAnnouncements = getActivePreloginAnnouncements();
+            const total = activeAnnouncements.length || 1;
             const safeIndex = ((Number(index) % total) + total) % total;
-            const item = PRELOGIN_ANNOUNCEMENTS[safeIndex] || PRELOGIN_ANNOUNCEMENTS[0];
+            const item = activeAnnouncements[safeIndex] || activeAnnouncements[0];
             card.classList.remove('show');
             setTimeout(() => {
                 img.src = item?.image || '';
                 title.textContent = item?.title || 'Proximo lanzamiento en OWS Store';
                 meta.textContent = item?.meta || 'Nuevas experiencias llegan muy pronto al ecosistema.';
-                dots.innerHTML = PRELOGIN_ANNOUNCEMENTS.map((_, i) => `<span class="prelogin-announce-dot${i === safeIndex ? ' active' : ''}"></span>`).join('');
+                dots.innerHTML = activeAnnouncements.map((_, i) => `<span class="prelogin-announce-dot${i === safeIndex ? ' active' : ''}"></span>`).join('');
                 card.classList.add('show');
             }, 120);
         }
@@ -5623,9 +5678,10 @@
                 clearInterval(preloginAnnouncementTimer);
                 preloginAnnouncementTimer = null;
             }
-            if ((PRELOGIN_ANNOUNCEMENTS?.length || 0) <= 1) return;
+            const activeAnnouncements = getActivePreloginAnnouncements();
+            if ((activeAnnouncements?.length || 0) <= 1) return;
             preloginAnnouncementTimer = setInterval(() => {
-                preloginAnnouncementIndex = (preloginAnnouncementIndex + 1) % PRELOGIN_ANNOUNCEMENTS.length;
+                preloginAnnouncementIndex = (preloginAnnouncementIndex + 1) % activeAnnouncements.length;
                 renderPreloginAnnouncement(preloginAnnouncementIndex);
             }, 3600);
         }
@@ -5661,6 +5717,7 @@
             preloginAnnouncementIndex = 0;
             renderPreloginAnnouncement(preloginAnnouncementIndex);
             startPreloginAnnouncementSlider();
+            hydratePreloginAnnouncementsFromApi().catch(() => {});
 
             try {
                 const cachedUser = JSON.parse(localStorage.getItem(OCEAN_PAY_STORAGE_USER) || 'null');

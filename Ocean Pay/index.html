@@ -3861,9 +3861,44 @@
       select.value = PREMIUM_CURRENCY_ID;
     }
 
+    function ensureTidesStoreSection() {
+      const navMenu = qs('.nav-menu');
+      if (navMenu && !navMenu.querySelector('[data-nav="tides-store"]')) {
+        const tidesNavBtn = document.createElement('button');
+        tidesNavBtn.className = 'nav-item';
+        tidesNavBtn.setAttribute('data-nav', 'tides-store');
+        tidesNavBtn.setAttribute('onclick', "showSection('tides')");
+        tidesNavBtn.innerHTML = `<span><i class="fas fa-droplet"></i></span> Tides`;
+
+        const passBtn = Array.from(navMenu.querySelectorAll('.nav-item')).find((btn) =>
+          String(btn.getAttribute('onclick') || '').includes("showSection('pass')")
+        );
+        if (passBtn && passBtn.nextSibling) navMenu.insertBefore(tidesNavBtn, passBtn.nextSibling);
+        else navMenu.appendChild(tidesNavBtn);
+      }
+
+      const mainContent = qs('.main-content');
+      if (!mainContent) return;
+      if (!qs('#tides-section')) {
+        const section = document.createElement('section');
+        section.id = 'tides-section';
+        section.className = 'hidden';
+        section.innerHTML = `
+          <div class="main-header">
+            <h2 class="page-title">Tides</h2>
+          </div>
+          <div style="margin:0 0 1rem; color:#94a3b8; font-size:0.92rem;">
+            Compra paquetes premium y utilízalos para desbloqueos directos dentro del ecosistema.
+          </div>
+        `;
+        mainContent.appendChild(section);
+      }
+    }
+
     function ensureTidesMarketSection() {
-      const passSection = qs('#pass-section');
-      if (!passSection) return;
+      ensureTidesStoreSection();
+      const tidesSection = qs('#tides-section');
+      if (!tidesSection) return;
       if (qs('#tides-market-panel')) return;
 
       const market = document.createElement('div');
@@ -3890,7 +3925,7 @@
           <div style="color:#94a3b8;padding:1rem;text-align:center;">Cargando paquetes...</div>
         </div>
       `;
-      passSection.appendChild(market);
+      tidesSection.appendChild(market);
     }
 
     function renderTidesPackages() {
@@ -4237,9 +4272,9 @@
       if (id === 'pass') {
         updatePassActivationPriceLabel();
         updateOceanPassUI();
-        loadTidesPackages();
         loadGlobalGoalStatus();
       }
+      if (id === 'tides') loadTidesPackages();
       if (id === 'wallet') loadGlobalGoalStatus();
     }
 
@@ -5498,6 +5533,7 @@
       ensureTigrysCard();
       ensureTidesCard();
       ensureTidesPassCurrency();
+      ensureTidesStoreSection();
       ensureTidesMarketSection();
       const t = localStorage.getItem('opToken');
       if (t) {

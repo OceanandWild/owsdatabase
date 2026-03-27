@@ -8054,7 +8054,11 @@ const AUREX_PACKAGES = Object.freeze([
   { id: 'tides-200', title: 'Tides 200', tidesAmount: 200, priceUyu: 99, bonus: 0 },
   { id: 'tides-600', title: 'Tides 600', tidesAmount: 600, priceUyu: 249, bonus: 20 },
   { id: 'tides-1500', title: 'Tides 1500', tidesAmount: 1500, priceUyu: 499, bonus: 80 },
-  { id: 'tides-3200', title: 'Tides 3200', tidesAmount: 3200, priceUyu: 899, bonus: 200 }
+  { id: 'tides-3200', title: 'Tides 3200', tidesAmount: 3200, priceUyu: 899, bonus: 200 },
+  { id: 'tides-5000', title: 'Tides 5000', tidesAmount: 5000, priceUyu: 1299, bonus: 380 },
+  { id: 'tides-8500', title: 'Tides 8500', tidesAmount: 8500, priceUyu: 1999, bonus: 900 },
+  { id: 'tides-15000', title: 'Tides 15000', tidesAmount: 15000, priceUyu: 3299, bonus: 2100 },
+  { id: 'tides-30000', title: 'Tides 30000', tidesAmount: 30000, priceUyu: 5999, bonus: 5000 }
 ]);
 
 function getAurexPackageById(packageId) {

@@ -157,7 +157,7 @@ Start-ScheduledExecutionLog -LogPath $scheduledLogPath
 function Require-Token {
     if (-not $TOKEN) {
         Write-Err "OWS_ADMIN_SECRET no definido. Ejecuta: `$env:OWS_ADMIN_SECRET = 'MUFASA1939'"
-        exit 1
+        Exit-Script 1
     }
 }
 
@@ -631,6 +631,10 @@ function Register-AndroidReleaseFromGitHub {
         if (-not $packageId -or -not $versionName -or $versionCode -le 0) {
             Write-Err "Metadata Android invalida para registro."
             return $false
+        }
+        if ($versionName -ne $Ver) {
+            Write-Info "Metadata Android desfasada (version_name=$versionName). Se forzara version_name=$Ver para registro."
+            $versionName = $Ver
         }
 
         $apkUrl = [string]$apkAsset.browser_download_url

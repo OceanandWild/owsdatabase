@@ -20059,7 +20059,7 @@ app.post('/ocean-pay/aurex/challenge/claim', async (req, res) => {
     }
 
     const { rows: metaRows } = await client.query(
-      `SELECT id, value
+      `SELECT value
          FROM ocean_pay_metadata
         WHERE user_id = $1 AND key = 'aurex_last_free_claim'
         FOR UPDATE`,
@@ -20085,8 +20085,8 @@ app.post('/ocean-pay/aurex/challenge/claim', async (req, res) => {
       await client.query(
         `UPDATE ocean_pay_metadata
             SET value = $1
-          WHERE id = $2`,
-        [String(now), Number(metaRows[0].id)]
+          WHERE user_id = $2 AND key = 'aurex_last_free_claim'`,
+        [String(now), userId]
       );
     } else {
       await client.query(

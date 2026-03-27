@@ -8106,6 +8106,29 @@ function parseGoalCurrencies(raw) {
   return normalizeGoalCurrencies(String(raw || '').split(','));
 }
 
+function expandGoalCurrencyAliases(currencies) {
+  const aliasMap = {
+    aquabux: ['aquabux', 'bux', 'ab'],
+    wildgems: ['wildgems', 'wg'],
+    wildcredits: ['wildcredits', 'wc'],
+    ecoxionums: ['ecoxionums', 'ex'],
+    ecobits: ['ecobits', 'ecorebits', 'ecb'],
+    appbux: ['appbux', 'abx'],
+    nxb: ['nxb'],
+    voltbit: ['voltbit', 'vb'],
+    amber: ['amber'],
+    relayshards: ['relayshards'],
+    tides: ['tides', 'aurex']
+  };
+  const out = new Set();
+  for (const raw of normalizeGoalCurrencies(currencies)) {
+    const key = String(raw || '').trim().toLowerCase();
+    const aliases = aliasMap[key] || [key];
+    for (const a of aliases) out.add(a);
+  }
+  return [...out];
+}
+
 async function getActiveGlobalGoal(client) {
   await ensureOceanPayGlobalGoalTables(client);
   const { rows } = await client.query(
@@ -8121,16 +8144,12 @@ async function getActiveGlobalGoal(client) {
 }
 
 async function computeGlobalGoalProgress(client, goal) {
-  const eligibleCurrencies = parseGoalCurrencies(goal?.eligible_currencies);
+  const eligibleCurrencies = expandGoalCurrencyAliases(parseGoalCurrencies(goal?.eligible_currencies));
   if (!eligibleCurrencies.length) return 0;
   const goalType = String(goal?.goal_type || 'spend').toLowerCase();
-  const spendRx = '(pago|compra|deuda|suscrip|debito|envi|transfer|swap|intercambio|checkout|activar)';
-  const earnRx = '(recompensa|reward|venta|credito|deposito|bonus|gift|claim|regalo)';
-
   const txPredicate = goalType === 'earn'
-    ? `(COALESCE(t.monto, 0) > 0 OR LOWER(COALESCE(t.concepto, '')) ~ $4 OR LOWER(COALESCE(t.origen, '')) ~ $4)`
-    : `(COALESCE(t.monto, 0) < 0 OR LOWER(COALESCE(t.concepto, '')) ~ $4 OR LOWER(COALESCE(t.origen, '')) ~ $4)`;
-  const regex = goalType === 'earn' ? earnRx : spendRx;
+    ? `(COALESCE(t.monto, 0) > 0)`
+    : `(COALESCE(t.monto, 0) < 0)`;
 
   const { rows } = await client.query(
     `SELECT COALESCE(SUM(ABS(COALESCE(t.monto, 0))), 0)::numeric AS total
@@ -8140,7 +8159,7 @@ async function computeGlobalGoalProgress(client, goal) {
         AND ($3::timestamp IS NULL OR t.created_at <= $3)
         AND ${txPredicate}
         AND LOWER(COALESCE(t.origen, '')) <> 'global goal reward'`,
-    [eligibleCurrencies, goal.starts_at, goal.ends_at || null, regex]
+    [eligibleCurrencies, goal.starts_at, goal.ends_at || null]
   );
   return Number(rows[0]?.total || 0);
 }

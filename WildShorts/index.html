@@ -360,6 +360,127 @@
             background: #214236;
         }
 
+        .ws-auth-shell {
+            text-align: center;
+            padding: 0.8rem 0.4rem 0.3rem;
+        }
+
+        .ws-auth-lock {
+            width: 86px;
+            height: 86px;
+            margin: 0 auto 1.15rem;
+            border-radius: 24px;
+            border: 1px solid rgba(149, 221, 207, 0.35);
+            background: radial-gradient(circle at 32% 28%, rgba(185, 255, 241, 0.24), rgba(18, 31, 27, 0.94));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #b9fff1;
+            box-shadow: inset 0 0 24px rgba(149, 221, 207, 0.12), 0 12px 26px rgba(4, 8, 7, 0.35);
+        }
+
+        .ws-auth-lock i {
+            font-size: 2.15rem;
+        }
+
+        .ws-auth-title {
+            font-size: clamp(1.75rem, 3vw, 2.5rem);
+            font-weight: 900;
+            margin: 0 0 0.55rem;
+            color: #f2fffa;
+            letter-spacing: -0.02em;
+        }
+
+        .ws-auth-subtitle {
+            color: #8ea7a1;
+            margin: 0 auto 1.5rem;
+            max-width: 620px;
+            line-height: 1.5;
+            font-size: 0.94rem;
+        }
+
+        .ws-auth-form {
+            width: min(100%, 540px);
+            margin: 0 auto;
+            display: grid;
+            gap: 0.92rem;
+            padding: 1.15rem;
+            border-radius: 20px;
+            border: 1px solid rgba(149, 221, 207, 0.24);
+            background: linear-gradient(155deg, rgba(14, 23, 20, 0.95), rgba(16, 26, 22, 0.88));
+            box-shadow: inset 0 0 18px rgba(149, 221, 207, 0.08);
+        }
+
+        .ws-input-group {
+            display: grid;
+            gap: 0.4rem;
+            text-align: left;
+        }
+
+        .ws-input-group label {
+            color: #d2e8e2;
+            font-size: 0.82rem;
+            font-weight: 800;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        .ws-input {
+            width: 100%;
+            border-radius: 12px;
+            border: 1px solid rgba(149, 221, 207, 0.28);
+            background: rgba(8, 14, 12, 0.92);
+            color: #f4fffb;
+            padding: 0.8rem 0.95rem;
+            font-size: 0.95rem;
+            outline: none;
+            transition: border-color .2s var(--ease), box-shadow .2s var(--ease), transform .2s var(--ease);
+        }
+
+        .ws-input::placeholder {
+            color: #7c938d;
+        }
+
+        .ws-input:focus {
+            border-color: #95ddcf;
+            box-shadow: 0 0 0 3px rgba(149, 221, 207, 0.14);
+            transform: translateY(-1px);
+        }
+
+        .ws-btn-primary {
+            border: 1px solid rgba(149, 221, 207, 0.45);
+            border-radius: 14px;
+            padding: 0.86rem 1.05rem;
+            font-weight: 900;
+            letter-spacing: 0.07em;
+            text-transform: uppercase;
+            color: #04100c;
+            background: linear-gradient(90deg, #95ddcf, #7bd9c7);
+            cursor: pointer;
+            transition: transform .2s var(--ease), box-shadow .2s var(--ease), filter .2s var(--ease);
+        }
+
+        .ws-btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 24px rgba(149, 221, 207, 0.25);
+            filter: brightness(1.03);
+        }
+
+        .ws-btn-primary:disabled {
+            opacity: .72;
+            cursor: wait;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .ws-login-error {
+            color: #ff6b6b;
+            margin-top: 1rem;
+            font-weight: 800;
+            display: none;
+            font-size: 0.88rem;
+        }
+
         .modal {
             position: fixed;
             inset: 0;
@@ -4655,22 +4776,22 @@ Y nadie, por primera vez, está seguro de cuál opción es realmente la más seg
 
         function showLoginForm() {
             showModal(`
-                <div style="text-align:center;">
-                    <i class="fa-solid fa-lock" style="font-size:4rem; color:var(--ws-neon); margin-bottom:2rem;"></i>
-                    <h2 style="font-size:2.5rem; font-weight:900; margin-bottom:1rem;">Ingresar a Ocean Pay</h2>
-                    <p style="color:#94a3b8; margin-bottom:3rem;">Introduce tus credenciales bancarias para continuar en WildShorts.</p>
+                <div class="ws-auth-shell">
+                    <div class="ws-auth-lock"><i class="fa-solid fa-lock"></i></div>
+                    <h2 class="ws-auth-title">Ingresar a Ocean Pay</h2>
+                    <p class="ws-auth-subtitle">Conecta tu cuenta para gestionar compras, episodios y recompensas de WildGems sin salir de WildShorts.</p>
                     <div class="ws-auth-form" id="ws-login-form">
                         <div class="ws-input-group">
                             <label>Nombre de Usuario</label>
-                            <input type="text" id="ws-user" class="ws-input" placeholder="Usuario">
+                            <input type="text" id="ws-user" class="ws-input" placeholder="Tu usuario de Ocean Pay" autocomplete="username">
                         </div>
                         <div class="ws-input-group">
                             <label>Contraseña</label>
-                            <input type="password" id="ws-pass" class="ws-input" placeholder="********">
+                            <input type="password" id="ws-pass" class="ws-input" placeholder="Ingresa tu contraseña" autocomplete="current-password">
                         </div>
-                        <button class="ws-btn-primary" onclick="processLogin()">Conectar Ahora</button>
+                        <button id="ws-login-btn" class="ws-btn-primary" onclick="processLogin()">Conectar ahora</button>
                     </div>
-                    <div id="ws-login-error" style="color:var(--ws-red); margin-top:1.5rem; font-weight:800; display:none;"></div>
+                    <div id="ws-login-error" class="ws-login-error"></div>
                 </div>
             `, false);
         }
@@ -4679,8 +4800,10 @@ Y nadie, por primera vez, está seguro de cuál opción es realmente la más seg
             const user = document.getElementById('ws-user').value;
             const pass = document.getElementById('ws-pass').value;
             const errorEl = document.getElementById('ws-login-error');
+            const loginBtn = document.getElementById('ws-login-btn');
             errorEl.style.display = 'none';
             if (!user || !pass) { errorEl.textContent = "Campos requeridos"; errorEl.style.display = 'block'; return; }
+            if (loginBtn) { loginBtn.disabled = true; loginBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Conectando...'; }
             try {
                 const res = await fetch(`${API_URL}/ocean-pay/login`, {
                     method: 'POST',
@@ -4696,6 +4819,9 @@ Y nadie, por primera vez, está seguro de cuál opción es realmente la más seg
                     await checkAuthAndCards();
                 } else { errorEl.textContent = data.error || "Credenciales incorrectas"; errorEl.style.display = 'block'; }
             } catch (err) { errorEl.textContent = "Error de servidor"; errorEl.style.display = 'block'; }
+            finally {
+                if (loginBtn) { loginBtn.disabled = false; loginBtn.textContent = 'Conectar ahora'; }
+            }
         }
 
         function showCardSelector(isForced = false) {

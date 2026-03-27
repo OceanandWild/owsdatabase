@@ -162,7 +162,7 @@ const UNIFIED_WALLET_CURRENCIES = [
   'aquabux', 'appbux', 'ecoxionums', 'wildcredits', 'wildgems', 'ecobooks',
   'amber', 'nxb', 'voltbit', 'ecotokens', 'ecobits', 'mayhemcoins',
   'cosmicdust', 'ecopower', 'coralbits', 'tigrys', 'wildwavetokens',
-  'relayshards', 'ecocorebits', 'aurex'
+  'relayshards', 'ecocorebits', 'tides', 'aurex'
 ];
 
 // --- Ocean Pay Authentication ---
@@ -8028,6 +8028,7 @@ const OCEAN_PASS_PLAN = Object.freeze({
 });
 
 const OCEAN_PASS_CURRENCY_PRICES = Object.freeze({
+  tides: 199,
   aurex: 199,
   aquabux: 1200,
   ecoxionums: 900,
@@ -8050,59 +8051,98 @@ function getOceanPassPriceForCurrency(currency) {
 }
 
 const AUREX_PACKAGES = Object.freeze([
-  { id: 'aurex-200', title: 'Aurex 200', aurexAmount: 200, priceUyu: 99, bonus: 0 },
-  { id: 'aurex-600', title: 'Aurex 600', aurexAmount: 600, priceUyu: 249, bonus: 20 },
-  { id: 'aurex-1500', title: 'Aurex 1500', aurexAmount: 1500, priceUyu: 499, bonus: 80 },
-  { id: 'aurex-3200', title: 'Aurex 3200', aurexAmount: 3200, priceUyu: 899, bonus: 200 }
+  { id: 'tides-200', title: 'Tides 200', tidesAmount: 200, priceUyu: 99, bonus: 0 },
+  { id: 'tides-600', title: 'Tides 600', tidesAmount: 600, priceUyu: 249, bonus: 20 },
+  { id: 'tides-1500', title: 'Tides 1500', tidesAmount: 1500, priceUyu: 499, bonus: 80 },
+  { id: 'tides-3200', title: 'Tides 3200', tidesAmount: 3200, priceUyu: 899, bonus: 200 }
 ]);
 
-const AUREX_CHALLENGE = Object.freeze({
-  reward: 45,
-  cooldownHours: 168, // 7 dias
-  requirements: {
-    minTxCount: 28,
-    minDistinctCurrencies: 5,
-    minVolume: 9000,
-    minCurrentBalanceTotal: 3000
-  }
-});
-
 function getAurexPackageById(packageId) {
-  const key = String(packageId || '').trim().toLowerCase();
+  let key = String(packageId || '').trim().toLowerCase();
+  if (key.startsWith('aurex-')) key = `tides-${key.slice('aurex-'.length)}`;
   return AUREX_PACKAGES.find((pkg) => pkg.id === key) || null;
 }
 
-async function getAurexChallengeMetrics(client, userId) {
-  const reqs = AUREX_CHALLENGE.requirements;
-  const { rows: txRows } = await client.query(
-    `SELECT
-       COUNT(*)::int AS tx_count,
-       COUNT(DISTINCT LOWER(COALESCE(moneda, '')))::int AS distinct_currencies,
-       COALESCE(SUM(ABS(COALESCE(monto, 0))), 0)::numeric AS tx_volume
-     FROM ocean_pay_txs
-     WHERE user_id = $1
-       AND created_at >= NOW() - INTERVAL '30 days'`,
-    [userId]
+async function ensureOceanPayGlobalGoalTables(client) {
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS ocean_pay_global_goals (
+      id SERIAL PRIMARY KEY,
+      slug TEXT NOT NULL UNIQUE,
+      title TEXT NOT NULL,
+      description TEXT,
+      goal_type TEXT NOT NULL CHECK (goal_type IN ('spend', 'earn')),
+      target_amount NUMERIC(20,2) NOT NULL,
+      reward_currency TEXT NOT NULL DEFAULT 'tides',
+      reward_amount NUMERIC(20,2) NOT NULL,
+      eligible_currencies TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'active',
+      starts_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      ends_at TIMESTAMP NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+    );
+  `);
+
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS ocean_pay_global_goal_claims (
+      goal_id INTEGER NOT NULL REFERENCES ocean_pay_global_goals(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
+      claimed_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (goal_id, user_id)
+    );
+  `);
+}
+
+function normalizeGoalCurrencies(input) {
+  if (Array.isArray(input)) {
+    return input.map((v) => String(v || '').trim().toLowerCase()).filter(Boolean);
+  }
+  const raw = String(input || '').trim();
+  if (!raw) return [];
+  return raw.split(',').map((v) => v.trim().toLowerCase()).filter(Boolean);
+}
+
+function parseGoalCurrencies(raw) {
+  return normalizeGoalCurrencies(String(raw || '').split(','));
+}
+
+async function getActiveGlobalGoal(client) {
+  await ensureOceanPayGlobalGoalTables(client);
+  const { rows } = await client.query(
+    `SELECT *
+       FROM ocean_pay_global_goals
+      WHERE status = 'active'
+        AND starts_at <= NOW()
+        AND (ends_at IS NULL OR ends_at >= NOW())
+      ORDER BY updated_at DESC, id DESC
+      LIMIT 1`
   );
-  const txCount = Number(txRows[0]?.tx_count || 0);
-  const distinctCurrencies = Number(txRows[0]?.distinct_currencies || 0);
-  const txVolume = Number(txRows[0]?.tx_volume || 0);
+  return rows[0] || null;
+}
 
-  const balances = await getAllUnifiedBalances(client, userId);
-  const balanceTotal = Object.values(balances || {}).reduce((sum, val) => sum + Math.max(0, Number(val) || 0), 0);
+async function computeGlobalGoalProgress(client, goal) {
+  const eligibleCurrencies = parseGoalCurrencies(goal?.eligible_currencies);
+  if (!eligibleCurrencies.length) return 0;
+  const goalType = String(goal?.goal_type || 'spend').toLowerCase();
+  const spendRx = '(pago|compra|deuda|suscrip|debito|envi|transfer|swap|intercambio|checkout|activar)';
+  const earnRx = '(recompensa|reward|venta|credito|deposito|bonus|gift|claim|regalo)';
 
-  return {
-    txCount,
-    distinctCurrencies,
-    txVolume,
-    balanceTotal,
-    requirements: reqs,
-    completed:
-      txCount >= reqs.minTxCount &&
-      distinctCurrencies >= reqs.minDistinctCurrencies &&
-      txVolume >= reqs.minVolume &&
-      balanceTotal >= reqs.minCurrentBalanceTotal
-  };
+  const txPredicate = goalType === 'earn'
+    ? `(COALESCE(t.monto, 0) > 0 OR LOWER(COALESCE(t.concepto, '')) ~ $4 OR LOWER(COALESCE(t.origen, '')) ~ $4)`
+    : `(COALESCE(t.monto, 0) < 0 OR LOWER(COALESCE(t.concepto, '')) ~ $4 OR LOWER(COALESCE(t.origen, '')) ~ $4)`;
+  const regex = goalType === 'earn' ? earnRx : spendRx;
+
+  const { rows } = await client.query(
+    `SELECT COALESCE(SUM(ABS(COALESCE(t.monto, 0))), 0)::numeric AS total
+       FROM ocean_pay_txs t
+      WHERE LOWER(COALESCE(t.moneda, '')) = ANY($1::text[])
+        AND t.created_at >= $2
+        AND ($3::timestamp IS NULL OR t.created_at <= $3)
+        AND ${txPredicate}
+        AND LOWER(COALESCE(t.origen, '')) <> 'global goal reward'`,
+    [eligibleCurrencies, goal.starts_at, goal.ends_at || null, regex]
+  );
+  return Number(rows[0]?.total || 0);
 }
 
 function serializeOceanPassRow(row) {
@@ -19850,23 +19890,23 @@ app.post('/pos/create', async (req, res) => {
   }
 });
 
-// Catalogo de recargas Aurex (Moneda premium)
-app.get('/ocean-pay/aurex/packages', async (_req, res) => {
+// Catalogo de recargas Tides (Moneda premium)
+app.get(['/ocean-pay/tides/packages', '/ocean-pay/aurex/packages'], async (_req, res) => {
   return res.json({
     success: true,
-    currency: 'aurex',
+    currency: 'tides',
     packages: AUREX_PACKAGES
   });
 });
 
-// Crear checkout de Mercado Pago para recarga Aurex
-app.post('/ocean-pay/aurex/checkout', async (req, res) => {
+// Crear checkout de Mercado Pago para recarga Tides
+app.post(['/ocean-pay/tides/checkout', '/ocean-pay/aurex/checkout'], async (req, res) => {
   const userId = getAuthenticatedOceanPayUserId(req);
   if (!userId) return res.status(401).json({ error: 'Token invalido' });
 
   const packageId = String(req.body?.packageId || '').trim().toLowerCase();
   const pkg = getAurexPackageById(packageId);
-  if (!pkg) return res.status(400).json({ error: 'Paquete Aurex invalido' });
+  if (!pkg) return res.status(400).json({ error: 'Paquete Tides invalido' });
 
   const rawReturnUrl = String(req.body?.returnUrl || '').trim();
   const safeReturnUrl = /^https?:\/\//i.test(rawReturnUrl)
@@ -19874,7 +19914,7 @@ app.post('/ocean-pay/aurex/checkout', async (req, res) => {
     : 'https://owsdatabase.onrender.com';
 
   try {
-    const externalReference = `op-aurex:${userId}:${pkg.id}:${Date.now()}`;
+    const externalReference = `op-tides:${userId}:${pkg.id}:${Date.now()}`;
     const preference = new Preference(mpClient);
     const result = await preference.create({
       body: {
@@ -19905,13 +19945,13 @@ app.post('/ocean-pay/aurex/checkout', async (req, res) => {
       initPoint: result?.init_point || result?.sandbox_init_point || null
     });
   } catch (err) {
-    console.error('Error en POST /ocean-pay/aurex/checkout:', err);
-    return res.status(500).json({ error: 'No se pudo iniciar el checkout de Aurex' });
+    console.error('Error en POST /ocean-pay/tides/checkout:', err);
+    return res.status(500).json({ error: 'No se pudo iniciar el checkout de Tides' });
   }
 });
 
-// Confirmar pago aprobado de Mercado Pago y acreditar Aurex
-app.post('/ocean-pay/aurex/confirm', async (req, res) => {
+// Confirmar pago aprobado de Mercado Pago y acreditar Tides
+app.post(['/ocean-pay/tides/confirm', '/ocean-pay/aurex/confirm'], async (req, res) => {
   const userId = getAuthenticatedOceanPayUserId(req);
   if (!userId) return res.status(401).json({ error: 'Token invalido' });
 
@@ -19921,14 +19961,14 @@ app.post('/ocean-pay/aurex/confirm', async (req, res) => {
     return res.status(400).json({ error: 'paymentId y externalReference son requeridos' });
   }
 
-  if (!externalReference.startsWith(`op-aurex:${userId}:`)) {
+  if (!externalReference.startsWith(`op-tides:${userId}:`) && !externalReference.startsWith(`op-aurex:${userId}:`)) {
     return res.status(403).json({ error: 'externalReference no coincide con el usuario autenticado' });
   }
 
   const segments = externalReference.split(':');
   const packageId = String(segments[2] || '').trim().toLowerCase();
   const pkg = getAurexPackageById(packageId);
-  if (!pkg) return res.status(400).json({ error: 'Paquete de Aurex no reconocido' });
+  if (!pkg) return res.status(400).json({ error: 'Paquete de Tides no reconocido' });
 
   try {
     const mpResp = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
@@ -19950,18 +19990,18 @@ app.post('/ocean-pay/aurex/confirm', async (req, res) => {
     try {
       await client.query('BEGIN');
 
-      const creditConcept = `Aurex Pack ${pkg.id} - payment:${paymentId} - ref:${externalReference}`;
+      const creditConcept = `Tides Pack ${pkg.id} - payment:${paymentId} - ref:${externalReference}`;
       const { rows: existingTx } = await client.query(
         `SELECT id FROM ocean_pay_txs
           WHERE user_id = $1
-            AND origen = 'Mercado Pago Aurex'
+            AND origen = 'Mercado Pago Tides'
             AND concepto = $2
           LIMIT 1`,
         [userId, creditConcept]
       );
 
       if (existingTx.length) {
-        const currentBalance = await getUnifiedBalance(client, userId, 'aurex');
+        const currentBalance = await getUnifiedBalance(client, userId, 'tides');
         await client.query('COMMIT');
         return res.json({
           success: true,
@@ -19972,15 +20012,15 @@ app.post('/ocean-pay/aurex/confirm', async (req, res) => {
         });
       }
 
-      const currentBalance = await getUnifiedBalance(client, userId, 'aurex');
-      const credited = Number(pkg.aurexAmount) + Number(pkg.bonus || 0);
+      const currentBalance = await getUnifiedBalance(client, userId, 'tides');
+      const credited = Number(pkg.tidesAmount || 0) + Number(pkg.bonus || 0);
       const newBalance = currentBalance + credited;
-      await setUnifiedBalance(client, userId, 'aurex', newBalance);
+      await setUnifiedBalance(client, userId, 'tides', newBalance);
 
       await client.query(
         `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
          VALUES ($1, $2, $3, $4, $5)`,
-        [userId, creditConcept, credited, 'Mercado Pago Aurex', 'aurex']
+        [userId, creditConcept, credited, 'Mercado Pago Tides', 'tides']
       );
 
       await client.query('COMMIT');
@@ -19992,126 +20032,190 @@ app.post('/ocean-pay/aurex/confirm', async (req, res) => {
       });
     } catch (err) {
       await client.query('ROLLBACK');
-      console.error('Error interno en confirmacion Aurex:', err);
-      return res.status(500).json({ error: 'No se pudo acreditar Aurex' });
+      console.error('Error interno en confirmacion Tides:', err);
+      return res.status(500).json({ error: 'No se pudo acreditar Tides' });
     } finally {
       client.release();
     }
   } catch (err) {
-    console.error('Error en POST /ocean-pay/aurex/confirm:', err);
-    return res.status(500).json({ error: 'Error interno al confirmar compra Aurex' });
+    console.error('Error en POST /ocean-pay/tides/confirm:', err);
+    return res.status(500).json({ error: 'Error interno al confirmar compra Tides' });
   }
 });
 
-// Estado del desafio gratuito de Aurex (alto requisito)
-app.get('/ocean-pay/aurex/challenge/status', async (req, res) => {
+// Meta Global activa (via API, no hardcodeada)
+app.get('/ocean-pay/global-goal/current', async (req, res) => {
   const userId = getAuthenticatedOceanPayUserId(req);
   if (!userId) return res.status(401).json({ error: 'Token invalido' });
 
   const client = await pool.connect();
   try {
-    const metrics = await getAurexChallengeMetrics(client, userId);
-    const { rows: metaRows } = await client.query(
-      `SELECT value
-         FROM ocean_pay_metadata
-        WHERE user_id = $1 AND key = 'aurex_last_free_claim'
+    const goal = await getActiveGlobalGoal(client);
+    if (!goal) {
+      return res.json({ success: true, goal: null, canClaim: false });
+    }
+
+    const progress = await computeGlobalGoalProgress(client, goal);
+    const target = Number(goal.target_amount || 0);
+    const progressPct = target > 0 ? Math.min(100, (progress / target) * 100) : 0;
+    const completed = target > 0 && progress >= target;
+    const eligibleCurrencies = parseGoalCurrencies(goal.eligible_currencies);
+
+    const { rows: claimRows } = await client.query(
+      `SELECT 1 FROM ocean_pay_global_goal_claims
+        WHERE goal_id = $1 AND user_id = $2
         LIMIT 1`,
-      [userId]
+      [goal.id, userId]
     );
-    const lastClaimMs = Number(metaRows[0]?.value || 0);
-    const cooldownMs = AUREX_CHALLENGE.cooldownHours * 60 * 60 * 1000;
-    const now = Date.now();
-    const remainingMs = lastClaimMs > 0 ? Math.max(0, (lastClaimMs + cooldownMs) - now) : 0;
 
     return res.json({
       success: true,
-      reward: AUREX_CHALLENGE.reward,
-      cooldownHours: AUREX_CHALLENGE.cooldownHours,
-      metrics,
-      cooldown: {
-        active: remainingMs > 0,
-        remainingMs,
-        availableAt: remainingMs > 0 ? new Date(now + remainingMs).toISOString() : null
+      goal: {
+        id: goal.id,
+        slug: goal.slug,
+        title: goal.title,
+        description: goal.description || '',
+        goalType: goal.goal_type,
+        targetAmount: target,
+        progressAmount: progress,
+        progressPct,
+        rewardCurrency: String(goal.reward_currency || 'tides').toLowerCase(),
+        rewardAmount: Number(goal.reward_amount || 0),
+        eligibleCurrencies,
+        startsAt: goal.starts_at,
+        endsAt: goal.ends_at
       },
-      canClaim: metrics.completed && remainingMs <= 0
+      completed,
+      alreadyClaimed: claimRows.length > 0,
+      canClaim: completed && claimRows.length === 0
     });
   } catch (err) {
-    console.error('Error en GET /ocean-pay/aurex/challenge/status:', err);
-    return res.status(500).json({ error: 'No se pudo consultar el desafio de Aurex' });
+    console.error('Error en GET /ocean-pay/global-goal/current:', err);
+    return res.status(500).json({ error: 'No se pudo consultar la meta global' });
   } finally {
     client.release();
   }
 });
 
-// Reclamar recompensa gratuita de Aurex
-app.post('/ocean-pay/aurex/challenge/claim', async (req, res) => {
+// Reclamar recompensa de Meta Global
+app.post('/ocean-pay/global-goal/claim', async (req, res) => {
   const userId = getAuthenticatedOceanPayUserId(req);
   if (!userId) return res.status(401).json({ error: 'Token invalido' });
 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-
-    const metrics = await getAurexChallengeMetrics(client, userId);
-    if (!metrics.completed) {
+    const goal = await getActiveGlobalGoal(client);
+    if (!goal) {
       await client.query('ROLLBACK');
-      return res.status(400).json({ error: 'Requisitos del desafio incompletos', metrics });
+      return res.status(404).json({ error: 'No hay meta global activa en este momento' });
     }
 
-    const { rows: metaRows } = await client.query(
-      `SELECT value
-         FROM ocean_pay_metadata
-        WHERE user_id = $1 AND key = 'aurex_last_free_claim'
+    const progress = await computeGlobalGoalProgress(client, goal);
+    const target = Number(goal.target_amount || 0);
+    if (!(target > 0 && progress >= target)) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'La meta global aun no fue completada' });
+    }
+
+    const { rows: claimedRows } = await client.query(
+      `SELECT 1 FROM ocean_pay_global_goal_claims
+        WHERE goal_id = $1 AND user_id = $2
         FOR UPDATE`,
-      [userId]
+      [goal.id, userId]
     );
-
-    const now = Date.now();
-    const cooldownMs = AUREX_CHALLENGE.cooldownHours * 60 * 60 * 1000;
-    const lastClaimMs = Number(metaRows[0]?.value || 0);
-    if (lastClaimMs > 0 && now < (lastClaimMs + cooldownMs)) {
+    if (claimedRows.length > 0) {
       await client.query('ROLLBACK');
-      return res.status(400).json({
-        error: 'Desafio en enfriamiento',
-        remainingMs: (lastClaimMs + cooldownMs) - now
-      });
+      return res.status(409).json({ error: 'Ya reclamaste esta meta global' });
     }
 
-    const currentAurex = await getUnifiedBalance(client, userId, 'aurex');
-    const newBalance = currentAurex + AUREX_CHALLENGE.reward;
-    await setUnifiedBalance(client, userId, 'aurex', newBalance);
+    const rewardCurrency = String(goal.reward_currency || 'tides').toLowerCase();
+    const rewardAmount = Math.max(0, Number(goal.reward_amount || 0));
+    const currentRewardBalance = await getUnifiedBalance(client, userId, rewardCurrency);
+    const newBalance = currentRewardBalance + rewardAmount;
+    await setUnifiedBalance(client, userId, rewardCurrency, newBalance);
 
-    if (metaRows.length) {
-      await client.query(
-        `UPDATE ocean_pay_metadata
-            SET value = $1
-          WHERE user_id = $2 AND key = 'aurex_last_free_claim'`,
-        [String(now), userId]
-      );
-    } else {
-      await client.query(
-        `INSERT INTO ocean_pay_metadata (user_id, key, value)
-         VALUES ($1, 'aurex_last_free_claim', $2)`,
-        [userId, String(now)]
-      );
-    }
+    await client.query(
+      `INSERT INTO ocean_pay_global_goal_claims (goal_id, user_id)
+       VALUES ($1, $2)`,
+      [goal.id, userId]
+    );
 
     await client.query(
       `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
        VALUES ($1, $2, $3, $4, $5)`,
-      [userId, 'Aurex - Desafio semanal completado', AUREX_CHALLENGE.reward, 'Aurex Challenge', 'aurex']
+      [userId, `Meta Global completada: ${goal.title}`, rewardAmount, 'Global Goal Reward', rewardCurrency]
     );
 
     await client.query('COMMIT');
     return res.json({
       success: true,
-      reward: AUREX_CHALLENGE.reward,
+      goalId: goal.id,
+      rewardCurrency,
+      reward: rewardAmount,
       newBalance
     });
   } catch (err) {
     await client.query('ROLLBACK');
-    console.error('Error en POST /ocean-pay/aurex/challenge/claim:', err);
-    return res.status(500).json({ error: 'No se pudo reclamar la recompensa de Aurex' });
+    console.error('Error en POST /ocean-pay/global-goal/claim:', err);
+    return res.status(500).json({ error: 'No se pudo reclamar la recompensa de meta global' });
+  } finally {
+    client.release();
+  }
+});
+
+// Admin: crear/actualizar Meta Global via API (no hardcode)
+app.post('/ocean-pay/admin/global-goal/upsert', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const client = await pool.connect();
+  try {
+    await ensureOceanPayGlobalGoalTables(client);
+    const slug = String(req.body?.slug || 'meta-global-tides-176k').trim().toLowerCase();
+    const title = String(req.body?.title || 'Meta Global: Marea 176K').trim();
+    const description = String(req.body?.description || '').trim();
+    const goalType = String(req.body?.goalType || req.body?.goal_type || 'spend').trim().toLowerCase();
+    const targetAmount = Math.max(1, Number(req.body?.targetAmount || req.body?.target_amount || 176000));
+    const rewardAmount = Math.max(0, Number(req.body?.rewardAmount || req.body?.reward_amount || 45));
+    const rewardCurrency = String(req.body?.rewardCurrency || req.body?.reward_currency || 'tides').trim().toLowerCase();
+    const eligibleCurrencies = normalizeGoalCurrencies(req.body?.eligibleCurrencies || req.body?.eligible_currencies || ['aquabux', 'wildgems']).join(',');
+    const status = String(req.body?.status || 'active').trim().toLowerCase();
+    const startsAt = req.body?.startsAt || req.body?.starts_at || null;
+    const endsAt = req.body?.endsAt || req.body?.ends_at || null;
+
+    if (!slug || !title) return res.status(400).json({ error: 'slug y title son requeridos' });
+    if (!['spend', 'earn'].includes(goalType)) return res.status(400).json({ error: 'goalType debe ser spend o earn' });
+    if (!eligibleCurrencies) return res.status(400).json({ error: 'eligibleCurrencies es requerido' });
+    if (!UNIFIED_WALLET_CURRENCIES.includes(rewardCurrency)) {
+      return res.status(400).json({ error: 'rewardCurrency no es valido' });
+    }
+
+    const { rows } = await client.query(
+      `INSERT INTO ocean_pay_global_goals
+       (slug, title, description, goal_type, target_amount, reward_currency, reward_amount, eligible_currencies, status, starts_at, ends_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,COALESCE($10::timestamp, NOW()),$11::timestamp,NOW())
+       ON CONFLICT (slug) DO UPDATE SET
+         title = EXCLUDED.title,
+         description = EXCLUDED.description,
+         goal_type = EXCLUDED.goal_type,
+         target_amount = EXCLUDED.target_amount,
+         reward_currency = EXCLUDED.reward_currency,
+         reward_amount = EXCLUDED.reward_amount,
+         eligible_currencies = EXCLUDED.eligible_currencies,
+         status = EXCLUDED.status,
+         starts_at = EXCLUDED.starts_at,
+         ends_at = EXCLUDED.ends_at,
+         updated_at = NOW()
+       RETURNING *`,
+      [slug, title, description, goalType, targetAmount, rewardCurrency, rewardAmount, eligibleCurrencies, status, startsAt, endsAt]
+    );
+
+    return res.json({
+      success: true,
+      goal: rows[0] || null
+    });
+  } catch (err) {
+    console.error('Error en POST /ocean-pay/admin/global-goal/upsert:', err);
+    return res.status(500).json({ error: 'No se pudo guardar la meta global' });
   } finally {
     client.release();
   }
@@ -21407,7 +21511,11 @@ const OP_ALL_CURRENCIES = UNIFIED_WALLET_CURRENCIES;
 async function getUnifiedBalance(client, userId, currency) {
   const curr = String(currency || '').trim().toLowerCase();
   const balances = await getUserWalletBalances(client, userId, false);
-  const amount = Number(balances[curr] || 0);
+  let amount = Number(balances[curr] || 0);
+  // Compatibilidad: migracion Aurex -> Tides
+  if (curr === 'tides' && (!Number.isFinite(amount) || amount <= 0)) {
+    amount = Number(balances.aurex || 0);
+  }
   return Number.isFinite(amount) ? amount : 0;
 }
 
@@ -21431,6 +21539,23 @@ async function setUnifiedBalance(client, userId, currency, amount) {
      ON CONFLICT (user_id, currency_type) DO UPDATE SET amount = EXCLUDED.amount, updated_at = NOW()`,
     [userId, curr, safeAmount]
   ).catch(() => {});
+
+  if (curr === 'tides') {
+    // Mantener espejo legacy para clientes antiguos que aun lean "aurex"
+    await client.query(
+      `UPDATE ${USER_WALLET_TABLE}
+       SET balances = jsonb_set(COALESCE(balances, '{}'::jsonb), ARRAY['aurex']::text[], to_jsonb($1::numeric), true),
+           updated_at = NOW()
+       WHERE user_id = $2`,
+      [safeAmount, userId]
+    ).catch(() => {});
+    await client.query(
+      `INSERT INTO user_currency (user_id, currency_type, amount)
+       VALUES ($1, 'aurex', $2)
+       ON CONFLICT (user_id, currency_type) DO UPDATE SET amount = EXCLUDED.amount, updated_at = NOW()`,
+      [userId, safeAmount]
+    ).catch(() => {});
+  }
 
   // Reflejar también tarjeta principal para endpoints legacy.
   const card = await getPrimaryCardForUser(client, userId, true);

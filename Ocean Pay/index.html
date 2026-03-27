@@ -2595,11 +2595,11 @@
       rewardEveryHours: 24,
       pricing: {}
     };
-    const PREMIUM_CURRENCY_ID = 'aurex';
+    const PREMIUM_CURRENCY_ID = 'tides';
     const OCEAN_PASS_PREMIUM_PRICE = 199;
-    let aurexPackages = [];
-    let isAurexCatalogLoading = false;
-    let aurexChallengeState = null;
+    let tidesPackages = [];
+    let isTidesCatalogLoading = false;
+    let globalGoalState = null;
     let appSessionStartTime = Date.now();
 
     /* ---------- HELPERS ---------- */
@@ -2655,46 +2655,49 @@
       wildRow.appendChild(card);
     }
 
-    function ensureAurexCard() {
+    function ensureTidesCard() {
       const walletMain = document.querySelector('.wallet-main-content');
       if (!walletMain) return;
 
-      let showcase = document.getElementById('aurex-showcase');
+      let showcase = document.getElementById('tides-showcase');
       if (!showcase) {
         showcase = document.createElement('section');
-        showcase.id = 'aurex-showcase';
+        showcase.id = 'tides-showcase';
         showcase.style.cssText = `
           margin-bottom: 1.1rem;
           padding: 1rem;
-          border-radius: 18px;
-          border: 1px solid rgba(249,214,110,0.35);
-          background: linear-gradient(135deg, rgba(35,22,5,0.8), rgba(15,23,42,0.92));
-          box-shadow: 0 0 28px rgba(249,214,110,0.14), inset 0 0 18px rgba(255,210,92,0.08);
+          border-radius: 20px;
+          border: 1px solid rgba(56, 189, 248, 0.35);
+          background: linear-gradient(135deg, rgba(3, 28, 44, 0.85), rgba(15, 23, 42, 0.95));
+          box-shadow: 0 0 28px rgba(56, 189, 248, 0.15), inset 0 0 18px rgba(56, 189, 248, 0.09);
         `;
         showcase.innerHTML = `
           <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;">
             <div>
-              <h3 style="margin:0;color:#fde68a;font-size:1rem;letter-spacing:0.06em;text-transform:uppercase;">Aurex Vault</h3>
-              <p style="margin:4px 0 0;color:#cbd5e1;font-size:0.84rem;">Divisa premium transversal del ecosistema OWS.</p>
+              <h3 style="margin:0;color:#67e8f9;font-size:1rem;letter-spacing:0.06em;text-transform:uppercase;">Tides Vault</h3>
+              <p style="margin:4px 0 0;color:#cbd5e1;font-size:0.84rem;">Divisa premium para desbloqueos exclusivos del ecosistema OWS.</p>
             </div>
-            <span style="font-size:0.68rem;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;color:#f8e5a0;">Premium</span>
+            <span style="font-size:0.68rem;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;color:#a5f3fc;">Premium</span>
           </div>
-          <div id="aurex-challenge-panel" style="margin-bottom:12px; border:1px solid rgba(249,214,110,0.24); border-radius:14px; padding:0.8rem; background:rgba(2,6,23,0.52);">
+          <div id="global-goal-panel" style="margin-bottom:12px; border:1px solid rgba(56,189,248,0.25); border-radius:14px; padding:0.8rem; background:rgba(2,6,23,0.52);">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
               <div>
-                <h4 style="margin:0;color:#fde68a;font-size:0.92rem;">Desafio Aurex (Gratis)</h4>
-                <p id="aurex-challenge-status" style="margin:4px 0 0;color:#cbd5e1;font-size:0.8rem;">Cargando estado del desafio...</p>
+                <h4 style="margin:0;color:#67e8f9;font-size:0.92rem;">Meta Global de Comunidad</h4>
+                <p id="global-goal-status" style="margin:4px 0 0;color:#cbd5e1;font-size:0.8rem;">Cargando meta global...</p>
               </div>
               <div style="display:flex;gap:8px;align-items:center;">
-                <button class="secondary" style="width:auto;padding:0.38rem 0.75rem;" onclick="loadAurexChallengeStatus(true)">
+                <button class="secondary" style="width:auto;padding:0.38rem 0.75rem;" onclick="loadGlobalGoalStatus(true)">
                   <i class="fas fa-sync-alt"></i>
                 </button>
-                <button id="aurex-claim-btn" class="pos-btn-primary" style="width:auto;padding:0.42rem 0.86rem;" onclick="claimAurexChallenge()" disabled>
+                <button id="global-goal-claim-btn" class="pos-btn-primary" style="width:auto;padding:0.42rem 0.86rem;" onclick="claimGlobalGoalReward()" disabled>
                   Reclamar
                 </button>
               </div>
             </div>
-            <div id="aurex-challenge-reqs" style="margin-top:8px;color:#94a3b8;font-size:0.78rem;">Sin datos aun.</div>
+            <div id="global-goal-details" style="margin-top:8px;color:#94a3b8;font-size:0.78rem;">Sin meta activa por ahora.</div>
+            <div style="margin-top:10px;height:8px;background:rgba(15,23,42,0.75);border-radius:999px;overflow:hidden;">
+              <div id="global-goal-progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#22d3ee,#38bdf8,#0ea5e9);transition:width .35s ease;"></div>
+            </div>
           </div>
         `;
         const firstChild = walletMain.firstElementChild;
@@ -2702,107 +2705,95 @@
         else walletMain.appendChild(showcase);
       }
 
-      let card = document.getElementById('aurex-card');
+      let card = document.getElementById('tides-card');
       if (!card) {
         card = document.createElement('div');
         card.className = 'asset-card-modern';
-        card.id = 'aurex-card';
+        card.id = 'tides-card';
         card.innerHTML = `
           <div class="asset-icon-container">
-            <canvas class="currency-canvas" data-currency="aurex" width="44" height="44"></canvas>
+            <canvas class="currency-canvas" data-currency="tides" width="44" height="44"></canvas>
           </div>
           <div class="asset-info-modern">
-            <span class="asset-name-modern">Aurex</span>
-            <span class="asset-balance-modern" id="aurex" style="color:#f9d66e;">0</span>
+            <span class="asset-name-modern">Tides</span>
+            <span class="asset-balance-modern" id="tides" style="color:#67e8f9;">0</span>
           </div>
           <div class="asset-footer-modern">
             <span>Ecosistema OWS</span>
-            <span style="color:#f9d66e">Universal</span>
+            <span style="color:#67e8f9">Universal</span>
           </div>
         `;
       }
       showcase.appendChild(card);
     }
 
-    function formatChallengeRemaining(ms) {
-      const clamped = Math.max(0, Number(ms || 0));
-      const totalSec = Math.floor(clamped / 1000);
-      const d = Math.floor(totalSec / 86400);
-      const h = Math.floor((totalSec % 86400) / 3600);
-      const m = Math.floor((totalSec % 3600) / 60);
-      if (d > 0) return `${d}d ${h}h ${m}m`;
-      if (h > 0) return `${h}h ${m}m`;
-      return `${m}m`;
-    }
+    function renderGlobalGoalStatus() {
+      const statusEl = qs('#global-goal-status');
+      const detailsEl = qs('#global-goal-details');
+      const claimBtn = qs('#global-goal-claim-btn');
+      const barEl = qs('#global-goal-progress-bar');
+      if (!statusEl || !detailsEl || !claimBtn || !barEl) return;
 
-    function renderAurexChallengeStatus() {
-      const statusEl = qs('#aurex-challenge-status');
-      const reqsEl = qs('#aurex-challenge-reqs');
-      const claimBtn = qs('#aurex-claim-btn');
-      if (!statusEl || !reqsEl || !claimBtn) return;
-      if (!aurexChallengeState) {
-        statusEl.textContent = 'Cargando estado del desafio...';
-        reqsEl.textContent = 'Sin datos aun.';
+      if (!globalGoalState || !globalGoalState.goal) {
+        statusEl.textContent = 'No hay meta global activa en este momento.';
+        statusEl.style.color = '#94a3b8';
+        detailsEl.textContent = 'Vuelve mas tarde para participar en la siguiente meta comunitaria.';
         claimBtn.disabled = true;
+        claimBtn.textContent = 'Sin meta activa';
+        barEl.style.width = '0%';
         return;
       }
 
-      const metrics = aurexChallengeState.metrics || {};
-      const reqs = metrics.requirements || {};
-      const cool = aurexChallengeState.cooldown || {};
+      const g = globalGoalState.goal;
+      const progress = Number(g.progressAmount || 0);
+      const target = Math.max(1, Number(g.targetAmount || 1));
+      const pct = Math.max(0, Math.min(100, Number(g.progressPct || (progress / target) * 100)));
+      const modeLabel = String(g.goalType || '').toLowerCase() === 'earn' ? 'Ganar' : 'Gastar';
+      const eligible = Array.isArray(g.eligibleCurrencies) ? g.eligibleCurrencies.map((c) => String(c || '').toUpperCase()).join(' · ') : '';
+      const rewardAmount = Number(g.rewardAmount || 0);
+      const rewardCurrency = String(g.rewardCurrency || PREMIUM_CURRENCY_ID).toUpperCase();
 
-      const checks = [
-        { label: `Transacciones (30 dias): ${metrics.txCount || 0}/${reqs.minTxCount || 0}`, ok: (metrics.txCount || 0) >= (reqs.minTxCount || 0) },
-        { label: `Divisas distintas: ${metrics.distinctCurrencies || 0}/${reqs.minDistinctCurrencies || 0}`, ok: (metrics.distinctCurrencies || 0) >= (reqs.minDistinctCurrencies || 0) },
-        { label: `Volumen total: ${Math.round(metrics.txVolume || 0).toLocaleString()}/${Math.round(reqs.minVolume || 0).toLocaleString()}`, ok: (metrics.txVolume || 0) >= (reqs.minVolume || 0) },
-        { label: `Balance global: ${Math.round(metrics.balanceTotal || 0).toLocaleString()}/${Math.round(reqs.minCurrentBalanceTotal || 0).toLocaleString()}`, ok: (metrics.balanceTotal || 0) >= (reqs.minCurrentBalanceTotal || 0) }
-      ];
+      barEl.style.width = `${pct.toFixed(2)}%`;
+      detailsEl.textContent = `${modeLabel} ${target.toLocaleString('es-ES')} (${eligible}). Progreso: ${progress.toLocaleString('es-ES')} / ${target.toLocaleString('es-ES')}.`;
 
-      reqsEl.innerHTML = checks.map((c) => `<span style="display:inline-block;margin-right:9px;color:${c.ok ? '#34d399' : '#94a3b8'}">${c.ok ? '✓' : '•'} ${c.label}</span>`).join('');
-
-      if (aurexChallengeState.canClaim) {
-        statusEl.textContent = `Listo para reclamar +${Number(aurexChallengeState.reward || 0).toLocaleString()} AUREX.`;
+      if (globalGoalState.canClaim) {
+        statusEl.textContent = `Meta completada: puedes reclamar +${rewardAmount.toLocaleString('es-ES')} ${rewardCurrency}.`;
         statusEl.style.color = '#34d399';
         claimBtn.disabled = false;
-        claimBtn.textContent = 'Reclamar Aurex';
-      } else if (cool.active) {
-        statusEl.textContent = `En enfriamiento: ${formatChallengeRemaining(cool.remainingMs)} restantes.`;
-        statusEl.style.color = '#fbbf24';
-        claimBtn.disabled = true;
-        claimBtn.textContent = 'En enfriamiento';
-      } else if (metrics.completed) {
-        statusEl.textContent = 'Verificando disponibilidad de reclamo...';
+        claimBtn.textContent = 'Reclamar recompensa';
+      } else if (globalGoalState.alreadyClaimed) {
+        statusEl.textContent = 'Ya reclamaste esta meta global. Espera la proxima.';
         statusEl.style.color = '#38bdf8';
         claimBtn.disabled = true;
-        claimBtn.textContent = 'Procesando';
+        claimBtn.textContent = 'Reclamado';
       } else {
-        statusEl.textContent = 'Completa los requisitos para habilitar un reclamo gratuito semanal.';
+        statusEl.textContent = `${g.title || 'Meta Global'} - ${Math.round(pct)}% completado`;
         statusEl.style.color = '#cbd5e1';
         claimBtn.disabled = true;
-        claimBtn.textContent = `Recompensa +${Number(aurexChallengeState.reward || 0).toLocaleString()}`;
+        claimBtn.textContent = `Recompensa +${rewardAmount.toLocaleString('es-ES')} ${rewardCurrency}`;
       }
     }
 
-    async function loadAurexChallengeStatus(force = false) {
-      const statusEl = qs('#aurex-challenge-status');
-      if (statusEl && force) statusEl.textContent = 'Actualizando desafio...';
+    async function loadGlobalGoalStatus(force = false) {
+      const statusEl = qs('#global-goal-status');
+      if (statusEl && force) statusEl.textContent = 'Actualizando meta global...';
       try {
-        const res = await apiFetch(`${API}/ocean-pay/aurex/challenge/status`, {
+        const res = await apiFetch(`${API}/ocean-pay/global-goal/current`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.error || 'No se pudo cargar el desafio');
-        aurexChallengeState = data;
-        renderAurexChallengeStatus();
+        if (!res.ok) throw new Error(data.error || 'No se pudo cargar la meta global');
+        globalGoalState = data;
+        renderGlobalGoalStatus();
       } catch (err) {
-        aurexChallengeState = null;
-        const reqsEl = qs('#aurex-challenge-reqs');
+        globalGoalState = null;
+        const detailsEl = qs('#global-goal-details');
+        const claimBtn = qs('#global-goal-claim-btn');
         if (statusEl) {
-          statusEl.textContent = 'No se pudo cargar el desafio de Aurex.';
+          statusEl.textContent = 'No se pudo cargar la meta global.';
           statusEl.style.color = '#ef4444';
         }
-        if (reqsEl) reqsEl.textContent = 'Intenta de nuevo en unos segundos.';
-        const claimBtn = qs('#aurex-claim-btn');
+        if (detailsEl) detailsEl.textContent = 'Intenta de nuevo en unos segundos.';
         if (claimBtn) {
           claimBtn.disabled = true;
           claimBtn.textContent = 'Reclamar';
@@ -2810,20 +2801,20 @@
       }
     }
 
-    async function claimAurexChallenge() {
+    async function claimGlobalGoalReward() {
       try {
-        const res = await apiFetch(`${API}/ocean-pay/aurex/challenge/claim`, {
+        const res = await apiFetch(`${API}/ocean-pay/global-goal/claim`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({})
         });
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.error || 'No se pudo reclamar Aurex');
-        showToast(`Desafio completado: +${Number(data.reward || 0).toLocaleString()} AUREX acreditados.`, 'success');
+        if (!res.ok) throw new Error(data.error || 'No se pudo reclamar la recompensa');
+        showToast(`Meta global completada: +${Number(data.reward || 0).toLocaleString('es-ES')} ${String(data.rewardCurrency || PREMIUM_CURRENCY_ID).toUpperCase()}.`, 'success');
         await refreshAllBalances();
-        await loadAurexChallengeStatus(true);
+        await loadGlobalGoalStatus(true);
       } catch (err) {
-        showToast(err.message || 'No se pudo reclamar la recompensa gratuita de Aurex', 'error');
+        showToast(err.message || 'No se pudo reclamar la recompensa global', 'error');
       }
     }
 
@@ -3409,46 +3400,49 @@
       ctx.restore();
     }
 
-    function drawAurexIcon(ctx, x, y, size, time) {
+    function drawTidesIcon(ctx, x, y, size, time) {
       ctx.save();
       ctx.translate(x, y);
-      const pulse = 0.92 + Math.sin(time * 2.4) * 0.08;
-      ctx.shadowBlur = size * 0.5 * pulse;
-      ctx.shadowColor = "rgba(255, 213, 92, 0.75)";
+      const pulse = 0.94 + Math.sin(time * 2.8) * 0.06;
+      const dropH = size * 0.62;
+      const dropW = size * 0.44;
+      ctx.shadowBlur = size * 0.42 * pulse;
+      ctx.shadowColor = "rgba(56, 189, 248, 0.7)";
 
-      const grad = ctx.createRadialGradient(-size * 0.15, -size * 0.2, 0, 0, 0, size * 0.58);
-      grad.addColorStop(0, "#fff8cf");
-      grad.addColorStop(0.38, "#ffd54f");
-      grad.addColorStop(1, "#b7791f");
-      ctx.fillStyle = grad;
+      // Silueta gota realista
+      const g = ctx.createLinearGradient(0, -dropH * 0.58, 0, dropH * 0.6);
+      g.addColorStop(0, "#e0f7ff");
+      g.addColorStop(0.24, "#7dd3fc");
+      g.addColorStop(0.62, "#22d3ee");
+      g.addColorStop(1, "#0369a1");
+      ctx.fillStyle = g;
       ctx.beginPath();
-      ctx.arc(0, 0, size * 0.45, 0, Math.PI * 2);
+      ctx.moveTo(0, -dropH * 0.58);
+      ctx.bezierCurveTo(dropW * 0.52, -dropH * 0.16, dropW * 0.6, dropH * 0.25, 0, dropH * 0.56);
+      ctx.bezierCurveTo(-dropW * 0.6, dropH * 0.25, -dropW * 0.52, -dropH * 0.16, 0, -dropH * 0.58);
       ctx.fill();
 
-      ctx.strokeStyle = "rgba(255,255,255,0.58)";
-      ctx.lineWidth = size * 0.05;
-      ctx.beginPath();
-      ctx.arc(0, 0, size * 0.34, 0, Math.PI * 2);
-      ctx.stroke();
-
-      ctx.strokeStyle = "rgba(255,255,255,0.36)";
+      ctx.strokeStyle = "rgba(255,255,255,0.46)";
       ctx.lineWidth = size * 0.03;
-      ctx.beginPath();
-      ctx.moveTo(-size * 0.22, -size * 0.02);
-      ctx.lineTo(size * 0.22, -size * 0.02);
-      ctx.moveTo(-size * 0.15, size * 0.12);
-      ctx.lineTo(size * 0.15, size * 0.12);
       ctx.stroke();
 
-      ctx.fillStyle = "#3f2b00";
-      ctx.font = `900 ${size * 0.34}px sans-serif`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText("A", 0, 0);
-
-      ctx.fillStyle = "rgba(255,255,255,0.3)";
+      // Núcleo acuoso interno
+      const inner = ctx.createRadialGradient(-dropW * 0.12, dropH * 0.02, 0, 0, dropH * 0.1, dropW * 0.52);
+      inner.addColorStop(0, "rgba(191, 245, 255, 0.95)");
+      inner.addColorStop(1, "rgba(34, 211, 238, 0)");
+      ctx.fillStyle = inner;
       ctx.beginPath();
-      ctx.ellipse(-size * 0.16, -size * 0.16, size * 0.1, size * 0.07, -0.4, 0, Math.PI * 2);
+      ctx.ellipse(0, dropH * 0.1, dropW * 0.42, dropH * 0.24, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Reflejo superior
+      ctx.fillStyle = "rgba(255,255,255,0.7)";
+      ctx.beginPath();
+      ctx.ellipse(-dropW * 0.16, -dropH * 0.19, dropW * 0.12, dropH * 0.07, -0.35, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "rgba(255,255,255,0.36)";
+      ctx.beginPath();
+      ctx.ellipse(-dropW * 0.04, -dropH * 0.02, dropW * 0.06, dropH * 0.04, -0.35, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
     }
@@ -3493,7 +3487,8 @@
           case 'cosmicdust': drawCosmicDustIcon(ctx, x, y, size * 0.8); break;
           case 'coralbits': drawCoralBitsIcon(ctx, x, y, size * 0.8); break;
           case 'tigrys': drawTigrysIcon(ctx, x, y, size * 0.8); break;
-          case 'aurex': drawAurexIcon(ctx, x, y, size * 0.8, time); break;
+          case 'tides':
+          case 'aurex': drawTidesIcon(ctx, x, y, size * 0.8, time); break;
           default:
             ctx.fillStyle = "#fff"; ctx.font = "64px serif"; ctx.textAlign = "center";
             ctx.textBaseline = "middle"; ctx.fillText("x", x, y);
@@ -3571,8 +3566,8 @@
       if (cdEl) cdEl.textContent = Math.round(balances.cosmicdust || 0).toLocaleString();
       const coralEl = qs('#coralbits');
       if (coralEl) coralEl.textContent = Math.round(balances.coralbits || 0).toLocaleString();
-      const aurexEl = qs('#aurex');
-      if (aurexEl) aurexEl.textContent = Math.round(balances.aurex || 0).toLocaleString();
+      const tidesEl = qs('#tides');
+      if (tidesEl) tidesEl.textContent = Math.round((balances.tides ?? balances.aurex ?? 0)).toLocaleString();
       qs('#ecopower-display').textContent = Math.round(balances.ecopower || 100);
 
       // Actualizar Resumen Lateral con info real del usuario
@@ -3600,17 +3595,17 @@
       const parity = {
         bux: 0.1, wildcredits: 0.5, wildgems: 10.0, ecoxionums: 1.0,
         nxb: 0.25, amber: 0.15, voltbit: 0.1, wildwavetokens: 0.18, appbux: 0.05,
-        ecobooks: 0.5, ecobits: 2.0, ecotokens: 0.3, mayhemcoins: 0.08, cosmicdust: 0.04, relayshards: 0.12, coralbits: 0.22, tigrys: 0.09, aurex: 12
+        ecobooks: 0.5, ecobits: 2.0, ecotokens: 0.3, mayhemcoins: 0.08, cosmicdust: 0.04, relayshards: 0.12, coralbits: 0.22, tigrys: 0.09, tides: 12
       };
 
       const currencyLabels = {
         bux: 'AquaBux', wildcredits: 'WildCredits', wildgems: 'WildGems',
         ecoxionums: 'Ecoxionums', 'nxb-balance': 'Nexus Bits', amber: 'Amber',
         voltbit: 'VoltBits', wildwavetokens: 'WildWave Tokens', appbux: 'AppBux', ecobooks: 'EcoBooks',
-        ecobits: 'EcoCoreBits', ecotokens: 'EcoTokens', mayhemcoins: 'MayhemCoins', cosmicdust: 'Polvora Cosmica', relayshards: 'RelayShards', coralbits: 'Coral Bits', tigrys: 'Tigrys', aurex: 'Aurex'
+        ecobits: 'EcoCoreBits', ecotokens: 'EcoTokens', mayhemcoins: 'MayhemCoins', cosmicdust: 'Polvora Cosmica', relayshards: 'RelayShards', coralbits: 'Coral Bits', tigrys: 'Tigrys', tides: 'Tides'
       };
 
-      const ids = ['bux', 'aurex', 'wildcredits', 'wildgems', 'tigrys', 'relayshards', 'ecoxionums', 'nxb-balance', 'amber', 'voltbit', 'wildwavetokens', 'appbux', 'ecobooks', 'ecobits', 'ecotokens', 'mayhemcoins', 'cosmicdust', 'coralbits'];
+      const ids = ['bux', 'tides', 'wildcredits', 'wildgems', 'tigrys', 'relayshards', 'ecoxionums', 'nxb-balance', 'amber', 'voltbit', 'wildwavetokens', 'appbux', 'ecobooks', 'ecobits', 'ecotokens', 'mayhemcoins', 'cosmicdust', 'coralbits'];
 
       let totalEX = 0;
       const breakdown = [];
@@ -3859,63 +3854,63 @@
     }
 
     /* ---------- OCEAN PASS LOGIC ---------- */
-    function ensureAurexPassCurrency() {
+    function ensureTidesPassCurrency() {
       const select = qs('#pass-activation-currency');
       if (!select) return;
-      select.innerHTML = `<option value="${PREMIUM_CURRENCY_ID}">Aurex</option>`;
+      select.innerHTML = `<option value="${PREMIUM_CURRENCY_ID}">Tides</option>`;
       select.value = PREMIUM_CURRENCY_ID;
     }
 
-    function ensureAurexMarketSection() {
+    function ensureTidesMarketSection() {
       const passSection = qs('#pass-section');
       if (!passSection) return;
-      if (qs('#aurex-market-panel')) return;
+      if (qs('#tides-market-panel')) return;
 
       const market = document.createElement('div');
-      market.id = 'aurex-market-panel';
+      market.id = 'tides-market-panel';
       market.style.cssText = `
         margin-top: 1.5rem;
         background: rgba(8,14,32,0.72);
-        border: 1px solid rgba(249,214,110,0.26);
+        border: 1px solid rgba(56,189,248,0.28);
         border-radius: 22px;
         padding: 1.25rem;
-        box-shadow: inset 0 0 30px rgba(249,214,110,0.08);
+        box-shadow: inset 0 0 30px rgba(56,189,248,0.08);
       `;
       market.innerHTML = `
         <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;">
           <div>
-            <h3 style="margin:0;color:#fde68a;font-size:1.05rem;">Tienda Aurex</h3>
+            <h3 style="margin:0;color:#67e8f9;font-size:1.05rem;">Tienda Tides</h3>
             <p style="margin:6px 0 0;color:#cbd5e1;font-size:0.9rem;">Compra paquetes premium y usalos para desbloqueos directos del ecosistema.</p>
           </div>
-          <button class="secondary" style="width:auto;padding:0.45rem 0.9rem;" onclick="loadAurexPackages(true)">
+          <button class="secondary" style="width:auto;padding:0.45rem 0.9rem;" onclick="loadTidesPackages(true)">
             <i class="fas fa-sync-alt"></i> Actualizar
           </button>
         </div>
-        <div id="aurex-packages-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;">
+        <div id="tides-packages-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px;">
           <div style="color:#94a3b8;padding:1rem;text-align:center;">Cargando paquetes...</div>
         </div>
       `;
       passSection.appendChild(market);
     }
 
-    function renderAurexPackages() {
-      const grid = qs('#aurex-packages-grid');
+    function renderTidesPackages() {
+      const grid = qs('#tides-packages-grid');
       if (!grid) return;
-      if (!aurexPackages.length) {
+      if (!tidesPackages.length) {
         grid.innerHTML = `<div style="color:#94a3b8;padding:1rem;text-align:center;">No hay paquetes disponibles por ahora.</div>`;
         return;
       }
-      grid.innerHTML = aurexPackages.map((pkg) => {
-        const totalAurex = Number(pkg.aurexAmount || 0) + Number(pkg.bonus || 0);
+      grid.innerHTML = tidesPackages.map((pkg) => {
+        const totalTides = Number(pkg.tidesAmount || pkg.aurexAmount || 0) + Number(pkg.bonus || 0);
         return `
           <article style="background:rgba(15,23,42,0.84);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:0.95rem;">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-              <canvas class="currency-canvas" data-currency="aurex" width="28" height="28"></canvas>
-              <h4 style="margin:0;color:#fef3c7;font-size:0.97rem;">${pkg.title}</h4>
+              <canvas class="currency-canvas" data-currency="tides" width="28" height="28"></canvas>
+              <h4 style="margin:0;color:#a5f3fc;font-size:0.97rem;">${pkg.title}</h4>
             </div>
-            <p style="margin:0;color:#f8fafc;font-weight:800;font-size:1.05rem;">${totalAurex.toLocaleString()} AUREX</p>
+            <p style="margin:0;color:#f8fafc;font-weight:800;font-size:1.05rem;">${totalTides.toLocaleString()} TIDES</p>
             <p style="margin:4px 0 10px;color:#94a3b8;font-size:0.82rem;">${pkg.bonus > 0 ? `Incluye bono de +${Number(pkg.bonus).toLocaleString()}.` : 'Paquete base de recarga.'}</p>
-            <button class="pos-btn-primary" style="width:100%;" onclick="startAurexCheckout('${pkg.id}')">
+            <button class="pos-btn-primary" style="width:100%;" onclick="startTidesCheckout('${pkg.id}')">
               Comprar por $${Number(pkg.priceUyu || 0).toLocaleString('es-UY')} UYU
             </button>
           </article>
@@ -3923,28 +3918,28 @@
       }).join('');
     }
 
-    async function loadAurexPackages(force = false) {
-      if (isAurexCatalogLoading && !force) return;
-      const grid = qs('#aurex-packages-grid');
-      isAurexCatalogLoading = true;
+    async function loadTidesPackages(force = false) {
+      if (isTidesCatalogLoading && !force) return;
+      const grid = qs('#tides-packages-grid');
+      isTidesCatalogLoading = true;
       if (grid) grid.innerHTML = `<div style="color:#94a3b8;padding:1rem;text-align:center;">Cargando paquetes...</div>`;
       try {
-        const res = await apiFetch(`${API}/ocean-pay/aurex/packages`, { headers: { 'Authorization': `Bearer ${token}` } });
+        const res = await apiFetch(`${API}/ocean-pay/tides/packages`, { headers: { 'Authorization': `Bearer ${token}` } });
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(data.error || 'No se pudo cargar el catalogo Aurex');
-        aurexPackages = Array.isArray(data.packages) ? data.packages : [];
-        renderAurexPackages();
+        if (!res.ok) throw new Error(data.error || 'No se pudo cargar el catalogo Tides');
+        tidesPackages = Array.isArray(data.packages) ? data.packages : [];
+        renderTidesPackages();
       } catch (err) {
-        if (grid) grid.innerHTML = `<div style="color:#ef4444;padding:1rem;text-align:center;">No se pudo cargar la tienda Aurex.</div>`;
+        if (grid) grid.innerHTML = `<div style="color:#ef4444;padding:1rem;text-align:center;">No se pudo cargar la tienda Tides.</div>`;
       } finally {
-        isAurexCatalogLoading = false;
+        isTidesCatalogLoading = false;
       }
     }
 
-    async function startAurexCheckout(packageId) {
+    async function startTidesCheckout(packageId) {
       try {
         const cleanUrl = window.location.origin + window.location.pathname;
-        const res = await apiFetch(`${API}/ocean-pay/aurex/checkout`, {
+        const res = await apiFetch(`${API}/ocean-pay/tides/checkout`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({ packageId, returnUrl: cleanUrl })
@@ -3952,24 +3947,24 @@
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error || 'No se pudo iniciar el checkout');
         if (!data.initPoint) throw new Error('Mercado Pago no devolvio un enlace de pago');
-        localStorage.setItem('op_aurex_checkout_ref', String(data.externalReference || ''));
+        localStorage.setItem('op_tides_checkout_ref', String(data.externalReference || ''));
         window.location.href = data.initPoint;
       } catch (err) {
-        showToast(err.message || 'No se pudo iniciar la compra de Aurex', 'error');
+        showToast(err.message || 'No se pudo iniciar la compra de Tides', 'error');
       }
     }
 
-    async function handleAurexCheckoutReturn() {
+    async function handleTidesCheckoutReturn() {
       const params = new URLSearchParams(window.location.search);
       const paymentId = Number(params.get('payment_id') || params.get('collection_id') || 0);
       const status = String(params.get('status') || params.get('collection_status') || '').toLowerCase();
       const externalReference = String(params.get('external_reference') || '');
-      const pendingRef = String(localStorage.getItem('op_aurex_checkout_ref') || '');
+      const pendingRef = String(localStorage.getItem('op_tides_checkout_ref') || '');
       if (!paymentId || status !== 'approved') return;
       if (!externalReference || (pendingRef && externalReference !== pendingRef)) return;
 
       try {
-        const res = await apiFetch(`${API}/ocean-pay/aurex/confirm`, {
+        const res = await apiFetch(`${API}/ocean-pay/tides/confirm`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
           body: JSON.stringify({ paymentId, externalReference })
@@ -3979,15 +3974,15 @@
         const credited = Number(data.credited || 0);
         showToast(
           data.alreadyApplied
-            ? 'Compra Aurex ya confirmada anteriormente.'
-            : `Compra confirmada. +${credited.toLocaleString()} AUREX acreditados.`,
+            ? 'Compra Tides ya confirmada anteriormente.'
+            : `Compra confirmada. +${credited.toLocaleString()} TIDES acreditados.`,
           'success',
           6500
         );
-        localStorage.removeItem('op_aurex_checkout_ref');
+        localStorage.removeItem('op_tides_checkout_ref');
         await refreshAllBalances();
       } catch (err) {
-        showToast(err.message || 'No se pudo confirmar la compra de Aurex', 'error');
+        showToast(err.message || 'No se pudo confirmar la compra de Tides', 'error');
       } finally {
         const cleanUrl = window.location.origin + window.location.pathname;
         window.history.replaceState({}, document.title, cleanUrl);
@@ -4242,10 +4237,10 @@
       if (id === 'pass') {
         updatePassActivationPriceLabel();
         updateOceanPassUI();
-        loadAurexPackages();
-        loadAurexChallengeStatus();
+        loadTidesPackages();
+        loadGlobalGoalStatus();
       }
-      if (id === 'wallet') loadAurexChallengeStatus();
+      if (id === 'wallet') loadGlobalGoalStatus();
     }
 
     /* ---------- AUTH TOGGLE ---------- */
@@ -4648,7 +4643,7 @@
       // Cargar tarjetas (incluyen todos los saldos)
       await loadOceanCards();
       await loadAmberBalance();
-      await loadAurexChallengeStatus();
+      await loadGlobalGoalStatus();
     }
 
     let balanceRefreshInterval = null;
@@ -5501,9 +5496,9 @@
     window.addEventListener('DOMContentLoaded', async () => {
       ensureCoralBitsCard();
       ensureTigrysCard();
-      ensureAurexCard();
-      ensureAurexPassCurrency();
-      ensureAurexMarketSection();
+      ensureTidesCard();
+      ensureTidesPassCurrency();
+      ensureTidesMarketSection();
       const t = localStorage.getItem('opToken');
       if (t) {
         token = t;
@@ -5558,9 +5553,9 @@
         });
 
         loadOceanPass();
-        loadAurexPackages();
-        loadAurexChallengeStatus();
-        handleAurexCheckoutReturn();
+        loadTidesPackages();
+        loadGlobalGoalStatus();
+        handleTidesCheckoutReturn();
         setInterval(checkOceanPassStatus, 1000); // UI updates every second if active
         // checkOceanPassStatus(); // initial check is done by interval immediately or by first tick
 
@@ -5615,7 +5610,7 @@
 
       const currencies = [
         { id: 'bux', name: 'AquaBux', desc: 'Moneda oficial de Ocean Cinemas y transacciones generales del ecosistema.', project: 'Ocean Cinemas' },
-        { id: 'aurex', name: 'Aurex', desc: 'Moneda premium transversal del ecosistema OWS. Actualmente su uso activo esta habilitado en Ocean Pass.', project: 'Ocean Pay' },
+        { id: 'tides', name: 'Tides', desc: 'Divisa premium del ecosistema OWS para desbloqueos de alto nivel.', project: 'Ocean Pay' },
         { id: 'coralbits', name: 'Coral Bits', desc: 'Divisa de Ocean AI sincronizada con Ocean Pay.', project: 'Ocean AI' },
         { id: 'wildcredits', name: 'WildCredits', desc: 'CrÃ©ditos de recompensa obtenidos en Wild Explorer y misiones de campo.', project: 'Wild Explorer' },
         { id: 'wildgems', name: 'WildGems', desc: 'Gemas premium utilizadas para acceder a contenido exclusivo en WildShorts.', project: 'WildShorts' },

@@ -5924,7 +5924,7 @@ const WILDWEAPON_STORE_PACKS = Object.freeze([
     name: 'Zeus Axe Founders Pack',
     rarity: 'mitico',
     currency: 'tides',
-    price: 12999,
+    price: 3999,
     weaponId: 'zeus_axe'
   }
 ]);

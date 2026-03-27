@@ -385,52 +385,98 @@
             display: none;
             align-items: center;
             justify-content: center;
+            padding: 0.9rem;
             background:
-                radial-gradient(ellipse 1200px 680px at -10% 0%, rgba(38,212,232,0.13), transparent 58%),
-                radial-gradient(ellipse 900px 520px at 110% 100%, rgba(242,104,48,0.1), transparent 56%),
-                #040911;
-            padding: 1.1rem;
+                radial-gradient(ellipse 1200px 700px at -5% -10%, rgba(62, 218, 201, 0.22), transparent 58%),
+                radial-gradient(ellipse 980px 620px at 105% 95%, rgba(92, 108, 241, 0.18), transparent 58%),
+                linear-gradient(180deg, #091320 0%, #050a14 100%);
         }
         .prelogin-gate.active { display: flex; }
         .prelogin-gate-shell {
-            width: min(1080px, 100%);
-            min-height: min(640px, calc(100vh - 2.2rem));
-            border: 1px solid rgba(82,217,223,0.28);
-            border-radius: 20px;
-            background: linear-gradient(165deg, rgba(9,17,30,0.97), rgba(6,12,21,0.98));
-            box-shadow: 0 26px 56px rgba(0,0,0,0.55);
+            width: min(1160px, 100%);
+            min-height: min(680px, calc(100vh - 1.8rem));
+            border: 1px solid rgba(118, 224, 214, 0.28);
+            border-radius: 14px;
             overflow: hidden;
             display: grid;
-            grid-template-columns: minmax(320px, 1fr) minmax(320px, 1fr);
+            grid-template-columns: minmax(360px, 0.95fr) minmax(420px, 1.05fr);
+            background: linear-gradient(160deg, rgba(10, 23, 37, 0.96), rgba(8, 15, 28, 0.98));
+            box-shadow: 0 30px 70px rgba(0,0,0,0.62);
+            position: relative;
         }
         .prelogin-panel {
-            padding: 1.3rem 1.35rem;
             display: flex;
             flex-direction: column;
-            justify-content: center;
-            gap: 1rem;
+            transition: opacity 0.2s ease;
+        }
+        .prelogin-gate-shell.left-transition-active .prelogin-form-panel {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .prelogin-gate-shell.full-transition-active .prelogin-panel {
+            opacity: 0;
+            pointer-events: none;
         }
         .prelogin-form-panel {
-            border-right: 1px solid rgba(82,217,223,0.16);
-            background: linear-gradient(180deg, rgba(8,17,29,0.75), rgba(8,17,29,0.35));
+            justify-content: center;
+            align-items: center;
+            padding: 1.2rem;
+            border-right: 1px solid rgba(118, 224, 214, 0.2);
+            background:
+                radial-gradient(circle at 0% 0%, rgba(78, 226, 207, 0.12), transparent 44%),
+                linear-gradient(180deg, rgba(10, 23, 38, 0.96), rgba(9, 15, 28, 0.98));
+        }
+        .prelogin-form-card {
+            width: min(470px, 100%);
+            border: 1px solid rgba(128, 205, 214, 0.24);
+            border-radius: 12px;
+            background: linear-gradient(180deg, rgba(20, 33, 48, 0.72), rgba(10, 17, 28, 0.82));
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+            padding: 1.1rem 1.1rem 1rem;
+        }
+        .prelogin-brand {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.58rem;
+            margin-bottom: 0.8rem;
+            color: #f1f9ff;
+            font-weight: 800;
+            font-size: 1.05rem;
+            letter-spacing: 0.2px;
+        }
+        .prelogin-brand-icon {
+            width: 1.8rem;
+            height: 1.8rem;
+            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            background: transparent;
+        }
+        .prelogin-brand-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+            filter: drop-shadow(0 0 10px rgba(88,235,255,0.4));
         }
         .prelogin-title {
-            font-family: var(--font-display);
-            font-size: clamp(1.2rem, 2.6vw, 1.9rem);
-            line-height: 1.1;
-            letter-spacing: 0.4px;
-            color: #eef8ff;
-            text-wrap: balance;
+            font-size: clamp(1.7rem, 2.5vw, 2.35rem);
+            line-height: 1.05;
+            color: #f6fbff;
+            margin-bottom: 0.35rem;
         }
         .prelogin-sub {
-            color: var(--ink-1);
-            font-size: 0.85rem;
-            max-width: 44ch;
+            color: #b9d0e4;
+            font-size: 0.93rem;
+            line-height: 1.5;
+            margin-bottom: 0.95rem;
+            max-width: 42ch;
         }
         .prelogin-form {
             display: grid;
-            gap: 0.7rem;
-            max-width: 390px;
+            gap: 0.72rem;
         }
         .prelogin-field {
             display: grid;
@@ -438,141 +484,341 @@
         }
         .prelogin-label {
             font-family: var(--font-mono);
-            font-size: 0.65rem;
-            letter-spacing: 0.8px;
-            color: var(--ink-2);
+            font-size: 0.68rem;
+            letter-spacing: 1px;
+            color: #8fa8c2;
             text-transform: uppercase;
         }
         .prelogin-input {
             width: 100%;
-            border-radius: 10px;
-            border: 1px solid rgba(82,217,223,0.22);
-            background: rgba(8,17,29,0.8);
-            color: var(--ink-0);
-            font-size: 0.86rem;
-            padding: 0.7rem 0.75rem;
+            border-radius: 8px;
+            border: 1px solid rgba(138, 162, 191, 0.34);
+            background: linear-gradient(180deg, rgba(28, 40, 56, 0.78), rgba(20, 31, 45, 0.78));
+            color: #eff8ff;
+            font-size: 0.95rem;
+            padding: 0.72rem 0.76rem;
             font-family: inherit;
             outline: none;
             transition: border-color 0.15s ease, box-shadow 0.2s ease;
         }
         .prelogin-input:focus {
-            border-color: rgba(82,217,223,0.7);
-            box-shadow: 0 0 0 2px rgba(82,217,223,0.18);
+            border-color: rgba(141, 132, 255, 0.82);
+            box-shadow: 0 0 0 2px rgba(141, 132, 255, 0.22);
         }
         .prelogin-btn {
-            border: 1px solid rgba(82,217,223,0.45);
-            border-radius: 10px;
-            background: linear-gradient(135deg, rgba(12,46,74,0.86), rgba(17,90,124,0.86));
-            color: #dcf6ff;
+            border: 1px solid rgba(146, 138, 255, 0.56);
+            border-radius: 8px;
+            background: linear-gradient(135deg, rgba(111, 93, 255, 0.96), rgba(91, 70, 240, 0.96));
+            color: #f5f0ff;
             font-weight: 700;
-            font-size: 0.84rem;
-            letter-spacing: 0.3px;
-            padding: 0.72rem 0.8rem;
+            font-size: 0.98rem;
+            padding: 0.74rem 0.86rem;
             cursor: pointer;
-            transition: transform 0.16s ease, filter 0.16s ease;
+            transition: transform 0.16s ease, filter 0.16s ease, box-shadow 0.2s ease;
         }
         .prelogin-btn:hover:not(:disabled) {
             transform: translateY(-1px);
             filter: brightness(1.06);
+            box-shadow: 0 10px 22px rgba(98, 80, 235, 0.34);
         }
         .prelogin-btn:disabled {
             opacity: 0.55;
             cursor: not-allowed;
-            transform: none;
         }
         .prelogin-status {
             min-height: 1.2em;
-            color: var(--ink-1);
-            font-size: 0.78rem;
+            font-size: 0.8rem;
+            color: #adc6dc;
         }
         .prelogin-status.error { color: #ff8ca3; }
-        .prelogin-status.success { color: #5ef3b6; }
-        .prelogin-announce-panel {
+        .prelogin-status.success { color: #67f2bd; }
+        .prelogin-transition-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            z-index: 9;
+            display: none;
+            flex-direction: column;
             background:
-                linear-gradient(180deg, rgba(8,17,29,0.35), rgba(8,17,29,0.7)),
-                radial-gradient(circle at 100% 0%, rgba(82,217,223,0.12), transparent 45%);
+                radial-gradient(circle at 20% 0%, rgba(90, 232, 224, 0.16), transparent 44%),
+                radial-gradient(circle at 100% 100%, rgba(99, 106, 239, 0.15), transparent 46%),
+                rgba(6, 13, 24, 0.94);
+            padding: 1.2rem;
+            border-right: 1px solid rgba(136, 171, 206, 0.2);
+            overflow: hidden;
         }
-        .prelogin-announce-track {
-            flex: 1;
-            width: 100%;
-            border: 1px solid rgba(82,217,223,0.2);
-            border-radius: 14px;
-            padding: 0.75rem;
-            background: rgba(8,17,29,0.64);
+        .prelogin-transition-layer.active {
             display: flex;
+        }
+        .prelogin-transition-layer.left-mode {
+            width: 48%;
+            min-width: 340px;
+        }
+        .prelogin-transition-layer.full-mode {
+            width: 100%;
+            border-right: none;
+            animation: preloginLayerFadeIn 0.24s ease;
+        }
+        @keyframes preloginLayerFadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .prelogin-transition-brand {
+            display: inline-flex;
             align-items: center;
+            gap: 0.58rem;
+            color: #f1f9ff;
+            font-weight: 800;
+            font-size: 1.05rem;
+            letter-spacing: 0.2px;
+        }
+        .prelogin-transition-main {
+            flex: 1;
+            display: grid;
+            place-items: center;
+            text-align: center;
+            padding: 0.8rem;
+        }
+        .prelogin-transition-card {
+            width: min(500px, 100%);
+            border: 1px solid rgba(137, 174, 209, 0.24);
+            border-radius: 14px;
+            background: linear-gradient(180deg, rgba(14, 25, 41, 0.74), rgba(7, 14, 25, 0.84));
+            box-shadow: 0 20px 46px rgba(0,0,0,0.44);
+            padding: 1.2rem 1.1rem;
+            transform-origin: center;
+        }
+        .prelogin-transition-card.fly-center {
+            animation: preloginFlyCenter 0.8s cubic-bezier(0.22, 1.4, 0.34, 1) forwards;
+        }
+        @keyframes preloginFlyCenter {
+            0% {
+                transform: translate(-30%, 0) scale(0.92);
+                opacity: 0.88;
+            }
+            55% {
+                transform: translate(8%, -6%) scale(1.04);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(0, 0) scale(1);
+                opacity: 1;
+            }
+        }
+        .prelogin-transition-loader {
+            width: 54px;
+            height: 54px;
+            border-radius: 50%;
+            margin: 0 auto 0.7rem;
+            border: 3px solid rgba(133, 165, 196, 0.28);
+            border-top-color: #7defff;
+            border-right-color: #8e85ff;
+            animation: spinFast 0.8s linear infinite;
+        }
+        .prelogin-transition-result {
+            width: 58px;
+            height: 58px;
+            border-radius: 50%;
+            margin: 0 auto 0.7rem;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 1.35rem;
+            font-weight: 900;
+            border: 1px solid rgba(255,255,255,0.22);
+            box-shadow: 0 14px 26px rgba(0,0,0,0.35);
+        }
+        .prelogin-transition-result.success {
+            display: flex;
+            background: linear-gradient(145deg, #1ccf7f, #169f62);
+        }
+        .prelogin-transition-result.error {
+            display: flex;
+            background: linear-gradient(145deg, #e64f63, #bb3148);
+        }
+        .prelogin-transition-title {
+            color: #f2f8ff;
+            font-size: 1.22rem;
+            font-weight: 800;
+            line-height: 1.2;
+        }
+        .prelogin-transition-detail {
+            margin-top: 0.45rem;
+            color: #c5d8ec;
+            font-size: 0.88rem;
+            line-height: 1.45;
+        }
+        .prelogin-announce-panel {
+            position: relative;
+            padding: 0;
+            background:
+                radial-gradient(circle at 70% 5%, rgba(99, 238, 218, 0.23), transparent 42%),
+                linear-gradient(180deg, rgba(12, 27, 45, 0.98), rgba(8, 13, 25, 0.98));
         }
         .prelogin-announce-card {
             width: 100%;
             height: 100%;
-            display: grid;
-            grid-template-rows: minmax(180px, 1fr) auto;
-            gap: 0.7rem;
             opacity: 0;
-            transform: translateY(8px);
+            transform: translateY(6px);
             transition: opacity 0.32s ease, transform 0.32s ease;
+            padding: 1.25rem 1.2rem 1.15rem;
         }
         .prelogin-announce-card.show {
             opacity: 1;
             transform: translateY(0);
         }
+        .prelogin-announce-visual {
+            position: relative;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid rgba(133, 215, 215, 0.26);
+            background:
+                radial-gradient(circle at 50% 8%, rgba(130, 236, 240, 0.46), transparent 54%),
+                linear-gradient(180deg, rgba(18, 43, 58, 0.9), rgba(12, 19, 34, 0.95));
+            min-height: 560px;
+        }
         .prelogin-announce-image {
+            position: absolute;
+            inset: 0;
             width: 100%;
             height: 100%;
-            min-height: 180px;
-            border-radius: 10px;
-            border: 1px solid rgba(82,217,223,0.22);
-            object-fit: cover;
-            background: rgba(0,0,0,0.25);
+            object-fit: contain;
+            object-position: center 50%;
+            display: block;
+            filter: saturate(1.05) contrast(1.05);
+            opacity: 0.9;
+            z-index: 1;
         }
-        .prelogin-announce-title {
-            font-size: clamp(1rem, 2.2vw, 1.25rem);
-            font-weight: 800;
-            line-height: 1.2;
-            color: #eaf6ff;
+        .prelogin-announce-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 0.7rem;
+            background:
+                radial-gradient(circle at 50% 100%, rgba(3,8,15,0.62), transparent 55%),
+                linear-gradient(180deg, rgba(4, 9, 17, 0.24), rgba(4, 9, 17, 0.7));
+            z-index: 2;
         }
         .prelogin-announce-kicker {
             font-family: var(--font-mono);
+            font-size: 0.64rem;
             text-transform: uppercase;
-            letter-spacing: 0.7px;
-            color: var(--cyan);
-            font-size: 0.63rem;
-            margin-bottom: 0.28rem;
-        }
-        .prelogin-announce-meta {
-            color: var(--ink-1);
-            font-size: 0.77rem;
+            letter-spacing: 0.8px;
+            color: #9cf5ff;
+            display: inline-flex;
+            padding: 0.24rem 0.5rem;
+            border-radius: 999px;
+            border: 1px solid rgba(87, 218, 235, 0.42);
+            background: rgba(5, 15, 27, 0.78);
         }
         .prelogin-announce-dots {
-            display: flex;
-            gap: 0.35rem;
-            margin-top: 0.45rem;
+            display: inline-flex;
+            gap: 0.34rem;
         }
         .prelogin-announce-dot {
-            width: 6px;
-            height: 6px;
+            width: 7px;
+            height: 7px;
             border-radius: 50%;
-            background: rgba(130,162,188,0.4);
-            transition: transform 0.2s ease, background 0.2s ease;
+            background: rgba(130,162,188,0.45);
         }
         .prelogin-announce-dot.active {
-            background: var(--cyan);
-            transform: scale(1.18);
+            background: #4ce1ff;
+            box-shadow: 0 0 10px rgba(76, 225, 255, 0.45);
         }
-        @media (max-width: 940px) {
+        .prelogin-announce-copy {
+            color: #edf8ff;
+            display: flex;
+            justify-content: center;
+            text-align: center;
+            align-items: flex-end;
+            padding-bottom: 0.2rem;
+        }
+        .prelogin-announce-bottom {
+            background: rgba(6, 14, 24, 0.42);
+            border: 1px solid rgba(142, 176, 206, 0.24);
+            box-shadow: 0 10px 24px rgba(0,0,0,0.28);
+            backdrop-filter: blur(3px);
+            -webkit-backdrop-filter: blur(3px);
+            padding: 0.55rem 0.62rem;
+            border-radius: 10px;
+            max-width: 52ch;
+        }
+        .prelogin-announce-title {
+            font-size: clamp(1.9rem, 3.4vw, 2.65rem);
+            line-height: 1.1;
+            color: #f3fbff;
+            font-weight: 700;
+            letter-spacing: 0.2px;
+            text-wrap: balance;
+        }
+        .prelogin-announce-meta {
+            margin-top: 0.35rem;
+            color: #cbdded;
+            font-size: 0.92rem;
+            line-height: 1.42;
+            max-width: 40ch;
+            margin-left: auto;
+            margin-right: auto;
+            text-align: center;
+        }
+        .prelogin-feature-row {
+            margin-top: 0.82rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.44rem;
+            justify-content: center;
+        }
+        .prelogin-feature-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.34rem;
+            padding: 0.24rem 0.52rem;
+            border-radius: 999px;
+            border: 1px solid rgba(141, 164, 190, 0.28);
+            background: rgba(9, 17, 29, 0.62);
+            color: #d8e7f5;
+            font-size: 0.8rem;
+        }
+        .prelogin-feature-item i {
+            color: #7df0ff;
+            font-size: 0.74rem;
+        }
+        .prelogin-announce-dots-bottom {
+            margin-top: 0.52rem;
+            display: flex;
+            justify-content: center;
+        }
+        .prelogin-announce-dots-bottom .prelogin-announce-dots {
+            gap: 0.42rem;
+        }
+        @media (max-width: 980px) {
             .prelogin-gate-shell {
-                min-height: auto;
                 grid-template-columns: 1fr;
+                min-height: auto;
             }
             .prelogin-form-panel {
                 border-right: none;
-                border-bottom: 1px solid rgba(82,217,223,0.16);
+                border-bottom: 1px solid rgba(118, 224, 214, 0.2);
             }
-            .prelogin-panel {
-                padding: 1rem;
+            .prelogin-form-card {
+                width: 100%;
             }
-            .prelogin-announce-image {
-                min-height: 140px;
+            .prelogin-announce-card {
+                padding: 0.95rem;
+                gap: 0.7rem;
+            }
+            .prelogin-announce-visual {
+                min-height: 400px;
+            }
+            .prelogin-announce-title {
+                font-size: clamp(1.5rem, 7vw, 2.3rem);
+            }
+            .prelogin-announce-meta {
+                font-size: 0.88rem;
             }
         }
 
@@ -882,10 +1128,13 @@
 
         /* â”€â”€ HOME / EXPLORE â”€â”€ */
         .hero-band {
-            background: linear-gradient(135deg, rgba(38,212,232,0.06), rgba(242,104,48,0.04));
-            border: 1px solid rgba(38,212,232,0.12);
+            background:
+                radial-gradient(circle at 12% -5%, rgba(58, 235, 230, 0.16), transparent 42%),
+                radial-gradient(circle at 88% 110%, rgba(111, 121, 255, 0.15), transparent 42%),
+                linear-gradient(145deg, rgba(8, 18, 31, 0.96), rgba(6, 12, 24, 0.98));
+            border: 1px solid rgba(75, 220, 222, 0.2);
             border-radius: var(--r-xl);
-            padding: 2rem;
+            padding: 1.45rem 1.5rem;
             margin-bottom: 2rem;
             position: relative;
             overflow: hidden;
@@ -893,18 +1142,34 @@
         .hero-band::before {
             content: '';
             position: absolute;
-            top: -60px; right: -60px;
-            width: 220px; height: 220px;
-            background: radial-gradient(circle, rgba(38,212,232,0.12), transparent 70%);
+            top: -90px; right: -90px;
+            width: 300px; height: 300px;
+            background: radial-gradient(circle, rgba(67,227,244,0.16), transparent 72%);
             border-radius: 50%;
             pointer-events: none;
         }
+        .hero-band::after {
+            content: '';
+            position: absolute;
+            inset: auto 0 0 0;
+            height: 120px;
+            background: linear-gradient(180deg, rgba(7, 14, 24, 0), rgba(7, 14, 24, 0.48));
+            pointer-events: none;
+        }
+        .hero-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(280px, 0.62fr);
+            gap: 1rem;
+            position: relative;
+            z-index: 1;
+        }
+        .hero-content { min-width: 0; }
         .hero-chip {
             display: inline-flex; align-items:center; gap:0.4rem;
-            background: var(--cyan-dim);
-            border: 1px solid rgba(38,212,232,0.25);
+            background: rgba(37, 205, 232, 0.14);
+            border: 1px solid rgba(53, 214, 241, 0.4);
             border-radius: 99px;
-            padding: 0.25rem 0.75rem;
+            padding: 0.26rem 0.78rem;
             font-size: 0.7rem;
             font-weight: 600;
             color: var(--cyan);
@@ -914,15 +1179,122 @@
         }
         .hero-title {
             font-family: var(--font-display);
-            font-size: clamp(1.6rem, 3vw, 2.4rem);
+            font-size: clamp(1.85rem, 3.2vw, 2.8rem);
             font-weight: 900;
-            line-height: 1.1;
-            margin-bottom: 0.75rem;
+            line-height: 1.03;
+            margin-bottom: 0.62rem;
             letter-spacing: -0.5px;
+            max-width: 13ch;
         }
         .hero-title span { color: var(--cyan); }
-        .hero-sub { color:var(--ink-1); font-size:0.9rem; max-width:520px; line-height:1.6; margin-bottom:1.25rem; }
+        .hero-sub { color:var(--ink-1); font-size:0.91rem; max-width:56ch; line-height:1.58; margin-bottom:1rem; }
         .hero-actions { display:flex; gap:0.75rem; flex-wrap:wrap; }
+        .hero-metric-grid {
+            margin-top: 1.05rem;
+            display: grid;
+            grid-template-columns: repeat(3, minmax(110px, 1fr));
+            gap: 0.6rem;
+            max-width: 620px;
+        }
+        .hero-metric-card {
+            border: 1px solid rgba(132, 165, 198, 0.2);
+            border-radius: 12px;
+            background: linear-gradient(160deg, rgba(14, 24, 39, 0.65), rgba(9, 16, 28, 0.82));
+            padding: 0.62rem 0.68rem 0.58rem;
+            min-height: 74px;
+        }
+        .hero-metric-value {
+            font-family: var(--font-display);
+            font-size: 1.62rem;
+            font-weight: 900;
+            line-height: 1;
+        }
+        .hero-metric-label {
+            font-size: 0.64rem;
+            color: var(--ink-2);
+            margin-top: 0.25rem;
+            font-family: var(--font-mono);
+            text-transform: uppercase;
+            letter-spacing: 0.55px;
+        }
+        .hero-rail {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            gap: 0.6rem;
+            min-height: 100%;
+        }
+        .hero-live-card {
+            border: 1px solid rgba(116, 170, 214, 0.22);
+            border-radius: 14px;
+            background: linear-gradient(160deg, rgba(13, 24, 38, 0.72), rgba(8, 14, 24, 0.88));
+            padding: 0.72rem;
+        }
+        .hero-live-kicker {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.32rem;
+            font-family: var(--font-mono);
+            font-size: 0.62rem;
+            text-transform: uppercase;
+            letter-spacing: 0.7px;
+            color: var(--cyan);
+            margin-bottom: 0.45rem;
+        }
+        .hero-live-list {
+            display: grid;
+            gap: 0.42rem;
+        }
+        .hero-live-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            border: 1px solid rgba(129, 163, 195, 0.2);
+            border-radius: 10px;
+            padding: 0.42rem 0.5rem;
+            background: rgba(10, 17, 29, 0.62);
+            font-size: 0.73rem;
+            color: #d8e9fa;
+        }
+        .hero-live-item strong { font-weight: 700; color: #ecf7ff; }
+        .hero-live-item span {
+            font-family: var(--font-mono);
+            font-size: 0.6rem;
+            color: var(--ink-2);
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            white-space: nowrap;
+        }
+        .hero-radar {
+            position: relative;
+            height: 154px;
+            border: 1px solid rgba(127, 165, 199, 0.2);
+            border-radius: 12px;
+            background:
+                radial-gradient(circle at 25% 20%, rgba(62, 218, 201, 0.16), transparent 38%),
+                radial-gradient(circle at 78% 84%, rgba(109, 116, 246, 0.18), transparent 42%),
+                rgba(7, 14, 24, 0.62);
+            overflow: hidden;
+        }
+        .hero-radar::before {
+            content: '';
+            position: absolute;
+            inset: -30% -10%;
+            background: conic-gradient(from 0deg, rgba(88,229,240,0.32), rgba(88,229,240,0) 38%, rgba(88,229,240,0.24) 58%, rgba(88,229,240,0) 100%);
+            animation: heroSweep 4.4s linear infinite;
+        }
+        .hero-radar::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background:
+                repeating-linear-gradient(0deg, rgba(128, 162, 194, 0.08) 0 1px, transparent 1px 18px),
+                repeating-linear-gradient(90deg, rgba(128, 162, 194, 0.08) 0 1px, transparent 1px 18px);
+        }
+        @keyframes heroSweep {
+            to { transform: rotate(360deg); }
+        }
         .btn-primary {
             display:inline-flex; align-items:center; gap:0.5rem;
             padding:0.6rem 1.25rem;
@@ -1871,11 +2243,33 @@
                 border-radius: 14px;
                 margin-bottom: 1.25rem;
             }
+            .hero-grid {
+                grid-template-columns: 1fr;
+                gap: 0.8rem;
+            }
+            .hero-title {
+                max-width: none;
+                font-size: clamp(1.6rem, 7vw, 2.2rem);
+            }
 
             .hero-actions {
                 display: grid;
                 grid-template-columns: 1fr;
                 gap: 0.5rem;
+            }
+            .hero-metric-grid {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                gap: 0.45rem;
+            }
+            .hero-metric-card {
+                min-height: 66px;
+                padding: 0.52rem 0.5rem 0.48rem;
+            }
+            .hero-metric-value {
+                font-size: 1.28rem;
+            }
+            .hero-radar {
+                height: 118px;
             }
 
             #home-view > div[style*="grid-template-columns:1fr 1fr"] {
@@ -3194,34 +3588,71 @@
 <div id="prelogin-gate" class="prelogin-gate active" aria-live="polite" aria-hidden="false">
     <div class="prelogin-gate-shell">
         <section class="prelogin-panel prelogin-form-panel">
-            <div class="prelogin-title">Iniciar Sesion con Ocean Pay a OWS Store</div>
-            <div class="prelogin-sub">Conecta tu cuenta para continuar al ecosistema y sincronizar tu perfil desde el inicio.</div>
-            <form id="prelogin-form" class="prelogin-form">
-                <label class="prelogin-field" for="prelogin-username">
-                    <span class="prelogin-label">Usuario</span>
-                    <input id="prelogin-username" class="prelogin-input" type="text" autocomplete="username" placeholder="Tu usuario de Ocean Pay" required>
-                </label>
-                <label class="prelogin-field" for="prelogin-password">
-                    <span class="prelogin-label">Contrasena</span>
-                    <input id="prelogin-password" class="prelogin-input" type="password" autocomplete="current-password" placeholder="Tu contrasena" required>
-                </label>
-                <button id="prelogin-submit" class="prelogin-btn" type="submit">Entrar a OWS Store</button>
-                <div id="prelogin-status" class="prelogin-status" aria-live="polite"></div>
-            </form>
-        </section>
-        <section class="prelogin-panel prelogin-announce-panel">
-            <div class="prelogin-announce-track">
-                <article id="prelogin-announce-card" class="prelogin-announce-card">
-                    <img id="prelogin-announce-image" class="prelogin-announce-image" src="" alt="Anuncio de lanzamiento">
-                    <div>
-                        <div class="prelogin-announce-kicker">Proximos lanzamientos</div>
-                        <div id="prelogin-announce-title" class="prelogin-announce-title"></div>
-                        <div id="prelogin-announce-meta" class="prelogin-announce-meta"></div>
-                        <div id="prelogin-announce-dots" class="prelogin-announce-dots"></div>
-                    </div>
-                </article>
+            <div class="prelogin-form-card">
+                <div class="prelogin-brand">
+                    <span class="prelogin-brand-icon">
+                        <img src="https://raw.githubusercontent.com/OceanandWild/owsdatabase/refs/heads/main/OWS%20Store/build/icon.ico" alt="OWS Store">
+                    </span>
+                    <span>OWS Store</span>
+                </div>
+                <div class="prelogin-title">Iniciar sesion</div>
+                <div class="prelogin-sub">Conecta Ocean Pay para entrar al ecosistema OWS con tu perfil y sincronizacion activa.</div>
+                <form id="prelogin-form" class="prelogin-form">
+                    <label class="prelogin-field" for="prelogin-username">
+                        <span class="prelogin-label">Usuario Ocean Pay</span>
+                        <input id="prelogin-username" class="prelogin-input" type="text" autocomplete="username" placeholder="Tu usuario de Ocean Pay" required>
+                    </label>
+                    <label class="prelogin-field" for="prelogin-password">
+                        <span class="prelogin-label">Contrasena</span>
+                        <input id="prelogin-password" class="prelogin-input" type="password" autocomplete="current-password" placeholder="Tu contrasena" required>
+                    </label>
+                    <button id="prelogin-submit" class="prelogin-btn" type="submit">Entrar a OWS Store</button>
+                    <div id="prelogin-status" class="prelogin-status" aria-live="polite"></div>
+                </form>
             </div>
         </section>
+        <section class="prelogin-panel prelogin-announce-panel">
+            <article id="prelogin-announce-card" class="prelogin-announce-card">
+                <div class="prelogin-announce-visual">
+                    <img id="prelogin-announce-image" class="prelogin-announce-image" src="" alt="Anuncio de lanzamiento">
+                    <div class="prelogin-announce-overlay">
+                        <div class="prelogin-announce-top">
+                            <div class="prelogin-announce-kicker">Roadmap OWS</div>
+                        </div>
+                        <div class="prelogin-announce-copy">
+                            <div class="prelogin-announce-bottom">
+                                <div id="prelogin-announce-title" class="prelogin-announce-title">NatBee se lanza el 17 de Marzo</div>
+                                <div id="prelogin-announce-meta" class="prelogin-announce-meta">Produccion de miel, estrategia de colmena y expansion por biomas.</div>
+                                <div class="prelogin-feature-row">
+                                    <span class="prelogin-feature-item"><i class="fas fa-shield-halved"></i> acceso seguro</span>
+                                    <span class="prelogin-feature-item"><i class="fas fa-rocket"></i> novedades del ecosistema</span>
+                                    <span class="prelogin-feature-item"><i class="fas fa-layer-group"></i> todo en un solo hub</span>
+                                </div>
+                                <div class="prelogin-announce-dots-bottom">
+                                    <div id="prelogin-announce-dots" class="prelogin-announce-dots"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </article>
+        </section>
+        <div id="prelogin-transition-layer" class="prelogin-transition-layer" aria-hidden="true">
+            <div class="prelogin-transition-brand">
+                <span class="prelogin-brand-icon">
+                    <img src="https://raw.githubusercontent.com/OceanandWild/owsdatabase/refs/heads/main/OWS%20Store/build/icon.ico" alt="OWS Store">
+                </span>
+                <span>OWS Store</span>
+            </div>
+            <div class="prelogin-transition-main">
+                <div class="prelogin-transition-card">
+                    <div id="prelogin-transition-loader" class="prelogin-transition-loader"></div>
+                    <div id="prelogin-transition-result" class="prelogin-transition-result"></div>
+                    <div id="prelogin-transition-title" class="prelogin-transition-title">Iniciando Sesion...</div>
+                    <div id="prelogin-transition-detail" class="prelogin-transition-detail">Validando acceso con Ocean Pay.</div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -3542,30 +3973,45 @@
 
             <!-- Hero -->
             <div class="hero-band">
-                <div class="hero-chip"><i class="fas fa-sparkles"></i> Ecosistema Multiproyecto</div>
-                <h1 class="hero-title">Descubre juegos, herramientas<br>y <span>experiencias inesperadas.</span></h1>
-                <p class="hero-sub">Todos los proyectos de Ocean and Wild Studios en un solo lugar. Instala, actualiza y gestiona desde aqui.</p>
-                <div class="hero-actions">
-                    <button class="btn-primary" onclick="showSection('library', document.querySelector('.nav-menu .nav-item:nth-child(2)'))">
-                        <i class="fas fa-folder-open"></i> Mi Biblioteca
-                    </button>
-                    <button class="btn-secondary" onclick="showSection('updates', document.querySelector('.nav-menu .nav-item:nth-child(3)'))">
-                        <i class="fas fa-bell"></i> Actualizaciones
-                    </button>
-                </div>
-                <div style="display:flex;gap:1.5rem;margin-top:1.5rem;flex-wrap:wrap;">
-                    <div>
-                        <div style="font-family:var(--font-display);font-size:1.6rem;font-weight:900;color:var(--cyan);line-height:1;" id="explore-metric-total">0</div>
-                        <div style="font-size:0.68rem;color:var(--ink-2);margin-top:2px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:0.5px;">Proyectos</div>
+                <div class="hero-grid">
+                    <div class="hero-content">
+                        <div class="hero-chip"><i class="fas fa-sparkles"></i> Ecosistema Multiproyecto</div>
+                        <h1 class="hero-title">Descubre juegos, herramientas y <span>experiencias inesperadas.</span></h1>
+                        <p class="hero-sub">Un centro unificado para instalar, actualizar y gestionar todo el ecosistema Ocean and Wild Studios con visibilidad completa en tiempo real.</p>
+                        <div class="hero-actions">
+                            <button class="btn-primary" onclick="showSection('library', document.querySelector('.nav-menu .nav-item:nth-child(2)'))">
+                                <i class="fas fa-folder-open"></i> Mi Biblioteca
+                            </button>
+                            <button class="btn-secondary" onclick="showSection('updates', document.querySelector('.nav-menu .nav-item:nth-child(3)'))">
+                                <i class="fas fa-bell"></i> Actualizaciones
+                            </button>
+                        </div>
+                        <div class="hero-metric-grid">
+                            <div class="hero-metric-card">
+                                <div class="hero-metric-value" style="color:var(--cyan);" id="explore-metric-total">0</div>
+                                <div class="hero-metric-label">Proyectos</div>
+                            </div>
+                            <div class="hero-metric-card">
+                                <div class="hero-metric-value" style="color:var(--green);" id="explore-metric-installed">0</div>
+                                <div class="hero-metric-label">Instalados</div>
+                            </div>
+                            <div class="hero-metric-card">
+                                <div class="hero-metric-value" style="color:var(--orange);" id="explore-metric-updates">0</div>
+                                <div class="hero-metric-label">Con update</div>
+                            </div>
+                        </div>
                     </div>
-                    <div>
-                        <div style="font-family:var(--font-display);font-size:1.6rem;font-weight:900;color:var(--green);line-height:1;" id="explore-metric-installed">0</div>
-                        <div style="font-size:0.68rem;color:var(--ink-2);margin-top:2px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:0.5px;">Instalados</div>
-                    </div>
-                    <div>
-                        <div style="font-family:var(--font-display);font-size:1.6rem;font-weight:900;color:var(--orange);line-height:1;" id="explore-metric-updates">0</div>
-                        <div style="font-size:0.68rem;color:var(--ink-2);margin-top:2px;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:0.5px;">Con update</div>
-                    </div>
+                    <aside class="hero-rail">
+                        <div class="hero-live-card">
+                            <div class="hero-live-kicker"><i class="fas fa-wave-square"></i> Estado del ecosistema</div>
+                            <div class="hero-live-list">
+                                <div class="hero-live-item"><strong>Sincronizacion de versiones</strong><span>Activo</span></div>
+                                <div class="hero-live-item"><strong>Canal de anuncios</strong><span>En linea</span></div>
+                                <div class="hero-live-item"><strong>Eventos del estudio</strong><span>Monitoreando</span></div>
+                            </div>
+                        </div>
+                        <div class="hero-radar"></div>
+                    </aside>
                 </div>
             </div>
 
@@ -5165,8 +5611,8 @@
             card.classList.remove('show');
             setTimeout(() => {
                 img.src = item?.image || '';
-                title.textContent = item?.title || '';
-                meta.textContent = item?.meta || '';
+                title.textContent = item?.title || 'Proximo lanzamiento en OWS Store';
+                meta.textContent = item?.meta || 'Nuevas experiencias llegan muy pronto al ecosistema.';
                 dots.innerHTML = PRELOGIN_ANNOUNCEMENTS.map((_, i) => `<span class="prelogin-announce-dot${i === safeIndex ? ' active' : ''}"></span>`).join('');
                 card.classList.add('show');
             }, 120);
@@ -5197,11 +5643,17 @@
 
         function initPreloginGate() {
             const gate = document.getElementById('prelogin-gate');
+            const shell = document.querySelector('#prelogin-gate .prelogin-gate-shell');
             const form = document.getElementById('prelogin-form');
             const submit = document.getElementById('prelogin-submit');
             const userInput = document.getElementById('prelogin-username');
             const passInput = document.getElementById('prelogin-password');
-            if (!gate || !form || !submit || !userInput || !passInput) return;
+            const transitionLayer = document.getElementById('prelogin-transition-layer');
+            const transitionLoader = document.getElementById('prelogin-transition-loader');
+            const transitionResult = document.getElementById('prelogin-transition-result');
+            const transitionTitle = document.getElementById('prelogin-transition-title');
+            const transitionDetail = document.getElementById('prelogin-transition-detail');
+            if (!gate || !shell || !form || !submit || !userInput || !passInput || !transitionLayer || !transitionLoader || !transitionResult || !transitionTitle || !transitionDetail) return;
 
             gate.classList.add('active');
             gate.setAttribute('aria-hidden', 'false');
@@ -5215,6 +5667,113 @@
                 if (cachedUser?.username) userInput.value = String(cachedUser.username);
             } catch (_) {}
 
+            const setFormDisabled = (disabled) => {
+                userInput.disabled = disabled;
+                passInput.disabled = disabled;
+                submit.disabled = disabled;
+            };
+
+            const syncLeftTransitionWidth = () => {
+                const leftPanel = shell.querySelector('.prelogin-form-panel');
+                if (!leftPanel) return;
+                const width = Math.max(340, Math.floor(leftPanel.getBoundingClientRect().width));
+                transitionLayer.style.width = `${width}px`;
+            };
+
+            const showTransition = ({ mode, title, detail, scope = 'left', flyCenter = false }) => {
+                transitionLayer.classList.add('active');
+                transitionLayer.setAttribute('aria-hidden', 'false');
+                transitionLayer.classList.remove('left-mode', 'full-mode');
+                shell.classList.remove('left-transition-active', 'full-transition-active');
+
+                if (scope === 'full') {
+                    transitionLayer.classList.add('full-mode');
+                    transitionLayer.style.width = '100%';
+                    shell.classList.add('full-transition-active');
+                } else {
+                    transitionLayer.classList.add('left-mode');
+                    syncLeftTransitionWidth();
+                    shell.classList.add('left-transition-active');
+                }
+
+                transitionTitle.textContent = title || '';
+                transitionDetail.textContent = detail || '';
+                transitionResult.className = 'prelogin-transition-result';
+                transitionResult.innerHTML = '';
+                transitionLoader.style.display = 'block';
+
+                const transitionCard = transitionLayer.querySelector('.prelogin-transition-card');
+                if (transitionCard) {
+                    transitionCard.classList.remove('fly-center');
+                    if (flyCenter) {
+                        // restart animation when needed
+                        void transitionCard.offsetWidth;
+                        transitionCard.classList.add('fly-center');
+                    }
+                }
+
+                if (mode === 'success') {
+                    transitionLoader.style.display = 'none';
+                    transitionResult.classList.add('success');
+                    transitionResult.innerHTML = '<i class="fas fa-check"></i>';
+                } else if (mode === 'error') {
+                    transitionLoader.style.display = 'none';
+                    transitionResult.classList.add('error');
+                    transitionResult.innerHTML = '<i class="fas fa-xmark"></i>';
+                }
+            };
+
+            const hideTransition = () => {
+                transitionLayer.classList.remove('active');
+                transitionLayer.setAttribute('aria-hidden', 'true');
+                transitionLayer.classList.remove('left-mode', 'full-mode');
+                transitionLayer.style.width = '';
+                shell.classList.remove('left-transition-active', 'full-transition-active');
+            };
+
+            const runSavedCredentialProbe = async () => {
+                showTransition({
+                    mode: 'loading',
+                    title: 'Verificando si hay credenciales guardadas...',
+                    detail: 'Comprobando sesion guardada de Ocean Pay.',
+                    scope: 'full'
+                });
+
+                const token = getOceanPayToken();
+                if (!token) {
+                    await new Promise((r) => setTimeout(r, 420));
+                    hideTransition();
+                    setFormDisabled(false);
+                    return;
+                }
+
+                const ok = await refreshOceanPayStore();
+                if (!ok) {
+                    await new Promise((r) => setTimeout(r, 480));
+                    hideTransition();
+                    setFormDisabled(false);
+                    return;
+                }
+
+                showTransition({
+                    mode: 'success',
+                    title: 'Sesion restaurada',
+                    detail: 'Credenciales detectadas. Ingresando automaticamente a OWS Store.',
+                    scope: 'full'
+                });
+                await new Promise((r) => setTimeout(r, 820));
+                showTransition({
+                    mode: 'loading',
+                    title: 'Entrando...',
+                    detail: 'Preparando entorno del ecosistema.',
+                    scope: 'full',
+                    flyCenter: true
+                });
+                await new Promise((r) => setTimeout(r, 1500));
+                hidePreloginGate();
+                await startOWSStoreBootstrap();
+            };
+
             form.onsubmit = async (event) => {
                 event.preventDefault();
                 const username = String(userInput.value || '').trim();
@@ -5223,22 +5782,65 @@
                     setPreloginStatus('Completa usuario y contrasena para continuar.', 'error');
                     return;
                 }
-                submit.disabled = true;
-                submit.textContent = 'Validando...';
-                setPreloginStatus('Verificando credenciales de Ocean Pay...');
+                setPreloginStatus('');
+                setFormDisabled(true);
+                showTransition({
+                    mode: 'loading',
+                    title: 'Iniciando Sesion...',
+                    detail: 'Validando credenciales en Ocean Pay.',
+                    scope: 'left'
+                });
                 try {
                     await loginOceanPayStoreWithCredentials(username, password);
                     passInput.value = '';
-                    setPreloginStatus('Sesion iniciada. Preparando OWS Store...', 'success');
+                    showTransition({
+                        mode: 'success',
+                        title: 'Sesion iniciada correctamente',
+                        detail: 'Tu cuenta se sincronizo en OWS Store.',
+                        scope: 'left'
+                    });
+                    await new Promise((r) => setTimeout(r, 900));
+                    showTransition({
+                        mode: 'loading',
+                        title: 'Entrando...',
+                        detail: 'Preparando entorno del ecosistema.',
+                        scope: 'left'
+                    });
+                    await new Promise((r) => setTimeout(r, 450));
+                    showTransition({
+                        mode: 'loading',
+                        title: 'Entrando...',
+                        detail: 'Preparando entorno del ecosistema.',
+                        scope: 'full',
+                        flyCenter: true
+                    });
+                    await new Promise((r) => setTimeout(r, 1050));
                     hidePreloginGate();
                     await startOWSStoreBootstrap();
                 } catch (err) {
+                    showTransition({
+                        mode: 'error',
+                        title: 'No se pudo iniciar sesion',
+                        detail: err?.message || 'Error desconocido al conectar con Ocean Pay.',
+                        scope: 'left'
+                    });
+                    await new Promise((r) => setTimeout(r, 1300));
+                    hideTransition();
+                    setFormDisabled(false);
+                    passInput.focus();
                     setPreloginStatus(err?.message || 'No se pudo iniciar sesion.', 'error');
                 } finally {
-                    submit.disabled = false;
-                    submit.textContent = 'Entrar a OWS Store';
+                    if (!owsStoreBootstrapStarted) {
+                        submit.textContent = 'Entrar a OWS Store';
+                    }
                 }
             };
+
+            setFormDisabled(true);
+            runSavedCredentialProbe().catch((_) => {
+                hideTransition();
+                setFormDisabled(false);
+            });
         }
 
         function formatByteSize(bytes) {

@@ -9,10 +9,13 @@ param(
     [string]$project,
     [string]$version,
     [string]$platform = "windows",
+    [string]$scheduleAt,
     [switch]$newProject,
     [switch]$createRepo,
     [switch]$wireWindowsWorkflow,
     [switch]$releaseAfterSetup,
+    [switch]$scheduledExecution,
+    [string]$scheduledLogPath,
     [string]$storeVersion,
     [string]$releaseDate,
     [string]$projectName,
@@ -51,6 +54,105 @@ function Write-Step($msg) { Write-Host "`n>>> $msg" -ForegroundColor Cyan }
 function Write-OK($msg)   { Write-Host "    OK: $msg" -ForegroundColor Green }
 function Write-Err($msg)  { Write-Host "    ERROR: $msg" -ForegroundColor Red }
 function Write-Info($msg) { Write-Host "    $msg" -ForegroundColor Gray }
+
+function Quote-Arg([string]$Value) {
+    if ($null -eq $Value) { return '""' }
+    $v = [string]$Value
+    $v = $v -replace '"', '\"'
+    return '"' + $v + '"'
+}
+
+function Start-ScheduledExecutionLog {
+    param([string]$LogPath)
+    if (-not $scheduledExecution) { return }
+    if (-not $LogPath) { return }
+    try {
+        $dir = Split-Path -Parent $LogPath
+        if ($dir -and -not (Test-Path $dir)) {
+            New-Item -ItemType Directory -Force -Path $dir | Out-Null
+        }
+        Start-Transcript -Path $LogPath -Append | Out-Null
+    } catch {}
+    Write-Host ("SCHEDULED_STATUS:STARTED " + (Get-Date -Format "yyyy-MM-dd HH:mm:ss K"))
+}
+
+function Stop-ScheduledExecutionLog {
+    if (-not $scheduledExecution) { return }
+    Write-Host ("SCHEDULED_STATUS:FINISHED " + (Get-Date -Format "yyyy-MM-dd HH:mm:ss K"))
+    try { Stop-Transcript | Out-Null } catch {}
+}
+
+function Exit-Script([int]$Code) {
+    if ($scheduledExecution) { Stop-ScheduledExecutionLog }
+    exit $Code
+}
+
+if ($scheduleAt -and -not $scheduledExecution) {
+    if (-not $project -or -not $version) {
+        Write-Err "Para programar se requiere -project y -version."
+        Exit-Script 1
+    }
+    try {
+        $scheduledAtDate = Get-Date $scheduleAt
+    } catch {
+        Write-Err "Formato invalido para -scheduleAt. Usa por ejemplo: 2026-03-27 20:00"
+        Exit-Script 1
+    }
+    $now = Get-Date
+    if ($scheduledAtDate -le $now) {
+        Write-Err "La hora programada ya paso: $($scheduledAtDate.ToString('yyyy-MM-dd HH:mm:ss'))"
+        Exit-Script 1
+    }
+
+    $logsDir = Join-Path $PSScriptRoot "logs"
+    if (-not (Test-Path $logsDir)) {
+        New-Item -ItemType Directory -Force -Path $logsDir | Out-Null
+    }
+
+    $taskName = ("OWS-Release-{0}-{1}-{2}" -f $project, $version, (Get-Date -Format "yyyyMMdd-HHmmss")) -replace '[^A-Za-z0-9\-_]', '_'
+    $runLogPath = Join-Path $logsDir ("release-" + $taskName + ".log")
+
+    $argParts = @(
+        "-ExecutionPolicy", "Bypass",
+        "-File", (Quote-Arg $PSCommandPath),
+        "-project", (Quote-Arg $project),
+        "-version", (Quote-Arg $version),
+        "-platform", (Quote-Arg $platform),
+        "-scheduledExecution",
+        "-scheduledLogPath", (Quote-Arg $runLogPath)
+    )
+    if ($newProject) { $argParts += "-newProject" }
+    if ($createRepo) { $argParts += "-createRepo" }
+    if ($wireWindowsWorkflow) { $argParts += "-wireWindowsWorkflow" }
+    if ($releaseAfterSetup) { $argParts += "-releaseAfterSetup" }
+    if ($storeVersion) { $argParts += @("-storeVersion", (Quote-Arg $storeVersion)) }
+    if ($releaseDate) { $argParts += @("-releaseDate", (Quote-Arg $releaseDate)) }
+    if ($projectName) { $argParts += @("-projectName", (Quote-Arg $projectName)) }
+    if ($projectDir) { $argParts += @("-projectDir", (Quote-Arg $projectDir)) }
+    if ($projectRepo) { $argParts += @("-projectRepo", (Quote-Arg $projectRepo)) }
+    if ($packageId) { $argParts += @("-packageId", (Quote-Arg $packageId)) }
+
+    $taskCommand = "powershell.exe " + ($argParts -join " ")
+    $st = $scheduledAtDate.ToString("HH:mm")
+    $sd = $scheduledAtDate.ToString("MM/dd/yyyy")
+    try {
+        $psArgs = $argParts -join " "
+        $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument $psArgs
+        $trigger = New-ScheduledTaskTrigger -Once -At $scheduledAtDate
+        Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Force | Out-Null
+    } catch {
+        Write-Err "No se pudo crear la tarea programada: $($_.Exception.Message)"
+        Exit-Script 1
+    }
+
+    Write-OK "Build programado para $($scheduledAtDate.ToString('yyyy-MM-dd HH:mm:ss'))."
+    Write-Info "Tarea: $taskName"
+    Write-Info "Log: $runLogPath"
+    Write-Info "La ejecucion correra en segundo plano y reportara SCHEDULED_STATUS:STARTED/FINISHED en el log."
+    Exit-Script 0
+}
+
+Start-ScheduledExecutionLog -LogPath $scheduledLogPath
 
 function Require-Token {
     if (-not $TOKEN) {
@@ -300,7 +402,7 @@ function Trigger-Workflow {
 if ($newProject) {
     if (-not $project -or -not $version -or -not $projectName -or -not $projectRepo) {
         Write-Err "Uso: .\scripts\release.ps1 -newProject -project <slug> -version <ver> -projectName <name> -projectDir <dir> -projectRepo <repo> [-platform both] [-packageId <id>]"
-        exit 1
+        Exit-Script 1
     }
 
     if (-not $projectDir) { $projectDir = $projectName }
@@ -388,7 +490,7 @@ if ($newProject) {
         Write-Info "Proyecto bootstrap listo. Puedes correr release normal con el mismo script."
     }
 
-    exit 0
+    Exit-Script 0
 }
 
 function Get-LatestWorkflowRunId {
@@ -565,12 +667,12 @@ function Register-AndroidReleaseFromGitHub {
 # ─────────────────────────────────────────────────────────────────────────────
 if (-not $project -or -not $version) {
     Write-Err "Uso: powershell.exe -ExecutionPolicy Bypass -File '.\scripts\release.ps1' -project <slug> -version 2026.X.X-tHHMM"
-    exit 1
+    Exit-Script 1
 }
 
 if (-not $PROJECTS.ContainsKey($project)) {
     Write-Err "Proyecto '$project' no encontrado en el mapa. Proyectos disponibles: $($PROJECTS.Keys -join ', ')"
-    exit 1
+    Exit-Script 1
 }
 
 $cfg        = $PROJECTS[$project]
@@ -733,3 +835,4 @@ Write-Host "`n========================================" -ForegroundColor Green
 Write-Host "  RELEASE COMPLETADO: $project $version" -ForegroundColor Green
 Write-Host "  https://github.com/$ORG/$repo/releases/tag/$tag" -ForegroundColor Green
 Write-Host "========================================`n" -ForegroundColor Green
+if ($scheduledExecution) { Stop-ScheduledExecutionLog }

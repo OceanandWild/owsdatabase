@@ -1,8 +1,13 @@
+﻿# REGLA OPERATIVA (IMPORTANTE):
+# No excluir proyectos completos aqui solo para 'evitar push'.
+# Si un proyecto no debe deployarse, usar git add selectivo (allowlist),
+# no reglas de ignore por carpeta/proyecto.
+
 # ==========================================
-# CONFIGURACIÓN DE PRIVACIDAD Y ORDEN VISUAL
+# CONFIGURACIÃ“N DE PRIVACIDAD Y ORDEN VISUAL
 # ==========================================
 
-# 1. NO IGNORAR LOS ARCHIVOS DE CÓDIGO
+# 1. NO IGNORAR LOS ARCHIVOS DE CÃ“DIGO
 # (Esto permite que el @ de VS Code y Antigravity los encuentre siempre)
 
 # 2. IGNORAR SOLO CARPETAS PESADAS O BINARIOS
@@ -22,11 +27,11 @@ node_modules/
 **/*.zip
 
 # 3. SEGURIDAD ADICIONAL:
-# Aunque ahora están en el índice (tracked), el comando 'assume-unchanged'
-# evita que Git detecte cambios en ellos a menos que hagamos 'git add' explícito.
-# Esto mantiene los proyectos en Blanco (No Verdes) en la mayoría de temas.
+# Aunque ahora estÃ¡n en el Ã­ndice (tracked), el comando 'assume-unchanged'
+# evita que Git detecte cambios en ellos a menos que hagamos 'git add' explÃ­cito.
+# Esto mantiene los proyectos en Blanco (No Verdes) en la mayorÃ­a de temas.
 
-# 4. EXCEPCIÓN: LO QUE SÍ SE SUBE
+# 4. EXCEPCIÃ“N: LO QUE SÃ SE SUBE
 !/server.js
 !/Ocean Pay/
 !/package.json
@@ -73,5 +78,9 @@ OWS Store/**/.DS_Store
 !OWS Store/resources/
 !OWS Store/resources/icon.png
 
-# 7. ECOXION (EXCLUIDO DE DEPLOYS)
-Ecoxion/
+# 7. OCEAN PAY (icono Android versionado para CI)
+!Ocean Pay/
+!Ocean Pay/build/
+!Ocean Pay/build/icon.png
+
+

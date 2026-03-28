@@ -1,0 +1,164 @@
+name: Ocean Pay Android Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_name:
+        description: "Version (YYYY.M.D-tHHMM)"
+        required: true
+      release_notes:
+        description: "Notas del release"
+        required: false
+        default: "Nueva version Android disponible"
+      promote_to_release:
+        description: "Publicar release al terminar"
+        required: true
+        type: boolean
+        default: true
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout owsdatabase
+        uses: actions/checkout@v4
+        with:
+          path: owsdatabase
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: "temurin"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        working-directory: owsdatabase/Ocean Pay
+        run: npm install
+
+      - name: Preparar Capacitor
+        working-directory: owsdatabase/Ocean Pay
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p www
+          if [ -f "index.html" ]; then
+            cp index.html www/index.html
+          fi
+
+          if [ ! -x "node_modules/.bin/cap" ]; then
+            npm install --save-dev @capacitor/core @capacitor/cli @capacitor/android
+          fi
+
+          if [ ! -f "capacitor.config.ts" ] && [ ! -f "capacitor.config.json" ]; then
+            npx cap init "Ocean Pay" "com.oceanwildstudios.oceanpay" --web-dir=www
+          fi
+
+          if [ ! -d "android" ]; then
+            npx cap add android
+          fi
+
+          npx cap sync android
+
+          APP_GRADLE="android/app/build.gradle"
+          if [ -f "$APP_GRADLE" ] && ! grep -q "OWS_KOTLIN_STD_FIX" "$APP_GRADLE"; then
+            cat >> "$APP_GRADLE" <<'EOF'
+
+// OWS_KOTLIN_STD_FIX
+configurations.all {
+  exclude group: "org.jetbrains.kotlin", module: "kotlin-stdlib-jdk7"
+  exclude group: "org.jetbrains.kotlin", module: "kotlin-stdlib-jdk8"
+}
+EOF
+          fi
+
+      - name: Build APK Release
+        working-directory: owsdatabase/Ocean Pay/android
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x gradlew
+          ./gradlew assembleRelease
+
+      - name: Sign APK
+        uses: r0adkll/sign-android-release@v1
+        id: sign_apk
+        with:
+          releaseDirectory: owsdatabase/Ocean Pay/android/app/build/outputs/apk/release
+          signingKeyBase64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          alias: ${{ secrets.ANDROID_KEY_ALIAS }}
+          keyStorePassword: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          keyPassword: ${{ secrets.ANDROID_KEY_PASSWORD }}
+
+      - name: Renombrar APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${{ github.event.inputs.version_name }}"
+          SIGNED_APK="${{ steps.sign_apk.outputs.signedReleaseFile }}"
+          APK_NAME="oceanpay-${VERSION}.apk"
+          cp "$SIGNED_APK" "$APK_NAME"
+          echo "APK_PATH=$APK_NAME" >> "$GITHUB_ENV"
+          echo "APK_NAME=$APK_NAME" >> "$GITHUB_ENV"
+          echo "VERSION_CODE=$(date +%s)" >> "$GITHUB_ENV"
+          echo "TAG=v${VERSION}" >> "$GITHUB_ENV"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: oceanpay-apk-${{ github.event.inputs.version_name }}
+          path: ${{ env.APK_PATH }}
+          retention-days: 30
+
+      - name: Publicar release en GitHub
+        if: ${{ github.event.inputs.promote_to_release == 'true' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          set -euo pipefail
+          gh release create "$TAG" "$APK_PATH" \
+            --repo "OceanandWild/oceanpay" \
+            --title "Ocean Pay ${{ github.event.inputs.version_name }}" \
+            --notes "${{ github.event.inputs.release_notes }}" \
+            --latest=false
+          echo "APK_URL=https://github.com/OceanandWild/oceanpay/releases/download/$TAG/$APK_NAME" >> "$GITHUB_ENV"
+
+      - name: Registrar release en OWS Store DB
+        if: ${{ github.event.inputs.promote_to_release == 'true' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          API="https://owsdatabase.onrender.com"
+          TOKEN="${{ secrets.OWS_ADMIN_SECRET }}"
+          VERSION="${{ github.event.inputs.version_name }}"
+
+          curl -s -X POST "$API/ows-store/android/releases" \
+            -H "Content-Type: application/json" \
+            -H "x-ows-admin-token: $TOKEN" \
+            -d "{
+              \"project_slug\": \"oceanpay\",
+              \"package_id\": \"com.oceanwildstudios.oceanpay\",
+              \"version_name\": \"$VERSION\",
+              \"version_code\": $VERSION_CODE,
+              \"apk_url\": \"$APK_URL\",
+              \"release_notes\": \"${{ github.event.inputs.release_notes }}\",
+              \"status\": \"published\",
+              \"is_mandatory\": false
+            }"
+
+          curl -s -X PATCH "$API/ows-store/projects/oceanpay/version" \
+            -H "Content-Type: application/json" \
+            -H "x-ows-admin-token: $TOKEN" \
+            -d "{\"version\":\"$VERSION\"}"
+
+      - name: Resumen
+        run: |
+          echo "ANDROID RELEASE COMPLETADO"
+          echo "Version: ${{ github.event.inputs.version_name }}"
+          echo "APK: ${{ env.APK_URL }}"

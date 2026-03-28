@@ -87,6 +87,17 @@ function Exit-Script([int]$Code) {
     exit $Code
 }
 
+function Normalize-ReleaseVersion {
+    param([string]$InputVersion)
+    if (-not $InputVersion) { return $InputVersion }
+    $v = [string]$InputVersion
+    # Compat: corrige versiones generadas con formato errado tipo 2026.3.28-a0316 / -p0316
+    if ($v -match '^(\d{4}\.\d{1,2}\.\d{1,2})-[ap](\d{4})$') {
+        $v = "{0}-t{1}" -f $matches[1], $matches[2]
+    }
+    return $v
+}
+
 if ($scheduleAt -and -not $scheduledExecution) {
     if (-not $project -or -not $version) {
         Write-Err "Para programar se requiere -project y -version."
@@ -678,6 +689,15 @@ function Register-AndroidReleaseFromGitHub {
 # ─────────────────────────────────────────────────────────────────────────────
 if (-not $project -or -not $version) {
     Write-Err "Uso: powershell.exe -ExecutionPolicy Bypass -File '.\scripts\release.ps1' -project <slug> -version 2026.X.X-tHHMM"
+    Exit-Script 1
+}
+
+$version = Normalize-ReleaseVersion -InputVersion $version
+if ($storeVersion) {
+    $storeVersion = Normalize-ReleaseVersion -InputVersion $storeVersion
+}
+if ($version -notmatch '^\d{4}\.\d{1,2}\.\d{1,2}-t\d{4}$') {
+    Write-Err "Version invalida '$version'. Formato requerido: YYYY.M.D-tHHMM"
     Exit-Script 1
 }
 

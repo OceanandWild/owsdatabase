@@ -618,7 +618,8 @@ function Register-AndroidReleaseFromGitHub {
             return $false
         }
 
-        $metaUrl = [string]$metaAsset.url
+        $metaUrl = [string]$metaAsset.browser_download_url
+        if (-not $metaUrl) { $metaUrl = [string]$metaAsset.url }
         if (-not $metaUrl) {
             Write-Err "Asset android-release-metadata.json sin URL de descarga."
             return $false

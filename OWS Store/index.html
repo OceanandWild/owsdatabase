@@ -4510,7 +4510,7 @@
         const DINOBOX_RELEASE_DATE_ISO = '2026-03-11T13:00:00Z';
         const NATUREPEDIA_PLACEHOLDER_DATE_ISO = '';
         const WILDSHORTS_PLACEHOLDER_DATE_ISO = '2026-03-28T18:00:00Z';
-        const OCEAN_CINEMAS_RELEASE_DATE_ISO = '2026-04-03T18:00:00Z';
+        const OCEAN_CINEMAS_RELEASE_DATE_ISO = '2026-03-29T18:00:00Z';
         const PRELOGIN_ANNOUNCEMENTS_FALLBACK = [
             {
                 title: 'NatBee se lanza el 17 de Abril',
@@ -9508,7 +9508,7 @@
                     status: 'coming_soon',
                     pending_release: true,
                     installer_available: false,
-                    release_date: OCEAN_CINEMAS_RELEASE_DATE_ISO
+                    release_date: list[idx].release_date || OCEAN_CINEMAS_RELEASE_DATE_ISO
                 };
             }
             return list;

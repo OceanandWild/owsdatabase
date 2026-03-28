@@ -98,6 +98,10 @@ jobs:
       - name: Preparar proyecto Capacitor (fallback)
         working-directory: owsdatabase/${{ steps.config.outputs.source_dir }}
         run: |
+          if [ ! -x "node_modules/.bin/cap" ]; then
+            npm install --save-dev @capacitor/core @capacitor/cli @capacitor/android
+          fi
+
           if [ ! -f "capacitor.config.ts" ] && [ ! -f "capacitor.config.json" ]; then
             npx cap init "${{ steps.config.outputs.app_name }}" "${{ steps.config.outputs.package_id }}" --web-dir=. --npm-client npm
           fi

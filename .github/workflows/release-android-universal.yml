@@ -139,15 +139,42 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleRelease
 
-      - name: Sign APK
-        uses: r0adkll/sign-android-release@v1
-        id: sign_apk
-        with:
-          releaseDirectory: owsdatabase/${{ steps.config.outputs.source_dir }}/android/app/build/outputs/apk/release
-          signingKeyBase64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          alias: ${{ secrets.ANDROID_KEY_ALIAS }}
-          keyStorePassword: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          keyPassword: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      - name: Sign APK (manual)
+        shell: bash
+        env:
+          ANDROID_SIGNING_KEY_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          APP_DIR="owsdatabase/${{ steps.config.outputs.source_dir }}"
+          UNSIGNED_APK="$APP_DIR/android/app/build/outputs/apk/release/app-release-unsigned.apk"
+          ALIGNED_APK="$APP_DIR/android/app/build/outputs/apk/release/app-release-aligned.apk"
+          SIGNED_APK="$APP_DIR/android/app/build/outputs/apk/release/app-release-signed.apk"
+          KEYSTORE_PATH="$RUNNER_TEMP/ows-signing.jks"
+          ZIPALIGN="${ANDROID_SDK_ROOT}/build-tools/34.0.0/zipalign"
+          APKSIGNER="${ANDROID_SDK_ROOT}/build-tools/34.0.0/apksigner"
+
+          printf "%s" "$ANDROID_SIGNING_KEY_BASE64" | tr -d "\r\n\t " | base64 -d > "$KEYSTORE_PATH"
+          if [ -z "${ANDROID_KEY_PASSWORD:-}" ]; then
+            ANDROID_KEY_PASSWORD="$ANDROID_KEYSTORE_PASSWORD"
+          fi
+
+          "$ZIPALIGN" -f -p 4 "$UNSIGNED_APK" "$ALIGNED_APK"
+          "$APKSIGNER" sign \
+            --ks "$KEYSTORE_PATH" \
+            --ks-key-alias "$ANDROID_KEY_ALIAS" \
+            --ks-pass env:ANDROID_KEYSTORE_PASSWORD \
+            --key-pass env:ANDROID_KEY_PASSWORD \
+            --v1-signing-enabled true \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
+            --v4-signing-enabled false \
+            --out "$SIGNED_APK" \
+            "$ALIGNED_APK"
+
+          "$APKSIGNER" verify --verbose --print-certs "$SIGNED_APK" >/dev/null
 
       - name: Renombrar APK
         shell: bash
@@ -155,7 +182,7 @@ jobs:
           set -euo pipefail
           PROJECT="${{ github.event.inputs.project }}"
           VERSION="${{ github.event.inputs.version_name }}"
-          SIGNED_APK="${{ steps.sign_apk.outputs.signedReleaseFile }}"
+          SIGNED_APK="owsdatabase/${{ steps.config.outputs.source_dir }}/android/app/build/outputs/apk/release/app-release-signed.apk"
           APK_NAME="${PROJECT}-${VERSION}.apk"
           cp "$SIGNED_APK" "$APK_NAME"
           echo "APK_PATH=$APK_NAME" >> "$GITHUB_ENV"

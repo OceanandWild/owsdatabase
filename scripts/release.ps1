@@ -251,8 +251,13 @@ function Publish-ProjectToExternalRepo {
         & $GH repo clone "$ORG/$RepoName" $tempClone 2>&1 | Out-Null
         if ($LASTEXITCODE -ne 0) { throw "gh repo clone fallo para $RepoName" }
 
-        # Mirror local project -> external repo root (excluding heavy/generated dirs)
-        robocopy $LocalProjectDir $tempClone /E /XD "node_modules" "dist" "release" ".git" /NFL /NDL /NJH /NJS /NC /NS | Out-Null
+        Write-Info "Clonando repo externo en temporal: $tempClone"
+        # Mirror local project -> external repo root (excluding heavy/generated dirs and artifacts)
+        robocopy $LocalProjectDir $tempClone /E `
+            /XD "node_modules" "dist" "release" ".git" "temp" `
+            /XF "*.exe" "*.msi" "*.zip" "*.7z" "*.apk" "*.aab" "*.map" `
+            /NFL /NDL /NJH /NJS /NC /NS | Out-Null
+        Write-Info "Sincronizacion base finalizada (sin artefactos pesados)"
 
         $gitignorePath = Join-Path $tempClone ".gitignore"
         if (-not (Test-Path $gitignorePath)) {
@@ -260,6 +265,7 @@ function Publish-ProjectToExternalRepo {
         }
 
         Push-Location $tempClone
+        Write-Info "Preparando commit en repo externo..."
         git add . 2>&1 | Out-Null
         $st = git status --porcelain 2>&1
         if ($st) {

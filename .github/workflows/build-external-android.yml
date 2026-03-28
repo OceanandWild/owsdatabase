@@ -10,6 +10,7 @@ on:
         options:
           - wildtransfer
           - ows-news
+          - oceanpay
       source_ref:
         description: "Branch/tag/commit del repo fuente"
         required: true
@@ -65,6 +66,16 @@ jobs:
               echo "ARTIFACT_APK_DEBUG=ows-news-apk-debug" >> "$GITHUB_ENV"
               echo "ARTIFACT_APK_SIGNED=ows-news-apk-release-signed" >> "$GITHUB_ENV"
               echo "ARTIFACT_AAB_UNSIGNED=ows-news-aab-release-unsigned" >> "$GITHUB_ENV"
+              ;;
+            oceanpay)
+              echo "SRC_REPO=OceanandWild/oceanpay" >> "$GITHUB_ENV"
+              echo "APP_ID=com.oceanwildstudios.oceanpay" >> "$GITHUB_ENV"
+              echo "PROJECT_SLUG=oceanpay" >> "$GITHUB_ENV"
+              echo "ICON_REL_PATH=build/icon.png" >> "$GITHUB_ENV"
+              echo "ARTIFACT_APK_RELEASE_UNSIGNED=oceanpay-apk-release-unsigned" >> "$GITHUB_ENV"
+              echo "ARTIFACT_APK_DEBUG=oceanpay-apk-debug" >> "$GITHUB_ENV"
+              echo "ARTIFACT_APK_SIGNED=oceanpay-apk-release-signed" >> "$GITHUB_ENV"
+              echo "ARTIFACT_AAB_UNSIGNED=oceanpay-aab-release-unsigned" >> "$GITHUB_ENV"
               ;;
             *)
               echo "Proyecto no soportado: ${{ inputs.project }}"
@@ -154,6 +165,22 @@ jobs:
         run: |
           cd "$APP_DIR"
           npx cap sync android
+
+      - name: Fix Kotlin duplicate stdlib modules
+        shell: bash
+        run: |
+          cd "$APP_DIR"
+          APP_GRADLE="android/app/build.gradle"
+          if [ -f "$APP_GRADLE" ] && ! grep -q "OWS_KOTLIN_STD_FIX" "$APP_GRADLE"; then
+            cat >> "$APP_GRADLE" <<'EOF'
+
+// OWS_KOTLIN_STD_FIX
+configurations.all {
+  exclude group: "org.jetbrains.kotlin", module: "kotlin-stdlib-jdk7"
+  exclude group: "org.jetbrains.kotlin", module: "kotlin-stdlib-jdk8"
+}
+EOF
+          fi
 
       - name: Set Android version metadata
         shell: bash

@@ -12382,32 +12382,60 @@
             }
 
             if (oceanPay) {
-                oceanPay.platform = 'windows';
+                oceanPay.platform = 'android,windows';
                 oceanPay.install_type = 'external';
                 if (!oceanPay.installer_url) oceanPay.installer_url = OCEAN_PAY_RELEASES_URL;
+                if (!oceanPay.android_release_url) oceanPay.android_release_url = OCEAN_PAY_RELEASES_URL;
+                if (!oceanPay.android_apk_url) oceanPay.android_apk_url = '';
+                if (!oceanPay.android_apk_direct_url) oceanPay.android_apk_direct_url = '';
+                if (!oceanPay.android_apk_proxy_url) oceanPay.android_apk_proxy_url = '';
+                if (!oceanPay.android_sha256) oceanPay.android_sha256 = '';
                 oceanPay.icon_url = OCEAN_PAY_LOCAL_ICON;
                 oceanPay.installer_available = false;
+                oceanPay.android_available = false;
                 oceanPay.last_update_at = null;
                 oceanPay.windows_last_update_at = null;
                 oceanPay.android_last_update_at = null;
                 oceanPay.pending_release = false;
                 oceanPay.installer_size = Number(oceanPay.installer_size || 0);
+                oceanPay.android_apk_size = Number(oceanPay.android_apk_size || 0);
+                if (!oceanPay.windows_release_notes) oceanPay.windows_release_notes = '';
+                if (!oceanPay.android_release_notes) oceanPay.android_release_notes = '';
 
                 try {
                     const latest = await fetchLatestOceanPayRelease();
                     if (latest?.version) oceanPay.version = latest.version;
+                    oceanPay.windows_version = latest?.version || oceanPay.windows_version || oceanPay.version || '';
                     if (latest?.installerUrl) oceanPay.installer_url = latest.installerUrl;
                     oceanPay.installer_size = Number(latest?.installerSize || 0);
                     oceanPay.installer_available = Boolean(latest?.installerAvailable);
                     oceanPay.last_update_at = latest?.publishedAt || null;
                     oceanPay.windows_last_update_at = latest?.publishedAt || null;
-                    oceanPay.pending_release = !oceanPay.installer_available;
+                    oceanPay.windows_release_notes = latest?.windowsReleaseNotes || oceanPay.windows_release_notes || '';
                     if (latest?.warning) {
-                        oceanPay.pending_release = true;
                         oceanPay.release_warning = latest.warning;
                     } else {
                         oceanPay.release_warning = '';
                     }
+
+                    try {
+                        const androidLatest = await fetchLatestAndroidReleaseFromStoreApi('oceanpay', OCEAN_PAY_RELEASES_URL);
+                        if (androidLatest?.version) oceanPay.android_version = androidLatest.version;
+                        oceanPay.android_version_code = Number(androidLatest?.versionCode || 0);
+                        if (androidLatest?.downloadUrl) oceanPay.android_apk_url = androidLatest.downloadUrl;
+                        oceanPay.android_apk_direct_url = androidLatest?.directDownloadUrl || oceanPay.android_apk_direct_url || '';
+                        oceanPay.android_apk_proxy_url = androidLatest?.downloadUrl || oceanPay.android_apk_proxy_url || '';
+                        oceanPay.android_sha256 = androidLatest?.sha256 || oceanPay.android_sha256 || '';
+                        oceanPay.android_apk_size = Number(androidLatest?.sizeBytes || 0);
+                        oceanPay.android_release_notes = androidLatest?.notes || oceanPay.android_release_notes || '';
+                        oceanPay.android_last_update_at = androidLatest?.publishedAt || null;
+                        oceanPay.android_available = Boolean(oceanPay.android_apk_url);
+                    } catch (androidErr) {
+                        console.log('No se pudo resolver la ultima release Android de Ocean Pay:', androidErr?.message || androidErr);
+                        oceanPay.android_available = false;
+                    }
+
+                    oceanPay.pending_release = !(oceanPay.installer_available || oceanPay.android_available);
                 } catch (err) {
                     console.log('No se pudo resolver la ultima release de Ocean Pay:', err?.message || err);
                     oceanPay.pending_release = true;

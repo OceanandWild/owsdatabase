@@ -817,29 +817,41 @@ if ($platforms -contains "windows" -and ($platform -eq "windows" -or $platform -
 if ($platforms -contains "android" -and ($platform -eq "android" -or $platform -eq "both")) {
     Write-Step "Disparando build Android..."
     $androidWorkflow = "release-android-universal.yml"
+    $androidTriggered = $false
     if ($project -eq "ows-store") {
         $androidWorkflow = "ows-store-android.yml"
-        Trigger-Workflow -Slug $project -Workflow $androidWorkflow -Ver $version -Inputs @{ build_profile = "full" } | Out-Null
+        $androidTriggered = Trigger-Workflow -Slug $project -Workflow $androidWorkflow -Ver $version -Inputs @{ build_profile = "full" }
     } else {
-        Trigger-Workflow -Slug $project -Workflow $androidWorkflow -Ver $version | Out-Null
-    }
-    $androidRunId = Get-LatestWorkflowRunId -Workflow $androidWorkflow
-    if ($androidRunId) {
-        Write-Info "Android run id: $androidRunId - monitoreando..."
-        $androidWait = Wait-WorkflowRunCompletion -RunId $androidRunId -MaxAttempts 120 -SleepSeconds 10
-        if (-not $androidWait.ok) {
-            Write-Err "Build Android no finalizo OK (status=$($androidWait.status), conclusion=$($androidWait.conclusion))."
-        } else {
-            Write-OK "Build Android completado."
-            $promoted = Promote-AndroidArtifactToRelease -Slug $project -RepoName $repo -Ver $version -SourceRunId $androidRunId
-            if ($promoted) {
-                Register-AndroidReleaseFromGitHub -Slug $project -RepoName $repo -Ver $version | Out-Null
-            }
+        $androidTriggered = Trigger-Workflow -Slug $project -Workflow $androidWorkflow -Ver "" -Inputs @{
+            project = $project
+            version_name = $version
+            release_notes = "Android build for $project $version"
+            promote_to_release = "true"
         }
-    } else {
-        Write-Info "No se pudo resolver run id Android para monitoreo/promote automatico."
     }
-    Register-Version -Slug $project -Ver $version -Plat "android"
+    if (-not $androidTriggered) {
+        Write-Err "No se pudo disparar workflow Android."
+    } else {
+        $androidRunId = Get-LatestWorkflowRunId -Workflow $androidWorkflow
+        if ($androidRunId) {
+            Write-Info "Android run id: $androidRunId - monitoreando..."
+            $androidWait = Wait-WorkflowRunCompletion -RunId $androidRunId -MaxAttempts 120 -SleepSeconds 10
+            if (-not $androidWait.ok) {
+                Write-Err "Build Android no finalizo OK (status=$($androidWait.status), conclusion=$($androidWait.conclusion))."
+            } else {
+                Write-OK "Build Android completado."
+                if ($project -eq "ows-store") {
+                    $promoted = Promote-AndroidArtifactToRelease -Slug $project -RepoName $repo -Ver $version -SourceRunId $androidRunId
+                    if ($promoted) {
+                        Register-AndroidReleaseFromGitHub -Slug $project -RepoName $repo -Ver $version | Out-Null
+                    }
+                }
+                Register-Version -Slug $project -Ver $version -Plat "android" | Out-Null
+            }
+        } else {
+            Write-Info "No se pudo resolver run id Android para monitoreo/promote automatico."
+        }
+    }
 }
 
 Write-Host "`n========================================" -ForegroundColor Green

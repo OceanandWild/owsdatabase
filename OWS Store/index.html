@@ -4641,15 +4641,15 @@
             slug: 'wildshorts',
             name: 'WildShorts',
             short: 'WSH',
-            status: 'coming_soon',
+            status: 'launched',
             version: '1.0.0',
             platform: 'windows',
             install_type: 'external',
-            installer_url: '',
-            installer_available: false,
-            pending_release: true,
+            installer_url: 'https://github.com/OceanandWild/wildshorts/releases/latest',
+            installer_available: true,
+            pending_release: false,
             release_date: WILDSHORTS_PLACEHOLDER_DATE_ISO,
-            description: 'Contenido corto del universo OWS. Proximamente.',
+            description: 'Plataforma de video corto del ecosistema para clips creativos, descubrimiento rapido y contenido comunitario.',
             icon_url: WILDSHORTS_LOCAL_ICON
         };
         const OCEAN_CINEMAS_PROJECT = {
@@ -9482,11 +9482,11 @@
                     ...list[idx],
                     slug: 'wildshorts',
                     name: 'WildShorts',
-                    short: 'WSH',
-                    status: 'coming_soon',
-                    pending_release: true,
-                    installer_available: false,
-                    release_date: list[idx].release_date || WILDSHORTS_PLACEHOLDER_DATE_ISO
+                    short: list[idx].short || 'WSH',
+                    status: list[idx].status || 'launched',
+                    pending_release: list[idx].pending_release !== undefined ? list[idx].pending_release : false,
+                    installer_available: list[idx].installer_available !== undefined ? list[idx].installer_available : Boolean(list[idx].installer_url),
+                    release_date: list[idx].release_date || ''
                 };
             }
             return list;

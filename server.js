@@ -797,7 +797,7 @@ async function upsertOwsNewsEntryBySyncKey({
 }
 
 async function ensureOwsStoreProjectsSeedData() {
-  const forcedComingSoonNoDate = new Set(['naturepedia', 'wildshorts']);
+  const forcedComingSoonNoDate = new Set(['naturepedia']);
   const seeds = [
     {
       slug: 'ows-store',
@@ -7555,7 +7555,7 @@ app.get('/ocean-ai/ows-store/context', async (_req, res) => {
     }
     const allProjects = [...bySlug.values()];
     const filtered = allProjects.filter((p) => p.slug !== 'ows-store');
-    const forcedUpcoming = new Set(['naturepedia', 'wildshorts', 'dinobox']);
+    const forcedUpcoming = new Set(['naturepedia', 'dinobox']);
     const upcoming = filtered.filter((p) => forcedUpcoming.has(String(p.slug || '').trim().toLowerCase()));
     const available = filtered.filter((p) => !upcoming.some((u) => u.slug === p.slug));
 

@@ -37,6 +37,15 @@ jobs:
         with:
           node-version: "20"
 
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android build tools (29.0.3 for signer)
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platform-tools" "build-tools;29.0.3" "build-tools;34.0.0" "platforms;android-34"
+
       - name: Install dependencies
         working-directory: owsdatabase/Ocean Pay
         run: npm install

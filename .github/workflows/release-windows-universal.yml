@@ -17,6 +17,7 @@ on:
           - a-wild-question-game
           - velocity-surge
           - wildwave
+          - wildshorts
           - ecoxion
           - dinobox
           - incremental-cosmic-odyssey
@@ -51,6 +52,7 @@ jobs:
             "a-wild-question-game" = @{ repo = "a-wild-question-game";dir = "A Wild Question Game"; buildOut = "C:\builds\awqg" }
             "velocity-surge"       = @{ repo = "velocity-surge";      dir = "Velocity Surge";       buildOut = "C:\builds\velocity-surge" }
             "wildwave"             = @{ repo = "wildwave";            dir = "WildWave";             buildOut = "C:\builds\wildwave" }
+            "wildshorts"           = @{ repo = "wildshorts";          dir = "WildShorts";           buildOut = "C:\builds\wildshorts" }
             "ecoxion"              = @{ repo = "ecoxion";             dir = "Ecoxion";              buildOut = "C:\builds\ecoxion" }
             "dinobox"              = @{ repo = "owsdatabase";         dir = "DinoBox";              buildOut = "C:\builds\dinobox" }
             "incremental-cosmic-odyssey"             = @{ repo = "incremental-cosmic-odyssey";            dir = "Incremental Cosmic Odyssey";             buildOut = "C:\builds\incremental-cosmic-odyssey" }

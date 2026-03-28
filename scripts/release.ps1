@@ -42,6 +42,7 @@ $PROJECTS = @{
     "a-wild-question-game" = @{ repo = "a-wild-question-game";   dir = "A Wild Question Game";    platforms = @("windows","android") }
     "velocity-surge"       = @{ repo = "velocity-surge";         dir = "Velocity Surge";          platforms = @("windows") }
     "wildwave"             = @{ repo = "wildwave";               dir = "WildWave";                platforms = @("windows") }
+    "wildshorts"           = @{ repo = "wildshorts";             dir = "WildShorts";              platforms = @("windows") }
     "ecoxion"              = @{ repo = "ecoxion";                dir = "Ecoxion";                 platforms = @("windows") }
     "dinobox"              = @{ repo = "owsdatabase";            dir = "DinoBox";                 platforms = @("windows") }
     "wilddestiny"          = @{ repo = "wilddestiny";            dir = "Wild Destiny";            platforms = @("windows") }

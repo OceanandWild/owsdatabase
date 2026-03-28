@@ -133,41 +133,41 @@ jobs:
             python3 -m pip install --user pillow >/dev/null 2>&1 || true
 
             python3 - <<'PY'
-from PIL import Image, ImageOps, ImageDraw
-from pathlib import Path
+            from PIL import Image, ImageOps, ImageDraw
+            from pathlib import Path
 
-src = Path("/tmp/oceanpay-icon.png")
-res = Path("android/app/src/main/res")
-img = Image.open(src).convert("RGBA")
+            src = Path("/tmp/oceanpay-icon.png")
+            res = Path("android/app/src/main/res")
+            img = Image.open(src).convert("RGBA")
 
-# recorte centrado cuadrado para evitar deformaciones
-side = min(img.width, img.height)
-left = (img.width - side) // 2
-top = (img.height - side) // 2
-img = img.crop((left, top, left + side, top + side))
+            # recorte centrado cuadrado para evitar deformaciones
+            side = min(img.width, img.height)
+            left = (img.width - side) // 2
+            top = (img.height - side) // 2
+            img = img.crop((left, top, left + side, top + side))
 
-targets = {
-    "mipmap-mdpi": 48,
-    "mipmap-hdpi": 72,
-    "mipmap-xhdpi": 96,
-    "mipmap-xxhdpi": 144,
-    "mipmap-xxxhdpi": 192,
-}
+            targets = {
+                "mipmap-mdpi": 48,
+                "mipmap-hdpi": 72,
+                "mipmap-xhdpi": 96,
+                "mipmap-xxhdpi": 144,
+                "mipmap-xxxhdpi": 192,
+            }
 
-for folder, size in targets.items():
-    out = res / folder
-    out.mkdir(parents=True, exist_ok=True)
-    base = ImageOps.fit(img, (size, size), method=Image.Resampling.LANCZOS)
-    base.save(out / "ic_launcher.png")
+            for folder, size in targets.items():
+                out = res / folder
+                out.mkdir(parents=True, exist_ok=True)
+                base = ImageOps.fit(img, (size, size), method=Image.Resampling.LANCZOS)
+                base.save(out / "ic_launcher.png")
 
-    # round launcher
-    mask = Image.new("L", (size, size), 0)
-    draw = ImageDraw.Draw(mask)
-    draw.ellipse((0, 0, size - 1, size - 1), fill=255)
-    round_img = base.copy()
-    round_img.putalpha(mask)
-    round_img.save(out / "ic_launcher_round.png")
-PY
+                # round launcher
+                mask = Image.new("L", (size, size), 0)
+                draw = ImageDraw.Draw(mask)
+                draw.ellipse((0, 0, size - 1, size - 1), fill=255)
+                round_img = base.copy()
+                round_img.putalpha(mask)
+                round_img.save(out / "ic_launcher_round.png")
+            PY
 
             rm -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml || true
             rm -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml || true

@@ -172,14 +172,7 @@ jobs:
           cd "$APP_DIR"
           APP_GRADLE="android/app/build.gradle"
           if [ -f "$APP_GRADLE" ] && ! grep -q "OWS_KOTLIN_STD_FIX" "$APP_GRADLE"; then
-            cat >> "$APP_GRADLE" <<'EOF'
-
-            // OWS_KOTLIN_STD_FIX
-            configurations.all {
-              exclude group: "org.jetbrains.kotlin", module: "kotlin-stdlib-jdk7"
-              exclude group: "org.jetbrains.kotlin", module: "kotlin-stdlib-jdk8"
-            }
-            EOF
+            printf '\n// OWS_KOTLIN_STD_FIX\nconfigurations.all {\n  exclude group: "org.jetbrains.kotlin", module: "kotlin-stdlib-jdk7"\n  exclude group: "org.jetbrains.kotlin", module: "kotlin-stdlib-jdk8"\n}\n' >> "$APP_GRADLE"
           fi
 
       - name: Set Android version metadata

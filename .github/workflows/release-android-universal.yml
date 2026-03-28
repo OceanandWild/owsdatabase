@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       project:
-        description: 'Slug del proyecto (floretshop, wildtransfer, a-wild-question-game, oceanpay)'
+        description: "Slug del proyecto"
         required: true
         type: choice
         options:
@@ -13,15 +13,15 @@ on:
           - a-wild-question-game
           - oceanpay
       version_name:
-        description: 'Version (formato: YYYY.M.D-tHHMM)'
+        description: "Version (YYYY.M.D-tHHMM)"
         required: true
-        default: '2026.3.20-t1400'
+        default: "2026.3.20-t1400"
       release_notes:
-        description: 'Notas del release'
+        description: "Notas del release"
         required: false
-        default: 'Nueva version disponible'
+        default: "Nueva version disponible"
       promote_to_release:
-        description: 'Publicar release automaticamente al terminar?'
+        description: "Publicar release al terminar"
         required: true
         type: boolean
         default: true
@@ -31,77 +31,75 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # ─── CONFIGURACION DEL PROYECTO ───────────────────────────────────────
       - name: Configurar proyecto
         id: config
+        shell: bash
         run: |
+          set -euo pipefail
           PROJECT="${{ github.event.inputs.project }}"
 
-          case $PROJECT in
+          case "$PROJECT" in
             floretshop)
-              echo "repo=OceanandWild/floretshop" >> $GITHUB_OUTPUT
-              echo "source_dir=Floret Shop" >> $GITHUB_OUTPUT
-              echo "package_id=com.oceanandwild.floretshop" >> $GITHUB_OUTPUT
-              echo "app_name=Floret Shop" >> $GITHUB_OUTPUT
+              echo "repo=OceanandWild/floretshop" >> "$GITHUB_OUTPUT"
+              echo "source_dir=Floret Shop" >> "$GITHUB_OUTPUT"
+              echo "package_id=com.oceanandwild.floretshop" >> "$GITHUB_OUTPUT"
+              echo "app_name=Floret Shop" >> "$GITHUB_OUTPUT"
               ;;
             wildtransfer)
-              echo "repo=OceanandWild/wildtransfer" >> $GITHUB_OUTPUT
-              echo "source_dir=WildTransfer" >> $GITHUB_OUTPUT
-              echo "package_id=com.oceanandwild.wildtransfer" >> $GITHUB_OUTPUT
-              echo "app_name=WildTransfer" >> $GITHUB_OUTPUT
+              echo "repo=OceanandWild/wildtransfer" >> "$GITHUB_OUTPUT"
+              echo "source_dir=WildTransfer" >> "$GITHUB_OUTPUT"
+              echo "package_id=com.oceanandwild.wildtransfer" >> "$GITHUB_OUTPUT"
+              echo "app_name=WildTransfer" >> "$GITHUB_OUTPUT"
               ;;
             a-wild-question-game)
-              echo "repo=OceanandWild/a-wild-question-game" >> $GITHUB_OUTPUT
-              echo "source_dir=A Wild Question Game" >> $GITHUB_OUTPUT
-              echo "package_id=com.oceanandwild.awqg" >> $GITHUB_OUTPUT
-              echo "app_name=A Wild Question Game" >> $GITHUB_OUTPUT
+              echo "repo=OceanandWild/a-wild-question-game" >> "$GITHUB_OUTPUT"
+              echo "source_dir=A Wild Question Game" >> "$GITHUB_OUTPUT"
+              echo "package_id=com.oceanandwild.awqg" >> "$GITHUB_OUTPUT"
+              echo "app_name=A Wild Question Game" >> "$GITHUB_OUTPUT"
               ;;
             oceanpay)
-              echo "repo=OceanandWild/oceanpay" >> $GITHUB_OUTPUT
-              echo "source_dir=Ocean Pay" >> $GITHUB_OUTPUT
-              echo "package_id=com.oceanwildstudios.oceanpay" >> $GITHUB_OUTPUT
-              echo "app_name=Ocean Pay" >> $GITHUB_OUTPUT
+              echo "repo=OceanandWild/oceanpay" >> "$GITHUB_OUTPUT"
+              echo "source_dir=Ocean Pay" >> "$GITHUB_OUTPUT"
+              echo "package_id=com.oceanwildstudios.oceanpay" >> "$GITHUB_OUTPUT"
+              echo "app_name=Ocean Pay" >> "$GITHUB_OUTPUT"
               ;;
             *)
-              echo "ERROR: Proyecto desconocido: $PROJECT"
+              echo "Proyecto desconocido: $PROJECT" >&2
               exit 1
               ;;
           esac
 
-          echo "version_code=$(date +%s)" >> $GITHUB_OUTPUT
-          echo "tag=v${{ github.event.inputs.version_name }}" >> $GITHUB_OUTPUT
+          echo "version_code=$(date +%s)" >> "$GITHUB_OUTPUT"
+          echo "tag=v${{ github.event.inputs.version_name }}" >> "$GITHUB_OUTPUT"
 
-      # ─── CHECKOUT ─────────────────────────────────────────────────────────
       - name: Checkout owsdatabase
         uses: actions/checkout@v4
         with:
           path: owsdatabase
 
-      # ─── JAVA + NODE ──────────────────────────────────────────────────────
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          java-version: '21'
-          distribution: 'temurin'
+          java-version: "21"
+          distribution: "temurin"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
 
-      # ─── INSTALAR DEPENDENCIAS ────────────────────────────────────────────
       - name: Install dependencies
         working-directory: owsdatabase/${{ steps.config.outputs.source_dir }}
         run: npm install
 
-      # ─── CAPACITOR SYNC ───────────────────────────────────────────────────
-      - name: Preparar proyecto Capacitor (fallback)
+      - name: Preparar proyecto Capacitor
         working-directory: owsdatabase/${{ steps.config.outputs.source_dir }}
+        shell: bash
         run: |
-          if [ ! -d "www" ]; then
-            mkdir -p www
-          fi
-          if [ ! -f "www/index.html" ] && [ -f "index.html" ]; then
+          set -euo pipefail
+
+          mkdir -p www
+          if [ -f "index.html" ]; then
             cp index.html www/index.html
           fi
 
@@ -131,14 +129,14 @@ configurations.all {
 EOF
           fi
 
-      # ─── BUILD APK ────────────────────────────────────────────────────────
       - name: Build APK Release
         working-directory: owsdatabase/${{ steps.config.outputs.source_dir }}/android
+        shell: bash
         run: |
+          set -euo pipefail
           chmod +x gradlew
           ./gradlew assembleRelease
 
-      # ─── FIRMAR APK ───────────────────────────────────────────────────────
       - name: Sign APK
         uses: r0adkll/sign-android-release@v1
         id: sign_apk
@@ -149,18 +147,18 @@ EOF
           keyStorePassword: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           keyPassword: ${{ secrets.ANDROID_KEY_PASSWORD }}
 
-      # ─── RENOMBRAR APK ────────────────────────────────────────────────────
       - name: Renombrar APK
+        shell: bash
         run: |
+          set -euo pipefail
           PROJECT="${{ github.event.inputs.project }}"
           VERSION="${{ github.event.inputs.version_name }}"
           SIGNED_APK="${{ steps.sign_apk.outputs.signedReleaseFile }}"
           APK_NAME="${PROJECT}-${VERSION}.apk"
           cp "$SIGNED_APK" "$APK_NAME"
-          echo "APK_PATH=$APK_NAME" >> $GITHUB_ENV
-          echo "APK_NAME=$APK_NAME" >> $GITHUB_ENV
+          echo "APK_PATH=$APK_NAME" >> "$GITHUB_ENV"
+          echo "APK_NAME=$APK_NAME" >> "$GITHUB_ENV"
 
-      # ─── UPLOAD ARTIFACT ──────────────────────────────────────────────────
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
@@ -168,12 +166,13 @@ EOF
           path: ${{ env.APK_PATH }}
           retention-days: 30
 
-      # ─── RELEASE EN GITHUB ────────────────────────────────────────────────
       - name: Publicar release en GitHub
         if: ${{ github.event.inputs.promote_to_release == 'true' }}
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
+          set -euo pipefail
           TAG="${{ steps.config.outputs.tag }}"
           REPO="${{ steps.config.outputs.repo }}"
           NOTES="${{ github.event.inputs.release_notes }}"
@@ -186,12 +185,13 @@ EOF
             --latest=false
 
           APK_URL="https://github.com/$REPO/releases/download/$TAG/${{ env.APK_NAME }}"
-          echo "APK_URL=$APK_URL" >> $GITHUB_ENV
+          echo "APK_URL=$APK_URL" >> "$GITHUB_ENV"
 
-      # ─── REGISTRAR EN DB ──────────────────────────────────────────────────
       - name: Registrar release en OWS Store DB
         if: ${{ github.event.inputs.promote_to_release == 'true' }}
+        shell: bash
         run: |
+          set -euo pipefail
           API="https://owsdatabase.onrender.com"
           TOKEN="${{ secrets.OWS_ADMIN_SECRET }}"
           PROJECT="${{ github.event.inputs.project }}"
@@ -201,7 +201,6 @@ EOF
           APK_URL="${{ env.APK_URL }}"
           NOTES="${{ github.event.inputs.release_notes }}"
 
-          # Registrar release Android
           curl -s -X POST "$API/ows-store/android/releases" \
             -H "Content-Type: application/json" \
             -H "x-ows-admin-token: $TOKEN" \
@@ -216,32 +215,14 @@ EOF
               \"is_mandatory\": false
             }"
 
-          # Bump version en ows_projects
           curl -s -X PATCH "$API/ows-store/projects/$PROJECT/version" \
             -H "Content-Type: application/json" \
             -H "x-ows-admin-token: $TOKEN" \
-            -d "{\"version\": \"$VERSION\"}"
+            -d "{\"version\":\"$VERSION\"}"
 
-          # OWS News
-          curl -s -X POST "$API/ows-news/updates" \
-            -H "Content-Type: application/json" \
-            -H "x-ows-admin-token: $TOKEN" \
-            -d "{
-              \"title\": \"$PROJECT $VERSION disponible para Android\",
-              \"description\": \"Nueva version Android de $PROJECT publicada.\",
-              \"project_names\": [\"$PROJECT\"],
-              \"changes\": \"$NOTES\",
-              \"update_date\": \"$(date +%Y-%m-%d)\"
-            }"
-
-          echo "DB actualizada correctamente"
-
-      # ─── RESUMEN ──────────────────────────────────────────────────────────
       - name: Resumen
         run: |
-          echo "============================================================"
           echo "ANDROID RELEASE COMPLETADO"
-          echo "Proyecto:  ${{ github.event.inputs.project }}"
-          echo "Version:   ${{ github.event.inputs.version_name }}"
-          echo "APK:       ${{ env.APK_URL }}"
-          echo "============================================================"
+          echo "Proyecto: ${{ github.event.inputs.project }}"
+          echo "Version:  ${{ github.event.inputs.version_name }}"
+          echo "APK:      ${{ env.APK_URL }}"

@@ -119,6 +119,18 @@ jobs:
 
           npx cap sync android
 
+          APP_GRADLE="android/app/build.gradle"
+          if [ -f "$APP_GRADLE" ] && ! grep -q "OWS_KOTLIN_STD_FIX" "$APP_GRADLE"; then
+            cat >> "$APP_GRADLE" <<'EOF'
+
+// OWS_KOTLIN_STD_FIX
+configurations.all {
+  exclude group: "org.jetbrains.kotlin", module: "kotlin-stdlib-jdk7"
+  exclude group: "org.jetbrains.kotlin", module: "kotlin-stdlib-jdk8"
+}
+EOF
+          fi
+
       # ─── BUILD APK ────────────────────────────────────────────────────────
       - name: Build APK Release
         working-directory: owsdatabase/${{ steps.config.outputs.source_dir }}/android

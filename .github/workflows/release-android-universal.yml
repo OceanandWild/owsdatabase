@@ -229,12 +229,15 @@ jobs:
           REPO="${{ steps.config.outputs.repo }}"
           NOTES="${{ github.event.inputs.release_notes }}"
           APK="${{ env.APK_PATH }}"
-
-          gh release create "$TAG" "$APK" \
-            --repo "$REPO" \
-            --title "${{ steps.config.outputs.app_name }} ${{ github.event.inputs.version_name }}" \
-            --notes "$NOTES" \
-            --latest=false
+          if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$APK" --repo "$REPO" --clobber
+          else
+            gh release create "$TAG" "$APK" \
+              --repo "$REPO" \
+              --title "${{ steps.config.outputs.app_name }} ${{ github.event.inputs.version_name }}" \
+              --notes "$NOTES" \
+              --latest=false
+          fi
 
           APK_URL="https://github.com/$REPO/releases/download/$TAG/${{ env.APK_NAME }}"
           echo "APK_URL=$APK_URL" >> "$GITHUB_ENV"

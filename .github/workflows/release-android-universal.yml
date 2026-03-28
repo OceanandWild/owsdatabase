@@ -4,13 +4,14 @@ on:
   workflow_dispatch:
     inputs:
       project:
-        description: 'Slug del proyecto (floretshop, wildtransfer, a-wild-question-game)'
+        description: 'Slug del proyecto (floretshop, wildtransfer, a-wild-question-game, oceanpay)'
         required: true
         type: choice
         options:
           - floretshop
           - wildtransfer
           - a-wild-question-game
+          - oceanpay
       version_name:
         description: 'Version (formato: YYYY.M.D-tHHMM)'
         required: true
@@ -55,6 +56,12 @@ jobs:
               echo "package_id=com.oceanandwild.awqg" >> $GITHUB_OUTPUT
               echo "app_name=A Wild Question Game" >> $GITHUB_OUTPUT
               ;;
+            oceanpay)
+              echo "repo=OceanandWild/oceanpay" >> $GITHUB_OUTPUT
+              echo "source_dir=Ocean Pay" >> $GITHUB_OUTPUT
+              echo "package_id=com.oceanwildstudios.oceanpay" >> $GITHUB_OUTPUT
+              echo "app_name=Ocean Pay" >> $GITHUB_OUTPUT
+              ;;
             *)
               echo "ERROR: Proyecto desconocido: $PROJECT"
               exit 1
@@ -88,9 +95,18 @@ jobs:
         run: npm install
 
       # ─── CAPACITOR SYNC ───────────────────────────────────────────────────
-      - name: Capacitor sync
+      - name: Preparar proyecto Capacitor (fallback)
         working-directory: owsdatabase/${{ steps.config.outputs.source_dir }}
-        run: npx cap sync android
+        run: |
+          if [ ! -f "capacitor.config.ts" ] && [ ! -f "capacitor.config.json" ]; then
+            npx cap init "${{ steps.config.outputs.app_name }}" "${{ steps.config.outputs.package_id }}" --web-dir=. --npm-client npm
+          fi
+
+          if [ ! -d "android" ]; then
+            npx cap add android
+          fi
+
+          npx cap sync android
 
       # ─── BUILD APK ────────────────────────────────────────────────────────
       - name: Build APK Release

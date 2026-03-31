@@ -9351,7 +9351,7 @@
             if (idx === -1) {
                 list.unshift({ ...SSA_PROJECT });
             } else {
-                list[idx] = { ...SSA_PROJECT, ...list[idx], short: 'SSA', status: 'launched' };
+                list[idx] = { ...SSA_PROJECT, ...list[idx], short: 'SSA', status: list[idx].status || 'launched' };
             }
             return list;
         }
@@ -9363,7 +9363,7 @@
             if (idx === -1) {
                 list.unshift({ ...FLORET_PROJECT });
             } else {
-                list[idx] = { ...FLORET_PROJECT, ...list[idx], short: 'FLR', status: 'launched' };
+                list[idx] = { ...FLORET_PROJECT, ...list[idx], short: 'FLR', status: list[idx].status || 'launched' };
             }
             return list;
         }
@@ -9375,7 +9375,7 @@
             if (idx === -1) {
                 list.unshift({ ...WILDTRANSFER_PROJECT });
             } else {
-                list[idx] = { ...WILDTRANSFER_PROJECT, ...list[idx], short: 'WTR', status: 'launched' };
+                list[idx] = { ...WILDTRANSFER_PROJECT, ...list[idx], short: 'WTR', status: list[idx].status || 'launched' };
             }
             return list;
         }
@@ -9412,9 +9412,9 @@
                     ...WILDDESTINY_PROJECT,
                     ...list[idx],
                     short: 'WD',
-                    status: 'launched',
-                    pending_release: false,
-                    installer_available: true,
+                    status: list[idx].status || 'launched',
+                    pending_release: list[idx].pending_release !== undefined ? list[idx].pending_release : false,
+                    installer_available: list[idx].installer_available !== undefined ? list[idx].installer_available : Boolean(list[idx].installer_url),
                     installer_url: list[idx].installer_url || WILDDESTINY_RELEASES_URL,
                     release_date: '',
                     icon_url: WILDDESTINY_LOCAL_ICON
@@ -9581,17 +9581,14 @@
             if (!Array.isArray(projects)) return [];
             const list = [...projects];
             const idx = list.findIndex(isDinoBoxProject);
-            const hasLaunched = DINOBOX_RELEASE_DATE_ISO
-                ? Date.now() >= (Date.parse(DINOBOX_RELEASE_DATE_ISO) || 0)
-                : false;
             const base = {
                 ...DINOBOX_PROJECT,
                 slug: 'dinobox',
                 name: 'DinoBox',
                 short: 'DNB',
-                status: hasLaunched ? 'launched' : 'coming_soon',
-                pending_release: !hasLaunched,
-                installer_available: hasLaunched,
+                status: DINOBOX_PROJECT.status || 'coming_soon',
+                pending_release: DINOBOX_PROJECT.pending_release !== undefined ? DINOBOX_PROJECT.pending_release : true,
+                installer_available: Boolean(DINOBOX_PROJECT.installer_url),
             };
             if (idx === -1) {
                 list.unshift(base);
@@ -9602,10 +9599,10 @@
                     slug: 'dinobox',
                     name: 'DinoBox',
                     short: 'DNB',
-                    status: hasLaunched ? 'launched' : (list[idx].status || 'coming_soon'),
-                    pending_release: !hasLaunched,
-                    installer_available: hasLaunched,
-                    release_date: list[idx].release_date || DINOBOX_RELEASE_DATE_ISO,
+                    status: list[idx].status || 'coming_soon',
+                    pending_release: list[idx].pending_release !== undefined ? list[idx].pending_release : true,
+                    installer_available: list[idx].installer_available !== undefined ? list[idx].installer_available : Boolean(list[idx].installer_url),
+                    release_date: list[idx].release_date || '',
                     url: list[idx].url || DINOBOX_PROJECT.url,
                     icon_url: list[idx].icon_url || DINOBOX_LOCAL_ICON
                 };

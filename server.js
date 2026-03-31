@@ -7441,31 +7441,6 @@ app.get('/ows-store/projects', async (req, res) => {
       const canonical = canonicalSlugFromProject(merged);
       merged.slug = canonical || merged.slug;
 
-      // Hotfix de disponibilidad: Ocean Cinemas se habilita como instalable
-      // cuando ya tiene release de GitHub y version de release real.
-      if (merged.slug === 'ocean-cinemas') {
-        const releaseUrl = 'https://github.com/OceanandWild/ocean-cinemas/releases/latest';
-        const hasReleaseUrl = String(merged.url || '').toLowerCase().includes('/ocean-cinemas/releases/');
-        const hasVersion = Boolean(String(merged.version || '').trim()) && String(merged.version || '').trim() !== '0.0.0';
-        if (hasReleaseUrl && hasVersion) {
-          merged.status = 'launched';
-          merged.release_date = null;
-          merged.url = releaseUrl;
-          merged.installer_url = merged.installer_url || releaseUrl;
-          const metadata = (merged.metadata && typeof merged.metadata === 'object') ? merged.metadata : {};
-          merged.metadata = {
-            ...metadata,
-            repo: 'OceanandWild/ocean-cinemas',
-            platforms: Array.isArray(metadata.platforms) && metadata.platforms.length ? metadata.platforms : ['windows'],
-            pending_release: false,
-            install_type: metadata.install_type || 'external'
-          };
-          merged.repo = merged.metadata.repo;
-          merged.platforms = merged.metadata.platforms;
-          if (!merged.platform && merged.platforms.length === 1) merged.platform = merged.platforms[0];
-        }
-      }
-
       const current = byCanonical.get(canonical);
       if (!current) {
         byCanonical.set(canonical, merged);
@@ -7490,6 +7465,135 @@ app.get('/ows-store/projects', async (req, res) => {
       const sb = String(b?.name || '');
       return sa.localeCompare(sb);
     });
+
+    const RELEASE_PROBE_TTL_MS = 5 * 60 * 1000;
+    if (!globalThis.__owsProjectReleaseProbeCache) globalThis.__owsProjectReleaseProbeCache = new Map();
+    const releaseProbeCache = globalThis.__owsProjectReleaseProbeCache;
+
+    const parseRepoFromProject = (project) => {
+      const metadata = (project?.metadata && typeof project.metadata === 'object') ? project.metadata : {};
+      const rawRepo = String(project?.repo || metadata?.repo || '').trim();
+      const fromRepo = rawRepo.match(/^([\w.-]+)\/([\w.-]+)$/i);
+      if (fromRepo) {
+        return { owner: fromRepo[1], repo: fromRepo[2], full: `${fromRepo[1]}/${fromRepo[2]}` };
+      }
+
+      const urlCandidates = [
+        String(project?.url || ''),
+        String(project?.installer_url || '')
+      ];
+      for (const candidate of urlCandidates) {
+        const m = candidate.match(/github\.com\/([\w.-]+)\/([\w.-]+)/i);
+        if (m) return { owner: m[1], repo: m[2], full: `${m[1]}/${m[2]}` };
+      }
+      return null;
+    };
+
+    const waitingMessage = 'Esperando a Ocean and Wild Studios...';
+    const persistedSlugs = new Set();
+
+    const ensureComingSoonState = (project) => {
+      const metadata = (project?.metadata && typeof project.metadata === 'object') ? project.metadata : {};
+      project.status = 'coming_soon';
+      project.pending_release = true;
+      project.release_warning = waitingMessage;
+      project.metadata = {
+        ...metadata,
+        pending_release: true
+      };
+      project.repo = project.repo || project.metadata.repo || null;
+      if (!project.platforms && Array.isArray(project.metadata.platforms)) project.platforms = project.metadata.platforms;
+      if (!project.platform && Array.isArray(project.platforms) && project.platforms.length === 1) project.platform = project.platforms[0];
+      return project;
+    };
+
+    const promoteFromRelease = async (project, repoInfo, releasePayload) => {
+      const releaseUrl = `https://github.com/${repoInfo.owner}/${repoInfo.repo}/releases/latest`;
+      const installerUrl = pickInstallerAssetUrlFromRelease(releasePayload) || releaseUrl;
+      const metadata = (project?.metadata && typeof project.metadata === 'object') ? project.metadata : {};
+      const mergedMetadata = {
+        ...metadata,
+        repo: `${repoInfo.owner}/${repoInfo.repo}`,
+        pending_release: false,
+        install_type: metadata.install_type || 'external',
+        platforms: Array.isArray(metadata.platforms) && metadata.platforms.length ? metadata.platforms : ['windows']
+      };
+
+      project.status = 'launched';
+      project.pending_release = false;
+      project.release_warning = '';
+      project.release_date = null;
+      project.url = releaseUrl;
+      project.installer_url = installerUrl;
+      project.metadata = mergedMetadata;
+      project.repo = mergedMetadata.repo;
+      project.platforms = mergedMetadata.platforms;
+      if (!project.platform && Array.isArray(project.platforms) && project.platforms.length === 1) project.platform = project.platforms[0];
+
+      const slug = String(project?.slug || '').trim().toLowerCase();
+      if (!slug || persistedSlugs.has(slug)) return project;
+      persistedSlugs.add(slug);
+
+      try {
+        await pool.query(
+          `UPDATE ows_projects
+              SET status = 'launched',
+                  release_date = NULL,
+                  url = COALESCE(NULLIF(url, ''), $2),
+                  installer_url = COALESCE(NULLIF(installer_url, ''), $3),
+                  metadata = COALESCE(metadata, '{}'::jsonb) || $4::jsonb,
+                  last_update = NOW()
+            WHERE slug = $1
+              AND LOWER(status) = 'coming_soon'`,
+          [slug, releaseUrl, installerUrl, JSON.stringify(mergedMetadata)]
+        );
+      } catch (persistErr) {
+        console.warn(`[ows-store/projects] No se pudo persistir auto-promocion para ${slug}:`, persistErr?.message || persistErr);
+      }
+
+      return project;
+    };
+
+    await Promise.all(list.map(async (project) => {
+      const currentStatus = String(project?.status || '').trim().toLowerCase();
+      if (currentStatus !== 'coming_soon') return;
+
+      const repoInfo = parseRepoFromProject(project);
+      if (!repoInfo) {
+        ensureComingSoonState(project);
+        return;
+      }
+
+      const cacheKey = String(repoInfo.full || '').toLowerCase();
+      const now = Date.now();
+      const cached = releaseProbeCache.get(cacheKey);
+      if (cached && (now - Number(cached.ts || 0)) < RELEASE_PROBE_TTL_MS) {
+        if (cached.hasRelease) {
+          await promoteFromRelease(project, repoInfo, cached.payload || null);
+        } else {
+          ensureComingSoonState(project);
+        }
+        return;
+      }
+
+      const releasePayload = await fetchGithubLatestReleaseLite(repoInfo.owner, repoInfo.repo);
+      const hasRelease = Boolean(
+        releasePayload &&
+        (String(releasePayload.tag_name || '').trim() || String(releasePayload.name || '').trim() || String(releasePayload.html_url || '').trim())
+      );
+
+      releaseProbeCache.set(cacheKey, {
+        ts: now,
+        hasRelease,
+        payload: hasRelease ? releasePayload : null
+      });
+
+      if (hasRelease) {
+        await promoteFromRelease(project, repoInfo, releasePayload);
+      } else {
+        ensureComingSoonState(project);
+      }
+    }));
 
     return res.json(list);
   } catch (err) {

@@ -2616,6 +2616,36 @@ async function resolveFloretReviewerName(userId, fallbackName = '') {
   return safeName || 'Cliente Floret';
 }
 
+async function createFloretNotification({
+  type,
+  title,
+  message,
+  productId = null,
+  reviewId = null,
+  reviewScope = 'product',
+  orderId = null,
+  meta = null
+}) {
+  const recipient = await getFloretMalevoRecipient();
+  await pool.query(
+    `INSERT INTO floret_notifications
+      (target_user_id, target_email, type, title, message, product_id, review_id, review_scope, order_id, meta)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+    [
+      recipient.userId,
+      recipient.email,
+      String(type || 'product_review'),
+      String(title || 'Nueva resena'),
+      String(message || ''),
+      productId || null,
+      reviewId || null,
+      String(reviewScope || 'product'),
+      orderId || null,
+      meta ? JSON.stringify(meta) : null
+    ]
+  );
+}
+
 async function createFloretReviewNotification({
   type,
   title,
@@ -2624,22 +2654,14 @@ async function createFloretReviewNotification({
   reviewId,
   reviewScope
 }) {
-  const recipient = await getFloretMalevoRecipient();
-  await pool.query(
-    `INSERT INTO floret_notifications
-      (target_user_id, target_email, type, title, message, product_id, review_id, review_scope)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-    [
-      recipient.userId,
-      recipient.email,
-      String(type || 'product_review'),
-      String(title || 'Nueva reseÃ±a'),
-      String(message || ''),
-      productId || null,
-      reviewId,
-      String(reviewScope || 'product')
-    ]
-  );
+  return createFloretNotification({
+    type,
+    title,
+    message,
+    productId,
+    reviewId,
+    reviewScope
+  });
 }
 
 async function assertFloretMalevoAccess({ userId, email }) {
@@ -2670,6 +2692,27 @@ async function assertFloretMalevoAccess({ userId, email }) {
     return { allowed: false, reason: 'Acceso restringido a Malevo' };
   }
   return { allowed: true, actor };
+}
+
+const FLORET_ORDER_STATUS_FLOW = ['new', 'paid', 'preparing', 'shipped', 'delivered', 'cancelled'];
+
+function normalizeFloretOrderStatus(value) {
+  const safe = String(value || '').trim().toLowerCase();
+  if (!safe) return 'new';
+  return FLORET_ORDER_STATUS_FLOW.includes(safe) ? safe : 'new';
+}
+
+function sanitizeFloretOrderItems(items = []) {
+  if (!Array.isArray(items)) return [];
+  return items
+    .map((item) => ({
+      productId: Number(item.productId || item.id || 0) || null,
+      productName: String(item.productName || item.name || '').trim(),
+      unitPrice: Number(item.unitPrice || item.price || 0) || 0,
+      quantity: Math.max(1, Number(item.quantity || 1) || 1),
+      size: String(item.size || '').trim() || null
+    }))
+    .filter((item) => item.productId && item.productName && item.unitPrice > 0);
 }
 
 // Registro
@@ -2817,6 +2860,281 @@ app.post('/floret/create_preference', async (req, res) => {
       details: error.message,
       mp_error: error.cause || error
     });
+  }
+});
+
+app.post('/floret/orders', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const {
+      buyerName,
+      buyerEmail,
+      buyerPhone = '',
+      shippingAddress = '',
+      shippingCity = '',
+      paymentMethod = 'mercado_pago',
+      paymentRef = '',
+      items = []
+    } = req.body || {};
+
+    const safeName = String(buyerName || '').trim();
+    const safeEmail = String(buyerEmail || '').trim().toLowerCase();
+    const cleanItems = sanitizeFloretOrderItems(items);
+
+    if (!safeName || !safeEmail) {
+      return res.status(400).json({ error: 'Faltan datos del comprador' });
+    }
+    if (!cleanItems.length) {
+      return res.status(400).json({ error: 'No hay items validos para procesar' });
+    }
+
+    await client.query('BEGIN');
+
+    const ids = cleanItems.map((item) => item.productId);
+    const productsRes = await client.query(
+      `SELECT id, name, stock, price
+       FROM floret_products
+       WHERE id = ANY($1::int[])
+       FOR UPDATE`,
+      [ids]
+    );
+    const productMap = new Map(productsRes.rows.map((row) => [Number(row.id), row]));
+
+    const queuedNotifications = [];
+    for (const item of cleanItems) {
+      const dbProduct = productMap.get(item.productId);
+      if (!dbProduct) {
+        throw new Error(`Producto no encontrado (ID ${item.productId})`);
+      }
+      if (Number(dbProduct.stock || 0) < item.quantity) {
+        throw new Error(`Stock insuficiente para ${dbProduct.name}`);
+      }
+    }
+
+    const total = cleanItems.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
+    const orderRes = await client.query(
+      `INSERT INTO floret_orders
+        (buyer_name, buyer_email, buyer_phone, shipping_address, shipping_city, payment_method, payment_ref, total, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'paid')
+       RETURNING *`,
+      [
+        safeName,
+        safeEmail,
+        String(buyerPhone || '').trim(),
+        String(shippingAddress || '').trim(),
+        String(shippingCity || '').trim(),
+        String(paymentMethod || 'mercado_pago').trim().toLowerCase(),
+        String(paymentRef || '').trim() || null,
+        Number(total.toFixed(2))
+      ]
+    );
+    const order = orderRes.rows[0];
+
+    for (const item of cleanItems) {
+      await client.query(
+        `INSERT INTO floret_order_items
+          (order_id, product_id, product_name, unit_price, quantity, size, line_total)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          order.id,
+          item.productId,
+          item.productName,
+          item.unitPrice,
+          item.quantity,
+          item.size,
+          Number((item.unitPrice * item.quantity).toFixed(2))
+        ]
+      );
+
+      const dbProduct = productMap.get(item.productId);
+      const nextStock = Math.max(0, Number(dbProduct.stock || 0) - item.quantity);
+      await client.query('UPDATE floret_products SET stock = $1 WHERE id = $2', [nextStock, item.productId]);
+      dbProduct.stock = nextStock;
+
+      if (nextStock <= 3) {
+        queuedNotifications.push({
+          type: 'stock_low',
+          title: `Stock bajo en ${dbProduct.name}`,
+          message: `Quedan ${nextStock} unidades de ${dbProduct.name}.`,
+          productId: item.productId,
+          reviewScope: 'stock',
+          orderId: order.id,
+          meta: { stock: nextStock, productId: item.productId }
+        });
+      }
+    }
+
+    queuedNotifications.push({
+      type: 'order_new',
+      title: `Nuevo pedido #${order.id}`,
+      message: `${safeName} confirmo una compra por $${Number(order.total || 0).toLocaleString('es-UY')}.`,
+      reviewScope: 'order',
+      orderId: order.id,
+      meta: { orderId: order.id, total: Number(order.total || 0) }
+    });
+
+    await client.query('COMMIT');
+    for (const notification of queuedNotifications) {
+      await createFloretNotification(notification);
+    }
+    res.json({ success: true, orderId: order.id, order });
+  } catch (e) {
+    try { await client.query('ROLLBACK'); } catch (_rollbackErr) { }
+    console.error('Error creando orden Floret:', e);
+    res.status(500).json({ error: e.message || 'Error interno' });
+  } finally {
+    client.release();
+  }
+});
+
+app.get('/floret/seller/dashboard', async (req, res) => {
+  try {
+    const userId = Number(req.query.userId || 0) || null;
+    const email = String(req.query.email || '');
+    const access = await assertFloretMalevoAccess({ userId, email });
+    if (!access.allowed) return res.status(403).json({ error: access.reason || 'No autorizado' });
+
+    const [statsRes, lowStockRes, recentOrdersRes] = await Promise.all([
+      pool.query(
+        `SELECT
+          COUNT(*)::int AS total_orders,
+          COUNT(*) FILTER (WHERE status = 'new')::int AS pending_orders,
+          COUNT(*) FILTER (WHERE status = 'preparing')::int AS preparing_orders,
+          COUNT(*) FILTER (WHERE status = 'shipped')::int AS shipped_orders,
+          COUNT(*) FILTER (WHERE status = 'delivered')::int AS delivered_orders,
+          COALESCE(SUM(total), 0)::numeric AS gross_total
+         FROM floret_orders`
+      ),
+      pool.query(
+        `SELECT id, name, stock, price
+         FROM floret_products
+         WHERE stock <= 5
+         ORDER BY stock ASC, created_at DESC
+         LIMIT 12`
+      ),
+      pool.query(
+        `SELECT id, buyer_name, buyer_email, total, status, created_at
+         FROM floret_orders
+         ORDER BY created_at DESC
+         LIMIT 12`
+      )
+    ]);
+
+    const stats = statsRes.rows[0] || {};
+    res.json({
+      stats: {
+        totalOrders: Number(stats.total_orders || 0),
+        pendingOrders: Number(stats.pending_orders || 0),
+        preparingOrders: Number(stats.preparing_orders || 0),
+        shippedOrders: Number(stats.shipped_orders || 0),
+        deliveredOrders: Number(stats.delivered_orders || 0),
+        grossTotal: Number(stats.gross_total || 0)
+      },
+      lowStock: lowStockRes.rows || [],
+      recentOrders: recentOrdersRes.rows || []
+    });
+  } catch (e) {
+    console.error('Error obteniendo dashboard seller Floret:', e);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+app.get('/floret/seller/orders', async (req, res) => {
+  try {
+    const userId = Number(req.query.userId || 0) || null;
+    const email = String(req.query.email || '');
+    const status = normalizeFloretOrderStatus(req.query.status || '');
+    const limit = Math.min(200, Math.max(10, Number(req.query.limit || 80) || 80));
+    const access = await assertFloretMalevoAccess({ userId, email });
+    if (!access.allowed) return res.status(403).json({ error: access.reason || 'No autorizado' });
+
+    const whereSql = req.query.status ? 'WHERE o.status = $1' : '';
+    const params = req.query.status ? [status, limit] : [limit];
+    const limitRef = req.query.status ? '$2' : '$1';
+
+    const ordersRes = await pool.query(
+      `SELECT
+        o.id,
+        o.buyer_name,
+        o.buyer_email,
+        o.buyer_phone,
+        o.shipping_address,
+        o.shipping_city,
+        o.payment_method,
+        o.payment_ref,
+        o.total,
+        o.status,
+        o.created_at,
+        o.updated_at
+       FROM floret_orders o
+       ${whereSql}
+       ORDER BY o.created_at DESC
+       LIMIT ${limitRef}`,
+      params
+    );
+
+    const orderIds = ordersRes.rows.map((row) => row.id);
+    let itemMap = new Map();
+    if (orderIds.length) {
+      const itemsRes = await pool.query(
+        `SELECT id, order_id, product_id, product_name, unit_price, quantity, size, line_total
+         FROM floret_order_items
+         WHERE order_id = ANY($1::int[])
+         ORDER BY id ASC`,
+        [orderIds]
+      );
+      itemMap = itemsRes.rows.reduce((map, item) => {
+        const key = Number(item.order_id);
+        if (!map.has(key)) map.set(key, []);
+        map.get(key).push(item);
+        return map;
+      }, new Map());
+    }
+
+    const orders = ordersRes.rows.map((order) => ({
+      ...order,
+      items: itemMap.get(Number(order.id)) || []
+    }));
+    res.json({ orders });
+  } catch (e) {
+    console.error('Error obteniendo ordenes seller Floret:', e);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+app.patch('/floret/seller/orders/:id/status', async (req, res) => {
+  try {
+    const orderId = Number(req.params.id);
+    const userId = Number(req.body?.userId || 0) || null;
+    const email = String(req.body?.email || '');
+    const nextStatus = normalizeFloretOrderStatus(req.body?.status || '');
+    const access = await assertFloretMalevoAccess({ userId, email });
+    if (!access.allowed) return res.status(403).json({ error: access.reason || 'No autorizado' });
+    if (!orderId) return res.status(400).json({ error: 'ID de orden invalido' });
+
+    const orderRes = await pool.query(
+      `UPDATE floret_orders
+       SET status = $1, updated_at = NOW()
+       WHERE id = $2
+       RETURNING *`,
+      [nextStatus, orderId]
+    );
+    if (!orderRes.rows.length) return res.status(404).json({ error: 'Orden no encontrada' });
+
+    const order = orderRes.rows[0];
+    await createFloretNotification({
+      type: 'order_status',
+      title: `Pedido #${order.id} actualizado`,
+      message: `El pedido #${order.id} ahora esta en estado "${nextStatus}".`,
+      reviewScope: 'order',
+      orderId: order.id,
+      meta: { orderId: order.id, status: nextStatus }
+    });
+
+    res.json({ success: true, order });
+  } catch (e) {
+    console.error('Error actualizando estado de orden Floret:', e);
+    res.status(500).json({ error: 'Error interno' });
   }
 });
 
@@ -3142,6 +3460,8 @@ app.get('/floret/notifications', async (req, res) => {
         n.product_id,
         n.review_id,
         n.review_scope,
+        n.order_id,
+        n.meta,
         n.is_read,
         n.created_at,
         p.name AS product_name
@@ -19953,10 +20273,50 @@ await pool.query(`
   )
 `).catch(() => console.log('Ã¢Å¡Â Ã¯Â¸Â Tabla floret_notifications ya existe'));
 
+await pool.query(`ALTER TABLE floret_notifications ALTER COLUMN review_id DROP NOT NULL`).catch(() => { });
+await pool.query(`ALTER TABLE floret_notifications ADD COLUMN IF NOT EXISTS order_id INTEGER`).catch(() => { });
+await pool.query(`ALTER TABLE floret_notifications ADD COLUMN IF NOT EXISTS meta JSONB DEFAULT '{}'::jsonb`).catch(() => { });
+await pool.query(`ALTER TABLE floret_notifications ADD COLUMN IF NOT EXISTS review_scope VARCHAR(20) NOT NULL DEFAULT 'product'`).catch(() => { });
+
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS floret_orders (
+    id SERIAL PRIMARY KEY,
+    buyer_name VARCHAR(120) NOT NULL,
+    buyer_email VARCHAR(140) NOT NULL,
+    buyer_phone VARCHAR(60),
+    shipping_address TEXT,
+    shipping_city VARCHAR(100),
+    payment_method VARCHAR(40) DEFAULT 'mercado_pago',
+    payment_ref VARCHAR(140),
+    total DECIMAL(12,2) NOT NULL DEFAULT 0,
+    status VARCHAR(20) NOT NULL DEFAULT 'new',
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+  )
+`).catch(() => console.log('Tabla floret_orders ya existe'));
+
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS floret_order_items (
+    id SERIAL PRIMARY KEY,
+    order_id INTEGER NOT NULL REFERENCES floret_orders(id) ON DELETE CASCADE,
+    product_id INTEGER REFERENCES floret_products(id) ON DELETE SET NULL,
+    product_name VARCHAR(200) NOT NULL,
+    unit_price DECIMAL(12,2) NOT NULL,
+    quantity INTEGER NOT NULL DEFAULT 1,
+    size VARCHAR(32),
+    line_total DECIMAL(12,2) NOT NULL DEFAULT 0
+  )
+`).catch(() => console.log('Tabla floret_order_items ya existe'));
+
+
 await pool.query(`CREATE INDEX IF NOT EXISTS idx_floret_product_reviews_product ON floret_product_reviews(product_id, created_at DESC)`).catch(() => { });
 await pool.query(`CREATE INDEX IF NOT EXISTS idx_floret_seller_reviews_email ON floret_seller_reviews(seller_email, created_at DESC)`).catch(() => { });
 await pool.query(`CREATE INDEX IF NOT EXISTS idx_floret_notifications_target ON floret_notifications(target_user_id, created_at DESC)`).catch(() => { });
 await pool.query(`CREATE INDEX IF NOT EXISTS idx_floret_notifications_email ON floret_notifications(target_email, created_at DESC)`).catch(() => { });
+await pool.query(`CREATE INDEX IF NOT EXISTS idx_floret_notifications_order ON floret_notifications(order_id, created_at DESC)`).catch(() => { });
+await pool.query(`CREATE INDEX IF NOT EXISTS idx_floret_orders_created ON floret_orders(created_at DESC)`).catch(() => { });
+await pool.query(`CREATE INDEX IF NOT EXISTS idx_floret_orders_status ON floret_orders(status, created_at DESC)`).catch(() => { });
+await pool.query(`CREATE INDEX IF NOT EXISTS idx_floret_order_items_order ON floret_order_items(order_id, id ASC)`).catch(() => { });
 
 await pool.query(`
   CREATE TABLE IF NOT EXISTS floret_admin_quotas (

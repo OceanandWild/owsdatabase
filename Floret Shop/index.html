@@ -189,6 +189,88 @@
             color: #d8c9ff;
         }
 
+        .catalog-controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+
+        .catalog-control {
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(139, 92, 246, 0.22);
+            border-radius: 12px;
+            color: var(--txt);
+            padding: 10px 11px;
+            font-size: 0.86rem;
+            outline: none;
+        }
+
+        .catalog-control:focus {
+            border-color: var(--pri);
+            box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.18);
+        }
+
+        .seller-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+
+        .seller-stat-card {
+            border: 1px solid rgba(139, 92, 246, 0.25);
+            border-radius: 12px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .seller-stat-card b {
+            display: block;
+            font-size: 1.1rem;
+            margin-top: 4px;
+        }
+
+        .order-line {
+            border: 1px solid rgba(255, 255, 255, 0.13);
+            border-radius: 12px;
+            padding: 10px;
+            margin-bottom: 10px;
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .order-status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            border-radius: 999px;
+            border: 1px solid rgba(139, 92, 246, 0.25);
+            padding: 2px 10px;
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: .05em;
+            color: #d8c9ff;
+        }
+
+        @media(max-width:640px) {
+            .catalog-controls {
+                grid-template-columns: 1fr;
+                gap: 8px;
+            }
+
+            .seller-stats-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .order-line {
+                padding: 9px;
+            }
+
+            .order-line .btn {
+                max-width: 100% !important;
+            }
+        }
+
         .swipe {
             display: flex;
             overflow-x: auto;
@@ -1551,6 +1633,18 @@
         let allReviewsCache = null;
         let malevoNotifications = [];
         let malevoUnreadCount = 0;
+        let filteredProducts = [];
+        let catalogFilters = {
+            query: '',
+            condition: 'all',
+            stock: 'all',
+            minPrice: '',
+            maxPrice: '',
+            sort: 'recent'
+        };
+        let sellerDashboardCache = null;
+        let sellerOrdersCache = [];
+        let sellerOrdersStatusFilter = 'all';
 
         async function loadQuota() {
             if (!user || user.power_level !== 1) return;
@@ -1640,6 +1734,78 @@
             return { notifications: malevoNotifications, unreadCount: malevoUnreadCount };
         }
 
+        function normalizeCatalogNumber(value) {
+            const parsed = Number(value);
+            return Number.isFinite(parsed) ? parsed : null;
+        }
+
+        function applyCatalogFilters(options = {}) {
+            const { rerender = true } = options;
+            const query = String(catalogFilters.query || '').trim().toLowerCase();
+            const minPrice = normalizeCatalogNumber(catalogFilters.minPrice);
+            const maxPrice = normalizeCatalogNumber(catalogFilters.maxPrice);
+
+            filteredProducts = products.filter((product) => {
+                const conditionOk = catalogFilters.condition === 'all' || String(product.condition || '').toLowerCase() === catalogFilters.condition;
+                const stockValue = Number(product.stock || 0);
+                const stockOk =
+                    catalogFilters.stock === 'all' ||
+                    (catalogFilters.stock === 'in' && stockValue > 0) ||
+                    (catalogFilters.stock === 'low' && stockValue > 0 && stockValue <= 4) ||
+                    (catalogFilters.stock === 'out' && stockValue <= 0);
+                const queryOk = !query || [product.name, product.description, product.condition]
+                    .map((v) => String(v || '').toLowerCase())
+                    .some((v) => v.includes(query));
+                const minOk = minPrice === null || Number(product.price || 0) >= minPrice;
+                const maxOk = maxPrice === null || Number(product.price || 0) <= maxPrice;
+                return conditionOk && stockOk && queryOk && minOk && maxOk;
+            });
+
+            const sortMode = String(catalogFilters.sort || 'recent');
+            filteredProducts.sort((a, b) => {
+                if (sortMode === 'price-asc') return Number(a.price || 0) - Number(b.price || 0);
+                if (sortMode === 'price-desc') return Number(b.price || 0) - Number(a.price || 0);
+                if (sortMode === 'stock-desc') return Number(b.stock || 0) - Number(a.stock || 0);
+                if (sortMode === 'rating-desc') return Number((b.reviewSummary || {}).avgRating || 0) - Number((a.reviewSummary || {}).avgRating || 0);
+                return Number(b.id || 0) - Number(a.id || 0);
+            });
+
+            if (rerender) {
+                renderProducts();
+            }
+
+            const summary = document.getElementById('catalog-results');
+            if (summary) {
+                summary.textContent = `${filteredProducts.length} resultados de ${products.length}`;
+            }
+        }
+
+        function updateCatalogFilter(field, value) {
+            catalogFilters[field] = value;
+            applyCatalogFilters({ rerender: true });
+        }
+
+        async function loadSellerDashboard(force = false) {
+            if (!user || !isMalevoSession()) throw new Error('Solo perfiles de venta autorizados');
+            if (!force && sellerDashboardCache) return sellerDashboardCache;
+            const res = await fetch(`${API}/floret/seller/dashboard?userId=${encodeURIComponent(user.id)}&email=${encodeURIComponent(user.email || '')}`, { cache: 'no-store' });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'No se pudo cargar el dashboard');
+            sellerDashboardCache = data;
+            return data;
+        }
+
+        async function loadSellerOrders(force = false) {
+            if (!user || !isMalevoSession()) throw new Error('Solo perfiles de venta autorizados');
+            if (!force && sellerOrdersCache.length) return sellerOrdersCache;
+            const statusParam = sellerOrdersStatusFilter !== 'all' ? `&status=${encodeURIComponent(sellerOrdersStatusFilter)}` : '';
+            const res = await fetch(`${API}/floret/seller/orders?userId=${encodeURIComponent(user.id)}&email=${encodeURIComponent(user.email || '')}${statusParam}&limit=120`, { cache: 'no-store' });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'No se pudieron cargar ordenes');
+            sellerOrdersCache = Array.isArray(data.orders) ? data.orders : [];
+            return sellerOrdersCache;
+        }
+
         // ========== FLOWERS CANVAS ==========
         const canvas = document.getElementById('flowers');
         const ctx = canvas.getContext('2d');
@@ -1722,7 +1888,30 @@
       <h2 class="title"><i class="fas fa-store"></i> Productos</h2>
       <div class="catalog-meta">
         <span class="sync-tag" id="catalog-sync-tag">${catalogSyncTag}</span>
-        <span>${products.length} productos cargados</span>
+        <span id="catalog-results">${filteredProducts.length} resultados de ${products.length}</span>
+      </div>
+      <div class="catalog-controls">
+        <input class="catalog-control" placeholder="Buscar por nombre o descripcion" value="${escapeHtml(catalogFilters.query)}" oninput="updateCatalogFilter('query', this.value)">
+        <select class="catalog-control" onchange="updateCatalogFilter('condition', this.value)">
+          <option value="all" ${catalogFilters.condition === 'all' ? 'selected' : ''}>Condicion: todas</option>
+          <option value="nuevo" ${catalogFilters.condition === 'nuevo' ? 'selected' : ''}>Solo nuevo</option>
+          <option value="usado" ${catalogFilters.condition === 'usado' ? 'selected' : ''}>Solo usado</option>
+        </select>
+        <select class="catalog-control" onchange="updateCatalogFilter('stock', this.value)">
+          <option value="all" ${catalogFilters.stock === 'all' ? 'selected' : ''}>Stock: todos</option>
+          <option value="in" ${catalogFilters.stock === 'in' ? 'selected' : ''}>Con stock</option>
+          <option value="low" ${catalogFilters.stock === 'low' ? 'selected' : ''}>Stock bajo (1-4)</option>
+          <option value="out" ${catalogFilters.stock === 'out' ? 'selected' : ''}>Agotados</option>
+        </select>
+        <input class="catalog-control" type="number" min="0" placeholder="Precio min" value="${escapeHtml(catalogFilters.minPrice)}" oninput="updateCatalogFilter('minPrice', this.value)">
+        <input class="catalog-control" type="number" min="0" placeholder="Precio max" value="${escapeHtml(catalogFilters.maxPrice)}" oninput="updateCatalogFilter('maxPrice', this.value)">
+        <select class="catalog-control" onchange="updateCatalogFilter('sort', this.value)">
+          <option value="recent" ${catalogFilters.sort === 'recent' ? 'selected' : ''}>Orden: mas recientes</option>
+          <option value="price-asc" ${catalogFilters.sort === 'price-asc' ? 'selected' : ''}>Precio: menor a mayor</option>
+          <option value="price-desc" ${catalogFilters.sort === 'price-desc' ? 'selected' : ''}>Precio: mayor a menor</option>
+          <option value="stock-desc" ${catalogFilters.sort === 'stock-desc' ? 'selected' : ''}>Stock: mayor a menor</option>
+          <option value="rating-desc" ${catalogFilters.sort === 'rating-desc' ? 'selected' : ''}>Rating: mayor a menor</option>
+        </select>
       </div>
       <div class="swipe" id="products-grid"></div>
     </main>
@@ -1741,17 +1930,23 @@
     ${isAdmin ? `<button class="admin-fab" onclick="openAddProduct()"><i class="fas fa-plus"></i> Agregar</button>` : ''}
     <div class="modal-bg" id="modal"></div>
   `;
-            renderProducts();
+            applyCatalogFilters({ rerender: true });
             renderCart();
         }
 
         function renderProducts() {
             const grid = document.getElementById('products-grid');
             if (products.length === 0) {
-                grid.innerHTML = `<div class="empty"><i class="fas fa-box-open"></i><p>No hay productos aún</p></div>`;
+                grid.innerHTML = `<div class="empty"><i class="fas fa-box-open"></i><p>No hay productos aun</p></div>`;
                 return;
             }
-            grid.innerHTML = products.map((p, i) => {
+            if (filteredProducts.length === 0) {
+                grid.innerHTML = `<div class="empty"><i class="fas fa-filter"></i><p>No hay resultados con los filtros actuales</p></div>`;
+                return;
+            }
+
+            grid.innerHTML = filteredProducts.map((p) => {
+                const i = products.findIndex((item) => Number(item.id) === Number(p.id));
                 const isSoldOut = (p.stock || 0) <= 0;
                 const lowStock = !isSoldOut && p.stock < 5;
                 return `
@@ -1787,7 +1982,6 @@
                 `;
             }).join('');
 
-            // Iniciar slideshow si hay múltiples imágenes
             startSlideshow();
         }
 
@@ -1851,7 +2045,7 @@
             const inCart = cart.filter(c => c.name === p.name).length;
             if (inCart >= p.stock) return showToast('No hay más unidades disponibles', true);
 
-            const item = { name: p.name, price: p.price, image: p.images[0] || '', size: null, originalIdx: idx }; // Guardamos idx para referencias
+            const item = { name: p.name, price: p.price, image: p.images[0] || '', size: null, originalIdx: idx, productId: p.id }; // Guardamos idx para referencias
 
             if (p.requiresSize && p.sizes?.length) {
                 openSizeModal(idx);
@@ -1874,7 +2068,7 @@
                 return showToast('No hay más unidades disponibles', true);
             }
 
-            cart.push({ name: p.name, price: p.price, image: p.images[0] || '', size, originalIdx: idx });
+            cart.push({ name: p.name, price: p.price, image: p.images[0] || '', size, originalIdx: idx, productId: p.id });
             localStorage.setItem('floret_cart', JSON.stringify(cart));
             closeModal();
             render();
@@ -2182,10 +2376,10 @@
         <button class="btn btn-s" style="max-width:200px" onclick="markAllMalevoNotificationsRead()"><i class="fas fa-check-double"></i> Marcar todo leido</button>
       </div>
       ${(data.notifications || []).length ? data.notifications.map(n => `
-        <div class="notif-item ${n.is_read ? '' : 'unread'}" onclick="openNotificationTarget(${n.id}, '${n.review_scope}', ${n.review_id || 0})">
+        <div class="notif-item ${n.is_read ? '' : 'unread'}" onclick="openNotificationTarget(${n.id}, '${n.review_scope || ''}', ${n.review_id || 0}, '${n.type || ''}', ${n.order_id || 0})">
           <div class="notif-title">
             <strong>${escapeHtml(n.title || 'Notificacion')}</strong>
-            <span class="notif-chip">${escapeHtml(n.review_scope || 'review')}</span>
+            <span class="notif-chip">${escapeHtml(n.type || n.review_scope || 'review')}</span>
           </div>
           <div class="notif-msg">${escapeHtml(n.message || '')}</div>
           <div class="notif-date">${formatDateTime(n.created_at)}</div>
@@ -2224,12 +2418,18 @@
             }
         }
 
-        async function openNotificationTarget(notificationId, scope, reviewId) {
+        async function openNotificationTarget(notificationId, scope, reviewId, type = '', orderId = 0) {
             await markMalevoNotificationRead(notificationId);
             malevoNotifications = malevoNotifications.map(n => n.id === notificationId ? { ...n, is_read: true } : n);
             malevoUnreadCount = malevoNotifications.filter(n => !n.is_read).length;
             render();
 
+            if (scope === 'order' || String(type || '').startsWith('order_')) {
+                return openSellerOperationsPanel(Number(orderId || 0) || null);
+            }
+            if (scope === 'stock' || type === 'stock_low') {
+                return openSellerOperationsPanel(null);
+            }
             if (scope === 'seller') {
                 return openSellerReviewsPanel();
             }
@@ -2255,6 +2455,116 @@
   `);
             } catch (error) {
                 showToast(error.message || 'No se pudo abrir detalle de review', true);
+            }
+        }
+
+        function renderSellerOrderStatusLabel(status) {
+            const safe = String(status || 'new').toLowerCase();
+            const labels = {
+                new: 'Nuevo',
+                paid: 'Pagado',
+                preparing: 'Preparando',
+                shipped: 'Enviado',
+                delivered: 'Entregado',
+                cancelled: 'Cancelado'
+            };
+            return labels[safe] || 'Nuevo';
+        }
+
+        async function updateSellerOrderStatus(orderId) {
+            if (!user || !isMalevoSession()) return showToast('Solo perfiles autorizados', true);
+            const selectEl = document.getElementById(`order-status-${orderId}`);
+            if (!selectEl) return;
+            try {
+                const res = await fetch(`${API}/floret/seller/orders/${orderId}/status`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: user.id,
+                        email: user.email || '',
+                        status: selectEl.value
+                    })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'No se pudo actualizar estado');
+                sellerDashboardCache = null;
+                sellerOrdersCache = [];
+                await loadMalevoNotifications(true).catch(() => null);
+                showToast(`Orden #${orderId} actualizada`);
+                openSellerOperationsPanel(orderId);
+            } catch (error) {
+                showToast(error.message || 'No se pudo actualizar', true);
+            }
+        }
+
+        async function openSellerOperationsPanel(focusOrderId = null) {
+            if (!user || !isMalevoSession()) return showToast('Solo Malevo puede abrir esta seccion', true);
+            try {
+                const [dashboard, orders] = await Promise.all([
+                    loadSellerDashboard(true),
+                    loadSellerOrders(true)
+                ]);
+                const stats = dashboard.stats || {};
+                const focusId = Number(focusOrderId || 0) || null;
+                openModal(`
+    <div class="modal-hd"><h3><i class="fas fa-briefcase"></i> Panel de ventas</h3><button class="modal-cl" onclick="closeModal()"><i class="fas fa-times"></i></button></div>
+    <div class="modal-bd">
+      <div class="seller-stats-grid">
+        <div class="seller-stat-card"><span>Pedidos</span><b>${Number(stats.totalOrders || 0)}</b></div>
+        <div class="seller-stat-card"><span>Pendientes</span><b>${Number(stats.pendingOrders || 0)}</b></div>
+        <div class="seller-stat-card"><span>En proceso</span><b>${Number(stats.preparingOrders || 0) + Number(stats.shippedOrders || 0)}</b></div>
+        <div class="seller-stat-card"><span>Facturacion</span><b>$${Number(stats.grossTotal || 0).toLocaleString('es-UY')}</b></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+        <h4 style="margin:0">Ordenes recientes</h4>
+        <select class="catalog-control" style="max-width:220px" onchange="sellerOrdersStatusFilter = this.value; sellerOrdersCache = []; openSellerOperationsPanel(${focusId || 0});">
+          <option value="all" ${sellerOrdersStatusFilter === 'all' ? 'selected' : ''}>Todos los estados</option>
+          <option value="new" ${sellerOrdersStatusFilter === 'new' ? 'selected' : ''}>Nuevo</option>
+          <option value="paid" ${sellerOrdersStatusFilter === 'paid' ? 'selected' : ''}>Pagado</option>
+          <option value="preparing" ${sellerOrdersStatusFilter === 'preparing' ? 'selected' : ''}>Preparando</option>
+          <option value="shipped" ${sellerOrdersStatusFilter === 'shipped' ? 'selected' : ''}>Enviado</option>
+          <option value="delivered" ${sellerOrdersStatusFilter === 'delivered' ? 'selected' : ''}>Entregado</option>
+          <option value="cancelled" ${sellerOrdersStatusFilter === 'cancelled' ? 'selected' : ''}>Cancelado</option>
+        </select>
+      </div>
+      ${(orders || []).length ? orders.map((order) => `
+        <div class="order-line" style="${focusId && Number(order.id) === focusId ? 'border-color:rgba(236,72,153,.5);box-shadow:0 0 0 1px rgba(236,72,153,.4) inset;' : ''}">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+            <strong>#${order.id} · ${escapeHtml(order.buyer_name || 'Cliente')}</strong>
+            <span class="order-status-pill">${renderSellerOrderStatusLabel(order.status)}</span>
+          </div>
+          <div class="review-comment" style="margin-top:5px">Total: <b>$${Number(order.total || 0).toLocaleString('es-UY')}</b> · ${formatDateTime(order.created_at)}</div>
+          <div class="review-comment">Contacto: ${escapeHtml(order.buyer_email || '-')} ${order.buyer_phone ? `· ${escapeHtml(order.buyer_phone)}` : ''}</div>
+          <div class="review-comment">Envio: ${escapeHtml(order.shipping_address || 'Sin direccion')} ${order.shipping_city ? `· ${escapeHtml(order.shipping_city)}` : ''}</div>
+          <div class="review-comment" style="margin:8px 0">Items: ${(order.items || []).map((item) => `${escapeHtml(item.product_name)} x${item.quantity}${item.size ? ` (${escapeHtml(item.size)})` : ''}`).join(' · ') || 'Sin items'}</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <select id="order-status-${order.id}" class="catalog-control" style="flex:1;min-width:170px">
+              <option value="new" ${String(order.status || '') === 'new' ? 'selected' : ''}>Nuevo</option>
+              <option value="paid" ${String(order.status || '') === 'paid' ? 'selected' : ''}>Pagado</option>
+              <option value="preparing" ${String(order.status || '') === 'preparing' ? 'selected' : ''}>Preparando</option>
+              <option value="shipped" ${String(order.status || '') === 'shipped' ? 'selected' : ''}>Enviado</option>
+              <option value="delivered" ${String(order.status || '') === 'delivered' ? 'selected' : ''}>Entregado</option>
+              <option value="cancelled" ${String(order.status || '') === 'cancelled' ? 'selected' : ''}>Cancelado</option>
+            </select>
+            <button class="btn btn-p" style="max-width:220px" onclick="updateSellerOrderStatus(${order.id})"><i class="fas fa-check"></i> Aplicar estado</button>
+          </div>
+        </div>
+      `).join('') : `<div class="empty"><i class="fas fa-box-open"></i><p>No hay ordenes para este filtro</p></div>`}
+
+      <h4 style="margin:14px 0 8px">Stock sensible</h4>
+      ${(dashboard.lowStock || []).length ? (dashboard.lowStock || []).map((p) => `
+        <div class="review-card">
+          <div class="review-head">
+            <strong>${escapeHtml(p.name)}</strong>
+            <span class="review-date">${Number(p.stock || 0)} unidades</span>
+          </div>
+          <div class="review-comment">Precio: $${Number(p.price || 0).toLocaleString('es-UY')}</div>
+        </div>
+      `).join('') : '<div class="review-comment">Sin alertas de stock por ahora.</div>'}
+    </div>
+  `);
+            } catch (error) {
+                showToast(error.message || 'No se pudo abrir panel de ventas', true);
             }
         }
 
@@ -2889,6 +3199,7 @@
                 catalogLastSync = new Date();
                 catalogSyncState = 'idle';
                 catalogSyncError = '';
+                applyCatalogFilters({ rerender: false });
                 render();
                 return true;
             } catch (e) {
@@ -2899,6 +3210,52 @@
                 if (showErrorToast) showToast('Error cargando catalogo del servidor', true);
                 return false;
             }
+        }
+
+        function buildOrderPayloadFromCart(cartItems = []) {
+            const grouped = new Map();
+            for (const item of cartItems) {
+                const productId = Number(item.productId || products.find((p) => p.name === item.name)?.id || 0);
+                if (!productId) continue;
+                const size = String(item.size || '').trim();
+                const key = `${productId}::${size}`;
+                if (!grouped.has(key)) {
+                    grouped.set(key, {
+                        productId,
+                        productName: String(item.name || '').trim(),
+                        unitPrice: Number(item.price || 0) || 0,
+                        quantity: 0,
+                        size: size || null
+                    });
+                }
+                grouped.get(key).quantity += 1;
+            }
+            return Array.from(grouped.values()).filter((item) => item.unitPrice > 0 && item.quantity > 0);
+        }
+
+        async function registerPaidOrder(cartItems = []) {
+            const normalized = buildOrderPayloadFromCart(cartItems);
+            if (!normalized.length) return;
+            const payload = {
+                buyerName: checkoutData.name || user?.username || 'Cliente Floret',
+                buyerEmail: checkoutData.email || user?.email || 'cliente@floret.ows',
+                buyerPhone: checkoutData.phone || '',
+                shippingAddress: checkoutData.address || '',
+                shippingCity: checkoutData.city || '',
+                paymentMethod: 'mercado_pago',
+                paymentRef: '',
+                items: normalized
+            };
+            const res = await fetch(`${API}/floret/orders`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'No se pudo registrar la orden');
+            sellerDashboardCache = null;
+            sellerOrdersCache = [];
+            return data;
         }
 
         // ========== PERFIL ==========
@@ -2934,6 +3291,7 @@
                     <div class="profile-menu">
                         ${user.power_level === 2 ? `<button class="profile-menu-item" style="background:rgba(236,72,153,0.1);border-color:var(--pink);color:var(--pink)" onclick="openGrantQuota()"><i class="fas fa-gift"></i> Otorgar Cuota a Malevo</button>` : ''}
                         ${isMalevoSession() ? `<button class="profile-menu-item" style="background:rgba(236,72,153,0.14);border-color:rgba(236,72,153,0.35);color:#ffc7eb" onclick="openMalevoNotifications()"><i class="fas fa-bell"></i> Notificaciones ${malevoUnreadCount > 0 ? `<span class="notif-badge">${malevoUnreadCount}</span>` : ''}</button>` : ''}
+                        ${isMalevoSession() ? `<button class="profile-menu-item" onclick="openSellerOperationsPanel()"><i class="fas fa-briefcase"></i> Panel de ventas</button>` : ''}
                         ${isMalevoSession() ? `<button class="profile-menu-item" onclick="openMalevoReviewHub()"><i class="fas fa-layer-group"></i> Centro de Reviews</button>` : ''}
                         <button class="profile-menu-item" onclick="openSellerReviewComposer()"><i class="fas fa-user-check"></i> Calificar a Malevo</button>
                         <button class="profile-menu-item" onclick="openSellerReviewsPanel()"><i class="fas fa-star"></i> Reviews de vendedor</button>
@@ -3015,9 +3373,16 @@
         };
 
 
-        function showPaymentSuccess() {
+        async function showPaymentSuccess() {
             // Intentar usar el carrito actual, o el backup si está vacío (fix del $0)
             let finalCart = cart && cart.length > 0 ? cart : (JSON.parse(localStorage.getItem('floret_cart_backup')) || []);
+            if (finalCart.length) {
+                try {
+                    await registerPaidOrder(finalCart);
+                } catch (orderErr) {
+                    console.error('No se pudo registrar la orden Floret:', orderErr);
+                }
+            }
 
             // Generar mensaje con el contenido del carrito
             let msg = '🌸 *HOLA, REALICÉ EL PAGO EN FLORET SHOP* 🌸\n\n';

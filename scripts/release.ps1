@@ -43,6 +43,7 @@ $PROJECTS = @{
     "velocity-surge"       = @{ repo = "velocity-surge";         dir = "Velocity Surge";          platforms = @("windows") }
     "wildwave"             = @{ repo = "wildwave";               dir = "WildWave";                platforms = @("windows") }
     "wildshorts"           = @{ repo = "wildshorts";             dir = "WildShorts";              platforms = @("windows") }
+    "ocean-cinemas"        = @{ repo = "ocean-cinemas";          dir = "Ocean Cinemas";           platforms = @("windows") }
     "ecoxion"              = @{ repo = "ecoxion";                dir = "Ecoxion";                 platforms = @("windows") }
     "dinobox"              = @{ repo = "owsdatabase";            dir = "DinoBox";                 platforms = @("windows") }
     "wilddestiny"          = @{ repo = "wilddestiny";            dir = "Wild Destiny";            platforms = @("windows") }

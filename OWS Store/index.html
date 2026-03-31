@@ -9463,11 +9463,11 @@
                     ...list[idx],
                     slug: 'naturepedia',
                     name: 'Naturepedia',
-                    short: 'NTP',
-                    status: 'coming_soon',
-                    pending_release: true,
-                    installer_available: false,
-                    release_date: ''
+                    short: list[idx].short || 'NTP',
+                    status: list[idx].status || 'coming_soon',
+                    pending_release: list[idx].pending_release !== undefined ? list[idx].pending_release : true,
+                    installer_available: list[idx].installer_available !== undefined ? list[idx].installer_available : Boolean(list[idx].installer_url),
+                    release_date: list[idx].release_date || ''
                 };
             }
             return list;
@@ -9507,11 +9507,11 @@
                     ...list[idx],
                     slug: 'ocean-cinemas',
                     name: 'Ocean Cinemas',
-                    short: 'OCN',
-                    status: 'coming_soon',
-                    pending_release: true,
-                    installer_available: false,
-                    release_date: list[idx].release_date || OCEAN_CINEMAS_RELEASE_DATE_ISO
+                    short: list[idx].short || 'OCN',
+                    status: list[idx].status || 'launched',
+                    pending_release: list[idx].pending_release !== undefined ? list[idx].pending_release : false,
+                    installer_available: list[idx].installer_available !== undefined ? list[idx].installer_available : Boolean(list[idx].installer_url),
+                    release_date: list[idx].release_date || ''
                 };
             }
             return list;
@@ -9529,11 +9529,11 @@
                     ...list[idx],
                     slug: 'mystery-project',
                     name: '?????',
-                    short: '???',
-                    status: 'coming_soon',
-                    pending_release: true,
-                    installer_available: false,
-                    release_date: ''
+                    short: list[idx].short || '???',
+                    status: list[idx].status || 'coming_soon',
+                    pending_release: list[idx].pending_release !== undefined ? list[idx].pending_release : true,
+                    installer_available: list[idx].installer_available !== undefined ? list[idx].installer_available : Boolean(list[idx].installer_url),
+                    release_date: list[idx].release_date || ''
                 };
             }
             return list;

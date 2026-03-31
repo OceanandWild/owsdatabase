@@ -48,7 +48,7 @@ jobs:
             "wildweapon-mayhem"    = @{ repo = "wildweapon-mayhem";   dir = "WildWeapon Mayhem";    buildOut = "C:\builds\wildweapon" }
             "savagespaceanimals"   = @{ repo = "savagespaceanimals";  dir = "Savage Space Animals"; buildOut = "C:\builds\ssa" }
             "oceanpay"             = @{ repo = "oceanpay";            dir = "Ocean Pay";            buildOut = "C:\builds\ocean-pay" }
-  "floretshop"           = @{ repo = "floretshop";          dir = "Floret Shop";          buildOut = "C:\builds\floret-shop" }
+            "floretshop"           = @{ repo = "floretshop";          dir = "Floret Shop";          buildOut = "C:\builds\floret-shop" }
             "wildtransfer"         = @{ repo = "wildtransfer";        dir = "WildTransfer";         buildOut = "C:\builds\wildtransfer" }
             "a-wild-question-game" = @{ repo = "a-wild-question-game";dir = "A Wild Question Game"; buildOut = "C:\builds\awqg" }
             "velocity-surge"       = @{ repo = "velocity-surge";      dir = "Velocity Surge";       buildOut = "C:\builds\velocity-surge" }

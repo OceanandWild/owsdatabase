@@ -7441,6 +7441,31 @@ app.get('/ows-store/projects', async (req, res) => {
       const canonical = canonicalSlugFromProject(merged);
       merged.slug = canonical || merged.slug;
 
+      // Hotfix de disponibilidad: Ocean Cinemas se habilita como instalable
+      // cuando ya tiene release de GitHub y version de release real.
+      if (merged.slug === 'ocean-cinemas') {
+        const releaseUrl = 'https://github.com/OceanandWild/ocean-cinemas/releases/latest';
+        const hasReleaseUrl = String(merged.url || '').toLowerCase().includes('/ocean-cinemas/releases/');
+        const hasVersion = Boolean(String(merged.version || '').trim()) && String(merged.version || '').trim() !== '0.0.0';
+        if (hasReleaseUrl && hasVersion) {
+          merged.status = 'launched';
+          merged.release_date = null;
+          merged.url = releaseUrl;
+          merged.installer_url = merged.installer_url || releaseUrl;
+          const metadata = (merged.metadata && typeof merged.metadata === 'object') ? merged.metadata : {};
+          merged.metadata = {
+            ...metadata,
+            repo: 'OceanandWild/ocean-cinemas',
+            platforms: Array.isArray(metadata.platforms) && metadata.platforms.length ? metadata.platforms : ['windows'],
+            pending_release: false,
+            install_type: metadata.install_type || 'external'
+          };
+          merged.repo = merged.metadata.repo;
+          merged.platforms = merged.metadata.platforms;
+          if (!merged.platform && merged.platforms.length === 1) merged.platform = merged.platforms[0];
+        }
+      }
+
       const current = byCanonical.get(canonical);
       if (!current) {
         byCanonical.set(canonical, merged);

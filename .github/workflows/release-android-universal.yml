@@ -146,45 +146,61 @@ jobs:
             echo "[OWS] Android versionCode=$OWS_ANDROID_VERSION_CODE versionName=$OWS_ANDROID_VERSION_NAME"
           fi
 
-          # Ocean Pay: forzar icono Android desde GitHub raw (evita fallback al icono default de Capacitor)
-          if [ "${{ github.event.inputs.project }}" = "oceanpay" ]; then
-          ICON_URL="https://raw.githubusercontent.com/${{ steps.config.outputs.repo }}/main/build/icon.png"
-          curl -fsSL "$ICON_URL" -o /tmp/oceanpay-icon.png
-          python3 -m pip install --user pillow >/dev/null 2>&1 || true
-
-          cat > /tmp/oceanpay_icon_fix.py <<'PY'
-          from PIL import Image, ImageOps, ImageDraw
-          from pathlib import Path
-          src = Path("/tmp/oceanpay-icon.png")
-          res = Path("android/app/src/main/res")
-          img = Image.open(src).convert("RGBA")
-          side = min(img.width, img.height)
-          left = (img.width - side) // 2
-          top = (img.height - side) // 2
-          img = img.crop((left, top, left + side, top + side))
-          targets = {
-              "mipmap-mdpi": 48,
-              "mipmap-hdpi": 72,
-              "mipmap-xhdpi": 96,
-              "mipmap-xxhdpi": 144,
-              "mipmap-xxxhdpi": 192,
-          }
-          for folder, size in targets.items():
-              out = res / folder
-              out.mkdir(parents=True, exist_ok=True)
-              base = ImageOps.fit(img, (size, size), method=Image.Resampling.LANCZOS)
-              base.save(out / "ic_launcher.png")
-              mask = Image.new("L", (size, size), 0)
-              draw = ImageDraw.Draw(mask)
-              draw.ellipse((0, 0, size - 1, size - 1), fill=255)
-              round_img = base.copy()
-              round_img.putalpha(mask)
-              round_img.save(out / "ic_launcher_round.png")
-          PY
-          python3 /tmp/oceanpay_icon_fix.py
-
-          rm -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml || true
-          rm -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml || true
+          # Forzar icono Android para evitar fallback al icono default de Capacitor
+          # (especialmente en proyectos como Ocean Pay y Floret Shop).
+          if [ "${{ github.event.inputs.project }}" = "oceanpay" ] || [ "${{ github.event.inputs.project }}" = "floretshop" ]; then
+            ICON_SRC="/tmp/ows-android-icon-src"
+            ICON_CANDIDATES=(
+              "https://raw.githubusercontent.com/${{ steps.config.outputs.repo }}/main/build/icon.png"
+              "https://raw.githubusercontent.com/${{ steps.config.outputs.repo }}/main/assets/floretshopicon.png"
+              "https://raw.githubusercontent.com/${{ steps.config.outputs.repo }}/main/build/icon.ico"
+              "https://raw.githubusercontent.com/${{ steps.config.outputs.repo }}/main/assets/floretshopicon.ico"
+            )
+            DOWNLOADED_ICON=""
+            for url in "${ICON_CANDIDATES[@]}"; do
+              if curl -fsSL "$url" -o "$ICON_SRC"; then
+                DOWNLOADED_ICON="$ICON_SRC"
+                echo "[OWS] Android icon source: $url"
+                break
+              fi
+            done
+            if [ -z "$DOWNLOADED_ICON" ]; then
+              echo "[OWS] No icon source found for ${{ github.event.inputs.project }}; keeping existing launcher icon."
+            else
+              python3 -m pip install --user pillow >/dev/null 2>&1 || true
+              cat > /tmp/ows_android_icon_fix.py <<'PY'
+              from PIL import Image, ImageOps, ImageDraw
+              from pathlib import Path
+              src = Path("/tmp/ows-android-icon-src")
+              res = Path("android/app/src/main/res")
+              img = Image.open(src).convert("RGBA")
+              side = min(img.width, img.height)
+              left = (img.width - side) // 2
+              top = (img.height - side) // 2
+              img = img.crop((left, top, left + side, top + side))
+              targets = {
+                  "mipmap-mdpi": 48,
+                  "mipmap-hdpi": 72,
+                  "mipmap-xhdpi": 96,
+                  "mipmap-xxhdpi": 144,
+                  "mipmap-xxxhdpi": 192,
+              }
+              for folder, size in targets.items():
+                  out = res / folder
+                  out.mkdir(parents=True, exist_ok=True)
+                  base = ImageOps.fit(img, (size, size), method=Image.Resampling.LANCZOS)
+                  base.save(out / "ic_launcher.png")
+                  mask = Image.new("L", (size, size), 0)
+                  draw = ImageDraw.Draw(mask)
+                  draw.ellipse((0, 0, size - 1, size - 1), fill=255)
+                  round_img = base.copy()
+                  round_img.putalpha(mask)
+                  round_img.save(out / "ic_launcher_round.png")
+              PY
+              python3 /tmp/ows_android_icon_fix.py
+              rm -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml || true
+              rm -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml || true
+            fi
           fi
 
           APP_GRADLE="android/app/build.gradle"

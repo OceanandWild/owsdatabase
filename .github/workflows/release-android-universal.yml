@@ -168,36 +168,7 @@ jobs:
               echo "[OWS] No icon source found for ${{ github.event.inputs.project }}; keeping existing launcher icon."
             else
               python3 -m pip install --user pillow >/dev/null 2>&1 || true
-              cat > /tmp/ows_android_icon_fix.py <<'PY'
-              from PIL import Image, ImageOps, ImageDraw
-              from pathlib import Path
-              src = Path("/tmp/ows-android-icon-src")
-              res = Path("android/app/src/main/res")
-              img = Image.open(src).convert("RGBA")
-              side = min(img.width, img.height)
-              left = (img.width - side) // 2
-              top = (img.height - side) // 2
-              img = img.crop((left, top, left + side, top + side))
-              targets = {
-                  "mipmap-mdpi": 48,
-                  "mipmap-hdpi": 72,
-                  "mipmap-xhdpi": 96,
-                  "mipmap-xxhdpi": 144,
-                  "mipmap-xxxhdpi": 192,
-              }
-              for folder, size in targets.items():
-                  out = res / folder
-                  out.mkdir(parents=True, exist_ok=True)
-                  base = ImageOps.fit(img, (size, size), method=Image.Resampling.LANCZOS)
-                  base.save(out / "ic_launcher.png")
-                  mask = Image.new("L", (size, size), 0)
-                  draw = ImageDraw.Draw(mask)
-                  draw.ellipse((0, 0, size - 1, size - 1), fill=255)
-                  round_img = base.copy()
-                  round_img.putalpha(mask)
-                  round_img.save(out / "ic_launcher_round.png")
-              PY
-              python3 /tmp/ows_android_icon_fix.py
+              python3 -c $'from PIL import Image, ImageOps, ImageDraw\nfrom pathlib import Path\nsrc = Path("/tmp/ows-android-icon-src")\nres = Path("android/app/src/main/res")\nimg = Image.open(src).convert("RGBA")\nside = min(img.width, img.height)\nleft = (img.width - side) // 2\ntop = (img.height - side) // 2\nimg = img.crop((left, top, left + side, top + side))\ntargets = {\n    "mipmap-mdpi": 48,\n    "mipmap-hdpi": 72,\n    "mipmap-xhdpi": 96,\n    "mipmap-xxhdpi": 144,\n    "mipmap-xxxhdpi": 192,\n}\nfor folder, size in targets.items():\n    out = res / folder\n    out.mkdir(parents=True, exist_ok=True)\n    base = ImageOps.fit(img, (size, size), method=Image.Resampling.LANCZOS)\n    base.save(out / "ic_launcher.png")\n    mask = Image.new("L", (size, size), 0)\n    draw = ImageDraw.Draw(mask)\n    draw.ellipse((0, 0, size - 1, size - 1), fill=255)\n    round_img = base.copy()\n    round_img.putalpha(mask)\n    round_img.save(out / "ic_launcher_round.png")'
               rm -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml || true
               rm -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml || true
             fi

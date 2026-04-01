@@ -525,37 +525,6 @@
             opacity: 0.55;
             cursor: not-allowed;
         }
-        .prelogin-action-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 0.5rem;
-        }
-        .prelogin-btn-secondary {
-            border: 1px solid rgba(86, 136, 188, 0.55);
-            border-radius: 8px;
-            background: linear-gradient(180deg, rgba(12, 29, 51, 0.88), rgba(8, 19, 35, 0.94));
-            color: #b6dcff;
-            font-weight: 700;
-            font-size: 0.8rem;
-            padding: 0.62rem 0.72rem;
-            cursor: pointer;
-            transition: border-color 0.16s ease, transform 0.16s ease, filter 0.2s ease;
-        }
-        .prelogin-btn-secondary:hover:not(:disabled) {
-            border-color: rgba(110, 180, 243, 0.92);
-            transform: translateY(-1px);
-            filter: brightness(1.06);
-        }
-        .prelogin-btn-secondary:disabled {
-            opacity: 0.55;
-            cursor: not-allowed;
-        }
-        .prelogin-hint {
-            color: #95afc8;
-            font-size: 0.72rem;
-            line-height: 1.34;
-            margin-top: 0.08rem;
-        }
         .prelogin-status {
             min-height: 1.2em;
             font-size: 0.8rem;
@@ -3638,11 +3607,6 @@
                         <input id="prelogin-password" class="prelogin-input" type="password" autocomplete="current-password" placeholder="Tu contrasena" required>
                     </label>
                     <button id="prelogin-submit" class="prelogin-btn" type="submit">Entrar a OWS Store</button>
-                    <div class="prelogin-action-row">
-                        <button id="prelogin-create-account" class="prelogin-btn-secondary" type="button">Crear cuenta</button>
-                        <button id="prelogin-recovery-access" class="prelogin-btn-secondary" type="button">Modo recuperacion</button>
-                    </div>
-                    <div class="prelogin-hint">Si Ocean Pay falla en tu dispositivo, usa modo recuperacion para entrar a OWS Store y actualizar Ocean Pay primero.</div>
                     <div id="prelogin-status" class="prelogin-status" aria-live="polite"></div>
                 </form>
             </div>
@@ -4964,7 +4928,6 @@
         };
         let preloginAnnouncementIndex = 0;
         let preloginAnnouncementTimer = null;
-        let preloginRecoveryMode = false;
         let owsStoreBootstrapStarted = false;
         const STORE_OFFERS_ENABLED = false;
         const projectCommerceOfferCache = new Map();
@@ -5737,24 +5700,11 @@
             }
         }
 
-        function applyRecoveryStoreFocus() {
-            const searchInput = document.getElementById('search-input');
-            currentSearchTerm = 'ocean pay';
-            if (searchInput) searchInput.value = 'ocean pay';
-            renderVisibleProjects();
-            addNotification('Modo recuperacion activo: instala o actualiza Ocean Pay y luego vuelve a iniciar sesion.', 'warning');
-            if (Array.isArray(allProjects) && allProjects.some((p) => String(p?.slug || '').toLowerCase() === 'oceanpay')) {
-                setTimeout(() => openDetails('oceanpay'), 260);
-            }
-        }
-
         function initPreloginGate() {
             const gate = document.getElementById('prelogin-gate');
             const shell = document.querySelector('#prelogin-gate .prelogin-gate-shell');
             const form = document.getElementById('prelogin-form');
             const submit = document.getElementById('prelogin-submit');
-            const createBtn = document.getElementById('prelogin-create-account');
-            const recoveryBtn = document.getElementById('prelogin-recovery-access');
             const userInput = document.getElementById('prelogin-username');
             const passInput = document.getElementById('prelogin-password');
             const transitionLayer = document.getElementById('prelogin-transition-layer');
@@ -5762,7 +5712,7 @@
             const transitionResult = document.getElementById('prelogin-transition-result');
             const transitionTitle = document.getElementById('prelogin-transition-title');
             const transitionDetail = document.getElementById('prelogin-transition-detail');
-            if (!gate || !shell || !form || !submit || !createBtn || !recoveryBtn || !userInput || !passInput || !transitionLayer || !transitionLoader || !transitionResult || !transitionTitle || !transitionDetail) return;
+            if (!gate || !shell || !form || !submit || !userInput || !passInput || !transitionLayer || !transitionLoader || !transitionResult || !transitionTitle || !transitionDetail) return;
 
             gate.classList.add('active');
             gate.setAttribute('aria-hidden', 'false');
@@ -5781,8 +5731,6 @@
                 userInput.disabled = disabled;
                 passInput.disabled = disabled;
                 submit.disabled = disabled;
-                createBtn.disabled = disabled;
-                recoveryBtn.disabled = disabled;
             };
 
             const syncLeftTransitionWidth = () => {
@@ -5886,105 +5834,6 @@
                 await startOWSStoreBootstrap();
             };
 
-            const runEntryTransition = async () => {
-                showTransition({
-                    mode: 'loading',
-                    title: 'Entrando...',
-                    detail: 'Preparando entorno del ecosistema.',
-                    scope: 'left'
-                });
-                await new Promise((r) => setTimeout(r, 450));
-                showTransition({
-                    mode: 'loading',
-                    title: 'Entrando...',
-                    detail: 'Preparando entorno del ecosistema.',
-                    scope: 'full',
-                    flyCenter: true
-                });
-                await new Promise((r) => setTimeout(r, 1050));
-                hidePreloginGate();
-                await startOWSStoreBootstrap();
-            };
-
-            const createAccountAndLogin = async () => {
-                const username = String(userInput.value || '').trim();
-                const password = String(passInput.value || '').trim();
-                if (!username || !password) {
-                    setPreloginStatus('Ingresa usuario y contrasena para crear tu cuenta.', 'error');
-                    return;
-                }
-                if (password.length < 4) {
-                    setPreloginStatus('La contrasena debe tener al menos 4 caracteres.', 'error');
-                    return;
-                }
-
-                setPreloginStatus('');
-                setFormDisabled(true);
-                showTransition({
-                    mode: 'loading',
-                    title: 'Creando cuenta...',
-                    detail: 'Registrando usuario en Ocean Pay.',
-                    scope: 'left'
-                });
-                try {
-                    const registerRes = await fetch(`${API_URL}/ocean-pay/register`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ username, password })
-                    });
-                    const registerData = await registerRes.json().catch(() => ({}));
-                    if (!registerRes.ok && registerRes.status !== 409) {
-                        throw new Error(registerData?.error || 'No se pudo crear la cuenta.');
-                    }
-
-                    await loginOceanPayStoreWithCredentials(username, password);
-                    passInput.value = '';
-                    showTransition({
-                        mode: 'success',
-                        title: 'Cuenta lista',
-                        detail: 'Tu cuenta Ocean Pay se creo y quedo vinculada en OWS Store.',
-                        scope: 'left'
-                    });
-                    await new Promise((r) => setTimeout(r, 900));
-                    await runEntryTransition();
-                } catch (err) {
-                    showTransition({
-                        mode: 'error',
-                        title: 'No se pudo crear la cuenta',
-                        detail: err?.message || 'Error de registro en Ocean Pay.',
-                        scope: 'left'
-                    });
-                    await new Promise((r) => setTimeout(r, 1300));
-                    hideTransition();
-                    setFormDisabled(false);
-                    passInput.focus();
-                    setPreloginStatus(err?.message || 'No se pudo crear la cuenta.', 'error');
-                } finally {
-                    if (!owsStoreBootstrapStarted) submit.textContent = 'Entrar a OWS Store';
-                }
-            };
-
-            const enterRecoveryMode = async () => {
-                setPreloginStatus('');
-                setFormDisabled(true);
-                preloginRecoveryMode = true;
-                showTransition({
-                    mode: 'loading',
-                    title: 'Modo recuperacion',
-                    detail: 'Entrando sin cuenta para instalar o actualizar Ocean Pay.',
-                    scope: 'left'
-                });
-                await new Promise((r) => setTimeout(r, 820));
-                showTransition({
-                    mode: 'success',
-                    title: 'Acceso temporal habilitado',
-                    detail: 'Solo para mantenimiento y recuperacion de acceso.',
-                    scope: 'left'
-                });
-                await new Promise((r) => setTimeout(r, 900));
-                await runEntryTransition();
-            };
-
             form.onsubmit = async (event) => {
                 event.preventDefault();
                 const username = String(userInput.value || '').trim();
@@ -6011,7 +5860,23 @@
                         scope: 'left'
                     });
                     await new Promise((r) => setTimeout(r, 900));
-                    await runEntryTransition();
+                    showTransition({
+                        mode: 'loading',
+                        title: 'Entrando...',
+                        detail: 'Preparando entorno del ecosistema.',
+                        scope: 'left'
+                    });
+                    await new Promise((r) => setTimeout(r, 450));
+                    showTransition({
+                        mode: 'loading',
+                        title: 'Entrando...',
+                        detail: 'Preparando entorno del ecosistema.',
+                        scope: 'full',
+                        flyCenter: true
+                    });
+                    await new Promise((r) => setTimeout(r, 1050));
+                    hidePreloginGate();
+                    await startOWSStoreBootstrap();
                 } catch (err) {
                     showTransition({
                         mode: 'error',
@@ -6029,13 +5894,6 @@
                         submit.textContent = 'Entrar a OWS Store';
                     }
                 }
-            };
-
-            createBtn.onclick = () => {
-                createAccountAndLogin().catch(() => {});
-            };
-            recoveryBtn.onclick = () => {
-                enterRecoveryMode().catch(() => {});
             };
 
             setFormDisabled(true);
@@ -13432,10 +13290,44 @@
                     });
                 }
 
-                await FileOpener.openFile({
-                    path: downloadedPath,
-                    mimeType: 'application/vnd.android.package-archive',
-                });
+                const candidatePaths = [];
+                const addCandidatePath = (value) => {
+                    const raw = String(value || '').trim();
+                    if (!raw) return;
+                    if (!candidatePaths.includes(raw)) candidatePaths.push(raw);
+                    if (raw.startsWith('file://')) {
+                        const stripped = raw.replace(/^file:\/\//i, '');
+                        if (stripped && !candidatePaths.includes(stripped)) candidatePaths.push(stripped);
+                    }
+                };
+                addCandidatePath(downloadedPath);
+                addCandidatePath(targetUri);
+                try {
+                    const postDownloadUri = await Filesystem.getUri({ directory, path: relativePath });
+                    addCandidatePath(postDownloadUri?.uri);
+                } catch (_) {}
+
+                let openerErr = null;
+                let opened = false;
+                for (const candidatePath of candidatePaths) {
+                    try {
+                        await FileOpener.openFile({
+                            path: candidatePath,
+                            mimeType: 'application/vnd.android.package-archive',
+                        });
+                        opened = true;
+                        break;
+                    } catch (errOpen) {
+                        openerErr = errOpen;
+                    }
+                }
+                if (!opened) {
+                    return {
+                        ok: false,
+                        error: openerErr?.message || 'No se pudo abrir el instalador APK.',
+                        code: openerErr?.code || 'apk_open_failed',
+                    };
+                }
 
                 // On some Android ROMs, chooser can close without launching installer
                 // when "Install unknown apps" is disabled for this app.
@@ -14355,6 +14247,33 @@
             return latest;
         }
 
+        async function refreshAndroidInstallPayload(project) {
+            if (!project || !supportsAndroidDownloads(project)) return null;
+            const slug = canonicalProjectSlug(project) || String(project.slug || '').trim().toLowerCase();
+            if (!slug) return null;
+            try {
+                const fallbackUrl = String(project.android_release_url || project.release_url || '').trim();
+                const latest = await fetchLatestAndroidReleaseFromStoreApi(slug, fallbackUrl);
+                if (latest?.version) {
+                    project.android_version = latest.version;
+                    if (isNativeAndroidRuntime()) project.version = latest.version;
+                }
+                project.android_version_code = Number(latest?.versionCode || project.android_version_code || 0);
+                if (latest?.downloadUrl) project.android_apk_url = latest.downloadUrl;
+                project.android_apk_direct_url = latest?.directDownloadUrl || project.android_apk_direct_url || '';
+                project.android_apk_proxy_url = latest?.downloadUrl || project.android_apk_proxy_url || '';
+                project.android_sha256 = latest?.sha256 || project.android_sha256 || '';
+                project.android_apk_size = Number(latest?.sizeBytes || project.android_apk_size || 0);
+                project.android_release_notes = latest?.notes || project.android_release_notes || '';
+                project.android_last_update_at = latest?.publishedAt || project.android_last_update_at || null;
+                project.android_available = Boolean(project.android_apk_direct_url || project.android_apk_url);
+                return latest;
+            } catch (err) {
+                console.log('No se pudo refrescar payload Android live:', err?.message || err);
+                return null;
+            }
+        }
+
         async function handleProjectAction(e, project) {
             e.stopPropagation();
             if (!project) return;
@@ -14420,6 +14339,8 @@
                     return;
                 }
                 if (selectedTarget?.kind === 'android') {
+                    await refreshAndroidInstallPayload(project);
+                    selectedTarget = getSelectedInstallTarget(project);
                     if (isReleaseTrackedProject(project)) {
                         showActionMessage('Validando release Android de ' + project.name + '...', { state: 'checking' });
                         try {
@@ -16929,10 +16850,6 @@
                     setupRecurringRefreshLoop();
                     deferredMonitorState = 'Desactivado';
                     renderSettingsState();
-                }
-
-                if (preloginRecoveryMode) {
-                    applyRecoveryStoreFocus();
                 }
             } catch (err) {
                 console.error('Error durante el arranque:', err);

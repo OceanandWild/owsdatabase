@@ -11350,6 +11350,74 @@
             };
         }
 
+        async function fetchLatestFloretAndroidReleaseFromGithub() {
+            const res = await fetch(`${FLORET_RELEASES_API_URL}&nocache=${Date.now()}`, {
+                cache: 'no-store',
+                headers: { 'Accept': 'application/vnd.github+json' }
+            });
+            if (!res.ok) throw new Error(`GitHub API ${res.status}`);
+            const releases = await res.json();
+            const list = Array.isArray(releases) ? releases : [];
+            const apkCandidates = [];
+
+            for (const rel of list) {
+                const assets = Array.isArray(rel?.assets) ? rel.assets : [];
+                const releaseVersion = normalizeReleaseVersion(rel?.tag_name || '');
+                const releaseNotes = String(rel?.body || '').trim();
+                const publishedAt = rel?.published_at || rel?.created_at || null;
+                for (const a of assets) {
+                    const name = String(a?.name || '');
+                    if (!name) continue;
+                    const isApk = /\.apk$/i.test(name) || /app-release-signed\.apk$/i.test(name);
+                    if (!isApk) continue;
+                    const assetVersion = extractVersionFromText(name);
+                    const version = assetVersion || releaseVersion || '';
+                    apkCandidates.push({
+                        asset: a,
+                        version,
+                        versionCode: Number(deriveVersionCodeFromVersionName(version) || 0),
+                        updatedAtMs: Date.parse(a?.updated_at || '') || 0,
+                        publishedAt,
+                        releaseNotes,
+                    });
+                }
+            }
+
+            apkCandidates.sort((x, y) => {
+                const cmp = compareVersionLike(y.version, x.version);
+                if (cmp !== 0) return cmp;
+                if ((y.versionCode || 0) !== (x.versionCode || 0)) return (y.versionCode || 0) - (x.versionCode || 0);
+                return (y.updatedAtMs || 0) - (x.updatedAtMs || 0);
+            });
+
+            const selected = apkCandidates[0] || null;
+            if (!selected?.asset?.browser_download_url) {
+                return {
+                    version: '',
+                    versionCode: 0,
+                    directDownloadUrl: '',
+                    downloadUrl: '',
+                    sizeBytes: 0,
+                    notes: '',
+                    publishedAt: null,
+                    source: 'github-releases',
+                    warning: 'No se encontro APK en GitHub Releases de Floret Shop.',
+                };
+            }
+
+            return {
+                version: selected.version || '',
+                versionCode: Number(selected.versionCode || 0),
+                directDownloadUrl: selected.asset.browser_download_url || '',
+                downloadUrl: selected.asset.browser_download_url || '',
+                sizeBytes: Number(selected.asset.size || 0),
+                notes: selected.releaseNotes || '',
+                publishedAt: selected.publishedAt || null,
+                source: 'github-releases',
+                warning: '',
+            };
+        }
+
         async function fetchLatestAWQGRelease() {
             const now = Date.now();
             if (awqgAndroidReleaseCache && (now - awqgAndroidReleaseCache.checkedAt) < 120000) {
@@ -11465,9 +11533,10 @@
                 return floretProjectReleaseCache;
             }
 
-            const [androidResult, windowsResult] = await Promise.allSettled([
+            const [androidResult, windowsResult, androidGithubResult] = await Promise.allSettled([
                 fetchLatestAndroidReleaseFromStoreApi(FLORET_ANDROID_SLUG, FLORET_RELEASES_URL),
                 fetchLatestFloretWindowsRelease(),
+                fetchLatestFloretAndroidReleaseFromGithub(),
             ]);
 
             const androidData = androidResult.status === 'fulfilled'
@@ -11495,29 +11564,45 @@
                     warning: 'No se pudo resolver release Windows desde GitHub Releases.',
                 };
 
-            const warnings = [windowsData.warning, androidData.warning].filter(Boolean).join(' | ');
+            const androidGithubData = androidGithubResult.status === 'fulfilled'
+                ? androidGithubResult.value
+                : {
+                    version: '',
+                    versionCode: 0,
+                    directDownloadUrl: '',
+                    downloadUrl: '',
+                    sizeBytes: 0,
+                    publishedAt: null,
+                    notes: '',
+                    source: 'github-releases',
+                    warning: 'No se pudo resolver release Android de Floret desde GitHub Releases.',
+                };
+
+            const selectedAndroid = pickNewestAndroidRelease(androidGithubData, androidData) || androidData;
+
+            const warnings = [windowsData.warning, androidData.warning, androidGithubData.warning].filter(Boolean).join(' | ');
             const payload = {
-                version: windowsData.version || androidData.version || null,
+                version: windowsData.version || selectedAndroid.version || androidData.version || null,
                 windowsVersion: windowsData.version || '',
-                androidVersion: androidData.version || '',
+                androidVersion: selectedAndroid.version || '',
                 windowsPublishedAt: windowsData.publishedAt || null,
-                androidPublishedAt: androidData.publishedAt || null,
-                versionCode: Number(androidData.versionCode || 0),
+                androidPublishedAt: selectedAndroid.publishedAt || androidData.publishedAt || null,
+                versionCode: Number(selectedAndroid.versionCode || 0),
                 installerUrl: windowsData.installerUrl || '',
                 installerSize: Number(windowsData.installerSize || 0),
                 installerAvailable: Boolean(windowsData.installerAvailable && windowsData.installerUrl),
                 windowsReleaseNotes: windowsData.releaseNotes || '',
-                androidReleaseNotes: androidData.notes || '',
-                androidApkUrl: androidData.directDownloadUrl || androidData.downloadUrl || '',
-                androidApkDirectUrl: androidData.directDownloadUrl || '',
-                androidApkProxyUrl: androidData.downloadUrl || '',
+                androidReleaseNotes: selectedAndroid.notes || androidData.notes || '',
+                androidApkUrl: selectedAndroid.directDownloadUrl || selectedAndroid.downloadUrl || androidData.directDownloadUrl || androidData.downloadUrl || '',
+                androidApkDirectUrl: selectedAndroid.directDownloadUrl || androidData.directDownloadUrl || '',
+                androidApkProxyUrl: (selectedAndroid.source === 'ows-store-api' ? selectedAndroid.downloadUrl : '') || androidData.downloadUrl || '',
                 androidSha256: androidData.sha256 || '',
-                androidApkSize: Number(androidData.sizeBytes || 0),
+                androidApkSize: Number(selectedAndroid.sizeBytes || 0),
                 androidAabUrl: '',
                 androidAabSize: 0,
-                androidAvailable: Boolean(androidData.directDownloadUrl || androidData.downloadUrl),
+                androidAvailable: Boolean(selectedAndroid.directDownloadUrl || selectedAndroid.downloadUrl || androidData.directDownloadUrl || androidData.downloadUrl),
                 releaseUrl: windowsData.releaseUrl || FLORET_RELEASES_URL,
-                publishedAt: pickLatestDate(windowsData.publishedAt, androidData.publishedAt),
+                publishedAt: pickLatestDate(windowsData.publishedAt, selectedAndroid.publishedAt || androidData.publishedAt),
                 warning: warnings,
                 checkedAt: now,
             };

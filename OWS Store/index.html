@@ -3222,6 +3222,161 @@
             opacity: 0.7;
         }
 
+        /* Final mobile override for project updates (must stay after base styles) */
+        @media (max-width: 1080px) {
+            .project-updates-head {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.75rem;
+                padding: 0.9rem;
+            }
+
+            .project-updates-title {
+                font-size: 1rem;
+                line-height: 1.2;
+            }
+
+            .project-updates-sub {
+                font-size: 0.69rem;
+                line-height: 1.35;
+            }
+
+            .project-updates-summary {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 0.38rem;
+            }
+
+            .project-updates-summary-card {
+                padding: 0.5rem 0.55rem;
+                min-height: 58px;
+                border-radius: 9px;
+            }
+
+            .project-updates-summary-value {
+                font-size: 1rem;
+            }
+
+            .project-updates-actions {
+                width: 100%;
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 0.45rem;
+            }
+
+            .project-updates-pill {
+                width: 100%;
+                display: inline-flex;
+                justify-content: center;
+                align-items: center;
+                gap: 0.35rem;
+                text-align: center;
+                min-height: 28px;
+            }
+
+            #project-updates-list {
+                padding: 0.65rem !important;
+            }
+
+            .project-update-card {
+                grid-template-columns: 1fr;
+                gap: 0.7rem;
+                padding: 0.75rem 0.7rem;
+            }
+
+            .project-update-head {
+                align-items: flex-start;
+                gap: 0.55rem;
+            }
+
+            .project-update-avatar {
+                width: 40px;
+                height: 40px;
+            }
+
+            .project-update-title-row {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.22rem;
+            }
+
+            .project-update-title {
+                white-space: normal;
+                line-height: 1.28;
+                font-size: 0.95rem;
+            }
+
+            .project-update-meta {
+                font-size: 0.68rem;
+                line-height: 1.35;
+            }
+
+            .project-update-platforms {
+                grid-template-columns: 1fr;
+            }
+
+            .project-update-platform-row {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .project-update-platform-label {
+                font-size: 0.64rem;
+            }
+
+            .project-update-platform-status {
+                width: 100%;
+                white-space: normal;
+                overflow: visible;
+                text-overflow: clip;
+                font-size: 0.6rem;
+                line-height: 1.35;
+            }
+
+            .project-update-actions {
+                justify-content: stretch;
+                min-width: 0;
+                gap: 0.35rem;
+            }
+
+            .project-update-actions .btn-install,
+            .project-update-actions .project-update-dismiss {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .project-update-actions .project-update-dismiss {
+                height: 34px;
+            }
+        }
+
+        @media (max-width: 700px) {
+            .project-updates-summary {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .project-updates-actions {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 460px) {
+            .project-updates-summary {
+                grid-template-columns: 1fr;
+            }
+
+            .project-updates-head {
+                padding: 0.82rem;
+            }
+
+            .project-update-card {
+                padding: 0.68rem 0.62rem;
+            }
+
+            .project-update-title {
+                font-size: 0.9rem;
+            }
+        }
+
         .hint {
             font-size: 0.65rem;
             color: var(--ink-2);
@@ -9188,6 +9343,39 @@
             return kinds[0] === 'android' ? 'Android' : 'Windows';
         }
 
+        function normalizeUpdateMode(rawMode = '') {
+            const mode = String(rawMode || '').trim().toLowerCase();
+            if (mode === 'optional') return 'optional';
+            if (mode === 'required' || mode === 'mandatory' || mode === 'strict') return 'required';
+            return '';
+        }
+
+        function getProjectUpdateMode(project = null, platform = '') {
+            const normalizedPlatform = normalizePlatformKind(platform);
+            const metadata = (project?.metadata && typeof project.metadata === 'object') ? project.metadata : {};
+            const policy = (metadata?.update_policy && typeof metadata.update_policy === 'object')
+                ? metadata.update_policy
+                : ((metadata?.updatePolicy && typeof metadata.updatePolicy === 'object') ? metadata.updatePolicy : {});
+            const fromPlatform = normalizeUpdateMode(
+                policy?.[normalizedPlatform]?.mode
+                ?? policy?.[normalizedPlatform]
+            );
+            if (fromPlatform) return fromPlatform;
+            const fromDefault = normalizeUpdateMode(policy?.default?.mode ?? policy?.default ?? policy?.mode);
+            if (fromDefault) return fromDefault;
+            return 'required';
+        }
+
+        function getStoreUpdateGateMode(platform = '', latestRelease = null) {
+            const normalizedPlatform = normalizePlatformKind(platform);
+            const storeProject = getProjectBySlug('ows-store');
+            let mode = getProjectUpdateMode(storeProject, normalizedPlatform);
+            if (normalizedPlatform === 'android' && Boolean(latestRelease?.mandatory)) {
+                mode = 'required';
+            }
+            return mode === 'optional' ? 'optional' : 'required';
+        }
+
         function detectCurrentDevicePlatform() {
             if (isNativeAndroidRuntime()) {
                 return { platform: 'android', label: 'Android', source: 'capacitor', detected: true };
@@ -10015,6 +10203,7 @@
             if (supportsWindowsInstaller(project)) {
                 const available = Boolean(getProjectInstallTargets(project).some((t) => t.kind === 'windows' && t.available));
                 const installedOnThisDevice = installed && installedPlatform === 'windows';
+                const updateMode = getProjectUpdateMode(project, 'windows');
                 const needsUpdate = evaluatePlatformUpdate({
                     platform: 'windows',
                     installedVersion,
@@ -10037,12 +10226,14 @@
                     installedReleasePublishedAt: installedOnThisDevice ? windowsInstalledReleasePublishedAt : '',
                     latestReleasePublishedAt: windowsLatestReleasePublishedAt,
                     needsUpdate,
+                    updateMode,
                 });
             }
 
             if (supportsAndroidDownloads(project)) {
                 const available = Boolean(getProjectInstallTargets(project).some((t) => t.kind === 'android' && t.available));
                 const installedOnThisDevice = installed && installedPlatform === 'android';
+                const updateMode = getProjectUpdateMode(project, 'android');
                 const needsUpdate = evaluatePlatformUpdate({
                     platform: 'android',
                     installedVersion,
@@ -10067,6 +10258,7 @@
                     installedReleasePublishedAt: installedOnThisDevice ? androidInstalledReleasePublishedAt : '',
                     latestReleasePublishedAt: androidLatestReleasePublishedAt,
                     needsUpdate,
+                    updateMode,
                 });
             }
 
@@ -10096,12 +10288,14 @@
 
             const targetDetail = platformDetails.find((d) => d.installedOnThisDevice) || platformDetails[0] || null;
             const needsUpdate = platformDetails.some((d) => d.needsUpdate);
+            const requiredNeedsUpdate = platformDetails.some((d) => d.needsUpdate && d.updateMode !== 'optional');
             const updatePlatforms = platformDetails.filter((d) => d.needsUpdate);
 
             return {
                 installed,
                 installedPlatform,
                 needsUpdate,
+                requiredNeedsUpdate,
                 installedVersion,
                 installedVersionCode,
                 latestVersion: targetDetail?.latestVersion || '',
@@ -10222,15 +10416,28 @@
                     devicePlatform
                     && info.platformDetails.some((d) => normalizePlatformKind(d.platform) === devicePlatform && d.needsUpdate && d.available)
                 );
+                const deviceHasRequiredUpdate = Boolean(
+                    devicePlatform
+                    && info.platformDetails.some((d) =>
+                        normalizePlatformKind(d.platform) === devicePlatform
+                        && d.needsUpdate
+                        && d.available
+                        && d.updateMode !== 'optional'
+                    )
+                );
                 const hasAnyUpdate = info.platformDetails.some((d) => d.needsUpdate && d.available);
+                const hasRequiredUpdate = info.platformDetails.some((d) => d.needsUpdate && d.available && d.updateMode !== 'optional');
                 const crossPlatformOnly = Boolean(devicePlatform && projectSupportsDevice && !deviceHasUpdate && hasAnyUpdate);
                 const incompatible = Boolean(requestedPlatform) && !isPlatformCompatibleWithCurrentDevice(requestedPlatform) && !projectSupportsDevice;
+                const optionalOnly = hasAnyUpdate && !hasRequiredUpdate;
                 const targetLabel = action.label || getPrimaryUpdatePlatformLabel(info);
                 const noPending = !hasAnyUpdate;
                 const metaText = gateBlocked
                     ? getStoreObsoleteGateMessage(`actualizar ${project.name}`)
                 : noPending
                         ? `${project.name} esta al dia en ${detectedDevice.label}.`
+                    : optionalOnly
+                        ? `Update opcional detectada para ${targetLabel}. Puedes instalarla cuando quieras.`
                     : crossPlatformOnly
                         ? getNoDeviceUpdateMessage(project, devicePlatform, requestedPlatform || targetLabel.toLowerCase())
                     : incompatible
@@ -10244,6 +10451,8 @@
                     ? 'Actualizar OWS Store'
                 : noPending
                         ? `Al dia (${detectedDevice.label})`
+                    : optionalOnly
+                        ? `Update opcional (${targetLabel})`
                     : crossPlatformOnly
                         ? `Al dia (${detectedDevice.label})`
                     : incompatible
@@ -10273,8 +10482,8 @@
                     ? 'BLOQUEADO'
                     : (incompatible
                         ? 'INCOMPATIBLE'
-                        : (noPending || crossPlatformOnly ? 'AL DIA' : 'UPDATE'));
-                const badgeClass = (noPending || crossPlatformOnly)
+                        : (noPending || crossPlatformOnly ? 'AL DIA' : (optionalOnly ? 'OPCIONAL' : 'UPDATE')));
+                const badgeClass = (noPending || crossPlatformOnly || optionalOnly)
                     ? 'project-updates-pill'
                     : (gateBlocked || incompatible ? 'project-updates-pill' : 'project-updates-pill hot');
 
@@ -12096,13 +12305,18 @@
                 return { needsUpdate: false, latest, current };
             }
 
-            setStoreObsoleteGateBlocked({
-                platform: 'windows',
-                currentVersion: current,
-                requiredVersion: latestVersion,
-                reason: 'store-outdated',
-                source: 'windows-manual-check',
-            });
+            const gateMode = getStoreUpdateGateMode('windows', latest);
+            if (gateMode === 'required') {
+                setStoreObsoleteGateBlocked({
+                    platform: 'windows',
+                    currentVersion: current,
+                    requiredVersion: latestVersion,
+                    reason: 'store-outdated',
+                    source: 'windows-manual-check',
+                });
+            } else {
+                clearStoreObsoleteGate({ platform: 'windows', source: 'windows-manual-check', reason: 'optional-update' });
+            }
             owsStoreWindowsManualUpdateUrl = latest?.downloadUrl || OWS_STORE_RELEASES_URL;
             owsStoreWindowsManualVersion = latestVersion;
             appUpdateAvailable = true;
@@ -12123,11 +12337,17 @@
                 closeBtn.style.opacity = '1';
                 closeBtn.style.cursor = 'pointer';
             }
-            if (status) status.textContent = `Update disponible: v${latestVersion} (manual)`;
+            if (status) {
+                status.textContent = gateMode === 'required'
+                    ? `Update requerida: v${latestVersion} (manual)`
+                    : `Update opcional: v${latestVersion} (manual)`;
+            }
             setUpdateBannerVisual({
                 state: 'available',
-                title: 'Actualizacion disponible',
-                message: `Version v${latestVersion} detectada (actual: v${current}). Descarga manual recomendada.`,
+                title: gateMode === 'required' ? 'Actualizacion requerida' : 'Actualizacion opcional',
+                message: gateMode === 'required'
+                    ? `Version v${latestVersion} detectada (actual: v${current}). Actualiza para seguir con instalaciones y updates.`
+                    : `Version v${latestVersion} detectada (actual: v${current}). Puedes actualizar cuando quieras.`,
                 iconClass: 'fa-download',
                 iconSpin: false,
             });
@@ -12142,9 +12362,18 @@
                 downloadedBytes: 0,
                 speedBps: 0,
                 etaSeconds: null,
-                status: `Update manual v${latestVersion} disponible`,
+                status: gateMode === 'required'
+                    ? `Update requerida v${latestVersion} disponible`
+                    : `Update opcional v${latestVersion} disponible`,
             });
-            if (!silent) addNotification(`Update manual disponible: v${latestVersion}.`, 'warning');
+            if (!silent) {
+                addNotification(
+                    gateMode === 'required'
+                        ? `Update requerida en Windows: v${latestVersion}.`
+                        : `Update opcional en Windows: v${latestVersion}.`,
+                    gateMode === 'required' ? 'warning' : 'info'
+                );
+            }
             return { needsUpdate: true, latest, current };
         }
 
@@ -12315,14 +12544,23 @@
 
             if (needsUpdate) {
                 setStoreUpdateCheckState('available', `android-${latestLabel}`);
-                setStoreObsoleteGateBlocked({
-                    platform: 'android',
-                    currentVersion: current.versionName || (current.versionCode > 0 ? String(current.versionCode) : ''),
-                    requiredVersion: latest?.version || (Number(latest?.versionCode || 0) > 0 ? String(latest.versionCode) : ''),
-                    reason: 'store-outdated',
-                    source: 'android-check',
-                });
-                if (status) status.textContent = `Update Android disponible: ${latestLabel}`;
+                const gateMode = getStoreUpdateGateMode('android', latest);
+                if (gateMode === 'required') {
+                    setStoreObsoleteGateBlocked({
+                        platform: 'android',
+                        currentVersion: current.versionName || (current.versionCode > 0 ? String(current.versionCode) : ''),
+                        requiredVersion: latest?.version || (Number(latest?.versionCode || 0) > 0 ? String(latest.versionCode) : ''),
+                        reason: 'store-outdated',
+                        source: 'android-check',
+                    });
+                } else {
+                    clearStoreObsoleteGate({ platform: 'android', source: 'android-check', reason: 'optional-update' });
+                }
+                if (status) {
+                    status.textContent = gateMode === 'required'
+                        ? `Update Android requerida: ${latestLabel}`
+                        : `Update Android opcional: ${latestLabel}`;
+                }
                 if (btn) btn.style.display = 'flex';
                 if (closeBtn) {
                     closeBtn.disabled = false;
@@ -12331,8 +12569,10 @@
                 }
                 setUpdateBannerVisual({
                     state: 'available',
-                    title: 'Actualizacion Android disponible',
-                    message: `Version ${latestLabel} disponible (actual: ${currentLabel}).`,
+                    title: gateMode === 'required' ? 'Actualizacion Android requerida' : 'Actualizacion Android opcional',
+                    message: gateMode === 'required'
+                        ? `Version ${latestLabel} disponible (actual: ${currentLabel}). Actualiza para mantener flujo completo de instalaciones.`
+                        : `Version ${latestLabel} disponible (actual: ${currentLabel}). Puedes actualizar cuando quieras.`,
                     iconClass: 'fa-mobile-screen-button',
                     iconSpin: false,
                 });
@@ -12347,9 +12587,18 @@
                     downloadedBytes: 0,
                     speedBps: 0,
                     etaSeconds: null,
-                    status: `Update disponible ${currentLabel} -> ${latestLabel}`,
+                    status: gateMode === 'required'
+                        ? `Update requerida ${currentLabel} -> ${latestLabel}`
+                        : `Update opcional ${currentLabel} -> ${latestLabel}`,
                 });
-                if (!silent) addNotification(`Update Android disponible: ${currentLabel} -> ${latestLabel}.`, 'warning');
+                if (!silent) {
+                    addNotification(
+                        gateMode === 'required'
+                            ? `Update Android requerida: ${currentLabel} -> ${latestLabel}.`
+                            : `Update Android opcional: ${currentLabel} -> ${latestLabel}.`,
+                        gateMode === 'required' ? 'warning' : 'info'
+                    );
+                }
                 sendSystemNotification({
                     title: 'OWS Store: update disponible',
                     body: `Android: ${currentLabel} -> ${latestLabel}`,

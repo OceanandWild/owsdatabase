@@ -1,5 +1,8 @@
 # OWS Store - Universal Release Script
 # Usage: .\scripts\release.ps1 -project <slug> -version 2026.X.X-tHHMM
+# Optional release mode:
+#   -optionalMode windows-optional | android-optional | both-optional
+# Backward-compat: -optional equivale a windows-optional
 # New project: .\scripts\release.ps1 -newProject -project <slug> -version ... -projectName "Name" -projectDir "Dir" -projectRepo "repo"
 #
 # IMPORTANTE: Ejecutar con:
@@ -9,6 +12,8 @@ param(
     [string]$project,
     [string]$version,
     [string]$platform = "windows",
+    [string]$optionalMode = "",
+    [switch]$optional,
     [string]$scheduleAt,
     [switch]$newProject,
     [switch]$createRepo,
@@ -512,6 +517,105 @@ if ($newProject) {
     Exit-Script 0
 }
 
+function Get-ProjectUpdatePolicyPlatforms {
+    param(
+        [string]$OptionalMode = "",
+        [string[]]$SupportedPlatforms = @("windows")
+    )
+    $supported = @($SupportedPlatforms | ForEach-Object { [string]$_ })
+    $mode = [string]$OptionalMode
+    if (-not $mode) { return @() }
+    switch ($mode) {
+        "windows-optional" {
+            if ($supported -contains "windows") { return @("windows") }
+            return @()
+        }
+        "android-optional" {
+            if ($supported -contains "android") { return @("android") }
+            return @()
+        }
+        "both-optional" {
+            $out = @()
+            if ($supported -contains "windows") { $out += "windows" }
+            if ($supported -contains "android") { $out += "android" }
+            return $out
+        }
+        default {
+            return @()
+        }
+    }
+}
+
+function Resolve-OptionalMode {
+    param([string]$RawMode = "", [bool]$LegacyOptional = $false)
+    $mode = [string]$RawMode
+    if (-not $mode -and $LegacyOptional) { return "windows-optional" }
+    if (-not $mode) { return "" }
+    switch ($mode) {
+        "windows-optional" { return $mode }
+        "android-optional" { return $mode }
+        "both-optional" { return $mode }
+        default {
+            Write-Err "optionalMode invalido: '$mode'. Usa windows-optional | android-optional | both-optional."
+            Exit-Script 1
+        }
+    }
+    return @()
+}
+
+function Set-ProjectReleaseOptionalPolicy {
+    param(
+        [string]$Slug,
+        [string[]]$Platforms = @("windows")
+    )
+    try {
+        $list = Invoke-RestMethod -Uri "$API/ows-store/projects?nocache=$([DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds())" -Method GET
+        $projectRow = @($list | Where-Object { [string]$_.slug -eq [string]$Slug }) | Select-Object -First 1
+        if (-not $projectRow) {
+            Write-Err "No se encontro el proyecto '$Slug' para marcar politica opcional."
+            return $false
+        }
+
+        $meta = @{}
+        if ($null -ne $projectRow.metadata) {
+            try {
+                $metaJson = $projectRow.metadata | ConvertTo-Json -Depth 50 -Compress
+                if ($metaJson) { $meta = $metaJson | ConvertFrom-Json -AsHashtable }
+            } catch {
+                $meta = @{}
+            }
+        }
+        if (-not ($meta -is [hashtable])) { $meta = @{} }
+        if (-not $meta.ContainsKey("update_policy") -or -not ($meta.update_policy -is [hashtable])) {
+            $meta.update_policy = @{}
+        }
+        foreach ($plat in @($Platforms | Where-Object { $_ })) {
+            $meta.update_policy[$plat] = @{ mode = "optional" }
+        }
+
+        $body = @{
+            slug          = [string]$projectRow.slug
+            name          = [string]$projectRow.name
+            description   = [string]$projectRow.description
+            icon_url      = [string]$projectRow.icon_url
+            banner_url    = [string]$projectRow.banner_url
+            url           = [string]$projectRow.url
+            version       = [string]$projectRow.version
+            status        = [string]$projectRow.status
+            release_date  = $projectRow.release_date
+            installer_url = [string]$projectRow.installer_url
+            metadata      = $meta
+        } | ConvertTo-Json -Depth 60
+
+        Invoke-RestMethod -Uri "$API/ows-store/projects" -Method POST -ContentType "application/json" -Body $body | Out-Null
+        Write-OK "Politica de update opcional aplicada para $Slug en: $(@($Platforms) -join ', ')"
+        return $true
+    } catch {
+        Write-Err "No se pudo aplicar politica opcional para ${Slug}: $_"
+        return $false
+    }
+}
+
 function Get-LatestWorkflowRunId {
     param([string]$Workflow)
     try {
@@ -690,7 +794,7 @@ function Register-AndroidReleaseFromGitHub {
 # MODO: Release normal
 # ─────────────────────────────────────────────────────────────────────────────
 if (-not $project -or -not $version) {
-    Write-Err "Uso: powershell.exe -ExecutionPolicy Bypass -File '.\scripts\release.ps1' -project <slug> -version 2026.X.X-tHHMM"
+    Write-Err "Uso: powershell.exe -ExecutionPolicy Bypass -File '.\scripts\release.ps1' -project <slug> -version 2026.X.X-tHHMM [-optionalMode windows-optional|android-optional|both-optional]"
     Exit-Script 1
 }
 
@@ -873,6 +977,17 @@ if ($platforms -contains "android" -and ($platform -eq "android" -or $platform -
         } else {
             Write-Info "No se pudo resolver run id Android para monitoreo/promote automatico."
         }
+    }
+}
+
+if ($optionalMode -or $optional) {
+    Write-Step "Aplicando politica de release opcional en OWS Store..."
+    $resolvedOptionalMode = Resolve-OptionalMode -RawMode $optionalMode -LegacyOptional ([bool]$optional)
+    $policyPlatforms = Get-ProjectUpdatePolicyPlatforms -OptionalMode $resolvedOptionalMode -SupportedPlatforms $platforms
+    if ($policyPlatforms.Count -eq 0) {
+        Write-Info "No hay plataformas compatibles para aplicar modo opcional ($resolvedOptionalMode)."
+    } else {
+        Set-ProjectReleaseOptionalPolicy -Slug $project -Platforms $policyPlatforms | Out-Null
     }
 }
 

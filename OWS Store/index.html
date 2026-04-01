@@ -7822,15 +7822,31 @@
             return compareVersionLike(primary.version, fallback.version) >= 0 ? primary : fallback;
         }
 
+        function pickNewestProjectVersion(project) {
+            if (!project) return '1.0.0';
+            const candidates = [
+                String(project?.windows_version || '').trim(),
+                String(project?.android_version || '').trim(),
+                String(project?.version || '').trim(),
+            ].filter(Boolean);
+            if (!candidates.length) return '1.0.0';
+            let best = candidates[0];
+            for (let i = 1; i < candidates.length; i += 1) {
+                if (compareVersionLike(candidates[i], best) > 0) best = candidates[i];
+            }
+            return best || '1.0.0';
+        }
+
         function getProjectDisplayVersion(project) {
             if (!project) return '1.0.0';
+            const newestAnyPlatform = pickNewestProjectVersion(project);
             if (isNativeAndroidRuntime() && supportsAndroidDownloads(project)) {
-                return project.android_version || project.version || project.windows_version || '1.0.0';
+                return project.android_version || newestAnyPlatform || '1.0.0';
             }
             if (supportsWindowsInstaller(project)) {
-                return project.windows_version || project.version || project.android_version || '1.0.0';
+                return project.windows_version || newestAnyPlatform || '1.0.0';
             }
-            return project.version || '1.0.0';
+            return newestAnyPlatform || '1.0.0';
         }
 
         function parseOptionalDate(value) {
@@ -12534,6 +12550,7 @@
                     if (preferredFloretVersion) floret.version = preferredFloretVersion;
                     floret.windows_version = latest?.windowsVersion || floret.windows_version || floret.version || '';
                     floret.android_version = latest?.androidVersion || floret.android_version || '';
+                    floret.version = pickNewestProjectVersion(floret);
                     floret.android_version_code = Number(latest?.versionCode || 0);
                     if (latest?.installerUrl) floret.installer_url = latest.installerUrl;
                     if (latest?.releaseUrl) floret.android_release_url = latest.releaseUrl;
@@ -14211,6 +14228,7 @@
                 if (preferred) project.version = preferred;
                 project.windows_version = latest?.windowsVersion || project.windows_version || project.version || '';
                 project.android_version = latest?.androidVersion || project.android_version || '';
+                project.version = pickNewestProjectVersion(project);
                 project.android_version_code = Number(latest?.versionCode || project.android_version_code || 0);
                 if (latest?.releaseUrl) project.android_release_url = latest.releaseUrl;
                 project.windows_last_update_at = latest?.windowsPublishedAt || project.windows_last_update_at || null;

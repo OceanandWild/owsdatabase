@@ -141,16 +141,16 @@ jobs:
             export OWS_ANDROID_VERSION_CODE="${{ steps.config.outputs.version_code }}"
             export OWS_ANDROID_VERSION_NAME="${{ github.event.inputs.version_name }}"
             python3 - <<'PY'
-import os, re, pathlib
-p = pathlib.Path("android/app/build.gradle")
-txt = p.read_text(encoding="utf-8")
-vc = os.environ.get("OWS_ANDROID_VERSION_CODE", "1").strip()
-vn = os.environ.get("OWS_ANDROID_VERSION_NAME", "1.0").strip()
-txt = re.sub(r'(^\s*versionCode\s+)\d+\s*$', rf'\g<1>{vc}', txt, flags=re.MULTILINE)
-txt = re.sub(r'(^\s*versionName\s+)[\'"][^\'"]*[\'"]\s*$', rf'\g<1>"{vn}"', txt, flags=re.MULTILINE)
-p.write_text(txt, encoding="utf-8")
-print(f"[OWS] Android versionCode={vc} versionName={vn}")
-PY
+            import os, re, pathlib
+            p = pathlib.Path("android/app/build.gradle")
+            txt = p.read_text(encoding="utf-8")
+            vc = os.environ.get("OWS_ANDROID_VERSION_CODE", "1").strip()
+            vn = os.environ.get("OWS_ANDROID_VERSION_NAME", "1.0").strip()
+            txt = re.sub(r'(^\s*versionCode\s+)\d+\s*$', rf'\g<1>{vc}', txt, flags=re.MULTILINE)
+            txt = re.sub(r'(^\s*versionName\s+)[\'"][^\'"]*[\'"]\s*$', rf'\g<1>"{vn}"', txt, flags=re.MULTILINE)
+            p.write_text(txt, encoding="utf-8")
+            print(f"[OWS] Android versionCode={vc} versionName={vn}")
+            PY
           fi
 
           # Ocean Pay: forzar icono Android desde GitHub raw (evita fallback al icono default de Capacitor)

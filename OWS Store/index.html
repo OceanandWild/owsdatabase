@@ -11579,6 +11579,9 @@
                 };
 
             const selectedAndroid = pickNewestAndroidRelease(androidGithubData, androidData) || androidData;
+            const selectedAndroidSha = (selectedAndroid?.source === 'ows-store-api')
+                ? (selectedAndroid?.sha256 || androidData?.sha256 || '')
+                : '';
 
             const warnings = [windowsData.warning, androidData.warning, androidGithubData.warning].filter(Boolean).join(' | ');
             const payload = {
@@ -11596,7 +11599,7 @@
                 androidApkUrl: selectedAndroid.directDownloadUrl || selectedAndroid.downloadUrl || androidData.directDownloadUrl || androidData.downloadUrl || '',
                 androidApkDirectUrl: selectedAndroid.directDownloadUrl || androidData.directDownloadUrl || '',
                 androidApkProxyUrl: (selectedAndroid.source === 'ows-store-api' ? selectedAndroid.downloadUrl : '') || androidData.downloadUrl || '',
-                androidSha256: androidData.sha256 || '',
+                androidSha256: selectedAndroidSha,
                 androidApkSize: Number(selectedAndroid.sizeBytes || 0),
                 androidAabUrl: '',
                 androidAabSize: 0,
@@ -14355,6 +14358,23 @@
             const slug = canonicalProjectSlug(project) || String(project.slug || '').trim().toLowerCase();
             if (!slug) return null;
             try {
+                if (isFloretProject(project)) {
+                    const latestFloret = await fetchLatestFloretRelease();
+                    if (latestFloret?.androidVersion) {
+                        project.android_version = latestFloret.androidVersion;
+                        if (isNativeAndroidRuntime()) project.version = latestFloret.androidVersion;
+                    }
+                    project.android_version_code = Number(latestFloret?.versionCode || project.android_version_code || 0);
+                    project.android_apk_url = latestFloret?.androidApkUrl || project.android_apk_url || '';
+                    project.android_apk_direct_url = latestFloret?.androidApkDirectUrl || project.android_apk_direct_url || '';
+                    project.android_apk_proxy_url = latestFloret?.androidApkProxyUrl || project.android_apk_proxy_url || '';
+                    project.android_sha256 = latestFloret?.androidSha256 || '';
+                    project.android_apk_size = Number(latestFloret?.androidApkSize || project.android_apk_size || 0);
+                    project.android_release_notes = latestFloret?.androidReleaseNotes || project.android_release_notes || '';
+                    project.android_last_update_at = latestFloret?.androidPublishedAt || project.android_last_update_at || null;
+                    project.android_available = Boolean(project.android_apk_direct_url || project.android_apk_url);
+                    return latestFloret;
+                }
                 const fallbackUrl = String(project.android_release_url || project.release_url || '').trim();
                 const latest = await fetchLatestAndroidReleaseFromStoreApi(slug, fallbackUrl);
                 if (latest?.version) {

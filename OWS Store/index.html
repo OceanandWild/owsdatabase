@@ -1700,13 +1700,52 @@
             box-shadow:0 12px 26px rgba(0,0,0,0.28);
         }
         .project-updates-head { padding:1.25rem; border-bottom:1px solid var(--border); display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; }
+        .project-updates-head-main { flex: 1; min-width: 0; }
         .project-updates-kicker { display:flex; align-items:center; gap:0.5rem; font-size:0.68rem; font-family:var(--font-mono); text-transform:uppercase; letter-spacing:0.5px; color:var(--cyan); margin-bottom:0.3rem; }
         .pulse-dot { width:7px; height:7px; background:var(--green); border-radius:50%; box-shadow:0 0 0 0 rgba(40,217,138,0.4); animation:pulse 2s infinite; }
         @keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(40,217,138,0.4)} 70%{box-shadow:0 0 0 8px rgba(40,217,138,0)} 100%{box-shadow:0 0 0 0 rgba(40,217,138,0)} }
         .project-updates-title { font-family:var(--font-display); font-size:1.1rem; font-weight:800; }
         .project-updates-sub { font-size:0.75rem; color:var(--ink-1); margin-top:0.2rem; }
         .project-updates-actions { display:flex; gap:0.4rem; flex-shrink:0; }
-        .project-updates-list { display:flex; flex-direction:column; }
+        .project-updates-list { display:flex; flex-direction:column; padding:1rem; }
+        .project-updates-titlebar {
+            display: flex;
+            flex-direction: column;
+            gap: 0.08rem;
+        }
+        .project-updates-summary {
+            margin-top: 0.7rem;
+            display: grid;
+            grid-template-columns: repeat(4, minmax(110px, 1fr));
+            gap: 0.45rem;
+        }
+        .project-updates-summary-card {
+            border: 1px solid rgba(82,217,223,0.24);
+            background: linear-gradient(145deg, rgba(16,31,52,0.86), rgba(8,18,31,0.86));
+            border-radius: 10px;
+            padding: 0.55rem 0.6rem;
+            min-height: 62px;
+        }
+        .project-updates-summary-label {
+            font-size: 0.62rem;
+            font-family: var(--font-mono);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--ink-2);
+            margin-bottom: 0.22rem;
+        }
+        .project-updates-summary-value {
+            font-family: var(--font-display);
+            font-weight: 900;
+            font-size: 1.08rem;
+            color: var(--ink-0);
+            line-height: 1;
+        }
+        .project-updates-summary-note {
+            margin-top: 0.2rem;
+            font-size: 0.65rem;
+            color: var(--ink-2);
+        }
 
         /* Changelog section in updates */
         .changelog-panel {
@@ -2316,13 +2355,96 @@
                 flex-direction: column;
                 align-items: flex-start;
                 gap: 0.75rem;
+                padding: 0.9rem;
+            }
+            .project-updates-summary {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 0.38rem;
+            }
+            .project-updates-summary-card {
+                padding: 0.5rem 0.55rem;
+                min-height: 58px;
+                border-radius: 9px;
+            }
+            .project-updates-summary-value {
+                font-size: 1rem;
+            }
+            .project-updates-title {
+                font-size: 1rem;
+                line-height: 1.2;
+            }
+            .project-updates-sub {
+                font-size: 0.69rem;
+                line-height: 1.35;
             }
 
             .project-updates-actions {
                 width: 100%;
-                display: flex;
-                flex-wrap: wrap;
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
                 gap: 0.45rem;
+            }
+            .project-updates-pill {
+                width: 100%;
+                display: inline-flex;
+                justify-content: center;
+                align-items: center;
+                gap: 0.35rem;
+                text-align: center;
+                min-height: 28px;
+            }
+            .project-update-card {
+                grid-template-columns: 1fr;
+                gap: 0.7rem;
+                padding: 0.75rem 0.7rem;
+            }
+            .project-update-actions {
+                justify-content: stretch;
+                min-width: 0;
+                gap: 0.35rem;
+            }
+            .project-update-actions .btn-install,
+            .project-update-actions .project-update-dismiss {
+                width: 100%;
+                justify-content: center;
+            }
+            .project-update-actions .project-update-dismiss {
+                height: 34px;
+            }
+            .project-update-avatar {
+                width: 40px;
+                height: 40px;
+            }
+            .project-update-head {
+                align-items: center;
+                gap: 0.55rem;
+            }
+            .project-update-title {
+                white-space: normal;
+                line-height: 1.28;
+                font-size: 0.95rem;
+            }
+            .project-update-meta {
+                font-size: 0.68rem;
+                line-height: 1.35;
+            }
+            .project-update-platforms {
+                grid-template-columns: 1fr;
+            }
+            .project-update-platform-row {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .project-update-platform-status {
+                width: 100%;
+                white-space: normal;
+                overflow: visible;
+                text-overflow: clip;
+                font-size: 0.6rem;
+                line-height: 1.35;
+            }
+            .project-update-platform-label {
+                font-size: 0.64rem;
             }
 
             #project-updates-list {
@@ -2360,9 +2482,30 @@
             .nav-menu {
                 grid-template-columns: repeat(3, minmax(0, 1fr));
             }
+            .project-updates-summary {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+            .project-updates-actions {
+                grid-template-columns: 1fr;
+            }
 
             .library-hero-actions {
                 grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 460px) {
+            .project-updates-summary {
+                grid-template-columns: 1fr;
+            }
+            .project-updates-head {
+                padding: 0.82rem;
+            }
+            .project-update-card {
+                padding: 0.68rem 0.62rem;
+            }
+            .project-update-title {
+                font-size: 0.9rem;
             }
         }
 
@@ -2907,28 +3050,44 @@
         }
 
         .project-update-card {
-            display: flex;
-            align-items: center;
-            gap: 0.85rem;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            align-items: stretch;
+            gap: 0.95rem;
             padding: 0.9rem 1rem;
             border-bottom: 1px solid var(--border);
-            transition: background 0.15s;
+            transition: background 0.15s, border-color 0.15s;
         }
 
         .project-update-card:last-child { border-bottom: none; }
-        .project-update-card:hover { background: var(--surface-2); }
+        .project-update-card:hover { background: rgba(18, 31, 48, 0.66); }
+
+        .project-update-main {
+            display: flex;
+            flex-direction: column;
+            gap: 0.55rem;
+            min-width: 0;
+        }
+
+        .project-update-head {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.7rem;
+            min-width: 0;
+        }
 
         .project-update-leading {
             flex-shrink: 0;
         }
 
         .project-update-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: var(--r-sm);
+            width: 44px;
+            height: 44px;
+            border-radius: 10px;
             object-fit: cover;
             background: var(--surface-3);
-            border: 1px solid var(--border);
+            border: 1px solid rgba(111, 154, 190, 0.32);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.24);
         }
 
         .project-update-core {
@@ -2939,77 +3098,128 @@
         .project-update-title-row {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
-            margin-bottom: 0.2rem;
+            flex-wrap: wrap;
+            gap: 0.45rem;
+            margin-bottom: 0.22rem;
         }
 
         .project-update-title {
-            font-weight: 700;
-            font-size: 0.85rem;
+            font-weight: 800;
+            font-size: 1.05rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
+        }
+
+        .project-update-meta {
+            font-size: 0.73rem;
+            color: var(--ink-1);
+            line-height: 1.38;
+        }
+
+        .project-update-platforms {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.4rem;
+        }
+
+        .project-update-platform-status {
+            font-size: 0.62rem;
+            font-family: var(--font-mono);
+            padding: 2px 7px;
+            border-radius: 6px;
+            background: rgba(12, 23, 40, 0.76);
+            border: 1px solid rgba(107, 134, 166, 0.32);
+            color: var(--ink-1);
+            width: fit-content;
+            max-width: 100%;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
         }
 
-        .project-update-meta {
-            font-size: 0.65rem;
-            color: var(--ink-2);
-            font-family: var(--font-mono);
-        }
-
-        .project-update-platforms {
-            display: flex;
-            gap: 0.3rem;
-            margin-top: 0.3rem;
-            flex-wrap: wrap;
-        }
-
-        .project-update-platform-status {
-            font-size: 0.6rem;
-            font-family: var(--font-mono);
-            padding: 1px 6px;
-            border-radius: 4px;
-            background: var(--surface-3);
-            border: 1px solid var(--border);
-            color: var(--ink-2);
-        }
-
         .project-update-platform-label {
-            font-size: 0.65rem;
+            font-size: 0.7rem;
             font-family: var(--font-mono);
-            color: var(--ink-2);
+            color: var(--ink-1);
         }
 
         .project-update-actions {
             display: flex;
-            gap: 0.35rem;
-            flex-shrink: 0;
-            align-items: center;
+            flex-direction: column;
+            gap: 0.45rem;
+            min-width: 210px;
+            align-items: stretch;
+            justify-content: center;
         }
 
         .project-update-dismiss {
-            width: 28px;
-            height: 28px;
-            background: transparent;
-            border: 1px solid var(--border);
-            border-radius: 6px;
+            height: 30px;
+            background: rgba(8, 16, 29, 0.75);
+            border: 1px solid rgba(95, 121, 149, 0.35);
+            border-radius: 8px;
             color: var(--ink-2);
             cursor: pointer;
-            display: flex;
+            display: inline-flex;
             align-items: center;
             justify-content: center;
-            font-size: 11px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 0 0.65rem;
             transition: all 0.15s;
         }
 
         .project-update-dismiss:hover {
             background: var(--red-dim);
-            border-color: rgba(240,80,110,0.3);
-            color: var(--red);
+            border-color: rgba(240,80,110,0.34);
+            color: #ffdbe5;
         }
 
         .project-update-cta {
-            font-weight: 700 !important;
+            font-weight: 800 !important;
+            min-height: 40px;
+        }
+        .project-update-platform-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.55rem;
+            border: 1px solid rgba(102, 127, 159, 0.28);
+            background: linear-gradient(160deg, rgba(10, 19, 34, 0.84), rgba(8, 16, 29, 0.84));
+            border-radius: 9px;
+            padding: 0.36rem 0.56rem;
+            min-height: 42px;
+        }
+        .project-update-platform-row .project-update-platform-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.34rem;
+            color: var(--ink-1);
+            min-width: 0;
+            white-space: nowrap;
+        }
+        .project-update-platform-row .project-update-platform-label .dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #55708f;
+            flex-shrink: 0;
+        }
+        .project-update-platform-row.is-target {
+            border-color: rgba(73, 225, 245, 0.42);
+            background: linear-gradient(160deg, rgba(10, 29, 42, 0.92), rgba(8, 19, 32, 0.9));
+        }
+        .project-update-platform-row.is-target .project-update-platform-label .dot {
+            background: var(--cyan);
+            box-shadow: 0 0 0 2px rgba(38,212,232,0.18);
+        }
+        .project-update-platform-row.is-updating .project-update-platform-status {
+            color: #b7fbff;
+            border-color: rgba(60,221,239,0.38);
+        }
+        .project-update-platform-row.is-unavailable {
+            opacity: 0.7;
         }
 
         .hint {
@@ -4302,17 +4512,41 @@
 
                 <div class="project-updates-shell">
                     <div class="project-updates-head">
-                        <div class="project-updates-titlebar">
+                        <div class="project-updates-head-main">
+                            <div class="project-updates-titlebar">
                             <div class="project-updates-kicker">
                                 <span class="pulse-dot"></span>
                                 Control de Updates
                             </div>
                             <div class="project-updates-title">Actualizaciones de Proyectos</div>
                             <div class="project-updates-sub">Estado de tus apps instaladas, pendientes y multiplataforma.</div>
+                            </div>
+                            <div class="project-updates-summary">
+                                <div class="project-updates-summary-card">
+                                    <div class="project-updates-summary-label">Con update</div>
+                                    <div class="project-updates-summary-value" id="updates-summary-pending">0</div>
+                                    <div class="project-updates-summary-note">Disponibles ahora</div>
+                                </div>
+                                <div class="project-updates-summary-card">
+                                    <div class="project-updates-summary-label">Tu dispositivo</div>
+                                    <div class="project-updates-summary-value" id="updates-summary-device">0</div>
+                                    <div class="project-updates-summary-note">Para esta plataforma</div>
+                                </div>
+                                <div class="project-updates-summary-card">
+                                    <div class="project-updates-summary-label">Multiplataforma</div>
+                                    <div class="project-updates-summary-value" id="updates-summary-cross">0</div>
+                                    <div class="project-updates-summary-note">En otra plataforma</div>
+                                </div>
+                                <div class="project-updates-summary-card">
+                                    <div class="project-updates-summary-label">Al dia</div>
+                                    <div class="project-updates-summary-value" id="updates-summary-ok">0</div>
+                                    <div class="project-updates-summary-note">Sin accion urgente</div>
+                                </div>
+                            </div>
                         </div>
                         <div class="project-updates-actions" id="project-updates-actions"></div>
                     </div>
-                    <div id="project-updates-list" class="project-updates-list" style="padding:1rem;">
+                    <div id="project-updates-list" class="project-updates-list">
                         <div class="info-note-card">No hay actualizaciones pendientes.</div>
                     </div>
                 </div>
@@ -9909,8 +10143,19 @@
                 : '';
             projectUpdatesCount = pendingUpdates.length;
             syncUpdatesBadge();
+            const setSummaryCounts = (pending = 0, device = 0, cross = 0, ok = 0) => {
+                const pendingEl = document.getElementById('updates-summary-pending');
+                const deviceEl = document.getElementById('updates-summary-device');
+                const crossEl = document.getElementById('updates-summary-cross');
+                const okEl = document.getElementById('updates-summary-ok');
+                if (pendingEl) pendingEl.textContent = String(pending);
+                if (deviceEl) deviceEl.textContent = String(device);
+                if (crossEl) crossEl.textContent = String(cross);
+                if (okEl) okEl.textContent = String(ok);
+            };
 
             if (!updates.length) {
+                setSummaryCounts(0, 0, 0, 0);
                 const appHint = appUpdateAvailable
                     ? `<div style="margin-top:0.5rem; color:var(--brand-2);">Hay una actualizacion de OWS Store disponible en el banner superior.</div>`
                     : '';
@@ -10049,6 +10294,15 @@
 
             const hiddenCount = enrichedEntries.filter((entry) => entry.dismissible && dismissedUpToDateProjectCards.has(entry.project.slug)).length;
             const visibleEntries = enrichedEntries.filter((entry) => !(entry.dismissible && dismissedUpToDateProjectCards.has(entry.project.slug)));
+            const devicePendingCount = enrichedEntries.filter(({ info }) => info.platformDetails.some((d) => d.available && d.needsUpdate && d.installedOnThisDevice)).length;
+            const crossPlatformCount = enrichedEntries.filter(({ info }) => {
+                const hasAny = info.platformDetails.some((d) => d.available && d.needsUpdate);
+                const hasOnDevice = info.platformDetails.some((d) => d.available && d.needsUpdate && d.installedOnThisDevice);
+                return hasAny && !hasOnDevice;
+            }).length;
+            const upToDateCount = enrichedEntries.filter(({ info }) => !info.platformDetails.some((d) => d.available && d.needsUpdate)).length;
+
+            setSummaryCounts(pendingUpdates.length, devicePendingCount, crossPlatformCount, upToDateCount);
 
             const actionsEl = document.getElementById('project-updates-actions');
             if (actionsEl) {
@@ -10088,21 +10342,25 @@
 
                 return `
                     <div class="project-update-card">
-                        <div class="project-update-leading">
-                            <img class="project-update-avatar" src="${icon}" alt="${project.name}">
-                            <div class="project-update-core">
-                                <div class="project-update-title-row">
-                                    <div class="project-update-title">${project.name}</div>
-                                    <span class="${badgeClass}">${badgeLabel}</span>
+                        <div class="project-update-main">
+                            <div class="project-update-head">
+                                <div class="project-update-leading">
+                                    <img class="project-update-avatar" src="${icon}" alt="${project.name}">
                                 </div>
-                                <div class="project-update-meta">${metaText}</div>
+                                <div class="project-update-core">
+                                    <div class="project-update-title-row">
+                                        <div class="project-update-title">${project.name}</div>
+                                        <span class="${badgeClass}">${badgeLabel}</span>
+                                    </div>
+                                    <div class="project-update-meta">${metaText}</div>
+                                </div>
                             </div>
+                            <div class="project-update-platforms">${info.platformDetails.map((d) => formatPlatformRow(d)).join('')}</div>
                         </div>
                         <div class="project-update-actions">
                             ${dismissHtml}
                             <button class="${buttonClass} project-update-cta" onclick="${buttonAction}"><i class="fas ${buttonIcon}"></i> ${buttonLabel}</button>
                         </div>
-                        <div class="project-update-platforms">${info.platformDetails.map((d) => formatPlatformRow(d)).join('')}</div>
                     </div>
                 `;
             }).join('');

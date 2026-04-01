@@ -41,25 +41,25 @@ jobs:
           case "$PROJECT" in
             floretshop)
               echo "repo=OceanandWild/floretshop" >> "$GITHUB_OUTPUT"
-              echo "source_dir=Floret Shop" >> "$GITHUB_OUTPUT"
+              echo "source_dir=." >> "$GITHUB_OUTPUT"
               echo "package_id=com.oceanandwild.floretshop" >> "$GITHUB_OUTPUT"
               echo "app_name=Floret Shop" >> "$GITHUB_OUTPUT"
               ;;
             wildtransfer)
               echo "repo=OceanandWild/wildtransfer" >> "$GITHUB_OUTPUT"
-              echo "source_dir=WildTransfer" >> "$GITHUB_OUTPUT"
+              echo "source_dir=." >> "$GITHUB_OUTPUT"
               echo "package_id=com.oceanandwild.wildtransfer" >> "$GITHUB_OUTPUT"
               echo "app_name=WildTransfer" >> "$GITHUB_OUTPUT"
               ;;
             a-wild-question-game)
               echo "repo=OceanandWild/a-wild-question-game" >> "$GITHUB_OUTPUT"
-              echo "source_dir=A Wild Question Game" >> "$GITHUB_OUTPUT"
+              echo "source_dir=." >> "$GITHUB_OUTPUT"
               echo "package_id=com.oceanandwild.awqg" >> "$GITHUB_OUTPUT"
               echo "app_name=A Wild Question Game" >> "$GITHUB_OUTPUT"
               ;;
             oceanpay)
               echo "repo=OceanandWild/oceanpay" >> "$GITHUB_OUTPUT"
-              echo "source_dir=Ocean Pay" >> "$GITHUB_OUTPUT"
+              echo "source_dir=." >> "$GITHUB_OUTPUT"
               echo "package_id=com.oceanwildstudios.oceanpay" >> "$GITHUB_OUTPUT"
               echo "app_name=Ocean Pay" >> "$GITHUB_OUTPUT"
               ;;
@@ -71,11 +71,20 @@ jobs:
 
           echo "version_code=$(date +%s)" >> "$GITHUB_OUTPUT"
           echo "tag=v${{ github.event.inputs.version_name }}" >> "$GITHUB_OUTPUT"
+          echo "work_dir=project-src" >> "$GITHUB_OUTPUT"
 
       - name: Checkout owsdatabase
         uses: actions/checkout@v4
         with:
           path: owsdatabase
+
+      - name: Checkout project repo (externo)
+        if: ${{ steps.config.outputs.repo != 'OceanandWild/owsdatabase' }}
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.config.outputs.repo }}
+          token: ${{ secrets.GH_PAT }}
+          path: project-src
 
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -98,11 +107,11 @@ jobs:
           sdkmanager "platform-tools" "build-tools;29.0.3" "build-tools;34.0.0" "platforms;android-34"
 
       - name: Install dependencies
-        working-directory: owsdatabase/${{ steps.config.outputs.source_dir }}
+        working-directory: ${{ steps.config.outputs.work_dir }}
         run: npm install
 
       - name: Preparar proyecto Capacitor
-        working-directory: owsdatabase/${{ steps.config.outputs.source_dir }}
+        working-directory: ${{ steps.config.outputs.work_dir }}
         shell: bash
         run: |
           set -euo pipefail
@@ -128,7 +137,7 @@ jobs:
 
           # Ocean Pay: forzar icono Android desde GitHub raw (evita fallback al icono default de Capacitor)
           if [ "${{ github.event.inputs.project }}" = "oceanpay" ]; then
-          ICON_URL="https://raw.githubusercontent.com/OceanandWild/owsdatabase/main/Ocean%20Pay/build/icon.png"
+          ICON_URL="https://raw.githubusercontent.com/${{ steps.config.outputs.repo }}/main/build/icon.png"
           curl -fsSL "$ICON_URL" -o /tmp/oceanpay-icon.png
           python3 -m pip install --user pillow >/dev/null 2>&1 || true
 
@@ -173,7 +182,7 @@ jobs:
           fi
 
       - name: Build APK Release
-        working-directory: owsdatabase/${{ steps.config.outputs.source_dir }}/android
+        working-directory: ${{ steps.config.outputs.work_dir }}/android
         shell: bash
         run: |
           set -euo pipefail
@@ -190,7 +199,7 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          APP_DIR="owsdatabase/${{ steps.config.outputs.source_dir }}"
+          APP_DIR="${{ steps.config.outputs.work_dir }}"
           UNSIGNED_APK="$APP_DIR/android/app/build/outputs/apk/release/app-release-unsigned.apk"
           ALIGNED_APK="$APP_DIR/android/app/build/outputs/apk/release/app-release-aligned.apk"
           SIGNED_APK="$APP_DIR/android/app/build/outputs/apk/release/app-release-signed.apk"
@@ -246,7 +255,7 @@ jobs:
           set -euo pipefail
           PROJECT="${{ github.event.inputs.project }}"
           VERSION="${{ github.event.inputs.version_name }}"
-          SIGNED_APK="owsdatabase/${{ steps.config.outputs.source_dir }}/android/app/build/outputs/apk/release/app-release-signed.apk"
+          SIGNED_APK="${{ steps.config.outputs.work_dir }}/android/app/build/outputs/apk/release/app-release-signed.apk"
           APK_NAME="${PROJECT}-${VERSION}.apk"
           cp "$SIGNED_APK" "$APK_NAME"
           echo "APK_PATH=$APK_NAME" >> "$GITHUB_ENV"

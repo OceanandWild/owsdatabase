@@ -140,8 +140,9 @@ jobs:
           if [ -f "$APP_GRADLE" ]; then
             OWS_ANDROID_VERSION_CODE="${{ steps.config.outputs.version_code }}"
             OWS_ANDROID_VERSION_NAME="${{ github.event.inputs.version_name }}"
-            perl -0777 -pe 's/^\s*versionCode\s+\d+\s*$/    versionCode '"$OWS_ANDROID_VERSION_CODE"'/m; s/^\s*versionName\s+["'\"'"'"][^"'\''"]*["'\"'"'"]\s*$/    versionName "'"$OWS_ANDROID_VERSION_NAME"'"/m' "$APP_GRADLE" > "$APP_GRADLE.tmp"
-            mv "$APP_GRADLE.tmp" "$APP_GRADLE"
+            sed -E -i "s/^[[:space:]]*versionCode[[:space:]]+[0-9]+/    versionCode $OWS_ANDROID_VERSION_CODE/" "$APP_GRADLE"
+            sed -E -i "s/^[[:space:]]*versionName[[:space:]]+\\\"[^\\\"]*\\\"/    versionName \\\"$OWS_ANDROID_VERSION_NAME\\\"/" "$APP_GRADLE"
+            sed -E -i "s/^[[:space:]]*versionName[[:space:]]+'[^']*'/    versionName \\\"$OWS_ANDROID_VERSION_NAME\\\"/" "$APP_GRADLE"
             echo "[OWS] Android versionCode=$OWS_ANDROID_VERSION_CODE versionName=$OWS_ANDROID_VERSION_NAME"
           fi
 

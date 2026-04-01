@@ -4441,7 +4441,7 @@
         const OWS_STORE_RELEASES_API_URL = `${GITHUB_RELEASES_PROXY_BASE}/owsdatabase/releases/latest`;
         const OWS_STORE_ANDROID_ARTIFACT_FALLBACK_URL = OWS_STORE_RELEASES_URL;
         const FLORET_RELEASES_URL = 'https://github.com/OceanandWild/floretshop/releases';
-        const FLORET_RELEASES_API_URL = `${GITHUB_RELEASES_PROXY_BASE}/floretshop/releases?per_page=20`;
+        const FLORET_RELEASES_API_URL = 'https://api.github.com/repos/OceanandWild/floretshop/releases?per_page=20';
         const WILDTRANSFER_RELEASES_URL = 'https://github.com/OceanandWild/wildtransfer/releases/latest';
         const WILDTRANSFER_RELEASES_API_URL = `${GITHUB_RELEASES_PROXY_BASE}/wildtransfer/releases/latest`;
         const WILDTRANSFER_RELEASES_LIST_API_URL = `${GITHUB_RELEASES_PROXY_BASE}/wildtransfer/releases?per_page=20`;
@@ -16031,7 +16031,7 @@
             }
 
             const LIST_URLS = {
-                'floretshop': `${GITHUB_RELEASES_PROXY_BASE}/floretshop/releases?per_page=5`,
+                'floretshop': 'https://api.github.com/repos/OceanandWild/floretshop/releases?per_page=5',
             };
             const LATEST_URLS = {
                 'wildweapon-mayhem':    `${GITHUB_RELEASES_PROXY_BASE}/wildweapon-mayhem/releases/latest`,

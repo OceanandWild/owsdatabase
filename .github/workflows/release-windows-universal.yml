@@ -45,7 +45,7 @@ jobs:
           $PROJECT = "${{ github.event.inputs.project }}"
           $configs = @{
             "ows-store"            = @{ repo = "owsdatabase";         dir = "OWS Store";            buildOut = "C:\builds\ows-store" }
-            "wildweapon-mayhem"    = @{ repo = "wildweapon-mayhem";   dir = "WildWeapon Mayhem";    buildOut = "C:\builds\wildweapon" }
+            "wildweapon-mayhem"    = @{ repo = "wildweapon-mayhem";   dir = "WildWeapon Mayhem";    buildOut = "C:\builds\wildweapon-mayhem" }
             "savagespaceanimals"   = @{ repo = "savagespaceanimals";  dir = "Savage Space Animals"; buildOut = "C:\builds\ssa" }
             "oceanpay"             = @{ repo = "oceanpay";            dir = "Ocean Pay";            buildOut = "C:\builds\ocean-pay" }
             "floretshop"           = @{ repo = "floretshop";          dir = "Floret Shop";          buildOut = "C:\builds\floret-shop" }

@@ -2672,7 +2672,7 @@ async function assertFloretMalevoAccess({ userId, email }) {
     return { allowed: true };
   }
 
-  if (!userId) return { allowed: false, reason: 'Acceso restringido a Malevo' };
+  if (!userId) return { allowed: false, reason: 'Acceso restringido a administracion Floret' };
 
   const { rows } = await pool.query(
     `SELECT id, email, username, power_level, is_admin
@@ -2686,10 +2686,9 @@ async function assertFloretMalevoAccess({ userId, email }) {
 
   const actorEmail = normalizeFloretEmail(actor.email);
   const actorUser = String(actor.username || '').trim().toLowerCase();
-  const isMalevo = actorEmail === requiredEmail || actorUser === 'malevo';
-  const hasPrivileges = Number(actor.power_level || 0) >= 1 || actor.is_admin === true;
-  if (!isMalevo && !hasPrivileges) {
-    return { allowed: false, reason: 'Acceso restringido a Malevo' };
+  const isFloretCoreAdmin = actorEmail === requiredEmail || actorUser === 'malevo' || actorUser === 'oceanandwild';
+  if (!isFloretCoreAdmin) {
+    return { allowed: false, reason: 'Acceso restringido a administracion Floret' };
   }
   return { allowed: true, actor };
 }
@@ -3654,18 +3653,139 @@ app.post('/floret/products', upload.array('images'), async (req, res) => {
   }
 });
 
-// Eliminar producto
-app.delete('/floret/products/:id', async (req, res) => {
-  const { id } = req.params;
-  const { userId } = req.query; // Pasado por query string
+app.patch('/floret/products/:id', async (req, res) => {
+  const productId = Number(req.params.id || 0);
+  const userId = Number(req.body?.userId || 0);
+  const email = String(req.body?.email || '');
 
-  if (!userId) return res.status(401).json({ error: 'No autorizado' });
+  if (!productId) return res.status(400).json({ error: 'Producto invalido' });
+  if (!userId && !email) return res.status(401).json({ error: 'No autorizado' });
 
   try {
-    const userRes = await pool.query('SELECT is_admin FROM floret_users WHERE id = $1', [userId]);
-    if (!userRes.rows[0] || !userRes.rows[0].is_admin) {
-      return res.status(403).json({ error: 'No tienes permisos' });
+    const access = await assertFloretMalevoAccess({ userId, email });
+    if (!access.allowed) return res.status(403).json({ error: access.reason || 'Sin permisos' });
+
+    const updates = [];
+    const values = [];
+
+    if (req.body?.name !== undefined) {
+      const safe = String(req.body.name || '').trim();
+      if (!safe) return res.status(400).json({ error: 'Nombre invalido' });
+      values.push(safe);
+      updates.push(`name = $${values.length}`);
     }
+    if (req.body?.description !== undefined) {
+      values.push(String(req.body.description || '').trim());
+      updates.push(`description = $${values.length}`);
+    }
+    if (req.body?.price !== undefined) {
+      const price = Number(req.body.price);
+      if (!Number.isFinite(price) || price <= 0) return res.status(400).json({ error: 'Precio invalido' });
+      values.push(price);
+      updates.push(`price = $${values.length}`);
+    }
+    if (req.body?.stock !== undefined) {
+      const stock = Math.max(0, parseInt(req.body.stock, 10) || 0);
+      values.push(stock);
+      updates.push(`stock = $${values.length}`);
+    }
+    if (req.body?.condition !== undefined) {
+      const safeCondition = String(req.body.condition || '').trim() || 'Nuevo';
+      values.push(safeCondition);
+      updates.push(`condition = $${values.length}`);
+    }
+    if (req.body?.requiresSize !== undefined) {
+      const requiresSize = req.body.requiresSize === true || req.body.requiresSize === 'true';
+      values.push(requiresSize);
+      updates.push(`requires_size = $${values.length}`);
+    }
+    if (req.body?.sizes !== undefined) {
+      const sizesValue = req.body.sizes;
+      const normalizedSizes = Array.isArray(sizesValue)
+        ? sizesValue.map((size) => String(size || '').trim()).filter(Boolean)
+        : String(sizesValue || '')
+          .split(',')
+          .map((size) => size.trim())
+          .filter(Boolean);
+      values.push(normalizedSizes);
+      updates.push(`sizes = $${values.length}`);
+    }
+    if (req.body?.measurements !== undefined) {
+      values.push(String(req.body.measurements || '').trim());
+      updates.push(`measurements = $${values.length}`);
+    }
+    if (req.body?.images !== undefined) {
+      const imagesValue = req.body.images;
+      const normalizedImages = Array.isArray(imagesValue)
+        ? imagesValue.map((url) => String(url || '').trim()).filter(Boolean)
+        : String(imagesValue || '')
+          .split(',')
+          .map((url) => url.trim())
+          .filter(Boolean);
+      values.push(normalizedImages);
+      updates.push(`images = $${values.length}`);
+    }
+
+    if (!updates.length) {
+      return res.status(400).json({ error: 'Sin cambios para actualizar' });
+    }
+
+    values.push(productId);
+    const { rows } = await pool.query(
+      `UPDATE floret_products
+       SET ${updates.join(', ')}
+       WHERE id = $${values.length}
+       RETURNING *`,
+      values
+    );
+
+    if (!rows.length) return res.status(404).json({ error: 'Producto no encontrado' });
+    res.json({ success: true, product: rows[0] });
+  } catch (e) {
+    console.error('Error actualizando producto Floret:', e);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+app.post('/floret/products/:id/mark-sold-out', async (req, res) => {
+  const productId = Number(req.params.id || 0);
+  const userId = Number(req.body?.userId || 0);
+  const email = String(req.body?.email || '');
+
+  if (!productId) return res.status(400).json({ error: 'Producto invalido' });
+  if (!userId && !email) return res.status(401).json({ error: 'No autorizado' });
+
+  try {
+    const access = await assertFloretMalevoAccess({ userId, email });
+    if (!access.allowed) return res.status(403).json({ error: access.reason || 'Sin permisos' });
+
+    const { rows } = await pool.query(
+      `UPDATE floret_products
+       SET stock = 0
+       WHERE id = $1
+       RETURNING *`,
+      [productId]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Producto no encontrado' });
+    res.json({ success: true, product: rows[0] });
+  } catch (e) {
+    console.error('Error agotando producto Floret:', e);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Eliminar producto
+app.delete('/floret/products/:id', async (req, res) => {
+  const id = Number(req.params.id || 0);
+  const userId = Number(req.query.userId || 0);
+  const email = String(req.query.email || '');
+
+  if (!id) return res.status(400).json({ error: 'Producto invalido' });
+  if (!userId && !email) return res.status(401).json({ error: 'No autorizado' });
+
+  try {
+    const access = await assertFloretMalevoAccess({ userId, email });
+    if (!access.allowed) return res.status(403).json({ error: access.reason || 'Sin permisos' });
 
     await pool.query('DELETE FROM floret_products WHERE id = $1', [id]);
     res.json({ success: true });
@@ -20332,8 +20452,8 @@ await pool.query(`
 // Ensure Malevo and OceanandWild are set up correctly if they exist
 try {
   await pool.query(`
-    UPDATE floret_users SET is_admin = true, power_level = 2 WHERE username = 'OceanandWild';
-    UPDATE floret_users SET is_admin = true, power_level = 1 WHERE username = 'Malevo' OR email = 'karatedojor@gmail.com';
+    UPDATE floret_users SET is_admin = true, power_level = 2 WHERE LOWER(COALESCE(username, '')) = 'oceanandwild';
+    UPDATE floret_users SET is_admin = true, power_level = 1 WHERE LOWER(COALESCE(username, '')) = 'malevo' OR LOWER(COALESCE(email, '')) = 'karatedojor@gmail.com';
   `);
 } catch (e) {
   console.log('Ã¢Å¡Â Ã¯Â¸Â Error updating floret admin roles:', e.message);

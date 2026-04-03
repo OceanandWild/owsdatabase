@@ -4440,39 +4440,6 @@
                 </div>
             </div>
 
-            <!-- OWS Store update trailer premiere -->
-            <div id="store-trailer-premiere-card" style="background:linear-gradient(140deg, rgba(9,18,36,0.94), rgba(10,34,49,0.9));border:1px solid rgba(38,212,232,0.32);border-radius:var(--r-lg);padding:1rem;margin-bottom:2rem;box-shadow:0 14px 38px rgba(0,0,0,0.4);">
-                <div style="display:flex;justify-content:space-between;gap:0.8rem;align-items:center;flex-wrap:wrap;margin-bottom:0.4rem;">
-                    <div style="font-size:0.68rem;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:1px;color:var(--cyan);">
-                        <i class="fas fa-satellite-dish"></i> OWS Store - Update Trailer
-                    </div>
-                    <div id="store-trailer-premiere-status" style="font-size:0.66rem;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:0.8px;padding:0.2rem 0.55rem;border-radius:999px;border:1px solid rgba(245,197,66,0.25);background:rgba(245,197,66,0.12);color:var(--yellow);">
-                        Cuenta regresiva
-                    </div>
-                </div>
-                <div id="store-trailer-premiere-title" style="font-size:1.08rem;font-weight:800;line-height:1.2;color:var(--ink-0);margin-bottom:0.35rem;">
-                    OWS Store - Ecosystem Update Trailer
-                </div>
-                <div id="store-trailer-premiere-desc" style="font-size:0.78rem;color:var(--ink-1);margin-bottom:0.45rem;">
-                    Disponible este martes. El estreno se habilita automaticamente a las 20:00 (Uruguay).
-                </div>
-                <div id="store-trailer-premiere-countdown" style="font-size:0.72rem;font-family:var(--font-mono);color:var(--yellow);margin-bottom:0.7rem;">
-                    Cargando cuenta regresiva...
-                </div>
-                <div id="store-trailer-premiere-gate" style="display:block;background:rgba(0,0,0,0.42);border:1px dashed rgba(255,255,255,0.18);border-radius:10px;padding:0.75rem;margin-bottom:0.75rem;color:var(--ink-1);font-size:0.76rem;">
-                    El video se desbloquea en el horario de estreno.
-                </div>
-                <video id="store-trailer-premiere-video" controls preload="metadata" style="width:100%;display:none;border-radius:12px;border:1px solid rgba(255,255,255,0.18);background:#000;max-height:420px;">
-                    <source id="store-trailer-premiere-source" src="" type="video/mp4">
-                    Tu navegador no puede reproducir este video.
-                </video>
-                <div style="margin-top:0.7rem;display:flex;justify-content:flex-end;">
-                    <button id="store-trailer-premiere-btn" class="btn-install" type="button" onclick="openStoreTrailerPremiereExternal()" disabled>
-                        <i class="fas fa-circle-play"></i> Ver trailer
-                    </button>
-                </div>
-            </div>
-
             <!-- Filter chips -->
             <div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-bottom:1rem;">
                 <button id="filter-chip-all" class="library-filter-btn active" onclick="setProjectFilter('all')">Todo</button>
@@ -17772,7 +17739,6 @@
                 renderDownloadSurfaces();
                 initBrandCycle();
                 initSpotlightSlider();
-                initStoreTrailerPremiere();
                 initUpdater();
                 initSearch();
                 renderStoreAutoCheckMeta();

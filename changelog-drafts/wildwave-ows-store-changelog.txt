@@ -1,8 +1,6 @@
-OWS Store - 2026.4.3-t0329
-Release date: April 3, 2026.
+OWS Store - next release (pending)
+Draft updated: April 3, 2026.
 
-- Added push-update foundation for Android and Windows with backend device registration (`/ows-store/push/register`) and inbox polling (`/ows-store/push/inbox`).
-- Added Windows channel support path for WNS URI discovery and persistence, including preload bridge exposure (`getWnsChannelUri`) and renderer registration flow.
-- Implemented Windows background delivery behavior: tray integration, hide-to-background close handling, startup-at-login config, and scheduled push worker execution to surface alerts when the main window is closed.
-- Added push inbox acknowledgement flow (`/ows-store/push/inbox/:id/ack`) and notification dedupe handling so repeated update alerts are reduced.
-- Added AppX build target configuration in `OWS Store/package.json` to support the Windows notification deployment path while keeping NSIS release flow.
+- Removed the legacy "OWS Store - Ecosystem Update Trailer" premiere card from the home feed.
+- Disabled trailer-premiere initialization so the retired section no longer appears during startup.
+- Kept background push-update system active for closed/minimized app scenarios (Windows worker + inbox polling).

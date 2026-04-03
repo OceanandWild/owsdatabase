@@ -9353,6 +9353,7 @@ app.post('/wildfireworks/auth/register', async (req, res) => {
     const wfUser = userRows[0];
 
     const oceanSparks = sanitizeSparksBalance(await getUnifiedBalance(client, Number(oceanUser.id), 'sparks'), 0);
+    const oceanTides = Math.max(0, Math.floor(Number(await getUnifiedBalance(client, Number(oceanUser.id), 'tides')) || 0));
     const clientSparks = sanitizeSparksBalance(req.body?.sparks, oceanSparks);
     const syncedSparks = Math.max(oceanSparks, clientSparks);
 
@@ -9374,6 +9375,7 @@ app.post('/wildfireworks/auth/register', async (req, res) => {
       token: issueWildFireworksToken(wfUser),
       linked: true,
       sparks: syncedSparks,
+      tides: oceanTides,
       oceanPay: { id: Number(oceanUser.id), username: oceanUser.username },
       wildfireworks: { id: Number(wfUser.id), username: wfUser.username, created_at: wfUser.created_at }
     });
@@ -9438,6 +9440,7 @@ app.post('/wildfireworks/auth/login', async (req, res) => {
     );
     const profileSparks = sanitizeSparksBalance(profileRows[0]?.sparks, 0);
     const walletSparks = sanitizeSparksBalance(await getUnifiedBalance(client, Number(oceanUser.id), 'sparks'), 0);
+    const walletTides = Math.max(0, Math.floor(Number(await getUnifiedBalance(client, Number(oceanUser.id), 'tides')) || 0));
     const hasClientSparks = Number.isFinite(Number(req.body?.sparks));
     const syncedSparks = hasClientSparks
       ? sanitizeSparksBalance(req.body?.sparks, walletSparks)
@@ -9461,6 +9464,7 @@ app.post('/wildfireworks/auth/login', async (req, res) => {
       token: issueWildFireworksToken(wfUser),
       linked: true,
       sparks: syncedSparks,
+      tides: walletTides,
       oceanPay: { id: Number(oceanUser.id), username: oceanUser.username },
       wildfireworks: { id: Number(wfUser.id), username: wfUser.username, created_at: wfUser.created_at }
     });
@@ -9504,6 +9508,7 @@ app.get('/wildfireworks/profile', async (req, res) => {
     const opUserId = Number(row.ocean_pay_user_id || 0);
     const profileSparks = sanitizeSparksBalance(row.sparks, 0);
     const walletSparks = sanitizeSparksBalance(await getUnifiedBalance(client, opUserId, 'sparks'), 0);
+    const walletTides = Math.max(0, Math.floor(Number(await getUnifiedBalance(client, opUserId, 'tides')) || 0));
     const syncedSparks = Math.max(profileSparks, walletSparks);
 
     if (syncedSparks !== profileSparks) {
@@ -9526,6 +9531,7 @@ app.get('/wildfireworks/profile', async (req, res) => {
       success: true,
       linked: true,
       sparks: syncedSparks,
+      tides: walletTides,
       oceanPay: { id: opUserId },
       wildfireworks: {
         id: Number(row.id),
@@ -9573,6 +9579,7 @@ app.post('/wildfireworks/sparks/sync', async (req, res) => {
     const opUserId = Number(row.ocean_pay_user_id || 0);
     const profileSparks = sanitizeSparksBalance(row.sparks, 0);
     const walletSparks = sanitizeSparksBalance(await getUnifiedBalance(client, opUserId, 'sparks'), 0);
+    const walletTides = Math.max(0, Math.floor(Number(await getUnifiedBalance(client, opUserId, 'tides')) || 0));
 
     const hasClientSparks = Number.isFinite(Number(req.body?.sparks));
     const nextSparks = hasClientSparks
@@ -9595,6 +9602,7 @@ app.post('/wildfireworks/sparks/sync', async (req, res) => {
     return res.json({
       success: true,
       sparks: nextSparks,
+      tides: walletTides,
       wildfireworks: {
         id: Number(row.id),
         username: String(row.username || '')
@@ -9605,6 +9613,82 @@ app.post('/wildfireworks/sparks/sync', async (req, res) => {
     await client.query('ROLLBACK').catch(() => {});
     console.error('Error en POST /wildfireworks/sparks/sync:', err);
     return res.status(500).json({ error: 'Error interno al sincronizar Sparks' });
+  } finally {
+    client.release();
+  }
+});
+
+app.post('/wildfireworks/tides/spend', async (req, res) => {
+  const token = parseWildFireworksAuthToken(req);
+  const decoded = decodeWildFireworksTokenOrNull(token);
+  if (!decoded) return res.status(401).json({ error: 'Token WildFireworks invalido' });
+
+  const wfUserId = Number(decoded.id || decoded.uid || 0);
+  if (!wfUserId) return res.status(401).json({ error: 'Usuario WildFireworks invalido' });
+
+  const amount = Math.max(0, Math.floor(Number(req.body?.amount) || 0));
+  const shellName = String(req.body?.shellName || req.body?.itemName || 'Firework').trim().slice(0, 120);
+  const shellId = String(req.body?.shellId || req.body?.itemId || '').trim().slice(0, 80);
+  if (!amount) return res.status(400).json({ error: 'Monto de Tides invalido' });
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await ensureWildFireworksTables(client);
+
+    const { rows } = await client.query(
+      `SELECT wu.id, wu.username, wu.ocean_pay_user_id
+       FROM wild_fireworks_users wu
+       WHERE wu.id = $1
+       LIMIT 1`,
+      [wfUserId]
+    );
+    if (!rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Cuenta WildFireworks no encontrada' });
+    }
+
+    const wfUser = rows[0];
+    const opUserId = Number(wfUser.ocean_pay_user_id || 0);
+    const currentTides = Math.max(0, Math.floor(Number(await getUnifiedBalance(client, opUserId, 'tides')) || 0));
+    if (currentTides < amount) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({
+        error: 'No tienes Tides suficientes',
+        currentBalance: currentTides,
+        required: amount
+      });
+    }
+
+    const nextTides = currentTides - amount;
+    await setUnifiedBalance(client, opUserId, 'tides', nextTides);
+    await client.query(
+      `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [
+        opUserId,
+        shellId ? `Wild Fireworks Premium: ${shellName} (${shellId})` : `Wild Fireworks Premium: ${shellName}`,
+        -amount,
+        'Wild Fireworks',
+        'tides'
+      ]
+    ).catch(() => {});
+
+    await client.query('COMMIT');
+    return res.json({
+      success: true,
+      spent: amount,
+      tides: nextTides,
+      oceanPay: { id: opUserId },
+      wildfireworks: {
+        id: Number(wfUser.id),
+        username: String(wfUser.username || '')
+      }
+    });
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    console.error('Error en POST /wildfireworks/tides/spend:', err);
+    return res.status(500).json({ error: 'Error interno al descontar Tides' });
   } finally {
     client.release();
   }

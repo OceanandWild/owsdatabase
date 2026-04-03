@@ -146,32 +146,52 @@ jobs:
             echo "[OWS] Android versionCode=$OWS_ANDROID_VERSION_CODE versionName=$OWS_ANDROID_VERSION_NAME"
           fi
 
-          # Forzar icono Android para evitar fallback al icono default de Capacitor
-          # (especialmente en proyectos como Ocean Pay y Floret Shop).
-          if [ "${{ github.event.inputs.project }}" = "oceanpay" ] || [ "${{ github.event.inputs.project }}" = "floretshop" ]; then
-            ICON_SRC="/tmp/ows-android-icon-src"
-            ICON_CANDIDATES=(
-              "https://raw.githubusercontent.com/${{ steps.config.outputs.repo }}/main/build/icon.png"
-              "https://raw.githubusercontent.com/${{ steps.config.outputs.repo }}/main/assets/floretshopicon.png"
-              "https://raw.githubusercontent.com/${{ steps.config.outputs.repo }}/main/build/icon.ico"
-              "https://raw.githubusercontent.com/${{ steps.config.outputs.repo }}/main/assets/floretshopicon.ico"
-            )
-            DOWNLOADED_ICON=""
-            for url in "${ICON_CANDIDATES[@]}"; do
-              if curl -fsSL "$url" -o "$ICON_SRC"; then
+          # Forzar icono Android para evitar fallback al icono default de Capacitor.
+          # Aplica a todos los proyectos soportados por este workflow.
+          ICON_SRC="/tmp/ows-android-icon-src"
+          ICON_CANDIDATES=(
+            "build/icon.png"
+            "build/${{ github.event.inputs.project }}icon.png"
+            "build/wildtransfericon.png"
+            "build/floretshopicon.png"
+            "assets/${{ github.event.inputs.project }}icon.png"
+            "assets/floretshopicon.png"
+            "https://raw.githubusercontent.com/${{ steps.config.outputs.repo }}/main/build/icon.png"
+            "https://raw.githubusercontent.com/${{ steps.config.outputs.repo }}/main/build/${{ github.event.inputs.project }}icon.png"
+            "https://raw.githubusercontent.com/${{ steps.config.outputs.repo }}/main/build/wildtransfericon.png"
+            "https://raw.githubusercontent.com/${{ steps.config.outputs.repo }}/main/build/floretshopicon.png"
+            "https://raw.githubusercontent.com/${{ steps.config.outputs.repo }}/main/assets/${{ github.event.inputs.project }}icon.png"
+            "https://raw.githubusercontent.com/${{ steps.config.outputs.repo }}/main/assets/floretshopicon.png"
+            "https://raw.githubusercontent.com/${{ steps.config.outputs.repo }}/main/build/icon.ico"
+            "https://raw.githubusercontent.com/${{ steps.config.outputs.repo }}/main/build/${{ github.event.inputs.project }}icon.ico"
+            "https://raw.githubusercontent.com/${{ steps.config.outputs.repo }}/main/build/wildtransfericon.ico"
+            "https://raw.githubusercontent.com/${{ steps.config.outputs.repo }}/main/build/floretshopicon.ico"
+            "https://raw.githubusercontent.com/${{ steps.config.outputs.repo }}/main/assets/${{ github.event.inputs.project }}icon.ico"
+            "https://raw.githubusercontent.com/${{ steps.config.outputs.repo }}/main/assets/floretshopicon.ico"
+          )
+          DOWNLOADED_ICON=""
+          for src in "${ICON_CANDIDATES[@]}"; do
+            if [[ "$src" =~ ^https?:// ]]; then
+              if curl -fsSL "$src" -o "$ICON_SRC"; then
                 DOWNLOADED_ICON="$ICON_SRC"
-                echo "[OWS] Android icon source: $url"
+                echo "[OWS] Android icon source (remote): $src"
                 break
               fi
-            done
-            if [ -z "$DOWNLOADED_ICON" ]; then
-              echo "[OWS] No icon source found for ${{ github.event.inputs.project }}; keeping existing launcher icon."
-            else
-              python3 -m pip install --user pillow >/dev/null 2>&1 || true
-              python3 -c $'from PIL import Image, ImageOps, ImageDraw\nfrom pathlib import Path\nsrc = Path("/tmp/ows-android-icon-src")\nres = Path("android/app/src/main/res")\nimg = Image.open(src).convert("RGBA")\nside = min(img.width, img.height)\nleft = (img.width - side) // 2\ntop = (img.height - side) // 2\nimg = img.crop((left, top, left + side, top + side))\ntargets = {\n    "mipmap-mdpi": 48,\n    "mipmap-hdpi": 72,\n    "mipmap-xhdpi": 96,\n    "mipmap-xxhdpi": 144,\n    "mipmap-xxxhdpi": 192,\n}\nfor folder, size in targets.items():\n    out = res / folder\n    out.mkdir(parents=True, exist_ok=True)\n    base = ImageOps.fit(img, (size, size), method=Image.Resampling.LANCZOS)\n    base.save(out / "ic_launcher.png")\n    mask = Image.new("L", (size, size), 0)\n    draw = ImageDraw.Draw(mask)\n    draw.ellipse((0, 0, size - 1, size - 1), fill=255)\n    round_img = base.copy()\n    round_img.putalpha(mask)\n    round_img.save(out / "ic_launcher_round.png")'
-              rm -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml || true
-              rm -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml || true
+            elif [ -f "$src" ]; then
+              cp -f "$src" "$ICON_SRC"
+              DOWNLOADED_ICON="$ICON_SRC"
+              echo "[OWS] Android icon source (local): $src"
+              break
             fi
+          done
+
+          if [ -z "$DOWNLOADED_ICON" ]; then
+            echo "[OWS] No icon source found for ${{ github.event.inputs.project }}; keeping existing launcher icon."
+          else
+            python3 -m pip install --user pillow >/dev/null 2>&1 || true
+            python3 -c $'from PIL import Image, ImageOps, ImageDraw\nfrom pathlib import Path\nsrc = Path("/tmp/ows-android-icon-src")\nres = Path("android/app/src/main/res")\nimg = Image.open(src).convert("RGBA")\nside = min(img.width, img.height)\nleft = (img.width - side) // 2\ntop = (img.height - side) // 2\nimg = img.crop((left, top, left + side, top + side))\ntargets = {\n    "mipmap-mdpi": 48,\n    "mipmap-hdpi": 72,\n    "mipmap-xhdpi": 96,\n    "mipmap-xxhdpi": 144,\n    "mipmap-xxxhdpi": 192,\n}\nfor folder, size in targets.items():\n    out = res / folder\n    out.mkdir(parents=True, exist_ok=True)\n    base = ImageOps.fit(img, (size, size), method=Image.Resampling.LANCZOS)\n    base.save(out / "ic_launcher.png")\n    mask = Image.new("L", (size, size), 0)\n    draw = ImageDraw.Draw(mask)\n    draw.ellipse((0, 0, size - 1, size - 1), fill=255)\n    round_img = base.copy()\n    round_img.putalpha(mask)\n    round_img.save(out / "ic_launcher_round.png")'
+            rm -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml || true
+            rm -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml || true
           fi
 
           APP_GRADLE="android/app/build.gradle"

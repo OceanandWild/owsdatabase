@@ -618,20 +618,62 @@ function toNewsArray(value) {
   return [];
 }
 
+const OWS_TIMELINE_ENTRY_TYPES = new Set(['changelog', 'event', 'news', 'banner']);
+
+function normalizeTimelineEntryType(value, fallback = 'changelog') {
+  const raw = String(value || fallback || 'changelog').trim().toLowerCase();
+  return OWS_TIMELINE_ENTRY_TYPES.has(raw) ? raw : String(fallback || 'changelog');
+}
+
+function normalizeProjectSlug(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function normalizeTimelineProjectRefs(projectNames = [], explicitSlugs = []) {
+  const names = toNewsArray(projectNames);
+  const slugSet = new Set(
+    toNewsArray(explicitSlugs)
+      .map((x) => normalizeProjectSlug(x))
+      .filter(Boolean)
+  );
+  names.forEach((name) => {
+    const slug = normalizeProjectSlug(name);
+    if (slug) slugSet.add(slug);
+  });
+  return {
+    projectNames: names,
+    projectSlugs: [...slugSet]
+  };
+}
+
+function normalizeTimelineLines(value) {
+  return toNewsArray(value).slice(0, 30);
+}
+
 function normalizeOwsNewsRow(row) {
   const safe = row || {};
   const title = String(safe.title || '').trim();
   const description = String(safe.description || '').trim();
   const projectNames = Array.isArray(safe.project_names) ? safe.project_names.map((x) => String(x || '').trim()).filter(Boolean) : [];
+  const projectSlugs = Array.isArray(safe.project_slugs) ? safe.project_slugs.map((x) => normalizeProjectSlug(x)).filter(Boolean) : [];
   const platforms = Array.isArray(safe.platforms) ? safe.platforms.map((x) => String(x || '').trim().toLowerCase()).filter(Boolean) : [];
-  const changes = toNewsArray(safe.changes);
-  const entryType = String(safe.entry_type || 'changelog').trim().toLowerCase();
+  const details = (safe.details && typeof safe.details === 'object') ? safe.details : {};
+  const contentLines = Array.isArray(safe.content_lines) ? normalizeTimelineLines(safe.content_lines) : [];
+  const changes = contentLines.length ? contentLines : normalizeTimelineLines(details?.changes || safe.changes);
+  const entryType = normalizeTimelineEntryType(safe.kind || safe.entry_type || 'changelog');
   const model2d = (safe.model_2d_payload && typeof safe.model_2d_payload === 'object')
     ? { key: safe.model_2d_key || null, ...safe.model_2d_payload }
     : { key: safe.model_2d_key || null };
-  const bannerMeta = (safe.banner_meta && typeof safe.banner_meta === 'object') ? safe.banner_meta : {};
-  const eventStart = safe.event_start ? new Date(safe.event_start).toISOString() : null;
-  const eventEnd = safe.event_end ? new Date(safe.event_end).toISOString() : null;
+  const bannerMeta = (safe.visual_meta && typeof safe.visual_meta === 'object')
+    ? safe.visual_meta
+    : ((safe.banner_meta && typeof safe.banner_meta === 'object') ? safe.banner_meta : {});
+  const eventStart = safe.starts_at ? new Date(safe.starts_at).toISOString() : (safe.event_start ? new Date(safe.event_start).toISOString() : null);
+  const eventEnd = safe.ends_at ? new Date(safe.ends_at).toISOString() : (safe.event_end ? new Date(safe.event_end).toISOString() : null);
+  const publishedAt = safe.published_at ? new Date(safe.published_at).toISOString() : (safe.update_date ? new Date(safe.update_date).toISOString() : null);
   const now = Date.now();
   const startTs = eventStart ? Date.parse(eventStart) : 0;
   const endTs = eventEnd ? Date.parse(eventEnd) : 0;
@@ -644,15 +686,25 @@ function normalizeOwsNewsRow(row) {
 
   return {
     id: safe.id,
+    project_slugs: projectSlugs,
+    projectSlugs,
     project_names: projectNames,
     projectNames,
     title: title || 'Sin titulo',
     description: description || (changes[0] || ''),
     changes,
-    update_date: safe.update_date ? new Date(safe.update_date).toISOString() : null,
-    updateDate: safe.update_date ? new Date(safe.update_date).toISOString() : null,
+    content_lines: changes,
+    contentLines: changes,
+    details,
+    kind: entryType,
+    published_at: publishedAt,
+    publishedAt,
+    update_date: publishedAt,
+    updateDate: publishedAt,
     created_at: safe.created_at ? new Date(safe.created_at).toISOString() : null,
     createdAt: safe.created_at ? new Date(safe.created_at).toISOString() : null,
+    updated_at: safe.updated_at ? new Date(safe.updated_at).toISOString() : null,
+    updatedAt: safe.updated_at ? new Date(safe.updated_at).toISOString() : null,
     entry_type: entryType,
     entryType,
     platforms,
@@ -719,6 +771,7 @@ async function fetchGithubLatestRelease(repo) {
 async function upsertOwsNewsEntryBySyncKey({
   syncKey,
   projectNames,
+  projectSlugs = [],
   title,
   description,
   changes,
@@ -733,23 +786,30 @@ async function upsertOwsNewsEntryBySyncKey({
   eventStart = null,
   eventEnd = null
 }) {
+  const entryKind = normalizeTimelineEntryType(entryType, 'changelog');
+  const refs = normalizeTimelineProjectRefs(projectNames, projectSlugs);
+  const cleanChanges = normalizeTimelineLines(changes);
+  const details = {
+    changes: cleanChanges,
+    source: 'ows_store_timeline'
+  };
   const existing = await pool.query(
     `SELECT id
-     FROM ows_news_updates
-     WHERE (banner_meta->>'sync_key') = $1
+     FROM ows_store_timeline
+     WHERE (visual_meta->>'sync_key') = $1
      LIMIT 1`,
     [syncKey]
   );
 
-  const cleanChanges = Array.isArray(changes) ? changes.filter(Boolean).slice(0, 20) : [];
-  const changesText = cleanChanges.join('\n');
   const baseParams = [
-    Array.isArray(projectNames) ? projectNames : [],
+    refs.projectSlugs,
+    refs.projectNames,
     String(title || 'Actualizacion'),
     String(description || '').trim() || null,
-    changesText,
+    cleanChanges,
+    details,
     updateDate ? new Date(updateDate) : new Date(),
-    entryType,
+    entryKind,
     Array.isArray(platforms) ? platforms : ['windows'],
     model2dKey || null,
     model2dPayload && typeof model2dPayload === 'object' ? model2dPayload : {},
@@ -762,22 +822,25 @@ async function upsertOwsNewsEntryBySyncKey({
 
   if (existing.rowCount > 0) {
     const { rows } = await pool.query(
-      `UPDATE ows_news_updates
-       SET project_names = $1,
-           title = $2,
-           description = $3,
-           changes = $4,
-           update_date = $5,
-           entry_type = $6,
-           platforms = $7,
-           model_2d_key = $8,
-           model_2d_payload = $9,
-           banner_meta = $10,
-           is_active = $11,
-           priority = $12,
-           event_start = $13,
-           event_end = $14
-       WHERE id = $15
+      `UPDATE ows_store_timeline
+       SET project_slugs = $1,
+           project_names = $2,
+           title = $3,
+           description = $4,
+           content_lines = $5,
+           details = $6,
+           published_at = $7,
+           kind = $8,
+           platforms = $9,
+           model_2d_key = $10,
+           model_2d_payload = $11,
+           visual_meta = $12,
+           is_active = $13,
+           priority = $14,
+           starts_at = $15,
+           ends_at = $16,
+           updated_at = NOW()
+       WHERE id = $17
        RETURNING *`,
       [...baseParams, existing.rows[0].id]
     );
@@ -785,15 +848,155 @@ async function upsertOwsNewsEntryBySyncKey({
   }
 
   const { rows } = await pool.query(
-    `INSERT INTO ows_news_updates (
-       project_names, title, description, changes, update_date, entry_type, platforms,
-       model_2d_key, model_2d_payload, banner_meta, is_active, priority, event_start, event_end
+    `INSERT INTO ows_store_timeline (
+       project_slugs, project_names, title, description, content_lines, details, published_at, kind, platforms,
+       model_2d_key, model_2d_payload, visual_meta, is_active, priority, starts_at, ends_at
      )
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
      RETURNING *`,
     baseParams
   );
   return rows[0] || null;
+}
+
+function normalizeOwsPushPlatform(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  if (raw === 'win' || raw === 'windows') return 'windows';
+  if (raw === 'android') return 'android';
+  if (raw === 'all') return 'all';
+  return 'web';
+}
+
+function normalizeOwsPushProvider(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  if (raw === 'fcm' || raw === 'firebase') return 'fcm';
+  if (raw === 'wns') return 'wns';
+  if (raw === 'webpush') return 'webpush';
+  return 'local';
+}
+
+function buildOwsStorePushUpdateMessage({ projectName, version, changelog }) {
+  const safeProject = String(projectName || 'Proyecto OWS').trim() || 'Proyecto OWS';
+  const safeVersion = String(version || '').trim() || 'nueva version';
+  const firstLine = String(changelog || '')
+    .split(/\r?\n/)
+    .map((line) => line.replace(/^\s*[-*•]+\s*/, '').trim())
+    .find(Boolean) || '';
+  const title = `Update disponible: ${safeProject}`;
+  const body = firstLine
+    ? `${safeProject} ${safeVersion}: ${firstLine}`
+    : `${safeProject} actualizo a ${safeVersion}.`;
+  return { title, body };
+}
+
+async function sendFcmPushNotification({ token, title, body, data = {} }) {
+  const serverKey = String(process.env.FCM_SERVER_KEY || process.env.FIREBASE_SERVER_KEY || '').trim();
+  const targetToken = String(token || '').trim();
+  if (!serverKey || !targetToken) return { sent: false, reason: 'missing-server-key-or-token' };
+  try {
+    const res = await fetch('https://fcm.googleapis.com/fcm/send', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `key=${serverKey}`
+      },
+      body: JSON.stringify({
+        to: targetToken,
+        priority: 'high',
+        notification: {
+          title: String(title || 'OWS Store'),
+          body: String(body || 'Nueva actualizacion disponible')
+        },
+        data: (data && typeof data === 'object') ? data : {}
+      })
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      return { sent: false, reason: `fcm-http-${res.status}`, detail: text };
+    }
+    const json = await res.json().catch(() => ({}));
+    const successCount = Number(json?.success || 0);
+    if (successCount > 0) return { sent: true };
+    return { sent: false, reason: 'fcm-not-accepted', detail: json };
+  } catch (err) {
+    return { sent: false, reason: err?.message || 'fcm-error' };
+  }
+}
+
+async function queueOwsStorePushUpdate({ projectSlug, projectName, version, changelog = '' }) {
+  const slug = normalizeProjectSlug(projectSlug || '') || 'ows-store';
+  const safeVersion = String(version || '').trim();
+  if (!safeVersion) return { queued: 0 };
+  const { title, body } = buildOwsStorePushUpdateMessage({ projectName, version: safeVersion, changelog });
+  const dedupeKey = `update:${slug}:${safeVersion}`;
+  const payload = {
+    type: 'project_update',
+    project_slug: slug,
+    project_name: String(projectName || slug),
+    version: safeVersion,
+    changelog: String(changelog || '').trim()
+  };
+  try {
+    const devicesRes = await pool.query(
+      `SELECT device_id, platform, provider, push_token
+       FROM ows_store_push_devices
+       WHERE is_active = TRUE
+         AND device_id IS NOT NULL
+         AND device_id <> ''
+         AND platform IN ('all', 'windows', 'android', 'web')`
+    );
+    const devices = Array.isArray(devicesRes?.rows) ? devicesRes.rows : [];
+    let queued = 0;
+    let pushedNow = 0;
+
+    for (const device of devices) {
+      const deviceId = String(device?.device_id || '').trim();
+      if (!deviceId) continue;
+      const platform = normalizeOwsPushPlatform(device?.platform || 'web');
+      const provider = normalizeOwsPushProvider(device?.provider || 'local');
+      const pushToken = String(device?.push_token || '').trim();
+
+      const inserted = await pool.query(
+        `INSERT INTO ows_store_push_notifications (
+           device_id, platform, project_slug, version, title, body, payload, dedupe_key
+         )
+         VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8)
+         ON CONFLICT (device_id, dedupe_key) DO NOTHING
+         RETURNING id`,
+        [deviceId, platform, slug, safeVersion, title, body, JSON.stringify(payload), dedupeKey]
+      );
+      const pushId = Number(inserted?.rows?.[0]?.id || 0);
+      if (!pushId) continue;
+      queued += 1;
+
+      if (provider === 'fcm' && pushToken) {
+        const fcm = await sendFcmPushNotification({
+          token: pushToken,
+          title,
+          body,
+          data: {
+            type: 'project_update',
+            project_slug: slug,
+            project_name: String(projectName || slug),
+            version: safeVersion
+          }
+        });
+        if (fcm?.sent) {
+          pushedNow += 1;
+          await pool.query(
+            `UPDATE ows_store_push_notifications
+             SET delivered_at = NOW()
+             WHERE id = $1`,
+            [pushId]
+          ).catch(() => {});
+        }
+      }
+    }
+    return { queued, pushedNow, dedupeKey };
+  } catch (err) {
+    console.warn('[ows-push] No se pudo encolar update push:', err?.message || err);
+    return { queued: 0, error: err?.message || 'push-queue-error' };
+  }
 }
 
 async function ensureOwsStoreProjectsSeedData() {
@@ -1194,8 +1397,6 @@ async function ensureOwsStoreNewsSeedData() {
   const wildDestinyEnd = new Date(now.getTime() - (2 * oneDayMs)).toISOString();
   const wildShortsStart = releaseDateBySlug.get('wildshorts') || new Date(now.getTime() + (6 * oneDayMs)).toISOString();
   const wildShortsEnd = new Date((Date.parse(wildShortsStart) || now.getTime()) + (14 * oneDayMs)).toISOString();
-  const owsStoreTrailerStart = '2026-03-24T23:00:00Z'; // 24/03/2026 20:00 UYT
-  const owsStoreTrailerEnd = '2026-03-25T02:59:59Z';   // fin de ventana del martes
 
   const entries = [
     {
@@ -1297,27 +1498,6 @@ async function ensureOwsStoreNewsSeedData() {
       eventEnd: wildShortsEnd
     },
     {
-      syncKey: 'seed:event:ows-store-update-trailer-20260324',
-      projectNames: ['ows-store', 'OWS Store'],
-      title: 'OWS Store - trailer de actualizacion (estreno programado)',
-      description: 'Estreno del nuevo trailer de actualizacion de OWS Store en ventana limitada del martes.',
-      changes: [
-        'Cuenta regresiva activa hasta el inicio del estreno.',
-        'Reproduccion habilitada solo dentro de la ventana programada.',
-        'Bloqueo automatico fuera de horario para mantener formato de premiere.'
-      ],
-      updateDate: owsStoreTrailerStart,
-      entryType: 'event',
-      platforms: ['windows', 'android'],
-      model2dKey: 'store_hub',
-      model2dPayload: { accent: '#26d4e8', secondary: '#f59e0b' },
-      bannerMeta: { visual: 'store_hub', category: 'premiere', trailer: true },
-      isActive: true,
-      priority: 16,
-      eventStart: owsStoreTrailerStart,
-      eventEnd: owsStoreTrailerEnd
-    },
-    {
       syncKey: 'seed:oceanpay:ecoxion-integration-pack',
       projectNames: ['oceanpay', 'Ocean Pay', 'Ecoxion'],
       title: 'Ocean Pay + Ecoxion: integracion ampliada',
@@ -1403,9 +1583,9 @@ async function ensureProjectChangelogSync({ force = false, projectSlug = '' } = 
 
       const syncKey = `github:${source.repo}:${tag}`;
       const already = await pool.query(
-        `SELECT id, update_date
-         FROM ows_news_updates
-         WHERE (banner_meta->>'sync_key') = $1
+        `SELECT id, published_at
+         FROM ows_store_timeline
+         WHERE (visual_meta->>'sync_key') = $1
          LIMIT 1`,
         [syncKey]
       );
@@ -1457,6 +1637,50 @@ async function ensureProjectChangelogSync({ force = false, projectSlug = '' } = 
 }
 
 /* ========== MIGRACIÃ“N AUTOMÃTICA DE BASE DE DATOS ========== */
+async function migrateLegacyOwsNewsUpdatesToTimeline() {
+  try {
+    const { rows } = await pool.query(`
+      SELECT *
+      FROM ows_news_updates
+      ORDER BY update_date DESC, created_at DESC, id DESC
+      LIMIT 2000
+    `);
+    if (!rows.length) return { migrated: 0 };
+
+    let migrated = 0;
+    for (const row of rows) {
+      const legacySyncKey = String(row?.banner_meta?.sync_key || '').trim() || `legacy:ows_news_updates:${row.id}`;
+      const normalized = normalizeOwsNewsRow(row);
+      await upsertOwsNewsEntryBySyncKey({
+        syncKey: legacySyncKey,
+        projectNames: normalized.projectNames,
+        projectSlugs: normalized.projectSlugs,
+        title: normalized.title,
+        description: normalized.description,
+        changes: normalized.changes,
+        updateDate: normalized.updateDate,
+        entryType: normalized.entryType,
+        platforms: normalized.platforms,
+        model2dKey: normalized.model_2d_key,
+        model2dPayload: normalized.model_2d_payload || {},
+        bannerMeta: {
+          ...(normalized.banner_meta || {}),
+          legacy_news_id: row.id
+        },
+        isActive: normalized.isActive,
+        priority: normalized.priority,
+        eventStart: normalized.eventStart,
+        eventEnd: normalized.eventEnd
+      });
+      migrated += 1;
+    }
+    return { migrated };
+  } catch (err) {
+    console.log('[OWS] Error migrando ows_news_updates -> ows_store_timeline:', err?.message || err);
+    return { migrated: 0, error: err?.message || 'migration error' };
+  }
+}
+
 async function runDatabaseMigrations() {
   console.log('ðŸ”„ Ejecutando migraciones de base de datos...');
 
@@ -2245,10 +2469,118 @@ async function runDatabaseMigrations() {
       ON ows_news_updates(update_date DESC)
     `).catch(() => {});
 
-    if (typeof ensureOwsStoreNewsSeedData === 'function') {
-      await ensureOwsStoreNewsSeedData().catch(err => console.log('[OWS] Error seeding ows_news_updates:', err.message));
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ows_store_timeline (
+        id SERIAL PRIMARY KEY,
+        project_slugs TEXT[] DEFAULT '{}',
+        project_names TEXT[] DEFAULT '{}',
+        title VARCHAR(180) NOT NULL,
+        description TEXT,
+        content_lines TEXT[] DEFAULT '{}',
+        details JSONB DEFAULT '{}'::jsonb,
+        published_at TIMESTAMP DEFAULT NOW(),
+        kind VARCHAR(20) DEFAULT 'changelog',
+        platforms TEXT[] DEFAULT '{}',
+        model_2d_key TEXT,
+        model_2d_payload JSONB DEFAULT '{}'::jsonb,
+        visual_meta JSONB DEFAULT '{}'::jsonb,
+        is_active BOOLEAN DEFAULT TRUE,
+        priority INTEGER DEFAULT 0,
+        starts_at TIMESTAMP,
+        ends_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      );
+    `).catch(err => console.log('⚠️ Error creando ows_store_timeline:', err.message));
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_ows_store_timeline_kind
+      ON ows_store_timeline(kind)
+    `).catch(() => {});
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_ows_store_timeline_published_at
+      ON ows_store_timeline(published_at DESC)
+    `).catch(() => {});
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_ows_store_timeline_sync_key
+      ON ows_store_timeline ((visual_meta->>'sync_key'))
+    `).catch(() => {});
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ows_store_push_devices (
+        id SERIAL PRIMARY KEY,
+        device_id VARCHAR(120) NOT NULL,
+        user_id BIGINT,
+        platform VARCHAR(20) NOT NULL DEFAULT 'web',
+        provider VARCHAR(20) NOT NULL DEFAULT 'local',
+        push_token TEXT,
+        endpoint TEXT,
+        p256dh TEXT,
+        auth TEXT,
+        app_version VARCHAR(40),
+        metadata JSONB DEFAULT '{}'::jsonb,
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW(),
+        last_seen_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(device_id, platform)
+      );
+    `).catch(err => console.log('[OWS] Error creando ows_store_push_devices:', err.message));
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_ows_store_push_devices_active
+      ON ows_store_push_devices(is_active, platform, last_seen_at DESC)
+    `).catch(() => {});
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ows_store_push_notifications (
+        id SERIAL PRIMARY KEY,
+        device_id VARCHAR(120) NOT NULL,
+        platform VARCHAR(20) NOT NULL DEFAULT 'web',
+        project_slug VARCHAR(80),
+        version VARCHAR(80),
+        title VARCHAR(180) NOT NULL,
+        body TEXT,
+        payload JSONB DEFAULT '{}'::jsonb,
+        dedupe_key VARCHAR(200),
+        created_at TIMESTAMP DEFAULT NOW(),
+        delivered_at TIMESTAMP,
+        acknowledged_at TIMESTAMP,
+        UNIQUE(device_id, dedupe_key)
+      );
+    `).catch(err => console.log('[OWS] Error creando ows_store_push_notifications:', err.message));
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_ows_store_push_notifications_inbox
+      ON ows_store_push_notifications(device_id, delivered_at, acknowledged_at, created_at DESC)
+    `).catch(() => {});
+
+    await pool.query(`
+      DELETE FROM ows_store_timeline
+      WHERE (visual_meta->>'sync_key') = 'seed:event:ows-store-update-trailer-20260324'
+         OR (
+              kind = 'event'
+              AND LOWER(COALESCE(title, '')) LIKE '%ows store%'
+              AND LOWER(COALESCE(title, '')) LIKE '%trailer%'
+            )
+    `).catch(err => console.log('[OWS] Aviso limpiando trailer legacy en ows_store_timeline:', err.message));
+    await pool.query(`
+      DELETE FROM ows_news_updates
+      WHERE (banner_meta->>'sync_key') = 'seed:event:ows-store-update-trailer-20260324'
+         OR (
+              entry_type = 'event'
+              AND LOWER(COALESCE(title, '')) LIKE '%ows store%'
+              AND LOWER(COALESCE(title, '')) LIKE '%trailer%'
+            )
+    `).catch(err => console.log('[OWS] Aviso limpiando trailer legacy en ows_news_updates:', err.message));
+
+    if (typeof migrateLegacyOwsNewsUpdatesToTimeline === 'function') {
+      await migrateLegacyOwsNewsUpdatesToTimeline().catch(err => console.log('[OWS] Error migrando legacy news a timeline:', err.message));
     } else {
-      console.warn('[OWS] ensureOwsStoreNewsSeedData no definida, se omite seed de ows_news_updates.');
+      console.warn('[OWS] migrateLegacyOwsNewsUpdatesToTimeline no definida, se omite migracion legacy.');
+    }
+
+    if (typeof ensureOwsStoreNewsSeedData === 'function') {
+      await ensureOwsStoreNewsSeedData().catch(err => console.log('[OWS] Error seeding ows_store_timeline:', err.message));
+    } else {
+      console.warn('[OWS] ensureOwsStoreNewsSeedData no definida, se omite seed de ows_store_timeline.');
     }
 
     // 17. Crear tabla ows_projects para el Sistema OWS Store
@@ -6713,7 +7045,7 @@ app.post(['/ocean-pay/cards/change-balance', '/ocean-pay/currency/change'], asyn
 });
 
 
-// Changelogs centralizados para todos los proyectos (fuente: ows_news_updates + sync GitHub)
+// Changelogs centralizados para todos los proyectos (fuente: ows_store_timeline + sync GitHub)
 app.get('/ows-store/changelogs', async (req, res) => {
   const projectFilter = String(req.query.project || req.query.slug || '').trim().toLowerCase();
   const includeInactive = normalizeNewsBoolean(req.query.include_inactive, false);
@@ -6730,9 +7062,9 @@ app.get('/ows-store/changelogs', async (req, res) => {
 
     const { rows } = await pool.query(`
       SELECT *
-      FROM ows_news_updates
-      WHERE entry_type = 'changelog'
-      ORDER BY COALESCE(priority, 0) DESC, update_date DESC, created_at DESC
+      FROM ows_store_timeline
+      WHERE kind = 'changelog'
+      ORDER BY COALESCE(priority, 0) DESC, published_at DESC, created_at DESC
       LIMIT $1
     `, [limit * 2]);
 
@@ -6741,7 +7073,9 @@ app.get('/ows-store/changelogs', async (req, res) => {
     if (projectFilter) {
       list = list.filter((r) => {
         const names = Array.isArray(r.project_names) ? r.project_names : [];
-        return names.some((name) => String(name || '').toLowerCase().includes(projectFilter));
+        const slugs = Array.isArray(r.project_slugs) ? r.project_slugs : [];
+        return names.some((name) => String(name || '').toLowerCase().includes(projectFilter))
+          || slugs.some((slug) => String(slug || '').toLowerCase().includes(projectFilter));
       });
     }
     list = list.slice(0, limit);
@@ -6752,7 +7086,7 @@ app.get('/ows-store/changelogs', async (req, res) => {
   }
 });
 
-// Sync manual de changelogs desde GitHub releases hacia ows_news_updates
+// Sync manual de changelogs desde GitHub releases hacia ows_store_timeline
 app.post('/ows-store/changelogs/sync', async (req, res) => {
   if (!requireOwsStoreAdmin(req, res)) return;
   const projectSlug = String(req.body?.project_slug || '').trim().toLowerCase();
@@ -8163,6 +8497,145 @@ app.get('/ocean-ai/ows-store/context', async (_req, res) => {
   }
 });
 
+app.post('/ows-store/push/register', async (req, res) => {
+  const payload = req.body || {};
+  const deviceId = String(payload.device_id || payload.deviceId || '').trim();
+  if (!deviceId) return res.status(400).json({ error: 'device_id requerido' });
+
+  const platform = normalizeOwsPushPlatform(payload.platform || payload.device_platform || 'web');
+  const provider = normalizeOwsPushProvider(payload.provider || payload.push_provider || 'local');
+  const pushToken = String(payload.push_token || payload.pushToken || '').trim() || null;
+  const endpoint = String(payload.endpoint || '').trim() || null;
+  const keys = (payload.keys && typeof payload.keys === 'object') ? payload.keys : {};
+  const p256dh = String(payload.p256dh || keys.p256dh || '').trim() || null;
+  const auth = String(payload.auth || keys.auth || '').trim() || null;
+  const appVersion = String(payload.app_version || payload.appVersion || '').trim() || null;
+  const metadata = (payload.metadata && typeof payload.metadata === 'object') ? payload.metadata : {};
+  const token = parseStudioAuthToken(req);
+  const decoded = decodeStudioTokenOrNull(token);
+  const userId = Number(decoded?.id || decoded?.uid || decoded?.sub || 0) || null;
+
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO ows_store_push_devices (
+         device_id, user_id, platform, provider, push_token, endpoint, p256dh, auth, app_version, metadata, is_active, updated_at, last_seen_at
+       )
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,TRUE,NOW(),NOW())
+       ON CONFLICT (device_id, platform) DO UPDATE SET
+         user_id = COALESCE(EXCLUDED.user_id, ows_store_push_devices.user_id),
+         provider = EXCLUDED.provider,
+         push_token = COALESCE(EXCLUDED.push_token, ows_store_push_devices.push_token),
+         endpoint = COALESCE(EXCLUDED.endpoint, ows_store_push_devices.endpoint),
+         p256dh = COALESCE(EXCLUDED.p256dh, ows_store_push_devices.p256dh),
+         auth = COALESCE(EXCLUDED.auth, ows_store_push_devices.auth),
+         app_version = COALESCE(EXCLUDED.app_version, ows_store_push_devices.app_version),
+         metadata = COALESCE(ows_store_push_devices.metadata, '{}'::jsonb) || EXCLUDED.metadata,
+         is_active = TRUE,
+         updated_at = NOW(),
+         last_seen_at = NOW()
+       RETURNING id, device_id, platform, provider, is_active, last_seen_at`,
+      [deviceId, userId, platform, provider, pushToken, endpoint, p256dh, auth, appVersion, metadata]
+    );
+    return res.json({ success: true, subscription: rows[0] || null });
+  } catch (err) {
+    console.error('Error en POST /ows-store/push/register:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+app.post('/ows-store/push/unregister', async (req, res) => {
+  const payload = req.body || {};
+  const deviceId = String(payload.device_id || payload.deviceId || '').trim();
+  if (!deviceId) return res.status(400).json({ error: 'device_id requerido' });
+  const platform = normalizeOwsPushPlatform(payload.platform || payload.device_platform || 'web');
+  try {
+    const { rowCount } = await pool.query(
+      `UPDATE ows_store_push_devices
+       SET is_active = FALSE, updated_at = NOW()
+       WHERE device_id = $1
+         AND ($2 = 'all' OR platform = $2)`,
+      [deviceId, platform]
+    );
+    return res.json({ success: true, updated: Number(rowCount || 0) });
+  } catch (err) {
+    console.error('Error en POST /ows-store/push/unregister:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+app.get('/ows-store/push/inbox', async (req, res) => {
+  const deviceId = String(req.query.device_id || req.query.deviceId || '').trim();
+  if (!deviceId) return res.status(400).json({ error: 'device_id requerido' });
+  const platform = normalizeOwsPushPlatform(req.query.platform || 'web');
+  const limit = Math.max(1, Math.min(50, normalizeNewsNumber(req.query.limit, 20)));
+  try {
+    await pool.query(
+      `UPDATE ows_store_push_devices
+       SET last_seen_at = NOW(), updated_at = NOW(), is_active = TRUE
+       WHERE device_id = $1
+         AND ($2 = 'all' OR platform = $2)`,
+      [deviceId, platform]
+    ).catch(() => {});
+
+    const { rows } = await pool.query(
+      `SELECT *
+       FROM ows_store_push_notifications
+       WHERE device_id = $1
+         AND (platform = 'all' OR $2 = 'all' OR platform = $2)
+         AND delivered_at IS NULL
+       ORDER BY created_at DESC
+       LIMIT $3`,
+      [deviceId, platform, limit]
+    );
+    const ids = rows.map((row) => Number(row.id || 0)).filter((id) => id > 0);
+    if (ids.length) {
+      await pool.query(
+        `UPDATE ows_store_push_notifications
+         SET delivered_at = NOW()
+         WHERE id = ANY($1::int[])`,
+        [ids]
+      );
+    }
+    return res.json({
+      success: true,
+      notifications: rows.map((row) => ({
+        id: Number(row.id || 0),
+        platform: String(row.platform || ''),
+        project_slug: String(row.project_slug || ''),
+        version: String(row.version || ''),
+        title: String(row.title || ''),
+        body: String(row.body || ''),
+        payload: (row.payload && typeof row.payload === 'object') ? row.payload : {},
+        dedupe_key: String(row.dedupe_key || ''),
+        created_at: row.created_at || null
+      }))
+    });
+  } catch (err) {
+    console.error('Error en GET /ows-store/push/inbox:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+app.post('/ows-store/push/inbox/:id/ack', async (req, res) => {
+  const id = Number(req.params.id || 0);
+  const deviceId = String(req.body?.device_id || req.body?.deviceId || '').trim();
+  if (!Number.isFinite(id) || id <= 0) return res.status(400).json({ error: 'id invalido' });
+  if (!deviceId) return res.status(400).json({ error: 'device_id requerido' });
+  try {
+    const { rowCount } = await pool.query(
+      `UPDATE ows_store_push_notifications
+       SET acknowledged_at = NOW()
+       WHERE id = $1
+         AND device_id = $2`,
+      [id, deviceId]
+    );
+    return res.json({ success: true, updated: Number(rowCount || 0) });
+  } catch (err) {
+    console.error('Error en POST /ows-store/push/inbox/:id/ack:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 // OWS News feed (array simple para compatibilidad con launcher)
 app.get('/ows-news/updates', async (req, res) => {
   const includeInactive = normalizeNewsBoolean(req.query.include_inactive, false);
@@ -8170,8 +8643,8 @@ app.get('/ows-news/updates', async (req, res) => {
   try {
     const { rows } = await pool.query(
       `SELECT *
-       FROM ows_news_updates
-       ORDER BY COALESCE(priority, 0) DESC, update_date DESC, created_at DESC
+       FROM ows_store_timeline
+       ORDER BY COALESCE(priority, 0) DESC, published_at DESC, created_at DESC
        LIMIT $1`,
       [limit * 2]
     );
@@ -8194,9 +8667,10 @@ app.post('/ows-news/updates', async (req, res) => {
   if (!title) return res.status(400).json({ error: 'title requerido' });
 
   const projectNames = toNewsArray(payload.project_names || payload.projectNames || []);
+  const projectSlugs = toNewsArray(payload.project_slugs || payload.projectSlugs || []);
   const changes = toNewsArray(payload.changes || []);
   const description = String(payload.description || '').trim() || null;
-  const entryType = String(payload.entry_type || payload.entryType || 'changelog').trim().toLowerCase();
+  const entryType = normalizeTimelineEntryType(payload.entry_type || payload.entryType || payload.kind || 'changelog');
   const platforms = toNewsArray(payload.platforms || []).map((x) => String(x || '').toLowerCase()).filter(Boolean);
   const model2dKey = String(payload.model_2d_key || payload.model2dKey || '').trim() || null;
   const model2dPayload = (payload.model_2d_payload && typeof payload.model_2d_payload === 'object')
@@ -8218,6 +8692,7 @@ app.post('/ows-news/updates', async (req, res) => {
       row = await upsertOwsNewsEntryBySyncKey({
         syncKey,
         projectNames,
+        projectSlugs,
         title,
         description,
         changes,
@@ -8233,19 +8708,26 @@ app.post('/ows-news/updates', async (req, res) => {
         eventEnd
       });
     } else {
-      const changesText = changes.join('\n');
+      const refs = normalizeTimelineProjectRefs(projectNames, projectSlugs);
+      const lines = normalizeTimelineLines(changes);
+      const details = {
+        changes: lines,
+        source: 'ows_news_updates_api'
+      };
       const { rows } = await pool.query(
-        `INSERT INTO ows_news_updates (
-           project_names, title, description, changes, update_date, entry_type, platforms,
-           model_2d_key, model_2d_payload, banner_meta, is_active, priority, event_start, event_end
+        `INSERT INTO ows_store_timeline (
+           project_slugs, project_names, title, description, content_lines, details, published_at, kind, platforms,
+           model_2d_key, model_2d_payload, visual_meta, is_active, priority, starts_at, ends_at
          )
-         VALUES ($1,$2,$3,$4,COALESCE($5, NOW()),$6,$7,$8,$9,$10,$11,$12,$13,$14)
+         VALUES ($1,$2,$3,$4,$5,$6,COALESCE($7, NOW()),$8,$9,$10,$11,$12,$13,$14,$15,$16)
          RETURNING *`,
         [
-          projectNames,
+          refs.projectSlugs,
+          refs.projectNames,
           title,
           description,
-          changesText,
+          lines,
+          details,
           updateDate,
           entryType,
           platforms,
@@ -8290,7 +8772,16 @@ app.patch('/ows-news/updates/:id', async (req, res) => {
 
   if (payload.project_names !== undefined || payload.projectNames !== undefined) {
     const projectNames = toNewsArray(payload.project_names || payload.projectNames || []);
+    const refs = normalizeTimelineProjectRefs(projectNames, []);
     pushUpdate('project_names', projectNames);
+    pushUpdate('project_slugs', refs.projectSlugs);
+  }
+
+  if (payload.project_slugs !== undefined || payload.projectSlugs !== undefined) {
+    const projectSlugs = toNewsArray(payload.project_slugs || payload.projectSlugs || [])
+      .map((x) => normalizeProjectSlug(x))
+      .filter(Boolean);
+    pushUpdate('project_slugs', projectSlugs);
   }
 
   if (payload.description !== undefined) {
@@ -8300,12 +8791,13 @@ app.patch('/ows-news/updates/:id', async (req, res) => {
 
   if (payload.changes !== undefined) {
     const changes = toNewsArray(payload.changes || []);
-    pushUpdate('changes', changes.join('\n'));
+    pushUpdate('content_lines', changes);
+    pushUpdate('details', { changes, source: 'ows_news_updates_api_patch' });
   }
 
-  if (payload.entry_type !== undefined || payload.entryType !== undefined) {
-    const entryType = String(payload.entry_type || payload.entryType || 'changelog').trim().toLowerCase();
-    pushUpdate('entry_type', entryType);
+  if (payload.entry_type !== undefined || payload.entryType !== undefined || payload.kind !== undefined) {
+    const entryType = normalizeTimelineEntryType(payload.entry_type || payload.entryType || payload.kind || 'changelog');
+    pushUpdate('kind', entryType);
   }
 
   if (payload.platforms !== undefined) {
@@ -8331,7 +8823,7 @@ app.patch('/ows-news/updates/:id', async (req, res) => {
     const bannerMeta = (payload.banner_meta && typeof payload.banner_meta === 'object')
       ? payload.banner_meta
       : ((payload.bannerMeta && typeof payload.bannerMeta === 'object') ? payload.bannerMeta : {});
-    pushUpdate('banner_meta', bannerMeta);
+    pushUpdate('visual_meta', bannerMeta);
   }
 
   if (payload.is_active !== undefined || payload.isActive !== undefined) {
@@ -8346,17 +8838,17 @@ app.patch('/ows-news/updates/:id', async (req, res) => {
 
   if (payload.update_date !== undefined || payload.updateDate !== undefined) {
     const updateDate = payload.update_date || payload.updateDate || null;
-    pushUpdate('update_date', updateDate);
+    pushUpdate('published_at', updateDate);
   }
 
   if (payload.event_start !== undefined || payload.eventStart !== undefined) {
     const eventStart = payload.event_start || payload.eventStart || null;
-    pushUpdate('event_start', eventStart);
+    pushUpdate('starts_at', eventStart);
   }
 
   if (payload.event_end !== undefined || payload.eventEnd !== undefined) {
     const eventEnd = payload.event_end || payload.eventEnd || null;
-    pushUpdate('event_end', eventEnd);
+    pushUpdate('ends_at', eventEnd);
   }
 
   if (!updates.length) {
@@ -8365,8 +8857,8 @@ app.patch('/ows-news/updates/:id', async (req, res) => {
 
   try {
     const { rows } = await pool.query(
-      `UPDATE ows_news_updates
-       SET ${updates.join(', ')}
+      `UPDATE ows_store_timeline
+       SET ${updates.join(', ')}, updated_at = NOW()
        WHERE id = $${values.length + 1}
        RETURNING *`,
       [...values, id]
@@ -9235,7 +9727,7 @@ app.post('/ows-store/projects', async (req, res) => {
 // Actualizar versiÃƒÂ³n rÃƒÂ¡pidamente (Patch)
 app.patch('/ows-store/projects/:slug/version', async (req, res) => {
   const { slug } = req.params;
-  const { version } = req.body;
+  const { version, changelog = '' } = req.body;
   if (!version) return res.status(400).json({ error: 'VersiÃƒÂ³n requerida' });
 
   try {
@@ -9244,7 +9736,22 @@ app.patch('/ows-store/projects/:slug/version', async (req, res) => {
       [version, slug]
     );
     if (rows.length === 0) return res.status(404).json({ error: 'Proyecto no encontrado' });
-    res.json({ success: true, project: rows[0] });
+    const project = rows[0];
+    const pushSummary = await queueOwsStorePushUpdate({
+      projectSlug: project.slug || slug,
+      projectName: project.name || slug,
+      version,
+      changelog
+    });
+    res.json({
+      success: true,
+      project,
+      push: {
+        queued: Number(pushSummary?.queued || 0),
+        pushed_now: Number(pushSummary?.pushedNow || 0),
+        dedupe_key: String(pushSummary?.dedupeKey || '')
+      }
+    });
   } catch (err) {
     console.error('Ã¢ÂÅ’ Error en PATCH /ows-store/projects/:version:', err);
     res.status(500).json({ error: 'Error interno' });

@@ -8098,6 +8098,12 @@
                     }).catch(() => {});
                 });
             } catch (_) {}
+            try {
+                pushPlugin.addListener('registrationError', (error) => {
+                    const detail = String(error?.error || error?.message || 'unknown').trim();
+                    addNotification(`Push Android: error de registro (${detail || 'sin detalle'}).`, 'warning');
+                });
+            } catch (_) {}
         }
 
         function startPushInboxHeartbeat() {

@@ -4,3 +4,7 @@ Draft updated: April 3, 2026.
 - Removed the legacy "OWS Store - Ecosystem Update Trailer" premiere card from the home feed.
 - Disabled trailer-premiere initialization so the retired section no longer appears during startup.
 - Kept background push-update system active for closed/minimized app scenarios (Windows worker + inbox polling).
+- Added `@capacitor/push-notifications` dependency so Android can register real FCM tokens.
+- Added Android registration error surfacing in-app to detect FCM/device setup issues quickly.
+- Updated `ows-store-android.yml` to provision `google-services.json` from secrets and wire Firebase Gradle plugin automatically during CI builds.
+- Added `POST_NOTIFICATIONS` permission in Android manifest preparation step for Android 13+ push display.

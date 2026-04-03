@@ -8,3 +8,6 @@ Draft updated: April 3, 2026.
 - Added Android registration error surfacing in-app to detect FCM/device setup issues quickly.
 - Updated `ows-store-android.yml` to provision `google-services.json` from secrets and wire Firebase Gradle plugin automatically during CI builds.
 - Added `POST_NOTIFICATIONS` permission in Android manifest preparation step for Android 13+ push display.
+- Added platform-targeted push routing in backend release updates so Android no longer receives Windows-only update alerts.
+- Updated release script to send platform metadata on version bump (`windows` / `android`) for correct notification targeting.
+- Added Windows realtime background polling every 30 seconds while OWS Store is running in tray/background.

@@ -1131,18 +1131,62 @@ async function sendFcmPushNotification({ token, title, body, data = {} }) {
   }
 }
 
-async function queueOwsStorePushUpdate({ projectSlug, projectName, version, changelog = '' }) {
+function normalizePushTargetPlatforms(input) {
+  const set = new Set();
+  const pushToken = (value) => {
+    const token = String(value || '').trim().toLowerCase();
+    if (!token) return;
+    if (token === 'both') {
+      set.add('windows');
+      set.add('android');
+      return;
+    }
+    if (token === 'all') {
+      set.add('all');
+      return;
+    }
+    if (token === 'windows' || token === 'android' || token === 'web') {
+      set.add(token);
+    }
+  };
+
+  if (Array.isArray(input)) {
+    input.forEach(pushToken);
+  } else if (typeof input === 'string') {
+    String(input)
+      .split(',')
+      .forEach(pushToken);
+  } else if (input && typeof input === 'object') {
+    Object.values(input).forEach(pushToken);
+  }
+
+  if (!set.size) set.add('all');
+  return [...set];
+}
+
+function shouldPushToDevicePlatform(targetPlatforms = ['all'], devicePlatform = 'web') {
+  const targets = new Set(normalizePushTargetPlatforms(targetPlatforms));
+  const device = normalizeOwsPushPlatform(devicePlatform || 'web');
+  if (targets.has('all')) return true;
+  if (device === 'all') return true;
+  return targets.has(device);
+}
+
+async function queueOwsStorePushUpdate({ projectSlug, projectName, version, changelog = '', targetPlatforms = ['all'] }) {
   const slug = normalizeProjectSlug(projectSlug || '') || 'ows-store';
   const safeVersion = String(version || '').trim();
   if (!safeVersion) return { queued: 0 };
+  const normalizedTargets = normalizePushTargetPlatforms(targetPlatforms);
+  const targetScope = [...new Set(normalizedTargets)].sort().join('+');
   const { title, body } = buildOwsStorePushUpdateMessage({ projectName, version: safeVersion, changelog });
-  const dedupeKey = `update:${slug}:${safeVersion}`;
+  const dedupeKey = `update:${slug}:${safeVersion}:${targetScope}`;
   const payload = {
     type: 'project_update',
     project_slug: slug,
     project_name: String(projectName || slug),
     version: safeVersion,
-    changelog: String(changelog || '').trim()
+    changelog: String(changelog || '').trim(),
+    target_platforms: normalizedTargets
   };
   try {
     const devicesRes = await pool.query(
@@ -1161,6 +1205,7 @@ async function queueOwsStorePushUpdate({ projectSlug, projectName, version, chan
       const deviceId = String(device?.device_id || '').trim();
       if (!deviceId) continue;
       const platform = normalizeOwsPushPlatform(device?.platform || 'web');
+      if (!shouldPushToDevicePlatform(normalizedTargets, platform)) continue;
       const provider = normalizeOwsPushProvider(device?.provider || 'local');
       const pushToken = String(device?.push_token || '').trim();
       const endpoint = String(device?.endpoint || '').trim();
@@ -9951,7 +9996,7 @@ app.post('/ows-store/projects', async (req, res) => {
 // Actualizar versiÃƒÂ³n rÃƒÂ¡pidamente (Patch)
 app.patch('/ows-store/projects/:slug/version', async (req, res) => {
   const { slug } = req.params;
-  const { version, changelog = '' } = req.body;
+  const { version, changelog = '', platform = 'all', platforms = null } = req.body;
   if (!version) return res.status(400).json({ error: 'VersiÃƒÂ³n requerida' });
 
   try {
@@ -9965,7 +10010,8 @@ app.patch('/ows-store/projects/:slug/version', async (req, res) => {
       projectSlug: project.slug || slug,
       projectName: project.name || slug,
       version,
-      changelog
+      changelog,
+      targetPlatforms: platforms || platform || 'all'
     });
     res.json({
       success: true,

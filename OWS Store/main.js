@@ -19,10 +19,12 @@ const API_URL = 'https://owsdatabase.onrender.com';
 const INSTALLER_CACHE_DIR = path.join(os.tmpdir(), 'ows-store-installers');
 const PUSH_STATE_FILENAME = 'ows-push-state.json';
 const PUSH_WORKER_TASK_NAME = 'OWSStorePushWorker';
+const PUSH_REALTIME_POLL_MS = 30 * 1000;
 let updaterReady = false;
 let windowsUpdateDownloaded = false;
 let wnsChannelCache = '';
 let wnsChannelCacheAt = 0;
+let pushRealtimeTimer = null;
 const externalInstallTasks = new Map();
 const httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 32, keepAliveMsecs: 3000, scheduling: 'fifo' });
 const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 8 });
@@ -150,6 +152,21 @@ async function runPushWorkerOnce() {
     await ackPushInboxItem(item?.id).catch(() => {});
   }
   return { ok: true, delivered };
+}
+
+function startWindowsRealtimePushLoop() {
+  if (process.platform !== 'win32') return;
+  if (pushRealtimeTimer) return;
+  runPushWorkerOnce().catch(() => {});
+  pushRealtimeTimer = setInterval(() => {
+    runPushWorkerOnce().catch(() => {});
+  }, PUSH_REALTIME_POLL_MS);
+}
+
+function stopWindowsRealtimePushLoop() {
+  if (!pushRealtimeTimer) return;
+  clearInterval(pushRealtimeTimer);
+  pushRealtimeTimer = null;
 }
 
 function ensureWindowsPushWorkerScheduledTask() {
@@ -952,6 +969,7 @@ app.whenReady().then(() => {
     } catch (_) {}
   }
   ensureWindowsPushWorkerScheduledTask();
+  startWindowsRealtimePushLoop();
   registerPushDeviceInBackend().catch(() => {});
   createWindow();
   createTray();
@@ -960,6 +978,7 @@ app.whenReady().then(() => {
 
 app.on('before-quit', () => {
   isQuitting = true;
+  stopWindowsRealtimePushLoop();
 });
 
 app.on('window-all-closed', () => {

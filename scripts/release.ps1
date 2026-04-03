@@ -316,7 +316,10 @@ function Register-Version {
     param([string]$Slug, [string]$Ver, [string]$Plat = "windows")
     Require-Token
 
-    $body = @{ version = $Ver } | ConvertTo-Json
+    $body = @{
+        version = $Ver
+        platform = $Plat
+    } | ConvertTo-Json
     try {
         $r = Invoke-RestMethod -Uri "$API/ows-store/projects/$Slug/version" `
             -Method PATCH `

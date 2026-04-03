@@ -1622,12 +1622,18 @@
         let user = safeParseJSON(localStorage.getItem('floret_user')) || safeParseJSON(sessionStorage.getItem('floret_user')) || null;
         let cart = JSON.parse(localStorage.getItem('floret_cart')) || [];
         let products = [];
-        let isAdmin = user ? user.is_admin : false;
+        const FLORET_MAIN_SELLER_EMAIL = 'karatedojor@gmail.com';
+        function isFloretCoreAdminAccount(account) {
+            if (!account) return false;
+            const email = String(account.email || '').trim().toLowerCase();
+            const username = String(account.username || '').trim().toLowerCase();
+            return email === FLORET_MAIN_SELLER_EMAIL || username === 'malevo' || username === 'oceanandwild';
+        }
+        let isAdmin = isFloretCoreAdminAccount(user);
         let quota = null;
         let catalogLastSync = null;
         let catalogSyncState = 'idle';
         let catalogSyncError = '';
-        const FLORET_MAIN_SELLER_EMAIL = 'karatedojor@gmail.com';
         let productReviewsCache = {};
         let sellerReviewsCache = null;
         let allReviewsCache = null;
@@ -1677,10 +1683,7 @@
         }
 
         function isMalevoSession() {
-            if (!user) return false;
-            const email = String(user.email || '').trim().toLowerCase();
-            const username = String(user.username || '').trim().toLowerCase();
-            return email === FLORET_MAIN_SELLER_EMAIL || username === 'malevo' || Number(user.power_level || 0) >= 1;
+            return isFloretCoreAdminAccount(user);
         }
 
         function formatDateTime(dateValue) {
@@ -2367,7 +2370,7 @@
         }
 
         async function openMalevoNotifications() {
-            if (!user || !isMalevoSession()) return showToast('Solo Malevo puede ver esta seccion', true);
+            if (!user || !isMalevoSession()) return showToast('Solo administradores autorizados', true);
             try {
                 const data = await loadMalevoNotifications(true);
                 openModal(`
@@ -2499,8 +2502,121 @@
             }
         }
 
+        async function updateAdminProduct(productId, payload) {
+            if (!user || !isMalevoSession()) throw new Error('Solo administradores autorizados');
+            const res = await fetch(`${API}/floret/products/${productId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: user.id,
+                    email: user.email || '',
+                    ...payload
+                })
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'No se pudo actualizar el producto');
+            return data;
+        }
+
+        async function markProductSoldOut(productId) {
+            if (!confirm('Esto dejara el producto con stock 0. Continuar?')) return;
+            try {
+                const res = await fetch(`${API}/floret/products/${productId}/mark-sold-out`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: user.id,
+                        email: user.email || ''
+                    })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'No se pudo agotar el producto');
+                sellerDashboardCache = null;
+                await loadProducts({ silent: true, showErrorToast: false });
+                showToast('Producto agotado');
+                openSellerOperationsPanel();
+            } catch (error) {
+                showToast(error.message || 'No se pudo agotar', true);
+            }
+        }
+
+        async function deleteProductFromPanel(productId) {
+            if (!confirm('Se eliminara el producto en forma permanente. Confirmas?')) return;
+            try {
+                const query = `userId=${encodeURIComponent(user.id)}&email=${encodeURIComponent(user.email || '')}`;
+                const res = await fetch(`${API}/floret/products/${productId}?${query}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'No se pudo eliminar');
+                sellerDashboardCache = null;
+                await loadProducts({ silent: true, showErrorToast: false });
+                showToast('Producto eliminado');
+                openSellerOperationsPanel();
+            } catch (error) {
+                showToast(error.message || 'No se pudo eliminar', true);
+            }
+        }
+
+        function openEditProductFromPanel(productId) {
+            const current = products.find((item) => Number(item.id) === Number(productId));
+            if (!current) return showToast('Producto no encontrado', true);
+            const safeName = escapeHtml(current.name || '');
+            const safeDesc = escapeHtml(current.description || '');
+            const safeCondition = String(current.condition || 'Nuevo');
+            const safeMeasurements = escapeHtml(current.measurements || '');
+            const safeSizes = Array.isArray(current.sizes) ? current.sizes.join(', ') : '';
+            openModal(`
+                <div class="modal-hd"><h3><i class="fas fa-pen"></i> Editar producto #${Number(current.id)}</h3><button class="modal-cl" onclick="openSellerOperationsPanel()"><i class="fas fa-times"></i></button></div>
+                <div class="modal-bd">
+                    <div class="frm-grp"><label class="frm-lbl">Nombre</label><input class="frm-inp" id="edit-p-name" value="${safeName}" placeholder="Nombre del producto"></div>
+                    <div class="frm-grp"><label class="frm-lbl">Descripcion</label><textarea class="frm-txt" id="edit-p-desc" placeholder="Describe el producto">${safeDesc}</textarea></div>
+                    <div style="display:flex;gap:10px">
+                        <div class="frm-grp" style="flex:1"><label class="frm-lbl">Precio ($)</label><input class="frm-inp" type="number" id="edit-p-price" value="${Number(current.price || 0)}"></div>
+                        <div class="frm-grp" style="flex:1"><label class="frm-lbl">Stock</label><input class="frm-inp" type="number" id="edit-p-stock" value="${Math.max(0, Number(current.stock || 0))}"></div>
+                    </div>
+                    <div class="frm-grp"><label class="frm-lbl">Estado</label><select class="frm-sel" id="edit-p-cond"><option ${safeCondition === 'Nuevo' ? 'selected' : ''}>Nuevo</option><option ${safeCondition === 'Usado' ? 'selected' : ''}>Usado</option><option ${safeCondition === 'Como nuevo' ? 'selected' : ''}>Como nuevo</option></select></div>
+                    <div class="frm-grp"><label class="frm-lbl"><input type="checkbox" id="edit-p-size" ${current.requires_size ? 'checked' : ''}> Requiere talle</label></div>
+                    <div class="frm-grp"><label class="frm-lbl">Talles (coma)</label><input class="frm-inp" id="edit-p-sizes" value="${escapeHtml(safeSizes)}" placeholder="S, M, L"></div>
+                    <div class="frm-grp"><label class="frm-lbl">Medidas</label><input class="frm-inp" id="edit-p-meas" value="${safeMeasurements}" placeholder="50x30x20 cm"></div>
+                    <button class="btn btn-p" style="width:100%" id="edit-p-save" onclick="saveEditedProduct(${Number(current.id)})"><i class="fas fa-save"></i> Guardar cambios</button>
+                    <button class="btn btn-s" style="width:100%;margin-top:8px" onclick="openSellerOperationsPanel()"><i class="fas fa-arrow-left"></i> Volver al panel</button>
+                </div>
+            `);
+        }
+
+        async function saveEditedProduct(productId) {
+            const btn = document.getElementById('edit-p-save');
+            if (!btn) return;
+            const payload = {
+                name: document.getElementById('edit-p-name')?.value || '',
+                description: document.getElementById('edit-p-desc')?.value || '',
+                price: Number(document.getElementById('edit-p-price')?.value || 0),
+                stock: Math.max(0, Number(document.getElementById('edit-p-stock')?.value || 0)),
+                condition: document.getElementById('edit-p-cond')?.value || 'Nuevo',
+                requiresSize: !!document.getElementById('edit-p-size')?.checked,
+                sizes: String(document.getElementById('edit-p-sizes')?.value || '').split(',').map((s) => s.trim()).filter(Boolean),
+                measurements: document.getElementById('edit-p-meas')?.value || ''
+            };
+            if (!payload.name.trim()) return showToast('El nombre es obligatorio', true);
+            if (!Number.isFinite(payload.price) || payload.price <= 0) return showToast('Precio invalido', true);
+
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Guardando...';
+            try {
+                await updateAdminProduct(productId, payload);
+                sellerDashboardCache = null;
+                await loadProducts({ silent: true, showErrorToast: false });
+                showToast('Producto actualizado');
+                openSellerOperationsPanel();
+            } catch (error) {
+                showToast(error.message || 'No se pudo guardar', true);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-save"></i> Guardar cambios';
+            }
+        }
+
         async function openSellerOperationsPanel(focusOrderId = null) {
-            if (!user || !isMalevoSession()) return showToast('Solo Malevo puede abrir esta seccion', true);
+            if (!user || !isMalevoSession()) return showToast('Solo administradores autorizados', true);
             try {
                 const [dashboard, orders] = await Promise.all([
                     loadSellerDashboard(true),
@@ -2563,6 +2679,22 @@
           <div class="review-comment">Precio: $${Number(p.price || 0).toLocaleString('es-UY')}</div>
         </div>
       `).join('') : '<div class="review-comment">Sin alertas de stock por ahora.</div>'}
+
+      <h4 style="margin:16px 0 8px">Gestion de catalogo</h4>
+      ${(products || []).length ? products.slice(0, 80).map((p) => `
+        <div class="order-line">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+            <strong>${escapeHtml(p.name || 'Producto')}</strong>
+            <span class="order-status-pill">${Number(p.stock || 0) <= 0 ? 'Agotado' : `Stock: ${Number(p.stock || 0)}`}</span>
+          </div>
+          <div class="review-comment" style="margin-top:5px">Precio: $${Number(p.price || 0).toLocaleString('es-UY')} · Estado: ${escapeHtml(p.condition || 'Nuevo')}</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+            <button class="btn btn-s" style="max-width:170px" onclick="openEditProductFromPanel(${Number(p.id)})"><i class="fas fa-pen"></i> Modificar</button>
+            <button class="btn btn-s" style="max-width:170px" onclick="markProductSoldOut(${Number(p.id)})"><i class="fas fa-box-open"></i> Agotar</button>
+            <button class="btn btn-s" style="max-width:170px;border-color:#ef4444;color:#ef4444" onclick="deleteProductFromPanel(${Number(p.id)})"><i class="fas fa-trash"></i> Eliminar</button>
+          </div>
+        </div>
+      `).join('') : '<div class="review-comment">No hay productos cargados.</div>'}
     </div>
   `);
             } catch (error) {
@@ -2571,7 +2703,7 @@
         }
 
         async function openMalevoReviewHub() {
-            if (!user || !isMalevoSession()) return showToast('Solo Malevo puede abrir este centro', true);
+            if (!user || !isMalevoSession()) return showToast('Solo administradores autorizados', true);
             try {
                 const data = await loadAllReviews(true);
                 openModal(`
@@ -2745,7 +2877,7 @@
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error);
                 user = data.user;
-                isAdmin = user.is_admin || (user.power_level > 0);
+                isAdmin = isFloretCoreAdminAccount(user);
                 saveAuthUser(user, remember);
                 closeModal();
                 render();
@@ -2778,7 +2910,7 @@
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error);
                 user = data.user;
-                isAdmin = user.is_admin || (user.power_level > 0);
+                isAdmin = isFloretCoreAdminAccount(user);
                 saveAuthUser(user, true);
                 closeModal();
                 render();
@@ -3344,16 +3476,6 @@
             initFlowers();
             animateFlowers();
             window.addEventListener('resize', () => { resizeCanvas(); initFlowers(); });
-
-            // Activar modo admin con tecla secreta (presiona 'A' 3 veces rápido)
-            let adminClicks = 0;
-            document.addEventListener('keydown', (e) => {
-                if (e.key?.toLowerCase() === 'a') {
-                    adminClicks++;
-                    setTimeout(() => adminClicks = 0, 1000);
-                    if (adminClicks >= 3) { isAdmin = !isAdmin; render(); showToast(isAdmin ? 'Modo Admin ON' : 'Modo Admin OFF'); }
-                }
-            });
 
             loadProducts();
             if (user && user.power_level === 1) loadQuota();

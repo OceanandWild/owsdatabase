@@ -19944,6 +19944,77 @@ app.get('/wildwave/api/scheduled', async (req, res) => {
   }
 });
 
+// Editar post propio
+app.patch('/wildwave/api/posts/:id', async (req, res) => {
+  try {
+    await ensureWildXTables();
+    await ensureWildXExtraColumns();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Inicia sesiÃƒÆ’Ã‚Â³n en WildX' });
+
+    const postId = parseInt(req.params.id, 10);
+    if (!postId) return res.status(400).json({ error: 'ID de post invÃƒÆ’Ã‚Â¡lido' });
+
+    const nextContent = String(req.body?.content || '').trim();
+
+    const { rows: postRows } = await pool.query(
+      'SELECT user_id, images, video_url, deleted_at FROM wildx_posts WHERE id = $1',
+      [postId]
+    );
+    if (!postRows.length) return res.status(404).json({ error: 'Post no encontrado' });
+    const post = postRows[0];
+    if (post.deleted_at) return res.status(400).json({ error: 'No se puede editar un post eliminado' });
+    if (Number(post.user_id) !== Number(wid)) {
+      return res.status(403).json({ error: 'Solo puedes editar tus propios posts' });
+    }
+
+    const hasImages = Array.isArray(post.images) ? post.images.length > 0 : false;
+    const hasVideo = !!(post.video_url && String(post.video_url).trim());
+    if (!nextContent && !hasImages && !hasVideo) {
+      return res.status(400).json({ error: 'El post no puede quedar vacÃƒÂ­o' });
+    }
+
+    const isAdmin = await isWildXAdmin(wid);
+    let maxLen = 280;
+    if (!isAdmin) {
+      try {
+        const { rows: verRows } = await pool.query(
+          `SELECT tier, plan_id, valid_until
+             FROM wildx_verifications
+            WHERE user_id = $1
+              AND valid_until > NOW()
+            ORDER BY started_at ASC
+            LIMIT 1`,
+          [wid]
+        );
+        if (verRows[0]?.tier) {
+          maxLen = getWildWaveMaxCharsForTier(verRows[0]?.tier, verRows[0]?.plan_id);
+        }
+      } catch (_) {
+        // mantener limite base si falla la consulta
+      }
+      if (nextContent.length > maxLen) {
+        const msg = maxLen === 280
+          ? 'MÃƒÆ’Ã‚Â¡ximo 280 caracteres'
+          : 'MÃƒÆ’Ã‚Â¡ximo 700 caracteres con tu verificaciÃƒÆ’Ã‚Â³n azul';
+        return res.status(400).json({ error: msg });
+      }
+    }
+
+    const { rows } = await pool.query(
+      `UPDATE wildx_posts
+          SET content = $1
+        WHERE id = $2
+        RETURNING id, user_id, username, content, images, video_url, created_at, parent_id, likes_count, scheduled_at, status`,
+      [nextContent, postId]
+    );
+    res.json({ success: true, post: rows[0] || null });
+  } catch (err) {
+    console.error('Error en PATCH /wildwave/api/posts/:id:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 // Eliminar post propio (borrado suave)
 app.delete('/wildwave/api/posts/:id', async (req, res) => {
   try {

@@ -494,12 +494,14 @@
 
       .wx-toast-container {
         position: fixed;
-        top: 16px;
+        top: auto;
+        bottom: 16px;
         right: 16px;
         z-index: 100;
         display: flex;
         flex-direction: column;
         gap: 8px;
+        pointer-events: none;
       }
 
       .wx-toast {
@@ -514,6 +516,7 @@
         background: rgba(15,23,42,0.96);
         border: 1px solid rgba(148,163,184,0.5);
         box-shadow: 0 12px 30px rgba(15,23,42,0.8);
+        pointer-events: auto;
       }
 
       .wx-toast--info {
@@ -983,26 +986,29 @@
       .wx-thread-list {
         list-style: none;
         margin: 0;
-        padding: 0;
+        padding: 2px 0 8px;
       }
 
       .wx-thread-item {
-        padding: 8px 0 8px 6px;
-        border-left: 2px solid rgba(30,64,175,0.5);
-        margin-left: 4px;
+        padding: 10px 10px 10px 14px;
+        border-left: 1px solid rgba(56, 189, 248, 0.24);
+        margin: 8px 0 0 8px;
+        border-radius: 12px;
+        background: linear-gradient(180deg, rgba(11, 19, 37, 0.78), rgba(8, 15, 30, 0.72));
+        box-shadow: inset 0 1px 0 rgba(148, 163, 184, 0.08);
       }
 
       .wx-thread-item-root {
-        border-left-color: transparent;
+        border-left-color: rgba(56, 189, 248, 0.18);
         margin-left: 0;
-        padding-left: 0;
+        background: linear-gradient(180deg, rgba(14, 24, 45, 0.84), rgba(10, 19, 38, 0.78));
       }
 
-      .wx-thread-depth-1 { margin-left: 12px; }
-      .wx-thread-depth-2 { margin-left: 24px; }
-      .wx-thread-depth-3 { margin-left: 36px; }
-      .wx-thread-depth-4 { margin-left: 48px; }
-      .wx-thread-depth-5 { margin-left: 60px; }
+      .wx-thread-depth-1 { margin-left: 14px; }
+      .wx-thread-depth-2 { margin-left: 26px; }
+      .wx-thread-depth-3 { margin-left: 38px; }
+      .wx-thread-depth-4 { margin-left: 50px; }
+      .wx-thread-depth-5 { margin-left: 62px; }
 
       .wx-profile {
         padding: 14px 14px 12px;
@@ -1497,17 +1503,44 @@
 
       .wx-verify-badge--admin,
       .wx-verify-icon-badge--admin {
-        --wx-verify-bg: conic-gradient(from 0deg, #fef08a, #facc15, #f97316, #ef4444, #facc15, #fef08a);
-        --wx-verify-glow: rgba(254,240,138,0.95);
+        --wx-verify-bg: conic-gradient(
+          from 0deg,
+          #fff7b3 0deg,
+          #facc15 70deg,
+          #f97316 130deg,
+          #ef4444 200deg,
+          #d946ef 280deg,
+          #22d3ee 330deg,
+          #fff7b3 360deg
+        );
+        --wx-verify-glow: rgba(251,191,36,0.98);
+        box-shadow:
+          0 0 0 1px rgba(255,255,255,0.45),
+          0 0 12px rgba(251,191,36,0.95),
+          0 0 24px rgba(249,115,22,0.52),
+          0 0 42px rgba(217,70,239,0.34);
       }
 
       .wx-verify-badge--admin {
-        animation: wx-admin-pulse 2.4s ease-in-out infinite;
+        animation:
+          wx-admin-pulse 1.75s ease-in-out infinite,
+          wx-admin-spin 5.4s linear infinite;
+      }
+
+      .wx-verify-icon-badge--admin {
+        animation:
+          wx-admin-pulse 2s ease-in-out infinite,
+          wx-admin-spin 6.8s linear infinite;
       }
 
       @keyframes wx-admin-pulse {
         0%, 100% { transform: scale(1); }
-        50% { transform: scale(1.06); }
+        50% { transform: scale(1.1); }
+      }
+
+      @keyframes wx-admin-spin {
+        0% { filter: hue-rotate(0deg) saturate(1); }
+        100% { filter: hue-rotate(360deg) saturate(1.28); }
       }
 
       .wx-verify-plans {
@@ -2635,6 +2668,13 @@
         gap: 10px;
         flex-wrap: wrap;
       }
+      .wx-btn--ai {
+        min-width: 160px;
+      }
+      .wx-btn--ai.is-running {
+        border-color: rgba(34, 211, 238, 0.9);
+        box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.14);
+      }
 
       .wx-char-ring {
         position: relative;
@@ -3311,51 +3351,118 @@
         font-size: 0.82rem;
         padding: 0.3rem 0.5rem;
       }
+      .wx-poll-custom-row,
+      .wx-poll-exact-row {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      .wx-poll-custom-row input[type="number"] {
+        width: 110px;
+      }
+      .wx-poll-custom-row input,
+      .wx-poll-custom-row select,
+      .wx-poll-exact-row input {
+        background: rgba(255,255,255,0.05);
+        border: 1px solid var(--stroke);
+        border-radius: 8px;
+        color: var(--text);
+        font-size: 0.82rem;
+        padding: 0.38rem 0.55rem;
+      }
+      .wx-poll-custom-hint {
+        margin: 0;
+        color: var(--text-faint);
+        font-size: 0.74rem;
+      }
 
-      /* ── Poll in feed ── */
+      /* Poll in feed */
       .wx-post-poll {
         margin: 0.6rem 0 0.2rem;
-        background: rgba(34,211,238,0.05);
-        border: 1px solid rgba(34,211,238,0.18);
-        border-radius: 14px;
-        padding: 0.85rem 1rem;
+        background: linear-gradient(180deg, rgba(6,16,34,0.88), rgba(4,12,24,0.95));
+        border: 1px solid rgba(34,211,238,0.2);
+        border-radius: 16px;
+        padding: 0.95rem 1rem;
         display: flex;
         flex-direction: column;
-        gap: 0.5rem;
+        gap: 0.62rem;
+        box-shadow: 0 12px 28px rgba(2,12,27,0.5);
+      }
+      .wx-poll-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.6rem;
+      }
+      .wx-poll-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        border-radius: 999px;
+        padding: 0.24rem 0.56rem;
+        font-size: 0.7rem;
+        color: #b8f6ff;
+        border: 1px solid rgba(34,211,238,0.35);
+        background: rgba(34,211,238,0.12);
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        font-weight: 700;
+      }
+      .wx-poll-state {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: 0.2rem 0.55rem;
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+      .wx-poll-state--open {
+        color: #8bf6c2;
+        border: 1px solid rgba(16,185,129,0.34);
+        background: rgba(16,185,129,0.14);
+      }
+      .wx-poll-state--closed {
+        color: #fecaca;
+        border: 1px solid rgba(239,68,68,0.4);
+        background: rgba(239,68,68,0.16);
       }
       .wx-poll-question {
         font-weight: 600;
-        font-size: 0.9rem;
+        font-size: 0.92rem;
         color: var(--text);
-        margin-bottom: 0.25rem;
+        margin-bottom: 0.15rem;
+        line-height: 1.45;
       }
       .wx-poll-option-btn {
         width: 100%;
         text-align: left;
-        background: rgba(255,255,255,0.04);
-        border: 1.5px solid var(--stroke);
+        background: rgba(255,255,255,0.035);
+        border: 1px solid rgba(148,163,184,0.26);
         border-radius: 8px;
         color: var(--text);
         font-family: var(--font-body);
         font-size: 0.85rem;
-        padding: 0.5rem 0.75rem;
+        padding: 0.56rem 0.76rem;
         cursor: pointer;
         position: relative;
         overflow: hidden;
-        transition: border-color 0.18s, background 0.18s;
+        transition: border-color 0.18s, background 0.18s, transform 0.14s;
       }
       .wx-poll-option-btn:hover:not(:disabled) {
-        border-color: var(--accent);
-        background: var(--accent-soft);
+        transform: translateY(-1px);
+        border-color: rgba(34,211,238,0.5);
+        background: rgba(34,211,238,0.13);
       }
       .wx-poll-option-btn.is-voted {
-        border-color: var(--accent);
-        background: rgba(34,211,238,0.12);
+        border-color: rgba(34,211,238,0.65);
+        background: rgba(34,211,238,0.16);
       }
       .wx-poll-option-bar {
         position: absolute;
         left: 0; top: 0; bottom: 0;
-        background: rgba(34,211,238,0.15);
+        background: linear-gradient(90deg, rgba(34,211,238,0.22), rgba(125,211,252,0.2));
         border-radius: 8px 0 0 8px;
         transition: width 0.45s ease;
         pointer-events: none;
@@ -3372,14 +3479,17 @@
         font-size: 0.75rem;
         color: var(--accent);
         font-weight: 600;
-        flex-shrink: 0;
       }
       .wx-poll-meta {
-        font-size: 0.72rem;
-        color: var(--text-faint);
+        margin-top: 0.05rem;
         display: flex;
-        gap: 0.75rem;
-        margin-top: 0.1rem;
+        justify-content: space-between;
+        align-items: center;
+        gap: 0.5rem;
+        color: var(--text-faint);
+        font-size: 0.76rem;
+        border-top: 1px solid rgba(148,163,184,0.16);
+        padding-top: 0.48rem;
       }
       .wx-poll-ended { color: var(--danger); }
 
@@ -3392,46 +3502,68 @@
       .wx-thread-item:not(.wx-thread-item-root)::before {
         content: '';
         position: absolute;
-        left: -13px;
-        top: 0;
+        left: -10px;
+        top: -8px;
         bottom: 50%;
-        width: 2px;
-        background: rgba(34,211,238,0.25);
-        border-radius: 2px 2px 0 0;
+        width: 1px;
+        background: rgba(56, 189, 248, 0.26);
+        border-radius: 2px;
       }
       /* Horizontal connector from vertical line to post */
       .wx-thread-item:not(.wx-thread-item-root)::after {
         content: '';
         position: absolute;
-        left: -13px;
+        left: -10px;
         top: 50%;
-        width: 13px;
-        height: 12px;
-        border-left: 2px solid rgba(34,211,238,0.25);
-        border-bottom: 2px solid rgba(34,211,238,0.25);
-        border-radius: 0 0 0 8px;
+        width: 10px;
+        height: 10px;
+        border-left: 1px solid rgba(56, 189, 248, 0.26);
+        border-bottom: 1px solid rgba(56, 189, 248, 0.26);
+        border-radius: 0 0 0 7px;
+        transform: translateY(-50%);
+      }
+
+      .wx-thread-item .wx-post-actions {
+        margin-top: 7px;
+      }
+
+      .wx-thread-item .wx-post-btn {
+        font-size: 0.77rem;
+        padding: 3px 10px;
+      }
+
+      .wx-thread-item .wx-text {
+        margin-top: 2px;
+        line-height: 1.55;
+      }
+
+      .wx-thread-item .wx-meta {
+        margin-bottom: 5px;
       }
       /* Reply count chip on posts in the feed */
       .wx-reply-chip {
         display: inline-flex;
         align-items: center;
-        gap: 0.3rem;
-        background: transparent;
-        border: none;
-        color: var(--text-faint);
+        gap: 0.34rem;
+        background: rgba(10, 18, 35, 0.55);
+        border: 1px solid rgba(56, 189, 248, 0.35);
+        color: #b9d7f5;
         font-family: var(--font-body);
-        font-size: 0.82rem;
+        font-size: 0.79rem;
         cursor: pointer;
-        padding: 0.2rem 0.4rem;
-        border-radius: 6px;
-        transition: color 0.15s, background 0.15s;
+        padding: 0.24rem 0.56rem;
+        border-radius: 999px;
+        transition: color 0.15s, background 0.15s, border-color 0.15s;
       }
       .wx-reply-chip:hover {
-        color: var(--accent);
-        background: var(--accent-soft);
+        color: #e2f4ff;
+        background: rgba(10, 24, 48, 0.78);
+        border-color: rgba(56, 189, 248, 0.62);
       }
       .wx-reply-chip.has-replies {
         color: var(--accent);
+        border-color: rgba(34, 211, 238, 0.52);
+        box-shadow: inset 0 0 0 1px rgba(34, 211, 238, 0.15);
       }
       /* Thread loader overlay */
       .wx-thread-loading {
@@ -3705,12 +3837,82 @@
       }
       .wx-editor-btn:hover { color:var(--accent); background:var(--accent-soft); }
       .wx-editor-sep { width:1px; height:14px; background:var(--stroke); margin:0 3px; flex-shrink:0; }
+      .wx-editor-hint {
+        margin: 8px 0 2px;
+        font-size: 0.74rem;
+        color: var(--text-faint);
+        line-height: 1.35;
+      }
+      .wx-draft-assistant {
+        margin-top: 10px;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        border-radius: 12px;
+        background: rgba(6, 12, 28, 0.72);
+        padding: 8px;
+        display: grid;
+        gap: 8px;
+      }
+      .wx-draft-assistant-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+      }
+      .wx-draft-assistant-title {
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.01em;
+        color: var(--text);
+      }
+      .wx-draft-assistant-model {
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        border-radius: 999px;
+        background: rgba(10, 18, 35, 0.9);
+        color: var(--text);
+        padding: 4px 10px;
+        font-size: 0.72rem;
+      }
+      .wx-draft-assistant-log {
+        max-height: 120px;
+        overflow: auto;
+        display: grid;
+        gap: 6px;
+      }
+      .wx-draft-assistant-msg {
+        font-size: 0.76rem;
+        line-height: 1.35;
+        border-radius: 10px;
+        padding: 6px 8px;
+      }
+      .wx-draft-assistant-msg--system {
+        color: var(--text-soft);
+        background: rgba(148, 163, 184, 0.1);
+      }
+      .wx-draft-assistant-msg--user {
+        color: #cffafe;
+        background: rgba(34, 211, 238, 0.13);
+      }
+      .wx-draft-assistant-controls {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 6px;
+      }
+      .wx-draft-assistant-controls input {
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        border-radius: 10px;
+        background: rgba(10, 18, 35, 0.9);
+        color: var(--text);
+        padding: 7px 10px;
+        font-size: 0.78rem;
+      }
       /* Rendered post formatting */
       .wx-post-content { line-height:1.6; }
       .wx-post-content strong { font-weight:700; }
       .wx-post-content em { font-style:italic; color:var(--text-soft); }
-      .wx-post-content ul,.wx-post-content ol { margin:0.4em 0; padding-left:1.4em; }
-      .wx-post-content li { margin:0.15em 0; }
+      .wx-post-content ul,.wx-post-content ol { margin:0.2em 0 0.32em; padding-left:1.2em; }
+      .wx-post-content li { margin:0.04em 0; line-height:1.45; }
+      .wx-post-content .wx-line { margin:0.14em 0; }
+      .wx-post-content .wx-gap { margin:0.2em 0; height:0.24em; }
       .wx-post-content .wx-spoiler {
         background:rgba(255,255,255,0.12); border-radius:4px; padding:1px 6px;
         cursor:pointer; user-select:none; color:transparent;
@@ -3818,7 +4020,7 @@
 
         <!-- Create button (expandable) -->
         <button type="button" class="wx-create-btn" id="wx-create-btn" title="Crear ola">
-          <span class="wx-create-btn-icon">＋</span>
+          <span class="wx-create-btn-icon">+</span>
           <span class="wx-create-btn-label">Crear ola</span>
         </button>
       </header>
@@ -3927,7 +4129,7 @@
                   <div class="wx-profile-field">
                     <label for="wx-display-name-input">Nombre de visualizador</label>
                     <input type="text" id="wx-display-name-input" maxlength="32" placeholder="Nombre visible" />
-                    <small>2 a 32 caracteres. Letras, nÃºmeros y espacios.</small>
+                    <small>2 a 32 caracteres. Letras, números y espacios.</small>
                     <button type="button" class="wx-btn wx-btn--outline" id="wx-save-display-name">Guardar nombre</button>
                   </div>
                   <div class="wx-profile-field">
@@ -3936,7 +4138,7 @@
                       <span>@</span>
                       <input type="text" id="wx-username-input" maxlength="20" placeholder="usuario" />
                     </div>
-                    <small>3 a 20 caracteres. Letras, nÃºmeros, puntos o guiones bajos.</small>
+                    <small>3 a 20 caracteres. Letras, números, puntos o guiones bajos.</small>
                     <button type="button" class="wx-btn wx-btn--outline" id="wx-save-username">Cambiar usuario</button>
                   </div>
                 </div>
@@ -4302,12 +4504,25 @@
               <button type="button" class="wx-editor-btn" data-fmt="highlight" title="Resaltar">✦</button>
               <button type="button" class="wx-editor-btn" data-fmt="code" title="Código">⌥</button>
               <div class="wx-editor-sep"></div>
-              <button type="button" class="wx-editor-btn" data-fmt="list" title="Lista">• —</button>
+              <button type="button" class="wx-editor-btn" data-fmt="list" title="Lista con viñetas">• Lista</button>
+              <button type="button" class="wx-editor-btn" data-fmt="olist" title="Lista numerada">1. Lista</button>
               <button type="button" class="wx-editor-btn" data-fmt="quote" title="Cita">&ldquo;</button>
               <div class="wx-editor-sep"></div>
               <button type="button" class="wx-editor-btn" data-fmt="spoiler" title="Spoiler">👁</button>
             </div>
             <textarea id="wx-text" maxlength="1800" placeholder="Inicia sesión para publicar"></textarea>
+            <p class="wx-editor-hint">Tip: selecciona varias frases y usa Lista. Detecta numeraciones y puntos para convertir todo en un bloque ordenado.</p>
+            <div class="wx-draft-assistant">
+              <div class="wx-draft-assistant-head">
+                <span class="wx-draft-assistant-title">Nereid Assistant</span>
+                <select id="wx-assistant-model" class="wx-draft-assistant-model"></select>
+              </div>
+              <div id="wx-assistant-log" class="wx-draft-assistant-log"></div>
+              <div class="wx-draft-assistant-controls">
+                <input id="wx-assistant-input" type="text" placeholder="Ej: resumilo, hacelo más profesional, convertí en lista..." />
+                <button id="wx-assistant-send" type="button" class="wx-btn wx-btn--outline wx-btn--tiny">Aplicar</button>
+              </div>
+            </div>
           </div>
           <div class="wx-composer-panel" data-panel="collab">
             <div class="wx-collab-input">
@@ -4348,14 +4563,31 @@
               <div id="wx-poll-options-list" class="wx-poll-options-list"></div>
               <button type="button" class="wx-btn wx-btn--outline wx-btn--tiny" id="wx-poll-add-option">+ Opción</button>
               <div class="wx-poll-duration">
-                <label for="wx-poll-duration-select">Duración</label>
+                <label for="wx-poll-duration-select">Duraci?n</label>
                 <select id="wx-poll-duration-select" class="wx-poll-select">
-                  <option value="">Sin límite</option>
-                  <option value="1">1 día</option>
-                  <option value="3">3 días</option>
-                  <option value="7">7 días</option>
+                  <option value="">Sin l?mite</option>
+                  <option value="1h">1 hora</option>
+                  <option value="6h">6 horas</option>
+                  <option value="12h">12 horas</option>
+                  <option value="1d">1 d?a</option>
+                  <option value="3d">3 d?as</option>
+                  <option value="7d">7 d?as</option>
+                  <option value="custom_duration">Personalizar (min/horas/d?as)</option>
+                  <option value="exact_datetime">Fecha y hora exacta</option>
                 </select>
               </div>
+              <div class="wx-poll-custom-row" id="wx-poll-custom-row" hidden>
+                <input type="number" id="wx-poll-custom-value" min="1" max="43200" step="1" placeholder="Cantidad" />
+                <select id="wx-poll-custom-unit">
+                  <option value="minutes">Minutos</option>
+                  <option value="hours" selected>Horas</option>
+                  <option value="days">D?as</option>
+                </select>
+              </div>
+              <div class="wx-poll-exact-row" id="wx-poll-exact-row" hidden>
+                <input type="datetime-local" id="wx-poll-exact-datetime" />
+              </div>
+              <p class="wx-poll-custom-hint" id="wx-poll-custom-hint"></p>
               <p id="wx-poll-status" class="wx-media-status"></p>
             </div>
           </div>
@@ -4420,6 +4652,7 @@
               <span id="wx-status" class="wx-status"></span>
               <span id="wx-media-status" class="wx-media-status"></span>
             </div>
+            <button id="wx-nereid-polish" class="wx-btn wx-btn--outline wx-btn--ai" type="button">Nereid Polish</button>
             <button id="wx-send" class="wx-btn" disabled>
               <span>Publicar</span>
             </button>
@@ -4847,6 +5080,11 @@
       const $charRingLabel = document.getElementById('wx-char-ring-label');
       const $charRingInfinity = document.getElementById('wx-char-ring-infinity');
       const $toastContainer = document.getElementById('wx-toast-container');
+      const $nereidPolish = document.getElementById('wx-nereid-polish');
+      const $assistantModel = document.getElementById('wx-assistant-model');
+      const $assistantLog = document.getElementById('wx-assistant-log');
+      const $assistantInput = document.getElementById('wx-assistant-input');
+      const $assistantSend = document.getElementById('wx-assistant-send');
       const $send = document.getElementById('wx-send');
       const $openComposer = document.getElementById('wx-open-composer');
       const $composerModal = document.getElementById('wx-composer-modal');
@@ -5375,6 +5613,7 @@
             // hide $userCard again). setTab handles all DOM visibility correctly.
             setTab('profile');
             applyProfileView(user, { readonly: false });
+            ensureOwnProfileVisibility();
             fetchMyPosts();
             fetchScheduledPosts();
             fetchCollabRequests().catch(() => {});
@@ -6376,6 +6615,26 @@ function getMaxChars() {
         if ($addOpt) $addOpt.disabled = pollState.options.length >= 6;
       }
 
+      function formatPollEndLabel(isoDate) {
+        if (!isoDate) return 'Sin límite';
+        const d = new Date(isoDate);
+        if (Number.isNaN(d.getTime())) return 'Sin límite';
+        return 'Finaliza: ' + d.toLocaleString();
+      }
+
+      function parsePollPresetToDate(presetValue) {
+        if (!presetValue || presetValue === 'custom_duration' || presetValue === 'exact_datetime') return null;
+        const m = String(presetValue).match(/^(\d+)([mhd])$/i);
+        if (!m) return null;
+        const amount = Math.max(1, parseInt(m[1], 10));
+        const unit = m[2].toLowerCase();
+        const d = new Date();
+        if (unit === 'm') d.setMinutes(d.getMinutes() + amount);
+        if (unit === 'h') d.setHours(d.getHours() + amount);
+        if (unit === 'd') d.setDate(d.getDate() + amount);
+        return d;
+      }
+
       function initPollBuilder() {
         if (!pollState) {
           pollState = { question: '', options: ['', ''], ends_at: null };
@@ -6383,22 +6642,98 @@ function getMaxChars() {
         const $q = document.getElementById('wx-poll-question');
         if ($q) { $q.value = pollState.question; $q.oninput = () => { pollState.question = $q.value; }; }
         const $dur = document.getElementById('wx-poll-duration-select');
+        const $customRow = document.getElementById('wx-poll-custom-row');
+        const $customValue = document.getElementById('wx-poll-custom-value');
+        const $customUnit = document.getElementById('wx-poll-custom-unit');
+        const $exactRow = document.getElementById('wx-poll-exact-row');
+        const $exactDate = document.getElementById('wx-poll-exact-datetime');
+        const $hint = document.getElementById('wx-poll-custom-hint');
+        const $ps = document.getElementById('wx-poll-status');
+
+        const setPollEndsAt = (d) => {
+          if (d && !Number.isNaN(d.getTime()) && d.getTime() > Date.now()) {
+            pollState.ends_at = d.toISOString();
+            if ($ps) $ps.textContent = formatPollEndLabel(pollState.ends_at);
+            if ($hint) $hint.textContent = '';
+            return;
+          }
+          pollState.ends_at = null;
+          if ($ps) $ps.textContent = 'Sin límite';
+        };
+
+        const applyCustomDuration = () => {
+          const amount = Math.max(1, parseInt(($customValue && $customValue.value) || '0', 10));
+          const unit = ($customUnit && $customUnit.value) || 'hours';
+          if ($customValue && (!$customValue.value || Number.isNaN(amount))) {
+            if ($ps) $ps.textContent = 'Ingresa una cantidad válida.';
+            return;
+          }
+          const d = new Date();
+          if (unit === 'minutes') d.setMinutes(d.getMinutes() + amount);
+          if (unit === 'hours') d.setHours(d.getHours() + amount);
+          if (unit === 'days') d.setDate(d.getDate() + amount);
+          setPollEndsAt(d);
+        };
+
+        const applyExactDate = () => {
+          const raw = ($exactDate && $exactDate.value) || '';
+          if (!raw) {
+            pollState.ends_at = null;
+            if ($ps) $ps.textContent = 'Selecciona una fecha y hora exacta.';
+            return;
+          }
+          const d = new Date(raw);
+          if (Number.isNaN(d.getTime()) || d.getTime() <= Date.now()) {
+            if ($ps) $ps.textContent = 'La fecha debe estar en el futuro.';
+            pollState.ends_at = null;
+            return;
+          }
+          setPollEndsAt(d);
+        };
+
+        const syncMode = () => {
+          const mode = ($dur && $dur.value) || '';
+          if ($customRow) $customRow.hidden = mode !== 'custom_duration';
+          if ($exactRow) $exactRow.hidden = mode !== 'exact_datetime';
+          if (mode === '') {
+            pollState.ends_at = null;
+            if ($hint) $hint.textContent = '';
+            if ($ps) $ps.textContent = 'Sin límite';
+            return;
+          }
+          if (mode === 'custom_duration') {
+            if ($hint) $hint.textContent = 'Define una duración exacta en minutos, horas o días.';
+            applyCustomDuration();
+            return;
+          }
+          if (mode === 'exact_datetime') {
+            if ($hint) $hint.textContent = 'Usa fecha y hora local para cierre exacto.';
+            applyExactDate();
+            return;
+          }
+          if ($hint) $hint.textContent = '';
+          const presetDate = parsePollPresetToDate(mode);
+          setPollEndsAt(presetDate);
+        };
+
         if ($dur) {
           $dur.value = '';
-          $dur.onchange = () => {
-            const days = parseInt($dur.value, 10);
-            if (!isNaN(days) && days > 0) {
-              const d = new Date();
-              d.setDate(d.getDate() + days);
-              pollState.ends_at = d.toISOString();
-            } else {
-              pollState.ends_at = null;
-            }
-          };
+          $dur.onchange = syncMode;
         }
+        if ($customValue) $customValue.oninput = () => { if ($dur && $dur.value === 'custom_duration') syncMode(); };
+        if ($customUnit) $customUnit.onchange = () => { if ($dur && $dur.value === 'custom_duration') syncMode(); };
+        if ($exactDate) $exactDate.onchange = () => { if ($dur && $dur.value === 'exact_datetime') syncMode(); };
+
+        if (pollState.ends_at) {
+          const d = new Date(pollState.ends_at);
+          if (!Number.isNaN(d.getTime()) && d.getTime() > Date.now() && $exactDate && $dur) {
+            $dur.value = 'exact_datetime';
+            const pad = (n) => String(n).padStart(2, '0');
+            $exactDate.value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+          }
+        }
+        syncMode();
         renderPollOptionRows();
-        const $ps = document.getElementById('wx-poll-status');
-        if ($ps) $ps.textContent = '';
       }
 
       function clearPollState() {
@@ -6407,10 +6742,22 @@ function getMaxChars() {
         const $list = document.getElementById('wx-poll-options-list');
         const $ps = document.getElementById('wx-poll-status');
         const $dur = document.getElementById('wx-poll-duration-select');
+        const $customRow = document.getElementById('wx-poll-custom-row');
+        const $customValue = document.getElementById('wx-poll-custom-value');
+        const $customUnit = document.getElementById('wx-poll-custom-unit');
+        const $exactRow = document.getElementById('wx-poll-exact-row');
+        const $exactDate = document.getElementById('wx-poll-exact-datetime');
+        const $hint = document.getElementById('wx-poll-custom-hint');
         if ($q) $q.value = '';
         if ($list) $list.innerHTML = '';
-        if ($ps) $ps.textContent = '';
+        if ($ps) $ps.textContent = 'Sin límite';
         if ($dur) $dur.value = '';
+        if ($customRow) $customRow.hidden = true;
+        if ($customValue) $customValue.value = '';
+        if ($customUnit) $customUnit.value = 'hours';
+        if ($exactRow) $exactRow.hidden = true;
+        if ($exactDate) $exactDate.value = '';
+        if ($hint) $hint.textContent = '';
       }
 
       function getPollPayload() {
@@ -6418,6 +6765,14 @@ function getMaxChars() {
         const question = (pollState.question || '').trim();
         const options = pollState.options.map(o => o.trim()).filter(Boolean);
         if (!question || options.length < 2) return null;
+        if (pollState.ends_at) {
+          const end = new Date(pollState.ends_at);
+          if (Number.isNaN(end.getTime()) || end.getTime() <= Date.now()) {
+            const $ps = document.getElementById('wx-poll-status');
+            if ($ps) $ps.textContent = 'Configura un cierre válido para la encuesta.';
+            return null;
+          }
+        }
         return { question, options, ends_at: pollState.ends_at || undefined };
       }
 
@@ -6466,15 +6821,28 @@ function getMaxChars() {
         const wrap = document.createElement('div');
         wrap.className = 'wx-post-poll';
 
-        const q = document.createElement('div');
-        q.className = 'wx-poll-question';
-        q.textContent = poll.question;
-        wrap.appendChild(q);
-
         const hasVoted = poll.my_vote != null;
         const isEnded = poll.ends_at && new Date(poll.ends_at) < new Date();
         const showResults = hasVoted || isEnded || !currentUser;
         const total = poll.total_votes || 0;
+
+        const head = document.createElement('div');
+        head.className = 'wx-poll-head';
+
+        const badge = document.createElement('span');
+        badge.className = 'wx-poll-badge';
+        badge.textContent = 'Encuesta';
+
+        const state = document.createElement('span');
+        state.className = 'wx-poll-state ' + (isEnded ? 'wx-poll-state--closed' : 'wx-poll-state--open');
+        state.textContent = isEnded ? 'cerrada' : 'activa';
+        head.append(badge, state);
+        wrap.appendChild(head);
+
+        const q = document.createElement('div');
+        q.className = 'wx-poll-question';
+        q.textContent = poll.question;
+        wrap.appendChild(q);
 
         (poll.options || []).forEach((opt) => {
           const btn = document.createElement('button');
@@ -6510,13 +6878,14 @@ function getMaxChars() {
           wrap.appendChild(btn);
         });
 
-        // Meta row
         const meta = document.createElement('div');
         meta.className = 'wx-poll-meta';
+
         const totalSpan = document.createElement('span');
         totalSpan.className = 'wx-poll-total';
         totalSpan.textContent = total + ' voto' + (total !== 1 ? 's' : '');
         meta.appendChild(totalSpan);
+
         if (poll.ends_at) {
           const endSpan = document.createElement('span');
           const endDate = new Date(poll.ends_at);
@@ -6528,6 +6897,7 @@ function getMaxChars() {
           }
           meta.appendChild(endSpan);
         }
+
         wrap.appendChild(meta);
         return wrap;
       }
@@ -6774,6 +7144,757 @@ function getMaxChars() {
 
 
       // ── Rich text editor toolbar ──────────────────────────────────────────
+      function normalizeListItems(raw) {
+        const text = String(raw || '').replace(/\r\n?/g, '\n').trim();
+        if (!text) return [];
+        const rows = text
+          .split('\n')
+          .map((line) => line.trim())
+          .filter(Boolean);
+        const items = [];
+        for (const row of rows) {
+          const cleaned = row.replace(/^[-*•]\s+/, '').replace(/^\d+[.)]\s+/, '').trim();
+          const pieces = cleaned
+            .split(/\.\s+/)
+            .map((part) => part.trim().replace(/\.+$/, ''))
+            .filter(Boolean);
+          if (pieces.length > 1) {
+            pieces.forEach((piece) => items.push(piece));
+          } else if (cleaned) {
+            items.push(cleaned);
+          }
+        }
+        return items;
+      }
+
+      function buildSmartListBlock(raw, ordered = false) {
+        const items = normalizeListItems(raw);
+        if (!items.length) return ordered ? '1. elemento' : '- elemento';
+        if (ordered) {
+          return items.map((item, idx) => `${idx + 1}. ${item}`).join('\n');
+        }
+        return items.map((item) => `- ${item}`).join('\n');
+      }
+
+      function applyListFormat(ordered = false) {
+        if (!$text) return;
+        const start = $text.selectionStart;
+        const end = $text.selectionEnd;
+        const before = $text.value.slice(0, start);
+        const selected = $text.value.slice(start, end);
+        const after = $text.value.slice(end);
+        const source = selected || $text.value.slice(0, start).split('\n').pop() || '';
+        const block = buildSmartListBlock(source, ordered);
+        if (!selected) {
+          const lineStart = $text.value.lastIndexOf('\n', start - 1) + 1;
+          const lineEndRaw = $text.value.indexOf('\n', start);
+          const lineEnd = lineEndRaw === -1 ? $text.value.length : lineEndRaw;
+          const prefix = $text.value.slice(0, lineStart);
+          const suffix = $text.value.slice(lineEnd);
+          $text.value = `${prefix}${block}${suffix}`;
+          const caret = lineStart + block.length;
+          $text.setSelectionRange(caret, caret);
+        } else {
+          $text.value = before + block + after;
+          const caret = start + block.length;
+          $text.setSelectionRange(caret, caret);
+        }
+        $text.focus();
+        updateCounter();
+      }
+
+      const WW_AI_STOPWORDS = new Set([
+        'para','porque','sobre','desde','hasta','entre','donde','cuando','como','esta','este','estos','estas',
+        'hola','gracias','favor','solo','muy','mas','menos','tambien','pero','sin','con','del','de','la','las',
+        'el','los','una','uno','unos','unas','que','por','en','se','su','sus','ya','nos','les','eso','esto',
+        'ser','estar','tener','hacer','fue','son','han','hoy','ayer','manana','aqui','alli','tu','tus','mi','mis',
+        'this','that','with','from','your','their','were','have','has','been','into','about','more','less','very',
+        'just','also','only','will','would','could','should','each','line','post','list','lists','flow','work'
+      ]);
+      const WW_HASHTAG_BLOCKLIST = new Set([
+        '#were','#this','#that','#with','#from','#have','#has','#been','#post','#list','#lists','#flow','#work',
+        '#cosas','#bien','#gente','#arreglamos','#entienden','#nuevo','#nuevas','#update','#cambios',
+        '#quedaron','#mezclado','#actualizacion','#listas','#some','#better','#definitely','#formatting',
+        '#good','#style','#mixed','#clear','#stable','#issues','#release'
+      ]);
+      const NEREID_HASHTAG_BOOST = new Set([
+        'editor','atajos','productividad','formato','publicacion','changelog','renderizado','contenido',
+        'shortcuts','workflow','readability','performance','quality','ux','release'
+      ]);
+      const NEREID_PROFESSIONAL_REPLACEMENTS = [
+        [/\bkinda\b/gi, 'somewhat'],
+        [/\bsorta\b/gi, 'partially'],
+        [/\bgonna\b/gi, 'going to'],
+        [/\bwanna\b/gi, 'want to'],
+        [/\bimo\b/gi, 'in my opinion'],
+        [/\birl\b/gi, 'in real life'],
+        [/\bq\b/gi, 'que'],
+        [/\bxq\b/gi, 'porque'],
+        [/\btmb\b/gi, 'tambien'],
+        [/\bpa\b/gi, 'para'],
+        [/\bpq\b/gi, 'porque'],
+        [/\btoy\b/gi, 'estoy'],
+        [/\bta\b/gi, 'esta'],
+        [/\besta re\b/gi, 'es muy'],
+        [/\bre piola\b/gi, 'muy solido'],
+        [/\bbueno\.\.\.+/gi, 'bueno.'],
+        [/\b(ya esta|ya está)\b/gi, 'ya esta listo']
+      ];
+      const NEREID_TYPO_MAP = new Map([
+        ['acutalizacion', 'actualizacion'],
+        ['actulizacion', 'actualizacion'],
+        ['actualisacion', 'actualizacion'],
+        ['actializacion', 'actualizacion'],
+        ['cambioss', 'cambios'],
+        ['funcionlidad', 'funcionalidad'],
+        ['funcionaliad', 'funcionalidad'],
+        ['funcionalidd', 'funcionalidad'],
+        ['desarrolo', 'desarrollo'],
+        ['desarollo', 'desarrollo'],
+        ['dise;o', 'diseno'],
+        ['diseńo', 'diseno'],
+        ['profecional', 'profesional'],
+        ['profecionalmente', 'profesionalmente'],
+        ['profecionales', 'profesionales'],
+        ['optimizasion', 'optimizacion'],
+        ['optmizacion', 'optimizacion'],
+        ['rendereizado', 'renderizado'],
+        ['sincronisado', 'sincronizado'],
+        ['sincronzado', 'sincronizado'],
+        ['vercion', 'version'],
+        ['vesion', 'version'],
+        ['versiom', 'version'],
+        ['aprobadp', 'aprobado'],
+        ['aprovar', 'aprobar'],
+        ['detallle', 'detalle'],
+        ['detalladooo', 'detallado'],
+        ['coherentee', 'coherente'],
+        ['claroo', 'claro'],
+        ['comvinado', 'combinado'],
+        ['publicasión', 'publicacion'],
+        ['publciacion', 'publicacion'],
+        ['corriga', 'corrija'],
+        ['recoloque', 'reubique'],
+        ['recolocar', 'reubicar'],
+        ['aiga', 'haya'],
+        ['gentee', 'gente'],
+        ['buenoo', 'bueno'],
+        ['graciass', 'gracias'],
+        ['aveces', 'a veces'],
+        ['podes', 'puedes'],
+        ['update', 'actualizacion']
+      ]);
+      const NEREID_TYPO_MAP_EN = new Map([
+        ['heyy', 'hey'],
+        ['teh', 'the'],
+        ['adn', 'and'],
+        ['wierd', 'weird'],
+        ['recieve', 'receive'],
+        ['seperate', 'separate'],
+        ['occured', 'occurred'],
+        ['definately', 'definitely'],
+        ['enviroment', 'environment'],
+        ['improvment', 'improvement'],
+        ['performace', 'performance'],
+        ['becouse', 'because'],
+        ['alot', 'a lot'],
+        ['thanksss', 'thanks']
+      ]);
+      const NEREID_MODELS = [
+        {
+          id: 'nereid-core-v1',
+          name: 'Nereid Core v1',
+          description: 'Balanced rewrite: clarity, cadence, structure, and hashtag hygiene.',
+          summaryRatio: 0.55,
+          hashtagMax: 5,
+          polishDepth: 2
+        }
+      ];
+
+      function getActiveNereidModel() {
+        const selected = String($assistantModel?.value || 'nereid-core-v1');
+        return NEREID_MODELS.find((m) => m.id === selected) || NEREID_MODELS[0];
+      }
+
+      function wwAiNormalizePunctuation(text) {
+        return String(text || '')
+          .replace(/\r\n?/g, '\n')
+          .replace(/[ \t]+/g, ' ')
+          .replace(/\s+([,.;:!?])/g, '$1')
+          .replace(/([,.;:!?])([^\s\n#])/g, '$1 $2')
+          .replace(/([!?.,])\1{1,}/g, '$1')
+          .replace(/\n{3,}/g, '\n\n')
+          .trim();
+      }
+
+      function wwAiPreserveCase(source, target) {
+        if (!source) return target;
+        if (source === source.toUpperCase()) return target.toUpperCase();
+        if (source[0] === source[0].toUpperCase()) {
+          return target.charAt(0).toUpperCase() + target.slice(1);
+        }
+        return target;
+      }
+
+      function wwAiTokenWiseFix(text, mapper) {
+        return String(text || '').replace(/\b[\p{L}0-9_]+\b/gu, (token) => {
+          const key = wwAiStripDiacritics(token.toLowerCase());
+          if (!mapper.has(key)) return token;
+          return wwAiPreserveCase(token, mapper.get(key));
+        });
+      }
+
+      function wwAiProfessionalLexicon(text) {
+        let out = String(text || '');
+        NEREID_PROFESSIONAL_REPLACEMENTS.forEach(([pattern, replacement]) => {
+          out = out.replace(pattern, replacement);
+        });
+        out = out
+          .replace(/\bhacer listas mejor\b/gi, 'crear listas mejor')
+          .replace(/\bse ve mas prolijo\b/gi, 'se ve mas prolijo');
+        return out;
+      }
+
+      function wwAiNormalizeInlineEnumerations(text) {
+        const source = String(text || '');
+        if (!/\b1[.)]\s+/.test(source) || !/\b2[.)]\s+/.test(source)) return source;
+        return source
+          .replace(/\s+(\d+[.)]\s+)/g, '\n$1')
+          .replace(/\n{3,}/g, '\n\n')
+          .trim();
+      }
+
+      function wwAiGrammarRepairs(text) {
+        let out = String(text || '');
+        const repairs = [
+          [/\bse puede poder\b/gi, 'se puede'],
+          [/\bde manera inteligente inteligente\b/gi, 'de manera inteligente'],
+          [/\bmas mejor\b/gi, 'mejor'],
+          [/\bmas peor\b/gi, 'peor'],
+          [/\bsubir arriba\b/gi, 'subir'],
+          [/\bbajar abajo\b/gi, 'bajar'],
+          [/\bvolver a repetir\b/gi, 'repetir'],
+          [/\bde de\b/gi, 'de'],
+          [/\bque que\b/gi, 'que'],
+          [/\bpor por\b/gi, 'por'],
+          [/\bpara para\b/gi, 'para'],
+          [/\by y\b/gi, 'y'],
+          [/\bmedias raras\b/gi, 'medio raras'],
+          [/\besta como mezclado todo\b/gi, 'esta todo mezclado'],
+          [/\bsi ven bugs\b/gi, 'si ven errores'],
+          [/\bcapaz se nos paso algo\b/gi, 'quizas se nos paso algo']
+        ];
+        repairs.forEach(([pattern, replacement]) => {
+          out = out.replace(pattern, replacement);
+        });
+        return out;
+      }
+
+      function wwAiGrammarRepairsEn(text) {
+        let out = String(text || '');
+        const repairs = [
+          [/\bwe going to\b/gi, "we're going to"],
+          [/\bthey going to\b/gi, "they're going to"],
+          [/\bi going to\b/gi, "i'm going to"],
+          [/\bits all\b/gi, "it's all"],
+          [/\bits\b/gi, "it's"],
+          [/\bmore better\b/gi, 'better'],
+          [/\bmore worse\b/gi, 'worse'],
+          [/\bvery unique\b/gi, 'unique'],
+          [/\bback again\b/gi, 'again'],
+          [/\breturn back\b/gi, 'return'],
+          [/\bcan be able to\b/gi, 'can'],
+          [/\bnot not\b/gi, 'not']
+        ];
+        repairs.forEach(([pattern, replacement]) => {
+          out = out.replace(pattern, replacement);
+        });
+        return out;
+      }
+
+      function wwAiContextualCleanup(text) {
+        const lines = String(text || '').split('\n').map((line) => line.trim());
+        const cleaned = [];
+        let prev = '';
+        for (const line of lines) {
+          if (!line) {
+            if (prev) cleaned.push('');
+            prev = '';
+            continue;
+          }
+          const normalized = wwAiStripDiacritics(line.toLowerCase()).replace(/[^\p{L}0-9]+/gu, '');
+          const prevNorm = wwAiStripDiacritics(prev.toLowerCase()).replace(/[^\p{L}0-9]+/gu, '');
+          if (normalized && normalized === prevNorm) {
+            continue;
+          }
+          cleaned.push(line);
+          prev = line;
+        }
+        return cleaned.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+      }
+
+      function wwAiDeepLanguagePolish(text, passes = 2) {
+        let out = String(text || '');
+        const lang = wwAiDetectLanguage(out);
+        let beforeScore = wwAiReadabilityScore(out);
+        for (let i = 0; i < Math.max(1, passes); i += 1) {
+          out = wwAiNormalizeInlineEnumerations(out);
+          out = wwAiTokenWiseFix(out, lang === 'en' ? NEREID_TYPO_MAP_EN : NEREID_TYPO_MAP);
+          out = lang === 'en' ? wwAiToneProfessionalEn(out) : wwAiProfessionalLexicon(out);
+          out = lang === 'en' ? wwAiGrammarRepairsEn(out) : wwAiGrammarRepairs(out);
+          out = wwAiContextualCleanup(out);
+          out = wwAiNormalizePunctuation(out);
+          out = wwAiCapitalizeSentences(out, lang);
+          const score = wwAiReadabilityScore(out);
+          if (score <= beforeScore && i > 0) break;
+          beforeScore = score;
+        }
+        out = lang === 'es' ? wwAiApplySpanishAccents(out) : out;
+        return out;
+      }
+
+      function wwAiApplySpanishAccents(text) {
+        let out = String(text || '');
+        const accentMap = new Map([
+          ['actualizacion', 'actualización'],
+          ['tambien', 'también'],
+          ['mas', 'más'],
+          ['quizas', 'quizás'],
+          ['proxima', 'próxima'],
+          ['te gustaria', 'te gustaría'],
+          ['gramatica', 'gramática'],
+          ['ortografia', 'ortografía']
+        ]);
+        const phraseMap = [
+          [/\besta todo\b/gi, 'está todo'],
+          [/\besta bien\b/gi, 'está bien'],
+          [/\bse nos paso\b/gi, 'se nos pasó'],
+          [/\bque te\b/gi, 'qué te']
+        ];
+        phraseMap.forEach(([pattern, replacement]) => {
+          out = out.replace(pattern, replacement);
+        });
+        accentMap.forEach((target, source) => {
+          const re = new RegExp(`\\b${source}\\b`, 'gi');
+          out = out.replace(re, (token) => wwAiPreserveCase(token, target));
+        });
+        return out;
+      }
+
+      function wwAiSeparateListTail(text) {
+        const lines = String(text || '').split('\n');
+        const fixed = lines.flatMap((line) => {
+          if (!/^\d+[.)]\s+/.test(line)) return [line];
+          const split = line.match(/^(.*?[.!?])\s+([A-ZÁÉÍÓÚÑ].+)$/);
+          if (!split) return [line];
+          return [split[1], split[2]];
+        });
+        return fixed.join('\n');
+      }
+
+      function wwAiCapitalizeSentences(text, lang = 'es') {
+        const source = String(text || '');
+        let out = '';
+        let capitalizeNext = true;
+        for (let i = 0; i < source.length; i += 1) {
+          const ch = source[i];
+          if (capitalizeNext && /[a-záéíóúñü]/i.test(ch)) {
+            out += ch.toLocaleUpperCase(lang === 'en' ? 'en-US' : 'es-ES');
+            capitalizeNext = false;
+            continue;
+          }
+          out += ch;
+          if (/[.!?]/.test(ch)) {
+            capitalizeNext = true;
+          } else if (ch === '\n' && out.endsWith('\n\n')) {
+            capitalizeNext = true;
+          } else if (!/\s/.test(ch)) {
+            capitalizeNext = false;
+          }
+        }
+        return out;
+      }
+
+      function wwAiImproveParagraphs(text) {
+        const clean = String(text || '').trim();
+        if (!clean) return '';
+        const lines = clean.split('\n').map((line) => line.trim()).filter(Boolean);
+        const transformed = lines.map((line) => {
+          const semicolonChunks = line.split(';').map((s) => s.trim()).filter(Boolean);
+          if (semicolonChunks.length >= 3) {
+            return semicolonChunks.map((item) => `- ${item}`).join('\n');
+          }
+          return line;
+        }).join('\n');
+
+        const sentences = transformed.split(/(?<=[.!?])\s+/).filter(Boolean);
+        if (sentences.length >= 4 && transformed.length > 220 && !transformed.includes('\n- ')) {
+          const grouped = [];
+          for (let i = 0; i < sentences.length; i += 2) {
+            grouped.push(sentences.slice(i, i + 2).join(' '));
+          }
+          return grouped.join('\n\n');
+        }
+        return transformed;
+      }
+
+      function wwAiKeywordHashtags(text, max = 4) {
+        const existing = new Set((String(text || '').match(/#[\p{L}0-9_]+/gu) || []).map((h) => h.toLowerCase()));
+        const words = (String(text || '').toLowerCase().match(/[\p{L}0-9]{4,}/gu) || [])
+          .filter((w) => !WW_AI_STOPWORDS.has(w));
+        const score = new Map();
+        words.forEach((w) => score.set(w, (score.get(w) || 0) + 1 + (NEREID_HASHTAG_BOOST.has(w) ? 2 : 0)));
+        const ranked = Array.from(score.entries())
+          .sort((a, b) => b[1] - a[1] || b[0].length - a[0].length)
+          .filter(([w, count]) =>
+            (count >= 2 || w.length >= 8 || NEREID_HASHTAG_BOOST.has(w)) &&
+            w.length >= 5 &&
+            !/(ado|ada|idos|idas|aron|eron)$/.test(w)
+          )
+          .map(([w]) => `#${w}`)
+          .filter((tag) => !existing.has(tag.toLowerCase()) && !WW_HASHTAG_BLOCKLIST.has(tag.toLowerCase()))
+          .slice(0, max);
+        const best = ranked.length ? ranked : [];
+        return best;
+      }
+
+      function wwAiLimit(text, maxChars) {
+        const value = String(text || '');
+        if (!Number.isFinite(maxChars) || value.length <= maxChars) return value;
+        return value.slice(0, Math.max(0, maxChars - 1)).trimEnd();
+      }
+
+      function wwAiStripDiacritics(value) {
+        return String(value || '')
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '');
+      }
+
+      function wwAiSentenceSplit(text) {
+        return String(text || '')
+          .split(/(?<=[.!?])\s+/)
+          .map((s) => s.trim())
+          .filter(Boolean);
+      }
+
+      function wwAiDetectLanguage(text) {
+        const source = String(text || '').toLowerCase();
+        const esHits = (source.match(/\b(el|la|los|las|que|porque|tambien|actualizacion|errores|atajos|lista|mejora|proyecto)\b/g) || []).length;
+        const enHits = (source.match(/\b(the|and|with|because|update|issues|editor|shortcuts|list|improvement|project|release)\b/g) || []).length;
+        return enHits > esHits + 1 ? 'en' : 'es';
+      }
+
+      function wwAiWordTokens(text) {
+        return String(text || '').toLowerCase().match(/[\p{L}0-9]{3,}/gu) || [];
+      }
+
+      function wwAiUniqueRatio(text) {
+        const tokens = wwAiWordTokens(text);
+        if (!tokens.length) return 0;
+        return new Set(tokens).size / tokens.length;
+      }
+
+      function wwAiReadabilityScore(text) {
+        const tokens = wwAiWordTokens(text);
+        const sentences = wwAiSentenceSplit(text);
+        if (!tokens.length || !sentences.length) return 0;
+        const avgSentenceLen = tokens.length / Math.max(1, sentences.length);
+        const normalizedLen = Math.max(0, 1 - Math.abs(avgSentenceLen - 16) / 16);
+        const punctuationRate = (String(text || '').match(/[,:;.!?]/g) || []).length / Math.max(1, tokens.length);
+        const normalizedPunctuation = Math.min(1, punctuationRate * 8);
+        const lexical = wwAiUniqueRatio(text);
+        const score = (normalizedLen * 0.45) + (normalizedPunctuation * 0.2) + (lexical * 0.35);
+        return Math.round(score * 100);
+      }
+
+      function wwAiAnalyzeDraft(text) {
+        const clean = String(text || '');
+        const tokens = wwAiWordTokens(clean);
+        const sentences = wwAiSentenceSplit(clean);
+        const hashtags = clean.match(/#[\p{L}0-9_]+/gu) || [];
+        return {
+          chars: clean.length,
+          words: tokens.length,
+          sentences: sentences.length,
+          hashtags: hashtags.length,
+          readability: wwAiReadabilityScore(clean),
+          lexicalRichness: Math.round(wwAiUniqueRatio(clean) * 100)
+        };
+      }
+
+      function wwAiSentenceScore(sentence, globalFreq) {
+        const words = wwAiWordTokens(sentence).filter((w) => !WW_AI_STOPWORDS.has(w));
+        if (!words.length) return 0;
+        const coverage = words.reduce((sum, w) => sum + (globalFreq.get(w) || 0), 0) / words.length;
+        const positionBoost = /[:]/.test(sentence) ? 1.1 : 1;
+        const lenPenalty = Math.min(1.3, Math.max(0.75, words.length / 10));
+        return coverage * positionBoost * lenPenalty;
+      }
+
+      function wwAiDedupeSentences(text) {
+        const seen = new Set();
+        const out = [];
+        wwAiSentenceSplit(text).forEach((s) => {
+          const key = wwAiStripDiacritics(s.toLowerCase()).replace(/[^\p{L}0-9]+/gu, '');
+          if (!key || seen.has(key)) return;
+          seen.add(key);
+          out.push(s);
+        });
+        return out.join(' ');
+      }
+
+      function wwAiToneProfessional(text) {
+        return String(text || '')
+          .replace(/\b(che|bo|ta|re)\b/gi, '')
+          .replace(/\b(muy muy|re)\b/gi, 'muy')
+          .replace(/\b(esta re bueno|está re bueno)\b/gi, 'es una mejora importante')
+          .replace(/\b(ta bueno|ta bien)\b/gi, 'es adecuado')
+          .replace(/\s{2,}/g, ' ')
+          .trim();
+      }
+
+      function wwAiToneCasual(text) {
+        const value = String(text || '').trim();
+        if (!value) return value;
+        return value.replace(/\./g, '.').replace(/\busted\b/gi, 'vos');
+      }
+
+      function wwAiToneProfessionalEn(text) {
+        return String(text || '')
+          .replace(/\b(gonna)\b/gi, 'going to')
+          .replace(/\b(wanna)\b/gi, 'want to')
+          .replace(/\b(kinda)\b/gi, 'somewhat')
+          .replace(/\b(sorta)\b/gi, 'partially')
+          .replace(/\b(aint)\b/gi, "is not")
+          .replace(/\bsomewhat good\b/gi, 'solid')
+          .replace(/\bvery good\b/gi, 'strong')
+          .replace(/\bgood but\b/gi, 'solid, but')
+          .replace(/\s{2,}/g, ' ')
+          .trim();
+      }
+
+      function wwAiToNumberedList(text) {
+        return buildSmartListBlock(text, true);
+      }
+
+      function wwAiToBulletList(text) {
+        return buildSmartListBlock(text, false);
+      }
+
+      function wwAiToParagraphs(text) {
+        const items = normalizeListItems(text);
+        if (!items.length) return String(text || '');
+        return items.map((item, idx) => (idx % 2 === 0 ? item : `${item}`)).join('. ').replace(/\.\s*$/, '') + '.';
+      }
+
+      function wwAiSummarize(text, ratio = 0.6) {
+        const sentences = wwAiSentenceSplit(text);
+        if (!sentences.length) return String(text || '');
+        const tokens = wwAiWordTokens(text).filter((w) => !WW_AI_STOPWORDS.has(w));
+        const freq = new Map();
+        tokens.forEach((w) => freq.set(w, (freq.get(w) || 0) + 1));
+        const ranked = sentences
+          .map((s, idx) => ({ s, idx, score: wwAiSentenceScore(s, freq) }))
+          .sort((a, b) => b.score - a.score || a.idx - b.idx);
+        const keep = Math.max(2, Math.ceil(sentences.length * ratio));
+        const selectedIdx = new Set(ranked.slice(0, keep).map((r) => r.idx));
+        return sentences.filter((_, idx) => selectedIdx.has(idx)).join(' ');
+      }
+
+      function wwAiExpand(text) {
+        const clean = String(text || '').trim();
+        if (!clean) return clean;
+        const parts = wwAiSentenceSplit(clean);
+        if (!parts.length) return clean;
+        const expanded = parts.map((s, idx) => {
+          if (idx === 0) return `${s} Esta mejora fortalece la base del contenido publicado.`;
+          if (idx % 2 === 0) return `${s} En consecuencia, el mensaje gana claridad y foco.`;
+          return `${s} Además, aporta una lectura más consistente para la audiencia.`;
+        });
+        return expanded.join(' ');
+      }
+
+      function wwAiMakeChangelog(text) {
+        const items = normalizeListItems(text);
+        if (!items.length) return String(text || '');
+        return items.map((item, idx) => `${idx + 1}. ${item}`).join('\n');
+      }
+
+      function wwAiAddCTA(text) {
+        const clean = String(text || '').trim();
+        if (!clean) return clean;
+        if (/[?]$/.test(clean)) return clean;
+        return `${clean}\n\n¿Qué te gustaría ver en la próxima actualización?`;
+      }
+
+      function wwAiRemoveHashtags(text) {
+        return String(text || '').replace(/\s*#[\p{L}0-9_]+/gu, '').replace(/\s{2,}/g, ' ').trim();
+      }
+
+      function wwAiImproveDraft(raw) {
+        const original = String(raw || '');
+        const model = getActiveNereidModel();
+        const lang = wwAiDetectLanguage(original);
+        let improved = wwAiDeepLanguagePolish(original, Math.max(2, Number(model.polishDepth || 2)));
+        improved = wwAiImproveParagraphs(improved);
+        improved = wwAiDedupeSentences(improved);
+        improved = wwAiDeepLanguagePolish(improved, 1);
+        if (lang === 'es') improved = wwAiApplySpanishAccents(improved);
+        improved = wwAiSeparateListTail(improved);
+        const hashtags = wwAiKeywordHashtags(improved, Number(model.hashtagMax || 3));
+        if (hashtags.length && !/#[\p{L}0-9_]+/u.test(improved)) {
+          improved = `${improved}\n\n${hashtags.join(' ')}`;
+        }
+        const maxChars = getMaxChars();
+        improved = wwAiLimit(improved, maxChars);
+        const changed = improved !== original;
+        const delta = improved.length - original.length;
+        return { improved, changed, delta };
+      }
+
+      function runNereidPrompt(prompt, sourceText) {
+        const rawPrompt = String(prompt || '');
+        const p = wwAiStripDiacritics(rawPrompt).toLowerCase();
+        const model = getActiveNereidModel();
+        let text = String(sourceText || '');
+        const lang = wwAiDetectLanguage(text);
+        if (!text.trim()) return { text: '', note: 'Escribe primero un borrador.' };
+
+        const intentRules = [
+          { id: 'summarize', label: 'resumen', weight: 3, test: /\b(resum|corto|breve|compact|short)\b/ },
+          { id: 'expand', label: 'expansión', weight: 2, test: /\b(expand|amplia|alarga|mas detalle|detallado)\b/ },
+          { id: 'tone_professional', label: 'tono profesional', weight: 3, test: /\b(profes|formal|ejecutiv|corpor)\b/ },
+          { id: 'tone_casual', label: 'tono casual', weight: 2, test: /\b(casual|relajad|friendly|cercan)\b/ },
+          { id: 'changelog', label: 'formato changelog', weight: 3, test: /\b(changelog|release note|notas de version)\b/ },
+          { id: 'list_ordered', label: 'lista numerada', weight: 3, test: /\b(lista numer|numerada|ordenada|1\.)\b/ },
+          { id: 'list_bullet', label: 'lista con viñetas', weight: 2, test: /\b(lista|bullet|vineta|viñeta|items?)\b/ },
+          { id: 'paragraph', label: 'párrafos', weight: 2, test: /\b(parrafo|parrafos|texto corrido)\b/ },
+          { id: 'hashtags_add', label: 'hashtags añadidos', weight: 2, test: /\b(hashtag|tags|etiquet)\b/ },
+          { id: 'hashtags_remove', label: 'hashtags eliminados', weight: 3, test: /\b(sin hashtag|remove hashtag|quitar hashtag)\b/ },
+          { id: 'cta', label: 'CTA final', weight: 1, test: /\b(cta|call to action|pregunta final|invita)\b/ },
+          { id: 'word_fix', label: 'correccion lexical', weight: 4, test: /\b(reemplaza|profesionaliza|palabras|vocabulario|terminologia)\b/ },
+          { id: 'syntax_fix', label: 'correccion sintactica', weight: 4, test: /\b(corrige|ortografia|gramatica|reordena|recoloca|coherencia)\b/ },
+          { id: 'polish', label: 'pulido general', weight: 1, test: /\b(pulir|mejora|optimiza)\b/ }
+        ];
+
+        const intents = intentRules
+          .filter((rule) => rule.test.test(p))
+          .reduce((acc, rule) => {
+            if (rule.id === 'list_bullet' && /\b(lista numer|numerada|ordenada|1\.)\b/.test(p)) return acc;
+            if (rule.id === 'hashtags_add' && /\b(sin hashtag|remove hashtag|quitar hashtag)\b/.test(p)) return acc;
+            acc.push({ ...rule });
+            return acc;
+          }, []);
+
+        if (!intents.length) intents.push({ id: 'polish', label: 'pulido general', weight: 1 });
+        const orderedIntents = intents.sort((a, b) => b.weight - a.weight);
+
+        const applied = [];
+        const apply = (label, fn) => {
+          const next = fn(text);
+          if (typeof next === 'string' && next.trim() && next !== text) {
+            text = next;
+            applied.push(label);
+          }
+        };
+
+        for (const intent of orderedIntents) {
+          switch (intent.id) {
+            case 'summarize':
+              apply(intent.label, (value) => wwAiSummarize(value, Number(model.summaryRatio || 0.55)));
+              break;
+            case 'expand':
+              apply(intent.label, wwAiExpand);
+              break;
+            case 'tone_professional':
+              apply(intent.label, lang === 'en' ? wwAiToneProfessionalEn : wwAiToneProfessional);
+              break;
+            case 'tone_casual':
+              apply(intent.label, wwAiToneCasual);
+              break;
+            case 'changelog':
+              apply(intent.label, wwAiMakeChangelog);
+              break;
+            case 'list_ordered':
+              apply(intent.label, wwAiToNumberedList);
+              break;
+            case 'list_bullet':
+              apply(intent.label, wwAiToBulletList);
+              break;
+            case 'paragraph':
+              apply(intent.label, wwAiToParagraphs);
+              break;
+            case 'hashtags_remove':
+              apply(intent.label, wwAiRemoveHashtags);
+              break;
+            case 'hashtags_add':
+              apply(intent.label, (value) => {
+                const tags = wwAiKeywordHashtags(value, Number(model.hashtagMax || 5));
+                if (!tags.length) return value;
+                return `${value.trim()}\n\n${tags.join(' ')}`;
+              });
+              break;
+            case 'cta':
+              apply(intent.label, wwAiAddCTA);
+              break;
+            case 'polish':
+              apply(intent.label, (value) => wwAiImproveDraft(value).improved);
+              break;
+            case 'word_fix':
+              apply(intent.label, (value) => {
+                const mapper = lang === 'en' ? NEREID_TYPO_MAP_EN : NEREID_TYPO_MAP;
+                const lex = lang === 'en' ? wwAiToneProfessionalEn(value) : wwAiProfessionalLexicon(value);
+                return wwAiTokenWiseFix(lex, mapper);
+              });
+              break;
+            case 'syntax_fix':
+              apply(intent.label, (value) => (
+                lang === 'en'
+                  ? wwAiGrammarRepairsEn(wwAiContextualCleanup(value))
+                  : wwAiGrammarRepairs(wwAiContextualCleanup(value))
+              ));
+              break;
+            default:
+              break;
+          }
+        }
+
+        text = wwAiDedupeSentences(text);
+        text = wwAiDeepLanguagePolish(text, Math.max(1, Number(model.polishDepth || 1)));
+        if (lang === 'es') text = wwAiApplySpanishAccents(text);
+        text = wwAiSeparateListTail(text);
+        text = wwAiLimit(text, getMaxChars());
+        const quality = wwAiAnalyzeDraft(text);
+        return {
+          text,
+          note: applied.length
+            ? `Aplicado: ${applied.join(', ')}. Calidad ${quality.readability}/100.`
+            : 'No detecté cambios útiles para esa instrucción.'
+        };
+      }
+
+      function appendAssistantMessage(kind, message) {
+        if (!$assistantLog) return;
+        const el = document.createElement('div');
+        el.className = `wx-draft-assistant-msg ${kind === 'user' ? 'wx-draft-assistant-msg--user' : 'wx-draft-assistant-msg--system'}`;
+        el.textContent = message;
+        $assistantLog.appendChild(el);
+        $assistantLog.scrollTop = $assistantLog.scrollHeight;
+      }
+
+      function initNereidModels() {
+        if (!$assistantModel) return;
+        $assistantModel.innerHTML = '';
+        NEREID_MODELS.forEach((model) => {
+          const option = document.createElement('option');
+          option.value = model.id;
+          option.textContent = model.name;
+          $assistantModel.appendChild(option);
+        });
+        const model = getActiveNereidModel();
+        if (model && $assistantModel) $assistantModel.value = model.id;
+      }
+
       const $editorToolbar = document.querySelector('.wx-editor-toolbar');
       if ($editorToolbar) {
         $editorToolbar.addEventListener('click', (e) => {
@@ -6800,7 +7921,12 @@ function getMaxChars() {
               insert = `\`${sel}\``;
               cursorOffset = 0;
               break;
-            case 'list':    insert = `\n- ${sel || 'elemento'}`; cursorOffset = 0; break;
+            case 'list':
+              applyListFormat(false);
+              return;
+            case 'olist':
+              applyListFormat(true);
+              return;
             case 'quote':   insert = `> ${sel || 'cita'}`;       cursorOffset = 0; break;
             case 'spoiler': insert = `||${sel || 'spoiler'}||`;  cursorOffset = sel ? 0 : -2; break;
           }
@@ -6813,37 +7939,100 @@ function getMaxChars() {
       }
 
       // ── Render rich text in posts ─────────────────────────────────────────
-      function parsePostContent(text) {
-        if (!text) return '';
-        let t = text
-          .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-          // Heading
-          .replace(/^## (.+)$/gm, '<span class="wx-heading">$1</span>')
-          // Bold / italic
+      function escapePostHtml(value) {
+        return String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      }
+
+      function parsePostInline(text) {
+        return escapePostHtml(text)
           .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
           .replace(/_(.+?)_/g, '<em>$1</em>')
-          // Highlight
           .replace(/==(.+?)==/g, '<span class="wx-highlight">$1</span>')
-          // Code
           .replace(/`(.+?)`/g, '<code>$1</code>')
-          // Spoiler — revealed on click
-          .replace(/\|\|(.+?)\|\|/g, '<span class="wx-spoiler" title="Clic para revelar">$1</span>')
-          // Quote
-          .replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>')
-          // List items
-          .replace(/^- (.+)$/gm, '<li>$1</li>')
-          // Newlines
-          .replace(/\n/g, '<br>');
-        // Wrap li in ul
-        t = t.replace(/(<li>.*?<\/li>)+/gs, (m) => `<ul>${m}</ul>`);
-        return t;
+          .replace(/\|\|(.+?)\|\|/g, '<span class="wx-spoiler" title="Clic para revelar">$1</span>');
+      }
+
+      function parsePostContent(text) {
+        if (!text) return '';
+        const lines = String(text).replace(/\r\n?/g, '\n').split('\n');
+        const html = [];
+        let inUl = false;
+        let inOl = false;
+
+        const closeLists = () => {
+          if (inUl) {
+            html.push('</ul>');
+            inUl = false;
+          }
+          if (inOl) {
+            html.push('</ol>');
+            inOl = false;
+          }
+        };
+
+        for (const lineRaw of lines) {
+          const line = lineRaw.trim();
+          if (!line) {
+            closeLists();
+            html.push('<div class="wx-gap"></div>');
+            continue;
+          }
+
+          const heading = line.match(/^##\s+(.+)$/);
+          if (heading) {
+            closeLists();
+            html.push(`<span class="wx-heading">${parsePostInline(heading[1])}</span>`);
+            continue;
+          }
+
+          const quote = line.match(/^>\s+(.+)$/);
+          if (quote) {
+            closeLists();
+            html.push(`<blockquote>${parsePostInline(quote[1])}</blockquote>`);
+            continue;
+          }
+
+          const ul = line.match(/^[-*•]\s+(.+)$/);
+          if (ul) {
+            if (inOl) {
+              html.push('</ol>');
+              inOl = false;
+            }
+            if (!inUl) {
+              html.push('<ul>');
+              inUl = true;
+            }
+            html.push(`<li>${parsePostInline(ul[1])}</li>`);
+            continue;
+          }
+
+          const ol = line.match(/^\d+[.)]\s+(.+)$/);
+          if (ol) {
+            if (inUl) {
+              html.push('</ul>');
+              inUl = false;
+            }
+            if (!inOl) {
+              html.push('<ol>');
+              inOl = true;
+            }
+            html.push(`<li>${parsePostInline(ol[1])}</li>`);
+            continue;
+          }
+
+          closeLists();
+          html.push(`<div class="wx-line">${parsePostInline(line)}</div>`);
+        }
+
+        closeLists();
+        return html.join('');
       }
 
       function renderTextWithHashtags(container, content) {
         if (!container) return;
         const text = String(content || '');
         // Detect rich formatting markers
-        const hasRich = /\*\*|_[^_]+_|==|`|\|\||^## |^> |^- /m.test(text);
+        const hasRich = /\*\*|_[^_]+_|==|`|\|\||^## |^> |^[-*•] |^\d+[.)]\s+/m.test(text);
         if (hasRich) {
           container.classList.add('wx-post-content');
           container.innerHTML = parsePostContent(text);
@@ -6852,6 +8041,7 @@ function getMaxChars() {
           });
           return;
         }
+        container.classList.remove('wx-post-content');
         container.innerHTML = '';
         const parts = text.split(/(#[\p{L}0-9_]+)/u);
         for (const part of parts) {
@@ -7040,12 +8230,12 @@ function getMaxChars() {
         }
         const last = user.username_changed_at ? new Date(user.username_changed_at) : null;
         if (!last || Number.isNaN(last.getTime())) {
-          updateProfileNameStatus(`Puedes cambiar tu usuario cada ${USERNAME_COOLDOWN_DAYS} dÃ­as.`, 'info');
+          updateProfileNameStatus(`Puedes cambiar tu usuario cada ${USERNAME_COOLDOWN_DAYS} días.`, 'info');
           return;
         }
         const next = new Date(last.getTime() + USERNAME_COOLDOWN_DAYS * 24 * 60 * 60 * 1000);
         if (next > new Date()) {
-          updateProfileNameStatus(`PrÃ³ximo cambio de usuario: ${next.toLocaleDateString('es-ES')}`, 'info');
+          updateProfileNameStatus(`Próximo cambio de usuario: ${next.toLocaleDateString('es-ES')}`, 'info');
         } else {
           updateProfileNameStatus('Puedes cambiar tu usuario ahora.', 'success');
         }
@@ -7496,6 +8686,29 @@ function getMaxChars() {
         }
       }
 
+      function ensureOwnProfileVisibility() {
+        if (!$userCard || !currentUser) return;
+        $userCard.hidden = false;
+        $userCard.style.display = '';
+        $userCard.classList.remove('wx-profile--readonly');
+
+        const selfVisibleSelectors = [
+          '.wx-profile-upload',
+          '.wx-profile-identity',
+          '.wx-account-switcher',
+          '#wx-connect-op-btn',
+          '#wx-open-verify-plans-btn',
+          '#wx-logout',
+          '#wx-proc-new'
+        ];
+        selfVisibleSelectors.forEach((selector) => {
+          const node = document.querySelector(selector);
+          if (!node) return;
+          node.hidden = false;
+          node.style.removeProperty('display');
+        });
+      }
+
       function isViewingOwnProfile() {
         if (!currentUser || !currentProfileView) return false;
         return String(currentProfileView.username || '').toLowerCase() === String(currentUser.username || '').toLowerCase();
@@ -7741,9 +8954,16 @@ function getMaxChars() {
         }
 
         // Botones extra: eliminar y reportar
+        let editBtn = null;
         let deleteBtn = null;
         let reportBtn = null;
         if (isOwn) {
+          editBtn = document.createElement('button');
+          editBtn.className = 'wx-post-btn';
+          editBtn.dataset.action = 'edit';
+          editBtn.dataset.id = post.id;
+          editBtn.dataset.content = post.content || '';
+          editBtn.textContent = 'Editar';
           deleteBtn = document.createElement('button');
           deleteBtn.className = 'wx-post-btn';
           deleteBtn.dataset.action = 'delete';
@@ -7765,6 +8985,7 @@ function getMaxChars() {
 
         actions.append(likeBtn, replyBtn, promoteBtn);
         if (tipBtn) actions.append(tipBtn);
+        if (editBtn) actions.append(editBtn);
         if (deleteBtn) actions.append(deleteBtn);
         if (reportBtn) actions.append(reportBtn);
 
@@ -7793,7 +9014,9 @@ function getMaxChars() {
         if (!posts || posts.length === 0) {
           const li = document.createElement('li');
           li.className = 'wx-empty';
-          li.textContent = 'No hay posts aún. ¡Sé el primero en publicar!';
+          li.textContent = (currentTab === 'profile' && currentUser)
+            ? 'Todav?a no ten?s posts en tu perfil.'
+            : 'No hay posts a?n. ?S? el primero en publicar!';
           $feed.appendChild(li);
           return;
         }
@@ -8484,7 +9707,7 @@ function getMaxChars() {
             await fetchExplore();
           }
           if (body?.status === 'pending_collab') {
-            setStatus('Solicitud de colaboraciÃ³n enviada. El post se publicarÃ¡ al aceptar.', 'info');
+            setStatus('Solicitud de colaboración enviada. El post se publicará al aceptar.', 'info');
             fetchCollabOutgoing().catch(() => {});
           } else {
             setStatus('Publicado.');
@@ -8605,6 +9828,7 @@ function getMaxChars() {
             $userCard.hidden = false;
             $userCard.style.display = '';
             applyProfileView(currentUser, { readonly: false });
+            ensureOwnProfileVisibility();
             if ($profileEmpty) {
               $profileEmpty.hidden = true;
               $profileEmpty.style.display = 'none';
@@ -9140,13 +10364,92 @@ function getMaxChars() {
       renderMediaGrid();
       updateSchedulePill();
       updateSchedulePreview();
+      initNereidModels();
+      appendAssistantMessage('system', 'Nereid listo. Dame una instrucción y optimizo el borrador localmente.');
+      appendAssistantMessage('system', 'También entiendo combinaciones: "resumilo + profesional + lista numerada + hashtags".');
+      appendAssistantMessage('system', 'Nuevo: corrijo vocabulario, typos y frases mal ordenadas de forma inteligente.');
+      const bootModel = getActiveNereidModel();
+      if (bootModel) {
+        appendAssistantMessage('system', `${bootModel.name}: ${bootModel.description}`);
+      }
+      if ($assistantModel) {
+        $assistantModel.addEventListener('change', () => {
+          const active = getActiveNereidModel();
+          if (!active) return;
+          appendAssistantMessage('system', `Modelo activo: ${active.name}. ${active.description}`);
+        });
+      }
 
       $text.addEventListener('input', updateCounter);
+      if ($nereidPolish) {
+        $nereidPolish.addEventListener('click', () => {
+          const source = String($text?.value || '');
+          if (!source.trim()) {
+            setStatus('Escribe un borrador para que Nereid lo mejore.', 'info');
+            return;
+          }
+          $nereidPolish.classList.add('is-running');
+          const before = wwAiAnalyzeDraft(source);
+          const result = wwAiImproveDraft(source);
+          if ($text) {
+            $text.value = result.improved;
+            $text.focus();
+          }
+          updateCounter();
+          const after = wwAiAnalyzeDraft(result.improved);
+          if (result.changed) {
+            const direction = result.delta >= 0 ? '+' : '';
+            setStatus(`Nereid aplicado. Ajuste ${direction}${result.delta} caracteres. Calidad ${before.readability}→${after.readability}.`, 'info');
+          } else {
+            setStatus('Nereid: el borrador ya estaba optimizado.', 'info');
+          }
+          appendAssistantMessage('system', result.changed
+            ? `Optimización completada. Score ${before.readability}→${after.readability}.`
+            : 'No detecté cambios necesarios.');
+          setTimeout(() => $nereidPolish.classList.remove('is-running'), 280);
+        });
+      }
+      if ($assistantSend) {
+        $assistantSend.addEventListener('click', () => {
+          const prompt = String($assistantInput?.value || '').trim();
+          if (!prompt) return;
+          appendAssistantMessage('user', prompt);
+          const source = String($text?.value || '');
+          const before = wwAiAnalyzeDraft(source);
+          const result = runNereidPrompt(prompt, source);
+          if ($text && typeof result.text === 'string') {
+            $text.value = wwAiLimit(result.text, getMaxChars());
+            $text.focus();
+            updateCounter();
+          }
+          const after = wwAiAnalyzeDraft(String($text?.value || ''));
+          appendAssistantMessage('system', `${result.note || 'Listo.'} Score ${before.readability}→${after.readability}.`);
+          if ($assistantInput) $assistantInput.value = '';
+        });
+      }
+      if ($assistantInput) {
+        $assistantInput.addEventListener('keydown', (ev) => {
+          if (ev.key === 'Enter') {
+            ev.preventDefault();
+            $assistantSend?.click();
+          }
+        });
+      }
       $send.addEventListener('click', () => createPost());
       $text.addEventListener('keydown', (ev) => {
         if ((ev.ctrlKey || ev.metaKey) && ev.key === 'Enter') {
           ev.preventDefault();
           if (!$send.disabled) createPost();
+          return;
+        }
+        if ((ev.ctrlKey || ev.metaKey) && ev.shiftKey && (ev.key === '8' || ev.key === '*')) {
+          ev.preventDefault();
+          applyListFormat(false);
+          return;
+        }
+        if ((ev.ctrlKey || ev.metaKey) && ev.shiftKey && (ev.key === '7' || ev.key === '&')) {
+          ev.preventDefault();
+          applyListFormat(true);
         }
       });
 
@@ -9187,10 +10490,10 @@ function getMaxChars() {
           try {
             if (action === 'collab-accept') {
               await respondCollabRequest(id, true);
-              setStatus('ColaboraciÃ³n aceptada.', 'success');
+              setStatus('Colaboración aceptada.', 'success');
             } else if (action === 'collab-decline') {
               await respondCollabRequest(id, false);
-              setStatus('ColaboraciÃ³n rechazada.', 'info');
+              setStatus('Colaboración rechazada.', 'info');
             }
           } catch (e) {
             console.error(e);
@@ -9818,6 +11121,47 @@ function getMaxChars() {
         }
       }
 
+      async function editPost(postId, currentContent) {
+        if (!Number.isFinite(postId)) return;
+        if (!currentUser || !currentToken) {
+          setStatus('Inicia sesiÃ³n para editar posts.', 'error');
+          openAuthModal('login');
+          return;
+        }
+        const edited = await openInputDialog({
+          title: 'Editar post',
+          message: 'Modifica el contenido del post:',
+          multiline: true,
+          defaultValue: String(currentContent || ''),
+          confirmLabel: 'Guardar cambios'
+        });
+        if (edited === null) return;
+        const content = String(edited || '').trim();
+        try {
+          const res = await fetch(`${API_BASE}/${postId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', ...authHeaders() },
+            body: JSON.stringify({ content })
+          });
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            setStatus(body.error || 'No se pudo editar el post.', 'error');
+            return;
+          }
+          setStatus('Post actualizado.', 'info');
+          if (currentThreadPostId) {
+            openThread(currentThreadPostId).catch(() => {});
+          } else if (currentTab === 'profile') {
+            fetchMyPosts().catch(() => {});
+          } else {
+            fetchExplore().catch(() => {});
+          }
+        } catch (e) {
+          console.error(e);
+          setStatus('Error al editar el post.', 'error');
+        }
+      }
+
       $feed.addEventListener('click', async (ev) => {
         const profileBtn = ev.target.closest('[data-action="open-profile"]');
         if (profileBtn) {
@@ -9916,6 +11260,10 @@ function getMaxChars() {
         } else if (action === 'tip') {
           const uname = btn.dataset.username || 'usuario';
           donateToPost(parseInt(id, 10), uname);
+        } else if (action === 'edit') {
+          const postId = parseInt(id, 10);
+          if (!Number.isFinite(postId)) return;
+          editPost(postId, btn.dataset.content || '');
         } else if (action === 'delete') {
           const postId = parseInt(id, 10);
           if (!Number.isFinite(postId)) return;
@@ -10082,6 +11430,10 @@ function getMaxChars() {
           $text.focus();
           setStatus(`Respondiendo a @${uname}`, 'info');
           await openThread(parseInt(id, 10));
+        } else if (action === 'edit') {
+          const postId = parseInt(id, 10);
+          if (!Number.isFinite(postId)) return;
+          editPost(postId, btn.dataset.content || '');
         } else if (action === 'delete') {
           const postId = parseInt(id, 10);
           if (!Number.isFinite(postId)) return;
@@ -10289,10 +11641,17 @@ function getMaxChars() {
 
           // No permitir like a uno mismo también en el hilo
           const isOwnNode = currentUser && String(node.user_id) === String(currentUser.id);
+          let editBtn = null;
           let deleteBtn = null;
           if (isOwnNode) {
             likeBtn.disabled = true;
             likeBtn.title = 'No puedes dar like a tus propios posts';
+            editBtn = document.createElement('button');
+            editBtn.className = 'wx-post-btn';
+            editBtn.dataset.action = 'edit';
+            editBtn.dataset.id = node.id;
+            editBtn.dataset.content = node.content || '';
+            editBtn.textContent = 'Editar';
             deleteBtn = document.createElement('button');
             deleteBtn.className = 'wx-post-btn';
             deleteBtn.dataset.action = 'delete';
@@ -10301,6 +11660,7 @@ function getMaxChars() {
           }
 
           actions.append(likeBtn, replyBtn);
+          if (editBtn) actions.append(editBtn);
           if (deleteBtn) actions.append(deleteBtn);
 
           // "Ver N respuestas" button for nodes that have child replies
@@ -10667,3 +12027,4 @@ function getMaxChars() {
     </script>
   </body>
 </html>
+

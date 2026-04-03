@@ -163,7 +163,7 @@ const UNIFIED_WALLET_CURRENCIES = [
   'aquabux', 'appbux', 'ecoxionums', 'wildcredits', 'wildgems', 'ecobooks',
   'amber', 'nxb', 'voltbit', 'ecotokens', 'ecobits', 'mayhemcoins',
   'cosmicdust', 'ecopower', 'coralbits', 'tigrys', 'wildwavetokens',
-  'relayshards', 'ecocorebits', 'tides', 'aurex'
+  'relayshards', 'ecocorebits', 'tides', 'aurex', 'sparks'
 ];
 
 // --- Ocean Pay Authentication ---
@@ -7405,6 +7405,88 @@ function mergeBalanceMaps(primary = {}, secondary = {}) {
   return merged;
 }
 
+function sanitizeWildFireworksUsername(value) {
+  return String(value || '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .slice(0, 32);
+}
+
+function sanitizeWildFireworksPassword(value) {
+  return String(value || '').trim().slice(0, 120);
+}
+
+function sanitizeSparksBalance(value, fallback = 0) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return Math.max(0, Math.floor(Number(fallback) || 0));
+  return Math.max(0, Math.floor(n));
+}
+
+function parseWildFireworksAuthToken(req) {
+  const authHeader = String(req.headers.authorization || '');
+  if (!authHeader.toLowerCase().startsWith('bearer ')) return '';
+  return authHeader.slice(7).trim();
+}
+
+function decodeWildFireworksTokenOrNull(token) {
+  if (!token) return null;
+  try {
+    const payload = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    if (String(payload?.scope || '').toLowerCase() !== 'wildfireworks') return null;
+    return payload;
+  } catch (_err) {
+    return null;
+  }
+}
+
+function issueWildFireworksToken(user) {
+  const secret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
+  return jwt.sign(
+    {
+      id: Number(user.id),
+      uid: Number(user.id),
+      username: String(user.username || ''),
+      oceanPayUserId: Number(user.ocean_pay_user_id || 0),
+      scope: 'wildfireworks'
+    },
+    secret,
+    { expiresIn: '30d' }
+  );
+}
+
+async function ensureWildFireworksTables(client) {
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS wild_fireworks_users (
+      id SERIAL PRIMARY KEY,
+      ocean_pay_user_id INT NOT NULL REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
+      username VARCHAR(40) NOT NULL,
+      password_hash TEXT NOT NULL,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  await client.query(`
+    CREATE TABLE IF NOT EXISTS wild_fireworks_profiles (
+      user_id INT PRIMARY KEY REFERENCES wild_fireworks_users(id) ON DELETE CASCADE,
+      sparks BIGINT NOT NULL DEFAULT 0,
+      last_sync_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  await client.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_wf_users_username_lower
+    ON wild_fireworks_users ((LOWER(username)))
+  `);
+
+  await client.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_wf_users_ocean_pay
+    ON wild_fireworks_users (ocean_pay_user_id)
+  `);
+}
+
 const OCEAN_AI_CURRENCY = 'coralbits';
 const OCEAN_AI_PROJECT_ID = 'Ocean AI';
 const OCEAN_AI_PLAN_INTERVAL_DAYS = 7;
@@ -9216,6 +9298,315 @@ app.get('/ocean-pay/me', async (req, res) => {
   } catch (err) {
     console.error('Error en GET /ocean-pay/me:', err);
     return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+app.post('/wildfireworks/auth/register', async (req, res) => {
+  const oceanUsername = String(req.body?.oceanUsername || req.body?.ocean_username || '').trim();
+  const oceanPassword = String(req.body?.oceanPassword || req.body?.ocean_password || '').trim();
+  const username = sanitizeWildFireworksUsername(req.body?.username);
+  const password = sanitizeWildFireworksPassword(req.body?.password);
+
+  if (!oceanUsername || !oceanPassword || !username || !password) {
+    return res.status(400).json({ error: 'Ocean Pay y cuenta WildFireworks son requeridos' });
+  }
+  if (username.length < 3 || password.length < 4) {
+    return res.status(400).json({ error: 'Credenciales de WildFireworks invalidas' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await ensureWildFireworksTables(client);
+
+    const oceanUser = await resolveOceanPayUserByCredentials(client, oceanUsername, oceanPassword);
+    if (!oceanUser?.id) {
+      await client.query('ROLLBACK');
+      return res.status(401).json({ error: 'Credenciales de Ocean Pay invalidas' });
+    }
+
+    const { rows: opLinkedRows } = await client.query(
+      `SELECT id FROM wild_fireworks_users WHERE ocean_pay_user_id = $1 LIMIT 1`,
+      [Number(oceanUser.id)]
+    );
+    if (opLinkedRows.length) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'Esta cuenta de Ocean Pay ya esta vinculada a WildFireworks' });
+    }
+
+    const { rows: sameUserRows } = await client.query(
+      `SELECT id FROM wild_fireworks_users WHERE LOWER(username) = LOWER($1) LIMIT 1`,
+      [username]
+    );
+    if (sameUserRows.length) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'El usuario de WildFireworks ya existe' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    const { rows: userRows } = await client.query(
+      `INSERT INTO wild_fireworks_users (ocean_pay_user_id, username, password_hash)
+       VALUES ($1, $2, $3)
+       RETURNING id, ocean_pay_user_id, username, created_at`,
+      [Number(oceanUser.id), username, passwordHash]
+    );
+    const wfUser = userRows[0];
+
+    const oceanSparks = sanitizeSparksBalance(await getUnifiedBalance(client, Number(oceanUser.id), 'sparks'), 0);
+    const clientSparks = sanitizeSparksBalance(req.body?.sparks, oceanSparks);
+    const syncedSparks = Math.max(oceanSparks, clientSparks);
+
+    await client.query(
+      `INSERT INTO wild_fireworks_profiles (user_id, sparks, last_sync_at)
+       VALUES ($1, $2, NOW())
+       ON CONFLICT (user_id) DO UPDATE
+         SET sparks = EXCLUDED.sparks,
+             last_sync_at = NOW(),
+             updated_at = NOW()`,
+      [Number(wfUser.id), syncedSparks]
+    );
+
+    await setUnifiedBalance(client, Number(oceanUser.id), 'sparks', syncedSparks);
+    await client.query('COMMIT');
+
+    return res.json({
+      success: true,
+      token: issueWildFireworksToken(wfUser),
+      linked: true,
+      sparks: syncedSparks,
+      oceanPay: { id: Number(oceanUser.id), username: oceanUser.username },
+      wildfireworks: { id: Number(wfUser.id), username: wfUser.username, created_at: wfUser.created_at }
+    });
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    console.error('Error en POST /wildfireworks/auth/register:', err);
+    return res.status(500).json({ error: 'Error interno al registrar cuenta WildFireworks' });
+  } finally {
+    client.release();
+  }
+});
+
+app.post('/wildfireworks/auth/login', async (req, res) => {
+  const oceanUsername = String(req.body?.oceanUsername || req.body?.ocean_username || '').trim();
+  const oceanPassword = String(req.body?.oceanPassword || req.body?.ocean_password || '').trim();
+  const username = sanitizeWildFireworksUsername(req.body?.username);
+  const password = sanitizeWildFireworksPassword(req.body?.password);
+
+  if (!oceanUsername || !oceanPassword || !username || !password) {
+    return res.status(400).json({ error: 'Ocean Pay y cuenta WildFireworks son requeridos' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await ensureWildFireworksTables(client);
+
+    const oceanUser = await resolveOceanPayUserByCredentials(client, oceanUsername, oceanPassword);
+    if (!oceanUser?.id) {
+      await client.query('ROLLBACK');
+      return res.status(401).json({ error: 'Credenciales de Ocean Pay invalidas' });
+    }
+
+    const { rows } = await client.query(
+      `SELECT id, ocean_pay_user_id, username, password_hash, created_at
+       FROM wild_fireworks_users
+       WHERE LOWER(username) = LOWER($1)
+       LIMIT 1`,
+      [username]
+    );
+    if (!rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Cuenta WildFireworks no encontrada' });
+    }
+
+    const wfUser = rows[0];
+    const validPassword = await bcrypt.compare(password, String(wfUser.password_hash || '')).catch(() => false)
+      || String(wfUser.password_hash || '') === password;
+    if (!validPassword) {
+      await client.query('ROLLBACK');
+      return res.status(401).json({ error: 'Credenciales de WildFireworks invalidas' });
+    }
+
+    if (Number(wfUser.ocean_pay_user_id) !== Number(oceanUser.id)) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'La cuenta WildFireworks no coincide con esta cuenta Ocean Pay' });
+    }
+
+    const { rows: profileRows } = await client.query(
+      `SELECT sparks FROM wild_fireworks_profiles WHERE user_id = $1 LIMIT 1`,
+      [Number(wfUser.id)]
+    );
+    const profileSparks = sanitizeSparksBalance(profileRows[0]?.sparks, 0);
+    const walletSparks = sanitizeSparksBalance(await getUnifiedBalance(client, Number(oceanUser.id), 'sparks'), 0);
+    const hasClientSparks = Number.isFinite(Number(req.body?.sparks));
+    const syncedSparks = hasClientSparks
+      ? sanitizeSparksBalance(req.body?.sparks, walletSparks)
+      : Math.max(profileSparks, walletSparks);
+
+    await client.query(
+      `INSERT INTO wild_fireworks_profiles (user_id, sparks, last_sync_at)
+       VALUES ($1, $2, NOW())
+       ON CONFLICT (user_id) DO UPDATE
+         SET sparks = EXCLUDED.sparks,
+             last_sync_at = NOW(),
+             updated_at = NOW()`,
+      [Number(wfUser.id), syncedSparks]
+    );
+
+    await setUnifiedBalance(client, Number(oceanUser.id), 'sparks', syncedSparks);
+    await client.query('COMMIT');
+
+    return res.json({
+      success: true,
+      token: issueWildFireworksToken(wfUser),
+      linked: true,
+      sparks: syncedSparks,
+      oceanPay: { id: Number(oceanUser.id), username: oceanUser.username },
+      wildfireworks: { id: Number(wfUser.id), username: wfUser.username, created_at: wfUser.created_at }
+    });
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    console.error('Error en POST /wildfireworks/auth/login:', err);
+    return res.status(500).json({ error: 'Error interno al iniciar sesion en WildFireworks' });
+  } finally {
+    client.release();
+  }
+});
+
+app.get('/wildfireworks/profile', async (req, res) => {
+  const token = parseWildFireworksAuthToken(req);
+  const decoded = decodeWildFireworksTokenOrNull(token);
+  if (!decoded) return res.status(401).json({ error: 'Token WildFireworks invalido' });
+
+  const wfUserId = Number(decoded.id || decoded.uid || 0);
+  if (!wfUserId) return res.status(401).json({ error: 'Usuario WildFireworks invalido' });
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await ensureWildFireworksTables(client);
+
+    const { rows } = await client.query(
+      `SELECT wu.id, wu.username, wu.ocean_pay_user_id, wu.created_at,
+              wp.sparks, wp.last_sync_at
+       FROM wild_fireworks_users wu
+       LEFT JOIN wild_fireworks_profiles wp ON wp.user_id = wu.id
+       WHERE wu.id = $1
+       LIMIT 1`,
+      [wfUserId]
+    );
+    if (!rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Perfil WildFireworks no encontrado' });
+    }
+
+    const row = rows[0];
+    const opUserId = Number(row.ocean_pay_user_id || 0);
+    const profileSparks = sanitizeSparksBalance(row.sparks, 0);
+    const walletSparks = sanitizeSparksBalance(await getUnifiedBalance(client, opUserId, 'sparks'), 0);
+    const syncedSparks = Math.max(profileSparks, walletSparks);
+
+    if (syncedSparks !== profileSparks) {
+      await client.query(
+        `INSERT INTO wild_fireworks_profiles (user_id, sparks, last_sync_at)
+         VALUES ($1, $2, NOW())
+         ON CONFLICT (user_id) DO UPDATE
+           SET sparks = EXCLUDED.sparks,
+               last_sync_at = NOW(),
+               updated_at = NOW()`,
+        [wfUserId, syncedSparks]
+      );
+    }
+    if (syncedSparks !== walletSparks) {
+      await setUnifiedBalance(client, opUserId, 'sparks', syncedSparks);
+    }
+
+    await client.query('COMMIT');
+    return res.json({
+      success: true,
+      linked: true,
+      sparks: syncedSparks,
+      oceanPay: { id: opUserId },
+      wildfireworks: {
+        id: Number(row.id),
+        username: String(row.username || ''),
+        created_at: row.created_at,
+        last_sync_at: row.last_sync_at || null
+      }
+    });
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    console.error('Error en GET /wildfireworks/profile:', err);
+    return res.status(500).json({ error: 'Error interno al obtener perfil WildFireworks' });
+  } finally {
+    client.release();
+  }
+});
+
+app.post('/wildfireworks/sparks/sync', async (req, res) => {
+  const token = parseWildFireworksAuthToken(req);
+  const decoded = decodeWildFireworksTokenOrNull(token);
+  if (!decoded) return res.status(401).json({ error: 'Token WildFireworks invalido' });
+
+  const wfUserId = Number(decoded.id || decoded.uid || 0);
+  if (!wfUserId) return res.status(401).json({ error: 'Usuario WildFireworks invalido' });
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await ensureWildFireworksTables(client);
+
+    const { rows } = await client.query(
+      `SELECT wu.id, wu.ocean_pay_user_id, wu.username, wp.sparks
+       FROM wild_fireworks_users wu
+       LEFT JOIN wild_fireworks_profiles wp ON wp.user_id = wu.id
+       WHERE wu.id = $1
+       LIMIT 1`,
+      [wfUserId]
+    );
+    if (!rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Cuenta WildFireworks no encontrada' });
+    }
+
+    const row = rows[0];
+    const opUserId = Number(row.ocean_pay_user_id || 0);
+    const profileSparks = sanitizeSparksBalance(row.sparks, 0);
+    const walletSparks = sanitizeSparksBalance(await getUnifiedBalance(client, opUserId, 'sparks'), 0);
+
+    const hasClientSparks = Number.isFinite(Number(req.body?.sparks));
+    const nextSparks = hasClientSparks
+      ? sanitizeSparksBalance(req.body?.sparks, profileSparks)
+      : Math.max(profileSparks, walletSparks);
+
+    await client.query(
+      `INSERT INTO wild_fireworks_profiles (user_id, sparks, last_sync_at)
+       VALUES ($1, $2, NOW())
+       ON CONFLICT (user_id) DO UPDATE
+         SET sparks = EXCLUDED.sparks,
+             last_sync_at = NOW(),
+             updated_at = NOW()`,
+      [wfUserId, nextSparks]
+    );
+
+    await setUnifiedBalance(client, opUserId, 'sparks', nextSparks);
+    await client.query('COMMIT');
+
+    return res.json({
+      success: true,
+      sparks: nextSparks,
+      wildfireworks: {
+        id: Number(row.id),
+        username: String(row.username || '')
+      },
+      oceanPay: { id: opUserId }
+    });
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    console.error('Error en POST /wildfireworks/sparks/sync:', err);
+    return res.status(500).json({ error: 'Error interno al sincronizar Sparks' });
+  } finally {
+    client.release();
   }
 });
 

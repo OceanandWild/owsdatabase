@@ -889,6 +889,92 @@ function buildOwsStorePushUpdateMessage({ projectName, version, changelog }) {
   return { title, body };
 }
 
+const wnsAuthCache = {
+  token: '',
+  expiresAt: 0
+};
+
+async function getWnsAccessToken() {
+  const packageSid = String(process.env.WNS_PACKAGE_SID || '').trim();
+  const clientSecret = String(process.env.WNS_CLIENT_SECRET || '').trim();
+  if (!packageSid || !clientSecret) return { ok: false, reason: 'missing-wns-credentials' };
+
+  const now = Date.now();
+  if (wnsAuthCache.token && now < (wnsAuthCache.expiresAt - 60 * 1000)) {
+    return { ok: true, token: wnsAuthCache.token };
+  }
+
+  const body = new URLSearchParams();
+  body.set('grant_type', 'client_credentials');
+  body.set('client_id', packageSid);
+  body.set('client_secret', clientSecret);
+  body.set('scope', 'notify.windows.com');
+
+  try {
+    const res = await fetch('https://login.live.com/accesstoken.srf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString()
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      return { ok: false, reason: `wns-auth-http-${res.status}`, detail: text };
+    }
+    const json = await res.json().catch(() => ({}));
+    const token = String(json?.access_token || '').trim();
+    const expiresInSec = Number(json?.expires_in || 0);
+    if (!token) return { ok: false, reason: 'wns-auth-no-token' };
+    wnsAuthCache.token = token;
+    wnsAuthCache.expiresAt = now + (Math.max(60, expiresInSec) * 1000);
+    return { ok: true, token };
+  } catch (err) {
+    return { ok: false, reason: err?.message || 'wns-auth-error' };
+  }
+}
+
+function buildWnsToastXml({ title, body }) {
+  const escapeXml = (v) => String(v || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+  return `<?xml version="1.0" encoding="utf-8"?>
+<toast launch="ows-store://updates">
+  <visual>
+    <binding template="ToastGeneric">
+      <text>${escapeXml(title || 'OWS Store')}</text>
+      <text>${escapeXml(body || 'Nueva actualizacion disponible')}</text>
+    </binding>
+  </visual>
+</toast>`;
+}
+
+async function sendWnsPushNotification({ channelUri, title, body }) {
+  const uri = String(channelUri || '').trim();
+  if (!uri) return { sent: false, reason: 'missing-channel-uri' };
+  const auth = await getWnsAccessToken();
+  if (!auth.ok) return { sent: false, reason: auth.reason || 'wns-auth-failed', detail: auth.detail || '' };
+  const xml = buildWnsToastXml({ title, body });
+  try {
+    const res = await fetch(uri, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${auth.token}`,
+        'Content-Type': 'text/xml',
+        'X-WNS-Type': 'wns/toast',
+        'X-WNS-RequestForStatus': 'true'
+      },
+      body: xml
+    });
+    if (res.status >= 200 && res.status < 300) return { sent: true };
+    const text = await res.text().catch(() => '');
+    return { sent: false, reason: `wns-http-${res.status}`, detail: text };
+  } catch (err) {
+    return { sent: false, reason: err?.message || 'wns-send-error' };
+  }
+}
+
 async function sendFcmPushNotification({ token, title, body, data = {} }) {
   const serverKey = String(process.env.FCM_SERVER_KEY || process.env.FIREBASE_SERVER_KEY || '').trim();
   const targetToken = String(token || '').trim();
@@ -938,7 +1024,7 @@ async function queueOwsStorePushUpdate({ projectSlug, projectName, version, chan
   };
   try {
     const devicesRes = await pool.query(
-      `SELECT device_id, platform, provider, push_token
+      `SELECT device_id, platform, provider, push_token, endpoint
        FROM ows_store_push_devices
        WHERE is_active = TRUE
          AND device_id IS NOT NULL
@@ -955,6 +1041,7 @@ async function queueOwsStorePushUpdate({ projectSlug, projectName, version, chan
       const platform = normalizeOwsPushPlatform(device?.platform || 'web');
       const provider = normalizeOwsPushProvider(device?.provider || 'local');
       const pushToken = String(device?.push_token || '').trim();
+      const endpoint = String(device?.endpoint || '').trim();
 
       const inserted = await pool.query(
         `INSERT INTO ows_store_push_notifications (
@@ -982,6 +1069,21 @@ async function queueOwsStorePushUpdate({ projectSlug, projectName, version, chan
           }
         });
         if (fcm?.sent) {
+          pushedNow += 1;
+          await pool.query(
+            `UPDATE ows_store_push_notifications
+             SET delivered_at = NOW()
+             WHERE id = $1`,
+            [pushId]
+          ).catch(() => {});
+        }
+      } else if (provider === 'wns' && endpoint) {
+        const wns = await sendWnsPushNotification({
+          channelUri: endpoint,
+          title,
+          body
+        });
+        if (wns?.sent) {
           pushedNow += 1;
           await pool.query(
             `UPDATE ows_store_push_notifications

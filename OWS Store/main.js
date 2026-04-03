@@ -1,19 +1,28 @@
-const { app, BrowserWindow, ipcMain, nativeImage, shell, Notification } = require('electron');
+const { app, BrowserWindow, ipcMain, nativeImage, shell, Notification, Tray, Menu } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const https = require('https');
 const http = require('http');
+const crypto = require('crypto');
 const { spawn } = require('child_process');
 
 let mainWindow = null;
+let appTray = null;
+let isQuitting = false;
+let backgroundHintShown = false;
 const semverTripletRegex = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/;
 const APP_ID = 'com.oceanwildstudios.nexusstore';
 const APP_DISPLAY_NAME = 'OWS Store';
+const API_URL = 'https://owsdatabase.onrender.com';
 const INSTALLER_CACHE_DIR = path.join(os.tmpdir(), 'ows-store-installers');
+const PUSH_STATE_FILENAME = 'ows-push-state.json';
+const PUSH_WORKER_TASK_NAME = 'OWSStorePushWorker';
 let updaterReady = false;
 let windowsUpdateDownloaded = false;
+let wnsChannelCache = '';
+let wnsChannelCacheAt = 0;
 const externalInstallTasks = new Map();
 const httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 32, keepAliveMsecs: 3000, scheduling: 'fifo' });
 const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 8 });
@@ -23,6 +32,147 @@ const DOWNLOAD_PROGRESS_EMIT_STEP = 2;            // emit each 2%
 
 app.setAppUserModelId(APP_ID);
 app.setName(APP_DISPLAY_NAME);
+
+function readJsonFileSafe(filePath, fallback = null) {
+  try {
+    if (!fs.existsSync(filePath)) return fallback;
+    return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  } catch (_) {
+    return fallback;
+  }
+}
+
+function writeJsonFileSafe(filePath, data) {
+  try {
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+function getPushStatePath() {
+  return path.join(app.getPath('userData'), PUSH_STATE_FILENAME);
+}
+
+function getOrCreatePushState() {
+  const statePath = getPushStatePath();
+  const current = readJsonFileSafe(statePath, {});
+  const nowIso = new Date().toISOString();
+  if (!current.deviceId) {
+    current.deviceId = `ows-${crypto.randomBytes(12).toString('hex')}`;
+  }
+  current.platform = 'windows';
+  if (!current.createdAt) current.createdAt = nowIso;
+  current.updatedAt = nowIso;
+  writeJsonFileSafe(statePath, current);
+  return current;
+}
+
+async function registerPushDeviceInBackend() {
+  const state = getOrCreatePushState();
+  try {
+    const res = await fetch(`${API_URL}/ows-store/push/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        device_id: state.deviceId,
+        platform: 'windows',
+        provider: 'local',
+        metadata: {
+          source: 'ows-store-worker',
+          appVersion: app.getVersion(),
+        },
+      }),
+    });
+    return res.ok;
+  } catch (_) {
+    return false;
+  }
+}
+
+async function fetchPushInboxFromBackend(limit = 20) {
+  const state = getOrCreatePushState();
+  try {
+    const url = `${API_URL}/ows-store/push/inbox?device_id=${encodeURIComponent(state.deviceId)}&platform=windows&limit=${Math.max(1, Number(limit || 20))}&nocache=${Date.now()}`;
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) return [];
+    const json = await res.json().catch(() => ({}));
+    return Array.isArray(json?.notifications) ? json.notifications : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+async function ackPushInboxItem(id) {
+  const state = getOrCreatePushState();
+  const numericId = Number(id || 0);
+  if (!Number.isFinite(numericId) || numericId <= 0) return false;
+  try {
+    const res = await fetch(`${API_URL}/ows-store/push/inbox/${numericId}/ack`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device_id: state.deviceId }),
+    });
+    return res.ok;
+  } catch (_) {
+    return false;
+  }
+}
+
+function showWorkerNotification(title, body) {
+  try {
+    if (!Notification || !Notification.isSupported()) return false;
+    const iconPath = path.join(__dirname, 'build', 'icon.ico');
+    const toast = new Notification({
+      title: String(title || APP_DISPLAY_NAME),
+      body: String(body || 'Nueva actualizacion disponible'),
+      icon: fs.existsSync(iconPath) ? iconPath : undefined,
+      silent: false,
+    });
+    toast.show();
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+async function runPushWorkerOnce() {
+  await registerPushDeviceInBackend().catch(() => {});
+  const inbox = await fetchPushInboxFromBackend(20);
+  if (!inbox.length) return { ok: true, delivered: 0 };
+  let delivered = 0;
+  for (const item of inbox) {
+    const title = String(item?.title || 'OWS Store');
+    const body = String(item?.body || 'Nueva actualizacion disponible');
+    if (showWorkerNotification(title, body)) delivered += 1;
+    await ackPushInboxItem(item?.id).catch(() => {});
+  }
+  return { ok: true, delivered };
+}
+
+function ensureWindowsPushWorkerScheduledTask() {
+  if (process.platform !== 'win32' || !app.isPackaged) return;
+  const exe = process.execPath;
+  const taskAction = `"${exe}" --ows-push-worker`;
+  const args = [
+    '/Create',
+    '/F',
+    '/TN',
+    PUSH_WORKER_TASK_NAME,
+    '/SC',
+    'MINUTE',
+    '/MO',
+    '5',
+    '/TR',
+    taskAction,
+  ];
+  try {
+    const child = spawn('schtasks.exe', args, { windowsHide: true, stdio: 'ignore' });
+    child.on('error', () => {});
+  } catch (_) {}
+}
 
 function createWindow() {
   const iconPath = path.join(__dirname, 'build', 'icon.ico');
@@ -52,11 +202,65 @@ function createWindow() {
   }
 
   mainWindow.once('ready-to-show', () => mainWindow.show());
+  mainWindow.on('close', (event) => {
+    if (isQuitting || process.platform === 'darwin') return;
+    event.preventDefault();
+    mainWindow.hide();
+    mainWindow.setSkipTaskbar(true);
+    if (!backgroundHintShown && Notification && Notification.isSupported()) {
+      backgroundHintShown = true;
+      try {
+        const toast = new Notification({
+          title: APP_DISPLAY_NAME,
+          body: 'OWS Store sigue activo en segundo plano para alertas de updates.'
+        });
+        toast.show();
+      } catch (_) {}
+    }
+  });
+  mainWindow.on('show', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setSkipTaskbar(false);
+  });
   mainWindow.on('closed', () => { mainWindow = null; });
 
   if (process.env.NODE_ENV === 'development') {
     mainWindow.webContents.openDevTools();
   }
+}
+
+function showMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    createWindow();
+    return;
+  }
+  if (!mainWindow.isVisible()) mainWindow.show();
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.setSkipTaskbar(false);
+  mainWindow.focus();
+}
+
+function createTray() {
+  if (appTray || process.platform !== 'win32') return;
+  const iconPath = path.join(__dirname, 'build', 'icon.ico');
+  const fallbackPath = path.join(__dirname, 'resources', 'icon.png');
+  const trayIconPath = fs.existsSync(iconPath) ? iconPath : fallbackPath;
+  if (!fs.existsSync(trayIconPath)) return;
+  appTray = new Tray(trayIconPath);
+  appTray.setToolTip(APP_DISPLAY_NAME);
+  const menu = Menu.buildFromTemplate([
+    { label: 'Abrir OWS Store', click: () => showMainWindow() },
+    { type: 'separator' },
+    {
+      label: 'Salir',
+      click: () => {
+        isQuitting = true;
+        app.quit();
+      }
+    }
+  ]);
+  appTray.setContextMenu(menu);
+  appTray.on('double-click', () => showMainWindow());
+  appTray.on('click', () => showMainWindow());
 }
 
 function sendToRenderer(channel, ...args) {
@@ -308,6 +512,53 @@ function isLikelyWindowsExecutable(filePath) {
   }
 }
 
+function resolveWnsChannelUriViaPowerShell(timeoutMs = 20000) {
+  return new Promise((resolve) => {
+    if (process.platform !== 'win32') return resolve({ ok: false, reason: 'not-windows' });
+    const psScript = `
+try {
+  Add-Type -AssemblyName System.Runtime.WindowsRuntime | Out-Null
+  $op = [Windows.Networking.PushNotifications.PushNotificationChannelManager, Windows.Networking.PushNotifications, ContentType=WindowsRuntime]::CreatePushNotificationChannelForApplicationAsync()
+  $task = [System.WindowsRuntimeSystemExtensions]::AsTask($op)
+  $null = $task.Wait(${Math.max(5000, Number(timeoutMs || 20000))})
+  if ($task.IsCompleted -and $task.Result -and $task.Result.Uri) {
+    Write-Output $task.Result.Uri
+    exit 0
+  }
+  exit 2
+} catch {
+  Write-Output $_.Exception.Message
+  exit 1
+}
+`.trim();
+
+    let stdout = '';
+    let stderr = '';
+    const child = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', psScript], {
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+
+    const killer = setTimeout(() => {
+      try { child.kill(); } catch (_) {}
+      resolve({ ok: false, reason: 'timeout', stderr: stderr.trim() });
+    }, Math.max(5000, Number(timeoutMs || 20000)));
+
+    child.stdout.on('data', (chunk) => { stdout += chunk.toString(); });
+    child.stderr.on('data', (chunk) => { stderr += chunk.toString(); });
+    child.on('error', (err) => {
+      clearTimeout(killer);
+      resolve({ ok: false, reason: err?.message || 'spawn-error', stderr: stderr.trim() });
+    });
+    child.on('close', (code) => {
+      clearTimeout(killer);
+      const uri = String(stdout || '').trim();
+      if (code === 0 && uri) return resolve({ ok: true, uri });
+      return resolve({ ok: false, reason: `exit-${code}`, stderr: String(stderr || stdout || '').trim() });
+    });
+  });
+}
+
 function downloadWithRedirects(url, destinationPath, taskRef, onProgress, redirectsLeft = 5) {
   return new Promise((resolve, reject) => {
     if (taskRef?.cancelled) return reject(new Error('Descarga cancelada por el usuario.'));
@@ -496,6 +747,21 @@ ipcMain.handle('open-external-url', (_, url) => {
   return true;
 });
 
+ipcMain.handle('get-wns-channel-uri', async () => {
+  if (process.platform !== 'win32') return { ok: false, reason: 'not-windows' };
+  const now = Date.now();
+  if (wnsChannelCache && (now - wnsChannelCacheAt) < (15 * 60 * 1000)) {
+    return { ok: true, uri: wnsChannelCache, cached: true };
+  }
+  const result = await resolveWnsChannelUriViaPowerShell(20000);
+  if (result?.ok && result.uri) {
+    wnsChannelCache = String(result.uri).trim();
+    wnsChannelCacheAt = now;
+    return { ok: true, uri: wnsChannelCache, cached: false };
+  }
+  return { ok: false, reason: result?.reason || 'wns-unavailable', detail: result?.stderr || '' };
+});
+
 ipcMain.handle('show-system-notification', (_, payload) => {
   try {
     if (!Notification || !Notification.isSupported()) {
@@ -670,8 +936,30 @@ ipcMain.handle('uninstall-installed-app', (_, payload) => {
 });
 
 app.whenReady().then(() => {
+  if (process.argv.includes('--ows-push-worker')) {
+    runPushWorkerOnce()
+      .catch(() => {})
+      .finally(() => setTimeout(() => app.quit(), 1200));
+    return;
+  }
+
+  if (process.platform === 'win32') {
+    try {
+      app.setLoginItemSettings({
+        openAtLogin: true,
+        openAsHidden: true
+      });
+    } catch (_) {}
+  }
+  ensureWindowsPushWorkerScheduledTask();
+  registerPushDeviceInBackend().catch(() => {});
   createWindow();
+  createTray();
   initAutoUpdater();
+});
+
+app.on('before-quit', () => {
+  isQuitting = true;
 });
 
 app.on('window-all-closed', () => {

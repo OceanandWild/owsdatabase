@@ -4884,6 +4884,12 @@
         const OWS_STORE_DEV_PREVIEW_KEY = 'ows_store_dev_preview_mode_v1';
         const SYSTEM_NOTIFICATIONS_PERMISSION_KEY = 'ows_store_system_notifications_permission_v1';
         const SYSTEM_NOTIFICATIONS_DEDUPE_KEY = 'ows_store_system_notifications_seen_v1';
+        const OWS_PUSH_DEVICE_ID_KEY = 'ows_store_push_device_id_v1';
+        const OWS_PUSH_PLATFORM_KEY = 'ows_store_push_platform_v1';
+        const OWS_PUSH_REGISTER_API_URL = `${API_URL}/ows-store/push/register`;
+        const OWS_PUSH_INBOX_API_URL = `${API_URL}/ows-store/push/inbox`;
+        const OWS_PUSH_ACK_API_BASE = `${API_URL}/ows-store/push/inbox`;
+        const OWS_WNS_CHANNEL_URI_KEY = 'ows_store_wns_channel_uri_v1';
         const OWS_STORE_ANDROID_INSTALLED_VERSION_KEY = 'ows_store_android_installed_version_name';
         const OWS_STORE_ANDROID_INSTALLED_VERSION_CODE_KEY = 'ows_store_android_installed_version_code';
         const OWS_STORE_ANDROID_UNKNOWN_SOURCES_ACK_KEY = 'ows_store_android_unknown_sources_ack_ts';
@@ -5265,7 +5271,9 @@
         let appUpdateSizeBytes = 0;
         let appUpdateEtaSeconds = null;
         const STORE_AUTO_UPDATE_HEARTBEAT_MS = 15000;
+        const OWS_PUSH_INBOX_POLL_MS = 45000;
         let storeAutoUpdateTimer = null;
+        let pushInboxTimer = null;
         let lastStoreAutoCheckAt = 0;
         let storeUpdateCheckState = {
             status: 'idle',
@@ -5340,6 +5348,9 @@
         let systemNotificationSeenKeys = new Set();
         const systemNotificationSessionId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         let systemNotificationsPrimed = false;
+        let pushDeviceId = '';
+        let pushInboxInitialized = false;
+        let pushNativeListenersBound = false;
         const owsStoreAndroidState = {
             downloadUrl: OWS_STORE_ANDROID_ARTIFACT_FALLBACK_URL,
             directDownloadUrl: '',
@@ -7951,6 +7962,195 @@
             } catch (_) {
                 return false;
             }
+        }
+
+        function generatePushDeviceId() {
+            if (window.crypto?.getRandomValues) {
+                const buf = new Uint8Array(16);
+                window.crypto.getRandomValues(buf);
+                const hex = Array.from(buf).map((b) => b.toString(16).padStart(2, '0')).join('');
+                return `ows-${hex}`;
+            }
+            return `ows-${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+        }
+
+        function getCurrentPushPlatform() {
+            if (isNativeAndroidRuntime()) return 'android';
+            const electronPlatform = String(window.owsUpdater?.platform || '').toLowerCase();
+            if (electronPlatform === 'win32' || electronPlatform === 'windows') return 'windows';
+            return 'web';
+        }
+
+        function getOrCreatePushDeviceId() {
+            if (pushDeviceId) return pushDeviceId;
+            const existing = String(localStorage.getItem(OWS_PUSH_DEVICE_ID_KEY) || '').trim();
+            if (existing) {
+                pushDeviceId = existing;
+                return pushDeviceId;
+            }
+            pushDeviceId = generatePushDeviceId();
+            localStorage.setItem(OWS_PUSH_DEVICE_ID_KEY, pushDeviceId);
+            return pushDeviceId;
+        }
+
+        function getStoredWnsChannelUri() {
+            return String(localStorage.getItem(OWS_WNS_CHANNEL_URI_KEY) || '').trim();
+        }
+
+        function maybeCaptureWnsChannelFromUrl() {
+            try {
+                const q = new URLSearchParams(window.location.search || '');
+                const raw = String(q.get('wnsChannel') || '').trim();
+                if (!raw) return;
+                localStorage.setItem(OWS_WNS_CHANNEL_URI_KEY, raw);
+                addNotification('Canal WNS detectado y guardado para push de Windows.', 'success');
+            } catch (_) {}
+        }
+
+        async function refreshWnsChannelUriFromBridge() {
+            if (getCurrentPushPlatform() !== 'windows') return '';
+            if (!window.owsUpdater?.getWnsChannelUri) return '';
+            try {
+                const result = await window.owsUpdater.getWnsChannelUri();
+                const uri = String(result?.uri || '').trim();
+                if (!result?.ok || !uri) return '';
+                localStorage.setItem(OWS_WNS_CHANNEL_URI_KEY, uri);
+                return uri;
+            } catch (_) {
+                return '';
+            }
+        }
+
+        async function registerPushInboxDevice({ pushToken = '', provider = 'local', endpoint = '', metadata = {} } = {}) {
+            const deviceId = getOrCreatePushDeviceId();
+            const platform = getCurrentPushPlatform();
+            let providerResolved = String(provider || 'local').trim().toLowerCase() || 'local';
+            let endpointResolved = String(endpoint || '').trim();
+            if (platform === 'windows' && !endpointResolved) {
+                endpointResolved = await refreshWnsChannelUriFromBridge();
+                if (endpointResolved) providerResolved = 'wns';
+            }
+            if (platform === 'windows' && !endpointResolved) {
+                endpointResolved = getStoredWnsChannelUri();
+                if (endpointResolved) providerResolved = 'wns';
+            }
+            localStorage.setItem(OWS_PUSH_PLATFORM_KEY, platform);
+            const payload = {
+                device_id: deviceId,
+                platform,
+                provider: providerResolved,
+                push_token: String(pushToken || '').trim() || null,
+                endpoint: endpointResolved || null,
+                metadata: {
+                    source: 'ows-store',
+                    runtime: window.owsUpdater?.isElectron ? 'electron' : (isNativeAndroidRuntime() ? 'android-webview' : 'web'),
+                    ...((metadata && typeof metadata === 'object') ? metadata : {})
+                }
+            };
+            const token = getOceanPayToken();
+            const headers = { 'Content-Type': 'application/json' };
+            if (token) headers.Authorization = `Bearer ${token}`;
+            try {
+                const res = await fetch(OWS_PUSH_REGISTER_API_URL, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify(payload)
+                });
+                if (!res.ok) return false;
+                return true;
+            } catch (_) {
+                return false;
+            }
+        }
+
+        async function ackPushInboxNotification(id) {
+            const numericId = Number(id || 0);
+            if (!Number.isFinite(numericId) || numericId <= 0) return;
+            const deviceId = getOrCreatePushDeviceId();
+            try {
+                await fetch(`${OWS_PUSH_ACK_API_BASE}/${numericId}/ack`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ device_id: deviceId })
+                });
+            } catch (_) {}
+        }
+
+        async function pollPushInboxNow(origin = 'timer') {
+            const deviceId = getOrCreatePushDeviceId();
+            const platform = getCurrentPushPlatform();
+            try {
+                const url = `${OWS_PUSH_INBOX_API_URL}?device_id=${encodeURIComponent(deviceId)}&platform=${encodeURIComponent(platform)}&limit=20&origin=${encodeURIComponent(origin)}&nocache=${Date.now()}`;
+                const res = await fetch(url, { cache: 'no-store' });
+                if (!res.ok) return;
+                const data = await res.json().catch(() => ({}));
+                const list = Array.isArray(data?.notifications) ? data.notifications : [];
+                if (!list.length) return;
+                for (const item of list) {
+                    const id = Number(item?.id || 0);
+                    const title = String(item?.title || 'OWS Store');
+                    const body = String(item?.body || 'Nueva actualizacion disponible.');
+                    const dedupe = String(item?.dedupe_key || `push-${id}`).trim();
+                    addNotification(`${title}: ${body}`, 'warning');
+                    await sendSystemNotification({
+                        title,
+                        body,
+                        dedupeKey: getSessionNotificationDedupeKey(`push:${dedupe}`),
+                        requireVisible: false
+                    });
+                    if (id > 0) ackPushInboxNotification(id).catch(() => {});
+                }
+            } catch (_) {}
+        }
+
+        function bindNativeAndroidPushTokenIfAvailable() {
+            if (pushNativeListenersBound) return;
+            if (!isNativeAndroidRuntime()) return;
+            const pushPlugin = window.Capacitor?.Plugins?.PushNotifications;
+            if (!pushPlugin) return;
+            pushNativeListenersBound = true;
+            (async () => {
+                try {
+                    const perm = await pushPlugin.checkPermissions();
+                    if (perm?.receive !== 'granted') {
+                        const requested = await pushPlugin.requestPermissions();
+                        if (requested?.receive !== 'granted') return;
+                    }
+                    await pushPlugin.register();
+                } catch (_) {}
+            })();
+
+            try {
+                pushPlugin.addListener('registration', (token) => {
+                    const tokenValue = String(token?.value || '').trim();
+                    if (!tokenValue) return;
+                    registerPushInboxDevice({
+                        pushToken: tokenValue,
+                        provider: 'fcm',
+                        metadata: { native: true }
+                    }).catch(() => {});
+                });
+            } catch (_) {}
+        }
+
+        function startPushInboxHeartbeat() {
+            if (pushInboxTimer) return;
+            if (!pushInboxInitialized) {
+                pushInboxInitialized = true;
+                registerPushInboxDevice({ provider: 'local' }).catch(() => {});
+                bindNativeAndroidPushTokenIfAvailable();
+            }
+            pollPushInboxNow('init').catch(() => {});
+            pushInboxTimer = setInterval(() => {
+                pollPushInboxNow('heartbeat').catch(() => {});
+            }, OWS_PUSH_INBOX_POLL_MS);
+        }
+
+        async function initPushUpdateSupport() {
+            maybeCaptureWnsChannelFromUrl();
+            await refreshWnsChannelUriFromBridge();
+            startPushInboxHeartbeat();
+            await registerPushInboxDevice({ provider: isNativeAndroidRuntime() ? 'fcm' : 'local' }).catch(() => {});
         }
 
         function setUpdateBannerVisual(options = {}) {
@@ -17577,6 +17777,7 @@
                 initSearch();
                 renderStoreAutoCheckMeta();
                 startStoreAutoUpdateHeartbeat();
+                initPushUpdateSupport().catch(() => {});
 
                 if (isDeferredStartupModeEnabled()) {
                     updateStartupLoadingText('Modo silencioso activo: recuperando snapshot local...');
@@ -17618,6 +17819,7 @@
             if (spotlightSlideCleanupTimer) clearTimeout(spotlightSlideCleanupTimer);
             if (storeTrailerPremiereTimer) clearInterval(storeTrailerPremiereTimer);
             if (storeAutoUpdateTimer) clearInterval(storeAutoUpdateTimer);
+            if (pushInboxTimer) clearInterval(pushInboxTimer);
             if (preloginAnnouncementTimer) clearInterval(preloginAnnouncementTimer);
             stopDeferredSilentMonitor();
             clearDeferredDetectedUpdateTimers();

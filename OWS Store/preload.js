@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('owsUpdater', {
   installUpdate: () => ipcRenderer.invoke('install-update'),
   getAppVersion: () => ipcRenderer.invoke('get-app-version'),
   checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+  getWnsChannelUri: () => ipcRenderer.invoke('get-wns-channel-uri'),
   showSystemNotification: (payload) => ipcRenderer.invoke('show-system-notification', payload),
   installExternalInstaller: (payload) => ipcRenderer.invoke('install-external-installer', payload),
   cancelExternalInstaller: (payload) => ipcRenderer.invoke('cancel-external-installer', payload),

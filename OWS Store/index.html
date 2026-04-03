@@ -4848,6 +4848,8 @@
         const WILDWAVE_RELEASES_API_URL = `${GITHUB_RELEASES_PROXY_BASE}/wildwave/releases/latest`;
         const WILDSHORTS_RELEASES_URL = 'https://github.com/OceanandWild/wildshorts/releases/latest';
         const WILDSHORTS_RELEASES_API_URL = `${GITHUB_RELEASES_PROXY_BASE}/wildshorts/releases/latest`;
+        const OCEAN_CINEMAS_RELEASES_URL = 'https://github.com/OceanandWild/ocean-cinemas/releases/latest';
+        const OCEAN_CINEMAS_RELEASES_API_URL = `${GITHUB_RELEASES_PROXY_BASE}/ocean-cinemas/releases/latest`;
         const DINOBOX_RELEASES_URL = 'https://github.com/OceanandWild/dinobox/releases/latest';
         const DINOBOX_RELEASES_API_URL = `${GITHUB_RELEASES_PROXY_BASE}/dinobox/releases/latest`;
         const OWSNEWS_RELEASES_URL = 'https://github.com/OceanandWild/ocean-and-wild-studios-news/releases/latest';
@@ -5200,6 +5202,7 @@
         let velocitySurgeReleaseCache = null;
         let wildWaveReleaseCache = null;
         let wildShortsReleaseCache = null;
+        let oceanCinemasReleaseCache = null;
         let wildDestinyReleaseCache = null;
         let dinoBoxReleaseCache = null;
         let owsNewsReleaseCache = null;
@@ -9685,6 +9688,7 @@
                 || isWildDestinyProject(project)
                 || isVelocitySurgeProject(project)
                 || isWildWaveProject(project)
+                || isOceanCinemasProject(project)
                 || isDinoBoxProject(project);
         }
 
@@ -11511,6 +11515,65 @@
             return payload;
         }
 
+        async function fetchLatestOceanCinemasRelease() {
+            const now = Date.now();
+            if (oceanCinemasReleaseCache && (now - oceanCinemasReleaseCache.checkedAt) < 120000) {
+                return oceanCinemasReleaseCache;
+            }
+
+            const res = await fetch(`${OCEAN_CINEMAS_RELEASES_API_URL}?nocache=${Date.now()}`, {
+                cache: 'no-store',
+                headers: { 'Accept': 'application/vnd.github+json' }
+            });
+            if (!res.ok) throw new Error(`GitHub API ${res.status}`);
+            const data = await res.json();
+            const assets = Array.isArray(data.assets) ? data.assets : [];
+            const versionFromTag = normalizeReleaseVersion(data.tag_name || '');
+            const exeCandidates = assets.filter(a => typeof a?.name === 'string' && /\.exe$/i.test(a.name));
+            const scoredCandidates = exeCandidates.map((a) => ({
+                asset: a,
+                version: extractVersionFromText(a.name),
+                updatedAtMs: Date.parse(a.updated_at || '') || 0,
+                hasOceanCinemasName: /ocean[\s._-]*cinemas|oceancinemas/i.test(String(a.name || '')),
+            }));
+
+            scoredCandidates.sort((x, y) => {
+                if (x.hasOceanCinemasName !== y.hasOceanCinemasName) return x.hasOceanCinemasName ? -1 : 1;
+                const cmp = compareVersionLike(y.version, x.version);
+                if (cmp !== 0) return cmp;
+                return y.updatedAtMs - x.updatedAtMs;
+            });
+
+            let selected = scoredCandidates[0] || null;
+            if (versionFromTag) {
+                const tagMatch = scoredCandidates.find(c => c.version && compareVersionLike(c.version, versionFromTag) === 0);
+                if (tagMatch) selected = tagMatch;
+            }
+
+            const exeAsset = selected?.asset || null;
+            const versionFromAsset = selected?.version || '';
+            const staleInstaller = Boolean(versionFromTag && versionFromAsset && compareVersionLike(versionFromAsset, versionFromTag) < 0);
+            const warning = staleInstaller
+                ? `Release latest apunta a tag ${versionFromTag}, pero el instalador publicado es ${versionFromAsset}.`
+                : '';
+
+            const payload = {
+                version: versionFromTag || versionFromAsset || null,
+                tagVersion: versionFromTag || null,
+                assetVersion: versionFromAsset || null,
+                installerUrl: exeAsset?.browser_download_url || '',
+                installerSize: Number(exeAsset?.size || 0),
+                installerAvailable: Boolean(exeAsset?.browser_download_url) && !staleInstaller,
+                windowsReleaseNotes: String(data.body || '').trim(),
+                releaseUrl: data.html_url || OCEAN_CINEMAS_RELEASES_URL,
+                publishedAt: data.published_at || data.created_at || null,
+                warning,
+                checkedAt: now,
+            };
+            oceanCinemasReleaseCache = payload;
+            return payload;
+        }
+
         async function fetchLatestDinoBoxRelease() {
             const now = Date.now();
             if (dinoBoxReleaseCache && (now - dinoBoxReleaseCache.checkedAt) < 120000) {
@@ -12981,6 +13044,7 @@
             const velocitySurge = projects.find(p => isVelocitySurgeProject(p));
             const wildWave = projects.find(p => isWildWaveProject(p));
             const wildShorts = projects.find(p => isWildShortsProject(p));
+            const oceanCinemas = projects.find(p => isOceanCinemasProject(p));
             const dinoBox = projects.find(p => isDinoBoxProject(p));
 
             if (wildWeapon) {
@@ -13441,6 +13505,48 @@
                 }
             }
 
+            if (oceanCinemas) {
+                oceanCinemas.platform = 'windows';
+                oceanCinemas.install_type = 'external';
+                if (!oceanCinemas.installer_url) oceanCinemas.installer_url = OCEAN_CINEMAS_RELEASES_URL;
+                oceanCinemas.icon_url = oceanCinemas.icon_url || OCEAN_CINEMAS_LOCAL_ICON;
+                oceanCinemas.installer_available = false;
+                oceanCinemas.last_update_at = null;
+                oceanCinemas.windows_last_update_at = null;
+                oceanCinemas.android_last_update_at = null;
+                oceanCinemas.pending_release = false;
+                oceanCinemas.short = oceanCinemas.short || 'OCN';
+                if (!oceanCinemas.windows_version) oceanCinemas.windows_version = oceanCinemas.version || '';
+                oceanCinemas.installer_size = Number(oceanCinemas.installer_size || 0);
+                if (!oceanCinemas.windows_release_notes) oceanCinemas.windows_release_notes = '';
+
+                try {
+                    const latest = await fetchLatestOceanCinemasRelease();
+                    if (latest?.version) oceanCinemas.version = latest.version;
+                    oceanCinemas.windows_version = latest?.version || oceanCinemas.windows_version || oceanCinemas.version || '';
+                    if (latest?.installerUrl) oceanCinemas.installer_url = latest.installerUrl;
+                    oceanCinemas.installer_size = Number(latest?.installerSize || 0);
+                    oceanCinemas.installer_available = Boolean(latest?.installerAvailable);
+                    oceanCinemas.windows_release_notes = latest?.windowsReleaseNotes || oceanCinemas.windows_release_notes || '';
+                    oceanCinemas.last_update_at = latest?.publishedAt || null;
+                    oceanCinemas.windows_last_update_at = latest?.publishedAt || null;
+                    oceanCinemas.pending_release = !oceanCinemas.installer_available;
+                    oceanCinemas.status = oceanCinemas.installer_available ? 'launched' : 'coming_soon';
+                    if (latest?.warning) {
+                        oceanCinemas.pending_release = true;
+                        oceanCinemas.release_warning = latest.warning;
+                    } else {
+                        oceanCinemas.release_warning = '';
+                    }
+                } catch (err) {
+                    console.log('No se pudo resolver la ultima release de Ocean Cinemas:', err?.message || err);
+                    oceanCinemas.pending_release = true;
+                    oceanCinemas.installer_available = false;
+                    oceanCinemas.status = 'coming_soon';
+                    oceanCinemas.release_warning = 'No se pudo validar el instalador de la ultima release.';
+                }
+            }
+
             if (dinoBox) {
                 dinoBox.platform = 'windows';
                 dinoBox.install_type = 'external';
@@ -13541,6 +13647,7 @@
             if (isVelocitySurgeProject(project)) return VELOCITY_SURGE_RELEASES_URL;
             if (isWildWaveProject(project)) return WILDWAVE_RELEASES_URL;
             if (isWildShortsProject(project)) return WILDSHORTS_RELEASES_URL;
+            if (isOceanCinemasProject(project)) return OCEAN_CINEMAS_RELEASES_URL;
             if (isDinoBoxProject(project)) return DINOBOX_RELEASES_URL;
             return '';
         }
@@ -14792,6 +14899,7 @@
             if (isVelocitySurgeProject(project)) velocitySurgeReleaseCache = null;
             if (isWildWaveProject(project)) wildWaveReleaseCache = null;
             if (isWildShortsProject(project)) wildShortsReleaseCache = null;
+            if (isOceanCinemasProject(project)) oceanCinemasReleaseCache = null;
             if (isDinoBoxProject(project)) dinoBoxReleaseCache = null;
             }
             const latest = isWildWeaponProject(project)
@@ -14812,9 +14920,11 @@
                                     ? await fetchLatestVelocitySurgeRelease()
                                     : (isWildWaveProject(project)
                                         ? await fetchLatestWildWaveRelease()
+                                        : (isOceanCinemasProject(project)
+                                            ? await fetchLatestOceanCinemasRelease()
                                         : (isDinoBoxProject(project)
                                             ? await fetchLatestDinoBoxRelease()
-                                            : await fetchLatestOWSNewsRelease())))))))));
+                                            : await fetchLatestOWSNewsRelease()))))))))));
 
             if (isFloretProject(project) || isWildTransferProject(project) || isAWQGProject(project)) {
                 const preferred = isNativeAndroidRuntime()

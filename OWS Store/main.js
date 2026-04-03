@@ -132,6 +132,8 @@ function canReuseCachedInstaller(filePath, expectedSize = 0) {
   try {
     const stats = fs.statSync(filePath);
     if (!stats.isFile() || stats.size <= 0) return false;
+    // Never trust cache if the file does not look like a Windows executable.
+    if (!isLikelyWindowsExecutable(filePath)) return false;
     const expected = Number(expectedSize || 0);
     if (expected > 0) return stats.size === expected;
     return stats.size > 2 * 1024 * 1024;
@@ -537,6 +539,22 @@ ipcMain.handle('install-external-installer', async (_, payload) => {
     const targetPath = getInstallerCachePath(installerName);
     taskRef.path = targetPath;
     let useCached = canReuseCachedInstaller(targetPath, expectedSize);
+
+    // If size was not provided, probe remote size and avoid reusing stale/truncated cache.
+    if (useCached && expectedSize <= 0) {
+      const remoteSize = await fetchRemoteFileSizeWithRedirects(url);
+      if (remoteSize > 0) {
+        try {
+          const localSize = fs.statSync(targetPath).size;
+          if (Number(localSize) !== Number(remoteSize)) {
+            useCached = false;
+            try { fs.unlinkSync(targetPath); } catch (_) {}
+          }
+        } catch (_) {
+          useCached = false;
+        }
+      }
+    }
 
     if (useCached) {
       sendToRenderer('external-install-status', {

@@ -152,12 +152,17 @@ jobs:
         env:
           GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.GOOGLE_SERVICES_JSON_BASE64 }}
           FIREBASE_GOOGLE_SERVICES_JSON_BASE64: ${{ secrets.FIREBASE_GOOGLE_SERVICES_JSON_BASE64 }}
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+          FIREBASE_GOOGLE_SERVICES_JSON: ${{ secrets.FIREBASE_GOOGLE_SERVICES_JSON }}
         run: |
           cd "$APP_DIR"
           RAW_SECRET="${GOOGLE_SERVICES_JSON_BASE64:-$FIREBASE_GOOGLE_SERVICES_JSON_BASE64}"
           if [ -z "$RAW_SECRET" ]; then
+            RAW_SECRET="${GOOGLE_SERVICES_JSON:-$FIREBASE_GOOGLE_SERVICES_JSON}"
+          fi
+          if [ -z "$RAW_SECRET" ]; then
             echo "HAS_FIREBASE_CONFIG=false" >> "$GITHUB_ENV"
-            echo "No hay secreto de google-services.json (GOOGLE_SERVICES_JSON_BASE64/FIREBASE_GOOGLE_SERVICES_JSON_BASE64)."
+            echo "No hay secreto de google-services.json (GOOGLE_SERVICES_JSON_BASE64/FIREBASE_GOOGLE_SERVICES_JSON_BASE64/GOOGLE_SERVICES_JSON/FIREBASE_GOOGLE_SERVICES_JSON)."
             exit 0
           fi
 

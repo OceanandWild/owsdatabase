@@ -256,8 +256,31 @@ function isValidSemverVersion(version) {
 }
 
 async function openPathWithRetry(filePath, attempts = 6, delayMs = 350) {
+  const isExe = /\.exe$/i.test(String(filePath || ''));
+  const launchDirect = () => {
+    const child = spawn(filePath, [], {
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: false,
+    });
+    child.unref();
+  };
+
   let lastError = '';
   for (let i = 0; i < attempts; i += 1) {
+    if (isExe) {
+      try {
+        launchDirect();
+        return '';
+      } catch (err) {
+        lastError = err && err.message ? err.message : String(err);
+        if (/being used by another process|used by another process|in use|locked|bloquead/i.test(String(lastError))) {
+          await wait(delayMs);
+          continue;
+        }
+      }
+    }
+
     const error = await shell.openPath(filePath);
     if (!error) return '';
     lastError = error;

@@ -9373,8 +9373,10 @@
             const normalizedPlatform = normalizePlatformKind(platform);
             const storeProject = getProjectBySlug('ows-store');
             let mode = getProjectUpdateMode(storeProject, normalizedPlatform);
-            if (normalizedPlatform === 'android' && Boolean(latestRelease?.mandatory)) {
-                mode = 'required';
+            // Release-level policy has priority for Android when explicitly provided.
+            // This avoids forcing required updates when latest Android release is optional.
+            if (normalizedPlatform === 'android' && typeof latestRelease?.mandatory === 'boolean') {
+                mode = latestRelease.mandatory ? 'required' : 'optional';
             }
             return mode === 'optional' ? 'optional' : 'required';
         }
@@ -12159,6 +12161,7 @@
                     sha256: latest.sha256 || '',
                     sizeBytes: Number(latest.sizeBytes || 0),
                     publishedAt: latest.publishedAt || null,
+                    mandatory: typeof latest.mandatory === 'boolean' ? latest.mandatory : false,
                     source: latest.source || 'ows-store-api',
                     warning: latest.warning || '',
                     releaseNotes: latest.notes || '',
@@ -12176,6 +12179,7 @@
                     sha256: '',
                     sizeBytes: 0,
                     publishedAt: null,
+                    mandatory: false,
                     source: 'release-page',
                     warning: 'No se pudo resolver release Android desde OWS Store API.',
                     releaseNotes: '',

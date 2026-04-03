@@ -9,6 +9,7 @@ import multer from "multer";
 import bcrypt from "bcrypt";
 import path from "path";
 import fs from "fs";
+import crypto from "crypto";
 import jwt from 'jsonwebtoken';
 import { Server } from 'socket.io';
 import { createServer } from 'http';
@@ -975,10 +976,131 @@ async function sendWnsPushNotification({ channelUri, title, body }) {
   }
 }
 
+const fcmV1AuthCache = {
+  token: '',
+  expiresAt: 0
+};
+
+function toBase64Url(input) {
+  return Buffer.from(input)
+    .toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '');
+}
+
+function getFirebaseServiceAccountConfig() {
+  const inlineJson = String(process.env.FIREBASE_SERVICE_ACCOUNT_JSON || '').trim();
+  if (inlineJson) {
+    try {
+      const parsed = JSON.parse(inlineJson);
+      if (parsed?.client_email && parsed?.private_key && parsed?.project_id) return parsed;
+    } catch (_) {}
+  }
+  const projectId = String(process.env.FCM_PROJECT_ID || process.env.FIREBASE_PROJECT_ID || '').trim();
+  const clientEmail = String(process.env.FCM_CLIENT_EMAIL || process.env.FIREBASE_CLIENT_EMAIL || '').trim();
+  const privateKeyRaw = String(process.env.FCM_PRIVATE_KEY || process.env.FIREBASE_PRIVATE_KEY || '').trim();
+  const privateKey = privateKeyRaw ? privateKeyRaw.replace(/\\n/g, '\n') : '';
+  if (!projectId || !clientEmail || !privateKey) return null;
+  return { project_id: projectId, client_email: clientEmail, private_key: privateKey };
+}
+
+async function getFcmV1AccessToken() {
+  const cfg = getFirebaseServiceAccountConfig();
+  if (!cfg) return { ok: false, reason: 'missing-fcm-v1-service-account' };
+
+  const nowSec = Math.floor(Date.now() / 1000);
+  if (fcmV1AuthCache.token && nowSec < Math.floor(fcmV1AuthCache.expiresAt / 1000) - 60) {
+    return { ok: true, token: fcmV1AuthCache.token, projectId: cfg.project_id };
+  }
+
+  const header = { alg: 'RS256', typ: 'JWT' };
+  const payload = {
+    iss: cfg.client_email,
+    scope: 'https://www.googleapis.com/auth/firebase.messaging',
+    aud: 'https://oauth2.googleapis.com/token',
+    iat: nowSec,
+    exp: nowSec + 3600
+  };
+
+  try {
+    const encodedHeader = toBase64Url(JSON.stringify(header));
+    const encodedPayload = toBase64Url(JSON.stringify(payload));
+    const unsigned = `${encodedHeader}.${encodedPayload}`;
+    const signer = crypto.createSign('RSA-SHA256');
+    signer.update(unsigned);
+    signer.end();
+    const signature = signer.sign(cfg.private_key);
+    const jwtAssertion = `${unsigned}.${toBase64Url(signature)}`;
+
+    const body = new URLSearchParams();
+    body.set('grant_type', 'urn:ietf:params:oauth:grant-type:jwt-bearer');
+    body.set('assertion', jwtAssertion);
+
+    const res = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString()
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      return { ok: false, reason: `fcm-v1-auth-http-${res.status}`, detail: text };
+    }
+    const json = await res.json().catch(() => ({}));
+    const token = String(json?.access_token || '').trim();
+    const expiresIn = Number(json?.expires_in || 3600);
+    if (!token) return { ok: false, reason: 'fcm-v1-auth-no-token' };
+    fcmV1AuthCache.token = token;
+    fcmV1AuthCache.expiresAt = Date.now() + Math.max(60, expiresIn) * 1000;
+    return { ok: true, token, projectId: cfg.project_id };
+  } catch (err) {
+    return { ok: false, reason: err?.message || 'fcm-v1-auth-error' };
+  }
+}
+
 async function sendFcmPushNotification({ token, title, body, data = {} }) {
-  const serverKey = String(process.env.FCM_SERVER_KEY || process.env.FIREBASE_SERVER_KEY || '').trim();
   const targetToken = String(token || '').trim();
-  if (!serverKey || !targetToken) return { sent: false, reason: 'missing-server-key-or-token' };
+  if (!targetToken) return { sent: false, reason: 'missing-token' };
+
+  const v1 = await getFcmV1AccessToken();
+  if (v1.ok) {
+    try {
+      const messageData = {};
+      if (data && typeof data === 'object') {
+        for (const [k, v] of Object.entries(data)) {
+          if (v === undefined || v === null) continue;
+          messageData[String(k)] = String(v);
+        }
+      }
+      const res = await fetch(`https://fcm.googleapis.com/v1/projects/${encodeURIComponent(v1.projectId)}/messages:send`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${v1.token}`
+        },
+        body: JSON.stringify({
+          message: {
+            token: targetToken,
+            notification: {
+              title: String(title || 'OWS Store'),
+              body: String(body || 'Nueva actualizacion disponible')
+            },
+            data: messageData,
+            android: { priority: 'HIGH' }
+          }
+        })
+      });
+      if (res.ok) return { sent: true, via: 'fcm-v1' };
+      const text = await res.text().catch(() => '');
+      return { sent: false, reason: `fcm-v1-http-${res.status}`, detail: text };
+    } catch (err) {
+      return { sent: false, reason: err?.message || 'fcm-v1-error' };
+    }
+  }
+
+  const serverKey = String(process.env.FCM_SERVER_KEY || process.env.FIREBASE_SERVER_KEY || '').trim();
+  if (!serverKey) return { sent: false, reason: v1.reason || 'missing-server-key-or-fcm-v1-config', detail: v1.detail || '' };
+
   try {
     const res = await fetch('https://fcm.googleapis.com/fcm/send', {
       method: 'POST',
@@ -1002,7 +1124,7 @@ async function sendFcmPushNotification({ token, title, body, data = {} }) {
     }
     const json = await res.json().catch(() => ({}));
     const successCount = Number(json?.success || 0);
-    if (successCount > 0) return { sent: true };
+    if (successCount > 0) return { sent: true, via: 'fcm-legacy' };
     return { sent: false, reason: 'fcm-not-accepted', detail: json };
   } catch (err) {
     return { sent: false, reason: err?.message || 'fcm-error' };

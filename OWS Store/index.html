@@ -2316,15 +2316,23 @@
             }
 
             .news-hub-tabs-bar,
-            .library-filters {
+            .library-filters,
+            .ecosystem-filter-grid {
                 overflow-x: auto;
                 white-space: nowrap;
                 scrollbar-width: none;
             }
 
             .news-hub-tabs-bar::-webkit-scrollbar,
-            .library-filters::-webkit-scrollbar {
+            .library-filters::-webkit-scrollbar,
+            .ecosystem-filter-grid::-webkit-scrollbar {
                 display: none;
+            }
+            .ecosystem-controls {
+                grid-template-columns: 1fr;
+            }
+            .ecosystem-layout-switch {
+                width: max-content;
             }
 
             .library-hero {
@@ -2518,6 +2526,44 @@
 
         /* Ecosystem open btn */
         .ecosystem-open-btn { font-size:0.7rem !important; padding:0.3rem 0.65rem !important; }
+        .ecosystem-controls {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 0.6rem;
+            align-items: start;
+            margin-bottom: 1rem;
+        }
+        .ecosystem-layout-switch {
+            display: inline-flex;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: var(--surface-1);
+            padding: 2px;
+            gap: 2px;
+        }
+        .ecosystem-layout-btn {
+            border: none;
+            background: transparent;
+            color: var(--ink-1);
+            font-size: 0.72rem;
+            font-weight: 600;
+            font-family: inherit;
+            padding: 0.42rem 0.7rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.16s ease;
+        }
+        .ecosystem-layout-btn:hover { color: var(--ink-0); background: var(--surface-2); }
+        .ecosystem-layout-btn.active {
+            background: linear-gradient(90deg, var(--cyan-dim), color-mix(in srgb, var(--brand-2) 18%, transparent));
+            color: var(--cyan);
+            box-shadow: inset 0 0 0 1px rgba(38,212,232,0.25);
+        }
+        .ecosystem-filter-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+        }
 
         /* Platform install target buttons */
         .install-target-btn { display:flex; align-items:center; gap:0.5rem; padding:0.45rem 0.85rem; background:var(--surface-2); border:1px solid var(--border-mid); border-radius:var(--r-sm); color:var(--ink-0); font-size:0.72rem; font-weight:600; cursor:pointer; font-family:inherit; transition:all 0.15s; }
@@ -2530,10 +2576,15 @@
         â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
         /* Override project-grid for ecosystem row layout */
-        #projects-container.project-grid {
+        #projects-container.project-grid.ecosystem-layout-classic {
             display: flex;
             flex-direction: column;
             gap: 6px;
+        }
+        #projects-container.project-grid.ecosystem-layout-new {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(245px, 1fr));
+            gap: 0.75rem;
         }
 
         .app-card.ecosystem-row {
@@ -2568,6 +2619,41 @@
 
         .app-card.ecosystem-row:hover::before {
             background: var(--cyan);
+        }
+        .app-card.ecosystem-tile {
+            display: flex;
+            flex-direction: column;
+            gap: 0.55rem;
+            padding: 0.9rem;
+            border-radius: var(--r-md);
+            border: 1px solid var(--border);
+            background: linear-gradient(160deg, color-mix(in srgb, var(--surface-1) 88%, #041421), color-mix(in srgb, var(--surface-2) 92%, #070f18));
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.2s ease, border-color 0.2s ease;
+        }
+        .app-card.ecosystem-tile:hover {
+            transform: translateY(-2px);
+            border-color: rgba(38,212,232,0.32);
+        }
+        .ecosystem-tile-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 0.5rem;
+        }
+        .ecosystem-tile-title {
+            font-size: 0.86rem;
+            font-weight: 700;
+            color: var(--ink-0);
+            line-height: 1.2;
+            min-height: 2.1em;
+        }
+        .ecosystem-tile-footer {
+            margin-top: auto;
+            display: flex;
+            justify-content: flex-end;
         }
 
         .app-icon {
@@ -4440,12 +4526,27 @@
                 </div>
             </div>
 
-            <!-- Filter chips -->
-            <div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-bottom:1rem;">
-                <button id="filter-chip-all" class="library-filter-btn active" onclick="setProjectFilter('all')">Todo</button>
-                <button id="filter-chip-installed" class="library-filter-btn" onclick="setProjectFilter('installed')">Instalados</button>
-                <button id="filter-chip-external" class="library-filter-btn" onclick="setProjectFilter('external')">Windows</button>
-                <button id="filter-chip-updates" class="library-filter-btn" onclick="setProjectFilter('updates')">Con update</button>
+            <!-- Ecosystem controls -->
+            <div class="ecosystem-controls">
+                <div class="ecosystem-layout-switch" role="tablist" aria-label="Selector de layout">
+                    <button id="layout-classic-btn" class="ecosystem-layout-btn active" type="button" onclick="setProjectLayout('classic')">
+                        <i class="fas fa-bars"></i> Clasico
+                    </button>
+                    <button id="layout-new-btn" class="ecosystem-layout-btn" type="button" onclick="setProjectLayout('new')">
+                        <i class="fas fa-grip"></i> Nuevo
+                    </button>
+                </div>
+                <div class="ecosystem-filter-grid">
+                    <button class="library-filter-btn active" data-project-filter="all" onclick="setProjectFilter('all')">Todo</button>
+                    <button class="library-filter-btn" data-project-filter="windows_only" onclick="setProjectFilter('windows_only')">Solo Windows</button>
+                    <button class="library-filter-btn" data-project-filter="android_only" onclick="setProjectFilter('android_only')">Solo Android</button>
+                    <button class="library-filter-btn" data-project-filter="both_platforms" onclick="setProjectFilter('both_platforms')">Ambas plataformas</button>
+                    <button class="library-filter-btn" data-project-filter="coming_soon_no_date" onclick="setProjectFilter('coming_soon_no_date')">Proximamente sin fecha</button>
+                    <button class="library-filter-btn" data-project-filter="coming_soon_with_date" onclick="setProjectFilter('coming_soon_with_date')">Proximamente con fecha</button>
+                    <button class="library-filter-btn" data-project-filter="installed" onclick="setProjectFilter('installed')">Instalados</button>
+                    <button class="library-filter-btn" data-project-filter="updates" onclick="setProjectFilter('updates')">Con update</button>
+                    <button class="library-filter-btn" data-project-filter="launched" onclick="setProjectFilter('launched')">Lanzados</button>
+                </div>
             </div>
 
             <!-- News hub -->
@@ -4847,6 +4948,7 @@
         const STORE_DEFERRED_STARTUP_KEY = 'ows_store_deferred_startup_v1';
         const STORE_DATA_SNAPSHOT_KEY = 'ows_store_data_snapshot_v1';
         const STORE_DATA_SIGNATURE_KEY = 'ows_store_data_signature_v1';
+        const OWS_ECOSYSTEM_LAYOUT_KEY = 'ows_store_ecosystem_layout_v1';
         const PROJECT_UPDATES_DISMISSED_KEY = 'ows_store_updates_dismissed_up_to_date_v1';
         const OWS_STORE_DEV_PREVIEW_KEY = 'ows_store_dev_preview_mode_v1';
         const SYSTEM_NOTIFICATIONS_PERMISSION_KEY = 'ows_store_system_notifications_permission_v1';
@@ -5223,6 +5325,7 @@
         let uninstallSuppressedBySlug = {};
         let currentSearchTerm = '';
         let currentProjectFilter = 'all';
+        let currentProjectLayout = localStorage.getItem(OWS_ECOSYSTEM_LAYOUT_KEY) === 'new' ? 'new' : 'classic';
         let libraryViewState = { filter: 'all', query: '' };
         let activeSection = 'home';
         let exploreVersionState = {
@@ -10485,15 +10588,35 @@
             };
         }
 
+        function projectHasLaunchDate(project) {
+            const iso = String(project?.release_date || '').trim();
+            if (!iso) return false;
+            return Number.isFinite(Date.parse(iso));
+        }
+
+        function projectMatchesEcosystemFilter(project, filter = 'all') {
+            const key = String(filter || 'all');
+            const status = String(project?.status || '').toLowerCase();
+            const supportsWindows = supportsWindowsInstaller(project);
+            const supportsAndroid = supportsAndroidDownloads(project);
+            if (key === 'all') return true;
+            if (key === 'installed') return Boolean(installStateBySlug[project.slug]?.installed);
+            if (key === 'updates') return hasDevicePendingUpdate(getProjectUpdateInfo(project));
+            if (key === 'windows_only') return supportsWindows && !supportsAndroid;
+            if (key === 'android_only') return supportsAndroid && !supportsWindows;
+            if (key === 'both_platforms') return supportsWindows && supportsAndroid;
+            if (key === 'coming_soon_no_date') return status === 'coming_soon' && !projectHasLaunchDate(project);
+            if (key === 'coming_soon_with_date') return status === 'coming_soon' && projectHasLaunchDate(project);
+            if (key === 'launched') return status === 'launched';
+            return true;
+        }
+
         function getVisibleProjects() {
             const q = currentSearchTerm.trim().toLowerCase();
             return allProjects.filter((p) => {
                 const searchOk = !q || String(p.name || '').toLowerCase().includes(q) || String(p.description || '').toLowerCase().includes(q);
                 if (!searchOk) return false;
-                if (currentProjectFilter === 'installed') return Boolean(installStateBySlug[p.slug]?.installed);
-                if (currentProjectFilter === 'external') return isExternalInstallerProject(p);
-                if (currentProjectFilter === 'updates') return hasDevicePendingUpdate(getProjectUpdateInfo(p));
-                return true;
+                return projectMatchesEcosystemFilter(p, currentProjectFilter);
             });
         }
 
@@ -11086,13 +11209,22 @@
 
         function setProjectFilter(filter) {
             currentProjectFilter = filter || 'all';
-            const ids = ['all', 'installed', 'external', 'updates'];
-            ids.forEach((id) => {
-                const el = document.getElementById(`filter-chip-${id}`);
-                if (el) el.classList.toggle('active', currentProjectFilter === id);
+            document.querySelectorAll('[data-project-filter]').forEach((el) => {
+                const key = String(el?.dataset?.projectFilter || '');
+                el.classList.toggle('active', key === currentProjectFilter);
             });
             renderVisibleProjects();
             renderExploreInsights();
+        }
+
+        function setProjectLayout(layout = 'classic') {
+            currentProjectLayout = String(layout || 'classic') === 'new' ? 'new' : 'classic';
+            localStorage.setItem(OWS_ECOSYSTEM_LAYOUT_KEY, currentProjectLayout);
+            const classicBtn = document.getElementById('layout-classic-btn');
+            const newBtn = document.getElementById('layout-new-btn');
+            if (classicBtn) classicBtn.classList.toggle('active', currentProjectLayout === 'classic');
+            if (newBtn) newBtn.classList.toggle('active', currentProjectLayout === 'new');
+            renderVisibleProjects();
         }
 
         function setLibraryFilter(filter) {
@@ -11172,6 +11304,8 @@
                 owsNewsUpdatesCache = [];
             }
             await refreshInstallationStates();
+            setProjectLayout(currentProjectLayout);
+            setProjectFilter(currentProjectFilter);
             renderVisibleProjects();
             renderLibrary();
             renderProjectUpdatesList();
@@ -14634,6 +14768,9 @@
 
         function renderProjects(projects) {
             const container = document.getElementById('projects-container');
+            if (!container) return;
+            container.classList.remove('ecosystem-layout-classic', 'ecosystem-layout-new');
+            container.classList.add(currentProjectLayout === 'new' ? 'ecosystem-layout-new' : 'ecosystem-layout-classic');
             container.innerHTML = '';
             if (!projects.length) {
                 container.innerHTML = `<p style="color:var(--text-dim)">No hay resultados para tu busqueda/filtro.</p>`;
@@ -14641,7 +14778,7 @@
             }
             projects.forEach(p => {
                 const card = document.createElement('div');
-                card.className = 'app-card ecosystem-row';
+                card.className = currentProjectLayout === 'new' ? 'app-card ecosystem-tile' : 'app-card ecosystem-row';
                 card.onclick = () => openDetails(p.slug);
                 const isComingSoon = p.status === 'coming_soon';
                 const runtime = getRuntimeState(p.slug);
@@ -14677,27 +14814,52 @@
                 const countdownHtml = (isComingSoon && p.release_date)
                     ? `<span class="countdown" data-date="${p.release_date}">Cargando...</span>`
                     : `<span>${p.pending_release ? 'No disponible' : 'Disponible'}</span>`;
-                card.innerHTML = `
-                    <div class="progress-overlay" id="loader-${p.slug}">
-                        <div style="font-weight: 800; font-size: 0.8rem;">INSTALANDO...</div>
-                        <div class="progress-bar-container"><div class="progress-fill" id="fill-${p.slug}"></div></div>
-                    </div>
-                    <div class="icon-bg" style="background-image:url('${getProjectIcon(p, 64).replace(/'/g, '%27')}')" role="img" aria-label="${p.name || 'Icon'}"></div>
-                    <div class="ecosystem-main">
-                        <div class="ecosystem-topline">
-                            <div class="app-name"><span class="ecosystem-title-wrap">${p.name}${short ? ` <span style="font-size:0.72rem;color:var(--brand-2);">(${short})</span>` : ''}${newBadgeHtml}</span></div>
+                const iconStyle = getProjectIcon(p, 64).replace(/'/g, '%27');
+                if (currentProjectLayout === 'new') {
+                    card.innerHTML = `
+                        <div class="progress-overlay" id="loader-${p.slug}">
+                            <div style="font-weight: 800; font-size: 0.8rem;">INSTALANDO...</div>
+                            <div class="progress-bar-container"><div class="progress-fill" id="fill-${p.slug}"></div></div>
+                        </div>
+                        <div class="ecosystem-tile-head">
+                            <div class="icon-bg" style="background-image:url('${iconStyle}')" role="img" aria-label="${p.name || 'Icon'}"></div>
                             <span class="ecosystem-platform">${availabilityLabel}</span>
                         </div>
+                        <div class="ecosystem-tile-title">${p.name}${short ? ` <span style="font-size:0.72rem;color:var(--brand-2);">(${short})</span>` : ''}${newBadgeHtml}</div>
                         <div class="app-meta"><span>v${displayVersion || '1.0.0'}</span>${countdownHtml}</div>
                         ${updateInfoHtml || `<div class="ecosystem-submeta">${updateHint}</div>`}
                         ${tagsHtml}
                         ${updateFlagHtml}
                         ${installingHtml}
-                    </div>
-                    <button class="btn-install ecosystem-open-btn" onclick="event.stopPropagation(); openDetails('${p.slug}')">
-                        <i class="fas fa-circle-info"></i> Ver ficha
-                    </button>
-                `;
+                        <div class="ecosystem-tile-footer">
+                            <button class="btn-install ecosystem-open-btn" onclick="event.stopPropagation(); openDetails('${p.slug}')">
+                                <i class="fas fa-circle-info"></i> Ver ficha
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    card.innerHTML = `
+                        <div class="progress-overlay" id="loader-${p.slug}">
+                            <div style="font-weight: 800; font-size: 0.8rem;">INSTALANDO...</div>
+                            <div class="progress-bar-container"><div class="progress-fill" id="fill-${p.slug}"></div></div>
+                        </div>
+                        <div class="icon-bg" style="background-image:url('${iconStyle}')" role="img" aria-label="${p.name || 'Icon'}"></div>
+                        <div class="ecosystem-main">
+                            <div class="ecosystem-topline">
+                                <div class="app-name"><span class="ecosystem-title-wrap">${p.name}${short ? ` <span style="font-size:0.72rem;color:var(--brand-2);">(${short})</span>` : ''}${newBadgeHtml}</span></div>
+                                <span class="ecosystem-platform">${availabilityLabel}</span>
+                            </div>
+                            <div class="app-meta"><span>v${displayVersion || '1.0.0'}</span>${countdownHtml}</div>
+                            ${updateInfoHtml || `<div class="ecosystem-submeta">${updateHint}</div>`}
+                            ${tagsHtml}
+                            ${updateFlagHtml}
+                            ${installingHtml}
+                        </div>
+                        <button class="btn-install ecosystem-open-btn" onclick="event.stopPropagation(); openDetails('${p.slug}')">
+                            <i class="fas fa-circle-info"></i> Ver ficha
+                        </button>
+                    `;
+                }
                 container.appendChild(card);
             });
             startCountdowns();

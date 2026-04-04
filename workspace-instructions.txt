@@ -516,6 +516,5 @@ PROTOCOLO DE EMERGENCIA SI SE SUBE UN SECRETO A GITHUB:
 Prompt base recomendado (Wild Destiny):
 "App icon for 'Wild Destiny'. Epic fantasy-action RPG identity. Central symbol: a luminous crossed blade and arcane sigil fused in one emblem. Style: modern, premium, minimal but powerful, rounded-square icon suitable for Windows and Android launchers. Palette: deep midnight navy (#070b14), electric cyan (#26e0ff), royal violet (#7c3aed), subtle gold accents (#f5c542). High contrast, crisp silhouette, recognizable at 16x16 and detailed at 256x256. No text, no letters, no watermark. Fill full canvas. No white corners, no empty borders. Soft atmospheric glow and controlled depth, avoid clutter."
 
-TOKEN ADMIN SECRETO: MUFASA1939
-DEBIDO A ESTO, NUNCA PUBLICAR workspace-instructions.txt A GITHUB, NUNCA.
+DEBIDO A CONTENIDO SENSIBLE, NUNCA PUBLICAR workspace-instructions.txt A GITHUB.
 

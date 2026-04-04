@@ -5035,8 +5035,8 @@
         };
         const MYSTERY_PROJECT = {
             slug: 'mystery-project',
-            name: '?????',
-            short: '???',
+            name: 'Wild Fireworks',
+            short: 'WFW',
             status: 'coming_soon',
             version: '1.0.0',
             platform: 'windows',
@@ -5045,8 +5045,8 @@
             installer_available: false,
             pending_release: true,
             release_date: MYSTERY_PROJECT_RELEASE_DATE_ISO,
-            description: 'Algo nuevo se acerca al ecosistema OWS. Mas informacion muy pronto.',
-            icon_url: ''
+            description: 'Espectaculo pirotecnico cinematografico en preparacion para el ecosistema OWS.',
+            icon_url: '../Wild Fireworks/Assets/icon.jpeg'
         };
         const VELOCITY_SURGE_PROJECT = {
             slug: 'velocity-surge',
@@ -9836,7 +9836,7 @@
             if (!project) return false;
             const slug = String(project.slug || '').toLowerCase();
             const name = String(project.name || '').toLowerCase();
-            return slug.includes('mystery-project') || name === '?????';
+            return slug.includes('mystery-project') || name.includes('wild fireworks');
         }
 
         function isWildWaveProject(project) {
@@ -10145,12 +10145,13 @@
                     ...MYSTERY_PROJECT,
                     ...list[idx],
                     slug: 'mystery-project',
-                    name: '?????',
-                    short: list[idx].short || '???',
+                    name: 'Wild Fireworks',
+                    short: list[idx].short || 'WFW',
                     status: list[idx].status || 'coming_soon',
                     pending_release: list[idx].pending_release !== undefined ? list[idx].pending_release : true,
                     installer_available: list[idx].installer_available !== undefined ? list[idx].installer_available : Boolean(list[idx].installer_url),
-                    release_date: list[idx].release_date || ''
+                    release_date: list[idx].release_date || '',
+                    icon_url: list[idx].icon_url || '../Wild Fireworks/Assets/icon.jpeg'
                 };
             }
             return list;

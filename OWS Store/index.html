@@ -4233,7 +4233,7 @@
                 <div class="modal-stats">
                     <div class="stat-box">
                         <div class="stat-label">Ultima Actualizacion</div>
-                        <div class="stat-value" id="m-last-update">v1.0.0 Â· Sin datos</div>
+                        <div class="stat-value" id="m-last-update">v1.0.0 · Sin datos</div>
                     </div>
                     <div class="stat-box">
                         <div class="stat-label">Estado de Proyecto</div>
@@ -4526,29 +4526,6 @@
                 </div>
             </div>
 
-            <!-- Ecosystem controls -->
-            <div class="ecosystem-controls">
-                <div class="ecosystem-layout-switch" role="tablist" aria-label="Selector de layout">
-                    <button id="layout-classic-btn" class="ecosystem-layout-btn active" type="button" onclick="setProjectLayout('classic')">
-                        <i class="fas fa-bars"></i> Clasico
-                    </button>
-                    <button id="layout-new-btn" class="ecosystem-layout-btn" type="button" onclick="setProjectLayout('new')">
-                        <i class="fas fa-grip"></i> Nuevo
-                    </button>
-                </div>
-                <div class="ecosystem-filter-grid">
-                    <button class="library-filter-btn active" data-project-filter="all" onclick="setProjectFilter('all')">Todo</button>
-                    <button class="library-filter-btn" data-project-filter="windows_only" onclick="setProjectFilter('windows_only')">Solo Windows</button>
-                    <button class="library-filter-btn" data-project-filter="android_only" onclick="setProjectFilter('android_only')">Solo Android</button>
-                    <button class="library-filter-btn" data-project-filter="both_platforms" onclick="setProjectFilter('both_platforms')">Ambas plataformas</button>
-                    <button class="library-filter-btn" data-project-filter="coming_soon_no_date" onclick="setProjectFilter('coming_soon_no_date')">Proximamente sin fecha</button>
-                    <button class="library-filter-btn" data-project-filter="coming_soon_with_date" onclick="setProjectFilter('coming_soon_with_date')">Proximamente con fecha</button>
-                    <button class="library-filter-btn" data-project-filter="installed" onclick="setProjectFilter('installed')">Instalados</button>
-                    <button class="library-filter-btn" data-project-filter="updates" onclick="setProjectFilter('updates')">Con update</button>
-                    <button class="library-filter-btn" data-project-filter="launched" onclick="setProjectFilter('launched')">Lanzados</button>
-                </div>
-            </div>
-
             <!-- News hub -->
             <div class="news-hub" style="margin-bottom:2rem;">
                 <div class="section-header" style="margin-bottom:0.75rem;">
@@ -4587,8 +4564,8 @@
 
             <!-- OWS Store Changelog -->
             <div class="section-header" style="margin-bottom:0.75rem;">
-                <span class="section-label">OWS Store â€” Historial</span>
-                <span class="section-action" onclick="openStoreTimelineModal('store')">Ver historial completo â†’</span>
+                <span class="section-label">OWS Store - Historial</span>
+                <span class="section-action" onclick="openStoreTimelineModal('store')">Ver historial completo -></span>
             </div>
             <div class="changelog-panel" style="margin-bottom:2rem;">
                 <div class="changelog-panel-head">
@@ -4602,6 +4579,29 @@
                     <button class="btn-install" onclick="openStoreTimelineModal('store')">
                         <i class="fas fa-book-open"></i> Historial completo
                     </button>
+                </div>
+            </div>
+
+            <!-- Ecosystem controls -->
+            <div class="ecosystem-controls">
+                <div class="ecosystem-layout-switch" role="tablist" aria-label="Selector de layout">
+                    <button id="layout-classic-btn" class="ecosystem-layout-btn active" type="button" onclick="setProjectLayout('classic')">
+                        <i class="fas fa-bars"></i> Clasico
+                    </button>
+                    <button id="layout-new-btn" class="ecosystem-layout-btn" type="button" onclick="setProjectLayout('new')">
+                        <i class="fas fa-grip"></i> Nuevo
+                    </button>
+                </div>
+                <div class="ecosystem-filter-grid">
+                    <button class="library-filter-btn active" data-project-filter="all" onclick="setProjectFilter('all')">Todo</button>
+                    <button class="library-filter-btn" data-project-filter="windows_only" onclick="setProjectFilter('windows_only')">Solo Windows</button>
+                    <button class="library-filter-btn" data-project-filter="android_only" onclick="setProjectFilter('android_only')">Solo Android</button>
+                    <button class="library-filter-btn" data-project-filter="both_platforms" onclick="setProjectFilter('both_platforms')">Ambas plataformas</button>
+                    <button class="library-filter-btn" data-project-filter="coming_soon_no_date" onclick="setProjectFilter('coming_soon_no_date')">Proximamente sin fecha</button>
+                    <button class="library-filter-btn" data-project-filter="coming_soon_with_date" onclick="setProjectFilter('coming_soon_with_date')">Proximamente con fecha</button>
+                    <button class="library-filter-btn" data-project-filter="installed" onclick="setProjectFilter('installed')">Instalados</button>
+                    <button class="library-filter-btn" data-project-filter="updates" onclick="setProjectFilter('updates')">Con update</button>
+                    <button class="library-filter-btn" data-project-filter="launched" onclick="setProjectFilter('launched')">Lanzados</button>
                 </div>
             </div>
 
@@ -4837,7 +4837,7 @@
         <div class="changelog-modal-header">
             <div class="changelog-modal-icon"><i class="fas fa-book-open"></i></div>
             <div class="changelog-modal-title-wrap">
-                <div class="changelog-modal-title" id="store-news-modal-title">OWS Store â€” Historial</div>
+            <div class="changelog-modal-title" id="store-news-modal-title">OWS Store - Historial</div>
                 <div class="changelog-modal-sub">Selecciona una version en el panel izquierdo para ver sus detalles</div>
             </div>
             <button type="button" class="btn-close-modal" style="position:static;flex-shrink:0;" onclick="closeStoreTimelineModal()" aria-label="Cerrar">
@@ -4955,6 +4955,7 @@
         const SYSTEM_NOTIFICATIONS_DEDUPE_KEY = 'ows_store_system_notifications_seen_v1';
         const OWS_PUSH_DEVICE_ID_KEY = 'ows_store_push_device_id_v1';
         const OWS_PUSH_PLATFORM_KEY = 'ows_store_push_platform_v1';
+        const OWS_PUSH_FCM_TOKEN_KEY = 'ows_store_push_fcm_token_v1';
         const OWS_PUSH_REGISTER_API_URL = `${API_URL}/ows-store/push/register`;
         const OWS_PUSH_INBOX_API_URL = `${API_URL}/ows-store/push/inbox`;
         const OWS_PUSH_ACK_API_BASE = `${API_URL}/ows-store/push/inbox`;
@@ -8095,7 +8096,11 @@
             const deviceId = getOrCreatePushDeviceId();
             const platform = getCurrentPushPlatform();
             let providerResolved = String(provider || 'local').trim().toLowerCase() || 'local';
+            const tokenResolved = String(pushToken || '').trim();
             let endpointResolved = String(endpoint || '').trim();
+            if (platform === 'android' && providerResolved === 'fcm' && !tokenResolved) {
+                providerResolved = 'local';
+            }
             if (platform === 'windows' && !endpointResolved) {
                 endpointResolved = await refreshWnsChannelUriFromBridge();
                 if (endpointResolved) providerResolved = 'wns';
@@ -8109,7 +8114,7 @@
                 device_id: deviceId,
                 platform,
                 provider: providerResolved,
-                push_token: String(pushToken || '').trim() || null,
+                push_token: tokenResolved || null,
                 endpoint: endpointResolved || null,
                 metadata: {
                     source: 'ows-store',
@@ -8194,6 +8199,7 @@
                 pushPlugin.addListener('registration', (token) => {
                     const tokenValue = String(token?.value || '').trim();
                     if (!tokenValue) return;
+                    localStorage.setItem(OWS_PUSH_FCM_TOKEN_KEY, tokenValue);
                     registerPushInboxDevice({
                         pushToken: tokenValue,
                         provider: 'fcm',
@@ -8226,7 +8232,13 @@
             maybeCaptureWnsChannelFromUrl();
             await refreshWnsChannelUriFromBridge();
             startPushInboxHeartbeat();
-            await registerPushInboxDevice({ provider: isNativeAndroidRuntime() ? 'fcm' : 'local' }).catch(() => {});
+            const cachedAndroidToken = isNativeAndroidRuntime()
+                ? String(localStorage.getItem(OWS_PUSH_FCM_TOKEN_KEY) || '').trim()
+                : '';
+            await registerPushInboxDevice({
+                provider: (isNativeAndroidRuntime() && cachedAndroidToken) ? 'fcm' : 'local',
+                pushToken: cachedAndroidToken
+            }).catch(() => {});
         }
 
         function setUpdateBannerVisual(options = {}) {
@@ -10982,7 +10994,7 @@
             const tone = toneColors[item.tone] || toneColors.neutral;
             return `
                 <div class="notification-card" style="--tone-color:${tone};">
-                    <div class="notification-time">${formatDateTime(item.date)} Â· ${String(item.type || 'dato').toUpperCase()} Â· ${getPlatformLabelFromKinds(item.platforms || ['all'])}</div>
+                    <div class="notification-time">${formatDateTime(item.date)} · ${String(item.type || 'dato').toUpperCase()} · ${getPlatformLabelFromKinds(item.platforms || ['all'])}</div>
                     <div class="notification-text">${item.title}</div>
                     <div class="notification-time" style="margin-top:0.2rem;">${item.text}</div>
                 </div>
@@ -11075,13 +11087,13 @@
                         </div>
                     </div>` : ''}
                     <div class="changelog-detail-version">${escHtml(item.title || 'Sin titulo')}</div>
-                    <div class="changelog-detail-date">${item.date ? formatDateTime(item.date) : 'Fecha desconocida'} Â· ${String(item.type || 'changelog').toUpperCase()}</div>
+                    <div class="changelog-detail-date">${item.date ? formatDateTime(item.date) : 'Fecha desconocida'} · ${String(item.type || 'changelog').toUpperCase()}</div>
                     <div class="changelog-detail-platforms">${platformChips}</div>
                 </div>
                 ${item.text || changes[0] ? `<div class="changelog-detail-desc">${escHtml(item.text || changes[0] || '')}</div>` : ''}
                 ${changes.length > 1 || (changes.length === 1 && item.text !== changes[0]) ? `
                 <div class="changelog-detail-changes">
-                    ${changes.map(c => `<div class="changelog-change-item"><span class="changelog-change-bullet">â€º</span><span>${escHtml(String(c || ''))}</span></div>`).join('')}
+                    ${changes.map(c => `<div class="changelog-change-item"><span class="changelog-change-bullet">></span><span>${escHtml(String(c || ''))}</span></div>`).join('')}
                 </div>` : ''}
             `;
         }
@@ -12784,11 +12796,11 @@
                 setUpdateBannerVisual({
                     state: 'error',
                     title: 'Error de actualizacion',
-                    message: 'No se pudo verificar updates automÃƒÂ¡ticas: ' + msg,
+                    message: 'No se pudo verificar updates automaticas: ' + msg,
                     iconClass: 'fa-triangle-exclamation',
                     iconSpin: false,
                 });
-                if (!silent) addNotification('No se pudo verificar updater automÃƒÂ¡tico: ' + msg, 'warning');
+                if (!silent) addNotification('No se pudo verificar updater automatico: ' + msg, 'warning');
                 const currentVersion = String(await window.owsUpdater.getAppVersion?.().catch(() => '') || '').trim();
                 if (currentVersion) currentStoreWindowsVersion = currentVersion;
                 await applyWindowsManualUpdateSignal(currentStoreWindowsVersion, { silent: true }).catch(() => {});
@@ -12840,7 +12852,7 @@
                 setUpdateBannerVisual({
                     state: 'info',
                     title: 'Estado de updates Android no concluyente',
-                    message: 'No se pudo resolver la ÃƒÂºltima release Android. Reintenta en unos segundos.',
+                    message: 'No se pudo resolver la ultima release Android. Reintenta en unos segundos.',
                     iconClass: 'fa-circle-info',
                     iconSpin: false,
                 });
@@ -12851,7 +12863,7 @@
                     isApp: true,
                     phase: 'error',
                     percent: 0,
-                    status: 'No se pudo resolver la metadata Android de la ÃƒÂºltima release.',
+                    status: 'No se pudo resolver la metadata Android de la ultima release.',
                     sizeBytes: 0,
                     downloadedBytes: 0,
                     speedBps: 0,
@@ -15052,7 +15064,7 @@
                 'stable': 'Estable'
             };
             const projectPhase = PHASE_MAP[phaseRaw] || 'Estable';
-            const detailNewTag = hasNewBadge(p) ? ' Â· NUEVO!' : '';
+            const detailNewTag = hasNewBadge(p) ? ' · NUEVO!' : '';
             document.getElementById('m-title').innerText = getProjectShort(p) ? `${p.name} (${getProjectShort(p)})${detailNewTag}` : `${p.name}${detailNewTag}`;
             document.getElementById('m-desc').innerText = p.description || "Explora una nueva dimension de entretenimiento con este proyecto oficial de Ocean and Wild Studios.";
             const isComingSoon = p.status === 'coming_soon';
@@ -15098,7 +15110,7 @@
             const releaseDate = selectedTarget?.publishedAt || getProjectLastUpdateAt(p) || '';
             const lastUpdateEl = document.getElementById('m-last-update');
             if (lastUpdateEl) {
-                lastUpdateEl.innerText = `v${modalVersion} Â· ${releaseDate ? formatDateTime(releaseDate) : 'Sin datos'}`;
+                lastUpdateEl.innerText = `v${modalVersion} · ${releaseDate ? formatDateTime(releaseDate) : 'Sin datos'}`;
             }
             const compatEl = document.getElementById('m-compat');
             if (compatEl) {

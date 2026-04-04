@@ -16641,17 +16641,42 @@
                 openStoreAndroidDownload();
                 return;
             }
+            let autoUpdateResult = null;
             if (window.owsUpdater?.installUpdate) {
                 try {
-                    const result = await window.owsUpdater.installUpdate();
-                    if (result?.ok) return;
-                    console.log('installUpdate no ejecuto cierre controlado:', result?.reason || result);
+                    autoUpdateResult = await window.owsUpdater.installUpdate();
+                    if (autoUpdateResult?.ok) return;
+                    console.log('installUpdate no ejecuto cierre controlado:', autoUpdateResult?.reason || autoUpdateResult);
                 } catch (err) {
                     console.log('No se pudo ejecutar installUpdate automatico, usando fallback manual:', err?.message || err);
                 }
             }
             if (!owsStoreWindowsManualUpdateUrl) {
                 await applyWindowsManualUpdateSignal(currentStoreWindowsVersion, { silent: true }).catch(() => {});
+            }
+            if (owsStoreWindowsManualUpdateUrl && window.owsUpdater?.installExternalInstaller) {
+                const targetVersion = String(currentStoreWindowsTargetVersion || currentStoreWindowsVersion || 'latest').replace(/[^a-zA-Z0-9._-]/g, '_');
+                showActionMessage('Preparando instalador manual de OWS Store...', {
+                    sticky: true,
+                    state: 'downloading',
+                    title: 'OWS Store',
+                    showProgress: true,
+                });
+                const result = await window.owsUpdater.installExternalInstaller({
+                    url: owsStoreWindowsManualUpdateUrl,
+                    name: `OWS.Store.Setup.${targetVersion}.exe`,
+                    taskId: 'install_ows_store_windows_manual',
+                    expectedSize: Number(appUpdateSizeBytes || 0),
+                });
+                if (result?.ok) {
+                    const successMessage = 'Instalador de OWS Store abierto correctamente.';
+                    addNotification(successMessage, 'success');
+                    showActionMessage(successMessage, { state: 'ready' });
+                    return;
+                }
+                const errorDetail = formatInstallErrorDetail(result, autoUpdateResult?.reason || 'desconocido');
+                addNotification('No se pudo abrir el instalador manual de OWS Store: ' + errorDetail, 'error');
+                showActionMessage('Error preparando instalador manual: ' + errorDetail, { state: 'error' });
             }
             if (owsStoreWindowsManualUpdateUrl) {
                 openExternal(owsStoreWindowsManualUpdateUrl);

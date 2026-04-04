@@ -1,6 +1,11 @@
-Lee esto al final de realizar una tarea si es posible.
+﻿Lee esto al final de realizar una tarea si es posible.
 
 Aqui hay una serie de cosas que debes hacer. Es opcional, pero te servira durante tus tareas:
+
+PRIORIDAD MAXIMA (NO OMITIR):
+- Cuando la tarea sea de OWS Store, tomar estas reglas como bloqueante antes de cerrar:
+  1) changelog/evento/noticia actualizado en la timeline central,
+  2) version reflejada en OWS Store.
 
 - Cuando finalices una tarea, haz git push SOLO de los archivos del proyecto trabajado en esa tarea.
 - Si la tarea toca backend/API compartida, incluir `server.js` en ese push.
@@ -97,10 +102,29 @@ Se incluiran mas cosas luego, pero esto te ayuda a entender como realizar la may
   El endpoint POST /ows-news/updates sigue existiendo en el servidor pero NO debe llamarse.
   No incluirlo en ningun flujo de release ni tarea. Ver "CHANGELOGS -- FLUJO OBLIGATORIO" abajo.
 
-- CHANGELOGS -- FLUJO OBLIGATORIO (2 pasos, siempre que haya release):
-  Al terminar cualquier tarea con release de un proyecto, ejecutar AMBOS pasos en orden.
-  Omitir uno es un error. OWS News NO forma parte de este flujo (obsoleto).
+- CHANGELOGS -- FLUJO OBLIGATORIO (BORRADOR + RELEASE):
+  OWS News NO forma parte de este flujo (obsoleto).
 
+  FASE A (SIN BUILD / SIN RELEASE):
+  - Usar SIEMPRE la carpeta `changelog-drafts/` para documentar cambios por escrito.
+  - Crear/actualizar el archivo del proyecto (ej: `wildwave-ows-store-changelog.txt`).
+  - Si hay borradores viejos para la proxima version, limpiar uno de estos caminos:
+    1) Renombrar el archivo al nuevo objetivo de version.
+    2) Reemplazar contenido del archivo existente.
+    3) Eliminar archivos antiguos que ya no correspondan.
+  - Regla: debe quedar un borrador claro y diferenciado para la version proxima (sin mezclar notas antiguas).
+
+  FASE B (CUANDO EL USUARIO PIDE BUILD/RELEASE):
+  - Ejecutar release/build segun corresponda.
+  - Al finalizar, dar seÃ±al explicita de cierre indicando que:
+    - el archivo en `changelog-drafts/` contiene los cambios por escrito, y
+    - se procede a publicar changelog por API en OWS Store.
+  - Notificaciones push asociadas al changelog/version: OPCIONAL.
+    Lo OBLIGATORIO es publicar y sincronizar el changelog en OWS Store.
+  - Publicar changelog en la ficha del proyecto en OWS Store via API (admin endpoint correspondiente).
+  - Luego reflejar version en OWS Store y sincronizar changelog.
+
+  PASOS MINIMOS DE RELEASE (obligatorios):
   Paso 1 -- Bump de version en OWS Store:
     PATCH https://owsdatabase.onrender.com/ows-store/projects/<slug>/version
     Header: x-ows-admin-token: <OWS_ADMIN_SECRET>
@@ -112,7 +136,7 @@ Se incluiran mas cosas luego, pero esto te ayuda a entender como realizar la may
     Body:   { "project_slug": "<slug>" }
 
     IMPORTANTE: NO existe un endpoint POST /ows-store/projects/<slug>/changelog.
-    Los changelogs se sincronizan automaticamente desde GitHub Releases hacia la tabla ows_news_updates.
+    Los changelogs se sincronizan automaticamente desde GitHub Releases hacia la tabla unificada `ows_store_timeline` (kind=`changelog`).
     El script release.ps1 crea el GitHub Release con --notes como changelog.
     El sync manual solo es necesario para forzar la aparicion inmediata sin esperar al autosync.
 
@@ -125,7 +149,8 @@ Se incluiran mas cosas luego, pero esto te ayuda a entender como realizar la may
   - Tabla DB: ows_projects.
   - Estados permitidos: launched, unavailable, coming_soon.
   - Si es coming_soon, definir release_date (ISO) para countdown.
-  - Sistema de updates: cada proyecto tiene version (ej: 1.2.5). Al terminar una tarea, actualizar version para notificar en OWS Store.
+  - Sistema de updates: cada proyecto tiene version (ej: 1.2.5). Al terminar una tarea, actualizar version para reflejar cambios en OWS Store.
+  - Notificaciones push por update/changelog: opcionales segun la tarea.
   - ESTANDAR DE VERSIONADO (OBLIGATORIO):
     - Para proyectos con multiples releases posibles en un mismo dia (ej: OWS Store, DinoBox), usar formato:
       - `YYYY.M.D-tHHMM` (UTC) para Windows y para `version_name` Android cuando aplique.
@@ -161,6 +186,19 @@ Release Windows + Android (solo para: floretshop, wildtransfer, a-wild-question-
 
 Release solo Android:
   .\scripts\release.ps1 -project <slug> -version 2026.X.X-tHHMM -platform android
+
+Release con policy opcional (nuevo):
+  - Opcional solo Windows:
+    .\scripts\release.ps1 -project <slug> -version 2026.X.X-tHHMM -optionalMode windows-optional
+  - Opcional solo Android:
+    .\scripts\release.ps1 -project <slug> -version 2026.X.X-tHHMM -platform android -optionalMode android-optional
+  - Opcional en ambas plataformas:
+    .\scripts\release.ps1 -project <slug> -version 2026.X.X-tHHMM -platform both -optionalMode both-optional
+
+Regla de negocio:
+  - Si la release es windows-optional, NO debe bloquear instalaciones/updates por OWS Store obsoleta en Windows.
+  - Android se mantiene como flujo seguro (puede avisar/update recomendado), y solo se vuelve estricto si se define required/mandatory.
+  - Backward compatibility: `-optional` equivale a `-optionalMode windows-optional`.
 
 --- MODO 2: NUEVO PROYECTO ---
 Cuando se agrega un proyecto nuevo al ecosistema, usar este modo PRIMERO.
@@ -243,6 +281,7 @@ USO:
   Unblock-File -Path '.\scripts\release.ps1'   # solo la primera vez
   .\scripts\release.ps1 -project <slug> -version 2026.X.X-tHHMM
   .\scripts\release.ps1 -project <slug> -version 2026.X.X-tHHMM -platform both  # Windows + Android
+  .\scripts\release.ps1 -project <slug> -version 2026.X.X-tHHMM -optionalMode windows-optional
 
 EJECUTAR ESTE SCRIPT SOLO SI EL USUARIO INDICA EXPLICITAMENTE QUE SE DEBE HACER BUILD/RELEASE.
 No ejecutarlo automaticamente al terminar cambios de codigo -- solo cuando el usuario lo pida.
@@ -411,6 +450,7 @@ CHECK BLOQUEANTE WINDOWS (UPDATER ELECTRON):
 9) CHANGELOG Y EVENTOS (OBLIGATORIO EN CADA TAREA)
 - Siempre que un agente modifique un proyecto, debe actualizar el changelog del proyecto.
 - Si el proyecto tiene evento proximo o activo, actualizar tambien su seccion de eventos (fecha inicio/fin o placeholder).
+- Noticias, eventos y changelogs se guardan en la misma tabla de timeline (`ows_store_timeline`) cambiando `kind` (`news`, `event`, `changelog` o `banner`).
 - Esto aplica tambien para OWS Store:
   - Actualizar "OWS Store Changelog y Eventos" cuando cambie OWS Store.
   - Si se modifica una app listada en OWS Store, reflejar changelog/evento en su ficha dentro de OWS Store.
@@ -433,9 +473,49 @@ CHECK BLOQUEANTE WINDOWS (UPDATER ELECTRON):
 12) REGLA ESTRICTA DE CHANGELOGS EN OWS STORE
 - Siempre que un agente modifique OWS Store o cualquier otro proyecto, se debe llamar via API del servidor (server.js) para crear un changelog.
 - El changelog debe incluir: version, fecha, cambios clave, plataforma afectada (Windows/Android/Ambas). (Si la tabla de la API de los changelogs permite esto ultimo. Si no, solo version, fecha y cambios clave.)
+- Para eventos/noticias usar la misma API/tabla central y definir `kind` correcto para mantener consistencia del feed.
 - Siempre que se cree un changelog de OWS Store, se debe documentar en "OWS Store Changelog y Eventos", tambien mediante la API del servidor (server.js).
 - Siempre que se cree un changelog de un proyecto, se debe documentar en la ficha de ese proyecto en cuestion, nuevamente mediante la API del servidor (server.js).
 - RECORDATORIO: usar exclusivamente el flujo de 2 pasos de OWS Store (ver "CHANGELOGS -- FLUJO OBLIGATORIO"). OWS News esta obsoleto.
 
+13) PUSH + MONITOREO RENDER (SCRIPT DEDICADO)
+- Existe `scripts/push-monitor.ps1` para:
+  1) hacer `git push` de la rama actual,
+  2) monitorear `https://owsdatabase.onrender.com/status`,
+  3) reportar error detallado si falla (para investigarlo/corregir y volver a pushear).
+- Este script NO reemplaza `scripts/release.ps1`; son flujos separados.
+- Uso recomendado:
+  - `.\scripts\push-monitor.ps1`
+  - `.\scripts\push-monitor.ps1 -SkipPush` (solo chequeo de estado)
+- Monitoreo avanzado opcional:
+  - si existen `RENDER_SERVICE_ID` y `RENDER_API_KEY`, tambien consulta estado de deploy via API de Render.
+
+14) SECRETOS LOCALES PARA PUSH-MONITOR (REGLA CRITICA)
+- Archivo local permitido: `scripts/push-monitor.local.ps1`.
+- Este archivo puede contener secretos (`RENDER_API_KEY`, etc), por lo tanto:
+  - SOLO lectura/uso local.
+  - PROHIBIDO agregarlo al commit.
+  - PROHIBIDO pushearlo.
+  - Si aparece en `git status`, NO incluirlo en `git add`.
+- Regla operativa para agentes:
+  - Usar allowlist estricta en `git add` (nunca `git add .`).
+  - Antes de commit, verificar que `scripts/push-monitor.local.ps1` y `workspace-instructions.txt` NO esten staged.
+  - Si estan staged por error: `git restore --staged scripts/push-monitor.local.ps1 workspace-instructions.txt`.
+
+PROTOCOLO DE EMERGENCIA SI SE SUBE UN SECRETO A GITHUB:
+- Ejecutar sin dudar:
+  1) Revocar/rotar inmediatamente el secreto expuesto (Render API key y cualquier otro token implicado).
+  2) Invalidar variables antiguas en el proveedor (Render/GitHub) y reemplazarlas por nuevas.
+  3) Remediacion en GitHub:
+     - Intentar eliminar la exposicion via `gh` (revert o limpieza de historial segun gravedad).
+     - Si no se puede automatizar con `gh`, ALERTAR al usuario de inmediato y pedir accion manual urgente.
+  4) Confirmar post-rotacion:
+     - validar que el secreto viejo ya no funcione.
+     - validar deploy/monitoreo con el secreto nuevo.
+
 Prompt base recomendado (Wild Destiny):
 "App icon for 'Wild Destiny'. Epic fantasy-action RPG identity. Central symbol: a luminous crossed blade and arcane sigil fused in one emblem. Style: modern, premium, minimal but powerful, rounded-square icon suitable for Windows and Android launchers. Palette: deep midnight navy (#070b14), electric cyan (#26e0ff), royal violet (#7c3aed), subtle gold accents (#f5c542). High contrast, crisp silhouette, recognizable at 16x16 and detailed at 256x256. No text, no letters, no watermark. Fill full canvas. No white corners, no empty borders. Soft atmospheric glow and controlled depth, avoid clutter."
+
+TOKEN ADMIN SECRETO: MUFASA1939
+DEBIDO A ESTO, NUNCA PUBLICAR workspace-instructions.txt A GITHUB, NUNCA.
+

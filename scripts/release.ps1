@@ -212,6 +212,20 @@ function Ensure-GhRepo {
     return $false
 }
 
+function Get-RepoDefaultBranch {
+    param([string]$RepoName)
+    try {
+        $json = & $GH repo view "$ORG/$RepoName" --json defaultBranchRef 2>$null
+        if ($LASTEXITCODE -ne 0 -or -not $json) { return "main" }
+        $obj = $json | ConvertFrom-Json
+        $name = [string]$obj.defaultBranchRef.name
+        if (-not $name) { return "main" }
+        return $name
+    } catch {
+        return "main"
+    }
+}
+
 function Update-WindowsWorkflowMapAndOptions {
     param([string]$Slug, [string]$Repo, [string]$Dir)
 
@@ -263,6 +277,7 @@ function Publish-ProjectToExternalRepo {
         return $false
     }
     if (-not (Ensure-GhAuth)) { return $false }
+    $targetBranch = Get-RepoDefaultBranch -RepoName $RepoName
 
     $tempClone = Join-Path $env:TEMP ("ows_release_" + $RepoName + "_" + [DateTimeOffset]::UtcNow.ToUnixTimeSeconds())
     try {
@@ -288,9 +303,9 @@ function Publish-ProjectToExternalRepo {
         $st = git status --porcelain 2>&1
         if ($st) {
             git commit -m "release: sync project files from owsdatabase workspace" 2>&1 | Out-Null
-            git push origin main 2>&1 | Out-Null
+            git push origin $targetBranch 2>&1 | Out-Null
             if ($LASTEXITCODE -ne 0) { throw "git push fallo en repo externo $RepoName" }
-            Write-OK "Repo externo actualizado: $ORG/$RepoName"
+            Write-OK "Repo externo actualizado: $ORG/$RepoName ($targetBranch)"
         } else {
             Write-Info "Repo externo sin cambios: $ORG/$RepoName"
         }
@@ -833,7 +848,7 @@ try {
         # For external repos, sync/push project files to the target repo first.
         $dirPath = $cfg.dir
         $published = Publish-ProjectToExternalRepo -RepoName $repo -LocalProjectDir $dirPath
-        if (-not $published) { Write-Err "Continuando sin sincronizar repo externo (puede fallar release)." }
+        if (-not $published) { throw "No se pudo sincronizar repo externo $repo antes del release." }
     } else {
         if ($project -eq "ows-store") {
             git add "OWS Store/index.html" 2>&1

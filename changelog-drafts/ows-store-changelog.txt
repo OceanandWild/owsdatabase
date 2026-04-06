@@ -1,8 +1,8 @@
-﻿OWS Store - Release Notes
+OWS Store - Release Notes
 Version objetivo: AUTO (release.ps1)
 
-- Wild Fireworks: se reemplazo el placeholder visual del Mystery Project para mostrar nombre real en la UI local de OWS Store.
-- Wild Fireworks: se reforzo el fallback de icono para evitar tarjeta vacia cuando falte URL externa.
-- Trailer registrado en timeline: WildFireworks - Official Teaser (Archive URL) para visibilidad en OWS Store.
-- Ajustes de contenido: textos/descripciones del proyecto unificados para evitar mensajes demasiado literales.
-- Reglas de workspace actualizadas: notificaciones de changelog/update quedan opcionales; obligatorio publicar y sincronizar changelog por API.
+- Se corrige la logica de deduplicacion de eventos en la seccion "Noticias y Eventos".
+- Ahora los eventos se priorizan por fase (`active` > `upcoming` > `ended`) antes de prioridad numerica.
+- Se evita que un evento historico finalizado oculte un evento nuevo vigente del mismo proyecto.
+- Se restablece la visibilidad del evento "Galaxy + Dragonhunter Mastery Update" para Wild Destiny.
+- Se mantiene la timeline central sincronizada con el evento creado via API para Wild Destiny.

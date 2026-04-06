@@ -8980,6 +8980,33 @@
             const dedupeProjectKeys = new Set(['wild-destiny', 'ecoxion', 'naturepedia', 'wildshorts']);
             const normal = [];
             const byKey = new Map();
+            const rankEventPhase = (entry) => {
+                const phase = String(entry?.eventPhase || '').toLowerCase();
+                if (phase === 'active') return 3;
+                if (phase === 'upcoming') return 2;
+                if (phase === 'ended') return 1;
+                return 0;
+            };
+            const pickPreferredEvent = (current, next) => {
+                if (!current) return next;
+                if (!next) return current;
+                const currentPhaseRank = rankEventPhase(current);
+                const nextPhaseRank = rankEventPhase(next);
+                if (nextPhaseRank !== currentPhaseRank) {
+                    return nextPhaseRank > currentPhaseRank ? next : current;
+                }
+                const curPriority = Number(current?.priority || 0);
+                const nextPriority = Number(next?.priority || 0);
+                if (nextPriority !== curPriority) {
+                    return nextPriority > curPriority ? next : current;
+                }
+                const curTs = Date.parse(current?.updateDate || current?.eventWindow?.startAt || '') || 0;
+                const nextTs = Date.parse(next?.updateDate || next?.eventWindow?.startAt || '') || 0;
+                if (nextTs !== curTs) {
+                    return nextTs > curTs ? next : current;
+                }
+                return next;
+            };
             (Array.isArray(entries) ? entries : []).forEach((entry) => {
                 if (!entry?.isEvent) {
                     normal.push(entry);
@@ -8991,19 +9018,7 @@
                     return;
                 }
                 const current = byKey.get(known);
-                if (!current) {
-                    byKey.set(known, entry);
-                    return;
-                }
-                const curPriority = Number(current?.priority || 0);
-                const nextPriority = Number(entry?.priority || 0);
-                if (nextPriority > curPriority) {
-                    byKey.set(known, entry);
-                    return;
-                }
-                const curTs = Date.parse(current?.updateDate || current?.eventWindow?.startAt || '') || 0;
-                const nextTs = Date.parse(entry?.updateDate || entry?.eventWindow?.startAt || '') || 0;
-                if (nextTs >= curTs) byKey.set(known, entry);
+                byKey.set(known, pickPreferredEvent(current, entry));
             });
             return [...normal, ...[...byKey.values()]];
         }

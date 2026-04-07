@@ -1669,44 +1669,6 @@ async function ensureOwsStoreNewsSeedData() {
 
   const entries = [
     {
-      syncKey: 'seed:ows-store:welcome',
-      projectNames: ['ows-store', 'OWS Store'],
-      title: 'OWS Store centraliza noticias, changelogs y eventos',
-      description: 'La informacion global del ecosistema ahora vive dentro de OWS Store.',
-      changes: [
-        'Noticias globales integradas',
-        'Eventos destacados con ventana de tiempo',
-        'Changelogs por proyecto con plataforma'
-      ],
-      updateDate: now,
-      entryType: 'changelog',
-      platforms: ['windows', 'android'],
-      model2dKey: 'store_hub',
-      model2dPayload: { palette: 'cyan-orange' },
-      bannerMeta: { visual: 'store_hub', importance: 'high' },
-      isActive: true,
-      priority: 10
-    },
-    {
-      syncKey: 'seed:dinobox:launch',
-      projectNames: ['dinobox', 'DinoBox'],
-      title: 'DinoBox - lanzamiento programado en OWS Store',
-      description: 'DinoBox queda programado para lanzamiento en 3 dias dentro de OWS Store.',
-      changes: [
-        'Ficha de DinoBox habilitada en OWS Store con countdown activo.',
-        'Prelanzamiento marcado como coming_soon para evitar instalacion anticipada.',
-        'Lanzamiento oficial previsto para 2026-03-11 10:00 (Uruguay).'
-      ],
-      updateDate: now,
-      entryType: 'changelog',
-      platforms: ['windows'],
-      model2dKey: 'launch_orbit',
-      model2dPayload: { accent: '#f59e0b' },
-      bannerMeta: { visual: 'launch_orbit', category: 'launch' },
-      isActive: true,
-      priority: 11
-    },
-    {
       syncKey: 'seed:event:wild-destiny-launch',
       projectNames: ['wild-destiny', 'Wild Destiny'],
       title: 'Wild Destiny - Evento de lanzamiento',
@@ -1766,26 +1728,6 @@ async function ensureOwsStoreNewsSeedData() {
       eventStart: wildShortsStart,
       eventEnd: wildShortsEnd
     },
-    {
-      syncKey: 'seed:oceanpay:ecoxion-integration-pack',
-      projectNames: ['oceanpay', 'Ocean Pay', 'Ecoxion'],
-      title: 'Ocean Pay + Ecoxion: integracion ampliada',
-      description: 'Ocean Pay refuerza el flujo de Ecoxion con mejor sincronizacion de saldo, suscripciones y compatibilidad.',
-      changes: [
-        'Unificacion de persistencia de saldo sobre tarjetas (ocean_pay_cards.balances) para Ecoxionums.',
-        'Mejoras en sincronizacion de Ecoxionums entre app y servidor con trazabilidad de transacciones.',
-        'Suscripciones de Ecoxion alineadas con Ocean Pay y renovacion/estado consistente.',
-        'Compatibilidad reforzada para lectura de saldos legacy sin romper el flujo actual.',
-        'Ajustes de estabilidad para que OWS Store consuma changelogs/eventos de forma centralizada por API.'
-      ],
-      updateDate: now,
-      entryType: 'changelog',
-      platforms: ['windows', 'android'],
-      model2dKey: 'currency_sync',
-      model2dPayload: { accent: '#22d3ee', secondary: '#8b5cf6' },
-      bannerMeta: { visual: 'currency_sync', category: 'changelog', focus: 'ecoxion' },
-      isActive: true,
-      priority: 11
     }
   ];
 
@@ -2824,6 +2766,9 @@ async function runDatabaseMigrations() {
     await pool.query(`
       DELETE FROM ows_store_timeline
       WHERE (visual_meta->>'sync_key') = 'seed:event:ows-store-update-trailer-20260324'
+         OR (visual_meta->>'sync_key') = 'seed:ows-store:welcome'
+         OR (visual_meta->>'sync_key') = 'seed:dinobox:launch'
+         OR (visual_meta->>'sync_key') = 'seed:oceanpay:ecoxion-integration-pack'
          OR (
               kind = 'event'
               AND LOWER(COALESCE(title, '')) LIKE '%ows store%'
@@ -2833,6 +2778,9 @@ async function runDatabaseMigrations() {
     await pool.query(`
       DELETE FROM ows_news_updates
       WHERE (banner_meta->>'sync_key') = 'seed:event:ows-store-update-trailer-20260324'
+         OR (banner_meta->>'sync_key') = 'seed:ows-store:welcome'
+         OR (banner_meta->>'sync_key') = 'seed:dinobox:launch'
+         OR (banner_meta->>'sync_key') = 'seed:oceanpay:ecoxion-integration-pack'
          OR (
               entry_type = 'event'
               AND LOWER(COALESCE(title, '')) LIKE '%ows store%'

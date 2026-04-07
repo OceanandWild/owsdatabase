@@ -2865,7 +2865,8 @@
             padding: 2px;
         }
         #projects-container.ecosystem-layout-classic .ecosystem-card-shell {
-            gap: 0.2rem;
+            gap: 0.14rem;
+            justify-content: center;
         }
         #projects-container.ecosystem-layout-classic .ecosystem-card-title {
             font-size: 0.84rem;
@@ -2908,6 +2909,14 @@
             padding: 0.2rem 0.5rem !important;
             font-size: 0.62rem !important;
             border-radius: 8px;
+        }
+        .ecosystem-side-action {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding-left: 0.35rem;
+            flex-shrink: 0;
         }
 
         .app-icon {
@@ -15402,12 +15411,7 @@
                     : `<span>${p.pending_release ? 'No disponible' : 'Disponible'}</span>`;
                 const iconStyle = getProjectIcon(p, 64).replace(/'/g, '%27');
                 const summaryText = escHtml(normalizeUiText(String(p.description || 'Proyecto oficial del ecosistema Ocean and Wild Studios.')));
-                card.innerHTML = `
-                    <div class="progress-overlay" id="loader-${p.slug}">
-                        <div style="font-weight: 800; font-size: 0.8rem;">INSTALANDO...</div>
-                        <div class="progress-bar-container"><div class="progress-fill" id="fill-${p.slug}"></div></div>
-                    </div>
-                    <div class="icon-bg" style="background-image:url('${iconStyle}')" role="img" aria-label="${p.name || 'Icon'}"></div>
+                const shellHtml = `
                     <div class="ecosystem-card-shell">
                         <div class="ecosystem-card-header">
                             <div class="ecosystem-card-title-wrap">
@@ -15434,13 +15438,38 @@
                         ${tagsHtml}
                         ${updateFlagHtml}
                         ${installingHtml}
-                        <div class="ecosystem-actions">
-                            <button class="btn-install ecosystem-open-btn" onclick="event.stopPropagation(); openDetails('${p.slug}')">
-                                <i class="fas fa-circle-info"></i> Ver ficha
-                            </button>
-                        </div>
                     </div>
                 `;
+                const actionHtml = `
+                    <button class="btn-install ecosystem-open-btn" onclick="event.stopPropagation(); openDetails('${p.slug}')">
+                        <i class="fas fa-circle-info"></i> Ver ficha
+                    </button>
+                `;
+                if (currentProjectLayout === 'classic') {
+                    card.innerHTML = `
+                        <div class="progress-overlay" id="loader-${p.slug}">
+                            <div style="font-weight: 800; font-size: 0.8rem;">INSTALANDO...</div>
+                            <div class="progress-bar-container"><div class="progress-fill" id="fill-${p.slug}"></div></div>
+                        </div>
+                        <div class="icon-bg" style="background-image:url('${iconStyle}')" role="img" aria-label="${p.name || 'Icon'}"></div>
+                        ${shellHtml}
+                        <div class="ecosystem-side-action">
+                            ${actionHtml}
+                        </div>
+                    `;
+                } else {
+                    card.innerHTML = `
+                        <div class="progress-overlay" id="loader-${p.slug}">
+                            <div style="font-weight: 800; font-size: 0.8rem;">INSTALANDO...</div>
+                            <div class="progress-bar-container"><div class="progress-fill" id="fill-${p.slug}"></div></div>
+                        </div>
+                        <div class="icon-bg" style="background-image:url('${iconStyle}')" role="img" aria-label="${p.name || 'Icon'}"></div>
+                        ${shellHtml}
+                        <div class="ecosystem-actions">
+                            ${actionHtml}
+                        </div>
+                    `;
+                }
                 container.appendChild(card);
             });
             startCountdowns();

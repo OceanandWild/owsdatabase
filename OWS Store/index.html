@@ -2685,7 +2685,7 @@
         #projects-container.project-grid.ecosystem-layout-classic {
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 4px;
         }
         #projects-container.project-grid.ecosystem-layout-new {
             display: grid;
@@ -2853,6 +2853,61 @@
         }
         .ecosystem-actions .ecosystem-open-btn {
             margin-left: auto;
+        }
+        #projects-container.ecosystem-layout-classic .ecosystem-project-card {
+            padding: 0.5rem 0.6rem;
+            border-radius: 12px;
+        }
+        #projects-container.ecosystem-layout-classic .icon-bg {
+            width: 38px;
+            height: 38px;
+            border-radius: 8px;
+            padding: 2px;
+        }
+        #projects-container.ecosystem-layout-classic .ecosystem-card-shell {
+            gap: 0.2rem;
+        }
+        #projects-container.ecosystem-layout-classic .ecosystem-card-title {
+            font-size: 0.84rem;
+        }
+        #projects-container.ecosystem-layout-classic .new-badge {
+            font-size: 0.5rem;
+            padding: 1px 4px;
+        }
+        #projects-container.ecosystem-layout-classic .ecosystem-card-summary {
+            font-size: 0.66rem;
+            -webkit-line-clamp: 1;
+            line-height: 1.25;
+        }
+        #projects-container.ecosystem-layout-classic .ecosystem-card-grid {
+            display: none;
+        }
+        #projects-container.ecosystem-layout-classic .ecosystem-launch-line {
+            font-size: 0.58rem;
+        }
+        #projects-container.ecosystem-layout-classic .app-meta {
+            font-size: 0.56rem;
+            gap: 0.3rem;
+        }
+        #projects-container.ecosystem-layout-classic .ecosystem-submeta {
+            font-size: 0.56rem;
+            line-height: 1.2;
+        }
+        #projects-container.ecosystem-layout-classic .ecosystem-tags {
+            gap: 0.22rem;
+            margin-top: 0;
+        }
+        #projects-container.ecosystem-layout-classic .ecosystem-tag {
+            font-size: 0.5rem;
+            padding: 1px 4px;
+        }
+        #projects-container.ecosystem-layout-classic .ecosystem-actions {
+            margin-top: 0;
+        }
+        #projects-container.ecosystem-layout-classic .ecosystem-open-btn {
+            padding: 0.2rem 0.5rem !important;
+            font-size: 0.62rem !important;
+            border-radius: 8px;
         }
 
         .app-icon {
@@ -3299,6 +3354,20 @@
             grid-template-columns: repeat(2, minmax(280px, 1fr));
             gap: 0.75rem;
         }
+        .news-feed-grid.mode-carousel {
+            display: flex;
+            overflow-x: auto;
+            overflow-y: hidden;
+            gap: 0.65rem;
+            padding-bottom: 0.3rem;
+            scroll-snap-type: x mandatory;
+            scrollbar-width: thin;
+        }
+        .news-feed-grid.mode-carousel .news-feed-card {
+            min-width: min(340px, 86vw);
+            max-width: 360px;
+            scroll-snap-align: start;
+        }
         .news-feed-card {
             background: linear-gradient(160deg, var(--surface-1), var(--surface-2));
             border: 1px solid var(--border);
@@ -3357,8 +3426,31 @@
             color: var(--cyan);
             font-family: var(--font-mono);
         }
+        .news-feed-controls {
+            margin-bottom: 0.55rem;
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.38rem;
+            flex-wrap: wrap;
+        }
+        .news-feed-view-btn {
+            border: 1px solid var(--border);
+            background: var(--surface-2);
+            color: var(--ink-1);
+            border-radius: 7px;
+            padding: 0.3rem 0.55rem;
+            font-size: 0.62rem;
+            font-family: var(--font-mono);
+            cursor: pointer;
+        }
+        .news-feed-view-btn.active {
+            border-color: rgba(38,212,232,0.38);
+            color: var(--cyan);
+            background: rgba(38,212,232,0.12);
+        }
         @media (max-width: 980px) {
             .news-feed-grid { grid-template-columns: 1fr; }
+            .news-feed-controls { justify-content: flex-start; }
         }
 
         
@@ -4870,6 +4962,14 @@
                 <div class="section-header" style="margin-bottom:0.75rem;">
                     <span class="section-label">Noticias</span>
                 </div>
+                <div class="news-feed-controls">
+                    <button type="button" id="news-view-carousel" class="news-feed-view-btn active" onclick="setNewsFeedView('carousel')">
+                        <i class="fas fa-arrows-left-right"></i> Carrusel
+                    </button>
+                    <button type="button" id="news-view-grid" class="news-feed-view-btn" onclick="setNewsFeedView('grid')">
+                        <i class="fas fa-table-cells-large"></i> Grilla
+                    </button>
+                </div>
                 <div id="news-feed-list" class="news-feed-grid">
                     <div class="info-note-card">Cargando noticias...</div>
                 </div>
@@ -5211,14 +5311,14 @@
             const imageUrl = String(entry?.bannerMeta?.image || entry?.bannerMeta?.image_url || entry?.model2d?.image || '').trim();
             cover.style.backgroundImage = imageUrl ? `url('${imageUrl.replace(/'/g, '%27')}')` : '';
             const related = Array.isArray(entry?.projectNames) && entry.projectNames.length ? entry.projectNames[0] : 'Global';
-            project.textContent = related;
-            title.textContent = String(entry?.title || 'Noticia');
+            project.textContent = normalizeUiText(related);
+            title.textContent = normalizeUiText(String(entry?.title || 'Noticia'));
             meta.textContent = `${formatDateTime(entry?.updateDate)} · ${String(entry?.entryType || entry?.kind || 'news').toUpperCase()}`;
-            const lead = String(entry?.description || entry?.changes?.[0] || 'Sin vista previa.');
+            const lead = normalizeUiText(String(entry?.description || entry?.changes?.[0] || 'Sin vista previa.'));
             preview.textContent = lead;
             const blocks = Array.isArray(entry?.changes) ? entry.changes : [];
             content.innerHTML = blocks.length
-                ? blocks.map((line) => `<p>${escHtml(String(line || ''))}</p>`).join('')
+                ? blocks.map((line) => `<p>${escHtml(normalizeUiText(String(line || '')))}</p>`).join('')
                 : `<p>${escHtml(lead)}</p>`;
             modal.classList.add('active');
             modal.setAttribute('aria-hidden', 'false');
@@ -5632,6 +5732,8 @@
         let ecoxionReleaseCache = null;
         let owsNewsUpdatesCache = [];
         let newsArticleEntriesCache = [];
+        const OWS_NEWS_FEED_VIEW_KEY = 'ows_news_feed_view';
+        let newsFeedView = localStorage.getItem(OWS_NEWS_FEED_VIEW_KEY) === 'grid' ? 'grid' : 'carousel';
         let owsNewsUpdatesFetchedAt = 0;
         let owsStoreAndroidReleaseCache = null;
         let owsStoreWindowsReleaseCache = null;
@@ -5921,6 +6023,23 @@
             return createStoreDataHash(JSON.stringify({ projectShape, newsShape }));
         }
 
+        function sanitizeProjectCatalogForUi(projects = []) {
+            return (Array.isArray(projects) ? projects : []).map((p) => ({
+                ...p,
+                name: normalizeUiText(String(p?.name || '')),
+                description: normalizeUiText(String(p?.description || ''))
+            }));
+        }
+
+        function sanitizeNewsListForUi(list = []) {
+            return (Array.isArray(list) ? list : []).map((entry) => ({
+                ...entry,
+                title: normalizeUiText(String(entry?.title || '')),
+                description: normalizeUiText(String(entry?.description || '')),
+                changes: (Array.isArray(entry?.changes) ? entry.changes : []).map((line) => normalizeUiText(String(line || '')))
+            }));
+        }
+
         function persistStoreDataSnapshot() {
             try {
                 const signature = buildStoreDataSignature(allProjects, owsNewsUpdatesCache);
@@ -5974,8 +6093,8 @@
         function applyCachedSnapshotToUi(snapshot = null) {
             const data = snapshot || loadStoreDataSnapshot();
             if (!data) return false;
-            allProjects = dedupeProjectCatalog(Array.isArray(data.projects) ? data.projects : []);
-            owsNewsUpdatesCache = Array.isArray(data.news) ? data.news : [];
+            allProjects = dedupeProjectCatalog(sanitizeProjectCatalogForUi(Array.isArray(data.projects) ? data.projects : []));
+            owsNewsUpdatesCache = sanitizeNewsListForUi(Array.isArray(data.news) ? data.news : []);
             owsNewsUpdatesFetchedAt = Date.now();
             lastKnownStoreDataSignature = String(data.signature || buildStoreDataSignature(allProjects, owsNewsUpdatesCache));
             renderVisibleProjects();
@@ -9094,9 +9213,9 @@
                 .map(normalizeNewsUpdateRecord)
                 .filter(Boolean)
                 .sort((a, b) => (Date.parse(b.updateDate || '') || 0) - (Date.parse(a.updateDate || '') || 0));
-            owsNewsUpdatesCache = list;
+            owsNewsUpdatesCache = sanitizeNewsListForUi(list);
             owsNewsUpdatesFetchedAt = now;
-            spotlightSlidesDynamic = buildSpotlightSlidesFromUpdates(list);
+            spotlightSlidesDynamic = buildSpotlightSlidesFromUpdates(owsNewsUpdatesCache);
             const activeSlides = getSpotlightSlides();
             if (spotlightSlideIndex >= activeSlides.length) spotlightSlideIndex = 0;
             renderSpotlightSlider(false);
@@ -9392,10 +9511,10 @@
                 return items.map((item) => `
                     <div class="news-hub-item">
                         <div class="news-hub-item-head">
-                            <div class="news-hub-item-title">${item.isBanner ? (item?.bannerMeta?.title || item.title) : item.title}</div>
+                            <div class="news-hub-item-title">${escHtml(normalizeUiText(item.isBanner ? (item?.bannerMeta?.title || item.title) : item.title))}</div>
                             <div class="news-hub-item-date">${formatDateTime(item.updateDate)}</div>
                         </div>
-                        <div class="news-hub-item-meta">${item.isBanner ? (item?.bannerMeta?.text || item.description || (item.changes[0] || 'Sin descripcion')) : (item.description || (item.changes[0] || 'Sin descripcion'))}</div>
+                        <div class="news-hub-item-meta">${escHtml(normalizeUiText(item.isBanner ? (item?.bannerMeta?.text || item.description || (item.changes[0] || 'Sin descripcion')) : (item.description || (item.changes[0] || 'Sin descripcion'))))}</div>
                         <div style="margin-top:0.35rem;">${getNewsPlatformsBadgeHtml(item.platforms || ['all'])}</div>
                     </div>
                 `).join('');
@@ -9410,7 +9529,7 @@
         }
 
         function getNewsPreviewText(entry) {
-            const base = String(entry?.description || entry?.changes?.[0] || 'Sin vista previa').trim();
+            const base = normalizeUiText(String(entry?.description || entry?.changes?.[0] || 'Sin vista previa').trim());
             if (base.length <= 140) return `${base}...`;
             return `${base.slice(0, 137).trimEnd()}...`;
         }
@@ -9418,6 +9537,11 @@
         function renderDedicatedNewsSection() {
             const host = document.getElementById('news-feed-list');
             if (!host) return;
+            host.classList.toggle('mode-carousel', newsFeedView === 'carousel');
+            const carouselBtn = document.getElementById('news-view-carousel');
+            const gridBtn = document.getElementById('news-view-grid');
+            if (carouselBtn) carouselBtn.classList.toggle('active', newsFeedView === 'carousel');
+            if (gridBtn) gridBtn.classList.toggle('active', newsFeedView === 'grid');
             const list = Array.isArray(owsNewsUpdatesCache) ? owsNewsUpdatesCache : [];
             const newsEntries = list
                 .filter((entry) => isStoreGlobalNewsEntry(entry))
@@ -9436,12 +9560,12 @@
 
             host.innerHTML = newsEntries.map((entry, idx) => {
                 const cover = String(entry?.bannerMeta?.image || entry?.bannerMeta?.image_url || entry?.model2d?.image || '').trim();
-                const related = Array.isArray(entry?.projectNames) && entry.projectNames.length ? String(entry.projectNames[0]) : 'Global';
+                const related = normalizeUiText(Array.isArray(entry?.projectNames) && entry.projectNames.length ? String(entry.projectNames[0]) : 'Global');
                 const preview = getNewsPreviewText(entry);
                 const date = formatDateTime(entry?.updateDate);
-                const safeTitle = escHtml(String(entry?.title || 'Noticia'));
+                const safeTitle = escHtml(normalizeUiText(String(entry?.title || 'Noticia')));
                 const safeRelated = escHtml(related);
-                const safePreview = escHtml(preview);
+                const safePreview = escHtml(normalizeUiText(preview));
                 const inlineBg = cover ? `style="background-image:url('${cover.replace(/'/g, '%27')}')"` : '';
                 return `
                     <article class="news-feed-card" onclick="openNewsArticleModal(newsArticleEntriesCache[${idx}])">
@@ -11618,7 +11742,7 @@
         async function loadProjects() {
             try {
                 const res = await fetch(`${API_URL}/ows-store/projects?nocache=${Date.now()}`, { cache: 'no-store' });
-                allProjects = await res.json();
+                allProjects = sanitizeProjectCatalogForUi(await res.json());
             } catch (err) {
                 console.error("Error cargando proyectos:", err);
                 allProjects = [
@@ -13485,6 +13609,44 @@
             storeTrailerPremiereTimer = setInterval(() => renderStoreTrailerPremiere(new Date()), 1000);
         }
 
+        function normalizeUiText(input) {
+            let text = String(input || '');
+            if (!text) return '';
+            const map = [
+                ['Ã¡', 'a'], ['Ã©', 'e'], ['Ã­', 'i'], ['Ã³', 'o'], ['Ãº', 'u'], ['Ã±', 'n'],
+                ['Ã', 'A'], ['Ã‰', 'E'], ['Ã', 'I'], ['Ã“', 'O'], ['Ãš', 'U'], ['Ã‘', 'N'],
+                ['â€”', '-'], ['â€“', '-'], ['â€œ', '"'], ['â€', '"'], ['â€˜', "'"], ['â€™', "'"],
+                ['â€¢', '-'], ['â€¦', '...']
+            ];
+            for (const [bad, good] of map) {
+                text = text.split(bad).join(good);
+            }
+            const lexicalFixes = [
+                ['deducci?n', 'deduccion'],
+                ['r?pidas', 'rapidas'],
+                ['informaci?n', 'informacion'],
+                ['versi?n', 'version'],
+                ['actualizaci?n', 'actualizacion'],
+                ['descripci?n', 'descripcion'],
+                ['conexion', 'conexion'],
+                ['sincronizaci?n', 'sincronizacion']
+            ];
+            for (const [bad, good] of lexicalFixes) {
+                text = text.split(bad).join(good);
+            }
+            return text;
+        }
+
+        function setNewsFeedView(mode) {
+            newsFeedView = mode === 'grid' ? 'grid' : 'carousel';
+            localStorage.setItem(OWS_NEWS_FEED_VIEW_KEY, newsFeedView);
+            const carouselBtn = document.getElementById('news-view-carousel');
+            const gridBtn = document.getElementById('news-view-grid');
+            if (carouselBtn) carouselBtn.classList.toggle('active', newsFeedView === 'carousel');
+            if (gridBtn) gridBtn.classList.toggle('active', newsFeedView === 'grid');
+            renderDedicatedNewsSection();
+        }
+
         function formatDateTime(value) {
             if (!value) return 'Sin fecha';
             const d = new Date(value);
@@ -15213,9 +15375,11 @@
                 const launchLabel = inferredLaunch
                     ? formatDateTime(inferredLaunch)
                     : (isComingSoon ? 'Proximamente' : 'Sin datos');
+                const safeProjectName = normalizeUiText(String(p.name || 'Proyecto'));
+                const safeShort = normalizeUiText(String(short || ''));
                 const updateHint = isReleaseTrackedProject(p)
                     ? ((projectLastUpdate || getProjectLastUpdateMs(p)) ? `Ultima actualizacion: ${getProjectLastUpdateLabel(p)}` : 'Ultima actualizacion: pendiente')
-                    : (p.description || 'Proyecto oficial del ecosistema Ocean and Wild Studios.');
+                    : normalizeUiText(p.description || 'Proyecto oficial del ecosistema Ocean and Wild Studios.');
                 const updateInfoHtml = isReleaseTrackedProject(p)
                     ? `<div class="ecosystem-submeta">${updateHint}</div>`
                     : '';
@@ -15237,7 +15401,7 @@
                     ? `<span class="countdown" data-date="${p.release_date}">Cargando...</span>`
                     : `<span>${p.pending_release ? 'No disponible' : 'Disponible'}</span>`;
                 const iconStyle = getProjectIcon(p, 64).replace(/'/g, '%27');
-                const summaryText = escHtml(String(p.description || 'Proyecto oficial del ecosistema Ocean and Wild Studios.'));
+                const summaryText = escHtml(normalizeUiText(String(p.description || 'Proyecto oficial del ecosistema Ocean and Wild Studios.')));
                 card.innerHTML = `
                     <div class="progress-overlay" id="loader-${p.slug}">
                         <div style="font-weight: 800; font-size: 0.8rem;">INSTALANDO...</div>
@@ -15247,8 +15411,8 @@
                     <div class="ecosystem-card-shell">
                         <div class="ecosystem-card-header">
                             <div class="ecosystem-card-title-wrap">
-                                <span class="ecosystem-card-title">${escHtml(String(p.name || 'Proyecto'))}</span>
-                                ${short ? `<span class="ecosystem-card-short">(${escHtml(short)})</span>` : ''}
+                                <span class="ecosystem-card-title">${escHtml(safeProjectName)}</span>
+                                ${safeShort ? `<span class="ecosystem-card-short">(${escHtml(safeShort)})</span>` : ''}
                                 ${newBadgeHtml}
                             </div>
                             <span class="ecosystem-platform">${availabilityLabel}</span>
@@ -15470,8 +15634,11 @@
             };
             const projectPhase = PHASE_MAP[phaseRaw] || 'Estable';
             const detailNewTag = hasNewBadge(p) ? ' · NUEVO!' : '';
-            document.getElementById('m-title').innerText = getProjectShort(p) ? `${p.name} (${getProjectShort(p)})${detailNewTag}` : `${p.name}${detailNewTag}`;
-            document.getElementById('m-desc').innerText = p.description || "Explora una nueva dimension de entretenimiento con este proyecto oficial de Ocean and Wild Studios.";
+            const displayName = normalizeUiText(String(p.name || 'Proyecto'));
+            const displayShort = normalizeUiText(String(getProjectShort(p) || ''));
+            const displayDesc = normalizeUiText(String(p.description || "Explora una nueva dimension de entretenimiento con este proyecto oficial de Ocean and Wild Studios."));
+            document.getElementById('m-title').innerText = displayShort ? `${displayName} (${displayShort})${detailNewTag}` : `${displayName}${detailNewTag}`;
+            document.getElementById('m-desc').innerText = displayDesc;
             const isComingSoon = p.status === 'coming_soon';
             if (isComingSoon && p.release_date) {
                 const launchDate = formatDateTime(p.release_date);

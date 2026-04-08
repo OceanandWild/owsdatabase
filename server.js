@@ -680,8 +680,9 @@ function normalizeOwsNewsRow(row) {
   const endTs = eventEnd ? Date.parse(eventEnd) : 0;
   let eventPhase = null;
   if (entryType === 'event') {
-    if (startTs && now < startTs) eventPhase = 'upcoming';
+    if (!startTs && !endTs) eventPhase = 'upcoming';
     else if (endTs && now > endTs) eventPhase = 'ended';
+    else if (startTs && now < startTs) eventPhase = 'upcoming';
     else eventPhase = 'active';
   }
 

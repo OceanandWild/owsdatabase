@@ -9019,7 +9019,7 @@
                 || bannerMeta?.starts_at
                 || bannerMeta?.start_at
                 || bannerMeta?.event_start
-                || updateDate
+                || null
             );
             let endAt = parseOptionalDate(
                 entry?.event_end
@@ -9042,8 +9042,11 @@
             const now = Date.now();
             const startMs = Date.parse(eventWindow.startAt || '') || 0;
             const endMs = Date.parse(eventWindow.endAt || '') || 0;
+            if (!startMs && !endMs) return 'upcoming';
             if (endMs > 0 && now > endMs) return 'ended';
             if (startMs > 0 && now < startMs) return 'upcoming';
+            if (startMs > 0) return 'active';
+            if (endMs > 0) return 'active';
             return 'active';
         }
 
@@ -9322,8 +9325,9 @@
             if (!item?.isEvent) return '';
             const startAt = item?.eventWindow?.startAt || null;
             const endAt = item?.eventWindow?.endAt || null;
+            const isUnscheduled = !startAt && !endAt;
             const startText = startAt ? formatDateTime(startAt) : 'por definir';
-            const endText = endAt ? formatDateTime(endAt) : 'sin fecha de cierre';
+            const endText = endAt ? formatDateTime(endAt) : (isUnscheduled ? 'por definir' : 'sin fecha de cierre');
             return `Inicio: ${startText} | Fin: ${endText}`;
         }
 

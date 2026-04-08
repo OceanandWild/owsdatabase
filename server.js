@@ -1728,7 +1728,6 @@ async function ensureOwsStoreNewsSeedData() {
       eventStart: wildShortsStart,
       eventEnd: wildShortsEnd
     },
-    }
   ];
 
   let count = 0;
@@ -6914,9 +6913,37 @@ const WILDWEAPON_STORE_PACKS = Object.freeze([
     rarity: 'mitico',
     currency: 'tides',
     price: 799,
-    weaponId: 'zeus_axe'
+    weaponId: 'zeus_axe',
+    availableUntilIso: '2026-04-11T09:45:00-03:00',
+    availabilityLabel: 'Tiempo limitado'
+  },
+  {
+    id: 'tiger_gloves_premium_pack',
+    name: 'Tiger Gloves Premium Pack',
+    rarity: 'mitico',
+    currency: 'tides',
+    price: 499,
+    weaponId: 'tiger_gloves',
+    availableUntilIso: '2026-04-18T09:45:00-03:00',
+    availabilityLabel: 'Tiempo limitado'
   }
 ]);
+
+function getWildWeaponStorePackAvailability(pack) {
+  const endsRaw = String(pack?.availableUntilIso || '').trim();
+  if (!endsRaw) {
+    return { isLimited: false, isExpired: false, endsAtMs: 0 };
+  }
+  const endsAtMs = Date.parse(endsRaw) || 0;
+  if (!endsAtMs) {
+    return { isLimited: false, isExpired: false, endsAtMs: 0 };
+  }
+  return {
+    isLimited: true,
+    isExpired: Date.now() >= endsAtMs,
+    endsAtMs
+  };
+}
 
 // Catalogo de tienda WildWeapon (compra con Tides)
 app.get('/wildweapon/store/catalog', async (req, res) => {
@@ -6943,7 +6970,14 @@ app.get('/wildweapon/store/catalog', async (req, res) => {
     return res.json({
       success: true,
       tidesBalance: Math.max(0, Math.floor(Number(tidesBalance || 0))),
-      packages: WILDWEAPON_STORE_PACKS,
+      packages: WILDWEAPON_STORE_PACKS.map((pack) => {
+        const availability = getWildWeaponStorePackAvailability(pack);
+        return {
+          ...pack,
+          isAvailable: !availability.isExpired,
+          isExpired: availability.isExpired
+        };
+      }),
       ownedPacks
     });
   } catch (e) {
@@ -6962,6 +6996,10 @@ app.post('/wildweapon/store/purchase', async (req, res) => {
   const packId = String(req.body?.packId || '').trim();
   const pack = WILDWEAPON_STORE_PACKS.find((p) => p.id === packId);
   if (!pack) return res.status(400).json({ error: 'Paquete no vÃ¡lido' });
+  const availability = getWildWeaponStorePackAvailability(pack);
+  if (availability.isExpired) {
+    return res.status(410).json({ error: 'Este paquete ya no esta disponible' });
+  }
 
   const client = await pool.connect();
   try {

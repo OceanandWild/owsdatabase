@@ -2408,6 +2408,117 @@
       cursor: not-allowed;
     }
 
+    .store-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 0.95rem;
+      align-items: stretch;
+    }
+
+    .store-pack-card {
+      position: relative;
+      background:
+        radial-gradient(380px 180px at 10% -10%, rgba(56,242,255,0.12), transparent 55%),
+        radial-gradient(320px 180px at 100% 110%, rgba(255,176,0,0.1), transparent 60%),
+        linear-gradient(160deg, rgba(13, 18, 34, 0.95), rgba(8, 12, 25, 0.95));
+      border: 1px solid rgba(255,255,255,0.13);
+      border-radius: 20px;
+      padding: 0.95rem;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.35);
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      overflow: hidden;
+    }
+
+    .store-pack-card.is-mythic {
+      border-color: rgba(255,77,141,0.42);
+      box-shadow: 0 12px 30px rgba(0,0,0,0.35), 0 0 0 1px rgba(255,77,141,0.14) inset;
+    }
+
+    .store-pack-card.is-expired {
+      filter: saturate(0.74) contrast(0.92);
+      opacity: 0.78;
+    }
+
+    .store-pack-top {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+    }
+
+    .store-pack-copy {
+      min-width: 0;
+      display: grid;
+      gap: 0.22rem;
+    }
+
+    .store-pack-name {
+      font-family: var(--font-display);
+      font-size: 1rem;
+      line-height: 1.2;
+    }
+
+    .store-pack-subtitle {
+      font-size: 0.76rem;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+
+    .store-pack-meta {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.42rem;
+    }
+
+    .store-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.32rem;
+      border-radius: 999px;
+      padding: 0.2rem 0.6rem;
+      font-size: 0.64rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      border: 1px solid rgba(255,255,255,0.2);
+      background: rgba(255,255,255,0.05);
+      color: var(--muted);
+    }
+
+    .store-chip.price {
+      border-color: rgba(56,242,255,0.45);
+      color: #80ecff;
+      background: rgba(56,242,255,0.12);
+      font-family: var(--font-display);
+      font-size: 0.74rem;
+      text-transform: none;
+      letter-spacing: 0.02em;
+    }
+
+    .store-chip.timer {
+      border-color: rgba(255,176,0,0.45);
+      color: #ffd88b;
+      background: rgba(255,176,0,0.12);
+      text-transform: none;
+      letter-spacing: 0.01em;
+    }
+
+    .store-chip.expired {
+      border-color: rgba(255, 84, 121, 0.45);
+      color: #ff8daf;
+      background: rgba(255, 84, 121, 0.14);
+      text-transform: none;
+      letter-spacing: 0.01em;
+    }
+
+    .store-pack-desc {
+      font-size: 0.75rem;
+      color: var(--muted);
+      line-height: 1.44;
+      margin: 0;
+    }
+
     .summon-cost {
       font-size: 0.7rem;
       color: var(--muted);
@@ -2762,6 +2873,24 @@
       border-radius: 20px;
       background: linear-gradient(120deg, rgba(255, 77, 141, 0.9), rgba(12, 18, 34, 0.8));
       transform: rotate(-12deg);
+    }
+
+    .weapon-model.zeus-axe {
+      background:
+        radial-gradient(52px 44px at 28% 30%, rgba(100, 236, 255, 0.56), transparent 72%),
+        radial-gradient(70px 60px at 76% 78%, rgba(255, 192, 74, 0.3), transparent 68%),
+        linear-gradient(145deg, rgba(6, 13, 27, 0.96), rgba(13, 25, 46, 0.97));
+      border-color: rgba(124, 226, 255, 0.44);
+      box-shadow: 0 0 22px rgba(86, 223, 255, 0.42), 0 14px 26px rgba(0,0,0,0.45);
+    }
+
+    .weapon-model.tiger-gloves {
+      background:
+        radial-gradient(46px 40px at 28% 26%, rgba(255, 176, 70, 0.56), transparent 72%),
+        radial-gradient(56px 50px at 76% 74%, rgba(255, 83, 86, 0.24), transparent 72%),
+        linear-gradient(150deg, rgba(20, 11, 12, 0.95), rgba(33, 14, 15, 0.96));
+      border-color: rgba(255, 145, 88, 0.42);
+      box-shadow: 0 0 20px rgba(255, 120, 76, 0.34), 0 14px 26px rgba(0,0,0,0.45);
     }
 
     .item-model {
@@ -6137,7 +6266,7 @@
           </div>
           <button class="summon-back-btn" type="button" data-action="store-back">← Volver</button>
         </div>
-        <div id="store-panel-content" style="padding:0.4rem 0.2rem;"></div>
+        <div id="store-panel-content" style="padding:0.5rem 0.3rem;"></div>
       </div>
     </div>
   </section>
@@ -6776,6 +6905,13 @@
         rarity: 'mitico',
         model: 'zeus-axe',
         desc: 'Hacha mitica electrificada con núcleo de trueno. Daño base extremo y escalado agresivo.'
+      },
+      tiger_gloves: {
+        id: 'tiger_gloves',
+        name: 'Tiger Gloves',
+        rarity: 'mitico',
+        model: 'tiger-gloves',
+        desc: 'Guantes miticos de combate feroz con golpes rapidos, precisos y presion constante.'
       }
     };
 
@@ -6797,7 +6933,20 @@
         currency: 'tides',
         price: 799,
         weaponId: 'zeus_axe',
-        subtitle: 'Arma mitica exclusiva con daño superior y progresión bestial.'
+        subtitle: 'Arma mitica exclusiva con dano superior y progresion bestial.',
+        availableUntilIso: '2026-04-11T09:45:00-03:00',
+        availabilityLabel: 'Tiempo limitado'
+      },
+      {
+        id: 'tiger_gloves_premium_pack',
+        name: 'Tiger Gloves Premium Pack',
+        rarity: 'mitico',
+        currency: 'tides',
+        price: 499,
+        weaponId: 'tiger_gloves',
+        subtitle: 'Guantes de asalto premium con ritmo agresivo de impacto.',
+        availableUntilIso: '2026-04-18T09:45:00-03:00',
+        availabilityLabel: 'Tiempo limitado'
       }
     ];
 
@@ -6814,8 +6963,8 @@
             id: 'w1e1',
             name: 'Chapter 1',
             scale: 'I',
-            enemy: { name: 'Dron Umbra', look: 'Chasis cian con halo tenue', hp: 320, dmg: 12 },
-            boss: { name: 'Warden 01', look: 'Armadura dorada y nucleo azul', hp: 880, dmg: 26 },
+            enemy: { name: 'Sentinel Rook', look: 'Unidad orbital de chasis cian', hp: 320, dmg: 12 },
+            boss: { name: 'Aegis Constructor', look: 'Fortaleza hexagonal con nucleo azul', hp: 880, dmg: 26 },
             items: [
               { id: 'halo_shard', name: 'Fragmento Halo', rarity: 'raro' },
               { id: 'nebula_fiber', name: 'Fibra Nebula', rarity: 'poco_comun' }
@@ -6825,8 +6974,8 @@
             id: 'w1e2',
             name: 'Chapter 2',
             scale: 'II',
-            enemy: { name: 'Raptor Umbra', look: 'Silueta afilada con brillo menta', hp: 460, dmg: 18 },
-            boss: { name: 'Warden 02', look: 'Chasis obsidiana con bordes verdes', hp: 1120, dmg: 34 },
+            enemy: { name: 'Viper Shade', look: 'Depredador angular de energia menta', hp: 460, dmg: 18 },
+            boss: { name: 'Obsidian Harrow', look: 'Entidad de placas oscuras y filos verdes', hp: 1120, dmg: 34 },
             items: [
               { id: 'obsidian_scale', name: 'Escama Obsidiana', rarity: 'raro' },
               { id: 'ion_core', name: 'Nucleo Ion', rarity: 'epico' }
@@ -6836,11 +6985,54 @@
             id: 'w1e3',
             name: 'Chapter 3',
             scale: 'III',
-            enemy: { name: 'Specter Vex', look: 'Violeta denso con pulsos cian', hp: 620, dmg: 26 },
-            boss: { name: 'Warden Prime', look: 'Armadura fractal con halo doble', hp: 1480, dmg: 44 },
+            enemy: { name: 'Null Specter', look: 'Aparicion fractal de pulsos rosa-cian', hp: 620, dmg: 26 },
+            boss: { name: 'Prime Riftlord', look: 'Avatar fractal con doble halo de energia', hp: 1480, dmg: 44 },
             items: [
               { id: 'prime_rune', name: 'Runa Prime', rarity: 'legendario' },
               { id: 'void_ash', name: 'Ceniza Void', rarity: 'epico' }
+            ]
+          }
+        ]
+      },
+      {
+        id: 'w2',
+        name: 'World 2',
+        subtitle: 'Corazon Leviatan',
+        zone: 'Abyss',
+        level: 8,
+        theme: 'abyss',
+        episodes: [
+          {
+            id: 'w2e1',
+            name: 'Chapter 1',
+            scale: 'IV',
+            enemy: { name: 'Abyss Wisp', look: 'Entidad marina de nucleo electrico', hp: 760, dmg: 34 },
+            boss: { name: 'Rift Custodian', look: 'Ancla leviatan con coraza cyan', hp: 1760, dmg: 56 },
+            items: [
+              { id: 'rift_scale', name: 'Escama Rift', rarity: 'epico' },
+              { id: 'abyss_fiber', name: 'Fibra Abisal', rarity: 'raro' }
+            ]
+          },
+          {
+            id: 'w2e2',
+            name: 'Chapter 2',
+            scale: 'V',
+            enemy: { name: 'Reef Reaper', look: 'Bestia coralina de placas toxicas', hp: 980, dmg: 42 },
+            boss: { name: 'Coral Tyrant', look: 'Coloso arrecife de filos esmeralda', hp: 2280, dmg: 66 },
+            items: [
+              { id: 'tidal_core', name: 'Nucleo Mareal', rarity: 'legendario' },
+              { id: 'trench_shard', name: 'Fragmento Fosa', rarity: 'epico' }
+            ]
+          },
+          {
+            id: 'w2e3',
+            name: 'Chapter 3',
+            scale: 'VI',
+            enemy: { name: 'Trench Phantom', look: 'Serpiente espectral de ondas violetas', hp: 1240, dmg: 52 },
+            boss: { name: 'Trench Sovereign', look: 'Soberano de fosa con halos gravitatorios', hp: 2860, dmg: 78 },
+            items: [
+              { id: 'sovereign_rune', name: 'Runa Soberana', rarity: 'mitico' },
+              { id: 'deep_ember', name: 'Ascua Profunda', rarity: 'legendario' }
             ]
           }
         ]
@@ -6848,6 +7040,12 @@
     ];
 
     let state = loadState();
+    if (state?.ownedStorePacks?.zeus_axe_founder_pack && !state.weapons?.zeus_axe) {
+      state.weapons.zeus_axe = { level: 1, exp: 0 };
+    }
+    if (state?.ownedStorePacks?.tiger_gloves_premium_pack && !state.weapons?.tiger_gloves) {
+      state.weapons.tiger_gloves = { level: 1, exp: 0 };
+    }
     let selectedWorld = worlds[0];
     let selectedEpisode = selectedWorld.episodes[0];
     let selectedBanner = SUMMON_BANNERS[0];
@@ -6855,6 +7053,12 @@
     // Restore equipped weapon from saved state
     if (state.equippedWeapon && WEAPON_LIBRARY[state.equippedWeapon]) {
       selectedWeaponId = state.equippedWeapon;
+    }
+    if (!state.weapons?.[selectedWeaponId]) {
+      const firstOwned = Object.keys(state.weapons || {})[0];
+      selectedWeaponId = firstOwned || 'katana';
+      state.equippedWeapon = selectedWeaponId;
+      saveState();
     }
     let currentRun = null;
     let selectedUpgradeItems = new Set();
@@ -6949,6 +7153,11 @@
       }
     }
 
+    function clearOceanPaySession() {
+      localStorage.removeItem(OP_TOKEN_KEY);
+      localStorage.removeItem(OP_USER_KEY);
+    }
+
     function isOceanPayLinked() {
       return Boolean(getOceanPayToken());
     }
@@ -6968,6 +7177,14 @@
       return Math.round(base + (lvl - 1) * perLevel);
     }
 
+    function getActiveWeaponId() {
+      const runWeapon = currentRun?.weaponId;
+      if (runWeapon && WEAPON_LIBRARY[runWeapon]) return runWeapon;
+      if (state?.equippedWeapon && WEAPON_LIBRARY[state.equippedWeapon]) return state.equippedWeapon;
+      if (selectedWeaponId && WEAPON_LIBRARY[selectedWeaponId]) return selectedWeaponId;
+      return 'katana';
+    }
+
     function addCoins(amount) {
       if (isOceanPayLinked()) {
         state.coins += amount;
@@ -6983,6 +7200,11 @@
         const res = await fetch(`${API_BASE}/wildweapon/mayhemcoins/balance`, {
           headers: { Authorization: `Bearer ${getOceanPayToken()}` }
         });
+        if (res.status === 401) {
+          clearOceanPaySession();
+          renderCoins();
+          return null;
+        }
         if (!res.ok) return null;
         const data = await res.json();
         return Math.round(Number(data.mayhemcoins || 0));
@@ -7015,6 +7237,10 @@
             origen: 'WildWeapon Mayhem'
           })
         });
+        if (res.status === 401) {
+          clearOceanPaySession();
+          throw new Error('auth_expired');
+        }
         if (!res.ok) throw new Error('sync_failed');
         const data = await res.json();
         if (typeof data.newBalance === 'number') {
@@ -7022,7 +7248,12 @@
         }
         saveState();
         renderCoins();
-      } catch (_) {
+      } catch (err) {
+        if (err?.message === 'auth_expired') {
+          saveState();
+          renderCoins();
+          return;
+        }
         state.pendingCoins += amount;
         state.coins = Math.max(0, state.coins - amount);
         saveState();
@@ -7127,10 +7358,22 @@
         const res = await fetch(`${API_BASE}/wildweapon/store/catalog`, {
           headers: { Authorization: `Bearer ${getOceanPayToken()}` }
         });
+        if (res.status === 401) {
+          clearOceanPaySession();
+          renderCoins();
+          return { packages: STORE_PACKS, tidesBalance: 0, ownedPacks: {} };
+        }
         if (!res.ok) return { packages: STORE_PACKS, tidesBalance: 0, ownedPacks: {} };
         const data = await res.json();
+        const serverPackages = Array.isArray(data.packages) ? data.packages : [];
+        const mergedById = new Map((STORE_PACKS || []).map((pack) => [pack.id, { ...pack }]));
+        serverPackages.forEach((pack) => {
+          if (!pack || !pack.id) return;
+          const base = mergedById.get(pack.id) || {};
+          mergedById.set(pack.id, { ...base, ...pack });
+        });
         return {
-          packages: Array.isArray(data.packages) ? data.packages : STORE_PACKS,
+          packages: Array.from(mergedById.values()),
           tidesBalance: Number(data.tidesBalance || 0),
           ownedPacks: (data.ownedPacks && typeof data.ownedPacks === 'object') ? data.ownedPacks : {}
         };
@@ -7160,6 +7403,36 @@
       renderInventory();
     }
 
+    function formatStoreRemainingTime(targetMs) {
+      const diff = Math.max(0, targetMs - Date.now());
+      const totalMins = Math.floor(diff / 60000);
+      const days = Math.floor(totalMins / 1440);
+      const hours = Math.floor((totalMins % 1440) / 60);
+      const mins = totalMins % 60;
+      if (days > 0) return `${days}d ${hours}h ${mins}m`;
+      if (hours > 0) return `${hours}h ${mins}m`;
+      return `${mins}m`;
+    }
+
+    function getStorePackAvailability(pack) {
+      const endsRaw = String(pack?.availableUntilIso || '').trim();
+      if (!endsRaw) {
+        return { isLimited: false, isExpired: false, endsAtMs: 0, endsLabel: '', remainingLabel: '' };
+      }
+      const endsAtMs = Date.parse(endsRaw) || 0;
+      if (!endsAtMs) {
+        return { isLimited: false, isExpired: false, endsAtMs: 0, endsLabel: '', remainingLabel: '' };
+      }
+      const isExpired = Date.now() >= endsAtMs;
+      return {
+        isLimited: true,
+        isExpired,
+        endsAtMs,
+        endsLabel: new Date(endsAtMs).toLocaleString('es-UY', { hour12: false }),
+        remainingLabel: isExpired ? 'Finalizado' : formatStoreRemainingTime(endsAtMs)
+      };
+    }
+
     async function buyStorePack(packId, triggerBtn) {
       if (!isOceanPayLinked()) {
         openOceanPayAuth();
@@ -7170,6 +7443,12 @@
       if (!pack) return;
       if (state.ownedStorePacks?.[packId]) {
         alert('Ya tienes este paquete.');
+        return;
+      }
+      const availability = getStorePackAvailability(pack);
+      if (availability.isExpired) {
+        alert('Este paquete ya no esta disponible.');
+        renderStoreUI();
         return;
       }
 
@@ -7189,6 +7468,11 @@
           body: JSON.stringify({ packId })
         });
         const data = await res.json().catch(() => ({}));
+        if (res.status === 401) {
+          clearOceanPaySession();
+          renderCoins();
+          throw new Error('Sesion Ocean Pay expirada. Vuelve a vincular tu cuenta.');
+        }
         if (!res.ok) throw new Error(data.error || 'No se pudo completar la compra');
 
         if (!state.ownedStorePacks) state.ownedStorePacks = {};
@@ -7218,37 +7502,53 @@
           unlockStoreWeapon(pack.weaponId);
         }
       });
-      if (storeTidesMetaEl) storeTidesMetaEl.textContent = `Tides: ${Math.floor(Math.max(0, tidesBalance)).toLocaleString('es-ES')}`;
+      if (storeTidesMetaEl) {
+        storeTidesMetaEl.textContent = `Tides: ${Math.floor(Math.max(0, tidesBalance)).toLocaleString('es-ES')}`;
+      }
 
-      const html = packages.map((pack) => {
+      const orderedPacks = [...packages].sort((a, b) => {
+        const avA = getStorePackAvailability(a);
+        const avB = getStorePackAvailability(b);
+        if (avA.isExpired !== avB.isExpired) return avA.isExpired ? 1 : -1;
+        return Number(a?.price || 0) - Number(b?.price || 0);
+      });
+
+      const html = orderedPacks.map((pack) => {
         const owned = Boolean(state.ownedStorePacks?.[pack.id]);
         const weapon = WEAPON_LIBRARY[pack.weaponId];
+        const availability = getStorePackAvailability(pack);
+        const disabledByTime = availability.isExpired && !owned;
+        const endsLabel = availability.isLimited
+          ? (availability.isExpired ? `Finalizo: ${availability.endsLabel}` : `Disponible: ${availability.endsLabel}`)
+          : '';
+        const description = weapon?.desc || pack.subtitle || 'Paquete premium de arma exclusiva.';
         return `
-          <article style="background:linear-gradient(160deg, rgba(15,20,38,0.92), rgba(10,14,30,0.94)); border:1px solid rgba(255,77,141,0.35); border-radius:20px; padding:1rem; box-shadow:0 12px 30px rgba(0,0,0,0.35);">
-            <div style="display:flex; align-items:center; gap:0.8rem; margin-bottom:0.6rem;">
+          <article class="store-pack-card is-mythic ${availability.isExpired ? 'is-expired' : ''}">
+            <div class="store-pack-top">
               ${weapon ? getWeaponModelMarkup(weapon) : '<div class="weapon-model"></div>'}
-              <div>
-                <div style="font-family:var(--font-display); font-size:1.02rem;">${pack.name}</div>
-                <div style="font-size:0.75rem; color:var(--muted);">${pack.subtitle || ''}</div>
+              <div class="store-pack-copy">
+                <div class="store-pack-name">${pack.name}</div>
+                <div class="store-pack-subtitle">${pack.subtitle || ''}</div>
               </div>
             </div>
-            <div style="display:flex; gap:0.5rem; align-items:center; margin-bottom:0.8rem;">
-              <span class="rarity-mitico" style="padding:0.25rem 0.55rem; border-radius:999px; font-size:0.66rem; text-transform:uppercase; letter-spacing:0.08em;">Mitico</span>
-              <span style="font-family:var(--font-display); font-size:0.96rem; color:#7ee8ff;">${Number(pack.price || 0).toLocaleString('es-ES')} Tides</span>
+            <div class="store-pack-meta">
+              <span class="store-chip">Mitico</span>
+              <span class="store-chip price">${Number(pack.price || 0).toLocaleString('es-ES')} Tides</span>
+              ${availability.isLimited
+                ? `<span class="store-chip ${availability.isExpired ? 'expired' : 'timer'}">${availability.isExpired ? 'Tiempo limitado finalizado' : `Queda: ${availability.remainingLabel}`}</span>`
+                : ''}
             </div>
-            <div style="font-size:0.75rem; color:var(--muted); line-height:1.45; margin-bottom:0.9rem;">
-              Incluye <b style="color:#fff;">Zeus Axe</b> con daño base elevado y escalado potente por mejora.
-            </div>
+            <p class="store-pack-desc">Incluye <b style="color:#fff;">${weapon?.name || 'arma exclusiva'}</b>. ${description}${endsLabel ? `<br><span style="color:#9eb6cf;">${endsLabel}</span>` : ''}</p>
             <button class="summon-btn primary" style="width:100%; justify-content:center;"
-              onclick="${owned ? '' : `buyStorePack('${pack.id}', this)`}" ${owned ? 'disabled' : ''}>
-              ${owned ? 'OBTENIDO' : `Comprar · ${Number(pack.price || 0).toLocaleString('es-ES')} Tides`}
+              onclick="${(owned || disabledByTime) ? '' : `buyStorePack('${pack.id}', this)`}" ${(owned || disabledByTime) ? 'disabled' : ''}>
+              ${owned ? 'OBTENIDO' : (disabledByTime ? 'FINALIZADO' : `Comprar - ${Number(pack.price || 0).toLocaleString('es-ES')} Tides`)}
             </button>
           </article>
         `;
       }).join('');
 
       storePanelContent.innerHTML = `
-        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:0.95rem;">
+        <div class="store-grid">
           ${html || '<div style="color:var(--muted);">No hay paquetes disponibles.</div>'}
         </div>
       `;
@@ -7431,6 +7731,99 @@
             const vig = ctx.createRadialGradient(W/2, H/2, W*0.2, W/2, H/2, W*0.8);
             vig.addColorStop(0, 'rgba(0,0,0,0)');
             vig.addColorStop(1, 'rgba(0,0,0,0.5)');
+            ctx.fillStyle = vig;
+            ctx.fillRect(0, 0, W, H);
+          }
+        },
+        abyss: {
+          sky: ['#040813', '#090f24', '#13071a'],
+          accent: '#ff5f8f', accent2: '#61d6ff', glow: 'rgba(255,95,143,',
+          drawScene(ctx, W, H) {
+            const sky = ctx.createLinearGradient(0, 0, 0, H);
+            sky.addColorStop(0, '#040813');
+            sky.addColorStop(0.45, '#0a1226');
+            sky.addColorStop(1, '#120818');
+            ctx.fillStyle = sky;
+            ctx.fillRect(0, 0, W, H);
+
+            const fog1 = ctx.createRadialGradient(W * 0.26, H * 0.35, 0, W * 0.26, H * 0.35, W * 0.42);
+            fog1.addColorStop(0, 'rgba(97,214,255,0.16)');
+            fog1.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = fog1;
+            ctx.fillRect(0, 0, W, H);
+
+            const fog2 = ctx.createRadialGradient(W * 0.77, H * 0.32, 0, W * 0.77, H * 0.32, W * 0.34);
+            fog2.addColorStop(0, 'rgba(255,95,143,0.14)');
+            fog2.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = fog2;
+            ctx.fillRect(0, 0, W, H);
+
+            for (let i = 0; i < 45; i++) {
+              const x = (Math.sin(i * 89.7 + 0.4) * 0.5 + 0.5) * W;
+              const y = (Math.sin(i * 57.1 + 2.1) * 0.5 + 0.5) * H * 0.86;
+              const r = (Math.sin(i * 11.3) * 0.5 + 0.5) * 1.6 + 0.25;
+              ctx.beginPath();
+              ctx.arc(x, y, r, 0, Math.PI * 2);
+              ctx.fillStyle = i % 3 === 0 ? 'rgba(255,95,143,0.55)' : 'rgba(160,220,255,0.45)';
+              ctx.fill();
+            }
+
+            const grd = ctx.createLinearGradient(0, H * 0.68, 0, H);
+            grd.addColorStop(0, 'rgba(7,12,26,0.05)');
+            grd.addColorStop(1, 'rgba(3,6,14,0.96)');
+            ctx.fillStyle = grd;
+            ctx.fillRect(0, H * 0.68, W, H * 0.32);
+
+            ctx.strokeStyle = 'rgba(255,95,143,0.28)';
+            ctx.lineWidth = 1.4;
+            ctx.beginPath();
+            ctx.moveTo(W * 0.12, H * 0.67);
+            ctx.lineTo(W * 0.36, H * 0.64);
+            ctx.lineTo(W * 0.52, H * 0.69);
+            ctx.lineTo(W * 0.72, H * 0.63);
+            ctx.lineTo(W * 0.92, H * 0.66);
+            ctx.stroke();
+
+            ctx.fillStyle = 'rgba(3,7,16,0.94)';
+            ctx.fillRect(W * 0.40, H * 0.34, W * 0.19, H * 0.39);
+            ctx.beginPath();
+            ctx.moveTo(W * 0.425, H * 0.34);
+            ctx.lineTo(W * 0.495, H * 0.20);
+            ctx.lineTo(W * 0.565, H * 0.34);
+            ctx.closePath();
+            ctx.fill();
+
+            const core = ctx.createRadialGradient(W * 0.495, H * 0.30, 0, W * 0.495, H * 0.30, 20);
+            core.addColorStop(0, 'rgba(255,95,143,0.96)');
+            core.addColorStop(0.45, 'rgba(97,214,255,0.42)');
+            core.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = core;
+            ctx.beginPath();
+            ctx.arc(W * 0.495, H * 0.30, 20, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = 'rgba(6,12,24,0.9)';
+            ctx.beginPath();
+            ctx.moveTo(W * 0.16, H * 0.77);
+            ctx.lineTo(W * 0.27, H * 0.57);
+            ctx.lineTo(W * 0.34, H * 0.77);
+            ctx.closePath();
+            ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(W * 0.68, H * 0.77);
+            ctx.lineTo(W * 0.76, H * 0.55);
+            ctx.lineTo(W * 0.86, H * 0.77);
+            ctx.closePath();
+            ctx.fill();
+
+            for (let sl = 0; sl < H; sl += 3) {
+              ctx.fillStyle = 'rgba(0,0,0,0.07)';
+              ctx.fillRect(0, sl, W, 1);
+            }
+
+            const vig = ctx.createRadialGradient(W / 2, H / 2, W * 0.15, W / 2, H / 2, W * 0.85);
+            vig.addColorStop(0, 'rgba(0,0,0,0)');
+            vig.addColorStop(1, 'rgba(0,0,0,0.58)');
             ctx.fillStyle = vig;
             ctx.fillRect(0, 0, W, H);
           }
@@ -8382,7 +8775,7 @@
   <circle cx="35" cy="58" r="1.1" fill="rgba(56,242,255,0.5)" opacity="0.4"/>
 </svg>`;
 
-    const ZEUS_AXE_SVG = `
+const ZEUS_AXE_SVG = `
 <svg viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
   <defs>
     <linearGradient id="za-blade" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -8417,6 +8810,36 @@
   </g>
 </svg>`;
 
+const TIGER_GLOVES_SVG = `
+<svg viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <defs>
+    <linearGradient id="tg-main" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffca6b"/>
+      <stop offset="55%" stop-color="#ff8a42"/>
+      <stop offset="100%" stop-color="#ef4e2d"/>
+    </linearGradient>
+    <linearGradient id="tg-shadow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#2a1110"/>
+      <stop offset="100%" stop-color="#110607"/>
+    </linearGradient>
+    <filter id="tg-glow" x="-45%" y="-45%" width="190%" height="190%">
+      <feGaussianBlur stdDeviation="2.4" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <g>
+    <path d="M18 34 C18 24 26 18 34 18 C40 18 44 21 46 25 C48 21 52 18 58 18 C66 18 74 24 74 34
+             L74 66 C74 72 68 78 62 78 L30 78 C24 78 18 72 18 66 Z" fill="url(#tg-shadow)"/>
+    <path d="M21 37 C21 28 28 22 35 22 C40 22 44 25 46 29 C48 25 52 22 57 22 C64 22 71 28 71 37
+             L71 63 C71 69 66 74 60 74 L32 74 C26 74 21 69 21 63 Z" fill="url(#tg-main)" filter="url(#tg-glow)"/>
+    <path d="M30 28 L34 32 M36 24 L40 30 M62 28 L58 32 M56 24 L52 30"
+          stroke="rgba(255,245,220,0.9)" stroke-width="1.8" stroke-linecap="round"/>
+    <path d="M28 44 L64 44 M28 52 L64 52 M28 60 L64 60" stroke="rgba(20,8,8,0.38)" stroke-width="2"/>
+    <circle cx="34" cy="66" r="4" fill="rgba(255,220,170,0.95)"/>
+    <circle cx="58" cy="66" r="4" fill="rgba(255,220,170,0.95)"/>
+  </g>
+</svg>`;
+
     const WEAPON_SVGS = {
       'katana':        KATANA_SVG,
       'chain-scythe':  CHAIN_SCYTHE_SVG,
@@ -8426,6 +8849,7 @@
       'storm-guitar':  STORM_GUITAR_SVG,
       'solar-halberd': SOLAR_HALBERD_SVG,
       'zeus-axe':      ZEUS_AXE_SVG,
+      'tiger-gloves':  TIGER_GLOVES_SVG,
     };
 
     function getWeaponModelMarkup(weapon, sizeClass = '') {
@@ -10410,12 +10834,14 @@
         if (remaining > 0) {
           tile.classList.add('on-cooldown');
           // Conic sweep: remaining/total * 360deg
-          const isCS = (selectedWeaponId === 'chain_scythe');
+          const activeWeapon = getActiveWeaponId();
+          const isCS = (activeWeapon === 'chain_scythe');
+          const isZA = (activeWeapon === 'zeus_axe');
           const totalCd = key === 'q'
-            ? (isCS ? 1800 : 1600)
+            ? (isCS ? 1800 : isZA ? 1700 : 1600)
             : key === 'e'
-              ? (isCS ? 2400 : 2200)
-              : (isCS ? 5500 : 5200);
+              ? (isCS ? 2400 : isZA ? 2400 : 2200)
+              : (isCS ? 5500 : isZA ? 5600 : 5200);
           const pct = (remaining / totalCd) * 360;
           overlay.style.setProperty('--cd-pct', pct + 'deg');
           if (cdText) cdText.textContent = (remaining / 1000).toFixed(1) + 's';
@@ -10777,6 +11203,8 @@
 
     function startRun() {
       const ep = selectedEpisode;
+      const runWeaponId = getActiveWeaponId();
+      const runWeaponData = WEAPON_LIBRARY[runWeaponId] || WEAPON_LIBRARY.katana;
       currentRun = {
         world: selectedWorld,
         episode: ep,
@@ -10795,7 +11223,8 @@
         miniBossHp: 0,
         bossPos: { x: 0.72, y: 0.38 },
         bossHp: ep.boss.hp,
-        weapon: { name: (WEAPON_LIBRARY[selectedWeaponId]?.name || 'Katana'), damage: getWeaponRuntimeDamage(selectedWeaponId) },
+        weaponId: runWeaponId,
+        weapon: { name: (runWeaponData?.name || 'Katana'), damage: getWeaponRuntimeDamage(runWeaponId) },
         player: { x: 0.5, y: 0.62 },
         // ── run stats tracking ──
         stats: {
@@ -10812,7 +11241,7 @@
         },
         startTime: Date.now(),
       };
-      initHudCanvases(selectedWeaponId);
+      initHudCanvases(runWeaponId);
       enemies.length = 0;
       pickups.length = 0;
       projectiles.length = 0;
@@ -10847,7 +11276,7 @@
       }
       setPlayOpen(false);
       setArenaOpen(true);
-      initHudCanvases(selectedWeaponId);
+      initHudCanvases(runWeaponId);
       // Re-focus body after button click steals focus — use rAF to ensure DOM settled
       requestAnimationFrame(() => {
         document.body.tabIndex = -1;
@@ -11617,7 +12046,7 @@
       ctx.restore();
 
       // ── Weapon 2D model sobre el personaje ────────────────────────
-      const weapon = selectedWeaponId || 'katana';
+      const weapon = getActiveWeaponId();
       const aim = lastAim ? Math.atan2(lastAim.y - y, lastAim.x - x) : -Math.PI * 0.3;
 
       if (weapon === 'chain_scythe') {
@@ -12081,13 +12510,89 @@
       }
     }
 
-    function drawEnemy(ctx, x, y, size, color, highlight, epIndex, time) {
+    function drawEnemy(ctx, x, y, size, color, highlight, epIndex, time, worldId = 'w1') {
       ctx.save();
       ctx.translate(x, y);
       const ep = epIndex !== undefined ? epIndex : 0;
       ctx.shadowBlur = highlight ? 16 : 8;
+      const isAbyssWorld = String(worldId || '').toLowerCase().includes('w2');
 
-      if (ep === 0) {
+      if (isAbyssWorld && ep === 0) {
+        // Abyss stalker: medusa-like hunter
+        ctx.shadowColor = '#00f0ff';
+        const pulse = Math.sin((time || 0) * 3.4) * 0.2 + 0.9;
+        ctx.fillStyle = `rgba(20,220,255,${highlight ? 0.55 : 0.35})`;
+        ctx.beginPath();
+        ctx.arc(0, 0, size * 0.56 * pulse, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = `rgba(120,255,255,${highlight ? 0.9 : 0.65})`;
+        ctx.lineWidth = 1.6;
+        for (let i = 0; i < 6; i++) {
+          const a = (i / 6) * Math.PI * 2 + (time || 0) * 0.8;
+          ctx.beginPath();
+          ctx.moveTo(Math.cos(a) * size * 0.4, Math.sin(a) * size * 0.4);
+          ctx.quadraticCurveTo(
+            Math.cos(a + 0.3) * size * 0.95,
+            Math.sin(a + 0.3) * size * 0.95,
+            Math.cos(a + 0.1) * size * 1.25,
+            Math.sin(a + 0.1) * size * 1.25
+          );
+          ctx.stroke();
+        }
+        ctx.fillStyle = 'rgba(235,255,255,0.85)';
+        ctx.beginPath();
+        ctx.arc(0, 0, size * 0.15, 0, Math.PI * 2);
+        ctx.fill();
+
+      } else if (isAbyssWorld && ep === 1) {
+        // Reef reaper: armored crab silhouette
+        ctx.shadowColor = '#2ee7b8';
+        ctx.fillStyle = `rgba(30,170,130,${highlight ? 0.55 : 0.35})`;
+        ctx.beginPath();
+        ctx.roundRect(-size * 0.72, -size * 0.45, size * 1.44, size * 0.9, size * 0.25);
+        ctx.fill();
+        ctx.strokeStyle = `rgba(110,255,210,${highlight ? 0.9 : 0.6})`;
+        ctx.lineWidth = 1.8;
+        ctx.stroke();
+        for (let i = -2; i <= 2; i++) {
+          if (i === 0) continue;
+          const yy = i * size * 0.16;
+          ctx.beginPath();
+          ctx.moveTo(Math.sign(i) * size * 0.55, yy);
+          ctx.lineTo(Math.sign(i) * size * 1.05, yy + Math.sign(i) * size * 0.08);
+          ctx.stroke();
+        }
+        ctx.fillStyle = 'rgba(220,255,240,0.9)';
+        ctx.beginPath();
+        ctx.arc(size * 0.18, -size * 0.08, size * 0.1, 0, Math.PI * 2);
+        ctx.fill();
+
+      } else if (isAbyssWorld) {
+        // Rift eel: elongated spectral serpent
+        ctx.shadowColor = '#8c6bff';
+        ctx.strokeStyle = `rgba(160,120,255,${highlight ? 0.9 : 0.65})`;
+        ctx.lineWidth = 3.2;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(-size * 0.9, 0);
+        ctx.bezierCurveTo(
+          -size * 0.3, -size * 0.7,
+          size * 0.3, size * 0.7,
+          size * 1.0, 0
+        );
+        ctx.stroke();
+        ctx.strokeStyle = `rgba(225,205,255,${highlight ? 0.65 : 0.4})`;
+        ctx.lineWidth = 1.1;
+        ctx.beginPath();
+        ctx.moveTo(-size * 0.75, 0);
+        ctx.bezierCurveTo(-size * 0.2, -size * 0.5, size * 0.2, size * 0.5, size * 0.84, 0);
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(245,235,255,0.9)';
+        ctx.beginPath();
+        ctx.arc(size * 0.95, -size * 0.04, size * 0.08, 0, Math.PI * 2);
+        ctx.fill();
+
+      } else if (ep === 0) {
         // Dron Umbra — spinning octagonal mechanical drone
         ctx.shadowColor = '#38f2ff';
         const rot = (time || 0) * 1.4;
@@ -12176,14 +12681,123 @@
       ctx.restore();
     }
 
-    function drawBoss(ctx, x, y, size, color, highlight, epIndex, time) {
+    function drawBoss(ctx, x, y, size, color, highlight, epIndex, time, worldId = 'w1', phase = 'boss') {
       ctx.save();
       ctx.translate(x, y);
       ctx.shadowBlur = highlight ? 28 : 14;
       const t = time || 0;
       const ep = epIndex !== undefined ? epIndex : 0;
+      const isAbyssWorld = String(worldId || '').toLowerCase().includes('w2');
+      const isMiniBoss = phase === 'mini-boss';
 
-      if (ep === 0) {
+      if (isAbyssWorld && ep === 0) {
+        // Abyss boss I: Leviathan Anchor
+        ctx.shadowColor = '#39dcff';
+        const pulse = Math.sin(t * 1.8) * 0.08 + 1;
+        ctx.strokeStyle = `rgba(80,235,255,${highlight ? 0.9 : 0.65})`;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(0, 0, size * 0.82 * pulse, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(0, -size * 0.76);
+        ctx.lineTo(0, size * 0.18);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(-size * 0.42, size * 0.15);
+        ctx.lineTo(size * 0.42, size * 0.15);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(-size * 0.42, size * 0.15);
+        ctx.quadraticCurveTo(-size * 0.62, size * 0.52, -size * 0.26, size * 0.72);
+        ctx.moveTo(size * 0.42, size * 0.15);
+        ctx.quadraticCurveTo(size * 0.62, size * 0.52, size * 0.26, size * 0.72);
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(210,250,255,0.9)';
+        ctx.beginPath();
+        ctx.arc(0, -size * 0.06, size * 0.16, 0, Math.PI * 2);
+        ctx.fill();
+        if (!isMiniBoss) {
+          ctx.strokeStyle = 'rgba(170,245,255,0.85)';
+          ctx.lineWidth = 1.6;
+          ctx.beginPath();
+          ctx.arc(0, -size * 0.06, size * 0.33, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+      } else if (isAbyssWorld && ep === 1) {
+        // Abyss boss II: Coral Tyrant
+        ctx.shadowColor = '#2af7c3';
+        ctx.fillStyle = 'rgba(20,60,56,0.72)';
+        ctx.beginPath();
+        ctx.roundRect(-size * 0.72, -size * 0.54, size * 1.44, size * 1.08, size * 0.18);
+        ctx.fill();
+        ctx.strokeStyle = `rgba(70,255,215,${highlight ? 0.92 : 0.68})`;
+        ctx.lineWidth = 2.4;
+        ctx.stroke();
+        for (let i = 0; i < 8; i++) {
+          const a = (i / 8) * Math.PI * 2 + t * 0.45;
+          const r1 = size * 0.55;
+          const r2 = size * 0.98;
+          ctx.beginPath();
+          ctx.moveTo(Math.cos(a) * r1, Math.sin(a) * r1);
+          ctx.lineTo(Math.cos(a) * r2, Math.sin(a) * r2);
+          ctx.stroke();
+        }
+        ctx.fillStyle = 'rgba(230,255,245,0.92)';
+        ctx.beginPath();
+        ctx.arc(0, 0, size * 0.18, 0, Math.PI * 2);
+        ctx.fill();
+        if (!isMiniBoss) {
+          ctx.strokeStyle = 'rgba(150,255,225,0.7)';
+          ctx.lineWidth = 1.2;
+          for (let k = 0; k < 4; k++) {
+            const a = (k / 4) * Math.PI * 2 + t * 0.8;
+            ctx.beginPath();
+            ctx.moveTo(Math.cos(a) * size * 0.35, Math.sin(a) * size * 0.35);
+            ctx.lineTo(Math.cos(a) * size * 0.75, Math.sin(a) * size * 0.75);
+            ctx.stroke();
+          }
+        }
+
+      } else if (isAbyssWorld) {
+        // Abyss boss III: Trench Sovereign
+        ctx.shadowColor = '#9a78ff';
+        const wave = Math.sin(t * 2.4) * 0.15 + 0.85;
+        ctx.strokeStyle = `rgba(180,140,255,${highlight ? 0.9 : 0.66})`;
+        ctx.lineWidth = 2.3;
+        for (let r = 0; r < 3; r++) {
+          const rr = size * (0.68 + r * 0.24) * wave;
+          ctx.beginPath();
+          ctx.ellipse(0, 0, rr, rr * 0.7, t * 0.4 + r * 0.5, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        ctx.strokeStyle = 'rgba(232,220,255,0.75)';
+        ctx.lineWidth = 1.2;
+        for (let i = 0; i < 6; i++) {
+          const a = (i / 6) * Math.PI * 2 - t * 0.7;
+          ctx.beginPath();
+          ctx.moveTo(Math.cos(a) * size * 0.14, Math.sin(a) * size * 0.14);
+          ctx.lineTo(Math.cos(a) * size * 0.7, Math.sin(a) * size * 0.7);
+          ctx.stroke();
+        }
+        const cg = ctx.createRadialGradient(0, 0, 0, 0, 0, size * 0.34);
+        cg.addColorStop(0, 'rgba(255,255,255,0.95)');
+        cg.addColorStop(0.55, 'rgba(185,145,255,0.78)');
+        cg.addColorStop(1, 'rgba(185,145,255,0)');
+        ctx.fillStyle = cg;
+        ctx.beginPath();
+        ctx.arc(0, 0, size * 0.34, 0, Math.PI * 2);
+        ctx.fill();
+        if (!isMiniBoss) {
+          ctx.strokeStyle = 'rgba(226,206,255,0.65)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.ellipse(0, 0, size * 1.08, size * 0.54, t * 0.4, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+      } else if (ep === 0) {
         // Warden 01 — armored hexagonal sentinel, golden + blue
         ctx.shadowColor = '#ffb000';
         const pulse = Math.sin(t * 2.2) * 0.08 + 1;
@@ -12211,6 +12825,13 @@
         // Scanning sweep line
         ctx.strokeStyle='rgba(56,242,255,0.6)'; ctx.lineWidth=1.5;
         ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(Math.cos(t*1.8)*size*0.85,Math.sin(t*1.8)*size*0.85); ctx.stroke();
+        if (!isMiniBoss) {
+          ctx.strokeStyle = 'rgba(255,210,120,0.75)';
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.arc(0, 0, size * 1.15, 0, Math.PI * 2);
+          ctx.stroke();
+        }
 
       } else if (ep === 1) {
         // Warden 02 — obsidian blade-form with green borders
@@ -12241,6 +12862,13 @@
           ctx.strokeStyle='rgba(120,255,120,0.7)'; ctx.lineWidth=1.5;
           ctx.beginPath(); ctx.moveTo(-7,0); ctx.lineTo(7,0); ctx.stroke();
           ctx.restore();
+        }
+        if (!isMiniBoss) {
+          ctx.strokeStyle = 'rgba(180,255,170,0.65)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.arc(0, 0, size * 1.18, 0, Math.PI * 2);
+          ctx.stroke();
         }
 
       } else {
@@ -12276,6 +12904,16 @@
           const a=(r/6)*Math.PI*2+t*0.8;
           ctx.beginPath(); ctx.moveTo(Math.cos(a)*size*0.1,Math.sin(a)*size*0.1);
           ctx.lineTo(Math.cos(a)*size*0.45,Math.sin(a)*size*0.45); ctx.stroke();
+        }
+        if (!isMiniBoss) {
+          ctx.strokeStyle = 'rgba(255,210,140,0.55)';
+          ctx.lineWidth = 0.9;
+          for (let h = 0; h < 2; h++) {
+            const rr = size * (1.12 + h * 0.16);
+            ctx.beginPath();
+            ctx.arc(0, 0, rr, 0, Math.PI * 2);
+            ctx.stroke();
+          }
         }
       }
       ctx.restore();
@@ -12475,7 +13113,8 @@
             enemyColor,
             enemy === focusEnemy,
             scaleIndex,
-            time
+            time,
+            selectedWorld?.id || 'w1'
           );
           // Spawn flash VFX
           if (enemy.spawnFlash > 0) {
@@ -12493,7 +13132,18 @@
         });
       }
       if (currentRun.phase === 'mini-boss' || currentRun.phase === 'boss') {
-        drawBoss(arenaCtx, bossPos.x, bossPos.y, 34 + scaleIndex * 6, bossColor, true, scaleIndex, time);
+        drawBoss(
+          arenaCtx,
+          bossPos.x,
+          bossPos.y,
+          34 + scaleIndex * 6,
+          bossColor,
+          true,
+          scaleIndex,
+          time,
+          selectedWorld?.id || 'w1',
+          currentRun.phase
+        );
       }
       if (currentRun.phase === 'lucky-boss') {
         drawLuckyBoss(arenaCtx, bossPos.x, bossPos.y, 44 + scaleIndex * 7, time);
@@ -13837,9 +14487,8 @@
       if (invExpLevel) invExpLevel.textContent   = `Nivel ${equippedWeapon.level}`;
       if (invExpNums)  invExpNums.textContent    = `${equippedWeapon.exp} / ${expToNextEq} EXP`;
 
-      const dmgBase = { comun: 18, poco_comun: 26, raro: 38, epico: 55, legendario: 78, mitico: 110 };
-      const typeMap = { katana:'Melee', 'chain-scythe':'Cadena', 'pulse-baton':'Bastón', 'ion-pistols':'Dual', 'mantis-blades':'Garra', 'storm-guitar':'Shock', 'solar-halberd':'Asta', 'volt-daggers':'Daga', 'mirage-rifle':'Rifle', 'nebula-glaive':'Guadaña', 'vortex-cannon':'Cañón', 'aether-pike':'Lanza' };
-      const dmg = (dmgBase[equippedData.rarity] || 18) + (equippedWeapon.level - 1) * 4;
+      const typeMap = { katana:'Melee', 'chain-scythe':'Cadena', 'pulse-baton':'Bastón', 'ion-pistols':'Dual', 'mantis-blades':'Garra', 'storm-guitar':'Shock', 'solar-halberd':'Asta', 'volt-daggers':'Daga', 'mirage-rifle':'Rifle', 'nebula-glaive':'Guadaña', 'vortex-cannon':'Cañón', 'aether-pike':'Lanza', 'zeus-axe':'Hacha' };
+      const dmg = getWeaponRuntimeDamage(selectedWeaponId);
       if (invStatDmg)  { invStatDmg.textContent = dmg; }
       if (invStatLvl)  { invStatLvl.textContent = equippedWeapon.level; }
       if (invStatRar)  { invStatRar.textContent = getRarityLabel(equippedData.rarity); invStatRar.style.color = rarityColor; }
@@ -13918,7 +14567,7 @@
       const selWeapon  = state.weapons[invSelectedWeaponId] || { level: 1, exp: 0 };
       const selIsEq    = invSelectedWeaponId === selectedWeaponId;
       const selColor   = RARITY_INFO[selData.rarity]?.color || 'var(--text)';
-      const selDmg     = (dmgBase[selData.rarity] || 18) + (selWeapon.level - 1) * 4;
+      const selDmg     = getWeaponRuntimeDamage(invSelectedWeaponId);
       const selExpNext = getExpToNext(selWeapon.level);
       const selExpPct  = Math.min((selWeapon.exp / selExpNext) * 100, 100);
       const selType    = typeMap[selData.model] || 'Arma';
@@ -14260,7 +14909,7 @@
       const playerPos = { x, y };
       const aim = getAimAngle(playerPos);
 
-      const weapon = selectedWeaponId || 'katana';
+      const weapon = getActiveWeaponId();
 
       // ── CHAIN SCYTHE ────────────────────────────────────────────────
       if (weapon === 'chain_scythe') {
@@ -14402,6 +15051,45 @@
       }
 
       // ── KATANA (default) ────────────────────────────────────────────
+      if (weapon === 'zeus_axe') {
+        if (key === 'q') {
+          cooldowns.q = now + 1700;
+          const to = { x: playerPos.x + Math.cos(aim) * 210, y: playerPos.y + Math.sin(aim) * 210 };
+          addEffect({ type: 'kt-phantom-dash', from: playerPos, to, aim, duration: 0.34 });
+          addEffect({ type: 'kt-sparks', x: to.x, y: to.y, radius: 115, duration: 0.34, delay: 0.05 });
+          addShake(8, 135);
+          applyLineDamage(playerPos, to, 56, currentRun.weapon.damage * 1.28);
+          applyRadiusDamage(to, 72, currentRun.weapon.damage * 0.75);
+          addCharge(22);
+          if (currentRun && currentRun.stats) currentRun.stats.abilitiesUsed += 1;
+          updateArenaUI();
+        }
+        if (key === 'e') {
+          cooldowns.e = now + 2400;
+          const to = { x: playerPos.x + Math.cos(aim) * 165, y: playerPos.y + Math.sin(aim) * 165 };
+          addEffect({ type: 'kt-phantom-dash', from: playerPos, to, aim, duration: 0.28 });
+          addEffect({ type: 'sg-q-wave', x: to.x, y: to.y, radius: 148, duration: 0.5, delay: 0.07 });
+          addShake(9, 150);
+          applyRadiusDamage(to, 148, currentRun.weapon.damage * 1.35);
+          addCharge(27);
+          if (currentRun && currentRun.stats) currentRun.stats.abilitiesUsed += 1;
+          updateArenaUI();
+        }
+        if (key === 'r') {
+          if (charge < 100) return;
+          cooldowns.r = now + 5600;
+          addEffect({ type: 'sg-r-cataclysm', x: playerPos.x, y: playerPos.y, radius: 220, duration: 1.0 });
+          addEffect({ type: 'sh-r-shockring', x: playerPos.x, y: playerPos.y, radius: 220, duration: 0.82, delay: 0.2 });
+          addShake(15, 260);
+          applyRadiusDamage(playerPos, 220, currentRun.weapon.damage * 2.6);
+          charge = 0;
+          updateChargeUI();
+          if (currentRun && currentRun.stats) currentRun.stats.abilitiesUsed += 1;
+          updateArenaUI();
+        }
+        return;
+      }
+
       if (key === 'q') {
         // Tormenta de Acero: gran crescent slash + sparks radiales + shockwave breve
         cooldowns.q = now + 1500;
@@ -14504,7 +15192,37 @@
       const { x, y } = getPlayerPosPx();
       const playerPos = { x, y };
       const aim = getAimAngle(playerPos);
-      const weapon = selectedWeaponId || 'katana';
+      const weapon = getActiveWeaponId();
+
+      if (weapon === 'zeus_axe') {
+        cooldowns.m1 = now + 210;
+        const swing = M1_SWINGS[m1Combo % M1_SWINGS.length];
+        const startAngle = aim + swing.start;
+        const endAngle   = aim + swing.end;
+        const ZEUS_RADIUS = currentRun.phase === 'horde' ? 165 : 128;
+        const ZEUS_SPREAD = Math.PI * 0.58;
+        addEffect({
+          type: 'katana-swing',
+          x: playerPos.x,
+          y: playerPos.y,
+          startAngle,
+          endAngle,
+          radius: ZEUS_RADIUS,
+          duration: 0.24
+        });
+        addEffect({ type: 'kt-sparks', x: playerPos.x, y: playerPos.y, radius: ZEUS_RADIUS + 20, duration: 0.24 });
+        addShake(5, 95);
+        applyArcDamage(playerPos, ZEUS_RADIUS, aim, ZEUS_SPREAD, currentRun.weapon.damage * 0.95);
+        setTimeout(() => {
+          if (!currentRun) return;
+          applyArcDamage(playerPos, Math.max(90, ZEUS_RADIUS - 26), aim, ZEUS_SPREAD, currentRun.weapon.damage * 0.45);
+        }, 95);
+        addCharge(10.5);
+        if (currentRun && currentRun.stats) currentRun.stats.m1Hits += 1;
+        m1Combo = (m1Combo + 1) % M1_SWINGS.length;
+        updateArenaUI();
+        return;
+      }
 
       if (weapon === 'chain_scythe') {
         // Chain Scythe M1: barrido lento y pesado de guadaña + eslabones de cadena
@@ -14617,8 +15335,8 @@
         const swing = M1_SWINGS[m1Combo % M1_SWINGS.length];
         const startAngle = aim + swing.start;
         const endAngle   = aim + swing.end;
-        const KATANA_RADIUS = 220;  // covers full spawn range (100-200px + enemy drift)
-        const KATANA_SPREAD = Math.PI * 0.67; // ±120° wide cone
+        const KATANA_RADIUS = currentRun.phase === 'horde' ? 118 : 96;
+        const KATANA_SPREAD = Math.PI * 0.46; // tighter cone for short/medium range consistency
         addEffect({
           type: 'katana-swing',
           x: playerPos.x,
@@ -14641,7 +15359,7 @@
           }, 110);
         } else {
           // Boss / mini-boss: melee range only (must be close)
-          applyArcDamage(playerPos, 90, aim, KATANA_SPREAD, currentRun.weapon.damage * 0.7);
+          applyArcDamage(playerPos, 82, aim, KATANA_SPREAD, currentRun.weapon.damage * 0.7);
         }
         addCharge(7.5);
         if (currentRun && currentRun.stats) currentRun.stats.m1Hits += 1;

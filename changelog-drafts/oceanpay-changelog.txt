@@ -1,0 +1,5 @@
+Ocean Pay - Changelog Draft (proxima version)
+
+- Se agrego en Ajustes la categoria Seguridad con verificacion en 2 pasos para accesos desde OWS Store.
+- Se incorporo una bandeja de codigos solicitados por OWS Store para copiar y usar en el modal de acceso.
+- Se mejoro el flujo de seguridad con estado claro (activado/desactivado), recomendacion de uso y refresco de codigos en tiempo real.

@@ -385,24 +385,27 @@
             display: none;
             align-items: center;
             justify-content: center;
-            padding: 0.9rem;
+            padding: 1rem;
+            overflow: auto;
             background:
-                radial-gradient(ellipse 1200px 700px at -5% -10%, rgba(62, 218, 201, 0.22), transparent 58%),
-                radial-gradient(ellipse 980px 620px at 105% 95%, rgba(92, 108, 241, 0.18), transparent 58%),
-                linear-gradient(180deg, #091320 0%, #050a14 100%);
+                radial-gradient(ellipse 1250px 740px at -5% -10%, rgba(34, 210, 228, 0.25), transparent 58%),
+                radial-gradient(ellipse 920px 640px at 110% 90%, rgba(52, 123, 255, 0.18), transparent 58%),
+                linear-gradient(180deg, #061223 0%, #030812 100%);
         }
         .prelogin-gate.active { display: flex; }
         .prelogin-gate-shell {
-            width: min(1160px, 100%);
-            min-height: min(680px, calc(100vh - 1.8rem));
-            border: 1px solid rgba(118, 224, 214, 0.28);
-            border-radius: 14px;
+            width: min(1320px, 100%);
+            min-height: 700px;
+            max-height: calc(100vh - 2rem);
+            border: 1px solid rgba(92, 207, 231, 0.26);
+            border-radius: 24px;
             overflow: hidden;
             display: grid;
-            grid-template-columns: minmax(360px, 0.95fr) minmax(420px, 1.05fr);
-            background: linear-gradient(160deg, rgba(10, 23, 37, 0.96), rgba(8, 15, 28, 0.98));
-            box-shadow: 0 30px 70px rgba(0,0,0,0.62);
+            grid-template-columns: minmax(440px, 0.92fr) minmax(520px, 1.08fr);
+            background: linear-gradient(145deg, rgba(6, 22, 39, 0.96), rgba(2, 11, 23, 0.98));
+            box-shadow: 0 36px 84px rgba(0, 0, 0, 0.62);
             position: relative;
+            isolation: isolate;
         }
         .prelogin-panel {
             display: flex;
@@ -418,120 +421,275 @@
             pointer-events: none;
         }
         .prelogin-form-panel {
-            justify-content: center;
-            align-items: center;
-            padding: 1.2rem;
+            justify-content: space-between;
+            align-items: stretch;
+            padding: 1.5rem 1.5rem 1.2rem;
             border-right: 1px solid rgba(118, 224, 214, 0.2);
+            overflow-y: auto;
             background:
-                radial-gradient(circle at 0% 0%, rgba(78, 226, 207, 0.12), transparent 44%),
-                linear-gradient(180deg, rgba(10, 23, 38, 0.96), rgba(9, 15, 28, 0.98));
+                radial-gradient(circle at 8% 10%, rgba(58, 228, 236, 0.18), transparent 38%),
+                radial-gradient(circle at 62% 36%, rgba(63, 116, 224, 0.16), transparent 44%),
+                linear-gradient(180deg, rgba(8, 28, 48, 0.97), rgba(4, 17, 32, 0.98));
         }
-        .prelogin-form-card {
-            width: min(470px, 100%);
-            border: 1px solid rgba(128, 205, 214, 0.24);
-            border-radius: 12px;
-            background: linear-gradient(180deg, rgba(20, 33, 48, 0.72), rgba(10, 17, 28, 0.82));
-            box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
-            padding: 1.1rem 1.1rem 1rem;
+        .prelogin-left-hero {
+            display: grid;
+            gap: 1.1rem;
+            max-width: 600px;
         }
         .prelogin-brand {
             display: inline-flex;
             align-items: center;
-            gap: 0.58rem;
-            margin-bottom: 0.8rem;
-            color: #f1f9ff;
+            gap: 0.75rem;
+            color: #b6dfff;
             font-weight: 800;
-            font-size: 1.05rem;
-            letter-spacing: 0.2px;
+            font-size: 1rem;
+            letter-spacing: 0.3px;
         }
         .prelogin-brand-icon {
-            width: 1.8rem;
-            height: 1.8rem;
-            border-radius: 6px;
+            width: 2rem;
+            height: 2rem;
+            border-radius: 8px;
             display: inline-flex;
             align-items: center;
             justify-content: center;
             overflow: hidden;
-            background: transparent;
+            background: rgba(9, 31, 48, 0.62);
+            border: 1px solid rgba(123, 220, 238, 0.34);
         }
         .prelogin-brand-icon img {
             width: 100%;
             height: 100%;
             object-fit: contain;
             display: block;
-            filter: drop-shadow(0 0 10px rgba(88,235,255,0.4));
+            filter: drop-shadow(0 0 12px rgba(88,235,255,0.5));
+        }
+        .prelogin-headline {
+            font-family: var(--font-display);
+            font-size: clamp(2.6rem, 5.8vw, 4.9rem);
+            line-height: 1.02;
+            margin-top: 0.16rem;
+            letter-spacing: -0.4px;
+            color: #1ad8ff;
+            text-shadow: 0 0 22px rgba(53, 197, 255, 0.3);
+        }
+        .prelogin-lead {
+            color: #bfd4e6;
+            font-size: clamp(1rem, 1.7vw, 1.28rem);
+            line-height: 1.34;
+            max-width: 24ch;
+        }
+        .prelogin-benefits {
+            display: grid;
+            gap: 0.9rem;
+            max-width: 34ch;
+        }
+        .prelogin-benefit {
+            display: grid;
+            grid-template-columns: 38px 1fr;
+            gap: 0.7rem;
+            align-items: start;
+        }
+        .prelogin-benefit-icon {
+            width: 38px;
+            height: 38px;
+            border-radius: 11px;
+            border: 1px solid rgba(118, 207, 228, 0.34);
+            background: linear-gradient(180deg, rgba(15, 44, 70, 0.88), rgba(9, 27, 45, 0.9));
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: #8fe8ff;
+            font-size: 0.95rem;
+        }
+        .prelogin-benefit-title {
+            color: #eef8ff;
+            font-weight: 700;
+            font-size: 1rem;
+            line-height: 1.1;
+        }
+        .prelogin-benefit-text {
+            margin-top: 0.2rem;
+            color: #9eb9d0;
+            font-size: 0.94rem;
+            line-height: 1.35;
+        }
+        .prelogin-form-card {
+            width: min(520px, 100%);
+            border: 1px solid rgba(113, 201, 225, 0.24);
+            border-radius: 24px;
+            background: linear-gradient(180deg, rgba(14, 43, 67, 0.66), rgba(8, 23, 38, 0.8));
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), 0 20px 40px rgba(0,0,0,0.32);
+            padding: 1.5rem 1.45rem 1.2rem;
+            margin-top: 0.35rem;
         }
         .prelogin-title {
-            font-size: clamp(1.7rem, 2.5vw, 2.35rem);
-            line-height: 1.05;
+            font-size: clamp(1.95rem, 2.6vw, 2.5rem);
+            line-height: 1.02;
             color: #f6fbff;
-            margin-bottom: 0.35rem;
+            margin-bottom: 0.3rem;
         }
         .prelogin-sub {
-            color: #b9d0e4;
-            font-size: 0.93rem;
-            line-height: 1.5;
-            margin-bottom: 0.95rem;
-            max-width: 42ch;
+            color: #c3d9ec;
+            font-size: 1.03rem;
+            line-height: 1.45;
+            margin-bottom: 1.1rem;
+            max-width: 36ch;
         }
         .prelogin-form {
             display: grid;
-            gap: 0.72rem;
+            gap: 0.82rem;
         }
         .prelogin-field {
             display: grid;
-            gap: 0.35rem;
+            gap: 0.4rem;
+        }
+        .prelogin-field-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.6rem;
         }
         .prelogin-label {
             font-family: var(--font-mono);
-            font-size: 0.68rem;
+            font-size: 0.71rem;
             letter-spacing: 1px;
-            color: #8fa8c2;
+            color: #91b4cf;
             text-transform: uppercase;
+        }
+        .prelogin-link {
+            font-family: var(--font-mono);
+            font-size: 0.69rem;
+            text-transform: uppercase;
+            letter-spacing: 0.7px;
+            color: #8adfff;
+            text-decoration: none;
+            opacity: 0.94;
+        }
+        .prelogin-link:hover { opacity: 1; text-decoration: underline; }
+        .prelogin-input-wrap {
+            position: relative;
         }
         .prelogin-input {
             width: 100%;
-            border-radius: 8px;
+            border-radius: 12px;
             border: 1px solid rgba(138, 162, 191, 0.34);
-            background: linear-gradient(180deg, rgba(28, 40, 56, 0.78), rgba(20, 31, 45, 0.78));
+            background: linear-gradient(180deg, rgba(2, 16, 28, 0.86), rgba(1, 12, 22, 0.84));
             color: #eff8ff;
-            font-size: 0.95rem;
-            padding: 0.72rem 0.76rem;
+            font-size: 1rem;
+            padding: 0.76rem 0.88rem 0.76rem 2.25rem;
             font-family: inherit;
             outline: none;
             transition: border-color 0.15s ease, box-shadow 0.2s ease;
         }
+        .prelogin-input-icon {
+            position: absolute;
+            left: 0.8rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #88aeca;
+            font-size: 0.86rem;
+            pointer-events: none;
+        }
         .prelogin-input:focus {
-            border-color: rgba(141, 132, 255, 0.82);
-            box-shadow: 0 0 0 2px rgba(141, 132, 255, 0.22);
+            border-color: rgba(95, 213, 255, 0.82);
+            box-shadow: 0 0 0 2px rgba(95, 213, 255, 0.18);
+        }
+        .prelogin-remember {
+            margin-top: 0.1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.7rem;
+            color: #b7cde0;
+            font-size: 0.95rem;
+        }
+        .prelogin-toggle {
+            width: 44px;
+            height: 24px;
+            border-radius: 999px;
+            border: 1px solid rgba(125, 172, 209, 0.45);
+            background: rgba(19, 42, 64, 0.86);
+            position: relative;
+            cursor: pointer;
+            appearance: none;
+            outline: none;
+        }
+        .prelogin-toggle::after {
+            content: '';
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #d8ebff;
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            transition: transform 0.2s ease;
+        }
+        .prelogin-toggle:checked {
+            border-color: rgba(75, 218, 255, 0.64);
+            background: rgba(32, 184, 241, 0.42);
+        }
+        .prelogin-toggle:checked::after {
+            transform: translateX(20px);
+            background: #f0fbff;
         }
         .prelogin-btn {
-            border: 1px solid rgba(146, 138, 255, 0.56);
-            border-radius: 8px;
-            background: linear-gradient(135deg, rgba(111, 93, 255, 0.96), rgba(91, 70, 240, 0.96));
-            color: #f5f0ff;
-            font-weight: 700;
-            font-size: 0.98rem;
-            padding: 0.74rem 0.86rem;
+            border: 1px solid rgba(111, 225, 255, 0.56);
+            border-radius: 14px;
+            background: linear-gradient(90deg, rgba(35, 205, 238, 0.98), rgba(135, 218, 248, 0.96));
+            color: #042230;
+            font-weight: 800;
+            font-size: 1.17rem;
+            letter-spacing: 0.1px;
+            padding: 0.86rem 1rem;
             cursor: pointer;
             transition: transform 0.16s ease, filter 0.16s ease, box-shadow 0.2s ease;
         }
+        .prelogin-btn i {
+            margin-left: 0.36rem;
+            font-size: 0.94rem;
+        }
         .prelogin-btn:hover:not(:disabled) {
             transform: translateY(-1px);
-            filter: brightness(1.06);
-            box-shadow: 0 10px 22px rgba(98, 80, 235, 0.34);
+            filter: brightness(1.03);
+            box-shadow: 0 14px 26px rgba(38, 202, 235, 0.34);
         }
         .prelogin-btn:disabled {
             opacity: 0.55;
             cursor: not-allowed;
         }
         .prelogin-status {
-            min-height: 1.2em;
-            font-size: 0.8rem;
+            min-height: 1.3em;
+            font-size: 0.85rem;
             color: #adc6dc;
         }
         .prelogin-status.error { color: #ff8ca3; }
         .prelogin-status.success { color: #67f2bd; }
+        .prelogin-register {
+            margin-top: 0.3rem;
+            padding-top: 0.85rem;
+            border-top: 1px solid rgba(139, 179, 210, 0.22);
+            text-align: center;
+            color: #a8c3d9;
+            font-size: 0.98rem;
+        }
+        .prelogin-register a {
+            color: #e2f5ff;
+            font-weight: 700;
+            text-decoration: none;
+        }
+        .prelogin-register a:hover { text-decoration: underline; }
+        .prelogin-footer-links {
+            margin-top: 0.9rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            color: #7c97b1;
+            font-family: var(--font-mono);
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+        }
         .prelogin-transition-layer {
             position: absolute;
             top: 0;
@@ -552,8 +710,8 @@
             display: flex;
         }
         .prelogin-transition-layer.left-mode {
-            width: 48%;
-            min-width: 340px;
+            width: 44%;
+            min-width: 360px;
         }
         .prelogin-transition-layer.full-mode {
             width: 100%;
@@ -650,12 +808,115 @@
             font-size: 0.88rem;
             line-height: 1.45;
         }
+        .prelogin-two-factor-modal {
+            position: absolute;
+            inset: 0;
+            z-index: 12;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 1.1rem;
+            background: rgba(3, 9, 17, 0.72);
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+        }
+        .prelogin-two-factor-modal.active {
+            display: flex;
+        }
+        .prelogin-two-factor-card {
+            width: min(460px, 100%);
+            border-radius: 16px;
+            border: 1px solid rgba(124, 217, 243, 0.34);
+            background: linear-gradient(180deg, rgba(9, 20, 34, 0.96), rgba(5, 12, 22, 0.97));
+            box-shadow: 0 24px 46px rgba(0,0,0,0.52);
+            padding: 1rem;
+            display: grid;
+            gap: 0.72rem;
+        }
+        .prelogin-two-factor-kicker {
+            display: inline-flex;
+            width: fit-content;
+            padding: 0.2rem 0.58rem;
+            border-radius: 999px;
+            border: 1px solid rgba(127, 227, 243, 0.42);
+            background: rgba(13, 35, 56, 0.7);
+            color: #99eefe;
+            font-family: var(--font-mono);
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.75px;
+        }
+        .prelogin-two-factor-title {
+            font-size: 1.26rem;
+            font-weight: 800;
+            color: #eff8ff;
+        }
+        .prelogin-two-factor-text {
+            color: #bfd6ea;
+            font-size: 0.9rem;
+            line-height: 1.45;
+        }
+        .prelogin-two-factor-field {
+            display: grid;
+            gap: 0.35rem;
+            color: #d7e9f8;
+            font-size: 0.86rem;
+        }
+        .prelogin-two-factor-field input {
+            width: 100%;
+            border-radius: 12px;
+            border: 1px solid rgba(128, 177, 212, 0.35);
+            background: linear-gradient(180deg, rgba(2, 12, 22, 0.88), rgba(1, 8, 16, 0.86));
+            color: #eff9ff;
+            font-size: 1.02rem;
+            letter-spacing: 2px;
+            font-weight: 700;
+            text-align: center;
+            padding: 0.74rem 0.8rem;
+            outline: none;
+        }
+        .prelogin-two-factor-field input:focus {
+            border-color: rgba(106, 219, 255, 0.9);
+            box-shadow: 0 0 0 2px rgba(105, 219, 255, 0.2);
+        }
+        .prelogin-two-factor-status {
+            min-height: 1.2em;
+            color: #b9d1e6;
+            font-size: 0.83rem;
+        }
+        .prelogin-two-factor-status.error {
+            color: #ff95ab;
+        }
+        .prelogin-two-factor-actions {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: flex-end;
+        }
+        .prelogin-two-factor-btn {
+            border-radius: 10px;
+            border: 1px solid transparent;
+            padding: 0.62rem 0.92rem;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+        .prelogin-two-factor-btn.ghost {
+            border-color: rgba(130, 170, 204, 0.35);
+            background: rgba(14, 27, 42, 0.75);
+            color: #d3e7f8;
+        }
+        .prelogin-two-factor-btn.primary {
+            border-color: rgba(108, 223, 255, 0.6);
+            background: linear-gradient(90deg, rgba(43, 207, 239, 0.98), rgba(129, 216, 248, 0.97));
+            color: #03202c;
+        }
         .prelogin-announce-panel {
             position: relative;
             padding: 0;
+            overflow-y: auto;
             background:
-                radial-gradient(circle at 70% 5%, rgba(99, 238, 218, 0.23), transparent 42%),
-                linear-gradient(180deg, rgba(12, 27, 45, 0.98), rgba(8, 13, 25, 0.98));
+                radial-gradient(circle at 70% 5%, rgba(99, 238, 218, 0.25), transparent 42%),
+                linear-gradient(180deg, rgba(8, 25, 45, 0.98), rgba(4, 13, 25, 0.98));
         }
         .prelogin-announce-card {
             width: 100%;
@@ -663,7 +924,7 @@
             opacity: 0;
             transform: translateY(6px);
             transition: opacity 0.32s ease, transform 0.32s ease;
-            padding: 1.25rem 1.2rem 1.15rem;
+            padding: 1.35rem 1.25rem 1.2rem;
         }
         .prelogin-announce-card.show {
             opacity: 1;
@@ -677,7 +938,7 @@
             background:
                 radial-gradient(circle at 50% 8%, rgba(130, 236, 240, 0.46), transparent 54%),
                 linear-gradient(180deg, rgba(18, 43, 58, 0.9), rgba(12, 19, 34, 0.95));
-            min-height: 560px;
+            min-height: clamp(520px, 78vh, 720px);
         }
         .prelogin-announce-image {
             position: absolute;
@@ -687,7 +948,7 @@
             object-fit: contain;
             object-position: center 50%;
             display: block;
-            filter: saturate(1.05) contrast(1.05);
+            filter: saturate(1.06) contrast(1.04);
             opacity: 0.9;
             z-index: 1;
         }
@@ -697,7 +958,7 @@
             display: flex;
             flex-direction: column;
             justify-content: space-between;
-            padding: 0.7rem;
+            padding: 0.85rem;
             background:
                 radial-gradient(circle at 50% 100%, rgba(3,8,15,0.62), transparent 55%),
                 linear-gradient(180deg, rgba(4, 9, 17, 0.24), rgba(4, 9, 17, 0.7));
@@ -705,7 +966,7 @@
         }
         .prelogin-announce-kicker {
             font-family: var(--font-mono);
-            font-size: 0.64rem;
+            font-size: 0.69rem;
             text-transform: uppercase;
             letter-spacing: 0.8px;
             color: #9cf5ff;
@@ -735,30 +996,30 @@
             justify-content: center;
             text-align: center;
             align-items: flex-end;
-            padding-bottom: 0.2rem;
+            padding-bottom: 0.35rem;
         }
         .prelogin-announce-bottom {
-            background: rgba(6, 14, 24, 0.42);
+            background: rgba(6, 14, 24, 0.5);
             border: 1px solid rgba(142, 176, 206, 0.24);
             box-shadow: 0 10px 24px rgba(0,0,0,0.28);
             backdrop-filter: blur(3px);
             -webkit-backdrop-filter: blur(3px);
-            padding: 0.55rem 0.62rem;
-            border-radius: 10px;
-            max-width: 52ch;
+            padding: 0.9rem 0.9rem 0.85rem;
+            border-radius: 14px;
+            max-width: 54ch;
         }
         .prelogin-announce-title {
-            font-size: clamp(1.9rem, 3.4vw, 2.65rem);
-            line-height: 1.1;
+            font-size: clamp(1.9rem, 3.1vw, 2.7rem);
+            line-height: 1.04;
             color: #f3fbff;
-            font-weight: 700;
+            font-weight: 800;
             letter-spacing: 0.2px;
             text-wrap: balance;
         }
         .prelogin-announce-meta {
-            margin-top: 0.35rem;
+            margin-top: 0.52rem;
             color: #cbdded;
-            font-size: 0.92rem;
+            font-size: 0.96rem;
             line-height: 1.42;
             max-width: 40ch;
             margin-left: auto;
@@ -766,7 +1027,7 @@
             text-align: center;
         }
         .prelogin-feature-row {
-            margin-top: 0.82rem;
+            margin-top: 1rem;
             display: flex;
             flex-wrap: wrap;
             gap: 0.44rem;
@@ -776,49 +1037,101 @@
             display: inline-flex;
             align-items: center;
             gap: 0.34rem;
-            padding: 0.24rem 0.52rem;
+            padding: 0.34rem 0.72rem;
             border-radius: 999px;
             border: 1px solid rgba(141, 164, 190, 0.28);
             background: rgba(9, 17, 29, 0.62);
             color: #d8e7f5;
-            font-size: 0.8rem;
+            font-size: 0.92rem;
         }
         .prelogin-feature-item i {
             color: #7df0ff;
-            font-size: 0.74rem;
+            font-size: 0.8rem;
         }
         .prelogin-announce-dots-bottom {
-            margin-top: 0.52rem;
+            margin-top: 0.85rem;
             display: flex;
             justify-content: center;
         }
         .prelogin-announce-dots-bottom .prelogin-announce-dots {
-            gap: 0.42rem;
+            gap: 0.5rem;
+        }
+        .prelogin-announce-dot {
+            width: 8px;
+            height: 8px;
         }
         @media (max-width: 980px) {
             .prelogin-gate-shell {
                 grid-template-columns: 1fr;
                 min-height: auto;
+                max-height: none;
+                border-radius: 18px;
             }
             .prelogin-form-panel {
                 border-right: none;
                 border-bottom: 1px solid rgba(118, 224, 214, 0.2);
+                padding: 1rem 1rem 0.95rem;
+                overflow-y: visible;
+            }
+            .prelogin-left-hero {
+                gap: 0.85rem;
+            }
+            .prelogin-headline {
+                font-size: clamp(2rem, 12vw, 3rem);
+            }
+            .prelogin-lead {
+                font-size: 0.95rem;
+            }
+            .prelogin-benefits {
+                gap: 0.7rem;
             }
             .prelogin-form-card {
                 width: 100%;
+                margin-top: 0.5rem;
+                border-radius: 16px;
+                padding: 1rem 0.95rem 0.9rem;
             }
             .prelogin-announce-card {
                 padding: 0.95rem;
-                gap: 0.7rem;
             }
             .prelogin-announce-visual {
-                min-height: 400px;
+                min-height: 440px;
             }
             .prelogin-announce-title {
-                font-size: clamp(1.5rem, 7vw, 2.3rem);
+                font-size: clamp(1.45rem, 7vw, 2.1rem);
             }
             .prelogin-announce-meta {
                 font-size: 0.88rem;
+            }
+            .prelogin-transition-layer.left-mode {
+                width: 100%;
+                min-width: 0;
+            }
+            .prelogin-announce-panel {
+                overflow-y: visible;
+            }
+        }
+        @media (max-height: 860px) {
+            .prelogin-gate {
+                align-items: flex-start;
+                padding: 0.75rem;
+            }
+            .prelogin-gate-shell {
+                min-height: auto;
+                max-height: none;
+            }
+            .prelogin-form-panel,
+            .prelogin-announce-panel {
+                overflow: visible;
+            }
+            .prelogin-headline {
+                font-size: clamp(2.2rem, 5.1vw, 4.1rem);
+            }
+            .prelogin-form-card {
+                padding: 1.1rem 1.05rem 0.95rem;
+            }
+            .prelogin-announce-visual {
+                min-height: clamp(420px, 66vh, 640px);
             }
         }
 
@@ -4409,27 +4722,69 @@
 <div id="prelogin-gate" class="prelogin-gate active" aria-live="polite" aria-hidden="false">
     <div class="prelogin-gate-shell">
         <section class="prelogin-panel prelogin-form-panel">
-            <div class="prelogin-form-card">
+            <div class="prelogin-left-hero">
                 <div class="prelogin-brand">
                     <span class="prelogin-brand-icon">
                         <img src="https://raw.githubusercontent.com/OceanandWild/owsdatabase/refs/heads/main/OWS%20Store/build/icon.ico" alt="OWS Store">
                     </span>
                     <span>OWS Store</span>
                 </div>
-                <div class="prelogin-title">Iniciar sesion</div>
-                <div class="prelogin-sub">Conecta Ocean Pay para entrar al ecosistema OWS con tu perfil y sincronizacion activa.</div>
+                <h1 class="prelogin-headline">OWS Store</h1>
+                <p class="prelogin-lead">Inteligencia oceánica para el ecosistema digital moderno.</p>
+                <div class="prelogin-benefits">
+                    <div class="prelogin-benefit">
+                        <span class="prelogin-benefit-icon"><i class="fas fa-shield-halved"></i></span>
+                        <div>
+                            <div class="prelogin-benefit-title">Seguridad refractiva</div>
+                            <div class="prelogin-benefit-text">Capas cifradas inspiradas en las profundidades.</div>
+                        </div>
+                    </div>
+                    <div class="prelogin-benefit">
+                        <span class="prelogin-benefit-icon"><i class="fas fa-wave-square"></i></span>
+                        <div>
+                            <div class="prelogin-benefit-title">Interfaz fluida</div>
+                            <div class="prelogin-benefit-text">Navega el ecosistema desde un único hub adaptable.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="prelogin-form-card">
+                <div class="prelogin-title">Bienvenido de nuevo</div>
+                <div class="prelogin-sub">Ingresa tus credenciales para acceder.</div>
                 <form id="prelogin-form" class="prelogin-form">
                     <label class="prelogin-field" for="prelogin-username">
-                        <span class="prelogin-label">Usuario Ocean Pay</span>
-                        <input id="prelogin-username" class="prelogin-input" type="text" autocomplete="username" placeholder="Tu usuario de Ocean Pay" required>
+                        <div class="prelogin-field-head">
+                            <span class="prelogin-label">Usuario</span>
+                        </div>
+                        <div class="prelogin-input-wrap">
+                            <i class="prelogin-input-icon fas fa-user"></i>
+                                    <input id="prelogin-username" class="prelogin-input" type="text" autocomplete="username" list="prelogin-username-list" placeholder="Tu nombre de usuario" required>
+                        </div>
                     </label>
                     <label class="prelogin-field" for="prelogin-password">
-                        <span class="prelogin-label">Contrasena</span>
-                        <input id="prelogin-password" class="prelogin-input" type="password" autocomplete="current-password" placeholder="Tu contrasena" required>
+                        <div class="prelogin-field-head">
+                            <span class="prelogin-label">Contrasena</span>
+                            <a href="#" class="prelogin-link">Olvidé mi clave</a>
+                        </div>
+                        <div class="prelogin-input-wrap">
+                            <i class="prelogin-input-icon fas fa-lock"></i>
+                            <input id="prelogin-password" class="prelogin-input" type="password" autocomplete="current-password" placeholder="Tu contrasena" required>
+                        </div>
                     </label>
-                    <button id="prelogin-submit" class="prelogin-btn" type="submit">Entrar a OWS Store</button>
-                    <div id="prelogin-status" class="prelogin-status" aria-live="polite"></div>
+                    <div class="prelogin-remember">
+                        <span>Recordar datos</span>
+                        <input class="prelogin-toggle" type="checkbox" aria-label="Recordar datos">
+                            </div>
+                            <datalist id="prelogin-username-list"></datalist>
+                            <button id="prelogin-submit" class="prelogin-btn" type="submit">Entrar a OWS Store <i class="fas fa-arrow-right"></i></button>
+                            <div id="prelogin-status" class="prelogin-status" aria-live="polite"></div>
                 </form>
+                <div class="prelogin-register">¿No tienes una cuenta? <a href="#">Regístrate</a></div>
+                <div class="prelogin-footer-links">
+                    <span>Política de privacidad</span>
+                    <span>Términos del servicio</span>
+                    <span>Ajustes de cookies</span>
+                </div>
             </div>
         </section>
         <section class="prelogin-panel prelogin-announce-panel">
@@ -4458,7 +4813,7 @@
                 </div>
             </article>
         </section>
-        <div id="prelogin-transition-layer" class="prelogin-transition-layer" aria-hidden="true">
+                <div id="prelogin-transition-layer" class="prelogin-transition-layer" aria-hidden="true">
             <div class="prelogin-transition-brand">
                 <span class="prelogin-brand-icon">
                     <img src="https://raw.githubusercontent.com/OceanandWild/owsdatabase/refs/heads/main/OWS%20Store/build/icon.ico" alt="OWS Store">
@@ -4661,6 +5016,22 @@
                         </div>
                         <div id="m-events-list" class="modal-news-list">
                             <div class="modal-news-empty">Sin eventos cargados.</div>
+                        </div>
+                    </div>
+                </div>
+                <div id="prelogin-two-factor-modal" class="prelogin-two-factor-modal" aria-hidden="true">
+                    <div class="prelogin-two-factor-card">
+                        <div class="prelogin-two-factor-kicker">Seguridad Ocean Pay</div>
+                        <h3 class="prelogin-two-factor-title">Verificacion en 2 pasos</h3>
+                        <p id="prelogin-two-factor-text" class="prelogin-two-factor-text">Para continuar, abre Ocean Pay, ve a Configuración > Seguridad, copia el código solicitado por OWS Store y pégalo aquí.</p>
+                        <label class="prelogin-two-factor-field" for="prelogin-two-factor-code">
+                            <span>Código de verificación</span>
+                            <input id="prelogin-two-factor-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000">
+                        </label>
+                        <div id="prelogin-two-factor-status" class="prelogin-two-factor-status"></div>
+                        <div class="prelogin-two-factor-actions">
+                            <button id="prelogin-two-factor-cancel" type="button" class="prelogin-two-factor-btn ghost">Cancelar</button>
+                            <button id="prelogin-two-factor-verify" type="button" class="prelogin-two-factor-btn primary">Verificar y entrar</button>
                         </div>
                     </div>
                 </div>
@@ -5424,6 +5795,7 @@
         const OCEAN_PAY_STORAGE_USER = 'opUser';
         const OCEAN_PAY_STORAGE_TOKEN = 'opToken';
         const OCEAN_PAY_STORAGE_STATE = 'opStoreState';
+        const OWS_STORE_OCEAN_PAY_AUTOCOMPLETE_USERS_KEY = 'ows_store_ocean_pay_autocomplete_users_v1';
         const WILD_DESTINY_RELEASE_DATE_ISO = '2026-03-07T18:00:00Z';
         const STORE_TRAILER_PREMIERE_VIDEO_URL = 'https://archive.org/download/23.03.2026-22.57.46-rec/23.03.2026_22.57.46_REC.mp4';
         const STORE_TRAILER_PREMIERE_START_ISO = '2026-03-24T23:00:00Z'; // 24/03/2026 20:00 (America/Montevideo, UTC-3)
@@ -5858,6 +6230,7 @@
         };
         let preloginAnnouncementIndex = 0;
         let preloginAnnouncementTimer = null;
+        let pendingOceanPayTwoFactorChallenge = null;
         let owsStoreBootstrapStarted = false;
         const STORE_OFFERS_ENABLED = false;
         const projectCommerceOfferCache = new Map();
@@ -6469,9 +6842,16 @@
                 const res = await fetch(`${API_URL}/ocean-pay/login`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
+                    body: JSON.stringify({ username, password, client: 'ows-store' })
                 });
                 const data = await res.json().catch(() => ({}));
+                if (data?.requires_two_factor && data?.challenge_id) {
+                    return {
+                        requiresTwoFactor: true,
+                        challengeId: String(data.challenge_id),
+                        expiresInSeconds: Number(data.expires_in_seconds || 0)
+                    };
+                }
                 if (!res.ok || !data?.token) throw new Error(data?.error || 'No se pudo iniciar sesion');
                 const loginPayload = {
                     ...data,
@@ -6487,7 +6867,8 @@
                 });
                 const refreshed = await refreshOceanPayStore();
                 if (!refreshed) throw new Error('No se pudo sincronizar Ocean Pay luego del login.');
-                return true;
+                rememberOceanPayAutocompleteUser(username);
+                return { ok: true };
             } catch (err) {
                 throw err;
             } finally {
@@ -6506,7 +6887,11 @@
                 return;
             }
             try {
-                await loginOceanPayStoreWithCredentials(username, password);
+                const loginState = await loginOceanPayStoreWithCredentials(username, password);
+                if (loginState?.requiresTwoFactor) {
+                    addNotification('Ocean Pay requiere verificacion en 2 pasos para OWS Store.', 'warning');
+                    return;
+                }
                 if (userInput) userInput.value = '';
                 if (passInput) passInput.value = '';
                 addNotification('Ocean Pay conectado correctamente.', 'success');
@@ -6550,6 +6935,106 @@
             if (tone === 'error') status.classList.add('error');
             if (tone === 'success') status.classList.add('success');
             status.textContent = message || '';
+        }
+
+        function readOceanPayAutocompleteUsers() {
+            try {
+                const raw = localStorage.getItem(OWS_STORE_OCEAN_PAY_AUTOCOMPLETE_USERS_KEY) || '[]';
+                const parsed = JSON.parse(raw);
+                if (!Array.isArray(parsed)) return [];
+                const cleaned = parsed
+                    .map((item) => String(item || '').trim())
+                    .filter((item) => item.length >= 2 && item.length <= 64);
+                return [...new Set(cleaned)].slice(0, 15);
+            } catch (_err) {
+                return [];
+            }
+        }
+
+        function writeOceanPayAutocompleteUsers(users = []) {
+            const cleaned = (Array.isArray(users) ? users : [])
+                .map((item) => String(item || '').trim())
+                .filter((item) => item.length >= 2 && item.length <= 64);
+            const normalized = [...new Set(cleaned)].slice(0, 15);
+            localStorage.setItem(OWS_STORE_OCEAN_PAY_AUTOCOMPLETE_USERS_KEY, JSON.stringify(normalized));
+            return normalized;
+        }
+
+        function rememberOceanPayAutocompleteUser(username = '') {
+            const safe = String(username || '').trim();
+            if (!safe) return;
+            const list = readOceanPayAutocompleteUsers();
+            const withoutCurrent = list.filter((item) => item.toLowerCase() !== safe.toLowerCase());
+            writeOceanPayAutocompleteUsers([safe, ...withoutCurrent]);
+            renderPreloginUsernameAutocomplete();
+        }
+
+        function renderPreloginUsernameAutocomplete() {
+            const listEl = document.getElementById('prelogin-username-list');
+            if (!listEl) return;
+            const users = readOceanPayAutocompleteUsers();
+            listEl.innerHTML = users.map((name) => `<option value="${String(name).replace(/"/g, '&quot;')}"></option>`).join('');
+        }
+
+        function setPreloginTwoFactorStatus(message, tone = 'neutral') {
+            const status = document.getElementById('prelogin-two-factor-status');
+            if (!status) return;
+            status.classList.remove('error');
+            if (tone === 'error') status.classList.add('error');
+            status.textContent = message || '';
+        }
+
+        function openPreloginTwoFactorModal(challengeId = '') {
+            const modal = document.getElementById('prelogin-two-factor-modal');
+            const text = document.getElementById('prelogin-two-factor-text');
+            const codeInput = document.getElementById('prelogin-two-factor-code');
+            if (!modal || !text || !codeInput) return;
+            pendingOceanPayTwoFactorChallenge = challengeId ? String(challengeId) : null;
+            text.textContent = 'Para continuar, abre Ocean Pay > Ajustes > Seguridad, copia el código solicitado por OWS Store y pégalo aquí.';
+            codeInput.value = '';
+            setPreloginTwoFactorStatus('');
+            modal.classList.add('active');
+            modal.setAttribute('aria-hidden', 'false');
+            setTimeout(() => codeInput.focus(), 30);
+        }
+
+        function closePreloginTwoFactorModal() {
+            const modal = document.getElementById('prelogin-two-factor-modal');
+            if (!modal) return;
+            modal.classList.remove('active');
+            modal.setAttribute('aria-hidden', 'true');
+        }
+
+        async function verifyPreloginTwoFactorCode(code = '') {
+            const challengeId = String(pendingOceanPayTwoFactorChallenge || '').trim();
+            if (!challengeId) throw new Error('No hay solicitud 2FA activa.');
+            const res = await fetch(`${API_URL}/ocean-pay/ows-store/two-factor/verify`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    challenge_id: challengeId,
+                    code: String(code || '').trim()
+                })
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data?.token) {
+                throw new Error(data?.error || 'No se pudo validar el codigo de seguridad.');
+            }
+            const loginPayload = {
+                ...data,
+                ...(data?.user || {}),
+                cards: data?.cards || data?.user?.cards || []
+            };
+            const balances = extractOceanPayBalances(loginPayload);
+            setOceanPaySession({
+                user: data.user || null,
+                token: data.token,
+                balance: toOceanPayNumber(balances.aquabux || data?.user?.aquabux || data?.aquabux || 0),
+                balances
+            });
+            const refreshed = await refreshOceanPayStore();
+            if (!refreshed) throw new Error('No se pudo sincronizar Ocean Pay luego del codigo.');
+            return true;
         }
 
         function getActivePreloginAnnouncements() {
@@ -6657,15 +7142,20 @@
             const submit = document.getElementById('prelogin-submit');
             const userInput = document.getElementById('prelogin-username');
             const passInput = document.getElementById('prelogin-password');
+            const twoFactorModal = document.getElementById('prelogin-two-factor-modal');
+            const twoFactorCodeInput = document.getElementById('prelogin-two-factor-code');
+            const twoFactorCancelBtn = document.getElementById('prelogin-two-factor-cancel');
+            const twoFactorVerifyBtn = document.getElementById('prelogin-two-factor-verify');
             const transitionLayer = document.getElementById('prelogin-transition-layer');
             const transitionLoader = document.getElementById('prelogin-transition-loader');
             const transitionResult = document.getElementById('prelogin-transition-result');
             const transitionTitle = document.getElementById('prelogin-transition-title');
             const transitionDetail = document.getElementById('prelogin-transition-detail');
-            if (!gate || !shell || !form || !submit || !userInput || !passInput || !transitionLayer || !transitionLoader || !transitionResult || !transitionTitle || !transitionDetail) return;
+            if (!gate || !shell || !form || !submit || !userInput || !passInput || !twoFactorModal || !twoFactorCodeInput || !twoFactorCancelBtn || !twoFactorVerifyBtn || !transitionLayer || !transitionLoader || !transitionResult || !transitionTitle || !transitionDetail) return;
 
             gate.classList.add('active');
             gate.setAttribute('aria-hidden', 'false');
+            renderPreloginUsernameAutocomplete();
 
             preloginAnnouncementIndex = 0;
             renderPreloginAnnouncement(preloginAnnouncementIndex);
@@ -6675,6 +7165,7 @@
             try {
                 const cachedUser = JSON.parse(localStorage.getItem(OCEAN_PAY_STORAGE_USER) || 'null');
                 if (cachedUser?.username) userInput.value = String(cachedUser.username);
+                if (cachedUser?.username) rememberOceanPayAutocompleteUser(String(cachedUser.username));
             } catch (_) {}
 
             const setFormDisabled = (disabled) => {
@@ -6741,6 +7232,65 @@
                 shell.classList.remove('left-transition-active', 'full-transition-active');
             };
 
+            const performTwoFactorVerification = async () => {
+                const code = String(twoFactorCodeInput.value || '').trim();
+                if (code.length < 6) {
+                    setPreloginTwoFactorStatus('Ingresa el código completo de 6 dígitos.', 'error');
+                    return false;
+                }
+                twoFactorVerifyBtn.disabled = true;
+                twoFactorCancelBtn.disabled = true;
+                setPreloginTwoFactorStatus('Validando código con Ocean Pay...');
+                try {
+                    await verifyPreloginTwoFactorCode(code);
+                    closePreloginTwoFactorModal();
+                    showTransition({
+                        mode: 'success',
+                        title: 'Verificacion completada',
+                        detail: 'Tu cuenta fue validada en dos pasos.',
+                        scope: 'left'
+                    });
+                    await new Promise((r) => setTimeout(r, 780));
+                    showTransition({
+                        mode: 'loading',
+                        title: 'Entrando...',
+                        detail: 'Preparando entorno del ecosistema.',
+                        scope: 'full',
+                        flyCenter: true
+                    });
+                    await new Promise((r) => setTimeout(r, 980));
+                    hidePreloginGate();
+                    await startOWSStoreBootstrap();
+                    return true;
+                } catch (err) {
+                    setPreloginTwoFactorStatus(err?.message || 'No se pudo validar el código.', 'error');
+                    twoFactorCodeInput.focus();
+                    return false;
+                } finally {
+                    twoFactorVerifyBtn.disabled = false;
+                    twoFactorCancelBtn.disabled = false;
+                }
+            };
+
+            twoFactorCancelBtn.onclick = () => {
+                closePreloginTwoFactorModal();
+                pendingOceanPayTwoFactorChallenge = null;
+                hideTransition();
+                setFormDisabled(false);
+                setPreloginStatus('Validación 2FA cancelada.', 'error');
+            };
+
+            twoFactorVerifyBtn.onclick = async () => {
+                await performTwoFactorVerification();
+            };
+
+            twoFactorCodeInput.onkeydown = async (event) => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    await performTwoFactorVerification();
+                }
+            };
+
             const runSavedCredentialProbe = async () => {
                 showTransition({
                     mode: 'loading',
@@ -6801,7 +7351,22 @@
                     scope: 'left'
                 });
                 try {
-                    await loginOceanPayStoreWithCredentials(username, password);
+                    const loginState = await loginOceanPayStoreWithCredentials(username, password);
+                    if (loginState?.requiresTwoFactor) {
+                        pendingOceanPayTwoFactorChallenge = loginState.challengeId || null;
+                        passInput.value = '';
+                        setFormDisabled(false);
+                        showTransition({
+                            mode: 'loading',
+                            title: 'Verificación adicional requerida',
+                            detail: 'Abre Ocean Pay y copia el código solicitado para validar acceso.',
+                            scope: 'left'
+                        });
+                        await new Promise((r) => setTimeout(r, 500));
+                        openPreloginTwoFactorModal(pendingOceanPayTwoFactorChallenge);
+                        return;
+                    }
+                    rememberOceanPayAutocompleteUser(username);
                     passInput.value = '';
                     showTransition({
                         mode: 'success',

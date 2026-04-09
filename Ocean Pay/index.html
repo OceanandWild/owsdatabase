@@ -2605,7 +2605,7 @@
     /* ---------- HELPERS ---------- */
     const qs = x => document.querySelector(x);
     const show = (sel, on = true) => {
-      const el = typeof sel === 'string'  qs(sel) : sel;
+      const el = typeof sel === 'string' ? qs(sel) : sel;
       if (el) el.classList.toggle('hidden', !on);
     };
 
@@ -2650,6 +2650,29 @@
         <div class="asset-footer-modern">
           <span>Tiger Tasks</span>
           <span style="color:#f59e0b">Wild</span>
+        </div>
+      `;
+      wildRow.appendChild(card);
+    }
+
+    function ensureSparksCard() {
+      if (document.getElementById('sparks-card')) return;
+      const wildRow = document.querySelector('.assets-row-wild');
+      if (!wildRow) return;
+      const card = document.createElement('div');
+      card.className = 'asset-card-modern';
+      card.id = 'sparks-card';
+      card.innerHTML = `
+        <div class="asset-icon-container">
+          <canvas class="currency-canvas" data-currency="sparks" width="44" height="44"></canvas>
+        </div>
+        <div class="asset-info-modern">
+          <span class="asset-name-modern">Sparks</span>
+          <span class="asset-balance-modern" id="sparks">0</span>
+        </div>
+        <div class="asset-footer-modern">
+          <span>Wild Fireworks</span>
+          <span style="color:#67e8f9">Wild</span>
         </div>
       `;
       wildRow.appendChild(card);
@@ -2748,8 +2771,8 @@
       const progress = Number(g.progressAmount || 0);
       const target = Math.max(1, Number(g.targetAmount || 1));
       const pct = Math.max(0, Math.min(100, Number(g.progressPct || (progress / target) * 100)));
-      const modeLabel = String(g.goalType || '').toLowerCase() === 'earn'  'Ganar' : 'Gastar';
-      const eligible = Array.isArray(g.eligibleCurrencies)  g.eligibleCurrencies.map((c) => String(c || '').toUpperCase()).join(' · ') : '';
+      const modeLabel = String(g.goalType || '').toLowerCase() === 'earn' ? 'Ganar' : 'Gastar';
+      const eligible = Array.isArray(g.eligibleCurrencies) ? g.eligibleCurrencies.map((c) => String(c || '').toUpperCase()).join(' · ') : '';
       const rewardAmount = Number(g.rewardAmount || 0);
       const rewardCurrency = String(g.rewardCurrency || PREMIUM_CURRENCY_ID).toUpperCase();
 
@@ -2956,11 +2979,11 @@
       const card = userCards[activeCardIndex];
       if (currencyType === 'mayhemcoins') {
         const tableVal = card.balance_map && typeof card.balance_map === 'object'
-           parseFloat(card.balance_map.mayhemcoins || 0)
+          ? parseFloat(card.balance_map.mayhemcoins || 0)
           : NaN;
         if (Number.isFinite(tableVal)) return tableVal;
       }
-      return card.balances.[currencyType] || 0;
+      return card.balances?.[currencyType] || 0;
     }
 
     /* ---------- CURRENCY ANIMATION SYSTEM ---------- */
@@ -3070,7 +3093,7 @@
       const grad = ctx.createRadialGradient(-size * 0.1, -size * 0.1, size * 0.05, 0, 0, size * 0.5); grad.addColorStop(0, "#fbbf24"); grad.addColorStop(0.6, "#d97706");
       grad.addColorStop(1, "#92400e"); ctx.beginPath(); for (let i = 0; i < 8; i++) {
         const angle = (i * Math.PI * 2) / 8;
-        const r = size * (0.4 + (i % 2 === 0  0.05 : -0.02)); ctx.lineTo(Math.cos(angle) * r, Math.sin(angle) * r);
+        const r = size * (0.4 + (i % 2 === 0 ? 0.05 : -0.02)); ctx.lineTo(Math.cos(angle) * r, Math.sin(angle) * r);
       }
       ctx.closePath(); ctx.fillStyle = grad; ctx.fill();
       // Fossilized Footprint (Inside) 
@@ -3400,6 +3423,38 @@
       ctx.restore();
     }
 
+    function drawSparksIcon(ctx, x, y, size) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.shadowBlur = size * 0.35;
+      ctx.shadowColor = "rgba(96, 165, 250, 0.6)";
+
+      const coin = ctx.createLinearGradient(0, -size * 0.5, 0, size * 0.5);
+      coin.addColorStop(0, "#dbeafe");
+      coin.addColorStop(0.45, "#60a5fa");
+      coin.addColorStop(1, "#1d4ed8");
+      ctx.fillStyle = coin;
+      ctx.beginPath();
+      ctx.rect(-size * 0.34, -size * 0.34, size * 0.68, size * 0.68);
+      ctx.fill();
+
+      ctx.strokeStyle = "rgba(255,255,255,0.52)";
+      ctx.lineWidth = size * 0.04;
+      ctx.stroke();
+
+      ctx.fillStyle = "rgba(255,255,255,0.2)";
+      ctx.beginPath();
+      ctx.rect(-size * 0.24, -size * 0.23, size * 0.22, size * 0.17);
+      ctx.fill();
+
+      ctx.fillStyle = "#eff6ff";
+      ctx.font = `bold ${size * 0.43}px "Space Grotesk", sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("S", 0, size * 0.01);
+      ctx.restore();
+    }
+
     function drawTidesIcon(ctx, x, y, size, time) {
       ctx.save();
       ctx.translate(x, y);
@@ -3487,6 +3542,7 @@
           case 'cosmicdust': drawCosmicDustIcon(ctx, x, y, size * 0.8); break;
           case 'coralbits': drawCoralBitsIcon(ctx, x, y, size * 0.8); break;
           case 'tigrys': drawTigrysIcon(ctx, x, y, size * 0.8); break;
+          case 'sparks': drawSparksIcon(ctx, x, y, size * 0.8); break;
           case 'tides':
           case 'aurex': drawTidesIcon(ctx, x, y, size * 0.8, time); break;
           default:
@@ -3516,7 +3572,7 @@
       const activeCard = userCards[activeCardIndex] || {};
       const balances = activeCard.balances || {};
       const tableBalances = activeCard.balance_map && typeof activeCard.balance_map === 'object'
-         activeCard.balance_map
+        ? activeCard.balance_map
         : null;
 
       qs('#bux').textContent = Math.round(balances.aquabux || 0).toLocaleString();
@@ -3528,7 +3584,7 @@
       const serverWildCredits = Math.round(balances.wildcredits || 0);
 
       // Intentamos usar el valor local si es mayor (indicador de desincronización temporal)
-      const finalWildCredits = localWildCredits !== null  Math.max(parseInt(localWildCredits), serverWildCredits) : serverWildCredits;
+      const finalWildCredits = localWildCredits !== null ? Math.max(parseInt(localWildCredits), serverWildCredits) : serverWildCredits;
 
       const wcEl = qs('#wildcredits');
       if (wcEl) {
@@ -3545,6 +3601,8 @@
       qs('#wildgems').textContent = Math.round(balances.wildgems || 0).toLocaleString();
       const tigrysEl = qs('#tigrys');
       if (tigrysEl) tigrysEl.textContent = Math.round(balances.tigrys || 0).toLocaleString();
+      const sparksEl = qs('#sparks');
+      if (sparksEl) sparksEl.textContent = Math.round(balances.sparks || 0).toLocaleString();
       const rsEl = qs('#relayshards');
       if (rsEl) rsEl.textContent = Math.round(balances.relayshards || 0).toLocaleString();
       qs('#appbux').textContent = Math.round(balances.appbux || 0).toLocaleString();
@@ -3557,9 +3615,9 @@
       if (wwtEl) wwtEl.textContent = Math.round(balances.wildwavetokens || 0).toLocaleString();
       const mcEl = qs('#mayhemcoins');
       if (mcEl) {
-        const tableMc = tableBalances  parseFloat(tableBalances.mayhemcoins || 0) : NaN;
+        const tableMc = tableBalances ? parseFloat(tableBalances.mayhemcoins || 0) : NaN;
         const mergedMc = parseFloat(balances.mayhemcoins || 0);
-        const mcValue = Number.isFinite(tableMc)  tableMc : mergedMc;
+        const mcValue = Number.isFinite(tableMc) ? tableMc : mergedMc;
         mcEl.textContent = Math.round(mcValue || 0).toLocaleString();
       }
       const cdEl = qs('#cosmicdust');
@@ -3567,16 +3625,16 @@
       const coralEl = qs('#coralbits');
       if (coralEl) coralEl.textContent = Math.round(balances.coralbits || 0).toLocaleString();
       const tidesEl = qs('#tides');
-      if (tidesEl) tidesEl.textContent = Math.round((balances.tides  balances.aurex  0)).toLocaleString();
+      if (tidesEl) tidesEl.textContent = Math.round((balances.tides || balances.aurex || 0)).toLocaleString();
       qs('#ecopower-display').textContent = Math.round(balances.ecopower || 100);
 
       // Actualizar Resumen Lateral con info real del usuario
       const opUser = JSON.parse(localStorage.getItem('opUser') || '{}');
       if (opUser.username) {
         const isAdmin = opUser.username.toLowerCase() === 'oceanandwild';
-        qs('#account-type-display').textContent = isAdmin  'STUDIO OWNER' : 'GLOBAL VIP';
-        qs('#daily-limit-display').textContent = isAdmin  'ILIMITADO' : '10,000 BUX';
-        qs('#verification-level-display').innerHTML = isAdmin 
+        qs('#account-type-display').textContent = isAdmin ? 'STUDIO OWNER' : 'GLOBAL VIP';
+        qs('#daily-limit-display').textContent = isAdmin ? 'ILIMITADO' : '10,000 BUX';
+        qs('#verification-level-display').innerHTML = isAdmin ?
           '<i class="fas fa-shield-check"></i> VERIFICADO' :
           '<i class="fas fa-check-circle"></i> Nivel 3';
       }
@@ -3595,27 +3653,27 @@
       const parity = {
         bux: 0.1, wildcredits: 0.5, wildgems: 10.0, ecoxionums: 1.0,
         nxb: 0.25, amber: 0.15, voltbit: 0.1, wildwavetokens: 0.18, appbux: 0.05,
-        ecobooks: 0.5, ecobits: 2.0, ecotokens: 0.3, mayhemcoins: 0.08, cosmicdust: 0.04, relayshards: 0.12, coralbits: 0.22, tigrys: 0.09, tides: 12
+        ecobooks: 0.5, ecobits: 2.0, ecotokens: 0.3, mayhemcoins: 0.08, cosmicdust: 0.04, relayshards: 0.12, coralbits: 0.22, tigrys: 0.09, sparks: 0.11, tides: 12
       };
 
       const currencyLabels = {
         bux: 'AquaBux', wildcredits: 'WildCredits', wildgems: 'WildGems',
         ecoxionums: 'Ecoxionums', 'nxb-balance': 'Nexus Bits', amber: 'Amber',
         voltbit: 'VoltBits', wildwavetokens: 'WildWave Tokens', appbux: 'AppBux', ecobooks: 'EcoBooks',
-        ecobits: 'EcoCoreBits', ecotokens: 'EcoTokens', mayhemcoins: 'MayhemCoins', cosmicdust: 'Polvora Cosmica', relayshards: 'RelayShards', coralbits: 'Coral Bits', tigrys: 'Tigrys', tides: 'Tides'
+        ecobits: 'EcoCoreBits', ecotokens: 'EcoTokens', mayhemcoins: 'MayhemCoins', cosmicdust: 'Polvora Cosmica', relayshards: 'RelayShards', coralbits: 'Coral Bits', tigrys: 'Tigrys', sparks: 'Sparks', tides: 'Tides'
       };
 
-      const ids = ['bux', 'tides', 'wildcredits', 'wildgems', 'tigrys', 'relayshards', 'ecoxionums', 'nxb-balance', 'amber', 'voltbit', 'wildwavetokens', 'appbux', 'ecobooks', 'ecobits', 'ecotokens', 'mayhemcoins', 'cosmicdust', 'coralbits'];
+      const ids = ['bux', 'tides', 'wildcredits', 'wildgems', 'tigrys', 'sparks', 'relayshards', 'ecoxionums', 'nxb-balance', 'amber', 'voltbit', 'wildwavetokens', 'appbux', 'ecobooks', 'ecobits', 'ecotokens', 'mayhemcoins', 'cosmicdust', 'coralbits'];
 
       let totalEX = 0;
       const breakdown = [];
       ids.forEach(id => {
         const val = getVal(id);
-        const key = id === 'nxb-balance'  'nxb' : id;
+        const key = id === 'nxb-balance' ? 'nxb' : id;
         totalEX += val * (parity[key] || 0);
         if (val > 0) {
           const label = currencyLabels[id] || id;
-          const fmt = val >= 1000  val.toLocaleString('es-ES', { maximumFractionDigits: 0 }) : val.toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+          const fmt = val >= 1000 ? val.toLocaleString('es-ES', { maximumFractionDigits: 0 }) : val.toLocaleString('es-ES', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
           breakdown.push(`${label} ${fmt}`);
         }
       });
@@ -3628,7 +3686,7 @@
       const breakdownEl = document.getElementById('hero-balances-text');
       if (breakdownEl) {
         breakdownEl.textContent = breakdown.length > 0
-           breakdown.join(' · ')
+          ? breakdown.join(' · ')
           : 'Sin saldo en divisas. Sincroniza o carga desde el POS.';
       }
     }
@@ -3698,9 +3756,9 @@
         const res = await
           fetch(`${API}/pos/${code}`); const data = await res.json(); if (data.success) {
             const pos = data.pos; const
-              isExchange = pos.is_exchange; qs('#pos-confirm-title').textContent = isExchange  'Confirmar Intercambio'
+              isExchange = pos.is_exchange; qs('#pos-confirm-title').textContent = isExchange ? 'Confirmar Intercambio'
                 : 'Confirmar Cobro'; qs('#pos-confirm-amount').textContent = `${pos.amount} ${pos.currency.toUpperCase()}`;
-            qs('#pos-confirm-sender').textContent = isExchange  `Tu Tarjeta (Intercambio)` : `De: ${pos.sender_name}`;
+            qs('#pos-confirm-sender').textContent = isExchange ? `Tu Tarjeta (Intercambio)` : `De: ${pos.sender_name}`;
             show('#pos-swap-details', isExchange); show('#pos-dest-card-field', !isExchange); if (isExchange) {
               let rate = 1;
               if (pos.target_currency === 'wildgems') {
@@ -3831,7 +3889,7 @@
       if (!senderSelect) return;
 
       const options = userCards.map(card => {
-        const name = card.card_name || (card.is_primary  'Tarjeta Principal' : 'Tarjeta Secundaria');
+        const name = card.card_name || (card.is_primary ? 'Tarjeta Principal' : 'Tarjeta Secundaria');
         return `<option value="${card.id}">${name} (**** ${card.card_number.slice(-4)})</option>`;
       }).join('');
 
@@ -3944,7 +4002,7 @@
               <h4 style="margin:0;color:#a5f3fc;font-size:0.97rem;">${pkg.title}</h4>
             </div>
             <p style="margin:0;color:#f8fafc;font-weight:800;font-size:1.05rem;">${totalTides.toLocaleString()} TIDES</p>
-            <p style="margin:4px 0 10px;color:#94a3b8;font-size:0.82rem;">${pkg.bonus > 0  `Incluye bono de +${Number(pkg.bonus).toLocaleString()}.` : 'Paquete base de recarga.'}</p>
+            <p style="margin:4px 0 10px;color:#94a3b8;font-size:0.82rem;">${pkg.bonus > 0 ? `Incluye bono de +${Number(pkg.bonus).toLocaleString()}.` : 'Paquete base de recarga.'}</p>
             <button class="pos-btn-primary" style="width:100%;" onclick="startTidesCheckout('${pkg.id}')">
               Comprar por $${Number(pkg.priceUyu || 0).toLocaleString('es-UY')} UYU
             </button>
@@ -3962,7 +4020,7 @@
         const res = await apiFetch(`${API}/ocean-pay/tides/packages`, { headers: { 'Authorization': `Bearer ${token}` } });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error || 'No se pudo cargar el catalogo Tides');
-        tidesPackages = Array.isArray(data.packages)  data.packages : [];
+        tidesPackages = Array.isArray(data.packages) ? data.packages : [];
         renderTidesPackages();
       } catch (err) {
         if (grid) grid.innerHTML = `<div style="color:#ef4444;padding:1rem;text-align:center;">No se pudo cargar la tienda Tides.</div>`;
@@ -4009,7 +4067,7 @@
         const credited = Number(data.credited || 0);
         showToast(
           data.alreadyApplied
-             'Compra Tides ya confirmada anteriormente.'
+            ? 'Compra Tides ya confirmada anteriormente.'
             : `Compra confirmada. +${credited.toLocaleString()} TIDES acreditados.`,
           'success',
           6500
@@ -4038,9 +4096,9 @@
           oceanPass = {
             ...oceanPass,
             ...data,
-            expiry: data.expiry  new Date(data.expiry).getTime() : null,
-            nextRenewAt: data.nextRenewAt  new Date(data.nextRenewAt).getTime() : null,
-            lastRewardClaim: data.lastRewardClaim  new Date(data.lastRewardClaim).getTime() : null
+            expiry: data.expiry ? new Date(data.expiry).getTime() : null,
+            nextRenewAt: data.nextRenewAt ? new Date(data.nextRenewAt).getTime() : null,
+            lastRewardClaim: data.lastRewardClaim ? new Date(data.lastRewardClaim).getTime() : null
           };
           await refreshAllBalances();
           updateOceanPassUI();
@@ -4055,7 +4113,7 @@
       const select = qs('#pass-activation-currency');
       if (!select) return;
       const key = String(select.value || '').toLowerCase();
-      const raw = oceanPass.pricing.[key];
+      const raw = oceanPass.pricing?.[key];
       const amount = Number(raw || 0);
       const btn = document.querySelector('#pass-inactive-content .pos-btn-primary');
       if (!btn) return;
@@ -4074,12 +4132,12 @@
         const data = await res.json();
         oceanPass = {
           active: data.active,
-          expiry: data.expiry  new Date(data.expiry).getTime() : null,
-          nextRenewAt: data.nextRenewAt  new Date(data.nextRenewAt).getTime() : null,
+          expiry: data.expiry ? new Date(data.expiry).getTime() : null,
+          nextRenewAt: data.nextRenewAt ? new Date(data.nextRenewAt).getTime() : null,
           hasDebt: data.hasDebt,
           debtAmount: data.debtAmount,
           missions: data.missions || [],
-          lastRewardClaim: data.lastRewardClaim  new Date(data.lastRewardClaim).getTime() : null,
+          lastRewardClaim: data.lastRewardClaim ? new Date(data.lastRewardClaim).getTime() : null,
           minutesTracked: data.minutesTracked || 0,
           planId: data.planId || 'ocean-pass-standard',
           planName: data.planName || 'Ocean Pass',
@@ -4169,7 +4227,7 @@
         const billingAmount = Number(oceanPass.billingAmount || 0);
 
         const grid = qs('#mission-grid');
-        grid.innerHTML = ` <div class="mission-card"> <h4>${oceanPass.planName || 'Ocean Pass'}</h4> <p>Cobro de suscripción: <b>${billingAmount.toLocaleString()} ${billingCurrency}</b></p> <p>Renovacion/vencimiento: <b>${oceanPass.nextRenewAt  new Date(oceanPass.nextRenewAt).toLocaleString() : 'Sin dato'}</b></p> </div> <div class="mission-card"> <h4>Recompensa diaria</h4> <p>750 en la divisa elegida cada ${oceanPass.rewardEveryHours || 24}h.</p> <p>${rewardReady  'Disponible ahora' : `Disponible en ${rewardH}h ${rewardM}m`}</p> </div> `;
+        grid.innerHTML = ` <div class="mission-card"> <h4>${oceanPass.planName || 'Ocean Pass'}</h4> <p>Cobro de suscripción: <b>${billingAmount.toLocaleString()} ${billingCurrency}</b></p> <p>Renovacion/vencimiento: <b>${oceanPass.nextRenewAt ? new Date(oceanPass.nextRenewAt).toLocaleString() : 'Sin dato'}</b></p> </div> <div class="mission-card"> <h4>Recompensa diaria</h4> <p>750 en la divisa elegida cada ${oceanPass.rewardEveryHours || 24}h.</p> <p>${rewardReady ? 'Disponible ahora' : `Disponible en ${rewardH}h ${rewardM}m`}</p> </div> `;
       } else {
         badge.textContent = 'Inactivo';
         badge.className = 'pass-status-badge status-inactive';
@@ -4276,6 +4334,202 @@
       }
       if (id === 'tides') loadTidesPackages();
       if (id === 'wallet') loadGlobalGoalStatus();
+      if (id === 'settings') {
+        ensureOceanPaySecuritySettingsSection();
+        refreshOceanPaySecurityCenter();
+      }
+    }
+
+    function ensureOceanPaySecuritySettingsSection() {
+      const settingsSection = document.getElementById('settings-section');
+      if (!settingsSection || settingsSection.dataset.securityCenterReady === '1') return;
+      settingsSection.dataset.securityCenterReady = '1';
+
+      const dangerBlock = settingsSection.querySelector('div[style*="Zona de Peligro"]')?.parentElement
+        || settingsSection.querySelector('div[style*="max-width"]')
+        || settingsSection;
+
+      const host = document.createElement('div');
+      host.id = 'op-security-center';
+      host.style.marginBottom = '1rem';
+      host.innerHTML = `
+        <div style="background: rgba(14, 165, 233, 0.12); border: 1px solid rgba(14, 165, 233, 0.32); border-radius: 14px; padding: 1rem; margin-bottom: 0.9rem;">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:0.8rem; flex-wrap:wrap;">
+            <div>
+              <h3 style="margin:0; color:#e7f5ff; font-size:1.04rem;"><i class="fas fa-shield-halved" style="margin-right:.45rem;"></i>Seguridad</h3>
+              <p style="margin:.32rem 0 0; color:#c6dcf1; font-size:.86rem;">Recomendado: activar verificación en 2 pasos para accesos desde OWS Store.</p>
+            </div>
+            <button id="op-2fa-toggle-btn" style="width:auto; min-width:170px; padding:.65rem .9rem; border-radius:10px; border:1px solid rgba(109,234,255,.45); background:rgba(11,32,50,.8); color:#d9f1ff; font-weight:700;">Cargando...</button>
+          </div>
+          <div id="op-2fa-status" style="margin-top:.6rem; color:#9cc3de; font-size:.82rem;"></div>
+        </div>
+
+        <div style="background: rgba(6, 16, 30, 0.65); border: 1px solid rgba(131, 170, 209, 0.28); border-radius: 14px; padding: 1rem;">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:0.8rem; flex-wrap:wrap;">
+            <div>
+              <h3 style="margin:0; color:#e8f6ff; font-size:1rem;"><i class="fas fa-key" style="margin-right:.42rem;"></i>Códigos solicitados por OWS Store</h3>
+              <p style="margin:.3rem 0 0; color:#bfd8ee; font-size:.84rem;">Cuando OWS Store te pida verificación, copia el código activo y pégalo en el modal de acceso.</p>
+            </div>
+            <button id="op-2fa-refresh-codes-btn" class="secondary" style="width:auto; padding:.58rem .82rem;">Actualizar códigos</button>
+          </div>
+          <div id="op-2fa-codes-list" style="margin-top:.7rem; display:grid; gap:.52rem;"></div>
+        </div>
+      `;
+
+      if (dangerBlock && dangerBlock.parentElement) {
+        dangerBlock.parentElement.insertBefore(host, dangerBlock);
+      } else {
+        settingsSection.appendChild(host);
+      }
+
+      const toggleBtn = document.getElementById('op-2fa-toggle-btn');
+      const refreshBtn = document.getElementById('op-2fa-refresh-codes-btn');
+      if (toggleBtn) {
+        toggleBtn.onclick = async () => {
+          const current = toggleBtn.dataset.enabled === '1';
+          await setOceanPayTwoFactorEnabled(!current);
+        };
+      }
+      if (refreshBtn) {
+        refreshBtn.onclick = async () => {
+          await loadOceanPayOwsStoreCodes();
+        };
+      }
+    }
+
+    async function fetchOceanPayTwoFactorStatus() {
+      const res = await fetch(`${API}/ocean-pay/security/two-factor`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'No se pudo obtener el estado de seguridad.');
+      return !!data.enabled;
+    }
+
+    function renderOceanPayTwoFactorStatus(enabled) {
+      const btn = document.getElementById('op-2fa-toggle-btn');
+      const status = document.getElementById('op-2fa-status');
+      if (!btn || !status) return;
+      btn.dataset.enabled = enabled ? '1' : '0';
+      btn.textContent = enabled ? '2 pasos: Activado' : '2 pasos: Desactivado';
+      btn.style.background = enabled
+        ? 'linear-gradient(135deg, rgba(16,185,129,.85), rgba(6,182,212,.85))'
+        : 'rgba(11,32,50,.8)';
+      btn.style.color = enabled ? '#05231c' : '#d9f1ff';
+      status.textContent = enabled
+        ? 'OWS Store solicitará un código adicional al iniciar sesión con tus credenciales.'
+        : 'Acceso clásico habilitado en OWS Store (sin código extra).';
+    }
+
+    async function setOceanPayTwoFactorEnabled(enabled) {
+      const btn = document.getElementById('op-2fa-toggle-btn');
+      const status = document.getElementById('op-2fa-status');
+      if (!btn || !status) return;
+      btn.disabled = true;
+      status.textContent = 'Aplicando cambios de seguridad...';
+      try {
+        const res = await fetch(`${API}/ocean-pay/security/two-factor`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ enabled: !!enabled })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'No se pudo actualizar la verificación en 2 pasos.');
+        renderOceanPayTwoFactorStatus(!!data.enabled);
+        showToast(data.message || 'Ajuste de seguridad actualizado.', 'success');
+      } catch (err) {
+        status.textContent = err.message || 'No se pudo actualizar seguridad.';
+        showToast(err.message || 'No se pudo actualizar seguridad.', 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    function renderOceanPayOwsStoreCodes(codes = []) {
+      const container = document.getElementById('op-2fa-codes-list');
+      if (!container) return;
+      const now = Date.now();
+      const safeCodes = Array.isArray(codes) ? codes : [];
+      if (!safeCodes.length) {
+        container.innerHTML = `<div style="border:1px dashed rgba(147,184,217,.3); border-radius:10px; padding:.75rem; color:#9fc0dc; font-size:.84rem;">No hay códigos pendientes en este momento. Inicia sesión en OWS Store para generar uno nuevo.</div>`;
+        return;
+      }
+      container.innerHTML = safeCodes.map((entry) => {
+        const challengeId = String(entry.challenge_id || '').trim();
+        const code = String(entry.code || '').trim();
+        const expiresAt = new Date(entry.expires_at);
+        const msLeft = Math.max(0, expiresAt.getTime() - now);
+        const minLeft = Math.max(0, Math.floor(msLeft / 60000));
+        const secLeft = Math.max(0, Math.floor((msLeft % 60000) / 1000));
+        const safeLabel = `${minLeft}m ${secLeft}s`;
+        return `
+          <article style="border:1px solid rgba(120,169,210,.28); border-radius:10px; padding:.65rem .75rem; background:rgba(10,20,36,.72); display:grid; gap:.44rem;">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:.6rem; flex-wrap:wrap;">
+              <strong style="font-size:.98rem; color:#ebf8ff; letter-spacing:1.4px;">${code || '------'}</strong>
+              <span style="font-size:.72rem; color:#9dd9ff;">Expira en ${safeLabel}</span>
+            </div>
+            <div style="display:flex; gap:.45rem; flex-wrap:wrap;">
+              <button type="button" data-copy-code="${code}" style="width:auto; padding:.42rem .68rem; border-radius:8px; border:1px solid rgba(126,210,240,.4); background:rgba(16,39,58,.78); color:#daf2ff; font-size:.78rem;">Copiar código</button>
+              <button type="button" data-copy-challenge="${challengeId}" style="width:auto; padding:.42rem .68rem; border-radius:8px; border:1px solid rgba(126,210,240,.4); background:rgba(16,39,58,.78); color:#daf2ff; font-size:.78rem;">Copiar ID solicitud</button>
+            </div>
+          </article>
+        `;
+      }).join('');
+
+      container.querySelectorAll('[data-copy-code]').forEach((btn) => {
+        btn.onclick = async () => {
+          const value = String(btn.getAttribute('data-copy-code') || '');
+          try {
+            await navigator.clipboard.writeText(value);
+            showToast('Código copiado para OWS Store.', 'success');
+          } catch (_err) {
+            showToast('No se pudo copiar automáticamente. Copia manualmente el código.', 'warning');
+          }
+        };
+      });
+      container.querySelectorAll('[data-copy-challenge]').forEach((btn) => {
+        btn.onclick = async () => {
+          const value = String(btn.getAttribute('data-copy-challenge') || '');
+          try {
+            await navigator.clipboard.writeText(value);
+            showToast('ID de solicitud copiado.', 'success');
+          } catch (_err) {
+            showToast('No se pudo copiar el ID de solicitud.', 'warning');
+          }
+        };
+      });
+    }
+
+    async function loadOceanPayOwsStoreCodes() {
+      const container = document.getElementById('op-2fa-codes-list');
+      if (!container) return;
+      container.innerHTML = `<div style="border:1px dashed rgba(147,184,217,.3); border-radius:10px; padding:.75rem; color:#9fc0dc; font-size:.84rem;">Consultando códigos activos...</div>`;
+      try {
+        const res = await fetch(`${API}/ocean-pay/security/ows-store/codes`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'No se pudieron obtener los códigos de OWS Store.');
+        renderOceanPayOwsStoreCodes(data.codes || []);
+      } catch (err) {
+        container.innerHTML = `<div style="border:1px dashed rgba(239,68,68,.35); border-radius:10px; padding:.75rem; color:#ffb1c0; font-size:.84rem;">${err.message || 'Error al consultar códigos.'}</div>`;
+      }
+    }
+
+    async function refreshOceanPaySecurityCenter() {
+      if (!token) return;
+      ensureOceanPaySecuritySettingsSection();
+      try {
+        const enabled = await fetchOceanPayTwoFactorStatus();
+        renderOceanPayTwoFactorStatus(enabled);
+      } catch (err) {
+        const status = document.getElementById('op-2fa-status');
+        if (status) status.textContent = err.message || 'No se pudo leer el estado de seguridad.';
+      }
+      await loadOceanPayOwsStoreCodes();
     }
 
     /* ---------- AUTH TOGGLE ---------- */
@@ -4362,6 +4616,8 @@
         // Load Data
         refreshAllBalances();
         startBalanceRefresh();
+        ensureOceanPaySecuritySettingsSection();
+        refreshOceanPaySecurityCenter();
 
         if (window.opener) {
           window.opener.postMessage({ type: 'ocean-pay-token', token: token, user: data.user }, '*');
@@ -4603,20 +4859,20 @@
           const isExpired = checkExpiry(card.expiry_date);
           const formattedNumber = card.card_number.match(/.{1,4}/g).join(' ');
           const isActive = index === activeCardIndex;
-          const cardName = card.card_name || (card.is_primary  'Tarjeta Principal' : 'Tarjeta Secundaria');
+          const cardName = card.card_name || (card.is_primary ? 'Tarjeta Principal' : 'Tarjeta Secundaria');
 
-          return ` <div class="ocean-card ${isActive  'card-selected' : ''}"
-              onclick="${isExpired  `renewCard('${card.card_number}')` : `setActiveCard(${index})`}"
-              style="${isActive  'border: 2px solid var(--accent); box-shadow: 0 0 30px rgba(34, 211, 238, 0.3);' : ''}; position:relative;"> <div class="card-brand"><span>OCEAN</span><br><small>PAY</small></div> ${isActive  `<div style="position: absolute; top: 10px; left: 10px; background: var(--accent); color: #0a0e1a; padding: 3px 8px; border-radius: 10px; font-size: 0.65rem; font-weight: 800;">EN USO</div>` : ''} <div class="card-chip"></div> <button onclick="handleRenameCard(event, ${card.id}, '${cardName}')"
+          return ` <div class="ocean-card ${isActive ? 'card-selected' : ''}"
+              onclick="${isExpired ? `renewCard('${card.card_number}')` : `setActiveCard(${index})`}"
+              style="${isActive ? 'border: 2px solid var(--accent); box-shadow: 0 0 30px rgba(34, 211, 238, 0.3);' : ''}; position:relative;"> <div class="card-brand"><span>OCEAN</span><br><small>PAY</small></div> ${isActive ? `<div style="position: absolute; top: 10px; left: 10px; background: var(--accent); color: #0a0e1a; padding: 3px 8px; border-radius: 10px; font-size: 0.65rem; font-weight: 800;">EN USO</div>` : ''} <div class="card-chip"></div> <button onclick="handleRenameCard(event, ${card.id}, '${cardName}')"
                 style="position: absolute; top: 10px; right: 60px; background: rgba(255,255,255,0.1); color: white; border:none; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 10; font-size: 0.8rem;"
-                title="Renombrar Tarjeta"><i class="fas fa-pencil-alt"></i></button> ${!card.is_primary  `<button onclick="deleteCard(event, ${card.id})"
+                title="Renombrar Tarjeta"><i class="fas fa-pencil-alt"></i></button> ${!card.is_primary ? `<button onclick="deleteCard(event, ${card.id})"
                 style="position: absolute; top: 10px; right: 20px; background: rgba(239,68,68,0.2); color: #ef4444; border:none; border-radius: 50%; width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 10; font-size: 0.8rem;"
                 title="Eliminar Tarjeta"><i class="fas fa-trash"></i></button>` : ''} <span class="card-number"
                 onclick="event.stopPropagation(); navigator.clipboard.writeText('${card.card_number}'); alert('Número copiado')"
                 style="cursor:pointer;" title="Clic para copiar">${formattedNumber}</span> <div class="card-details"> <div> <span class="card-label">${cardName}</span> <span class="card-val">${JSON.parse(localStorage.getItem('opUser')).username}</span> </div> <div style="margin-left: auto; margin-right: 2rem;"> <span class="card-label">Expira</span> <span class="card-val">${card.expiry_date}</span> </div> <div
                   onclick="event.stopPropagation(); navigator.clipboard.writeText('${card.cvv}'); alert('CVV Copiado')"
                   style="cursor:pointer;" title="Clic para copiar CVV"> <span class="card-label">CVV</span> <span class="card-val">${card.cvv} <i class="fas fa-copy"
-                      style="font-size:0.7rem; opacity:0.5;"></i></span> </div> </div> <div class="card-status"> <span class="status-badge ${isExpired  'status-expired' : 'status-active'}"> ${isExpired  'Expirada - Clic para renovar' : (isActive  'S Seleccionada' : 'Clic para usar')} </span> </div> </div > `;
+                      style="font-size:0.7rem; opacity:0.5;"></i></span> </div> </div> <div class="card-status"> <span class="status-badge ${isExpired ? 'status-expired' : 'status-active'}"> ${isExpired ? 'Expirada - Clic para renovar' : (isActive ? 'Seleccionada' : 'Clic para usar')} </span> </div> </div > `;
         }).join('');
 
       if (cards.length < 2) {
@@ -4756,7 +5012,7 @@
           return;
         }
 
-        listEl.innerHTML = notifications.map(n => ` <div class="notif-card ${n.type}" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); padding: 1.5rem; border-radius: 1rem; position: relative;"> <div class="notif-header" style="display:flex; justify-content:space-between; font-size:0.75rem; color:#64748b; margin-bottom:0.5rem;"> <span>${new Date(n.created_at).toLocaleString()}</span> <span class="status-badge" style="background: ${n.type === 'success'  'rgba(16,185,129,0.1)' : 'rgba(34,211,238,0.1)'}; color: ${n.type === 'success'  '#10b981' : '#22d3ee'};">${n.type}</span> </div> <div class="notif-title" style="color:white; font-weight:700; font-size:1.1rem; margin-bottom:0.25rem;">${n.title}</div> <div class="notif-msg" style="color:#cbd5e1; font-size:0.9rem;">${n.message}</div> </div>`).join('');
+        listEl.innerHTML = notifications.map(n => ` <div class="notif-card ${n.type}" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); padding: 1.5rem; border-radius: 1rem; position: relative;"> <div class="notif-header" style="display:flex; justify-content:space-between; font-size:0.75rem; color:#64748b; margin-bottom:0.5rem;"> <span>${new Date(n.created_at).toLocaleString()}</span> <span class="status-badge" style="background: ${n.type === 'success' ? 'rgba(16,185,129,0.1)' : 'rgba(34,211,238,0.1)'}; color: ${n.type === 'success' ? '#10b981' : '#22d3ee'};">${n.type}</span> </div> <div class="notif-title" style="color:white; font-weight:700; font-size:1.1rem; margin-bottom:0.25rem;">${n.title}</div> <div class="notif-msg" style="color:#cbd5e1; font-size:0.9rem;">${n.message}</div> </div>`).join('');
 
       } catch (e) {
         console.error(e);
@@ -4784,7 +5040,7 @@
         container.innerHTML = txs.map(tx => {
           const date = new Date(tx.created_at).toLocaleDateString();
           const isPos = tx.monto > 0;
-          return ` <div style="display:flex; justify-content:space-between; padding:1rem; border-bottom:1px solid rgba(255,255,255,0.05); align-items:center;"> <div> <div style="font-weight:bold;">${tx.concepto || 'Transacción'}</div> <div style="font-size:0.8rem; color:#64748b;">${date} ⬢ ${tx.origen || 'Sistema'}</div> </div> <div style="font-weight:bold; color:${isPos  'var(--ok)' : 'var(--err)'}"> ${isPos  '+' : ''}${tx.monto} ${tx.moneda || ''} </div> </div>`;
+          return ` <div style="display:flex; justify-content:space-between; padding:1rem; border-bottom:1px solid rgba(255,255,255,0.05); align-items:center;"> <div> <div style="font-weight:bold;">${tx.concepto || 'Transacción'}</div> <div style="font-size:0.8rem; color:#64748b;">${date} ⬢ ${tx.origen || 'Sistema'}</div> </div> <div style="font-weight:bold; color:${isPos ? 'var(--ok)' : 'var(--err)'}"> ${isPos ? '+' : ''}${tx.monto} ${tx.moneda || ''} </div> </div>`;
         }).join('');
       } catch (e) { container.innerHTML = '<div style="color:var(--err)">Error cargando historial</div>'; }
     }
@@ -4923,7 +5179,7 @@
 
     function miscFmt(n) {
       const v = Number(n || 0);
-      return Number.isFinite(v)  v.toLocaleString('es-ES', { maximumFractionDigits: 2 }) : '0';
+      return Number.isFinite(v) ? v.toLocaleString('es-ES', { maximumFractionDigits: 2 }) : '0';
     }
 
     function formatCurrencyLabel(rawCurrency) {
@@ -5014,10 +5270,10 @@
         setMiscValue('misc-kpi-pos', overview.completedPos || 0);
         setMiscValue('misc-kpi-volume', overview.totalVolume || 0);
 
-        const most = Array.isArray(payload.mostUsed)  payload.mostUsed : [];
-        const least = Array.isArray(payload.leastUsed)  payload.leastUsed : [];
-        const flow = Array.isArray(payload.currencyFlow)  payload.currencyFlow : [];
-        const trend = Array.isArray(payload.activityTrend)  payload.activityTrend : [];
+        const most = Array.isArray(payload.mostUsed) ? payload.mostUsed : [];
+        const least = Array.isArray(payload.leastUsed) ? payload.leastUsed : [];
+        const flow = Array.isArray(payload.currencyFlow) ? payload.currencyFlow : [];
+        const trend = Array.isArray(payload.activityTrend) ? payload.activityTrend : [];
 
         renderMiscChart(
           'chartMostUsed',
@@ -5092,7 +5348,7 @@
       amountVal.textContent = details.amount.toLocaleString();
       currencyVal.textContent = (details.currency || 'wildgems').toUpperCase();
 
-      btn.textContent = details.type === 'income'  'Recibir Ingreso' : 'Confirmar y Pagar';
+      btn.textContent = details.type === 'income' ? 'Recibir Ingreso' : 'Confirmar y Pagar';
 
       setPaymentMethod('ocean');
       renderCheckoutCards();
@@ -5137,9 +5393,9 @@
       if (!container) return;
       container.innerHTML = userCards.map((card, idx) => {
         const isSelected = idx === activeCardIndex;
-        return ` <div class="card-option ${isSelected  'selected' : ''}" onclick="selectCheckoutCard(${idx})"> <div
+        return ` <div class="card-option ${isSelected ? 'selected' : ''}" onclick="selectCheckoutCard(${idx})"> <div
                       style="width: 45px; height: 30px; border-radius: 6px; background: linear-gradient(135deg, #1e293b, #0f172a); border: 1px solid rgba(255,255,255,0.1); display:flex; align-items:center; justify-content:center;"> <i class="fas fa-water" style="font-size:0.6rem; color:var(--accent); opacity:0.5;"></i> </div> <div class="card-option-info"> <span class="card-option-name" style="font-size:0.9rem; font-weight:800;">${card.card_name ||
-          'Tarjeta Ocean'}</span> <span class="card-option-number">**** ${card.card_number.slice(-4)}</span> </div> ${isSelected  '<i class="fas fa-check-circle" style="color:#2563eb; font-size:1.2rem;"></i>' : ''} </div> `;
+          'Tarjeta Ocean'}</span> <span class="card-option-number">**** ${card.card_number.slice(-4)}</span> </div> ${isSelected ? '<i class="fas fa-check-circle" style="color:#2563eb; font-size:1.2rem;"></i>' : ''} </div> `;
       }).join('');
     }
 
@@ -5331,7 +5587,7 @@
         if (!res.ok) throw new Error('Error HTTP: ' + res.status);
 
         const subsPayload = await res.json();
-        const normalizedSubs = Array.isArray(subsPayload)  subsPayload : [];
+        const normalizedSubs = Array.isArray(subsPayload) ? subsPayload : [];
 
         const activeSubs = normalizedSubs
           .filter((s) => {
@@ -5391,14 +5647,14 @@
             const rawName = s.plan_name || s.sub_name || 'Plan';
             const rawPlanId = s.plan_id || s.plan || '';
             const expiry = s.end_date || s.next_payment;
-            const pid = s.project_id || (rawName.includes('Nature')  'Naturepedia' : (rawName.includes('Dino')  'DinoBox' : (rawName.includes('VIP')  'WildShorts' : 'Desconocido')));
+            const pid = s.project_id || (rawName.includes('Nature') ? 'Naturepedia' : (rawName.includes('Dino') ? 'DinoBox' : (rawName.includes('VIP') ? 'WildShorts' : 'Desconocido')));
             const pidKey = String(pid || '').toLowerCase();
             const isEcoxionSub = pidKey.includes('ecoxion') || String(rawName || '').toLowerCase().includes('ecoxion');
-            const name = isEcoxionSub  mapEcoxionPlanVisualName(rawName, rawPlanId) : rawName;
+            const name = isEcoxionSub ? mapEcoxionPlanVisualName(rawName, rawPlanId) : rawName;
             const renewAt = s.renew_at || s.next_payment || s.end_date || null;
-            const renewDate = renewAt  new Date(renewAt).toLocaleDateString() : 'N/A';
-            const nextDate = expiry  new Date(expiry).toLocaleDateString() : 'N/A';
-            const statusLabel = (String(s.status || 'active').toLowerCase() === 'active' && s.is_active !== false)  'Activa' : 'Inactiva';
+            const renewDate = renewAt ? new Date(renewAt).toLocaleDateString() : 'N/A';
+            const nextDate = expiry ? new Date(expiry).toLocaleDateString() : 'N/A';
+            const statusLabel = (String(s.status || 'active').toLowerCase() === 'active' && s.is_active !== false) ? 'Activa' : 'Inactiva';
 
             let icon = 'fas fa-bolt';
             let themeClass = '';
@@ -5439,7 +5695,7 @@
                       <div class="subs-meta">
                         <div><small>Renovación</small><strong>${it.renewDate}</strong></div>
                         <div><small>Vencimiento</small><strong>${it.nextDate}</strong></div>
-                        <div><small>Estado</small><strong class="${it.statusLabel === 'Activa'  'ok' : 'off'}">${it.statusLabel}</strong></div>
+                        <div><small>Estado</small><strong class="${it.statusLabel === 'Activa' ? 'ok' : 'off'}">${it.statusLabel}</strong></div>
                       </div>
                     </article>
                   `).join('')}
@@ -5473,7 +5729,7 @@
 
           if (window.__subsCarouselTimer) clearInterval(window.__subsCarouselTimer);
           if (cards.length) {
-            window.__subsCarouselIndex = Number.isFinite(window.__subsCarouselIndex)  window.__subsCarouselIndex % cards.length : 0;
+            window.__subsCarouselIndex = Number.isFinite(window.__subsCarouselIndex) ? window.__subsCarouselIndex % cards.length : 0;
             if (prevBtn) prevBtn.onclick = () => moveTo(window.__subsCarouselIndex - 1);
             if (nextBtn) nextBtn.onclick = () => moveTo(window.__subsCarouselIndex + 1);
 
@@ -5531,6 +5787,7 @@
     window.addEventListener('DOMContentLoaded', async () => {
       ensureCoralBitsCard();
       ensureTigrysCard();
+      ensureSparksCard();
       ensureTidesCard();
       ensureTidesPassCurrency();
       ensureTidesStoreSection();
@@ -5592,6 +5849,8 @@
         loadTidesPackages();
         loadGlobalGoalStatus();
         handleTidesCheckoutReturn();
+        ensureOceanPaySecuritySettingsSection();
+        refreshOceanPaySecurityCenter();
         setInterval(checkOceanPassStatus, 1000); // UI updates every second if active
         // checkOceanPassStatus(); // initial check is done by interval immediately or by first tick
 
@@ -5667,7 +5926,7 @@
 
       container.innerHTML = currencies.map(c => {
         const balance = document.getElementById(c.id).textContent || '0';
-        return ` <div class="asset-item-card"> <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:1rem;"> <div class="asset-icon-container" style="margin-bottom:0; width:40px; height:40px;"> <canvas class="currency-canvas" data-currency="${c.id === 'nxb-balance'  'nxb' : c.id}" width="36" height="36"></canvas> </div> <span style="font-size:0.65rem; color:var(--accent); font-weight:800; text-transform:uppercase; letter-spacing:1px;">${c.project}</span> </div> <div class="asset-item-economy ${viewType === 'info'  'hide' : ''}"> <span class="asset-name-modern" style="font-size:0.75rem;">${c.name}</span> <span class="asset-balance-modern" style="font-size:1.5rem; margin-bottom:0;">${balance}</span> </div> <div class="asset-item-info ${viewType === 'info'  'show' : ''}"> <strong style="color:white; display:block; margin-bottom:0.5rem;">${c.name}</strong> ${c.desc} </div> </div> `;
+        return ` <div class="asset-item-card"> <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:1rem;"> <div class="asset-icon-container" style="margin-bottom:0; width:40px; height:40px;"> <canvas class="currency-canvas" data-currency="${c.id === 'nxb-balance' ? 'nxb' : c.id}" width="36" height="36"></canvas> </div> <span style="font-size:0.65rem; color:var(--accent); font-weight:800; text-transform:uppercase; letter-spacing:1px;">${c.project}</span> </div> <div class="asset-item-economy ${viewType === 'info' ? 'hide' : ''}"> <span class="asset-name-modern" style="font-size:0.75rem;">${c.name}</span> <span class="asset-balance-modern" style="font-size:1.5rem; margin-bottom:0;">${balance}</span> </div> <div class="asset-item-info ${viewType === 'info' ? 'show' : ''}"> <strong style="color:white; display:block; margin-bottom:0.5rem;">${c.name}</strong> ${c.desc} </div> </div> `;
       }).join('');
 
       // Re-inicializar canvases en el modal
@@ -6089,7 +6348,7 @@
         const wrap = document.createElement('div');
         wrap.className = 'pos-quick-amounts';
         wrap.dataset.posQuick = type;
-        const presets = type === 'send'  [50, 100, 250, 500, 1000] : [25, 50, 100, 250, 500];
+        const presets = type === 'send' ? [50, 100, 250, 500, 1000] : [25, 50, 100, 250, 500];
         wrap.innerHTML = `
           <span class="quick-label">Accesos rápidos</span>
           <div class="quick-row">
@@ -6132,7 +6391,7 @@
         return key;
       };
       const getBalanceByCardAndCurrency = (cardId, currency) => {
-        const cards = Array.isArray(userCards)  userCards : [];
+        const cards = Array.isArray(userCards) ? userCards : [];
         const card = cards.find((c) => Number(c.id) === Number(cardId));
         if (!card || !currency) return 0;
         const key = normalizeCurrencyKey(currency);
@@ -6140,16 +6399,16 @@
         if (key === 'ecocorebits') aliases.push('ecorebits', 'ecobits');
         if (key === 'voltbits') aliases.push('voltbit');
         for (const alias of aliases) {
-          const value = Number(card.balances.[alias]);
+          const value = Number(card.balances?.[alias]);
           if (Number.isFinite(value) && value > 0) return value;
         }
-        const fallback = Number(card.balances.[key] || 0);
-        return Number.isFinite(fallback)  fallback : 0;
+        const fallback = Number(card.balances?.[key] || 0);
+        return Number.isFinite(fallback) ? fallback : 0;
       };
 
       const formatNum = (n) => {
         const v = Number(n || 0);
-        return Number.isFinite(v)  v.toLocaleString('es-ES', { maximumFractionDigits: 2 }) : '0';
+        return Number.isFinite(v) ? v.toLocaleString('es-ES', { maximumFractionDigits: 2 }) : '0';
       };
 
       const renderPosInsight = () => {
@@ -6167,7 +6426,7 @@
           <div class="line"><span>Saldo disponible</span><strong>${formatNum(available)} ${currency.toUpperCase()}</strong></div>
           <div class="line"><span>Monto a enviar</span><strong>${formatNum(amount)} ${currency.toUpperCase()}</strong></div>
           <div class="line"><span>Saldo estimado</span><strong>${formatNum(after)} ${currency.toUpperCase()}</strong></div>
-          <div class="meta ${enough  'ok' : 'warn'}">${amount <= 0  'Ingresa un monto para previsualizar.' : (enough  'Listo para generar código.' : 'Fondos insuficientes en la tarjeta seleccionada.')}</div>
+          <div class="meta ${enough ? 'ok' : 'warn'}">${amount <= 0 ? 'Ingresa un monto para previsualizar.' : (enough ? 'Listo para generar código.' : 'Fondos insuficientes en la tarjeta seleccionada.')}</div>
         `;
       };
 

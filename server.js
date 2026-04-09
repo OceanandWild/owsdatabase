@@ -166,6 +166,139 @@ const UNIFIED_WALLET_CURRENCIES = [
   'relayshards', 'ecocorebits', 'tides', 'aurex', 'sparks'
 ];
 
+let oceanPayTwoFactorTablesReady = false;
+
+async function ensureOceanPayTwoFactorTables() {
+  if (oceanPayTwoFactorTablesReady) return;
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ocean_pay_security_settings (
+      user_id BIGINT PRIMARY KEY REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
+      two_factor_enabled BOOLEAN NOT NULL DEFAULT false,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ocean_pay_ows_two_factor_challenges (
+      id BIGSERIAL PRIMARY KEY,
+      challenge_id TEXT NOT NULL UNIQUE,
+      user_id BIGINT NOT NULL REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
+      code TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      requested_from TEXT NOT NULL DEFAULT 'ows-store',
+      expires_at TIMESTAMPTZ NOT NULL,
+      used_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_op_2fa_challenges_user_status
+      ON ocean_pay_ows_two_factor_challenges(user_id, status, expires_at DESC)
+  `);
+  oceanPayTwoFactorTablesReady = true;
+}
+
+async function getOceanPayTwoFactorEnabled(userId) {
+  await ensureOceanPayTwoFactorTables();
+  const { rows } = await pool.query(
+    `SELECT two_factor_enabled
+     FROM ocean_pay_security_settings
+     WHERE user_id = $1
+     LIMIT 1`,
+    [userId]
+  );
+  return rows.length ? !!rows[0].two_factor_enabled : false;
+}
+
+function getOceanPayTokenFromRequest(req) {
+  const auth = String(req.headers.authorization || '');
+  if (!auth.toLowerCase().startsWith('bearer ')) return '';
+  return auth.slice(7).trim();
+}
+
+function decodeOceanPayTokenOrNull(token) {
+  if (!token) return null;
+  try {
+    return jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+  } catch (_err) {
+    return null;
+  }
+}
+
+async function getOceanPayAuthedUserFromRequest(req) {
+  const token = getOceanPayTokenFromRequest(req);
+  const decoded = decodeOceanPayTokenOrNull(token);
+  if (!decoded) return null;
+  const userId = Number(decoded.id || decoded.uid || decoded.sub || 0);
+  if (!userId) return null;
+  const { rows } = await pool.query(
+    `SELECT id, username FROM ocean_pay_users WHERE id = $1 LIMIT 1`,
+    [userId]
+  );
+  return rows[0] || null;
+}
+
+async function buildOceanPayLoginPayload(opUser) {
+  const secret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
+  const token = jwt.sign({ id: opUser.id, uid: opUser.id, username: opUser.username }, secret, { expiresIn: '7d' });
+
+  const { rows: existingCards } = await pool.query('SELECT id FROM ocean_pay_cards WHERE user_id = $1', [opUser.id]);
+  if (existingCards.length === 0) {
+    const cardNumber = '4000' + Math.random().toString().slice(2, 14);
+    const cvv = Math.floor(100 + Math.random() * 900).toString();
+    const expiryDate = '12/28';
+    await pool.query(
+      'INSERT INTO ocean_pay_cards (user_id, card_number, cvv, expiry_date, is_primary, card_name) VALUES ($1, $2, $3, $4, true, $5)',
+      [opUser.id, cardNumber, cvv, expiryDate, 'Tarjeta Principal']
+    );
+  } else {
+    await pool.query(`
+      UPDATE ocean_pay_cards SET is_primary = true
+      WHERE id = (SELECT MIN(id) FROM ocean_pay_cards WHERE user_id = $1)
+      AND NOT EXISTS (SELECT 1 FROM ocean_pay_cards WHERE user_id = $1 AND is_primary = true)
+    `, [opUser.id]);
+  }
+
+  const { rows: cardRows } = await pool.query(
+    `SELECT c.id, c.card_number, c.cvv, c.expiry_date, c.is_active, c.is_primary, c.card_name, c.balances
+     FROM ocean_pay_cards c WHERE c.user_id = $1`,
+    [opUser.id]
+  );
+
+  const cardsWithBalances = cardRows.map((card) => {
+    const raw = card.balances || {};
+    const normalized = {};
+    Object.keys(raw).forEach((k) => {
+      const n = Number(raw[k]);
+      normalized[String(k).toLowerCase()] = Number.isFinite(n) ? n : 0;
+    });
+    if (normalized.tigrys === undefined) normalized.tigrys = 0;
+    return { ...card, balances: normalized };
+  });
+
+  const totalEcoxionums = cardsWithBalances.reduce((sum, card) => sum + parseFloat(card.balances?.ecoxionums || 0), 0);
+  const totalAquabux = cardsWithBalances.reduce((sum, card) => sum + parseFloat(card.balances?.aquabux || 0), 0);
+  const aquabuxBalance = Math.max(totalAquabux, parseFloat(opUser.aquabux || 0));
+  const totalWildCredits = cardsWithBalances.reduce((sum, card) => sum + parseFloat(card.balances?.wildcredits || 0), 0);
+
+  const twoFactorEnabled = await getOceanPayTwoFactorEnabled(opUser.id);
+
+  return {
+    success: true,
+    token,
+    ecoxionums: totalEcoxionums,
+    wildcredits: totalWildCredits,
+    two_factor_enabled: twoFactorEnabled,
+    user: {
+      id: opUser.id,
+      username: opUser.username,
+      aquabux: aquabuxBalance,
+      wildcredits: totalWildCredits,
+      cards: cardsWithBalances,
+      two_factor_enabled: twoFactorEnabled
+    }
+  };
+}
+
 // --- Ocean Pay Authentication ---
 app.post('/ocean-pay/register', async (req, res) => {
   const { username, password } = req.body;
@@ -220,10 +353,11 @@ app.post('/ocean-pay/register', async (req, res) => {
 // [DUPLICATE ENDPOINT REMOVED] - Redirecting to line ~10663 implementation
 
 app.post('/ocean-pay/login', async (req, res) => {
-  let { username, password } = req.body;
+  let { username, password, client } = req.body;
 
   username = username?.trim();
   password = password?.trim();
+  client = String(client || '').trim().toLowerCase();
 
   if (!username || !password) return res.status(400).json({ error: 'Faltan credenciales.' });
 
@@ -279,69 +413,37 @@ app.post('/ocean-pay/login', async (req, res) => {
     }
 
     if (match) {
-      // Success
-      const secret = process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret';
-      const token = jwt.sign({ id: opUser.id, uid: opUser.id, username: opUser.username }, secret, { expiresIn: '7d' });
+      const twoFactorEnabled = await getOceanPayTwoFactorEnabled(opUser.id);
+      const requiresOwsStoreTwoFactor = twoFactorEnabled && client === 'ows-store';
 
-      // 1. Asegurar que el usuario tenga al menos una tarjeta principal
-      const { rows: existingCards } = await pool.query('SELECT id FROM ocean_pay_cards WHERE user_id = $1', [opUser.id]);
-      if (existingCards.length === 0) {
-        // Generar detalles de tarjeta si no existen
-        const cardNumber = '4000' + Math.random().toString().slice(2, 14);
-        const cvv = Math.floor(100 + Math.random() * 900).toString();
-        const expiryDate = '12/28';
+      if (requiresOwsStoreTwoFactor) {
+        await ensureOceanPayTwoFactorTables();
         await pool.query(
-          'INSERT INTO ocean_pay_cards (user_id, card_number, cvv, expiry_date, is_primary, card_name) VALUES ($1, $2, $3, $4, true, $5)',
-          [opUser.id, cardNumber, cvv, expiryDate, 'Tarjeta Principal']
+          `UPDATE ocean_pay_ows_two_factor_challenges
+           SET status = 'expired'
+           WHERE user_id = $1
+             AND status = 'pending'
+             AND expires_at < NOW()`,
+          [opUser.id]
         );
-      } else {
-        // Asegurar que haya una primaria
-        await pool.query(`
-          UPDATE ocean_pay_cards SET is_primary = true 
-          WHERE id = (SELECT MIN(id) FROM ocean_pay_cards WHERE user_id = $1)
-          AND NOT EXISTS (SELECT 1 FROM ocean_pay_cards WHERE user_id = $1 AND is_primary = true)
-        `, [opUser.id]);
+        const challengeId = crypto.randomUUID();
+        const code = String(crypto.randomInt(100000, 1000000));
+        await pool.query(
+          `INSERT INTO ocean_pay_ows_two_factor_challenges (challenge_id, user_id, code, status, requested_from, expires_at)
+           VALUES ($1, $2, $3, 'pending', 'ows-store', NOW() + INTERVAL '10 minutes')`,
+          [challengeId, opUser.id, code]
+        );
+        return res.json({
+          success: false,
+          requires_two_factor: true,
+          challenge_id: challengeId,
+          expires_in_seconds: 600,
+          message: 'Verificacion en 2 pasos requerida para OWS Store.'
+        });
       }
 
-      // Fetch cards and balances (fuente unificada: ocean_pay_cards.balances)
-      const { rows: cardRows } = await pool.query(
-        `SELECT c.id, c.card_number, c.cvv, c.expiry_date, c.is_active, c.is_primary, c.card_name, c.balances
-         FROM ocean_pay_cards c WHERE c.user_id = $1`,
-        [opUser.id]
-      );
-
-      const cardsWithBalances = cardRows.map((card) => {
-        const raw = card.balances || {};
-        const normalized = {};
-        Object.keys(raw).forEach((k) => {
-          const n = Number(raw[k]);
-          normalized[String(k).toLowerCase()] = Number.isFinite(n) ? n : 0;
-        });
-        if (normalized.tigrys === undefined) normalized.tigrys = 0;
-        return { ...card, balances: normalized };
-      });
-
-      const totalEcoxionums = cardsWithBalances.reduce((sum, card) => sum + parseFloat(card.balances?.ecoxionums || 0), 0);
-      const totalAquabux = cardsWithBalances.reduce((sum, card) => sum + parseFloat(card.balances?.aquabux || 0), 0);
-      const aquabuxBalance = Math.max(totalAquabux, parseFloat(opUser.aquabux || 0));
-
-      // WildCredits desde saldos de tarjeta unificados
-      const totalWildCredits = cardsWithBalances.reduce((sum, card) => sum + parseFloat(card.balances?.wildcredits || 0), 0);
-      const finalWildCredits = totalWildCredits;
-
-      return res.json({
-        success: true,
-        token,
-        ecoxionums: totalEcoxionums,
-        wildcredits: finalWildCredits,
-        user: {
-          id: opUser.id,
-          username: opUser.username,
-          aquabux: aquabuxBalance,
-          wildcredits: finalWildCredits,
-          cards: cardsWithBalances
-        }
-      });
+      const payload = await buildOceanPayLoginPayload(opUser);
+      return res.json(payload);
     } else {
       return res.status(401).json({ error: 'ContraseÃƒÆ’Ã‚Â±a incorrecta.' });
     }
@@ -3408,6 +3510,129 @@ app.post('/floret/create_preference', async (req, res) => {
       details: error.message,
       mp_error: error.cause || error
     });
+  }
+});
+
+app.get('/ocean-pay/security/two-factor', async (req, res) => {
+  try {
+    const user = await getOceanPayAuthedUserFromRequest(req);
+    if (!user) return res.status(401).json({ error: 'No autorizado' });
+    const enabled = await getOceanPayTwoFactorEnabled(user.id);
+    return res.json({ success: true, enabled });
+  } catch (err) {
+    console.error('Error en GET /ocean-pay/security/two-factor:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+app.post('/ocean-pay/security/two-factor', async (req, res) => {
+  try {
+    const user = await getOceanPayAuthedUserFromRequest(req);
+    if (!user) return res.status(401).json({ error: 'No autorizado' });
+    const enabled = !!req.body?.enabled;
+    await ensureOceanPayTwoFactorTables();
+    await pool.query(
+      `INSERT INTO ocean_pay_security_settings (user_id, two_factor_enabled, updated_at)
+       VALUES ($1, $2, NOW())
+       ON CONFLICT (user_id) DO UPDATE
+       SET two_factor_enabled = EXCLUDED.two_factor_enabled,
+           updated_at = NOW()`,
+      [user.id, enabled]
+    );
+    return res.json({
+      success: true,
+      enabled,
+      message: enabled
+        ? 'Verificacion en 2 pasos activada para OWS Store.'
+        : 'Verificacion en 2 pasos desactivada para OWS Store.'
+    });
+  } catch (err) {
+    console.error('Error en POST /ocean-pay/security/two-factor:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+app.get('/ocean-pay/security/ows-store/codes', async (req, res) => {
+  try {
+    const user = await getOceanPayAuthedUserFromRequest(req);
+    if (!user) return res.status(401).json({ error: 'No autorizado' });
+    await ensureOceanPayTwoFactorTables();
+    await pool.query(
+      `UPDATE ocean_pay_ows_two_factor_challenges
+       SET status = 'expired'
+       WHERE user_id = $1
+         AND status = 'pending'
+         AND expires_at < NOW()`,
+      [user.id]
+    );
+    const { rows } = await pool.query(
+      `SELECT challenge_id, code, status, created_at, expires_at
+       FROM ocean_pay_ows_two_factor_challenges
+       WHERE user_id = $1
+         AND status = 'pending'
+         AND expires_at > NOW()
+       ORDER BY created_at DESC
+       LIMIT 8`,
+      [user.id]
+    );
+    return res.json({
+      success: true,
+      codes: rows.map((row) => ({
+        challenge_id: row.challenge_id,
+        code: row.code,
+        status: row.status,
+        created_at: row.created_at,
+        expires_at: row.expires_at
+      }))
+    });
+  } catch (err) {
+    console.error('Error en GET /ocean-pay/security/ows-store/codes:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+app.post('/ocean-pay/ows-store/two-factor/verify', async (req, res) => {
+  const challengeId = String(req.body?.challenge_id || '').trim();
+  const code = String(req.body?.code || '').trim();
+  if (!challengeId || !code) {
+    return res.status(400).json({ error: 'challenge_id y code son requeridos' });
+  }
+  try {
+    await ensureOceanPayTwoFactorTables();
+    const { rows } = await pool.query(
+      `SELECT c.challenge_id, c.code, c.status, c.expires_at, c.user_id, u.*
+       FROM ocean_pay_ows_two_factor_challenges c
+       JOIN ocean_pay_users u ON u.id = c.user_id
+       WHERE c.challenge_id = $1
+       LIMIT 1`,
+      [challengeId]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Solicitud de verificacion no encontrada' });
+    const row = rows[0];
+    if (row.status !== 'pending') return res.status(400).json({ error: 'Esta verificacion ya no esta disponible' });
+    if (new Date(row.expires_at).getTime() < Date.now()) {
+      await pool.query(
+        `UPDATE ocean_pay_ows_two_factor_challenges
+         SET status = 'expired'
+         WHERE challenge_id = $1`,
+        [challengeId]
+      );
+      return res.status(400).json({ error: 'El codigo de verificacion expiro' });
+    }
+    if (String(row.code || '') !== code) {
+      return res.status(401).json({ error: 'Codigo invalido' });
+    }
+    await pool.query(
+      `UPDATE ocean_pay_ows_two_factor_challenges
+       SET status = 'used', used_at = NOW()
+       WHERE challenge_id = $1`,
+      [challengeId]
+    );
+    const payload = await buildOceanPayLoginPayload(row);
+    return res.json(payload);
+  } catch (err) {
+    console.error('Error en POST /ocean-pay/ows-store/two-factor/verify:', err);
+    return res.status(500).json({ error: 'Error interno' });
   }
 });
 
@@ -9269,6 +9494,8 @@ app.get('/ocean-pay/me', async (req, res) => {
       ...walletBalances
     };
 
+    const twoFactorEnabled = await getOceanPayTwoFactorEnabled(user.id);
+
     return res.json({
       success: true,
       id: user.id,
@@ -9279,6 +9506,7 @@ app.get('/ocean-pay/me', async (req, res) => {
       aquabux: toFiniteNumber(mergedUserBalances.aquabux, 0),
       ecoxionums: toFiniteNumber(mergedUserBalances.ecoxionums, 0),
       appbux: toFiniteNumber(mergedUserBalances.appbux, 0),
+      two_factor_enabled: twoFactorEnabled,
       balances: mergedUserBalances,
       cards
     });

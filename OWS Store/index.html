@@ -7272,6 +7272,93 @@
                 }
             };
 
+            const renderInlineTwoFactorPrompt = () => {
+                transitionLoader.style.display = 'none';
+                transitionResult.className = 'prelogin-transition-result';
+                transitionResult.style.display = 'none';
+                transitionTitle.textContent = 'Verificación adicional requerida';
+                transitionDetail.innerHTML = `
+                    <div style="display:grid; gap:.55rem; margin-top:.25rem;">
+                        <div style="color:#c7dbed; font-size:.86rem; line-height:1.4;">
+                            Abre Ocean Pay, copia el código solicitado y pégalo aquí para continuar.
+                        </div>
+                        <input id="prelogin-inline-2fa-code" type="text" inputmode="numeric" maxlength="6" placeholder="000000"
+                            style="width:100%; border-radius:10px; border:1px solid rgba(130,176,206,.38); background:rgba(3,10,19,.85); color:#eaf8ff; font-size:1rem; letter-spacing:2px; text-align:center; padding:.65rem .75rem; outline:none;" />
+                        <div id="prelogin-inline-2fa-status" style="min-height:1.2em; color:#b9d1e6; font-size:.82rem;"></div>
+                        <div style="display:flex; gap:.46rem; justify-content:flex-end; flex-wrap:wrap;">
+                            <button id="prelogin-inline-2fa-cancel" type="button"
+                                style="border-radius:9px; border:1px solid rgba(130,170,204,.35); background:rgba(14,27,42,.75); color:#d3e7f8; padding:.5rem .78rem; font-weight:700; cursor:pointer;">Cancelar</button>
+                            <button id="prelogin-inline-2fa-verify" type="button"
+                                style="border-radius:9px; border:1px solid rgba(108,223,255,.6); background:linear-gradient(90deg, rgba(43,207,239,.98), rgba(129,216,248,.97)); color:#03202c; padding:.5rem .82rem; font-weight:800; cursor:pointer;">Verificar y entrar</button>
+                        </div>
+                    </div>
+                `;
+                const inlineCode = document.getElementById('prelogin-inline-2fa-code');
+                const inlineStatus = document.getElementById('prelogin-inline-2fa-status');
+                const inlineCancel = document.getElementById('prelogin-inline-2fa-cancel');
+                const inlineVerify = document.getElementById('prelogin-inline-2fa-verify');
+                if (!inlineCode || !inlineStatus || !inlineCancel || !inlineVerify) return;
+
+                const setInlineStatus = (msg, isError = false) => {
+                    inlineStatus.style.color = isError ? '#ff95ab' : '#b9d1e6';
+                    inlineStatus.textContent = msg || '';
+                };
+
+                const verifyInline = async () => {
+                    const code = String(inlineCode.value || '').trim();
+                    if (code.length < 6) {
+                        setInlineStatus('Ingresa el código completo de 6 dígitos.', true);
+                        return;
+                    }
+                    inlineVerify.disabled = true;
+                    inlineCancel.disabled = true;
+                    setInlineStatus('Validando código con Ocean Pay...');
+                    try {
+                        await verifyPreloginTwoFactorCode(code);
+                        showTransition({
+                            mode: 'success',
+                            title: 'Verificacion completada',
+                            detail: 'Tu cuenta fue validada en dos pasos.',
+                            scope: 'left'
+                        });
+                        await new Promise((r) => setTimeout(r, 780));
+                        showTransition({
+                            mode: 'loading',
+                            title: 'Entrando...',
+                            detail: 'Preparando entorno del ecosistema.',
+                            scope: 'full',
+                            flyCenter: true
+                        });
+                        await new Promise((r) => setTimeout(r, 980));
+                        hidePreloginGate();
+                        await startOWSStoreBootstrap();
+                    } catch (err) {
+                        setInlineStatus(err?.message || 'No se pudo validar el código.', true);
+                        inlineCode.focus();
+                    } finally {
+                        inlineVerify.disabled = false;
+                        inlineCancel.disabled = false;
+                    }
+                };
+
+                inlineCancel.onclick = () => {
+                    pendingOceanPayTwoFactorChallenge = null;
+                    hideTransition();
+                    setFormDisabled(false);
+                    setPreloginStatus('Validación 2FA cancelada.', 'error');
+                };
+                inlineVerify.onclick = async () => {
+                    await verifyInline();
+                };
+                inlineCode.onkeydown = async (event) => {
+                    if (event.key === 'Enter') {
+                        event.preventDefault();
+                        await verifyInline();
+                    }
+                };
+                setTimeout(() => inlineCode.focus(), 20);
+            };
+
             twoFactorCancelBtn.onclick = () => {
                 closePreloginTwoFactorModal();
                 pendingOceanPayTwoFactorChallenge = null;
@@ -7362,8 +7449,9 @@
                             detail: 'Abre Ocean Pay y copia el código solicitado para validar acceso.',
                             scope: 'left'
                         });
-                        await new Promise((r) => setTimeout(r, 500));
-                        openPreloginTwoFactorModal(pendingOceanPayTwoFactorChallenge);
+                        closePreloginTwoFactorModal();
+                        await new Promise((r) => setTimeout(r, 240));
+                        renderInlineTwoFactorPrompt();
                         return;
                     }
                     rememberOceanPayAutocompleteUser(username);

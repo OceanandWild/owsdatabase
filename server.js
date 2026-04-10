@@ -16583,20 +16583,12 @@ async function ensureWildWaveDefaultRooms(serverId, ownerId) {
     [serverId]
   );
   if (roomRows.length) return;
-  const { rows: catRows } = await pool.query(
-    `INSERT INTO wildx_server_categories (server_id, name, position, created_by, created_at, updated_at)
-     VALUES ($1, $2, 0, $3, NOW(), NOW())
-     RETURNING id`,
-    [serverId, 'General', ownerId]
-  );
-  const categoryId = Number(catRows[0]?.id || 0);
   await pool.query(
     `INSERT INTO wildx_server_text_channels (server_id, category_id, name, topic, position, created_by, created_at, updated_at)
      VALUES
-       ($1, $2, 'general', 'Canal principal', 0, $3, NOW(), NOW()),
-       ($1, $2, 'anuncios', 'Novedades y avisos', 1, $3, NOW(), NOW())
+       ($1, NULL, 'general', NULL, 0, $2, NOW(), NOW())
      ON CONFLICT (server_id, name) DO NOTHING`,
-    [serverId, categoryId || null, ownerId]
+    [serverId, ownerId]
   );
 }
 
@@ -17313,7 +17305,6 @@ app.get('/wildwave/api/channels/:id/tree', async (req, res) => {
     if (!access) return res.status(404).json({ error: 'Servidor no encontrado' });
     if (!access.isMember) return res.status(403).json({ error: 'No perteneces a este servidor' });
 
-    await ensureWildWaveDefaultRooms(serverId, access.owner_id);
     const tree = await getWildWaveServerTree(serverId);
     res.json({
       success: true,

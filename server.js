@@ -92,6 +92,17 @@ const wildwaveVideoUpload = multer({
   limits: { fileSize: 100 * 1024 * 1024 } // 100 MB mÃ¡ximo
 });
 
+// WildWave channel icon uploads (Cloudinary)
+const wildwaveChannelStorage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'wildwave/channels',
+    allowed_formats: ['jpg', 'png', 'jpeg', 'webp'],
+    transformation: [{ width: 512, height: 512, crop: 'fill', gravity: 'center' }]
+  },
+});
+const wildwaveChannelUpload = multer({ storage: wildwaveChannelStorage });
+
 // FunciÃƒÆ’Ã‚Â³n para generar ID ÃƒÆ’Ã‚Âºnico de usuario (100 caracteres)
 function generateUserUniqueId() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -16369,6 +16380,46 @@ async function ensureWildXTables() {
   `);
 }
 
+// Asegurar tablas de canales WildWave
+async function ensureWildWaveChannelTables() {
+  await ensureWildXTables();
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS wildx_channels (
+      id          SERIAL PRIMARY KEY,
+      owner_id    INTEGER NOT NULL REFERENCES wildx_users(id) ON DELETE CASCADE,
+      name        TEXT NOT NULL,
+      slug        TEXT NOT NULL UNIQUE,
+      description TEXT,
+      icon_url    TEXT,
+      is_public   BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
+      updated_at  TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_wildx_channels_public
+      ON wildx_channels(is_public, created_at DESC)
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_wildx_channels_owner
+      ON wildx_channels(owner_id, created_at DESC)
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS wildx_channel_members (
+      id          SERIAL PRIMARY KEY,
+      channel_id  INTEGER NOT NULL REFERENCES wildx_channels(id) ON DELETE CASCADE,
+      user_id     INTEGER NOT NULL REFERENCES wildx_users(id) ON DELETE CASCADE,
+      role        TEXT NOT NULL DEFAULT 'member',
+      joined_at   TIMESTAMP NOT NULL DEFAULT NOW(),
+      UNIQUE(channel_id, user_id)
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_wildx_channel_members_user
+      ON wildx_channel_members(user_id, joined_at DESC)
+  `);
+}
+
 function getWildXUserId(req) {
   const auth = req.headers.authorization;
   if (!auth) return null;
@@ -16436,6 +16487,32 @@ function normalizeWildWaveDisplayName(value) {
 
 function normalizeWildWaveUsername(value) {
   return String(value || '').trim();
+}
+
+function normalizeWildWaveChannelName(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function normalizeWildWaveChannelDescription(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function validateWildWaveChannelName(name) {
+  if (!name) return 'Nombre de canal requerido';
+  if (name.length < 3 || name.length > 32) return 'El canal debe tener entre 3 y 32 caracteres';
+  if (!/^[\p{L}0-9 ._#-]+$/u.test(name)) return 'El canal contiene caracteres no permitidos';
+  if (!/[\p{L}0-9]/u.test(name)) return 'El canal debe incluir letras o numeros';
+  return null;
+}
+
+function buildWildWaveChannelSlug(name) {
+  const normalized = normalizeWildWaveChannelName(name)
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return normalized || `canal-${Date.now()}`;
 }
 
 function extractWildWaveVideoUrl(value) {
@@ -16789,6 +16866,93 @@ app.get('/wildwave/api/me', async (req, res) => {
     res.json(user);
   } catch (err) {
     console.error('Error en GET /wildwave/api/me:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Listar todos los canales publicos (incluye membresia del usuario actual)
+app.get('/wildwave/api/channels', async (req, res) => {
+  try {
+    await ensureWildWaveChannelTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Token requerido' });
+
+    const { rows } = await pool.query(
+      `SELECT c.id,
+              c.name,
+              c.slug,
+              c.description,
+              c.icon_url,
+              c.owner_id,
+              c.created_at,
+              u.username AS owner_username,
+              COALESCE(u.display_name, u.username) AS owner_display_name,
+              COUNT(DISTINCT m.user_id)::int AS members_count,
+              BOOL_OR(m.user_id = $1) AS is_member,
+              BOOL_OR(m.user_id = $1 AND m.role = 'owner') AS is_owner_member
+         FROM wildx_channels c
+         JOIN wildx_users u ON u.id = c.owner_id
+         LEFT JOIN wildx_channel_members m ON m.channel_id = c.id
+        WHERE c.is_public = TRUE
+        GROUP BY c.id, u.username, u.display_name
+        ORDER BY c.created_at DESC`,
+      [wid]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('Error en GET /wildwave/api/channels:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Crear canal WildWave (icono opcional)
+app.post('/wildwave/api/channels', wildwaveChannelUpload.single('icon'), async (req, res) => {
+  try {
+    await ensureWildWaveChannelTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Token requerido' });
+
+    const name = normalizeWildWaveChannelName(req.body?.name || req.body?.channel_name || '');
+    const description = normalizeWildWaveChannelDescription(req.body?.description || '');
+    const nameError = validateWildWaveChannelName(name);
+    if (nameError) return res.status(400).json({ error: nameError });
+    if (description.length > 120) return res.status(400).json({ error: 'La descripcion no puede superar 120 caracteres' });
+
+    const slugBase = buildWildWaveChannelSlug(name);
+    let slug = slugBase;
+    for (let i = 1; i <= 20; i++) {
+      const { rows: exists } = await pool.query('SELECT id FROM wildx_channels WHERE slug = $1 LIMIT 1', [slug]);
+      if (!exists.length) break;
+      slug = `${slugBase}-${i}`;
+    }
+
+    const iconUrl = req.file?.path || req.file?.secure_url || req.file?.url || null;
+    const { rows } = await pool.query(
+      `INSERT INTO wildx_channels (owner_id, name, slug, description, icon_url, is_public)
+       VALUES ($1, $2, $3, $4, $5, TRUE)
+       RETURNING id, owner_id, name, slug, description, icon_url, is_public, created_at`,
+      [wid, name, slug, description || null, iconUrl]
+    );
+    const created = rows[0];
+
+    await pool.query(
+      `INSERT INTO wildx_channel_members (channel_id, user_id, role)
+       VALUES ($1, $2, 'owner')
+       ON CONFLICT (channel_id, user_id) DO NOTHING`,
+      [created.id, wid]
+    );
+
+    res.status(201).json({
+      success: true,
+      channel: {
+        ...created,
+        members_count: 1,
+        is_member: true,
+        is_owner_member: true
+      }
+    });
+  } catch (err) {
+    console.error('Error en POST /wildwave/api/channels:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });

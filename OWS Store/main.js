@@ -17,6 +17,7 @@ const APP_ID = 'com.oceanwildstudios.nexusstore';
 const APP_DISPLAY_NAME = 'OWS Store';
 const API_URL = 'https://owsdatabase.onrender.com';
 const INSTALLER_CACHE_DIR = path.join(os.tmpdir(), 'ows-store-installers');
+const INSTALLER_LAUNCH_DIR = path.join(os.tmpdir(), 'ows-store-installer-launch');
 const PUSH_STATE_FILENAME = 'ows-push-state.json';
 const PUSH_WORKER_TASK_NAME = 'OWSStorePushWorker';
 const PUSH_REALTIME_POLL_MS = 30 * 1000;
@@ -324,6 +325,42 @@ function getInstallerCachePath(installerName) {
   return path.join(INSTALLER_CACHE_DIR, installerName);
 }
 
+function getInstallerLaunchPath(installerName) {
+  ensureDir(INSTALLER_LAUNCH_DIR);
+  const ext = path.extname(installerName) || '.exe';
+  const base = path.basename(installerName, ext).replace(/[^a-zA-Z0-9._-]/g, '_') || 'installer';
+  return path.join(INSTALLER_LAUNCH_DIR, `${base}-${Date.now()}-${Math.floor(Math.random() * 10000)}${ext}`);
+}
+
+function cleanupOldLauncherCopies(maxAgeMs = 24 * 60 * 60 * 1000) {
+  try {
+    ensureDir(INSTALLER_LAUNCH_DIR);
+    const now = Date.now();
+    const entries = fs.readdirSync(INSTALLER_LAUNCH_DIR, { withFileTypes: true });
+    for (const entry of entries) {
+      if (!entry.isFile()) continue;
+      const filePath = path.join(INSTALLER_LAUNCH_DIR, entry.name);
+      try {
+        const stats = fs.statSync(filePath);
+        if (!stats.isFile()) continue;
+        const ageMs = now - Number(stats.mtimeMs || 0);
+        if (Number.isFinite(ageMs) && ageMs >= maxAgeMs) {
+          fs.unlinkSync(filePath);
+        }
+      } catch (_) {}
+    }
+  } catch (_) {}
+}
+
+function prepareInstallerLaunchPath(sourcePath, installerName) {
+  const isExe = /\.exe$/i.test(String(sourcePath || ''));
+  if (!isExe || !safeExists(sourcePath)) return sourcePath;
+  cleanupOldLauncherCopies();
+  const launchPath = getInstallerLaunchPath(installerName || path.basename(sourcePath));
+  fs.copyFileSync(sourcePath, launchPath);
+  return launchPath;
+}
+
 function buildRequestOptions(url, method = 'GET') {
   const parsed = new URL(url);
   // Use browser-like headers for GitHub releases to avoid throttling
@@ -428,12 +465,28 @@ function resolveInstalledPaths(payload) {
     if (c.type === 'exe' && !exePath) exePath = c.filePath;
     if (c.type === 'uninstall' && !uninstallPath) uninstallPath = c.filePath;
   }
+  let exeLastWriteMs = 0;
+  let installDirLastWriteMs = 0;
+  if (exePath && safeExists(exePath)) {
+    try {
+      const st = fs.statSync(exePath);
+      exeLastWriteMs = Number(st.mtimeMs || 0);
+    } catch (_) {}
+  }
+  if (installDir && safeExists(installDir)) {
+    try {
+      const st = fs.statSync(installDir);
+      installDirLastWriteMs = Number(st.mtimeMs || 0);
+    } catch (_) {}
+  }
 
   return {
     installed: Boolean(exePath),
     exePath,
     uninstallPath,
     installDir,
+    exeLastWriteMs: Number.isFinite(exeLastWriteMs) ? exeLastWriteMs : 0,
+    installDirLastWriteMs: Number.isFinite(installDirLastWriteMs) ? installDirLastWriteMs : 0,
   };
 }
 
@@ -488,12 +541,36 @@ async function openPathWithRetry(filePath, attempts = 6, delayMs = 350) {
     });
     child.unref();
   };
+  const launchViaPowerShell = () => {
+    const escapedPath = String(filePath || '').replace(/'/g, "''");
+    const child = spawn('powershell.exe', [
+      '-NoProfile',
+      '-ExecutionPolicy', 'Bypass',
+      '-Command',
+      `Start-Process -FilePath '${escapedPath}'`,
+    ], {
+      detached: true,
+      stdio: 'ignore',
+      windowsHide: true,
+    });
+    child.unref();
+  };
 
   let lastError = '';
   for (let i = 0; i < attempts; i += 1) {
     if (isExe) {
       try {
         launchDirect();
+        return '';
+      } catch (err) {
+        lastError = err && err.message ? err.message : String(err);
+        if (/being used by another process|used by another process|in use|locked|bloquead/i.test(String(lastError))) {
+          await wait(delayMs);
+          continue;
+        }
+      }
+      try {
+        launchViaPowerShell();
         return '';
       } catch (err) {
         lastError = err && err.message ? err.message : String(err);
@@ -845,12 +922,26 @@ ipcMain.handle('install-external-installer', async (_, payload) => {
         phase: 'launching',
         message: 'Instalador en cache encontrado. Abriendo...',
       });
-      const launchCachedError = await openPathWithRetry(targetPath);
-      if (launchCachedError) {
-        return { ok: false, error: launchCachedError };
+      let launchPath = targetPath;
+      try {
+        launchPath = prepareInstallerLaunchPath(targetPath, installerName);
+      } catch (_) {
+        launchPath = targetPath;
       }
-      sendToRenderer('external-install-status', { taskId, phase: 'done', message: 'Instalador abierto desde cache.' });
-      return { ok: true, filePath: targetPath, taskId, cached: true };
+      const launchCachedError = await openPathWithRetry(launchPath);
+      if (!launchCachedError) {
+        sendToRenderer('external-install-status', { taskId, phase: 'done', message: 'Instalador abierto desde cache.' });
+        return { ok: true, filePath: launchPath || targetPath, taskId, cached: true };
+      }
+      // Cache invalida o bloqueada: borrar y rehacer descarga limpia.
+      try { if (safeExists(targetPath)) fs.unlinkSync(targetPath); } catch (_) {}
+      try { if (launchPath !== targetPath && safeExists(launchPath)) fs.unlinkSync(launchPath); } catch (_) {}
+      useCached = false;
+      sendToRenderer('external-install-status', {
+        taskId,
+        phase: 'downloading',
+        message: 'Cache invalida. Reintentando descarga limpia...',
+      });
     }
 
     try { if (safeExists(targetPath)) fs.unlinkSync(targetPath); } catch (_) {}
@@ -881,13 +972,20 @@ ipcMain.handle('install-external-installer', async (_, payload) => {
     }
 
     sendToRenderer('external-install-status', { taskId, phase: 'launching', message: 'Abriendo instalador...' });
-    const launchError = await openPathWithRetry(targetPath);
+    let launchPath = targetPath;
+    try {
+      launchPath = prepareInstallerLaunchPath(targetPath, installerName);
+    } catch (_) {
+      launchPath = targetPath;
+    }
+    const launchError = await openPathWithRetry(launchPath);
     if (launchError) {
+      try { if (launchPath !== targetPath && safeExists(launchPath)) fs.unlinkSync(launchPath); } catch (_) {}
       return { ok: false, error: launchError };
     }
 
     sendToRenderer('external-install-status', { taskId, phase: 'done', message: 'Instalador abierto.' });
-    return { ok: true, filePath: targetPath, taskId };
+    return { ok: true, filePath: launchPath || targetPath, taskId };
   } catch (err) {
     const message = err && err.message ? err.message : String(err);
     sendToRenderer('external-install-status', { taskId, phase: 'error', message });

@@ -15936,6 +15936,7 @@
                         if (detected?.installed) {
                             const pendingWindows = getPendingInstallCandidate(p.slug, 'windows');
                             const pendingVersion = String(pendingWindows.version || '').trim();
+                            const pendingStartedAt = Number(pendingWindows.startedAt || 0);
                             const markerVersion = String(marker || '').trim();
                             const markerOlderThanPending = Boolean(
                                 pendingVersion
@@ -15943,7 +15944,18 @@
                                 && compareVersionLike(markerVersion, pendingVersion) < 0
                             );
                             const missingMarker = !markerVersion;
-                            const shouldPromotePending = Boolean(pendingVersion) && (missingMarker || markerOlderThanPending);
+                            const exeWriteMs = Number(detected?.exeLastWriteMs || 0);
+                            const installDirWriteMs = Number(detected?.installDirLastWriteMs || 0);
+                            const hasFreshWriteAfterPending = Boolean(
+                                pendingStartedAt > 0
+                                && (
+                                    (exeWriteMs > 0 && exeWriteMs >= (pendingStartedAt - 5000))
+                                    || (installDirWriteMs > 0 && installDirWriteMs >= (pendingStartedAt - 5000))
+                                )
+                            );
+                            // Evita falsos "al dia": solo promover version pendiente si es primer marker
+                            // o si hay evidencia temporal de reinstalacion real luego de iniciar update.
+                            const shouldPromotePending = Boolean(pendingVersion) && (missingMarker || (markerOlderThanPending && hasFreshWriteAfterPending));
                             if (shouldPromotePending) {
                                 localStorage.setItem(`installed_${p.slug}`, pendingWindows.version);
                                 localStorage.setItem(`installed_platform_${p.slug}`, 'windows');

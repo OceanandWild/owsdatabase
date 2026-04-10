@@ -1,8 +1,10 @@
 OWS Store - Release Notes
 Version objetivo: AUTO (release.ps1)
 
-- Se corrige la logica de deduplicacion de eventos en la seccion "Noticias y Eventos".
-- Ahora los eventos se priorizan por fase (`active` > `upcoming` > `ended`) antes de prioridad numerica.
-- Se evita que un evento historico finalizado oculte un evento nuevo vigente del mismo proyecto.
-- Se restablece la visibilidad del evento "Galaxy + Dragonhunter Mastery Update" para Wild Destiny.
-- Se mantiene la timeline central sincronizada con el evento creado via API para Wild Destiny.
+- Fix integral del instalador de OWS Store en Windows:
+  - Nuevo lanzamiento en copia temporal dedicada para evitar bloqueos por cache/reuso de archivo.
+  - Reintento con descarga limpia si la cache falla al abrir.
+  - Fallback adicional de apertura por PowerShell para mejorar compatibilidad al ejecutar setup.
+- Fix global en la deteccion de updates de proyectos:
+  - Se evita marcar una version pendiente como instalada antes de confirmar evidencia real de reinstalacion.
+  - Corregido el desfasaje donde llegaba notificacion de update pero en la seccion Actualizaciones podia aparecer "al dia" incorrectamente.

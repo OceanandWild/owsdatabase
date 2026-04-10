@@ -17050,6 +17050,85 @@ app.post('/wildwave/api/channels', wildwaveChannelUpload.single('icon'), async (
   }
 });
 
+// Editar servidor WildWave (nombre, descripcion, icono, visibilidad)
+app.patch('/wildwave/api/channels/:id', wildwaveChannelUpload.single('icon'), async (req, res) => {
+  try {
+    await ensureWildWaveChannelTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Token requerido' });
+    const channelId = Number(req.params.id || 0);
+    if (!Number.isFinite(channelId) || channelId <= 0) return res.status(400).json({ error: 'Canal invalido' });
+
+    const { rows: existingRows } = await pool.query(
+      `SELECT id, owner_id, name, slug, description, icon_url, is_public
+         FROM wildx_channels
+        WHERE id = $1
+        LIMIT 1`,
+      [channelId]
+    );
+    if (!existingRows.length) return res.status(404).json({ error: 'Canal no encontrado' });
+    const existing = existingRows[0];
+    if (Number(existing.owner_id) !== Number(wid)) {
+      return res.status(403).json({ error: 'Solo el propietario puede editar este servidor' });
+    }
+
+    const requestedName = normalizeWildWaveChannelName(req.body?.name || existing.name || '');
+    const requestedDescription = normalizeWildWaveChannelDescription(req.body?.description ?? existing.description ?? '');
+    const nameError = validateWildWaveChannelName(requestedName);
+    if (nameError) return res.status(400).json({ error: nameError });
+    if (requestedDescription.length > 120) return res.status(400).json({ error: 'La descripcion no puede superar 120 caracteres' });
+
+    let nextSlug = existing.slug;
+    if (requestedName.toLowerCase() !== String(existing.name || '').toLowerCase()) {
+      const slugBase = buildWildWaveChannelSlug(requestedName);
+      nextSlug = slugBase;
+      for (let i = 1; i <= 20; i++) {
+        const { rows: slugRows } = await pool.query(
+          'SELECT id FROM wildx_channels WHERE slug = $1 AND id <> $2 LIMIT 1',
+          [nextSlug, channelId]
+        );
+        if (!slugRows.length) break;
+        nextSlug = `${slugBase}-${i}`;
+      }
+    }
+
+    const iconUrl = req.file?.path || req.file?.secure_url || req.file?.url || existing.icon_url || null;
+    const isPublicRaw = String(req.body?.is_public || '').trim().toLowerCase();
+    const isPublic = isPublicRaw === '' ? Boolean(existing.is_public) : ['1', 'true', 'yes', 'si'].includes(isPublicRaw);
+
+    const { rows: updatedRows } = await pool.query(
+      `UPDATE wildx_channels
+          SET name = $1,
+              slug = $2,
+              description = $3,
+              icon_url = $4,
+              is_public = $5
+        WHERE id = $6
+        RETURNING id, owner_id, name, slug, description, icon_url, is_public, created_at`,
+      [requestedName, nextSlug, requestedDescription || null, iconUrl, isPublic, channelId]
+    );
+    const updated = updatedRows[0];
+
+    const { rows: countRows } = await pool.query(
+      'SELECT COUNT(*)::int AS members_count FROM wildx_channel_members WHERE channel_id = $1',
+      [channelId]
+    );
+
+    res.json({
+      success: true,
+      channel: {
+        ...updated,
+        members_count: Number(countRows[0]?.members_count || 0),
+        is_member: true,
+        is_owner_member: true
+      }
+    });
+  } catch (err) {
+    console.error('Error en PATCH /wildwave/api/channels/:id:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 // Buscar usuarios para invitar a un servidor
 app.get('/wildwave/api/users/search', async (req, res) => {
   try {

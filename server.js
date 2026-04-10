@@ -16474,6 +16474,177 @@ async function ensureWildWaveMessagingTables() {
     CREATE INDEX IF NOT EXISTS idx_wildx_dm_messages_conversation
       ON wildx_dm_messages(conversation_id, created_at DESC)
   `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS wildx_server_categories (
+      id          SERIAL PRIMARY KEY,
+      server_id   INTEGER NOT NULL REFERENCES wildx_channels(id) ON DELETE CASCADE,
+      name        TEXT NOT NULL,
+      position    INTEGER NOT NULL DEFAULT 0,
+      created_by  INTEGER REFERENCES wildx_users(id) ON DELETE SET NULL,
+      created_at  TIMESTAMP NOT NULL DEFAULT NOW(),
+      updated_at  TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_wildx_server_categories_server
+      ON wildx_server_categories(server_id, position ASC, created_at ASC)
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS wildx_server_text_channels (
+      id            SERIAL PRIMARY KEY,
+      server_id     INTEGER NOT NULL REFERENCES wildx_channels(id) ON DELETE CASCADE,
+      category_id   INTEGER REFERENCES wildx_server_categories(id) ON DELETE SET NULL,
+      name          TEXT NOT NULL,
+      topic         TEXT,
+      position      INTEGER NOT NULL DEFAULT 0,
+      created_by    INTEGER REFERENCES wildx_users(id) ON DELETE SET NULL,
+      created_at    TIMESTAMP NOT NULL DEFAULT NOW(),
+      updated_at    TIMESTAMP NOT NULL DEFAULT NOW(),
+      UNIQUE(server_id, name)
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_wildx_server_text_channels_server
+      ON wildx_server_text_channels(server_id, position ASC, created_at ASC)
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS wildx_server_channel_messages (
+      id               SERIAL PRIMARY KEY,
+      text_channel_id  INTEGER NOT NULL REFERENCES wildx_server_text_channels(id) ON DELETE CASCADE,
+      sender_user_id   INTEGER REFERENCES wildx_users(id) ON DELETE SET NULL,
+      sender_name      TEXT NOT NULL DEFAULT 'Usuario',
+      body             TEXT NOT NULL,
+      created_at       TIMESTAMP NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    ALTER TABLE wildx_server_channel_messages
+    ADD COLUMN IF NOT EXISTS sender_name TEXT NOT NULL DEFAULT 'Usuario'
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_wildx_server_channel_messages_channel
+      ON wildx_server_channel_messages(text_channel_id, created_at DESC)
+  `);
+}
+
+function normalizeWildWaveRoomName(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function validateWildWaveRoomName(name) {
+  if (!name) return 'Nombre de canal requerido';
+  if (name.length < 2 || name.length > 32) return 'El canal debe tener entre 2 y 32 caracteres';
+  if (!/^[\p{L}0-9 ._#-]+$/u.test(name)) return 'El canal contiene caracteres no permitidos';
+  if (!/[\p{L}0-9]/u.test(name)) return 'El canal debe incluir letras o numeros';
+  return null;
+}
+
+function normalizeWildWaveCategoryName(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function validateWildWaveCategoryName(name) {
+  if (!name) return 'Nombre de categoria requerido';
+  if (name.length < 2 || name.length > 42) return 'La categoria debe tener entre 2 y 42 caracteres';
+  if (!/^[\p{L}0-9 ._#-]+$/u.test(name)) return 'La categoria contiene caracteres no permitidos';
+  return null;
+}
+
+async function getWildWaveServerAccess(serverId, wid) {
+  const { rows } = await pool.query(
+    `SELECT c.id, c.owner_id,
+            m.user_id AS member_user_id,
+            COALESCE(m.role, CASE WHEN c.owner_id = $2 THEN 'owner' ELSE NULL END) AS member_role
+       FROM wildx_channels c
+       LEFT JOIN wildx_channel_members m
+         ON m.channel_id = c.id AND m.user_id = $2
+      WHERE c.id = $1
+      LIMIT 1`,
+    [serverId, wid]
+  );
+  if (!rows.length) return null;
+  const row = rows[0];
+  const isOwner = Number(row.owner_id) === Number(wid);
+  const isMember = isOwner || Number(row.member_user_id || 0) === Number(wid);
+  const role = isOwner ? 'owner' : String(row.member_role || 'member');
+  return {
+    id: Number(row.id),
+    owner_id: Number(row.owner_id),
+    isOwner,
+    isMember,
+    role,
+    canManage: isOwner || role === 'admin'
+  };
+}
+
+async function ensureWildWaveDefaultRooms(serverId, ownerId) {
+  const { rows: roomRows } = await pool.query(
+    'SELECT id FROM wildx_server_text_channels WHERE server_id = $1 LIMIT 1',
+    [serverId]
+  );
+  if (roomRows.length) return;
+  const { rows: catRows } = await pool.query(
+    `INSERT INTO wildx_server_categories (server_id, name, position, created_by, created_at, updated_at)
+     VALUES ($1, $2, 0, $3, NOW(), NOW())
+     RETURNING id`,
+    [serverId, 'General', ownerId]
+  );
+  const categoryId = Number(catRows[0]?.id || 0);
+  await pool.query(
+    `INSERT INTO wildx_server_text_channels (server_id, category_id, name, topic, position, created_by, created_at, updated_at)
+     VALUES
+       ($1, $2, 'general', 'Canal principal', 0, $3, NOW(), NOW()),
+       ($1, $2, 'anuncios', 'Novedades y avisos', 1, $3, NOW(), NOW())
+     ON CONFLICT (server_id, name) DO NOTHING`,
+    [serverId, categoryId || null, ownerId]
+  );
+}
+
+async function getWildWaveServerTree(serverId) {
+  const { rows: categories } = await pool.query(
+    `SELECT id, server_id, name, position, created_at, updated_at
+       FROM wildx_server_categories
+      WHERE server_id = $1
+      ORDER BY position ASC, id ASC`,
+    [serverId]
+  );
+  const { rows: textChannels } = await pool.query(
+    `SELECT id, server_id, category_id, name, topic, position, created_at, updated_at
+       FROM wildx_server_text_channels
+      WHERE server_id = $1
+      ORDER BY position ASC, id ASC`,
+    [serverId]
+  );
+  const byCategory = new Map();
+  for (const cat of categories) byCategory.set(Number(cat.id), []);
+  const uncategorized = [];
+  for (const ch of textChannels) {
+    const cid = Number(ch.category_id || 0);
+    const payload = {
+      id: Number(ch.id),
+      name: ch.name,
+      topic: ch.topic || '',
+      position: Number(ch.position || 0),
+      created_at: ch.created_at
+    };
+    if (cid && byCategory.has(cid)) byCategory.get(cid).push(payload);
+    else uncategorized.push(payload);
+  }
+  const tree = categories.map((cat) => ({
+    id: Number(cat.id),
+    name: cat.name,
+    position: Number(cat.position || 0),
+    items: (byCategory.get(Number(cat.id)) || []).sort((a, b) => a.position - b.position || a.id - b.id)
+  }));
+  if (uncategorized.length) {
+    tree.push({
+      id: null,
+      name: 'Sin categoria',
+      position: 9999,
+      items: uncategorized.sort((a, b) => a.position - b.position || a.id - b.id)
+    });
+  }
+  return tree;
 }
 
 async function getOrCreateWildBotConversation(userId) {
@@ -17034,6 +17205,7 @@ app.post('/wildwave/api/channels', wildwaveChannelUpload.single('icon'), async (
        ON CONFLICT (channel_id, user_id) DO NOTHING`,
       [created.id, wid]
     );
+    await ensureWildWaveDefaultRooms(created.id, wid);
 
     res.status(201).json({
       success: true,
@@ -17125,6 +17297,325 @@ app.patch('/wildwave/api/channels/:id', wildwaveChannelUpload.single('icon'), as
     });
   } catch (err) {
     console.error('Error en PATCH /wildwave/api/channels/:id:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+app.get('/wildwave/api/channels/:id/tree', async (req, res) => {
+  try {
+    await ensureWildWaveMessagingTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Token requerido' });
+    const serverId = Number(req.params.id || 0);
+    if (!Number.isFinite(serverId) || serverId <= 0) return res.status(400).json({ error: 'Servidor invalido' });
+
+    const access = await getWildWaveServerAccess(serverId, wid);
+    if (!access) return res.status(404).json({ error: 'Servidor no encontrado' });
+    if (!access.isMember) return res.status(403).json({ error: 'No perteneces a este servidor' });
+
+    await ensureWildWaveDefaultRooms(serverId, access.owner_id);
+    const tree = await getWildWaveServerTree(serverId);
+    res.json({
+      success: true,
+      server_id: serverId,
+      role: access.role,
+      can_manage: access.canManage,
+      categories: tree
+    });
+  } catch (err) {
+    console.error('Error en GET /wildwave/api/channels/:id/tree:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+app.post('/wildwave/api/channels/:id/categories', async (req, res) => {
+  try {
+    await ensureWildWaveMessagingTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Token requerido' });
+    const serverId = Number(req.params.id || 0);
+    if (!Number.isFinite(serverId) || serverId <= 0) return res.status(400).json({ error: 'Servidor invalido' });
+    const access = await getWildWaveServerAccess(serverId, wid);
+    if (!access || !access.canManage) return res.status(403).json({ error: 'No autorizado para gestionar categorias' });
+
+    const name = normalizeWildWaveCategoryName(req.body?.name || '');
+    const error = validateWildWaveCategoryName(name);
+    if (error) return res.status(400).json({ error });
+    const { rows: posRows } = await pool.query(
+      'SELECT COALESCE(MAX(position), -1) + 1 AS next_pos FROM wildx_server_categories WHERE server_id = $1',
+      [serverId]
+    );
+    const nextPos = Number(posRows[0]?.next_pos || 0);
+    const { rows } = await pool.query(
+      `INSERT INTO wildx_server_categories (server_id, name, position, created_by, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, NOW(), NOW())
+       RETURNING id, server_id, name, position, created_at, updated_at`,
+      [serverId, name, nextPos, wid]
+    );
+    res.status(201).json({ success: true, category: rows[0] });
+  } catch (err) {
+    console.error('Error en POST /wildwave/api/channels/:id/categories:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+app.patch('/wildwave/api/channels/:id/categories/:categoryId', async (req, res) => {
+  try {
+    await ensureWildWaveMessagingTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Token requerido' });
+    const serverId = Number(req.params.id || 0);
+    const categoryId = Number(req.params.categoryId || 0);
+    if (!Number.isFinite(serverId) || serverId <= 0 || !Number.isFinite(categoryId) || categoryId <= 0) {
+      return res.status(400).json({ error: 'Parametros invalidos' });
+    }
+    const access = await getWildWaveServerAccess(serverId, wid);
+    if (!access || !access.canManage) return res.status(403).json({ error: 'No autorizado para editar categorias' });
+    const name = normalizeWildWaveCategoryName(req.body?.name || '');
+    const error = validateWildWaveCategoryName(name);
+    if (error) return res.status(400).json({ error });
+    const { rows } = await pool.query(
+      `UPDATE wildx_server_categories
+          SET name = $1, updated_at = NOW()
+        WHERE id = $2 AND server_id = $3
+        RETURNING id, server_id, name, position, created_at, updated_at`,
+      [name, categoryId, serverId]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Categoria no encontrada' });
+    res.json({ success: true, category: rows[0] });
+  } catch (err) {
+    console.error('Error en PATCH /wildwave/api/channels/:id/categories/:categoryId:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+app.delete('/wildwave/api/channels/:id/categories/:categoryId', async (req, res) => {
+  try {
+    await ensureWildWaveMessagingTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Token requerido' });
+    const serverId = Number(req.params.id || 0);
+    const categoryId = Number(req.params.categoryId || 0);
+    if (!Number.isFinite(serverId) || serverId <= 0 || !Number.isFinite(categoryId) || categoryId <= 0) {
+      return res.status(400).json({ error: 'Parametros invalidos' });
+    }
+    const access = await getWildWaveServerAccess(serverId, wid);
+    if (!access || !access.canManage) return res.status(403).json({ error: 'No autorizado para eliminar categorias' });
+    await pool.query(
+      'UPDATE wildx_server_text_channels SET category_id = NULL, updated_at = NOW() WHERE server_id = $1 AND category_id = $2',
+      [serverId, categoryId]
+    );
+    const { rowCount } = await pool.query(
+      'DELETE FROM wildx_server_categories WHERE id = $1 AND server_id = $2',
+      [categoryId, serverId]
+    );
+    if (!rowCount) return res.status(404).json({ error: 'Categoria no encontrada' });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error en DELETE /wildwave/api/channels/:id/categories/:categoryId:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+app.post('/wildwave/api/channels/:id/text-channels', async (req, res) => {
+  try {
+    await ensureWildWaveMessagingTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Token requerido' });
+    const serverId = Number(req.params.id || 0);
+    if (!Number.isFinite(serverId) || serverId <= 0) return res.status(400).json({ error: 'Servidor invalido' });
+    const access = await getWildWaveServerAccess(serverId, wid);
+    if (!access || !access.canManage) return res.status(403).json({ error: 'No autorizado para crear canales' });
+    const name = normalizeWildWaveRoomName(req.body?.name || '');
+    const topic = normalizeWildWaveChannelDescription(req.body?.topic || req.body?.description || '');
+    const categoryIdRaw = Number(req.body?.category_id || 0);
+    const error = validateWildWaveRoomName(name);
+    if (error) return res.status(400).json({ error });
+    let categoryId = null;
+    if (Number.isFinite(categoryIdRaw) && categoryIdRaw > 0) {
+      const { rows: categoryRows } = await pool.query(
+        'SELECT id FROM wildx_server_categories WHERE id = $1 AND server_id = $2 LIMIT 1',
+        [categoryIdRaw, serverId]
+      );
+      if (!categoryRows.length) return res.status(400).json({ error: 'Categoria invalida' });
+      categoryId = Number(categoryRows[0].id);
+    }
+    const { rows: posRows } = await pool.query(
+      'SELECT COALESCE(MAX(position), -1) + 1 AS next_pos FROM wildx_server_text_channels WHERE server_id = $1',
+      [serverId]
+    );
+    const nextPos = Number(posRows[0]?.next_pos || 0);
+    const { rows } = await pool.query(
+      `INSERT INTO wildx_server_text_channels (server_id, category_id, name, topic, position, created_by, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+       RETURNING id, server_id, category_id, name, topic, position, created_at, updated_at`,
+      [serverId, categoryId, name, topic || null, nextPos, wid]
+    );
+    res.status(201).json({ success: true, channel: rows[0] });
+  } catch (err) {
+    const msg = String(err?.message || '');
+    if (msg.includes('wildx_server_text_channels_server_id_name_key')) {
+      return res.status(400).json({ error: 'Ya existe un canal con ese nombre en este servidor' });
+    }
+    console.error('Error en POST /wildwave/api/channels/:id/text-channels:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+app.patch('/wildwave/api/channels/:id/text-channels/:roomId', async (req, res) => {
+  try {
+    await ensureWildWaveMessagingTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Token requerido' });
+    const serverId = Number(req.params.id || 0);
+    const roomId = Number(req.params.roomId || 0);
+    if (!Number.isFinite(serverId) || serverId <= 0 || !Number.isFinite(roomId) || roomId <= 0) {
+      return res.status(400).json({ error: 'Parametros invalidos' });
+    }
+    const access = await getWildWaveServerAccess(serverId, wid);
+    if (!access || !access.canManage) return res.status(403).json({ error: 'No autorizado para editar canales' });
+    const name = normalizeWildWaveRoomName(req.body?.name || '');
+    const topic = normalizeWildWaveChannelDescription(req.body?.topic || req.body?.description || '');
+    const categoryIdRaw = Number(req.body?.category_id || 0);
+    const error = validateWildWaveRoomName(name);
+    if (error) return res.status(400).json({ error });
+    let categoryId = null;
+    if (Number.isFinite(categoryIdRaw) && categoryIdRaw > 0) {
+      const { rows: categoryRows } = await pool.query(
+        'SELECT id FROM wildx_server_categories WHERE id = $1 AND server_id = $2 LIMIT 1',
+        [categoryIdRaw, serverId]
+      );
+      if (!categoryRows.length) return res.status(400).json({ error: 'Categoria invalida' });
+      categoryId = Number(categoryRows[0].id);
+    }
+    const { rows } = await pool.query(
+      `UPDATE wildx_server_text_channels
+          SET name = $1,
+              topic = $2,
+              category_id = $3,
+              updated_at = NOW()
+        WHERE id = $4 AND server_id = $5
+        RETURNING id, server_id, category_id, name, topic, position, created_at, updated_at`,
+      [name, topic || null, categoryId, roomId, serverId]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Canal no encontrado' });
+    res.json({ success: true, channel: rows[0] });
+  } catch (err) {
+    const msg = String(err?.message || '');
+    if (msg.includes('wildx_server_text_channels_server_id_name_key')) {
+      return res.status(400).json({ error: 'Ya existe un canal con ese nombre en este servidor' });
+    }
+    console.error('Error en PATCH /wildwave/api/channels/:id/text-channels/:roomId:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+app.delete('/wildwave/api/channels/:id/text-channels/:roomId', async (req, res) => {
+  try {
+    await ensureWildWaveMessagingTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Token requerido' });
+    const serverId = Number(req.params.id || 0);
+    const roomId = Number(req.params.roomId || 0);
+    if (!Number.isFinite(serverId) || serverId <= 0 || !Number.isFinite(roomId) || roomId <= 0) {
+      return res.status(400).json({ error: 'Parametros invalidos' });
+    }
+    const access = await getWildWaveServerAccess(serverId, wid);
+    if (!access || !access.canManage) return res.status(403).json({ error: 'No autorizado para eliminar canales' });
+    const { rowCount } = await pool.query(
+      'DELETE FROM wildx_server_text_channels WHERE id = $1 AND server_id = $2',
+      [roomId, serverId]
+    );
+    if (!rowCount) return res.status(404).json({ error: 'Canal no encontrado' });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error en DELETE /wildwave/api/channels/:id/text-channels/:roomId:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+app.get('/wildwave/api/channels/:id/text-channels/:roomId/messages', async (req, res) => {
+  try {
+    await ensureWildWaveMessagingTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Token requerido' });
+    const serverId = Number(req.params.id || 0);
+    const roomId = Number(req.params.roomId || 0);
+    if (!Number.isFinite(serverId) || serverId <= 0 || !Number.isFinite(roomId) || roomId <= 0) {
+      return res.status(400).json({ error: 'Parametros invalidos' });
+    }
+    const access = await getWildWaveServerAccess(serverId, wid);
+    if (!access || !access.isMember) return res.status(403).json({ error: 'No perteneces a este servidor' });
+    const { rows: roomRows } = await pool.query(
+      'SELECT id FROM wildx_server_text_channels WHERE id = $1 AND server_id = $2 LIMIT 1',
+      [roomId, serverId]
+    );
+    if (!roomRows.length) return res.status(404).json({ error: 'Canal no encontrado' });
+    const limit = Math.max(1, Math.min(200, Number(req.query?.limit || 60)));
+    const { rows } = await pool.query(
+      `SELECT m.id,
+              m.text_channel_id,
+              m.sender_user_id,
+              m.body,
+              m.created_at,
+              u.username AS sender_username,
+              COALESCE(u.display_name, u.username, m.sender_name) AS sender_display_name,
+              u.avatar_url AS sender_avatar_url
+         FROM wildx_server_channel_messages m
+         LEFT JOIN wildx_users u ON u.id = m.sender_user_id
+        WHERE m.text_channel_id = $1
+        ORDER BY m.created_at DESC
+        LIMIT $2`,
+      [roomId, limit]
+    );
+    res.json(rows.reverse());
+  } catch (err) {
+    console.error('Error en GET /wildwave/api/channels/:id/text-channels/:roomId/messages:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+app.post('/wildwave/api/channels/:id/text-channels/:roomId/messages', async (req, res) => {
+  try {
+    await ensureWildWaveMessagingTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Token requerido' });
+    const serverId = Number(req.params.id || 0);
+    const roomId = Number(req.params.roomId || 0);
+    if (!Number.isFinite(serverId) || serverId <= 0 || !Number.isFinite(roomId) || roomId <= 0) {
+      return res.status(400).json({ error: 'Parametros invalidos' });
+    }
+    const access = await getWildWaveServerAccess(serverId, wid);
+    if (!access || !access.isMember) return res.status(403).json({ error: 'No perteneces a este servidor' });
+    const body = String(req.body?.body || '').trim();
+    if (!body) return res.status(400).json({ error: 'Mensaje requerido' });
+    if (body.length > 1800) return res.status(400).json({ error: 'El mensaje supera el limite de 1800 caracteres' });
+    const { rows: roomRows } = await pool.query(
+      'SELECT id FROM wildx_server_text_channels WHERE id = $1 AND server_id = $2 LIMIT 1',
+      [roomId, serverId]
+    );
+    if (!roomRows.length) return res.status(404).json({ error: 'Canal no encontrado' });
+    const { rows: userRows } = await pool.query(
+      'SELECT username, COALESCE(display_name, username) AS display_name, avatar_url FROM wildx_users WHERE id = $1 LIMIT 1',
+      [wid]
+    );
+    if (!userRows.length) return res.status(404).json({ error: 'Usuario no encontrado' });
+    const sender = userRows[0];
+    const { rows } = await pool.query(
+      `INSERT INTO wildx_server_channel_messages (text_channel_id, sender_user_id, sender_name, body, created_at)
+       VALUES ($1, $2, $3, $4, NOW())
+       RETURNING id, text_channel_id, sender_user_id, body, created_at`,
+      [roomId, wid, sender.display_name || sender.username, body]
+    );
+    const message = rows[0];
+    res.status(201).json({
+      ...message,
+      sender_username: sender.username,
+      sender_display_name: sender.display_name || sender.username,
+      sender_avatar_url: sender.avatar_url || null
+    });
+  } catch (err) {
+    console.error('Error en POST /wildwave/api/channels/:id/text-channels/:roomId/messages:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });

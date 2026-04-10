@@ -16420,6 +16420,99 @@ async function ensureWildWaveChannelTables() {
   `);
 }
 
+// Asegurar tablas de invitaciones y DMs WildWave
+async function ensureWildWaveMessagingTables() {
+  await ensureWildWaveChannelTables();
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS wildx_channel_invitations (
+      id            SERIAL PRIMARY KEY,
+      channel_id    INTEGER NOT NULL REFERENCES wildx_channels(id) ON DELETE CASCADE,
+      inviter_id    INTEGER NOT NULL REFERENCES wildx_users(id) ON DELETE CASCADE,
+      invitee_id    INTEGER NOT NULL REFERENCES wildx_users(id) ON DELETE CASCADE,
+      status        TEXT NOT NULL DEFAULT 'pending',
+      created_at    TIMESTAMP NOT NULL DEFAULT NOW(),
+      responded_at  TIMESTAMP,
+      UNIQUE(channel_id, invitee_id)
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_wildx_channel_invite_invitee
+      ON wildx_channel_invitations(invitee_id, created_at DESC)
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS wildx_dm_conversations (
+      id            SERIAL PRIMARY KEY,
+      user_id       INTEGER NOT NULL REFERENCES wildx_users(id) ON DELETE CASCADE,
+      peer_type     TEXT NOT NULL,
+      peer_key      TEXT NOT NULL,
+      peer_name     TEXT NOT NULL,
+      peer_user_id  INTEGER REFERENCES wildx_users(id) ON DELETE CASCADE,
+      created_at    TIMESTAMP NOT NULL DEFAULT NOW(),
+      updated_at    TIMESTAMP NOT NULL DEFAULT NOW(),
+      UNIQUE(user_id, peer_type, peer_key)
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_wildx_dm_conversations_user
+      ON wildx_dm_conversations(user_id, updated_at DESC)
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS wildx_dm_messages (
+      id                SERIAL PRIMARY KEY,
+      conversation_id   INTEGER NOT NULL REFERENCES wildx_dm_conversations(id) ON DELETE CASCADE,
+      sender_type       TEXT NOT NULL DEFAULT 'bot',
+      sender_user_id    INTEGER REFERENCES wildx_users(id) ON DELETE SET NULL,
+      sender_name       TEXT NOT NULL,
+      kind              TEXT NOT NULL DEFAULT 'text',
+      body              TEXT NOT NULL,
+      payload           JSONB NOT NULL DEFAULT '{}'::jsonb,
+      created_at        TIMESTAMP NOT NULL DEFAULT NOW(),
+      is_read           BOOLEAN NOT NULL DEFAULT FALSE
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_wildx_dm_messages_conversation
+      ON wildx_dm_messages(conversation_id, created_at DESC)
+  `);
+}
+
+async function getOrCreateWildBotConversation(userId) {
+  await ensureWildWaveMessagingTables();
+  const peerType = 'bot';
+  const peerKey = 'wildbot';
+  const peerName = 'WildBot';
+  const { rows } = await pool.query(
+    `INSERT INTO wildx_dm_conversations (user_id, peer_type, peer_key, peer_name, peer_user_id, created_at, updated_at)
+     VALUES ($1, $2, $3, $4, NULL, NOW(), NOW())
+     ON CONFLICT (user_id, peer_type, peer_key)
+     DO UPDATE SET updated_at = NOW()
+     RETURNING id`,
+    [userId, peerType, peerKey, peerName]
+  );
+  return rows[0]?.id || null;
+}
+
+async function pushWildBotInviteMessage(invitation) {
+  if (!invitation?.invitee_id) return;
+  const conversationId = await getOrCreateWildBotConversation(invitation.invitee_id);
+  if (!conversationId) return;
+  const payload = {
+    invitation_id: invitation.id,
+    channel_id: invitation.channel_id,
+    channel_name: invitation.channel_name,
+    channel_slug: invitation.channel_slug,
+    inviter_username: invitation.inviter_username,
+    inviter_display_name: invitation.inviter_display_name
+  };
+  const body = `${invitation.inviter_display_name || invitation.inviter_username} te invitó al servidor ${invitation.channel_name}.`;
+  await pool.query(
+    `INSERT INTO wildx_dm_messages (conversation_id, sender_type, sender_name, kind, body, payload, created_at, is_read)
+     VALUES ($1, 'bot', 'WildBot', 'channel_invite', $2, $3::jsonb, NOW(), FALSE)`,
+    [conversationId, body, JSON.stringify(payload)]
+  );
+  await pool.query('UPDATE wildx_dm_conversations SET updated_at = NOW() WHERE id = $1', [conversationId]);
+}
+
 function getWildXUserId(req) {
   const auth = req.headers.authorization;
   if (!auth) return null;
@@ -16954,6 +17047,271 @@ app.post('/wildwave/api/channels', wildwaveChannelUpload.single('icon'), async (
   } catch (err) {
     console.error('Error en POST /wildwave/api/channels:', err);
     res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Buscar usuarios para invitar a un servidor
+app.get('/wildwave/api/users/search', async (req, res) => {
+  try {
+    await ensureWildXTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Token requerido' });
+    const q = String(req.query?.q || '').trim();
+    if (q.length < 2) return res.json([]);
+
+    const { rows } = await pool.query(
+      `SELECT id, username, COALESCE(display_name, username) AS display_name, avatar_url
+         FROM wildx_users
+        WHERE id <> $1
+          AND (
+            LOWER(username) LIKE LOWER($2)
+            OR LOWER(COALESCE(display_name, username)) LIKE LOWER($2)
+          )
+        ORDER BY username ASC
+        LIMIT 25`,
+      [wid, `%${q}%`]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('Error en GET /wildwave/api/users/search:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Invitar usuario a servidor
+app.post('/wildwave/api/channels/:id/invite', async (req, res) => {
+  try {
+    await ensureWildWaveMessagingTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Token requerido' });
+    const channelId = Number(req.params.id || 0);
+    if (!Number.isFinite(channelId) || channelId <= 0) return res.status(400).json({ error: 'Canal invalido' });
+
+    const rawUsername = String(req.body?.username || req.body?.invitee_username || '').trim();
+    if (!rawUsername) return res.status(400).json({ error: 'Usuario a invitar requerido' });
+
+    const { rows: channelRows } = await pool.query(
+      `SELECT c.id, c.name, c.slug, c.owner_id,
+              i.username AS inviter_username,
+              COALESCE(i.display_name, i.username) AS inviter_display_name
+         FROM wildx_channels c
+         JOIN wildx_users i ON i.id = $1
+        WHERE c.id = $2
+        LIMIT 1`,
+      [wid, channelId]
+    );
+    if (!channelRows.length) return res.status(404).json({ error: 'Canal no encontrado' });
+    const channel = channelRows[0];
+
+    const { rows: memberCheck } = await pool.query(
+      'SELECT role FROM wildx_channel_members WHERE channel_id = $1 AND user_id = $2 LIMIT 1',
+      [channelId, wid]
+    );
+    if (!memberCheck.length && Number(channel.owner_id) !== Number(wid)) {
+      return res.status(403).json({ error: 'No tienes permiso para invitar en este servidor' });
+    }
+
+    const { rows: targetRows } = await pool.query(
+      `SELECT id, username, COALESCE(display_name, username) AS display_name
+         FROM wildx_users
+        WHERE LOWER(username) = LOWER($1)
+        LIMIT 1`,
+      [rawUsername]
+    );
+    if (!targetRows.length) return res.status(404).json({ error: 'Usuario no encontrado' });
+    const invitee = targetRows[0];
+    if (Number(invitee.id) === Number(wid)) return res.status(400).json({ error: 'No puedes invitarte a ti mismo' });
+
+    const { rows: existingMember } = await pool.query(
+      'SELECT id FROM wildx_channel_members WHERE channel_id = $1 AND user_id = $2 LIMIT 1',
+      [channelId, invitee.id]
+    );
+    if (existingMember.length) return res.status(409).json({ error: 'Ese usuario ya pertenece al servidor' });
+
+    const { rows: invRows } = await pool.query(
+      `INSERT INTO wildx_channel_invitations (channel_id, inviter_id, invitee_id, status, created_at)
+       VALUES ($1, $2, $3, 'pending', NOW())
+       ON CONFLICT (channel_id, invitee_id)
+       DO UPDATE SET inviter_id = EXCLUDED.inviter_id, status = 'pending', created_at = NOW(), responded_at = NULL
+       RETURNING id, channel_id, inviter_id, invitee_id, status, created_at`,
+      [channelId, wid, invitee.id]
+    );
+    const invitation = invRows[0];
+
+    await pushWildBotInviteMessage({
+      ...invitation,
+      channel_name: channel.name,
+      channel_slug: channel.slug,
+      inviter_username: channel.inviter_username,
+      inviter_display_name: channel.inviter_display_name
+    });
+
+    res.status(201).json({
+      success: true,
+      invitation: {
+        ...invitation,
+        channel_name: channel.name,
+        invitee_username: invitee.username,
+        invitee_display_name: invitee.display_name
+      }
+    });
+  } catch (err) {
+    console.error('Error en POST /wildwave/api/channels/:id/invite:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Inbox de DMs (por ahora WildBot + futuras conversaciones)
+app.get('/wildwave/api/dm/conversations', async (req, res) => {
+  try {
+    await ensureWildWaveMessagingTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Token requerido' });
+
+    const { rows } = await pool.query(
+      `SELECT c.id, c.peer_type, c.peer_key, c.peer_name, c.peer_user_id, c.updated_at,
+              lm.id AS last_message_id,
+              lm.kind AS last_message_kind,
+              lm.body AS last_message_body,
+              lm.payload AS last_message_payload,
+              lm.created_at AS last_message_at,
+              lm.is_read AS last_message_read
+         FROM wildx_dm_conversations c
+         LEFT JOIN LATERAL (
+           SELECT m.id, m.kind, m.body, m.payload, m.created_at, m.is_read
+             FROM wildx_dm_messages m
+            WHERE m.conversation_id = c.id
+            ORDER BY m.created_at DESC
+            LIMIT 1
+         ) lm ON TRUE
+        WHERE c.user_id = $1
+        ORDER BY COALESCE(lm.created_at, c.updated_at) DESC`,
+      [wid]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('Error en GET /wildwave/api/dm/conversations:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Mensajes de una conversación DM
+app.get('/wildwave/api/dm/conversations/:id/messages', async (req, res) => {
+  try {
+    await ensureWildWaveMessagingTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Token requerido' });
+    const conversationId = Number(req.params.id || 0);
+    if (!Number.isFinite(conversationId) || conversationId <= 0) return res.status(400).json({ error: 'Conversacion invalida' });
+
+    const { rows: convRows } = await pool.query(
+      'SELECT id FROM wildx_dm_conversations WHERE id = $1 AND user_id = $2 LIMIT 1',
+      [conversationId, wid]
+    );
+    if (!convRows.length) return res.status(404).json({ error: 'Conversacion no encontrada' });
+
+    const { rows } = await pool.query(
+      `SELECT id, sender_type, sender_user_id, sender_name, kind, body, payload, created_at, is_read
+         FROM wildx_dm_messages
+        WHERE conversation_id = $1
+        ORDER BY created_at ASC`,
+      [conversationId]
+    );
+    await pool.query(
+      'UPDATE wildx_dm_messages SET is_read = TRUE WHERE conversation_id = $1 AND is_read = FALSE',
+      [conversationId]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('Error en GET /wildwave/api/dm/conversations/:id/messages:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Responder invitación desde DM
+app.post('/wildwave/api/invitations/:id/respond', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await ensureWildWaveMessagingTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Token requerido' });
+    const invitationId = Number(req.params.id || 0);
+    if (!Number.isFinite(invitationId) || invitationId <= 0) return res.status(400).json({ error: 'Invitacion invalida' });
+    const action = String(req.body?.action || '').toLowerCase();
+    if (!['accept', 'reject'].includes(action)) return res.status(400).json({ error: 'Accion invalida' });
+
+    await client.query('BEGIN');
+    const { rows: invRows } = await client.query(
+      `SELECT i.id, i.channel_id, i.inviter_id, i.invitee_id, i.status,
+              c.name AS channel_name, c.slug AS channel_slug
+         FROM wildx_channel_invitations i
+         JOIN wildx_channels c ON c.id = i.channel_id
+        WHERE i.id = $1
+          FOR UPDATE`,
+      [invitationId]
+    );
+    if (!invRows.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Invitacion no encontrada' });
+    }
+    const invitation = invRows[0];
+    if (Number(invitation.invitee_id) !== Number(wid)) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'No autorizado para responder esta invitacion' });
+    }
+    if (String(invitation.status || '').toLowerCase() !== 'pending') {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'Esta invitacion ya fue respondida' });
+    }
+
+    const newStatus = action === 'accept' ? 'accepted' : 'rejected';
+    await client.query(
+      'UPDATE wildx_channel_invitations SET status = $1, responded_at = NOW() WHERE id = $2',
+      [newStatus, invitationId]
+    );
+    if (action === 'accept') {
+      await client.query(
+        `INSERT INTO wildx_channel_members (channel_id, user_id, role)
+         VALUES ($1, $2, 'member')
+         ON CONFLICT (channel_id, user_id) DO NOTHING`,
+        [invitation.channel_id, wid]
+      );
+    }
+
+    await client.query('COMMIT');
+
+    const conversationId = await getOrCreateWildBotConversation(wid);
+    if (conversationId) {
+      const botBody = action === 'accept'
+        ? `Te uniste al servidor ${invitation.channel_name}.`
+        : `Rechazaste la invitación al servidor ${invitation.channel_name}.`;
+      await pool.query(
+        `INSERT INTO wildx_dm_messages (conversation_id, sender_type, sender_name, kind, body, payload, created_at, is_read)
+         VALUES ($1, 'bot', 'WildBot', 'invite_result', $2, $3::jsonb, NOW(), FALSE)`,
+        [conversationId, botBody, JSON.stringify({
+          invitation_id: invitationId,
+          action,
+          channel_id: invitation.channel_id,
+          channel_name: invitation.channel_name,
+          channel_slug: invitation.channel_slug
+        })]
+      );
+      await pool.query('UPDATE wildx_dm_conversations SET updated_at = NOW() WHERE id = $1', [conversationId]);
+    }
+
+    res.json({
+      success: true,
+      invitation_id: invitationId,
+      status: newStatus,
+      channel_id: invitation.channel_id,
+      channel_name: invitation.channel_name
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error en POST /wildwave/api/invitations/:id/respond:', err);
+    res.status(500).json({ error: 'Error interno' });
+  } finally {
+    client.release();
   }
 });
 

@@ -17043,8 +17043,7 @@ async function ensureWildXReportsTable() {
   `);
 }
 
-// Registro de usuario WildX
-app.post('/wildwave/api/register', async (req, res) => {
+async function handleWildWaveRegister(req, res) {
   try {
     await ensureWildXTables();
     const { username, password, displayName, display_name } = req.body || {};
@@ -17052,16 +17051,16 @@ app.post('/wildwave/api/register', async (req, res) => {
     const pwd = String(password || '');
     const displayNameRaw = display_name ?? displayName;
     const dname = normalizeWildWaveDisplayName(displayNameRaw || '');
-    if (!uname || !pwd) return res.status(400).json({ error: 'Usuario y contraseÃƒÆ’Ã‚Â±a requeridos' });
+    if (!uname || !pwd) return res.status(400).json({ error: 'Usuario y contrasena requeridos' });
     const unameError = validateWildWaveUsername(uname);
     if (unameError) return res.status(400).json({ error: unameError });
     if (isReservedWildWaveUsername(uname)) {
-      return res.status(400).json({ error: 'Ese usuario estÃƒÆ’Ã‚Â¡ reservado' });
+      return res.status(400).json({ error: 'Ese usuario esta reservado' });
     }
     const dnameError = validateWildWaveDisplayName(dname);
     if (dnameError) return res.status(400).json({ error: dnameError });
     if (dname && isReservedWildWaveDisplayName(dname)) {
-      return res.status(400).json({ error: 'Ese nombre visible estÃƒÂ¡ reservado' });
+      return res.status(400).json({ error: 'Ese nombre visible esta reservado' });
     }
 
     const { rows: existing } = await pool.query(
@@ -17087,19 +17086,18 @@ app.post('/wildwave/api/register', async (req, res) => {
     if (err.code === '23505') {
       return res.status(409).json({ error: 'Ese usuario ya existe' });
     }
-    console.error('Error en POST /wildwave/api/register:', err);
+    console.error('Error en POST /wildwave/api/register (compat):', err);
     res.status(500).json({ error: 'Error interno' });
   }
-});
+}
 
-// Login WildX
-app.post('/wildwave/api/login', async (req, res) => {
+async function handleWildWaveLogin(req, res) {
   try {
     await ensureWildXTables();
     const { username, password } = req.body || {};
     const uname = (username || '').toString().trim();
     const pwd = (password || '').toString();
-    if (!uname || !pwd) return res.status(400).json({ error: 'Usuario y contraseÃƒÆ’Ã‚Â±a requeridos' });
+    if (!uname || !pwd) return res.status(400).json({ error: 'Usuario y contrasena requeridos' });
 
     const { rows } = await pool.query('SELECT id, username, display_name, pwd_hash, avatar_url, created_at, bio FROM wildx_users WHERE username=$1', [uname]);
     if (!rows.length) return res.status(401).json({ error: 'Credenciales incorrectas' });
@@ -17124,13 +17122,12 @@ app.post('/wildwave/api/login', async (req, res) => {
     };
     res.json({ token, user });
   } catch (err) {
-    console.error('Error en POST /wildwave/api/login:', err);
+    console.error('Error en POST /wildwave/api/login (compat):', err);
     res.status(500).json({ error: 'Error interno' });
   }
-});
+}
 
-// Datos del usuario actual WildX (incluye stats bÃƒÆ’Ã‚Â¡sicas + verificaciÃƒÆ’Ã‚Â³n)
-app.get('/wildwave/api/me', async (req, res) => {
+async function handleWildWaveMe(req, res) {
   try {
     await ensureWildXTables();
     const wid = getWildXUserId(req);
@@ -17196,7 +17193,7 @@ app.get('/wildwave/api/me', async (req, res) => {
     user.affiliations = affRows || [];
 
     if (await isWildXAdmin(wid)) {
-      // Cuenta admin con verificaciÃƒÆ’Ã‚Â³n especial dorada+roja
+      // Cuenta admin con verificacion especial dorada+roja
       user.verify_tier = 'admin';
       user.verify_plan_id = 'admin_studio';
       user.verify_badge_color = 'crimson';
@@ -17210,10 +17207,14 @@ app.get('/wildwave/api/me', async (req, res) => {
 
     res.json(user);
   } catch (err) {
-    console.error('Error en GET /wildwave/api/me:', err);
+    console.error('Error en GET /wildwave/api/me (compat):', err);
     res.status(500).json({ error: 'Error interno' });
   }
-});
+}
+
+app.post(['/wildwave/api/register', '/wildwave/api/auth/register'], handleWildWaveRegister);
+app.post(['/wildwave/api/login', '/wildwave/api/auth/login'], handleWildWaveLogin);
+app.get(['/wildwave/api/me', '/wildwave/api/auth/me'], handleWildWaveMe);
 
 // Listar todos los canales publicos (incluye membresia del usuario actual)
 app.get('/wildwave/api/channels', async (req, res) => {
@@ -17249,6 +17250,52 @@ app.get('/wildwave/api/channels', async (req, res) => {
     res.json(rows);
   } catch (err) {
     console.error('Error en GET /wildwave/api/channels:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Compat: lista de servidores del usuario actual
+app.get('/wildwave/api/channels/my', async (req, res) => {
+  try {
+    await ensureWildWaveChannelTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Token requerido' });
+
+    const { rows } = await pool.query(
+      `SELECT c.id,
+              c.name,
+              c.slug,
+              c.description,
+              c.icon_url,
+              c.owner_id,
+              c.created_at,
+              u.username AS owner_username,
+              COALESCE(u.display_name, u.username) AS owner_display_name,
+              (
+                COUNT(DISTINCT m.user_id)::int +
+                CASE WHEN BOOL_OR(m.user_id = c.owner_id) THEN 0 ELSE 1 END
+              ) AS members_count,
+              (c.owner_id = $1) AS is_owner_member,
+              COALESCE(ms.role, CASE WHEN c.owner_id = $1 THEN 'owner' ELSE 'member' END) AS member_role
+         FROM wildx_channels c
+         JOIN wildx_users u ON u.id = c.owner_id
+         LEFT JOIN wildx_channel_members m ON m.channel_id = c.id
+         LEFT JOIN wildx_channel_members ms
+           ON ms.channel_id = c.id AND ms.user_id = $1
+        WHERE c.owner_id = $1
+           OR EXISTS (
+             SELECT 1
+               FROM wildx_channel_members mym
+              WHERE mym.channel_id = c.id
+                AND mym.user_id = $1
+           )
+        GROUP BY c.id, u.username, u.display_name, ms.role
+        ORDER BY c.created_at DESC`,
+      [wid]
+    );
+    res.json({ channels: rows });
+  } catch (err) {
+    console.error('Error en GET /wildwave/api/channels/my:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });
@@ -17760,6 +17807,101 @@ app.get('/wildwave/api/channels/:id/settings/roles', async (req, res) => {
     res.json({ success: true, roles, members });
   } catch (err) {
     console.error('Error en GET /wildwave/api/channels/:id/settings/roles:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Compat: listado de mensajes por servidor + canal de texto
+app.get('/wildwave/api/channels/:id/messages', async (req, res) => {
+  try {
+    await ensureWildWaveMessagingTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Token requerido' });
+    const serverId = Number(req.params.id || 0);
+    const roomId = Number(req.query?.channel_id || req.query?.text_channel_id || 0);
+    if (!Number.isFinite(serverId) || serverId <= 0 || !Number.isFinite(roomId) || roomId <= 0) {
+      return res.status(400).json({ error: 'Parametros invalidos' });
+    }
+    const access = await getWildWaveServerAccess(serverId, wid);
+    if (!access || !access.isMember) return res.status(403).json({ error: 'No perteneces a este servidor' });
+    const { rows: roomRows } = await pool.query(
+      'SELECT id FROM wildx_server_text_channels WHERE id = $1 AND server_id = $2 LIMIT 1',
+      [roomId, serverId]
+    );
+    if (!roomRows.length) return res.status(404).json({ error: 'Canal no encontrado' });
+    const limit = Math.max(1, Math.min(200, Number(req.query?.limit || 60)));
+    const { rows } = await pool.query(
+      `SELECT m.id,
+              m.text_channel_id AS channel_id,
+              m.sender_user_id,
+              m.body AS content,
+              m.created_at,
+              u.username AS sender_username,
+              COALESCE(u.display_name, u.username, m.sender_name) AS sender_display_name,
+              u.avatar_url AS sender_avatar_url
+         FROM wildx_server_channel_messages m
+         LEFT JOIN wildx_users u ON u.id = m.sender_user_id
+        WHERE m.text_channel_id = $1
+        ORDER BY m.created_at DESC
+        LIMIT $2`,
+      [roomId, limit]
+    );
+    res.json({
+      success: true,
+      channel_id: roomId,
+      messages: rows.reverse()
+    });
+  } catch (err) {
+    console.error('Error en GET /wildwave/api/channels/:id/messages:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Compat: crear mensaje por servidor + canal de texto
+app.post('/wildwave/api/channels/:id/messages', async (req, res) => {
+  try {
+    await ensureWildWaveMessagingTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Token requerido' });
+    const serverId = Number(req.params.id || 0);
+    const roomId = Number(req.body?.channel_id || req.body?.text_channel_id || 0);
+    if (!Number.isFinite(serverId) || serverId <= 0 || !Number.isFinite(roomId) || roomId <= 0) {
+      return res.status(400).json({ error: 'Parametros invalidos' });
+    }
+    const access = await getWildWaveServerAccess(serverId, wid);
+    if (!access || !access.isMember) return res.status(403).json({ error: 'No perteneces a este servidor' });
+    const content = String(req.body?.content || req.body?.body || '').trim();
+    if (!content) return res.status(400).json({ error: 'Mensaje requerido' });
+    if (content.length > 1800) return res.status(400).json({ error: 'El mensaje supera el limite de 1800 caracteres' });
+    const { rows: roomRows } = await pool.query(
+      'SELECT id FROM wildx_server_text_channels WHERE id = $1 AND server_id = $2 LIMIT 1',
+      [roomId, serverId]
+    );
+    if (!roomRows.length) return res.status(404).json({ error: 'Canal no encontrado' });
+    const { rows: userRows } = await pool.query(
+      'SELECT username, COALESCE(display_name, username) AS display_name, avatar_url FROM wildx_users WHERE id = $1 LIMIT 1',
+      [wid]
+    );
+    if (!userRows.length) return res.status(404).json({ error: 'Usuario no encontrado' });
+    const sender = userRows[0];
+    const { rows } = await pool.query(
+      `INSERT INTO wildx_server_channel_messages (text_channel_id, sender_user_id, sender_name, body, created_at)
+       VALUES ($1, $2, $3, $4, NOW())
+       RETURNING id, text_channel_id AS channel_id, sender_user_id, body AS content, created_at`,
+      [roomId, wid, sender.display_name || sender.username, content]
+    );
+    const message = rows[0];
+    res.status(201).json({
+      success: true,
+      message: {
+        ...message,
+        sender_username: sender.username,
+        sender_display_name: sender.display_name || sender.username,
+        sender_avatar_url: sender.avatar_url || null
+      }
+    });
+  } catch (err) {
+    console.error('Error en POST /wildwave/api/channels/:id/messages:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });

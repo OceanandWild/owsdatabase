@@ -18,6 +18,7 @@ on:
           - velocity-surge
           - wildwave
           - wildshorts
+          - naturepedia
           - ecoxion
           - dinobox
           - ocean-cinemas
@@ -54,6 +55,7 @@ jobs:
             "velocity-surge"       = @{ repo = "velocity-surge";      dir = "Velocity Surge";       buildOut = "C:\builds\velocity-surge" }
             "wildwave"             = @{ repo = "wildwave";            dir = "WildWave";             buildOut = "C:\builds\wildwave" }
             "wildshorts"           = @{ repo = "wildshorts";          dir = "WildShorts";           buildOut = "C:\builds\wildshorts" }
+            "naturepedia"          = @{ repo = "naturepedia";         dir = "Naturepedia";          buildOut = "C:\builds\naturepedia" }
             "ecoxion"              = @{ repo = "ecoxion";             dir = "Ecoxion";              buildOut = "C:\builds\ecoxion" }
             "dinobox"              = @{ repo = "owsdatabase";         dir = "DinoBox";              buildOut = "C:\builds\dinobox" }
 

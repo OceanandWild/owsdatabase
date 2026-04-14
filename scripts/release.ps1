@@ -853,6 +853,7 @@ try {
     } else {
         if ($project -eq "ows-store") {
             git add "OWS Store/index.html" 2>&1
+            git add "OWS Store/main.js" 2>&1
         } elseif ($project -eq "dinobox") {
             git add "DinoBox/" 2>&1
         } else {

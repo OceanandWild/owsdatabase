@@ -32,6 +32,9 @@ const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 8 });
 const DOWNLOAD_PROGRESS_EMIT_MS = 750;        // reduce IPC chatter, keep UI responsive
 const DOWNLOAD_PROGRESS_EMIT_BYTES = 1024 * 1024; // emit each 1MB downloaded
 const DOWNLOAD_PROGRESS_EMIT_STEP = 2;            // emit each 2%
+const DOWNLOAD_STALL_TIMEOUT_MS = 45 * 1000;
+const DOWNLOAD_RETRY_ATTEMPTS = 3;
+const DOWNLOAD_RETRY_BASE_DELAY_MS = 1200;
 
 app.setAppUserModelId(APP_ID);
 app.setName(APP_DISPLAY_NAME);
@@ -516,6 +519,27 @@ function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function downloadInstallerWithRetries(url, destinationPath, taskRef, onProgress, attempts = DOWNLOAD_RETRY_ATTEMPTS) {
+  let lastError = null;
+  const maxAttempts = Math.max(1, Number(attempts || DOWNLOAD_RETRY_ATTEMPTS));
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    if (taskRef?.cancelled) throw new Error('Descarga cancelada por el usuario.');
+    try {
+      if (attempt > 1 && safeExists(destinationPath)) {
+        try { fs.unlinkSync(destinationPath); } catch (_) {}
+      }
+      await downloadWithRedirects(url, destinationPath, taskRef, onProgress);
+      return destinationPath;
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err || 'Error de descarga desconocido.'));
+      if (taskRef?.cancelled) throw new Error('Descarga cancelada por el usuario.');
+      if (attempt >= maxAttempts) break;
+      await wait(DOWNLOAD_RETRY_BASE_DELAY_MS * attempt);
+    }
+  }
+  throw lastError || new Error('No se pudo descargar el instalador.');
+}
+
 function isValidSemverVersion(version) {
   const value = String(version || '').trim();
   const match = semverTripletRegex.exec(value);
@@ -681,7 +705,9 @@ function downloadWithRedirects(url, destinationPath, taskRef, onProgress, redire
       let lastEmit = 0;
       let lastEmitBytes = 0;
       let lastEmitPercent = -1;
+      let lastChunkAt = Date.now();
       let settled = false;
+      let stallTimer = null;
       // 64KB write buffer — avoids backpressure stalls that throttle the TCP receive window.
       // With a 4MB buffer (old value), Node accumulates data before flushing to disk,
       // which causes the stream to pause the download while waiting for the OS to drain.
@@ -691,6 +717,10 @@ function downloadWithRedirects(url, destinationPath, taskRef, onProgress, redire
       const fail = (err) => {
         if (settled) return;
         settled = true;
+        if (stallTimer) {
+          clearInterval(stallTimer);
+          stallTimer = null;
+        }
         try { file.destroy(); } catch (_) {}
         try { response.destroy(); } catch (_) {}
         fs.unlink(destinationPath, () => reject(err));
@@ -718,6 +748,7 @@ function downloadWithRedirects(url, destinationPath, taskRef, onProgress, redire
       // resume on 'drain'. This prevents TCP window shrinkage that stalls downloads.
       response.on('data', (chunk) => {
         if (taskRef?.cancelled) return fail(new Error('Descarga cancelada por el usuario.'));
+        lastChunkAt = Date.now();
         downloadedBytes += chunk.length;
         emitProgress();
         const canContinue = file.write(chunk);
@@ -733,10 +764,26 @@ function downloadWithRedirects(url, destinationPath, taskRef, onProgress, redire
       response.on('end', () => {
         if (!settled) file.end();
       });
+      stallTimer = setInterval(() => {
+        if (settled) return;
+        if ((Date.now() - lastChunkAt) > DOWNLOAD_STALL_TIMEOUT_MS) {
+          fail(new Error('La descarga del instalador se estanco. Reintentando...'));
+        }
+      }, 5000);
       file.on('finish', () => {
         if (settled) return;
         if (taskRef?.cancelled) return fail(new Error('Descarga cancelada por el usuario.'));
+        if (totalBytes > 0 && downloadedBytes !== totalBytes) {
+          return fail(new Error(`Descarga incompleta (${downloadedBytes}/${totalBytes} bytes).`));
+        }
+        if (downloadedBytes < (128 * 1024)) {
+          return fail(new Error('Descarga incompleta: instalador demasiado pequeno.'));
+        }
         settled = true;
+        if (stallTimer) {
+          clearInterval(stallTimer);
+          stallTimer = null;
+        }
         if (onProgress) {
           const elapsedSec = Math.max((Date.now() - startedAt) / 1000, 0.001);
           const bytesPerSecond = downloadedBytes / elapsedSec;
@@ -951,7 +998,7 @@ ipcMain.handle('install-external-installer', async (_, payload) => {
       message: 'Descargando instalador...',
     });
 
-    await downloadWithRedirects(url, targetPath, taskRef, (progress) => {
+    await downloadInstallerWithRetries(url, targetPath, taskRef, (progress) => {
       sendToRenderer('external-install-status', {
         taskId,
         phase: 'downloading',

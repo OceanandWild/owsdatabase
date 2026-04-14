@@ -257,18 +257,31 @@
 
         .startup-loading-modal {
             position: fixed;
-            inset: 0;
+            top: 1rem;
+            right: 1rem;
             z-index: 11850;
             display: none;
-            align-items: center;
-            justify-content: center;
-            background: rgba(4, 9, 16, 0.58);
-            backdrop-filter: none;
-            padding: 1rem;
+            align-items: flex-start;
+            justify-content: flex-end;
+            pointer-events: none;
+            background: transparent;
+            padding: 0;
+            width: auto;
+            max-width: calc(100vw - 2rem);
         }
         .startup-loading-modal.active { display: flex; }
+        .startup-loading-modal.pos-left {
+            left: 1rem;
+            right: auto;
+            justify-content: flex-start;
+        }
+        .startup-loading-modal.pos-right {
+            right: 1rem;
+            left: auto;
+            justify-content: flex-end;
+        }
         .startup-loading-card {
-            width: min(460px, 100%);
+            width: min(460px, calc(100vw - 2rem));
             border: 1px solid rgba(82,217,223,0.34);
             border-radius: 16px;
             padding: 1rem 1.05rem;
@@ -276,6 +289,7 @@
             box-shadow: 0 20px 45px rgba(0,0,0,0.45);
             position: relative;
             overflow: hidden;
+            pointer-events: none;
         }
         .startup-loading-content {
             display: flex;
@@ -2273,6 +2287,140 @@
             justify-content: space-between;
             gap: 0.6rem;
         }
+        #project-unavailable-modal {
+            position: fixed;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 5600;
+            background: rgba(2, 6, 16, 0.82);
+            backdrop-filter: blur(5px);
+            padding: 1.2rem;
+        }
+        #project-unavailable-modal.active { display: flex; }
+        .project-unavailable-shell {
+            width: min(760px, calc(100% - 1rem));
+            border-radius: 18px;
+            border: 1px solid rgba(239, 68, 68, 0.26);
+            background: linear-gradient(170deg, rgba(8, 16, 34, 0.98), rgba(6, 14, 30, 0.98));
+            box-shadow: 0 26px 70px rgba(0, 0, 0, 0.55);
+            overflow: hidden;
+        }
+        .project-unavailable-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.8rem;
+            padding: 0.85rem 1rem;
+            border-bottom: 1px solid rgba(149, 162, 184, 0.22);
+            background: linear-gradient(120deg, rgba(9, 22, 44, 0.95), rgba(8, 19, 37, 0.95));
+        }
+        .project-unavailable-kicker {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.65rem;
+            font-family: var(--font-mono);
+            text-transform: uppercase;
+            letter-spacing: 0.7px;
+            color: #8fd9ff;
+        }
+        .project-unavailable-close {
+            width: 30px;
+            height: 30px;
+            border-radius: 10px;
+            border: 1px solid rgba(149, 162, 184, 0.34);
+            background: rgba(11, 24, 44, 0.8);
+            color: var(--ink-1);
+            cursor: pointer;
+        }
+        .project-unavailable-body { padding: 1rem 1rem 1.1rem; }
+        .project-unavailable-flow {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr auto 1fr;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.8rem;
+        }
+        .project-unavailable-node {
+            border: 1px solid rgba(149, 162, 184, 0.3);
+            border-radius: 14px;
+            background: rgba(8, 18, 35, 0.86);
+            padding: 0.72rem;
+            min-height: 90px;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+        .project-unavailable-node.restricted {
+            border-color: rgba(239, 68, 68, 0.46);
+            background: linear-gradient(140deg, rgba(52, 14, 26, 0.34), rgba(16, 22, 40, 0.9));
+        }
+        .project-unavailable-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            border: 1px solid rgba(149, 162, 184, 0.35);
+            background-position: center;
+            background-repeat: no-repeat;
+            background-size: cover;
+            flex-shrink: 0;
+        }
+        .project-unavailable-icon.store {
+            background-image: url('https://raw.githubusercontent.com/OceanandWild/owsdatabase/main/OWS%20Store/build/icon.ico');
+        }
+        .project-unavailable-copy strong {
+            display: block;
+            font-size: 0.82rem;
+            color: var(--ink-0);
+        }
+        .project-unavailable-copy span {
+            display: block;
+            margin-top: 0.2rem;
+            font-size: 0.69rem;
+            color: var(--ink-2);
+            line-height: 1.35;
+        }
+        .project-unavailable-arrow {
+            color: #79e9ff;
+            font-size: 1rem;
+            opacity: 0.82;
+        }
+        .project-unavailable-title {
+            margin: 0.2rem 0 0.45rem;
+            font-family: var(--font-display);
+            font-size: 1.12rem;
+            font-weight: 800;
+        }
+        .project-unavailable-text {
+            margin: 0;
+            font-size: 0.8rem;
+            color: var(--ink-1);
+            line-height: 1.58;
+        }
+        .project-unavailable-note {
+            margin-top: 0.7rem;
+            padding: 0.62rem 0.72rem;
+            border-radius: 10px;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            background: rgba(68, 16, 27, 0.25);
+            color: #ffb7bf;
+            font-size: 0.74rem;
+        }
+        .project-unavailable-actions {
+            margin-top: 0.95rem;
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.5rem;
+        }
+        @media (max-width: 920px) {
+            .project-unavailable-flow {
+                grid-template-columns: 1fr;
+                gap: 0.55rem;
+            }
+            .project-unavailable-arrow { display: none; }
+        }
         .modal-news-item-title {
             font-size: 0.78rem;
             color: var(--ink-0);
@@ -3384,6 +3532,11 @@
             border-color: rgba(38,212,232,0.25);
             color: var(--cyan);
             animation: tag-pulse 2s ease-in-out infinite;
+        }
+        .ecosystem-tag.blocked {
+            background: rgba(239, 68, 68, 0.14);
+            border-color: rgba(239, 68, 68, 0.36);
+            color: #ff9aa7;
         }
 
         @keyframes tag-pulse {
@@ -4668,6 +4821,7 @@
         }
         .search-status-tag.live { background: var(--cyan-dim); color: var(--cyan); border: 1px solid rgba(38,212,232,0.2); }
         .search-status-tag.soon { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(245,197,66,0.2); }
+        .search-status-tag.off { background: rgba(239,68,68,0.12); color: #ff9aa7; border: 1px solid rgba(239,68,68,0.28); }
 
         .search-recommended {
             background: var(--surface-0);
@@ -5574,6 +5728,22 @@
                             Si lo activas, al reiniciar OWS Store mantiene la vista actual sin recargar todo al inicio. En segundo plano revisa proyectos, noticias y eventos; si detecta cambios, te avisa y aplica la actualizacion.
                         </div>
                     </div>
+                    <div class="stat-box" style="grid-column:1 / -1;">
+                        <div class="stat-label">Indicador de carga en segundo plano</div>
+                        <div class="stat-value" style="display:flex;align-items:center;justify-content:space-between;gap:0.8rem;flex-wrap:wrap;">
+                            <span id="settings-loading-indicator-status">Activado</span>
+                            <button id="settings-loading-indicator-toggle" class="btn-install" onclick="toggleBackgroundLoadingIndicator()">
+                                <i class="fas fa-toggle-on"></i> Desactivar
+                            </button>
+                        </div>
+                        <div style="margin-top:0.55rem;font-size:0.72rem;color:var(--ink-1);line-height:1.45;">
+                            Muestra el modal de carga sin bloquear acciones. Puedes elegir si aparece arriba a la izquierda o a la derecha.
+                        </div>
+                        <div style="margin-top:0.6rem;display:flex;gap:0.45rem;flex-wrap:wrap;">
+                            <button id="settings-loading-position-left" class="btn-install" onclick="setBackgroundLoadingIndicatorPosition('left')"><i class="fas fa-arrow-up-left-from-circle"></i> Arriba izquierda</button>
+                            <button id="settings-loading-position-right" class="btn-install" onclick="setBackgroundLoadingIndicatorPosition('right')"><i class="fas fa-arrow-up-right-from-circle"></i> Arriba derecha</button>
+                        </div>
+                    </div>
                     <div class="stat-box">
                         <div class="stat-label">Ultima revision silenciosa</div>
                         <div class="stat-value" id="settings-last-silent-check">Sin revisiones</div>
@@ -5646,6 +5816,61 @@
         </div>
         <div id="news-article-preview" class="news-article-preview"></div>
         <div id="news-article-content" class="news-article-content"></div>
+    </div>
+</div>
+
+<div id="project-unavailable-modal" aria-hidden="true" onclick="if(event.target===this)closeProjectUnavailableModal()">
+    <div class="project-unavailable-shell">
+        <div class="project-unavailable-head">
+            <div class="project-unavailable-kicker"><i class="fas fa-shield-halved"></i> Restriccion de OWS Store</div>
+            <button type="button" class="project-unavailable-close" aria-label="Cerrar" onclick="closeProjectUnavailableModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="project-unavailable-body">
+            <div class="project-unavailable-flow">
+                <div class="project-unavailable-node">
+                    <div class="project-unavailable-icon store"></div>
+                    <div class="project-unavailable-copy">
+                        <strong>OWS Store</strong>
+                        <span>Estado de seguridad y distribucion.</span>
+                    </div>
+                </div>
+                <div class="project-unavailable-arrow"><i class="fas fa-arrow-right"></i></div>
+                <div class="project-unavailable-node restricted">
+                    <div class="project-unavailable-icon" style="display:flex;align-items:center;justify-content:center;background:none;border-color:rgba(239,68,68,0.44);color:#ff9aa7;">
+                        <i class="fas fa-ban"></i>
+                    </div>
+                    <div class="project-unavailable-copy">
+                        <strong>Restriccion temporal</strong>
+                        <span>No se permite instalar/actualizar mientras dure este estado.</span>
+                    </div>
+                </div>
+                <div class="project-unavailable-arrow"><i class="fas fa-arrow-right"></i></div>
+                <div class="project-unavailable-node">
+                    <div id="project-unavailable-project-icon" class="project-unavailable-icon"></div>
+                    <div class="project-unavailable-copy">
+                        <strong id="project-unavailable-project-name">Proyecto</strong>
+                        <span id="project-unavailable-project-state">Indisponible por proceso interno.</span>
+                    </div>
+                </div>
+            </div>
+            <h3 class="project-unavailable-title">Proyecto temporalmente indisponible</h3>
+            <p id="project-unavailable-text" class="project-unavailable-text">
+                OWS Store bloqueo esta distribucion para mantener estabilidad y coherencia del ecosistema.
+            </p>
+            <div id="project-unavailable-note" class="project-unavailable-note">
+                Si el proyecto esta en rework, se habilitara nuevamente cuando salga de ese estado.
+            </div>
+            <div class="project-unavailable-actions">
+                <button type="button" class="btn-install" style="background:#2a3650;" onclick="closeProjectUnavailableModal()">
+                    <i class="fas fa-check"></i> Entendido
+                </button>
+                <button type="button" class="btn-install" style="background:linear-gradient(90deg,var(--brand-2),#2aa0a6);" onclick="closeProjectUnavailableModal(); openSection('updates');">
+                    <i class="fas fa-clock-rotate-left"></i> Ver estado de actualizaciones
+                </button>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -5773,6 +5998,8 @@
         const STORE_THEME_KEY = 'ows_store_theme';
         const PROJECT_LIBRARY_KEY = 'ows_store_library_owned_slugs_v1';
         const STORE_DEFERRED_STARTUP_KEY = 'ows_store_deferred_startup_v1';
+        const STORE_BG_LOADING_INDICATOR_KEY = 'ows_store_bg_loading_indicator_v1';
+        const STORE_BG_LOADING_POSITION_KEY = 'ows_store_bg_loading_position_v1';
         const STORE_DATA_SNAPSHOT_KEY = 'ows_store_data_snapshot_v1';
         const STORE_DATA_SIGNATURE_KEY = 'ows_store_data_signature_v1';
         const OWS_ECOSYSTEM_LAYOUT_KEY = 'ows_store_ecosystem_layout_v1';
@@ -6309,9 +6536,12 @@
             const modal = document.getElementById('startup-loading-modal');
             const textEl = document.getElementById('startup-loading-text');
             const card = modal ? modal.querySelector('.startup-loading-card') : null;
+            if (!isBackgroundLoadingIndicatorEnabled()) return;
             if (textEl) textEl.textContent = text;
             if (modal) {
                 if (card) card.classList.remove('opening');
+                modal.classList.remove('pos-left', 'pos-right');
+                modal.classList.add(getBackgroundLoadingIndicatorPosition() === 'left' ? 'pos-left' : 'pos-right');
                 modal.classList.add('active');
                 modal.setAttribute('aria-hidden', 'false');
             }
@@ -6359,6 +6589,47 @@
 
         function isDeferredStartupModeEnabled() {
             return localStorage.getItem(STORE_DEFERRED_STARTUP_KEY) === '1';
+        }
+
+        function isBackgroundLoadingIndicatorEnabled() {
+            return localStorage.getItem(STORE_BG_LOADING_INDICATOR_KEY) !== '0';
+        }
+
+        function getBackgroundLoadingIndicatorPosition() {
+            const raw = String(localStorage.getItem(STORE_BG_LOADING_POSITION_KEY) || 'right').toLowerCase();
+            return raw === 'left' ? 'left' : 'right';
+        }
+
+        function setBackgroundLoadingIndicatorEnabled(enabled) {
+            localStorage.setItem(STORE_BG_LOADING_INDICATOR_KEY, enabled ? '1' : '0');
+            if (!enabled) {
+                const modal = document.getElementById('startup-loading-modal');
+                if (modal) {
+                    modal.classList.remove('active');
+                    modal.setAttribute('aria-hidden', 'true');
+                }
+            }
+            renderSettingsState();
+        }
+
+        function toggleBackgroundLoadingIndicator() {
+            const next = !isBackgroundLoadingIndicatorEnabled();
+            setBackgroundLoadingIndicatorEnabled(next);
+            addNotification(next
+                ? 'Indicador de carga en segundo plano activado.'
+                : 'Indicador de carga en segundo plano desactivado.',
+                'info');
+        }
+
+        function setBackgroundLoadingIndicatorPosition(position = 'right') {
+            const next = String(position || '').toLowerCase() === 'left' ? 'left' : 'right';
+            localStorage.setItem(STORE_BG_LOADING_POSITION_KEY, next);
+            const modal = document.getElementById('startup-loading-modal');
+            if (modal) {
+                modal.classList.remove('pos-left', 'pos-right');
+                modal.classList.add(next === 'left' ? 'pos-left' : 'pos-right');
+            }
+            renderSettingsState();
         }
 
         function setDeferredStartupModeEnabled(enabled) {
@@ -6456,12 +6727,30 @@
             const lastCheckEl = document.getElementById('settings-last-silent-check');
             const monitorEl = document.getElementById('settings-silent-monitor-state');
             const sigEl = document.getElementById('settings-data-signature');
+            const loadingStatusEl = document.getElementById('settings-loading-indicator-status');
+            const loadingToggleBtn = document.getElementById('settings-loading-indicator-toggle');
+            const loadingPosLeftBtn = document.getElementById('settings-loading-position-left');
+            const loadingPosRightBtn = document.getElementById('settings-loading-position-right');
             const enabled = isDeferredStartupModeEnabled();
+            const loadingEnabled = isBackgroundLoadingIndicatorEnabled();
+            const loadingPosition = getBackgroundLoadingIndicatorPosition();
             if (statusEl) statusEl.textContent = enabled ? 'Activado' : 'Desactivado';
             if (toggleBtn) {
                 toggleBtn.innerHTML = enabled
                     ? '<i class="fas fa-toggle-on"></i> Desactivar'
                     : '<i class="fas fa-toggle-off"></i> Activar';
+            }
+            if (loadingStatusEl) loadingStatusEl.textContent = loadingEnabled ? 'Activado' : 'Desactivado';
+            if (loadingToggleBtn) {
+                loadingToggleBtn.innerHTML = loadingEnabled
+                    ? '<i class="fas fa-toggle-on"></i> Desactivar'
+                    : '<i class="fas fa-toggle-off"></i> Activar';
+            }
+            if (loadingPosLeftBtn) {
+                loadingPosLeftBtn.classList.toggle('primary', loadingEnabled && loadingPosition === 'left');
+            }
+            if (loadingPosRightBtn) {
+                loadingPosRightBtn.classList.toggle('primary', loadingEnabled && loadingPosition === 'right');
             }
             if (lastCheckEl) {
                 lastCheckEl.textContent = deferredLastSilentCheckAt
@@ -9667,27 +9956,43 @@
 
         function resolveEventWindow(entryType, entry = {}, bannerMeta = {}, updateDate = null) {
             if (entryType !== 'event') return { startAt: null, endAt: null };
+            const nestedWindow = (entry?.event_window && typeof entry.event_window === 'object')
+                ? entry.event_window
+                : ((entry?.eventWindow && typeof entry.eventWindow === 'object') ? entry.eventWindow : {});
             const startAt = parseOptionalDate(
                 entry?.event_start
+                || entry?.event_start_at
+                || entry?.start_at
+                || entry?.starts_at
+                || entry?.start_date
+                || entry?.available_from
+                || entry?.launch_at
+                || nestedWindow?.start_at
+                || nestedWindow?.startAt
                 || bannerMeta?.starts_at
                 || bannerMeta?.start_at
                 || bannerMeta?.event_start
+                || bannerMeta?.event_start_at
+                || bannerMeta?.start_date
                 || null
-            );
-            let endAt = parseOptionalDate(
+            ) || parseOptionalDate(updateDate);
+            const endAt = parseOptionalDate(
                 entry?.event_end
+                || entry?.event_end_at
+                || entry?.end_at
+                || entry?.ends_at
+                || entry?.end_date
+                || entry?.available_until
+                || entry?.expires_at
+                || nestedWindow?.end_at
+                || nestedWindow?.endAt
                 || bannerMeta?.ends_at
                 || bannerMeta?.end_at
                 || bannerMeta?.event_end
+                || bannerMeta?.event_end_at
+                || bannerMeta?.end_date
                 || null
             );
-            // If an event defines launch/start but no end, auto-close it 24h later at same hour.
-            if (!endAt && startAt) {
-                const startMs = Date.parse(startAt);
-                if (Number.isFinite(startMs)) {
-                    endAt = new Date(startMs + (24 * 60 * 60 * 1000)).toISOString();
-                }
-            }
             return { startAt, endAt };
         }
 
@@ -9871,7 +10176,7 @@
             if (!force && owsNewsUpdatesCache.length && (now - owsNewsUpdatesFetchedAt) < OWS_NEWS_CACHE_TTL_MS) {
                 return owsNewsUpdatesCache;
             }
-            const res = await fetch(`${OWS_NEWS_UPDATES_API_URL}?nocache=${now}`);
+            const res = await fetch(`${OWS_NEWS_UPDATES_API_URL}?include_inactive=0&nocache=${now}`);
             if (!res.ok) throw new Error(`OWS News API ${res.status}`);
             const payload = await res.json();
             const list = (Array.isArray(payload) ? payload : [])
@@ -10135,11 +10440,13 @@
             if (!entry || entry.isEvent || entry.isActive === false) return false;
             if (entry.isBanner) return true;
             const typeRaw = String(entry.entryType || entry.kind || '').toLowerCase();
-            if (typeRaw && typeRaw !== 'news' && typeRaw !== 'banner') return false;
+            if (typeRaw && !['news', 'banner', 'announcement', 'notice', 'article', 'changelog', 'update'].includes(typeRaw)) return false;
             const names = Array.isArray(entry.projectNames) ? entry.projectNames.map((n) => String(n || '').toLowerCase()) : [];
             const storeScoped = names.some((n) => n.includes('ows-store') || n.includes('ows store'));
             const globalScoped = names.some((n) => n === 'global');
-            if (!storeScoped && !globalScoped) return false;
+            const text = `${entry?.title || ''} ${entry?.description || ''} ${(entry?.changes || []).join(' ')}`.toLowerCase();
+            const serviceNotice = /disculp|apolog|incident|incidente|retras|delay|postpone|hotfix|urgente/.test(text);
+            if (!storeScoped && !globalScoped && !serviceNotice) return false;
             return !isInternalOpsNewsEntry(entry);
         }
 
@@ -10943,6 +11250,7 @@
             const devicePlatform = normalizePlatformKind(detectCurrentDevicePlatform().platform || '');
             return allProjects
                 .map((p) => ({ project: p, info: getProjectUpdateInfo(p) }))
+                .filter((x) => !isProjectUnavailableByStore(x.project))
                 .filter((x) => hasDevicePendingUpdate(x.info, devicePlatform))
                 .sort((a, b) => String(a.project?.name || '').localeCompare(String(b.project?.name || '')));
         }
@@ -10957,6 +11265,7 @@
                 .filter(({ project, info }) => {
                     const slug = String(project?.slug || '');
                     if (!slug || pendingSlugs.has(slug)) return false;
+                    if (isProjectUnavailableByStore(project)) return false;
                     if (!isReleaseTrackedProject(project)) return false;
                     const state = installStateBySlug[slug] || {};
                     const listedInLibrary = isProjectInLibrary(slug);
@@ -12278,6 +12587,10 @@
         async function triggerProjectUpdate(slug, platform = '') {
             const project = allProjects.find((p) => p.slug === slug);
             if (!project) return;
+            if (isProjectUnavailableByStore(project)) {
+                openProjectUnavailableModal(project, 'Actualizaciones');
+                return;
+            }
             if (await ensureStoreIsUpToDateForProjectAction(`actualizar ${project.name}`, { openUpdates: false, forceCheck: true })) {
                 return;
             }
@@ -14496,6 +14809,79 @@
             return Boolean(project.android_apk_url || project.android_aab_url || project.android_release_url);
         }
 
+        function isProjectUnavailableByStore(project) {
+            if (!project || typeof project !== 'object') return false;
+            const status = String(project.status || '').trim().toLowerCase();
+            if (status === 'unavailable' || status === 'disabled' || status === 'blocked') return true;
+            if (project.unavailable === true || project.disabled === true || project.blocked === true) return true;
+            const rawState = String(project.phase_state || project.dev_state || project.build_state || project.project_state || '').trim().toLowerCase();
+            if (rawState === 'rework' || rawState === 'maintenance') return true;
+            const reason = String(project.unavailable_reason || project.status_reason || project.block_reason || project.maintenance_reason || '').trim().toLowerCase();
+            if (reason.includes('rework') || reason.includes('reforma') || reason.includes('indisponible') || reason.includes('maintenance') || reason.includes('mantenimiento')) return true;
+            return false;
+        }
+
+        function getProjectUnavailableReason(project) {
+            const raw = [
+                project?.unavailable_reason,
+                project?.status_reason,
+                project?.block_reason,
+                project?.maintenance_reason,
+                project?.release_warning,
+                project?.reason
+            ].map((x) => String(x || '').trim()).find(Boolean) || '';
+            const normalized = raw.toLowerCase();
+            if (normalized.includes('rework') || normalized.includes('reforma')) return 'Proceso de rework en curso';
+            if (normalized.includes('maintenance') || normalized.includes('mantenimiento')) return 'Mantenimiento interno';
+            if (raw) return normalizeUiText(raw);
+            return 'Estado temporalmente restringido por OWS Store';
+        }
+
+        function bindProjectUnavailableModalEvents() {
+            const modal = document.getElementById('project-unavailable-modal');
+            if (!modal || modal.dataset.bound === '1') return;
+            modal.dataset.bound = '1';
+            window.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape') closeProjectUnavailableModal();
+            });
+        }
+
+        function closeProjectUnavailableModal() {
+            const modal = document.getElementById('project-unavailable-modal');
+            if (!modal) return;
+            modal.classList.remove('active');
+            modal.setAttribute('aria-hidden', 'true');
+        }
+
+        function openProjectUnavailableModal(project, source = '') {
+            bindProjectUnavailableModalEvents();
+            const modal = document.getElementById('project-unavailable-modal');
+            if (!modal) return;
+            const projectNameEl = document.getElementById('project-unavailable-project-name');
+            const projectStateEl = document.getElementById('project-unavailable-project-state');
+            const textEl = document.getElementById('project-unavailable-text');
+            const noteEl = document.getElementById('project-unavailable-note');
+            const iconEl = document.getElementById('project-unavailable-project-icon');
+            const projectName = normalizeUiText(String(project?.name || 'Proyecto'));
+            const reason = getProjectUnavailableReason(project);
+            if (projectNameEl) projectNameEl.textContent = projectName;
+            if (projectStateEl) projectStateEl.textContent = reason;
+            if (textEl) textEl.textContent = `${projectName} esta marcado como indisponible. OWS Store bloquea instalar, actualizar y abrir este proyecto mientras dure ese estado.`;
+            if (noteEl) noteEl.textContent = reason.toLowerCase().includes('rework')
+                ? 'El proyecto esta en rework. OWS Store lo habilitara de nuevo cuando salga de ese estado.'
+                : 'Cuando el estado vuelva a disponible, OWS Store habilitara nuevamente sus acciones.';
+            if (iconEl) {
+                const src = getProjectIcon(project, 64);
+                iconEl.style.backgroundImage = src ? `url('${src.replace(/'/g, '%27')}')` : '';
+                iconEl.style.backgroundColor = 'rgba(9, 19, 35, 0.9)';
+            }
+            modal.classList.add('active');
+            modal.setAttribute('aria-hidden', 'false');
+            const sourceLabel = source ? ` (${source})` : '';
+            addNotification(`${projectName} esta indisponible por OWS Store${sourceLabel}.`, 'warning');
+            showActionMessage(`${projectName} esta temporalmente restringido por OWS Store.`, { state: 'info' });
+        }
+
         function selectAndroidDownloadUrl(proxyUrl = '', directUrl = '') {
             const proxy = String(proxyUrl || '').trim();
             const direct = String(directUrl || '').trim();
@@ -14506,6 +14892,7 @@
         function getProjectInstallTargets(project) {
             if (!project) return [];
             const targets = [];
+            const blockedByStore = isProjectUnavailableByStore(project);
             if (supportsWindowsInstaller(project)) {
                 const winUrl = getInstallerUrl(project);
                 const winPending = project.pending_release || project.installer_available === false;
@@ -14517,8 +14904,9 @@
                     url: winUrl,
                     sizeBytes: Number(project.installer_size || 0),
                     version: project.windows_version || project.version || '',
-                    available: Boolean(winUrl) && !winPending,
-                    pending: Boolean(winPending),
+                    available: Boolean(winUrl) && !winPending && !blockedByStore,
+                    pending: Boolean(winPending) && !blockedByStore,
+                    blocked: blockedByStore,
                 });
             }
 
@@ -14537,8 +14925,9 @@
                     sha256: String(project.android_sha256 || '').trim(),
                     sizeBytes: Number(project.android_apk_size || 0),
                     version: project.android_version || project.version || '',
-                    available: Boolean(apkUrl),
-                    pending: !apkUrl,
+                    available: Boolean(apkUrl) && !blockedByStore,
+                    pending: !apkUrl && !blockedByStore,
+                    blocked: blockedByStore,
                 });
             }
             return targets;
@@ -14581,6 +14970,7 @@
             const hasWin = targets.some((t) => t.kind === 'windows');
             const hasAndroid = targets.some((t) => t.kind === 'android');
             const anyAvailable = targets.some((t) => t.available);
+            if (isProjectUnavailableByStore(project)) return 'NO DISPONIBLE';
             if (!anyAvailable && (project.pending_release || project.installer_available === false)) return 'NO DISPONIBLE';
             if (hasWin && hasAndroid) return 'WIN + ANDROID';
             if (hasAndroid) return 'ANDROID';
@@ -16039,6 +16429,7 @@
                     : 'app-card ecosystem-row ecosystem-project-card';
                 card.onclick = () => openDetails(p.slug);
                 const isComingSoon = p.status === 'coming_soon';
+                const isStoreUnavailable = isProjectUnavailableByStore(p);
                 const runtime = getRuntimeState(p.slug);
                 const isInstalling = isInstallingPhase(runtime.phase);
                 const isQueued = runtime.phase === 'queued';
@@ -16062,24 +16453,29 @@
                     ? `<div class="ecosystem-submeta">${updateHint}</div>`
                     : '';
                 const newBadgeHtml = hasNewBadge(p) ? `<span class="new-badge">NUEVO!</span>` : '';
-                const updateFlagHtml = devicePendingUpdate
+                const updateFlagHtml = (!isStoreUnavailable && devicePendingUpdate)
                     ? `<div class="ecosystem-submeta" style="color:var(--brand-2); font-weight:700;">Update ${getPrimaryUpdatePlatformLabel(updateInfo)} disponible: v${updateInfo.latestVersion}</div>`
                     : '';
                 const quickTags = [];
-                quickTags.push(`<span class="ecosystem-tag ${isComingSoon ? 'soon' : 'live'}">${isComingSoon ? 'Proximamente' : 'Activo'}</span>`);
+                quickTags.push(`<span class="ecosystem-tag ${isStoreUnavailable ? 'blocked' : (isComingSoon ? 'soon' : 'live')}">${isStoreUnavailable ? 'No disponible' : (isComingSoon ? 'Proximamente' : 'Activo')}</span>`);
                 if (isReleaseTrackedProject(p)) quickTags.push(`<span class="ecosystem-tag">Sincronizado</span>`);
-                if (devicePendingUpdate) quickTags.push(`<span class="ecosystem-tag update">Update ${getPrimaryUpdatePlatformLabel(updateInfo)}</span>`);
+                if (!isStoreUnavailable && devicePendingUpdate) quickTags.push(`<span class="ecosystem-tag update">Update ${getPrimaryUpdatePlatformLabel(updateInfo)}</span>`);
                 const tagsHtml = `<div class="ecosystem-tags">${quickTags.join('')}</div>`;
                 const installingHtml = `
                     <div id="installing-text-${p.slug}" class="ecosystem-submeta" style="color:var(--brand-2); display:${(isInstalling || isQueued || isPreparing) ? 'block' : 'none'};">
                         ${isQueued ? 'En cola para descarga...' : (isPreparing ? 'Preparando instalador...' : (isInstalling ? `Instalando: ${Math.round(runtime.percent || 0)}%` : ''))}
                     </div>
                 `;
-                const countdownHtml = (isComingSoon && p.release_date)
+                const countdownHtml = isStoreUnavailable
+                    ? `<span>No disponible por OWS Store</span>`
+                    : (isComingSoon && p.release_date)
                     ? `<span class="countdown" data-date="${p.release_date}">Cargando...</span>`
                     : `<span>${p.pending_release ? 'No disponible' : 'Disponible'}</span>`;
                 const iconStyle = getProjectIcon(p, 64).replace(/'/g, '%27');
                 const summaryText = escHtml(normalizeUiText(String(p.description || 'Proyecto oficial del ecosistema Ocean and Wild Studios.')));
+                const effectiveStateText = isStoreUnavailable
+                    ? 'No disponible'
+                    : (isComingSoon ? 'Proximamente' : (p.pending_release ? 'No disponible' : 'Disponible'));
                 const shellHtml = `
                     <div class="ecosystem-card-shell">
                         <div class="ecosystem-card-header">
@@ -16099,7 +16495,7 @@
                             </div>
                             <div class="ecosystem-kpi">
                                 <div class="ecosystem-kpi-k">Estado</div>
-                                <div class="ecosystem-kpi-v compact">${isComingSoon ? 'Proximamente' : (p.pending_release ? 'No disponible' : 'Disponible')}</div>
+                                <div class="ecosystem-kpi-v compact">${effectiveStateText}</div>
                             </div>
                         </div>
                         <div class="app-meta"><span>Compatibilidad</span><span>${availabilityLabel}</span>${countdownHtml}</div>
@@ -16185,7 +16581,8 @@
                 const isQueued = runtime.phase === 'queued';
                 const isPreparing = runtime.phase === 'preparing';
                 const updateInfo = getProjectUpdateInfo(p);
-                const devicePendingUpdate = hasDevicePendingUpdate(updateInfo);
+                const isStoreUnavailable = isProjectUnavailableByStore(p);
+                const devicePendingUpdate = !isStoreUnavailable && hasDevicePendingUpdate(updateInfo);
                 const busy = isDownloading || isQueued || isPreparing;
                 const savedOnly = !isInstalled && !busy;
                 counts.total += 1;
@@ -16224,7 +16621,9 @@
                 const isQueued = runtime.phase === 'queued';
                 const isPreparing = runtime.phase === 'preparing';
                 const updateInfo = getProjectUpdateInfo(p);
-                const devicePendingUpdate = hasDevicePendingUpdate(updateInfo);
+                const isStoreUnavailable = isProjectUnavailableByStore(p);
+                const unavailableReason = getProjectUnavailableReason(p);
+                const devicePendingUpdate = !isStoreUnavailable && hasDevicePendingUpdate(updateInfo);
                 const card = document.createElement('div');
                 card.className = 'library-card';
                 const metaVersion = isInstalled
@@ -16250,38 +16649,48 @@
                     </div>
                 `;
                 const blockedByStore = isStoreObsoleteGateActive();
-                const reinstallLabel = blockedByStore
+                const reinstallLabel = isStoreUnavailable
+                    ? 'Restringido'
+                    : (blockedByStore
                     ? 'Actualizar Store'
-                    : (devicePendingUpdate ? 'Actualizar' : 'Reinstalar');
-                const reinstallIcon = blockedByStore ? 'fa-shield-halved' : 'fa-rotate';
-                const reinstallAction = blockedByStore
+                    : (devicePendingUpdate ? 'Actualizar' : 'Reinstalar'));
+                const reinstallIcon = isStoreUnavailable ? 'fa-ban' : (blockedByStore ? 'fa-shield-halved' : 'fa-rotate');
+                const reinstallAction = isStoreUnavailable
+                    ? `openProjectUnavailableModal(allProjects.find((pr) => pr.slug === '${p.slug}'), 'Biblioteca')`
+                    : (blockedByStore
                     ? `triggerStoreObsoleteNotice('${p.slug}')`
-                    : `reinstallFromLibrary('${p.slug}')`;
+                    : `reinstallFromLibrary('${p.slug}')`);
                 const actionsHtml = (isDownloading || isPreparing || isQueued)
                     ? `<div class="library-actions">
                         <button class="btn-install full" style="background:#b96700;" onclick="cancelInstallFromLibrary('${p.slug}')"><i class="fas fa-ban"></i> Cancelar instalacion</button>
                     </div>`
                     : (isInstalled
                         ? `<div class="library-actions">
-                            <button class="btn-install" onclick="launchFromLibrary('${p.slug}')"><i class="fas fa-play"></i> ${openLabel}</button>
-                            <button class="btn-install ${blockedByStore ? 'unavailable' : ''}" style="background:linear-gradient(90deg,var(--brand-2),#2aa0a6);" onclick="${reinstallAction}"><i class="fas ${reinstallIcon}"></i> ${reinstallLabel}</button>
+                            <button class="btn-install ${isStoreUnavailable ? 'unavailable' : ''}" onclick="${isStoreUnavailable ? `openProjectUnavailableModal(allProjects.find((pr) => pr.slug === '${p.slug}'), 'Biblioteca')` : `launchFromLibrary('${p.slug}')`}"><i class="fas ${isStoreUnavailable ? 'fa-ban' : 'fa-play'}"></i> ${isStoreUnavailable ? 'No disponible' : openLabel}</button>
+                            <button class="btn-install ${(blockedByStore || isStoreUnavailable) ? 'unavailable' : ''}" style="background:linear-gradient(90deg,var(--brand-2),#2aa0a6);" onclick="${reinstallAction}"><i class="fas ${reinstallIcon}"></i> ${reinstallLabel}</button>
                             <button class="btn-install full" style="background:#2b2e37;" onclick="uninstallFromLibrary('${p.slug}')"><i class="fas fa-trash"></i> Desinstalar</button>
                         </div>`
                         : `<div class="library-actions">
-                            <button class="btn-install ${blockedByStore ? 'unavailable' : ''}" onclick="${reinstallAction}"><i class="fas ${blockedByStore ? 'fa-shield-halved' : 'fa-download'}"></i> ${blockedByStore ? 'Actualizar Store' : 'Instalar'}</button>
+                            <button class="btn-install ${(blockedByStore || isStoreUnavailable) ? 'unavailable' : ''}" onclick="${reinstallAction}"><i class="fas ${isStoreUnavailable ? 'fa-ban' : (blockedByStore ? 'fa-shield-halved' : 'fa-download')}"></i> ${isStoreUnavailable ? 'No disponible' : (blockedByStore ? 'Actualizar Store' : 'Instalar')}</button>
                             <button class="btn-install full" style="background:#2b2e37;" onclick="openDetails('${p.slug}')"><i class="fas fa-circle-info"></i> Ver ficha</button>
                         </div>`);
-                const updateBadgeHtml = (isInstalled && devicePendingUpdate)
+                const updateBadgeHtml = isStoreUnavailable
+                    ? `<div class="library-update-note" style="border-color:rgba(239,68,68,0.35);background:rgba(239,68,68,0.12);color:#ffb2bc;">Restringido por OWS Store: ${escHtml(unavailableReason)}.</div>`
+                    : ((isInstalled && devicePendingUpdate)
                     ? `<div class="library-update-note">Update disponible (${getPrimaryUpdatePlatformLabel(updateInfo)}): v${updateInfo.latestVersion}</div>`
                     : (!isInstalled
                         ? `<div class="library-update-note" style="border-color:var(--line);background:color-mix(in srgb,var(--paper) 84%, transparent);color:var(--ink-soft);">Guardado en biblioteca. Instala para jugar o usar.</div>`
-                        : '');
-                const statusClass = isInstalled
+                        : ''));
+                const statusClass = isStoreUnavailable
+                    ? 'saved'
+                    : (isInstalled
                     ? 'installed'
-                    : ((isDownloading || isQueued || isPreparing) ? 'pending' : 'saved');
-                const statusText = isInstalled
+                    : ((isDownloading || isQueued || isPreparing) ? 'pending' : 'saved'));
+                const statusText = isStoreUnavailable
+                    ? 'RESTRINGIDO OWS'
+                    : (isInstalled
                     ? (isDownloading || isQueued || isPreparing ? statusLabel : 'INSTALADO')
-                    : ((isDownloading || isQueued || isPreparing) ? statusLabel : 'GUARDADO');
+                    : ((isDownloading || isQueued || isPreparing) ? statusLabel : 'GUARDADO'));
                 card.innerHTML = `
                     <div class="library-primary">
                         <div class="library-card-head">
@@ -16320,6 +16729,8 @@
         function openDetails(slug) {
             const p = allProjects.find(pro => pro.slug === slug);
             if (!p) return;
+            const isStoreUnavailable = isProjectUnavailableByStore(p);
+            const unavailableReason = getProjectUnavailableReason(p);
             const phaseRaw = String(p.phase_state || p.dev_state || p.build_state || p.project_state || '').trim().toLowerCase();
             const PHASE_MAP = {
                 'pre-alpha': 'Pre-Alpha',
@@ -16348,9 +16759,12 @@
                     : `Ultima actualizacion: ${formatDateTime(getProjectLastUpdateAt(p))}`;
                 document.getElementById('m-desc').innerText += `\n\n${statusText}.`;
             }
+            if (isStoreUnavailable) {
+                document.getElementById('m-desc').innerText += `\n\nEstado OWS Store: ${unavailableReason}.`;
+            }
             const phaseEl = document.getElementById('m-phase-state');
             if (phaseEl) {
-                phaseEl.innerText = isComingSoon ? 'Proximamente' : projectPhase;
+                phaseEl.innerText = isStoreUnavailable ? 'No disponible' : (isComingSoon ? 'Proximamente' : projectPhase);
             }
             let modalIconEl = document.getElementById('m-icon');
             const _mSrc = getProjectIcon(p, 140);
@@ -16472,16 +16886,22 @@
             const storeBlocked = isStoreObsoleteGateActive();
             const installStateEl = document.getElementById('m-install-state');
             if (installStateEl) {
-                installStateEl.innerText = busy
+                installStateEl.innerText = isStoreUnavailable
+                    ? `Restringido por OWS Store (${unavailableReason})`
+                    : (busy
                     ? 'Instalando/descargando...'
                     : (devicePendingUpdate
                         ? 'Instalado con update pendiente'
-                        : ((state.installed || installedV) ? 'Instalado y al dia' : 'No instalado'));
+                        : ((state.installed || installedV) ? 'Instalado y al dia' : 'No instalado')));
             }
 
             let btnText = '<i class="fas fa-download"></i> INSTALAR PROYECTO';
             let btnClass = 'btn-install';
-            if (isComingSoon) { btnText = 'PROXIMAMENTE'; btnClass += ' coming-soon'; }
+            if (isStoreUnavailable) {
+                btnText = '<i class="fas fa-ban"></i> NO DISPONIBLE EN OWS STORE';
+                btnClass += ' unavailable';
+            }
+            else if (isComingSoon) { btnText = 'PROXIMAMENTE'; btnClass += ' coming-soon'; }
             else if (busy) {
                 if (phase === 'queued' || phase === 'waiting') btnText = '<i class="fas fa-list"></i> EN COLA...';
                 else if (phase === 'preparing') btnText = '<i class="fas fa-gear"></i> PREPARANDO...';
@@ -16518,6 +16938,10 @@
             btn.innerHTML = btnText;
             btn.onclick = async (e) => {
                 closeDetails();
+                if (isStoreUnavailable) {
+                    openProjectUnavailableModal(p, 'Ficha');
+                    return;
+                }
                 if (!isComingSoon && !busy && storeBlocked && (isExternal || !installedV || devicePendingUpdate)) {
                     triggerStoreObsoleteNotice(p.slug);
                     return;
@@ -16675,6 +17099,10 @@
         async function handleProjectAction(e, project) {
             e.stopPropagation();
             if (!project) return;
+            if (isProjectUnavailableByStore(project)) {
+                openProjectUnavailableModal(project, 'Instalacion');
+                return;
+            }
             if (!isNativeAndroidRuntime() && !isDesktopUpdaterBridgeAvailable() && isLocalDevPreviewMode()) {
                 rememberProjectInLibrary(project.slug);
                 const runtime = getRuntimeState(project.slug);
@@ -16869,6 +17297,10 @@
         async function launchFromLibrary(slug) {
             const project = allProjects.find((p) => p.slug === slug);
             if (!project) return;
+            if (isProjectUnavailableByStore(project)) {
+                openProjectUnavailableModal(project, 'Biblioteca');
+                return;
+            }
             if (isExternalInstallerProject(project)) {
                 const state = installStateBySlug[slug] || {};
                 const installedPlatform = getInstalledPlatform(slug);
@@ -18375,7 +18807,7 @@
                     Array.isArray(p.platforms) ? p.platforms : [p.platform || 'windows']
                 ));
                 candidates = allProjects.filter(p => {
-                    if (p.status === 'unavailable') return false;
+                    if (isProjectUnavailableByStore(p)) return false;
                     if (installed.some(i => i.slug === p.slug)) return false;
                     const pp = Array.isArray(p.platforms) ? p.platforms : [p.platform || 'windows'];
                     return pp.some(pl => installedPlatforms.has(pl));
@@ -18383,7 +18815,7 @@
             }
             if (candidates.length < 4) {
                 const extra = allProjects.filter(p =>
-                    p.status !== 'unavailable' &&
+                    !isProjectUnavailableByStore(p) &&
                     !candidates.some(c => c.slug === p.slug) &&
                     !(installStateBySlug?.[p.slug]?.installed) &&
                     !localStorage.getItem('installed_' + p.slug)
@@ -18529,9 +18961,11 @@
             list.innerHTML = recommendedProjects.map(p => {
                 const icon = getProjectIcon(p, 32);
                 const freqTag = updateFreqCache[p.slug] ? buildFreqTag(updateFreqCache[p.slug]) : '';
-                const statusTag = p.status === 'coming_soon'
-                    ? '<span class="search-status-tag soon">Proximamente</span>'
-                    : '<span class="search-status-tag live">Disponible</span>';
+                const statusTag = isProjectUnavailableByStore(p)
+                    ? '<span class="search-status-tag off">No disponible</span>'
+                    : (p.status === 'coming_soon'
+                        ? '<span class="search-status-tag soon">Proximamente</span>'
+                        : '<span class="search-status-tag live">Disponible</span>');
                 return `<div class="search-result-item" onmousedown="event.preventDefault(); openDetails('${p.slug}'); hideSearchDropdownDelayed();">
                     <img class="search-result-icon" src="${icon}" onerror="this.style.display='none'" alt="">
                     <div class="search-result-name">${p.name || p.slug}</div>

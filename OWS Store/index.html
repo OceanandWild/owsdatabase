@@ -14969,8 +14969,34 @@
             return Boolean(project.android_apk_url || project.android_aab_url || project.android_release_url);
         }
 
+        function getProjectMetadataObject(project) {
+            const meta = project?.metadata;
+            if (!meta) return {};
+            if (typeof meta === 'string') {
+                try {
+                    const parsed = JSON.parse(meta);
+                    return parsed && typeof parsed === 'object' ? parsed : {};
+                } catch (_) {
+                    return {};
+                }
+            }
+            return typeof meta === 'object' ? meta : {};
+        }
+
         function getProjectStoreRestrictionState(project) {
             if (!project || typeof project !== 'object') return '';
+            const metadata = getProjectMetadataObject(project);
+            const forceBlockRaw = String(
+                metadata?.force_block
+                ?? metadata?.forceBlock
+                ?? ''
+            ).trim().toLowerCase();
+            const forceBlock = forceBlockRaw === 'true' || forceBlockRaw === '1';
+            if (forceBlock) {
+                const forcedState = String(metadata?.force_block_state || metadata?.forceBlockState || '').trim().toLowerCase();
+                const isForcedRework = forcedState === 'rework' || forcedState === 'pleno_rework' || forcedState === 'full_rework';
+                return isForcedRework ? 'rework' : 'unavailable';
+            }
             const status = String(project.status || '').trim().toLowerCase();
             const rawState = String(project.phase_state || project.dev_state || project.build_state || project.project_state || '').trim().toLowerCase();
             const reason = String(project.unavailable_reason || project.status_reason || project.block_reason || project.maintenance_reason || '').trim().toLowerCase();
@@ -14996,7 +15022,19 @@
         }
 
         function getProjectUnavailableReason(project) {
+            const metadata = getProjectMetadataObject(project);
             const raw = [
+                metadata?.force_block_reason,
+                metadata?.forceBlockReason,
+                metadata?.force_reason,
+                metadata?.forceReason,
+                metadata?.block_reason,
+                metadata?.blockReason,
+                metadata?.status_reason,
+                metadata?.maintenance_reason,
+                metadata?.unavailable_reason,
+                metadata?.release_warning,
+                metadata?.reason,
                 project?.unavailable_reason,
                 project?.status_reason,
                 project?.block_reason,

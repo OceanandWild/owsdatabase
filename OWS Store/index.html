@@ -1666,6 +1666,52 @@
         .news-hub-chip { font-size:0.62rem; font-family:var(--font-mono); text-transform:uppercase; letter-spacing:0.5px; color:var(--cyan); margin-bottom:0.4rem; }
         .news-hub-title { font-size:0.82rem; font-weight:700; color:var(--ink-0); line-height:1.3; margin-bottom:0.25rem; }
         .news-hub-meta { font-size:0.68rem; color:var(--ink-2); }
+        .news-hub-tables {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.8rem;
+        }
+        .news-hub-table-card {
+            background: var(--surface-1);
+            border: 1px solid var(--border);
+            border-radius: var(--r-md);
+            overflow: hidden;
+        }
+        .news-hub-table-head {
+            padding: 0.7rem 0.85rem;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.68rem;
+            font-family: var(--font-mono);
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            color: var(--cyan);
+        }
+        .news-hub-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.72rem;
+        }
+        .news-hub-table th,
+        .news-hub-table td {
+            text-align: left;
+            padding: 0.5rem 0.7rem;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            vertical-align: top;
+        }
+        .news-hub-table th {
+            font-size: 0.6rem;
+            font-family: var(--font-mono);
+            text-transform: uppercase;
+            color: var(--ink-2);
+            letter-spacing: 0.4px;
+            background: var(--surface-2);
+        }
+        .news-hub-table tr:last-child td { border-bottom: none; }
+        .news-hub-table-empty {
+            padding: 0.75rem;
+            font-size: 0.72rem;
+            color: var(--ink-2);
+        }
 
         /* Project grid */
         .project-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:0.75rem; }
@@ -2302,8 +2348,11 @@
         .project-unavailable-shell {
             width: min(760px, calc(100% - 1rem));
             border-radius: 18px;
-            border: 1px solid rgba(239, 68, 68, 0.26);
-            background: linear-gradient(170deg, rgba(8, 16, 34, 0.98), rgba(6, 14, 30, 0.98));
+            border: 1px solid rgba(91, 226, 188, 0.28);
+            background:
+                radial-gradient(80% 120% at 0% 100%, rgba(36, 156, 131, 0.28), transparent 60%),
+                radial-gradient(80% 120% at 100% 0%, rgba(28, 127, 184, 0.26), transparent 62%),
+                linear-gradient(160deg, rgba(6, 16, 35, 0.98), rgba(9, 24, 34, 0.98));
             box-shadow: 0 26px 70px rgba(0, 0, 0, 0.55);
             overflow: hidden;
         }
@@ -2355,7 +2404,9 @@
         }
         .project-unavailable-node.restricted {
             border-color: rgba(239, 68, 68, 0.46);
-            background: linear-gradient(140deg, rgba(52, 14, 26, 0.34), rgba(16, 22, 40, 0.9));
+            background:
+                radial-gradient(120% 120% at 80% 10%, rgba(220, 38, 38, 0.2), transparent 55%),
+                linear-gradient(140deg, rgba(52, 14, 26, 0.4), rgba(16, 24, 38, 0.94));
         }
         .project-unavailable-icon {
             width: 44px;
@@ -2386,6 +2437,22 @@
             color: #79e9ff;
             font-size: 1rem;
             opacity: 0.82;
+        }
+        .project-unavailable-arrow.flow-lock {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.3rem;
+            min-width: 38px;
+            color: #ff97a8;
+            opacity: 0.95;
+        }
+        .project-unavailable-arrow.flow-lock::before,
+        .project-unavailable-arrow.flow-lock::after {
+            content: '';
+            width: 16px;
+            height: 1.5px;
+            background: linear-gradient(90deg, rgba(126, 228, 255, 0.15), rgba(255, 117, 144, 0.65), rgba(126, 228, 255, 0.15));
         }
         .project-unavailable-title {
             margin: 0.2rem 0 0.45rem;
@@ -3926,6 +3993,7 @@
         @media (max-width: 980px) {
             .news-feed-grid { grid-template-columns: 1fr; }
             .news-feed-controls { justify-content: flex-start; }
+            .news-hub-tables { grid-template-columns: 1fr; }
         }
 
         
@@ -5440,33 +5508,36 @@
                 <div class="section-header" style="margin-bottom:0.75rem;">
                     <span class="section-label">Eventos y Changelogs</span>
                 </div>
-
-                <!-- Tabs -->
-                <div class="news-hub-tabs-bar">
-                    <button class="news-hub-tab active" onclick="switchNewsTab(this,'news-hub-global-wrap')">
-                        <i class="fas fa-clipboard-list"></i> Changelogs
-                    </button>
-                    <button class="news-hub-tab" onclick="switchNewsTab(this,'news-hub-events-wrap')">
-                        <i class="fas fa-calendar-star"></i> Eventos
-                    </button>
-                </div>
-
-                <!-- Noticias panel -->
-                <div id="news-hub-global-wrap" class="news-hub-panel active">
-                    <div id="news-hub-global" class="news-hub-list">
-                        <div class="info-note-card">Cargando changelogs...</div>
+                <div class="news-hub-tables">
+                    <div class="news-hub-table-card">
+                        <div class="news-hub-table-head"><i class="fas fa-clipboard-list"></i> Changelogs</div>
+                        <table class="news-hub-table" aria-label="Tabla de changelogs">
+                            <thead>
+                                <tr>
+                                    <th>Titulo</th>
+                                    <th>Fecha</th>
+                                    <th>Plataformas</th>
+                                </tr>
+                            </thead>
+                            <tbody id="news-hub-changelog-table-body">
+                                <tr><td colspan="3" class="news-hub-table-empty">Cargando changelogs...</td></tr>
+                            </tbody>
+                        </table>
                     </div>
-                </div>
-
-                <!-- Eventos panel -->
-                <div id="news-hub-events-wrap" class="news-hub-panel">
-                    <div id="news-hub-events" class="news-hub-list">
-                        <div class="news-hub-event-card empty">
-                            <div class="news-hub-event-copy">
-                                <div class="news-hub-item-title">Sin eventos proximos</div>
-                                <div class="news-hub-item-meta">Se mostraran aqui los lanzamientos y updates destacados.</div>
-                            </div>
-                        </div>
+                    <div class="news-hub-table-card">
+                        <div class="news-hub-table-head"><i class="fas fa-calendar-star"></i> Eventos</div>
+                        <table class="news-hub-table" aria-label="Tabla de eventos">
+                            <thead>
+                                <tr>
+                                    <th>Titulo</th>
+                                    <th>Estado</th>
+                                    <th>Ventana</th>
+                                </tr>
+                            </thead>
+                            <tbody id="news-hub-events-table-body">
+                                <tr><td colspan="3" class="news-hub-table-empty">Cargando eventos...</td></tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -5838,15 +5909,15 @@
                 </div>
                 <div class="project-unavailable-arrow"><i class="fas fa-arrow-right"></i></div>
                 <div class="project-unavailable-node restricted">
-                    <div class="project-unavailable-icon" style="display:flex;align-items:center;justify-content:center;background:none;border-color:rgba(239,68,68,0.44);color:#ff9aa7;">
-                        <i class="fas fa-ban"></i>
+                    <div class="project-unavailable-icon" style="display:flex;align-items:center;justify-content:center;background:rgba(34,12,18,0.56);border-color:rgba(239,68,68,0.44);color:#ff9aa7;">
+                        <i class="fas fa-lock"></i>
                     </div>
                     <div class="project-unavailable-copy">
-                        <strong>Restriccion temporal</strong>
-                        <span>No se permite instalar/actualizar mientras dure este estado.</span>
+                        <strong>Bloqueado por OWS Store</strong>
+                        <span>Instalar, actualizar y abrir quedan desactivados en este estado.</span>
                     </div>
                 </div>
-                <div class="project-unavailable-arrow"><i class="fas fa-arrow-right"></i></div>
+                <div class="project-unavailable-arrow flow-lock"><i class="fas fa-ban"></i></div>
                 <div class="project-unavailable-node">
                     <div id="project-unavailable-project-icon" class="project-unavailable-icon"></div>
                     <div class="project-unavailable-copy">
@@ -5855,12 +5926,12 @@
                     </div>
                 </div>
             </div>
-            <h3 class="project-unavailable-title">Proyecto temporalmente indisponible</h3>
+            <h3 class="project-unavailable-title">OWS Store ya no soporta este proyecto</h3>
             <p id="project-unavailable-text" class="project-unavailable-text">
-                OWS Store bloqueo esta distribucion para mantener estabilidad y coherencia del ecosistema.
+                Esta distribucion quedo fuera de soporte. Las versiones anteriores no estaran disponibles desde OWS Store.
             </p>
             <div id="project-unavailable-note" class="project-unavailable-note">
-                Si el proyecto esta en rework, se habilitara nuevamente cuando salga de ese estado.
+                Esto puede pasar por un rework inminente, un error critico o la descontinuacion del proyecto.
             </div>
             <div class="project-unavailable-actions">
                 <button type="button" class="btn-install" style="background:#2a3650;" onclick="closeProjectUnavailableModal()">
@@ -5967,6 +6038,8 @@
         const WILDSHORTS_RELEASES_API_URL = `${GITHUB_RELEASES_PROXY_BASE}/wildshorts/releases/latest`;
         const OCEAN_CINEMAS_RELEASES_URL = 'https://github.com/OceanandWild/ocean-cinemas/releases/latest';
         const OCEAN_CINEMAS_RELEASES_API_URL = `${GITHUB_RELEASES_PROXY_BASE}/ocean-cinemas/releases/latest`;
+        const NATUREPEDIA_RELEASES_URL = 'https://github.com/OceanandWild/naturepedia/releases/latest';
+        const NATUREPEDIA_RELEASES_API_URL = `${GITHUB_RELEASES_PROXY_BASE}/naturepedia/releases/latest`;
         const DINOBOX_RELEASES_URL = 'https://github.com/OceanandWild/dinobox/releases/latest';
         const DINOBOX_RELEASES_API_URL = `${GITHUB_RELEASES_PROXY_BASE}/dinobox/releases/latest`;
         const OWSNEWS_RELEASES_URL = 'https://github.com/OceanandWild/ocean-and-wild-studios-news/releases/latest';
@@ -6334,6 +6407,7 @@
         let wildWaveReleaseCache = null;
         let wildShortsReleaseCache = null;
         let oceanCinemasReleaseCache = null;
+        let naturepediaReleaseCache = null;
         let wildDestinyReleaseCache = null;
         let dinoBoxReleaseCache = null;
         let owsNewsReleaseCache = null;
@@ -8739,6 +8813,9 @@
 
         function getExploreProjectStatus(project) {
             const raw = String(project?.status || '').toLowerCase();
+            const restrictionState = getProjectStoreRestrictionState(project);
+            if (restrictionState === 'rework') return { label: 'Rework', klass: 'off', rank: 0 };
+            if (restrictionState === 'unavailable') return { label: 'Unavailable', klass: 'off', rank: 1 };
             if (raw === 'coming_soon') return { label: 'Coming Soon', klass: 'soon', rank: 2 };
             if (raw === 'unavailable') return { label: 'Unavailable', klass: 'off', rank: 1 };
             return { label: 'Live', klass: 'live', rank: 3 };
@@ -10438,25 +10515,43 @@
 
         function isStoreGlobalNewsEntry(entry) {
             if (!entry || entry.isEvent || entry.isActive === false) return false;
-            if (entry.isBanner) return true;
+            const syncKey = String(entry?.bannerMeta?.sync_key || '').trim().toLowerCase();
+            if (syncKey === 'service-apology-2026-04-14') return true;
             const typeRaw = String(entry.entryType || entry.kind || '').toLowerCase();
-            if (typeRaw && !['news', 'banner', 'announcement', 'notice', 'article', 'changelog', 'update'].includes(typeRaw)) return false;
-            const names = Array.isArray(entry.projectNames) ? entry.projectNames.map((n) => String(n || '').toLowerCase()) : [];
-            const storeScoped = names.some((n) => n.includes('ows-store') || n.includes('ows store'));
-            const globalScoped = names.some((n) => n === 'global');
+            if (entry.isBanner || (typeRaw && ['news', 'announcement', 'notice', 'article'].includes(typeRaw))) {
+                return !isInternalOpsNewsEntry(entry);
+            }
+            return false;
+        }
+
+        function isDedicatedApologyNewsEntry(entry) {
+            if (!isStoreGlobalNewsEntry(entry)) return false;
+            const syncKey = String(entry?.bannerMeta?.sync_key || '').trim().toLowerCase();
             const text = `${entry?.title || ''} ${entry?.description || ''} ${(entry?.changes || []).join(' ')}`.toLowerCase();
-            const serviceNotice = /disculp|apolog|incident|incidente|retras|delay|postpone|hotfix|urgente/.test(text);
-            if (!storeScoped && !globalScoped && !serviceNotice) return false;
-            return !isInternalOpsNewsEntry(entry);
+            if (syncKey === 'service-apology-2026-04-14') return true;
+            return /wildweapon/.test(text) && /naturepedia/.test(text) && /delay|apolog|disculp/.test(text);
+        }
+
+        function getDedicatedStoreNewsEntries() {
+            const list = Array.isArray(owsNewsUpdatesCache) ? owsNewsUpdatesCache : [];
+            return list
+                .filter((entry) => isDedicatedApologyNewsEntry(entry))
+                .sort((a, b) => {
+                    const pa = Number(a?.priority || 0);
+                    const pb = Number(b?.priority || 0);
+                    if (pa !== pb) return pb - pa;
+                    return (Date.parse(b?.updateDate || '') || 0) - (Date.parse(a?.updateDate || '') || 0);
+                })
+                .slice(0, 1);
         }
 
         function renderNewsHub() {
-            const globalWrap = document.getElementById('news-hub-global');
-            const eventsWrap = document.getElementById('news-hub-events');
-            if (!globalWrap || !eventsWrap) return;
+            const changelogBody = document.getElementById('news-hub-changelog-table-body');
+            const eventsBody = document.getElementById('news-hub-events-table-body');
+            if (!changelogBody || !eventsBody) return;
             const list = Array.isArray(owsNewsUpdatesCache) ? owsNewsUpdatesCache : [];
             const changelogs = list
-                .filter((n) => !n.isEvent && !n.isBanner && String(n?.entryType || n?.kind || '').toLowerCase() !== 'news')
+                .filter((n) => !n.isEvent && !n.isBanner && String(n?.entryType || n?.kind || '').toLowerCase() !== 'news' && !isDedicatedApologyNewsEntry(n))
                 .sort((a, b) => {
                     const pa = Number(a?.priority || 0);
                     const pb = Number(b?.priority || 0);
@@ -10475,29 +10570,27 @@
                     const bStart = Date.parse(b?.eventWindow?.startAt || b?.updateDate || '') || 0;
                     return bStart - aStart;
                 })
-                .slice(0, 4);
+                .slice(0, 8);
 
-            const renderNewsList = (items, fallbackText) => {
-                if (!items.length) {
-                    return `<div class="news-hub-item"><div class="news-hub-item-head"><div class="news-hub-item-title">${fallbackText}</div><div class="news-hub-item-date">--</div></div><div class="news-hub-item-meta">Los datos apareceran aqui en cuanto haya publicaciones.</div></div>`;
-                }
-                return items.map((item) => `
-                    <div class="news-hub-item">
-                        <div class="news-hub-item-head">
-                            <div class="news-hub-item-title">${escHtml(normalizeUiText(item.isBanner ? (item?.bannerMeta?.title || item.title) : item.title))}</div>
-                            <div class="news-hub-item-date">${formatDateTime(item.updateDate)}</div>
-                        </div>
-                        <div class="news-hub-item-meta">${escHtml(normalizeUiText(item.isBanner ? (item?.bannerMeta?.text || item.description || (item.changes[0] || 'Sin descripcion')) : (item.description || (item.changes[0] || 'Sin descripcion'))))}</div>
-                        <div style="margin-top:0.35rem;">${getNewsPlatformsBadgeHtml(item.platforms || ['all'])}</div>
-                    </div>
-                `).join('');
-            };
+            changelogBody.innerHTML = changelogs.length
+                ? changelogs.map((item) => `
+                    <tr>
+                        <td>${escHtml(normalizeUiText(item?.title || 'Sin titulo'))}</td>
+                        <td>${escHtml(formatDateTime(item?.updateDate))}</td>
+                        <td>${escHtml(getPlatformLabelFromKinds(item?.platforms || ['all']))}</td>
+                    </tr>
+                `).join('')
+                : '<tr><td colspan="3" class="news-hub-table-empty">Sin changelogs publicados.</td></tr>';
 
-            globalWrap.innerHTML = renderNewsList(changelogs, 'Sin changelogs publicados');
-            eventsWrap.innerHTML = featuredEvents.length
-                ? featuredEvents.map(buildNewsHubEventCard).join('')
-                : '<div class="news-hub-event-card empty"><div class="news-hub-event-copy"><div class="news-hub-item-title">Sin eventos activos</div><div class="news-hub-item-meta">Se mostraran aqui los lanzamientos y updates destacados del ecosistema.</div></div></div>';
-            renderNewsHubEventVisuals();
+            eventsBody.innerHTML = featuredEvents.length
+                ? featuredEvents.map((item) => `
+                    <tr>
+                        <td>${escHtml(normalizeUiText(item?.title || 'Sin titulo'))}</td>
+                        <td>${escHtml(getEventStatusLabel(item).label)}</td>
+                        <td>${escHtml(getEventWindowText(item))}</td>
+                    </tr>
+                `).join('')
+                : '<tr><td colspan="3" class="news-hub-table-empty">Sin eventos activos.</td></tr>';
             renderDedicatedNewsSection();
         }
 
@@ -10507,26 +10600,33 @@
             return `${base.slice(0, 137).trimEnd()}...`;
         }
 
+        function bindNewsFeedWheelScroll(host) {
+            if (!host || host.dataset.wheelBound === '1') return;
+            host.dataset.wheelBound = '1';
+            host.addEventListener('wheel', (event) => {
+                if (!host.classList.contains('mode-carousel')) return;
+                const absX = Math.abs(Number(event.deltaX || 0));
+                const absY = Math.abs(Number(event.deltaY || 0));
+                const delta = absX > absY ? Number(event.deltaX || 0) : Number(event.deltaY || 0);
+                if (!Number.isFinite(delta) || Math.abs(delta) < 1) return;
+                host.scrollLeft += delta;
+                event.preventDefault();
+            }, { passive: false });
+        }
+
         function renderDedicatedNewsSection() {
             const host = document.getElementById('news-feed-list');
             if (!host) return;
             host.classList.toggle('mode-carousel', newsFeedView === 'carousel');
+            bindNewsFeedWheelScroll(host);
             const carouselBtn = document.getElementById('news-view-carousel');
             const gridBtn = document.getElementById('news-view-grid');
             if (carouselBtn) carouselBtn.classList.toggle('active', newsFeedView === 'carousel');
             if (gridBtn) gridBtn.classList.toggle('active', newsFeedView === 'grid');
-            const list = Array.isArray(owsNewsUpdatesCache) ? owsNewsUpdatesCache : [];
-            const newsEntries = list
-                .filter((entry) => isStoreGlobalNewsEntry(entry))
-                .sort((a, b) => {
-                    const pa = Number(a?.priority || 0);
-                    const pb = Number(b?.priority || 0);
-                    if (pa !== pb) return pb - pa;
-                    return (Date.parse(b?.updateDate || '') || 0) - (Date.parse(a?.updateDate || '') || 0);
-                })
-                .slice(0, 12);
+            const newsEntries = getDedicatedStoreNewsEntries();
 
             if (!newsEntries.length) {
+                newsArticleEntriesCache = [];
                 host.innerHTML = '<div class="info-note-card">No hay noticias publicadas por ahora.</div>';
                 return;
             }
@@ -13353,6 +13453,65 @@
             return payload;
         }
 
+        async function fetchLatestNaturepediaRelease() {
+            const now = Date.now();
+            if (naturepediaReleaseCache && (now - naturepediaReleaseCache.checkedAt) < 120000) {
+                return naturepediaReleaseCache;
+            }
+
+            const res = await fetch(`${NATUREPEDIA_RELEASES_API_URL}?nocache=${Date.now()}`, {
+                cache: 'no-store',
+                headers: { 'Accept': 'application/vnd.github+json' }
+            });
+            if (!res.ok) throw new Error(`GitHub API ${res.status}`);
+            const data = await res.json();
+            const assets = Array.isArray(data.assets) ? data.assets : [];
+            const versionFromTag = normalizeReleaseVersion(data.tag_name || '');
+            const exeCandidates = assets.filter(a => typeof a?.name === 'string' && /\.exe$/i.test(a.name));
+            const scoredCandidates = exeCandidates.map((a) => ({
+                asset: a,
+                version: extractVersionFromText(a.name),
+                updatedAtMs: Date.parse(a.updated_at || '') || 0,
+                hasNaturepediaName: /naturepedia|nature-pedia|nature[\s._-]*pedia/i.test(String(a.name || '')),
+            }));
+
+            scoredCandidates.sort((x, y) => {
+                if (x.hasNaturepediaName !== y.hasNaturepediaName) return x.hasNaturepediaName ? -1 : 1;
+                const cmp = compareVersionLike(y.version, x.version);
+                if (cmp !== 0) return cmp;
+                return y.updatedAtMs - x.updatedAtMs;
+            });
+
+            let selected = scoredCandidates[0] || null;
+            if (versionFromTag) {
+                const tagMatch = scoredCandidates.find(c => c.version && compareVersionLike(c.version, versionFromTag) === 0);
+                if (tagMatch) selected = tagMatch;
+            }
+
+            const exeAsset = selected?.asset || null;
+            const versionFromAsset = selected?.version || '';
+            const staleInstaller = Boolean(versionFromTag && versionFromAsset && compareVersionLike(versionFromAsset, versionFromTag) < 0);
+            const warning = staleInstaller
+                ? `Release latest apunta a tag ${versionFromTag}, pero el instalador publicado es ${versionFromAsset}.`
+                : '';
+
+            const payload = {
+                version: versionFromTag || versionFromAsset || null,
+                tagVersion: versionFromTag || null,
+                assetVersion: versionFromAsset || null,
+                installerUrl: exeAsset?.browser_download_url || '',
+                installerSize: Number(exeAsset?.size || 0),
+                installerAvailable: Boolean(exeAsset?.browser_download_url) && !staleInstaller,
+                windowsReleaseNotes: String(data.body || '').trim(),
+                releaseUrl: data.html_url || NATUREPEDIA_RELEASES_URL,
+                publishedAt: data.published_at || data.created_at || null,
+                warning,
+                checkedAt: now,
+            };
+            naturepediaReleaseCache = payload;
+            return payload;
+        }
+
         async function fetchLatestDinoBoxRelease() {
             const now = Date.now();
             if (dinoBoxReleaseCache && (now - dinoBoxReleaseCache.checkedAt) < 120000) {
@@ -14809,16 +14968,30 @@
             return Boolean(project.android_apk_url || project.android_aab_url || project.android_release_url);
         }
 
-        function isProjectUnavailableByStore(project) {
-            if (!project || typeof project !== 'object') return false;
+        function getProjectStoreRestrictionState(project) {
+            if (!project || typeof project !== 'object') return '';
             const status = String(project.status || '').trim().toLowerCase();
-            if (status === 'unavailable' || status === 'disabled' || status === 'blocked') return true;
-            if (project.unavailable === true || project.disabled === true || project.blocked === true) return true;
             const rawState = String(project.phase_state || project.dev_state || project.build_state || project.project_state || '').trim().toLowerCase();
-            if (rawState === 'rework' || rawState === 'maintenance') return true;
             const reason = String(project.unavailable_reason || project.status_reason || project.block_reason || project.maintenance_reason || '').trim().toLowerCase();
-            if (reason.includes('rework') || reason.includes('reforma') || reason.includes('indisponible') || reason.includes('maintenance') || reason.includes('mantenimiento')) return true;
-            return false;
+
+            const reworkState = rawState === 'rework' || rawState === 'pleno_rework' || rawState === 'full_rework';
+            const reworkStatus = status === 'rework' || status === 'pleno_rework' || status === 'full_rework';
+            const reworkReason = reason.includes('rework') || reason.includes('reforma') || reason.includes('pleno rework');
+            if (reworkState || reworkStatus || reworkReason) return 'rework';
+
+            const statusUnavailable = ['unavailable', 'indisponible', 'disabled', 'blocked', 'not_available', 'no_disponible'].includes(status);
+            const flagUnavailable = project.unavailable === true || project.disabled === true || project.blocked === true;
+            const reasonUnavailable = reason.includes('indisponible')
+                || reason.includes('descontinu')
+                || reason.includes('error')
+                || reason.includes('maintenance')
+                || reason.includes('mantenimiento');
+            if (statusUnavailable || flagUnavailable || reasonUnavailable) return 'unavailable';
+            return '';
+        }
+
+        function isProjectUnavailableByStore(project) {
+            return Boolean(getProjectStoreRestrictionState(project));
         }
 
         function getProjectUnavailableReason(project) {
@@ -14831,10 +15004,12 @@
                 project?.reason
             ].map((x) => String(x || '').trim()).find(Boolean) || '';
             const normalized = raw.toLowerCase();
-            if (normalized.includes('rework') || normalized.includes('reforma')) return 'Proceso de rework en curso';
+            const restrictionState = getProjectStoreRestrictionState(project);
+            if (normalized.includes('rework') || normalized.includes('reforma')) return 'Pleno rework en curso';
             if (normalized.includes('maintenance') || normalized.includes('mantenimiento')) return 'Mantenimiento interno';
             if (raw) return normalizeUiText(raw);
-            return 'Estado temporalmente restringido por OWS Store';
+            if (restrictionState === 'rework') return 'Pleno rework en curso';
+            return 'Proyecto indisponible por OWS Store';
         }
 
         function bindProjectUnavailableModalEvents() {
@@ -14864,12 +15039,14 @@
             const iconEl = document.getElementById('project-unavailable-project-icon');
             const projectName = normalizeUiText(String(project?.name || 'Proyecto'));
             const reason = getProjectUnavailableReason(project);
+            const restrictionState = getProjectStoreRestrictionState(project);
+            const isRework = restrictionState === 'rework';
             if (projectNameEl) projectNameEl.textContent = projectName;
-            if (projectStateEl) projectStateEl.textContent = reason;
-            if (textEl) textEl.textContent = `${projectName} esta marcado como indisponible. OWS Store bloquea instalar, actualizar y abrir este proyecto mientras dure ese estado.`;
-            if (noteEl) noteEl.textContent = reason.toLowerCase().includes('rework')
-                ? 'El proyecto esta en rework. OWS Store lo habilitara de nuevo cuando salga de ese estado.'
-                : 'Cuando el estado vuelva a disponible, OWS Store habilitara nuevamente sus acciones.';
+            if (projectStateEl) projectStateEl.textContent = isRework ? `Pleno Rework · ${reason}` : reason;
+            if (textEl) textEl.textContent = `${projectName} ya no tiene soporte en OWS Store. Por seguridad, las versiones anteriores se bloquean y no se permite instalar, actualizar ni abrir hasta que vuelva a estado disponible.`;
+            if (noteEl) noteEl.textContent = isRework
+                ? 'Motivo detectado: pleno rework. OWS Store volvera a habilitar la distribucion cuando cierre este proceso.'
+                : 'Motivo detectado: indisponible. Esto puede deberse a error critico o descontinuacion.';
             if (iconEl) {
                 const src = getProjectIcon(project, 64);
                 iconEl.style.backgroundImage = src ? `url('${src.replace(/'/g, '%27')}')` : '';
@@ -14878,8 +15055,8 @@
             modal.classList.add('active');
             modal.setAttribute('aria-hidden', 'false');
             const sourceLabel = source ? ` (${source})` : '';
-            addNotification(`${projectName} esta indisponible por OWS Store${sourceLabel}.`, 'warning');
-            showActionMessage(`${projectName} esta temporalmente restringido por OWS Store.`, { state: 'info' });
+            addNotification(`${projectName} sin soporte por OWS Store${sourceLabel}.`, 'warning');
+            showActionMessage(`${projectName} fue bloqueado por OWS Store (${isRework ? 'Pleno Rework' : 'Indisponible'}).`, { state: 'info' });
         }
 
         function selectAndroidDownloadUrl(proxyUrl = '', directUrl = '') {
@@ -14970,7 +15147,10 @@
             const hasWin = targets.some((t) => t.kind === 'windows');
             const hasAndroid = targets.some((t) => t.kind === 'android');
             const anyAvailable = targets.some((t) => t.available);
-            if (isProjectUnavailableByStore(project)) return 'NO DISPONIBLE';
+            if (isProjectUnavailableByStore(project)) {
+                const restrictionState = getProjectStoreRestrictionState(project);
+                return restrictionState === 'rework' ? 'REWORK' : 'NO DISPONIBLE';
+            }
             if (!anyAvailable && (project.pending_release || project.installer_available === false)) return 'NO DISPONIBLE';
             if (hasWin && hasAndroid) return 'WIN + ANDROID';
             if (hasAndroid) return 'ANDROID';
@@ -16430,6 +16610,7 @@
                 card.onclick = () => openDetails(p.slug);
                 const isComingSoon = p.status === 'coming_soon';
                 const isStoreUnavailable = isProjectUnavailableByStore(p);
+                const restrictionState = getProjectStoreRestrictionState(p);
                 const runtime = getRuntimeState(p.slug);
                 const isInstalling = isInstallingPhase(runtime.phase);
                 const isQueued = runtime.phase === 'queued';
@@ -16457,7 +16638,7 @@
                     ? `<div class="ecosystem-submeta" style="color:var(--brand-2); font-weight:700;">Update ${getPrimaryUpdatePlatformLabel(updateInfo)} disponible: v${updateInfo.latestVersion}</div>`
                     : '';
                 const quickTags = [];
-                quickTags.push(`<span class="ecosystem-tag ${isStoreUnavailable ? 'blocked' : (isComingSoon ? 'soon' : 'live')}">${isStoreUnavailable ? 'No disponible' : (isComingSoon ? 'Proximamente' : 'Activo')}</span>`);
+                quickTags.push(`<span class="ecosystem-tag ${isStoreUnavailable ? 'blocked' : (isComingSoon ? 'soon' : 'live')}">${isStoreUnavailable ? (restrictionState === 'rework' ? 'Pleno Rework' : 'No disponible') : (isComingSoon ? 'Proximamente' : 'Activo')}</span>`);
                 if (isReleaseTrackedProject(p)) quickTags.push(`<span class="ecosystem-tag">Sincronizado</span>`);
                 if (!isStoreUnavailable && devicePendingUpdate) quickTags.push(`<span class="ecosystem-tag update">Update ${getPrimaryUpdatePlatformLabel(updateInfo)}</span>`);
                 const tagsHtml = `<div class="ecosystem-tags">${quickTags.join('')}</div>`;
@@ -16467,14 +16648,14 @@
                     </div>
                 `;
                 const countdownHtml = isStoreUnavailable
-                    ? `<span>No disponible por OWS Store</span>`
+                    ? `<span>${restrictionState === 'rework' ? 'Pleno Rework por OWS Store' : 'No disponible por OWS Store'}</span>`
                     : (isComingSoon && p.release_date)
                     ? `<span class="countdown" data-date="${p.release_date}">Cargando...</span>`
                     : `<span>${p.pending_release ? 'No disponible' : 'Disponible'}</span>`;
                 const iconStyle = getProjectIcon(p, 64).replace(/'/g, '%27');
                 const summaryText = escHtml(normalizeUiText(String(p.description || 'Proyecto oficial del ecosistema Ocean and Wild Studios.')));
                 const effectiveStateText = isStoreUnavailable
-                    ? 'No disponible'
+                    ? (restrictionState === 'rework' ? 'Pleno Rework' : 'No disponible')
                     : (isComingSoon ? 'Proximamente' : (p.pending_release ? 'No disponible' : 'Disponible'));
                 const shellHtml = `
                     <div class="ecosystem-card-shell">
@@ -16623,6 +16804,7 @@
                 const updateInfo = getProjectUpdateInfo(p);
                 const isStoreUnavailable = isProjectUnavailableByStore(p);
                 const unavailableReason = getProjectUnavailableReason(p);
+                const restrictionState = getProjectStoreRestrictionState(p);
                 const devicePendingUpdate = !isStoreUnavailable && hasDevicePendingUpdate(updateInfo);
                 const card = document.createElement('div');
                 card.className = 'library-card';
@@ -16675,7 +16857,7 @@
                             <button class="btn-install full" style="background:#2b2e37;" onclick="openDetails('${p.slug}')"><i class="fas fa-circle-info"></i> Ver ficha</button>
                         </div>`);
                 const updateBadgeHtml = isStoreUnavailable
-                    ? `<div class="library-update-note" style="border-color:rgba(239,68,68,0.35);background:rgba(239,68,68,0.12);color:#ffb2bc;">Restringido por OWS Store: ${escHtml(unavailableReason)}.</div>`
+                    ? `<div class="library-update-note" style="border-color:rgba(239,68,68,0.35);background:rgba(239,68,68,0.12);color:#ffb2bc;">${restrictionState === 'rework' ? 'Pleno Rework' : 'Indisponible'} por OWS Store: ${escHtml(unavailableReason)}.</div>`
                     : ((isInstalled && devicePendingUpdate)
                     ? `<div class="library-update-note">Update disponible (${getPrimaryUpdatePlatformLabel(updateInfo)}): v${updateInfo.latestVersion}</div>`
                     : (!isInstalled
@@ -16687,7 +16869,7 @@
                     ? 'installed'
                     : ((isDownloading || isQueued || isPreparing) ? 'pending' : 'saved'));
                 const statusText = isStoreUnavailable
-                    ? 'RESTRINGIDO OWS'
+                    ? (restrictionState === 'rework' ? 'PLENO REWORK' : 'INDISPONIBLE')
                     : (isInstalled
                     ? (isDownloading || isQueued || isPreparing ? statusLabel : 'INSTALADO')
                     : ((isDownloading || isQueued || isPreparing) ? statusLabel : 'GUARDADO'));
@@ -16731,6 +16913,7 @@
             if (!p) return;
             const isStoreUnavailable = isProjectUnavailableByStore(p);
             const unavailableReason = getProjectUnavailableReason(p);
+            const restrictionState = getProjectStoreRestrictionState(p);
             const phaseRaw = String(p.phase_state || p.dev_state || p.build_state || p.project_state || '').trim().toLowerCase();
             const PHASE_MAP = {
                 'pre-alpha': 'Pre-Alpha',
@@ -16764,7 +16947,9 @@
             }
             const phaseEl = document.getElementById('m-phase-state');
             if (phaseEl) {
-                phaseEl.innerText = isStoreUnavailable ? 'No disponible' : (isComingSoon ? 'Proximamente' : projectPhase);
+                phaseEl.innerText = isStoreUnavailable
+                    ? (restrictionState === 'rework' ? 'Pleno Rework' : 'No disponible')
+                    : (isComingSoon ? 'Proximamente' : projectPhase);
             }
             let modalIconEl = document.getElementById('m-icon');
             const _mSrc = getProjectIcon(p, 140);
@@ -16982,6 +17167,7 @@
             if (isWildWaveProject(project)) wildWaveReleaseCache = null;
             if (isWildShortsProject(project)) wildShortsReleaseCache = null;
             if (isOceanCinemasProject(project)) oceanCinemasReleaseCache = null;
+            if (isNaturepediaProject(project)) naturepediaReleaseCache = null;
             if (isDinoBoxProject(project)) dinoBoxReleaseCache = null;
             }
             const latest = isWildWeaponProject(project)
@@ -17004,9 +17190,11 @@
                                         ? await fetchLatestWildWaveRelease()
                                         : (isOceanCinemasProject(project)
                                             ? await fetchLatestOceanCinemasRelease()
+                                        : (isNaturepediaProject(project)
+                                            ? await fetchLatestNaturepediaRelease()
                                         : (isDinoBoxProject(project)
                                             ? await fetchLatestDinoBoxRelease()
-                                            : await fetchLatestOWSNewsRelease()))))))))));
+                                            : await fetchLatestOWSNewsRelease())))))))))));
 
             if (isFloretProject(project) || isWildTransferProject(project) || isAWQGProject(project)) {
                 const preferred = isNativeAndroidRuntime()
@@ -18880,6 +19068,7 @@
                 'wildwave':             `${GITHUB_RELEASES_PROXY_BASE}/wildwave/releases/latest`,
                 'ecoxion':              `${GITHUB_RELEASES_PROXY_BASE}/ecoxion/releases/latest`,
                 'wilddestiny':          `${GITHUB_RELEASES_PROXY_BASE}/wilddestiny/releases/latest`,
+                'naturepedia':          `${GITHUB_RELEASES_PROXY_BASE}/naturepedia/releases/latest`,
                 'dinobox':              `${GITHUB_RELEASES_PROXY_BASE}/dinobox/releases/latest`,
                 'ows-store':            `${GITHUB_RELEASES_PROXY_BASE}/owsdatabase/releases/latest`,
             };
@@ -18961,8 +19150,9 @@
             list.innerHTML = recommendedProjects.map(p => {
                 const icon = getProjectIcon(p, 32);
                 const freqTag = updateFreqCache[p.slug] ? buildFreqTag(updateFreqCache[p.slug]) : '';
+                const restrictionState = getProjectStoreRestrictionState(p);
                 const statusTag = isProjectUnavailableByStore(p)
-                    ? '<span class="search-status-tag off">No disponible</span>'
+                    ? `<span class="search-status-tag off">${restrictionState === 'rework' ? 'Rework' : 'No disponible'}</span>`
                     : (p.status === 'coming_soon'
                         ? '<span class="search-status-tag soon">Proximamente</span>'
                         : '<span class="search-status-tag live">Disponible</span>');

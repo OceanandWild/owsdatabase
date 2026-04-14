@@ -11532,6 +11532,7 @@
                 || isVelocitySurgeProject(project)
                 || isWildWaveProject(project)
                 || isOceanCinemasProject(project)
+                || isNaturepediaProject(project)
                 || isDinoBoxProject(project);
         }
 
@@ -15673,6 +15674,48 @@
                 }
             }
 
+            const naturepedia = projects.find(p => isNaturepediaProject(p));
+            if (naturepedia) {
+                naturepedia.platform = 'windows';
+                naturepedia.install_type = 'external';
+                if (!naturepedia.installer_url) naturepedia.installer_url = NATUREPEDIA_RELEASES_URL;
+                naturepedia.installer_available = false;
+                naturepedia.last_update_at = null;
+                naturepedia.windows_last_update_at = null;
+                naturepedia.android_last_update_at = null;
+                naturepedia.pending_release = false;
+                naturepedia.short = naturepedia.short || 'NTP';
+                if (!naturepedia.windows_version) naturepedia.windows_version = naturepedia.version || '';
+                naturepedia.installer_size = Number(naturepedia.installer_size || 0);
+                if (!naturepedia.windows_release_notes) naturepedia.windows_release_notes = '';
+
+                try {
+                    const latest = await fetchLatestNaturepediaRelease();
+                    if (latest?.version) naturepedia.version = latest.version;
+                    naturepedia.windows_version = latest?.version || naturepedia.windows_version || naturepedia.version || '';
+                    if (latest?.installerUrl) naturepedia.installer_url = latest.installerUrl;
+                    naturepedia.installer_size = Number(latest?.installerSize || 0);
+                    naturepedia.installer_available = Boolean(latest?.installerAvailable);
+                    naturepedia.windows_release_notes = latest?.windowsReleaseNotes || naturepedia.windows_release_notes || '';
+                    naturepedia.last_update_at = latest?.publishedAt || null;
+                    naturepedia.windows_last_update_at = latest?.publishedAt || null;
+                    naturepedia.pending_release = !naturepedia.installer_available;
+                    naturepedia.status = naturepedia.installer_available ? 'launched' : 'coming_soon';
+                    if (latest?.warning) {
+                        naturepedia.pending_release = true;
+                        naturepedia.release_warning = latest.warning;
+                    } else {
+                        naturepedia.release_warning = '';
+                    }
+                } catch (err) {
+                    console.log('No se pudo resolver la ultima release de Naturepedia:', err?.message || err);
+                    naturepedia.pending_release = true;
+                    naturepedia.installer_available = false;
+                    naturepedia.status = 'coming_soon';
+                    naturepedia.release_warning = 'No se pudo validar el instalador de la ultima release.';
+                }
+            }
+
             if (dinoBox) {
                 dinoBox.platform = 'windows';
                 dinoBox.install_type = 'external';
@@ -15757,24 +15800,39 @@
             return supportsWindowsInstaller(project) || supportsAndroidDownloads(project);
         }
 
+        function isLikelyWindowsInstallerUrl(url) {
+            const raw = String(url || '').trim();
+            if (!raw || !/^https?:\/\//i.test(raw)) return false;
+            const normalized = raw.toLowerCase();
+            if (/\.exe([?#].*)?$/i.test(raw) || /\.msi([?#].*)?$/i.test(raw)) return true;
+            if (/\/releases\/download\/[^/]+\/[^/]+\.(exe|msi)([?#].*)?$/i.test(normalized)) return true;
+            if (/\/releases\/latest\/download\/[^/]+\.(exe|msi)([?#].*)?$/i.test(normalized)) return true;
+            return false;
+        }
+
         function getInstallerUrl(project) {
             if (!project) return '';
             if (project.installer_available === false) return '';
-            if (project.installer_url) return project.installer_url;
-            if (project.release_url) return project.release_url;
-            if (isWildWeaponProject(project)) return WILDWEAPON_RELEASES_URL;
-            if (isSSAProject(project)) return SSA_RELEASES_URL;
-            if (isOceanPayProject(project)) return OCEAN_PAY_RELEASES_URL;
-            if (isFloretProject(project)) return FLORET_RELEASES_URL;
-            if (isWildTransferProject(project)) return WILDTRANSFER_RELEASES_URL;
-            if (isAWQGProject(project)) return AWQG_RELEASES_URL;
-            if (isWildDestinyProject(project)) return WILDDESTINY_RELEASES_URL;
-            if (isEcoxionProject(project)) return ECOXION_RELEASES_URL;
-            if (isVelocitySurgeProject(project)) return VELOCITY_SURGE_RELEASES_URL;
-            if (isWildWaveProject(project)) return WILDWAVE_RELEASES_URL;
-            if (isWildShortsProject(project)) return WILDSHORTS_RELEASES_URL;
-            if (isOceanCinemasProject(project)) return OCEAN_CINEMAS_RELEASES_URL;
-            if (isDinoBoxProject(project)) return DINOBOX_RELEASES_URL;
+            const candidates = [
+                project.installer_url,
+                project.release_url,
+                isWildWeaponProject(project) ? WILDWEAPON_RELEASES_URL : '',
+                isSSAProject(project) ? SSA_RELEASES_URL : '',
+                isOceanPayProject(project) ? OCEAN_PAY_RELEASES_URL : '',
+                isFloretProject(project) ? FLORET_RELEASES_URL : '',
+                isWildTransferProject(project) ? WILDTRANSFER_RELEASES_URL : '',
+                isAWQGProject(project) ? AWQG_RELEASES_URL : '',
+                isWildDestinyProject(project) ? WILDDESTINY_RELEASES_URL : '',
+                isEcoxionProject(project) ? ECOXION_RELEASES_URL : '',
+                isVelocitySurgeProject(project) ? VELOCITY_SURGE_RELEASES_URL : '',
+                isWildWaveProject(project) ? WILDWAVE_RELEASES_URL : '',
+                isWildShortsProject(project) ? WILDSHORTS_RELEASES_URL : '',
+                isOceanCinemasProject(project) ? OCEAN_CINEMAS_RELEASES_URL : '',
+                isDinoBoxProject(project) ? DINOBOX_RELEASES_URL : '',
+            ].filter(Boolean);
+            for (const candidate of candidates) {
+                if (isLikelyWindowsInstallerUrl(candidate)) return String(candidate).trim();
+            }
             return '';
         }
 
@@ -17419,7 +17477,7 @@
                 scheduleSectionRender({ projects: true, library: true, immediate: false });
                 showActionMessage('Validando release de ' + project.name + '...', { state: 'checking' });
                 if (isReleaseTrackedProject(project)) {
-                    const requiresBlockingRefresh = !project.installer_url;
+                    const requiresBlockingRefresh = !isLikelyWindowsInstallerUrl(project?.installer_url);
                     if (requiresBlockingRefresh) {
                         try {
                             await refreshTrackedProjectRelease(project);
@@ -17439,7 +17497,7 @@
                 if (!installerUrl) {
                     const updatesStatus = document.getElementById('updates-project-status');
                     if (updatesStatus) updatesStatus.textContent = 'Pendiente: instalador no publicado';
-                    const warningText = project.release_warning || `${project.name} todavia no tiene instalador disponible.`;
+                    const warningText = project.release_warning || `${project.name} no tiene un instalador Windows valido publicado aun.`;
                     addNotification(warningText, 'warning');
                     showActionMessage(warningText);
                     return alert(warningText);

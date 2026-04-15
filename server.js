@@ -1861,7 +1861,10 @@ async function ensureProjectChangelogSync({ force = false, projectSlug = '' } = 
   let dbRows = [];
   try {
     const { rows } = await pool.query(
-      `SELECT slug, name, metadata FROM ows_projects WHERE status != 'unavailable' ORDER BY slug`
+      `SELECT slug, name, metadata
+       FROM ows_projects
+       WHERE COALESCE(LOWER(status), '') NOT IN ('unavailable', 'indisponible', 'disabled', 'blocked', 'rework', 'pleno_rework', 'full_rework', 'pleno rework', 'pleno-rework')
+       ORDER BY slug`
     );
     dbRows = rows;
   } catch (err) {
@@ -4186,6 +4189,71 @@ app.get('/floret/reviews/seller', async (req, res) => {
   } catch (e) {
     console.error('Error obteniendo reviews del seller Floret:', e);
     res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Obtener resumen de calificaciones para una pelicula de Ocean Cinemas
+app.get('/ocean-cinemas/movies/:movieId/rating-summary', async (req, res) => {
+  try {
+    const movieId = Number(req.params.movieId);
+    if (!Number.isInteger(movieId) || movieId <= 0) {
+      return res.status(400).json({ error: 'movieId invalido' });
+    }
+
+    const candidates = [
+      { table: 'ocean_cinemas_movie_ratings', movieCol: 'movie_id', ratingCol: 'rating' },
+      { table: 'ocean_cinemas_ratings', movieCol: 'movie_id', ratingCol: 'rating' },
+      { table: 'ocean_cinema_ratings', movieCol: 'movie_id', ratingCol: 'rating' },
+      { table: 'ocean_cinemas_reviews', movieCol: 'movie_id', ratingCol: 'rating' }
+    ];
+
+    let summary = null;
+    let sourceTable = null;
+
+    for (const candidate of candidates) {
+      try {
+        const sql = `
+          SELECT
+            COUNT(*)::int AS review_count,
+            COALESCE(ROUND(AVG(${candidate.ratingCol})::numeric, 1), 0) AS avg_rating
+          FROM ${candidate.table}
+          WHERE ${candidate.movieCol} = $1
+        `;
+        const result = await pool.query(sql, [movieId]);
+        summary = result.rows?.[0] || { review_count: 0, avg_rating: 0 };
+        sourceTable = candidate.table;
+        break;
+      } catch (err) {
+        if (err?.code === '42P01' || err?.code === '42703') {
+          continue;
+        }
+        throw err;
+      }
+    }
+
+    if (!summary) {
+      return res.json({
+        movieId,
+        hasRatings: false,
+        avgRating: 0,
+        count: 0,
+        source: null
+      });
+    }
+
+    const count = Number(summary.review_count || 0);
+    const avgRating = Number(summary.avg_rating || 0);
+
+    return res.json({
+      movieId,
+      hasRatings: count > 0,
+      avgRating: count > 0 ? avgRating : 0,
+      count,
+      source: sourceTable
+    });
+  } catch (error) {
+    console.error('Error en GET /ocean-cinemas/movies/:movieId/rating-summary:', error);
+    return res.status(500).json({ error: 'Error interno' });
   }
 });
 
@@ -8715,19 +8783,38 @@ app.post('/project-commerce/:slug/purchases/claim', async (req, res) => {
   }
 });
 
+function normalizeOwsProjectStatus(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  if (!raw) return 'launched';
+  if (raw === 'comingsoon' || raw === 'coming-soon') return 'coming_soon';
+  if (raw === 'indisponible' || raw === 'disabled' || raw === 'blocked' || raw === 'not_available' || raw === 'no_disponible') return 'unavailable';
+  if (raw === 'pleno rework' || raw === 'pleno-rework' || raw === 'full_rework') return 'rework';
+  if (raw === 'rework') return 'rework';
+  if (raw === 'coming_soon' || raw === 'launched' || raw === 'unavailable') return raw;
+  return raw;
+}
+
 // OWS Store catalog (fuente principal para launcher)
 app.get('/ows-store/projects', async (req, res) => {
-  const statusFilter = String(req.query.status || '').trim().toLowerCase();
+  const statusFilterRaw = String(req.query.status || '').trim();
+  const statusFilter = statusFilterRaw ? normalizeOwsProjectStatus(statusFilterRaw) : '';
   const includeUnavailable = normalizeNewsBoolean(req.query.include_unavailable, true);
   try {
     const values = [];
     const where = [];
     if (statusFilter) {
-      values.push(statusFilter);
-      where.push(`LOWER(status) = $${values.length}`);
+      if (statusFilter === 'rework') {
+        where.push(`COALESCE(LOWER(status), '') IN ('rework', 'pleno_rework', 'full_rework', 'pleno rework', 'pleno-rework')`);
+      } else if (statusFilter === 'unavailable') {
+        where.push(`COALESCE(LOWER(status), '') IN ('unavailable', 'indisponible', 'disabled', 'blocked', 'not_available', 'no_disponible')`);
+      } else if (statusFilter === 'coming_soon') {
+        where.push(`COALESCE(LOWER(status), '') IN ('coming_soon', 'comingsoon', 'coming-soon')`);
+      } else {
+        values.push(statusFilter);
+        where.push(`LOWER(status) = $${values.length}`);
+      }
     } else if (!includeUnavailable) {
-      values.push('unavailable');
-      where.push(`LOWER(status) <> $${values.length}`);
+      where.push(`COALESCE(LOWER(status), '') NOT IN ('unavailable', 'indisponible', 'disabled', 'blocked', 'rework', 'pleno_rework', 'full_rework', 'pleno rework', 'pleno-rework')`);
     }
 
     const sql = `
@@ -8738,6 +8825,8 @@ app.get('/ows-store/projects', async (req, res) => {
         CASE LOWER(status)
           WHEN 'launched' THEN 0
           WHEN 'coming_soon' THEN 1
+          WHEN 'rework' THEN 3
+          WHEN 'unavailable' THEN 4
           ELSE 2
         END,
         COALESCE(release_date, last_update, created_at) DESC,
@@ -8857,19 +8946,19 @@ app.get('/ows-store/projects', async (req, res) => {
 
     const promoteFromRelease = async (project, repoInfo, releasePayload) => {
       const releaseUrl = `https://github.com/${repoInfo.owner}/${repoInfo.repo}/releases/latest`;
-      const installerUrl = pickInstallerAssetUrlFromRelease(releasePayload) || releaseUrl;
+      const installerUrl = pickInstallerAssetUrlFromRelease(releasePayload) || '';
       const metadata = (project?.metadata && typeof project.metadata === 'object') ? project.metadata : {};
       const mergedMetadata = {
         ...metadata,
         repo: `${repoInfo.owner}/${repoInfo.repo}`,
-        pending_release: false,
+        pending_release: !installerUrl,
         install_type: metadata.install_type || 'external',
         platforms: Array.isArray(metadata.platforms) && metadata.platforms.length ? metadata.platforms : ['windows']
       };
 
       project.status = 'launched';
-      project.pending_release = false;
-      project.release_warning = '';
+      project.pending_release = !installerUrl;
+      project.release_warning = installerUrl ? '' : 'Release detectada sin instalador Windows valido.';
       project.release_date = null;
       project.url = releaseUrl;
       project.installer_url = installerUrl;
@@ -8888,7 +8977,7 @@ app.get('/ows-store/projects', async (req, res) => {
               SET status = 'launched',
                   release_date = NULL,
                   url = COALESCE(NULLIF(url, ''), $2),
-                  installer_url = COALESCE(NULLIF(installer_url, ''), $3),
+                  installer_url = CASE WHEN $3 <> '' THEN $3 ELSE COALESCE(installer_url, '') END,
                   metadata = COALESCE(metadata, '{}'::jsonb) || $4::jsonb,
                   last_update = NOW()
             WHERE slug = $1
@@ -10666,6 +10755,7 @@ app.post('/ocean-pay/pass/claim-reward', async (req, res) => {
 // Registrar o actualizar un proyecto (Upsert)
 app.post('/ows-store/projects', async (req, res) => {
   const { slug, name, description, icon_url, banner_url, url, version, status, release_date, metadata, installer_url } = req.body;
+  const normalizedStatus = normalizeOwsProjectStatus(status || 'launched');
   if (!slug || !name || !url) return res.status(400).json({ error: 'Faltan campos obligatorios (slug, name, url)' });
 
   try {
@@ -10685,7 +10775,7 @@ app.post('/ows-store/projects', async (req, res) => {
          installer_url = COALESCE(EXCLUDED.installer_url, ows_projects.installer_url),
          last_update = NOW()
        RETURNING *`,
-      [slug, name, description, icon_url, banner_url, url, version || '1.0.0', status || 'launched', release_date, metadata || {}, installer_url || null]
+      [slug, name, description, icon_url, banner_url, url, version || '1.0.0', normalizedStatus, release_date, metadata || {}, installer_url || null]
     );
     res.json({ success: true, project: rows[0] });
   } catch (err) {
@@ -10746,6 +10836,9 @@ app.patch('/ows-store/projects/:slug', async (req, res) => {
   const updates = {};
   for (const key of allowed) {
     if (req.body[key] !== undefined) updates[key] = req.body[key];
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, 'status')) {
+    updates.status = normalizeOwsProjectStatus(updates.status);
   }
   if (Object.keys(updates).length === 0) {
     return res.status(400).json({ error: 'No hay campos validos para actualizar' });

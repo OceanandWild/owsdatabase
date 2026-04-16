@@ -30,11 +30,13 @@ const externalInstallTasks = new Map();
 const httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 32, keepAliveMsecs: 3000, scheduling: 'fifo' });
 const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 8 });
 const DOWNLOAD_PROGRESS_EMIT_MS = 750;        // reduce IPC chatter, keep UI responsive
-const DOWNLOAD_PROGRESS_EMIT_BYTES = 1024 * 1024; // emit each 1MB downloaded
-const DOWNLOAD_PROGRESS_EMIT_STEP = 2;            // emit each 2%
-const DOWNLOAD_STALL_TIMEOUT_MS = 45 * 1000;
-const DOWNLOAD_RETRY_ATTEMPTS = 3;
-const DOWNLOAD_RETRY_BASE_DELAY_MS = 1200;
+const DOWNLOAD_PROGRESS_EMIT_BYTES = 512 * 1024; // emit each 512KB downloaded
+const DOWNLOAD_PROGRESS_EMIT_STEP = 1;            // emit each 1%
+const DOWNLOAD_STALL_TIMEOUT_MS = 20 * 1000;      // 20s sin datos = estancado (antes 45s)
+const DOWNLOAD_MIN_SPEED_BPS = 30 * 1024;         // 30 KB/s velocidad minima sostenida
+const DOWNLOAD_MIN_SPEED_WINDOW_MS = 30 * 1000;   // ventana de 30s para medir velocidad minima
+const DOWNLOAD_RETRY_ATTEMPTS = 5;                 // mas reintentos (antes 3)
+const DOWNLOAD_RETRY_BASE_DELAY_MS = 800;
 
 app.setAppUserModelId(APP_ID);
 app.setName(APP_DISPLAY_NAME);
@@ -706,11 +708,16 @@ function downloadWithRedirects(url, destinationPath, taskRef, onProgress, redire
       let lastEmitBytes = 0;
       let lastEmitPercent = -1;
       let lastChunkAt = Date.now();
+      // Sliding window for speed calculation (last 8 seconds)
+      const SPEED_WINDOW_MS = 8000;
+      const speedSamples = []; // { t, bytes }
+      let speedWindowBytes = 0;
+      // Minimum speed tracking
+      let minSpeedWindowStart = Date.now();
+      let minSpeedWindowBytes = 0;
       let settled = false;
       let stallTimer = null;
       // 64KB write buffer — avoids backpressure stalls that throttle the TCP receive window.
-      // With a 4MB buffer (old value), Node accumulates data before flushing to disk,
-      // which causes the stream to pause the download while waiting for the OS to drain.
       const file = fs.createWriteStream(destinationPath, { highWaterMark: 64 * 1024 });
       if (taskRef) taskRef.file = file;
 
@@ -729,8 +736,13 @@ function downloadWithRedirects(url, destinationPath, taskRef, onProgress, redire
       const emitProgress = () => {
         if (!onProgress) return;
         const now = Date.now();
-        const elapsedSec = Math.max((now - startedAt) / 1000, 0.001);
-        const bytesPerSecond = downloadedBytes / elapsedSec;
+        // Sliding window speed: drop samples older than SPEED_WINDOW_MS
+        while (speedSamples.length > 0 && (now - speedSamples[0].t) > SPEED_WINDOW_MS) {
+          speedWindowBytes -= speedSamples[0].bytes;
+          speedSamples.shift();
+        }
+        const windowElapsedSec = Math.min((now - startedAt) / 1000, SPEED_WINDOW_MS / 1000);
+        const bytesPerSecond = windowElapsedSec > 0.5 ? speedWindowBytes / Math.min(windowElapsedSec, SPEED_WINDOW_MS / 1000) : 0;
         const percent = totalBytes > 0 ? (downloadedBytes / totalBytes) * 100 : null;
         const percentInt = Number.isFinite(percent) ? Math.floor(percent) : -1;
         const dueByTime = (now - lastEmit) >= DOWNLOAD_PROGRESS_EMIT_MS;
@@ -748,8 +760,25 @@ function downloadWithRedirects(url, destinationPath, taskRef, onProgress, redire
       // resume on 'drain'. This prevents TCP window shrinkage that stalls downloads.
       response.on('data', (chunk) => {
         if (taskRef?.cancelled) return fail(new Error('Descarga cancelada por el usuario.'));
-        lastChunkAt = Date.now();
+        const now = Date.now();
+        lastChunkAt = now;
         downloadedBytes += chunk.length;
+        // Update sliding window
+        speedSamples.push({ t: now, bytes: chunk.length });
+        speedWindowBytes += chunk.length;
+        // Update min-speed window
+        minSpeedWindowBytes += chunk.length;
+        if ((now - minSpeedWindowStart) >= DOWNLOAD_MIN_SPEED_WINDOW_MS) {
+          const windowSec = (now - minSpeedWindowStart) / 1000;
+          const windowSpeedBps = minSpeedWindowBytes / windowSec;
+          // If sustained speed is below minimum, abort for retry
+          if (downloadedBytes > 2 * 1024 * 1024 && windowSpeedBps < DOWNLOAD_MIN_SPEED_BPS) {
+            return fail(new Error(`Velocidad insuficiente (${Math.round(windowSpeedBps / 1024)} KB/s). Reintentando con nueva conexion...`));
+          }
+          // Reset window
+          minSpeedWindowStart = now;
+          minSpeedWindowBytes = 0;
+        }
         emitProgress();
         const canContinue = file.write(chunk);
         if (!canContinue) {
@@ -785,8 +814,14 @@ function downloadWithRedirects(url, destinationPath, taskRef, onProgress, redire
           stallTimer = null;
         }
         if (onProgress) {
-          const elapsedSec = Math.max((Date.now() - startedAt) / 1000, 0.001);
-          const bytesPerSecond = downloadedBytes / elapsedSec;
+          // Use sliding window speed for final emit
+          const now = Date.now();
+          while (speedSamples.length > 0 && (now - speedSamples[0].t) > SPEED_WINDOW_MS) {
+            speedWindowBytes -= speedSamples[0].bytes;
+            speedSamples.shift();
+          }
+          const windowElapsedSec = Math.min((now - startedAt) / 1000, SPEED_WINDOW_MS / 1000);
+          const bytesPerSecond = windowElapsedSec > 0.5 ? speedWindowBytes / windowElapsedSec : downloadedBytes / Math.max((now - startedAt) / 1000, 0.001);
           const percent = totalBytes > 0 ? 100 : null;
           onProgress({ downloadedBytes, totalBytes, bytesPerSecond, percent });
         }

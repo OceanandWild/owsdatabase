@@ -286,12 +286,23 @@ function Publish-ProjectToExternalRepo {
         if ($LASTEXITCODE -ne 0) { throw "gh repo clone fallo para $RepoName" }
 
         Write-Info "Clonando repo externo en temporal: $tempClone"
-        # Mirror local project -> external repo root (excluding heavy/generated dirs and artifacts)
-        robocopy $LocalProjectDir $tempClone /E `
-            /XD "node_modules" "dist" "release" ".git" "temp" `
-            /XF "*.exe" "*.msi" "*.zip" "*.7z" "*.apk" "*.aab" "*.map" `
-            /NFL /NDL /NJH /NJS /NC /NS | Out-Null
-        Write-Info "Sincronizacion base finalizada (sin artefactos pesados)"
+
+        # REGLA ESPECIFICA: ocean-cinemas solo sincroniza index.html + assets/
+        if ($RepoName -eq "ocean-cinemas") {
+            Write-Info "Modo selectivo ocean-cinemas: solo index.html + assets/"
+            $srcIndex  = Join-Path $LocalProjectDir "index.html"
+            $srcAssets = Join-Path $LocalProjectDir "assets"
+            if (Test-Path $srcIndex)  { Copy-Item $srcIndex  (Join-Path $tempClone "index.html") -Force }
+            if (Test-Path $srcAssets) { robocopy $srcAssets (Join-Path $tempClone "assets") /E /NFL /NDL /NJH /NJS /NC /NS | Out-Null }
+            Write-Info "Sincronizacion selectiva finalizada"
+        } else {
+            # Mirror local project -> external repo root (excluding heavy/generated dirs and artifacts)
+            robocopy $LocalProjectDir $tempClone /E `
+                /XD "node_modules" "dist" "release" ".git" "temp" `
+                /XF "*.exe" "*.msi" "*.zip" "*.7z" "*.apk" "*.aab" "*.map" `
+                /NFL /NDL /NJH /NJS /NC /NS | Out-Null
+            Write-Info "Sincronizacion base finalizada (sin artefactos pesados)"
+        }
 
         $gitignorePath = Join-Path $tempClone ".gitignore"
         if (-not (Test-Path $gitignorePath)) {

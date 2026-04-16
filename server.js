@@ -4257,6 +4257,60 @@ app.get('/ocean-cinemas/movies/:movieId/rating-summary', async (req, res) => {
   }
 });
 
+const OCEAN_CINEMAS_MOVIE_ACCESS_CONFIG = {
+  20: {
+    releaseAt: '2026-04-19T20:00:00-03:00',
+    prepurchaseOpenAt: '2026-04-15T00:00:00-03:00',
+    fastPassAvailableAt: '2026-05-03T20:00:00-03:00',
+    premiumSurchargePercent: 22,
+    notes: 'Estreno reciente con restricciones de acceso inmediato.'
+  }
+};
+
+// Politica de acceso por pelicula de Ocean Cinemas (precompra y Fast Pass)
+app.get('/ocean-cinemas/movies/:movieId/access-policy', async (req, res) => {
+  try {
+    const movieId = Number(req.params.movieId);
+    if (!Number.isInteger(movieId) || movieId <= 0) {
+      return res.status(400).json({ error: 'movieId invalido' });
+    }
+
+    const config = OCEAN_CINEMAS_MOVIE_ACCESS_CONFIG[movieId] || null;
+    const now = new Date();
+    const releaseAt = config?.releaseAt ? new Date(config.releaseAt) : null;
+    const prepurchaseOpenAt = config?.prepurchaseOpenAt ? new Date(config.prepurchaseOpenAt) : null;
+    const fastPassAvailableAt = config?.fastPassAvailableAt ? new Date(config.fastPassAvailableAt) : null;
+
+    const isUpcoming = Boolean(releaseAt && releaseAt.getTime() > now.getTime());
+    const canPrepurchase = Boolean(!prepurchaseOpenAt || prepurchaseOpenAt.getTime() <= now.getTime());
+    const fastPassEnabled = Boolean(!fastPassAvailableAt || fastPassAvailableAt.getTime() <= now.getTime());
+
+    return res.json({
+      movieId,
+      source: config ? 'server-policy' : 'default-policy',
+      isUpcoming,
+      canPrepurchase,
+      premiumSurchargePercent: Number(config?.premiumSurchargePercent || 0),
+      notes: String(config?.notes || ''),
+      releaseDate: releaseAt ? releaseAt.toISOString() : null,
+      prepurchaseOpenAt: prepurchaseOpenAt ? prepurchaseOpenAt.toISOString() : null,
+      prepurchaseMessage: canPrepurchase
+        ? 'La precompra esta disponible para asegurar tu acceso al estreno.'
+        : 'La precompra aun no esta habilitada para este titulo.',
+      fastPass: {
+        enabled: fastPassEnabled,
+        availableAt: fastPassAvailableAt ? fastPassAvailableAt.toISOString() : null,
+        reason: fastPassEnabled
+          ? 'Fast Pass habilitado para este titulo.'
+          : 'Fast Pass bloqueado temporalmente para estrenos recientes.'
+      }
+    });
+  } catch (error) {
+    console.error('Error en GET /ocean-cinemas/movies/:movieId/access-policy:', error);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 // Obtener una review puntual de producto (para modal de notificacion)
 app.get('/floret/reviews/product-detail/:reviewId', async (req, res) => {
   try {
@@ -10832,7 +10886,7 @@ app.patch('/ows-store/projects/:slug/version', async (req, res) => {
 app.patch('/ows-store/projects/:slug', async (req, res) => {
   if (!requireOwsStoreAdmin(req, res)) return;
   const { slug } = req.params;
-  const allowed = ['description', 'name', 'status', 'platform', 'banner_url', 'icon_url'];
+  const allowed = ['description', 'name', 'status', 'platform', 'banner_url', 'icon_url', 'installer_url', 'url'];
   const updates = {};
   for (const key of allowed) {
     if (req.body[key] !== undefined) updates[key] = req.body[key];

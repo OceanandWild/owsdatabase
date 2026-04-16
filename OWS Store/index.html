@@ -4758,64 +4758,152 @@
             gap: 0.5rem;
         }
 
-        .news-hub-event-card {
+        /* ═══ EVENTS DEDICATED SECTION ═══ */
+        .events-section { margin-bottom: 2rem; }
+        .events-section-header {
             display: flex;
-            align-items: flex-start;
-            gap: 0.75rem;
-            background: linear-gradient(135deg, rgba(38,212,232,0.05), var(--surface-1));
-            border: 1px solid rgba(38,212,232,0.12);
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.85rem;
+        }
+        .events-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 0.85rem;
+        }
+
+        /* Card base */
+        .news-hub-event-card {
+            position: relative;
             border-radius: var(--r-md);
-            padding: 0.85rem;
-            transition: all 0.15s;
+            border: 1px solid rgba(38,212,232,0.14);
+            background: linear-gradient(135deg, rgba(38,212,232,0.05), var(--surface-1));
+            overflow: hidden;
+            transition: all 0.18s;
             cursor: pointer;
+            display: flex;
+            flex-direction: column;
         }
         .news-hub-event-card:hover {
-            border-color: rgba(38,212,232,0.25);
-            background: linear-gradient(135deg, rgba(38,212,232,0.09), var(--surface-1));
-            transform: translateY(-1px);
-            box-shadow: var(--shadow-sm);
+            border-color: rgba(38,212,232,0.32);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.35);
         }
         .news-hub-event-card.empty {
             opacity: 0.45;
             cursor: default;
-            background: var(--surface-1);
-            border-color: var(--border);
         }
         .news-hub-event-card.empty:hover { transform: none; box-shadow: none; }
 
-        .news-hub-event-visual {
+        /* ── Banner horizontal layout (wide image, 16:9 ish) ── */
+        .news-hub-event-card.layout-banner {
+            flex-direction: column;
+        }
+        .news-hub-event-card.layout-banner .news-hub-event-visual {
+            width: 100%;
+            height: 160px;
+            border-radius: 0;
+            border: none;
+            border-bottom: 1px solid rgba(38,212,232,0.12);
+        }
+        .news-hub-event-card.layout-banner .news-hub-event-copy {
+            padding: 0.75rem 0.85rem 0.85rem;
+        }
+
+        /* ── Poster vertical layout (portrait image) ── */
+        .news-hub-event-card.layout-poster {
+            flex-direction: row;
+            align-items: stretch;
+        }
+        .news-hub-event-card.layout-poster .news-hub-event-visual {
+            width: 90px;
+            min-height: 120px;
+            flex-shrink: 0;
+            border-radius: 0;
+            border: none;
+            border-right: 1px solid rgba(38,212,232,0.12);
+        }
+        .news-hub-event-card.layout-poster .news-hub-event-copy {
+            padding: 0.75rem 0.85rem;
+            flex: 1;
+            min-width: 0;
+        }
+
+        /* ── No-image fallback (canvas icon) ── */
+        .news-hub-event-card.layout-icon {
+            flex-direction: row;
+            align-items: flex-start;
+            padding: 0.85rem;
+            gap: 0.75rem;
+        }
+        .news-hub-event-card.layout-icon .news-hub-event-visual {
             flex-shrink: 0;
             width: 52px; height: 52px;
-            background: var(--surface-2);
-            border: 1px solid var(--border);
             border-radius: var(--r-sm);
+            border: 1px solid var(--border);
+        }
+        .news-hub-event-card.layout-icon .news-hub-event-copy {
+            flex: 1;
+            min-width: 0;
+        }
+
+        /* Visual container shared */
+        .news-hub-event-visual {
+            background: var(--surface-2);
             overflow: hidden;
-            display: flex; align-items: center; justify-content: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        .news-hub-event-visual img.event-cover {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        /* Gradient overlay on banner images */
+        .news-hub-event-card.layout-banner .news-hub-event-visual::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(to bottom, transparent 50%, rgba(6,14,28,0.72) 100%);
+            pointer-events: none;
+        }
+        /* Fallback gradient when no image */
+        .news-hub-event-visual.fallback-gradient {
+            background: linear-gradient(135deg, rgba(38,212,232,0.18), rgba(14,27,55,0.9));
         }
         .news-hub-event-canvas { display: block; width: 52px; height: 52px; }
 
+        /* Copy area */
         .news-hub-event-copy {
-            flex: 1;
-            min-width: 0;
             display: flex;
             flex-direction: column;
-            gap: 0.25rem;
+            gap: 0.28rem;
         }
-
         .news-hub-event-head {
             display: flex;
             align-items: flex-start;
             justify-content: space-between;
             gap: 0.5rem;
         }
-
         .news-hub-event-meta {
             font-size: 0.7rem;
             color: var(--ink-1);
             line-height: 1.4;
-            white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+        .news-hub-event-meta.window-text {
+            font-size: 0.64rem;
+            font-family: var(--font-mono);
+            color: var(--ink-2);
+            -webkit-line-clamp: 1;
+            white-space: nowrap;
         }
 
 
@@ -4920,19 +5008,18 @@
             text-align: center;
         }
 
-        /* â•â•â• EVENT CARD FINAL FIX (override everything) â•â•â• */
-        #news-hub-events .news-hub-event-card,
-        #news-hub-events-wrap .news-hub-event-card {
+
+        /* ═══ EVENT CARD LAYOUT OVERRIDES (scoped, icon-only) ═══ */
+        #news-hub-events .news-hub-event-card.layout-icon,
+        #news-hub-events-wrap .news-hub-event-card.layout-icon {
             display: flex !important;
             flex-direction: row !important;
             align-items: flex-start !important;
             gap: 0.75rem !important;
-            width: auto !important;
-            flex-shrink: unset !important;
             padding: 0.85rem !important;
         }
-        #news-hub-events .news-hub-event-card .news-hub-event-copy,
-        #news-hub-events-wrap .news-hub-event-card .news-hub-event-copy {
+        #news-hub-events .news-hub-event-card.layout-icon .news-hub-event-copy,
+        #news-hub-events-wrap .news-hub-event-card.layout-icon .news-hub-event-copy {
             flex: 1 !important;
             min-width: 0 !important;
         }
@@ -5503,42 +5590,35 @@
                 </div>
             </div>
 
-            <!-- Events + changelogs hub -->
+            <!-- Events dedicated section -->
+            <div class="events-section">
+                <div class="events-section-header">
+                    <span class="section-label"><i class="fas fa-calendar-star" style="color:var(--cyan);margin-right:0.4rem;"></i>Eventos</span>
+                </div>
+                <div class="events-grid" id="news-hub-events-grid">
+                    <div class="info-note-card">Cargando eventos...</div>
+                </div>
+            </div>
+
+            <!-- Changelogs hub -->
             <div class="news-hub" style="margin-bottom:2rem;">
                 <div class="section-header" style="margin-bottom:0.75rem;">
-                    <span class="section-label">Eventos y Changelogs</span>
+                    <span class="section-label">Changelogs</span>
                 </div>
-                <div class="news-hub-tables">
-                    <div class="news-hub-table-card">
-                        <div class="news-hub-table-head"><i class="fas fa-clipboard-list"></i> Changelogs</div>
-                        <table class="news-hub-table" aria-label="Tabla de changelogs">
-                            <thead>
-                                <tr>
-                                    <th>Titulo</th>
-                                    <th>Fecha</th>
-                                    <th>Plataformas</th>
-                                </tr>
-                            </thead>
-                            <tbody id="news-hub-changelog-table-body">
-                                <tr><td colspan="3" class="news-hub-table-empty">Cargando changelogs...</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    <div class="news-hub-table-card">
-                        <div class="news-hub-table-head"><i class="fas fa-calendar-star"></i> Eventos</div>
-                        <table class="news-hub-table" aria-label="Tabla de eventos">
-                            <thead>
-                                <tr>
-                                    <th>Titulo</th>
-                                    <th>Estado</th>
-                                    <th>Ventana</th>
-                                </tr>
-                            </thead>
-                            <tbody id="news-hub-events-table-body">
-                                <tr><td colspan="3" class="news-hub-table-empty">Cargando eventos...</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
+                <div class="news-hub-table-card">
+                    <div class="news-hub-table-head"><i class="fas fa-clipboard-list"></i> Ultimos changelogs</div>
+                    <table class="news-hub-table" aria-label="Tabla de changelogs">
+                        <thead>
+                            <tr>
+                                <th>Titulo</th>
+                                <th>Fecha</th>
+                                <th>Plataformas</th>
+                            </tr>
+                        </thead>
+                        <tbody id="news-hub-changelog-table-body">
+                            <tr><td colspan="3" class="news-hub-table-empty">Cargando changelogs...</td></tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
@@ -10368,20 +10448,55 @@
 
         function buildNewsHubEventCard(item) {
             const status = getEventStatusLabel(item);
-            const visualKey = String(item?.model2d?.key || item?.bannerMeta?.visual || item?.bannerMeta?.visual_key || 'launch_orbit').trim();
             const summary = item?.description || (item?.changes?.[0] || 'Evento destacado del ecosistema.');
-            return `
-                <div class="news-hub-event-card" data-event-card="1" data-event-visual="${visualKey}">
+
+            // Resolve cover image from banner_meta
+            const coverUrl = String(
+                item?.bannerMeta?.cover_url ||
+                item?.bannerMeta?.image_url ||
+                item?.bannerMeta?.banner_url ||
+                item?.bannerMeta?.poster_url ||
+                ''
+            ).trim();
+
+            // Determine layout based on image type hint or URL pattern
+            const imageType = String(item?.bannerMeta?.image_type || '').toLowerCase(); // 'banner' | 'poster' | ''
+            let layout = 'icon'; // default: no image, use canvas icon
+            if (coverUrl) {
+                // Heuristic: if explicitly typed or URL suggests portrait/poster
+                if (imageType === 'poster' || /poster|portrait|vertical/i.test(coverUrl)) {
+                    layout = 'poster';
+                } else {
+                    layout = 'banner'; // default for any image = banner horizontal
+                }
+            }
+
+            const visualKey = String(item?.model2d?.key || item?.bannerMeta?.visual || item?.bannerMeta?.visual_key || 'launch_orbit').trim();
+
+            let visualHtml = '';
+            if (layout === 'banner' || layout === 'poster') {
+                visualHtml = `
                     <div class="news-hub-event-visual">
+                        <img class="event-cover" src="${escHtml(coverUrl)}" alt="${escHtml(item.title)}" loading="lazy"
+                             onerror="this.parentElement.classList.add('fallback-gradient');this.remove();">
+                    </div>`;
+            } else {
+                visualHtml = `
+                    <div class="news-hub-event-visual fallback-gradient">
                         <canvas class="news-hub-event-canvas" width="86" height="78" aria-hidden="true"></canvas>
-                    </div>
+                    </div>`;
+            }
+
+            return `
+                <div class="news-hub-event-card layout-${layout}" data-event-card="1" data-event-visual="${escHtml(visualKey)}">
+                    ${visualHtml}
                     <div class="news-hub-event-copy">
                         <div class="news-hub-event-head">
-                            <div class="news-hub-item-title">${item.title}</div>
+                            <div class="news-hub-item-title">${escHtml(normalizeUiText(item.title))}</div>
                             <div class="news-hub-event-status ${status.klass}">${status.label}</div>
                         </div>
-                        <div class="news-hub-event-meta">${summary}</div>
-                        <div class="news-hub-event-meta">${getEventWindowText(item)}</div>
+                        <div class="news-hub-event-meta">${escHtml(normalizeUiText(summary))}</div>
+                        <div class="news-hub-event-meta window-text">${escHtml(getEventWindowText(item))}</div>
                         <div style="margin-top:0.25rem;">${getNewsPlatformsBadgeHtml(item.platforms || ['all'])}</div>
                     </div>
                 </div>
@@ -10547,8 +10662,8 @@
 
         function renderNewsHub() {
             const changelogBody = document.getElementById('news-hub-changelog-table-body');
-            const eventsBody = document.getElementById('news-hub-events-table-body');
-            if (!changelogBody || !eventsBody) return;
+            const eventsGrid = document.getElementById('news-hub-events-grid');
+            if (!changelogBody && !eventsGrid) return;
             const list = Array.isArray(owsNewsUpdatesCache) ? owsNewsUpdatesCache : [];
             const changelogs = list
                 .filter((n) => !n.isEvent && !n.isBanner && String(n?.entryType || n?.kind || '').toLowerCase() !== 'news' && !isDedicatedApologyNewsEntry(n))
@@ -10572,25 +10687,27 @@
                 })
                 .slice(0, 8);
 
-            changelogBody.innerHTML = changelogs.length
-                ? changelogs.map((item) => `
-                    <tr>
-                        <td>${escHtml(normalizeUiText(item?.title || 'Sin titulo'))}</td>
-                        <td>${escHtml(formatDateTime(item?.updateDate))}</td>
-                        <td>${escHtml(getPlatformLabelFromKinds(item?.platforms || ['all']))}</td>
-                    </tr>
-                `).join('')
-                : '<tr><td colspan="3" class="news-hub-table-empty">Sin changelogs publicados.</td></tr>';
+            if (changelogBody) {
+                changelogBody.innerHTML = changelogs.length
+                    ? changelogs.map((item) => `
+                        <tr>
+                            <td>${escHtml(normalizeUiText(item?.title || 'Sin titulo'))}</td>
+                            <td>${escHtml(formatDateTime(item?.updateDate))}</td>
+                            <td>${escHtml(getPlatformLabelFromKinds(item?.platforms || ['all']))}</td>
+                        </tr>
+                    `).join('')
+                    : '<tr><td colspan="3" class="news-hub-table-empty">Sin changelogs publicados.</td></tr>';
+            }
 
-            eventsBody.innerHTML = featuredEvents.length
-                ? featuredEvents.map((item) => `
-                    <tr>
-                        <td>${escHtml(normalizeUiText(item?.title || 'Sin titulo'))}</td>
-                        <td>${escHtml(getEventStatusLabel(item).label)}</td>
-                        <td>${escHtml(getEventWindowText(item))}</td>
-                    </tr>
-                `).join('')
-                : '<tr><td colspan="3" class="news-hub-table-empty">Sin eventos activos.</td></tr>';
+            if (eventsGrid) {
+                if (featuredEvents.length) {
+                    eventsGrid.innerHTML = featuredEvents.map(buildNewsHubEventCard).join('');
+                    renderNewsHubEventVisuals();
+                } else {
+                    eventsGrid.innerHTML = '<div class="info-note-card">Sin eventos activos o proximos.</div>';
+                }
+            }
+
             renderDedicatedNewsSection();
         }
 

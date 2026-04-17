@@ -13055,7 +13055,12 @@
                 body.innerHTML = `
                     <div style="text-align:center;padding:2rem 0;">
                         <i class="fas fa-circle-notch fa-spin" style="font-size:2rem;color:var(--cyan);margin-bottom:1rem;display:block;"></i>
-                        <p style="font-size:0.88rem;color:var(--ink-1);" id="import-scan-msg">Escaneando proyectos instalados...</p>
+                        <p style="font-size:0.88rem;color:var(--ink-1);margin-bottom:1rem;" id="import-scan-msg">Iniciando escaneo...</p>
+                        <div style="background:var(--surface-2);border-radius:99px;height:4px;width:100%;max-width:320px;margin:0 auto 0.75rem;">
+                            <div id="import-scan-bar" style="height:4px;border-radius:99px;background:var(--cyan);width:0%;transition:width 0.4s;"></div>
+                        </div>
+                        <p style="font-size:0.7rem;color:var(--ink-2);">Esto puede tardar hasta 3 minutos. Si demora mucho, podés cancelar y usar el modo Manual.</p>
+                        <button class="btn-secondary" style="margin-top:1rem;font-size:0.75rem;" onclick="closeImportModal()">Cancelar y usar Manual</button>
                     </div>
                 `;
                 footer.innerHTML = '';
@@ -13145,34 +13150,95 @@
                 renderImportStep('manual');
                 return;
             }
-            // Auto mode: scan all projects
+            // Auto mode: scan all projects with per-project timeout and live feedback
             renderImportStep('scanning');
             const projects = getImportableProjects();
             _importResults = [];
+
+            const SCAN_TIMEOUT_MS = 3 * 60 * 1000; // 3 min total
+            const PER_PROJECT_TIMEOUT_MS = 8000;    // 8s per project
+            const scanStart = Date.now();
+
             const msgEl = document.getElementById('import-scan-msg');
+            const setMsg = (txt, pct) => {
+                if (msgEl) msgEl.textContent = txt;
+                const bar = document.getElementById('import-scan-bar');
+                if (bar && pct !== undefined) bar.style.width = `${Math.round(pct)}%`;
+            };
+
+            // Check if owsUpdater is available at all
+            if (!window.owsUpdater?.resolveInstalledApp) {
+                renderImportStep('scanning');
+                const b = document.getElementById('import-modal-body');
+                if (b) b.innerHTML = `
+                    <div style="text-align:center;padding:2rem 0;">
+                        <i class="fas fa-exclamation-triangle" style="font-size:2rem;color:var(--yellow);margin-bottom:1rem;display:block;"></i>
+                        <p style="font-size:0.9rem;font-weight:700;color:var(--ink-0);margin-bottom:0.5rem;">Detección automática no disponible</p>
+                        <p style="font-size:0.78rem;color:var(--ink-2);max-width:380px;margin:0 auto;">
+                            Esta función requiere la versión de escritorio de OWS Store. Si estás usando la versión web o el escáner no responde, usá el modo <strong>Manual</strong> para ingresar las versiones directamente.
+                        </p>
+                        <button class="btn-secondary" style="margin-top:1.25rem;" onclick="selectImportMode('manual');renderImportStep('manual');">
+                            <i class="fas fa-arrow-right"></i> Cambiar a Manual
+                        </button>
+                    </div>`;
+                const f = document.getElementById('import-modal-footer');
+                if (f) f.innerHTML = `<button class="btn-secondary" onclick="closeImportModal()">Cancelar</button>`;
+                return;
+            }
+
+            let timedOut = false;
+            const globalTimer = setTimeout(() => { timedOut = true; }, SCAN_TIMEOUT_MS);
+
             for (let i = 0; i < projects.length; i++) {
+                if (timedOut) break;
                 const p = projects[i];
-                if (msgEl) msgEl.textContent = `Escaneando ${p.name}... (${i + 1}/${projects.length})`;
+                setMsg(`Escaneando ${p.name}... (${i + 1} de ${projects.length})`, ((i + 1) / projects.length) * 100);
+
                 let version = '';
                 let detected = false;
                 try {
-                    const result = await resolveInstalledApp(p);
+                    // Race between resolveInstalledApp and a per-project timeout
+                    const result = await Promise.race([
+                        resolveInstalledApp(p),
+                        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), PER_PROJECT_TIMEOUT_MS))
+                    ]);
                     if (result?.installed) {
                         detected = true;
-                        // Try to get version from exe metadata via owsUpdater, fallback to latest known
                         version = String(result.versionName || getInstalledVersion(p.slug) || p.windows_version || p.version || '').trim();
                         if (!version) version = String(p.windows_version || p.version || '').trim();
                     }
-                } catch (_) {}
+                } catch (_) {
+                    // timeout or error — mark as not detected, continue
+                }
                 _importResults.push({
-                    slug: p.slug,
-                    name: p.name,
+                    slug: p.slug, name: p.name,
                     icon: getProjectIcon(p, 32),
-                    version,
-                    detected,
-                    skip: !detected,
+                    version, detected, skip: !detected,
                 });
             }
+
+            clearTimeout(globalTimer);
+
+            if (timedOut && _importResults.length === 0) {
+                // Total timeout with nothing scanned
+                const b = document.getElementById('import-modal-body');
+                if (b) b.innerHTML = `
+                    <div style="text-align:center;padding:2rem 0;">
+                        <i class="fas fa-clock" style="font-size:2rem;color:var(--yellow);margin-bottom:1rem;display:block;"></i>
+                        <p style="font-size:0.9rem;font-weight:700;color:var(--ink-0);margin-bottom:0.5rem;">El escaneo tardó demasiado</p>
+                        <p style="font-size:0.78rem;color:var(--ink-2);max-width:380px;margin:0 auto;">
+                            No se pudo completar la detección automática en 3 minutos. Esto puede ocurrir si el escáner de archivos no tiene permisos o si los proyectos están en rutas no estándar.<br><br>
+                            Usá el modo <strong>Manual</strong> para ingresar las versiones directamente.
+                        </p>
+                        <button class="btn-secondary" style="margin-top:1.25rem;" onclick="selectImportMode('manual');renderImportStep('manual');">
+                            <i class="fas fa-arrow-right"></i> Cambiar a Manual
+                        </button>
+                    </div>`;
+                const f = document.getElementById('import-modal-footer');
+                if (f) f.innerHTML = `<button class="btn-secondary" onclick="closeImportModal()">Cancelar</button>`;
+                return;
+            }
+
             renderImportStep('results');
         }
 

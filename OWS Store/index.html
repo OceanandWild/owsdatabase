@@ -1843,6 +1843,59 @@
         .library-filter-btn:hover { background:var(--surface-3); color:var(--ink-0); }
         .library-filter-btn.active { background:var(--cyan-dim); border-color:rgba(38,212,232,0.3); color:var(--cyan); font-weight:600; }
 
+        /* ═══ IMPORT MODAL ═══ */
+        #import-modal {
+            position: fixed; inset: 0; z-index: 5800;
+            display: none; align-items: center; justify-content: center;
+            background: rgba(2,6,16,0.88); backdrop-filter: blur(6px); padding: 1rem;
+        }
+        #import-modal.active { display: flex; }
+        .import-shell {
+            width: min(680px, 100%);
+            background: linear-gradient(160deg, rgba(14,24,42,0.98), rgba(8,16,30,0.99));
+            border: 1px solid rgba(82,217,223,0.22);
+            border-radius: var(--r-lg);
+            overflow: hidden;
+            box-shadow: 0 32px 80px rgba(0,0,0,0.6);
+            display: flex; flex-direction: column; max-height: 90vh;
+        }
+        .import-head {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 1rem 1.25rem; border-bottom: 1px solid var(--border);
+            background: rgba(8,16,30,0.8);
+        }
+        .import-head-title { font-family: var(--font-display); font-size: 1.1rem; font-weight: 800; }
+        .import-body { padding: 1.25rem; overflow-y: auto; flex: 1; }
+        .import-mode-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1.25rem; }
+        .import-mode-card {
+            border: 2px solid var(--border); border-radius: var(--r-md);
+            padding: 1rem; cursor: pointer; transition: all 0.18s;
+            background: var(--surface-1); text-align: center;
+        }
+        .import-mode-card:hover { border-color: var(--border-mid); background: var(--surface-2); }
+        .import-mode-card.selected { border-color: var(--cyan); background: var(--cyan-dim); }
+        .import-mode-icon { font-size: 1.6rem; margin-bottom: 0.5rem; }
+        .import-mode-label { font-weight: 800; font-size: 0.88rem; color: var(--ink-0); }
+        .import-mode-desc { font-size: 0.72rem; color: var(--ink-2); margin-top: 0.25rem; line-height: 1.4; }
+        .import-project-row {
+            display: flex; align-items: center; gap: 0.75rem;
+            padding: 0.65rem 0.75rem; border-radius: var(--r-sm);
+            border: 1px solid var(--border); background: var(--surface-1);
+            margin-bottom: 0.5rem; transition: border-color 0.15s;
+        }
+        .import-project-row.detected { border-color: rgba(40,217,138,0.35); background: rgba(40,217,138,0.04); }
+        .import-project-row.skipped { opacity: 0.45; }
+        .import-project-icon { width: 32px; height: 32px; border-radius: 8px; object-fit: cover; flex-shrink: 0; background: var(--surface-3); }
+        .import-project-name { font-size: 0.82rem; font-weight: 700; color: var(--ink-0); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .import-project-version { font-size: 0.72rem; font-family: var(--font-mono); color: var(--cyan); }
+        .import-project-status { font-size: 0.65rem; font-family: var(--font-mono); padding: 2px 7px; border-radius: 99px; flex-shrink: 0; }
+        .import-project-status.ok { background: rgba(40,217,138,0.15); color: var(--green); border: 1px solid rgba(40,217,138,0.25); }
+        .import-project-status.skip { background: var(--surface-3); color: var(--ink-2); border: 1px solid var(--border); }
+        .import-project-status.scanning { background: var(--cyan-dim); color: var(--cyan); border: 1px solid rgba(38,212,232,0.25); }
+        .import-manual-input { font-size: 0.72rem; font-family: var(--font-mono); background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 3px 7px; color: var(--ink-0); width: 90px; outline: none; }
+        .import-manual-input:focus { border-color: var(--cyan); }
+        .import-footer { padding: 1rem 1.25rem; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 0.5rem; background: rgba(8,16,30,0.8); }
+
         .library-grid { display:flex; flex-direction:column; gap:0.5rem; }
         .library-empty { text-align:center; color:var(--ink-2); padding:3rem; font-size:0.85rem; }
 
@@ -5710,6 +5763,7 @@
                         <div class="library-hero-sub">Gestiona tus proyectos guardados, instalados y pendientes con estado claro por plataforma.</div>
                     </div>
                     <div class="library-hero-actions">
+                        <button class="library-btn" onclick="openImportModal()"><i class="fas fa-file-import"></i> Importar</button>
                         <button class="library-btn" onclick="syncLibraryNow()"><i class="fas fa-rotate"></i> Sincronizar</button>
                         <button class="library-btn" onclick="showSection('home', document.querySelector('.nav-menu .nav-item:nth-child(1)'))"><i class="fas fa-compass"></i> Explorar Store</button>
                     </div>
@@ -5924,6 +5978,23 @@
     <i class="fas fa-download"></i>
     <span id="mobile-queue-fab-count">0</span>
 </button>
+
+<!-- ═══ IMPORT MODAL ═══ -->
+<div id="import-modal" onclick="if(event.target===this)closeImportModal()">
+    <div class="import-shell">
+        <div class="import-head">
+            <span class="import-head-title"><i class="fas fa-file-import" style="color:var(--cyan);margin-right:0.5rem;"></i>Importar instalaciones</span>
+            <button type="button" class="btn-close-modal" onclick="closeImportModal()" aria-label="Cerrar"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="import-body" id="import-modal-body">
+            <!-- Rendered by JS -->
+        </div>
+        <div class="import-footer" id="import-modal-footer">
+            <!-- Rendered by JS -->
+        </div>
+    </div>
+</div>
+
 
 <!-- â•â•â• CHANGELOG MODAL (panel lateral) â•â•â• -->
 <div id="store-news-modal" aria-hidden="true" onclick="if(event.target===this)closeStoreTimelineModal()">
@@ -12935,6 +13006,255 @@
             addNotification('Biblioteca sincronizada.', 'success');
             renderExploreInsights();
         }
+
+        // ═══ IMPORT MODAL ═══
+        let _importMode = 'auto'; // 'auto' | 'manual'
+        let _importResults = []; // [{ slug, name, icon, version, detected, skip }]
+
+        function openImportModal() {
+            _importMode = 'auto';
+            _importResults = [];
+            const modal = document.getElementById('import-modal');
+            if (modal) modal.classList.add('active');
+            renderImportStep('choose');
+        }
+
+        function closeImportModal() {
+            const modal = document.getElementById('import-modal');
+            if (modal) modal.classList.remove('active');
+        }
+
+        function renderImportStep(step) {
+            const body = document.getElementById('import-modal-body');
+            const footer = document.getElementById('import-modal-footer');
+            if (!body || !footer) return;
+
+            if (step === 'choose') {
+                body.innerHTML = `
+                    <p style="font-size:0.82rem;color:var(--ink-1);margin-bottom:1rem;">
+                        Importa proyectos que ya instalaste externamente para que OWS Store reconozca su version y no te pida actualizarlos innecesariamente.
+                    </p>
+                    <div class="import-mode-grid">
+                        <div class="import-mode-card selected" id="import-card-auto" onclick="selectImportMode('auto')">
+                            <div class="import-mode-icon">🔍</div>
+                            <div class="import-mode-label">Automático</div>
+                            <div class="import-mode-desc">OWS Store detecta los ejecutables instalados y su versión sin que hagas nada.</div>
+                        </div>
+                        <div class="import-mode-card" id="import-card-manual" onclick="selectImportMode('manual')">
+                            <div class="import-mode-icon">📂</div>
+                            <div class="import-mode-label">Manual</div>
+                            <div class="import-mode-desc">Indicás la ruta del instalador de cada proyecto. Podés ignorar los que no tenés.</div>
+                        </div>
+                    </div>
+                `;
+                footer.innerHTML = `
+                    <button class="btn-secondary" onclick="closeImportModal()">Cancelar</button>
+                    <button class="btn-primary" onclick="startImport()"><i class="fas fa-arrow-right"></i> Continuar</button>
+                `;
+            } else if (step === 'scanning') {
+                body.innerHTML = `
+                    <div style="text-align:center;padding:2rem 0;">
+                        <i class="fas fa-circle-notch fa-spin" style="font-size:2rem;color:var(--cyan);margin-bottom:1rem;display:block;"></i>
+                        <p style="font-size:0.88rem;color:var(--ink-1);" id="import-scan-msg">Escaneando proyectos instalados...</p>
+                    </div>
+                `;
+                footer.innerHTML = '';
+            } else if (step === 'results') {
+                const detected = _importResults.filter(r => r.detected && !r.skip).length;
+                body.innerHTML = `
+                    <p style="font-size:0.78rem;color:var(--ink-2);margin-bottom:0.75rem;">
+                        ${_importMode === 'auto'
+                            ? `Se detectaron <strong style="color:var(--cyan)">${detected}</strong> proyecto(s) instalado(s). Revisá y confirmá.`
+                            : `Revisá las versiones detectadas. Podés editarlas antes de importar.`}
+                    </p>
+                    <div id="import-results-list">
+                        ${_importResults.map((r, i) => `
+                            <div class="import-project-row ${r.detected ? 'detected' : ''} ${r.skip ? 'skipped' : ''}" id="import-row-${i}">
+                                <img class="import-project-icon" src="${r.icon}" onerror="this.src=''" alt="">
+                                <span class="import-project-name">${escHtml(r.name)}</span>
+                                ${r.detected
+                                    ? `<input class="import-manual-input" type="text" value="${escHtml(r.version)}" id="import-ver-${i}" placeholder="version" title="Versión detectada">`
+                                    : `<input class="import-manual-input" type="text" value="" id="import-ver-${i}" placeholder="no detectado" title="Ingresá la versión manualmente">`}
+                                <span class="import-project-status ${r.detected ? 'ok' : 'skip'}">${r.detected ? 'DETECTADO' : 'NO ENCONTRADO'}</span>
+                                <button type="button" title="${r.skip ? 'Incluir' : 'Ignorar'}" onclick="toggleImportSkip(${i})"
+                                    style="background:none;border:none;cursor:pointer;color:var(--ink-2);font-size:0.9rem;padding:2px 4px;">
+                                    <i class="fas ${r.skip ? 'fa-eye' : 'fa-eye-slash'}"></i>
+                                </button>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                footer.innerHTML = `
+                    <button class="btn-secondary" onclick="closeImportModal()">Cancelar</button>
+                    <button class="btn-primary" onclick="confirmImport()"><i class="fas fa-check"></i> Importar seleccionados</button>
+                `;
+            } else if (step === 'manual') {
+                const projects = getImportableProjects();
+                body.innerHTML = `
+                    <p style="font-size:0.78rem;color:var(--ink-2);margin-bottom:0.75rem;">
+                        Ingresá la versión instalada de cada proyecto. Dejá en blanco o presioná el ojo para ignorar los que no tenés.
+                    </p>
+                    <div id="import-results-list">
+                        ${projects.map((p, i) => `
+                            <div class="import-project-row" id="import-row-${i}">
+                                <img class="import-project-icon" src="${getProjectIcon(p, 32)}" onerror="this.src=''" alt="">
+                                <span class="import-project-name">${escHtml(p.name)}</span>
+                                <input class="import-manual-input" type="text" value="" id="import-ver-${i}" placeholder="ej: 2026.4.1" title="Versión instalada">
+                                <button type="button" title="Ignorar" onclick="toggleManualSkip(${i})" id="import-skip-${i}"
+                                    style="background:none;border:none;cursor:pointer;color:var(--ink-2);font-size:0.9rem;padding:2px 4px;">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                // Store project slugs for later
+                window._importManualProjects = projects;
+                footer.innerHTML = `
+                    <button class="btn-secondary" onclick="closeImportModal()">Cancelar</button>
+                    <button class="btn-primary" onclick="confirmManualImport()"><i class="fas fa-check"></i> Importar</button>
+                `;
+            } else if (step === 'done') {
+                body.innerHTML = `
+                    <div style="text-align:center;padding:2rem 0;">
+                        <i class="fas fa-check-circle" style="font-size:2.5rem;color:var(--green);margin-bottom:1rem;display:block;"></i>
+                        <p style="font-size:1rem;font-weight:700;color:var(--ink-0);" id="import-done-msg">Importación completada</p>
+                        <p style="font-size:0.78rem;color:var(--ink-2);margin-top:0.5rem;" id="import-done-sub"></p>
+                    </div>
+                `;
+                footer.innerHTML = `<button class="btn-primary" onclick="closeImportModal()">Cerrar</button>`;
+            }
+        }
+
+        function selectImportMode(mode) {
+            _importMode = mode;
+            document.getElementById('import-card-auto')?.classList.toggle('selected', mode === 'auto');
+            document.getElementById('import-card-manual')?.classList.toggle('selected', mode === 'manual');
+        }
+
+        function getImportableProjects() {
+            const all = owsStoreProjectsCache || [];
+            return all.filter(p => {
+                const s = String(p.status || '').toLowerCase();
+                return s === 'launched' && (supportsWindowsInstaller(p) || supportsAndroidDownloads(p));
+            }).sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+        }
+
+        async function startImport() {
+            if (_importMode === 'manual') {
+                renderImportStep('manual');
+                return;
+            }
+            // Auto mode: scan all projects
+            renderImportStep('scanning');
+            const projects = getImportableProjects();
+            _importResults = [];
+            const msgEl = document.getElementById('import-scan-msg');
+            for (let i = 0; i < projects.length; i++) {
+                const p = projects[i];
+                if (msgEl) msgEl.textContent = `Escaneando ${p.name}... (${i + 1}/${projects.length})`;
+                let version = '';
+                let detected = false;
+                try {
+                    const result = await resolveInstalledApp(p);
+                    if (result?.installed) {
+                        detected = true;
+                        // Try to get version from exe metadata via owsUpdater, fallback to latest known
+                        version = String(result.versionName || getInstalledVersion(p.slug) || p.windows_version || p.version || '').trim();
+                        if (!version) version = String(p.windows_version || p.version || '').trim();
+                    }
+                } catch (_) {}
+                _importResults.push({
+                    slug: p.slug,
+                    name: p.name,
+                    icon: getProjectIcon(p, 32),
+                    version,
+                    detected,
+                    skip: !detected,
+                });
+            }
+            renderImportStep('results');
+        }
+
+        function toggleImportSkip(idx) {
+            if (!_importResults[idx]) return;
+            _importResults[idx].skip = !_importResults[idx].skip;
+            const row = document.getElementById(`import-row-${idx}`);
+            const btn = row?.querySelector('button i');
+            if (row) row.classList.toggle('skipped', _importResults[idx].skip);
+            if (btn) btn.className = `fas ${_importResults[idx].skip ? 'fa-eye' : 'fa-eye-slash'}`;
+        }
+
+        function toggleManualSkip(idx) {
+            const row = document.getElementById(`import-row-${idx}`);
+            const btn = document.getElementById(`import-skip-${idx}`)?.querySelector('i');
+            const input = document.getElementById(`import-ver-${idx}`);
+            const isSkipped = row?.classList.contains('skipped');
+            if (row) row.classList.toggle('skipped', !isSkipped);
+            if (btn) btn.className = `fas ${isSkipped ? 'fa-eye-slash' : 'fa-eye'}`;
+            if (input) input.disabled = !isSkipped;
+        }
+
+        function confirmImport() {
+            let count = 0;
+            _importResults.forEach((r, i) => {
+                if (r.skip) return;
+                const verInput = document.getElementById(`import-ver-${i}`);
+                const version = String(verInput?.value || r.version || '').trim();
+                if (!version) return;
+                // Save to localStorage as installed version
+                localStorage.setItem(`installed_${r.slug}`, version);
+                localStorage.setItem(`installed_platform_${r.slug}`, 'windows');
+                setInstallMarkerVerified(r.slug, 'windows', true);
+                // Add to library
+                addToLibrary(r.slug);
+                count++;
+            });
+            renderImportStep('done');
+            document.getElementById('import-done-msg').textContent = `${count} proyecto(s) importado(s)`;
+            document.getElementById('import-done-sub').textContent = 'OWS Store ya conoce las versiones instaladas y no pedirá actualizaciones innecesarias.';
+            // Refresh library
+            setTimeout(() => {
+                refreshInstallationStates().then(() => {
+                    scheduleSectionRender({ projects: true, library: true, immediate: true });
+                });
+            }, 500);
+        }
+
+        function confirmManualImport() {
+            const projects = window._importManualProjects || [];
+            let count = 0;
+            projects.forEach((p, i) => {
+                const row = document.getElementById(`import-row-${i}`);
+                if (row?.classList.contains('skipped')) return;
+                const verInput = document.getElementById(`import-ver-${i}`);
+                const version = String(verInput?.value || '').trim();
+                if (!version) return;
+                localStorage.setItem(`installed_${p.slug}`, version);
+                localStorage.setItem(`installed_platform_${p.slug}`, 'windows');
+                setInstallMarkerVerified(p.slug, 'windows', true);
+                addToLibrary(p.slug);
+                count++;
+            });
+            renderImportStep('done');
+            document.getElementById('import-done-msg').textContent = `${count} proyecto(s) importado(s)`;
+            document.getElementById('import-done-sub').textContent = 'Las versiones fueron guardadas. OWS Store las usará para comparar con futuras actualizaciones.';
+            setTimeout(() => {
+                refreshInstallationStates().then(() => {
+                    scheduleSectionRender({ projects: true, library: true, immediate: true });
+                });
+            }, 500);
+        }
+
+        function addToLibrary(slug) {
+            if (!slug) return;
+            try {
+                const raw = localStorage.getItem(PROJECT_LIBRARY_KEY) || '[]';
+                const arr = JSON.parse(raw);
+                if (!arr.includes(slug)) { arr.push(slug); localStorage.setItem(PROJECT_LIBRARY_KEY, JSON.stringify(arr)); }
+            } catch (_) {}
+        }
+        // ═══ END IMPORT MODAL ═══
 
         async function loadProjects() {
             try {

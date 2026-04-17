@@ -13038,7 +13038,7 @@
                         <div class="import-mode-card selected" id="import-card-auto" onclick="selectImportMode('auto')">
                             <div class="import-mode-icon">🔍</div>
                             <div class="import-mode-label">Automático</div>
-                            <div class="import-mode-desc">OWS Store detecta los ejecutables instalados y su versión sin que hagas nada.</div>
+                            <div class="import-mode-desc">Carga todos los proyectos con su versión más reciente. Editá las versiones que ya tenés instaladas antes de confirmar.</div>
                         </div>
                         <div class="import-mode-card" id="import-card-manual" onclick="selectImportMode('manual')">
                             <div class="import-mode-icon">📂</div>
@@ -13055,12 +13055,10 @@
                 body.innerHTML = `
                     <div style="text-align:center;padding:2rem 0;">
                         <i class="fas fa-circle-notch fa-spin" style="font-size:2rem;color:var(--cyan);margin-bottom:1rem;display:block;"></i>
-                        <p style="font-size:0.88rem;color:var(--ink-1);margin-bottom:1rem;" id="import-scan-msg">Iniciando escaneo...</p>
-                        <div style="background:var(--surface-2);border-radius:99px;height:4px;width:100%;max-width:320px;margin:0 auto 0.75rem;">
-                            <div id="import-scan-bar" style="height:4px;border-radius:99px;background:var(--cyan);width:0%;transition:width 0.4s;"></div>
+                        <p style="font-size:0.88rem;color:var(--ink-1);margin-bottom:1rem;" id="import-scan-msg">Cargando proyectos...</p>
+                        <div style="background:var(--surface-2);border-radius:99px;height:4px;width:100%;max-width:320px;margin:0 auto;">
+                            <div id="import-scan-bar" style="height:4px;border-radius:99px;background:var(--cyan);width:0%;transition:width 0.3s;"></div>
                         </div>
-                        <p style="font-size:0.7rem;color:var(--ink-2);">Esto puede tardar hasta 3 minutos. Si demora mucho, podés cancelar y usar el modo Manual.</p>
-                        <button class="btn-secondary" style="margin-top:1rem;font-size:0.75rem;" onclick="closeImportModal()">Cancelar y usar Manual</button>
                     </div>
                 `;
                 footer.innerHTML = '';
@@ -13150,123 +13148,41 @@
                 renderImportStep('manual');
                 return;
             }
+            // Modo automático: NO usa IPC. Muestra proyectos con versión del servidor
+            // y versión instalada conocida (localStorage). El usuario confirma o edita.
             renderImportStep('scanning');
             const projects = getImportableProjects();
             _importResults = [];
 
             const msgEl = document.getElementById('import-scan-msg');
             const barEl = document.getElementById('import-scan-bar');
-            const setMsg = (txt, pct) => {
-                if (msgEl) msgEl.textContent = txt;
-                if (barEl && pct !== undefined) barEl.style.width = `${Math.round(pct)}%`;
-            };
+            if (msgEl) msgEl.textContent = `Cargando ${projects.length} proyectos...`;
+            if (barEl) barEl.style.width = '40%';
 
-            // Helper: wrap any promise with a hard timeout that ALWAYS resolves (never hangs)
-            function withTimeout(promise, ms, fallback) {
-                let done = false;
-                return new Promise((resolve) => {
-                    const timer = setTimeout(() => {
-                        if (!done) { done = true; resolve(fallback); }
-                    }, ms);
-                    promise.then((v) => {
-                        if (!done) { done = true; clearTimeout(timer); resolve(v); }
-                    }).catch(() => {
-                        if (!done) { done = true; clearTimeout(timer); resolve(fallback); }
-                    });
-                });
-            }
+            // Small yield to let the UI render before continuing
+            await new Promise(r => setTimeout(r, 80));
 
-            // Check if owsUpdater is available at all
-            const hasBatch = Boolean(window.owsUpdater?.resolveInstalledAppsBatch);
-            const hasSingle = Boolean(window.owsUpdater?.resolveInstalledApp);
+            if (barEl) barEl.style.width = '80%';
 
-            if (!hasBatch && !hasSingle) {
-                const b = document.getElementById('import-modal-body');
-                if (b) b.innerHTML = `
-                    <div style="text-align:center;padding:2rem 0;">
-                        <i class="fas fa-exclamation-triangle" style="font-size:2rem;color:var(--yellow);margin-bottom:1rem;display:block;"></i>
-                        <p style="font-size:0.9rem;font-weight:700;color:var(--ink-0);margin-bottom:0.5rem;">Detección automática no disponible</p>
-                        <p style="font-size:0.78rem;color:var(--ink-2);max-width:380px;margin:0 auto;">
-                            Esta función requiere la versión de escritorio de OWS Store. Usá el modo <strong>Manual</strong> para ingresar las versiones directamente.
-                        </p>
-                        <button class="btn-secondary" style="margin-top:1.25rem;" onclick="selectImportMode('manual');renderImportStep('manual');">
-                            <i class="fas fa-arrow-right"></i> Cambiar a Manual
-                        </button>
-                    </div>`;
-                const f = document.getElementById('import-modal-footer');
-                if (f) f.innerHTML = `<button class="btn-secondary" onclick="closeImportModal()">Cancelar</button>`;
-                return;
-            }
+            _importResults = projects.map(p => {
+                // Check if we already have a stored version in localStorage
+                const storedVersion = getInstalledVersion(p.slug) || '';
+                // Use stored version if available, otherwise use latest server version
+                const serverVersion = String(p.windows_version || p.version || '').trim();
+                const version = storedVersion || serverVersion;
+                const detected = Boolean(storedVersion); // "detected" = already in localStorage
+                return {
+                    slug: p.slug,
+                    name: p.name,
+                    icon: getProjectIcon(p, 32),
+                    version,
+                    detected,
+                    skip: false, // default: include all, user can toggle
+                };
+            });
 
-            setMsg(`Escaneando ${projects.length} proyectos...`, 15);
-
-            let scanOk = false;
-
-            // Try batch first (new versions), fallback to parallel single calls
-            if (hasBatch) {
-                const batchPayload = projects.map(p => ({ slug: p.slug, hints: getInstallHints(p) }));
-                const batchResults = await withTimeout(
-                    window.owsUpdater.resolveInstalledAppsBatch(batchPayload),
-                    12000, null
-                );
-                if (Array.isArray(batchResults)) {
-                    scanOk = true;
-                    const resultMap = {};
-                    batchResults.forEach(r => { if (r?.slug) resultMap[r.slug] = r; });
-                    _importResults = projects.map(p => {
-                        const r = resultMap[p.slug] || { installed: false };
-                        const detected = Boolean(r.installed);
-                        const version = detected ? String(r.versionName || getInstalledVersion(p.slug) || p.windows_version || p.version || '').trim() : '';
-                        return { slug: p.slug, name: p.name, icon: getProjectIcon(p, 32), version, detected, skip: !detected };
-                    });
-                }
-            }
-
-            // Fallback: parallel single calls, each with 3s timeout, all at once
-            if (!scanOk && hasSingle) {
-                setMsg('Escaneando en paralelo...', 30);
-                const singleResults = await withTimeout(
-                    Promise.all(projects.map(p =>
-                        withTimeout(
-                            window.owsUpdater.resolveInstalledApp(getInstallHints(p)),
-                            3000, { installed: false }
-                        ).then(r => ({ slug: p.slug, result: r || { installed: false } }))
-                    )),
-                    10000, null
-                );
-                if (Array.isArray(singleResults)) {
-                    scanOk = true;
-                    const resultMap = {};
-                    singleResults.forEach(({ slug, result }) => { resultMap[slug] = result; });
-                    _importResults = projects.map(p => {
-                        const r = resultMap[p.slug] || { installed: false };
-                        const detected = Boolean(r.installed);
-                        const version = detected ? String(r.versionName || getInstalledVersion(p.slug) || p.windows_version || p.version || '').trim() : '';
-                        return { slug: p.slug, name: p.name, icon: getProjectIcon(p, 32), version, detected, skip: !detected };
-                    });
-                }
-            }
-
-            if (!scanOk) {
-                const b = document.getElementById('import-modal-body');
-                if (b) b.innerHTML = `
-                    <div style="text-align:center;padding:2rem 0;">
-                        <i class="fas fa-clock" style="font-size:2rem;color:var(--yellow);margin-bottom:1rem;display:block;"></i>
-                        <p style="font-size:0.9rem;font-weight:700;color:var(--ink-0);margin-bottom:0.5rem;">El escaneo no respondió</p>
-                        <p style="font-size:0.78rem;color:var(--ink-2);max-width:380px;margin:0 auto;">
-                            La detección automática no pudo completarse. Esto puede ocurrir si los proyectos están en rutas no estándar o si hay un problema de permisos.<br><br>
-                            Usá el modo <strong>Manual</strong> — es igual de efectivo y no requiere escaneo.
-                        </p>
-                        <button class="btn-secondary" style="margin-top:1.25rem;" onclick="selectImportMode('manual');renderImportStep('manual');">
-                            <i class="fas fa-arrow-right"></i> Cambiar a Manual
-                        </button>
-                    </div>`;
-                const f = document.getElementById('import-modal-footer');
-                if (f) f.innerHTML = `<button class="btn-secondary" onclick="closeImportModal()">Cancelar</button>`;
-                return;
-            }
-
-            setMsg('Escaneo completado.', 100);
+            if (barEl) barEl.style.width = '100%';
+            await new Promise(r => setTimeout(r, 150));
             renderImportStep('results');
         }
 

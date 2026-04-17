@@ -13136,7 +13136,7 @@
         }
 
         function getImportableProjects() {
-            const all = owsStoreProjectsCache || [];
+            const all = allProjects || [];
             return all.filter(p => {
                 const s = String(p.status || '').toLowerCase();
                 return s === 'launched' && (supportsWindowsInstaller(p) || supportsAndroidDownloads(p));

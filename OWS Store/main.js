@@ -1281,6 +1281,19 @@ ipcMain.handle('resolve-installed-app', (_, payload) => {
   }
 });
 
+// Batch scan: resolve multiple projects at once in a single IPC call
+ipcMain.handle('resolve-installed-apps-batch', (_, projects) => {
+  if (!Array.isArray(projects)) return [];
+  return projects.map((p) => {
+    try {
+      const result = resolveInstalledPaths(p.hints || {});
+      return { slug: p.slug, ...result };
+    } catch (err) {
+      return { slug: p.slug, installed: false, error: String(err?.message || err) };
+    }
+  });
+});
+
 ipcMain.handle('launch-installed-app', async (_, payload) => {
   const exePath = payload && typeof payload.exePath === 'string' ? payload.exePath : '';
   if (!exePath || !safeExists(exePath)) return { ok: false, error: 'Ejecutable no encontrado.' };

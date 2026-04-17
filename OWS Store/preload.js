@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('owsUpdater', {
   cancelExternalInstaller: (payload) => ipcRenderer.invoke('cancel-external-installer', payload),
   openExternalUrl: (url) => ipcRenderer.invoke('open-external-url', url),
   resolveInstalledApp: (payload) => ipcRenderer.invoke('resolve-installed-app', payload),
+  resolveInstalledAppsBatch: (projects) => ipcRenderer.invoke('resolve-installed-apps-batch', projects),
   launchInstalledApp: (payload) => ipcRenderer.invoke('launch-installed-app', payload),
   uninstallInstalledApp: (payload) => ipcRenderer.invoke('uninstall-installed-app', payload),
   platform: process.platform,

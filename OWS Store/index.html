@@ -13150,32 +13150,26 @@
                 renderImportStep('manual');
                 return;
             }
-            // Auto mode: scan all projects with per-project timeout and live feedback
             renderImportStep('scanning');
             const projects = getImportableProjects();
             _importResults = [];
 
-            const SCAN_TIMEOUT_MS = 3 * 60 * 1000; // 3 min total
-            const PER_PROJECT_TIMEOUT_MS = 8000;    // 8s per project
-            const scanStart = Date.now();
-
             const msgEl = document.getElementById('import-scan-msg');
+            const barEl = document.getElementById('import-scan-bar');
             const setMsg = (txt, pct) => {
                 if (msgEl) msgEl.textContent = txt;
-                const bar = document.getElementById('import-scan-bar');
-                if (bar && pct !== undefined) bar.style.width = `${Math.round(pct)}%`;
+                if (barEl && pct !== undefined) barEl.style.width = `${Math.round(pct)}%`;
             };
 
-            // Check if owsUpdater is available at all
-            if (!window.owsUpdater?.resolveInstalledApp) {
-                renderImportStep('scanning');
+            // Check if batch scan is available
+            if (!window.owsUpdater?.resolveInstalledAppsBatch) {
                 const b = document.getElementById('import-modal-body');
                 if (b) b.innerHTML = `
                     <div style="text-align:center;padding:2rem 0;">
                         <i class="fas fa-exclamation-triangle" style="font-size:2rem;color:var(--yellow);margin-bottom:1rem;display:block;"></i>
                         <p style="font-size:0.9rem;font-weight:700;color:var(--ink-0);margin-bottom:0.5rem;">Detección automática no disponible</p>
                         <p style="font-size:0.78rem;color:var(--ink-2);max-width:380px;margin:0 auto;">
-                            Esta función requiere la versión de escritorio de OWS Store. Si estás usando la versión web o el escáner no responde, usá el modo <strong>Manual</strong> para ingresar las versiones directamente.
+                            Esta función requiere la versión de escritorio de OWS Store actualizada. Usá el modo <strong>Manual</strong> para ingresar las versiones directamente.
                         </p>
                         <button class="btn-secondary" style="margin-top:1.25rem;" onclick="selectImportMode('manual');renderImportStep('manual');">
                             <i class="fas fa-arrow-right"></i> Cambiar a Manual
@@ -13186,49 +13180,29 @@
                 return;
             }
 
-            let timedOut = false;
-            const globalTimer = setTimeout(() => { timedOut = true; }, SCAN_TIMEOUT_MS);
+            setMsg(`Preparando escaneo de ${projects.length} proyectos...`, 10);
 
-            for (let i = 0; i < projects.length; i++) {
-                if (timedOut) break;
-                const p = projects[i];
-                setMsg(`Escaneando ${p.name}... (${i + 1} de ${projects.length})`, ((i + 1) / projects.length) * 100);
+            // Build batch payload
+            const batchPayload = projects.map(p => ({ slug: p.slug, hints: getInstallHints(p) }));
 
-                let version = '';
-                let detected = false;
-                try {
-                    // Race between resolveInstalledApp and a per-project timeout
-                    const result = await Promise.race([
-                        resolveInstalledApp(p),
-                        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), PER_PROJECT_TIMEOUT_MS))
-                    ]);
-                    if (result?.installed) {
-                        detected = true;
-                        version = String(result.versionName || getInstalledVersion(p.slug) || p.windows_version || p.version || '').trim();
-                        if (!version) version = String(p.windows_version || p.version || '').trim();
-                    }
-                } catch (_) {
-                    // timeout or error — mark as not detected, continue
-                }
-                _importResults.push({
-                    slug: p.slug, name: p.name,
-                    icon: getProjectIcon(p, 32),
-                    version, detected, skip: !detected,
-                });
-            }
-
-            clearTimeout(globalTimer);
-
-            if (timedOut && _importResults.length === 0) {
-                // Total timeout with nothing scanned
+            let batchResults = null;
+            try {
+                // Single IPC call with 15s timeout — all projects scanned in main process at once
+                batchResults = await Promise.race([
+                    window.owsUpdater.resolveInstalledAppsBatch(batchPayload),
+                    new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 15000))
+                ]);
+                setMsg('Procesando resultados...', 90);
+            } catch (err) {
+                // Timeout or IPC error
                 const b = document.getElementById('import-modal-body');
                 if (b) b.innerHTML = `
                     <div style="text-align:center;padding:2rem 0;">
                         <i class="fas fa-clock" style="font-size:2rem;color:var(--yellow);margin-bottom:1rem;display:block;"></i>
-                        <p style="font-size:0.9rem;font-weight:700;color:var(--ink-0);margin-bottom:0.5rem;">El escaneo tardó demasiado</p>
+                        <p style="font-size:0.9rem;font-weight:700;color:var(--ink-0);margin-bottom:0.5rem;">El escaneo no respondió</p>
                         <p style="font-size:0.78rem;color:var(--ink-2);max-width:380px;margin:0 auto;">
-                            No se pudo completar la detección automática en 3 minutos. Esto puede ocurrir si el escáner de archivos no tiene permisos o si los proyectos están en rutas no estándar.<br><br>
-                            Usá el modo <strong>Manual</strong> para ingresar las versiones directamente.
+                            La detección automática no pudo completarse (${String(err?.message || 'sin respuesta')}).<br><br>
+                            Usá el modo <strong>Manual</strong> para ingresar las versiones directamente — es igual de efectivo.
                         </p>
                         <button class="btn-secondary" style="margin-top:1.25rem;" onclick="selectImportMode('manual');renderImportStep('manual');">
                             <i class="fas fa-arrow-right"></i> Cambiar a Manual
@@ -13239,6 +13213,22 @@
                 return;
             }
 
+            // Map results back to projects
+            const resultMap = {};
+            if (Array.isArray(batchResults)) {
+                batchResults.forEach(r => { if (r?.slug) resultMap[r.slug] = r; });
+            }
+
+            _importResults = projects.map(p => {
+                const r = resultMap[p.slug] || { installed: false };
+                const detected = Boolean(r.installed);
+                const version = detected
+                    ? String(r.versionName || getInstalledVersion(p.slug) || p.windows_version || p.version || '').trim()
+                    : '';
+                return { slug: p.slug, name: p.name, icon: getProjectIcon(p, 32), version, detected, skip: !detected };
+            });
+
+            setMsg('Escaneo completado.', 100);
             renderImportStep('results');
         }
 

@@ -13161,15 +13161,33 @@
                 if (barEl && pct !== undefined) barEl.style.width = `${Math.round(pct)}%`;
             };
 
-            // Check if batch scan is available
-            if (!window.owsUpdater?.resolveInstalledAppsBatch) {
+            // Helper: wrap any promise with a hard timeout that ALWAYS resolves (never hangs)
+            function withTimeout(promise, ms, fallback) {
+                let done = false;
+                return new Promise((resolve) => {
+                    const timer = setTimeout(() => {
+                        if (!done) { done = true; resolve(fallback); }
+                    }, ms);
+                    promise.then((v) => {
+                        if (!done) { done = true; clearTimeout(timer); resolve(v); }
+                    }).catch(() => {
+                        if (!done) { done = true; clearTimeout(timer); resolve(fallback); }
+                    });
+                });
+            }
+
+            // Check if owsUpdater is available at all
+            const hasBatch = Boolean(window.owsUpdater?.resolveInstalledAppsBatch);
+            const hasSingle = Boolean(window.owsUpdater?.resolveInstalledApp);
+
+            if (!hasBatch && !hasSingle) {
                 const b = document.getElementById('import-modal-body');
                 if (b) b.innerHTML = `
                     <div style="text-align:center;padding:2rem 0;">
                         <i class="fas fa-exclamation-triangle" style="font-size:2rem;color:var(--yellow);margin-bottom:1rem;display:block;"></i>
                         <p style="font-size:0.9rem;font-weight:700;color:var(--ink-0);margin-bottom:0.5rem;">Detección automática no disponible</p>
                         <p style="font-size:0.78rem;color:var(--ink-2);max-width:380px;margin:0 auto;">
-                            Esta función requiere la versión de escritorio de OWS Store actualizada. Usá el modo <strong>Manual</strong> para ingresar las versiones directamente.
+                            Esta función requiere la versión de escritorio de OWS Store. Usá el modo <strong>Manual</strong> para ingresar las versiones directamente.
                         </p>
                         <button class="btn-secondary" style="margin-top:1.25rem;" onclick="selectImportMode('manual');renderImportStep('manual');">
                             <i class="fas fa-arrow-right"></i> Cambiar a Manual
@@ -13180,29 +13198,64 @@
                 return;
             }
 
-            setMsg(`Preparando escaneo de ${projects.length} proyectos...`, 10);
+            setMsg(`Escaneando ${projects.length} proyectos...`, 15);
 
-            // Build batch payload
-            const batchPayload = projects.map(p => ({ slug: p.slug, hints: getInstallHints(p) }));
+            let scanOk = false;
 
-            let batchResults = null;
-            try {
-                // Single IPC call with 15s timeout — all projects scanned in main process at once
-                batchResults = await Promise.race([
+            // Try batch first (new versions), fallback to parallel single calls
+            if (hasBatch) {
+                const batchPayload = projects.map(p => ({ slug: p.slug, hints: getInstallHints(p) }));
+                const batchResults = await withTimeout(
                     window.owsUpdater.resolveInstalledAppsBatch(batchPayload),
-                    new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 15000))
-                ]);
-                setMsg('Procesando resultados...', 90);
-            } catch (err) {
-                // Timeout or IPC error
+                    12000, null
+                );
+                if (Array.isArray(batchResults)) {
+                    scanOk = true;
+                    const resultMap = {};
+                    batchResults.forEach(r => { if (r?.slug) resultMap[r.slug] = r; });
+                    _importResults = projects.map(p => {
+                        const r = resultMap[p.slug] || { installed: false };
+                        const detected = Boolean(r.installed);
+                        const version = detected ? String(r.versionName || getInstalledVersion(p.slug) || p.windows_version || p.version || '').trim() : '';
+                        return { slug: p.slug, name: p.name, icon: getProjectIcon(p, 32), version, detected, skip: !detected };
+                    });
+                }
+            }
+
+            // Fallback: parallel single calls, each with 3s timeout, all at once
+            if (!scanOk && hasSingle) {
+                setMsg('Escaneando en paralelo...', 30);
+                const singleResults = await withTimeout(
+                    Promise.all(projects.map(p =>
+                        withTimeout(
+                            window.owsUpdater.resolveInstalledApp(getInstallHints(p)),
+                            3000, { installed: false }
+                        ).then(r => ({ slug: p.slug, result: r || { installed: false } }))
+                    )),
+                    10000, null
+                );
+                if (Array.isArray(singleResults)) {
+                    scanOk = true;
+                    const resultMap = {};
+                    singleResults.forEach(({ slug, result }) => { resultMap[slug] = result; });
+                    _importResults = projects.map(p => {
+                        const r = resultMap[p.slug] || { installed: false };
+                        const detected = Boolean(r.installed);
+                        const version = detected ? String(r.versionName || getInstalledVersion(p.slug) || p.windows_version || p.version || '').trim() : '';
+                        return { slug: p.slug, name: p.name, icon: getProjectIcon(p, 32), version, detected, skip: !detected };
+                    });
+                }
+            }
+
+            if (!scanOk) {
                 const b = document.getElementById('import-modal-body');
                 if (b) b.innerHTML = `
                     <div style="text-align:center;padding:2rem 0;">
                         <i class="fas fa-clock" style="font-size:2rem;color:var(--yellow);margin-bottom:1rem;display:block;"></i>
                         <p style="font-size:0.9rem;font-weight:700;color:var(--ink-0);margin-bottom:0.5rem;">El escaneo no respondió</p>
                         <p style="font-size:0.78rem;color:var(--ink-2);max-width:380px;margin:0 auto;">
-                            La detección automática no pudo completarse (${String(err?.message || 'sin respuesta')}).<br><br>
-                            Usá el modo <strong>Manual</strong> para ingresar las versiones directamente — es igual de efectivo.
+                            La detección automática no pudo completarse. Esto puede ocurrir si los proyectos están en rutas no estándar o si hay un problema de permisos.<br><br>
+                            Usá el modo <strong>Manual</strong> — es igual de efectivo y no requiere escaneo.
                         </p>
                         <button class="btn-secondary" style="margin-top:1.25rem;" onclick="selectImportMode('manual');renderImportStep('manual');">
                             <i class="fas fa-arrow-right"></i> Cambiar a Manual
@@ -13212,21 +13265,6 @@
                 if (f) f.innerHTML = `<button class="btn-secondary" onclick="closeImportModal()">Cancelar</button>`;
                 return;
             }
-
-            // Map results back to projects
-            const resultMap = {};
-            if (Array.isArray(batchResults)) {
-                batchResults.forEach(r => { if (r?.slug) resultMap[r.slug] = r; });
-            }
-
-            _importResults = projects.map(p => {
-                const r = resultMap[p.slug] || { installed: false };
-                const detected = Boolean(r.installed);
-                const version = detected
-                    ? String(r.versionName || getInstalledVersion(p.slug) || p.windows_version || p.version || '').trim()
-                    : '';
-                return { slug: p.slug, name: p.name, icon: getProjectIcon(p, 32), version, detected, skip: !detected };
-            });
 
             setMsg('Escaneo completado.', 100);
             renderImportStep('results');

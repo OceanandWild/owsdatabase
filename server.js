@@ -9060,7 +9060,13 @@ app.get('/ows-store/projects', async (req, res) => {
       const cached = releaseProbeCache.get(cacheKey);
       if (cached && (now - Number(cached.ts || 0)) < RELEASE_PROBE_TTL_MS) {
         if (cached.hasRelease) {
-          await promoteFromRelease(project, repoInfo, cached.payload || null);
+          // No promover si la release_date aún no llegó
+          const releaseDate = project.release_date ? new Date(project.release_date) : null;
+          if (releaseDate && releaseDate.getTime() > now) {
+            ensureComingSoonState(project);
+          } else {
+            await promoteFromRelease(project, repoInfo, cached.payload || null);
+          }
         } else {
           ensureComingSoonState(project);
         }
@@ -9080,7 +9086,13 @@ app.get('/ows-store/projects', async (req, res) => {
       });
 
       if (hasRelease) {
-        await promoteFromRelease(project, repoInfo, releasePayload);
+        // No promover si la release_date aún no llegó (proyecto con fecha de lanzamiento futura)
+        const releaseDate = project.release_date ? new Date(project.release_date) : null;
+        if (releaseDate && releaseDate.getTime() > now) {
+          ensureComingSoonState(project);
+        } else {
+          await promoteFromRelease(project, repoInfo, releasePayload);
+        }
       } else {
         ensureComingSoonState(project);
       }

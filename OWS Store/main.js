@@ -37,6 +37,8 @@ const DOWNLOAD_MIN_SPEED_BPS = 30 * 1024;         // 30 KB/s velocidad minima so
 const DOWNLOAD_MIN_SPEED_WINDOW_MS = 30 * 1000;   // ventana de 30s para medir velocidad minima
 const DOWNLOAD_RETRY_ATTEMPTS = 5;                 // mas reintentos (antes 3)
 const DOWNLOAD_RETRY_BASE_DELAY_MS = 800;
+const DOWNLOAD_PARALLEL_CHUNKS = 6;               // conexiones paralelas para superar throttling
+const DOWNLOAD_CHUNK_MIN_SIZE = 4 * 1024 * 1024;  // minimo 4MB por chunk para usar paralelo
 
 app.setAppUserModelId(APP_ID);
 app.setName(APP_DISPLAY_NAME);
@@ -521,16 +523,188 @@ function wait(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// Resolve final URL after redirects (HEAD request) to get content-length and check Range support
+function resolveDownloadUrl(url, redirectsLeft = 6) {
+  return new Promise((resolve) => {
+    if (!/^https?:\/\//i.test(String(url || ''))) return resolve({ url, size: 0, acceptsRanges: false });
+    const transport = url.startsWith('https://') ? https : http;
+    const options = buildRequestOptions(url, 'HEAD');
+    const req = transport.request(options, (res) => {
+      const code = res.statusCode || 0;
+      const location = res.headers.location;
+      if ([301, 302, 303, 307, 308].includes(code) && location && redirectsLeft > 0) {
+        res.resume();
+        return resolve(resolveDownloadUrl(new URL(location, url).toString(), redirectsLeft - 1));
+      }
+      res.resume();
+      const size = Number(res.headers['content-length'] || 0);
+      const acceptsRanges = String(res.headers['accept-ranges'] || '').toLowerCase() === 'bytes';
+      resolve({ url, size: Number.isFinite(size) ? size : 0, acceptsRanges });
+    });
+    req.setTimeout(12000, () => { req.destroy(); resolve({ url, size: 0, acceptsRanges: false }); });
+    req.on('error', () => resolve({ url, size: 0, acceptsRanges: false }));
+    req.end();
+  });
+}
+
+// Download a single byte range into a buffer
+function downloadChunk(url, start, end, taskRef) {
+  return new Promise((resolve, reject) => {
+    if (taskRef?.cancelled) return reject(new Error('Descarga cancelada.'));
+    const transport = url.startsWith('https://') ? https : http;
+    const options = buildRequestOptions(url, 'GET');
+    options.headers = { ...options.headers, 'Range': `bytes=${start}-${end}` };
+    const req = transport.request(options, (res) => {
+      const code = res.statusCode || 0;
+      if (code !== 206 && code !== 200) {
+        res.resume();
+        return reject(new Error(`Chunk HTTP ${code} para rango ${start}-${end}`));
+      }
+      const chunks = [];
+      res.on('data', (c) => {
+        if (taskRef?.cancelled) { res.destroy(); return reject(new Error('Descarga cancelada.')); }
+        chunks.push(c);
+      });
+      res.on('end', () => resolve(Buffer.concat(chunks)));
+      res.on('error', reject);
+    });
+    req.setTimeout(60000, () => { req.destroy(new Error(`Chunk timeout ${start}-${end}`)); });
+    req.on('error', reject);
+    req.end();
+  });
+}
+
+// Parallel chunked download — splits file into N chunks and downloads simultaneously
+async function downloadParallel(url, destinationPath, totalBytes, taskRef, onProgress) {
+  const numChunks = DOWNLOAD_PARALLEL_CHUNKS;
+  const chunkSize = Math.ceil(totalBytes / numChunks);
+  const ranges = [];
+  for (let i = 0; i < numChunks; i++) {
+    const start = i * chunkSize;
+    const end = Math.min(start + chunkSize - 1, totalBytes - 1);
+    ranges.push({ start, end, index: i });
+  }
+
+  const startedAt = Date.now();
+  const chunkProgress = new Array(numChunks).fill(0); // bytes downloaded per chunk
+  const SPEED_WINDOW_MS = 8000;
+  const speedSamples = [];
+  let speedWindowBytes = 0;
+  let lastEmit = 0;
+  let lastEmitBytes = 0;
+  let lastEmitPercent = -1;
+
+  const emitProgress = () => {
+    if (!onProgress) return;
+    const now = Date.now();
+    while (speedSamples.length > 0 && (now - speedSamples[0].t) > SPEED_WINDOW_MS) {
+      speedWindowBytes -= speedSamples[0].bytes;
+      speedSamples.shift();
+    }
+    const windowElapsedSec = Math.min((now - startedAt) / 1000, SPEED_WINDOW_MS / 1000);
+    const bytesPerSecond = windowElapsedSec > 0.5 ? speedWindowBytes / Math.min(windowElapsedSec, SPEED_WINDOW_MS / 1000) : 0;
+    const downloadedBytes = chunkProgress.reduce((a, b) => a + b, 0);
+    const percent = totalBytes > 0 ? (downloadedBytes / totalBytes) * 100 : null;
+    const percentInt = Number.isFinite(percent) ? Math.floor(percent) : -1;
+    const dueByTime = (now - lastEmit) >= DOWNLOAD_PROGRESS_EMIT_MS;
+    const dueByBytes = (downloadedBytes - lastEmitBytes) >= DOWNLOAD_PROGRESS_EMIT_BYTES;
+    const dueByPercent = percentInt >= 0 && (percentInt - lastEmitPercent) >= DOWNLOAD_PROGRESS_EMIT_STEP;
+    if (!(dueByTime || dueByBytes || dueByPercent)) return;
+    lastEmit = now;
+    lastEmitBytes = downloadedBytes;
+    if (percentInt >= 0) lastEmitPercent = percentInt;
+    onProgress({ downloadedBytes, totalBytes, bytesPerSecond, percent });
+  };
+
+  // Download all chunks in parallel with per-chunk retry
+  const buffers = await Promise.all(ranges.map(async ({ start, end, index }) => {
+    let lastErr = null;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      if (taskRef?.cancelled) throw new Error('Descarga cancelada.');
+      try {
+        // Wrap downloadChunk to track progress incrementally
+        const chunkLen = end - start + 1;
+        const transport = url.startsWith('https://') ? https : http;
+        const options = buildRequestOptions(url, 'GET');
+        options.headers = { ...options.headers, 'Range': `bytes=${start}-${end}` };
+        const buf = await new Promise((resolve, reject) => {
+          const req = transport.request(options, (res) => {
+            const code = res.statusCode || 0;
+            if (code !== 206 && code !== 200) { res.resume(); return reject(new Error(`HTTP ${code}`)); }
+            const chunks = [];
+            let received = 0;
+            res.on('data', (c) => {
+              if (taskRef?.cancelled) { res.destroy(); return reject(new Error('Cancelado.')); }
+              chunks.push(c);
+              received += c.length;
+              const delta = c.length;
+              chunkProgress[index] += delta;
+              const now = Date.now();
+              speedSamples.push({ t: now, bytes: delta });
+              speedWindowBytes += delta;
+              emitProgress();
+            });
+            res.on('end', () => resolve(Buffer.concat(chunks)));
+            res.on('error', reject);
+          });
+          req.setTimeout(90000, () => req.destroy(new Error('Chunk timeout')));
+          req.on('error', reject);
+          req.end();
+        });
+        return buf;
+      } catch (err) {
+        lastErr = err;
+        chunkProgress[index] = 0; // reset progress for retry
+        if (attempt < 3) await wait(600 * (attempt + 1));
+      }
+    }
+    throw lastErr || new Error(`Chunk ${index} fallido`);
+  }));
+
+  // Write all chunks sequentially to file
+  const file = fs.createWriteStream(destinationPath);
+  await new Promise((resolve, reject) => {
+    file.on('finish', resolve);
+    file.on('error', reject);
+    for (const buf of buffers) file.write(buf);
+    file.end();
+  });
+
+  // Final progress emit
+  if (onProgress) {
+    const elapsedSec = Math.max((Date.now() - startedAt) / 1000, 0.001);
+    onProgress({ downloadedBytes: totalBytes, totalBytes, bytesPerSecond: totalBytes / elapsedSec, percent: 100 });
+  }
+}
+
 async function downloadInstallerWithRetries(url, destinationPath, taskRef, onProgress, attempts = DOWNLOAD_RETRY_ATTEMPTS) {
   let lastError = null;
   const maxAttempts = Math.max(1, Number(attempts || DOWNLOAD_RETRY_ATTEMPTS));
+
+  // Resolve final URL and check if server supports Range requests
+  let resolvedUrl = url;
+  let totalBytes = 0;
+  let acceptsRanges = false;
+  try {
+    const info = await resolveDownloadUrl(url);
+    resolvedUrl = info.url || url;
+    totalBytes = info.size || 0;
+    acceptsRanges = info.acceptsRanges;
+  } catch (_) {}
+
+  const useParallel = acceptsRanges && totalBytes >= DOWNLOAD_CHUNK_MIN_SIZE;
+
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     if (taskRef?.cancelled) throw new Error('Descarga cancelada por el usuario.');
     try {
       if (attempt > 1 && safeExists(destinationPath)) {
         try { fs.unlinkSync(destinationPath); } catch (_) {}
       }
-      await downloadWithRedirects(url, destinationPath, taskRef, onProgress);
+      if (useParallel) {
+        await downloadParallel(resolvedUrl, destinationPath, totalBytes, taskRef, onProgress);
+      } else {
+        await downloadWithRedirects(url, destinationPath, taskRef, onProgress);
+      }
       return destinationPath;
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err || 'Error de descarga desconocido.'));

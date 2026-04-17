@@ -50,6 +50,7 @@ $PROJECTS = @{
     "wildshorts"           = @{ repo = "wildshorts";             dir = "WildShorts";              platforms = @("windows") }
     "naturepedia"          = @{ repo = "naturepedia";            dir = "Naturepedia";             platforms = @("windows") }
     "ocean-cinemas"        = @{ repo = "ocean-cinemas";          dir = "Ocean Cinemas";           platforms = @("windows") }
+    "natbee"               = @{ repo = "natbee";                 dir = "NatBee";                  platforms = @("windows") }
     "ecoxion"              = @{ repo = "ecoxion";                dir = "Ecoxion";                 platforms = @("windows") }
     "dinobox"              = @{ repo = "owsdatabase";            dir = "DinoBox";                 platforms = @("windows") }
     "wilddestiny"          = @{ repo = "wilddestiny";            dir = "Wild Destiny";            platforms = @("windows") }

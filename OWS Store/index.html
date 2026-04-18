@@ -1843,6 +1843,24 @@
         .library-filter-btn:hover { background:var(--surface-3); color:var(--ink-0); }
         .library-filter-btn.active { background:var(--cyan-dim); border-color:rgba(38,212,232,0.3); color:var(--cyan); font-weight:600; }
 
+
+<!-- ═══ EVENT DETAIL MODAL ═══ -->
+<div id="event-detail-modal" onclick="if(event.target===this)closeEventDetailModal()">
+    <div class="event-detail-shell">
+        <div id="event-detail-cover-wrap"></div>
+        <div class="event-detail-body">
+            <div class="event-detail-kicker" id="event-detail-kicker"></div>
+            <div class="event-detail-title" id="event-detail-title"></div>
+            <div class="event-detail-desc" id="event-detail-desc"></div>
+            <div class="event-detail-meta" id="event-detail-meta"></div>
+            <div class="event-detail-changes" id="event-detail-changes"></div>
+        </div>
+        <div class="event-detail-footer">
+            <button type="button" class="btn-secondary" onclick="closeEventDetailModal()">Cerrar</button>
+        </div>
+    </div>
+</div>
+
         /* ═══ IMPORT MODAL ═══ */
         #import-modal {
             position: fixed; inset: 0; z-index: 5800;
@@ -4825,139 +4843,157 @@
             gap: 0.85rem;
         }
 
-        /* Card base */
+        /* ═══ EVENT CARD REWORK ═══ */
         .news-hub-event-card {
             position: relative;
             border-radius: var(--r-md);
             border: 1px solid rgba(38,212,232,0.14);
-            background: linear-gradient(135deg, rgba(38,212,232,0.05), var(--surface-1));
+            background: linear-gradient(135deg, rgba(38,212,232,0.04), rgba(8,16,30,0.96));
             overflow: hidden;
-            transition: all 0.18s;
+            transition: transform 0.2s cubic-bezier(0.19,1,0.22,1), box-shadow 0.2s, border-color 0.2s;
             cursor: pointer;
             display: flex;
             flex-direction: column;
         }
-        .news-hub-event-card:hover {
-            border-color: rgba(38,212,232,0.32);
-            transform: translateY(-2px);
-            box-shadow: 0 8px 24px rgba(0,0,0,0.35);
-        }
-        .news-hub-event-card.empty {
-            opacity: 0.45;
-            cursor: default;
-        }
-        .news-hub-event-card.empty:hover { transform: none; box-shadow: none; }
-
-        /* ── Banner horizontal layout (wide image, 16:9 ish) ── */
-        .news-hub-event-card.layout-banner {
-            flex-direction: column;
-        }
-        .news-hub-event-card.layout-banner .news-hub-event-visual {
-            width: 100%;
-            height: 160px;
-            border-radius: 0;
-            border: none;
-            border-bottom: 1px solid rgba(38,212,232,0.12);
-        }
-        .news-hub-event-card.layout-banner .news-hub-event-copy {
-            padding: 0.75rem 0.85rem 0.85rem;
-        }
-
-        /* ── Poster vertical layout (portrait image) ── */
-        .news-hub-event-card.layout-poster {
-            flex-direction: row;
-            align-items: stretch;
-        }
-        .news-hub-event-card.layout-poster .news-hub-event-visual {
-            width: 90px;
-            min-height: 120px;
-            flex-shrink: 0;
-            border-radius: 0;
-            border: none;
-            border-right: 1px solid rgba(38,212,232,0.12);
-        }
-        .news-hub-event-card.layout-poster .news-hub-event-copy {
-            padding: 0.75rem 0.85rem;
-            flex: 1;
-            min-width: 0;
-        }
-
-        /* ── No-image fallback (canvas icon) ── */
-        .news-hub-event-card.layout-icon {
-            flex-direction: row;
-            align-items: flex-start;
-            padding: 0.85rem;
-            gap: 0.75rem;
-        }
-        .news-hub-event-card.layout-icon .news-hub-event-visual {
-            flex-shrink: 0;
-            width: 52px; height: 52px;
-            border-radius: var(--r-sm);
-            border: 1px solid var(--border);
-        }
-        .news-hub-event-card.layout-icon .news-hub-event-copy {
-            flex: 1;
-            min-width: 0;
-        }
-
-        /* Visual container shared */
-        .news-hub-event-visual {
-            background: var(--surface-2);
-            overflow: hidden;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-        }
-        .news-hub-event-visual img.event-cover {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            display: block;
-        }
-        /* Gradient overlay on banner images */
-        .news-hub-event-card.layout-banner .news-hub-event-visual::after {
+        .news-hub-event-card::before {
             content: '';
             position: absolute;
             inset: 0;
-            background: linear-gradient(to bottom, transparent 50%, rgba(6,14,28,0.72) 100%);
+            background: linear-gradient(135deg, rgba(38,212,232,0.06) 0%, transparent 60%);
+            opacity: 0;
+            transition: opacity 0.2s;
+            pointer-events: none;
+            z-index: 0;
+        }
+        .news-hub-event-card:hover {
+            border-color: rgba(38,212,232,0.4);
+            transform: translateY(-3px) scale(1.01);
+            box-shadow: 0 12px 32px rgba(0,0,0,0.45), 0 0 0 1px rgba(38,212,232,0.1);
+        }
+        .news-hub-event-card:hover::before { opacity: 1; }
+        .news-hub-event-card:active { transform: translateY(-1px) scale(1.005); }
+
+        /* Phase-specific glow */
+        .news-hub-event-card.phase-active {
+            border-color: rgba(40,217,138,0.3);
+            background: linear-gradient(135deg, rgba(40,217,138,0.06), rgba(8,16,30,0.96));
+            box-shadow: 0 0 0 1px rgba(40,217,138,0.08), inset 0 1px 0 rgba(40,217,138,0.08);
+        }
+        .news-hub-event-card.phase-active:hover {
+            border-color: rgba(40,217,138,0.55);
+            box-shadow: 0 12px 32px rgba(0,0,0,0.45), 0 0 20px rgba(40,217,138,0.12);
+        }
+        .news-hub-event-card.phase-upcoming {
+            border-color: rgba(38,212,232,0.2);
+        }
+        .news-hub-event-card.empty { opacity: 0.45; cursor: default; }
+        .news-hub-event-card.empty:hover { transform: none; box-shadow: none; }
+
+        /* ── Banner horizontal layout ── */
+        .news-hub-event-card.layout-banner { flex-direction: column; }
+        .news-hub-event-card.layout-banner .news-hub-event-visual {
+            width: 100%; height: 168px;
+            border-radius: 0; border: none;
+            border-bottom: 1px solid rgba(38,212,232,0.1);
+        }
+        .news-hub-event-card.layout-banner .news-hub-event-copy { padding: 0.85rem 0.9rem 0.9rem; }
+
+        /* ── Poster vertical layout ── */
+        .news-hub-event-card.layout-poster { flex-direction: row; align-items: stretch; }
+        .news-hub-event-card.layout-poster .news-hub-event-visual {
+            width: 90px; min-height: 120px; flex-shrink: 0;
+            border-radius: 0; border: none;
+            border-right: 1px solid rgba(38,212,232,0.1);
+        }
+        .news-hub-event-card.layout-poster .news-hub-event-copy { padding: 0.85rem; flex: 1; min-width: 0; }
+
+        /* ── Icon fallback layout ── */
+        .news-hub-event-card.layout-icon {
+            flex-direction: row; align-items: flex-start;
+            padding: 0.9rem; gap: 0.8rem;
+        }
+        .news-hub-event-card.layout-icon .news-hub-event-visual {
+            flex-shrink: 0; width: 54px; height: 54px;
+            border-radius: var(--r-sm); border: 1px solid var(--border);
+        }
+        .news-hub-event-card.layout-icon .news-hub-event-copy { flex: 1; min-width: 0; }
+
+        /* Visual container */
+        .news-hub-event-visual {
+            background: var(--surface-2); overflow: hidden;
+            display: flex; align-items: center; justify-content: center;
+            position: relative;
+        }
+        .news-hub-event-visual img.event-cover { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .news-hub-event-card.layout-banner .news-hub-event-visual::after {
+            content: ''; position: absolute; inset: 0;
+            background: linear-gradient(to bottom, transparent 40%, rgba(6,14,28,0.85) 100%);
             pointer-events: none;
         }
-        /* Fallback gradient when no image */
         .news-hub-event-visual.fallback-gradient {
-            background: linear-gradient(135deg, rgba(38,212,232,0.18), rgba(14,27,55,0.9));
+            background: linear-gradient(135deg, rgba(38,212,232,0.2), rgba(14,27,55,0.95));
         }
-        .news-hub-event-canvas { display: block; width: 52px; height: 52px; }
+        .news-hub-event-canvas { display: block; width: 54px; height: 54px; }
 
         /* Copy area */
-        .news-hub-event-copy {
-            display: flex;
-            flex-direction: column;
-            gap: 0.28rem;
-        }
-        .news-hub-event-head {
-            display: flex;
-            align-items: flex-start;
-            justify-content: space-between;
-            gap: 0.5rem;
-        }
+        .news-hub-event-copy { display: flex; flex-direction: column; gap: 0.3rem; position: relative; z-index: 1; }
+        .news-hub-event-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; }
         .news-hub-event-meta {
-            font-size: 0.7rem;
-            color: var(--ink-1);
-            line-height: 1.4;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
+            font-size: 0.72rem; color: var(--ink-1); line-height: 1.45;
+            overflow: hidden; text-overflow: ellipsis;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
         }
         .news-hub-event-meta.window-text {
-            font-size: 0.64rem;
-            font-family: var(--font-mono);
-            color: var(--ink-2);
-            -webkit-line-clamp: 1;
-            white-space: nowrap;
+            font-size: 0.63rem; font-family: var(--font-mono); color: var(--ink-2);
+            -webkit-line-clamp: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
+        /* Accent line at bottom of active events */
+        .news-hub-event-card.phase-active::after {
+            content: ''; position: absolute; bottom: 0; left: 0; right: 0;
+            height: 2px; background: linear-gradient(90deg, transparent, rgba(40,217,138,0.6), transparent);
+        }
+
+        /* ═══ EVENT DETAIL MODAL ═══ */
+        #event-detail-modal {
+            position: fixed; inset: 0; z-index: 5900;
+            display: none; align-items: center; justify-content: center;
+            background: rgba(2,6,16,0.88); backdrop-filter: blur(8px); padding: 1rem;
+        }
+        #event-detail-modal.active { display: flex; }
+        .event-detail-shell {
+            width: min(560px, 100%);
+            background: linear-gradient(160deg, rgba(14,24,42,0.99), rgba(8,16,30,0.99));
+            border: 1px solid rgba(82,217,223,0.22);
+            border-radius: var(--r-lg);
+            overflow: hidden;
+            box-shadow: 0 32px 80px rgba(0,0,0,0.65);
+            display: flex; flex-direction: column;
+        }
+        .event-detail-cover {
+            width: 100%; height: 200px; object-fit: cover; display: block;
+            background: linear-gradient(135deg, rgba(38,212,232,0.15), rgba(14,27,55,0.95));
+        }
+        .event-detail-cover-placeholder {
+            width: 100%; height: 160px;
+            background: linear-gradient(135deg, rgba(38,212,232,0.12), rgba(14,27,55,0.95));
+            display: flex; align-items: center; justify-content: center;
+        }
+        .event-detail-body { padding: 1.25rem 1.25rem 0.5rem; }
+        .event-detail-kicker {
+            font-size: 0.62rem; font-family: var(--font-mono); text-transform: uppercase;
+            letter-spacing: 0.8px; color: var(--cyan); margin-bottom: 0.4rem;
+            display: flex; align-items: center; gap: 0.5rem;
+        }
+        .event-detail-title { font-family: var(--font-display); font-size: 1.3rem; font-weight: 900; line-height: 1.2; margin-bottom: 0.6rem; }
+        .event-detail-desc { font-size: 0.82rem; color: var(--ink-1); line-height: 1.6; margin-bottom: 0.85rem; }
+        .event-detail-meta { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.85rem; }
+        .event-detail-meta-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; color: var(--ink-2); }
+        .event-detail-meta-row i { width: 14px; text-align: center; color: var(--cyan); opacity: 0.8; }
+        .event-detail-changes { margin-bottom: 0.85rem; }
+        .event-detail-changes-title { font-size: 0.65rem; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.5px; color: var(--ink-2); margin-bottom: 0.4rem; }
+        .event-detail-change-item { font-size: 0.75rem; color: var(--ink-1); padding: 0.25rem 0; border-bottom: 1px solid rgba(255,255,255,0.04); display: flex; gap: 0.5rem; }
+        .event-detail-change-item::before { content: '›'; color: var(--cyan); flex-shrink: 0; }
+        .event-detail-footer { padding: 0.85rem 1.25rem; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; }
 
 
         /* â•â•â• SEARCH DROPDOWN â•â•â• */
@@ -10574,7 +10610,7 @@
             }
 
             return `
-                <div class="news-hub-event-card layout-${layout}" data-event-card="1" data-event-visual="${escHtml(visualKey)}">
+                <div class="news-hub-event-card layout-${layout} phase-${status.klass}" data-event-card="1" data-event-visual="${escHtml(visualKey)}" onclick="openEventDetailModal(${item.id || 0})">
                     ${visualHtml}
                     <div class="news-hub-event-copy">
                         <div class="news-hub-event-head">
@@ -10583,7 +10619,7 @@
                         </div>
                         <div class="news-hub-event-meta">${escHtml(normalizeUiText(summary))}</div>
                         <div class="news-hub-event-meta window-text">${escHtml(getEventWindowText(item))}</div>
-                        <div style="margin-top:0.25rem;">${getNewsPlatformsBadgeHtml(item.platforms || ['all'])}</div>
+                        <div style="margin-top:0.3rem;">${getNewsPlatformsBadgeHtml(item.platforms || ['all'])}</div>
                     </div>
                 </div>
             `;
@@ -10835,6 +10871,76 @@
                 toggle.innerHTML = `<i class="fas fa-chevron-${_endedEventsVisible ? 'up' : 'down'}" id="ended-events-chevron"></i> ${_endedEventsVisible ? 'Ocultar' : `Ver (${count})`}`;
             }
             if (_endedEventsVisible) renderNewsHubEventVisuals();
+        }
+
+        function openEventDetailModal(eventId) {
+            const list = Array.isArray(owsNewsUpdatesCache) ? owsNewsUpdatesCache : [];
+            const allEvents = dedupeLaunchEvents([...list.filter(n => n.isEvent), ...getManualStoreEvents()]);
+            const item = allEvents.find(e => Number(e.id) === Number(eventId));
+            if (!item) return;
+
+            const modal = document.getElementById('event-detail-modal');
+            if (!modal) return;
+
+            const status = getEventStatusLabel(item);
+            const coverUrl = String(item?.bannerMeta?.cover_url || item?.bannerMeta?.image_url || item?.bannerMeta?.banner_url || '').trim();
+
+            // Cover
+            const coverWrap = document.getElementById('event-detail-cover-wrap');
+            if (coverWrap) {
+                if (coverUrl) {
+                    coverWrap.innerHTML = `<img class="event-detail-cover" src="${escHtml(coverUrl)}" alt="${escHtml(item.title)}" onerror="this.parentElement.innerHTML='<div class=event-detail-cover-placeholder><i class=fas fa-calendar-star style=font-size:2.5rem;color:rgba(38,212,232,0.3)></i></div>'">`;
+                } else {
+                    coverWrap.innerHTML = `<div class="event-detail-cover-placeholder"><i class="fas fa-calendar-star" style="font-size:2.5rem;color:rgba(38,212,232,0.3);"></i></div>`;
+                }
+            }
+
+            // Kicker
+            const kicker = document.getElementById('event-detail-kicker');
+            if (kicker) {
+                const phaseColor = status.klass === 'active' ? 'var(--green)' : (status.klass === 'ended' ? 'var(--ink-2)' : 'var(--cyan)');
+                kicker.innerHTML = `<span style="color:${phaseColor};font-weight:800;">${status.label}</span>
+                    ${(item.platforms || []).map(p => `<span style="background:var(--surface-2);border:1px solid var(--border);border-radius:4px;padding:1px 6px;font-size:0.6rem;">${String(p).toUpperCase()}</span>`).join('')}`;
+            }
+
+            // Title & desc
+            const titleEl = document.getElementById('event-detail-title');
+            if (titleEl) titleEl.textContent = normalizeUiText(item.title || '');
+            const descEl = document.getElementById('event-detail-desc');
+            if (descEl) descEl.textContent = normalizeUiText(item.description || (item.changes?.[0] || ''));
+
+            // Meta
+            const metaEl = document.getElementById('event-detail-meta');
+            if (metaEl) {
+                const rows = [];
+                const startAt = item.eventWindow?.startAt;
+                const endAt = item.eventWindow?.endAt;
+                if (startAt) rows.push(`<div class="event-detail-meta-row"><i class="fas fa-play-circle"></i><span>Inicio: ${escHtml(formatDateTime(startAt))}</span></div>`);
+                else rows.push(`<div class="event-detail-meta-row"><i class="fas fa-play-circle"></i><span>Inicio: por definir</span></div>`);
+                if (endAt) rows.push(`<div class="event-detail-meta-row"><i class="fas fa-stop-circle"></i><span>Fin: ${escHtml(formatDateTime(endAt))}</span></div>`);
+                else rows.push(`<div class="event-detail-meta-row"><i class="fas fa-stop-circle"></i><span>Fin: por definir</span></div>`);
+                if (item.projectNames?.length) rows.push(`<div class="event-detail-meta-row"><i class="fas fa-tag"></i><span>${escHtml(item.projectNames.join(', '))}</span></div>`);
+                metaEl.innerHTML = rows.join('');
+            }
+
+            // Changes
+            const changesEl = document.getElementById('event-detail-changes');
+            if (changesEl) {
+                const changes = Array.isArray(item.changes) ? item.changes.filter(Boolean) : [];
+                if (changes.length) {
+                    changesEl.innerHTML = `<div class="event-detail-changes-title">Detalles</div>` +
+                        changes.map(c => `<div class="event-detail-change-item">${escHtml(normalizeUiText(c))}</div>`).join('');
+                } else {
+                    changesEl.innerHTML = '';
+                }
+            }
+
+            modal.classList.add('active');
+        }
+
+        function closeEventDetailModal() {
+            const modal = document.getElementById('event-detail-modal');
+            if (modal) modal.classList.remove('active');
         }
 
         function getNewsPreviewText(entry) {

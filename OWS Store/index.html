@@ -5653,6 +5653,21 @@
                 </div>
             </div>
 
+            <!-- Eventos finalizados -->
+            <div class="events-section" id="ended-events-section" style="display:none;">
+                <div class="events-section-header" style="margin-top:0.5rem;">
+                    <span class="section-label" style="font-size:0.78rem;color:var(--ink-2);font-weight:700;letter-spacing:0.3px;">
+                        <i class="fas fa-history" style="margin-right:0.4rem;opacity:0.6;"></i>Eventos finalizados
+                    </span>
+                    <button type="button" id="ended-events-toggle" onclick="toggleEndedEvents()"
+                        style="font-size:0.7rem;color:var(--ink-2);background:none;border:none;cursor:pointer;padding:2px 6px;border-radius:4px;transition:color 0.15s;"
+                        onmouseover="this.style.color='var(--ink-0)'" onmouseout="this.style.color='var(--ink-2)'">
+                        <i class="fas fa-chevron-down" id="ended-events-chevron"></i> Ver
+                    </button>
+                </div>
+                <div class="events-grid" id="news-hub-ended-events-grid" style="display:none;opacity:0.7;"></div>
+            </div>
+
             <!-- Changelogs hub -->
             <div class="news-hub" style="margin-bottom:2rem;">
                 <div class="section-header" style="margin-bottom:0.75rem;">
@@ -10734,6 +10749,8 @@
         function renderNewsHub() {
             const changelogBody = document.getElementById('news-hub-changelog-table-body');
             const eventsGrid = document.getElementById('news-hub-events-grid');
+            const endedGrid = document.getElementById('news-hub-ended-events-grid');
+            const endedSection = document.getElementById('ended-events-section');
             if (!changelogBody && !eventsGrid) return;
             const list = Array.isArray(owsNewsUpdatesCache) ? owsNewsUpdatesCache : [];
             const changelogs = list
@@ -10749,6 +10766,8 @@
                 ...list.filter((n) => n.isEvent),
                 ...getManualStoreEvents(),
             ]);
+
+            // Split active/upcoming vs ended
             const featuredEvents = allEvents
                 .filter((e) => e.eventPhase !== 'ended')
                 .sort((a, b) => {
@@ -10757,6 +10776,14 @@
                     return bStart - aStart;
                 })
                 .slice(0, 8);
+
+            const endedEvents = allEvents
+                .filter((e) => e.eventPhase === 'ended')
+                .sort((a, b) => {
+                    const aEnd = Date.parse(a?.eventWindow?.endAt || a?.updateDate || '') || 0;
+                    const bEnd = Date.parse(b?.eventWindow?.endAt || b?.updateDate || '') || 0;
+                    return bEnd - aEnd; // most recently ended first
+                });
 
             if (changelogBody) {
                 changelogBody.innerHTML = changelogs.length
@@ -10779,7 +10806,35 @@
                 }
             }
 
+            // Ended events section
+            if (endedGrid && endedSection) {
+                if (endedEvents.length) {
+                    endedSection.style.display = '';
+                    endedGrid.innerHTML = endedEvents.map(buildNewsHubEventCard).join('');
+                    // Update toggle label
+                    const toggle = document.getElementById('ended-events-toggle');
+                    if (toggle) toggle.innerHTML = `<i class="fas fa-chevron-down" id="ended-events-chevron"></i> Ver (${endedEvents.length})`;
+                } else {
+                    endedSection.style.display = 'none';
+                }
+            }
+
             renderDedicatedNewsSection();
+        }
+
+        let _endedEventsVisible = false;
+        function toggleEndedEvents() {
+            _endedEventsVisible = !_endedEventsVisible;
+            const grid = document.getElementById('news-hub-ended-events-grid');
+            const chevron = document.getElementById('ended-events-chevron');
+            const toggle = document.getElementById('ended-events-toggle');
+            if (grid) grid.style.display = _endedEventsVisible ? '' : 'none';
+            if (chevron) chevron.className = `fas fa-chevron-${_endedEventsVisible ? 'up' : 'down'}`;
+            if (toggle) {
+                const count = grid ? grid.children.length : 0;
+                toggle.innerHTML = `<i class="fas fa-chevron-${_endedEventsVisible ? 'up' : 'down'}" id="ended-events-chevron"></i> ${_endedEventsVisible ? 'Ocultar' : `Ver (${count})`}`;
+            }
+            if (_endedEventsVisible) renderNewsHubEventVisuals();
         }
 
         function getNewsPreviewText(entry) {

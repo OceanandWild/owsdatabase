@@ -1019,7 +1019,7 @@ function initAutoUpdater() {
     // Windows checks and downloads automatically; install remains user-driven (button restart/install).
     autoUpdater.autoDownload = true;
     autoUpdater.autoInstallOnAppQuit = false;
-    autoUpdater.allowPrerelease = false;
+    autoUpdater.allowPrerelease = true;  // Necesario: nuestro formato YYYY.M.D-tHHMM tiene sufijo que semver trata como pre-release
     autoUpdater.channel = 'latest';
 
     // Headers para evitar throttling de GitHub en descargas directas

@@ -63,6 +63,7 @@ function configureUpdater() {
 
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.allowPrerelease = true;  // Necesario: formato YYYY.M.D-tHHMM tiene sufijo que semver trata como pre-release
 
   autoUpdater.on("checking-for-update", () => {
     sendUpdateStatus({ phase: "checking", message: "Checking for updates..." });

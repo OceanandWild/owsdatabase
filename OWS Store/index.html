@@ -6030,21 +6030,109 @@
     <span id="mobile-queue-fab-count">0</span>
 </button>
 
-<!-- ═══ IMPORT MODAL ═══ -->
-<div id="import-modal" onclick="if(event.target===this)closeImportModal()">
-    <div class="import-shell">
-        <div class="import-head">
-            <span class="import-head-title"><i class="fas fa-file-import" style="color:var(--cyan);margin-right:0.5rem;"></i>Importar instalaciones</span>
-            <button type="button" class="btn-close-modal" onclick="closeImportModal()" aria-label="Cerrar"><i class="fas fa-times"></i></button>
-        </div>
-        <div class="import-body" id="import-modal-body">
-            <!-- Rendered by JS -->
-        </div>
-        <div class="import-footer" id="import-modal-footer">
-            <!-- Rendered by JS -->
-        </div>
-    </div>
-</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 <!-- â•â•â• CHANGELOG MODAL (panel lateral) â•â•â• -->
@@ -12787,6 +12875,11 @@
                         <div class="project-update-actions">
                             ${dismissHtml}
                             <button class="${buttonClass} project-update-cta" onclick="${buttonAction}"><i class="fas ${buttonIcon}"></i> ${buttonLabel}</button>
+                            <button class="btn-secondary project-update-manual-confirm" title="Marcar como instalado manualmente"
+                                onclick="openManualInstallConfirm('${project.slug}', '${info.platformDetails.find(d=>d.needsUpdate)?.platform || 'windows'}', '${info.platformDetails.find(d=>d.needsUpdate)?.latestVersion || ''}')"
+                                style="font-size:0.7rem;padding:0.4rem 0.7rem;opacity:0.7;">
+                                <i class="fas fa-check-double"></i> Ya lo instalé
+                            </button>
                         </div>
                     </div>
                 `;
@@ -12794,6 +12887,152 @@
 
             list.innerHTML = `${gateNoticeHtml}${toolbarHtml}${list.innerHTML}`;
         }
+
+        // ── MANUAL INSTALL CONFIRMATION ──────────────────────────────────────────
+        function openManualInstallConfirm(slug, platform, latestVersion) {
+            const project = getProjectBySlug(slug);
+            if (!project) return;
+
+            const modal = document.getElementById('manual-install-confirm-modal');
+            if (!modal) {
+                // Create modal on first use
+                const el = document.createElement('div');
+                el.id = 'manual-install-confirm-modal';
+                el.style.cssText = 'position:fixed;inset:0;z-index:6000;display:flex;align-items:center;justify-content:center;background:rgba(2,6,16,0.88);backdrop-filter:blur(8px);padding:1rem;';
+                el.innerHTML = `
+                    <div style="width:min(440px,100%);background:linear-gradient(160deg,rgba(14,24,42,0.99),rgba(8,16,30,0.99));border:1px solid rgba(82,217,223,0.22);border-radius:16px;overflow:hidden;box-shadow:0 32px 80px rgba(0,0,0,0.65);">
+                        <div style="padding:1.25rem 1.25rem 0.5rem;">
+                            <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1rem;">
+                                <div style="width:40px;height:40px;border-radius:10px;background:rgba(40,217,138,0.15);border:1px solid rgba(40,217,138,0.3);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                                    <i class="fas fa-check-double" style="color:var(--green);"></i>
+                                </div>
+                                <div>
+                                    <div style="font-weight:800;color:var(--ink-0);font-size:0.95rem;" id="mic-title">Confirmar instalación</div>
+                                    <div style="font-size:0.72rem;color:var(--ink-2);" id="mic-sub"></div>
+                                </div>
+                            </div>
+                            <p style="font-size:0.8rem;color:var(--ink-1);line-height:1.55;margin-bottom:1rem;" id="mic-desc"></p>
+                            <div id="mic-version-wrap" style="margin-bottom:1rem;">
+                                <label style="font-size:0.65rem;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:0.5px;color:var(--ink-2);display:block;margin-bottom:0.35rem;">Versión instalada (confirmar o editar)</label>
+                                <input id="mic-version-input" type="text" style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:0.5rem 0.75rem;color:var(--ink-0);font-family:var(--font-mono);font-size:0.82rem;outline:none;">
+                            </div>
+                            <div id="mic-scan-result" style="display:none;font-size:0.75rem;padding:0.5rem 0.75rem;border-radius:8px;margin-bottom:0.75rem;"></div>
+                        </div>
+                        <div style="padding:0.85rem 1.25rem;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:0.5rem;background:rgba(8,16,30,0.8);">
+                            <button class="btn-secondary" onclick="closeManualInstallConfirm()">Cancelar</button>
+                            <button id="mic-scan-btn" class="btn-secondary" onclick="scanAndConfirmInstall()" style="display:none;">
+                                <i class="fas fa-search"></i> Verificar en disco
+                            </button>
+                            <button class="btn-primary" onclick="confirmManualInstall()" id="mic-confirm-btn">
+                                <i class="fas fa-check"></i> Confirmar
+                            </button>
+                        </div>
+                    </div>`;
+                el.onclick = (e) => { if (e.target === el) closeManualInstallConfirm(); };
+                document.body.appendChild(el);
+            }
+
+            // Store data for confirmation
+            window._micSlug = slug;
+            window._micPlatform = platform || 'windows';
+            window._micLatestVersion = latestVersion;
+
+            const modal2 = document.getElementById('manual-install-confirm-modal');
+            const titleEl = document.getElementById('mic-title');
+            const subEl = document.getElementById('mic-sub');
+            const descEl = document.getElementById('mic-desc');
+            const versionInput = document.getElementById('mic-version-input');
+            const scanBtn = document.getElementById('mic-scan-btn');
+            const scanResult = document.getElementById('mic-scan-result');
+
+            if (titleEl) titleEl.textContent = `Confirmar: ${project.name}`;
+            if (subEl) subEl.textContent = `Plataforma: ${String(platform || 'windows').toUpperCase()}`;
+            if (descEl) descEl.textContent = `Si ya instalaste la versión ${latestVersion} de ${project.name} externamente, confirmalo aquí para que OWS Store no siga mostrando la update como pendiente.`;
+            if (versionInput) versionInput.value = latestVersion || '';
+            if (scanResult) { scanResult.style.display = 'none'; scanResult.textContent = ''; }
+
+            // Show scan button only if resolveInstalledApp is available
+            if (scanBtn) scanBtn.style.display = window.owsUpdater?.resolveInstalledApp ? 'flex' : 'none';
+
+            modal2.style.display = 'flex';
+        }
+
+        async function scanAndConfirmInstall() {
+            const slug = window._micSlug;
+            const platform = window._micPlatform;
+            const project = getProjectBySlug(slug);
+            const scanResult = document.getElementById('mic-scan-result');
+            const versionInput = document.getElementById('mic-version-input');
+            if (!project || !scanResult) return;
+
+            scanResult.style.display = 'block';
+            scanResult.style.background = 'rgba(38,212,232,0.08)';
+            scanResult.style.border = '1px solid rgba(38,212,232,0.2)';
+            scanResult.style.color = 'var(--cyan)';
+            scanResult.textContent = 'Buscando en disco...';
+
+            try {
+                const hints = getInstallHints(project);
+                const result = await Promise.race([
+                    window.owsUpdater.resolveInstalledApp(hints),
+                    new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 8000))
+                ]);
+                if (result?.installed) {
+                    const detectedVersion = result.versionName || window._micLatestVersion || '';
+                    if (versionInput && detectedVersion) versionInput.value = detectedVersion;
+                    scanResult.style.background = 'rgba(40,217,138,0.08)';
+                    scanResult.style.border = '1px solid rgba(40,217,138,0.2)';
+                    scanResult.style.color = 'var(--green)';
+                    scanResult.textContent = `✓ Detectado en disco${detectedVersion ? ` · v${detectedVersion}` : ''}`;
+                } else {
+                    scanResult.style.background = 'rgba(245,197,66,0.08)';
+                    scanResult.style.border = '1px solid rgba(245,197,66,0.2)';
+                    scanResult.style.color = 'var(--yellow)';
+                    scanResult.textContent = 'No detectado automáticamente. Podés confirmar manualmente igual.';
+                }
+            } catch (_) {
+                scanResult.style.background = 'rgba(245,197,66,0.08)';
+                scanResult.style.border = '1px solid rgba(245,197,66,0.2)';
+                scanResult.style.color = 'var(--yellow)';
+                scanResult.textContent = 'Verificación automática no disponible. Confirmá manualmente.';
+            }
+        }
+
+        function confirmManualInstall() {
+            const slug = window._micSlug;
+            const platform = window._micPlatform || 'windows';
+            const versionInput = document.getElementById('mic-version-input');
+            const version = String(versionInput?.value || window._micLatestVersion || '').trim();
+
+            if (!slug || !version) {
+                addNotification('Ingresá la versión instalada para confirmar.', 'warning');
+                return;
+            }
+
+            // Save as installed version
+            localStorage.setItem(`installed_${slug}`, version);
+            localStorage.setItem(`installed_platform_${slug}`, platform);
+            setInstallMarkerVerified(slug, platform, true);
+            clearPendingInstallCandidate(slug, platform);
+            addToLibrary(slug);
+
+            closeManualInstallConfirm();
+            addNotification(`${getProjectBySlug(slug)?.name || slug} marcado como instalado (v${version}).`, 'success');
+
+            // Refresh states
+            refreshInstallationStates().then(() => {
+                scheduleSectionRender({ projects: true, library: true, updates: true, immediate: true });
+            });
+        }
+
+        function closeManualInstallConfirm() {
+            const modal = document.getElementById('manual-install-confirm-modal');
+            if (modal) modal.style.display = 'none';
+            window._micSlug = null;
+            window._micPlatform = null;
+            window._micLatestVersion = null;
+        }
+        // ── END MANUAL INSTALL CONFIRMATION ──────────────────────────────────────
 
         function notifyProjectIncompatible(slug = '', platform = '') {
             const project = getProjectBySlug(slug);
@@ -20644,6 +20883,111 @@
             stopBootCanvasAnimation();
         };
     </script>
+
+<!-- ═══ IMPORT MODAL ═══ -->
+<style id="import-modal-runtime-fix">
+    #import-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 5800;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: rgba(2,6,16,0.88);
+        backdrop-filter: blur(6px);
+        padding: 1rem;
+    }
+    #import-modal.active { display: flex !important; }
+    #import-modal .import-shell {
+        width: min(680px, 100%);
+        background: linear-gradient(160deg, rgba(14,24,42,0.98), rgba(8,16,30,0.99));
+        border: 1px solid rgba(82,217,223,0.22);
+        border-radius: var(--r-lg);
+        overflow: hidden;
+        box-shadow: 0 32px 80px rgba(0,0,0,0.6);
+        display: flex;
+        flex-direction: column;
+        max-height: 90vh;
+    }
+    #import-modal .import-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid var(--border);
+        background: rgba(8,16,30,0.8);
+    }
+    #import-modal .import-head-title { font-family: var(--font-display); font-size: 1.1rem; font-weight: 800; }
+    #import-modal .import-body { padding: 1.25rem; overflow-y: auto; flex: 1; }
+    #import-modal .import-mode-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1.25rem; }
+    #import-modal .import-mode-card {
+        border: 2px solid var(--border);
+        border-radius: var(--r-md);
+        padding: 1rem;
+        cursor: pointer;
+        transition: all 0.18s;
+        background: var(--surface-1);
+        text-align: center;
+    }
+    #import-modal .import-mode-card:hover { border-color: var(--border-mid); background: var(--surface-2); }
+    #import-modal .import-mode-card.selected { border-color: var(--cyan); background: var(--cyan-dim); }
+    #import-modal .import-mode-icon { font-size: 1.6rem; margin-bottom: 0.5rem; }
+    #import-modal .import-mode-label { font-weight: 800; font-size: 0.88rem; color: var(--ink-0); }
+    #import-modal .import-mode-desc { font-size: 0.72rem; color: var(--ink-2); margin-top: 0.25rem; line-height: 1.4; }
+    #import-modal .import-project-row {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.65rem 0.75rem;
+        border-radius: var(--r-sm);
+        border: 1px solid var(--border);
+        background: var(--surface-1);
+        margin-bottom: 0.5rem;
+        transition: border-color 0.15s;
+    }
+    #import-modal .import-project-row.detected { border-color: rgba(40,217,138,0.35); background: rgba(40,217,138,0.04); }
+    #import-modal .import-project-row.skipped { opacity: 0.45; }
+    #import-modal .import-project-icon { width: 32px; height: 32px; border-radius: 8px; object-fit: cover; flex-shrink: 0; background: var(--surface-3); }
+    #import-modal .import-project-name { font-size: 0.82rem; font-weight: 700; color: var(--ink-0); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    #import-modal .import-project-status { font-size: 0.65rem; font-family: var(--font-mono); padding: 2px 7px; border-radius: 99px; flex-shrink: 0; }
+    #import-modal .import-project-status.ok { background: rgba(40,217,138,0.15); color: var(--green); border: 1px solid rgba(40,217,138,0.25); }
+    #import-modal .import-project-status.skip { background: var(--surface-3); color: var(--ink-2); border: 1px solid var(--border); }
+    #import-modal .import-manual-input {
+        font-size: 0.72rem;
+        font-family: var(--font-mono);
+        background: var(--surface-2);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 3px 7px;
+        color: var(--ink-0);
+        width: 90px;
+        outline: none;
+    }
+    #import-modal .import-manual-input:focus { border-color: var(--cyan); }
+    #import-modal .import-footer {
+        padding: 1rem 1.25rem;
+        border-top: 1px solid var(--border);
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.5rem;
+        background: rgba(8,16,30,0.8);
+    }
+</style>
+<div id="import-modal" onclick="if(event.target===this)closeImportModal()">
+    <div class="import-shell">
+        <div class="import-head">
+            <span class="import-head-title"><i class="fas fa-file-import" style="color:var(--cyan);margin-right:0.5rem;"></i>Importar instalaciones</span>
+            <button type="button" class="btn-close-modal" onclick="closeImportModal()" aria-label="Cerrar"><i class="fas fa-times"></i></button>
+        </div>
+        <div class="import-body" id="import-modal-body">
+            <!-- Rendered by JS -->
+        </div>
+        <div class="import-footer" id="import-modal-footer">
+            <!-- Rendered by JS -->
+        </div>
+    </div>
+</div>
+
 </body>
 </html>
 

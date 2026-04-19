@@ -24557,6 +24557,35 @@ app.post('/pos/complete', async (req, res) => {
 });
 
 // Subscriptions Endpoints
+const OCEAN_PAY_SUBSCRIPTION_CATALOG = [
+  { key: 'nature_pass', name: 'Nature-Pass', pid: 'Naturepedia', icon: 'fas fa-leaf', themeClass: 'sub-nature-pass' },
+  { key: 'dinobox_premium', name: 'DinoPass Premium', pid: 'DinoBox', icon: 'fas fa-dragon', themeClass: 'sub-dinopass-premium' },
+  { key: 'dinobox_elite', name: 'DinoPass Elite', pid: 'DinoBox', icon: 'fas fa-crown', themeClass: 'sub-dinopass-elite' },
+  { key: 'wildshorts_vip', name: 'Premium VIP', pid: 'WildShorts', icon: 'fas fa-crown', themeClass: 'sub-wildshorts-premium' },
+  { key: 'wildtransfer_relay', name: 'Relay', pid: 'WildTransfer', icon: 'fas fa-paper-plane', themeClass: 'sub-wildtransfer-relay' },
+  { key: 'ecoxion_pass', name: 'Ecoxion Pass', pid: 'Ecoxion', icon: 'fas fa-atom', themeClass: 'sub-ecoxion-premium' },
+  { key: 'ocean_cinemas_free', name: 'Corriente Libre', pid: 'Ocean Cinemas', icon: 'fas fa-water', themeClass: 'sub-oceancinemas-free' },
+  { key: 'ocean_cinemas_abyssal', name: 'Marea Abisal', pid: 'Ocean Cinemas', icon: 'fas fa-wave-square', themeClass: 'sub-oceancinemas-abyssal' }
+];
+
+function detectOceanPayCatalogKey(sub = {}) {
+  const rawName = String(sub.plan_name || sub.sub_name || '').toLowerCase();
+  const pid = String(sub.project_id || '').toLowerCase();
+  if (rawName.includes('nature-pass') || pid.includes('naturepedia')) return 'nature_pass';
+  if (rawName.includes('dinopass elite')) return 'dinobox_elite';
+  if (rawName.includes('dinopass premium')) return 'dinobox_premium';
+  if (rawName.includes('premium vip') || pid.includes('wildshorts')) return 'wildshorts_vip';
+  if (pid.includes('wildtransfer') || rawName.includes('relay')) return 'wildtransfer_relay';
+  if (pid.includes('ecoxion') || rawName.includes('ecoxion')) return 'ecoxion_pass';
+  if (pid.includes('ocean cinemas') || pid.includes('ocean-cinemas') || pid.includes('oceancinemas')) {
+    if (rawName.includes('abisal') || rawName.includes('abyssal')) return 'ocean_cinemas_abyssal';
+    if (rawName.includes('corriente') || rawName.includes('libre') || rawName.includes('free')) return 'ocean_cinemas_free';
+  }
+  if (rawName.includes('marea abisal') || rawName.includes('abyssal')) return 'ocean_cinemas_abyssal';
+  if (rawName.includes('corriente libre')) return 'ocean_cinemas_free';
+  return null;
+}
+
 app.get('/ocean-pay/subscriptions/me', async (req, res) => {
   try {
     const authHeader = req.headers.authorization;
@@ -24588,7 +24617,12 @@ app.get('/ocean-pay/subscriptions/me', async (req, res) => {
         end_date: endsAt,
         renew_at: renewAt,
         is_active: isActive,
-        platform_scope: String(s.project_id || '').toLowerCase() === 'ecoxion' ? 'ecoxion' : 'general'
+        platform_scope: String(s.project_id || '').toLowerCase() === 'ecoxion' ? 'ecoxion' : 'general',
+        catalog_key: detectOceanPayCatalogKey({
+          project_id: s.project_id,
+          plan_name: planName,
+          sub_name: s.sub_name
+        })
       };
     });
 
@@ -24600,6 +24634,183 @@ app.get('/ocean-pay/subscriptions/me', async (req, res) => {
   }
 });
 
+app.get('/ocean-pay/subscriptions/catalog', (_req, res) => {
+  res.json({
+    updated_at: new Date().toISOString(),
+    items: OCEAN_PAY_SUBSCRIPTION_CATALOG
+  });
+});
+
+app.get('/ocean-cinemas/subscriptions/plans', (_req, res) => {
+  const plans = OCEAN_PAY_SUBSCRIPTION_CATALOG.filter((item) =>
+    item.key === 'ocean_cinemas_free' || item.key === 'ocean_cinemas_abyssal'
+  ).map((item) => ({
+    key: item.key,
+    name: item.name,
+    projectId: 'Ocean Cinemas',
+    currency: 'tides',
+    intervalDays: 30,
+    price: item.key === 'ocean_cinemas_abyssal' ? 520 : 0
+  }));
+  return res.json({ project: 'Ocean Cinemas', plans });
+});
+
+app.post('/ocean-cinemas/subscriptions/status', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) return res.status(401).json({ error: 'Token requerido' });
+    const token = authHeader.startsWith('Bearer ') ? authHeader.substring(7) : authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const userId = Number(decoded.id || decoded.uid || decoded.sub);
+    if (!Number.isFinite(userId) || userId <= 0) return res.status(401).json({ error: 'Token invalido' });
+
+    const { rows } = await pool.query(
+      `SELECT *
+       FROM ocean_pay_subscriptions
+       WHERE user_id = $1
+         AND (
+           LOWER(COALESCE(project_id, '')) IN ('ocean cinemas', 'ocean-cinemas', 'oceancinemas')
+           OR LOWER(COALESCE(plan_name, sub_name, '')) LIKE '%corriente libre%'
+           OR LOWER(COALESCE(plan_name, sub_name, '')) LIKE '%marea abisal%'
+           OR LOWER(COALESCE(plan_name, sub_name, '')) LIKE '%abyssal%'
+         )
+       ORDER BY created_at DESC`,
+      [userId]
+    );
+
+    const now = Date.now();
+    const normalized = rows.map((s) => {
+      const endDate = s.end_date || s.next_payment || s.created_at || null;
+      const endMs = endDate ? new Date(endDate).getTime() : 0;
+      const status = String(s.status || 'active').toLowerCase();
+      const isActive = status === 'active' && (!endMs || endMs > now);
+      return {
+        ...s,
+        plan_name: s.plan_name || s.sub_name || 'Plan Ocean Cinemas',
+        is_active: isActive,
+        catalog_key: detectOceanPayCatalogKey(s)
+      };
+    });
+
+    const active = normalized.find((s) => s.is_active) || null;
+    return res.json({ active, subscriptions: normalized });
+  } catch (e) {
+    console.error('Ocean Cinemas subscription status error:', e);
+    if (e.name === 'TokenExpiredError') return res.status(401).json({ error: 'Token expirado' });
+    return res.status(500).json({ error: 'No se pudo obtener el estado de suscripcion de Ocean Cinemas' });
+  }
+});
+
+
+// Endpoint: Subscribe to Ocean Cinemas plan (deducts Tides, creates subscription)
+app.post('/ocean-cinemas/subscriptions/subscribe', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) return res.status(401).json({ error: 'Token requerido' });
+    const token = authHeader.startsWith('Bearer ') ? authHeader.substring(7) : authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret');
+    const userId = Number(decoded.id || decoded.uid || decoded.sub);
+    if (!Number.isFinite(userId) || userId <= 0) return res.status(401).json({ error: 'Token invalido' });
+
+    const { planId, cardId } = req.body || {};
+    const PLANS = {
+      abyssal: { name: 'Marea Abisal', price: 520, currency: 'tides', intervalDays: 30 }
+    };
+    const plan = PLANS[String(planId || '').toLowerCase()];
+    if (!plan) return res.status(400).json({ error: 'Plan no valido. Solo se puede suscribir al plan Marea Abisal.' });
+
+    const safeCardId = Number(cardId);
+    if (!Number.isFinite(safeCardId) || safeCardId <= 0) {
+      return res.status(400).json({ error: 'Tarjeta requerida para suscribirse.' });
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Verify card belongs to user
+      const { rows: cardRows } = await client.query(
+        'SELECT id FROM ocean_pay_cards WHERE id = $1 AND user_id = $2 LIMIT 1',
+        [safeCardId, userId]
+      );
+      if (!cardRows.length) {
+        await client.query('ROLLBACK');
+        return res.status(403).json({ error: 'Tarjeta no valida para este usuario.' });
+      }
+
+      // Check if already has active subscription
+      const { rows: existingRows } = await client.query(
+        `SELECT id FROM ocean_pay_subscriptions
+         WHERE user_id = $1
+           AND LOWER(COALESCE(project_id,'')) IN ('ocean cinemas','ocean-cinemas','oceancinemas')
+           AND status = 'active'
+           AND (end_date IS NULL OR end_date > NOW())
+         LIMIT 1`,
+        [userId]
+      );
+      if (existingRows.length) {
+        await client.query('ROLLBACK');
+        return res.status(409).json({ error: 'Ya tienes una suscripcion activa de Ocean Cinemas.' });
+      }
+
+      // Check Tides balance on card
+      const currentBalance = await getUnifiedCardCurrencyBalance(client, safeCardId, plan.currency, true);
+      if (currentBalance < plan.price) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({
+          error: `Saldo insuficiente de Tides. Necesitas ${plan.price} Tides, tienes ${currentBalance}.`,
+          required: plan.price,
+          available: currentBalance
+        });
+      }
+
+      // Deduct Tides
+      await setUnifiedCardCurrencyBalance(client, {
+        userId,
+        cardId: safeCardId,
+        currency: plan.currency,
+        newBalance: currentBalance - plan.price
+      });
+
+      // Log transaction
+      await client.query(
+        'INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda) VALUES ($1, $2, $3, $4, $5)',
+        [userId, `Suscripcion: ${plan.name} (Ocean Cinemas)`, -plan.price, 'Ocean Cinemas', plan.currency]
+      );
+
+      // Create subscription
+      const nextPayment = new Date();
+      nextPayment.setDate(nextPayment.getDate() + plan.intervalDays);
+
+      const { rows: subRows } = await client.query(
+        `INSERT INTO ocean_pay_subscriptions
+           (user_id, card_id, project_id, plan_name, sub_name, price, currency, interval_days, next_payment, status)
+         VALUES ($1, $2, $3, $4, $4, $5, $6, $7, $8, 'active')
+         RETURNING *`,
+        [userId, safeCardId, 'Ocean Cinemas', plan.name, plan.price, plan.currency, plan.intervalDays, nextPayment]
+      );
+
+      await client.query('COMMIT');
+
+      return res.json({
+        success: true,
+        subscription: subRows[0],
+        plan: { id: planId, ...plan },
+        nextPayment: nextPayment.toISOString(),
+        newTidesBalance: currentBalance - plan.price
+      });
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
+  } catch (e) {
+    console.error('Ocean Cinemas subscribe error:', e);
+    if (e.name === 'TokenExpiredError') return res.status(401).json({ error: 'Token expirado' });
+    return res.status(500).json({ error: e.message || 'Error al procesar la suscripcion' });
+  }
+});
 
 // Endpoint: Get Notifications
 app.get('/ocean-pay/notifications', async (req, res) => {

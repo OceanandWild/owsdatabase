@@ -17577,9 +17577,7 @@
                     ? `<div class="ecosystem-submeta">${updateHint}</div>`
                     : '';
                 const newBadgeHtml = hasNewBadge(p) ? `<span class="new-badge">NUEVO!</span>` : '';
-                const updateFlagHtml = (!isStoreUnavailable && devicePendingUpdate)
-                    ? `<div class="ecosystem-submeta" style="color:var(--brand-2); font-weight:700;">Update ${getPrimaryUpdatePlatformLabel(updateInfo)} disponible: v${updateInfo.latestVersion}</div>`
-                    : '';
+                const updateFlagHtml = '';
                 const quickTags = [];
                 quickTags.push(`<span class="ecosystem-tag ${isStoreUnavailable ? 'blocked' : (isComingSoon ? 'soon' : 'live')}">${isStoreUnavailable ? (restrictionState === 'rework' ? 'Pleno Rework' : 'No disponible') : (isComingSoon ? 'Proximamente' : 'Activo')}</span>`);
                 if (isReleaseTrackedProject(p)) quickTags.push(`<span class="ecosystem-tag">Sincronizado</span>`);

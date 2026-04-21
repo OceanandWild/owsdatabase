@@ -4996,6 +4996,10 @@
             position: relative;
         }
         .news-hub-event-visual img.event-cover { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .news-hub-event-visual img.event-cover.fit-contain {
+            object-fit: contain;
+            background: linear-gradient(160deg, rgba(3, 12, 24, 0.95), rgba(6, 18, 34, 0.98));
+        }
         .news-hub-event-card.layout-banner .news-hub-event-visual::after {
             content: ''; position: absolute; inset: 0;
             background: linear-gradient(to bottom, transparent 40%, rgba(6,14,28,0.85) 100%);
@@ -7020,19 +7024,53 @@
             }).join('');
         }
 
+        function appendCacheVersionToUrl(url, versionToken = '') {
+            const raw = String(url || '').trim();
+            if (!raw) return '';
+            const token = String(versionToken || '').trim();
+            if (!token) return raw;
+            try {
+                const u = new URL(raw);
+                u.searchParams.set('v', token);
+                return u.toString();
+            } catch (_) {
+                const sep = raw.includes('?') ? '&' : '?';
+                return `${raw}${sep}v=${encodeURIComponent(token)}`;
+            }
+        }
+
+        function resolveEventCoverBaseUrl(item = {}) {
+            return String(
+                item?.bannerMeta?.cover_url ||
+                item?.bannerMeta?.image_url ||
+                item?.bannerMeta?.banner_url ||
+                item?.bannerMeta?.image ||
+                item?.bannerMeta?.poster_url ||
+                item?.model2d?.image ||
+                ''
+            ).trim();
+        }
+
+        function resolveEventCoverUrl(item = {}, withVersion = true) {
+            const base = resolveEventCoverBaseUrl(item);
+            if (!withVersion || !base) return base;
+            const versionToken = String(
+                item?.updatedAt ||
+                item?.updated_at ||
+                item?.publishedAt ||
+                item?.published_at ||
+                item?.updateDate ||
+                item?.update_date ||
+                ''
+            ).trim();
+            return appendCacheVersionToUrl(base, versionToken);
+        }
+
         function getEventCoverUrls(entries = []) {
             const urls = [];
             const list = Array.isArray(entries) ? entries : [];
             for (const item of list) {
-                const coverUrl = String(
-                    item?.bannerMeta?.cover_url ||
-                    item?.bannerMeta?.image_url ||
-                    item?.bannerMeta?.banner_url ||
-                    item?.bannerMeta?.image ||
-                    item?.bannerMeta?.poster_url ||
-                    item?.model2d?.image ||
-                    ''
-                ).trim();
+                const coverUrl = resolveEventCoverUrl(item, true);
                 if (coverUrl) urls.push(coverUrl);
             }
             return [...new Set(urls)];
@@ -10892,13 +10930,7 @@
             const summary = item?.description || (item?.changes?.[0] || 'Evento destacado del ecosistema.');
 
             // Resolve cover image from banner_meta
-            const coverUrl = String(
-                item?.bannerMeta?.cover_url ||
-                item?.bannerMeta?.image_url ||
-                item?.bannerMeta?.banner_url ||
-                item?.bannerMeta?.poster_url ||
-                ''
-            ).trim();
+            const coverUrl = resolveEventCoverUrl(item, true);
 
             // Determine layout based on image type hint or URL pattern
             const imageType = String(item?.bannerMeta?.image_type || '').toLowerCase(); // 'banner' | 'poster' | ''
@@ -10911,6 +10943,9 @@
                     layout = 'banner'; // default for any image = banner horizontal
                 }
             }
+            const imageFit = String(item?.bannerMeta?.image_fit || '').toLowerCase() === 'contain' ? 'fit-contain' : 'fit-cover';
+            const imagePosition = String(item?.bannerMeta?.image_position || item?.bannerMeta?.image_pos || '').trim();
+            const imagePositionStyle = imagePosition ? ` style="object-position:${escHtml(imagePosition)};"` : '';
 
             const visualKey = String(item?.model2d?.key || item?.bannerMeta?.visual || item?.bannerMeta?.visual_key || 'launch_orbit').trim();
 
@@ -10918,7 +10953,7 @@
             if (layout === 'banner' || layout === 'poster') {
                 visualHtml = `
                     <div class="news-hub-event-visual">
-                        <img class="event-cover" src="${escHtml(coverUrl)}" alt="${escHtml(item.title)}" loading="lazy"
+                        <img class="event-cover ${imageFit}" src="${escHtml(coverUrl)}" alt="${escHtml(item.title)}" loading="lazy"${imagePositionStyle}
                              onerror="this.parentElement.classList.add('fallback-gradient');this.remove();">
                     </div>`;
             } else {
@@ -11203,7 +11238,7 @@
             if (!modal) return;
 
             const status = getEventStatusLabel(item);
-            const coverUrl = String(item?.bannerMeta?.cover_url || item?.bannerMeta?.image_url || item?.bannerMeta?.banner_url || '').trim();
+            const coverUrl = resolveEventCoverUrl(item, true);
 
             // Cover
             const coverWrap = document.getElementById('event-detail-cover-wrap');

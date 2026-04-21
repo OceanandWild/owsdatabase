@@ -357,6 +357,41 @@
             font-size: 0.74rem;
             opacity: 0.96;
         }
+        .startup-loading-steps {
+            margin-top: 0.42rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+            max-width: 360px;
+        }
+        .startup-loading-step {
+            display: flex;
+            align-items: center;
+            gap: 0.38rem;
+            color: var(--ink-2);
+            font-size: 0.62rem;
+            line-height: 1.25;
+        }
+        .startup-loading-step .dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 99px;
+            background: var(--surface-3);
+            flex-shrink: 0;
+        }
+        .startup-loading-step.active {
+            color: var(--cyan);
+        }
+        .startup-loading-step.active .dot {
+            background: var(--cyan);
+            box-shadow: 0 0 0 3px rgba(38,212,232,0.12);
+        }
+        .startup-loading-step.done {
+            color: var(--green);
+        }
+        .startup-loading-step.done .dot {
+            background: var(--green);
+        }
         @keyframes spinFast { to { transform: rotate(360deg); } }
 
         .data-refresh-modal {
@@ -4872,6 +4907,42 @@
         }
         .news-hub-event-card:hover::before { opacity: 1; }
         .news-hub-event-card:active { transform: translateY(-1px) scale(1.005); }
+        .event-project-stamp {
+            position: absolute;
+            top: 0.55rem;
+            right: 0.55rem;
+            z-index: 3;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            max-width: 64%;
+            padding: 0.24rem 0.4rem 0.24rem 0.24rem;
+            border-radius: 999px;
+            border: 1px solid rgba(146, 198, 229, 0.36);
+            background: rgba(6, 14, 26, 0.82);
+            backdrop-filter: blur(3px);
+            box-shadow: 0 8px 18px rgba(0, 0, 0, 0.38);
+            pointer-events: none;
+        }
+        .event-project-stamp-icon {
+            width: 18px;
+            height: 18px;
+            border-radius: 5px;
+            object-fit: cover;
+            flex-shrink: 0;
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            background: var(--surface-3);
+        }
+        .event-project-stamp-name {
+            font-size: 0.58rem;
+            line-height: 1;
+            letter-spacing: 0.25px;
+            color: #d6ecff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 170px;
+        }
 
         /* Phase-specific glow */
         .news-hub-event-card.phase-active {
@@ -4989,6 +5060,23 @@
         .event-detail-meta { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.85rem; }
         .event-detail-meta-row { display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; color: var(--ink-2); }
         .event-detail-meta-row i { width: 14px; text-align: center; color: var(--cyan); opacity: 0.8; }
+        .event-detail-project-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.38rem;
+            border: 1px solid rgba(146, 198, 229, 0.3);
+            border-radius: 999px;
+            padding: 0.16rem 0.45rem 0.16rem 0.2rem;
+            background: rgba(11, 24, 40, 0.78);
+        }
+        .event-detail-project-pill img {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+            object-fit: cover;
+            border: 1px solid rgba(255,255,255,0.18);
+            background: var(--surface-3);
+        }
         .event-detail-changes { margin-bottom: 0.85rem; }
         .event-detail-changes-title { font-size: 0.65rem; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.5px; color: var(--ink-2); margin-bottom: 0.4rem; }
         .event-detail-change-item { font-size: 0.75rem; color: var(--ink-1); padding: 0.25rem 0; border-bottom: 1px solid rgba(255,255,255,0.04); display: flex; gap: 0.5rem; }
@@ -5303,6 +5391,7 @@
             <div>
                 <div class="startup-loading-title">OWS Store esta cargando</div>
                 <div id="startup-loading-text" class="startup-loading-text">Preparando entorno...</div>
+                <div id="startup-loading-steps" class="startup-loading-steps"></div>
             </div>
         </div>
     </div>
@@ -6899,9 +6988,11 @@
         function showStartupLoadingModal(text = 'Preparando entorno...') {
             const modal = document.getElementById('startup-loading-modal');
             const textEl = document.getElementById('startup-loading-text');
+            const stepsEl = document.getElementById('startup-loading-steps');
             const card = modal ? modal.querySelector('.startup-loading-card') : null;
             if (!isBackgroundLoadingIndicatorEnabled()) return;
             if (textEl) textEl.textContent = text;
+            if (stepsEl) stepsEl.innerHTML = '';
             if (modal) {
                 if (card) card.classList.remove('opening');
                 modal.classList.remove('pos-left', 'pos-right');
@@ -6914,6 +7005,94 @@
         function updateStartupLoadingText(text = '') {
             const textEl = document.getElementById('startup-loading-text');
             if (textEl && text) textEl.textContent = text;
+        }
+
+        function renderStartupLoadingSteps(steps = [], activeIndex = -1) {
+            const host = document.getElementById('startup-loading-steps');
+            if (!host) return;
+            if (!Array.isArray(steps) || !steps.length) {
+                host.innerHTML = '';
+                return;
+            }
+            host.innerHTML = steps.map((label, idx) => {
+                const cls = idx < activeIndex ? 'done' : (idx === activeIndex ? 'active' : '');
+                return `<div class="startup-loading-step ${cls}"><span class="dot"></span><span>${escHtml(String(label || '').trim() || `Paso ${idx + 1}`)}</span></div>`;
+            }).join('');
+        }
+
+        function getEventCoverUrls(entries = []) {
+            const urls = [];
+            const list = Array.isArray(entries) ? entries : [];
+            for (const item of list) {
+                const coverUrl = String(
+                    item?.bannerMeta?.cover_url ||
+                    item?.bannerMeta?.image_url ||
+                    item?.bannerMeta?.banner_url ||
+                    item?.bannerMeta?.image ||
+                    item?.bannerMeta?.poster_url ||
+                    item?.model2d?.image ||
+                    ''
+                ).trim();
+                if (coverUrl) urls.push(coverUrl);
+            }
+            return [...new Set(urls)];
+        }
+
+        function getProjectAssetUrls(projects = []) {
+            const urls = [];
+            const list = Array.isArray(projects) ? projects : [];
+            for (const project of list) {
+                const iconA = String(project?.icon_url || '').trim();
+                const iconB = String(getProjectIcon(project, 64) || '').trim();
+                const banner = String(project?.banner_url || '').trim();
+                if (iconA) urls.push(iconA);
+                if (iconB) urls.push(iconB);
+                if (banner) urls.push(banner);
+            }
+            return [...new Set(urls)];
+        }
+
+        function preloadImageWithRetry(url, retries = 2, timeoutMs = 12000) {
+            const safe = String(url || '').trim();
+            if (!safe) return Promise.resolve(false);
+            const attempt = (remaining) => new Promise((resolve) => {
+                const img = new Image();
+                let done = false;
+                const finish = (ok) => {
+                    if (done) return;
+                    done = true;
+                    clearTimeout(timer);
+                    resolve(ok);
+                };
+                const timer = setTimeout(() => finish(false), Math.max(2500, Number(timeoutMs) || 12000));
+                img.onload = () => finish(true);
+                img.onerror = () => finish(false);
+                img.src = safe;
+            }).then((ok) => {
+                if (ok) return true;
+                if (remaining <= 0) return false;
+                return attempt(remaining - 1);
+            });
+            return attempt(Math.max(0, Number(retries) || 0));
+        }
+
+        async function preloadEventCoverImages(entries = []) {
+            const urls = getEventCoverUrls(entries);
+            if (!urls.length) return { total: 0, loaded: 0, failed: 0 };
+            const results = await Promise.all(urls.map((url) => preloadImageWithRetry(url, 2, 12000)));
+            const loaded = results.filter(Boolean).length;
+            return { total: urls.length, loaded, failed: Math.max(0, urls.length - loaded) };
+        }
+
+        async function preloadStoreVisualAssets(projects = [], entries = []) {
+            const urls = [...new Set([
+                ...getProjectAssetUrls(projects),
+                ...getEventCoverUrls(entries),
+            ])];
+            if (!urls.length) return { total: 0, loaded: 0, failed: 0 };
+            const results = await Promise.all(urls.map((url) => preloadImageWithRetry(url, 2, 12000)));
+            const loaded = results.filter(Boolean).length;
+            return { total: urls.length, loaded, failed: Math.max(0, urls.length - loaded) };
         }
 
         async function hideStartupLoadingModal() {
@@ -10342,7 +10521,7 @@
                 || bannerMeta?.event_start_at
                 || bannerMeta?.start_date
                 || null
-            ) || parseOptionalDate(updateDate);
+            );
             const endAt = parseOptionalDate(
                 entry?.event_end
                 || entry?.event_end_at
@@ -10384,9 +10563,16 @@
                     .split(/\r?\n/)
                     .map((line) => line.trim())
                     .filter(Boolean);
-            const projects = Array.isArray(entry.project_names)
-                ? entry.project_names.map((p) => String(p || '').toLowerCase()).filter(Boolean)
-                : [];
+            const projectNamesRaw = Array.isArray(entry.project_names)
+                ? entry.project_names
+                : (Array.isArray(entry.projectNames) ? entry.projectNames : []);
+            const projects = projectNamesRaw.map((p) => String(p || '').toLowerCase()).filter(Boolean);
+            const projectSlugsRaw = Array.isArray(entry.project_slugs)
+                ? entry.project_slugs
+                : (Array.isArray(entry.projectSlugs) ? entry.projectSlugs : []);
+            const projectSlugs = projectSlugsRaw
+                .map((s) => canonicalProjectSlug(s))
+                .filter(Boolean);
             const title = String(entry.title || '').trim();
             if (!title) return null;
             const description = String(entry.description || '').trim();
@@ -10413,6 +10599,7 @@
                 description,
                 changes,
                 projectNames: projects,
+                projectSlugs,
                 updateDate,
                 isEvent,
                 isBanner,
@@ -10656,6 +10843,50 @@
             return `Inicio: ${startText} | Fin: ${endText}`;
         }
 
+        function resolveEventProjectIdentity(item) {
+            const slugs = Array.isArray(item?.projectSlugs)
+                ? item.projectSlugs.map((s) => canonicalProjectSlug(s)).filter(Boolean)
+                : [];
+            const inferredSlug = resolveProjectSlugFromNames(item?.projectNames || []);
+            if (inferredSlug) slugs.unshift(canonicalProjectSlug(inferredSlug));
+            const uniqueSlugs = [...new Set(slugs)];
+            for (const slug of uniqueSlugs) {
+                const project = getProjectBySlug(slug);
+                if (!project) continue;
+                return {
+                    slug: canonicalProjectSlug(project),
+                    name: String(project?.name || slug || 'Proyecto').trim(),
+                    icon: getProjectIcon(project, 28)
+                };
+            }
+
+            const fallbackName = String((item?.projectNames || [])[0] || '').trim() || 'Proyecto por confirmar';
+            const fallbackText = fallbackName
+                .split(/\s+/)
+                .filter(Boolean)
+                .slice(0, 2)
+                .map((x) => x[0] || '')
+                .join('')
+                .toUpperCase() || 'OWS';
+            return {
+                slug: '',
+                name: fallbackName,
+                icon: `https://placehold.co/28x28/0f172a/7dd9ff?text=${encodeURIComponent(fallbackText)}`
+            };
+        }
+
+        function buildEventProjectStampHtml(item) {
+            const identity = resolveEventProjectIdentity(item);
+            const icon = escHtml(identity.icon || '');
+            const name = escHtml(normalizeUiText(identity.name || 'Proyecto'));
+            return `
+                <div class="event-project-stamp" title="${name}">
+                    <img class="event-project-stamp-icon" src="${icon}" alt="${name}" loading="lazy" />
+                    <span class="event-project-stamp-name">${name}</span>
+                </div>
+            `;
+        }
+
         function buildNewsHubEventCard(item) {
             const status = getEventStatusLabel(item);
             const summary = item?.description || (item?.changes?.[0] || 'Evento destacado del ecosistema.');
@@ -10699,6 +10930,7 @@
 
             return `
                 <div class="news-hub-event-card layout-${layout} phase-${status.klass}" data-event-card="1" data-event-visual="${escHtml(visualKey)}" onclick="openEventDetailModal(${item.id || 0})">
+                    ${buildEventProjectStampHtml(item)}
                     ${visualHtml}
                     <div class="news-hub-event-copy">
                         <div class="news-hub-event-head">
@@ -11007,7 +11239,16 @@
                 else rows.push(`<div class="event-detail-meta-row"><i class="fas fa-play-circle"></i><span>Inicio: por definir</span></div>`);
                 if (endAt) rows.push(`<div class="event-detail-meta-row"><i class="fas fa-stop-circle"></i><span>Fin: ${escHtml(formatDateTime(endAt))}</span></div>`);
                 else rows.push(`<div class="event-detail-meta-row"><i class="fas fa-stop-circle"></i><span>Fin: por definir</span></div>`);
-                if (item.projectNames?.length) rows.push(`<div class="event-detail-meta-row"><i class="fas fa-tag"></i><span>${escHtml(item.projectNames.join(', '))}</span></div>`);
+                const identity = resolveEventProjectIdentity(item);
+                rows.push(
+                    `<div class="event-detail-meta-row">
+                        <i class="fas fa-tag"></i>
+                        <span class="event-detail-project-pill">
+                            <img src="${escHtml(identity.icon || '')}" alt="${escHtml(identity.name || 'Proyecto')}" />
+                            <span>${escHtml(identity.name || 'Proyecto')}</span>
+                        </span>
+                    </div>`
+                );
                 metaEl.innerHTML = rows.join('');
             }
 
@@ -13666,7 +13907,8 @@
         }
         // ═══ END IMPORT MODAL ═══
 
-        async function loadProjects() {
+        async function loadProjects(options = {}) {
+            const onProgress = typeof options?.onProgress === 'function' ? options.onProgress : null;
             try {
                 const res = await fetch(`${API_URL}/ows-store/projects?nocache=${Date.now()}`, { cache: 'no-store' });
                 allProjects = sanitizeProjectCatalogForUi(await res.json());
@@ -13712,7 +13954,9 @@
                 )
             );
             allProjects = dedupeProjectCatalog(allProjects);
+            if (onProgress) onProgress({ stage: 'assets', message: 'Assets base cargados.' });
             await applyLatestInstallerData(allProjects);
+            if (onProgress) onProgress({ stage: 'events', message: 'Eventos sincronizados.' });
             seedLibraryFromProjectCatalog();
             try {
                 await fetchOWSNewsUpdates(true);
@@ -13720,6 +13964,9 @@
                 console.log('No se pudieron cargar noticias OWS:', err?.message || err);
                 owsNewsUpdatesCache = [];
             }
+            if (onProgress) onProgress({ stage: 'preload', message: 'Precargando assets visuales...' });
+            await preloadStoreVisualAssets(allProjects, owsNewsUpdatesCache);
+            if (onProgress) onProgress({ stage: 'preload_done', message: 'Assets visuales listos.' });
             await refreshInstallationStates();
             setProjectLayout(currentProjectLayout);
             setProjectFilter(currentProjectFilter);
@@ -20844,8 +21091,29 @@
                     }
                     startDeferredSilentMonitor();
                 } else {
-                    updateStartupLoadingText('Sincronizando contenido de OWS Store...');
-                    await loadProjects();
+                    const startupStages = [
+                        'Cargando assets',
+                        'Sincronizando eventos',
+                        'Precargando assets visuales',
+                        'Renderizando interfaz'
+                    ];
+                    renderStartupLoadingSteps(startupStages, 0);
+                    updateStartupLoadingText('Cargando assets...');
+                    await loadProjects({
+                        onProgress: ({ stage }) => {
+                            if (stage === 'assets') {
+                                renderStartupLoadingSteps(startupStages, 1);
+                                updateStartupLoadingText('Sincronizando eventos...');
+                            } else if (stage === 'events') {
+                                renderStartupLoadingSteps(startupStages, 2);
+                                updateStartupLoadingText('Precargando assets visuales...');
+                            } else if (stage === 'preload_done') {
+                                renderStartupLoadingSteps(startupStages, 3);
+                                updateStartupLoadingText('Renderizando interfaz...');
+                            }
+                        }
+                    });
+                    renderStartupLoadingSteps(startupStages, startupStages.length);
                     setupRecurringRefreshLoop();
                     deferredMonitorState = 'Desactivado';
                     renderSettingsState();

@@ -71,6 +71,29 @@ function Quote-Arg([string]$Value) {
     return '"' + $v + '"'
 }
 
+function Set-PackageJsonVersion {
+    param(
+        [string]$PackageJsonPath,
+        [string]$VersionValue
+    )
+    if (-not $PackageJsonPath -or -not (Test-Path $PackageJsonPath)) { return $false }
+    try {
+        $raw = Get-Content -Raw -Path $PackageJsonPath
+        if (-not $raw) { return $false }
+        $json = $raw | ConvertFrom-Json
+        if (-not $json) { return $false }
+        if ([string]$json.version -eq [string]$VersionValue) { return $false }
+        $json.version = $VersionValue
+        $out = $json | ConvertTo-Json -Depth 100
+        [System.IO.File]::WriteAllText($PackageJsonPath, $out, (New-Object System.Text.UTF8Encoding($false)))
+        Write-OK "Version actualizada en $(Split-Path -Leaf $PackageJsonPath): $VersionValue"
+        return $true
+    } catch {
+        Write-Err "No se pudo actualizar version en ${PackageJsonPath}: $($_.Exception.Message)"
+        return $false
+    }
+}
+
 function Start-ScheduledExecutionLog {
     param([string]$LogPath)
     if (-not $scheduledExecution) { return }
@@ -847,11 +870,22 @@ $cfg        = $PROJECTS[$project]
 $repo       = $cfg.repo
 $platforms  = $cfg.platforms
 $tag        = "v$version"
+$projectDirPath = Join-Path $ROOT $cfg.dir
+$projectPackagePath = Join-Path $projectDirPath "package.json"
+$backendPackagePath = Join-Path $ROOT "package.json"
 
 Write-Host "`n========================================" -ForegroundColor Magenta
 Write-Host "  OWS RELEASE - $project @ $version" -ForegroundColor Magenta
 Write-Host "  Repo: $ORG/$repo  |  Tag: $tag" -ForegroundColor Magenta
 Write-Host "========================================`n" -ForegroundColor Magenta
+
+Write-Step "Sincronizando version en package.json"
+if ($repo -eq "owsdatabase" -and (Test-Path $projectPackagePath)) {
+    Set-PackageJsonVersion -PackageJsonPath $projectPackagePath -VersionValue $version | Out-Null
+}
+if ($project -eq "ows-store" -and (Test-Path $backendPackagePath)) {
+    Set-PackageJsonVersion -PackageJsonPath $backendPackagePath -VersionValue $version | Out-Null
+}
 
 # ── Git: commit + push ────────────────────────────────────────────────────────
 Write-Step "Git: commit y push"
@@ -866,6 +900,8 @@ try {
         if ($project -eq "ows-store") {
             git add "OWS Store/index.html" 2>&1
             git add "OWS Store/main.js" 2>&1
+            git add "OWS Store/package.json" 2>&1
+            git add "package.json" 2>&1
         } elseif ($project -eq "dinobox") {
             git add "DinoBox/" 2>&1
         } else {
@@ -945,6 +981,7 @@ if ($platforms -contains "windows" -and ($platform -eq "windows" -or $platform -
                         $done = $true
                         Write-Host ""
                         if ($conclusion -eq "success") {
+                            Register-Version -Slug $project -Ver $version -Plat "windows" | Out-Null
                             Write-Host "  ==========================================" -ForegroundColor Green
                             Write-Host "  BUILD COMPLETADO - LISTO PARA PROBAR" -ForegroundColor Green
                             Write-Host ("  Release: https://github.com/$ORG/" + $repo + "/releases/tag/" + $tag) -ForegroundColor Green

@@ -174,7 +174,7 @@ const UNIFIED_WALLET_CURRENCIES = [
   'aquabux', 'appbux', 'ecoxionums', 'wildcredits', 'wildgems', 'ecobooks',
   'amber', 'nxb', 'voltbit', 'ecotokens', 'ecobits', 'mayhemcoins',
   'cosmicdust', 'ecopower', 'coralbits', 'tigrys', 'wildwavetokens',
-  'relayshards', 'ecocorebits', 'tides', 'aurex', 'sparks'
+  'relayshards', 'ecocorebits', 'tides', 'aurex', 'sparks', 'reelmarks'
 ];
 
 let oceanPayTwoFactorTablesReady = false;
@@ -762,6 +762,23 @@ function normalizeTimelineProjectRefs(projectNames = [], explicitSlugs = []) {
     projectNames: names,
     projectSlugs: [...slugSet]
   };
+}
+
+async function getUnknownTimelineProjectSlugs(projectSlugs = []) {
+  const unique = [...new Set(
+    toNewsArray(projectSlugs)
+      .map((x) => normalizeProjectSlug(x))
+      .filter(Boolean)
+  )];
+  if (!unique.length) return [];
+  const { rows } = await pool.query(
+    `SELECT LOWER(slug) AS slug
+     FROM ows_projects
+     WHERE LOWER(slug) = ANY($1::text[])`,
+    [unique]
+  );
+  const known = new Set(rows.map((r) => String(r?.slug || '').trim().toLowerCase()).filter(Boolean));
+  return unique.filter((slug) => !known.has(slug));
 }
 
 function normalizeTimelineLines(value) {
@@ -1780,6 +1797,7 @@ async function ensureOwsStoreNewsSeedData() {
   const wildDestinyEnd = new Date(now.getTime() - (2 * oneDayMs)).toISOString();
   const wildShortsStart = releaseDateBySlug.get('wildshorts') || new Date(now.getTime() + (6 * oneDayMs)).toISOString();
   const wildShortsEnd = new Date((Date.parse(wildShortsStart) || now.getTime()) + (14 * oneDayMs)).toISOString();
+  const nowIso = now.toISOString();
 
   const entries = [
     {
@@ -1841,6 +1859,133 @@ async function ensureOwsStoreNewsSeedData() {
       priority: 13,
       eventStart: wildShortsStart,
       eventEnd: wildShortsEnd
+    },
+    {
+      syncKey: 'seed:event:natbee-big-content-update-2026-04',
+      projectNames: ['natbee', 'NatBee'],
+      projectSlugs: ['natbee'],
+      title: 'Gran actualizacion de contenido',
+      description: 'Nueva etapa de contenido para NatBee con novedades de experiencia y progreso.',
+      changes: [
+        'Se prepara una oleada de contenido para el ecosistema de NatBee.',
+        'Evento visible en OWS Store con identidad del proyecto.'
+      ],
+      updateDate: nowIso,
+      entryType: 'event',
+      platforms: ['windows'],
+      model2dKey: 'natbee_content_update',
+      model2dPayload: { accent: '#ffd166', secondary: '#6ee7ff' },
+      bannerMeta: {
+        visual: 'natbee_content_update',
+        category: 'content',
+        image_type: 'banner',
+        cover_url: 'https://archive.org/download/april-leaks-ows/bigcontentupdate-natbee20.4.26.png'
+      },
+      isActive: true,
+      priority: 22,
+      eventStart: null,
+      eventEnd: null
+    },
+    {
+      syncKey: 'seed:event:ecoxion-stellar-update-2026-04',
+      projectNames: ['ecoxion', 'Ecoxion'],
+      projectSlugs: ['ecoxion'],
+      title: 'Actualizacion estelar',
+      description: 'Nueva fase de mejoras para Ecoxion con foco en estabilidad y contenido.',
+      changes: [
+        'Se activa ventana de anuncio estelar para Ecoxion.',
+        'Tarjeta de evento enlazada al slug del proyecto.'
+      ],
+      updateDate: nowIso,
+      entryType: 'event',
+      platforms: ['windows'],
+      model2dKey: 'ecoxion_stellar_update',
+      model2dPayload: { accent: '#00d4ff', secondary: '#8df2ff' },
+      bannerMeta: {
+        visual: 'ecoxion_stellar_update',
+        category: 'content',
+        image_type: 'banner',
+        cover_url: 'https://archive.org/download/april-leaks-ows/stellarupdate-ecoxion20.4.26.png'
+      },
+      isActive: true,
+      priority: 21,
+      eventStart: null,
+      eventEnd: null
+    },
+    {
+      syncKey: 'seed:event:incoming-space-project-2026-04',
+      projectNames: ['Proyecto por confirmar'],
+      title: 'Proximo proyecto espacial',
+      description: 'Anuncio temprano de un proyecto espacial del ecosistema OWS.',
+      changes: [
+        'Proyecto aun no publicado en catalogo.',
+        'La tarjeta conserva identidad visual temporal para evitar espacios vacios.'
+      ],
+      updateDate: nowIso,
+      entryType: 'event',
+      platforms: ['windows'],
+      model2dKey: 'incoming_space_project',
+      model2dPayload: { accent: '#7dd9ff', secondary: '#8ca2ff' },
+      bannerMeta: {
+        visual: 'incoming_space_project',
+        category: 'teaser',
+        image_type: 'banner',
+        cover_url: 'https://archive.org/download/april-leaks-ows/incomingproject21.4.26.png'
+      },
+      isActive: true,
+      priority: 20,
+      eventStart: null,
+      eventEnd: null
+    },
+    {
+      syncKey: 'seed:event:incoming-black-hole-core-project-2026-04',
+      projectNames: ['Proyecto por confirmar'],
+      title: 'Proximo proyecto de nucleo de agujero negro',
+      description: 'Teaser inicial de una nueva experiencia ligada a un nucleo de agujero negro.',
+      changes: [
+        'Proyecto en fase de definicion.',
+        'Evento publicado con fallback visual y sin slug fijo.'
+      ],
+      updateDate: nowIso,
+      entryType: 'event',
+      platforms: ['windows'],
+      model2dKey: 'incoming_blackhole_project',
+      model2dPayload: { accent: '#b7beff', secondary: '#7dd9ff' },
+      bannerMeta: {
+        visual: 'incoming_blackhole_project',
+        category: 'teaser',
+        image_type: 'banner',
+        cover_url: 'https://archive.org/download/april-leaks-ows/incomingproject-blackhole21.4.26.png'
+      },
+      isActive: true,
+      priority: 19,
+      eventStart: null,
+      eventEnd: null
+    },
+    {
+      syncKey: 'seed:event:incoming-plants-project-2026-04',
+      projectNames: ['Proyecto por confirmar'],
+      title: 'Proximo proyecto: plantas',
+      description: 'Adelanto de una nueva propuesta centrada en naturaleza y plantas.',
+      changes: [
+        'Evento teaser agregado a OWS Store.',
+        'Slug pendiente hasta confirmacion del proyecto.'
+      ],
+      updateDate: nowIso,
+      entryType: 'event',
+      platforms: ['windows'],
+      model2dKey: 'incoming_plants_project',
+      model2dPayload: { accent: '#7de8a0', secondary: '#a8f7c5' },
+      bannerMeta: {
+        visual: 'incoming_plants_project',
+        category: 'teaser',
+        image_type: 'banner',
+        cover_url: 'https://archive.org/download/april-leaks-ows/incomingproject-garden21.4.26.png'
+      },
+      isActive: true,
+      priority: 18,
+      eventStart: null,
+      eventEnd: null
     },
   ];
 
@@ -9415,13 +9560,21 @@ app.post('/ows-news/updates', async (req, res) => {
   const eventEnd = payload.event_end || payload.eventEnd || null;
 
   try {
+    const refs = normalizeTimelineProjectRefs(projectNames, projectSlugs);
+    const unknownSlugs = await getUnknownTimelineProjectSlugs(refs.projectSlugs);
+    if (unknownSlugs.length) {
+      return res.status(400).json({
+        error: 'project_slugs contiene slugs inexistentes',
+        unknown_project_slugs: unknownSlugs
+      });
+    }
     const syncKey = String(bannerMeta?.sync_key || '').trim();
     let row = null;
     if (syncKey) {
       row = await upsertOwsNewsEntryBySyncKey({
         syncKey,
-        projectNames,
-        projectSlugs,
+        projectNames: refs.projectNames,
+        projectSlugs: refs.projectSlugs,
         title,
         description,
         changes,
@@ -9437,7 +9590,6 @@ app.post('/ows-news/updates', async (req, res) => {
         eventEnd
       });
     } else {
-      const refs = normalizeTimelineProjectRefs(projectNames, projectSlugs);
       const lines = normalizeTimelineLines(changes);
       const details = {
         changes: lines,
@@ -9502,6 +9654,13 @@ app.patch('/ows-news/updates/:id', async (req, res) => {
   if (payload.project_names !== undefined || payload.projectNames !== undefined) {
     const projectNames = toNewsArray(payload.project_names || payload.projectNames || []);
     const refs = normalizeTimelineProjectRefs(projectNames, []);
+    const unknownSlugs = await getUnknownTimelineProjectSlugs(refs.projectSlugs);
+    if (unknownSlugs.length) {
+      return res.status(400).json({
+        error: 'project_names genera slugs inexistentes',
+        unknown_project_slugs: unknownSlugs
+      });
+    }
     pushUpdate('project_names', projectNames);
     pushUpdate('project_slugs', refs.projectSlugs);
   }
@@ -9510,6 +9669,13 @@ app.patch('/ows-news/updates/:id', async (req, res) => {
     const projectSlugs = toNewsArray(payload.project_slugs || payload.projectSlugs || [])
       .map((x) => normalizeProjectSlug(x))
       .filter(Boolean);
+    const unknownSlugs = await getUnknownTimelineProjectSlugs(projectSlugs);
+    if (unknownSlugs.length) {
+      return res.status(400).json({
+        error: 'project_slugs contiene slugs inexistentes',
+        unknown_project_slugs: unknownSlugs
+      });
+    }
     pushUpdate('project_slugs', projectSlugs);
   }
 
@@ -9679,6 +9845,218 @@ app.get('/ocean-pay/me', async (req, res) => {
   } catch (err) {
     console.error('Error en GET /ocean-pay/me:', err);
     return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+const UNTAMED_REELS_CURRENCY = 'reelmarks';
+const UNTAMED_REELS_CURRENCY_LABEL = 'ReelMarks';
+const UNTAMED_REELS_INITIAL_BALANCE = 1000;
+const UNTAMED_REELS_BET_OPTIONS = [10, 20, 50, 100, 200];
+const UNTAMED_REELS_REEL_COUNT = 5;
+const UNTAMED_REELS_ROWS = 3;
+const UNTAMED_REELS_SYMBOLS = ['A', 'K', 'Q', 'J', '7', 'WILD', 'BAR', 'STAR', 'TIGER'];
+const UNTAMED_REELS_WEIGHTS = [18, 18, 17, 16, 10, 6, 7, 5, 3];
+const UNTAMED_REELS_SLOT_LUCKY_FOREST = 'lucky-forest';
+const UNTAMED_REELS_TREE_SYMBOL = 'K';
+const UNTAMED_REELS_TREE_THRESHOLD = 3;
+const UNTAMED_REELS_TREE_BONUS_BASE = 25000;
+const UNTAMED_REELS_TREE_BONUS_PER_EXTRA = 25000;
+const UNTAMED_REELS_FULL_ROW_BONUS = 100000;
+const UNTAMED_REELS_PAYOUT = {
+  A: 3,
+  K: 4,
+  Q: 5,
+  J: 6,
+  '7': 9,
+  BAR: 12,
+  WILD: 18,
+  STAR: 20,
+  TIGER: 40
+};
+
+function untamedReelsWeightedSymbol() {
+  const total = UNTAMED_REELS_WEIGHTS.reduce((acc, value) => acc + value, 0);
+  let roll = Math.random() * total;
+  for (let i = 0; i < UNTAMED_REELS_SYMBOLS.length; i += 1) {
+    roll -= UNTAMED_REELS_WEIGHTS[i];
+    if (roll <= 0) return UNTAMED_REELS_SYMBOLS[i];
+  }
+  return UNTAMED_REELS_SYMBOLS[0];
+}
+
+function untamedReelsGenerateMatrix() {
+  const matrix = [];
+  for (let reel = 0; reel < UNTAMED_REELS_REEL_COUNT; reel += 1) {
+    const column = [];
+    for (let row = 0; row < UNTAMED_REELS_ROWS; row += 1) {
+      column.push(untamedReelsWeightedSymbol());
+    }
+    matrix.push(column);
+  }
+  return matrix;
+}
+
+function untamedReelsEvaluateWin(matrix = [], bet = 0) {
+  const normalizedBet = Math.max(0, Number(bet) || 0);
+  if (!normalizedBet) return { win: 0, streak: 0, symbol: null, line: [], sourceCells: [] };
+  const middle = matrix.map((column) => String(column?.[1] || '').toUpperCase()).filter(Boolean);
+  if (!middle.length) return { win: 0, streak: 0, symbol: null, line: middle, sourceCells: [] };
+
+  const firstNonWild = middle.find((s) => s !== 'WILD') || 'WILD';
+  let streak = 0;
+  for (const symbol of middle) {
+    if (symbol === firstNonWild || symbol === 'WILD' || firstNonWild === 'WILD') streak += 1;
+    else break;
+  }
+  if (streak < 3) return { win: 0, streak, symbol: firstNonWild, line: middle, sourceCells: [] };
+  const base = Number(UNTAMED_REELS_PAYOUT[firstNonWild] || UNTAMED_REELS_PAYOUT.WILD || 2);
+  const win = Math.max(0, Math.floor(base * streak * normalizedBet * 0.35));
+  const sourceCells = [];
+  for (let reel = 0; reel < streak; reel += 1) {
+    sourceCells.push({ reel, row: 1 });
+  }
+  return { win, streak, fullRow: streak >= UNTAMED_REELS_REEL_COUNT, symbol: firstNonWild, line: middle, sourceCells };
+}
+
+function untamedReelsFindTreeCells(matrix = []) {
+  const cells = [];
+  for (let reel = 0; reel < UNTAMED_REELS_REEL_COUNT; reel += 1) {
+    const column = Array.isArray(matrix?.[reel]) ? matrix[reel] : [];
+    for (let row = 0; row < UNTAMED_REELS_ROWS; row += 1) {
+      if (String(column?.[row] || '').toUpperCase() === UNTAMED_REELS_TREE_SYMBOL) {
+        cells.push({ reel, row });
+      }
+    }
+  }
+  return cells;
+}
+
+function untamedReelsUniqueSourceCells(cells = []) {
+  const dedupe = new Map();
+  for (const cell of cells) {
+    const reel = Math.max(0, Math.floor(Number(cell?.reel) || 0));
+    const row = Math.max(0, Math.floor(Number(cell?.row) || 0));
+    dedupe.set(`${reel}:${row}`, { reel, row });
+  }
+  return [...dedupe.values()];
+}
+
+app.get('/untamed-reels/profile', async (req, res) => {
+  const userId = getAuthenticatedOceanPayUserId(req);
+  if (!userId) return res.status(401).json({ error: 'Token invalido' });
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const balancesMap = await getUnifiedBalancesMap(client, userId, true);
+    const hasCurrency = Object.prototype.hasOwnProperty.call(balancesMap || {}, UNTAMED_REELS_CURRENCY);
+    let balance = Number(balancesMap?.[UNTAMED_REELS_CURRENCY] || 0);
+    if (!hasCurrency) {
+      balance = UNTAMED_REELS_INITIAL_BALANCE;
+      await setUnifiedBalance(client, userId, UNTAMED_REELS_CURRENCY, balance);
+    } else if (!Number.isFinite(balance) || balance < 0) {
+      balance = 0;
+      await setUnifiedBalance(client, userId, UNTAMED_REELS_CURRENCY, balance);
+    }
+    await client.query('COMMIT');
+    return res.json({
+      success: true,
+      currency: UNTAMED_REELS_CURRENCY,
+      currency_label: UNTAMED_REELS_CURRENCY_LABEL,
+      balance: Math.floor(balance),
+      bet_options: UNTAMED_REELS_BET_OPTIONS
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error en GET /untamed-reels/profile:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  } finally {
+    client.release();
+  }
+});
+
+app.post('/untamed-reels/spin', async (req, res) => {
+  const userId = getAuthenticatedOceanPayUserId(req);
+  if (!userId) return res.status(401).json({ error: 'Token invalido' });
+
+  const safeBet = Math.floor(Number(req.body?.bet || 0));
+  const slotId = String(req.body?.slot_id || req.body?.slotId || UNTAMED_REELS_SLOT_LUCKY_FOREST).trim().toLowerCase();
+  if (!UNTAMED_REELS_BET_OPTIONS.includes(safeBet)) {
+    return res.status(400).json({ error: 'Apuesta no valida', bet_options: UNTAMED_REELS_BET_OPTIONS });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const balancesMap = await getUnifiedBalancesMap(client, userId, true);
+    const hasCurrency = Object.prototype.hasOwnProperty.call(balancesMap || {}, UNTAMED_REELS_CURRENCY);
+    let currentBalance = Number(balancesMap?.[UNTAMED_REELS_CURRENCY] || 0);
+    if (!hasCurrency) {
+      currentBalance = UNTAMED_REELS_INITIAL_BALANCE;
+      await setUnifiedBalance(client, userId, UNTAMED_REELS_CURRENCY, currentBalance);
+    }
+    if (!Number.isFinite(currentBalance) || currentBalance < safeBet) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Saldo insuficiente', balance: Math.floor(Math.max(0, Number(currentBalance) || 0)) });
+    }
+
+    const matrix = untamedReelsGenerateMatrix();
+    const evalResult = untamedReelsEvaluateWin(matrix, safeBet);
+    const treeCells = slotId === UNTAMED_REELS_SLOT_LUCKY_FOREST
+      ? untamedReelsFindTreeCells(matrix)
+      : [];
+    const treeBonus = treeCells.length >= UNTAMED_REELS_TREE_THRESHOLD
+      ? (UNTAMED_REELS_TREE_BONUS_BASE + (treeCells.length - UNTAMED_REELS_TREE_THRESHOLD) * UNTAMED_REELS_TREE_BONUS_PER_EXTRA)
+      : 0;
+    const fullRowBonus = evalResult.fullRow ? UNTAMED_REELS_FULL_ROW_BONUS : 0;
+    const win = Math.max(0, Number(Math.max(Number(evalResult.win || 0), treeBonus, fullRowBonus) || 0));
+    const sourceCells = untamedReelsUniqueSourceCells([...(evalResult.sourceCells || []), ...treeCells]);
+    const nextBalance = Math.max(0, Math.floor(currentBalance - safeBet + win));
+
+    await setUnifiedBalance(client, userId, UNTAMED_REELS_CURRENCY, nextBalance);
+
+    await client.query(
+      `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [userId, 'Untamed Reels - Spin', -safeBet, 'Untamed Reels', UNTAMED_REELS_CURRENCY]
+    );
+
+    if (win > 0) {
+      await client.query(
+        `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [userId, 'Untamed Reels - Win', win, 'Untamed Reels', UNTAMED_REELS_CURRENCY]
+      );
+    }
+
+    await client.query('COMMIT');
+    return res.json({
+      success: true,
+      currency: UNTAMED_REELS_CURRENCY,
+      currency_label: UNTAMED_REELS_CURRENCY_LABEL,
+      bet: safeBet,
+      win,
+      balance: nextBalance,
+      result: {
+        matrix,
+        middle_line: evalResult.line || [],
+        streak: Number(evalResult.streak || 0),
+        symbol: evalResult.symbol || null,
+        tree_bonus_triggered: treeBonus > 0,
+        tree_bonus_amount: treeBonus,
+        tree_count: treeCells.length,
+        full_row_triggered: !!evalResult.fullRow,
+        full_row_amount: fullRowBonus,
+        source_cells: sourceCells
+      }
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error en POST /untamed-reels/spin:', err);
+    return res.status(500).json({ error: 'No se pudo resolver el giro' });
+  } finally {
+    client.release();
   }
 });
 

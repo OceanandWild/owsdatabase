@@ -916,6 +916,16 @@
       const FULL_ROW_BONUS = 100000;
       const UNTAMED_REELS_MIN_BET = 10;
       const DEFAULT_BET_OPTIONS = [10, 20, 50, 100, 200, 500, 1000, 2000];
+      const SLOT_BONUS_CONFIG = {
+        "lucky-forest": { symbol: "K", threshold: 3, base: 25000, perExtra: 25000, title: "GREAT FOREST" },
+        "coral-crown": { symbol: "STAR", threshold: 4, base: 22000, perExtra: 16000, title: "CORAL CASCADE" },
+        "volcanic-gold": { symbol: "BAR", threshold: 4, base: 26000, perExtra: 18000, title: "MAGMA STRIKE" },
+        "neon-depths": { symbol: "WILD", threshold: 3, base: 30000, perExtra: 20000, title: "NEON SURGE" },
+        "storm-jaguar": { symbol: "TIGER", threshold: 2, base: 32000, perExtra: 26000, title: "JAGUAR STORM" },
+        "abyss-rush": { symbol: "7", threshold: 4, base: 28000, perExtra: 18000, title: "ABYSS CHARGE" },
+        "sunken-runes": { symbol: "Q", threshold: 5, base: 35000, perExtra: 22000, title: "RUNE ASCENT" },
+        "sky-tide": { symbol: "A", threshold: 5, base: 34000, perExtra: 20000, title: "SKYFALL TIDE" }
+      };
       const SPLASH_MIN_MS = 7000;
       const BIOMETOKENS_ICON_URL = "https://archive.org/download/generalowsassets/biometokensicon.png";
       const BIOMETOKENS_ICON_FALLBACK_URL = "https://archive.org/download/generalowsassets/reelmarksicon.png";
@@ -1257,56 +1267,56 @@
           name: "Lucky Forest",
           status: "live",
           tag: "Live",
-          description: "Bosque mistico con simbolos salvajes y ritmo clasico de alto impacto."
+          description: "Bosque mistico con bonus por arboles y ritmo clasico de alto impacto."
         },
         {
           id: "coral-crown",
           name: "Coral Crown",
-          status: "soon",
-          tag: "Soon",
-          description: "Tragaperras de arrecife con cascadas de premio y multiplicadores marinos."
+          status: "live",
+          tag: "Live",
+          description: "Arrecife con cascada coral: acumula STAR para activar CORAL CASCADE."
         },
         {
           id: "volcanic-gold",
           name: "Volcanic Gold",
-          status: "soon",
-          tag: "Soon",
-          description: "Tema volcanico con lineas calientes y rondas de fuego progresivo."
+          status: "live",
+          tag: "Live",
+          description: "Linea volcanica de alto riesgo: BAR en masa dispara MAGMA STRIKE."
         },
         {
           id: "neon-depths",
           name: "Neon Depths",
-          status: "soon",
-          tag: "Soon",
-          description: "Ambiente cyber-oceanico de alto contraste con bonus de respin."
+          status: "live",
+          tag: "Live",
+          description: "Modo cyber-oceanico: WILD en cadena activa el estallido NEON SURGE."
         },
         {
           id: "storm-jaguar",
           name: "Storm Jaguar",
-          status: "soon",
-          tag: "Soon",
-          description: "Selva electrica con jackpots veloces y simbolos de caza."
+          status: "live",
+          tag: "Live",
+          description: "Jungla electrica: TIGER consecutivos desatan JAGUAR STORM."
         },
         {
           id: "abyss-rush",
           name: "Abyss Rush",
-          status: "soon",
-          tag: "Soon",
-          description: "Inmersion al abismo con rondas de riesgo y combos en cadena."
+          status: "live",
+          tag: "Live",
+          description: "Presion abisal: combinaciones de 7 activan ABYSS CHARGE."
         },
         {
           id: "sunken-runes",
           name: "Sunken Runes",
-          status: "soon",
-          tag: "Soon",
-          description: "Runas antiguas y bonificaciones escalables con estilo arcano."
+          status: "live",
+          tag: "Live",
+          description: "Runas sumergidas: la secuencia de Q dispara RUNE ASCENT."
         },
         {
           id: "sky-tide",
           name: "Sky Tide",
-          status: "soon",
-          tag: "Soon",
-          description: "Slot aereo-marino con olas verticales y premios apilados."
+          status: "live",
+          tag: "Live",
+          description: "Oleada celeste: linea de A completa habilita SKYFALL TIDE."
         }
       ];
       let menuPageIndex = 0;
@@ -1366,7 +1376,7 @@
               <p class="slot-desc">${slot.description}</p>
               <div class="slot-actions">
                 <button class="slot-play-btn ${isLive ? "primary" : ""}" data-slot-id="${slot.id}" ${isLive ? "" : "disabled"}>
-                  ${isLive ? "Jugar" : "Proximamente"}
+                  ${isLive ? "Jugar" : "Bloqueado"}
                 </button>
               </div>
             </article>
@@ -1476,7 +1486,10 @@
         if (!res.ok) {
           let payload = null;
           try { payload = await res.json(); } catch (_) {}
-          throw new Error(payload?.error || `HTTP ${res.status}`);
+          const err = new Error(payload?.error || `HTTP ${res.status}`);
+          err.status = Number(res.status || 0);
+          err.payload = payload;
+          throw err;
         }
         return res.json();
       }
@@ -1948,16 +1961,27 @@
         splash.layout();
       }
 
+      function formatEconomyValue(value) {
+        const n = Number(value || 0);
+        if (!Number.isFinite(n)) return "0";
+        const abs = Math.abs(n);
+        if (abs >= 1e12) return `${(n / 1e12).toFixed(abs >= 1e13 ? 1 : 2).replace(/\.0$/, "")}T`;
+        if (abs >= 1e9) return `${(n / 1e9).toFixed(abs >= 1e10 ? 1 : 2).replace(/\.0$/, "")}B`;
+        if (abs >= 1e6) return `${(n / 1e6).toFixed(abs >= 1e7 ? 1 : 2).replace(/\.0$/, "")}M`;
+        if (abs >= 1e3) return `${(n / 1e3).toFixed(abs >= 1e4 ? 1 : 2).replace(/\.0$/, "")}K`;
+        return `${Math.floor(n)}`;
+      }
+
       function refreshHud() {
         const bet = state.betOptions[state.betIndex];
         const unit = state.currencyLabel || "BiomeTokens";
-        balanceValue.textContent = `${state.balance.toLocaleString()} ${unit}`;
-        jackpotValue.textContent = `${state.jackpot.toLocaleString()} ${unit}`;
-        betValue.textContent = `${bet} ${unit}`;
-        winValue.textContent = `${state.lastWin} ${unit}`;
+        balanceValue.textContent = `${formatEconomyValue(state.balance)} ${unit}`;
+        jackpotValue.textContent = `${formatEconomyValue(state.jackpot)} ${unit}`;
+        betValue.textContent = `${formatEconomyValue(bet)} ${unit}`;
+        winValue.textContent = `${formatEconomyValue(state.lastWin)} ${unit}`;
         if (collectionAmountEl && !state.spinning) {
           const shown = Math.max(0, Math.floor(Number(state.lastWin) || 0));
-          collectionAmountEl.textContent = `+${shown.toLocaleString()} BiomeTokens`;
+          collectionAmountEl.textContent = `+${formatEconomyValue(shown)} BiomeTokens`;
         }
         if (modePill) {
           modePill.textContent = state.usingGuestMode ? "Invitado" : "Ocean Pay";
@@ -2097,17 +2121,36 @@
         return 1 + Math.max(0, Math.log2(Math.max(1, ratio))) * 0.25;
       }
 
-      function findTreeCells(matrix) {
+      function findSymbolCells(matrix, symbol) {
+        const target = String(symbol || "").toUpperCase();
+        if (!target) return [];
         const cells = [];
         for (let reel = 0; reel < reelCount; reel += 1) {
           const column = Array.isArray(matrix?.[reel]) ? matrix[reel] : [];
           for (let row = 0; row < rows; row += 1) {
-            if (String(column?.[row] || "").toUpperCase() === LUCKY_FOREST_TREE_SYMBOL) {
+            if (String(column?.[row] || "").toUpperCase() === target) {
               cells.push({ reel, row });
             }
           }
         }
         return cells;
+      }
+
+      function resolveSlotBonusLocal(matrix, slotId, betBoost) {
+        const cfg = SLOT_BONUS_CONFIG[String(slotId || "").toLowerCase()];
+        if (!cfg) {
+          return { triggered: false, amount: 0, count: 0, title: null, sourceCells: [] };
+        }
+        const sourceCells = findSymbolCells(matrix, cfg.symbol);
+        const count = sourceCells.length;
+        if (count < Number(cfg.threshold || 0)) {
+          return { triggered: false, amount: 0, count, title: cfg.title || null, sourceCells: [] };
+        }
+        const amount = Math.max(
+          0,
+          Math.floor((Number(cfg.base || 0) + (count - Number(cfg.threshold || 0)) * Number(cfg.perExtra || 0)) * Math.max(1, Number(betBoost) || 1))
+        );
+        return { triggered: amount > 0, amount, count, title: cfg.title || null, sourceCells };
       }
 
       async function requestGuestSpin(bet) {
@@ -2122,13 +2165,12 @@
         }
         const base = evaluateMatrixWin(matrix, safeBet);
         const betBoost = getBetBoost(safeBet);
-        const treeCells = isLuckyForestSelected() ? findTreeCells(matrix) : [];
-        const treeBonus = treeCells.length >= LUCKY_FOREST_TREE_THRESHOLD
-          ? Math.floor((LUCKY_FOREST_TREE_BONUS_BASE + (treeCells.length - LUCKY_FOREST_TREE_THRESHOLD) * LUCKY_FOREST_TREE_BONUS_PER_EXTRA) * betBoost)
-          : 0;
+        const slotBonus = resolveSlotBonusLocal(matrix, selectedSlotId, betBoost);
+        const treeCells = selectedSlotId === LUCKY_FOREST_SLOT_ID ? slotBonus.sourceCells : [];
+        const treeBonus = selectedSlotId === LUCKY_FOREST_SLOT_ID ? slotBonus.amount : 0;
         const fullRowBonus = base.fullRow ? Math.floor(FULL_ROW_BONUS * betBoost) : 0;
-        const win = Math.max(base.baseWin, treeBonus, fullRowBonus);
-        const sourceCells = [...(base.sourceCells || []), ...treeCells];
+        const win = Math.max(base.baseWin, Number(slotBonus.amount || 0), fullRowBonus);
+        const sourceCells = [...(base.sourceCells || []), ...(slotBonus.sourceCells || [])];
         const nextBalance = Math.max(0, Math.floor(state.balance - safeBet + win));
         return {
           success: true,
@@ -2140,6 +2182,10 @@
           result: {
             matrix,
             source_cells: sourceCells,
+            slot_bonus_triggered: !!slotBonus.triggered,
+            slot_bonus_amount: Number(slotBonus.amount || 0),
+            slot_bonus_count: Number(slotBonus.count || 0),
+            slot_bonus_title: slotBonus.title || null,
             tree_bonus_triggered: treeBonus > 0,
             tree_bonus_amount: treeBonus,
             tree_count: treeCells.length,
@@ -2356,22 +2402,35 @@
           if (win > 0) {
             playWinSound(win);
             const sources = Array.isArray(data?.result?.source_cells) ? data.result.source_cells : [];
+            const slotBonusTriggered = !!data?.result?.slot_bonus_triggered;
+            const slotBonusAmount = Math.max(0, Math.floor(Number(data?.result?.slot_bonus_amount || 0)));
+            const slotBonusCount = Math.max(0, Math.floor(Number(data?.result?.slot_bonus_count || 0)));
+            const slotBonusTitle = String(data?.result?.slot_bonus_title || "");
             const treeCount = Math.max(0, Math.floor(Number(data?.result?.tree_count || 0)));
             const forestTriggered = !!data?.result?.tree_bonus_triggered;
             const forestAmount = Math.max(0, Math.floor(Number(data?.result?.tree_bonus_amount || 0)));
             const fullRowTriggered = !!data?.result?.full_row_triggered;
             const fullRowAmount = Math.max(0, Math.floor(Number(data?.result?.full_row_amount || 0)));
             if (collectionAmountEl) {
-              collectionAmountEl.textContent = `+${win.toLocaleString()} BiomeTokens`;
+              collectionAmountEl.textContent = `+${formatEconomyValue(win)} BiomeTokens`;
             }
             refreshHud();
             if (forestTriggered) {
               await playHypeBurst("forest");
               showCenterEventCard({
                 title: "GREAT FOREST",
-                subtitle: `+${forestAmount.toLocaleString()} BiomeTokens  |  Arboles: ${treeCount}`,
+                subtitle: `+${formatEconomyValue(forestAmount)} BiomeTokens  |  Arboles: ${treeCount}`,
                 accent: 0x7af5b2,
                 trees: true,
+                duration: 1500
+              });
+            } else if (slotBonusTriggered) {
+              await playHypeBurst("forest");
+              showCenterEventCard({
+                title: slotBonusTitle || "SLOT BONUS",
+                subtitle: `+${formatEconomyValue(slotBonusAmount)} BiomeTokens  |  Simbolos: ${slotBonusCount}`,
+                accent: 0x67e8f9,
+                trees: false,
                 duration: 1500
               });
             }
@@ -2379,7 +2438,7 @@
               await playHypeBurst("full-row");
               showCenterEventCard({
                 title: "MEGA LINE",
-                subtitle: `Fila completa +${Math.max(FULL_ROW_BONUS, fullRowAmount).toLocaleString()} BiomeTokens`,
+                subtitle: `Fila completa +${formatEconomyValue(Math.max(FULL_ROW_BONUS, fullRowAmount))} BiomeTokens`,
                 accent: 0xff8a3d,
                 trees: false,
                 duration: 1500
@@ -2390,24 +2449,29 @@
             state.balance = finalBalance;
             refreshHud();
             if (fullRowTriggered) {
-              setStatus(`Fila completa! +${Math.max(FULL_ROW_BONUS, fullRowAmount).toLocaleString()} BiomeTokens`);
+              setStatus(`Fila completa! +${formatEconomyValue(Math.max(FULL_ROW_BONUS, fullRowAmount))} BiomeTokens`);
             } else if (forestTriggered) {
-              setStatus(`GREAT FOREST! +${forestAmount.toLocaleString()} BiomeTokens`);
+              setStatus(`GREAT FOREST! +${formatEconomyValue(forestAmount)} BiomeTokens`);
+            } else if (slotBonusTriggered) {
+              setStatus(`${slotBonusTitle || "SLOT BONUS"}! +${formatEconomyValue(slotBonusAmount)} BiomeTokens`);
             } else {
-              setStatus(`Big hit: +${win} ${state.currencyLabel}`);
+              setStatus(`Big hit: +${formatEconomyValue(win)} ${state.currencyLabel}`);
             }
           } else {
             setStatus(state.usingGuestMode ? "No hit. Try again (Guest mode)" : "No hit. Try again");
           }
         } catch (err) {
-          if (!state.usingGuestMode) {
+          const safeStatus = Number(err?.status || 0);
+          const message = String(err?.message || "unknown");
+          const shouldKeepOnline = safeStatus === 400 || safeStatus === 401 || safeStatus === 403 || safeStatus === 429;
+          if (!state.usingGuestMode && !shouldKeepOnline) {
             state.usingGuestMode = true;
             state.connected = true;
             state.balance = getGuestStoredNumber(GUEST_MODE_BALANCE_KEY, Math.max(1000, state.balance));
             setStatus("Conexion perdida. Cambiando a modo invitado");
             persistGuestState();
           } else {
-            setStatus(`Spin error: ${err?.message || "unknown"}`);
+            setStatus(`Spin error: ${message}`);
           }
           forceAlignedRows();
         }

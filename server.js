@@ -9865,6 +9865,70 @@ const UNTAMED_REELS_TREE_THRESHOLD = 3;
 const UNTAMED_REELS_TREE_BONUS_BASE = 25000;
 const UNTAMED_REELS_TREE_BONUS_PER_EXTRA = 25000;
 const UNTAMED_REELS_FULL_ROW_BONUS = 100000;
+const UNTAMED_REELS_LIVE_SLOT_IDS = new Set([
+  'lucky-forest', 'coral-crown', 'volcanic-gold', 'neon-depths',
+  'storm-jaguar', 'abyss-rush', 'sunken-runes', 'sky-tide'
+]);
+const UNTAMED_REELS_SPIN_COOLDOWN_MS = 850;
+const untamedReelsLastSpinAt = new Map();
+const UNTAMED_REELS_SLOT_BONUS_CONFIG = {
+  'lucky-forest': {
+    symbol: 'K',
+    threshold: 3,
+    base: 25000,
+    perExtra: 25000,
+    title: 'GREAT FOREST'
+  },
+  'coral-crown': {
+    symbol: 'STAR',
+    threshold: 4,
+    base: 22000,
+    perExtra: 16000,
+    title: 'CORAL CASCADE'
+  },
+  'volcanic-gold': {
+    symbol: 'BAR',
+    threshold: 4,
+    base: 26000,
+    perExtra: 18000,
+    title: 'MAGMA STRIKE'
+  },
+  'neon-depths': {
+    symbol: 'WILD',
+    threshold: 3,
+    base: 30000,
+    perExtra: 20000,
+    title: 'NEON SURGE'
+  },
+  'storm-jaguar': {
+    symbol: 'TIGER',
+    threshold: 2,
+    base: 32000,
+    perExtra: 26000,
+    title: 'JAGUAR STORM'
+  },
+  'abyss-rush': {
+    symbol: '7',
+    threshold: 4,
+    base: 28000,
+    perExtra: 18000,
+    title: 'ABYSS CHARGE'
+  },
+  'sunken-runes': {
+    symbol: 'Q',
+    threshold: 5,
+    base: 35000,
+    perExtra: 22000,
+    title: 'RUNE ASCENT'
+  },
+  'sky-tide': {
+    symbol: 'A',
+    threshold: 5,
+    base: 34000,
+    perExtra: 20000,
+    title: 'SKYFALL TIDE'
+  }
+};
 const UNTAMED_REELS_DAILY_REWARDS = [750, 1200, 1800, 2600, 3600, 5000, 7000];
 const UNTAMED_REELS_DAILY_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 const UNTAMED_REELS_DAILY_STREAK_RESET_MS = 48 * 60 * 60 * 1000;
@@ -10002,6 +10066,21 @@ function untamedReelsFindTreeCells(matrix = []) {
   return cells;
 }
 
+function untamedReelsFindSymbolCells(matrix = [], symbol = '') {
+  const target = String(symbol || '').toUpperCase();
+  if (!target) return [];
+  const cells = [];
+  for (let reel = 0; reel < UNTAMED_REELS_REEL_COUNT; reel += 1) {
+    const column = Array.isArray(matrix?.[reel]) ? matrix[reel] : [];
+    for (let row = 0; row < UNTAMED_REELS_ROWS; row += 1) {
+      if (String(column?.[row] || '').toUpperCase() === target) {
+        cells.push({ reel, row });
+      }
+    }
+  }
+  return cells;
+}
+
 function untamedReelsUniqueSourceCells(cells = []) {
   const dedupe = new Map();
   for (const cell of cells) {
@@ -10010,6 +10089,23 @@ function untamedReelsUniqueSourceCells(cells = []) {
     dedupe.set(`${reel}:${row}`, { reel, row });
   }
   return [...dedupe.values()];
+}
+
+function untamedReelsResolveSlotBonus(matrix = [], slotId = '', betBoost = 1) {
+  const key = String(slotId || '').trim().toLowerCase();
+  const cfg = UNTAMED_REELS_SLOT_BONUS_CONFIG[key];
+  if (!cfg) {
+    return { triggered: false, amount: 0, count: 0, title: null, sourceCells: [] };
+  }
+  const sourceCells = untamedReelsFindSymbolCells(matrix, cfg.symbol);
+  const count = sourceCells.length;
+  if (count < cfg.threshold) {
+    return { triggered: false, amount: 0, count, title: cfg.title, sourceCells: [] };
+  }
+  const base = Number(cfg.base || 0);
+  const perExtra = Number(cfg.perExtra || 0);
+  const amount = Math.max(0, Math.floor((base + (count - cfg.threshold) * perExtra) * Math.max(1, Number(betBoost) || 1)));
+  return { triggered: amount > 0, amount, count, title: cfg.title, sourceCells };
 }
 
 async function ensureUntamedReelsCurrencyBalance(client, userId, forUpdate = false) {
@@ -10232,9 +10328,21 @@ app.post(['/untamed-reels/spin', '/biomeverse-fortune/spin'], async (req, res) =
 
   const safeBet = Math.floor(Number(req.body?.bet || 0));
   const slotId = String(req.body?.slot_id || req.body?.slotId || UNTAMED_REELS_SLOT_LUCKY_FOREST).trim().toLowerCase();
+  if (!UNTAMED_REELS_LIVE_SLOT_IDS.has(slotId)) {
+    return res.status(400).json({ error: 'Slot no disponible', slot_id: slotId });
+  }
   if (!UNTAMED_REELS_BET_OPTIONS.includes(safeBet)) {
     return res.status(400).json({ error: 'Apuesta no valida', bet_options: UNTAMED_REELS_BET_OPTIONS });
   }
+  const nowMs = Date.now();
+  const lastSpinAt = Number(untamedReelsLastSpinAt.get(userId) || 0);
+  if (lastSpinAt && nowMs - lastSpinAt < UNTAMED_REELS_SPIN_COOLDOWN_MS) {
+    return res.status(429).json({
+      error: 'Demasiados giros seguidos',
+      retry_in_ms: Math.max(0, UNTAMED_REELS_SPIN_COOLDOWN_MS - (nowMs - lastSpinAt))
+    });
+  }
+  untamedReelsLastSpinAt.set(userId, nowMs);
 
   const client = await pool.connect();
   try {
@@ -10249,15 +10357,12 @@ app.post(['/untamed-reels/spin', '/biomeverse-fortune/spin'], async (req, res) =
     const matrix = untamedReelsGenerateMatrix();
     const evalResult = untamedReelsEvaluateWin(matrix, safeBet);
     const betBoost = untamedReelsBetBoost(safeBet);
-    const treeCells = slotId === UNTAMED_REELS_SLOT_LUCKY_FOREST
-      ? untamedReelsFindTreeCells(matrix)
-      : [];
-    const treeBonus = treeCells.length >= UNTAMED_REELS_TREE_THRESHOLD
-      ? Math.floor((UNTAMED_REELS_TREE_BONUS_BASE + (treeCells.length - UNTAMED_REELS_TREE_THRESHOLD) * UNTAMED_REELS_TREE_BONUS_PER_EXTRA) * betBoost)
-      : 0;
+    const slotBonus = untamedReelsResolveSlotBonus(matrix, slotId, betBoost);
+    const treeCells = slotId === UNTAMED_REELS_SLOT_LUCKY_FOREST ? slotBonus.sourceCells : [];
+    const treeBonus = slotId === UNTAMED_REELS_SLOT_LUCKY_FOREST ? slotBonus.amount : 0;
     const fullRowBonus = evalResult.fullRow ? Math.floor(UNTAMED_REELS_FULL_ROW_BONUS * betBoost) : 0;
-    const win = Math.max(0, Number(Math.max(Number(evalResult.win || 0), treeBonus, fullRowBonus) || 0));
-    const sourceCells = untamedReelsUniqueSourceCells([...(evalResult.sourceCells || []), ...treeCells]);
+    const win = Math.max(0, Number(Math.max(Number(evalResult.win || 0), slotBonus.amount, fullRowBonus) || 0));
+    const sourceCells = untamedReelsUniqueSourceCells([...(evalResult.sourceCells || []), ...(slotBonus.sourceCells || [])]);
     const nextBalance = Math.max(0, Math.floor(currentBalance - safeBet + win));
 
     await setUnifiedBalance(client, userId, UNTAMED_REELS_CURRENCY, nextBalance);
@@ -10290,6 +10395,10 @@ app.post(['/untamed-reels/spin', '/biomeverse-fortune/spin'], async (req, res) =
         streak: Number(evalResult.streak || 0),
         symbol: evalResult.symbol || null,
         bet_boost: Number(evalResult.bet_boost || betBoost || 1),
+        slot_bonus_triggered: !!slotBonus.triggered,
+        slot_bonus_amount: Number(slotBonus.amount || 0),
+        slot_bonus_count: Number(slotBonus.count || 0),
+        slot_bonus_title: slotBonus.title || null,
         tree_bonus_triggered: treeBonus > 0,
         tree_bonus_amount: treeBonus,
         tree_count: treeCells.length,

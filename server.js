@@ -9851,7 +9851,8 @@ app.get('/ocean-pay/me', async (req, res) => {
 const UNTAMED_REELS_CURRENCY = 'reelmarks';
 const UNTAMED_REELS_CURRENCY_LABEL = 'ReelMarks';
 const UNTAMED_REELS_INITIAL_BALANCE = 1000;
-const UNTAMED_REELS_BET_OPTIONS = [10, 20, 50, 100, 200];
+const UNTAMED_REELS_BET_OPTIONS = [10, 20, 50, 100, 200, 500, 1000, 2000];
+const UNTAMED_REELS_MIN_BET = UNTAMED_REELS_BET_OPTIONS[0];
 const UNTAMED_REELS_REEL_COUNT = 5;
 const UNTAMED_REELS_ROWS = 3;
 const UNTAMED_REELS_SYMBOLS = ['A', 'K', 'Q', 'J', '7', 'WILD', 'BAR', 'STAR', 'TIGER'];
@@ -9900,6 +9901,12 @@ function untamedReelsGenerateMatrix() {
   return matrix;
 }
 
+function untamedReelsBetBoost(bet = 0) {
+  const safeBet = Math.max(UNTAMED_REELS_MIN_BET, Math.floor(Number(bet) || 0));
+  const ratio = safeBet / UNTAMED_REELS_MIN_BET;
+  return 1 + Math.max(0, Math.log2(Math.max(1, ratio))) * 0.25;
+}
+
 function untamedReelsEvaluateWin(matrix = [], bet = 0) {
   const normalizedBet = Math.max(0, Number(bet) || 0);
   if (!normalizedBet) return { win: 0, streak: 0, symbol: null, line: [], sourceCells: [] };
@@ -9914,12 +9921,13 @@ function untamedReelsEvaluateWin(matrix = [], bet = 0) {
   }
   if (streak < 3) return { win: 0, streak, symbol: firstNonWild, line: middle, sourceCells: [] };
   const base = Number(UNTAMED_REELS_PAYOUT[firstNonWild] || UNTAMED_REELS_PAYOUT.WILD || 2);
-  const win = Math.max(0, Math.floor(base * streak * normalizedBet * 0.35));
+  const betBoost = untamedReelsBetBoost(normalizedBet);
+  const win = Math.max(0, Math.floor(base * streak * normalizedBet * 0.35 * betBoost));
   const sourceCells = [];
   for (let reel = 0; reel < streak; reel += 1) {
     sourceCells.push({ reel, row: 1 });
   }
-  return { win, streak, fullRow: streak >= UNTAMED_REELS_REEL_COUNT, symbol: firstNonWild, line: middle, sourceCells };
+  return { win, streak, fullRow: streak >= UNTAMED_REELS_REEL_COUNT, symbol: firstNonWild, line: middle, sourceCells, bet_boost: betBoost };
 }
 
 async function ensureUntamedReelsTables() {
@@ -10231,13 +10239,14 @@ app.post('/untamed-reels/spin', async (req, res) => {
 
     const matrix = untamedReelsGenerateMatrix();
     const evalResult = untamedReelsEvaluateWin(matrix, safeBet);
+    const betBoost = untamedReelsBetBoost(safeBet);
     const treeCells = slotId === UNTAMED_REELS_SLOT_LUCKY_FOREST
       ? untamedReelsFindTreeCells(matrix)
       : [];
     const treeBonus = treeCells.length >= UNTAMED_REELS_TREE_THRESHOLD
-      ? (UNTAMED_REELS_TREE_BONUS_BASE + (treeCells.length - UNTAMED_REELS_TREE_THRESHOLD) * UNTAMED_REELS_TREE_BONUS_PER_EXTRA)
+      ? Math.floor((UNTAMED_REELS_TREE_BONUS_BASE + (treeCells.length - UNTAMED_REELS_TREE_THRESHOLD) * UNTAMED_REELS_TREE_BONUS_PER_EXTRA) * betBoost)
       : 0;
-    const fullRowBonus = evalResult.fullRow ? UNTAMED_REELS_FULL_ROW_BONUS : 0;
+    const fullRowBonus = evalResult.fullRow ? Math.floor(UNTAMED_REELS_FULL_ROW_BONUS * betBoost) : 0;
     const win = Math.max(0, Number(Math.max(Number(evalResult.win || 0), treeBonus, fullRowBonus) || 0));
     const sourceCells = untamedReelsUniqueSourceCells([...(evalResult.sourceCells || []), ...treeCells]);
     const nextBalance = Math.max(0, Math.floor(currentBalance - safeBet + win));
@@ -10271,6 +10280,7 @@ app.post('/untamed-reels/spin', async (req, res) => {
         middle_line: evalResult.line || [],
         streak: Number(evalResult.streak || 0),
         symbol: evalResult.symbol || null,
+        bet_boost: Number(evalResult.bet_boost || betBoost || 1),
         tree_bonus_triggered: treeBonus > 0,
         tree_bonus_amount: treeBonus,
         tree_count: treeCells.length,

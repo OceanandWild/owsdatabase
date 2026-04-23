@@ -1,0 +1,2728 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BiomeVerse Fortune</title>
+  <style>
+    :root {
+      --bg-0: #020711;
+      --ink: #e8f6ff;
+      --ink-soft: #9cc7de;
+      --gold: #ffd166;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      color: var(--ink);
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background:
+        radial-gradient(circle at 12% 10%, rgba(39, 173, 255, 0.2), transparent 33%),
+        radial-gradient(circle at 82% 18%, rgba(255, 111, 145, 0.2), transparent 28%),
+        radial-gradient(circle at 50% 120%, #0e3650, #051827 56%, var(--bg-0) 100%);
+    }
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background: repeating-linear-gradient(
+        to bottom,
+        rgba(255, 255, 255, 0.03),
+        rgba(255, 255, 255, 0.03) 1px,
+        transparent 1px,
+        transparent 4px
+      );
+      opacity: 0.18;
+      mix-blend-mode: soft-light;
+      animation: scan 7s linear infinite;
+    }
+    body.booting .ui-layer,
+    body.booting .main-menu-overlay,
+    body.booting .auth-overlay {
+      display: none !important;
+    }
+    @keyframes scan {
+      0% { transform: translateY(0); }
+      100% { transform: translateY(14px); }
+    }
+    #app {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+    }
+    .ui-layer {
+      position: fixed;
+      inset: 0;
+      z-index: 2;
+      pointer-events: none;
+    }
+    .topbar {
+      margin: 14px;
+      padding: 10px 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(87, 175, 221, 0.35);
+      background: linear-gradient(145deg, rgba(7, 20, 33, 0.86), rgba(4, 14, 25, 0.68));
+      box-shadow: 0 10px 26px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(146, 219, 255, 0.2);
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: center;
+      pointer-events: auto;
+      backdrop-filter: blur(8px);
+    }
+    .brand-kicker {
+      font-size: 11px;
+      letter-spacing: 0.9px;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+    }
+    .brand-title {
+      margin-top: 2px;
+      font-size: 27px;
+      line-height: 1;
+      font-weight: 800;
+      color: var(--gold);
+      text-shadow: 0 0 18px rgba(255, 209, 102, 0.34);
+      animation: goldPulse 2.4s ease-in-out infinite;
+    }
+    @keyframes goldPulse {
+      0%, 100% { text-shadow: 0 0 12px rgba(255, 209, 102, 0.32); }
+      50% { text-shadow: 0 0 20px rgba(255, 209, 102, 0.52); }
+    }
+    .metric {
+      min-width: 170px;
+      border-radius: 12px;
+      border: 1px solid rgba(89, 209, 255, 0.35);
+      background: rgba(6, 22, 36, 0.8);
+      padding: 7px 10px;
+      position: relative;
+      overflow: hidden;
+    }
+    .metric::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      transform: translateX(-120%);
+      background: linear-gradient(110deg, transparent 20%, rgba(255, 255, 255, 0.24) 50%, transparent 80%);
+      animation: shimmer 3.8s ease-in-out infinite;
+    }
+    @keyframes shimmer {
+      0%, 45% { transform: translateX(-120%); }
+      100% { transform: translateX(120%); }
+    }
+    .metric-label {
+      font-size: 11px;
+      color: var(--ink-soft);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+    .metric-value {
+      margin-top: 3px;
+      font-size: 20px;
+      font-weight: 800;
+      color: #d6f6ff;
+    }
+    .metric-value.hot {
+      color: #ffd7e3;
+      text-shadow: 0 0 14px rgba(255, 111, 145, 0.45);
+    }
+    .jackpot-banner {
+      position: fixed;
+      left: 50%;
+      top: 112px;
+      transform: translateX(-50%);
+      z-index: 4;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 216, 116, 0.58);
+      background: linear-gradient(140deg, rgba(44, 30, 9, 0.92), rgba(22, 14, 6, 0.92));
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45), 0 0 26px rgba(255, 193, 71, 0.28);
+      padding: 9px 14px;
+      text-align: center;
+      pointer-events: none;
+      min-width: 280px;
+    }
+    .jackpot-label {
+      font-size: 11px;
+      color: #f9d88e;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+    .jackpot-value {
+      margin-top: 2px;
+      font-size: 31px;
+      font-weight: 900;
+      color: #ffe6ad;
+      text-shadow: 0 0 18px rgba(255, 200, 71, 0.48);
+      line-height: 1.02;
+    }
+    .controls {
+      position: fixed;
+      left: 50%;
+      bottom: 18px;
+      transform: translateX(-50%);
+      width: min(880px, calc(100% - 20px));
+      border-radius: 18px;
+      border: 1px solid rgba(95, 186, 233, 0.4);
+      background: linear-gradient(160deg, rgba(5, 18, 30, 0.88), rgba(7, 24, 41, 0.74));
+      box-shadow: 0 14px 35px rgba(0, 0, 0, 0.46), inset 0 1px 0 rgba(166, 223, 255, 0.18);
+      padding: 10px 12px;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 12px;
+      align-items: center;
+      pointer-events: auto;
+      backdrop-filter: blur(8px);
+    }
+    .spin-reward-strip {
+      position: fixed;
+      left: 50%;
+      bottom: 92px;
+      transform: translateX(-50%);
+      z-index: 4;
+      border-radius: 12px;
+      border: 1px solid rgba(250, 204, 21, 0.48);
+      background: linear-gradient(165deg, rgba(31, 22, 7, 0.88), rgba(15, 10, 4, 0.9));
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.44);
+      padding: 6px 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      pointer-events: none;
+      min-height: 40px;
+    }
+    .spin-reward-strip img {
+      width: 2px;
+      height: 2px;
+      object-fit: contain;
+      filter: drop-shadow(0 0 8px rgba(255, 204, 70, 0.35));
+    }
+    .spin-reward-strip .amount {
+      font-size: 16px;
+      font-weight: 800;
+      color: #ffe3a0;
+      letter-spacing: 0.2px;
+    }
+    .mini-panel {
+      border-radius: 12px;
+      border: 1px solid rgba(69, 154, 203, 0.42);
+      background: rgba(7, 21, 33, 0.75);
+      padding: 9px 11px;
+    }
+    .mini-panel .label {
+      font-size: 11px;
+      color: var(--ink-soft);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+    .mini-panel .value {
+      margin-top: 4px;
+      font-size: 18px;
+      font-weight: 700;
+    }
+    .bet-controls {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 4px;
+    }
+    .chip-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      border: 1px solid rgba(88, 181, 230, 0.45);
+      background: linear-gradient(170deg, rgba(9, 36, 58, 0.9), rgba(7, 26, 41, 0.92));
+      color: var(--ink);
+      font-weight: 800;
+      cursor: pointer;
+      transition: transform 0.14s ease, box-shadow 0.14s ease, border-color 0.14s ease;
+    }
+    .chip-btn:hover {
+      transform: translateY(-1px);
+      border-color: rgba(145, 225, 255, 0.66);
+      box-shadow: 0 4px 14px rgba(43, 227, 255, 0.25);
+    }
+    .chip-btn:active { transform: translateY(1px); }
+    #spin-btn {
+      width: 128px;
+      height: 62px;
+      border: none;
+      border-radius: 16px;
+      background: linear-gradient(130deg, #25d2ff, #2df0b8);
+      color: #042133;
+      font-size: 24px;
+      font-weight: 900;
+      letter-spacing: 1px;
+      cursor: pointer;
+      box-shadow: 0 0 0 2px rgba(42, 220, 255, 0.4), 0 10px 24px rgba(24, 167, 201, 0.44);
+      transition: transform 0.15s ease, box-shadow 0.18s ease, filter 0.18s ease;
+      animation: breathe 1.8s ease-in-out infinite;
+    }
+    @keyframes breathe {
+      0%, 100% { transform: scale(1); box-shadow: 0 0 0 2px rgba(42, 220, 255, 0.4), 0 10px 24px rgba(24, 167, 201, 0.44); }
+      50% { transform: scale(1.04); box-shadow: 0 0 0 3px rgba(42, 220, 255, 0.65), 0 14px 28px rgba(27, 200, 211, 0.55); }
+    }
+    #spin-btn:hover {
+      filter: brightness(1.08);
+      transform: translateY(-2px);
+    }
+    #spin-btn:active { transform: translateY(2px) scale(0.99); }
+    #spin-btn[disabled] {
+      cursor: not-allowed;
+      opacity: 0.7;
+      animation: none;
+      transform: none;
+    }
+    .status {
+      position: fixed;
+      left: 50%;
+      top: 89px;
+      transform: translateX(-50%);
+      z-index: 4;
+      font-weight: 600;
+      font-size: 14px;
+      color: #d0ecff;
+      text-shadow: 0 0 12px rgba(43, 227, 255, 0.4);
+      animation: floaty 3.4s ease-in-out infinite;
+      pointer-events: none;
+    }
+    @keyframes floaty {
+      0%, 100% { transform: translateX(-50%) translateY(0); opacity: 0.95; }
+      50% { transform: translateX(-50%) translateY(-4px); opacity: 1; }
+    }
+    .settings-fab {
+      position: fixed;
+      top: 92px;
+      right: 18px;
+      z-index: 5;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      border: 1px solid rgba(107, 196, 243, 0.44);
+      background: rgba(7, 21, 35, 0.84);
+      color: #d5efff;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      pointer-events: auto;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+      transition: transform 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease;
+    }
+    .settings-fab:hover {
+      transform: translateY(-1px);
+      border-color: rgba(144, 224, 255, 0.78);
+      box-shadow: 0 8px 18px rgba(43, 227, 255, 0.25);
+    }
+    .settings-panel {
+      position: fixed;
+      top: 132px;
+      right: 18px;
+      z-index: 5;
+      width: min(270px, calc(100vw - 30px));
+      border-radius: 14px;
+      border: 1px solid rgba(104, 193, 241, 0.38);
+      background: linear-gradient(155deg, rgba(6, 20, 34, 0.93), rgba(4, 15, 26, 0.88));
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+      padding: 10px 11px;
+      pointer-events: auto;
+      opacity: 0;
+      transform: translateY(-8px);
+      transition: opacity 0.16s ease, transform 0.16s ease;
+      visibility: hidden;
+    }
+    .settings-panel.open {
+      opacity: 1;
+      transform: translateY(0);
+      visibility: visible;
+    }
+    .settings-title {
+      margin: 0 0 8px;
+      font-size: 12px;
+      letter-spacing: 0.7px;
+      text-transform: uppercase;
+      color: #a6d8f2;
+    }
+    .settings-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 6px 0;
+      font-size: 12px;
+      color: #d3ebff;
+      border-bottom: 1px solid rgba(145, 212, 249, 0.12);
+    }
+    .settings-row:last-child { border-bottom: none; padding-bottom: 0; }
+    .mode-pill {
+      border-radius: 999px;
+      border: 1px solid rgba(96, 165, 250, 0.4);
+      background: rgba(13, 37, 60, 0.65);
+      padding: 3px 8px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .switch {
+      position: relative;
+      width: 38px;
+      height: 22px;
+      display: inline-block;
+    }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute;
+      inset: 0;
+      border-radius: 999px;
+      border: 1px solid rgba(98, 183, 228, 0.5);
+      background: rgba(9, 29, 46, 0.8);
+      cursor: pointer;
+      transition: background 0.16s ease;
+    }
+    .slider::before {
+      content: "";
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #d5efff;
+      transition: transform 0.16s ease;
+    }
+    .switch input:checked + .slider {
+      background: rgba(38, 209, 255, 0.35);
+    }
+    .switch input:checked + .slider::before {
+      transform: translateX(16px);
+    }
+    .settings-action {
+      border-radius: 9px;
+      border: 1px solid rgba(96, 205, 255, 0.45);
+      background: linear-gradient(165deg, rgba(8, 34, 54, 0.94), rgba(7, 26, 41, 0.95));
+      color: #d7f1ff;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 7px 10px;
+      cursor: pointer;
+      transition: border-color 0.14s ease, transform 0.14s ease;
+    }
+    .settings-action:hover {
+      border-color: rgba(146, 228, 255, 0.75);
+      transform: translateY(-1px);
+    }
+    .auth-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 7;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(2, 8, 18, 0.72);
+      backdrop-filter: blur(7px);
+      pointer-events: auto;
+    }
+    .auth-overlay.open { display: flex; }
+    .auth-card {
+      width: min(420px, calc(100vw - 26px));
+      border-radius: 16px;
+      border: 1px solid rgba(95, 186, 233, 0.42);
+      background: linear-gradient(155deg, rgba(7, 23, 38, 0.96), rgba(4, 16, 29, 0.94));
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(160, 225, 255, 0.15);
+      padding: 14px;
+    }
+    .auth-title {
+      margin: 0 0 4px;
+      font-size: 18px;
+      font-weight: 800;
+      color: #fef3c7;
+    }
+    .auth-sub {
+      margin: 0 0 12px;
+      font-size: 12px;
+      color: #9bc6dd;
+      line-height: 1.35;
+    }
+    .auth-input {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid rgba(88, 181, 230, 0.4);
+      background: rgba(7, 24, 40, 0.9);
+      color: #d9f2ff;
+      font-size: 14px;
+      padding: 10px 11px;
+      margin-bottom: 8px;
+      outline: none;
+    }
+    .auth-input:focus {
+      border-color: rgba(146, 228, 255, 0.8);
+      box-shadow: 0 0 0 2px rgba(43, 227, 255, 0.2);
+    }
+    .auth-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 6px;
+    }
+    .auth-btn {
+      border-radius: 10px;
+      border: 1px solid rgba(88, 181, 230, 0.45);
+      background: linear-gradient(165deg, rgba(8, 34, 54, 0.94), rgba(7, 26, 41, 0.95));
+      color: #d7f1ff;
+      font-size: 13px;
+      font-weight: 800;
+      padding: 10px;
+      cursor: pointer;
+    }
+    .auth-btn.primary {
+      border-color: rgba(45, 240, 184, 0.58);
+      background: linear-gradient(130deg, #25d2ff, #2df0b8);
+      color: #042133;
+    }
+    .auth-msg {
+      min-height: 18px;
+      margin-top: 8px;
+      font-size: 12px;
+      color: #9bc6dd;
+    }
+    .main-menu-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 6;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background:
+        radial-gradient(circle at 10% 8%, rgba(67, 210, 255, 0.24), transparent 30%),
+        radial-gradient(circle at 86% 16%, rgba(255, 145, 171, 0.22), transparent 30%),
+        rgba(2, 8, 18, 0.75);
+      backdrop-filter: blur(9px);
+      pointer-events: auto;
+      padding: 0;
+    }
+    .main-menu-overlay.open { display: flex; }
+    .main-menu-card {
+      width: 100vw;
+      height: 100vh;
+      border-radius: 0;
+      border: none;
+      background: linear-gradient(155deg, rgba(6, 22, 37, 0.95), rgba(4, 14, 27, 0.93));
+      box-shadow: inset 0 1px 0 rgba(168, 228, 255, 0.16);
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      overflow: hidden;
+    }
+    .main-menu-head {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) auto minmax(220px, 1fr);
+      align-items: stretch;
+      gap: 12px;
+      margin-bottom: 0;
+      position: relative;
+      z-index: 2;
+    }
+    .menu-title-block {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 8px 12px;
+    }
+    .menu-kicker {
+      font-size: 11px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: #86c9ea;
+    }
+    .menu-title {
+      margin-top: 2px;
+      font-size: clamp(28px, 4.3vw, 45px);
+      line-height: 0.95;
+      font-weight: 900;
+      background: linear-gradient(90deg, #fde68a, #7dd3fc, #f9a8d4);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      text-shadow: 0 0 24px rgba(125, 211, 252, 0.18);
+    }
+    .menu-sub {
+      margin: 6px 0 0;
+      font-size: 12px;
+      color: #9fc6dc;
+    }
+    .menu-daily-panel {
+      border-radius: 14px;
+      border: 1px solid rgba(95, 186, 233, 0.35);
+      background: linear-gradient(160deg, rgba(8, 28, 46, 0.86), rgba(7, 21, 35, 0.82));
+      box-shadow: inset 0 1px 0 rgba(170, 229, 255, 0.12);
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 4px;
+      min-height: 106px;
+    }
+    .menu-daily-label {
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #93cce8;
+      font-weight: 700;
+    }
+    .menu-daily-value {
+      font-size: 22px;
+      font-weight: 900;
+      color: #ffe5a3;
+      line-height: 1;
+    }
+    .menu-daily-meta {
+      font-size: 12px;
+      color: #9fc6dc;
+      min-height: 17px;
+    }
+    .menu-daily-btn {
+      margin-top: 2px;
+      border-radius: 10px;
+      border: 1px solid rgba(45, 240, 184, 0.55);
+      background: linear-gradient(130deg, #25d2ff, #2df0b8);
+      color: #032636;
+      font-size: 12px;
+      font-weight: 900;
+      padding: 7px 10px;
+      cursor: pointer;
+      transition: transform 0.12s ease, filter 0.12s ease, opacity 0.12s ease;
+    }
+    .menu-daily-btn:hover:not(:disabled) {
+      transform: translateY(-1px);
+      filter: brightness(1.06);
+    }
+    .menu-daily-btn:disabled {
+      opacity: 0.58;
+      cursor: not-allowed;
+    }
+    .menu-daily-note {
+      margin-top: 2px;
+      font-size: 11px;
+      color: #8ab4ca;
+      min-height: 16px;
+    }
+    .menu-daily-streak {
+      font-size: 13px;
+      color: #d2f2ff;
+      font-weight: 700;
+    }
+    .menu-daily-badge {
+      align-self: flex-start;
+      border-radius: 999px;
+      border: 1px solid rgba(95, 186, 233, 0.45);
+      background: rgba(10, 35, 57, 0.66);
+      color: #9fdfff;
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 2px 7px;
+    }
+    .menu-nav {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0 auto;
+      position: relative;
+      z-index: 2;
+    }
+    .menu-nav-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      border: 1px solid rgba(97, 189, 238, 0.45);
+      background: linear-gradient(165deg, rgba(8, 34, 54, 0.94), rgba(7, 26, 41, 0.95));
+      color: #d7f1ff;
+      font-size: 16px;
+      font-weight: 900;
+      cursor: pointer;
+      transition: transform 0.14s ease, border-color 0.14s ease;
+    }
+    .menu-nav-btn:hover:not(:disabled) {
+      transform: translateY(-1px);
+      border-color: rgba(152, 229, 255, 0.78);
+    }
+    .menu-nav-btn:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+    .menu-page-indicator {
+      min-width: 66px;
+      text-align: center;
+      font-size: 12px;
+      color: #b8def2;
+      font-weight: 700;
+    }
+    .slot-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(280px, 1fr));
+      gap: 14px;
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      align-content: start;
+      width: 100%;
+      margin: 0;
+      padding: 4px 2px 8px;
+      align-items: stretch;
+      justify-items: stretch;
+      position: relative;
+      z-index: 1;
+    }
+    .slot-card {
+      border-radius: 14px;
+      border: 1px solid rgba(93, 179, 225, 0.38);
+      background: linear-gradient(160deg, rgba(8, 28, 46, 0.88), rgba(7, 23, 37, 0.85));
+      padding: 11px;
+      min-height: 0;
+      aspect-ratio: 1 / 1;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .slot-card.active {
+      border-color: rgba(45, 240, 184, 0.75);
+      box-shadow: 0 0 0 1px rgba(45, 240, 184, 0.35), 0 10px 24px rgba(22, 180, 190, 0.2);
+    }
+    .slot-card::after {
+      content: "";
+      position: absolute;
+      right: -24px;
+      top: -24px;
+      width: 96px;
+      height: 96px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(120, 219, 255, 0.2), rgba(120, 219, 255, 0));
+      pointer-events: none;
+    }
+    .slot-card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 7px;
+      margin-bottom: 7px;
+    }
+    .slot-name {
+      font-size: 16px;
+      font-weight: 800;
+      color: #e8f7ff;
+      line-height: 1.08;
+    }
+    .slot-tag {
+      border-radius: 999px;
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      background: rgba(11, 37, 60, 0.66);
+      padding: 2px 8px;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #90d8fa;
+      font-weight: 800;
+      flex-shrink: 0;
+    }
+    .slot-tag.live {
+      border-color: rgba(45, 240, 184, 0.55);
+      color: #b2ffe5;
+      background: rgba(8, 58, 49, 0.54);
+    }
+    .slot-desc {
+      margin: 0;
+      font-size: 12px;
+      color: #9fc6dc;
+      line-height: 1.34;
+      flex: 1;
+    }
+    .slot-actions {
+      margin-top: 10px;
+      display: flex;
+      justify-content: flex-end;
+    }
+    .slot-play-btn {
+      border-radius: 9px;
+      border: 1px solid rgba(95, 186, 233, 0.5);
+      background: linear-gradient(145deg, rgba(13, 44, 69, 0.95), rgba(7, 28, 45, 0.95));
+      color: #d8f2ff;
+      font-size: 12px;
+      font-weight: 800;
+      padding: 7px 10px;
+      cursor: pointer;
+    }
+    .slot-play-btn.primary {
+      border-color: rgba(45, 240, 184, 0.66);
+      background: linear-gradient(130deg, #25d2ff, #2df0b8);
+      color: #032636;
+    }
+    .slot-play-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    @media (max-width: 840px) {
+      .topbar { grid-template-columns: 1fr; }
+      .jackpot-banner { top: 122px; min-width: 240px; }
+      .jackpot-value { font-size: 26px; }
+      .spin-reward-strip { bottom: 98px; }
+      .controls { grid-template-columns: 1fr; padding-bottom: 12px; }
+      #spin-btn { width: 100%; }
+      .metric { min-width: 0; }
+      .settings-fab { top: 18px; right: 14px; }
+      .settings-panel { top: 56px; right: 14px; width: min(270px, calc(100vw - 28px)); }
+      .main-menu-card { padding: 14px; }
+      .main-menu-head {
+        grid-template-columns: 1fr;
+        gap: 10px;
+      }
+      .menu-title-block { order: -1; }
+      .menu-daily-panel { min-height: 96px; }
+      .slot-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+  <div class="main-menu-overlay open" id="main-menu-overlay">
+    <div class="main-menu-card">
+      <div class="main-menu-head">
+        <section class="menu-daily-panel">
+          <span class="menu-daily-label">Recompensa diaria</span>
+          <div class="menu-daily-value" id="daily-reward-amount">+750 BiomeTokens</div>
+          <div class="menu-daily-meta" id="daily-reward-meta">Inicia sesion para reclamar.</div>
+          <button class="menu-daily-btn" id="daily-reward-claim-btn" type="button">Reclamar</button>
+          <div class="menu-daily-note" id="daily-reward-note"></div>
+        </section>
+        <div class="menu-title-block">
+          <div class="menu-kicker">Ocean and Wild Studios</div>
+          <div class="menu-title">BiomeVerse Fortune</div>
+          <p class="menu-sub">Explora el catalogo de slots y entra al que quieras jugar.</p>
+        </div>
+        <section class="menu-daily-panel">
+          <span class="menu-daily-label">Racha</span>
+          <span class="menu-daily-badge" id="daily-reward-badge">Sincronizando</span>
+          <div class="menu-daily-streak" id="daily-reward-streak">Dia 1 de 7</div>
+          <div class="menu-daily-meta" id="daily-reward-next">Siguiente: +750 BiomeTokens</div>
+          <div class="menu-daily-note" id="daily-reward-timer"></div>
+        </section>
+      </div>
+      <div class="menu-nav">
+        <button class="menu-nav-btn" id="menu-prev" aria-label="Anterior">&#9664;</button>
+        <div class="menu-page-indicator" id="menu-page">1 / 1</div>
+        <button class="menu-nav-btn" id="menu-next" aria-label="Siguiente">&#9654;</button>
+      </div>
+      <div class="slot-grid" id="slot-grid"></div>
+    </div>
+  </div>
+  <div class="auth-overlay" id="auth-overlay">
+    <div class="auth-card">
+      <h2 class="auth-title">Ocean Pay Login</h2>
+      <p class="auth-sub">Inicia sesion para usar tu saldo real de BiomeTokens en BiomeVerse Fortune.</p>
+      <input class="auth-input" id="auth-username" type="text" placeholder="Usuario de Ocean Pay" autocomplete="username" />
+      <input class="auth-input" id="auth-password" type="password" placeholder="Contrasena" autocomplete="current-password" />
+      <div class="auth-actions">
+        <button class="auth-btn primary" id="auth-login-btn">Entrar</button>
+        <button class="auth-btn" id="auth-guest-btn">Modo invitado</button>
+      </div>
+      <div class="auth-msg" id="auth-msg"></div>
+    </div>
+  </div>
+  <div class="ui-layer">
+    <div class="topbar">
+      <div>
+        <div class="brand-kicker">Ocean and Wild Studios</div>
+        <div class="brand-title" id="brand-title">BiomeVerse Fortune</div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Balance</div>
+        <div class="metric-value" id="balance-value">0 BiomeTokens</div>
+      </div>
+    </div>
+    <div class="jackpot-banner">
+      <div class="jackpot-label">Premio Gordo</div>
+      <div class="jackpot-value" id="jackpot-value">24,780 BiomeTokens</div>
+    </div>
+    <button class="settings-fab" id="settings-toggle" title="Configuracion">&#9881;</button>
+    <div class="settings-panel" id="settings-panel">
+      <h3 class="settings-title">Configuracion</h3>
+      <div class="settings-row">
+        <span>Modo de saldo</span>
+        <span class="mode-pill" id="mode-pill">Conectando...</span>
+      </div>
+      <div class="settings-row">
+        <span>Sonido</span>
+        <label class="switch">
+          <input id="audio-toggle" type="checkbox" checked />
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="settings-row">
+        <span>Recarga de prueba</span>
+        <button class="settings-action" id="refill-btn" title="Recargar saldo de prueba">+500</button>
+      </div>
+      <div class="settings-row">
+        <span>Menu principal</span>
+        <button class="settings-action" id="menu-open-btn">Abrir</button>
+      </div>
+      <div class="settings-row">
+        <span>Cuenta Ocean Pay</span>
+        <button class="settings-action" id="account-action-btn">Iniciar sesion</button>
+      </div>
+    </div>
+    <div class="status" id="status-text">Ready to spin</div>
+    <div class="spin-reward-strip">
+      <img src="https://archive.org/download/generalowsassets/biometokensicon.png" alt="BiomeTokens" />
+      <span class="amount" id="collection-amount">+0 BiomeTokens</span>
+    </div>
+    <div class="controls">
+      <div class="mini-panel">
+        <div class="label">Bet</div>
+        <div class="bet-controls">
+          <button class="chip-btn" id="bet-minus">-</button>
+          <div class="value" id="bet-value">20 BiomeTokens</div>
+          <button class="chip-btn" id="bet-plus">+</button>
+        </div>
+      </div>
+      <button id="spin-btn">SPIN</button>
+      <div class="mini-panel" style="text-align:right;">
+        <div class="label">Last Win</div>
+        <div class="value" id="win-value">0 BiomeTokens</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/pixi.js@8/dist/pixi.min.js"></script>
+  <script>
+    (async () => {
+      const API_URL = "https://owsdatabase.onrender.com";
+      const OCEAN_PAY_STORAGE_TOKEN = "opToken";
+      const OCEAN_PAY_STORAGE_USER = "opUser";
+      const OCEAN_PAY_LOGIN_FLAG_KEY = "untamedReelsOceanPayLogged";
+      const GUEST_MODE_BALANCE_KEY = "untamedReelsGuestBalance";
+      const GUEST_MODE_JACKPOT_KEY = "untamedReelsGuestJackpot";
+      const DAILY_SYNC_INTERVAL_MS = 15000;
+      const LUCKY_FOREST_SLOT_ID = "lucky-forest";
+      const LUCKY_FOREST_TREE_SYMBOL = "K";
+      const LUCKY_FOREST_TREE_THRESHOLD = 3;
+      const LUCKY_FOREST_TREE_BONUS_BASE = 25000;
+      const LUCKY_FOREST_TREE_BONUS_PER_EXTRA = 25000;
+      const FULL_ROW_BONUS = 100000;
+      const UNTAMED_REELS_MIN_BET = 10;
+      const DEFAULT_BET_OPTIONS = [10, 20, 50, 100, 200, 500, 1000, 2000];
+      const SPLASH_MIN_MS = 7000;
+      const BIOMETOKENS_ICON_URL = "https://archive.org/download/generalowsassets/biometokensicon.png";
+      const BIOMETOKENS_ICON_FALLBACK_URL = "https://archive.org/download/generalowsassets/reelmarksicon.png";
+      let biometokensTexture = null;
+
+      const app = new PIXI.Application();
+      await app.init({ resizeTo: window, backgroundAlpha: 0, antialias: true });
+      document.getElementById("app").appendChild(app.canvas);
+      document.body.classList.add("booting");
+      try {
+        biometokensTexture = await PIXI.Assets.load(BIOMETOKENS_ICON_URL);
+      } catch (_) {
+        try {
+          biometokensTexture = await PIXI.Assets.load(BIOMETOKENS_ICON_FALLBACK_URL);
+        } catch (_) {
+          biometokensTexture = null;
+        }
+      }
+
+      const state = {
+        connected: false,
+        usingGuestMode: false,
+        balance: 0,
+        jackpot: 24780,
+        lastWin: 0,
+        currencyCode: "biometokens",
+        currencyLabel: "BiomeTokens",
+        betOptions: [...DEFAULT_BET_OPTIONS],
+        betIndex: 1,
+        spinning: false,
+        soundEnabled: true,
+        daily: {
+          claimable: false,
+          streakCount: 0,
+          nextDay: 1,
+          nextReward: 750,
+          msUntilClaim: 0,
+          streakBroken: false,
+          totalClaims: 0,
+          schedule: [750, 1200, 1800, 2600, 3600, 5000, 7000]
+        },
+        claimingDaily: false
+      };
+
+      const symbols = ["A", "K", "Q", "J", "7", "WILD", "BAR", "STAR", "TIGER"];
+      const weights = [18, 18, 17, 16, 10, 6, 7, 5, 3];
+
+      const spinBtn = document.getElementById("spin-btn");
+      const betMinus = document.getElementById("bet-minus");
+      const betPlus = document.getElementById("bet-plus");
+      const refillBtn = document.getElementById("refill-btn");
+      const statusText = document.getElementById("status-text");
+      const balanceValue = document.getElementById("balance-value");
+      const jackpotValue = document.getElementById("jackpot-value");
+      const betValue = document.getElementById("bet-value");
+      const winValue = document.getElementById("win-value");
+      const collectionAmountEl = document.getElementById("collection-amount");
+      const settingsToggle = document.getElementById("settings-toggle");
+      const settingsPanel = document.getElementById("settings-panel");
+      const modePill = document.getElementById("mode-pill");
+      const audioToggle = document.getElementById("audio-toggle");
+      const accountActionBtn = document.getElementById("account-action-btn");
+      const authOverlay = document.getElementById("auth-overlay");
+      const authUsernameInput = document.getElementById("auth-username");
+      const authPasswordInput = document.getElementById("auth-password");
+      const authLoginBtn = document.getElementById("auth-login-btn");
+      const authGuestBtn = document.getElementById("auth-guest-btn");
+      const authMsg = document.getElementById("auth-msg");
+      const brandTitle = document.getElementById("brand-title");
+      const mainMenuOverlay = document.getElementById("main-menu-overlay");
+      const slotGrid = document.getElementById("slot-grid");
+      const menuPrev = document.getElementById("menu-prev");
+      const menuNext = document.getElementById("menu-next");
+      const menuPage = document.getElementById("menu-page");
+      const menuOpenBtn = document.getElementById("menu-open-btn");
+      const dailyRewardAmount = document.getElementById("daily-reward-amount");
+      const dailyRewardMeta = document.getElementById("daily-reward-meta");
+      const dailyRewardNote = document.getElementById("daily-reward-note");
+      const dailyRewardClaimBtn = document.getElementById("daily-reward-claim-btn");
+      const dailyRewardBadge = document.getElementById("daily-reward-badge");
+      const dailyRewardStreak = document.getElementById("daily-reward-streak");
+      const dailyRewardNext = document.getElementById("daily-reward-next");
+      const dailyRewardTimer = document.getElementById("daily-reward-timer");
+      let fxOverlay = null;
+
+      const root = new PIXI.Container();
+      app.stage.addChild(root);
+      root.sortableChildren = true;
+
+      const splash = (() => {
+        const container = new PIXI.Container();
+        container.zIndex = 9999;
+        app.stage.addChild(container);
+
+        const backdrop = new PIXI.Graphics();
+        const glow = new PIXI.Graphics();
+        const ringA = new PIXI.Graphics();
+        const ringB = new PIXI.Graphics();
+        const loadingBox = new PIXI.Graphics();
+        const loadingFill = new PIXI.Graphics();
+        const particles = new PIXI.Container();
+        const starNodes = [];
+
+        const title = new PIXI.Text({
+          text: "BiomeVerse Fortune",
+          style: {
+            fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
+            fontSize: 76,
+            fontWeight: "900",
+            fill: "#ffd166",
+            stroke: "#102030",
+            strokeThickness: 6
+          }
+        });
+        title.anchor.set(0.5);
+
+        const subtitle = new PIXI.Text({
+          text: "Ocean and Wild Studios",
+          style: {
+            fontFamily: "Segoe UI, Tahoma, sans-serif",
+            fontSize: 24,
+            fontWeight: "700",
+            fill: "#9fdfff",
+            letterSpacing: 1
+          }
+        });
+        subtitle.anchor.set(0.5);
+
+        const status = new PIXI.Text({
+          text: "Preparando experiencia...",
+          style: {
+            fontFamily: "Segoe UI, Tahoma, sans-serif",
+            fontSize: 18,
+            fontWeight: "700",
+            fill: "#d4f3ff"
+          }
+        });
+        status.anchor.set(0.5);
+
+        const progressText = new PIXI.Text({
+          text: "0%",
+          style: {
+            fontFamily: "Segoe UI, Tahoma, sans-serif",
+            fontSize: 16,
+            fontWeight: "900",
+            fill: "#ffe7b0"
+          }
+        });
+        progressText.anchor.set(0.5);
+
+        const tipText = new PIXI.Text({
+          text: "Sincronizando con Ocean Pay...",
+          style: {
+            fontFamily: "Segoe UI, Tahoma, sans-serif",
+            fontSize: 14,
+            fontWeight: "700",
+            fill: "#9dc7de"
+          }
+        });
+        tipText.anchor.set(0.5);
+
+        loadingBox.alpha = 0;
+        loadingFill.alpha = 0;
+        progressText.alpha = 0;
+        tipText.alpha = 0;
+
+        container.addChild(backdrop, glow, ringA, ringB, particles, title, subtitle, loadingBox, loadingFill, progressText, status, tipText);
+
+        for (let i = 0; i < 46; i += 1) {
+          const star = new PIXI.Graphics();
+          const r = 1 + Math.random() * 2.6;
+          star.circle(0, 0, r).fill({ color: i % 3 === 0 ? 0xffd166 : 0x56d9ff, alpha: 0.92 });
+          particles.addChild(star);
+          starNodes.push({
+            node: star,
+            phase: Math.random() * Math.PI * 2,
+            speed: 0.3 + Math.random() * 0.9,
+            radius: 120 + Math.random() * 320
+          });
+        }
+
+        function layout() {
+          const w = app.renderer.width;
+          const h = app.renderer.height;
+          backdrop.clear().rect(0, 0, w, h).fill({ color: 0x020812, alpha: 0.97 });
+          glow.clear().ellipse(w * 0.5, h * 0.4, Math.min(420, w * 0.36), Math.min(180, h * 0.22)).fill({ color: 0x2be3ff, alpha: 0.11 });
+          title.x = w * 0.5;
+          title.y = h * 0.38;
+          subtitle.x = w * 0.5;
+          subtitle.y = h * 0.46;
+          status.x = w * 0.5;
+          status.y = h * 0.53;
+
+          const barWidth = Math.min(520, w * 0.68);
+          const barHeight = 22;
+          const barX = w * 0.5 - barWidth * 0.5;
+          const barY = h * 0.61;
+
+          loadingBox.clear()
+            .roundRect(barX, barY, barWidth, barHeight, 11)
+            .fill({ color: 0x0a2438, alpha: 0.9 })
+            .stroke({ width: 2, color: 0x56d9ff, alpha: 0.55 });
+
+          loadingFill.clear()
+            .roundRect(barX + 3, barY + 3, Math.max(4, (barWidth - 6) * 0.01), barHeight - 6, 8)
+            .fill({ color: 0xffd166, alpha: 0.95 });
+
+          progressText.x = w * 0.5;
+          progressText.y = barY + barHeight + 20;
+          tipText.x = w * 0.5;
+          tipText.y = progressText.y + 24;
+        }
+
+        let progress = 0.01;
+        function setProgress(value) {
+          progress = Math.max(0, Math.min(1, Number(value) || 0));
+          const w = app.renderer.width;
+          const h = app.renderer.height;
+          const barWidth = Math.min(520, w * 0.68);
+          const barHeight = 22;
+          const barX = w * 0.5 - barWidth * 0.5;
+          const barY = h * 0.61;
+          loadingFill.clear()
+            .roundRect(barX + 3, barY + 3, Math.max(4, (barWidth - 6) * progress), barHeight - 6, 8)
+            .fill({ color: 0xffd166, alpha: 0.95 });
+          progressText.text = `${Math.floor(progress * 100)}%`;
+        }
+
+        function showLoading(show) {
+          const alpha = show ? 1 : 0;
+          loadingBox.alpha = alpha;
+          loadingFill.alpha = alpha;
+          progressText.alpha = alpha;
+          tipText.alpha = alpha;
+        }
+
+        function setStatus(text) {
+          status.text = String(text || "");
+        }
+
+        function setTip(text) {
+          tipText.text = String(text || "");
+        }
+
+        function tickSplash(ts) {
+          const t = ts * 0.001;
+          const w = app.renderer.width;
+          const h = app.renderer.height;
+          ringA.clear()
+            .circle(w * 0.5, h * 0.44, 90 + Math.sin(t * 1.7) * 8)
+            .stroke({ width: 3, color: 0x2be3ff, alpha: 0.38 });
+          ringB.clear()
+            .circle(w * 0.5, h * 0.44, 124 + Math.cos(t * 1.3) * 10)
+            .stroke({ width: 2, color: 0xffd166, alpha: 0.28 });
+
+          title.scale.set(1 + Math.sin(t * 2.3) * 0.014);
+          subtitle.alpha = 0.76 + Math.sin(t * 2.7) * 0.18;
+          status.alpha = 0.74 + Math.sin(t * 3.1) * 0.2;
+          tipText.alpha = tipText.alpha > 0 ? (0.72 + Math.sin(t * 2.1) * 0.2) : 0;
+
+          for (const star of starNodes) {
+            const angle = t * star.speed + star.phase;
+            star.node.x = w * 0.5 + Math.cos(angle) * star.radius * (w / Math.max(1, h)) * 0.58;
+            star.node.y = h * 0.44 + Math.sin(angle) * star.radius * 0.34;
+            star.node.alpha = 0.22 + Math.abs(Math.sin(angle * 1.7)) * 0.7;
+          }
+        }
+
+        app.ticker.add((ticker) => {
+          if (!container.visible) return;
+          tickSplash(performance.now() + ticker.deltaMS);
+        });
+
+        layout();
+        setProgress(0.01);
+
+        return {
+          container,
+          layout,
+          setProgress,
+          showLoading,
+          setStatus,
+          setTip,
+          async hide(duration = 400) {
+            const start = performance.now();
+            await new Promise((resolve) => {
+              const step = (ts) => {
+                const t = Math.max(0, Math.min(1, (ts - start) / duration));
+                container.alpha = 1 - t;
+                if (t < 1) requestAnimationFrame(step);
+                else resolve();
+              };
+              requestAnimationFrame(step);
+            });
+            container.visible = false;
+          }
+        };
+      })();
+
+      const backgroundOrbs = new PIXI.Container();
+      backgroundOrbs.zIndex = 1;
+      root.addChild(backgroundOrbs);
+      const orbData = [];
+      for (let i = 0; i < 16; i++) {
+        const g = new PIXI.Graphics();
+        const r = 30 + Math.random() * 80;
+        const color = i % 2 === 0 ? 0x2be3ff : 0xff6f91;
+        g.circle(0, 0, r).fill({ color, alpha: 0.12 });
+        g.blur = 8;
+        backgroundOrbs.addChild(g);
+        orbData.push({ sprite: g, phase: Math.random() * Math.PI * 2, speed: 0.2 + Math.random() * 0.6 });
+      }
+
+      const slotContainer = new PIXI.Container();
+      slotContainer.zIndex = 10;
+      root.addChild(slotContainer);
+      const cabinetGlow = new PIXI.Graphics();
+      slotContainer.addChild(cabinetGlow);
+      const cabinetFrame = new PIXI.Graphics();
+      slotContainer.addChild(cabinetFrame);
+      const reelsMask = new PIXI.Graphics();
+      slotContainer.addChild(reelsMask);
+      const reelsContainer = new PIXI.Container();
+      reelsContainer.mask = reelsMask;
+      slotContainer.addChild(reelsContainer);
+      const overlayLines = new PIXI.Graphics();
+      slotContainer.addChild(overlayLines);
+
+      const reelCount = 5;
+      const rows = 3;
+      const cellW = 130;
+      const cellH = 112;
+      const gap = 10;
+      const reelStates = [];
+      const menuPageSize = 4;
+      const slotCatalog = [
+        {
+          id: "lucky-forest",
+          name: "Lucky Forest",
+          status: "live",
+          tag: "Live",
+          description: "Bosque mistico con simbolos salvajes y ritmo clasico de alto impacto."
+        },
+        {
+          id: "coral-crown",
+          name: "Coral Crown",
+          status: "soon",
+          tag: "Soon",
+          description: "Tragaperras de arrecife con cascadas de premio y multiplicadores marinos."
+        },
+        {
+          id: "volcanic-gold",
+          name: "Volcanic Gold",
+          status: "soon",
+          tag: "Soon",
+          description: "Tema volcanico con lineas calientes y rondas de fuego progresivo."
+        },
+        {
+          id: "neon-depths",
+          name: "Neon Depths",
+          status: "soon",
+          tag: "Soon",
+          description: "Ambiente cyber-oceanico de alto contraste con bonus de respin."
+        },
+        {
+          id: "storm-jaguar",
+          name: "Storm Jaguar",
+          status: "soon",
+          tag: "Soon",
+          description: "Selva electrica con jackpots veloces y simbolos de caza."
+        },
+        {
+          id: "abyss-rush",
+          name: "Abyss Rush",
+          status: "soon",
+          tag: "Soon",
+          description: "Inmersion al abismo con rondas de riesgo y combos en cadena."
+        },
+        {
+          id: "sunken-runes",
+          name: "Sunken Runes",
+          status: "soon",
+          tag: "Soon",
+          description: "Runas antiguas y bonificaciones escalables con estilo arcano."
+        },
+        {
+          id: "sky-tide",
+          name: "Sky Tide",
+          status: "soon",
+          tag: "Soon",
+          description: "Slot aereo-marino con olas verticales y premios apilados."
+        }
+      ];
+      let menuPageIndex = 0;
+      let selectedSlotId = "lucky-forest";
+      let audioCtx = null;
+      let autoSyncTimer = null;
+      let syncInFlight = false;
+
+      function getOceanPayToken() {
+        const fromStorage = String(localStorage.getItem(OCEAN_PAY_STORAGE_TOKEN) || "").trim();
+        if (fromStorage) return fromStorage;
+        try {
+          const parsed = JSON.parse(localStorage.getItem(OCEAN_PAY_STORAGE_USER) || "null");
+          return String(parsed?.token || "").trim();
+        } catch (_) {
+          return "";
+        }
+      }
+
+      function setAuthMessage(text, isError = false) {
+        if (!authMsg) return;
+        authMsg.textContent = String(text || "");
+        authMsg.style.color = isError ? "#fda4af" : "#9bc6dd";
+      }
+
+      function getSelectedSlot() {
+        return slotCatalog.find((slot) => slot.id === selectedSlotId) || slotCatalog[0];
+      }
+
+      function updateBrandFromSlot() {
+        const selected = getSelectedSlot();
+        if (!brandTitle) return;
+        brandTitle.textContent = selected?.name || "BiomeVerse Fortune";
+      }
+
+      function setMainMenuVisible(visible) {
+        if (!mainMenuOverlay) return;
+        mainMenuOverlay.classList.toggle("open", !!visible);
+      }
+
+      function renderMenuPage() {
+        if (!slotGrid || !menuPage || !menuPrev || !menuNext) return;
+        const totalPages = Math.max(1, Math.ceil(slotCatalog.length / menuPageSize));
+        menuPageIndex = Math.max(0, Math.min(menuPageIndex, totalPages - 1));
+        const start = menuPageIndex * menuPageSize;
+        const end = start + menuPageSize;
+        const pageSlots = slotCatalog.slice(start, end);
+        slotGrid.innerHTML = pageSlots.map((slot) => {
+          const isActive = slot.id === selectedSlotId;
+          const isLive = slot.status === "live";
+          return `
+            <article class="slot-card ${isActive ? "active" : ""}">
+              <div class="slot-card-head">
+                <div class="slot-name">${slot.name}</div>
+                <span class="slot-tag ${isLive ? "live" : ""}">${slot.tag}</span>
+              </div>
+              <p class="slot-desc">${slot.description}</p>
+              <div class="slot-actions">
+                <button class="slot-play-btn ${isLive ? "primary" : ""}" data-slot-id="${slot.id}" ${isLive ? "" : "disabled"}>
+                  ${isLive ? "Jugar" : "Proximamente"}
+                </button>
+              </div>
+            </article>
+          `;
+        }).join("");
+
+        slotGrid.querySelectorAll("button[data-slot-id]").forEach((button) => {
+          button.addEventListener("click", () => {
+            const slotId = String(button.dataset.slotId || "");
+            const slot = slotCatalog.find((s) => s.id === slotId);
+            if (!slot || slot.status !== "live") return;
+            selectedSlotId = slot.id;
+            updateBrandFromSlot();
+            redrawCurrentSymbolsForTheme();
+            renderMenuPage();
+            setMainMenuVisible(false);
+            setStatus(`${slot.name} cargado. Buena suerte.`);
+          });
+        });
+
+        menuPage.textContent = `${menuPageIndex + 1} / ${totalPages}`;
+        menuPrev.disabled = menuPageIndex <= 0;
+        menuNext.disabled = menuPageIndex >= totalPages - 1;
+      }
+
+      function setAuthOverlayVisible(visible) {
+        if (!authOverlay) return;
+        authOverlay.classList.toggle("open", !!visible);
+      }
+
+      function saveOceanPaySession(tokenValue, user) {
+        const safeToken = String(tokenValue || "").trim();
+        if (!safeToken || !user || !user.id) return;
+        localStorage.setItem(OCEAN_PAY_STORAGE_TOKEN, safeToken);
+        localStorage.setItem(OCEAN_PAY_STORAGE_USER, JSON.stringify({
+          ...(typeof user === "object" ? user : {}),
+          token: safeToken
+        }));
+        localStorage.setItem(OCEAN_PAY_LOGIN_FLAG_KEY, "1");
+      }
+
+      async function loginOceanPay(username, password) {
+        const res = await fetch(`${API_URL}/ocean-pay/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username: String(username || "").trim(),
+            password: String(password || "").trim(),
+            client: "biomeverse-fortune"
+          })
+        });
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(payload?.error || `HTTP ${res.status}`);
+        if (payload?.requires_two_factor) {
+          throw new Error("Esta cuenta requiere 2FA para este cliente.");
+        }
+        const tokenValue = String(payload?.token || "").trim();
+        const user = payload?.user && typeof payload.user === "object" ? payload.user : null;
+        if (!tokenValue || !user) throw new Error("Respuesta de login incompleta");
+        saveOceanPaySession(tokenValue, user);
+        return payload;
+      }
+
+      function getGuestStoredNumber(key, fallback) {
+        const n = Number(localStorage.getItem(key));
+        if (Number.isFinite(n) && n >= 0) return Math.floor(n);
+        return Math.max(0, Math.floor(Number(fallback) || 0));
+      }
+
+      function normalizeBetOptions(values = []) {
+        const parsed = (Array.isArray(values) ? values : [])
+          .map((v) => Math.max(1, Math.floor(Number(v) || 0)))
+          .filter((v) => Number.isFinite(v) && v > 0);
+        return [...new Set(parsed)].sort((a, b) => a - b);
+      }
+
+      function mergeBetOptions(apiOptions = []) {
+        const merged = normalizeBetOptions([...(state.betOptions || []), ...DEFAULT_BET_OPTIONS, ...apiOptions]);
+        if (merged.length) {
+          state.betOptions = merged;
+          state.betIndex = Math.min(state.betIndex, Math.max(0, merged.length - 1));
+        }
+      }
+
+      function persistGuestState() {
+        if (!state.usingGuestMode) return;
+        localStorage.setItem(GUEST_MODE_BALANCE_KEY, String(Math.max(0, Math.floor(state.balance || 0))));
+        localStorage.setItem(GUEST_MODE_JACKPOT_KEY, String(Math.max(0, Math.floor(state.jackpot || 0))));
+      }
+
+      function symbolToDisplay(sym) {
+        const key = String(sym || "").toUpperCase();
+        if (key === "STAR") return "*";
+        if (key === "TIGER") return "TG";
+        return key || "A";
+      }
+
+      async function authedApi(path, options = {}) {
+        const token = getOceanPayToken();
+        if (!token) throw new Error("No Ocean Pay session");
+        const headers = {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          ...(options.headers || {})
+        };
+        const res = await fetch(`${API_URL}${path}`, { ...options, headers });
+        if (!res.ok) {
+          let payload = null;
+          try { payload = await res.json(); } catch (_) {}
+          throw new Error(payload?.error || `HTTP ${res.status}`);
+        }
+        return res.json();
+      }
+
+      function formatMsToClock(ms) {
+        const safe = Math.max(0, Math.floor(Number(ms) || 0));
+        const totalSec = Math.floor(safe / 1000);
+        const hours = Math.floor(totalSec / 3600);
+        const minutes = Math.floor((totalSec % 3600) / 60);
+        const seconds = totalSec % 60;
+        return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+      }
+
+      function renderDailyRewardsUI() {
+        if (!dailyRewardAmount || !dailyRewardClaimBtn) return;
+
+        const daily = state.daily || {};
+        const nextReward = Math.max(0, Math.floor(Number(daily.nextReward) || 0));
+        const nextDay = Math.max(1, Math.floor(Number(daily.nextDay) || 1));
+        const streakCount = Math.max(0, Math.floor(Number(daily.streakCount) || 0));
+        const msUntilClaim = Math.max(0, Math.floor(Number(daily.msUntilClaim) || 0));
+        const claimable = !!daily.claimable && !state.usingGuestMode;
+        const canClaim = claimable && !state.claimingDaily;
+
+        dailyRewardAmount.textContent = `+${nextReward.toLocaleString()} BiomeTokens`;
+        dailyRewardStreak.textContent = `Dia ${nextDay} de ${Math.max(1, Number(daily.schedule?.length || 7))}`;
+        dailyRewardNext.textContent = `Proximo: +${nextReward.toLocaleString()} BiomeTokens`;
+
+        if (state.usingGuestMode) {
+          dailyRewardMeta.textContent = "Conecta Ocean Pay para activar la racha.";
+          dailyRewardNote.textContent = "";
+          dailyRewardBadge.textContent = "Invitado";
+          dailyRewardTimer.textContent = "Disponible al iniciar sesion.";
+          dailyRewardClaimBtn.textContent = "Conectar";
+          dailyRewardClaimBtn.disabled = false;
+          return;
+        }
+
+        dailyRewardBadge.textContent = claimable ? "Disponible" : "En espera";
+        dailyRewardMeta.textContent = `Racha actual: ${streakCount} ${streakCount === 1 ? "dia" : "dias"}.`;
+        dailyRewardNote.textContent = daily.streakBroken ? "Racha reiniciada por inactividad." : "";
+        dailyRewardTimer.textContent = claimable
+          ? "Reclamala ahora."
+          : `Disponible en ${formatMsToClock(msUntilClaim)}.`;
+
+        dailyRewardClaimBtn.textContent = state.claimingDaily ? "Reclamando..." : "Reclamar";
+        dailyRewardClaimBtn.disabled = !canClaim;
+      }
+
+      function applyDailyPayload(payload) {
+        const schedule = Array.isArray(payload?.rewards_schedule) && payload.rewards_schedule.length
+          ? payload.rewards_schedule.map((v) => Math.max(0, Math.floor(Number(v) || 0)))
+          : (state.daily?.schedule || [750, 1200, 1800, 2600, 3600, 5000, 7000]);
+        const daily = payload?.daily && typeof payload.daily === "object" ? payload.daily : {};
+        state.daily = {
+          claimable: !!daily.claimable,
+          streakCount: Math.max(0, Math.floor(Number(daily.streak_count || 0))),
+          nextDay: Math.max(1, Math.floor(Number(daily.next_day || 1))),
+          nextReward: Math.max(0, Math.floor(Number(daily.next_reward || schedule[0] || 750))),
+          msUntilClaim: Math.max(0, Math.floor(Number(daily.ms_until_claim || 0))),
+          streakBroken: !!daily.streak_broken,
+          totalClaims: Math.max(0, Math.floor(Number(daily.total_claims || 0))),
+          schedule
+        };
+      }
+
+      async function syncDailyRewards({ showStatus = false } = {}) {
+        const previousClaimable = !!state.daily?.claimable;
+        if (state.usingGuestMode || !getOceanPayToken()) {
+          renderDailyRewardsUI();
+          return false;
+        }
+        try {
+          const data = await authedApi("/biomeverse-fortune/daily-reward/status");
+          applyDailyPayload(data);
+          const balanceFromDaily = Number(data?.balance);
+          if (Number.isFinite(balanceFromDaily)) {
+            state.balance = Math.max(0, Math.floor(balanceFromDaily));
+          }
+          renderDailyRewardsUI();
+          refreshHud();
+          if (!previousClaimable && state.daily.claimable && !state.spinning) {
+            setMainMenuVisible(true);
+            setStatus("Recompensa diaria disponible");
+          } else if (showStatus) {
+            setStatus(state.daily.claimable ? "Recompensa diaria lista para reclamar" : "Recompensa diaria sincronizada");
+          }
+          return true;
+        } catch (_) {
+          renderDailyRewardsUI();
+          return false;
+        }
+      }
+
+      async function syncProfile() {
+        try {
+          const data = await authedApi("/biomeverse-fortune/profile");
+          state.connected = true;
+          state.usingGuestMode = false;
+          state.balance = Math.max(0, Math.floor(Number(data?.balance || 0)));
+          state.currencyCode = String(data?.currency || "biometokens");
+          state.currencyLabel = String(data?.currency_label || "BiomeTokens");
+          mergeBetOptions(data?.bet_options || []);
+          setStatus("Ocean Pay conectado. Balance sincronizado");
+          await syncDailyRewards({ showStatus: false });
+        } catch (_) {
+          state.connected = true;
+          state.usingGuestMode = true;
+          state.balance = getGuestStoredNumber(GUEST_MODE_BALANCE_KEY, 1000);
+          if (state.balance <= 0) state.balance = 1000;
+          state.jackpot = getGuestStoredNumber(GUEST_MODE_JACKPOT_KEY, state.jackpot);
+          setStatus("Modo invitado activo. Inicia sesion en Ocean Pay para balance real");
+          persistGuestState();
+          renderDailyRewardsUI();
+        } finally {
+          refreshHud();
+        }
+      }
+
+      async function syncBalanceBackground({ showStatus = false } = {}) {
+        if (syncInFlight || state.spinning) return false;
+        const token = getOceanPayToken();
+        if (!token) return false;
+        syncInFlight = true;
+        try {
+          const data = await authedApi("/biomeverse-fortune/profile");
+          state.connected = true;
+          state.usingGuestMode = false;
+          state.balance = Math.max(0, Math.floor(Number(data?.balance || state.balance)));
+          state.currencyCode = String(data?.currency || state.currencyCode || "biometokens");
+          state.currencyLabel = String(data?.currency_label || state.currencyLabel || "BiomeTokens");
+          mergeBetOptions(data?.bet_options || []);
+          refreshHud();
+          await syncDailyRewards({ showStatus: false });
+          if (showStatus) setStatus("Saldo sincronizado con Ocean Pay");
+          return true;
+        } catch (_) {
+          return false;
+        } finally {
+          syncInFlight = false;
+        }
+      }
+
+      function startAutoSync() {
+        if (autoSyncTimer) clearInterval(autoSyncTimer);
+        autoSyncTimer = setInterval(() => {
+          syncBalanceBackground({ showStatus: false }).catch(() => {});
+          if (!state.spinning && !state.claimingDaily) {
+            syncDailyRewards({ showStatus: false }).catch(() => {});
+          } else if (state.daily && state.daily.msUntilClaim > 0) {
+            state.daily.msUntilClaim = Math.max(0, state.daily.msUntilClaim - DAILY_SYNC_INTERVAL_MS);
+            renderDailyRewardsUI();
+          }
+        }, DAILY_SYNC_INTERVAL_MS);
+      }
+
+      function ensureAudioContext() {
+        if (!audioCtx) {
+          const Ctx = window.AudioContext || window.webkitAudioContext;
+          if (!Ctx) return null;
+          audioCtx = new Ctx();
+        }
+        if (audioCtx.state === "suspended") audioCtx.resume().catch(() => {});
+        return audioCtx;
+      }
+
+      function playTone({ freq = 440, type = "sine", attack = 0.005, decay = 0.12, gain = 0.05, start = 0, glideTo = null }) {
+        if (!state.soundEnabled) return;
+        const ctx = ensureAudioContext();
+        if (!ctx) return;
+        const now = ctx.currentTime + start;
+        const osc = ctx.createOscillator();
+        const amp = ctx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, now);
+        if (Number.isFinite(glideTo)) osc.frequency.exponentialRampToValueAtTime(Math.max(30, glideTo), now + decay);
+        amp.gain.setValueAtTime(0.0001, now);
+        amp.gain.exponentialRampToValueAtTime(Math.max(0.0001, gain), now + attack);
+        amp.gain.exponentialRampToValueAtTime(0.0001, now + decay);
+        osc.connect(amp);
+        amp.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + decay + 0.02);
+      }
+
+      function playSpinStartSound() {
+        playTone({ freq: 520, type: "triangle", attack: 0.01, decay: 0.2, gain: 0.04, glideTo: 180 });
+        playTone({ freq: 240, type: "sawtooth", attack: 0.01, decay: 0.26, gain: 0.02, start: 0.02, glideTo: 70 });
+      }
+
+      function playReelStopSound(index = 0) {
+        playTone({ freq: 320 + Math.max(0, Number(index) || 0) * 25, type: "square", attack: 0.003, decay: 0.08, gain: 0.03 });
+      }
+
+      function playWinSound(win = 0) {
+        const boost = Math.min(220, Math.floor(Math.max(0, Number(win) || 0) / 8));
+        playTone({ freq: 420 + boost * 0.15, type: "triangle", attack: 0.01, decay: 0.22, gain: 0.05, start: 0.00 });
+        playTone({ freq: 560 + boost * 0.2, type: "triangle", attack: 0.01, decay: 0.24, gain: 0.05, start: 0.08 });
+        playTone({ freq: 740 + boost * 0.25, type: "triangle", attack: 0.01, decay: 0.3, gain: 0.05, start: 0.16 });
+      }
+
+      function weightedRandom() {
+        const total = weights.reduce((a, b) => a + b, 0);
+        let roll = Math.random() * total;
+        for (let i = 0; i < symbols.length; i++) {
+          roll -= weights[i];
+          if (roll <= 0) return symbols[i];
+        }
+        return symbols[0];
+      }
+
+      function symbolPalette(sym) {
+        const key = String(sym || "").toUpperCase();
+        if (key === "WILD") return { bg: 0x482c9c, edge: 0x7d5cff };
+        if (key === "BAR") return { bg: 0x2b1f10, edge: 0xe2a94f };
+        if (key === "TIGER") return { bg: 0x3a2610, edge: 0xff9c34 };
+        if (key === "STAR") return { bg: 0x173b57, edge: 0x38d6ff };
+        if (key === "7") return { bg: 0x3c0f1a, edge: 0xff6687 };
+        return { bg: 0x0f2f44, edge: 0x4dcfff };
+      }
+
+      function isLuckyForestSelected() {
+        return selectedSlotId === LUCKY_FOREST_SLOT_ID;
+      }
+
+      function drawLuckyForestTree(container) {
+        const trunk = new PIXI.Graphics();
+        trunk.roundRect(-8, -6, 16, 34, 6).fill({ color: 0x5b3a22, alpha: 0.95 });
+        trunk.y = 18;
+
+        const crown = new PIXI.Graphics();
+        crown.circle(0, 0, 22).fill({ color: 0x2bc27f, alpha: 0.96 });
+        crown.circle(-15, 7, 16).fill({ color: 0x28a86f, alpha: 0.95 });
+        crown.circle(15, 7, 16).fill({ color: 0x2ea970, alpha: 0.95 });
+        crown.circle(0, 15, 14).fill({ color: 0x1f8757, alpha: 0.92 });
+        crown.y = -5;
+
+        const leafGlow = new PIXI.Graphics();
+        leafGlow.circle(0, 6, 30).fill({ color: 0x7af5b2, alpha: 0.14 });
+
+        container.addChild(leafGlow, crown, trunk);
+      }
+
+      function showCenterEventCard({ title, subtitle, accent = 0xfcd34d, trees = false, duration = 1200 }) {
+        if (!fxOverlay) return;
+        const card = new PIXI.Container();
+        const back = new PIXI.Graphics();
+        const w = Math.min(560, app.renderer.width * 0.72);
+        const h = 130;
+        back.roundRect(-w / 2, -h / 2, w, h, 18)
+          .fill({ color: 0x081220, alpha: 0.86 })
+          .stroke({ width: 2, color: accent, alpha: 0.82 });
+        card.addChild(back);
+
+        const titleText = new PIXI.Text({
+          text: String(title || ""),
+          style: {
+            fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
+            fontSize: 44,
+            fontWeight: "900",
+            fill: "#ffe9b0",
+            stroke: "#1f1305",
+            strokeThickness: 5
+          }
+        });
+        titleText.anchor.set(0.5);
+        titleText.y = -14;
+        card.addChild(titleText);
+
+        const subText = new PIXI.Text({
+          text: String(subtitle || ""),
+          style: {
+            fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
+            fontSize: 22,
+            fontWeight: "800",
+            fill: "#d9f8ff"
+          }
+        });
+        subText.anchor.set(0.5);
+        subText.y = 34;
+        card.addChild(subText);
+
+        if (trees) {
+          const left = new PIXI.Container();
+          drawLuckyForestTree(left);
+          left.scale.set(0.72);
+          left.x = -w * 0.38;
+          left.y = 2;
+          card.addChild(left);
+          const right = new PIXI.Container();
+          drawLuckyForestTree(right);
+          right.scale.set(0.72);
+          right.x = w * 0.38;
+          right.y = 2;
+          card.addChild(right);
+        }
+
+        card.x = app.renderer.width * 0.5;
+        card.y = app.renderer.height * 0.48;
+        card.alpha = 0;
+        card.scale.set(0.72);
+        fxOverlay.addChild(card);
+
+        const start = performance.now();
+        const anim = (ts) => {
+          const t = Math.max(0, Math.min(1, (ts - start) / duration));
+          const easeIn = 1 - Math.pow(1 - Math.min(1, t * 1.6), 3);
+          const fadeOut = t > 0.7 ? 1 - ((t - 0.7) / 0.3) : 1;
+          card.alpha = easeIn * fadeOut;
+          card.scale.set(0.72 + easeIn * 0.35);
+          if (t < 1) requestAnimationFrame(anim);
+          else card.destroy({ children: true });
+        };
+        requestAnimationFrame(anim);
+      }
+
+      async function playHypeBurst(level = "normal") {
+        if (!fxOverlay) return;
+        const flash = new PIXI.Graphics();
+        const color = level === "full-row" ? 0xff7a18 : (level === "forest" ? 0x9bff8d : 0xffe066);
+        flash.rect(0, 0, app.renderer.width, app.renderer.height).fill({ color, alpha: 0.22 });
+        fxOverlay.addChild(flash);
+
+        const originX = slotContainer.x;
+        const originY = slotContainer.y;
+        const amp = level === "full-row" ? 9 : 5;
+        const duration = level === "full-row" ? 520 : 380;
+        const start = performance.now();
+
+        await new Promise((resolve) => {
+          const tick = (ts) => {
+            const t = Math.max(0, Math.min(1, (ts - start) / duration));
+            const pulse = Math.sin(t * Math.PI * (level === "full-row" ? 7 : 5));
+            const decay = 1 - t;
+            slotContainer.x = originX + pulse * amp * decay;
+            slotContainer.y = originY + Math.cos(t * Math.PI * 8) * (amp * 0.5) * decay;
+            flash.alpha = 0.22 * (1 - t);
+            if (t < 1) requestAnimationFrame(tick);
+            else resolve();
+          };
+          requestAnimationFrame(tick);
+        });
+
+        slotContainer.x = originX;
+        slotContainer.y = originY;
+        flash.destroy();
+      }
+
+      function drawSymbolCell(sym) {
+        const c = new PIXI.Container();
+        const p = symbolPalette(sym);
+        const box = new PIXI.Graphics();
+        box.roundRect(0, 0, cellW - 10, cellH - 10, 18)
+          .fill({ color: p.bg, alpha: 0.86 })
+          .stroke({ width: 2, color: p.edge, alpha: 0.65 });
+        const shine = new PIXI.Graphics();
+        shine.roundRect(6, 6, cellW - 22, 18, 8).fill({ color: 0xffffff, alpha: 0.12 });
+        const symKey = String(sym || "").toUpperCase();
+        const centerX = (cellW - 10) * 0.5;
+        const centerY = (cellH - 10) * 0.55;
+        const payload = new PIXI.Container();
+        payload.x = centerX;
+        payload.y = centerY;
+
+        if (isLuckyForestSelected() && symKey === LUCKY_FOREST_TREE_SYMBOL) {
+          drawLuckyForestTree(payload);
+        } else {
+          const txt = new PIXI.Text({
+            text: symbolToDisplay(sym),
+            style: {
+              fontFamily: "Trebuchet MS, Segoe UI, sans-serif",
+              fontSize: symKey.length > 2 ? 28 : 46,
+              fontWeight: "800",
+              fill: symKey === "WILD" ? "#ffe29a" : "#ecf7ff",
+              stroke: "#041b2a",
+              strokeThickness: 4
+            }
+          });
+          txt.anchor.set(0.5);
+          payload.addChild(txt);
+        }
+
+        c.addChild(box, shine, payload);
+        return c;
+      }
+
+      function createReel(index) {
+        const reel = new PIXI.Container();
+        reel.x = index * (cellW + gap);
+        reelsContainer.addChild(reel);
+
+        const entries = [];
+        for (let i = 0; i < rows + 5; i++) {
+          const sym = weightedRandom();
+          const cell = drawSymbolCell(sym);
+          cell.x = 5;
+          cell.y = i * (cellH + 8);
+          reel.addChild(cell);
+          entries.push({ sym, cell });
+        }
+        reelStates.push({
+          reel,
+          entries,
+          speed: 0,
+          spinning: false,
+          settling: false,
+          settleStart: 0,
+          settleDuration: 0,
+          settleFrom: [],
+          settleTo: [],
+          resultColumn: null,
+          stopAt: 0,
+          stopSoundPlayed: false
+        });
+      }
+
+      for (let i = 0; i < reelCount; i++) createReel(i);
+
+      const sparks = [];
+      const sparkLayer = new PIXI.Container();
+      sparkLayer.zIndex = 15;
+      root.addChild(sparkLayer);
+      for (let i = 0; i < 80; i++) {
+        const s = new PIXI.Graphics();
+        s.circle(0, 0, 1 + Math.random() * 2.2).fill({ color: i % 2 ? 0x2be3ff : 0xffd166, alpha: 0.8 });
+        sparkLayer.addChild(s);
+        sparks.push({
+          sprite: s,
+          x: Math.random(),
+          y: Math.random(),
+          vx: (Math.random() - 0.5) * 0.0004,
+          vy: -(0.0002 + Math.random() * 0.0004),
+          phase: Math.random() * Math.PI * 2
+        });
+      }
+      fxOverlay = new PIXI.Container();
+      fxOverlay.zIndex = 40;
+      root.addChild(fxOverlay);
+      function fitLayout() {
+        const w = app.renderer.width;
+        const h = app.renderer.height;
+
+        const reelW = reelCount * cellW + (reelCount - 1) * gap;
+        const reelH = rows * cellH + (rows - 1) * 8;
+        const slotX = Math.round((w - reelW) * 0.5);
+        const slotY = Math.round((h - reelH) * 0.5 + 20);
+        slotContainer.position.set(slotX, slotY);
+
+        cabinetGlow.clear()
+          .roundRect(-18, -18, reelW + 36, reelH + 36, 26)
+          .fill({ color: 0x2be3ff, alpha: 0.1 });
+
+        cabinetFrame.clear()
+          .roundRect(-10, -10, reelW + 20, reelH + 20, 20)
+          .fill({ color: 0x071625, alpha: 0.88 })
+          .stroke({ width: 3, color: 0x42d8ff, alpha: 0.6 });
+
+        reelsMask.clear().roundRect(0, 0, reelW, reelH, 14).fill(0xffffff);
+
+        overlayLines.clear()
+          .roundRect(0, reelH * 0.333, reelW, 2, 1).fill({ color: 0x2be3ff, alpha: 0.25 })
+          .roundRect(0, reelH * 0.666, reelW, 2, 1).fill({ color: 0x2be3ff, alpha: 0.25 });
+
+        for (const orb of orbData) {
+          orb.sprite.x = w * (0.08 + Math.random() * 0.84);
+          orb.sprite.y = h * (0.08 + Math.random() * 0.84);
+        }
+
+        splash.layout();
+      }
+
+      function refreshHud() {
+        const bet = state.betOptions[state.betIndex];
+        const unit = state.currencyLabel || "BiomeTokens";
+        balanceValue.textContent = `${state.balance.toLocaleString()} ${unit}`;
+        jackpotValue.textContent = `${state.jackpot.toLocaleString()} ${unit}`;
+        betValue.textContent = `${bet} ${unit}`;
+        winValue.textContent = `${state.lastWin} ${unit}`;
+        if (collectionAmountEl && !state.spinning) {
+          const shown = Math.max(0, Math.floor(Number(state.lastWin) || 0));
+          collectionAmountEl.textContent = `+${shown.toLocaleString()} BiomeTokens`;
+        }
+        if (modePill) {
+          modePill.textContent = state.usingGuestMode ? "Invitado" : "Ocean Pay";
+          modePill.style.borderColor = state.usingGuestMode
+            ? "rgba(250,204,21,0.55)"
+            : "rgba(56,189,248,0.58)";
+          modePill.style.color = state.usingGuestMode ? "#fde68a" : "#a5f3fc";
+        }
+        if (accountActionBtn) {
+          accountActionBtn.textContent = state.usingGuestMode ? "Iniciar sesion" : "Cerrar sesion";
+        }
+        renderDailyRewardsUI();
+        spinBtn.disabled = state.spinning || !state.connected;
+      }
+
+      function setStatus(text) {
+        statusText.textContent = text;
+      }
+
+      function replaceReelCell(reelState, entry, sym, y) {
+        entry.sym = String(sym || "A").toUpperCase();
+        if (entry.cell && entry.cell.parent) entry.cell.parent.removeChild(entry.cell);
+        if (entry.cell && typeof entry.cell.destroy === "function") entry.cell.destroy({ children: true });
+        entry.cell = drawSymbolCell(entry.sym);
+        entry.cell.x = 5;
+        entry.cell.y = y;
+        reelState.reel.addChild(entry.cell);
+      }
+
+      function applySpinResultMatrix(matrix = []) {
+        if (!Array.isArray(matrix) || !matrix.length) return;
+        reelStates.forEach((reelState, reelIndex) => {
+          const column = Array.isArray(matrix[reelIndex]) ? matrix[reelIndex] : [];
+          for (let rowIndex = 0; rowIndex < reelState.entries.length; rowIndex++) {
+            const nextSym = rowIndex < rows
+              ? String(column[rowIndex] || weightedRandom()).toUpperCase()
+              : weightedRandom();
+            replaceReelCell(reelState, reelState.entries[rowIndex], nextSym, rowIndex * (cellH + 8));
+          }
+          reelState.entries.sort((a, b) => a.cell.y - b.cell.y);
+        });
+      }
+
+      function redrawCurrentSymbolsForTheme() {
+        reelStates.forEach((reelState) => {
+          for (const entry of reelState.entries) {
+            replaceReelCell(reelState, entry, entry.sym, entry.cell.y);
+          }
+          reelState.entries.sort((a, b) => a.cell.y - b.cell.y);
+        });
+      }
+
+      function forceAlignedRows(matrix = null) {
+        reelStates.forEach((reelState, reelIndex) => {
+          const column = Array.isArray(matrix?.[reelIndex]) ? matrix[reelIndex] : null;
+          for (let rowIndex = 0; rowIndex < reelState.entries.length; rowIndex += 1) {
+            const fixedSym = column && rowIndex < rows
+              ? String(column[rowIndex] || weightedRandom()).toUpperCase()
+              : String(reelState.entries[rowIndex]?.sym || weightedRandom()).toUpperCase();
+            replaceReelCell(reelState, reelState.entries[rowIndex], fixedSym, rowIndex * (cellH + 8));
+          }
+          reelState.entries.sort((a, b) => a.cell.y - b.cell.y);
+          reelState.speed = 0;
+          reelState.spinning = false;
+        });
+      }
+
+      function beginReelSettle(reelState, reelIndex) {
+        if (reelState.settling) return;
+        const step = cellH + 8;
+        const sorted = [...reelState.entries].sort((a, b) => a.cell.y - b.cell.y);
+        reelState.entries = sorted;
+        reelState.settleFrom = sorted.map((entry) => entry.cell.y);
+        reelState.settleTo = sorted.map((_, idx) => idx * step);
+        reelState.settleStart = performance.now();
+        reelState.settleDuration = 280 + reelIndex * 70;
+        reelState.settling = true;
+        reelState.speed = 0;
+
+        for (let row = 0; row < sorted.length; row += 1) {
+          const resultSym = row < rows ? String(reelState.resultColumn?.[row] || weightedRandom()).toUpperCase() : weightedRandom();
+          replaceReelCell(reelState, sorted[row], resultSym, sorted[row].cell.y);
+        }
+      }
+
+      async function waitForReelsStop(timeoutMs = 2600) {
+        const start = performance.now();
+        return new Promise((resolve) => {
+          const tick = () => {
+            const allStopped = reelStates.every((r) => !r.spinning && !r.settling && r.speed <= 0.01);
+            if (allStopped || performance.now() - start > timeoutMs) {
+              resolve();
+              return;
+            }
+            requestAnimationFrame(tick);
+          };
+          requestAnimationFrame(tick);
+        });
+      }
+
+      async function requestServerSpin(bet) {
+        return authedApi("/biomeverse-fortune/spin", {
+          method: "POST",
+          body: JSON.stringify({ bet, slot_id: selectedSlotId })
+        });
+      }
+
+      function evaluateMatrixWin(matrix, bet) {
+        const safeBet = Math.max(1, Math.floor(Number(bet) || 0));
+        const betBoost = getBetBoost(safeBet);
+        const middle = (Array.isArray(matrix) ? matrix : [])
+          .map((column) => String(column?.[1] || "").toUpperCase())
+          .filter(Boolean);
+        if (!middle.length) return { baseWin: 0, streak: 0, symbol: null, sourceCells: [] };
+        const baseSymbol = middle.find((s) => s !== "WILD") || "WILD";
+        let streak = 0;
+        for (const symbol of middle) {
+          if (symbol === baseSymbol || symbol === "WILD" || baseSymbol === "WILD") streak += 1;
+          else break;
+        }
+        if (streak < 3) return { baseWin: 0, streak, symbol: baseSymbol, sourceCells: [] };
+        const payout = {
+          A: 3, K: 4, Q: 5, J: 6, "7": 9, BAR: 12, WILD: 18, STAR: 20, TIGER: 40
+        };
+        const base = Number(payout[baseSymbol] || payout.WILD || 2);
+        const baseWin = Math.max(0, Math.floor(base * streak * safeBet * 0.35 * betBoost));
+        const sourceCells = [];
+        for (let reel = 0; reel < streak; reel += 1) {
+          sourceCells.push({ reel, row: 1 });
+        }
+        return { baseWin, streak, fullRow: streak >= reelCount, symbol: baseSymbol, sourceCells, betBoost };
+      }
+
+      function getBetBoost(bet) {
+        const safeBet = Math.max(UNTAMED_REELS_MIN_BET, Math.floor(Number(bet) || UNTAMED_REELS_MIN_BET));
+        const ratio = safeBet / UNTAMED_REELS_MIN_BET;
+        return 1 + Math.max(0, Math.log2(Math.max(1, ratio))) * 0.25;
+      }
+
+      function findTreeCells(matrix) {
+        const cells = [];
+        for (let reel = 0; reel < reelCount; reel += 1) {
+          const column = Array.isArray(matrix?.[reel]) ? matrix[reel] : [];
+          for (let row = 0; row < rows; row += 1) {
+            if (String(column?.[row] || "").toUpperCase() === LUCKY_FOREST_TREE_SYMBOL) {
+              cells.push({ reel, row });
+            }
+          }
+        }
+        return cells;
+      }
+
+      async function requestGuestSpin(bet) {
+        const safeBet = Math.max(1, Math.floor(Number(bet) || 0));
+        const matrix = [];
+        for (let reelIndex = 0; reelIndex < reelCount; reelIndex += 1) {
+          const column = [];
+          for (let rowIndex = 0; rowIndex < rows; rowIndex += 1) {
+            column.push(String(weightedRandom()).toUpperCase());
+          }
+          matrix.push(column);
+        }
+        const base = evaluateMatrixWin(matrix, safeBet);
+        const betBoost = getBetBoost(safeBet);
+        const treeCells = isLuckyForestSelected() ? findTreeCells(matrix) : [];
+        const treeBonus = treeCells.length >= LUCKY_FOREST_TREE_THRESHOLD
+          ? Math.floor((LUCKY_FOREST_TREE_BONUS_BASE + (treeCells.length - LUCKY_FOREST_TREE_THRESHOLD) * LUCKY_FOREST_TREE_BONUS_PER_EXTRA) * betBoost)
+          : 0;
+        const fullRowBonus = base.fullRow ? Math.floor(FULL_ROW_BONUS * betBoost) : 0;
+        const win = Math.max(base.baseWin, treeBonus, fullRowBonus);
+        const sourceCells = [...(base.sourceCells || []), ...treeCells];
+        const nextBalance = Math.max(0, Math.floor(state.balance - safeBet + win));
+        return {
+          success: true,
+          currency: state.currencyCode || "biometokens",
+          currency_label: state.currencyLabel || "BiomeTokens",
+          bet: safeBet,
+          win,
+          balance: nextBalance,
+          result: {
+            matrix,
+            source_cells: sourceCells,
+            tree_bonus_triggered: treeBonus > 0,
+            tree_bonus_amount: treeBonus,
+            tree_count: treeCells.length,
+            full_row_triggered: !!base.fullRow,
+            full_row_amount: fullRowBonus,
+            bet_boost: Number(base.betBoost || betBoost || 1)
+          }
+        };
+      }
+
+      function getCellCenterOnStage(reel, row) {
+        const x = slotContainer.x + reel * (cellW + gap) + (cellW - 10) * 0.5;
+        const y = slotContainer.y + row * (cellH + 8) + (cellH - 10) * 0.5;
+        return { x, y };
+      }
+
+      function getBalanceTargetOnStage() {
+        const rect = balanceValue?.getBoundingClientRect?.();
+        if (!rect) return { x: app.renderer.width * 0.9, y: 46 };
+        return {
+          x: rect.left + rect.width * 0.5,
+          y: rect.top + rect.height * 0.5
+        };
+      }
+
+      function uniqueSourceCells(cells = []) {
+        const map = new Map();
+        for (const cell of cells) {
+          const reel = Math.max(0, Math.floor(Number(cell?.reel) || 0));
+          const row = Math.max(0, Math.floor(Number(cell?.row) || 0));
+          const key = `${reel}:${row}`;
+          if (!map.has(key)) map.set(key, { reel, row });
+        }
+        return [...map.values()];
+      }
+
+      async function animateBalanceGain(delta, targetBalance) {
+        const gain = Math.max(0, Math.floor(Number(delta) || 0));
+        if (!gain) return;
+        const endValue = Math.max(0, Math.floor(Number(targetBalance) || 0));
+        const startValue = Math.max(0, endValue - gain);
+        const duration = Math.min(1200, 520 + gain * 0.08);
+        const startTs = performance.now();
+        return new Promise((resolve) => {
+          const tick = (now) => {
+            const t = Math.max(0, Math.min(1, (now - startTs) / duration));
+            const eased = 1 - Math.pow(1 - t, 3);
+            state.balance = Math.floor(startValue + (endValue - startValue) * eased);
+            if (collectionAmountEl) {
+              const left = Math.max(0, endValue - state.balance);
+              collectionAmountEl.textContent = `+${left.toLocaleString()} BiomeTokens`;
+            }
+            refreshHud();
+            if (t < 1) requestAnimationFrame(tick);
+            else resolve();
+          };
+          requestAnimationFrame(tick);
+        });
+      }
+
+      async function playRewardCollectionAnimation(sourceCells, winAmount) {
+        const cells = uniqueSourceCells(sourceCells);
+        const target = getBalanceTargetOnStage();
+        const points = cells.length
+          ? cells.map((cell) => getCellCenterOnStage(cell.reel, cell.row))
+          : [{ x: slotContainer.x + (reelCount * cellW) * 0.5, y: slotContainer.y + cellH * 1.4 }];
+
+        for (const point of points) {
+          const flash = new PIXI.Graphics();
+          flash.circle(0, 0, 8).fill({ color: 0xffef86, alpha: 0.95 });
+          flash.x = point.x;
+          flash.y = point.y;
+          root.addChild(flash);
+          const rays = new PIXI.Graphics();
+          rays.moveTo(-18, 0).lineTo(18, 0).stroke({ color: 0xffd246, width: 2, alpha: 0.9 });
+          rays.moveTo(0, -18).lineTo(0, 18).stroke({ color: 0xffd246, width: 2, alpha: 0.9 });
+          rays.x = point.x;
+          rays.y = point.y;
+          root.addChild(rays);
+          const start = performance.now();
+          const life = 380;
+          const anim = (ts) => {
+            const t = Math.max(0, Math.min(1, (ts - start) / life));
+            const scale = 1 + t * 1.6;
+            flash.scale.set(scale);
+            rays.scale.set(scale * 0.9);
+            flash.alpha = 1 - t;
+            rays.alpha = 1 - t;
+            rays.rotation = t * 1.4;
+            if (t < 1) requestAnimationFrame(anim);
+            else {
+              flash.destroy();
+              rays.destroy();
+            }
+          };
+          requestAnimationFrame(anim);
+        }
+
+        const coinCount = Math.min(22, Math.max(8, points.length * 4));
+        const sprites = [];
+        for (let i = 0; i < coinCount; i += 1) {
+          const src = points[i % points.length];
+          let coin;
+          if (biometokensTexture) {
+            coin = new PIXI.Sprite(biometokensTexture);
+            coin.anchor.set(0.5);
+            coin.width = 1;
+            coin.height = 1;
+            coin.alpha = 0.88;
+          } else {
+            coin = new PIXI.Graphics();
+            coin.circle(0, 0, 1).fill({ color: 0xfcd34d, alpha: 0.88 });
+          }
+          coin.x = src.x + (Math.random() - 0.5) * 26;
+          coin.y = src.y + (Math.random() - 0.5) * 26;
+          if (coin.scale) coin.scale.set(0.05);
+          coin.alpha = Math.min(0.9, Number(coin.alpha || 0.88));
+          root.addChild(coin);
+          sprites.push({
+            node: coin,
+            sx: coin.x,
+            sy: coin.y,
+            tx: target.x + (Math.random() - 0.5) * 18,
+            ty: target.y + (Math.random() - 0.5) * 14,
+            start: performance.now() + i * 28,
+            dur: 720 + Math.random() * 180
+          });
+        }
+
+        await new Promise((resolve) => {
+          const step = (ts) => {
+            let done = 0;
+            for (const item of sprites) {
+              const elapsed = ts - item.start;
+              const t = Math.max(0, Math.min(1, elapsed / item.dur));
+              const ease = 1 - Math.pow(1 - t, 3);
+              item.node.x = item.sx + (item.tx - item.sx) * ease;
+              item.node.y = item.sy + (item.ty - item.sy) * ease - Math.sin(t * Math.PI) * 28;
+              item.node.alpha = 1 - t * 0.2;
+              if (item.node.scale) {
+                const scale = 0.05 - t * 0.02;
+                item.node.scale.set(Math.max(0.02, scale));
+              }
+              if (t >= 1) done += 1;
+            }
+            if (done >= sprites.length) resolve();
+            else requestAnimationFrame(step);
+          };
+          requestAnimationFrame(step);
+        });
+
+        sprites.forEach((item) => item.node.destroy());
+        if (collectionAmountEl) {
+          collectionAmountEl.textContent = `+${Math.max(0, Math.floor(Number(winAmount) || 0)).toLocaleString()} BiomeTokens`;
+        }
+      }
+
+      async function spin() {
+        ensureAudioContext();
+        if (state.spinning) return;
+
+        const bet = state.betOptions[state.betIndex];
+        if (state.balance < bet) {
+          if (state.usingGuestMode) {
+            state.balance += 500;
+            persistGuestState();
+            refreshHud();
+            setStatus("Recarga invitada: +500 BiomeTokens");
+          }
+        }
+
+        if (state.balance < bet) {
+          setStatus(`Saldo insuficiente de ${state.currencyLabel}`);
+          return;
+        }
+
+        state.spinning = true;
+        state.lastWin = 0;
+        refreshHud();
+        setStatus("Spinning...");
+        playSpinStartSound();
+
+        const now = performance.now();
+        reelStates.forEach((r, idx) => {
+          r.spinning = true;
+          r.settling = false;
+          r.resultColumn = null;
+          r.speed = 34 + idx * 2;
+          r.stopAt = now + 1200 + idx * 260;
+          r.stopSoundPlayed = false;
+        });
+
+        const spinPromise = state.usingGuestMode ? requestGuestSpin(bet) : requestServerSpin(bet);
+        await new Promise((resolve) => setTimeout(resolve, 900));
+
+        try {
+          const data = await spinPromise;
+          const win = Math.max(0, Math.floor(Number(data?.win || 0)));
+          const finalBalance = Math.max(0, Math.floor(Number(data?.balance || state.balance)));
+          const balanceAfterBet = Math.max(0, finalBalance - win);
+          state.balance = win > 0 ? balanceAfterBet : finalBalance;
+          state.lastWin = win;
+          state.currencyCode = String(data?.currency || state.currencyCode);
+          state.currencyLabel = String(data?.currency_label || state.currencyLabel);
+          state.jackpot += Math.floor(bet * 0.35) + Math.floor(win * 0.08);
+          persistGuestState();
+          const resultMatrix = Array.isArray(data?.result?.matrix) ? data.result.matrix : [];
+          const settleNow = performance.now();
+          reelStates.forEach((r, reelIndex) => {
+            r.resultColumn = Array.isArray(resultMatrix[reelIndex]) ? resultMatrix[reelIndex] : null;
+            r.stopAt = Math.min(r.stopAt, settleNow + 280 + reelIndex * 130);
+          });
+          await waitForReelsStop();
+          if (win > 0) {
+            playWinSound(win);
+            const sources = Array.isArray(data?.result?.source_cells) ? data.result.source_cells : [];
+            const treeCount = Math.max(0, Math.floor(Number(data?.result?.tree_count || 0)));
+            const forestTriggered = !!data?.result?.tree_bonus_triggered;
+            const forestAmount = Math.max(0, Math.floor(Number(data?.result?.tree_bonus_amount || 0)));
+            const fullRowTriggered = !!data?.result?.full_row_triggered;
+            const fullRowAmount = Math.max(0, Math.floor(Number(data?.result?.full_row_amount || 0)));
+            if (collectionAmountEl) {
+              collectionAmountEl.textContent = `+${win.toLocaleString()} BiomeTokens`;
+            }
+            refreshHud();
+            if (forestTriggered) {
+              await playHypeBurst("forest");
+              showCenterEventCard({
+                title: "GREAT FOREST",
+                subtitle: `+${forestAmount.toLocaleString()} BiomeTokens  |  Arboles: ${treeCount}`,
+                accent: 0x7af5b2,
+                trees: true,
+                duration: 1500
+              });
+            }
+            if (fullRowTriggered) {
+              await playHypeBurst("full-row");
+              showCenterEventCard({
+                title: "MEGA LINE",
+                subtitle: `Fila completa +${Math.max(FULL_ROW_BONUS, fullRowAmount).toLocaleString()} BiomeTokens`,
+                accent: 0xff8a3d,
+                trees: false,
+                duration: 1500
+              });
+            }
+            await playRewardCollectionAnimation(sources, win);
+            await animateBalanceGain(win, finalBalance);
+            state.balance = finalBalance;
+            refreshHud();
+            if (fullRowTriggered) {
+              setStatus(`Fila completa! +${Math.max(FULL_ROW_BONUS, fullRowAmount).toLocaleString()} BiomeTokens`);
+            } else if (forestTriggered) {
+              setStatus(`GREAT FOREST! +${forestAmount.toLocaleString()} BiomeTokens`);
+            } else {
+              setStatus(`Big hit: +${win} ${state.currencyLabel}`);
+            }
+          } else {
+            setStatus(state.usingGuestMode ? "No hit. Try again (Guest mode)" : "No hit. Try again");
+          }
+        } catch (err) {
+          if (!state.usingGuestMode) {
+            state.usingGuestMode = true;
+            state.connected = true;
+            state.balance = getGuestStoredNumber(GUEST_MODE_BALANCE_KEY, Math.max(1000, state.balance));
+            setStatus("Conexion perdida. Cambiando a modo invitado");
+            persistGuestState();
+          } else {
+            setStatus(`Spin error: ${err?.message || "unknown"}`);
+          }
+          forceAlignedRows();
+        }
+
+        state.spinning = false;
+        refreshHud();
+      }
+
+      betMinus.addEventListener("click", () => {
+        if (state.spinning) return;
+        ensureAudioContext();
+        state.betIndex = Math.max(0, state.betIndex - 1);
+        refreshHud();
+      });
+
+      betPlus.addEventListener("click", () => {
+        if (state.spinning) return;
+        ensureAudioContext();
+        state.betIndex = Math.min(state.betOptions.length - 1, state.betIndex + 1);
+        refreshHud();
+      });
+
+      refillBtn.addEventListener("click", () => {
+        if (state.spinning) return;
+        ensureAudioContext();
+        if (!state.usingGuestMode) {
+          syncBalanceBackground({ showStatus: true }).catch(() => {});
+          return;
+        }
+        state.balance += 500;
+        persistGuestState();
+        refreshHud();
+        setStatus("Recarga aplicada: +500 BiomeTokens");
+        syncBalanceBackground({ showStatus: true }).catch(() => {});
+      });
+
+      settingsToggle.addEventListener("click", (event) => {
+        event.stopPropagation();
+        settingsPanel.classList.toggle("open");
+      });
+
+      menuOpenBtn.addEventListener("click", (event) => {
+        event.stopPropagation();
+        settingsPanel.classList.remove("open");
+        setMainMenuVisible(true);
+      });
+
+      mainMenuOverlay.addEventListener("click", (event) => {
+        if (event.target === mainMenuOverlay) {
+          setMainMenuVisible(false);
+        }
+      });
+
+      menuPrev.addEventListener("click", () => {
+        menuPageIndex = Math.max(0, menuPageIndex - 1);
+        renderMenuPage();
+      });
+
+      menuNext.addEventListener("click", () => {
+        const totalPages = Math.max(1, Math.ceil(slotCatalog.length / menuPageSize));
+        menuPageIndex = Math.min(totalPages - 1, menuPageIndex + 1);
+        renderMenuPage();
+      });
+
+      if (dailyRewardClaimBtn) dailyRewardClaimBtn.addEventListener("click", async () => {
+        if (state.claimingDaily) return;
+        if (state.usingGuestMode || !getOceanPayToken()) {
+          setMainMenuVisible(false);
+          setAuthOverlayVisible(true);
+          setStatus("Inicia sesion para reclamar la recompensa diaria");
+          return;
+        }
+
+        state.claimingDaily = true;
+        renderDailyRewardsUI();
+        try {
+          const data = await authedApi("/biomeverse-fortune/daily-reward/claim", {
+            method: "POST",
+            body: JSON.stringify({ slot_id: selectedSlotId })
+          });
+          applyDailyPayload(data);
+          const awarded = Math.max(0, Math.floor(Number(data?.amount || 0)));
+          const newBalance = Math.max(0, Math.floor(Number(data?.balance || state.balance)));
+          state.lastWin = 0;
+          state.balance = newBalance;
+          refreshHud();
+          setStatus(`Recompensa diaria reclamada: +${awarded.toLocaleString()} BiomeTokens`);
+        } catch (err) {
+          await syncDailyRewards({ showStatus: false });
+          setStatus(err?.message || "No se pudo reclamar la recompensa diaria");
+        } finally {
+          state.claimingDaily = false;
+          renderDailyRewardsUI();
+        }
+      });
+
+      settingsPanel.addEventListener("click", (event) => {
+        event.stopPropagation();
+      });
+
+      document.addEventListener("click", () => {
+        settingsPanel.classList.remove("open");
+      });
+
+      audioToggle.addEventListener("change", () => {
+        state.soundEnabled = !!audioToggle.checked;
+        if (!state.soundEnabled) {
+          setStatus("Sonido desactivado");
+        } else {
+          ensureAudioContext();
+          playTone({ freq: 540, type: "triangle", attack: 0.008, decay: 0.12, gain: 0.03 });
+          setStatus("Sonido activado");
+        }
+      });
+
+      accountActionBtn.addEventListener("click", async () => {
+        if (state.spinning) return;
+        if (!state.usingGuestMode) {
+          localStorage.removeItem(OCEAN_PAY_STORAGE_TOKEN);
+          localStorage.removeItem(OCEAN_PAY_STORAGE_USER);
+          localStorage.removeItem(OCEAN_PAY_LOGIN_FLAG_KEY);
+          state.usingGuestMode = true;
+          state.connected = true;
+          state.balance = getGuestStoredNumber(GUEST_MODE_BALANCE_KEY, Math.max(1000, state.balance));
+          state.currencyCode = "biometokens";
+          state.currencyLabel = "BiomeTokens";
+          persistGuestState();
+          refreshHud();
+          renderDailyRewardsUI();
+          setStatus("Sesion cerrada. Modo invitado activo");
+          setAuthMessage("");
+          setAuthOverlayVisible(true);
+          if (authUsernameInput) authUsernameInput.focus();
+          return;
+        }
+        setAuthMessage("");
+        setAuthOverlayVisible(true);
+        if (authUsernameInput) authUsernameInput.focus();
+      });
+
+      authLoginBtn.addEventListener("click", async () => {
+        const username = String(authUsernameInput?.value || "").trim();
+        const password = String(authPasswordInput?.value || "").trim();
+        if (!username || !password) {
+          setAuthMessage("Completa usuario y contrasena.", true);
+          return;
+        }
+        authLoginBtn.disabled = true;
+        setAuthMessage("Verificando credenciales...");
+        try {
+          await loginOceanPay(username, password);
+          setAuthOverlayVisible(false);
+          if (authPasswordInput) authPasswordInput.value = "";
+          await syncProfile();
+          setStatus("Ocean Pay conectado. Balance real cargado");
+        } catch (err) {
+          setAuthMessage(err?.message || "No se pudo iniciar sesion.", true);
+        } finally {
+          authLoginBtn.disabled = false;
+        }
+      });
+
+      authPasswordInput.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter") return;
+        event.preventDefault();
+        authLoginBtn.click();
+      });
+
+      authGuestBtn.addEventListener("click", () => {
+        setAuthOverlayVisible(false);
+        setStatus("Modo invitado activo");
+      });
+
+      spinBtn.addEventListener("click", spin);
+
+      app.ticker.add((ticker) => {
+        const t = performance.now() * 0.001;
+        const w = app.renderer.width;
+        const h = app.renderer.height;
+
+        backgroundOrbs.alpha = 0.74 + Math.sin(t * 0.7) * 0.06;
+        orbData.forEach((orb, idx) => {
+          orb.sprite.x += Math.sin(t * orb.speed + orb.phase) * 0.2;
+          orb.sprite.y += Math.cos(t * (orb.speed + 0.2) + idx) * 0.2;
+        });
+
+        sparks.forEach((p) => {
+          p.x += p.vx * ticker.deltaMS;
+          p.y += p.vy * ticker.deltaMS;
+          if (p.y < -0.05) { p.y = 1.05; p.x = Math.random(); }
+          if (p.x < -0.05) p.x = 1.05;
+          if (p.x > 1.05) p.x = -0.05;
+          p.sprite.x = p.x * w;
+          p.sprite.y = p.y * h;
+          p.sprite.alpha = 0.22 + Math.abs(Math.sin(t * 2 + p.phase)) * 0.45;
+        });
+
+        const now = performance.now();
+        reelStates.forEach((r, idx) => {
+          if (!r.spinning) return;
+
+          if (r.settling) {
+            const elapsed = now - r.settleStart;
+            const tSettle = Math.max(0, Math.min(1, elapsed / Math.max(1, r.settleDuration || 1)));
+            const eased = 1 - Math.pow(1 - tSettle, 3);
+            for (let i = 0; i < r.entries.length; i += 1) {
+              const fromY = Number(r.settleFrom?.[i] || 0);
+              const toY = Number(r.settleTo?.[i] || 0);
+              r.entries[i].cell.y = fromY + (toY - fromY) * eased;
+            }
+            if (tSettle >= 1) {
+              r.settling = false;
+              r.spinning = false;
+              r.speed = 0;
+              if (!r.stopSoundPlayed) {
+                r.stopSoundPlayed = true;
+                playReelStopSound(idx);
+              }
+            }
+            return;
+          }
+
+          if (now > r.stopAt) {
+            r.speed *= 0.92;
+            if (Array.isArray(r.resultColumn) && r.speed < 6) {
+              beginReelSettle(r, idx);
+              return;
+            }
+            if (r.speed < 1.2) {
+              r.speed = 0;
+              r.spinning = false;
+              if (!r.stopSoundPlayed) {
+                r.stopSoundPlayed = true;
+                playReelStopSound(idx);
+              }
+            }
+          }
+
+          const cycleHeight = (cellH + 8) * r.entries.length;
+          let minY = Math.min(...r.entries.map((e) => e.cell.y));
+          for (const entry of r.entries) {
+            entry.cell.y += r.speed * ticker.deltaTime;
+            if (entry.cell.y > cycleHeight - (cellH + 8)) {
+              const nextY = minY - (cellH + 8);
+              replaceReelCell(r, entry, weightedRandom(), nextY);
+              minY = nextY;
+            }
+          }
+          r.entries.sort((a, b) => a.cell.y - b.cell.y);
+        });
+      });
+
+      const delay = (ms) => new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(ms) || 0)));
+
+      fitLayout();
+      updateBrandFromSlot();
+      renderMenuPage();
+      refreshHud();
+      setStatus("Ready to spin");
+      window.addEventListener("resize", fitLayout);
+
+      splash.showLoading(false);
+      splash.setStatus("Iniciando BiomeVerse Fortune...");
+      splash.setTip("Animando introduccion...");
+
+      let bootReady = false;
+      const bootPromise = (async () => {
+        await syncProfile();
+        bootReady = true;
+      })();
+
+      const splashStart = performance.now();
+      while (performance.now() - splashStart < SPLASH_MIN_MS) {
+        const elapsed = performance.now() - splashStart;
+        const phase = elapsed / SPLASH_MIN_MS;
+        splash.setStatus(phase < 0.33 ? "Preparando tablero..." : (phase < 0.66 ? "Cargando efectos visuales..." : "Verificando Ocean Pay..."));
+        await delay(140);
+      }
+
+      if (!bootReady) {
+        splash.showLoading(true);
+        splash.setStatus("Conectando con el servidor...");
+        splash.setTip("Esperando menu principal y datos de cuenta");
+        let progress = 0.08;
+        splash.setProgress(progress);
+
+        while (!bootReady) {
+          progress = Math.min(0.93, progress + (Math.random() * 0.045 + 0.01));
+          splash.setProgress(progress);
+          splash.setTip(progress < 0.45
+            ? "Sincronizando perfil..."
+            : (progress < 0.8 ? "Preparando recompensas diarias..." : "Finalizando recursos del menu..."));
+          await delay(240);
+        }
+      }
+
+      await bootPromise;
+      splash.showLoading(true);
+      splash.setStatus("Todo listo");
+      splash.setTip("Entrando al menu principal...");
+      splash.setProgress(1);
+      await delay(360);
+      await splash.hide(430);
+      document.body.classList.remove("booting");
+
+      startAutoSync();
+      const hasToken = !!getOceanPayToken();
+      const hadSavedLogin = localStorage.getItem(OCEAN_PAY_LOGIN_FLAG_KEY) === "1";
+      if (!hasToken || (hadSavedLogin && state.usingGuestMode)) {
+        setAuthMessage("Puedes iniciar sesion o continuar en modo invitado.");
+        setAuthOverlayVisible(true);
+      }
+    })();
+  </script>
+</body>
+</html>
+
+

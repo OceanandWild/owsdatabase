@@ -174,7 +174,7 @@ const UNIFIED_WALLET_CURRENCIES = [
   'aquabux', 'appbux', 'ecoxionums', 'wildcredits', 'wildgems', 'ecobooks',
   'amber', 'nxb', 'voltbit', 'ecotokens', 'ecobits', 'mayhemcoins',
   'cosmicdust', 'ecopower', 'coralbits', 'tigrys', 'wildwavetokens',
-  'relayshards', 'ecocorebits', 'tides', 'aurex', 'sparks', 'reelmarks'
+  'relayshards', 'ecocorebits', 'tides', 'aurex', 'sparks', 'biometokens'
 ];
 
 let oceanPayTwoFactorTablesReady = false;
@@ -9848,8 +9848,10 @@ app.get('/ocean-pay/me', async (req, res) => {
   }
 });
 
-const UNTAMED_REELS_CURRENCY = 'reelmarks';
-const UNTAMED_REELS_CURRENCY_LABEL = 'ReelMarks';
+const UNTAMED_REELS_CURRENCY = 'biometokens';
+const UNTAMED_REELS_CURRENCY_LABEL = 'BiomeTokens';
+const UNTAMED_REELS_LEGACY_CURRENCY = 'reelmarks';
+const UNTAMED_REELS_GAME_NAME = 'BiomeVerse Fortune';
 const UNTAMED_REELS_INITIAL_BALANCE = 1000;
 const UNTAMED_REELS_BET_OPTIONS = [10, 20, 50, 100, 200, 500, 1000, 2000];
 const UNTAMED_REELS_MIN_BET = UNTAMED_REELS_BET_OPTIONS[0];
@@ -10010,23 +10012,54 @@ function untamedReelsUniqueSourceCells(cells = []) {
   return [...dedupe.values()];
 }
 
-app.get('/untamed-reels/profile', async (req, res) => {
+async function ensureUntamedReelsCurrencyBalance(client, userId, forUpdate = false) {
+  const balancesMap = await getUnifiedBalancesMap(client, userId, forUpdate);
+  const hasBiomeTokens = Object.prototype.hasOwnProperty.call(balancesMap || {}, UNTAMED_REELS_CURRENCY);
+  const hasLegacy = Object.prototype.hasOwnProperty.call(balancesMap || {}, UNTAMED_REELS_LEGACY_CURRENCY);
+  const legacyBalance = Number(balancesMap?.[UNTAMED_REELS_LEGACY_CURRENCY] || 0);
+  let balance = Number(balancesMap?.[UNTAMED_REELS_CURRENCY] || 0);
+
+  if (!hasBiomeTokens && hasLegacy && Number.isFinite(legacyBalance) && legacyBalance > 0) {
+    balance = Math.max(0, Math.floor(legacyBalance));
+    await setUnifiedBalance(client, userId, UNTAMED_REELS_CURRENCY, balance);
+    await client.query(
+      `UPDATE ${USER_WALLET_TABLE}
+       SET balances = COALESCE(balances, '{}'::jsonb) - $1,
+           updated_at = NOW()
+       WHERE user_id = $2`,
+      [UNTAMED_REELS_LEGACY_CURRENCY, userId]
+    ).catch(() => {});
+    await client.query(
+      `DELETE FROM user_currency
+       WHERE user_id = $1
+         AND LOWER(currency_type) = $2`,
+      [userId, UNTAMED_REELS_LEGACY_CURRENCY]
+    ).catch(() => {});
+    return balance;
+  }
+
+  if (!hasBiomeTokens) {
+    balance = UNTAMED_REELS_INITIAL_BALANCE;
+    await setUnifiedBalance(client, userId, UNTAMED_REELS_CURRENCY, balance);
+    return balance;
+  }
+
+  if (!Number.isFinite(balance) || balance < 0) {
+    balance = 0;
+    await setUnifiedBalance(client, userId, UNTAMED_REELS_CURRENCY, balance);
+  }
+
+  return Math.floor(balance);
+}
+
+app.get(['/untamed-reels/profile', '/biomeverse-fortune/profile'], async (req, res) => {
   const userId = getAuthenticatedOceanPayUserId(req);
   if (!userId) return res.status(401).json({ error: 'Token invalido' });
 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const balancesMap = await getUnifiedBalancesMap(client, userId, true);
-    const hasCurrency = Object.prototype.hasOwnProperty.call(balancesMap || {}, UNTAMED_REELS_CURRENCY);
-    let balance = Number(balancesMap?.[UNTAMED_REELS_CURRENCY] || 0);
-    if (!hasCurrency) {
-      balance = UNTAMED_REELS_INITIAL_BALANCE;
-      await setUnifiedBalance(client, userId, UNTAMED_REELS_CURRENCY, balance);
-    } else if (!Number.isFinite(balance) || balance < 0) {
-      balance = 0;
-      await setUnifiedBalance(client, userId, UNTAMED_REELS_CURRENCY, balance);
-    }
+    const balance = await ensureUntamedReelsCurrencyBalance(client, userId, true);
     await client.query('COMMIT');
     return res.json({
       success: true,
@@ -10037,14 +10070,14 @@ app.get('/untamed-reels/profile', async (req, res) => {
     });
   } catch (err) {
     await client.query('ROLLBACK');
-    console.error('Error en GET /untamed-reels/profile:', err);
+    console.error('Error en GET /biomeverse-fortune/profile:', err);
     return res.status(500).json({ error: 'Error interno' });
   } finally {
     client.release();
   }
 });
 
-app.get('/untamed-reels/daily-reward/status', async (req, res) => {
+app.get(['/untamed-reels/daily-reward/status', '/biomeverse-fortune/daily-reward/status'], async (req, res) => {
   const userId = getAuthenticatedOceanPayUserId(req);
   if (!userId) return res.status(401).json({ error: 'Token invalido' });
 
@@ -10053,16 +10086,7 @@ app.get('/untamed-reels/daily-reward/status', async (req, res) => {
     await ensureUntamedReelsTables();
     await client.query('BEGIN');
 
-    const balancesMap = await getUnifiedBalancesMap(client, userId, true);
-    const hasCurrency = Object.prototype.hasOwnProperty.call(balancesMap || {}, UNTAMED_REELS_CURRENCY);
-    let balance = Number(balancesMap?.[UNTAMED_REELS_CURRENCY] || 0);
-    if (!hasCurrency) {
-      balance = UNTAMED_REELS_INITIAL_BALANCE;
-      await setUnifiedBalance(client, userId, UNTAMED_REELS_CURRENCY, balance);
-    } else if (!Number.isFinite(balance) || balance < 0) {
-      balance = 0;
-      await setUnifiedBalance(client, userId, UNTAMED_REELS_CURRENCY, balance);
-    }
+    const balance = await ensureUntamedReelsCurrencyBalance(client, userId, true);
 
     const { rows } = await client.query(
       `SELECT user_id, streak_count, total_claims, last_claim_at, next_claim_at
@@ -10089,14 +10113,14 @@ app.get('/untamed-reels/daily-reward/status', async (req, res) => {
     });
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {});
-    console.error('Error en GET /untamed-reels/daily-reward/status:', err);
+    console.error('Error en GET /biomeverse-fortune/daily-reward/status:', err);
     return res.status(500).json({ error: 'No se pudo consultar la recompensa diaria' });
   } finally {
     client.release();
   }
 });
 
-app.post('/untamed-reels/daily-reward/claim', async (req, res) => {
+app.post(['/untamed-reels/daily-reward/claim', '/biomeverse-fortune/daily-reward/claim'], async (req, res) => {
   const userId = getAuthenticatedOceanPayUserId(req);
   if (!userId) return res.status(401).json({ error: 'Token invalido' });
 
@@ -10109,16 +10133,7 @@ app.post('/untamed-reels/daily-reward/claim', async (req, res) => {
     const nowIso = now.toISOString();
     const nextClaimDate = new Date(now.getTime() + UNTAMED_REELS_DAILY_COOLDOWN_MS);
 
-    const balancesMap = await getUnifiedBalancesMap(client, userId, true);
-    const hasCurrency = Object.prototype.hasOwnProperty.call(balancesMap || {}, UNTAMED_REELS_CURRENCY);
-    let currentBalance = Number(balancesMap?.[UNTAMED_REELS_CURRENCY] || 0);
-    if (!hasCurrency) {
-      currentBalance = UNTAMED_REELS_INITIAL_BALANCE;
-      await setUnifiedBalance(client, userId, UNTAMED_REELS_CURRENCY, currentBalance);
-    } else if (!Number.isFinite(currentBalance) || currentBalance < 0) {
-      currentBalance = 0;
-      await setUnifiedBalance(client, userId, UNTAMED_REELS_CURRENCY, currentBalance);
-    }
+    const currentBalance = await ensureUntamedReelsCurrencyBalance(client, userId, true);
 
     let row = null;
     const { rows: lockRows } = await client.query(
@@ -10176,7 +10191,7 @@ app.post('/untamed-reels/daily-reward/claim', async (req, res) => {
     await client.query(
       `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
        VALUES ($1, $2, $3, $4, $5)`,
-      [userId, 'Untamed Reels - Daily Reward', rewardAmount, 'Untamed Reels', UNTAMED_REELS_CURRENCY]
+      [userId, `${UNTAMED_REELS_GAME_NAME} - Daily Reward`, rewardAmount, UNTAMED_REELS_GAME_NAME, UNTAMED_REELS_CURRENCY]
     );
 
     await client.query('COMMIT');
@@ -10204,14 +10219,14 @@ app.post('/untamed-reels/daily-reward/claim', async (req, res) => {
     });
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {});
-    console.error('Error en POST /untamed-reels/daily-reward/claim:', err);
+    console.error('Error en POST /biomeverse-fortune/daily-reward/claim:', err);
     return res.status(500).json({ error: 'No se pudo reclamar la recompensa diaria' });
   } finally {
     client.release();
   }
 });
 
-app.post('/untamed-reels/spin', async (req, res) => {
+app.post(['/untamed-reels/spin', '/biomeverse-fortune/spin'], async (req, res) => {
   const userId = getAuthenticatedOceanPayUserId(req);
   if (!userId) return res.status(401).json({ error: 'Token invalido' });
 
@@ -10225,13 +10240,7 @@ app.post('/untamed-reels/spin', async (req, res) => {
   try {
     await client.query('BEGIN');
 
-    const balancesMap = await getUnifiedBalancesMap(client, userId, true);
-    const hasCurrency = Object.prototype.hasOwnProperty.call(balancesMap || {}, UNTAMED_REELS_CURRENCY);
-    let currentBalance = Number(balancesMap?.[UNTAMED_REELS_CURRENCY] || 0);
-    if (!hasCurrency) {
-      currentBalance = UNTAMED_REELS_INITIAL_BALANCE;
-      await setUnifiedBalance(client, userId, UNTAMED_REELS_CURRENCY, currentBalance);
-    }
+    const currentBalance = await ensureUntamedReelsCurrencyBalance(client, userId, true);
     if (!Number.isFinite(currentBalance) || currentBalance < safeBet) {
       await client.query('ROLLBACK');
       return res.status(400).json({ error: 'Saldo insuficiente', balance: Math.floor(Math.max(0, Number(currentBalance) || 0)) });
@@ -10256,14 +10265,14 @@ app.post('/untamed-reels/spin', async (req, res) => {
     await client.query(
       `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
        VALUES ($1, $2, $3, $4, $5)`,
-      [userId, 'Untamed Reels - Spin', -safeBet, 'Untamed Reels', UNTAMED_REELS_CURRENCY]
+      [userId, `${UNTAMED_REELS_GAME_NAME} - Spin`, -safeBet, UNTAMED_REELS_GAME_NAME, UNTAMED_REELS_CURRENCY]
     );
 
     if (win > 0) {
       await client.query(
         `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
          VALUES ($1, $2, $3, $4, $5)`,
-        [userId, 'Untamed Reels - Win', win, 'Untamed Reels', UNTAMED_REELS_CURRENCY]
+        [userId, `${UNTAMED_REELS_GAME_NAME} - Win`, win, UNTAMED_REELS_GAME_NAME, UNTAMED_REELS_CURRENCY]
       );
     }
 
@@ -10291,7 +10300,7 @@ app.post('/untamed-reels/spin', async (req, res) => {
     });
   } catch (err) {
     await client.query('ROLLBACK');
-    console.error('Error en POST /untamed-reels/spin:', err);
+    console.error('Error en POST /biomeverse-fortune/spin:', err);
     return res.status(500).json({ error: 'No se pudo resolver el giro' });
   } finally {
     client.release();
@@ -26523,6 +26532,12 @@ async function setUnifiedBalance(client, userId, currency, amount) {
 
 async function getUnifiedBalancesMap(client, userId, forUpdate = false) {
   const balances = await getUserWalletBalances(client, userId, forUpdate);
+  if (!Object.prototype.hasOwnProperty.call(balances || {}, 'biometokens')) {
+    const legacyReelMarks = Number(balances?.reelmarks || 0);
+    if (Number.isFinite(legacyReelMarks) && legacyReelMarks > 0) {
+      balances.biometokens = legacyReelMarks;
+    }
+  }
   const normalized = {};
   for (const c of OP_ALL_CURRENCIES) {
     normalized[c] = Number(balances[c] || 0);

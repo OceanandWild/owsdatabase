@@ -9862,6 +9862,10 @@ const UNTAMED_REELS_TREE_THRESHOLD = 3;
 const UNTAMED_REELS_TREE_BONUS_BASE = 25000;
 const UNTAMED_REELS_TREE_BONUS_PER_EXTRA = 25000;
 const UNTAMED_REELS_FULL_ROW_BONUS = 100000;
+const UNTAMED_REELS_DAILY_REWARDS = [750, 1200, 1800, 2600, 3600, 5000, 7000];
+const UNTAMED_REELS_DAILY_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+const UNTAMED_REELS_DAILY_STREAK_RESET_MS = 48 * 60 * 60 * 1000;
+let untamedReelsTablesReady = false;
 const UNTAMED_REELS_PAYOUT = {
   A: 3,
   K: 4,
@@ -9918,6 +9922,63 @@ function untamedReelsEvaluateWin(matrix = [], bet = 0) {
   return { win, streak, fullRow: streak >= UNTAMED_REELS_REEL_COUNT, symbol: firstNonWild, line: middle, sourceCells };
 }
 
+async function ensureUntamedReelsTables() {
+  if (untamedReelsTablesReady) return;
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS untamed_reels_daily_rewards (
+      user_id BIGINT PRIMARY KEY REFERENCES ocean_pay_users(id) ON DELETE CASCADE,
+      streak_count INTEGER NOT NULL DEFAULT 0,
+      total_claims INTEGER NOT NULL DEFAULT 0,
+      last_claim_at TIMESTAMPTZ,
+      next_claim_at TIMESTAMPTZ,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_untamed_reels_daily_next_claim
+      ON untamed_reels_daily_rewards(next_claim_at)
+  `);
+  untamedReelsTablesReady = true;
+}
+
+function buildUntamedDailyStatus(row, now = new Date()) {
+  const nowMs = now.getTime();
+  const rewardsLen = UNTAMED_REELS_DAILY_REWARDS.length;
+  const lastClaimAt = row?.last_claim_at ? new Date(row.last_claim_at) : null;
+  const nextClaimAt = row?.next_claim_at ? new Date(row.next_claim_at) : null;
+  const rawStreak = Math.max(0, Number(row?.streak_count || 0));
+
+  let effectiveStreak = rawStreak;
+  let claimable = !lastClaimAt;
+  let msUntilClaim = 0;
+  let streakBroken = false;
+
+  if (lastClaimAt) {
+    const elapsed = Math.max(0, nowMs - lastClaimAt.getTime());
+    if (elapsed > UNTAMED_REELS_DAILY_STREAK_RESET_MS) {
+      effectiveStreak = 0;
+      streakBroken = true;
+    }
+    const nextAtMs = nextClaimAt ? nextClaimAt.getTime() : (lastClaimAt.getTime() + UNTAMED_REELS_DAILY_COOLDOWN_MS);
+    claimable = nowMs >= nextAtMs;
+    msUntilClaim = claimable ? 0 : Math.max(0, nextAtMs - nowMs);
+  }
+
+  const nextDay = (effectiveStreak % rewardsLen) + 1;
+  const nextReward = UNTAMED_REELS_DAILY_REWARDS[nextDay - 1];
+
+  return {
+    claimable,
+    streak_count: effectiveStreak,
+    next_day: nextDay,
+    next_reward: nextReward,
+    ms_until_claim: msUntilClaim,
+    streak_broken: streakBroken,
+    last_claim_at: lastClaimAt ? lastClaimAt.toISOString() : null,
+    next_claim_at: nextClaimAt ? nextClaimAt.toISOString() : null
+  };
+}
+
 function untamedReelsFindTreeCells(matrix = []) {
   const cells = [];
   for (let reel = 0; reel < UNTAMED_REELS_REEL_COUNT; reel += 1) {
@@ -9970,6 +10031,173 @@ app.get('/untamed-reels/profile', async (req, res) => {
     await client.query('ROLLBACK');
     console.error('Error en GET /untamed-reels/profile:', err);
     return res.status(500).json({ error: 'Error interno' });
+  } finally {
+    client.release();
+  }
+});
+
+app.get('/untamed-reels/daily-reward/status', async (req, res) => {
+  const userId = getAuthenticatedOceanPayUserId(req);
+  if (!userId) return res.status(401).json({ error: 'Token invalido' });
+
+  const client = await pool.connect();
+  try {
+    await ensureUntamedReelsTables();
+    await client.query('BEGIN');
+
+    const balancesMap = await getUnifiedBalancesMap(client, userId, true);
+    const hasCurrency = Object.prototype.hasOwnProperty.call(balancesMap || {}, UNTAMED_REELS_CURRENCY);
+    let balance = Number(balancesMap?.[UNTAMED_REELS_CURRENCY] || 0);
+    if (!hasCurrency) {
+      balance = UNTAMED_REELS_INITIAL_BALANCE;
+      await setUnifiedBalance(client, userId, UNTAMED_REELS_CURRENCY, balance);
+    } else if (!Number.isFinite(balance) || balance < 0) {
+      balance = 0;
+      await setUnifiedBalance(client, userId, UNTAMED_REELS_CURRENCY, balance);
+    }
+
+    const { rows } = await client.query(
+      `SELECT user_id, streak_count, total_claims, last_claim_at, next_claim_at
+       FROM untamed_reels_daily_rewards
+       WHERE user_id = $1
+       LIMIT 1`,
+      [userId]
+    );
+    const dailyStatus = buildUntamedDailyStatus(rows[0] || null, new Date());
+
+    await client.query('COMMIT');
+    return res.json({
+      success: true,
+      currency: UNTAMED_REELS_CURRENCY,
+      currency_label: UNTAMED_REELS_CURRENCY_LABEL,
+      balance: Math.floor(balance),
+      rewards_schedule: UNTAMED_REELS_DAILY_REWARDS,
+      cooldown_ms: UNTAMED_REELS_DAILY_COOLDOWN_MS,
+      streak_reset_ms: UNTAMED_REELS_DAILY_STREAK_RESET_MS,
+      daily: {
+        ...dailyStatus,
+        total_claims: Math.max(0, Number(rows?.[0]?.total_claims || 0))
+      }
+    });
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    console.error('Error en GET /untamed-reels/daily-reward/status:', err);
+    return res.status(500).json({ error: 'No se pudo consultar la recompensa diaria' });
+  } finally {
+    client.release();
+  }
+});
+
+app.post('/untamed-reels/daily-reward/claim', async (req, res) => {
+  const userId = getAuthenticatedOceanPayUserId(req);
+  if (!userId) return res.status(401).json({ error: 'Token invalido' });
+
+  const client = await pool.connect();
+  try {
+    await ensureUntamedReelsTables();
+    await client.query('BEGIN');
+
+    const now = new Date();
+    const nowIso = now.toISOString();
+    const nextClaimDate = new Date(now.getTime() + UNTAMED_REELS_DAILY_COOLDOWN_MS);
+
+    const balancesMap = await getUnifiedBalancesMap(client, userId, true);
+    const hasCurrency = Object.prototype.hasOwnProperty.call(balancesMap || {}, UNTAMED_REELS_CURRENCY);
+    let currentBalance = Number(balancesMap?.[UNTAMED_REELS_CURRENCY] || 0);
+    if (!hasCurrency) {
+      currentBalance = UNTAMED_REELS_INITIAL_BALANCE;
+      await setUnifiedBalance(client, userId, UNTAMED_REELS_CURRENCY, currentBalance);
+    } else if (!Number.isFinite(currentBalance) || currentBalance < 0) {
+      currentBalance = 0;
+      await setUnifiedBalance(client, userId, UNTAMED_REELS_CURRENCY, currentBalance);
+    }
+
+    let row = null;
+    const { rows: lockRows } = await client.query(
+      `SELECT user_id, streak_count, total_claims, last_claim_at, next_claim_at
+       FROM untamed_reels_daily_rewards
+       WHERE user_id = $1
+       FOR UPDATE`,
+      [userId]
+    );
+    if (lockRows.length) {
+      row = lockRows[0];
+    } else {
+      const { rows: insertedRows } = await client.query(
+        `INSERT INTO untamed_reels_daily_rewards (user_id, streak_count, total_claims, updated_at)
+         VALUES ($1, 0, 0, NOW())
+         RETURNING user_id, streak_count, total_claims, last_claim_at, next_claim_at`,
+        [userId]
+      );
+      row = insertedRows[0];
+    }
+
+    const statusBefore = buildUntamedDailyStatus(row, now);
+    if (!statusBefore.claimable) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({
+        error: 'Recompensa diaria aun no disponible',
+        daily: {
+          ...statusBefore,
+          total_claims: Math.max(0, Number(row?.total_claims || 0))
+        }
+      });
+    }
+
+    const rewardAmount = Math.max(0, Number(statusBefore.next_reward || 0));
+    const rewardsLen = UNTAMED_REELS_DAILY_REWARDS.length;
+    const prevEffectiveStreak = Math.max(0, Number(statusBefore.streak_count || 0));
+    const nextStreakCount = prevEffectiveStreak + 1;
+    const normalizedStreak = Math.max(1, ((nextStreakCount - 1) % rewardsLen) + 1);
+    const nextBalance = Math.max(0, Math.floor(currentBalance + rewardAmount));
+    const totalClaims = Math.max(0, Number(row?.total_claims || 0)) + 1;
+
+    const { rows: updatedRows } = await client.query(
+      `UPDATE untamed_reels_daily_rewards
+       SET streak_count = $2,
+           total_claims = $3,
+           last_claim_at = $4::timestamptz,
+           next_claim_at = $5::timestamptz,
+           updated_at = NOW()
+       WHERE user_id = $1
+       RETURNING user_id, streak_count, total_claims, last_claim_at, next_claim_at`,
+      [userId, normalizedStreak, totalClaims, nowIso, nextClaimDate.toISOString()]
+    );
+
+    await setUnifiedBalance(client, userId, UNTAMED_REELS_CURRENCY, nextBalance);
+    await client.query(
+      `INSERT INTO ocean_pay_txs (user_id, concepto, monto, origen, moneda)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [userId, 'Untamed Reels - Daily Reward', rewardAmount, 'Untamed Reels', UNTAMED_REELS_CURRENCY]
+    );
+
+    await client.query('COMMIT');
+
+    const finalRow = updatedRows[0] || {
+      streak_count: normalizedStreak,
+      total_claims: totalClaims,
+      last_claim_at: nowIso,
+      next_claim_at: nextClaimDate.toISOString()
+    };
+    const statusAfter = buildUntamedDailyStatus(finalRow, new Date());
+
+    return res.json({
+      success: true,
+      claimed: true,
+      amount: rewardAmount,
+      currency: UNTAMED_REELS_CURRENCY,
+      currency_label: UNTAMED_REELS_CURRENCY_LABEL,
+      balance: nextBalance,
+      rewards_schedule: UNTAMED_REELS_DAILY_REWARDS,
+      daily: {
+        ...statusAfter,
+        total_claims: Math.max(0, Number(finalRow?.total_claims || totalClaims))
+      }
+    });
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    console.error('Error en POST /untamed-reels/daily-reward/claim:', err);
+    return res.status(500).json({ error: 'No se pudo reclamar la recompensa diaria' });
   } finally {
     client.release();
   }

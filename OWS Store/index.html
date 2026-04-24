@@ -11127,14 +11127,14 @@
         function getDedicatedStoreNewsEntries() {
             const list = Array.isArray(owsNewsUpdatesCache) ? owsNewsUpdatesCache : [];
             return list
-                .filter((entry) => isDedicatedApologyNewsEntry(entry))
+                .filter((entry) => isStoreGlobalNewsEntry(entry))
                 .sort((a, b) => {
                     const pa = Number(a?.priority || 0);
                     const pb = Number(b?.priority || 0);
                     if (pa !== pb) return pb - pa;
                     return (Date.parse(b?.updateDate || '') || 0) - (Date.parse(a?.updateDate || '') || 0);
                 })
-                .slice(0, 1);
+                .slice(0, 24);
         }
 
         function renderNewsHub() {
@@ -11145,7 +11145,7 @@
             if (!changelogBody && !eventsGrid) return;
             const list = Array.isArray(owsNewsUpdatesCache) ? owsNewsUpdatesCache : [];
             const changelogs = list
-                .filter((n) => !n.isEvent && !n.isBanner && String(n?.entryType || n?.kind || '').toLowerCase() !== 'news' && !isDedicatedApologyNewsEntry(n))
+                .filter((n) => !n.isEvent && !n.isBanner && String(n?.entryType || n?.kind || '').toLowerCase() !== 'news' && !isStoreGlobalNewsEntry(n))
                 .sort((a, b) => {
                     const pa = Number(a?.priority || 0);
                     const pb = Number(b?.priority || 0);

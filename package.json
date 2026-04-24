@@ -1,6 +1,6 @@
 {
     "name":  "ows-server",
-    "version":  "2026.4.21-t1956",
+    "version":  "2026.4.24-t2304",
     "main":  "server.js",
     "type":  "module",
     "scripts":  {
@@ -31,6 +31,7 @@
                          "socket.io":  "^4.7.2"
                      },
     "devDependencies":  {
-                            "@capacitor/cli":  "^8.1.0"
+                            "@capacitor/cli":  "^8.1.0",
+                            "@playwright/test":  "^1.59.1"
                         }
 }

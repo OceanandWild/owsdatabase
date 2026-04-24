@@ -145,6 +145,76 @@
       pointer-events: none;
       min-width: 280px;
     }
+    .jackpot-meter-panel {
+      position: fixed;
+      left: 18px;
+      top: 154px;
+      z-index: 5;
+      width: 52px;
+      border-radius: 14px;
+      border: 1px solid rgba(90, 182, 232, 0.42);
+      background: linear-gradient(165deg, rgba(7, 22, 36, 0.9), rgba(6, 18, 31, 0.86));
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(166, 223, 255, 0.15);
+      padding: 8px 7px;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+    .jackpot-meter-label {
+      font-size: 10px;
+      line-height: 1.1;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #9dd3ec;
+      text-align: center;
+    }
+    .jackpot-meter-track {
+      width: 18px;
+      height: 236px;
+      border-radius: 999px;
+      border: 1px solid rgba(76, 163, 207, 0.44);
+      background: rgba(5, 20, 33, 0.9);
+      position: relative;
+      overflow: hidden;
+      box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.42);
+    }
+    .jackpot-meter-fill {
+      position: absolute;
+      left: 1px;
+      right: 1px;
+      bottom: 1px;
+      height: 0%;
+      min-height: 0;
+      border-radius: 999px;
+      background: linear-gradient(to top, #2dd4bf, #38bdf8);
+      box-shadow: 0 0 14px rgba(46, 212, 191, 0.38);
+      transition: height 0.26s ease, background 0.26s ease, box-shadow 0.26s ease;
+    }
+    .jackpot-meter-tick {
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 11px;
+      height: 1px;
+      background: rgba(162, 216, 244, 0.34);
+    }
+    .jackpot-meter-tick.top { top: 10px; }
+    .jackpot-meter-tick.mid { top: 50%; }
+    .jackpot-meter-tick.bot { bottom: 10px; }
+    .jackpot-meter-value {
+      font-size: 12px;
+      font-weight: 900;
+      color: #d6f7ff;
+      text-shadow: 0 0 10px rgba(79, 216, 255, 0.36);
+      letter-spacing: 0.02em;
+    }
+    .jackpot-meter-panel.ready .jackpot-meter-value {
+      color: #ffe9b0;
+      text-shadow: 0 0 14px rgba(255, 211, 102, 0.46);
+    }
     .jackpot-label {
       font-size: 11px;
       color: #f9d88e;
@@ -276,6 +346,34 @@
       opacity: 0.7;
       animation: none;
       transform: none;
+    }
+    #spin-btn.jackpot-ready {
+      background: linear-gradient(130deg, #fce38a, #f9b233 52%, #ffe38e);
+      color: #352103;
+      box-shadow: 0 0 0 2px rgba(255, 220, 120, 0.68), 0 10px 24px rgba(255, 197, 72, 0.54), 0 0 20px rgba(255, 214, 122, 0.5);
+      position: relative;
+      overflow: hidden;
+      animation: jackpotSpinGlow 1.1s ease-in-out infinite;
+    }
+    #spin-btn.jackpot-ready::after {
+      content: "";
+      position: absolute;
+      top: -22%;
+      bottom: -22%;
+      left: -46%;
+      width: 42%;
+      background: linear-gradient(110deg, rgba(255, 255, 255, 0), rgba(230, 230, 230, 0.74), rgba(255, 255, 255, 0));
+      transform: rotate(14deg);
+      animation: jackpotButtonSweep 1.5s linear infinite;
+      pointer-events: none;
+    }
+    @keyframes jackpotSpinGlow {
+      0%, 100% { filter: brightness(1); }
+      50% { filter: brightness(1.12); }
+    }
+    @keyframes jackpotButtonSweep {
+      0% { left: -56%; }
+      100% { left: 126%; }
     }
     .status {
       position: fixed;
@@ -771,6 +869,13 @@
       .topbar { grid-template-columns: 1fr; }
       .jackpot-banner { top: 122px; min-width: 240px; }
       .jackpot-value { font-size: 26px; }
+      .jackpot-meter-panel {
+        left: 10px;
+        top: 152px;
+        width: 46px;
+        padding: 6px 6px;
+      }
+      .jackpot-meter-track { height: 200px; width: 16px; }
       .spin-reward-strip { bottom: 98px; }
       .controls { grid-template-columns: 1fr; padding-bottom: 12px; }
       #spin-btn { width: 100%; }
@@ -835,6 +940,16 @@
     </div>
   </div>
   <div class="ui-layer">
+    <div class="jackpot-meter-panel" id="jackpot-meter-panel">
+      <div class="jackpot-meter-label">Jackpot</div>
+      <div class="jackpot-meter-track">
+        <span class="jackpot-meter-tick top"></span>
+        <span class="jackpot-meter-tick mid"></span>
+        <span class="jackpot-meter-tick bot"></span>
+        <div class="jackpot-meter-fill" id="jackpot-meter-fill"></div>
+      </div>
+      <div class="jackpot-meter-value" id="jackpot-meter-value">0/20</div>
+    </div>
     <div class="topbar">
       <div>
         <div class="brand-kicker">Ocean and Wild Studios</div>
@@ -898,10 +1013,13 @@
     </div>
   </div>
 
+  <script src="https://owsdatabase.onrender.com/shared/ows-project-guard.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pixi.js@8/dist/pixi.min.js"></script>
   <script>
     (async () => {
       const API_URL = "https://owsdatabase.onrender.com";
+      const PROJECT_SLUG = "biomeverse-fortune";
+      const PROJECT_NAME = "BiomeVerse Fortune";
       const OCEAN_PAY_STORAGE_TOKEN = "opToken";
       const OCEAN_PAY_STORAGE_USER = "opUser";
       const OCEAN_PAY_LOGIN_FLAG_KEY = "untamedReelsOceanPayLogged";
@@ -910,10 +1028,21 @@
       const DAILY_SYNC_INTERVAL_MS = 15000;
       const LUCKY_FOREST_SLOT_ID = "lucky-forest";
       const LUCKY_FOREST_TREE_SYMBOL = "K";
+      const LUCKY_FOREST_SHRUB_SYMBOL = "Q";
       const LUCKY_FOREST_TREE_THRESHOLD = 3;
       const LUCKY_FOREST_TREE_BONUS_BASE = 25000;
       const LUCKY_FOREST_TREE_BONUS_PER_EXTRA = 25000;
+      const LUCKY_FOREST_SHRUB_THRESHOLD = 4;
+      const LUCKY_FOREST_SHRUB_BONUS_BASE = 90000;
+      const LUCKY_FOREST_SHRUB_BONUS_PER_EXTRA = 55000;
+      const LUCKY_FOREST_MIXED_TREE_MIN = 2;
+      const LUCKY_FOREST_MIXED_SHRUB_MIN = 2;
+      const LUCKY_FOREST_MIXED_TOTAL_MIN = 5;
+      const LUCKY_FOREST_MIXED_BONUS_BASE = 130000;
+      const LUCKY_FOREST_MIXED_BONUS_PER_EXTRA = 70000;
       const FULL_ROW_BONUS = 100000;
+      const JACKPOT_METER_MAX = 20;
+      const JACKPOT_TRIGGER_CHANCE = 0.42;
       const UNTAMED_REELS_MIN_BET = 10;
       const DEFAULT_BET_OPTIONS = [10, 20, 50, 100, 200, 500, 1000, 2000];
       const SLOT_BONUS_CONFIG = {
@@ -967,11 +1096,15 @@
           totalClaims: 0,
           schedule: [750, 1200, 1800, 2600, 3600, 5000, 7000]
         },
-        claimingDaily: false
+        claimingDaily: false,
+        jackpotMeter: 0,
+        jackpotChargeReady: false,
+        bonusRoundActive: false
       };
 
       const symbols = ["A", "K", "Q", "J", "7", "WILD", "BAR", "STAR", "TIGER"];
       const weights = [18, 18, 17, 16, 10, 6, 7, 5, 3];
+      const luckyForestWeights = [18, 18, 8, 16, 10, 6, 7, 5, 3];
 
       const spinBtn = document.getElementById("spin-btn");
       const betMinus = document.getElementById("bet-minus");
@@ -1009,7 +1142,38 @@
       const dailyRewardStreak = document.getElementById("daily-reward-streak");
       const dailyRewardNext = document.getElementById("daily-reward-next");
       const dailyRewardTimer = document.getElementById("daily-reward-timer");
+      const jackpotMeterPanel = document.getElementById("jackpot-meter-panel");
+      const jackpotMeterFill = document.getElementById("jackpot-meter-fill");
+      const jackpotMeterValue = document.getElementById("jackpot-meter-value");
+      let restrictionState = { active: false, type: null, message: "" };
       let fxOverlay = null;
+
+      const setRestrictionState = (payload) => {
+        const restriction = payload?.restriction || {};
+        restrictionState = {
+          active: !!restriction.active,
+          type: String(restriction.type || "").toLowerCase(),
+          message: String(restriction.message || "")
+        };
+        if (restrictionState.active && !state.spinning) {
+          setStatus(
+            restrictionState.type === "rework"
+              ? "Proyecto en rework: acceso temporalmente restringido"
+              : "Proyecto temporalmente indisponible en OWS Store"
+          );
+        }
+        refreshHud();
+      };
+
+      if (window.OWSProjectRestrictionGuard && typeof window.OWSProjectRestrictionGuard.mount === "function") {
+        window.OWSProjectRestrictionGuard.mount({
+          apiBaseUrl: API_URL,
+          projectSlug: PROJECT_SLUG,
+          projectName: PROJECT_NAME,
+          checkIntervalMs: 30000,
+          onRestrictionChange: setRestrictionState
+        });
+      }
 
       const root = new PIXI.Container();
       app.stage.addChild(root);
@@ -1691,11 +1855,18 @@
         playTone({ freq: 740 + boost * 0.25, type: "triangle", attack: 0.01, decay: 0.3, gain: 0.05, start: 0.16 });
       }
 
-      function weightedRandom() {
-        const total = weights.reduce((a, b) => a + b, 0);
+      function getWeightsForSlot(slotId) {
+        const key = String(slotId || "").trim().toLowerCase();
+        if (key === LUCKY_FOREST_SLOT_ID) return luckyForestWeights;
+        return weights;
+      }
+
+      function weightedRandom(slotId = selectedSlotId) {
+        const activeWeights = getWeightsForSlot(slotId);
+        const total = activeWeights.reduce((a, b) => a + b, 0);
         let roll = Math.random() * total;
         for (let i = 0; i < symbols.length; i++) {
-          roll -= weights[i];
+          roll -= activeWeights[i];
           if (roll <= 0) return symbols[i];
         }
         return symbols[0];
@@ -1733,7 +1904,20 @@
         container.addChild(leafGlow, crown, trunk);
       }
 
-      function showCenterEventCard({ title, subtitle, accent = 0xfcd34d, trees = false, duration = 1200 }) {
+      function drawLuckyForestBush(container) {
+        const stem = new PIXI.Graphics();
+        stem.roundRect(-5, 10, 10, 16, 5).fill({ color: 0x49622e, alpha: 0.95 });
+        const foliage = new PIXI.Graphics();
+        foliage.circle(0, 4, 16).fill({ color: 0x3ea55d, alpha: 0.95 });
+        foliage.circle(-12, 10, 12).fill({ color: 0x2d8e4a, alpha: 0.94 });
+        foliage.circle(12, 10, 12).fill({ color: 0x2f9a51, alpha: 0.94 });
+        foliage.circle(0, 15, 11).fill({ color: 0x25783f, alpha: 0.92 });
+        const glow = new PIXI.Graphics();
+        glow.circle(0, 10, 24).fill({ color: 0x8bf7a5, alpha: 0.14 });
+        container.addChild(glow, foliage, stem);
+      }
+
+      function showCenterEventCard({ title, subtitle, accent = 0xfcd34d, flora = "none", duration = 1200 }) {
         if (!fxOverlay) return;
         const card = new PIXI.Container();
         const back = new PIXI.Graphics();
@@ -1772,7 +1956,7 @@
         subText.y = 34;
         card.addChild(subText);
 
-        if (trees) {
+        if (flora === "tree" || flora === "mixed") {
           const left = new PIXI.Container();
           drawLuckyForestTree(left);
           left.scale.set(0.72);
@@ -1780,8 +1964,22 @@
           left.y = 2;
           card.addChild(left);
           const right = new PIXI.Container();
-          drawLuckyForestTree(right);
+          if (flora === "mixed") drawLuckyForestBush(right);
+          else drawLuckyForestTree(right);
           right.scale.set(0.72);
+          right.x = w * 0.38;
+          right.y = 2;
+          card.addChild(right);
+        } else if (flora === "bush") {
+          const left = new PIXI.Container();
+          drawLuckyForestBush(left);
+          left.scale.set(0.76);
+          left.x = -w * 0.38;
+          left.y = 2;
+          card.addChild(left);
+          const right = new PIXI.Container();
+          drawLuckyForestBush(right);
+          right.scale.set(0.76);
           right.x = w * 0.38;
           right.y = 2;
           card.addChild(right);
@@ -1856,6 +2054,8 @@
 
         if (isLuckyForestSelected() && symKey === LUCKY_FOREST_TREE_SYMBOL) {
           drawLuckyForestTree(payload);
+        } else if (isLuckyForestSelected() && symKey === LUCKY_FOREST_SHRUB_SYMBOL) {
+          drawLuckyForestBush(payload);
         } else {
           const txt = new PIXI.Text({
             text: symbolToDisplay(sym),
@@ -1993,12 +2193,215 @@
         if (accountActionBtn) {
           accountActionBtn.textContent = state.usingGuestMode ? "Iniciar sesion" : "Cerrar sesion";
         }
+        if (jackpotMeterFill && jackpotMeterValue) {
+          const safeMeter = Math.max(0, Math.min(JACKPOT_METER_MAX, Math.floor(Number(state.jackpotMeter) || 0)));
+          const ratio = Math.max(0, Math.min(1, safeMeter / JACKPOT_METER_MAX));
+          const hue = Math.max(18, Math.floor(188 - ratio * 170));
+          const topColor = `hsl(${Math.max(10, hue - 12)} 95% 66%)`;
+          const bottomColor = `hsl(${hue} 92% 56%)`;
+          jackpotMeterFill.style.height = `${(ratio * 100).toFixed(2)}%`;
+          jackpotMeterFill.style.background = `linear-gradient(to top, ${bottomColor}, ${topColor})`;
+          jackpotMeterFill.style.boxShadow = `0 0 14px hsla(${hue}, 95%, 62%, 0.42)`;
+          jackpotMeterValue.textContent = `${safeMeter}/${JACKPOT_METER_MAX}`;
+          if (jackpotMeterPanel) jackpotMeterPanel.classList.toggle("ready", !!state.jackpotChargeReady);
+        }
         renderDailyRewardsUI();
-        spinBtn.disabled = state.spinning || !state.connected;
+        spinBtn.disabled = state.spinning || !state.connected || !!restrictionState.active;
+        spinBtn.classList.toggle("jackpot-ready", !!state.jackpotChargeReady && !state.spinning);
       }
 
       function setStatus(text) {
         statusText.textContent = text;
+      }
+
+      function incrementJackpotMeter() {
+        if (state.jackpotChargeReady) return;
+        state.jackpotMeter = Math.max(0, Math.floor(Number(state.jackpotMeter) || 0) + 1);
+        if (state.jackpotMeter >= JACKPOT_METER_MAX) {
+          state.jackpotMeter = JACKPOT_METER_MAX;
+          state.jackpotChargeReady = true;
+          setStatus("Chance de Premio Gordo lista para el proximo SPIN");
+        }
+      }
+
+      function consumeJackpotCharge() {
+        state.jackpotChargeReady = false;
+        state.jackpotMeter = 0;
+      }
+
+      function toCellKey(reel, row) {
+        return `${Math.max(0, Math.floor(Number(reel) || 0))}:${Math.max(0, Math.floor(Number(row) || 0))}`;
+      }
+
+      function parseCellKey(key) {
+        const parts = String(key || "").split(":");
+        return {
+          reel: Math.max(0, Math.floor(Number(parts[0]) || 0)),
+          row: Math.max(0, Math.floor(Number(parts[1]) || 0))
+        };
+      }
+
+      function cellsFromSet(cellSet) {
+        return [...(cellSet || new Set())].map(parseCellKey);
+      }
+
+      function buildMatrixWithSticky(symbol, stickySet) {
+        const target = String(symbol || "").toUpperCase();
+        const next = [];
+        for (let reel = 0; reel < reelCount; reel += 1) {
+          const column = [];
+          for (let row = 0; row < rows; row += 1) {
+            const key = toCellKey(reel, row);
+            if (stickySet?.has?.(key)) column.push(target);
+            else column.push(String(weightedRandom(selectedSlotId)).toUpperCase());
+          }
+          next.push(column);
+        }
+        return next;
+      }
+
+      function updateStickySetFromMatrix(matrix, symbol, stickySet) {
+        const target = String(symbol || "").toUpperCase();
+        for (let reel = 0; reel < reelCount; reel += 1) {
+          const column = Array.isArray(matrix?.[reel]) ? matrix[reel] : [];
+          for (let row = 0; row < rows; row += 1) {
+            if (String(column?.[row] || "").toUpperCase() === target) {
+              stickySet.add(toCellKey(reel, row));
+            }
+          }
+        }
+      }
+
+      async function animateSpinToMatrix(resultMatrix, { leadInMs = 340, baseSpeed = 30 } = {}) {
+        const now = performance.now();
+        reelStates.forEach((r, idx) => {
+          r.spinning = true;
+          r.settling = false;
+          r.resultColumn = null;
+          r.speed = baseSpeed + idx * 2;
+          r.stopAt = now + 1100 + idx * 180;
+          r.stopSoundPlayed = false;
+        });
+        await delay(leadInMs);
+        const settleNow = performance.now();
+        reelStates.forEach((r, reelIndex) => {
+          r.resultColumn = Array.isArray(resultMatrix?.[reelIndex]) ? resultMatrix[reelIndex] : null;
+          r.stopAt = Math.min(r.stopAt, settleNow + 180 + reelIndex * 100);
+        });
+        await waitForReelsStop();
+      }
+
+      async function applyCurrencyDelta(amount, concept = "BiomeVerse Fortune Adjustment") {
+        const safeAmount = Math.floor(Number(amount) || 0);
+        if (!safeAmount) return Math.max(0, Math.floor(Number(state.balance) || 0));
+
+        if (state.usingGuestMode || !getOceanPayToken()) {
+          const previewBalance = Math.floor(Number(state.balance) || 0) + safeAmount;
+          if (previewBalance < 0) throw new Error("Saldo insuficiente para la operacion");
+          const finalBalance = Math.max(0, previewBalance);
+          state.balance = finalBalance;
+          persistGuestState();
+          return finalBalance;
+        }
+
+        try {
+          const payload = await authedApi("/ocean-pay/currency/change", {
+            method: "POST",
+            body: JSON.stringify({
+              currencyType: "biometokens",
+              amount: safeAmount,
+              concepto: concept,
+              origen: "BiomeVerse Fortune"
+            })
+          });
+          const apiBalance = Number(payload?.newBalance);
+          if (Number.isFinite(apiBalance)) {
+            state.balance = Math.max(0, Math.floor(apiBalance));
+            return state.balance;
+          }
+        } catch (_) {}
+
+        const fallbackBalance = Math.floor(Number(state.balance) || 0) + safeAmount;
+        if (fallbackBalance < 0) throw new Error("Saldo insuficiente para la operacion");
+        state.balance = fallbackBalance;
+        return fallbackBalance;
+      }
+
+      async function runLuckyForestJackpotHunt(jackpotSnapshot) {
+        const safeJackpot = Math.max(0, Math.floor(Number(jackpotSnapshot) || 0));
+        let reward = 0;
+        const treeSticky = new Set();
+
+        showCenterEventCard({
+          title: "JACKPOT HUNT",
+          subtitle: "Fase 1: fija 5 arboles en 3 giros",
+          accent: 0xfacc15,
+          flora: "tree",
+          duration: 1600
+        });
+
+        for (let i = 0; i < 3; i += 1) {
+          const matrix = buildMatrixWithSticky(LUCKY_FOREST_TREE_SYMBOL, treeSticky);
+          await animateSpinToMatrix(matrix, { leadInMs: 300, baseSpeed: 31 });
+          updateStickySetFromMatrix(matrix, LUCKY_FOREST_TREE_SYMBOL, treeSticky);
+          setStatus(`Jackpot Hunt: Arboles ${treeSticky.size}/5 (giro ${i + 1}/3)`);
+          await delay(160);
+        }
+
+        const treeCells = cellsFromSet(treeSticky);
+        const treeSuccess = treeCells.length >= 5;
+        if (treeSuccess) {
+          const half = Math.max(0, Math.floor(safeJackpot * 0.5));
+          reward += half;
+          await playHypeBurst("forest");
+          showCenterEventCard({
+            title: "FOREST LOCK",
+            subtitle: `Mitad del premio: +${formatEconomyValue(half)} BiomeTokens`,
+            accent: 0x9bff8d,
+            flora: "tree",
+            duration: 1450
+          });
+          await playRewardCollectionAnimation(treeCells, half);
+        }
+
+        const shrubSticky = new Set();
+        showCenterEventCard({
+          title: "THORN STORM",
+          subtitle: "Fase 2: fija 5 arbustos en 5 giros",
+          accent: 0x67e8f9,
+          flora: "bush",
+          duration: 1500
+        });
+        for (let i = 0; i < 5; i += 1) {
+          const matrix = buildMatrixWithSticky(LUCKY_FOREST_SHRUB_SYMBOL, shrubSticky);
+          await animateSpinToMatrix(matrix, { leadInMs: 280, baseSpeed: 32 });
+          updateStickySetFromMatrix(matrix, LUCKY_FOREST_SHRUB_SYMBOL, shrubSticky);
+          setStatus(`Jackpot Hunt: Arbustos ${shrubSticky.size}/5 (giro ${i + 1}/5)`);
+          await delay(160);
+        }
+
+        const shrubCells = cellsFromSet(shrubSticky);
+        const shrubSuccess = shrubCells.length >= 5;
+        if (shrubSuccess) {
+          const pending = Math.max(0, safeJackpot - reward);
+          reward += pending;
+          await playHypeBurst("full-row");
+          showCenterEventCard({
+            title: "FELICIDADES",
+            subtitle: `Premio Gordo completado: +${formatEconomyValue(safeJackpot)} BiomeTokens`,
+            accent: 0xffd166,
+            flora: "mixed",
+            duration: 1800
+          });
+          await playRewardCollectionAnimation(shrubCells, pending);
+        }
+
+        return {
+          reward: Math.max(0, Math.floor(reward)),
+          treeCount: treeCells.length,
+          shrubCount: shrubCells.length,
+          completed: treeSuccess && shrubSuccess
+        };
       }
 
       function replaceReelCell(reelState, entry, sym, y) {
@@ -2137,7 +2540,55 @@
       }
 
       function resolveSlotBonusLocal(matrix, slotId, betBoost) {
-        const cfg = SLOT_BONUS_CONFIG[String(slotId || "").toLowerCase()];
+        const key = String(slotId || "").toLowerCase();
+        if (key === LUCKY_FOREST_SLOT_ID) {
+          const treeCells = findSymbolCells(matrix, LUCKY_FOREST_TREE_SYMBOL);
+          const shrubCells = findSymbolCells(matrix, LUCKY_FOREST_SHRUB_SYMBOL);
+          const treeCount = treeCells.length;
+          const shrubCount = shrubCells.length;
+          const totalForestSymbols = treeCount + shrubCount;
+          const safeBoost = Math.max(1, Number(betBoost) || 1);
+
+          const shrubTriggered = shrubCount >= LUCKY_FOREST_SHRUB_THRESHOLD;
+          const shrubAmount = shrubTriggered
+            ? Math.max(0, Math.floor((LUCKY_FOREST_SHRUB_BONUS_BASE + (shrubCount - LUCKY_FOREST_SHRUB_THRESHOLD) * LUCKY_FOREST_SHRUB_BONUS_PER_EXTRA) * safeBoost))
+            : 0;
+
+          const mixedTriggered = treeCount >= LUCKY_FOREST_MIXED_TREE_MIN
+            && shrubCount >= LUCKY_FOREST_MIXED_SHRUB_MIN
+            && totalForestSymbols >= LUCKY_FOREST_MIXED_TOTAL_MIN;
+          const mixedAmount = mixedTriggered
+            ? Math.max(0, Math.floor((LUCKY_FOREST_MIXED_BONUS_BASE + (totalForestSymbols - LUCKY_FOREST_MIXED_TOTAL_MIN) * LUCKY_FOREST_MIXED_BONUS_PER_EXTRA) * safeBoost))
+            : 0;
+
+          if (mixedAmount >= shrubAmount && mixedAmount > 0) {
+            return {
+              triggered: true,
+              amount: mixedAmount,
+              count: totalForestSymbols,
+              title: "VERDANT FUSION",
+              sourceCells: uniqueSourceCells([...(treeCells || []), ...(shrubCells || [])])
+            };
+          }
+          if (shrubAmount > 0) {
+            return {
+              triggered: true,
+              amount: shrubAmount,
+              count: shrubCount,
+              title: "THORN BOUNTY",
+              sourceCells: shrubCells
+            };
+          }
+          return {
+            triggered: false,
+            amount: 0,
+            count: shrubCount,
+            title: "THORN BOUNTY",
+            sourceCells: []
+          };
+        }
+
+        const cfg = SLOT_BONUS_CONFIG[key];
         if (!cfg) {
           return { triggered: false, amount: 0, count: 0, title: null, sourceCells: [] };
         }
@@ -2159,18 +2610,20 @@
         for (let reelIndex = 0; reelIndex < reelCount; reelIndex += 1) {
           const column = [];
           for (let rowIndex = 0; rowIndex < rows; rowIndex += 1) {
-            column.push(String(weightedRandom()).toUpperCase());
+            column.push(String(weightedRandom(selectedSlotId)).toUpperCase());
           }
           matrix.push(column);
         }
         const base = evaluateMatrixWin(matrix, safeBet);
         const betBoost = getBetBoost(safeBet);
         const slotBonus = resolveSlotBonusLocal(matrix, selectedSlotId, betBoost);
-        const treeCells = selectedSlotId === LUCKY_FOREST_SLOT_ID ? slotBonus.sourceCells : [];
-        const treeBonus = selectedSlotId === LUCKY_FOREST_SLOT_ID ? slotBonus.amount : 0;
+        const treeCells = selectedSlotId === LUCKY_FOREST_SLOT_ID ? findSymbolCells(matrix, LUCKY_FOREST_TREE_SYMBOL) : [];
+        const treeBonus = selectedSlotId === LUCKY_FOREST_SLOT_ID && treeCells.length >= LUCKY_FOREST_TREE_THRESHOLD
+          ? Math.max(0, Math.floor((LUCKY_FOREST_TREE_BONUS_BASE + (treeCells.length - LUCKY_FOREST_TREE_THRESHOLD) * LUCKY_FOREST_TREE_BONUS_PER_EXTRA) * Math.max(1, Number(betBoost) || 1)))
+          : 0;
         const fullRowBonus = base.fullRow ? Math.floor(FULL_ROW_BONUS * betBoost) : 0;
-        const win = Math.max(base.baseWin, Number(slotBonus.amount || 0), fullRowBonus);
-        const sourceCells = [...(base.sourceCells || []), ...(slotBonus.sourceCells || [])];
+        const win = Math.max(base.baseWin, Number(slotBonus.amount || 0), treeBonus, fullRowBonus);
+        const sourceCells = [...(base.sourceCells || []), ...(slotBonus.sourceCells || []), ...(treeCells || [])];
         const nextBalance = Math.max(0, Math.floor(state.balance - safeBet + win));
         return {
           success: true,
@@ -2346,6 +2799,14 @@
       async function spin() {
         ensureAudioContext();
         if (state.spinning) return;
+        if (restrictionState.active) {
+          setStatus(
+            restrictionState.type === "rework"
+              ? "Bloqueado por rework: espera la reapertura del proyecto"
+              : "Bloqueado temporalmente por indisponibilidad"
+          );
+          return;
+        }
 
         const bet = state.betOptions[state.betIndex];
         if (state.balance < bet) {
@@ -2362,11 +2823,56 @@
           return;
         }
 
+        const chargeReadyAtStart = !!state.jackpotChargeReady;
+        let jackpotChanceTriggered = false;
+        if (chargeReadyAtStart) {
+          jackpotChanceTriggered = Math.random() < JACKPOT_TRIGGER_CHANCE;
+          consumeJackpotCharge();
+        }
+
         state.spinning = true;
         state.lastWin = 0;
+        state.bonusRoundActive = false;
         refreshHud();
         setStatus("Spinning...");
         playSpinStartSound();
+
+        if (jackpotChanceTriggered && selectedSlotId === LUCKY_FOREST_SLOT_ID) {
+          try {
+            const chargedJackpot = Math.max(0, Math.floor(Number(state.jackpot) || 0));
+            await applyCurrencyDelta(-bet, "BiomeVerse Fortune - Jackpot Entry");
+            refreshHud();
+            setStatus("Chance del Premio Gordo activada");
+            state.bonusRoundActive = true;
+
+            const outcome = await runLuckyForestJackpotHunt(chargedJackpot);
+            const reward = Math.max(0, Math.floor(Number(outcome?.reward || 0)));
+            if (reward > 0) {
+              const finalBalance = await applyCurrencyDelta(reward, "BiomeVerse Fortune - Jackpot Hunt");
+              await animateBalanceGain(reward, finalBalance);
+              state.lastWin = reward;
+              state.jackpot = Math.max(12000, Math.floor(chargedJackpot * (outcome?.completed ? 0.22 : 0.55)));
+              refreshHud();
+              if (outcome?.completed) {
+                setStatus(`Felicidades! Premio Gordo: +${formatEconomyValue(reward)} BiomeTokens`);
+              } else {
+                setStatus(`Premio parcial: +${formatEconomyValue(reward)} BiomeTokens`);
+              }
+            } else {
+              state.jackpot = Math.max(12000, Math.floor(chargedJackpot * 0.85));
+              refreshHud();
+              setStatus("La chance del Premio Gordo no conecto esta vez");
+            }
+          } catch (err) {
+            forceAlignedRows();
+            setStatus(`Jackpot error: ${String(err?.message || "unknown")}`);
+          } finally {
+            state.spinning = false;
+            state.bonusRoundActive = false;
+            refreshHud();
+          }
+          return;
+        }
 
         const now = performance.now();
         reelStates.forEach((r, idx) => {
@@ -2380,9 +2886,11 @@
 
         const spinPromise = state.usingGuestMode ? requestGuestSpin(bet) : requestServerSpin(bet);
         await new Promise((resolve) => setTimeout(resolve, 900));
+        let countedSpin = false;
 
         try {
           const data = await spinPromise;
+          countedSpin = true;
           const win = Math.max(0, Math.floor(Number(data?.win || 0)));
           const finalBalance = Math.max(0, Math.floor(Number(data?.balance || state.balance)));
           const balanceAfterBet = Math.max(0, finalBalance - win);
@@ -2411,26 +2919,30 @@
             const forestAmount = Math.max(0, Math.floor(Number(data?.result?.tree_bonus_amount || 0)));
             const fullRowTriggered = !!data?.result?.full_row_triggered;
             const fullRowAmount = Math.max(0, Math.floor(Number(data?.result?.full_row_amount || 0)));
+            const slotBonusWinsOverForest = slotBonusTriggered && slotBonusAmount >= forestAmount;
             if (collectionAmountEl) {
               collectionAmountEl.textContent = `+${formatEconomyValue(win)} BiomeTokens`;
             }
             refreshHud();
-            if (forestTriggered) {
+            if (slotBonusWinsOverForest) {
+              await playHypeBurst("forest");
+              const luckyForestFlora = slotBonusTitle === "THORN BOUNTY"
+                ? "bush"
+                : (slotBonusTitle === "VERDANT FUSION" ? "mixed" : "none");
+              showCenterEventCard({
+                title: slotBonusTitle || "SLOT BONUS",
+                subtitle: `+${formatEconomyValue(slotBonusAmount)} BiomeTokens  |  Simbolos: ${slotBonusCount}`,
+                accent: 0x67e8f9,
+                flora: luckyForestFlora,
+                duration: 1500
+              });
+            } else if (forestTriggered) {
               await playHypeBurst("forest");
               showCenterEventCard({
                 title: "GREAT FOREST",
                 subtitle: `+${formatEconomyValue(forestAmount)} BiomeTokens  |  Arboles: ${treeCount}`,
                 accent: 0x7af5b2,
-                trees: true,
-                duration: 1500
-              });
-            } else if (slotBonusTriggered) {
-              await playHypeBurst("forest");
-              showCenterEventCard({
-                title: slotBonusTitle || "SLOT BONUS",
-                subtitle: `+${formatEconomyValue(slotBonusAmount)} BiomeTokens  |  Simbolos: ${slotBonusCount}`,
-                accent: 0x67e8f9,
-                trees: false,
+                flora: "tree",
                 duration: 1500
               });
             }
@@ -2440,7 +2952,7 @@
                 title: "MEGA LINE",
                 subtitle: `Fila completa +${formatEconomyValue(Math.max(FULL_ROW_BONUS, fullRowAmount))} BiomeTokens`,
                 accent: 0xff8a3d,
-                trees: false,
+                flora: "none",
                 duration: 1500
               });
             }
@@ -2450,10 +2962,10 @@
             refreshHud();
             if (fullRowTriggered) {
               setStatus(`Fila completa! +${formatEconomyValue(Math.max(FULL_ROW_BONUS, fullRowAmount))} BiomeTokens`);
+            } else if (slotBonusWinsOverForest) {
+              setStatus(`${slotBonusTitle || "SLOT BONUS"}! +${formatEconomyValue(slotBonusAmount)} BiomeTokens`);
             } else if (forestTriggered) {
               setStatus(`GREAT FOREST! +${formatEconomyValue(forestAmount)} BiomeTokens`);
-            } else if (slotBonusTriggered) {
-              setStatus(`${slotBonusTitle || "SLOT BONUS"}! +${formatEconomyValue(slotBonusAmount)} BiomeTokens`);
             } else {
               setStatus(`Big hit: +${formatEconomyValue(win)} ${state.currencyLabel}`);
             }
@@ -2474,9 +2986,17 @@
             setStatus(`Spin error: ${message}`);
           }
           forceAlignedRows();
+        } finally {
+          if (countedSpin) {
+            incrementJackpotMeter();
+          } else if (chargeReadyAtStart && !jackpotChanceTriggered) {
+            // Si la chance no entro, se considera consumida para reiniciar el ciclo.
+            state.jackpotMeter = 0;
+          }
         }
 
         state.spinning = false;
+        state.bonusRoundActive = false;
         refreshHud();
       }
 
@@ -2716,7 +3236,7 @@
             entry.cell.y += r.speed * ticker.deltaTime;
             if (entry.cell.y > cycleHeight - (cellH + 8)) {
               const nextY = minY - (cellH + 8);
-              replaceReelCell(r, entry, weightedRandom(), nextY);
+              replaceReelCell(r, entry, weightedRandom(selectedSlotId), nextY);
               minY = nextY;
             }
           }

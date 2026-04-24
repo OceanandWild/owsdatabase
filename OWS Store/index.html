@@ -6386,6 +6386,7 @@
 
         const API_URL = 'https://owsdatabase.onrender.com';
         const OWS_NEWS_UPDATES_API_URL = `${API_URL}/ows-news/updates`;
+        const OWS_STORE_NEWS_API_URL = `${API_URL}/ows-store/news`;
         const OWS_STORE_ANDROID_API_BASE = `${API_URL}/ows-store/android`;
         const OWS_STORE_ANDROID_SLUG = 'ows-store';
         const FLORET_ANDROID_SLUG = 'floret-shop';
@@ -6796,10 +6797,12 @@
         let owsNewsReleaseCache = null;
         let ecoxionReleaseCache = null;
         let owsNewsUpdatesCache = [];
+        let dedicatedStoreNewsCache = [];
         let newsArticleEntriesCache = [];
         const OWS_NEWS_FEED_VIEW_KEY = 'ows_news_feed_view';
         let newsFeedView = localStorage.getItem(OWS_NEWS_FEED_VIEW_KEY) === 'grid' ? 'grid' : 'carousel';
         let owsNewsUpdatesFetchedAt = 0;
+        let dedicatedStoreNewsFetchedAt = 0;
         let owsStoreAndroidReleaseCache = null;
         let owsStoreWindowsReleaseCache = null;
         let allProjects = [];
@@ -7076,6 +7079,16 @@
             return [...new Set(urls)];
         }
 
+        function getDedicatedNewsCoverUrls(entries = []) {
+            const urls = [];
+            const list = Array.isArray(entries) ? entries : [];
+            for (const item of list) {
+                const coverUrl = String(item?.bannerMeta?.image || item?.bannerMeta?.image_url || item?.model2d?.image || '').trim();
+                if (coverUrl) urls.push(coverUrl);
+            }
+            return [...new Set(urls)];
+        }
+
         function getProjectAssetUrls(projects = []) {
             const urls = [];
             const list = Array.isArray(projects) ? projects : [];
@@ -7126,6 +7139,7 @@
             const urls = [...new Set([
                 ...getProjectAssetUrls(projects),
                 ...getEventCoverUrls(entries),
+                ...getDedicatedNewsCoverUrls(dedicatedStoreNewsCache),
             ])];
             if (!urls.length) return { total: 0, loaded: 0, failed: 0 };
             const results = await Promise.all(urls.map((url) => preloadImageWithRetry(url, 2, 12000)));
@@ -7237,7 +7251,7 @@
             return `sig_${(hash >>> 0).toString(16)}`;
         }
 
-        function buildStoreDataSignature(projects = [], news = []) {
+        function buildStoreDataSignature(projects = [], news = [], dedicatedNews = []) {
             const projectShape = (Array.isArray(projects) ? projects : []).map((p) => ({
                 slug: String(p?.slug || '').toLowerCase(),
                 version: String(p?.version || ''),
@@ -7254,7 +7268,14 @@
                 active: n?.isActive !== false,
                 type: String(n?.entryType || n?.entry_type || ''),
             })).sort((a, b) => `${a.title}|${a.updateDate}`.localeCompare(`${b.title}|${b.updateDate}`));
-            return createStoreDataHash(JSON.stringify({ projectShape, newsShape }));
+            const dedicatedNewsShape = (Array.isArray(dedicatedNews) ? dedicatedNews : []).map((n) => ({
+                id: Number(n?.id || 0),
+                title: String(n?.title || ''),
+                updateDate: String(n?.updateDate || n?.update_date || ''),
+                active: n?.isActive !== false,
+                type: String(n?.entryType || n?.entry_type || 'news'),
+            })).sort((a, b) => `${a.title}|${a.updateDate}`.localeCompare(`${b.title}|${b.updateDate}`));
+            return createStoreDataHash(JSON.stringify({ projectShape, newsShape, dedicatedNewsShape }));
         }
 
         function sanitizeProjectCatalogForUi(projects = []) {
@@ -7276,12 +7297,13 @@
 
         function persistStoreDataSnapshot() {
             try {
-                const signature = buildStoreDataSignature(allProjects, owsNewsUpdatesCache);
+                const signature = buildStoreDataSignature(allProjects, owsNewsUpdatesCache, dedicatedStoreNewsCache);
                 const payload = {
                     savedAt: new Date().toISOString(),
                     signature,
                     projects: Array.isArray(allProjects) ? allProjects : [],
                     news: Array.isArray(owsNewsUpdatesCache) ? owsNewsUpdatesCache : [],
+                    dedicatedNews: Array.isArray(dedicatedStoreNewsCache) ? dedicatedStoreNewsCache : [],
                 };
                 localStorage.setItem(STORE_DATA_SNAPSHOT_KEY, JSON.stringify(payload));
                 localStorage.setItem(STORE_DATA_SIGNATURE_KEY, signature);
@@ -7347,8 +7369,10 @@
             if (!data) return false;
             allProjects = dedupeProjectCatalog(sanitizeProjectCatalogForUi(Array.isArray(data.projects) ? data.projects : []));
             owsNewsUpdatesCache = sanitizeNewsListForUi(Array.isArray(data.news) ? data.news : []);
+            dedicatedStoreNewsCache = sanitizeNewsListForUi(Array.isArray(data.dedicatedNews) ? data.dedicatedNews : []);
             owsNewsUpdatesFetchedAt = Date.now();
-            lastKnownStoreDataSignature = String(data.signature || buildStoreDataSignature(allProjects, owsNewsUpdatesCache));
+            dedicatedStoreNewsFetchedAt = Date.now();
+            lastKnownStoreDataSignature = String(data.signature || buildStoreDataSignature(allProjects, owsNewsUpdatesCache, dedicatedStoreNewsCache));
             renderVisibleProjects();
             renderLibrary();
             renderProjectUpdatesList();
@@ -10617,7 +10641,9 @@
             const entryTypeRaw = String(entry.entry_type || '').trim().toLowerCase();
             const entryType = entryTypeRaw === 'banner'
                 ? 'banner'
-                : (entryTypeRaw === 'event' || entryTypeRaw === 'evento' ? 'event' : 'changelog');
+                : (entryTypeRaw === 'event' || entryTypeRaw === 'evento'
+                    ? 'event'
+                    : ((entryTypeRaw === 'news' || entryTypeRaw === 'announcement' || entryTypeRaw === 'article') ? 'news' : 'changelog'));
             const isEvent = entryType === 'event';
             const isBanner = entryType === 'banner';
             const platformHint = Array.isArray(entry.platforms) && entry.platforms.length
@@ -10783,6 +10809,28 @@
             renderSpotlightSlider(false);
             restartSpotlightSliderAuto();
             return list;
+        }
+
+        async function fetchDedicatedStoreNews(force = false) {
+            const now = Date.now();
+            if (!force && dedicatedStoreNewsCache.length && (now - dedicatedStoreNewsFetchedAt) < OWS_NEWS_CACHE_TTL_MS) {
+                return dedicatedStoreNewsCache;
+            }
+            const res = await fetch(`${OWS_STORE_NEWS_API_URL}?limit=60&include_inactive=0&nocache=${now}`, { cache: 'no-store' });
+            if (!res.ok) throw new Error(`OWS Store News API ${res.status}`);
+            const payload = await res.json();
+            const list = (Array.isArray(payload) ? payload : [])
+                .map(normalizeNewsUpdateRecord)
+                .filter(Boolean)
+                .sort((a, b) => {
+                    const pa = Number(a?.priority || 0);
+                    const pb = Number(b?.priority || 0);
+                    if (pa !== pb) return pb - pa;
+                    return (Date.parse(b?.updateDate || '') || 0) - (Date.parse(a?.updateDate || '') || 0);
+                });
+            dedicatedStoreNewsCache = sanitizeNewsListForUi(list);
+            dedicatedStoreNewsFetchedAt = now;
+            return dedicatedStoreNewsCache;
         }
 
         function getProjectNewsAlias(project) {
@@ -11125,7 +11173,7 @@
         }
 
         function getDedicatedStoreNewsEntries() {
-            const list = Array.isArray(owsNewsUpdatesCache) ? owsNewsUpdatesCache : [];
+            const list = Array.isArray(dedicatedStoreNewsCache) ? dedicatedStoreNewsCache : [];
             return list
                 .filter((entry) => isStoreGlobalNewsEntry(entry))
                 .sort((a, b) => {
@@ -13998,6 +14046,12 @@
             } catch (err) {
                 console.log('No se pudieron cargar noticias OWS:', err?.message || err);
                 owsNewsUpdatesCache = [];
+            }
+            try {
+                await fetchDedicatedStoreNews(true);
+            } catch (err) {
+                console.log('No se pudieron cargar noticias dedicadas de OWS Store:', err?.message || err);
+                dedicatedStoreNewsCache = [];
             }
             if (onProgress) onProgress({ stage: 'preload', message: 'Precargando assets visuales...' });
             await preloadStoreVisualAssets(allProjects, owsNewsUpdatesCache);
@@ -20442,6 +20496,9 @@
                 fetchOWSNewsUpdates(false).then(() => {
                     if (activeSection === 'home') renderNewsHub();
                 }).catch(() => {});
+                fetchDedicatedStoreNews(false).then(() => {
+                    if (activeSection === 'home') renderDedicatedNewsSection();
+                }).catch(() => {});
                 refreshStoreAndroidReleaseLink().catch(() => {});
             }, 120000);
         }
@@ -20512,17 +20569,20 @@
             deferredMonitorState = 'Revisando';
             renderSettingsState();
             try {
-                const [projectsRes, newsRes] = await Promise.all([
+                const [projectsRes, newsRes, dedicatedNewsRes] = await Promise.all([
                     fetch(`${API_URL}/ows-store/projects?nocache=${Date.now()}`, { cache: 'no-store' }),
-                    fetch(`${OWS_NEWS_UPDATES_API_URL}?limit=220&include_inactive=0&nocache=${Date.now()}`, { cache: 'no-store' })
+                    fetch(`${OWS_NEWS_UPDATES_API_URL}?limit=220&include_inactive=0&nocache=${Date.now()}`, { cache: 'no-store' }),
+                    fetch(`${OWS_STORE_NEWS_API_URL}?limit=60&include_inactive=0&nocache=${Date.now()}`, { cache: 'no-store' })
                 ]);
                 const remoteProjects = projectsRes.ok ? await projectsRes.json() : [];
                 const remoteNewsRaw = newsRes.ok ? await newsRes.json() : [];
+                const remoteDedicatedNewsRaw = dedicatedNewsRes.ok ? await dedicatedNewsRes.json() : [];
                 const remoteNews = Array.isArray(remoteNewsRaw) ? remoteNewsRaw.map(normalizeNewsUpdateRecord).filter(Boolean) : [];
-                const remoteSignature = buildStoreDataSignature(remoteProjects, remoteNews);
+                const remoteDedicatedNews = Array.isArray(remoteDedicatedNewsRaw) ? remoteDedicatedNewsRaw.map(normalizeNewsUpdateRecord).filter(Boolean) : [];
+                const remoteSignature = buildStoreDataSignature(remoteProjects, remoteNews, remoteDedicatedNews);
                 const localSignature = lastKnownStoreDataSignature
                     || localStorage.getItem(STORE_DATA_SIGNATURE_KEY)
-                    || buildStoreDataSignature(allProjects, owsNewsUpdatesCache);
+                    || buildStoreDataSignature(allProjects, owsNewsUpdatesCache, dedicatedStoreNewsCache);
                 deferredLastSilentCheckAt = Date.now();
                 lastKnownStoreDataSignature = localSignature;
                 renderSettingsState();

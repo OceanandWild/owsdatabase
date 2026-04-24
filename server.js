@@ -1997,6 +1997,71 @@ async function ensureOwsStoreNewsSeedData() {
   return { seeded: count };
 }
 
+async function ensureOwsStoreDedicatedNewsSeedData() {
+  const entries = [
+    {
+      seed_key: 'service-apology-2026-04-14',
+      title: 'Service Update: Delays on WildWeapon Mayhem and Naturepedia',
+      description: 'We apologize for the delays in the WildWeapon Mayhem update rollout and the installable release launch of Naturepedia. Both items are now being finalized with additional stability checks.',
+      content_lines: [
+        'Both projects remain in active delivery planning with updated validation gates.',
+        'OWS Store will keep posting follow-up status as each milestone is completed.'
+      ],
+      related_project_slug: null,
+      related_project_name: 'Global',
+      banner_meta: {},
+      priority: 120,
+      is_active: true
+    },
+    {
+      seed_key: 'preventive-rollout-2026-04-24',
+      title: 'Preventive Systems Rollout Across OWS Projects',
+      description: 'Ocean and Wild Studios is deploying preventive systems across projects to reduce downtime during reworks and temporary service interruptions.',
+      content_lines: [
+        'Rollout will be phased project by project to protect user access and update safety.',
+        'Each project will receive safeguards for rework and temporary unavailability scenarios.'
+      ],
+      related_project_slug: null,
+      related_project_name: 'OWS Store',
+      banner_meta: {},
+      priority: 110,
+      is_active: true
+    }
+  ];
+
+  for (const item of entries) {
+    await pool.query(
+      `INSERT INTO ows_store_news (
+         seed_key, title, description, content_lines,
+         related_project_slug, related_project_name, banner_meta,
+         priority, is_active, published_at
+       )
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW())
+       ON CONFLICT (seed_key) DO UPDATE SET
+         title = EXCLUDED.title,
+         description = EXCLUDED.description,
+         content_lines = EXCLUDED.content_lines,
+         related_project_slug = EXCLUDED.related_project_slug,
+         related_project_name = EXCLUDED.related_project_name,
+         banner_meta = EXCLUDED.banner_meta,
+         priority = EXCLUDED.priority,
+         is_active = EXCLUDED.is_active,
+         updated_at = NOW()`,
+      [
+        item.seed_key,
+        item.title,
+        item.description,
+        item.content_lines || [],
+        item.related_project_slug || null,
+        item.related_project_name || null,
+        item.banner_meta || {},
+        Number(item.priority || 0),
+        item.is_active !== false
+      ]
+    );
+  }
+}
+
 async function ensureProjectChangelogSync({ force = false, projectSlug = '' } = {}) {
   const slugFilter = String(projectSlug || '').trim().toLowerCase();
 
@@ -2978,6 +3043,28 @@ async function runDatabaseMigrations() {
     `).catch(() => {});
 
     await pool.query(`
+      CREATE TABLE IF NOT EXISTS ows_store_news (
+        id SERIAL PRIMARY KEY,
+        seed_key VARCHAR(120) UNIQUE,
+        title VARCHAR(180) NOT NULL,
+        description TEXT,
+        content_lines TEXT[] DEFAULT '{}',
+        related_project_slug VARCHAR(80),
+        related_project_name VARCHAR(120),
+        banner_meta JSONB DEFAULT '{}'::jsonb,
+        is_active BOOLEAN DEFAULT TRUE,
+        priority INTEGER DEFAULT 0,
+        published_at TIMESTAMP DEFAULT NOW(),
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      );
+    `).catch(err => console.log('[OWS] Error creando ows_store_news:', err.message));
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_ows_store_news_active
+      ON ows_store_news(is_active, published_at DESC)
+    `).catch(() => {});
+
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS ows_store_push_devices (
         id SERIAL PRIMARY KEY,
         device_id VARCHAR(120) NOT NULL,
@@ -3060,6 +3147,11 @@ async function runDatabaseMigrations() {
     } else {
       console.warn('[OWS] ensureOwsStoreNewsSeedData no definida, se omite seed de ows_store_timeline.');
     }
+    if (typeof ensureOwsStoreDedicatedNewsSeedData === 'function') {
+      await ensureOwsStoreDedicatedNewsSeedData().catch(err => console.log('[OWS] Error seeding ows_store_news:', err.message));
+    } else {
+      console.warn('[OWS] ensureOwsStoreDedicatedNewsSeedData no definida, se omite seed de ows_store_news.');
+    }
 
     // 17. Crear tabla ows_projects para el Sistema OWS Store
     await pool.query(`
@@ -3085,6 +3177,22 @@ async function runDatabaseMigrations() {
       ALTER TABLE ows_projects
       ADD COLUMN IF NOT EXISTS installer_url TEXT
     `).catch(() => console.log('Ã¢Å¡Â Ã¯Â¸Â Columna installer_url ya existe en ows_projects'));
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS ows_project_restrictions(
+        id SERIAL PRIMARY KEY,
+        project_slug VARCHAR(50) UNIQUE NOT NULL REFERENCES ows_projects(slug) ON DELETE CASCADE,
+        project_name VARCHAR(100),
+        icon_url TEXT,
+        is_rework BOOLEAN NOT NULL DEFAULT FALSE,
+        is_unavailable BOOLEAN NOT NULL DEFAULT FALSE,
+        reason TEXT,
+        rework_message TEXT,
+        unavailable_message TEXT,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      );
+    `).catch(err => console.log('Ã¢Å¡Â Ã¯Â¸Â Error creando ows_project_restrictions:', err.message));
 
     await pool.query(`
       CREATE TABLE IF NOT EXISTS ows_project_offers(
@@ -3138,6 +3246,7 @@ async function runDatabaseMigrations() {
     } else {
       console.warn('[OWS] ensureOwsStoreProjectsSeedData no definida, se omite seed de ows_projects.');
     }
+    await syncOwsProjectRestrictionsTable().catch(err => console.log('[OWS] Error syncing ows_project_restrictions:', err.message));
 
     if (typeof ensureProjectChangelogSync === 'function') {
       await ensureProjectChangelogSync({ force: true }).catch(err => console.log('[OWS] Error syncing project changelogs:', err.message));
@@ -4861,6 +4970,22 @@ app.get('/ocean-pay/index.html', (_req, res) => {
 
 // Servir archivos estÃƒÆ’Ã‚Â¡ticos de Ocean Pay
 app.use('/ocean-pay', express.static(join(__dirname, 'Ocean Pay')));
+
+// Script compartido para bloqueo por rework/indisponibilidad (consumible por cualquier proyecto)
+app.get('/shared/ows-project-guard.js', (_req, res) => {
+  try {
+    const filePath = join(__dirname, 'ows-project-restriction-guard.js');
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).type('text/plain').send('shared guard script not found');
+    }
+    const script = fs.readFileSync(filePath, 'utf-8');
+    res.setHeader('Cache-Control', 'public, max-age=120');
+    res.type('application/javascript').send(script);
+  } catch (err) {
+    console.error('Error en GET /shared/ows-project-guard.js:', err);
+    return res.status(500).type('text/plain').send('internal error');
+  }
+});
 
 // A Wild Question Game - frontend route
 app.get('/a-wild-question-game', (_req, res) => {
@@ -8993,6 +9118,80 @@ function normalizeOwsProjectStatus(value) {
   return raw;
 }
 
+const OWS_PROJECT_REWORK_STATUS_SET = new Set(['rework', 'pleno_rework', 'full_rework', 'pleno rework', 'pleno-rework']);
+const OWS_PROJECT_UNAVAILABLE_STATUS_SET = new Set(['unavailable', 'indisponible', 'disabled', 'blocked', 'not_available', 'no_disponible']);
+
+function normalizeOwsProjectRef(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  if (!raw) return '';
+  if (raw === 'oceanpay' || raw === 'ocean-pay' || raw === 'ocean pay') return 'oceanpay';
+  if (raw === 'owsstore' || raw === 'ows-store' || raw === 'ows store') return 'ows-store';
+  if (raw === 'floret shop' || raw === 'floret-shop') return 'floretshop';
+  return raw;
+}
+
+async function syncOwsProjectRestrictionsTable(client = null) {
+  const runner = client || pool;
+  await runner.query(`
+    INSERT INTO ows_project_restrictions (project_slug, project_name, icon_url)
+    SELECT p.slug, p.name, p.icon_url
+    FROM ows_projects p
+    ON CONFLICT (project_slug) DO UPDATE SET
+      project_name = EXCLUDED.project_name,
+      icon_url = EXCLUDED.icon_url,
+      updated_at = NOW()
+  `);
+  await runner.query(`
+    DELETE FROM ows_project_restrictions r
+    WHERE NOT EXISTS (
+      SELECT 1 FROM ows_projects p
+      WHERE LOWER(p.slug) = LOWER(r.project_slug)
+    )
+  `);
+}
+
+function buildProjectRestrictionPayload(row = {}) {
+  const statusRaw = String(row?.status || '').trim().toLowerCase();
+  const flagRework = !!row?.is_rework;
+  const flagUnavailable = !!row?.is_unavailable;
+  const statusRework = OWS_PROJECT_REWORK_STATUS_SET.has(statusRaw);
+  const statusUnavailable = OWS_PROJECT_UNAVAILABLE_STATUS_SET.has(statusRaw);
+
+  const reworkActive = flagRework || statusRework;
+  const unavailableActive = flagUnavailable || statusUnavailable;
+  const hasRestriction = reworkActive || unavailableActive;
+  const primaryType = reworkActive ? 'rework' : (unavailableActive ? 'unavailable' : null);
+
+  const defaultReworkMessage = 'This project is currently in a major rework phase. Access is temporarily restricted until stability checks are completed.';
+  const defaultUnavailableMessage = 'This project is temporarily unavailable in OWS Store due to maintenance, security controls, or distribution constraints.';
+  const title = primaryType === 'rework'
+    ? 'Project Temporarily Blocked (Rework)'
+    : (primaryType === 'unavailable' ? 'Project Temporarily Unavailable' : '');
+  const message = primaryType === 'rework'
+    ? String(row?.rework_message || row?.reason || defaultReworkMessage)
+    : (primaryType === 'unavailable' ? String(row?.unavailable_message || row?.reason || defaultUnavailableMessage) : '');
+
+  return {
+    active: hasRestriction,
+    type: primaryType,
+    title,
+    message,
+    reason: String(row?.reason || '').trim() || null,
+    rework: {
+      active: reworkActive,
+      from_status: statusRework,
+      from_flag: flagRework,
+      message: String(row?.rework_message || row?.reason || defaultReworkMessage)
+    },
+    unavailable: {
+      active: unavailableActive,
+      from_status: statusUnavailable,
+      from_flag: flagUnavailable,
+      message: String(row?.unavailable_message || row?.reason || defaultUnavailableMessage)
+    }
+  };
+}
+
 // OWS Store catalog (fuente principal para launcher)
 app.get('/ows-store/projects', async (req, res) => {
   const statusFilterRaw = String(req.query.status || '').trim();
@@ -9510,6 +9709,79 @@ app.post('/ows-store/push/inbox/:id/ack', async (req, res) => {
   }
 });
 
+// OWS Store dedicated news feed (solo articulos de la seccion Noticias)
+app.get('/ows-store/news', async (req, res) => {
+  const includeInactive = normalizeNewsBoolean(req.query.include_inactive, false);
+  const limit = Math.max(1, Math.min(100, normalizeNewsNumber(req.query.limit, 24)));
+  try {
+    const values = [limit];
+    const where = [];
+    if (!includeInactive) where.push('is_active = TRUE');
+    const sql = `
+      SELECT id, seed_key, title, description, content_lines, related_project_slug, related_project_name,
+             banner_meta, is_active, priority, published_at, created_at, updated_at
+      FROM ows_store_news
+      ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+      ORDER BY priority DESC, COALESCE(published_at, created_at, updated_at) DESC
+      LIMIT $1
+    `;
+    const { rows } = await pool.query(sql, values);
+    const list = rows.map((row) => ({
+      id: Number(row.id || 0),
+      seed_key: String(row.seed_key || '').trim() || null,
+      project_names: [String(row.related_project_name || '').trim() || 'Global'],
+      project_slugs: row.related_project_slug ? [String(row.related_project_slug).trim()] : [],
+      title: String(row.title || '').trim(),
+      description: String(row.description || '').trim(),
+      changes: Array.isArray(row.content_lines) ? row.content_lines.map((line) => String(line || '').trim()).filter(Boolean) : [],
+      update_date: row.published_at || row.created_at || row.updated_at || null,
+      entry_type: 'news',
+      platforms: ['all'],
+      banner_meta: (row.banner_meta && typeof row.banner_meta === 'object') ? row.banner_meta : {},
+      is_active: row.is_active !== false,
+      priority: Number(row.priority || 0)
+    }));
+    return res.json(list);
+  } catch (err) {
+    console.error('Error en GET /ows-store/news:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+app.post('/ows-store/news', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const title = String(req.body?.title || '').trim();
+  if (!title) return res.status(400).json({ error: 'title requerido' });
+  const seedKey = String(req.body?.seed_key || req.body?.seedKey || '').trim() || null;
+  const description = String(req.body?.description || '').trim();
+  const contentLines = toNewsArray(req.body?.content_lines || req.body?.contentLines || req.body?.changes || []);
+  const relatedProjectSlug = String(req.body?.related_project_slug || req.body?.relatedProjectSlug || '').trim() || null;
+  const relatedProjectName = String(req.body?.related_project_name || req.body?.relatedProjectName || '').trim() || 'Global';
+  const bannerMeta = (req.body?.banner_meta && typeof req.body.banner_meta === 'object')
+    ? req.body.banner_meta
+    : ((req.body?.bannerMeta && typeof req.body.bannerMeta === 'object') ? req.body.bannerMeta : {});
+  const isActive = normalizeNewsBoolean(req.body?.is_active ?? req.body?.isActive, true);
+  const priority = normalizeNewsNumber(req.body?.priority, 0);
+  const publishedAtRaw = String(req.body?.published_at || req.body?.publishedAt || '').trim();
+  const publishedAt = publishedAtRaw || new Date().toISOString();
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO ows_store_news (
+         seed_key, title, description, content_lines, related_project_slug, related_project_name,
+         banner_meta, is_active, priority, published_at
+       )
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+       RETURNING id, seed_key, title, description, content_lines, related_project_slug, related_project_name,
+                 banner_meta, is_active, priority, published_at, created_at, updated_at`,
+      [seedKey, title, description, contentLines, relatedProjectSlug, relatedProjectName, bannerMeta, isActive, priority, publishedAt]
+    );
+    return res.json({ success: true, news: rows[0] || null });
+  } catch (err) {
+    console.error('Error en POST /ows-store/news:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 // OWS News feed (array simple para compatibilidad con launcher)
 app.get('/ows-news/updates', async (req, res) => {
   const includeInactive = normalizeNewsBoolean(req.query.include_inactive, false);
@@ -9861,9 +10133,19 @@ const UNTAMED_REELS_SYMBOLS = ['A', 'K', 'Q', 'J', '7', 'WILD', 'BAR', 'STAR', '
 const UNTAMED_REELS_WEIGHTS = [18, 18, 17, 16, 10, 6, 7, 5, 3];
 const UNTAMED_REELS_SLOT_LUCKY_FOREST = 'lucky-forest';
 const UNTAMED_REELS_TREE_SYMBOL = 'K';
+const UNTAMED_REELS_SHRUB_SYMBOL = 'Q';
 const UNTAMED_REELS_TREE_THRESHOLD = 3;
 const UNTAMED_REELS_TREE_BONUS_BASE = 25000;
 const UNTAMED_REELS_TREE_BONUS_PER_EXTRA = 25000;
+const UNTAMED_REELS_SHRUB_THRESHOLD = 4;
+const UNTAMED_REELS_SHRUB_BONUS_BASE = 90000;
+const UNTAMED_REELS_SHRUB_BONUS_PER_EXTRA = 55000;
+const UNTAMED_REELS_MIXED_TREE_MIN = 2;
+const UNTAMED_REELS_MIXED_SHRUB_MIN = 2;
+const UNTAMED_REELS_MIXED_TOTAL_MIN = 5;
+const UNTAMED_REELS_MIXED_BONUS_BASE = 130000;
+const UNTAMED_REELS_MIXED_BONUS_PER_EXTRA = 70000;
+const UNTAMED_REELS_LUCKY_FOREST_WEIGHTS = [18, 18, 8, 16, 10, 6, 7, 5, 3];
 const UNTAMED_REELS_FULL_ROW_BONUS = 100000;
 const UNTAMED_REELS_LIVE_SLOT_IDS = new Set([
   'lucky-forest', 'coral-crown', 'volcanic-gold', 'neon-depths',
@@ -9945,22 +10227,29 @@ const UNTAMED_REELS_PAYOUT = {
   TIGER: 40
 };
 
-function untamedReelsWeightedSymbol() {
-  const total = UNTAMED_REELS_WEIGHTS.reduce((acc, value) => acc + value, 0);
+function untamedReelsGetWeightsForSlot(slotId = '') {
+  const key = String(slotId || '').trim().toLowerCase();
+  if (key === UNTAMED_REELS_SLOT_LUCKY_FOREST) return UNTAMED_REELS_LUCKY_FOREST_WEIGHTS;
+  return UNTAMED_REELS_WEIGHTS;
+}
+
+function untamedReelsWeightedSymbol(slotId = '') {
+  const safeWeights = untamedReelsGetWeightsForSlot(slotId);
+  const total = safeWeights.reduce((acc, value) => acc + value, 0);
   let roll = Math.random() * total;
   for (let i = 0; i < UNTAMED_REELS_SYMBOLS.length; i += 1) {
-    roll -= UNTAMED_REELS_WEIGHTS[i];
+    roll -= safeWeights[i];
     if (roll <= 0) return UNTAMED_REELS_SYMBOLS[i];
   }
   return UNTAMED_REELS_SYMBOLS[0];
 }
 
-function untamedReelsGenerateMatrix() {
+function untamedReelsGenerateMatrix(slotId = '') {
   const matrix = [];
   for (let reel = 0; reel < UNTAMED_REELS_REEL_COUNT; reel += 1) {
     const column = [];
     for (let row = 0; row < UNTAMED_REELS_ROWS; row += 1) {
-      column.push(untamedReelsWeightedSymbol());
+      column.push(untamedReelsWeightedSymbol(slotId));
     }
     matrix.push(column);
   }
@@ -10093,6 +10382,53 @@ function untamedReelsUniqueSourceCells(cells = []) {
 
 function untamedReelsResolveSlotBonus(matrix = [], slotId = '', betBoost = 1) {
   const key = String(slotId || '').trim().toLowerCase();
+  if (key === UNTAMED_REELS_SLOT_LUCKY_FOREST) {
+    const treeCells = untamedReelsFindSymbolCells(matrix, UNTAMED_REELS_TREE_SYMBOL);
+    const shrubCells = untamedReelsFindSymbolCells(matrix, UNTAMED_REELS_SHRUB_SYMBOL);
+    const treeCount = treeCells.length;
+    const shrubCount = shrubCells.length;
+    const totalForestSymbols = treeCount + shrubCount;
+    const safeBoost = Math.max(1, Number(betBoost) || 1);
+
+    const shrubTriggered = shrubCount >= UNTAMED_REELS_SHRUB_THRESHOLD;
+    const shrubAmount = shrubTriggered
+      ? Math.max(0, Math.floor((UNTAMED_REELS_SHRUB_BONUS_BASE + (shrubCount - UNTAMED_REELS_SHRUB_THRESHOLD) * UNTAMED_REELS_SHRUB_BONUS_PER_EXTRA) * safeBoost))
+      : 0;
+
+    const mixedTriggered = treeCount >= UNTAMED_REELS_MIXED_TREE_MIN
+      && shrubCount >= UNTAMED_REELS_MIXED_SHRUB_MIN
+      && totalForestSymbols >= UNTAMED_REELS_MIXED_TOTAL_MIN;
+    const mixedAmount = mixedTriggered
+      ? Math.max(0, Math.floor((UNTAMED_REELS_MIXED_BONUS_BASE + (totalForestSymbols - UNTAMED_REELS_MIXED_TOTAL_MIN) * UNTAMED_REELS_MIXED_BONUS_PER_EXTRA) * safeBoost))
+      : 0;
+
+    if (mixedAmount >= shrubAmount && mixedAmount > 0) {
+      return {
+        triggered: true,
+        amount: mixedAmount,
+        count: totalForestSymbols,
+        title: 'VERDANT FUSION',
+        sourceCells: untamedReelsUniqueSourceCells([...(treeCells || []), ...(shrubCells || [])])
+      };
+    }
+    if (shrubAmount > 0) {
+      return {
+        triggered: true,
+        amount: shrubAmount,
+        count: shrubCount,
+        title: 'THORN BOUNTY',
+        sourceCells: shrubCells
+      };
+    }
+    return {
+      triggered: false,
+      amount: 0,
+      count: shrubCount,
+      title: 'THORN BOUNTY',
+      sourceCells: []
+    };
+  }
+
   const cfg = UNTAMED_REELS_SLOT_BONUS_CONFIG[key];
   if (!cfg) {
     return { triggered: false, amount: 0, count: 0, title: null, sourceCells: [] };
@@ -10354,15 +10690,19 @@ app.post(['/untamed-reels/spin', '/biomeverse-fortune/spin'], async (req, res) =
       return res.status(400).json({ error: 'Saldo insuficiente', balance: Math.floor(Math.max(0, Number(currentBalance) || 0)) });
     }
 
-    const matrix = untamedReelsGenerateMatrix();
+    const matrix = untamedReelsGenerateMatrix(slotId);
     const evalResult = untamedReelsEvaluateWin(matrix, safeBet);
     const betBoost = untamedReelsBetBoost(safeBet);
     const slotBonus = untamedReelsResolveSlotBonus(matrix, slotId, betBoost);
-    const treeCells = slotId === UNTAMED_REELS_SLOT_LUCKY_FOREST ? slotBonus.sourceCells : [];
-    const treeBonus = slotId === UNTAMED_REELS_SLOT_LUCKY_FOREST ? slotBonus.amount : 0;
+    const treeCells = slotId === UNTAMED_REELS_SLOT_LUCKY_FOREST
+      ? untamedReelsFindSymbolCells(matrix, UNTAMED_REELS_TREE_SYMBOL)
+      : [];
+    const treeBonus = slotId === UNTAMED_REELS_SLOT_LUCKY_FOREST && treeCells.length >= UNTAMED_REELS_TREE_THRESHOLD
+      ? Math.max(0, Math.floor((UNTAMED_REELS_TREE_BONUS_BASE + (treeCells.length - UNTAMED_REELS_TREE_THRESHOLD) * UNTAMED_REELS_TREE_BONUS_PER_EXTRA) * Math.max(1, Number(betBoost) || 1)))
+      : 0;
     const fullRowBonus = evalResult.fullRow ? Math.floor(UNTAMED_REELS_FULL_ROW_BONUS * betBoost) : 0;
     const win = Math.max(0, Number(Math.max(Number(evalResult.win || 0), slotBonus.amount, fullRowBonus) || 0));
-    const sourceCells = untamedReelsUniqueSourceCells([...(evalResult.sourceCells || []), ...(slotBonus.sourceCells || [])]);
+    const sourceCells = untamedReelsUniqueSourceCells([...(evalResult.sourceCells || []), ...(slotBonus.sourceCells || []), ...(treeCells || [])]);
     const nextBalance = Math.max(0, Math.floor(currentBalance - safeBet + win));
 
     await setUnifiedBalance(client, userId, UNTAMED_REELS_CURRENCY, nextBalance);
@@ -11552,6 +11892,128 @@ app.post('/ocean-pay/pass/claim-reward', async (req, res) => {
   }
 });
 
+// Estado de restriccion por proyecto (publico para scripts cliente)
+app.get('/ows-store/project-restrictions/:projectRef', async (req, res) => {
+  const projectRefRaw = String(req.params.projectRef || '').trim();
+  const projectRef = normalizeOwsProjectRef(projectRefRaw);
+  if (!projectRef) return res.status(400).json({ error: 'projectRef requerido' });
+
+  try {
+    await syncOwsProjectRestrictionsTable();
+    const { rows } = await pool.query(
+      `SELECT
+         p.slug,
+         p.name,
+         p.icon_url,
+         p.status,
+         p.version,
+         p.url,
+         p.installer_url,
+         r.is_rework,
+         r.is_unavailable,
+         r.reason,
+         r.rework_message,
+         r.unavailable_message,
+         r.updated_at AS restriction_updated_at
+       FROM ows_projects p
+       LEFT JOIN ows_project_restrictions r ON LOWER(r.project_slug) = LOWER(p.slug)
+       WHERE LOWER(p.slug) = $1 OR LOWER(p.name) = $1
+       LIMIT 1`,
+      [projectRef]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Proyecto no encontrado' });
+    const row = rows[0] || {};
+    const restriction = buildProjectRestrictionPayload(row);
+    return res.json({
+      success: true,
+      project: {
+        slug: String(row.slug || '').trim(),
+        name: String(row.name || '').trim(),
+        icon_url: String(row.icon_url || '').trim() || null,
+        status: String(row.status || '').trim().toLowerCase() || 'launched',
+        version: String(row.version || '').trim() || '0.0.0',
+        url: String(row.url || '').trim() || null,
+        installer_url: String(row.installer_url || '').trim() || null
+      },
+      restriction,
+      checked_at: new Date().toISOString()
+    });
+  } catch (err) {
+    console.error('Error en GET /ows-store/project-restrictions/:projectRef:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Edicion admin de flags de rework/unavailable por proyecto
+app.patch('/ows-store/project-restrictions/:slug', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const slug = normalizeOwsProjectRef(req.params.slug);
+  if (!slug) return res.status(400).json({ error: 'slug requerido' });
+
+  const hasRework = Object.prototype.hasOwnProperty.call(req.body || {}, 'is_rework');
+  const hasUnavailable = Object.prototype.hasOwnProperty.call(req.body || {}, 'is_unavailable');
+  const hasReason = Object.prototype.hasOwnProperty.call(req.body || {}, 'reason');
+  const hasReworkMsg = Object.prototype.hasOwnProperty.call(req.body || {}, 'rework_message');
+  const hasUnavailableMsg = Object.prototype.hasOwnProperty.call(req.body || {}, 'unavailable_message');
+
+  if (!hasRework && !hasUnavailable && !hasReason && !hasReworkMsg && !hasUnavailableMsg) {
+    return res.status(400).json({ error: 'No hay cambios para aplicar' });
+  }
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const existsRes = await client.query('SELECT slug, name, icon_url, status FROM ows_projects WHERE LOWER(slug) = $1 LIMIT 1', [slug]);
+    if (!existsRes.rows.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Proyecto no encontrado' });
+    }
+    await syncOwsProjectRestrictionsTable(client);
+
+    const setParts = [];
+    const values = [];
+    const pushSet = (field, value) => {
+      setParts.push(`${field} = $${values.length + 1}`);
+      values.push(value);
+    };
+    if (hasRework) pushSet('is_rework', !!req.body.is_rework);
+    if (hasUnavailable) pushSet('is_unavailable', !!req.body.is_unavailable);
+    if (hasReason) pushSet('reason', String(req.body.reason || '').trim() || null);
+    if (hasReworkMsg) pushSet('rework_message', String(req.body.rework_message || '').trim() || null);
+    if (hasUnavailableMsg) pushSet('unavailable_message', String(req.body.unavailable_message || '').trim() || null);
+    setParts.push('updated_at = NOW()');
+
+    const { rows } = await client.query(
+      `UPDATE ows_project_restrictions
+       SET ${setParts.join(', ')}
+       WHERE LOWER(project_slug) = $${values.length + 1}
+       RETURNING *`,
+      [...values, slug]
+    );
+
+    await client.query('COMMIT');
+    const project = existsRes.rows[0] || {};
+    const current = rows[0] || {};
+    const merged = { ...project, ...current };
+    return res.json({
+      success: true,
+      project: {
+        slug: String(project.slug || '').trim(),
+        name: String(project.name || '').trim(),
+        icon_url: String(project.icon_url || '').trim() || null,
+        status: String(project.status || '').trim().toLowerCase() || 'launched'
+      },
+      restriction: buildProjectRestrictionPayload(merged)
+    });
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    console.error('Error en PATCH /ows-store/project-restrictions/:slug:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  } finally {
+    client.release();
+  }
+});
+
 // Registrar o actualizar un proyecto (Upsert)
 app.post('/ows-store/projects', async (req, res) => {
   const { slug, name, description, icon_url, banner_url, url, version, status, release_date, metadata, installer_url } = req.body;
@@ -11577,6 +12039,7 @@ app.post('/ows-store/projects', async (req, res) => {
        RETURNING *`,
       [slug, name, description, icon_url, banner_url, url, version || '1.0.0', normalizedStatus, release_date, metadata || {}, installer_url || null]
     );
+    await syncOwsProjectRestrictionsTable().catch(() => {});
     res.json({ success: true, project: rows[0] });
   } catch (err) {
     console.error('ÃƒÂ¢Ã‚ÂÃ…â€™ Error en POST /ows-store/projects:', err);
@@ -11651,6 +12114,7 @@ app.patch('/ows-store/projects/:slug', async (req, res) => {
       values
     );
     if (rows.length === 0) return res.status(404).json({ error: 'Proyecto no encontrado' });
+    await syncOwsProjectRestrictionsTable().catch(() => {});
     res.json({ success: true, project: rows[0] });
   } catch (err) {
     console.error('Error en PATCH /ows-store/projects/:slug:', err);
@@ -11669,6 +12133,7 @@ app.delete('/ows-store/projects/:slug', async (req, res) => {
       [slug]
     );
     if (!rows.length) return res.status(404).json({ error: 'Proyecto no encontrado' });
+    await syncOwsProjectRestrictionsTable().catch(() => {});
     res.json({ success: true, deleted: rows[0].slug });
   } catch (err) {
     console.error('Error en DELETE /ows-store/projects/:slug:', err);

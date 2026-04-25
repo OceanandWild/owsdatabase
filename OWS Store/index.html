@@ -7506,7 +7506,8 @@
         function applyCachedSnapshotToUi(snapshot = null) {
             const data = snapshot || loadStoreDataSnapshot();
             if (!data) return false;
-            allProjects = dedupeProjectCatalog(sanitizeProjectCatalogForUi(Array.isArray(data.projects) ? data.projects : []));
+            allProjects = dedupeProjectCatalog(sanitizeProjectCatalogForUi(Array.isArray(data.projects) ? data.projects : []))
+                .map((p) => normalizeProjectDeliveryState(p));
             owsNewsUpdatesCache = sanitizeNewsListForUi(Array.isArray(data.news) ? data.news : []);
             dedicatedStoreNewsCache = sanitizeNewsListForUi(Array.isArray(data.dedicatedNews) ? data.dedicatedNews : []);
             owsNewsUpdatesFetchedAt = Date.now();
@@ -10565,6 +10566,26 @@
             return 0;
         }
 
+        function pickHigherVersionLike(a, b) {
+            const va = String(a || '').trim();
+            const vb = String(b || '').trim();
+            if (!va) return vb;
+            if (!vb) return va;
+            return compareVersionLike(va, vb) >= 0 ? va : vb;
+        }
+
+        function pickHigherVersion(...values) {
+            const normalized = values
+                .map((v) => normalizeReleaseVersion(v))
+                .filter(Boolean);
+            if (!normalized.length) return '';
+            let best = normalized[0];
+            for (let i = 1; i < normalized.length; i += 1) {
+                if (compareVersionLike(normalized[i], best) > 0) best = normalized[i];
+            }
+            return best;
+        }
+
         function extractVersionFromText(value) {
             const text = String(value || '');
             const match = text.match(/(\d+(?:[.-]\d+){2,}(?:-[A-Za-z]*\d{3,8})?)/);
@@ -12224,7 +12245,7 @@
             available = false,
         } = {}) {
             let needsUpdate = false;
-            if (installedOnThisDevice && available) {
+            if (installedOnThisDevice) {
                 if (platform === 'android' && Number(latestVersionCode) > 0) {
                     if (Number(installedVersionCode) > 0) {
                         needsUpdate = Number(latestVersionCode) > Number(installedVersionCode);
@@ -12281,6 +12302,29 @@
             return resolveCatalogStatus(project) === 'launched';
         }
 
+        function normalizeProjectDeliveryState(project) {
+            if (!project || typeof project !== 'object') return project;
+            const status = resolveCatalogStatus(project);
+            const hasInstallerHint = Boolean(
+                String(project?.installer_url || '').trim()
+                || String(project?.windows_download_url || '').trim()
+                || String(project?.url || '').toLowerCase().includes('/releases')
+            );
+            if (status === 'launched' && !isProjectUnavailableByStore(project)) {
+                project.status = 'launched';
+                if (project.pending_release === true) project.pending_release = false;
+                if (project.installer_available !== true && hasInstallerHint) project.installer_available = true;
+            }
+            project.version = pickHigherVersionLike(
+                project.version,
+                pickHigherVersionLike(project.windows_version, project.android_version)
+            );
+            if (!project.windows_version && project.version) {
+                project.windows_version = String(project.version || '').trim();
+            }
+            return project;
+        }
+
         function getPendingProjectUpdates() {
             const devicePlatform = normalizePlatformKind(detectCurrentDevicePlatform().platform || '');
             return allProjects
@@ -12333,7 +12377,6 @@
             const details = Array.isArray(info.platformDetails) ? info.platformDetails : [];
             return details.some((d) =>
                 normalizePlatformKind(d?.platform) === devicePlatform
-                && Boolean(d?.available)
                 && Boolean(d?.needsUpdate)
             );
         }
@@ -13186,6 +13229,10 @@
                                 ? `No instalada en este dispositivo (ultima: v${detail.latestVersion})`
                                 : 'No instalada en este dispositivo');
                     }
+                } else if (detail.needsUpdate) {
+                    statusText = detail.latestVersion
+                        ? `Update detectada: v${detail.latestVersion} (instalador pendiente)`
+                        : 'Update detectada (instalador pendiente)';
                 }
 
                 return `
@@ -13220,17 +13267,21 @@
                         && d.updateMode !== 'optional'
                     )
                 );
-                const hasAnyUpdate = info.platformDetails.some((d) => d.needsUpdate && d.available);
-                const hasRequiredUpdate = info.platformDetails.some((d) => d.needsUpdate && d.available && d.updateMode !== 'optional');
+                const hasAnyUpdate = info.platformDetails.some((d) => d.needsUpdate);
+                const hasActionableUpdate = info.platformDetails.some((d) => d.needsUpdate && d.available);
+                const hasRequiredUpdate = info.platformDetails.some((d) => d.needsUpdate && d.updateMode !== 'optional');
                 const crossPlatformOnly = Boolean(devicePlatform && projectSupportsDevice && !deviceHasUpdate && hasAnyUpdate);
                 const incompatible = Boolean(requestedPlatform) && !isPlatformCompatibleWithCurrentDevice(requestedPlatform) && !projectSupportsDevice;
                 const optionalOnly = hasAnyUpdate && !hasRequiredUpdate;
+                const awaitingInstaller = hasAnyUpdate && !hasActionableUpdate;
                 const targetLabel = action.label || getPrimaryUpdatePlatformLabel(info);
                 const noPending = !hasAnyUpdate;
                 const metaText = gateBlocked
                     ? getStoreObsoleteGateMessage(`actualizar ${project.name}`)
                 : noPending
                         ? `${project.name} esta al dia en ${detectedDevice.label}.`
+                    : awaitingInstaller
+                        ? `Se detecto una version mas nueva para ${project.name}, pero el instalador todavia no esta publicado.`
                     : optionalOnly
                         ? `Update opcional detectada para ${targetLabel}. Puedes instalarla cuando quieras.`
                     : crossPlatformOnly
@@ -13246,6 +13297,8 @@
                     ? 'Actualizar OWS Store'
                 : noPending
                         ? `Al dia (${detectedDevice.label})`
+                    : awaitingInstaller
+                        ? 'Esperando instalador'
                     : optionalOnly
                         ? `Update opcional (${targetLabel})`
                     : crossPlatformOnly
@@ -13262,11 +13315,13 @@
                     : incompatible
                         ? 'fa-ban'
                     : (action.requiresChoice ? 'fa-layer-group' : 'fa-arrow-up');
-                const buttonClass = (gateBlocked || incompatible || crossPlatformOnly || noPending) ? 'btn-install unavailable' : 'btn-install';
+                const buttonClass = (gateBlocked || incompatible || crossPlatformOnly || noPending || awaitingInstaller) ? 'btn-install unavailable' : 'btn-install';
                 const buttonAction = gateBlocked
                     ? `triggerStoreObsoleteNotice('${project.slug}')`
                     : noPending
                         ? `notifyProjectUpToDate('${project.slug}')`
+                    : awaitingInstaller
+                        ? `notifyProjectInstallerPending('${project.slug}')`
                     : crossPlatformOnly
                         ? `notifyProjectNoDeviceUpdate('${project.slug}', '${devicePlatform}', '${requestedPlatform || ''}')`
                     : incompatible
@@ -13574,6 +13629,19 @@
                 state: 'ready',
                 title: 'Sin updates pendientes',
                 iconClass: 'fa-check',
+                iconSpin: false,
+            });
+        }
+
+        function notifyProjectInstallerPending(slug = '') {
+            const project = getProjectBySlug(slug);
+            const latest = getProjectDisplayVersion(project) || project?.version || 'nueva version';
+            const message = `${project?.name || 'Proyecto'} tiene una version mas nueva (v${latest}), pero el instalador aun no esta publicado.`;
+            addNotification(message, 'warning');
+            showActionMessage(message, {
+                state: 'info',
+                title: 'Update pendiente de instalador',
+                iconClass: 'fa-hourglass-half',
                 iconSpin: false,
             });
         }
@@ -14222,6 +14290,7 @@
             allProjects = dedupeProjectCatalog(allProjects);
             if (onProgress) onProgress({ stage: 'assets', message: 'Assets base cargados.' });
             await applyLatestInstallerData(allProjects);
+            allProjects = allProjects.map((p) => normalizeProjectDeliveryState(p));
             if (onProgress) onProgress({ stage: 'events', message: 'Eventos sincronizados.' });
             seedLibraryFromProjectCatalog();
             try {
@@ -16568,6 +16637,9 @@
             const originalCatalogStatusBySlug = new Map(
                 projects.map((project) => [canonicalProjectSlug(project), resolveCatalogStatus(project)])
             );
+            const originalCatalogVersionBySlug = new Map(
+                projects.map((project) => [canonicalProjectSlug(project), String(project?.version || '').trim()])
+            );
             const wildWeapon = projects.find(p => isWildWeaponProject(p));
             const ssa = projects.find(p => isSSAProject(p));
             const oceanPay = projects.find(p => isOceanPayProject(p));
@@ -17206,13 +17278,33 @@
             projects.forEach((project) => {
                 const slug = canonicalProjectSlug(project);
                 const originalStatus = originalCatalogStatusBySlug.get(slug) || 'launched';
+                const baselineVersion = String(originalCatalogVersionBySlug.get(slug) || '').trim();
                 if (!isProjectUnavailableByStore(project) && originalStatus === 'launched') {
                     project.status = 'launched';
                 } else if (!isProjectUnavailableByStore(project)) {
                     project.status = resolveCatalogStatus(project);
                 }
-                if (!project.windows_version && !project.android_version) {
+                const mergedVersion = pickHigherVersionLike(
+                    baselineVersion,
+                    pickHigherVersionLike(
+                        String(project.version || '').trim(),
+                        pickHigherVersionLike(String(project.windows_version || '').trim(), String(project.android_version || '').trim())
+                    )
+                );
+                if (mergedVersion) project.version = mergedVersion;
+                if (!project.windows_version || compareVersionLike(project.windows_version, project.version) < 0) {
                     project.windows_version = String(project.version || '').trim();
+                }
+                if (resolveCatalogStatus(project) === 'launched' && !isProjectUnavailableByStore(project)) {
+                    if (project.pending_release === true) project.pending_release = false;
+                    if (project.installer_available !== true) {
+                        const hasInstallerHint = Boolean(
+                            String(project?.installer_url || '').trim()
+                            || String(project?.windows_download_url || '').trim()
+                            || String(project?.url || '').toLowerCase().includes('/releases')
+                        );
+                        if (hasInstallerHint) project.installer_available = true;
+                    }
                 }
             });
 

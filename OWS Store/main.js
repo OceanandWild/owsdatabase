@@ -11,6 +11,7 @@ const { spawn } = require('child_process');
 let mainWindow = null;
 let appTray = null;
 let isQuitting = false;
+let isInstallingUpdate = false;
 let backgroundHintShown = false;
 const semverTripletRegex = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/;
 const APP_ID = 'com.oceanwildstudios.nexusstore';
@@ -228,7 +229,7 @@ function createWindow() {
 
   mainWindow.once('ready-to-show', () => mainWindow.show());
   mainWindow.on('close', (event) => {
-    if (isQuitting || process.platform === 'darwin') return;
+    if (isQuitting || isInstallingUpdate || process.platform === 'darwin') return;
     event.preventDefault();
     mainWindow.hide();
     mainWindow.setSkipTaskbar(true);
@@ -1035,7 +1036,8 @@ function initAutoUpdater() {
       sendToRenderer('update-available', info);
     });
     autoUpdater.on('update-not-available', () => {
-      windowsUpdateDownloaded = false;
+      // Keep downloaded state sticky until app restart.
+      // Some providers can emit "not available" after a download was already staged.
       sendToRenderer('update-not-available');
     });
     autoUpdater.on('download-progress', (p) => sendToRenderer('update-download-progress', p));
@@ -1082,9 +1084,11 @@ ipcMain.handle('install-update', () => {
   if (!updaterReady) return { ok: false, reason: 'updater-not-ready' };
   if (!windowsUpdateDownloaded) return { ok: false, reason: 'update-not-downloaded' };
   try {
+    isInstallingUpdate = true;
     autoUpdater.quitAndInstall(false, true);
     return { ok: true, closing: true };
   } catch (err) {
+    isInstallingUpdate = false;
     const message = err && err.message ? err.message : String(err);
     return { ok: false, reason: message };
   }
@@ -1345,6 +1349,7 @@ app.whenReady().then(() => {
 
 app.on('before-quit', () => {
   isQuitting = true;
+  isInstallingUpdate = true;
   stopWindowsRealtimePushLoop();
 });
 

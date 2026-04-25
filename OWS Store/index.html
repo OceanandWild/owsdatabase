@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: https: blob:; media-src 'self' https: blob: data:; connect-src 'self' https://owsdatabase.onrender.com https://images.unsplash.com https://ui-avatars.com https://placehold.co https://api.github.com; frame-src https:;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://owsdatabase.onrender.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: https: blob:; media-src 'self' https: blob: data:; connect-src 'self' https://owsdatabase.onrender.com https://images.unsplash.com https://ui-avatars.com https://placehold.co https://api.github.com; frame-src https:;">
     <title>OWS Store - Central Studio Hub</title>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;600&family=Anybody:wght@600;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -18877,33 +18877,36 @@
                 }
             }
             }
-            const latest = isWildWeaponProject(project)
-                ? await fetchLatestWildWeaponRelease()
-                : (isSSAProject(project)
-                    ? await fetchLatestSSARelease()
-                    : (isOceanPayProject(project)
-                        ? await fetchLatestOceanPayRelease()
-                        : (isFloretProject(project)
-                            ? await fetchLatestFloretRelease()
-                            : (isWildTransferProject(project)
-                                ? await fetchLatestWildTransferRelease()
-                                : (isAWQGProject(project)
-                                    ? await fetchLatestAWQGRelease()
-                                : (isWildDestinyProject(project)
-                                    ? await fetchLatestWildDestinyRelease()
-                                : (isVelocitySurgeProject(project)
-                                    ? await fetchLatestVelocitySurgeRelease()
-                                    : (isWildWaveProject(project)
-                                        ? await fetchLatestWildWaveRelease()
-                                        : (isOceanCinemasProject(project)
-                                            ? await fetchLatestOceanCinemasRelease()
-                                        : (isNaturepediaProject(project)
-                                            ? await fetchLatestNaturepediaRelease()
-                                        : (isDinoBoxProject(project)
-                                            ? await fetchLatestDinoBoxRelease()
-                                            : (fallbackRepo
-                                                ? await fetchLatestGenericWindowsReleaseByRepo(fallbackRepo, project?.name || project?.slug || '')
-                                                : await fetchLatestOWSNewsRelease())))))))))));
+            let latest = null;
+            if (isWildWeaponProject(project)) {
+                latest = await fetchLatestWildWeaponRelease();
+            } else if (isSSAProject(project)) {
+                latest = await fetchLatestSSARelease();
+            } else if (isOceanPayProject(project)) {
+                latest = await fetchLatestOceanPayRelease();
+            } else if (isFloretProject(project)) {
+                latest = await fetchLatestFloretRelease();
+            } else if (isWildTransferProject(project)) {
+                latest = await fetchLatestWildTransferRelease();
+            } else if (isAWQGProject(project)) {
+                latest = await fetchLatestAWQGRelease();
+            } else if (isWildDestinyProject(project)) {
+                latest = await fetchLatestWildDestinyRelease();
+            } else if (isVelocitySurgeProject(project)) {
+                latest = await fetchLatestVelocitySurgeRelease();
+            } else if (isWildWaveProject(project)) {
+                latest = await fetchLatestWildWaveRelease();
+            } else if (isOceanCinemasProject(project)) {
+                latest = await fetchLatestOceanCinemasRelease();
+            } else if (isNaturepediaProject(project)) {
+                latest = await fetchLatestNaturepediaRelease();
+            } else if (isDinoBoxProject(project)) {
+                latest = await fetchLatestDinoBoxRelease();
+            } else if (fallbackRepo) {
+                latest = await fetchLatestGenericWindowsReleaseByRepo(fallbackRepo, project?.name || project?.slug || '');
+            } else {
+                latest = await fetchLatestOWSNewsRelease();
+            }
 
             if (isFloretProject(project) || isWildTransferProject(project) || isAWQGProject(project)) {
                 const preferred = isNativeAndroidRuntime()

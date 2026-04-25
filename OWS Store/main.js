@@ -17,16 +17,23 @@ const semverTripletRegex = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-
 const APP_ID = 'com.oceanwildstudios.nexusstore';
 const APP_DISPLAY_NAME = 'OWS Store';
 const API_URL = 'https://owsdatabase.onrender.com';
+const OWS_STORE_LATEST_YML_URL = 'https://github.com/OceanandWild/owsdatabase/releases/latest/download/latest.yml';
 const INSTALLER_CACHE_DIR = path.join(os.tmpdir(), 'ows-store-installers');
 const INSTALLER_LAUNCH_DIR = path.join(os.tmpdir(), 'ows-store-installer-launch');
 const PUSH_STATE_FILENAME = 'ows-push-state.json';
+const RECOVERY_STATE_FILENAME = 'ows-recovery-state.json';
 const PUSH_WORKER_TASK_NAME = 'OWSStorePushWorker';
 const PUSH_REALTIME_POLL_MS = 30 * 1000;
+const RENDERER_HEALTH_TIMEOUT_MS = 20000;
 let updaterReady = false;
 let windowsUpdateDownloaded = false;
 let wnsChannelCache = '';
 let wnsChannelCacheAt = 0;
 let pushRealtimeTimer = null;
+let recoveryWindow = null;
+let rendererBootHealthy = false;
+let rendererHealthTimer = null;
+let recoveryUpdateInProgress = false;
 const externalInstallTasks = new Map();
 const httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 32, keepAliveMsecs: 3000, scheduling: 'fifo' });
 const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 8 });
@@ -65,6 +72,49 @@ function writeJsonFileSafe(filePath, data) {
 
 function getPushStatePath() {
   return path.join(app.getPath('userData'), PUSH_STATE_FILENAME);
+}
+
+function getRecoveryStatePath() {
+  return path.join(app.getPath('userData'), RECOVERY_STATE_FILENAME);
+}
+
+function readRecoveryState() {
+  return readJsonFileSafe(getRecoveryStatePath(), {
+    consecutiveRendererFailures: 0,
+    lastReason: '',
+    updatedAt: null,
+  }) || {
+    consecutiveRendererFailures: 0,
+    lastReason: '',
+    updatedAt: null,
+  };
+}
+
+function writeRecoveryState(patch = {}) {
+  const current = readRecoveryState();
+  const next = {
+    ...current,
+    ...patch,
+    updatedAt: new Date().toISOString(),
+  };
+  writeJsonFileSafe(getRecoveryStatePath(), next);
+  return next;
+}
+
+function resetRecoveryFailures() {
+  writeRecoveryState({
+    consecutiveRendererFailures: 0,
+    lastReason: '',
+  });
+}
+
+function trackRecoveryFailure(reason) {
+  const current = readRecoveryState();
+  const failures = Math.max(0, Number(current?.consecutiveRendererFailures || 0)) + 1;
+  return writeRecoveryState({
+    consecutiveRendererFailures: failures,
+    lastReason: String(reason || 'renderer-failure').slice(0, 400),
+  });
 }
 
 function getOrCreatePushState() {
@@ -200,6 +250,235 @@ function ensureWindowsPushWorkerScheduledTask() {
   } catch (_) {}
 }
 
+function sendToRecoveryWindow(channel, payload) {
+  try {
+    if (!recoveryWindow || recoveryWindow.isDestroyed()) return;
+    recoveryWindow.webContents.send(channel, payload);
+  } catch (_) {}
+}
+
+function createRecoveryWindow(reason = '') {
+  if (recoveryWindow && !recoveryWindow.isDestroyed()) {
+    recoveryWindow.focus();
+    sendToRecoveryWindow('ows-recovery-status', {
+      phase: 'info',
+      message: 'Modo recuperacion activo.',
+      reason: String(reason || ''),
+    });
+    return recoveryWindow;
+  }
+
+  recoveryWindow = new BrowserWindow({
+    width: 620,
+    height: 460,
+    resizable: false,
+    minimizable: true,
+    maximizable: false,
+    autoHideMenuBar: true,
+    title: 'OWS Store - Recuperacion',
+    backgroundColor: '#020617',
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+      webSecurity: true,
+    },
+  });
+
+  const html = `<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>OWS Store - Recuperacion</title>
+  <style>
+    body { margin:0; font-family: Segoe UI, Arial, sans-serif; background: radial-gradient(circle at 20% 10%, #0c2946 0%, #020617 62%); color: #dbeafe; }
+    .wrap { padding: 20px; }
+    .card { border: 1px solid rgba(56,189,248,.45); border-radius: 14px; padding: 16px; background: rgba(15,23,42,.65); box-shadow: 0 12px 32px rgba(2,6,23,.65); }
+    h1 { margin: 0 0 8px; font-size: 24px; color: #7dd3fc; }
+    p { margin: 6px 0; line-height: 1.4; color: #bfdbfe; }
+    .reason { margin-top: 10px; font-family: Consolas, monospace; font-size: 12px; color: #93c5fd; opacity: .9; word-break: break-word; }
+    .status { margin-top: 14px; min-height: 68px; border: 1px solid rgba(56,189,248,.25); border-radius: 10px; padding: 10px; background: rgba(15,23,42,.85); font-size: 13px; }
+    .buttons { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; margin-top: 14px; }
+    button { border: 1px solid rgba(56,189,248,.55); background: linear-gradient(180deg,#0ea5e9,#0284c7); color: #f0f9ff; border-radius: 10px; padding: 10px 12px; font-weight: 700; cursor: pointer; }
+    button.secondary { background: linear-gradient(180deg,#1e293b,#0f172a); border-color: rgba(148,163,184,.55); }
+    button:disabled { cursor: not-allowed; opacity: .65; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Recuperacion de OWS Store</h1>
+      <p>Se detecto un fallo critico en la interfaz principal. Podes reparar desde un instalador externo sin depender de la UI normal.</p>
+      <p class="reason" id="reason"></p>
+      <div class="status" id="status">Inicializando modo recuperacion...</div>
+      <div class="buttons">
+        <button id="repairNow">Reparar ahora</button>
+        <button class="secondary" id="relaunch">Reintentar apertura</button>
+      </div>
+    </div>
+  </div>
+  <script>
+    const { ipcRenderer } = require('electron');
+    const statusEl = document.getElementById('status');
+    const reasonEl = document.getElementById('reason');
+    const repairBtn = document.getElementById('repairNow');
+    const relaunchBtn = document.getElementById('relaunch');
+    reasonEl.textContent = ${JSON.stringify(String(reason || 'Fallo de carga del renderer'))};
+    ipcRenderer.on('ows-recovery-status', (_event, payload) => {
+      const msg = String(payload && payload.message ? payload.message : 'Sin estado');
+      const phase = String(payload && payload.phase ? payload.phase : 'info').toUpperCase();
+      statusEl.textContent = '[' + phase + '] ' + msg;
+      if (payload && payload.reason) reasonEl.textContent = String(payload.reason);
+      if (payload && payload.phase === 'done') repairBtn.disabled = false;
+    });
+    repairBtn.addEventListener('click', async () => {
+      repairBtn.disabled = true;
+      relaunchBtn.disabled = true;
+      const result = await ipcRenderer.invoke('ows-recovery-start-update');
+      if (!result || !result.ok) {
+        statusEl.textContent = '[ERROR] ' + String(result && (result.error || result.reason) ? (result.error || result.reason) : 'No se pudo iniciar la reparacion.');
+        repairBtn.disabled = false;
+        relaunchBtn.disabled = false;
+      } else {
+        statusEl.textContent = '[DONE] Se abrio el instalador. Completa la instalacion y vuelve a abrir OWS Store.';
+        repairBtn.disabled = false;
+      }
+    });
+    relaunchBtn.addEventListener('click', async () => {
+      await ipcRenderer.invoke('ows-recovery-relaunch');
+    });
+  </script>
+</body>
+</html>`;
+
+  recoveryWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+  recoveryWindow.on('closed', () => {
+    recoveryWindow = null;
+  });
+  return recoveryWindow;
+}
+
+function fetchTextWithRedirects(url, maxRedirects = 6) {
+  return new Promise((resolve, reject) => {
+    const seen = new Set();
+    const requestUrl = (target, redirectsLeft) => {
+      const normalized = String(target || '').trim();
+      if (!normalized) return reject(new Error('URL vacia.'));
+      if (seen.has(normalized)) return reject(new Error('Redireccion circular detectada.'));
+      seen.add(normalized);
+      const urlObj = new URL(normalized);
+      const client = urlObj.protocol === 'http:' ? http : https;
+      const req = client.request(urlObj, {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'OWS-Store-Recovery-Updater',
+          'Accept': 'text/plain,application/octet-stream,*/*',
+          'Cache-Control': 'no-cache',
+        },
+        agent: urlObj.protocol === 'http:' ? httpAgent : httpsAgent,
+      }, (res) => {
+        const status = Number(res.statusCode || 0);
+        const location = res.headers?.location ? String(res.headers.location).trim() : '';
+        if ([301, 302, 303, 307, 308].includes(status) && location) {
+          res.resume();
+          if (redirectsLeft <= 0) return reject(new Error('Demasiadas redirecciones.'));
+          const nextUrl = new URL(location, urlObj).toString();
+          return requestUrl(nextUrl, redirectsLeft - 1);
+        }
+        if (status < 200 || status >= 300) {
+          const chunks = [];
+          res.on('data', (c) => chunks.push(c));
+          res.on('end', () => reject(new Error(`HTTP ${status}: ${Buffer.concat(chunks).toString('utf8').slice(0, 180)}`)));
+          return;
+        }
+        const chunks = [];
+        res.on('data', (c) => chunks.push(c));
+        res.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+      });
+      req.on('error', reject);
+      req.setTimeout(45000, () => req.destroy(new Error('Timeout descargando texto de release.')));
+      req.end();
+    };
+    requestUrl(url, maxRedirects);
+  });
+}
+
+async function resolveLatestStoreInstallerFromChannel() {
+  const yml = await fetchTextWithRedirects(OWS_STORE_LATEST_YML_URL);
+  const lines = String(yml || '').split(/\r?\n/);
+  let installerName = '';
+  let installerSize = 0;
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i].trim();
+    const matchUrl = line.match(/^-?\s*url:\s*(.+)$/i);
+    if (matchUrl && /\.exe(\?.*)?$/i.test(matchUrl[1].trim())) {
+      installerName = matchUrl[1].trim();
+      const nextLine = (lines[i + 1] || '').trim();
+      const sizeMatch = nextLine.match(/^size:\s*(\d+)$/i);
+      installerSize = sizeMatch ? Number(sizeMatch[1]) : 0;
+      break;
+    }
+  }
+  if (!installerName) {
+    const pathMatch = String(yml || '').match(/^\s*path:\s*(.+)$/im);
+    if (pathMatch && /\.exe(\?.*)?$/i.test(pathMatch[1].trim())) {
+      installerName = pathMatch[1].trim();
+    }
+  }
+  if (!installerName) throw new Error('No se encontro .exe en latest.yml');
+  const installerUrl = new URL(installerName, OWS_STORE_LATEST_YML_URL).toString();
+  return {
+    installerUrl,
+    installerName: sanitizeInstallerName(path.basename(installerName.split('?')[0] || 'OWS.Store.Setup.exe')),
+    installerSize: Number(installerSize || 0),
+  };
+}
+
+async function runEmergencyStoreRepairUpdate() {
+  if (recoveryUpdateInProgress) {
+    return { ok: false, reason: 'already-running' };
+  }
+  recoveryUpdateInProgress = true;
+  try {
+    sendToRecoveryWindow('ows-recovery-status', { phase: 'downloading', message: 'Buscando el instalador mas reciente...' });
+    const latest = await resolveLatestStoreInstallerFromChannel();
+    if (!latest?.installerUrl) throw new Error('No se encontro URL de instalador.');
+    const targetPath = getInstallerCachePath(latest.installerName || 'OWS.Store.Setup.latest.exe');
+    try { if (safeExists(targetPath)) fs.unlinkSync(targetPath); } catch (_) {}
+    await downloadInstallerWithRetries(latest.installerUrl, targetPath, null, (progress) => {
+      sendToRecoveryWindow('ows-recovery-status', {
+        phase: 'downloading',
+        message: buildDownloadMessage(progress),
+      });
+    });
+    if (!isLikelyWindowsExecutable(targetPath)) {
+      try { if (safeExists(targetPath)) fs.unlinkSync(targetPath); } catch (_) {}
+      throw new Error('El archivo descargado no es un ejecutable Windows valido.');
+    }
+    sendToRecoveryWindow('ows-recovery-status', { phase: 'launching', message: 'Abriendo instalador externo...' });
+    const launchPath = prepareInstallerLaunchPath(targetPath, latest.installerName || 'OWS.Store.Setup.latest.exe');
+    const launchErr = await openPathWithRetry(launchPath);
+    if (launchErr) throw new Error(launchErr);
+    sendToRecoveryWindow('ows-recovery-status', { phase: 'done', message: 'Instalador abierto. Completa la reparacion y luego reabre OWS Store.' });
+    return { ok: true, filePath: launchPath };
+  } catch (err) {
+    const message = err && err.message ? err.message : String(err);
+    sendToRecoveryWindow('ows-recovery-status', { phase: 'error', message });
+    return { ok: false, reason: message };
+  } finally {
+    recoveryUpdateInProgress = false;
+  }
+}
+
+function triggerRecoveryMode(reason = 'renderer-failure') {
+  const state = trackRecoveryFailure(reason);
+  createRecoveryWindow(reason);
+  sendToRecoveryWindow('ows-recovery-status', {
+    phase: 'warning',
+    message: `Se detecto un fallo critico del renderer (intento ${state?.consecutiveRendererFailures || 1}).`,
+    reason: String(reason || ''),
+  });
+}
+
 function createWindow() {
   const iconPath = path.join(__dirname, 'build', 'icon.ico');
   const appIcon = fs.existsSync(iconPath) ? nativeImage.createFromPath(iconPath) : null;
@@ -222,10 +501,54 @@ function createWindow() {
     show: false,
   });
 
+  rendererBootHealthy = false;
   mainWindow.loadFile(path.join(__dirname, 'index.html'));
   if (process.platform === 'win32' && appIcon && !appIcon.isEmpty()) {
     mainWindow.setIcon(appIcon);
   }
+
+  if (rendererHealthTimer) {
+    clearTimeout(rendererHealthTimer);
+    rendererHealthTimer = null;
+  }
+  rendererHealthTimer = setTimeout(() => {
+    if (!rendererBootHealthy && mainWindow && !mainWindow.isDestroyed()) {
+      triggerRecoveryMode('renderer-start-timeout');
+      runEmergencyStoreRepairUpdate().catch(() => {});
+    }
+  }, RENDERER_HEALTH_TIMEOUT_MS);
+
+  mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription) => {
+    const reason = `did-fail-load(${errorCode}): ${errorDescription || 'unknown'}`;
+    triggerRecoveryMode(reason);
+    runEmergencyStoreRepairUpdate().catch(() => {});
+  });
+
+  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    const reason = `render-process-gone: ${details?.reason || 'unknown'}`;
+    triggerRecoveryMode(reason);
+    runEmergencyStoreRepairUpdate().catch(() => {});
+  });
+
+  mainWindow.webContents.on('console-message', (_event, level, message) => {
+    if (rendererBootHealthy) return;
+    const text = String(message || '');
+    const isCritical =
+      Number(level) === 3 &&
+      /(Uncaught SyntaxError|SyntaxError|ReferenceError|Unexpected token|Cannot access .* before initialization)/i.test(text);
+    if (!isCritical) return;
+    triggerRecoveryMode(`renderer-console: ${text.slice(0, 240)}`);
+    runEmergencyStoreRepairUpdate().catch(() => {});
+  });
+
+  mainWindow.webContents.on('did-finish-load', () => {
+    rendererBootHealthy = true;
+    if (rendererHealthTimer) {
+      clearTimeout(rendererHealthTimer);
+      rendererHealthTimer = null;
+    }
+    resetRecoveryFailures();
+  });
 
   mainWindow.once('ready-to-show', () => mainWindow.show());
   mainWindow.on('close', (event) => {
@@ -247,7 +570,13 @@ function createWindow() {
   mainWindow.on('show', () => {
     if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setSkipTaskbar(false);
   });
-  mainWindow.on('closed', () => { mainWindow = null; });
+  mainWindow.on('closed', () => {
+    if (rendererHealthTimer) {
+      clearTimeout(rendererHealthTimer);
+      rendererHealthTimer = null;
+    }
+    mainWindow = null;
+  });
 
   if (process.env.NODE_ENV === 'development') {
     mainWindow.webContents.openDevTools();
@@ -1095,6 +1424,16 @@ ipcMain.handle('install-update', () => {
 });
 ipcMain.handle('get-app-version', () => app.getVersion());
 ipcMain.handle('check-for-updates', () => checkForUpdatesSafe());
+ipcMain.handle('ows-recovery-start-update', () => runEmergencyStoreRepairUpdate());
+ipcMain.handle('ows-recovery-relaunch', () => {
+  try {
+    app.relaunch();
+    app.exit(0);
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, reason: err?.message || String(err) };
+  }
+});
 ipcMain.handle('open-external-url', (_, url) => {
   if (typeof url !== 'string' || !/^https?:\/\//i.test(url)) return false;
   shell.openExternal(url);
@@ -1350,6 +1689,10 @@ app.whenReady().then(() => {
 app.on('before-quit', () => {
   isQuitting = true;
   isInstallingUpdate = true;
+  if (rendererHealthTimer) {
+    clearTimeout(rendererHealthTimer);
+    rendererHealthTimer = null;
+  }
   stopWindowsRealtimePushLoop();
 });
 

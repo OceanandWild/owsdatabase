@@ -7046,6 +7046,10 @@
         let downloadSurfacesLastRenderedAt = 0;
         let installQueueProcessing = false;
         let activeInstallTaskKey = '';
+        let bulkUpdateRunning = false;
+        let bulkUpdateTotal = 0;
+        let bulkUpdateProcessed = 0;
+        let bulkUpdateFailed = 0;
         let storeNewsModalMode = 'store';
         let oceanPayState = {
             user: null,
@@ -12371,6 +12375,97 @@
                 .sort((a, b) => String(a.project?.name || '').localeCompare(String(b.project?.name || '')));
         }
 
+        function getProjectQueuePosition(slug = '') {
+            const key = String(slug || '').trim();
+            if (!key) return -1;
+            return projectInstallQueue.findIndex((item) => String(item?.slug || '') === key);
+        }
+
+        function getBulkUpdateCandidates() {
+            const pending = getPendingProjectUpdates();
+            if (!pending.length) return [];
+            const seen = new Set();
+            const candidates = [];
+            pending.forEach(({ project, info }) => {
+                if (!project || !info) return;
+                const slug = canonicalProjectSlug(project);
+                if (!slug || seen.has(slug)) return;
+                if (isBusyInstalling(slug) || isProjectQueued(slug)) return;
+                const action = resolveProjectUpdateAction(project, info);
+                const platform = normalizePlatformKind(action?.platform || '');
+                if (!platform) return;
+                if (!isPlatformCompatibleWithCurrentDevice(platform)) return;
+                const detail = (Array.isArray(info.platformDetails) ? info.platformDetails : [])
+                    .find((d) => normalizePlatformKind(d?.platform) === platform);
+                if (!detail || !detail.needsUpdate || !detail.available) return;
+                seen.add(slug);
+                candidates.push({
+                    slug,
+                    platform,
+                    name: project.name || slug,
+                });
+            });
+            return candidates;
+        }
+
+        function notifyProjectQueued(slug = '') {
+            const project = getProjectBySlug(slug);
+            if (!project) return;
+            const queuePos = getProjectQueuePosition(project.slug);
+            const orderText = queuePos >= 0 ? ` (#${queuePos + 1})` : '';
+            const msg = `${project.name} ya esta en cola${orderText}.`;
+            addNotification(msg, 'info');
+            showActionMessage(msg, { state: 'info' });
+        }
+
+        async function triggerBulkProjectUpdates() {
+            if (bulkUpdateRunning) {
+                showActionMessage('Ya hay una cola masiva en progreso.', { state: 'info' });
+                return;
+            }
+            if (await ensureStoreIsUpToDateForProjectAction('actualizar todos los proyectos', { openUpdates: false, forceCheck: true })) {
+                return;
+            }
+            const candidates = getBulkUpdateCandidates();
+            if (candidates.length < 2) {
+                addNotification('Se necesitan al menos 2 updates compatibles para usar "Actualizar todos".', 'warning');
+                showActionMessage('No hay suficientes updates compatibles para iniciar cola masiva.', { state: 'info' });
+                return;
+            }
+            bulkUpdateRunning = true;
+            bulkUpdateTotal = candidates.length;
+            bulkUpdateProcessed = 0;
+            bulkUpdateFailed = 0;
+            addNotification(`Cola masiva iniciada: ${bulkUpdateTotal} proyectos.`, 'success');
+            showActionMessage(`Cola masiva iniciada: ${bulkUpdateTotal} proyectos.`, { state: 'checking' });
+            scheduleSectionRender({ projects: true, library: true, immediate: true });
+
+            for (const item of candidates) {
+                const project = getProjectBySlug(item.slug);
+                if (!project) {
+                    bulkUpdateFailed += 1;
+                    bulkUpdateProcessed += 1;
+                    continue;
+                }
+                try {
+                    await triggerProjectUpdate(item.slug, item.platform);
+                } catch (err) {
+                    bulkUpdateFailed += 1;
+                    addNotification(`No se pudo encolar ${project.name}: ${err?.message || err}`, 'error');
+                } finally {
+                    bulkUpdateProcessed += 1;
+                    scheduleSectionRender({ projects: true, library: true, immediate: true });
+                    await sleep(120);
+                }
+            }
+
+            const okCount = Math.max(0, bulkUpdateTotal - bulkUpdateFailed);
+            bulkUpdateRunning = false;
+            showActionMessage(`Cola masiva completa: ${okCount}/${bulkUpdateTotal} encolados.`, { state: bulkUpdateFailed ? 'info' : 'success' });
+            addNotification(`Actualizar todos finalizado: ${okCount}/${bulkUpdateTotal} encolados${bulkUpdateFailed ? `, ${bulkUpdateFailed} fallos` : ''}.`, bulkUpdateFailed ? 'warning' : 'success');
+            scheduleSectionRender({ projects: true, library: true, immediate: true });
+        }
+
         function hasDevicePendingUpdate(info = null, platform = '') {
             const devicePlatform = normalizePlatformKind(platform || detectCurrentDevicePlatform().platform || '');
             if (!info || typeof info !== 'object') return false;
@@ -13294,7 +13389,15 @@
                         : (action.reason === 'device'
                             ? `Actualizacion recomendada para ${targetLabel} (dispositivo detectado: ${action.device.label}).`
                             : `Actualizacion detectada para ${targetLabel}.`));
-                const buttonLabel = gateBlocked
+                const runtime = getRuntimeState(project.slug);
+                const queuePosition = getProjectQueuePosition(project.slug);
+                const isQueuedRuntime = runtime.phase === 'queued' || runtime.phase === 'waiting' || queuePosition >= 0;
+                const isPreparingRuntime = runtime.phase === 'preparing';
+                const isInstallingRuntime = isInstallingPhase(runtime.phase);
+                const isRuntimeBusy = isQueuedRuntime || isPreparingRuntime || isInstallingRuntime;
+                const runtimePercent = Math.max(0, Math.min(100, Math.round(Number(runtime.percent || 0))));
+
+                let buttonLabel = gateBlocked
                     ? 'Actualizar OWS Store'
                 : noPending
                         ? `Al dia (${detectedDevice.label})`
@@ -13307,7 +13410,7 @@
                     : incompatible
                         ? `Incompatible (${detectedDevice.label})`
                     : (action.requiresChoice ? 'Elegir plataforma' : `Actualizar ${targetLabel}`);
-                const buttonIcon = gateBlocked
+                let buttonIcon = gateBlocked
                     ? 'fa-shield-halved'
                 : noPending
                         ? 'fa-check'
@@ -13316,10 +13419,10 @@
                     : incompatible
                         ? 'fa-ban'
                     : (action.requiresChoice ? 'fa-layer-group' : 'fa-arrow-up');
-                const buttonClass = (gateBlocked || incompatible || crossPlatformOnly || noPending || awaitingInstaller) ? 'btn-install unavailable' : 'btn-install';
-                const buttonAction = gateBlocked
+                let buttonClass = (gateBlocked || incompatible || crossPlatformOnly || noPending || awaitingInstaller) ? 'btn-install unavailable' : 'btn-install';
+                let buttonAction = gateBlocked
                     ? `triggerStoreObsoleteNotice('${project.slug}')`
-                    : noPending
+                : noPending
                         ? `notifyProjectUpToDate('${project.slug}')`
                     : awaitingInstaller
                         ? `notifyProjectInstallerPending('${project.slug}')`
@@ -13329,14 +13432,34 @@
                         ? `notifyProjectIncompatible('${project.slug}', '${requestedPlatform}')`
                     : `triggerProjectUpdate('${project.slug}', '${action.platform || ''}')`;
                 const dismissible = false;
-                const badgeLabel = gateBlocked
+                let badgeLabel = gateBlocked
                     ? 'BLOQUEADO'
                     : (incompatible
                         ? 'INCOMPATIBLE'
                         : (noPending || crossPlatformOnly ? 'AL DIA' : (optionalOnly ? 'OPCIONAL' : 'UPDATE')));
-                const badgeClass = (noPending || crossPlatformOnly || optionalOnly)
+                let badgeClass = (noPending || crossPlatformOnly || optionalOnly)
                     ? 'project-updates-pill'
                     : (gateBlocked || incompatible ? 'project-updates-pill' : 'project-updates-pill hot');
+
+                if (isRuntimeBusy) {
+                    buttonClass = 'btn-install unavailable';
+                    if (isInstallingRuntime) {
+                        buttonLabel = `Actualizando ${runtimePercent}%`;
+                        buttonIcon = 'fa-spinner';
+                        badgeLabel = 'ACTUALIZANDO';
+                    } else if (isPreparingRuntime) {
+                        buttonLabel = 'Preparando...';
+                        buttonIcon = 'fa-gears';
+                        badgeLabel = 'PREPARANDO';
+                    } else {
+                        const orderText = queuePosition >= 0 ? ` (#${queuePosition + 1})` : '';
+                        buttonLabel = `En cola${orderText}`;
+                        buttonIcon = 'fa-list';
+                        badgeLabel = 'EN COLA';
+                    }
+                    badgeClass = 'project-updates-pill hot';
+                    buttonAction = `notifyProjectQueued('${project.slug}')`;
+                }
 
                 return {
                     project,
@@ -13368,11 +13491,24 @@
 
             const actionsEl = document.getElementById('project-updates-actions');
             if (actionsEl) {
+                const bulkCandidates = getBulkUpdateCandidates();
+                const canBulkUpdate = bulkCandidates.length >= 2 && !gateBlocked;
                 const pills = [];
                 pills.push(`<span class="project-updates-pill hot"><i class="fas fa-arrow-up"></i>${pendingUpdates.length} con update</span>`);
                 pills.push(`<span class="project-updates-pill"><i class="fas fa-layer-group"></i>${visibleEntries.length} visibles</span>`);
                 if (hiddenCount > 0) pills.push(`<span class="project-updates-pill"><i class="fas fa-eye-slash"></i>${hiddenCount} ocultos</span>`);
-                actionsEl.innerHTML = pills.join('');
+                if (bulkUpdateRunning) {
+                    pills.push(`<span class="project-updates-pill hot"><i class="fas fa-list-check"></i>Cola masiva ${Math.min(bulkUpdateProcessed, bulkUpdateTotal)}/${bulkUpdateTotal}</span>`);
+                }
+                const bulkButtonHtml = (canBulkUpdate || bulkUpdateRunning)
+                    ? `<button class="btn-install ${(!canBulkUpdate && !bulkUpdateRunning) ? 'unavailable' : ''}" style="min-width:168px;" onclick="triggerBulkProjectUpdates()" ${bulkUpdateRunning ? 'disabled' : ''}>
+                        <i class="fas ${bulkUpdateRunning ? 'fa-spinner' : 'fa-angles-down'}"></i>
+                        ${bulkUpdateRunning
+                            ? `Encolando ${Math.min(bulkUpdateProcessed, bulkUpdateTotal)}/${bulkUpdateTotal}`
+                            : `Actualizar todos (${bulkCandidates.length})`}
+                    </button>`
+                    : '';
+                actionsEl.innerHTML = `${pills.join('')}${bulkButtonHtml}`;
             }
 
             if (!visibleEntries.length) {

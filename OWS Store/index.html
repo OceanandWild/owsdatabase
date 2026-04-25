@@ -5205,6 +5205,125 @@
             min-width: 0 !important;
         }
 
+        /* Massive rework: Updates panel (2026.4.25) */
+        .project-updates-shell {
+            background:
+                radial-gradient(120% 160% at 0% 0%, rgba(38,212,232,0.12), transparent 52%),
+                radial-gradient(120% 180% at 100% 100%, rgba(242,104,48,0.10), transparent 55%),
+                linear-gradient(170deg, rgba(10,18,31,0.98), rgba(6,12,22,0.99));
+            border: 1px solid rgba(38,212,232,0.24);
+            border-radius: 18px;
+            box-shadow: 0 24px 56px rgba(0,0,0,0.48), 0 0 0 1px rgba(38,212,232,0.08) inset;
+            overflow: hidden;
+        }
+        .project-updates-head {
+            border-bottom: 1px solid rgba(38,212,232,0.18);
+            background: linear-gradient(180deg, rgba(16,29,46,0.80), rgba(11,22,38,0.65));
+        }
+        .project-updates-summary-card {
+            background: rgba(9,20,34,0.78);
+            border: 1px solid rgba(106,142,180,0.28);
+            border-radius: 12px;
+            box-shadow: 0 12px 22px rgba(0,0,0,0.26);
+        }
+        .project-updates-list {
+            padding: 1rem;
+            gap: 0.85rem;
+            background: linear-gradient(180deg, rgba(5,11,20,0.88), rgba(6,12,22,0.95));
+        }
+        .project-update-card {
+            border: 1px solid rgba(107,145,180,0.26);
+            border-radius: 14px;
+            background:
+                radial-gradient(140% 180% at 0% 0%, rgba(38,212,232,0.08), transparent 55%),
+                linear-gradient(170deg, rgba(12,24,40,0.94), rgba(8,17,31,0.94));
+            padding: 1rem;
+            border-bottom: 1px solid rgba(107,145,180,0.26);
+            box-shadow: 0 14px 26px rgba(0,0,0,0.28);
+            transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+        }
+        .project-update-card:hover {
+            transform: translateY(-2px);
+            border-color: rgba(74,225,245,0.52);
+            box-shadow: 0 20px 34px rgba(0,0,0,0.34), 0 0 0 1px rgba(38,212,232,0.14) inset;
+            background:
+                radial-gradient(145% 185% at 0% 0%, rgba(38,212,232,0.13), transparent 58%),
+                linear-gradient(170deg, rgba(13,26,43,0.98), rgba(8,18,33,0.98));
+        }
+        .project-update-avatar {
+            width: 52px;
+            height: 52px;
+            border-radius: 12px;
+            border: 1px solid rgba(92,224,243,0.36);
+            box-shadow: 0 12px 22px rgba(0,0,0,0.32), 0 0 0 1px rgba(38,212,232,0.14) inset;
+        }
+        .project-update-title {
+            font-size: 1.08rem;
+            letter-spacing: 0.2px;
+        }
+        .project-update-version-strip {
+            margin-top: 0.45rem;
+            display: flex;
+            gap: 0.42rem;
+            flex-wrap: wrap;
+        }
+        .project-update-version-chip {
+            display: inline-flex;
+            align-items: center;
+            padding: 3px 9px;
+            border-radius: 999px;
+            border: 1px solid rgba(38,212,232,0.28);
+            background: rgba(38,212,232,0.10);
+            color: #bdf6ff;
+            font-family: var(--font-mono);
+            font-size: 0.63rem;
+            font-weight: 700;
+            letter-spacing: 0.2px;
+        }
+        .project-update-version-chip.muted {
+            color: var(--ink-2);
+            border-color: rgba(132,154,184,0.24);
+            background: rgba(27,40,58,0.62);
+        }
+        .project-update-platforms {
+            grid-template-columns: 1fr;
+        }
+        .project-update-platform-row {
+            border: 1px solid rgba(90,126,162,0.32);
+            background: linear-gradient(160deg, rgba(12,25,41,0.92), rgba(9,19,33,0.9));
+            min-height: 44px;
+        }
+        .project-update-platform-status {
+            border-color: rgba(91,130,166,0.34);
+            background: rgba(9,18,31,0.74);
+            color: #c2d8ef;
+        }
+        .project-update-actions {
+            min-width: 228px;
+            justify-content: flex-end;
+        }
+        .project-update-cta {
+            min-height: 42px;
+            box-shadow: 0 10px 22px rgba(0,0,0,0.26);
+        }
+        @media (max-width: 1080px) {
+            .project-update-card {
+                grid-template-columns: 1fr;
+            }
+            .project-update-actions {
+                min-width: 0;
+                width: 100%;
+                flex-direction: row;
+                flex-wrap: wrap;
+            }
+            .project-update-cta {
+                flex: 1 1 220px;
+            }
+            .project-update-manual-confirm {
+                flex: 1 1 160px;
+            }
+        }
+
 </style>
 </head>
 <body>
@@ -6477,10 +6596,10 @@
         const STORE_DEFERRED_STARTUP_KEY = 'ows_store_deferred_startup_v1';
         const STORE_BG_LOADING_INDICATOR_KEY = 'ows_store_bg_loading_indicator_v1';
         const STORE_BG_LOADING_POSITION_KEY = 'ows_store_bg_loading_position_v1';
-        const STORE_DATA_SNAPSHOT_KEY = 'ows_store_data_snapshot_v1';
-        const STORE_DATA_SIGNATURE_KEY = 'ows_store_data_signature_v1';
+        const STORE_DATA_SNAPSHOT_KEY = 'ows_store_data_snapshot_v2';
+        const STORE_DATA_SIGNATURE_KEY = 'ows_store_data_signature_v2';
         const OWS_ECOSYSTEM_LAYOUT_KEY = 'ows_store_ecosystem_layout_v1';
-        const PROJECT_UPDATES_DISMISSED_KEY = 'ows_store_updates_dismissed_up_to_date_v1';
+        const PROJECT_UPDATES_DISMISSED_KEY = 'ows_store_updates_dismissed_up_to_date_v2';
         const OWS_STORE_DEV_PREVIEW_KEY = 'ows_store_dev_preview_mode_v1';
         const SYSTEM_NOTIFICATIONS_PERMISSION_KEY = 'ows_store_system_notifications_permission_v1';
         const SYSTEM_NOTIFICATIONS_DEDUPE_KEY = 'ows_store_system_notifications_seen_v1';
@@ -12133,11 +12252,40 @@
             return needsUpdate;
         }
 
+        function normalizeCatalogStatus(rawStatus = '') {
+            const raw = String(rawStatus || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+            if (!raw) return 'launched';
+            if (raw === 'active' || raw === 'live' || raw === 'released') return 'launched';
+            if (raw === 'comingsoon' || raw === 'coming_soon') return 'coming_soon';
+            if (raw === 'disabled' || raw === 'blocked' || raw === 'not_available' || raw === 'no_disponible' || raw === 'indisponible') return 'unavailable';
+            return raw;
+        }
+
+        function resolveCatalogStatus(project) {
+            const normalized = normalizeCatalogStatus(project?.status || '');
+            if (normalized !== 'coming_soon') return normalized;
+            const releaseDateMs = Date.parse(String(project?.release_date || '').trim() || '');
+            if (Number.isFinite(releaseDateMs) && releaseDateMs <= Date.now()) return 'launched';
+            const hasInstallerUrl = Boolean(String(project?.installer_url || project?.url || '').trim());
+            const pendingRelease = project?.pending_release === true;
+            if (hasInstallerUrl && !pendingRelease) return 'launched';
+            return 'coming_soon';
+        }
+
+        function shouldShowProjectInUpdates(project) {
+            if (!project || typeof project !== 'object') return false;
+            const slug = canonicalProjectSlug(project);
+            if (!slug || slug === 'ows-store') return false;
+            if (isOWSNewsProject(project)) return false;
+            if (isProjectUnavailableByStore(project)) return false;
+            return resolveCatalogStatus(project) === 'launched';
+        }
+
         function getPendingProjectUpdates() {
             const devicePlatform = normalizePlatformKind(detectCurrentDevicePlatform().platform || '');
             return allProjects
+                .filter((p) => shouldShowProjectInUpdates(p))
                 .map((p) => ({ project: p, info: getProjectUpdateInfo(p) }))
-                .filter((x) => !isProjectUnavailableByStore(x.project))
                 .filter((x) => hasDevicePendingUpdate(x.info, devicePlatform))
                 .sort((a, b) => String(a.project?.name || '').localeCompare(String(b.project?.name || '')));
         }
@@ -12145,22 +12293,13 @@
         function getProjectUpdatePanelEntries() {
             const pending = getPendingProjectUpdates();
             const pendingSlugs = new Set(pending.map((x) => String(x?.project?.slug || '')));
-            const devicePlatform = normalizePlatformKind(detectCurrentDevicePlatform().platform || '');
-            if (!devicePlatform) return pending;
             const supplemental = allProjects
+                .filter((project) => shouldShowProjectInUpdates(project))
                 .map((project) => ({ project, info: getProjectUpdateInfo(project) }))
                 .filter(({ project, info }) => {
                     const slug = String(project?.slug || '');
                     if (!slug || pendingSlugs.has(slug)) return false;
-                    if (isProjectUnavailableByStore(project)) return false;
-                    if (!isReleaseTrackedProject(project)) return false;
-                    const state = installStateBySlug[slug] || {};
-                    const listedInLibrary = isProjectInLibrary(slug);
-                    if (!state.installed && !listedInLibrary) return false;
-                    return info.platformDetails.some((d) =>
-                        normalizePlatformKind(d?.platform) === devicePlatform
-                        && Boolean(d?.available)
-                    );
+                    return true;
                 })
                 .sort((a, b) => String(a.project?.name || '').localeCompare(String(b.project?.name || '')));
             const merged = [...pending, ...supplemental];
@@ -12173,8 +12312,8 @@
                     byCanonical.set(key, entry);
                     return;
                 }
-                const currentPending = hasDevicePendingUpdate(current?.info, devicePlatform);
-                const candidatePending = hasDevicePendingUpdate(entry?.info, devicePlatform);
+                const currentPending = hasDevicePendingUpdate(current?.info);
+                const candidatePending = hasDevicePendingUpdate(entry?.info);
                 if (candidatePending && !currentPending) {
                     byCanonical.set(key, entry);
                     return;
@@ -13133,7 +13272,7 @@
                     : incompatible
                         ? `notifyProjectIncompatible('${project.slug}', '${requestedPlatform}')`
                     : `triggerProjectUpdate('${project.slug}', '${action.platform || ''}')`;
-                const dismissible = noPending || crossPlatformOnly;
+                const dismissible = false;
                 const badgeLabel = gateBlocked
                     ? 'BLOQUEADO'
                     : (incompatible
@@ -13147,6 +13286,8 @@
                     project,
                     info,
                     metaText,
+                    latestVersionLabel: getProjectDisplayVersion(project) || info.latestVersion || project.version || '-',
+                    installedVersionLabel: info.installedVersion || '',
                     buttonLabel,
                     buttonIcon,
                     buttonClass,
@@ -13157,8 +13298,8 @@
                 };
             });
 
-            const hiddenCount = enrichedEntries.filter((entry) => entry.dismissible && dismissedUpToDateProjectCards.has(entry.project.slug)).length;
-            const visibleEntries = enrichedEntries.filter((entry) => !(entry.dismissible && dismissedUpToDateProjectCards.has(entry.project.slug)));
+            const hiddenCount = 0;
+            const visibleEntries = enrichedEntries;
             const devicePendingCount = enrichedEntries.filter(({ info }) => info.platformDetails.some((d) => d.available && d.needsUpdate && d.installedOnThisDevice)).length;
             const crossPlatformCount = enrichedEntries.filter(({ info }) => {
                 const hasAny = info.platformDetails.some((d) => d.available && d.needsUpdate);
@@ -13199,11 +13340,26 @@
                 </div>`
                 : '';
 
-            list.innerHTML = visibleEntries.map(({ project, info, metaText, buttonLabel, buttonIcon, buttonClass, buttonAction, dismissible, badgeLabel, badgeClass }) => {
+            list.innerHTML = visibleEntries.map(({ project, info, metaText, latestVersionLabel, installedVersionLabel, buttonLabel, buttonIcon, buttonClass, buttonAction, dismissible, badgeLabel, badgeClass }) => {
                 const dismissHtml = dismissible
                     ? `<button class="project-update-dismiss" onclick="dismissUpToDateProjectCard('${project.slug}')" title="Ocultar proyecto al dia">Ocultar</button>`
                     : '';
                 const icon = getProjectIcon(project, 48);
+                const versionStrip = `
+                    <div class="project-update-version-strip">
+                        <span class="project-update-version-chip">Catalogo: v${escHtml(latestVersionLabel)}</span>
+                        ${installedVersionLabel ? `<span class="project-update-version-chip">Instalada: v${escHtml(installedVersionLabel)}</span>` : '<span class="project-update-version-chip muted">Instalada: no detectada</span>'}
+                    </div>
+                `;
+                const platformRowsHtml = info.platformDetails.length
+                    ? info.platformDetails.map((d) => formatPlatformRow(d)).join('')
+                    : `<div class="project-update-platform-row is-unavailable">
+                            <div class="project-update-platform-label">
+                                <span class="dot"></span>
+                                <span>Canal de actualizacion</span>
+                            </div>
+                            <div class="project-update-platform-status">Version catalogada: v${escHtml(latestVersionLabel)}</div>
+                        </div>`;
 
                 return `
                     <div class="project-update-card">
@@ -13218,9 +13374,10 @@
                                         <span class="${badgeClass}">${badgeLabel}</span>
                                     </div>
                                     <div class="project-update-meta">${metaText}</div>
+                                    ${versionStrip}
                                 </div>
                             </div>
-                            <div class="project-update-platforms">${info.platformDetails.map((d) => formatPlatformRow(d)).join('')}</div>
+                            <div class="project-update-platforms">${platformRowsHtml}</div>
                         </div>
                         <div class="project-update-actions">
                             ${dismissHtml}
@@ -16408,6 +16565,9 @@
 
         async function applyLatestInstallerData(projects) {
             if (!Array.isArray(projects)) return;
+            const originalCatalogStatusBySlug = new Map(
+                projects.map((project) => [canonicalProjectSlug(project), resolveCatalogStatus(project)])
+            );
             const wildWeapon = projects.find(p => isWildWeaponProject(p));
             const ssa = projects.find(p => isSSAProject(p));
             const oceanPay = projects.find(p => isOceanPayProject(p));
@@ -17040,6 +17200,21 @@
                     ecoxion.release_warning = 'No se pudo validar el instalador de la ultima release.';
                 }
             }
+
+            // Keep server lifecycle truth authoritative: do not demote launched projects
+            // to coming_soon because a GitHub probe failed temporarily.
+            projects.forEach((project) => {
+                const slug = canonicalProjectSlug(project);
+                const originalStatus = originalCatalogStatusBySlug.get(slug) || 'launched';
+                if (!isProjectUnavailableByStore(project) && originalStatus === 'launched') {
+                    project.status = 'launched';
+                } else if (!isProjectUnavailableByStore(project)) {
+                    project.status = resolveCatalogStatus(project);
+                }
+                if (!project.windows_version && !project.android_version) {
+                    project.windows_version = String(project.version || '').trim();
+                }
+            });
 
         }
         function isExternalInstallerProject(project) {

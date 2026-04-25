@@ -167,9 +167,11 @@ jobs:
         run: |
           $TAG  = "${{ steps.config.outputs.tag }}"
           $REPO = "OceanandWild/${{ steps.config.outputs.repo }}"
+          $PROJECT = "${{ github.event.inputs.project }}"
           $EXE  = "${{ steps.artifacts.outputs.exe }}"
           $YML  = "${{ steps.artifacts.outputs.yml }}"
-          $args = @("release","create",$TAG,"--repo",$REPO,"--title","${{ github.event.inputs.project }} ${{ github.event.inputs.version }}","--notes","${{ github.event.inputs.release_notes }}","--latest")
+          $latestFlag = if ($PROJECT -eq "ows-store") { "--latest" } else { "--latest=false" }
+          $args = @("release","create",$TAG,"--repo",$REPO,"--title","${{ github.event.inputs.project }} ${{ github.event.inputs.version }}","--notes","${{ github.event.inputs.release_notes }}",$latestFlag)
           if ($EXE) { $args += $EXE }
           if ($YML) { $args += $YML }
           gh @args

@@ -11175,7 +11175,13 @@
         function getDedicatedStoreNewsEntries() {
             const list = Array.isArray(dedicatedStoreNewsCache) ? dedicatedStoreNewsCache : [];
             return list
-                .filter((entry) => isStoreGlobalNewsEntry(entry))
+                .filter((entry) => {
+                    if (!entry || entry.isActive === false) return false;
+                    if (entry.isEvent || entry.isBanner) return false;
+                    const type = String(entry.entryType || entry.kind || '').toLowerCase();
+                    if (!type) return true;
+                    return type === 'news' || type === 'announcement' || type === 'article' || type === 'notice';
+                })
                 .sort((a, b) => {
                     const pa = Number(a?.priority || 0);
                     const pb = Number(b?.priority || 0);

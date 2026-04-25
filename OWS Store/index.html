@@ -6385,6 +6385,26 @@
 
 
         const API_URL = 'https://owsdatabase.onrender.com';
+        (function initOwsProjectGuard() {
+            const mountGuard = () => {
+                if (!window.OWSProjectRestrictionGuard || typeof window.OWSProjectRestrictionGuard.mount !== 'function') return;
+                window.OWSProjectRestrictionGuard.mount({
+                    apiBaseUrl: API_URL,
+                    projectSlug: 'ows-store',
+                    projectName: 'OWS Store',
+                    checkIntervalMs: 30000
+                });
+            };
+            if (window.OWSProjectRestrictionGuard) {
+                mountGuard();
+                return;
+            }
+            const s = document.createElement('script');
+            s.src = 'https://owsdatabase.onrender.com/shared/ows-project-guard.js';
+            s.async = true;
+            s.onload = mountGuard;
+            document.head.appendChild(s);
+        })();
         const OWS_NEWS_UPDATES_API_URL = `${API_URL}/ows-news/updates`;
         const OWS_STORE_NEWS_API_URL = `${API_URL}/ows-store/news`;
         const OWS_STORE_ANDROID_API_BASE = `${API_URL}/ows-store/android`;

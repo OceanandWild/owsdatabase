@@ -25,6 +25,7 @@ on:
           - ocean-cinemas
           - incremental-cosmic-odyssey
           - ocean-ai
+          - wilddestiny
       version:
         description: 'Version (formato: YYYY.M.D-tHHMM)'
         required: true
@@ -64,6 +65,7 @@ jobs:
             "ocean-cinemas"             = @{ repo = "ocean-cinemas";            dir = "Ocean Cinemas";             buildOut = "C:\builds\ocean-cinemas" }
             "incremental-cosmic-odyssey"             = @{ repo = "incremental-cosmic-odyssey";            dir = "Incremental Cosmic Odyssey";             buildOut = "C:\builds\incremental-cosmic-odyssey" }
             "ocean-ai"             = @{ repo = "ocean-ai";            dir = "Ocean AI";             buildOut = "C:\builds\ocean-ai" }
+            "wilddestiny"             = @{ repo = "wilddestiny";            dir = "Wild Destiny";             buildOut = "C:\builds\wild-destiny" }
           }
           $cfg = $configs[$PROJECT]
           if (-not $cfg) { Write-Error "Proyecto desconocido: $PROJECT"; exit 1 }

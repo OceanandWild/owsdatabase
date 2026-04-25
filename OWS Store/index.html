@@ -6935,6 +6935,7 @@
         let dinoBoxReleaseCache = null;
         let owsNewsReleaseCache = null;
         let ecoxionReleaseCache = null;
+        let genericWindowsReleaseCacheByRepo = {};
         let owsNewsUpdatesCache = [];
         let dedicatedStoreNewsCache = [];
         let newsArticleEntriesCache = [];
@@ -15174,6 +15175,75 @@
             return payload;
         }
 
+        async function fetchLatestGenericWindowsReleaseByRepo(repoInput = '', projectNameHint = '') {
+            const repo = String(repoInput || '').replace(/^OceanandWild\//i, '').trim();
+            if (!repo) throw new Error('Repo invalido para release generica.');
+            const cacheKey = repo.toLowerCase();
+            const now = Date.now();
+            const cacheEntry = genericWindowsReleaseCacheByRepo[cacheKey];
+            if (cacheEntry && (now - cacheEntry.checkedAt) < 120000) return cacheEntry;
+
+            const res = await fetch(`${GITHUB_RELEASES_PROXY_BASE}/${repo}/releases/latest?nocache=${Date.now()}`, {
+                cache: 'no-store',
+                headers: { 'Accept': 'application/vnd.github+json' }
+            });
+            if (!res.ok) throw new Error(`GitHub API ${res.status}`);
+            const data = await res.json();
+            const assets = Array.isArray(data.assets) ? data.assets : [];
+            const versionFromTag = normalizeReleaseVersion(data.tag_name || '');
+            const nameHint = String(projectNameHint || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+            const exeCandidates = assets.filter(a => typeof a?.name === 'string' && /\.exe$/i.test(a.name));
+            const scoredCandidates = exeCandidates.map((a) => {
+                const assetName = String(a?.name || '');
+                const assetNameNorm = assetName.toLowerCase().replace(/[^a-z0-9]+/g, '');
+                const repoHint = repo.toLowerCase().replace(/[^a-z0-9]+/g, '');
+                const scoreHint = (nameHint && assetNameNorm.includes(nameHint) ? 2 : 0) + (repoHint && assetNameNorm.includes(repoHint) ? 2 : 0);
+                return {
+                    asset: a,
+                    version: extractVersionFromText(assetName),
+                    updatedAtMs: Date.parse(a.updated_at || '') || 0,
+                    hintScore: scoreHint,
+                    scoreName: scoreWindowsAssetName(assetName),
+                };
+            });
+
+            scoredCandidates.sort((x, y) => {
+                if (x.hintScore !== y.hintScore) return y.hintScore - x.hintScore;
+                if (x.scoreName !== y.scoreName) return y.scoreName - x.scoreName;
+                const cmp = compareVersionLike(y.version, x.version);
+                if (cmp !== 0) return cmp;
+                return y.updatedAtMs - x.updatedAtMs;
+            });
+
+            let selected = scoredCandidates[0] || null;
+            if (versionFromTag) {
+                const tagMatch = scoredCandidates.find(c => c.version && compareVersionLike(c.version, versionFromTag) === 0);
+                if (tagMatch) selected = tagMatch;
+            }
+
+            const exeAsset = selected?.asset || null;
+            const versionFromAsset = selected?.version || '';
+            const staleInstaller = Boolean(versionFromTag && versionFromAsset && compareVersionLike(versionFromAsset, versionFromTag) < 0);
+
+            const payload = {
+                version: versionFromTag || versionFromAsset || null,
+                tagVersion: versionFromTag || null,
+                assetVersion: versionFromAsset || null,
+                installerUrl: exeAsset?.browser_download_url || '',
+                installerSize: Number(exeAsset?.size || 0),
+                installerAvailable: Boolean(exeAsset?.browser_download_url) && !staleInstaller,
+                windowsReleaseNotes: String(data.body || '').trim(),
+                releaseUrl: data.html_url || `https://github.com/OceanandWild/${repo}/releases/latest`,
+                publishedAt: data.published_at || data.created_at || null,
+                warning: staleInstaller
+                    ? `Release latest (${versionFromTag}) aun publica instalador ${versionFromAsset}.`
+                    : '',
+                checkedAt: now,
+            };
+            genericWindowsReleaseCacheByRepo[cacheKey] = payload;
+            return payload;
+        }
+
         async function fetchLatestAndroidReleaseFromStoreApi(slug, fallbackReleaseUrl = '') {
             const cacheBust = Date.now();
             const res = await fetch(`${OWS_STORE_ANDROID_API_BASE}/releases/${encodeURIComponent(slug)}/latest?nocache=${cacheBust}`);
@@ -17273,6 +17343,64 @@
                 }
             }
 
+            // Generic Windows release resolver for launched projects not covered by dedicated fetchers.
+            const dedicatedHandledSlugs = new Set([
+                'wildweapon-mayhem',
+                'savagespaceanimals',
+                'oceanpay',
+                'floretshop',
+                'wildtransfer',
+                'a-wild-question-game',
+                'wild-destiny',
+                'velocity-surge',
+                'wildwave',
+                'wildshorts',
+                'ocean-cinemas',
+                'naturepedia',
+                'dinobox',
+                'ecoxion'
+            ]);
+            for (const project of projects) {
+                const slug = canonicalProjectSlug(project);
+                if (!slug || dedicatedHandledSlugs.has(slug)) continue;
+                if (!supportsWindowsInstaller(project)) continue;
+                if (isProjectUnavailableByStore(project)) continue;
+                if (resolveCatalogStatus(project) !== 'launched') continue;
+
+                const repo = String(project?.metadata?.repo || project?.repo || '').trim();
+                if (!repo) continue;
+                const installerUrlRaw = String(project?.installer_url || '').trim();
+                const shouldResolveInstaller = !isLikelyWindowsInstallerUrl(installerUrlRaw)
+                    || project?.installer_available === false
+                    || project?.pending_release === true;
+                if (!shouldResolveInstaller) continue;
+
+                try {
+                    const latest = await fetchLatestGenericWindowsReleaseByRepo(repo, project?.name || slug);
+                    if (latest?.version) {
+                        project.version = pickHigherVersionLike(project.version, latest.version);
+                        project.windows_version = pickHigherVersionLike(project.windows_version, latest.version);
+                    }
+                    if (latest?.installerUrl) project.installer_url = latest.installerUrl;
+                    project.installer_size = Number(latest?.installerSize || project.installer_size || 0);
+                    project.installer_available = Boolean(latest?.installerAvailable || project.installer_available);
+                    project.windows_release_notes = latest?.windowsReleaseNotes || project.windows_release_notes || '';
+                    project.last_update_at = latest?.publishedAt || project.last_update_at || null;
+                    project.windows_last_update_at = latest?.publishedAt || project.windows_last_update_at || null;
+                    if (latest?.warning) {
+                        project.release_warning = latest.warning;
+                    } else if (!project.release_warning || String(project.release_warning || '').includes('No se pudo validar')) {
+                        project.release_warning = '';
+                    }
+                    if (project.installer_available) {
+                        project.pending_release = false;
+                        project.status = 'launched';
+                    }
+                } catch (err) {
+                    console.log(`No se pudo resolver release generica de ${project?.name || slug}:`, err?.message || err);
+                }
+            }
+
             // Keep server lifecycle truth authoritative: do not demote launched projects
             // to coming_soon because a GitHub probe failed temporarily.
             projects.forEach((project) => {
@@ -18724,7 +18852,10 @@
         }
 
         async function refreshTrackedProjectRelease(project, options = {}) {
-            if (!project || !isReleaseTrackedProject(project)) return null;
+            if (!project) return null;
+            const fallbackRepo = String(project?.metadata?.repo || project?.repo || '').trim();
+            const releaseTracked = isReleaseTrackedProject(project);
+            if (!releaseTracked && !fallbackRepo) return null;
             const force = Boolean(options?.force);
             if (force) {
                 if (isWildWeaponProject(project)) wildWeaponReleaseCache = null;
@@ -18739,6 +18870,12 @@
             if (isOceanCinemasProject(project)) oceanCinemasReleaseCache = null;
             if (isNaturepediaProject(project)) naturepediaReleaseCache = null;
             if (isDinoBoxProject(project)) dinoBoxReleaseCache = null;
+            if (!releaseTracked && fallbackRepo) {
+                const repoKey = String(fallbackRepo).replace(/^OceanandWild\//i, '').trim().toLowerCase();
+                if (repoKey && genericWindowsReleaseCacheByRepo[repoKey]) {
+                    delete genericWindowsReleaseCacheByRepo[repoKey];
+                }
+            }
             }
             const latest = isWildWeaponProject(project)
                 ? await fetchLatestWildWeaponRelease()
@@ -18764,7 +18901,9 @@
                                             ? await fetchLatestNaturepediaRelease()
                                         : (isDinoBoxProject(project)
                                             ? await fetchLatestDinoBoxRelease()
-                                            : await fetchLatestOWSNewsRelease())))))))))));
+                                            : (fallbackRepo
+                                                ? await fetchLatestGenericWindowsReleaseByRepo(fallbackRepo, project?.name || project?.slug || '')
+                                                : await fetchLatestOWSNewsRelease())))))))))));
 
             if (isFloretProject(project) || isWildTransferProject(project) || isAWQGProject(project)) {
                 const preferred = isNativeAndroidRuntime()

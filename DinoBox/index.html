@@ -1,0 +1,3504 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DinoBox: Primal Era | Ocean and Wild Studios</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800;900&display=swap');
+
+        :root {
+            --primary: #f59e0b;
+            /* Amber */
+            --primary-glow: rgba(245, 158, 11, 0.4);
+            --secondary: #0ea5e9;
+            /* Teal/Blue */
+            --bg: #05070a;
+            --card-bg: rgba(15, 23, 42, 0.8);
+            --glass: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --text: #f8fafc;
+            --amber-grad: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            --blue-grad: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background-image:
+                radial-gradient(circle at 10% 20%, rgba(245, 158, 11, 0.05) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(14, 165, 233, 0.05) 0%, transparent 40%);
+        }
+
+        /* --- UI Components --- */
+        .top-bar {
+            padding: 1.2rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(180deg, rgba(5,7,10,0.95) 0%, rgba(5,7,10,0.6) 70%, transparent 100%);
+            z-index: 100;
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(245,158,11,0.08);
+        }
+
+        .logo {
+            font-size: 1.8rem;
+            font-weight: 900;
+            letter-spacing: -1px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logo span {
+            background: var(--amber-grad);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .currency-container {
+            display: flex;
+            gap: 15px;
+        }
+
+        .currency-badge {
+            background: rgba(15,23,42,0.7);
+            padding: 8px 18px;
+            border-radius: 99px;
+            border: 1px solid rgba(245,158,11,0.15);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 700;
+            backdrop-filter: blur(12px);
+            cursor: pointer;
+            transition: 0.3s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        .currency-badge:hover {
+            border-color: var(--primary);
+            background: rgba(245, 158, 11, 0.12);
+            box-shadow: 0 4px 16px rgba(245,158,11,0.15);
+        }
+
+        .currency-badge i {
+            color: var(--primary);
+            font-size: 1.2rem;
+        }
+
+        @keyframes spin {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* --- Main Layout --- */
+        main {
+            flex: 1;
+            display: flex;
+            padding: 2rem;
+            gap: 2rem;
+            height: calc(100vh - 150px);
+        }
+
+        .sidebar {
+            width: 80px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            align-items: center;
+            padding: 20px 0;
+            background: rgba(15,23,42,0.6);
+            border: 1px solid rgba(245,158,11,0.08);
+            border-radius: 20px;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+        }
+
+        .nav-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: #64748b;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .nav-btn:hover,
+        .nav-btn.active {
+            background: var(--amber-grad);
+            color: white;
+            box-shadow: 0 0 20px var(--primary-glow);
+        }
+
+        .content-area {
+            flex: 1;
+            position: relative;
+        }
+
+        .view {
+            width: 100%;
+            height: 100%;
+            display: none;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 2rem;
+            padding-bottom: 2rem;
+            overflow-y: auto;
+        }
+
+        .view.active {
+            display: grid;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* --- Dino Card --- */
+        .dino-card {
+            background: linear-gradient(160deg, rgba(15,23,42,0.9), rgba(30,41,59,0.7));
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+            overflow: hidden;
+            border-bottom: 4px solid rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(8px);
+            animation: cardAppear 0.5s ease-out both;
+        }
+
+        @keyframes cardAppear {
+            from { opacity: 0; transform: translateY(30px) scale(0.92); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .dino-card:hover {
+            transform: translateY(-10px) scale(1.03);
+            border-color: var(--secondary);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5), 0 0 20px rgba(14,165,233,0.1);
+        }
+
+        .dino-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at 30% 30%, rgba(14, 165, 233, 0.08) 0%, transparent 60%);
+            pointer-events: none;
+        }
+
+        .dino-image-placeholder {
+            width: 120px;
+            height: 120px;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: 0.5s;
+        }
+
+        .dino-card:hover .dino-image-placeholder {
+            transform: scale(1.1) rotate(5deg);
+        }
+
+        .dino-name {
+            font-weight: 800;
+            font-size: 1.2rem;
+            margin-bottom: 5px;
+        }
+
+        .pass-row {
+            display: grid;
+            grid-template-columns: 50px 1fr 1fr 100px;
+            gap: 15px;
+            align-items: center;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+            transition: 0.3s;
+        }
+
+        .pass-row.active {
+            background: rgba(245, 158, 11, 0.05);
+        }
+
+        .pass-level-circle {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #1e293b;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            border: 2px solid #334155;
+        }
+
+        .pass-reward-box {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            border-radius: 10px;
+            text-align: center;
+            position: relative;
+            min-height: 60px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .pass-reward-box.unlocked {
+            border: 1px solid #22c55e;
+        }
+
+        .pass-reward-box.gold-border {
+            border: 1px solid #f59e0b;
+        }
+
+        .pass-reward-box small {
+            font-size: 0.6rem;
+            opacity: 0.6;
+            text-transform: uppercase;
+        }
+
+        .reward-content {
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+
+        /* --- Checkout Modal (DinoBox version) --- */
+        .checkout-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(8px);
+            z-index: 10000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .checkout-overlay.active {
+            display: flex;
+        }
+
+        .checkout-card {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 24px;
+            padding: 2.5rem;
+            width: 100%;
+            max-width: 450px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .card-option {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid #334155;
+            padding: 1rem;
+            border-radius: 12px;
+            margin-bottom: 0.75rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            transition: 0.2s;
+        }
+
+        .card-option:hover {
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .card-option.selected {
+            border-color: #f59e0b;
+            background: rgba(245, 158, 11, 0.05);
+        }
+
+        .card-number {
+            font-family: monospace;
+            font-size: 0.9rem;
+            color: #94a3b8;
+        }
+
+        .summary-box {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 1.5rem;
+            border-radius: 16px;
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+
+        .dino-card.rarity-común {
+            border-left: 5px solid #94a3b8;
+        }
+
+        .dino-card.rarity-poco-común {
+            border-left: 5px solid #22c55e;
+        }
+
+        .dino-card.rarity-raro {
+            border-left: 5px solid #3b82f6;
+        }
+
+        .dino-card.rarity-épico {
+            border-left: 5px solid #a855f7;
+        }
+
+        .dino-card.rarity-legendario {
+            border-left: 5px solid #f59e0b;
+        }
+
+        .dino-card.rarity-mítico {
+            border-left: 5px solid #ef4444;
+            border-color: #ef4444;
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
+        }
+
+        .dino-rarity {
+            font-size: 0.75rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            padding: 4px 10px;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.05);
+            width: fit-content;
+            margin-bottom: 0.5rem;
+        }
+
+        .rarity-común .dino-rarity {
+            color: #94a3b8;
+        }
+
+        .rarity-poco-común .dino-rarity {
+            color: #22c55e;
+        }
+
+        .rarity-raro .dino-rarity {
+            color: #3b82f6;
+        }
+
+        .rarity-épico .dino-rarity {
+            color: #a855f7;
+        }
+
+        .rarity-legendario .dino-rarity {
+            color: #f59e0b;
+        }
+
+        .rarity-mítico .dino-rarity {
+            color: #ef4444;
+            text-shadow: 0 0 10px #ef4444;
+        }
+
+        .dino-stats {
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: auto;
+        }
+
+        .stat {
+            background: rgba(0, 0, 0, 0.35);
+            padding: 6px 8px;
+            border-radius: 8px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+        }
+
+        .dino-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin: 5px 0;
+            justify-content: center;
+        }
+
+        .dino-tag {
+            font-size: 0.65rem;
+            padding: 2px 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            color: #cbd5e1;
+        }
+
+        /* --- Expedition Selector --- */
+        .exp-selector {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 14px;
+        }
+
+        .exp-slot {
+            aspect-ratio: 1;
+            background: linear-gradient(160deg, rgba(15,23,42,0.7), rgba(30,41,59,0.4));
+            border: 2px dashed rgba(255, 255, 255, 0.08);
+            border-radius: 18px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(6px);
+        }
+
+        .exp-slot:hover {
+            background: rgba(245, 158, 11, 0.06);
+            border-color: var(--primary);
+            transform: scale(1.04);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+        }
+
+        .exp-slot.filled {
+            border-style: solid;
+            border-color: rgba(14,165,233,0.3);
+            background: linear-gradient(160deg, rgba(14,165,233,0.06), rgba(15,23,42,0.7));
+        }
+
+        .exp-slot.filled:hover {
+            border-color: rgba(14,165,233,0.5);
+        }
+
+        .exp-slot .remove-dino {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            background: rgba(239,68,68,0.8);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            width: 22px;
+            height: 22px;
+            font-size: 0.7rem;
+            display: none;
+            z-index: 5;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .exp-slot .remove-dino:hover { background: #ef4444; }
+
+        .exp-slot.filled:hover .remove-dino {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .exp-details {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+
+        .exp-detail-item span {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            font-size: 0.78rem;
+            color: #94a3b8;
+            margin-bottom: 6px;
+        }
+
+        .exp-detail-item strong {
+            font-size: 1.2rem;
+            color: var(--primary);
+        }
+
+        /* --- Final reveal redesign --- */
+        .reveal-glow {
+            position: absolute;
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, var(--primary) 0%, transparent 70%);
+            opacity: 0.3;
+            filter: blur(50px);
+            z-index: -1;
+            animation: pulse-glow 2s infinite alternate;
+        }
+
+        @keyframes pulse-glow {
+            from {
+                transform: scale(0.8);
+                opacity: 0.2;
+            }
+
+            to {
+                transform: scale(1.2);
+                opacity: 0.5;
+            }
+        }
+
+        .reward-impact {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: white;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .dino-card.final-reveal {
+            box-shadow: 0 0 60px rgba(255, 215, 0, 0.5), 0 0 120px rgba(255, 215, 0, 0.2), inset 0 0 30px rgba(255,215,0,0.05);
+            border: 3px solid gold;
+            animation: revealPulse 1.5s ease-out infinite alternate;
+        }
+        @keyframes revealPulse {
+            from { box-shadow: 0 0 50px rgba(255,215,0,0.4), 0 0 100px rgba(255,215,0,0.15); }
+            to { box-shadow: 0 0 80px rgba(255,215,0,0.6), 0 0 150px rgba(255,215,0,0.25), inset 0 0 40px rgba(255,215,0,0.08); }
+        }
+
+        /* --- Card Packs --- */
+        .pack-card {
+            background: linear-gradient(155deg, rgba(30,41,59,0.95), rgba(15,23,42,0.95));
+            border: 2px solid rgba(51,65,85,0.6);
+            border-radius: 30px;
+            padding: 2.5rem;
+            text-align: center;
+            cursor: pointer;
+            transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-height: 400px;
+            backdrop-filter: blur(10px);
+        }
+
+        .pack-card:hover {
+            transform: scale(1.06) translateY(-8px);
+            border-color: var(--primary);
+            box-shadow: 0 0 50px var(--primary-glow), 0 20px 40px rgba(0,0,0,0.4);
+        }
+
+        .pack-icon {
+            font-size: 5rem;
+            margin-bottom: 2rem;
+            background: var(--amber-grad);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 10px 10px rgba(0, 0, 0, 0.5));
+        }
+
+        .pack-name {
+            font-size: 1.8rem;
+            font-weight: 900;
+            margin-bottom: 10px;
+        }
+
+        .pack-price {
+            font-weight: 800;
+            color: var(--primary);
+            margin-top: auto;
+            font-size: 1.2rem;
+        }
+
+        /* --- DinoPass --- */
+        .dinopass-container {
+            grid-column: 1 / -1;
+            background: linear-gradient(90deg, #1e293b, #0f172a);
+            border-radius: 30px;
+            padding: 3rem;
+            border: 1px solid var(--primary);
+            box-shadow: inset 0 0 50px rgba(245, 158, 11, 0.1);
+        }
+
+        .progress-track {
+            height: 12px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 99px;
+            margin: 2rem 0;
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            width: 35%;
+            background: var(--amber-grad);
+            border-radius: 99px;
+            box-shadow: 0 0 20px var(--primary);
+        }
+
+        .milestones {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .milestone {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            opacity: 0.5;
+        }
+
+        .milestone.complete {
+            opacity: 1;
+            color: var(--primary);
+        }
+
+        /* --- Auth Overlay --- */
+        .auth-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 2000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(10px);
+        }
+
+        .auth-card {
+            background: var(--card-bg);
+            padding: 3rem;
+            border-radius: 40px;
+            width: 100%;
+            max-width: 450px;
+            border: 1px solid var(--primary);
+            text-align: center;
+            box-shadow: 0 0 100px rgba(0, 0, 0, 1);
+        }
+
+        input {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--glass-border);
+            padding: 12px 20px;
+            border-radius: 12px;
+            color: white;
+            margin-bottom: 20px;
+            font-size: 1rem;
+            transition: 0.3s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: rgba(245, 158, 11, 0.05);
+        }
+
+        .btn-primary {
+            width: 100%;
+            background: var(--amber-grad);
+            color: white;
+            border: none;
+            padding: 15px;
+            border-radius: 12px;
+            font-weight: 800;
+            font-size: 1rem;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: 0.3s;
+        }
+
+        .btn-primary:hover {
+            transform: scale(1.02);
+            box-shadow: 0 0 30px var(--primary-glow);
+        }
+
+        .btn-link {
+            background: none;
+            border: none;
+            color: var(--secondary);
+            margin-top: 1.5rem;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        /* --- Pack Opening Animation --- */
+        #opening-scene {
+            position: fixed;
+            inset: 0;
+            background: radial-gradient(circle at center, rgba(15, 23, 42, 0.95), #020617);
+            z-index: 3000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+
+        #opening-canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        #reveal-overlay {
+            position: absolute;
+            inset: 0;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            background: rgba(0, 0, 0, 0.65);
+            backdrop-filter: blur(12px);
+            z-index: 3010;
+            gap: 0;
+        }
+
+        .reveal-header {
+            text-align: center;
+            z-index: 10;
+            animation: revealTitleIn 0.8s ease-out both;
+            animation-delay: 0.2s;
+        }
+        @keyframes revealTitleIn {
+            from { opacity: 0; transform: translateY(-40px) scale(0.8); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .reveal-header h2 {
+            font-size: 2rem;
+            font-weight: 900;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin: 0;
+        }
+        .reveal-header .reveal-subtitle {
+            font-size: 0.85rem;
+            opacity: 0.6;
+            margin-top: 4px;
+            font-weight: 400;
+        }
+
+        .revealed-card-container {
+            width: 280px;
+            height: auto;
+            max-height: 420px;
+            perspective: 1000px;
+            animation: cardArrive 1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            margin: 1.2rem 0;
+        }
+
+        .reveal-stats-bar {
+            display: flex;
+            gap: 20px;
+            z-index: 10;
+            animation: revealTitleIn 0.8s ease-out both;
+            animation-delay: 0.5s;
+        }
+        .reveal-stat-item {
+            text-align: center;
+            padding: 10px 20px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 14px;
+            backdrop-filter: blur(8px);
+            min-width: 90px;
+        }
+        .reveal-stat-item .stat-label {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            opacity: 0.5;
+            display: block;
+        }
+        .reveal-stat-item .stat-value {
+            font-size: 1.4rem;
+            font-weight: 900;
+            display: block;
+            margin-top: 2px;
+        }
+
+        .reveal-actions {
+            display: flex;
+            gap: 12px;
+            z-index: 10;
+            animation: revealTitleIn 0.8s ease-out both;
+            animation-delay: 0.7s;
+            margin-top: 1rem;
+        }
+
+        @keyframes cardArrive {
+            0% {
+                transform: translateY(-100vh) scale(0.3) rotateY(360deg);
+                opacity: 0;
+                filter: brightness(3);
+            }
+            60% {
+                transform: translateY(10px) scale(1.08) rotateY(0);
+                opacity: 1;
+                filter: brightness(1.5);
+            }
+            100% {
+                transform: translateY(0) scale(1) rotateY(0);
+                opacity: 1;
+                filter: brightness(1);
+            }
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .quest-item {
+            background: linear-gradient(135deg, rgba(15,23,42,0.7), rgba(30,41,59,0.5));
+            border: 1px solid var(--glass-border);
+            padding: 1.5rem;
+            border-radius: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: 0.3s;
+            backdrop-filter: blur(8px);
+        }
+
+        .quest-item:hover {
+            border-color: rgba(245,158,11,0.3);
+            background: linear-gradient(135deg, rgba(15,23,42,0.8), rgba(30,41,59,0.6));
+        }
+
+        .quest-item.completed {
+            border-color: #10b981;
+            background: rgba(16, 185, 129, 0.08);
+            opacity: 0.65;
+        }
+
+        .quest-reward {
+            color: var(--primary);
+            font-weight: 800;
+        }
+
+        /* --- Daily Reward Modal --- */
+        #daily-modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 4000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(10px);
+        }
+
+        .dino-card.rarity-mítico { animation: mythicPulse 2s infinite alternate; }
+        @keyframes mythicPulse {
+            from { box-shadow: 0 0 20px rgba(239,68,68,0.3), inset 0 0 15px rgba(239,68,68,0.03); }
+            to { box-shadow: 0 0 45px rgba(239,68,68,0.6), 0 0 80px rgba(239,68,68,0.12), inset 0 0 25px rgba(239,68,68,0.06); }
+        }
+        .dino-card.rarity-legendario { animation: legendPulse 3s infinite alternate; }
+        @keyframes legendPulse {
+            from { box-shadow: 0 0 12px rgba(245,158,11,0.15); }
+            to { box-shadow: 0 0 30px rgba(245,158,11,0.4), 0 0 60px rgba(245,158,11,0.1); }
+        }
+        .dino-card.rarity-épico { animation: epicPulse 3.5s infinite alternate; }
+        @keyframes epicPulse {
+            from { box-shadow: 0 0 8px rgba(168,85,247,0.1); }
+            to { box-shadow: 0 0 22px rgba(168,85,247,0.3), 0 0 45px rgba(168,85,247,0.08); }
+        }
+        .dino-card.rarity-raro { animation: rarePulse 4s infinite alternate; }
+        @keyframes rarePulse {
+            from { box-shadow: 0 0 6px rgba(59,130,246,0.08); }
+            to { box-shadow: 0 0 18px rgba(59,130,246,0.25); }
+        }
+        .dino-card::after {
+            content: '';
+            position: absolute;
+            top: -100%; left: -100%;
+            width: 50%; height: 300%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent);
+            transform: rotate(25deg);
+            transition: 0.8s;
+            pointer-events: none;
+        }
+        .dino-card:hover::after { left: 150%; }
+        .pack-card { overflow: hidden; }
+        .pack-card::before {
+            content: '';
+            position: absolute;
+            top: -50%; left: -50%;
+            width: 200%; height: 200%;
+            background: conic-gradient(from 0deg, transparent 0%, rgba(245,158,11,0.06) 25%, transparent 50%, rgba(245,158,11,0.06) 75%, transparent 100%);
+            animation: packSpin 8s linear infinite;
+            pointer-events: none;
+        }
+        @keyframes packSpin { to { transform: rotate(360deg); } }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+        .dino-image-placeholder canvas { filter: drop-shadow(0 4px 8px rgba(0,0,0,0.5)); }
+        .stat { backdrop-filter: blur(5px); border: 1px solid rgba(255,255,255,0.05); }
+        .pack-card .pack-canvas { position: relative; z-index: 1; }
+        .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(6px); z-index: 5000; display: none; align-items: center; justify-content: center; }
+        .modal-card { background: #1e293b; border: 1px solid #334155; border-radius: 24px; padding: 2rem; max-height: 80vh; overflow-y: auto; }
+
+
+        /* --- Pass + Expedition polish --- */
+        .dinopass-container {
+            background: linear-gradient(165deg, rgba(15,23,42,0.86), rgba(2,6,23,0.92));
+            border: 1px solid rgba(148,163,184,0.14);
+            border-radius: 24px;
+            padding: 1.4rem;
+            box-shadow: 0 16px 40px rgba(0,0,0,0.35);
+        }
+
+        .pass-row {
+            border: 1px solid rgba(148,163,184,0.12);
+        }
+
+        .pass-row.active {
+            border-color: rgba(245, 158, 11, 0.35);
+            box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.15);
+        }
+
+        #pass-track-list {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(245,158,11,0.35) transparent;
+        }
+
+        #exp-preparation,
+        #expedition-status,
+        #exp-rewards {
+            box-shadow: 0 12px 34px rgba(0,0,0,0.28);
+        }
+
+        #start-exp-btn[disabled],
+        #claim-exp-btn[disabled],
+        #claim-loop-btn[disabled] {
+            opacity: 0.6;
+            cursor: not-allowed;
+            filter: grayscale(0.2);
+        }
+
+        @media (max-width: 980px) {
+            .pass-row {
+                grid-template-columns: 44px 1fr;
+                gap: 10px;
+            }
+
+            .pass-row .pass-reward-box {
+                min-height: 56px;
+            }
+
+            .pass-row .pass-action {
+                grid-column: 1 / -1;
+                justify-self: end;
+            }
+
+            .exp-selector {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .exp-details {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        @media (max-width: 620px) {
+            .dinopass-container {
+                padding: 1rem;
+                border-radius: 18px;
+            }
+
+            .exp-selector {
+                grid-template-columns: 1fr 1fr;
+                gap: 10px;
+            }
+
+            .exp-details {
+                grid-template-columns: 1fr;
+            }
+
+            .pass-row {
+                grid-template-columns: 1fr;
+            }
+
+            .pass-level-circle {
+                width: 36px;
+                height: 36px;
+            }
+
+            .pass-row .pass-action {
+                justify-self: stretch;
+            }
+
+            .pass-row .pass-action .btn-primary {
+                width: 100%;
+            }
+        }
+
+    </style>
+</head>
+
+<body>
+
+    <!-- Auth Section -->
+    <div id="auth-overlay" class="auth-overlay">
+        <div class="auth-card">
+            <h2 style="font-size: 2.5rem; margin-bottom: 1rem;">🦖 DinoBox</h2>
+            <p style="color: #94a3b8; margin-bottom: 2rem;">Vincula tu cuenta de <b>Ocean Pay</b> para sincronizar tus
+                Amber y progreso.</p>
+
+            <form id="loginForm">
+                <input type="text" id="username" placeholder="Usuario Ocean Pay" required>
+                <input type="password" id="password" placeholder="Contraseña" required>
+                <button type="submit" class="btn-primary">Vincular Cuenta</button>
+                <div id="auth-msg" style="margin-top:1rem; font-size: 0.9rem;"></div>
+            </form>
+            <p style="margin-top: 2rem; font-size: 0.8rem; color: #64748b;">¿No tienes cuenta? Regístrate en el portal
+                de Ocean Pay.</p>
+        </div>
+    </div>
+
+    <!-- Main UI -->
+    <div class="top-bar">
+        <div class="logo">🦖 <span>DINOBOX</span></div>
+        <div class="currency-container">
+            <div class="currency-badge" id="amber-display" onclick="syncWithOceanPay()" style="padding-left: 8px;">
+                <canvas class="currency-canvas" data-currency="amber" width="28" height="28"></canvas>
+                <span id="amber-count">0</span>
+            </div>
+            <div class="currency-badge" style="border-color: var(--secondary); cursor: pointer;"
+                onclick="showView('pass')">
+                <i class="fas fa-id-card-alt" style="color: var(--secondary);"></i>
+                <span>DINOPASS</span>
+            </div>
+            <div class="currency-badge" id="logout-btn" style="padding: 10px;">
+                <i class="fas fa-sign-out-alt" style="color: #ef4444;"></i>
+            </div>
+        </div>
+    </div>
+
+    <main>
+        <aside class="sidebar">
+            <div class="nav-btn active" onclick="showView('collection')" title="Mi Colección">
+                <i class="fas fa-dragon"></i>
+            </div>
+            <div class="nav-btn" onclick="showView('store')" title="Tienda de Packs">
+                <i class="fas fa-shopping-bag"></i>
+            </div>
+            <div class="nav-btn" onclick="showView('pass')" title="DinoPass (Pase de Batalla)">
+                <i class="fas fa-id-card-alt"></i>
+            </div>
+            <div class="nav-btn" onclick="showView('quests')" title="Misiones">
+                <i class="fas fa-tasks"></i>
+            </div>
+            <div class="nav-btn" onclick="showView('expedition')" title="Expediciones">
+                <i class="fas fa-map-marked-alt"></i>
+            </div>
+            <div class="nav-btn" onclick="showView('battle')" title="Batalla (Próximamente)">
+                <i class="fas fa-khanda"></i>
+            </div>
+        </aside>
+
+        <section class="content-area">
+            <!-- View: Collection -->
+            <div id="view-collection" class="view active">
+                <!-- Dinosaurs will be loaded here -->
+            </div>
+
+            <!-- View: Store -->
+            <div id="view-store" class="view" style="grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));">
+                <!-- Packs de Rareza -->
+                <div style="grid-column:1/-1; margin-bottom:0.5rem;">
+                    <h3 style="font-size:1.3rem; font-weight:800; color:#94a3b8; text-transform:uppercase; letter-spacing:2px;"><i class="fas fa-layer-group" style="margin-right:8px;"></i>Packs por Rareza</h3>
+                </div>
+                <div class="pack-card" onclick="buyPack('comun')">
+                    <canvas class="pack-canvas" data-pack="comun" width="200" height="200"></canvas>
+                    <h3 class="pack-name">Pack Común</h3>
+                    <p style="opacity:0.7">Contiene dinosaurios comunes</p>
+                    <div class="pack-price">50 AMB</div>
+                </div>
+                <div class="pack-card" onclick="buyPack('p_comun')">
+                    <canvas class="pack-canvas" data-pack="p_comun" width="200" height="200"></canvas>
+                    <h3 class="pack-name">Pack Poco Común</h3>
+                    <p style="opacity:0.7">Probabilidad de poco común</p>
+                    <div class="pack-price">120 AMB</div>
+                </div>
+                <div class="pack-card" onclick="buyPack('raro')">
+                    <canvas class="pack-canvas" data-pack="raro" width="200" height="200"></canvas>
+                    <h3 class="pack-name">Pack Raro</h3>
+                    <p style="opacity:0.7">Raro garantizado</p>
+                    <div class="pack-price">220 AMB</div>
+                </div>
+                <div class="pack-card" onclick="buyPack('epico')">
+                    <canvas class="pack-canvas" data-pack="epico" width="200" height="200"></canvas>
+                    <h3 class="pack-name">Pack Épico</h3>
+                    <p style="opacity:0.7">Épico garantizado</p>
+                    <div class="pack-price">500 AMB</div>
+                </div>
+                <div class="pack-card" onclick="buyPack('legendario')">
+                    <canvas class="pack-canvas" data-pack="legendario" width="200" height="200"></canvas>
+                    <h3 class="pack-name">Pack Legendario</h3>
+                    <p style="opacity:0.7">Legendario garantizado</p>
+                    <div class="pack-price">450 AMB</div>
+                </div>
+                <div class="pack-card" onclick="buyPack('mitico')">
+                    <canvas class="pack-canvas" data-pack="mitico" width="200" height="200"></canvas>
+                    <h3 class="pack-name">Pack Mítico</h3>
+                    <p style="opacity:0.7">¡Suerte con lo mítico!</p>
+                    <div class="pack-price">1,500 AMB</div>
+                </div>
+
+                <!-- Packs Especiales -->
+                <div style="grid-column:1/-1; margin:1.5rem 0 0.5rem;">
+                    <h3 style="font-size:1.3rem; font-weight:800; color:#f59e0b; text-transform:uppercase; letter-spacing:2px;"><i class="fas fa-star" style="margin-right:8px;"></i>Packs Especiales</h3>
+                </div>
+                <div class="pack-card" style="border-color:rgba(14,165,233,0.3); background:linear-gradient(155deg, rgba(14,165,233,0.1), rgba(15,23,42,0.95));" onclick="buyPack('acuatico')">
+                    <canvas class="pack-canvas" data-pack="raro" width="200" height="200"></canvas>
+                    <div style="position:absolute; top:15px; right:15px; background:rgba(14,165,233,0.2); border:1px solid rgba(14,165,233,0.4); padding:4px 10px; border-radius:8px; font-size:0.65rem; font-weight:800; color:#0ea5e9;">ACUÁTICO</div>
+                    <h3 class="pack-name" style="color:#0ea5e9;">Pack Oceánico</h3>
+                    <p style="opacity:0.7">Dinosaurios acuáticos exclusivos</p>
+                    <div class="pack-price">420 AMB</div>
+                </div>
+                <div class="pack-card" style="border-color:rgba(168,85,247,0.3); background:linear-gradient(155deg, rgba(168,85,247,0.1), rgba(15,23,42,0.95));" onclick="buyPack('volador')">
+                    <canvas class="pack-canvas" data-pack="epico" width="200" height="200"></canvas>
+                    <div style="position:absolute; top:15px; right:15px; background:rgba(168,85,247,0.2); border:1px solid rgba(168,85,247,0.4); padding:4px 10px; border-radius:8px; font-size:0.65rem; font-weight:800; color:#a855f7;">VOLADOR</div>
+                    <h3 class="pack-name" style="color:#a855f7;">Pack Aéreo</h3>
+                    <p style="opacity:0.7">Criaturas de los cielos</p>
+                    <div class="pack-price">450 AMB</div>
+                </div>
+                <div class="pack-card" style="border-color:rgba(34,197,94,0.3); background:linear-gradient(155deg, rgba(34,197,94,0.1), rgba(15,23,42,0.95));" onclick="buyPack('jurasico')">
+                    <canvas class="pack-canvas" data-pack="p_comun" width="200" height="200"></canvas>
+                    <div style="position:absolute; top:15px; right:15px; background:rgba(34,197,94,0.2); border:1px solid rgba(34,197,94,0.4); padding:4px 10px; border-radius:8px; font-size:0.65rem; font-weight:800; color:#22c55e;">JURÁSICO</div>
+                    <h3 class="pack-name" style="color:#22c55e;">Pack Jurásico</h3>
+                    <p style="opacity:0.7">Exclusivo de la era Jurásica</p>
+                    <div class="pack-price">360 AMB</div>
+                </div>
+                <div class="pack-card" style="border-color:rgba(245,158,11,0.3); background:linear-gradient(155deg, rgba(245,158,11,0.15), rgba(15,23,42,0.95));" onclick="buyPack('aleatorio')">
+                    <canvas class="pack-canvas" data-pack="legendario" width="200" height="200"></canvas>
+                    <div style="position:absolute; top:15px; right:15px; background:rgba(245,158,11,0.2); border:1px solid rgba(245,158,11,0.4); padding:4px 10px; border-radius:8px; font-size:0.65rem; font-weight:800; color:#f59e0b;">RANDOM</div>
+                    <h3 class="pack-name">Pack Aleatorio</h3>
+                    <p style="opacity:0.7">Cualquier rareza posible</p>
+                    <div class="pack-price">180 AMB</div>
+                </div>
+                <div class="pack-card" style="border-color:rgba(239,68,68,0.3); background:linear-gradient(155deg, rgba(239,68,68,0.1), rgba(15,23,42,0.95));" onclick="buyPack('carnivoro')">
+                    <canvas class="pack-canvas" data-pack="mitico" width="200" height="200"></canvas>
+                    <div style="position:absolute; top:15px; right:15px; background:rgba(239,68,68,0.2); border:1px solid rgba(239,68,68,0.4); padding:4px 10px; border-radius:8px; font-size:0.65rem; font-weight:800; color:#ef4444;">DEPREDADOR</div>
+                    <h3 class="pack-name" style="color:#ef4444;">Pack Carnívoro</h3>
+                    <p style="opacity:0.7">Solo depredadores feroces</p>
+                    <div class="pack-price">390 AMB</div>
+                </div>
+                <div class="pack-card" style="border-color:rgba(251,191,36,0.4); background:linear-gradient(155deg, rgba(251,191,36,0.15), rgba(15,23,42,0.95)); border-width:3px;" onclick="buyPack('multi')">
+                    <canvas class="pack-canvas" data-pack="legendario" width="200" height="200"></canvas>
+                    <div style="position:absolute; top:15px; right:15px; background:rgba(251,191,36,0.25); border:1px solid rgba(251,191,36,0.5); padding:4px 10px; border-radius:8px; font-size:0.65rem; font-weight:800; color:#fbbf24;">x3 DINOS</div>
+                    <h3 class="pack-name" style="color:#fbbf24;">Multi-Pack</h3>
+                    <p style="opacity:0.7">¡Obtén 3 dinosaurios de una vez!</p>
+                    <div class="pack-price">1,200 AMB</div>
+                </div>
+            </div>
+
+            <!-- View: DinoPass -->
+            <div id="view-pass" class="view" style="grid-template-columns: 1fr;">
+                <div class="dinopass-container" style="max-width: 900px; margin: 0 auto; width:100%;">
+                    <div
+                        style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: 2rem;">
+                        <div>
+                            <h2 style="font-size:2.5rem; font-weight:900; margin:0;">Pase de Temporada 1</h2>
+                            <p style="color: #64748b; font-size: 0.9rem; margin-bottom: 0.5rem;">Termina el: <b
+                                    id="season-end-display">--/--/----</b> (1 Mes)</p>
+                            <p style="color:#fbbf24; font-size:0.85rem; margin:0.2rem 0 0.8rem 0;">Tiempo restante: <b id="season-remaining-display">--d --h --m</b></p>
+                            <p style="color:#94a3b8; margin-top:0.5rem;">Estado: <b id="pass-status"
+                                    style="color:var(--primary)">FREE</b></p>
+                            <div
+                                style="background:rgba(255,255,255,0.05); padding:10px; border-radius:12px; margin-top:1rem; width: 300px;">
+                                <div
+                                    style="display:flex; justify-content:space-between; font-size:0.8rem; margin-bottom:5px;">
+                                    <span>Progreso de Nivel</span>
+                                    <span id="pass-xp-text">0 / 1000 XP</span>
+                                </div>
+                                <div class="progress-track" style="height:8px; background:rgba(255,255,255,0.1);">
+                                    <div class="progress-fill" id="pass-xp-bar"
+                                        style="width:0; background:var(--amber-grad);"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display:flex; flex-direction:column; gap:10px;">
+                            <button class="btn-primary"
+                                style="width:220px; padding: 12px; background:var(--amber-grad);"
+                                onclick="buyDinoPass('premium')">Premium (5,000 AMB)</button>
+                            <button class="btn-primary"
+                                style="width:220px; padding: 12px; background:linear-gradient(135deg, #ef4444, #7f1d1d);"
+                                onclick="buyDinoPass('elite')">Elite +10 Niv. (11,200 AMB)</button>
+                        </div>
+                    </div>
+
+                    <div id="pass-track-list"
+                        style="display:flex; flex-direction:column; gap:10px; padding:10px; background:rgba(0,0,0,0.2); border-radius:20px; height: 500px; overflow-y: auto;">
+                        <!-- Levels will be loaded here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- View: Quests -->
+            <div id="view-quests" class="view" style="grid-template-columns: 1fr;">
+                <div style="max-width: 800px; margin: 0 auto; width: 100%;">
+                    <h2 style="font-size: 2.5rem; margin-bottom: 2rem;">Misiones Diarias</h2>
+                    <div id="daily-loop-panel" style="margin-bottom:1rem; padding:1rem 1.2rem; border-radius:14px; border:1px solid rgba(16,185,129,0.25); background:linear-gradient(135deg, rgba(16,185,129,0.08), rgba(15,23,42,0.8));">
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap;">
+                            <div>
+                                <div style="font-size:0.72rem; text-transform:uppercase; letter-spacing:1px; opacity:0.7;">Racha diaria</div>
+                                <div style="font-size:1.2rem; font-weight:900;"><span id="daily-streak-days">0</span> días</div>
+                            </div>
+                            <div style="flex:1; min-width:240px;">
+                                <div style="font-size:0.72rem; text-transform:uppercase; letter-spacing:1px; opacity:0.7;">Meta diaria</div>
+                                <div id="daily-loop-progress-text" style="font-size:0.9rem;">0/3 objetivos completados</div>
+                            </div>
+                            <button id="claim-loop-btn" class="btn-primary" style="width:auto; padding:10px 18px; background:linear-gradient(135deg, #10b981, #047857);" onclick="claimDailyLoopReward()">Reclamar +180 AMB</button>
+                        </div>
+                    </div>
+                    <div id="quests-list" style="display: flex; flex-direction: column; gap: 1rem;">
+                        <!-- Quests will be loaded here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- View: Expedition -->
+            <div id="view-expedition" class="view" style="grid-template-columns: 1fr;">
+                <div style="max-width: 950px; margin: 0 auto; width: 100%;">
+                    <!-- Expedition Header -->
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:2rem; padding:1.5rem 2rem; background:linear-gradient(135deg, rgba(245,158,11,0.08), rgba(14,165,233,0.05)); border:1px solid rgba(245,158,11,0.12); border-radius:20px;">
+                        <div>
+                            <div style="display:flex; align-items:center; gap:12px; margin-bottom:6px;">
+                                <div style="width:42px; height:42px; border-radius:12px; background:var(--amber-grad); display:flex; align-items:center; justify-content:center;">
+                                    <i class="fas fa-map-marked-alt" style="font-size:1.2rem; color:white;"></i>
+                                </div>
+                                <h2 style="font-size:2rem; font-weight:900; margin:0;">Expediciones</h2>
+                            </div>
+                            <p style="color:#64748b; font-size:0.85rem; margin-left:54px;">Selecciona hasta 4 dinosaurios para explorar tierras salvajes y obtener Amber + EXP.</p>
+                        </div>
+                        <div id="expedition-timer-header" style="font-weight:900; color:var(--primary); font-size:1.5rem; text-align:right; min-width:140px;"></div>
+                    </div>
+
+                    <div id="exp-preparation">
+                        <!-- Slots -->
+                        <div style="margin-bottom:1.5rem;">
+                            <p style="font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; color:#64748b; margin-bottom:10px; font-weight:700;">Equipo de Expedición</p>
+                            <div class="exp-selector" id="exp-slots-container">
+                            </div>
+                        </div>
+
+                        <!-- Estimated stats -->
+                        <div class="exp-details" style="background:linear-gradient(135deg, rgba(15,23,42,0.8), rgba(30,41,59,0.6)); border:1px solid rgba(255,255,255,0.06); border-radius:20px; padding:1.5rem;">
+                            <div style="grid-column:1/-1; margin-bottom:0.8rem; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+                                <span style="font-size:0.72rem; text-transform:uppercase; letter-spacing:1px; color:#64748b; font-weight:700;">Modo</span>
+                                <select id="exp-mode" onchange="calculateExpStats()" style="background:rgba(0,0,0,0.35); border:1px solid rgba(255,255,255,0.1); color:#f8fafc; padding:8px 12px; border-radius:10px; font-weight:700;">
+                                    <option value="short">Rápida (menos tiempo, menos recompensa)</option>
+                                    <option value="standard" selected>Estándar</option>
+                                    <option value="deep">Profunda (más tiempo, mejor recompensa)</option>
+                                </select>
+                            </div>
+                            <div class="exp-detail-item">
+                                <span><i class="fas fa-clock" style="margin-right:5px; color:var(--secondary);"></i>Tiempo</span>
+                                <strong id="exp-calc-time" style="font-size:1.4rem;">0m</strong>
+                            </div>
+                            <div class="exp-detail-item">
+                                <span><i class="fas fa-gem" style="margin-right:5px; color:var(--primary);"></i>Amber</span>
+                                <strong id="exp-calc-amber" style="font-size:1.4rem;">0</strong>
+                            </div>
+                            <div class="exp-detail-item">
+                                <span><i class="fas fa-star" style="margin-right:5px; color:#a78bfa;"></i>EXP</span>
+                                <strong id="exp-calc-xp" style="font-size:1.4rem;">0</strong>
+                            </div>
+                            <div class="exp-detail-item">
+                                <span><i class="fas fa-gift" style="margin-right:5px; color:#fbbf24;"></i>Bono</span>
+                                <strong id="exp-calc-bonus" style="font-size:1.1rem;">0%</strong>
+                            </div>
+                        </div>
+                        <p id="exp-team-note" style="margin-top:0.7rem; font-size:0.78rem; color:#94a3b8;">Forma un equipo equilibrado para aumentar bonus de expedición.</p>
+
+                        <button class="btn-primary" style="padding:15px 50px; margin-top:1.5rem; display:flex; align-items:center; gap:10px; width:auto;" id="start-exp-btn" onclick="startExpedition()">
+                            <i class="fas fa-compass"></i> Iniciar Expedición
+                        </button>
+                    </div>
+
+                    <!-- In-progress status -->
+                    <div id="expedition-status" class="hidden" style="text-align:center; padding:3rem 2rem; background:linear-gradient(135deg, rgba(245,158,11,0.06), rgba(15,23,42,0.9)); border:1px solid rgba(245,158,11,0.15); border-radius:24px;">
+                        <div style="width:80px; height:80px; margin:0 auto 1.5rem; border-radius:50%; background:rgba(245,158,11,0.1); display:flex; align-items:center; justify-content:center; animation: pulse-glow 2s infinite alternate;">
+                            <i class="fas fa-compass fa-spin" style="font-size:2.5rem; color:var(--primary);"></i>
+                        </div>
+                        <h3 id="exp-status-text" style="font-size:1.5rem; margin-bottom:0.5rem;">Explorando tierras salvajes...</h3>
+                        <p style="color:#64748b; font-size:0.85rem; margin-bottom:1rem;">Tu equipo está en camino</p>
+                        <div style="background:rgba(0,0,0,0.3); padding:1rem 2rem; border-radius:16px; display:inline-block; margin-bottom:1.5rem;">
+                            <p id="exp-timer-text" style="font-size:2.5rem; font-weight:900; margin:0; color:var(--primary); font-variant-numeric:tabular-nums;">00:00</p>
+                        </div>
+                        <div style="display:flex; justify-content:center; gap:10px;">
+                            <button class="btn-primary" style="width:auto; background:var(--amber-grad); display:flex; align-items:center; gap:8px;" id="accel-exp-btn" onclick="accelerateExpedition()">
+                                <i class="fas fa-bolt"></i> Acelerar (<span id="accel-cost">50</span> AMB)
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Rewards -->
+                    <div id="exp-rewards" class="hidden" style="margin-top:1rem; text-align:center; animation:fadeIn 0.5s;">
+                        <div style="padding:2.5rem; background:linear-gradient(135deg, rgba(245,158,11,0.08), rgba(16,185,129,0.05)); border:2px solid var(--primary); border-radius:24px;">
+                            <div style="width:64px; height:64px; margin:0 auto 1rem; border-radius:50%; background:rgba(245,158,11,0.15); display:flex; align-items:center; justify-content:center;">
+                                <i class="fas fa-trophy" style="font-size:1.8rem; color:var(--primary);"></i>
+                            </div>
+                            <h3 style="color:var(--primary); font-size:1.6rem; margin-bottom:0.5rem;">¡Expedición Completada!</h3>
+                            <p style="color:#64748b; font-size:0.85rem; margin-bottom:1.5rem;">Tu equipo ha regresado con recompensas</p>
+                            <div style="display:flex; justify-content:center; gap:25px; margin-bottom:2rem;">
+                                <div style="background:rgba(0,0,0,0.3); padding:1rem 2rem; border-radius:16px; min-width:120px;">
+                                    <span style="display:block; font-size:0.7rem; opacity:0.6; text-transform:uppercase; letter-spacing:1px;">Amber</span>
+                                    <strong style="font-size:2rem; color:var(--primary);" id="exp-reward-amber">+0</strong>
+                                </div>
+                                <div style="background:rgba(0,0,0,0.3); padding:1rem 2rem; border-radius:16px; min-width:120px;">
+                                    <span style="display:block; font-size:0.7rem; opacity:0.6; text-transform:uppercase; letter-spacing:1px;">EXP Pase</span>
+                                    <strong style="font-size:2rem; color:var(--secondary);" id="exp-reward-xp">+0</strong>
+                                </div>
+                            </div>
+                            <button class="btn-primary" style="width:auto; padding:14px 50px; display:inline-flex; align-items:center; gap:8px;" id="claim-exp-btn" onclick="claimExpedition()">
+                                <i class="fas fa-hand-holding"></i> Reclamar Todo
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Dino Selector Modal -->
+                    <div id="dino-selector-modal" class="modal-overlay">
+                        <div class="modal-card" style="max-width:850px; width:90vw; padding:0; overflow:hidden;">
+                            <div style="padding:1.5rem 2rem; background:linear-gradient(135deg, rgba(245,158,11,0.08), transparent); border-bottom:1px solid rgba(255,255,255,0.06); display:flex; justify-content:space-between; align-items:center;">
+                                <div>
+                                    <h3 style="margin:0; font-size:1.3rem; font-weight:800;">Selecciona un Dinosaurio</h3>
+                                    <p style="margin:4px 0 0; font-size:0.75rem; color:#64748b;" id="selector-count-label">0 disponibles</p>
+                                </div>
+                                <button onclick="closeDinoSelector()" style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); color:white; width:36px; height:36px; border-radius:10px; font-size:1.2rem; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:0.2s;" onmouseover="this.style.background='rgba(239,68,68,0.2)'; this.style.borderColor='rgba(239,68,68,0.4)'" onmouseout="this.style.background='rgba(255,255,255,0.05)'; this.style.borderColor='rgba(255,255,255,0.1)'">&times;</button>
+                            </div>
+                            <div id="selector-dino-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(160px,1fr)); gap:12px; max-height:55vh; overflow-y:auto; padding:1.5rem;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- View: Battle -->
+            <div id="view-battle" class="view" style="justify-content:center; align-items:center; text-align:center;">
+                <div>
+                    <i class="fas fa-construction"
+                        style="font-size:5rem; color:var(--primary); margin-bottom:2rem;"></i>
+                    <h2>Campo de Batalla en Construcción</h2>
+                    <p>Entrena a tus dinosaurios para las futuras competencias mundiales de Ocean Pay.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Project Checkout Modal -->
+    <div id="checkout-modal" class="checkout-overlay">
+        <div class="checkout-card">
+            <h2 style="margin-bottom:0.5rem;">Caja DinoBox</h2>
+            <p id="checkout-concept" style="color:#94a3b8; margin-bottom:1.5rem;">Compra de Pase</p>
+
+            <div class="summary-box">
+                <div style="font-size:0.8rem; text-transform:uppercase; margin-bottom:5px; opacity:0.7;">Total a Pagar
+                </div>
+                <div id="checkout-total" style="font-size:2rem; font-weight:900; color:#f59e0b;">0 AMB</div>
+            </div>
+
+            <p style="font-size:0.75rem; font-weight:800; text-transform:uppercase; margin-bottom:10px; color:#94a3b8;">
+                Selecciona tu Tarjeta Ocean
+            </p>
+            <div id="checkout-card-list" style="max-height: 200px; overflow-y: auto; margin-bottom: 2rem;">
+                <!-- Cards load here -->
+            </div>
+
+            <div style="display:flex; gap:10px;">
+                <button class="btn-primary" style="background:#334155; border:none;"
+                    onclick="closeCheckout()">Cancelar</button>
+                <button id="confirm-checkout-btn" class="btn-primary" onclick="confirmCheckout()">Pagar ahora</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Daily Modal -->
+    <div id="daily-modal">
+        <div class="auth-card" style="border-color: #10b981;">
+            <i class="fas fa-calendar-check" style="font-size: 4rem; color: #10b981; margin-bottom: 1.5rem;"></i>
+            <h2>Recompensa Diaria</h2>
+            <p>¡Gracias por volver a DinoBox! Toma tu Amber del día.</p>
+            <div style="font-size: 3rem; font-weight: 900; margin: 2rem 0; color: #10b981;">+250 AMB</div>
+            <button class="btn-primary" style="background: linear-gradient(135deg, #10b981, #059669); border:none;"
+                onclick="claimDaily()">¡Gracias!</button>
+        </div>
+    </div>
+
+    <!-- Animation Overlay -->
+    <div id="opening-scene">
+        <canvas id="opening-canvas"></canvas>
+        <div id="reveal-overlay">
+            <div class="reward-impact" id="reveal-impact"></div>
+            <div class="reveal-glow"></div>
+
+            <div class="reveal-header">
+                <h2 id="opening-text" style="color: var(--primary); text-shadow: 0 0 30px var(--primary-glow);">¡DESCUBRIMIENTO PRIMAL!</h2>
+                <p class="reveal-subtitle" id="reveal-rarity-label">Rareza desconocida</p>
+            </div>
+
+            <div class="revealed-card-container" style="z-index: 10;">
+                <div class="dino-card" id="revealed-card" style="width:100%; padding: 1.5rem;">
+                </div>
+            </div>
+
+            <div class="reveal-stats-bar" id="reveal-stats-bar">
+                <div class="reveal-stat-item">
+                    <span class="stat-label">Vida</span>
+                    <span class="stat-value" id="reveal-hp" style="color:#ef4444;">0</span>
+                </div>
+                <div class="reveal-stat-item">
+                    <span class="stat-label">Ataque</span>
+                    <span class="stat-value" id="reveal-atk" style="color:#f59e0b;">0</span>
+                </div>
+                <div class="reveal-stat-item">
+                    <span class="stat-label">Poder</span>
+                    <span class="stat-value" id="reveal-power" style="color:#a78bfa;">0</span>
+                </div>
+            </div>
+
+            <div class="reveal-actions">
+                <button class="btn-primary" style="width: auto; padding: 14px 50px; font-size: 1rem;"
+                    onclick="closeOpening()"><i class="fas fa-plus-circle"></i> Añadir a Colección</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API = 'https://owsdatabase.onrender.com';
+        (function initOwsProjectGuard() {
+            const mountGuard = () => {
+                if (!window.OWSProjectRestrictionGuard || typeof window.OWSProjectRestrictionGuard.mount !== 'function') return;
+                window.OWSProjectRestrictionGuard.mount({
+                    apiBaseUrl: API,
+                    projectSlug: 'dinobox',
+                    projectName: 'DinoBox',
+                    checkIntervalMs: 30000
+                });
+            };
+            if (window.OWSProjectRestrictionGuard) {
+                mountGuard();
+                return;
+            }
+            const s = document.createElement('script');
+            s.src = 'https://owsdatabase.onrender.com/shared/ows-project-guard.js';
+            s.async = true;
+            s.onload = mountGuard;
+            document.head.appendChild(s);
+        })();
+        const PASS_MAX_LEVEL = 30;
+        const DAILY_LOOP_REWARD = 300;
+        const PACK_PRICES = {
+            'comun': 50, 'p_comun': 120, 'raro': 220, 'epico': 500,
+            'legendario': 900, 'mitico': 1500,
+            'acuatico': 420, 'volador': 450, 'jurasico': 360,
+            'aleatorio': 180, 'carnivoro': 390, 'multi': 1200
+        };
+        const PASS_DATA = {
+            levels: 30,
+            xpPerLevel: 1000,
+            rewards: [
+                { level: 1, free: { type: 'amber', value: 100 }, premium: { type: 'amber', value: 500 } },
+                { level: 2, free: { type: 'amber', value: 100 }, premium: { type: 'amber', value: 500 } },
+                { level: 3, free: { type: 'amber', value: 100 }, premium: { type: 'amber', value: 500 } },
+                { level: 4, free: { type: 'amber', value: 100 }, premium: { type: 'amber', value: 500 } },
+                { level: 5, free: { type: 'pack', value: 'comun' }, premium: { type: 'pack', value: 'raro' } },
+                { level: 6, free: { type: 'amber', value: 150 }, premium: { type: 'amber', value: 600 } },
+                { level: 7, free: { type: 'amber', value: 150 }, premium: { type: 'amber', value: 600 } },
+                { level: 8, free: { type: 'amber', value: 150 }, premium: { type: 'amber', value: 600 } },
+                { level: 9, free: { type: 'amber', value: 150 }, premium: { type: 'amber', value: 600 } },
+                { level: 10, free: { type: 'pack', value: 'p_comun' }, premium: { type: 'pack', value: 'epico' } },
+                { level: 11, free: { type: 'amber', value: 200 }, premium: { type: 'amber', value: 700 } },
+                { level: 12, free: { type: 'amber', value: 200 }, premium: { type: 'amber', value: 700 } },
+                { level: 13, free: { type: 'amber', value: 200 }, premium: { type: 'amber', value: 700 } },
+                { level: 14, free: { type: 'amber', value: 200 }, premium: { type: 'amber', value: 700 } },
+                { level: 15, free: { type: 'pack', value: 'comun' }, premium: { type: 'pack', value: 'raro' } },
+                { level: 16, free: { type: 'amber', value: 250 }, premium: { type: 'amber', value: 800 } },
+                { level: 17, free: { type: 'amber', value: 250 }, premium: { type: 'amber', value: 800 } },
+                { level: 18, free: { type: 'amber', value: 250 }, premium: { type: 'amber', value: 800 } },
+                { level: 19, free: { type: 'amber', value: 250 }, premium: { type: 'amber', value: 800 } },
+                { level: 20, free: { type: 'pack', value: 'raro' }, premium: { type: 'pack', value: 'legendario' } },
+                { level: 21, free: { type: 'amber', value: 300 }, premium: { type: 'amber', value: 900 } },
+                { level: 22, free: { type: 'amber', value: 300 }, premium: { type: 'amber', value: 900 } },
+                { level: 23, free: { type: 'amber', value: 300 }, premium: { type: 'amber', value: 900 } },
+                { level: 24, free: { type: 'amber', value: 300 }, premium: { type: 'amber', value: 900 } },
+                { level: 25, free: { type: 'pack', value: 'comun' }, premium: { type: 'pack', value: 'epico' } },
+                { level: 26, free: { type: 'amber', value: 400 }, premium: { type: 'amber', value: 1000 } },
+                { level: 27, free: { type: 'amber', value: 400 }, premium: { type: 'amber', value: 1000 } },
+                { level: 28, free: { type: 'amber', value: 400 }, premium: { type: 'amber', value: 1000 } },
+                { level: 29, free: { type: 'amber', value: 400 }, premium: { type: 'amber', value: 1200 } },
+                { level: 30, free: { type: 'pack', value: 'epico' }, premium: { type: 'pack', value: 'legendario' } }
+            ]
+        };
+
+        let state = {
+            amber: 0,
+            collection: [],
+            lastDaily: 0,
+            dailyStreak: 0,
+            dailyQuestDate: '',
+            dailyQuestProgress: {},
+            dailyQuestClaimed: [],
+            dailyLoopClaimDate: '',
+            statsDate: '',
+            dailyStats: { packsOpened: 0, expeditionsCompleted: 0, newSpecies: 0 },
+            expeditionEnd: 0,
+            expeditionDinos: [], // IDs involved in current exp
+            expeditionMode: 'standard',
+            expeditionRewardAmber: 0,
+            expeditionRewardXP: 0,
+            expeditionBonusChance: 0,
+            expeditionBonusPack: '',
+            completedQuests: [],
+            level: 1,
+            passType: 'free',
+            passLevel: 1,
+            passXP: 0,
+            claimedLevels: [],
+            claimedFreeLevels: [],
+            claimedPremiumLevels: [],
+            token: null,
+            user: null,
+            userCards: [],
+            activeCardId: null
+        };
+
+        function getDayKey(ts = Date.now()) {
+            const d = new Date(ts);
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${y}-${m}-${day}`;
+        }
+
+        function nextDayKey(key) {
+            if (!key) return '';
+            const d = new Date(`${key}T00:00:00`);
+            d.setDate(d.getDate() + 1);
+            return getDayKey(d.getTime());
+        }
+
+        function normalizeText(raw) {
+            const txt = String(raw || '');
+            const map = {
+                'ComÃºn': 'Común', 'Poco ComÃºn': 'Poco Común', 'Ã‰pico': 'Épico', 'MÃ­tico': 'Mítico',
+                'CarnÃ­voro': 'Carnívoro', 'AcuÃ¡tico': 'Acuático', 'JurÃ¡sico': 'Jurásico', 'CretÃ¡cico': 'Cretácico',
+                'PterodÃ¡ctilo': 'Pterodáctilo', 'ContraseÃ±a': 'Contraseña', 'ColecciÃ³n': 'Colección',
+                'PrÃ³ximamente': 'Próximamente', 'ExpediciÃ³n': 'Expedición', 'dÃ­a': 'día'
+            };
+            return map[txt] || txt;
+        }
+        // --- Canvas Icons ---
+        function drawAmberIcon(ctx, x, y, size) {
+            ctx.save(); ctx.translate(x, y);
+            ctx.shadowBlur = size * 0.5; ctx.shadowColor = "rgba(245, 158, 11, 0.6)";
+
+            // Outer Amber Gem
+            const grad = ctx.createRadialGradient(-size * 0.1, -size * 0.1, size * 0.05, 0, 0, size * 0.5);
+            grad.addColorStop(0, "#fbbf24"); grad.addColorStop(0.6, "#d97706"); grad.addColorStop(1, "#92400e");
+
+            ctx.beginPath();
+            for (let i = 0; i < 8; i++) {
+                const angle = (i * Math.PI * 2) / 8;
+                const r = size * (0.4 + (i % 2 === 0 ? 0.05 : -0.02));
+                ctx.lineTo(Math.cos(angle) * r, Math.sin(angle) * r);
+            }
+            ctx.closePath();
+            ctx.fillStyle = grad; ctx.fill();
+
+            // Fossilized Footprint
+            ctx.globalAlpha = 0.5;
+            ctx.fillStyle = "rgba(69, 26, 3, 0.8)";
+            const fs = size * 0.15; const fy = size * 0.05;
+            ctx.beginPath(); ctx.ellipse(0, fy + fs * 0.5, fs * 1.2, fs * 0.8, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(-fs * 1.1, fy - fs * 0.2, fs * 0.5, fs * 0.8, -Math.PI / 6, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(0, fy - fs * 0.8, fs * 0.5, fs * 0.9, 0, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(fs * 1.1, fy - fs * 0.2, fs * 0.5, fs * 0.8, Math.PI / 6, 0, Math.PI * 2); ctx.fill();
+
+            // Shines
+            ctx.globalAlpha = 1;
+            ctx.beginPath(); ctx.ellipse(-size * 0.15, -size * 0.15, size * 0.1, size * 0.05, Math.PI / 4, 0, Math.PI * 2);
+            ctx.fillStyle = "rgba(255, 255, 255, 0.4)"; ctx.fill();
+
+            ctx.restore();
+        }
+
+        function drawDino(ctx, name, x, y, size) {
+            ctx.save(); ctx.translate(x, y);
+            const s = size;
+
+            // Helper for shading
+            const addShade = (color, amount) => {
+                ctx.fillStyle = color;
+                ctx.globalAlpha = amount;
+            };
+
+            if (name === 'Velociraptor') {
+                const color = '#22c55e';
+                const dark = '#15803d';
+                ctx.fillStyle = color;
+                // Body & Tail
+                ctx.beginPath(); ctx.ellipse(0, 0, s * 0.45, s * 0.25, 0, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(-s * 0.4, 0); ctx.quadraticCurveTo(-s * 1.1, s * 0.4, -s * 1.2, -s * 0.3); ctx.lineTo(-s * 0.4, -s * 0.1); ctx.fill();
+                // Stripes
+                ctx.strokeStyle = dark; ctx.lineWidth = 3; ctx.globalAlpha = 0.4;
+                for (let i = 0; i < 4; i++) {
+                    ctx.beginPath(); ctx.moveTo(-s * 0.2 + i * s * 0.1, -s * 0.1); ctx.lineTo(-s * 0.2 + i * s * 0.1, s * 0.1); ctx.stroke();
+                }
+                ctx.globalAlpha = 1;
+                // Neck/Head
+                ctx.beginPath(); ctx.moveTo(s * 0.3, -s * 0.1); ctx.quadraticCurveTo(s * 0.5, -s * 0.5, s * 0.8, -s * 0.4);
+                ctx.lineTo(s * 0.9, -s * 0.2); ctx.lineTo(s * 0.4, 0); ctx.fill();
+                // Eye
+                ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(s * 0.7, -s * 0.35, s * 0.05, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = 'black'; ctx.beginPath(); ctx.arc(s * 0.72, -s * 0.35, s * 0.02, 0, Math.PI * 2); ctx.fill();
+                // Legs
+                ctx.strokeStyle = color; ctx.lineWidth = s * 0.12; ctx.lineCap = 'round';
+                ctx.beginPath(); ctx.moveTo(0, s * 0.1); ctx.lineTo(-s * 0.1, s * 0.5); ctx.lineTo(s * 0.1, s * 0.55); ctx.stroke();
+            } else if (name === 'Triceratops') {
+                const color = '#64748b';
+                const dark = '#334155';
+                const highlight = '#94a3b8';
+
+                // Tail
+                ctx.fillStyle = color;
+                ctx.beginPath(); ctx.moveTo(-s * 0.4, s * 0.1); ctx.quadraticCurveTo(-s * 0.8, s * 0.2, -s * 0.9, s * 0.4); ctx.lineTo(-s * 0.4, s * 0.3); ctx.fill();
+
+                // Legs
+                ctx.fillStyle = dark;
+                ctx.beginPath(); ctx.roundRect(-s * 0.35, s * 0.2, s * 0.15, s * 0.35, s * 0.05); ctx.fill(); // Back Log
+                ctx.beginPath(); ctx.roundRect(s * 0.1, s * 0.2, s * 0.15, s * 0.35, s * 0.05); ctx.fill(); // Front Leg
+
+                // Body
+                ctx.fillStyle = color;
+                ctx.beginPath(); ctx.ellipse(-s * 0.1, s * 0.1, s * 0.5, s * 0.35, 0, 0, Math.PI * 2); ctx.fill();
+
+                // Frill (The big shield)
+                ctx.save();
+                ctx.translate(s * 0.25, -s * 0.05);
+                ctx.rotate(-Math.PI / 8);
+                // Frill Base
+                const fGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, s * 0.45);
+                fGrad.addColorStop(0, color); fGrad.addColorStop(1, '#1e293b');
+                ctx.fillStyle = fGrad;
+                ctx.beginPath(); ctx.ellipse(0, 0, s * 0.4, s * 0.5, 0, 0, Math.PI * 2); ctx.fill();
+                // Frill Spikes/Nodes
+                ctx.fillStyle = highlight;
+                for (let i = 0; i < 8; i++) {
+                    const ang = (i / 7) * Math.PI - Math.PI / 2;
+                    ctx.beginPath(); ctx.arc(Math.cos(ang) * s * 0.4, Math.sin(ang) * s * 0.5, s * 0.04, 0, Math.PI * 2); ctx.fill();
+                }
+                ctx.restore();
+
+                // Head/Snout
+                ctx.fillStyle = color;
+                ctx.beginPath(); ctx.ellipse(s * 0.45, s * 0.15, s * 0.25, s * 0.18, 0, 0, Math.PI * 2); ctx.fill();
+
+                // Eye
+                ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(s * 0.4, s * 0.08, s * 0.03, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = 'black'; ctx.beginPath(); ctx.arc(s * 0.4, s * 0.08, s * 0.015, 0, Math.PI * 2); ctx.fill();
+
+                // Horns
+                ctx.fillStyle = '#f8fafc';
+                ctx.shadowBlur = 5; ctx.shadowColor = 'rgba(0,0,0,0.2)';
+                // Top Horns
+                ctx.beginPath(); ctx.moveTo(s * 0.35, -s * 0.05); ctx.quadraticCurveTo(s * 0.6, -s * 0.5, s * 0.8, -s * 0.45); ctx.lineTo(s * 0.45, 0); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(s * 0.45, -s * 0.05); ctx.quadraticCurveTo(s * 0.7, -s * 0.5, s * 0.9, -s * 0.4); ctx.lineTo(s * 0.55, 0); ctx.fill();
+                // Nose Horn
+                ctx.beginPath(); ctx.moveTo(s * 0.6, s * 0.1); ctx.lineTo(s * 0.75, s * 0.02); ctx.lineTo(s * 0.65, s * 0.18); ctx.fill();
+                ctx.shadowBlur = 0;
+            } else if (name === 'Tiranosaurio Rex') {
+                const color = '#ef4444';
+                const dark = '#7f1d1d';
+                ctx.fillStyle = color;
+                // Body
+                ctx.beginPath(); ctx.ellipse(-s * 0.1, 0, s * 0.6, s * 0.4, 0, 0, Math.PI * 2); ctx.fill();
+                // Massive Neck & Head
+                ctx.beginPath(); ctx.moveTo(s * 0.3, -s * 0.2); ctx.lineTo(s * 0.4, -s * 0.6); ctx.lineTo(s * 1, -s * 0.6);
+                ctx.lineTo(s * 1, -s * 0.1); ctx.lineTo(s * 0.4, 0); ctx.fill();
+                // Jaw line
+                ctx.strokeStyle = dark; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(s * 0.5, -s * 0.3); ctx.lineTo(s * 0.95, -s * 0.3); ctx.stroke();
+                // Teeth
+                ctx.fillStyle = 'white';
+                for (let i = 0; i < 5; i++) {
+                    ctx.beginPath(); ctx.moveTo(s * 0.55 + i * s * 0.08, -s * 0.3); ctx.lineTo(s * 0.58 + i * s * 0.08, -s * 0.22); ctx.lineTo(s * 0.62 + i * s * 0.08, -s * 0.3); ctx.fill();
+                }
+                // Eye
+                ctx.fillStyle = '#fde047'; ctx.beginPath(); ctx.arc(s * 0.6, -s * 0.45, s * 0.06, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = 'black'; ctx.beginPath(); ctx.arc(s * 0.6, -s * 0.45, s * 0.03, 0, Math.PI * 2); ctx.fill();
+                // Powerful Leg
+                ctx.fillStyle = color; ctx.beginPath(); ctx.ellipse(-s * 0.1, s * 0.3, s * 0.2, s * 0.35, -Math.PI / 6, 0, Math.PI * 2); ctx.fill();
+                ctx.strokeStyle = dark; ctx.lineWidth = s * 0.1; ctx.beginPath(); ctx.moveTo(-s * 0.1, s * 0.5); ctx.lineTo(0, s * 0.7); ctx.stroke();
+            } else if (name === 'Pterodáctilo') {
+                const color = '#a855f7';
+                const light = '#d8b4fe';
+                // Body
+                ctx.fillStyle = color; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.25, s * 0.12, 0, 0, Math.PI * 2); ctx.fill();
+                // Crest
+                ctx.beginPath(); ctx.moveTo(s * 0.1, -s * 0.1); ctx.quadraticCurveTo(s * 0.2, -s * 0.4, s * 0.5, -s * 0.3); ctx.lineTo(s * 0.2, 0); ctx.fill();
+                // Wings with gradient
+                const wGrad = ctx.createLinearGradient(0, -s, 0, s);
+                wGrad.addColorStop(0, light); wGrad.addColorStop(1, color);
+                ctx.fillStyle = wGrad; ctx.globalAlpha = 0.8;
+                // Right Wing
+                ctx.beginPath(); ctx.moveTo(0, 0); ctx.bezierCurveTo(s * 0.5, -s * 1.2, s * 1.5, -s * 0.5, s * 1.2, s * 0.2); ctx.quadraticCurveTo(s * 0.6, s * 0.1, 0, 0); ctx.fill();
+                // Left Wing
+                ctx.beginPath(); ctx.moveTo(0, 0); ctx.bezierCurveTo(-s * 0.5, -s * 1.2, -s * 1.5, -s * 0.5, -s * 1.2, s * 0.2); ctx.quadraticCurveTo(-s * 0.6, s * 0.1, 0, 0); ctx.fill();
+                ctx.globalAlpha = 1;
+            } else if (name === 'Espinosaurio') {
+                const color = '#06b6d4';
+                const dark = '#164e63';
+                ctx.fillStyle = color;
+                // Body
+                ctx.beginPath(); ctx.ellipse(0, s * 0.1, s * 0.6, s * 0.3, 0, 0, Math.PI * 2); ctx.fill();
+                // Sail with Pattern
+                ctx.fillStyle = 'rgba(6, 182, 212, 0.4)';
+                ctx.beginPath(); ctx.ellipse(0, -s * 0.1, s * 0.5, s * 0.55, 0, Math.PI, 0); ctx.fill();
+                ctx.strokeStyle = '#22d3ee'; ctx.lineWidth = 3;
+                for (let i = 0; i < 7; i++) {
+                    const ang = Math.PI + (i + 1) * Math.PI / 8;
+                    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(ang) * s * 0.5, Math.sin(ang) * s * 0.55); ctx.stroke();
+                }
+                // Long Snout
+                ctx.fillStyle = color;
+                ctx.beginPath(); ctx.moveTo(s * 0.4, 0); ctx.lineTo(s * 1.1, -s * 0.1); ctx.lineTo(s * 1.1, s * 0.05); ctx.lineTo(s * 0.4, s * 0.2); ctx.fill();
+                // Texture dots
+                ctx.fillStyle = dark; ctx.globalAlpha = 0.3;
+                for (let i = 0; i < 8; i++) {
+                    ctx.beginPath(); ctx.arc((Math.random() - 0.5) * s, (Math.random() * 0.3) * s, s * 0.03, 0, Math.PI * 2); ctx.fill();
+                }
+                ctx.globalAlpha = 1;
+            } else if (name === 'Anquilosaurio') {
+                const color = '#15803d';
+                const dark = '#064e3b';
+                // Flatter Body
+                ctx.fillStyle = color; ctx.beginPath(); ctx.roundRect(-s * 0.7, -s * 0.1, s * 1.4, s * 0.6, s * 0.3); ctx.fill();
+                // Bumps & Spikes
+                ctx.fillStyle = dark;
+                for (let i = 0; i < 6; i++) {
+                    const bx = -s * 0.5 + i * s * 0.2;
+                    ctx.beginPath(); ctx.arc(bx, -s * 0.1, s * 0.12, 0, Math.PI * 2); ctx.fill();
+                    // Spike on top
+                    ctx.fillStyle = '#94a3b8';
+                    ctx.beginPath(); ctx.moveTo(bx, -s * 0.15); ctx.lineTo(bx, -s * 0.3); ctx.lineTo(bx + s * 0.05, -s * 0.15); ctx.fill();
+                    ctx.fillStyle = dark;
+                }
+                // Tail Club Detail
+                ctx.strokeStyle = color; ctx.lineWidth = s * 0.15; ctx.beginPath(); ctx.moveTo(-s * 0.7, s * 0.2); ctx.lineTo(-s * 1.1, s * 0.2); ctx.stroke();
+                // Club with segments
+                ctx.fillStyle = '#475569'; ctx.beginPath(); ctx.arc(-s * 1.1, s * 0.2, s * 0.2, 0, Math.PI * 2); ctx.fill();
+                ctx.strokeStyle = '#1e293b'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-s * 1.3, s * 0.2); ctx.lineTo(-s * 0.9, s * 0.2); ctx.stroke();
+
+            } else if (name === 'Estegosaurio') {
+                const color = '#3b82f6'; const dark = '#1d4ed8'; const plate = '#60a5fa';
+                ctx.fillStyle = color;
+                ctx.beginPath(); ctx.ellipse(0, s*0.1, s*0.55, s*0.28, 0, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.ellipse(s*0.55, s*0.2, s*0.16, s*0.11, 0, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(s*0.6, s*0.16, s*0.03, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle='#111'; ctx.beginPath(); ctx.arc(s*0.61, s*0.16, s*0.015, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = plate;
+                for(let i=0;i<5;i++){
+                    const px=-s*0.3+i*s*0.17, ph=s*(0.18+(i===2?0.1:0));
+                    ctx.beginPath(); ctx.moveTo(px,-s*0.12); ctx.lineTo(px-s*0.06,-s*0.12-ph);
+                    ctx.lineTo(px,-s*0.12-ph-s*0.07); ctx.lineTo(px+s*0.06,-s*0.12-ph); ctx.closePath(); ctx.fill();
+                    ctx.strokeStyle=dark; ctx.lineWidth=1.5; ctx.stroke();
+                }
+                ctx.fillStyle=color;
+                ctx.beginPath(); ctx.moveTo(-s*0.5,s*0.05); ctx.quadraticCurveTo(-s*0.85,-s*0.05,-s*0.95,s*0.15); ctx.lineTo(-s*0.5,s*0.18); ctx.fill();
+                ctx.fillStyle='#e2e8f0';
+                ctx.beginPath(); ctx.moveTo(-s*0.85,s*0.05); ctx.lineTo(-s*1.1,-s*0.18); ctx.lineTo(-s*0.82,s*0.12); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(-s*0.9,s*0.12); ctx.lineTo(-s*1.15,-s*0.03); ctx.lineTo(-s*0.85,s*0.16); ctx.fill();
+                ctx.fillStyle=dark;
+                ctx.beginPath(); ctx.roundRect(-s*0.22,s*0.28,s*0.11,s*0.28,4); ctx.fill();
+                ctx.beginPath(); ctx.roundRect(s*0.2,s*0.28,s*0.11,s*0.28,4); ctx.fill();
+
+            } else if (name === 'Braquiosaurio') {
+                const color = '#22c55e'; const dark = '#15803d'; const light = '#86efac';
+                ctx.fillStyle=dark;
+                ctx.beginPath(); ctx.roundRect(-s*0.28,s*0.15,s*0.11,s*0.32,4); ctx.fill();
+                ctx.beginPath(); ctx.roundRect(-s*0.08,s*0.15,s*0.11,s*0.32,4); ctx.fill();
+                ctx.beginPath(); ctx.roundRect(s*0.16,s*0.05,s*0.11,s*0.42,4); ctx.fill();
+                ctx.beginPath(); ctx.roundRect(s*0.34,s*0.05,s*0.11,s*0.42,4); ctx.fill();
+                ctx.fillStyle=color;
+                ctx.beginPath(); ctx.ellipse(s*0.05,s*0.05,s*0.48,s*0.24,-0.15,0,Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(-s*0.38,s*0.05); ctx.quadraticCurveTo(-s*0.7,s*0.12,-s*0.8,s*0.28); ctx.lineTo(-s*0.38,s*0.14); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(s*0.28,-s*0.04); ctx.quadraticCurveTo(s*0.42,-s*0.55,s*0.33,-s*0.85);
+                ctx.lineTo(s*0.2,-s*0.8); ctx.quadraticCurveTo(s*0.24,-s*0.48,s*0.14,-s*0.04); ctx.fill();
+                ctx.beginPath(); ctx.ellipse(s*0.3,-s*0.88,s*0.11,s*0.07,0.2,0,Math.PI*2); ctx.fill();
+                ctx.fillStyle=light; ctx.beginPath(); ctx.arc(s*0.26,-s*0.92,s*0.045,0,Math.PI*2); ctx.fill();
+                ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(s*0.34,-s*0.89,s*0.025,0,Math.PI*2); ctx.fill();
+                ctx.fillStyle='#111'; ctx.beginPath(); ctx.arc(s*0.345,-s*0.89,s*0.012,0,Math.PI*2); ctx.fill();
+                ctx.fillStyle=dark; ctx.globalAlpha=0.25;
+                for(let i=0;i<6;i++){ctx.beginPath();ctx.arc(-s*0.2+i*s*0.12,s*0.08+((i%2)*s*0.04),s*0.025,0,Math.PI*2);ctx.fill();}
+                ctx.globalAlpha=1;
+
+            } else if (name === 'Mosasaurio') {
+                const color='#0f766e'; const dark='#134e4a'; const belly='#5eead4';
+                ctx.shadowBlur=s*0.25; ctx.shadowColor='rgba(20,184,166,0.4)';
+                ctx.fillStyle=color;
+                ctx.beginPath(); ctx.ellipse(0,0,s*0.65,s*0.18,0,0,Math.PI*2); ctx.fill();
+                ctx.fillStyle=belly; ctx.globalAlpha=0.3;
+                ctx.beginPath(); ctx.ellipse(0,s*0.05,s*0.55,s*0.08,0,0,Math.PI*2); ctx.fill();
+                ctx.globalAlpha=1;
+                ctx.fillStyle=color;
+                ctx.beginPath(); ctx.moveTo(s*0.5,0); ctx.lineTo(s*0.95,-s*0.07); ctx.lineTo(s*0.95,s*0.1); ctx.lineTo(s*0.5,s*0.13); ctx.fill();
+                ctx.strokeStyle=dark; ctx.lineWidth=2;
+                ctx.beginPath(); ctx.moveTo(s*0.55,s*0.03); ctx.lineTo(s*0.92,s*0.03); ctx.stroke();
+                ctx.fillStyle='#fff';
+                for(let i=0;i<5;i++){const tx=s*0.58+i*s*0.065;ctx.beginPath();ctx.moveTo(tx,s*0.03);ctx.lineTo(tx+s*0.015,s*0.09);ctx.lineTo(tx+s*0.03,s*0.03);ctx.fill();}
+                ctx.fillStyle='#fde047'; ctx.beginPath(); ctx.arc(s*0.62,-s*0.04,s*0.04,0,Math.PI*2); ctx.fill();
+                ctx.fillStyle='#111'; ctx.beginPath(); ctx.ellipse(s*0.63,-s*0.04,s*0.013,s*0.028,0,0,Math.PI*2); ctx.fill();
+                ctx.fillStyle=dark;
+                ctx.beginPath(); ctx.moveTo(-s*0.08,s*0.14); ctx.quadraticCurveTo(s*0.1,s*0.45,s*0.28,s*0.32); ctx.lineTo(s*0.05,s*0.13); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(-s*0.28,s*0.14); ctx.quadraticCurveTo(-s*0.12,s*0.42,s*0.02,s*0.28); ctx.lineTo(-s*0.18,s*0.13); ctx.fill();
+                ctx.fillStyle=color;
+                ctx.beginPath(); ctx.moveTo(-s*0.6,0); ctx.quadraticCurveTo(-s*0.8,-s*0.28,-s*0.95,-s*0.22);
+                ctx.lineTo(-s*0.75,0); ctx.quadraticCurveTo(-s*0.8,s*0.18,-s*0.9,s*0.18); ctx.lineTo(-s*0.6,0); ctx.fill();
+                ctx.shadowBlur=0;
+
+            } else if (name === 'Dilofosaurio') {
+                const color='#84cc16'; const dark='#3f6212'; const crest='#facc15';
+                ctx.fillStyle=color;
+                ctx.beginPath(); ctx.ellipse(0,s*0.05,s*0.38,s*0.2,0,0,Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(-s*0.33,s*0.05); ctx.quadraticCurveTo(-s*0.75,s*0.18,-s*0.85,-s*0.08); ctx.lineTo(-s*0.33,-s*0.04); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(s*0.23,-s*0.04); ctx.quadraticCurveTo(s*0.38,-s*0.32,s*0.65,-s*0.22);
+                ctx.lineTo(s*0.7,-s*0.08); ctx.lineTo(s*0.28,s*0.04); ctx.fill();
+                ctx.fillStyle=crest;
+                ctx.beginPath(); ctx.moveTo(s*0.42,-s*0.22); ctx.quadraticCurveTo(s*0.32,-s*0.55,s*0.52,-s*0.5);
+                ctx.lineTo(s*0.52,-s*0.22); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(s*0.52,-s*0.22); ctx.quadraticCurveTo(s*0.47,-s*0.5,s*0.67,-s*0.45);
+                ctx.lineTo(s*0.62,-s*0.22); ctx.fill();
+                ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(s*0.58,-s*0.18,s*0.03,0,Math.PI*2); ctx.fill();
+                ctx.fillStyle='#111'; ctx.beginPath(); ctx.arc(s*0.59,-s*0.18,s*0.014,0,Math.PI*2); ctx.fill();
+                ctx.strokeStyle=color; ctx.lineWidth=s*0.09; ctx.lineCap='round';
+                ctx.beginPath(); ctx.moveTo(s*0.04,s*0.15); ctx.lineTo(-s*0.02,s*0.48); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(-s*0.1,s*0.15); ctx.lineTo(-s*0.15,s*0.48); ctx.stroke();
+                ctx.fillStyle=dark; ctx.globalAlpha=0.3;
+                for(let i=0;i<4;i++){ctx.beginPath();ctx.arc(-s*0.15+i*s*0.12,s*0.05,s*0.025,0,Math.PI*2);ctx.fill();}
+                ctx.globalAlpha=1;
+
+            } else if (name === 'Parasaurolophus') {
+                const color='#0891b2'; const dark='#164e63'; const crest='#22d3ee';
+                ctx.fillStyle=color;
+                ctx.beginPath(); ctx.ellipse(0,s*0.1,s*0.42,s*0.24,0,0,Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(-s*0.38,s*0.1); ctx.quadraticCurveTo(-s*0.7,s*0.04,-s*0.8,s*0.22); ctx.lineTo(-s*0.38,s*0.18); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(s*0.28,0); ctx.quadraticCurveTo(s*0.42,-s*0.28,s*0.48,-s*0.33);
+                ctx.lineTo(s*0.33,-s*0.28); ctx.quadraticCurveTo(s*0.28,-s*0.12,s*0.18,s*0.04); ctx.fill();
+                ctx.beginPath(); ctx.ellipse(s*0.48,-s*0.36,s*0.14,s*0.09,0.3,0,Math.PI*2); ctx.fill();
+                ctx.fillStyle=crest;
+                ctx.beginPath(); ctx.moveTo(s*0.43,-s*0.4); ctx.quadraticCurveTo(s*0.18,-s*0.75,s*0.0,-s*0.55);
+                ctx.lineTo(s*0.08,-s*0.5); ctx.quadraticCurveTo(s*0.23,-s*0.65,s*0.46,-s*0.36); ctx.fill();
+                ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(s*0.53,-s*0.38,s*0.025,0,Math.PI*2); ctx.fill();
+                ctx.fillStyle='#111'; ctx.beginPath(); ctx.arc(s*0.535,-s*0.38,s*0.012,0,Math.PI*2); ctx.fill();
+                ctx.fillStyle=dark;
+                ctx.beginPath(); ctx.moveTo(s*0.58,-s*0.33); ctx.lineTo(s*0.7,-s*0.3); ctx.lineTo(s*0.58,-s*0.26); ctx.fill();
+                ctx.beginPath(); ctx.roundRect(-s*0.08,s*0.24,s*0.09,s*0.28,3); ctx.fill();
+                ctx.beginPath(); ctx.roundRect(s*0.14,s*0.24,s*0.09,s*0.28,3); ctx.fill();
+
+            } else if (name === 'Carnotauro') {
+                const color='#dc2626'; const dark='#7f1d1d'; const horn='#fbbf24';
+                ctx.fillStyle=color;
+                ctx.beginPath(); ctx.ellipse(-s*0.05,s*0.05,s*0.48,s*0.28,0,0,Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(-s*0.42,s*0.05); ctx.quadraticCurveTo(-s*0.75,-s*0.12,-s*0.9,s*0.08); ctx.lineTo(-s*0.42,s*0.14); ctx.fill();
+                ctx.fillStyle=dark; ctx.globalAlpha=0.2;
+                for(let i=0;i<5;i++){ctx.beginPath();ctx.arc(-s*0.28+i*s*0.1,s*0.05+(i%2)*s*0.04,s*0.035,0,Math.PI*2);ctx.fill();}
+                ctx.globalAlpha=1;
+                ctx.fillStyle=color;
+                ctx.beginPath(); ctx.moveTo(s*0.28,-s*0.08); ctx.lineTo(s*0.33,-s*0.42);
+                ctx.lineTo(s*0.72,-s*0.38); ctx.lineTo(s*0.76,-s*0.12); ctx.lineTo(s*0.33,s*0.04); ctx.fill();
+                ctx.strokeStyle=dark; ctx.lineWidth=2;
+                ctx.beginPath(); ctx.moveTo(s*0.38,-s*0.18); ctx.lineTo(s*0.74,-s*0.18); ctx.stroke();
+                ctx.fillStyle='#fff';
+                for(let i=0;i<4;i++){ctx.beginPath();ctx.moveTo(s*0.42+i*s*0.075,-s*0.18);ctx.lineTo(s*0.44+i*s*0.075,-s*0.11);ctx.lineTo(s*0.47+i*s*0.075,-s*0.18);ctx.fill();}
+                ctx.fillStyle=horn;
+                ctx.beginPath(); ctx.moveTo(s*0.38,-s*0.38); ctx.lineTo(s*0.33,-s*0.62); ctx.lineTo(s*0.43,-s*0.4); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(s*0.52,-s*0.4); ctx.lineTo(s*0.52,-s*0.65); ctx.lineTo(s*0.58,-s*0.4); ctx.fill();
+                ctx.fillStyle='#fde047'; ctx.beginPath(); ctx.arc(s*0.52,-s*0.3,s*0.035,0,Math.PI*2); ctx.fill();
+                ctx.fillStyle='#111'; ctx.beginPath(); ctx.ellipse(s*0.53,-s*0.3,s*0.013,s*0.025,0,0,Math.PI*2); ctx.fill();
+                ctx.strokeStyle=color; ctx.lineWidth=s*0.045; ctx.lineCap='round';
+                ctx.beginPath(); ctx.moveTo(s*0.18,s*0.04); ctx.lineTo(s*0.22,s*0.14); ctx.stroke();
+                ctx.fillStyle=color;
+                ctx.beginPath(); ctx.ellipse(-s*0.02,s*0.24,s*0.14,s*0.28,-0.1,0,Math.PI*2); ctx.fill();
+
+            } else if (name === 'Plesiosaurio') {
+                const color='#2563eb'; const dark='#1e3a8a'; const belly='#93c5fd';
+                ctx.shadowBlur=s*0.15; ctx.shadowColor='rgba(37,99,235,0.3)';
+                ctx.fillStyle=color;
+                ctx.beginPath(); ctx.ellipse(0,s*0.1,s*0.38,s*0.23,0,0,Math.PI*2); ctx.fill();
+                ctx.fillStyle=belly; ctx.globalAlpha=0.35;
+                ctx.beginPath(); ctx.ellipse(0,s*0.17,s*0.28,s*0.1,0,0,Math.PI*2); ctx.fill();
+                ctx.globalAlpha=1;
+                ctx.fillStyle=color;
+                ctx.beginPath(); ctx.moveTo(s*0.23,-s*0.04);
+                ctx.bezierCurveTo(s*0.48,-s*0.28,s*0.55,-s*0.65,s*0.42,-s*0.8);
+                ctx.lineTo(s*0.28,-s*0.75);
+                ctx.bezierCurveTo(s*0.42,-s*0.6,s*0.33,-s*0.22,s*0.13,-s*0.01); ctx.fill();
+                ctx.beginPath(); ctx.ellipse(s*0.4,-s*0.83,s*0.1,s*0.06,0.5,0,Math.PI*2); ctx.fill();
+                ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(s*0.45,-s*0.85,s*0.022,0,Math.PI*2); ctx.fill();
+                ctx.fillStyle='#111'; ctx.beginPath(); ctx.arc(s*0.453,-s*0.85,s*0.01,0,Math.PI*2); ctx.fill();
+                ctx.fillStyle=dark;
+                ctx.beginPath(); ctx.moveTo(s*0.13,s*0.18); ctx.quadraticCurveTo(s*0.35,s*0.5,s*0.45,s*0.32); ctx.lineTo(s*0.18,s*0.16); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(-s*0.13,s*0.18); ctx.quadraticCurveTo(-s*0.32,s*0.5,-s*0.42,s*0.32); ctx.lineTo(-s*0.18,s*0.16); ctx.fill();
+                ctx.fillStyle=color;
+                ctx.beginPath(); ctx.moveTo(-s*0.33,s*0.1); ctx.quadraticCurveTo(-s*0.55,s*0.04,-s*0.65,s*0.18); ctx.lineTo(-s*0.33,s*0.16); ctx.fill();
+                ctx.shadowBlur=0;
+
+            } else if (name === 'Iguanodon') {
+                const color='#65a30d'; const dark='#365314'; const spike='#fbbf24';
+                ctx.fillStyle=color;
+                ctx.beginPath(); ctx.ellipse(0,s*0.05,s*0.42,s*0.26,-0.1,0,Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(-s*0.38,s*0.05); ctx.quadraticCurveTo(-s*0.7,-s*0.04,-s*0.8,s*0.13); ctx.lineTo(-s*0.38,s*0.13); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(s*0.28,-s*0.04); ctx.quadraticCurveTo(s*0.42,-s*0.28,s*0.48,-s*0.33);
+                ctx.lineTo(s*0.33,-s*0.28); ctx.quadraticCurveTo(s*0.33,-s*0.13,s*0.18,s*0.02); ctx.fill();
+                ctx.beginPath(); ctx.ellipse(s*0.46,-s*0.36,s*0.13,s*0.09,0.2,0,Math.PI*2); ctx.fill();
+                ctx.fillStyle=dark;
+                ctx.beginPath(); ctx.moveTo(s*0.55,-s*0.33); ctx.lineTo(s*0.66,-s*0.3); ctx.lineTo(s*0.55,-s*0.28); ctx.fill();
+                ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(s*0.5,-s*0.38,s*0.022,0,Math.PI*2); ctx.fill();
+                ctx.fillStyle='#111'; ctx.beginPath(); ctx.arc(s*0.504,-s*0.38,s*0.01,0,Math.PI*2); ctx.fill();
+                ctx.strokeStyle=color; ctx.lineWidth=s*0.07; ctx.lineCap='round';
+                ctx.beginPath(); ctx.moveTo(s*0.13,0); ctx.lineTo(s*0.22,s*0.14); ctx.stroke();
+                ctx.fillStyle=spike;
+                ctx.beginPath(); ctx.moveTo(s*0.22,s*0.1); ctx.lineTo(s*0.33,s*0.03); ctx.lineTo(s*0.24,s*0.17); ctx.fill();
+                ctx.fillStyle=dark;
+                ctx.beginPath(); ctx.roundRect(-s*0.13,s*0.22,s*0.1,s*0.32,4); ctx.fill();
+                ctx.beginPath(); ctx.roundRect(s*0.08,s*0.22,s*0.1,s*0.32,4); ctx.fill();
+
+            } else if (name === 'Giganotosaurio') {
+                const color='#c026d3'; const dark='#701a75'; const jaw='#e879f9';
+                ctx.fillStyle=color;
+                ctx.beginPath(); ctx.ellipse(-s*0.08,0,s*0.55,s*0.35,0,0,Math.PI*2); ctx.fill();
+                ctx.fillStyle=dark; ctx.globalAlpha=0.2;
+                for(let i=0;i<4;i++){ctx.beginPath();ctx.arc(-s*0.28+i*s*0.12,-s*0.13,s*0.05,0,Math.PI*2);ctx.fill();}
+                ctx.globalAlpha=1;
+                ctx.fillStyle=color;
+                ctx.beginPath(); ctx.moveTo(s*0.28,-s*0.13); ctx.lineTo(s*0.38,-s*0.5);
+                ctx.lineTo(s*1.0,-s*0.46); ctx.lineTo(s*1.0,-s*0.03); ctx.lineTo(s*0.38,s*0.04); ctx.fill();
+                ctx.strokeStyle=dark; ctx.lineWidth=2.5;
+                ctx.beginPath(); ctx.moveTo(s*0.45,-s*0.22); ctx.lineTo(s*0.97,-s*0.22); ctx.stroke();
+                ctx.fillStyle='#fff';
+                for(let i=0;i<6;i++){ctx.beginPath();ctx.moveTo(s*0.5+i*s*0.075,-s*0.22);ctx.lineTo(s*0.53+i*s*0.075,-s*0.14);ctx.lineTo(s*0.56+i*s*0.075,-s*0.22);ctx.fill();}
+                ctx.fillStyle='#fde047'; ctx.beginPath(); ctx.arc(s*0.56,-s*0.37,s*0.045,0,Math.PI*2); ctx.fill();
+                ctx.fillStyle='#111'; ctx.beginPath(); ctx.ellipse(s*0.57,-s*0.37,s*0.018,s*0.032,0,0,Math.PI*2); ctx.fill();
+                ctx.fillStyle=dark;
+                ctx.beginPath(); ctx.moveTo(s*0.46,-s*0.42); ctx.lineTo(s*0.66,-s*0.45); ctx.lineTo(s*0.66,-s*0.39); ctx.fill();
+                ctx.fillStyle=color;
+                ctx.beginPath(); ctx.ellipse(-s*0.02,s*0.28,s*0.16,s*0.3,-0.1,0,Math.PI*2); ctx.fill();
+                ctx.strokeStyle=dark; ctx.lineWidth=s*0.09;
+                ctx.beginPath(); ctx.moveTo(-s*0.02,s*0.48); ctx.lineTo(s*0.08,s*0.68); ctx.stroke();
+
+            } else if (name === 'Diplodocus') {
+                const color='#a16207'; const dark='#713f12'; const light='#fbbf24';
+                ctx.fillStyle=color;
+                ctx.beginPath(); ctx.ellipse(0,s*0.1,s*0.33,s*0.18,0,0,Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(s*0.18,0);
+                ctx.bezierCurveTo(s*0.45,-s*0.18,s*0.5,-s*0.45,s*0.45,-s*0.65);
+                ctx.lineTo(s*0.34,-s*0.6);
+                ctx.bezierCurveTo(s*0.38,-s*0.4,s*0.35,-s*0.13,s*0.1,0.02); ctx.fill();
+                ctx.beginPath(); ctx.ellipse(s*0.44,-s*0.68,s*0.09,s*0.055,0.3,0,Math.PI*2); ctx.fill();
+                ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(s*0.48,-s*0.69,s*0.018,0,Math.PI*2); ctx.fill();
+                ctx.fillStyle='#111'; ctx.beginPath(); ctx.arc(s*0.483,-s*0.69,s*0.009,0,Math.PI*2); ctx.fill();
+                ctx.fillStyle=color;
+                ctx.beginPath(); ctx.moveTo(-s*0.28,s*0.1);
+                ctx.bezierCurveTo(-s*0.55,s*0.04,-s*0.8,s*0.13,-s*1.05,0);
+                ctx.lineTo(-s*1.0,s*0.05);
+                ctx.bezierCurveTo(-s*0.75,s*0.18,-s*0.5,s*0.14,-s*0.28,s*0.17); ctx.fill();
+                ctx.fillStyle=dark;
+                ctx.beginPath(); ctx.roundRect(-s*0.13,s*0.2,s*0.09,s*0.28,3); ctx.fill();
+                ctx.beginPath(); ctx.roundRect(s*0.04,s*0.2,s*0.09,s*0.28,3); ctx.fill();
+                ctx.strokeStyle=light; ctx.lineWidth=1.5; ctx.globalAlpha=0.25;
+                for(let i=0;i<4;i++){ctx.beginPath();ctx.moveTo(-s*0.13+i*s*0.09,-s*0.03);ctx.lineTo(-s*0.13+i*s*0.09,s*0.18);ctx.stroke();}
+                ctx.globalAlpha=1;
+
+            } else if (name === 'Megalodon') {
+                const color='#475569'; const dark='#1e293b'; const belly='#e2e8f0';
+                ctx.shadowBlur=s*0.25; ctx.shadowColor='rgba(245,158,11,0.3)';
+                ctx.fillStyle=color;
+                ctx.beginPath();
+                ctx.moveTo(s*0.75,0);
+                ctx.quadraticCurveTo(s*0.55,-s*0.22,s*0.18,-s*0.18);
+                ctx.lineTo(-s*0.28,-s*0.08); ctx.lineTo(-s*0.65,-s*0.04);
+                ctx.lineTo(-s*0.65,s*0.13); ctx.lineTo(-s*0.28,s*0.18);
+                ctx.lineTo(s*0.18,s*0.22);
+                ctx.quadraticCurveTo(s*0.55,s*0.18,s*0.75,0); ctx.fill();
+                ctx.fillStyle=belly; ctx.globalAlpha=0.45;
+                ctx.beginPath();
+                ctx.moveTo(s*0.65,s*0.04); ctx.quadraticCurveTo(s*0.25,s*0.18,-s*0.45,s*0.1);
+                ctx.lineTo(-s*0.45,s*0.03); ctx.quadraticCurveTo(s*0.25,s*0.08,s*0.65,s*0.01); ctx.fill();
+                ctx.globalAlpha=1;
+                ctx.fillStyle=dark;
+                ctx.beginPath(); ctx.moveTo(s*0.03,-s*0.18); ctx.lineTo(-s*0.05,-s*0.5); ctx.lineTo(-s*0.22,-s*0.13); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(-s*0.6,-s*0.04); ctx.lineTo(-s*0.92,-s*0.3); ctx.lineTo(-s*0.7,0); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(-s*0.6,s*0.08); ctx.lineTo(-s*0.88,s*0.3); ctx.lineTo(-s*0.65,s*0.06); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(s*0.18,s*0.13); ctx.quadraticCurveTo(s*0.08,s*0.4,-s*0.08,s*0.35); ctx.lineTo(s*0.08,s*0.13); ctx.fill();
+                ctx.strokeStyle=dark; ctx.lineWidth=1.5; ctx.globalAlpha=0.45;
+                for(let i=0;i<3;i++){ctx.beginPath();ctx.moveTo(s*0.32+i*s*0.045,-s*0.04);ctx.lineTo(s*0.3+i*s*0.045,s*0.08);ctx.stroke();}
+                ctx.globalAlpha=1;
+                ctx.fillStyle='#111'; ctx.beginPath(); ctx.arc(s*0.5,-s*0.04,s*0.032,0,Math.PI*2); ctx.fill();
+                ctx.fillStyle='#fde047'; ctx.beginPath(); ctx.arc(s*0.5,-s*0.04,s*0.022,0,Math.PI*2); ctx.fill();
+                ctx.fillStyle='#111'; ctx.beginPath(); ctx.ellipse(s*0.503,-s*0.04,s*0.008,s*0.018,0,0,Math.PI*2); ctx.fill();
+                ctx.fillStyle='#fff';
+                for(let i=0;i<5;i++){const tx=s*0.38+i*s*0.07;ctx.beginPath();ctx.moveTo(tx,s*0.01);ctx.lineTo(tx+s*0.015,s*0.07);ctx.lineTo(tx+s*0.03,s*0.01);ctx.fill();}
+                ctx.shadowBlur=0;
+
+            } else if (name === 'Quetzalcoatlus') {
+                const color='#b45309'; const light='#fbbf24'; const membrane='#f59e0b';
+                ctx.fillStyle=color;
+                ctx.beginPath(); ctx.ellipse(0,0,s*0.18,s*0.09,0,0,Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(s*0.13,-s*0.04);
+                ctx.quadraticCurveTo(s*0.32,-s*0.22,s*0.37,-s*0.38);
+                ctx.lineTo(s*0.27,-s*0.35);
+                ctx.quadraticCurveTo(s*0.23,-s*0.18,s*0.06,-s*0.01); ctx.fill();
+                ctx.beginPath(); ctx.ellipse(s*0.35,-s*0.42,s*0.07,s*0.05,0.3,0,Math.PI*2); ctx.fill();
+                ctx.fillStyle=light;
+                ctx.beginPath(); ctx.moveTo(s*0.39,-s*0.44); ctx.lineTo(s*0.65,-s*0.47); ctx.lineTo(s*0.39,-s*0.39); ctx.fill();
+                ctx.fillStyle=membrane;
+                ctx.beginPath(); ctx.moveTo(s*0.32,-s*0.45); ctx.quadraticCurveTo(s*0.18,-s*0.65,s*0.27,-s*0.6); ctx.lineTo(s*0.35,-s*0.45); ctx.fill();
+                ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(s*0.37,-s*0.43,s*0.018,0,Math.PI*2); ctx.fill();
+                ctx.fillStyle='#111'; ctx.beginPath(); ctx.arc(s*0.373,-s*0.43,s*0.008,0,Math.PI*2); ctx.fill();
+                const wGrad=ctx.createLinearGradient(0,-s,0,s*0.4);
+                wGrad.addColorStop(0,light); wGrad.addColorStop(1,color);
+                ctx.fillStyle=wGrad; ctx.globalAlpha=0.72;
+                ctx.beginPath(); ctx.moveTo(s*0.08,0);
+                ctx.bezierCurveTo(s*0.45,-s*1.2,s*1.4,-s*0.55,s*1.2,s*0.18);
+                ctx.quadraticCurveTo(s*0.75,s*0.12,s*0.08,0); ctx.fill();
+                ctx.beginPath(); ctx.moveTo(-s*0.08,0);
+                ctx.bezierCurveTo(-s*0.45,-s*1.2,-s*1.4,-s*0.55,-s*1.2,s*0.18);
+                ctx.quadraticCurveTo(-s*0.75,s*0.12,-s*0.08,0); ctx.fill();
+                ctx.globalAlpha=1;
+                ctx.strokeStyle=color; ctx.lineWidth=1.5; ctx.globalAlpha=0.35;
+                ctx.beginPath(); ctx.moveTo(s*0.08,0); ctx.lineTo(s*1.1,-s*0.08); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(-s*0.08,0); ctx.lineTo(-s*1.1,-s*0.08); ctx.stroke();
+                ctx.globalAlpha=1;
+
+            } else {
+                ctx.fillStyle='#64748b';
+                ctx.beginPath(); ctx.ellipse(0,0,s*0.4,s*0.22,0,0,Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.ellipse(s*0.35,-s*0.15,s*0.15,s*0.1,0,0,Math.PI*2); ctx.fill();
+                ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(s*0.4,-s*0.18,s*0.03,0,Math.PI*2); ctx.fill();
+                ctx.fillStyle='#111'; ctx.beginPath(); ctx.arc(s*0.41,-s*0.18,s*0.015,0,Math.PI*2); ctx.fill();
+            }
+
+            ctx.restore();
+        }
+
+        function drawPack(ctx, type, x, y, size, openProgress = 0) {
+            ctx.save(); ctx.translate(x, y);
+            const s = size;
+
+            let baseColor, accentColor, glowColor, metalColor, gemColor;
+            if (type === 'comun') { baseColor='#94a3b8'; accentColor='#475569'; glowColor='rgba(148,163,184,0.3)'; metalColor='#64748b'; gemColor='#cbd5e1'; }
+            else if (type === 'p_comun') { baseColor='#22c55e'; accentColor='#15803d'; glowColor='rgba(34,197,94,0.3)'; metalColor='#166534'; gemColor='#4ade80'; }
+            else if (type === 'raro') { baseColor='#3b82f6'; accentColor='#1d4ed8'; glowColor='rgba(59,130,246,0.4)'; metalColor='#1e40af'; gemColor='#60a5fa'; }
+            else if (type === 'epico') { baseColor='#a855f7'; accentColor='#7e22ce'; glowColor='rgba(168,85,247,0.5)'; metalColor='#6b21a8'; gemColor='#c084fc'; }
+            else if (type === 'legendario') { baseColor='#f59e0b'; accentColor='#b45309'; glowColor='rgba(245,158,11,0.6)'; metalColor='#92400e'; gemColor='#fbbf24'; }
+            else if (type === 'mitico') { baseColor='#ef4444'; accentColor='#991b1b'; glowColor='rgba(239,68,68,0.7)'; metalColor='#7f1d1d'; gemColor='#f87171'; }
+            else { baseColor='#94a3b8'; accentColor='#475569'; glowColor='rgba(148,163,184,0.3)'; metalColor='#64748b'; gemColor='#cbd5e1'; }
+
+            ctx.shadowBlur = s * 0.3 + openProgress * s * 0.5;
+            ctx.shadowColor = glowColor;
+
+            // Base shadow
+            ctx.fillStyle = 'rgba(0,0,0,0.25)';
+            ctx.beginPath(); ctx.ellipse(0, s*0.42, s*0.48, s*0.06, 0, 0, Math.PI*2); ctx.fill();
+
+            // Chest body gradient
+            const bodyGrad = ctx.createLinearGradient(-s*0.45, 0, s*0.45, 0);
+            bodyGrad.addColorStop(0, accentColor); bodyGrad.addColorStop(0.5, baseColor); bodyGrad.addColorStop(1, accentColor);
+            ctx.fillStyle = bodyGrad;
+            ctx.beginPath(); ctx.roundRect(-s*0.45, -s*0.08, s*0.9, s*0.48, s*0.08); ctx.fill();
+
+            // Metal bands
+            ctx.strokeStyle = metalColor; ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.moveTo(-s*0.45, s*0.08); ctx.lineTo(s*0.45, s*0.08); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(-s*0.45, s*0.24); ctx.lineTo(s*0.45, s*0.24); ctx.stroke();
+
+            // Corner rivets
+            ctx.fillStyle = gemColor;
+            [[-s*0.38, -s*0.02], [s*0.38, -s*0.02], [-s*0.38, s*0.34], [s*0.38, s*0.34]].forEach(([rx,ry]) => {
+                ctx.beginPath(); ctx.arc(rx, ry, s*0.028, 0, Math.PI*2); ctx.fill();
+            });
+
+            // Inner glow when opening
+            if (openProgress > 0.3) {
+                const ig = ctx.createRadialGradient(0, -s*0.05, 0, 0, -s*0.05, s*0.5);
+                ig.addColorStop(0, `rgba(255,255,255,${openProgress*0.7})`);
+                ig.addColorStop(0.6, glowColor); ig.addColorStop(1, 'transparent');
+                ctx.fillStyle = ig;
+                ctx.beginPath(); ctx.roundRect(-s*0.38, -s*0.25, s*0.76, s*0.35, s*0.04); ctx.fill();
+            }
+
+            // Lid
+            ctx.save();
+            ctx.translate(0, -s*0.08);
+            ctx.rotate(-openProgress * Math.PI * 0.65);
+
+            const lidGrad = ctx.createLinearGradient(-s*0.5, -s*0.3, s*0.5, 0);
+            lidGrad.addColorStop(0, accentColor); lidGrad.addColorStop(0.5, baseColor); lidGrad.addColorStop(1, accentColor);
+            ctx.fillStyle = lidGrad;
+            ctx.beginPath(); ctx.roundRect(-s*0.5, -s*0.3, s*1, s*0.34, [s*0.18, s*0.18, s*0.02, s*0.02]); ctx.fill();
+
+            // Lid highlight
+            ctx.fillStyle = 'rgba(255,255,255,0.08)';
+            ctx.beginPath(); ctx.roundRect(-s*0.45, -s*0.28, s*0.9, s*0.12, [s*0.14, s*0.14, 0, 0]); ctx.fill();
+
+            // Lid band
+            ctx.strokeStyle = metalColor; ctx.lineWidth = 2.5;
+            ctx.beginPath(); ctx.moveTo(-s*0.48, -s*0.1); ctx.lineTo(s*0.48, -s*0.1); ctx.stroke();
+
+            // Lock plate
+            ctx.fillStyle = metalColor;
+            ctx.beginPath(); ctx.roundRect(-s*0.07, -s*0.07, s*0.14, s*0.14, s*0.035); ctx.fill();
+            ctx.fillStyle = gemColor;
+            ctx.beginPath(); ctx.arc(0, 0, s*0.055, 0, Math.PI*2); ctx.fill();
+            // Keyhole
+            ctx.fillStyle = accentColor;
+            ctx.beginPath(); ctx.arc(0, -s*0.01, s*0.022, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.roundRect(-s*0.008, 0, s*0.016, s*0.028, 1); ctx.fill();
+
+            ctx.restore();
+            ctx.restore();
+        }
+
+        function animateCurrencies() {
+            const canvases = document.querySelectorAll('.currency-canvas, .pack-canvas');
+            const time = Date.now() * 0.002;
+
+            canvases.forEach(canvas => {
+                const ctx = canvas.getContext('2d');
+                const type = canvas.dataset.currency;
+                const packType = canvas.dataset.pack;
+                const size = canvas.width;
+                ctx.clearRect(0, 0, size, size);
+
+                const hover = Math.sin(time) * (size * 0.05);
+                const x = size / 2;
+                const y = size / 2 + (packType ? hover : hover);
+
+                if (type === 'amber') {
+                    drawAmberIcon(ctx, x, y, size * 0.8);
+                } else if (packType) {
+                    drawPack(ctx, packType, x, y, size * 0.7);
+                }
+            });
+            requestAnimationFrame(animateCurrencies);
+        }
+        animateCurrencies();
+
+        const DINOS = [
+            { id: 1, name: 'Velociraptor', rarity: 'Común', hp: 450, atk: 120, tags: ['Cretácico', 'Terrestre', 'Carnívoro'] },
+            { id: 2, name: 'Triceratops', rarity: 'Poco Común', hp: 800, atk: 90, tags: ['Cretácico', 'Terrestre', 'Herbívoro'] },
+            { id: 3, name: 'Tiranosaurio Rex', rarity: 'Mítico', hp: 1800, atk: 450, tags: ['Cretácico', 'Terrestre', 'Carnívoro'] },
+            { id: 4, name: 'Pterodáctilo', rarity: 'Raro', hp: 600, atk: 180, tags: ['Jurásico', 'Volador', 'Carnívoro'] },
+            { id: 5, name: 'Espinosaurio', rarity: 'Épico', hp: 1100, atk: 240, tags: ['Cretácico', 'Semi-acuático', 'Carnívoro'] },
+            { id: 6, name: 'Anquilosaurio', rarity: 'Legendario', hp: 1500, atk: 120, tags: ['Cretácico', 'Terrestre', 'Herbívoro'] },
+            { id: 7, name: 'Estegosaurio', rarity: 'Raro', hp: 950, atk: 130, tags: ['Jurásico', 'Terrestre', 'Herbívoro'] },
+            { id: 8, name: 'Braquiosaurio', rarity: 'Poco Común', hp: 1400, atk: 60, tags: ['Jurásico', 'Terrestre', 'Herbívoro'] },
+            { id: 9, name: 'Mosasaurio', rarity: 'Mítico', hp: 1700, atk: 480, tags: ['Cretácico', 'Acuático', 'Carnívoro'] },
+            { id: 10, name: 'Dilofosaurio', rarity: 'Común', hp: 400, atk: 140, tags: ['Jurásico', 'Terrestre', 'Carnívoro'] },
+            { id: 11, name: 'Parasaurolophus', rarity: 'Común', hp: 520, atk: 75, tags: ['Cretácico', 'Terrestre', 'Herbívoro'] },
+            { id: 12, name: 'Carnotauro', rarity: 'Poco Común', hp: 720, atk: 210, tags: ['Cretácico', 'Terrestre', 'Carnívoro'] },
+            { id: 13, name: 'Plesiosaurio', rarity: 'Raro', hp: 880, atk: 165, tags: ['Jurásico', 'Acuático', 'Carnívoro'] },
+            { id: 14, name: 'Iguanodon', rarity: 'Común', hp: 620, atk: 95, tags: ['Cretácico', 'Terrestre', 'Herbívoro'] },
+            { id: 15, name: 'Giganotosaurio', rarity: 'Épico', hp: 1350, atk: 390, tags: ['Cretácico', 'Terrestre', 'Carnívoro'] },
+            { id: 16, name: 'Diplodocus', rarity: 'Poco Común', hp: 1250, atk: 55, tags: ['Jurásico', 'Terrestre', 'Herbívoro'] },
+            { id: 17, name: 'Megalodon', rarity: 'Legendario', hp: 1650, atk: 520, tags: ['Cenozoico', 'Acuático', 'Carnívoro'] },
+            { id: 18, name: 'Quetzalcoatlus', rarity: 'Épico', hp: 920, atk: 290, tags: ['Cretácico', 'Volador', 'Carnívoro'] }
+        ];
+
+        // --- Auth ---
+        document.getElementById('loginForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const username = e.target.username.value;
+            const password = e.target.password.value;
+            const msg = document.getElementById('auth-msg');
+            msg.textContent = 'Vinculando...';
+            msg.style.color = 'var(--primary)';
+
+            try {
+                const res = await fetch(`${API}/ocean-pay/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await res.json();
+                if (res.ok) {
+                    state.token = data.token;
+                    state.user = data.user;
+                    localStorage.setItem('dinobox_token', state.token);
+                    localStorage.setItem('dinobox_user', JSON.stringify(state.user));
+
+                    document.getElementById('auth-overlay').classList.add('hidden');
+                    initGame();
+                } else {
+                    msg.textContent = 'Error: ' + (data.error || 'Credenciales inválidas');
+                    msg.style.color = '#ef4444';
+                }
+            } catch (err) {
+                msg.textContent = 'Error de conexión';
+                msg.style.color = '#ef4444';
+            }
+        };
+
+        async function initGame() {
+            await syncWithOceanPay();
+            loadGameState();
+            setupDailyState();
+            renderCollection();
+            renderQuests();
+            renderPass();
+            calculateExpStats();
+            checkDailyReward();
+            startGlobalTimer();
+        }
+
+        function loadGameState() {
+            const saved = localStorage.getItem('dinobox_state');
+            if (saved) {
+                const data = JSON.parse(saved);
+                state.collection = data.collection || [];
+                state.lastDaily = data.lastDaily || 0;
+                state.expeditionEnd = data.expeditionEnd || 0;
+                state.completedQuests = data.completedQuests || [];
+                state.level = data.level || 1;
+                state.passType = data.passType || 'free';
+                state.passLevel = data.passLevel || 1;
+                state.passXP = data.passXP || 0;
+                state.claimedLevels = data.claimedLevels || [];
+                state.dailyStreak = data.dailyStreak || 0;
+                state.dailyQuestDate = data.dailyQuestDate || '';
+                state.dailyQuestProgress = data.dailyQuestProgress || {};
+                state.dailyQuestClaimed = data.dailyQuestClaimed || [];
+                state.dailyLoopClaimDate = data.dailyLoopClaimDate || '';
+                state.statsDate = data.statsDate || '';
+                state.dailyStats = data.dailyStats || { packsOpened: 0, expeditionsCompleted: 0, newSpecies: 0 };
+                state.claimedFreeLevels = data.claimedFreeLevels || data.claimedLevels || [];
+                state.claimedPremiumLevels = data.claimedPremiumLevels || data.claimedLevels || [];
+                state.expeditionMode = data.expeditionMode || 'standard';
+                state.expeditionBonusChance = data.expeditionBonusChance || 0;
+                state.expeditionBonusPack = data.expeditionBonusPack || '';
+            }
+        }
+
+        function saveGameState() {
+            localStorage.setItem('dinobox_state', JSON.stringify({
+                collection: state.collection,
+                lastDaily: state.lastDaily,
+                expeditionEnd: state.expeditionEnd,
+                completedQuests: state.completedQuests,
+                level: state.level,
+                passType: state.passType,
+                passLevel: state.passLevel,
+                passXP: state.passXP,
+                claimedLevels: state.claimedLevels,
+                dailyStreak: state.dailyStreak,
+                dailyQuestDate: state.dailyQuestDate,
+                dailyQuestProgress: state.dailyQuestProgress,
+                dailyQuestClaimed: state.dailyQuestClaimed,
+                dailyLoopClaimDate: state.dailyLoopClaimDate,
+                statsDate: state.statsDate,
+                dailyStats: state.dailyStats,
+                claimedFreeLevels: state.claimedFreeLevels,
+                claimedPremiumLevels: state.claimedPremiumLevels,
+                expeditionMode: state.expeditionMode,
+                expeditionBonusChance: state.expeditionBonusChance,
+                expeditionBonusPack: state.expeditionBonusPack
+            }));
+        }
+
+        function setupDailyState() {
+            const today = getDayKey();
+            if (!state.statsDate || state.statsDate !== today) {
+                state.statsDate = today;
+                state.dailyStats = { packsOpened: 0, expeditionsCompleted: 0, newSpecies: 0 };
+            }
+
+            if (!state.dailyQuestDate || state.dailyQuestDate !== today) {
+                state.dailyQuestDate = today;
+                state.dailyQuestProgress = {};
+                state.dailyQuestClaimed = [];
+            }
+            applyQuestTracking('packsOpened');
+            applyQuestTracking('expeditionsCompleted');
+            applyQuestTracking('newSpecies');
+            saveGameState();
+        }
+
+        // --- Daily Reward ---
+        function checkDailyReward() {
+            const today = getDayKey();
+            if (getDayKey(state.lastDaily) !== today) {
+                document.getElementById('daily-modal').style.display = 'flex';
+            }
+        }
+
+        function claimDaily() {
+            state.amber += 250;
+            const now = Date.now();
+            const today = getDayKey(now);
+            const lastKey = getDayKey(state.lastDaily);
+            if (lastKey && nextDayKey(lastKey) === today) state.dailyStreak += 1;
+            else state.dailyStreak = 1;
+            state.lastDaily = now;
+            updateUI();
+            saveGameState();
+            document.getElementById('daily-modal').style.display = 'none';
+            renderQuests();
+        }
+
+        // --- Expeditions ---
+        window.startExpedition = function () {
+            if (selectedExpDinos.length === 0) return alert("Selecciona al menos un dinosaurio");
+
+            calculateExpStats();
+            const timeMins = parseInt(document.getElementById("exp-calc-time").textContent, 10);
+            const modeEl = document.getElementById("exp-mode");
+            state.expeditionMode = modeEl ? modeEl.value : "standard";
+
+            state.expeditionEnd = Date.now() + (timeMins * 60 * 1000);
+            state.expeditionRewardAmber = parseInt(document.getElementById("exp-calc-amber").textContent, 10);
+            state.expeditionRewardXP = parseInt(document.getElementById("exp-calc-xp").textContent, 10);
+            state.expeditionBonusChance = parseInt((document.getElementById("exp-calc-bonus")?.textContent || "0").replace("%", ""), 10) || 0;
+            state.expeditionBonusPack = "";
+            state.expeditionDinos = selectedExpDinos.map(d => d.id);
+
+            selectedExpDinos = [];
+            saveGameState();
+            updateExpeditionUI();
+                updateSeasonRemaining();
+        }
+
+        let selectedExpDinos = [];
+
+        window.updateExpeditionUI = function () {
+            const now = Date.now();
+            const prep = document.getElementById('exp-preparation');
+            const status = document.getElementById('expedition-status');
+            const rewards = document.getElementById('exp-rewards');
+            const timerHeader = document.getElementById('expedition-timer-header');
+            const timerText = document.getElementById('exp-timer-text');
+
+            if (!prep) return;
+
+            if (state.expeditionEnd > now) {
+                prep.classList.add('hidden');
+                status.classList.remove('hidden');
+                rewards.classList.add('hidden');
+                const startBtn = document.getElementById('start-exp-btn');
+                if (startBtn) { startBtn.disabled = true; startBtn.innerHTML = '<i class="fas fa-hourglass-half"></i> Expedicion en curso'; }
+
+                const diff = state.expeditionEnd - now;
+                const m = Math.floor(diff / 60000);
+                const s = Math.floor((diff % 60000) / 1000);
+                const timeStr = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+                if (timerText) timerText.textContent = timeStr;
+                if (timerHeader) timerHeader.textContent = `En curso: ${timeStr}`;
+
+                const accelCost = Math.max(10, Math.ceil(diff / 10000));
+                const accelBtn = document.getElementById('accel-cost');
+                if (accelBtn) accelBtn.textContent = accelCost;
+            } else if (state.expeditionEnd !== 0) {
+                prep.classList.add('hidden');
+                status.classList.add('hidden');
+                rewards.classList.remove('hidden');
+                const startBtn = document.getElementById('start-exp-btn');
+                if (startBtn) { startBtn.disabled = true; startBtn.innerHTML = '<i class="fas fa-gift"></i> Reclama la recompensa'; }
+                if (timerHeader) timerHeader.textContent = `Completado (${state.expeditionMode || 'standard'})`;
+
+                const rewAmber = document.getElementById('exp-reward-amber');
+                const rewXP = document.getElementById('exp-reward-xp');
+                if (rewAmber) rewAmber.textContent = `+${state.expeditionRewardAmber}`;
+                if (rewXP) rewXP.textContent = `+${state.expeditionRewardXP}`;
+            } else {
+                prep.classList.remove('hidden');
+                status.classList.add('hidden');
+                rewards.classList.add('hidden');
+                if (timerHeader) timerHeader.textContent = '';
+                renderExpSlots();
+                calculateExpStats();
+            }
+        }
+
+        window.claimExpedition = function () {
+            const claimBtn = document.getElementById('claim-exp-btn');
+            if (claimBtn) {
+                claimBtn.disabled = true;
+                claimBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando';
+            }
+
+            state.amber += (state.expeditionRewardAmber || 0);
+            addPassXP(state.expeditionRewardXP || 0);
+            updateQuestProgress("expeditionsCompleted", 1);
+
+            const roll = Math.random() * 100;
+            if (roll <= (state.expeditionBonusChance || 0)) {
+                const bonusPool = ["comun", "p_comun", "raro", "epico", "legendario"];
+                const idx = Math.min(bonusPool.length - 1, Math.floor((state.expeditionBonusChance || 0) / 20));
+                state.expeditionBonusPack = bonusPool[idx];
+            }
+
+            state.expeditionEnd = 0;
+            updateUI();
+            updateExpeditionUI();
+                updateSeasonRemaining();
+            saveGameState();
+
+            if (claimBtn) {
+                claimBtn.disabled = false;
+                claimBtn.innerHTML = '<i class="fas fa-hand-holding"></i> Reclamar Todo';
+            }
+
+            if (state.expeditionBonusPack) {
+                setTimeout(() => {
+                    alert(`Bono de expedicion: Pack ${state.expeditionBonusPack}`);
+                    grantPack(state.expeditionBonusPack);
+                    state.expeditionBonusPack = "";
+                    saveGameState();
+                }, 250);
+            }
+        }
+
+        function renderExpSlots() {
+            const container = document.getElementById('exp-slots-container');
+            if (!container) return;
+            let html = '';
+            for (let i = 0; i < 4; i++) {
+                const dino = selectedExpDinos[i];
+                if (dino) {
+                    const rarityColors = {'Común':'#94a3b8','Poco Común':'#22c55e','Raro':'#3b82f6','Épico':'#a855f7','Legendario':'#f59e0b','Mítico':'#ef4444'};
+                    const rc = rarityColors[dino.rarity] || '#94a3b8';
+                    html += `
+                        <div class="exp-slot filled" style="border-color:${rc}30;">
+                            <button class="remove-dino" onclick="removeDinoFromExp(${i})">&times;</button>
+                            <div style="position:absolute;top:6px;left:6px;font-size:0.5rem;font-weight:800;color:${rc};background:${rc}15;padding:2px 6px;border-radius:4px;text-transform:uppercase;">${dino.rarity}</div>
+                            <canvas width="80" height="80" class="slot-canvas" data-name="${dino.name}"></canvas>
+                            <small style="font-size:0.65rem; margin-top:4px; font-weight:600; color:#e2e8f0;">${dino.name}</small>
+                            <small style="font-size:0.5rem; color:#64748b; margin-top:1px;"><i class="fas fa-heart" style="color:#ef4444;font-size:0.45rem;"></i> ${dino.hp} <i class="fas fa-fist-raised" style="color:#f59e0b;font-size:0.45rem;margin-left:4px;"></i> ${dino.atk}</small>
+                        </div>
+                    `;
+                } else {
+                    html += `
+                        <div class="exp-slot" onclick="openDinoSelector(${i})">
+                            <i class="fas fa-plus" style="opacity:0.2; font-size:1.5rem; margin-bottom:6px;"></i>
+                            <small style="font-size:0.6rem; opacity:0.3;">Slot ${i+1}</small>
+                        </div>
+                    `;
+                }
+            }
+            container.innerHTML = html;
+            container.querySelectorAll('canvas').forEach(c => {
+                drawDino(c.getContext('2d'), c.dataset.name, 40, 40, 50);
+            });
+        }
+
+        window.openDinoSelector = function (slotIndex) {
+            const modal = document.getElementById('dino-selector-modal');
+            const grid = document.getElementById('selector-dino-grid');
+            modal.style.display = 'flex';
+
+            const available = state.collection.filter((_, idx) => !selectedExpDinos.some(d => d.idx === idx));
+            const countLabel = document.getElementById('selector-count-label');
+            if (countLabel) countLabel.textContent = `${available.length} disponibles · ${state.collection.length} total`;
+
+            grid.innerHTML = state.collection.map((dino, idx) => {
+                const isSelected = selectedExpDinos.some(d => d.idx === idx);
+                const rarityColors = {'Común':'#94a3b8','Poco Común':'#22c55e','Raro':'#3b82f6','Épico':'#a855f7','Legendario':'#f59e0b','Mítico':'#ef4444'};
+                const rc = rarityColors[dino.rarity] || '#94a3b8';
+                const power = Math.floor(dino.hp * 0.4 + dino.atk * 1.5);
+                return `
+                    <div style="cursor:${isSelected ? 'not-allowed' : 'pointer'}; opacity:${isSelected ? 0.25 : 1}; padding:0.8rem; border-radius:16px; background:linear-gradient(160deg, rgba(15,23,42,0.9), rgba(30,41,59,0.6)); border:1px solid ${isSelected ? '#334155' : rc+'25'}; transition:0.3s; position:relative; text-align:center; display:flex; flex-direction:column; align-items:center; gap:4px;"
+                         onclick="${isSelected ? '' : `selectDinoForExp(${idx})`}"
+                         onmouseover="if(!${isSelected})this.style.borderColor='${rc}60'; this.style.transform='translateY(-3px)'"
+                         onmouseout="this.style.borderColor='${isSelected ? '#334155' : rc+'25'}'; this.style.transform='translateY(0)'">
+                        ${isSelected ? '<div style="position:absolute;top:6px;right:6px;font-size:0.55rem;background:rgba(100,116,139,0.3);padding:2px 6px;border-radius:4px;color:#94a3b8;">EN USO</div>' : ''}
+                        <div style="font-size:0.55rem; font-weight:800; color:${rc}; text-transform:uppercase; letter-spacing:0.5px;">${dino.rarity}</div>
+                        <canvas width="70" height="70" data-name="${dino.name}"></canvas>
+                        <h4 style="margin:0; font-size:0.82rem; font-weight:700;">${dino.name}</h4>
+                        <div style="display:flex; gap:8px; font-size:0.6rem; color:#94a3b8; margin-top:2px;">
+                            <span><i class="fas fa-heart" style="color:#ef4444;font-size:0.5rem;"></i> ${dino.hp}</span>
+                            <span><i class="fas fa-fist-raised" style="color:#f59e0b;font-size:0.5rem;"></i> ${dino.atk}</span>
+                            <span><i class="fas fa-bolt" style="color:#a78bfa;font-size:0.5rem;"></i> ${power}</span>
+                        </div>
+                        <div style="display:flex; flex-wrap:wrap; gap:3px; justify-content:center; margin-top:3px;">
+                            ${(dino.tags || []).map(t => `<span style="font-size:0.48rem; padding:1px 5px; background:rgba(255,255,255,0.06); border-radius:3px; color:#94a3b8;">${t}</span>`).join('')}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            grid.querySelectorAll('canvas').forEach(c => {
+                drawDino(c.getContext('2d'), c.dataset.name, 35, 35, 45);
+            });
+        }
+
+        window.selectDinoForExp = function (idx) {
+            const dino = state.collection[idx];
+            if (selectedExpDinos.length < 4) {
+                selectedExpDinos.push({ ...dino, idx });
+            }
+            closeDinoSelector();
+            renderExpSlots();
+            calculateExpStats();
+        }
+
+        window.removeDinoFromExp = function (slotIndex) {
+            selectedExpDinos.splice(slotIndex, 1);
+            renderExpSlots();
+            calculateExpStats();
+        }
+
+        window.closeDinoSelector = function () {
+            document.getElementById('dino-selector-modal').style.display = 'none';
+        }
+
+        function calculateExpStats() {
+            const timeEl = document.getElementById("exp-calc-time");
+            const amberEl = document.getElementById("exp-calc-amber");
+            const xpEl = document.getElementById("exp-calc-xp");
+            const bonusEl = document.getElementById("exp-calc-bonus");
+            const noteEl = document.getElementById("exp-team-note");
+            const modeEl = document.getElementById("exp-mode");
+            if (!timeEl) return;
+
+            if (selectedExpDinos.length === 0) {
+                timeEl.textContent = "0m";
+                amberEl.textContent = "0";
+                xpEl.textContent = "0";
+                if (bonusEl) bonusEl.textContent = "0%";
+                if (noteEl) noteEl.textContent = "Forma un equipo equilibrado para aumentar bonus de expedicion.";
+                const startBtn = document.getElementById('start-exp-btn');
+                if (startBtn) {
+                    startBtn.disabled = true;
+                    startBtn.innerHTML = '<i class="fas fa-compass"></i> Selecciona un dinosaurio';
+                }
+                return;
+            }
+
+            let baseTime = 180;
+            let totalAmber = 200;
+            let totalXP = 400;
+
+            selectedExpDinos.forEach(d => {
+                const rarities = { "Comun": 1, "Com?n": 1, "Com??n": 1, "Poco Comun": 1.5, "Poco Com?n": 1.5, "Poco Com??n": 1.5, "Raro": 2, "Epico": 3, "?pico": 3, "??pico": 3, "Legendario": 5, "Mitico": 10, "M?tico": 10, "M??tico": 10 };
+                const multi = rarities[d.rarity] || 1;
+
+                totalAmber += (d.atk * 0.8) * multi;
+                totalXP += (d.hp * 0.2) * multi;
+                baseTime += 120 * multi;
+
+                if ((d.tags || []).includes("Volador")) baseTime *= 0.8;
+                if ((d.tags || []).includes("Acuatico") || (d.tags || []).includes("Acu?tico") || (d.tags || []).includes("Acu??tico")) totalAmber *= 1.2;
+                if ((d.tags || []).includes("Jurasico") || (d.tags || []).includes("Jur?sico") || (d.tags || []).includes("Jur??sico")) totalXP *= 1.1;
+            });
+
+            const mode = modeEl ? modeEl.value : "standard";
+            if (mode === "short") {
+                baseTime *= 0.72; totalAmber *= 0.78; totalXP *= 0.82;
+            } else if (mode === "deep") {
+                baseTime *= 1.45; totalAmber *= 1.55; totalXP *= 1.5;
+            }
+
+            const uniqueTags = new Set(selectedExpDinos.flatMap(d => d.tags || []));
+            let bonusChance = Math.min(35, 6 + uniqueTags.size * 2 + selectedExpDinos.length * 3);
+            if (selectedExpDinos.some(d => d.rarity === "Legendario" || d.rarity === "Mitico" || d.rarity === "M?tico" || d.rarity === "M??tico")) bonusChance += 8;
+            bonusChance = Math.min(45, bonusChance);
+
+            const minutes = Math.ceil(baseTime / 60);
+            timeEl.textContent = `${minutes}m`;
+            amberEl.textContent = Math.floor(totalAmber);
+            xpEl.textContent = Math.floor(totalXP);
+            if (bonusEl) bonusEl.textContent = `${bonusChance}%`;
+            if (noteEl) noteEl.textContent = `Modo ${mode === "short" ? "rapida" : (mode === "deep" ? "profunda" : "estandar")} | ${uniqueTags.size} biomas | bono ${bonusChance}%`;
+            const startBtn = document.getElementById('start-exp-btn');
+            if (startBtn) {
+                startBtn.disabled = false;
+                startBtn.innerHTML = '<i class="fas fa-compass"></i> Iniciar Expedicion';
+            }
+        }
+
+        window.accelerateExpedition = function () {
+            const now = Date.now();
+            const diff = state.expeditionEnd - now;
+            const accelCost = Math.max(10, Math.ceil(diff / 10000));
+
+            if (state.amber < accelCost) return alert('¡No tienes suficiente Amber!');
+
+            state.amber -= accelCost;
+            state.expeditionEnd = now;
+            updateUI();
+            updateExpeditionUI();
+                updateSeasonRemaining();
+            saveGameState();
+        }
+
+        function startGlobalTimer() {
+            setInterval(() => {
+                updateExpeditionUI();
+                updateSeasonRemaining();
+            }, 1000);
+        }
+
+        // --- Quests (Daily Rotating) ---
+        const DAILY_QUEST_POOL = [
+            { id: 'q_packs_3', title: 'Apertura Basica', desc: 'Abre 3 packs', goal: 3, reward: 150, track: 'packsOpened', xp: 120 },
+            { id: 'q_packs_5', title: 'Fiebre de Cajas', desc: 'Abre 5 packs', goal: 5, reward: 240, track: 'packsOpened', xp: 180 },
+            { id: 'q_expedition_1', title: 'Explorador Activo', desc: 'Completa 1 expedicion', goal: 1, reward: 180, track: 'expeditionsCompleted', xp: 140 },
+            { id: 'q_expedition_2', title: 'Capitan del Equipo', desc: 'Completa 2 expediciones', goal: 2, reward: 320, track: 'expeditionsCompleted', xp: 220 },
+            { id: 'q_species_1', title: 'Nuevo Hallazgo', desc: 'Descubre 1 especie nueva', goal: 1, reward: 220, track: 'newSpecies', xp: 200 },
+            { id: 'q_species_2', title: 'Coleccionista del Dia', desc: 'Descubre 2 especies nuevas', goal: 2, reward: 360, track: 'newSpecies', xp: 260 }
+        ];
+
+        function daySeed(dayKey) {
+            return dayKey.split('-').join('').split('').reduce((acc, v) => acc + parseInt(v, 10), 0);
+        }
+
+        function getDailyQuests() {
+            const today = state.dailyQuestDate || getDayKey();
+            const seed = daySeed(today);
+            const sorted = [...DAILY_QUEST_POOL].sort((a, b) => {
+                const ha = (seed * 131 + a.id.length * 37 + a.goal * 17) % 997;
+                const hb = (seed * 131 + b.id.length * 37 + b.goal * 17) % 997;
+                return ha - hb;
+            });
+            return sorted.slice(0, 3);
+        }
+
+        function getQuestProgress(q) {
+            return Math.min(q.goal, state.dailyQuestProgress[q.id] || 0);
+        }
+
+        function isQuestClaimed(qId) {
+            return state.dailyQuestClaimed.includes(qId);
+        }
+
+        function applyQuestTracking(trackKey) {
+            const quests = getDailyQuests().filter(q => q.track === trackKey);
+            quests.forEach(q => {
+                const value = state.dailyStats[trackKey] || 0;
+                state.dailyQuestProgress[q.id] = Math.min(q.goal, value);
+            });
+        }
+
+        function updateQuestProgress(trackKey, amount = 1) {
+            state.dailyStats[trackKey] = (state.dailyStats[trackKey] || 0) + amount;
+            applyQuestTracking(trackKey);
+            saveGameState();
+            renderQuests();
+        }
+
+        window.claimQuest = function (questId) {
+            const q = getDailyQuests().find(x => x.id === questId);
+            if (!q) return;
+            if (isQuestClaimed(questId)) return;
+            if (getQuestProgress(q) < q.goal) return;
+            state.dailyQuestClaimed.push(questId);
+            state.amber += q.reward;
+            addPassXP(q.xp || 100);
+            updateUI();
+            saveGameState();
+            renderQuests();
+        }
+
+        function getDailyLoopCompletionCount() {
+            const objectives = [
+                (state.dailyStats.packsOpened || 0) >= 3,
+                (state.dailyStats.expeditionsCompleted || 0) >= 1,
+                (state.dailyStats.newSpecies || 0) >= 1
+            ];
+            return objectives.filter(Boolean).length;
+        }
+
+        function updateDailyLoopPanel() {
+            const streakEl = document.getElementById('daily-streak-days');
+            const progressEl = document.getElementById('daily-loop-progress-text');
+            const claimBtn = document.getElementById('claim-loop-btn');
+            if (!streakEl || !progressEl || !claimBtn) return;
+
+            const completed = getDailyLoopCompletionCount();
+            const today = getDayKey();
+            const alreadyClaimed = state.dailyLoopClaimDate === today;
+
+            streakEl.textContent = state.dailyStreak || 0;
+            progressEl.textContent = `${completed}/3 objetivos completados (Packs 3 | Exp 1 | Especie nueva 1)`;
+            claimBtn.disabled = alreadyClaimed || completed < 3;
+            claimBtn.style.opacity = claimBtn.disabled ? '0.55' : '1';
+            claimBtn.textContent = alreadyClaimed ? 'Reclamado hoy' : `Reclamar +${DAILY_LOOP_REWARD} AMB`;
+        }
+
+        window.claimDailyLoopReward = function () {
+            const today = getDayKey();
+            if (state.dailyLoopClaimDate === today) return;
+            if (getDailyLoopCompletionCount() < 3) return;
+            state.dailyLoopClaimDate = today;
+            state.amber += DAILY_LOOP_REWARD;
+            addPassXP(250);
+            updateUI();
+            saveGameState();
+            renderQuests();
+        }
+
+        function renderQuests() {
+            const container = document.getElementById('quests-list');
+            if (!container) return;
+            const dailyQuests = getDailyQuests();
+            container.innerHTML = dailyQuests.map(q => {
+                const progress = getQuestProgress(q);
+                const completed = progress >= q.goal;
+                const claimed = isQuestClaimed(q.id);
+                const canClaim = completed && !claimed;
+                const pct = Math.floor((progress / q.goal) * 100);
+                return `
+                    <div class="quest-item ${claimed ? 'completed' : ''}" style="display:flex; align-items:center; justify-content:space-between; gap:1rem;">
+                        <div style="flex:1;">
+                            <h4 style="margin:0">${q.title} ${claimed ? 'OK' : ''}</h4>
+                            <p style="margin:5px 0 8px; font-size: 0.9rem; opacity: 0.75;">${q.desc}</p>
+                            <div style="height:8px; border-radius:99px; background:rgba(255,255,255,0.08); overflow:hidden;">
+                                <div style="height:100%; width:${pct}%; background:linear-gradient(90deg, #0ea5e9, #22c55e);"></div>
+                            </div>
+                            <p style="font-size:0.72rem; margin-top:6px; color:#94a3b8;">${progress}/${q.goal}</p>
+                        </div>
+                        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:8px; min-width:170px;">
+                            <div class="quest-reward">+${q.reward} AMB | +${q.xp} XP</div>
+                            <button class="btn-primary" style="width:auto; padding:8px 14px; ${canClaim ? '' : 'background:#334155;'}" ${canClaim ? '' : 'disabled'} onclick="claimQuest('${q.id}')">
+                                ${claimed ? 'Reclamado' : (completed ? 'Reclamar' : 'En progreso')}
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            updateDailyLoopPanel();
+        }
+
+        async function syncWithOceanPay() {
+            if (!state.token) return;
+            const badge = document.getElementById('amber-display');
+            badge.style.opacity = '0.5';
+            badge.querySelector('canvas').style.animation = 'spin 2s linear infinite';
+
+            try {
+                // Fetch Amber balance
+                const res = await fetch(`${API}/dinobox/amber/balance`, {
+                    headers: { 'Authorization': `Bearer ${state.token}` }
+                });
+                const data = await res.json();
+                if (res.ok && data.amber !== undefined) {
+                    state.amber = parseInt(data.amber || 0);
+                    updateUI(false);
+                }
+
+                // NEW: Fetch user cards from Ocean Pay
+                const resCards = await fetch(`${API}/ocean-pay/me`, {
+                    headers: { 'Authorization': `Bearer ${state.token}` }
+                });
+                if (resCards.ok) {
+                    const userData = await resCards.json();
+                    state.userCards = userData.cards || [];
+                    if (state.userCards.length > 0) state.activeCardId = state.userCards[0].id;
+                }
+            } catch (e) {
+                console.error('Error syncing from Ocean Pay:', e);
+                state.amber = parseInt(localStorage.getItem('dinobox_amber') || '0');
+                updateUI(false);
+            } finally {
+                badge.style.opacity = '1';
+                badge.querySelector('canvas').style.animation = 'none';
+            }
+        }
+
+        async function pushAmberToOceanPay() {
+            if (!state.token) return;
+            try {
+                // Guardar localmente primero por seguridad
+                localStorage.setItem('dinobox_amber', state.amber);
+
+                const res = await fetch(`${API}/dinobox/amber/sync`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${state.token}`
+                    },
+                    body: JSON.stringify({ amber: state.amber })
+                });
+
+                if (!res.ok) {
+                    console.error('Failed to sync Amber to server');
+                }
+            } catch (e) {
+                console.error('Error syncing to Ocean Pay:', e);
+            }
+        }
+
+        let syncTimeout = null;
+        function updateUI(pushToServer = true) {
+            document.getElementById('amber-count').textContent = state.amber.toLocaleString();
+            localStorage.setItem('dinobox_amber', state.amber);
+
+            // Debounce push to server to avoid spamming API
+            if (pushToServer) {
+                if (syncTimeout) clearTimeout(syncTimeout);
+                syncTimeout = setTimeout(() => {
+                    pushAmberToOceanPay();
+                }, 1000);
+            }
+        }
+
+        function showView(viewId) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.getElementById(`view-${viewId}`).classList.add('active');
+
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            const activeBtn = [...document.querySelectorAll('.nav-btn')].find(b => b.onclick && b.onclick.toString().includes(viewId));
+            if (activeBtn) activeBtn.classList.add('active');
+
+            // Refresh content if needed
+            if (viewId === 'quests') renderQuests();
+            if (viewId === 'expedition') updateExpeditionUI();
+                updateSeasonRemaining();
+            if (viewId === 'pass') renderPass();
+        }
+
+        // --- Store logic ---
+        function buyPack(type) {
+            const price = PACK_PRICES[type] || PACK_PRICES.comun;
+            if (state.amber < price) {
+                alert('No tienes suficientes Amber!');
+                return;
+            }
+
+            state.amber -= price;
+            updateUI();
+
+            if (type === 'multi') {
+                const rewards = [getPackReward('aleatorio'), getPackReward('aleatorio'), getPackReward('aleatorio')];
+                openPackSequence('legendario', rewards[0], { extraRewards: rewards.slice(1) });
+            } else {
+                grantPack(type);
+            }
+        }
+
+        function getPackReward(type) {
+            const rarityMap = {
+                'comun': 'Común', 'p_comun': 'Poco Común', 'raro': 'Raro',
+                'epico': 'Épico', 'legendario': 'Legendario', 'mitico': 'Mítico'
+            };
+
+            let pool;
+            if (rarityMap[type]) {
+                pool = DINOS.filter(d => d.rarity === rarityMap[type]);
+            } else if (type === 'acuatico') {
+                pool = DINOS.filter(d => (d.tags||[]).includes('Acuático') || (d.tags||[]).includes('Semi-acuático'));
+            } else if (type === 'volador') {
+                pool = DINOS.filter(d => (d.tags||[]).includes('Volador'));
+            } else if (type === 'jurasico') {
+                pool = DINOS.filter(d => (d.tags||[]).includes('Jurásico'));
+            } else if (type === 'carnivoro') {
+                pool = DINOS.filter(d => (d.tags||[]).includes('Carnívoro'));
+            } else if (type === 'aleatorio') {
+                const roll = Math.random();
+                let rarity;
+                if (roll < 0.35) rarity = 'Común';
+                else if (roll < 0.6) rarity = 'Poco Común';
+                else if (roll < 0.8) rarity = 'Raro';
+                else if (roll < 0.92) rarity = 'Épico';
+                else if (roll < 0.98) rarity = 'Legendario';
+                else rarity = 'Mítico';
+                pool = DINOS.filter(d => d.rarity === rarity);
+            } else {
+                pool = DINOS;
+            }
+
+            if (!pool || pool.length === 0) pool = DINOS;
+            return pool[Math.floor(Math.random() * pool.length)];
+        }
+
+        function grantPack(type, options = {}) {
+            const reward = getPackReward(type);
+            const visualType = ['acuatico','volador','jurasico','aleatorio','carnivoro'].includes(type) ? 'epico' : type;
+            openPackSequence(visualType, reward, options);
+        }
+
+        let openingInterval = null;
+        function openPackSequence(type, dino, options = {}) {
+            const overlay = document.getElementById('opening-scene');
+            const canvas = document.getElementById('opening-canvas');
+            const reveal = document.getElementById('reveal-overlay');
+            const ctx = canvas.getContext('2d');
+
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            overlay.style.display = 'block';
+            reveal.style.display = 'none';
+
+            let frame = 0;
+            let packOpen = 0;
+            let cards = []; // Silhouettes flying
+            let sequence = 'shake'; // shake, open, fly, wait, reveal
+
+            if (openingInterval) clearInterval(openingInterval);
+
+            openingInterval = setInterval(() => {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                const x = canvas.width / 2;
+                const y = canvas.height / 2 + 100;
+
+                if (sequence === 'shake') {
+                    const intensity = Math.min(1, frame / 50);
+                    const sx = x + (Math.random() - 0.5) * (10 + intensity * 35);
+                    const sy = y + (Math.random() - 0.5) * (4 + intensity * 18);
+                    drawPack(ctx, type, sx, sy, 220, 0);
+                    if (frame > 25) {
+                        for (let p = 0; p < Math.floor(intensity * 5); p++) {
+                            ctx.beginPath();
+                            ctx.arc(sx + (Math.random()-0.5)*180, sy - Math.random()*80 - 20, 2 + Math.random()*4, 0, Math.PI*2);
+                            ctx.fillStyle = `hsla(${30 + Math.random()*25}, 100%, 70%, ${intensity*0.7})`;
+                            ctx.fill();
+                        }
+                    }
+                    if (frame++ > 55) {
+                        sequence = 'open';
+                        frame = 0;
+                    }
+                } else if (sequence === 'open') {
+                    packOpen += 0.08;
+                    drawPack(ctx, type, x, y, 220, Math.min(1, packOpen));
+                    if (packOpen >= 1) {
+                        sequence = 'fly';
+                        frame = 0;
+                        // Create fake cards flying out with more variance
+                        const rarityHues = {comun:[200,240],p_comun:[120,155],raro:[210,245],epico:[270,305],legendario:[30,55],mitico:[0,18]};
+                        const hueRange = rarityHues[type] || [30,55];
+                        for (let i = 0; i < 22; i++) {
+                            cards.push({
+                                x: x, y: y - 50,
+                                vx: (Math.random() - 0.5) * 65,
+                                vy: -35 - Math.random() * 55,
+                                angle: Math.random() * Math.PI * 2,
+                                va: (Math.random() - 0.5) * 0.5,
+                                life: 1.0,
+                                hue: hueRange[0] + Math.random() * (hueRange[1] - hueRange[0])
+                            });
+                        }
+                    }
+                } else if (sequence === 'fly') {
+                    drawPack(ctx, type, x, y, 220, 1);
+                    cards.forEach(c => {
+                        c.x += c.vx; c.y += c.vy; c.angle += c.va;
+                        c.vx *= 0.98; c.vy += 0.6;
+                        c.life -= 0.008;
+                        if (c.life > 0) {
+                            ctx.save();
+                            ctx.translate(c.x, c.y);
+                            ctx.rotate(c.angle);
+                            ctx.globalAlpha = c.life * c.life;
+                            ctx.fillStyle = `hsla(${c.hue}, 100%, 70%, 0.35)`;
+                            ctx.strokeStyle = `hsla(${c.hue}, 100%, 90%, 0.7)`;
+                            ctx.lineWidth = 2;
+                            ctx.shadowBlur = 15; ctx.shadowColor = `hsla(${c.hue}, 100%, 50%, 0.6)`;
+                            ctx.beginPath();
+                            ctx.roundRect(-25, -40, 50, 80, 8);
+                            ctx.fill(); ctx.stroke();
+                            // Inner dino silhouette hint
+                            ctx.fillStyle = `hsla(${c.hue}, 80%, 85%, 0.3)`;
+                            ctx.beginPath(); ctx.arc(0, -5, 12, 0, Math.PI*2); ctx.fill();
+                            ctx.beginPath(); ctx.roundRect(-10, 8, 20, 6, 2); ctx.fill();
+                            ctx.restore();
+                        }
+                    });
+                    if (frame++ > 60) {
+                        sequence = 'wait';
+                        frame = 0;
+                    }
+                } else if (sequence === 'wait') {
+                    const progress = Math.min(1, frame / 60);
+                    const eased = 1 - Math.pow(1 - progress, 3);
+
+                    const cardY = -250 + (y - 100 + 250) * eased;
+                    const cardScale = 0.15 + eased * 1.85;
+                    const cardSpin = progress * Math.PI * 8;
+
+                    // Light rays from center
+                    ctx.save();
+                    ctx.translate(x, cardY);
+                    ctx.globalAlpha = eased * 0.15;
+                    for (let r = 0; r < 12; r++) {
+                        ctx.save();
+                        ctx.rotate((r / 12) * Math.PI * 2 + frame * 0.02);
+                        ctx.fillStyle = '#f59e0b';
+                        ctx.beginPath();
+                        ctx.moveTo(-3, 0); ctx.lineTo(0, -350 * eased); ctx.lineTo(3, 0);
+                        ctx.fill();
+                        ctx.restore();
+                    }
+                    ctx.globalAlpha = 1;
+                    ctx.restore();
+
+                    // Background radial flash
+                    ctx.save();
+                    const grad = ctx.createRadialGradient(x, cardY, 0, x, cardY, 350 * eased);
+                    grad.addColorStop(0, `rgba(255, 255, 255, ${0.25 * eased})`);
+                    grad.addColorStop(0.5, `rgba(245, 158, 11, ${0.08 * eased})`);
+                    grad.addColorStop(1, 'transparent');
+                    ctx.fillStyle = grad;
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.restore();
+
+                    ctx.save();
+                    ctx.translate(x, cardY);
+                    ctx.rotate(cardSpin);
+                    ctx.scale(cardScale, cardScale);
+
+                    ctx.shadowBlur = 50; ctx.shadowColor = '#f59e0b';
+                    ctx.fillStyle = '#fff';
+                    ctx.beginPath();
+                    ctx.roundRect(-40, -60, 80, 120, 10);
+                    ctx.fill();
+
+                    ctx.strokeStyle = '#f59e0b'; ctx.lineWidth = 3; ctx.stroke();
+
+                    // Inner amber gem hint
+                    ctx.fillStyle = 'rgba(245,158,11,0.3)';
+                    ctx.beginPath(); ctx.arc(0, -8, 18, 0, Math.PI*2); ctx.fill();
+
+                    ctx.restore();
+
+                    if (frame++ > 80) sequence = 'reveal';
+                } else if (sequence === 'reveal') {
+                    clearInterval(openingInterval);
+                    showFinalCard(dino, options);
+                }
+            }, 1000 / 60);
+        }
+        function registerDinoRewards(rewards) {
+            const known = new Set(state.collection.map(x => x.name));
+            let newSpecies = 0;
+
+            rewards.forEach(d => {
+                if (!known.has(d.name)) {
+                    newSpecies += 1;
+                    known.add(d.name);
+                }
+                state.collection.push({ ...d, timestamp: Date.now() });
+            });
+
+            updateQuestProgress('packsOpened', rewards.length);
+            if (newSpecies > 0) updateQuestProgress('newSpecies', newSpecies);
+            saveGameState();
+            renderCollection();
+        }
+
+        function showFinalCard(dino, options = {}) {
+            const reveal = document.getElementById('reveal-overlay');
+            const card = document.getElementById('revealed-card');
+            const impact = document.getElementById('reveal-impact');
+            const extraRewards = Array.isArray(options.extraRewards) ? options.extraRewards : [];
+
+            const rarityClass = `rarity-${dino.rarity.toLowerCase().replace(/ /g, '-')}`;
+            const rarityColors = {'Común':'#94a3b8','Poco Común':'#22c55e','Raro':'#3b82f6','Épico':'#a855f7','Legendario':'#f59e0b','Mítico':'#ef4444'};
+            const rc = rarityColors[dino.rarity] || '#94a3b8';
+
+            reveal.style.display = 'flex';
+            impact.style.width = '0';
+            impact.style.height = '0';
+            impact.style.opacity = '1';
+
+            setTimeout(() => {
+                impact.style.transition = 'width 1s ease-out, height 1s ease-out, opacity 1s';
+                impact.style.width = '200vw';
+                impact.style.height = '200vw';
+                impact.style.opacity = '0';
+            }, 10);
+
+            const titleEl = document.getElementById('opening-text');
+            titleEl.style.color = rc;
+            titleEl.style.textShadow = `0 0 30px ${rc}60`;
+
+            const subtitleEl = document.getElementById('reveal-rarity-label');
+            subtitleEl.textContent = `Dinosaurio ${dino.rarity}`;
+            subtitleEl.style.color = rc;
+
+            document.getElementById('reveal-hp').textContent = dino.hp.toLocaleString();
+            document.getElementById('reveal-atk').textContent = dino.atk.toLocaleString();
+            document.getElementById('reveal-power').textContent = Math.floor(dino.hp * 0.4 + dino.atk * 1.5).toLocaleString();
+
+            card.className = `dino-card final-reveal ${rarityClass}`;
+            card.style.borderColor = rc;
+            card.innerHTML = `
+                <div class="dino-rarity" style="margin-bottom:0.5rem;">${dino.rarity}</div>
+                <div class="dino-image-placeholder" style="margin-bottom:0.8rem;">
+                    <canvas id="reveal-dino-canvas" width="160" height="160"></canvas>
+                </div>
+                <h3 class="dino-name" style="font-size:1.4rem; margin-bottom:0.3rem;">${dino.name}</h3>
+                <div class="dino-tags" style="margin-bottom:0.5rem;">
+                     ${(dino.tags || []).map(t => `<span class="dino-tag">${t}</span>`).join('')}
+                </div>
+            `;
+
+            setTimeout(() => {
+                const crc = document.getElementById('reveal-dino-canvas');
+                if (crc) drawDino(crc.getContext('2d'), dino.name, 80, 80, 110);
+            }, 50);
+
+            registerDinoRewards([dino, ...extraRewards]);
+        }
+
+        function closeOpening() {
+            document.getElementById('opening-scene').style.display = 'none';
+        }
+
+        // --- Collection ---
+        // loadCollection and saveCollection are replaced by loadGameState and saveGameState
+        // function loadCollection() {
+        //     const saved = localStorage.getItem('dinobox_collection');
+        //     if (saved) state.collection = JSON.parse(saved);
+        // }
+
+        // function saveCollection() {
+        //     localStorage.setItem('dinobox_collection', JSON.stringify(state.collection));
+        // }
+
+        function renderCollection() {
+            const container = document.getElementById('view-collection');
+            if (state.collection.length === 0) {
+                container.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding-top: 4rem;">
+                    <div style="width:120px;height:120px;margin:0 auto 1.5rem;border-radius:50%;background:rgba(245,158,11,0.08);display:flex;align-items:center;justify-content:center;">
+                        <i class="fas fa-egg" style="font-size:3.5rem; color:var(--primary); opacity:0.6;"></i>
+                    </div>
+                    <h3 style="margin-bottom:0.5rem; opacity:0.7;">Tu colección está vacía</h3>
+                    <p style="opacity:0.4; max-width:300px; margin:0 auto;">Compra packs en la tienda para descubrir dinosaurios prehistóricos.</p>
+                    <button class="btn-primary" style="width:auto; margin-top:1.5rem; padding:12px 30px;" onclick="showView('store')">
+                        <i class="fas fa-shopping-bag"></i> Ir a la Tienda
+                    </button>
+                </div>`;
+                return;
+            }
+
+            const rarityCount = {};
+            state.collection.forEach(d => { rarityCount[d.rarity] = (rarityCount[d.rarity]||0) + 1; });
+
+            const headerHTML = `<div style="grid-column:1/-1; display:flex; justify-content:space-between; align-items:center; margin-bottom:0.5rem;">
+                <div>
+                    <h2 style="font-size:1.8rem; font-weight:900; margin:0;">Mi Colección</h2>
+                    <p style="color:#64748b; font-size:0.85rem; margin-top:4px;">${state.collection.length} dinosaurios descubiertos</p>
+                </div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    ${Object.entries(rarityCount).map(([r,c]) => {
+                        const colors = {'Común':'#94a3b8','Poco Común':'#22c55e','Raro':'#3b82f6','Épico':'#a855f7','Legendario':'#f59e0b','Mítico':'#ef4444'};
+                        return `<span style="background:rgba(0,0,0,0.3);padding:4px 10px;border-radius:8px;font-size:0.7rem;font-weight:700;color:${colors[r]||'#fff'};border:1px solid ${colors[r]||'#334155'}30;">${c} ${r}</span>`;
+                    }).join('')}
+                </div>
+            </div>`;
+
+            container.innerHTML = headerHTML + state.collection.map((dino, idx) => {
+                const rarityClass = `rarity-${dino.rarity.toLowerCase().replace(/ /g, '-')}`;
+                return `
+                    <div class="dino-card ${rarityClass}" style="animation-delay: ${idx * 0.04}s">
+                        <div class="dino-rarity">${dino.rarity}</div>
+                        <div class="dino-image-placeholder">
+                            <canvas class="dino-canvas" data-name="${dino.name}" width="120" height="120"></canvas>
+                        </div>
+                        <h3 class="dino-name">${dino.name}</h3>
+                        <div class="dino-tags">
+                            ${(dino.tags || []).map(t => `<span class="dino-tag">${t}</span>`).join('')}
+                        </div>
+                        <div class="dino-stats">
+                            <div class="stat"><i class="fas fa-heart" style="color:#ef4444"></i> ${dino.hp}</div>
+                            <div class="stat"><i class="fas fa-fist-raised" style="color:#f59e0b"></i> ${dino.atk}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            document.querySelectorAll('.dino-canvas').forEach(c => {
+                drawDino(c.getContext('2d'), c.dataset.name, 60, 60, 80);
+            });
+        }
+
+        let currentCheckout = null;
+
+        window.openCheckout = function (type) {
+            const costs = { 'premium': 5000, 'elite': 12000 };
+            const cost = costs[type];
+            currentCheckout = { type, cost };
+
+            document.getElementById('checkout-modal').classList.add('active');
+            document.getElementById('checkout-concept').textContent = `DinoPass ${type.toUpperCase()}`;
+            document.getElementById('checkout-total').textContent = `${cost.toLocaleString()} AMB`;
+
+            renderCheckoutCards();
+        };
+
+        window.closeCheckout = function () {
+            document.getElementById('checkout-modal').classList.remove('active');
+            currentCheckout = null;
+        };
+
+        function renderCheckoutCards() {
+            const container = document.getElementById('checkout-card-list');
+            if (state.userCards.length === 0) {
+                container.innerHTML = `<div style="padding:1rem; opacity:0.5; font-size:0.8rem;">No se encontraron tarjetas Ocean Pay</div>`;
+                return;
+            }
+
+            container.innerHTML = state.userCards.map(card => `
+                <div class="card-option ${state.activeCardId === card.id ? 'selected' : ''}" onclick="selectCheckoutCard(${card.id})">
+                    <div style="width:40px; height:25px; background:linear-gradient(135deg,#334155,#0f172a); border-radius:4px; border:1px solid rgba(255,255,255,0.1);"></div>
+                    <div>
+                        <div style="font-weight:700; font-size:0.9rem;">${card.card_name || 'Tarjeta Ocean'}</div>
+                        <div class="card-number">**** ${card.card_number.slice(-4)}</div>
+                    </div>
+                    ${state.activeCardId === card.id ? '<i class="fas fa-check-circle" style="color:#f59e0b; margin-left:auto;"></i>' : ''}
+                </div>
+            `).join('');
+        }
+
+        window.selectCheckoutCard = function (id) {
+            state.activeCardId = id;
+            renderCheckoutCards();
+        };
+
+        const SEASON_END = new Date('2026-03-12T00:00:00');
+
+        function updateSeasonRemaining() {
+            const remainingEl = document.getElementById('season-remaining-display');
+            if (!remainingEl) return;
+            const now = new Date();
+            const diff = SEASON_END - now;
+            if (diff <= 0) {
+                remainingEl.textContent = 'Finalizada';
+                return;
+            }
+            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
+            const mins = Math.floor((diff / (1000 * 60)) % 60);
+            remainingEl.textContent = `${days}d ${hours}h ${mins}m`;
+        }
+
+        window.confirmCheckout = async function () {
+            if (!currentCheckout) return;
+            const { type, cost } = currentCheckout;
+
+            if (state.amber < cost) {
+                alert('¡No tienes suficiente Amber!');
+                return closeCheckout();
+            }
+
+            const btn = document.getElementById('confirm-checkout-btn');
+            btn.disabled = true;
+            btn.textContent = 'Procesando...';
+
+            try {
+                // Calcular días hasta el fin de temporada
+                const now = new Date();
+                const diffTime = Math.max(0, SEASON_END - now);
+                const intervalDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+
+                // Process persistent purchase
+                const res = await fetch(`${API}/ocean-pay/subscriptions/purchase`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${state.token}`
+                    },
+                    body: JSON.stringify({
+                        projectId: 'DinoBox',
+                        subName: `DinoPass ${type.charAt(0).toUpperCase() + type.slice(1)}`,
+                        price: cost,
+                        currency: 'amber',
+                        intervalDays: intervalDays,
+                        cardId: state.activeCardId
+                    })
+                });
+
+                if (res.ok) {
+                    await syncWithOceanPay();
+                    state.passType = type;
+                    if (type === 'elite') state.passLevel = Math.min(PASS_MAX_LEVEL, state.passLevel + 10);
+
+                    renderPass();
+                    saveGameState();
+                    alert(`¡DinoPass ${type.toUpperCase()} activado! Finaliza al terminar la temporada (${SEASON_END.toLocaleDateString()}).`);
+                    closeCheckout();
+                } else {
+                    const err = await res.json();
+                    alert('Error: ' + err.error);
+                }
+            } catch (e) {
+                alert('Error de conexión');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Pagar ahora';
+            }
+        };
+
+        async function buyDinoPass(type) {
+            // This is now replaced by opening the checkout modal
+            openCheckout(type);
+        }
+
+        function renderPass() {
+            const container = document.getElementById('pass-track-list');
+            if (!container) return;
+
+            const seasonEndEl = document.getElementById('season-end-display');
+            if (seasonEndEl) seasonEndEl.textContent = SEASON_END.toLocaleDateString();
+            updateSeasonRemaining();
+
+            const status = document.getElementById('pass-status');
+            status.textContent = state.passType.toUpperCase();
+            status.style.color = state.passType === 'free' ? '#94a3b8' : (state.passType === 'premium' ? '#f59e0b' : '#ef4444');
+
+            const progress = document.getElementById('pass-progress');
+            if (progress) progress.style.width = `${(state.passLevel / PASS_MAX_LEVEL) * 100}%`;
+
+            const xpBar = document.getElementById('pass-xp-bar');
+            if (xpBar) xpBar.style.width = `${(state.passXP / PASS_DATA.xpPerLevel) * 100}%`;
+
+            const xpText = document.getElementById('pass-xp-text');
+            if (xpText) xpText.textContent = `${state.passXP} / ${PASS_DATA.xpPerLevel} XP (Nivel ${state.passLevel})`;
+
+            container.innerHTML = PASS_DATA.rewards.map(r => {
+                const isReached = state.passLevel >= r.level;
+                const freeClaimed = state.claimedFreeLevels.includes(r.level);
+                const premiumClaimed = state.claimedPremiumLevels.includes(r.level);
+                const canClaimFree = isReached && !freeClaimed;
+                const canClaimPremium = isReached && !premiumClaimed && state.passType !== 'free';
+                const allClaimed = freeClaimed && (state.passType === 'free' || premiumClaimed);
+
+                return `
+                    <div class="pass-row ${isReached ? 'active' : ''}">
+                        <div class="pass-level-circle">${r.level}</div>
+                        <div class="pass-reward-box free ${isReached ? 'unlocked' : ''}">
+                            <small>Gratis</small>
+                            <div class="reward-content">
+                                ${r.free.type === 'amber' ? `<span>+${r.free.value} <i class="fas fa-gem" style="color:#f59e0b"></i></span>` : `<i class="fas fa-box" style="color:#94a3b8"></i> Pack ${r.free.value}`}
+                            </div>
+                        </div>
+                        <div class="pass-reward-box premium ${state.passType !== 'free' ? 'gold-border' : ''} ${isReached ? 'unlocked' : ''}">
+                            <small>Premium</small>
+                            <div class="reward-content">
+                                ${r.premium.type === 'amber' ? `<span>+${r.premium.value} <i class="fas fa-gem" style="color:#f59e0b"></i></span>` : `<i class="fas fa-box" style="color:#f59e0b"></i> Pack ${r.premium.value}`}
+                            </div>
+                            ${state.passType === 'free' ? '<i class="fas fa-lock" style="position:absolute; top:5px; right:5px; font-size:0.75rem; opacity:0.5;"></i>' : ''}
+                        </div>
+                        <div class="pass-action">
+                            <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-end;">
+                                ${canClaimFree ? `<button class="btn-primary" style="padding:8px 12px; font-size:0.78rem; min-width:112px;" onclick="claimPassReward(${r.level}, 'free')">Gratis</button>` : ''}
+                                ${canClaimPremium ? `<button class="btn-primary" style="padding:8px 12px; font-size:0.78rem; min-width:112px; background:linear-gradient(135deg,#f59e0b,#d97706);" onclick="claimPassReward(${r.level}, 'premium')">Premium</button>` : ''}
+                                ${allClaimed ? '<i class="fas fa-check-circle" style="color:#10b981"></i>' : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function claimPassReward(level, lane = 'free') {
+            if (state.passLevel < level) return;
+
+            const r = PASS_DATA.rewards.find(x => x.level === level);
+            if (!r) return;
+
+            const claimFree = lane === 'free';
+            const claimPremium = lane === 'premium';
+
+            if (claimFree && state.claimedFreeLevels.includes(level)) return;
+            if (claimPremium && (state.passType === 'free' || state.claimedPremiumLevels.includes(level))) return;
+
+            let summary = 'Recompensa reclamada\n';
+            let reward;
+
+            if (claimFree) {
+                reward = r.free;
+                state.claimedFreeLevels.push(level);
+                summary += '- Carril Gratis: ';
+            } else if (claimPremium) {
+                reward = r.premium;
+                state.claimedPremiumLevels.push(level);
+                summary += '- Carril Premium: ';
+            }
+
+            if (reward.type === 'amber') {
+                state.amber += reward.value;
+                summary += `+${reward.value} Amber`;
+            } else if (reward.type === 'pack') {
+                grantPack(reward.value);
+                summary += `Pack ${reward.value}`;
+            }
+
+            state.claimedLevels = Array.from(new Set([...state.claimedFreeLevels, ...state.claimedPremiumLevels]));
+            updateUI();
+            renderPass();
+            saveGameState();
+            alert(summary);
+        }
+
+        function addPassXP(amount) {
+            state.passXP += amount;
+            if (state.passXP >= PASS_DATA.xpPerLevel) {
+                state.passXP -= PASS_DATA.xpPerLevel;
+                state.passLevel = Math.min(PASS_MAX_LEVEL, state.passLevel + 1);
+            }
+            saveGameState();
+            renderPass();
+        }
+
+        // --- Logout ---
+        document.getElementById('logout-btn').onclick = () => {
+            localStorage.removeItem('dinobox_token');
+            localStorage.removeItem('dinobox_user');
+            location.reload();
+        };
+
+        // --- Init on load ---
+        window.onload = () => {
+            const t = localStorage.getItem('dinobox_token');
+            if (t) {
+                state.token = t;
+                state.user = JSON.parse(localStorage.getItem('dinobox_user'));
+                document.getElementById('auth-overlay').classList.add('hidden');
+                initGame();
+            }
+        };
+
+    </script>
+</body>
+
+</html>

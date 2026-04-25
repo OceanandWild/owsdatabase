@@ -1,0 +1,47 @@
+{
+    "name":  "dinobox",
+    "productName":  "DinoBox",
+    "version":  "2026.4.25-t0143",
+    "description":  "DinoBox desktop app for Ocean and Wild Studios",
+    "main":  "main.js",
+    "author":  "Ocean and Wild Studios",
+    "license":  "MIT",
+    "scripts":  {
+                    "start":  "electron .",
+                    "dist":  "electron-builder --win nsis",
+                    "dist:dir":  "electron-builder --win dir"
+                },
+    "devDependencies":  {
+                            "electron":  "^37.3.1",
+                            "electron-builder":  "^26.0.12"
+                        },
+    "build":  {
+                  "appId":  "com.oceanandwild.dinobox",
+                  "productName":  "DinoBox",
+                  "directories":  {
+                                      "output":  "release"
+                                  },
+                  "files":  [
+                                "index.html",
+                                "main.js",
+                                "preload.js",
+                                "build/**/*"
+                            ],
+                  "win":  {
+                              "target":  [
+                                             {
+                                                 "target":  "nsis",
+                                                 "arch":  [
+                                                              "x64"
+                                                          ]
+                                             }
+                                         ],
+                              "icon":  "build/dinobox.ico"
+                          },
+                  "nsis":  {
+                               "oneClick":  false,
+                               "allowToChangeInstallationDirectory":  true,
+                               "artifactName":  "DinoBox-Setup-${version}.${ext}"
+                           }
+              }
+}

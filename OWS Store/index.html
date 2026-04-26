@@ -3981,6 +3981,8 @@
             font-weight: 700;
             color: var(--ink-0);
             line-height: 1.3;
+            flex: 1;
+            min-width: 0;
         }
 
         .news-hub-item-meta {
@@ -5058,6 +5060,22 @@
             gap: 0.28rem;
             flex-shrink: 0;
         }
+        .news-hub-event-card.layout-icon .news-hub-event-head {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 0.32rem;
+        }
+        .news-hub-event-card.layout-icon .news-hub-event-badges {
+            justify-content: flex-start;
+            width: 100%;
+        }
+        .news-hub-event-card.layout-icon .news-hub-item-title {
+            width: 100%;
+            font-size: 0.96rem;
+            line-height: 1.22;
+            overflow-wrap: anywhere;
+        }
         .news-hub-event-highlight {
             font-size: 0.56rem;
             line-height: 1;
@@ -5268,6 +5286,7 @@
 
 
         /* ═══ EVENT CARD LAYOUT OVERRIDES (scoped, icon-only) ═══ */
+        #news-hub-events-grid .news-hub-event-card.layout-icon,
         #news-hub-events .news-hub-event-card.layout-icon,
         #news-hub-events-wrap .news-hub-event-card.layout-icon {
             display: flex !important;
@@ -5276,6 +5295,7 @@
             gap: 0.75rem !important;
             padding: 0.85rem !important;
         }
+        #news-hub-events-grid .news-hub-event-card.layout-icon .news-hub-event-copy,
         #news-hub-events .news-hub-event-card.layout-icon .news-hub-event-copy,
         #news-hub-events-wrap .news-hub-event-card.layout-icon .news-hub-event-copy {
             flex: 1 !important;
@@ -11502,8 +11522,7 @@
             // Split active/upcoming vs ended
             const featuredEvents = allEvents
                 .filter((e) => e.eventPhase !== 'ended')
-                .sort(compareEventsByLaunchProximity)
-                .slice(0, 8);
+                .sort(compareEventsByLaunchProximity);
 
             const endedEvents = allEvents
                 .filter((e) => e.eventPhase === 'ended')

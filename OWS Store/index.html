@@ -4957,6 +4957,43 @@
         .news-hub-event-card.phase-upcoming {
             border-color: rgba(38,212,232,0.2);
         }
+        .news-hub-event-card.urgency-near {
+            border-color: rgba(245,197,66,0.56);
+            background: linear-gradient(135deg, rgba(245,197,66,0.12), rgba(8,16,30,0.96));
+            box-shadow: 0 0 0 1px rgba(245,197,66,0.16), inset 0 1px 0 rgba(245,197,66,0.14);
+        }
+        .news-hub-event-card.urgency-near:hover {
+            box-shadow: 0 12px 32px rgba(0,0,0,0.45), 0 0 24px rgba(245,197,66,0.2);
+        }
+        .news-hub-event-card.urgency-soon {
+            border-color: rgba(242,104,48,0.46);
+            background: linear-gradient(135deg, rgba(242,104,48,0.08), rgba(8,16,30,0.96));
+            box-shadow: 0 0 0 1px rgba(242,104,48,0.12), inset 0 1px 0 rgba(242,104,48,0.1);
+        }
+        .news-hub-event-card.urgency-week {
+            border-color: rgba(38,212,232,0.32);
+            box-shadow: 0 0 0 1px rgba(38,212,232,0.08), inset 0 1px 0 rgba(38,212,232,0.08);
+        }
+        .news-hub-event-card.urgency-neutral {
+            border-color: rgba(116,170,214,0.24);
+            box-shadow: 0 0 0 1px rgba(116,170,214,0.06), inset 0 1px 0 rgba(116,170,214,0.06);
+        }
+        .news-hub-event-card.urgency-unscheduled {
+            border-color: rgba(148,163,184,0.34);
+            background: linear-gradient(135deg, rgba(148,163,184,0.09), rgba(8,16,30,0.96));
+            box-shadow: 0 0 0 1px rgba(148,163,184,0.12), inset 0 1px 0 rgba(148,163,184,0.08);
+        }
+        .news-hub-event-card.urgency-unscheduled::after {
+            content: '';
+            position: absolute;
+            right: 0.6rem;
+            bottom: 0.6rem;
+            width: 7px;
+            height: 7px;
+            border-radius: 999px;
+            background: rgba(191,219,254,0.8);
+            box-shadow: 0 0 10px rgba(191,219,254,0.6);
+        }
         .news-hub-event-card.empty { opacity: 0.45; cursor: default; }
         .news-hub-event-card.empty:hover { transform: none; box-shadow: none; }
 
@@ -5013,6 +5050,46 @@
         /* Copy area */
         .news-hub-event-copy { display: flex; flex-direction: column; gap: 0.3rem; position: relative; z-index: 1; }
         .news-hub-event-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; }
+        .news-hub-event-badges {
+            display: inline-flex;
+            align-items: center;
+            justify-content: flex-end;
+            flex-wrap: wrap;
+            gap: 0.28rem;
+            flex-shrink: 0;
+        }
+        .news-hub-event-highlight {
+            font-size: 0.56rem;
+            line-height: 1;
+            font-family: var(--font-mono);
+            text-transform: uppercase;
+            letter-spacing: 0.35px;
+            border-radius: 999px;
+            padding: 0.22rem 0.36rem;
+            border: 1px solid var(--border);
+            background: rgba(15,23,42,0.72);
+            color: var(--ink-1);
+        }
+        .news-hub-event-highlight.heat-near {
+            border-color: rgba(245,197,66,0.52);
+            background: rgba(245,197,66,0.18);
+            color: #ffe39a;
+        }
+        .news-hub-event-highlight.heat-soon {
+            border-color: rgba(242,104,48,0.5);
+            background: rgba(242,104,48,0.16);
+            color: #ffd2bc;
+        }
+        .news-hub-event-highlight.heat-week {
+            border-color: rgba(38,212,232,0.4);
+            background: rgba(38,212,232,0.16);
+            color: #b8f1ff;
+        }
+        .news-hub-event-highlight.heat-neutral {
+            border-color: rgba(148,163,184,0.38);
+            background: rgba(148,163,184,0.14);
+            color: #d9e2ef;
+        }
         .news-hub-event-meta {
             font-size: 0.72rem; color: var(--ink-1); line-height: 1.45;
             overflow: hidden; text-overflow: ellipsis;
@@ -11084,6 +11161,47 @@
             return { label: 'ACTIVO', klass: 'active' };
         }
 
+        function getEventLaunchHighlightMeta(item) {
+            const phase = String(item?.eventPhase || '').toLowerCase();
+            const startMs = Date.parse(item?.eventWindow?.startAt || '') || 0;
+            if (phase === 'ended') {
+                return { cardClass: 'urgency-neutral', badgeClass: 'heat-neutral', badgeLabel: 'Finalizado', rank: 0, secondsToStart: Number.POSITIVE_INFINITY };
+            }
+            if (phase === 'active') {
+                return { cardClass: 'urgency-near', badgeClass: 'heat-near', badgeLabel: 'En curso', rank: 6, secondsToStart: 0 };
+            }
+            if (!startMs) {
+                return { cardClass: 'urgency-unscheduled', badgeClass: 'heat-neutral', badgeLabel: 'Por definir', rank: 2, secondsToStart: Number.POSITIVE_INFINITY };
+            }
+            const secondsToStart = Math.max(0, Math.floor((startMs - Date.now()) / 1000));
+            const day = 86400;
+            if (secondsToStart <= day) {
+                return { cardClass: 'urgency-near', badgeClass: 'heat-near', badgeLabel: 'Muy cerca', rank: 5, secondsToStart };
+            }
+            if (secondsToStart <= (3 * day)) {
+                return { cardClass: 'urgency-soon', badgeClass: 'heat-soon', badgeLabel: 'Se acerca', rank: 4, secondsToStart };
+            }
+            if (secondsToStart <= (7 * day)) {
+                return { cardClass: 'urgency-week', badgeClass: 'heat-week', badgeLabel: 'Esta semana', rank: 3, secondsToStart };
+            }
+            return { cardClass: 'urgency-neutral', badgeClass: 'heat-neutral', badgeLabel: 'Proximo', rank: 1, secondsToStart };
+        }
+
+        function compareEventsByLaunchProximity(a, b) {
+            const metaA = getEventLaunchHighlightMeta(a);
+            const metaB = getEventLaunchHighlightMeta(b);
+            if (metaA.rank !== metaB.rank) return metaB.rank - metaA.rank;
+            const startA = Date.parse(a?.eventWindow?.startAt || '') || 0;
+            const startB = Date.parse(b?.eventWindow?.startAt || '') || 0;
+            if (startA && startB && startA !== startB) return startA - startB;
+            if (startA && !startB) return -1;
+            if (!startA && startB) return 1;
+            const priorityA = Number(a?.priority || 0);
+            const priorityB = Number(b?.priority || 0);
+            if (priorityA !== priorityB) return priorityB - priorityA;
+            return (Date.parse(b?.updateDate || '') || 0) - (Date.parse(a?.updateDate || '') || 0);
+        }
+
         function getEventWindowText(item) {
             if (!item?.isEvent) return '';
             const startAt = item?.eventWindow?.startAt || null;
@@ -11140,6 +11258,7 @@
 
         function buildNewsHubEventCard(item) {
             const status = getEventStatusLabel(item);
+            const highlight = getEventLaunchHighlightMeta(item);
             const summary = item?.description || (item?.changes?.[0] || 'Evento destacado del ecosistema.');
 
             // Resolve cover image from banner_meta
@@ -11177,13 +11296,16 @@
             }
 
             return `
-                <div class="news-hub-event-card layout-${layout} phase-${status.klass}" data-event-card="1" data-event-visual="${escHtml(visualKey)}" onclick="openEventDetailModal(${item.id || 0})">
+                <div class="news-hub-event-card layout-${layout} phase-${status.klass} ${highlight.cardClass}" data-event-card="1" data-event-visual="${escHtml(visualKey)}" onclick="openEventDetailModal(${item.id || 0})">
                     ${buildEventProjectStampHtml(item)}
                     ${visualHtml}
                     <div class="news-hub-event-copy">
                         <div class="news-hub-event-head">
                             <div class="news-hub-item-title">${escHtml(normalizeUiText(item.title))}</div>
-                            <div class="news-hub-event-status ${status.klass}">${status.label}</div>
+                            <div class="news-hub-event-badges">
+                                <div class="news-hub-event-highlight ${highlight.badgeClass}">${escHtml(highlight.badgeLabel)}</div>
+                                <div class="news-hub-event-status ${status.klass}">${status.label}</div>
+                            </div>
                         </div>
                         <div class="news-hub-event-meta">${escHtml(normalizeUiText(summary))}</div>
                         <div class="news-hub-event-meta window-text">${escHtml(getEventWindowText(item))}</div>
@@ -11380,11 +11502,7 @@
             // Split active/upcoming vs ended
             const featuredEvents = allEvents
                 .filter((e) => e.eventPhase !== 'ended')
-                .sort((a, b) => {
-                    const aStart = Date.parse(a?.eventWindow?.startAt || a?.updateDate || '') || 0;
-                    const bStart = Date.parse(b?.eventWindow?.startAt || b?.updateDate || '') || 0;
-                    return bStart - aStart;
-                })
+                .sort(compareEventsByLaunchProximity)
                 .slice(0, 8);
 
             const endedEvents = allEvents

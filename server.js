@@ -9127,11 +9127,75 @@ function normalizeOwsProjectRef(value) {
   if (raw === 'oceanpay' || raw === 'ocean-pay' || raw === 'ocean pay') return 'oceanpay';
   if (raw === 'owsstore' || raw === 'ows-store' || raw === 'ows store') return 'ows-store';
   if (raw === 'floret shop' || raw === 'floret-shop') return 'floretshop';
+  if (raw === 'savage-space-animals' || raw === 'savage space animals' || raw === 'ssa') return 'savagespaceanimals';
   return raw;
 }
 
 async function syncOwsProjectRestrictionsTable(client = null) {
   const runner = client || pool;
+  await runner.query(`
+    WITH legacy_rows AS (
+      SELECT *
+      FROM ows_project_restrictions
+      WHERE LOWER(project_slug) IN ('savage-space-animals', 'savage space animals', 'ssa')
+    )
+    INSERT INTO ows_project_restrictions (
+      project_slug,
+      project_name,
+      icon_url,
+      is_rework,
+      is_unavailable,
+      reason,
+      rework_message,
+      unavailable_message,
+      created_at,
+      updated_at
+    )
+    SELECT
+      'savagespaceanimals' AS project_slug,
+      COALESCE(
+        (SELECT p.name FROM ows_projects p WHERE LOWER(p.slug) = 'savagespaceanimals' LIMIT 1),
+        'Savage Space Animals'
+      ) AS project_name,
+      (SELECT p.icon_url FROM ows_projects p WHERE LOWER(p.slug) = 'savagespaceanimals' LIMIT 1) AS icon_url,
+      COALESCE(BOOL_OR(lr.is_rework), false) AS is_rework,
+      COALESCE(BOOL_OR(lr.is_unavailable), false) AS is_unavailable,
+      (
+        SELECT x.reason
+        FROM legacy_rows x
+        WHERE NULLIF(TRIM(COALESCE(x.reason, '')), '') IS NOT NULL
+        ORDER BY x.updated_at DESC NULLS LAST
+        LIMIT 1
+      ) AS reason,
+      (
+        SELECT x.rework_message
+        FROM legacy_rows x
+        WHERE NULLIF(TRIM(COALESCE(x.rework_message, '')), '') IS NOT NULL
+        ORDER BY x.updated_at DESC NULLS LAST
+        LIMIT 1
+      ) AS rework_message,
+      (
+        SELECT x.unavailable_message
+        FROM legacy_rows x
+        WHERE NULLIF(TRIM(COALESCE(x.unavailable_message, '')), '') IS NOT NULL
+        ORDER BY x.updated_at DESC NULLS LAST
+        LIMIT 1
+      ) AS unavailable_message,
+      NOW() AS created_at,
+      COALESCE(MAX(lr.updated_at), NOW()) AS updated_at
+    FROM legacy_rows lr
+    ON CONFLICT (project_slug) DO UPDATE SET
+      is_rework = (ows_project_restrictions.is_rework OR EXCLUDED.is_rework),
+      is_unavailable = (ows_project_restrictions.is_unavailable OR EXCLUDED.is_unavailable),
+      reason = COALESCE(NULLIF(TRIM(ows_project_restrictions.reason), ''), EXCLUDED.reason),
+      rework_message = COALESCE(NULLIF(TRIM(ows_project_restrictions.rework_message), ''), EXCLUDED.rework_message),
+      unavailable_message = COALESCE(NULLIF(TRIM(ows_project_restrictions.unavailable_message), ''), EXCLUDED.unavailable_message),
+      updated_at = GREATEST(ows_project_restrictions.updated_at, EXCLUDED.updated_at)
+  `);
+  await runner.query(`
+    DELETE FROM ows_project_restrictions
+    WHERE LOWER(project_slug) IN ('savage-space-animals', 'savage space animals', 'ssa')
+  `);
   await runner.query(`
     INSERT INTO ows_project_restrictions (project_slug, project_name, icon_url)
     SELECT p.slug, p.name, p.icon_url
@@ -9177,6 +9241,7 @@ function buildProjectRestrictionPayload(row = {}) {
     title,
     message,
     reason: String(row?.reason || '').trim() || null,
+    updated_at: row?.restriction_updated_at || row?.updated_at || null,
     rework: {
       active: reworkActive,
       from_status: statusRework,
@@ -9216,19 +9281,27 @@ app.get('/ows-store/projects', async (req, res) => {
     }
 
     const sql = `
-      SELECT *
-      FROM ows_projects
+      SELECT
+        p.*,
+        r.is_rework,
+        r.is_unavailable,
+        r.reason AS restriction_reason,
+        r.rework_message,
+        r.unavailable_message,
+        r.updated_at AS restriction_updated_at
+      FROM ows_projects p
+      LEFT JOIN ows_project_restrictions r ON LOWER(r.project_slug) = LOWER(p.slug)
       ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
       ORDER BY
-        CASE LOWER(status)
+        CASE LOWER(p.status)
           WHEN 'launched' THEN 0
           WHEN 'coming_soon' THEN 1
           WHEN 'rework' THEN 3
           WHEN 'unavailable' THEN 4
           ELSE 2
         END,
-        COALESCE(release_date, last_update, created_at) DESC,
-        name ASC
+        COALESCE(p.release_date, p.last_update, p.created_at) DESC,
+        p.name ASC
     `;
     const { rows } = await pool.query(sql, values);
 
@@ -9393,6 +9466,51 @@ app.get('/ows-store/projects', async (req, res) => {
       const currentStatus = String(project?.status || '').trim().toLowerCase();
       if (currentStatus !== 'coming_soon') return;
 
+      const now = Date.now();
+      const releaseDateMs = project?.release_date ? new Date(project.release_date).getTime() : NaN;
+      const hasReachedReleaseDate = Number.isFinite(releaseDateMs) && releaseDateMs <= now;
+      if (hasReachedReleaseDate) {
+        const metadata = (project?.metadata && typeof project.metadata === 'object') ? project.metadata : {};
+        const hasAnyInstaller = Boolean(
+          String(project?.installer_url || '').trim()
+          || String(project?.android_apk_url || '').trim()
+          || String(project?.android_aab_url || '').trim()
+        );
+        const pendingRelease = !hasAnyInstaller;
+        const mergedMetadata = {
+          ...metadata,
+          pending_release: pendingRelease
+        };
+
+        project.status = 'launched';
+        project.pending_release = pendingRelease;
+        project.release_warning = pendingRelease ? (String(project.release_warning || waitingMessage)) : '';
+        project.metadata = mergedMetadata;
+        if (!project.platforms && Array.isArray(mergedMetadata.platforms)) project.platforms = mergedMetadata.platforms;
+        if (!project.platform && Array.isArray(project.platforms) && project.platforms.length === 1) project.platform = project.platforms[0];
+
+        const slug = String(project?.slug || '').trim().toLowerCase();
+        if (slug && !persistedSlugs.has(slug)) {
+          persistedSlugs.add(slug);
+          try {
+            await pool.query(
+              `UPDATE ows_projects
+                  SET status = 'launched',
+                      metadata = COALESCE(metadata, '{}'::jsonb) || $2::jsonb,
+                      last_update = NOW()
+                WHERE slug = $1
+                  AND LOWER(status) = 'coming_soon'
+                  AND release_date IS NOT NULL
+                  AND release_date <= NOW()`,
+              [slug, JSON.stringify({ pending_release: pendingRelease })]
+            );
+          } catch (persistErr) {
+            console.warn(`[ows-store/projects] No se pudo persistir auto-promocion por release_date para ${slug}:`, persistErr?.message || persistErr);
+          }
+        }
+        return;
+      }
+
       const repoInfo = parseRepoFromProject(project);
       if (!repoInfo) {
         ensureComingSoonState(project);
@@ -9400,7 +9518,6 @@ app.get('/ows-store/projects', async (req, res) => {
       }
 
       const cacheKey = String(repoInfo.full || '').toLowerCase();
-      const now = Date.now();
       const cached = releaseProbeCache.get(cacheKey);
       if (cached && (now - Number(cached.ts || 0)) < RELEASE_PROBE_TTL_MS) {
         if (cached.hasRelease) {

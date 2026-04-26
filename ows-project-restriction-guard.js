@@ -166,7 +166,7 @@
   function buildAckKey(project, restriction) {
     const slug = normalizeRef(project?.slug || project?.name || "project");
     const type = normalizeRef(restriction?.type || "unknown");
-    const stamp = normalizeText(restriction?.reason || restriction?.message || "");
+    const stamp = normalizeText(restriction?.updated_at || restriction?.updatedAt || restriction?.reason || restriction?.message || "");
     return `${ACK_PREFIX}${slug}:${type}:${stamp}`;
   }
 

@@ -16764,6 +16764,10 @@
         function getProjectStoreRestrictionState(project) {
             if (!project || typeof project !== 'object') return '';
             const metadata = getProjectMetadataObject(project);
+            const flagRework = project.is_rework === true || String(project.is_rework || '').toLowerCase() === 'true' || String(project.is_rework || '') === '1';
+            const flagUnavailable = project.is_unavailable === true || String(project.is_unavailable || '').toLowerCase() === 'true' || String(project.is_unavailable || '') === '1';
+            if (flagRework) return 'rework';
+            if (flagUnavailable) return 'unavailable';
             const forceBlockRaw = String(
                 metadata?.force_block
                 ?? metadata?.forceBlock
@@ -16777,7 +16781,14 @@
             }
             const status = String(project.status || '').trim().toLowerCase();
             const rawState = String(project.phase_state || project.dev_state || project.build_state || project.project_state || '').trim().toLowerCase();
-            const reason = String(project.unavailable_reason || project.status_reason || project.block_reason || project.maintenance_reason || '').trim().toLowerCase();
+            const reason = String(
+                project.restriction_reason
+                || project.unavailable_reason
+                || project.status_reason
+                || project.block_reason
+                || project.maintenance_reason
+                || ''
+            ).trim().toLowerCase();
 
             const reworkState = rawState === 'rework' || rawState === 'pleno_rework' || rawState === 'full_rework';
             const reworkStatus = status === 'rework' || status === 'pleno_rework' || status === 'full_rework';
@@ -16813,6 +16824,7 @@
                 metadata?.unavailable_reason,
                 metadata?.release_warning,
                 metadata?.reason,
+                project?.restriction_reason,
                 project?.unavailable_reason,
                 project?.status_reason,
                 project?.block_reason,

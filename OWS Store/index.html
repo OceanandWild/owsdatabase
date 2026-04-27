@@ -16796,13 +16796,13 @@
             if (reworkState || reworkStatus || reworkReason) return 'rework';
 
             const statusUnavailable = ['unavailable', 'indisponible', 'disabled', 'blocked', 'not_available', 'no_disponible'].includes(status);
-            const flagUnavailable = project.unavailable === true || project.disabled === true || project.blocked === true;
+            const flagUnavailableLegacy = project.unavailable === true || project.disabled === true || project.blocked === true;
             const reasonUnavailable = reason.includes('indisponible')
                 || reason.includes('descontinu')
                 || reason.includes('error')
                 || reason.includes('maintenance')
                 || reason.includes('mantenimiento');
-            if (statusUnavailable || flagUnavailable || reasonUnavailable) return 'unavailable';
+            if (statusUnavailable || flagUnavailableLegacy || reasonUnavailable) return 'unavailable';
             return '';
         }
 

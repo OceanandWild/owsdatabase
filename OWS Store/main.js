@@ -18,6 +18,7 @@ const APP_ID = 'com.oceanwildstudios.nexusstore';
 const APP_DISPLAY_NAME = 'OWS Store';
 const API_URL = 'https://owsdatabase.onrender.com';
 const OWS_STORE_LATEST_YML_URL = 'https://github.com/OceanandWild/owsdatabase/releases/latest/download/latest.yml';
+const OWS_STORE_RELEASES_API_URL = 'https://api.github.com/repos/OceanandWild/owsdatabase/releases?per_page=40';
 const INSTALLER_CACHE_DIR = path.join(os.tmpdir(), 'ows-store-installers');
 const INSTALLER_LAUNCH_DIR = path.join(os.tmpdir(), 'ows-store-installer-launch');
 const PUSH_STATE_FILENAME = 'ows-push-state.json';
@@ -34,6 +35,25 @@ let recoveryWindow = null;
 let rendererBootHealthy = false;
 let rendererHealthTimer = null;
 let recoveryUpdateInProgress = false;
+let recoveryVersionScanTimer = null;
+let recoveryFallbackSearchInProgress = false;
+const RECOVERY_POLL_INTERVAL_MS = 10 * 1000;
+const RECOVERY_NO_NEW_MAX_ATTEMPTS = 10;
+const RECOVERY_FALLBACK_ENABLE_MS = 6 * 60 * 60 * 1000;
+const RECOVERY_CANDIDATE_MIN_BYTES = 2 * 1024 * 1024;
+const recoveryMonitorState = {
+  active: false,
+  startedAtMs: 0,
+  badVersion: '',
+  attempts: 0,
+  noNewAttempts: 0,
+  noNewNotified: false,
+  latestSeenVersion: '',
+  latestCandidate: null,
+  rejectedVersions: new Set(),
+  fallbackEnabled: false,
+  lastCheckAtMs: 0,
+};
 const externalInstallTasks = new Map();
 const httpsAgent = new https.Agent({ keepAlive: true, maxSockets: 32, keepAliveMsecs: 3000, scheduling: 'fifo' });
 const httpAgent = new http.Agent({ keepAlive: true, maxSockets: 8 });
@@ -257,6 +277,67 @@ function sendToRecoveryWindow(channel, payload) {
   } catch (_) {}
 }
 
+function normalizeVersionLike(value) {
+  return String(value || '').trim().replace(/^v/i, '');
+}
+
+function compareVersionLikeLoose(a, b) {
+  const av = normalizeVersionLike(a);
+  const bv = normalizeVersionLike(b);
+  if (!av && !bv) return 0;
+  if (!av) return -1;
+  if (!bv) return 1;
+  const pa = (av.match(/\d+/g) || []).map((n) => Number(n));
+  const pb = (bv.match(/\d+/g) || []).map((n) => Number(n));
+  const max = Math.max(pa.length, pb.length);
+  for (let i = 0; i < max; i += 1) {
+    const na = Number.isFinite(pa[i]) ? pa[i] : 0;
+    const nb = Number.isFinite(pb[i]) ? pb[i] : 0;
+    if (na !== nb) return na > nb ? 1 : -1;
+  }
+  return av.localeCompare(bv);
+}
+
+function isNewerVersion(candidate, base) {
+  return compareVersionLikeLoose(candidate, base) > 0;
+}
+
+function isOlderVersion(candidate, base) {
+  return compareVersionLikeLoose(candidate, base) < 0;
+}
+
+function parseVersionFromInstallerName(name = '') {
+  const text = String(name || '');
+  const m = text.match(/(\d{4}\.\d{1,2}\.\d{1,2}-[A-Za-z0-9._-]+)/);
+  return m ? normalizeVersionLike(m[1]) : '';
+}
+
+function parseRecoveryYmlVersion(ymlText = '') {
+  const m = String(ymlText || '').match(/^\s*version:\s*["']?([^"'\r\n]+)["']?/im);
+  return m ? normalizeVersionLike(m[1]) : '';
+}
+
+function getRecoveryElapsedMs() {
+  if (!Number.isFinite(recoveryMonitorState.startedAtMs) || recoveryMonitorState.startedAtMs <= 0) return 0;
+  return Math.max(0, Date.now() - recoveryMonitorState.startedAtMs);
+}
+
+function emitRecoveryMonitorStatus(phase, message, extra = {}) {
+  const elapsedMs = getRecoveryElapsedMs();
+  const allowFallback = elapsedMs >= RECOVERY_FALLBACK_ENABLE_MS || recoveryMonitorState.fallbackEnabled;
+  sendToRecoveryWindow('ows-recovery-status', {
+    phase,
+    message,
+    attempts: Number(recoveryMonitorState.attempts || 0),
+    noNewAttempts: Number(recoveryMonitorState.noNewAttempts || 0),
+    badVersion: String(recoveryMonitorState.badVersion || ''),
+    latestSeenVersion: String(recoveryMonitorState.latestSeenVersion || ''),
+    elapsedMs,
+    allowFallback,
+    ...extra,
+  });
+}
+
 function createRecoveryWindow(reason = '') {
   if (recoveryWindow && !recoveryWindow.isDestroyed()) {
     recoveryWindow.focus();
@@ -297,9 +378,14 @@ function createRecoveryWindow(reason = '') {
     p { margin: 6px 0; line-height: 1.4; color: #bfdbfe; }
     .reason { margin-top: 10px; font-family: Consolas, monospace; font-size: 12px; color: #93c5fd; opacity: .9; word-break: break-word; }
     .status { margin-top: 14px; min-height: 68px; border: 1px solid rgba(56,189,248,.25); border-radius: 10px; padding: 10px; background: rgba(15,23,42,.85); font-size: 13px; }
+    .meta { margin-top: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .meta .item { border: 1px solid rgba(56,189,248,.2); border-radius: 8px; padding: 8px; background: rgba(2,6,23,.5); font-size: 12px; color: #93c5fd; }
+    .hint { margin-top: 10px; font-size: 12px; color: #93c5fd; opacity: .9; }
     .buttons { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; margin-top: 14px; }
+    .buttons .full { grid-column: 1 / -1; }
     button { border: 1px solid rgba(56,189,248,.55); background: linear-gradient(180deg,#0ea5e9,#0284c7); color: #f0f9ff; border-radius: 10px; padding: 10px 12px; font-weight: 700; cursor: pointer; }
     button.secondary { background: linear-gradient(180deg,#1e293b,#0f172a); border-color: rgba(148,163,184,.55); }
+    button.warn { background: linear-gradient(180deg,#f59e0b,#b45309); border-color: rgba(245,158,11,.65); color: #111827; }
     button:disabled { cursor: not-allowed; opacity: .65; }
   </style>
 </head>
@@ -310,9 +396,15 @@ function createRecoveryWindow(reason = '') {
       <p>Se detecto un fallo critico en la interfaz principal. Podes reparar desde un instalador externo sin depender de la UI normal.</p>
       <p class="reason" id="reason"></p>
       <div class="status" id="status">Inicializando modo recuperacion...</div>
+      <div class="meta">
+        <div class="item" id="meta-attempts">Intentos: 0</div>
+        <div class="item" id="meta-versions">Version rota: - | Ultima: -</div>
+      </div>
+      <div class="hint" id="fallback-hint">Fallback a version anterior estable disponible tras 6 horas sin una nueva version valida.</div>
       <div class="buttons">
         <button id="repairNow">Reparar ahora</button>
         <button class="secondary" id="relaunch">Reintentar apertura</button>
+        <button class="warn full" id="fallbackStable" disabled>Buscar version anterior estable (opcional)</button>
       </div>
     </div>
   </div>
@@ -320,27 +412,64 @@ function createRecoveryWindow(reason = '') {
     const { ipcRenderer } = require('electron');
     const statusEl = document.getElementById('status');
     const reasonEl = document.getElementById('reason');
+    const attemptsEl = document.getElementById('meta-attempts');
+    const versionsEl = document.getElementById('meta-versions');
+    const fallbackHintEl = document.getElementById('fallback-hint');
     const repairBtn = document.getElementById('repairNow');
     const relaunchBtn = document.getElementById('relaunch');
+    const fallbackBtn = document.getElementById('fallbackStable');
     reasonEl.textContent = ${JSON.stringify(String(reason || 'Fallo de carga del renderer'))};
     ipcRenderer.on('ows-recovery-status', (_event, payload) => {
       const msg = String(payload && payload.message ? payload.message : 'Sin estado');
       const phase = String(payload && payload.phase ? payload.phase : 'info').toUpperCase();
       statusEl.textContent = '[' + phase + '] ' + msg;
       if (payload && payload.reason) reasonEl.textContent = String(payload.reason);
-      if (payload && payload.phase === 'done') repairBtn.disabled = false;
+      const attempts = Number(payload && payload.attempts || 0);
+      const noNewAttempts = Number(payload && payload.noNewAttempts || 0);
+      attemptsEl.textContent = 'Intentos: ' + attempts + ' | Sin nueva: ' + noNewAttempts;
+      const bad = String(payload && payload.badVersion || '-');
+      const latest = String(payload && payload.latestSeenVersion || '-');
+      versionsEl.textContent = 'Version rota: ' + bad + ' | Ultima: ' + latest;
+      const allowFallback = Boolean(payload && payload.allowFallback);
+      fallbackBtn.disabled = !allowFallback;
+      fallbackHintEl.textContent = allowFallback
+        ? 'Ya pasaron 6 horas sin version nueva valida. Puedes intentar una version anterior estable (opcional).'
+        : 'OWS Store Recover seguira buscando una version mas reciente cada 10 segundos.';
+      if (payload && payload.phase === 'done') {
+        repairBtn.disabled = false;
+        relaunchBtn.disabled = false;
+        fallbackBtn.disabled = !allowFallback;
+      }
     });
     repairBtn.addEventListener('click', async () => {
       repairBtn.disabled = true;
       relaunchBtn.disabled = true;
+      fallbackBtn.disabled = true;
       const result = await ipcRenderer.invoke('ows-recovery-start-update');
       if (!result || !result.ok) {
         statusEl.textContent = '[ERROR] ' + String(result && (result.error || result.reason) ? (result.error || result.reason) : 'No se pudo iniciar la reparacion.');
         repairBtn.disabled = false;
         relaunchBtn.disabled = false;
+        if (fallbackHintEl.textContent.includes('6 horas')) fallbackBtn.disabled = false;
       } else {
         statusEl.textContent = '[DONE] Se abrio el instalador. Completa la instalacion y vuelve a abrir OWS Store.';
         repairBtn.disabled = false;
+      }
+    });
+    fallbackBtn.addEventListener('click', async () => {
+      fallbackBtn.disabled = true;
+      repairBtn.disabled = true;
+      relaunchBtn.disabled = true;
+      const result = await ipcRenderer.invoke('ows-recovery-install-fallback');
+      if (!result || !result.ok) {
+        statusEl.textContent = '[ERROR] ' + String(result && (result.error || result.reason) ? (result.error || result.reason) : 'No se encontro fallback estable.');
+        repairBtn.disabled = false;
+        relaunchBtn.disabled = false;
+        fallbackBtn.disabled = false;
+      } else {
+        statusEl.textContent = '[DONE] Se abrio una version anterior estable. Completa la instalacion y reabre OWS Store.';
+        repairBtn.disabled = false;
+        relaunchBtn.disabled = false;
       }
     });
     relaunchBtn.addEventListener('click', async () => {
@@ -352,6 +481,8 @@ function createRecoveryWindow(reason = '') {
 
   recoveryWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
   recoveryWindow.on('closed', () => {
+    clearRecoveryVersionMonitor();
+    recoveryMonitorState.active = false;
     recoveryWindow = null;
   });
   return recoveryWindow;
@@ -426,52 +557,244 @@ async function resolveLatestStoreInstallerFromChannel() {
   }
   if (!installerName) throw new Error('No se encontro .exe en latest.yml');
   const installerUrl = new URL(installerName, OWS_STORE_LATEST_YML_URL).toString();
+  const parsedVersion = parseRecoveryYmlVersion(yml);
+  const fallbackVersion = parseVersionFromInstallerName(installerName);
   return {
     installerUrl,
     installerName: sanitizeInstallerName(path.basename(installerName.split('?')[0] || 'OWS.Store.Setup.exe')),
     installerSize: Number(installerSize || 0),
+    version: parsedVersion || fallbackVersion || '',
   };
 }
 
+function clearRecoveryVersionMonitor() {
+  if (recoveryVersionScanTimer) {
+    clearInterval(recoveryVersionScanTimer);
+    recoveryVersionScanTimer = null;
+  }
+}
+
+function extractInstallerAssetFromRelease(release = {}) {
+  const assets = Array.isArray(release?.assets) ? release.assets : [];
+  const exeAsset = assets.find((asset) => /\.exe$/i.test(String(asset?.name || '')));
+  if (!exeAsset) return null;
+  return {
+    installerUrl: String(exeAsset.browser_download_url || '').trim(),
+    installerName: sanitizeInstallerName(String(exeAsset.name || 'OWS.Store.Setup.exe')),
+    installerSize: Number(exeAsset.size || 0),
+    version: normalizeVersionLike(release?.tag_name || release?.name || parseVersionFromInstallerName(exeAsset.name) || ''),
+    sourceTag: String(release?.tag_name || '').trim(),
+    sourceName: String(release?.name || '').trim(),
+  };
+}
+
+async function fetchOwsStoreReleases() {
+  const res = await fetch(OWS_STORE_RELEASES_API_URL, {
+    method: 'GET',
+    headers: {
+      'User-Agent': 'OWS-Store-Recovery-Updater',
+      'Accept': 'application/vnd.github+json',
+      'Cache-Control': 'no-cache',
+    },
+    cache: 'no-store',
+  });
+  if (!res.ok) {
+    throw new Error(`No se pudo consultar releases (${res.status}).`);
+  }
+  const rows = await res.json();
+  return Array.isArray(rows) ? rows : [];
+}
+
+async function verifyRecoveryInstallerCandidate(candidate) {
+  if (!candidate?.installerUrl) return { ok: false, reason: 'candidate-missing-url' };
+  const name = sanitizeInstallerName(candidate.installerName || 'OWS.Store.Setup.fallback.exe');
+  const probePath = getInstallerCachePath(`probe-${Date.now()}-${name}`);
+  try {
+    await downloadInstallerWithRetries(candidate.installerUrl, probePath, null, null, 2);
+    if (!safeExists(probePath)) return { ok: false, reason: 'probe-not-found' };
+    const stats = fs.statSync(probePath);
+    if (!stats.isFile() || Number(stats.size || 0) < RECOVERY_CANDIDATE_MIN_BYTES) {
+      return { ok: false, reason: 'probe-too-small' };
+    }
+    if (!isLikelyWindowsExecutable(probePath)) {
+      return { ok: false, reason: 'probe-not-exe' };
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, reason: err?.message || String(err) };
+  } finally {
+    try { if (safeExists(probePath)) fs.unlinkSync(probePath); } catch (_) {}
+  }
+}
+
+async function performRecoveryInstallFromCandidate(candidate, mode = 'latest') {
+  if (!candidate?.installerUrl) {
+    return { ok: false, reason: 'No se encontro URL de instalador valida.' };
+  }
+  const label = mode === 'fallback' ? 'version estable anterior' : 'version mas reciente';
+  emitRecoveryMonitorStatus('downloading', `Descargando ${label}...`, { latestSeenVersion: String(candidate.version || recoveryMonitorState.latestSeenVersion || '') });
+  const targetPath = getInstallerCachePath(candidate.installerName || `OWS.Store.Setup.${mode}.exe`);
+  try { if (safeExists(targetPath)) fs.unlinkSync(targetPath); } catch (_) {}
+  await downloadInstallerWithRetries(candidate.installerUrl, targetPath, null, (progress) => {
+    emitRecoveryMonitorStatus('downloading', buildDownloadMessage(progress), { latestSeenVersion: String(candidate.version || recoveryMonitorState.latestSeenVersion || '') });
+  });
+  if (!isLikelyWindowsExecutable(targetPath)) {
+    try { if (safeExists(targetPath)) fs.unlinkSync(targetPath); } catch (_) {}
+    throw new Error('El instalador descargado no paso la validacion de ejecutable.');
+  }
+  emitRecoveryMonitorStatus('launching', 'Abriendo instalador externo...');
+  const launchPath = prepareInstallerLaunchPath(targetPath, candidate.installerName || 'OWS.Store.Setup.exe');
+  const launchErr = await openPathWithRetry(launchPath);
+  if (launchErr) throw new Error(launchErr);
+  emitRecoveryMonitorStatus('done', 'Instalador abierto. Completa la reparacion y luego reabre OWS Store.');
+  return { ok: true, filePath: launchPath, version: String(candidate.version || '') };
+}
+
+async function checkRecoveryForNewVersion() {
+  recoveryMonitorState.attempts += 1;
+  recoveryMonitorState.lastCheckAtMs = Date.now();
+  try {
+    const latest = await resolveLatestStoreInstallerFromChannel();
+    const latestVersion = normalizeVersionLike(latest?.version || '');
+    if (latestVersion) recoveryMonitorState.latestSeenVersion = latestVersion;
+    const badVersion = normalizeVersionLike(recoveryMonitorState.badVersion || '');
+    const newer = latestVersion && (!badVersion || isNewerVersion(latestVersion, badVersion));
+    if (newer) {
+      recoveryMonitorState.noNewAttempts = 0;
+      recoveryMonitorState.noNewNotified = false;
+      recoveryMonitorState.latestCandidate = {
+        installerUrl: latest.installerUrl,
+        installerName: latest.installerName,
+        installerSize: Number(latest.installerSize || 0),
+        version: latestVersion,
+      };
+      emitRecoveryMonitorStatus('update-found', `Nueva version detectada (${latestVersion}). Puedes reparar ahora.`);
+      return;
+    }
+    recoveryMonitorState.latestCandidate = null;
+    recoveryMonitorState.noNewAttempts += 1;
+    if (recoveryMonitorState.noNewAttempts >= RECOVERY_NO_NEW_MAX_ATTEMPTS && !recoveryMonitorState.noNewNotified) {
+      recoveryMonitorState.noNewNotified = true;
+      emitRecoveryMonitorStatus('monitoring', 'No hay una version mas reciente todavia. OWS Store Recover seguira buscando una nueva version.');
+    } else {
+      emitRecoveryMonitorStatus('monitoring', 'Buscando version mas reciente cada 10 segundos...');
+    }
+    if (getRecoveryElapsedMs() >= RECOVERY_FALLBACK_ENABLE_MS) {
+      recoveryMonitorState.fallbackEnabled = true;
+      emitRecoveryMonitorStatus('fallback-ready', 'Sin nueva version valida tras 6 horas. Ya puedes intentar una version anterior estable (opcional).', { allowFallback: true });
+    }
+  } catch (err) {
+    emitRecoveryMonitorStatus('warning', `Busqueda temporalmente no disponible: ${err?.message || String(err)}`);
+  }
+}
+
+function startRecoveryVersionMonitor() {
+  clearRecoveryVersionMonitor();
+  recoveryMonitorState.active = true;
+  recoveryMonitorState.startedAtMs = Date.now();
+  recoveryMonitorState.attempts = 0;
+  recoveryMonitorState.noNewAttempts = 0;
+  recoveryMonitorState.noNewNotified = false;
+  recoveryMonitorState.latestCandidate = null;
+  recoveryMonitorState.latestSeenVersion = '';
+  recoveryMonitorState.rejectedVersions = new Set();
+  recoveryMonitorState.fallbackEnabled = false;
+  recoveryMonitorState.badVersion = normalizeVersionLike(app.getVersion());
+  emitRecoveryMonitorStatus('monitoring', 'Iniciando vigilancia de nuevas versiones...', { badVersion: recoveryMonitorState.badVersion });
+  checkRecoveryForNewVersion().catch(() => {});
+  recoveryVersionScanTimer = setInterval(() => {
+    checkRecoveryForNewVersion().catch(() => {});
+  }, RECOVERY_POLL_INTERVAL_MS);
+}
+
 async function runEmergencyStoreRepairUpdate() {
-  if (recoveryUpdateInProgress) {
+  if (recoveryUpdateInProgress || recoveryFallbackSearchInProgress) {
     return { ok: false, reason: 'already-running' };
   }
   recoveryUpdateInProgress = true;
   try {
-    sendToRecoveryWindow('ows-recovery-status', { phase: 'downloading', message: 'Buscando el instalador mas reciente...' });
-    const latest = await resolveLatestStoreInstallerFromChannel();
-    if (!latest?.installerUrl) throw new Error('No se encontro URL de instalador.');
-    const targetPath = getInstallerCachePath(latest.installerName || 'OWS.Store.Setup.latest.exe');
-    try { if (safeExists(targetPath)) fs.unlinkSync(targetPath); } catch (_) {}
-    await downloadInstallerWithRetries(latest.installerUrl, targetPath, null, (progress) => {
-      sendToRecoveryWindow('ows-recovery-status', {
-        phase: 'downloading',
-        message: buildDownloadMessage(progress),
-      });
-    });
-    if (!isLikelyWindowsExecutable(targetPath)) {
-      try { if (safeExists(targetPath)) fs.unlinkSync(targetPath); } catch (_) {}
-      throw new Error('El archivo descargado no es un ejecutable Windows valido.');
+    let candidate = recoveryMonitorState.latestCandidate;
+    if (!candidate) {
+      const latest = await resolveLatestStoreInstallerFromChannel();
+      const latestVersion = normalizeVersionLike(latest?.version || '');
+      const badVersion = normalizeVersionLike(recoveryMonitorState.badVersion || app.getVersion());
+      if (latestVersion && badVersion && !isNewerVersion(latestVersion, badVersion)) {
+        throw new Error(`La ultima version (${latestVersion}) coincide o no supera la version rota (${badVersion}). OWS Store Recover seguira buscando.`);
+      }
+      candidate = {
+        installerUrl: latest.installerUrl,
+        installerName: latest.installerName,
+        installerSize: Number(latest.installerSize || 0),
+        version: latestVersion,
+      };
     }
-    sendToRecoveryWindow('ows-recovery-status', { phase: 'launching', message: 'Abriendo instalador externo...' });
-    const launchPath = prepareInstallerLaunchPath(targetPath, latest.installerName || 'OWS.Store.Setup.latest.exe');
-    const launchErr = await openPathWithRetry(launchPath);
-    if (launchErr) throw new Error(launchErr);
-    sendToRecoveryWindow('ows-recovery-status', { phase: 'done', message: 'Instalador abierto. Completa la reparacion y luego reabre OWS Store.' });
-    return { ok: true, filePath: launchPath };
+    return await performRecoveryInstallFromCandidate(candidate, 'latest');
   } catch (err) {
-    const message = err && err.message ? err.message : String(err);
-    sendToRecoveryWindow('ows-recovery-status', { phase: 'error', message });
+    const message = err?.message || String(err);
+    emitRecoveryMonitorStatus('error', message);
     return { ok: false, reason: message };
   } finally {
     recoveryUpdateInProgress = false;
   }
 }
 
+async function installRecoveryFallbackStableVersion() {
+  if (recoveryUpdateInProgress || recoveryFallbackSearchInProgress) {
+    return { ok: false, reason: 'already-running' };
+  }
+  const elapsedMs = getRecoveryElapsedMs();
+  if (elapsedMs < RECOVERY_FALLBACK_ENABLE_MS) {
+    const waitMinutes = Math.ceil((RECOVERY_FALLBACK_ENABLE_MS - elapsedMs) / (60 * 1000));
+    return { ok: false, reason: `Fallback disponible en ~${waitMinutes} min.` };
+  }
+  recoveryFallbackSearchInProgress = true;
+  try {
+    emitRecoveryMonitorStatus('searching-fallback', 'Buscando una version anterior estable...');
+    const badVersion = normalizeVersionLike(recoveryMonitorState.badVersion || app.getVersion());
+    const releases = await fetchOwsStoreReleases();
+    const candidates = releases
+      .filter((r) => !r?.draft)
+      .map((r) => extractInstallerAssetFromRelease(r))
+      .filter(Boolean)
+      .filter((c) => c.version && badVersion ? isOlderVersion(c.version, badVersion) : true)
+      .filter((c) => !recoveryMonitorState.rejectedVersions.has(c.version))
+      .sort((a, b) => compareVersionLikeLoose(b.version, a.version));
+    if (!candidates.length) {
+      emitRecoveryMonitorStatus('monitoring', 'No se encontraron versiones anteriores candidatas. Se mantiene la vigilancia de nuevas versiones.');
+      return { ok: false, reason: 'no-fallback-candidates' };
+    }
+    for (let i = 0; i < candidates.length; i += 1) {
+      const candidate = candidates[i];
+      emitRecoveryMonitorStatus('searching-fallback', `Validando fallback ${candidate.version} (${i + 1}/${candidates.length})...`);
+      const probe = await verifyRecoveryInstallerCandidate(candidate);
+      if (!probe.ok) {
+        recoveryMonitorState.rejectedVersions.add(String(candidate.version || `candidate-${i}`));
+        continue;
+      }
+      try {
+        const result = await performRecoveryInstallFromCandidate(candidate, 'fallback');
+        if (result?.ok) return result;
+      } catch (_) {
+        recoveryMonitorState.rejectedVersions.add(String(candidate.version || `candidate-${i}`));
+      }
+    }
+    emitRecoveryMonitorStatus('monitoring', 'Ningun fallback paso validacion. OWS Store Recover seguira buscando versiones estables.');
+    return { ok: false, reason: 'fallback-validation-failed' };
+  } catch (err) {
+    const message = err?.message || String(err);
+    emitRecoveryMonitorStatus('error', message);
+    return { ok: false, reason: message };
+  } finally {
+    recoveryFallbackSearchInProgress = false;
+  }
+}
+
 function triggerRecoveryMode(reason = 'renderer-failure') {
   const state = trackRecoveryFailure(reason);
   createRecoveryWindow(reason);
+  if (!recoveryMonitorState.active) {
+    startRecoveryVersionMonitor();
+  }
   sendToRecoveryWindow('ows-recovery-status', {
     phase: 'warning',
     message: `Se detecto un fallo critico del renderer (intento ${state?.consecutiveRendererFailures || 1}).`,
@@ -514,20 +837,17 @@ function createWindow() {
   rendererHealthTimer = setTimeout(() => {
     if (!rendererBootHealthy && mainWindow && !mainWindow.isDestroyed()) {
       triggerRecoveryMode('renderer-start-timeout');
-      runEmergencyStoreRepairUpdate().catch(() => {});
     }
   }, RENDERER_HEALTH_TIMEOUT_MS);
 
   mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription) => {
     const reason = `did-fail-load(${errorCode}): ${errorDescription || 'unknown'}`;
     triggerRecoveryMode(reason);
-    runEmergencyStoreRepairUpdate().catch(() => {});
   });
 
   mainWindow.webContents.on('render-process-gone', (_event, details) => {
     const reason = `render-process-gone: ${details?.reason || 'unknown'}`;
     triggerRecoveryMode(reason);
-    runEmergencyStoreRepairUpdate().catch(() => {});
   });
 
   mainWindow.webContents.on('console-message', (_event, level, message) => {
@@ -538,7 +858,6 @@ function createWindow() {
       /(Uncaught SyntaxError|SyntaxError|ReferenceError|Unexpected token|Cannot access .* before initialization)/i.test(text);
     if (!isCritical) return;
     triggerRecoveryMode(`renderer-console: ${text.slice(0, 240)}`);
-    runEmergencyStoreRepairUpdate().catch(() => {});
   });
 
   mainWindow.webContents.on('did-finish-load', () => {
@@ -1425,6 +1744,7 @@ ipcMain.handle('install-update', () => {
 ipcMain.handle('get-app-version', () => app.getVersion());
 ipcMain.handle('check-for-updates', () => checkForUpdatesSafe());
 ipcMain.handle('ows-recovery-start-update', () => runEmergencyStoreRepairUpdate());
+ipcMain.handle('ows-recovery-install-fallback', () => installRecoveryFallbackStableVersion());
 ipcMain.handle('ows-recovery-relaunch', () => {
   try {
     app.relaunch();

@@ -79,6 +79,42 @@
             --shadow-lg:   0 20px 48px rgba(0,0,0,0.14);
         }
 
+        /* Android-specific contrast tuning (only native Android runtime) */
+        body.android-runtime {
+            color-scheme: dark light;
+        }
+        body.android-runtime[data-theme="light"] {
+            --bg:          #edf4fb;
+            --surface-0:   #f8fcff;
+            --surface-1:   #ffffff;
+            --surface-2:   #eef5fd;
+            --surface-3:   #dce8f4;
+            --border:      rgba(8,27,44,0.10);
+            --border-mid:  rgba(8,27,44,0.16);
+            --border-hi:   rgba(8,27,44,0.24);
+            --ink-0:       #0a1b2b;
+            --ink-1:       #264861;
+            --ink-2:       #4f6f86;
+            --ink-3:       #6f889c;
+            --cyan:        #008ea3;
+            --cyan-dim:    rgba(0,142,163,0.12);
+            --cyan-glow:   rgba(0,142,163,0.22);
+            --glass:       rgba(248,252,255,0.92);
+            --glass-light: rgba(255,255,255,0.84);
+        }
+        body.android-runtime[data-theme="dark"] {
+            --ink-0:       #f0f6ff;
+            --ink-1:       #b7c9de;
+            --ink-2:       #86a0bc;
+            --ink-3:       #607e98;
+        }
+        body.android-runtime[data-theme="light"] .updates-shell .text-white,
+        body.android-runtime[data-theme="light"] .section .text-white,
+        body.android-runtime[data-theme="light"] .stat-box .text-white,
+        body.android-runtime[data-theme="light"] .app-card .text-white {
+            color: var(--ink-0) !important;
+        }
+
         * { margin:0; padding:0; box-sizing:border-box; }
 
         body {
@@ -4566,7 +4602,7 @@
         }
 
         /* Light theme fixes */
-        body[data-theme="light"] body::before {
+        body[data-theme="light"]::before {
             background:
                 radial-gradient(ellipse 900px 600px at -10% 0%, rgba(0,151,169,0.06) 0%, transparent 60%),
                 radial-gradient(ellipse 700px 500px at 110% 80%, rgba(209,79,42,0.05) 0%, transparent 60%);
@@ -6309,6 +6345,23 @@
                             <button id="settings-loading-position-right" class="btn-install" onclick="setBackgroundLoadingIndicatorPosition('right')"><i class="fas fa-arrow-up-right-from-circle"></i> Arriba derecha</button>
                         </div>
                     </div>
+                    <div class="stat-box" id="settings-android-theme-box" style="grid-column:1 / -1;display:none;">
+                        <div class="stat-label">Android · Apariencia</div>
+                        <div class="stat-value" style="display:flex;align-items:center;justify-content:space-between;gap:0.8rem;flex-wrap:wrap;">
+                            <span id="settings-android-theme-current">Sin detectar</span>
+                        </div>
+                        <div style="margin-top:0.55rem;font-size:0.72rem;color:var(--ink-1);line-height:1.45;">
+                            Ajuste exclusivo para OWS Store Android. Mejora contraste y legibilidad para evitar texto invisible en claro/oscuro.
+                        </div>
+                        <div style="margin-top:0.6rem;display:flex;gap:0.45rem;flex-wrap:wrap;">
+                            <button id="settings-android-theme-system" class="btn-install" onclick="setAndroidThemePreference('system')"><i class="fas fa-mobile-screen-button"></i> Sistema</button>
+                            <button id="settings-android-theme-dark" class="btn-install" onclick="setAndroidThemePreference('dark')"><i class="fas fa-moon"></i> Oscuro</button>
+                            <button id="settings-android-theme-light" class="btn-install" onclick="setAndroidThemePreference('light')"><i class="fas fa-sun"></i> Claro</button>
+                        </div>
+                        <div id="settings-android-contrast-note" style="margin-top:0.55rem;font-size:0.72rem;color:var(--ink-1);line-height:1.45;">
+                            Contraste Android: listo.
+                        </div>
+                    </div>
                     <div class="stat-box">
                         <div class="stat-label">Ultima revision silenciosa</div>
                         <div class="stat-value" id="settings-last-silent-check">Sin revisiones</div>
@@ -6689,6 +6742,7 @@
         const WILDSHORTS_LOCAL_ICON = 'https://raw.githubusercontent.com/OceanandWild/owsdatabase/main/OWS%20Store/build/wildshorts.jpg';
         const STORE_DOWNLOAD_KEY = '__ows_store_update__';
         const STORE_THEME_KEY = 'ows_store_theme';
+        const STORE_ANDROID_THEME_PREF_KEY = 'ows_store_android_theme_pref_v1';
         const PROJECT_LIBRARY_KEY = 'ows_store_library_owned_slugs_v1';
         const STORE_DEFERRED_STARTUP_KEY = 'ows_store_deferred_startup_v1';
         const STORE_BG_LOADING_INDICATOR_KEY = 'ows_store_bg_loading_indicator_v1';
@@ -7209,6 +7263,20 @@
         let storeObsoleteGateRefreshPromise = null;
         let storeObsoleteGateLastNoticeAt = 0;
 
+        function getAndroidThemePreference() {
+            try {
+                const raw = String(localStorage.getItem(STORE_ANDROID_THEME_PREF_KEY) || '').trim().toLowerCase();
+                if (raw === 'dark' || raw === 'light' || raw === 'system') return raw;
+            } catch (_) {}
+            return 'system';
+        }
+
+        function resolveThemeFromAndroidPreference(pref = 'system') {
+            if (pref === 'dark' || pref === 'light') return pref;
+            const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            return prefersDark ? 'dark' : 'light';
+        }
+
         function applyTheme(theme) {
             const mode = theme === 'dark' ? 'dark' : 'light';
             document.body.setAttribute('data-theme', mode);
@@ -7219,6 +7287,11 @@
         }
 
         function initTheme() {
+            if (isNativeAndroidRuntime()) {
+                const androidPref = getAndroidThemePreference();
+                applyTheme(resolveThemeFromAndroidPreference(androidPref));
+                return;
+            }
             const saved = localStorage.getItem(STORE_THEME_KEY);
             if (saved === 'light' || saved === 'dark') {
                 applyTheme(saved);
@@ -7230,7 +7303,20 @@
 
         function toggleTheme() {
             const current = document.body.getAttribute('data-theme') || 'light';
-            applyTheme(current === 'dark' ? 'light' : 'dark');
+            const next = current === 'dark' ? 'light' : 'dark';
+            applyTheme(next);
+            if (isNativeAndroidRuntime()) {
+                try { localStorage.setItem(STORE_ANDROID_THEME_PREF_KEY, next); } catch (_) {}
+                renderSettingsState();
+            }
+        }
+
+        function setAndroidThemePreference(pref = 'system') {
+            if (!isNativeAndroidRuntime()) return;
+            const safe = (pref === 'dark' || pref === 'light' || pref === 'system') ? pref : 'system';
+            try { localStorage.setItem(STORE_ANDROID_THEME_PREF_KEY, safe); } catch (_) {}
+            applyTheme(resolveThemeFromAndroidPreference(safe));
+            renderSettingsState();
         }
 
         function showStartupLoadingModal(text = 'Preparando entorno...') {
@@ -7575,9 +7661,16 @@
             const loadingToggleBtn = document.getElementById('settings-loading-indicator-toggle');
             const loadingPosLeftBtn = document.getElementById('settings-loading-position-left');
             const loadingPosRightBtn = document.getElementById('settings-loading-position-right');
+            const androidThemeBox = document.getElementById('settings-android-theme-box');
+            const androidThemeCurrentEl = document.getElementById('settings-android-theme-current');
+            const androidThemeSystemBtn = document.getElementById('settings-android-theme-system');
+            const androidThemeDarkBtn = document.getElementById('settings-android-theme-dark');
+            const androidThemeLightBtn = document.getElementById('settings-android-theme-light');
+            const androidContrastNoteEl = document.getElementById('settings-android-contrast-note');
             const enabled = isDeferredStartupModeEnabled();
             const loadingEnabled = isBackgroundLoadingIndicatorEnabled();
             const loadingPosition = getBackgroundLoadingIndicatorPosition();
+            const androidRuntime = isNativeAndroidRuntime();
             if (statusEl) statusEl.textContent = enabled ? 'Activado' : 'Desactivado';
             if (toggleBtn) {
                 toggleBtn.innerHTML = enabled
@@ -7603,6 +7696,25 @@
             }
             if (monitorEl) monitorEl.textContent = deferredMonitorState || 'Inactivo';
             if (sigEl) sigEl.textContent = lastKnownStoreDataSignature || localStorage.getItem(STORE_DATA_SIGNATURE_KEY) || '-';
+
+            if (androidThemeBox) androidThemeBox.style.display = androidRuntime ? '' : 'none';
+            if (!androidRuntime) return;
+
+            const pref = getAndroidThemePreference();
+            const mode = resolveThemeFromAndroidPreference(pref);
+            if (androidThemeCurrentEl) {
+                androidThemeCurrentEl.textContent = pref === 'system'
+                    ? `Sistema (${mode === 'dark' ? 'Oscuro' : 'Claro'})`
+                    : (mode === 'dark' ? 'Oscuro fijo' : 'Claro fijo');
+            }
+            if (androidThemeSystemBtn) androidThemeSystemBtn.classList.toggle('primary', pref === 'system');
+            if (androidThemeDarkBtn) androidThemeDarkBtn.classList.toggle('primary', pref === 'dark');
+            if (androidThemeLightBtn) androidThemeLightBtn.classList.toggle('primary', pref === 'light');
+            if (androidContrastNoteEl) {
+                androidContrastNoteEl.textContent = mode === 'dark'
+                    ? 'Contraste Android optimizado para modo oscuro.'
+                    : 'Contraste Android optimizado para modo claro.';
+            }
         }
 
         function applyCachedSnapshotToUi(snapshot = null) {

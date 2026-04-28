@@ -2281,6 +2281,7 @@
 <body>
     <canvas id="flowers"></canvas>
     <div id="app"></div>
+    <div class="modal-bg" id="modal"></div>
 
     <script>
         const mp = new MercadoPago('APP_USR-60b879df-a71d-40eb-9366-f018d03cd83a', { locale: 'es-UY' }); // PRODUCCIÓN
@@ -2660,7 +2661,6 @@
       </div>
     </div>
     ${isAdmin ? `<button class="admin-fab" onclick="openAddProduct()"><i class="fas fa-plus"></i> Agregar</button>` : ''}
-    <div class="modal-bg" id="modal"></div>
   `;
             applyCatalogFilters({ rerender: true });
             renderCart();
@@ -4048,7 +4048,11 @@
         function startMalevoQuotaWatcher() {
             stopMalevoQuotaWatcher();
             if (!malevoSessionInsights?.flags?.server_verified_malevo || !user?.id) return;
-            malevoLastRemaining = getQuotaRemainingValue(malevoSessionInsights?.quota);
+            // Initialize to the base max (4) so the watcher can detect any future grant
+            // even if the user already has elevated quota from a previous grant.
+            // This prevents the watcher from seeing "15 > 15 = false" on first tick.
+            const BASE_MAX_DAILY = 4;
+            malevoLastRemaining = Math.min(getQuotaRemainingValue(malevoSessionInsights?.quota), BASE_MAX_DAILY);
             const tick = async () => {
                 if (!user?.id) return;
                 try {
@@ -4306,6 +4310,7 @@
                     const loginRemaining = getQuotaRemainingValue(loginQuota);
                     const baseMaxDaily = 4;
                     if (loginRemaining > baseMaxDaily) {
+                        await waitMs(400); // Ensure DOM is stable after render()
                         const delta = loginRemaining - baseMaxDaily;
                         await showMalevoQuotaGrantedModal(delta, loginRemaining, Number(loginQuota?.max_daily || baseMaxDaily));
                     }

@@ -1,75 +1,55 @@
-Floret Shop - Changelog Draft (acumulativo para proxima release)
-Target version: POR DEFINIR
+Floret Shop - Changelog (proxima release)
 
-- Cart add animation rework with GSAP:
-  - Replaced the simple cart add indicator with a product-image flight animation.
-  - The product now flies toward the cart using its own image and shrinks during travel.
-  - Added support for both direct add and size-selection add flows.
-  - Preserved fallback animation when GSAP is unavailable.
+- Animacion al agregar al carrito:
+  - Al agregar un producto, la imagen del mismo vuela visualmente hacia el icono del carrito y se reduce al llegar.
+  - Compatible con el flujo de seleccion de talle y con el agregado directo.
+  - Adaptado para pantallas tactiles: deteccion de punto de toque mejorada y trayectoria ajustada para movil.
 
-- Android adaptation for cart animation:
-  - Improved touch-point detection for mobile tap events.
-  - Prioritized product lookup by `data-product-id` and card context to avoid wrong image origins.
-  - Tuned mobile animation path, timing, and scale for smoother performance on Android.
-  - Reduced final ghost size and cart pulse intensity for a cleaner mobile visual result.
+- Rediseno del encabezado:
+  - Nueva estructura del header con identidad de marca reforzada, indicador de estado del catalogo en tiempo real y controles de accion reorganizados.
+  - Efectos de profundidad, gradientes y animacion de entrada para una primera impresion mas solida.
+  - Comportamiento compacto y legible en pantallas pequenas sin perder calidad visual.
 
-- Header visual rework with CSS + GSAP + AnimeJS:
-  - Rebuilt the top header with a stronger branded layout (identity block, live catalog status pill, and refined action controls).
-  - Added layered gradients, subtle glass depth, and animated sheen for a more premium first impression.
-  - Integrated GSAP entrance and micro-interactions for header controls and status motion.
-  - Integrated AnimeJS accent motion on brand mark and header dynamics to avoid a static look.
-  - Improved mobile behavior so the header stays compact and readable while preserving animation quality.
+- Mejoras en el inicio de sesion:
+  - Nuevo flujo de carga al iniciar sesion: indicador animado, pantalla de bienvenida con nombre de usuario y transicion suave al contenido.
+  - Adaptado para pantallas pequenas con tiempos y disposicion ajustados.
 
-- Login flow UX upgrade (mobile-ready):
-  - Updated the sign-in button flow with wide animated loading dots, success check state, and protected modal overlay transition.
-  - Added sequential post-login experience: modal sync loader, full-screen loader, and large welcome message (`Bienvenido, <usuario>`).
-  - Integrated GSAP + AnimeJS + PixiJS in the welcome sequence for smoother feedback and stronger visual identity.
-  - Adapted the sequence timing and layout for smaller screens to keep it readable and responsive.
+- Perfil de usuario rediseñado:
+  - El perfil ahora ocupa pantalla completa con un panel de resumen de cuenta y acciones rapidas.
+  - Comportamiento adaptado para Android que evita conflictos con el bottom sheet del sistema.
+  - Animacion de entrada al abrir la seccion.
 
-- "Mi Perfil" full rework (full-screen + Android):
-  - Migrated the profile modal to a dedicated full-screen layout without affecting other modals.
-  - Redesigned profile content into a two-panel dashboard (account summary + quick actions).
-  - Improved action organization with responsive grid behavior and better spacing hierarchy.
-  - Added Android-safe full-screen modal behavior to avoid bottom-sheet constraints in this section.
-  - Added entry animation for profile blocks for a cleaner transition when opening the section.
+- Experiencia especial para Malevo:
+  - Al iniciar sesion como Malevo, se muestra una etapa adicional con resumen animado de cuota disponible y tiempo hasta el proximo restablecimiento.
+  - Verificacion automatica de cambios en la cuota tras el login.
+  - Si OceanandWild otorga cuota adicional mientras Malevo esta activo, aparece un modal de notificacion con animacion.
 
-- Malevo login and quota-control experience:
-  - Added server-backed session insights (`/floret/session-insights`) to verify Malevo state and return quota metadata.
-  - Extended login modal flow for verified Malevo sessions with a dedicated pre-close stage (`Bienvenido, Malevo`) and animated quota summary.
-  - Added animated dual-direction quota bar expansion + typing lines for remaining quota and reset timer.
-  - Added post-login quota verification toast and automatic quota watcher to detect granted quota changes.
-  - Added “Felicidades” modal with PixiJS animated icon when an external quota increase is detected for Malevo.
-
-- Registro: Wizard de 3 pasos con efectos especiales:
-  - Reemplazado el formulario de registro plano por un wizard de 3 pasos: Identidad (usuario), Contacto (email) y Seguridad (contrasena).
-  - Indicador de progreso visual con dots animados, conectores con fill gradiente y checkmarks al completar cada paso.
-  - Transiciones animadas entre pasos con slide-in/slide-out y stagger GSAP en los campos.
-  - Validacion en tiempo real con feedback inline (icono + texto) y estados visual ok/error en cada campo.
-  - Barra de fortaleza de contrasena con 4 niveles (Muy debil a Muy fuerte) y color dinamico.
-  - Confirmacion de contrasena con validacion de coincidencia en tiempo real.
-  - Animacion de shake (GSAP) en campos invalidos al intentar avanzar.
-  - Pantalla de exito integrada en el wizard con burst de confetti PixiJS al crear la cuenta.
-  - Foco automatico en el primer campo de cada paso para mejor experiencia de teclado.
+- Wizard de registro en 4 pasos:
+  - El formulario de registro fue reemplazado por un asistente paso a paso: usuario, email, contrasena y telefono.
+  - Indicador de progreso visual con estados completado, activo y pendiente.
+  - Transiciones animadas entre pasos y validacion en tiempo real con feedback visual en cada campo.
+  - Medidor de fortaleza de contrasena con niveles y color dinamico.
+  - Confirmacion de contrasena con validacion de coincidencia al escribir.
+  - Animacion de error en campos invalidos al intentar avanzar.
+  - Pantalla de exito con animacion de particulas al crear la cuenta.
 
 - Modal de autenticacion adaptado a movil:
-  - El modal ahora se presenta como bottom sheet en pantallas pequenas, con bordes redondeados en la parte superior y altura maxima ajustada.
-  - Mejoras de padding, scroll tactil y tamano de botones de cierre para mayor comodidad en dispositivos moviles.
-  - Todos los formularios de acceso, registro y restablecimiento respetan el espacio disponible sin desbordamiento.
+  - En pantallas pequenas el modal aparece como panel inferior con bordes redondeados arriba.
+  - Scroll tactil, padding ajustado y botones de cierre con area de toque adecuada.
 
-- Blindaje de duplicados en el registro:
-  - Al avanzar del paso de usuario, se verifica en tiempo real si el nombre ya esta en uso antes de continuar.
-  - Al avanzar del paso de email, se verifica si ya existe una cuenta con ese correo.
-  - Feedback visual inmediato con estado de error en el campo y animacion de shake si hay conflicto.
-  - Nuevo endpoint en el servidor para consultar disponibilidad de usuario y email sin exponer datos sensibles.
+- Verificacion de disponibilidad en el registro:
+  - Al avanzar en el wizard, se consulta en tiempo real si el usuario o email ya estan en uso.
+  - Feedback visual inmediato con estado de error y animacion de shake si hay conflicto.
 
-- Verificacion de telefono en el registro:
+- Verificacion de numero de telefono:
   - El paso 4 del wizard solicita un numero de telefono con codigo de pais.
-  - Se envia un codigo de verificacion al numero ingresado; el usuario debe confirmarlo antes de crear la cuenta.
+  - Se envia un codigo de 6 digitos al email registrado para confirmar el numero.
   - Si el numero ya esta asociado a otra cuenta, se informa con un mensaje claro.
-  - Opcion de omitir la verificacion de telefono al momento del registro, con aviso posterior.
+  - Posibilidad de omitir la verificacion al momento del registro.
 
-- Overlay de verificacion de telefono para cuentas existentes:
-  - Al iniciar sesion, si la cuenta no tiene telefono verificado, aparece un overlay de pantalla completa con fondo degradado rosa-violeta y petalos de flores animados con PixiJS cayendo en segundo plano.
-  - El overlay incluye un formulario para ingresar y verificar el numero de telefono con el mismo flujo de codigo que el registro.
-  - El usuario puede posponer la verificacion con la opcion de recordatorio posterior.
-  - Animacion de entrada del card con GSAP y confirmacion visual al verificar exitosamente.
+- Pantalla de verificacion para cuentas existentes:
+  - Al iniciar sesion, si la cuenta no tiene telefono verificado, aparece una pantalla de verificacion a pantalla completa.
+  - Fondo degradado rosa-violeta con petalos de flores animados cayendo en segundo plano.
+  - Formulario para ingresar y verificar el numero con el mismo flujo de codigo por email.
+  - Opcion de posponer la verificacion con recordatorio posterior.
+  - Animacion de entrada y confirmacion visual al verificar exitosamente.

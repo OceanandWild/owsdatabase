@@ -2828,8 +2828,13 @@
         }
         .changelog-detail-empty { display:flex; align-items:center; justify-content:center; height:100%; color:var(--ink-2); font-size:0.85rem; }
         .changelog-detail-header { margin-bottom:1.25rem; }
-        .changelog-detail-version { font-family:var(--font-display); font-size:1.6rem; font-weight:900; color:var(--ink-0); line-height:1; }
+        .changelog-detail-version-row { display:flex; align-items:flex-start; justify-content:space-between; gap:0.75rem; }
+        .changelog-detail-version { font-family:var(--font-display); font-size:1.6rem; font-weight:900; color:var(--ink-0); line-height:1; flex:1; }
         .changelog-detail-date { font-size:0.72rem; color:var(--ink-2); font-family:var(--font-mono); margin-top:0.3rem; }
+        .changelog-lang-toggle { display:inline-flex; gap:2px; background:var(--surface-3); border:1px solid var(--border); border-radius:8px; padding:2px; flex-shrink:0; }
+        .changelog-lang-btn { background:transparent; border:none; color:var(--ink-2); font-size:0.68rem; font-weight:700; font-family:var(--font-mono); padding:3px 8px; border-radius:6px; cursor:pointer; transition:all .15s ease; letter-spacing:0.05em; }
+        .changelog-lang-btn.active { background:var(--accent); color:#fff; }
+        .changelog-lang-btn:hover:not(.active) { color:var(--ink-0); background:var(--surface-2); }
         .changelog-detail-platforms { display:flex; gap:0.4rem; margin-top:0.5rem; flex-wrap:wrap; }
         .platform-chip { display:inline-flex; align-items:center; gap:0.3rem; font-size:0.62rem; font-family:var(--font-mono); padding:2px 8px; border-radius:99px; background:var(--surface-3); border:1px solid var(--border); color:var(--ink-1); }
         .changelog-detail-desc { font-size:0.85rem; color:var(--ink-1); line-height:1.7; margin-bottom:1rem; padding:0.75rem; background:var(--surface-2); border-radius:var(--r-sm); border:1px solid var(--border); }
@@ -11083,11 +11088,20 @@
                 : {};
             const eventWindow = resolveEventWindow(entryType, entry, bannerMeta, updateDate);
             const eventPhase = isEvent ? resolveEventPhase(eventWindow) : '';
+            // Language support: pass through ES translations if present in details or root
+            const details = (entry.details && typeof entry.details === 'object') ? entry.details : {};
+            const descriptionEs = String(entry.description_es || details.description_es || '').trim();
+            const changesEs = Array.isArray(entry.changes_es || details.changes_es)
+                ? (entry.changes_es || details.changes_es).map(l => String(l || '').trim()).filter(Boolean)
+                : [];
             return {
                 id: Number(entry.id || 0),
                 title,
                 description,
                 changes,
+                description_es: descriptionEs,
+                changes_es: changesEs,
+                details,
                 projectNames: projects,
                 projectSlugs,
                 updateDate,
@@ -12305,16 +12319,32 @@
             const eventsCount = document.getElementById('m-events-count');
             if (!changelogWrap || !eventsWrap || !newsWrap) return;
             const buildEntryDetailsHtml = (item) => {
-                const desc = String(item?.description || '').trim();
-                const lines = Array.isArray(item?.changes)
+                const lang = window.owsChangelogLang || 'es';
+                const descEn = String(item?.description || '').trim();
+                const linesEn = Array.isArray(item?.changes)
                     ? item.changes.map((line) => String(line || '').trim()).filter(Boolean)
                     : [];
-                const descHtml = desc ? `<span class="modal-news-desc">${desc}</span>` : '';
-                const listHtml = lines.length
-                    ? `<ul class="modal-news-changes">${lines.map((line) => `<li>${line}</li>`).join('')}</ul>`
+                const descEs = String(item?.description_es || item?.details?.description_es || '').trim();
+                const linesEs = Array.isArray(item?.changes_es || item?.details?.changes_es)
+                    ? (item.changes_es || item.details?.changes_es).map((l) => String(l || '').trim()).filter(Boolean)
+                    : [];
+                const hasEs = !!(descEs || linesEs.length);
+                const hasEn = !!(descEn || linesEn.length);
+                const showEs = lang === 'es' && hasEs;
+                const activeDesc = showEs ? descEs : descEn;
+                const activeLines = showEs ? linesEs : linesEn;
+                const entryId = `entry-${item?.id || Math.random().toString(36).slice(2)}`;
+                const langToggle = (hasEs && hasEn) ? `
+                    <div class="changelog-lang-toggle" style="margin-bottom:4px">
+                        <button class="changelog-lang-btn ${lang === 'es' ? 'active' : ''}" onclick="setModalChangelogLang('es')">ES</button>
+                        <button class="changelog-lang-btn ${lang === 'en' ? 'active' : ''}" onclick="setModalChangelogLang('en')">EN</button>
+                    </div>` : '';
+                const descHtml = activeDesc ? `<span class="modal-news-desc">${activeDesc}</span>` : '';
+                const listHtml = activeLines.length
+                    ? `<ul class="modal-news-changes">${activeLines.map((line) => `<li>${line}</li>`).join('')}</ul>`
                     : '';
-                const fallback = (!desc && !lines.length) ? '<span class="modal-news-desc">Sin descripcion</span>' : '';
-                return `${descHtml}${listHtml}${fallback}`;
+                const fallback = (!activeDesc && !activeLines.length) ? '<span class="modal-news-desc">Sin descripcion</span>' : '';
+                return `${langToggle}${descHtml}${listHtml}${fallback}`;
             };
             const owsNewsEntries = dedupeLaunchEvents([
                 ...((owsNewsUpdatesCache || []).filter((entry) => doesNewsEntryMatchProject(entry, project))),
@@ -14229,8 +14259,24 @@
             const itemDate = Date.parse(item.date || '') || 0;
             const isImportant = itemDate > 0 && (now - itemDate) < sevenDays;
             const platforms = Array.isArray(item.platforms) ? item.platforms : ['windows'];
-            const changes = Array.isArray(item.changes) ? item.changes : (item.text ? [item.text] : []);
             const platformChips = platforms.map(p => `<span class="platform-chip"><i class="fas fa-${p === 'android' ? 'mobile-screen-button' : p === 'all' ? 'globe' : 'desktop'}"></i> ${p}</span>`).join('');
+
+            // Language support: prefer ES if available and selected
+            const lang = window.owsChangelogLang || 'es';
+            const descEn = String(item.text || item.description || '').trim();
+            const changesEn = Array.isArray(item.changes) ? item.changes : (item.text ? [item.text] : []);
+            const descEs = String(item.description_es || item.details?.description_es || '').trim();
+            const changesEs = Array.isArray(item.changes_es || item.details?.changes_es) ? (item.changes_es || item.details?.changes_es) : [];
+            const hasEs = !!(descEs || changesEs.length);
+            const hasEn = !!(descEn || changesEn.length);
+            const showEs = lang === 'es' && hasEs;
+            const activeDesc = showEs ? descEs : descEn;
+            const activeChanges = showEs ? changesEs : changesEn;
+            const langToggleHtml = (hasEs && hasEn) ? `
+                <div class="changelog-lang-toggle">
+                    <button class="changelog-lang-btn ${lang === 'es' ? 'active' : ''}" onclick="setChangelogLang('es', ${idx})">ES</button>
+                    <button class="changelog-lang-btn ${lang === 'en' ? 'active' : ''}" onclick="setChangelogLang('en', ${idx})">EN</button>
+                </div>` : '';
 
             panel.innerHTML = `
                 <div class="changelog-detail-header">
@@ -14241,16 +14287,34 @@
                             <div class="changelog-detail-important-text">Esta version incluye mejoras o correcciones criticas publicadas en los ultimos 7 dias.</div>
                         </div>
                     </div>` : ''}
-                    <div class="changelog-detail-version">${escHtml(item.title || 'Sin titulo')}</div>
+                    <div class="changelog-detail-version-row">
+                        <div class="changelog-detail-version">${escHtml(item.title || 'Sin titulo')}</div>
+                        ${langToggleHtml}
+                    </div>
                     <div class="changelog-detail-date">${item.date ? formatDateTime(item.date) : 'Fecha desconocida'} · ${String(item.type || 'changelog').toUpperCase()}</div>
                     <div class="changelog-detail-platforms">${platformChips}</div>
                 </div>
-                ${item.text || changes[0] ? `<div class="changelog-detail-desc">${escHtml(item.text || changes[0] || '')}</div>` : ''}
-                ${changes.length > 1 || (changes.length === 1 && item.text !== changes[0]) ? `
+                ${activeDesc ? `<div class="changelog-detail-desc">${escHtml(activeDesc)}</div>` : ''}
+                ${activeChanges.length ? `
                 <div class="changelog-detail-changes">
-                    ${changes.map(c => `<div class="changelog-change-item"><span class="changelog-change-bullet">></span><span>${escHtml(String(c || ''))}</span></div>`).join('')}
+                    ${activeChanges.map(c => `<div class="changelog-change-item"><span class="changelog-change-bullet">></span><span>${escHtml(String(c || ''))}</span></div>`).join('')}
                 </div>` : ''}
             `;
+        }
+
+        function setChangelogLang(lang, idx) {
+            window.owsChangelogLang = lang;
+            renderChangelogDetail(idx);
+        }
+
+        function setModalChangelogLang(lang) {
+            window.owsChangelogLang = lang;
+            // Re-render the project news modal if open
+            const modal = document.getElementById('details-modal');
+            if (modal && modal.classList.contains('active') && activeDetailsProjectSlug) {
+                const project = allProjects.find(p => String(p.slug || '').toLowerCase() === activeDetailsProjectSlug);
+                if (project) renderProjectNewsInModal(project);
+            }
         }
 
         function escHtml(str) {

@@ -10380,7 +10380,9 @@ app.post('/ows-news/updates', async (req, res) => {
       const lines = normalizeTimelineLines(changes);
       const details = {
         changes: lines,
-        source: 'ows_news_updates_api'
+        source: 'ows_news_updates_api',
+        ...(payload.description_es ? { description_es: String(payload.description_es).trim() } : {}),
+        ...(Array.isArray(payload.changes_es) && payload.changes_es.length ? { changes_es: payload.changes_es.map(l => String(l || '').trim()).filter(Boolean) } : {})
       };
       const { rows } = await pool.query(
         `INSERT INTO ows_store_timeline (

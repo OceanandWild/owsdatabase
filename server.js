@@ -3771,6 +3771,31 @@ async function getFloretQuota(userId) {
   return quota;
 }
 
+function buildFloretQuotaSummary(quotaRow) {
+  const maxDaily = Number(quotaRow?.max_daily || 4);
+  const uploadsToday = Number(quotaRow?.uploads_today || 0);
+  const remaining = Math.max(0, maxDaily - uploadsToday);
+  const lastUpload = quotaRow?.last_upload_time ? new Date(quotaRow.last_upload_time) : null;
+  const now = Date.now();
+  let nextResetMs = 0;
+  let nextResetAt = null;
+  if (lastUpload && Number.isFinite(lastUpload.getTime())) {
+    const resetAt = lastUpload.getTime() + (24 * 60 * 60 * 1000);
+    if (resetAt > now) {
+      nextResetMs = resetAt - now;
+      nextResetAt = new Date(resetAt).toISOString();
+    }
+  }
+  return {
+    uploads_today: uploadsToday,
+    max_daily: maxDaily,
+    remaining,
+    last_upload_time: quotaRow?.last_upload_time || null,
+    next_reset_ms: nextResetMs,
+    next_reset_at: nextResetAt
+  };
+}
+
 // Login
 app.post('/floret/login', async (req, res) => {
   const { username, password, identifier, email } = req.body || {};
@@ -4299,9 +4324,57 @@ app.patch('/floret/seller/orders/:id/status', async (req, res) => {
 app.get('/floret/quota/:userId', async (req, res) => {
   try {
     const quota = await getFloretQuota(req.params.userId);
-    res.json(quota);
+    res.json(buildFloretQuotaSummary(quota));
   } catch (e) {
     res.status(500).json({ error: 'Error obteniendo cuota' });
+  }
+});
+
+app.get('/floret/session-insights', async (req, res) => {
+  try {
+    const userId = Number(req.query.userId || 0);
+    const safeEmail = normalizeFloretEmail(req.query.email || '');
+    if (!userId) return res.status(400).json({ error: 'userId es requerido' });
+
+    const { rows } = await pool.query(
+      `SELECT id, username, email, power_level
+         FROM floret_users
+         WHERE id = $1
+         LIMIT 1`,
+      [userId]
+    );
+    const actor = rows[0];
+    if (!actor) return res.status(404).json({ error: 'Usuario no encontrado' });
+
+    const actorUser = String(actor.username || '').trim().toLowerCase();
+    const actorEmail = normalizeFloretEmail(actor.email || '');
+    const requiredEmail = normalizeFloretEmail(FLORET_MAIN_SELLER_EMAIL);
+    const isMalevo = actorUser === 'malevo' || actorEmail === requiredEmail;
+    const isOceanandWild = actorUser === 'oceanandwild';
+    const quota = await getFloretQuota(userId);
+    const quotaSummary = buildFloretQuotaSummary(quota);
+
+    const access = await assertFloretMalevoAccess({ userId, email: safeEmail || actorEmail });
+    const serverVerifiedMalevo = Boolean(isMalevo && access?.allowed);
+
+    return res.json({
+      success: true,
+      user: {
+        id: Number(actor.id),
+        username: String(actor.username || ''),
+        email: actor.email || null,
+        power_level: Number(actor.power_level || 0)
+      },
+      flags: {
+        is_malevo: isMalevo,
+        is_oceanandwild: isOceanandWild,
+        server_verified_malevo: serverVerifiedMalevo
+      },
+      quota: quotaSummary
+    });
+  } catch (e) {
+    console.error('Error en /floret/session-insights:', e);
+    return res.status(500).json({ error: 'Error interno' });
   }
 });
 

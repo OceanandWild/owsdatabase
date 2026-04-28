@@ -665,7 +665,7 @@
             align-items: center;
             justify-content: center;
             z-index: 1000;
-            padding: 20px;
+            padding: 16px;
             opacity: 0;
             visibility: hidden;
             transition: .3s
@@ -681,8 +681,7 @@
             border-radius: 16px;
             max-width: 500px;
             width: 100%;
-            max-height: 85vh;
-            /* Flex layout para separar header/body/footer */
+            max-height: 90vh;
             display: flex;
             flex-direction: column;
             border: 1px solid rgba(139, 92, 246, 0.3);
@@ -696,15 +695,16 @@
         }
 
         .modal-hd {
-            padding: 16px;
+            padding: 14px 16px;
             border-bottom: 1px solid rgba(139, 92, 246, 0.2);
             display: flex;
             justify-content: space-between;
-            align-items: center
+            align-items: center;
+            flex-shrink: 0;
         }
 
         .modal-hd h3 {
-            font-size: 1.2rem
+            font-size: 1.1rem
         }
 
         .modal-cl {
@@ -712,7 +712,12 @@
             border: none;
             color: var(--muted);
             font-size: 1.4rem;
-            cursor: pointer
+            cursor: pointer;
+            min-width: 36px;
+            min-height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .modal-cl:hover {
@@ -720,13 +725,33 @@
         }
 
         .modal-bd {
-            padding: 16px;
+            padding: 14px 16px;
             overflow-y: auto;
-            /* Scroll aquí */
             flex: 1;
-            /* Ocupa el espacio restante */
             min-height: 0;
-            /* Fix para Firefox flex items */
+            -webkit-overflow-scrolling: touch;
+        }
+
+        @media (max-width: 480px) {
+            .modal-bg {
+                padding: 0;
+                align-items: flex-end;
+            }
+            .modal {
+                border-radius: 20px 20px 0 0;
+                max-height: 92vh;
+                max-width: 100%;
+                transform: translateY(20px);
+            }
+            .modal-bg.on .modal {
+                transform: translateY(0);
+            }
+            .modal-hd h3 {
+                font-size: 1rem;
+            }
+            .modal-bd {
+                padding: 12px 14px;
+            }
         }
 
         .frm-grp {
@@ -1544,6 +1569,224 @@
             40%      { transform: translateX(5px); }
             60%      { transform: translateX(-4px); }
             80%      { transform: translateX(3px); }
+        }
+
+        /* ===== PHONE VERIFY STEP ===== */
+        .reg-phone-prefix {
+            display: flex;
+            align-items: center;
+            gap: 0;
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 10px;
+            background: rgba(255,255,255,0.05);
+            overflow: hidden;
+            transition: border-color .2s ease, box-shadow .2s ease;
+        }
+
+        .reg-phone-prefix:focus-within {
+            border-color: var(--pri);
+            box-shadow: 0 0 0 2px rgba(139,92,246,0.2);
+        }
+
+        .reg-phone-cc {
+            padding: 10px 10px;
+            background: rgba(139,92,246,0.12);
+            border-right: 1px solid rgba(255,255,255,0.1);
+            color: #c9a8ff;
+            font-size: 0.85rem;
+            font-weight: 600;
+            white-space: nowrap;
+            min-width: 52px;
+            text-align: center;
+        }
+
+        .reg-phone-inp {
+            flex: 1;
+            border: none !important;
+            background: transparent !important;
+            box-shadow: none !important;
+            padding: 10px 12px;
+            color: var(--txt);
+            font-family: inherit;
+            font-size: 0.92rem;
+            outline: none;
+        }
+
+        .reg-phone-inp::placeholder { color: var(--muted); }
+
+        .reg-code-row {
+            display: flex;
+            gap: 8px;
+            align-items: stretch;
+        }
+
+        .reg-code-inp {
+            flex: 1;
+            letter-spacing: 0.22em;
+            font-size: 1.1rem;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        .reg-code-send-btn {
+            flex: 0 0 auto;
+            padding: 0 14px;
+            border-radius: 10px;
+            border: 1px solid rgba(139,92,246,0.4);
+            background: rgba(139,92,246,0.12);
+            color: #c9a8ff;
+            font-family: inherit;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all .2s ease;
+            white-space: nowrap;
+        }
+
+        .reg-code-send-btn:hover:not(:disabled) {
+            background: rgba(139,92,246,0.25);
+            border-color: var(--pri);
+            color: #f0e0ff;
+        }
+
+        .reg-code-send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .reg-code-timer {
+            font-size: 0.72rem;
+            color: var(--muted);
+            text-align: right;
+            min-height: 16px;
+        }
+
+        /* ===== PETAL OVERLAY (existing users without phone) ===== */
+        .floret-phone-gate {
+            position: fixed;
+            inset: 0;
+            z-index: 4200;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .4s ease;
+        }
+
+        .floret-phone-gate.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .floret-phone-gate-bg {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(160deg,
+                rgba(236, 72, 153, 0.96) 0%,
+                rgba(190, 24, 93, 0.97) 40%,
+                rgba(139, 92, 246, 0.95) 100%);
+            backdrop-filter: blur(2px);
+        }
+
+        .floret-petal-canvas {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+        }
+
+        .floret-phone-gate-card {
+            position: relative;
+            z-index: 1;
+            width: min(92vw, 440px);
+            border-radius: 22px;
+            border: 1px solid rgba(255,255,255,0.22);
+            background: rgba(20, 10, 35, 0.88);
+            backdrop-filter: blur(18px);
+            padding: 28px 24px 24px;
+            box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+        }
+
+        .floret-gate-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, rgba(236,72,153,0.3), rgba(139,92,246,0.25));
+            border: 2px solid rgba(236,72,153,0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.4rem;
+            color: #ffb3d9;
+            margin: 0 auto 14px;
+            box-shadow: 0 0 20px rgba(236,72,153,0.3);
+        }
+
+        .floret-gate-title {
+            font-size: 1.15rem;
+            font-weight: 800;
+            color: #fff5fb;
+            text-align: center;
+            margin-bottom: 6px;
+        }
+
+        .floret-gate-sub {
+            font-size: 0.82rem;
+            color: #e8b4d0;
+            text-align: center;
+            line-height: 1.45;
+            margin-bottom: 20px;
+        }
+
+        /* ===== AUTH MODAL MOBILE IMPROVEMENTS ===== */
+        @media (max-width: 600px) {
+            .auth-shell {
+                padding: 10px;
+            }
+
+            .auth-top {
+                margin-bottom: 8px;
+            }
+
+            .auth-title {
+                font-size: 0.95rem;
+            }
+
+            .auth-sub {
+                font-size: 0.74rem;
+            }
+
+            .auth-tab {
+                font-size: 0.75rem;
+                padding: 8px 4px;
+            }
+
+            .reg-wizard-progress {
+                margin-bottom: 12px;
+            }
+
+            .reg-wz-step-dot {
+                width: 26px;
+                height: 26px;
+                font-size: 0.72rem;
+            }
+
+            .reg-wz-step-label {
+                font-size: 0.58rem;
+            }
+
+            .reg-wz-nav .btn-back {
+                padding: 10px 12px;
+            }
+
+            .floret-phone-gate-card {
+                padding: 22px 16px 18px;
+            }
+
+            .floret-gate-title {
+                font-size: 1rem;
+            }
         }
 
         .welcome-overlay {
@@ -4464,7 +4707,7 @@
             document.getElementById('auth-form').innerHTML = `
     <div class="reg-wizard" id="reg-wizard">
 
-      <!-- Progress bar -->
+      <!-- Progress bar: 4 steps -->
       <div class="reg-wizard-progress" id="reg-wz-progress">
         <div class="reg-wz-step active" id="reg-wz-s1">
           <div class="reg-wz-step-dot" id="reg-wz-d1">1</div>
@@ -4479,6 +4722,11 @@
         <div class="reg-wz-step" id="reg-wz-s3">
           <div class="reg-wz-step-dot" id="reg-wz-d3">3</div>
           <span class="reg-wz-step-label">Seguridad</span>
+        </div>
+        <div class="reg-wz-connector" id="reg-wz-c3"><div class="reg-wz-connector-fill"></div></div>
+        <div class="reg-wz-step" id="reg-wz-s4">
+          <div class="reg-wz-step-dot" id="reg-wz-d4">4</div>
+          <span class="reg-wz-step-label">Teléfono</span>
         </div>
       </div>
 
@@ -4527,7 +4775,7 @@
           <label class="frm-lbl">Confirmar contraseña</label>
           <div class="pass-wrap">
             <input class="frm-inp" type="password" id="reg-pass2" placeholder="Repite la contraseña"
-              autocomplete="new-password" oninput="regWzValidatePass2()" onkeydown="if(event.key==='Enter')regWzSubmit()">
+              autocomplete="new-password" oninput="regWzValidatePass2()" onkeydown="if(event.key==='Enter')regWzNext(3)">
             <button class="pass-toggle" type="button" onclick="togglePasswordVisibility('reg-pass2', this)"><i class="fas fa-eye"></i></button>
           </div>
           <div class="reg-field-status tip" id="reg-pass2-status"></div>
@@ -4535,8 +4783,43 @@
         <div class="auth-secure-line"><i class="fas fa-shield-halved"></i> El texto se normaliza antes de enviarse para evitar errores de credenciales.</div>
         <div class="reg-wz-nav">
           <button class="btn-back" onclick="regWzBack(3)"><i class="fas fa-arrow-left"></i></button>
-          <button class="btn btn-p btn-next" id="reg-submit-btn" onclick="regWzSubmit()"><i class="fas fa-user-plus"></i> Crear cuenta</button>
+          <button class="btn btn-p btn-next" onclick="regWzNext(3)"><i class="fas fa-arrow-right"></i> Continuar</button>
         </div>
+      </div>
+
+      <!-- Paso 4: Teléfono -->
+      <div class="reg-wz-panel" id="reg-wz-p4">
+        <div class="frm-grp">
+          <label class="frm-lbl">Número de teléfono</label>
+          <div class="reg-phone-prefix">
+            <span class="reg-phone-cc">+</span>
+            <input class="reg-phone-inp" type="tel" id="reg-phone"
+              placeholder="598 99 123 456" autocomplete="tel"
+              oninput="regWzValidatePhone()" onkeydown="if(event.key==='Enter')regWzSendCode()">
+          </div>
+          <div class="reg-field-status tip" id="reg-phone-status"><i class="fas fa-circle-info"></i> Incluye el código de país (ej: 598 para Uruguay)</div>
+        </div>
+        <div class="frm-grp" id="reg-code-grp" style="display:none">
+          <label class="frm-lbl">Código de verificación</label>
+          <div class="reg-code-row">
+            <input class="frm-inp reg-code-inp" type="text" id="reg-code"
+              placeholder="• • • • • •" maxlength="6" inputmode="numeric"
+              oninput="regWzValidateCode()" onkeydown="if(event.key==='Enter')regWzSubmit()">
+            <button class="reg-code-send-btn" id="reg-code-resend" onclick="regWzSendCode(true)" disabled>Reenviar</button>
+          </div>
+          <div class="reg-code-timer" id="reg-code-timer"></div>
+          <div class="reg-field-status tip" id="reg-code-status"></div>
+        </div>
+        <div class="auth-secure-line"><i class="fas fa-mobile-screen"></i> Tu número no es visible públicamente y solo se usa para verificar tu identidad.</div>
+        <div class="reg-wz-nav">
+          <button class="btn-back" onclick="regWzBack(4)"><i class="fas fa-arrow-left"></i></button>
+          <button class="btn btn-p btn-next" id="reg-phone-next-btn" onclick="regWzPhoneAction()">
+            <i class="fas fa-paper-plane"></i> Enviar código
+          </button>
+        </div>
+        <button class="auth-link-btn" style="text-align:center;width:100%;margin-top:8px;font-size:0.78rem" onclick="regWzSubmitNoPhone()">
+          Omitir por ahora →
+        </button>
       </div>
 
       <!-- Éxito -->
@@ -4581,14 +4864,14 @@
                 }
             }, 200);
 
-            // Update progress dots
-            const steps = [1, 2, 3];
+            // Update progress dots (4 steps)
+            const steps = [1, 2, 3, 4];
             steps.forEach(s => {
                 const dot  = document.getElementById(`reg-wz-s${s}`);
                 const conn = document.getElementById(`reg-wz-c${s}`);
                 if (!dot) return;
                 dot.classList.remove('active', 'done');
-                if (s < to)       dot.classList.add('done');
+                if (s < to)        dot.classList.add('done');
                 else if (s === to) dot.classList.add('active');
                 if (conn) conn.classList.toggle('done', s < to);
                 // Swap number for checkmark on done steps
@@ -4707,13 +4990,71 @@
                     if (inp) { inp.focus(); shakeElement(inp); }
                     return;
                 }
-                regWzSetStep(1, 2, 'forward');
+                // Async duplicate check for username
+                regWzCheckUsername();
             } else if (step === 2) {
                 if (!regWzValidateEmail()) {
                     const inp = document.getElementById('reg-email');
                     if (inp) { inp.focus(); shakeElement(inp); }
                     return;
                 }
+                // Async duplicate check for email
+                regWzCheckEmail();
+            } else if (step === 3) {
+                if (!regWzValidatePass())  { shakeElement(document.getElementById('reg-pass')?.closest('.pass-wrap'));  return; }
+                if (!regWzValidatePass2()) { shakeElement(document.getElementById('reg-pass2')?.closest('.pass-wrap')); return; }
+                const p1 = String(document.getElementById('reg-pass')?.value  || '').normalize('NFKC');
+                const p2 = String(document.getElementById('reg-pass2')?.value || '').normalize('NFKC');
+                if (p1 !== p2) { showToast('Las contraseñas no coinciden', true); return; }
+                regWzSetStep(3, 4, 'forward');
+            }
+        }
+
+        async function regWzCheckUsername() {
+            const val = normalizeAuthField(document.getElementById('reg-user')?.value || '', 32);
+            const st  = document.getElementById('reg-user-status');
+            const inp = document.getElementById('reg-user');
+            const btn = document.querySelector('#reg-wz-p1 .btn-next');
+            if (btn) { btn.disabled = true; btn.innerHTML = '<span class="wide-dots"><span></span><span></span><span></span></span>'; }
+            try {
+                const res = await fetch(`${API}/floret/check-availability?username=${encodeURIComponent(val)}`, { cache: 'no-store' });
+                const data = await res.json();
+                if (data.username_taken) {
+                    inp?.classList.add('invalid'); inp?.classList.remove('valid');
+                    if (st) { st.className = 'reg-field-status err'; st.innerHTML = '<i class="fas fa-circle-xmark"></i> Ese usuario ya está en uso. Elige otro.'; }
+                    shakeElement(inp);
+                    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-arrow-right"></i> Continuar'; }
+                    return;
+                }
+                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-arrow-right"></i> Continuar'; }
+                regWzSetStep(1, 2, 'forward');
+            } catch (_e) {
+                // If check fails, allow proceeding (server will catch on submit)
+                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-arrow-right"></i> Continuar'; }
+                regWzSetStep(1, 2, 'forward');
+            }
+        }
+
+        async function regWzCheckEmail() {
+            const val = normalizeAuthField(document.getElementById('reg-email')?.value || '', 120).toLowerCase();
+            const st  = document.getElementById('reg-email-status');
+            const inp = document.getElementById('reg-email');
+            const btn = document.querySelector('#reg-wz-p2 .btn-next');
+            if (btn) { btn.disabled = true; btn.innerHTML = '<span class="wide-dots"><span></span><span></span><span></span></span>'; }
+            try {
+                const res = await fetch(`${API}/floret/check-availability?email=${encodeURIComponent(val)}`, { cache: 'no-store' });
+                const data = await res.json();
+                if (data.email_taken) {
+                    inp?.classList.add('invalid'); inp?.classList.remove('valid');
+                    if (st) { st.className = 'reg-field-status err'; st.innerHTML = '<i class="fas fa-circle-xmark"></i> Ese email ya tiene una cuenta asociada.'; }
+                    shakeElement(inp);
+                    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-arrow-right"></i> Continuar'; }
+                    return;
+                }
+                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-arrow-right"></i> Continuar'; }
+                regWzSetStep(2, 3, 'forward');
+            } catch (_e) {
+                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-arrow-right"></i> Continuar'; }
                 regWzSetStep(2, 3, 'forward');
             }
         }
@@ -4721,6 +5062,117 @@
         function regWzBack(step) {
             if (step === 2) regWzSetStep(2, 1, 'back');
             else if (step === 3) regWzSetStep(3, 2, 'back');
+            else if (step === 4) regWzSetStep(4, 3, 'back');
+        }
+
+        // ===== PHONE STEP LOGIC =====
+        let regPhoneCodeSent = false;
+        let regPhoneTimerInterval = null;
+
+        function regWzValidatePhone() {
+            const raw = String(document.getElementById('reg-phone')?.value || '').replace(/\s+/g, '');
+            const phone = raw.startsWith('+') ? raw : (raw ? '+' + raw : '');
+            const inp = document.getElementById('reg-phone');
+            const st  = document.getElementById('reg-phone-status');
+            const ok  = /^\+?\d{7,15}$/.test(phone);
+            if (!raw) {
+                inp?.classList.remove('valid', 'invalid');
+                if (st) { st.className = 'reg-field-status tip'; st.innerHTML = '<i class="fas fa-circle-info"></i> Incluye el código de país (ej: 598 para Uruguay)'; }
+                return false;
+            }
+            inp?.classList.toggle('valid', ok);
+            inp?.classList.toggle('invalid', !ok);
+            if (st) {
+                st.className = `reg-field-status ${ok ? 'ok' : 'err'}`;
+                st.innerHTML = ok
+                    ? `<i class="fas fa-circle-check"></i> Número válido`
+                    : '<i class="fas fa-circle-xmark"></i> Formato inválido. Ej: 59899123456';
+            }
+            return ok;
+        }
+
+        function regWzGetPhone() {
+            const raw = String(document.getElementById('reg-phone')?.value || '').replace(/\s+/g, '');
+            return raw.startsWith('+') ? raw : (raw ? '+' + raw : '');
+        }
+
+        function regWzValidateCode() {
+            const code = String(document.getElementById('reg-code')?.value || '').trim();
+            const st   = document.getElementById('reg-code-status');
+            const ok   = /^\d{6}$/.test(code);
+            if (!code) { if (st) { st.className = 'reg-field-status tip'; st.innerHTML = ''; } return false; }
+            if (st) {
+                st.className = `reg-field-status ${ok ? 'ok' : 'err'}`;
+                st.innerHTML = ok ? '<i class="fas fa-circle-check"></i> Código listo' : '<i class="fas fa-circle-xmark"></i> El código tiene 6 dígitos';
+            }
+            return ok;
+        }
+
+        function regWzStartCodeTimer(seconds = 120) {
+            clearInterval(regPhoneTimerInterval);
+            const timerEl = document.getElementById('reg-code-timer');
+            const resendBtn = document.getElementById('reg-code-resend');
+            let remaining = seconds;
+            const update = () => {
+                if (!timerEl) { clearInterval(regPhoneTimerInterval); return; }
+                if (remaining <= 0) {
+                    clearInterval(regPhoneTimerInterval);
+                    timerEl.textContent = 'El código expiró. Solicita uno nuevo.';
+                    if (resendBtn) resendBtn.disabled = false;
+                    return;
+                }
+                const m = Math.floor(remaining / 60);
+                const s = remaining % 60;
+                timerEl.textContent = `Código válido por ${m}:${String(s).padStart(2, '0')}`;
+                remaining--;
+            };
+            update();
+            regPhoneTimerInterval = setInterval(update, 1000);
+        }
+
+        async function regWzSendCode(isResend = false) {
+            if (!regWzValidatePhone()) {
+                shakeElement(document.getElementById('reg-phone'));
+                return;
+            }
+            const phone = regWzGetPhone();
+            const btn = document.getElementById('reg-phone-next-btn');
+            const sendBtn = document.getElementById('reg-code-resend');
+            if (btn) { btn.disabled = true; btn.innerHTML = '<span class="wide-dots"><span></span><span></span><span></span></span>'; }
+            try {
+                const res = await fetch(`${API}/floret/phone-verify-send`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone, userId: 0 })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error);
+                regPhoneCodeSent = true;
+                // Show code input
+                const codeGrp = document.getElementById('reg-code-grp');
+                if (codeGrp) {
+                    codeGrp.style.display = 'block';
+                    if (typeof window.gsap !== 'undefined') {
+                        window.gsap.fromTo(codeGrp, { y: 8, opacity: 0 }, { y: 0, opacity: 1, duration: 0.28, ease: 'power2.out' });
+                    }
+                    setTimeout(() => document.getElementById('reg-code')?.focus(), 60);
+                }
+                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check-circle"></i> Verificar código'; btn.onclick = () => regWzSubmit(); }
+                if (sendBtn) sendBtn.disabled = true;
+                regWzStartCodeTimer(120);
+                showToast(isResend ? 'Código reenviado' : 'Código enviado. Revisa tu teléfono.');
+            } catch (e) {
+                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar código'; }
+                showToast(e.message || 'Error enviando código', true);
+            }
+        }
+
+        function regWzPhoneAction() {
+            if (!regPhoneCodeSent) {
+                regWzSendCode(false);
+            } else {
+                regWzSubmit();
+            }
         }
 
         function shakeElement(el) {
@@ -4739,19 +5191,35 @@
             const email    = normalizeAuthField(document.getElementById('reg-email')?.value || '', 120).toLowerCase();
             const password = String(document.getElementById('reg-pass')?.value  || '').normalize('NFKC');
             const pass2    = String(document.getElementById('reg-pass2')?.value || '').normalize('NFKC');
+            const phone    = regWzGetPhone();
+            const code     = String(document.getElementById('reg-code')?.value || '').trim();
 
             if (!regWzValidatePass())  { shakeElement(document.getElementById('reg-pass')?.closest('.pass-wrap'));  return; }
             if (!regWzValidatePass2()) { shakeElement(document.getElementById('reg-pass2')?.closest('.pass-wrap')); return; }
             if (password !== pass2)    { showToast('Las contraseñas no coinciden', true); return; }
 
-            const btn = document.getElementById('reg-submit-btn');
+            // Require phone code verification
+            if (!regPhoneCodeSent) { showToast('Primero envía el código de verificación', true); return; }
+            if (!regWzValidateCode()) { shakeElement(document.getElementById('reg-code')); return; }
+
+            const btn = document.getElementById('reg-phone-next-btn');
             if (btn) { btn.disabled = true; btn.innerHTML = '<span class="wide-dots"><span></span><span></span><span></span></span>'; }
 
             try {
+                // Verify code first
+                const verifyRes = await fetch(`${API}/floret/phone-verify-check`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone, code, userId: 0 })
+                });
+                const verifyData = await verifyRes.json();
+                if (!verifyRes.ok) throw new Error(verifyData.error || 'Código incorrecto');
+
+                // Register with verified phone
                 const res = await fetch(API + '/floret/register', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, email, password })
+                    body: JSON.stringify({ username, email, password, phone })
                 });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error);
@@ -4759,12 +5227,12 @@
                 // Show success state inside wizard
                 const panels = document.querySelectorAll('.reg-wz-panel.active');
                 panels.forEach(p => { p.classList.add('slide-out'); setTimeout(() => p.classList.remove('active', 'slide-out'), 200); });
-                document.getElementById('reg-wizard-progress') && (document.getElementById('reg-wz-progress').style.opacity = '0.4');
+                const progressEl = document.getElementById('reg-wz-progress');
+                if (progressEl) progressEl.style.opacity = '0.4';
                 const successEl = document.getElementById('reg-wz-success');
                 if (successEl) {
                     setTimeout(() => {
                         successEl.classList.add('show');
-                        // Animate success icon with PixiJS confetti burst
                         regWzSuccessEffect();
                     }, 220);
                 }
@@ -4783,7 +5251,54 @@
                 }
                 showToast('¡Cuenta creada!');
             } catch (e) {
-                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-user-plus"></i> Crear cuenta'; }
+                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check-circle"></i> Verificar código'; }
+                showToast(e.message || 'Error al registrar', true);
+            }
+        }
+
+        async function regWzSubmitNoPhone() {
+            const username = normalizeAuthField(document.getElementById('reg-user')?.value || '', 32);
+            const email    = normalizeAuthField(document.getElementById('reg-email')?.value || '', 120).toLowerCase();
+            const password = String(document.getElementById('reg-pass')?.value  || '').normalize('NFKC');
+
+            const btn = document.querySelector('#reg-wz-p4 .auth-link-btn');
+            if (btn) { btn.disabled = true; btn.textContent = 'Creando cuenta...'; }
+
+            try {
+                const res = await fetch(API + '/floret/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, email, password })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error);
+
+                const panels = document.querySelectorAll('.reg-wz-panel.active');
+                panels.forEach(p => { p.classList.add('slide-out'); setTimeout(() => p.classList.remove('active', 'slide-out'), 200); });
+                const progressEl = document.getElementById('reg-wz-progress');
+                if (progressEl) progressEl.style.opacity = '0.4';
+                const successEl = document.getElementById('reg-wz-success');
+                if (successEl) {
+                    setTimeout(() => { successEl.classList.add('show'); regWzSuccessEffect(); }, 220);
+                }
+
+                await waitMs(1400);
+                user = data.user;
+                isAdmin = isFloretCoreAdminAccount(user);
+                saveAuthUser(user, true);
+                closeModal();
+                await showWelcomeSequence(user?.username || 'Usuario');
+                render();
+                if (isMalevoSession()) {
+                    await loadMalevoNotifications(true).catch(() => null);
+                    render();
+                }
+                showToast('¡Cuenta creada!');
+                // Show phone gate since they skipped phone verification
+                await waitMs(600);
+                showFloretPhoneGate(user.id);
+            } catch (e) {
+                if (btn) { btn.disabled = false; btn.textContent = 'Omitir por ahora →'; }
                 showToast(e.message || 'Error al registrar', true);
             }
         }
@@ -4848,6 +5363,265 @@
             }
             // Focus first input
             setTimeout(() => document.getElementById('reg-user')?.focus(), 80);
+        }
+
+        // ===== PHONE GATE (existing users without verified phone) =====
+        let floretPhoneGatePixi = null;
+        let floretGatePhoneCodeSent = false;
+        let floretGateTimerInterval = null;
+
+        async function checkAndShowPhoneGate(userId) {
+            if (!userId) return;
+            try {
+                const res = await fetch(`${API}/floret/phone-status/${userId}`, { cache: 'no-store' });
+                if (!res.ok) return;
+                const data = await res.json();
+                if (!data.has_phone || !data.phone_verified) {
+                    await waitMs(500);
+                    showFloretPhoneGate(userId);
+                }
+            } catch (_e) { /* noop */ }
+        }
+
+        function showFloretPhoneGate(userId) {
+            // Remove any existing gate
+            const existing = document.getElementById('floret-phone-gate');
+            if (existing) existing.remove();
+
+            const gate = document.createElement('div');
+            gate.className = 'floret-phone-gate';
+            gate.id = 'floret-phone-gate';
+            gate.innerHTML = `
+      <div class="floret-phone-gate-bg"></div>
+      <canvas class="floret-petal-canvas" id="floret-petal-canvas"></canvas>
+      <div class="floret-phone-gate-card" id="floret-gate-card">
+        <div class="floret-gate-icon"><i class="fas fa-mobile-screen-button"></i></div>
+        <div class="floret-gate-title">Verifica tu número</div>
+        <p class="floret-gate-sub">Para continuar en Floret Shop necesitás asociar y verificar un número de teléfono. Solo se usa para proteger tu cuenta.</p>
+        <div class="frm-grp" style="margin-bottom:10px">
+          <label class="frm-lbl" style="color:#f0d0e8">Número de teléfono</label>
+          <div class="reg-phone-prefix">
+            <span class="reg-phone-cc">+</span>
+            <input class="reg-phone-inp" type="tel" id="gate-phone"
+              placeholder="598 99 123 456" autocomplete="tel"
+              oninput="gateValidatePhone()" onkeydown="if(event.key==='Enter')gateSendCode()">
+          </div>
+          <div class="reg-field-status tip" id="gate-phone-status" style="color:#e8b4d0"><i class="fas fa-circle-info"></i> Incluye el código de país</div>
+        </div>
+        <div class="frm-grp" id="gate-code-grp" style="display:none;margin-bottom:10px">
+          <label class="frm-lbl" style="color:#f0d0e8">Código de verificación</label>
+          <div class="reg-code-row">
+            <input class="frm-inp reg-code-inp" type="text" id="gate-code"
+              placeholder="• • • • • •" maxlength="6" inputmode="numeric"
+              oninput="gateValidateCode()" onkeydown="if(event.key==='Enter')gateVerifyCode()">
+            <button class="reg-code-send-btn" id="gate-code-resend" onclick="gateSendCode(true)" disabled>Reenviar</button>
+          </div>
+          <div class="reg-code-timer" id="gate-code-timer"></div>
+          <div class="reg-field-status tip" id="gate-code-status"></div>
+        </div>
+        <button class="btn btn-p" style="width:100%;background:linear-gradient(135deg,#ec4899,#8b5cf6);border:none" id="gate-action-btn" onclick="gateSendCode()">
+          <i class="fas fa-paper-plane"></i> Enviar código
+        </button>
+        <button class="auth-link-btn" style="display:block;text-align:center;width:100%;margin-top:10px;font-size:0.78rem;color:#e8b4d0" onclick="hideFloretPhoneGate()">
+          Recordármelo más tarde
+        </button>
+      </div>
+    `;
+            document.body.appendChild(gate);
+            floretGatePhoneCodeSent = false;
+            floretGateTimerInterval && clearInterval(floretGateTimerInterval);
+
+            // Animate in
+            requestAnimationFrame(() => {
+                gate.classList.add('show');
+                if (typeof window.gsap !== 'undefined') {
+                    window.gsap.fromTo('#floret-gate-card',
+                        { y: 24, scale: 0.96, opacity: 0 },
+                        { y: 0, scale: 1, opacity: 1, duration: 0.38, ease: 'back.out(1.4)' }
+                    );
+                }
+            });
+
+            // PixiJS petal animation
+            startFloretPetalCanvas(userId);
+        }
+
+        function hideFloretPhoneGate() {
+            const gate = document.getElementById('floret-phone-gate');
+            if (!gate) return;
+            if (typeof window.gsap !== 'undefined') {
+                window.gsap.to(gate, { opacity: 0, duration: 0.3, onComplete: () => gate.remove() });
+            } else {
+                gate.remove();
+            }
+            if (floretPhoneGatePixi) {
+                try { floretPhoneGatePixi.destroy(true); } catch (_e) {}
+                floretPhoneGatePixi = null;
+            }
+            floretGateTimerInterval && clearInterval(floretGateTimerInterval);
+        }
+
+        function startFloretPetalCanvas(userId) {
+            const canvas = document.getElementById('floret-petal-canvas');
+            if (!canvas || !window.PIXI) return;
+            try {
+                const app = new PIXI.Application();
+                app.init({ view: canvas, resizeTo: canvas.parentElement, backgroundAlpha: 0, antialias: true }).then(() => {
+                    floretPhoneGatePixi = app;
+                    const petals = [];
+                    const petalColors = [0xfce7f3, 0xfbcfe8, 0xf9a8d4, 0xf472b6, 0xec4899, 0xfff1f2, 0xffe4e6];
+                    for (let i = 0; i < 38; i++) {
+                        const g = new PIXI.Graphics();
+                        const color = petalColors[i % petalColors.length];
+                        const w = 6 + Math.random() * 10;
+                        const h = w * (0.5 + Math.random() * 0.5);
+                        g.ellipse(0, 0, w, h).fill({ color, alpha: 0.55 + Math.random() * 0.35 });
+                        g.x = Math.random() * app.renderer.width;
+                        g.y = Math.random() * app.renderer.height - app.renderer.height;
+                        g.rotation = Math.random() * Math.PI * 2;
+                        g.vx = (Math.random() - 0.5) * 0.7;
+                        g.vy = 0.6 + Math.random() * 1.2;
+                        g.vr = (Math.random() - 0.5) * 0.04;
+                        petals.push(g);
+                        app.stage.addChild(g);
+                    }
+                    app.ticker.add(() => {
+                        for (const p of petals) {
+                            p.x += p.vx;
+                            p.y += p.vy;
+                            p.rotation += p.vr;
+                            if (p.y > app.renderer.height + 20) {
+                                p.y = -20;
+                                p.x = Math.random() * app.renderer.width;
+                            }
+                        }
+                    });
+                }).catch(() => {});
+            } catch (_e) {}
+        }
+
+        function gateValidatePhone() {
+            const raw = String(document.getElementById('gate-phone')?.value || '').replace(/\s+/g, '');
+            const phone = raw.startsWith('+') ? raw : (raw ? '+' + raw : '');
+            const inp = document.getElementById('gate-phone');
+            const st  = document.getElementById('gate-phone-status');
+            const ok  = /^\+?\d{7,15}$/.test(phone);
+            if (!raw) {
+                inp?.classList.remove('valid', 'invalid');
+                if (st) { st.className = 'reg-field-status tip'; st.style.color = '#e8b4d0'; st.innerHTML = '<i class="fas fa-circle-info"></i> Incluye el código de país'; }
+                return false;
+            }
+            inp?.classList.toggle('valid', ok);
+            inp?.classList.toggle('invalid', !ok);
+            if (st) {
+                st.className = `reg-field-status ${ok ? 'ok' : 'err'}`;
+                st.style.color = ok ? '#7ee8c0' : '#f87171';
+                st.innerHTML = ok ? '<i class="fas fa-circle-check"></i> Número válido' : '<i class="fas fa-circle-xmark"></i> Formato inválido. Ej: 59899123456';
+            }
+            return ok;
+        }
+
+        function gateGetPhone() {
+            const raw = String(document.getElementById('gate-phone')?.value || '').replace(/\s+/g, '');
+            return raw.startsWith('+') ? raw : (raw ? '+' + raw : '');
+        }
+
+        function gateValidateCode() {
+            const code = String(document.getElementById('gate-code')?.value || '').trim();
+            const st   = document.getElementById('gate-code-status');
+            const ok   = /^\d{6}$/.test(code);
+            if (!code) { if (st) { st.className = 'reg-field-status tip'; st.innerHTML = ''; } return false; }
+            if (st) {
+                st.className = `reg-field-status ${ok ? 'ok' : 'err'}`;
+                st.innerHTML = ok ? '<i class="fas fa-circle-check"></i> Código listo' : '<i class="fas fa-circle-xmark"></i> El código tiene 6 dígitos';
+            }
+            return ok;
+        }
+
+        function gateStartTimer(seconds = 120) {
+            clearInterval(floretGateTimerInterval);
+            const timerEl = document.getElementById('gate-code-timer');
+            const resendBtn = document.getElementById('gate-code-resend');
+            let remaining = seconds;
+            const update = () => {
+                if (!timerEl) { clearInterval(floretGateTimerInterval); return; }
+                if (remaining <= 0) {
+                    clearInterval(floretGateTimerInterval);
+                    timerEl.textContent = 'El código expiró. Solicita uno nuevo.';
+                    if (resendBtn) resendBtn.disabled = false;
+                    return;
+                }
+                const m = Math.floor(remaining / 60);
+                const s = remaining % 60;
+                timerEl.textContent = `Código válido por ${m}:${String(s).padStart(2, '0')}`;
+                remaining--;
+            };
+            update();
+            floretGateTimerInterval = setInterval(update, 1000);
+        }
+
+        async function gateSendCode(isResend = false) {
+            if (!gateValidatePhone()) { shakeElement(document.getElementById('gate-phone')); return; }
+            const phone = gateGetPhone();
+            const userId = user?.id || 0;
+            const btn = document.getElementById('gate-action-btn');
+            if (btn) { btn.disabled = true; btn.innerHTML = '<span class="wide-dots"><span></span><span></span><span></span></span>'; }
+            try {
+                const res = await fetch(`${API}/floret/phone-verify-send`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone, userId })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error);
+                floretGatePhoneCodeSent = true;
+                const codeGrp = document.getElementById('gate-code-grp');
+                if (codeGrp) {
+                    codeGrp.style.display = 'block';
+                    if (typeof window.gsap !== 'undefined') {
+                        window.gsap.fromTo(codeGrp, { y: 8, opacity: 0 }, { y: 0, opacity: 1, duration: 0.28, ease: 'power2.out' });
+                    }
+                    setTimeout(() => document.getElementById('gate-code')?.focus(), 60);
+                }
+                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check-circle"></i> Verificar código'; btn.onclick = () => gateVerifyCode(); }
+                const resendBtn = document.getElementById('gate-code-resend');
+                if (resendBtn) resendBtn.disabled = true;
+                gateStartTimer(120);
+                showToast(isResend ? 'Código reenviado' : 'Código enviado. Revisa tu teléfono.');
+            } catch (e) {
+                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar código'; btn.onclick = () => gateSendCode(); }
+                showToast(e.message || 'Error enviando código', true);
+            }
+        }
+
+        async function gateVerifyCode() {
+            if (!gateValidateCode()) { shakeElement(document.getElementById('gate-code')); return; }
+            const phone = gateGetPhone();
+            const code  = String(document.getElementById('gate-code')?.value || '').trim();
+            const userId = user?.id || 0;
+            const btn = document.getElementById('gate-action-btn');
+            if (btn) { btn.disabled = true; btn.innerHTML = '<span class="wide-dots"><span></span><span></span><span></span></span>'; }
+            try {
+                const res = await fetch(`${API}/floret/phone-verify-check`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone, code, userId })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error);
+                // Update local user
+                if (user) { user.phone = phone; user.phone_verified = true; saveAuthUser(user, true); }
+                clearInterval(floretGateTimerInterval);
+                // Success animation then close
+                if (btn) { btn.innerHTML = '<i class="fas fa-check"></i> ¡Verificado!'; btn.style.background = 'linear-gradient(135deg,#10b981,#059669)'; }
+                showToast('Número verificado correctamente');
+                await waitMs(1200);
+                hideFloretPhoneGate();
+            } catch (e) {
+                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check-circle"></i> Verificar código'; }
+                shakeElement(document.getElementById('gate-code'));
+                showToast(e.message || 'Código incorrecto', true);
+            }
         }
 
         function showResetForm(prefillIdentifier = '') {
@@ -4932,6 +5706,8 @@
                     stopMalevoQuotaWatcher();
                 }
                 showToast('¡Bienvenido!');
+                // Check phone verification status for existing users
+                if (user?.id) checkAndShowPhoneGate(user.id).catch(() => {});
             } catch (e) {
                 setAuthModalOverlay(false);
                 setLoginButtonState('idle');

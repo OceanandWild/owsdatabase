@@ -3710,11 +3710,125 @@ function sanitizeFloretOrderItems(items = []) {
     .filter((item) => item.productId && item.productName && item.unitPrice > 0);
 }
 
+// ===== FLORET CHECK AVAILABILITY =====
+app.get('/floret/check-availability', async (req, res) => {
+  try {
+    const username = normalizeFloretText(req.query.username || '', 32);
+    const email    = normalizeFloretEmail(req.query.email || '');
+    const result   = { username_taken: false, email_taken: false };
+    if (username) {
+      const { rows } = await pool.query('SELECT id FROM floret_users WHERE LOWER(username) = LOWER($1) LIMIT 1', [username]);
+      result.username_taken = rows.length > 0;
+    }
+    if (email) {
+      const { rows } = await pool.query('SELECT id FROM floret_users WHERE LOWER(email) = LOWER($1) LIMIT 1', [email]);
+      result.email_taken = rows.length > 0;
+    }
+    return res.json(result);
+  } catch (e) {
+    console.error('Error en /floret/check-availability:', e);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 // Registro
+// ===== FLORET PHONE VERIFICATION =====
+// In-memory store: { [key: phone]: { code, userId, expiresAt } }
+const floretPhoneCodes = new Map();
+const FLORET_PHONE_CODE_TTL = 10 * 60 * 1000; // 10 min
+
+function floretNormalizePhone(raw) {
+  return String(raw || '').replace(/\s+/g, '').replace(/[^+\d]/g, '').slice(0, 20);
+}
+
+function floretIsValidPhone(phone) {
+  const p = floretNormalizePhone(phone);
+  return /^\+?\d{7,15}$/.test(p);
+}
+
+function floretGenCode() {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+// Send verification code (simulated — logs to console, no real SMS)
+app.post('/floret/phone-verify-send', async (req, res) => {
+  try {
+    const phone = floretNormalizePhone(req.body?.phone || '');
+    const userId = Number(req.body?.userId || 0);
+    if (!phone || !floretIsValidPhone(phone)) {
+      return res.status(400).json({ error: 'Numero de telefono invalido. Incluye el codigo de pais (ej: +598...)' });
+    }
+    // Check if phone already used by another account
+    const { rows: existing } = await pool.query(
+      `SELECT id FROM floret_users WHERE phone = $1 AND ($2::int = 0 OR id != $2) LIMIT 1`,
+      [phone, userId || 0]
+    );
+    if (existing.length > 0) {
+      return res.status(409).json({ error: 'Este numero ya esta asociado a otra cuenta' });
+    }
+    const code = floretGenCode();
+    const key = `${phone}:${userId || 'new'}`;
+    floretPhoneCodes.set(key, { code, phone, userId, expiresAt: Date.now() + FLORET_PHONE_CODE_TTL });
+    // In production: send SMS via Twilio/etc. For now, log to console.
+    console.log(`[FLORET PHONE VERIFY] Phone: ${phone} | Code: ${code} | UserId: ${userId}`);
+    return res.json({ success: true, message: 'Codigo enviado. Revisa tu telefono.' });
+  } catch (e) {
+    console.error('Error en /floret/phone-verify-send:', e);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Check verification code
+app.post('/floret/phone-verify-check', async (req, res) => {
+  try {
+    const phone = floretNormalizePhone(req.body?.phone || '');
+    const code  = String(req.body?.code || '').trim();
+    const userId = Number(req.body?.userId || 0);
+    if (!phone || !code) return res.status(400).json({ error: 'Faltan datos' });
+    const key = `${phone}:${userId || 'new'}`;
+    const entry = floretPhoneCodes.get(key);
+    if (!entry) return res.status(400).json({ error: 'No hay un codigo activo para este numero. Solicita uno nuevo.' });
+    if (Date.now() > entry.expiresAt) {
+      floretPhoneCodes.delete(key);
+      return res.status(400).json({ error: 'El codigo expiro. Solicita uno nuevo.' });
+    }
+    if (entry.code !== code) return res.status(400).json({ error: 'Codigo incorrecto' });
+    floretPhoneCodes.delete(key);
+    // If userId provided, save phone to existing user
+    if (userId > 0) {
+      await pool.query(
+        `UPDATE floret_users SET phone = $1, phone_verified = TRUE WHERE id = $2`,
+        [phone, userId]
+      );
+    }
+    return res.json({ success: true, verified: true });
+  } catch (e) {
+    console.error('Error en /floret/phone-verify-check:', e);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Get phone status for a user
+app.get('/floret/phone-status/:userId', async (req, res) => {
+  try {
+    const userId = Number(req.params.userId || 0);
+    if (!userId) return res.status(400).json({ error: 'userId requerido' });
+    const { rows } = await pool.query(
+      `SELECT phone, phone_verified FROM floret_users WHERE id = $1 LIMIT 1`,
+      [userId]
+    );
+    if (!rows[0]) return res.status(404).json({ error: 'Usuario no encontrado' });
+    return res.json({ has_phone: Boolean(rows[0].phone), phone_verified: Boolean(rows[0].phone_verified) });
+  } catch (e) {
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 app.post('/floret/register', async (req, res) => {
   const username = normalizeFloretText(req.body?.username, 32);
   const email = normalizeFloretEmail(req.body?.email || '');
   const password = String(req.body?.password || '').normalize('NFKC');
+  const phone = floretNormalizePhone(req.body?.phone || '');
 
   if (!username || !password) {
     return res.status(400).json({ error: 'Usuario y contraseña son requeridos' });
@@ -3728,15 +3842,31 @@ app.post('/floret/register', async (req, res) => {
   if (!isStrongFloretPassword(password)) {
     return res.status(400).json({ error: 'La contraseña debe tener 8+ caracteres con letras y números.' });
   }
+  if (phone && !floretIsValidPhone(phone)) {
+    return res.status(400).json({ error: 'Número de teléfono inválido.' });
+  }
+  // Check phone uniqueness before insert
+  if (phone) {
+    const { rows: phoneCheck } = await pool.query(
+      `SELECT id FROM floret_users WHERE phone = $1 LIMIT 1`, [phone]
+    );
+    if (phoneCheck.length > 0) {
+      return res.status(409).json({ error: 'Este número de teléfono ya está asociado a otra cuenta' });
+    }
+  }
   try {
     const hashed = await bcrypt.hash(password, 10);
     const { rows } = await pool.query(
-      `INSERT INTO floret_users(username, email, password) VALUES($1, $2, $3) RETURNING id, username, email, created_at`,
-      [username, email || null, hashed]
+      `INSERT INTO floret_users(username, email, password, phone, phone_verified)
+       VALUES($1, $2, $3, $4, $5)
+       RETURNING id, username, email, created_at, phone, phone_verified`,
+      [username, email || null, hashed, phone || null, phone ? true : false]
     );
     res.json({ success: true, user: rows[0] });
   } catch (e) {
     if (e.code === '23505') {
+      const detail = String(e.detail || '').toLowerCase();
+      if (detail.includes('phone')) return res.status(409).json({ error: 'Este número de teléfono ya está asociado a otra cuenta' });
       return res.status(400).json({ error: email ? 'El usuario o email ya existe' : 'El usuario ya existe' });
     }
     console.error('Error en registro Floret:', e);
@@ -3827,7 +3957,7 @@ app.post('/floret/login', async (req, res) => {
     }
     clearFloretAuthAttempts(req, loginId);
     const { id, email: accountEmail, created_at, is_admin, power_level } = rows[0];
-    res.json({ success: true, user: { id, username: rows[0].username, email: accountEmail, created_at, is_admin, power_level } });
+    res.json({ success: true, user: { id, username: rows[0].username, email: accountEmail, created_at, is_admin, power_level, phone_verified: Boolean(rows[0].phone_verified) } });
   } catch (e) {
     console.error('Error en login Floret:', e);
     res.status(500).json({ error: 'Error interno' });
@@ -25207,6 +25337,9 @@ await pool.query(`
 // Add columns if they don't exist
 await pool.query(`ALTER TABLE floret_users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT FALSE`).catch(() => { });
 await pool.query(`ALTER TABLE floret_users ADD COLUMN IF NOT EXISTS power_level INTEGER DEFAULT 0`).catch(() => { });
+await pool.query(`ALTER TABLE floret_users ADD COLUMN IF NOT EXISTS phone VARCHAR(30)`).catch(() => { });
+await pool.query(`ALTER TABLE floret_users ADD COLUMN IF NOT EXISTS phone_verified BOOLEAN DEFAULT FALSE`).catch(() => { });
+try { await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS floret_users_phone_unique ON floret_users(phone) WHERE phone IS NOT NULL`); } catch(_e) { }
 
 await pool.query(`
   CREATE TABLE IF NOT EXISTS floret_products (

@@ -8,6 +8,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://sdk.mercadopago.com/js/v2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pixi.js@8/dist/pixi.min.js"></script>
     <style>
         :root {
             --pri: #8B5CF6;
@@ -35,6 +38,31 @@
             color: var(--txt);
             min-height: 100vh;
             overflow-x: hidden
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            inset: -10%;
+            z-index: 0;
+            pointer-events: none;
+            background:
+                radial-gradient(circle at 12% 18%, rgba(139, 92, 246, 0.14), transparent 45%),
+                radial-gradient(circle at 82% 76%, rgba(236, 72, 153, 0.12), transparent 42%),
+                radial-gradient(circle at 48% 102%, rgba(16, 185, 129, 0.1), transparent 44%);
+            filter: blur(14px);
+            animation: ambientDrift 20s ease-in-out infinite alternate;
+        }
+
+        @keyframes ambientDrift {
+            0% {
+                transform: translate3d(0, 0, 0) scale(1);
+                opacity: 0.88;
+            }
+            100% {
+                transform: translate3d(1.8%, -1.6%, 0) scale(1.05);
+                opacity: 1;
+            }
         }
 
         #flowers {
@@ -111,8 +139,22 @@
                 padding: 10px 12px;
             }
 
-            .logo span {
+            .header-core {
+                grid-template-columns: auto auto;
+                justify-content: space-between;
+                gap: 10px;
+            }
+
+            .header-status {
                 display: none;
+            }
+
+            .logo-kicker {
+                display: none;
+            }
+
+            .logo-title {
+                font-size: 1rem;
             }
 
             .hdr-btns {
@@ -146,6 +188,132 @@
             display: flex;
             align-items: center;
             justify-content: center
+        }
+
+        .rework-header {
+            position: sticky;
+            overflow: hidden;
+            --header-sheen-x: -130%;
+            --header-sheen-o: 0;
+            border-bottom-color: rgba(236, 72, 153, 0.26);
+            background:
+                linear-gradient(120deg, rgba(12, 8, 24, 0.95), rgba(20, 12, 34, 0.95) 42%, rgba(26, 14, 38, 0.95)),
+                radial-gradient(circle at 8% 25%, rgba(236, 72, 153, 0.14), transparent 42%),
+                radial-gradient(circle at 86% 12%, rgba(139, 92, 246, 0.14), transparent 36%);
+            box-shadow: 0 8px 34px rgba(0, 0, 0, 0.34), inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+        }
+
+        .rework-header::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background: linear-gradient(100deg, transparent 22%, rgba(255, 255, 255, 0.08) 46%, transparent 70%);
+            transform: translateX(var(--header-sheen-x));
+            opacity: var(--header-sheen-o);
+        }
+
+        .header-core {
+            position: relative;
+            z-index: 1;
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            align-items: center;
+            gap: 16px;
+            width: 100%;
+        }
+
+        .logo.logo-rework {
+            gap: 10px;
+            min-width: 0;
+            background: none;
+            -webkit-text-fill-color: initial;
+        }
+
+        .logo-mark {
+            width: 34px;
+            height: 34px;
+            border-radius: 10px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.25), rgba(236, 72, 153, 0.2));
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.25), 0 0 16px rgba(236, 72, 153, 0.25);
+            color: #f9ebff;
+            flex: 0 0 auto;
+        }
+
+        .logo-copy {
+            display: grid;
+            gap: 0;
+            min-width: 0;
+            line-height: 1.05;
+            color: var(--txt);
+        }
+
+        .logo-kicker {
+            font-size: 0.64rem;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: #cbb4f8;
+            opacity: 0.9;
+            font-weight: 600;
+        }
+
+        .logo-title {
+            font-size: 1.18rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #e9ddff, #ffdcf0 55%, #d6c4ff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            white-space: nowrap;
+        }
+
+        .header-status {
+            justify-self: center;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-radius: 999px;
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            background: rgba(139, 92, 246, 0.1);
+            color: #d7cbf5;
+            font-size: 0.78rem;
+            max-width: 100%;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .header-status-dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 999px;
+            background: #4ade80;
+            box-shadow: 0 0 10px rgba(74, 222, 128, 0.65);
+            flex: 0 0 auto;
+        }
+
+        .hdr-btn.fx-btn {
+            position: relative;
+            overflow: hidden;
+            background: rgba(139, 92, 246, 0.12);
+            border-color: rgba(139, 92, 246, 0.36);
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+        }
+
+        .hdr-btn.fx-btn::after {
+            content: "";
+            position: absolute;
+            inset: -40% auto -40% -60%;
+            width: 44%;
+            pointer-events: none;
+            transform: rotate(17deg);
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.24), transparent);
+            opacity: 0;
         }
 
         .container {
@@ -291,7 +459,36 @@
             border-radius: 16px;
             overflow: hidden;
             border: 1px solid rgba(139, 92, 246, 0.15);
-            transition: .4s
+            transition: transform .35s ease, box-shadow .35s ease, border-color .35s ease, filter .35s ease;
+            transform-style: preserve-3d;
+            will-change: transform;
+            position: relative
+        }
+
+        .card::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            background: linear-gradient(120deg, transparent 18%, rgba(255, 255, 255, 0.11) 46%, transparent 70%);
+            transform: translateX(-140%);
+            opacity: 0;
+            transition: opacity .2s ease;
+            z-index: 4;
+        }
+
+        .card:hover::before {
+            opacity: 1;
+            animation: cardSheen 1.1s ease;
+        }
+
+        @keyframes cardSheen {
+            0% {
+                transform: translateX(-140%);
+            }
+            100% {
+                transform: translateX(140%);
+            }
         }
 
         @media(min-width:768px) {
@@ -312,11 +509,35 @@
             border-color: var(--pri)
         }
 
+        .card.is-reveal {
+            opacity: 0;
+            transform: translateY(16px) scale(0.985);
+        }
+
+        .card.is-reveal.in {
+            animation: cardReveal .55s cubic-bezier(.2, .75, .2, 1) forwards;
+            animation-delay: calc(var(--reveal-index, 0) * 58ms);
+        }
+
+        @keyframes cardReveal {
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
         .card-img {
             width: 100%;
             aspect-ratio: 4/3;
             object-fit: cover;
-            background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(236, 72, 153, 0.1))
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(236, 72, 153, 0.1));
+            transition: transform .45s ease, filter .45s ease;
+            will-change: transform;
+        }
+
+        .card:hover .card-img {
+            transform: scale(1.045);
+            filter: saturate(1.08) contrast(1.04);
         }
 
         .badge {
@@ -385,7 +606,34 @@
             align-items: center;
             justify-content: center;
             gap: 6px;
-            transition: .3s
+            transition: .3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::after {
+            content: "";
+            position: absolute;
+            inset: 0 auto 0 -140%;
+            width: 120%;
+            background: linear-gradient(105deg, transparent 20%, rgba(255, 255, 255, 0.3) 46%, transparent 72%);
+            transform: skewX(-18deg);
+            pointer-events: none;
+            opacity: 0;
+        }
+
+        .btn:hover::after {
+            opacity: 1;
+            animation: btnShine .85s ease;
+        }
+
+        @keyframes btnShine {
+            from {
+                left: -140%;
+            }
+            to {
+                left: 145%;
+            }
         }
 
         .btn-p {
@@ -686,6 +934,18 @@
             box-shadow: 0 0 15px var(--pink)
         }
 
+        .cart-spark {
+            position: fixed;
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #fff, var(--pri) 62%, rgba(139, 92, 246, 0.2));
+            box-shadow: 0 0 10px rgba(139, 92, 246, 0.45);
+            pointer-events: none;
+            z-index: 2100;
+            will-change: transform, opacity;
+        }
+
         .empty {
             text-align: center;
             padding: 50px 20px;
@@ -721,33 +981,114 @@
             border-color: var(--pri)
         }
 
+        .auth-shell {
+            position: relative;
+            overflow: hidden;
+            --auth-sheen-x: -100%;
+            --auth-sheen-o: 0;
+            border: 1px solid rgba(139, 92, 246, 0.28);
+            border-radius: 14px;
+            padding: 14px;
+            background:
+                radial-gradient(circle at 14% 10%, rgba(139, 92, 246, 0.16), transparent 38%),
+                radial-gradient(circle at 88% 8%, rgba(236, 72, 153, 0.13), transparent 34%),
+                rgba(15, 10, 26, 0.5);
+        }
+
+        .auth-shell::before {
+            content: "";
+            position: absolute;
+            inset: -20% -40%;
+            background: linear-gradient(105deg, transparent 38%, rgba(255, 255, 255, 0.12) 50%, transparent 62%);
+            transform: translateX(var(--auth-sheen-x));
+            opacity: var(--auth-sheen-o);
+            pointer-events: none;
+        }
+
+        .auth-top {
+            display: grid;
+            gap: 4px;
+            margin-bottom: 12px;
+        }
+
+        .auth-badge {
+            justify-self: start;
+            font-size: 0.67rem;
+            letter-spacing: 0.13em;
+            text-transform: uppercase;
+            color: #f0d7ff;
+            border: 1px solid rgba(236, 72, 153, 0.35);
+            border-radius: 999px;
+            padding: 4px 9px;
+            background: rgba(236, 72, 153, 0.1);
+        }
+
+        .auth-title {
+            font-size: 1.08rem;
+            font-weight: 700;
+            color: #f5ecff;
+        }
+
+        .auth-sub {
+            font-size: 0.8rem;
+            color: #bca7e7;
+        }
+
         .auth-tabs {
             display: flex;
-            margin-bottom: 16px
+            gap: 6px;
+            margin-bottom: 14px;
+            padding: 4px;
+            border-radius: 12px;
+            background: rgba(139, 92, 246, 0.08);
+            border: 1px solid rgba(139, 92, 246, 0.24);
         }
 
         .auth-tab {
             flex: 1;
-            padding: 10px;
+            padding: 10px 6px;
             background: transparent;
-            border: none;
+            border: 1px solid transparent;
+            border-radius: 10px;
             color: var(--muted);
             font-family: inherit;
             cursor: pointer;
-            border-bottom: 2px solid transparent;
-            transition: .3s
+            transition: .24s ease;
+            font-size: 0.83rem;
+            font-weight: 600;
         }
 
         .auth-tab.on {
-            color: var(--pri);
-            border-color: var(--pri)
+            color: #fdf6ff;
+            border-color: rgba(236, 72, 153, 0.35);
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(236, 72, 153, 0.17));
+            box-shadow: 0 8px 18px rgba(10, 8, 20, 0.28);
+        }
+
+        .auth-form-wrap {
+            display: grid;
+            gap: 10px;
         }
 
         .auth-hint {
-            font-size: 0.78rem;
+            font-size: 0.79rem;
             color: var(--muted);
-            margin-top: -6px;
-            margin-bottom: 10px;
+            margin-top: -2px;
+            margin-bottom: 6px;
+            line-height: 1.35;
+        }
+
+        .auth-secure-line {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            padding: 8px 9px;
+            border-radius: 10px;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.24);
+            color: #b7f8db;
+            font-size: 0.75rem;
+            margin-top: 4px;
         }
 
         .auth-row {
@@ -755,8 +1096,8 @@
             align-items: center;
             justify-content: space-between;
             gap: 8px;
-            margin-top: 8px;
-            margin-bottom: 10px;
+            margin-top: 4px;
+            margin-bottom: 4px;
         }
 
         .auth-check {
@@ -770,14 +1111,15 @@
         .auth-link-btn {
             border: none;
             background: transparent;
-            color: var(--pri);
+            color: #cab2ff;
             font-weight: 700;
             cursor: pointer;
-            font-size: 0.82rem;
+            font-size: 0.8rem;
             padding: 0;
         }
 
         .auth-link-btn:hover {
+            color: #fff;
             text-decoration: underline;
         }
 
@@ -785,10 +1127,16 @@
             display: flex;
             align-items: center;
             gap: 8px;
-            border: 1px solid rgba(255, 255, 255, 0.12);
+            border: 1px solid rgba(255, 255, 255, 0.15);
             border-radius: 10px;
             padding: 0 10px;
-            background: rgba(255, 255, 255, 0.06);
+            background: rgba(255, 255, 255, 0.05);
+            transition: border-color .2s ease, box-shadow .2s ease;
+        }
+
+        .pass-wrap:focus-within {
+            border-color: var(--pri);
+            box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
         }
 
         .pass-wrap .frm-inp {
@@ -806,10 +1154,229 @@
             cursor: pointer;
             font-size: 0.85rem;
             padding: 0;
+            transition: color .2s ease, transform .2s ease;
         }
 
         .pass-toggle:hover {
             color: #fff;
+            transform: scale(1.06);
+        }
+
+        .auth-submit {
+            min-height: 44px;
+        }
+
+        .wide-dots {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            vertical-align: middle;
+        }
+
+        .wide-dots span {
+            width: 13px;
+            height: 6px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.95);
+            transform-origin: center;
+            animation: wideDotPulse .8s ease-in-out infinite;
+        }
+
+        .wide-dots span:nth-child(2) {
+            animation-delay: .12s;
+        }
+
+        .wide-dots span:nth-child(3) {
+            animation-delay: .24s;
+        }
+
+        @keyframes wideDotPulse {
+            0%,
+            100% {
+                transform: scaleX(0.7);
+                opacity: .55;
+            }
+            50% {
+                transform: scaleX(1.15);
+                opacity: 1;
+            }
+        }
+
+        .auth-modal-overlay {
+            position: absolute;
+            inset: 0;
+            z-index: 8;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(10, 7, 18, 0.72);
+            backdrop-filter: blur(4px);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .24s ease;
+        }
+
+        .auth-modal-overlay.on {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .auth-modal-loader {
+            width: min(86%, 290px);
+            border-radius: 14px;
+            border: 1px solid rgba(139, 92, 246, 0.34);
+            background: linear-gradient(135deg, rgba(30, 21, 50, 0.96), rgba(20, 14, 34, 0.96));
+            padding: 14px 16px;
+            text-align: center;
+            box-shadow: 0 12px 34px rgba(0, 0, 0, 0.34);
+        }
+
+        .auth-modal-loader b {
+            display: block;
+            font-size: 0.86rem;
+            margin-top: 8px;
+            color: #efe4ff;
+        }
+
+        .auth-modal-subline {
+            margin-top: 6px;
+            min-height: 18px;
+            color: #c8b7ec;
+            font-size: 0.76rem;
+        }
+
+        .malevo-sync-panel {
+            margin-top: 10px;
+            border-radius: 12px;
+            border: 1px solid rgba(236, 72, 153, 0.35);
+            background: rgba(236, 72, 153, 0.1);
+            padding: 8px 10px;
+            overflow: hidden;
+            display: none;
+        }
+
+        .malevo-sync-bar {
+            height: 9px;
+            border-radius: 999px;
+            background: linear-gradient(90deg, rgba(139, 92, 246, 0.88), rgba(236, 72, 153, 0.88));
+            transform: scaleX(0);
+            transform-origin: center;
+            margin-bottom: 8px;
+            box-shadow: 0 0 12px rgba(236, 72, 153, 0.4);
+        }
+
+        .malevo-sync-line {
+            min-height: 17px;
+            color: #ffe7f6;
+            font-size: 0.76rem;
+            line-height: 1.3;
+        }
+
+        .malevo-grant-modal {
+            max-width: min(92vw, 540px);
+        }
+
+        .malevo-grant-wrap {
+            text-align: center;
+            padding-top: 6px;
+        }
+
+        .malevo-grant-icon {
+            width: 88px;
+            height: 88px;
+            margin: 0 auto 10px auto;
+            border-radius: 16px;
+            border: 1px solid rgba(236, 72, 153, 0.35);
+            background: rgba(236, 72, 153, 0.1);
+            overflow: hidden;
+        }
+
+        .malevo-grant-title {
+            font-size: 1.4rem;
+            font-weight: 800;
+            color: #ffe7f5;
+            margin-bottom: 8px;
+        }
+
+        .malevo-grant-text {
+            color: #d4c2f0;
+            font-size: 0.92rem;
+            line-height: 1.5;
+        }
+
+        .welcome-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 3800;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(circle at 50% 40%, rgba(28, 20, 49, 0.95), rgba(8, 6, 14, 0.96));
+            opacity: 0;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        .welcome-pixi {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+        }
+
+        .welcome-card {
+            position: relative;
+            z-index: 1;
+            width: min(92vw, 620px);
+            border-radius: 18px;
+            border: 1px solid rgba(139, 92, 246, 0.32);
+            background: linear-gradient(145deg, rgba(24, 18, 40, 0.9), rgba(15, 10, 28, 0.84));
+            padding: 20px 18px;
+            text-align: center;
+            box-shadow: 0 18px 42px rgba(0, 0, 0, 0.42);
+        }
+
+        .welcome-loader {
+            margin: 0 auto 14px auto;
+            width: 56px;
+            height: 56px;
+            border-radius: 999px;
+            border: 5px solid rgba(255, 255, 255, 0.15);
+            border-top-color: #ec4899;
+            border-right-color: #8b5cf6;
+            animation: welcomeSpin .9s linear infinite;
+        }
+
+        @keyframes welcomeSpin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .welcome-title {
+            font-size: clamp(1.4rem, 4vw, 2.2rem);
+            font-weight: 800;
+            line-height: 1.08;
+            letter-spacing: .01em;
+            color: #f8f2ff;
+            margin-bottom: 6px;
+        }
+
+        .welcome-sub {
+            color: #c8b5eb;
+            font-size: 0.86rem;
+        }
+
+        @media (max-width: 640px) {
+            .welcome-card {
+                width: min(94vw, 520px);
+                padding: 16px 14px;
+                border-radius: 14px;
+            }
+
+            .auth-modal-loader {
+                width: min(92%, 280px);
+                padding: 12px 12px;
+            }
         }
 
         @media (max-width: 768px) {
@@ -856,6 +1423,13 @@
 
             .modal-bg.on .modal {
                 transform: translateY(0);
+            }
+
+            .modal.profile-modal-full {
+                border-radius: 0;
+                max-height: 100dvh;
+                height: 100dvh;
+                transform: none;
             }
         }
 
@@ -1374,6 +1948,124 @@
             color: var(--pink)
         }
 
+        .modal.profile-modal-full {
+            width: 100vw;
+            max-width: 100vw;
+            height: 100dvh;
+            max-height: 100dvh;
+            border-radius: 0;
+            border-left: none;
+            border-right: none;
+            border-bottom: none;
+            transform: none;
+            background: linear-gradient(180deg, rgba(14, 10, 25, 0.98), rgba(8, 6, 16, 0.98));
+        }
+
+        .modal-bg.on .modal.profile-modal-full {
+            transform: none;
+        }
+
+        .profile-shell {
+            display: grid;
+            grid-template-columns: minmax(260px, 380px) 1fr;
+            gap: 14px;
+            min-height: calc(100dvh - 84px);
+        }
+
+        .profile-left {
+            border: 1px solid rgba(139, 92, 246, 0.25);
+            border-radius: 16px;
+            background: linear-gradient(150deg, rgba(28, 20, 47, 0.86), rgba(17, 13, 30, 0.86));
+            padding: 14px;
+            display: grid;
+            align-content: start;
+            gap: 12px;
+        }
+
+        .profile-topline {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+
+        .profile-chip {
+            font-size: 0.68rem;
+            text-transform: uppercase;
+            letter-spacing: .12em;
+            border-radius: 999px;
+            padding: 4px 10px;
+            border: 1px solid rgba(139, 92, 246, 0.34);
+            color: #dacdff;
+            background: rgba(139, 92, 246, 0.14);
+        }
+
+        .profile-chip.profile-chip-admin {
+            border-color: rgba(236, 72, 153, 0.45);
+            color: #ffd8ef;
+            background: rgba(236, 72, 153, 0.15);
+        }
+
+        .profile-hero {
+            display: grid;
+            justify-items: center;
+            text-align: center;
+            gap: 8px;
+        }
+
+        .profile-hero .profile-avatar {
+            width: 86px;
+            height: 86px;
+            margin: 0;
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.3), rgba(236, 72, 153, 0.26));
+            border: 1px solid rgba(255, 255, 255, 0.24);
+            box-shadow: 0 10px 22px rgba(0, 0, 0, 0.36);
+        }
+
+        .profile-muted {
+            color: #bca9e9;
+            font-size: 0.8rem;
+        }
+
+        .profile-right {
+            border: 1px solid rgba(139, 92, 246, 0.24);
+            border-radius: 16px;
+            background: rgba(11, 8, 20, 0.86);
+            padding: 14px;
+            display: grid;
+            align-content: start;
+            gap: 10px;
+        }
+
+        .profile-section-title {
+            font-size: 0.78rem;
+            letter-spacing: .12em;
+            text-transform: uppercase;
+            color: #ccb9f2;
+        }
+
+        .profile-menu.profile-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .profile-menu-item {
+            min-height: 52px;
+        }
+
+        .profile-menu-item.wide {
+            grid-column: span 2;
+        }
+
+        @media (max-width: 900px) {
+            .profile-shell {
+                grid-template-columns: 1fr;
+                min-height: calc(100dvh - 74px);
+            }
+        }
+
         .rating-row {
             display: flex;
             align-items: center;
@@ -1596,6 +2288,26 @@
 
         // ========== CONFIG ==========
         const API = 'https://owsdatabase.onrender.com';
+        (function initOwsProjectGuard() {
+            const mountGuard = () => {
+                if (!window.OWSProjectRestrictionGuard || typeof window.OWSProjectRestrictionGuard.mount !== 'function') return;
+                window.OWSProjectRestrictionGuard.mount({
+                    apiBaseUrl: API,
+                    projectSlug: 'floretshop',
+                    projectName: 'Floret Shop',
+                    checkIntervalMs: 30000
+                });
+            };
+            if (window.OWSProjectRestrictionGuard) {
+                mountGuard();
+                return;
+            }
+            const s = document.createElement('script');
+            s.src = 'https://owsdatabase.onrender.com/shared/ows-project-guard.js';
+            s.async = true;
+            s.onload = mountGuard;
+            document.head.appendChild(s);
+        })();
         const WA_NUM1 = '59898725223'; // Ajustado sin el 0 extra si es internacional (+598 98...)
         const WA_NUM2 = '59893994250';
 
@@ -1639,6 +2351,9 @@
         let allReviewsCache = null;
         let malevoNotifications = [];
         let malevoUnreadCount = 0;
+        let malevoSessionInsights = null;
+        let malevoQuotaWatcher = null;
+        let malevoLastRemaining = null;
         let filteredProducts = [];
         let catalogFilters = {
             query: '',
@@ -1876,16 +2591,28 @@
             const catalogSyncTag = getCatalogSyncLabel();
 
             app.innerHTML = `
-    <header class="header">
-      <div class="logo"><i class="fas fa-leaf"></i> <span>Floret Shop</span></div>
-      <div class="hdr-btns">
-        ${user && user.power_level === 1 ? `<div class="hdr-btn" style="background:rgba(236,72,153,0.15);border-color:var(--pink);cursor:default" title="Cuota"><i class="fas fa-fire" style="color:var(--pink)"></i> <b style="margin-left:5px;color:#fff;font-size:0.85rem">${quotaText}</b></div>` : ''}
-        ${user ? `<button class="hdr-btn" onclick="openProfile()"><i class="fas fa-user"></i> ${user.username}${isMalevoSession() && malevoUnreadCount > 0 ? `<span class="notif-badge">${malevoUnreadCount}</span>` : ''}</button>` : `<button class="hdr-btn" onclick="openAuth()"><i class="fas fa-user"></i> <span>Entrar</span></button>`}
-        <button class="hdr-btn" onclick="refreshCatalog()" title="Sincronizar catalogo"><i class="fas fa-rotate"></i> Sync</button>
-        <button class="hdr-btn cart-btn" onclick="openCart()">
-          <i class="fas fa-shopping-cart"></i>
-          ${cart.length > 0 ? `<span class="cart-count">${cart.length}</span>` : ''}
-        </button>
+    <header class="header rework-header" id="main-header">
+      <div class="header-core">
+        <div class="logo logo-rework" id="header-logo">
+          <span class="logo-mark"><i class="fas fa-leaf"></i></span>
+          <span class="logo-copy">
+            <small class="logo-kicker">Ocean and Wild Studios</small>
+            <span class="logo-title">Floret Shop</span>
+          </span>
+        </div>
+        <div class="header-status" id="header-status-pill">
+          <span class="header-status-dot"></span>
+          <span>${catalogSyncTag.replace('Catalogo ', 'Catalogo: ')}</span>
+        </div>
+        <div class="hdr-btns">
+          ${user && user.power_level === 1 ? `<div class="hdr-btn fx-btn" style="background:rgba(236,72,153,0.15);border-color:var(--pink);cursor:default" title="Cuota"><i class="fas fa-fire" style="color:var(--pink)"></i> <b style="margin-left:5px;color:#fff;font-size:0.85rem">${quotaText}</b></div>` : ''}
+          ${user ? `<button class="hdr-btn fx-btn" onclick="openProfile()"><i class="fas fa-user"></i> ${user.username}${isMalevoSession() && malevoUnreadCount > 0 ? `<span class="notif-badge">${malevoUnreadCount}</span>` : ''}</button>` : `<button class="hdr-btn fx-btn" onclick="openAuth()"><i class="fas fa-user"></i> <span>Entrar</span></button>`}
+          <button class="hdr-btn fx-btn" onclick="refreshCatalog()" title="Sincronizar catalogo"><i class="fas fa-rotate"></i> Sync</button>
+          <button class="hdr-btn fx-btn cart-btn" onclick="openCart()">
+            <i class="fas fa-shopping-cart"></i>
+            ${cart.length > 0 ? `<span class="cart-count">${cart.length}</span>` : ''}
+          </button>
+        </div>
       </div>
     </header>
 
@@ -1937,6 +2664,7 @@
   `;
             applyCatalogFilters({ rerender: true });
             renderCart();
+            initHeaderFx();
         }
 
         function renderProducts() {
@@ -1955,7 +2683,7 @@
                 const isSoldOut = (p.stock || 0) <= 0;
                 const lowStock = !isSoldOut && p.stock < 5;
                 return `
-    <div class="card ${isSoldOut ? 'sold-out' : ''}" style="position:relative">
+    <div class="card is-reveal ${isSoldOut ? 'sold-out' : ''}" data-product-id="${Number(p.id)}" style="position:relative;--reveal-index:${i % 12}">
       <span class="badge badge-${p.condition === 'Nuevo' ? 'new' : 'used'}">${p.condition}</span>
       ${!isSoldOut ? `<span class="stock-badge ${lowStock ? 'stock-low' : ''}">${p.stock} disponibles</span>` : ''}
       
@@ -1988,6 +2716,7 @@
             }).join('');
 
             startSlideshow();
+            initProductFx();
         }
 
         let slideshowInterval;
@@ -2010,6 +2739,125 @@
                     }
                 });
             }, 3000); // Cambia cada 3 segundos
+        }
+
+        function initProductFx() {
+            const cards = Array.from(document.querySelectorAll('#products-grid .card.is-reveal'));
+            if (!cards.length) return;
+            const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            cards.forEach((card, idx) => {
+                card.style.setProperty('--reveal-index', String(idx % 12));
+            });
+            if (reduceMotion || !('IntersectionObserver' in window)) {
+                cards.forEach((card) => card.classList.add('in'));
+            } else {
+                const observer = new IntersectionObserver((entries, obs) => {
+                    entries.forEach((entry) => {
+                        if (!entry.isIntersecting) return;
+                        entry.target.classList.add('in');
+                        obs.unobserve(entry.target);
+                    });
+                }, { threshold: 0.12 });
+                cards.forEach((card) => observer.observe(card));
+            }
+
+            if (reduceMotion) return;
+            cards.forEach((card) => {
+                card.addEventListener('pointermove', (ev) => {
+                    const rect = card.getBoundingClientRect();
+                    const cx = rect.left + rect.width * 0.5;
+                    const cy = rect.top + rect.height * 0.5;
+                    const dx = (ev.clientX - cx) / Math.max(rect.width, 1);
+                    const dy = (ev.clientY - cy) / Math.max(rect.height, 1);
+                    const rotateY = Math.max(-5, Math.min(5, dx * 8));
+                    const rotateX = Math.max(-4, Math.min(4, -dy * 8));
+                    card.style.transform = `translateY(-6px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+                });
+                card.addEventListener('pointerleave', () => {
+                    card.style.transform = '';
+                });
+            });
+        }
+
+        function initHeaderFx() {
+            const header = document.getElementById('main-header');
+            if (!header) return;
+            const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            const logo = document.getElementById('header-logo');
+            const status = document.getElementById('header-status-pill');
+            const buttons = Array.from(header.querySelectorAll('.hdr-btn.fx-btn'));
+
+            if (typeof window.gsap !== 'undefined') {
+                window.gsap.killTweensOf([header, logo, status, ...buttons]);
+                window.gsap.set([logo, status, ...buttons], { clearProps: 'all' });
+                if (!reduceMotion) {
+                    window.gsap.fromTo(header, { y: -18, opacity: 0 }, { y: 0, opacity: 1, duration: 0.46, ease: 'power2.out' });
+                    window.gsap.fromTo([logo, status], { y: 10, opacity: 0 }, {
+                        y: 0, opacity: 1, duration: 0.4, ease: 'power2.out', stagger: 0.07
+                    });
+                    window.gsap.fromTo(buttons, { y: 10, opacity: 0 }, {
+                        y: 0, opacity: 1, duration: 0.34, ease: 'power2.out', stagger: 0.05, delay: 0.06
+                    });
+
+                    if (status) {
+                        window.gsap.to(status, { y: -1.5, duration: 1.9, yoyo: true, repeat: -1, ease: 'sine.inOut' });
+                    }
+
+                    buttons.forEach((btn) => {
+                        btn.addEventListener('pointermove', (ev) => {
+                            const rect = btn.getBoundingClientRect();
+                            const dx = ((ev.clientX - rect.left) / Math.max(rect.width, 1)) - 0.5;
+                            const dy = ((ev.clientY - rect.top) / Math.max(rect.height, 1)) - 0.5;
+                            window.gsap.to(btn, { x: dx * 5, y: dy * 3, duration: 0.18, ease: 'power2.out' });
+                        });
+                        btn.addEventListener('pointerleave', () => {
+                            window.gsap.to(btn, { x: 0, y: 0, duration: 0.22, ease: 'power2.out' });
+                        });
+                    });
+                }
+            }
+
+            if (!reduceMotion && typeof window.anime !== 'undefined') {
+                const mark = logo?.querySelector('.logo-mark');
+                const headerSheen = header;
+                if (mark) {
+                    window.anime({
+                        targets: mark,
+                        scale: [1, 1.045, 1],
+                        rotate: [0, -2, 0, 2, 0],
+                        duration: 3000,
+                        easing: 'easeInOutSine',
+                        loop: true
+                    });
+                }
+                if (headerSheen) {
+                    window.anime({
+                        targets: headerSheen,
+                        duration: 1100,
+                        easing: 'easeOutQuad',
+                        begin: () => {
+                            headerSheen.style.setProperty('--header-sheen-active', '1');
+                            const sheen = getComputedStyle(headerSheen, '::before');
+                            if (sheen) {
+                                headerSheen.style.setProperty('--header-sheen-active', '1');
+                            }
+                        },
+                        complete: () => {
+                            headerSheen.style.setProperty('--header-sheen-active', '0');
+                        }
+                    });
+                    header.style.setProperty('--header-sheen-active', '1');
+                    if (typeof window.gsap !== 'undefined') {
+                        window.gsap.fromTo(header, { '--header-sheen-x': '-130%', '--header-sheen-o': 0 }, {
+                            '--header-sheen-x': '130%',
+                            '--header-sheen-o': 1,
+                            duration: 1.1,
+                            ease: 'power1.out',
+                            onComplete: () => header.style.setProperty('--header-sheen-o', '0')
+                        });
+                    }
+                }
+            }
         }
 
         function renderCart() {
@@ -2059,7 +2907,7 @@
 
             cart.push(item);
             localStorage.setItem('floret_cart', JSON.stringify(cart));
-            animateAddToCart(evt);
+            animateAddToCart(evt, item.image, idx, p.id);
             render();
             showToast('Agregado al carrito');
         }
@@ -2075,6 +2923,8 @@
 
             cart.push({ name: p.name, price: p.price, image: p.images[0] || '', size, originalIdx: idx, productId: p.id });
             localStorage.setItem('floret_cart', JSON.stringify(cart));
+            triggerCartBurst(window.innerWidth * 0.5, window.innerHeight * 0.58);
+            animateAddToCart(null, p.images[0] || '', idx, p.id);
             closeModal();
             render();
             showToast('Agregado al carrito');
@@ -2086,32 +2936,165 @@
             renderCart();
         }
 
-        function animateAddToCart(evt) {
+        function isAndroidTouchRuntime() {
+            const ua = String(navigator.userAgent || '').toLowerCase();
+            const touchDevice = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+            return ua.includes('android') || (touchDevice && window.matchMedia('(max-width: 980px)').matches);
+        }
+
+        function getEventClientPoint(evt) {
+            if (!evt) return null;
+            const touch = evt.touches?.[0] || evt.changedTouches?.[0];
+            if (touch) return { x: touch.clientX, y: touch.clientY };
+            if (typeof evt.clientX === 'number' && typeof evt.clientY === 'number') {
+                return { x: evt.clientX, y: evt.clientY };
+            }
+            return null;
+        }
+
+        function resolveCardImage(productId = 0, evt = null) {
+            if (Number(productId) > 0) {
+                const byProductId = document.querySelector(`#products-grid .card[data-product-id="${Number(productId)}"] .card-img`);
+                if (byProductId) return byProductId;
+            }
+            const eventTarget = evt?.target;
+            if (eventTarget?.closest) {
+                const fromCard = eventTarget.closest('.card')?.querySelector('.card-img');
+                if (fromCard) return fromCard;
+            }
+            return document.querySelector('#products-grid .card .card-img');
+        }
+
+        function animateAddToCart(evt, imageSrc = '', idx = -1, productId = 0) {
             const flyCart = document.getElementById('fly-cart');
             flyCart.classList.add('on');
+            const point = getEventClientPoint(evt);
+            const originX = point?.x || window.innerWidth / 2;
+            const originY = point?.y || window.innerHeight / 2;
+            triggerCartBurst(originX, originY);
 
-            const ball = document.createElement('div');
-            ball.className = 'fly-ball';
-            ball.style.left = (evt?.clientX || window.innerWidth / 2) + 'px';
-            ball.style.top = (evt?.clientY || window.innerHeight / 2) + 'px';
-            document.body.appendChild(ball);
+            const cartBtn = document.querySelector('.cart-btn');
+            const cartRect = cartBtn?.getBoundingClientRect?.();
+            const targetX = cartRect ? (cartRect.left + cartRect.width * 0.5) : 60;
+            const targetY = cartRect ? (cartRect.top + cartRect.height * 0.5) : (window.innerHeight / 2);
 
-            const targetX = 60;
-            const targetY = window.innerHeight / 2;
+            const cardImage = resolveCardImage(productId, evt);
+            const imgRect = cardImage?.getBoundingClientRect?.();
+            const androidMode = isAndroidTouchRuntime();
+            const startW = imgRect ? Math.min(androidMode ? 108 : 130, Math.max(androidMode ? 64 : 80, imgRect.width * (androidMode ? 0.26 : 0.36))) : (androidMode ? 80 : 96);
+            const startH = imgRect ? Math.min(androidMode ? 84 : 104, Math.max(androidMode ? 44 : 60, imgRect.height * (androidMode ? 0.26 : 0.36))) : (androidMode ? 58 : 72);
+            const startX = imgRect ? (imgRect.left + imgRect.width * 0.5 - startW * 0.5) : (originX - startW * 0.5);
+            const startY = imgRect ? (imgRect.top + imgRect.height * 0.5 - startH * 0.5) : (originY - startH * 0.5);
 
-            ball.animate([
-                { left: ball.style.left, top: ball.style.top },
-                { left: targetX + 'px', top: targetY + 'px' }
-            ], { duration: 500, easing: 'ease-in' }).onfinish = () => {
-                ball.remove();
-                flyCart.classList.remove('on');
-            };
+            const ghost = document.createElement('img');
+            ghost.className = 'fly-product-ghost';
+            ghost.src = imageSrc || cardImage?.getAttribute('src') || 'https://via.placeholder.com/300x220/1a1025/8B5CF6?text=Producto';
+            ghost.alt = '';
+            ghost.draggable = false;
+            Object.assign(ghost.style, {
+                position: 'fixed',
+                left: `${startX}px`,
+                top: `${startY}px`,
+                width: `${startW}px`,
+                height: `${startH}px`,
+                borderRadius: '12px',
+                border: '1px solid rgba(255,255,255,0.26)',
+                objectFit: 'cover',
+                zIndex: '2400',
+                pointerEvents: 'none',
+                boxShadow: '0 14px 34px rgba(0,0,0,0.35), 0 0 18px rgba(139,92,246,0.36)'
+            });
+            document.body.appendChild(ghost);
+
+            if (typeof window.gsap === 'undefined') {
+                const ball = document.createElement('div');
+                ball.className = 'fly-ball';
+                ball.style.left = originX + 'px';
+                ball.style.top = originY + 'px';
+                document.body.appendChild(ball);
+                ball.animate([
+                    { left: ball.style.left, top: ball.style.top },
+                    { left: targetX + 'px', top: targetY + 'px' }
+                ], { duration: 500, easing: 'ease-in' }).onfinish = () => {
+                    ball.remove();
+                    ghost.remove();
+                    flyCart.classList.remove('on');
+                };
+                return;
+            }
+
+            if (androidMode) {
+                const midX = startX + (targetX - startX) * 0.58;
+                const midY = startY - Math.max(42, Math.min(110, Math.abs(targetY - startY) * 0.26));
+                const tl = window.gsap.timeline({
+                    onComplete: () => {
+                        ghost.remove();
+                        window.gsap.fromTo(flyCart, { scale: 1 }, { scale: 1.12, duration: 0.12, yoyo: true, repeat: 1, ease: 'power1.inOut' });
+                        setTimeout(() => flyCart.classList.remove('on'), 180);
+                    }
+                });
+                tl.to(ghost, {
+                    duration: 0.24,
+                    left: midX,
+                    top: midY,
+                    width: Math.max(36, startW * 0.58),
+                    height: Math.max(26, startH * 0.58),
+                    opacity: 0.9,
+                    ease: 'power1.out'
+                }).to(ghost, {
+                    duration: 0.3,
+                    left: targetX - 12,
+                    top: targetY - 12,
+                    width: 24,
+                    height: 18,
+                    opacity: 0.2,
+                    ease: 'power2.inOut'
+                });
+                return;
+            }
+
+            window.gsap.to(ghost, {
+                duration: 0.62,
+                left: targetX - 18,
+                top: targetY - 18,
+                width: 34,
+                height: 26,
+                opacity: 0.28,
+                rotate: 12,
+                ease: 'power2.inOut',
+                onComplete: () => {
+                    ghost.remove();
+                    window.gsap.fromTo(flyCart, { scale: 1 }, { scale: 1.18, duration: 0.16, yoyo: true, repeat: 1, ease: 'power1.inOut' });
+                    setTimeout(() => flyCart.classList.remove('on'), 220);
+                }
+            });
+        }
+
+        function triggerCartBurst(x, y) {
+            const count = 10;
+            for (let i = 0; i < count; i++) {
+                const spark = document.createElement('div');
+                spark.className = 'cart-spark';
+                spark.style.left = `${x}px`;
+                spark.style.top = `${y}px`;
+                document.body.appendChild(spark);
+                const angle = (Math.PI * 2 * i) / count + (Math.random() * 0.35);
+                const distance = 26 + Math.random() * 42;
+                const dx = Math.cos(angle) * distance;
+                const dy = Math.sin(angle) * distance;
+                spark.animate([
+                    { transform: 'translate3d(0,0,0) scale(1)', opacity: 1 },
+                    { transform: `translate3d(${dx}px, ${dy}px, 0) scale(0.2)`, opacity: 0 }
+                ], { duration: 460 + Math.random() * 180, easing: 'cubic-bezier(0.2,0.8,0.2,1)' }).onfinish = () => spark.remove();
+            }
         }
 
         // ========== MODALS ==========
-        function openModal(content) {
+        function openModal(content, modalClass = '') {
             const m = document.getElementById('modal');
-            m.innerHTML = `<div class="modal">${content}</div>`;
+            const safeClass = String(modalClass || '').trim();
+            const classAttr = safeClass ? `modal ${safeClass}` : 'modal';
+            m.innerHTML = `<div class="${classAttr}">${content}</div>`;
             m.classList.add('on');
         }
         function closeModal() { document.getElementById('modal').classList.remove('on'); }
@@ -2210,7 +3193,7 @@
         function openProductReviewComposer(idx) {
             const p = products[idx];
             if (!user) {
-                showToast('Debes iniciar sesion para dejar una review', true);
+                showToast('Debes iniciar sesión para dejar una review', true);
                 return openAuth();
             }
             openModal(`
@@ -2264,7 +3247,7 @@
 
         function openSellerReviewComposer() {
             if (!user) {
-                showToast('Debes iniciar sesion para calificar a Malevo', true);
+                showToast('Debes iniciar sesión para calificar a Malevo', true);
                 return openAuth();
             }
             openModal(`
@@ -2762,17 +3745,37 @@
         // ========== AUTH ==========
         function openAuth() {
             openModal(`
-    <div class="modal-hd"><h3>Acceder</h3><button class="modal-cl" onclick="closeModal()"><i class="fas fa-times"></i></button></div>
+    <div class="modal-hd"><h3><i class="fas fa-shield-halved"></i> Acceder</h3><button class="modal-cl" onclick="closeModal()"><i class="fas fa-times"></i></button></div>
     <div class="modal-bd">
+      <div class="auth-shell" id="auth-shell">
+      <div class="auth-top">
+        <span class="auth-badge"><i class="fas fa-lock"></i> Zona protegida</span>
+        <h4 class="auth-title">Floret Shop Account Center</h4>
+        <p class="auth-sub">Ingreso reforzado con validación de credenciales y consistencia de cuenta.</p>
+      </div>
       <div class="auth-tabs">
-        <button class="auth-tab on" data-auth="login" onclick="switchAuth('login', this)">Iniciar sesion</button>
+        <button class="auth-tab on" data-auth="login" onclick="switchAuth('login', this)">Iniciar sesión</button>
         <button class="auth-tab" data-auth="register" onclick="switchAuth('register', this)">Registrarse</button>
         <button class="auth-tab" data-auth="reset" onclick="switchAuth('reset', this)">Restablecer</button>
       </div>
-      <div id="auth-form"></div>
+      <div id="auth-form" class="auth-form-wrap"></div>
+      <div class="auth-modal-overlay" id="auth-modal-overlay">
+        <div class="auth-modal-loader">
+          <span class="wide-dots"><span></span><span></span><span></span></span>
+          <b id="auth-modal-overlay-label">Validando...</b>
+          <div class="auth-modal-subline" id="auth-modal-subline"></div>
+          <div class="malevo-sync-panel" id="malevo-sync-panel">
+            <div class="malevo-sync-bar" id="malevo-sync-bar"></div>
+            <div class="malevo-sync-line" id="malevo-sync-line-1"></div>
+            <div class="malevo-sync-line" id="malevo-sync-line-2"></div>
+          </div>
+        </div>
+      </div>
+      </div>
     </div>
   `);
             showLoginForm();
+            initAuthModalFx();
         }
 
         function setActiveAuthTab(type) {
@@ -2801,72 +3804,470 @@
             return value.length >= 8 && /[A-Za-z]/.test(value) && /\d/.test(value);
         }
 
+        function normalizeAuthField(value, maxLen = 120) {
+            return String(value || '').normalize('NFKC').replace(/\s+/g, ' ').trim().slice(0, maxLen);
+        }
+
+        function isValidAuthUsername(username) {
+            const clean = normalizeAuthField(username, 32);
+            return /^[\p{L}\p{N}._-]{3,32}$/u.test(clean);
+        }
+
+        function isValidAuthEmail(email) {
+            const clean = normalizeAuthField(email, 120).toLowerCase();
+            return !clean || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean);
+        }
+
+        function initAuthFormFx(mode = 'login') {
+            const container = document.getElementById('auth-form');
+            if (!container) return;
+            const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            if (reduceMotion) return;
+
+            if (typeof window.gsap !== 'undefined') {
+                window.gsap.fromTo(
+                    '#auth-form .frm-grp, #auth-form .auth-row, #auth-form .auth-hint, #auth-form .auth-secure-line, #auth-form .btn',
+                    { y: 10, opacity: 0 },
+                    { y: 0, opacity: 1, duration: 0.28, stagger: 0.04, ease: 'power2.out' }
+                );
+            }
+
+            if (typeof window.anime !== 'undefined') {
+                const targets = container.querySelectorAll('.pass-wrap');
+                if (targets.length) {
+                    window.anime({
+                        targets,
+                        scale: [0.985, 1],
+                        opacity: [0.82, 1],
+                        delay: window.anime.stagger(45),
+                        duration: 240,
+                        easing: 'easeOutQuad'
+                    });
+                }
+            }
+
+            if (mode === 'login') {
+                const userInput = document.getElementById('login-user');
+                if (userInput) userInput.focus();
+            }
+        }
+
+        function initAuthModalFx() {
+            const shell = document.getElementById('auth-shell');
+            if (!shell) return;
+            const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            if (reduceMotion) return;
+
+            if (typeof window.gsap !== 'undefined') {
+                window.gsap.fromTo(shell, { y: 12, opacity: 0.7 }, { y: 0, opacity: 1, duration: 0.34, ease: 'power2.out' });
+                window.gsap.fromTo(shell, { '--auth-sheen-x': '-100%', '--auth-sheen-o': 0 }, {
+                    '--auth-sheen-x': '150%',
+                    '--auth-sheen-o': 1,
+                    duration: 1.1,
+                    ease: 'power1.out',
+                    onComplete: () => shell.style.setProperty('--auth-sheen-o', '0')
+                });
+            }
+
+            if (typeof window.anime !== 'undefined') {
+                const badge = shell.querySelector('.auth-badge');
+                if (badge) {
+                    window.anime({
+                        targets: badge,
+                        translateY: [0, -1.5, 0],
+                        duration: 1700,
+                        easing: 'easeInOutSine',
+                        loop: true
+                    });
+                }
+            }
+        }
+
+        function setAuthModalOverlay(active, label = 'Validando...', subline = '') {
+            const overlay = document.getElementById('auth-modal-overlay');
+            const labelEl = document.getElementById('auth-modal-overlay-label');
+            const sublineEl = document.getElementById('auth-modal-subline');
+            const panel = document.getElementById('malevo-sync-panel');
+            const line1 = document.getElementById('malevo-sync-line-1');
+            const line2 = document.getElementById('malevo-sync-line-2');
+            const bar = document.getElementById('malevo-sync-bar');
+            if (!overlay) return;
+            if (labelEl) labelEl.textContent = label;
+            if (sublineEl) sublineEl.textContent = subline || '';
+            if (panel) panel.style.display = 'none';
+            if (line1) line1.textContent = '';
+            if (line2) line2.textContent = '';
+            if (bar) bar.style.transform = 'scaleX(0)';
+            overlay.classList.toggle('on', !!active);
+        }
+
+        function formatDurationText(ms = 0) {
+            const safe = Math.max(0, Number(ms || 0));
+            if (!safe) return 'menos de 1 minuto';
+            const totalSeconds = Math.floor(safe / 1000);
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+            if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`;
+            return `${minutes}m ${seconds}s`;
+        }
+
+        function getQuotaRemainingValue(quotaData) {
+            if (!quotaData) return 0;
+            if (Number.isFinite(Number(quotaData.remaining))) return Math.max(0, Number(quotaData.remaining));
+            const maxDaily = Number(quotaData.max_daily || 0);
+            const used = Number(quotaData.uploads_today || 0);
+            return Math.max(0, maxDaily - used);
+        }
+
+        async function typeLine(el, text, speed = 22) {
+            if (!el) return;
+            el.textContent = '';
+            const content = String(text || '');
+            for (let i = 0; i < content.length; i++) {
+                el.textContent += content[i];
+                await waitMs(speed);
+            }
+        }
+
+        async function fetchSessionInsights() {
+            if (!user?.id) return null;
+            try {
+                const res = await fetch(`${API}/floret/session-insights?userId=${encodeURIComponent(user.id)}&email=${encodeURIComponent(user.email || '')}`, { cache: 'no-store' });
+                const data = await res.json();
+                if (!res.ok) return null;
+                return data;
+            } catch (_e) {
+                return null;
+            }
+        }
+
+        async function playMalevoModalIntro(insights) {
+            const panel = document.getElementById('malevo-sync-panel');
+            const bar = document.getElementById('malevo-sync-bar');
+            const line1 = document.getElementById('malevo-sync-line-1');
+            const line2 = document.getElementById('malevo-sync-line-2');
+            if (!panel || !bar || !line1 || !line2) return;
+            panel.style.display = 'block';
+            setAuthModalOverlay(true, 'Bienvenido, Malevo', 'Sincronización prioritaria de control de cuota');
+
+            if (typeof window.gsap !== 'undefined') {
+                window.gsap.fromTo(bar, { scaleX: 0 }, { scaleX: 1, duration: 0.42, ease: 'power2.out' });
+            } else {
+                bar.style.transform = 'scaleX(1)';
+            }
+
+            const quota = insights?.quota || {};
+            const remaining = getQuotaRemainingValue(quota);
+            const maxDaily = Number(quota.max_daily || 4);
+            const line1Text = `Tu cuota se restablece en: ${formatDurationText(Number(quota.next_reset_ms || 0))}`;
+            const line2Text = `Tienes ${remaining}/${maxDaily} de cuota restante de productos`;
+            await waitMs(140);
+            await typeLine(line1, line1Text, 18);
+            await waitMs(120);
+            await typeLine(line2, line2Text, 16);
+            await waitMs(620);
+        }
+
+        function stopMalevoQuotaWatcher() {
+            if (malevoQuotaWatcher) {
+                clearInterval(malevoQuotaWatcher);
+                malevoQuotaWatcher = null;
+            }
+        }
+
+        async function renderMalevoGrantIcon(targetId) {
+            const el = document.getElementById(targetId);
+            if (!el || !window.PIXI) return null;
+            const app = new PIXI.Application();
+            await app.init({ resizeTo: el, backgroundAlpha: 0, antialias: true });
+            el.appendChild(app.canvas);
+            const badge = new PIXI.Graphics();
+            badge.roundRect(20, 20, 48, 48, 12).fill({ color: 0xec4899, alpha: 0.3 }).stroke({ color: 0xf8d2eb, width: 2, alpha: 0.8 });
+            const star = new PIXI.Graphics();
+            const cx = 44;
+            const cy = 42;
+            const outer = 14;
+            const inner = 6;
+            const points = [];
+            for (let i = 0; i < 10; i++) {
+                const angle = (-Math.PI / 2) + (i * Math.PI / 5);
+                const r = i % 2 === 0 ? outer : inner;
+                points.push(cx + Math.cos(angle) * r, cy + Math.sin(angle) * r);
+            }
+            star.poly(points).fill({ color: 0xfff1a8, alpha: 1 });
+            app.stage.addChild(badge, star);
+            app.ticker.add((ticker) => {
+                const t = ticker.lastTime / 1000;
+                star.scale.set(1 + Math.sin(t * 3.2) * 0.08);
+                star.rotation = Math.sin(t * 1.8) * 0.08;
+            });
+            return app;
+        }
+
+        async function showMalevoQuotaGrantedModal(delta = 0, remaining = 0, maxDaily = 4) {
+            openModal(`
+      <div class="modal-hd"><h3><i class="fas fa-gift"></i> Felicidades</h3><button class="modal-cl" onclick="closeModal()"><i class="fas fa-times"></i></button></div>
+      <div class="modal-bd">
+        <div class="malevo-grant-wrap">
+          <div class="malevo-grant-icon" id="malevo-grant-icon"></div>
+          <div class="malevo-grant-title">¡Cuota ampliada!</div>
+          <p class="malevo-grant-text">OceanandWild te añadió más cuota para publicar productos.<br>Úsala responsablemente para mantener una operación estable.</p>
+          <p class="malevo-grant-text" style="margin-top:8px">Incremento detectado: +${Math.max(0, Number(delta || 0))}<br>Disponible ahora: ${remaining}/${maxDaily}</p>
+          <button class="btn btn-p" style="width:100%;margin-top:14px" onclick="closeModal()"><i class="fas fa-check"></i> Entendido</button>
+        </div>
+      </div>
+    `, 'malevo-grant-modal');
+            let pixi = null;
+            try {
+                pixi = await renderMalevoGrantIcon('malevo-grant-icon');
+            } catch (_e) {
+                pixi = null;
+            }
+            const cleanup = () => {
+                if (pixi) {
+                    try { pixi.destroy(true); } catch (_err) { }
+                    pixi = null;
+                }
+                document.removeEventListener('keydown', onEsc, true);
+            };
+            const modalBg = document.getElementById('modal');
+            const observer = new MutationObserver(() => {
+                if (!modalBg.classList.contains('on')) {
+                    observer.disconnect();
+                    cleanup();
+                }
+            });
+            observer.observe(modalBg, { attributes: true, attributeFilter: ['class'] });
+            const onEsc = (ev) => {
+                if (ev.key === 'Escape') cleanup();
+            };
+            document.addEventListener('keydown', onEsc, true);
+        }
+
+        function startMalevoQuotaWatcher() {
+            stopMalevoQuotaWatcher();
+            if (!malevoSessionInsights?.flags?.server_verified_malevo || !user?.id) return;
+            malevoLastRemaining = getQuotaRemainingValue(malevoSessionInsights?.quota);
+            const tick = async () => {
+                if (!user?.id) return;
+                try {
+                    const res = await fetch(`${API}/floret/quota/${user.id}`, { cache: 'no-store' });
+                    const nextQuota = await res.json();
+                    if (!res.ok) return;
+                    const nextRemaining = getQuotaRemainingValue(nextQuota);
+                    if (Number.isFinite(malevoLastRemaining) && nextRemaining > malevoLastRemaining) {
+                        const delta = nextRemaining - malevoLastRemaining;
+                        malevoLastRemaining = nextRemaining;
+                        malevoSessionInsights = { ...(malevoSessionInsights || {}), quota: nextQuota };
+                        showMalevoQuotaGrantedModal(delta, nextRemaining, Number(nextQuota.max_daily || 4));
+                    } else {
+                        malevoLastRemaining = nextRemaining;
+                        malevoSessionInsights = { ...(malevoSessionInsights || {}), quota: nextQuota };
+                    }
+                } catch (_e) {
+                    // noop
+                }
+            };
+            tick();
+            malevoQuotaWatcher = setInterval(tick, 7000);
+        }
+
+        function setLoginButtonState(state = 'idle') {
+            const btn = document.getElementById('login-submit');
+            if (!btn) return;
+            if (state === 'loading') {
+                btn.disabled = true;
+                btn.innerHTML = `<span class="wide-dots" aria-hidden="true"><span></span><span></span><span></span></span>`;
+                return;
+            }
+            if (state === 'success') {
+                btn.disabled = true;
+                btn.innerHTML = `<i class="fas fa-check"></i>`;
+                return;
+            }
+            btn.disabled = false;
+            btn.innerHTML = `<i class="fas fa-sign-in-alt"></i> Entrar`;
+        }
+
+        function waitMs(ms = 0) {
+            return new Promise((resolve) => setTimeout(resolve, ms));
+        }
+
+        async function showWelcomeSequence(username = '') {
+            const safeUser = normalizeAuthField(username || 'Jugador', 36);
+            const overlay = document.createElement('div');
+            overlay.className = 'welcome-overlay';
+            overlay.innerHTML = `
+    <div class="welcome-pixi" id="welcome-pixi-layer"></div>
+    <div class="welcome-card" id="welcome-card">
+      <div class="welcome-loader" id="welcome-loader"></div>
+      <div class="welcome-title" id="welcome-title">Preparando tu sesión...</div>
+      <div class="welcome-sub" id="welcome-sub">Sincronizando experiencia de tienda</div>
+    </div>
+  `;
+            document.body.appendChild(overlay);
+            overlay.style.pointerEvents = 'auto';
+
+            if (typeof window.gsap !== 'undefined') {
+                window.gsap.to(overlay, { opacity: 1, duration: 0.24, ease: 'power1.out' });
+            } else {
+                overlay.style.opacity = '1';
+            }
+
+            let pixiApp = null;
+            try {
+                if (window.PIXI && document.getElementById('welcome-pixi-layer')) {
+                    const container = document.getElementById('welcome-pixi-layer');
+                    pixiApp = new PIXI.Application();
+                    await pixiApp.init({
+                        resizeTo: container,
+                        backgroundAlpha: 0,
+                        antialias: true
+                    });
+                    container.appendChild(pixiApp.canvas);
+                    const particles = [];
+                    for (let i = 0; i < 24; i++) {
+                        const g = new PIXI.Graphics();
+                        const color = i % 2 === 0 ? 0x8b5cf6 : 0xec4899;
+                        g.circle(0, 0, 2 + Math.random() * 2.6).fill({ color, alpha: 0.9 });
+                        g.x = Math.random() * pixiApp.renderer.width;
+                        g.y = Math.random() * pixiApp.renderer.height;
+                        g.alpha = 0.35 + Math.random() * 0.55;
+                        g.vx = (Math.random() - 0.5) * 0.45;
+                        g.vy = -0.15 - Math.random() * 0.45;
+                        particles.push(g);
+                        pixiApp.stage.addChild(g);
+                    }
+                    pixiApp.ticker.add(() => {
+                        for (const p of particles) {
+                            p.x += p.vx;
+                            p.y += p.vy;
+                            if (p.x < -10) p.x = pixiApp.renderer.width + 10;
+                            if (p.x > pixiApp.renderer.width + 10) p.x = -10;
+                            if (p.y < -10) p.y = pixiApp.renderer.height + 10;
+                        }
+                    });
+                }
+            } catch (_err) {
+                pixiApp = null;
+            }
+
+            await waitMs(760);
+            const title = document.getElementById('welcome-title');
+            const sub = document.getElementById('welcome-sub');
+            const loader = document.getElementById('welcome-loader');
+            if (title) title.textContent = `Bienvenido, ${safeUser}`;
+            if (sub) sub.textContent = 'Todo listo para continuar';
+            if (loader) loader.style.display = 'none';
+
+            if (typeof window.gsap !== 'undefined') {
+                window.gsap.fromTo('#welcome-card', { scale: 0.96, y: 8 }, { scale: 1, y: 0, duration: 0.36, ease: 'back.out(1.6)' });
+            }
+            if (typeof window.anime !== 'undefined') {
+                window.anime({
+                    targets: '#welcome-title',
+                    scale: [0.97, 1.03, 1],
+                    duration: 780,
+                    easing: 'easeOutElastic(1, .7)'
+                });
+            }
+
+            await waitMs(1250);
+            if (typeof window.gsap !== 'undefined') {
+                await new Promise((resolve) => {
+                    window.gsap.to(overlay, {
+                        opacity: 0,
+                        duration: 0.28,
+                        ease: 'power1.inOut',
+                        onComplete: resolve
+                    });
+                });
+            }
+
+            if (pixiApp) {
+                try { pixiApp.destroy(true); } catch (_e) { }
+            }
+            overlay.remove();
+        }
+
         function showLoginForm() {
             setActiveAuthTab('login');
             document.getElementById('auth-form').innerHTML = `
-    <div class="frm-grp"><label class="frm-lbl">Usuario o email</label><input class="frm-inp" id="login-user" placeholder="Tu usuario o email"></div>
+    <div class="frm-grp"><label class="frm-lbl">Usuario o email</label><input class="frm-inp" id="login-user" placeholder="Tu usuario o email" autocomplete="username"></div>
     <div class="frm-grp">
-      <label class="frm-lbl">Contrasena</label>
+      <label class="frm-lbl">Contraseña</label>
       <div class="pass-wrap">
-        <input class="frm-inp" type="password" id="login-pass" placeholder="Minimo 8 caracteres">
+        <input class="frm-inp" type="password" id="login-pass" placeholder="Mínimo 8 caracteres" autocomplete="current-password">
         <button class="pass-toggle" type="button" onclick="togglePasswordVisibility('login-pass', this)"><i class="fas fa-eye"></i></button>
       </div>
     </div>
     <div class="auth-row">
       <label class="auth-check"><input type="checkbox" id="login-remember" checked> Recordarme</label>
-      <button class="auth-link-btn" type="button" onclick="showResetForm(document.getElementById('login-user')?.value || '')">Olvide mi contrasena</button>
+      <button class="auth-link-btn" type="button" onclick="showResetForm(document.getElementById('login-user')?.value || '')">Olvidé mi contraseña</button>
     </div>
-    <button class="btn btn-p" style="width:100%" onclick="doLogin()"><i class="fas fa-sign-in-alt"></i> Entrar</button>
+    <button class="btn btn-p auth-submit" id="login-submit" style="width:100%" onclick="doLogin()"><i class="fas fa-sign-in-alt"></i> Entrar</button>
   `;
+            setAuthModalOverlay(false);
+            setLoginButtonState('idle');
+            initAuthFormFx('login');
         }
 
         function showRegisterForm() {
             setActiveAuthTab('register');
             document.getElementById('auth-form').innerHTML = `
-    <div class="frm-grp"><label class="frm-lbl">Usuario</label><input class="frm-inp" id="reg-user" placeholder="Elige un usuario"></div>
-    <div class="frm-grp"><label class="frm-lbl">Email</label><input class="frm-inp" type="email" id="reg-email" placeholder="tu@email.com"></div>
+    <div class="frm-grp"><label class="frm-lbl">Usuario</label><input class="frm-inp" id="reg-user" placeholder="Elige un usuario seguro (3-32)" autocomplete="username"></div>
+    <div class="frm-grp"><label class="frm-lbl">Email</label><input class="frm-inp" type="email" id="reg-email" placeholder="tu@email.com" autocomplete="email"></div>
     <div class="frm-grp">
-      <label class="frm-lbl">Contrasena</label>
+      <label class="frm-lbl">Contraseña</label>
       <div class="pass-wrap">
-        <input class="frm-inp" type="password" id="reg-pass" placeholder="Minimo 8 caracteres, incluye numeros">
+        <input class="frm-inp" type="password" id="reg-pass" placeholder="Mínimo 8 caracteres, incluye números" autocomplete="new-password">
         <button class="pass-toggle" type="button" onclick="togglePasswordVisibility('reg-pass', this)"><i class="fas fa-eye"></i></button>
       </div>
     </div>
-    <div class="auth-hint">Usa minimo 8 caracteres y al menos 1 numero para mayor seguridad.</div>
+    <div class="auth-hint">Usa mínimo 8 caracteres con letras y números. Permitimos letras con ñ y otros caracteres Unicode válidos.</div>
+    <div class="auth-secure-line"><i class="fas fa-lock"></i> Se normaliza el texto antes de enviarlo para evitar errores de credenciales.</div>
     <button class="btn btn-p" style="width:100%" onclick="doRegister()"><i class="fas fa-user-plus"></i> Crear cuenta</button>
   `;
+            setAuthModalOverlay(false);
+            initAuthFormFx('register');
         }
 
         function showResetForm(prefillIdentifier = '') {
             setActiveAuthTab('reset');
-            const safeIdentifier = String(prefillIdentifier || '').replace(/"/g, '&quot;');
+            const safeIdentifier = String(prefillIdentifier || '').normalize('NFKC').replace(/"/g, '&quot;');
             document.getElementById('auth-form').innerHTML = `
-    <div class="frm-grp"><label class="frm-lbl">Usuario o email</label><input class="frm-inp" id="reset-id" placeholder="Tu usuario o email" value="${safeIdentifier}"></div>
-    <div class="frm-grp"><label class="frm-lbl">Email de la cuenta</label><input class="frm-inp" type="email" id="reset-email" placeholder="tu@email.com"></div>
+    <div class="frm-grp"><label class="frm-lbl">Usuario o email</label><input class="frm-inp" id="reset-id" placeholder="Tu usuario o email" value="${safeIdentifier}" autocomplete="username"></div>
+    <div class="frm-grp"><label class="frm-lbl">Email de la cuenta</label><input class="frm-inp" type="email" id="reset-email" placeholder="tu@email.com" autocomplete="email"></div>
     <div class="frm-grp">
-      <label class="frm-lbl">Nueva contrasena</label>
+      <label class="frm-lbl">Nueva contraseña</label>
       <div class="pass-wrap">
-        <input class="frm-inp" type="password" id="reset-pass" placeholder="Minimo 8 caracteres y 1 numero">
+        <input class="frm-inp" type="password" id="reset-pass" placeholder="Mínimo 8 caracteres y 1 número" autocomplete="new-password">
         <button class="pass-toggle" type="button" onclick="togglePasswordVisibility('reset-pass', this)"><i class="fas fa-eye"></i></button>
       </div>
     </div>
     <div class="frm-grp">
-      <label class="frm-lbl">Confirmar contrasena</label>
+      <label class="frm-lbl">Confirmar contraseña</label>
       <div class="pass-wrap">
-        <input class="frm-inp" type="password" id="reset-pass-2" placeholder="Repite la nueva contrasena">
+        <input class="frm-inp" type="password" id="reset-pass-2" placeholder="Repite la nueva contraseña" autocomplete="new-password">
         <button class="pass-toggle" type="button" onclick="togglePasswordVisibility('reset-pass-2', this)"><i class="fas fa-eye"></i></button>
       </div>
     </div>
-    <div class="auth-hint">Validaremos usuario/email para permitir el cambio.</div>
-    <button class="btn btn-p" style="width:100%" onclick="doResetPassword()"><i class="fas fa-key"></i> Restablecer contrasena</button>
+    <div class="auth-hint">Validaremos usuario y email. Si no coinciden, el cambio será rechazado.</div>
+    <div class="auth-secure-line"><i class="fas fa-user-shield"></i> Reforzado contra cambios no autorizados de contraseña.</div>
+    <button class="btn btn-p" style="width:100%" onclick="doResetPassword()"><i class="fas fa-key"></i> Restablecer contraseña</button>
   `;
+            setAuthModalOverlay(false);
+            initAuthFormFx('reset');
         }
 
         async function doLogin() {
-            const identifier = document.getElementById('login-user').value.trim();
-            const password = document.getElementById('login-pass').value;
+            const identifier = normalizeAuthField(document.getElementById('login-user').value, 120);
+            const password = String(document.getElementById('login-pass').value || '').normalize('NFKC');
             const remember = document.getElementById('login-remember')?.checked !== false;
             if (!identifier || !password) return showToast('Completa todos los campos', true);
+            if (identifier.length < 3) return showToast('El usuario o email es demasiado corto', true);
+            setLoginButtonState('loading');
 
             try {
                 const res = await fetch(API + '/floret/login', {
@@ -2876,29 +4277,59 @@
                 });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error);
+                setLoginButtonState('success');
+                await waitMs(280);
+                setAuthModalOverlay(true, 'Sincronizando sesión...', 'Validando acceso');
                 user = data.user;
                 isAdmin = isFloretCoreAdminAccount(user);
                 saveAuthUser(user, remember);
+                malevoSessionInsights = await fetchSessionInsights();
+                const isMalevoVerified = Boolean(malevoSessionInsights?.flags?.server_verified_malevo);
+                if (isMalevoVerified) {
+                    await playMalevoModalIntro(malevoSessionInsights);
+                } else {
+                    await waitMs(520);
+                }
                 closeModal();
+                await showWelcomeSequence(user?.username || 'Usuario');
                 render();
                 if (user.power_level === 1) loadQuota();
                 if (isMalevoSession()) {
                     await loadMalevoNotifications(true).catch(() => null);
                     render();
                 }
-                showToast('Bienvenido!');
+                if (isMalevoVerified) {
+                    showToast('Verificando si hay cambios en tu cuota...');
+                    // Detect pre-existing quota grant: if remaining > base max_daily (4),
+                    // OceanandWild already granted extra quota before this login
+                    const loginQuota = malevoSessionInsights?.quota;
+                    const loginRemaining = getQuotaRemainingValue(loginQuota);
+                    const baseMaxDaily = 4;
+                    if (loginRemaining > baseMaxDaily) {
+                        const delta = loginRemaining - baseMaxDaily;
+                        await showMalevoQuotaGrantedModal(delta, loginRemaining, Number(loginQuota?.max_daily || baseMaxDaily));
+                    }
+                    startMalevoQuotaWatcher();
+                } else {
+                    stopMalevoQuotaWatcher();
+                }
+                showToast('¡Bienvenido!');
             } catch (e) {
-                showToast(e.message || 'Error al iniciar sesion', true);
+                setAuthModalOverlay(false);
+                setLoginButtonState('idle');
+                showToast(e.message || 'Error al iniciar sesión', true);
             }
         }
 
         async function doRegister() {
-            const username = document.getElementById('reg-user').value;
-            const email = document.getElementById('reg-email').value;
-            const password = document.getElementById('reg-pass').value;
+            const username = normalizeAuthField(document.getElementById('reg-user').value, 32);
+            const email = normalizeAuthField(document.getElementById('reg-email').value, 120).toLowerCase();
+            const password = String(document.getElementById('reg-pass').value || '').normalize('NFKC');
             if (!username || !email || !password) return showToast('Completa todos los campos', true);
+            if (!isValidAuthUsername(username)) return showToast('Usuario inválido. Usa 3-32 caracteres (letras, números, punto, guion o _).', true);
+            if (!isValidAuthEmail(email)) return showToast('Ingresa un email válido.', true);
             if (!isValidPassword(password)) {
-                return showToast('La contrasena debe tener 8+ caracteres e incluir numeros', true);
+                return showToast('La contraseña debe tener 8+ caracteres e incluir números', true);
             }
 
             try {
@@ -2918,21 +4349,22 @@
                     await loadMalevoNotifications(true).catch(() => null);
                     render();
                 }
-                showToast('Cuenta creada!');
+                showToast('¡Cuenta creada!');
             } catch (e) {
                 showToast(e.message || 'Error al registrar', true);
             }
         }
 
         async function doResetPassword() {
-            const identifier = document.getElementById('reset-id').value.trim();
-            const email = document.getElementById('reset-email').value.trim();
-            const pass = document.getElementById('reset-pass').value;
-            const pass2 = document.getElementById('reset-pass-2').value;
+            const identifier = normalizeAuthField(document.getElementById('reset-id').value, 120);
+            const email = normalizeAuthField(document.getElementById('reset-email').value, 120).toLowerCase();
+            const pass = String(document.getElementById('reset-pass').value || '').normalize('NFKC');
+            const pass2 = String(document.getElementById('reset-pass-2').value || '').normalize('NFKC');
             if (!identifier || !email || !pass || !pass2) return showToast('Completa todos los campos', true);
-            if (pass !== pass2) return showToast('Las contrasenas no coinciden', true);
+            if (!isValidAuthEmail(email)) return showToast('Ingresa un email válido.', true);
+            if (pass !== pass2) return showToast('Las contraseñas no coinciden', true);
             if (!isValidPassword(pass)) {
-                return showToast('La nueva contrasena debe tener 8+ caracteres e incluir numeros', true);
+                return showToast('La nueva contraseña debe tener 8+ caracteres e incluir números', true);
             }
             try {
                 const res = await fetch(API + '/floret/reset-password', {
@@ -2941,13 +4373,13 @@
                     body: JSON.stringify({ identifier, email, newPassword: pass })
                 });
                 const data = await res.json();
-                if (!res.ok) throw new Error(data.error || 'No se pudo restablecer la contrasena');
-                showToast('Contrasena actualizada. Inicia sesion con la nueva clave.');
+                if (!res.ok) throw new Error(data.error || 'No se pudo restablecer la contraseña');
+                showToast('Contraseña actualizada. Inicia sesión con la nueva clave.');
                 showLoginForm();
                 const loginInput = document.getElementById('login-user');
                 if (loginInput) loginInput.value = identifier;
             } catch (e) {
-                showToast(e.message || 'Error restableciendo contrasena', true);
+                showToast(e.message || 'Error restableciendo contraseña', true);
             }
         }
 
@@ -3396,46 +4828,77 @@
         function openProfile() {
             if (!user) return;
             const createdDate = new Date(user.created_at || Date.now()).toLocaleDateString();
+            const memberYear = createdDate.split('/')[2] || '2026';
+            const totalCart = cart.reduce((sum, c) => sum + (Number(c.price) || 0), 0);
+            const emailLabel = user.email || 'Sin email registrado';
+            const isCoreAdmin = user.power_level > 0;
 
             openModal(`
-                <div class="modal-hd"><h3><i class="fas fa-id-card"></i> Mi Perfil</h3><button class="modal-cl" onclick="closeModal()"><i class="fas fa-times"></i></button></div>
+                <div class="modal-hd">
+                    <h3><i class="fas fa-id-card"></i> Mi Perfil</h3>
+                    <button class="modal-cl" onclick="closeModal()"><i class="fas fa-times"></i></button>
+                </div>
                 <div class="modal-bd">
-                    <div class="profile-header">
-                        <div class="profile-avatar"><i class="fas fa-user"></i></div>
-                        <div class="profile-name">${user.username}</div>
-                        <div class="profile-email">${user.email || 'Sin email registrado'}</div>
-                        ${user.power_level > 0 ? `<div style="font-size:0.7rem;background:rgba(255,255,255,0.2);padding:2px 8px;border-radius:10px;display:inline-block;margin-top:5px">ADMIN LVL ${user.power_level} ${user.id}</div>` : ''}
-                    </div>
-                    
-                    <div class="profile-stats">
-                        <div class="profile-stat">
-                            <div class="profile-stat-value">${cart.length}</div>
-                            <div class="profile-stat-label">En Carrito</div>
+                    <div class="profile-shell">
+                      <section class="profile-left">
+                        <div class="profile-topline">
+                          <span class="profile-chip">Cuenta activa</span>
+                          ${isCoreAdmin ? `<span class="profile-chip profile-chip-admin">Admin lvl ${user.power_level}</span>` : `<span class="profile-chip">Cliente</span>`}
                         </div>
-                        <div class="profile-stat">
+                        <div class="profile-hero">
+                          <div class="profile-avatar"><i class="fas fa-user"></i></div>
+                          <div class="profile-name">${user.username}</div>
+                          <div class="profile-email">${emailLabel}</div>
+                          <div class="profile-muted">ID interno: ${user.id} · Miembro desde ${memberYear}</div>
+                        </div>
+                        <div class="profile-stats">
+                          <div class="profile-stat">
+                            <div class="profile-stat-value">${cart.length}</div>
+                            <div class="profile-stat-label">En carrito</div>
+                          </div>
+                          <div class="profile-stat">
                             <div class="profile-stat-value">0</div>
                             <div class="profile-stat-label">Pedidos</div>
+                          </div>
+                          <div class="profile-stat">
+                            <div class="profile-stat-value">$${totalCart.toLocaleString()}</div>
+                            <div class="profile-stat-label">Valor actual</div>
+                          </div>
                         </div>
-                        <div class="profile-stat">
-                            <div class="profile-stat-value">${createdDate.split('/')[2] || '2026'}</div>
-                            <div class="profile-stat-label">Miembro Desde</div>
+                      </section>
+                      <section class="profile-right">
+                        <div class="profile-section-title">Accesos rapidos</div>
+                        <div class="profile-menu profile-grid">
+                          ${user.power_level === 2 ? `<button class="profile-menu-item" style="background:rgba(236,72,153,0.1);border-color:var(--pink);color:var(--pink)" onclick="openGrantQuota()"><i class="fas fa-gift"></i> Otorgar Cuota a Malevo</button>` : ''}
+                          ${isMalevoSession() ? `<button class="profile-menu-item" style="background:rgba(236,72,153,0.14);border-color:rgba(236,72,153,0.35);color:#ffc7eb" onclick="openMalevoNotifications()"><i class="fas fa-bell"></i> Notificaciones ${malevoUnreadCount > 0 ? `<span class="notif-badge">${malevoUnreadCount}</span>` : ''}</button>` : ''}
+                          ${isMalevoSession() ? `<button class="profile-menu-item" onclick="openSellerOperationsPanel()"><i class="fas fa-briefcase"></i> Panel de ventas</button>` : ''}
+                          ${isMalevoSession() ? `<button class="profile-menu-item" onclick="openMalevoReviewHub()"><i class="fas fa-layer-group"></i> Centro de Reviews</button>` : ''}
+                          <button class="profile-menu-item" onclick="openSellerReviewComposer()"><i class="fas fa-user-check"></i> Calificar a Malevo</button>
+                          <button class="profile-menu-item" onclick="openSellerReviewsPanel()"><i class="fas fa-star"></i> Reviews de vendedor</button>
+                          <button class="profile-menu-item"><i class="fas fa-history"></i> Historial de Pedidos</button>
+                          <button class="profile-menu-item"><i class="fas fa-cog"></i> Configuracion</button>
+                          <button class="profile-menu-item wide" onclick="window.open('https://wa.me/${WA_NUM1}', '_blank')"><i class="fab fa-whatsapp"></i> Soporte (+598 098 725 223)</button>
+                          <button class="profile-menu-item danger wide" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Cerrar Sesión</button>
                         </div>
-                    </div>
-
-                    <div class="profile-menu">
-                        ${user.power_level === 2 ? `<button class="profile-menu-item" style="background:rgba(236,72,153,0.1);border-color:var(--pink);color:var(--pink)" onclick="openGrantQuota()"><i class="fas fa-gift"></i> Otorgar Cuota a Malevo</button>` : ''}
-                        ${isMalevoSession() ? `<button class="profile-menu-item" style="background:rgba(236,72,153,0.14);border-color:rgba(236,72,153,0.35);color:#ffc7eb" onclick="openMalevoNotifications()"><i class="fas fa-bell"></i> Notificaciones ${malevoUnreadCount > 0 ? `<span class="notif-badge">${malevoUnreadCount}</span>` : ''}</button>` : ''}
-                        ${isMalevoSession() ? `<button class="profile-menu-item" onclick="openSellerOperationsPanel()"><i class="fas fa-briefcase"></i> Panel de ventas</button>` : ''}
-                        ${isMalevoSession() ? `<button class="profile-menu-item" onclick="openMalevoReviewHub()"><i class="fas fa-layer-group"></i> Centro de Reviews</button>` : ''}
-                        <button class="profile-menu-item" onclick="openSellerReviewComposer()"><i class="fas fa-user-check"></i> Calificar a Malevo</button>
-                        <button class="profile-menu-item" onclick="openSellerReviewsPanel()"><i class="fas fa-star"></i> Reviews de vendedor</button>
-                        <button class="profile-menu-item"><i class="fas fa-history"></i> Historial de Pedidos</button>
-                        <button class="profile-menu-item"><i class="fas fa-cog"></i> Configuracion</button>
-                        <button class="profile-menu-item" onclick="window.open('https://wa.me/${WA_NUM1}', '_blank')"><i class="fab fa-whatsapp"></i> Soporte (+598 098 725 223)</button>
-                        <button class="profile-menu-item danger" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Cerrar Sesion</button>
+                      </section>
                     </div>
                 </div>
-            `);
+            `, 'profile-modal-full');
+            initProfileModalFx();
+        }
+
+        function initProfileModalFx() {
+            const scope = document.querySelector('.modal.profile-modal-full .profile-shell');
+            if (!scope) return;
+            const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            if (reduceMotion) return;
+            if (typeof window.gsap !== 'undefined') {
+                window.gsap.fromTo(
+                    '.modal.profile-modal-full .profile-left, .modal.profile-modal-full .profile-right',
+                    { y: 14, opacity: 0 },
+                    { y: 0, opacity: 1, duration: 0.32, ease: 'power2.out', stagger: 0.06 }
+                );
+            }
         }
         async function openGrantQuota() {
             const targetId = prompt("ID de usuario (Malevo):", "1");
@@ -3459,6 +4922,9 @@
             user = null;
             isAdmin = false;
             quota = null;
+            malevoSessionInsights = null;
+            malevoLastRemaining = null;
+            stopMalevoQuotaWatcher();
             productReviewsCache = {};
             sellerReviewsCache = null;
             allReviewsCache = null;
@@ -3467,7 +4933,7 @@
             saveAuthUser(null, false);
             closeModal();
             render();
-            showToast('Sesion cerrada');
+            showToast('Sesión cerrada');
         }
 
         // ========== INIT ==========

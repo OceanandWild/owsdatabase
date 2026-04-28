@@ -14,41 +14,56 @@ import jwt from 'jsonwebtoken';
 import { Server } from 'socket.io';
 import { createServer } from 'http';
 
-import nodemailer from 'nodemailer';
-
 // ===== NODEMAILER TRANSPORTER (Floret Shop phone verification via email) =====
-const floretMailTransporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_APP_PASSWORD
+// Lazy-loaded so server starts even if nodemailer isn't installed yet
+let floretMailTransporter = null;
+try {
+  const nodemailer = await import('nodemailer');
+  if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
+    floretMailTransporter = nodemailer.default.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.GMAIL_USER,
+        pass: process.env.GMAIL_APP_PASSWORD
+      }
+    });
+    console.log('[FLORET MAIL] Nodemailer transporter initialized');
+  } else {
+    console.warn('[FLORET MAIL] GMAIL_USER or GMAIL_APP_PASSWORD not set — email sending disabled');
   }
-});
+} catch (_e) {
+  console.warn('[FLORET MAIL] nodemailer not available — email sending disabled');
+}
 
 async function sendFloretVerificationEmail({ to, code, phone }) {
+  if (!floretMailTransporter) throw new Error('Email no configurado en el servidor');
   const maskedPhone = phone
     ? String(phone).replace(/(\+?\d{1,4})\d+(\d{3})$/, '$1•••••$2')
     : '(número registrado)';
-  await floretMailTransporter.sendMail({
-    from: `"Floret Shop" <${process.env.GMAIL_USER}>`,
-    to,
-    subject: 'Tu código de verificación — Floret Shop',
-    html: `
-      <div style="font-family:Arial,sans-serif;background:#0f0a1a;color:#f8f5ff;padding:32px 24px;border-radius:16px;max-width:480px;margin:0 auto">
-        <div style="text-align:center;margin-bottom:24px">
-          <div style="font-size:2rem">🌸</div>
-          <h2 style="margin:8px 0 4px;font-size:1.4rem;color:#f0d7ff">Floret Shop</h2>
-          <p style="color:#a89ec8;font-size:0.85rem;margin:0">Verificación de número de teléfono</p>
+  // 8-second timeout so it never hangs indefinitely
+  await Promise.race([
+    floretMailTransporter.sendMail({
+      from: `"Floret Shop" <${process.env.GMAIL_USER}>`,
+      to,
+      subject: 'Tu código de verificación — Floret Shop',
+      html: `
+        <div style="font-family:Arial,sans-serif;background:#0f0a1a;color:#f8f5ff;padding:32px 24px;border-radius:16px;max-width:480px;margin:0 auto">
+          <div style="text-align:center;margin-bottom:24px">
+            <div style="font-size:2rem">🌸</div>
+            <h2 style="margin:8px 0 4px;font-size:1.4rem;color:#f0d7ff">Floret Shop</h2>
+            <p style="color:#a89ec8;font-size:0.85rem;margin:0">Verificación de número de teléfono</p>
+          </div>
+          <div style="background:rgba(139,92,246,0.12);border:1px solid rgba(139,92,246,0.3);border-radius:12px;padding:20px;text-align:center;margin-bottom:20px">
+            <p style="color:#c9a8ff;font-size:0.85rem;margin:0 0 10px">Tu código de verificación para el número <b>${maskedPhone}</b> es:</p>
+            <div style="font-size:2.6rem;font-weight:800;letter-spacing:0.22em;color:#ec4899;padding:8px 0">${code}</div>
+            <p style="color:#a89ec8;font-size:0.75rem;margin:10px 0 0">Válido por 10 minutos. No lo compartas con nadie.</p>
+          </div>
+          <p style="color:#7c6fa0;font-size:0.75rem;text-align:center;margin:0">Si no solicitaste este código, podés ignorar este mensaje.</p>
         </div>
-        <div style="background:rgba(139,92,246,0.12);border:1px solid rgba(139,92,246,0.3);border-radius:12px;padding:20px;text-align:center;margin-bottom:20px">
-          <p style="color:#c9a8ff;font-size:0.85rem;margin:0 0 10px">Tu código de verificación para el número <b>${maskedPhone}</b> es:</p>
-          <div style="font-size:2.6rem;font-weight:800;letter-spacing:0.22em;color:#ec4899;padding:8px 0">${code}</div>
-          <p style="color:#a89ec8;font-size:0.75rem;margin:10px 0 0">Válido por 10 minutos. No lo compartas con nadie.</p>
-        </div>
-        <p style="color:#7c6fa0;font-size:0.75rem;text-align:center;margin:0">Si no solicitaste este código, podés ignorar este mensaje.</p>
-      </div>
-    `
-  });
+      `
+    }),
+    new Promise((_, reject) => setTimeout(() => reject(new Error('Email timeout')), 8000))
+  ]);
 }
 
 // URL FOR THIS DATABASE: https://owsdatabase.onrender.com
@@ -3823,18 +3838,24 @@ app.post('/floret/phone-verify-send', async (req, res) => {
     const key = `${phone}:${userId || 'new'}`;
     floretPhoneCodes.set(key, { code, phone, userId, expiresAt: Date.now() + FLORET_PHONE_CODE_TTL });
 
-    // Send via Nodemailer
+    // Send via Nodemailer — always respond success even if email fails
+    // (code is stored in memory, fallback logs it for dev)
+    let emailSent = false;
     try {
       await sendFloretVerificationEmail({ to: toEmail, code, phone });
+      emailSent = true;
     } catch (mailErr) {
       console.error('[FLORET MAIL] Error enviando codigo:', mailErr.message);
-      // Fallback: log to console so dev can still test
       console.log(`[FLORET PHONE VERIFY FALLBACK] Phone: ${phone} | Code: ${code} | To: ${toEmail}`);
     }
 
-    // Return masked email so frontend can show "enviado a tu***@gmail.com"
     const maskedEmail = toEmail.replace(/(.{2}).+(@.+)/, '$1***$2');
-    return res.json({ success: true, message: 'Codigo enviado.', maskedEmail });
+    return res.json({
+      success: true,
+      message: emailSent ? 'Codigo enviado.' : 'Codigo generado (revisa logs del servidor).',
+      maskedEmail,
+      emailSent
+    });
   } catch (e) {
     console.error('Error en /floret/phone-verify-send:', e);
     return res.status(500).json({ error: 'Error interno' });

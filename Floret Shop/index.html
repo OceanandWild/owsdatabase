@@ -5153,7 +5153,9 @@
                 const st = document.getElementById('reg-phone-status');
                 if (st && data.maskedEmail) {
                     st.className = 'reg-field-status ok';
-                    st.innerHTML = `<i class="fas fa-envelope-circle-check"></i> Código enviado a <b>${data.maskedEmail}</b>`;
+                    st.innerHTML = data.emailSent
+                        ? `<i class="fas fa-envelope-circle-check"></i> Código enviado a <b>${data.maskedEmail}</b>`
+                        : `<i class="fas fa-circle-info"></i> Código generado — revisa los logs del servidor`;
                 }
                 // Show code input
                 const codeGrp = document.getElementById('reg-code-grp');
@@ -5590,7 +5592,9 @@
                 if (st && data.maskedEmail) {
                     st.className = 'reg-field-status ok';
                     st.style.color = '#7ee8c0';
-                    st.innerHTML = `<i class="fas fa-envelope-circle-check"></i> Código enviado a <b>${data.maskedEmail}</b>`;
+                    st.innerHTML = data.emailSent
+                        ? `<i class="fas fa-envelope-circle-check"></i> Código enviado a <b>${data.maskedEmail}</b>`
+                        : `<i class="fas fa-circle-info"></i> Código generado — revisa los logs del servidor`;
                 }
                 const codeGrp = document.getElementById('gate-code-grp');
                 if (codeGrp) {

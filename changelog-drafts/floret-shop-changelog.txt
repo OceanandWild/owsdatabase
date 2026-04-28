@@ -50,3 +50,26 @@ Target version: POR DEFINIR
   - Animacion de shake (GSAP) en campos invalidos al intentar avanzar.
   - Pantalla de exito integrada en el wizard con burst de confetti PixiJS al crear la cuenta.
   - Foco automatico en el primer campo de cada paso para mejor experiencia de teclado.
+
+- Modal de autenticacion adaptado a movil:
+  - El modal ahora se presenta como bottom sheet en pantallas pequenas, con bordes redondeados en la parte superior y altura maxima ajustada.
+  - Mejoras de padding, scroll tactil y tamano de botones de cierre para mayor comodidad en dispositivos moviles.
+  - Todos los formularios de acceso, registro y restablecimiento respetan el espacio disponible sin desbordamiento.
+
+- Blindaje de duplicados en el registro:
+  - Al avanzar del paso de usuario, se verifica en tiempo real si el nombre ya esta en uso antes de continuar.
+  - Al avanzar del paso de email, se verifica si ya existe una cuenta con ese correo.
+  - Feedback visual inmediato con estado de error en el campo y animacion de shake si hay conflicto.
+  - Nuevo endpoint en el servidor para consultar disponibilidad de usuario y email sin exponer datos sensibles.
+
+- Verificacion de telefono en el registro:
+  - El paso 4 del wizard solicita un numero de telefono con codigo de pais.
+  - Se envia un codigo de verificacion al numero ingresado; el usuario debe confirmarlo antes de crear la cuenta.
+  - Si el numero ya esta asociado a otra cuenta, se informa con un mensaje claro.
+  - Opcion de omitir la verificacion de telefono al momento del registro, con aviso posterior.
+
+- Overlay de verificacion de telefono para cuentas existentes:
+  - Al iniciar sesion, si la cuenta no tiene telefono verificado, aparece un overlay de pantalla completa con fondo degradado rosa-violeta y petalos de flores animados con PixiJS cayendo en segundo plano.
+  - El overlay incluye un formulario para ingresar y verificar el numero de telefono con el mismo flujo de codigo que el registro.
+  - El usuario puede posponer la verificacion con la opcion de recordatorio posterior.
+  - Animacion de entrada del card con GSAP y confirmacion visual al verificar exitosamente.

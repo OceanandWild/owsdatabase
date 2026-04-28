@@ -1,0 +1,52 @@
+Floret Shop - Changelog Draft (acumulativo para proxima release)
+Target version: POR DEFINIR
+
+- Cart add animation rework with GSAP:
+  - Replaced the simple cart add indicator with a product-image flight animation.
+  - The product now flies toward the cart using its own image and shrinks during travel.
+  - Added support for both direct add and size-selection add flows.
+  - Preserved fallback animation when GSAP is unavailable.
+
+- Android adaptation for cart animation:
+  - Improved touch-point detection for mobile tap events.
+  - Prioritized product lookup by `data-product-id` and card context to avoid wrong image origins.
+  - Tuned mobile animation path, timing, and scale for smoother performance on Android.
+  - Reduced final ghost size and cart pulse intensity for a cleaner mobile visual result.
+
+- Header visual rework with CSS + GSAP + AnimeJS:
+  - Rebuilt the top header with a stronger branded layout (identity block, live catalog status pill, and refined action controls).
+  - Added layered gradients, subtle glass depth, and animated sheen for a more premium first impression.
+  - Integrated GSAP entrance and micro-interactions for header controls and status motion.
+  - Integrated AnimeJS accent motion on brand mark and header dynamics to avoid a static look.
+  - Improved mobile behavior so the header stays compact and readable while preserving animation quality.
+
+- Login flow UX upgrade (mobile-ready):
+  - Updated the sign-in button flow with wide animated loading dots, success check state, and protected modal overlay transition.
+  - Added sequential post-login experience: modal sync loader, full-screen loader, and large welcome message (`Bienvenido, <usuario>`).
+  - Integrated GSAP + AnimeJS + PixiJS in the welcome sequence for smoother feedback and stronger visual identity.
+  - Adapted the sequence timing and layout for smaller screens to keep it readable and responsive.
+
+- "Mi Perfil" full rework (full-screen + Android):
+  - Migrated the profile modal to a dedicated full-screen layout without affecting other modals.
+  - Redesigned profile content into a two-panel dashboard (account summary + quick actions).
+  - Improved action organization with responsive grid behavior and better spacing hierarchy.
+  - Added Android-safe full-screen modal behavior to avoid bottom-sheet constraints in this section.
+  - Added entry animation for profile blocks for a cleaner transition when opening the section.
+
+- Malevo login and quota-control experience:
+  - Added server-backed session insights (`/floret/session-insights`) to verify Malevo state and return quota metadata.
+  - Extended login modal flow for verified Malevo sessions with a dedicated pre-close stage (`Bienvenido, Malevo`) and animated quota summary.
+  - Added animated dual-direction quota bar expansion + typing lines for remaining quota and reset timer.
+  - Added post-login quota verification toast and automatic quota watcher to detect granted quota changes.
+  - Added “Felicidades” modal with PixiJS animated icon when an external quota increase is detected for Malevo.
+
+- Registro: Wizard de 3 pasos con efectos especiales:
+  - Reemplazado el formulario de registro plano por un wizard de 3 pasos: Identidad (usuario), Contacto (email) y Seguridad (contrasena).
+  - Indicador de progreso visual con dots animados, conectores con fill gradiente y checkmarks al completar cada paso.
+  - Transiciones animadas entre pasos con slide-in/slide-out y stagger GSAP en los campos.
+  - Validacion en tiempo real con feedback inline (icono + texto) y estados visual ok/error en cada campo.
+  - Barra de fortaleza de contrasena con 4 niveles (Muy debil a Muy fuerte) y color dinamico.
+  - Confirmacion de contrasena con validacion de coincidencia en tiempo real.
+  - Animacion de shake (GSAP) en campos invalidos al intentar avanzar.
+  - Pantalla de exito integrada en el wizard con burst de confetti PixiJS al crear la cuenta.
+  - Foco automatico en el primer campo de cada paso para mejor experiencia de teclado.

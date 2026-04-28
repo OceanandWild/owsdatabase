@@ -1304,6 +1304,248 @@
             line-height: 1.5;
         }
 
+        /* ===== REGISTER WIZARD ===== */
+        .reg-wizard {
+            display: grid;
+            gap: 0;
+        }
+
+        .reg-wizard-progress {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0;
+            margin-bottom: 18px;
+        }
+
+        .reg-wz-step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            position: relative;
+            flex: 1;
+        }
+
+        .reg-wz-step-dot {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            border: 2px solid rgba(139, 92, 246, 0.35);
+            background: rgba(15, 10, 26, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: var(--muted);
+            transition: all .3s ease;
+            position: relative;
+            z-index: 1;
+        }
+
+        .reg-wz-step.active .reg-wz-step-dot {
+            border-color: var(--pri);
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.3), rgba(236, 72, 153, 0.2));
+            color: #f0e0ff;
+            box-shadow: 0 0 14px rgba(139, 92, 246, 0.45);
+        }
+
+        .reg-wz-step.done .reg-wz-step-dot {
+            border-color: var(--green);
+            background: rgba(16, 185, 129, 0.18);
+            color: #b7f8db;
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+        }
+
+        .reg-wz-step-label {
+            font-size: 0.65rem;
+            color: var(--muted);
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            transition: color .3s ease;
+            white-space: nowrap;
+        }
+
+        .reg-wz-step.active .reg-wz-step-label {
+            color: #c9a8ff;
+        }
+
+        .reg-wz-step.done .reg-wz-step-label {
+            color: #7ee8c0;
+        }
+
+        .reg-wz-connector {
+            flex: 1;
+            height: 2px;
+            background: rgba(139, 92, 246, 0.18);
+            margin-bottom: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .reg-wz-connector-fill {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(90deg, var(--pri), var(--pink));
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform .4s ease;
+        }
+
+        .reg-wz-connector.done .reg-wz-connector-fill {
+            transform: scaleX(1);
+        }
+
+        .reg-wz-panel {
+            display: none;
+            animation: wzSlideIn .28s ease forwards;
+        }
+
+        .reg-wz-panel.active {
+            display: grid;
+            gap: 10px;
+        }
+
+        .reg-wz-panel.slide-out {
+            animation: wzSlideOut .2s ease forwards;
+        }
+
+        @keyframes wzSlideIn {
+            from { opacity: 0; transform: translateX(18px); }
+            to   { opacity: 1; transform: translateX(0); }
+        }
+
+        @keyframes wzSlideOut {
+            from { opacity: 1; transform: translateX(0); }
+            to   { opacity: 0; transform: translateX(-18px); }
+        }
+
+        .reg-wz-panel.slide-in-back {
+            animation: wzSlideInBack .28s ease forwards;
+        }
+
+        @keyframes wzSlideInBack {
+            from { opacity: 0; transform: translateX(-18px); }
+            to   { opacity: 1; transform: translateX(0); }
+        }
+
+        .reg-field-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.75rem;
+            min-height: 18px;
+            margin-top: 2px;
+            transition: all .2s ease;
+        }
+
+        .reg-field-status.ok  { color: #7ee8c0; }
+        .reg-field-status.err { color: #f87171; }
+        .reg-field-status.tip { color: var(--muted); }
+
+        .reg-strength-bar {
+            height: 5px;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.08);
+            overflow: hidden;
+            margin-top: 6px;
+        }
+
+        .reg-strength-fill {
+            height: 100%;
+            border-radius: 999px;
+            transition: width .35s ease, background .35s ease;
+            width: 0%;
+        }
+
+        .reg-wz-nav {
+            display: flex;
+            gap: 8px;
+            margin-top: 14px;
+        }
+
+        .reg-wz-nav .btn-back {
+            flex: 0 0 auto;
+            padding: 10px 16px;
+            border-radius: 10px;
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            background: transparent;
+            color: var(--muted);
+            font-family: inherit;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all .2s ease;
+        }
+
+        .reg-wz-nav .btn-back:hover {
+            border-color: var(--pri);
+            color: #f0e0ff;
+        }
+
+        .reg-wz-nav .btn-next {
+            flex: 1;
+        }
+
+        .reg-wz-success {
+            text-align: center;
+            padding: 10px 0 4px;
+            display: none;
+        }
+
+        .reg-wz-success.show {
+            display: block;
+            animation: wzSlideIn .35s ease forwards;
+        }
+
+        .reg-wz-success-icon {
+            width: 72px;
+            height: 72px;
+            margin: 0 auto 12px;
+            border-radius: 50%;
+            border: 2px solid rgba(16, 185, 129, 0.5);
+            background: rgba(16, 185, 129, 0.12);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            color: #7ee8c0;
+            box-shadow: 0 0 24px rgba(16, 185, 129, 0.3);
+        }
+
+        .reg-wz-success-title {
+            font-size: 1.2rem;
+            font-weight: 800;
+            color: #f0fff8;
+            margin-bottom: 6px;
+        }
+
+        .reg-wz-success-sub {
+            font-size: 0.84rem;
+            color: #a0e8c8;
+            line-height: 1.45;
+        }
+
+        .frm-inp.valid {
+            border-color: rgba(16, 185, 129, 0.55) !important;
+            box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.12) !important;
+        }
+
+        .frm-inp.invalid {
+            border-color: rgba(248, 113, 113, 0.55) !important;
+            box-shadow: 0 0 0 2px rgba(248, 113, 113, 0.1) !important;
+        }
+
+        @keyframes wzShake {
+            0%,100% { transform: translateX(0); }
+            20%      { transform: translateX(-6px); }
+            40%      { transform: translateX(5px); }
+            60%      { transform: translateX(-4px); }
+            80%      { transform: translateX(3px); }
+        }
+
         .welcome-overlay {
             position: fixed;
             inset: 0;
@@ -4220,21 +4462,392 @@
         function showRegisterForm() {
             setActiveAuthTab('register');
             document.getElementById('auth-form').innerHTML = `
-    <div class="frm-grp"><label class="frm-lbl">Usuario</label><input class="frm-inp" id="reg-user" placeholder="Elige un usuario seguro (3-32)" autocomplete="username"></div>
-    <div class="frm-grp"><label class="frm-lbl">Email</label><input class="frm-inp" type="email" id="reg-email" placeholder="tu@email.com" autocomplete="email"></div>
-    <div class="frm-grp">
-      <label class="frm-lbl">Contraseña</label>
-      <div class="pass-wrap">
-        <input class="frm-inp" type="password" id="reg-pass" placeholder="Mínimo 8 caracteres, incluye números" autocomplete="new-password">
-        <button class="pass-toggle" type="button" onclick="togglePasswordVisibility('reg-pass', this)"><i class="fas fa-eye"></i></button>
+    <div class="reg-wizard" id="reg-wizard">
+
+      <!-- Progress bar -->
+      <div class="reg-wizard-progress" id="reg-wz-progress">
+        <div class="reg-wz-step active" id="reg-wz-s1">
+          <div class="reg-wz-step-dot" id="reg-wz-d1">1</div>
+          <span class="reg-wz-step-label">Identidad</span>
+        </div>
+        <div class="reg-wz-connector" id="reg-wz-c1"><div class="reg-wz-connector-fill"></div></div>
+        <div class="reg-wz-step" id="reg-wz-s2">
+          <div class="reg-wz-step-dot" id="reg-wz-d2">2</div>
+          <span class="reg-wz-step-label">Contacto</span>
+        </div>
+        <div class="reg-wz-connector" id="reg-wz-c2"><div class="reg-wz-connector-fill"></div></div>
+        <div class="reg-wz-step" id="reg-wz-s3">
+          <div class="reg-wz-step-dot" id="reg-wz-d3">3</div>
+          <span class="reg-wz-step-label">Seguridad</span>
+        </div>
       </div>
+
+      <!-- Paso 1: Usuario -->
+      <div class="reg-wz-panel active" id="reg-wz-p1">
+        <div class="frm-grp">
+          <label class="frm-lbl">Elige tu nombre de usuario</label>
+          <input class="frm-inp" id="reg-user" placeholder="3-32 caracteres (letras, números, . - _)"
+            autocomplete="username" oninput="regWzValidateUser()" onkeydown="if(event.key==='Enter')regWzNext(1)">
+          <div class="reg-field-status tip" id="reg-user-status"><i class="fas fa-circle-info"></i> Mínimo 3 caracteres, sin espacios</div>
+        </div>
+        <div class="auth-hint" style="margin:0">Tu usuario es público y no se puede cambiar fácilmente. Elige uno que te represente.</div>
+        <div class="reg-wz-nav">
+          <button class="btn btn-p reg-wz-nav btn-next" onclick="regWzNext(1)"><i class="fas fa-arrow-right"></i> Continuar</button>
+        </div>
+      </div>
+
+      <!-- Paso 2: Email -->
+      <div class="reg-wz-panel" id="reg-wz-p2">
+        <div class="frm-grp">
+          <label class="frm-lbl">Tu dirección de email</label>
+          <input class="frm-inp" type="email" id="reg-email" placeholder="tu@email.com"
+            autocomplete="email" oninput="regWzValidateEmail()" onkeydown="if(event.key==='Enter')regWzNext(2)">
+          <div class="reg-field-status tip" id="reg-email-status"><i class="fas fa-circle-info"></i> Se usará para recuperar tu cuenta</div>
+        </div>
+        <div class="auth-secure-line"><i class="fas fa-lock"></i> Tu email no se comparte con terceros ni aparece en tu perfil público.</div>
+        <div class="reg-wz-nav">
+          <button class="btn-back" onclick="regWzBack(2)"><i class="fas fa-arrow-left"></i></button>
+          <button class="btn btn-p btn-next" onclick="regWzNext(2)"><i class="fas fa-arrow-right"></i> Continuar</button>
+        </div>
+      </div>
+
+      <!-- Paso 3: Contraseña -->
+      <div class="reg-wz-panel" id="reg-wz-p3">
+        <div class="frm-grp">
+          <label class="frm-lbl">Contraseña</label>
+          <div class="pass-wrap">
+            <input class="frm-inp" type="password" id="reg-pass" placeholder="Mínimo 8 caracteres con números"
+              autocomplete="new-password" oninput="regWzValidatePass()">
+            <button class="pass-toggle" type="button" onclick="togglePasswordVisibility('reg-pass', this)"><i class="fas fa-eye"></i></button>
+          </div>
+          <div class="reg-strength-bar"><div class="reg-strength-fill" id="reg-strength-fill"></div></div>
+          <div class="reg-field-status tip" id="reg-pass-status"><i class="fas fa-circle-info"></i> Usa letras y números</div>
+        </div>
+        <div class="frm-grp">
+          <label class="frm-lbl">Confirmar contraseña</label>
+          <div class="pass-wrap">
+            <input class="frm-inp" type="password" id="reg-pass2" placeholder="Repite la contraseña"
+              autocomplete="new-password" oninput="regWzValidatePass2()" onkeydown="if(event.key==='Enter')regWzSubmit()">
+            <button class="pass-toggle" type="button" onclick="togglePasswordVisibility('reg-pass2', this)"><i class="fas fa-eye"></i></button>
+          </div>
+          <div class="reg-field-status tip" id="reg-pass2-status"></div>
+        </div>
+        <div class="auth-secure-line"><i class="fas fa-shield-halved"></i> El texto se normaliza antes de enviarse para evitar errores de credenciales.</div>
+        <div class="reg-wz-nav">
+          <button class="btn-back" onclick="regWzBack(3)"><i class="fas fa-arrow-left"></i></button>
+          <button class="btn btn-p btn-next" id="reg-submit-btn" onclick="regWzSubmit()"><i class="fas fa-user-plus"></i> Crear cuenta</button>
+        </div>
+      </div>
+
+      <!-- Éxito -->
+      <div class="reg-wz-success" id="reg-wz-success">
+        <div class="reg-wz-success-icon" id="reg-wz-success-icon"><i class="fas fa-check"></i></div>
+        <div class="reg-wz-success-title">¡Cuenta creada!</div>
+        <p class="reg-wz-success-sub">Bienvenido a Floret Shop.<br>Tu sesión ya está activa.</p>
+      </div>
+
     </div>
-    <div class="auth-hint">Usa mínimo 8 caracteres con letras y números. Permitimos letras con ñ y otros caracteres Unicode válidos.</div>
-    <div class="auth-secure-line"><i class="fas fa-lock"></i> Se normaliza el texto antes de enviarlo para evitar errores de credenciales.</div>
-    <button class="btn btn-p" style="width:100%" onclick="doRegister()"><i class="fas fa-user-plus"></i> Crear cuenta</button>
   `;
             setAuthModalOverlay(false);
-            initAuthFormFx('register');
+            initRegWizardFx();
+        }
+
+        // ===== REGISTER WIZARD LOGIC =====
+
+        function regWzSetStep(from, to, direction = 'forward') {
+            const fromPanel = document.getElementById(`reg-wz-p${from}`);
+            const toPanel   = document.getElementById(`reg-wz-p${to}`);
+            if (!fromPanel || !toPanel) return;
+
+            // Animate out
+            fromPanel.classList.add(direction === 'forward' ? 'slide-out' : 'slide-out-back');
+            setTimeout(() => {
+                fromPanel.classList.remove('active', 'slide-out', 'slide-out-back');
+                toPanel.classList.add('active', direction === 'forward' ? '' : 'slide-in-back');
+                if (direction === 'back') {
+                    toPanel.classList.add('slide-in-back');
+                    setTimeout(() => toPanel.classList.remove('slide-in-back'), 300);
+                }
+                // Focus first input
+                const firstInput = toPanel.querySelector('input');
+                if (firstInput) setTimeout(() => firstInput.focus(), 60);
+                // Animate new panel fields
+                if (typeof window.gsap !== 'undefined') {
+                    window.gsap.fromTo(
+                        `#reg-wz-p${to} .frm-grp, #reg-wz-p${to} .auth-hint, #reg-wz-p${to} .auth-secure-line, #reg-wz-p${to} .reg-wz-nav`,
+                        { y: direction === 'forward' ? 10 : -10, opacity: 0 },
+                        { y: 0, opacity: 1, duration: 0.26, stagger: 0.05, ease: 'power2.out' }
+                    );
+                }
+            }, 200);
+
+            // Update progress dots
+            const steps = [1, 2, 3];
+            steps.forEach(s => {
+                const dot  = document.getElementById(`reg-wz-s${s}`);
+                const conn = document.getElementById(`reg-wz-c${s}`);
+                if (!dot) return;
+                dot.classList.remove('active', 'done');
+                if (s < to)       dot.classList.add('done');
+                else if (s === to) dot.classList.add('active');
+                if (conn) conn.classList.toggle('done', s < to);
+                // Swap number for checkmark on done steps
+                const dotEl = document.getElementById(`reg-wz-d${s}`);
+                if (dotEl) dotEl.innerHTML = s < to ? '<i class="fas fa-check" style="font-size:0.7rem"></i>' : String(s);
+            });
+        }
+
+        function regWzValidateUser() {
+            const val = normalizeAuthField(document.getElementById('reg-user')?.value || '', 32);
+            const inp = document.getElementById('reg-user');
+            const st  = document.getElementById('reg-user-status');
+            if (!val) {
+                inp?.classList.remove('valid', 'invalid');
+                if (st) { st.className = 'reg-field-status tip'; st.innerHTML = '<i class="fas fa-circle-info"></i> Mínimo 3 caracteres, sin espacios'; }
+                return false;
+            }
+            const ok = isValidAuthUsername(val);
+            inp?.classList.toggle('valid', ok);
+            inp?.classList.toggle('invalid', !ok);
+            if (st) {
+                st.className = `reg-field-status ${ok ? 'ok' : 'err'}`;
+                st.innerHTML = ok
+                    ? `<i class="fas fa-circle-check"></i> @${val} disponible para registrar`
+                    : '<i class="fas fa-circle-xmark"></i> Solo letras, números, punto, guion o _. Sin espacios.';
+            }
+            return ok;
+        }
+
+        function regWzValidateEmail() {
+            const val = normalizeAuthField(document.getElementById('reg-email')?.value || '', 120).toLowerCase();
+            const inp = document.getElementById('reg-email');
+            const st  = document.getElementById('reg-email-status');
+            if (!val) {
+                inp?.classList.remove('valid', 'invalid');
+                if (st) { st.className = 'reg-field-status tip'; st.innerHTML = '<i class="fas fa-circle-info"></i> Se usará para recuperar tu cuenta'; }
+                return false;
+            }
+            const ok = isValidAuthEmail(val);
+            inp?.classList.toggle('valid', ok);
+            inp?.classList.toggle('invalid', !ok);
+            if (st) {
+                st.className = `reg-field-status ${ok ? 'ok' : 'err'}`;
+                st.innerHTML = ok
+                    ? '<i class="fas fa-circle-check"></i> Email válido'
+                    : '<i class="fas fa-circle-xmark"></i> Ingresa un email válido (ej: tu@email.com)';
+            }
+            return ok;
+        }
+
+        function regWzGetPassStrength(pass) {
+            if (!pass) return 0;
+            let score = 0;
+            if (pass.length >= 8)  score++;
+            if (pass.length >= 12) score++;
+            if (/[A-Z]/.test(pass)) score++;
+            if (/[a-z]/.test(pass)) score++;
+            if (/\d/.test(pass))    score++;
+            if (/[^A-Za-z0-9]/.test(pass)) score++;
+            return Math.min(score, 4);
+        }
+
+        function regWzValidatePass() {
+            const val  = String(document.getElementById('reg-pass')?.value || '').normalize('NFKC');
+            const inp  = document.getElementById('reg-pass')?.closest('.pass-wrap');
+            const st   = document.getElementById('reg-pass-status');
+            const fill = document.getElementById('reg-strength-fill');
+            const strength = regWzGetPassStrength(val);
+            const colors   = ['#f87171', '#f87171', '#f59e0b', '#10b981', '#8b5cf6'];
+            const labels   = ['', 'Muy débil', 'Débil', 'Buena', 'Fuerte', 'Muy fuerte'];
+            const widths   = ['0%', '25%', '50%', '75%', '100%'];
+            if (fill) {
+                fill.style.width      = val ? widths[strength] : '0%';
+                fill.style.background = colors[strength] || colors[0];
+            }
+            const ok = isValidPassword(val);
+            if (inp) {
+                inp.style.borderColor = val ? (ok ? 'rgba(16,185,129,0.55)' : 'rgba(248,113,113,0.55)') : '';
+            }
+            if (st) {
+                if (!val) { st.className = 'reg-field-status tip'; st.innerHTML = '<i class="fas fa-circle-info"></i> Usa letras y números'; }
+                else {
+                    st.className = `reg-field-status ${ok ? 'ok' : 'err'}`;
+                    st.innerHTML = ok
+                        ? `<i class="fas fa-shield-halved"></i> Contraseña ${labels[strength]}`
+                        : '<i class="fas fa-circle-xmark"></i> Mínimo 8 caracteres con al menos 1 número';
+                }
+            }
+            // Re-validate confirm if already typed
+            const p2 = document.getElementById('reg-pass2');
+            if (p2?.value) regWzValidatePass2();
+            return ok;
+        }
+
+        function regWzValidatePass2() {
+            const p1  = String(document.getElementById('reg-pass')?.value  || '').normalize('NFKC');
+            const p2  = String(document.getElementById('reg-pass2')?.value || '').normalize('NFKC');
+            const inp = document.getElementById('reg-pass2')?.closest('.pass-wrap');
+            const st  = document.getElementById('reg-pass2-status');
+            if (!p2) { if (st) { st.className = 'reg-field-status tip'; st.innerHTML = ''; } return false; }
+            const ok = p1 === p2;
+            if (inp) inp.style.borderColor = ok ? 'rgba(16,185,129,0.55)' : 'rgba(248,113,113,0.55)';
+            if (st) {
+                st.className = `reg-field-status ${ok ? 'ok' : 'err'}`;
+                st.innerHTML = ok
+                    ? '<i class="fas fa-circle-check"></i> Las contraseñas coinciden'
+                    : '<i class="fas fa-circle-xmark"></i> Las contraseñas no coinciden';
+            }
+            return ok;
+        }
+
+        function regWzNext(step) {
+            if (step === 1) {
+                if (!regWzValidateUser()) {
+                    const inp = document.getElementById('reg-user');
+                    if (inp) { inp.focus(); shakeElement(inp); }
+                    return;
+                }
+                regWzSetStep(1, 2, 'forward');
+            } else if (step === 2) {
+                if (!regWzValidateEmail()) {
+                    const inp = document.getElementById('reg-email');
+                    if (inp) { inp.focus(); shakeElement(inp); }
+                    return;
+                }
+                regWzSetStep(2, 3, 'forward');
+            }
+        }
+
+        function regWzBack(step) {
+            if (step === 2) regWzSetStep(2, 1, 'back');
+            else if (step === 3) regWzSetStep(3, 2, 'back');
+        }
+
+        function shakeElement(el) {
+            if (!el) return;
+            if (typeof window.gsap !== 'undefined') {
+                window.gsap.fromTo(el, { x: -6 }, { x: 0, duration: 0.35, ease: 'elastic.out(1, 0.4)' });
+            } else {
+                el.style.animation = 'none';
+                el.offsetHeight;
+                el.style.animation = 'wzShake .35s ease';
+            }
+        }
+
+        async function regWzSubmit() {
+            const username = normalizeAuthField(document.getElementById('reg-user')?.value || '', 32);
+            const email    = normalizeAuthField(document.getElementById('reg-email')?.value || '', 120).toLowerCase();
+            const password = String(document.getElementById('reg-pass')?.value  || '').normalize('NFKC');
+            const pass2    = String(document.getElementById('reg-pass2')?.value || '').normalize('NFKC');
+
+            if (!regWzValidatePass())  { shakeElement(document.getElementById('reg-pass')?.closest('.pass-wrap'));  return; }
+            if (!regWzValidatePass2()) { shakeElement(document.getElementById('reg-pass2')?.closest('.pass-wrap')); return; }
+            if (password !== pass2)    { showToast('Las contraseñas no coinciden', true); return; }
+
+            const btn = document.getElementById('reg-submit-btn');
+            if (btn) { btn.disabled = true; btn.innerHTML = '<span class="wide-dots"><span></span><span></span><span></span></span>'; }
+
+            try {
+                const res = await fetch(API + '/floret/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, email, password })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error);
+
+                // Show success state inside wizard
+                const panels = document.querySelectorAll('.reg-wz-panel.active');
+                panels.forEach(p => { p.classList.add('slide-out'); setTimeout(() => p.classList.remove('active', 'slide-out'), 200); });
+                document.getElementById('reg-wizard-progress') && (document.getElementById('reg-wz-progress').style.opacity = '0.4');
+                const successEl = document.getElementById('reg-wz-success');
+                if (successEl) {
+                    setTimeout(() => {
+                        successEl.classList.add('show');
+                        // Animate success icon with PixiJS confetti burst
+                        regWzSuccessEffect();
+                    }, 220);
+                }
+
+                // Proceed with login after short delay
+                await waitMs(1400);
+                user = data.user;
+                isAdmin = isFloretCoreAdminAccount(user);
+                saveAuthUser(user, true);
+                closeModal();
+                await showWelcomeSequence(user?.username || 'Usuario');
+                render();
+                if (isMalevoSession()) {
+                    await loadMalevoNotifications(true).catch(() => null);
+                    render();
+                }
+                showToast('¡Cuenta creada!');
+            } catch (e) {
+                if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-user-plus"></i> Crear cuenta'; }
+                showToast(e.message || 'Error al registrar', true);
+            }
+        }
+
+        function regWzSuccessEffect() {
+            const iconEl = document.getElementById('reg-wz-success-icon');
+            if (!iconEl || !window.PIXI) return;
+            try {
+                const app = new PIXI.Application();
+                app.init({ resizeTo: iconEl, backgroundAlpha: 0, antialias: true }).then(() => {
+                    iconEl.appendChild(app.canvas);
+                    app.canvas.style.position = 'absolute';
+                    app.canvas.style.inset = '0';
+                    app.canvas.style.borderRadius = '50%';
+                    const particles = [];
+                    const colors = [0x8b5cf6, 0xec4899, 0x10b981, 0xfbbf24, 0x60a5fa];
+                    for (let i = 0; i < 28; i++) {
+                        const g = new PIXI.Graphics();
+                        const color = colors[i % colors.length];
+                        g.circle(0, 0, 2 + Math.random() * 2).fill({ color, alpha: 0.95 });
+                        const angle = (Math.PI * 2 * i) / 28 + (Math.random() - 0.5) * 0.4;
+                        const speed = 1.2 + Math.random() * 2.2;
+                        g.x = app.renderer.width / 2;
+                        g.y = app.renderer.height / 2;
+                        g.vx = Math.cos(angle) * speed;
+                        g.vy = Math.sin(angle) * speed;
+                        g.life = 1;
+                        g.decay = 0.018 + Math.random() * 0.012;
+                        particles.push(g);
+                        app.stage.addChild(g);
+                    }
+                    app.ticker.add(() => {
+                        let alive = false;
+                        for (const p of particles) {
+                            p.x += p.vx;
+                            p.y += p.vy;
+                            p.vy += 0.06;
+                            p.life -= p.decay;
+                            p.alpha = Math.max(0, p.life);
+                            if (p.life > 0) alive = true;
+                        }
+                        if (!alive) { try { app.destroy(true); } catch (_e) {} }
+                    });
+                }).catch(() => {});
+            } catch (_e) {}
+        }
+
+        function initRegWizardFx() {
+            const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            if (reduceMotion) return;
+            if (typeof window.gsap !== 'undefined') {
+                window.gsap.fromTo(
+                    '#reg-wz-p1 .frm-grp, #reg-wz-p1 .auth-hint, #reg-wz-p1 .reg-wz-nav',
+                    { y: 10, opacity: 0 },
+                    { y: 0, opacity: 1, duration: 0.28, stagger: 0.06, ease: 'power2.out' }
+                );
+                window.gsap.fromTo(
+                    '.reg-wz-step',
+                    { scale: 0.88, opacity: 0 },
+                    { scale: 1, opacity: 1, duration: 0.32, stagger: 0.07, ease: 'back.out(1.4)' }
+                );
+            }
+            // Focus first input
+            setTimeout(() => document.getElementById('reg-user')?.focus(), 80);
         }
 
         function showResetForm(prefillIdentifier = '') {

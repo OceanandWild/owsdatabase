@@ -4563,7 +4563,7 @@
             fromPanel.classList.add(direction === 'forward' ? 'slide-out' : 'slide-out-back');
             setTimeout(() => {
                 fromPanel.classList.remove('active', 'slide-out', 'slide-out-back');
-                toPanel.classList.add('active', direction === 'forward' ? '' : 'slide-in-back');
+                toPanel.classList.add('active');
                 if (direction === 'back') {
                     toPanel.classList.add('slide-in-back');
                     setTimeout(() => toPanel.classList.remove('slide-in-back'), 300);

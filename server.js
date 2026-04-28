@@ -3496,9 +3496,86 @@ app.get('/floret/health', (_req, res) => res.json({ status: 'up', service: 'Flor
 
 // ========== FLORET SHOP ENDPOINTS ==========
 const FLORET_MAIN_SELLER_EMAIL = 'karatedojor@gmail.com';
+const FLORET_AUTH_WINDOW_MS = 10 * 60 * 1000;
+const FLORET_AUTH_LOCK_MS = 15 * 60 * 1000;
+const FLORET_AUTH_MAX_ATTEMPTS = 7;
+const floretAuthAttempts = new Map();
 
 function normalizeFloretEmail(email) {
-  return String(email || '').trim().toLowerCase();
+  return String(email || '').normalize('NFKC').trim().toLowerCase();
+}
+
+function normalizeFloretText(value, maxLen = 120) {
+  return String(value || '')
+    .normalize('NFKC')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, maxLen);
+}
+
+function isValidFloretUsername(username) {
+  return /^[\p{L}\p{N}._-]{3,32}$/u.test(String(username || ''));
+}
+
+function isValidFloretEmail(email) {
+  const safe = normalizeFloretEmail(email);
+  if (!safe) return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(safe);
+}
+
+function isStrongFloretPassword(password) {
+  const safe = String(password || '').normalize('NFKC');
+  return safe.length >= 8 && safe.length <= 128 && /[A-Za-z]/.test(safe) && /\d/.test(safe);
+}
+
+function getFloretAuthAttemptKey(req, identifier = '') {
+  const rawIp = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || req.ip || '').split(',')[0].trim();
+  const ip = rawIp || 'unknown-ip';
+  const id = normalizeFloretText(identifier, 120).toLowerCase() || 'unknown-id';
+  return `${ip}|${id}`;
+}
+
+function readFloretAuthAttempt(req, identifier = '') {
+  const key = getFloretAuthAttemptKey(req, identifier);
+  const now = Date.now();
+  const row = floretAuthAttempts.get(key);
+  if (!row) return { key, row: null, blockedMs: 0 };
+
+  if (row.lockedUntil && now < row.lockedUntil) {
+    return { key, row, blockedMs: row.lockedUntil - now };
+  }
+
+  if ((now - row.firstAt) > FLORET_AUTH_WINDOW_MS) {
+    floretAuthAttempts.delete(key);
+    return { key, row: null, blockedMs: 0 };
+  }
+
+  return { key, row, blockedMs: 0 };
+}
+
+function registerFloretAuthFailure(req, identifier = '') {
+  const { key, row } = readFloretAuthAttempt(req, identifier);
+  const now = Date.now();
+  if (!row) {
+    floretAuthAttempts.set(key, {
+      attempts: 1,
+      firstAt: now,
+      lockedUntil: 0
+    });
+    return;
+  }
+  const attempts = Number(row.attempts || 0) + 1;
+  const shouldLock = attempts >= FLORET_AUTH_MAX_ATTEMPTS;
+  floretAuthAttempts.set(key, {
+    attempts,
+    firstAt: row.firstAt || now,
+    lockedUntil: shouldLock ? (now + FLORET_AUTH_LOCK_MS) : 0
+  });
+}
+
+function clearFloretAuthAttempts(req, identifier = '') {
+  const key = getFloretAuthAttemptKey(req, identifier);
+  floretAuthAttempts.delete(key);
 }
 
 async function getFloretMalevoRecipient() {
@@ -3635,9 +3712,21 @@ function sanitizeFloretOrderItems(items = []) {
 
 // Registro
 app.post('/floret/register', async (req, res) => {
-  const { username, email, password } = req.body;
+  const username = normalizeFloretText(req.body?.username, 32);
+  const email = normalizeFloretEmail(req.body?.email || '');
+  const password = String(req.body?.password || '').normalize('NFKC');
+
   if (!username || !password) {
-    return res.status(400).json({ error: 'Usuario y contraseÃƒÂ±a son requeridos' });
+    return res.status(400).json({ error: 'Usuario y contraseña son requeridos' });
+  }
+  if (!isValidFloretUsername(username)) {
+    return res.status(400).json({ error: 'Usuario inválido. Usa 3-32 caracteres permitidos.' });
+  }
+  if (email && !isValidFloretEmail(email)) {
+    return res.status(400).json({ error: 'Email inválido.' });
+  }
+  if (!isStrongFloretPassword(password)) {
+    return res.status(400).json({ error: 'La contraseña debe tener 8+ caracteres con letras y números.' });
   }
   try {
     const hashed = await bcrypt.hash(password, 10);
@@ -3648,7 +3737,7 @@ app.post('/floret/register', async (req, res) => {
     res.json({ success: true, user: rows[0] });
   } catch (e) {
     if (e.code === '23505') {
-      return res.status(400).json({ error: 'El usuario ya existe' });
+      return res.status(400).json({ error: email ? 'El usuario o email ya existe' : 'El usuario ya existe' });
     }
     console.error('Error en registro Floret:', e);
     res.status(500).json({ error: 'Error interno' });
@@ -3684,23 +3773,34 @@ async function getFloretQuota(userId) {
 
 // Login
 app.post('/floret/login', async (req, res) => {
-  const { username, password, identifier, email } = req.body;
-  const loginId = String(identifier || username || email || '').trim();
-  if (!loginId || !password) {
+  const { username, password, identifier, email } = req.body || {};
+  const loginId = normalizeFloretText(identifier || username || email || '', 120);
+  const safePassword = String(password || '').normalize('NFKC');
+
+  if (!loginId || !safePassword) {
     return res.status(400).json({ error: 'Usuario/email y contrase\u00f1a son requeridos' });
   }
+  const attemptState = readFloretAuthAttempt(req, loginId);
+  if (attemptState.blockedMs > 0) {
+    const secs = Math.max(1, Math.ceil(attemptState.blockedMs / 1000));
+    return res.status(429).json({ error: `Demasiados intentos. Espera ${secs}s e intenta nuevamente.` });
+  }
+
   try {
     const { rows } = await pool.query(
       "SELECT * FROM floret_users WHERE LOWER(username) = LOWER($1) OR LOWER(COALESCE(email, '')) = LOWER($1) LIMIT 1",
       [loginId]
     );
     if (rows.length === 0) {
-      return res.status(401).json({ error: 'Usuario o email no encontrado' });
+      registerFloretAuthFailure(req, loginId);
+      return res.status(401).json({ error: 'Credenciales inválidas' });
     }
-    const valid = await bcrypt.compare(password, rows[0].password);
+    const valid = await bcrypt.compare(safePassword, rows[0].password);
     if (!valid) {
-      return res.status(401).json({ error: 'Contrase\u00f1a incorrecta' });
+      registerFloretAuthFailure(req, loginId);
+      return res.status(401).json({ error: 'Credenciales inválidas' });
     }
+    clearFloretAuthAttempts(req, loginId);
     const { id, email: accountEmail, created_at, is_admin, power_level } = rows[0];
     res.json({ success: true, user: { id, username: rows[0].username, email: accountEmail, created_at, is_admin, power_level } });
   } catch (e) {
@@ -3711,29 +3811,45 @@ app.post('/floret/login', async (req, res) => {
 
 app.post('/floret/reset-password', async (req, res) => {
   const { identifier, email, newPassword } = req.body || {};
-  const loginId = String(identifier || '').trim();
-  const safeEmail = String(email || '').trim();
-  const safePass = String(newPassword || '');
+  const loginId = normalizeFloretText(identifier || '', 120);
+  const safeEmail = normalizeFloretEmail(email || '');
+  const safePass = String(newPassword || '').normalize('NFKC');
 
   if (!loginId || !safeEmail || !safePass) {
     return res.status(400).json({ error: 'Completa usuario/email, email y nueva contrase\u00f1a' });
   }
-  if (safePass.length < 8) {
-    return res.status(400).json({ error: 'La nueva contrase\u00f1a debe tener al menos 8 caracteres' });
+  if (!isValidFloretEmail(safeEmail)) {
+    return res.status(400).json({ error: 'Email inválido' });
+  }
+  if (!isStrongFloretPassword(safePass)) {
+    return res.status(400).json({ error: 'La nueva contrase\u00f1a debe tener 8+ caracteres con letras y n\u00fameros' });
+  }
+
+  const attemptState = readFloretAuthAttempt(req, `${loginId}|reset`);
+  if (attemptState.blockedMs > 0) {
+    const secs = Math.max(1, Math.ceil(attemptState.blockedMs / 1000));
+    return res.status(429).json({ error: `Demasiados intentos de restablecimiento. Espera ${secs}s.` });
   }
 
   try {
     const { rows } = await pool.query(
-      "SELECT id FROM floret_users WHERE (LOWER(username) = LOWER($1) OR LOWER(COALESCE(email, '')) = LOWER($1)) AND LOWER(COALESCE(email, '')) = LOWER($2) LIMIT 1",
+      "SELECT id, password FROM floret_users WHERE (LOWER(username) = LOWER($1) OR LOWER(COALESCE(email, '')) = LOWER($1)) AND LOWER(COALESCE(email, '')) = LOWER($2) LIMIT 1",
       [loginId, safeEmail]
     );
     if (!rows.length) {
+      registerFloretAuthFailure(req, `${loginId}|reset`);
       return res.status(404).json({ error: 'No se encontro una cuenta que coincida con esos datos' });
+    }
+
+    const isSamePassword = await bcrypt.compare(safePass, String(rows[0].password || ''));
+    if (isSamePassword) {
+      return res.status(400).json({ error: 'La nueva contraseña no puede ser igual a la actual' });
     }
 
     const hashed = await bcrypt.hash(safePass, 10);
     await pool.query('UPDATE floret_users SET password = $1 WHERE id = $2', [hashed, rows[0].id]);
-    res.json({ success: true, message: 'Contrasena actualizada' });
+    clearFloretAuthAttempts(req, `${loginId}|reset`);
+    res.json({ success: true, message: 'Contraseña actualizada' });
   } catch (e) {
     console.error('Error en reset de contrasena Floret:', e);
     res.status(500).json({ error: 'Error interno' });

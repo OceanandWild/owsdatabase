@@ -5153,9 +5153,7 @@
                 const st = document.getElementById('reg-phone-status');
                 if (st && data.maskedEmail) {
                     st.className = 'reg-field-status ok';
-                    st.innerHTML = data.emailSent
-                        ? `<i class="fas fa-envelope-circle-check"></i> Código enviado a <b>${data.maskedEmail}</b>`
-                        : `<i class="fas fa-circle-info"></i> Código generado — revisa los logs del servidor`;
+                    st.innerHTML = `<i class="fas fa-envelope-circle-check"></i> Código enviado a <b>${data.maskedEmail}</b>`;
                 }
                 // Show code input
                 const codeGrp = document.getElementById('reg-code-grp');
@@ -5172,7 +5170,7 @@
                 if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check-circle"></i> Verificar código'; btn.onclick = () => regWzSubmit(); }
                 if (sendBtn) sendBtn.disabled = true;
                 regWzStartCodeTimer(120);
-                showToast(isResend ? 'Código reenviado a tu email' : `Código enviado a ${data.maskedEmail || 'tu email'}`);
+                showToast(isResend ? 'Código reenviado. Revisá tu email.' : `Código enviado a ${data.maskedEmail || 'tu email'}. Revisá también spam.`);
             } catch (e) {
                 if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar código'; }
                 showToast(e.message || 'Error enviando código', true);
@@ -5592,9 +5590,7 @@
                 if (st && data.maskedEmail) {
                     st.className = 'reg-field-status ok';
                     st.style.color = '#7ee8c0';
-                    st.innerHTML = data.emailSent
-                        ? `<i class="fas fa-envelope-circle-check"></i> Código enviado a <b>${data.maskedEmail}</b>`
-                        : `<i class="fas fa-circle-info"></i> Código generado — revisa los logs del servidor`;
+                    st.innerHTML = `<i class="fas fa-envelope-circle-check"></i> Código enviado a <b>${data.maskedEmail}</b>`;
                 }
                 const codeGrp = document.getElementById('gate-code-grp');
                 if (codeGrp) {
@@ -5611,7 +5607,7 @@
                 const resendBtn = document.getElementById('gate-code-resend');
                 if (resendBtn) resendBtn.disabled = true;
                 gateStartTimer(120);
-                showToast(isResend ? 'Código reenviado a tu email' : `Código enviado a ${data.maskedEmail || 'tu email'}`);
+                showToast(isResend ? 'Código reenviado. Revisá tu email.' : `Código enviado a ${data.maskedEmail || 'tu email'}. Revisá también spam.`);
             } catch (e) {
                 if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar código'; btn.onclick = () => gateSendCode(); }
                 showToast(e.message || 'Error enviando código', true);

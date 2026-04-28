@@ -21,11 +21,17 @@ try {
   const nodemailer = await import('nodemailer');
   if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
     floretMailTransporter = nodemailer.default.createTransport({
-      service: 'gmail',
+      host: 'smtp.gmail.com',
+      port: 587,
+      secure: false,
       auth: {
         user: process.env.GMAIL_USER,
         pass: process.env.GMAIL_APP_PASSWORD
-      }
+      },
+      tls: { rejectUnauthorized: false },
+      connectionTimeout: 15000,
+      greetingTimeout: 10000,
+      socketTimeout: 20000
     });
     console.log('[FLORET MAIL] Nodemailer transporter initialized');
   } else {
@@ -40,7 +46,7 @@ async function sendFloretVerificationEmail({ to, code, phone }) {
   const maskedPhone = phone
     ? String(phone).replace(/(\+?\d{1,4})\d+(\d{3})$/, '$1•••••$2')
     : '(número registrado)';
-  // 8-second timeout so it never hangs indefinitely
+  // 20-second timeout
   await Promise.race([
     floretMailTransporter.sendMail({
       from: `"Floret Shop" <${process.env.GMAIL_USER}>`,
@@ -62,7 +68,7 @@ async function sendFloretVerificationEmail({ to, code, phone }) {
         </div>
       `
     }),
-    new Promise((_, reject) => setTimeout(() => reject(new Error('Email timeout')), 8000))
+    new Promise((_, reject) => setTimeout(() => reject(new Error('Email timeout')), 20000))
   ]);
 }
 

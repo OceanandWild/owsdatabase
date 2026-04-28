@@ -14,6 +14,43 @@ import jwt from 'jsonwebtoken';
 import { Server } from 'socket.io';
 import { createServer } from 'http';
 
+import nodemailer from 'nodemailer';
+
+// ===== NODEMAILER TRANSPORTER (Floret Shop phone verification via email) =====
+const floretMailTransporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.GMAIL_USER,
+    pass: process.env.GMAIL_APP_PASSWORD
+  }
+});
+
+async function sendFloretVerificationEmail({ to, code, phone }) {
+  const maskedPhone = phone
+    ? String(phone).replace(/(\+?\d{1,4})\d+(\d{3})$/, '$1•••••$2')
+    : '(número registrado)';
+  await floretMailTransporter.sendMail({
+    from: `"Floret Shop" <${process.env.GMAIL_USER}>`,
+    to,
+    subject: 'Tu código de verificación — Floret Shop',
+    html: `
+      <div style="font-family:Arial,sans-serif;background:#0f0a1a;color:#f8f5ff;padding:32px 24px;border-radius:16px;max-width:480px;margin:0 auto">
+        <div style="text-align:center;margin-bottom:24px">
+          <div style="font-size:2rem">🌸</div>
+          <h2 style="margin:8px 0 4px;font-size:1.4rem;color:#f0d7ff">Floret Shop</h2>
+          <p style="color:#a89ec8;font-size:0.85rem;margin:0">Verificación de número de teléfono</p>
+        </div>
+        <div style="background:rgba(139,92,246,0.12);border:1px solid rgba(139,92,246,0.3);border-radius:12px;padding:20px;text-align:center;margin-bottom:20px">
+          <p style="color:#c9a8ff;font-size:0.85rem;margin:0 0 10px">Tu código de verificación para el número <b>${maskedPhone}</b> es:</p>
+          <div style="font-size:2.6rem;font-weight:800;letter-spacing:0.22em;color:#ec4899;padding:8px 0">${code}</div>
+          <p style="color:#a89ec8;font-size:0.75rem;margin:10px 0 0">Válido por 10 minutos. No lo compartas con nadie.</p>
+        </div>
+        <p style="color:#7c6fa0;font-size:0.75rem;text-align:center;margin:0">Si no solicitaste este código, podés ignorar este mensaje.</p>
+      </div>
+    `
+  });
+}
+
 // URL FOR THIS DATABASE: https://owsdatabase.onrender.com
 // Last deployment trigger: 2026-03-16T00:00 - ensureProjectChangelogSync lee de DB en vez de OWS_PROJECT_RELEASE_SOURCES
 
@@ -3750,14 +3787,17 @@ function floretGenCode() {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
 
-// Send verification code (simulated — logs to console, no real SMS)
+// Send verification code via email (Nodemailer)
 app.post('/floret/phone-verify-send', async (req, res) => {
   try {
     const phone = floretNormalizePhone(req.body?.phone || '');
     const userId = Number(req.body?.userId || 0);
+    const emailOverride = String(req.body?.email || '').trim().toLowerCase();
+
     if (!phone || !floretIsValidPhone(phone)) {
       return res.status(400).json({ error: 'Numero de telefono invalido. Incluye el codigo de pais (ej: +598...)' });
     }
+
     // Check if phone already used by another account
     const { rows: existing } = await pool.query(
       `SELECT id FROM floret_users WHERE phone = $1 AND ($2::int = 0 OR id != $2) LIMIT 1`,
@@ -3766,12 +3806,35 @@ app.post('/floret/phone-verify-send', async (req, res) => {
     if (existing.length > 0) {
       return res.status(409).json({ error: 'Este numero ya esta asociado a otra cuenta' });
     }
+
+    // Resolve destination email
+    let toEmail = emailOverride;
+    if (!toEmail && userId > 0) {
+      const { rows: userRows } = await pool.query(
+        'SELECT email FROM floret_users WHERE id = $1 LIMIT 1', [userId]
+      );
+      toEmail = userRows[0]?.email || '';
+    }
+    if (!toEmail) {
+      return res.status(400).json({ error: 'No se encontro un email para enviar el codigo. Asegurate de tener un email registrado.' });
+    }
+
     const code = floretGenCode();
     const key = `${phone}:${userId || 'new'}`;
     floretPhoneCodes.set(key, { code, phone, userId, expiresAt: Date.now() + FLORET_PHONE_CODE_TTL });
-    // In production: send SMS via Twilio/etc. For now, log to console.
-    console.log(`[FLORET PHONE VERIFY] Phone: ${phone} | Code: ${code} | UserId: ${userId}`);
-    return res.json({ success: true, message: 'Codigo enviado. Revisa tu telefono.' });
+
+    // Send via Nodemailer
+    try {
+      await sendFloretVerificationEmail({ to: toEmail, code, phone });
+    } catch (mailErr) {
+      console.error('[FLORET MAIL] Error enviando codigo:', mailErr.message);
+      // Fallback: log to console so dev can still test
+      console.log(`[FLORET PHONE VERIFY FALLBACK] Phone: ${phone} | Code: ${code} | To: ${toEmail}`);
+    }
+
+    // Return masked email so frontend can show "enviado a tu***@gmail.com"
+    const maskedEmail = toEmail.replace(/(.{2}).+(@.+)/, '$1***$2');
+    return res.json({ success: true, message: 'Codigo enviado.', maskedEmail });
   } catch (e) {
     console.error('Error en /floret/phone-verify-send:', e);
     return res.status(500).json({ error: 'Error interno' });

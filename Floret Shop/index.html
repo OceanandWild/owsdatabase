@@ -4810,7 +4810,7 @@
           <div class="reg-code-timer" id="reg-code-timer"></div>
           <div class="reg-field-status tip" id="reg-code-status"></div>
         </div>
-        <div class="auth-secure-line"><i class="fas fa-mobile-screen"></i> Tu número no es visible públicamente y solo se usa para verificar tu identidad.</div>
+        <div class="auth-secure-line"><i class="fas fa-envelope-circle-check"></i> El código de verificación se enviará al email de tu cuenta, no al teléfono.</div>
         <div class="reg-wz-nav">
           <button class="btn-back" onclick="regWzBack(4)"><i class="fas fa-arrow-left"></i></button>
           <button class="btn btn-p btn-next" id="reg-phone-next-btn" onclick="regWzPhoneAction()">
@@ -5136,6 +5136,7 @@
                 return;
             }
             const phone = regWzGetPhone();
+            const email = normalizeAuthField(document.getElementById('reg-email')?.value || '', 120).toLowerCase();
             const btn = document.getElementById('reg-phone-next-btn');
             const sendBtn = document.getElementById('reg-code-resend');
             if (btn) { btn.disabled = true; btn.innerHTML = '<span class="wide-dots"><span></span><span></span><span></span></span>'; }
@@ -5143,14 +5144,23 @@
                 const res = await fetch(`${API}/floret/phone-verify-send`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ phone, userId: 0 })
+                    body: JSON.stringify({ phone, userId: 0, email })
                 });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error);
                 regPhoneCodeSent = true;
+                // Update hint to show masked email
+                const st = document.getElementById('reg-phone-status');
+                if (st && data.maskedEmail) {
+                    st.className = 'reg-field-status ok';
+                    st.innerHTML = `<i class="fas fa-envelope-circle-check"></i> Código enviado a <b>${data.maskedEmail}</b>`;
+                }
                 // Show code input
                 const codeGrp = document.getElementById('reg-code-grp');
                 if (codeGrp) {
+                    // Update label to clarify it's from email
+                    const lbl = codeGrp.querySelector('.frm-lbl');
+                    if (lbl) lbl.textContent = 'Código recibido en tu email';
                     codeGrp.style.display = 'block';
                     if (typeof window.gsap !== 'undefined') {
                         window.gsap.fromTo(codeGrp, { y: 8, opacity: 0 }, { y: 0, opacity: 1, duration: 0.28, ease: 'power2.out' });
@@ -5160,7 +5170,7 @@
                 if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check-circle"></i> Verificar código'; btn.onclick = () => regWzSubmit(); }
                 if (sendBtn) sendBtn.disabled = true;
                 regWzStartCodeTimer(120);
-                showToast(isResend ? 'Código reenviado' : 'Código enviado. Revisa tu teléfono.');
+                showToast(isResend ? 'Código reenviado a tu email' : `Código enviado a ${data.maskedEmail || 'tu email'}`);
             } catch (e) {
                 if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar código'; }
                 showToast(e.message || 'Error enviando código', true);
@@ -5397,7 +5407,7 @@
       <div class="floret-phone-gate-card" id="floret-gate-card">
         <div class="floret-gate-icon"><i class="fas fa-mobile-screen-button"></i></div>
         <div class="floret-gate-title">Verifica tu número</div>
-        <p class="floret-gate-sub">Para continuar en Floret Shop necesitás asociar y verificar un número de teléfono. Solo se usa para proteger tu cuenta.</p>
+        <p class="floret-gate-sub">Para continuar en Floret Shop necesitás asociar y verificar un número de teléfono. El código de verificación se enviará a tu email registrado.</p>
         <div class="frm-grp" style="margin-bottom:10px">
           <label class="frm-lbl" style="color:#f0d0e8">Número de teléfono</label>
           <div class="reg-phone-prefix">
@@ -5570,13 +5580,23 @@
                 const res = await fetch(`${API}/floret/phone-verify-send`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ phone, userId })
+                    body: JSON.stringify({ phone, userId, email: user?.email || '' })
                 });
                 const data = await res.json();
                 if (!res.ok) throw new Error(data.error);
                 floretGatePhoneCodeSent = true;
+                // Update hint with masked email
+                const st = document.getElementById('gate-phone-status');
+                if (st && data.maskedEmail) {
+                    st.className = 'reg-field-status ok';
+                    st.style.color = '#7ee8c0';
+                    st.innerHTML = `<i class="fas fa-envelope-circle-check"></i> Código enviado a <b>${data.maskedEmail}</b>`;
+                }
                 const codeGrp = document.getElementById('gate-code-grp');
                 if (codeGrp) {
+                    // Update label
+                    const lbl = codeGrp.querySelector('.frm-lbl');
+                    if (lbl) { lbl.textContent = 'Código recibido en tu email'; lbl.style.color = '#f0d0e8'; }
                     codeGrp.style.display = 'block';
                     if (typeof window.gsap !== 'undefined') {
                         window.gsap.fromTo(codeGrp, { y: 8, opacity: 0 }, { y: 0, opacity: 1, duration: 0.28, ease: 'power2.out' });
@@ -5587,7 +5607,7 @@
                 const resendBtn = document.getElementById('gate-code-resend');
                 if (resendBtn) resendBtn.disabled = true;
                 gateStartTimer(120);
-                showToast(isResend ? 'Código reenviado' : 'Código enviado. Revisa tu teléfono.');
+                showToast(isResend ? 'Código reenviado a tu email' : `Código enviado a ${data.maskedEmail || 'tu email'}`);
             } catch (e) {
                 if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-paper-plane"></i> Enviar código'; btn.onclick = () => gateSendCode(); }
                 showToast(e.message || 'Error enviando código', true);

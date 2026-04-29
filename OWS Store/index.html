@@ -7023,12 +7023,8 @@
             pending_release: false,
             release_date: OCEAN_CINEMAS_RELEASE_DATE_ISO,
             description: 'Plataforma de cine del ecosistema OWS. Series, peliculas y estrenos exclusivos.',
-            icon_url: OCEAN_CINEMAS_LOCAL_ICON,
-            scheduled_release: {
-                version: '2026.5.2-t1700',
-                available_at: '2026-05-02T20:00:00.000Z',
-                label: 'Nuevas Series — Vida en el Oceano T1'
-            }
+            icon_url: OCEAN_CINEMAS_LOCAL_ICON
+            // scheduled_release comes from API metadata — no hardcoding needed
         };
         const MYSTERY_PROJECT = {
             slug: 'mystery-project',
@@ -17292,12 +17288,7 @@
                     wildWeapon.last_update_at = latest?.publishedAt || null;
                     wildWeapon.windows_last_update_at = latest?.publishedAt || null;
                     wildWeapon.pending_release = !wildWeapon.installer_available;
-                    // Scheduled release: Mayhem Arsenal Reforged event
-                    wildWeapon.scheduled_release = {
-                        version: '2026.4.30-t0030',
-                        available_at: '2026-04-30T00:30:00.000Z',
-                        label: 'Mayhem Arsenal Reforged'
-                    };
+                    // scheduled_release comes from API metadata — no hardcoding needed
                     if (latest?.warning) {
                         wildWeapon.pending_release = true;
                         wildWeapon.release_warning = latest.warning;

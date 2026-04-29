@@ -12693,6 +12693,35 @@ app.patch('/ows-store/projects/:slug/version', async (req, res) => {
   }
 });
 
+// ===== SCHEDULED RELEASE: set/clear upcoming version for a project =====
+app.patch('/ows-store/projects/:slug/scheduled-release', async (req, res) => {
+  if (!requireOwsStoreAdmin(req, res)) return;
+  const { slug } = req.params;
+  const body = req.body || {};
+  const clear = Boolean(body.clear);
+  try {
+    const { rows } = await pool.query('SELECT id, metadata FROM ows_projects WHERE slug = $1', [slug]);
+    if (!rows.length) return res.status(404).json({ error: 'Proyecto no encontrado' });
+    const meta = (rows[0].metadata && typeof rows[0].metadata === 'object') ? { ...rows[0].metadata } : {};
+    if (clear) {
+      delete meta.scheduled_release;
+    } else {
+      const version = String(body.version || '').trim();
+      const available_at = String(body.available_at || '').trim();
+      const label = String(body.label || '').trim();
+      if (!version || !available_at) return res.status(400).json({ error: 'version y available_at son requeridos' });
+      const parsedDate = new Date(available_at);
+      if (isNaN(parsedDate.getTime())) return res.status(400).json({ error: 'available_at no es una fecha ISO valida' });
+      meta.scheduled_release = { version, available_at: parsedDate.toISOString(), label: label || null };
+    }
+    await pool.query('UPDATE ows_projects SET metadata = $1 WHERE slug = $2', [meta, slug]);
+    return res.json({ success: true, slug, scheduled_release: meta.scheduled_release || null });
+  } catch (err) {
+    console.error('Error en PATCH /ows-store/projects/:slug/scheduled-release:', err);
+    return res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 // Obtener ÃƒÆ’Ã‚Âºltimo release Android publicado por slug
 // Actualizar metadata de un proyecto (description, name, etc.)
 app.patch('/ows-store/projects/:slug', async (req, res) => {

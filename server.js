@@ -14,21 +14,21 @@ import jwt from 'jsonwebtoken';
 import { Server } from 'socket.io';
 import { createServer } from 'http';
 
-// ===== RESEND EMAIL (Floret Shop phone verification) =====
-// Uses HTTPS API — works on Render free tier (no SMTP port restrictions)
+// ===== BREVO (ex-Sendinblue) EMAIL — Floret Shop phone verification =====
+// Uses HTTPS REST API — works on Render free tier (no SMTP port restrictions)
 async function sendFloretVerificationEmail({ to, code, phone }) {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) throw new Error('RESEND_API_KEY no configurada');
+  const apiKey = process.env.BREVO_API_KEY;
+  if (!apiKey) throw new Error('BREVO_API_KEY no configurada');
 
   const maskedPhone = phone
     ? String(phone).replace(/(\+?\d{1,4})\d+(\d{3})$/, '$1•••••$2')
     : '(número registrado)';
 
   const body = {
-    from: 'Floret Shop <onboarding@resend.dev>',
-    to: [to],
+    sender: { name: 'Floret Shop', email: 'oceanandwildstudios@gmail.com' },
+    to: [{ email: to }],
     subject: 'Tu código de verificación — Floret Shop',
-    html: `
+    htmlContent: `
       <div style="font-family:Arial,sans-serif;background:#0f0a1a;color:#f8f5ff;padding:32px 24px;border-radius:16px;max-width:480px;margin:0 auto">
         <div style="text-align:center;margin-bottom:24px">
           <div style="font-size:2rem">🌸</div>
@@ -45,10 +45,10 @@ async function sendFloretVerificationEmail({ to, code, phone }) {
     `
   };
 
-  const res = await fetch('https://api.resend.com/emails', {
+  const res = await fetch('https://api.brevo.com/v3/smtp/email', {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${apiKey}`,
+      'api-key': apiKey,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify(body)
@@ -56,7 +56,7 @@ async function sendFloretVerificationEmail({ to, code, phone }) {
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || `Resend error ${res.status}`);
+    throw new Error(err.message || `Brevo error ${res.status}`);
   }
   return await res.json();
 }

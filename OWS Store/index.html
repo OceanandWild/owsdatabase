@@ -3761,6 +3761,33 @@
             text-overflow: ellipsis;
         }
 
+        .ecosystem-scheduled-release {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            flex-wrap: wrap;
+            margin-top: 3px;
+            padding: 4px 8px;
+            border-radius: 6px;
+            background: rgba(251,191,36,0.08);
+            border: 1px solid rgba(251,191,36,0.25);
+            font-size: 0.6rem;
+            font-weight: 700;
+            color: #fbbf24;
+            font-family: var(--font-mono);
+        }
+
+        .ecosystem-scheduled-release i {
+            font-size: 0.58rem;
+            flex-shrink: 0;
+        }
+
+        .ecosystem-scheduled-label {
+            color: rgba(251,191,36,0.65);
+            font-weight: 600;
+            font-size: 0.56rem;
+        }
+
         .ecosystem-tags {
             display: flex;
             gap: 0.3rem;
@@ -5772,6 +5799,9 @@
                         <div class="stat-label">Lanzamiento</div>
                         <div class="stat-value" id="m-launch-date">Proximamente</div>
                     </div>
+                </div>
+                <div id="m-scheduled-release" style="display:none;align-items:center;gap:0.5rem;flex-wrap:wrap;margin-top:6px;padding:6px 10px;border-radius:8px;background:rgba(251,191,36,0.08);border:1px solid rgba(251,191,36,0.25);font-size:0.68rem;font-weight:700;color:#fbbf24;font-family:var(--font-mono);"></div>
+                <div class="modal-stats" style="margin-top:6px;">
                     <div class="stat-box" style="grid-column: 1 / -1;">
                         <div class="stat-label">Estado local</div>
                         <div class="stat-value" id="m-install-state">No instalado</div>
@@ -6984,16 +7014,21 @@
             slug: 'ocean-cinemas',
             name: 'Ocean Cinemas',
             short: 'OCN',
-            status: 'coming_soon',
-            version: '1.0.0',
+            status: 'launched',
+            version: '2026.4.29-t0100',
             platform: 'windows',
             install_type: 'external',
-            installer_url: '',
-            installer_available: false,
-            pending_release: true,
+            installer_url: 'https://github.com/OceanandWild/ocean-cinemas/releases/latest',
+            installer_available: true,
+            pending_release: false,
             release_date: OCEAN_CINEMAS_RELEASE_DATE_ISO,
-            description: 'Plataforma de cine del ecosistema OWS. Proximamente.',
-            icon_url: OCEAN_CINEMAS_LOCAL_ICON
+            description: 'Plataforma de cine del ecosistema OWS. Series, peliculas y estrenos exclusivos.',
+            icon_url: OCEAN_CINEMAS_LOCAL_ICON,
+            scheduled_release: {
+                version: '2026.5.2-t1700',
+                available_at: '2026-05-02T20:00:00.000Z',
+                label: 'Nuevas Series — Vida en el Oceano T1'
+            }
         };
         const MYSTERY_PROJECT = {
             slug: 'mystery-project',
@@ -18848,6 +18883,24 @@
                     : '';
                 const newBadgeHtml = hasNewBadge(p) ? `<span class="new-badge">NUEVO!</span>` : '';
                 const updateFlagHtml = '';
+
+                // Scheduled release highlight: future version with a specific date
+                const scheduledRel = p.scheduled_release && typeof p.scheduled_release === 'object' ? p.scheduled_release : null;
+                const scheduledRelHtml = (() => {
+                    if (!scheduledRel || !scheduledRel.available_at) return '';
+                    const relAt = new Date(scheduledRel.available_at);
+                    if (Date.now() >= relAt.getTime()) return ''; // already released
+                    const relFmt = relAt.toLocaleString('es-UY', {
+                        day: '2-digit', month: '2-digit', year: 'numeric',
+                        hour: '2-digit', minute: '2-digit', hour12: false,
+                        timeZone: 'America/Montevideo'
+                    });
+                    return `<div class="ecosystem-scheduled-release" title="${escHtml(scheduledRel.label || '')}">
+                        <i class="fas fa-calendar-check"></i>
+                        <span>v${escHtml(scheduledRel.version)} disponible el ${relFmt}</span>
+                        ${scheduledRel.label ? `<span class="ecosystem-scheduled-label">${escHtml(scheduledRel.label)}</span>` : ''}
+                    </div>`;
+                })();
                 const quickTags = [];
                 quickTags.push(`<span class="ecosystem-tag ${isStoreUnavailable ? 'blocked' : (isComingSoon ? 'soon' : 'live')}">${isStoreUnavailable ? (restrictionState === 'rework' ? 'Pleno Rework' : 'No disponible') : (isComingSoon ? 'Proximamente' : 'Activo')}</span>`);
                 if (isReleaseTrackedProject(p)) quickTags.push(`<span class="ecosystem-tag">Sincronizado</span>`);
@@ -18892,6 +18945,7 @@
                         </div>
                         <div class="app-meta"><span>Compatibilidad</span><span>${availabilityLabel}</span>${countdownHtml}</div>
                         ${updateInfoHtml || `<div class="ecosystem-submeta">${updateHint}</div>`}
+                        ${scheduledRelHtml}
                         ${tagsHtml}
                         ${updateFlagHtml}
                         ${installingHtml}
@@ -19191,6 +19245,27 @@
             const lastUpdateEl = document.getElementById('m-last-update');
             if (lastUpdateEl) {
                 lastUpdateEl.innerText = `v${modalVersion} · ${releaseDate ? formatDateTime(releaseDate) : 'Sin datos'}`;
+            }
+            // Scheduled release: show upcoming version info in modal
+            const scheduledRel = p.scheduled_release && typeof p.scheduled_release === 'object' ? p.scheduled_release : null;
+            const scheduledRelEl = document.getElementById('m-scheduled-release');
+            if (scheduledRelEl) {
+                if (scheduledRel && scheduledRel.available_at) {
+                    const relAt = new Date(scheduledRel.available_at);
+                    if (Date.now() < relAt.getTime()) {
+                        const relFmt = relAt.toLocaleString('es-UY', {
+                            day: '2-digit', month: '2-digit', year: 'numeric',
+                            hour: '2-digit', minute: '2-digit', hour12: false,
+                            timeZone: 'America/Montevideo'
+                        });
+                        scheduledRelEl.style.display = 'flex';
+                        scheduledRelEl.innerHTML = `<i class="fas fa-calendar-check"></i><span>v${escHtml(scheduledRel.version)} disponible el ${relFmt}${scheduledRel.label ? ' · ' + escHtml(scheduledRel.label) : ''}</span>`;
+                    } else {
+                        scheduledRelEl.style.display = 'none';
+                    }
+                } else {
+                    scheduledRelEl.style.display = 'none';
+                }
             }
             const compatEl = document.getElementById('m-compat');
             if (compatEl) {

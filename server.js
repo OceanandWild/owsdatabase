@@ -4844,6 +4844,92 @@ app.get('/floret/reviews/seller', async (req, res) => {
   }
 });
 
+// ===== OCEAN CINEMAS AUTH =====
+// Table bootstrap (runs once on startup)
+pool.query(`
+  CREATE TABLE IF NOT EXISTS ocean_cinemas_users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(40) UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    plan_id VARCHAR(20) DEFAULT 'free',
+    tides_balance INTEGER DEFAULT 1200,
+    created_at TIMESTAMP DEFAULT NOW(),
+    last_login TIMESTAMP
+  )
+`).catch(e => console.warn('[OC] ocean_cinemas_users table:', e.message));
+
+function ocNormalizeUsername(raw) {
+  return String(raw || '').trim().toLowerCase().slice(0, 40);
+}
+
+// Register
+app.post('/ocean-cinemas/auth/register', async (req, res) => {
+  try {
+    const username = ocNormalizeUsername(req.body?.username || '');
+    const password = String(req.body?.password || '').normalize('NFKC');
+    if (!username || username.length < 3) return res.status(400).json({ error: 'El usuario debe tener al menos 3 caracteres.' });
+    if (!/^[a-z0-9._-]{3,40}$/.test(username)) return res.status(400).json({ error: 'Usuario invalido. Usa letras, numeros, punto, guion o _.' });
+    if (!password || password.length < 6) return res.status(400).json({ error: 'La contrasena debe tener al menos 6 caracteres.' });
+    const { rows: existing } = await pool.query('SELECT id FROM ocean_cinemas_users WHERE username = $1', [username]);
+    if (existing.length > 0) return res.status(409).json({ error: 'Ese usuario ya existe en Ocean Cinemas.' });
+    const hash = await bcrypt.hash(password, 10);
+    const { rows } = await pool.query(
+      `INSERT INTO ocean_cinemas_users (username, password_hash) VALUES ($1, $2)
+       RETURNING id, username, plan_id, tides_balance, created_at`,
+      [username, hash]
+    );
+    const user = rows[0];
+    const token = jwt.sign({ id: user.id, username: user.username, app: 'ocean_cinemas' }, process.env.JWT_SECRET || process.env.STUDIO_SECRET || 'oc_secret', { expiresIn: '90d' });
+    return res.json({ success: true, token, user: { id: user.id, username: user.username, planId: user.plan_id, tidesBalance: user.tides_balance } });
+  } catch (e) {
+    console.error('[OC] register error:', e);
+    return res.status(500).json({ error: 'Error interno al registrar.' });
+  }
+});
+
+// Login
+app.post('/ocean-cinemas/auth/login', async (req, res) => {
+  try {
+    const username = ocNormalizeUsername(req.body?.username || '');
+    const password = String(req.body?.password || '').normalize('NFKC');
+    if (!username || !password) return res.status(400).json({ error: 'Completa usuario y contrasena.' });
+    const { rows } = await pool.query(
+      `SELECT id, username, password_hash, plan_id, tides_balance FROM ocean_cinemas_users WHERE username = $1`,
+      [username]
+    );
+    if (!rows.length) return res.status(401).json({ error: 'Usuario o contrasena incorrectos.' });
+    const user = rows[0];
+    const valid = await bcrypt.compare(password, user.password_hash);
+    if (!valid) return res.status(401).json({ error: 'Usuario o contrasena incorrectos.' });
+    await pool.query('UPDATE ocean_cinemas_users SET last_login = NOW() WHERE id = $1', [user.id]);
+    const token = jwt.sign({ id: user.id, username: user.username, app: 'ocean_cinemas' }, process.env.JWT_SECRET || process.env.STUDIO_SECRET || 'oc_secret', { expiresIn: '90d' });
+    return res.json({ success: true, token, user: { id: user.id, username: user.username, planId: user.plan_id, tidesBalance: user.tides_balance } });
+  } catch (e) {
+    console.error('[OC] login error:', e);
+    return res.status(500).json({ error: 'Error interno al iniciar sesion.' });
+  }
+});
+
+// Get profile (verify token)
+app.get('/ocean-cinemas/auth/me', async (req, res) => {
+  try {
+    const token = (req.headers.authorization || '').replace('Bearer ', '').trim();
+    if (!token) return res.status(401).json({ error: 'Token requerido.' });
+    const payload = jwt.verify(token, process.env.JWT_SECRET || process.env.STUDIO_SECRET || 'oc_secret');
+    if (payload.app !== 'ocean_cinemas') return res.status(401).json({ error: 'Token invalido.' });
+    const { rows } = await pool.query(
+      'SELECT id, username, plan_id, tides_balance FROM ocean_cinemas_users WHERE id = $1',
+      [payload.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'Usuario no encontrado.' });
+    const user = rows[0];
+    return res.json({ id: user.id, username: user.username, planId: user.plan_id, tidesBalance: user.tides_balance });
+  } catch (e) {
+    if (e.name === 'JsonWebTokenError' || e.name === 'TokenExpiredError') return res.status(401).json({ error: 'Token invalido o expirado.' });
+    return res.status(500).json({ error: 'Error interno.' });
+  }
+});
+
 // Obtener resumen de calificaciones para una pelicula de Ocean Cinemas
 app.get('/ocean-cinemas/movies/:movieId/rating-summary', async (req, res) => {
   try {

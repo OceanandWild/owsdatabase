@@ -17292,6 +17292,12 @@
                     wildWeapon.last_update_at = latest?.publishedAt || null;
                     wildWeapon.windows_last_update_at = latest?.publishedAt || null;
                     wildWeapon.pending_release = !wildWeapon.installer_available;
+                    // Scheduled release: Mayhem Arsenal Reforged event
+                    wildWeapon.scheduled_release = {
+                        version: '2026.4.30-t0030',
+                        available_at: '2026-04-30T00:30:00.000Z',
+                        label: 'Mayhem Arsenal Reforged'
+                    };
                     if (latest?.warning) {
                         wildWeapon.pending_release = true;
                         wildWeapon.release_warning = latest.warning;

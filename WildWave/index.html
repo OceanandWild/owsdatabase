@@ -1628,9 +1628,9 @@
             <article class="ss-card">
               <h4>Gestión de roles</h4>
               <p style="color:var(--ink-dim);font-size:13px;margin:8px 0 0;">Los roles permiten organizar permisos y jerarquías dentro del servidor.</p>
-              <div style="margin-top:20px;padding:40px;text-align:center;color:var(--ink-dim);">
-                <div style="font-size:32px;margin-bottom:8px;">🎭</div>
-                <div>Funcionalidad en desarrollo</div>
+              <div style="margin-top:20px;">
+                <button onclick="window.createServerRole()" class="btn primary" type="button" style="margin-bottom:16px;">+ Crear rol</button>
+                <div id="roles-list-container" style="display:flex;flex-direction:column;gap:8px;"></div>
               </div>
             </article>
           </div>
@@ -3244,6 +3244,116 @@
         restoreSession().catch(() => {});
       }
     })();
+
+    // === ROLES MANAGEMENT ===
+    window.serverRolesData = [];
+    
+    window.loadServerRoles = async function() {
+      const selected = getSelectedServer();
+      if (!selected) return;
+      try {
+        const token = getToken();
+        const payload = await api(`/wildwave/api/channels/${selected.id}/settings/roles`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        window.serverRolesData = Array.isArray(payload?.roles) ? payload.roles : [];
+        renderServerRoles();
+      } catch (err) {
+        console.error("Error loading roles:", err);
+        window.serverRolesData = [];
+        renderServerRoles();
+      }
+    };
+
+    function renderServerRoles() {
+      const container = document.getElementById("roles-list-container");
+      if (!container) return;
+      if (!window.serverRolesData.length) {
+        container.innerHTML = '<div style="padding:20px;text-align:center;color:var(--ink-dim);">No hay roles creados aún.</div>';
+        return;
+      }
+      container.innerHTML = window.serverRolesData.map(role => `
+        <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface-2);border-radius:8px;border:1px solid var(--border);">
+          <div style="width:24px;height:24px;border-radius:6px;background:${role.color};flex-shrink:0;"></div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:600;color:var(--ink);">${safeText(role.name)}</div>
+            <div style="font-size:12px;color:var(--ink-dim);">${role.member_count || 0} miembros${role.is_system ? ' • Rol del sistema' : ''}</div>
+          </div>
+          ${!role.is_system ? `
+            <button onclick="window.editServerRole(${role.id})" class="btn-icon" title="Editar rol">✏️</button>
+            <button onclick="window.deleteServerRole(${role.id})" class="btn-icon" title="Eliminar rol">🗑️</button>
+          ` : ''}
+        </div>
+      `).join('');
+    }
+
+    window.createServerRole = async function() {
+      const selected = getSelectedServer();
+      if (!selected) return;
+      const name = prompt("Nombre del rol:");
+      if (!name || !name.trim()) return;
+      const color = prompt("Color del rol (hex):", "#7aa2ff");
+      try {
+        const token = getToken();
+        await api(`/wildwave/api/channels/${selected.id}/roles`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ name: name.trim(), color: color || "#7aa2ff", priority: 100 })
+        });
+        await window.loadServerRoles();
+        showToast("Rol creado correctamente.", "ok");
+      } catch (err) {
+        showToast(err.message || "Error al crear el rol.", "error");
+      }
+    };
+
+    window.editServerRole = async function(roleId) {
+      const role = window.serverRolesData.find(r => r.id === roleId);
+      if (!role) return;
+      const name = prompt("Nuevo nombre del rol:", role.name);
+      if (!name || !name.trim()) return;
+      const color = prompt("Nuevo color del rol (hex):", role.color);
+      const selected = getSelectedServer();
+      if (!selected) return;
+      try {
+        const token = getToken();
+        await api(`/wildwave/api/channels/${selected.id}/roles/${roleId}`, {
+          method: "PATCH",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ name: name.trim(), color: color || role.color, priority: role.priority })
+        });
+        await window.loadServerRoles();
+        showToast("Rol actualizado correctamente.", "ok");
+      } catch (err) {
+        showToast(err.message || "Error al actualizar el rol.", "error");
+      }
+    };
+
+    window.deleteServerRole = async function(roleId) {
+      if (!confirm("¿Eliminar este rol? Los miembros perderán este rol.")) return;
+      const selected = getSelectedServer();
+      if (!selected) return;
+      try {
+        const token = getToken();
+        await api(`/wildwave/api/channels/${selected.id}/roles/${roleId}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        await window.loadServerRoles();
+        showToast("Rol eliminado correctamente.", "ok");
+      } catch (err) {
+        showToast(err.message || "Error al eliminar el rol.", "error");
+      }
+    };
+
+    // Cargar roles cuando se abre la sección
+    document.querySelectorAll(".ss-nav-item").forEach(btn => {
+      btn.addEventListener("click", () => {
+        if (btn.dataset.section === "roles") {
+          window.loadServerRoles();
+        }
+      });
+    });
   </script>
 
   <!-- Context menu -->

@@ -462,15 +462,23 @@
     .discover-name { font-size: 14px; font-weight: 600; }
     .discover-meta { margin-top: 2px; color: var(--ink-dim); font-size: 12px; }
     .members { border-left: 1px solid rgba(0,0,0,0.3); background: var(--panel); display: grid; grid-template-rows: auto 1fr; min-height: 0; }
-    .members-top { border-bottom: 1px solid rgba(0,0,0,0.3); padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--ink-dim); box-shadow: 0 1px 0 rgba(0,0,0,0.2); }
-    .members-sort { border: none; border-radius: 4px; background: rgba(255,255,255,0.06); color: var(--ink-soft); font-size: 11px; font-weight: 600; padding: 4px 6px; }
-    .members-body { min-height: 0; overflow: auto; padding: 8px; }
-    .member-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; }
-    .member-item { border: none; border-radius: 4px; background: transparent; padding: 6px 8px; display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: center; cursor: pointer; transition: background 0.1s ease; }
-    .member-item:hover { background: rgba(255,255,255,0.06); }
-    .member-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 12px; font-weight: 700; display: grid; place-items: center; background-size: cover; background-position: center; flex-shrink: 0; }
-    .member-name { font-size: 15px; font-weight: 500; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .members-top { border-bottom: 1px solid rgba(0,0,0,0.3); padding: 0 12px; height: 48px; display: flex; align-items: center; justify-content: space-between; gap: 8px; box-shadow: 0 1px 0 rgba(0,0,0,0.2); }
+    .members-top-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--ink-dim); }
+    .members-sort { border: none; border-radius: 4px; background: rgba(255,255,255,0.06); color: var(--ink-soft); font-size: 11px; font-weight: 600; padding: 4px 8px; cursor: pointer; outline: none; transition: background 0.12s; }
+    .members-sort:hover { background: rgba(255,255,255,0.1); }
+    .members-body { min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 8px 6px; }
+    .member-group-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--ink-dim); padding: 12px 8px 4px; }
+    .member-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 1px; }
+    .member-item { border: none; border-radius: 6px; background: transparent; padding: 6px 8px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: background 0.1s; width: 100%; text-align: left; }
+    .member-item:hover { background: rgba(255,255,255,0.07); }
+    .member-avatar-wrap { position: relative; flex-shrink: 0; }
+    .member-avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 12px; font-weight: 700; display: grid; place-items: center; background-size: cover; background-position: center; }
+    .member-status-dot { position: absolute; bottom: 0; right: 0; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--panel); background: #23a55a; }
+    .member-status-dot.offline { background: #80848e; }
+    .member-info { min-width: 0; flex: 1; }
+    .member-name { font-size: 14px; font-weight: 500; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
     .member-item:hover .member-name { color: var(--ink); }
+    .member-handle { margin-top: 1px; color: var(--ink-dim); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .member-sub { margin-top: 1px; color: var(--ink-dim); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
     .modal-wrap {
@@ -1338,10 +1346,10 @@
 
     <aside class="members">
       <div class="members-top">
-        <span>Miembros</span>
+        <span class="members-top-label">Miembros</span>
         <select id="members-sort" class="members-sort">
           <option value="alpha">A-Z</option>
-          <option value="joined">Fecha de union</option>
+          <option value="joined">Fecha de unión</option>
         </select>
       </div>
       <div class="members-body"><ul id="member-list" class="member-list"></ul></div>
@@ -2181,13 +2189,18 @@
 
     function renderMembers() {
       if (!serverMembers.length) {
-        memberList.innerHTML = "<li class='member-sub'>Sin miembros para mostrar.</li>";
+        memberList.innerHTML = `
+          <li style="padding:16px 8px;text-align:center;">
+            <div style="font-size:28px;margin-bottom:8px;">👥</div>
+            <div style="font-size:13px;font-weight:600;color:var(--ink-soft);">Sin miembros</div>
+            <div style="font-size:11px;color:var(--ink-dim);margin-top:3px;">Invita personas al servidor</div>
+          </li>`;
         return;
       }
       memberList.innerHTML = serverMembers.map((m) => {
         const name = safeText(m.display_name || m.username, "Usuario");
         const user = safeText(m.username, "usuario");
-        const joined = m.joined_at ? new Date(m.joined_at).toLocaleDateString() : "-";
+        const joined = m.joined_at ? new Date(m.joined_at).toLocaleDateString("es-UY", { day:"numeric", month:"short", year:"numeric" }) : "-";
         const initials = getInitials(name);
         const avatarUrl = safeText(m.avatar_url || '');
         const avatarStyle = avatarUrl
@@ -2195,10 +2208,13 @@
           : '';
         return `
           <li class="member-item">
-            <div class="member-avatar" style="${avatarStyle}">${avatarUrl ? '' : initials}</div>
-            <div>
+            <div class="member-avatar-wrap">
+              <div class="member-avatar" style="${avatarStyle}">${avatarUrl ? '' : initials}</div>
+              <div class="member-status-dot offline"></div>
+            </div>
+            <div class="member-info">
               <div class="member-name">${name}</div>
-              <div class="member-sub">@${user} · ${joined}</div>
+              <div class="member-handle">@${user} · ${joined}</div>
             </div>
           </li>
         `;

@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="es">
 <head>
   <meta charset="utf-8" />
@@ -11,21 +11,24 @@
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700;800&display=swap" rel="stylesheet" />
   <style>
     :root {
-      --bg: #070d19;
-      --panel: #101a2f;
-      --panel-2: #13203a;
-      --line: rgba(160, 186, 224, 0.2);
-      --line-strong: rgba(166, 211, 255, 0.42);
-      --ink: #eaf3ff;
-      --ink-soft: #b6c6df;
-      --ink-dim: #8ea2c2;
-      --accent: #63dbff;
-      --accent-2: #41b9ff;
-      --danger: #ff7a9f;
-      --ok: #55daae;
-      --server-col: 86px;
-      --left-col: 312px;
-      --right-col: 284px;
+      --bg: #313338;
+      --panel: #2b2d31;
+      --panel-2: #232428;
+      --server-rail: #1e1f22;
+      --line: rgba(255,255,255,0.06);
+      --line-strong: rgba(255,255,255,0.14);
+      --ink: #dbdee1;
+      --ink-soft: #b5bac1;
+      --ink-dim: #80848e;
+      --accent: #5865f2;
+      --accent-2: #4752c4;
+      --accent-hover: #4752c4;
+      --danger: #f23f42;
+      --ok: #23a55a;
+      --mention: rgba(88,101,242,0.15);
+      --server-col: 72px;
+      --left-col: 240px;
+      --right-col: 240px;
     }
     * { box-sizing: border-box; }
     html, body { width: 100%; height: 100%; }
@@ -33,35 +36,32 @@
       margin: 0;
       color: var(--ink);
       font-family: "Manrope", "Segoe UI", sans-serif;
-      background:
-        radial-gradient(circle at 10% -20%, rgba(81, 167, 255, 0.22), transparent 40%),
-        radial-gradient(circle at 106% 120%, rgba(84, 220, 255, 0.2), transparent 44%),
-        var(--bg);
+      background: var(--bg);
       overflow: hidden;
     }
     .hidden { display: none !important; }
     .btn {
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      background: #26314b;
-      color: var(--ink-soft);
-      padding: 8px 11px;
-      font-size: 12px;
-      font-weight: 700;
+      border: none;
+      border-radius: 3px;
+      background: #4e5058;
+      color: var(--ink);
+      padding: 8px 16px;
+      font-size: 14px;
+      font-weight: 500;
       cursor: pointer;
-      transition: border-color 0.2s ease, filter 0.2s ease;
+      transition: background 0.17s ease;
     }
-    .btn:hover { filter: brightness(1.06); border-color: var(--line-strong); }
+    .btn:hover { background: #6d6f78; }
     .btn.primary {
-      border-color: transparent;
-      color: #041524;
-      background: linear-gradient(130deg, var(--accent), var(--accent-2));
+      color: #fff;
+      background: var(--accent);
     }
+    .btn.primary:hover { background: var(--accent-hover); }
     .btn.danger {
-      border-color: rgba(255,122,159,0.46);
-      color: #ffd8e3;
-      background: linear-gradient(130deg, rgba(132, 41, 75, 0.94), rgba(96, 32, 59, 0.94));
+      color: #fff;
+      background: var(--danger);
     }
+    .btn.danger:hover { background: #a12d2f; }
     .btn:disabled { opacity: 0.55; cursor: not-allowed; }
     .toast {
       position: fixed;
@@ -81,6 +81,114 @@
       z-index: 220;
     }
     .toast.show { opacity: 1; transform: translate(-50%, 0); }
+    .project-support-lock {
+      position: fixed;
+      inset: 0;
+      z-index: 520;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      background: rgba(2, 8, 16, 0.88);
+      backdrop-filter: blur(6px);
+    }
+    .project-support-lock.active { display: flex; }
+    .project-support-card {
+      width: min(760px, 100%);
+      border-radius: 18px;
+      border: 1px solid rgba(93, 222, 189, 0.36);
+      background:
+        radial-gradient(85% 120% at 0% 100%, rgba(34, 152, 128, 0.24), transparent 60%),
+        radial-gradient(85% 120% at 100% 0%, rgba(36, 138, 198, 0.24), transparent 60%),
+        linear-gradient(165deg, rgba(9, 21, 37, 0.98), rgba(8, 25, 33, 0.98));
+      box-shadow: 0 28px 70px rgba(0, 0, 0, 0.62);
+      overflow: hidden;
+    }
+    .project-support-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px 14px;
+      border-bottom: 1px solid rgba(163, 196, 227, 0.24);
+      background: linear-gradient(120deg, rgba(10, 25, 44, 0.92), rgba(8, 22, 32, 0.92));
+      font-size: 11px;
+      letter-spacing: 0.5px;
+      font-weight: 800;
+      color: #91dbff;
+      text-transform: uppercase;
+    }
+    .project-support-body { padding: 14px; }
+    .project-support-flow {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr auto 1fr;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .project-support-node {
+      border: 1px solid rgba(157, 193, 236, 0.28);
+      border-radius: 13px;
+      background: rgba(10, 20, 35, 0.85);
+      min-height: 92px;
+      padding: 10px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+    .project-support-node.restricted {
+      border-color: rgba(255, 110, 146, 0.46);
+      background:
+        radial-gradient(120% 120% at 85% 15%, rgba(224, 56, 94, 0.24), transparent 58%),
+        rgba(38, 14, 26, 0.78);
+    }
+    .project-support-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      border: 1px solid rgba(162, 196, 235, 0.32);
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      flex-shrink: 0;
+    }
+    .project-support-copy strong { display: block; font-size: 13px; }
+    .project-support-copy span { display: block; margin-top: 3px; color: var(--ink-soft); font-size: 11px; line-height: 1.35; }
+    .project-support-arrow { color: #7de9ff; opacity: 0.86; text-align: center; }
+    .project-support-arrow.locked { color: #ff98ad; }
+    .project-support-title {
+      margin: 3px 0 7px;
+      font-family: "Sora", "Manrope", sans-serif;
+      font-size: 21px;
+      letter-spacing: -0.3px;
+    }
+    .project-support-text {
+      margin: 0;
+      color: var(--ink-soft);
+      font-size: 13px;
+      line-height: 1.56;
+    }
+    .project-support-note {
+      margin-top: 10px;
+      border: 1px solid rgba(255, 119, 152, 0.34);
+      border-radius: 10px;
+      background: rgba(88, 20, 39, 0.3);
+      color: #ffc2d0;
+      padding: 9px 10px;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .project-support-actions {
+      margin-top: 12px;
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    @media (max-width: 760px) {
+      .project-support-flow { grid-template-columns: 1fr; gap: 6px; }
+      .project-support-arrow { display: none; }
+    }
     .auth-screen {
       position: fixed;
       inset: 0;
@@ -191,258 +299,138 @@
       min-width: 0;
     }
     .servers {
-      border-right: 1px solid var(--line);
-      padding: 10px 10px 8px;
+      border-right: none;
+      padding: 12px 0 8px;
       display: grid;
-      grid-template-rows: auto auto 1fr auto auto;
-      gap: 9px;
-      background: linear-gradient(180deg, #0d162b, #0a1222);
+      grid-template-rows: 1fr auto auto;
+      gap: 8px;
+      background: var(--server-rail);
       min-height: 0;
+      align-items: start;
     }
     .server-logo, .server-dm-btn, .server-pill, .server-profile-dock {
-      width: 100%;
-      aspect-ratio: 1 / 1;
-      border-radius: 14px;
-      border: 1px solid rgba(157, 193, 240, 0.34);
-      background: linear-gradient(160deg, #1b2b4a, #15253f);
-      color: #e8f4ff;
+      width: 48px;
+      height: 48px;
+      margin: 0 auto;
+      border-radius: 50%;
+      border: none;
+      background: #36393f;
+      color: var(--ink);
       font-size: 13px;
       font-weight: 800;
       cursor: pointer;
-    }
-    .server-logo {
-      border-radius: 16px;
-      background: linear-gradient(145deg, rgba(78, 168, 255, 0.5), rgba(70, 236, 255, 0.36)), #132038;
-      font-size: 22px;
-      font-family: "Sora", "Manrope", sans-serif;
-    }
-    .server-list {
-      min-height: 0;
-      overflow: auto;
       display: grid;
-      gap: 8px;
-      align-content: start;
-      padding-right: 2px;
+      place-items: center;
+      transition: border-radius 0.15s ease, background 0.15s ease;
     }
-    .server-pill.active {
-      border-color: rgba(95, 217, 255, 0.84);
-      box-shadow: 0 0 0 1px rgba(95, 217, 255, 0.52) inset;
-      background: linear-gradient(160deg, #233d63, #182e4d);
-    }
-    .server-rail-separator {
-      border: 0;
-      margin: 2px 0;
-      border-top: 1px solid rgba(164, 195, 238, 0.25);
-    }
-    .server-profile-dock {
-      background: linear-gradient(150deg, #293b5c, #203150);
-      background-size: cover;
-      background-position: center;
-    }
+    .server-logo:hover, .server-dm-btn:hover, .server-pill:hover, .server-profile-dock:hover { border-radius: 16px; background: var(--accent); color: #fff; }
+    .server-logo { background: var(--accent); color: #fff; font-size: 20px; font-family: "Sora", "Manrope", sans-serif; }
+    .server-list { min-height: 0; overflow: auto; display: grid; gap: 8px; align-content: start; padding: 0 12px; }
+    .server-pill.active { border-radius: 16px; background: var(--accent); color: #fff; }
+    .server-pill.has-icon { background-size: cover; background-position: center; color: transparent; font-size: 0; overflow: hidden; }
+    .server-rail-separator { border: 0; margin: 2px 12px; border-top: 2px solid #3f4147; }
+    .server-profile-dock { background: #36393f; background-size: cover; background-position: center; }
     .profile-flyout {
       position: absolute;
       bottom: 8px;
       left: calc(var(--server-col) + 8px);
       width: 276px;
-      border: 1px solid rgba(164, 196, 236, 0.28);
-      border-radius: 14px;
-      background: rgba(11, 19, 34, 0.95);
-      box-shadow: 0 20px 38px rgba(3, 8, 18, 0.56);
+      border: none;
+      border-radius: 8px;
+      background: #111214;
+      box-shadow: 0 8px 16px rgba(0,0,0,0.6);
       padding: 10px;
       display: none;
       z-index: 150;
     }
     .profile-flyout.open { display: block; }
-    .profile-flyout-user {
-      display: grid;
-      grid-template-columns: auto 1fr;
-      gap: 10px;
-      align-items: center;
-      margin-bottom: 10px;
-    }
-    .profile-flyout-avatar {
-      width: 46px;
-      height: 46px;
-      border-radius: 11px;
-      border: 1px solid rgba(176, 206, 241, 0.33);
-      background: linear-gradient(145deg, #335286, #25426d);
-      display: grid;
-      place-items: center;
-      color: #ecf5ff;
-      font-weight: 800;
-      background-size: cover;
-      background-position: center;
-    }
-    .profile-flyout-name { font-size: 14px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .profile-flyout-user { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: center; margin-bottom: 10px; }
+    .profile-flyout-avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--accent); display: grid; place-items: center; color: #fff; font-weight: 800; background-size: cover; background-position: center; }
+    .profile-flyout-name { font-size: 14px; font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .profile-flyout-handle { margin-top: 2px; font-size: 12px; color: var(--ink-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .profile-flyout-actions { display: flex; justify-content: flex-end; gap: 8px; }
 
     .left {
-      border-right: 1px solid var(--line);
-      background: linear-gradient(180deg, #101a30, #0d1629);
+      border-right: none;
+      background: var(--panel);
       display: grid;
       grid-template-rows: auto 1fr;
       min-height: 0;
     }
-    .left-top { border-bottom: 1px solid var(--line); padding: 14px 14px 12px; display: grid; gap: 2px; cursor: pointer; }
-    #left-selected-server-title { font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .left-top { border-bottom: 1px solid rgba(0,0,0,0.3); padding: 12px 16px 11px; display: grid; gap: 4px; cursor: pointer; transition: background 0.15s ease; box-shadow: 0 1px 0 rgba(0,0,0,0.2); }
+    .left-top:hover { background: rgba(255,255,255,0.04); }
+    .left-top-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; }
+    .left-top-icon { width: 28px; height: 28px; border-radius: 8px; border: none; background: var(--accent); display: grid; place-items: center; font-size: 11px; font-weight: 800; color: #fff; background-size: cover; background-position: center; overflow: hidden; }
+    .left-top-icon.has-icon { color: transparent; font-size: 0; }
+    .left-top-action { color: var(--ink-dim); font-size: 11px; font-weight: 700; }
+    #left-selected-server-title { font-size: 15px; font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .left-top-meta { color: var(--ink-dim); font-size: 11px; }
     .left-body { min-height: 0; display: grid; grid-template-rows: auto 1fr; }
-    .server-manage-head {
-      padding: 10px 12px;
-      border-bottom: 1px solid rgba(155, 187, 229, 0.15);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-    }
-    .server-manage-title { color: var(--ink-dim); font-size: 11px; text-transform: uppercase; letter-spacing: 0.52px; font-weight: 800; }
-    .server-manage-btn {
-      border: 1px solid rgba(152, 188, 235, 0.32);
-      border-radius: 8px;
-      background: rgba(40, 63, 101, 0.42);
-      color: var(--ink-soft);
-      font-size: 11px;
-      font-weight: 800;
-      padding: 5px 8px;
-      cursor: pointer;
-    }
-    .server-channels-view { min-height: 0; overflow: auto; padding: 10px 9px; }
-    .channels-plain-list { display: grid; gap: 5px; }
-    .channel-row {
-      border: 1px solid rgba(155, 189, 231, 0.16);
-      border-radius: 10px;
-      background: rgba(17, 28, 50, 0.58);
-      padding: 7px 8px;
-      display: grid;
-      grid-template-columns: 1fr auto;
-      align-items: center;
-      gap: 8px;
-      cursor: pointer;
-    }
-    .channel-row.category { border-style: dashed; background: rgba(15, 25, 45, 0.46); }
-    .channel-row.active { border-color: rgba(103, 213, 255, 0.7); background: rgba(20, 38, 67, 0.8); }
-    .channel-name-text { font-size: 13px; font-weight: 700; color: #dceafe; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .server-manage-head { padding: 16px 8px 4px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .server-manage-title { color: var(--ink-dim); font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; font-weight: 700; }
+    .server-manage-btn { border: none; border-radius: 4px; background: transparent; color: var(--ink-dim); font-size: 18px; font-weight: 400; padding: 2px 6px; cursor: pointer; line-height: 1; }
+    .server-manage-btn:hover { color: var(--ink); }
+    .server-channels-view { min-height: 0; overflow: auto; padding: 4px 8px 8px; }
+    .channels-plain-list { display: grid; gap: 2px; }
+    .channel-row { border: none; border-radius: 4px; background: transparent; padding: 6px 8px; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; cursor: pointer; transition: background 0.1s ease; }
+    .channel-row:hover { background: rgba(255,255,255,0.06); }
+    .channel-row.category { background: transparent; padding: 16px 8px 4px; }
+    .channel-row.category .channel-name-text { font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; font-weight: 700; color: var(--ink-dim); }
+    .channel-row.active { background: rgba(255,255,255,0.1); }
+    .channel-row.active .channel-name-text { color: var(--ink); }
+    .channel-name-text { font-size: 15px; font-weight: 500; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .channel-menu-wrap { position: relative; }
-    .channel-menu-btn {
-      border: 1px solid rgba(156, 191, 232, 0.26);
-      border-radius: 8px;
-      background: rgba(10, 18, 33, 0.7);
-      color: var(--ink-soft);
-      width: 26px;
-      height: 22px;
-      cursor: pointer;
-      font-size: 12px;
-      font-weight: 800;
-    }
-    .channel-tooltip-menu {
-      position: absolute;
-      top: calc(100% + 6px);
-      right: 0;
-      width: 176px;
-      border: 1px solid rgba(165, 200, 239, 0.25);
-      border-radius: 10px;
-      background: #10192d;
-      padding: 6px;
-      display: none;
-      z-index: 45;
-    }
-    .channel-tooltip-menu.open { display: grid; gap: 4px; }
-    .channel-tooltip-item {
-      border: 1px solid rgba(163, 196, 235, 0.18);
-      border-radius: 8px;
-      background: rgba(18, 29, 50, 0.64);
-      color: var(--ink-soft);
-      font-size: 12px;
-      font-weight: 700;
-      text-align: left;
-      padding: 7px 8px;
-      cursor: pointer;
-    }
+    .channel-menu-btn { border: none; border-radius: 4px; background: transparent; color: var(--ink-dim); width: 24px; height: 24px; cursor: pointer; font-size: 14px; display: grid; place-items: center; }
+    .channel-menu-btn:hover { color: var(--ink); background: rgba(255,255,255,0.08); }
+    .channel-tooltip-menu { position: absolute; top: calc(100% + 4px); right: 0; width: 188px; border: none; border-radius: 4px; background: #111214; box-shadow: 0 8px 16px rgba(0,0,0,0.6); padding: 6px; display: none; z-index: 45; }
+    .channel-tooltip-menu.open { display: grid; gap: 2px; }
+    .channel-tooltip-item { border: none; border-radius: 4px; background: transparent; color: var(--ink-soft); font-size: 14px; font-weight: 500; text-align: left; padding: 6px 8px; cursor: pointer; }
+    .channel-tooltip-item:hover { background: var(--accent); color: #fff; }
 
-    .main { background: linear-gradient(180deg, #0d162a, #0a1324); display: grid; grid-template-rows: auto 1fr; min-width: 0; min-height: 0; }
-    .main-top { border-bottom: 1px solid var(--line); padding: 12px 14px; }
-    .main-title { margin: 0; font-size: 17px; font-weight: 800; }
-    .main-content { min-height: 0; padding: 12px; }
-    #channel-chat-view, #channel-center-view { height: 100%; min-height: 0; }
-    .chat-panel {
-      height: 100%;
-      border: 1px solid rgba(157, 191, 230, 0.18);
-      border-radius: 14px;
-      background: linear-gradient(165deg, rgba(20, 31, 53, 0.74), rgba(11, 20, 36, 0.74));
-      display: grid;
-      grid-template-rows: 1fr auto;
-      min-height: 0;
-    }
-    .chat-messages { min-height: 0; overflow: auto; padding: 12px; display: grid; align-content: start; gap: 8px; }
-    .chat-item { border: 1px solid rgba(166, 198, 234, 0.2); border-radius: 11px; background: rgba(12, 21, 38, 0.7); padding: 9px; display: grid; gap: 4px; }
-    .chat-item-meta { font-size: 11px; color: var(--ink-dim); font-weight: 700; }
-    .chat-item-text { font-size: 13px; line-height: 1.45; color: #e4f1ff; white-space: pre-wrap; }
-    .chat-composer { border-top: 1px solid rgba(158, 190, 229, 0.18); padding: 10px; display: grid; grid-template-columns: 1fr auto; gap: 8px; }
-    .chat-input {
-      border: 1px solid rgba(170, 201, 238, 0.28);
-      border-radius: 10px;
-      background: rgba(7, 14, 26, 0.9);
-      color: var(--ink);
-      font-size: 13px;
-      padding: 10px 11px;
-      outline: none;
-    }
-    .chat-input:focus { border-color: rgba(102, 192, 255, 0.76); }
-    .empty, .card {
-      border: 1px solid rgba(158, 194, 235, 0.2);
-      border-radius: 14px;
-      background: linear-gradient(165deg, rgba(19, 30, 54, 0.72), rgba(11, 19, 35, 0.72));
-      padding: 14px;
-      margin-bottom: 12px;
-    }
+    .main { background: var(--bg); display: grid; grid-template-rows: auto 1fr; min-width: 0; min-height: 0; }
+    .main-top { border-bottom: 1px solid rgba(0,0,0,0.3); padding: 12px 16px; display: flex; align-items: center; gap: 8px; box-shadow: 0 1px 0 rgba(0,0,0,0.2); }
+    .main-title { margin: 0; font-size: 16px; font-weight: 700; color: var(--ink); }
+    .main-content { min-height: 0; padding: 0; }
+    #channel-chat-view { height: 100%; min-height: 0; display: flex; flex-direction: column; }
+    .chat-panel { height: 100%; border: none; border-radius: 0; background: transparent; display: grid; grid-template-rows: 1fr auto; min-height: 0; }
+    .chat-messages { min-height: 0; overflow: auto; padding: 16px 0; display: flex; flex-direction: column; gap: 0; }
+    .chat-item { border: none; border-radius: 0; background: transparent; padding: 2px 16px; display: grid; grid-template-columns: 40px 1fr; gap: 12px; align-items: start; }
+    .chat-item:hover { background: rgba(0,0,0,0.06); }
+    .chat-item-avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--accent); display: grid; place-items: center; font-size: 14px; font-weight: 800; color: #fff; flex-shrink: 0; background-size: cover; background-position: center; margin-top: 2px; }
+    .chat-item-body { min-width: 0; }
+    .chat-item-meta { font-size: 15px; font-weight: 600; color: var(--ink); display: flex; align-items: baseline; gap: 8px; }
+    .chat-item-time { font-size: 11px; color: var(--ink-dim); font-weight: 400; }
+    .chat-item-text { font-size: 15px; line-height: 1.375; color: var(--ink-soft); white-space: pre-wrap; margin-top: 2px; }
+    .chat-placeholder { min-height: 100%; display: grid; place-items: center; text-align: center; padding: 20px; color: var(--ink-dim); gap: 10px; }
+    .chat-placeholder-icon { width: 68px; height: 68px; border-radius: 50%; border: none; background: var(--accent); display: grid; place-items: center; font-size: 32px; color: #fff; margin: 0 auto; }
+    .chat-placeholder h3 { margin: 0; font-size: 24px; color: var(--ink); font-weight: 700; }
+    .chat-placeholder p { margin: 0; font-size: 15px; line-height: 1.5; max-width: 420px; color: var(--ink-soft); }
+    .chat-composer { border-top: none; padding: 0 16px 24px; }
+    .chat-composer-inner { background: #383a40; border-radius: 8px; display: flex; align-items: center; padding: 0 16px; }
+    .chat-input { border: none; border-radius: 0; background: transparent; color: var(--ink); font-size: 15px; padding: 11px 0; outline: none; flex: 1; }
+    .chat-input::placeholder { color: var(--ink-dim); }
+    .chat-send-btn { border: none; background: transparent; color: var(--ink-dim); font-size: 20px; cursor: pointer; padding: 8px 4px; transition: color 0.15s ease; }
+    .chat-send-btn:hover { color: var(--ink); }
+    .empty, .card { border: none; border-radius: 8px; background: rgba(0,0,0,0.2); padding: 16px; margin-bottom: 12px; }
     .empty h1 { margin: 0; font-family: "Sora", "Manrope", sans-serif; font-size: 24px; }
-    .empty p, .card p { margin: 8px 0 0; color: var(--ink-soft); font-size: 13px; line-height: 1.5; }
+    .empty p, .card p { margin: 8px 0 0; color: var(--ink-soft); font-size: 14px; line-height: 1.5; }
     .empty-actions { margin-top: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
-    .discover-list { display: grid; gap: 8px; margin-top: 10px; max-height: 270px; overflow: auto; padding-right: 2px; }
-    .discover-item {
-      border: 1px solid rgba(161, 195, 235, 0.2);
-      border-radius: 10px;
-      background: rgba(13, 22, 40, 0.62);
-      padding: 9px;
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
-      align-items: center;
-      gap: 8px;
-    }
-    .discover-name { font-size: 13px; font-weight: 800; }
-    .discover-meta { margin-top: 2px; color: var(--ink-dim); font-size: 11px; }
-    .members { border-left: 1px solid var(--line); background: linear-gradient(180deg, #0f1a31, #0c1529); display: grid; grid-template-rows: auto 1fr; min-height: 0; }
-    .members-top {
-      border-bottom: 1px solid var(--line);
-      padding: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 8px;
-      font-size: 13px;
-      font-weight: 800;
-    }
-    .members-sort { border: 1px solid rgba(160, 195, 236, 0.26); border-radius: 8px; background: rgba(16, 28, 49, 0.66); color: var(--ink-soft); font-size: 11px; font-weight: 700; padding: 5px 7px; }
-    .members-body { min-height: 0; overflow: auto; padding: 10px; }
-    .member-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
-    .member-item { border: 1px solid rgba(161, 194, 233, 0.2); border-radius: 10px; background: rgba(14, 24, 43, 0.66); padding: 8px; display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: center; }
-    .member-avatar {
-      width: 34px;
-      height: 34px;
-      border-radius: 10px;
-      border: 1px solid rgba(167, 198, 235, 0.3);
-      background: linear-gradient(145deg, #2f4f82, #23406e);
-      color: #e9f4ff;
-      font-size: 12px;
-      font-weight: 800;
-      display: grid;
-      place-items: center;
-      background-size: cover;
-      background-position: center;
-    }
-    .member-name { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .member-sub { margin-top: 2px; color: var(--ink-dim); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .discover-list { display: grid; gap: 4px; margin-top: 10px; max-height: 270px; overflow: auto; padding-right: 2px; }
+    .discover-item { border: none; border-radius: 4px; background: rgba(255,255,255,0.04); padding: 8px 10px; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; }
+    .discover-item:hover { background: rgba(255,255,255,0.08); }
+    .discover-name { font-size: 14px; font-weight: 600; }
+    .discover-meta { margin-top: 2px; color: var(--ink-dim); font-size: 12px; }
+    .members { border-left: 1px solid rgba(0,0,0,0.3); background: var(--panel); display: grid; grid-template-rows: auto 1fr; min-height: 0; }
+    .members-top { border-bottom: 1px solid rgba(0,0,0,0.3); padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--ink-dim); box-shadow: 0 1px 0 rgba(0,0,0,0.2); }
+    .members-sort { border: none; border-radius: 4px; background: rgba(255,255,255,0.06); color: var(--ink-soft); font-size: 11px; font-weight: 600; padding: 4px 6px; }
+    .members-body { min-height: 0; overflow: auto; padding: 8px; }
+    .member-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; }
+    .member-item { border: none; border-radius: 4px; background: transparent; padding: 6px 8px; display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: center; cursor: pointer; transition: background 0.1s ease; }
+    .member-item:hover { background: rgba(255,255,255,0.06); }
+    .member-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 12px; font-weight: 700; display: grid; place-items: center; background-size: cover; background-position: center; flex-shrink: 0; }
+    .member-name { font-size: 15px; font-weight: 500; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .member-item:hover .member-name { color: var(--ink); }
+    .member-sub { margin-top: 1px; color: var(--ink-dim); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
     .modal-wrap {
       position: fixed;
@@ -471,6 +459,462 @@
     .modal-actions { margin-top: 12px; display: flex; justify-content: flex-end; gap: 8px; }
     .modal-msg { margin-top: 8px; font-size: 12px; min-height: 18px; color: var(--ink-soft); }
     .modal-msg.error { color: #ff9db1; }
+    .modal.large { width: min(1040px, 100%); padding: 16px; }
+    .stepper-head { display: grid; gap: 10px; margin-bottom: 10px; }
+    .stepper-head h3 { font-size: 30px; font-family: "Sora", "Manrope", sans-serif; }
+    .stepper-sub { color: var(--ink-dim); font-size: 13px; line-height: 1.45; }
+    .stepper-track {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      align-items: start;
+      gap: 10px;
+      margin-top: 2px;
+    }
+    .step-dot {
+      border: 1px solid rgba(170, 200, 234, 0.24);
+      border-radius: 12px;
+      background: rgba(11, 20, 37, 0.66);
+      color: var(--ink-dim);
+      padding: 8px;
+      display: grid;
+      justify-items: center;
+      gap: 5px;
+      cursor: default;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .step-dot-num {
+      width: 24px;
+      height: 24px;
+      border-radius: 999px;
+      border: 1px solid rgba(178, 209, 242, 0.35);
+      display: grid;
+      place-items: center;
+      font-size: 11px;
+      font-weight: 800;
+      color: #eaf4ff;
+      background: rgba(20, 32, 55, 0.82);
+    }
+    .step-dot.active {
+      border-color: rgba(106, 194, 255, 0.7);
+      color: #dff1ff;
+      background: linear-gradient(155deg, rgba(32, 58, 93, 0.82), rgba(17, 34, 58, 0.82));
+    }
+    .step-dot.active .step-dot-num {
+      border-color: rgba(100, 212, 255, 0.85);
+      background: linear-gradient(145deg, rgba(58, 133, 212, 0.85), rgba(34, 101, 176, 0.85));
+    }
+    .step-panels { margin-top: 10px; }
+    .step-panel { display: none; }
+    .step-panel.active {
+      display: grid;
+      gap: 10px;
+      animation: stepFadeIn 0.28s ease;
+    }
+    @keyframes stepFadeIn {
+      from { opacity: 0; transform: translateY(10px) scale(0.99); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .step-grid {
+      display: grid;
+      grid-template-columns: 1.45fr 1fr;
+      gap: 12px;
+      align-items: start;
+    }
+    .step-card {
+      border: 1px solid rgba(163, 196, 236, 0.22);
+      border-radius: 14px;
+      background: linear-gradient(165deg, rgba(19, 31, 54, 0.76), rgba(10, 17, 30, 0.76));
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+      transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .step-card:hover {
+      border-color: rgba(110, 198, 255, 0.4);
+      box-shadow: 0 10px 24px rgba(5, 12, 22, 0.42);
+      transform: translateY(-1px);
+    }
+    .step-card h4 { margin: 0; font-size: 18px; font-family: "Sora", "Manrope", sans-serif; }
+    .step-card p { margin: 0; color: var(--ink-dim); font-size: 12px; }
+    .step-card textarea {
+      min-height: 110px;
+      border: 1px solid rgba(168, 199, 236, 0.28);
+      border-radius: 10px;
+      background: #0f182e;
+      color: var(--ink);
+      padding: 10px 11px;
+      outline: none;
+      font-size: 13px;
+      resize: vertical;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    }
+    .step-card textarea:focus {
+      border-color: rgba(104, 194, 255, 0.78);
+      box-shadow: 0 0 0 2px rgba(104, 194, 255, 0.22);
+      background: #111c35;
+    }
+    .create-fields input,
+    .create-fields select,
+    .create-fields textarea {
+      border: 1px solid rgba(168, 199, 236, 0.28);
+      border-radius: 10px;
+      background: #0f182e;
+      color: var(--ink);
+      padding: 10px 11px;
+      outline: none;
+      font-size: 13px;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, transform 0.2s ease;
+    }
+    .create-fields textarea { min-height: 110px; resize: vertical; }
+    .create-fields input:hover,
+    .create-fields select:hover,
+    .create-fields textarea:hover {
+      border-color: rgba(120, 203, 255, 0.56);
+      background: #111b33;
+    }
+    .create-fields input:focus,
+    .create-fields select:focus,
+    .create-fields textarea:focus {
+      border-color: rgba(104, 194, 255, 0.82);
+      box-shadow: 0 0 0 2px rgba(104, 194, 255, 0.24);
+      background: #12203b;
+      transform: translateY(-1px);
+    }
+    .visibility-warning {
+      border: 1px solid rgba(255, 178, 92, 0.45);
+      border-radius: 10px;
+      background: linear-gradient(165deg, rgba(255, 147, 74, 0.14), rgba(255, 112, 46, 0.08));
+      color: #ffd6b7;
+      font-size: 12px;
+      line-height: 1.4;
+      padding: 9px 10px;
+      display: none;
+      opacity: 0;
+      transform: translateY(4px);
+      transition: opacity 0.22s ease, transform 0.22s ease;
+    }
+    .visibility-warning.show {
+      display: block;
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .step-controls .btn { transition: transform 0.18s ease, box-shadow 0.18s ease; }
+    .step-controls .btn:hover { transform: translateY(-1px); box-shadow: 0 8px 18px rgba(5, 12, 22, 0.45); }
+    .icon-drop {
+      border: 1px dashed rgba(158, 194, 235, 0.52);
+      border-radius: 14px;
+      min-height: 160px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      background: rgba(10, 19, 35, 0.6);
+      color: var(--ink-dim);
+      padding: 12px;
+      gap: 8px;
+    }
+    .icon-preview {
+      width: 104px;
+      height: 104px;
+      border-radius: 20px;
+      border: 1px solid rgba(179, 208, 241, 0.35);
+      background: linear-gradient(145deg, #2f4f82, #22406b);
+      display: grid;
+      place-items: center;
+      font-size: 24px;
+      font-weight: 800;
+      color: #e9f4ff;
+      background-size: cover;
+      background-position: center;
+      margin: 0 auto;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+    .icon-preview:hover {
+      transform: translateY(-2px);
+      border-color: rgba(113, 201, 255, 0.72);
+      box-shadow: 0 12px 20px rgba(6, 13, 24, 0.48);
+    }
+    .icon-preview.has-icon { color: transparent; font-size: 0; }
+    .step-footer {
+      margin-top: 4px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .step-controls { display: flex; gap: 8px; }
+    .review-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 12px; }
+    .review-box {
+      border: 1px solid rgba(164, 197, 237, 0.24);
+      border-radius: 12px;
+      background: rgba(11, 19, 34, 0.68);
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+      align-content: start;
+    }
+    .review-row { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; color: var(--ink-soft); }
+    .review-row b { color: #e8f4ff; font-weight: 700; }
+    .server-action-card {
+      width: min(480px, 100%);
+      border: 1px solid rgba(170, 203, 241, 0.34);
+      border-radius: 16px;
+      overflow: hidden;
+      background: linear-gradient(170deg, #14223d, #0f1a31 52%, #0d1730);
+      box-shadow: 0 22px 44px rgba(4, 10, 20, 0.56);
+    }
+    .server-action-hero {
+      padding: 12px;
+      border-bottom: 1px solid rgba(170, 203, 241, 0.2);
+      background: linear-gradient(145deg, rgba(56, 108, 182, 0.58), rgba(29, 61, 117, 0.6)), #0f1d37;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 10px;
+    }
+    .server-action-icon {
+      width: 58px;
+      height: 58px;
+      border-radius: 14px;
+      border: 1px solid rgba(196, 219, 246, 0.45);
+      background: linear-gradient(145deg, #2f4f82, #22406b);
+      display: grid;
+      place-items: center;
+      font-size: 18px;
+      font-weight: 800;
+      color: #eaf5ff;
+      background-size: cover;
+      background-position: center;
+    }
+    .server-action-icon.has-icon { color: transparent; font-size: 0; }
+    .server-action-title { margin: 0; font-size: 24px; font-family: "Sora", "Manrope", sans-serif; }
+    .server-action-meta { margin-top: 4px; color: #d3e7ff; font-size: 12px; }
+    .server-action-close {
+      border: 1px solid rgba(188, 217, 248, 0.36);
+      border-radius: 10px;
+      background: rgba(8, 16, 30, 0.6);
+      color: #eff7ff;
+      width: 34px;
+      height: 34px;
+      cursor: pointer;
+      font-size: 20px;
+      line-height: 1;
+    }
+    .server-action-body { padding: 10px; display: grid; gap: 6px; }
+    .server-action-item {
+      border: 1px solid rgba(165, 198, 236, 0.2);
+      border-radius: 10px;
+      background: rgba(14, 24, 43, 0.65);
+      color: #e3f1ff;
+      font-size: 14px;
+      font-weight: 700;
+      text-align: left;
+      padding: 11px 10px;
+      cursor: pointer;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 10px;
+    }
+    .server-action-item small { color: var(--ink-dim); font-size: 11px; font-weight: 600; }
+    .server-settings-layout {
+      width: 100vw;
+      height: 100vh;
+      min-height: 100vh;
+      border: 1px solid rgba(166, 198, 238, 0.3);
+      border-radius: 0;
+      overflow: hidden;
+      background: linear-gradient(170deg, #151f37, #101a31);
+      display: grid;
+      grid-template-columns: 250px 1fr;
+    }
+    #server-settings-modal {
+      padding: 0;
+      background: rgba(3, 7, 13, 0.9);
+      backdrop-filter: blur(7px);
+    }
+    #server-settings-modal.active {
+      display: flex;
+      align-items: stretch;
+      justify-content: stretch;
+    }
+    .ss-nav {
+      border-right: 1px solid rgba(166, 198, 238, 0.2);
+      background: linear-gradient(180deg, #0f1a30, #0c1628);
+      padding: 12px;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 10px;
+    }
+    .ss-brand {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 10px;
+      align-items: center;
+      padding-bottom: 10px;
+      border-bottom: 1px solid rgba(161, 194, 234, 0.16);
+    }
+    .ss-brand-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 11px;
+      border: 1px solid rgba(177, 209, 243, 0.35);
+      background: linear-gradient(145deg, #2f4f82, #22406b);
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      background-size: cover;
+      background-position: center;
+      color: #ebf6ff;
+    }
+    .ss-brand-icon.has-icon { color: transparent; font-size: 0; }
+    .ss-brand-name { font-size: 16px; font-family: "Sora", "Manrope", sans-serif; font-weight: 700; }
+    .ss-brand-sub { margin-top: 2px; color: var(--ink-dim); font-size: 11px; text-transform: uppercase; letter-spacing: 0.7px; }
+    .ss-nav-list { display: grid; gap: 6px; align-content: start; }
+    .ss-nav-item {
+      border: 1px solid rgba(160, 194, 235, 0.18);
+      border-radius: 9px;
+      background: rgba(15, 27, 47, 0.58);
+      color: var(--ink-soft);
+      font-size: 13px;
+      font-weight: 700;
+      text-align: left;
+      padding: 8px 10px;
+      cursor: pointer;
+    }
+    .ss-nav-item.active {
+      border-color: rgba(103, 213, 255, 0.7);
+      color: #def0ff;
+      background: rgba(25, 47, 79, 0.72);
+    }
+    .ss-main {
+      min-height: 0;
+      overflow: auto;
+      padding: 18px 18px 14px;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 14px;
+    }
+    .ss-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    }
+    .ss-head h3 { margin: 0; font-size: 32px; font-family: "Sora", "Manrope", sans-serif; }
+    .ss-head p { margin: 5px 0 0; color: var(--ink-dim); font-size: 13px; max-width: 620px; }
+    .ss-close {
+      border: 1px solid rgba(178, 210, 242, 0.35);
+      border-radius: 11px;
+      background: rgba(12, 22, 40, 0.66);
+      color: #eef7ff;
+      width: 40px;
+      height: 40px;
+      cursor: pointer;
+      font-size: 22px;
+      line-height: 1;
+    }
+    .ss-body { display: grid; gap: 14px; align-content: start; }
+    .ss-card {
+      border: 1px solid rgba(163, 197, 236, 0.2);
+      border-radius: 14px;
+      background: rgba(13, 23, 42, 0.62);
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+    }
+    .ss-card h4 { margin: 0; font-size: 20px; font-family: "Sora", "Manrope", sans-serif; }
+    .ss-grid {
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      gap: 12px;
+      align-items: start;
+    }
+    .ss-form { display: grid; gap: 10px; }
+    .ss-form label { display: grid; gap: 4px; font-size: 11px; letter-spacing: 0.6px; text-transform: uppercase; color: var(--ink-dim); font-weight: 800; }
+    .ss-form input, .ss-form select, .ss-form textarea {
+      border: 1px solid rgba(168, 199, 236, 0.28);
+      border-radius: 10px;
+      background: #0f182e;
+      color: var(--ink);
+      padding: 10px 11px;
+      outline: none;
+      font-size: 13px;
+    }
+    .ss-form textarea { min-height: 90px; resize: vertical; }
+    .ss-form input:focus, .ss-form select:focus, .ss-form textarea:focus { border-color: rgba(104, 194, 255, 0.78); }
+    .ss-icon-uploader {
+      border: 1px dashed rgba(160, 194, 235, 0.5);
+      border-radius: 14px;
+      background: rgba(10, 18, 34, 0.58);
+      padding: 12px;
+      display: grid;
+      gap: 8px;
+      justify-items: center;
+      text-align: center;
+    }
+    .ss-icon-uploader input[type="file"] {
+      width: 100%;
+      max-width: 100%;
+      font-size: 12px;
+      color: var(--ink-soft);
+    }
+    .ss-icon-preview {
+      width: 112px;
+      height: 112px;
+      border-radius: 20px;
+      border: 1px solid rgba(177, 209, 243, 0.36);
+      background: linear-gradient(145deg, #2f4f82, #22406b);
+      display: grid;
+      place-items: center;
+      color: #edf7ff;
+      font-size: 24px;
+      font-weight: 800;
+      background-size: cover;
+      background-position: center;
+    }
+    .ss-icon-preview.has-icon { color: transparent; font-size: 0; }
+    .ss-mode {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .ss-mode-card {
+      border: 1px solid rgba(165, 199, 237, 0.26);
+      border-radius: 12px;
+      background: rgba(14, 25, 44, 0.62);
+      padding: 10px;
+      display: grid;
+      gap: 10px;
+      cursor: pointer;
+    }
+    .ss-mode-card.active {
+      border-color: rgba(106, 194, 255, 0.72);
+      box-shadow: 0 0 0 1px rgba(106, 194, 255, 0.35) inset;
+    }
+    .ss-mode-ghost {
+      border-radius: 8px;
+      height: 74px;
+      border: 1px solid rgba(178, 210, 242, 0.2);
+      background: rgba(255, 255, 255, 0.04);
+    }
+    .ss-mode-name { font-size: 13px; font-weight: 700; }
+    .ss-footer {
+      border-top: 1px solid rgba(160, 194, 234, 0.2);
+      padding-top: 10px;
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    @media (max-width: 960px) {
+      .modal.large { width: min(820px, 100%); }
+      .step-grid, .review-grid { grid-template-columns: 1fr; }
+      .server-settings-layout { grid-template-columns: 1fr; height: 100vh; min-height: 100vh; }
+      .ss-nav { border-right: 0; border-bottom: 1px solid rgba(166, 198, 238, 0.2); grid-template-rows: auto auto; }
+      .ss-nav-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .ss-grid { grid-template-columns: 1fr; }
+    }
 
     @media (max-width: 1020px) {
       .app { grid-template-columns: var(--server-col) 278px 1fr; }
@@ -480,8 +924,8 @@
     }
     @media (max-width: 760px) {
       .app { grid-template-columns: 1fr; grid-template-rows: 68px 1fr; }
-      .servers { grid-template-columns: auto auto 1fr auto auto; grid-template-rows: 1fr; border-right: 0; border-bottom: 1px solid var(--line); padding: 8px; }
-      .server-logo, .server-dm-btn, .server-profile-dock, .server-pill { width: 44px; height: 44px; aspect-ratio: auto; }
+      .servers { grid-template-columns: 1fr auto auto; grid-template-rows: 1fr; border-right: 0; border-bottom: 1px solid var(--line); padding: 8px; }
+      .server-profile-dock, .server-pill { width: 44px; height: 44px; aspect-ratio: auto; }
       .server-list { display: flex; overflow: auto; gap: 8px; }
       .server-rail-separator { width: 1px; height: 32px; border-top: 0; border-left: 1px solid rgba(164,195,238,0.25); margin: 0 6px; }
       .left { display: none; }
@@ -531,10 +975,55 @@
     </div>
   </section>
 
+  <div id="project-support-lock" class="project-support-lock" aria-hidden="true">
+    <div class="project-support-card">
+      <div class="project-support-head">
+        <span>OWS Store Support Gate</span>
+      </div>
+      <div class="project-support-body">
+        <div class="project-support-flow">
+          <div class="project-support-node">
+            <div class="project-support-icon" style="background-image:url('https://raw.githubusercontent.com/OceanandWild/owsdatabase/main/OWS%20Store/build/icon.ico');"></div>
+            <div class="project-support-copy">
+              <strong>OWS Store</strong>
+              <span>Control de soporte y distribucion del ecosistema.</span>
+            </div>
+          </div>
+          <div class="project-support-arrow"><i class="fas fa-arrow-right"></i></div>
+          <div class="project-support-node restricted">
+            <div class="project-support-icon" style="display:flex;align-items:center;justify-content:center;background:rgba(34,12,18,0.62);border-color:rgba(239,68,68,0.5);color:#ff9ab0;">
+              <i class="fas fa-lock"></i>
+            </div>
+            <div class="project-support-copy">
+              <strong>Bloqueo activo</strong>
+              <span>OWS Store bloqueo esta version del proyecto.</span>
+            </div>
+          </div>
+          <div class="project-support-arrow locked"><i class="fas fa-ban"></i></div>
+          <div class="project-support-node">
+            <div id="project-support-icon" class="project-support-icon"></div>
+            <div class="project-support-copy">
+              <strong id="project-support-name">WildWave</strong>
+              <span id="project-support-state">Pleno Rework</span>
+            </div>
+          </div>
+        </div>
+        <h2 class="project-support-title">OWS Store ya no soporta este proyecto</h2>
+        <p id="project-support-text" class="project-support-text">
+          Esta build quedo fuera de soporte. Se bloquea el acceso desde la aplicacion hasta que OWS Store vuelva a habilitarla.
+        </p>
+        <div id="project-support-note" class="project-support-note">
+          Motivo: proceso de rework, error critico o descontinuacion temporal del proyecto.
+        </div>
+        <div class="project-support-actions">
+          <button type="button" class="btn danger" onclick="window.close()"><i class="fas fa-power-off"></i> Cerrar WildWave</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="app" class="app hidden">
     <aside class="servers">
-      <button id="server-rail-center" class="server-logo" type="button" title="Centro">WW</button>
-      <button id="dm-shortcut-btn" class="server-dm-btn" type="button" title="Mensajes">DM</button>
       <div id="server-list" class="server-list"></div>
       <hr class="server-rail-separator" />
       <button id="open-create-plus" class="server-pill" type="button" title="Crear servidor">+</button>
@@ -554,8 +1043,12 @@
     </aside>
 
     <aside class="left">
-      <div id="left-top-server-trigger" class="left-top" title="Servidor actual">
-        <span id="left-selected-server-title">Sin servidor</span>
+      <div id="left-top-server-trigger" class="left-top" title="Abrir menu del servidor">
+        <div class="left-top-row">
+          <div id="left-top-server-icon" class="left-top-icon">SV</div>
+          <span id="left-selected-server-title">Sin servidor</span>
+          <span class="left-top-action">Abrir</span>
+        </div>
         <span id="left-channel-state" class="left-top-meta">0 miembro(s)</span>
       </div>
       <div class="left-body">
@@ -568,38 +1061,16 @@
     </aside>
 
     <main class="main">
-      <header class="main-top"><h2 id="main-title" class="main-title">Centro de canales</h2></header>
+      <header class="main-top"><h2 id="main-title" class="main-title">Chat</h2></header>
       <section class="main-content">
-        <section id="channel-chat-view" class="hidden">
+        <section id="channel-chat-view">
           <article class="chat-panel">
             <div id="channel-messages" class="chat-messages"></div>
             <div class="chat-composer">
-              <input id="channel-message-input" class="chat-input" type="text" maxlength="1800" placeholder="Escribe un mensaje..." />
-              <button id="channel-send-btn" class="btn primary" type="button">Enviar</button>
-            </div>
-          </article>
-        </section>
-        <section id="channel-center-view">
-          <article id="empty-state" class="empty">
-            <h1>No perteneces a ningun servidor</h1>
-            <p>Usa el boton + para crear uno nuevo o abre uno de la lista cuando tengas membresias.</p>
-            <div class="empty-actions">
-              <button id="explore-btn" class="btn primary" type="button">Buscar servidores</button>
-              <button id="create-channel-empty" class="btn" type="button">Crear servidor</button>
-            </div>
-          </article>
-          <article id="has-channel-state" class="card hidden">
-            <h3>Servidores disponibles</h3>
-            <p>Selecciona un servidor para abrir su estructura de canales.</p>
-          </article>
-          <article class="card">
-            <h3 style="margin-bottom:10px;">Servidores</h3>
-            <div id="discover-list" class="discover-list"></div>
-          </article>
-          <article class="card">
-            <h3>Bandeja DM</h3>
-            <div id="dm-thread-view" style="color:var(--ink-soft);font-size:13px;line-height:1.45;">
-              Abre un mensaje directo desde el acceso DM para ver su contenido.
+              <div class="chat-composer-inner">
+                <input id="channel-message-input" class="chat-input" type="text" maxlength="1800" placeholder="Escribe un mensaje..." />
+                <button id="channel-send-btn" class="chat-send-btn" type="button">➤</button>
+              </div>
             </div>
           </article>
         </section>
@@ -619,22 +1090,212 @@
   </div>
 
   <div id="create-channel-modal" class="modal-wrap">
-    <div class="modal">
-      <h3>Crear servidor</h3>
-      <p>Configura nombre, descripcion, icono e invitaciones iniciales.</p>
-      <form id="create-channel-form" class="modal-grid">
-        <input id="channel-name-input" type="text" placeholder="Nombre del servidor" maxlength="32" required />
-        <input id="channel-topic-input" type="text" placeholder="Descripcion breve" maxlength="90" />
-        <input id="channel-icon-input" type="file" accept="image/png,image/jpeg,image/webp" />
-        <input id="invite-search-input" type="text" placeholder="Buscar usuarios para invitar..." maxlength="32" />
-        <div id="invite-results" class="discover-list"></div>
-        <div id="selected-invites" class="discover-list"></div>
-        <div class="modal-actions">
-          <button id="create-channel-cancel" class="btn" type="button">Cancelar</button>
-          <button id="create-channel-submit" class="btn primary" type="submit">Crear servidor</button>
+    <div class="modal large">
+      <div class="stepper-head">
+        <h3>Crear nuevo servidor</h3>
+        <p class="stepper-sub">Disena un espacio curado para tu comunidad. Configura informacion, icono, invitados y revision final antes de lanzar.</p>
+        <div id="create-stepper-track" class="stepper-track">
+          <button class="step-dot active" type="button" data-step-target="1"><span class="step-dot-num">1</span><span>Informacion</span></button>
+          <button class="step-dot" type="button" data-step-target="2"><span class="step-dot-num">2</span><span>Icono</span></button>
+          <button class="step-dot" type="button" data-step-target="3"><span class="step-dot-num">3</span><span>Invitar</span></button>
+          <button class="step-dot" type="button" data-step-target="4"><span class="step-dot-num">4</span><span>Finalizar</span></button>
+        </div>
+      </div>
+      <form id="create-channel-form">
+        <div class="step-panels">
+          <section class="step-panel active" data-step-panel="1">
+            <div class="step-grid">
+              <article class="step-card">
+                <h4>Esenciales del servidor</h4>
+                <p>Define nombre, descripcion y modo inicial de visibilidad.</p>
+                <div class="modal-grid create-fields" style="margin-top:0;">
+                  <input id="channel-name-input" type="text" placeholder="Nombre del servidor" maxlength="32" required />
+                  <textarea id="channel-topic-input" placeholder="Describe el enfoque del servidor..." maxlength="180"></textarea>
+                  <select id="channel-visibility-input">
+                    <option value="public">Publico</option>
+                    <option value="private">Privado</option>
+                  </select>
+                  <div id="channel-visibility-warning" class="visibility-warning">
+                    Advertencia: al crear un servidor publico, cualquier usuario podra descubrirlo y solicitar acceso.
+                    Verifica nombre, descripcion e icono antes de lanzar.
+                  </div>
+                </div>
+              </article>
+              <article class="step-card">
+                <h4>Identidad</h4>
+                <p>Un buen icono mejora descubrimiento y reconocimiento.</p>
+                <div class="icon-drop">
+                  <div id="channel-icon-preview" class="icon-preview">SV</div>
+                  <div style="font-size:12px;">Recomendado: 512x512</div>
+                </div>
+              </article>
+            </div>
+          </section>
+          <section class="step-panel" data-step-panel="2">
+            <div class="step-grid">
+              <article class="step-card">
+                <h4>Subir icono del servidor</h4>
+                <p>Usa JPG, PNG o WEBP para representar tu comunidad.</p>
+                <input id="channel-icon-input" type="file" accept="image/png,image/jpeg,image/webp" />
+                <div class="icon-drop">
+                  <div id="channel-icon-preview-2" class="icon-preview">SV</div>
+                  <div style="font-size:12px;">Vista previa en rail y cabecera.</div>
+                </div>
+              </article>
+              <article class="step-card">
+                <h4>Consejos</h4>
+                <p>- Contraste alto para verse bien en rail.</p>
+                <p>- Evita texto muy fino en el icono.</p>
+                <p>- Mantener composicion centrada.</p>
+              </article>
+            </div>
+          </section>
+          <section class="step-panel" data-step-panel="3">
+            <div class="step-grid">
+              <article class="step-card">
+                <h4>Invita a tu equipo</h4>
+                <p>Busca usuarios de WildWave y seleccionalos antes de crear.</p>
+                <input id="invite-search-input" type="text" placeholder="Buscar usuarios para invitar..." maxlength="32" />
+                <div id="invite-results" class="discover-list"></div>
+              </article>
+              <article class="step-card">
+                <h4>Seleccionados</h4>
+                <p>Estos usuarios recibiran invitacion al lanzar.</p>
+                <div id="selected-invites" class="discover-list"></div>
+              </article>
+            </div>
+          </section>
+          <section class="step-panel" data-step-panel="4">
+            <div class="review-grid">
+              <article class="review-box">
+                <h4 style="margin:0;">Resumen de lanzamiento</h4>
+                <div class="review-row"><span>Servidor</span><b id="review-server-name">-</b></div>
+                <div class="review-row"><span>Descripcion</span><b id="review-server-desc">-</b></div>
+                <div class="review-row"><span>Visibilidad</span><b id="review-server-visibility">Publico</b></div>
+                <div class="review-row"><span>Invitados</span><b id="review-server-invites">0</b></div>
+              </article>
+              <article class="review-box">
+                <h4 style="margin:0;">Vista previa</h4>
+                <div style="display:grid;grid-template-columns:auto 1fr;gap:8px;align-items:center;">
+                  <div id="review-server-icon" class="icon-preview" style="width:64px;height:64px;border-radius:14px;font-size:16px;">SV</div>
+                  <div>
+                    <div id="review-server-name-2" style="font-size:14px;font-weight:800;">Nuevo servidor</div>
+                    <div id="review-server-desc-2" style="font-size:11px;color:var(--ink-dim);margin-top:2px;">Descripcion del servidor</div>
+                  </div>
+                </div>
+                <button id="create-channel-submit" class="btn primary" type="submit">Crear servidor</button>
+              </article>
+            </div>
+          </section>
+        </div>
+        <div class="step-footer">
+          <div id="create-channel-msg" class="modal-msg"></div>
+          <div class="step-controls">
+            <button id="create-channel-cancel" class="btn" type="button">Cancelar</button>
+            <button id="create-channel-prev" class="btn" type="button">Anterior</button>
+            <button id="create-channel-next" class="btn primary" type="button">Siguiente</button>
+          </div>
         </div>
       </form>
-      <div id="create-channel-msg" class="modal-msg"></div>
+    </div>
+  </div>
+
+  <div id="server-action-modal" class="modal-wrap">
+    <div class="server-action-card">
+      <div class="server-action-hero">
+        <div id="server-action-icon" class="server-action-icon">SV</div>
+        <div>
+          <h3 id="server-action-title" class="server-action-title">Servidor</h3>
+          <div id="server-action-online" class="server-action-meta">0 miembro(s)</div>
+        </div>
+        <button id="server-action-close" class="server-action-close" type="button">&times;</button>
+      </div>
+      <div class="server-action-body">
+        <button id="server-action-invite" class="server-action-item" type="button"><span>Invitar personas<br /><small>Busca miembros y envia invitaciones</small></span><span>&rsaquo;</span></button>
+        <button id="server-action-settings" class="server-action-item" type="button"><span>Ajustes del servidor<br /><small>Icono, nombre y opciones basicas</small></span><span>&rsaquo;</span></button>
+        <button id="server-action-create-channel" class="server-action-item" type="button"><span>Crear servidor nuevo<br /><small>Inicia el flujo guiado stepper</small></span><span>&plus;</span></button>
+      </div>
+    </div>
+  </div>
+
+  <div id="server-settings-modal" class="modal-wrap">
+    <div class="server-settings-layout">
+      <aside class="ss-nav">
+        <div class="ss-brand">
+          <div id="ss-brand-icon" class="ss-brand-icon">SV</div>
+          <div>
+            <div class="ss-brand-name">Ajustes del servidor</div>
+            <div class="ss-brand-sub">Administracion</div>
+          </div>
+        </div>
+        <div class="ss-nav-list">
+          <button class="ss-nav-item active" type="button">Resumen</button>
+          <button class="ss-nav-item" type="button">Roles</button>
+          <button class="ss-nav-item" type="button">Integraciones</button>
+          <button class="ss-nav-item" type="button">Seguridad</button>
+        </div>
+        <button id="ss-cancel-side" class="btn" type="button">Cerrar</button>
+      </aside>
+      <section class="ss-main">
+        <header class="ss-head">
+          <div>
+            <h3>Resumen</h3>
+            <p>Personaliza la identidad del servidor. Los cambios se aplican cuando guardes.</p>
+          </div>
+          <button id="ss-close" class="ss-close" type="button">&times;</button>
+        </header>
+        <div class="ss-body">
+          <article class="ss-card">
+            <h4>Identidad del servidor</h4>
+            <div class="ss-grid">
+              <div class="ss-icon-uploader">
+                <div id="ss-icon-preview" class="ss-icon-preview">SV</div>
+                <input id="ss-icon-input" type="file" accept="image/png,image/jpeg,image/webp" />
+                <div style="font-size:11px;color:var(--ink-dim);">Recomendado 512x512</div>
+              </div>
+              <div class="ss-form">
+                <label>Nombre del servidor
+                  <input id="ss-name-input" type="text" maxlength="32" />
+                </label>
+                <label>Descripcion
+                  <textarea id="ss-description-input" maxlength="180"></textarea>
+                </label>
+                <label>Region
+                  <select id="ss-region-input">
+                    <option value="us-east">US East</option>
+                    <option value="us-west">US West</option>
+                    <option value="sa-east">Sudamerica East</option>
+                    <option value="eu-west">EU West</option>
+                  </select>
+                </label>
+                <label>Visibilidad
+                  <select id="ss-visibility-input">
+                    <option value="public">Publico</option>
+                    <option value="private">Privado</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+          </article>
+          <article class="ss-card">
+            <h4>Modo de visualizacion</h4>
+            <div class="ss-mode">
+              <button id="ss-mode-editorial" class="ss-mode-card active" type="button">
+                <div class="ss-mode-ghost"></div>
+                <div class="ss-mode-name">Vista editorial</div>
+              </button>
+              <button id="ss-mode-compact" class="ss-mode-card" type="button">
+                <div class="ss-mode-ghost"></div>
+                <div class="ss-mode-name">Lista compacta</div>
+              </button>
+            </div>
+          </article>
+        </div>
+        <footer class="ss-footer">
+          <button id="ss-cancel-btn" class="btn" type="button">Cancelar</button>
+          <button id="ss-save-btn" class="btn primary" type="button">Guardar cambios</button>
+        </footer>
+      </section>
     </div>
   </div>
 
@@ -642,6 +1303,29 @@
 
   <script>
     const API_BASE = "https://owsdatabase.onrender.com";
+    (function initOwsProjectGuard() {
+      const mountGuard = () => {
+        if (!window.OWSProjectRestrictionGuard || typeof window.OWSProjectRestrictionGuard.mount !== "function") return;
+        window.OWSProjectRestrictionGuard.mount({
+          apiBaseUrl: API_BASE,
+          projectSlug: "wildwave",
+          projectName: "WildWave",
+          checkIntervalMs: 30000
+        });
+      };
+      if (window.OWSProjectRestrictionGuard) {
+        mountGuard();
+        return;
+      }
+      const s = document.createElement("script");
+      s.src = "https://owsdatabase.onrender.com/shared/ows-project-guard.js";
+      s.async = true;
+      s.onload = mountGuard;
+      document.head.appendChild(s);
+    })();
+    const STORE_PROJECT_SLUG = "wildwave";
+    const SUPPORT_GATE_BYPASS_KEY = "wildwave_support_gate_bypass";
+    const STORE_MIN_ENFORCED_BLOCK_VERSION = "2026.4.14-t0656";
     const STORAGE_TOKEN = "wildwave_token";
     const STORAGE_USER = "wildwave_user";
 
@@ -651,12 +1335,16 @@
     let allChannels = [];
     let selectedServerId = null;
     let selectedTextChannelId = null;
-    let activeMainView = "center";
+    let activeMainView = "chat";
     let membersSort = "alpha";
     let serverMembers = [];
     let inviteSearchResults = [];
     let selectedInviteUsers = [];
     let openChannelMenuId = null;
+    let createServerStep = 1;
+    let createServerPreviewUrl = "";
+    let serverSettingsPreviewUrl = "";
+    let serverDisplayMode = "editorial";
     const serverTrees = new Map();
 
     const authScreen = document.getElementById("auth-screen");
@@ -669,41 +1357,72 @@
     const modeRegisterBtn = document.getElementById("mode-register");
     const mainTitle = document.getElementById("main-title");
     const channelChatView = document.getElementById("channel-chat-view");
-    const channelCenterView = document.getElementById("channel-center-view");
     const channelMessages = document.getElementById("channel-messages");
     const channelMessageInput = document.getElementById("channel-message-input");
     const channelSendBtn = document.getElementById("channel-send-btn");
-    const serverRailCenter = document.getElementById("server-rail-center");
     const serverList = document.getElementById("server-list");
     const leftTopServerTrigger = document.getElementById("left-top-server-trigger");
+    const leftTopServerIcon = document.getElementById("left-top-server-icon");
     const leftSelectedServerTitle = document.getElementById("left-selected-server-title");
     const leftChannelState = document.getElementById("left-channel-state");
     const serverChannelsView = document.getElementById("server-channels-view");
     const serverAddCategoryBtn = document.getElementById("server-add-category-btn");
-    const dmShortcutBtn = document.getElementById("dm-shortcut-btn");
-    const discoverList = document.getElementById("discover-list");
-    const dmThreadView = document.getElementById("dm-thread-view");
     const memberList = document.getElementById("member-list");
     const membersSortSelect = document.getElementById("members-sort");
-    const emptyState = document.getElementById("empty-state");
-    const hasChannelState = document.getElementById("has-channel-state");
     const profileDockBtn = document.getElementById("profile-dock-btn");
     const profileFlyout = document.getElementById("profile-flyout");
     const profileFlyoutAvatar = document.getElementById("profile-flyout-avatar");
     const profileFlyoutName = document.getElementById("profile-flyout-name");
     const profileFlyoutHandle = document.getElementById("profile-flyout-handle");
     const createPlusBtn = document.getElementById("open-create-plus");
-    const createChannelBtnEmpty = document.getElementById("create-channel-empty");
     const createChannelModal = document.getElementById("create-channel-modal");
     const createChannelForm = document.getElementById("create-channel-form");
     const createChannelCancel = document.getElementById("create-channel-cancel");
+    const createChannelPrev = document.getElementById("create-channel-prev");
+    const createChannelNext = document.getElementById("create-channel-next");
     const createChannelMsg = document.getElementById("create-channel-msg");
+    const createStepperTrack = document.getElementById("create-stepper-track");
+    const stepPanels = Array.from(document.querySelectorAll("[data-step-panel]"));
+    const stepDots = Array.from(document.querySelectorAll("[data-step-target]"));
     const channelNameInput = document.getElementById("channel-name-input");
     const channelTopicInput = document.getElementById("channel-topic-input");
+    const channelVisibilityInput = document.getElementById("channel-visibility-input");
     const channelIconInput = document.getElementById("channel-icon-input");
+    const channelVisibilityWarning = document.getElementById("channel-visibility-warning");
+    const channelIconPreview = document.getElementById("channel-icon-preview");
+    const channelIconPreview2 = document.getElementById("channel-icon-preview-2");
+    const reviewServerIcon = document.getElementById("review-server-icon");
+    const reviewServerName = document.getElementById("review-server-name");
+    const reviewServerName2 = document.getElementById("review-server-name-2");
+    const reviewServerDesc = document.getElementById("review-server-desc");
+    const reviewServerDesc2 = document.getElementById("review-server-desc-2");
+    const reviewServerVisibility = document.getElementById("review-server-visibility");
+    const reviewServerInvites = document.getElementById("review-server-invites");
     const inviteSearchInput = document.getElementById("invite-search-input");
     const inviteResults = document.getElementById("invite-results");
     const selectedInvites = document.getElementById("selected-invites");
+    const serverActionModal = document.getElementById("server-action-modal");
+    const serverActionIcon = document.getElementById("server-action-icon");
+    const serverActionTitle = document.getElementById("server-action-title");
+    const serverActionOnline = document.getElementById("server-action-online");
+    const serverActionClose = document.getElementById("server-action-close");
+    const serverActionInvite = document.getElementById("server-action-invite");
+    const serverActionSettings = document.getElementById("server-action-settings");
+    const serverActionCreateChannel = document.getElementById("server-action-create-channel");
+    const serverSettingsModal = document.getElementById("server-settings-modal");
+    const ssBrandIcon = document.getElementById("ss-brand-icon");
+    const ssIconPreview = document.getElementById("ss-icon-preview");
+    const ssIconInput = document.getElementById("ss-icon-input");
+    const ssNameInput = document.getElementById("ss-name-input");
+    const ssDescriptionInput = document.getElementById("ss-description-input");
+    const ssRegionInput = document.getElementById("ss-region-input");
+    const ssVisibilityInput = document.getElementById("ss-visibility-input");
+    const ssClose = document.getElementById("ss-close");
+    const ssCancelSide = document.getElementById("ss-cancel-side");
+    const ssCancelBtn = document.getElementById("ss-cancel-btn");
+    const ssSaveBtn = document.getElementById("ss-save-btn");
+    const ssModeEditorial = document.getElementById("ss-mode-editorial");
+    const ssModeCompact = document.getElementById("ss-mode-compact");
 
     function safeText(value, fallback = "") {
       const txt = String(value || "").trim();
@@ -715,6 +1434,22 @@
       const parts = raw.split(/\s+/).filter(Boolean);
       if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
       return raw.slice(0, 2).toUpperCase();
+    }
+
+    function safeUrlForCss(url) {
+      return safeText(url).replace(/'/g, "%27");
+    }
+
+    function applySquareIcon(el, iconUrl, fallbackText, className = "has-icon") {
+      if (!el) return;
+      const initials = getInitials(fallbackText || "SV");
+      el.textContent = initials;
+      el.classList.remove(className);
+      el.style.backgroundImage = "";
+      if (iconUrl) {
+        el.style.backgroundImage = `url('${safeUrlForCss(iconUrl)}')`;
+        el.classList.add(className);
+      }
     }
 
     function showToast(message, type = "info") {
@@ -747,6 +1482,188 @@
         throw new Error(message || `Error ${res.status}`);
       }
       return payload;
+    }
+
+    function parseProjectMetadata(project) {
+      const meta = project?.metadata;
+      if (!meta) return {};
+      if (typeof meta === "string") {
+        try {
+          const parsed = JSON.parse(meta);
+          return parsed && typeof parsed === "object" ? parsed : {};
+        } catch (_) {
+          return {};
+        }
+      }
+      return typeof meta === "object" ? meta : {};
+    }
+
+    function parseReleaseVersionParts(version) {
+      const raw = safeText(version);
+      const match = raw.match(/^(\d{4})\.(\d{1,2})\.(\d{1,2})-t(\d{4})$/);
+      if (!match) return null;
+      return {
+        year: Number(match[1]),
+        month: Number(match[2]),
+        day: Number(match[3]),
+        time: Number(match[4]),
+      };
+    }
+
+    function compareReleaseVersion(a, b) {
+      const pa = parseReleaseVersionParts(a);
+      const pb = parseReleaseVersionParts(b);
+      if (!pa || !pb) {
+        return safeText(a).localeCompare(safeText(b), undefined, { numeric: true, sensitivity: "base" });
+      }
+      if (pa.year !== pb.year) return pa.year - pb.year;
+      if (pa.month !== pb.month) return pa.month - pb.month;
+      if (pa.day !== pb.day) return pa.day - pb.day;
+      return pa.time - pb.time;
+    }
+
+    function getStoreRestrictionState(project) {
+      if (!project || typeof project !== "object") return "";
+      const metadata = parseProjectMetadata(project);
+      const forceBlockRaw = String(
+        metadata?.force_block
+        ?? metadata?.forceBlock
+        ?? ""
+      ).trim().toLowerCase();
+      const forceBlock = forceBlockRaw === "true" || forceBlockRaw === "1";
+      if (forceBlock) {
+        const forcedState = safeText(metadata?.force_block_state || metadata?.forceBlockState).toLowerCase();
+        const isForcedRework = forcedState === "rework"
+          || forcedState === "pleno_rework"
+          || forcedState === "full_rework";
+        return isForcedRework ? "rework" : "unavailable";
+      }
+      const status = safeText(project.status).toLowerCase().trim();
+      const rawState = safeText(project.phase_state || project.dev_state || project.build_state || project.project_state).toLowerCase().trim();
+      const reason = safeText(project.unavailable_reason || project.status_reason || project.block_reason || project.maintenance_reason).toLowerCase().trim();
+      const isRework = status === "rework"
+        || status === "pleno_rework"
+        || status === "full_rework"
+        || rawState === "rework"
+        || rawState === "pleno_rework"
+        || rawState === "full_rework"
+        || reason.includes("rework")
+        || reason.includes("reforma")
+        || reason.includes("pleno rework");
+      if (isRework) return "rework";
+      const isUnavailable = ["unavailable", "indisponible", "disabled", "blocked", "not_available", "no_disponible"].includes(status)
+        || project.unavailable === true
+        || project.disabled === true
+        || project.blocked === true
+        || reason.includes("indisponible")
+        || reason.includes("descontinu")
+        || reason.includes("maintenance")
+        || reason.includes("mantenimiento")
+        || reason.includes("error");
+      return isUnavailable ? "unavailable" : "";
+    }
+
+    function getStoreRestrictionReason(project, state) {
+      const metadata = parseProjectMetadata(project);
+      const raw = safeText(
+        metadata?.force_block_reason
+        || metadata?.forceBlockReason
+        || metadata?.force_reason
+        || metadata?.forceReason
+        || metadata?.block_reason
+        || metadata?.blockReason
+        || metadata?.reason
+        || metadata?.status_reason
+        || metadata?.unavailable_reason
+        || metadata?.maintenance_reason
+        || metadata?.release_warning
+        || project?.unavailable_reason
+        || project?.status_reason
+        || project?.block_reason
+        || project?.maintenance_reason
+        || project?.release_warning
+        || project?.reason
+      );
+      if (raw) return raw;
+      return state === "rework" ? "Pleno rework en curso." : "Proyecto indisponible por OWS Store.";
+    }
+
+    function showProjectSupportLock(project, state, reason) {
+      const lock = document.getElementById("project-support-lock");
+      if (!lock) return;
+      const name = safeText(project?.name, "Proyecto");
+      const icon = safeText(project?.icon_url || project?.avatar_url);
+      const iconEl = document.getElementById("project-support-icon");
+      const nameEl = document.getElementById("project-support-name");
+      const stateEl = document.getElementById("project-support-state");
+      const textEl = document.getElementById("project-support-text");
+      const noteEl = document.getElementById("project-support-note");
+      if (iconEl) {
+        iconEl.style.backgroundImage = icon ? `url('${safeUrlForCss(icon)}')` : "";
+        iconEl.style.backgroundColor = "rgba(12, 22, 38, 0.9)";
+      }
+      if (nameEl) nameEl.textContent = name;
+      if (stateEl) stateEl.textContent = state === "rework" ? "Pleno Rework" : "Indisponible";
+      if (textEl) {
+        textEl.textContent = `${name} ya no tiene soporte en OWS Store para esta build. El acceso queda bloqueado hasta que el estado vuelva a disponible.`;
+      }
+      if (noteEl) {
+        noteEl.textContent = state === "rework"
+          ? `Motivo detectado: pleno rework. ${reason}`
+          : `Motivo detectado: indisponible. ${reason}`;
+      }
+      lock.classList.add("active");
+      lock.setAttribute("aria-hidden", "false");
+      showToast(`${name} bloqueado por OWS Store (${state === "rework" ? "Pleno Rework" : "Indisponible"}).`, "error");
+    }
+
+    async function shouldBypassStoreSupportGate() {
+      try {
+        const search = new URLSearchParams(window.location.search || "");
+        if (search.get("owsBypass") === "1") return true;
+      } catch (_) {}
+      try {
+        if (safeText(localStorage.getItem(SUPPORT_GATE_BYPASS_KEY)) === "1") return true;
+      } catch (_) {}
+      try {
+        if (window.wildwaveUpdater?.runtime) {
+          const runtime = await window.wildwaveUpdater.runtime();
+          if (runtime && runtime.packaged === false) return true;
+          const packaged = runtime && typeof runtime.packaged === "boolean" ? runtime.packaged : null;
+          const runtimeVersion = safeText(
+            runtime?.version
+            || runtime?.appVersion
+            || runtime?.versionName
+            || runtime?.currentVersion
+          );
+          if (packaged === true && runtimeVersion && compareReleaseVersion(runtimeVersion, STORE_MIN_ENFORCED_BLOCK_VERSION) < 0) {
+            return true;
+          }
+        }
+      } catch (_) {}
+      try {
+        const host = safeText(window.location.hostname).toLowerCase();
+        if (host === "localhost" || host === "127.0.0.1") return true;
+      } catch (_) {}
+      return false;
+    }
+
+    async function enforceStoreSupportGate() {
+      try {
+        const bypass = await shouldBypassStoreSupportGate();
+        if (bypass) return false;
+        const list = await api("/ows-store/projects");
+        const projects = Array.isArray(list) ? list : [];
+        const project = projects.find((item) => safeText(item?.slug).toLowerCase() === STORE_PROJECT_SLUG);
+        if (!project) return false;
+        const state = getStoreRestrictionState(project);
+        if (!state) return false;
+        const reason = getStoreRestrictionReason(project, state);
+        showProjectSupportLock(project, state, reason);
+        return true;
+      } catch (_) {
+        return false;
+      }
     }
 
     function getToken() {
@@ -783,22 +1700,19 @@
     }
 
     function setMainView(mode) {
-      activeMainView = mode === "chat" ? "chat" : "center";
-      channelCenterView.classList.toggle("hidden", activeMainView !== "center");
-      channelChatView.classList.toggle("hidden", activeMainView !== "chat");
+      activeMainView = "chat";
+      channelChatView.classList.remove("hidden");
       updateMainTitle();
     }
+      fetchMessagesForCurrentChannel().catch(() => null);
+      fetchMessagesForCurrentChannel().catch(() => null);
 
     function updateMainTitle() {
-      if (activeMainView === "center") {
-        mainTitle.textContent = "Centro de canales";
-        return;
-      }
       const selected = getSelectedServer();
       const tree = selected ? getServerTree(selected) : [];
       const flat = tree.flatMap((cat) => cat.items || []);
       const selectedChannel = flat.find((ch) => Number(ch.id) === Number(selectedTextChannelId));
-      mainTitle.textContent = selectedChannel ? `# ${safeText(selectedChannel.name, "general")}` : "Selecciona un canal";
+      mainTitle.textContent = selectedChannel ? `# ${safeText(selectedChannel.name, "general")}` : "Chat";
     }
 
     function hydrateProfileDock() {
@@ -852,7 +1766,10 @@
       serverList.innerHTML = ownChannels.map((srv) => {
         const active = Number(srv.id) === Number(selectedServerId);
         const label = safeText(srv.name, "SV");
-        return `<button class="server-pill ${active ? "active" : ""}" type="button" data-server-id="${srv.id}" title="${label}">${getInitials(label)}</button>`;
+        const icon = safeText(srv.icon_url, "");
+        const iconClass = icon ? "has-icon" : "";
+        const style = icon ? `style="background-image:url('${safeUrlForCss(icon)}')"` : "";
+        return `<button class="server-pill ${active ? "active" : ""} ${iconClass}" type="button" data-server-id="${srv.id}" title="${label}" ${style}>${getInitials(label)}</button>`;
       }).join("");
       serverList.querySelectorAll("[data-server-id]").forEach((btn) => {
         btn.addEventListener("click", async () => {
@@ -869,6 +1786,7 @@
         serverChannelsView.innerHTML = "<div class='member-sub'>Crea o acepta un servidor para ver canales.</div>";
         leftSelectedServerTitle.textContent = "Sin servidor";
         leftChannelState.textContent = "0 miembro(s)";
+        applySquareIcon(leftTopServerIcon, "", "SV");
         return;
       }
       if (!selectedServerId || !ownChannels.some((c) => Number(c.id) === Number(selectedServerId))) {
@@ -877,9 +1795,12 @@
       const selected = getSelectedServer();
       leftSelectedServerTitle.textContent = safeText(selected?.name, "Servidor");
       leftChannelState.textContent = `${Number(selected?.members_count || 0)} miembro(s)`;
+      applySquareIcon(leftTopServerIcon, safeText(selected?.icon_url, ""), safeText(selected?.name, "Servidor"));
       const tree = getServerTree(selected);
       const allText = tree.flatMap((cat) => cat.items || []);
-      if (!selectedTextChannelId && allText.length) selectedTextChannelId = Number(allText[0].id || 0) || null;
+      if (selectedTextChannelId && !allText.some((item) => Number(item.id) === Number(selectedTextChannelId))) {
+        selectedTextChannelId = null;
+      }
       if (!tree.length) {
         serverChannelsView.innerHTML = "<div class='member-sub'>No hay categorias aun. Usa + Categoria.</div>";
         return;
@@ -916,9 +1837,13 @@
         const user = safeText(m.username, "usuario");
         const joined = m.joined_at ? new Date(m.joined_at).toLocaleDateString() : "-";
         const initials = getInitials(name);
+        const avatarUrl = safeText(m.avatar_url || '');
+        const avatarStyle = avatarUrl
+          ? `background-image:url('${avatarUrl.replace(/'/g, "%27")}');color:transparent;font-size:0`
+          : '';
         return `
           <li class="member-item">
-            <div class="member-avatar">${initials}</div>
+            <div class="member-avatar" style="${avatarStyle}">${avatarUrl ? '' : initials}</div>
             <div>
               <div class="member-name">${name}</div>
               <div class="member-sub">@${user} · ${joined}</div>
@@ -927,43 +1852,14 @@
         `;
       }).join("");
     }
-
-    function renderDiscoverList() {
-      if (!allChannels.length) {
-        discoverList.innerHTML = "<div class='member-sub'>No hay servidores disponibles.</div>";
-        return;
-      }
-      discoverList.innerHTML = allChannels.map((c) => `
-        <div class="discover-item">
-          <div>
-            <div class="discover-name">${safeText(c.name, "Servidor")}</div>
-            <div class="discover-meta">${safeText(c.description || c.topic, "Sin descripcion")} · ${Number(c.members_count || 0)} miembro(s)</div>
-          </div>
-          <button class="btn" type="button" data-open-discover="${c.id}">Abrir</button>
-        </div>
-      `).join("");
-      discoverList.querySelectorAll("[data-open-discover]").forEach((btn) => {
-        btn.addEventListener("click", async () => {
-          selectedServerId = Number(btn.getAttribute("data-open-discover") || 0) || null;
-          selectedTextChannelId = null;
-          renderMembershipState();
-          await fetchServerMembers(selectedServerId).catch(() => null);
-          showToast("Servidor seleccionado.", "ok");
-        });
-      });
-    }
-
     function renderMembershipState() {
       const hasChannels = ownChannels.length > 0;
-      emptyState.classList.toggle("hidden", hasChannels);
-      hasChannelState.classList.toggle("hidden", !hasChannels);
-      createChannelBtnEmpty.classList.toggle("hidden", hasChannels);
       serverAddCategoryBtn.classList.toggle("hidden", !hasChannels);
       renderServerRail();
       renderOwnChannels();
-      renderDiscoverList();
       renderMembers();
       updateMainTitle();
+      fetchMessagesForCurrentChannel().catch(() => null);
     }
 
     function renderInviteSearchResults() {
@@ -1019,6 +1915,89 @@
       });
     }
 
+    function setCreateIconPreviews(iconUrl, fallbackName = "") {
+      const fallback = fallbackName || channelNameInput.value || "Servidor";
+      applySquareIcon(channelIconPreview, iconUrl, fallback);
+      applySquareIcon(channelIconPreview2, iconUrl, fallback);
+      applySquareIcon(reviewServerIcon, iconUrl, fallback);
+    }
+
+    function updateCreateReview() {
+      const name = safeText(channelNameInput.value, "Nuevo servidor");
+      const desc = safeText(channelTopicInput.value, "Sin descripcion");
+      const visibility = channelVisibilityInput.value === "private" ? "Privado" : "Publico";
+      reviewServerName.textContent = name;
+      reviewServerName2.textContent = name;
+      reviewServerDesc.textContent = desc;
+      reviewServerDesc2.textContent = desc;
+      reviewServerVisibility.textContent = visibility;
+      reviewServerInvites.textContent = String(selectedInviteUsers.length);
+      setCreateIconPreviews(createServerPreviewUrl, name);
+    }
+
+    function updateVisibilityWarning() {
+      const isPublic = channelVisibilityInput.value === "public";
+      if (!channelVisibilityWarning) return;
+      channelVisibilityWarning.classList.toggle("show", isPublic);
+    }
+
+    function setCreateServerStep(step) {
+      createServerStep = Math.max(1, Math.min(4, Number(step || 1)));
+      stepPanels.forEach((panel) => {
+        panel.classList.toggle("active", Number(panel.getAttribute("data-step-panel")) === createServerStep);
+      });
+      stepDots.forEach((dot) => {
+        dot.classList.toggle("active", Number(dot.getAttribute("data-step-target")) === createServerStep);
+      });
+      createChannelPrev.classList.toggle("hidden", createServerStep <= 1);
+      createChannelNext.classList.toggle("hidden", createServerStep >= 4);
+      updateCreateReview();
+      updateVisibilityWarning();
+    }
+
+    function closeServerActionModal() {
+      serverActionModal.classList.remove("active");
+    }
+
+    function openServerActionModal() {
+      const selected = getSelectedServer();
+      if (!selected) {
+        showToast("Selecciona un servidor primero.", "error");
+        return;
+      }
+      applySquareIcon(serverActionIcon, safeText(selected.icon_url), safeText(selected.name, "Servidor"));
+      serverActionTitle.textContent = safeText(selected.name, "Servidor");
+      serverActionOnline.textContent = `${Number(selected.members_count || 0)} miembro(s)`;
+      serverActionModal.classList.add("active");
+    }
+
+    function closeServerSettingsModal() {
+      serverSettingsModal.classList.remove("active");
+      serverSettingsPreviewUrl = "";
+      ssIconInput.value = "";
+    }
+
+    function openServerSettingsModal() {
+      const selected = getSelectedServer();
+      if (!selected) {
+        showToast("Selecciona un servidor primero.", "error");
+        return;
+      }
+      ssNameInput.value = safeText(selected.name, "");
+      ssDescriptionInput.value = safeText(selected.description, "");
+      ssVisibilityInput.value = selected.is_public === false ? "private" : "public";
+      ssRegionInput.value = "us-east";
+      serverDisplayMode = "editorial";
+      ssModeEditorial.classList.add("active");
+      ssModeCompact.classList.remove("active");
+      const icon = safeText(selected.icon_url, "");
+      applySquareIcon(ssBrandIcon, icon, selected.name || "Servidor");
+      applySquareIcon(ssIconPreview, icon, selected.name || "Servidor");
+      serverSettingsPreviewUrl = icon;
+      serverSettingsModal.classList.add("active");
+      closeServerActionModal();
+    }
+
     async function fetchChannels() {
       const token = getToken();
       if (!token) throw new Error("Sesion no valida");
@@ -1054,7 +2033,18 @@
     async function fetchMessagesForCurrentChannel() {
       channelMessages.innerHTML = "";
       if (!selectedServerId || !selectedTextChannelId) {
-        channelMessages.innerHTML = "<div class='member-sub'>Selecciona un canal para ver mensajes.</div>";
+        channelMessages.innerHTML = `
+          <div class="chat-placeholder">
+            <div>
+              <div class="chat-placeholder-icon">💬</div>
+              <h3>Selecciona un canal</h3>
+              <p>El chat del servidor se cargara aqui cuando elijas un canal desde la lista lateral.</p>
+            </div>
+          </div>
+        `;
+        channelMessageInput.disabled = true;
+        channelSendBtn.disabled = true;
+        channelMessageInput.value = "";
         return;
       }
       try {
@@ -1064,16 +2054,27 @@
           headers: { Authorization: `Bearer ${token}` }
         });
         const messages = Array.isArray(payload?.messages) ? payload.messages : [];
+        channelMessageInput.disabled = false;
+        channelSendBtn.disabled = false;
         if (!messages.length) {
           channelMessages.innerHTML = "<div class='member-sub'>Sin mensajes aun. Inicia la conversacion.</div>";
           return;
         }
-        channelMessages.innerHTML = messages.map((m) => `
+        channelMessages.innerHTML = messages.map((m) => {
+          const senderName = safeText(m.sender_display_name || m.sender_username, "Sistema");
+          const timeStr = m.created_at ? new Date(m.created_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : "-";
+          const initials = getInitials(senderName);
+          const avatarUrl = safeText(m.sender_avatar_url || '');
+          const avatarStyle = avatarUrl ? `background-image:url('${avatarUrl.replace(/'/g,"%27")}');color:transparent;font-size:0` : '';
+          return `
           <div class="chat-item">
-            <div class="chat-item-meta">${safeText(m.sender_display_name || m.sender_username, "Sistema")} · ${m.created_at ? new Date(m.created_at).toLocaleString() : "-"}</div>
-            <div class="chat-item-text">${safeText(m.content)}</div>
+            <div class="chat-item-avatar" style="${avatarStyle}">${avatarUrl ? '' : initials}</div>
+            <div class="chat-item-body">
+              <div class="chat-item-meta">${senderName}<span class="chat-item-time">${timeStr}</span></div>
+              <div class="chat-item-text">${safeText(m.content)}</div>
+            </div>
           </div>
-        `).join("");
+        `}).join("");
       } catch (err) {
         channelMessages.innerHTML = `<div class='member-sub'>${safeText(err.message, "No se pudieron cargar los mensajes.")}</div>`;
       }
@@ -1113,7 +2114,7 @@
       hydrateProfileDock();
       await fetchChannels();
       await fetchServerMembers(selectedServerId).catch(() => null);
-      setMainView("center");
+      setMainView("chat");
     }
 
     async function handleAuthSubmit(ev) {
@@ -1144,7 +2145,7 @@
       }
     }
 
-    function openCreateChannelModal() {
+    function openCreateChannelModal(startStep = 1) {
       if (!currentUser) {
         showToast("Primero inicia sesion.", "error");
         return;
@@ -1154,10 +2155,15 @@
       channelTopicInput.value = "";
       channelIconInput.value = "";
       inviteSearchInput.value = "";
+      channelVisibilityInput.value = "public";
       inviteSearchResults = [];
       selectedInviteUsers = [];
+      createServerPreviewUrl = "";
       renderInviteSearchResults();
       renderSelectedInvites();
+      setCreateIconPreviews("", "Servidor");
+      setCreateServerStep(startStep);
+      updateVisibilityWarning();
       createChannelModal.classList.add("active");
       channelNameInput.focus();
     }
@@ -1165,6 +2171,8 @@
     function closeCreateChannelModal() {
       createChannelModal.classList.remove("active");
       createChannelMsg.textContent = "";
+      createServerStep = 1;
+      createServerPreviewUrl = "";
     }
 
     async function logout() {
@@ -1207,17 +2215,101 @@
     modeLoginBtn.addEventListener("click", () => applyAuthMode("login"));
     modeRegisterBtn.addEventListener("click", () => applyAuthMode("register"));
     authForm.addEventListener("submit", handleAuthSubmit);
-    serverRailCenter.addEventListener("click", () => setMainView("center"));
-    leftTopServerTrigger.addEventListener("click", () => setMainView("center"));
-    createPlusBtn.addEventListener("click", openCreateChannelModal);
-    createChannelBtnEmpty.addEventListener("click", openCreateChannelModal);
+    leftTopServerTrigger.addEventListener("click", () => openServerActionModal());
+    createPlusBtn.addEventListener("click", () => openCreateChannelModal());
     createChannelCancel.addEventListener("click", closeCreateChannelModal);
+    createChannelPrev.addEventListener("click", () => setCreateServerStep(createServerStep - 1));
+    createChannelNext.addEventListener("click", () => setCreateServerStep(createServerStep + 1));
     createChannelModal.addEventListener("click", (ev) => {
       if (ev.target === createChannelModal) closeCreateChannelModal();
     });
-    dmShortcutBtn.addEventListener("click", () => {
-      setMainView("center");
-      dmThreadView.innerHTML = "<strong>Bandeja DM</strong><div style='margin-top:6px;color:var(--ink-soft);font-size:12px;'>Seleccion directa de conversaciones en progreso.</div>";
+    channelNameInput.addEventListener("input", () => updateCreateReview());
+    channelTopicInput.addEventListener("input", () => updateCreateReview());
+    channelVisibilityInput.addEventListener("change", () => updateCreateReview());
+    channelVisibilityInput.addEventListener("change", () => updateVisibilityWarning());
+    channelIconInput.addEventListener("change", () => {
+      const file = channelIconInput.files?.[0];
+      if (!file) {
+        createServerPreviewUrl = "";
+        setCreateIconPreviews("", channelNameInput.value || "Servidor");
+        return;
+      }
+      createServerPreviewUrl = URL.createObjectURL(file);
+      setCreateIconPreviews(createServerPreviewUrl, channelNameInput.value || "Servidor");
+      updateCreateReview();
+    });
+    serverActionClose.addEventListener("click", closeServerActionModal);
+    serverActionModal.addEventListener("click", (ev) => {
+      if (ev.target === serverActionModal) closeServerActionModal();
+    });
+    serverActionCreateChannel.addEventListener("click", () => {
+      closeServerActionModal();
+      openCreateChannelModal();
+    });
+    serverActionInvite.addEventListener("click", () => {
+      closeServerActionModal();
+      setMainView("chat");
+      openCreateChannelModal(3);
+    });
+    serverActionSettings.addEventListener("click", openServerSettingsModal);
+    [ssClose, ssCancelBtn, ssCancelSide].forEach((el) => el.addEventListener("click", closeServerSettingsModal));
+    serverSettingsModal.addEventListener("click", (ev) => {
+      if (ev.target === serverSettingsModal) closeServerSettingsModal();
+    });
+    ssModeEditorial.addEventListener("click", () => {
+      serverDisplayMode = "editorial";
+      ssModeEditorial.classList.add("active");
+      ssModeCompact.classList.remove("active");
+    });
+    ssModeCompact.addEventListener("click", () => {
+      serverDisplayMode = "compact";
+      ssModeCompact.classList.add("active");
+      ssModeEditorial.classList.remove("active");
+    });
+    ssIconInput.addEventListener("change", () => {
+      const file = ssIconInput.files?.[0];
+      if (!file) return;
+      serverSettingsPreviewUrl = URL.createObjectURL(file);
+      applySquareIcon(ssIconPreview, serverSettingsPreviewUrl, ssNameInput.value || "Servidor");
+      applySquareIcon(ssBrandIcon, serverSettingsPreviewUrl, ssNameInput.value || "Servidor");
+    });
+    ssNameInput.addEventListener("input", () => {
+      const selected = getSelectedServer();
+      const fallback = ssNameInput.value || selected?.name || "Servidor";
+      applySquareIcon(ssIconPreview, serverSettingsPreviewUrl || safeText(selected?.icon_url, ""), fallback);
+      applySquareIcon(ssBrandIcon, serverSettingsPreviewUrl || safeText(selected?.icon_url, ""), fallback);
+    });
+    ssSaveBtn.addEventListener("click", async () => {
+      const selected = getSelectedServer();
+      if (!selected) return;
+      const token = getToken();
+      if (!token) {
+        showToast("Sesion no valida.", "error");
+        return;
+      }
+      const nextName = safeText(ssNameInput.value);
+      if (!nextName) {
+        showToast("El nombre del servidor es obligatorio.", "error");
+        return;
+      }
+      try {
+        const form = new FormData();
+        form.append("name", nextName);
+        form.append("description", safeText(ssDescriptionInput.value));
+        form.append("is_public", ssVisibilityInput.value === "private" ? "false" : "true");
+        const iconFile = ssIconInput.files?.[0];
+        if (iconFile) form.append("icon", iconFile);
+        await api(`/wildwave/api/channels/${selected.id}`, {
+          method: "PATCH",
+          headers: { Authorization: `Bearer ${token}` },
+          body: form
+        });
+        await fetchChannels();
+        closeServerSettingsModal();
+        showToast("Ajustes del servidor guardados.", "ok");
+      } catch (err) {
+        showToast(err.message || "No se pudieron guardar los ajustes.", "error");
+      }
     });
     if (channelSendBtn) channelSendBtn.addEventListener("click", () => sendChannelMessage());
     if (channelMessageInput) {
@@ -1255,6 +2347,7 @@
       ev.preventDefault();
       const rawName = safeText(channelNameInput.value);
       const topic = safeText(channelTopicInput.value);
+      const visibility = channelVisibilityInput.value === "private" ? "private" : "public";
       if (!rawName) {
         createChannelMsg.textContent = "El nombre del servidor es obligatorio.";
         createChannelMsg.className = "modal-msg error";
@@ -1274,6 +2367,13 @@
           body: payload
         });
         const createdChannelId = Number(result?.channel?.id || 0);
+        if (createdChannelId && visibility === "private") {
+          await api(`/wildwave/api/channels/${createdChannelId}`, {
+            method: "PATCH",
+            headers: { Authorization: `Bearer ${token}` },
+            body: { is_public: "false" }
+          });
+        }
         if (createdChannelId && selectedInviteUsers.length) {
           for (const user of selectedInviteUsers) {
             try {
@@ -1321,11 +2421,16 @@
       document.addEventListener("click", () => profileFlyout.classList.remove("open"));
     }
     document.getElementById("profile-logout-btn").addEventListener("click", logout);
-    document.getElementById("explore-btn").addEventListener("click", () => setMainView("center"));
-
     applyAuthMode("login");
     renderMembershipState();
-    restoreSession().catch(() => {});
+    (async () => {
+      const blocked = await enforceStoreSupportGate();
+      if (!blocked) {
+        restoreSession().catch(() => {});
+      }
+    })();
   </script>
 </body>
 </html>
+
+

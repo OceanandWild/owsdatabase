@@ -1128,6 +1128,7 @@
     }
     .ss-close:hover { background: rgba(255,255,255,0.13); color: var(--ink); }
     .ss-body { display: grid; gap: 20px; align-content: start; }
+    .ss-section { display: none; gap: 20px; align-content: start; }
     .ss-card {
       border-radius: 8px;
       background: #2b2d31;
@@ -1557,67 +1558,106 @@
           </div>
         </div>
         <div class="ss-nav-list">
-          <button class="ss-nav-item active" type="button">Resumen</button>
-          <button class="ss-nav-item" type="button">Roles</button>
-          <button class="ss-nav-item" type="button">Integraciones</button>
-          <button class="ss-nav-item" type="button">Seguridad</button>
+          <button class="ss-nav-item active" type="button" data-section="resumen">Resumen</button>
+          <button class="ss-nav-item" type="button" data-section="roles">Roles</button>
+          <button class="ss-nav-item" type="button" data-section="integraciones">Integraciones</button>
+          <button class="ss-nav-item" type="button" data-section="seguridad">Seguridad</button>
         </div>
         <button id="ss-cancel-side" class="btn" type="button" style="width:100%;margin-top:auto;">Cerrar</button>
       </aside>
       <section class="ss-main">
         <header class="ss-head">
           <div>
-            <h3>Resumen</h3>
-            <p>Personaliza la identidad del servidor. Los cambios se aplican cuando guardes.</p>
+            <h3 id="ss-section-title">Resumen</h3>
+            <p id="ss-section-desc">Personaliza la identidad del servidor. Los cambios se aplican cuando guardes.</p>
           </div>
           <button id="ss-close" class="ss-close" type="button">&times;</button>
         </header>
         <div class="ss-body">
-          <article class="ss-card">
-            <h4>Identidad del servidor</h4>
-            <div class="ss-grid">
-              <div class="ss-icon-uploader">
-                <div id="ss-icon-preview" class="ss-icon-preview">SV</div>
-                <input id="ss-icon-input" type="file" accept="image/png,image/jpeg,image/webp" />
-                <div style="font-size:11px;color:var(--ink-dim);">Recomendado 512×512</div>
+          <!-- Resumen section -->
+          <div id="ss-section-resumen" class="ss-section" style="display:grid;">
+            <article class="ss-card">
+              <h4>Identidad del servidor</h4>
+              <div class="ss-grid">
+                <div class="ss-icon-uploader">
+                  <div id="ss-icon-preview" class="ss-icon-preview">SV</div>
+                  <input id="ss-icon-input" type="file" accept="image/png,image/jpeg,image/webp" />
+                  <div style="font-size:11px;color:var(--ink-dim);">Recomendado 512×512</div>
+                </div>
+                <div class="ss-form">
+                  <label>Nombre del servidor
+                    <input id="ss-name-input" type="text" maxlength="32" />
+                  </label>
+                  <label>Descripción
+                    <textarea id="ss-description-input" maxlength="180"></textarea>
+                  </label>
+                  <label>Región
+                    <select id="ss-region-input">
+                      <option value="us-east">US East</option>
+                      <option value="us-west">US West</option>
+                      <option value="sa-east">Sudamérica East</option>
+                      <option value="eu-west">EU West</option>
+                    </select>
+                  </label>
+                  <label>Visibilidad
+                    <select id="ss-visibility-input">
+                      <option value="public">Público</option>
+                      <option value="private">Privado</option>
+                    </select>
+                  </label>
+                </div>
               </div>
-              <div class="ss-form">
-                <label>Nombre del servidor
-                  <input id="ss-name-input" type="text" maxlength="32" />
-                </label>
-                <label>Descripción
-                  <textarea id="ss-description-input" maxlength="180"></textarea>
-                </label>
-                <label>Región
-                  <select id="ss-region-input">
-                    <option value="us-east">US East</option>
-                    <option value="us-west">US West</option>
-                    <option value="sa-east">Sudamérica East</option>
-                    <option value="eu-west">EU West</option>
-                  </select>
-                </label>
-                <label>Visibilidad
-                  <select id="ss-visibility-input">
-                    <option value="public">Público</option>
-                    <option value="private">Privado</option>
-                  </select>
-                </label>
+            </article>
+            <article class="ss-card">
+              <h4>Modo de visualización</h4>
+              <div class="ss-mode">
+                <button id="ss-mode-editorial" class="ss-mode-card active" type="button">
+                  <div class="ss-mode-ghost"></div>
+                  <div class="ss-mode-name">Vista editorial</div>
+                </button>
+                <button id="ss-mode-compact" class="ss-mode-card" type="button">
+                  <div class="ss-mode-ghost"></div>
+                  <div class="ss-mode-name">Lista compacta</div>
+                </button>
               </div>
-            </div>
-          </article>
-          <article class="ss-card">
-            <h4>Modo de visualización</h4>
-            <div class="ss-mode">
-              <button id="ss-mode-editorial" class="ss-mode-card active" type="button">
-                <div class="ss-mode-ghost"></div>
-                <div class="ss-mode-name">Vista editorial</div>
-              </button>
-              <button id="ss-mode-compact" class="ss-mode-card" type="button">
-                <div class="ss-mode-ghost"></div>
-                <div class="ss-mode-name">Lista compacta</div>
-              </button>
-            </div>
-          </article>
+            </article>
+          </div>
+
+          <!-- Roles section -->
+          <div id="ss-section-roles" class="ss-section" style="display:none;">
+            <article class="ss-card">
+              <h4>Gestión de roles</h4>
+              <p style="color:var(--ink-dim);font-size:13px;margin:8px 0 0;">Los roles permiten organizar permisos y jerarquías dentro del servidor.</p>
+              <div style="margin-top:20px;padding:40px;text-align:center;color:var(--ink-dim);">
+                <div style="font-size:32px;margin-bottom:8px;">🎭</div>
+                <div>Funcionalidad en desarrollo</div>
+              </div>
+            </article>
+          </div>
+
+          <!-- Integraciones section -->
+          <div id="ss-section-integraciones" class="ss-section" style="display:none;">
+            <article class="ss-card">
+              <h4>Integraciones externas</h4>
+              <p style="color:var(--ink-dim);font-size:13px;margin:8px 0 0;">Conecta servicios externos y bots para ampliar las capacidades del servidor.</p>
+              <div style="margin-top:20px;padding:40px;text-align:center;color:var(--ink-dim);">
+                <div style="font-size:32px;margin-bottom:8px;">🔌</div>
+                <div>Funcionalidad en desarrollo</div>
+              </div>
+            </article>
+          </div>
+
+          <!-- Seguridad section -->
+          <div id="ss-section-seguridad" class="ss-section" style="display:none;">
+            <article class="ss-card">
+              <h4>Configuración de seguridad</h4>
+              <p style="color:var(--ink-dim);font-size:13px;margin:8px 0 0;">Administra permisos, moderación y opciones de privacidad del servidor.</p>
+              <div style="margin-top:20px;padding:40px;text-align:center;color:var(--ink-dim);">
+                <div style="font-size:32px;margin-bottom:8px;">🔒</div>
+                <div>Funcionalidad en desarrollo</div>
+              </div>
+            </article>
+          </div>
         </div>
         <footer class="ss-footer">
           <button id="ss-cancel-btn" class="btn" type="button">Cancelar</button>
@@ -2432,6 +2472,16 @@
       applySquareIcon(ssBrandIcon, icon, selected.name || "Servidor");
       applySquareIcon(ssIconPreview, icon, selected.name || "Servidor");
       serverSettingsPreviewUrl = icon;
+      // Reset to Resumen section
+      document.querySelectorAll(".ss-nav-item").forEach((b) => b.classList.remove("active"));
+      document.querySelector(".ss-nav-item[data-section='resumen']")?.classList.add("active");
+      document.querySelectorAll(".ss-section").forEach((s) => s.style.display = "none");
+      const resumenSection = document.getElementById("ss-section-resumen");
+      if (resumenSection) resumenSection.style.display = "grid";
+      const titleEl = document.getElementById("ss-section-title");
+      const descEl = document.getElementById("ss-section-desc");
+      if (titleEl) titleEl.textContent = "Resumen";
+      if (descEl) descEl.textContent = "Personaliza la identidad del servidor. Los cambios se aplican cuando guardes.";
       serverSettingsModal.classList.add("active");
       closeServerActionModal();
     }
@@ -2802,6 +2852,35 @@
     serverSettingsModal.addEventListener("click", (ev) => {
       if (ev.target === serverSettingsModal) closeServerSettingsModal();
     });
+
+    // Server settings navigation
+    const ssSectionTitles = {
+      resumen: { title: "Resumen", desc: "Personaliza la identidad del servidor. Los cambios se aplican cuando guardes." },
+      roles: { title: "Roles", desc: "Gestiona roles y permisos para organizar tu servidor." },
+      integraciones: { title: "Integraciones", desc: "Conecta servicios externos y bots para ampliar las capacidades." },
+      seguridad: { title: "Seguridad", desc: "Administra permisos, moderación y opciones de privacidad." }
+    };
+    document.querySelectorAll(".ss-nav-item").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const section = btn.dataset.section;
+        if (!section) return;
+        // Update nav active state
+        document.querySelectorAll(".ss-nav-item").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        // Hide all sections
+        document.querySelectorAll(".ss-section").forEach((s) => s.style.display = "none");
+        // Show selected section
+        const targetSection = document.getElementById(`ss-section-${section}`);
+        if (targetSection) targetSection.style.display = "grid";
+        // Update header
+        const info = ssSectionTitles[section] || { title: "Ajustes", desc: "" };
+        const titleEl = document.getElementById("ss-section-title");
+        const descEl = document.getElementById("ss-section-desc");
+        if (titleEl) titleEl.textContent = info.title;
+        if (descEl) descEl.textContent = info.desc;
+      });
+    });
+
     ssModeEditorial.addEventListener("click", () => {
       serverDisplayMode = "editorial";
       ssModeEditorial.classList.add("active");

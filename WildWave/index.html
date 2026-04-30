@@ -3465,6 +3465,11 @@
           }
         });
         
+        // Ocultar splash cuando termine el video
+        splashVideo.addEventListener("ended", () => {
+          hideSplashScreen();
+        }, { once: true });
+        
         const blocked = await enforceStoreSupportGate();
         if (!blocked) {
           await enterAppFromToken(token, user).catch(async () => {
@@ -3507,9 +3512,8 @@
       }
       
       if (token && cachedUser) {
-        // Mostrar modal de confirmación
-        sessionUsername.textContent = cachedUser.username || 'usuario guardado';
-        sessionModal.style.display = "flex";
+        // Entrar automáticamente sin pedir confirmación
+        await window.showSplashWithAudio(token, cachedUser);
       } else {
         // No hay sesión, mostrar login directamente
         applyAuthMode("login");

@@ -9,6 +9,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Sora:wght@500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pixi.js@8/dist/pixi.min.js"></script>
   <style>
     :root {
       --bg: #313338;
@@ -439,27 +442,227 @@
       display: none;
       align-items: center;
       justify-content: center;
-      background: rgba(3, 7, 13, 0.76);
-      backdrop-filter: blur(5px);
+      background: rgba(0,0,0,0.85);
+      backdrop-filter: blur(8px);
       padding: 16px;
     }
     .modal-wrap.active { display: flex; }
     .modal {
       width: min(520px, 100%);
-      border: 1px solid rgba(167, 201, 240, 0.26);
-      border-radius: 16px;
-      background: linear-gradient(165deg, #172744, #111c34 54%, #0f192f);
-      padding: 14px;
+      border: none;
+      border-radius: 8px;
+      background: #313338;
+      padding: 16px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.6);
     }
-    .modal h3 { margin: 0; font-size: 19px; }
-    .modal p { margin: 6px 0 0; color: var(--ink-soft); font-size: 13px; line-height: 1.45; }
+    .modal h3 { margin: 0; font-size: 19px; color: var(--ink); }
+    .modal p { margin: 6px 0 0; color: var(--ink-soft); font-size: 14px; line-height: 1.45; }
     .modal-grid { display: grid; gap: 10px; margin-top: 14px; }
-    .modal-grid input { border: 1px solid rgba(168, 199, 236, 0.28); border-radius: 10px; background: #0f182e; color: var(--ink); padding: 10px 11px; outline: none; font-size: 13px; }
-    .modal-grid input:focus { border-color: rgba(104, 194, 255, 0.78); }
+    .modal-grid input { border: none; border-radius: 4px; background: #1e1f22; color: var(--ink); padding: 10px 12px; outline: none; font-size: 14px; }
+    .modal-grid input:focus { outline: 2px solid var(--accent); }
     .modal-actions { margin-top: 12px; display: flex; justify-content: flex-end; gap: 8px; }
     .modal-msg { margin-top: 8px; font-size: 12px; min-height: 18px; color: var(--ink-soft); }
-    .modal-msg.error { color: #ff9db1; }
-    .modal.large { width: min(1040px, 100%); padding: 16px; }
+    .modal-msg.error { color: #f87171; }
+
+    /* ── Server creation modal rework ── */
+    .modal.large {
+      width: min(1040px, 100%);
+      padding: 0;
+      overflow: hidden;
+      border-radius: 8px;
+      background: #2b2d31;
+      position: relative;
+    }
+    #ww-create-pixi {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      border-radius: 8px;
+    }
+    .modal.large > form { position: relative; z-index: 1; }
+    .stepper-head {
+      display: grid;
+      gap: 8px;
+      margin-bottom: 0;
+      padding: 24px 24px 16px;
+      background: linear-gradient(180deg, rgba(0,0,0,0.3), transparent);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .stepper-head h3 {
+      font-size: 28px;
+      font-family: "Sora", "Manrope", sans-serif;
+      color: var(--ink);
+      margin: 0;
+    }
+    .stepper-sub { color: var(--ink-dim); font-size: 13px; line-height: 1.45; margin: 0; }
+    .stepper-track {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      align-items: start;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .step-dot {
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.04);
+      color: var(--ink-dim);
+      padding: 10px 8px;
+      display: grid;
+      justify-items: center;
+      gap: 5px;
+      cursor: default;
+      font-size: 12px;
+      font-weight: 600;
+      transition: border-color 0.2s ease, background 0.2s ease;
+    }
+    .step-dot-num {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.2);
+      display: grid;
+      place-items: center;
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--ink-dim);
+      background: transparent;
+      transition: all 0.2s ease;
+    }
+    .step-dot.active {
+      border-color: var(--accent);
+      background: rgba(88,101,242,0.15);
+      color: var(--ink);
+    }
+    .step-dot.active .step-dot-num {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #fff;
+    }
+    .step-dot.done .step-dot-num {
+      border-color: var(--ok);
+      background: var(--ok);
+      color: #fff;
+    }
+    .step-panels { margin-top: 0; }
+    .step-panel { display: none; }
+    .step-panel.active {
+      display: grid;
+      gap: 12px;
+      padding: 20px 24px;
+    }
+    .step-grid {
+      display: grid;
+      grid-template-columns: 1.45fr 1fr;
+      gap: 12px;
+      align-items: start;
+    }
+    .step-card {
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 8px;
+      background: rgba(0,0,0,0.2);
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+    }
+    .step-card h4 { margin: 0; font-size: 16px; font-weight: 700; color: var(--ink); }
+    .step-card p { margin: 0; color: var(--ink-dim); font-size: 13px; }
+    .step-card textarea {
+      min-height: 100px;
+      border: none;
+      border-radius: 4px;
+      background: #1e1f22;
+      color: var(--ink);
+      padding: 10px 12px;
+      outline: none;
+      font-size: 14px;
+      resize: vertical;
+    }
+    .step-card textarea:focus { outline: 2px solid var(--accent); }
+    .create-fields input,
+    .create-fields select,
+    .create-fields textarea {
+      border: none;
+      border-radius: 4px;
+      background: #1e1f22;
+      color: var(--ink);
+      padding: 10px 12px;
+      outline: none;
+      font-size: 14px;
+    }
+    .create-fields textarea { min-height: 100px; resize: vertical; }
+    .create-fields input:focus,
+    .create-fields select:focus,
+    .create-fields textarea:focus { outline: 2px solid var(--accent); }
+    .visibility-warning {
+      border: 1px solid rgba(250,166,26,0.4);
+      border-radius: 6px;
+      background: rgba(250,166,26,0.1);
+      color: #fbbf24;
+      font-size: 13px;
+      line-height: 1.4;
+      padding: 10px 12px;
+      display: none;
+    }
+    .visibility-warning.show { display: block; }
+    .step-controls .btn { transition: transform 0.15s ease; }
+    .step-controls .btn:hover { transform: translateY(-1px); }
+    .icon-drop {
+      border: 2px dashed rgba(255,255,255,0.15);
+      border-radius: 8px;
+      min-height: 160px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      background: rgba(0,0,0,0.2);
+      color: var(--ink-dim);
+      padding: 12px;
+      gap: 8px;
+      transition: border-color 0.2s ease;
+    }
+    .icon-drop:hover { border-color: var(--accent); }
+    .icon-preview {
+      width: 96px;
+      height: 96px;
+      border-radius: 16px;
+      border: none;
+      background: var(--accent);
+      display: grid;
+      place-items: center;
+      font-size: 22px;
+      font-weight: 800;
+      color: #fff;
+      background-size: cover;
+      background-position: center;
+      margin: 0 auto;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .icon-preview:hover { transform: scale(1.04); box-shadow: 0 8px 24px rgba(88,101,242,0.4); }
+    .icon-preview.has-icon { color: transparent; font-size: 0; }
+    .step-footer {
+      margin-top: 0;
+      padding: 12px 24px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      background: rgba(0,0,0,0.15);
+    }
+    .step-controls { display: flex; gap: 8px; }
+    .review-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 12px; }
+    .review-box {
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 8px;
+      background: rgba(0,0,0,0.2);
+      padding: 14px;
+      display: grid;
+      gap: 10px;
+      align-content: start;
+    }
+    .review-row { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; color: var(--ink-soft); }
     .stepper-head { display: grid; gap: 10px; margin-bottom: 10px; }
     .stepper-head h3 { font-size: 30px; font-family: "Sora", "Manrope", sans-serif; }
     .stepper-sub { color: var(--ink-dim); font-size: 13px; line-height: 1.45; }
@@ -594,13 +797,9 @@
       transform: translateY(4px);
       transition: opacity 0.22s ease, transform 0.22s ease;
     }
-    .visibility-warning.show {
-      display: block;
-      opacity: 1;
-      transform: translateY(0);
-    }
-    .step-controls .btn { transition: transform 0.18s ease, box-shadow 0.18s ease; }
-    .step-controls .btn:hover { transform: translateY(-1px); box-shadow: 0 8px 18px rgba(5, 12, 22, 0.45); }
+    .visibility-warning.show { display: block; }
+    .step-controls .btn { transition: transform 0.15s ease; }
+    .step-controls .btn:hover { transform: translateY(-1px); }
     .icon-drop {
       border: 1px dashed rgba(158, 194, 235, 0.52);
       border-radius: 14px;
@@ -1091,6 +1290,7 @@
 
   <div id="create-channel-modal" class="modal-wrap">
     <div class="modal large">
+      <canvas id="ww-create-pixi"></canvas>
       <div class="stepper-head">
         <h3>Crear nuevo servidor</h3>
         <p class="stepper-sub">Disena un espacio curado para tu comunidad. Configura informacion, icono, invitados y revision final antes de lanzar.</p>
@@ -1808,7 +2008,18 @@
       serverChannelsView.innerHTML = `
         <div class="channels-plain-list">
           ${tree.map((cat) => `
-            ${cat.id ? `<div class="channel-row category"><div class="channel-name-text">v ${safeText(cat.name, "Categoria")}</div></div>` : ""}
+            ${cat.id ? `
+            <div class="channel-row category" data-cat-id="${cat.id}">
+              <div class="channel-name-text">▸ ${safeText(cat.name, "Categoria")}</div>
+              <div class="channel-menu-wrap">
+                <button class="channel-menu-btn cat-menu-btn" data-cat-id="${cat.id}" data-cat-name="${safeText(cat.name,'Categoria').replace(/"/g,'&quot;')}" title="Opciones de categoria">⋯</button>
+                <div class="channel-tooltip-menu cat-tooltip" id="cat-menu-${cat.id}">
+                  <button class="channel-tooltip-item" data-cat-action="add-channel" data-cat-id="${cat.id}" data-cat-name="${safeText(cat.name,'Categoria').replace(/"/g,'&quot;')}">+ Crear canal aqui</button>
+                  <button class="channel-tooltip-item" data-cat-action="rename" data-cat-id="${cat.id}" data-cat-name="${safeText(cat.name,'Categoria').replace(/"/g,'&quot;')}">Renombrar categoria</button>
+                  <button class="channel-tooltip-item" style="color:#f23f42" data-cat-action="delete" data-cat-id="${cat.id}" data-cat-name="${safeText(cat.name,'Categoria').replace(/"/g,'&quot;')}">Eliminar categoria</button>
+                </div>
+              </div>
+            </div>` : ""}
             ${(cat.items || []).map((item) => `
               <div class="channel-row ${Number(item.id) === Number(selectedTextChannelId) ? "active" : ""}" data-open-channel="${item.id}">
                 <div class="channel-name-text"># ${safeText(item.name, "canal")}</div>
@@ -1825,7 +2036,77 @@
           await fetchMessagesForCurrentChannel();
         });
       });
-    }
+
+      // Category ⋯ menu toggle
+      serverChannelsView.querySelectorAll(".cat-menu-btn").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const catId = btn.getAttribute("data-cat-id");
+          const menu = document.getElementById(`cat-menu-${catId}`);
+          // Close all other menus
+          serverChannelsView.querySelectorAll(".cat-tooltip.open").forEach((m) => { if (m !== menu) m.classList.remove("open"); });
+          menu?.classList.toggle("open");
+        });
+      });
+
+      // Category menu actions
+      serverChannelsView.querySelectorAll("[data-cat-action]").forEach((item) => {
+        item.addEventListener("click", async (e) => {
+          e.stopPropagation();
+          const action = item.getAttribute("data-cat-action");
+          const catId = item.getAttribute("data-cat-id");
+          const catName = item.getAttribute("data-cat-name");
+          // Close menu
+          document.getElementById(`cat-menu-${catId}`)?.classList.remove("open");
+          const selected = getSelectedServer();
+          if (!selected) return;
+          const token = getToken();
+          if (!token) return;
+          if (action === "add-channel") {
+            const name = safeText(prompt(`Nombre del canal en "${catName}":`) || "");
+            if (!name) return;
+            try {
+              await api(`/wildwave/api/channels/${selected.id}/text-channels`, {
+                method: "POST",
+                headers: { Authorization: `Bearer ${token}` },
+                body: { name, category_id: Number(catId) }
+              });
+              await loadServerTree(selected.id);
+              renderOwnChannels();
+              showToast("Canal creado.", "ok");
+            } catch (err) { showToast(err.message || "No se pudo crear el canal.", "error"); }
+          } else if (action === "rename") {
+            const newName = safeText(prompt(`Nuevo nombre para "${catName}":`) || "");
+            if (!newName) return;
+            try {
+              await api(`/wildwave/api/channels/${selected.id}/categories/${catId}`, {
+                method: "PATCH",
+                headers: { Authorization: `Bearer ${token}` },
+                body: { name: newName }
+              });
+              await loadServerTree(selected.id);
+              renderOwnChannels();
+              showToast("Categoria renombrada.", "ok");
+            } catch (err) { showToast(err.message || "No se pudo renombrar.", "error"); }
+          } else if (action === "delete") {
+            if (!confirm(`¿Eliminar la categoria "${catName}" y todos sus canales?`)) return;
+            try {
+              await api(`/wildwave/api/channels/${selected.id}/categories/${catId}`, {
+                method: "DELETE",
+                headers: { Authorization: `Bearer ${token}` }
+              });
+              await loadServerTree(selected.id);
+              renderOwnChannels();
+              showToast("Categoria eliminada.", "ok");
+            } catch (err) { showToast(err.message || "No se pudo eliminar.", "error"); }
+          }
+        });
+      });
+
+      // Close menus on outside click
+      document.addEventListener("click", () => {
+        serverChannelsView.querySelectorAll(".cat-tooltip.open").forEach((m) => m.classList.remove("open"));
+      }, { once: true });
 
     function renderMembers() {
       if (!serverMembers.length) {
@@ -1947,12 +2228,19 @@
         panel.classList.toggle("active", Number(panel.getAttribute("data-step-panel")) === createServerStep);
       });
       stepDots.forEach((dot) => {
-        dot.classList.toggle("active", Number(dot.getAttribute("data-step-target")) === createServerStep);
+        const dotStep = Number(dot.getAttribute("data-step-target"));
+        dot.classList.toggle("active", dotStep === createServerStep);
+        dot.classList.toggle("done", dotStep < createServerStep);
       });
       createChannelPrev.classList.toggle("hidden", createServerStep <= 1);
       createChannelNext.classList.toggle("hidden", createServerStep >= 4);
       updateCreateReview();
       updateVisibilityWarning();
+      // GSAP animate active panel in
+      if (window.gsap) {
+        const activePanel = document.querySelector('.step-panel.active');
+        if (activePanel) gsap.fromTo(activePanel, { x: 18, opacity: 0 }, { x: 0, opacity: 1, duration: 0.28, ease: 'power2.out' });
+      }
     }
 
     function closeServerActionModal() {
@@ -2166,13 +2454,74 @@
       updateVisibilityWarning();
       createChannelModal.classList.add("active");
       channelNameInput.focus();
+      // GSAP entrance
+      if (window.gsap) {
+        gsap.fromTo('.modal.large', { y: 32, opacity: 0, scale: 0.96 }, { y: 0, opacity: 1, scale: 1, duration: 0.38, ease: 'power3.out' });
+      }
+      // AnimeJS step dots entrance
+      if (window.anime) {
+        anime({ targets: '.step-dot', translateY: [12, 0], opacity: [0, 1], duration: 320, delay: anime.stagger(60), easing: 'easeOutCubic' });
+      }
+      // PixiJS particle background
+      startCreateModalPixi();
     }
 
     function closeCreateChannelModal() {
-      createChannelModal.classList.remove("active");
+      if (window.gsap) {
+        gsap.to('.modal.large', { y: 16, opacity: 0, scale: 0.97, duration: 0.22, ease: 'power2.in', onComplete: () => {
+          createChannelModal.classList.remove("active");
+          stopCreateModalPixi();
+        }});
+      } else {
+        createChannelModal.classList.remove("active");
+        stopCreateModalPixi();
+      }
       createChannelMsg.textContent = "";
       createServerStep = 1;
       createServerPreviewUrl = "";
+    }
+
+    // PixiJS particle background for create modal
+    let _createPixiApp = null;
+    async function startCreateModalPixi() {
+      stopCreateModalPixi();
+      const canvas = document.getElementById('ww-create-pixi');
+      const container = canvas?.parentElement;
+      if (!canvas || !container || !window.PIXI) return;
+      try {
+        const app = new PIXI.Application();
+        await app.init({ view: canvas, resizeTo: container, backgroundAlpha: 0, antialias: true });
+        _createPixiApp = app;
+        const particles = [];
+        const colors = [0x5865f2, 0x3ba55c, 0xfaa61a, 0xed4245, 0xeb459e];
+        for (let i = 0; i < 38; i++) {
+          const g = new PIXI.Graphics();
+          const r = 1.2 + Math.random() * 2.2;
+          const color = colors[i % colors.length];
+          g.circle(0, 0, r).fill({ color, alpha: 0.35 + Math.random() * 0.4 });
+          g.x = Math.random() * app.renderer.width;
+          g.y = Math.random() * app.renderer.height;
+          g.vx = (Math.random() - 0.5) * 0.4;
+          g.vy = -0.15 - Math.random() * 0.35;
+          g.baseAlpha = 0.2 + Math.random() * 0.35;
+          g.twinkle = Math.random() * Math.PI * 2;
+          particles.push(g);
+          app.stage.addChild(g);
+        }
+        app.ticker.add(() => {
+          for (const p of particles) {
+            p.x += p.vx; p.y += p.vy;
+            p.twinkle += 0.02;
+            p.alpha = p.baseAlpha * (0.5 + 0.5 * Math.sin(p.twinkle));
+            if (p.y < -10) { p.y = app.renderer.height + 10; p.x = Math.random() * app.renderer.width; }
+            if (p.x < -10) p.x = app.renderer.width + 10;
+            if (p.x > app.renderer.width + 10) p.x = -10;
+          }
+        });
+      } catch (_e) {}
+    }
+    function stopCreateModalPixi() {
+      if (_createPixiApp) { try { _createPixiApp.destroy(true); } catch (_e) {} _createPixiApp = null; }
     }
 
     async function logout() {

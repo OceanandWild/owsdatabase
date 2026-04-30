@@ -1264,7 +1264,12 @@
   </div>
   <style>
     @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes progressPulse { 
+      0%, 100% { opacity: 0.6; }
+      50% { opacity: 1; }
+    }
     #splash-screen.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+    #splash-progress.loading { animation: progressPulse 1.5s ease-in-out infinite; }
     #role-modal input[type="text"]:focus,
     #role-modal input[type="text"]:hover { border-color: #5865f2; }
     #role-modal button[onclick*="saveRoleModal"]:hover { background: #4752c4; }
@@ -3311,9 +3316,39 @@
     applyAuthMode("login");
     renderMembershipState();
     (async () => {
+      // Inicializar splash screen
+      const splashVideo = document.getElementById("splash-video");
+      const splashProgress = document.getElementById("splash-progress");
+      let appReady = false;
+      
+      // Intentar reproducir video con audio
+      if (splashVideo) {
+        splashVideo.muted = false;
+        splashVideo.play().catch(() => {
+          // Si falla con audio, intentar sin audio
+          splashVideo.muted = true;
+          splashVideo.play().catch(() => {});
+        });
+        
+        // Actualizar barra de progreso con el tiempo del video
+        splashVideo.addEventListener("timeupdate", () => {
+          if (!appReady && splashVideo.duration) {
+            const progress = (splashVideo.currentTime / splashVideo.duration) * 100;
+            splashProgress.style.width = `${progress}%`;
+          }
+        });
+      }
+      
       const blocked = await enforceStoreSupportGate();
       if (!blocked) {
         restoreSession().catch(() => {});
+      }
+      
+      // Marcar app como lista y completar barra si aún no terminó el video
+      appReady = true;
+      if (splashProgress && parseFloat(splashProgress.style.width) < 100) {
+        splashProgress.classList.add("loading");
+        splashProgress.style.width = "100%";
       }
     })();
 

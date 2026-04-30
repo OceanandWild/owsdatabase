@@ -2490,6 +2490,7 @@
       window._wwCurrentUserId = user.id;
       window._wwGetToken = getToken;
       window._wwShowToast = showToast;
+      window._wwApiBase = API_BASE;
       authScreen.classList.add("hidden");
       appRoot.classList.remove("hidden");
       hydrateProfileDock();
@@ -2977,7 +2978,7 @@
         if (action === "delete") {
           if (!confirm("¿Eliminar este mensaje? Esta accion no se puede deshacer.")) return;
           try {
-            const resp = await fetch(`/wildwave/api/channels/${sid}/text-channels/${roomId}/messages/${m.id}`, {
+            const resp = await fetch(`${window._wwApiBase}/wildwave/api/channels/${sid}/text-channels/${roomId}/messages/${m.id}`, {
               method: "DELETE",
               headers: { Authorization: `Bearer ${token}` }
             });
@@ -2997,7 +2998,7 @@
 
         if (action === "pin") {
           try {
-            const resp = await fetch(`/wildwave/api/channels/${sid}/text-channels/${roomId}/messages/${m.id}/pin`, {
+            const resp = await fetch(`${window._wwApiBase}/wildwave/api/channels/${sid}/text-channels/${roomId}/messages/${m.id}/pin`, {
               method: "POST",
               headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
             });
@@ -3052,7 +3053,7 @@
         if (!newBody) return;
         const { m, item, sid, roomId, token } = editTarget;
         try {
-          const resp = await fetch(`/wildwave/api/channels/${sid}/text-channels/${roomId}/messages/${m.id}`, {
+          const resp = await fetch(`${window._wwApiBase}/wildwave/api/channels/${sid}/text-channels/${roomId}/messages/${m.id}`, {
             method: "PATCH",
             headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
             body: JSON.stringify({ body: newBody })

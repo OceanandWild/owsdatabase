@@ -429,8 +429,13 @@
     .chat-date-sep hr { flex: 1; border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 0; }
     .chat-date-sep span { white-space: nowrap; }
 
-    /* Edited tag */
-    .chat-edited-tag { font-size: 10px; color: var(--ink-dim); font-weight: 400; margin-left: 4px; font-style: italic; }
+    /* Empty state for no messages */
+    .chat-empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100%; padding: 40px 20px; text-align: center; }
+    .chat-empty-icon { width: 80px; height: 80px; border-radius: 50%; background: rgba(88,101,242,0.1); display: grid; place-items: center; font-size: 36px; margin-bottom: 16px; }
+    .chat-empty-title { font-size: 18px; font-weight: 700; color: var(--ink); margin-bottom: 6px; }
+    .chat-empty-sub { font-size: 14px; color: var(--ink-dim); max-width: 320px; line-height: 1.4; }
+
+    /* Edited tag */    .chat-edited-tag { font-size: 10px; color: var(--ink-dim); font-weight: 400; margin-left: 4px; font-style: italic; }
 
     /* Pinned indicator */
     .chat-pinned-tag { font-size: 10px; color: #faa61a; font-weight: 600; margin-left: 6px; }
@@ -2383,7 +2388,13 @@
         channelMessageInput.disabled = false;
         channelSendBtn.disabled = false;
         if (!messages.length) {
-          channelMessages.innerHTML = "<div class='member-sub'>Sin mensajes aun. Inicia la conversacion.</div>";
+          channelMessages.innerHTML = `
+            <div class="chat-empty-state">
+              <div class="chat-empty-icon">💬</div>
+              <div class="chat-empty-title">Sin mensajes aún</div>
+              <div class="chat-empty-sub">Sé el primero en escribir algo.</div>
+            </div>
+          `;
           return;
         }
         channelMessages.innerHTML = "";

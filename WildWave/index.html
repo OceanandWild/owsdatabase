@@ -1275,6 +1275,8 @@
     }
     #splash-screen.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
     #splash-progress.loading { animation: progressPulse 1.5s ease-in-out infinite; }
+    #session-confirm-modal button[onclick*="confirmSession"]:hover { background: #4752c4 !important; }
+    #session-confirm-modal button[onclick*="rejectSession"]:hover { background: rgba(255,255,255,0.1) !important; }
     #role-modal input[type="text"]:focus,
     #role-modal input[type="text"]:hover { border-color: #5865f2; }
     #role-modal button[onclick*="saveRoleModal"]:hover { background: #4752c4; }
@@ -1720,6 +1722,23 @@
       <div class="modal-footer" style="background:#2b2d31;border-top:1px solid rgba(0,0,0,0.2);padding:16px;display:flex;justify-content:flex-end;gap:12px;">
         <button type="button" onclick="window.closeRoleModal()" style="padding:10px 20px;background:transparent;border:none;border-radius:4px;color:#f2f3f5;font-size:14px;font-weight:500;cursor:pointer;transition:background 0.15s;">Cancelar</button>
         <button type="button" onclick="window.saveRoleModal()" style="padding:10px 20px;background:#5865f2;border:none;border-radius:4px;color:#fff;font-size:14px;font-weight:500;cursor:pointer;transition:background 0.15s;">Aceptar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Session Confirmation Modal -->
+  <div id="session-confirm-modal" class="modal-wrap" style="display:none;">
+    <div class="modal" style="max-width:420px;background:#313338;">
+      <div class="modal-head" style="background:#2b2d31;border-bottom:1px solid rgba(0,0,0,0.2);">
+        <h3 style="color:#f2f3f5;font-size:18px;font-weight:600;">Continuar sesión</h3>
+      </div>
+      <div class="modal-body" style="padding:20px;">
+        <p style="color:#b5bac1;font-size:14px;margin:0 0 8px;">¿Continuar como</p>
+        <p id="session-username" style="color:#f2f3f5;font-size:20px;font-weight:700;margin:0;"></p>
+      </div>
+      <div class="modal-footer" style="background:#2b2d31;border-top:1px solid rgba(0,0,0,0.2);padding:16px;display:flex;justify-content:flex-end;gap:12px;">
+        <button type="button" onclick="window.rejectSession()" style="padding:10px 20px;background:transparent;border:none;border-radius:4px;color:#f2f3f5;font-size:14px;font-weight:500;cursor:pointer;transition:background 0.15s;">Cancelar</button>
+        <button type="button" onclick="window.confirmSession()" style="padding:10px 20px;background:#5865f2;border:none;border-radius:4px;color:#fff;font-size:14px;font-weight:500;cursor:pointer;transition:background 0.15s;">Aceptar</button>
       </div>
     </div>
   </div>
@@ -2739,7 +2758,14 @@
         if (!token || !user) throw new Error("Respuesta invalida del servidor.");
         localStorage.setItem(STORAGE_TOKEN, token);
         localStorage.setItem(STORAGE_USER, JSON.stringify(user));
-        await enterAppFromToken(token, user);
+        
+        // Mostrar splash con audio después del login
+        if (window.showSplashWithAudio) {
+          await window.showSplashWithAudio(token, user);
+        } else {
+          await enterAppFromToken(token, user);
+        }
+        
         setAuthMessage(authMode === "register" ? "Cuenta creada correctamente." : "Sesion iniciada.", "ok");
       } catch (err) {
         setAuthMessage(err.message || "No se pudo iniciar sesion.", "error");
@@ -3325,10 +3351,63 @@
       const splashVideo = document.getElementById("splash-video");
       const splashProgress = document.getElementById("splash-progress");
       const authScreen = document.getElementById("auth-screen");
+      const sessionModal = document.getElementById("session-confirm-modal");
+      const sessionUsername = document.getElementById("session-username");
       let appReady = false;
       
       // Ocultar splash inicialmente
       splashScreen.style.display = "none";
+      
+      // Función para mostrar splash con audio
+      window.showSplashWithAudio = async (token, user) => {
+        authScreen.style.display = "none";
+        splashScreen.style.display = "flex";
+        
+        splashVideo.muted = false;
+        splashVideo.play().catch(() => {
+          splashVideo.muted = true;
+          splashVideo.play().catch(() => {});
+        });
+        
+        splashVideo.addEventListener("timeupdate", () => {
+          if (!appReady && splashVideo.duration) {
+            const progress = (splashVideo.currentTime / splashVideo.duration) * 100;
+            splashProgress.style.width = `${progress}%`;
+          }
+        });
+        
+        const blocked = await enforceStoreSupportGate();
+        if (!blocked) {
+          await enterAppFromToken(token, user).catch(async () => {
+            await logout();
+          });
+        }
+        
+        appReady = true;
+        if (parseFloat(splashProgress.style.width) < 100) {
+          splashProgress.classList.add("loading");
+          splashProgress.style.width = "100%";
+        }
+      };
+      
+      // Funciones del modal de confirmación
+      window.confirmSession = async () => {
+        sessionModal.style.display = "none";
+        const token = getToken();
+        const cachedUserRaw = localStorage.getItem(STORAGE_USER);
+        let cachedUser = null;
+        if (cachedUserRaw) {
+          try { cachedUser = JSON.parse(cachedUserRaw); } catch (_) {}
+        }
+        await window.showSplashWithAudio(token, cachedUser);
+      };
+      
+      window.rejectSession = async () => {
+        sessionModal.style.display = "none";
+        await logout();
+        applyAuthMode("login");
+        hideSplashScreen();
+      };
       
       // Verificar si hay sesión guardada
       const token = getToken();
@@ -3339,44 +3418,9 @@
       }
       
       if (token && cachedUser) {
-        // Mostrar confirmación de cuenta
-        const confirmed = confirm(`¿Continuar como ${cachedUser.username || 'usuario guardado'}?`);
-        if (confirmed) {
-          // Mostrar splash con audio después de la interacción
-          authScreen.style.display = "none";
-          splashScreen.style.display = "flex";
-          
-          splashVideo.muted = false;
-          splashVideo.play().catch(() => {
-            splashVideo.muted = true;
-            splashVideo.play().catch(() => {});
-          });
-          
-          splashVideo.addEventListener("timeupdate", () => {
-            if (!appReady && splashVideo.duration) {
-              const progress = (splashVideo.currentTime / splashVideo.duration) * 100;
-              splashProgress.style.width = `${progress}%`;
-            }
-          });
-          
-          const blocked = await enforceStoreSupportGate();
-          if (!blocked) {
-            await enterAppFromToken(token, cachedUser).catch(async () => {
-              await logout();
-            });
-          }
-          
-          appReady = true;
-          if (parseFloat(splashProgress.style.width) < 100) {
-            splashProgress.classList.add("loading");
-            splashProgress.style.width = "100%";
-          }
-        } else {
-          // Usuario rechazó, hacer logout y mostrar login
-          await logout();
-          applyAuthMode("login");
-          hideSplashScreen();
-        }
+        // Mostrar modal de confirmación
+        sessionUsername.textContent = cachedUser.username || 'usuario guardado';
+        sessionModal.style.display = "flex";
       } else {
         // No hay sesión, mostrar login directamente
         applyAuthMode("login");

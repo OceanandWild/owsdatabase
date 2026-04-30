@@ -12739,7 +12739,7 @@ app.patch('/ows-store/projects/:slug', async (req, res) => {
     return res.status(400).json({ error: 'No hay campos validos para actualizar' });
   }
   try {
-    const setClauses = Object.keys(updates).map((k, i) => `${k} = $${i + 1}`).join(', ');
+    const setClauses = Object.keys(updates).map((k, i) => `${k} = $${i + 2}`).join(', ');
     const values = [...Object.values(updates), slug];
     const { rows } = await pool.query(
       `UPDATE ows_projects SET ${setClauses}, last_update = NOW() WHERE slug = $${values.length} RETURNING *`,
@@ -20616,6 +20616,68 @@ app.post('/wildwave/api/posts/video', wildwaveVideoUpload.single('video'), async
   } catch (err) {
     console.error('Error en POST /wildwave/api/posts/video:', err);
     res.status(500).json({ error: 'Error interno al subir video' });
+  }
+});
+
+// Actualizar perfil unificado (display_name, username, password, avatar_url)
+app.patch('/wildwave/api/auth/profile', async (req, res) => {
+  try {
+    await ensureWildXTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Token requerido' });
+
+    const updates = {};
+    const { display_name, username, password, avatar_url } = req.body || {};
+
+    if (display_name !== undefined) {
+      const dn = normalizeWildWaveDisplayName(display_name || '');
+      if (dn && dn.length >= 2 && dn.length <= 32) updates.display_name = dn;
+    }
+
+    if (username !== undefined) {
+      const un = normalizeWildWaveUsername(username || '');
+      const err = validateWildWaveUsername(un);
+      if (err) return res.status(400).json({ error: err });
+      const { rows: existing } = await pool.query(
+        'SELECT id FROM wildx_users WHERE LOWER(username) = LOWER($1) AND id <> $2 LIMIT 1',
+        [un, wid]
+      );
+      if (existing.length) return res.status(409).json({ error: 'Nombre de usuario ya en uso' });
+      updates.username = un;
+    }
+
+    if (password !== undefined && password.trim()) {
+      const pw = String(password).trim();
+      if (pw.length < 6) return res.status(400).json({ error: 'La contraseña debe tener al menos 6 caracteres' });
+      updates.pwd_hash = await bcrypt.hash(pw, 10);
+    }
+
+    if (avatar_url !== undefined) {
+      updates.avatar_url = avatar_url || null;
+    }
+
+    if (!Object.keys(updates).length) {
+      return res.status(400).json({ error: 'Sin cambios para aplicar' });
+    }
+
+    const setClauses = Object.keys(updates).map((k, i) => `${k} = $${i + 2}`).join(', ');
+    const values = [wid, ...Object.values(updates)];
+    const { rows } = await pool.query(
+      `UPDATE wildx_users SET ${setClauses} WHERE id = $1 RETURNING id, username, display_name, avatar_url, created_at`,
+      values
+    );
+
+    if (!rows.length) return res.status(404).json({ error: 'Usuario no encontrado' });
+
+    let newToken = null;
+    if (updates.username) {
+      newToken = jwt.sign({ id: wid, username: updates.username }, process.env.STUDIO_SECRET || process.env.JWT_SECRET || 'secret', { expiresIn: '90d' });
+    }
+
+    res.json({ success: true, user: rows[0], token: newToken });
+  } catch (err) {
+    console.error('Error en PATCH /wildwave/api/auth/profile:', err);
+    res.status(500).json({ error: 'Error interno' });
   }
 });
 

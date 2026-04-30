@@ -326,7 +326,8 @@
       place-items: center;
       transition: border-radius 0.15s ease, background 0.15s ease;
     }
-    .server-logo:hover, .server-dm-btn:hover, .server-pill:hover, .server-profile-dock:hover { border-radius: 16px; background: var(--accent); color: #fff; }
+    .server-logo:hover, .server-dm-btn:hover, .server-pill:hover { border-radius: 16px; background: var(--accent); color: #fff; }
+    .server-profile-dock:hover { border-radius: 16px; }
     .server-logo { background: var(--accent); color: #fff; font-size: 20px; font-family: "Sora", "Manrope", sans-serif; }
     .server-list { min-height: 0; overflow: auto; display: grid; gap: 8px; align-content: start; padding: 0 12px; }
     .server-pill.active { border-radius: 16px; background: var(--accent); color: #fff; }
@@ -337,21 +338,67 @@
       position: absolute;
       bottom: 8px;
       left: calc(var(--server-col) + 8px);
-      width: 276px;
+      width: 300px;
       border: none;
-      border-radius: 8px;
+      border-radius: 10px;
       background: #111214;
-      box-shadow: 0 8px 16px rgba(0,0,0,0.6);
-      padding: 10px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.7);
+      padding: 0;
       display: none;
       z-index: 150;
+      overflow: hidden;
     }
     .profile-flyout.open { display: block; }
-    .profile-flyout-user { display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: center; margin-bottom: 10px; }
-    .profile-flyout-avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--accent); display: grid; place-items: center; color: #fff; font-weight: 800; background-size: cover; background-position: center; }
-    .profile-flyout-name { font-size: 14px; font-weight: 700; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .profile-flyout-handle { margin-top: 2px; font-size: 12px; color: var(--ink-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .profile-flyout-actions { display: flex; justify-content: flex-end; gap: 8px; }
+    .profile-flyout-banner { height: 60px; background: linear-gradient(135deg, #5865f2, #3b4fd4); }
+    .profile-flyout-body { padding: 0 14px 14px; }
+    .profile-flyout-avatar-row { display: flex; align-items: flex-end; justify-content: space-between; margin-top: -24px; margin-bottom: 10px; }
+    .profile-flyout-avatar { width: 52px; height: 52px; border-radius: 50%; border: 4px solid #111214; background: var(--accent); display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 16px; background-size: cover; background-position: center; flex-shrink: 0; }
+    .profile-flyout-edit-btn { border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; background: transparent; color: var(--ink-soft); font-size: 12px; font-weight: 600; padding: 5px 10px; cursor: pointer; transition: background 0.12s, color 0.12s; }
+    .profile-flyout-edit-btn:hover { background: rgba(255,255,255,0.1); color: var(--ink); }
+    .profile-flyout-name { font-size: 16px; font-weight: 700; color: var(--ink); }
+    .profile-flyout-handle { margin-top: 2px; font-size: 12px; color: var(--ink-dim); }
+    .profile-flyout-sep { height: 1px; background: rgba(255,255,255,0.07); margin: 10px 0; }
+    .profile-flyout-section-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--ink-dim); margin-bottom: 4px; }
+    .profile-flyout-section-val { font-size: 13px; color: var(--ink-soft); }
+    .profile-flyout-actions { display: flex; gap: 6px; margin-top: 10px; }
+    .profile-flyout-actions .btn { flex: 1; font-size: 12px; padding: 7px 10px; }
+
+    /* Member profile popup */
+    .member-popup { position: fixed; z-index: 9000; width: 280px; border-radius: 10px; background: #111214; box-shadow: 0 8px 32px rgba(0,0,0,0.7); overflow: hidden; display: none; }
+    .member-popup.visible { display: block; }
+    .member-popup-banner { height: 56px; background: linear-gradient(135deg, #5865f2, #3b4fd4); }
+    .member-popup-body { padding: 0 14px 14px; }
+    .member-popup-avatar-row { display: flex; align-items: flex-end; justify-content: space-between; margin-top: -22px; margin-bottom: 8px; }
+    .member-popup-avatar { width: 48px; height: 48px; border-radius: 50%; border: 4px solid #111214; background: var(--accent); display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 15px; background-size: cover; background-position: center; flex-shrink: 0; }
+    .member-popup-name { font-size: 15px; font-weight: 700; color: var(--ink); }
+    .member-popup-handle { font-size: 12px; color: var(--ink-dim); margin-top: 1px; }
+    .member-popup-sep { height: 1px; background: rgba(255,255,255,0.07); margin: 8px 0; }
+    .member-popup-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--ink-dim); margin-bottom: 3px; }
+    .member-popup-val { font-size: 13px; color: var(--ink-soft); }
+    .member-popup-edit-btn { width: 100%; margin-top: 10px; border: none; border-radius: 6px; background: var(--accent); color: #fff; font-size: 13px; font-weight: 600; padding: 8px; cursor: pointer; transition: background 0.12s; }
+    .member-popup-edit-btn:hover { background: var(--accent-2); }
+
+    /* Edit profile modal */
+    .edit-profile-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 10001; display: none; place-items: center; }
+    .edit-profile-overlay.visible { display: grid; }
+    .edit-profile-modal { background: #2b2d31; border-radius: 12px; width: 440px; max-width: 95vw; overflow: hidden; box-shadow: 0 16px 48px rgba(0,0,0,0.6); }
+    .edit-profile-banner { height: 80px; background: linear-gradient(135deg, #5865f2, #3b4fd4); position: relative; }
+    .edit-profile-avatar-wrap { position: absolute; bottom: -28px; left: 20px; }
+    .edit-profile-avatar { width: 56px; height: 56px; border-radius: 50%; border: 4px solid #2b2d31; background: var(--accent); display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 18px; background-size: cover; background-position: center; cursor: pointer; position: relative; overflow: hidden; }
+    .edit-profile-avatar-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.5); display: none; place-items: center; font-size: 18px; border-radius: 50%; }
+    .edit-profile-avatar:hover .edit-profile-avatar-overlay { display: grid; }
+    .edit-profile-body { padding: 40px 20px 20px; display: grid; gap: 14px; }
+    .edit-profile-body h3 { margin: 0 0 4px; font-size: 18px; font-weight: 700; color: var(--ink); }
+    .edit-profile-form { display: grid; gap: 12px; }
+    .edit-profile-form label { display: grid; gap: 5px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--ink-dim); }
+    .edit-profile-form input, .edit-profile-form textarea { border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; background: #1e1f22; color: var(--ink); padding: 9px 12px; font-size: 14px; font-family: inherit; outline: none; transition: border-color 0.15s; }
+    .edit-profile-form input:focus, .edit-profile-form textarea:focus { border-color: var(--accent); }
+    .edit-profile-form textarea { resize: vertical; min-height: 70px; }
+    .edit-profile-footer { display: flex; gap: 8px; justify-content: flex-end; padding: 0 20px 20px; }
+    .edit-profile-cancel { border: none; border-radius: 4px; background: rgba(255,255,255,0.08); color: var(--ink-soft); font-size: 14px; font-weight: 600; padding: 8px 16px; cursor: pointer; }
+    .edit-profile-cancel:hover { background: rgba(255,255,255,0.14); }
+    .edit-profile-save { border: none; border-radius: 4px; background: var(--accent); color: #fff; font-size: 14px; font-weight: 600; padding: 8px 16px; cursor: pointer; }
+    .edit-profile-save:hover { background: var(--accent-2); }
 
     .left {
       border-right: none;
@@ -1297,15 +1344,20 @@
       <button id="open-create-plus" class="server-pill" type="button" title="Crear servidor">+</button>
       <button id="profile-dock-btn" class="server-profile-dock" type="button">WW</button>
       <div id="profile-flyout" class="profile-flyout">
-        <div class="profile-flyout-user">
-          <div id="profile-flyout-avatar" class="profile-flyout-avatar">WW</div>
-          <div>
-            <div id="profile-flyout-name" class="profile-flyout-name">Usuario</div>
-            <div id="profile-flyout-handle" class="profile-flyout-handle">@usuario</div>
+        <div class="profile-flyout-banner"></div>
+        <div class="profile-flyout-body">
+          <div class="profile-flyout-avatar-row">
+            <div id="profile-flyout-avatar" class="profile-flyout-avatar">WW</div>
+            <button class="profile-flyout-edit-btn" id="profile-flyout-edit-btn" type="button">Editar perfil</button>
           </div>
-        </div>
-        <div class="profile-flyout-actions">
-          <button id="profile-logout-btn" class="btn" type="button">Cerrar sesion</button>
+          <div id="profile-flyout-name" class="profile-flyout-name">Usuario</div>
+          <div id="profile-flyout-handle" class="profile-flyout-handle">@usuario</div>
+          <div class="profile-flyout-sep"></div>
+          <div class="profile-flyout-section-label">Miembro desde</div>
+          <div id="profile-flyout-joined" class="profile-flyout-section-val">—</div>
+          <div class="profile-flyout-actions">
+            <button id="profile-logout-btn" class="btn danger" type="button">Cerrar sesión</button>
+          </div>
         </div>
       </div>
     </aside>
@@ -2002,18 +2054,27 @@
       profileFlyoutAvatar.textContent = initials;
       profileFlyoutName.textContent = name;
       profileFlyoutHandle.textContent = `@${username}`;
+      const joined = currentUser?.created_at
+        ? new Date(currentUser.created_at).toLocaleDateString("es-UY", { day:"numeric", month:"long", year:"numeric" })
+        : "—";
+      const joinedEl = document.getElementById("profile-flyout-joined");
+      if (joinedEl) joinedEl.textContent = joined;
       const avatarUrl = safeText(currentUser?.avatar_url);
       if (avatarUrl) {
         const safeAvatar = avatarUrl.replace(/'/g, "%27");
         profileDockBtn.style.backgroundImage = `url('${safeAvatar}')`;
         profileDockBtn.style.color = "transparent";
+        profileDockBtn.style.fontSize = "0";
         profileFlyoutAvatar.style.backgroundImage = `url('${safeAvatar}')`;
         profileFlyoutAvatar.style.color = "transparent";
+        profileFlyoutAvatar.style.fontSize = "0";
       } else {
         profileDockBtn.style.backgroundImage = "";
-        profileDockBtn.style.color = "#edf4ff";
+        profileDockBtn.style.color = "";
+        profileDockBtn.style.fontSize = "";
         profileFlyoutAvatar.style.backgroundImage = "";
         profileFlyoutAvatar.style.color = "#ecf5ff";
+        profileFlyoutAvatar.style.fontSize = "";
       }
     }
 
@@ -2906,6 +2967,182 @@
       document.addEventListener("click", () => profileFlyout.classList.remove("open"));
     }
     document.getElementById("profile-logout-btn").addEventListener("click", logout);
+
+    // Flyout edit profile button
+    document.getElementById("profile-flyout-edit-btn")?.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      profileFlyout.classList.remove("open");
+      openEditProfileModal();
+    });
+
+    // ── Member profile popup ─────────────────────────────────────────────────
+    const memberPopup = document.getElementById("member-popup");
+    const memberPopupAvatar = document.getElementById("member-popup-avatar");
+    const memberPopupName = document.getElementById("member-popup-name");
+    const memberPopupHandle = document.getElementById("member-popup-handle");
+    const memberPopupJoined = document.getElementById("member-popup-joined");
+    const memberPopupRolesWrap = document.getElementById("member-popup-roles-wrap");
+    const memberPopupRoles = document.getElementById("member-popup-roles");
+    const memberPopupEditBtn = document.getElementById("member-popup-edit-btn");
+
+    function positionPopup(popup, anchorRect) {
+      const pw = 280, ph = 320;
+      const vw = window.innerWidth, vh = window.innerHeight;
+      let x = anchorRect.right + 8;
+      let y = anchorRect.top;
+      if (x + pw > vw - 8) x = anchorRect.left - pw - 8;
+      if (x < 8) x = 8;
+      if (y + ph > vh - 8) y = vh - ph - 8;
+      if (y < 8) y = 8;
+      popup.style.left = x + "px";
+      popup.style.top = y + "px";
+    }
+
+    function openMemberPopup(m, anchorEl) {
+      const name = safeText(m.display_name || m.username, "Usuario");
+      const username = safeText(m.username, "usuario");
+      const joined = m.joined_at
+        ? new Date(m.joined_at).toLocaleDateString("es-UY", { day:"numeric", month:"long", year:"numeric" })
+        : "—";
+      const avatarUrl = safeText(m.avatar_url || "");
+      const initials = getInitials(name);
+
+      memberPopupName.textContent = name;
+      memberPopupHandle.textContent = `@${username}`;
+      memberPopupJoined.textContent = joined;
+
+      if (avatarUrl) {
+        memberPopupAvatar.style.backgroundImage = `url('${avatarUrl.replace(/'/g, "%27")}')`;
+        memberPopupAvatar.style.color = "transparent";
+        memberPopupAvatar.style.fontSize = "0";
+        memberPopupAvatar.textContent = "";
+      } else {
+        memberPopupAvatar.style.backgroundImage = "";
+        memberPopupAvatar.style.color = "";
+        memberPopupAvatar.style.fontSize = "";
+        memberPopupAvatar.textContent = initials;
+      }
+
+      // Roles
+      if (m.roles && m.roles.length) {
+        memberPopupRoles.textContent = m.roles.map(r => r.name || r).join(", ");
+        memberPopupRolesWrap.style.display = "block";
+      } else {
+        memberPopupRolesWrap.style.display = "none";
+      }
+
+      // Show edit button only for own profile
+      const isOwn = currentUser && Number(m.id) === Number(currentUser.id);
+      memberPopupEditBtn.style.display = isOwn ? "block" : "none";
+
+      memberPopup.classList.add("visible");
+      const rect = anchorEl.getBoundingClientRect();
+      positionPopup(memberPopup, rect);
+    }
+
+    function closeMemberPopup() {
+      memberPopup.classList.remove("visible");
+    }
+
+    memberPopupEditBtn?.addEventListener("click", () => {
+      closeMemberPopup();
+      openEditProfileModal();
+    });
+
+    document.addEventListener("click", (e) => {
+      if (!memberPopup.contains(e.target)) closeMemberPopup();
+    });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeMemberPopup(); });
+
+    // Attach popup to member items (delegated)
+    memberList.addEventListener("click", (e) => {
+      const item = e.target.closest(".member-item");
+      if (!item) return;
+      e.stopPropagation();
+      const idx = Array.from(memberList.querySelectorAll(".member-item")).indexOf(item);
+      const m = serverMembers[idx];
+      if (m) openMemberPopup(m, item);
+    });
+
+    // ── Edit profile modal ───────────────────────────────────────────────────
+    const editProfileOverlay = document.getElementById("edit-profile-overlay");
+    const editProfileAvatar = document.getElementById("edit-profile-avatar");
+    const editProfileAvatarInput = document.getElementById("edit-profile-avatar-input");
+    const editProfileDisplayname = document.getElementById("edit-profile-displayname");
+    const editProfileUsername = document.getElementById("edit-profile-username");
+    const editProfilePassword = document.getElementById("edit-profile-password");
+    let editProfileAvatarBase64 = null;
+
+    function openEditProfileModal() {
+      editProfileDisplayname.value = safeText(currentUser?.display_name || "");
+      editProfileUsername.value = safeText(currentUser?.username || "");
+      editProfilePassword.value = "";
+      editProfileAvatarBase64 = null;
+      const avatarUrl = safeText(currentUser?.avatar_url || "");
+      const initials = getInitials(safeText(currentUser?.display_name || currentUser?.username, "WW"));
+      if (avatarUrl) {
+        editProfileAvatar.style.backgroundImage = `url('${avatarUrl.replace(/'/g, "%27")}')`;
+        editProfileAvatar.style.color = "transparent";
+        editProfileAvatar.style.fontSize = "0";
+        editProfileAvatar.textContent = "";
+      } else {
+        editProfileAvatar.style.backgroundImage = "";
+        editProfileAvatar.style.color = "";
+        editProfileAvatar.style.fontSize = "";
+        editProfileAvatar.textContent = initials;
+      }
+      editProfileOverlay.classList.add("visible");
+    }
+
+    function closeEditProfileModal() {
+      editProfileOverlay.classList.remove("visible");
+    }
+
+    editProfileAvatar?.addEventListener("click", () => editProfileAvatarInput?.click());
+    editProfileAvatarInput?.addEventListener("change", () => {
+      const file = editProfileAvatarInput.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        editProfileAvatarBase64 = e.target.result;
+        editProfileAvatar.style.backgroundImage = `url('${editProfileAvatarBase64}')`;
+        editProfileAvatar.style.color = "transparent";
+        editProfileAvatar.style.fontSize = "0";
+        editProfileAvatar.textContent = "";
+      };
+      reader.readAsDataURL(file);
+    });
+
+    document.getElementById("edit-profile-cancel-btn")?.addEventListener("click", closeEditProfileModal);
+    editProfileOverlay?.addEventListener("click", (e) => { if (e.target === editProfileOverlay) closeEditProfileModal(); });
+
+    document.getElementById("edit-profile-save-btn")?.addEventListener("click", async () => {
+      const token = getToken();
+      if (!token) return;
+      const body = {};
+      const dn = editProfileDisplayname.value.trim();
+      const un = editProfileUsername.value.trim();
+      const pw = editProfilePassword.value;
+      if (dn) body.display_name = dn;
+      if (un) body.username = un;
+      if (pw) body.password = pw;
+      if (editProfileAvatarBase64) body.avatar_url = editProfileAvatarBase64;
+      try {
+        const updated = await api("/wildwave/api/auth/profile", {
+          method: "PATCH",
+          headers: { Authorization: `Bearer ${token}` },
+          body
+        });
+        currentUser = { ...currentUser, ...(updated.user || updated) };
+        localStorage.setItem(STORAGE_USER, JSON.stringify(currentUser));
+        window._wwCurrentUserId = currentUser.id;
+        hydrateProfileDock();
+        closeEditProfileModal();
+        showToast("Perfil actualizado.", "ok");
+      } catch (err) {
+        showToast(err.message || "No se pudo actualizar el perfil.", "error");
+      }
+    });
     applyAuthMode("login");
     renderMembershipState();
     (async () => {
@@ -2919,9 +3156,60 @@
   <!-- Context menu -->
   <div id="msg-ctx-menu" class="msg-ctx-menu" role="menu"></div>
 
+  <!-- Member profile popup -->
+  <div id="member-popup" class="member-popup" role="dialog" aria-label="Perfil de miembro">
+    <div class="member-popup-banner"></div>
+    <div class="member-popup-body">
+      <div class="member-popup-avatar-row">
+        <div id="member-popup-avatar" class="member-popup-avatar">WW</div>
+      </div>
+      <div id="member-popup-name" class="member-popup-name">Usuario</div>
+      <div id="member-popup-handle" class="member-popup-handle">@usuario</div>
+      <div class="member-popup-sep"></div>
+      <div class="member-popup-label">Miembro desde</div>
+      <div id="member-popup-joined" class="member-popup-val">—</div>
+      <div id="member-popup-roles-wrap" style="display:none;margin-top:8px;">
+        <div class="member-popup-label">Roles</div>
+        <div id="member-popup-roles" class="member-popup-val">—</div>
+      </div>
+      <button id="member-popup-edit-btn" class="member-popup-edit-btn" style="display:none;" type="button">✏️ Editar mi perfil</button>
+    </div>
+  </div>
+
+  <!-- Edit profile modal -->
+  <div id="edit-profile-overlay" class="edit-profile-overlay" role="dialog" aria-modal="true" aria-label="Editar perfil">
+    <div class="edit-profile-modal">
+      <div class="edit-profile-banner">
+        <div class="edit-profile-avatar-wrap">
+          <div id="edit-profile-avatar" class="edit-profile-avatar">
+            <div class="edit-profile-avatar-overlay">📷</div>
+          </div>
+          <input id="edit-profile-avatar-input" type="file" accept="image/png,image/jpeg,image/webp" style="display:none;" />
+        </div>
+      </div>
+      <div class="edit-profile-body">
+        <h3>Editar perfil</h3>
+        <div class="edit-profile-form">
+          <label>Nombre para mostrar
+            <input id="edit-profile-displayname" type="text" maxlength="32" placeholder="Tu nombre visible" />
+          </label>
+          <label>Nombre de usuario
+            <input id="edit-profile-username" type="text" maxlength="32" placeholder="sin espacios" />
+          </label>
+          <label>Contraseña nueva <span style="font-weight:400;text-transform:none;letter-spacing:0;">(dejar vacío para no cambiar)</span>
+            <input id="edit-profile-password" type="password" maxlength="64" placeholder="••••••••" />
+          </label>
+        </div>
+      </div>
+      <div class="edit-profile-footer">
+        <button class="edit-profile-cancel" id="edit-profile-cancel-btn" type="button">Cancelar</button>
+        <button class="edit-profile-save" id="edit-profile-save-btn" type="button">Guardar cambios</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Edit message modal -->
-  <div id="edit-msg-overlay" class="edit-msg-overlay" role="dialog" aria-modal="true" aria-label="Editar mensaje">
-    <div class="edit-msg-modal">
+  <div id="edit-msg-overlay" class="edit-msg-overlay" role="dialog" aria-modal="true" aria-label="Editar mensaje">    <div class="edit-msg-modal">
       <h3>Editar mensaje</h3>
       <textarea id="edit-msg-textarea" class="edit-msg-textarea" maxlength="1800" rows="4"></textarea>
       <div class="edit-msg-actions">

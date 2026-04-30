@@ -414,6 +414,39 @@
     .chat-input::placeholder { color: var(--ink-dim); }
     .chat-send-btn { border: none; background: transparent; color: var(--ink-dim); font-size: 20px; cursor: pointer; padding: 8px 4px; transition: color 0.15s ease; }
     .chat-send-btn:hover { color: var(--ink); }
+
+    /* Context menu */
+    .msg-ctx-menu { position: fixed; z-index: 9999; background: #111214; border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 4px; min-width: 180px; box-shadow: 0 8px 24px rgba(0,0,0,0.5); display: none; }
+    .msg-ctx-menu.visible { display: block; }
+    .msg-ctx-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 4px; font-size: 14px; font-weight: 500; color: var(--ink-soft); cursor: pointer; border: none; background: transparent; width: 100%; text-align: left; transition: background 0.1s, color 0.1s; }
+    .msg-ctx-item:hover { background: var(--accent); color: #fff; }
+    .msg-ctx-item.danger { color: #ed4245; }
+    .msg-ctx-item.danger:hover { background: #ed4245; color: #fff; }
+    .msg-ctx-sep { height: 1px; background: rgba(255,255,255,0.07); margin: 3px 0; }
+
+    /* Date separator */
+    .chat-date-sep { display: flex; align-items: center; gap: 10px; padding: 12px 16px 4px; color: var(--ink-dim); font-size: 12px; font-weight: 600; }
+    .chat-date-sep hr { flex: 1; border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 0; }
+    .chat-date-sep span { white-space: nowrap; }
+
+    /* Edited tag */
+    .chat-edited-tag { font-size: 10px; color: var(--ink-dim); font-weight: 400; margin-left: 4px; font-style: italic; }
+
+    /* Pinned indicator */
+    .chat-pinned-tag { font-size: 10px; color: #faa61a; font-weight: 600; margin-left: 6px; }
+
+    /* Edit message modal */
+    .edit-msg-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 10000; display: none; place-items: center; }
+    .edit-msg-overlay.visible { display: grid; }
+    .edit-msg-modal { background: #2b2d31; border-radius: 10px; padding: 24px; width: 480px; max-width: 95vw; box-shadow: 0 16px 48px rgba(0,0,0,0.6); }
+    .edit-msg-modal h3 { margin: 0 0 14px; font-size: 18px; color: var(--ink); }
+    .edit-msg-textarea { width: 100%; box-sizing: border-box; background: #1e1f22; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: var(--ink); font-size: 15px; padding: 10px 12px; resize: vertical; min-height: 90px; outline: none; font-family: inherit; }
+    .edit-msg-textarea:focus { border-color: var(--accent); }
+    .edit-msg-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; }
+    .edit-msg-cancel { border: none; border-radius: 4px; background: rgba(255,255,255,0.08); color: var(--ink-soft); font-size: 14px; font-weight: 600; padding: 8px 16px; cursor: pointer; }
+    .edit-msg-cancel:hover { background: rgba(255,255,255,0.14); }
+    .edit-msg-save { border: none; border-radius: 4px; background: var(--accent); color: #fff; font-size: 14px; font-weight: 600; padding: 8px 16px; cursor: pointer; }
+    .edit-msg-save:hover { background: #4752c4; }
     .empty, .card { border: none; border-radius: 8px; background: rgba(0,0,0,0.2); padding: 16px; margin-bottom: 12px; }
     .empty h1 { margin: 0; font-family: "Sora", "Manrope", sans-serif; font-size: 24px; }
     .empty p, .card p { margin: 8px 0 0; color: var(--ink-soft); font-size: 14px; line-height: 1.5; }
@@ -1545,6 +1578,10 @@
     let createServerPreviewUrl = "";
     let serverSettingsPreviewUrl = "";
     let serverDisplayMode = "editorial";
+
+    // Expose dynamic state to context menu script (separate scope)
+    Object.defineProperty(window, '_wwSelectedServerId', { get: () => selectedServerId });
+    Object.defineProperty(window, '_wwSelectedTextChannelId', { get: () => selectedTextChannelId });
     const serverTrees = new Map();
 
     const authScreen = document.getElementById("auth-screen");
@@ -2349,21 +2386,61 @@
           channelMessages.innerHTML = "<div class='member-sub'>Sin mensajes aun. Inicia la conversacion.</div>";
           return;
         }
-        channelMessages.innerHTML = messages.map((m) => {
+        channelMessages.innerHTML = "";
+        // Group messages by date and render with separators
+        let lastDateKey = null;
+        const now = new Date();
+        const todayKey = now.toDateString();
+        const yesterday = new Date(now); yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayKey = yesterday.toDateString();
+
+        messages.forEach((m) => {
+          const msgDate = m.created_at ? new Date(m.created_at) : null;
+          const dateKey = msgDate ? msgDate.toDateString() : null;
+
+          if (dateKey && dateKey !== lastDateKey) {
+            lastDateKey = dateKey;
+            let labelText;
+            if (dateKey === todayKey) {
+              labelText = "Hoy";
+            } else if (dateKey === yesterdayKey) {
+              labelText = "Ayer";
+            } else {
+              labelText = msgDate.toLocaleDateString("es-UY", { day: "numeric", month: "long", year: "numeric" });
+            }
+            const sep = document.createElement("div");
+            sep.className = "chat-date-sep";
+            sep.innerHTML = `<hr><span>${labelText}</span><hr>`;
+            channelMessages.appendChild(sep);
+          }
+
           const senderName = safeText(m.sender_display_name || m.sender_username, "Sistema");
-          const timeStr = m.created_at ? new Date(m.created_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : "-";
+          const timeStr = msgDate ? msgDate.toLocaleTimeString("es-UY", {hour:'2-digit',minute:'2-digit'}) : "-";
           const initials = getInitials(senderName);
           const avatarUrl = safeText(m.sender_avatar_url || '');
           const avatarStyle = avatarUrl ? `background-image:url('${avatarUrl.replace(/'/g,"%27")}');color:transparent;font-size:0` : '';
-          return `
-          <div class="chat-item">
+          const editedTag = m.edited_at ? `<span class="chat-edited-tag">(editado)</span>` : '';
+          const pinnedTag = m.is_pinned ? `<span class="chat-pinned-tag">📌</span>` : '';
+          const msgContent = safeText(m.content || m.body || '');
+
+          const item = document.createElement("div");
+          item.className = "chat-item";
+          item.dataset.msgId = m.id;
+          item.dataset.msgSender = m.sender_user_id;
+          item.dataset.msgContent = msgContent;
+          item.innerHTML = `
             <div class="chat-item-avatar" style="${avatarStyle}">${avatarUrl ? '' : initials}</div>
             <div class="chat-item-body">
-              <div class="chat-item-meta">${senderName}<span class="chat-item-time">${timeStr}</span></div>
-              <div class="chat-item-text">${safeText(m.content)}</div>
+              <div class="chat-item-meta">${senderName}<span class="chat-item-time">${timeStr}</span>${editedTag}${pinnedTag}</div>
+              <div class="chat-item-text">${msgContent}</div>
             </div>
-          </div>
-        `}).join("");
+          `;
+          item.addEventListener("contextmenu", (e) => {
+            e.preventDefault();
+            openMsgContextMenu(e, m, item);
+          });
+          channelMessages.appendChild(item);
+        });
       } catch (err) {
         channelMessages.innerHTML = `<div class='member-sub'>${safeText(err.message, "No se pudieron cargar los mensajes.")}</div>`;
       }
@@ -2398,6 +2475,10 @@
       }
       currentUser = user;
       localStorage.setItem(STORAGE_USER, JSON.stringify(user));
+      // Expose to context menu script
+      window._wwCurrentUserId = user.id;
+      window._wwGetToken = getToken;
+      window._wwShowToast = showToast;
       authScreen.classList.add("hidden");
       appRoot.classList.remove("hidden");
       hydrateProfileDock();
@@ -2778,6 +2859,220 @@
       if (!blocked) {
         restoreSession().catch(() => {});
       }
+    })();
+  </script>
+
+  <!-- Context menu -->
+  <div id="msg-ctx-menu" class="msg-ctx-menu" role="menu"></div>
+
+  <!-- Edit message modal -->
+  <div id="edit-msg-overlay" class="edit-msg-overlay" role="dialog" aria-modal="true" aria-label="Editar mensaje">
+    <div class="edit-msg-modal">
+      <h3>Editar mensaje</h3>
+      <textarea id="edit-msg-textarea" class="edit-msg-textarea" maxlength="1800" rows="4"></textarea>
+      <div class="edit-msg-actions">
+        <button class="edit-msg-cancel" id="edit-msg-cancel-btn">Cancelar</button>
+        <button class="edit-msg-save" id="edit-msg-save-btn">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ── Context menu & message actions ──────────────────────────────────────
+    (function() {
+      const ctxMenu = document.getElementById("msg-ctx-menu");
+      let ctxTarget = null; // { m, item }
+
+      function closeCtxMenu() {
+        ctxMenu.classList.remove("visible");
+        ctxTarget = null;
+      }
+
+      document.addEventListener("click", closeCtxMenu);
+      document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeCtxMenu(); });
+
+      window.openMsgContextMenu = function(e, m, item) {
+        e.preventDefault();
+        e.stopPropagation();
+        ctxTarget = { m, item };
+
+        const currentUserId = window._wwCurrentUserId ? Number(window._wwCurrentUserId) : null;
+        const isOwn = currentUserId && Number(m.sender_user_id) === currentUserId;
+
+        let html = "";
+        if (isOwn) {
+          html += `<button class="msg-ctx-item" data-action="edit">✏️ Editar mensaje</button>`;
+          html += `<button class="msg-ctx-item danger" data-action="delete">🗑️ Eliminar mensaje</button>`;
+          html += `<div class="msg-ctx-sep"></div>`;
+          html += `<button class="msg-ctx-item" data-action="copy">📋 Copiar texto</button>`;
+          html += `<button class="msg-ctx-item" data-action="pin">${m.is_pinned ? '📌 Desfijar mensaje' : '📌 Fijar mensaje'}</button>`;
+        } else {
+          html += `<button class="msg-ctx-item" data-action="copy">📋 Copiar texto</button>`;
+          html += `<button class="msg-ctx-item" data-action="mention">@ Mencionar</button>`;
+          html += `<button class="msg-ctx-item" data-action="pin">${m.is_pinned ? '📌 Desfijar mensaje' : '📌 Fijar mensaje'}</button>`;
+          html += `<div class="msg-ctx-sep"></div>`;
+          html += `<button class="msg-ctx-item danger" data-action="report">🚩 Reportar mensaje</button>`;
+        }
+        ctxMenu.innerHTML = html;
+
+        // Position
+        const vw = window.innerWidth, vh = window.innerHeight;
+        const menuW = 190, menuH = 200;
+        let x = e.clientX, y = e.clientY;
+        if (x + menuW > vw) x = vw - menuW - 8;
+        if (y + menuH > vh) y = vh - menuH - 8;
+        ctxMenu.style.left = x + "px";
+        ctxMenu.style.top = y + "px";
+        ctxMenu.classList.add("visible");
+
+        ctxMenu.querySelectorAll(".msg-ctx-item").forEach(btn => {
+          btn.addEventListener("click", (ev) => {
+            ev.stopPropagation();
+            const action = btn.dataset.action;
+            closeCtxMenu();
+            handleMsgAction(action, ctxTarget.m, ctxTarget.item);
+          });
+        });
+      };
+
+      async function handleMsgAction(action, m, item) {
+        const sid = window._wwSelectedServerId;
+        const roomId = window._wwSelectedTextChannelId;
+        const token = window._wwGetToken ? window._wwGetToken() : null;
+
+        if (action === "copy") {
+          const text = m.content || m.body || item.dataset.msgContent || "";
+          try { await navigator.clipboard.writeText(text); } catch(_) {}
+          window._wwShowToast && window._wwShowToast("Texto copiado.", "info");
+          return;
+        }
+
+        if (action === "mention") {
+          const input = document.getElementById("channel-message-input");
+          if (input) {
+            const name = m.sender_username || m.sender_display_name || "";
+            input.value = (input.value ? input.value + " " : "") + `@${name} `;
+            input.focus();
+          }
+          return;
+        }
+
+        if (action === "report") {
+          window._wwShowToast && window._wwShowToast("Mensaje reportado. Gracias por tu reporte.", "info");
+          return;
+        }
+
+        if (action === "delete") {
+          if (!confirm("¿Eliminar este mensaje? Esta accion no se puede deshacer.")) return;
+          try {
+            const resp = await fetch(`/wildwave/api/channels/${sid}/text-channels/${roomId}/messages/${m.id}`, {
+              method: "DELETE",
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            if (!resp.ok) { const d = await resp.json(); throw new Error(d.error || "Error al eliminar"); }
+            item.remove();
+            window._wwShowToast && window._wwShowToast("Mensaje eliminado.", "info");
+          } catch(err) {
+            window._wwShowToast && window._wwShowToast(err.message || "No se pudo eliminar.", "error");
+          }
+          return;
+        }
+
+        if (action === "edit") {
+          openEditModal(m, item, sid, roomId, token);
+          return;
+        }
+
+        if (action === "pin") {
+          try {
+            const resp = await fetch(`/wildwave/api/channels/${sid}/text-channels/${roomId}/messages/${m.id}/pin`, {
+              method: "POST",
+              headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
+            });
+            if (!resp.ok) { const d = await resp.json(); throw new Error(d.error || "Error al fijar"); }
+            const data = await resp.json();
+            m.is_pinned = data.is_pinned;
+            // Update pin tag in item
+            const meta = item.querySelector(".chat-item-meta");
+            if (meta) {
+              const existing = meta.querySelector(".chat-pinned-tag");
+              if (data.is_pinned) {
+                if (!existing) { const t = document.createElement("span"); t.className = "chat-pinned-tag"; t.textContent = "📌"; meta.appendChild(t); }
+              } else {
+                if (existing) existing.remove();
+              }
+            }
+            window._wwShowToast && window._wwShowToast(data.is_pinned ? "Mensaje fijado." : "Mensaje desfijado.", "info");
+          } catch(err) {
+            window._wwShowToast && window._wwShowToast(err.message || "No se pudo fijar.", "error");
+          }
+          return;
+        }
+      }
+
+      // Edit modal
+      const editOverlay = document.getElementById("edit-msg-overlay");
+      const editTextarea = document.getElementById("edit-msg-textarea");
+      const editCancelBtn = document.getElementById("edit-msg-cancel-btn");
+      const editSaveBtn = document.getElementById("edit-msg-save-btn");
+      let editTarget = null;
+
+      function openEditModal(m, item, sid, roomId, token) {
+        editTarget = { m, item, sid, roomId, token };
+        editTextarea.value = m.content || m.body || item.dataset.msgContent || "";
+        editOverlay.classList.add("visible");
+        editTextarea.focus();
+        editTextarea.setSelectionRange(editTextarea.value.length, editTextarea.value.length);
+      }
+
+      function closeEditModal() {
+        editOverlay.classList.remove("visible");
+        editTarget = null;
+      }
+
+      editCancelBtn.addEventListener("click", closeEditModal);
+      editOverlay.addEventListener("click", (e) => { if (e.target === editOverlay) closeEditModal(); });
+      document.addEventListener("keydown", (e) => { if (e.key === "Escape" && editOverlay.classList.contains("visible")) closeEditModal(); });
+
+      editSaveBtn.addEventListener("click", async () => {
+        if (!editTarget) return;
+        const newBody = editTextarea.value.trim();
+        if (!newBody) return;
+        const { m, item, sid, roomId, token } = editTarget;
+        try {
+          const resp = await fetch(`/wildwave/api/channels/${sid}/text-channels/${roomId}/messages/${m.id}`, {
+            method: "PATCH",
+            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ body: newBody })
+          });
+          if (!resp.ok) { const d = await resp.json(); throw new Error(d.error || "Error al editar"); }
+          // Update DOM
+          const textEl = item.querySelector(".chat-item-text");
+          if (textEl) textEl.textContent = newBody;
+          m.content = newBody; m.body = newBody;
+          item.dataset.msgContent = newBody;
+          // Add/update edited tag
+          const meta = item.querySelector(".chat-item-meta");
+          if (meta && !meta.querySelector(".chat-edited-tag")) {
+            const tag = document.createElement("span");
+            tag.className = "chat-edited-tag";
+            tag.textContent = "(editado)";
+            meta.appendChild(tag);
+          }
+          closeEditModal();
+          window._wwShowToast && window._wwShowToast("Mensaje editado.", "info");
+        } catch(err) {
+          window._wwShowToast && window._wwShowToast(err.message || "No se pudo editar.", "error");
+        }
+      });
+
+      // Ctrl+Enter to save edit
+      editTextarea.addEventListener("keydown", (e) => {
+        if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+          e.preventDefault();
+          editSaveBtn.click();
+        }
+      });
     })();
   </script>
 </body>

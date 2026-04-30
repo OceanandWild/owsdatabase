@@ -18548,6 +18548,9 @@ async function ensureWildWaveMessagingTables() {
     CREATE INDEX IF NOT EXISTS idx_wildx_server_channel_messages_channel
       ON wildx_server_channel_messages(text_channel_id, created_at DESC)
   `);
+  // Columnas adicionales para edicion y fijado
+  await pool.query(`ALTER TABLE wildx_server_channel_messages ADD COLUMN IF NOT EXISTS edited_at TIMESTAMP`);
+  await pool.query(`ALTER TABLE wildx_server_channel_messages ADD COLUMN IF NOT EXISTS is_pinned BOOLEAN NOT NULL DEFAULT FALSE`);
 }
 
 function normalizeWildWaveRoomName(value) {
@@ -19826,6 +19829,8 @@ app.get('/wildwave/api/channels/:id/messages', async (req, res) => {
               m.sender_user_id,
               m.body AS content,
               m.created_at,
+              m.edited_at,
+              m.is_pinned,
               u.username AS sender_username,
               COALESCE(u.display_name, u.username, m.sender_name) AS sender_display_name,
               u.avatar_url AS sender_avatar_url
@@ -20126,6 +20131,8 @@ app.get('/wildwave/api/channels/:id/text-channels/:roomId/messages', async (req,
               m.sender_user_id,
               m.body,
               m.created_at,
+              m.edited_at,
+              m.is_pinned,
               u.username AS sender_username,
               COALESCE(u.display_name, u.username, m.sender_name) AS sender_display_name,
               u.avatar_url AS sender_avatar_url
@@ -20184,6 +20191,99 @@ app.post('/wildwave/api/channels/:id/text-channels/:roomId/messages', async (req
     });
   } catch (err) {
     console.error('Error en POST /wildwave/api/channels/:id/text-channels/:roomId/messages:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Eliminar mensaje
+app.delete('/wildwave/api/channels/:id/text-channels/:roomId/messages/:msgId', async (req, res) => {
+  try {
+    await ensureWildWaveMessagingTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Token requerido' });
+    const serverId = Number(req.params.id || 0);
+    const roomId = Number(req.params.roomId || 0);
+    const msgId = Number(req.params.msgId || 0);
+    if (!Number.isFinite(serverId) || serverId <= 0 || !Number.isFinite(roomId) || roomId <= 0 || !Number.isFinite(msgId) || msgId <= 0) {
+      return res.status(400).json({ error: 'Parametros invalidos' });
+    }
+    const access = await getWildWaveServerAccess(serverId, wid);
+    if (!access || !access.isMember) return res.status(403).json({ error: 'No perteneces a este servidor' });
+    // Solo el autor o admin/owner puede eliminar
+    const { rows: msgRows } = await pool.query(
+      'SELECT sender_user_id FROM wildx_server_channel_messages WHERE id = $1 AND text_channel_id = $2 LIMIT 1',
+      [msgId, roomId]
+    );
+    if (!msgRows.length) return res.status(404).json({ error: 'Mensaje no encontrado' });
+    if (msgRows[0].sender_user_id !== wid && !access.canManage) {
+      return res.status(403).json({ error: 'No puedes eliminar este mensaje' });
+    }
+    await pool.query('DELETE FROM wildx_server_channel_messages WHERE id = $1', [msgId]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error en DELETE messages:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Editar mensaje
+app.patch('/wildwave/api/channels/:id/text-channels/:roomId/messages/:msgId', async (req, res) => {
+  try {
+    await ensureWildWaveMessagingTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Token requerido' });
+    const serverId = Number(req.params.id || 0);
+    const roomId = Number(req.params.roomId || 0);
+    const msgId = Number(req.params.msgId || 0);
+    if (!Number.isFinite(serverId) || serverId <= 0 || !Number.isFinite(roomId) || roomId <= 0 || !Number.isFinite(msgId) || msgId <= 0) {
+      return res.status(400).json({ error: 'Parametros invalidos' });
+    }
+    const access = await getWildWaveServerAccess(serverId, wid);
+    if (!access || !access.isMember) return res.status(403).json({ error: 'No perteneces a este servidor' });
+    const newBody = String(req.body?.body || '').trim();
+    if (!newBody) return res.status(400).json({ error: 'Contenido requerido' });
+    if (newBody.length > 1800) return res.status(400).json({ error: 'El mensaje supera el limite de 1800 caracteres' });
+    const { rows: msgRows } = await pool.query(
+      'SELECT sender_user_id FROM wildx_server_channel_messages WHERE id = $1 AND text_channel_id = $2 LIMIT 1',
+      [msgId, roomId]
+    );
+    if (!msgRows.length) return res.status(404).json({ error: 'Mensaje no encontrado' });
+    if (msgRows[0].sender_user_id !== wid) return res.status(403).json({ error: 'Solo puedes editar tus propios mensajes' });
+    const { rows } = await pool.query(
+      'UPDATE wildx_server_channel_messages SET body = $1, edited_at = NOW() WHERE id = $2 RETURNING id, body, edited_at',
+      [newBody, msgId]
+    );
+    res.json({ success: true, message: rows[0] });
+  } catch (err) {
+    console.error('Error en PATCH messages:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Fijar / desfijar mensaje
+app.post('/wildwave/api/channels/:id/text-channels/:roomId/messages/:msgId/pin', async (req, res) => {
+  try {
+    await ensureWildWaveMessagingTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Token requerido' });
+    const serverId = Number(req.params.id || 0);
+    const roomId = Number(req.params.roomId || 0);
+    const msgId = Number(req.params.msgId || 0);
+    if (!Number.isFinite(serverId) || serverId <= 0 || !Number.isFinite(roomId) || roomId <= 0 || !Number.isFinite(msgId) || msgId <= 0) {
+      return res.status(400).json({ error: 'Parametros invalidos' });
+    }
+    const access = await getWildWaveServerAccess(serverId, wid);
+    if (!access || !access.isMember) return res.status(403).json({ error: 'No perteneces a este servidor' });
+    const { rows: msgRows } = await pool.query(
+      'SELECT is_pinned FROM wildx_server_channel_messages WHERE id = $1 AND text_channel_id = $2 LIMIT 1',
+      [msgId, roomId]
+    );
+    if (!msgRows.length) return res.status(404).json({ error: 'Mensaje no encontrado' });
+    const newPinned = !msgRows[0].is_pinned;
+    await pool.query('UPDATE wildx_server_channel_messages SET is_pinned = $1 WHERE id = $2', [newPinned, msgId]);
+    res.json({ success: true, is_pinned: newPinned });
+  } catch (err) {
+    console.error('Error en POST pin message:', err);
     res.status(500).json({ error: 'Error interno' });
   }
 });

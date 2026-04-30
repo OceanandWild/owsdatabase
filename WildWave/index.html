@@ -2976,10 +2976,18 @@
     });
 
     // ── Member profile popup ─────────────────────────────────────────────────
-    const memberPopup = document.getElementById("member-popup");
-    const memberPopupAvatar = document.getElementById("member-popup-avatar");
-    const memberPopupName = document.getElementById("member-popup-name");
-    const memberPopupHandle = document.getElementById("member-popup-handle");
+    function getMemberPopupEls() {
+      return {
+        popup:      document.getElementById("member-popup"),
+        avatar:     document.getElementById("member-popup-avatar"),
+        name:       document.getElementById("member-popup-name"),
+        handle:     document.getElementById("member-popup-handle"),
+        joined:     document.getElementById("member-popup-joined"),
+        rolesWrap:  document.getElementById("member-popup-roles-wrap"),
+        roles:      document.getElementById("member-popup-roles"),
+        editBtn:    document.getElementById("member-popup-edit-btn"),
+      };
+    }
     const memberPopupJoined = document.getElementById("member-popup-joined");
     const memberPopupRolesWrap = document.getElementById("member-popup-roles-wrap");
     const memberPopupRoles = document.getElementById("member-popup-roles");
@@ -2999,6 +3007,9 @@
     }
 
     function openMemberPopup(m, anchorEl) {
+      const els = getMemberPopupEls();
+      if (!els.popup) return;
+
       const name = safeText(m.display_name || m.username, "Usuario");
       const username = safeText(m.username, "usuario");
       const joined = m.joined_at
@@ -3007,50 +3018,57 @@
       const avatarUrl = safeText(m.avatar_url || "");
       const initials = getInitials(name);
 
-      memberPopupName.textContent = name;
-      memberPopupHandle.textContent = `@${username}`;
-      memberPopupJoined.textContent = joined;
+      els.name.textContent = name;
+      els.handle.textContent = `@${username}`;
+      els.joined.textContent = joined;
 
       if (avatarUrl) {
-        memberPopupAvatar.style.backgroundImage = `url('${avatarUrl.replace(/'/g, "%27")}')`;
-        memberPopupAvatar.style.color = "transparent";
-        memberPopupAvatar.style.fontSize = "0";
-        memberPopupAvatar.textContent = "";
+        els.avatar.style.backgroundImage = `url('${avatarUrl.replace(/'/g, "%27")}')`;
+        els.avatar.style.color = "transparent";
+        els.avatar.style.fontSize = "0";
+        els.avatar.textContent = "";
       } else {
-        memberPopupAvatar.style.backgroundImage = "";
-        memberPopupAvatar.style.color = "";
-        memberPopupAvatar.style.fontSize = "";
-        memberPopupAvatar.textContent = initials;
+        els.avatar.style.backgroundImage = "";
+        els.avatar.style.color = "";
+        els.avatar.style.fontSize = "";
+        els.avatar.textContent = initials;
       }
 
       // Roles
       if (m.roles && m.roles.length) {
-        memberPopupRoles.textContent = m.roles.map(r => r.name || r).join(", ");
-        memberPopupRolesWrap.style.display = "block";
+        els.roles.textContent = m.roles.map(r => r.name || r).join(", ");
+        els.rolesWrap.style.display = "block";
       } else {
-        memberPopupRolesWrap.style.display = "none";
+        els.rolesWrap.style.display = "none";
       }
 
       // Show edit button only for own profile
       const isOwn = currentUser && Number(m.id) === Number(currentUser.id);
-      memberPopupEditBtn.style.display = isOwn ? "block" : "none";
+      els.editBtn.style.display = isOwn ? "block" : "none";
 
-      memberPopup.classList.add("visible");
+      els.popup.classList.add("visible");
       const rect = anchorEl.getBoundingClientRect();
-      positionPopup(memberPopup, rect);
+      positionPopup(els.popup, rect);
     }
 
     function closeMemberPopup() {
-      memberPopup.classList.remove("visible");
+      const els = getMemberPopupEls();
+      if (els.popup) els.popup.classList.remove("visible");
     }
 
-    memberPopupEditBtn?.addEventListener("click", () => {
-      closeMemberPopup();
-      openEditProfileModal();
+    document.addEventListener("DOMContentLoaded", () => {
+      const els = getMemberPopupEls();
+      if (els.editBtn) {
+        els.editBtn.addEventListener("click", () => {
+          closeMemberPopup();
+          openEditProfileModal();
+        });
+      }
     });
 
     document.addEventListener("click", (e) => {
-      if (!memberPopup.contains(e.target)) closeMemberPopup();
+      const els = getMemberPopupEls();
+      if (els.popup && !els.popup.contains(e.target)) closeMemberPopup();
     });
     document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeMemberPopup(); });
 

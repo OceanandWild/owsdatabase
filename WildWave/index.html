@@ -476,9 +476,10 @@
     .member-status-dot { position: absolute; bottom: 0; right: 0; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--panel); background: #23a55a; }
     .member-status-dot.offline { background: #80848e; }
     .member-info { min-width: 0; flex: 1; }
-    .member-name { font-size: 14px; font-weight: 500; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
+    .member-name { font-size: 13px; font-weight: 500; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.2; }
     .member-item:hover .member-name { color: var(--ink); }
-    .member-handle { margin-top: 1px; color: var(--ink-dim); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .member-handle { margin-top: 2px; color: var(--ink-dim); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .member-joined { color: var(--ink-dim); font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 1px; }
     .member-sub { margin-top: 1px; color: var(--ink-dim); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
     .modal-wrap {
@@ -2214,7 +2215,8 @@
             </div>
             <div class="member-info">
               <div class="member-name">${name}</div>
-              <div class="member-handle">@${user} · ${joined}</div>
+              <div class="member-handle">@${user}</div>
+              <div class="member-joined">Se unió: ${joined}</div>
             </div>
           </li>
         `;

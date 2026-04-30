@@ -1667,6 +1667,33 @@
     </div>
   </div>
 
+  <!-- Role Modal -->
+  <div id="role-modal" class="modal-wrap">
+    <div class="modal" style="max-width:420px;">
+      <div class="modal-head">
+        <h3 id="role-modal-title">Crear rol</h3>
+        <button type="button" class="modal-close" onclick="window.closeRoleModal()">×</button>
+      </div>
+      <div class="modal-body">
+        <label style="display:block;margin-bottom:16px;">
+          <span style="display:block;font-size:12px;font-weight:700;color:var(--ink-dim);margin-bottom:6px;">Nombre del rol</span>
+          <input id="role-name-input" type="text" class="input" placeholder="Moderador" maxlength="32" style="width:100%;">
+        </label>
+        <label style="display:block;margin-bottom:16px;">
+          <span style="display:block;font-size:12px;font-weight:700;color:var(--ink-dim);margin-bottom:6px;">Color</span>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <input id="role-color-input" type="color" value="#7aa2ff" style="width:48px;height:36px;border:none;border-radius:6px;cursor:pointer;">
+            <input id="role-color-text" type="text" class="input" value="#7aa2ff" maxlength="7" style="flex:1;">
+          </div>
+        </label>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn" onclick="window.closeRoleModal()">Cancelar</button>
+        <button type="button" class="btn primary" onclick="window.saveRoleModal()">Aceptar</button>
+      </div>
+    </div>
+  </div>
+
   <div id="toast" class="toast"></div>
 
   <script>
@@ -3252,6 +3279,7 @@
 
     // === ROLES MANAGEMENT ===
     window.serverRolesData = [];
+    window.currentRoleEdit = null;
     
     window.loadServerRoles = async function() {
       const selected = getSelectedServer();
@@ -3292,46 +3320,88 @@
       `).join('');
     }
 
-    window.createServerRole = async function() {
+    window.openRoleModal = function(roleId = null) {
+      const modal = document.getElementById("role-modal");
+      const title = document.getElementById("role-modal-title");
+      const nameInput = document.getElementById("role-name-input");
+      const colorInput = document.getElementById("role-color-input");
+      const colorText = document.getElementById("role-color-text");
+      
+      if (roleId) {
+        const role = window.serverRolesData.find(r => r.id === roleId);
+        if (!role) return;
+        window.currentRoleEdit = roleId;
+        title.textContent = "Editar rol";
+        nameInput.value = role.name;
+        colorInput.value = role.color;
+        colorText.value = role.color;
+      } else {
+        window.currentRoleEdit = null;
+        title.textContent = "Crear rol";
+        nameInput.value = "";
+        colorInput.value = "#7aa2ff";
+        colorText.value = "#7aa2ff";
+      }
+      
+      colorInput.oninput = () => { colorText.value = colorInput.value; };
+      colorText.oninput = () => { 
+        if (/^#[0-9A-Fa-f]{6}$/.test(colorText.value)) {
+          colorInput.value = colorText.value;
+        }
+      };
+      
+      modal.classList.add("active");
+    };
+
+    window.closeRoleModal = function() {
+      document.getElementById("role-modal").classList.remove("active");
+      window.currentRoleEdit = null;
+    };
+
+    window.saveRoleModal = async function() {
+      const nameInput = document.getElementById("role-name-input");
+      const colorInput = document.getElementById("role-color-input");
+      const name = nameInput.value.trim();
+      const color = colorInput.value;
+      
+      if (!name) {
+        showToast("El nombre del rol es obligatorio.", "error");
+        return;
+      }
+      
       const selected = getSelectedServer();
       if (!selected) return;
-      const name = prompt("Nombre del rol:");
-      if (!name || !name.trim()) return;
-      const color = prompt("Color del rol (hex):", "#7aa2ff");
+      
       try {
         const token = getToken();
-        await api(`/wildwave/api/channels/${selected.id}/roles`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ name: name.trim(), color: color || "#7aa2ff", priority: 100 })
-        });
+        if (window.currentRoleEdit) {
+          await api(`/wildwave/api/channels/${selected.id}/roles/${window.currentRoleEdit}`, {
+            method: "PATCH",
+            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ name, color, priority: 100 })
+          });
+          showToast("Rol actualizado correctamente.", "ok");
+        } else {
+          await api(`/wildwave/api/channels/${selected.id}/roles`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ name, color, priority: 100 })
+          });
+          showToast("Rol creado correctamente.", "ok");
+        }
+        window.closeRoleModal();
         await window.loadServerRoles();
-        showToast("Rol creado correctamente.", "ok");
       } catch (err) {
-        showToast(err.message || "Error al crear el rol.", "error");
+        showToast(err.message || "Error al guardar el rol.", "error");
       }
     };
 
-    window.editServerRole = async function(roleId) {
-      const role = window.serverRolesData.find(r => r.id === roleId);
-      if (!role) return;
-      const name = prompt("Nuevo nombre del rol:", role.name);
-      if (!name || !name.trim()) return;
-      const color = prompt("Nuevo color del rol (hex):", role.color);
-      const selected = getSelectedServer();
-      if (!selected) return;
-      try {
-        const token = getToken();
-        await api(`/wildwave/api/channels/${selected.id}/roles/${roleId}`, {
-          method: "PATCH",
-          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ name: name.trim(), color: color || role.color, priority: role.priority })
-        });
-        await window.loadServerRoles();
-        showToast("Rol actualizado correctamente.", "ok");
-      } catch (err) {
-        showToast(err.message || "Error al actualizar el rol.", "error");
-      }
+    window.createServerRole = function() {
+      window.openRoleModal();
+    };
+
+    window.editServerRole = function(roleId) {
+      window.openRoleModal(roleId);
     };
 
     window.deleteServerRole = async function(roleId) {

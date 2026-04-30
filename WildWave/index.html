@@ -1672,6 +1672,11 @@
   <script>
     const API_BASE = "https://owsdatabase.onrender.com";
     (function initOwsProjectGuard() {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('disable_rework_restriction') === '1') {
+        console.log('🔓 Restricción de rework deshabilitada por parámetro URL');
+        return;
+      }
       const mountGuard = () => {
         if (!window.OWSProjectRestrictionGuard || typeof window.OWSProjectRestrictionGuard.mount !== "function") return;
         window.OWSProjectRestrictionGuard.mount({

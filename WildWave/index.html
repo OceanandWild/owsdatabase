@@ -2940,8 +2940,9 @@
           btn.addEventListener("click", (ev) => {
             ev.stopPropagation();
             const action = btn.dataset.action;
+            const { m, item } = ctxTarget || {};
             closeCtxMenu();
-            handleMsgAction(action, ctxTarget.m, ctxTarget.item);
+            if (m && item) handleMsgAction(action, m, item);
           });
         });
       };

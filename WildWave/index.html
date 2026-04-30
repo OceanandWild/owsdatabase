@@ -970,17 +970,15 @@
       width: 100vw;
       height: 100vh;
       min-height: 100vh;
-      border: 1px solid rgba(166, 198, 238, 0.3);
-      border-radius: 0;
       overflow: hidden;
-      background: linear-gradient(170deg, #151f37, #101a31);
+      background: #313338;
       display: grid;
-      grid-template-columns: 250px 1fr;
+      grid-template-columns: 232px 1fr;
     }
     #server-settings-modal {
       padding: 0;
-      background: rgba(3, 7, 13, 0.9);
-      backdrop-filter: blur(7px);
+      background: rgba(0,0,0,0.75);
+      backdrop-filter: blur(6px);
     }
     #server-settings-modal.active {
       display: flex;
@@ -988,136 +986,148 @@
       justify-content: stretch;
     }
     .ss-nav {
-      border-right: 1px solid rgba(166, 198, 238, 0.2);
-      background: linear-gradient(180deg, #0f1a30, #0c1628);
-      padding: 12px;
+      border-right: 1px solid rgba(0,0,0,0.3);
+      background: #2b2d31;
+      padding: 16px 8px;
       display: grid;
       grid-template-rows: auto 1fr auto;
-      gap: 10px;
+      gap: 12px;
     }
     .ss-brand {
       display: grid;
       grid-template-columns: auto 1fr;
       gap: 10px;
       align-items: center;
-      padding-bottom: 10px;
-      border-bottom: 1px solid rgba(161, 194, 234, 0.16);
+      padding: 8px;
+      border-radius: 8px;
+      margin-bottom: 4px;
     }
     .ss-brand-icon {
-      width: 44px;
-      height: 44px;
-      border-radius: 11px;
-      border: 1px solid rgba(177, 209, 243, 0.35);
-      background: linear-gradient(145deg, #2f4f82, #22406b);
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: var(--accent);
       display: grid;
       place-items: center;
       font-weight: 800;
+      font-size: 14px;
       background-size: cover;
       background-position: center;
-      color: #ebf6ff;
+      color: #fff;
+      flex-shrink: 0;
     }
     .ss-brand-icon.has-icon { color: transparent; font-size: 0; }
-    .ss-brand-name { font-size: 16px; font-family: "Sora", "Manrope", sans-serif; font-weight: 700; }
-    .ss-brand-sub { margin-top: 2px; color: var(--ink-dim); font-size: 11px; text-transform: uppercase; letter-spacing: 0.7px; }
-    .ss-nav-list { display: grid; gap: 6px; align-content: start; }
+    .ss-brand-name { font-size: 14px; font-weight: 700; color: var(--ink); }
+    .ss-brand-sub { margin-top: 1px; color: var(--ink-dim); font-size: 11px; text-transform: uppercase; letter-spacing: 0.6px; font-weight: 600; }
+    .ss-nav-list { display: grid; gap: 2px; align-content: start; }
     .ss-nav-item {
-      border: 1px solid rgba(160, 194, 235, 0.18);
-      border-radius: 9px;
-      background: rgba(15, 27, 47, 0.58);
+      border: none;
+      border-radius: 6px;
+      background: transparent;
       color: var(--ink-soft);
-      font-size: 13px;
-      font-weight: 700;
+      font-size: 14px;
+      font-weight: 500;
       text-align: left;
       padding: 8px 10px;
       cursor: pointer;
+      transition: background 0.12s, color 0.12s;
     }
+    .ss-nav-item:hover { background: rgba(255,255,255,0.07); color: var(--ink); }
     .ss-nav-item.active {
-      border-color: rgba(103, 213, 255, 0.7);
-      color: #def0ff;
-      background: rgba(25, 47, 79, 0.72);
+      background: rgba(88,101,242,0.2);
+      color: #fff;
+      font-weight: 600;
     }
     .ss-main {
       min-height: 0;
       overflow: auto;
-      padding: 18px 18px 14px;
+      padding: 32px 40px 24px;
       display: grid;
       grid-template-rows: auto 1fr auto;
-      gap: 14px;
+      gap: 20px;
+      background: #313338;
     }
     .ss-head {
       display: flex;
       justify-content: space-between;
-      align-items: center;
+      align-items: flex-start;
       gap: 10px;
     }
-    .ss-head h3 { margin: 0; font-size: 32px; font-family: "Sora", "Manrope", sans-serif; }
-    .ss-head p { margin: 5px 0 0; color: var(--ink-dim); font-size: 13px; max-width: 620px; }
+    .ss-head h3 { margin: 0; font-size: 20px; font-weight: 700; color: var(--ink); }
+    .ss-head p { margin: 5px 0 0; color: var(--ink-dim); font-size: 13px; max-width: 560px; line-height: 1.4; }
     .ss-close {
-      border: 1px solid rgba(178, 210, 242, 0.35);
-      border-radius: 11px;
-      background: rgba(12, 22, 40, 0.66);
-      color: #eef7ff;
-      width: 40px;
-      height: 40px;
+      border: none;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.07);
+      color: var(--ink-soft);
+      width: 32px;
+      height: 32px;
       cursor: pointer;
-      font-size: 22px;
+      font-size: 18px;
       line-height: 1;
-    }
-    .ss-body { display: grid; gap: 14px; align-content: start; }
-    .ss-card {
-      border: 1px solid rgba(163, 197, 236, 0.2);
-      border-radius: 14px;
-      background: rgba(13, 23, 42, 0.62);
-      padding: 12px;
       display: grid;
-      gap: 10px;
+      place-items: center;
+      flex-shrink: 0;
+      transition: background 0.12s, color 0.12s;
     }
-    .ss-card h4 { margin: 0; font-size: 20px; font-family: "Sora", "Manrope", sans-serif; }
+    .ss-close:hover { background: rgba(255,255,255,0.13); color: var(--ink); }
+    .ss-body { display: grid; gap: 20px; align-content: start; }
+    .ss-card {
+      border-radius: 8px;
+      background: #2b2d31;
+      padding: 20px;
+      display: grid;
+      gap: 16px;
+    }
+    .ss-card h4 { margin: 0; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--ink-dim); }
     .ss-grid {
       display: grid;
-      grid-template-columns: 220px 1fr;
-      gap: 12px;
+      grid-template-columns: 160px 1fr;
+      gap: 20px;
       align-items: start;
     }
-    .ss-form { display: grid; gap: 10px; }
-    .ss-form label { display: grid; gap: 4px; font-size: 11px; letter-spacing: 0.6px; text-transform: uppercase; color: var(--ink-dim); font-weight: 800; }
+    .ss-form { display: grid; gap: 14px; }
+    .ss-form label { display: grid; gap: 6px; font-size: 11px; letter-spacing: 0.6px; text-transform: uppercase; color: var(--ink-dim); font-weight: 700; }
     .ss-form input, .ss-form select, .ss-form textarea {
-      border: 1px solid rgba(168, 199, 236, 0.28);
-      border-radius: 10px;
-      background: #0f182e;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 4px;
+      background: #1e1f22;
       color: var(--ink);
-      padding: 10px 11px;
+      padding: 10px 12px;
       outline: none;
-      font-size: 13px;
+      font-size: 14px;
+      font-family: inherit;
+      transition: border-color 0.15s;
     }
-    .ss-form textarea { min-height: 90px; resize: vertical; }
-    .ss-form input:focus, .ss-form select:focus, .ss-form textarea:focus { border-color: rgba(104, 194, 255, 0.78); }
+    .ss-form textarea { min-height: 80px; resize: vertical; }
+    .ss-form input:focus, .ss-form select:focus, .ss-form textarea:focus { border-color: var(--accent); }
+    .ss-form select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%2380848e' d='M1 1l5 5 5-5'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px; }
     .ss-icon-uploader {
-      border: 1px dashed rgba(160, 194, 235, 0.5);
-      border-radius: 14px;
-      background: rgba(10, 18, 34, 0.58);
-      padding: 12px;
+      border: 2px dashed rgba(255,255,255,0.1);
+      border-radius: 10px;
+      background: rgba(0,0,0,0.15);
+      padding: 16px 12px;
       display: grid;
-      gap: 8px;
+      gap: 10px;
       justify-items: center;
       text-align: center;
+      transition: border-color 0.15s;
     }
+    .ss-icon-uploader:hover { border-color: rgba(255,255,255,0.2); }
     .ss-icon-uploader input[type="file"] {
       width: 100%;
-      max-width: 100%;
       font-size: 12px;
       color: var(--ink-soft);
     }
     .ss-icon-preview {
-      width: 112px;
-      height: 112px;
-      border-radius: 20px;
-      border: 1px solid rgba(177, 209, 243, 0.36);
-      background: linear-gradient(145deg, #2f4f82, #22406b);
+      width: 96px;
+      height: 96px;
+      border-radius: 16px;
+      background: var(--accent);
       display: grid;
       place-items: center;
-      color: #edf7ff;
-      font-size: 24px;
+      color: #fff;
+      font-size: 22px;
       font-weight: 800;
       background-size: cover;
       background-position: center;
@@ -1129,28 +1139,28 @@
       gap: 10px;
     }
     .ss-mode-card {
-      border: 1px solid rgba(165, 199, 237, 0.26);
-      border-radius: 12px;
-      background: rgba(14, 25, 44, 0.62);
-      padding: 10px;
+      border: 2px solid rgba(255,255,255,0.08);
+      border-radius: 8px;
+      background: #1e1f22;
+      padding: 12px;
       display: grid;
       gap: 10px;
       cursor: pointer;
+      transition: border-color 0.15s;
     }
-    .ss-mode-card.active {
-      border-color: rgba(106, 194, 255, 0.72);
-      box-shadow: 0 0 0 1px rgba(106, 194, 255, 0.35) inset;
-    }
+    .ss-mode-card:hover { border-color: rgba(255,255,255,0.18); }
+    .ss-mode-card.active { border-color: var(--accent); }
     .ss-mode-ghost {
-      border-radius: 8px;
-      height: 74px;
-      border: 1px solid rgba(178, 210, 242, 0.2);
-      background: rgba(255, 255, 255, 0.04);
+      border-radius: 6px;
+      height: 64px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.06);
     }
-    .ss-mode-name { font-size: 13px; font-weight: 700; }
+    .ss-mode-name { font-size: 13px; font-weight: 600; color: var(--ink-soft); text-align: left; }
+    .ss-mode-card.active .ss-mode-name { color: var(--ink); }
     .ss-footer {
-      border-top: 1px solid rgba(160, 194, 234, 0.2);
-      padding-top: 10px;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      padding-top: 16px;
       display: flex;
       justify-content: flex-end;
       gap: 8px;
@@ -1159,8 +1169,9 @@
       .modal.large { width: min(820px, 100%); }
       .step-grid, .review-grid { grid-template-columns: 1fr; }
       .server-settings-layout { grid-template-columns: 1fr; height: 100vh; min-height: 100vh; }
-      .ss-nav { border-right: 0; border-bottom: 1px solid rgba(166, 198, 238, 0.2); grid-template-rows: auto auto; }
+      .ss-nav { border-right: 0; border-bottom: 1px solid rgba(255,255,255,0.06); grid-template-rows: auto auto; }
       .ss-nav-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .ss-main { padding: 20px 16px; }
       .ss-grid { grid-template-columns: 1fr; }
     }
 
@@ -1481,7 +1492,7 @@
           <div id="ss-brand-icon" class="ss-brand-icon">SV</div>
           <div>
             <div class="ss-brand-name">Ajustes del servidor</div>
-            <div class="ss-brand-sub">Administracion</div>
+            <div class="ss-brand-sub">Administración</div>
           </div>
         </div>
         <div class="ss-nav-list">
@@ -1490,7 +1501,7 @@
           <button class="ss-nav-item" type="button">Integraciones</button>
           <button class="ss-nav-item" type="button">Seguridad</button>
         </div>
-        <button id="ss-cancel-side" class="btn" type="button">Cerrar</button>
+        <button id="ss-cancel-side" class="btn" type="button" style="width:100%;margin-top:auto;">Cerrar</button>
       </aside>
       <section class="ss-main">
         <header class="ss-head">
@@ -1507,26 +1518,26 @@
               <div class="ss-icon-uploader">
                 <div id="ss-icon-preview" class="ss-icon-preview">SV</div>
                 <input id="ss-icon-input" type="file" accept="image/png,image/jpeg,image/webp" />
-                <div style="font-size:11px;color:var(--ink-dim);">Recomendado 512x512</div>
+                <div style="font-size:11px;color:var(--ink-dim);">Recomendado 512×512</div>
               </div>
               <div class="ss-form">
                 <label>Nombre del servidor
                   <input id="ss-name-input" type="text" maxlength="32" />
                 </label>
-                <label>Descripcion
+                <label>Descripción
                   <textarea id="ss-description-input" maxlength="180"></textarea>
                 </label>
-                <label>Region
+                <label>Región
                   <select id="ss-region-input">
                     <option value="us-east">US East</option>
                     <option value="us-west">US West</option>
-                    <option value="sa-east">Sudamerica East</option>
+                    <option value="sa-east">Sudamérica East</option>
                     <option value="eu-west">EU West</option>
                   </select>
                 </label>
                 <label>Visibilidad
                   <select id="ss-visibility-input">
-                    <option value="public">Publico</option>
+                    <option value="public">Público</option>
                     <option value="private">Privado</option>
                   </select>
                 </label>
@@ -1534,7 +1545,7 @@
             </div>
           </article>
           <article class="ss-card">
-            <h4>Modo de visualizacion</h4>
+            <h4>Modo de visualización</h4>
             <div class="ss-mode">
               <button id="ss-mode-editorial" class="ss-mode-card active" type="button">
                 <div class="ss-mode-ghost"></div>

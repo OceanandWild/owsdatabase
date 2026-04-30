@@ -1251,6 +1251,27 @@
   </style>
 </head>
 <body>
+  <!-- Splash Screen -->
+  <div id="splash-screen" style="position:fixed;inset:0;z-index:999999;background:linear-gradient(135deg,#1e1f22 0%,#2b2d31 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity 0.4s,visibility 0.4s;">
+    <div style="text-align:center;">
+      <div style="width:80px;height:80px;margin:0 auto 24px;position:relative;">
+        <svg width="80" height="80" viewBox="0 0 80 80" style="animation:spin 1.2s linear infinite;">
+          <circle cx="40" cy="40" r="32" fill="none" stroke="#5865f2" stroke-width="6" stroke-dasharray="150 50" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <h2 style="color:#f2f3f5;font-size:24px;font-weight:700;margin:0 0 8px;">WildWave</h2>
+      <p style="color:#b5bac1;font-size:14px;margin:0;">Cargando tu experiencia...</p>
+    </div>
+  </div>
+  <style>
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #splash-screen.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+    #role-modal input[type="text"]:focus,
+    #role-modal input[type="text"]:hover { border-color: #5865f2; }
+    #role-modal button[onclick*="saveRoleModal"]:hover { background: #4752c4; }
+    #role-modal button[onclick*="closeRoleModal"]:hover { background: rgba(255,255,255,0.1); }
+  </style>
+
   <section id="auth-screen" class="auth-screen">
     <div class="auth-card">
       <div class="auth-left">
@@ -1669,27 +1690,27 @@
 
   <!-- Role Modal -->
   <div id="role-modal" class="modal-wrap">
-    <div class="modal" style="max-width:420px;">
-      <div class="modal-head">
-        <h3 id="role-modal-title">Crear rol</h3>
-        <button type="button" class="modal-close" onclick="window.closeRoleModal()">×</button>
+    <div class="modal" style="max-width:440px;background:#313338;">
+      <div class="modal-head" style="background:#2b2d31;border-bottom:1px solid rgba(0,0,0,0.2);">
+        <h3 id="role-modal-title" style="color:#f2f3f5;font-size:20px;font-weight:600;">Crear rol</h3>
+        <button type="button" class="modal-close" onclick="window.closeRoleModal()" style="color:#b5bac1;">×</button>
       </div>
-      <div class="modal-body">
-        <label style="display:block;margin-bottom:16px;">
-          <span style="display:block;font-size:12px;font-weight:700;color:var(--ink-dim);margin-bottom:6px;">Nombre del rol</span>
-          <input id="role-name-input" type="text" class="input" placeholder="Moderador" maxlength="32" style="width:100%;">
+      <div class="modal-body" style="padding:20px;">
+        <label style="display:block;margin-bottom:20px;">
+          <span style="display:block;font-size:12px;font-weight:700;color:#b5bac1;text-transform:uppercase;margin-bottom:8px;letter-spacing:0.5px;">Nombre del rol</span>
+          <input id="role-name-input" type="text" placeholder="Moderador" maxlength="32" style="width:100%;padding:10px 12px;background:#1e1f22;border:1px solid #1e1f22;border-radius:4px;color:#f2f3f5;font-size:16px;outline:none;transition:border-color 0.15s;">
         </label>
-        <label style="display:block;margin-bottom:16px;">
-          <span style="display:block;font-size:12px;font-weight:700;color:var(--ink-dim);margin-bottom:6px;">Color</span>
-          <div style="display:flex;gap:8px;align-items:center;">
-            <input id="role-color-input" type="color" value="#7aa2ff" style="width:48px;height:36px;border:none;border-radius:6px;cursor:pointer;">
-            <input id="role-color-text" type="text" class="input" value="#7aa2ff" maxlength="7" style="flex:1;">
+        <label style="display:block;">
+          <span style="display:block;font-size:12px;font-weight:700;color:#b5bac1;text-transform:uppercase;margin-bottom:8px;letter-spacing:0.5px;">Color</span>
+          <div style="display:flex;gap:12px;align-items:center;">
+            <input id="role-color-input" type="color" value="#7aa2ff" style="width:56px;height:40px;border:none;border-radius:4px;cursor:pointer;background:transparent;">
+            <input id="role-color-text" type="text" value="#7aa2ff" maxlength="7" placeholder="#7aa2ff" style="flex:1;padding:10px 12px;background:#1e1f22;border:1px solid #1e1f22;border-radius:4px;color:#f2f3f5;font-size:14px;font-family:monospace;outline:none;transition:border-color 0.15s;">
           </div>
         </label>
       </div>
-      <div class="modal-footer">
-        <button type="button" class="btn" onclick="window.closeRoleModal()">Cancelar</button>
-        <button type="button" class="btn primary" onclick="window.saveRoleModal()">Aceptar</button>
+      <div class="modal-footer" style="background:#2b2d31;border-top:1px solid rgba(0,0,0,0.2);padding:16px;display:flex;justify-content:flex-end;gap:12px;">
+        <button type="button" onclick="window.closeRoleModal()" style="padding:10px 20px;background:transparent;border:none;border-radius:4px;color:#f2f3f5;font-size:14px;font-weight:500;cursor:pointer;transition:background 0.15s;">Cancelar</button>
+        <button type="button" onclick="window.saveRoleModal()" style="padding:10px 20px;background:#5865f2;border:none;border-radius:4px;color:#fff;font-size:14px;font-weight:500;cursor:pointer;transition:background 0.15s;">Aceptar</button>
       </div>
     </div>
   </div>
@@ -2830,6 +2851,7 @@
       const token = getToken();
       if (!token) {
         applyAuthMode("login");
+        hideSplashScreen();
         return;
       }
       let cachedUser = null;
@@ -2839,8 +2861,20 @@
       }
       try {
         await enterAppFromToken(token, cachedUser);
+        hideSplashScreen();
       } catch (_) {
         await logout();
+        hideSplashScreen();
+      }
+    }
+
+    function hideSplashScreen() {
+      const splash = document.getElementById("splash-screen");
+      if (splash) {
+        setTimeout(() => {
+          splash.classList.add("hidden");
+          setTimeout(() => splash.remove(), 400);
+        }, 300);
       }
     }
 

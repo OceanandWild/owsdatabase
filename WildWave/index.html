@@ -1668,7 +1668,6 @@
     const serverActionClose = document.getElementById("server-action-close");
     const serverActionInvite = document.getElementById("server-action-invite");
     const serverActionSettings = document.getElementById("server-action-settings");
-    const serverActionCreateChannel = document.getElementById("server-action-create-channel");
     const serverSettingsModal = document.getElementById("server-settings-modal");
     const ssBrandIcon = document.getElementById("ss-brand-icon");
     const ssIconPreview = document.getElementById("ss-icon-preview");
@@ -2702,10 +2701,6 @@
     serverActionClose.addEventListener("click", closeServerActionModal);
     serverActionModal.addEventListener("click", (ev) => {
       if (ev.target === serverActionModal) closeServerActionModal();
-    });
-    serverActionCreateChannel.addEventListener("click", () => {
-      closeServerActionModal();
-      openCreateChannelModal();
     });
     serverActionInvite.addEventListener("click", () => {
       closeServerActionModal();

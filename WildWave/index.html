@@ -3157,8 +3157,7 @@
     });
     serverActionInvite.addEventListener("click", () => {
       closeServerActionModal();
-      setMainView("chat");
-      openCreateChannelModal(3);
+      window.openInviteMembersModal();
     });
     serverActionSettings.addEventListener("click", openServerSettingsModal);
     [ssClose, ssCancelBtn, ssCancelSide].forEach((el) => el.addEventListener("click", closeServerSettingsModal));

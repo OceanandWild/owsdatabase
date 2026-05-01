@@ -1,7 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron');
-const { DOMTranslator } = require('domtranslator');
+const domtranslator = require('domtranslator/DOMTranslator');
 
-contextBridge.exposeInMainWorld('DOMTranslator', DOMTranslator);
+contextBridge.exposeInMainWorld('DOMTranslator', domtranslator.DOMTranslator);
 
 contextBridge.exposeInMainWorld('owsUpdater', {
   onUpdateAvailable: (cb) => ipcRenderer.on('update-available', (_, info) => cb(info)),

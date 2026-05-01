@@ -22638,7 +22638,133 @@
             'Guardar cambios': 'Save Changes',
             'Descartar cambios': 'Discard Changes',
             'Cambios guardados': 'Changes Saved',
-            'Cambios pendientes': 'Pending Changes'
+            'Cambios pendientes': 'Pending Changes',
+            
+            // Login y registro
+            'Recordar datos': 'Remember Me',
+            'Entrar a OWS Store': 'Enter OWS Store',
+            '¿No tienes una cuenta?': "Don't have an account?",
+            'Regístrate': 'Sign Up',
+            'Política de privacidad': 'Privacy Policy',
+            'Términos del servicio': 'Terms of Service',
+            'Ajustes de cookies': 'Cookie Settings',
+            'Usuario': 'Username',
+            'Contraseña': 'Password',
+            'Correo electrónico': 'Email',
+            'Iniciar sesion': 'Sign In',
+            'Cerrar sesion': 'Sign Out',
+            'Olvidaste tu contraseña?': 'Forgot your password?',
+            'Recuperar contraseña': 'Recover Password',
+            'Crear cuenta': 'Create Account',
+            'Ya tienes cuenta?': 'Already have an account?',
+            
+            // Anuncios y roadmap
+            'Roadmap OWS': 'OWS Roadmap',
+            'Anuncio de lanzamiento': 'Launch Announcement',
+            'se lanza el': 'launches on',
+            'Produccion de miel, estrategia de colmena y expansion por biomas.': 'Honey production, hive strategy and expansion through biomes.',
+            'acceso seguro': 'secure access',
+            'novedades del ecosistema': 'ecosystem news',
+            'todo en un solo hub': 'all in one hub',
+            
+            // Boot y carga inicial
+            'Iniciando Sesion...': 'Signing In...',
+            'Validando acceso con Ocean Pay.': 'Validating access with Ocean Pay.',
+            'Ocean and Wild Studios Launcher': 'Ocean and Wild Studios Launcher',
+            'Sistema listo': 'System Ready',
+            'Iniciando...': 'Starting...',
+            'Preparando carga inicial de proyectos...': 'Preparing initial project load...',
+            'Calculando...': 'Calculating...',
+            
+            // Game overlay
+            'Volver': 'Back',
+            'Pantalla completa': 'Fullscreen',
+            'Salir de pantalla completa': 'Exit Fullscreen',
+            'OWS Game': 'OWS Game',
+            
+            // Modal details adicional
+            'Project Name': 'Project Name',
+            'Ultima Actualizacion': 'Last Update',
+            'Sin datos': 'No Data',
+            'Estado de Proyecto': 'Project Status',
+            'Estable': 'Stable',
+            'En desarrollo': 'In Development',
+            'Beta': 'Beta',
+            'Alpha': 'Alpha',
+            'Prototipo': 'Prototype',
+            'Compatibilidad': 'Compatibility',
+            'Windows + Android': 'Windows + Android',
+            
+            // Notificaciones de update
+            'Posponer': 'Postpone',
+            'Actualizar ahora': 'Update Now',
+            'Nueva version disponible': 'New Version Available',
+            'Se ha detectado una actualizacion': 'An update has been detected',
+            'Descargar e instalar': 'Download and Install',
+            'Ver detalles': 'View Details',
+            'Mas tarde': 'Later',
+            'Recordarme despues': 'Remind Me Later',
+            
+            // News y artículos
+            'Noticia': 'News',
+            'Noticias': 'News',
+            'Articulo': 'Article',
+            'Leer mas': 'Read More',
+            'Sin vista previa.': 'No preview.',
+            'Global': 'Global',
+            'Publicado': 'Published',
+            'Actualizado': 'Updated',
+            'Autor': 'Author',
+            'Categoria': 'Category',
+            
+            // Ocean Pay
+            'Saldo': 'Balance',
+            'Transacciones': 'Transactions',
+            'Historial': 'History',
+            'Recargar': 'Reload',
+            'Transferir': 'Transfer',
+            'Cuenta': 'Account',
+            'Perfil': 'Profile',
+            'Metodos de pago': 'Payment Methods',
+            
+            // Filtros adicionales
+            'Filtros': 'Filters',
+            'Aplicar filtros': 'Apply Filters',
+            'Limpiar filtros': 'Clear Filters',
+            'Mostrar': 'Show',
+            'Ocultar': 'Hide',
+            'Expandir': 'Expand',
+            'Contraer': 'Collapse',
+            'Todos': 'All',
+            'Ninguno': 'None',
+            
+            // Acciones adicionales
+            'Ejecutar': 'Run',
+            'Iniciar': 'Start',
+            'Detener': 'Stop',
+            'Pausar': 'Pause',
+            'Reanudar': 'Resume',
+            'Reiniciar': 'Restart',
+            'Reparar': 'Repair',
+            'Verificar archivos': 'Verify Files',
+            'Abrir carpeta': 'Open Folder',
+            'Propiedades': 'Properties',
+            
+            // Descargas
+            'Cola de descargas': 'Download Queue',
+            'Descargas activas': 'Active Downloads',
+            'Velocidad de descarga': 'Download Speed',
+            'Tiempo restante': 'Time Remaining',
+            'Descargado': 'Downloaded',
+            'de': 'of',
+            'Pausar descarga': 'Pause Download',
+            'Cancelar descarga': 'Cancel Download',
+            
+            // Estados
+            'Conectado': 'Connected',
+            'Desconectado': 'Disconnected',
+            'En linea': 'Online',
+            'Fuera de linea': 'Offline'
         };
         
         function translateText(text) {
@@ -22672,7 +22798,7 @@
             }
             
             if (toLang === 'en') {
-                // Guardar originales y traducir
+                // Guardar originales y traducir textos
                 textNodes.forEach(node => {
                     if (!originalTexts.has(node)) {
                         originalTexts.set(node, node.textContent);
@@ -22683,11 +22809,55 @@
                         node.textContent = node.textContent.replace(original, translated);
                     }
                 });
+                
+                // Traducir atributos (placeholder, title, aria-label)
+                document.querySelectorAll('[placeholder], [title], [aria-label]').forEach(el => {
+                    if (el.placeholder) {
+                        if (!originalTexts.has(el.id + '-placeholder')) {
+                            originalTexts.set(el.id + '-placeholder', el.placeholder);
+                        }
+                        const translated = translateText(el.placeholder);
+                        if (translated !== el.placeholder) {
+                            el.placeholder = translated;
+                        }
+                    }
+                    if (el.title) {
+                        if (!originalTexts.has(el.id + '-title')) {
+                            originalTexts.set(el.id + '-title', el.title);
+                        }
+                        const translated = translateText(el.title);
+                        if (translated !== el.title) {
+                            el.title = translated;
+                        }
+                    }
+                    if (el.getAttribute('aria-label')) {
+                        if (!originalTexts.has(el.id + '-aria')) {
+                            originalTexts.set(el.id + '-aria', el.getAttribute('aria-label'));
+                        }
+                        const translated = translateText(el.getAttribute('aria-label'));
+                        if (translated !== el.getAttribute('aria-label')) {
+                            el.setAttribute('aria-label', translated);
+                        }
+                    }
+                });
             } else {
-                // Restaurar originales
+                // Restaurar originales de textos
                 textNodes.forEach(node => {
                     if (originalTexts.has(node)) {
                         node.textContent = originalTexts.get(node);
+                    }
+                });
+                
+                // Restaurar atributos
+                document.querySelectorAll('[placeholder], [title], [aria-label]').forEach(el => {
+                    if (originalTexts.has(el.id + '-placeholder')) {
+                        el.placeholder = originalTexts.get(el.id + '-placeholder');
+                    }
+                    if (originalTexts.has(el.id + '-title')) {
+                        el.title = originalTexts.get(el.id + '-title');
+                    }
+                    if (originalTexts.has(el.id + '-aria')) {
+                        el.setAttribute('aria-label', originalTexts.get(el.id + '-aria'));
                     }
                 });
             }

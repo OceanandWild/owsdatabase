@@ -22331,42 +22331,46 @@
         }
         
         async function translateElement(element, fromLang, toLang) {
-            // Guardar texto original (solo nodos de texto, sin HTML)
+            // Guardar contenido original completo
             if (!originalTexts.has(element)) {
-                const textNodes = Array.from(element.childNodes)
-                    .filter(node => node.nodeType === Node.TEXT_NODE)
-                    .map(node => node.textContent.trim())
-                    .filter(text => text.length > 0)
-                    .join(' ');
-                originalTexts.set(element, textNodes);
+                originalTexts.set(element, {
+                    html: element.innerHTML,
+                    text: element.textContent.trim()
+                });
             }
             
-            const originalText = originalTexts.get(element);
-            if (!originalText || originalText.length === 0) return;
+            const original = originalTexts.get(element);
             
-            // Si volvemos a español, restaurar original
+            // Si volvemos a español, restaurar HTML original
             if (toLang === 'es') {
-                const textNodes = Array.from(element.childNodes).filter(node => node.nodeType === Node.TEXT_NODE);
-                if (textNodes.length > 0) {
-                    textNodes[0].textContent = originalText;
-                    // Limpiar nodos de texto adicionales
-                    for (let i = 1; i < textNodes.length; i++) {
-                        textNodes[i].textContent = '';
-                    }
-                }
+                element.innerHTML = original.html;
                 return;
             }
             
-            // Traducir
-            const translated = await translateText(originalText, fromLang, toLang);
+            // Traducir solo el texto
+            if (!original.text || original.text.length === 0) return;
             
-            // Reemplazar solo los nodos de texto, preservando elementos hijos
-            const textNodes = Array.from(element.childNodes).filter(node => node.nodeType === Node.TEXT_NODE);
-            if (textNodes.length > 0) {
-                textNodes[0].textContent = translated;
-                // Limpiar nodos de texto adicionales
-                for (let i = 1; i < textNodes.length; i++) {
-                    textNodes[i].textContent = '';
+            const translated = await translateText(original.text, fromLang, toLang);
+            
+            // Si el elemento solo tiene texto (sin hijos complejos), reemplazar directo
+            if (element.children.length === 0 || (element.children.length === 1 && element.children[0].tagName === 'I')) {
+                // Preservar iconos
+                const icon = element.querySelector('i');
+                element.textContent = translated;
+                if (icon) {
+                    element.prepend(icon);
+                }
+            } else {
+                // Para elementos complejos, buscar y reemplazar nodos de texto
+                const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null, false);
+                const textNodes = [];
+                while (walker.nextNode()) {
+                    if (walker.currentNode.textContent.trim().length > 0) {
+                        textNodes.push(walker.currentNode);
+                    }
+                }
+                if (textNodes.length > 0) {
+                    textNodes[0].textContent = translated;
                 }
             }
         }

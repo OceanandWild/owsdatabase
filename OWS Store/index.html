@@ -23607,20 +23607,9 @@
                     const original = node.textContent.trim();
                     if (original.length === 0) return;
                     
-                    // Log específico para textos del loading modal
-                    if (original.includes('Sincronizando eventos') || 
-                        original.includes('Cargando assets') ||
-                        original.includes('Precargando assets visuales') ||
-                        original.includes('Renderizando interfaz')) {
-                        console.log('[DEBUG LOADING]', JSON.stringify(original));
-                    }
-                    
                     const translated = translateText(original);
                     if (translated !== original) {
                         node.textContent = node.textContent.replace(original, translated);
-                    } else if (original.includes('Sincronizando') || original.includes('Cargando') || 
-                               original.includes('Precargando') || original.includes('Renderizando')) {
-                        console.log('[DEBUG NO TRANSLATION]', JSON.stringify(original));
                     }
                 });
                 
@@ -23740,6 +23729,8 @@
             console.log('[Translation] Idioma cambiado a:', lang);
         }
         
+        let translationTimeout = null;
+        
         function initLanguage() {
             const savedLang = localStorage.getItem('ows-store-language') || 'es';
             currentLanguage = savedLang;
@@ -23763,10 +23754,14 @@
                 setTimeout(() => translatePage('en'), 2000);
                 setTimeout(() => translatePage('en'), 3000);
                 
-                // Observar cambios en el DOM para traducir contenido nuevo
+                // Observar cambios en el DOM para traducir contenido del servidor automáticamente
                 const observer = new MutationObserver(() => {
                     if (currentLanguage === 'en' && !isTranslating) {
-                        translatePage('en');
+                        // Debounce: esperar 100ms antes de traducir para agrupar cambios
+                        clearTimeout(translationTimeout);
+                        translationTimeout = setTimeout(() => {
+                            translatePage('en');
+                        }, 100);
                     }
                 });
                 
@@ -23775,6 +23770,8 @@
                     subtree: true,
                     characterData: true
                 });
+                
+                console.log('[Translation] MutationObserver activado para contenido del servidor');
             }
             
             console.log('[Translation] Sistema inicializado:', savedLang);

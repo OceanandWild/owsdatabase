@@ -4086,6 +4086,8 @@
       const input = document.getElementById("invite-search-input");
       const results = document.getElementById("invite-search-results");
       
+      console.log("Opening invite modal", { modal, input, results });
+      
       input.value = "";
       window.inviteSearchResults = [];
       results.innerHTML = `
@@ -4097,7 +4099,9 @@
       
       // Attach event listener only once
       if (!inviteSearchListenerAttached) {
+        console.log("Attaching search listener");
         input.addEventListener("input", async (e) => {
+          console.log("Search input:", e.target.value);
           const query = e.target.value.trim();
           const results = document.getElementById("invite-search-results");
           
@@ -4121,14 +4125,17 @@
           `;
           
           inviteSearchTimeout = setTimeout(async () => {
+            console.log("Searching for:", query);
             try {
               const token = getToken();
               const users = await api(`/wildwave/api/users/search?q=${encodeURIComponent(query)}`, {
                 headers: { Authorization: `Bearer ${token}` }
               });
+              console.log("Search results:", users);
               window.inviteSearchResults = Array.isArray(users) ? users : [];
               renderInviteSearchResults();
             } catch (err) {
+              console.error("Search error:", err);
               results.innerHTML = `
                 <div style="padding:20px;text-align:center;color:#ed4245;">
                   <div style="font-size:14px;">Error al buscar usuarios</div>

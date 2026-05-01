@@ -1,21 +1,9 @@
 OWS Store - Changelog 2026.5.1
 
-=== ESPAÑOL ===
-Versión: 2026.5.1-t0650
-Plataforma: Windows
-Fecha: 2026-05-01
-
-Cambios:
-- Se agregó soporte completo para traducción español-inglés en la interfaz
-- La traducción se aplica instantáneamente al cambiar el idioma en Configuración
-- El contenido del servidor permanece en español
-
 === ENGLISH ===
-Version: 2026.5.1-t0650
+Version: Next
 Platform: Windows
 Date: 2026-05-01
 
 Changes:
-- Added full Spanish-English translation support for the interface
-- Translation applies instantly when changing language in Settings
-- Server content remains in Spanish
+- Additional translation fixes for update status, notifications, and project cards

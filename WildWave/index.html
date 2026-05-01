@@ -3178,6 +3178,10 @@
       sessionStorage.removeItem('wildwave_session_confirmed');
       authForm.reset();
       
+      // Re-enable submit button
+      authSubmit.disabled = false;
+      authSubmit.textContent = "Entrar a WildWave";
+      
       // Hide app and show auth screen
       appRoot.classList.add("hidden");
       authScreen.classList.remove("hidden");

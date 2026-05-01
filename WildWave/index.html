@@ -3476,12 +3476,25 @@
       const sessionModal = document.getElementById("session-confirm-modal");
       const sessionUsername = document.getElementById("session-username");
       let appReady = false;
+      let splashShown = false;
       
       // Ocultar splash inicialmente
       splashScreen.style.display = "none";
       
       // Función para mostrar splash con audio
       window.showSplashWithAudio = async (token, user) => {
+        if (splashShown) {
+          // Si el splash ya se mostró, entrar directamente sin splash
+          const blocked = await enforceStoreSupportGate();
+          if (!blocked) {
+            await enterAppFromToken(token, user).catch(async () => {
+              await logout();
+            });
+          }
+          return;
+        }
+        
+        splashShown = true;
         authScreen.style.display = "none";
         splashScreen.style.display = "flex";
         

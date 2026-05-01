@@ -1411,8 +1411,8 @@
       50% { opacity: 1; }
     }
     @keyframes shimmer {
-      0% { left: -100%; }
-      100% { left: 100%; }
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
     }
     #splash-screen.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
     #splash-progress.loading { animation: progressPulse 1.5s ease-in-out infinite; }
@@ -2876,10 +2876,7 @@
       // Show loading state with shimmer effect
       channelMessages.innerHTML = `
         <div style="display:flex;align-items:center;justify-content:center;height:100%;padding:40px;">
-          <div style="position:relative;overflow:hidden;display:inline-block;">
-            <div style="font-size:18px;color:#8e94a3;font-weight:600;">Cargando...</div>
-            <div style="position:absolute;top:0;left:-100%;width:100%;height:100%;background:linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);animation:shimmer 1.5s infinite;"></div>
-          </div>
+          <div style="font-size:18px;font-weight:600;background:linear-gradient(90deg, #8e94a3 0%, #fff 50%, #8e94a3 100%);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;animation:shimmer 1.5s infinite;">Cargando...</div>
         </div>
       `;
       

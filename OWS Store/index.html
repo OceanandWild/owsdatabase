@@ -23576,6 +23576,15 @@
                 NodeFilter.SHOW_TEXT,
                 {
                     acceptNode: (node) => {
+                        // Excluir nodos dentro de scripts y styles
+                        let parent = node.parentElement;
+                        while (parent) {
+                            if (parent.tagName === 'SCRIPT' || parent.tagName === 'STYLE') {
+                                return NodeFilter.FILTER_REJECT;
+                            }
+                            parent = parent.parentElement;
+                        }
+                        
                         const text = node.textContent.trim();
                         if (text.length === 0) return NodeFilter.FILTER_REJECT;
                         if (/^[\d\s\-\.\,\:\%]+$/.test(text)) return NodeFilter.FILTER_REJECT;
@@ -23753,6 +23762,19 @@
                 setTimeout(() => translatePage('en'), 1000);
                 setTimeout(() => translatePage('en'), 2000);
                 setTimeout(() => translatePage('en'), 3000);
+                
+                // Observar cambios en el DOM para traducir contenido nuevo
+                const observer = new MutationObserver(() => {
+                    if (currentLanguage === 'en' && !isTranslating) {
+                        translatePage('en');
+                    }
+                });
+                
+                observer.observe(document.body, {
+                    childList: true,
+                    subtree: true,
+                    characterData: true
+                });
             }
             
             console.log('[Translation] Sistema inicializado:', savedLang);

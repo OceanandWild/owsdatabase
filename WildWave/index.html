@@ -1543,7 +1543,6 @@
         <div class="left-top-row">
           <div id="left-top-server-icon" class="left-top-icon">SV</div>
           <span id="left-selected-server-title">Sin servidor</span>
-          <span class="left-top-action">Abrir</span>
         </div>
         <span id="left-channel-state" class="left-top-meta">0 miembro(s)</span>
       </div>
@@ -3847,7 +3846,7 @@
       // Render DM list
       const channelsView = document.getElementById("server-channels-view");
       channelsView.innerHTML = `
-        <div style="padding:8px;">
+        <div>
           <div onclick="window.openDMChat('wildbot')" style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface-2);border-radius:8px;cursor:pointer;transition:background 0.15s;border:1px solid var(--border);" onmouseover="this.style.background='var(--surface-3)'" onmouseout="this.style.background='var(--surface-2)'">
             <div style="position:relative;width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:18px;">
               🤖

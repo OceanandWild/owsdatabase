@@ -2443,6 +2443,12 @@
         btn.addEventListener("click", async () => {
           selectedServerId = Number(btn.getAttribute("data-server-id") || 0) || null;
           selectedTextChannelId = null;
+          
+          // Restore header click functionality
+          const leftTop = document.getElementById("left-top-server-trigger");
+          leftTop.style.cursor = "";
+          leftTop.style.pointerEvents = "";
+          
           renderMembershipState();
           await fetchServerMembers(selectedServerId).catch(() => null);
         });
@@ -3830,6 +3836,10 @@
       leftTitle.textContent = "Mensajes Directos";
       leftMeta.textContent = "Tus conversaciones privadas";
       
+      // Disable click on header
+      leftTop.style.cursor = "default";
+      leftTop.style.pointerEvents = "none";
+      
       // Hide server management buttons
       document.getElementById("server-add-category-btn").style.display = "none";
       document.querySelector(".server-manage-title").textContent = "Mensajes Directos";
@@ -3837,7 +3847,7 @@
       // Render DM list
       const channelsView = document.getElementById("server-channels-view");
       channelsView.innerHTML = `
-        <div style="padding:16px;">
+        <div style="padding:8px;">
           <div onclick="window.openDMChat('wildbot')" style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface-2);border-radius:8px;cursor:pointer;transition:background 0.15s;border:1px solid var(--border);" onmouseover="this.style.background='var(--surface-3)'" onmouseout="this.style.background='var(--surface-2)'">
             <div style="position:relative;width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:18px;">
               🤖

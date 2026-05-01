@@ -1394,6 +1394,10 @@
     #splash-progress.loading { animation: progressPulse 1.5s ease-in-out infinite; }
     #session-confirm-modal button[onclick*="confirmSession"]:hover { background: #4752c4 !important; }
     #session-confirm-modal button[onclick*="rejectSession"]:hover { background: rgba(255,255,255,0.1) !important; }
+    #category-channel-modal input:focus,
+    #category-channel-modal input:hover { border-color: #5865f2; background: #1e2229; box-shadow: 0 0 0 3px rgba(88,101,242,0.1); }
+    #category-channel-modal button[onclick*="saveCategoryChannelModal"]:hover { background: #4752c4 !important; }
+    #category-channel-modal button[onclick*="closeCategoryChannelModal"]:hover { background: rgba(255,255,255,0.1) !important; }
     #role-modal input[type="text"]:focus,
     #role-modal input[type="text"]:hover { border-color: #5865f2; }
     #role-modal button[onclick*="saveRoleModal"]:hover { background: #4752c4; }
@@ -1858,6 +1862,26 @@
       <div class="modal-footer" style="background:#2b2d31;border-top:1px solid rgba(0,0,0,0.2);padding:16px;display:flex;justify-content:flex-end;gap:12px;">
         <button type="button" onclick="window.closeRoleModal()" style="padding:10px 20px;background:transparent;border:none;border-radius:4px;color:#f2f3f5;font-size:14px;font-weight:500;cursor:pointer;transition:background 0.15s;">Cancelar</button>
         <button type="button" onclick="window.saveRoleModal()" style="padding:10px 20px;background:#5865f2;border:none;border-radius:4px;color:#fff;font-size:14px;font-weight:500;cursor:pointer;transition:background 0.15s;">Aceptar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Category/Channel Modal -->
+  <div id="category-channel-modal" class="modal-wrap" style="display:none;">
+    <div class="modal" style="max-width:480px;background:#313338;">
+      <div class="modal-head" style="background:#2b2d31;border-bottom:1px solid rgba(0,0,0,0.2);">
+        <h3 id="cat-ch-modal-title" style="color:#f2f3f5;font-size:20px;font-weight:600;">Crear categoría</h3>
+        <button type="button" class="modal-close" onclick="window.closeCategoryChannelModal()" style="color:#b5bac1;">×</button>
+      </div>
+      <div class="modal-body" style="padding:20px;">
+        <label style="display:block;">
+          <span style="display:block;font-size:13px;font-weight:600;color:#b5bac1;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;" id="cat-ch-label">Nombre</span>
+          <input id="cat-ch-name-input" type="text" placeholder="general" maxlength="50" style="width:100%;padding:14px 16px;background:#1a1e27;border:1px solid #2a2f3a;border-radius:8px;color:#f2f3f5;font-size:15px;outline:none;transition:all 0.2s;">
+        </label>
+      </div>
+      <div class="modal-footer" style="background:#2b2d31;border-top:1px solid rgba(0,0,0,0.2);padding:16px;display:flex;justify-content:flex-end;gap:12px;">
+        <button type="button" onclick="window.closeCategoryChannelModal()" style="padding:10px 20px;background:transparent;border:none;border-radius:4px;color:#f2f3f5;font-size:14px;font-weight:500;cursor:pointer;transition:background 0.15s;">Cancelar</button>
+        <button type="button" onclick="window.saveCategoryChannelModal()" style="padding:10px 20px;background:#5865f2;border:none;border-radius:4px;color:#fff;font-size:14px;font-weight:500;cursor:pointer;transition:background 0.15s;">Aceptar</button>
       </div>
     </div>
   </div>
@@ -3833,30 +3857,77 @@
       container.innerHTML = html;
     }
 
-    window.createCategory = async function() {
+    // === CATEGORY/CHANNEL MODAL MANAGEMENT ===
+    window.catChModalData = { type: '', action: '', id: null };
+
+    window.openCategoryChannelModal = function(type, action, id = null, currentName = '') {
+      const modal = document.getElementById("category-channel-modal");
+      const title = document.getElementById("cat-ch-modal-title");
+      const label = document.getElementById("cat-ch-label");
+      const input = document.getElementById("cat-ch-name-input");
+      
+      window.catChModalData = { type, action, id };
+      
+      const titles = {
+        'category-create': 'Crear categoría',
+        'category-edit': 'Editar categoría',
+        'channel-create': 'Crear canal',
+        'channel-edit': 'Editar canal'
+      };
+      
+      title.textContent = titles[`${type}-${action}`] || 'Crear';
+      label.textContent = type === 'category' ? 'Nombre de la categoría' : 'Nombre del canal';
+      input.value = currentName;
+      input.placeholder = type === 'category' ? 'General' : 'chat-general';
+      
+      modal.style.display = "flex";
+      setTimeout(() => input.focus(), 100);
+    };
+
+    window.closeCategoryChannelModal = function() {
+      document.getElementById("category-channel-modal").style.display = "none";
+      window.catChModalData = { type: '', action: '', id: null };
+    };
+
+    window.saveCategoryChannelModal = async function() {
+      const input = document.getElementById("cat-ch-name-input");
+      const name = input.value.trim();
+      if (!name) {
+        showToast("El nombre es obligatorio.", "error");
+        return;
+      }
+      
+      const { type, action, id } = window.catChModalData;
+      
+      if (type === 'category') {
+        if (action === 'create') await executeCategoryCreate(name);
+        else if (action === 'edit') await executeCategoryEdit(id, name);
+      } else if (type === 'channel') {
+        if (action === 'create') await executeChannelCreate(name);
+        else if (action === 'edit') await executeChannelEdit(id, name);
+      }
+      
+      window.closeCategoryChannelModal();
+    };
+
+    async function executeCategoryCreate(name) {
       const selected = getSelectedServer();
       if (!selected) return;
-      const name = prompt("Nombre de la categoría:");
-      if (!name || !name.trim()) return;
       try {
         const token = getToken();
         await api(`/wildwave/api/channels/${selected.id}/categories`, {
           method: "POST",
           headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ name: name.trim() })
+          body: JSON.stringify({ name })
         });
         await window.loadCategoriesAndChannels();
         showToast("Categoría creada correctamente.", "ok");
       } catch (err) {
         showToast(err.message || "Error al crear la categoría.", "error");
       }
-    };
+    }
 
-    window.editCategory = async function(catId) {
-      const cat = window.serverStructure.categories.find(c => c.id === catId);
-      if (!cat) return;
-      const name = prompt("Nuevo nombre de la categoría:", cat.name);
-      if (!name || !name.trim()) return;
+    async function executeCategoryEdit(catId, name) {
       const selected = getSelectedServer();
       if (!selected) return;
       try {
@@ -3864,13 +3935,57 @@
         await api(`/wildwave/api/channels/${selected.id}/categories/${catId}`, {
           method: "PATCH",
           headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ name: name.trim() })
+          body: JSON.stringify({ name })
         });
         await window.loadCategoriesAndChannels();
         showToast("Categoría actualizada correctamente.", "ok");
       } catch (err) {
         showToast(err.message || "Error al actualizar la categoría.", "error");
       }
+    }
+
+    async function executeChannelCreate(name) {
+      const selected = getSelectedServer();
+      if (!selected) return;
+      try {
+        const token = getToken();
+        await api(`/wildwave/api/channels/${selected.id}/text-channels`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ name, topic: "" })
+        });
+        await window.loadCategoriesAndChannels();
+        showToast("Canal creado correctamente.", "ok");
+      } catch (err) {
+        showToast(err.message || "Error al crear el canal.", "error");
+      }
+    }
+
+    async function executeChannelEdit(channelId, name) {
+      const selected = getSelectedServer();
+      if (!selected) return;
+      try {
+        const token = getToken();
+        await api(`/wildwave/api/channels/${selected.id}/text-channels/${channelId}`, {
+          method: "PATCH",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ name })
+        });
+        await window.loadCategoriesAndChannels();
+        showToast("Canal actualizado correctamente.", "ok");
+      } catch (err) {
+        showToast(err.message || "Error al actualizar el canal.", "error");
+      }
+    }
+
+    window.createCategory = function() {
+      window.openCategoryChannelModal('category', 'create');
+    };
+
+    window.editCategory = function(catId) {
+      const cat = window.serverStructure.categories.find(c => c.id === catId);
+      if (!cat) return;
+      window.openCategoryChannelModal('category', 'edit', catId, cat.name);
     };
 
     window.deleteCategory = async function(catId) {
@@ -3890,44 +4005,14 @@
       }
     };
 
-    window.createTextChannel = async function() {
-      const selected = getSelectedServer();
-      if (!selected) return;
-      const name = prompt("Nombre del canal:");
-      if (!name || !name.trim()) return;
-      try {
-        const token = getToken();
-        await api(`/wildwave/api/channels/${selected.id}/text-channels`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ name: name.trim(), topic: "" })
-        });
-        await window.loadCategoriesAndChannels();
-        showToast("Canal creado correctamente.", "ok");
-      } catch (err) {
-        showToast(err.message || "Error al crear el canal.", "error");
-      }
+    window.createTextChannel = function() {
+      window.openCategoryChannelModal('channel', 'create');
     };
 
-    window.editChannel = async function(channelId) {
+    window.editChannel = function(channelId) {
       const ch = window.serverStructure.channels.find(c => c.id === channelId);
       if (!ch) return;
-      const name = prompt("Nuevo nombre del canal:", ch.name);
-      if (!name || !name.trim()) return;
-      const selected = getSelectedServer();
-      if (!selected) return;
-      try {
-        const token = getToken();
-        await api(`/wildwave/api/channels/${selected.id}/text-channels/${channelId}`, {
-          method: "PATCH",
-          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ name: name.trim() })
-        });
-        await window.loadCategoriesAndChannels();
-        showToast("Canal actualizado correctamente.", "ok");
-      } catch (err) {
-        showToast(err.message || "Error al actualizar el canal.", "error");
-      }
+      window.openCategoryChannelModal('channel', 'edit', channelId, ch.name);
     };
 
     window.deleteChannel = async function(channelId) {

@@ -22282,66 +22282,89 @@
         };
 
         // ═══════════════════════════════════════════════════════════════════════
-        // Sistema de traducción con DOMTranslator
+        // Sistema de traducción simple con LibreTranslate
         // ═══════════════════════════════════════════════════════════════════════
         
-        const DOMTranslator = window.DOMTranslator;
-        
         let currentLanguage = localStorage.getItem('ows-store-language') || 'es';
-        let translator = null;
+        const translationCache = new Map();
         let isTranslating = false;
         
-        async function initTranslator() {
-            if (!translator) {
-                translator = new DOMTranslator({
-                    rootElement: document.body,
-                    fromLang: 'es',
-                    toLang: 'en',
-                    translateFunction: async (text, from, to) => {
-                        try {
-                            const response = await fetch('https://libretranslate.com/translate', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    q: text,
-                                    source: from,
-                                    target: to,
-                                    format: 'text'
-                                })
-                            });
-                            
-                            if (!response.ok) return text;
-                            
-                            const data = await response.json();
-                            return data.translatedText || text;
-                        } catch (error) {
-                            console.error('[Translation] Error:', error);
-                            return text;
-                        }
-                    }
-                });
+        async function translateText(text) {
+            if (!text || text.trim().length === 0) return text;
+            
+            // Caché
+            if (translationCache.has(text)) {
+                return translationCache.get(text);
             }
-            return translator;
+            
+            try {
+                const response = await fetch('https://libretranslate.com/translate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        q: text,
+                        source: 'es',
+                        target: 'en',
+                        format: 'text'
+                    })
+                });
+                
+                if (!response.ok) return text;
+                
+                const data = await response.json();
+                const translated = data.translatedText || text;
+                translationCache.set(text, translated);
+                return translated;
+            } catch (error) {
+                return text;
+            }
         }
         
         async function translatePage(toLang) {
             if (isTranslating) return;
             isTranslating = true;
-            
             showTranslationLoader();
             
             try {
-                const trans = await initTranslator();
-                
-                if (toLang === 'en') {
-                    await trans.translate();
-                } else {
-                    await trans.restore();
+                if (toLang === 'es') {
+                    location.reload();
+                    return;
                 }
                 
-                console.log('[Translation] Página traducida a:', toLang);
+                // Traducir todos los textos visibles
+                const walker = document.createTreeWalker(
+                    document.body,
+                    NodeFilter.SHOW_TEXT,
+                    {
+                        acceptNode: (node) => {
+                            const text = node.textContent.trim();
+                            if (text.length < 3) return NodeFilter.FILTER_REJECT;
+                            if (/^[\d\s\-\.\,\:\%]+$/.test(text)) return NodeFilter.FILTER_REJECT;
+                            return NodeFilter.FILTER_ACCEPT;
+                        }
+                    }
+                );
+                
+                const textNodes = [];
+                while (walker.nextNode()) {
+                    textNodes.push(walker.currentNode);
+                }
+                
+                // Traducir en lotes de 3
+                for (let i = 0; i < textNodes.length; i += 3) {
+                    const batch = textNodes.slice(i, i + 3);
+                    await Promise.all(batch.map(async (node) => {
+                        const original = node.textContent.trim();
+                        const translated = await translateText(original);
+                        node.textContent = node.textContent.replace(original, translated);
+                    }));
+                    
+                    if (i + 3 < textNodes.length) {
+                        await new Promise(resolve => setTimeout(resolve, 200));
+                    }
+                }
             } catch (error) {
-                console.error('[Translation] Error al traducir:', error);
+                console.error('[Translation] Error:', error);
             }
             
             hideTranslationLoader();

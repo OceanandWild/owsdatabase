@@ -4079,7 +4079,51 @@
     // === INVITE MEMBERS MODAL ===
     window.inviteSearchResults = [];
     let inviteSearchTimeout = null;
-    let inviteSearchListenerAttached = false;
+
+    async function handleInviteSearch(e) {
+      console.log("Search input:", e.target.value);
+      const query = e.target.value.trim();
+      const results = document.getElementById("invite-search-results");
+      
+      if (inviteSearchTimeout) clearTimeout(inviteSearchTimeout);
+      
+      if (query.length < 2) {
+        results.innerHTML = `
+          <div style="padding:40px 20px;text-align:center;color:#8e94a3;">
+            <div style="font-size:32px;margin-bottom:8px;">👥</div>
+            <div style="font-size:14px;">Busca usuarios para invitar</div>
+          </div>
+        `;
+        return;
+      }
+      
+      results.innerHTML = `
+        <div style="padding:20px;text-align:center;color:#8e94a3;">
+          <div style="width:20px;height:20px;border:2px solid #8e94a3;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 8px;"></div>
+          <div style="font-size:13px;">Buscando...</div>
+        </div>
+      `;
+      
+      inviteSearchTimeout = setTimeout(async () => {
+        console.log("Searching for:", query);
+        try {
+          const token = getToken();
+          const users = await api(`/wildwave/api/users/search?q=${encodeURIComponent(query)}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          console.log("Search results:", users);
+          window.inviteSearchResults = Array.isArray(users) ? users : [];
+          renderInviteSearchResults();
+        } catch (err) {
+          console.error("Search error:", err);
+          results.innerHTML = `
+            <div style="padding:20px;text-align:center;color:#ed4245;">
+              <div style="font-size:14px;">Error al buscar usuarios</div>
+            </div>
+          `;
+        }
+      }, 400);
+    }
 
     window.openInviteMembersModal = function() {
       const modal = document.getElementById("invite-members-modal");
@@ -4097,55 +4141,10 @@
         </div>
       `;
       
-      // Attach event listener only once
-      if (!inviteSearchListenerAttached) {
-        console.log("Attaching search listener");
-        input.addEventListener("input", async (e) => {
-          console.log("Search input:", e.target.value);
-          const query = e.target.value.trim();
-          const results = document.getElementById("invite-search-results");
-          
-          if (inviteSearchTimeout) clearTimeout(inviteSearchTimeout);
-          
-          if (query.length < 2) {
-            results.innerHTML = `
-              <div style="padding:40px 20px;text-align:center;color:#8e94a3;">
-                <div style="font-size:32px;margin-bottom:8px;">👥</div>
-                <div style="font-size:14px;">Busca usuarios para invitar</div>
-              </div>
-            `;
-            return;
-          }
-          
-          results.innerHTML = `
-            <div style="padding:20px;text-align:center;color:#8e94a3;">
-              <div style="width:20px;height:20px;border:2px solid #8e94a3;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 8px;"></div>
-              <div style="font-size:13px;">Buscando...</div>
-            </div>
-          `;
-          
-          inviteSearchTimeout = setTimeout(async () => {
-            console.log("Searching for:", query);
-            try {
-              const token = getToken();
-              const users = await api(`/wildwave/api/users/search?q=${encodeURIComponent(query)}`, {
-                headers: { Authorization: `Bearer ${token}` }
-              });
-              console.log("Search results:", users);
-              window.inviteSearchResults = Array.isArray(users) ? users : [];
-              renderInviteSearchResults();
-            } catch (err) {
-              console.error("Search error:", err);
-              results.innerHTML = `
-                <div style="padding:20px;text-align:center;color:#ed4245;">
-                  <div style="font-size:14px;">Error al buscar usuarios</div>
-                </div>
-              `;
-            }
-          }, 400);
-        });
-        inviteSearchListenerAttached = true;
-      }
+      // Remove old listener and add new one
+      input.removeEventListener("input", handleInviteSearch);
+      input.addEventListener("input", handleInviteSearch);
+      console.log("Search listener attached");
       
       modal.style.display = "flex";
       setTimeout(() => input.focus(), 100);

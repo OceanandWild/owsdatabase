@@ -14112,6 +14112,10 @@
                 scanResult.textContent = 'VerificaciÃ³n automÃ¡tica no disponible. ConfirmÃ¡ manualmente.';
             }
         }
+
+        function confirmManualInstall() {
+            const slug = window._micSlug;
+            const platform = window._micPlatform || 'windows';
             const versionInput = document.getElementById('mic-version-input');
             const version = String(versionInput?.value || window._micLatestVersion || '').trim();
 
@@ -14135,10 +14139,6 @@
                 scheduleSectionRender({ projects: true, library: true, updates: true, immediate: true });
             });
         }
-
-        function closeManualInstallConfirm() {
-            const modal = document.getElementById('manual-install-confirm-modal');
-            if (modal) modal.style.display = 'none';
             window._micSlug = null;
             window._micPlatform = null;
             window._micLatestVersion = null;

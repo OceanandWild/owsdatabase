@@ -653,6 +653,26 @@
     }
     .modal h3 { margin: 0; font-size: 19px; color: var(--ink); }
     .modal p { margin: 6px 0 0; color: var(--ink-soft); font-size: 14px; line-height: 1.45; }
+    .modal-close {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      border: none;
+      background: rgba(255,255,255,0.05);
+      color: #b5bac1;
+      font-size: 24px;
+      line-height: 1;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-close:hover {
+      background: rgba(255,255,255,0.1);
+      color: #f2f3f5;
+      transform: scale(1.05);
+    }
     .modal-grid { display: grid; gap: 10px; margin-top: 14px; }
     .modal-grid input { border: none; border-radius: 4px; background: #1e1f22; color: var(--ink); padding: 10px 12px; outline: none; font-size: 14px; }
     .modal-grid input:focus { outline: 2px solid var(--accent); }
@@ -1882,6 +1902,31 @@
       <div class="modal-footer" style="background:#2b2d31;border-top:1px solid rgba(0,0,0,0.2);padding:16px;display:flex;justify-content:flex-end;gap:12px;">
         <button type="button" onclick="window.closeCategoryChannelModal()" style="padding:10px 20px;background:transparent;border:none;border-radius:4px;color:#f2f3f5;font-size:14px;font-weight:500;cursor:pointer;transition:background 0.15s;">Cancelar</button>
         <button type="button" onclick="window.saveCategoryChannelModal()" style="padding:10px 20px;background:#5865f2;border:none;border-radius:4px;color:#fff;font-size:14px;font-weight:500;cursor:pointer;transition:background 0.15s;">Aceptar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Invite Members Modal -->
+  <div id="invite-members-modal" class="modal-wrap" style="display:none;">
+    <div class="modal" style="max-width:520px;background:#313338;">
+      <div class="modal-head" style="background:#2b2d31;border-bottom:1px solid rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:space-between;padding:20px;">
+        <div>
+          <h3 style="color:#f2f3f5;font-size:20px;font-weight:600;margin:0;">Invitar personas</h3>
+          <p style="color:#8e94a3;font-size:13px;margin:4px 0 0;">Busca miembros para invitar al servidor</p>
+        </div>
+        <button type="button" class="modal-close" onclick="window.closeInviteMembersModal()">×</button>
+      </div>
+      <div class="modal-body" style="padding:20px;">
+        <div style="position:relative;margin-bottom:16px;">
+          <input id="invite-search-input" type="text" placeholder="Buscar por nombre de usuario..." style="width:100%;padding:12px 16px 12px 40px;background:#1a1e27;border:1px solid #2a2f3a;border-radius:8px;color:#f2f3f5;font-size:14px;outline:none;transition:all 0.2s;">
+          <span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:#8e94a3;font-size:16px;">🔍</span>
+        </div>
+        <div id="invite-search-results" style="max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;">
+          <div style="padding:40px 20px;text-align:center;color:#8e94a3;">
+            <div style="font-size:32px;margin-bottom:8px;">👥</div>
+            <div style="font-size:14px;">Busca usuarios para invitar</div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -4029,6 +4074,116 @@
         showToast("Canal eliminado correctamente.", "ok");
       } catch (err) {
         showToast(err.message || "Error al eliminar el canal.", "error");
+      }
+    };
+
+    // === INVITE MEMBERS MODAL ===
+    window.inviteSearchResults = [];
+    let inviteSearchTimeout = null;
+
+    window.openInviteMembersModal = function() {
+      const modal = document.getElementById("invite-members-modal");
+      const input = document.getElementById("invite-search-input");
+      const results = document.getElementById("invite-search-results");
+      
+      input.value = "";
+      window.inviteSearchResults = [];
+      results.innerHTML = `
+        <div style="padding:40px 20px;text-align:center;color:#8e94a3;">
+          <div style="font-size:32px;margin-bottom:8px;">👥</div>
+          <div style="font-size:14px;">Busca usuarios para invitar</div>
+        </div>
+      `;
+      
+      modal.style.display = "flex";
+      setTimeout(() => input.focus(), 100);
+    };
+
+    window.closeInviteMembersModal = function() {
+      document.getElementById("invite-members-modal").style.display = "none";
+      window.inviteSearchResults = [];
+    };
+
+    document.getElementById("invite-search-input")?.addEventListener("input", async (e) => {
+      const query = e.target.value.trim();
+      const results = document.getElementById("invite-search-results");
+      
+      if (inviteSearchTimeout) clearTimeout(inviteSearchTimeout);
+      
+      if (query.length < 2) {
+        results.innerHTML = `
+          <div style="padding:40px 20px;text-align:center;color:#8e94a3;">
+            <div style="font-size:32px;margin-bottom:8px;">👥</div>
+            <div style="font-size:14px;">Busca usuarios para invitar</div>
+          </div>
+        `;
+        return;
+      }
+      
+      results.innerHTML = `
+        <div style="padding:20px;text-align:center;color:#8e94a3;">
+          <div style="width:20px;height:20px;border:2px solid #8e94a3;border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 8px;"></div>
+          <div style="font-size:13px;">Buscando...</div>
+        </div>
+      `;
+      
+      inviteSearchTimeout = setTimeout(async () => {
+        try {
+          const token = getToken();
+          const users = await api(`/wildwave/api/users/search?q=${encodeURIComponent(query)}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          window.inviteSearchResults = Array.isArray(users) ? users : [];
+          renderInviteSearchResults();
+        } catch (err) {
+          results.innerHTML = `
+            <div style="padding:20px;text-align:center;color:#ed4245;">
+              <div style="font-size:14px;">Error al buscar usuarios</div>
+            </div>
+          `;
+        }
+      }, 400);
+    });
+
+    function renderInviteSearchResults() {
+      const results = document.getElementById("invite-search-results");
+      if (!window.inviteSearchResults.length) {
+        results.innerHTML = `
+          <div style="padding:20px;text-align:center;color:#8e94a3;">
+            <div style="font-size:14px;">No se encontraron usuarios</div>
+          </div>
+        `;
+        return;
+      }
+      
+      results.innerHTML = window.inviteSearchResults.map(user => `
+        <div style="display:flex;align-items:center;gap:12px;padding:12px;background:#2b2d31;border-radius:8px;transition:background 0.15s;cursor:pointer;" onmouseover="this.style.background='#32353b'" onmouseout="this.style.background='#2b2d31'" onclick="window.inviteUser(${user.id}, '${safeText(user.username)}')">
+          <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#5865f2,#7289da);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:16px;">
+            ${safeText(user.username).charAt(0).toUpperCase()}
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:600;color:#f2f3f5;font-size:15px;">${safeText(user.username)}</div>
+            <div style="font-size:12px;color:#8e94a3;">${safeText(user.display_name || user.username)}</div>
+          </div>
+          <button onclick="event.stopPropagation();window.inviteUser(${user.id}, '${safeText(user.username)}')" style="padding:8px 16px;background:#5865f2;border:none;border-radius:4px;color:#fff;font-size:13px;font-weight:600;cursor:pointer;transition:background 0.15s;">Invitar</button>
+        </div>
+      `).join('');
+    }
+
+    window.inviteUser = async function(userId, username) {
+      const selected = getSelectedServer();
+      if (!selected) return;
+      try {
+        const token = getToken();
+        await api(`/wildwave/api/channels/${selected.id}/invite`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ user_id: userId })
+        });
+        showToast(`${username} invitado correctamente.`, "ok");
+        window.closeInviteMembersModal();
+      } catch (err) {
+        showToast(err.message || "Error al invitar usuario.", "error");
       }
     };
   </script>

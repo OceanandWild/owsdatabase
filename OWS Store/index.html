@@ -23917,22 +23917,36 @@
                 setTimeout(() => translatePage('en'), 8000);
                 
                 // Observador dedicado para Auto-Check (sin bloqueo por isTranslating)
-                const autoCheckEl = document.getElementById('updates-auto-check');
-                if (autoCheckEl) {
-                    const autoCheckObserver = new MutationObserver(() => {
-                        if (currentLanguage === 'en') {
-                            const text = autoCheckEl.textContent;
-                            const translated = translateText(text);
-                            if (translated !== text) {
-                                autoCheckEl.textContent = translated;
+                // Intentar múltiples veces hasta que el elemento esté disponible
+                function setupAutoCheckObserver() {
+                    const autoCheckEl = document.getElementById('updates-auto-check');
+                    if (autoCheckEl) {
+                        const autoCheckObserver = new MutationObserver(() => {
+                            if (currentLanguage === 'en') {
+                                const text = autoCheckEl.textContent;
+                                const translated = translateText(text);
+                                if (translated !== text) {
+                                    autoCheckEl.textContent = translated;
+                                }
                             }
-                        }
-                    });
-                    autoCheckObserver.observe(autoCheckEl, {
-                        childList: true,
-                        characterData: true,
-                        subtree: true
-                    });
+                        });
+                        autoCheckObserver.observe(autoCheckEl, {
+                            childList: true,
+                            characterData: true,
+                            subtree: true
+                        });
+                        console.log('[Translation] Auto-Check observer activado');
+                        return true;
+                    }
+                    return false;
+                }
+                
+                // Intentar configurar el observador inmediatamente y con reintentos
+                if (!setupAutoCheckObserver()) {
+                    setTimeout(() => setupAutoCheckObserver(), 100);
+                    setTimeout(() => setupAutoCheckObserver(), 500);
+                    setTimeout(() => setupAutoCheckObserver(), 1000);
+                    setTimeout(() => setupAutoCheckObserver(), 2000);
                 }
                 
                 // Observar cambios en el DOM para traducir contenido del servidor automáticamente

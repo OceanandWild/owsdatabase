@@ -3545,8 +3545,9 @@
       }
       
       if (token && cachedUser) {
-        // Entrar automáticamente sin pedir confirmación
-        await window.showSplashWithAudio(token, cachedUser);
+        // Mostrar modal de confirmación
+        sessionUsername.textContent = cachedUser.username || 'usuario guardado';
+        sessionModal.style.display = "flex";
       } else {
         // No hay sesión, mostrar login directamente
         applyAuthMode("login");

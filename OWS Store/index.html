@@ -10497,7 +10497,7 @@
                         return true;
                     }
                 }
-                }            } catch (_) {}
+                } catch (_) {}
 
             if (!('Notification' in window)) return false;
             const permission = await ensureSystemNotificationPermission({ forcePrompt: false });
@@ -10660,7 +10660,7 @@
                     });
                     if (id > 0) ackPushInboxNotification(id).catch(() => {});
                 }
-                }            } catch (_) {}
+                } catch (_) {}
         }
 
         function bindNativeAndroidPushTokenIfAvailable() {
@@ -14820,7 +14820,7 @@
                 const raw = localStorage.getItem(PROJECT_LIBRARY_KEY) || '[]';
                 const arr = JSON.parse(raw);
                 if (!arr.includes(slug)) { arr.push(slug); localStorage.setItem(PROJECT_LIBRARY_KEY, JSON.stringify(arr)); }
-                }            } catch (_) {}
+                } catch (_) {}
         }
         // â•â•â• END IMPORT MODAL â•â•â•
 
@@ -18128,7 +18128,7 @@
                     localStorage.setItem(OWS_STORE_ANDROID_APK_MODE_KEY, 'inapp');
                     return 'inapp';
                 }
-                }            } catch (_) {}
+                } catch (_) {}
             // Default behavior must stay inside OWS Store on Android.
             return 'inapp';
         }

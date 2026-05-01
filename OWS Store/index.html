@@ -13918,7 +13918,7 @@
                 const icon = getProjectIcon(project, 48);
                 const versionStrip = `
                     <div class="project-update-version-strip">
-                        <span class="project-update-version-chip">Catalogo: v${escHtml(latestVersionLabel)}</span>
+                        <span class="project-update-version-chip">Catalog: v${escHtml(latestVersionLabel)}</span>
                         ${installedVersionLabel ? `<span class="project-update-version-chip">Instalada: v${escHtml(installedVersionLabel)}</span>` : '<span class="project-update-version-chip muted">Instalada: no detectada</span>'}
                     </div>
                 `;
@@ -22158,8 +22158,8 @@
                     }
                 },
                 {
-                    label: 'Sincronizando catalogo de proyectos',
-                    toast: 'Catalogo de proyectos sincronizado.',
+                    label: 'Syncing project catalog',
+                    toast: 'Project catalog synced.',
                     run: async () => {
                         await loadProjects();
                     }

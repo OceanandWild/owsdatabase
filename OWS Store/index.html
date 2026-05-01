@@ -23598,16 +23598,20 @@
                     const original = node.textContent.trim();
                     if (original.length === 0) return;
                     
-                    // Log específico para textos problemáticos
-                    if (original.includes('Precargando') || original.includes('Cargando') || 
-                        original.includes('Sincronizando') || original.includes('Renderizando') ||
-                        original.includes('conectado correctamente')) {
-                        console.log('[DEBUG] Texto problemático:', JSON.stringify(original));
+                    // Log específico para textos del loading modal
+                    if (original.includes('Sincronizando eventos') || 
+                        original.includes('Cargando assets') ||
+                        original.includes('Precargando assets visuales') ||
+                        original.includes('Renderizando interfaz')) {
+                        console.log('[DEBUG LOADING]', JSON.stringify(original));
                     }
                     
                     const translated = translateText(original);
                     if (translated !== original) {
                         node.textContent = node.textContent.replace(original, translated);
+                    } else if (original.includes('Sincronizando') || original.includes('Cargando') || 
+                               original.includes('Precargando') || original.includes('Renderizando')) {
+                        console.log('[DEBUG NO TRANSLATION]', JSON.stringify(original));
                     }
                 });
                 

@@ -1,0 +1,61 @@
+{
+  "nav": {
+    "home": "Home",
+    "library": "Library",
+    "downloads": "Downloads",
+    "settings": "Settings"
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "selectLanguage": "Select language",
+    "account": "Account",
+    "appearance": "Appearance",
+    "notifications": "Notifications",
+    "about": "About"
+  },
+  "library": {
+    "title": "My Library",
+    "installed": "Installed",
+    "available": "Available",
+    "noGames": "You don't have any installed games",
+    "install": "Install",
+    "play": "Play",
+    "update": "Update",
+    "uninstall": "Uninstall"
+  },
+  "downloads": {
+    "title": "Downloads",
+    "noDownloads": "No downloads",
+    "downloading": "Downloading",
+    "paused": "Paused",
+    "completed": "Completed",
+    "failed": "Failed"
+  },
+  "auth": {
+    "login": "Log in",
+    "register": "Sign up",
+    "username": "Username",
+    "password": "Password",
+    "email": "Email",
+    "twoFactor": "2FA Code",
+    "twoFactorText": "To continue, open Ocean Pay, go to Settings > Security, copy the code requested by OWS Store and paste it here.",
+    "loginButton": "Enter",
+    "registerButton": "Create account",
+    "forgotPassword": "Forgot your password?",
+    "noAccount": "Don't have an account?",
+    "hasAccount": "Already have an account?"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "close": "Close",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "edit": "Edit",
+    "search": "Search",
+    "loading": "Loading",
+    "error": "Error",
+    "success": "Success"
+  }
+}

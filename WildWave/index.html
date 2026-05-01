@@ -1528,7 +1528,8 @@
               <label for="auth-pass" style="color:rgba(255,255,255,0.7);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Contraseña</label>
               <div style="position:relative;">
                 <span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:16px;opacity:0.5;">🔒</span>
-                <input id="auth-pass" name="password" type="password" minlength="4" maxlength="128" required style="width:100%;padding:12px 14px 12px 44px;background:rgba(30,31,34,0.6);border:2px solid rgba(88,101,242,0.3);border-radius:10px;color:#fff;font-size:14px;transition:all 0.2s;" />
+                <input id="auth-pass" name="password" type="password" minlength="4" maxlength="128" required style="width:100%;padding:12px 44px 12px 44px;background:rgba(30,31,34,0.6);border:2px solid rgba(88,101,242,0.3);border-radius:10px;color:#fff;font-size:14px;transition:all 0.2s;" />
+                <button type="button" id="toggle-password" onclick="window.togglePasswordVisibility()" style="position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:18px;opacity:0.5;transition:opacity 0.2s;padding:0;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='0.5'">👁️</button>
               </div>
             </div>
             
@@ -3876,6 +3877,18 @@
         await logout();
         applyAuthMode("login");
         hideSplashScreen();
+      };
+      
+      window.togglePasswordVisibility = function() {
+        const passInput = document.getElementById("auth-pass");
+        const toggleBtn = document.getElementById("toggle-password");
+        if (passInput.type === "password") {
+          passInput.type = "text";
+          toggleBtn.textContent = "🙈";
+        } else {
+          passInput.type = "password";
+          toggleBtn.textContent = "👁️";
+        }
       };
       
       // Verificar si hay sesión guardada

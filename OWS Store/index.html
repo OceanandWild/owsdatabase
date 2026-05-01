@@ -23282,7 +23282,7 @@
                 {
                     acceptNode: (node) => {
                         const text = node.textContent.trim();
-                        if (text.length < 3) return NodeFilter.FILTER_REJECT;
+                        if (text.length === 0) return NodeFilter.FILTER_REJECT;
                         if (/^[\d\s\-\.\,\:\%]+$/.test(text)) return NodeFilter.FILTER_REJECT;
                         return NodeFilter.FILTER_ACCEPT;
                     }

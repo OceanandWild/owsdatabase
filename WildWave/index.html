@@ -2448,6 +2448,10 @@
           leftTop.style.cursor = "";
           leftTop.style.pointerEvents = "";
           
+          // Restore server management buttons
+          document.getElementById("server-add-category-btn").style.display = "";
+          document.querySelector(".server-manage-title").textContent = "Servidor activo";
+          
           renderMembershipState();
           await fetchServerMembers(selectedServerId).catch(() => null);
         });
@@ -3830,7 +3834,8 @@
       const leftTitle = document.getElementById("left-selected-server-title");
       const leftMeta = document.getElementById("left-channel-state");
       
-      leftTopIcon.textContent = "💬";
+      // Use applySquareIcon to properly set the icon
+      applySquareIcon(leftTopIcon, "", "💬");
       leftTopIcon.style.background = "#5865f2";
       leftTitle.textContent = "Mensajes Directos";
       leftMeta.textContent = "Tus conversaciones privadas";

@@ -1414,6 +1414,10 @@
       0% { background-position: 200% 0; }
       100% { background-position: -200% 0; }
     }
+    @keyframes float {
+      0%, 100% { transform: translateY(0) scale(1); }
+      50% { transform: translateY(-20px) scale(1.05); }
+    }
     #splash-screen.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
     #splash-progress.loading { animation: progressPulse 1.5s ease-in-out infinite; }
     #session-confirm-modal button[onclick*="confirmSession"]:hover { background: #4752c4 !important; }
@@ -1431,13 +1435,46 @@
   <section id="auth-screen" class="auth-screen">
     <div class="auth-card">
       <div class="auth-left">
-        <h1 class="brand">WildWave</h1>
-        <p class="brand-sub">Accede a tus espacios y conversaciones en una interfaz unificada.</p>
-        <ul class="auth-list">
-          <li>Acceso rapido con tus credenciales.</li>
-          <li>Sincronizacion de perfil y sesiones.</li>
-          <li>Creacion de servidores en flujo guiado.</li>
-        </ul>
+        <div style="position:relative;z-index:2;">
+          <h1 class="brand" style="font-size:48px;margin-bottom:16px;background:linear-gradient(135deg, #5865f2 0%, #7289da 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;">WildWave</h1>
+          <p class="brand-sub" style="font-size:16px;line-height:1.6;margin-bottom:32px;color:rgba(255,255,255,0.7);">Conecta con tu comunidad en tiempo real</p>
+          
+          <div style="display:flex;flex-direction:column;gap:16px;">
+            <div class="feature-card" style="background:rgba(88,101,242,0.1);border:1px solid rgba(88,101,242,0.3);border-radius:12px;padding:16px;backdrop-filter:blur(10px);">
+              <div style="display:flex;align-items:center;gap:12px;">
+                <div class="feature-icon" style="width:40px;height:40px;background:linear-gradient(135deg, #5865f2, #7289da);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;">💬</div>
+                <div>
+                  <div style="font-weight:600;color:#fff;margin-bottom:4px;">Chat en tiempo real</div>
+                  <div style="font-size:13px;color:rgba(255,255,255,0.6);">Mensajes instantáneos y sincronizados</div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="feature-card" style="background:rgba(88,101,242,0.1);border:1px solid rgba(88,101,242,0.3);border-radius:12px;padding:16px;backdrop-filter:blur(10px);">
+              <div style="display:flex;align-items:center;gap:12px;">
+                <div class="feature-icon" style="width:40px;height:40px;background:linear-gradient(135deg, #5865f2, #7289da);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;">🌊</div>
+                <div>
+                  <div style="font-weight:600;color:#fff;margin-bottom:4px;">Servidores personalizados</div>
+                  <div style="font-size:13px;color:rgba(255,255,255,0.6);">Crea y gestiona tus espacios</div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="feature-card" style="background:rgba(88,101,242,0.1);border:1px solid rgba(88,101,242,0.3);border-radius:12px;padding:16px;backdrop-filter:blur(10px);">
+              <div style="display:flex;align-items:center;gap:12px;">
+                <div class="feature-icon" style="width:40px;height:40px;background:linear-gradient(135deg, #5865f2, #7289da);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;">🔒</div>
+                <div>
+                  <div style="font-weight:600;color:#fff;margin-bottom:4px;">Seguro y privado</div>
+                  <div style="font-size:13px;color:rgba(255,255,255,0.6);">Tus datos protegidos siempre</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Animated background elements -->
+        <div class="auth-bg-circle" style="position:absolute;width:200px;height:200px;background:radial-gradient(circle, rgba(88,101,242,0.3), transparent);border-radius:50%;top:10%;left:10%;animation:float 6s ease-in-out infinite;"></div>
+        <div class="auth-bg-circle" style="position:absolute;width:150px;height:150px;background:radial-gradient(circle, rgba(114,137,218,0.2), transparent);border-radius:50%;bottom:20%;right:15%;animation:float 8s ease-in-out infinite reverse;"></div>
       </div>
       <div class="auth-right">
         <div class="auth-panel">
@@ -3681,6 +3718,28 @@
       duration: 800,
       easing: 'easeOutExpo',
       delay: 100
+    });
+    
+    // Animación repetitiva de las tarjetas de características
+    anime({
+      targets: '.feature-card',
+      translateY: [0, -8, 0],
+      scale: [1, 1.02, 1],
+      duration: 3000,
+      easing: 'easeInOutQuad',
+      delay: anime.stagger(400),
+      loop: true
+    });
+    
+    // Animación repetitiva de los iconos
+    anime({
+      targets: '.feature-icon',
+      rotate: [0, 5, -5, 0],
+      scale: [1, 1.1, 1],
+      duration: 4000,
+      easing: 'easeInOutSine',
+      delay: anime.stagger(600),
+      loop: true
     });
     
     renderMembershipState();

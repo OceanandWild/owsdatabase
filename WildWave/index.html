@@ -2104,6 +2104,7 @@
       el.textContent = initials;
       el.classList.remove(className);
       el.style.backgroundImage = "";
+      el.style.backgroundColor = "";
       if (iconUrl) {
         el.style.backgroundImage = `url('${safeUrlForCss(iconUrl)}')`;
         el.classList.add(className);
@@ -3824,6 +3825,10 @@
 
     // === DM VIEW ===
     window.showDMView = function() {
+      // Clear selected server
+      selectedServerId = null;
+      selectedTextChannelId = null;
+      
       // Deselect all servers
       document.querySelectorAll(".server-pill").forEach(pill => pill.classList.remove("active"));
       document.getElementById("dm-home-btn").classList.add("active");
@@ -3834,9 +3839,11 @@
       const leftTitle = document.getElementById("left-selected-server-title");
       const leftMeta = document.getElementById("left-channel-state");
       
-      // Use applySquareIcon to properly set the icon
-      applySquareIcon(leftTopIcon, "", "💬");
-      leftTopIcon.style.background = "#5865f2";
+      // Clear icon and set DM emoji
+      leftTopIcon.textContent = "💬";
+      leftTopIcon.classList.remove("has-icon");
+      leftTopIcon.style.backgroundImage = "";
+      leftTopIcon.style.backgroundColor = "#5865f2";
       leftTitle.textContent = "Mensajes Directos";
       leftMeta.textContent = "Tus conversaciones privadas";
       

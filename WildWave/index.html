@@ -2350,11 +2350,46 @@
       modeLoginBtn.classList.toggle("active", authMode === "login");
       modeRegisterBtn.classList.toggle("active", authMode === "register");
       displayNameField.classList.toggle("hidden", authMode !== "register");
-      document.getElementById("auth-title").textContent = authMode === "register" ? "Crear cuenta" : "Bienvenido";
-      document.getElementById("auth-help").textContent = authMode === "register"
-        ? "Registra una cuenta para crear y gestionar servidores."
-        : "Ingresa con tu cuenta existente de WildWave.";
-      authSubmit.textContent = authMode === "register" ? "Crear cuenta y entrar" : "Entrar a WildWave";
+      
+      const title = document.getElementById("auth-title");
+      const help = document.getElementById("auth-help");
+      const submit = authSubmit;
+      
+      // Animar cambio de textos
+      anime({
+        targets: [title, help, submit],
+        opacity: [1, 0],
+        translateY: [0, -10],
+        duration: 200,
+        easing: 'easeInQuad',
+        complete: () => {
+          title.textContent = authMode === "register" ? "Crear cuenta" : "Bienvenido";
+          help.textContent = authMode === "register"
+            ? "Registra una cuenta para crear y gestionar servidores."
+            : "Ingresa con tu cuenta existente de WildWave.";
+          submit.textContent = authMode === "register" ? "Crear cuenta y entrar" : "Entrar a WildWave";
+          
+          anime({
+            targets: [title, help, submit],
+            opacity: [0, 1],
+            translateY: [10, 0],
+            duration: 200,
+            easing: 'easeOutQuad'
+          });
+        }
+      });
+      
+      // Animar campo de display name
+      if (authMode === "register") {
+        anime({
+          targets: displayNameField,
+          opacity: [0, 1],
+          height: [0, 'auto'],
+          duration: 300,
+          easing: 'easeOutQuad'
+        });
+      }
+      
       setAuthMessage("");
     }
 
@@ -3089,6 +3124,7 @@
       selectedTextChannelId = null;
       localStorage.removeItem(STORAGE_TOKEN);
       localStorage.removeItem(STORAGE_USER);
+      sessionStorage.removeItem('wildwave_session_confirmed');
       authForm.reset();
       authScreen.classList.remove("hidden");
       appRoot.classList.add("hidden");
@@ -3563,6 +3599,25 @@
       }
     });
     applyAuthMode("login");
+    
+    // Animar entrada del auth screen
+    anime({
+      targets: '.auth-left',
+      opacity: [0, 1],
+      translateX: [-50, 0],
+      duration: 800,
+      easing: 'easeOutExpo'
+    });
+    
+    anime({
+      targets: '.auth-right',
+      opacity: [0, 1],
+      translateX: [50, 0],
+      duration: 800,
+      easing: 'easeOutExpo',
+      delay: 100
+    });
+    
     renderMembershipState();
     (async () => {
       const splashScreen = document.getElementById("splash-screen");
@@ -3629,6 +3684,7 @@
       // Funciones del modal de confirmación
       window.confirmSession = async () => {
         sessionModal.style.display = "none";
+        sessionStorage.setItem('wildwave_session_confirmed', 'true');
         const token = getToken();
         const cachedUserRaw = localStorage.getItem(STORAGE_USER);
         let cachedUser = null;
@@ -3653,10 +3709,16 @@
         try { cachedUser = JSON.parse(cachedUserRaw); } catch (_) {}
       }
       
-      if (token && cachedUser) {
-        // Mostrar modal de confirmación
+      // Verificar si ya se confirmó la sesión en esta sesión del navegador
+      const sessionConfirmed = sessionStorage.getItem('wildwave_session_confirmed');
+      
+      if (token && cachedUser && !sessionConfirmed) {
+        // Mostrar modal de confirmación solo si no se ha confirmado antes
         sessionUsername.textContent = cachedUser.username || 'usuario guardado';
         sessionModal.style.display = "flex";
+      } else if (token && cachedUser && sessionConfirmed) {
+        // Ya se confirmó antes, entrar directamente
+        await window.showSplashWithAudio(token, cachedUser);
       } else {
         // No hay sesión, mostrar login directamente
         applyAuthMode("login");

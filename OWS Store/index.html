@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://owsdatabase.onrender.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: https: blob:; media-src 'self' https: blob: data:; connect-src 'self' https://owsdatabase.onrender.com https://images.unsplash.com https://ui-avatars.com https://placehold.co https://api.github.com https://api.mymemory.translated.net; frame-src https:;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://owsdatabase.onrender.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: https: blob:; media-src 'self' https: blob: data:; connect-src 'self' https://owsdatabase.onrender.com https://images.unsplash.com https://ui-avatars.com https://placehold.co https://api.github.com https://libretranslate.com; frame-src https:;">
     <title>OWS Store - Central Studio Hub</title>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;600&family=Anybody:wght@600;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -22282,26 +22282,48 @@
         };
 
         // ═══════════════════════════════════════════════════════════════════════
-        // Sistema de traducción automática con MyMemory API
+        // Sistema de traducción automática con LibreTranslate + caché
         // ═══════════════════════════════════════════════════════════════════════
         
-        const MYMEMORY_API = 'https://api.mymemory.translated.net/get';
+        const LIBRETRANSLATE_API = 'https://libretranslate.com/translate';
         let currentLanguage = localStorage.getItem('ows-store-language') || 'es';
         const originalTexts = new Map();
+        const translationCache = new Map();
         let isTranslating = false;
         
         async function translateText(text, fromLang, toLang) {
             if (!text || text.trim().length === 0) return text;
             
+            // Usar caché
+            const cacheKey = `${text}|${fromLang}|${toLang}`;
+            if (translationCache.has(cacheKey)) {
+                return translationCache.get(cacheKey);
+            }
+            
             try {
-                const url = `${MYMEMORY_API}?q=${encodeURIComponent(text)}&langpair=${fromLang}|${toLang}`;
-                const response = await fetch(url);
-                const data = await response.json();
+                const response = await fetch(LIBRETRANSLATE_API, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        q: text,
+                        source: fromLang,
+                        target: toLang,
+                        format: 'text'
+                    })
+                });
                 
-                if (data.responseStatus === 200 && data.responseData) {
-                    return data.responseData.translatedText || text;
+                if (!response.ok) {
+                    console.warn('[Translation] API error:', response.status);
+                    return text;
                 }
-                return text;
+                
+                const data = await response.json();
+                const translated = data.translatedText || text;
+                
+                // Guardar en caché
+                translationCache.set(cacheKey, translated);
+                
+                return translated;
             } catch (error) {
                 console.error('[Translation] Error:', error);
                 return text;
@@ -22405,14 +22427,19 @@
                 });
             });
             
-            // Traducir en lotes de 3 (MyMemory es más rápido)
-            const batchSize = 3;
+            // Traducir en lotes de 2 con delay para evitar rate limit
+            const batchSize = 2;
             for (let i = 0; i < elements.length; i += batchSize) {
                 const batch = elements.slice(i, i + batchSize);
                 await Promise.all(batch.map(el => translateElement(el, fromLang, toLang)));
                 
                 const progress = Math.round(((i + batchSize) / elements.length) * 100);
                 updateTranslationProgress(Math.min(progress, 100));
+                
+                // Delay de 300ms entre lotes
+                if (i + batchSize < elements.length) {
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                }
             }
             
             hideTranslationLoader();
@@ -22507,25 +22534,8 @@
                 setTimeout(() => translatePage('en'), 500);
             }
             
-            // Observar cambios en el DOM para traducir contenido dinámico
-            if (savedLang === 'en') {
-                const observer = new MutationObserver((mutations) => {
-                    if (isTranslating || currentLanguage !== 'en') return;
-                    
-                    mutations.forEach((mutation) => {
-                        mutation.addedNodes.forEach((node) => {
-                            if (node.nodeType === Node.ELEMENT_NODE) {
-                                translateDynamicContent(node);
-                            }
-                        });
-                    });
-                });
-                
-                observer.observe(document.body, {
-                    childList: true,
-                    subtree: true
-                });
-            }
+            // MutationObserver desactivado temporalmente para evitar rate limit
+            // TODO: Reactivar con debouncing cuando se solucione el límite de API
             
             console.log('[Translation] Sistema inicializado:', savedLang);
         }

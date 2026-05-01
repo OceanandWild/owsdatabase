@@ -60,6 +60,21 @@
       background: var(--accent);
     }
     .btn.primary:hover { background: var(--accent-hover); }
+    .btn-icon {
+      border: none;
+      background: rgba(255,255,255,0.05);
+      color: var(--ink-soft);
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-icon:hover {
+      background: rgba(255,255,255,0.1);
+      color: var(--ink);
+      transform: scale(1.05);
+    }
     .btn.danger {
       color: #fff;
       background: var(--danger);
@@ -3730,6 +3745,17 @@
     window.loadCategoriesAndChannels = async function() {
       const selected = getSelectedServer();
       if (!selected) return;
+      
+      const container = document.getElementById("categories-channels-list");
+      if (container) {
+        container.innerHTML = `
+          <div style="display:flex;align-items:center;justify-content:center;gap:12px;padding:40px;color:var(--ink-dim);">
+            <div style="width:20px;height:20px;border:2px solid var(--ink-dim);border-top-color:transparent;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+            <span>Cargando categorías y canales...</span>
+          </div>
+        `;
+      }
+      
       try {
         const token = getToken();
         const tree = await api(`/wildwave/api/channels/${selected.id}/tree`, {

@@ -22282,97 +22282,46 @@
         };
 
         // ═══════════════════════════════════════════════════════════════════════
-        // Sistema de traducción automática con LibreTranslate + caché
+        // Sistema de traducción con DOMTranslator
         // ═══════════════════════════════════════════════════════════════════════
         
-        const LIBRETRANSLATE_API = 'https://libretranslate.com/translate';
+        const { DOMTranslator } = require('domtranslator');
+        
         let currentLanguage = localStorage.getItem('ows-store-language') || 'es';
-        const originalTexts = new Map();
-        const translationCache = new Map();
+        let translator = null;
         let isTranslating = false;
         
-        async function translateText(text, fromLang, toLang) {
-            if (!text || text.trim().length === 0) return text;
-            
-            // Usar caché
-            const cacheKey = `${text}|${fromLang}|${toLang}`;
-            if (translationCache.has(cacheKey)) {
-                return translationCache.get(cacheKey);
-            }
-            
-            try {
-                const response = await fetch(LIBRETRANSLATE_API, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        q: text,
-                        source: fromLang,
-                        target: toLang,
-                        format: 'text'
-                    })
-                });
-                
-                if (!response.ok) {
-                    console.warn('[Translation] API error:', response.status);
-                    return text;
-                }
-                
-                const data = await response.json();
-                const translated = data.translatedText || text;
-                
-                // Guardar en caché
-                translationCache.set(cacheKey, translated);
-                
-                return translated;
-            } catch (error) {
-                console.error('[Translation] Error:', error);
-                return text;
-            }
-        }
-        
-        async function translateElement(element, fromLang, toLang) {
-            // Guardar contenido original completo
-            if (!originalTexts.has(element)) {
-                originalTexts.set(element, {
-                    html: element.innerHTML,
-                    text: element.textContent.trim()
-                });
-            }
-            
-            const original = originalTexts.get(element);
-            
-            // Si volvemos a español, restaurar HTML original
-            if (toLang === 'es') {
-                element.innerHTML = original.html;
-                return;
-            }
-            
-            // Traducir solo el texto
-            if (!original.text || original.text.length === 0) return;
-            
-            const translated = await translateText(original.text, fromLang, toLang);
-            
-            // Si el elemento solo tiene texto (sin hijos complejos), reemplazar directo
-            if (element.children.length === 0 || (element.children.length === 1 && element.children[0].tagName === 'I')) {
-                // Preservar iconos
-                const icon = element.querySelector('i');
-                element.textContent = translated;
-                if (icon) {
-                    element.prepend(icon);
-                }
-            } else {
-                // Para elementos complejos, buscar y reemplazar nodos de texto
-                const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT, null, false);
-                const textNodes = [];
-                while (walker.nextNode()) {
-                    if (walker.currentNode.textContent.trim().length > 0) {
-                        textNodes.push(walker.currentNode);
+        async function initTranslator() {
+            if (!translator) {
+                translator = new DOMTranslator({
+                    rootElement: document.body,
+                    fromLang: 'es',
+                    toLang: 'en',
+                    translateFunction: async (text, from, to) => {
+                        try {
+                            const response = await fetch('https://libretranslate.com/translate', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    q: text,
+                                    source: from,
+                                    target: to,
+                                    format: 'text'
+                                })
+                            });
+                            
+                            if (!response.ok) return text;
+                            
+                            const data = await response.json();
+                            return data.translatedText || text;
+                        } catch (error) {
+                            console.error('[Translation] Error:', error);
+                            return text;
+                        }
                     }
-                }
-                if (textNodes.length > 0) {
-                    textNodes[0].textContent = translated;
-                }
+                });
             }
+            return translator;
         }
         
         async function translatePage(toLang) {
@@ -22381,75 +22330,22 @@
             
             showTranslationLoader();
             
-            const fromLang = toLang === 'en' ? 'es' : 'en';
-            
-            const selectors = [
-                '.nav-item',
-                '.stat-label',
-                '.updates-kicker',
-                '.updates-title',
-                '.updates-sub',
-                '.project-updates-summary-label',
-                '.project-updates-summary-note',
-                '.section-label',
-                '.download-item-title',
-                '.download-item-meta',
-                '.download-item-phase',
-                '.info-note-card',
-                '.btn-install',
-                'button:not(#settings-language-select)',
-                'label',
-                'p',
-                'h1',
-                'h2',
-                'h3',
-                'h4',
-                'div[style*="font-size:0.72rem"]'
-            ];
-            
-            const elements = [];
-            selectors.forEach(selector => {
-                document.querySelectorAll(selector).forEach(el => {
-                    const text = el.textContent.trim();
-                    if (text.length === 0) return;
-                    
-                    // Excluir elementos con solo números o símbolos
-                    if (/^[\d\s\-\.\,\:\%]+$/.test(text)) return;
-                    
-                    // Excluir elementos muy cortos (menos de 3 caracteres)
-                    if (text.length < 3) return;
-                    
-                    // Solo elementos con texto directo o con iconos
-                    const hasOnlyText = Array.from(el.childNodes).every(
-                        node => node.nodeType === Node.TEXT_NODE || 
-                               (node.nodeType === Node.ELEMENT_NODE && (node.tagName === 'I' || node.tagName === 'SPAN'))
-                    );
-                    
-                    if (hasOnlyText) {
-                        elements.push(el);
-                    }
-                });
-            });
-            
-            // Traducir en lotes de 2 con delay para evitar rate limit
-            const batchSize = 2;
-            for (let i = 0; i < elements.length; i += batchSize) {
-                const batch = elements.slice(i, i + batchSize);
-                await Promise.all(batch.map(el => translateElement(el, fromLang, toLang)));
+            try {
+                const trans = await initTranslator();
                 
-                const progress = Math.round(((i + batchSize) / elements.length) * 100);
-                updateTranslationProgress(Math.min(progress, 100));
-                
-                // Delay de 300ms entre lotes
-                if (i + batchSize < elements.length) {
-                    await new Promise(resolve => setTimeout(resolve, 300));
+                if (toLang === 'en') {
+                    await trans.translate();
+                } else {
+                    await trans.restore();
                 }
+                
+                console.log('[Translation] Página traducida a:', toLang);
+            } catch (error) {
+                console.error('[Translation] Error al traducir:', error);
             }
             
             hideTranslationLoader();
             isTranslating = false;
-            
-            console.log('[Translation] Página traducida a:', toLang);
         }
         
         function showTranslationLoader() {
@@ -22475,19 +22371,11 @@
                     <div style="width: 20px; height: 20px; border: 2px solid var(--cyan); border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite;"></div>
                     <div>
                         <div style="color: var(--ink-0); font-size: 14px; font-weight: 600;">Traduciendo...</div>
-                        <div id="translation-progress" style="color: var(--ink-1); font-size: 12px;">0%</div>
                     </div>
                 `;
                 document.body.appendChild(loader);
             }
             loader.style.display = 'flex';
-        }
-        
-        function updateTranslationProgress(percent) {
-            const progress = document.getElementById('translation-progress');
-            if (progress) {
-                progress.textContent = `${percent}%`;
-            }
         }
         
         function hideTranslationLoader() {
@@ -22535,60 +22423,10 @@
             }
             
             if (savedLang === 'en') {
-                setTimeout(() => translatePage('en'), 500);
+                setTimeout(() => translatePage('en'), 1000);
             }
-            
-            // MutationObserver desactivado temporalmente para evitar rate limit
-            // TODO: Reactivar con debouncing cuando se solucione el límite de API
             
             console.log('[Translation] Sistema inicializado:', savedLang);
-        }
-        
-        async function translateDynamicContent(element) {
-            const selectors = [
-                '.nav-item', '.stat-label', '.updates-kicker', '.updates-title',
-                '.updates-sub', '.project-updates-summary-label', '.project-updates-summary-note',
-                '.section-label', '.download-item-title', '.download-item-meta',
-                '.download-item-phase', '.info-note-card', '.btn-install',
-                'button:not(#settings-language-select)', 'label', 'p',
-                'div[style*="font-size:0.72rem"]', 'h1', 'h2', 'h3', 'h4'
-            ];
-            
-            const elements = [];
-            
-            // Traducir el elemento mismo si coincide
-            selectors.forEach(selector => {
-                if (element.matches && element.matches(selector)) {
-                    const text = element.textContent.trim();
-                    if (text.length >= 3 && !/^[\d\s\-\.\,\:\%]+$/.test(text)) {
-                        elements.push(element);
-                    }
-                }
-            });
-            
-            // Traducir hijos del elemento
-            selectors.forEach(selector => {
-                element.querySelectorAll && element.querySelectorAll(selector).forEach(el => {
-                    const text = el.textContent.trim();
-                    if (text.length === 0) return;
-                    if (/^[\d\s\-\.\,\:\%]+$/.test(text)) return;
-                    if (text.length < 3) return;
-                    
-                    const hasOnlyText = Array.from(el.childNodes).every(
-                        node => node.nodeType === Node.TEXT_NODE || 
-                               (node.nodeType === Node.ELEMENT_NODE && (node.tagName === 'I' || node.tagName === 'SPAN'))
-                    );
-                    
-                    if (hasOnlyText) {
-                        elements.push(el);
-                    }
-                });
-            });
-            
-            // Traducir elementos encontrados
-            for (const el of elements) {
-                await translateElement(el, 'es', 'en');
-            }
         }
         
         if (document.readyState === 'loading') {

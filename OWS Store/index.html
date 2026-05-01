@@ -22526,16 +22526,10 @@
             'Promedio': 'Average',
             'Reciente': 'Recent',
             'historial corto': 'short history',
-            'No pending updates': 'No pending updates',
-            'Cada 15s (último: hace 21s)': 'Every 15s (last: 21s ago)',
-            'último:': 'last:',
-            'hace': 'ago',
-            'No Recent Actions': 'No Recent Actions',
-            'WITH UPDATE': 'WITH UPDATE',
-            'Available Now': 'Available Now',
-            'For This Platform': 'For This Platform',
-            'On Another Platform': 'On Another Platform',
-            'No Urgent Action': 'No Urgent Action',
+            'Disponibles ahora': 'Available Now',
+            'Para esta plataforma': 'For This Platform',
+            'En otra plataforma': 'On Another Platform',
+            'Sin accion urgente': 'No Urgent Action',
             'al día': 'up to date',
             'instalada': 'installed',
             'Actualización detectada para Windows.': 'Update detected for Windows.',
@@ -22546,8 +22540,6 @@
             'Error de actualizacion:': 'Update error:',
             'Actualización disponible para': 'Update available for',
             'Actualizacion disponible para': 'Update available for',
-            'Ocean Pay synced.': 'Ocean Pay synced.',
-            'Ocean Pay synced': 'Ocean Pay synced',
             'Import installations': 'Import installations',
             'Importa proyectos que ya instalaste externamente para que OWS Store reconozca su version y no te pida actualizarlos innecesariamente.': 'Import projects you already installed externally so OWS Store recognizes their version and does not ask you to update them unnecessarily.',
             'Automático': 'Automatic',
@@ -23869,13 +23861,31 @@
                 setTimeout(() => translatePage('en'), 3000);
                 
                 // Observar cambios en el DOM para traducir contenido del servidor automáticamente
-                const observer = new MutationObserver(() => {
+                const observer = new MutationObserver((mutations) => {
                     if (currentLanguage === 'en' && !isTranslating) {
-                        // Debounce: esperar 100ms antes de traducir para agrupar cambios
-                        clearTimeout(translationTimeout);
-                        translationTimeout = setTimeout(() => {
+                        // Para elementos que cambian frecuentemente, traducir inmediatamente
+                        const immediateIds = ['updates-auto-check', 'updates-status'];
+                        let needsImmediate = false;
+                        
+                        for (const mutation of mutations) {
+                            if (mutation.type === 'characterData' || mutation.type === 'childList') {
+                                const target = mutation.target.nodeType === 1 ? mutation.target : mutation.target.parentElement;
+                                if (target && immediateIds.includes(target.id)) {
+                                    needsImmediate = true;
+                                    break;
+                                }
+                            }
+                        }
+                        
+                        if (needsImmediate) {
                             translatePage('en');
-                        }, 100);
+                        } else {
+                            // Debounce: esperar 50ms antes de traducir para agrupar cambios
+                            clearTimeout(translationTimeout);
+                            translationTimeout = setTimeout(() => {
+                                translatePage('en');
+                            }, 50);
+                        }
                     }
                 });
                 

@@ -22538,11 +22538,21 @@
             'esta al día en Windows.': 'is up to date on Windows.',
             'esta al dia en Windows': 'is up to date on Windows',
             'esta al dia en Windows.': 'is up to date on Windows.',
+            'A Wild Question Game esta al dia en Windows.': 'A Wild Question Game is up to date on Windows.',
+            'DinoBox esta al dia en Windows.': 'DinoBox is up to date on Windows.',
+            'Ecoxion esta al dia en Windows.': 'Ecoxion is up to date on Windows.',
+            'Ocean Cinemas esta al dia en Windows.': 'Ocean Cinemas is up to date on Windows.',
+            'Floret Shop esta al dia en Windows.': 'Floret Shop is up to date on Windows.',
+            'WildTransfer esta al dia en Windows.': 'WildTransfer is up to date on Windows.',
+            'Ocean Pay esta al dia en Windows.': 'Ocean Pay is up to date on Windows.',
             'esta al dia en': 'is up to date on',
             'esta al día en': 'is up to date on',
             'Al dia': 'Up to date',
             'AL DIA': 'UP TO DATE',
             'al dia': 'up to date',
+            'Cada 15s (último: hace 1s)': 'Every 15s (last: 1s ago)',
+            'Cada 15s (último: hace': 'Every 15s (last:',
+            'último: hace': 'last:',
             'Iniciando': 'Starting',
             'Iniciando...': 'Starting...',
             'No checks': 'No checks',
@@ -23673,6 +23683,28 @@
             // Intentar con la puntuación incluida
             if (translations[trimmed]) {
                 return translations[trimmed];
+            }
+            
+            // Intentar traducir partes del texto (para template strings dinámicos)
+            let result = text;
+            
+            // Patrón: "X esta al dia en Y"
+            if (result.includes('esta al dia en')) {
+                result = result.replace(/esta al dia en/g, 'is up to date on');
+            }
+            if (result.includes('esta al día en')) {
+                result = result.replace(/esta al día en/g, 'is up to date on');
+            }
+            
+            // Patrón: "Cada Xs (último: hace Ys)"
+            if (result.includes('último: hace')) {
+                result = result.replace(/último: hace/g, 'last:');
+                result = result.replace(/Cada (\d+)s \(last: (\d+)s\)/g, 'Every $1s (last: $2s ago)');
+            }
+            
+            // Si se hizo algún cambio, retornar el resultado
+            if (result !== text) {
+                return result;
             }
             
             // Si no está en el diccionario, retornar el texto original

@@ -3177,8 +3177,18 @@
       localStorage.removeItem(STORAGE_USER);
       sessionStorage.removeItem('wildwave_session_confirmed');
       authForm.reset();
-      authScreen.classList.remove("hidden");
+      
+      // Hide app and show auth screen
       appRoot.classList.add("hidden");
+      authScreen.classList.remove("hidden");
+      authScreen.style.display = "";
+      
+      // Hide splash if visible
+      const splashScreen = document.getElementById("splash-screen");
+      if (splashScreen) {
+        splashScreen.style.display = "none";
+      }
+      
       profileFlyout.classList.remove("open");
       applyAuthMode("login");
       renderMembershipState();

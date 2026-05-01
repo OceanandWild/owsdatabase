@@ -23379,7 +23379,34 @@
             
             // Otros
             'OWS Project Restriction': 'OWS Project Restriction',
-            '000000': '000000'
+            '000000': '000000',
+            
+            // Login y verificación (pre-boot)
+            'Verificando si hay credenciales guardadas...': 'Checking for saved credentials...',
+            'Comprobando sesion guardada de Ocean Pay.': 'Checking saved Ocean Pay session.',
+            'Inteligencia oceánica para el ecosistema digital moderno.': 'Oceanic intelligence for the modern digital ecosystem.',
+            'Capas cifradas inspiradas en las profundidades.': 'Encrypted layers inspired by the depths.',
+            'Navega el ecosistema desde un único hub adaptable.': 'Navigate the ecosystem from a single adaptable hub.',
+            'Ingresa tus credenciales para acceder.': 'Enter your credentials to access.',
+            'USUARIO': 'USERNAME',
+            'Tu nombre de usuario': 'Your username',
+            'CONTRASENA': 'PASSWORD',
+            'Tu contrasena': 'Your password',
+            'OLVIDÉ MI CLAVE': 'FORGOT MY PASSWORD',
+            'Recordar datos': 'Remember me',
+            'Entrar a OWS Store →': 'Enter OWS Store →',
+            '¿No tienes una cuenta?': "Don't have an account?",
+            'Regístrate': 'Sign Up',
+            'POLÍTICA DE PRIVACIDAD': 'PRIVACY POLICY',
+            'TÉRMINOS DEL SERVICIO': 'TERMS OF SERVICE',
+            'AJUSTES DE COOKIES': 'COOKIE SETTINGS',
+            
+            // Loading modal que aparece durante boot
+            'Precargando assets visuales...': 'Preloading visual assets...',
+            'Cargando assets': 'Loading assets',
+            'Sincronizando eventos': 'Syncing events',
+            'Precargando assets visuales': 'Preloading visual assets',
+            'Renderizando interfaz': 'Rendering interface'
         };
         
         function translateText(text) {
@@ -23584,7 +23611,11 @@
             }
             
             if (savedLang === 'en') {
-                setTimeout(() => translatePage('en'), 1000);
+                // Traducir inmediatamente sin delay
+                translatePage('en');
+                // Y también después de que cargue todo
+                setTimeout(() => translatePage('en'), 500);
+                setTimeout(() => translatePage('en'), 2000);
             }
             
             console.log('[Translation] Sistema inicializado:', savedLang);

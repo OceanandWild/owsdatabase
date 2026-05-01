@@ -22309,20 +22309,44 @@
         }
         
         async function translateElement(element, fromLang, toLang) {
+            // Guardar texto original (solo nodos de texto, sin HTML)
             if (!originalTexts.has(element)) {
-                originalTexts.set(element, element.textContent.trim());
+                const textNodes = Array.from(element.childNodes)
+                    .filter(node => node.nodeType === Node.TEXT_NODE)
+                    .map(node => node.textContent.trim())
+                    .filter(text => text.length > 0)
+                    .join(' ');
+                originalTexts.set(element, textNodes);
             }
             
             const originalText = originalTexts.get(element);
             if (!originalText || originalText.length === 0) return;
             
+            // Si volvemos a español, restaurar original
             if (toLang === 'es') {
-                element.textContent = originalText;
+                const textNodes = Array.from(element.childNodes).filter(node => node.nodeType === Node.TEXT_NODE);
+                if (textNodes.length > 0) {
+                    textNodes[0].textContent = originalText;
+                    // Limpiar nodos de texto adicionales
+                    for (let i = 1; i < textNodes.length; i++) {
+                        textNodes[i].textContent = '';
+                    }
+                }
                 return;
             }
             
+            // Traducir
             const translated = await translateText(originalText, fromLang, toLang);
-            element.textContent = translated;
+            
+            // Reemplazar solo los nodos de texto, preservando elementos hijos
+            const textNodes = Array.from(element.childNodes).filter(node => node.nodeType === Node.TEXT_NODE);
+            if (textNodes.length > 0) {
+                textNodes[0].textContent = translated;
+                // Limpiar nodos de texto adicionales
+                for (let i = 1; i < textNodes.length; i++) {
+                    textNodes[i].textContent = '';
+                }
+            }
         }
         
         async function translatePage(toLang) {

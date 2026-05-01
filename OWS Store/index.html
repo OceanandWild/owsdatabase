@@ -23248,6 +23248,7 @@
         function translateText(text) {
             // Buscar traducción exacta primero
             if (translations[text]) {
+                console.log('[TRANSLATE] Exact match:', text, '→', translations[text]);
                 return translations[text];
             }
             
@@ -23257,14 +23258,18 @@
             const punctuation = trimmed.slice(withoutPunctuation.length);
             
             if (translations[withoutPunctuation]) {
-                return translations[withoutPunctuation] + punctuation;
+                const result = translations[withoutPunctuation] + punctuation;
+                console.log('[TRANSLATE] Without punctuation:', text, '→', result);
+                return result;
             }
             
             // Intentar con la puntuación incluida
             if (translations[trimmed]) {
+                console.log('[TRANSLATE] Trimmed match:', text, '→', translations[trimmed]);
                 return translations[trimmed];
             }
             
+            console.log('[TRANSLATE] No translation found for:', JSON.stringify(text));
             return text;
         }
         
@@ -23295,15 +23300,23 @@
             }
             
             if (toLang === 'en') {
+                console.log('[TRANSLATE PAGE] Starting translation to English');
+                console.log('[TRANSLATE PAGE] Found', textNodes.length, 'text nodes');
+                
                 // Guardar originales y traducir textos
-                textNodes.forEach(node => {
+                textNodes.forEach((node, index) => {
                     if (!originalTexts.has(node)) {
                         originalTexts.set(node, node.textContent);
                     }
                     const original = node.textContent.trim();
+                    if (original.length === 0) return;
+                    
                     const translated = translateText(original);
                     if (translated !== original) {
+                        console.log(`[NODE ${index}] Translating:`, JSON.stringify(original), '→', JSON.stringify(translated));
                         node.textContent = node.textContent.replace(original, translated);
+                    } else {
+                        console.log(`[NODE ${index}] No change:`, JSON.stringify(original));
                     }
                 });
                 

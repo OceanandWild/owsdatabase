@@ -6886,6 +6886,10 @@
         const NATUREPEDIA_PLACEHOLDER_DATE_ISO = '';
         const WILDSHORTS_PLACEHOLDER_DATE_ISO = '2026-03-28T18:00:00Z';
         const OCEAN_CINEMAS_RELEASE_DATE_ISO = '2026-03-29T18:00:00Z';
+        // WildWeapon Mayhem: nueva version programada
+        // Uruguay (UYT, UTC-3): 01/05/2026 21:45 -> 2026-05-02T00:45:00Z
+        const WILDWEAPON_RELEASE_DATE_ISO = '2026-05-02T00:45:00Z';
+
         const PRELOGIN_ANNOUNCEMENTS_FALLBACK = [
             {
                 title: 'NatBee se lanza el 17 de Abril',
@@ -17348,6 +17352,8 @@
                 wildWeapon.install_type = 'external';
                 if (!wildWeapon.installer_url) wildWeapon.installer_url = WILDWEAPON_RELEASES_URL;
                 wildWeapon.icon_url = WILDWEAPON_LOCAL_ICON;
+                wildWeapon.release_date = WILDWEAPON_RELEASE_DATE_ISO;
+
                 wildWeapon.installer_available = false;
                 wildWeapon.last_update_at = null;
                 wildWeapon.windows_last_update_at = null;
@@ -17355,14 +17361,29 @@
                 wildWeapon.pending_release = false;
                 wildWeapon.installer_size = Number(wildWeapon.installer_size || 0);
 
+                    
+                    // Verificar si la fecha de lanzamiento ya llegó
+                    const releaseDate = wildWeapon.release_date ? Date.parse(wildWeapon.release_date) : 0;
+                    const isReleaseReady = !releaseDate || releaseDate <= Date.now();
+                    
+
                 try {
                     const latest = await fetchLatestWildWeaponRelease();
                     if (latest?.version) wildWeapon.version = latest.version;
                     if (latest?.installerUrl) wildWeapon.installer_url = latest.installerUrl;
                     wildWeapon.installer_size = Number(latest?.installerSize || 0);
-                    wildWeapon.installer_available = Boolean(latest?.installerAvailable);
+                    wildWeapon.installer_available = Boolean(latest?.installerAvailable) && isReleaseReady;
                     wildWeapon.last_update_at = latest?.publishedAt || null;
                     wildWeapon.windows_last_update_at = latest?.publishedAt || null;
+                    wildWeapon.status = wildWeapon.installer_available ? 'launched' : 'coming_soon';
+                    
+                    if (!isReleaseReady) {
+                        wildWeapon.status = 'coming_soon';
+                        wildWeapon.pending_release = true;
+                        wildWeapon.release_warning = 'Instalador programado para lanzamiento futuro.';
+                    }
+                    
+
                     wildWeapon.pending_release = !wildWeapon.installer_available;
                     // scheduled_release comes from API metadata â€” no hardcoding needed
                     if (latest?.warning) {
@@ -17819,14 +17840,28 @@
 
                 try {
                     const latest = await fetchLatestOceanCinemasRelease();
+                    
+                    // Verificar si la fecha de lanzamiento ya llegó
+                    const releaseDate = oceanCinemas.release_date ? Date.parse(oceanCinemas.release_date) : 0;
+                    const isReleaseReady = !releaseDate || releaseDate <= Date.now();
+                    
+
                     if (latest?.version) oceanCinemas.version = latest.version;
                     oceanCinemas.windows_version = latest?.version || oceanCinemas.windows_version || oceanCinemas.version || '';
                     if (latest?.installerUrl) oceanCinemas.installer_url = latest.installerUrl;
                     oceanCinemas.installer_size = Number(latest?.installerSize || 0);
-                    oceanCinemas.installer_available = Boolean(latest?.installerAvailable);
+                    oceanCinemas.installer_available = Boolean(latest?.installerAvailable) && isReleaseReady;
                     oceanCinemas.windows_release_notes = latest?.windowsReleaseNotes || oceanCinemas.windows_release_notes || '';
                     oceanCinemas.last_update_at = latest?.publishedAt || null;
                     oceanCinemas.windows_last_update_at = latest?.publishedAt || null;
+                    
+                    if (!isReleaseReady) {
+                        oceanCinemas.status = 'coming_soon';
+                        oceanCinemas.pending_release = true;
+                        oceanCinemas.release_warning = 'Instalador programado para lanzamiento futuro.';
+                    }
+                    
+
                     oceanCinemas.pending_release = !oceanCinemas.installer_available;
                     oceanCinemas.status = oceanCinemas.installer_available ? 'launched' : 'coming_soon';
                     if (latest?.warning) {
@@ -22571,6 +22606,10 @@
             
             // Ocean Pay / Login
             'Seguridad Ocean Pay': 'Ocean Pay Security',
+            'Instalador programado para lanzamiento futuro.': 'Installer scheduled for future release.',
+
+            'Instalador programado para lanzamiento futuro.': 'Installer scheduled for future release.',
+
             'Verificacion en 2 pasos': '2-Step Verification',
             'Para continuar, abre Ocean Pay, ve a Configuración > Seguridad, copia el código solicitado por OWS Store y pégalo aquí.': 'To continue, open Ocean Pay, go to Settings > Security, copy the code requested by OWS Store and paste it here.',
             'Código de verificación': 'Verification Code',

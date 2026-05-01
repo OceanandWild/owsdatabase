@@ -23586,18 +23586,8 @@
                 return translations[trimmed];
             }
             
-            // Si no está en el diccionario, marcar para traducción por API
-            return null; // Retornar null para indicar que necesita API
-        }
-        
-        async function translateTextWithFallback(text) {
-            const dictTranslation = translateText(text);
-            if (dictTranslation !== null) {
-                return dictTranslation;
-            }
-            
-            // Si no está en diccionario, usar API (solo para contenido del servidor)
-            return await translateWithAPI(text);
+            // Si no está en el diccionario, retornar el texto original
+            return text;
         }
         
         const originalTexts = new Map();
@@ -23636,9 +23626,7 @@
             }
             
             if (toLang === 'en') {
-                // Guardar originales y traducir textos
-                const translationPromises = [];
-                
+                // Guardar originales y traducir textos solo con diccionario
                 textNodes.forEach(node => {
                     if (!originalTexts.has(node)) {
                         originalTexts.set(node, node.textContent);
@@ -23646,29 +23634,13 @@
                     const original = node.textContent.trim();
                     if (original.length === 0) return;
                     
-                    // Intentar traducción con diccionario primero
+                    // Solo usar diccionario (sin API para evitar rate limits)
                     const dictTranslation = translateText(original);
                     
-                    if (dictTranslation !== null) {
-                        // Traducción encontrada en diccionario (instantánea)
+                    if (dictTranslation !== null && dictTranslation !== original) {
                         node.textContent = node.textContent.replace(original, dictTranslation);
-                    } else if (original.length > 10 && !/^[A-Z_\s]+$/.test(original)) {
-                        // Solo usar API para textos largos que parecen contenido del servidor
-                        // Excluir constantes en mayúsculas (UPDATE_SYSTEM, etc.)
-                        translationPromises.push(
-                            translateWithAPI(original).then(translated => {
-                                if (translated !== original) {
-                                    node.textContent = node.textContent.replace(original, translated);
-                                }
-                            })
-                        );
                     }
                 });
-                
-                // Esperar traducciones de API (solo para contenido del servidor)
-                if (translationPromises.length > 0) {
-                    await Promise.all(translationPromises);
-                }
                 
                 // Traducir atributos (placeholder, title, aria-label)
                 document.querySelectorAll('[placeholder], [title], [aria-label]').forEach(el => {

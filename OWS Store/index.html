@@ -22538,13 +22538,6 @@
             'esta al día en Windows.': 'is up to date on Windows.',
             'esta al dia en Windows': 'is up to date on Windows',
             'esta al dia en Windows.': 'is up to date on Windows.',
-            'A Wild Question Game esta al dia en Windows.': 'A Wild Question Game is up to date on Windows.',
-            'DinoBox esta al dia en Windows.': 'DinoBox is up to date on Windows.',
-            'Ecoxion esta al dia en Windows.': 'Ecoxion is up to date on Windows.',
-            'Ocean Cinemas esta al dia en Windows.': 'Ocean Cinemas is up to date on Windows.',
-            'Floret Shop esta al dia en Windows.': 'Floret Shop is up to date on Windows.',
-            'WildTransfer esta al dia en Windows.': 'WildTransfer is up to date on Windows.',
-            'Ocean Pay esta al dia en Windows.': 'Ocean Pay is up to date on Windows.',
             'esta al dia en': 'is up to date on',
             'esta al día en': 'is up to date on',
             'Al dia': 'Up to date',
@@ -23685,22 +23678,21 @@
                 return translations[trimmed];
             }
             
-            // Intentar traducir partes del texto (para template strings dinámicos)
+            // Traducción automática por patrones (para textos dinámicos)
             let result = text;
             
-            // Patrón: "X esta al dia en Y"
-            if (result.includes('esta al dia en')) {
-                result = result.replace(/esta al dia en/g, 'is up to date on');
-            }
-            if (result.includes('esta al día en')) {
-                result = result.replace(/esta al día en/g, 'is up to date on');
-            }
+            // Patrón: "X esta al dia en Y" (cualquier proyecto)
+            result = result.replace(/(.+?)\s+esta al dia en\s+(.+?)(\.|$)/gi, '$1 is up to date on $2$3');
+            result = result.replace(/(.+?)\s+esta al día en\s+(.+?)(\.|$)/gi, '$1 is up to date on $2$3');
+            
+            // Patrón: "No instalada en este dispositivo (última: vX.X.X)"
+            result = result.replace(/No instalada en este dispositivo\s*\(ultima:\s*v([^)]+)\)/gi, 'Not installed on this device (latest: v$1)');
+            result = result.replace(/No instalada en este dispositivo\s*\(última:\s*v([^)]+)\)/gi, 'Not installed on this device (latest: v$1)');
+            result = result.replace(/No instalada en este dispositivo/gi, 'Not installed on this device');
             
             // Patrón: "Cada Xs (último: hace Ys)"
-            if (result.includes('último: hace')) {
-                result = result.replace(/último: hace/g, 'last:');
-                result = result.replace(/Cada (\d+)s \(last: (\d+)s\)/g, 'Every $1s (last: $2s ago)');
-            }
+            result = result.replace(/Cada\s+(\d+)s\s+\(último:\s+hace\s+(\d+)s\)/gi, 'Every $1s (last: $2s ago)');
+            result = result.replace(/último:\s+hace/gi, 'last:');
             
             // Si se hizo algún cambio, retornar el resultado
             if (result !== text) {

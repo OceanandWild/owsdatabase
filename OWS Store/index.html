@@ -12698,6 +12698,32 @@
                 project.status = 'launched';
                 if (project.pending_release === true) project.pending_release = false;
                 if (project.installer_available !== true && hasInstallerHint) project.installer_available = true;
+            
+            // Detectar releases vencidas: si tiene release_date programada que ya pasó pero no hay instalador
+            if (project.release_date && project.pending_release !== false) {
+                const releaseTimestamp = Date.parse(project.release_date);
+                if (releaseTimestamp && releaseTimestamp < Date.now()) {
+                    if (!project.installer_available || project.status === 'coming_soon') {
+                        project.release_overdue = true;
+                        project.overdue_days = Math.floor((Date.now() - releaseTimestamp) / 86400000);
+                    }
+                }
+            }
+
+            
+            // Detectar releases vencidas: si tiene release_date programada que ya pasó pero no hay instalador
+            if (project.release_date && project.pending_release !== false) {
+                const releaseTimestamp = Date.parse(project.release_date);
+                if (releaseTimestamp && releaseTimestamp < Date.now()) {
+                    // La fecha de lanzamiento ya pasó
+                    if (!project.installer_available || project.status === 'coming_soon') {
+                        // Marcar como vencida
+                        project.release_overdue = true;
+                        project.overdue_days = Math.floor((Date.now() - releaseTimestamp) / 86400000);
+                    }
+                }
+            }
+
             }
             project.version = pickHigherVersionLike(
                 project.version,
@@ -19285,6 +19311,15 @@
             if (isComingSoon && p.release_date) {
                 const launchDate = formatDateTime(p.release_date);
                 document.getElementById('m-desc').innerText += `\n\nLanzamiento Windows programado: ${launchDate}.`;
+            
+            // Mostrar si la release está vencida
+            if (p.release_overdue && p.overdue_days > 0) {
+                const overdueText = p.overdue_days === 1 
+                    ? 'Lanzamiento vencido hace 1 dia. Instalador aun no publicado.'
+                    : `Lanzamiento vencido hace ${p.overdue_days} dias. Instalador aun no publicado.`;
+                document.getElementById('m-desc').innerText += `\n\n⚠️ ${overdueText}`;
+            }
+
             }
             if (isReleaseTrackedProject(p)) {
                 const statusText = p.pending_release
@@ -22568,6 +22603,10 @@
             'Android': 'Android',
             'Multiplataforma': 'Cross-Platform',
             'Compatible': 'Compatible',
+            'Lanzamiento vencido hace 1 dia. Instalador aun no publicado.': 'Release overdue by 1 day. Installer not yet published.',
+            'dias. Instalador aun no publicado.': 'days. Installer not yet published.',
+            'Lanzamiento vencido hace': 'Release overdue by',
+
             'No compatible': 'Not Compatible',
             'Requiere': 'Requires',
             'Recomendado': 'Recommended',

@@ -9,3 +9,7 @@ Changes:
 - Completed Spanish-English translation system with comprehensive coverage
 - Translation now applies instantly across all UI elements and dynamic content
 - Improved translation performance and reliability
+- Improved version detection system for better accuracy
+- Enhanced "Verify on disk" feature in manual confirmation modal to detect exact installed versions
+- Fixed text encoding issues (mojibake) in Spanish UI elements
+- Added overdue release detection: projects with scheduled releases that passed their date without installer availability now show as overdue

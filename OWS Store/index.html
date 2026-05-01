@@ -23237,11 +23237,35 @@
             'assets': 'assets',
             'eventos': 'events',
             'visuales': 'visual',
-            'interfaz': 'interface'
+            'interfaz': 'interface',
+            
+            // Palabras sin puntuación
+            'juegos': 'games',
+            'inesperadas': 'unexpected',
+            'y': 'and'
         };
         
         function translateText(text) {
-            return translations[text] || text;
+            // Buscar traducción exacta primero
+            if (translations[text]) {
+                return translations[text];
+            }
+            
+            // Intentar sin puntuación al final
+            const trimmed = text.trim();
+            const withoutPunctuation = trimmed.replace(/[.,;:!?]+$/, '');
+            const punctuation = trimmed.slice(withoutPunctuation.length);
+            
+            if (translations[withoutPunctuation]) {
+                return translations[withoutPunctuation] + punctuation;
+            }
+            
+            // Intentar con la puntuación incluida
+            if (translations[trimmed]) {
+                return translations[trimmed];
+            }
+            
+            return text;
         }
         
         const originalTexts = new Map();

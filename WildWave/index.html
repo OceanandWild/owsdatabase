@@ -1181,6 +1181,19 @@
       color: #fff;
       font-weight: 600;
     }
+    .ss-nav-separator {
+      height: 1px;
+      background: rgba(255,255,255,0.06);
+      margin: 12px 8px;
+    }
+    .ss-nav-label {
+      padding: 8px 12px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--ink-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
     .ss-main {
       min-height: 0;
       overflow: auto;
@@ -1681,10 +1694,10 @@
         <div class="ss-nav-list">
           <button class="ss-nav-item active" type="button" data-section="resumen">Resumen</button>
           <button class="ss-nav-item" type="button" data-section="roles">Roles</button>
-          <div style="height:1px;background:rgba(255,255,255,0.06);margin:12px 8px;"></div>
-          <div style="padding:8px 12px;font-size:11px;font-weight:700;color:var(--ink-dim);text-transform:uppercase;letter-spacing:0.5px;">Categorías y Canales</div>
+          <div class="ss-nav-separator"></div>
+          <div class="ss-nav-label">Categorías y Canales</div>
           <button class="ss-nav-item" type="button" data-section="categorias">Gestionar estructura</button>
-          <div style="height:1px;background:rgba(255,255,255,0.06);margin:12px 8px;"></div>
+          <div class="ss-nav-separator"></div>
           <button class="ss-nav-item" type="button" data-section="integraciones">Integraciones</button>
           <button class="ss-nav-item" type="button" data-section="seguridad">Seguridad</button>
         </div>

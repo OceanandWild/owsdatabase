@@ -23440,6 +23440,13 @@
                     const original = node.textContent.trim();
                     if (original.length === 0) return;
                     
+                    // Log específico para textos problemáticos
+                    if (original.includes('Precargando') || original.includes('Cargando') || 
+                        original.includes('Sincronizando') || original.includes('Renderizando') ||
+                        original.includes('conectado correctamente')) {
+                        console.log('[DEBUG] Texto problemático:', JSON.stringify(original));
+                    }
+                    
                     const translated = translateText(original);
                     if (translated !== original) {
                         node.textContent = node.textContent.replace(original, translated);

@@ -1496,43 +1496,43 @@
         <div class="auth-bg-circle" style="position:absolute;width:150px;height:150px;background:radial-gradient(circle, rgba(114,137,218,0.2), transparent);border-radius:50%;bottom:20%;right:15%;animation:float 8s ease-in-out infinite reverse;"></div>
       </div>
       <div class="auth-right">
-        <div class="auth-panel" style="background:rgba(43,45,49,0.4);backdrop-filter:blur(20px);box-shadow:0 8px 32px rgba(0,0,0,0.4);border-radius:16px;padding:40px;">
-          <div class="auth-switch" style="background:rgba(30,31,34,0.6);border-radius:12px;padding:4px;display:flex;gap:4px;margin-bottom:32px;">
+        <div class="auth-panel" style="background:rgba(43,45,49,0.4);backdrop-filter:blur(20px);box-shadow:0 8px 32px rgba(0,0,0,0.4);border-radius:16px;padding:32px 32px 24px 32px;max-height:100%;overflow-y:auto;">
+          <div class="auth-switch" style="background:rgba(30,31,34,0.6);border-radius:12px;padding:4px;display:flex;gap:4px;margin-bottom:24px;">
             <button id="mode-login" class="active" type="button" style="flex:1;padding:12px;border:none;border-radius:8px;background:transparent;color:rgba(255,255,255,0.6);font-weight:600;font-size:14px;cursor:pointer;transition:all 0.2s;">Iniciar sesión</button>
             <button id="mode-register" type="button" style="flex:1;padding:12px;border:none;border-radius:8px;background:transparent;color:rgba(255,255,255,0.6);font-weight:600;font-size:14px;cursor:pointer;transition:all 0.2s;">Registrarse</button>
           </div>
           
-          <div style="text-align:center;margin-bottom:32px;">
-            <h2 id="auth-title" class="auth-title" style="font-size:32px;font-weight:700;margin-bottom:8px;background:linear-gradient(135deg, #fff 0%, rgba(255,255,255,0.8) 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;">Bienvenido</h2>
-            <p id="auth-help" class="auth-help" style="color:rgba(255,255,255,0.5);font-size:14px;">Ingresa con tu cuenta existente de WildWave.</p>
+          <div style="text-align:center;margin-bottom:24px;">
+            <h2 id="auth-title" class="auth-title" style="font-size:28px;font-weight:700;margin-bottom:6px;background:linear-gradient(135deg, #fff 0%, rgba(255,255,255,0.8) 100%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;">Bienvenido</h2>
+            <p id="auth-help" class="auth-help" style="color:rgba(255,255,255,0.5);font-size:13px;">Ingresa con tu cuenta existente de WildWave.</p>
           </div>
           
-          <form id="auth-form" autocomplete="on" style="display:flex;flex-direction:column;gap:20px;">
+          <form id="auth-form" autocomplete="on" style="display:flex;flex-direction:column;gap:16px;">
             <div class="field" style="display:flex;flex-direction:column;gap:8px;">
-              <label for="auth-user" style="color:rgba(255,255,255,0.7);font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Usuario</label>
+              <label for="auth-user" style="color:rgba(255,255,255,0.7);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Usuario</label>
               <div style="position:relative;">
-                <span style="position:absolute;left:16px;top:50%;transform:translateY(-50%);font-size:18px;opacity:0.5;">👤</span>
-                <input id="auth-user" name="username" type="text" minlength="3" maxlength="32" required style="width:100%;padding:14px 16px 14px 48px;background:rgba(30,31,34,0.6);border:2px solid rgba(88,101,242,0.3);border-radius:10px;color:#fff;font-size:15px;transition:all 0.2s;" />
+                <span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:16px;opacity:0.5;">👤</span>
+                <input id="auth-user" name="username" type="text" minlength="3" maxlength="32" required style="width:100%;padding:12px 14px 12px 44px;background:rgba(30,31,34,0.6);border:2px solid rgba(88,101,242,0.3);border-radius:10px;color:#fff;font-size:14px;transition:all 0.2s;" />
               </div>
             </div>
             
             <div id="display-name-field" class="field hidden" style="display:flex;flex-direction:column;gap:8px;">
-              <label for="auth-display-name" style="color:rgba(255,255,255,0.7);font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Nombre visible</label>
+              <label for="auth-display-name" style="color:rgba(255,255,255,0.7);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Nombre visible</label>
               <div style="position:relative;">
-                <span style="position:absolute;left:16px;top:50%;transform:translateY(-50%);font-size:18px;opacity:0.5;">✨</span>
-                <input id="auth-display-name" name="displayName" type="text" minlength="2" maxlength="32" style="width:100%;padding:14px 16px 14px 48px;background:rgba(30,31,34,0.6);border:2px solid rgba(88,101,242,0.3);border-radius:10px;color:#fff;font-size:15px;transition:all 0.2s;" />
+                <span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:16px;opacity:0.5;">✨</span>
+                <input id="auth-display-name" name="displayName" type="text" minlength="2" maxlength="32" style="width:100%;padding:12px 14px 12px 44px;background:rgba(30,31,34,0.6);border:2px solid rgba(88,101,242,0.3);border-radius:10px;color:#fff;font-size:14px;transition:all 0.2s;" />
               </div>
             </div>
             
             <div class="field" style="display:flex;flex-direction:column;gap:8px;">
-              <label for="auth-pass" style="color:rgba(255,255,255,0.7);font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Contraseña</label>
+              <label for="auth-pass" style="color:rgba(255,255,255,0.7);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Contraseña</label>
               <div style="position:relative;">
-                <span style="position:absolute;left:16px;top:50%;transform:translateY(-50%);font-size:18px;opacity:0.5;">🔒</span>
-                <input id="auth-pass" name="password" type="password" minlength="4" maxlength="128" required style="width:100%;padding:14px 16px 14px 48px;background:rgba(30,31,34,0.6);border:2px solid rgba(88,101,242,0.3);border-radius:10px;color:#fff;font-size:15px;transition:all 0.2s;" />
+                <span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:16px;opacity:0.5;">🔒</span>
+                <input id="auth-pass" name="password" type="password" minlength="4" maxlength="128" required style="width:100%;padding:12px 14px 12px 44px;background:rgba(30,31,34,0.6);border:2px solid rgba(88,101,242,0.3);border-radius:10px;color:#fff;font-size:14px;transition:all 0.2s;" />
               </div>
             </div>
             
-            <button id="auth-submit" type="submit" class="auth-submit" style="width:100%;padding:16px;background:linear-gradient(135deg, #5865f2 0%, #7289da 100%);border:none;border-radius:10px;color:#fff;font-size:16px;font-weight:700;cursor:pointer;transition:all 0.3s;box-shadow:0 4px 16px rgba(88,101,242,0.4);margin-top:8px;">Entrar a WildWave</button>
+            <button id="auth-submit" type="submit" class="auth-submit" style="width:100%;padding:14px;background:linear-gradient(135deg, #5865f2 0%, #7289da 100%);border:none;border-radius:10px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;transition:all 0.3s;box-shadow:0 4px 16px rgba(88,101,242,0.4);margin-top:4px;">Entrar a WildWave</button>
           </form>
           <div id="auth-msg" class="auth-msg"></div>
         </div>

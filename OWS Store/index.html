@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://owsdatabase.onrender.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: https: blob:; media-src 'self' https: blob: data:; connect-src 'self' https://owsdatabase.onrender.com https://images.unsplash.com https://ui-avatars.com https://placehold.co https://api.github.com https://libretranslate.com; frame-src https:;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://owsdatabase.onrender.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: https: blob:; media-src 'self' https: blob: data:; connect-src 'self' https://owsdatabase.onrender.com https://images.unsplash.com https://ui-avatars.com https://placehold.co https://api.github.com https://api.mymemory.translated.net; frame-src https:;">
     <title>OWS Store - Central Studio Hub</title>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;600&family=Anybody:wght@600;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -23540,6 +23540,32 @@
             'Sin bridge de instalacion local. Usa ?preview=1 para pruebas sin build.': 'No local installation bridge. Use ?preview=1 for tests without build.'
         };
         
+        // Cache para traducciones de API
+        const apiTranslationCache = new Map();
+        
+        async function translateWithAPI(text) {
+            // Usar caché
+            if (apiTranslationCache.has(text)) {
+                return apiTranslationCache.get(text);
+            }
+            
+            try {
+                const response = await fetch('https://api.mymemory.translated.net/get?q=' + 
+                    encodeURIComponent(text) + '&langpair=es|en');
+                const data = await response.json();
+                
+                if (data.responseStatus === 200 && data.responseData) {
+                    const translated = data.responseData.translatedText || text;
+                    apiTranslationCache.set(text, translated);
+                    return translated;
+                }
+            } catch (error) {
+                console.warn('[API Translation] Error:', error);
+            }
+            
+            return text;
+        }
+        
         function translateText(text) {
             // Buscar traducción exacta primero
             if (translations[text]) {
@@ -23560,7 +23586,18 @@
                 return translations[trimmed];
             }
             
-            return text;
+            // Si no está en el diccionario, marcar para traducción por API
+            return null; // Retornar null para indicar que necesita API
+        }
+        
+        async function translateTextWithFallback(text) {
+            const dictTranslation = translateText(text);
+            if (dictTranslation !== null) {
+                return dictTranslation;
+            }
+            
+            // Si no está en diccionario, usar API (solo para contenido del servidor)
+            return await translateWithAPI(text);
         }
         
         const originalTexts = new Map();
@@ -23600,6 +23637,8 @@
             
             if (toLang === 'en') {
                 // Guardar originales y traducir textos
+                const translationPromises = [];
+                
                 textNodes.forEach(node => {
                     if (!originalTexts.has(node)) {
                         originalTexts.set(node, node.textContent);
@@ -23607,11 +23646,29 @@
                     const original = node.textContent.trim();
                     if (original.length === 0) return;
                     
-                    const translated = translateText(original);
-                    if (translated !== original) {
-                        node.textContent = node.textContent.replace(original, translated);
+                    // Intentar traducción con diccionario primero
+                    const dictTranslation = translateText(original);
+                    
+                    if (dictTranslation !== null) {
+                        // Traducción encontrada en diccionario (instantánea)
+                        node.textContent = node.textContent.replace(original, dictTranslation);
+                    } else if (original.length > 10 && !/^[A-Z_\s]+$/.test(original)) {
+                        // Solo usar API para textos largos que parecen contenido del servidor
+                        // Excluir constantes en mayúsculas (UPDATE_SYSTEM, etc.)
+                        translationPromises.push(
+                            translateWithAPI(original).then(translated => {
+                                if (translated !== original) {
+                                    node.textContent = node.textContent.replace(original, translated);
+                                }
+                            })
+                        );
                     }
                 });
+                
+                // Esperar traducciones de API (solo para contenido del servidor)
+                if (translationPromises.length > 0) {
+                    await Promise.all(translationPromises);
+                }
                 
                 // Traducir atributos (placeholder, title, aria-label)
                 document.querySelectorAll('[placeholder], [title], [aria-label]').forEach(el => {

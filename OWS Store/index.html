@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://owsdatabase.onrender.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: https: blob:; media-src 'self' https: blob: data:; connect-src 'self' https://owsdatabase.onrender.com https://images.unsplash.com https://ui-avatars.com https://placehold.co https://api.github.com https://libretranslate.com; frame-src https:;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://owsdatabase.onrender.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: https: blob:; media-src 'self' https: blob: data:; connect-src 'self' https://owsdatabase.onrender.com https://images.unsplash.com https://ui-avatars.com https://placehold.co https://api.github.com https://api.mymemory.translated.net; frame-src https:;">
     <title>OWS Store - Central Studio Hub</title>
     <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;600&family=Anybody:wght@600;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -22282,10 +22282,10 @@
         };
 
         // ═══════════════════════════════════════════════════════════════════════
-        // Sistema de traducción automática con LibreTranslate
+        // Sistema de traducción automática con MyMemory API
         // ═══════════════════════════════════════════════════════════════════════
         
-        const LIBRETRANSLATE_API = 'https://libretranslate.com/translate';
+        const MYMEMORY_API = 'https://api.mymemory.translated.net/get';
         let currentLanguage = localStorage.getItem('ows-store-language') || 'es';
         const originalTexts = new Map();
         let isTranslating = false;
@@ -22294,19 +22294,14 @@
             if (!text || text.trim().length === 0) return text;
             
             try {
-                const response = await fetch(LIBRETRANSLATE_API, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        q: text,
-                        source: fromLang,
-                        target: toLang,
-                        format: 'text'
-                    })
-                });
-                
+                const url = `${MYMEMORY_API}?q=${encodeURIComponent(text)}&langpair=${fromLang}|${toLang}`;
+                const response = await fetch(url);
                 const data = await response.json();
-                return data.translatedText || text;
+                
+                if (data.responseStatus === 200 && data.responseData) {
+                    return data.responseData.translatedText || text;
+                }
+                return text;
             } catch (error) {
                 console.error('[Translation] Error:', error);
                 return text;
@@ -22314,7 +22309,6 @@
         }
         
         async function translateElement(element, fromLang, toLang) {
-            // Guardar texto original
             if (!originalTexts.has(element)) {
                 originalTexts.set(element, element.textContent.trim());
             }
@@ -22322,13 +22316,11 @@
             const originalText = originalTexts.get(element);
             if (!originalText || originalText.length === 0) return;
             
-            // Si volvemos a español, restaurar original
             if (toLang === 'es') {
                 element.textContent = originalText;
                 return;
             }
             
-            // Traducir
             const translated = await translateText(originalText, fromLang, toLang);
             element.textContent = translated;
         }
@@ -22337,12 +22329,10 @@
             if (isTranslating) return;
             isTranslating = true;
             
-            // Mostrar indicador de carga
             showTranslationLoader();
             
             const fromLang = toLang === 'en' ? 'es' : 'en';
             
-            // Seleccionar elementos a traducir
             const selectors = [
                 '.nav-item',
                 '.stat-label',
@@ -22359,7 +22349,6 @@
             const elements = [];
             selectors.forEach(selector => {
                 document.querySelectorAll(selector).forEach(el => {
-                    // Solo elementos con texto directo
                     const hasOnlyText = Array.from(el.childNodes).every(
                         node => node.nodeType === Node.TEXT_NODE || 
                                (node.nodeType === Node.ELEMENT_NODE && node.tagName === 'I')
@@ -22371,13 +22360,12 @@
                 });
             });
             
-            // Traducir en lotes de 5 para no saturar la API
-            const batchSize = 5;
+            // Traducir en lotes de 3 (MyMemory es más rápido)
+            const batchSize = 3;
             for (let i = 0; i < elements.length; i += batchSize) {
                 const batch = elements.slice(i, i + batchSize);
                 await Promise.all(batch.map(el => translateElement(el, fromLang, toLang)));
                 
-                // Actualizar progreso
                 const progress = Math.round(((i + batchSize) / elements.length) * 100);
                 updateTranslationProgress(Math.min(progress, 100));
             }
@@ -22441,7 +22429,6 @@
             currentLanguage = lang;
             localStorage.setItem('ows-store-language', lang);
             
-            // Actualizar indicador
             const current = document.getElementById('settings-language-current');
             if (current) {
                 current.textContent = lang === 'es' ? 'Español' : 'English';
@@ -22452,13 +22439,11 @@
                 select.value = lang;
             }
             
-            // Traducir página
             await translatePage(lang);
             
             console.log('[Translation] Idioma cambiado a:', lang);
         }
         
-        // Inicializar
         function initLanguage() {
             const savedLang = localStorage.getItem('ows-store-language') || 'es';
             currentLanguage = savedLang;
@@ -22473,7 +22458,6 @@
                 current.textContent = savedLang === 'es' ? 'Español' : 'English';
             }
             
-            // Si está en inglés, traducir
             if (savedLang === 'en') {
                 setTimeout(() => translatePage('en'), 500);
             }

@@ -1,10 +1,21 @@
-OWS Store - Release Notes
-Version objetivo: AUTO (release.ps1)
+OWS Store - Changelog 2026.5.1
 
-- Fix integral del instalador de OWS Store en Windows:
-  - Nuevo lanzamiento en copia temporal dedicada para evitar bloqueos por cache/reuso de archivo.
-  - Reintento con descarga limpia si la cache falla al abrir.
-  - Fallback adicional de apertura por PowerShell para mejorar compatibilidad al ejecutar setup.
-- Fix global en la deteccion de updates de proyectos:
-  - Se evita marcar una version pendiente como instalada antes de confirmar evidencia real de reinstalacion.
-  - Corregido el desfasaje donde llegaba notificacion de update pero en la seccion Actualizaciones podia aparecer "al dia" incorrectamente.
+=== ESPAÑOL ===
+Versión: 2026.5.1-t0650
+Plataforma: Windows
+Fecha: 2026-05-01
+
+Cambios:
+- Se agregó soporte completo para traducción español-inglés en la interfaz
+- La traducción se aplica instantáneamente al cambiar el idioma en Configuración
+- El contenido del servidor permanece en español
+
+=== ENGLISH ===
+Version: 2026.5.1-t0650
+Platform: Windows
+Date: 2026-05-01
+
+Changes:
+- Added full Spanish-English translation support for the interface
+- Translation applies instantly when changing language in Settings
+- Server content remains in Spanish

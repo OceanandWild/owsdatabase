@@ -1681,6 +1681,10 @@
         <div class="ss-nav-list">
           <button class="ss-nav-item active" type="button" data-section="resumen">Resumen</button>
           <button class="ss-nav-item" type="button" data-section="roles">Roles</button>
+          <div style="height:1px;background:rgba(255,255,255,0.06);margin:12px 8px;"></div>
+          <div style="padding:8px 12px;font-size:11px;font-weight:700;color:var(--ink-dim);text-transform:uppercase;letter-spacing:0.5px;">Categorías y Canales</div>
+          <button class="ss-nav-item" type="button" data-section="categorias">Gestionar estructura</button>
+          <div style="height:1px;background:rgba(255,255,255,0.06);margin:12px 8px;"></div>
           <button class="ss-nav-item" type="button" data-section="integraciones">Integraciones</button>
           <button class="ss-nav-item" type="button" data-section="seguridad">Seguridad</button>
         </div>
@@ -1752,6 +1756,21 @@
               <div style="margin-top:20px;">
                 <button onclick="window.createServerRole()" class="btn primary" type="button" style="margin-bottom:16px;">+ Crear rol</button>
                 <div id="roles-list-container" style="display:flex;flex-direction:column;gap:8px;"></div>
+              </div>
+            </article>
+          </div>
+
+          <!-- Categorías y Canales section -->
+          <div id="ss-section-categorias" class="ss-section" style="display:none;">
+            <article class="ss-card">
+              <h4>Categorías y Canales</h4>
+              <p style="color:var(--ink-dim);font-size:13px;margin:8px 0 0;">Organiza la estructura de tu servidor con categorías y canales.</p>
+              <div style="margin-top:20px;">
+                <div style="display:flex;gap:12px;margin-bottom:16px;">
+                  <button onclick="window.createCategory()" class="btn primary" type="button">+ Nueva categoría</button>
+                  <button onclick="window.createTextChannel()" class="btn" type="button">+ Nuevo canal</button>
+                </div>
+                <div id="categories-channels-list" style="display:flex;flex-direction:column;gap:12px;"></div>
               </div>
             </article>
           </div>
@@ -3054,6 +3073,7 @@
     const ssSectionTitles = {
       resumen: { title: "Resumen", desc: "Personaliza la identidad del servidor. Los cambios se aplican cuando guardes." },
       roles: { title: "Roles", desc: "Gestiona roles y permisos para organizar tu servidor." },
+      categorias: { title: "Categorías y Canales", desc: "Organiza la estructura de tu servidor con categorías y canales de texto." },
       integraciones: { title: "Integraciones", desc: "Conecta servicios externos y bots para ampliar las capacidades." },
       seguridad: { title: "Seguridad", desc: "Administra permisos, moderación y opciones de privacidad." }
     };
@@ -3671,8 +3691,208 @@
         if (btn.dataset.section === "roles") {
           window.loadServerRoles();
         }
+        if (btn.dataset.section === "categorias") {
+          window.loadCategoriesAndChannels();
+        }
       });
     });
+
+    // === CATEGORIES AND CHANNELS MANAGEMENT ===
+    window.serverStructure = { categories: [], channels: [] };
+
+    window.loadCategoriesAndChannels = async function() {
+      const selected = getSelectedServer();
+      if (!selected) return;
+      try {
+        const token = getToken();
+        const tree = await api(`/wildwave/api/channels/${selected.id}/tree`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        window.serverStructure = tree || { categories: [], channels: [] };
+        renderCategoriesAndChannels();
+      } catch (err) {
+        console.error("Error loading structure:", err);
+        window.serverStructure = { categories: [], channels: [] };
+        renderCategoriesAndChannels();
+      }
+    };
+
+    function renderCategoriesAndChannels() {
+      const container = document.getElementById("categories-channels-list");
+      if (!container) return;
+      
+      const { categories = [], channels = [] } = window.serverStructure;
+      const uncategorized = channels.filter(ch => !ch.category_id);
+      
+      if (!categories.length && !uncategorized.length) {
+        container.innerHTML = '<div style="padding:20px;text-align:center;color:var(--ink-dim);">No hay categorías ni canales aún.</div>';
+        return;
+      }
+
+      let html = '';
+      
+      // Render categories with their channels
+      categories.forEach(cat => {
+        const catChannels = channels.filter(ch => ch.category_id === cat.id);
+        html += `
+          <div style="background:var(--surface-2);border-radius:8px;border:1px solid var(--border);overflow:hidden;">
+            <div style="display:flex;align-items:center;gap:12px;padding:12px;background:rgba(0,0,0,0.2);">
+              <div style="flex:1;">
+                <div style="font-weight:700;color:var(--ink);font-size:14px;">📁 ${safeText(cat.name)}</div>
+                <div style="font-size:12px;color:var(--ink-dim);">${catChannels.length} canales</div>
+              </div>
+              <button onclick="window.editCategory(${cat.id})" class="btn-icon" title="Editar">✏️</button>
+              <button onclick="window.deleteCategory(${cat.id})" class="btn-icon" title="Eliminar">🗑️</button>
+            </div>
+            ${catChannels.length ? `
+              <div style="padding:8px;">
+                ${catChannels.map(ch => `
+                  <div style="display:flex;align-items:center;gap:8px;padding:8px;border-radius:4px;margin-bottom:4px;background:var(--surface);">
+                    <span style="color:var(--ink-dim);">#</span>
+                    <span style="flex:1;color:var(--ink);font-size:13px;">${safeText(ch.name)}</span>
+                    <button onclick="window.editChannel(${ch.id})" class="btn-icon" style="font-size:12px;" title="Editar">✏️</button>
+                    <button onclick="window.deleteChannel(${ch.id})" class="btn-icon" style="font-size:12px;" title="Eliminar">🗑️</button>
+                  </div>
+                `).join('')}
+              </div>
+            ` : ''}
+          </div>
+        `;
+      });
+
+      // Render uncategorized channels
+      if (uncategorized.length) {
+        html += `
+          <div style="background:var(--surface-2);border-radius:8px;border:1px solid var(--border);padding:12px;">
+            <div style="font-weight:700;color:var(--ink-dim);font-size:12px;margin-bottom:8px;text-transform:uppercase;">Sin categoría</div>
+            ${uncategorized.map(ch => `
+              <div style="display:flex;align-items:center;gap:8px;padding:8px;border-radius:4px;margin-bottom:4px;background:var(--surface);">
+                <span style="color:var(--ink-dim);">#</span>
+                <span style="flex:1;color:var(--ink);font-size:13px;">${safeText(ch.name)}</span>
+                <button onclick="window.editChannel(${ch.id})" class="btn-icon" style="font-size:12px;" title="Editar">✏️</button>
+                <button onclick="window.deleteChannel(${ch.id})" class="btn-icon" style="font-size:12px;" title="Eliminar">🗑️</button>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }
+
+      container.innerHTML = html;
+    }
+
+    window.createCategory = async function() {
+      const selected = getSelectedServer();
+      if (!selected) return;
+      const name = prompt("Nombre de la categoría:");
+      if (!name || !name.trim()) return;
+      try {
+        const token = getToken();
+        await api(`/wildwave/api/channels/${selected.id}/categories`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ name: name.trim() })
+        });
+        await window.loadCategoriesAndChannels();
+        showToast("Categoría creada correctamente.", "ok");
+      } catch (err) {
+        showToast(err.message || "Error al crear la categoría.", "error");
+      }
+    };
+
+    window.editCategory = async function(catId) {
+      const cat = window.serverStructure.categories.find(c => c.id === catId);
+      if (!cat) return;
+      const name = prompt("Nuevo nombre de la categoría:", cat.name);
+      if (!name || !name.trim()) return;
+      const selected = getSelectedServer();
+      if (!selected) return;
+      try {
+        const token = getToken();
+        await api(`/wildwave/api/channels/${selected.id}/categories/${catId}`, {
+          method: "PATCH",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ name: name.trim() })
+        });
+        await window.loadCategoriesAndChannels();
+        showToast("Categoría actualizada correctamente.", "ok");
+      } catch (err) {
+        showToast(err.message || "Error al actualizar la categoría.", "error");
+      }
+    };
+
+    window.deleteCategory = async function(catId) {
+      if (!confirm("¿Eliminar esta categoría? Los canales dentro se moverán a 'Sin categoría'.")) return;
+      const selected = getSelectedServer();
+      if (!selected) return;
+      try {
+        const token = getToken();
+        await api(`/wildwave/api/channels/${selected.id}/categories/${catId}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        await window.loadCategoriesAndChannels();
+        showToast("Categoría eliminada correctamente.", "ok");
+      } catch (err) {
+        showToast(err.message || "Error al eliminar la categoría.", "error");
+      }
+    };
+
+    window.createTextChannel = async function() {
+      const selected = getSelectedServer();
+      if (!selected) return;
+      const name = prompt("Nombre del canal:");
+      if (!name || !name.trim()) return;
+      try {
+        const token = getToken();
+        await api(`/wildwave/api/channels/${selected.id}/text-channels`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ name: name.trim(), topic: "" })
+        });
+        await window.loadCategoriesAndChannels();
+        showToast("Canal creado correctamente.", "ok");
+      } catch (err) {
+        showToast(err.message || "Error al crear el canal.", "error");
+      }
+    };
+
+    window.editChannel = async function(channelId) {
+      const ch = window.serverStructure.channels.find(c => c.id === channelId);
+      if (!ch) return;
+      const name = prompt("Nuevo nombre del canal:", ch.name);
+      if (!name || !name.trim()) return;
+      const selected = getSelectedServer();
+      if (!selected) return;
+      try {
+        const token = getToken();
+        await api(`/wildwave/api/channels/${selected.id}/text-channels/${channelId}`, {
+          method: "PATCH",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ name: name.trim() })
+        });
+        await window.loadCategoriesAndChannels();
+        showToast("Canal actualizado correctamente.", "ok");
+      } catch (err) {
+        showToast(err.message || "Error al actualizar el canal.", "error");
+      }
+    };
+
+    window.deleteChannel = async function(channelId) {
+      if (!confirm("¿Eliminar este canal? Se perderán todos los mensajes.")) return;
+      const selected = getSelectedServer();
+      if (!selected) return;
+      try {
+        const token = getToken();
+        await api(`/wildwave/api/channels/${selected.id}/text-channels/${channelId}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        await window.loadCategoriesAndChannels();
+        showToast("Canal eliminado correctamente.", "ok");
+      } catch (err) {
+        showToast(err.message || "Error al eliminar el canal.", "error");
+      }
+    };
   </script>
 
   <!-- Context menu -->

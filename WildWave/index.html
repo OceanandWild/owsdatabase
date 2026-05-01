@@ -1878,7 +1878,7 @@
                 <!-- Área de icono -->
                 <div style="display:flex;flex-direction:column;align-items:center;gap:12px;">
                   <div style="position:relative;cursor:pointer;transition:all 0.3s;" onclick="document.getElementById('ss-icon-input').click()" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
-                    <div id="ss-icon-preview" class="ss-icon-preview" style="width:120px;height:120px;border-radius:24px;box-shadow:0 8px 24px rgba(0,0,0,0.3);font-size:48px;display:flex;align-items:center;justify-content:center;background:var(--accent);color:#fff;font-weight:800;border:3px solid rgba(88,101,242,0.3);transition:all 0.3s;">SV</div>
+                    <div id="ss-icon-preview" class="ss-icon-preview" style="width:120px;height:120px;border-radius:24px;box-shadow:0 8px 24px rgba(0,0,0,0.3);font-size:48px;display:flex;align-items:center;justify-content:center;background:var(--accent);color:#fff;font-weight:800;border:3px solid rgba(88,101,242,0.3);transition:all 0.3s;background-size:contain;background-position:center;background-repeat:no-repeat;">SV</div>
                     <div style="position:absolute;bottom:0;right:0;width:36px;height:36px;background:linear-gradient(135deg, #5865f2, #7289da);border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid var(--surface);cursor:pointer;box-shadow:0 4px 12px rgba(88,101,242,0.4);">
                       <span style="font-size:18px;">📷</span>
                     </div>
@@ -2244,8 +2244,12 @@
       el.classList.remove(className);
       el.style.backgroundImage = "";
       el.style.backgroundColor = "";
+      el.style.backgroundSize = "";
       if (iconUrl) {
         el.style.backgroundImage = `url('${safeUrlForCss(iconUrl)}')`;
+        el.style.backgroundSize = "contain";
+        el.style.backgroundPosition = "center";
+        el.style.backgroundRepeat = "no-repeat";
         el.classList.add(className);
       }
     }

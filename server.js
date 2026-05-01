@@ -216,6 +216,7 @@ app.options(/.*/, cors(corsOptions));
 app.use(express.json());
 
 const ENABLE_LEGACY_BALANCE_RESCUE = process.env.OP_LEGACY_BALANCE_RESCUE === '1';
+const DISABLE_OWS_REWORK_RESTRICTION = process.env.DISABLE_OWS_REWORK_RESTRICTION === '1';
 const USER_WALLET_TABLE = 'ocean_pay_user_balances';
 const UNIFIED_WALLET_CURRENCIES = [
   'aquabux', 'appbux', 'ecoxionums', 'wildcredits', 'wildgems', 'ecobooks',
@@ -9699,6 +9700,19 @@ async function syncOwsProjectRestrictionsTable(client = null) {
 }
 
 function buildProjectRestrictionPayload(row = {}) {
+  if (DISABLE_OWS_REWORK_RESTRICTION) {
+    return {
+      active: false,
+      type: null,
+      title: '',
+      message: '',
+      reason: null,
+      updated_at: null,
+      rework: { active: false, from_status: false, from_flag: false, message: '' },
+      unavailable: { active: false, from_status: false, from_flag: false, message: '' }
+    };
+  }
+
   const statusRaw = String(row?.status || '').trim().toLowerCase();
   const flagRework = !!row?.is_rework;
   const flagUnavailable = !!row?.is_unavailable;
@@ -20467,6 +20481,149 @@ app.get('/wildwave/api/dm/conversations/:id/messages', async (req, res) => {
 });
 
 // Responder invitación desde DM
+app.get('/wildwave/api/invitations', async (req, res) => {
+  try {
+    await ensureWildWaveMessagingTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Token requerido' });
+
+    const { rows } = await pool.query(
+      `SELECT i.id, i.channel_id, i.inviter_id, i.invitee_id, i.status, i.created_at, i.responded_at,
+              c.name AS channel_name, c.slug AS channel_slug,
+              inviter.username AS inviter_username,
+              COALESCE(inviter.display_name, inviter.username) AS inviter_display_name
+         FROM wildx_channel_invitations i
+         JOIN wildx_channels c ON c.id = i.channel_id
+         JOIN wildx_users inviter ON inviter.id = i.inviter_id
+        WHERE i.invitee_id = $1
+        ORDER BY i.created_at DESC
+        LIMIT 50`,
+      [wid]
+    );
+
+    res.json(rows);
+  } catch (err) {
+    console.error('Error en GET /wildwave/api/invitations:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+app.post('/wildwave/api/invitations/:id/accept', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await ensureWildWaveMessagingTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Token requerido' });
+    const invitationId = Number(req.params.id || 0);
+    if (!Number.isFinite(invitationId) || invitationId <= 0) return res.status(400).json({ error: 'Invitacion invalida' });
+
+    await client.query('BEGIN');
+    const { rows: invRows } = await client.query(
+      `SELECT i.id, i.channel_id, i.inviter_id, i.invitee_id, i.status,
+              c.name AS channel_name, c.slug AS channel_slug
+         FROM wildx_channel_invitations i
+         JOIN wildx_channels c ON c.id = i.channel_id
+        WHERE i.id = $1
+          FOR UPDATE`,
+      [invitationId]
+    );
+    if (!invRows.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Invitacion no encontrada' });
+    }
+    const invitation = invRows[0];
+    if (Number(invitation.invitee_id) !== Number(wid)) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+    if (String(invitation.status || '').toLowerCase() !== 'pending') {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'Esta invitacion ya fue respondida' });
+    }
+
+    await client.query(
+      'UPDATE wildx_channel_invitations SET status = $1, responded_at = NOW() WHERE id = $2',
+      ['accepted', invitationId]
+    );
+    await client.query(
+      `INSERT INTO wildx_channel_members (channel_id, user_id, role)
+       VALUES ($1, $2, 'member')
+       ON CONFLICT (channel_id, user_id) DO NOTHING`,
+      [invitation.channel_id, wid]
+    );
+
+    await client.query('COMMIT');
+
+    res.json({
+      success: true,
+      invitation_id: invitationId,
+      status: 'accepted',
+      channel_id: invitation.channel_id,
+      channel_name: invitation.channel_name
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error en POST /wildwave/api/invitations/:id/accept:', err);
+    res.status(500).json({ error: 'Error interno' });
+  } finally {
+    client.release();
+  }
+});
+
+app.post('/wildwave/api/invitations/:id/decline', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await ensureWildWaveMessagingTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Token requerido' });
+    const invitationId = Number(req.params.id || 0);
+    if (!Number.isFinite(invitationId) || invitationId <= 0) return res.status(400).json({ error: 'Invitacion invalida' });
+
+    await client.query('BEGIN');
+    const { rows: invRows } = await client.query(
+      `SELECT i.id, i.channel_id, i.inviter_id, i.invitee_id, i.status,
+              c.name AS channel_name, c.slug AS channel_slug
+         FROM wildx_channel_invitations i
+         JOIN wildx_channels c ON c.id = i.channel_id
+        WHERE i.id = $1
+          FOR UPDATE`,
+      [invitationId]
+    );
+    if (!invRows.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Invitacion no encontrada' });
+    }
+    const invitation = invRows[0];
+    if (Number(invitation.invitee_id) !== Number(wid)) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'No autorizado' });
+    }
+    if (String(invitation.status || '').toLowerCase() !== 'pending') {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'Esta invitacion ya fue respondida' });
+    }
+
+    await client.query(
+      'UPDATE wildx_channel_invitations SET status = $1, responded_at = NOW() WHERE id = $2',
+      ['rejected', invitationId]
+    );
+
+    await client.query('COMMIT');
+
+    res.json({
+      success: true,
+      invitation_id: invitationId,
+      status: 'rejected'
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Error en POST /wildwave/api/invitations/:id/decline:', err);
+    res.status(500).json({ error: 'Error interno' });
+  } finally {
+    client.release();
+  }
+});
+
 app.post('/wildwave/api/invitations/:id/respond', async (req, res) => {
   const client = await pool.connect();
   try {

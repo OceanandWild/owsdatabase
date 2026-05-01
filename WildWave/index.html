@@ -1361,6 +1361,18 @@
     }
     .ss-mode-card:hover { border-color: rgba(255,255,255,0.18); }
     .ss-mode-card.active { border-color: var(--accent); }
+    #ss-section-resumen input:focus,
+    #ss-section-resumen textarea:focus,
+    #ss-section-resumen select:focus {
+      outline: none;
+      border-color: #5865f2 !important;
+      box-shadow: 0 0 0 3px rgba(88,101,242,0.2) !important;
+    }
+    #ss-section-resumen input:hover,
+    #ss-section-resumen textarea:hover,
+    #ss-section-resumen select:hover {
+      border-color: rgba(88,101,242,0.5) !important;
+    }
     .ss-mode-ghost {
       border-radius: 6px;
       height: 64px;
@@ -1860,47 +1872,68 @@
           <!-- Resumen section -->
           <div id="ss-section-resumen" class="ss-section" style="display:grid;">
             <article class="ss-card">
-              <h4>Identidad del servidor</h4>
-              <div class="ss-grid">
-                <div class="ss-icon-uploader">
-                  <div id="ss-icon-preview" class="ss-icon-preview">SV</div>
-                  <input id="ss-icon-input" type="file" accept="image/png,image/jpeg,image/webp" />
-                  <div style="font-size:11px;color:var(--ink-dim);">Recomendado 512×512</div>
+              <h4 style="margin-bottom:20px;">Identidad del servidor</h4>
+              <div style="display:grid;grid-template-columns:auto 1fr;gap:24px;align-items:start;">
+                <!-- Área de icono -->
+                <div style="display:flex;flex-direction:column;align-items:center;gap:12px;">
+                  <div style="position:relative;cursor:pointer;transition:all 0.3s;" onclick="document.getElementById('ss-icon-input').click()" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+                    <div id="ss-icon-preview" class="ss-icon-preview" style="width:120px;height:120px;border-radius:24px;box-shadow:0 8px 24px rgba(0,0,0,0.3);font-size:48px;display:flex;align-items:center;justify-content:center;background:var(--accent);color:#fff;font-weight:800;border:3px solid rgba(88,101,242,0.3);transition:all 0.3s;">SV</div>
+                    <div style="position:absolute;bottom:0;right:0;width:36px;height:36px;background:linear-gradient(135deg, #5865f2, #7289da);border-radius:50%;display:flex;align-items:center;justify-content:center;border:3px solid var(--surface);cursor:pointer;box-shadow:0 4px 12px rgba(88,101,242,0.4);">
+                      <span style="font-size:18px;">📷</span>
+                    </div>
+                  </div>
+                  <input id="ss-icon-input" type="file" accept="image/png,image/jpeg,image/webp" style="display:none;" />
+                  <div style="text-align:center;">
+                    <div style="font-size:11px;color:var(--ink-dim);margin-bottom:4px;">✨ Recomendado 512×512</div>
+                    <div style="font-size:10px;color:#72767d;">JPG, PNG o WEBP</div>
+                  </div>
                 </div>
-                <div class="ss-form">
-                  <label>Nombre del servidor
-                    <input id="ss-name-input" type="text" maxlength="32" />
+                
+                <!-- Formulario -->
+                <div style="display:flex;flex-direction:column;gap:16px;">
+                  <label style="display:flex;flex-direction:column;gap:6px;">
+                    <span style="color:rgba(255,255,255,0.7);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Nombre del servidor</span>
+                    <input id="ss-name-input" type="text" maxlength="32" style="padding:10px 14px;background:rgba(30,31,34,0.6);border:2px solid rgba(88,101,242,0.3);border-radius:8px;color:#fff;font-size:14px;transition:all 0.2s;" />
                   </label>
-                  <label>Descripción
-                    <textarea id="ss-description-input" maxlength="180"></textarea>
+                  
+                  <label style="display:flex;flex-direction:column;gap:6px;">
+                    <span style="color:rgba(255,255,255,0.7);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Descripción</span>
+                    <textarea id="ss-description-input" maxlength="180" style="padding:10px 14px;background:rgba(30,31,34,0.6);border:2px solid rgba(88,101,242,0.3);border-radius:8px;color:#fff;font-size:14px;min-height:80px;resize:vertical;transition:all 0.2s;font-family:inherit;"></textarea>
                   </label>
-                  <label>Región
-                    <select id="ss-region-input">
-                      <option value="us-east">US East</option>
-                      <option value="us-west">US West</option>
-                      <option value="sa-east">Sudamérica East</option>
-                      <option value="eu-west">EU West</option>
-                    </select>
-                  </label>
-                  <label>Visibilidad
-                    <select id="ss-visibility-input">
-                      <option value="public">Público</option>
-                      <option value="private">Privado</option>
-                    </select>
-                  </label>
+                  
+                  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                    <label style="display:flex;flex-direction:column;gap:6px;">
+                      <span style="color:rgba(255,255,255,0.7);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Región</span>
+                      <select id="ss-region-input" style="padding:10px 14px;background:rgba(30,31,34,0.6);border:2px solid rgba(88,101,242,0.3);border-radius:8px;color:#fff;font-size:14px;cursor:pointer;transition:all 0.2s;">
+                        <option value="us-east">US East</option>
+                        <option value="us-west">US West</option>
+                        <option value="sa-east">Sudamérica East</option>
+                        <option value="eu-west">EU West</option>
+                      </select>
+                    </label>
+                    
+                    <label style="display:flex;flex-direction:column;gap:6px;">
+                      <span style="color:rgba(255,255,255,0.7);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Visibilidad</span>
+                      <select id="ss-visibility-input" style="padding:10px 14px;background:rgba(30,31,34,0.6);border:2px solid rgba(88,101,242,0.3);border-radius:8px;color:#fff;font-size:14px;cursor:pointer;transition:all 0.2s;">
+                        <option value="public">Público</option>
+                        <option value="private">Privado</option>
+                      </select>
+                    </label>
+                  </div>
                 </div>
               </div>
             </article>
+            
             <article class="ss-card">
-              <h4>Modo de visualización</h4>
-              <div class="ss-mode">
-                <button id="ss-mode-editorial" class="ss-mode-card active" type="button">
-                  <div class="ss-mode-ghost"></div>
-                  <div class="ss-mode-name">Vista editorial</div>
+              <h4 style="margin-bottom:16px;">Modo de visualización</h4>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <button id="ss-mode-editorial" class="ss-mode-card active" type="button" style="padding:16px;background:rgba(30,31,34,0.6);border:2px solid rgba(88,101,242,0.5);border-radius:12px;cursor:pointer;transition:all 0.2s;display:flex;flex-direction:column;align-items:center;gap:8px;">
+                  <div style="width:60px;height:40px;background:rgba(88,101,242,0.2);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:24px;">📰</div>
+                  <div style="font-weight:600;color:#fff;font-size:13px;">Vista editorial</div>
                 </button>
-                <button id="ss-mode-compact" class="ss-mode-card" type="button">
-                  <div class="ss-mode-ghost"></div>
-                  <div class="ss-mode-name">Lista compacta</div>
+                <button id="ss-mode-compact" class="ss-mode-card" type="button" style="padding:16px;background:rgba(30,31,34,0.6);border:2px solid rgba(88,101,242,0.3);border-radius:12px;cursor:pointer;transition:all 0.2s;display:flex;flex-direction:column;align-items:center;gap:8px;">
+                  <div style="width:60px;height:40px;background:rgba(88,101,242,0.2);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:24px;">📋</div>
+                  <div style="font-weight:600;color:rgba(255,255,255,0.7);font-size:13px;">Lista compacta</div>
                 </button>
               </div>
             </article>

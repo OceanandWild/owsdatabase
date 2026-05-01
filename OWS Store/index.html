@@ -22285,7 +22285,7 @@
         // Sistema de traducción con DOMTranslator
         // ═══════════════════════════════════════════════════════════════════════
         
-        const { DOMTranslator } = require('domtranslator');
+        const DOMTranslator = window.DOMTranslator;
         
         let currentLanguage = localStorage.getItem('ows-store-language') || 'es';
         let translator = null;

@@ -2997,8 +2997,29 @@
       const displayName = safeText(form.get("displayName"));
       if (!username || !password) {
         setAuthMessage("Completa usuario y contrasena.", "error");
+        // Shake animation on error
+        anime({
+          targets: '.auth-panel',
+          translateX: [0, -10, 10, -10, 10, 0],
+          duration: 400,
+          easing: 'easeInOutQuad'
+        });
         return;
       }
+      
+      // Animate button on submit
+      anime({
+        targets: authSubmit,
+        scale: [1, 0.95, 1],
+        duration: 300,
+        easing: 'easeOutQuad'
+      });
+      
+      // Disable button and show loading state
+      const originalText = authSubmit.textContent;
+      authSubmit.disabled = true;
+      authSubmit.textContent = "Cargando...";
+      
       try {
         const endpoint = authMode === "register" ? "/wildwave/api/auth/register" : "/wildwave/api/auth/login";
         const payload = authMode === "register"
@@ -3011,6 +3032,15 @@
         localStorage.setItem(STORAGE_TOKEN, token);
         localStorage.setItem(STORAGE_USER, JSON.stringify(user));
         
+        // Success animation
+        anime({
+          targets: '.auth-panel',
+          scale: [1, 1.02, 1],
+          opacity: [1, 0.8],
+          duration: 400,
+          easing: 'easeOutQuad'
+        });
+        
         // Mostrar splash con audio después del login
         if (window.showSplashWithAudio) {
           await window.showSplashWithAudio(token, user);
@@ -3020,7 +3050,16 @@
         
         setAuthMessage(authMode === "register" ? "Cuenta creada correctamente." : "Sesion iniciada.", "ok");
       } catch (err) {
+        // Error animation
+        anime({
+          targets: '.auth-panel',
+          translateX: [0, -10, 10, -10, 10, 0],
+          duration: 400,
+          easing: 'easeInOutQuad'
+        });
         setAuthMessage(err.message || "No se pudo iniciar sesion.", "error");
+        authSubmit.disabled = false;
+        authSubmit.textContent = originalText;
       }
     }
 

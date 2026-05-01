@@ -1705,22 +1705,50 @@
             </div>
           </section>
           <section class="step-panel" data-step-panel="2">
-            <div class="step-grid">
-              <article class="step-card">
-                <h4>Subir icono del servidor</h4>
-                <p>Usa JPG, PNG o WEBP para representar tu comunidad.</p>
-                <input id="channel-icon-input" type="file" accept="image/png,image/jpeg,image/webp" />
-                <div class="icon-drop">
-                  <div id="channel-icon-preview-2" class="icon-preview">SV</div>
-                  <div style="font-size:12px;">Vista previa en rail y cabecera.</div>
+            <div style="max-width:600px;margin:0 auto;">
+              <div style="text-align:center;margin-bottom:32px;">
+                <h3 style="font-size:24px;font-weight:700;color:#f2f3f5;margin-bottom:8px;">Identidad del servidor</h3>
+                <p style="color:#8e94a3;font-size:14px;">Dale personalidad a tu comunidad con un icono único</p>
+              </div>
+              
+              <div style="background:rgba(30,31,34,0.6);border:2px dashed rgba(88,101,242,0.4);border-radius:16px;padding:40px;text-align:center;transition:all 0.3s;cursor:pointer;" onclick="document.getElementById('channel-icon-input').click()" onmouseover="this.style.borderColor='rgba(88,101,242,0.7)';this.style.background='rgba(30,31,34,0.8)'" onmouseout="this.style.borderColor='rgba(88,101,242,0.4)';this.style.background='rgba(30,31,34,0.6)'">
+                <div id="channel-icon-preview-2" class="icon-preview" style="width:120px;height:120px;margin:0 auto 20px;font-size:48px;border-radius:24px;box-shadow:0 8px 24px rgba(0,0,0,0.3);">SV</div>
+                
+                <div style="margin-bottom:16px;">
+                  <div style="font-size:16px;font-weight:600;color:#f2f3f5;margin-bottom:4px;">Haz clic para subir</div>
+                  <div style="font-size:13px;color:#8e94a3;">o arrastra y suelta tu imagen aquí</div>
                 </div>
-              </article>
-              <article class="step-card">
-                <h4>Consejos</h4>
-                <p>- Contraste alto para verse bien en rail.</p>
-                <p>- Evita texto muy fino en el icono.</p>
-                <p>- Mantener composicion centrada.</p>
-              </article>
+                
+                <input id="channel-icon-input" type="file" accept="image/png,image/jpeg,image/webp" style="display:none;" />
+                
+                <div style="display:inline-flex;align-items:center;gap:8px;padding:10px 20px;background:rgba(88,101,242,0.1);border:1px solid rgba(88,101,242,0.3);border-radius:8px;margin-bottom:16px;">
+                  <span style="font-size:18px;">📁</span>
+                  <span style="font-size:13px;color:#b9bbbe;font-weight:500;">JPG, PNG o WEBP</span>
+                </div>
+                
+                <div style="font-size:12px;color:#72767d;">
+                  <div style="margin-bottom:4px;">✨ Recomendado: 512x512 píxeles</div>
+                  <div>🎨 Usa colores con buen contraste</div>
+                </div>
+              </div>
+              
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:24px;">
+                <div style="background:rgba(30,31,34,0.4);border:1px solid rgba(88,101,242,0.2);border-radius:12px;padding:16px;">
+                  <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+                    <span style="font-size:24px;">👁️</span>
+                    <span style="font-size:14px;font-weight:600;color:#f2f3f5;">Vista previa</span>
+                  </div>
+                  <div style="font-size:12px;color:#8e94a3;">Así se verá en el rail de servidores y en la cabecera</div>
+                </div>
+                
+                <div style="background:rgba(30,31,34,0.4);border:1px solid rgba(88,101,242,0.2);border-radius:12px;padding:16px;">
+                  <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+                    <span style="font-size:24px;">💡</span>
+                    <span style="font-size:14px;font-weight:600;color:#f2f3f5;">Consejo</span>
+                  </div>
+                  <div style="font-size:12px;color:#8e94a3;">Evita texto muy fino y mantén la composición centrada</div>
+                </div>
+              </div>
             </div>
           </section>
           <section class="step-panel" data-step-panel="3">

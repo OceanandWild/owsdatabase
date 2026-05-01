@@ -5559,7 +5559,7 @@
                     <span>OWS Store</span>
                 </div>
                 <h1 class="prelogin-headline">OWS Store</h1>
-                <p class="prelogin-lead">Inteligencia oceÃ¡nica para el ecosistema digital moderno.</p>
+                <p class="prelogin-lead">Inteligencia oceánica para el ecosistema digital moderno.</p>
                 <div class="prelogin-benefits">
                     <div class="prelogin-benefit">
                         <span class="prelogin-benefit-icon"><i class="fas fa-shield-halved"></i></span>
@@ -5572,7 +5572,7 @@
                         <span class="prelogin-benefit-icon"><i class="fas fa-wave-square"></i></span>
                         <div>
                             <div class="prelogin-benefit-title">Interfaz fluida</div>
-                            <div class="prelogin-benefit-text">Navega el ecosistema desde un Ãºnico hub adaptable.</div>
+                            <div class="prelogin-benefit-text">Navega el ecosistema desde un único hub adaptable.</div>
                         </div>
                     </div>
                 </div>
@@ -5593,7 +5593,7 @@
                     <label class="prelogin-field" for="prelogin-password">
                         <div class="prelogin-field-head">
                             <span class="prelogin-label">Contrasena</span>
-                            <a href="#" class="prelogin-link">OlvidÃ© mi clave</a>
+                            <a href="#" class="prelogin-link">Olvidé mi clave</a>
                         </div>
                         <div class="prelogin-input-wrap">
                             <i class="prelogin-input-icon fas fa-lock"></i>
@@ -5608,10 +5608,10 @@
                             <button id="prelogin-submit" class="prelogin-btn" type="submit">Entrar a OWS Store <i class="fas fa-arrow-right"></i></button>
                             <div id="prelogin-status" class="prelogin-status" aria-live="polite"></div>
                 </form>
-                <div class="prelogin-register">Â¿No tienes una cuenta? <a href="#">RegÃ­strate</a></div>
+                <div class="prelogin-register">¿No tienes una cuenta? <a href="#">Regístrate</a></div>
                 <div class="prelogin-footer-links">
-                    <span>PolÃ­tica de privacidad</span>
-                    <span>TÃ©rminos del servicio</span>
+                    <span>Política de privacidad</span>
+                    <span>Términos del servicio</span>
                     <span>Ajustes de cookies</span>
                 </div>
             </div>
@@ -5856,9 +5856,9 @@
                     <div class="prelogin-two-factor-card">
                         <div class="prelogin-two-factor-kicker">Seguridad Ocean Pay</div>
                         <h3 class="prelogin-two-factor-title">Verificacion en 2 pasos</h3>
-                        <p id="prelogin-two-factor-text" class="prelogin-two-factor-text">Para continuar, abre Ocean Pay, ve a ConfiguraciÃ³n > Seguridad, copia el cÃ³digo solicitado por OWS Store y pÃ©galo aquÃ­.</p>
+                        <p id="prelogin-two-factor-text" class="prelogin-two-factor-text">Para continuar, abre Ocean Pay, ve a Configuración > Seguridad, copia el código solicitado por OWS Store y pégalo aquí.</p>
                         <label class="prelogin-two-factor-field" for="prelogin-two-factor-code">
-                            <span>CÃ³digo de verificaciÃ³n</span>
+                            <span>Código de verificación</span>
                             <input id="prelogin-two-factor-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000">
                         </label>
                         <div id="prelogin-two-factor-status" class="prelogin-two-factor-status"></div>
@@ -6410,9 +6410,9 @@
                     <div class="stat-box" style="grid-column:1 / -1;">
                         <div class="stat-label" data-i18n="settings.language">Idioma</div>
                         <div class="stat-value" style="display:flex;align-items:center;justify-content:space-between;gap:0.8rem;flex-wrap:wrap;">
-                            <span id="settings-language-current">EspaÃ±ol</span>
+                            <span id="settings-language-current">Español</span>
                             <select id="settings-language-select" class="btn-install" onchange="changeLanguage(this.value)" style="padding:0.5rem 1rem;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--r-sm);color:var(--ink-0);cursor:pointer;">
-                                <option value="es">EspaÃ±ol</option>
+                                <option value="es">Español</option>
                                 <option value="en">English</option>
                             </select>
                         </div>
@@ -8343,7 +8343,7 @@
             const codeInput = document.getElementById('prelogin-two-factor-code');
             if (!modal || !text || !codeInput) return;
             pendingOceanPayTwoFactorChallenge = challengeId ? String(challengeId) : null;
-            text.textContent = 'Para continuar, abre Ocean Pay > Ajustes > Seguridad, copia el cÃ³digo solicitado por OWS Store y pÃ©galo aquÃ­.';
+            text.textContent = 'Para continuar, abre Ocean Pay > Ajustes > Seguridad, copia el código solicitado por OWS Store y pégalo aquí.';
             codeInput.value = '';
             setPreloginTwoFactorStatus('');
             modal.classList.add('active');
@@ -8588,12 +8588,12 @@
             const performTwoFactorVerification = async () => {
                 const code = String(twoFactorCodeInput.value || '').trim();
                 if (code.length < 6) {
-                    setPreloginTwoFactorStatus('Ingresa el cÃ³digo completo de 6 dÃ­gitos.', 'error');
+                    setPreloginTwoFactorStatus('Ingresa el código completo de 6 dígitos.', 'error');
                     return false;
                 }
                 twoFactorVerifyBtn.disabled = true;
                 twoFactorCancelBtn.disabled = true;
-                setPreloginTwoFactorStatus('Validando cÃ³digo con Ocean Pay...');
+                setPreloginTwoFactorStatus('Validando código con Ocean Pay...');
                 try {
                     await verifyPreloginTwoFactorCode(code);
                     closePreloginTwoFactorModal();
@@ -8616,7 +8616,7 @@
                     await startOWSStoreBootstrap();
                     return true;
                 } catch (err) {
-                    setPreloginTwoFactorStatus(err?.message || 'No se pudo validar el cÃ³digo.', 'error');
+                    setPreloginTwoFactorStatus(err?.message || 'No se pudo validar el código.', 'error');
                     twoFactorCodeInput.focus();
                     return false;
                 } finally {
@@ -8629,11 +8629,11 @@
                 transitionLoader.style.display = 'none';
                 transitionResult.className = 'prelogin-transition-result';
                 transitionResult.style.display = 'none';
-                transitionTitle.textContent = 'VerificaciÃ³n adicional requerida';
+                transitionTitle.textContent = 'Verificación adicional requerida';
                 transitionDetail.innerHTML = `
                     <div style="display:grid; gap:.55rem; margin-top:.25rem;">
                         <div style="color:#c7dbed; font-size:.86rem; line-height:1.4;">
-                            Abre Ocean Pay, copia el cÃ³digo solicitado y pÃ©galo aquÃ­ para continuar.
+                            Abre Ocean Pay, copia el código solicitado y pégalo aquí para continuar.
                         </div>
                         <input id="prelogin-inline-2fa-code" type="text" inputmode="numeric" maxlength="6" placeholder="000000"
                             style="width:100%; border-radius:10px; border:1px solid rgba(130,176,206,.38); background:rgba(3,10,19,.85); color:#eaf8ff; font-size:1rem; letter-spacing:2px; text-align:center; padding:.65rem .75rem; outline:none;" />
@@ -8660,12 +8660,12 @@
                 const verifyInline = async () => {
                     const code = String(inlineCode.value || '').trim();
                     if (code.length < 6) {
-                        setInlineStatus('Ingresa el cÃ³digo completo de 6 dÃ­gitos.', true);
+                        setInlineStatus('Ingresa el código completo de 6 dígitos.', true);
                         return;
                     }
                     inlineVerify.disabled = true;
                     inlineCancel.disabled = true;
-                    setInlineStatus('Validando cÃ³digo con Ocean Pay...');
+                    setInlineStatus('Validando código con Ocean Pay...');
                     try {
                         await verifyPreloginTwoFactorCode(code);
                         showTransition({
@@ -8686,7 +8686,7 @@
                         hidePreloginGate();
                         await startOWSStoreBootstrap();
                     } catch (err) {
-                        setInlineStatus(err?.message || 'No se pudo validar el cÃ³digo.', true);
+                        setInlineStatus(err?.message || 'No se pudo validar el código.', true);
                         inlineCode.focus();
                     } finally {
                         inlineVerify.disabled = false;
@@ -8698,7 +8698,7 @@
                     pendingOceanPayTwoFactorChallenge = null;
                     hideTransition();
                     setFormDisabled(false);
-                    setPreloginStatus('ValidaciÃ³n 2FA cancelada.', 'error');
+                    setPreloginStatus('Validación 2FA cancelada.', 'error');
                 };
                 inlineVerify.onclick = async () => {
                     await verifyInline();
@@ -8799,7 +8799,7 @@
                         showTransition({
                             mode: 'loading',
                             title: 'VerificaciÃ³n adicional requerida',
-                            detail: 'Abre Ocean Pay y copia el cÃ³digo solicitado para validar acceso.',
+                            detail: 'Abre Ocean Pay y copia el código solicitado para validar acceso.',
                             scope: 'left'
                         });
                         closePreloginTwoFactorModal();
@@ -13985,13 +13985,13 @@
                                     <i class="fas fa-check-double" style="color:var(--green);"></i>
                                 </div>
                                 <div>
-                                    <div style="font-weight:800;color:var(--ink-0);font-size:0.95rem;" id="mic-title">Confirmar instalaciÃ³n</div>
+                                    <div style="font-weight:800;color:var(--ink-0);font-size:0.95rem;" id="mic-title">Confirmar instalación</div>
                                     <div style="font-size:0.72rem;color:var(--ink-2);" id="mic-sub"></div>
                                 </div>
                             </div>
                             <p style="font-size:0.8rem;color:var(--ink-1);line-height:1.55;margin-bottom:1rem;" id="mic-desc"></p>
                             <div id="mic-version-wrap" style="margin-bottom:1rem;">
-                                <label style="font-size:0.65rem;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:0.5px;color:var(--ink-2);display:block;margin-bottom:0.35rem;">VersiÃ³n instalada (confirmar o editar)</label>
+                                <label style="font-size:0.65rem;font-family:var(--font-mono);text-transform:uppercase;letter-spacing:0.5px;color:var(--ink-2);display:block;margin-bottom:0.35rem;">Versión instalada (confirmar o editar)</label>
                                 <input id="mic-version-input" type="text" style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:0.5rem 0.75rem;color:var(--ink-0);font-family:var(--font-mono);font-size:0.82rem;outline:none;">
                             </div>
                             <div id="mic-scan-result" style="display:none;font-size:0.75rem;padding:0.5rem 0.75rem;border-radius:8px;margin-bottom:0.75rem;"></div>
@@ -14025,7 +14025,7 @@
 
             if (titleEl) titleEl.textContent = `Confirmar: ${project.name}`;
             if (subEl) subEl.textContent = `Plataforma: ${String(platform || 'windows').toUpperCase()}`;
-            if (descEl) descEl.textContent = `Si ya instalaste la versiÃ³n ${latestVersion} de ${project.name} externamente, confirmalo aquÃ­ para que OWS Store no siga mostrando la update como pendiente.`;
+            if (descEl) descEl.textContent = `Si ya instalaste la versión ${latestVersion} de ${project.name} externamente, confirmalo aquí para que OWS Store no siga mostrando la update como pendiente.`;
             if (versionInput) versionInput.value = latestVersion || '';
             if (scanResult) { scanResult.style.display = 'none'; scanResult.textContent = ''; }
 
@@ -14103,13 +14103,13 @@
                     scanResult.style.background = 'rgba(245,197,66,0.08)';
                     scanResult.style.border = '1px solid rgba(245,197,66,0.2)';
                     scanResult.style.color = 'var(--yellow)';
-                    scanResult.textContent = 'No detectado automÃ¡ticamente. PodÃ©s confirmar manualmente igual.';
+                    scanResult.textContent = 'No detectado automáticamente. Podés confirmar manualmente igual.';
                 }
             } catch (_) {
                 scanResult.style.background = 'rgba(245,197,66,0.08)';
                 scanResult.style.border = '1px solid rgba(245,197,66,0.2)';
                 scanResult.style.color = 'var(--yellow)';
-                scanResult.textContent = 'VerificaciÃ³n automÃ¡tica no disponible. ConfirmÃ¡ manualmente.';
+                scanResult.textContent = 'Verificación automática no disponible. Confirmá manualmente.';
             }
         }
 
@@ -14120,7 +14120,7 @@
             const version = String(versionInput?.value || window._micLatestVersion || '').trim();
 
             if (!slug || !version) {
-                addNotification('IngresÃ¡ la versiÃ³n instalada para confirmar.', 'warning');
+                addNotification('Ingresá la versión instalada para confirmar.', 'warning');
                 return;
             }
 
@@ -22537,8 +22537,8 @@
             // Ocean Pay / Login
             'Seguridad Ocean Pay': 'Ocean Pay Security',
             'Verificacion en 2 pasos': '2-Step Verification',
-            'Para continuar, abre Ocean Pay, ve a ConfiguraciÃ³n > Seguridad, copia el cÃ³digo solicitado por OWS Store y pÃ©galo aquÃ­.': 'To continue, open Ocean Pay, go to Settings > Security, copy the code requested by OWS Store and paste it here.',
-            'CÃ³digo de verificaciÃ³n': 'Verification Code',
+            'Para continuar, abre Ocean Pay, ve a Configuración > Seguridad, copia el código solicitado por OWS Store y pégalo aquí.': 'To continue, open Ocean Pay, go to Settings > Security, copy the code requested by OWS Store and paste it here.',
+            'Código de verificación': 'Verification Code',
             'Verificar y entrar': 'Verify and Enter',
             'Inteligencia oceÃ¡nica para el ecosistema digital moderno.': 'Oceanic intelligence for the modern digital ecosystem.',
             'Seguridad refractiva': 'Refractive Security',
@@ -22630,8 +22630,8 @@
             'No checks': 'No checks',
             'ultima:': 'latest:',
             'Ãºltima:': 'latest:',
-            'Si ya instalaste la versiÃ³n': 'If you already installed version',
-            'externamente, confirmalo aquÃ­ para que OWS Store no siga mostrando la update como pendiente.': 'externally, confirm it here so OWS Store stops showing the update as pending.',
+            'Si ya instalaste la versión': 'If you already installed version',
+            'externamente, confirmalo aquí para que OWS Store no siga mostrando la update como pendiente.': 'externally, confirm it here so OWS Store stops showing the update as pending.',
             'VersiÃ³n instalada (confirmar o editar)': 'Installed version (confirm or edit)',
             'VERSIÃ“N INSTALADA (CONFIRMAR O EDITAR)': 'INSTALLED VERSION (CONFIRM OR EDIT)',
             'Sin eventos vinculados a este proyecto.': 'No events linked to this project.',

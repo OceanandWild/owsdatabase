@@ -13426,7 +13426,7 @@
                     } else {
                         clearStoreObsoleteGate({ source: 'guard-no-updater', reason: 'updater-unavailable' });
                     }
-                }                } catch (_) {}
+                } catch (_) {}
                 if (!storeObsoleteGate.checkedAt) {
                     storeObsoleteGate.checkedAt = Date.now();
                 }
@@ -16345,7 +16345,7 @@
                         source = 'capacitor-app';
                         persistStoreAndroidInstalledVersion(pluginName, pluginCode);
                     }
-                }                } catch (_) {}
+                } catch (_) {}
             }
 
             return { versionName, versionCode, source };

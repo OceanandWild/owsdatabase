@@ -14085,16 +14085,20 @@
                 if (!detectedVersion) {
                     const hints = getInstallHints(project);
                     const result = await Promise.race([
-                    window.owsUpdater.resolveInstalledApp(hints),
-                    new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 8000))
-                ]);
-                if (result?.installed) {
-                    const detectedVersion = result.versionName || window._micLatestVersion || '';
-                    if (versionInput && detectedVersion) versionInput.value = detectedVersion;
+                        window.owsUpdater.resolveInstalledApp(hints),
+                        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 8000))
+                    ]);
+                    if (result?.installed) {
+                        detectedVersion = result.versionName || window._micLatestVersion || '';
+                    }
+                }
+                
+                if (detectedVersion) {
+                    if (versionInput) versionInput.value = detectedVersion;
                     scanResult.style.background = 'rgba(40,217,138,0.08)';
                     scanResult.style.border = '1px solid rgba(40,217,138,0.2)';
                     scanResult.style.color = 'var(--green)';
-                    scanResult.textContent = `âœ“ Detectado en disco${detectedVersion ? ` Â· v${detectedVersion}` : ''}`;
+                    scanResult.textContent = `âœ“ Detectado en disco Â· v${detectedVersion}`;
                 } else {
                     scanResult.style.background = 'rgba(245,197,66,0.08)';
                     scanResult.style.border = '1px solid rgba(245,197,66,0.2)';
@@ -14108,10 +14112,6 @@
                 scanResult.textContent = 'VerificaciÃ³n automÃ¡tica no disponible. ConfirmÃ¡ manualmente.';
             }
         }
-
-        function confirmManualInstall() {
-            const slug = window._micSlug;
-            const platform = window._micPlatform || 'windows';
             const versionInput = document.getElementById('mic-version-input');
             const version = String(versionInput?.value || window._micLatestVersion || '').trim();
 

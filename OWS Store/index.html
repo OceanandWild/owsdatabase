@@ -22282,42 +22282,109 @@
         };
 
         // ═══════════════════════════════════════════════════════════════════════
-        // Sistema de traducción simple con LibreTranslate
+        // Sistema de traducción con diccionario estático
         // ═══════════════════════════════════════════════════════════════════════
         
         let currentLanguage = localStorage.getItem('ows-store-language') || 'es';
-        const translationCache = new Map();
         let isTranslating = false;
         
-        async function translateText(text) {
-            if (!text || text.trim().length === 0) return text;
+        const translations = {
+            // Navegación
+            'Explorar': 'Explore',
+            'Biblioteca': 'Library',
+            'Actualizaciones': 'Updates',
+            'Configuraciones': 'Settings',
             
-            // Caché
-            if (translationCache.has(text)) {
-                return translationCache.get(text);
-            }
+            // Home
+            'Descubre juegos, herramientas y experiencias inesperadas.': 'Discover games, tools and unexpected experiences.',
+            'A unified hub to install, upgrade and manage the entire Ocean and Wild Studios ecosystem with full real-time visibility.': 'A unified hub to install, upgrade and manage the entire Ocean and Wild Studios ecosystem with full real-time visibility.',
+            'My Library': 'My Library',
+            'Updates': 'Updates',
+            'PROYECTOS': 'PROJECTS',
+            'INSTALADOS': 'INSTALLED',
+            'CON UPDATE': 'WITH UPDATE',
             
-            try {
-                const response = await fetch('https://libretranslate.com/translate', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        q: text,
-                        source: 'es',
-                        target: 'en',
-                        format: 'text'
-                    })
-                });
-                
-                if (!response.ok) return text;
-                
-                const data = await response.json();
-                const translated = data.translatedText || text;
-                translationCache.set(text, translated);
-                return translated;
-            } catch (error) {
-                return text;
-            }
+            // Ecosystem Versions
+            'Ecosystem Versions': 'Ecosystem Versions',
+            'Control de versiones y actividad de proyectos': 'Version control and project activity',
+            'Resumen completo de versiones por proyecto, estado de actualización y comparación rápida.': 'Complete version summary by project, update status and quick comparison.',
+            'PROXIMAMENTE': 'COMING SOON',
+            'SORT BY': 'SORT BY',
+            'ORDER': 'ORDER',
+            'COMPARE TO': 'COMPARE TO',
+            'COMPARE B': 'COMPARE B',
+            'Ultima actualizacion': 'Last update',
+            'Descendente': 'Descending',
+            'Selecciona dos proyectos para comparar versiones y ritmo de actualización.': 'Select two projects to compare versions and update pace.',
+            'PROYECTO': 'PROJECT',
+            'VERSION': 'VERSION',
+            'FRECUENCIA': 'FREQUENCY',
+            'ULTIMA ACTUALIZACION': 'LAST UPDATE',
+            'ESTADO / PLATAFORMA': 'STATUS / PLATFORM',
+            
+            // Settings
+            'PREFERENCIAS DE OWS STORE': 'OWS STORE PREFERENCES',
+            'Configuraciones': 'Settings',
+            'Idioma': 'Language',
+            'English': 'English',
+            'Español': 'Spanish',
+            'Cambia el idioma de la interfaz de OWS Store. Los cambios se aplican inmediatamente.': 'Change the OWS Store interface language. Changes apply immediately.',
+            'Modo de arranque silencioso': 'Silent startup mode',
+            'Desactivado': 'Disabled',
+            'Activado': 'Enabled',
+            'Activar': 'Enable',
+            'Desactivar': 'Disable',
+            'Si lo activas, al reiniciar OWS Store mantiene la vista actual sin recargar todo al inicio. En segundo plano revisa proyectos, noticias y eventos; si detecta cambios, te avisa y aplica la actualizacion.': 'If enabled, when restarting OWS Store keeps the current view without reloading everything at startup. In the background it checks projects, news and events; if it detects changes, it notifies you and applies the update.',
+            'Indicador de carga en segundo plano': 'Background loading indicator',
+            'Muestra el modal de carga sin bloquear acciones. Puedes elegir si aparece arriba a la izquierda o a la derecha.': 'Shows the loading modal without blocking actions. You can choose whether it appears at the top left or right.',
+            'Arriba izquierda': 'Top left',
+            'Arriba derecha': 'Top right',
+            'Ultima revision silenciosa': 'Last silent check',
+            'Sin revisiones': 'No checks',
+            'Estado monitor': 'Monitor status',
+            'Inactivo': 'Inactive',
+            'Firma local de datos': 'Local data signature',
+            'Forzar actualizacion ahora': 'Force update now',
+            'Ejecutar revision silenciosa': 'Run silent check',
+            
+            // Updates
+            'Estado Updater': 'Updater Status',
+            'Esperando verificacion': 'Waiting for verification',
+            'Auto-check OWS Store': 'Auto-check OWS Store',
+            'Version App': 'App Version',
+            'Instalador Externo': 'External Installer',
+            'Sin acciones recientes': 'No recent actions',
+            'Tamano Update': 'Update Size',
+            'Tiempo Estimado': 'Estimated Time',
+            'OWS Store Android': 'OWS Store Android',
+            'Buscando build Android...': 'Searching Android build...',
+            'Descargar Android': 'Download Android',
+            'Control de Updates': 'Update Control',
+            'Actualizaciones de Proyectos': 'Project Updates',
+            'Estado de tus apps instaladas, pendientes y multiplataforma.': 'Status of your installed, pending and cross-platform apps.',
+            'Con update': 'With update',
+            'Disponibles ahora': 'Available now',
+            'Tu dispositivo': 'Your device',
+            'Para esta plataforma': 'For this platform',
+            'Multiplataforma': 'Cross-platform',
+            'En otra plataforma': 'On another platform',
+            'Al dia': 'Up to date',
+            'Sin accion urgente': 'No urgent action',
+            'No hay actualizaciones pendientes.': 'No pending updates.',
+            'Notificaciones': 'Notifications',
+            'Sin descargas activas': 'No active downloads',
+            'Cuando inicies una descarga o update, aparecera aqui.': 'When you start a download or update, it will appear here.',
+            
+            // Common
+            'Traduciendo...': 'Translating...',
+            'Sync': 'Sync',
+            'Notificaciones': 'Notifications',
+            'Tema claro': 'Light theme',
+            'Tema oscuro': 'Dark theme'
+        };
+        
+        function translateText(text) {
+            return translations[text] || text;
         }
         
         async function translatePage(toLang) {
@@ -22325,47 +22392,38 @@
             isTranslating = true;
             showTranslationLoader();
             
-            try {
-                if (toLang === 'es') {
-                    location.reload();
-                    return;
-                }
-                
-                // Traducir todos los textos visibles
-                const walker = document.createTreeWalker(
-                    document.body,
-                    NodeFilter.SHOW_TEXT,
-                    {
-                        acceptNode: (node) => {
-                            const text = node.textContent.trim();
-                            if (text.length < 3) return NodeFilter.FILTER_REJECT;
-                            if (/^[\d\s\-\.\,\:\%]+$/.test(text)) return NodeFilter.FILTER_REJECT;
-                            return NodeFilter.FILTER_ACCEPT;
-                        }
-                    }
-                );
-                
-                const textNodes = [];
-                while (walker.nextNode()) {
-                    textNodes.push(walker.currentNode);
-                }
-                
-                // Traducir en lotes de 3
-                for (let i = 0; i < textNodes.length; i += 3) {
-                    const batch = textNodes.slice(i, i + 3);
-                    await Promise.all(batch.map(async (node) => {
-                        const original = node.textContent.trim();
-                        const translated = await translateText(original);
-                        node.textContent = node.textContent.replace(original, translated);
-                    }));
-                    
-                    if (i + 3 < textNodes.length) {
-                        await new Promise(resolve => setTimeout(resolve, 200));
-                    }
-                }
-            } catch (error) {
-                console.error('[Translation] Error:', error);
+            if (toLang === 'es') {
+                location.reload();
+                return;
             }
+            
+            // Traducir todos los nodos de texto
+            const walker = document.createTreeWalker(
+                document.body,
+                NodeFilter.SHOW_TEXT,
+                {
+                    acceptNode: (node) => {
+                        const text = node.textContent.trim();
+                        if (text.length < 3) return NodeFilter.FILTER_REJECT;
+                        if (/^[\d\s\-\.\,\:\%]+$/.test(text)) return NodeFilter.FILTER_REJECT;
+                        return NodeFilter.FILTER_ACCEPT;
+                    }
+                }
+            );
+            
+            const textNodes = [];
+            while (walker.nextNode()) {
+                textNodes.push(walker.currentNode);
+            }
+            
+            // Traducir instantáneamente
+            textNodes.forEach(node => {
+                const original = node.textContent.trim();
+                const translated = translateText(original);
+                if (translated !== original) {
+                    node.textContent = node.textContent.replace(original, translated);
+                }
+            });
             
             hideTranslationLoader();
             isTranslating = false;

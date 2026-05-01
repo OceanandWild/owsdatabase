@@ -14164,6 +14164,10 @@
         function notifyProjectNoDeviceUpdate(slug = '', devicePlatform = '', targetPlatform = '') {
             const project = getProjectBySlug(slug);
             const message = getNoDeviceUpdateMessage(project, devicePlatform, targetPlatform);
+            addNotification(message, 'info');
+            showActionMessage(message, {
+                state: 'info',
+                title: 'Sin update en tu plataforma',
                 iconClass: 'fa-circle-info',
                 iconSpin: false,
             });
@@ -14198,10 +14202,6 @@
         function getStoreTimelineEntries() {
             const entries = [];
             const pickSummary = (rawText, fallback = 'Sin notas detalladas.') => {
-                const line = String(rawText || '')
-                    .split(/\r?\n/)
-                    .map((l) => l.replace(/^[#*\-\s>]+/, '').trim())
-                    .find(Boolean);
                 return line || fallback;
             };
 

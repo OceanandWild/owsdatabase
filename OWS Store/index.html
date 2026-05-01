@@ -23890,11 +23890,15 @@
             if (savedLang === 'en') {
                 // Traducir inmediatamente y múltiples veces para capturar contenido dinámico
                 translatePage('en');
+                setTimeout(() => translatePage('en'), 50);
                 setTimeout(() => translatePage('en'), 100);
+                setTimeout(() => translatePage('en'), 200);
                 setTimeout(() => translatePage('en'), 500);
                 setTimeout(() => translatePage('en'), 1000);
                 setTimeout(() => translatePage('en'), 2000);
                 setTimeout(() => translatePage('en'), 3000);
+                setTimeout(() => translatePage('en'), 5000);
+                setTimeout(() => translatePage('en'), 8000);
                 
                 // Observar cambios en el DOM para traducir contenido del servidor automáticamente
                 const observer = new MutationObserver((mutations) => {
@@ -23916,11 +23920,11 @@
                         if (needsImmediate) {
                             translatePage('en');
                         } else {
-                            // Debounce: esperar 50ms antes de traducir para agrupar cambios
+                            // Debounce: esperar 30ms antes de traducir para agrupar cambios
                             clearTimeout(translationTimeout);
                             translationTimeout = setTimeout(() => {
                                 translatePage('en');
-                            }, 50);
+                            }, 30);
                         }
                     }
                 });

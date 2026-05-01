@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -10383,7 +10383,7 @@
                     systemNotificationSeenKeys = new Set(parsed.filter(Boolean).map(String));
                     return;
                 }
-            } catch (_) {}
+                }            } catch (_) {}
             systemNotificationSeenKeys = new Set();
         }
 
@@ -10497,7 +10497,7 @@
                         return true;
                     }
                 }
-            } catch (_) {}
+                }            } catch (_) {}
 
             if (!('Notification' in window)) return false;
             const permission = await ensureSystemNotificationPermission({ forcePrompt: false });
@@ -10660,7 +10660,7 @@
                     });
                     if (id > 0) ackPushInboxNotification(id).catch(() => {});
                 }
-            } catch (_) {}
+                }            } catch (_) {}
         }
 
         function bindNativeAndroidPushTokenIfAvailable() {
@@ -13426,7 +13426,7 @@
                     } else {
                         clearStoreObsoleteGate({ source: 'guard-no-updater', reason: 'updater-unavailable' });
                     }
-                } catch (_) {}
+                }                } catch (_) {}
                 if (!storeObsoleteGate.checkedAt) {
                     storeObsoleteGate.checkedAt = Date.now();
                 }
@@ -14050,8 +14050,41 @@
             scanResult.textContent = 'Buscando en disco...';
 
             try {
-                const hints = getInstallHints(project);
-                const result = await Promise.race([
+                // Intentar leer package.json directamente primero
+                const projectPaths = {
+                    'ows-store': '../package.json',
+                    'wildweapon-mayhem': '../../WildWeapon Mayhem/package.json',
+                    'savagespaceanimals': '../../Savage Space Animals/package.json',
+                    'oceanpay': '../../Ocean Pay Electron/package.json',
+                    'floretshop': '../../Floret Shop/package.json',
+                    'wildtransfer': '../../WildTransfer/package.json',
+                    'a-wild-question-game': '../../A Wild Question Game/package.json',
+                    'velocity-surge': '../../Velocity Surge/package.json',
+                    'wildwave': '../../WildWave/package.json',
+                    'ecoxion': '../../Ecoxion/package.json',
+                    'dinobox': '../../DinoBox/package.json',
+                    'wilddestiny': '../../Wild Destiny/package.json',
+                    'naturepedia': '../../Naturepedia/package.json',
+                    'ocean-cinemas': '../../Ocean Cinemas/package.json',
+                    'wildshorts': '../../WildShorts/package.json'
+                };
+                
+                let detectedVersion = null;
+                
+                // MÃ©todo 1: Leer package.json directamente (mÃ¡s preciso)
+                if (window.owsUpdater?.readProjectPackageJson && projectPaths[slug]) {
+                    try {
+                        const packageData = await window.owsUpdater.readProjectPackageJson(projectPaths[slug]);
+                        if (packageData && packageData.version) {
+                            detectedVersion = packageData.version;
+                        }
+                    } catch (e) {}
+                }
+                
+                // MÃ©todo 2: Usar resolveInstalledApp (fallback)
+                if (!detectedVersion) {
+                    const hints = getInstallHints(project);
+                    const result = await Promise.race([
                     window.owsUpdater.resolveInstalledApp(hints),
                     new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 8000))
                 ]);
@@ -14787,7 +14820,7 @@
                 const raw = localStorage.getItem(PROJECT_LIBRARY_KEY) || '[]';
                 const arr = JSON.parse(raw);
                 if (!arr.includes(slug)) { arr.push(slug); localStorage.setItem(PROJECT_LIBRARY_KEY, JSON.stringify(arr)); }
-            } catch (_) {}
+                }            } catch (_) {}
         }
         // â•â•â• END IMPORT MODAL â•â•â•
 
@@ -16312,7 +16345,7 @@
                         source = 'capacitor-app';
                         persistStoreAndroidInstalledVersion(pluginName, pluginCode);
                     }
-                } catch (_) {}
+                }                } catch (_) {}
             }
 
             return { versionName, versionCode, source };
@@ -16806,7 +16839,7 @@
             let text = String(input || '');
             if (!text) return '';
             const map = [
-                ['ÃƒÂ¡', 'a'], ['ÃƒÂ©', 'e'], ['ÃƒÂ­', 'i'], ['ÃƒÂ³', 'o'], ['ÃƒÂº', 'u'], ['ÃƒÂ±', 'n'],
+                ['Ã¡', 'a'], ['Ã©', 'e'], ['Ã­', 'i'], ['Ã³', 'o'], ['Ãº', 'u'], ['Ã±', 'n'],
                 ['ÃƒÂ', 'A'], ['Ãƒâ€°', 'E'], ['ÃƒÂ', 'I'], ['Ãƒâ€œ', 'O'], ['ÃƒÅ¡', 'U'], ['Ãƒâ€˜', 'N'],
                 ['Ã¢â‚¬â€', '-'], ['Ã¢â‚¬â€œ', '-'], ['Ã¢â‚¬Å“', '"'], ['Ã¢â‚¬Â', '"'], ['Ã¢â‚¬Ëœ', "'"], ['Ã¢â‚¬â„¢', "'"],
                 ['Ã¢â‚¬Â¢', '-'], ['Ã¢â‚¬Â¦', '...']
@@ -18095,7 +18128,7 @@
                     localStorage.setItem(OWS_STORE_ANDROID_APK_MODE_KEY, 'inapp');
                     return 'inapp';
                 }
-            } catch (_) {}
+                }            } catch (_) {}
             // Default behavior must stay inside OWS Store on Android.
             return 'inapp';
         }
@@ -18510,6 +18543,44 @@
         function getInstalledVersion(slug) {
             return localStorage.getItem(`installed_${slug}`) || '';
         }
+        
+        // DetecciÃ³n automÃ¡tica de versiones instaladas desde archivos del sistema
+        async function autoDetectInstalledVersions() {
+            if (!window.owsUpdater?.readProjectPackageJson) return;
+            
+            const projectPaths = {
+                'ows-store': '../package.json',
+                'wildweapon-mayhem': '../../WildWeapon Mayhem/package.json',
+                'savagespaceanimals': '../../Savage Space Animals/package.json',
+                'oceanpay': '../../Ocean Pay Electron/package.json',
+                'floretshop': '../../Floret Shop/package.json',
+                'wildtransfer': '../../WildTransfer/package.json',
+                'a-wild-question-game': '../../A Wild Question Game/package.json',
+                'velocity-surge': '../../Velocity Surge/package.json',
+                'wildwave': '../../WildWave/package.json',
+                'ecoxion': '../../Ecoxion/package.json',
+                'dinobox': '../../DinoBox/package.json',
+                'wilddestiny': '../../Wild Destiny/package.json',
+                'naturepedia': '../../Naturepedia/package.json',
+                'ocean-cinemas': '../../Ocean Cinemas/package.json',
+                'wildshorts': '../../WildShorts/package.json'
+            };
+            
+            for (const [slug, path] of Object.entries(projectPaths)) {
+                try {
+                    const packageData = await window.owsUpdater.readProjectPackageJson(path);
+                    if (packageData && packageData.version) {
+                        const currentStored = localStorage.getItem(`installed_${slug}`);
+                        if (!currentStored || compareVersionLike(packageData.version, currentStored) > 0) {
+                            localStorage.setItem(`installed_${slug}`, packageData.version);
+                            console.log(`[Auto-detect] ${slug}: ${packageData.version}`);
+                        }
+                    }
+                } catch (err) {
+                    // Proyecto no instalado
+                }
+            }
+        }
 
         function getInstalledVersionCode(slug) {
             const raw = Number(localStorage.getItem(`installed_version_code_${slug}`) || 0);
@@ -18745,7 +18816,7 @@
         async function resolveInstalledApp(project) {
             if (!window.owsUpdater?.resolveInstalledApp) return { installed: false };
             const hints = getInstallHints(project);
-            const result = await window.owsUpdater.resolveInstalledApp(hints);
+                    const result = await window.owsUpdater.resolveInstalledApp(hints);
             return result || { installed: false };
         }
 

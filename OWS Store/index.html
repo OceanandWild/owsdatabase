@@ -22551,6 +22551,17 @@
             'No checks': 'No checks',
             'ultima:': 'latest:',
             'última:': 'latest:',
+            'Si ya instalaste la versión': 'If you already installed version',
+            'externamente, confirmalo aquí para que OWS Store no siga mostrando la update como pendiente.': 'externally, confirm it here so OWS Store stops showing the update as pending.',
+            'Versión instalada (confirmar o editar)': 'Installed version (confirm or edit)',
+            'VERSIÓN INSTALADA (CONFIRMAR O EDITAR)': 'INSTALLED VERSION (CONFIRM OR EDIT)',
+            'Sin eventos vinculados a este proyecto.': 'No events linked to this project.',
+            'Disponible': 'Available',
+            'Tamaño': 'Size',
+            'INSTALAR PROYECTO': 'INSTALL PROJECT',
+            'Ingresá la versión instalada para confirmar.': 'Enter the installed version to confirm.',
+            'Ingresá la versión instalada de cada proyecto. Dejá en blanco o presioná el ojo para ignorar los que no tenés.': 'Enter the installed version of each project. Leave blank or press the eye to ignore the ones you do not have.',
+            'Versión instalada': 'Installed version',
             'Error de actualización:': 'Update error:',
             'Error de actualizacion:': 'Update error:',
             'Actualización disponible para': 'Update available for',
@@ -23689,6 +23700,10 @@
             result = result.replace(/No instalada en este dispositivo\s*\(ultima:\s*v([^)]+)\)/gi, 'Not installed on this device (latest: v$1)');
             result = result.replace(/No instalada en este dispositivo\s*\(última:\s*v([^)]+)\)/gi, 'Not installed on this device (latest: v$1)');
             result = result.replace(/No instalada en este dispositivo/gi, 'Not installed on this device');
+            
+            // Patrón: Modal de confirmación de instalación
+            result = result.replace(/Si ya instalaste la versión\s+([^\s]+)\s+de\s+(.+?)\s+externamente,\s*confirmalo aquí para que OWS Store no siga mostrando la update como pendiente\./gi, 
+                'If you already installed version $1 of $2 externally, confirm it here so OWS Store stops showing the update as pending.');
             
             // Patrón: "Cada Xs (último: hace Ys)"
             result = result.replace(/Cada\s+(\d+)s\s+\(último:\s+hace\s+(\d+)s\)/gi, 'Every $1s (last: $2s ago)');

@@ -22282,108 +22282,214 @@
         };
 
         // ═══════════════════════════════════════════════════════════════════════
-        // i18next - Sistema de traducción
+        // Sistema de traducción automática
         // ═══════════════════════════════════════════════════════════════════════
         
-        let i18nInitialized = false;
-        
-        async function initI18n() {
-            if (i18nInitialized) return;
+        const translationMap = {
+            // Navegación
+            "Inicio": "Home",
+            "Biblioteca": "Library",
+            "Mi Biblioteca": "My Library",
+            "Descargas": "Downloads",
+            "Actualizaciones": "Updates",
+            "Configuraciones": "Settings",
+            "Configuración": "Settings",
             
-            try {
-                // Cargar archivos de traducción
-                const esResponse = await fetch('./locales/es.json');
-                const enResponse = await fetch('./locales/en.json');
-                
-                const esTranslations = await esResponse.json();
-                const enTranslations = await enResponse.json();
-                
-                // Obtener idioma guardado o usar español por defecto
-                const savedLang = localStorage.getItem('ows-store-language') || 'es';
-                
-                // Inicializar i18next
-                await i18next.init({
-                    lng: savedLang,
-                    fallbackLng: 'es',
-                    resources: {
-                        es: { translation: esTranslations },
-                        en: { translation: enTranslations }
-                    }
-                });
-                
-                i18nInitialized = true;
-                
-                // Aplicar traducciones iniciales
-                updateTranslations();
-                
-                // Actualizar selector de idioma
-                const select = document.getElementById('settings-language-select');
-                if (select) {
-                    select.value = savedLang;
-                }
-                
-                const current = document.getElementById('settings-language-current');
-                if (current) {
-                    current.textContent = savedLang === 'es' ? 'Español' : 'English';
-                }
-                
-                console.log('[i18n] Sistema de traducción inicializado:', savedLang);
-            } catch (error) {
-                console.error('[i18n] Error al inicializar:', error);
+            // Settings
+            "Idioma": "Language",
+            "Español": "Spanish",
+            "English": "English",
+            "Modo de arranque silencioso": "Silent startup mode",
+            "Desactivado": "Disabled",
+            "Activado": "Enabled",
+            "Activar": "Enable",
+            "Desactivar": "Disable",
+            "Indicador de carga en segundo plano": "Background loading indicator",
+            "Arriba izquierda": "Top left",
+            "Arriba derecha": "Top right",
+            "Ultima revision silenciosa": "Last silent check",
+            "Sin revisiones": "No checks",
+            "Estado monitor": "Monitor status",
+            "Inactivo": "Inactive",
+            "Firma local de datos": "Local data signature",
+            "Forzar actualizacion ahora": "Force update now",
+            "Ejecutar revision silenciosa": "Run silent check",
+            
+            // Auth
+            "Iniciar sesión": "Log in",
+            "Registrarse": "Sign up",
+            "Usuario": "Username",
+            "Contraseña": "Password",
+            "Correo electrónico": "Email",
+            "Entrar": "Enter",
+            "Crear cuenta": "Create account",
+            "¿Olvidaste tu contraseña?": "Forgot your password?",
+            "¿No tienes cuenta?": "Don't have an account?",
+            "¿Ya tienes cuenta?": "Already have an account?",
+            
+            // Library
+            "Instalados": "Installed",
+            "Disponibles": "Available",
+            "No tienes juegos instalados": "You don't have any installed games",
+            "Instalar": "Install",
+            "Jugar": "Play",
+            "Actualizar": "Update",
+            "Desinstalar": "Uninstall",
+            
+            // Downloads
+            "Sin descargas": "No downloads",
+            "Descargando": "Downloading",
+            "Pausado": "Paused",
+            "Completado": "Completed",
+            "Fallido": "Failed",
+            
+            // Common
+            "Guardar": "Save",
+            "Cancelar": "Cancel",
+            "Cerrar": "Close",
+            "Confirmar": "Confirm",
+            "Eliminar": "Delete",
+            "Editar": "Edit",
+            "Buscar": "Search",
+            "Cargando": "Loading",
+            "Error": "Error",
+            "Éxito": "Success",
+            
+            // Textos largos
+            "Cambia el idioma de la interfaz de OWS Store. Los cambios se aplican inmediatamente.": "Change the interface language of OWS Store. Changes apply immediately.",
+            "Si lo activas, al reiniciar OWS Store mantiene la vista actual sin recargar todo al inicio. En segundo plano revisa proyectos, noticias y eventos; si detecta cambios, te avisa y aplica la actualizacion.": "If enabled, when restarting OWS Store keeps the current view without reloading everything at startup. In the background it checks projects, news and events; if it detects changes, it notifies you and applies the update.",
+            "Muestra el modal de carga sin bloquear acciones. Puedes elegir si aparece arriba a la izquierda o a la derecha.": "Shows the loading modal without blocking actions. You can choose whether it appears at the top left or right.",
+            "Preferencias de OWS Store": "OWS Store Preferences"
+        };
+        
+        let currentLanguage = localStorage.getItem('ows-store-language') || 'es';
+        const originalTexts = new Map(); // Guardar textos originales
+        
+        function translateText(text, toLang) {
+            if (!text || typeof text !== 'string') return text;
+            
+            const trimmed = text.trim();
+            
+            if (toLang === 'en') {
+                // Español a Inglés
+                return translationMap[trimmed] || text;
+            } else {
+                // Inglés a Español (buscar la clave por valor)
+                const entry = Object.entries(translationMap).find(([es, en]) => en === trimmed);
+                return entry ? entry[0] : text;
             }
         }
         
-        function updateTranslations() {
-            if (!i18nInitialized) return;
+        function translateElement(element, toLang) {
+            // Guardar texto original si no existe
+            if (!originalTexts.has(element)) {
+                originalTexts.set(element, element.textContent);
+            }
             
-            // Actualizar todos los elementos con data-i18n
-            document.querySelectorAll('[data-i18n]').forEach(el => {
-                const key = el.getAttribute('data-i18n');
-                const translation = i18next.t(key);
-                if (translation && translation !== key) {
-                    el.textContent = translation;
-                }
+            // Obtener texto original
+            const originalText = originalTexts.get(element);
+            
+            // Traducir
+            const translated = translateText(originalText, toLang);
+            if (translated !== originalText || toLang === 'es') {
+                element.textContent = translated;
+            }
+        }
+        
+        function translatePage(toLang) {
+            // Traducir todos los elementos de texto visibles
+            const selectors = [
+                '.nav-item',
+                '.stat-label',
+                '.stat-value span',
+                '.btn-install',
+                '.updates-kicker',
+                '.updates-title',
+                'button',
+                'label',
+                'option',
+                'p',
+                'span',
+                'div'
+            ];
+            
+            selectors.forEach(selector => {
+                document.querySelectorAll(selector).forEach(el => {
+                    // Solo traducir si tiene texto directo (no solo hijos)
+                    if (el.childNodes.length === 1 && el.childNodes[0].nodeType === Node.TEXT_NODE) {
+                        translateElement(el, toLang);
+                    } else if (el.childNodes.length > 0) {
+                        // Traducir nodos de texto directos
+                        el.childNodes.forEach(node => {
+                            if (node.nodeType === Node.TEXT_NODE && node.textContent.trim()) {
+                                const originalText = node.textContent.trim();
+                                if (!originalTexts.has(node)) {
+                                    originalTexts.set(node, originalText);
+                                }
+                                const translated = translateText(originalTexts.get(node), toLang);
+                                if (translated !== originalText || toLang === 'es') {
+                                    node.textContent = node.textContent.replace(originalText, translated);
+                                }
+                            }
+                        });
+                    }
+                });
             });
             
-            // Actualizar placeholders
-            document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
-                const key = el.getAttribute('data-i18n-placeholder');
-                const translation = i18next.t(key);
-                if (translation && translation !== key) {
-                    el.placeholder = translation;
-                }
-            });
+            console.log('[Translation] Página traducida a:', toLang);
         }
         
         async function changeLanguage(lang) {
-            if (!i18nInitialized) {
-                await initI18n();
+            currentLanguage = lang;
+            localStorage.setItem('ows-store-language', lang);
+            
+            // Traducir toda la página
+            translatePage(lang);
+            
+            // Actualizar indicador de idioma actual
+            const current = document.getElementById('settings-language-current');
+            if (current) {
+                current.textContent = lang === 'es' ? 'Español' : 'English';
             }
             
-            try {
-                await i18next.changeLanguage(lang);
-                localStorage.setItem('ows-store-language', lang);
-                
-                // Actualizar traducciones
-                updateTranslations();
-                
-                // Actualizar indicador de idioma actual
-                const current = document.getElementById('settings-language-current');
-                if (current) {
-                    current.textContent = lang === 'es' ? 'Español' : 'English';
-                }
-                
-                console.log('[i18n] Idioma cambiado a:', lang);
-            } catch (error) {
-                console.error('[i18n] Error al cambiar idioma:', error);
+            // Actualizar selector
+            const select = document.getElementById('settings-language-select');
+            if (select) {
+                select.value = lang;
             }
+            
+            console.log('[Translation] Idioma cambiado a:', lang);
         }
         
-        // Inicializar i18n cuando el DOM esté listo
+        // Inicializar idioma al cargar
+        function initLanguage() {
+            const savedLang = localStorage.getItem('ows-store-language') || 'es';
+            currentLanguage = savedLang;
+            
+            // Actualizar selector
+            const select = document.getElementById('settings-language-select');
+            if (select) {
+                select.value = savedLang;
+            }
+            
+            const current = document.getElementById('settings-language-current');
+            if (current) {
+                current.textContent = savedLang === 'es' ? 'Español' : 'English';
+            }
+            
+            // Si el idioma guardado es inglés, traducir
+            if (savedLang === 'en') {
+                setTimeout(() => translatePage('en'), 100);
+            }
+            
+            console.log('[Translation] Sistema de traducción inicializado:', savedLang);
+        }
+        
+        // Inicializar cuando el DOM esté listo
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', initI18n);
+            document.addEventListener('DOMContentLoaded', initLanguage);
         } else {
-            initI18n();
+            initLanguage();
         }
 
 

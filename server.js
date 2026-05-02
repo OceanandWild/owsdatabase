@@ -28358,7 +28358,7 @@ httpServer.listen(PORT, '0.0.0.0', () => {
 pool.query(`
   CREATE TABLE IF NOT EXISTS wildweapon_releases (
     id SERIAL PRIMARY KEY,
-    version TEXT NOT NULL,
+    version TEXT NOT NULL UNIQUE,
     installer_url TEXT NOT NULL,
     installer_size BIGINT DEFAULT 0,
     release_date TIMESTAMPTZ,
@@ -28368,6 +28368,39 @@ pool.query(`
     created_at TIMESTAMPTZ DEFAULT NOW()
   )
 `).catch(e => console.warn('[WW] wildweapon_releases table:', e.message));
+
+app.post('/ows-store/windows/releases/wildweapon-mayhem', async (req, res) => {
+  const adminToken = req.headers['x-ows-admin-token'];
+  const expectedToken = process.env.OWS_ADMIN_SECRET || process.env.STUDIO_SECRET || process.env.JWT_SECRET;
+  if (!adminToken || adminToken !== expectedToken) {
+    return res.status(401).json({ error: 'No autorizado' });
+  }
+
+  const { version, installer_url, installer_size, release_date, release_notes, status } = req.body;
+  if (!version || !installer_url) {
+    return res.status(400).json({ error: 'Faltan campos requeridos: version, installer_url' });
+  }
+
+  try {
+    const { rows } = await pool.query(
+      `INSERT INTO wildweapon_releases (version, installer_url, installer_size, release_date, release_notes, status, published_at)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW())
+       ON CONFLICT (version) DO UPDATE SET
+         installer_url = EXCLUDED.installer_url,
+         installer_size = EXCLUDED.installer_size,
+         release_date = EXCLUDED.release_date,
+         release_notes = EXCLUDED.release_notes,
+         status = EXCLUDED.status,
+         published_at = NOW()
+       RETURNING *`,
+      [version, installer_url || '', installer_size || 0, release_date || null, release_notes || '', status || 'published']
+    );
+    res.json({ success: true, release: rows[0] });
+  } catch (err) {
+    console.error('Error en POST /ows-store/windows/releases/wildweapon-mayhem:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
 
 app.get('/ows-store/windows/releases/wildweapon-mayhem/latest', async (req, res) => {
   try {

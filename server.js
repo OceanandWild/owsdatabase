@@ -1,4 +1,4 @@
-﻿import dotenv from "dotenv";
+import dotenv from "dotenv";
 dotenv.config();
 
 // 1ÃƒÂ¯Ã‚Â¸Ã‚ÂÃƒÂ¢Ã†â€™Ã‚Â£ DespuÃƒÆ’Ã‚Â©s el resto
@@ -28352,4 +28352,59 @@ httpServer.listen(PORT, '0.0.0.0', () => {
 });
 
 
+
+// ===== WILDWEAPON MAYHEM RELEASES API =====
+// Inicializar tabla
+pool.query(`
+  CREATE TABLE IF NOT EXISTS wildweapon_releases (
+    id SERIAL PRIMARY KEY,
+    version TEXT NOT NULL,
+    installer_url TEXT NOT NULL,
+    installer_size BIGINT DEFAULT 0,
+    release_date TIMESTAMPTZ,
+    release_notes TEXT,
+    status TEXT DEFAULT 'published',
+    published_at TIMESTAMPTZ DEFAULT NOW(),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+  )
+`).catch(e => console.warn('[WW] wildweapon_releases table:', e.message));
+
+app.get('/ows-store/windows/releases/wildweapon-mayhem/latest', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT version, installer_url, installer_size, release_date, release_notes, published_at
+       FROM wildweapon_releases
+       WHERE status = 'published'
+       ORDER BY published_at DESC
+       LIMIT 1`
+    );
+    
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'No hay releases disponibles' });
+    }
+
+    const release = rows[0];
+    const releaseDate = release.release_date ? Date.parse(release.release_date) : 0;
+    const isReleaseReady = !releaseDate || releaseDate <= Date.now();
+
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
+    res.json({
+      success: true,
+      version: release.version,
+      installerUrl: release.installer_url,
+      installerSize: release.installer_size,
+      installerAvailable: isReleaseReady,
+      windowsReleaseNotes: release.release_notes || '',
+      publishedAt: release.published_at,
+      scheduled_release: !isReleaseReady ? {
+        version: release.version,
+        available_at: release.release_date,
+        label: 'Nuevas Series - Vida en el Oceano T1'
+      } : null
+    });
+  } catch (err) {
+    console.error('Error en /ows-store/windows/releases/wildweapon-mayhem/latest:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
 

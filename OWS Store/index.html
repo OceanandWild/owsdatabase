@@ -14940,7 +14940,7 @@
                 return wildWeaponReleaseCache;
             }
 
-            const res = await fetch(`${WILDWEAPON_RELEASES_API_URL}?nocache=${Date.now()}`, {
+            const res = await fetch(`${API_URL}/ows-store/windows/releases/wildweapon-mayhem/latest?nocache=${now}`, {
                 cache: 'no-store',
                 headers: { 'Accept': 'application/vnd.github+json' }
             });

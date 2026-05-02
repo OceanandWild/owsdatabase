@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -17352,7 +17352,7 @@
                 wildWeapon.install_type = 'external';
                 if (!wildWeapon.installer_url) wildWeapon.installer_url = WILDWEAPON_RELEASES_URL;
                 wildWeapon.icon_url = WILDWEAPON_LOCAL_ICON;
-                wildWeapon.release_date = WILDWEAPON_RELEASE_DATE_ISO;
+                wildWeapon.released_at = '2026-03-20T00:00:00Z';
 
                 wildWeapon.installer_available = false;
                 wildWeapon.last_update_at = null;
@@ -17372,7 +17372,7 @@
                     if (latest?.version) wildWeapon.version = latest.version;
                     if (latest?.installerUrl) wildWeapon.installer_url = latest.installerUrl;
                     wildWeapon.installer_size = Number(latest?.installerSize || 0);
-                    wildWeapon.installer_available = Boolean(latest?.installerAvailable) && isReleaseReady;
+                    wildWeapon.installer_available = Boolean(latest?.installerAvailable);
                     wildWeapon.last_update_at = latest?.publishedAt || null;
                     wildWeapon.windows_last_update_at = latest?.publishedAt || null;
                     wildWeapon.status = wildWeapon.installer_available ? 'launched' : 'coming_soon';
@@ -17855,7 +17855,7 @@
                     oceanCinemas.windows_version = latest?.version || oceanCinemas.windows_version || oceanCinemas.version || '';
                     if (latest?.installerUrl) oceanCinemas.installer_url = latest.installerUrl;
                     oceanCinemas.installer_size = Number(latest?.installerSize || 0);
-                    oceanCinemas.installer_available = Boolean(latest?.installerAvailable) && isReleaseReady;
+                    oceanCinemas.installer_available = Boolean(latest?.installerAvailable);
                     oceanCinemas.windows_release_notes = latest?.windowsReleaseNotes || oceanCinemas.windows_release_notes || '';
                     oceanCinemas.last_update_at = latest?.publishedAt || null;
                     oceanCinemas.windows_last_update_at = latest?.publishedAt || null;

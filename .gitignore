@@ -84,3 +84,8 @@ OWS Store/**/.DS_Store
 !Ocean Pay/build/icon.png
 
 
+
+# 8. WILDWEAPON MAYHEM (assets necesarios para build)
+!WildWeapon Mayhem/
+!WildWeapon Mayhem/assets/
+!WildWeapon Mayhem/assets/**

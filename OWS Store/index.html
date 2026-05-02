@@ -14232,7 +14232,7 @@
         function getStoreTimelineEntries() {
             const entries = [];
             const pickSummary = (rawText, fallback = 'Sin notas detalladas.') => {
-                return line || fallback;
+                return rawText || fallback;
             };
 
             const storeWindows = owsStoreWindowsReleaseCache || null;

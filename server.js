@@ -28370,6 +28370,118 @@ pool.query(`
 `).then(() => console.log('[WW] wildweapon_releases table ready'))
   .catch(e => console.warn('[WW] wildweapon_releases table:', e.message));
 
+// ===== DINOBOX RELEASES API =====
+pool.query(`
+  CREATE TABLE IF NOT EXISTS dinobox_releases (
+    id SERIAL PRIMARY KEY,
+    version TEXT NOT NULL UNIQUE,
+    installer_url TEXT NOT NULL,
+    installer_size BIGINT DEFAULT 0,
+    release_notes TEXT,
+    status TEXT DEFAULT 'published',
+    published_at TIMESTAMPTZ DEFAULT NOW(),
+    created_at TIMESTAMPTZ DEFAULT NOW()
+  )
+`).then(() => console.log('[DB] dinobox_releases table ready'))
+  .catch(e => console.warn('[DB] dinobox_releases table:', e.message));
+
+app.get('/ows-store/windows/releases/dinobox/init', async (req, res) => {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS dinobox_releases (
+        id SERIAL PRIMARY KEY,
+        version TEXT NOT NULL UNIQUE,
+        installer_url TEXT NOT NULL,
+        installer_size BIGINT DEFAULT 0,
+        release_notes TEXT,
+        status TEXT DEFAULT 'published',
+        published_at TIMESTAMPTZ DEFAULT NOW(),
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+    res.json({ success: true, message: 'Tabla dinobox_releases creada/verificada' });
+  } catch (err) {
+    console.error('Error creando tabla:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/ows-store/windows/releases/dinobox', async (req, res) => {
+  const adminToken = req.headers['x-ows-admin-token'];
+  const expectedToken = process.env.OWS_ADMIN_SECRET || process.env.STUDIO_SECRET || process.env.JWT_SECRET;
+  if (!adminToken || adminToken !== expectedToken) {
+    return res.status(401).json({ error: 'No autorizado' });
+  }
+
+  const { version, installer_url, installer_size, release_notes, status } = req.body;
+  if (!version || !installer_url) {
+    return res.status(400).json({ error: 'Faltan campos requeridos: version, installer_url' });
+  }
+
+  try {
+    const { rows: existing } = await pool.query(
+      'SELECT id FROM dinobox_releases WHERE version = $1',
+      [version]
+    );
+    
+    let rows;
+    if (existing.length > 0) {
+      const result = await pool.query(
+        `UPDATE dinobox_releases 
+         SET installer_url = $2, installer_size = $3, release_notes = $4, status = $5, published_at = NOW()
+         WHERE version = $1
+         RETURNING *`,
+        [version, installer_url, installer_size || 0, release_notes || '', status || 'published']
+      );
+      rows = result.rows;
+    } else {
+      const result = await pool.query(
+        `INSERT INTO dinobox_releases (version, installer_url, installer_size, release_notes, status, published_at)
+         VALUES ($1, $2, $3, $4, $5, NOW())
+         RETURNING *`,
+        [version, installer_url, installer_size || 0, release_notes || '', status || 'published']
+      );
+      rows = result.rows;
+    }
+    
+    res.json({ success: true, release: rows[0] });
+  } catch (err) {
+    console.error('Error en POST /ows-store/windows/releases/dinobox:', err);
+    res.status(500).json({ error: 'Error interno', details: err.message });
+  }
+});
+
+app.get('/ows-store/windows/releases/dinobox/latest', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT version, installer_url, installer_size, release_notes, published_at
+       FROM dinobox_releases
+       WHERE status = 'published'
+       ORDER BY published_at DESC
+       LIMIT 1`
+    );
+    
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'No hay releases disponibles' });
+    }
+
+    const release = rows[0];
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
+    res.json({
+      success: true,
+      version: release.version,
+      installerUrl: release.installer_url,
+      installerSize: release.installer_size,
+      installerAvailable: true,
+      windowsReleaseNotes: release.release_notes || '',
+      publishedAt: release.published_at
+    });
+  } catch (err) {
+    console.error('Error en /ows-store/windows/releases/dinobox/latest:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
 app.get('/ows-store/windows/releases/wildweapon-mayhem/init', async (req, res) => {
   try {
     await pool.query(`

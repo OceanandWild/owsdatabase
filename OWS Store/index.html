@@ -17381,6 +17381,11 @@
                         wildWeapon.status = 'coming_soon';
                         wildWeapon.pending_release = true;
                         wildWeapon.release_warning = 'Instalador programado para lanzamiento futuro.';
+                        wildWeapon.scheduled_release = {
+                            version: latest?.version || wildWeapon.version,
+                            available_at: wildWeapon.release_date,
+                            label: 'Nuevas Series - Vida en el Oceano T1'
+                        };
                     }
                     
 
@@ -17859,6 +17864,11 @@
                         oceanCinemas.status = 'coming_soon';
                         oceanCinemas.pending_release = true;
                         oceanCinemas.release_warning = 'Instalador programado para lanzamiento futuro.';
+                        oceanCinemas.scheduled_release = {
+                            version: latest?.version || oceanCinemas.version,
+                            available_at: oceanCinemas.release_date,
+                            label: 'Nuevas Series - Vida en el Oceano T1'
+                        };
                     }
                     
 

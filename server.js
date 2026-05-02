@@ -28382,19 +28382,34 @@ app.post('/ows-store/windows/releases/wildweapon-mayhem', async (req, res) => {
   }
 
   try {
-    const { rows } = await pool.query(
-      `INSERT INTO wildweapon_releases (version, installer_url, installer_size, release_date, release_notes, status, published_at)
-       VALUES ($1, $2, $3, $4, $5, $6, NOW())
-       ON CONFLICT (version) DO UPDATE SET
-         installer_url = EXCLUDED.installer_url,
-         installer_size = EXCLUDED.installer_size,
-         release_date = EXCLUDED.release_date,
-         release_notes = EXCLUDED.release_notes,
-         status = EXCLUDED.status,
-         published_at = NOW()
-       RETURNING *`,
-      [version, installer_url, installer_size || 0, release_date || null, release_notes || '', status || 'published']
+    // Primero intentar actualizar si existe
+    const { rows: existing } = await pool.query(
+      'SELECT id FROM wildweapon_releases WHERE version = $1',
+      [version]
     );
+    
+    let rows;
+    if (existing.length > 0) {
+      // Actualizar
+      const result = await pool.query(
+        `UPDATE wildweapon_releases 
+         SET installer_url = $2, installer_size = $3, release_date = $4, release_notes = $5, status = $6, published_at = NOW()
+         WHERE version = $1
+         RETURNING *`,
+        [version, installer_url, installer_size || 0, release_date || null, release_notes || '', status || 'published']
+      );
+      rows = result.rows;
+    } else {
+      // Insertar
+      const result = await pool.query(
+        `INSERT INTO wildweapon_releases (version, installer_url, installer_size, release_date, release_notes, status, published_at)
+         VALUES ($1, $2, $3, $4, $5, $6, NOW())
+         RETURNING *`,
+        [version, installer_url, installer_size || 0, release_date || null, release_notes || '', status || 'published']
+      );
+      rows = result.rows;
+    }
+    
     res.json({ success: true, release: rows[0] });
   } catch (err) {
     console.error('Error en POST /ows-store/windows/releases/wildweapon-mayhem:', err);

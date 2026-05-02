@@ -14934,56 +14934,26 @@
             renderSettingsState();
         }
 
-        async function fetchLatestWildWeaponRelease() {
+                async function fetchLatestWildWeaponRelease() {
             const now = Date.now();
             if (wildWeaponReleaseCache && (now - wildWeaponReleaseCache.checkedAt) < 120000) {
                 return wildWeaponReleaseCache;
             }
 
             const res = await fetch(`${API_URL}/ows-store/windows/releases/wildweapon-mayhem/latest?nocache=${now}`, {
-                cache: 'no-store',
-                headers: { 'Accept': 'application/vnd.github+json' }
+                cache: 'no-store'
             });
-            if (!res.ok) throw new Error(`GitHub API ${res.status}`);
+            if (!res.ok) throw new Error(`API ${res.status}`);
             const data = await res.json();
-            const assets = Array.isArray(data.assets) ? data.assets : [];
-            const versionFromTag = normalizeReleaseVersion(data.tag_name || '');
-            const exeCandidates = assets.filter(a => typeof a?.name === 'string' && /\.exe$/i.test(a.name));
-            const scoredCandidates = exeCandidates.map((a) => ({
-                asset: a,
-                version: extractVersionFromText(a.name),
-                updatedAtMs: Date.parse(a.updated_at || '') || 0,
-                hasWildWeaponName: /wildweapon/i.test(String(a.name || '')),
-            }));
-
-            // Prefer explicit wildweapon installers, then matching-tag version, then highest parsed version.
-            scoredCandidates.sort((x, y) => {
-                if (x.hasWildWeaponName !== y.hasWildWeaponName) return x.hasWildWeaponName ? -1 : 1;
-                const cmp = compareVersionLike(y.version, x.version);
-                if (cmp !== 0) return cmp;
-                return y.updatedAtMs - x.updatedAtMs;
-            });
-            let selected = scoredCandidates[0] || null;
-            if (versionFromTag) {
-                const tagMatch = scoredCandidates.find(c => c.version && compareVersionLike(c.version, versionFromTag) === 0);
-                if (tagMatch) selected = tagMatch;
-            }
-
-            const exeAsset = selected?.asset || null;
-            const versionFromAsset = selected?.version || '';
-            const staleInstaller = Boolean(versionFromTag && versionFromAsset && compareVersionLike(versionFromAsset, versionFromTag) < 0);
-            const warning = staleInstaller
-                ? `Release latest apunta a tag ${versionFromTag}, pero el instalador publicado es ${versionFromAsset}.`
-                : '';
+            
             const payload = {
-                version: versionFromTag || versionFromAsset || null,
-                tagVersion: versionFromTag || null,
-                assetVersion: versionFromAsset || null,
-                installerUrl: exeAsset?.browser_download_url || '',
-                installerSize: Number(exeAsset?.size || 0),
-                installerAvailable: Boolean(exeAsset?.browser_download_url) && !staleInstaller,
-                publishedAt: data.published_at || data.created_at || null,
-                warning,
+                version: data.version,
+                installerUrl: data.installerUrl,
+                installerSize: data.installerSize,
+                installerAvailable: data.installerAvailable,
+                windowsReleaseNotes: data.windowsReleaseNotes || '',
+                publishedAt: data.publishedAt,
+                scheduled_release: data.scheduled_release,
                 checkedAt: now,
             };
             wildWeaponReleaseCache = payload;

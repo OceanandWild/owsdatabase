@@ -28393,12 +28393,12 @@ app.post('/ows-store/windows/releases/wildweapon-mayhem', async (req, res) => {
          status = EXCLUDED.status,
          published_at = NOW()
        RETURNING *`,
-      [version, installer_url || '', installer_size || 0, release_date || null, release_notes || '', status || 'published']
+      [version, installer_url, installer_size || 0, release_date || null, release_notes || '', status || 'published']
     );
     res.json({ success: true, release: rows[0] });
   } catch (err) {
     console.error('Error en POST /ows-store/windows/releases/wildweapon-mayhem:', err);
-    res.status(500).json({ error: 'Error interno' });
+    res.status(500).json({ error: 'Error interno', details: err.message });
   }
 });
 

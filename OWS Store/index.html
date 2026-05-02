@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
@@ -9,8 +9,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         /* ================================================
-           OWS STORE Ã¢â‚¬â€ REWORK 2026.3.16
-           Command Center aesthetic Ã¢â‚¬â€ dark glass + neon
+           OWS STORE — REWORK 2026.3.16
+           Command Center aesthetic — dark glass + neon
         ================================================ */
         :root {
             --bg:          #080c12;
@@ -140,13 +140,13 @@
                 radial-gradient(ellipse 500px 400px at 50% 120%, rgba(40,217,138,0.05) 0%, transparent 60%);
         }
 
-        /* Ã¢â€â‚¬Ã¢â€â‚¬ SCROLLBAR Ã¢â€â‚¬Ã¢â€â‚¬ */
+        /* ── SCROLLBAR ── */
         ::-webkit-scrollbar { width: 4px; height: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 99px; }
         ::-webkit-scrollbar-thumb:hover { background: var(--ink-3); }
 
-        /* Ã¢â€â‚¬Ã¢â€â‚¬ BOOT OVERLAY Ã¢â€â‚¬Ã¢â€â‚¬ */
+        /* ── BOOT OVERLAY ── */
         .boot-overlay {
             position: fixed; inset: 0; z-index: 12000;
             display: none; align-items: center; justify-content: center;
@@ -1220,7 +1220,7 @@
             }
         }
 
-        /* Ã¢â€â‚¬Ã¢â€â‚¬ GAME OVERLAY Ã¢â€â‚¬Ã¢â€â‚¬ */
+        /* ── GAME OVERLAY ── */
         #game-overlay { display:none; position:fixed; inset:0; z-index:9000; background:var(--bg); flex-direction:column; }
         #game-overlay.active { display:flex; }
         #game-frame { flex:1; border:none; }
@@ -1282,10 +1282,10 @@
             cursor: pointer;
         }
 
-        /* Ã¢â€â‚¬Ã¢â€â‚¬ APP SHELL Ã¢â€â‚¬Ã¢â€â‚¬ */
+        /* ── APP SHELL ── */
         .app-container { position:relative; z-index:1; display:flex; height:100vh; overflow:hidden; }
 
-        /* Ã¢â€â‚¬Ã¢â€â‚¬ SIDEBAR Ã¢â€â‚¬Ã¢â€â‚¬ */
+        /* ── SIDEBAR ── */
         .sidebar {
             width: var(--sidebar-w);
             flex-shrink: 0;
@@ -1438,7 +1438,7 @@
         @keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.8)} }
         #app-version { font-size:0.6rem; color:var(--ink-3); margin-top:0.3rem; font-family:var(--font-mono); }
 
-        /* Ã¢â€â‚¬Ã¢â€â‚¬ UPDATE BANNER Ã¢â€â‚¬Ã¢â€â‚¬ */
+        /* ── UPDATE BANNER ── */
         .update-banner {
             display: none;
             position: sticky; top: 0; z-index: 100;
@@ -1460,7 +1460,7 @@
         .btn-update { background:var(--cyan-dim); border-color:rgba(38,212,232,0.3); color:var(--cyan); font-weight:600; }
         .btn-close-update:hover, .btn-update:hover { filter:brightness(1.1); }
 
-        /* Ã¢â€â‚¬Ã¢â€â‚¬ MAIN CONTENT Ã¢â€â‚¬Ã¢â€â‚¬ */
+        /* ── MAIN CONTENT ── */
         .main-content {
             flex: 1;
             overflow-y: auto;
@@ -1470,7 +1470,7 @@
             min-width: 0;
         }
 
-        /* Ã¢â€â‚¬Ã¢â€â‚¬ HEADER / TOPBAR Ã¢â€â‚¬Ã¢â€â‚¬ */
+        /* ── HEADER / TOPBAR ── */
         .topbar {
             height: var(--header-h);
             background: var(--surface-0);
@@ -1521,10 +1521,10 @@
         .topbar-btn:hover { background:var(--surface-3); color:var(--ink-0); border-color:var(--border-mid); }
         .topbar-btn i { font-size:12px; }
 
-        /* Ã¢â€â‚¬Ã¢â€â‚¬ SECTIONS Ã¢â€â‚¬Ã¢â€â‚¬ */
+        /* ── SECTIONS ── */
         .section { padding: 1.5rem 1.25rem; flex:1; }
 
-        /* Ã¢â€â‚¬Ã¢â€â‚¬ HOME / EXPLORE Ã¢â€â‚¬Ã¢â€â‚¬ */
+        /* ── HOME / EXPLORE ── */
         .hero-band {
             background:
                 radial-gradient(circle at 12% -5%, rgba(58, 235, 230, 0.16), transparent 42%),
@@ -1875,7 +1875,7 @@
         }
         .btn-install.full { width:100%; justify-content:center; }
 
-        /* Ã¢â€â‚¬Ã¢â€â‚¬ LIBRARY Ã¢â€â‚¬Ã¢â€â‚¬ */
+        /* ── LIBRARY ── */
         .library-shell {
             display:flex;
             flex-direction:column;
@@ -1915,7 +1915,7 @@
         .library-filter-btn.active { background:var(--cyan-dim); border-color:rgba(38,212,232,0.3); color:var(--cyan); font-weight:600; }
 
 
-<!-- â•â•â• EVENT DETAIL MODAL â•â•â• -->
+<!-- ═══ EVENT DETAIL MODAL ═══ -->
 <div id="event-detail-modal" onclick="if(event.target===this)closeEventDetailModal()">
     <div class="event-detail-shell">
         <div id="event-detail-cover-wrap"></div>
@@ -1932,7 +1932,7 @@
     </div>
 </div>
 
-        /* â•â•â• IMPORT MODAL â•â•â• */
+        /* ═══ IMPORT MODAL ═══ */
         #import-modal {
             position: fixed; inset: 0; z-index: 5800;
             display: none; align-items: center; justify-content: center;
@@ -2170,7 +2170,7 @@
             .version-center-row .hide-sm { display: none; }
         }
 
-        /* Ã¢â€â‚¬Ã¢â€â‚¬ UPDATES / CENTRO Ã¢â€â‚¬Ã¢â€â‚¬ */
+        /* ── UPDATES / CENTRO ── */
         .updates-shell {
             display:flex;
             flex-direction:column;
@@ -2312,7 +2312,7 @@
         .notification-time { font-size:0.65rem; color:var(--ink-2); font-family:var(--font-mono); margin-bottom:0.2rem; }
         .notification-text { font-size:0.8rem; font-weight:600; color:var(--ink-0); }
 
-        /* Ã¢â€â‚¬Ã¢â€â‚¬ DETAILS MODAL Ã¢â€â‚¬Ã¢â€â‚¬ */
+        /* ── DETAILS MODAL ── */
         #details-modal {
             display: none;
             position: fixed; inset:0; z-index:5000;
@@ -2742,7 +2742,7 @@
         }
         .offer-checkout-btn:disabled { opacity:0.45; cursor:not-allowed; }
 
-        /* Ã¢â€â‚¬Ã¢â€â‚¬ CHANGELOG MODAL (panel lateral) Ã¢â€â‚¬Ã¢â€â‚¬ */
+        /* ── CHANGELOG MODAL (panel lateral) ── */
         #store-news-modal {
             display: none;
             position: fixed; inset:0; z-index:5500;
@@ -2930,18 +2930,18 @@
             .news-article-shell { max-height: 92vh; }
         }
 
-        /* Ã¢â€â‚¬Ã¢â€â‚¬ ECOSYSTEM LIST (all projects) Ã¢â€â‚¬Ã¢â€â‚¬ */
+        /* ── ECOSYSTEM LIST (all projects) ── */
         .ecosystem-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:0.75rem; }
         .ecosystem-pulse { display:flex; align-items:center; gap:0.4rem; font-size:0.68rem; color:var(--ink-2); font-family:var(--font-mono); }
         .dot { width:6px; height:6px; background:var(--green); border-radius:50%; box-shadow:0 0 6px var(--green); animation:pulse 2s infinite; }
 
-        /* Ã¢â€â‚¬Ã¢â€â‚¬ STORE TIMELINE COMPACT Ã¢â€â‚¬Ã¢â€â‚¬ */
+        /* ── STORE TIMELINE COMPACT ── */
         .store-timeline-card { background:var(--surface-1); border:1px solid var(--border); border-radius:var(--r-lg); padding:1rem; margin-bottom:1rem; }
         .store-timeline-preview { display:flex; flex-direction:column; gap:0.4rem; min-height:60px; }
         .store-timeline-actions { margin-top:0.75rem; }
         .info-note-card { font-size:0.78rem; color:var(--ink-2); padding:0.75rem; background:var(--surface-2); border-radius:var(--r-sm); border:1px solid var(--border); }
 
-        /* Ã¢â€â‚¬Ã¢â€â‚¬ MISC Ã¢â€â‚¬Ã¢â€â‚¬ */
+        /* ── MISC ── */
         .mobile-queue-fab { display:none; position:fixed; bottom:1.5rem; right:1.5rem; z-index:3000; width:52px; height:52px; border-radius:50%; background:var(--cyan); border:none; color:#000; font-size:18px; cursor:pointer; box-shadow:0 4px 20px var(--cyan-glow); align-items:center; justify-content:center; }
         #mobile-queue-fab-count { position:absolute; top:-4px; right:-4px; background:var(--orange); color:#fff; border-radius:99px; padding:1px 5px; font-size:10px; font-weight:800; display:none; }
         @media (max-width:768px) {
@@ -3350,7 +3350,7 @@
             }
         }
 
-        /* Ã¢â€â‚¬Ã¢â€â‚¬ COUNTDOWN Ã¢â€â‚¬Ã¢â€â‚¬ */
+        /* ── COUNTDOWN ── */
         .countdown-wrap { font-family:var(--font-mono); font-size:0.7rem; color:var(--yellow); }
         .countdown-badge { display:inline-flex; gap:0.3rem; align-items:center; background:var(--yellow-dim); border:1px solid rgba(245,197,66,0.2); border-radius:99px; padding:2px 8px; }
 
@@ -3404,9 +3404,9 @@
         .install-target-btn.selected { background:var(--cyan-dim); border-color:rgba(38,212,232,0.3); color:var(--cyan); }
 
     
-        /* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
-           ECOSYSTEM / PROJECT CARDS Ã¢â‚¬â€ EPIC
-        Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
+        /* ═══════════════════════════════════════════════
+           ECOSYSTEM / PROJECT CARDS — EPIC
+        ═══════════════════════════════════════════════ */
 
         /* Override project-grid for ecosystem row layout */
         #projects-container.project-grid.ecosystem-layout-classic {
@@ -3666,7 +3666,7 @@
             padding: 4px;
         }
 
-        /* icon-bg: div with background-image Ã¢â‚¬â€ renders .ico/.jpg/.png reliably in Electron/Chromium */
+        /* icon-bg: div with background-image — renders .ico/.jpg/.png reliably in Electron/Chromium */
         .icon-bg {
             width: 48px;
             height: 48px;
@@ -3898,9 +3898,9 @@
             transition: width 0.3s ease;
         }
 
-        /* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
-           LIBRARY CARDS Ã¢â‚¬â€ EPIC
-        Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
+        /* ═══════════════════════════════════════════════
+           LIBRARY CARDS — EPIC
+        ═══════════════════════════════════════════════ */
 
         .library-card {
             background: var(--surface-1);
@@ -4070,9 +4070,9 @@
             }
         }
 
-        /* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+        /* ═══════════════════════════════════════════════
            NEWS HUB ITEMS
-        Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
+        ═══════════════════════════════════════════════ */
 
         .news-hub-item {
             background: var(--surface-1);
@@ -4232,9 +4232,9 @@
 
         .news-hub-event-copy { }
 
-        /* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+        /* ═══════════════════════════════════════════════
            PROJECT UPDATES LIST
-        Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
+        ═══════════════════════════════════════════════ */
 
         .project-updates-toolbar {
             display: flex;
@@ -4598,9 +4598,9 @@
             font-style: italic;
         }
 
-        /* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+        /* ═══════════════════════════════════════════════
            SPOTLIGHT LIST ITEMS
-        Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
+        ═══════════════════════════════════════════════ */
 
         .spotlight-list-item {
             display: flex;
@@ -4619,9 +4619,9 @@
             background: var(--surface-2);
         }
 
-        /* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
-           MODAL Ã¢â‚¬â€ project detail inner fixes
-        Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
+        /* ═══════════════════════════════════════════════
+           MODAL — project detail inner fixes
+        ═══════════════════════════════════════════════ */
 
         .modal-icon-wrap img.icon-fit-ecoxion {
             object-fit: contain;
@@ -4655,9 +4655,9 @@
             color: var(--cyan);
         }
 
-        /* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+        /* ═══════════════════════════════════════════════
            MISC OVERRIDES
-        Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
+        ═══════════════════════════════════════════════ */
 
         /* text-dim compat alias */
         :root { --text-dim: var(--ink-2); --brand-2: var(--cyan); --brand: var(--orange); --accent-primary: var(--cyan); --accent-secondary: var(--orange); --ok: var(--green); --warn: var(--yellow); --bg-card: var(--surface-1); --ink: var(--ink-0); --ink-soft: var(--ink-1); --paper: var(--surface-1); --surface: var(--surface-2); --line: var(--border); --glass-border: var(--border-mid); }
@@ -4693,9 +4693,9 @@
         }
 
 
-        /* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
-           BOOT OVERLAY REWORK Ã¢â‚¬â€ MODAL CON PASOS
-        Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
+        /* ═══════════════════════════════════════════════
+           BOOT OVERLAY REWORK — MODAL CON PASOS
+        ═══════════════════════════════════════════════ */
 
         /* Steps list */
         .boot-steps-list {
@@ -4816,9 +4816,9 @@
         }
         .boot-canvas-wrap { min-height: 120px; }
 
-        /* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
-           OCEAN PAY SIDEBAR Ã¢â‚¬â€ MINIMIZADO Y COLAPSABLE
-        Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
+        /* ═══════════════════════════════════════════════
+           OCEAN PAY SIDEBAR — MINIMIZADO Y COLAPSABLE
+        ═══════════════════════════════════════════════ */
 
         .sidebar-oceanpay {
             margin: 0.5rem 0.75rem 0.75rem;
@@ -4907,9 +4907,9 @@
             font-family: var(--font-mono);
         }
 
-        /* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
-           EVENTS FIX Ã¢â‚¬â€ news-hub-event-status classes
-        Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
+        /* ═══════════════════════════════════════════════
+           EVENTS FIX — news-hub-event-status classes
+        ═══════════════════════════════════════════════ */
 
         /* Fix for dynamic class names from getEventStatusLabel */
         .news-hub-event-status.status-active,
@@ -4926,7 +4926,7 @@
         .news-hub-event-status[class*="end"] { background: var(--surface-3) !important; color: var(--ink-2) !important; }
 
 
-        /* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â NEWS HUB TABS Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
+        /* ═══ NEWS HUB TABS ═══ */
         .news-hub-tabs-bar {
             display: flex;
             gap: 0.35rem;
@@ -4953,7 +4953,7 @@
         .news-hub-panel { display: none; }
         .news-hub-panel.active { display: block; }
 
-        /* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â EVENT STATUS Ã¢â‚¬â€ fix for dynamic klass values Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
+        /* ═══ EVENT STATUS — fix for dynamic klass values ═══ */
         .news-hub-event-status {
             font-size: 0.58rem; font-family: var(--font-mono); font-weight: 700;
             text-transform: uppercase; letter-spacing: 0.3px;
@@ -4979,14 +4979,14 @@
         }
 
 
-        /* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â EVENT CARD LAYOUT FIX Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
+        /* ═══ EVENT CARD LAYOUT FIX ═══ */
         .news-hub-list {
             display: flex;
             flex-direction: column;
             gap: 0.5rem;
         }
 
-        /* â•â•â• EVENTS DEDICATED SECTION â•â•â• */
+        /* ═══ EVENTS DEDICATED SECTION ═══ */
         .events-section { margin-bottom: 2rem; }
         .events-section-header {
             display: flex;
@@ -5000,7 +5000,7 @@
             gap: 0.85rem;
         }
 
-        /* â•â•â• EVENT CARD REWORK â•â•â• */
+        /* ═══ EVENT CARD REWORK ═══ */
         .news-hub-event-card {
             position: relative;
             border-radius: var(--r-md);
@@ -5119,7 +5119,7 @@
         .news-hub-event-card.empty { opacity: 0.45; cursor: default; }
         .news-hub-event-card.empty:hover { transform: none; box-shadow: none; }
 
-        /* â”€â”€ Banner horizontal layout â”€â”€ */
+        /* ── Banner horizontal layout ── */
         .news-hub-event-card.layout-banner { flex-direction: column; }
         .news-hub-event-card.layout-banner .news-hub-event-visual {
             width: 100%; height: 168px;
@@ -5128,7 +5128,7 @@
         }
         .news-hub-event-card.layout-banner .news-hub-event-copy { padding: 0.85rem 0.9rem 0.9rem; }
 
-        /* â”€â”€ Poster vertical layout â”€â”€ */
+        /* ── Poster vertical layout ── */
         .news-hub-event-card.layout-poster { flex-direction: row; align-items: stretch; }
         .news-hub-event-card.layout-poster .news-hub-event-visual {
             width: 90px; min-height: 120px; flex-shrink: 0;
@@ -5137,7 +5137,7 @@
         }
         .news-hub-event-card.layout-poster .news-hub-event-copy { padding: 0.85rem; flex: 1; min-width: 0; }
 
-        /* â”€â”€ Icon fallback layout â”€â”€ */
+        /* ── Icon fallback layout ── */
         .news-hub-event-card.layout-icon {
             flex-direction: row; align-items: flex-start;
             padding: 0.9rem; gap: 0.8rem;
@@ -5243,7 +5243,7 @@
             height: 2px; background: linear-gradient(90deg, transparent, rgba(40,217,138,0.6), transparent);
         }
 
-        /* â•â•â• EVENT DETAIL MODAL â•â•â• */
+        /* ═══ EVENT DETAIL MODAL ═══ */
         #event-detail-modal {
             position: fixed; inset: 0; z-index: 5900;
             display: none; align-items: center; justify-content: center;
@@ -5299,11 +5299,11 @@
         .event-detail-changes { margin-bottom: 0.85rem; }
         .event-detail-changes-title { font-size: 0.65rem; font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.5px; color: var(--ink-2); margin-bottom: 0.4rem; }
         .event-detail-change-item { font-size: 0.75rem; color: var(--ink-1); padding: 0.25rem 0; border-bottom: 1px solid rgba(255,255,255,0.04); display: flex; gap: 0.5rem; }
-        .event-detail-change-item::before { content: 'â€º'; color: var(--cyan); flex-shrink: 0; }
+        .event-detail-change-item::before { content: '›'; color: var(--cyan); flex-shrink: 0; }
         .event-detail-footer { padding: 0.85rem 1.25rem; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; }
 
 
-        /* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â SEARCH DROPDOWN Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
+        /* ═══ SEARCH DROPDOWN ═══ */
         .search-dropdown {
             position: absolute;
             top: calc(100% + 6px);
@@ -5405,7 +5405,7 @@
         }
 
 
-        /* â•â•â• EVENT CARD LAYOUT OVERRIDES (scoped, icon-only) â•â•â• */
+        /* ═══ EVENT CARD LAYOUT OVERRIDES (scoped, icon-only) ═══ */
         #news-hub-events-grid .news-hub-event-card.layout-icon,
         #news-hub-events .news-hub-event-card.layout-icon,
         #news-hub-events-wrap .news-hub-event-card.layout-icon {
@@ -5661,7 +5661,7 @@
     </div>
 </div>
 
-<!-- Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â BOOT OVERLAY Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â -->
+<!-- ═══ BOOT OVERLAY ═══ -->
 <div id="brand-splash-overlay" class="brand-splash-overlay" aria-hidden="true">
     <div class="brand-splash-core">
         <div class="brand-splash-orbit" aria-hidden="true"></div>
@@ -5755,7 +5755,7 @@
 
 </div>
 
-<!-- Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â GAME OVERLAY Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â -->
+<!-- ═══ GAME OVERLAY ═══ -->
 <div id="game-overlay">
     <div class="game-controls">
         <button class="topbar-btn" onclick="closeGame()"><i class="fas fa-house"></i> Volver</button>
@@ -5765,7 +5765,7 @@
     <iframe id="game-frame" title="OWS Game" allowfullscreen></iframe>
 </div>
 
-<!-- Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â DETAILS MODAL Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â -->
+<!-- ═══ DETAILS MODAL ═══ -->
 <div id="details-modal" onclick="if (event.target === this) closeDetails()">
     <div class="details-modal-shell">
         <button class="btn-close-modal" onclick="closeDetails()"><i class="fas fa-times"></i></button>
@@ -5788,7 +5788,7 @@
                 <div class="modal-stats">
                     <div class="stat-box">
                         <div class="stat-label">Ultima Actualizacion</div>
-                        <div class="stat-value" id="m-last-update">v1.0.0 Â· Sin datos</div>
+                        <div class="stat-value" id="m-last-update">v1.0.0 · Sin datos</div>
                     </div>
                     <div class="stat-box">
                         <div class="stat-label">Estado de Proyecto</div>
@@ -5873,7 +5873,7 @@
     </div>
 </div>
 
-<!-- Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â APP SHELL Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â -->
+<!-- ═══ APP SHELL ═══ -->
 <div class="app-container">
 
     <!-- SIDEBAR -->
@@ -6007,7 +6007,7 @@
             </div>
         </header>
 
-        <!-- Ã¢â€¢ÂÃ¢â€¢Â HOME Ã¢â€¢ÂÃ¢â€¢Â -->
+        <!-- ══ HOME ══ -->
         <section id="home-view" class="section">
 
             <!-- Hero -->
@@ -6239,7 +6239,7 @@
             </div>
         </section>
 
-        <!-- Ã¢â€¢ÂÃ¢â€¢Â LIBRARY Ã¢â€¢ÂÃ¢â€¢Â -->
+        <!-- ══ LIBRARY ══ -->
         <section id="library-view" class="section" style="display:none;">
             <div class="library-shell">
                 <div class="library-hero">
@@ -6291,7 +6291,7 @@
             </div>
         </section>
 
-        <!-- Ã¢â€¢ÂÃ¢â€¢Â UPDATES Ã¢â€¢ÂÃ¢â€¢Â -->
+        <!-- ══ UPDATES ══ -->
         <section id="updates-view" class="section" style="display:none;">
             <div class="updates-shell">
                 <div class="updates-title-area">
@@ -6450,7 +6450,7 @@
                         </div>
                     </div>
                     <div class="stat-box" id="settings-android-theme-box" style="grid-column:1 / -1;display:none;">
-                        <div class="stat-label">Android Â· Apariencia</div>
+                        <div class="stat-label">Android · Apariencia</div>
                         <div class="stat-value" style="display:flex;align-items:center;justify-content:space-between;gap:0.8rem;flex-wrap:wrap;">
                             <span id="settings-android-theme-current">Sin detectar</span>
                         </div>
@@ -6601,7 +6601,7 @@
 
 
 
-<!-- Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â CHANGELOG MODAL (panel lateral) Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â -->
+<!-- ═══ CHANGELOG MODAL (panel lateral) ═══ -->
 <div id="store-news-modal" aria-hidden="true" onclick="if(event.target===this)closeStoreTimelineModal()">
     <div class="changelog-modal-shell" id="store-news-modal-card">
         <div class="changelog-modal-header">
@@ -6745,7 +6745,7 @@
             const related = Array.isArray(entry?.projectNames) && entry.projectNames.length ? entry.projectNames[0] : 'Global';
             project.textContent = normalizeUiText(related);
             title.textContent = normalizeUiText(String(entry?.title || 'Noticia'));
-            meta.textContent = `${formatDateTime(entry?.updateDate)} Â· ${String(entry?.entryType || entry?.kind || 'news').toUpperCase()}`;
+            meta.textContent = `${formatDateTime(entry?.updateDate)} · ${String(entry?.entryType || entry?.kind || 'news').toUpperCase()}`;
             const lead = normalizeUiText(String(entry?.description || entry?.changes?.[0] || 'Sin vista previa.'));
             preview.textContent = lead;
             const blocks = Array.isArray(entry?.changes) ? entry.changes : [];
@@ -7045,7 +7045,7 @@
             release_date: OCEAN_CINEMAS_RELEASE_DATE_ISO,
             description: 'Plataforma de cine del ecosistema OWS. Series, peliculas y estrenos exclusivos.',
             icon_url: OCEAN_CINEMAS_LOCAL_ICON
-            // scheduled_release comes from API metadata â€” no hardcoding needed
+            // scheduled_release comes from API metadata — no hardcoding needed
         };
         const MYSTERY_PROJECT = {
             slug: 'mystery-project',
@@ -8721,7 +8721,7 @@
                 pendingOceanPayTwoFactorChallenge = null;
                 hideTransition();
                 setFormDisabled(false);
-                setPreloginStatus('ValidaciÃ³n 2FA cancelada.', 'error');
+                setPreloginStatus('Validación 2FA cancelada.', 'error');
             };
 
             twoFactorVerifyBtn.onclick = async () => {
@@ -8802,7 +8802,7 @@
                         setFormDisabled(false);
                         showTransition({
                             mode: 'loading',
-                            title: 'VerificaciÃ³n adicional requerida',
+                            title: 'Verificación adicional requerida',
                             detail: 'Abre Ocean Pay y copia el código solicitado para validar acceso.',
                             scope: 'left'
                         });
@@ -9859,7 +9859,7 @@
             const latestProject = [...allProjects].sort((a, b) => getProjectLastUpdateMs(b) - getProjectLastUpdateMs(a))[0];
             if (latestEl) {
                 latestEl.textContent = latestProject
-                    ? `${latestProject.name} Â· v${getProjectDisplayVersion(latestProject) || '1.0.0'} Â· ${getProjectLastUpdateLabel(latestProject)}`
+                    ? `${latestProject.name} · v${getProjectDisplayVersion(latestProject) || '1.0.0'} · ${getProjectLastUpdateLabel(latestProject)}`
                     : 'Sin datos';
             }
 
@@ -9897,7 +9897,7 @@
                     const bFreq = getExploreUpdateFrequency(b);
                     const diffDays = Math.abs(aTs - bTs) / 86400000;
                     const newer = aTs >= bTs ? a.name : b.name;
-                    compareOut.textContent = `${a.name} (${aFreq.label}) vs ${b.name} (${bFreq.label}) Â· Mas reciente: ${newer} Â· Diferencia de update: ${diffDays.toFixed(1)} dias.`;
+                    compareOut.textContent = `${a.name} (${aFreq.label}) vs ${b.name} (${bFreq.label}) · Mas reciente: ${newer} · Diferencia de update: ${diffDays.toFixed(1)} dias.`;
                 }
             }
 
@@ -9956,7 +9956,7 @@
                             ${freq.note ? `<span class="version-center-freq-note">${freq.note}</span>` : ''}
                         </div>
                         <div class="hide-sm">${last}</div>
-                        <div><span class="status ${status.klass}">${status.label}</span> Â· <span class="hide-sm">${platform}</span></div>
+                        <div><span class="status ${status.klass}">${status.label}</span> · <span class="hide-sm">${platform}</span></div>
                     </div>`;
             }).join('');
 
@@ -13986,7 +13986,7 @@
                             <button class="btn-secondary project-update-manual-confirm" title="Marcar como instalado manualmente"
                                 onclick="openManualInstallConfirm('${project.slug}', '${info.platformDetails.find(d=>d.needsUpdate)?.platform || 'windows'}', '${info.platformDetails.find(d=>d.needsUpdate)?.latestVersion || ''}')"
                                 style="font-size:0.7rem;padding:0.4rem 0.7rem;opacity:0.7;">
-                                <i class="fas fa-check-double"></i> Ya lo instalÃ©
+                                <i class="fas fa-check-double"></i> Ya lo instalé
                             </button>
                         </div>
                     </div>
@@ -13996,7 +13996,7 @@
             list.innerHTML = `${gateNoticeHtml}${toolbarHtml}${list.innerHTML}`;
         }
 
-        // â”€â”€ MANUAL INSTALL CONFIRMATION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── MANUAL INSTALL CONFIRMATION ──────────────────────────────────────────
         function openManualInstallConfirm(slug, platform, latestVersion) {
             const project = getProjectBySlug(slug);
             if (!project) return;
@@ -14101,7 +14101,7 @@
                 
                 let detectedVersion = null;
                 
-                // MÃ©todo 1: Leer package.json directamente (mÃ¡s preciso)
+                // Método 1: Leer package.json directamente (más preciso)
                 if (window.owsUpdater?.readProjectPackageJson && projectPaths[slug]) {
                     try {
                         const packageData = await window.owsUpdater.readProjectPackageJson(projectPaths[slug]);
@@ -14111,7 +14111,7 @@
                     } catch (e) {}
                 }
                 
-                // MÃ©todo 2: Usar resolveInstalledApp (fallback)
+                // Método 2: Usar resolveInstalledApp (fallback)
                 if (!detectedVersion) {
                     const hints = getInstallHints(project);
                     const result = await Promise.race([
@@ -14128,7 +14128,7 @@
                     scanResult.style.background = 'rgba(40,217,138,0.08)';
                     scanResult.style.border = '1px solid rgba(40,217,138,0.2)';
                     scanResult.style.color = 'var(--green)';
-                    scanResult.textContent = `âœ“ Detectado en disco Â· v${detectedVersion}`;
+                    scanResult.textContent = `✓ Detectado en disco · v${detectedVersion}`;
                 } else {
                     scanResult.style.background = 'rgba(245,197,66,0.08)';
                     scanResult.style.border = '1px solid rgba(245,197,66,0.2)';
@@ -14177,7 +14177,7 @@
             window._micPlatform = null;
             window._micLatestVersion = null;
         }
-        // â”€â”€ END MANUAL INSTALL CONFIRMATION â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── END MANUAL INSTALL CONFIRMATION ──────────────────────────────────────
 
         function notifyProjectIncompatible(slug = '', platform = '') {
             const project = getProjectBySlug(slug);
@@ -14290,7 +14290,7 @@
             const tone = toneColors[item.tone] || toneColors.neutral;
             return `
                 <div class="notification-card" style="--tone-color:${tone};">
-                    <div class="notification-time">${formatDateTime(item.date)} Â· ${String(item.type || 'dato').toUpperCase()} Â· ${getPlatformLabelFromKinds(item.platforms || ['all'])}</div>
+                    <div class="notification-time">${formatDateTime(item.date)} · ${String(item.type || 'dato').toUpperCase()} · ${getPlatformLabelFromKinds(item.platforms || ['all'])}</div>
                     <div class="notification-text">${item.title}</div>
                     <div class="notification-time" style="margin-top:0.2rem;">${item.text}</div>
                 </div>
@@ -14402,7 +14402,7 @@
                         <div class="changelog-detail-version">${escHtml(item.title || 'Sin titulo')}</div>
                         ${langToggleHtml}
                     </div>
-                    <div class="changelog-detail-date">${item.date ? formatDateTime(item.date) : 'Fecha desconocida'} Â· ${String(item.type || 'changelog').toUpperCase()}</div>
+                    <div class="changelog-detail-date">${item.date ? formatDateTime(item.date) : 'Fecha desconocida'} · ${String(item.type || 'changelog').toUpperCase()}</div>
                     <div class="changelog-detail-platforms">${platformChips}</div>
                 </div>
                 ${activeDesc ? `<div class="changelog-detail-desc">${escHtml(activeDesc)}</div>` : ''}
@@ -14595,7 +14595,7 @@
             renderExploreInsights();
         }
 
-        // â•â•â• IMPORT MODAL â•â•â•
+        // ═══ IMPORT MODAL ═══
         let _importMode = 'auto'; // 'auto' | 'manual'
         let _importResults = []; // [{ slug, name, icon, version, detected, skip }]
 
@@ -14624,14 +14624,14 @@
                     </p>
                     <div class="import-mode-grid">
                         <div class="import-mode-card selected" id="import-card-auto" onclick="selectImportMode('auto')">
-                            <div class="import-mode-icon">ðŸ”</div>
-                            <div class="import-mode-label">AutomÃ¡tico</div>
-                            <div class="import-mode-desc">Carga todos los proyectos con su versiÃ³n mÃ¡s reciente. EditÃ¡ las versiones que ya tenÃ©s instaladas antes de confirmar.</div>
+                            <div class="import-mode-icon">📦</div>
+                            <div class="import-mode-label" data-i18n="Automático">Automático</div>
+                            <div class="import-mode-desc">Carga todos los proyectos con su versión más reciente. Editá las versiones que ya tenés instaladas antes de confirmar.</div>
                         </div>
                         <div class="import-mode-card" id="import-card-manual" onclick="selectImportMode('manual')">
-                            <div class="import-mode-icon">ðŸ“‚</div>
-                            <div class="import-mode-label">Manual</div>
-                            <div class="import-mode-desc">IndicÃ¡s la ruta del instalador de cada proyecto. PodÃ©s ignorar los que no tenÃ©s.</div>
+                            <div class="import-mode-icon">📂</div>
+                            <div class="import-mode-label" data-i18n="Manual">Manual</div>
+                            <div class="import-mode-desc">Indicás la ruta del instalador de cada proyecto. Podés ignorar los que no tenés.</div>
                         </div>
                     </div>
                 `;
@@ -14655,8 +14655,8 @@
                 body.innerHTML = `
                     <p style="font-size:0.78rem;color:var(--ink-2);margin-bottom:0.75rem;">
                         ${_importMode === 'auto'
-                            ? `Se detectaron <strong style="color:var(--cyan)">${detected}</strong> proyecto(s) instalado(s). RevisÃ¡ y confirmÃ¡.`
-                            : `RevisÃ¡ las versiones detectadas. PodÃ©s editarlas antes de importar.`}
+                            ? `Se detectaron <strong style="color:var(--cyan)">${detected}</strong> proyecto(s) instalado(s). Revisá y confirmá.`
+                            : `Revisá las versiones detectadas. Podés editarlas antes de importar.`}
                     </p>
                     <div id="import-results-list">
                         ${_importResults.map((r, i) => `
@@ -14664,8 +14664,8 @@
                                 <img class="import-project-icon" src="${r.icon}" onerror="this.src=''" alt="">
                                 <span class="import-project-name">${escHtml(r.name)}</span>
                                 ${r.detected
-                                    ? `<input class="import-manual-input" type="text" value="${escHtml(r.version)}" id="import-ver-${i}" placeholder="version" title="VersiÃ³n detectada">`
-                                    : `<input class="import-manual-input" type="text" value="" id="import-ver-${i}" placeholder="no detectado" title="IngresÃ¡ la versiÃ³n manualmente">`}
+                                    ? `<input class="import-manual-input" type="text" value="${escHtml(r.version)}" id="import-ver-${i}" placeholder="version" title="Versión detectada">`
+                                    : `<input class="import-manual-input" type="text" value="" id="import-ver-${i}" placeholder="no detectado" title="Ingresá la versión manualmente">`}
                                 <span class="import-project-status ${r.detected ? 'ok' : 'skip'}">${r.detected ? 'DETECTADO' : 'NO ENCONTRADO'}</span>
                                 <button type="button" title="${r.skip ? 'Incluir' : 'Ignorar'}" onclick="toggleImportSkip(${i})"
                                     style="background:none;border:none;cursor:pointer;color:var(--ink-2);font-size:0.9rem;padding:2px 4px;">
@@ -14683,14 +14683,14 @@
                 const projects = getImportableProjects();
                 body.innerHTML = `
                     <p style="font-size:0.78rem;color:var(--ink-2);margin-bottom:0.75rem;">
-                        IngresÃ¡ la versiÃ³n instalada de cada proyecto. DejÃ¡ en blanco o presionÃ¡ el ojo para ignorar los que no tenÃ©s.
+                        Ingresá la versión instalada de cada proyecto. Dejá en blanco o presioná el ojo para ignorar los que no tenés.
                     </p>
                     <div id="import-results-list">
                         ${projects.map((p, i) => `
                             <div class="import-project-row" id="import-row-${i}">
                                 <img class="import-project-icon" src="${getProjectIcon(p, 32)}" onerror="this.src=''" alt="">
                                 <span class="import-project-name">${escHtml(p.name)}</span>
-                                <input class="import-manual-input" type="text" value="" id="import-ver-${i}" placeholder="ej: 2026.4.1" title="VersiÃ³n instalada">
+                                <input class="import-manual-input" type="text" value="" id="import-ver-${i}" placeholder="ej: 2026.4.1" title="Versión instalada">
                                 <button type="button" title="Ignorar" onclick="toggleManualSkip(${i})" id="import-skip-${i}"
                                     style="background:none;border:none;cursor:pointer;color:var(--ink-2);font-size:0.9rem;padding:2px 4px;">
                                     <i class="fas fa-eye"></i>
@@ -14709,7 +14709,7 @@
                 body.innerHTML = `
                     <div style="text-align:center;padding:2rem 0;">
                         <i class="fas fa-check-circle" style="font-size:2.5rem;color:var(--green);margin-bottom:1rem;display:block;"></i>
-                        <p style="font-size:1rem;font-weight:700;color:var(--ink-0);" id="import-done-msg">ImportaciÃ³n completada</p>
+                        <p style="font-size:1rem;font-weight:700;color:var(--ink-0);" id="import-done-msg">Importación completada</p>
                         <p style="font-size:0.78rem;color:var(--ink-2);margin-top:0.5rem;" id="import-done-sub"></p>
                     </div>
                 `;
@@ -14736,8 +14736,8 @@
                 renderImportStep('manual');
                 return;
             }
-            // Modo automÃ¡tico: NO usa IPC. Muestra proyectos con versiÃ³n del servidor
-            // y versiÃ³n instalada conocida (localStorage). El usuario confirma o edita.
+            // Modo automático: NO usa IPC. Muestra proyectos con versión del servidor
+            // y versión instalada conocida (localStorage). El usuario confirma o edita.
             renderImportStep('scanning');
             const projects = getImportableProjects();
             _importResults = [];
@@ -14810,7 +14810,7 @@
             });
             renderImportStep('done');
             document.getElementById('import-done-msg').textContent = `${count} proyecto(s) importado(s)`;
-            document.getElementById('import-done-sub').textContent = 'OWS Store ya conoce las versiones instaladas y no pedirÃ¡ actualizaciones innecesarias.';
+            document.getElementById('import-done-sub').textContent = 'OWS Store ya conoce las versiones instaladas y no pedirá actualizaciones innecesarias.';
             // Refresh library
             setTimeout(() => {
                 refreshInstallationStates().then(() => {
@@ -14836,7 +14836,7 @@
             });
             renderImportStep('done');
             document.getElementById('import-done-msg').textContent = `${count} proyecto(s) importado(s)`;
-            document.getElementById('import-done-sub').textContent = 'Las versiones fueron guardadas. OWS Store las usarÃ¡ para comparar con futuras actualizaciones.';
+            document.getElementById('import-done-sub').textContent = 'Las versiones fueron guardadas. OWS Store las usará para comparar con futuras actualizaciones.';
             setTimeout(() => {
                 refreshInstallationStates().then(() => {
                     scheduleSectionRender({ projects: true, library: true, immediate: true });
@@ -14852,7 +14852,7 @@
                 if (!arr.includes(slug)) { arr.push(slug); localStorage.setItem(PROJECT_LIBRARY_KEY, JSON.stringify(arr)); }
                 } catch (_) {}
         }
-        // â•â•â• END IMPORT MODAL â•â•â•
+        // ═══ END IMPORT MODAL ═══
 
         async function loadProjects(options = {}) {
             const onProgress = typeof options?.onProgress === 'function' ? options.onProgress : null;
@@ -16810,10 +16810,10 @@
             let text = String(input || '');
             if (!text) return '';
             const map = [
-                ['Ã¡', 'a'], ['Ã©', 'e'], ['Ã­', 'i'], ['Ã³', 'o'], ['Ãº', 'u'], ['Ã±', 'n'],
-                ['ÃƒÂ', 'A'], ['Ãƒâ€°', 'E'], ['ÃƒÂ', 'I'], ['Ãƒâ€œ', 'O'], ['ÃƒÅ¡', 'U'], ['Ãƒâ€˜', 'N'],
-                ['Ã¢â‚¬â€', '-'], ['Ã¢â‚¬â€œ', '-'], ['Ã¢â‚¬Å“', '"'], ['Ã¢â‚¬Â', '"'], ['Ã¢â‚¬Ëœ', "'"], ['Ã¢â‚¬â„¢', "'"],
-                ['Ã¢â‚¬Â¢', '-'], ['Ã¢â‚¬Â¦', '...']
+                ['á', 'a'], ['é', 'e'], ['í', 'i'], ['ó', 'o'], ['ú', 'u'], ['ñ', 'n'],
+                ['Á', 'A'], ['É', 'E'], ['Í', 'I'], ['Ó', 'O'], ['Ú', 'U'], ['Ñ', 'N'],
+                ['—', '-'], ['–', '-'], ['"', '"'], ['"', '"'], [''', "'"], [''', "'"],
+                ['•', '-'], ['…', '...']
             ];
             for (const [bad, good] of map) {
                 text = text.split(bad).join(good);
@@ -16951,7 +16951,7 @@
 
         function getEcoxionIconSource(project, size = 64) {
             const fallback = `https://placehold.co/${size}/07121f/26e0ff?text=ECX`;
-            // Use .ico directly Ã¢â‚¬â€ PNG was horizontal and looked unprofessional
+            // Use .ico directly — PNG was horizontal and looked unprofessional
             return ECOXION_LOCAL_ICON || fallback;
         }
 
@@ -17151,7 +17151,7 @@
             const restrictionState = getProjectStoreRestrictionState(project);
             const isRework = restrictionState === 'rework';
             if (projectNameEl) projectNameEl.textContent = projectName;
-            if (projectStateEl) projectStateEl.textContent = isRework ? `Pleno Rework Â· ${reason}` : reason;
+            if (projectStateEl) projectStateEl.textContent = isRework ? `Pleno Rework · ${reason}` : reason;
             if (textEl) textEl.textContent = `${projectName} ya no tiene soporte en OWS Store. Por seguridad, las versiones anteriores se bloquean y no se permite instalar, actualizar ni abrir hasta que vuelva a estado disponible.`;
             if (noteEl) noteEl.textContent = isRework
                 ? 'Motivo detectado: pleno rework. OWS Store volvera a habilitar la distribucion cuando cierre este proceso.'
@@ -17331,7 +17331,7 @@
                     
 
                     wildWeapon.pending_release = !wildWeapon.installer_available;
-                    // scheduled_release comes from API metadata â€” no hardcoding needed
+                    // scheduled_release comes from API metadata — no hardcoding needed
                     if (latest?.warning) {
                         wildWeapon.pending_release = true;
                         wildWeapon.release_warning = latest.warning;
@@ -18556,7 +18556,7 @@
             return localStorage.getItem(`installed_${slug}`) || '';
         }
         
-        // DetecciÃ³n automÃ¡tica de versiones instaladas desde archivos del sistema
+        // Detección automática de versiones instaladas desde archivos del sistema
         async function autoDetectInstalledVersions() {
             if (!window.owsUpdater?.readProjectPackageJson) return;
             
@@ -19287,7 +19287,7 @@
                 'stable': 'Estable'
             };
             const projectPhase = PHASE_MAP[phaseRaw] || 'Estable';
-            const detailNewTag = hasNewBadge(p) ? ' Â· NUEVO!' : '';
+            const detailNewTag = hasNewBadge(p) ? ' · NUEVO!' : '';
             const displayName = normalizeUiText(String(p.name || 'Proyecto'));
             const displayShort = normalizeUiText(String(getProjectShort(p) || ''));
             const displayDesc = normalizeUiText(String(p.description || "Explora una nueva dimension de entretenimiento con este proyecto oficial de Ocean and Wild Studios."));
@@ -19350,7 +19350,7 @@
             const releaseDate = selectedTarget?.publishedAt || getProjectLastUpdateAt(p) || '';
             const lastUpdateEl = document.getElementById('m-last-update');
             if (lastUpdateEl) {
-                lastUpdateEl.innerText = `v${modalVersion} Â· ${releaseDate ? formatDateTime(releaseDate) : 'Sin datos'}`;
+                lastUpdateEl.innerText = `v${modalVersion} · ${releaseDate ? formatDateTime(releaseDate) : 'Sin datos'}`;
             }
             // Scheduled release: show upcoming version info in modal
             const scheduledRel = p.scheduled_release && typeof p.scheduled_release === 'object' ? p.scheduled_release : null;
@@ -19365,7 +19365,7 @@
                             timeZone: 'America/Montevideo'
                         });
                         scheduledRelEl.style.display = 'flex';
-                        scheduledRelEl.innerHTML = `<i class="fas fa-calendar-check"></i><span>v${escHtml(scheduledRel.version)} disponible el ${relFmt}${scheduledRel.label ? ' Â· ' + escHtml(scheduledRel.label) : ''}</span>`;
+                        scheduledRelEl.innerHTML = `<i class="fas fa-calendar-check"></i><span>v${escHtml(scheduledRel.version)} disponible el ${relFmt}${scheduledRel.label ? ' · ' + escHtml(scheduledRel.label) : ''}</span>`;
                     } else {
                         scheduledRelEl.style.display = 'none';
                     }
@@ -19402,7 +19402,7 @@
                         const lockLabel = trailerCfg.lockedUntil ? formatDateTime(trailerCfg.lockedUntil) : 'fecha por definir';
                         if (trailerLockText) trailerLockText.textContent = `Trailer bloqueado hasta ${lockLabel}.`;
                         trailerState.textContent = 'Bloqueado';
-                        trailerMeta.textContent = `${trailerCfg.title} Â· Disponible desde ${lockLabel}`;
+                        trailerMeta.textContent = `${trailerCfg.title} · Disponible desde ${lockLabel}`;
                     } else {
                         trailerVideo.controls = true;
                         trailerLock.style.display = 'none';
@@ -21310,7 +21310,7 @@
             setTimeout(() => buildRecommendations(), 2000);
         }
 
-        // Ã¢â€â‚¬Ã¢â€â‚¬ Search dropdown Ã¢â€â‚¬Ã¢â€â‚¬
+        // ── Search dropdown ──
         let searchDropdownVisible = false;
         let searchHideTimer = null;
         let recommendedProjects = [];
@@ -21398,7 +21398,7 @@
             return `<span class="search-freq-tag ${f.cls}">${f.label}</span>`;
         }
 
-        // Ã¢â€â‚¬Ã¢â€â‚¬ Recommendation engine Ã¢â€â‚¬Ã¢â€â‚¬
+        // ── Recommendation engine ──
         async function buildRecommendations() {
             if (!allProjects.length) return;
             const installed = allProjects.filter(p => {
@@ -21491,7 +21491,7 @@
             };
 
             try {
-                // Ã¢â€â‚¬Ã¢â€â‚¬ Floret: list of releases Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+                // ── Floret: list of releases ──────────────────────────────
                 if (LIST_URLS[slug]) {
                     const res = await fetch(`${LIST_URLS[slug]}&nocache=${Date.now()}`,
                         { cache: 'no-store', headers: { Accept: 'application/vnd.github+json' } });
@@ -21515,20 +21515,20 @@
                     return 'low';
                 }
 
-                // Ã¢â€â‚¬Ã¢â€â‚¬ All other tracked projects: /releases/latest Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+                // ── All other tracked projects: /releases/latest ──────────
                 if (LATEST_URLS[slug]) {
                     const res = await fetch(`${LATEST_URLS[slug]}?nocache=${Date.now()}`,
                         { cache: 'no-store', headers: { Accept: 'application/vnd.github+json' } });
                     if (!res.ok) return 'single';
                     const r = await res.json();
-                    // published_at is null in this proxy Ã¢â‚¬â€ use tag_name
+                    // published_at is null in this proxy — use tag_name
                     const ts = Date.parse(r.published_at || r.created_at || '');
                     const ms = (ts && !isNaN(ts)) ? ts : tagToMs(r.tag_name);
                     const result = grade(ms);
                     return result;
                 }
 
-                // Ã¢â€â‚¬Ã¢â€â‚¬ metadata.repo fallback Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬
+                // ── metadata.repo fallback ────────────────────────────────
                 const repo = String(project?.metadata?.repo || '').replace(/^OceanandWild\//i,'').trim();
                 if (repo) {
                     const res = await fetch(`${GITHUB_RELEASES_PROXY_BASE}/${repo}/releases/latest?nocache=${Date.now()}`,
@@ -22373,15 +22373,15 @@
             stopBootCanvasAnimation();
         };
 
-        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-        // Sistema de traducciÃ³n con diccionario estÃ¡tico
-        // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+        // ═══════════════════════════════════════════════════════════════════════
+        // Sistema de traducción con diccionario estático
+        // ═══════════════════════════════════════════════════════════════════════
         
         let currentLanguage = localStorage.getItem('ows-store-language') || 'es';
         let isTranslating = false;
         
         const translations = {
-            // NavegaciÃ³n principal
+            // Navegación principal
             'Explorar': 'Explore',
             'Biblioteca': 'Library',
             'Actualizaciones': 'Updates',
@@ -22460,7 +22460,7 @@
             // Ecosystem Versions
             'Ecosystem Versions': 'Ecosystem Versions',
             'Control de versiones y actividad de proyectos': 'Version Control and Project Activity',
-            'Resumen completo de versiones por proyecto, estado de actualizaciÃ³n y comparaciÃ³n rÃ¡pida.': 'Complete version summary by project, update status and quick comparison.',
+            'Resumen completo de versiones por proyecto, estado de actualización y comparación rápida.': 'Complete version summary by project, update status and quick comparison.',
             'PROXIMAMENTE': 'COMING SOON',
             'SORT BY': 'SORT BY',
             'ORDER': 'ORDER',
@@ -22469,7 +22469,7 @@
             'Ultima actualizacion': 'Last Update',
             'Descendente': 'Descending',
             'Ascendente': 'Ascending',
-            'Selecciona dos proyectos para comparar versiones y ritmo de actualizaciÃ³n.': 'Select two projects to compare versions and update pace.',
+            'Selecciona dos proyectos para comparar versiones y ritmo de actualización.': 'Select two projects to compare versions and update pace.',
             'PROYECTO': 'PROJECT',
             'VERSION': 'VERSION',
             'FRECUENCIA': 'FREQUENCY',
@@ -22490,7 +22490,7 @@
             'IDIOMA': 'LANGUAGE',
             'Idioma': 'Language',
             'English': 'English',
-            'EspaÃ±ol': 'Spanish',
+            'Español': 'Spanish',
             'Cambia el idioma de la interfaz de OWS Store. Los cambios se aplican inmediatamente.': 'Change the OWS Store interface language. Changes apply immediately.',
             'MODO DE ARRANQUE SILENCIOSO': 'SILENT STARTUP MODE',
             'Modo de arranque silencioso': 'Silent Startup Mode',
@@ -22512,7 +22512,7 @@
             'Firma local de datos': 'Local Data Signature',
             'Forzar actualizacion ahora': 'Force Update Now',
             'Ejecutar revision silenciosa': 'Run Silent Check',
-            'Android Â· Apariencia': 'Android Â· Appearance',
+            'Android · Apariencia': 'Android · Appearance',
             'Sin detectar': 'Not Detected',
             'Ajuste exclusivo para OWS Store Android. Mejora contraste y legibilidad para evitar texto invisible en claro/oscuro.': 'Exclusive setting for OWS Store Android. Improves contrast and readability to avoid invisible text in light/dark.',
             'Sistema': 'System',
@@ -22565,11 +22565,11 @@
             'Para continuar, abre Ocean Pay, ve a Configuración > Seguridad, copia el código solicitado por OWS Store y pégalo aquí.': 'To continue, open Ocean Pay, go to Settings > Security, copy the code requested by OWS Store and paste it here.',
             'Código de verificación': 'Verification Code',
             'Verificar y entrar': 'Verify and Enter',
-            'Inteligencia oceÃ¡nica para el ecosistema digital moderno.': 'Oceanic intelligence for the modern digital ecosystem.',
+            'Inteligencia oceánica para el ecosistema digital moderno.': 'Oceanic intelligence for the modern digital ecosystem.',
             'Seguridad refractiva': 'Refractive Security',
             'Capas cifradas inspiradas en las profundidades.': 'Encrypted layers inspired by the depths.',
             'Interfaz fluida': 'Fluid Interface',
-            'Navega el ecosistema desde un Ãºnico hub adaptable.': 'Navigate the ecosystem from a single adaptable hub.',
+            'Navega el ecosistema desde un único hub adaptable.': 'Navigate the ecosystem from a single adaptable hub.',
             
             // Status
             'Descargando': 'Downloading',
@@ -22627,7 +22627,7 @@
             'Reciente': 'Recent',
             'historial corto': 'short history',
             'Reciente (historial corto)': 'Recent (short history)',
-            'CatÃ¡logo:': 'Catalog:',
+            'Catálogo:': 'Catalog:',
             'Catalogo:': 'Catalog:',
             'Sincronizando catalogo de proyectos': 'Syncing project catalog',
             'Catalogo de proyectos sincronizado.': 'Project catalog synced.',
@@ -22641,42 +22641,42 @@
             'Para esta plataforma': 'For This Platform',
             'En otra plataforma': 'On Another Platform',
             'Sin accion urgente': 'No Urgent Action',
-            'al dÃ­a': 'up to date',
+            'al día': 'up to date',
             'instalada': 'installed',
-            'ActualizaciÃ³n detectada para Windows.': 'Update detected for Windows.',
-            'ActualizaciÃ³n detectada para Windows': 'Update detected for Windows',
-            'esta al dÃ­a en Windows': 'is up to date on Windows',
-            'esta al dÃ­a en Windows.': 'is up to date on Windows.',
+            'Actualización detectada para Windows.': 'Update detected for Windows.',
+            'Actualización detectada para Windows': 'Update detected for Windows',
+            'esta al día en Windows': 'is up to date on Windows',
+            'esta al día en Windows.': 'is up to date on Windows.',
             'esta al dia en Windows': 'is up to date on Windows',
             'esta al dia en Windows.': 'is up to date on Windows.',
             'esta al dia en': 'is up to date on',
-            'esta al dÃ­a en': 'is up to date on',
+            'esta al día en': 'is up to date on',
             'Al dia': 'Up to date',
             'AL DIA': 'UP TO DATE',
             'al dia': 'up to date',
-            'Cada 15s (Ãºltimo: hace 1s)': 'Every 15s (last: 1s ago)',
-            'Cada 15s (Ãºltimo: hace': 'Every 15s (last:',
-            'Ãºltimo: hace': 'last:',
+            'Cada 15s (último: hace 1s)': 'Every 15s (last: 1s ago)',
+            'Cada 15s (último: hace': 'Every 15s (last:',
+            'último: hace': 'last:',
             'Iniciando': 'Starting',
             'Iniciando...': 'Starting...',
             'No checks': 'No checks',
             'ultima:': 'latest:',
-            'Ãºltima:': 'latest:',
+            'última:': 'latest:',
             'Si ya instalaste la versión': 'If you already installed version',
             'externamente, confirmalo aquí para que OWS Store no siga mostrando la update como pendiente.': 'externally, confirm it here so OWS Store stops showing the update as pending.',
-            'VersiÃ³n instalada (confirmar o editar)': 'Installed version (confirm or edit)',
-            'VERSIÃ“N INSTALADA (CONFIRMAR O EDITAR)': 'INSTALLED VERSION (CONFIRM OR EDIT)',
+            'Versión instalada (confirmar o editar)': 'Installed version (confirm or edit)',
+            'VERSIÓN INSTALADA (CONFIRMAR O EDITAR)': 'INSTALLED VERSION (CONFIRM OR EDIT)',
             'Sin eventos vinculados a este proyecto.': 'No events linked to this project.',
             'Sin changelogs vinculados a este proyecto.': 'No changelogs linked to this project.',
             'Disponible': 'Available',
-            'TamaÃ±o': 'Size',
+            'Tamaño': 'Size',
             'INSTALAR PROYECTO': 'INSTALL PROJECT',
-            'IngresÃ¡ la versiÃ³n instalada para confirmar.': 'Enter the installed version to confirm.',
-            'IngresÃ¡ la versiÃ³n instalada de cada proyecto. DejÃ¡ en blanco o presionÃ¡ el ojo para ignorar los que no tenÃ©s.': 'Enter the installed version of each project. Leave blank or press the eye to ignore the ones you do not have.',
-            'VersiÃ³n instalada': 'Installed version',
-            'Error de actualizaciÃ³n:': 'Update error:',
+            'Ingresá la versión instalada para confirmar.': 'Enter the installed version to confirm.',
+            'Ingresá la versión instalada de cada proyecto. Dejá en blanco o presioná el ojo para ignorar los que no tenés.': 'Enter the installed version of each project. Leave blank or press the eye to ignore the ones you do not have.',
+            'Versión instalada': 'Installed version',
+            'Error de actualización:': 'Update error:',
             'Error de actualizacion:': 'Update error:',
-            'ActualizaciÃ³n disponible para': 'Update available for',
+            'Actualización disponible para': 'Update available for',
             'Actualizacion disponible para': 'Update available for',
             'Import installations': 'Import installations',
             'Importa proyectos que ya instalaste externamente para que OWS Store reconozca su version y no te pida actualizarlos innecesariamente.': 'Import projects you already installed externally so OWS Store recognizes their version and does not ask you to update them unnecessarily.',
@@ -22689,7 +22689,7 @@
             'When you start a download or update, it will appear here.': 'When you start a download or update, it will appear here.',
             'Sin actualizaciones pendientes': 'No pending updates',
             'Cada 15s': 'Every 15s',
-            'Ãºltimo: hace': 'last: ago',
+            'último: hace': 'last: ago',
             'Instalador abierto para': 'Installer opened for',
             'less than 5s': 'less than 5s',
             'Unresolved tag': 'Unresolved tag',
@@ -22706,12 +22706,12 @@
             'Con update': 'With update',
             'Actualizar Windows': 'Update Windows',
             'Already Installed': 'Already Installed',
-            'ActualizaciÃ³n detectada para Windows': 'Update detected for Windows',
-            'ActualizaciÃ³n detectada para Windows.': 'Update detected for Windows.',
-            'CatÃ¡logo:': 'Catalog:',
+            'Actualización detectada para Windows': 'Update detected for Windows',
+            'Actualización detectada para Windows.': 'Update detected for Windows.',
+            'Catálogo:': 'Catalog:',
             'Instalada:': 'Installed:',
             'No instalada en este dispositivo': 'Not installed on this device',
-            'Ãºltima:': 'latest:',
+            'última:': 'latest:',
             'ultima:': 'latest:',
             'con update': 'with update',
             'visibles': 'visible',
@@ -22721,11 +22721,11 @@
             'Recargar e instalar': 'Reload and install',
             'para aplicar la nueva version': 'to apply the new version',
             'Descarga completa. Presiona "Recargar e instalar" para aplicar la nueva version.': 'Download complete. Press "Reload and install" to apply the new version.',
-            'ActualizaciÃ³n disponible': 'Update available',
-            'VersiÃ³n': 'Version',
+            'Actualización disponible': 'Update available',
+            'Versión': 'Version',
             'detectada': 'detected',
-            'Iniciando descarga automÃ¡tica': 'Starting automatic download',
-            'Iniciando descarga automÃ¡tica...': 'Starting automatic download...',
+            'Iniciando descarga automática': 'Starting automatic download',
+            'Iniciando descarga automática...': 'Starting automatic download...',
             'Buscando updates': 'Checking for updates',
             'Buscando updates Android': 'Checking for Android updates',
             'Comprobando nuevas versiones de OWS Store...': 'Checking for new OWS Store versions...',
@@ -22734,8 +22734,8 @@
             'Select a version in the left panel to view its details': 'Select a version in the left panel to view its details',
             'Fecha desconocida': 'Unknown date',
             'CHANGELOG': 'CHANGELOG',
-            'VersiÃ³n de Windows disponible para instalar.': 'Windows version available to install.',
-            'VersiÃ³n de Windows disponible para instalar': 'Windows version available to install',
+            'Versión de Windows disponible para instalar.': 'Windows version available to install.',
+            'Versión de Windows disponible para instalar': 'Windows version available to install',
             'Cobertura de guard de dispon': 'Guard coverage available',
             'dispon': 'available',
             'changelog': 'changelog',
@@ -22751,7 +22751,7 @@
             'Intentar de nuevo': 'Try again',
             'Reintentar': 'Retry',
             
-            // TamaÃ±os y unidades
+            // Tamaños y unidades
             'bytes': 'bytes',
             'KB': 'KB',
             'MB': 'MB',
@@ -22769,8 +22769,8 @@
             'semanas': 'weeks',
             'mes': 'month',
             'meses': 'months',
-            'aÃ±o': 'year',
-            'aÃ±os': 'years',
+            'año': 'year',
+            'años': 'years',
             
             // Misc
             'Traduciendo...': 'Translating...',
@@ -22786,7 +22786,7 @@
             'Selector de layout': 'Layout Selector',
             'Buscar proyectos, juegos, herramientas...': 'Search projects, games, tools...',
             
-            // MÃ¡s detalles de proyectos
+            // Más detalles de proyectos
             'Descripcion': 'Description',
             'Caracteristicas': 'Features',
             'Requisitos del sistema': 'System Requirements',
@@ -22796,7 +22796,7 @@
             'Editor': 'Publisher',
             'Fecha de lanzamiento': 'Release Date',
             'Ultima actualizacion': 'Last Update',
-            'TamaÃ±o': 'Size',
+            'Tamaño': 'Size',
             'Version': 'Version',
             'Idiomas': 'Languages',
             'Genero': 'Genre',
@@ -22831,7 +22831,7 @@
             'Ordenar por': 'Sort by',
             'Nombre': 'Name',
             'Fecha': 'Date',
-            'TamaÃ±o': 'Size',
+            'Tamaño': 'Size',
             'Tipo': 'Type',
             'Estado': 'Status',
             'Ascendente': 'Ascending',
@@ -22862,18 +22862,18 @@
             // Login y registro
             'Recordar datos': 'Remember Me',
             'Entrar a OWS Store': 'Enter OWS Store',
-            'Â¿No tienes una cuenta?': "Don't have an account?",
-            'RegÃ­strate': 'Sign Up',
-            'PolÃ­tica de privacidad': 'Privacy Policy',
-            'TÃ©rminos del servicio': 'Terms of Service',
+            '¿No tienes una cuenta?': "Don't have an account?",
+            'Regístrate': 'Sign Up',
+            'Política de privacidad': 'Privacy Policy',
+            'Términos del servicio': 'Terms of Service',
             'Ajustes de cookies': 'Cookie Settings',
             'Usuario': 'Username',
-            'ContraseÃ±a': 'Password',
-            'Correo electrÃ³nico': 'Email',
+            'Contraseña': 'Password',
+            'Correo electrónico': 'Email',
             'Iniciar sesion': 'Sign In',
             'Cerrar sesion': 'Sign Out',
-            'Olvidaste tu contraseÃ±a?': 'Forgot your password?',
-            'Recuperar contraseÃ±a': 'Recover Password',
+            'Olvidaste tu contraseña?': 'Forgot your password?',
+            'Recuperar contraseña': 'Recover Password',
             'Crear cuenta': 'Create Account',
             'Ya tienes cuenta?': 'Already have an account?',
             
@@ -22924,7 +22924,7 @@
             'Mas tarde': 'Later',
             'Recordarme despues': 'Remind Me Later',
             
-            // News y artÃ­culos
+            // News y artículos
             'Noticia': 'News',
             'Noticias': 'News',
             'Articulo': 'Article',
@@ -22985,7 +22985,7 @@
             'En linea': 'Online',
             'Fuera de linea': 'Offline',
             
-            // FAB y accesos rÃ¡pidos
+            // FAB y accesos rápidos
             'Ver descargas activas': 'View Active Downloads',
             'Abrir menu': 'Open Menu',
             'Cerrar menu': 'Close Menu',
@@ -22998,7 +22998,7 @@
             'Sol': 'Sun',
             'Dispositivo': 'Device',
             
-            // MÃ¡s textos de settings
+            // Más textos de settings
             'Preferencias': 'Preferences',
             'Opciones': 'Options',
             'Personalizar': 'Customize',
@@ -23146,7 +23146,7 @@
             'Recargar pagina': 'Reload Page',
             'Contactar administrador': 'Contact Administrator',
             
-            // Confirmaciones y diÃ¡logos
+            // Confirmaciones y diálogos
             'Estas seguro?': 'Are You Sure?',
             'Esta accion no se puede deshacer': 'This Action Cannot Be Undone',
             'Confirmar': 'Confirm',
@@ -23169,7 +23169,7 @@
             'Mover seleccionados': 'Move Selected',
             'Copiar seleccionados': 'Copy Selected',
             
-            // BÃºsqueda y filtros avanzados
+            // Búsqueda y filtros avanzados
             'Buscar...': 'Search...',
             'Buscar en': 'Search In',
             'Resultados': 'Results',
@@ -23205,7 +23205,7 @@
             'Por favor espera': 'Please Wait',
             'Esto puede tardar unos momentos': 'This May Take a Few Moments',
             
-            // Ã‰xito y completado
+            // Éxito y completado
             'Exito': 'Success',
             'Completado exitosamente': 'Completed Successfully',
             'Operacion exitosa': 'Operation Successful',
@@ -23215,7 +23215,7 @@
             'Perfecto': 'Perfect',
             'Genial': 'Great',
             
-            // VacÃ­o y sin contenido
+            // Vacío y sin contenido
             'Vacio': 'Empty',
             'Sin contenido': 'No Content',
             'Nada que mostrar': 'Nothing to Show',
@@ -23246,32 +23246,32 @@
             'Aplicando cambios en': 'Applying Changes in',
             'Actualizar ahora': 'Update Now',
             
-            // Textos de Ocean Pay especÃ­ficos
+            // Textos de Ocean Pay específicos
             'Ocean Pay: identidad y wallet verificadas.': 'Ocean Pay: identity and wallet verified.',
             
-            // MÃ¡s textos de boot
+            // Más textos de boot
             'Cada 15s': 'Every 15s',
             'Cada': 'Every',
             'iniciando...': 'starting...',
             'Revision': 'Review',
             'revision': 'review',
             
-            // Estados especÃ­ficos de download
+            // Estados específicos de download
             'Idle': 'Idle',
             'waiting': 'waiting',
             
-            // Textos con parÃ©ntesis y detalles
+            // Textos con paréntesis y detalles
             '(iniciando...)': '(starting...)',
             'Cada 15s (iniciando...)': 'Every 15s (starting...)',
             
-            // MÃ¡s textos de versiones
+            // Más textos de versiones
             'v1.0.0': 'v1.0.0',
             'Sin datos': 'No Data',
             
             // Textos de hero y stats
             'ECOSISTEMA MULTIPROYECTO': 'MULTI-PROJECT ECOSYSTEM',
             
-            // MÃ¡s placeholders y aria-labels
+            // Más placeholders y aria-labels
             'Recordar datos': 'Remember Data',
             
             // Textos de news hub
@@ -23280,14 +23280,14 @@
             'Changelog': 'Changelog',
             'Actualizaciones': 'Updates',
             
-            // MÃ¡s textos de modal
+            // Más textos de modal
             'icon': 'icon',
             'alt': 'alt',
             
             // Textos de controles
             'Selector de layout': 'Layout Selector',
             
-            // MÃ¡s estados de conexiÃ³n
+            // Más estados de conexión
             'Conectando con servidor': 'Connecting to Server',
             'Conectando con': 'Connecting to',
             'con el servidor': 'to the server',
@@ -23300,7 +23300,7 @@
             'Validando': 'Validating',
             'validando': 'validating',
             
-            // Ãšltimos textos especÃ­ficos
+            // Últimos textos específicos
             'OWS': 'OWS',
             'Ocean and Wild Studios': 'Ocean and Wild Studios',
             'OWS Studio Hub': 'OWS Studio Hub',
@@ -23313,7 +23313,7 @@
             'Muy alta': 'Very High',
             'Muy baja': 'Very Low',
             
-            // MÃ¡s textos de plataforma
+            // Más textos de plataforma
             'WIN': 'WIN',
             'WINDOWS': 'WINDOWS',
             'ANDROID': 'ANDROID',
@@ -23322,14 +23322,14 @@
             'NSIS': 'NSIS',
             'Portable': 'Portable',
             
-            // Textos de tamaÃ±o
+            // Textos de tamaño
             'Ligero': 'Light',
             'Pesado': 'Heavy',
             'Grande': 'Large',
-            'PequeÃ±o': 'Small',
+            'Pequeño': 'Small',
             'Mediano': 'Medium',
             
-            // MÃ¡s textos de tiempo
+            // Más textos de tiempo
             'Rapido': 'Fast',
             'Lento': 'Slow',
             'Instantaneo': 'Instant',
@@ -23342,7 +23342,7 @@
             'Malo': 'Bad',
             'Optimo': 'Optimal',
             
-            // MÃ¡s textos de acciones
+            // Más textos de acciones
             'Duplicar': 'Duplicate',
             'Clonar': 'Clone',
             'Exportar': 'Export',
@@ -23360,7 +23360,7 @@
             'Publico': 'Public',
             'Privado': 'Private',
             
-            // Ãšltimos textos miscelÃ¡neos
+            // Últimos textos misceláneos
             'Opcional': 'Optional',
             'Requerido': 'Required',
             'Obligatorio': 'Mandatory',
@@ -23370,7 +23370,7 @@
             'Automatico': 'Automatic',
             'Manual': 'Manual',
             
-            // Textos de navegaciÃ³n
+            // Textos de navegación
             'Inicio': 'Home',
             'Principal': 'Main',
             'Atras': 'Back',
@@ -23380,13 +23380,13 @@
             'Izquierda': 'Left',
             'Derecha': 'Right',
             
-            // Ãšltimos textos de UI
+            // Últimos textos de UI
             'Minimizar': 'Minimize',
             'Maximizar': 'Maximize',
             'Restaurar': 'Restore',
             'Pantalla': 'Screen',
             'Ventana': 'Window',
-            'PestaÃ±a': 'Tab',
+            'Pestaña': 'Tab',
             'Panel': 'Panel',
             'Barra': 'Bar',
             'Menu': 'Menu',
@@ -23448,7 +23448,7 @@
             'Precargando assets visuales': 'Preloading visual assets',
             'Renderizando interfaz': 'Rendering interface',
             
-            // MÃ¡s textos de loading
+            // Más textos de loading
             'Sincronizando': 'Syncing',
             'Cargando': 'Loading',
             'Precargando': 'Preloading',
@@ -23458,7 +23458,7 @@
             'visuales': 'visual',
             'interfaz': 'interface',
             
-            // Palabras sin puntuaciÃ³n
+            // Palabras sin puntuación
             'juegos': 'games',
             'inesperadas': 'unexpected',
             'y': 'and',
@@ -23470,7 +23470,7 @@
             // Login
             'Bienvenido de nuevo': 'Welcome Back',
             'Ingresa tus credenciales para acceder.': 'Enter your credentials to access.',
-            'OlvidÃ© mi clave': 'Forgot My Password',
+            'Olvidé mi clave': 'Forgot My Password',
             'Tu nombre de usuario': 'Your Username',
             'Tu contrasena': 'Your Password',
             
@@ -23478,14 +23478,14 @@
             'NatBee se lanza el 17 de Abril': 'NatBee launches on April 17',
             'se lanza el': 'launches on',
             
-            // Boot scenes especÃ­ficas
+            // Boot scenes específicas
             'AWQG: sincronizando build Windows y APK.': 'AWQG: syncing Windows build and APK.',
             'Ecoxion: renderizando horizonte cian activo.': 'Ecoxion: rendering active cyan horizon.',
             'Velocity Surge: telemetria de pistas en vivo.': 'Velocity Surge: live track telemetry.',
             'WildWeapon: estado tactico listo para despliegue.': 'WildWeapon: tactical status ready for deployment.',
             'SSA: fauna orbital inicializada.': 'SSA: orbital fauna initialized.',
             
-            // SesiÃ³n
+            // Sesión
             'Sesion restaurada': 'Session Restored',
             'Credenciales detectadas. Ingresando automaticamente a OWS Store.': 'Credentials detected. Automatically entering OWS Store.',
             
@@ -23493,7 +23493,7 @@
             'Aplicando cambios en 5s...': 'Applying changes in 5s...',
             
             // Modal details
-            'v1.0.0 Â· Sin datos': 'v1.0.0 Â· No Data',
+            'v1.0.0 · Sin datos': 'v1.0.0 · No Data',
             '0 entradas': '0 entries',
             '0 eventos': '0 events',
             
@@ -23589,35 +23589,35 @@
             // Import modal
             'Importar instalaciones': 'Import Installations',
             
-            // SÃ­mbolos y caracteres especiales
+            // Símbolos y caracteres especiales
             'â—ˆ': 'â—ˆ',
-            'Ã—': 'Ã—',
-            'â†’': 'â†’',
-            'ðŸ”’': 'ðŸ”’',
-            'â¦¸': 'â¦¸',
+            '×': '×',
+            '→': '→',
+            '🔒': '🔒',
+            '⦸': '⦸',
             
             // Otros
             'OWS Project Restriction': 'OWS Project Restriction',
             '000000': '000000',
             
-            // Login y verificaciÃ³n (pre-boot)
+            // Login y verificación (pre-boot)
             'Verificando si hay credenciales guardadas...': 'Checking for saved credentials...',
             'Comprobando sesion guardada de Ocean Pay.': 'Checking saved Ocean Pay session.',
-            'Inteligencia oceÃ¡nica para el ecosistema digital moderno.': 'Oceanic intelligence for the modern digital ecosystem.',
+            'Inteligencia oceánica para el ecosistema digital moderno.': 'Oceanic intelligence for the modern digital ecosystem.',
             'Capas cifradas inspiradas en las profundidades.': 'Encrypted layers inspired by the depths.',
-            'Navega el ecosistema desde un Ãºnico hub adaptable.': 'Navigate the ecosystem from a single adaptable hub.',
+            'Navega el ecosistema desde un único hub adaptable.': 'Navigate the ecosystem from a single adaptable hub.',
             'Ingresa tus credenciales para acceder.': 'Enter your credentials to access.',
             'USUARIO': 'USERNAME',
             'Tu nombre de usuario': 'Your username',
             'CONTRASENA': 'PASSWORD',
             'Tu contrasena': 'Your password',
-            'OLVIDÃ‰ MI CLAVE': 'FORGOT MY PASSWORD',
+            'OLVIDÉ MI CLAVE': 'FORGOT MY PASSWORD',
             'Recordar datos': 'Remember me',
-            'Entrar a OWS Store â†’': 'Enter OWS Store â†’',
-            'Â¿No tienes una cuenta?': "Don't have an account?",
-            'RegÃ­strate': 'Sign Up',
-            'POLÃTICA DE PRIVACIDAD': 'PRIVACY POLICY',
-            'TÃ‰RMINOS DEL SERVICIO': 'TERMS OF SERVICE',
+            'Entrar a OWS Store →': 'Enter OWS Store →',
+            '¿No tienes una cuenta?': "Don't have an account?",
+            'Regístrate': 'Sign Up',
+            'POLÍTICA DE PRIVACIDAD': 'PRIVACY POLICY',
+            'TÉRMINOS DEL SERVICIO': 'TERMS OF SERVICE',
             'AJUSTES DE COOKIES': 'COOKIE SETTINGS',
             
             // Loading modal que aparece durante boot
@@ -23627,23 +23627,23 @@
             'Precargando assets visuales': 'Preloading visual assets',
             'Renderizando interfaz': 'Rendering interface',
             
-            // Modales de sesiÃ³n
+            // Modales de sesión
             'Iniciando Sesion...': 'Starting Session...',
             'Validando credenciales en Ocean Pay.': 'Validating credentials in Ocean Pay.',
             'Entrando...': 'Entering...',
             'Preparando entorno del ecosistema.': 'Preparing ecosystem environment.',
             
-            // VerificaciÃ³n automÃ¡tica
+            // Verificación automática
             'Verificacion automatica completada': 'Automatic Verification Completed',
             'Sin novedades de update en esta verificacion.': 'No update news in this verification.',
             'Tamano: - | ETA: menos de 5s': 'Size: - | ETA: less than 5s',
             'menos de 5s': 'less than 5s',
             
-            // SesiÃ³n iniciada
+            // Sesión iniciada
             'Sesion iniciada correctamente': 'Session Started Successfully',
             'Tu cuenta se sincronizo en OWS Store.': 'Your account synced in OWS Store.',
             
-            // Mensajes de actualizaciÃ³n (banner)
+            // Mensajes de actualización (banner)
             'Verificando': 'Checking',
             'Update disponible': 'Update Available',
             'Descargando': 'Downloading',
@@ -23689,7 +23689,7 @@
             'CON UPDATE': 'WITH UPDATE',
             '14 VISIBLES': '14 VISIBLE',
             
-            // Textos de proyectos (dinÃ¡micos del servidor)
+            // Textos de proyectos (dinámicos del servidor)
             'esta al dia en Windows.': 'is up to date on Windows.',
             'esta al dia en': 'is up to date on',
             'Catalogo:': 'Catalog:',
@@ -23699,7 +23699,7 @@
             'No instalada en este dispositivo': 'Not installed on this device',
             'ultima:': 'latest:',
             'Al dia (Windows)': 'Up to date (Windows)',
-            'Ya lo instalÃ©': 'Already installed',
+            'Ya lo instalé': 'Already installed',
             'AL DIA': 'UP TO DATE',
             
             // Settings adicionales
@@ -23769,7 +23769,7 @@
         const apiTranslationCache = new Map();
         
         async function translateWithAPI(text) {
-            // Usar cachÃ©
+            // Usar caché
             if (apiTranslationCache.has(text)) {
                 return apiTranslationCache.get(text);
             }
@@ -23792,12 +23792,12 @@
         }
         
         function translateText(text) {
-            // Buscar traducciÃ³n exacta primero
+            // Buscar traducción exacta primero
             if (translations[text]) {
                 return translations[text];
             }
             
-            // Intentar sin puntuaciÃ³n al final
+            // Intentar sin puntuación al final
             const trimmed = text.trim();
             const withoutPunctuation = trimmed.replace(/[.,;:!?]+$/, '');
             const punctuation = trimmed.slice(withoutPunctuation.length);
@@ -23806,37 +23806,37 @@
                 return translations[withoutPunctuation] + punctuation;
             }
             
-            // Intentar con la puntuaciÃ³n incluida
+            // Intentar con la puntuación incluida
             if (translations[trimmed]) {
                 return translations[trimmed];
             }
             
-            // TraducciÃ³n automÃ¡tica por patrones (para textos dinÃ¡micos)
+            // Traducción automática por patrones (para textos dinámicos)
             let result = text;
             
-            // PatrÃ³n: "X esta al dia en Y" (cualquier proyecto)
+            // Patrón: "X esta al dia en Y" (cualquier proyecto)
             result = result.replace(/(.+?)\s+esta al dia en\s+(.+?)(\.|$)/gi, '$1 is up to date on $2$3');
-            result = result.replace(/(.+?)\s+esta al dÃ­a en\s+(.+?)(\.|$)/gi, '$1 is up to date on $2$3');
+            result = result.replace(/(.+?)\s+esta al día en\s+(.+?)(\.|$)/gi, '$1 is up to date on $2$3');
             
-            // PatrÃ³n: "No instalada en este dispositivo (Ãºltima: vX.X.X)"
+            // Patrón: "No instalada en este dispositivo (última: vX.X.X)"
             result = result.replace(/No instalada en este dispositivo\s*\(ultima:\s*v([^)]+)\)/gi, 'Not installed on this device (latest: v$1)');
-            result = result.replace(/No instalada en este dispositivo\s*\(Ãºltima:\s*v([^)]+)\)/gi, 'Not installed on this device (latest: v$1)');
+            result = result.replace(/No instalada en este dispositivo\s*\(última:\s*v([^)]+)\)/gi, 'Not installed on this device (latest: v$1)');
             result = result.replace(/No instalada en este dispositivo/gi, 'Not installed on this device');
             
-            // PatrÃ³n: Modal de confirmaciÃ³n de instalaciÃ³n
-            result = result.replace(/Si ya instalaste la versiÃ³n\s+([^\s]+)\s+de\s+(.+?)\s+externamente,\s*confirmalo aquÃ­ para que OWS Store no siga mostrando la update como pendiente\./gi, 
+            // Patrón: Modal de confirmación de instalación
+            result = result.replace(/Si ya instalaste la versión\s+([^\s]+)\s+de\s+(.+?)\s+externamente,\s*confirmalo aquí para que OWS Store no siga mostrando la update como pendiente\./gi, 
                 'If you already installed version $1 of $2 externally, confirm it here so OWS Store stops showing the update as pending.');
             
-            // PatrÃ³n: "Cada Xs (Ãºltimo: hace Ys)"
-            result = result.replace(/Cada\s+(\d+)s\s+\(Ãºltimo:\s+hace\s+(\d+)s\)/gi, 'Every $1s (last: $2s ago)');
-            result = result.replace(/Ãºltimo:\s+hace/gi, 'last:');
+            // Patrón: "Cada Xs (último: hace Ys)"
+            result = result.replace(/Cada\s+(\d+)s\s+\(último:\s+hace\s+(\d+)s\)/gi, 'Every $1s (last: $2s ago)');
+            result = result.replace(/último:\s+hace/gi, 'last:');
             
-            // Si se hizo algÃºn cambio, retornar el resultado
+            // Si se hizo algún cambio, retornar el resultado
             if (result !== text) {
                 return result;
             }
             
-            // Si no estÃ¡ en el diccionario, retornar el texto original
+            // Si no está en el diccionario, retornar el texto original
             return text;
         }
         
@@ -23995,7 +23995,7 @@
             
             const current = document.getElementById('settings-language-current');
             if (current) {
-                current.textContent = lang === 'es' ? 'EspaÃ±ol' : 'English';
+                current.textContent = lang === 'es' ? 'Español' : 'English';
             }
             
             const select = document.getElementById('settings-language-select');
@@ -24021,11 +24021,11 @@
             
             const current = document.getElementById('settings-language-current');
             if (current) {
-                current.textContent = savedLang === 'es' ? 'EspaÃ±ol' : 'English';
+                current.textContent = savedLang === 'es' ? 'Español' : 'English';
             }
             
             if (savedLang === 'en') {
-                // Traducir inmediatamente y mÃºltiples veces para capturar contenido dinÃ¡mico
+                // Traducir inmediatamente y múltiples veces para capturar contenido dinámico
                 translatePage('en');
                 setTimeout(() => translatePage('en'), 50);
                 setTimeout(() => translatePage('en'), 100);
@@ -24038,7 +24038,7 @@
                 setTimeout(() => translatePage('en'), 8000);
                 
                 // Observador dedicado para Auto-Check (sin bloqueo por isTranslating)
-                // Intentar mÃºltiples veces hasta que el elemento estÃ© disponible
+                // Intentar múltiples veces hasta que el elemento esté disponible
                 function setupAutoCheckObserver() {
                     const autoCheckEl = document.getElementById('updates-auto-check');
                     if (autoCheckEl) {
@@ -24070,7 +24070,7 @@
                     setTimeout(() => setupAutoCheckObserver(), 2000);
                 }
                 
-                // Observar cambios en el DOM para traducir contenido del servidor automÃ¡ticamente
+                // Observar cambios en el DOM para traducir contenido del servidor automáticamente
                 const observer = new MutationObserver((mutations) => {
                     if (currentLanguage === 'en' && !isTranslating) {
                         // Para elementos que cambian frecuentemente, traducir inmediatamente
@@ -24120,7 +24120,7 @@
 
     </script>
 
-<!-- â•â•â• IMPORT MODAL â•â•â• -->
+<!-- ═══ IMPORT MODAL ═══ -->
 <style id="import-modal-runtime-fix">
     #import-modal {
         position: fixed;

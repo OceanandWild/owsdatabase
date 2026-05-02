@@ -28367,7 +28367,30 @@ pool.query(`
     published_at TIMESTAMPTZ DEFAULT NOW(),
     created_at TIMESTAMPTZ DEFAULT NOW()
   )
-`).catch(e => console.warn('[WW] wildweapon_releases table:', e.message));
+`).then(() => console.log('[WW] wildweapon_releases table ready'))
+  .catch(e => console.warn('[WW] wildweapon_releases table:', e.message));
+
+app.get('/ows-store/windows/releases/wildweapon-mayhem/init', async (req, res) => {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS wildweapon_releases (
+        id SERIAL PRIMARY KEY,
+        version TEXT NOT NULL UNIQUE,
+        installer_url TEXT NOT NULL,
+        installer_size BIGINT DEFAULT 0,
+        release_date TIMESTAMPTZ,
+        release_notes TEXT,
+        status TEXT DEFAULT 'published',
+        published_at TIMESTAMPTZ DEFAULT NOW(),
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      )
+    `);
+    res.json({ success: true, message: 'Tabla wildweapon_releases creada/verificada' });
+  } catch (err) {
+    console.error('Error creando tabla:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 app.post('/ows-store/windows/releases/wildweapon-mayhem', async (req, res) => {
   const adminToken = req.headers['x-ows-admin-token'];

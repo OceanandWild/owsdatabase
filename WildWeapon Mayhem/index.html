@@ -6631,6 +6631,20 @@
     const inventoryWeaponMeta = null; // replaced by new inv UI
     const inventoryWeaponGrid = document.getElementById('inventory-weapon-grid');
     const inventoryItemGrid = document.getElementById('inventory-item-grid');
+
+    // ── Weapon sprites for arena rendering ──
+    const weaponSprites = {
+      storm_guitar: new Image(),
+      chain_scythe: new Image(),
+      solar_halberd: new Image(),
+      zeus_axe: new Image(),
+      tiger_gloves: new Image()
+    };
+    weaponSprites.storm_guitar.src = 'assets/Storm Guitar/storm_guitar_base.png';
+    weaponSprites.chain_scythe.src = 'assets/Chain Scythe/chain_scythe_base.png';
+    weaponSprites.solar_halberd.src = 'assets/Solar Halberd/solar_halberd_base.png';
+    weaponSprites.zeus_axe.src = 'assets/Zeus Axe/zeus_axe_base.png';
+    weaponSprites.tiger_gloves.src = 'assets/Tiger Gloves/tiger_gloves_base.png';
     // New inventory UI state
     let invSelectedWeaponId = null;
     let invActiveTab = 'arsenal';
@@ -12099,186 +12113,39 @@ const TIGER_GLOVES_SVG = `
       const aim = lastAim ? Math.atan2(lastAim.y - y, lastAim.x - x) : -Math.PI * 0.3;
 
       if (weapon === 'chain_scythe') {
-        // Guadaña con cadena: dibuja la guadaña en la mano derecha del personaje
+        // Chain Scythe — render sprite
         ctx.save();
         ctx.translate(x, y);
         ctx.rotate(aim);
-
-        const now2 = performance.now();
-        // Pequeña animación de idle: la cadena cuelga/oscila
-        const idle = Math.sin(now2 * 0.002) * 0.12;
-        ctx.rotate(idle);
-
-        ctx.shadowBlur = 14;
-        ctx.shadowColor = '#cc0014';
-
-        // Mango corto (sale desde el centro del personaje)
-        const handleLen = size * 1.1;
-        ctx.strokeStyle = 'rgba(200,210,230,0.9)';
-        ctx.lineWidth = 2.5;
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.moveTo(size * 0.3, 0);
-        ctx.lineTo(size * 0.3 + handleLen, 0);
-        ctx.stroke();
-
-        // Hoja curva de guadaña en la punta del mango
-        ctx.save();
-        ctx.translate(size * 0.3 + handleLen, 0);
-        ctx.strokeStyle = 'rgba(232,0,20,0.92)';
-        ctx.lineWidth = 2.8;
-        ctx.lineCap = 'round';
-        ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.bezierCurveTo(12, -18, 28, -10, 18, 6);
-        ctx.stroke();
-        // Filo brillante
-        ctx.strokeStyle = 'rgba(255,160,160,0.55)';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.bezierCurveTo(10, -14, 24, -8, 15, 5);
-        ctx.stroke();
-        // Micro glow en la punta
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = '#ff1030';
-        ctx.fillStyle = 'rgba(255,20,40,0.5)';
-        ctx.beginPath();
-        ctx.arc(18, 6, 3.5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-
-        // Eslabones de cadena colgando desde la guardia
-        const chainStart = { x: size * 0.3 + handleLen * 0.35, y: 0 };
-        const swing2 = Math.sin(now2 * 0.0025) * 12;
-        ctx.strokeStyle = 'rgba(160,170,200,0.7)';
-        ctx.lineWidth = 1.5;
-        ctx.setLineDash([4, 2]);
-        ctx.beginPath();
-        ctx.moveTo(chainStart.x, chainStart.y);
-        ctx.quadraticCurveTo(chainStart.x + 10, chainStart.y + swing2 + 14, chainStart.x + 5, chainStart.y + swing2 + 26);
-        ctx.stroke();
-        ctx.setLineDash([]);
-
-        // Eslabones individuales a lo largo de la cadena
-        ctx.fillStyle = 'rgba(180,190,215,0.75)';
-        for (let i = 0; i < 3; i++) {
-          const t3 = (i + 0.5) / 3;
-          const lx2 = chainStart.x + (5 - chainStart.x) * t3 + chainStart.x * (1 - t3);
-          const ly2 = (swing2 + 26) * t3;
-          ctx.save();
-          ctx.translate(lx2 + chainStart.x * (1 - t3) * 0.1, chainStart.y + ly2);
-          ctx.rotate(i % 2 === 0 ? 0.6 : -0.6);
-          ctx.beginPath();
-          ctx.ellipse(0, 0, 3, 1.8, 0, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.restore();
+        const sprite = weaponSprites.chain_scythe;
+        if (sprite.complete) {
+          const spriteSize = size * 4;
+          ctx.drawImage(sprite, -spriteSize * 0.2, -spriteSize * 0.5, spriteSize, spriteSize);
         }
-
         ctx.restore();
 
       } else if (weapon === 'storm_guitar') {
-        // Storm Guitar — purple electric guitar with lightning
+        // Storm Guitar — render sprite
         ctx.save();
         ctx.translate(x, y);
         ctx.rotate(aim);
-        const t2 = performance.now() * 0.003;
-        ctx.shadowBlur = 14; ctx.shadowColor = '#b060ff';
-        // Neck (long thin handle pointing forward)
-        ctx.strokeStyle = 'rgba(160,80,255,0.9)'; ctx.lineWidth = 3; ctx.lineCap = 'round';
-        ctx.beginPath(); ctx.moveTo(size * 0.25, 0); ctx.lineTo(size * 0.25 + size * 1.55, 0); ctx.stroke();
-        // Neck highlight
-        ctx.strokeStyle = 'rgba(220,180,255,0.4)'; ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.moveTo(size * 0.3, -1); ctx.lineTo(size * 0.25 + size * 1.4, -1); ctx.stroke();
-        // Guitar body (oval behind player)
-        ctx.save();
-        ctx.translate(-size * 0.35, 0);
-        const bodyGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, size * 0.85);
-        bodyGrad.addColorStop(0, 'rgba(100,30,200,0.85)');
-        bodyGrad.addColorStop(1, 'rgba(50,10,100,0.5)');
-        ctx.fillStyle = bodyGrad;
-        ctx.beginPath(); ctx.ellipse(0, 0, size * 0.85, size * 0.65, 0, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = 'rgba(180,80,255,0.7)'; ctx.lineWidth = 1.5;
-        ctx.stroke();
-        // Sound hole
-        ctx.fillStyle = 'rgba(10,0,30,0.8)';
-        ctx.beginPath(); ctx.arc(0, 0, size * 0.28, 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = 'rgba(160,80,255,0.5)'; ctx.lineWidth = 1;
-        ctx.stroke();
-        ctx.restore();
-        // Strings along neck
-        for (let s2 = 0; s2 < 3; s2++) {
-          const sy = (s2 - 1) * 2.5;
-          ctx.strokeStyle = `rgba(220,180,255,${0.35 + s2 * 0.1})`; ctx.lineWidth = 0.7;
-          ctx.beginPath(); ctx.moveTo(size * 0.25, sy); ctx.lineTo(size * 0.25 + size * 1.55, sy); ctx.stroke();
+        const sprite = weaponSprites.storm_guitar;
+        if (sprite.complete) {
+          const spriteSize = size * 3.5;
+          ctx.drawImage(sprite, -spriteSize * 0.3, -spriteSize * 0.5, spriteSize, spriteSize);
         }
-        // Lightning bolt pulse
-        const lx = size * 0.25 + size * 0.8;
-        ctx.strokeStyle = `rgba(255,230,80,${0.6 + Math.sin(t2 * 4) * 0.3})`; ctx.lineWidth = 2;
-        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-        ctx.beginPath();
-        ctx.moveTo(lx, -8); ctx.lineTo(lx - 4, -1); ctx.lineTo(lx + 2, -1); ctx.lineTo(lx - 3, 8);
-        ctx.stroke();
         ctx.restore();
 
       } else if (weapon === 'solar_halberd') {
-        // Solar Halberd — golden polearm with axe head and sun disc
+        // Solar Halberd — render sprite
         ctx.save();
         ctx.translate(x, y);
         ctx.rotate(aim);
-        const t3 = performance.now() * 0.002;
-        ctx.shadowBlur = 16; ctx.shadowColor = '#ffaa00';
-        // Shaft (long pole forward)
-        const shaftLen = size * 2.0;
-        ctx.strokeStyle = 'rgba(200,120,30,0.95)'; ctx.lineWidth = 3.5; ctx.lineCap = 'round';
-        ctx.beginPath(); ctx.moveTo(-size * 0.3, 0); ctx.lineTo(shaftLen, 0); ctx.stroke();
-        // Shaft gold highlight
-        ctx.strokeStyle = 'rgba(255,220,80,0.35)'; ctx.lineWidth = 1.2;
-        ctx.beginPath(); ctx.moveTo(-size * 0.2, -1); ctx.lineTo(shaftLen * 0.9, -1); ctx.stroke();
-        // Axe head at tip
-        ctx.save();
-        ctx.translate(shaftLen, 0);
-        ctx.shadowBlur = 20; ctx.shadowColor = '#ffcc00';
-        // Blade crescent
-        ctx.fillStyle = 'rgba(230,110,20,0.95)';
-        ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.bezierCurveTo(4, -size * 0.7, -size * 0.55, -size * 0.75, -size * 0.6, -size * 0.1);
-        ctx.bezierCurveTo(-size * 0.4, -size * 0.05, -size * 0.1, 0, 0, 0);
-        ctx.fill();
-        ctx.strokeStyle = '#ffcc00'; ctx.lineWidth = 1.5;
-        ctx.stroke();
-        // Blade bright edge
-        ctx.strokeStyle = 'rgba(255,240,120,0.7)'; ctx.lineWidth = 0.9;
-        ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.bezierCurveTo(4, -size * 0.68, -size * 0.52, -size * 0.72, -size * 0.58, -size * 0.1);
-        ctx.stroke();
-        ctx.restore();
-        // Sun orb at base of axe head
-        ctx.save();
-        ctx.translate(shaftLen - size * 0.1, 0);
-        const sunG = ctx.createRadialGradient(0, 0, 0, 0, 0, size * 0.32);
-        sunG.addColorStop(0, 'rgba(255,255,180,0.95)');
-        sunG.addColorStop(0.5, 'rgba(255,200,0,0.8)');
-        sunG.addColorStop(1, 'rgba(255,120,0,0)');
-        ctx.fillStyle = sunG;
-        ctx.beginPath(); ctx.arc(0, 0, size * 0.32, 0, Math.PI * 2); ctx.fill();
-        // Sun rays rotating
-        ctx.strokeStyle = `rgba(255,200,60,${0.5 + Math.sin(t3) * 0.25})`; ctx.lineWidth = 1.2;
-        for (let r = 0; r < 8; r++) {
-          const a = r / 8 * Math.PI * 2 + t3 * 0.8;
-          ctx.beginPath();
-          ctx.moveTo(Math.cos(a) * size * 0.28, Math.sin(a) * size * 0.28);
-          ctx.lineTo(Math.cos(a) * size * 0.48, Math.sin(a) * size * 0.48);
-          ctx.stroke();
+        const sprite = weaponSprites.solar_halberd;
+        if (sprite.complete) {
+          const spriteSize = size * 4.5;
+          ctx.drawImage(sprite, -spriteSize * 0.15, -spriteSize * 0.5, spriteSize, spriteSize);
         }
-        ctx.restore();
-        // Spike at back of shaft
-        ctx.save();
-        ctx.translate(-size * 0.3, 0);
-        ctx.fillStyle = 'rgba(200,120,30,0.9)';
-        ctx.beginPath(); ctx.moveTo(0, -3); ctx.lineTo(-size * 0.3, 0); ctx.lineTo(0, 3); ctx.closePath(); ctx.fill();
         ctx.restore();
         ctx.restore();
 

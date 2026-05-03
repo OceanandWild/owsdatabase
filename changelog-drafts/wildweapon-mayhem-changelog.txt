@@ -6,8 +6,11 @@ Platform: Windows
 Date: 2026-05-03
 
 Changes:
-- Storm Guitar now uses real sprites and WAV sound effects instead of 2D CSS models and synthesized audio
+- Implemented sprite system for 5 weapons: Storm Guitar, Chain Scythe, Solar Halberd, Zeus Axe, and Tiger Gloves
+  - Sprites now display correctly in inventory, store, summon, armory, and in-game arena
+  - Replaced 2D CSS models with high-quality sprite images
+  - Replaced 2D canvas rendering with sprite rendering during gameplay
+- Storm Guitar now uses WAV sound effects (stormguitarelectricblast1-4.wav) that cycle with each M1 attack
 - Added Ocean Pay connection button in Store (was missing)
-- Fixed summon reveal modal appearing behind summon screen
-- Fixed Ocean Pay auth modal appearing behind store screen
-- Fixed syntax error in Storm Guitar audio system
+- Fixed summon reveal modal appearing behind summon screen (z-index increased to 99999)
+- Fixed Ocean Pay auth modal appearing behind store screen (z-index increased to 99999)

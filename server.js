@@ -18650,12 +18650,33 @@ async function ensureWildWaveDefaultRoles(serverId, ownerId) {
   await pool.query(
     `INSERT INTO wildx_server_roles (server_id, name, color, priority, is_system, created_by)
      VALUES
+       ($1, '@everyone', '#99aab5', 0, TRUE, $2),
        ($1, 'Owner', '#ffcf66', 300, TRUE, $2),
        ($1, 'Admin', '#ff7e8a', 200, TRUE, $2),
        ($1, 'Member', '#7aa2ff', 100, TRUE, $2)
      ON CONFLICT (server_id, name) DO NOTHING`,
     [serverId, ownerId]
   );
+  
+  // Asignar rol @everyone a todos los miembros del servidor
+  const { rows: everyoneRoleRows } = await pool.query(
+    `SELECT id FROM wildx_server_roles
+      WHERE server_id = $1 AND name = '@everyone'
+      LIMIT 1`,
+    [serverId]
+  );
+  const everyoneRoleId = Number(everyoneRoleRows[0]?.id || 0);
+  if (everyoneRoleId) {
+    await pool.query(
+      `INSERT INTO wildx_server_member_roles (server_id, user_id, role_id, assigned_by)
+       SELECT $1, user_id, $2, $3
+       FROM wildx_channel_members
+       WHERE channel_id = $1
+       ON CONFLICT (server_id, user_id, role_id) DO NOTHING`,
+      [serverId, everyoneRoleId, ownerId]
+    );
+  }
+
   const { rows: ownerRoleRows } = await pool.query(
     `SELECT id FROM wildx_server_roles
       WHERE server_id = $1 AND LOWER(name) = 'owner'

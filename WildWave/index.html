@@ -4245,16 +4245,23 @@
         container.innerHTML = '<div style="padding:20px;text-align:center;color:var(--ink-dim);">No hay miembros con este rol.</div>';
         return;
       }
-      container.innerHTML = window.roleMembers.map(member => `
+      container.innerHTML = window.roleMembers.map(member => {
+        const avatarUrl = member.avatar_url || '';
+        const initial = member.username?.charAt(0).toUpperCase() || 'U';
+        const avatarHtml = avatarUrl 
+          ? `<img src="${avatarUrl}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div style="display:none;width:100%;height:100%;align-items:center;justify-content:center;color:#fff;font-weight:600;font-size:16px;">${initial}</div>`
+          : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600;font-size:16px;">${initial}</div>`;
+        return `
         <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface-2);border-radius:8px;border:1px solid var(--border);">
-          <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg, #5865f2, #7289da);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600;font-size:16px;">${member.username?.charAt(0).toUpperCase() || 'U'}</div>
+          <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg, #5865f2, #7289da);overflow:hidden;flex-shrink:0;">${avatarHtml}</div>
           <div style="flex:1;min-width:0;">
             <div style="font-weight:600;color:var(--ink);">${safeText(member.username)}</div>
             <div style="font-size:12px;color:var(--ink-dim);">Miembro</div>
           </div>
           <button onclick="window.removeRoleMember(${member.id})" class="btn-icon" title="Quitar rol">🗑️</button>
         </div>
-      `).join('');
+      `;
+      }).join('');
     }
 
     window.openAddRoleMemberModal = function() {
@@ -4287,14 +4294,21 @@
           return;
         }
         
-        container.innerHTML = availableMembers.map(member => `
+        container.innerHTML = availableMembers.map(member => {
+          const avatarUrl = member.avatar_url || '';
+          const initial = member.username?.charAt(0).toUpperCase() || 'U';
+          const avatarHtml = avatarUrl 
+            ? `<img src="${avatarUrl}" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div style="display:none;width:100%;height:100%;align-items:center;justify-content:center;color:#fff;font-weight:600;font-size:16px;">${initial}</div>`
+            : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600;font-size:16px;">${initial}</div>`;
+          return `
           <div onclick="window.addRoleMember(${member.id})" style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface-2);border-radius:8px;border:1px solid var(--border);cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='var(--surface-2)'">
-            <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg, #5865f2, #7289da);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600;font-size:16px;">${member.username?.charAt(0).toUpperCase() || 'U'}</div>
+            <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg, #5865f2, #7289da);overflow:hidden;flex-shrink:0;">${avatarHtml}</div>
             <div style="flex:1;min-width:0;">
               <div style="font-weight:600;color:var(--ink);">${safeText(member.username)}</div>
             </div>
           </div>
-        `).join('');
+        `;
+        }).join('');
       } catch (err) {
         container.innerHTML = '<div style="padding:20px;text-align:center;color:var(--ink-dim);">Error al buscar miembros.</div>';
       }

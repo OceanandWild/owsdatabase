@@ -19789,7 +19789,7 @@ app.get('/wildwave/api/channels/:id/roles/:roleId/members', async (req, res) => 
     if (!access || !access.isMember) return res.status(403).json({ error: 'No autorizado' });
 
     const { rows } = await pool.query(
-      `SELECT u.id, u.username
+      `SELECT u.id, u.username, u.avatar_url
        FROM wildx_server_member_roles mr
        JOIN wildx_users u ON u.id = mr.user_id
        WHERE mr.server_id = $1 AND mr.role_id = $2

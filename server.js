@@ -19877,6 +19877,15 @@ app.get('/wildwave/api/channels/:id/settings/roles', async (req, res) => {
         ORDER BY priority DESC, id ASC`,
       [serverId]
     );
+    // Agregar member_count a cada rol
+    for (const role of roles) {
+      const { rows: countRows } = await pool.query(
+        'SELECT COUNT(*) as count FROM wildx_server_member_roles WHERE server_id = $1 AND role_id = $2',
+        [serverId, role.id]
+      );
+      role.member_count = Number(countRows[0]?.count || 0);
+    }
+
     const { rows: members } = await pool.query(
       `SELECT m.user_id,
               u.username,

@@ -4030,11 +4030,18 @@
     function renderServerRoles() {
       const container = document.getElementById("roles-list-container");
       if (!container) return;
-      if (!window.serverRolesData.length) {
+      
+      // Filtrar: solo mostrar @everyone y roles no-sistema
+      const visibleRoles = window.serverRolesData.filter(role => {
+        if (role.name === '@everyone') return true;
+        return !role.is_system;
+      });
+      
+      if (!visibleRoles.length) {
         container.innerHTML = '<div style="padding:20px;text-align:center;color:var(--ink-dim);">No hay roles creados aún.</div>';
         return;
       }
-      container.innerHTML = window.serverRolesData.map(role => {
+      container.innerHTML = visibleRoles.map(role => {
         const isEveryone = role.name === '@everyone';
         const canDelete = !role.is_system && !isEveryone;
         return `
@@ -4042,9 +4049,9 @@
           <div style="width:24px;height:24px;border-radius:6px;background:${role.color};flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px;">${role.icon || ''}</div>
           <div style="flex:1;min-width:0;">
             <div style="font-weight:600;color:var(--ink);">${safeText(role.name)}</div>
-            <div style="font-size:12px;color:var(--ink-dim);">${role.member_count || 0} miembros${role.is_system ? ' • Rol del sistema' : ''}</div>
+            <div style="font-size:12px;color:var(--ink-dim);">${role.member_count || 0} miembros${isEveryone ? ' • Rol predeterminado' : ''}</div>
           </div>
-          ${!role.is_system ? `
+          ${!isEveryone ? `
             <button onclick="window.editServerRole(${role.id})" class="btn-icon" title="Editar rol">✏️</button>
             ${canDelete ? `<button onclick="window.deleteServerRole(${role.id})" class="btn-icon" title="Eliminar rol">🗑️</button>` : ''}
           ` : ''}

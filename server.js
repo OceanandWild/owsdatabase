@@ -19774,6 +19774,90 @@ app.post('/wildwave/api/channels/:id/roles/:roleId/members', async (req, res) =>
   }
 });
 
+// Get role members
+app.get('/wildwave/api/channels/:id/roles/:roleId/members', async (req, res) => {
+  try {
+    await ensureWildWaveMessagingTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Token requerido' });
+    const serverId = Number(req.params.id || 0);
+    const roleId = Number(req.params.roleId || 0);
+    if (!Number.isFinite(serverId) || serverId <= 0 || !Number.isFinite(roleId) || roleId <= 0) {
+      return res.status(400).json({ error: 'Parametros invalidos' });
+    }
+    const access = await getWildWaveServerAccess(serverId, wid);
+    if (!access || !access.isMember) return res.status(403).json({ error: 'No autorizado' });
+
+    const { rows } = await pool.query(
+      `SELECT u.id, u.username
+       FROM wildx_server_member_roles mr
+       JOIN wildx_users u ON u.id = mr.user_id
+       WHERE mr.server_id = $1 AND mr.role_id = $2
+       ORDER BY u.username ASC`,
+      [serverId, roleId]
+    );
+    res.json({ success: true, members: rows });
+  } catch (err) {
+    console.error('Error en GET /wildwave/api/channels/:id/roles/:roleId/members:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Add member to role (URL params)
+app.post('/wildwave/api/channels/:id/roles/:roleId/members/:memberId', async (req, res) => {
+  try {
+    await ensureWildWaveMessagingTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Token requerido' });
+    const serverId = Number(req.params.id || 0);
+    const roleId = Number(req.params.roleId || 0);
+    const memberId = Number(req.params.memberId || 0);
+    if (!Number.isFinite(serverId) || serverId <= 0 || !Number.isFinite(roleId) || roleId <= 0 || !Number.isFinite(memberId) || memberId <= 0) {
+      return res.status(400).json({ error: 'Parametros invalidos' });
+    }
+    const access = await getWildWaveServerAccess(serverId, wid);
+    if (!access || !access.isOwner) return res.status(403).json({ error: 'Solo el creador puede gestionar roles' });
+
+    await pool.query(
+      `INSERT INTO wildx_server_member_roles (server_id, user_id, role_id, assigned_by, assigned_at)
+       VALUES ($1, $2, $3, $4, NOW())
+       ON CONFLICT (server_id, user_id, role_id) DO NOTHING`,
+      [serverId, memberId, roleId, wid]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error en POST /wildwave/api/channels/:id/roles/:roleId/members/:memberId:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+// Remove member from role
+app.delete('/wildwave/api/channels/:id/roles/:roleId/members/:memberId', async (req, res) => {
+  try {
+    await ensureWildWaveMessagingTables();
+    const wid = getWildXUserId(req);
+    if (!wid) return res.status(401).json({ error: 'Token requerido' });
+    const serverId = Number(req.params.id || 0);
+    const roleId = Number(req.params.roleId || 0);
+    const memberId = Number(req.params.memberId || 0);
+    if (!Number.isFinite(serverId) || serverId <= 0 || !Number.isFinite(roleId) || roleId <= 0 || !Number.isFinite(memberId) || memberId <= 0) {
+      return res.status(400).json({ error: 'Parametros invalidos' });
+    }
+    const access = await getWildWaveServerAccess(serverId, wid);
+    if (!access || !access.isOwner) return res.status(403).json({ error: 'Solo el creador puede gestionar roles' });
+
+    await pool.query(
+      'DELETE FROM wildx_server_member_roles WHERE server_id = $1 AND user_id = $2 AND role_id = $3',
+      [serverId, memberId, roleId]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error en DELETE /wildwave/api/channels/:id/roles/:roleId/members/:memberId:', err);
+    res.status(500).json({ error: 'Error interno' });
+  }
+});
+
+
 app.get('/wildwave/api/channels/:id/settings/roles', async (req, res) => {
   try {
     await ensureWildWaveMessagingTables();

@@ -1426,20 +1426,18 @@
 </head>
 <body>
   <!-- Splash Screen -->
-  <div id="splash-screen" style="position:fixed;inset:0;z-index:999999;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity 0.6s,visibility 0.6s;">
-    <video id="splash-video" playsinline style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1;">
-      <source src="assets/Underwater_splash_screen_animation.mp4" type="video/mp4">
-    </video>
-    <div style="position:absolute;bottom:60px;left:50%;transform:translateX(-50%);width:min(400px,80%);z-index:2;">
-      <div style="width:100%;height:4px;background:rgba(255,255,255,0.1);border-radius:2px;overflow:hidden;backdrop-filter:blur(8px);">
-        <div id="splash-progress" style="width:0%;height:100%;background:linear-gradient(90deg,#5865f2,#7289da);border-radius:2px;transition:width 0.3s ease;"></div>
-      </div>
+  <div id="splash-screen" style="position:fixed;inset:0;z-index:999999;background:linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity 0.6s,visibility 0.6s;">
+    <div id="splash-logo-container" style="margin-bottom:60px;">
+      <h1 id="splash-logo-text" style="font-size:72px;font-weight:800;margin:0;background:linear-gradient(135deg, #5865f2 0%, #7289da 50%, #5865f2 100%);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:2px;">WildWave</h1>
+    </div>
+    <div style="width:min(500px,80%);height:8px;background:rgba(255,255,255,0.05);border-radius:12px;overflow:hidden;position:relative;">
+      <div id="splash-progress" style="width:0%;height:100%;background:linear-gradient(90deg,#5865f2,#7289da,#5865f2);background-size:200% 100%;border-radius:12px;transition:width 0.4s cubic-bezier(0.4, 0, 0.2, 1);"></div>
     </div>
   </div>
   <style>
     @keyframes spin { to { transform: rotate(360deg); } }
     @keyframes progressPulse { 
-      0%, 100% { opacity: 0.6; }
+      0%, 100% { opacity: 0.8; }
       50% { opacity: 1; }
     }
     @keyframes shimmer {
@@ -1450,8 +1448,19 @@
       0%, 100% { transform: translateY(0) scale(1); }
       50% { transform: translateY(-20px) scale(1.05); }
     }
+    @keyframes logoGlow {
+      0%, 100% { filter: drop-shadow(0 0 20px rgba(88,101,242,0.4)); }
+      50% { filter: drop-shadow(0 0 40px rgba(88,101,242,0.8)); }
+    }
+    @keyframes gradientShift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
     #splash-screen.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
-    #splash-progress.loading { animation: progressPulse 1.5s ease-in-out infinite; }
+    #splash-progress { animation: shimmer 2s linear infinite; }
+    #splash-progress.loading { animation: shimmer 2s linear infinite, progressPulse 1.5s ease-in-out infinite; }
+    #splash-logo-text { animation: logoGlow 3s ease-in-out infinite, gradientShift 4s ease infinite; }
     #session-confirm-modal button[onclick*="confirmSession"]:hover { background: #4752c4 !important; }
     #session-confirm-modal button[onclick*="rejectSession"]:hover { background: rgba(255,255,255,0.1) !important; }
     #category-channel-modal input:focus,
@@ -3865,7 +3874,6 @@
     renderMembershipState();
     (async () => {
       const splashScreen = document.getElementById("splash-screen");
-      const splashVideo = document.getElementById("splash-video");
       const splashProgress = document.getElementById("splash-progress");
       const authScreen = document.getElementById("auth-screen");
       const sessionModal = document.getElementById("session-confirm-modal");
@@ -3893,23 +3901,13 @@
         authScreen.style.display = "none";
         splashScreen.style.display = "flex";
         
-        splashVideo.muted = false;
-        splashVideo.play().catch(() => {
-          splashVideo.muted = true;
-          splashVideo.play().catch(() => {});
-        });
-        
-        splashVideo.addEventListener("timeupdate", () => {
-          if (!appReady && splashVideo.duration) {
-            const progress = (splashVideo.currentTime / splashVideo.duration) * 100;
-            splashProgress.style.width = `${progress}%`;
-          }
-        });
-        
-        // Ocultar splash cuando termine el video
-        splashVideo.addEventListener("ended", () => {
-          hideSplashScreen();
-        }, { once: true });
+        // Simular progreso de carga
+        let progress = 0;
+        const progressInterval = setInterval(() => {
+          progress += Math.random() * 15;
+          if (progress > 90) progress = 90;
+          splashProgress.style.width = `${progress}%`;
+        }, 150);
         
         const blocked = await enforceStoreSupportGate();
         if (!blocked) {
@@ -3918,11 +3916,14 @@
           });
         }
         
+        clearInterval(progressInterval);
         appReady = true;
-        if (parseFloat(splashProgress.style.width) < 100) {
-          splashProgress.classList.add("loading");
-          splashProgress.style.width = "100%";
-        }
+        splashProgress.style.width = "100%";
+        
+        // Ocultar splash después de completar
+        setTimeout(() => {
+          hideSplashScreen();
+        }, 800);
       };
       
       // Funciones del modal de confirmación

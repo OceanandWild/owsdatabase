@@ -2638,88 +2638,9 @@
       position: absolute;
     }
 
-    .weapon-model.katana::before,
-    .weapon-model.katana::after { display: none; }
-
-    .weapon-model.katana {
-      background:
-        radial-gradient(50px 40px at 70% 20%, rgba(56,242,255,0.45), transparent 65%),
-        radial-gradient(35px 30px at 30% 75%, rgba(255,176,0,0.25), transparent 60%),
-        linear-gradient(145deg, rgba(4,14,28,0.96), rgba(8,22,40,0.98));
-      border-color: rgba(56,242,255,0.3);
-      box-shadow:
-        0 0 20px rgba(56,242,255,0.35),
-        0 0 40px rgba(56,242,255,0.15),
-        inset 0 0 16px rgba(56,242,255,0.08),
-        0 12px 22px rgba(0,0,0,0.4);
-    }
-
-    .weapon-model.chain-scythe::before {
+    .weapon-model::before,
+    .weapon-model::after {
       display: none;
-    }
-
-    .weapon-model.chain-scythe::after {
-      display: none;
-    }
-
-    .weapon-model.pulse-baton::before {
-      width: 14px;
-      height: 70px;
-      left: 39px;
-      top: 10px;
-      border-radius: 999px;
-      background: linear-gradient(180deg, rgba(185, 195, 217, 0.4), rgba(185, 195, 217, 0.9));
-      box-shadow: 0 0 10px rgba(185, 195, 217, 0.4);
-    }
-
-    .weapon-model.pulse-baton::after {
-      width: 40px;
-      height: 10px;
-      left: 26px;
-      top: 32px;
-      border-radius: 999px;
-      background: linear-gradient(90deg, rgba(56, 242, 255, 0.3), rgba(255, 176, 0, 0.7));
-    }
-
-    .weapon-model.ion-pistols::before {
-      width: 32px;
-      height: 22px;
-      left: 12px;
-      top: 28px;
-      border-radius: 8px;
-      background: linear-gradient(140deg, rgba(111, 242, 194, 0.8), rgba(20, 34, 40, 0.9));
-    }
-
-    .weapon-model.ion-pistols::after {
-      width: 32px;
-      height: 22px;
-      right: 12px;
-      top: 44px;
-      border-radius: 8px;
-      background: linear-gradient(140deg, rgba(111, 242, 194, 0.8), rgba(20, 34, 40, 0.9));
-      box-shadow: 0 0 10px rgba(111, 242, 194, 0.4);
-    }
-
-    .weapon-model.mantis-blades::before {
-      width: 60px;
-      height: 12px;
-      left: 14px;
-      top: 28px;
-      border-radius: 999px;
-      background: linear-gradient(90deg, rgba(106, 168, 255, 0.2), rgba(106, 168, 255, 0.9));
-      transform: rotate(-18deg);
-      box-shadow: 0 0 12px rgba(106, 168, 255, 0.45);
-    }
-
-    .weapon-model.mantis-blades::after {
-      width: 60px;
-      height: 12px;
-      left: 16px;
-      top: 50px;
-      border-radius: 999px;
-      background: linear-gradient(90deg, rgba(106, 168, 255, 0.2), rgba(106, 168, 255, 0.9));
-      transform: rotate(18deg);
-      box-shadow: 0 0 12px rgba(106, 168, 255, 0.45);
     }
 
     .weapon-model.storm-guitar {
@@ -2731,10 +2652,6 @@
       box-shadow: 0 0 20px rgba(185, 107, 255, 0.35);
       background-color: transparent;
     }
-    .weapon-model.storm-guitar::before,
-    .weapon-model.storm-guitar::after {
-      display: none;
-    }
 
     .weapon-model.chain-scythe {
       background-image: url('assets/Chain Scythe (Presentation).png');
@@ -2744,10 +2661,6 @@
       border-color: rgba(255, 77, 141, 0.5);
       box-shadow: 0 0 24px rgba(255, 26, 86, 0.75);
       background-color: transparent;
-    }
-    .weapon-model.chain-scythe::before,
-    .weapon-model.chain-scythe::after {
-      display: none;
     }
 
     .weapon-model.solar-halberd {
@@ -2759,10 +2672,6 @@
       box-shadow: 0 0 20px rgba(255, 209, 90, 0.55);
       background-color: transparent;
     }
-    .weapon-model.solar-halberd::before,
-    .weapon-model.solar-halberd::after {
-      display: none;
-    }
 
     .weapon-model.zeus-axe {
       background-image: url('assets/Zeus Axe (Presentation).png');
@@ -2773,10 +2682,6 @@
       box-shadow: 0 0 22px rgba(86, 223, 255, 0.42);
       background-color: transparent;
     }
-    .weapon-model.zeus-axe::before,
-    .weapon-model.zeus-axe::after {
-      display: none;
-    }
 
     .weapon-model.tiger-gloves {
       background-image: url('assets/Tiger Gloves (Presentation).png');
@@ -2786,128 +2691,6 @@
       border-color: rgba(255, 145, 88, 0.42);
       box-shadow: 0 0 20px rgba(255, 120, 76, 0.34);
       background-color: transparent;
-    }
-    .weapon-model.tiger-gloves::before,
-    .weapon-model.tiger-gloves::after {
-      display: none;
-    }
-
-    .weapon-model.solar-halberd::before {
-      width: 12px;
-      height: 70px;
-      left: 40px;
-      top: 10px;
-      border-radius: 999px;
-      background: linear-gradient(180deg, rgba(255, 209, 90, 0.9), rgba(56, 242, 255, 0.3));
-      box-shadow: 0 0 14px rgba(255, 209, 90, 0.55);
-    }
-
-    .weapon-model.solar-halberd::after {
-      width: 42px;
-      height: 24px;
-      left: 24px;
-      top: 18px;
-      border-radius: 20px;
-      background: linear-gradient(120deg, rgba(255, 209, 90, 0.8), rgba(12, 18, 34, 0.8));
-      transform: rotate(-20deg);
-    }
-
-    .weapon-model.volt-daggers::before {
-      width: 50px;
-      height: 8px;
-      left: 12px;
-      top: 30px;
-      border-radius: 999px;
-      background: linear-gradient(90deg, rgba(111, 242, 194, 0.3), rgba(111, 242, 194, 0.9));
-      transform: rotate(-30deg);
-    }
-
-    .weapon-model.volt-daggers::after {
-      width: 50px;
-      height: 8px;
-      left: 18px;
-      top: 50px;
-      border-radius: 999px;
-      background: linear-gradient(90deg, rgba(111, 242, 194, 0.3), rgba(111, 242, 194, 0.9));
-      transform: rotate(20deg);
-    }
-
-    .weapon-model.mirage-rifle::before {
-      width: 68px;
-      height: 14px;
-      left: 12px;
-      top: 44px;
-      border-radius: 10px;
-      background: linear-gradient(90deg, rgba(106, 168, 255, 0.3), rgba(106, 168, 255, 0.9));
-    }
-
-    .weapon-model.mirage-rifle::after {
-      width: 18px;
-      height: 24px;
-      left: 24px;
-      top: 30px;
-      border-radius: 6px;
-      background: rgba(106, 168, 255, 0.6);
-      box-shadow: 0 0 10px rgba(106, 168, 255, 0.4);
-    }
-
-    .weapon-model.nebula-glaive::before {
-      width: 14px;
-      height: 70px;
-      left: 40px;
-      top: 10px;
-      border-radius: 999px;
-      background: linear-gradient(180deg, rgba(185, 107, 255, 0.8), rgba(12, 18, 34, 0.9));
-    }
-
-    .weapon-model.nebula-glaive::after {
-      width: 46px;
-      height: 26px;
-      left: 24px;
-      top: 12px;
-      border-radius: 16px;
-      background: linear-gradient(120deg, rgba(185, 107, 255, 0.9), rgba(56, 242, 255, 0.3));
-      transform: rotate(18deg);
-    }
-
-    .weapon-model.vortex-cannon::before {
-      width: 70px;
-      height: 26px;
-      left: 12px;
-      top: 34px;
-      border-radius: 18px;
-      background: linear-gradient(90deg, rgba(255, 209, 90, 0.6), rgba(20, 26, 40, 0.9));
-      box-shadow: 0 0 14px rgba(255, 209, 90, 0.5);
-    }
-
-    .weapon-model.vortex-cannon::after {
-      width: 30px;
-      height: 30px;
-      left: 40px;
-      top: 20px;
-      border-radius: 50%;
-      border: 3px solid rgba(255, 209, 90, 0.7);
-      box-shadow: 0 0 12px rgba(255, 209, 90, 0.45);
-    }
-
-    .weapon-model.aether-pike::before {
-      width: 14px;
-      height: 74px;
-      left: 40px;
-      top: 8px;
-      border-radius: 999px;
-      background: linear-gradient(180deg, rgba(255, 77, 141, 0.9), rgba(56, 242, 255, 0.2));
-      box-shadow: 0 0 16px rgba(255, 77, 141, 0.6);
-    }
-
-    .weapon-model.aether-pike::after {
-      width: 46px;
-      height: 22px;
-      left: 24px;
-      top: 16px;
-      border-radius: 20px;
-      background: linear-gradient(120deg, rgba(255, 77, 141, 0.9), rgba(12, 18, 34, 0.8));
-      transform: rotate(-12deg);
     }
 
     .item-model {

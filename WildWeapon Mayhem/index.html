@@ -6421,6 +6421,25 @@
     weaponSprites.solar_halberd.src = 'assets/Solar Halberd.png';
     weaponSprites.zeus_axe.src = 'assets/Zeus Axe (Presentation).png';
     weaponSprites.tiger_gloves.src = 'assets/Tiger Gloves (Presentation).png';
+
+    // ── Storm Guitar M1 effect sprites ──
+    const sgM1Sprites = {
+      slash1: new Image(),
+      slash2: new Image(),
+      slash3: new Image(),
+      slash4: new Image(),
+      flash: new Image(),
+      note1: new Image(),
+      note2: new Image()
+    };
+    sgM1Sprites.slash1.src = 'assets/Storm Guitar/storm_guitar_slash_1.png';
+    sgM1Sprites.slash2.src = 'assets/Storm Guitar/storm_guitar_slash_2.png';
+    sgM1Sprites.slash3.src = 'assets/Storm Guitar/storm_guitar_slash_3.png';
+    sgM1Sprites.slash4.src = 'assets/Storm Guitar/storm_guitar_slash_4.png';
+    sgM1Sprites.flash.src = 'assets/Storm Guitar/storm_guitar_flash.png';
+    sgM1Sprites.note1.src = 'assets/Storm Guitar/storm_guitar_note1.png';
+    sgM1Sprites.note2.src = 'assets/Storm Guitar/storm_guitar_note2.png';
+
     // New inventory UI state
     let invSelectedWeaponId = null;
     let invActiveTab = 'arsenal';
@@ -13282,44 +13301,41 @@ const TIGER_GLOVES_SVG = `
         // ── STORM GUITAR effects ─────────────────────────────────────
         if (effect.type === 'sg-m1-swing') {
           const alpha = 0.9 - p * 0.7;
-          const angle = effect.startAngle + (effect.endAngle - effect.startAngle) * p;
-          const colors = ['rgba(185,107,255,','rgba(200,140,255,','rgba(160,80,255,','rgba(255,224,102,'];
-          const col = colors[effect.combo % colors.length];
-          arenaCtx.save();
-          arenaCtx.shadowBlur = 18; arenaCtx.shadowColor = '#b96bff';
-          arenaCtx.strokeStyle = col + alpha + ')';
-          arenaCtx.lineWidth = 3 + effect.combo * 0.5;
-          arenaCtx.lineCap = 'round';
-          arenaCtx.beginPath();
-          arenaCtx.arc(effect.x, effect.y, effect.radius, effect.startAngle, angle);
-          arenaCtx.stroke();
-          // Electric sparks at tip
-          const tipX = effect.x + Math.cos(angle) * effect.radius;
-          const tipY = effect.y + Math.sin(angle) * effect.radius;
-          arenaCtx.strokeStyle = 'rgba(255,224,102,' + (alpha * 0.8) + ')';
-          arenaCtx.lineWidth = 1.5;
-          for (let i = 0; i < 3; i++) {
-            const sa = angle + (i/3)*0.6 - 0.3;
-            arenaCtx.beginPath();
-            arenaCtx.moveTo(tipX, tipY);
-            arenaCtx.lineTo(tipX + Math.cos(sa) * 14, tipY + Math.sin(sa) * 14);
-            arenaCtx.stroke();
+          const slashSprite = sgM1Sprites[`slash${(effect.combo % 4) + 1}`];
+          if (slashSprite && slashSprite.complete) {
+            arenaCtx.save();
+            arenaCtx.globalAlpha = alpha;
+            arenaCtx.translate(effect.x, effect.y);
+            arenaCtx.rotate(effect.startAngle + (effect.endAngle - effect.startAngle) * p);
+            const size = effect.radius * 2;
+            arenaCtx.drawImage(slashSprite, -size / 2, -size / 2, size, size);
+            arenaCtx.restore();
           }
-          arenaCtx.restore();
         }
 
         if (effect.type === 'sg-m1-burst') {
-          // Final combo shockwave
-          arenaCtx.save();
-          arenaCtx.shadowBlur = 16; arenaCtx.shadowColor = '#b96bff';
-          const br = effect.radius * (0.3 + p * 0.7);
-          arenaCtx.strokeStyle = `rgba(185,107,255,${0.8 - p * 0.75})`;
-          arenaCtx.lineWidth = 3 - p * 2;
-          arenaCtx.beginPath(); arenaCtx.arc(effect.x, effect.y, br, 0, Math.PI*2); arenaCtx.stroke();
-          arenaCtx.strokeStyle = `rgba(255,224,102,${0.5 - p * 0.45})`;
-          arenaCtx.lineWidth = 1;
-          arenaCtx.beginPath(); arenaCtx.arc(effect.x, effect.y, br * 0.7, 0, Math.PI*2); arenaCtx.stroke();
-          arenaCtx.restore();
+          const alpha = 0.8 - p * 0.75;
+          const flashSprite = sgM1Sprites.flash;
+          if (flashSprite && flashSprite.complete) {
+            arenaCtx.save();
+            arenaCtx.globalAlpha = alpha;
+            const size = effect.radius * (0.3 + p * 0.7) * 2;
+            arenaCtx.drawImage(flashSprite, effect.x - size / 2, effect.y - size / 2, size, size);
+            arenaCtx.restore();
+          }
+        }
+
+        if (effect.type === 'sg-m1-note') {
+          const alpha = 0.9 - p * 0.8;
+          const noteSprite = effect.noteType === 1 ? sgM1Sprites.note1 : sgM1Sprites.note2;
+          if (noteSprite && noteSprite.complete) {
+            arenaCtx.save();
+            arenaCtx.globalAlpha = alpha;
+            const yOffset = -p * 60;
+            const size = 30 * (1 - p * 0.3);
+            arenaCtx.drawImage(noteSprite, effect.x - size / 2, effect.y + yOffset - size / 2, size, size);
+            arenaCtx.restore();
+          }
         }
 
         if (effect.type === 'sg-q-wave') {
@@ -15004,6 +15020,18 @@ const TIGER_GLOVES_SVG = `
           combo: sgCombo,
           duration: 0.24
         });
+
+        // Musical notes floating up
+        for (let i = 0; i < 2; i++) {
+          addEffect({
+            type: 'sg-m1-note',
+            x: playerPos.x + (Math.random() - 0.5) * 40,
+            y: playerPos.y + (Math.random() - 0.5) * 40,
+            noteType: Math.random() > 0.5 ? 1 : 2,
+            duration: 0.6,
+            delay: i * 0.1
+          });
+        }
 
         // On last hit (combo 3): shockwave ripple
         if (sgCombo === 3) {

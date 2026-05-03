@@ -4248,6 +4248,20 @@
     window.selectRole = async function(roleId) {
       window.selectedRoleId = roleId;
       renderServerRoles();
+      
+      // Mostrar loader
+      const container = document.getElementById('role-members-list');
+      const role = window.serverRolesData.find(r => r.id === roleId);
+      const roleName = role?.name || 'rol';
+      if (container) {
+        container.innerHTML = `
+          <div style="padding:40px 20px;text-align:center;color:var(--ink-dim);">
+            <div style="font-size:32px;margin-bottom:12px;animation:spin 1s linear infinite;">⏳</div>
+            <div style="font-size:14px;font-weight:600;">Cargando miembros de ${roleName}...</div>
+          </div>
+        `;
+      }
+      
       await loadRoleMembers(roleId);
       document.getElementById('add-role-member-btn').style.display = 'block';
     };

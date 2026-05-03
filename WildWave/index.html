@@ -4568,8 +4568,8 @@
         });
         showToast("Te has unido al servidor correctamente.", "ok");
         loadWildBotMessages();
-        // Reload servers
-        setTimeout(() => window.location.reload(), 1000);
+        // Reload servers without full page reload
+        await fetchChannels();
       } catch (err) {
         showToast(err.message || "Error al aceptar invitación.", "error");
       }

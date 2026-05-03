@@ -8691,9 +8691,16 @@ const TIGER_GLOVES_SVG = `
       'tiger-gloves':  TIGER_GLOVES_SVG,
     };
 
+    // Weapons that use presentation sprites instead of SVGs
+    const SPRITE_WEAPONS = new Set(['storm-guitar', 'chain-scythe', 'solar-halberd', 'zeus-axe', 'tiger-gloves']);
+
     function getWeaponModelMarkup(weapon, sizeClass = '') {
       if (!weapon) return '';
       const classes = ['weapon-model', weapon.model, sizeClass].filter(Boolean).join(' ');
+      // Don't inject SVG for weapons with sprites
+      if (SPRITE_WEAPONS.has(weapon.model)) {
+        return `<div class="${classes}"></div>`;
+      }
       const svg = WEAPON_SVGS[weapon.model];
       if (svg) return `<div class="${classes}">${svg}</div>`;
       return `<div class="${classes}"></div>`;
@@ -8701,6 +8708,11 @@ const TIGER_GLOVES_SVG = `
 
     function injectWeaponSVG(el, model) {
       if (!el) return;
+      // Don't inject SVG for weapons with sprites
+      if (SPRITE_WEAPONS.has(model)) {
+        el.innerHTML = '';
+        return;
+      }
       el.innerHTML = WEAPON_SVGS[model] || '';
     }
     function getItemModelMarkup(item) {

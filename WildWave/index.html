@@ -1959,6 +1959,22 @@
                 <div id="roles-list-container" style="display:flex;flex-direction:column;gap:8px;"></div>
               </div>
             </article>
+            
+            <article class="ss-card" style="margin-top:20px;" id="role-members-section">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                <div>
+                  <h4 style="margin:0;">Miembros del rol</h4>
+                  <p style="color:var(--ink-dim);font-size:13px;margin:4px 0 0;">Selecciona un rol para gestionar sus miembros</p>
+                </div>
+                <button onclick="window.openAddRoleMemberModal()" class="btn primary" type="button" id="add-role-member-btn" style="display:none;">+ Agregar miembro</button>
+              </div>
+              <div id="role-members-list" style="display:flex;flex-direction:column;gap:8px;">
+                <div style="padding:40px 20px;text-align:center;color:var(--ink-dim);">
+                  <div style="font-size:32px;margin-bottom:8px;">👥</div>
+                  <div style="font-size:14px;">Selecciona un rol para ver sus miembros</div>
+                </div>
+              </div>
+            </article>
           </div>
 
           <!-- Categorías y Canales section -->
@@ -2085,6 +2101,28 @@
           <div style="padding:40px 20px;text-align:center;color:#8e94a3;">
             <div style="font-size:32px;margin-bottom:8px;">👥</div>
             <div style="font-size:14px;">Busca usuarios para invitar</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Role Member Modal -->
+  <div id="add-role-member-modal" class="modal-wrap" style="display:none;">
+    <div class="modal" style="max-width:480px;background:#313338;">
+      <div class="modal-head" style="background:#2b2d31;border-bottom:1px solid rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:space-between;padding:16px 20px;">
+        <h3 style="color:#f2f3f5;font-size:18px;font-weight:600;margin:0;">Agregar miembro al rol</h3>
+        <button type="button" class="modal-close" onclick="window.closeAddRoleMemberModal()" style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;background:transparent;border:none;border-radius:4px;color:#b5bac1;font-size:24px;cursor:pointer;transition:background 0.15s;line-height:1;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'">×</button>
+      </div>
+      <div class="modal-body" style="padding:20px;">
+        <div style="position:relative;margin-bottom:16px;">
+          <input id="role-member-search-input" type="text" placeholder="Buscar miembro..." style="width:100%;padding:12px 16px 12px 40px;background:#1a1e27;border:1px solid #2a2f3a;border-radius:8px;color:#f2f3f5;font-size:14px;outline:none;transition:all 0.2s;">
+          <span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:#8e94a3;font-size:16px;">🔍</span>
+        </div>
+        <div id="role-member-search-results" style="max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;">
+          <div style="padding:40px 20px;text-align:center;color:#8e94a3;">
+            <div style="font-size:32px;margin-bottom:8px;">👤</div>
+            <div style="font-size:14px;">Busca miembros del servidor</div>
           </div>
         </div>
       </div>
@@ -4044,16 +4082,17 @@
       container.innerHTML = visibleRoles.map(role => {
         const isEveryone = role.name === '@everyone';
         const canDelete = !role.is_system && !isEveryone;
+        const isSelected = window.selectedRoleId === role.id;
         return `
-        <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface-2);border-radius:8px;border:1px solid var(--border);">
+        <div onclick="window.selectRole(${role.id})" style="display:flex;align-items:center;gap:12px;padding:12px;background:${isSelected ? 'rgba(88,101,242,0.15)' : 'var(--surface-2)'};border-radius:8px;border:1px solid ${isSelected ? '#5865f2' : 'var(--border)'};cursor:pointer;transition:all 0.15s;" onmouseover="if(!${isSelected}) this.style.background='rgba(255,255,255,0.05)'" onmouseout="if(!${isSelected}) this.style.background='var(--surface-2)'">
           <div style="width:24px;height:24px;border-radius:6px;background:${role.color};flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px;">${role.icon || ''}</div>
           <div style="flex:1;min-width:0;">
             <div style="font-weight:600;color:var(--ink);">${safeText(role.name)}</div>
             <div style="font-size:12px;color:var(--ink-dim);">${role.member_count || 0} miembros${isEveryone ? ' • Rol predeterminado' : ''}</div>
           </div>
           ${!isEveryone ? `
-            <button onclick="window.editServerRole(${role.id})" class="btn-icon" title="Editar rol">✏️</button>
-            ${canDelete ? `<button onclick="window.deleteServerRole(${role.id})" class="btn-icon" title="Eliminar rol">🗑️</button>` : ''}
+            <button onclick="event.stopPropagation();window.editServerRole(${role.id})" class="btn-icon" title="Editar rol">✏️</button>
+            ${canDelete ? `<button onclick="event.stopPropagation();window.deleteServerRole(${role.id})" class="btn-icon" title="Eliminar rol">🗑️</button>` : ''}
           ` : ''}
         </div>
       `;
@@ -4170,6 +4209,134 @@
         showToast(err.message || "Error al eliminar el rol.", "error");
       }
     };
+
+    // === ROLE MEMBERS MANAGEMENT ===
+    window.selectedRoleId = null;
+    window.roleMembers = [];
+
+    window.selectRole = async function(roleId) {
+      window.selectedRoleId = roleId;
+      renderServerRoles();
+      await loadRoleMembers(roleId);
+      document.getElementById('add-role-member-btn').style.display = 'block';
+    };
+
+    async function loadRoleMembers(roleId) {
+      const selected = getSelectedServer();
+      if (!selected) return;
+      try {
+        const token = getToken();
+        const payload = await api(`/wildwave/api/channels/${selected.id}/roles/${roleId}/members`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        window.roleMembers = Array.isArray(payload?.members) ? payload.members : [];
+        renderRoleMembers();
+      } catch (err) {
+        console.error("Error loading role members:", err);
+        window.roleMembers = [];
+        renderRoleMembers();
+      }
+    }
+
+    function renderRoleMembers() {
+      const container = document.getElementById('role-members-list');
+      if (!container) return;
+      if (!window.roleMembers.length) {
+        container.innerHTML = '<div style="padding:20px;text-align:center;color:var(--ink-dim);">No hay miembros con este rol.</div>';
+        return;
+      }
+      container.innerHTML = window.roleMembers.map(member => `
+        <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface-2);border-radius:8px;border:1px solid var(--border);">
+          <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg, #5865f2, #7289da);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600;font-size:16px;">${member.username?.charAt(0).toUpperCase() || 'U'}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:600;color:var(--ink);">${safeText(member.username)}</div>
+            <div style="font-size:12px;color:var(--ink-dim);">Miembro</div>
+          </div>
+          <button onclick="window.removeRoleMember(${member.id})" class="btn-icon" title="Quitar rol">🗑️</button>
+        </div>
+      `).join('');
+    }
+
+    window.openAddRoleMemberModal = function() {
+      const modal = document.getElementById('add-role-member-modal');
+      modal.classList.add('active');
+      searchRoleMembersToAdd('');
+    };
+
+    window.closeAddRoleMemberModal = function() {
+      document.getElementById('add-role-member-modal').classList.remove('active');
+    };
+
+    async function searchRoleMembersToAdd(query) {
+      const selected = getSelectedServer();
+      if (!selected) return;
+      const container = document.getElementById('role-member-search-results');
+      if (!container) return;
+      
+      try {
+        const token = getToken();
+        const payload = await api(`/wildwave/api/channels/${selected.id}/members?search=${encodeURIComponent(query)}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const members = Array.isArray(payload?.members) ? payload.members : [];
+        const currentMemberIds = new Set(window.roleMembers.map(m => m.id));
+        const availableMembers = members.filter(m => !currentMemberIds.has(m.id));
+        
+        if (!availableMembers.length) {
+          container.innerHTML = '<div style="padding:20px;text-align:center;color:var(--ink-dim);">No se encontraron miembros.</div>';
+          return;
+        }
+        
+        container.innerHTML = availableMembers.map(member => `
+          <div onclick="window.addRoleMember(${member.id})" style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface-2);border-radius:8px;border:1px solid var(--border);cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='var(--surface-2)'">
+            <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg, #5865f2, #7289da);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:600;font-size:16px;">${member.username?.charAt(0).toUpperCase() || 'U'}</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-weight:600;color:var(--ink);">${safeText(member.username)}</div>
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        container.innerHTML = '<div style="padding:20px;text-align:center;color:var(--ink-dim);">Error al buscar miembros.</div>';
+      }
+    }
+
+    window.addRoleMember = async function(memberId) {
+      const selected = getSelectedServer();
+      if (!selected || !window.selectedRoleId) return;
+      try {
+        const token = getToken();
+        await api(`/wildwave/api/channels/${selected.id}/roles/${window.selectedRoleId}/members/${memberId}`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        showToast('Miembro agregado al rol.', 'ok');
+        await loadRoleMembers(window.selectedRoleId);
+        window.closeAddRoleMemberModal();
+      } catch (err) {
+        showToast(err.message || 'Error al agregar miembro.', 'error');
+      }
+    };
+
+    window.removeRoleMember = async function(memberId) {
+      if (!confirm('¿Quitar este rol al miembro?')) return;
+      const selected = getSelectedServer();
+      if (!selected || !window.selectedRoleId) return;
+      try {
+        const token = getToken();
+        await api(`/wildwave/api/channels/${selected.id}/roles/${window.selectedRoleId}/members/${memberId}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        showToast('Rol removido del miembro.', 'ok');
+        await loadRoleMembers(window.selectedRoleId);
+      } catch (err) {
+        showToast(err.message || 'Error al remover rol.', 'error');
+      }
+    };
+
+    document.getElementById('role-member-search-input')?.addEventListener('input', (e) => {
+      searchRoleMembersToAdd(e.target.value);
+    });
 
     // Cargar roles cuando se abre la sección
     document.querySelectorAll(".ss-nav-item").forEach(btn => {

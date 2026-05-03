@@ -4373,6 +4373,7 @@
           headers: { Authorization: `Bearer ${token}` }
         });
         showToast('Miembro agregado al rol.', 'ok');
+        window.serverSettingsHasChanges = true;
         await loadRoleMembers(window.selectedRoleId);
         window.closeAddRoleMemberModal();
       } catch (err) {
@@ -4391,6 +4392,7 @@
           headers: { Authorization: `Bearer ${token}` }
         });
         showToast('Rol removido del miembro.', 'ok');
+        window.serverSettingsHasChanges = true;
         await loadRoleMembers(window.selectedRoleId);
       } catch (err) {
         showToast(err.message || 'Error al remover rol.', 'error');

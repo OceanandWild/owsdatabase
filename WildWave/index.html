@@ -3009,29 +3009,21 @@
 
     function closeServerSettingsModal() {
       // Verificar si hay cambios sin guardar
-      const selected = getSelectedServer();
-      if (selected) {
-        const hasChanges = 
-          ssNameInput.value.trim() !== selected.name ||
-          ssDescriptionInput.value.trim() !== (selected.description || '') ||
-          serverSettingsPreviewUrl !== (selected.icon_url || '');
-        
-        if (hasChanges) {
-          const confirmModal = document.createElement('div');
-          confirmModal.style.cssText = 'position:fixed;inset:0;z-index:1000000;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;';
-          confirmModal.innerHTML = `
-            <div id="unsaved-warning" style="background:#313338;border-radius:8px;padding:24px;max-width:400px;animation:shake 0.5s;">
-              <h3 style="color:#f2f3f5;font-size:18px;font-weight:600;margin:0 0 12px;">Cambios sin guardar</h3>
-              <p style="color:#b5bac1;font-size:14px;margin:0 0 20px;">Tienes cambios sin guardar. ¿Deseas descartarlos?</p>
-              <div style="display:flex;gap:12px;justify-content:flex-end;">
-                <button onclick="this.closest('div[style*=fixed]').remove()" style="padding:10px 20px;background:transparent;border:none;border-radius:4px;color:#f2f3f5;font-size:14px;font-weight:500;cursor:pointer;">Cancelar</button>
-                <button onclick="this.closest('div[style*=fixed]').remove();document.getElementById('server-settings-modal').classList.remove('active')" style="padding:10px 20px;background:#ed4245;border:none;border-radius:4px;color:#fff;font-size:14px;font-weight:500;cursor:pointer;">Descartar</button>
-              </div>
+      if (window.serverSettingsHasChanges) {
+        const confirmModal = document.createElement('div');
+        confirmModal.style.cssText = 'position:fixed;inset:0;z-index:1000000;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;';
+        confirmModal.innerHTML = `
+          <div id="unsaved-warning" style="background:#313338;border-radius:8px;padding:24px;max-width:400px;animation:shake 0.5s;">
+            <h3 style="color:#f2f3f5;font-size:18px;font-weight:600;margin:0 0 12px;">Cambios sin guardar</h3>
+            <p style="color:#b5bac1;font-size:14px;margin:0 0 20px;">Tienes cambios sin guardar. ¿Deseas descartarlos?</p>
+            <div style="display:flex;gap:12px;justify-content:flex-end;">
+              <button onclick="this.closest('div[style*=fixed]').remove()" style="padding:10px 20px;background:transparent;border:none;border-radius:4px;color:#f2f3f5;font-size:14px;font-weight:500;cursor:pointer;">Cancelar</button>
+              <button onclick="window.serverSettingsHasChanges=false;this.closest('div[style*=fixed]').remove();document.getElementById('server-settings-modal').classList.remove('active')" style="padding:10px 20px;background:#ed4245;border:none;border-radius:4px;color:#fff;font-size:14px;font-weight:500;cursor:pointer;">Descartar</button>
             </div>
-          `;
-          document.body.appendChild(confirmModal);
-          return;
-        }
+          </div>
+        `;
+        document.body.appendChild(confirmModal);
+        return;
       }
       
       serverSettingsModal.classList.remove("active");
@@ -3055,6 +3047,9 @@
         showToast("No tienes permisos para acceder a los ajustes del servidor.", "error");
         return;
       }
+      
+      // Reset unsaved changes flag
+      window.serverSettingsHasChanges = false;
       
       ssNameInput.value = safeText(selected.name, "");
       ssDescriptionInput.value = safeText(selected.description, "");
@@ -3582,12 +3577,17 @@
       serverSettingsPreviewUrl = URL.createObjectURL(file);
       applySquareIcon(ssIconPreview, serverSettingsPreviewUrl, ssNameInput.value || "Servidor");
       applySquareIcon(ssBrandIcon, serverSettingsPreviewUrl, ssNameInput.value || "Servidor");
+      window.serverSettingsHasChanges = true;
     });
     ssNameInput.addEventListener("input", () => {
       const selected = getSelectedServer();
       const fallback = ssNameInput.value || selected?.name || "Servidor";
       applySquareIcon(ssIconPreview, serverSettingsPreviewUrl || safeText(selected?.icon_url, ""), fallback);
       applySquareIcon(ssBrandIcon, serverSettingsPreviewUrl || safeText(selected?.icon_url, ""), fallback);
+      window.serverSettingsHasChanges = true;
+    });
+    ssDescriptionInput.addEventListener("input", () => {
+      window.serverSettingsHasChanges = true;
     });
     ssSaveBtn.addEventListener("click", async () => {
       const selected = getSelectedServer();
@@ -3615,6 +3615,7 @@
           body: form
         });
         await fetchChannels();
+        window.serverSettingsHasChanges = false;
         closeServerSettingsModal();
         showToast("Ajustes del servidor guardados.", "ok");
       } catch (err) {
@@ -4201,6 +4202,7 @@
             body: JSON.stringify({ name, color, icon, can_manage_server: canManage, priority: 100 })
           });
           showToast("Rol actualizado correctamente.", "ok");
+          window.serverSettingsHasChanges = true;
         } else {
           await api(`/wildwave/api/channels/${selected.id}/roles`, {
             method: "POST",
@@ -4208,6 +4210,7 @@
             body: JSON.stringify({ name, color, icon, can_manage_server: canManage, priority: 100 })
           });
           showToast("Rol creado correctamente.", "ok");
+          window.serverSettingsHasChanges = true;
         }
         window.closeRoleModal();
         await window.loadServerRoles();
@@ -4236,6 +4239,7 @@
         });
         await window.loadServerRoles();
         showToast("Rol eliminado correctamente.", "ok");
+        window.serverSettingsHasChanges = true;
       } catch (err) {
         showToast(err.message || "Error al eliminar el rol.", "error");
       }

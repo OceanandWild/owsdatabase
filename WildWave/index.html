@@ -2020,11 +2020,22 @@
           <span style="display:block;font-size:12px;font-weight:700;color:#b5bac1;text-transform:uppercase;margin-bottom:8px;letter-spacing:0.5px;">Nombre del rol</span>
           <input id="role-name-input" type="text" placeholder="Moderador" maxlength="32" style="width:100%;padding:10px 12px;background:#1e1f22;border:1px solid #1e1f22;border-radius:4px;color:#f2f3f5;font-size:16px;outline:none;transition:border-color 0.15s;">
         </label>
-        <label style="display:block;">
+        <label style="display:block;margin-bottom:20px;">
           <span style="display:block;font-size:12px;font-weight:700;color:#b5bac1;text-transform:uppercase;margin-bottom:8px;letter-spacing:0.5px;">Color</span>
           <div style="display:flex;gap:12px;align-items:center;">
             <input id="role-color-input" type="color" value="#7aa2ff" style="width:56px;height:40px;border:none;border-radius:4px;cursor:pointer;background:transparent;">
             <input id="role-color-text" type="text" value="#7aa2ff" maxlength="7" placeholder="#7aa2ff" style="flex:1;padding:10px 12px;background:#1e1f22;border:1px solid #1e1f22;border-radius:4px;color:#f2f3f5;font-size:14px;font-family:monospace;outline:none;transition:border-color 0.15s;">
+          </div>
+        </label>
+        <label style="display:block;margin-bottom:20px;">
+          <span style="display:block;font-size:12px;font-weight:700;color:#b5bac1;text-transform:uppercase;margin-bottom:8px;letter-spacing:0.5px;">Icono (emoji)</span>
+          <input id="role-icon-input" type="text" placeholder="👑" maxlength="2" style="width:100%;padding:10px 12px;background:#1e1f22;border:1px solid #1e1f22;border-radius:4px;color:#f2f3f5;font-size:24px;outline:none;transition:border-color 0.15s;text-align:center;">
+        </label>
+        <label style="display:flex;align-items:center;gap:12px;padding:12px;background:#1e1f22;border-radius:8px;cursor:pointer;">
+          <input id="role-can-manage-input" type="checkbox" style="width:20px;height:20px;cursor:pointer;">
+          <div>
+            <div style="font-size:14px;font-weight:600;color:#f2f3f5;">Puede gestionar servidor</div>
+            <div style="font-size:12px;color:#b5bac1;">Permite editar ajustes, roles y estructura del servidor</div>
           </div>
         </label>
       </div>
@@ -2964,6 +2975,17 @@
         showToast("Selecciona un servidor primero.", "error");
         return;
       }
+      
+      // Verificar permisos: solo el creador o usuarios con can_manage_server
+      const currentUser = JSON.parse(localStorage.getItem('wildwave_user') || '{}');
+      const isOwner = selected.owner_id === currentUser.id;
+      const hasManagePermission = selected.user_can_manage_server === true;
+      
+      if (!isOwner && !hasManagePermission) {
+        showToast("No tienes permisos para acceder a los ajustes del servidor.", "error");
+        return;
+      }
+      
       ssNameInput.value = safeText(selected.name, "");
       ssDescriptionInput.value = safeText(selected.description, "");
       ssVisibilityInput.value = selected.is_public === false ? "private" : "public";
@@ -4011,19 +4033,23 @@
         container.innerHTML = '<div style="padding:20px;text-align:center;color:var(--ink-dim);">No hay roles creados aún.</div>';
         return;
       }
-      container.innerHTML = window.serverRolesData.map(role => `
+      container.innerHTML = window.serverRolesData.map(role => {
+        const isEveryone = role.name === '@everyone';
+        const canDelete = !role.is_system && !isEveryone;
+        return `
         <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--surface-2);border-radius:8px;border:1px solid var(--border);">
-          <div style="width:24px;height:24px;border-radius:6px;background:${role.color};flex-shrink:0;"></div>
+          <div style="width:24px;height:24px;border-radius:6px;background:${role.color};flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px;">${role.icon || ''}</div>
           <div style="flex:1;min-width:0;">
             <div style="font-weight:600;color:var(--ink);">${safeText(role.name)}</div>
             <div style="font-size:12px;color:var(--ink-dim);">${role.member_count || 0} miembros${role.is_system ? ' • Rol del sistema' : ''}</div>
           </div>
           ${!role.is_system ? `
             <button onclick="window.editServerRole(${role.id})" class="btn-icon" title="Editar rol">✏️</button>
-            <button onclick="window.deleteServerRole(${role.id})" class="btn-icon" title="Eliminar rol">🗑️</button>
+            ${canDelete ? `<button onclick="window.deleteServerRole(${role.id})" class="btn-icon" title="Eliminar rol">🗑️</button>` : ''}
           ` : ''}
         </div>
-      `).join('');
+      `;
+      }).join('');
     }
 
     window.openRoleModal = function(roleId = null) {
@@ -4032,6 +4058,8 @@
       const nameInput = document.getElementById("role-name-input");
       const colorInput = document.getElementById("role-color-input");
       const colorText = document.getElementById("role-color-text");
+      const iconInput = document.getElementById("role-icon-input");
+      const canManageInput = document.getElementById("role-can-manage-input");
       
       if (roleId) {
         const role = window.serverRolesData.find(r => r.id === roleId);
@@ -4041,12 +4069,16 @@
         nameInput.value = role.name;
         colorInput.value = role.color;
         colorText.value = role.color;
+        iconInput.value = role.icon || '';
+        canManageInput.checked = role.can_manage_server || false;
       } else {
         window.currentRoleEdit = null;
         title.textContent = "Crear rol";
         nameInput.value = "";
         colorInput.value = "#7aa2ff";
         colorText.value = "#7aa2ff";
+        iconInput.value = "";
+        canManageInput.checked = false;
       }
       
       colorInput.oninput = () => { colorText.value = colorInput.value; };
@@ -4067,8 +4099,12 @@
     window.saveRoleModal = async function() {
       const nameInput = document.getElementById("role-name-input");
       const colorInput = document.getElementById("role-color-input");
+      const iconInput = document.getElementById("role-icon-input");
+      const canManageInput = document.getElementById("role-can-manage-input");
       const name = nameInput.value.trim();
       const color = colorInput.value;
+      const icon = iconInput.value.trim();
+      const canManage = canManageInput.checked;
       
       if (!name) {
         showToast("El nombre del rol es obligatorio.", "error");
@@ -4084,14 +4120,14 @@
           await api(`/wildwave/api/channels/${selected.id}/roles/${window.currentRoleEdit}`, {
             method: "PATCH",
             headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ name, color, priority: 100 })
+            body: JSON.stringify({ name, color, icon, can_manage_server: canManage, priority: 100 })
           });
           showToast("Rol actualizado correctamente.", "ok");
         } else {
           await api(`/wildwave/api/channels/${selected.id}/roles`, {
             method: "POST",
             headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ name, color, priority: 100 })
+            body: JSON.stringify({ name, color, icon, can_manage_server: canManage, priority: 100 })
           });
           showToast("Rol creado correctamente.", "ok");
         }

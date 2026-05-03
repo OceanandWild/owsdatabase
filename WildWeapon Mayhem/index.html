@@ -2736,25 +2736,11 @@
       box-shadow: 0 0 12px rgba(106, 168, 255, 0.45);
     }
 
-    .weapon-model.storm-guitar::before {
-      width: 54px;
-      height: 54px;
-      left: 18px;
-      top: 12px;
-      border-radius: 16px;
-      background: radial-gradient(circle at 40% 40%, rgba(185, 107, 255, 0.9), rgba(20, 12, 34, 0.9));
-      box-shadow: 0 0 18px rgba(185, 107, 255, 0.5);
-      transform: rotate(8deg);
-    }
-
-    .weapon-model.storm-guitar::after {
-      width: 10px;
-      height: 48px;
-      left: 46px;
-      top: 30px;
-      border-radius: 999px;
-      background: linear-gradient(180deg, rgba(255, 255, 255, 0.4), rgba(185, 107, 255, 0.9));
-      transform: rotate(12deg);
+    .weapon-model.storm-guitar {
+      background-image: url('assets/Storm Guitar/storm_guitar_base.png');
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: center;
     }
 
     .weapon-model.solar-halberd::before {
@@ -6750,6 +6736,41 @@
     const upgradeMetaEl = document.getElementById('upgrade-meta');
     const applyUpgradeBtn = document.getElementById('apply-upgrade');
     const arenaLogsEnabled = false;
+    // ── Storm Guitar Audio System ──────────────────────────────────────
+    const stormGuitarSounds = {
+      blast1: new Audio('assets/SFX/stormguitarelectricblast1.wav'),
+      blast2: new Audio('assets/SFX/stormguitarelectricblast2.wav'),
+      blast3: new Audio('assets/SFX/stormguitarelectricblast3.wav'),
+      blast4: new Audio('assets/SFX/stormguitarelectricblast4.wav')
+    };
+    // Precargar todos los sonidos
+    Object.values(stormGuitarSounds).forEach(audio => {
+      audio.preload = 'auto';
+      audio.volume = 0.6;
+    });
+    // ── Storm Guitar Sprite System ──────────────────────────────────────
+    const stormGuitarSprites = {
+      base: new Image(),
+      glow: new Image(),
+      slash1: new Image(),
+      slash2: new Image(),
+      slash3: new Image(),
+      slash4: new Image(),
+      note1: new Image(),
+      note2: new Image(),
+      flash: new Image(),
+      shockring: new Image()
+    };
+    stormGuitarSprites.base.src = 'assets/Storm Guitar/storm_guitar_base.png';
+    stormGuitarSprites.glow.src = 'assets/Storm Guitar/storm_guitar_glow.png';
+    stormGuitarSprites.slash1.src = 'assets/Storm Guitar/storm_guitar_slash_1.png';
+    stormGuitarSprites.slash2.src = 'assets/Storm Guitar/storm_guitar_slash_2.png';
+    stormGuitarSprites.slash3.src = 'assets/Storm Guitar/storm_guitar_slash_3.png';
+    stormGuitarSprites.slash4.src = 'assets/Storm Guitar/storm_guitar_slash_4.png';
+    stormGuitarSprites.note1.src = 'assets/Storm Guitar/storm_guitar_note1.png';
+    stormGuitarSprites.note2.src = 'assets/Storm Guitar/storm_guitar_note2.png';
+    stormGuitarSprites.flash.src = 'assets/Storm Guitar/storm_guitar_flash.png';
+    stormGuitarSprites.shockring.src = 'assets/Storm Guitar/storm_guitar_shockring.png';
 
     const STORAGE_KEY = 'wwm_progress_v2';
     const OP_TOKEN_KEY = 'wwmOpToken';
@@ -15151,11 +15172,13 @@ const TIGER_GLOVES_SVG = `
       } catch(_) {}
     }
     function sgPlayStrum(baseFreq, gain, duration) {
-      // Strum = multiple slightly detuned oscillators
-      [0, 4, 7, 12].forEach((semi, i) => {
-        const f = baseFreq * Math.pow(2, semi / 12);
-        setTimeout(() => sgPlayChord(f, gain * 0.35, duration, 'sawtooth'), i * 18);
-      });
+      // Usar archivos WAV reales en lugar de sonido sintetizado
+      const sounds = [stormGuitarSounds.blast1, stormGuitarSounds.blast2, stormGuitarSounds.blast3, stormGuitarSounds.blast4];
+      const comboIndex = m1Combo % sounds.length;
+      const sound = sounds[comboIndex].cloneNode();
+      sound.volume = Math.min(gain * 1.5, 1.0); // Ajustar volumen basado en gain
+      sound.play().catch(() => {}); // Ignorar errores de autoplay
+    });
     }
 
     const SG_M1_SWINGS = [

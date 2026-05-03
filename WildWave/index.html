@@ -1441,6 +1441,10 @@
       10%, 30%, 50%, 70%, 90% { transform: translateX(-10px); }
       20%, 40%, 60%, 80% { transform: translateX(10px); }
     }
+    @keyframes dotPulse {
+      0%, 80%, 100% { opacity: 0.3; }
+      40% { opacity: 1; }
+    }
     @keyframes progressPulse { 
       0%, 100% { opacity: 0.8; }
       50% { opacity: 1; }
@@ -3602,6 +3606,12 @@
         showToast("El nombre del servidor es obligatorio.", "error");
         return;
       }
+      
+      // Mostrar loader
+      const originalText = ssSaveBtn.textContent;
+      ssSaveBtn.disabled = true;
+      ssSaveBtn.innerHTML = '<span style="display:flex;align-items:center;justify-content:center;gap:4px;"><span style="animation:dotPulse 1.4s infinite;animation-delay:0s;">●</span><span style="animation:dotPulse 1.4s infinite;animation-delay:0.2s;">●</span><span style="animation:dotPulse 1.4s infinite;animation-delay:0.4s;">●</span></span>';
+      
       try {
         const form = new FormData();
         form.append("name", nextName);
@@ -3620,6 +3630,9 @@
         showToast("Ajustes del servidor guardados.", "ok");
       } catch (err) {
         showToast(err.message || "No se pudieron guardar los ajustes.", "error");
+      } finally {
+        ssSaveBtn.disabled = false;
+        ssSaveBtn.textContent = originalText;
       }
     });
     if (channelSendBtn) channelSendBtn.addEventListener("click", () => sendChannelMessage());

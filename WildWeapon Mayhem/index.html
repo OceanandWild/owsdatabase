@@ -7569,6 +7569,14 @@
       }).join('');
 
       storePanelContent.innerHTML = `
+        <div style="margin-bottom:1rem;display:flex;gap:0.5rem;align-items:center;justify-content:space-between;flex-wrap:wrap;">
+          <div style="color:var(--muted);font-size:0.9rem;">
+            ${isOceanPayLinked() ? '✓ Ocean Pay vinculado' : 'Vincula Ocean Pay para comprar'}
+          </div>
+          <button class="link-pill" onclick="openOceanPayAuth()" style="padding:0.4rem 1rem;">
+            ${isOceanPayLinked() ? 'Cambiar cuenta' : 'Vincular Ocean Pay'}
+          </button>
+        </div>
         <div class="store-grid">
           ${html || '<div style="color:var(--muted);">No hay paquetes disponibles.</div>'}
         </div>

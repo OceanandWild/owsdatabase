@@ -1,0 +1,13 @@
+WildWeapon Mayhem - Changelog 2026.5.3
+
+=== ENGLISH ===
+Version: 2026.5.3-t0012
+Platform: Windows
+Date: 2026-05-03
+
+Changes:
+- Storm Guitar now uses real sprites and WAV sound effects instead of 2D CSS models and synthesized audio
+- Added Ocean Pay connection button in Store (was missing)
+- Fixed summon reveal modal appearing behind summon screen
+- Fixed Ocean Pay auth modal appearing behind store screen
+- Fixed syntax error in Storm Guitar audio system

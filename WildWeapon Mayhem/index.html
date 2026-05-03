@@ -6440,6 +6440,34 @@
     sgM1Sprites.note1.src = 'assets/Storm Guitar/storm_guitar_note1.png';
     sgM1Sprites.note2.src = 'assets/Storm Guitar/storm_guitar_note2.png';
 
+    // ── Chain Scythe M1 effect sprites ──
+    const csM1Sprites = {
+      swing1: new Image(),
+      swing2: new Image(),
+      swing3: new Image(),
+      swing4: new Image(),
+      slash1: new Image(),
+      slash2: new Image(),
+      slash3: new Image(),
+      chain: new Image(),
+      bladeTip: new Image(),
+      impact: new Image(),
+      bloodTrail: new Image(),
+      spin: new Image()
+    };
+    csM1Sprites.swing1.src = 'assets/Chain Scythe/chain_scythe_swing/chain_scythe_swing1.png';
+    csM1Sprites.swing2.src = 'assets/Chain Scythe/chain_scythe_swing/chain_scythe_swing2.png';
+    csM1Sprites.swing3.src = 'assets/Chain Scythe/chain_scythe_swing/chain_scythe_swing3.png';
+    csM1Sprites.swing4.src = 'assets/Chain Scythe/chain_scythe_swing/chain_scythe_swing4.png';
+    csM1Sprites.slash1.src = 'assets/Chain Scythe/chain_scythe_slash_1.png';
+    csM1Sprites.slash2.src = 'assets/Chain Scythe/chain_scythe_slash_2.png';
+    csM1Sprites.slash3.src = 'assets/Chain Scythe/chain_scythe_slash_3.png';
+    csM1Sprites.chain.src = 'assets/Chain Scythe/chain_scythe_chain.png';
+    csM1Sprites.bladeTip.src = 'assets/Chain Scythe/chain_scythe_blade_tip.png';
+    csM1Sprites.impact.src = 'assets/Chain Scythe/chain_scythe_impact.png';
+    csM1Sprites.bloodTrail.src = 'assets/Chain Scythe/chain_scythe_blood_trail.png';
+    csM1Sprites.spin.src = 'assets/Chain Scythe/chain_scythe_spin.png';
+
     // New inventory UI state
     let invSelectedWeaponId = null;
     let invActiveTab = 'arsenal';
@@ -13143,81 +13171,41 @@ const TIGER_GLOVES_SVG = `
         if (effect.type === 'cs-m1-swing') {
           const pArc = Math.min(effect.t / effect.duration, 1);
           const alpha = 0.92 - pArc * 0.7;
-          const currentAngle = effect.startAngle + (effect.endAngle - effect.startAngle) * pArc;
+          
+          // Determinar qué frame de swing usar basado en el progreso
+          let swingSprite;
+          if (pArc < 0.25) swingSprite = csM1Sprites.swing1;
+          else if (pArc < 0.5) swingSprite = csM1Sprites.swing2;
+          else if (pArc < 0.75) swingSprite = csM1Sprites.swing3;
+          else swingSprite = csM1Sprites.swing4;
+
+          // Sprite de slash según la fase del combo
+          const slashSprite = effect.phase === 0 ? csM1Sprites.slash1 :
+                             effect.phase === 1 ? csM1Sprites.slash2 :
+                             csM1Sprites.slash3;
+
           arenaCtx.save();
+          arenaCtx.globalAlpha = alpha;
+          arenaCtx.translate(effect.x, effect.y);
+          arenaCtx.rotate(effect.startAngle + (effect.endAngle - effect.startAngle) * pArc);
 
-          // Glow rojo oscuro de la guadaña
-          arenaCtx.shadowBlur = 18 + effect.phase * 4;
-          arenaCtx.shadowColor = '#cc0010';
-
-          // Arco principal del barrido
-          arenaCtx.strokeStyle = `rgba(210,0,16,${alpha})`;
-          arenaCtx.lineWidth = 4.5 - pArc * 2;
-          arenaCtx.lineCap = 'round';
-          arenaCtx.beginPath();
-          arenaCtx.arc(effect.x, effect.y, effect.radius, effect.startAngle, currentAngle);
-          arenaCtx.stroke();
-
-          // Filo blanco/plateado sobre el arco (borde de hoja)
-          arenaCtx.strokeStyle = `rgba(255,180,180,${alpha * 0.6})`;
-          arenaCtx.lineWidth = 1.2;
-          arenaCtx.beginPath();
-          arenaCtx.arc(effect.x, effect.y, effect.radius - 6, effect.startAngle + 0.08, currentAngle - 0.05);
-          arenaCtx.stroke();
-
-          // Trails de arco (3 capas de fade)
-          for (let t = 1; t <= 3; t++) {
-            arenaCtx.strokeStyle = `rgba(180,0,10,${(0.18 - t * 0.05) * (1 - pArc)})`;
-            arenaCtx.lineWidth = 2;
-            arenaCtx.beginPath();
-            arenaCtx.arc(effect.x, effect.y, effect.radius + t * 8, effect.startAngle + 0.1, currentAngle - 0.1);
-            arenaCtx.stroke();
+          // Dibujar el slash trail primero
+          if (slashSprite && slashSprite.complete) {
+            const slashSize = effect.radius * 2.2;
+            arenaCtx.drawImage(slashSprite, -slashSize / 2, -slashSize / 2, slashSize, slashSize);
           }
 
-          // Punta de la hoja (pequeña guadaña en la punta del arco)
-          arenaCtx.save();
-          arenaCtx.translate(
-            effect.x + Math.cos(currentAngle) * effect.radius,
-            effect.y + Math.sin(currentAngle) * effect.radius
-          );
-          arenaCtx.rotate(currentAngle + Math.PI * 0.5);
-          arenaCtx.strokeStyle = `rgba(255,40,40,${alpha * 0.9})`;
-          arenaCtx.lineWidth = 2.5;
-          arenaCtx.beginPath();
-          arenaCtx.moveTo(0, -4);
-          arenaCtx.bezierCurveTo(8, -12, 14, -5, 7, 3);
-          arenaCtx.stroke();
-          // Mango corto
-          arenaCtx.strokeStyle = `rgba(200,200,220,${alpha * 0.6})`;
-          arenaCtx.lineWidth = 2;
-          arenaCtx.beginPath();
-          arenaCtx.moveTo(0, 0);
-          arenaCtx.lineTo(0, 8);
-          arenaCtx.stroke();
-          arenaCtx.restore();
-
-          // En el 3er golpe del combo: rastro de sangre/energía más dramático
-          if (effect.phase === 2) {
-            arenaCtx.strokeStyle = `rgba(255,0,20,${0.5 - pArc * 0.4})`;
-            arenaCtx.lineWidth = 7;
-            arenaCtx.globalAlpha = 0.35;
-            arenaCtx.beginPath();
-            arenaCtx.arc(effect.x, effect.y, effect.radius * 0.7, effect.startAngle, currentAngle);
-            arenaCtx.stroke();
-            arenaCtx.globalAlpha = 1;
+          // Dibujar el swing de la guadaña encima
+          if (swingSprite && swingSprite.complete) {
+            const swingSize = effect.radius * 1.8;
+            arenaCtx.drawImage(swingSprite, -swingSize / 2, -swingSize / 2, swingSize, swingSize);
           }
 
-          // Flash de partículas en la punta
-          if (pArc < 0.5) {
-            const tipX = effect.x + Math.cos(currentAngle) * effect.radius;
-            const tipY = effect.y + Math.sin(currentAngle) * effect.radius;
-            const tipGlow = arenaCtx.createRadialGradient(tipX, tipY, 0, tipX, tipY, 16);
-            tipGlow.addColorStop(0, `rgba(255,60,60,${0.6 - pArc})`);
-            tipGlow.addColorStop(1, 'rgba(200,0,10,0)');
-            arenaCtx.fillStyle = tipGlow;
-            arenaCtx.beginPath();
-            arenaCtx.arc(tipX, tipY, 16, 0, Math.PI * 2);
-            arenaCtx.fill();
+          // En el 3er golpe: blood trail adicional
+          if (effect.phase === 2 && csM1Sprites.bloodTrail.complete) {
+            arenaCtx.globalAlpha = 0.5 - pArc * 0.4;
+            const trailSize = effect.radius * 1.5;
+            arenaCtx.drawImage(csM1Sprites.bloodTrail, -trailSize / 2, -trailSize / 2, trailSize, trailSize);
           }
 
           arenaCtx.restore();
@@ -13225,66 +13213,59 @@ const TIGER_GLOVES_SVG = `
 
         if (effect.type === 'cs-m1-chain-lash') {
           const pLash = Math.min(effect.t / effect.duration, 1);
-          // La cadena va y regresa: 0→0.55 ida, 0.55→1 vuelta
           const phase2 = pLash < 0.55 ? pLash / 0.55 : 1 - (pLash - 0.55) / 0.45;
           const headX = effect.from.x + (effect.to.x - effect.from.x) * phase2;
           const headY = effect.from.y + (effect.to.y - effect.from.y) * phase2;
           const alpha = 0.85 - pLash * 0.5;
 
           arenaCtx.save();
-          arenaCtx.shadowBlur = 12;
-          arenaCtx.shadowColor = '#cc0010';
 
-          // Línea de cadena
-          arenaCtx.strokeStyle = `rgba(180,0,10,${alpha * 0.7})`;
-          arenaCtx.lineWidth = 2;
-          arenaCtx.setLineDash([5, 3]);
-          arenaCtx.beginPath();
-          arenaCtx.moveTo(effect.from.x, effect.from.y);
-          arenaCtx.lineTo(headX, headY);
-          arenaCtx.stroke();
-          arenaCtx.setLineDash([]);
-
-          // Eslabones a lo largo
-          arenaCtx.fillStyle = `rgba(210,0,16,${alpha})`;
-          const linkCount = 4;
-          for (let i = 0; i <= linkCount; i++) {
-            const t2 = i / linkCount;
-            if (t2 > phase2) break;
-            const lx = effect.from.x + (headX - effect.from.x) * t2;
-            const ly = effect.from.y + (headY - effect.from.y) * t2;
-            const lAngle = Math.atan2(headY - effect.from.y, headX - effect.from.x);
-            arenaCtx.save();
-            arenaCtx.translate(lx, ly);
-            arenaCtx.rotate(lAngle + (i % 2 === 0 ? 0 : Math.PI * 0.5));
-            arenaCtx.beginPath();
-            arenaCtx.ellipse(0, 0, 4, 2.5, 0, 0, Math.PI * 2);
-            arenaCtx.fill();
-            arenaCtx.restore();
+          // Dibujar eslabones de cadena a lo largo del trayecto
+          const linkCount = 6;
+          const chainSprite = csM1Sprites.chain;
+          if (chainSprite && chainSprite.complete) {
+            for (let i = 0; i <= linkCount; i++) {
+              const t2 = i / linkCount;
+              if (t2 > phase2) break;
+              const lx = effect.from.x + (headX - effect.from.x) * t2;
+              const ly = effect.from.y + (headY - effect.from.y) * t2;
+              const lAngle = Math.atan2(headY - effect.from.y, headX - effect.from.x);
+              arenaCtx.save();
+              arenaCtx.globalAlpha = alpha;
+              arenaCtx.translate(lx, ly);
+              arenaCtx.rotate(lAngle);
+              const chainSize = 24;
+              arenaCtx.drawImage(chainSprite, -chainSize / 2, -chainSize / 2, chainSize, chainSize);
+              arenaCtx.restore();
+            }
           }
 
           // Hoja en la cabeza de la cadena
           if (phase2 > 0.1) {
-            const bladeAngle = Math.atan2(effect.to.y - effect.from.y, effect.to.x - effect.from.x);
-            arenaCtx.save();
-            arenaCtx.translate(headX, headY);
-            arenaCtx.rotate(bladeAngle + (pLash > 0.55 ? Math.PI : 0));
-            arenaCtx.strokeStyle = `rgba(255,50,50,${alpha})`;
-            arenaCtx.lineWidth = 2.8;
-            arenaCtx.lineCap = 'round';
-            arenaCtx.beginPath();
-            arenaCtx.moveTo(0, -6);
-            arenaCtx.bezierCurveTo(10, -14, 16, -4, 8, 4);
-            arenaCtx.stroke();
-            arenaCtx.strokeStyle = `rgba(200,200,220,${alpha * 0.7})`;
-            arenaCtx.lineWidth = 2;
-            arenaCtx.beginPath();
-            arenaCtx.moveTo(0, 0);
-            arenaCtx.lineTo(0, -6);
-            arenaCtx.stroke();
+            const bladeTipSprite = csM1Sprites.bladeTip;
+            if (bladeTipSprite && bladeTipSprite.complete) {
+              const bladeAngle = Math.atan2(effect.to.y - effect.from.y, effect.to.x - effect.from.x);
+              arenaCtx.save();
+              arenaCtx.globalAlpha = alpha;
+              arenaCtx.translate(headX, headY);
+              arenaCtx.rotate(bladeAngle + (pLash > 0.55 ? Math.PI : 0));
+              const bladeSize = 48;
+              arenaCtx.drawImage(bladeTipSprite, -bladeSize / 2, -bladeSize / 2, bladeSize, bladeSize);
+              arenaCtx.restore();
+            }
+
             // Flash de impacto al llegar
-            if (phase2 > 0.85 && pLash < 0.6) {
-              const impGlow = arenaCtx.createRadialGradient(0, 0, 0, 0, 0, 22);
+            if (phase2 > 0.85 && pLash < 0.6 && csM1Sprites.impact.complete) {
+              arenaCtx.save();
+              arenaCtx.globalAlpha = 0.7 - pLash;
+              const impactSize = 60;
+              arenaCtx.drawImage(csM1Sprites.impact, headX - impactSize / 2, headY - impactSize / 2, impactSize, impactSize);
+              arenaCtx.restore();
+            }
+          }
+
+          arenaCtx.restore();
+        }
               impGlow.addColorStop(0, `rgba(255,0,20,${0.7 - pLash})`);
               impGlow.addColorStop(1, 'rgba(200,0,10,0)');
               arenaCtx.fillStyle = impGlow;
@@ -14889,6 +14870,23 @@ const TIGER_GLOVES_SVG = `
       sgM1SoundIndex = (sgM1SoundIndex + 1) % sgM1Sounds.length;
     }
 
+    // Chain Scythe M1 sound counter
+    let csM1SoundIndex = 0;
+    const csM1Sounds = [
+      new Audio('assets/SFX/chainscytheslashv1.wav'),
+      new Audio('assets/SFX/chainscytheslashv2.wav'),
+      new Audio('assets/SFX/chainscytheslashv3.wav'),
+      new Audio('assets/SFX/chainscytheslashv4.wav')
+    ];
+    csM1Sounds.forEach(audio => { audio.volume = 0.5; });
+
+    function csPlaySlash() {
+      const audio = csM1Sounds[csM1SoundIndex];
+      audio.currentTime = 0;
+      audio.play().catch(() => {});
+      csM1SoundIndex = (csM1SoundIndex + 1) % csM1Sounds.length;
+    }
+
     const SG_M1_SWINGS = [
       { start: -0.8, end: 0.9 },   // Golpe 1: rasgado leve
       { start: 0.9, end: -0.7 },   // Golpe 2: rasgado más fuerte
@@ -14963,6 +14961,9 @@ const TIGER_GLOVES_SVG = `
         const startAngle = aim + swing.start;
         const endAngle = aim + swing.end;
         const phase = m1Combo % 3; // 3 fases del combo
+
+        // SFX — slash sound
+        csPlaySlash();
 
         // Efecto principal: arco de guadaña rojo
         addEffect({

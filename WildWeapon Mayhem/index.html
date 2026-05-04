@@ -12085,11 +12085,12 @@ const TIGER_GLOVES_SVG = `
         // Tiger Gloves — render sprite (sin overlay, solo el arma)
         ctx.save();
         ctx.translate(x, y);
-        ctx.rotate(aim + Math.PI); // Invertir rotación para que mire hacia el mouse
+        ctx.rotate(aim);
+        ctx.scale(-1, 1); // Flip horizontal para que mire hacia el mouse
         const sprite = weaponSprites.tiger_gloves;
         if (sprite.complete) {
           const spriteSize = size * 3;
-          ctx.drawImage(sprite, -spriteSize * 0.3, -spriteSize * 0.5, spriteSize, spriteSize);
+          ctx.drawImage(sprite, -spriteSize * 0.7, -spriteSize * 0.5, spriteSize, spriteSize);
         }
         ctx.restore();
 

@@ -12083,29 +12083,26 @@ const TIGER_GLOVES_SVG = `
         ctx.restore();
 
       } else if (weapon === 'tiger_gloves') {
-        // Tiger Gloves — render sprite con animación de slash durante M1
+        // Tiger Gloves — render sprite con movimiento durante M1
         ctx.save();
         ctx.translate(x, y);
         ctx.rotate(aim);
         ctx.scale(-1, 1); // Flip horizontal para que mire hacia el mouse
         
-        // Sprite base de los guantes
+        // Si está animando M1, agregar movimiento de golpe
+        let offsetX = 0;
+        let offsetY = 0;
+        if (currentWeaponFrame.weapon === 'tiger_gloves' && currentWeaponFrame.frame >= 0) {
+          const progress = currentWeaponFrame.frame;
+          // Movimiento hacia adelante y ligeramente hacia arriba
+          offsetX = Math.sin(progress * Math.PI) * size * 0.8; // Avanza y retrocede
+          offsetY = -Math.sin(progress * Math.PI * 2) * size * 0.3; // Movimiento vertical
+        }
+        
         const sprite = weaponSprites.tiger_gloves;
         if (sprite.complete) {
           const spriteSize = size * 3;
-          ctx.drawImage(sprite, -spriteSize * 0.7, -spriteSize * 0.5, spriteSize, spriteSize);
-        }
-        
-        // Si está animando M1, dibujar el slash effect encima
-        if (currentWeaponFrame.weapon === 'tiger_gloves' && currentWeaponFrame.frame >= 0) {
-          const frameIndex = Math.floor(currentWeaponFrame.frame * 6); // 6 frames
-          const slashSprite = tgSlashSprites[`slash${Math.min(frameIndex + 1, 6)}`];
-          if (slashSprite && slashSprite.complete) {
-            const slashSize = size * 3.5;
-            ctx.globalAlpha = 0.85 - (currentWeaponFrame.frame * 0.5);
-            ctx.drawImage(slashSprite, -slashSize * 0.7, -slashSize * 0.5, slashSize, slashSize);
-            ctx.globalAlpha = 1;
-          }
+          ctx.drawImage(sprite, -spriteSize * 0.7 + offsetX, -spriteSize * 0.5 + offsetY, spriteSize, spriteSize);
         }
         ctx.restore();
 

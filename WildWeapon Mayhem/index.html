@@ -13434,12 +13434,6 @@ const TIGER_GLOVES_SVG = `
             arenaCtx.restore();
           }
         }
-          const tipX = effect.x + Math.cos(effect.aim)*effect.radius;
-          const tipY = effect.y + Math.sin(effect.aim)*effect.radius;
-          arenaCtx.fillStyle = `rgba(255,220,100,${1-p})`;
-          arenaCtx.beginPath(); arenaCtx.arc(tipX, tipY, 5-p*4, 0, Math.PI*2); arenaCtx.fill();
-          arenaCtx.restore();
-        }
 
         if (effect.type === 'sh-m1-slam-wave') {
           // Ground shockwave after slam

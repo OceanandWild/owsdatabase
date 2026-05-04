@@ -6476,6 +6476,9 @@
       shM1Sprites.push(img);
     }
 
+    // Animation frame tracking
+    let currentWeaponFrame = { weapon: null, frame: 0, maxFrames: 0 };
+
     // New inventory UI state
     let invSelectedWeaponId = null;
     let invActiveTab = 'arsenal';
@@ -11888,9 +11891,24 @@ const TIGER_GLOVES_SVG = `
     }
 
     function updateEffects(dt) {
+      let hasActiveWeaponAnim = false;
       for (let i = effects.length - 1; i >= 0; i -= 1) {
         effects[i].t += dt;
-        if (effects[i].t >= effects[i].duration) effects.splice(i, 1);
+        if (effects[i].t >= effects[i].duration) {
+          effects.splice(i, 1);
+        } else {
+          // Check if there's an active weapon animation
+          if (effects[i].type === 'sh-m1-swing' || effects[i].type === 'sh-m1-thrust' || 
+              effects[i].type === 'sh-m1-spin' || effects[i].type === 'sh-m1-slam' ||
+              effects[i].type === 'cs-m1-swing') {
+            hasActiveWeaponAnim = true;
+          }
+        }
+      }
+      // Reset weapon frame if no active animation
+      if (!hasActiveWeaponAnim) {
+        currentWeaponFrame.weapon = null;
+        currentWeaponFrame.frame = 0;
       }
     }
 
@@ -11956,7 +11974,7 @@ const TIGER_GLOVES_SVG = `
       const aim = lastAim ? Math.atan2(lastAim.y - y, lastAim.x - x) : -Math.PI * 0.3;
 
       if (weapon === 'chain_scythe') {
-        // Chain Scythe — render sprite
+        // Chain Scythe — render sprite (con overlay de slash durante M1)
         ctx.save();
         ctx.translate(x, y);
         ctx.rotate(aim);
@@ -11964,6 +11982,20 @@ const TIGER_GLOVES_SVG = `
         if (sprite.complete) {
           const spriteSize = size * 4;
           ctx.drawImage(sprite, -spriteSize * 0.2, -spriteSize * 0.5, spriteSize, spriteSize);
+        }
+        
+        // Si está animando, dibujar el slash effect encima
+        if (currentWeaponFrame.weapon === 'chain_scythe' && currentWeaponFrame.frame >= 0) {
+          const slashPhase = Math.floor(currentWeaponFrame.frame);
+          const slashSprite = slashPhase === 0 ? csM1Sprites.slash1 :
+                             slashPhase === 1 ? csM1Sprites.slash2 :
+                             csM1Sprites.slash3;
+          if (slashSprite && slashSprite.complete) {
+            const slashSize = size * 5;
+            ctx.globalAlpha = 0.9 - (currentWeaponFrame.frame % 1) * 0.7;
+            ctx.drawImage(slashSprite, -slashSize * 0.3, -slashSize * 0.5, slashSize, slashSize);
+            ctx.globalAlpha = 1;
+          }
         }
         ctx.restore();
 
@@ -11980,16 +12012,24 @@ const TIGER_GLOVES_SVG = `
         ctx.restore();
 
       } else if (weapon === 'solar_halberd') {
-        // Solar Halberd — render sprite
+        // Solar Halberd — render sprite (animated during M1)
         ctx.save();
         ctx.translate(x, y);
         ctx.rotate(aim);
-        const sprite = weaponSprites.solar_halberd;
-        if (sprite.complete) {
+        
+        // Si está animando, usar el frame actual
+        let sprite = weaponSprites.solar_halberd;
+        if (currentWeaponFrame.weapon === 'solar_halberd' && currentWeaponFrame.frame < currentWeaponFrame.maxFrames) {
+          const frameIndex = Math.floor(currentWeaponFrame.frame);
+          if (shM1Sprites[frameIndex] && shM1Sprites[frameIndex].complete) {
+            sprite = shM1Sprites[frameIndex];
+          }
+        }
+        
+        if (sprite && sprite.complete) {
           const spriteSize = size * 4.5;
           ctx.drawImage(sprite, -spriteSize * 0.15, -spriteSize * 0.5, spriteSize, spriteSize);
         }
-        ctx.restore();
         ctx.restore();
 
       } else if (weapon === 'pulse_baton') {
@@ -13177,33 +13217,10 @@ const TIGER_GLOVES_SVG = `
 
         // ── CHAIN SCYTHE M1 effects ──────────────────────────────────
         if (effect.type === 'cs-m1-swing') {
-          const pArc = Math.min(effect.t / effect.duration, 1);
-          const alpha = 0.92 - pArc * 0.7;
-
-          // Sprite de slash según la fase del combo (solo efectos visuales)
-          const slashSprite = effect.phase === 0 ? csM1Sprites.slash1 :
-                             effect.phase === 1 ? csM1Sprites.slash2 :
-                             csM1Sprites.slash3;
-
-          arenaCtx.save();
-          arenaCtx.globalAlpha = alpha;
-          arenaCtx.translate(effect.x, effect.y);
-          arenaCtx.rotate(effect.startAngle + (effect.endAngle - effect.startAngle) * pArc);
-
-          // Dibujar solo el slash trail (efecto visual)
-          if (slashSprite && slashSprite.complete) {
-            const slashSize = effect.radius * 2.2;
-            arenaCtx.drawImage(slashSprite, -slashSize / 2, -slashSize / 2, slashSize, slashSize);
-          }
-
-          // En el 3er golpe: blood trail adicional
-          if (effect.phase === 2 && csM1Sprites.bloodTrail.complete) {
-            arenaCtx.globalAlpha = 0.5 - pArc * 0.4;
-            const trailSize = effect.radius * 1.5;
-            arenaCtx.drawImage(csM1Sprites.bloodTrail, -trailSize / 2, -trailSize / 2, trailSize, trailSize);
-          }
-
-          arenaCtx.restore();
+          // Actualizar el frame del arma del jugador
+          currentWeaponFrame.weapon = 'chain_scythe';
+          currentWeaponFrame.frame = effect.phase + p; // phase 0-2, p 0-1
+          currentWeaponFrame.maxFrames = 3;
         }
 
         if (effect.type === 'cs-m1-chain-lash') {
@@ -13385,54 +13402,24 @@ const TIGER_GLOVES_SVG = `
         // ── SOLAR HALBERD M1 effects ─────────────────────────────────
         // Palette: gold #ffcc00, orange #ff8800, white core #fff8e0
         if (effect.type === 'sh-m1-swing' || effect.type === 'sh-m1-thrust') {
-          const alpha = 0.95 - p * 0.7;
-          // Determinar qué frame usar basado en el progreso (31 frames)
-          const frameIndex = Math.floor(p * 30);
-          const frameSprite = shM1Sprites[frameIndex];
-
-          if (frameSprite && frameSprite.complete) {
-            arenaCtx.save();
-            arenaCtx.globalAlpha = alpha;
-            arenaCtx.translate(effect.x, effect.y);
-            arenaCtx.rotate(effect.startAngle + (effect.endAngle - effect.startAngle) * p);
-            const size = effect.radius * 2.5;
-            arenaCtx.drawImage(frameSprite, -size / 2, -size / 2, size, size);
-            arenaCtx.restore();
-          }
+          // Actualizar el frame del arma del jugador
+          currentWeaponFrame.weapon = 'solar_halberd';
+          currentWeaponFrame.frame = p * 30;
+          currentWeaponFrame.maxFrames = 31;
         }
 
         if (effect.type === 'sh-m1-spin') {
-          const alpha = 0.9 - p * 0.6;
-          // Para el spin, usar frames en loop
-          const frameIndex = Math.floor(p * 30);
-          const frameSprite = shM1Sprites[frameIndex];
-
-          if (frameSprite && frameSprite.complete) {
-            arenaCtx.save();
-            arenaCtx.globalAlpha = alpha;
-            arenaCtx.translate(effect.x, effect.y);
-            arenaCtx.rotate(effect.startAngle + (effect.endAngle - effect.startAngle) * p);
-            const size = effect.radius * 2.8;
-            arenaCtx.drawImage(frameSprite, -size / 2, -size / 2, size, size);
-            arenaCtx.restore();
-          }
+          // Actualizar el frame del arma del jugador
+          currentWeaponFrame.weapon = 'solar_halberd';
+          currentWeaponFrame.frame = p * 30;
+          currentWeaponFrame.maxFrames = 31;
         }
 
         if (effect.type === 'sh-m1-slam') {
-          const alpha = 0.95 - p * 0.7;
-          // Slam usa frames más dramáticos
-          const frameIndex = Math.floor(p * 30);
-          const frameSprite = shM1Sprites[frameIndex];
-
-          if (frameSprite && frameSprite.complete) {
-            arenaCtx.save();
-            arenaCtx.globalAlpha = alpha;
-            arenaCtx.translate(effect.x, effect.y);
-            arenaCtx.rotate(effect.aim);
-            const size = effect.radius * 3;
-            arenaCtx.drawImage(frameSprite, -size / 2, -size / 2, size, size);
-            arenaCtx.restore();
-          }
+          // Actualizar el frame del arma del jugador
+          currentWeaponFrame.weapon = 'solar_halberd';
+          currentWeaponFrame.frame = p * 30;
+          currentWeaponFrame.maxFrames = 31;
         }
 
         if (effect.type === 'sh-m1-slam-wave') {

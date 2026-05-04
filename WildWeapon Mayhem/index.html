@@ -11928,7 +11928,8 @@ const TIGER_GLOVES_SVG = `
           // Check if there's an active weapon animation
           if (effects[i].type === 'sh-m1-swing' || effects[i].type === 'sh-m1-thrust' || 
               effects[i].type === 'sh-m1-spin' || effects[i].type === 'sh-m1-slam' ||
-              effects[i].type === 'cs-m1-swing' || effects[i].type === 'za-m1-swing') {
+              effects[i].type === 'cs-m1-swing' || effects[i].type === 'za-m1-swing' ||
+              effects[i].type === 'tg-m1-claw') {
             hasActiveWeaponAnim = true;
           }
         }
@@ -12082,15 +12083,29 @@ const TIGER_GLOVES_SVG = `
         ctx.restore();
 
       } else if (weapon === 'tiger_gloves') {
-        // Tiger Gloves — render sprite (sin overlay, solo el arma)
+        // Tiger Gloves — render sprite con animación de slash durante M1
         ctx.save();
         ctx.translate(x, y);
         ctx.rotate(aim);
         ctx.scale(-1, 1); // Flip horizontal para que mire hacia el mouse
+        
+        // Sprite base de los guantes
         const sprite = weaponSprites.tiger_gloves;
         if (sprite.complete) {
           const spriteSize = size * 3;
           ctx.drawImage(sprite, -spriteSize * 0.7, -spriteSize * 0.5, spriteSize, spriteSize);
+        }
+        
+        // Si está animando M1, dibujar el slash effect encima
+        if (currentWeaponFrame.weapon === 'tiger_gloves' && currentWeaponFrame.frame >= 0) {
+          const frameIndex = Math.floor(currentWeaponFrame.frame * 6); // 6 frames
+          const slashSprite = tgSlashSprites[`slash${Math.min(frameIndex + 1, 6)}`];
+          if (slashSprite && slashSprite.complete) {
+            const slashSize = size * 3.5;
+            ctx.globalAlpha = 0.85 - (currentWeaponFrame.frame * 0.5);
+            ctx.drawImage(slashSprite, -slashSize * 0.7, -slashSize * 0.5, slashSize, slashSize);
+            ctx.globalAlpha = 1;
+          }
         }
         ctx.restore();
 
@@ -13490,6 +13505,14 @@ const TIGER_GLOVES_SVG = `
           currentWeaponFrame.weapon = 'zeus_axe';
           currentWeaponFrame.frame = p * 23;
           currentWeaponFrame.maxFrames = 24;
+        }
+
+        // ── TIGER GLOVES M1 effects ──────────────────────────────────
+        if (effect.type === 'tg-m1-claw') {
+          // Actualizar el frame para mostrar los 6 frames de slash
+          currentWeaponFrame.weapon = 'tiger_gloves';
+          currentWeaponFrame.frame = p; // 0 a 1, se mapea a 6 frames
+          currentWeaponFrame.maxFrames = 1;
         }
 
         if (effect.type === 'sh-m1-slam-wave') {
@@ -15144,6 +15167,14 @@ const TIGER_GLOVES_SVG = `
         
         // SFX — claw sound
         tgPlayClaw();
+        
+        // Efecto visual de slash
+        addEffect({
+          type: 'tg-m1-claw',
+          x: playerPos.x,
+          y: playerPos.y,
+          duration: 0.18
+        });
         
         addShake(2, 60);
         applyArcDamage(playerPos, TG_RADIUS, aim, TG_SPREAD, currentRun.weapon.damage * 0.55);

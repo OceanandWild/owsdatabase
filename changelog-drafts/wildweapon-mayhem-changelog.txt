@@ -10,7 +10,24 @@ Changes:
   - Sprites now display correctly in inventory, store, summon, armory, and in-game arena
   - Replaced 2D CSS models with high-quality sprite images
   - Replaced 2D canvas rendering with sprite rendering during gameplay
-- Storm Guitar now uses WAV sound effects (stormguitarelectricblast1-4.wav) that cycle with each M1 attack
+- Storm Guitar M1 animations completely overhauled with sprite-based effects:
+  - 4 unique slash sprites cycling through combo attacks
+  - Flash burst effect on final combo hit
+  - Musical notes floating upward during attacks
+  - WAV sound effects (stormguitarelectricblast1-4.wav) cycling with each M1
+- Chain Scythe M1 animations highly improved with sprite-based effects:
+  - 3 unique crimson slash effects based on combo phase
+  - Blood trail effect on 3rd combo hit for dramatic impact
+  - Chain link sprites for chain lash attacks
+  - Blade tip sprite with impact effects
+  - WAV sound effects (chainscytheslashv1-4.wav) cycling with each M1
+  - Weapon remains visible on player while effects play around it
+- Solar Halberd M1 animations completely overhauled with 31-frame sprite animation:
+  - Smooth animated blade swings with golden energy trails
+  - Different animations for swing, thrust, spin, and slam attacks
+  - Frame-by-frame animation creates fluid motion
+  - WAV sound effects (solarhalberdbladewoosh1-4.wav) cycling with each M1
+  - Weapon remains visible on player while effects play around it
 - Added Ocean Pay connection button in Store (was missing)
 - Fixed summon reveal modal appearing behind summon screen (z-index increased to 99999)
 - Fixed Ocean Pay auth modal appearing behind store screen (z-index increased to 99999)

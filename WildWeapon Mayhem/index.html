@@ -6468,6 +6468,14 @@
     csM1Sprites.bloodTrail.src = 'assets/Chain Scythe/chain_scythe_blood_trail.png';
     csM1Sprites.spin.src = 'assets/Chain Scythe/chain_scythe_spin.png';
 
+    // ── Solar Halberd M1 effect sprites (31 frames) ──
+    const shM1Sprites = [];
+    for (let i = 0; i <= 30; i++) {
+      const img = new Image();
+      img.src = `assets/solar-halberd.spritesheet.frames/solar-halberd.m1.${String(i).padStart(2, '0')}.png`;
+      shM1Sprites.push(img);
+    }
+
     // New inventory UI state
     let invSelectedWeaponId = null;
     let invActiveTab = 'arsenal';
@@ -13374,86 +13382,58 @@ const TIGER_GLOVES_SVG = `
         }
 
         // ── SOLAR HALBERD effects ────────────────────────────────────
+        // ── SOLAR HALBERD M1 effects ─────────────────────────────────
         // Palette: gold #ffcc00, orange #ff8800, white core #fff8e0
         if (effect.type === 'sh-m1-swing' || effect.type === 'sh-m1-thrust') {
-          // Arc sweep — gold/orange blade trail
-          const currentAngle = effect.startAngle + (effect.endAngle - effect.startAngle) * p;
-          arenaCtx.save();
-          arenaCtx.shadowBlur = 20; arenaCtx.shadowColor = '#ffaa00';
-          // Main arc
-          arenaCtx.strokeStyle = `rgba(255,200,0,${0.95 - p*0.7})`;
-          arenaCtx.lineWidth = 5 - p*2.5;
-          arenaCtx.lineCap = 'round';
-          arenaCtx.beginPath();
-          arenaCtx.arc(effect.x, effect.y, effect.radius, effect.startAngle, currentAngle);
-          arenaCtx.stroke();
-          // Inner bright core
-          arenaCtx.strokeStyle = `rgba(255,248,200,${0.8 - p*0.7})`;
-          arenaCtx.lineWidth = 1.5;
-          arenaCtx.beginPath();
-          arenaCtx.arc(effect.x, effect.y, effect.radius - 5, effect.startAngle + 0.06, currentAngle - 0.06);
-          arenaCtx.stroke();
-          // Trailing sparks
-          for (let t = 1; t <= 3; t++) {
-            arenaCtx.strokeStyle = `rgba(255,160,0,${(0.15 - t*0.04)*(1-p)})`;
-            arenaCtx.lineWidth = 1.5;
-            arenaCtx.beginPath();
-            arenaCtx.arc(effect.x, effect.y, effect.radius + t*7, effect.startAngle, currentAngle - 0.1);
-            arenaCtx.stroke();
+          const alpha = 0.95 - p * 0.7;
+          // Determinar qué frame usar basado en el progreso (31 frames)
+          const frameIndex = Math.floor(p * 30);
+          const frameSprite = shM1Sprites[frameIndex];
+
+          if (frameSprite && frameSprite.complete) {
+            arenaCtx.save();
+            arenaCtx.globalAlpha = alpha;
+            arenaCtx.translate(effect.x, effect.y);
+            arenaCtx.rotate(effect.startAngle + (effect.endAngle - effect.startAngle) * p);
+            const size = effect.radius * 2.5;
+            arenaCtx.drawImage(frameSprite, -size / 2, -size / 2, size, size);
+            arenaCtx.restore();
           }
-          // Blade tip flash
-          const tipX = effect.x + Math.cos(currentAngle)*effect.radius;
-          const tipY = effect.y + Math.sin(currentAngle)*effect.radius;
-          arenaCtx.fillStyle = `rgba(255,248,220,${0.9-p*0.8})`;
-          arenaCtx.beginPath(); arenaCtx.arc(tipX, tipY, 4-p*3, 0, Math.PI*2); arenaCtx.fill();
-          arenaCtx.restore();
         }
 
         if (effect.type === 'sh-m1-spin') {
-          // Full 360° spin — ring of light expanding outward
-          arenaCtx.save();
-          arenaCtx.shadowBlur = 22; arenaCtx.shadowColor = '#ffcc00';
-          // Full ring at current sweep progress
-          const sweepEnd = effect.startAngle + (effect.endAngle - effect.startAngle) * p;
-          arenaCtx.strokeStyle = `rgba(255,200,0,${0.9 - p*0.6})`;
-          arenaCtx.lineWidth = 5 - p*3;
-          arenaCtx.lineCap = 'round';
-          arenaCtx.beginPath();
-          arenaCtx.arc(effect.x, effect.y, effect.radius, effect.startAngle, sweepEnd);
-          arenaCtx.stroke();
-          // Outer energy ring
-          arenaCtx.strokeStyle = `rgba(255,160,0,${0.5-p*0.45})`;
-          arenaCtx.lineWidth = 2;
-          arenaCtx.beginPath();
-          arenaCtx.arc(effect.x, effect.y, effect.radius + 12, 0, Math.PI*2);
-          arenaCtx.stroke();
-          // 8 blade flicks around the ring
-          for (let i=0; i<8; i++) {
-            const a = (i/8)*Math.PI*2 + p*Math.PI*2;
-            const r1=effect.radius-8, r2=effect.radius+10;
-            arenaCtx.strokeStyle = `rgba(255,240,180,${0.6-p*0.55})`;
-            arenaCtx.lineWidth = 1.5;
-            arenaCtx.beginPath();
-            arenaCtx.moveTo(effect.x+Math.cos(a)*r1, effect.y+Math.sin(a)*r1);
-            arenaCtx.lineTo(effect.x+Math.cos(a)*r2, effect.y+Math.sin(a)*r2);
-            arenaCtx.stroke();
+          const alpha = 0.9 - p * 0.6;
+          // Para el spin, usar frames en loop
+          const frameIndex = Math.floor(p * 30);
+          const frameSprite = shM1Sprites[frameIndex];
+
+          if (frameSprite && frameSprite.complete) {
+            arenaCtx.save();
+            arenaCtx.globalAlpha = alpha;
+            arenaCtx.translate(effect.x, effect.y);
+            arenaCtx.rotate(effect.startAngle + (effect.endAngle - effect.startAngle) * p);
+            const size = effect.radius * 2.8;
+            arenaCtx.drawImage(frameSprite, -size / 2, -size / 2, size, size);
+            arenaCtx.restore();
           }
-          arenaCtx.restore();
         }
 
         if (effect.type === 'sh-m1-slam') {
-          // Downward slam — vertical arc + impact dust
-          const currentAngle = effect.startAngle + (effect.endAngle - effect.startAngle) * p;
-          arenaCtx.save();
-          arenaCtx.shadowBlur = 24; arenaCtx.shadowColor = '#ff8800';
-          // Orange/red slam arc
-          arenaCtx.strokeStyle = `rgba(255,120,0,${0.95-p*0.7})`;
-          arenaCtx.lineWidth = 6-p*4;
-          arenaCtx.lineCap = 'round';
-          arenaCtx.beginPath();
-          arenaCtx.arc(effect.x, effect.y, effect.radius, effect.startAngle, currentAngle);
-          arenaCtx.stroke();
-          // Bright tip
+          const alpha = 0.95 - p * 0.7;
+          // Slam usa frames más dramáticos
+          const frameIndex = Math.floor(p * 30);
+          const frameSprite = shM1Sprites[frameIndex];
+
+          if (frameSprite && frameSprite.complete) {
+            arenaCtx.save();
+            arenaCtx.globalAlpha = alpha;
+            arenaCtx.translate(effect.x, effect.y);
+            arenaCtx.rotate(effect.aim);
+            const size = effect.radius * 3;
+            arenaCtx.drawImage(frameSprite, -size / 2, -size / 2, size, size);
+            arenaCtx.restore();
+          }
+        }
           const tipX = effect.x + Math.cos(effect.aim)*effect.radius;
           const tipY = effect.y + Math.sin(effect.aim)*effect.radius;
           arenaCtx.fillStyle = `rgba(255,220,100,${1-p})`;
@@ -14862,6 +14842,23 @@ const TIGER_GLOVES_SVG = `
       csM1SoundIndex = (csM1SoundIndex + 1) % csM1Sounds.length;
     }
 
+    // Solar Halberd M1 sound counter
+    let shM1SoundIndex = 0;
+    const shM1Sounds = [
+      new Audio('assets/SFX/solarhalberdbladewoosh1.wav'),
+      new Audio('assets/SFX/solarhalberdbladewoosh2.wav'),
+      new Audio('assets/SFX/solarhalberdbladewoosh3.wav'),
+      new Audio('assets/SFX/solarhalberdbladewoosh4.wav')
+    ];
+    shM1Sounds.forEach(audio => { audio.volume = 0.5; });
+
+    function shPlayWoosh() {
+      const audio = shM1Sounds[shM1SoundIndex];
+      audio.currentTime = 0;
+      audio.play().catch(() => {});
+      shM1SoundIndex = (shM1SoundIndex + 1) % shM1Sounds.length;
+    }
+
     const SG_M1_SWINGS = [
       { start: -0.8, end: 0.9 },   // Golpe 1: rasgado leve
       { start: 0.9, end: -0.7 },   // Golpe 2: rasgado más fuerte
@@ -15026,6 +15023,9 @@ const TIGER_GLOVES_SVG = `
         cooldowns.m1  = now + 220;
         const startAngle = aim + swing.start;
         const endAngle   = aim + swing.end;
+
+        // SFX — blade woosh sound
+        shPlayWoosh();
 
         addEffect({
           type: cfg.type,

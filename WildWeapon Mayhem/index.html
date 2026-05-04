@@ -12083,20 +12083,57 @@ const TIGER_GLOVES_SVG = `
         ctx.restore();
 
       } else if (weapon === 'tiger_gloves') {
-        // Tiger Gloves — render sprite con movimiento durante M1
+        // Tiger Gloves — render sprite con movimiento y efectos de combo
         ctx.save();
         ctx.translate(x, y);
         ctx.rotate(aim);
         ctx.scale(-1, 1); // Flip horizontal para que mire hacia el mouse
         
-        // Si está animando M1, agregar movimiento de golpe
+        // Si está animando M1, agregar movimiento de golpe y efectos
         let offsetX = 0;
         let offsetY = 0;
         if (currentWeaponFrame.weapon === 'tiger_gloves' && currentWeaponFrame.frame >= 0) {
           const progress = currentWeaponFrame.frame;
+          const comboPhase = currentWeaponFrame.maxFrames; // 0-2 = scratches, 3 = impact
+          
           // Movimiento hacia adelante y ligeramente hacia arriba
-          offsetX = Math.sin(progress * Math.PI) * size * 0.8; // Avanza y retrocede
-          offsetY = -Math.sin(progress * Math.PI * 2) * size * 0.3; // Movimiento vertical
+          offsetX = Math.sin(progress * Math.PI) * size * 0.8;
+          offsetY = -Math.sin(progress * Math.PI * 2) * size * 0.3;
+          
+          // Mostrar efectos según el combo
+          if (comboPhase < 3) {
+            // Golpes 1-3: scratch marks con variaciones
+            const scratchSprite = tgSlashSprites.scratches;
+            if (scratchSprite && scratchSprite.complete && progress > 0.3) {
+              ctx.save();
+              const scratchSize = size * 2.5;
+              const alpha = Math.min((progress - 0.3) * 2, 0.7);
+              ctx.globalAlpha = alpha;
+              
+              // Variar posición y rotación según el combo
+              const angleVar = (comboPhase - 1) * 0.3; // -0.3, 0, 0.3 radianes
+              const offsetVar = (comboPhase - 1) * size * 0.2;
+              ctx.rotate(angleVar);
+              ctx.drawImage(scratchSprite, -scratchSize * 0.5 + offsetVar, -scratchSize * 0.5, scratchSize, scratchSize);
+              ctx.restore();
+            }
+          } else {
+            // Golpe 4: impact con variación
+            const impactSprite = tgSlashSprites.impact;
+            if (impactSprite && impactSprite.complete && progress > 0.4) {
+              ctx.save();
+              const impactSize = size * 2.2;
+              const alpha = Math.min((progress - 0.4) * 2.5, 0.8);
+              ctx.globalAlpha = alpha;
+              
+              // Ligeramente rotado y escalado para variación
+              ctx.rotate(Math.sin(progress * Math.PI) * 0.2);
+              const scale = 0.9 + Math.sin(progress * Math.PI) * 0.2;
+              ctx.scale(scale, scale);
+              ctx.drawImage(impactSprite, -impactSize * 0.5, -impactSize * 0.5, impactSize, impactSize);
+              ctx.restore();
+            }
+          }
         }
         
         const sprite = weaponSprites.tiger_gloves;
@@ -13506,10 +13543,10 @@ const TIGER_GLOVES_SVG = `
 
         // ── TIGER GLOVES M1 effects ──────────────────────────────────
         if (effect.type === 'tg-m1-claw') {
-          // Actualizar el frame para mostrar los 6 frames de slash
+          // Actualizar el frame para mostrar efectos según combo
           currentWeaponFrame.weapon = 'tiger_gloves';
-          currentWeaponFrame.frame = p; // 0 a 1, se mapea a 6 frames
-          currentWeaponFrame.maxFrames = 1;
+          currentWeaponFrame.frame = p; // 0 a 1
+          currentWeaponFrame.maxFrames = effect.comboPhase; // 0-3 para determinar qué efecto mostrar
         }
 
         if (effect.type === 'sh-m1-slam-wave') {
@@ -15157,27 +15194,31 @@ const TIGER_GLOVES_SVG = `
         m1Combo = (m1Combo + 1) % SH_M1_SWINGS.length;
 
       } else if (weapon === 'tiger_gloves') {
-        // Tiger Gloves M1: rápidos golpes de garra
+        // Tiger Gloves M1: rápidos golpes de garra con combo de 4 golpes
         cooldowns.m1 = now + 150; // muy rápido
         const TG_RADIUS = 85; // corto alcance
         const TG_SPREAD = Math.PI * 0.5;
+        const comboPhase = m1Combo % 4; // 0-3 para combo de 4 golpes
         
         // SFX — claw sound
         tgPlayClaw();
         
-        // Efecto visual de slash
+        // Efecto visual de scratch marks (0-2) o impact (3)
         addEffect({
           type: 'tg-m1-claw',
           x: playerPos.x,
           y: playerPos.y,
+          comboPhase: comboPhase,
           duration: 0.18
         });
         
-        addShake(2, 60);
-        applyArcDamage(playerPos, TG_RADIUS, aim, TG_SPREAD, currentRun.weapon.damage * 0.55);
-        addCharge(6);
+        // El 4to golpe hace más daño
+        const damageMult = comboPhase === 3 ? 0.75 : 0.55;
+        addShake(comboPhase === 3 ? 4 : 2, comboPhase === 3 ? 80 : 60);
+        applyArcDamage(playerPos, TG_RADIUS, aim, TG_SPREAD, currentRun.weapon.damage * damageMult);
+        addCharge(comboPhase === 3 ? 10 : 6);
         if (currentRun && currentRun.stats) currentRun.stats.m1Hits += 1;
-        m1Combo = (m1Combo + 1) % M1_SWINGS.length;
+        m1Combo = (m1Combo + 1) % 4; // Ciclo de 4 golpes
         updateArenaUI();
 
       } else {

@@ -36,11 +36,13 @@ Changes:
   - Fixed placeholder Katana effects, now has proper Zeus Axe animations
 - Tiger Gloves M1 animations completely overhauled with 24-frame sprite animation:
   - Fast claw strike animations (animation reworked with new sprite-based effects)
+  - 6-frame slash animation overlay with orange tiger claw energy trails
+  - Impact burst and scratch marks effects
   - Frame-by-frame animation creates fluid motion
   - WAV sound effects (tigerglovesclawv1-4.wav) cycling with each M1
   - Weapon remains visible on player while effects play around it
   - Fixed placeholder Katana effects, now has proper Tiger Gloves animations
-  - Presentation model unchanged, only animation effects reworked
+  - Presentation model unchanged, only animation effects reworked with custom slash sprites
 - Added Ocean Pay connection button in Store (was missing)
 - Fixed summon reveal modal appearing behind summon screen (z-index increased to 99999)
 - Fixed Ocean Pay auth modal appearing behind store screen (z-index increased to 99999)

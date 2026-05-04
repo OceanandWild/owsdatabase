@@ -13171,15 +13171,8 @@ const TIGER_GLOVES_SVG = `
         if (effect.type === 'cs-m1-swing') {
           const pArc = Math.min(effect.t / effect.duration, 1);
           const alpha = 0.92 - pArc * 0.7;
-          
-          // Determinar qué frame de swing usar basado en el progreso
-          let swingSprite;
-          if (pArc < 0.25) swingSprite = csM1Sprites.swing1;
-          else if (pArc < 0.5) swingSprite = csM1Sprites.swing2;
-          else if (pArc < 0.75) swingSprite = csM1Sprites.swing3;
-          else swingSprite = csM1Sprites.swing4;
 
-          // Sprite de slash según la fase del combo
+          // Sprite de slash según la fase del combo (solo efectos visuales)
           const slashSprite = effect.phase === 0 ? csM1Sprites.slash1 :
                              effect.phase === 1 ? csM1Sprites.slash2 :
                              csM1Sprites.slash3;
@@ -13189,16 +13182,10 @@ const TIGER_GLOVES_SVG = `
           arenaCtx.translate(effect.x, effect.y);
           arenaCtx.rotate(effect.startAngle + (effect.endAngle - effect.startAngle) * pArc);
 
-          // Dibujar el slash trail primero
+          // Dibujar solo el slash trail (efecto visual)
           if (slashSprite && slashSprite.complete) {
             const slashSize = effect.radius * 2.2;
             arenaCtx.drawImage(slashSprite, -slashSize / 2, -slashSize / 2, slashSize, slashSize);
-          }
-
-          // Dibujar el swing de la guadaña encima
-          if (swingSprite && swingSprite.complete) {
-            const swingSize = effect.radius * 1.8;
-            arenaCtx.drawImage(swingSprite, -swingSize / 2, -swingSize / 2, swingSize, swingSize);
           }
 
           // En el 3er golpe: blood trail adicional

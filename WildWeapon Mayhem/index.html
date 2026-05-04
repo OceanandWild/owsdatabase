@@ -6476,6 +6476,22 @@
       shM1Sprites.push(img);
     }
 
+    // ── Zeus Axe M1 effect sprites (24 frames) ──
+    const zaM1Sprites = [];
+    for (let i = 0; i <= 23; i++) {
+      const img = new Image();
+      img.src = `assets/zeus_axe_${String(i).padStart(2, '0')}.png`;
+      zaM1Sprites.push(img);
+    }
+
+    // ── Tiger Gloves M1 effect sprites (24 frames) ──
+    const tgM1Sprites = [];
+    for (let i = 0; i <= 23; i++) {
+      const img = new Image();
+      img.src = `assets/tiger_gloves_${String(i).padStart(2, '0')}.png`;
+      tgM1Sprites.push(img);
+    }
+
     // Animation frame tracking
     let currentWeaponFrame = { weapon: null, frame: 0, maxFrames: 0 };
 
@@ -11900,7 +11916,8 @@ const TIGER_GLOVES_SVG = `
           // Check if there's an active weapon animation
           if (effects[i].type === 'sh-m1-swing' || effects[i].type === 'sh-m1-thrust' || 
               effects[i].type === 'sh-m1-spin' || effects[i].type === 'sh-m1-slam' ||
-              effects[i].type === 'cs-m1-swing') {
+              effects[i].type === 'cs-m1-swing' || effects[i].type === 'za-m1-swing' ||
+              effects[i].type === 'tg-m1-claw') {
             hasActiveWeaponAnim = true;
           }
         }
@@ -12029,6 +12046,48 @@ const TIGER_GLOVES_SVG = `
         if (sprite && sprite.complete) {
           const spriteSize = size * 4.5;
           ctx.drawImage(sprite, -spriteSize * 0.15, -spriteSize * 0.5, spriteSize, spriteSize);
+        }
+        ctx.restore();
+
+      } else if (weapon === 'zeus_axe') {
+        // Zeus Axe — render sprite (animated during M1)
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(aim);
+        
+        // Si está animando, usar el frame actual
+        let sprite = weaponSprites.zeus_axe;
+        if (currentWeaponFrame.weapon === 'zeus_axe' && currentWeaponFrame.frame < currentWeaponFrame.maxFrames) {
+          const frameIndex = Math.floor(currentWeaponFrame.frame);
+          if (zaM1Sprites[frameIndex] && zaM1Sprites[frameIndex].complete) {
+            sprite = zaM1Sprites[frameIndex];
+          }
+        }
+        
+        if (sprite && sprite.complete) {
+          const spriteSize = size * 4;
+          ctx.drawImage(sprite, -spriteSize * 0.2, -spriteSize * 0.5, spriteSize, spriteSize);
+        }
+        ctx.restore();
+
+      } else if (weapon === 'tiger_gloves') {
+        // Tiger Gloves — render sprite (animated during M1)
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(aim);
+        
+        // Si está animando, usar el frame actual
+        let sprite = weaponSprites.tiger_gloves;
+        if (currentWeaponFrame.weapon === 'tiger_gloves' && currentWeaponFrame.frame < currentWeaponFrame.maxFrames) {
+          const frameIndex = Math.floor(currentWeaponFrame.frame);
+          if (tgM1Sprites[frameIndex] && tgM1Sprites[frameIndex].complete) {
+            sprite = tgM1Sprites[frameIndex];
+          }
+        }
+        
+        if (sprite && sprite.complete) {
+          const spriteSize = size * 3;
+          ctx.drawImage(sprite, -spriteSize * 0.3, -spriteSize * 0.5, spriteSize, spriteSize);
         }
         ctx.restore();
 
@@ -13420,6 +13479,22 @@ const TIGER_GLOVES_SVG = `
           currentWeaponFrame.weapon = 'solar_halberd';
           currentWeaponFrame.frame = p * 30;
           currentWeaponFrame.maxFrames = 31;
+        }
+
+        // ── ZEUS AXE M1 effects ───────────────────────────────────────
+        if (effect.type === 'za-m1-swing') {
+          // Actualizar el frame del arma del jugador
+          currentWeaponFrame.weapon = 'zeus_axe';
+          currentWeaponFrame.frame = p * 23;
+          currentWeaponFrame.maxFrames = 24;
+        }
+
+        // ── TIGER GLOVES M1 effects ──────────────────────────────────
+        if (effect.type === 'tg-m1-claw') {
+          // Actualizar el frame del arma del jugador
+          currentWeaponFrame.weapon = 'tiger_gloves';
+          currentWeaponFrame.frame = p * 23;
+          currentWeaponFrame.maxFrames = 24;
         }
 
         if (effect.type === 'sh-m1-slam-wave') {
@@ -14840,6 +14915,40 @@ const TIGER_GLOVES_SVG = `
       shM1SoundIndex = (shM1SoundIndex + 1) % shM1Sounds.length;
     }
 
+    // Zeus Axe M1 sound counter
+    let zaM1SoundIndex = 0;
+    const zaM1Sounds = [
+      new Audio('assets/SFX/zeusaxevoltagecrackv1.wav'),
+      new Audio('assets/SFX/zeusaxevoltagecrackv2.wav'),
+      new Audio('assets/SFX/zeusaxevoltagecrackv3.wav'),
+      new Audio('assets/SFX/zeusaxevoltagecrackv4.wav')
+    ];
+    zaM1Sounds.forEach(audio => { audio.volume = 0.5; });
+
+    function zaPlayCrack() {
+      const audio = zaM1Sounds[zaM1SoundIndex];
+      audio.currentTime = 0;
+      audio.play().catch(() => {});
+      zaM1SoundIndex = (zaM1SoundIndex + 1) % zaM1Sounds.length;
+    }
+
+    // Tiger Gloves M1 sound counter
+    let tgM1SoundIndex = 0;
+    const tgM1Sounds = [
+      new Audio('assets/SFX/tigerglovesclawv1.wav'),
+      new Audio('assets/SFX/tigerglovesclawv2.wav'),
+      new Audio('assets/SFX/tigerglovesclawv3.wav'),
+      new Audio('assets/SFX/tigerglovesclawv4.wav')
+    ];
+    tgM1Sounds.forEach(audio => { audio.volume = 0.5; });
+
+    function tgPlayClaw() {
+      const audio = tgM1Sounds[tgM1SoundIndex];
+      audio.currentTime = 0;
+      audio.play().catch(() => {});
+      tgM1SoundIndex = (tgM1SoundIndex + 1) % tgM1Sounds.length;
+    }
+
     const SG_M1_SWINGS = [
       { start: -0.8, end: 0.9 },   // Golpe 1: rasgado leve
       { start: 0.9, end: -0.7 },   // Golpe 2: rasgado más fuerte
@@ -14883,8 +14992,12 @@ const TIGER_GLOVES_SVG = `
         const endAngle   = aim + swing.end;
         const ZEUS_RADIUS = currentRun.phase === 'horde' ? 165 : 128;
         const ZEUS_SPREAD = Math.PI * 0.58;
+        
+        // SFX — voltage crack sound
+        zaPlayCrack();
+        
         addEffect({
-          type: 'katana-swing',
+          type: 'za-m1-swing',
           x: playerPos.x,
           y: playerPos.y,
           startAngle,
@@ -14892,7 +15005,6 @@ const TIGER_GLOVES_SVG = `
           radius: ZEUS_RADIUS,
           duration: 0.24
         });
-        addEffect({ type: 'kt-sparks', x: playerPos.x, y: playerPos.y, radius: ZEUS_RADIUS + 20, duration: 0.24 });
         addShake(5, 95);
         applyArcDamage(playerPos, ZEUS_RADIUS, aim, ZEUS_SPREAD, currentRun.weapon.damage * 0.95);
         setTimeout(() => {
@@ -15028,6 +15140,34 @@ const TIGER_GLOVES_SVG = `
         applyArcDamage(playerPos, cfg.radius, aim, spread, currentRun.weapon.damage * cfg.dmgMult);
         addCharge(9 + shCombo * 2);
         m1Combo = (m1Combo + 1) % SH_M1_SWINGS.length;
+
+      } else if (weapon === 'tiger_gloves') {
+        // Tiger Gloves M1: rápidos golpes de garra
+        cooldowns.m1 = now + 150; // muy rápido
+        const swing = M1_SWINGS[m1Combo % M1_SWINGS.length];
+        const startAngle = aim + swing.start;
+        const endAngle   = aim + swing.end;
+        const TG_RADIUS = 85; // corto alcance
+        const TG_SPREAD = Math.PI * 0.5;
+        
+        // SFX — claw sound
+        tgPlayClaw();
+        
+        addEffect({
+          type: 'tg-m1-claw',
+          x: playerPos.x,
+          y: playerPos.y,
+          startAngle,
+          endAngle,
+          radius: TG_RADIUS,
+          duration: 0.18
+        });
+        addShake(2, 60);
+        applyArcDamage(playerPos, TG_RADIUS, aim, TG_SPREAD, currentRun.weapon.damage * 0.55);
+        addCharge(6);
+        if (currentRun && currentRun.stats) currentRun.stats.m1Hits += 1;
+        m1Combo = (m1Combo + 1) % M1_SWINGS.length;
+        updateArenaUI();
 
       } else {
         // Katana M1 — wide forward cone, fires damage on click and mid-swing

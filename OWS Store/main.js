@@ -1661,12 +1661,54 @@ function downloadWithRedirects(url, destinationPath, taskRef, onProgress, redire
   });
 }
 
+// ── Scheduled-release gate ────────────────────────────────────────────────
+// Fetches scheduled_release from the OWS Store API and returns it if the
+// available_at date has NOT yet arrived for the given version.
+// Returns null if no gate applies (update is allowed to proceed).
+async function fetchScheduledReleaseGate(candidateVersion) {
+  try {
+    const res = await fetch(
+      `${API_URL}/ows-store/projects?nocache=${Date.now()}`,
+      { cache: 'no-store', headers: { 'User-Agent': 'OWS-Store-Updater' } }
+    );
+    if (!res.ok) return null;
+    const projects = await res.json();
+    const owsProject = Array.isArray(projects)
+      ? projects.find((p) => String(p?.slug || '').toLowerCase() === 'ows-store')
+      : null;
+    const sr = owsProject?.metadata?.scheduled_release || owsProject?.scheduled_release || null;
+    if (!sr || !sr.available_at || !sr.version) return null;
+
+    // Normalize both versions for comparison (strip leading 'v', whitespace)
+    const normalize = (v) => String(v || '').trim().replace(/^v/i, '');
+    const srVersion = normalize(sr.version);
+    const candidate = normalize(candidateVersion || '');
+
+    // Only gate if the candidate version matches the scheduled version exactly
+    if (!srVersion || !candidate || srVersion !== candidate) return null;
+
+    const unlockMs = new Date(sr.available_at).getTime();
+    if (!Number.isFinite(unlockMs)) return null;
+
+    // Gate is active only if the unlock date has NOT arrived yet
+    if (Date.now() < unlockMs) {
+      return { version: srVersion, available_at: sr.available_at, label: sr.label || '' };
+    }
+    return null; // date has passed — allow update
+  } catch (_) {
+    return null; // network error — allow update (fail open)
+  }
+}
+
 function initAutoUpdater() {
   if (!app.isPackaged || updaterReady) return;
   try {
     // Auto updater flow:
     // Windows checks and downloads automatically; install remains user-driven (button restart/install).
-    autoUpdater.autoDownload = true;
+    // IMPORTANT: autoDownload starts as false. The update-available handler checks the
+    // scheduled_release gate before enabling it. This prevents the Grand Rework (or any
+    // future scheduled release) from being downloaded/installed before its unlock date.
+    autoUpdater.autoDownload = false;
     autoUpdater.autoInstallOnAppQuit = false;
     autoUpdater.allowPrerelease = true;  // Necesario: nuestro formato YYYY.M.D-tHHMM tiene sufijo que semver trata como pre-release
     autoUpdater.channel = 'latest';
@@ -1679,8 +1721,40 @@ function initAutoUpdater() {
       'Cache-Control': 'no-cache',
       'Connection': 'keep-alive',
     };
-    autoUpdater.on('update-available', (info) => {
+    autoUpdater.on('update-available', async (info) => {
       windowsUpdateDownloaded = false;
+
+      // ── Scheduled-release gate ──────────────────────────────────────────
+      // Before allowing download, check if this version is gated by a
+      // scheduled_release date on the server. If it is and the date hasn't
+      // arrived yet, suppress the update entirely (treat as not-available).
+      const candidateVersion = String(info?.version || '').trim();
+      const gate = await fetchScheduledReleaseGate(candidateVersion);
+      if (gate) {
+        // Update exists on GitHub but is not yet unlocked — block it.
+        const unlockDate = new Date(gate.available_at).toLocaleString('es-UY', {
+          timeZone: 'America/Montevideo',
+          day: '2-digit', month: '2-digit', year: 'numeric',
+          hour: '2-digit', minute: '2-digit', hour12: false,
+        });
+        const label = gate.label ? ` (${gate.label})` : '';
+        sendToRenderer('update-not-available');
+        sendToRenderer('update-error',
+          `[SCHEDULED] v${candidateVersion}${label} bloqueada hasta ${unlockDate}. ` +
+          `La descarga se habilitara automaticamente cuando llegue la fecha.`
+        );
+        // Also notify the renderer about the upcoming scheduled release
+        sendToRenderer('update-available', {
+          ...info,
+          _scheduledGate: { version: gate.version, available_at: gate.available_at, label: gate.label },
+        });
+        return; // Do NOT enable autoDownload — update is blocked
+      }
+      // ── Gate passed — allow download ────────────────────────────────────
+      autoUpdater.autoDownload = true;
+      autoUpdater.downloadUpdate().catch((err) => {
+        sendToRenderer('update-error', err?.message || String(err));
+      });
       sendToRenderer('update-available', info);
     });
     autoUpdater.on('update-not-available', () => {

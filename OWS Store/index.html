@@ -22971,6 +22971,21 @@
                 const dot = document.getElementById('update-indicator-dot');
                 const closeBtn = document.getElementById('btn-close-update-banner');
                 const availableVersion = String(info?.version || '').trim();
+
+                // ── Scheduled-release gate (set by main.js) ──────────────────────────
+                // If main.js detected a scheduled_release gate and blocked the download,
+                // it still fires update-available with _scheduledGate set. In that case
+                // show the scheduled notice instead of treating it as a real update.
+                if (info && info._scheduledGate) {
+                    const gate = info._scheduledGate;
+                    const unlockAt = gate.available_at ? new Date(gate.available_at) : null;
+                    if (unlockAt && Date.now() < unlockAt.getTime()) {
+                        showScheduledStoreUpdateNotice(gate.version, unlockAt, gate.label);
+                        return; // Do NOT mark as update available — it's gated
+                    }
+                }
+                // ── End gate check ───────────────────────────────────────────────────
+
                 const fallbackDirectExe = availableVersion
                     ? `https://github.com/OceanandWild/owsdatabase/releases/latest/download/OWS.Store.Setup.${availableVersion}.exe`
                     : OWS_STORE_RELEASES_URL;
